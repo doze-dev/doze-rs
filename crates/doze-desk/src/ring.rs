@@ -199,6 +199,33 @@ impl LogRing {
         self.lines.get(i).map(|m| self.line(m))
     }
 
+    /// The sequence number of the oldest line held: every line ever added has one, counting from 0, and keeps it
+    /// while it is held, so a page can hold its place in the ring across evictions.
+    pub fn first_seq(&self) -> u64 {
+        self.evicted
+    }
+
+    /// The sequence number the next line added will get.
+    pub fn next_seq(&self) -> u64 {
+        self.evicted + self.lines.len() as u64
+    }
+
+    /// The line numbered `seq`, while it is held.
+    pub fn at(&self, seq: u64) -> Option<LineRef<'_>> {
+        self.meta(seq).map(|m| self.line(m))
+    }
+
+    /// The lines numbered `from` on, oldest first (from the oldest held, when `from` is gone).
+    pub fn since(&self, from: u64) -> impl Iterator<Item = (u64, LineRef<'_>)> + '_ {
+        let start = from.max(self.evicted);
+        let skip = usize::try_from(start - self.evicted).unwrap_or(usize::MAX);
+        self.lines
+            .iter()
+            .skip(skip)
+            .zip(start..)
+            .map(|(m, seq)| (seq, self.line(m)))
+    }
+
     /// Every line held, oldest first.
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = LineRef<'_>> + '_ {
         self.lines.iter().map(|m| self.line(m))

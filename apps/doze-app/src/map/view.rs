@@ -80,6 +80,8 @@ impl MapView {
     fn confirm(&mut self, cx: &mut Context<Self>) {
         if let Some(&id) = self.hits.get(self.hit) {
             self.jump_to(id, cx);
+        } else if let Some(c) = self.lit.and_then(|id| self.layout.card(id)) {
+            cx.emit(super::MapEvent::Open(c.name.clone()));
         }
     }
 
@@ -144,6 +146,12 @@ impl MapView {
         }
         let (x, y) = self.local(ev.position);
         let hit = self.layout.hit(self.cam.to_map(x, y));
+        if ev.click_count >= 2
+            && let Some(c) = hit.and_then(|id| self.layout.card(id))
+        {
+            cx.emit(super::MapEvent::Open(c.name.clone()));
+            return;
+        }
         // A click on the selection again lets it go.
         let next = if hit == self.lit { None } else { hit };
         self.select(next, cx);

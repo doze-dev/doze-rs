@@ -21,10 +21,12 @@ impl Root {
             return;
         }
         let cards: Vec<(String, String)> = match &self.screen {
-            Screen::Stack(_) => crate::overview::all_rows(&self.overview.read(cx).home)
-                .into_iter()
-                .map(|r| (r.name.clone(), format!("{} · {}", r.look.word, r.because)))
-                .collect(),
+            Screen::Stack(_) | Screen::Instance(..) | Screen::Logs(_) => {
+                crate::overview::all_rows(&self.overview.read(cx).home)
+                    .into_iter()
+                    .map(|r| (r.name.clone(), format!("{} · {}", r.look.word, r.because)))
+                    .collect()
+            }
             Screen::Library => Vec::new(),
         };
         let p = cx.new(|cx| Palette::new(cards, window, cx));
@@ -37,7 +39,7 @@ impl Root {
             this.close(window, cx);
             match (pick, card) {
                 (Pick::Act(s), _) => window.dispatch_action((s.make)(), cx),
-                (Pick::Card(_), Some(name)) => this.select(&name, cx),
+                (Pick::Card(_), Some(name)) => this.open_instance(&name, window, cx),
                 _ => {}
             }
         })
@@ -56,18 +58,28 @@ impl Root {
         }
     }
 
-    /// Closes the innermost thing open: an overlay, else the Map's find box or its selection.
+    /// Closes the innermost thing open: an overlay, else what the page inside holds or the page itself, else the Map's
+    /// find box or its selection, else the stack's page itself (back to Home).
     pub(super) fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let on_map =
             matches!(self.screen, Screen::Stack(_)) && self.overview.read(cx).view == View::Map;
         if self.overlay.take().is_some() {
+            if self.focus_inside(window, cx) {
+                cx.notify();
+                return;
+            }
             let f = match &self.screen {
                 Screen::Stack(_) if on_map => self.map.read(cx).focus.clone(),
                 Screen::Stack(_) => self.overview.read(cx).focus.clone(),
-                Screen::Library => self.library.read(cx).focus.clone(),
+                Screen::Library | Screen::Instance(..) | Screen::Logs(_) => {
+                    self.library.read(cx).focus.clone()
+                }
             };
             window.focus(&f, cx);
             cx.notify();
+            return;
+        }
+        if self.escape_inside(window, cx) {
             return;
         }
         let map_held = on_map && {
@@ -152,7 +164,7 @@ impl Root {
             )),
             Some(Overlay::Help) => Some(overlays::layer(
                 &t,
-                overlays::help::sheet(&t, env!("CARGO_PKG_VERSION")).into_any_element(),
+                overlays::help::sheet(&t, crate::VERSION).into_any_element(),
                 90.,
                 motion,
                 "help",

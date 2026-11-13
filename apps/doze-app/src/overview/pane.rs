@@ -188,6 +188,11 @@ fn say(cx: &mut Context<OverviewView>, words: &'static str) -> Click {
     Box::new(cx.listener(move |this, _, _, cx| this.say(words, cx)))
 }
 
+fn open(cx: &mut Context<OverviewView>, name: &str, tab: Option<&'static str>) -> Click {
+    let name = name.to_owned();
+    Box::new(cx.listener(move |this, _, _, cx| this.open(&name, tab, cx)))
+}
+
 /// Logs, Restart; Open.
 fn acts(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> impl IntoElement {
     div()
@@ -205,7 +210,7 @@ fn acts(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> impl IntoElement
             "Logs",
             "l",
             Btn::Plain,
-            Some(say(cx, LOGS)),
+            Some(open(cx, &r.name, Some(doze_display::TAB_LOGS))),
         ))
         .when(r.kind != "task", |d| {
             d.child(btn(
@@ -224,12 +229,9 @@ fn acts(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> impl IntoElement
             "Open",
             &chip_of("Open the service"),
             Btn::Primary,
-            Some(say(cx, OPEN)),
+            Some(open(cx, &r.name, None)),
         ))
 }
-
-const LOGS: &str = "A service's logs come with the logs page (M1 step 1.6).";
-const OPEN: &str = "A service's own page comes with the instance page (M1 step 1.5).";
 
 fn live(t: &Tokens, r: &Row, p: &Pane, cx: &mut Context<OverviewView>) -> AnyElement {
     let mut f = sections().child(head(t, r, p));

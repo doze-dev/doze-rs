@@ -173,6 +173,22 @@ jobs:
           $app shot --fixture shop --screen list --density compact --out shots/list-shop-compact.png
           $app shot --synth 2000 --screen list --out shots/list-2k.png
           ls -la shots
+      - name: Screens inside a stack (instance, logs, consoles)
+        run: |
+          app=target/debug/doze-app
+          for theme in violet teal; do for mode in dark light; do
+            $app shot --fixture shop --screen instance --select api --theme $theme --mode $mode --out shots/instance-api-$theme-$mode.png
+            $app shot --fixture crash --screen instance --select api --theme $theme --mode $mode --out shots/instance-crash-$theme-$mode.png
+            $app shot --fixture shop --screen logs --theme $theme --mode $mode --out shots/logs-all-$theme-$mode.png
+            $app shot --fixture modules --screen instance --select events --tab console:_ --theme $theme --mode $mode --out shots/console-events-$theme-$mode.png
+          done; done
+          $app shot --fixture shop --screen instance --select db --out shots/instance-db.png
+          $app shot --fixture shop --screen instance --select migrate --out shots/instance-task.png
+          $app shot --fixture shop --screen instance --select api --tab logs --filter "/GET|slow/" --out shots/logs-api-pattern.png
+          $app shot --fixture shop --screen logs --filter orders --find-mode --out shots/logs-all-find.png
+          $app shot --fixture modules --screen instance --select db --tab console:activity --out shots/console-db.png
+          $app shot --fixture larder-portclash --screen instance --select gateway --hold 8000 --out shots/instance-portclash.png
+          ls -la shots
       - uses: actions/upload-artifact@v4
         if: always()
         with:

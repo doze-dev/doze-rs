@@ -1,8 +1,9 @@
-//! The window's root: the title bar (Home and a tab per stack), the page shown (the Library, or a stack's page in
-//! one of its four views), a line at the foot for a moment, and the overlays over it all. It reads the hub: a batch
-//! that touches what is shown re-reads it, and a page re-renders only when what it shows changed (the views are
-//! `PartialEq`), which is what keeps an idle window at zero redraws.
+//! The window's root: the title bar (Home and a tab per stack), the page shown (the Library, a stack's page in one of
+//! its four views, or a page inside a stack: an instance's page or All logs), a line at the foot for a moment, and
+//! the overlays over it all. It reads the hub: a batch that touches what is shown re-reads it, and a page re-renders
+//! only when what it shows changed (the views are `PartialEq`), which is what keeps an idle window at zero redraws.
 
+mod inside;
 mod nav;
 mod ops;
 mod titlebar;
@@ -17,12 +18,12 @@ use gpui::{
 };
 
 use crate::actions::{
-    CloseOverlay, CloseWindow, Confirm, CycleDensity, CycleMode, GoHome, MoveDown, MoveUp,
+    AllLogs, CloseOverlay, CloseWindow, Confirm, CycleDensity, CycleMode, GoHome, MoveDown, MoveUp,
     NextPalette, Quit,
 };
 use crate::facts::{self, Facts};
 use crate::library::{LibraryEvent, LibraryView};
-use crate::map::MapView;
+use crate::map::{MapEvent, MapView};
 use crate::overlays::Overlay;
 use crate::overview::{OverviewEvent, OverviewView};
 use crate::theme::tokens;
@@ -44,6 +45,8 @@ pub(crate) struct Root {
     /// Running stacks whose tab was closed; a tab comes back when its stack is opened again.
     hidden: Vec<StackKey>,
     overlay: Option<Overlay>,
+    /// The page inside a stack while [`Screen::Instance`] or [`Screen::Logs`] shows: the view the screen names.
+    inside: Option<inside::Inside>,
     /// A line at the foot, for a moment (a verb that comes later, a link doze cannot follow yet).
     notice: Option<SharedString>,
     focus: FocusHandle,
@@ -70,11 +73,24 @@ impl Root {
             },
         )
         .detach();
-        cx.subscribe(&overview, |this, _, ev: &OverviewEvent, cx| match ev {
-            OverviewEvent::Say(s) => this.say(s.clone(), cx),
-        })
+        cx.subscribe_in(
+            &overview,
+            window,
+            |this, _, ev: &OverviewEvent, window, cx| match ev {
+                OverviewEvent::Say(s) => this.say(s.clone(), cx),
+                OverviewEvent::Open(n, tab) => {
+                    this.open_instance(n, window, cx);
+                    this.open_tab(*tab, window, cx);
+                }
+            },
+        )
         .detach();
         let map = overview.read(cx).map.clone();
+        cx.subscribe_in(&map, window, |this, _, ev: &MapEvent, window, cx| {
+            let MapEvent::Open(name) = ev;
+            this.open_instance(name, window, cx);
+        })
+        .detach();
         let mut root = Root {
             hub,
             screen: Screen::Library,
@@ -85,6 +101,7 @@ impl Root {
             opened: Vec::new(),
             hidden: Vec::new(),
             overlay: None,
+            inside: None,
             notice: None,
             focus: cx.focus_handle(),
         };
@@ -107,6 +124,12 @@ impl Root {
                     self.overview.update(cx, |o, cx| o.refresh(cx));
                 }
             }
+            Screen::Instance(k, _) | Screen::Logs(k) => {
+                if !batch.parts(k).is_empty() {
+                    self.apply_inside(batch, cx);
+                    cx.notify();
+                }
+            }
         }
     }
 
@@ -116,15 +139,13 @@ impl Root {
         match &self.screen {
             Screen::Library => self.library.update(cx, |l, cx| l.refresh(cx)),
             Screen::Stack(_) => self.overview.update(cx, |o, cx| o.refresh(cx)),
+            Screen::Instance(..) | Screen::Logs(_) => cx.notify(),
         }
     }
 
-    /// The stack shown, if a stack's page is.
+    /// The stack shown, if a stack's page (or a page inside it) is.
     pub(crate) fn key(&self) -> Option<&StackKey> {
-        match &self.screen {
-            Screen::Stack(k) => Some(k),
-            Screen::Library => None,
-        }
+        self.screen.key()
     }
 
     /// Shows the stack named `name`, and selects the card `show` on its Map.
@@ -221,6 +242,7 @@ impl Root {
         }
     }
 
+    /// What the window says at the foot; it floats over the page, so nothing moves.
     fn notice_el(&self, t: &crate::theme::Tokens) -> Option<gpui::AnyElement> {
         let n = self.notice.clone()?;
         Some(
@@ -262,6 +284,9 @@ impl Render for Root {
         let page = match &self.screen {
             Screen::Library => self.library.clone().into_any_element(),
             Screen::Stack(_) => self.overview.clone().into_any_element(),
+            Screen::Instance(..) | Screen::Logs(_) => self
+                .inside_el(&t, cx)
+                .unwrap_or_else(|| div().into_any_element()),
         };
         let page = div()
             .key_context("Page")
@@ -269,7 +294,7 @@ impl Render for Root {
             .flex_col()
             .size_full()
             .child(titlebar::titlebar(&t, self, cx))
-            .child(div().flex_1().min_h_0().child(page));
+            .child(div().flex().flex_1().min_h_0().child(page));
         div()
             .relative()
             .size_full()
@@ -291,6 +316,7 @@ impl Render for Root {
             )
             .on_action(cx.listener(|this, _: &CycleMode, window, cx| this.cycle_mode(window, cx)))
             .on_action(cx.listener(|this, _: &CycleDensity, _, cx| this.cycle_density(cx)))
+            .on_action(cx.listener(|this, _: &AllLogs, window, cx| this.open_logs(window, cx)))
             .on_action(cx.listener(|_, _: &CloseWindow, window, _| window.remove_window()))
             .on_action(cx.listener(|_, _: &Quit, _, cx| cx.quit()))
             .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.palette_step(1, cx)))

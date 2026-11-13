@@ -2405,6 +2405,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "async-channel",
+ "chrono",
  "doze-control",
  "doze-desk",
  "doze-display",
@@ -2470,6 +2471,7 @@ dependencies = [
  "doze-map",
  "doze-os",
  "doze-projects",
+ "regex",
  "serde",
  "serde_json",
  "tempfile",

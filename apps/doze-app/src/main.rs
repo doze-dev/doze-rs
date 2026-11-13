@@ -15,12 +15,17 @@ mod app;
 mod assets;
 mod bench;
 mod cli;
+mod console;
 mod facts;
 #[cfg(feature = "fixtures")]
 mod fixture;
+mod instance;
 mod kit;
 mod library;
 mod link;
+#[cfg(feature = "fixtures")]
+mod logbench;
+mod logs;
 mod map;
 mod model;
 mod overlays;
@@ -34,6 +39,12 @@ mod source;
 mod theme;
 mod tray;
 mod widgets;
+
+/// doze's version as the app shows it ("v0.1.2"): `DOZE_VERSION` when the release build sets it, else the crate's.
+pub(crate) const VERSION: &str = match option_env!("DOZE_VERSION") {
+    Some(v) => v,
+    None => concat!("v", env!("CARGO_PKG_VERSION")),
+};
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -68,7 +79,7 @@ fn main() -> ExitCode {
         }
         Err(e) => {
             eprintln!(
-                "doze-app: {e}\n\nusage: doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar] [--fixture NAME | --synth N]\n       doze-app shot --fixture NAME --screen library|tiles|list|map|grid|palette|help [--stack NAME] --theme T --mode dark|light --size WxH --out FILE\n       doze-app bench [--fixture NAME | --synth N] [--idle SECONDS]"
+                "doze-app: {e}\n\nusage: doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar] [--fixture NAME | --synth N]\n       doze-app shot --fixture NAME --screen library|tiles|list|map|grid|palette|help|instance|logs [--stack NAME] --theme T --mode dark|light --size WxH --out FILE\n                     [--select NAME] [--tab ID] [--filter TEXT] [--find-mode] [--level 0-3] [--hold PORT] [--density D]\n       doze-app bench [--fixture NAME | --synth N] [--idle SECONDS] [--logs [--follow SECONDS]]"
             );
             ExitCode::from(2)
         }

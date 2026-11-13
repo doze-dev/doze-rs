@@ -3,11 +3,19 @@
 //! same fixtures run through this hub over a real socket, and every fact a golden shows that comes from the hub's
 //! state (rather than from the view's layout) is checked against what the hub folded: the instances and their
 //! states, the meters and the series, the log lines, the journal, the console tables.
-#![allow(clippy::unwrap_used, clippy::panic, clippy::cast_precision_loss)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::cast_precision_loss,
+    clippy::indexing_slicing,
+    clippy::too_many_lines,
+    clippy::too_many_arguments
+)]
 
 mod check;
 #[path = "../common/mod.rs"]
 mod common;
+mod pages;
 
 use check::{check_rows, check_series, check_table, g, golden, s};
 use common::{following, until};

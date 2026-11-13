@@ -44,10 +44,15 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
                 (source.first.clone(), source.facts.clone()),
                 b.idle,
             );
+            let (logs, follow) = (b.logs, b.follow);
             cx.spawn(async move |cx: &mut AsyncApp| {
-                let _keep = (src, tray);
+                let _keep = (src.clone(), tray);
                 cx.background_executor().timer(Duration::from_secs(2)).await;
-                time_open(cx, hub, first, idle).await;
+                if logs {
+                    logs_bench(cx, src, follow).await;
+                } else {
+                    time_open(cx, hub, first, idle).await;
+                }
                 cx.update(|cx| cx.quit());
             })
             .detach();
@@ -104,4 +109,15 @@ async fn time_open(
         .timer(Duration::from_secs(10))
         .await;
     println!("closed_done");
+}
+
+/// The logs viewer under load (`--logs`; a build with fixtures).
+async fn logs_bench(cx: &mut AsyncApp, src: Rc<crate::source::Source>, follow: u64) {
+    #[cfg(feature = "fixtures")]
+    crate::logbench::run(cx, src, follow).await;
+    #[cfg(not(feature = "fixtures"))]
+    {
+        let _ = (cx, src, follow);
+        eprintln!("doze-app bench --logs needs a build with the `fixtures` feature");
+    }
 }

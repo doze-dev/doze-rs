@@ -30,8 +30,8 @@ use gpui::{
 use gpui_component::input::{InputEvent, InputState};
 
 use crate::actions::{
-    CopyAddress, FilterRows, MoveDown, MoveLeft, MoveRight, MoveUp, OpenService, ToggleService,
-    ViewGrid, ViewList, ViewMap, ViewTiles,
+    CopyAddress, FilterRows, MoveDown, MoveLeft, MoveRight, MoveUp, OpenRowService, OpenService,
+    ToggleService, ViewGrid, ViewList, ViewMap, ViewTiles,
 };
 use crate::facts::Facts;
 use crate::map::MapView;
@@ -69,6 +69,8 @@ impl View {
 #[derive(Debug, Clone)]
 pub(crate) enum OverviewEvent {
     Say(String),
+    /// Open the page of the instance named, on its tab (`None`: the tab it opens on).
+    Open(String, Option<&'static str>),
 }
 
 /// A stack's page.
@@ -286,6 +288,43 @@ impl OverviewView {
         cx.emit(OverviewEvent::Say(words.to_owned()));
     }
 
+    /// Opens the instance `name`'s page (on `tab`, else its first); a stopped stack's rows have none.
+    pub(crate) fn open(&mut self, name: &str, tab: Option<&'static str>, cx: &mut Context<Self>) {
+        if self.stack.as_ref().is_some_and(|s| s.running) {
+            cx.emit(OverviewEvent::Open(name.to_owned(), tab));
+        }
+    }
+
+    /// ⏎: in the Grid, what the cell names (Go's tip `open`); elsewhere the row selected.
+    fn open_selected(&mut self, cx: &mut Context<Self>) {
+        let name = match (self.view, self.cur) {
+            (View::Grid, Some((r, c))) => self
+                .home
+                .grid
+                .rows
+                .get(r)
+                .and_then(|row| row.cells.get(c))
+                .and_then(|cell| cell.tip.as_ref())
+                .map(|tip| tip.open.clone())
+                .filter(|o| !o.is_empty()),
+            _ => self.selected.clone(),
+        };
+        if let Some(n) = name {
+            self.open(&n, None, cx);
+        }
+    }
+
+    /// `o` in the Grid: the row's own service.
+    fn open_row(&mut self, cx: &mut Context<Self>) {
+        let name = self
+            .cur
+            .and_then(|(r, _)| self.home.grid.rows.get(r))
+            .map(|row| row.name.clone());
+        if let Some(n) = name {
+            self.open(&n, None, cx);
+        }
+    }
+
     fn copy_address(&mut self, cx: &mut Context<Self>) {
         let row = self.selected.as_ref().and_then(|s| {
             all_rows(&self.home)
@@ -370,12 +409,8 @@ impl Render for OverviewView {
             .on_action(cx.listener(|this, _: &MoveRight, _, cx| this.arrow(1, 0, cx)))
             .on_action(cx.listener(|this, _: &CopyAddress, _, cx| this.copy_address(cx)))
             .on_action(cx.listener(|this, _: &ToggleService, _, cx| this.say(M2, cx)))
-            .on_action(cx.listener(|this, _: &OpenService, _, cx| {
-                this.say(
-                    "A service's own page comes with the instance page (M1 step 1.5).",
-                    cx,
-                )
-            }))
+            .on_action(cx.listener(|this, _: &OpenService, _, cx| this.open_selected(cx)))
+            .on_action(cx.listener(|this, _: &OpenRowService, _, cx| this.open_row(cx)))
             .on_action(cx.listener(|this, _: &FilterRows, window, cx| {
                 let f = this.filter.clone();
                 f.update(cx, |i, cx| i.focus(window, cx));

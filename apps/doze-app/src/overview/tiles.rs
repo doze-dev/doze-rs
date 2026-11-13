@@ -281,7 +281,12 @@ fn tile(t: &Tokens, r: &Row, selected: bool, cx: &mut Context<OverviewView>) -> 
         .child(tile_top(t, r, off && !selected, cx))
         .child(tile_state(t, r))
         .child(tile_foot(t, r))
-        .on_click(cx.listener(move |this, _, _, cx| this.select(&name, cx)))
+        .on_click(cx.listener(move |this, ev: &gpui::ClickEvent, _, cx| {
+            this.select(&name, cx);
+            if ev.click_count() > 1 {
+                this.open(&name, None, cx);
+            }
+        }))
 }
 
 /// The view: the filter, then each group's tiles.

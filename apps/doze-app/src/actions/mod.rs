@@ -69,6 +69,12 @@ pub(crate) enum Scope {
     Overview,
     /// The Grid view.
     Grid,
+    /// An instance's page.
+    Instance,
+    /// A logs page, or the logs tab.
+    Logs,
+    /// A module's console tab.
+    Console,
 }
 
 impl Scope {
@@ -81,6 +87,9 @@ impl Scope {
             Scope::Library => "In the Library",
             Scope::Overview => "On a stack's page",
             Scope::Grid => "In the Grid",
+            Scope::Instance => "On a service's page",
+            Scope::Logs => "In the logs",
+            Scope::Console => "In a module's console",
         }
     }
 
@@ -90,13 +99,16 @@ impl Scope {
     fn context(self, key: &str) -> Option<&'static str> {
         let bare = !["cmd-", "ctrl-", "alt-"].iter().any(|m| key.contains(m)) && key != "escape";
         match self {
-            Scope::Global if bare => Some("Page"),
+            Scope::Global if bare => Some("Page && !Input"),
             Scope::Global => None,
             Scope::Map => Some("Map"),
             Scope::Overlay => Some("Input"),
             Scope::Library => Some("Library"),
             Scope::Overview => Some("Overview"),
             Scope::Grid => Some("Grid"),
+            Scope::Instance => Some("Instance && !Input"),
+            Scope::Logs => Some("Logs && !Input"),
+            Scope::Console => Some("ConsoleTab && !Input"),
         }
     }
 }
@@ -138,14 +150,17 @@ pub(crate) struct Spec {
     pub(crate) built: bool,
 }
 
+mod inside;
 mod pages;
 mod table;
 
+pub(crate) use inside::*;
 pub(crate) use table::TABLE;
 
-/// Every row: the shell's and the Map's ([`TABLE`]), then the pages' ([`pages::PAGES`]).
+/// Every row: the shell's and the Map's ([`TABLE`]), the stack pages' ([`pages::PAGES`]), then the pages' inside a
+/// stack ([`INSIDE`]).
 pub(crate) fn all() -> impl Iterator<Item = &'static Spec> {
-    TABLE.iter().chain(pages::PAGES)
+    TABLE.iter().chain(pages::PAGES).chain(INSIDE)
 }
 
 /// The keymap the table gives. A keystroke that does not parse is left out (the test below proves none does).
@@ -196,7 +211,8 @@ pub(crate) fn key_words(k: &'static str) -> String {
     match k {
         "escape" => "esc".into(),
         "space" => "space".into(),
-        // A letter is the letter, as Go's chips wrote it (`y`, `o`); shifted, its capital (`A`).
+        "tab" => "tab".into(),
+        // A letter is the letter, as Go's chips wrote it (`y`, `o`; an `l` chip is not ⇧L); shifted, its capital (`A`).
         k if k.len() == 1 && k.bytes().all(|b| b.is_ascii_lowercase()) => k.into(),
         k if k
             .strip_prefix("shift-")
@@ -224,6 +240,9 @@ pub(crate) fn help() -> Vec<(Scope, Vec<&'static Spec>)> {
         Scope::Overview,
         Scope::Grid,
         Scope::Map,
+        Scope::Instance,
+        Scope::Logs,
+        Scope::Console,
         Scope::Overlay,
     ]
     .into_iter()
@@ -269,6 +288,22 @@ mod tests {
             .find(|s| s.label.starts_with("Search"))
             .and_then(chip);
         assert_eq!(cmdk.as_deref(), Some("⌘K"));
+    }
+
+    #[test]
+    fn every_key_context_parses() {
+        // A context that did not parse would bind its key everywhere, typing included.
+        for s in super::all() {
+            for k in s.keys {
+                if let Some(c) = s.scope.context(k) {
+                    assert!(
+                        gpui::KeyBindingContextPredicate::parse(c).is_ok(),
+                        "{}: {c}",
+                        s.label
+                    );
+                }
+            }
+        }
     }
 
     #[test]

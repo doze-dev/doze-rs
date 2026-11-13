@@ -71,3 +71,13 @@ impl Source {
         })
     }
 }
+
+#[cfg(feature = "fixtures")]
+impl Source {
+    /// Has the fixture daemon send a frame, as a daemon does when something happens (`bench --logs`).
+    pub(crate) fn push(&self, f: &doze_control::Frame) {
+        if let Some(fx) = &self._fixture {
+            fx.push(f);
+        }
+    }
+}

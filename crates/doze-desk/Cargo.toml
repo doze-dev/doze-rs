@@ -20,6 +20,7 @@ doze-projects = { path = "../doze-projects" }
 doze-map = { path = "../doze-map" }
 # `pid` liveness of another doze program's names (`library::others`), read-only.
 doze-os = { path = "../doze-os" }
+regex = "1"
 # The pages' view models serialize to the Go app's view JSON, which is how the goldens compare them; and the CLI's
 # `--json` envelopes (`doze status`, `doze doctor`) are read with them.
 serde = { version = "1", features = ["derive"] }

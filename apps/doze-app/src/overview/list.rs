@@ -125,8 +125,13 @@ fn row(
                 .justify_end()
                 .child(switch),
         )
-        .on_click(move |_, _, cx| {
-            let _ = weak.update(cx, |this, cx| this.select(&name, cx));
+        .on_click(move |ev, _, cx| {
+            let _ = weak.update(cx, |this, cx| {
+                this.select(&name, cx);
+                if ev.click_count() > 1 {
+                    this.open(&name, None, cx);
+                }
+            });
         })
         .into_any_element()
 }

@@ -15,6 +15,20 @@ pub(crate) enum Screen {
     Library,
     /// A stack's page.
     Stack(StackKey),
+    /// An instance's page, beside the stack's sidebar.
+    Instance(StackKey, String),
+    /// All logs of a stack, merged, beside its sidebar.
+    Logs(StackKey),
+}
+
+impl Screen {
+    /// The stack the screen is in, if any.
+    pub(crate) fn key(&self) -> Option<&StackKey> {
+        match self {
+            Screen::Library => None,
+            Screen::Stack(k) | Screen::Instance(k, _) | Screen::Logs(k) => Some(k),
+        }
+    }
 }
 
 /// A stack's tab.
@@ -27,17 +41,47 @@ pub(crate) struct Tab {
     pub(crate) trouble: bool,
 }
 
+/// The sidebar's foot, as Go's: "doze v0.1.2 · 2 stacks".
+pub(super) fn foot(hub: &doze_desk::Hub) -> String {
+    let stacks = hub.stacks().len();
+    format!(
+        "doze {} · {stacks} {}",
+        crate::VERSION,
+        if stacks == 1 { "stack" } else { "stacks" }
+    )
+}
+
 impl Root {
     /// Shows `screen`: its page reads the hub, the other stops watching, the keys go to it.
     pub(crate) fn go(&mut self, screen: Screen, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(k) = screen.key() {
+            if !self.opened.contains(k) {
+                self.opened.push(k.clone());
+            }
+            self.hidden.retain(|h| h != k);
+        }
         match &screen {
-            Screen::Stack(k) => {
-                if !self.opened.contains(k) {
-                    self.opened.push(k.clone());
+            Screen::Instance(k, name) => {
+                if !self.enter_instance(k, name, window, cx) {
+                    return;
                 }
-                self.hidden.retain(|h| h != k);
+                self.overview
+                    .update(cx, |o, cx| o.show(Some(k.clone()), cx));
+                self.overview.update(cx, |o, _| o.hide());
+            }
+            Screen::Logs(k) => {
+                self.overview
+                    .update(cx, |o, cx| o.show(Some(k.clone()), cx));
+                self.overview.update(cx, |o, _| o.hide());
+                self.enter_logs(k, window, cx);
+            }
+            Screen::Stack(k) => {
+                self.inside = None;
                 let key = k.clone();
-                self.overview.update(cx, |o, cx| o.show(Some(key), cx));
+                self.overview.update(cx, |o, cx| {
+                    o.show(Some(key), cx);
+                    o.refresh(cx);
+                });
                 let o = self.overview.read(cx);
                 let f = if o.view == View::Map {
                     o.map.read(cx).focus.clone()
@@ -47,6 +91,7 @@ impl Root {
                 window.focus(&f, cx);
             }
             Screen::Library => {
+                self.inside = None;
                 self.overview.update(cx, |o, _| o.hide());
                 self.library.update(cx, |l, cx| l.refresh(cx));
                 let f = self.library.focus_handle(cx);

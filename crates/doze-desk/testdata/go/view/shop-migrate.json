@@ -1,0 +1,239 @@
+{
+  "key": "shop-1",
+  "stack": "shop",
+  "name": "migrate",
+  "kind": "task",
+  "engine": "process",
+  "look": {
+    "word": "done",
+    "glyph": "✓",
+    "tone": "good"
+  },
+  "on": false,
+  "path": "task · last run 2m ago · exit 0 in 1.2s",
+  "because": "ran 2m ago in 1.2s",
+  "sleeps": "No connection right now. It dozes, then sleeps after 5:00 if nothing connects; the next connection wakes it.",
+  "tabs": [
+    {
+      "id": "last run",
+      "title": "last run"
+    },
+    {
+      "id": "logs",
+      "title": "logs"
+    }
+  ],
+  "recent": [
+    {
+      "at": "17:34:40",
+      "kind": "woke",
+      "text": "(asked for)",
+      "tone": "accent"
+    },
+    {
+      "at": "17:34:40",
+      "kind": "ready",
+      "text": "in 900ms",
+      "tone": "good"
+    },
+    {
+      "at": "16:34:40",
+      "kind": "woke",
+      "text": "(0014_carts.sql changed)",
+      "tone": "accent"
+    },
+    {
+      "at": "16:34:40",
+      "kind": "failed",
+      "text": "in 400ms: ",
+      "tone": "bad"
+    },
+    {
+      "at": "19:32:40",
+      "kind": "woke",
+      "text": "(0015_orders_index.sql changed)",
+      "tone": "accent"
+    },
+    {
+      "at": "19:32:41",
+      "kind": "ready",
+      "text": "in 1.2s",
+      "tone": "good"
+    }
+  ],
+  "runs": [
+    {
+      "seq": 3,
+      "at": "2026-10-11T14:02:40Z",
+      "when": "19:32:40",
+      "ago": "2m",
+      "why": "0015_orders_index.sql changed",
+      "took": "1.2s",
+      "secs": 1.2,
+      "ok": true,
+      "done": true,
+      "exit": 0
+    },
+    {
+      "seq": 2,
+      "at": "2026-10-11T11:04:40Z",
+      "when": "16:34:40",
+      "ago": "3h",
+      "why": "0014_carts.sql changed",
+      "took": "400ms",
+      "secs": 0.4,
+      "ok": false,
+      "done": true,
+      "exit": 1
+    },
+    {
+      "seq": 1,
+      "at": "2026-10-10T12:04:40Z",
+      "when": "Oct 10",
+      "ago": "26h",
+      "why": "you asked",
+      "took": "900ms",
+      "secs": 0.9,
+      "ok": true,
+      "done": true,
+      "exit": 0
+    }
+  ],
+  "side": [
+    {
+      "name": "api",
+      "kind": "app",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "84 MB",
+      "trouble": false
+    },
+    {
+      "name": "web",
+      "kind": "app",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "213 MB",
+      "trouble": false
+    },
+    {
+      "name": "worker",
+      "kind": "app",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
+    },
+    {
+      "name": "cache",
+      "kind": "module",
+      "look": {
+        "word": "dozing",
+        "glyph": "◐",
+        "tone": "warn"
+      },
+      "note": "11 MB",
+      "trouble": false
+    },
+    {
+      "name": "cloud",
+      "kind": "module",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "db",
+      "kind": "module",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "96 MB",
+      "trouble": false
+    },
+    {
+      "name": "events",
+      "kind": "module",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
+    },
+    {
+      "name": "mailpit",
+      "kind": "service",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "mongo",
+      "kind": "service",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "148 MB",
+      "trouble": false
+    },
+    {
+      "name": "search",
+      "kind": "service",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "migrate",
+      "kind": "task",
+      "look": {
+        "word": "done",
+        "glyph": "✓",
+        "tone": "good"
+      },
+      "note": "done",
+      "trouble": false
+    },
+    {
+      "name": "seed",
+      "kind": "task",
+      "look": {
+        "word": "not run",
+        "glyph": "▸",
+        "tone": "dim"
+      },
+      "note": "not run",
+      "trouble": false
+    }
+  ],
+  "banner": {
+    "ok": true
+  }
+}

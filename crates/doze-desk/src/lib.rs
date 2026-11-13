@@ -27,6 +27,8 @@ mod hub;
 pub mod library;
 mod name;
 pub mod overview;
+pub mod page;
+pub mod ports;
 mod ring;
 mod select;
 mod series;

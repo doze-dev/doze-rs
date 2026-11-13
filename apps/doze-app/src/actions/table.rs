@@ -76,11 +76,11 @@ pub(crate) const TABLE: &[Spec] = &[
         "All logs",
         "the stack's merged logs",
         AllLogs,
-        ["cmd-l"],
+        ["cmd-l", "shift-l"],
         Global,
         Some(Go),
         true,
-        false
+        true
     ),
     spec!(
         "Activity",

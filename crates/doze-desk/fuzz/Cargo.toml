@@ -19,3 +19,15 @@ name = "fuzz_hcl_scan"
 path = "fuzz_targets/fuzz_hcl_scan.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_filter"
+path = "fuzz_targets/fuzz_filter.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_port"
+path = "fuzz_targets/fuzz_port.rs"
+test = false
+doc = false

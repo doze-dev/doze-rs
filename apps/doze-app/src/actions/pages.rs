@@ -35,7 +35,7 @@ pub(crate) const PAGES: &[Spec] = &[
     row!("Tile right", "move", MoveRight, ["right"], Overview, None, false, true),
     row!("Filter", "the services", FilterRows, ["/"], Overview, None, true, true),
     row!("Copy the address", "of the one selected", CopyAddress, ["y"], Overview, None, true, true),
-    row!("Open the service", "its page", OpenService, ["enter"], Overview, None, false, false),
+    row!("Open the service", "its page", OpenService, ["enter"], Overview, None, false, true),
     row!("Wake or sleep", "its switch", ToggleService, ["space"], Overview, None, false, false),
     row!("Up as last time", "a stopped stack", UpAsLastTime, ["u"], Overview, None, true, false),
     row!("Choose what starts…", "a stopped stack", ChooseStart, ["c"], Overview, None, true, false),
@@ -44,7 +44,7 @@ pub(crate) const PAGES: &[Spec] = &[
     row!("Cell below", "move", MoveDown, ["down", "j"], Grid, None, false, true),
     row!("Cell left", "move", MoveLeft, ["left"], Grid, None, false, true),
     row!("Cell right", "move", MoveRight, ["right"], Grid, None, false, true),
-    row!("Open what the cell names", "the service it needs", OpenService, ["enter"], Grid, None, false, false),
-    row!("Open the row", "the service on the left", OpenRowService, ["o"], Grid, None, false, false),
+    row!("Open what the cell names", "the service it needs", OpenService, ["enter"], Grid, None, false, true),
+    row!("Open the row", "the service on the left", OpenRowService, ["o"], Grid, None, false, true),
     row!("Filter rows", "the services", FilterRows, ["/"], Grid, None, false, true),
 ];

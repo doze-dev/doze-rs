@@ -99,6 +99,15 @@ impl Fixture {
     }
 }
 
+impl Fixture {
+    /// Has the daemon send a frame to every stream that asked for its topic.
+    pub(crate) fn push(&self, f: &doze_control::Frame) {
+        if let Some(d) = &self.daemon {
+            d.push(f);
+        }
+    }
+}
+
 impl Drop for Fixture {
     fn drop(&mut self) {
         if let Some(d) = self.daemon.take() {
