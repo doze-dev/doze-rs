@@ -111,7 +111,7 @@ function CreateBody({ kinds, operations, onDone }: { kinds: AclChoice[]; operati
                     <SelectValue />
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent>
+                <SelectContent position="popper" className="max-h-80">
                   {kinds.map((k) => (
                     <SelectItem key={k.value} value={k.value}>
                       {k.label}
@@ -169,7 +169,7 @@ function CreateBody({ kinds, operations, onDone }: { kinds: AclChoice[]; operati
                     <SelectValue />
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent>
+                <SelectContent position="popper" className="max-h-80">
                   {operations.map((o) => (
                     <SelectItem key={o.value} value={o.value}>
                       {o.label}

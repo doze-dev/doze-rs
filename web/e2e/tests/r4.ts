@@ -70,6 +70,9 @@ export async function widths(page: Page) {
     await page.setViewportSize({ width, height: 900 });
     await page.waitForTimeout(100);
     expect(await overflowX(page), `overflow at ${width}`).toBeLessThanOrEqual(0);
+    // No table scrolls sideways inside its box either: its columns fit.
+    const wide = await page.evaluate(() => [...document.querySelectorAll("[data-slot=data-table]")].filter((el) => el.scrollWidth > el.clientWidth + 1).map((el) => el.querySelector("table")?.getAttribute("aria-label")));
+    expect(wide, `tables wider than their box at ${width}`).toEqual([]);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.locator("h1")).toHaveCount(1);

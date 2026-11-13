@@ -105,11 +105,11 @@ function Switches({ r }: { r: AccessResponse }) {
 }
 
 const userColumns: DataColumn<AccessUser>[] = [
-  { accessorKey: "name", header: "User", size: 220, meta: { mono: true } },
+  { accessorKey: "name", header: "User", size: 180, meta: { mono: true } },
   {
     accessorKey: "from",
     header: "From",
-    size: 180,
+    size: 150,
     cell: (c) => (
       <span className="flex items-center gap-2">
         <Badge variant="secondary">{c.row.original.from === "flags" ? "Flags" : "Stored"}</Badge>
@@ -118,7 +118,7 @@ const userColumns: DataColumn<AccessUser>[] = [
     ),
   },
   { id: "mechanisms", header: "Mechanisms", accessorFn: (u) => u.mechanisms.join(", ") || "none", meta: { mono: true } },
-  { id: "iterations", header: "Iterations", size: 240, accessorFn: (u) => (u.iterations.length ? u.iterations.map(([m, n]) => (u.iterations.length > 1 ? `${number(n)} (${m.replace("SCRAM-", "")})` : number(n))).join(", ") : "–"), meta: { numeric: true } },
+  { id: "iterations", header: "Iterations", size: 150, accessorFn: (u) => (u.iterations.length ? u.iterations.map(([m, n]) => (u.iterations.length > 1 ? `${number(n)} (${m.replace("SCRAM-", "")})` : number(n))).join(", ") : "–"), meta: { numeric: true } },
 ];
 
 function Users({ r }: { r: AccessResponse }) {
@@ -148,20 +148,25 @@ function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; searc
           </span>
         ),
       },
-      { accessorKey: "pattern", header: "Pattern", size: 100, cell: (c) => (c.row.original.pattern === "literal" ? "Literal" : "Prefixed") },
-      { accessorKey: "principal", header: "Principal", size: 190, meta: { mono: true } },
-      { accessorKey: "host", header: "Host", size: 90, meta: { mono: true } },
-      { id: "operation", header: "Operation", size: 150, accessorFn: (e) => label(ops, e.operation), meta: { mono: true } },
+      { accessorKey: "pattern", header: "Pattern", size: 90, cell: (c) => (c.row.original.pattern === "literal" ? "Literal" : "Prefixed") },
+      {
+        id: "principal",
+        header: "Principal @ host",
+        size: 190,
+        accessorFn: (e) => `${e.principal} @ ${e.host}`,
+        meta: { mono: true },
+      },
+      { id: "operation", header: "Operation", size: 120, accessorFn: (e) => label(ops, e.operation), meta: { mono: true } },
       {
         accessorKey: "permission",
         header: "Permission",
-        size: 120,
+        size: 96,
         cell: (c) => <StatusDot tone={c.row.original.permission === "allow" ? "ok" : "warn"}>{c.row.original.permission === "allow" ? "Allow" : "Deny"}</StatusDot>,
       },
       {
         id: "delete",
         header: () => <span className="sr-only">Delete</span>,
-        size: 104,
+        size: 96,
         enableSorting: false,
         cell: (c) => (
           <Button variant="outline" size="sm" className="h-7 bg-card" onClick={(ev) => del(aclQuery(c.row.original, kinds, ops), ev.currentTarget)} aria-label={`Delete the ACL on ${c.row.original.name} for ${c.row.original.principal}`} data-testid="acl-delete">
@@ -196,7 +201,7 @@ function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; searc
           <SelectTrigger className="w-48 bg-card" aria-label="Resource type" data-testid="acl-kind">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper" className="max-h-80">
             <SelectItem value="any">Every resource type</SelectItem>
             {kinds.map((k) => (
               <SelectItem key={k.value} value={k.value}>

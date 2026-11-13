@@ -247,7 +247,7 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent position="popper" className="max-h-80">
                       {answer.codes.map((c) => (
                         <SelectItem key={c.value} value={c.value} className="font-mono">
                           {c.label} ({c.value})
@@ -274,7 +274,7 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent position="popper" className="max-h-80">
                       {shareGroups.map((g) => (
                         <SelectGroup key={g.label}>
                           <SelectLabel>{g.label}</SelectLabel>

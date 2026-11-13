@@ -111,7 +111,7 @@ function Body({ view, scope, onMove, onSaved }: { view: SettingsEditView; scope:
             <SelectTrigger id="cfg-key" className="w-full bg-card font-mono" data-testid="cfg-key">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper" className="max-h-80">
               {(view.keys.length ? view.keys : [...DYNAMIC_KEYS]).map((k) => (
                 <SelectItem key={k} value={k} className="font-mono">
                   {k}

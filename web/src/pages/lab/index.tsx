@@ -68,7 +68,7 @@ function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; 
       {
         accessorKey: "enabled",
         header: "On",
-        size: 64,
+        size: 60,
         enableSorting: false,
         cell: (c) => (
           <span onClick={(e) => e.stopPropagation()} className="inline-flex">
@@ -79,22 +79,22 @@ function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; 
       {
         accessorKey: "name",
         header: "Rule",
-        size: 220,
+        size: 190,
         cell: (c) => (
           <button type="button" className="max-w-full truncate rounded-sm text-left font-medium text-bright hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={c.row.original.sentence} onClick={(ev) => open(c.row.original.id, ev.currentTarget)} data-testid="rule-open">
             {c.row.original.name}
           </button>
         ),
       },
-      { accessorKey: "kind", header: "Kind", size: 80, cell: (c) => <KindBadge kind={c.row.original.kind} /> },
+      { accessorKey: "kind", header: "Kind", size: 64, cell: (c) => <KindBadge kind={c.row.original.kind} /> },
       { id: "applies", header: "Applies to", accessorFn: (r) => `${r.api} · ${r.target} · ${r.share}`, meta: { mono: true } },
-      { accessorKey: "hits", header: "Hits", size: 70, meta: { numeric: true }, cell: (c) => <span data-testid="rule-hits">{number(c.row.original.hits)}</span> },
-      { accessorKey: "last_hit_ms", header: "Last hit", size: 92, cell: (c) => <span className="font-mono text-[12.5px]">{c.row.original.last_hit_ms ? clockUtc(c.row.original.last_hit_ms) : "–"}</span> },
-      { accessorKey: "ends_ms", header: "Ends", size: 66, cell: (c) => <span className="font-mono text-[12.5px]" title="UTC">{hhmmUtc(c.row.original.ends_ms)}</span> },
+      { accessorKey: "hits", header: "Hits", size: 60, meta: { numeric: true }, cell: (c) => <span data-testid="rule-hits">{number(c.row.original.hits)}</span> },
+      { accessorKey: "last_hit_ms", header: "Last hit", size: 88, cell: (c) => <span className="font-mono text-[12.5px]">{c.row.original.last_hit_ms ? clockUtc(c.row.original.last_hit_ms) : "–"}</span> },
+      { accessorKey: "ends_ms", header: "Ends", size: 60, cell: (c) => <span className="font-mono text-[12.5px]" title="UTC">{hhmmUtc(c.row.original.ends_ms)}</span> },
       {
         id: "remove",
         header: () => <span className="sr-only">Remove</span>,
-        size: 56,
+        size: 44,
         enableSorting: false,
         cell: (c) => (
           <Button variant="ghost" size="icon-sm" onClick={(e) => (e.stopPropagation(), drop(c.row.original.id, e.currentTarget))} aria-label={`Remove ${c.row.original.name}`} data-testid="rule-remove">
