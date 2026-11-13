@@ -52,6 +52,11 @@ pub(crate) fn all(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<RecordView>(cfg, out);
     one::<Reading>(cfg, out);
     one::<MessageQuery>(cfg, out);
+    log_and_producers(cfg, out);
+}
+
+/// The Log, Producers and transaction tabs' own types.
+fn log_and_producers(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<LogSegment>(cfg, out);
     one::<LogTombstone>(cfg, out);
     one::<LogLimit>(cfg, out);

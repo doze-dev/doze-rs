@@ -180,6 +180,8 @@ pub(super) async fn compact(
         return no_topic(&name);
     }
     let partition = partition_of(&fields(q.as_deref()));
+    // Without the fixtures (the lean build) the match has one arm; with them it has two.
+    #[allow(clippy::infallible_destructuring_match)]
     let live = match &s.source {
         Source::Live(l) => l,
         #[cfg(any(test, feature = "examples"))]
