@@ -53,7 +53,10 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
     const sc = scroller.current;
     if (!sc) return;
     const was = anchor.current;
-    if (was && firstId !== was.id && sc.scrollTop <= 2) {
+    // `data-jump`: the person asked for the new rows (Show): they are put in place at once.
+    const jump = sc.dataset.jump === "1";
+    delete sc.dataset.jump;
+    if (was && firstId !== was.id && sc.scrollTop <= 2 && !jump) {
       const el = sc.querySelector<HTMLElement>(`tr[data-row="${CSS.escape(was.id)}"]`);
       const delta = el ? el.offsetTop - was.top : 0;
       if (delta > 0) {

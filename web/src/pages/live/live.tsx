@@ -323,7 +323,13 @@ export function LivePage() {
     }
   };
   const showHeld = () => {
-    wrap.current?.querySelector<HTMLElement>("[data-slot=data-table]")?.scrollTo({ top: 0 });
+    const sc = wrap.current?.querySelector<HTMLElement>("[data-slot=data-table]");
+    if (sc) {
+      sc.dataset.jump = "1";
+      sc.scrollTo({ top: 0 });
+      // Only for this Show: a batch that comes later glides in as usual.
+      requestAnimationFrame(() => requestAnimationFrame(() => delete sc.dataset.jump));
+    }
     tail.show();
   };
 

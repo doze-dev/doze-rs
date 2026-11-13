@@ -412,7 +412,13 @@ function Records({ topic, r, frame, tail, tailable, search, set, open, children 
   const cols = useMemo(() => columns(open, wide), [open, wide]);
   const filtered = r.view.query.partitions.length > 0 || r.view.query.offset !== null || r.view.query.time !== null || r.view.query.key !== null;
   const show = () => {
-    box.current?.querySelector("[data-slot=data-table]")?.scrollTo({ top: 0 });
+    const sc = box.current?.querySelector<HTMLElement>("[data-slot=data-table]");
+    if (sc) {
+      sc.dataset.jump = "1";
+      sc.scrollTo({ top: 0 });
+      // Only for this Show: a batch that comes later glides in as usual.
+      requestAnimationFrame(() => requestAnimationFrame(() => delete sc.dataset.jump));
+    }
     t.show();
   };
   return (
