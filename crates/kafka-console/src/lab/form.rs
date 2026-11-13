@@ -33,6 +33,8 @@ pub fn fields_of(f: &[(String, String)]) -> LabFields {
     LabFields {
         api: get("api"),
         topic: get("topic"),
+        partitions: get("partitions"),
+        group: get("group"),
         client: get("client"),
         delay: get("delay"),
         jitter: get("jitter"),
@@ -93,21 +95,72 @@ fn whole(text: &str, least: u32, most: u32) -> Option<u32> {
         .filter(|n| (least..=most).contains(n))
 }
 
-fn api_of(f: &LabFields) -> Result<ApiKey, (String, String)> {
-    APIS.iter()
-        .find(|(w, _, _)| *w == f.api)
-        .map(|(_, _, k)| *k)
-        .ok_or_else(|| err("api", "Choose Produce or Fetch."))
+/// The items of a list field: separated by commas, trimmed, empty ones dropped.
+fn items(text: &str) -> impl Iterator<Item = &str> {
+    text.split(',').map(str::trim).filter(|s| !s.is_empty())
+}
+
+fn api_of(f: &LabFields) -> Result<Vec<ApiKey>, (String, String)> {
+    let mut out = Vec::new();
+    for word in items(&f.api) {
+        let key = APIS
+            .iter()
+            .find(|(w, _, _)| *w == word)
+            .map(|(_, _, k)| *k)
+            .or_else(|| crate::recorder::names::api_of(word))
+            .ok_or_else(|| err("api", "Choose the APIs the rule applies to."))?;
+        if !out.contains(&key) {
+            out.push(key);
+        }
+    }
+    if out.is_empty() {
+        return Err(err("api", "Choose the APIs the rule applies to."));
+    }
+    Ok(out)
 }
 
 fn topic_of(f: &LabFields) -> Result<Vec<Pattern>, (String, String)> {
-    if f.topic.is_empty() {
-        return Ok(Vec::new());
-    }
-    Pattern::new(&f.topic).map(|p| vec![p]).ok_or_else(|| {
+    items(&f.topic)
+        .map(|t| {
+            Pattern::new(t).ok_or_else(|| {
+                err(
+                    "topic",
+                    "Choose a topic, or leave it empty for every topic.",
+                )
+            })
+        })
+        .collect()
+}
+
+fn partitions_of(f: &LabFields) -> Result<Vec<i32>, (String, String)> {
+    let bad = || {
         err(
-            "topic",
-            "Choose a topic, or leave it empty for every topic.",
+            "partitions",
+            "Type partitions as whole numbers from 0, separated by commas, or leave it empty for every partition.",
+        )
+    };
+    let mut out: Vec<i32> = items(&f.partitions)
+        .map(|p| p.parse::<i32>().ok().filter(|p| *p >= 0).ok_or_else(bad))
+        .collect::<Result<_, _>>()?;
+    out.sort_unstable();
+    out.dedup();
+    if !out.is_empty() && f.topic.trim().is_empty() {
+        return Err(err(
+            "partitions",
+            "Partitions belong to a topic: choose the topic first.",
+        ));
+    }
+    Ok(out)
+}
+
+fn group_of(f: &LabFields) -> Result<Option<Pattern>, (String, String)> {
+    if f.group.is_empty() {
+        return Ok(None);
+    }
+    Pattern::new(&f.group).map(Some).ok_or_else(|| {
+        err(
+            "group",
+            "A group id is 1 to 249 characters with no control character. * and ? stand for any text and any one character.",
         )
     })
 }
@@ -173,6 +226,8 @@ pub fn spec_of(kind: LabKind, f: &LabFields) -> Result<Spec, Errors> {
     let mut errors = Errors::new();
     let api = collect(api_of(f), &mut errors);
     let topics = collect(topic_of(f), &mut errors);
+    let partitions = collect(partitions_of(f), &mut errors);
+    let group = collect(group_of(f), &mut errors);
     let client = collect(client_of(f), &mut errors);
     let share = words::share_of(&f.share);
     if share.is_none() {
@@ -206,14 +261,20 @@ pub fn spec_of(kind: LabKind, f: &LabFields) -> Result<Spec, Errors> {
         LabKind::Drop => Some(Effect::Drop),
     };
     let (
-        Some(api),
-        Some(topics),
+        (Some(apis), Some(topics), Some(partitions), Some(group)),
         Some(client),
         Some(share),
         Some(ends),
         Some(max_hits),
         Some(effect),
-    ) = (api, topics, client, share, ends, max_hits, effect)
+    ) = (
+        (api, topics, partitions, group),
+        client,
+        share,
+        ends,
+        max_hits,
+        effect,
+    )
     else {
         return Err(errors);
     };
@@ -221,8 +282,10 @@ pub fn spec_of(kind: LabKind, f: &LabFields) -> Result<Spec, Errors> {
         name: String::new(),
         matcher: Matcher {
             client,
-            apis: vec![api],
+            apis,
             topics,
+            partitions,
+            group,
             ..Matcher::default()
         },
         effect,
@@ -242,7 +305,8 @@ pub fn field_of_refusal(e: AddError) -> Option<&'static str> {
         AddError::BadShare => Some("share"),
         AddError::BadCode => Some("code"),
         AddError::BadHits => Some("hits"),
-        AddError::BadPartition | AddError::TooManyTopics => Some("topic"),
+        AddError::BadPartition => Some("partitions"),
+        AddError::TooManyTopics => Some("topic"),
         AddError::FailNeedsApi | AddError::CannotFail(_) => Some("api"),
         AddError::BadName | AddError::BadDuration | AddError::TooMany => None,
     }
@@ -273,6 +337,9 @@ pub fn preview(spec: &Spec) -> LabPreview {
     );
     if let Some(c) = &spec.matcher.client {
         line("client", c.as_str().to_owned());
+    }
+    if let Some(g) = &spec.matcher.group {
+        line("group", g.as_str().to_owned());
     }
     match spec.effect {
         Effect::Slow {

@@ -28,3 +28,30 @@ export function gallerySearch(s: Record<string, unknown>): GallerySearch {
     record: shortText(s.record),
   };
 }
+
+// Slice R4: Settings, Access, Lab. Each overlay is a search param (Back closes it; a deep link opens it).
+export const DYNAMIC_KEYS = ["log.segment.bytes", "log.index.interval.bytes", "message.max.bytes", "log.retention.bytes", "log.retention.ms"] as const;
+export type SettingsSearch = { edit?: (typeof DYNAMIC_KEYS)[number]; scope?: "this" };
+export function settingsSearch(s: Record<string, unknown>): SettingsSearch {
+  return { edit: oneOf(DYNAMIC_KEYS, s.edit), scope: oneOf(["this"] as const, s.scope) };
+}
+
+export type AccessSearch = { acl?: "new"; delete?: string; q?: string; kind?: string; perm?: "allow" | "deny"; state?: "secured" };
+export function accessSearch(s: Record<string, unknown>): AccessSearch {
+  return {
+    acl: oneOf(["new"] as const, s.acl),
+    delete: shortText(s.delete, 1200),
+    q: shortText(s.q, 249),
+    kind: oneOf(["topic", "group", "cluster", "transactional-id", "delegation-token", "user"] as const, s.kind),
+    perm: oneOf(["allow", "deny"] as const, s.perm),
+    state: oneOf(["secured"] as const, s.state),
+  };
+}
+
+export const LAB_TABS = ["slow", "fail", "drop", "expire", "rebalance", "compact"] as const;
+export type LabTab = (typeof LAB_TABS)[number];
+export type LabSearch = { new?: LabTab; rule?: string; remove?: string };
+export function labSearch(s: Record<string, unknown>): LabSearch {
+  const id = (raw: unknown) => (typeof raw === "string" || typeof raw === "number") && /^\d{1,9}$/.test(String(raw)) ? String(raw) : undefined;
+  return { new: oneOf(LAB_TABS, s.new), rule: id(s.rule), remove: id(s.remove) };
+}

@@ -27,6 +27,10 @@ use crate::{origin, snippets, words};
 #[cfg(test)]
 mod types;
 
+pub mod access;
+pub mod lab;
+pub mod settings;
+
 /// The header the console's fetch client sends on every API request.
 pub const PROOF_HEADER: &str = "x-console";
 
@@ -326,6 +330,20 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .route(&web.url("/api/v1/probe"), post(probe))
         .route(&web.url("/api/v1/shell"), get(shell))
         .route(&web.url("/api/v1/jump"), get(jump))
+        .route(&web.url("/api/v1/settings"), get(settings::page))
+        .route(&web.url("/api/v1/settings/edit"), get(settings::edit_form).post(settings::edit))
+        .route(&web.url("/api/v1/access"), get(access::page))
+        .route(&web.url("/api/v1/access/acls/new"), get(access::create_form).post(access::create))
+        .route(&web.url("/api/v1/access/acls/delete"), get(access::delete_form).post(access::delete))
+        .route(&web.url("/api/v1/lab"), get(lab::home))
+        .route(&web.url("/api/v1/lab/form"), get(lab::form))
+        .route(&web.url("/api/v1/lab/rules"), post(lab::make))
+        .route(&web.url("/api/v1/lab/rules/{id}"), get(lab::rule))
+        .route(&web.url("/api/v1/lab/rules/{id}/enabled"), post(lab::switch))
+        .route(&web.url("/api/v1/lab/rules/{id}/remove"), post(lab::remove))
+        .route(&web.url("/api/v1/lab/history/clear"), post(lab::clear))
+        .route(&web.url("/api/v1/lab/once/{kind}"), get(lab::once_form).post(lab::once))
+        .route(&web.url("/api/v1/lab/compact"), get(lab::compact_form).post(lab::compact))
         .route_layer(from_fn(guard))
 }
 
@@ -336,4 +354,13 @@ pub const GET_PATHS: &[&str] = &[
     "/api/v1/shell",
     "/api/v1/jump",
     "/api/v1/jump?q=or",
+    "/api/v1/settings",
+    "/api/v1/settings/edit?key=log.retention.ms",
+    "/api/v1/access",
+    "/api/v1/access?state=secured",
+    "/api/v1/access/acls/new?type=topic&name=orders&principal=User:orders",
+    "/api/v1/access/acls/delete?type=topic&name=orders&pattern=literal&principal=User:orders&host=*&op=write&perm=allow",
+    // The Lab's other GETs answer LAB_OFF where the Lab is not installed (the fixtures, a broker with --lab=false); their tests
+    // are in api/lab_tests.rs and the browser gate.
+    "/api/v1/lab",
 ];

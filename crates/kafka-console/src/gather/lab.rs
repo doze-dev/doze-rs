@@ -43,18 +43,30 @@ pub async fn choices(backend: &Backend, recorder: Option<&Recorder>) -> Choices 
         .map(|r| r.open_clients().into_iter().map(|(c, _)| c).collect())
         .unwrap_or_default();
     clients.truncate(64);
-    Choices { topics, clients }
+    let mut groups: Vec<String> = super::group_read::listed(backend)
+        .await
+        .into_iter()
+        .map(|g| g.id)
+        .collect();
+    groups.truncate(200);
+    Choices {
+        topics,
+        clients,
+        groups,
+    }
 }
 
 /// The Lab page: the table's rules and the rehearsals kept, and the first compacted topic the cleaner card can open.
 pub async fn home(lab: &Lab, backend: &Backend) -> LabHome {
     let mut h = views::home(lab);
-    h.compact_target = super::topics(backend, "", false)
+    h.compacted = super::topics(backend, "", false)
         .await
         .rows
         .into_iter()
-        .find(|t| t.cleanup != Cleanup::Delete)
-        .map(|t| t.name);
+        .filter(|t| t.cleanup != Cleanup::Delete)
+        .map(|t| t.name)
+        .collect();
+    h.compact_target = h.compacted.first().cloned();
     h
 }
 

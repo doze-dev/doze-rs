@@ -6,7 +6,7 @@ import { CommandPalette } from "@/components/app/command-palette";
 import { TopBar } from "@/components/app/top-bar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ConnectPage } from "@/pages/connect";
-import { connectSearch, gallerySearch } from "@/lib/search";
+import { accessSearch, connectSearch, gallerySearch, labSearch, settingsSearch } from "@/lib/search";
 import { HomePage } from "@/pages/home";
 import { NotFoundPage, PlannedPage } from "@/pages/planned";
 
@@ -69,6 +69,11 @@ const group = createRoute({
 });
 const group_ = group;
 
+// Slice R4: Settings, Access, the Lab: each its own chunk, fetched when first opened.
+const settings = createRoute({ getParentRoute: () => root, path: "/settings", validateSearch: settingsSearch, component: lazyRouteComponent(() => import("@/pages/settings"), "SettingsPage") });
+const access = createRoute({ getParentRoute: () => root, path: "/access", validateSearch: accessSearch, component: lazyRouteComponent(() => import("@/pages/access"), "AccessPage") });
+const lab = createRoute({ getParentRoute: () => root, path: "/lab", validateSearch: labSearch, component: lazyRouteComponent(() => import("@/pages/lab"), "LabPage") });
+
 const tree = root.addChildren([
   home,
   connect,
@@ -78,9 +83,9 @@ const tree = root.addChildren([
   topic,
   planned("/groups", "Groups", "R2"),
   group,
-  planned("/access", "Access", "R4"),
-  planned("/lab", "Lab", "R4"),
-  planned("/settings", "Settings", "R4"),
+  access,
+  lab,
+  settings,
 ]);
 
 export const router = createRouter({

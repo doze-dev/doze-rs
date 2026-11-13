@@ -1,0 +1,1 @@
+import{Mt as e}from"./select-B49pdf8G.js";var t={name:`plus`,size:24,node:[[`path`,{d:`M5 12h14`,key:`1ays0h`}],[`path`,{d:`M12 5v14`,key:`s699le`}]]};t.node;var n=e(t),r={name:`search`,size:24,node:[[`path`,{d:`m21 21-4.34-4.34`,key:`14j7rj`}],[`circle`,{cx:`11`,cy:`11`,r:`8`,key:`4ej97u`}]]};r.node;var i=e(r);export{n,i as t};
