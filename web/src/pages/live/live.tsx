@@ -21,7 +21,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { hhmmUtc, number } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
@@ -396,10 +395,7 @@ export function LivePage() {
                 <RadioIcon /> Live tail
               </ToggleGroupItem>
             </ToggleGroup>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Select value={speed} onValueChange={(v) => setSpeed(parseSpeed(v) as Speed)}>
+            <Select value={speed} onValueChange={(v) => setSpeed(parseSpeed(v) as Speed)}>
                     <SelectTrigger size="sm" className="w-[9.5rem] bg-card" aria-label="Tail speed" data-testid="tail-speed">
                       <SelectValue />
                     </SelectTrigger>
@@ -410,11 +406,7 @@ export function LivePage() {
                         </SelectItem>
                       ))}
                     </SelectContent>
-                  </Select>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{SPEEDS.find((s) => s.value === speed)?.tip}. The server never sends faster than once a second.</TooltipContent>
-            </Tooltip>
+            </Select>
             <Indicator on={on} conn={tail.conn} onRetry={tail.retry} />
             <span className="flex-1" />
           </div>

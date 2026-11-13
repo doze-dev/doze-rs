@@ -64,15 +64,14 @@ fn all() -> BTreeMap<String, String> {
 /// The Live types (slice R3).
 fn live_types(cfg: &Config, out: &mut BTreeMap<String, String>) {
     use super::live::{
-        FetchCopy, FirstResponse, LiveResponse, LiveWords, RequestResponse, TailBatch, TailReady,
+        FetchCopy, FirstResponse, LiveResponse, LiveWords, RequestAnswer, RequestResponse, TailBatch, TailReady,
         TopicWireView,
     };
-    use crate::model::{
-        ClientRow, ClientsView, Facet, Facets, FirstView, GroupWireView,
-        LiveState, LiveView, WireClass, WireDetail, WirePart, WireQuery, WireRefusal, WireRow,
-        WireWindow,
-    };
     use crate::model::live::{LabDid, LabTag};
+    use crate::model::{
+        ClientRow, ClientsView, Facet, Facets, FirstView, GroupWireView, LiveState, LiveView,
+        WireClass, WireDetail, WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
+    };
     use crate::pages::live::{RequestKind, RequestLimits, RequestRule};
     one::<LiveResponse>(cfg, out);
     one::<LiveWords>(cfg, out);
@@ -90,6 +89,7 @@ fn live_types(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<WirePart>(cfg, out);
     one::<WireDetail>(cfg, out);
     one::<RequestResponse>(cfg, out);
+    one::<RequestAnswer>(cfg, out);
     one::<RequestKind>(cfg, out);
     one::<RequestLimits>(cfg, out);
     one::<RequestRule>(cfg, out);

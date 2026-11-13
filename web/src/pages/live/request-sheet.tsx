@@ -447,13 +447,14 @@ function title(r: RequestResponse): string {
 /** The Sheet of `?request=<id>`. */
 export function RequestSheet({ id, onClose }: { id: number | undefined; onClose: () => void }) {
   const q = useRequest(id);
-  const r = q.data;
+  const r = q.data?.found ?? undefined;
+  const gone = q.data?.gone ?? (q.isError ? q.error.message : null);
   const row = r?.request.row;
   return (
     <Sheet open={id !== undefined} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-[34rem]" data-testid="request-sheet" data-kind={r?.kind}>
         <SheetHeader className="border-b px-6 pt-6 pb-5">
-          <SheetTitle className={cn("pr-8 text-[20px] font-medium text-bright", r && r.kind !== "detail" && row?.class !== "closed" && "font-mono text-[18px]")}>{r ? title(r) : q.isError ? "Request not found" : "Request"}</SheetTitle>
+          <SheetTitle className={cn("pr-8 text-[20px] font-medium text-bright", r && r.kind !== "detail" && row?.class !== "closed" && "font-mono text-[18px]")}>{r ? title(r) : gone ? "Request not found" : "Request"}</SheetTitle>
           <SheetDescription asChild>
             <div className="flex min-h-5 flex-wrap items-center gap-x-1.5 text-[13px]">
               {row ? (
@@ -467,15 +468,15 @@ export function RequestSheet({ id, onClose }: { id: number | undefined; onClose:
                   </span>
                 </>
               ) : (
-                <span>{q.isError ? "" : " "}</span>
+                <span> </span>
               )}
             </div>
           </SheetDescription>
         </SheetHeader>
         <div className="flex flex-col px-6 py-5" data-testid="request-body">
-          {q.isError ? (
+          {gone ? (
             <p className="text-[13.5px] text-muted-foreground" data-testid="request-gone">
-              {q.error.message}
+              {gone}
             </p>
           ) : !r ? (
             <div className="flex flex-col gap-3" aria-busy>

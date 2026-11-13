@@ -7,7 +7,7 @@ import type { ClientsView } from "./types/ClientsView";
 import type { FirstResponse } from "./types/FirstResponse";
 import type { GroupWireView } from "./types/GroupWireView";
 import type { LiveResponse } from "./types/LiveResponse";
-import type { RequestResponse } from "./types/RequestResponse";
+import type { RequestAnswer } from "./types/RequestAnswer";
 import type { TopicWireView } from "./types/TopicWireView";
 
 export const liveKeys = {
@@ -41,7 +41,7 @@ export function useLive(query: string, poll = true) {
 export function useRequest(id: number | undefined) {
   return useQuery({
     queryKey: liveKeys.request(id ?? -1),
-    queryFn: ({ signal }) => api<RequestResponse>(`/api/v1/live/request/${id}`, {}, signal),
+    queryFn: ({ signal }) => api<RequestAnswer>(`/api/v1/live/request/${id}`, {}, signal),
     staleTime: Infinity,
     enabled: id !== undefined,
     retry: false,

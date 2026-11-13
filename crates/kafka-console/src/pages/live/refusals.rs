@@ -198,8 +198,23 @@ pub fn fenced_rules(d: &WireDetail) -> Vec<Rule> {
         .find(|s| s.api == "InitProducerId" && s.class == WireClass::Done)
         .map(|s| s.id);
     vec![
-        Rule { ok: true, title: "The broker knows this producer".into(), sub: current.map_or_else(|| "from the transactional id's last InitProducerId".to_owned(), |_| "its newest InitProducerId is above".to_owned()), tag: sent.map_or_else(String::new, |(p, _)| format!("producer {p}")) },
-        Rule { ok: false, title: "The request's epoch is current".into(), sub: sent.map_or_else(String::new, |(_, e)| format!("it sent {e}, an epoch the broker has since replaced")), tag: sent.map_or_else(String::new, |(_, e)| format!("epoch {e}")) },
+        Rule {
+            ok: true,
+            title: "The broker knows this producer".into(),
+            sub: current.map_or_else(
+                || "from the transactional id's last InitProducerId".to_owned(),
+                |_| "its newest InitProducerId is above".to_owned(),
+            ),
+            tag: sent.map_or_else(String::new, |(p, _)| format!("producer {p}")),
+        },
+        Rule {
+            ok: false,
+            title: "The request's epoch is current".into(),
+            sub: sent.map_or_else(String::new, |(_, e)| {
+                format!("it sent {e}, an epoch the broker has since replaced")
+            }),
+            tag: sent.map_or_else(String::new, |(_, e)| format!("epoch {e}")),
+        },
     ]
 }
 

@@ -102,6 +102,19 @@ pub struct RequestResponse {
     pub keyed: Option<String>,
 }
 
+/// `GET /api/v1/live/request/{id}`: the request, or `null` and the words that say it fell off the tape. A 200 either way: a
+/// deep link to a row the recorder no longer keeps is an ordinary moment, and a 404 is an error line in every browser's console.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct RequestAnswer {
+    pub found: Option<RequestResponse>,
+    pub gone: Option<String>,
+}
+
+/// What a request that is not on the tape says.
+pub const GONE: &str =
+    "That request is no longer on the wire. The recorder keeps a bounded tape, and this row has fallen off it.";
+
 /// `GET /api/v1/live/first`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -224,7 +237,11 @@ impl RequestResponse {
             .as_deref()
             .is_some_and(|c| c.contains("compact"));
         let keyed = (d.row.code == 87 && compacted && d.row.class != WireClass::Denied)
-            .then(|| d.topics.first().map(|(t, _)| keyed_produce(listen, t, &d.row.client)))
+            .then(|| {
+                d.topics
+                    .first()
+                    .map(|(t, _)| keyed_produce(listen, t, &d.row.client))
+            })
             .flatten();
         Self {
             request: d,
@@ -245,23 +262,15 @@ pub async fn live(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respons
     json(StatusCode::OK, &LiveResponse::new(view))
 }
 
-/// `GET /api/v1/live/request/{id}`: 404 `NOT_FOUND` when the row has fallen off the tape.
+/// `GET /api/v1/live/request/{id}`.
 pub async fn request(State(s): State<Shared>, Path(id): Path<String>) -> Response {
     let found = match id.parse::<u64>() {
         Ok(id) => s.source.request(id).await,
         Err(_) => None,
     };
-    match found {
-        Some((d, limits)) => json(
-            StatusCode::OK,
-            &RequestResponse::new(d, limits, &s.source.listen()),
-        ),
-        None => error(
-            StatusCode::NOT_FOUND,
-            "NOT_FOUND",
-            "That request is no longer on the wire. The recorder keeps a bounded tape, and this row has fallen off it.",
-        ),
-    }
+    let found = found.map(|(d, limits)| RequestResponse::new(d, limits, &s.source.listen()));
+    let gone = found.is_none().then(|| GONE.to_owned());
+    json(StatusCode::OK, &RequestAnswer { found, gone })
 }
 
 /// `GET /api/v1/live/clients`.

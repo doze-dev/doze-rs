@@ -68,9 +68,15 @@ test.afterAll(async () => {
   await stopTraffic?.();
 });
 
+// A fresh browser state for each test, before its first page (a second navigation right after the first cut the first
+// page's requests short, which WebKit reports as errors).
 test.beforeEach(async ({ page }) => {
-  await page.goto("/live");
-  await page.evaluate(() => localStorage.clear());
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem("r3-clean")) {
+      localStorage.clear();
+      sessionStorage.setItem("r3-clean", "1");
+    }
+  });
 });
 
 const tape = (page: Page) => page.getByTestId("tape");
@@ -190,8 +196,7 @@ test("filters change the rows, live in the address, and survive a reload", async
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/topic=/);
   await expect(page.getByRole("combobox", { name: "Topics" })).toHaveText("orders");
-  await expect(rowsOf(page).first()).toBeVisible();
-  for (const t of await tape(page).locator("tbody tr[data-row] td:nth-child(4)").allInnerTexts()) expect(t).toContain("orders");
+  await expect.poll(async () => (await tape(page).locator("tbody tr[data-row] td:nth-child(4)").allInnerTexts()).every((t) => t.includes("orders"))).toBe(true);
   // Refused only.
   await page.getByTestId("refused-only").click();
   await expect(page).toHaveURL(/refused=/);
@@ -217,7 +222,7 @@ test("filters change the rows, live in the address, and survive a reload", async
   const client = (await tape(page).locator("tbody tr[data-row] td:nth-child(2) button").first().innerText()).trim();
   await tape(page).locator("tbody tr[data-row] td:nth-child(2) button").first().click();
   await expect(page).toHaveURL(new RegExp(`client=`));
-  for (const t of await tape(page).locator("tbody tr[data-row] td:nth-child(2)").allInnerTexts()) expect(t).toContain(client);
+  await expect.poll(async () => (await tape(page).locator("tbody tr[data-row] td:nth-child(2)").allInnerTexts()).every((t) => t.includes(client))).toBe(true);
   await page.goBack();
   await expect(page).not.toHaveURL(/client=/);
 });
@@ -278,7 +283,7 @@ test("the clients Sheet: who is connected, and a name filters the tape", async (
   await sheet.getByRole("link", { name: "e2e-orders" }).click();
   await expect(sheet).toBeHidden();
   await expect(page).toHaveURL(/client=/);
-  for (const t of await tape(page).locator("tbody tr[data-row] td:nth-child(2)").allInnerTexts()) expect(t).toContain("e2e-orders");
+  await expect.poll(async () => (await tape(page).locator("tbody tr[data-row] td:nth-child(2)").allInnerTexts()).every((t) => t.includes("e2e-orders"))).toBe(true);
 });
 
 test("the first-request page and the docks", async ({ page }) => {
