@@ -105,12 +105,14 @@ export function Fact({ label, children, sub }: { label: string; children: React.
 
 /** An overlay with its own address: opened from the page it pushes a history entry, so closing goes Back; opened by a deep
  * link there is nothing of ours to go back to, so closing replaces the address. */
-export function useRoutedOverlay(set: (patch: Record<string, string | undefined>, replace: boolean) => void) {
+type Patch = Record<string, string | number | undefined>;
+
+export function useRoutedOverlay(set: (patch: Patch, replace: boolean) => void) {
   const pushed = useRef(false);
   const from = useRef<HTMLElement | null>(null);
   return {
     /** Opens the overlay; `opener` gets the focus back when it closes (Firefox and Safari do not focus a clicked button). */
-    open(patch: Record<string, string | undefined>, opener?: HTMLElement | null) {
+    open(patch: Patch, opener?: HTMLElement | null) {
       pushed.current = true;
       from.current = opener ?? (document.activeElement as HTMLElement | null);
       set(patch, false);
@@ -120,17 +122,18 @@ export function useRoutedOverlay(set: (patch: Record<string, string | undefined>
       const el = from.current;
       if (el && el.isConnected) {
         e.preventDefault();
-        el.focus();
+        // After the overlay's own clean-up: until then the page behind it is `inert` and cannot take the focus.
+        setTimeout(() => el.focus(), 0);
       }
     },
-    close(patch: Record<string, string | undefined>) {
+    close(patch: Patch) {
       if (pushed.current) {
         pushed.current = false;
         window.history.back();
       } else set(patch, true);
     },
     /** Moves inside the overlay (another config, another tab) without a new history entry. */
-    move(patch: Record<string, string | undefined>) {
+    move(patch: Patch) {
       set(patch, true);
     },
   };

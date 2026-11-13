@@ -19,7 +19,7 @@ export function LabRuleBadge({ rule, name, did, className }: { rule: number; nam
       <TooltipTrigger asChild>
         <Link
           to="/lab"
-          search={{ rule: String(rule) }}
+          search={{ rule }}
           className={cn("inline-flex h-5 items-center gap-1 rounded-full border border-warn/40 bg-warn/10 px-2 font-mono text-[11px] font-medium text-warn hover:bg-warn/20 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none", className)}
           aria-label={`Lab: ${name}, ${did}`}
           data-testid="lab-badge"

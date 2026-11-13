@@ -177,7 +177,7 @@ export function LabPage() {
       .catch(fail)
       .finally(refresh);
   };
-  const removing = search.remove ? h?.active.find((a) => String(a.id) === search.remove) : undefined;
+  const removing = search.remove ? h?.active.find((a) => a.id === search.remove) : undefined;
   const confirmRemove = async () => {
     if (!search.remove) return;
     setBusy(true);
@@ -231,7 +231,7 @@ export function LabPage() {
           ) : (
             <section aria-labelledby="active" className="mb-12">
               <SectionHead id="active" title="Active" sub="What is bending your broker right now. Every rule ends by itself; removing it ends it sooner. A rule switched off matches nothing until switched on." />
-              <ActiveTable rules={h.active} onOpen={(id, from) => overlay.open({ rule: String(id) }, from)} onSwitch={onSwitch} onRemove={(id, from) => overlay.open({ remove: String(id) }, from)} />
+              <ActiveTable rules={h.active} onOpen={(id, from) => overlay.open({ rule: id }, from)} onSwitch={onSwitch} onRemove={(id, from) => overlay.open({ remove: id }, from)} />
             </section>
           )}
           <Rehearsals onStart={(t, from) => overlay.open({ new: t }, from)} />
@@ -252,7 +252,7 @@ export function LabPage() {
                   </>
                 }
               />
-              {h.ended.length > 0 && <DataTable data={h.ended} columns={endedColumns((id) => overlay.open({ rule: String(id) }))} rowId={(x) => `e${x.id}`} aria-label="Rules that ended" maxHeight={360} />}
+              {h.ended.length > 0 && <DataTable data={h.ended} columns={endedColumns((id) => overlay.open({ rule: id }))} rowId={(x) => `e${x.id}`} aria-label="Rules that ended" maxHeight={360} />}
               <OnceList once={h.once} />
             </section>
           )}
@@ -270,10 +270,10 @@ export function LabPage() {
         onMade={(id) => {
           toast.success("Rehearsal started", { description: `Rule ${id} is in force.` });
           refresh();
-          overlay.move({ new: undefined, rule: String(id) });
+          overlay.move({ new: undefined, rule: id });
         }}
       />
-      <RuleSheet restoreFocus={overlay.restore} id={search.rule} onClose={() => overlay.close({ rule: undefined })} onSwitch={onSwitch} onRemove={(id) => overlay.move({ rule: undefined, remove: String(id) })} />
+      <RuleSheet restoreFocus={overlay.restore} id={search.rule === undefined ? undefined : String(search.rule)} onClose={() => overlay.close({ rule: undefined })} onSwitch={onSwitch} onRemove={(id) => overlay.move({ rule: undefined, remove: id })} />
       <Dialog open={!!search.remove} onOpenChange={(o) => !o && overlay.close({ remove: undefined })}>
         <DialogContent data-testid="lab-remove-dialog" onCloseAutoFocus={overlay.restore}>
           <DialogHeader>

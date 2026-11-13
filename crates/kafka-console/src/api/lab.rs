@@ -175,7 +175,7 @@ pub struct LabOncePost {
 #[serde(tag = "outcome", rename_all = "snake_case")]
 pub enum LabOnceOutcome {
     Done,
-    Invalid { form: LabOnceForm },
+    Invalid { form: Box<LabOnceForm> },
 }
 
 /// What Compact now posts.
@@ -192,7 +192,7 @@ pub struct LabCompactPost {
 #[serde(tag = "outcome", rename_all = "snake_case")]
 pub enum LabCompactOutcome {
     Done,
-    Refused { form: LabCompact },
+    Refused { form: Box<LabCompact> },
 }
 
 /// Switching a rule on or off.
@@ -260,7 +260,11 @@ pub(super) async fn home(State(s): State<Shared>) -> Response {
 
 pub(super) async fn rule(State(s): State<Shared>, Path(id): Path<String>) -> Response {
     let Some(p) = parts(&s) else { return off() };
-    let Some(v) = id.parse::<u32>().ok().and_then(|id| g::rule(p.lab, p.recorder, id)) else {
+    let Some(v) = id
+        .parse::<u32>()
+        .ok()
+        .and_then(|id| g::rule(p.lab, p.recorder, id))
+    else {
         return error(
             StatusCode::NOT_FOUND,
             "NOT_FOUND",
@@ -393,7 +397,7 @@ pub(super) async fn once(
     };
     let outcome = match done {
         LabOnceDone::Done => LabOnceOutcome::Done,
-        LabOnceDone::Invalid(form) => LabOnceOutcome::Invalid { form: *form },
+        LabOnceDone::Invalid(form) => LabOnceOutcome::Invalid { form },
     };
     json(StatusCode::OK, &outcome)
 }
@@ -427,7 +431,7 @@ pub(super) async fn compact(State(s): State<Shared>, body: Bytes) -> Response {
     };
     let outcome = match g::compact(p.lab, p.backend, &cut(&post.topic), post.partition).await {
         Ok(()) => LabCompactOutcome::Done,
-        Err(form) => LabCompactOutcome::Refused { form: *form },
+        Err(form) => LabCompactOutcome::Refused { form },
     };
     json(StatusCode::OK, &outcome)
 }

@@ -60,12 +60,14 @@ type Values = { value: string };
 
 function Body({ view, scope, onMove, onSaved }: { view: SettingsEditView; scope: "all" | "this"; onMove: (key: string, scope: "all" | "this") => void; onSaved: (s: SettingsSaved) => void }) {
   const form = useForm<Values>({ defaultValues: { value: view.value } });
-  const [shown, setShown] = useState<SettingsEditView>(view);
+  // The last answer of a Check, for the view (config and scope) it was asked for; a new view replaces it.
+  const [answer, setAnswer] = useState<{ of: SettingsEditView; form: SettingsEditView } | null>(null);
+  const shown = answer && answer.of === view ? answer.form : view;
   const [refused, setRefused] = useState<SettingsRefused | null>(null);
   const [busy, setBusy] = useState<"check" | "save" | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   // The teaching follows the scope the server answered for; what was typed stays.
-  const teach = view.scope === shown.scope ? shown.teach : view.teach;
+  const teach = shown.teach;
   const typed = useWatch({ control: form.control, name: "value" });
   const unit = unitHint(view.key, typed) ?? view.unit;
 
@@ -84,7 +86,7 @@ function Body({ view, scope, onMove, onSaved }: { view: SettingsEditView; scope:
         return;
       }
       setRefused(null);
-      setShown(out.form);
+      setAnswer({ of: view, form: out.form });
       if (out.form.error) form.setError("value", { message: out.form.error });
       else form.clearErrors("value");
     } catch (e) {
@@ -183,7 +185,7 @@ function Body({ view, scope, onMove, onSaved }: { view: SettingsEditView; scope:
             </p>
           )}
         </div>
-        {!refused && <CallBox lines={shown.key === view.key ? shown.call : view.call} />}
+        {!refused && <CallBox lines={shown.call} />}
         <DialogFooter className="border-t pt-4">
           <DialogClose asChild>
             <Button type="button" variant="outline">

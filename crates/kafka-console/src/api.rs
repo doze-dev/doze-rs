@@ -331,19 +331,37 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .route(&web.url("/api/v1/shell"), get(shell))
         .route(&web.url("/api/v1/jump"), get(jump))
         .route(&web.url("/api/v1/settings"), get(settings::page))
-        .route(&web.url("/api/v1/settings/edit"), get(settings::edit_form).post(settings::edit))
+        .route(
+            &web.url("/api/v1/settings/edit"),
+            get(settings::edit_form).post(settings::edit),
+        )
         .route(&web.url("/api/v1/access"), get(access::page))
-        .route(&web.url("/api/v1/access/acls/new"), get(access::create_form).post(access::create))
-        .route(&web.url("/api/v1/access/acls/delete"), get(access::delete_form).post(access::delete))
+        .route(
+            &web.url("/api/v1/access/acls/new"),
+            get(access::create_form).post(access::create),
+        )
+        .route(
+            &web.url("/api/v1/access/acls/delete"),
+            get(access::delete_form).post(access::delete),
+        )
         .route(&web.url("/api/v1/lab"), get(lab::home))
         .route(&web.url("/api/v1/lab/form"), get(lab::form))
         .route(&web.url("/api/v1/lab/rules"), post(lab::make))
         .route(&web.url("/api/v1/lab/rules/{id}"), get(lab::rule))
-        .route(&web.url("/api/v1/lab/rules/{id}/enabled"), post(lab::switch))
+        .route(
+            &web.url("/api/v1/lab/rules/{id}/enabled"),
+            post(lab::switch),
+        )
         .route(&web.url("/api/v1/lab/rules/{id}/remove"), post(lab::remove))
         .route(&web.url("/api/v1/lab/history/clear"), post(lab::clear))
-        .route(&web.url("/api/v1/lab/once/{kind}"), get(lab::once_form).post(lab::once))
-        .route(&web.url("/api/v1/lab/compact"), get(lab::compact_form).post(lab::compact))
+        .route(
+            &web.url("/api/v1/lab/once/{kind}"),
+            get(lab::once_form).post(lab::once),
+        )
+        .route(
+            &web.url("/api/v1/lab/compact"),
+            get(lab::compact_form).post(lab::compact),
+        )
         .route_layer(from_fn(guard))
 }
 

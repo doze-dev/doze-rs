@@ -98,9 +98,13 @@ impl AclPost {
 pub enum AclCreateOutcome {
     Created,
     /// A field is missing: the dialog with the sentence.
-    Invalid { form: AclCreateView },
+    Invalid {
+        form: AclCreateView,
+    },
     /// Kafka said no: the dialog with its words.
-    Refused { form: AclCreateView },
+    Refused {
+        form: AclCreateView,
+    },
 }
 
 /// What a Delete ACL submit came to.
@@ -110,8 +114,12 @@ pub enum AclCreateOutcome {
 pub enum AclDeleteOutcome {
     Deleted,
     /// The ACL is no longer there.
-    Gone { form: AclDeleteView },
-    Refused { form: AclDeleteView },
+    Gone {
+        form: AclDeleteView,
+    },
+    Refused {
+        form: AclDeleteView,
+    },
 }
 
 pub(super) async fn page(State(s): State<Shared>, RawQuery(q): RawQuery) -> Response {
@@ -132,20 +140,21 @@ pub(super) async fn create_form(State(s): State<Shared>, RawQuery(q): RawQuery) 
     json(StatusCode::OK, &s.source.acl_create_form(&p.fields()).await)
 }
 
-fn posted(body: &[u8]) -> Result<AclPost, Response> {
-    serde_json::from_slice::<AclPost>(body).map_err(|_| {
-        error(
-            StatusCode::BAD_REQUEST,
-            "BAD_REQUEST",
-            "The ACL was not in the form the console sends.",
-        )
-    })
+fn posted(body: &[u8]) -> Option<AclPost> {
+    serde_json::from_slice::<AclPost>(body).ok()
+}
+
+fn not_posted() -> Response {
+    error(
+        StatusCode::BAD_REQUEST,
+        "BAD_REQUEST",
+        "The ACL was not in the form the console sends.",
+    )
 }
 
 pub(super) async fn create(State(s): State<Shared>, body: Bytes) -> Response {
-    let p = match posted(&body) {
-        Ok(p) => p,
-        Err(r) => return r,
+    let Some(p) = posted(&body) else {
+        return not_posted();
     };
     let outcome = match s.source.acl_create(&p.fields()).await {
         AclCreateResult::Created => AclCreateOutcome::Created,
@@ -155,30 +164,33 @@ pub(super) async fn create(State(s): State<Shared>, body: Bytes) -> Response {
     json(StatusCode::OK, &outcome)
 }
 
-/// The ACL the fields name, or the refusal that says it names none.
-fn target(p: &AclPost) -> Result<AclEntry, Response> {
+/// The ACL the fields name, if they name one.
+fn target(p: &AclPost) -> Option<AclEntry> {
     let e = entry_of(&input_of(&p.fields()));
-    match missing(&e) {
-        None => Ok(e),
-        Some(_) => Err(error(
-            StatusCode::BAD_REQUEST,
-            "BAD_REQUEST",
-            "That does not name an ACL: it needs the resource, the principal and the operation.",
-        )),
-    }
+    missing(&e).is_none().then_some(e)
+}
+
+fn no_acl() -> Response {
+    error(
+        StatusCode::BAD_REQUEST,
+        "BAD_REQUEST",
+        "That does not name an ACL: it needs the resource, the principal and the operation.",
+    )
 }
 
 pub(super) async fn delete_form(State(s): State<Shared>, RawQuery(q): RawQuery) -> Response {
     match target(&AclPost::of_query(q.as_deref())) {
-        Ok(e) => json(StatusCode::OK, &s.source.acl_delete_form(e).await),
-        Err(r) => r,
+        Some(e) => json(StatusCode::OK, &s.source.acl_delete_form(e).await),
+        None => no_acl(),
     }
 }
 
 pub(super) async fn delete(State(s): State<Shared>, body: Bytes) -> Response {
-    let e = match posted(&body).and_then(|p| target(&p)) {
-        Ok(e) => e,
-        Err(r) => return r,
+    let Some(p) = posted(&body) else {
+        return not_posted();
+    };
+    let Some(e) = target(&p) else {
+        return no_acl();
     };
     let outcome = match s.source.acl_delete(e).await {
         AclDeleteResult::Deleted => AclDeleteOutcome::Deleted,

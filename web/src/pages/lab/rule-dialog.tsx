@@ -67,7 +67,9 @@ function useSettled<T>(value: T, ms = 300): T {
 }
 
 function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabForm; onMade: (id: number) => void }) {
-  const form = useForm<LabFields>({ defaultValues: start.fields });
+  // The form's API words (`produce`) are the options' values (`Produce`), so the MultiSelect shows them chosen.
+  const apiValue = (w: string) => start.apis.find((a) => a.value.toLowerCase() === w.toLowerCase())?.value ?? w;
+  const form = useForm<LabFields>({ defaultValues: { ...start.fields, api: list(start.fields.api).map(apiValue).join(",") } });
   const values = useWatch({ control: form.control }) as LabFields;
   const settled = useSettled(values);
   const [answer, setAnswer] = useState<LabForm>(start);

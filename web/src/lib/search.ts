@@ -50,8 +50,9 @@ export function accessSearch(s: Record<string, unknown>): AccessSearch {
 
 export const LAB_TABS = ["slow", "fail", "drop", "expire", "rebalance", "compact"] as const;
 export type LabTab = (typeof LAB_TABS)[number];
-export type LabSearch = { new?: LabTab; rule?: string; remove?: string };
+// Rule numbers are numbers in the address (`?rule=12`): a string that looks like a number would be written as JSON (`"12"`).
+export type LabSearch = { new?: LabTab; rule?: number; remove?: number };
 export function labSearch(s: Record<string, unknown>): LabSearch {
-  const id = (raw: unknown) => (typeof raw === "string" || typeof raw === "number") && /^\d{1,9}$/.test(String(raw)) ? String(raw) : undefined;
+  const id = (raw: unknown) => ((typeof raw === "string" || typeof raw === "number") && /^\d{1,9}$/.test(String(raw)) ? Number(raw) : undefined);
   return { new: oneOf(LAB_TABS, s.new), rule: id(s.rule), remove: id(s.remove) };
 }

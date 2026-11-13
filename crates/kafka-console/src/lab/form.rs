@@ -222,13 +222,28 @@ fn collect<T>(r: Result<T, (String, String)>, errors: &mut Errors) -> Option<T> 
 ///
 /// # Errors
 /// One `(field, sentence)` for each field that is wrong.
+/// The matcher's fields of a form: APIs, topics, partitions, group and client, each checked.
+type Matched = (
+    Option<Vec<ApiKey>>,
+    Option<Vec<Pattern>>,
+    Option<Vec<i32>>,
+    Option<Option<Pattern>>,
+    Option<Option<Pattern>>,
+);
+
+fn matched(f: &LabFields, errors: &mut Errors) -> Matched {
+    (
+        collect(api_of(f), errors),
+        collect(topic_of(f), errors),
+        collect(partitions_of(f), errors),
+        collect(group_of(f), errors),
+        collect(client_of(f), errors),
+    )
+}
+
 pub fn spec_of(kind: LabKind, f: &LabFields) -> Result<Spec, Errors> {
     let mut errors = Errors::new();
-    let api = collect(api_of(f), &mut errors);
-    let topics = collect(topic_of(f), &mut errors);
-    let partitions = collect(partitions_of(f), &mut errors);
-    let group = collect(group_of(f), &mut errors);
-    let client = collect(client_of(f), &mut errors);
+    let (api, topics, partitions, group, client) = matched(f, &mut errors);
     let share = words::share_of(&f.share);
     if share.is_none() {
         errors.push(err("share", "Choose how many of the requests."));

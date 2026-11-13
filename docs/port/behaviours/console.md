@@ -1010,3 +1010,53 @@ React escapes text and no HTML is ever injected; the API returns what it was giv
 
 ## CON-1014. Every control works in Firefox, WebKit and Chromium
 The Playwright gate drives the shell (sidebar, collapse, chips, palette, RefreshControl), the gallery (Button, Input, Textarea, Select, Combobox, MultiSelect, RadioGroup, Switch, Checkbox, ToggleGroup, Tabs, Dialog, Sheet, DropdownMenu, Popover, Tooltip, Toast, StatStrip, CodeValue, EmptyState, DataTable), Home and Connect, with the mouse and the keyboard, asserting outcomes; every test fails on a console error; no page scrolls sideways at 1024, 1280, 1440 and 1920; an interval refresh moves nothing. Files: `web/e2e/tests/shell.spec.ts`, `gallery.spec.ts`, `pages.spec.ts`. Results per browser in `docs/port/console/react-plan.md` ("R0 done").
+
+# Slice R4: Settings, Access, the Lab (React)
+
+## CON-1300. Settings is its view-model, serialised
+`GET /api/v1/settings` is the `SettingsView` the classic page renders (the five dynamic broker configs with their source in the table's words, the version profile, the intervals, the weight, the data directory, the flags); `GET /api/v1/settings/edit?key=&scope=` the edit dialog of one of the five (NOT_FOUND for any other). Test: `the_settings_api_answers_the_page_and_the_edit_dialog`.
+
+## CON-1301. The Edit dialog checks and saves in Kafka's words
+The dialog is routed (`?edit=<key>&scope=this`); the config is a shadcn Select, Applies to a ToggleGroup, the value has a unit hint that follows what is typed; Check sends IncrementalAlterConfigs with `validate_only`, Save without; a refusal shows Kafka's error name, code and sentence with the rule and what would pass; a save updates the table and says who sees the value. `POST /api/v1/settings/edit` answers `{outcome: saved | refused | checked | invalid | switched}`. Files: `web/e2e/tests/settings.spec.ts`. Test: `the_settings_api_answers_the_page_and_the_edit_dialog`.
+
+## CON-1302. The weight carries no memory figure
+The weight is the binary's size, the open partitions against the most kept open, and the partitions on disk. `SettingsWeight::resident` and `threads` are never serialised. Test: `the_settings_api_answers_the_page_and_the_edit_dialog`; Playwright "Settings: every section, figures as tiles, the five configs, no memory figure".
+
+## CON-1303. The data directory wraps its whole path
+The path breaks at any character inside its box (never an ellipsis, never past the card) and has its own Copy button. File: `web/e2e/tests/settings.spec.ts` ("the data directory wraps its whole path").
+
+## CON-1310. Access is its view-model, serialised, with no secret
+`GET /api/v1/access` is the `AccessView` (authentication, authorizer, TLS, users by name with mechanisms and iteration counts, ACLs, the console's principal and exposure, the start warnings) and the form's lists of resource types and operations. A user carries five fields and none is a secret. Test: `the_access_api_answers_the_page_and_the_two_acl_dialogs`.
+
+## CON-1311. Create ACL and Delete ACL are dialogs over Access
+`?acl=new` opens Create ACL (principal, host, resource type Select, pattern ToggleGroup, name, operation Select, permission ToggleGroup) with the CreateAcls call the server writes for what is typed; `?delete=<the ACL's words>` opens Delete ACL with what the broker decides afterwards (`acl_words::after_delete`) and the DeleteAcls call. A missing field is said under it; a refusal is Kafka's. The ACL table is a DataTable whose filters (text, resource type, permission) are in the address. Files: `web/e2e/tests/access.spec.ts`. Test: `the_access_api_answers_the_page_and_the_two_acl_dialogs`.
+
+## CON-1312. A write of Settings, Access or the Lab needs the same-origin proof
+Every R4 POST passes the API guard (`X-Console: 1`, no foreign `Sec-Fetch-Site`, `origin::check`); a console without the Lab answers every Lab write `LAB_OFF` and the page says the Lab is off. Test: `a_write_of_settings_access_or_the_lab_needs_the_same_origin_proof`.
+
+## CON-1320. The Lab's API is the engine's, over a real broker
+`GET /api/v1/lab` (the rules in force, ended in the last hour, the rehearsals done once, the compacted topics), `GET /api/v1/lab/form?kind=` (the choices: APIs the engine can fail, topics, apps with a connection open, groups, codes, shares, lifetimes), `POST /api/v1/lab/rules` (`check` answers the preview and the sentences; otherwise `made` with the rule's number or `invalid`), `GET /api/v1/lab/rules/{id}` (the rule and the requests it touched, each with what the rule did), `POST .../enabled`, `.../remove`, `/api/v1/lab/history/clear`, `GET|POST /api/v1/lab/once/{drop|expire|rebalance}`, `GET|POST /api/v1/lab/compact`. Test: `the_lab_api_previews_makes_switches_and_removes_a_rule_over_a_real_broker`.
+
+## CON-1321. The Lab page's state is the data's
+Empty (nothing in force, nothing ended in the hour), active (a DataTable of the rules in force with a stable id per rule, an on/off Switch, hits, the last hit as an absolute time, the end time, remove with a confirm dialog), expired (the Ended table and the list of rehearsals done once, with Clear history). File: `web/e2e/tests/lab.spec.ts`.
+
+## CON-1322. A Slow rule for a client slows that client's requests, and the rule counts them
+Made from the New rehearsal dialog (`?new=slow`) against a broker with traffic: the server's preview says what it will do before it is made; the rule's sheet (`?rule=<id>`) shows hits, the last hit, the time left counted down locally (CON-812) and the requests it touched, each with the lab tag and the delay in its time. File: `web/e2e/tests/lab.spec.ts`. Test: `the_lab_api_previews_makes_switches_and_removes_a_rule_over_a_real_broker`.
+
+## CON-1323. A Fail rule on Produce answers the client with the code it names
+The producer receives the error (kafkajs names it `NOT_LEADER_OR_FOLLOWER`); the broker is never asked. File: `web/e2e/tests/lab.spec.ts`. Test: `the_lab_api_previews_makes_switches_and_removes_a_rule_over_a_real_broker`.
+
+## CON-1324. A rule can be switched off and on, and removed
+The Switch of a row and of the sheet; Remove asks first (`?remove=<id>`) and the rule moves to Ended as Removed. Test: `the_lab_api_previews_makes_switches_and_removes_a_rule_over_a_real_broker`; `web/e2e/tests/lab.spec.ts`.
+
+## CON-1325. A rule's form takes several APIs, topics, partitions and a group
+APIs and topics are MultiSelects, partitions a MultiSelect of the chosen topics' partitions, client and group Comboboxes; each wrong field gets its own sentence from the engine. Test: `a_rule_form_takes_several_apis_topics_partitions_and_a_group`.
+
+## CON-1326. Drop, Expire, Rebalance and Compact are tabs of the same dialog
+Each lists what there is to choose (apps with a connection open, members, groups with members, compacted topics), shows the call, and leaves a line in the Lab's history. Compact now shows the planner's verdict first and runs only when a round is due; `CompactNowDialog` (`web/src/pages/lab/compact-now.tsx`) is the same dialog for a topic's Log tab, and `LabRuleBadge` (`web/src/pages/lab/badge.tsx`) the lab tag for the Live tape and its drawer. File: `web/e2e/tests/lab.spec.ts`.
+
+## CON-1330. No browser-default control on Settings, Access or the Lab
+Every list is a shadcn Select, Combobox or MultiSelect; no native select, date or number field is visible on any of the pages or their dialogs, in any browser. Files: `web/e2e/tests/settings.spec.ts`, `access.spec.ts`, `lab.spec.ts` (`noNativeSelect`).
+
+## CON-1331. Every overlay of R4 has its own address and gives the focus back
+The Edit dialog, Create ACL, Delete ACL, New rehearsal, the rule's sheet and Remove are search params: Back closes one opened from the page, a deep link opens it, Esc closes it and the focus returns to what opened it (also in Firefox and Safari, where a clicked button is not focused). Files: `web/e2e/tests/settings.spec.ts`, `access.spec.ts`, `lab.spec.ts`.

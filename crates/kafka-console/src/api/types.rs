@@ -18,22 +18,12 @@ use crate::model::{
 
 /// The types of slice R4 (Settings, Access, Lab).
 fn r4(cfg: &Config, out: &mut BTreeMap<String, String>) {
-    use super::access::{AccessResponse, AclChoice, AclCreateOutcome, AclDeleteOutcome};
-    use super::lab::{
-        LabCompactOutcome, LabHit, LabMadeOutcome, LabOnceOutcome, LabResponse, LabRuleResponse,
-    };
     use super::settings::{KafkaRefusal, SettingsOutcome, SettingsResponse};
-    use crate::model::lab::{
-        LabChoice, LabCompact, LabEnd, LabFields, LabFirst, LabForm, LabHome, LabKind, LabOnce,
-        LabOnceForm, LabOnceKind, LabPreview, LabRule,
-    };
     use crate::model::{
-        AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessTls, AccessUser,
-        AccessView, AccessWarning, AclCreateView, AclDeleteView, AclEntry, AclInput, AclPattern,
-        AclPermission, SettingsApi, SettingsChecked, SettingsConfigRow, SettingsConfigs,
-        SettingsData, SettingsEditView, SettingsFlag, SettingsHead, SettingsInterval,
-        SettingsIntervals, SettingsLine, SettingsProfile, SettingsRefused, SettingsRound,
-        SettingsSaved, SettingsScope, SettingsSpeaks, SettingsTeach, SettingsView, SettingsWeight,
+        SettingsApi, SettingsChecked, SettingsConfigRow, SettingsConfigs, SettingsData,
+        SettingsEditView, SettingsFlag, SettingsHead, SettingsInterval, SettingsIntervals,
+        SettingsLine, SettingsProfile, SettingsRefused, SettingsRound, SettingsSaved,
+        SettingsScope, SettingsSpeaks, SettingsTeach, SettingsView, SettingsWeight,
     };
     one::<KafkaRefusal>(cfg, out);
     one::<SettingsResponse>(cfg, out);
@@ -58,6 +48,17 @@ fn r4(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<SettingsChecked>(cfg, out);
     one::<SettingsSaved>(cfg, out);
     one::<SettingsRefused>(cfg, out);
+    r4_access(cfg, out);
+    r4_lab(cfg, out);
+}
+
+fn r4_access(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    use super::access::{AccessResponse, AclChoice, AclCreateOutcome, AclDeleteOutcome};
+    use crate::model::{
+        AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessTls, AccessUser,
+        AccessView, AccessWarning, AclCreateView, AclDeleteView, AclEntry, AclInput, AclPattern,
+        AclPermission,
+    };
     one::<AccessResponse>(cfg, out);
     one::<AclChoice>(cfg, out);
     one::<AccessView>(cfg, out);
@@ -77,6 +78,16 @@ fn r4(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<AclDeleteView>(cfg, out);
     one::<AclCreateOutcome>(cfg, out);
     one::<AclDeleteOutcome>(cfg, out);
+}
+
+fn r4_lab(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    use super::lab::{
+        LabCompactOutcome, LabHit, LabMadeOutcome, LabOnceOutcome, LabResponse, LabRuleResponse,
+    };
+    use crate::model::lab::{
+        LabChoice, LabCompact, LabEnd, LabFields, LabFirst, LabForm, LabHome, LabKind, LabOnce,
+        LabOnceForm, LabOnceKind, LabPreview, LabRule,
+    };
     one::<LabResponse>(cfg, out);
     one::<LabHome>(cfg, out);
     one::<LabRule>(cfg, out);
