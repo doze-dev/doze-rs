@@ -84,7 +84,10 @@ async fn the_settings_api_answers_the_page_and_the_edit_dialog() {
     assert_eq!(rows.len(), 5, "{v}");
     assert!(rows.iter().all(|r| r["source"].is_string()), "{v}");
     let text = v.to_string();
-    assert!(!text.contains("resident") && !text.contains("threads"), "{text}");
+    // No memory figure: the weight has no `resident` (nor its neighbour `threads`) key.
+    let weight = v["settings"]["weight"].as_object().unwrap();
+    assert!(!text.contains("resident"), "{text}");
+    assert!(!weight.contains_key("threads"), "{weight:?}");
     let (s, v) = json(&app, get("/api/v1/settings/edit?key=log.retention.ms")).await;
     assert_eq!(s, StatusCode::OK);
     assert_eq!(v["key"], "log.retention.ms");
