@@ -29,7 +29,7 @@ export function StatTile({ stat, className, style, dense = false }: { stat: Stat
     </dd>
   );
   return (
-    <div className={cn("row-span-3 grid min-w-0 grid-rows-subgrid gap-0 rounded-xl border bg-card px-5 py-4", dense && "px-4 py-3", className)} style={style} data-slot="stat">
+    <div className={cn("row-span-3 grid min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-subgrid gap-0 rounded-xl border bg-card px-5 py-4", dense && "px-4 py-3", className)} style={style} data-slot="stat">
       <dt className="self-end text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase">{stat.label}</dt>
       {stat.tip ? (
         <Tooltip>
