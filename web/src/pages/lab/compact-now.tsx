@@ -75,7 +75,7 @@ export function CompactNowBody({ topic, partition, onDone, footer = true }: { to
         </p>
       )}
       {footer && (
-        <DialogFooter className="border-t pt-4">
+        <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline">
               Cancel

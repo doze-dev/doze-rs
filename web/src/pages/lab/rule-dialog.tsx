@@ -359,7 +359,7 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
             </p>
           )}
         </aside>
-        <DialogFooter className="border-t pt-4 lg:col-span-2">
+        <DialogFooter className="lg:col-span-2">
           <DialogClose asChild>
             <Button type="button" variant="outline">
               Cancel
@@ -466,7 +466,7 @@ function OnceTab({ kind, onDone }: { kind: "drop" | "expire" | "rebalance"; onDo
           {refused}
         </p>
       )}
-      <DialogFooter className="border-t pt-4">
+      <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="outline">
             Cancel

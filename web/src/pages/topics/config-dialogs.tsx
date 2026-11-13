@@ -365,7 +365,7 @@ export default function ConfigDialogs({ topic, edit, reset, onClose }: { topic: 
             {shown.kind === "edit" ? "Check asks the broker with validate_only and changes nothing; Save sends IncrementalAlterConfigs." : "IncrementalAlterConfigs DELETE of the value the topic sets."}
           </DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5" data-testid="dialog-body">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5 [--dp-y:1.25rem]" data-testid="dialog-body">
           {shown.kind === "edit" ? <EditBody key={shown.n} topic={topic} k={shown.key} open={open} /> : <ResetBody key={shown.n} topic={topic} k={shown.key} open={open} onDone={onClose} />}
         </div>
       </DialogContent>

@@ -209,7 +209,7 @@ function CreateBody({ kinds, operations, onDone }: { kinds: AclChoice[]; operati
           )}
           {preview.data ? <CallBox lines={preview.data.call} /> : <Skeleton className="h-40 w-full" />}
         </div>
-        <DialogFooter className="border-t pt-4 sm:col-span-2">
+        <DialogFooter className="sm:col-span-2">
           <DialogClose asChild>
             <Button type="button" variant="outline">
               Cancel
@@ -320,7 +320,7 @@ function DeleteAcl({ query, kinds, operations, onClose }: { query: string | unde
             <CallBox lines={v.call} />
           </div>
         )}
-        <DialogFooter className="border-t pt-4">
+        <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline">
               {v?.gone || gone ? "Close" : "Cancel"}

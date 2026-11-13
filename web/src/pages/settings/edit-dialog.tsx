@@ -189,7 +189,7 @@ function Body({ view, scope, onMove, onSaved }: { view: SettingsEditView; scope:
           )}
         </div>
         {!refused && <CallBox lines={shown.call} />}
-        <DialogFooter className="border-t pt-4">
+        <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline">
               Cancel

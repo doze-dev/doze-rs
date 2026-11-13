@@ -168,5 +168,5 @@ export function FieldError({ children, id }: { children?: React.ReactNode; id?: 
 
 /** A dialog's buttons, held at the bottom of its scrolling body so Send is always in reach. */
 export function StickyFooter({ children }: { children: React.ReactNode }) {
-  return <DialogFooter className="sticky -bottom-5 z-10 -mx-6 -mb-5 mt-1 border-t bg-background px-6 py-4">{children}</DialogFooter>;
+  return <DialogFooter className="mt-1">{children}</DialogFooter>;
 }
