@@ -1081,7 +1081,15 @@ There is one page layer, the React app, and no other route (the server-rendered 
 The CSP is `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`. Test: `the_host_guard_and_the_security_headers_stand_in_front_of_all_of_it`.
 
 ## CON-1012. No planted secret reaches a JSON answer
-The planted-secret gate reads every GET endpoint of the API over a real broker with SASL. Test: `no_planted_secret_reaches_the_recorder_the_stream_or_a_page`.
+The planted-secret gate reads, over a real broker with SASL and a Lab rule in force: every GET endpoint of the API (`GET_PATHS`),
+the GETs of one group (`GROUP_GET_PATHS`, over groups the test commits), the Lab's GETs (the home, both forms, a rule, the
+rehearsals, Compact), the answer of a representative POST of every write (made, checked and refused: probe, create topic, produce,
+add partitions, delete records, topic config edit and reset, compact, the three group writes, settings edit, ACL create and
+delete, the Lab's rule writes, rehearsal, compact and clear, delete topic), and the first frames of the live tail from the first
+cursor; the messages tail, which shows records by design, is searched for the credentials and the secret config. Added by the
+2026-11-13 console security audit (finding 4); it found the Settings dialog saying back the value typed for a config that is not
+one of the five (`ssl.key.password`) in the call it shows: such a value is now `(the value, not shown)`, in the call and in the
+broker's sentence. Test: `no_planted_secret_reaches_the_recorder_the_stream_or_a_page`.
 
 ## CON-1013. A hostile name is JSON text
 React escapes text and no HTML is ever injected; the API returns what it was given as a string. Test: `a_hostile_name_in_the_palette_comes_back_as_json_text`.
