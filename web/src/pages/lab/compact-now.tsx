@@ -3,11 +3,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { BrushCleaningIcon, CircleCheckIcon } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import { ApiFailure } from "@/api/client";
 import { post, useLabCompact } from "@/api/r4";
 import type { LabCompactOutcome } from "@/api/types/LabCompactOutcome";
 import { Spans } from "@/components/app/spans";
+import { Done, DoneFooter } from "@/components/app/write-done";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,15 +20,15 @@ export function CompactNowBody({ topic, partition, onDone, footer = true }: { to
   const v = q.data;
   const [refused, setRefused] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cleaned, setCleaned] = useState(false);
   const run = async () => {
     setBusy(true);
     setRefused(null);
     try {
       const out = await post<LabCompactOutcome>("/api/v1/lab/compact", { topic, partition });
       if (out.outcome === "done") {
-        toast.success(`Cleaned ${topic}-${partition}`, { description: "The cleaner's round ran now." });
+        setCleaned(true);
         void qc.invalidateQueries();
-        onDone?.();
       } else setRefused(out.form.refused ?? out.form.blocked ?? "The round did not run.");
     } catch (e) {
       setRefused(e instanceof ApiFailure ? e.message : String(e));
@@ -41,6 +41,19 @@ export function CompactNowBody({ topic, partition, onDone, footer = true }: { to
       <p role="alert" className="text-[13.5px] text-bad">
         {q.error.message}
       </p>
+    );
+  }
+  if (cleaned) {
+    return (
+      <div className="flex min-w-0 flex-col gap-4">
+        <Done testId="compact-done">
+          <b className="font-semibold text-bright">
+            Cleaned {topic}-{partition}.
+          </b>{" "}
+          The cleaner's round ran now; the Log shows the segments it left.
+        </Done>
+        <DoneFooter onDone={onDone} />
+      </div>
     );
   }
   if (!v) return <Skeleton className="h-40 w-full" />;

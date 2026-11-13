@@ -4,7 +4,6 @@
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { CheckIcon, ChevronDownIcon, EyeIcon, FlaskConicalIcon, InfoIcon, ScrollTextIcon, SendIcon, TriangleAlertIcon } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import { ApiFailure } from "@/api/client";
 import { useCompactNow, useLog } from "@/api/topics";
 import type { LogCompaction } from "@/api/types/LogCompaction";
@@ -30,6 +29,7 @@ import { bytes, clock, dateTime, millis, pct, spanMs } from "@/lib/kafka";
 import { shellWord } from "@/lib/shell";
 import { useShell } from "@/api/queries";
 import { cn } from "@/lib/utils";
+import { Done, DoneFooter } from "@/components/app/write-done";
 import { PageError } from "../page-error";
 import { useTopicDialog } from "./frame";
 import { policyWord } from "./words";
@@ -608,12 +608,14 @@ function CompactNow({ r }: { r: LogResponse }) {
   const d = r.compact;
   const [open, setOpen] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
+  const [ran, setRan] = useState<string | null>(null);
   const run = useCompactNow(v.topic, v.partition);
   return (
     <>
       <Button
         onClick={() => {
           setRefused(null);
+          setRan(null);
           setOpen(true);
         }}
         data-testid="compact-now"
@@ -628,6 +630,15 @@ function CompactNow({ r }: { r: LogResponse }) {
             </DialogTitle>
             <DialogDescription>The cleaner's real round, run at once by the Lab, with the planner's verdict first. The same round the cleaner runs at its next look.</DialogDescription>
           </DialogHeader>
+          {ran !== null ? (
+            <>
+              <Done testId="compact-done">
+                <b className="font-semibold text-bright">Compacted.</b> {ran}
+              </Done>
+              <DoneFooter />
+            </>
+          ) : (
+          <>
           <div className="flex flex-col gap-3 text-[13.5px]">
             {d.off ? (
               <p data-testid="compact-blocked">The Lab is switched off (--lab false), so the console does not run the cleaner.</p>
@@ -667,10 +678,7 @@ function CompactNow({ r }: { r: LogResponse }) {
                 data-testid="compact-run"
                 onClick={() =>
                   run.mutate(undefined, {
-                    onSuccess: (done) => {
-                      setOpen(false);
-                      toast.success("Compacted", { description: done.message });
-                    },
+                    onSuccess: (done) => setRan(done.message),
                     onError: (e) => setRefused(e instanceof ApiFailure ? e.message : "The console did not answer."),
                   })
                 }
@@ -679,6 +687,8 @@ function CompactNow({ r }: { r: LogResponse }) {
               </Button>
             )}
           </DialogFooter>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </>

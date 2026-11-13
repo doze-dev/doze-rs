@@ -5,7 +5,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { toast } from "sonner";
 import type { ConfigEditAnswer } from "@/api/types/ConfigEditAnswer";
 import type { ConfigEditForm } from "@/api/types/ConfigEditForm";
 import type { ConfigOp } from "@/api/types/ConfigOp";
@@ -23,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { DoneFooter } from "@/components/app/write-done";
 import { CallBlock, Done, FieldError, RefusalCallout, SpanLines, Teaching, StickyFooter } from "./writes/parts";
 
 const MIN_LAG = "min.compaction.lag.ms";
@@ -290,14 +290,20 @@ function ResetBody({ topic, k, open, onDone }: { topic: string; k: string; open:
   const preview = useConfigResetForm(topic, queryOf({ key: k }), open);
   const send = useMutation({
     mutationFn: () => post<ConfigResetDone>(topicPath(topic, "/config/reset"), { key: k }),
-    onSuccess: () => {
-      void afterWrite(qc);
-      toast.success(`Reset ${k}.`, { description: `The value set on ${topic} is removed, so the topic follows the broker again.` });
-      onDone();
-    },
+    onSuccess: () => void afterWrite(qc),
   });
   const failed = detailOf<ConfigResetForm>(send.error);
   const shown = failed ?? preview.data;
+  if (send.isSuccess) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Done testId="config-reset-done">
+          <b className="font-semibold text-bright">Reset {k}.</b> The value set on {topic} is removed, so the topic follows the broker again.
+        </Done>
+        <DoneFooter onDone={onDone} />
+      </div>
+    );
+  }
   if (!shown) return <Skeleton className="h-40 w-full" />;
   const v = shown.view;
   return (

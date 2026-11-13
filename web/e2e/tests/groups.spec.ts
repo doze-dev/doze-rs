@@ -241,7 +241,8 @@ test("Reset offsets: a GET preview, then the reset; the Lag tab shows where the 
   await expect(dialog.getByTestId("reset-after")).toHaveText(["0", "0", "0"]);
   await expect(dialog.getByTestId("reset-submit")).toHaveText(/Reset 3 offsets/);
   await dialog.getByTestId("reset-submit").click();
-  await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Reset 3 offsets" })).toBeVisible();
+  await expect(dialog.getByTestId("reset-done")).toContainText("Reset 3 offsets");
+  await dialog.getByTestId("write-done").click();
   await expect(dialog).toBeHidden();
   await expect(page).not.toHaveURL(/dialog=/);
   const block = page.getByTestId("lag-topic").filter({ has: page.getByRole("link", { name: TOPIC }) });
@@ -314,7 +315,8 @@ test("Delete offsets forgets the commits of the topics ticked; Delete group then
   await expect(box).toBeChecked();
   await expect(dialog.getByTestId("offsets-submit")).toHaveText(/Delete 3 offsets/);
   await dialog.getByTestId("offsets-submit").click();
-  await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Deleted 3 committed offsets" })).toBeVisible();
+  await expect(dialog.getByTestId("offsets-done")).toContainText("Deleted 3 committed offsets");
+  await dialog.getByTestId("write-done").click();
   await expect(dialog).toBeHidden();
   await page.getByTestId("open-delete").click();
   const del = page.getByTestId("dialog-delete");

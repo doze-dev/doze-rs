@@ -77,7 +77,7 @@ test("Compact now on a compacted topic: a Dialog with the planner's verdict, and
   if (await dialog.getByTestId("compact-run").count()) {
     // Due: run the round; the answer is a toast of what it did, or the refusal in the dialog.
     await dialog.getByTestId("compact-run").click();
-    await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Ran the cleaner on inventory.levels-0" }).or(dialog.getByTestId("compact-refused"))).toBeVisible();
+    await expect(dialog.getByTestId("compact-done").or(dialog.getByTestId("compact-refused"))).toBeVisible();
   } else {
     // Not due: the planner's sentence says why, and nothing runs.
     await expect(dialog.getByTestId("compact-blocked")).toContainText(/planner finds nothing due|cleaner is off|nothing to clean|Lab is switched off/);

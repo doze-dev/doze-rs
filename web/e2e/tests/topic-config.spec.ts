@@ -154,8 +154,9 @@ test("reset: the topic follows the broker again", async ({ page, request, baseUR
   await expect(d.getByTestId("reset-after")).not.toContainText("3600000");
   const after = (await d.getByTestId("reset-after").locator("code").innerText()).trim();
   await d.getByTestId("reset-submit").click();
+  await expect(d.getByTestId("config-reset-done")).toContainText("Reset retention.ms.");
+  await d.getByTestId("write-done").click();
   await expect(d).toBeHidden();
-  await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Reset retention.ms." })).toBeVisible();
   await expect(row(page, "retention.ms").getByTestId("source")).not.toHaveText("Dynamic topic");
   await expect(row(page, "retention.ms").getByTestId("config-value")).toHaveText(after);
 });
