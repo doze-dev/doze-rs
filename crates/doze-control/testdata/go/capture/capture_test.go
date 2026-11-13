@@ -186,7 +186,7 @@ func TestCaptureScripts(t *testing.T) {
 		"shop": fixture.Shop(epoch), "crash": fixture.Crash(epoch), "modules": fixture.Modules(epoch),
 		"larder": fixture.Larder(epoch), "larder-crash": fixture.LarderCrash(epoch),
 		"larder-portclash": fixture.LarderPortClash(epoch), "larder-domains": fixture.LarderDomains(epoch),
-		"mess": fixture.Mess(epoch), "long": fixture.Long(epoch), "empty": {},
+		"mess": fixture.Mess(epoch), "states": fixture.States(epoch), "long": fixture.Long(epoch), "empty": {},
 	}
 	out := filepath.Join(dir, "scripts")
 	_ = os.MkdirAll(out, 0o755)

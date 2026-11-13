@@ -39,8 +39,10 @@ pub(crate) struct Tab {
     pub(crate) key: StackKey,
     pub(crate) name: String,
     pub(crate) running: bool,
-    /// Something in it needs you.
-    pub(crate) trouble: bool,
+    /// How many of its instances are in trouble, tasks aside (Go: the summary's `troubled`): the tab's red dot and badge.
+    pub(crate) troubled: usize,
+    /// Its daemon answers (Go: `live`): a running stack out of touch has a yellow dot.
+    pub(crate) live: bool,
 }
 
 /// The sidebar's foot, as Go's: "doze v0.1.2 · 2 stacks".
@@ -111,6 +113,7 @@ impl Root {
         self.moved(&screen);
         self.screen = screen;
         self.refresh_tabs(cx);
+        self.wind(cx);
         cx.notify();
     }
 
@@ -145,10 +148,15 @@ impl Root {
             .map(|s| {
                 let snap = s.words();
                 Tab {
-                    trouble: snap.instances.iter().any(words::troubled),
+                    troubled: snap
+                        .instances
+                        .iter()
+                        .filter(|v| v.kind != doze_display::Kind::Task && words::troubled(v))
+                        .count(),
                     key: s.key,
                     name: s.name,
                     running: s.running,
+                    live: s.link.conn == doze_desk::Conn::Live,
                 }
             })
             .collect();

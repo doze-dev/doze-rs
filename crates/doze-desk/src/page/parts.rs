@@ -3,12 +3,12 @@
 
 use super::Ink;
 use super::logs::Line;
-use super::time::{self, Zone};
-use crate::convert;
+use super::time;
 use doze_control as wire;
 use doze_display::{self as words, Holder, Kind, Look, State};
 use std::time::{Duration, SystemTime};
 
+pub use super::recent::recent;
 pub use super::runs::{RunRow, match_runs, runs};
 
 /// One row of a card: a key, a value, and what the copy button copies (nothing for no button). The instance page's
@@ -342,38 +342,6 @@ pub fn chart(vs: &[f64], label: fn(f64) -> String, sub: &str) -> Chart {
         peak: label(peak),
         mean: label(mean),
         span: words::span_word(vs.len() as u64),
-    }
-}
-
-/// doze's own events for it, at most the last eight.
-pub fn recent(events: &[wire::Event], name: &str, zone: Zone) -> Vec<Recent> {
-    let mut out: Vec<Recent> = events
-        .iter()
-        .filter(|e| e.instance == name)
-        .map(|e| {
-            let e = convert::event(e);
-            let said = words::sentence(&e);
-            let (kind, rest) = said.split_once(' ').unwrap_or((said.as_str(), ""));
-            Recent {
-                at: zone.clock(e.time),
-                kind: kind.to_owned(),
-                text: rest.to_owned(),
-                ink: event_ink(kind),
-            }
-        })
-        .collect();
-    let extra = out.len().saturating_sub(8);
-    out.drain(..extra);
-    out
-}
-
-fn event_ink(kind: &str) -> Ink {
-    match kind {
-        "woke" => Ink::Accent,
-        "ready" => Ink::Good,
-        "idle" | "slept" => Ink::Warn,
-        "crashed" | "failed" => Ink::Bad,
-        _ => Ink::Dim,
     }
 }
 

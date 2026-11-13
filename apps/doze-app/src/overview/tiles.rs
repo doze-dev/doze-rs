@@ -7,7 +7,10 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 use gpui_component::input::Input;
 
 use super::OverviewView;
-use crate::kit::{chip_of, s, tone, word_line};
+use doze_display::Look;
+
+use crate::instance::ui::state_mark;
+use crate::kit::{chip_of, s, word_line};
 use crate::theme::{Tokens, mix};
 use crate::widgets::{MONO_FAMILY, dot, icon, switch, tracked, w};
 
@@ -20,48 +23,33 @@ pub(super) fn per_row(v: &OverviewView) -> usize {
     }
 }
 
-/// The row's dot (`Dot`): a task's glyph, red in trouble, green awake, yellow dozing, a ring while waking.
+/// The row's dot: the same mark as the sidebar's and the instance head's (`ui::state_mark`), from the words' look: red in
+/// trouble, green awake, yellow dozing, a ring while waking or running, ⊘ paused, ○ off, a task's glyph. Go's rows drew a
+/// plain dot for off where its sidebar drew ○; here every surface draws the one mark (paused keeps its dot: its ⊘ is in the
+/// switch's place). A task is its
+/// glyph even when its last run failed (✗), never the trouble dot.
 pub(super) fn row_dot(t: &Tokens, r: &Row) -> AnyElement {
-    if r.kind == "task" {
-        return div()
-            .w(px(8.))
-            .text_size(px(12.))
-            .text_color(tone(t, r.look.tone))
-            .child(r.look.glyph)
-            .into_any_element();
-    }
-    if r.trouble {
-        return dot(t.bad).into_any_element();
-    }
-    match r.look.word {
-        "awake" => dot(t.good).into_any_element(),
-        "dozing" => dot(t.warn).into_any_element(),
-        "waking" => div()
-            .size(px(8.))
-            .flex_none()
-            .rounded_full()
-            .border_2()
-            .border_color(t.cool)
-            .into_any_element(),
-        _ => dot(t.dim).into_any_element(),
+    let trouble = r.trouble && r.kind != "task";
+    match Look::of_word(r.look.word) {
+        // Its ⊘ is in the switch's place already (`.lock`): once is enough.
+        Some(Look::Paused) => dot(t.dim).into_any_element(),
+        Some(l) => state_mark(t, Some(l), trouble, 8.),
+        None => dot(if trouble { t.bad } else { t.dim }).into_any_element(),
     }
 }
 
-/// The word's tone (`wordTone`).
+/// The word's tone (`wordTone`): the look's own, as every surface draws it; red in trouble; a verb in flight cool.
 pub(super) fn word_tone(t: &Tokens, r: &Row) -> gpui::Hsla {
     if r.trouble {
         return t.bad;
     }
-    match r.look.word {
-        "awake" | "done" => t.good,
-        "dozing" => t.warn,
-        "waking" => t.cool,
+    match Look::of_word(r.look.word) {
+        Some(l) => t.tone(l.tone()),
         // A verb in flight (`act::mark_doing`).
-        w if w.ends_with('…') => t.cool,
-        "ready" => t.accent,
-        "failed" => t.bad,
+        None if r.look.word.ends_with('…') => t.cool,
+        None if r.look.word == "ready" => t.accent,
         // Any other word takes the line's own colour, as `wordTone` gave it no class.
-        _ => t.dim,
+        None => t.dim,
     }
 }
 
@@ -80,7 +68,7 @@ pub(super) fn row_switch(
         if r.down {
             return div().into_any_element();
         }
-        let label = if matches!(r.look.word, "done" | "failed") {
+        let label = if matches!(Look::of_word(r.look.word), Some(Look::Done | Look::Failed)) {
             "Run again"
         } else {
             "Run"
@@ -104,10 +92,21 @@ pub(super) fn row_switch(
             .into_any_element();
     }
     if r.paused {
+        // `.lock`: the glyph in a dashed pill the size of a switch; only the file brings it back.
         return div()
             .flex_none()
+            .w(px(34.))
+            .h(px(18.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(9.))
+            .border_1()
+            .border_dashed()
+            .border_color(t.line2)
+            .text_size(px(13.))
             .text_color(t.dim)
-            .child("⊘")
+            .child(r.look.glyph)
             .into_any_element();
     }
     div()
@@ -200,7 +199,8 @@ fn tile_top(
         .child(row_dot(t, r))
         .child(name)
         .when(r.pinned, |d| d.child(icon("icons/pin.svg", 13., t.accent)))
-        .child(div().flex_1())
+        // Go's `.lock` takes no `margin-left: auto`: a paused tile's ⊘ sits by its name.
+        .when(!r.paused, |d| d.child(div().flex_1()))
         .child(row_switch(t, r, doing, cx))
 }
 
@@ -266,9 +266,15 @@ fn tile(
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let off = !r.on && r.kind != "task";
-    // As shell.css orders them: in trouble, then off (no fill, a dashed frame, even when selected), then selected.
+    // As shell.css orders them: in trouble, then off (no fill, a dashed frame, even when selected), then selected. A
+    // failed one is both: its red frame, dashed, and no fill (doze stopped trying; it waits for you).
     let (border, bg) = if r.trouble {
-        (mix(t.bad, t.line, 55.), mix(t.bad, t.panel, 7.))
+        let fill = if off {
+            gpui::transparent_black()
+        } else {
+            mix(t.bad, t.panel, 7.)
+        };
+        (mix(t.bad, t.line, 55.), fill)
     } else if off {
         (
             if selected { t.line2 } else { t.line },
@@ -295,7 +301,7 @@ fn tile(
         .border_1()
         .border_color(border)
         .bg(bg)
-        .when(off && !r.trouble, |d| d.border_dashed())
+        .when(off, |d| d.border_dashed())
         .hover(|d| d.border_color(t.line2))
         .child(tile_top(t, r, (off && !selected, doing), cx))
         .child(tile_state(t, r))

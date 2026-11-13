@@ -256,7 +256,8 @@ pub(crate) fn state_mark(t: &Tokens, look: Option<Look>, trouble: bool, size: f3
             .border_2()
             .border_color(t.cool)
             .into_any_element(),
-        Some(Look::Asleep | Look::Off) | None => disc(t.dim),
+        // Off is its glyph, a hollow ring, as Go's `Dot` draws it ("disabled" there matched no word): not asleep's disc.
+        Some(Look::Asleep) | None => disc(t.dim),
         Some(l) => div()
             .w(px(size + 2.))
             .flex_none()

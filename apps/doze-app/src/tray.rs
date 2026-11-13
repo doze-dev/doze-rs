@@ -37,13 +37,28 @@ pub(crate) struct Menu {
 /// One stack's line and whether it is in trouble.
 fn line(v: &StackView) -> (String, bool) {
     if !v.running {
-        return (format!("○  {}  ·  stopped", v.name), false);
+        return (
+            format!(
+                "○  {}  ·  {}",
+                v.name,
+                doze_desk::overview::Look::STOPPED.word
+            ),
+            false,
+        );
     }
     let t = words::tally(&v.words().instances);
     if t.trouble > 0 {
         return (format!("⚠︎  {}  ·  {} in trouble", v.name, t.trouble), true);
     }
-    (format!("●  {}  ·  {} awake", v.name, t.awake), false)
+    (
+        format!(
+            "●  {}  ·  {} {}",
+            v.name,
+            t.awake,
+            words::Look::Awake.word()
+        ),
+        false,
+    )
 }
 
 /// The menu for the stacks the hub knows, the stacks its lines open, and whether anything is in trouble.

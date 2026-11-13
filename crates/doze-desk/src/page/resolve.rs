@@ -59,7 +59,7 @@ impl<'a> Resolver<'a> {
             flexible: w.flexible(),
             ..Node::default()
         };
-        match w.kind {
+        match &w.kind {
             NodeKind::Row | NodeKind::Col => {
                 out.children = n.children.iter().map(|c| self.node(c)).collect();
             }
@@ -82,7 +82,15 @@ impl<'a> Resolver<'a> {
                 out.text.clone_from(&n.text);
             }
             NodeKind::Chart => self.chart(&mut out, n),
-            NodeKind::Other(_) => {}
+            // A block this doze cannot draw says so where it would be, rather than leave a hole in the layout.
+            NodeKind::Other(kind) if kind.is_empty() => {
+                out.missing =
+                    "This part of the console has no kind; the module may be newer than this doze."
+                        .to_owned();
+            }
+            NodeKind::Other(kind) => {
+                out.missing = format!("This needs a newer doze: the module draws a “{kind}” here.");
+            }
         }
         out
     }

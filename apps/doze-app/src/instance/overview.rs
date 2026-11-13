@@ -97,7 +97,22 @@ fn crash_top(
         .when(p.crash.is_some(), |d| d.pt(px(14.)))
         .flex_none();
     if let Some(c) = &p.crash {
-        let said = if c.gave_up {
+        // Not ready in time is its own failure (Needs you says so: "did not become ready"), and a page with nothing to
+        // show from the last run points at the logs instead; a failed one is not tried again, so nothing to stop.
+        let not_ready = c.error.contains("not become ready");
+        let sub = match (c.last_run.is_empty(), c.gave_up || not_ready) {
+            (true, true) => "Its logs usually say why. Fix it and press Try now.",
+            (true, false) => {
+                "Its logs usually say why. Fix it and press Try now, or stop trying while you look."
+            }
+            (false, true) => "What it said is below. Fix it and press Try now.",
+            (false, false) => {
+                "What it said is below. Fix it and press Try now, or stop trying while you look."
+            }
+        };
+        let said = if not_ready {
+            "It started but never answered, so doze stopped it. It waits for you.".to_owned()
+        } else if c.gave_up {
             "It kept exiting soon after starting, so doze stopped trying. It waits for you."
                 .to_owned()
         } else {
@@ -115,12 +130,7 @@ fn crash_top(
                 "It exits soon after starting. doze tries again{next}{tries}, and stops trying if it keeps exiting."
             )
         };
-        let mut b = banner(
-            t,
-            ui::Tone::Bad,
-            &said,
-            "What it said is below. Fix it and press Try now, or stop trying while you look.",
-        );
+        let mut b = banner(t, ui::Tone::Bad, &said, sub);
         if !c.tries.is_empty() {
             b = b.child(
                 div()
@@ -221,16 +231,17 @@ pub(crate) fn connect(
 
 /// The state card: why it is awake (the holders), the dozing countdown, the sentence, what it needs.
 fn state(t: &Tokens, p: &InstancePage, cx: &mut Context<InstanceView>) -> AnyElement {
-    let word = p.look.map_or("", Look::word);
-    let title = match word {
-        "awake" => "Why it's awake",
-        "dozing" => "Dozing",
-        "waking" => "Waking",
-        "asleep" => "Asleep",
-        "off" => "Turned off",
-        "paused" => "Paused in doze.hcl",
-        "failed" => "Failed",
-        w => w,
+    // The card's heading by the look itself, not its word: a word the look renames cannot leave a card unheaded.
+    let title = match p.look {
+        Some(Look::Awake) => "Why it's awake",
+        Some(Look::Dozing) => "Dozing",
+        Some(Look::Waking) => "Waking",
+        Some(Look::Asleep) => "Asleep",
+        Some(Look::Off) => "Turned off",
+        Some(Look::Paused) => "Paused in doze.hcl",
+        Some(Look::Failed) => "Failed",
+        Some(l) => l.word(),
+        None => "",
     };
     let mut c = card(t).child(heading(t, title, None));
     for h in &p.holders {
@@ -347,7 +358,7 @@ fn recent(t: &Tokens, p: &InstancePage) -> gpui::Div {
                 )
                 .child(
                     div()
-                        .w(px(70.))
+                        .w(px(96.))
                         .flex_none()
                         .text_color(ui::ink(t, r.ink))
                         .child(text(&r.kind)),
@@ -376,7 +387,7 @@ fn extends(t: &Tokens, p: &InstancePage, after: &str) -> Vec<AnyElement> {
             let mut n = e.node.clone();
             let title = std::mem::take(&mut n.title);
             n.flexible = false;
-            let mut c = card(t).px(px(0.)).py(px(0.)).overflow_hidden();
+            let mut c = card(t).px(px(0.)).py(px(0.)).min_w_0().overflow_hidden();
             if !title.is_empty() {
                 c = c.child(
                     div()

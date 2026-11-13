@@ -194,6 +194,7 @@ impl Root {
                 .flex()
                 .flex_1()
                 .min_h_0()
+                .min_w_0()
                 .child(side)
                 .child(div().flex().flex_col().flex_1().min_w_0().child(page))
                 .into_any_element(),

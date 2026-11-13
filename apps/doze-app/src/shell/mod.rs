@@ -5,6 +5,7 @@
 
 mod acting;
 mod attn;
+mod clock;
 mod history;
 mod inside;
 mod nav;
@@ -64,6 +65,8 @@ pub(crate) struct Root {
     pub(crate) attn: attn::Attn,
     /// The way back and forward.
     hist: history::History,
+    /// Reads what is shown again while it counts down (see `clock`).
+    clock: clock::Clock,
 }
 
 impl Root {
@@ -129,6 +132,7 @@ impl Root {
             focus: cx.focus_handle(),
             attn,
             hist: history::History::default(),
+            clock: clock::Clock::default(),
         };
         root.rebuild_attention(cx);
         root.hear(&acts, window, cx);
@@ -160,6 +164,7 @@ impl Root {
                 }
             }
         }
+        self.wind(cx);
     }
 
     /// Reads what is shown again; redraws only what changed.

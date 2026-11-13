@@ -65,7 +65,14 @@ impl Fixture {
         let script = match synth {
             Some(n) => synthetic(n),
             None => {
-                let path = scripts().join(format!("{name}.ndjson"));
+                // `NAME-stale`: NAME's script, from a daemon that goes quiet once it has played (Go's `stale`).
+                let file = name.strip_suffix("-stale").unwrap_or(name);
+                // The Go hubs' captures, then the app's own (`fixtures/scripts`: `consoles`, built by consoles.ts).
+                let path = [scripts(), own().join("scripts")]
+                    .into_iter()
+                    .map(|d| d.join(format!("{file}.ndjson")))
+                    .find(|p| p.exists())
+                    .unwrap_or_else(|| scripts().join(format!("{file}.ndjson")));
                 let mut s = Script::load(&path).with_context(|| format!("fixture {name}"))?;
                 // A verb takes a moment, as a real one does, so a page shows it in flight.
                 s.verb_delay = std::time::Duration::from_millis(700);
@@ -83,7 +90,11 @@ impl Fixture {
         let key = StackKey::new(home.join("projects").join(format!("{name}-fixture")));
         std::fs::create_dir_all(key.run_dir()).context("fixture home")?;
         std::fs::write(key.socket(), "").context("fixture socket marker")?;
+        let meters = last_meters(&script);
         let daemon = FixtureDaemon::start(&temp_socket("app"), script).context("fixture daemon")?;
+        if !name.ends_with("-stale") {
+            tick(daemon.pusher(), meters);
+        }
         Ok(Fixture {
             key: Some(key),
             root,
@@ -255,4 +266,29 @@ fn synthetic(n: usize) -> Script {
         hold: true,
         ..Script::default()
     }
+}
+
+/// The script's last meters frame: what a daemon goes on sending.
+fn last_meters(s: &Script) -> Option<doze_control::Frame> {
+    s.steps.iter().rev().find_map(|st| match st {
+        doze_control::fixture::Step::Frame(f) if f.topic == doze_control::Topic::Stats.as_str() => {
+            Some((**f).clone())
+        }
+        _ => None,
+    })
+}
+
+/// As Go's fixture server does: the meters every second after the script, as a daemon sends them, so a metered page is
+/// never told its picture is old; until the daemon stops.
+fn tick(p: doze_control::fixture::Pusher, meters: Option<doze_control::Frame>) {
+    let Some(f) = meters else {
+        return;
+    };
+    let _ = std::thread::Builder::new()
+        .name("fixture-meters".into())
+        .spawn(move || {
+            while p.push(&f) {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+        });
 }

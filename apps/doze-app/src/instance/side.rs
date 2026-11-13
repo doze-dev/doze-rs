@@ -135,7 +135,12 @@ fn instances<T: 'static>(
                     .on_click(cx.listener(move |this, _, w, cx| {
                         pick(this, Pick::Instance(name.clone()), w, cx)
                     }))
-                    .child(state_mark(t, Some(x.look), x.trouble, 8.))
+                    .child(state_mark(
+                        t,
+                        Some(x.look),
+                        x.trouble && x.kind != doze_display::Kind::Task,
+                        8.,
+                    ))
                     .child(
                         div()
                             .flex_1()
@@ -187,7 +192,12 @@ fn show_list<T: 'static>(
                         pick(this, Pick::Toggle(name.clone()), w, cx)
                     }))
                     .child(tick(t, on(&x.name)))
-                    .child(state_mark(t, Some(x.look), x.trouble, 8.))
+                    .child(state_mark(
+                        t,
+                        Some(x.look),
+                        x.trouble && x.kind != doze_display::Kind::Task,
+                        8.,
+                    ))
                     .child(
                         div()
                             .flex_1()

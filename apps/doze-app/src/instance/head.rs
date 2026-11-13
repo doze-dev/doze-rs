@@ -136,15 +136,18 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
             |v, _, cx| v.edit_config(cx),
             cx,
         ));
-    } else if p.crash.is_some() {
-        out.push(act(
-            t,
-            "stop",
-            ("Stop trying", &chip("Sleep / stop trying")),
-            false,
-            InstanceView::sleep,
-            cx,
-        ));
+    } else if let Some(c) = &p.crash {
+        // A failed one is not being tried again: there is nothing to stop, only Try now.
+        if !c.gave_up {
+            out.push(act(
+                t,
+                "stop",
+                ("Stop trying", &chip("Sleep / stop trying")),
+                false,
+                InstanceView::sleep,
+                cx,
+            ));
+        }
         out.push(act(
             t,
             "try",
@@ -314,9 +317,11 @@ pub(crate) fn keys(t: &Tokens, v: &InstanceView) -> impl IntoElement {
         if p.url().is_some() && p.serving() {
             keys.push((chip("Open in browser"), "open in browser"));
         }
-        if p.crash.is_some() {
+        if let Some(c) = &p.crash {
             keys.push((chip("Restart / try now"), "try now"));
-            keys.push((chip("Sleep / stop trying"), "stop trying"));
+            if !c.gave_up {
+                keys.push((chip("Sleep / stop trying"), "stop trying"));
+            }
         } else if p.serving() {
             keys.push((chip("Sleep / stop trying"), "sleep"));
             keys.push((chip("Restart / try now"), "restart"));
@@ -342,6 +347,7 @@ pub(crate) fn keys_bar(t: &Tokens, keys: Vec<(String, &str)>, note: &str) -> gpu
     div()
         .flex()
         .flex_none()
+        .min_w_0()
         .items_center()
         .gap(px(16.))
         .h(px(34.))

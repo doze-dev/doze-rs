@@ -22,6 +22,7 @@ pub use pane::{Crash, Kv, NeedChip, Pane, Pill, pane};
 pub use refs::{Block, HclFile, Refs, refs_in, scan};
 pub use shape::{Decl, Shape, ShapeError, parse_status};
 pub use stopped::{Stopped, stopped_home};
+pub(crate) use vitals::count;
 pub use vitals::{Conns, Meter, Share, States, Vitals4};
 
 use doze_display as words;
@@ -54,7 +55,7 @@ impl Look {
 
     /// A row paused in doze.hcl (`enabled = false`).
     pub const PAUSED: Look = Look {
-        word: "paused",
+        word: words::Look::Paused.word(),
         glyph: "⊘",
         tone: "dim",
     };
