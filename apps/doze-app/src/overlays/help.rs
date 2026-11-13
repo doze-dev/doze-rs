@@ -112,10 +112,13 @@ fn title(t: &Tokens, version: &str) -> impl IntoElement {
 /// The sheet's body.
 pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
     let mut cols = div().flex().gap(px(28.));
+    use actions::Scope;
     let groups = actions::help();
-    let (left, right): (Vec<_>, Vec<_>) = groups
+    let (left, rest): (Vec<_>, Vec<_>) =
+        groups.into_iter().partition(|(sc, _)| *sc == Scope::Global);
+    let (inside, right): (Vec<_>, Vec<_>) = rest
         .into_iter()
-        .partition(|(sc, _)| *sc == actions::Scope::Global);
+        .partition(|(sc, _)| matches!(sc, Scope::Instance | Scope::Logs | Scope::Console));
     let column = |side: Vec<(actions::Scope, Vec<&'static Spec>)>| {
         let mut col = div().flex().flex_col().flex_1().min_w_0().gap(px(2.));
         for (scope, rows) in side {
@@ -130,12 +133,22 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
         }
         col
     };
-    // Everywhere on the left; the Map, the search box and the words on the right.
+    // Everywhere on the left; the Map, the search box and the words in the middle; inside a stack on the right. The
+    // columns scroll when the window is too short for them.
     cols = cols
         .child(column(left))
-        .child(column(right).child(words(t)));
+        .child(column(right).child(words(t)))
+        .child(column(inside));
+    let cols = div()
+        .id("help-keys")
+        .flex_1()
+        .min_h_0()
+        .overflow_y_scroll()
+        .child(cols);
     div()
-        .w(px(900.))
+        .w(px(1220.))
+        .max_w(gpui::relative(0.96))
+        .max_h(gpui::relative(0.86))
         .flex()
         .flex_col()
         .gap(px(10.))

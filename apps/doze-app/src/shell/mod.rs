@@ -3,6 +3,7 @@
 //! shows changed (the views are `PartialEq`), which is what keeps an idle window at zero redraws.
 
 mod chrome;
+mod inside;
 mod titlebar;
 
 use std::path::PathBuf;
@@ -15,10 +16,10 @@ use gpui::{
 };
 
 use crate::actions::{
-    CloseOverlay, CloseWindow, Confirm, CycleMode, MoveDown, MoveUp, NextPalette, OpenPalette,
-    Quit, ShowHelp, ViewMap,
+    AllLogs, CloseOverlay, CloseWindow, Confirm, CycleMode, MoveDown, MoveUp, NextPalette,
+    OpenPalette, Quit, ShowHelp, ViewMap,
 };
-use crate::map::MapView;
+use crate::map::{MapEvent, MapView};
 use crate::model::{self, Page};
 use crate::overlays::palette::{Palette, PaletteEvent, Pick};
 use crate::overlays::{self, Overlay};
@@ -33,6 +34,8 @@ pub(crate) struct Root {
     page: Page,
     pub(crate) map: Entity<MapView>,
     overlay: Option<Overlay>,
+    /// An instance's page or All logs, in place of the stack's page.
+    inside: Option<inside::Inside>,
     /// A line at the foot, for a moment (a dropped folder doze cannot open yet, a link it cannot follow yet).
     notice: Option<SharedString>,
     focus: FocusHandle,
@@ -54,9 +57,15 @@ impl Root {
             page: Page::default(),
             map,
             overlay: None,
+            inside: None,
             notice: None,
             focus: cx.focus_handle(),
         };
+        cx.subscribe_in(&root.map, window, |this, _, ev: &MapEvent, window, cx| {
+            let MapEvent::Open(name) = ev;
+            this.open_instance(name, window, cx);
+        })
+        .detach();
         root.refresh(cx);
         let f = root.map.read(cx).focus.clone();
         window.focus(&f, cx);
@@ -71,6 +80,7 @@ impl Root {
         };
         if touches {
             self.refresh(cx);
+            self.apply_inside(batch, cx);
         }
     }
 
@@ -217,11 +227,7 @@ impl Root {
             this.close(window, cx);
             match (pick, card) {
                 (Pick::Act(s), _) => window.dispatch_action((s.make)(), cx),
-                (Pick::Card(_), Some(name)) => this.map.update(cx, |m, cx| {
-                    if let Some(id) = m.card_named(&name) {
-                        m.jump_to(id, cx);
-                    }
-                }),
+                (Pick::Card(_), Some(name)) => this.open_instance(&name, window, cx),
                 _ => {}
             }
         })
@@ -240,12 +246,18 @@ impl Root {
         }
     }
 
-    /// Closes the innermost thing open: an overlay, else the Map's find box, else its selection.
+    /// Closes the innermost thing open: an overlay, else what the page inside holds or the page itself, else the
+    /// Map's find box, else its selection.
     fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.overlay.take().is_some() {
-            let f = self.map.read(cx).focus.clone();
-            window.focus(&f, cx);
+            if !self.focus_inside(window, cx) {
+                let f = self.map.read(cx).focus.clone();
+                window.focus(&f, cx);
+            }
             cx.notify();
+            return;
+        }
+        if self.escape_inside(window, cx) {
             return;
         }
         self.map.update(cx, |m, cx| m.escape(window, cx));
@@ -327,6 +339,49 @@ impl Render for Root {
         self.follow_system(window, cx);
         let t = tokens(cx);
         let lit = self.map.read(cx).lit.is_some();
+        let page = match self.inside_el(&t, cx) {
+            Some(inside) => self.inside_page(&t, inside, cx),
+            None => self.stack_page(&t, lit, cx),
+        };
+        div()
+            .relative()
+            .size_full()
+            .track_focus(&self.focus)
+            .key_context("Root")
+            .bg(t.bg)
+            .text_color(t.text)
+            .text_size(px(13.))
+            .line_height(px(20.))
+            .font_family(UI_FAMILY)
+            .on_action(cx.listener(Self::on_palette))
+            .on_action(cx.listener(Self::on_help))
+            .on_action(cx.listener(|this, _: &CloseOverlay, window, cx| this.close(window, cx)))
+            .on_action(
+                cx.listener(|this, _: &NextPalette, window, cx| this.next_palette(window, cx)),
+            )
+            .on_action(cx.listener(|this, _: &CycleMode, window, cx| this.cycle_mode(window, cx)))
+            .on_action(cx.listener(|_, _: &ViewMap, _, _| {}))
+            .on_action(cx.listener(|this, _: &AllLogs, window, cx| this.open_logs(window, cx)))
+            .on_action(cx.listener(|_, _: &CloseWindow, window, _| window.remove_window()))
+            .on_action(cx.listener(|_, _: &Quit, _, cx| cx.quit()))
+            .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.palette_step(1, cx)))
+            .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.palette_step(-1, cx)))
+            .on_action(cx.listener(|this, _: &Confirm, _, cx| this.palette_choose(cx)))
+            .on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| this.dropped(paths, cx)))
+            .child(page)
+            .children(self.overlay_el(cx))
+    }
+}
+
+impl Root {
+    /// The stack's page: its head, the vitals, the Map, the keys.
+    fn stack_page(
+        &mut self,
+        t: &crate::theme::Tokens,
+        lit: bool,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
+        let t = *t;
         let mut page = div()
             .key_context("Page")
             .flex()
@@ -358,37 +413,9 @@ impl Render for Root {
                     .child(n.clone()),
             );
         }
-        page = page.child(chrome::keys_bar(&t, lit));
-        div()
-            .relative()
-            .size_full()
-            .track_focus(&self.focus)
-            .key_context("Root")
-            .bg(t.bg)
-            .text_color(t.text)
-            .text_size(px(13.))
-            .line_height(px(20.))
-            .font_family(UI_FAMILY)
-            .on_action(cx.listener(Self::on_palette))
-            .on_action(cx.listener(Self::on_help))
-            .on_action(cx.listener(|this, _: &CloseOverlay, window, cx| this.close(window, cx)))
-            .on_action(
-                cx.listener(|this, _: &NextPalette, window, cx| this.next_palette(window, cx)),
-            )
-            .on_action(cx.listener(|this, _: &CycleMode, window, cx| this.cycle_mode(window, cx)))
-            .on_action(cx.listener(|_, _: &ViewMap, _, _| {}))
-            .on_action(cx.listener(|_, _: &CloseWindow, window, _| window.remove_window()))
-            .on_action(cx.listener(|_, _: &Quit, _, cx| cx.quit()))
-            .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.palette_step(1, cx)))
-            .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.palette_step(-1, cx)))
-            .on_action(cx.listener(|this, _: &Confirm, _, cx| this.palette_choose(cx)))
-            .on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| this.dropped(paths, cx)))
-            .child(page)
-            .children(self.overlay_el(cx))
+        page.child(chrome::keys_bar(&t, lit)).into_any_element()
     }
-}
 
-impl Root {
     fn palette_step(&mut self, by: isize, cx: &mut Context<Self>) {
         if let Some(Overlay::Palette(p)) = &self.overlay {
             p.update(cx, |p, cx| p.step(by, cx));

@@ -67,6 +67,15 @@ impl Fixture {
     }
 }
 
+impl Fixture {
+    /// Has the daemon send a frame to every stream that asked for its topic.
+    pub(crate) fn push(&self, f: &doze_control::Frame) {
+        if let Some(d) = &self.daemon {
+            d.push(f);
+        }
+    }
+}
+
 impl Drop for Fixture {
     fn drop(&mut self) {
         if let Some(d) = self.daemon.take() {
@@ -125,4 +134,13 @@ fn synthetic(n: usize) -> Script {
         hold: true,
         ..Script::default()
     }
+}
+
+/// A clock that starts at the moment the Go fixtures were recorded at (their goldens' epoch, 2026-10-11T14:04:40Z) and
+/// runs from there, so a fixture's ages read as the goldens do while a countdown still moves.
+#[cfg(feature = "capture")]
+pub(crate) fn recorded_clock() -> doze_desk::Clock {
+    let epoch = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_791_727_480);
+    let start = std::time::Instant::now();
+    doze_desk::Clock::from_fn(move || epoch + start.elapsed())
 }

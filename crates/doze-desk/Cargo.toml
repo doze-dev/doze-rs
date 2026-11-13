@@ -16,6 +16,7 @@ async-channel = "2"
 doze-control = { path = "../doze-control" }
 doze-display = { path = "../doze-display" }
 doze-projects = { path = "../doze-projects" }
+regex = "1"
 thiserror = "2"
 
 [dev-dependencies]

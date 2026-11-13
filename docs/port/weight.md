@@ -270,7 +270,7 @@ and a 15 MB binary, and none of it reaches doze-kafka or doze-aws (the app is no
 
 | | Budget (PLAN.md §6) | Measured |
 |---|---|---|
-| Binary, release, stripped, fonts included, no capture | ≤ 16 MB | 14,871,584 B (15,138,512 B with the `fixtures` feature) |
+| Binary, release, stripped, fonts included, no capture | ≤ 16 MB | 15,575,872 B with the instance, logs and console pages (M1 steps 1.5–1.7; 14,871,584 B before them) |
 | Packages (`cargo tree -p doze-app --edges normal`, unique lines) | limit 560 | 534 |
 | Menu bar ready after launch | ≤ 100 ms | 71–84 ms |
 | Menu bar only, footprint | ≤ 18 MB | 18 MB on an empty doze home; 22 MB with the fixture daemon running in the process |
@@ -278,6 +278,9 @@ and a 15 MB binary, and none of it reaches doze-kafka or doze-aws (the app is no
 | Window open and idle, footprint | ≤ 85 MB | 82 MB at 10 s, 74 MB at 25 s (larder) |
 | After the window closes, footprint | ≤ 35 MB | 35 MB at 8 s (larder), 28 MB on an empty home |
 | CPU, window open and static; menu bar only | ≤ 0.3 %; ≤ 0.05 % | 0.0 % (ps, sampled) |
+| Frames over 16 ms while scrolling 100k log lines | 0 | 0 of 300: a full offscreen draw per worst-case scroll step (about a thousand rows a jump, the whole list) is median 4.4 ms, p99 8.8 ms, max 13.7 ms, including the GPU readback a screen frame does not do |
+| 100k log lines held | ≤ 25 MB | 6.5 MB (the ring's heap: 100,000 lines of 40–70 bytes) |
+| Window while logs follow at 200 lines/s | ≤ 160 MB sustained; under 100 MB within 10 s of stopping | **not met**: 235–250 MB while following; 88–103 MB 10 s after the lines stop |
 
 Measured with `doze-app bench` (it opens the window two seconds after launch as a tray click would, prints its
 timings, idles 30 s, closes the window) and macOS `footprint` (Activity Monitor's Memory figure), on a quiet machine
@@ -292,3 +295,20 @@ timings, idles 30 s, closes the window) and macOS `footprint` (Activity Monitor'
 The binary is 3 MB over the spike's 12 MB: doze-desk's hub and the control client, doze-display's words, doze-map's
 layout, the ten themes, the tray icons, and the release profile's `opt-level = 3` (the spike used `"s"`). A
 size-optimised profile for the app is the first lever if the line is approached.
+
+**The logs viewer** (`doze-app bench --fixture shop --logs`, release, `capture` for the draw timing): All logs on a fixture
+stack, 100,000 lines printed through the fixture daemon (the same socket, hub and fold a daemon's lines take; filled in
+0.4 s), then five seconds of scrolling and thirty of following at 200 lines a second. The page draws only the rows in
+view, read from the ring as they are drawn; a new filter is one pass over the ring on a background thread (18.5 ms for
+100k lines and a pattern).
+
+The follow budget is not met, and the measurements say why: a window that redraws at all sits at about 220–250 MB here,
+whatever is drawn. The stack page idles at 56 MB; four seconds of redrawing the *Map* (no logs open) took it to 220 MB;
+following at four redraws a second (the logs take streaming lines in every 250 ms, as Go paced its pushes) peaked at
+250 MB, and at one redraw a second still 236 MB. The plan's own spike found the same floor (216 MB at ten redraws a
+second, 168 MB for a bare Metal view). Ten seconds after the lines stop the window is back at 88–103 MB. Meeting 160 MB
+while following needs the redraw floor itself lowered (the drawable's size and count, gpui's surfaces), not the logs
+view; that is open.
+
+On this machine the window's frames were paced at 33 ms even with nothing to draw, so frame intervals cannot show a
+16 ms overrun; the draw timing above measures a frame's work directly instead.

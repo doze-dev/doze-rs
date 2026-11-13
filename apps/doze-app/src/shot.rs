@@ -17,13 +17,24 @@ pub(crate) fn run(s: Shot) -> ExitCode {
         eprintln!("doze-app shot: name a stack with --fixture NAME or --synth N");
         return ExitCode::from(2);
     }
-    let source = match crate::source_for(&s.from, std::env::temp_dir()) {
+    let inside = matches!(s.screen, Screen::Instance | Screen::Logs) && s.from.synth.is_none();
+    let source = match (inside, &s.from.fixture) {
+        (true, Some(name)) => {
+            crate::source::Source::fixture_at(name, None, crate::fixture::recorded_clock())
+        }
+        _ => crate::source_for(&s.from, std::env::temp_dir()),
+    };
+    let source = match source {
         Ok(src) => std::rc::Rc::new(src),
         Err(e) => {
             eprintln!("doze-app shot: {e:#}");
             return ExitCode::FAILURE;
         }
     };
+    // A port held for the shot: a port clash names this process as its holder.
+    let _held = s
+        .hold
+        .and_then(|p| std::net::TcpListener::bind(("127.0.0.1", p)).ok());
     gpui_platform::application()
         .with_assets(crate::assets::Assets)
         .with_quit_mode(QuitMode::Explicit)
@@ -41,7 +52,11 @@ pub(crate) fn run(s: Shot) -> ExitCode {
             }
             let hub = source.hub.clone();
             hub.set_visible(true);
-            let bounds = Bounds::centered(None, size(px(s.size.0), px(s.size.1)), cx);
+            // Far off the screen, so the pointer is never over it: a shot has no hover in it.
+            let bounds = Bounds {
+                origin: gpui::point(px(-20_000.), px(-20_000.)),
+                size: size(px(s.size.0), px(s.size.1)),
+            };
             let first = source.first.clone();
             let Ok(h) = cx.open_window(crate::app::options(bounds, true), |window, cx| {
                 cx.new(|cx| Root::new(hub.clone(), first, window, cx))
@@ -50,6 +65,14 @@ pub(crate) fn run(s: Shot) -> ExitCode {
                 cx.quit();
                 return;
             };
+            let pumped = hub.clone();
+            cx.spawn(async move |cx: &mut AsyncApp| {
+                // The window hears the hub's batches, as the app's pump has it.
+                while let Ok(batch) = pumped.updates().recv().await {
+                    let _ = h.update(cx, |root, _, cx| root.apply(&batch, cx));
+                }
+            })
+            .detach();
             let keep = source.clone();
             cx.spawn(async move |cx: &mut AsyncApp| {
                 let _keep = keep;
@@ -84,6 +107,12 @@ async fn take(cx: &mut AsyncApp, h: WindowHandle<Root>, s: &Shot) {
     }
     let _ = h.update(cx, |root, window, cx| stage(root, window, cx, s));
     pause(cx, 300).await;
+    if matches!(s.screen, Screen::Instance | Screen::Logs) {
+        // The meters and the logs stream once a page watches them.
+        pause(cx, 1500).await;
+        let _ = h.update(cx, |root, window, cx| inside(root, window, cx, s));
+        pause(cx, 600).await;
+    }
     if let Some(q) = &s.find {
         let _ = h.update(cx, |root, window, cx| {
             root.map.update(cx, |m, cx| {
@@ -135,5 +164,24 @@ fn stage(root: &mut Root, window: &mut gpui::Window, cx: &mut gpui::Context<Root
         Screen::Map => {}
         Screen::Palette => root.on_palette(&crate::actions::OpenPalette, window, cx),
         Screen::Help => root.on_help(&crate::actions::ShowHelp, window, cx),
+        Screen::Instance => {
+            if let Some(name) = &s.select {
+                root.open_instance(name, window, cx);
+            }
+        }
+        Screen::Logs => root.open_logs(window, cx),
     }
+}
+
+/// The page inside as the shot asks: its tab, then the logs' level, filter and find mode.
+fn inside(root: &mut Root, window: &mut gpui::Window, cx: &mut gpui::Context<Root>, s: &Shot) {
+    if let (Some(v), Some(tab)) = (root.inside_instance(), &s.tab) {
+        v.update(cx, |v, cx| v.set_tab(tab, window, cx));
+    }
+    let Some(l) = root.inside_logs(cx) else {
+        return;
+    };
+    l.update(cx, |l, cx| {
+        l.stage(s.level, s.filter.as_deref(), s.find_mode, window, cx)
+    });
 }

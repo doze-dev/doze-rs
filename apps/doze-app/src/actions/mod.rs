@@ -52,6 +52,12 @@ pub(crate) enum Scope {
     Global,
     Map,
     Overlay,
+    /// An instance's page.
+    Instance,
+    /// A logs page, or the logs tab.
+    Logs,
+    /// A module's console tab.
+    Console,
 }
 
 impl Scope {
@@ -61,6 +67,9 @@ impl Scope {
             Scope::Global => "Everywhere",
             Scope::Map => "On the Map",
             Scope::Overlay => "In a search box",
+            Scope::Instance => "On a service's page",
+            Scope::Logs => "In the logs",
+            Scope::Console => "In a module's console",
         }
     }
 
@@ -70,10 +79,13 @@ impl Scope {
     fn context(self, key: &str) -> Option<&'static str> {
         let bare = !["cmd-", "ctrl-", "alt-"].iter().any(|m| key.contains(m)) && key != "escape";
         match self {
-            Scope::Global if bare => Some("Page"),
+            Scope::Global if bare => Some("Page && !Input"),
             Scope::Global => None,
             Scope::Map => Some("Map"),
             Scope::Overlay => Some("Input"),
+            Scope::Instance => Some("Instance && !Input"),
+            Scope::Logs => Some("Logs && !Input"),
+            Scope::Console => Some("ConsoleTab && !Input"),
         }
     }
 }
@@ -115,14 +127,21 @@ pub(crate) struct Spec {
     pub(crate) built: bool,
 }
 
+mod inside;
 mod table;
 
+pub(crate) use inside::*;
 pub(crate) use table::TABLE;
+
+/// Every row: the shell's and the pages' inside a stack.
+pub(crate) fn all() -> impl Iterator<Item = &'static Spec> {
+    TABLE.iter().chain(INSIDE)
+}
 
 /// The keymap the table gives. A keystroke that does not parse is left out (the test below proves none does).
 pub(crate) fn keymap(cx: &App) -> Vec<KeyBinding> {
     let mut out = Vec::new();
-    for s in TABLE {
+    for s in all() {
         for k in s.keys {
             let ctx = s
                 .scope
@@ -168,6 +187,9 @@ pub(crate) fn key_words(k: &'static str) -> String {
     match k {
         "escape" => "esc".into(),
         "space" => "space".into(),
+        "tab" => "tab".into(),
+        // A bare letter is written as typed: an `l` chip is not ⇧L.
+        k if k.len() == 1 && k.chars().all(|c| c.is_ascii_lowercase()) => k.to_owned(),
         _ => match Keystroke::parse(k) {
             Ok(stroke) => Kbd::format(&stroke),
             Err(_) => k.to_owned(),
@@ -177,23 +199,29 @@ pub(crate) fn key_words(k: &'static str) -> String {
 
 /// The rows ⌘K offers.
 pub(crate) fn palette() -> impl Iterator<Item = &'static Spec> {
-    TABLE.iter().filter(|s| s.palette)
+    all().filter(|s| s.palette)
 }
 
 /// The help sheet: each scope's rows with keys, in table order.
 pub(crate) fn help() -> Vec<(Scope, Vec<&'static Spec>)> {
-    [Scope::Global, Scope::Map, Scope::Overlay]
-        .into_iter()
-        .map(|sc| {
-            (
-                sc,
-                TABLE
-                    .iter()
-                    .filter(|s| s.scope == sc && !s.keys.is_empty() && !s.what.is_empty())
-                    .collect(),
-            )
-        })
-        .collect()
+    [
+        Scope::Global,
+        Scope::Map,
+        Scope::Instance,
+        Scope::Logs,
+        Scope::Console,
+        Scope::Overlay,
+    ]
+    .into_iter()
+    .map(|sc| {
+        (
+            sc,
+            all()
+                .filter(|s| s.scope == sc && !s.keys.is_empty() && !s.what.is_empty())
+                .collect(),
+        )
+    })
+    .collect()
 }
 
 #[cfg(test)]
@@ -203,7 +231,7 @@ mod tests {
 
     #[test]
     fn every_key_parses_and_every_row_has_a_way_in() {
-        for s in TABLE {
+        for s in super::all() {
             for k in s.keys {
                 assert!(Keystroke::parse(k).is_ok(), "{}: {k}", s.label);
             }
@@ -227,6 +255,22 @@ mod tests {
             .find(|s| s.label.starts_with("Search"))
             .and_then(chip);
         assert_eq!(cmdk.as_deref(), Some("⌘K"));
+    }
+
+    #[test]
+    fn every_key_context_parses() {
+        // A context that did not parse would bind its key everywhere, typing included.
+        for s in super::all() {
+            for k in s.keys {
+                if let Some(c) = s.scope.context(k) {
+                    assert!(
+                        gpui::KeyBindingContextPredicate::parse(c).is_ok(),
+                        "{}: {c}",
+                        s.label
+                    );
+                }
+            }
+        }
     }
 
     #[test]

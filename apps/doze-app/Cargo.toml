@@ -32,6 +32,8 @@ gpui-component = { version = "=0.9.1", default-features = false }
 # gpui's own path API takes lyon's stroke options (line caps and joins); same major as gpui's.
 lyon = "1"
 anyhow = "1"
+# The person's time zone for clock times (already in the tree through gpui).
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 async-channel = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

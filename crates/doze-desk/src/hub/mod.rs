@@ -153,6 +153,11 @@ impl Hub {
         let _ = self.shared.input.try_send(Input::Visible(visible));
     }
 
+    /// What time it is, by the hub's clock: what a page measures ages and countdowns from.
+    pub fn now(&self) -> std::time::SystemTime {
+        self.shared.o.clock.now()
+    }
+
     /// doze's folder: where projects, and the app's own prefs, live.
     pub fn home(&self) -> &Path {
         &self.shared.o.home

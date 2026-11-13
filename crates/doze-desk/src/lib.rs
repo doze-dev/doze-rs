@@ -25,6 +25,8 @@ mod error;
 mod events;
 mod hub;
 mod name;
+pub mod page;
+pub mod ports;
 mod ring;
 mod select;
 mod series;

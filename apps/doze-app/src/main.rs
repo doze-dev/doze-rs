@@ -15,9 +15,14 @@ mod app;
 mod assets;
 mod bench;
 mod cli;
+mod console;
 #[cfg(feature = "fixtures")]
 mod fixture;
+mod instance;
 mod link;
+#[cfg(feature = "fixtures")]
+mod logbench;
+mod logs;
 mod map;
 mod model;
 mod overlays;
@@ -64,7 +69,7 @@ fn main() -> ExitCode {
         }
         Err(e) => {
             eprintln!(
-                "doze-app: {e}\n\nusage: doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar] [--fixture NAME | --synth N]\n       doze-app shot --fixture NAME --screen map|palette|help --theme T --mode dark|light --size WxH --out FILE\n       doze-app bench [--fixture NAME | --synth N] [--idle SECONDS]"
+                "doze-app: {e}\n\nusage: doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar] [--fixture NAME | --synth N]\n       doze-app shot --fixture NAME --screen map|palette|help|instance|logs --theme T --mode dark|light --size WxH --out FILE\n                     [--select NAME] [--tab ID] [--filter TEXT] [--find-mode] [--level 0-3] [--hold PORT]\n       doze-app bench [--fixture NAME | --synth N] [--idle SECONDS] [--logs [--follow SECONDS]]"
             );
             ExitCode::from(2)
         }

@@ -34,6 +34,15 @@ pub(crate) const DETAIL_ZOOM: f32 = 0.42;
 /// From this zoom up to [`DETAIL_ZOOM`], blocks carry their names; below it, a large map shows bundles.
 pub(crate) const LABEL_ZOOM: f32 = 0.2;
 
+/// What the Map asks of the window.
+#[derive(Debug, Clone)]
+pub(crate) enum MapEvent {
+    /// Open a card's instance: ⏎ on the selected card, or a double click.
+    Open(String),
+}
+
+impl gpui::EventEmitter<MapEvent> for MapView {}
+
 /// The Map of one stack.
 pub(crate) struct MapView {
     mapper: Mapper,

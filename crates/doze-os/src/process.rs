@@ -8,10 +8,19 @@ pub fn alive(pid: u32) -> bool {
     pid != 0 && imp::alive(pid)
 }
 
+/// Asks a process to stop: SIGTERM on Unix, which it may catch and finish its work for. Windows has no such polite
+/// word for a process doze did not start, so there it is refused.
+pub fn terminate(pid: u32) -> std::io::Result<()> {
+    if pid == 0 {
+        return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
+    }
+    imp::terminate(pid)
+}
+
 #[cfg(unix)]
 mod imp {
     use rustix::io::Errno;
-    use rustix::process::{Pid, test_kill_process};
+    use rustix::process::{Pid, Signal, kill_process, test_kill_process};
 
     pub(super) fn alive(pid: u32) -> bool {
         let Some(pid) = i32::try_from(pid).ok().and_then(Pid::from_raw) else {
@@ -21,6 +30,14 @@ mod imp {
             Ok(()) => true,
             Err(e) => e == Errno::PERM,
         }
+    }
+
+    pub(super) fn terminate(pid: u32) -> std::io::Result<()> {
+        let pid = i32::try_from(pid)
+            .ok()
+            .and_then(Pid::from_raw)
+            .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::InvalidInput))?;
+        kill_process(pid, Signal::TERM).map_err(std::io::Error::from)
     }
 }
 
@@ -45,6 +62,10 @@ mod imp {
         // SAFETY: `handle` was opened above and is closed exactly once.
         unsafe { CloseHandle(handle) };
         ok != 0 && code == u32::try_from(STILL_ACTIVE).unwrap_or(259)
+    }
+
+    pub(super) fn terminate(_: u32) -> std::io::Result<()> {
+        Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
     }
 }
 

@@ -14,7 +14,7 @@ pub(super) fn text(s: &str) -> SharedString {
 }
 
 fn spec(label: &str) -> Option<&'static Spec> {
-    actions::TABLE.iter().find(|s| s.label == label)
+    actions::all().find(|s| s.label == label)
 }
 
 pub(super) fn chip_of(label: &str) -> String {

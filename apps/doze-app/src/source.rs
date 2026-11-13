@@ -56,14 +56,36 @@ impl Source {
     /// One of the Go fixture hubs (`larder`, `shop`, `crash`, …), or a synthetic stack of `synth` instances.
     #[cfg(feature = "fixtures")]
     pub(crate) fn fixture(name: &str, synth: Option<usize>) -> anyhow::Result<Source> {
+        Source::fixture_at(name, synth, doze_desk::Clock::system())
+    }
+
+    /// A fixture on the hub clock `clock`: a shot of a page that shows ages (`awake 14m`) runs from the moment the Go
+    /// fixtures were recorded at, as their goldens do.
+    #[cfg(feature = "fixtures")]
+    pub(crate) fn fixture_at(
+        name: &str,
+        synth: Option<usize>,
+        clock: doze_desk::Clock,
+    ) -> anyhow::Result<Source> {
         let f = crate::fixture::Fixture::start(name, synth)?;
         let mut o = f.options();
         o.policy = policy();
+        o.clock = clock;
         let first = Some(f.key.clone());
         Ok(Source {
             hub: Hub::start(o),
             first,
             _fixture: Some(f),
         })
+    }
+}
+
+#[cfg(feature = "fixtures")]
+impl Source {
+    /// Has the fixture daemon send a frame, as a daemon does when something happens (`bench --logs`).
+    pub(crate) fn push(&self, f: &doze_control::Frame) {
+        if let Some(fx) = &self._fixture {
+            fx.push(f);
+        }
     }
 }

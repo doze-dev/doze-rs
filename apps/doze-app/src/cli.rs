@@ -5,7 +5,10 @@
 //!          [--fixture NAME | --synth N]                         a fixture stack instead of the doze home (dev builds)
 //! doze-app shot --fixture larder --screen map --theme teal --mode light --size 1280x800 --out x.png
 //!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion]
+//!          --screen instance --select api [--tab logs|console:ID|last run] [--hold PORT]
+//!          --screen logs [--filter TEXT] [--find-mode] [--level 0-3]
 //! doze-app bench [--fixture NAME | --synth N] [--idle SECONDS]  first-frame time, then idle for a memory reading
+//! doze-app bench --fixture shop --logs [--follow SECONDS]          the logs viewer: 100k lines scrolled, then followed
 //! ```
 
 use std::path::PathBuf;
@@ -36,6 +39,10 @@ pub(crate) enum Screen {
     Map,
     Palette,
     Help,
+    /// An instance's page: `--select NAME`, `--tab ID`.
+    Instance,
+    /// All logs.
+    Logs,
 }
 
 /// `doze-app shot ...`.
@@ -53,6 +60,14 @@ pub(crate) struct Shot {
     pub(crate) at: Option<(f64, f64)>,
     pub(crate) find: Option<String>,
     pub(crate) reduce: bool,
+    /// The instance page's tab.
+    pub(crate) tab: Option<String>,
+    /// A port the shot holds while it renders (a port clash needs a real holder).
+    pub(crate) hold: Option<u16>,
+    /// The logs' filter, level and find mode.
+    pub(crate) filter: Option<String>,
+    pub(crate) level: Option<u8>,
+    pub(crate) find_mode: bool,
 }
 
 /// `doze-app bench ...`.
@@ -60,6 +75,9 @@ pub(crate) struct Shot {
 pub(crate) struct Bench {
     pub(crate) from: From,
     pub(crate) idle: u64,
+    /// The logs viewer under load instead (`--logs`), following for `follow` seconds.
+    pub(crate) logs: bool,
+    pub(crate) follow: u64,
 }
 
 /// What to do.
@@ -150,6 +168,10 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             s.reduce = true;
             continue;
         }
+        if a == "--find-mode" {
+            s.find_mode = true;
+            continue;
+        }
         let v = value(&mut args, &a)?;
         match a.as_str() {
             "--screen" => {
@@ -157,7 +179,13 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
                     "map" => Screen::Map,
                     "palette" => Screen::Palette,
                     "help" => Screen::Help,
-                    _ => return Err(format!("--screen: no screen {v} (map, palette, help)")),
+                    "instance" => Screen::Instance,
+                    "logs" => Screen::Logs,
+                    _ => {
+                        return Err(format!(
+                            "--screen: no screen {v} (map, palette, help, instance, logs)"
+                        ));
+                    }
                 }
             }
             "--theme" => {
@@ -173,6 +201,10 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             "--hover" => s.hover = Some(v),
             "--zoom" => s.zoom = Some(number(&v, "--zoom")?),
             "--find" => s.find = Some(v),
+            "--tab" => s.tab = Some(v),
+            "--hold" => s.hold = Some(number(&v, "--hold")?),
+            "--filter" => s.filter = Some(v),
+            "--level" => s.level = Some(number(&v, "--level")?),
             "--at" => {
                 let (x, y) = v.split_once(',').ok_or("--at is X,Y")?;
                 s.at = Some((number(x, "--at")?, number(y, "--at")?));
@@ -186,6 +218,7 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
 fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
     let mut b = Bench {
         idle: 20,
+        follow: 30,
         ..Bench::default()
     };
     while let Some(a) = args.next() {
@@ -194,6 +227,8 @@ fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
         }
         match a.as_str() {
             "--idle" => b.idle = number(&value(&mut args, &a)?, "--idle")?,
+            "--logs" => b.logs = true,
+            "--follow" => b.follow = number(&value(&mut args, &a)?, "--follow")?,
             _ => return Err(format!("bench: unknown flag {a}")),
         }
     }
@@ -226,6 +261,25 @@ mod tests {
             (Some("api"), Some(0.25), Some((10., 20.)))
         );
         assert!(parse(args("shot --screen nope")).is_err());
+    }
+
+    #[test]
+    fn a_shot_inside_a_stack_and_the_logs_bench() {
+        let Ok(Cmd::Shot(s)) = parse(args(
+            "shot --fixture shop --screen instance --select api --tab logs --hold 8000 --filter x --find-mode --level 2",
+        )) else {
+            panic!("a shot")
+        };
+        assert_eq!(s.screen, Screen::Instance);
+        assert_eq!(
+            (s.tab.as_deref(), s.hold, s.filter.as_deref(), s.level),
+            (Some("logs"), Some(8000), Some("x"), Some(2))
+        );
+        assert!(s.find_mode);
+        let Ok(Cmd::Bench(b)) = parse(args("bench --fixture shop --logs --follow 5")) else {
+            panic!("a bench")
+        };
+        assert!(b.logs && b.follow == 5);
     }
 
     #[test]
