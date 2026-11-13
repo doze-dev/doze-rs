@@ -653,6 +653,12 @@ boards (11 of them, on real doze-map output), the call made and built:
 - **Focus views**: neighbourhood (`H`, board 6: the card and 1–3 calls either way, in columns by path that keep their
   meaning as hops grow) and only trouble (`T`, board 5: what is in trouble and the shortest paths of up to three calls
   between, laid out on their own). `esc` returns where the camera was.
+- **Motion, as the Go map's** (the owner: "the UI and groups are a lot smoother in the golang app"): a selection dims
+  the rest over 200 ms on CSS `ease` and the lines change colour with it (`.node { transition: opacity .2s }`, `.edge
+  { transition: stroke .2s }`); the pointer's card lights over 120 ms easing out, its calls fading in as the last
+  card's fade out; a region's frame and pill light with its card; a focus view fades in; zoom (buttons, keys), the arrow
+  keys walking off the edge, Fit, find and regions all ease the camera (180 / 280 ms). Reduced motion: none of it, and
+  no frame is asked for. Go frames vs ours: `scratchpad/goframes/` in the PR description; frame times in weight.md.
 - **Region zoom-in, lite** (idea C without its cost): double-click a frame (or click its pill, or its breadcrumb) and
   the camera flies to fit it. **Not built, by decision**: a separate per-region layout (level 2) and the collapsed
   region boxes (level 1) of boards 2–3 and 9. At 150 services the whole map at fit already reads by region, so they add

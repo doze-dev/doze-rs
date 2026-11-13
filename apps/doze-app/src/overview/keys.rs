@@ -24,35 +24,7 @@ pub(super) fn keys(t: &Tokens, v: &OverviewView, (lit, lens): (bool, bool)) -> i
         )
     } else {
         match v.view {
-            View::Map => {
-                let arrows = ["Card above", "Card below", "Card left", "Card right"]
-                    .iter()
-                    .map(|l| chip_of(l))
-                    .collect::<String>();
-                (
-                    vec![
-                        (arrows, "move"),
-                        (chip_of("Find a card"), "find"),
-                        (chip_of("Fit the map"), "fit"),
-                        (chip_of("Overview on or off"), "overview"),
-                        (
-                            chip_of("Close"),
-                            match (lens, lit) {
-                                (true, _) => "back to the whole map",
-                                (_, true) => "let go",
-                                _ => "close",
-                            },
-                        ),
-                    ],
-                    if lens {
-                        "a focus view: the rest of the map is hidden until esc"
-                    } else if lit {
-                        "selected: its calls stay lit, the rest steps back"
-                    } else {
-                        "hover a card to see its calls · click to keep them"
-                    },
-                )
-            }
+            View::Map => map_keys(lit, lens),
             View::Grid => (
                 vec![
                     (
@@ -83,4 +55,34 @@ pub(super) fn keys(t: &Tokens, v: &OverviewView, (lit, lens): (bool, bool)) -> i
         }
     };
     keys_bar(t, &keys, note)
+}
+
+/// The Map's keys and note: what esc does depends on what it holds (a focus view, a selection).
+fn map_keys(lit: bool, lens: bool) -> (Vec<(String, &'static str)>, &'static str) {
+    let arrows = ["Card above", "Card below", "Card left", "Card right"]
+        .iter()
+        .map(|l| chip_of(l))
+        .collect::<String>();
+    let esc = match (lens, lit) {
+        (true, _) => "back to the whole map",
+        (_, true) => "let go",
+        _ => "close",
+    };
+    let note = if lens {
+        "a focus view: the rest of the map is hidden until esc"
+    } else if lit {
+        "selected: its calls stay lit, the rest steps back"
+    } else {
+        "hover a card to see its calls · click to keep them"
+    };
+    (
+        vec![
+            (arrows, "move"),
+            (chip_of("Find a card"), "find"),
+            (chip_of("Fit the map"), "fit"),
+            (chip_of("Overview on or off"), "overview"),
+            (chip_of("Close"), esc),
+        ],
+        note,
+    )
 }

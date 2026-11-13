@@ -34,6 +34,7 @@ mod tests;
 mod tile;
 mod tools;
 mod view;
+mod words;
 
 use std::collections::HashMap;
 use std::rc::Rc;

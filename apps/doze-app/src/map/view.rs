@@ -47,7 +47,12 @@ impl MapView {
         let (z, x, y) = self.cam.target();
         let to = (z * factor).clamp(super::camera::MIN_ZOOM, super::camera::MAX_ZOOM);
         let dur = crate::theme::Motion::of(cx).normal;
-        self.cam.fly((to, x, y), self.layout.bounds, dur);
+        if dur.is_zero() {
+            // Motion reduced: there at once, about the middle.
+            self.cam.zoom_centre(to / self.cam.zoom, self.layout.bounds);
+        } else {
+            self.cam.fly((to, x, y), self.layout.bounds, dur);
+        }
         cx.notify();
     }
 
@@ -244,10 +249,10 @@ impl MapView {
             .child(scene(t, self, &vis, self.viewport.clone()));
         if self.cam.zoom >= DETAIL_ZOOM {
             d = d
-                .children(super::cards::captions(t, self))
+                .children(super::words::captions(t, self))
                 .children(super::cards::cards(t, self, &vis.cards, on.as_deref()));
         } else if self.cam.zoom >= LABEL_ZOOM {
-            d = d.children(super::cards::labels(t, self, &vis.cards, on.as_deref()));
+            d = d.children(super::words::labels(t, self, &vis.cards, on.as_deref()));
         }
         d.into_any_element()
     }

@@ -5,7 +5,10 @@
 //! - `pan`: 120 steps of 37 px across and down, at the fit;
 //! - `zoom`: 120 steps in and out about the middle, from the fit to 1:1 and back (every level of detail);
 //! - `hover`: the pointer's card changed every frame, 120 cards, at the fit and at 1:1;
-//! - `lines`: the pan again with every line drawn (`L`).
+//! - `lines`: the pan again with every line drawn (`L`);
+//! - `select`: the selection moved card to card, each frame half way through its 200 ms dim (every card's opacity and
+//!   every line's colour blended), at the fit and at 1:1;
+//! - `fly`: camera flights to cards (find, a region, fit), drawn frame by frame.
 //!
 //! It prints `PHASE_ms_median`, `_p99`, `_max` and `_over_16ms`, and the layout's own time (`layout_ms`, the best of
 //! five, release).
@@ -90,84 +93,100 @@ pub(crate) async fn run(cx: &mut AsyncApp, h: WindowHandle<Root>) {
             .await;
     }
     let _ = h.update(cx, |root, _, cx| layout_time(root.map.read(cx)));
-    let pan = move |m: &mut MapView, k: usize| {
-        if k == 0 {
-            m.refit();
-            m.cam.zoom_centre(1.6, m.layout.bounds);
-        }
-        let d = if (k / 30).is_multiple_of(2) {
-            37.0
-        } else {
-            -37.0
-        };
-        m.cam.pan_by(d, d * 0.6, m.layout.bounds);
+    for (name, step) in STEPS {
+        report(name, frames(cx, h, 120, &step));
+    }
+}
+
+/// The phases, in order: each a step of the Map per frame.
+/// One step of the Map, for frame `k` of a phase.
+type Step = fn(&mut MapView, usize);
+
+const STEPS: [(&str, Step); 6] = [
+    ("pan", pan),
+    ("zoom", zoom),
+    ("hover", hover),
+    ("lines", lines),
+    ("select", select),
+    ("fly", fly),
+];
+
+fn pan(m: &mut MapView, k: usize) {
+    if k == 0 {
+        m.refit();
+        m.cam.zoom_centre(1.6, m.layout.bounds);
+    }
+    let d = if (k / 30).is_multiple_of(2) {
+        37.0
+    } else {
+        -37.0
     };
-    report("pan", frames(cx, h, 120, &pan));
-    let zoom = move |m: &mut MapView, k: usize| {
-        if k == 0 {
-            m.refit();
-        }
-        let f = if (k / 30).is_multiple_of(2) {
-            1.06
-        } else {
-            1.0 / 1.06
-        };
-        m.cam.zoom_centre(f, m.layout.bounds);
+    m.cam.pan_by(d, d * 0.6, m.layout.bounds);
+}
+
+fn zoom(m: &mut MapView, k: usize) {
+    if k == 0 {
+        m.refit();
+    }
+    let f = if (k / 30).is_multiple_of(2) {
+        1.06
+    } else {
+        1.0 / 1.06
     };
-    report("zoom", frames(cx, h, 120, &zoom));
-    let hover = move |m: &mut MapView, k: usize| {
-        if k == 0 {
-            m.refit();
-        }
-        if k == 60 {
-            m.cam.zoom_centre(1.0 / m.cam.zoom, m.layout.bounds);
-        }
+    m.cam.zoom_centre(f, m.layout.bounds);
+}
+
+fn hover(m: &mut MapView, k: usize) {
+    if k == 0 {
+        m.refit();
+    }
+    if k == 60 {
+        m.cam.zoom_centre(1.0 / m.cam.zoom, m.layout.bounds);
+    }
+    let n = m.layout.cards.len().max(1);
+    m.hover = Some(doze_map::CardId(u32::try_from(k * 7 % n).unwrap_or(0)));
+}
+
+fn lines(m: &mut MapView, k: usize) {
+    if k == 0 {
+        m.hover = None;
+        m.all_lines = true;
+    }
+    pan(m, k);
+}
+
+/// A selection moving card to card, each frame half way through its dim (every card's opacity and every line's colour
+/// blended), at the fit and at 1:1.
+fn select(m: &mut MapView, k: usize) {
+    if k == 0 {
+        m.all_lines = false;
+        m.refit();
+        m.fades.held = Some(0.5);
+    }
+    if k == 60 {
+        m.cam.zoom_centre(1.0 / m.cam.zoom, m.layout.bounds);
+    }
+    let n = m.layout.cards.len().max(1);
+    m.lit = Some(doze_map::CardId(u32::try_from(k * 11 % n).unwrap_or(0)));
+}
+
+/// The camera's flight to a card, frame by frame (find, a region, fit).
+fn fly(m: &mut MapView, k: usize) {
+    if k.is_multiple_of(20) {
+        m.lit = None;
+        m.fades.held = None;
+        m.refit();
         let n = m.layout.cards.len().max(1);
-        m.hover = Some(doze_map::CardId(u32::try_from(k * 7 % n).unwrap_or(0)));
-    };
-    report("hover", frames(cx, h, 120, &hover));
-    let lines = move |m: &mut MapView, k: usize| {
-        if k == 0 {
-            m.hover = None;
-            m.all_lines = true;
+        let c = m.layout.cards.get(k * 13 % n).map(|c| c.rect.center());
+        if let Some(c) = c {
+            m.cam
+                .fly((1.0, c.x, c.y), m.layout.bounds, Duration::from_millis(280));
         }
-        pan(m, k);
-    };
-    report("lines", frames(cx, h, 120, &lines));
-    // A selection moving card to card, each frame half way through its dim (every card's opacity and every line's
-    // colour blended), at the fit and at 1:1.
-    let select = move |m: &mut MapView, k: usize| {
-        if k == 0 {
-            m.all_lines = false;
-            m.refit();
-            m.fades.held = Some(0.5);
-        }
-        if k == 60 {
-            m.cam.zoom_centre(1.0 / m.cam.zoom, m.layout.bounds);
-        }
-        let n = m.layout.cards.len().max(1);
-        m.lit = Some(doze_map::CardId(u32::try_from(k * 11 % n).unwrap_or(0)));
-    };
-    report("select", frames(cx, h, 120, &select));
-    // The camera's flight to a card, frame by frame (find, a region, fit).
-    let fly = move |m: &mut MapView, k: usize| {
-        if k % 20 == 0 {
-            m.lit = None;
-            m.fades.held = None;
-            m.refit();
-            let n = m.layout.cards.len().max(1);
-            let c = m.layout.cards.get(k * 13 % n).map(|c| c.rect.center());
-            if let Some(c) = c {
-                m.cam
-                    .fly((1.0, c.x, c.y), m.layout.bounds, Duration::from_millis(280));
-            }
-        }
-        if let Some(f) = m.cam.flight.as_mut() {
-            #[allow(clippy::cast_precision_loss)]
-            let p = (k % 20) as f32 / 19.0;
-            f.held = Some(p);
-        }
-        m.cam.tick(Instant::now());
-    };
-    report("fly", frames(cx, h, 120, &fly));
+    }
+    if let Some(f) = m.cam.flight.as_mut() {
+        #[allow(clippy::cast_precision_loss)]
+        let p = (k % 20) as f32 / 19.0;
+        f.held = Some(p);
+    }
+    m.cam.tick(Instant::now());
 }

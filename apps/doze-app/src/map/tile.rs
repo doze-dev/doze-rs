@@ -193,11 +193,15 @@ fn chip(
         .child(SharedString::from(label))
 }
 
-/// The list, over the drawing's lower part.
-pub(crate) fn list(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option<AnyElement> {
-    let (tile, l) = (m.layout.tile.as_ref()?, m.list.as_ref()?);
-    let count = |f: Filter| tile.cards.iter().filter(|id| m.passes(**id, f)).count();
-    let mut chips = div().flex().items_center().gap(px(6.));
+/// The filters, each with its count.
+fn chips(t: &Tokens, m: &MapView, on: Filter, cx: &mut Context<MapView>) -> gpui::Div {
+    let cards = m
+        .layout
+        .tile
+        .as_ref()
+        .map_or(&[][..], |t| t.cards.as_slice());
+    let count = |f: Filter| cards.iter().filter(|id| m.passes(**id, f)).count();
+    let mut row = div().flex().items_center().gap(px(6.));
     for (f, word) in [
         (Filter::All, "All"),
         (Filter::Lane, "Nothing calls"),
@@ -205,14 +209,15 @@ pub(crate) fn list(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option
         (Filter::Services, "Services"),
         (Filter::Trouble, "In trouble"),
     ] {
-        chips = chips.child(chip(
-            t,
-            format!("{word} {}", count(f)),
-            l.filter == f,
-            f,
-            cx,
-        ));
+        row = row.child(chip(t, format!("{word} {}", count(f)), on == f, f, cx));
     }
+    row
+}
+
+/// The list, over the drawing's lower part.
+pub(crate) fn list(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option<AnyElement> {
+    let (tile, l) = (m.layout.tile.as_ref()?, m.list.as_ref()?);
+    let chips = chips(t, m, l.filter, cx);
     let shown = m.listed(cx);
     let mut grid = div().flex().flex_wrap().gap(px(6.)).pt(px(10.));
     for &id in &shown {
