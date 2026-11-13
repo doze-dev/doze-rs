@@ -131,3 +131,24 @@ font download Firefox reports as aborted because the test navigated away first, 
 its own chunk the same way. The main chunk (184 KB gzipped) has room to shrink (lucide icons by path, Router's devtools-free build
 is already used). Screenshots for the review: scratchpad `r0/shots/` (Home, Connect, gallery in Firefox, WebKit, Chromium at 1440
 and 1024). The fonts are embedded twice until R5 removes the classic console.
+
+## R1a done (2026-11-13, branch `react-r1a`): Topics, the read side
+
+**API** (`crates/kafka-console/src/api/topics.rs`, `topics/{log,tail,types}.rs`): `GET /api/v1/topics`, `/topics/{t}` (the frame),
+`/messages`, `/records/{p}/{o}`, `/consumers`, `/log?partition=`, `/producers?partition=`, `/transactions/{id}`,
+`POST /topics/{t}/log/compact` (the Lab's round), `GET /api/v1/tail/messages` (SSE over fetch: `ready`, then JSON `rows` events at most
+one per pace, `Last-Event-ID` resume, one stream permit each). A lookup that finds nothing answers `{missing}` with 200 (a 404 is logged
+as an error by Chromium and Safari). Catalogue CON-1100 to CON-1108.
+
+**Pages** (`web/src/pages/topics/`, one lazy chunk): the list (filter, Show internal Switch, none/filtered states), the frame
+(`frame.tsx`: head, actions opening `?dialog=` for R1b, stats, reserved transaction region, five tabs as routes, `TopicOverlays` mount
+point), Messages (toolbar of MultiSelect, the one find box, the From time Popover with quick choices, the isolation ToggleGroup; a filter
+line of removable chips; DataTable with stable ids; Older; the routed record Sheet; Snapshot | Live tail with Realtime/Relaxed/Slow,
+the held pill and the connection indicator), Partitions, Consumers, Log (ruler, planner or retention rules, last round or pass,
+deletions, durability, segments that open in place, other logs, Compact now Dialog), Producers (rows that open to their batches, the tail
+ruler, aborted transactions), a transaction and who it holds back. Shared files touched: `router.tsx` (the routes), `data-table.tsx`
+(a column without a width now takes the rest: TanStack's default 150 px size had made every "fill" column 150 px; a row height prop;
+a row class for the tail's highlight), `index.css` (the new-row keyframes).
+
+**Gate**: Firefox, WebKit, Chromium 45/45 each on the seeded world (R0's and R1a's specs), and R1a's specs against a broker with
+traffic. Weight: doze-kafka 6,244,400 B darwin (R0 6,161,072), 160 packages.
