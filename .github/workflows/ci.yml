@@ -179,7 +179,7 @@ jobs:
           if [ "$HAS_CERT" != "true" ]; then unset DOZE_SIGN_ID NOTARY_KEY_ID NOTARY_ISSUER_ID; HAS_NOTARY=false; fi
           if [ "$HAS_CERT" = "true" ] && [ -z "$DOZE_SIGN_ID" ]; then echo "::warning::MACOS_CERT_P12 is set but DOZE_SIGN_ID is not: signing ad hoc"; fi
           if [ "$HAS_NOTARY" = "true" ]; then export NOTARY_KEY_PATH="$RUNNER_TEMP/notary.p8"; fi
-          cargo xtask app-bundle --no-build --version "0.0.${GITHUB_RUN_NUMBER}" --out bundle
+          cargo xtask app-bundle --no-build --id dev.doze.app --version "0.0.${GITHUB_RUN_NUMBER}" --out bundle
           plutil -p bundle/Doze.app/Contents/Info.plist
           codesign -dv bundle/Doze.app
           ditto -c -k --keepParent bundle/Doze.app bundle/Doze.app.zip

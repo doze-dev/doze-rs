@@ -27,7 +27,7 @@ pub(crate) struct Menu {
 
 /// How many menus' commands are kept: a menu open on screen is not replaced under the person's pointer by AppKit, so a
 /// pick may come from a menu several rebuilds old (a running stack's memory moves its line about once a second).
-const KEPT: usize = 120;
+const KEPT: usize = 30;
 
 /// What each recent menu's lines ask for, by generation: a pick from any of them does what its own line said.
 #[derive(Debug, Default)]

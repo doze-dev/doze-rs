@@ -125,8 +125,14 @@ fn program() -> std::io::Result<PathBuf> {
         .parent()
         .and_then(Path::parent)
         .map(|t| t.join("bundle/Doze.app/Contents/MacOS/doze-app"))
-        .filter(|p| !crate::around::bundled() && p.is_file());
+        .filter(|p| !crate::around::bundled() && newer_or_same(p, &me));
     Ok(beside.unwrap_or(me))
+}
+
+/// `bundled` was built no earlier than `me`: a bundle older than this build would run old code without a word.
+fn newer_or_same(bundled: &Path, me: &Path) -> bool {
+    let at = |p: &Path| std::fs::metadata(p).and_then(|m| m.modified()).ok();
+    matches!((at(bundled), at(me)), (Some(b), Some(m)) if b >= m)
 }
 
 /// Starts the app on its own and returns without waiting, unless it fails at once.

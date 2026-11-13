@@ -67,7 +67,9 @@ pub fn others(home: &Path) -> Vec<Other> {
 #[derive(Debug, Default)]
 pub struct Names {
     entries: BTreeMap<String, Entry>,
-    front: Option<String>,
+    /// The front door's holder (its listen address and pid); whether it is alive is asked at each lookup, so a front door
+    /// that died without rewriting the file stops making URLs port-less.
+    front: Option<(String, i64)>,
 }
 
 impl Names {
@@ -80,11 +82,7 @@ impl Names {
         let Ok(entries) = serde_json::from_slice::<BTreeMap<String, Entry>>(&raw) else {
             return Names::default();
         };
-        let alive = |e: &Entry| u32::try_from(e.pid).is_ok_and(doze_os::process::alive);
-        let front = entries
-            .get(INGRESS)
-            .filter(|e| alive(e))
-            .map(|e| e.target.clone());
+        let front = entries.get(INGRESS).map(|e| (e.target.clone(), e.pid));
         Names { entries, front }
     }
 
@@ -97,7 +95,12 @@ impl Names {
             if let Some(e) = self.entries.get(name).filter(|e| {
                 !e.target.is_empty() && u32::try_from(e.pid).is_ok_and(doze_os::process::alive)
             }) {
-                let url = url_for(host, &e.target, self.front.as_deref());
+                let front = self
+                    .front
+                    .as_ref()
+                    .filter(|(_, pid)| u32::try_from(*pid).is_ok_and(doze_os::process::alive))
+                    .map(|(t, _)| t.as_str());
+                let url = url_for(host, &e.target, front);
                 return (!url.is_empty()).then_some(url);
             }
             name = name.split_once('.')?.1;

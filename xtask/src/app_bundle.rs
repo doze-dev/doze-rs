@@ -13,8 +13,8 @@
 //! - Signing: with `DOZE_SIGN_ID` (a Developer ID in the keychain) it signs with the hardened runtime and the
 //!   entitlements, and with `NOTARY_KEY_PATH`, `NOTARY_KEY_ID` and `NOTARY_ISSUER_ID` it notarises and staples; with
 //!   neither it signs ad hoc, which is enough to run here. CI signs only when its secrets exist.
-//! - `--id` and `--name` make a bundle that is not the real app's identity (a test bundle, so it never takes the
-//!   owner's `dev.doze.app` or its `doze://` links); `--no-scheme` leaves the link scheme out for the same reason.
+//! - The identity is `dev.doze.app.dev` unless `--id` says otherwise (CI and a release pass `--id dev.doze.app`), so a
+//!   local bundle never takes the installed app's place; `--no-scheme` also leaves the `doze://` scheme out.
 //!
 //! The bundle is written to `--out` (default `<target>/bundle/Doze.app`); nothing is installed anywhere.
 
@@ -38,7 +38,9 @@ fn parse(args: &[String]) -> Result<Opts, String> {
         profile: "release-app".into(),
         out: None,
         version: "0.0.0".into(),
-        id: "dev.doze.app".into(),
+        // Not the shipped identity unless asked (`--id dev.doze.app`, as CI does): a local build launched from the target
+        // folder must not take the installed app's place with Launch Services.
+        id: "dev.doze.app.dev".into(),
         name: "Doze".into(),
         scheme: true,
         build: true,
@@ -57,8 +59,12 @@ fn parse(args: &[String]) -> Result<Opts, String> {
                     .version
                     .split('.')
                     .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+                    || o.version.split('.').count() > 3
                 {
-                    return Err(format!("--version {} is not numbers and dots", o.version));
+                    return Err(format!(
+                        "--version {} is not one to three numbers with dots (Apple's form)",
+                        o.version
+                    ));
                 }
             }
             "--id" => o.id = value()?,

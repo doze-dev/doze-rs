@@ -45,9 +45,18 @@ pub(crate) fn claim(home: &Path, args: &[String]) -> std::io::Result<Launch> {
     if let Some(dir) = lock.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let Some(held) = doze_os::fs::try_lock(&lock)? else {
-        send(&sock, args)?;
-        return Ok(Launch::Forwarded);
+    // Held by another: hand over. An app starting (or a probe of the lock by `open`) may hold it a moment before its
+    // socket listens, so the two are tried again for up to a second before giving up.
+    let start = std::time::Instant::now();
+    let held = loop {
+        if let Some(held) = doze_os::fs::try_lock(&lock)? {
+            break held;
+        }
+        match send(&sock, args) {
+            Ok(()) => return Ok(Launch::Forwarded),
+            Err(e) if start.elapsed() > std::time::Duration::from_secs(1) => return Err(e),
+            Err(_) => std::thread::sleep(std::time::Duration::from_millis(50)),
+        }
     };
     // A socket left by an app that died goes: the lock says nobody listens on it.
     let _ = std::fs::remove_file(&sock);
