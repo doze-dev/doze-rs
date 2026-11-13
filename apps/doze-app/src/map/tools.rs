@@ -119,6 +119,66 @@ pub(crate) fn stats(m: &MapView) -> String {
     s
 }
 
+/// Under the pointer in a map by region: what the card's region talks to, from its bundles — `checkout calls payments 3 ·
+/// catalog 2 · called by gateway 4` — so the regions' links read at fit without following lines.
+pub(crate) fn talks(t: &Tokens, m: &MapView) -> Option<AnyElement> {
+    let id = m.hover.filter(|_| m.lit.is_none() && m.lens.is_none())?;
+    let k = m.overview.region_of.get(id.ix()).copied().flatten()?;
+    let name = |r: usize| {
+        m.overview
+            .regions
+            .get(r)
+            .and_then(|r| r.label.clone())
+            .unwrap_or_default()
+    };
+    let list = |pick: &dyn Fn(&doze_map::Bundle) -> Option<usize>| {
+        let mut v: Vec<(u32, String)> = m
+            .overview
+            .bundles
+            .iter()
+            .filter_map(|b| pick(b).map(|r| (b.count, name(r))))
+            .collect();
+        v.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+        v.iter()
+            .take(4)
+            .map(|(n, r)| format!("{r} {n}"))
+            .collect::<Vec<_>>()
+            .join(" · ")
+    };
+    let out = list(&|b| (b.from == k).then_some(b.to));
+    let inn = list(&|b| (b.to == k).then_some(b.from));
+    let mut parts = Vec::new();
+    if !out.is_empty() {
+        parts.push(format!("calls {out}"));
+    }
+    if !inn.is_empty() {
+        parts.push(format!("called by {inn}"));
+    }
+    if parts.is_empty() {
+        parts.push("talks to no other region".into());
+    }
+    Some(
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.))
+            .text_size(px(12.))
+            .whitespace_nowrap()
+            .child(
+                div()
+                    .font_weight(w(650.))
+                    .text_color(t.bright)
+                    .child(SharedString::from(name(k))),
+            )
+            .child(
+                div()
+                    .text_color(t.text)
+                    .child(SharedString::from(parts.join(" · "))),
+            )
+            .into_any_element(),
+    )
+}
+
 /// The breadcrumb of the selected card in a map by region: Map › region › card. `None` when there is none to show.
 pub(crate) fn crumbs(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option<AnyElement> {
     if m.lens.is_some() {

@@ -98,7 +98,9 @@ pub(crate) fn strip(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> AnyEl
             .child(SharedString::from(stats)),
     );
     // The legend gives way first when the window is narrow; the card in hand's breadcrumb takes its place.
-    let right = super::tools::crumbs(t, m, cx).unwrap_or_else(|| legend(t, m));
+    let right = super::tools::crumbs(t, m, cx)
+        .or_else(|| super::tools::talks(t, m))
+        .unwrap_or_else(|| legend(t, m));
     bar.child(
         div()
             .flex_1()

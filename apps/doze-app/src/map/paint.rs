@@ -349,7 +349,13 @@ impl Scene {
             } else {
                 self.fades.heat(c, self.hover, self.ph)
             };
-            let border = mix(self.t.accent, self.t.line2, hot * 100.0);
+            // In trouble, a red frame, as every screen draws it (the strip says which state).
+            let rest = if self.states.get(c.ix()) == Some(&4) {
+                self.t.bad
+            } else {
+                self.t.line2
+            };
+            let border = mix(self.t.accent, rest, hot * 100.0);
             let radius = px((11.0 * self.z).max(1.0));
             let bw = if b.size.height > px(6.) {
                 px(1.)
