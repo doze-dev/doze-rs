@@ -1,4 +1,4 @@
-import { boxes, choose, expect, overflowX, test } from "./fixtures";
+import { boxes, choose, cutHeaders, expect, overflowX, test } from "./fixtures";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -130,6 +130,7 @@ for (const width of [1024, 1280, 1440, 1920]) {
       await expect(page.locator("h1")).toBeVisible();
       await page.waitForLoadState("networkidle");
       expect(await overflowX(page), `${path} at ${width}`).toBeLessThanOrEqual(0);
+      if (width >= 1280) expect(await cutHeaders(page), `headers cut on ${path} at ${width}`).toEqual([]);
     }
   });
 }

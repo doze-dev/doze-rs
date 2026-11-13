@@ -25,6 +25,21 @@ export async function overflowX(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 }
 
+/** The table headers on the page whose words do not fit their column (cut with an ellipsis or spilling over): none is the rule
+ * at 1280 px and wider. */
+export async function cutHeaders(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    [...document.querySelectorAll("th")]
+      .filter((th) => {
+        const r = th.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return false;
+        const inner = th.querySelector<HTMLElement>("button span") ?? th;
+        return th.scrollWidth > th.clientWidth + 1 || inner.scrollWidth > inner.clientWidth + 1;
+      })
+      .map((th) => th.textContent?.trim() ?? ""),
+  );
+}
+
 /** Opens a shadcn Select by its trigger and chooses an option by its visible name, with the mouse. */
 export async function choose(page: Page, trigger: ReturnType<Page["locator"]>, option: string) {
   await trigger.click();

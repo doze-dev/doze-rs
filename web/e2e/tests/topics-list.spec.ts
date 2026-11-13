@@ -1,6 +1,6 @@
 // The Topics list (slice R1a): the filter and the Show internal switch are in the address and work with the mouse and the
 // keyboard; the empty filter result says so; a name opens the topic; nothing scrolls sideways.
-import { expect, overflowX, test } from "./fixtures";
+import { cutHeaders, expect, overflowX, test } from "./fixtures";
 
 test("the list: one h1, the figures as stat tiles, a row per topic, and a name opens the topic", async ({ page }) => {
   await page.goto("/topics");
@@ -75,6 +75,7 @@ test("the Topics list does not scroll sideways at 1024, 1280, 1440 and 1920, and
   for (const width of [1024, 1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await overflowX(page), `${width}`).toBeLessThanOrEqual(0);
+    if (width >= 1280) expect(await cutHeaders(page), `headers cut at ${width}`).toEqual([]);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   const before = await page.getByRole("table", { name: "Topics" }).boundingBox();

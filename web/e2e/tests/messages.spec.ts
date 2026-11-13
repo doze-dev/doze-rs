@@ -1,6 +1,6 @@
 // A topic's frame and its Messages (slice R1a): tabs as routes; every filter in the address (partitions, offset or key,
 // time, isolation, Older); the record Sheet open, close, Esc, Back and a deep link; the Live tail on a broker with traffic.
-import { choose, expect, overflowX, test } from "./fixtures";
+import { choose, cutHeaders, expect, overflowX, test } from "./fixtures";
 import { produce } from "./kafka";
 
 /** Boxes in page coordinates (the viewport's plus the scroll), so a scroll is not a shift. */
@@ -188,11 +188,44 @@ test("the Live tail: new rows at the top, no row rewritten, the header stable, h
   await expect(page.getByTestId("conn")).toHaveAttribute("data-state", "snapshot");
 });
 
-test("the Messages page does not scroll sideways at 1024, 1280, 1440 and 1920", async ({ page }) => {
+test("the Messages page does not scroll sideways at 1024, 1280, 1440 and 1920, and no header is cut from 1280", async ({ page }) => {
   await page.goto("/topics/orders/messages");
   await expect(rows(page).first()).toBeVisible();
   for (const width of [1024, 1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(150);
     expect(await overflowX(page), `${width}`).toBeLessThanOrEqual(0);
+    if (width >= 1280) expect(await cutHeaders(page), `headers cut at ${width}`).toEqual([]);
   }
+  for (const path of ["/topics/orders/partitions", "/topics/orders/log", "/topics/orders/config", "/topics/orders/consumers", "/topics/orders/producers"]) {
+    for (const width of [1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(path);
+      await expect(page.locator("h1")).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      expect(await cutHeaders(page), `headers cut on ${path} at ${width}`).toEqual([]);
+    }
+  }
+});
+
+test("Messages has one way to keep up: no page-wide interval, a Refresh beside the switch in Snapshot, none in Live tail; the wire dock is under the records", async ({ page }) => {
+  await page.goto("/topics/orders/messages");
+  await expect(rows(page).first()).toBeVisible();
+  await expect(page.getByTestId("refresh-interval")).toHaveCount(0);
+  const line = page.getByTestId("filter-line");
+  await expect(line.getByTestId("refresh-now")).toBeVisible();
+  const stamp = line.getByTestId("refresh-stamp");
+  const first = await stamp.textContent();
+  await page.waitForTimeout(1100);
+  await line.getByTestId("refresh-now").click();
+  await expect(stamp).not.toHaveText(first ?? "");
+  // The board's "On the wire": the tape filtered to this topic.
+  const dock = page.getByTestId("wire-dock");
+  await expect(dock).toHaveAttribute("data-topic", "orders");
+  await expect(dock.getByRole("heading", { name: "On the wire" })).toBeVisible();
+  await page.getByTestId("mode").getByRole("radio", { name: "Live tail" }).click();
+  await expect(line.getByTestId("refresh-now")).toHaveCount(0);
+  // Another tab of the same topic keeps the page-wide control.
+  await page.goto("/topics/orders/partitions");
+  await expect(page.getByTestId("refresh-interval")).toBeVisible();
 });

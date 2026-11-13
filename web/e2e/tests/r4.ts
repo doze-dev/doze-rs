@@ -2,7 +2,7 @@
 // console's proof, and the checks every page of the slice must pass.
 import type { APIRequestContext, Page } from "@playwright/test";
 import { Kafka, logLevel, type Producer } from "kafkajs";
-import { expect, overflowX } from "./fixtures";
+import { cutHeaders, expect, overflowX } from "./fixtures";
 
 /** The Kafka address the console serves (the top bar's), so a spec can make traffic against a seeded or a demo broker. */
 export async function kafkaAddress(request: APIRequestContext): Promise<string> {
@@ -73,6 +73,7 @@ export async function widths(page: Page) {
     // No table scrolls sideways inside its box either: its columns fit.
     const wide = await page.evaluate(() => [...document.querySelectorAll("[data-slot=data-table]")].filter((el) => el.scrollWidth > el.clientWidth + 1).map((el) => el.querySelector("table")?.getAttribute("aria-label")));
     expect(wide, `tables wider than their box at ${width}`).toEqual([]);
+    if (width >= 1280) expect(await cutHeaders(page), `headers cut at ${width}`).toEqual([]);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.locator("h1")).toHaveCount(1);
