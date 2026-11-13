@@ -10,7 +10,61 @@ through `kcat` (a process of its own, which is also what lets one be killed with
     interop/run.sh -sasl                 the SASL cells (below) against a broker started with SASL on
     interop/run.sh -tls                  the TLS cells (below): the broker built with --features tls, over SASL_SSL and SSL
 
-Against a broker already running: `cd interop/go && go run . -broker 127.0.0.1:9092`.
+    interop/run.sh -kafka-version 2      the broker stands for Kafka 2 (--kafka-version 2), the clients set up for it; with -only, -sasl, -tls
+    interop/run.sh -versions             every major, 1 to 4, a broker and a fresh data directory each, then a summary per major
+    interop/run.sh -sasl -versions       the SASL cells at every major
+
+Against a broker already running: `cd interop/go && go run . -broker 127.0.0.1:9092` (add `-kafka-major N` if it was started
+with `--kafka-version N`).
+
+## Kafka majors (`-kafka-version`, `-versions`)
+
+`--kafka-version N` makes the broker offer each API at the versions a real broker of Kafka N offered (`crates/kafka-wire/src/profile.rs`).
+The suite runs against each major as a user of that major would: the Go program is told the major (`-kafka-major N`), and the
+broker decides what runs. At the start it asks the broker for ApiVersions (franz-go, `interop/go/versions.go`) and prints the list;
+a scenario that needs an API the broker does not advertise is printed as `skip <name> Kafka N does not offer <API>` and not run.
+No table in the suite says which major has what.
+
+What each library needs for an old broker:
+
+- **sarama** does not negotiate request versions from ApiVersions for everything; it picks them from `cfg.Version`, which must
+  not claim a newer broker than the one it talks to. One helper, `saramaVersion()` in `versions.go`, sets it from the major:
+  1 → `V1_1_0_0`, 2 → `V2_8_0_0`, 3 → `V3_9_0_0`, 4 → `V4_0_0_0` (the last release of each major, which are the brokers the
+  version table was recorded from). Every sarama client of the suite (consumers, producers, the admin, the transactional
+  producer, the SASL and TLS cells) takes its configuration from `saramaConfig()`.
+- **franz-go** negotiates every request from ApiVersions; nothing to set.
+- **kafka-go** negotiates from ApiVersions on each connection; nothing to set.
+- **librdkafka** (kcat and `txnprod`) negotiates too: `api.version.request` is on by default, and every broker from 0.10 on answers
+  ApiVersions, so `broker.version.fallback` (which applies only when ApiVersions is off or fails) never matters here. Nothing to set.
+
+Each major as run on 2026-11-14 (`interop/run.sh -versions` and `interop/run.sh -sasl -versions`). Nothing failed, and so no broker
+defect was found. A skip names the API the broker did not advertise:
+
+| | Kafka 1 | Kafka 2 | Kafka 3 | Kafka 4 |
+|---|---|---|---|---|
+| sarama, franz-go, kafka-go, librdkafka: a group of two of each | pass | pass | pass | pass |
+| franz-go-848, librdkafka-848 (two of each) | skip (a) | skip (a) | skip (a) | pass |
+| franz-sarama, franz-kafka-go, sarama-franz, librdkafka-franz, franz-librdkafka, mixed, mixed-rr | pass | pass | pass | pass |
+| upgrade-848, classic-joins-848, churn-848 | skip (a) | skip (a) | skip (a) | pass |
+| churn | pass | pass | pass | pass |
+| eos-franz-go, fence-franz-go, txn-franz-go, txn-sarama, txn-librdkafka | pass | pass | pass | pass |
+| compaction | pass | pass | pass | pass |
+| **plain: passed / skipped / failed** | **18 / 5 / 0** | **18 / 5 / 0** | **18 / 5 / 0** | **23 / 0 / 0** |
+| SASL cells: 4 libraries × PLAIN, SCRAM-SHA-256, SCRAM-SHA-512 | 12 pass | 12 pass | 12 pass | 12 pass |
+| SASL users made over the API (14 lines) | skip (b) | pass | pass | pass |
+| **SASL: passed / skipped / failed** | **12 / 1 / 0** | **26 / 0 / 0** | **26 / 0 / 0** | **26 / 0 / 0** |
+
+(a) `ConsumerGroupHeartbeat` is not advertised. Kafka 1 and 2 have no such API. The Kafka 3.9.1 broker the table was recorded from
+lists it (v0), but KIP-848 was early access in 3.x: `group.coordinator.rebalance.protocols` defaults to `classic`
+(`GroupCoordinatorConfig` in 3.9.1), so a 3.9 broker as installed does not run consumer-protocol groups. `--kafka-version 3`
+leaves it out (`profile(3).offers_consumer_groups()` is false, pinned in `profile/tests.rs`).
+(b) `DescribeUserScramCredentials` and `AlterUserScramCredentials` came with Kafka 2.7 (KIP-554); the 1.1 broker does not list them.
+SCRAM itself is from 0.10.2, so the 12 SCRAM and PLAIN cells run at Kafka 1.
+
+Transactions run at every major (they arrived in 0.11): at Kafka 1, every library negotiates InitProducerId, AddPartitionsToTxn,
+AddOffsetsToTxn, EndTxn and TxnOffsetCommit at v0, and sarama (`V1_1_0_0`) uses its oldest transactional requests. The three ACL APIs
+are not offered at Kafka 1 (the protocol crate dropped their only version there, KIP-896), but no scenario uses ACLs, so nothing is
+skipped for that. TLS is transport: `-tls` accepts `-kafka-version` (both brokers start with it), and is run at the default, 4.
 
 ## The scenarios
 
