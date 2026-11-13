@@ -167,7 +167,8 @@ test("the tail: batches never faster than the pace, existing rows never rewritte
       else if (now.outerHTML !== html && !now.textContent!.includes("×")) rewritten++;
     }
     const fresh = document.querySelectorAll("[data-testid=tape] tbody tr:has([data-fresh])").length;
-    const freshOld = [...w.__old.values()].filter(([n]) => n.querySelector("[data-fresh]")).length;
+    // Rows that came in a batch before this capture (the tail was on already) are new, not the snapshot's: they may carry it.
+    const freshOld = [...w.__old.values()].filter(([n, html]) => !html.includes("data-fresh") && n.querySelector("[data-fresh]")).length;
     return { batches: w.__batches, replaced, rewritten, fresh, freshOld, ls: w.__ls };
   });
   if (browserName === "chromium") expect(r.ls, "layout shift while tailing at the top").toBeLessThan(0.01);
