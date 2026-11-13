@@ -43,13 +43,13 @@ export function Remaining({ endsMs, nowMs }: { endsMs: number; nowMs: number }) 
 
 const hitColumns: DataColumn<LabHit>[] = [
   { accessorKey: "at_ms", header: "Time", size: 110, cell: (c) => <span className="font-mono text-[12.5px]">{clockUtc(c.row.original.at_ms)}</span> },
-  { accessorKey: "client", header: "Client", size: 150, cell: (c) => <span title={c.row.original.client}>{c.row.original.client}{c.row.original.tag ? ` (${c.row.original.tag})` : ""}</span> },
+  { accessorKey: "client", header: "Client", size: 140, cell: (c) => <span title={c.row.original.client}>{c.row.original.client}{c.row.original.tag ? ` (${c.row.original.tag})` : ""}</span> },
   { id: "request", header: "Request", size: 140, accessorFn: (h) => `${h.api} v${h.version}${h.transactional ? " (txn)" : ""}`, meta: { mono: true } },
   { accessorKey: "target", header: "Target", meta: { mono: true } },
   {
     id: "result",
     header: "Result",
-    size: 200,
+    size: 170,
     accessorFn: (h) => (h.code === 0 ? "Done" : h.code_name),
     cell: (c) => (
       <span title={c.row.original.detail}>
@@ -68,7 +68,7 @@ export function RuleSheet({ id, onClose, onSwitch, onRemove, restoreFocus }: { i
   const r = v?.rule;
   return (
     <Sheet open={!!id} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-3xl" data-testid="lab-rule-sheet" onCloseAutoFocus={restoreFocus}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-4xl" data-testid="lab-rule-sheet" onCloseAutoFocus={restoreFocus}>
         <SheetHeader>
           <SheetTitle className="flex flex-wrap items-center gap-3 pr-8 text-[20px] font-medium">
             {r?.name ?? `Rule ${id}`}

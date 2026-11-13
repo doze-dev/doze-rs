@@ -69,7 +69,7 @@ function CreateBody({ kinds, operations, onDone }: { kinds: AclChoice[]; operati
   const kindWord = preview.data?.kind_word ?? values.type;
   return (
     <Form {...form}>
-      <form noValidate onSubmit={form.handleSubmit((v) => void submit(v))} className="grid min-w-0 gap-4 sm:grid-cols-2" data-testid="acl-create-form">
+      <form noValidate onSubmit={form.handleSubmit((v) => void submit(v))} className="grid min-w-0 items-start gap-4 sm:grid-cols-2" data-testid="acl-create-form">
         <FormField
           control={form.control}
           name="principal"

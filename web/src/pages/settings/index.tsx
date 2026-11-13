@@ -60,7 +60,7 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
       {
         accessorKey: "name",
         header: "Config",
-        size: 230,
+        size: 220,
         cell: (c) => (
           <span className="font-mono text-[13px] text-bright" title={`${c.row.original.name}: ${c.row.original.what}`}>
             {c.row.original.name}
@@ -159,7 +159,7 @@ function ProfileSection({ r }: { r: SettingsResponse }) {
         className="mb-4"
         stats={[
           { label: "Profile", value: `Kafka ${p.major}`, unit: "--kafka-version", ch: 8 },
-          { label: "APIs offered", value: number(p.apis.length), unit: p.sasl_on ? "SASL on" : `${p.with_sasl.length} more with SASL on`, ch: 4 },
+          { label: "APIs offered", value: number(p.apis.length), unit: p.sasl_on ? "SASL on" : p.with_sasl.length ? `${p.with_sasl.length} more with SASL on` : "SASL off", ch: 4 },
           { label: "Not offered", value: number(p.not_offered.length), unit: "of this Kafka's APIs", ch: 4 },
         ]}
       />

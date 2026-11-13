@@ -58,7 +58,7 @@ function SwitchCard({ title, on, onWord, offWord, testid, children, lede }: { ti
 function Switches({ r }: { r: AccessResponse }) {
   const a = r.access;
   return (
-    <div className="mb-12 grid gap-6 lg:grid-cols-3">
+    <div className="mb-12 grid gap-6 xl:grid-cols-3">
       <SwitchCard testid="auth-card" title="Authentication" on={a.auth.on} onWord="On" offWord="Off" lede={a.auth.on ? "A client must log in before it may send anything but ApiVersions." : "Any client may connect and send requests; nobody logs in."}>
         <Fact label="Mechanisms" sub={a.auth.on ? (a.auth.plain ? "PLAIN is on beside SCRAM: a flag user may use it" : "PLAIN is off: a stored SCRAM user cannot use it") : "--sasl-mechanisms sets them"}>
           <Mono>{a.auth.mechanisms.length ? a.auth.mechanisms.join(", ") : "none"}</Mono>

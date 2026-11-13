@@ -88,7 +88,7 @@ test("Lab: a Slow rule for one client slows its requests; the rule counts them; 
     await expect(sheet).toBeHidden();
     const row = page.getByRole("table", { name: "Rules in force" }).locator("tbody tr", { hasText: "Slow produce to orders" });
     await expect(row).toBeVisible();
-    await expect(row.locator("td").nth(6)).toHaveText(/\d\d:\d\d:\d\d/);
+    await expect(row.locator("td").nth(5)).toHaveText(/\d\d:\d\d:\d\d/);
 
     // Switch it off and on with the Switch.
     const sw = row.getByTestId("rule-switch");
