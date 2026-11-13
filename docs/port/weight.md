@@ -292,3 +292,22 @@ timings, idles 30 s, closes the window) and macOS `footprint` (Activity Monitor'
 The binary is 3 MB over the spike's 12 MB: doze-desk's hub and the control client, doze-display's words, doze-map's
 layout, the ten themes, the tray icons, and the release profile's `opt-level = 3` (the spike used `"s"`). A
 size-optimised profile for the app is the first lever if the line is approached.
+
+### After M1 steps 1.1, 1.2 and 1.4 (the Library, a stack's page, the Grid), measured 2026-11-13
+
+Same machine and method; the window now opens on a stack's page in its remembered view (Tiles when none is), or on the
+Library when no stack is named.
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, release, no capture | ≤ 16 MB | 15,707,840 B (+836 KB; 15,992,144 B with `fixtures`): **292 KB under the line** |
+| Packages | limit 560 | 535 |
+| Menu bar ready after launch | ≤ 100 ms | 70–78 ms |
+| First frame after the tray click | ≤ 100 ms | 59–71 ms (larder's page; the empty Library) |
+| Window open and idle | ≤ 85 MB | larder's page (Tiles): 59 MB at 10 s, 55 MB at 25 s; the empty Library: 76 MB, 72 MB |
+| After the window closes | ≤ 35 MB | 35 MB 3 s after (larder) |
+| CPU, window open and static | ≤ 0.3 % | 0.0 % (ps, sampled at 10 s and 25 s) |
+
+The page watches its stack's meters while it shows (one frame a second from a real daemon) and redraws only when what
+it shows changed; the fixture daemon sends no meters after its script, so the static readings above are the floor.
+The binary is close to its line: the size-optimised profile above is the next step if M1's remaining pages need room.

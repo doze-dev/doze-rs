@@ -77,7 +77,8 @@ async fn time_open(
     loop {
         let has = h.update(cx, |root, _, cx| {
             root.refresh(cx);
-            root.key().is_some()
+            // The page it opens on has what it shows: a stack's page its stack, the Library (no stack named) at once.
+            root.key().is_some() || root.screen == crate::shell::Screen::Library
         });
         if has.unwrap_or(true) || t.elapsed() > Duration::from_secs(10) {
             break;
