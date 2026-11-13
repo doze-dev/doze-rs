@@ -276,7 +276,7 @@ function FilterLine({ search, set, tailable, conn, refresh }: { search: Messages
   const tail = search.mode === "tail" && tailable;
   return (
     <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2" data-testid="filter-line">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+      <div className="flex min-w-0 flex-1 basis-[20rem] flex-wrap items-center gap-1.5">
         {chips.length === 0 ? (
           <span className="truncate text-[13px] text-muted-foreground" title="No filter: the newest records of every partition.">
             No filter: the newest records of every partition.
