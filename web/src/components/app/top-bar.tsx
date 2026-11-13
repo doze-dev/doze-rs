@@ -5,6 +5,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { copyText } from "./copy";
+import { ThemeSwitch } from "./theme-menu";
 
 const chip = "inline-flex h-[30px] items-center gap-2 rounded-full border bg-card px-3 text-[12.5px] whitespace-nowrap text-foreground";
 
@@ -59,6 +60,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
             </Tooltip>
           </>
         )}
+        <ThemeSwitch />
       </div>
     </header>
   );
