@@ -309,15 +309,13 @@ fn invalid(message: &str, reset: Option<ResetView>, offsets: Option<OffsetDelete
     )
 }
 
-/// A JSON body, or the refusal that says it was not one.
-fn body<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, Response> {
-    serde_json::from_slice(bytes).map_err(|_| {
-        error(
-            StatusCode::BAD_REQUEST,
-            "BAD_REQUEST",
-            "The request's body is not what this write takes.",
-        )
-    })
+/// The refusal of a body that is not what a write takes.
+fn bad_body() -> Response {
+    error(
+        StatusCode::BAD_REQUEST,
+        "BAD_REQUEST",
+        "The request's body is not what this write takes.",
+    )
 }
 
 async fn reset(
@@ -325,9 +323,8 @@ async fn reset(
     Path(id): Path<String>,
     bytes: axum::body::Bytes,
 ) -> Response {
-    let req: ResetRequest = match body(&bytes) {
-        Ok(r) => r,
-        Err(e) => return e,
+    let Ok(req) = serde_json::from_slice::<ResetRequest>(&bytes) else {
+        return bad_body();
     };
     match s
         .source
@@ -391,9 +388,8 @@ async fn offsets_delete(
     Path(id): Path<String>,
     bytes: axum::body::Bytes,
 ) -> Response {
-    let req: OffsetDeleteRequest = match body(&bytes) {
-        Ok(r) => r,
-        Err(e) => return e,
+    let Ok(req) = serde_json::from_slice::<OffsetDeleteRequest>(&bytes) else {
+        return bad_body();
     };
     // No topic named is nothing to send (the form would tick every topic, which is not what was asked).
     if req.topics.is_empty() {
