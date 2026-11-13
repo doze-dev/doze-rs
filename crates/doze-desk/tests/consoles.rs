@@ -172,3 +172,29 @@ fn a_thousand_row_table_and_a_full_stream_resolve_whole() {
         "14:04:39"
     );
 }
+
+#[test]
+fn an_action_on_the_server_is_not_put_on_a_tables_row() {
+    let all = consoles();
+    let p = console_page("cache", "console:_", Some(&all["cache"]), &Selection::new());
+    let acts: Vec<_> = p
+        .body
+        .walk()
+        .into_iter()
+        .flat_map(|n| n.actions.clone())
+        .collect();
+    assert!(!acts.is_empty());
+    for a in acts {
+        assert_eq!(a.resource, "", "{} is on the server, not on db0", a.label);
+    }
+    // A namespace action still names the selected namespace.
+    let p = console_page("store", "console:_", Some(&all["store"]), &Selection::new());
+    let flush = p
+        .body
+        .walk()
+        .into_iter()
+        .flat_map(|n| n.actions.clone())
+        .find(|a| a.id == "flush")
+        .unwrap();
+    assert_eq!(flush.resource, "(default)");
+}

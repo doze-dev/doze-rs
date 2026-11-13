@@ -117,7 +117,7 @@ fn every_go_fixture_hub_script_round_trips() {
         );
         hubs += 1;
     }
-    assert_eq!(hubs, 10);
+    assert_eq!(hubs, 11);
 }
 
 #[test]

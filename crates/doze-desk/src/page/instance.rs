@@ -212,6 +212,17 @@ fn tabs(v: &words::Instance, spec: Option<&words::ConsoleSpec>) -> Vec<PageTab> 
             }
             Some(_) => {}
         }
+        // A module with a console and a Web UI of its own (temporal) keeps both: Go's tabs dropped the Web UI as soon
+        // as the console arrived, though the module said to open on it.
+        if words::has_web(v) && !tabs.iter().any(|t| t.id == words::TAB_WEB) {
+            tabs.insert(
+                1.min(tabs.len()),
+                PageTab {
+                    id: words::TAB_WEB.to_owned(),
+                    title: words::TAB_WEB.to_owned(),
+                },
+            );
+        }
     }
     tabs
 }
@@ -226,6 +237,10 @@ pub fn tab_title(t: &PageTab, page: &InstancePage) -> String {
         words::TAB_LOGS if page.is_task() && runs > 0 => format!("Runs · {runs}"),
         words::TAB_LOGS if page.is_task() => "Runs · none yet".to_owned(),
         words::TAB_LOGS => "Logs".to_owned(),
+        // Beside a module's own console tabs, its web console is its Web UI: two tabs called console say nothing.
+        words::TAB_WEB if page.tabs.iter().any(|x| x.id.starts_with("console:")) => {
+            "Web UI".to_owned()
+        }
         words::TAB_WEB => "Console".to_owned(),
         _ => t.title.clone(),
     }

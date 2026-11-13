@@ -242,9 +242,12 @@ impl<'a> Resolver<'a> {
                         res = self.selected_key(&block_id(t), &t.panel);
                     }
                 }
+                // The first table's row, unless the action is on something another panel names (valkey's "Empty the
+                // cache" is on the server its counters show, not on the database row Go's fallback picked).
+                let elsewhere = self.spec.panels.iter().any(|p| p.source == a.kind);
                 if let Some(t) = tables
                     .first()
-                    .filter(|_| res.is_empty() && !a.kind.is_empty())
+                    .filter(|_| res.is_empty() && !a.kind.is_empty() && !elsewhere)
                 {
                     res = self.selected_key(&block_id(t), &t.panel);
                 }

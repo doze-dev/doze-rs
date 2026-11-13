@@ -4,6 +4,8 @@ package fixture_test
 // and encoded by Go's own json.Encoder, and each fixture hub as a script file.
 //
 // To regenerate crates/doze-control/testdata/go/{types,scripts}: copy this file
+// and states.go (the states hub: one instance in every state, which doze-rs
+// added; register it in devserve's Fixtures as "states" to see it in Go's app)
 // into the Go doze repo at internal/control/fixture/, then run
 //
 //	DOZE_CAPTURE=<doze-rs>/crates/doze-control/testdata/go go test ./internal/control/fixture/ -run TestCapture
