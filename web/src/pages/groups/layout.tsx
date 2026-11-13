@@ -193,7 +193,7 @@ export function GroupLayout() {
           <Switch h={h} tail={tab.tail} />
           <Tabs h={h} />
           <Outlet />
-          <GroupDialogs id={id} head={h} dialog={search.dialog} onClose={overlay.close} returnFocus={overlay.returnFocus} />
+          <GroupDialogs id={id} head={h} dialog={search.dialog} onClose={overlay.close} />
         </>
       ) : (
         <div className="flex flex-col gap-4" aria-busy>

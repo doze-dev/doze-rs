@@ -434,7 +434,6 @@ export function SettingsPage() {
         scope={search.scope === "this" ? "this" : "all"}
         onMove={(key, scope) => overlay.move({ edit: key, scope: scope === "this" ? "this" : undefined })}
         onClose={() => overlay.close({ edit: undefined, scope: undefined })}
-        restoreFocus={overlay.restore}
         onSaved={(sv) => {
           setSaved(sv);
           qc.setQueryData<SettingsResponse>(r4keys.settings, (old) => (old ? { ...old, settings: { ...old.settings, head: { ...old.settings.head, set: sv.set }, configs: { ...old.settings.configs, rows: sv.rows } } } : old));

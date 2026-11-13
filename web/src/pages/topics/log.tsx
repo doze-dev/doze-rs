@@ -3,7 +3,7 @@
 // round or pass, the deletions kept, durability, the segments, the other logs; and the Lab's Compact now in a Dialog.
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { CheckIcon, ChevronDownIcon, EyeIcon, FlaskConicalIcon, InfoIcon, ScrollTextIcon, SendIcon, TriangleAlertIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { ApiFailure } from "@/api/client";
 import { useCompactNow, useLog } from "@/api/topics";
@@ -608,12 +608,10 @@ function CompactNow({ r }: { r: LogResponse }) {
   const d = r.compact;
   const [open, setOpen] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
-  const opener = useRef<HTMLButtonElement>(null);
   const run = useCompactNow(v.topic, v.partition);
   return (
     <>
       <Button
-        ref={opener}
         onClick={() => {
           setRefused(null);
           setOpen(true);
@@ -623,14 +621,7 @@ function CompactNow({ r }: { r: LogResponse }) {
         <FlaskConicalIcon /> Compact now
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          data-testid="compact-dialog"
-          onCloseAutoFocus={(e) => {
-            // A clicked button is not focused in Firefox and Safari: give the focus back to the opener by hand.
-            e.preventDefault();
-            opener.current?.focus();
-          }}
-        >
+        <DialogContent data-testid="compact-dialog">
           <DialogHeader>
             <DialogTitle>
               Compact <span className="font-mono">{v.topic}-{v.partition}</span> now?

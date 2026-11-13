@@ -371,7 +371,7 @@ function api(g: StoryGen): string {
   return g.cause === "member_left" ? "LeaveGroup" : g.cause === "session_expired" ? "Heartbeat" : "JoinGroup";
 }
 
-function RebalanceSheet({ v, generation, onClose, fetchedAt, returnFocus }: { v: StoryView; generation?: number; onClose: () => void; fetchedAt: number; returnFocus: (e: Event) => void }) {
+function RebalanceSheet({ v, generation, onClose, fetchedAt }: { v: StoryView; generation?: number; onClose: () => void; fetchedAt: number }) {
   const g = generation !== undefined ? v.generations.find((x) => x.generation === generation) : undefined;
   const newest = !!g && v.generations[0] === g;
   const word = v.head.protocol === "classic" ? "Generation" : "Epoch";
@@ -447,7 +447,7 @@ function RebalanceSheet({ v, generation, onClose, fetchedAt, returnFocus }: { v:
   const status = g ? (g.forming && newest ? (v.now.remaining_ms !== null && v.now.timeout_ms !== null ? <span className="text-[13px] font-semibold text-warn">Waiting, <Countdown deadline={fetchedAt + v.now.remaining_ms} className="min-w-0" /> of {spanPrecise(v.now.timeout_ms)} left</span> : <span className="text-[13px] font-semibold text-warn">Forming</span>) : <span className="text-[13px] font-semibold text-good">{(g.settled_ms ?? g.formed_ms) !== null ? `Settled in ${spanPrecise((g.settled_ms ?? g.formed_ms)!)}` : "Began"}</span>) : null;
   return (
     <Sheet open={generation !== undefined} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent onCloseAutoFocus={returnFocus} className="w-full sm:max-w-xl" data-testid="rebalance-sheet">
+      <SheetContent className="w-full sm:max-w-xl" data-testid="rebalance-sheet">
         <SheetHeader>
           <SheetTitle>{g ? `${word} ${g.generation}` : `${word} ${generation}`}</SheetTitle>
           <SheetDescription asChild>
@@ -485,7 +485,7 @@ function RebalanceSheet({ v, generation, onClose, fetchedAt, returnFocus }: { v:
   );
 }
 
-function RuleSheet({ v, open, onClose, returnFocus }: { v: StoryView; open: boolean; onClose: () => void; returnFocus: (e: Event) => void }) {
+function RuleSheet({ v, open, onClose }: { v: StoryView; open: boolean; onClose: () => void }) {
   const f = v.flap;
   const ev = (tone: StoryTone, at: string, cause: string, head: string, line: string) => (
     <li className="grid grid-cols-[3.5rem_1.25rem_minmax(0,1fr)] gap-x-3 pb-5 last:pb-0">
@@ -504,7 +504,7 @@ function RuleSheet({ v, open, onClose, returnFocus }: { v: StoryView; open: bool
   );
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent onCloseAutoFocus={returnFocus} className="w-full sm:max-w-xl" data-testid="rule-sheet">
+      <SheetContent className="w-full sm:max-w-xl" data-testid="rule-sheet">
         <SheetHeader>
           <SheetTitle>The rule, against {v.head.id}</SheetTitle>
           <SheetDescription>Three or more expired-then-joined cycles in 10 minutes.</SheetDescription>
@@ -614,8 +614,8 @@ export function GroupStoryPage() {
           )}
         </div>
       </div>
-      <RebalanceSheet v={v} generation={search.generation} onClose={gen.close} fetchedAt={res.dataUpdatedAt} returnFocus={gen.returnFocus} />
-      <RuleSheet v={v} open={search.rule === 1} onClose={rule.close} returnFocus={rule.returnFocus} />
+      <RebalanceSheet v={v} generation={search.generation} onClose={gen.close} fetchedAt={res.dataUpdatedAt} />
+      <RuleSheet v={v} open={search.rule === 1} onClose={rule.close} />
     </div>
   );
 }

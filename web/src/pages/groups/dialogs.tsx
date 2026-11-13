@@ -388,12 +388,12 @@ function OffsetsDialog({ id, head, onDone }: { id: string; head: GroupHead; onDo
 }
 
 /** The dialog the address names, over whichever tab of the group is showing. */
-export function GroupDialogs({ id, head, dialog, onClose, returnFocus }: { id: string; head: GroupHead; dialog?: Dialog; onClose: () => void; returnFocus: (e: Event) => void }) {
+export function GroupDialogs({ id, head, dialog, onClose }: { id: string; head: GroupHead; dialog?: Dialog; onClose: () => void }) {
   const navigate = useNavigate();
   const forget = useForgetGroup();
   return (
     <Dialog open={!!dialog} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent onCloseAutoFocus={returnFocus} className="sm:max-w-[640px]" data-testid={dialog ? `dialog-${dialog}` : undefined} aria-describedby={undefined}>
+      <DialogContent className="sm:max-w-[640px]" data-testid={dialog ? `dialog-${dialog}` : undefined} aria-describedby={undefined}>
         {dialog === "reset" && (
           <ResetDialog
             id={id}

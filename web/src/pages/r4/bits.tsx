@@ -7,6 +7,7 @@ import type { KafkaRefusal } from "@/api/types/KafkaRefusal";
 import type { Tok } from "@/api/types/Tok";
 import { CopyButton } from "@/components/app/copy-button";
 import { Spans } from "@/components/app/spans";
+import { hintOpener } from "@/lib/opener";
 import { cn } from "@/lib/utils";
 
 /** The Kafka call a dialog makes, line by line, as the server wrote it. */
@@ -110,29 +111,13 @@ type Patch = Record<string, string | number | undefined>;
 
 export function useRoutedOverlay(set: (patch: Patch, replace: boolean) => void) {
   const pushed = useRef(false);
-  const from = useRef<HTMLElement | null>(null);
   return {
-    /** Opens the overlay; `opener` gets the focus back when it closes (Firefox and Safari do not focus a clicked button). */
-    open(patch: Patch, opener?: HTMLElement | null) {
+    /** Opens the overlay. The focus comes back to what opened it by the shared mechanism of every Dialog and Sheet
+     * (lib/opener.ts); `from`, when given, is that opener. */
+    open(patch: Patch, from?: HTMLElement | null) {
+      hintOpener(from);
       pushed.current = true;
-      from.current = opener ?? (document.activeElement as HTMLElement | null);
       set(patch, false);
-    },
-    /** For an overlay's `onCloseAutoFocus`: the focus goes back to what opened it. */
-    restore(e: Event) {
-      const was = from.current;
-      if (!was) return;
-      e.preventDefault();
-      // After the overlay's own clean-up: until then the page behind it is `inert` and cannot take the focus. A table may have
-      // drawn its row again meanwhile, so the opener is found again by its test id or its label when it is not the same node.
-      setTimeout(() => {
-        const testid = was.dataset.testid;
-        const label = was.getAttribute("aria-label");
-        const again = was.isConnected
-          ? was
-          : (document.querySelector<HTMLElement>(label ? `[aria-label="${CSS.escape(label)}"]` : `[data-testid="${CSS.escape(testid ?? "")}"]`) ?? null);
-        again?.focus();
-      }, 0);
     },
     close(patch: Patch) {
       if (pushed.current) {

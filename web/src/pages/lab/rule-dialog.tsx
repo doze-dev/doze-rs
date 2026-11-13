@@ -508,11 +508,11 @@ function CompactTab({ topics, onDone }: { topics: string[]; onDone: () => void }
 }
 
 /** The dialog; `tab` is the `new` search param. */
-export function NewRehearsalDialog({ tab, compactTopics, onTab, onClose, onMade, restoreFocus }: { tab: LabTab | undefined; compactTopics: string[]; onTab: (t: LabTab) => void; onClose: () => void; onMade: (id: number) => void; restoreFocus?: (e: Event) => void }) {
+export function NewRehearsalDialog({ tab, compactTopics, onTab, onClose, onMade }: { tab: LabTab | undefined; compactTopics: string[]; onTab: (t: LabTab) => void; onClose: () => void; onMade: (id: number) => void }) {
   const w = tab ? TAB_WORDS[tab] : undefined;
   return (
     <Dialog open={!!tab} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto [scrollbar-gutter:stable] sm:max-w-[56rem]" data-testid="lab-dialog" onCloseAutoFocus={restoreFocus}>
+      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto [scrollbar-gutter:stable] sm:max-w-[56rem]" data-testid="lab-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[20px] font-medium">
             <FlaskConicalIcon className="size-5 text-warn" aria-hidden /> New rehearsal

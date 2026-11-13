@@ -266,7 +266,6 @@ export function LabPage() {
       <NewRehearsalDialog
         tab={h && !h.off ? search.new : undefined}
         compactTopics={h?.compacted ?? []}
-        restoreFocus={overlay.restore}
         onTab={(t) => overlay.move({ new: t })}
         onClose={() => {
           overlay.close({ new: undefined });
@@ -278,9 +277,9 @@ export function LabPage() {
           overlay.move({ new: undefined, rule: id });
         }}
       />
-      <RuleSheet restoreFocus={overlay.restore} id={search.rule === undefined ? undefined : String(search.rule)} onClose={() => overlay.close({ rule: undefined })} onSwitch={onSwitch} onRemove={(id) => overlay.move({ rule: undefined, remove: id })} />
+      <RuleSheet id={search.rule === undefined ? undefined : String(search.rule)} onClose={() => overlay.close({ rule: undefined })} onSwitch={onSwitch} onRemove={(id) => overlay.move({ rule: undefined, remove: id })} />
       <Dialog open={!!search.remove} onOpenChange={(o) => !o && overlay.close({ remove: undefined })}>
-        <DialogContent data-testid="lab-remove-dialog" onCloseAutoFocus={overlay.restore}>
+        <DialogContent data-testid="lab-remove-dialog">
           <DialogHeader>
             <DialogTitle>Remove {removing ? removing.name : `rule ${search.remove}`}?</DialogTitle>
             <DialogDescription>It stops at once: the requests it matched are answered as usual from the next one. It stays in Ended for an hour with what it did.</DialogDescription>

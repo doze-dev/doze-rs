@@ -208,12 +208,12 @@ function Body({ view, scope, onMove, onSaved }: { view: SettingsEditView; scope:
 }
 
 /** The Edit dialog of one of the five dynamic broker configs; its address is `?edit=<key>&scope=this`. */
-export function EditConfigDialog({ configKey, scope, onMove, onClose, onSaved, restoreFocus }: { configKey: string | undefined; scope: "all" | "this"; onMove: (key: string, scope: "all" | "this") => void; onClose: () => void; onSaved: (s: SettingsSaved) => void; restoreFocus?: (e: Event) => void }) {
+export function EditConfigDialog({ configKey, scope, onMove, onClose, onSaved }: { configKey: string | undefined; scope: "all" | "this"; onMove: (key: string, scope: "all" | "this") => void; onClose: () => void; onSaved: (s: SettingsSaved) => void }) {
   const q = useSettingsEdit(configKey, scope);
   const view = q.data;
   return (
     <Dialog open={!!configKey} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[40rem]" data-testid="settings-edit" onCloseAutoFocus={restoreFocus}>
+      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[40rem]" data-testid="settings-edit">
         <DialogHeader>
           <DialogTitle className="text-[20px] font-medium">
             Edit <span className="font-mono">{configKey}</span>

@@ -61,13 +61,13 @@ const hitColumns: DataColumn<LabHit>[] = [
   { id: "took", header: "Took", size: 80, accessorFn: (h) => `${number(Math.round(h.took_us / 1000))} ms`, meta: { numeric: true } },
 ];
 
-export function RuleSheet({ id, onClose, onSwitch, onRemove, restoreFocus }: { id: string | undefined; onClose: () => void; onSwitch: (id: number, on: boolean) => void; onRemove: (id: number) => void; restoreFocus?: (e: Event) => void }) {
+export function RuleSheet({ id, onClose, onSwitch, onRemove }: { id: string | undefined; onClose: () => void; onSwitch: (id: number, on: boolean) => void; onRemove: (id: number) => void }) {
   const q = useLabRule(id);
   const v = q.data && String(q.data.rule.id) === id ? q.data : undefined;
   const r = v?.rule;
   return (
     <Sheet open={!!id} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-4xl" data-testid="lab-rule-sheet" onCloseAutoFocus={restoreFocus}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-4xl" data-testid="lab-rule-sheet">
         <SheetHeader>
           <SheetTitle className="flex flex-wrap items-center gap-3 pr-8 text-[20px] font-medium">
             {r?.name ?? `Rule ${id}`}
