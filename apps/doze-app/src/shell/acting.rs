@@ -107,7 +107,7 @@ impl Root {
             Overlay::Dialog(v) => (v.clone().into_any_element(), "dialog"),
             Overlay::Preflight(v) => (v.clone().into_any_element(), "preflight"),
             Overlay::Start(v) => (v.clone().into_any_element(), "start"),
-            Overlay::Palette(_) | Overlay::Help => return None,
+            Overlay::Palette(_) | Overlay::Help | Overlay::Bell(_) => return None,
         };
         Some(scrim::center(&t, panel, motion, id, cancel))
     }
@@ -181,14 +181,6 @@ impl Root {
     pub(super) fn stack_action(&mut self, action: StackAction, cx: &mut Context<Self>) {
         if let Some(k) = self.shown(cx) {
             self.acts.update(cx, |a, cx| a.stack(&k, action, cx));
-        }
-    }
-
-    /// Opens the stack shown's doze.hcl in the person's editor.
-    pub(super) fn edit_config(&mut self, cx: &mut Context<Self>) {
-        let Some(k) = self.shown(cx) else { return };
-        if let Some(st) = self.hub.stack(&k) {
-            cx.open_url(&format!("file://{}/doze.hcl", st.dir));
         }
     }
 }

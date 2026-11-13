@@ -108,6 +108,7 @@ impl Root {
                 window.focus(&f, cx);
             }
         }
+        self.moved(&screen);
         self.screen = screen;
         self.refresh_tabs(cx);
         cx.notify();

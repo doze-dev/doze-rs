@@ -2,12 +2,18 @@
 //! with a short fade and a few pixels of travel (the owner's bar: gentle, 120–280 ms), and simply appears when the
 //! system reduces motion.
 
+pub(crate) mod alerts;
+pub(crate) mod bell;
+mod bell_calm;
 pub(crate) mod dialog;
 pub(crate) mod help;
 pub(crate) mod palette;
+mod palette_view;
 pub(crate) mod preflight;
 pub(crate) mod scrim;
 pub(crate) mod start;
+#[cfg(all(test, feature = "capture"))]
+mod tests;
 pub(crate) mod toasts;
 
 use gpui::{
@@ -24,6 +30,8 @@ pub(crate) enum Overlay {
     Dialog(gpui::Entity<dialog::DialogView>),
     Preflight(gpui::Entity<preflight::PreflightView>),
     Start(gpui::Entity<start::StartView>),
+    /// Needs you, under the bell.
+    Bell(gpui::Entity<bell::Bell>),
 }
 
 /// The shadow an overlay casts.

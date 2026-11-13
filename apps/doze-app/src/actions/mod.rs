@@ -5,9 +5,7 @@
 //! A row the app does not do yet (`built: false`) is still listed, so the menus and help show the whole app; its menu
 //! item is disabled and its palette row says "soon".
 
-use gpui::{
-    Action, App, KeyBinding, KeyBindingContextPredicate, Keystroke, Menu, MenuItem, actions,
-};
+use gpui::{Action, App, KeyBinding, KeyBindingContextPredicate, Keystroke, Menu, actions};
 use gpui_component::kbd::Kbd;
 use std::rc::Rc;
 
@@ -81,6 +79,10 @@ pub(crate) enum Scope {
     Sheet,
     /// A folder with no doze.hcl yet.
     Empty,
+    /// ⌘K's box.
+    Palette,
+    /// The Needs you panel.
+    Bell,
 }
 
 impl Scope {
@@ -99,6 +101,8 @@ impl Scope {
             Scope::Dialog => "In a dialog",
             Scope::Sheet => "In the start sheet and the checks",
             Scope::Empty => "In a folder with no doze.hcl",
+            Scope::Palette => "In ⌘K",
+            Scope::Bell => "In Needs you",
         }
     }
 
@@ -122,6 +126,9 @@ impl Scope {
             Scope::Dialog => Some("Dialog && !Input"),
             Scope::Sheet => Some("Sheet"),
             Scope::Empty => Some("Empty && !Input"),
+            // Over the box's own keys (tab, ⌫), which the handler passes back to the box when they are not its.
+            Scope::Palette => Some("Palette > Input"),
+            Scope::Bell => Some("Bell"),
         }
     }
 }
@@ -136,15 +143,6 @@ pub(crate) enum MenuName {
     Window,
     Help,
 }
-
-const MENUS: [(MenuName, &str); 6] = [
-    (MenuName::Doze, "doze"),
-    (MenuName::File, "File"),
-    (MenuName::Go, "Go"),
-    (MenuName::View, "View"),
-    (MenuName::Window, "Window"),
-    (MenuName::Help, "Help"),
-];
 
 /// One command.
 #[derive(Clone, Copy)]
@@ -163,11 +161,14 @@ pub(crate) struct Spec {
     pub(crate) built: bool,
 }
 
+mod attn;
 mod inside;
+mod menus;
 mod pages;
 mod table;
 mod verbs;
 
+pub(crate) use attn::*;
 pub(crate) use inside::*;
 pub(crate) use table::TABLE;
 pub(crate) use verbs::*;
@@ -175,7 +176,12 @@ pub(crate) use verbs::*;
 /// Every row: the shell's and the Map's ([`TABLE`]), the stack pages' ([`pages::PAGES`]), then the pages' inside a
 /// stack ([`INSIDE`]).
 pub(crate) fn all() -> impl Iterator<Item = &'static Spec> {
-    TABLE.iter().chain(pages::PAGES).chain(INSIDE).chain(VERBS)
+    TABLE
+        .iter()
+        .chain(pages::PAGES)
+        .chain(INSIDE)
+        .chain(VERBS)
+        .chain(ATTN)
 }
 
 /// The keymap the table gives. A keystroke that does not parse is left out (the test below proves none does).
@@ -196,23 +202,9 @@ pub(crate) fn keymap(cx: &App) -> Vec<KeyBinding> {
     out
 }
 
-/// The app menus.
+/// The app menus: the native menu bar, every global command with its keys.
 pub(crate) fn menus() -> Vec<Menu> {
-    MENUS
-        .iter()
-        .map(|&(m, name)| {
-            let items = all()
-                .filter(|s| s.menu == Some(m))
-                .map(|s| MenuItem::Action {
-                    name: s.label.into(),
-                    action: (s.make)(),
-                    os_action: None,
-                    checked: false,
-                    disabled: !s.built,
-                });
-            Menu::new(name).items(items)
-        })
-        .collect()
+    menus::menus()
 }
 
 /// The first key of a row, as a chip shows it (`⌘K`), or `None` for a row with no key.
@@ -254,14 +246,16 @@ pub(crate) fn help() -> Vec<(Scope, Vec<&'static Spec>)> {
         Scope::Library,
         Scope::Overview,
         Scope::Grid,
-        Scope::Map,
         Scope::Instance,
         Scope::Logs,
+        Scope::Map,
         Scope::Console,
         Scope::Dialog,
         Scope::Sheet,
         Scope::Empty,
         Scope::Overlay,
+        Scope::Palette,
+        Scope::Bell,
     ]
     .into_iter()
     .map(|sc| {
@@ -277,7 +271,7 @@ pub(crate) fn help() -> Vec<(Scope, Vec<&'static Spec>)> {
 
 #[cfg(test)]
 mod tests {
-    use super::{MENUS, TABLE, all, chip, help, palette};
+    use super::{TABLE, all, chip, help, palette};
     use gpui::Keystroke;
 
     #[test]
@@ -328,11 +322,5 @@ mod tests {
     fn help_and_menus_cover_the_table() {
         let listed: usize = help().iter().map(|(_, rows)| rows.len()).sum();
         assert!(listed > 20);
-        assert!(
-            TABLE
-                .iter()
-                .filter_map(|s| s.menu)
-                .all(|m| MENUS.iter().any(|(n, _)| *n == m))
-        );
     }
 }

@@ -4,9 +4,13 @@
 //! only when what it shows changed (the views are `PartialEq`), which is what keeps an idle window at zero redraws.
 
 mod acting;
+mod attn;
+mod history;
 mod inside;
 mod nav;
+mod needs;
 mod ops;
+mod pick;
 mod titlebar;
 
 use std::path::PathBuf;
@@ -18,9 +22,8 @@ use gpui::{
 };
 
 use crate::actions::{
-    AllLogs, CloseOverlay, CloseWindow, Confirm, CycleDensity, CycleMode, EditConfig, GoHome,
-    MoveDown, MoveUp, NewStack, NextPalette, OpenFolder, Quit, RemoveShown, RestartStack,
-    ShowRecent, StopStack,
+    AllLogs, CloseOverlay, CloseWindow, Confirm, CycleDensity, CycleMode, GoHome, MoveDown, MoveUp,
+    NewStack, NextPalette, OpenFolder, Quit, RemoveShown, RestartStack, ShowRecent, StopStack,
 };
 use crate::facts::{self, Facts};
 use crate::library::{LibraryEvent, LibraryView};
@@ -55,6 +58,10 @@ pub(crate) struct Root {
     /// The page of a folder with no doze.hcl, while [`Screen::Empty`] shows.
     pub(crate) empty: Option<Entity<crate::empty::EmptyView>>,
     focus: FocusHandle,
+    /// Needs you: the list, the alerts, what happened while the window was closed.
+    pub(crate) attn: attn::Attn,
+    /// The way back and forward.
+    hist: history::History,
 }
 
 impl Root {
@@ -70,6 +77,9 @@ impl Root {
         let toasts = cx.new(|cx| crate::overlays::toasts::ToastsView::new(acts.clone(), cx));
         let facts = cx.new(|_| Facts::new(mode));
         let library = cx.new(|cx| LibraryView::new(hub.clone(), facts.clone(), cx));
+        cx.observe(&facts, |this: &mut Root, _, cx| this.rebuild_attention(cx))
+            .detach();
+        let attn = attn::Attn::new(facts.clone());
         let overview = cx.new(|cx| OverviewView::new(hub.clone(), facts.clone(), window, cx));
         cx.subscribe_in(
             &library,
@@ -113,7 +123,10 @@ impl Root {
             toasts,
             empty: None,
             focus: cx.focus_handle(),
+            attn,
+            hist: history::History::default(),
         };
+        root.rebuild_attention(cx);
         root.hear(&acts, window, cx);
         let screen = first.map_or(Screen::Library, Screen::Stack);
         root.go(screen, window, cx);
@@ -123,6 +136,7 @@ impl Root {
     /// A batch from the hub: re-read what is shown if the batch touches it; the tabs when the list or a stack moved.
     pub(crate) fn apply(&mut self, batch: &Batch, cx: &mut Context<Self>) {
         self.refresh_tabs(cx);
+        self.rebuild_attention(cx);
         match &self.screen {
             Screen::Library => {
                 if !batch.hub.is_empty() || !batch.stacks.is_empty() {
@@ -268,6 +282,7 @@ impl Render for Root {
             .flex_col()
             .size_full()
             .child(titlebar::titlebar(&t, self, cx))
+            .children(self.away_el(cx))
             .child(div().flex().flex_1().min_h_0().child(page));
         div()
             .relative()
@@ -281,6 +296,8 @@ impl Render for Root {
             .font_family(UI_FAMILY)
             .on_action(cx.listener(Self::on_palette))
             .on_action(cx.listener(Self::on_help))
+            .on_action(cx.listener(Self::on_bell))
+            .map(|d| self.on_history(d, cx))
             .on_action(cx.listener(|this, _: &CloseOverlay, window, cx| this.close(window, cx)))
             .on_action(
                 cx.listener(|this, _: &GoHome, window, cx| this.go(Screen::Library, window, cx)),
@@ -307,14 +324,14 @@ impl Render for Root {
             .on_action(cx.listener(|this, _: &RemoveShown, _, cx| {
                 this.stack_action(StackAction::Remove, cx)
             }))
-            .on_action(cx.listener(|this, _: &EditConfig, _, cx| this.edit_config(cx)))
             .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.palette_step(1, cx)))
             .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.palette_step(-1, cx)))
-            .on_action(cx.listener(|this, _: &Confirm, _, cx| this.palette_choose(cx)))
+            .on_action(cx.listener(|this, _: &Confirm, window, cx| this.palette_choose(window, cx)))
             .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
                 this.dropped(paths, window, cx)
             }))
             .child(page)
+            .children(self.attn_els(cx))
             .child(self.toasts.clone())
             .children(self.overlay_el(cx))
     }

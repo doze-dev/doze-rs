@@ -38,6 +38,8 @@ mod shell;
 mod shot;
 #[cfg(feature = "capture")]
 mod shot_act;
+#[cfg(feature = "capture")]
+mod shotover;
 mod single;
 mod source;
 mod theme;

@@ -110,7 +110,7 @@ pub(crate) const TABLE: &[Spec] = &[
         Global,
         Some(Go),
         false,
-        false
+        true
     ),
     spec!(
         "Forward",
@@ -120,7 +120,7 @@ pub(crate) const TABLE: &[Spec] = &[
         Global,
         Some(Go),
         false,
-        false
+        true
     ),
     spec!(
         "Tiles",

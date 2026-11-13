@@ -16,6 +16,7 @@
 //! (`Arc`), so a view is cheap to take and a page re-renders only when it changed.
 
 pub mod act;
+pub mod attention;
 mod changed;
 mod clock;
 mod coalesce;
@@ -29,6 +30,7 @@ pub mod library;
 mod name;
 pub mod overview;
 pub mod page;
+pub mod palette;
 pub mod ports;
 mod ring;
 mod select;

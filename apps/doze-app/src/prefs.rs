@@ -12,6 +12,8 @@ use serde_json::{Map, Value, json};
 
 use crate::theme::{Choice, Mode, Palette};
 
+pub(crate) mod recall;
+
 static HOME: OnceLock<PathBuf> = OnceLock::new();
 
 /// Names the doze home whose prefs this run reads and writes.

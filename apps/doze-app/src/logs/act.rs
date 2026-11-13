@@ -80,6 +80,14 @@ impl LogsView {
         }
     }
 
+    /// Shows only the lines with `words` in them (⌘K's "Search api's logs for …").
+    pub(crate) fn search(&mut self, words: &str, window: &mut Window, cx: &mut Context<Self>) {
+        words.clone_into(&mut self.filter_text);
+        let input = self.input(window, cx);
+        input.update(cx, |i, cx| i.set_value(words.to_owned(), window, cx));
+        self.rebuild(cx);
+    }
+
     /// Esc: out of the filter box, else the picked lines go; says whether it did either.
     pub(crate) fn escape(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if self

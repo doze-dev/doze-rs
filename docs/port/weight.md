@@ -349,3 +349,45 @@ view; that is open.
 
 On this machine the window's frames were paced at 33 ms even with nothing to draw, so frame intervals cannot show a
 16 ms overrun; the draw timing above measures a frame's work directly instead.
+
+### After M2 steps 2.3, 2.4, 2.7 (⌘K, Needs you, keys and menus), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder --idle 30`, footprint at 12 s and 27 s, two
+runs).
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 12,451,376 B (+315 KB for the palette and attention models, the bell, the alerts, the help sheet and the menus) |
+| Binary with `fixtures` | | 12,700,304 B |
+| Menu bar ready | ≤ 100 ms | 60–65 ms |
+| First frame after the tray click | ≤ 100 ms | 47–48 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | 61 / 57 MB and 67 / 63 MB |
+
+Needs you is built off the UI thread on each hub batch (a crash's port is looked up with `lsof`, cached three seconds)
+and draws nothing while nothing changes; an item waiting out its grace or its "fixed" asks for one more build three
+seconds on, then stops.
+
+**Why a redrawing window sits at 220–260 MB (the follow budget).** Investigated with `footprint -v` while `doze-app bench
+--fixture shop --logs --follow` ran, and with the vendored renderer temporarily instrumented (every Metal texture and
+buffer gpui allocates logged; knobs for the drawable count, the frame source and the command queue). Findings:
+
+- **What gpui allocates is small.** For the whole run: one path intermediate texture (2560 × 1602, 16 MB, private), two
+  1024² atlas textures (shared), one 2 MB instance buffer. The instance buffer never grew; the atlas never passed two
+  textures. The drawables are three IOSurfaces of 16 MB (48 MB, mapped).
+- **The jump is the GPU driver's.** While frames are being drawn, `footprint` shows about 147 MB of *Owned physical
+  footprint (unmapped) (graphics)*: eighteen regions of exactly 8 MB plus a few small ones. None of them is a texture or
+  buffer gpui made. They appear within a frame or two of drawing (the window's first frames show 220 MB, then 74 MB once
+  idle) and go about ten seconds after the last frame (88–113 MB), which is the "back under 100 MB" figure.
+- **Nothing in the app moves it.** Measured follow peaks (MB): window 800 × 500 / 1280 × 800 / 1600 × 1000 → 258 / 259 /
+  258 (it does not scale with pixels, so it is not render targets); 3 vs 2 drawables → 259 / 260; command queue capped at
+  2 or 4 command buffers → 260 / 258; `CAMetalDisplayLink` vs the CVDisplayLink fallback → 259 / 241 (one run each; the
+  fallback's 18 MB is within run-to-run spread and not adopted). The Map redrawing with no logs reaches the same 220 MB, and
+  one redraw a second still holds it, because the driver keeps its working set while frames keep coming at all.
+- **So it is a fixed per-process cost of an active Metal context on this Mac** (the plan's spike: 168 MB for a bare Metal
+  view), not text layout, the atlas or the logs view. Getting under 160 MB while following would need not drawing with
+  the GPU at all for a while: frames spaced further apart than the driver's ~10 s idle window, which is not "following".
+
+Recommendation for the owner (§6 budget row): measure the follow line as *growth over the redraw floor* (the logs view
+adds 20–40 MB over a window that redraws anything: 221 MB with All logs open, 241–260 MB following 200 lines a second)
+and keep "back under 100–115 MB within 10 s of stopping", or accept ~260 MB while a window streams. The knobs used for
+the measurements were not kept.

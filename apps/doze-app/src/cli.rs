@@ -82,6 +82,14 @@ pub(crate) struct Shot {
     pub(crate) find_mode: bool,
     /// Something done before the shot (M2): a dialog asked for, a stack action started, a folder opened.
     pub(crate) act: Option<String>,
+    /// ⌘K's box, its scope (`stack` or `stack/service`), and ⏎ on the row highlighted.
+    pub(crate) query: Option<String>,
+    pub(crate) scope: Option<String>,
+    pub(crate) enter: bool,
+    /// Needs you's surface over the page: `bell`, `alerts`, `away`.
+    pub(crate) over: Option<String>,
+    /// Needs you sees this machine not set up (names and a domain), as Go's fixture server did.
+    pub(crate) machine_unset: bool,
 }
 
 /// `doze-app bench ...`.
@@ -167,6 +175,18 @@ fn size(s: &str) -> Result<(f32, f32), String> {
     Ok((number(w, "--size")?, number(h, "--size")?))
 }
 
+/// A shot's flag that takes no value, if `a` is one.
+fn switch(a: &str, s: &mut Shot) -> bool {
+    match a {
+        "--reduce-motion" => s.reduce = true,
+        "--find-mode" => s.find_mode = true,
+        "--machine-unset" => s.machine_unset = true,
+        "--enter" => s.enter = true,
+        _ => return false,
+    }
+    true
+}
+
 fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
     let mut s = Shot {
         size: (1280., 800.),
@@ -178,12 +198,7 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
         if source(&a, &mut args, &mut s.from)? {
             continue;
         }
-        if a == "--reduce-motion" {
-            s.reduce = true;
-            continue;
-        }
-        if a == "--find-mode" {
-            s.find_mode = true;
+        if switch(&a, &mut s) {
             continue;
         }
         let v = value(&mut args, &a)?;
@@ -226,6 +241,9 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             "--filter" => s.filter = Some(v),
             "--level" => s.level = Some(number(&v, "--level")?),
             "--act" => s.act = Some(v),
+            "--query" => s.query = Some(v),
+            "--scope" => s.scope = Some(v),
+            "--over" => s.over = Some(v),
             "--at" => {
                 let (x, y) = v.split_once(',').ok_or("--at is X,Y")?;
                 s.at = Some((number(x, "--at")?, number(y, "--at")?));
