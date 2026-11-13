@@ -428,3 +428,10 @@ render and the readback a screen frame does not do), 120 frames a phase.
 
 Before the fades and eased zoom (the same bench, same build otherwise): pan max 5.7 ms, zoom 6.3, hover 5.2, every line
 5.3. The fades cost about half a millisecond a frame while they run and nothing at rest.
+
+**After the region links and the states (same branch, 2026-11-13).** One link per pair of regions under opaque frames
+(the grid routing removed), and the state marks, words and module versions every screen draws. `release-app`:
+12,965,680 B (13,231,248 B with `fixtures`); menu bar ready 71–90 ms; first frame 47 / 55 ms (larder), 73 / 74 ms
+(medium-150); idle 59 / 55 MB (larder), 73 / 69 MB (medium-150). Frames at 150 / 500 (same bench): 0 of 720 over 16 ms;
+max pan 9.0 ms, zoom 4.8, hover 5.3, every line 5.3, a selection mid-fade 5.2, a flight 4.5 (medians 3.8–4.0 ms).
+Layout 1.4 ms; the overview with its links under a millisecond.
