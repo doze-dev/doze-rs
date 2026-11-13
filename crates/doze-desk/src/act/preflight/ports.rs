@@ -18,9 +18,6 @@ pub fn listening() -> HashMap<u16, Holder> {
     {
         return parse_lsof_all(&String::from_utf8_lossy(&o.stdout));
     }
-    if cfg!(target_os = "macos") {
-        return HashMap::new();
-    }
     Command::new("ss")
         .args(["-ltnpH"])
         .output()
