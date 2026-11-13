@@ -36,8 +36,8 @@ impl Lab {
         &self.table
     }
 
-    /// Notes a rehearsal that happened once; the oldest are forgotten past [`MOST_ONCE`].
-    pub fn note(&self, kind: LabOnceKind, sentence: String, ok: bool) {
+    /// Notes a rehearsal that happened once, and the group or topic it was about; the oldest are forgotten past [`MOST_ONCE`].
+    pub fn note(&self, kind: LabOnceKind, sentence: String, ok: bool, subject: Option<String>) {
         let at_ms = self.table.now_ms();
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let mut once = self.once.lock().unwrap_or_else(PoisonError::into_inner);
@@ -50,6 +50,7 @@ impl Lab {
             kind,
             sentence,
             ok,
+            subject,
         });
     }
 

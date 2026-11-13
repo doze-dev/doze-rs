@@ -156,6 +156,7 @@ fn is_filtered(q: &WireQuery) -> bool {
         && q.api.is_empty()
         && q.topic.is_empty()
         && q.group.is_empty()
+        && q.lab.is_none()
         && !q.refused_only
         && q.hide_idle)
 }
@@ -180,6 +181,8 @@ fn passes(r: &WireRow, q: &WireQuery) -> bool {
             || in_topics(&q.text)
             || in_group(&q.text))
         && (!q.refused_only || r.class == WireClass::Refused)
+        && q.lab
+            .is_none_or(|id| r.lab.as_ref().is_some_and(|l| id == 0 || l.rule == id))
         && (!q.hide_idle || !r.idle)
         && q.before.is_none_or(|b| r.id < b)
 }

@@ -9,6 +9,10 @@ export type LabPreview = {
  */
 rule: Array<[string, string]>, sentence: string, 
 /**
+ * What it will do, in plain words, from the form alone (the dialog's preview).
+ */
+plain: string, 
+/**
  * What the wire would show for a touched request, as words.
  */
 wire: string, };

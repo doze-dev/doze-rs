@@ -34,6 +34,38 @@ impl Recorder {
         by.into_iter().collect()
     }
 
+    /// The topic most written to on the wire and the app writing to it most; and the topic most read (non-idle Fetches), for
+    /// the Lab's recipes. Internal topics (`__…`) are left out.
+    #[must_use]
+    pub fn busiest(&self) -> (Option<(String, String)>, Option<String>) {
+        use kafka_wire::messages::ApiKey;
+        let inner = self.lock();
+        let mut writes = std::collections::BTreeMap::<(&str, &str), u64>::new();
+        let mut reads = std::collections::BTreeMap::<&str, u64>::new();
+        for r in inner.ring.iter() {
+            for t in r.facts.topics.iter().filter(|t| !t.name.starts_with("__")) {
+                match r.api {
+                    ApiKey::Produce if !r.who.client.is_empty() => {
+                        *writes.entry((&t.name, &r.who.client)).or_default() += u64::from(r.count);
+                    }
+                    ApiKey::Fetch if !r.idle => {
+                        *reads.entry(&t.name).or_default() += u64::from(r.count)
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let most_written = writes
+            .into_iter()
+            .max_by_key(|(_, n)| *n)
+            .map(|((t, c), _)| (t.to_owned(), c.to_owned()));
+        let most_read = reads
+            .into_iter()
+            .max_by_key(|(_, n)| *n)
+            .map(|(t, _)| t.to_owned());
+        (most_written, most_read)
+    }
+
     /// The highest connection number among the connections open now: a connection accepted later has a higher one.
     #[must_use]
     pub fn highest_open_conn(&self) -> Option<u64> {

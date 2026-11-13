@@ -153,6 +153,8 @@ fn judge(row: &Row, q: &WireQuery) -> Verdict {
                 || in_topics(&q.text)
                 || in_group(&q.text))
             && (!q.refused_only || class_of(row).is_refusal())
+            && q.lab
+                .is_none_or(|id| row.lab.as_ref().is_some_and(|l| id == 0 || l.rule == id))
             && (!q.hide_idle || !row.idle)
             && q.before.is_none_or(|b| row.id < b),
     }

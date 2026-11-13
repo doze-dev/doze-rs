@@ -180,6 +180,7 @@ fn phrases(q: &WireQuery) -> Vec<String> {
     if q.refused_only {
         out.push("it was refused".to_owned());
     }
+    out.extend(q.lab.map(crate::live_words::lab_phrase));
     out
 }
 

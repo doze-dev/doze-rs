@@ -273,6 +273,7 @@ pub async fn expire(lab: &Lab, backend: &Backend, mut form: LabOnceForm) -> LabO
             )
         },
         ok,
+        Some(group.clone()),
     );
     if ok {
         LabOnceDone::Done
@@ -300,6 +301,7 @@ pub async fn rebalance(lab: &Lab, backend: &Backend, mut form: LabOnceForm) -> L
             format!("Could not rebalance {shown}: {words}")
         },
         ok,
+        Some(group.clone()),
     );
     if ok {
         LabOnceDone::Done

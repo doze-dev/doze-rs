@@ -279,5 +279,60 @@ pub fn wire_words(spec: &Spec) -> String {
     }
 }
 
+/// What a rule will do, in plain words, for the dialog's preview: `Every Produce request to orders from payments will wait
+/// 800 ms longer before the broker answers. It ends after 10 min, or when you remove it.` Made from the form alone.
+#[must_use]
+pub fn plain(spec: &Spec) -> String {
+    let m = &spec.matcher;
+    let api = apis_words(&m.apis);
+    let noun = if m.apis.is_empty() {
+        "request".to_owned()
+    } else {
+        format!("{api} request")
+    };
+    let who = match spec.share {
+        Share::Every => format!("Every {noun}"),
+        Share::EveryNth(n) => format!("1 in {n} {noun}s"),
+        Share::Percent(p) => format!("A random {p} % of {noun}s"),
+    };
+    let to = topics_words(m);
+    let to = if to.is_empty() {
+        String::new()
+    } else {
+        format!(" to {to}")
+    };
+    let group = m
+        .group
+        .as_ref()
+        .map_or_else(String::new, |g| format!(" in group {}", g.as_str()));
+    let what = format!("{who}{to}{}{group}", from_words(m));
+    let did = match spec.effect {
+        Effect::Slow {
+            delay_ms,
+            jitter_ms: 0,
+        } => format!("will wait {delay_ms} ms longer before the broker answers"),
+        Effect::Slow {
+            delay_ms,
+            jitter_ms,
+        } => format!(
+            "will wait {delay_ms} ms longer, plus up to {jitter_ms} ms at random, before the broker answers"
+        ),
+        Effect::Fail { code } => format!(
+            "will be answered {} at once; the broker never sees them",
+            errors::name(code)
+        ),
+        Effect::Drop => "will have their connection closed with no answer".to_owned(),
+    };
+    let ends = match spec.max_hits {
+        Some(1) => format!("after its first hit or {}", ttl_words(spec.ttl)),
+        Some(h) => format!(
+            "after {h} hits or {}, whichever comes first",
+            ttl_words(spec.ttl)
+        ),
+        None => format!("after {}", ttl_words(spec.ttl)),
+    };
+    format!("{what} {did}. It ends {ends}, or when you remove it.")
+}
+
 #[cfg(test)]
 mod tests;

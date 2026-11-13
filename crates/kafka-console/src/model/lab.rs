@@ -114,6 +114,8 @@ pub struct LabOnce {
     pub sentence: String,
     /// Whether it did what it was asked.
     pub ok: bool,
+    /// The group (expire, rebalance) or topic (clean) it was about, for the way to see it.
+    pub subject: Option<String>,
 }
 
 /// The Lab page.
@@ -189,6 +191,8 @@ pub struct LabPreview {
     /// The call, as lines of the rule it makes.
     pub rule: Vec<(String, String)>,
     pub sentence: String,
+    /// What it will do, in plain words, from the form alone (the dialog's preview).
+    pub plain: String,
     /// What the wire would show for a touched request, as words.
     pub wire: String,
 }

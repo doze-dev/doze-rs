@@ -235,9 +235,43 @@ pub fn first_produce(addr: &str, client: &str) -> String {
     )
 }
 
+/// The Lab filter as the address writes it: a rule's number, `all` for any rule (`0`), empty for none.
+#[must_use]
+pub fn lab_word(lab: Option<u32>) -> String {
+    match lab {
+        None => String::new(),
+        Some(0) => "all".to_owned(),
+        Some(n) => n.to_string(),
+    }
+}
+
+/// The Lab filter as the Live page's phrases say it.
+#[must_use]
+pub fn lab_phrase(lab: u32) -> String {
+    if lab == 0 {
+        "a Lab rule touched it".to_owned()
+    } else {
+        format!("Lab rule {lab} touched it")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_lab_filter_is_a_rule_or_all() {
+        assert_eq!(
+            [lab_word(None), lab_word(Some(0)), lab_word(Some(7))],
+            ["", "all", "7"]
+        );
+        assert_eq!(lab_phrase(7), "Lab rule 7 touched it");
+        let q = crate::model::live::WireQuery::parse(&[("lab".into(), "all".into())]);
+        assert_eq!((q.lab, q.is_filtered()), (Some(0), true));
+        assert!(q.to_query().contains("lab=all"));
+        let q = crate::model::live::WireQuery::parse(&[("lab".into(), "x".into())]);
+        assert_eq!(q.lab, None, "a word that is no rule is no filter");
+    }
 
     #[test]
     fn a_plain_name_is_left_alone_and_a_hostile_one_is_quoted() {

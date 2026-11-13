@@ -109,6 +109,8 @@ pub struct WireQuery {
     /// A kind of group request: `join`, `commits`, `heartbeats` (the group wire's chips).
     pub kind: String,
     pub refused_only: bool,
+    /// Only the requests a Lab rule touched: that rule, or any (`0`, written `lab=all`).
+    pub lab: Option<u32>,
     /// Hide the polls that found nothing.
     pub hide_idle: bool,
     /// Only rows older than this id (the next page back).
@@ -131,6 +133,7 @@ impl Default for WireQuery {
             group: String::new(),
             kind: String::new(),
             refused_only: false,
+            lab: None,
             hide_idle: true,
             before: None,
             limit: WIRE_LIMIT,
@@ -330,6 +333,8 @@ impl WireQuery {
             group: text("group"),
             kind: text("kind"),
             refused_only: crate::form::get(fields, "refused") == Some("1"),
+            lab: crate::form::get(fields, "lab")
+                .and_then(|v| if v == "all" { Some(0) } else { v.parse().ok() }),
             hide_idle: crate::form::get(fields, "idle") != Some("0"),
             before: number("before"),
             limit: number("limit")
@@ -342,6 +347,7 @@ impl WireQuery {
     #[must_use]
     pub fn to_query(&self) -> String {
         let before = self.before.map(|n| n.to_string()).unwrap_or_default();
+        let lab = crate::live_words::lab_word(self.lab);
         let limit = if self.limit == WIRE_LIMIT {
             String::new()
         } else {
@@ -355,6 +361,7 @@ impl WireQuery {
             ("group", self.group.as_str()),
             ("kind", self.kind.as_str()),
             ("refused", if self.refused_only { "1" } else { "" }),
+            ("lab", &lab),
             ("idle", if self.hide_idle { "" } else { "0" }),
             ("before", &before),
             ("limit", &limit),
@@ -406,6 +413,7 @@ impl WireQuery {
             && self.topic.is_empty()
             && self.group.is_empty()
             && self.kind.is_empty()
+            && self.lab.is_none()
             && !self.refused_only)
     }
 

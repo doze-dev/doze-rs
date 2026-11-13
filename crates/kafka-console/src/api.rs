@@ -34,6 +34,7 @@ pub mod access;
 pub mod config;
 pub mod config_edit;
 pub mod lab;
+pub mod lab_routes;
 pub mod settings;
 pub mod topic_admin;
 pub mod topic_writes;
@@ -372,24 +373,7 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
             &web.url("/api/v1/access/acls/delete"),
             get(access::delete_form).post(access::delete),
         )
-        .route(&web.url("/api/v1/lab"), get(lab::home))
-        .route(&web.url("/api/v1/lab/form"), get(lab::form))
-        .route(&web.url("/api/v1/lab/rules"), post(lab::make))
-        .route(&web.url("/api/v1/lab/rules/{id}"), get(lab::rule))
-        .route(
-            &web.url("/api/v1/lab/rules/{id}/enabled"),
-            post(lab::switch),
-        )
-        .route(&web.url("/api/v1/lab/rules/{id}/remove"), post(lab::remove))
-        .route(&web.url("/api/v1/lab/history/clear"), post(lab::clear))
-        .route(
-            &web.url("/api/v1/lab/once/{kind}"),
-            get(lab::once_form).post(lab::once),
-        )
-        .route(
-            &web.url("/api/v1/lab/compact"),
-            get(lab::compact_form).post(lab::compact),
-        )
+        .merge(lab_routes::routes(web))
         .route_layer(from_fn(guard))
 }
 
@@ -420,6 +404,7 @@ pub const GET_PATHS: &[&str] = &[
     // Live (R3). The tail (`/api/v1/tail/live`) is a stream that never ends: its own tests read it.
     "/api/v1/live",
     "/api/v1/live?refused=1&idle=0&client=orders&api=Produce&topic=orders",
+    "/api/v1/live?lab=all",
     "/api/v1/live/clients",
     "/api/v1/live/first",
     "/api/v1/live/topic-wire?topic=orders",
@@ -440,4 +425,5 @@ pub const GET_PATHS: &[&str] = &[
     // The Lab's other GETs answer LAB_OFF where the Lab is not installed (the fixtures, a broker with --lab=false); their tests
     // are in api/lab_tests.rs and the browser gate.
     "/api/v1/lab",
+    "/api/v1/lab/guide",
 ];

@@ -84,10 +84,19 @@ fn r4_lab(cfg: &Config, out: &mut BTreeMap<String, String>) {
     use super::lab::{
         LabCompactOutcome, LabHit, LabMadeOutcome, LabOnceOutcome, LabResponse, LabRuleResponse,
     };
+    use super::lab_routes::LabStopped;
     use crate::model::lab::{
         LabChoice, LabCompact, LabEnd, LabFields, LabFirst, LabForm, LabHome, LabKind, LabOnce,
         LabOnceForm, LabOnceKind, LabPreview, LabRule,
     };
+    use crate::model::lab_guide::{LabGuide, LabIntro, LabRecipe, LabSetting, LabStep, LabTeach};
+    one::<LabGuide>(cfg, out);
+    one::<LabIntro>(cfg, out);
+    one::<LabStep>(cfg, out);
+    one::<LabTeach>(cfg, out);
+    one::<LabSetting>(cfg, out);
+    one::<LabRecipe>(cfg, out);
+    one::<LabStopped>(cfg, out);
     one::<LabResponse>(cfg, out);
     one::<LabHome>(cfg, out);
     one::<LabRule>(cfg, out);
