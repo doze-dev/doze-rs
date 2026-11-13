@@ -9,8 +9,8 @@ use gpui_component::input::{Input, InputState};
 use super::MapView;
 use super::cards::state_dot;
 use super::chrome::{corner, enter};
-use crate::theme::{Motion, Tokens, alpha};
-use crate::widgets::{icon, w};
+use crate::theme::{Motion, Tokens, alpha, ty};
+use crate::widgets::icon;
 
 /// The find box and its hits, at the drawing's top left.
 pub(crate) fn search_box(
@@ -79,7 +79,7 @@ pub(crate) fn search_box(
         .border_1()
         .border_color(t.line2)
         .bg(t.panel)
-        .text_size(px(12.5))
+        .text_size(px(ty::SM_UP))
         .shadow(vec![shadow(t)])
         .child(Input::new(input))
         .child(list);
@@ -144,8 +144,8 @@ fn detail_head(t: &Tokens, m: &MapView, c: &Card, cx: &mut Context<MapView>) -> 
         .child(state_dot(t, px(8.), r))
         .child(
             div()
-                .text_size(px(14.))
-                .font_weight(w(600.))
+                .text_size(px(ty::MD))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(t.bright)
                 .child(SharedString::from(c.name.clone())),
         )
@@ -210,7 +210,7 @@ pub(crate) fn detail(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Opti
         .border_1()
         .border_color(t.line2)
         .bg(t.panel)
-        .text_size(px(12.5))
+        .text_size(px(ty::SM_UP))
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .shadow(vec![shadow(t)])
         .child(top);
@@ -219,7 +219,7 @@ pub(crate) fn detail(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Opti
             div()
                 .flex()
                 .gap(px(8.))
-                .line_height(px(21.))
+                .line_height(px(ty::LH_21))
                 .child(div().w(px(76.)).flex_none().text_color(t.dim).child(k))
                 .child(
                     div()

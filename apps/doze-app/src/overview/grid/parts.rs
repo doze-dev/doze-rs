@@ -9,8 +9,8 @@ use crate::kit::{s, tone};
 use crate::overlays::shadow;
 use crate::overview::OverviewView;
 use crate::overview::tiles::row_dot;
-use crate::theme::{Tokens, mix};
-use crate::widgets::{MONO_FAMILY, tracked, w};
+use crate::theme::{Tokens, mix, ty};
+use crate::widgets::{MONO_FAMILY, tracked};
 
 /// A cell's box: its width, its line on the left when it starts a group, the column's light.
 pub(super) fn cell_box(t: &Tokens, v: &OverviewView, ci: usize, c: &GridCol) -> gpui::Div {
@@ -34,8 +34,13 @@ pub(super) fn corner(t: &Tokens) -> impl IntoElement {
         .flex()
         .items_center()
         .gap(px(6.))
-        .child(tracked("Service", 11., 700., t.dim, 1.1))
-        .child(div().text_size(px(11.)).text_color(t.dim).child("needs →"))
+        .child(tracked("Service", ty::XS, ty::BOLD, t.dim, 1.1))
+        .child(
+            div()
+                .text_size(px(ty::XS))
+                .text_color(t.dim)
+                .child("needs →"),
+        )
 }
 
 /// A column's head: its dot, name and memory; the tasks' tally.
@@ -48,8 +53,18 @@ pub(super) fn col_head(t: &Tokens, v: &OverviewView, ci: usize, c: &GridCol) -> 
             .gap(px(3.))
             // Where the other columns have their dot, so the names line up.
             .child(div().size(px(8.)))
-            .child(div().font_weight(w(500.)).text_color(t.dim).child("tasks"))
-            .child(div().text_size(px(11.)).text_color(t.dim).child(s(&c.sub)))
+            .child(
+                div()
+                    .font_weight(ty::MEDIUM)
+                    .text_color(t.dim)
+                    .child("tasks"),
+            )
+            .child(
+                div()
+                    .text_size(px(ty::XS))
+                    .text_color(t.dim)
+                    .child(s(&c.sub)),
+            )
     } else {
         let r = crate::overview::all_rows(&v.home)
             .into_iter()
@@ -64,7 +79,7 @@ pub(super) fn col_head(t: &Tokens, v: &OverviewView, ci: usize, c: &GridCol) -> 
             .child(
                 div()
                     .max_w_full()
-                    .font_weight(w(600.))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(t.bright)
                     .whitespace_nowrap()
                     .overflow_hidden()
@@ -73,8 +88,8 @@ pub(super) fn col_head(t: &Tokens, v: &OverviewView, ci: usize, c: &GridCol) -> 
             )
             .child(
                 div()
-                    .text_size(px(11.))
-                    .line_height(px(14.))
+                    .text_size(px(ty::XS))
+                    .line_height(px(ty::LH_14))
                     .text_color(t.dim)
                     .child(s(
                         r.map_or(" ", |r| if r.mem.is_empty() { " " } else { &r.mem })
@@ -86,7 +101,7 @@ pub(super) fn col_head(t: &Tokens, v: &OverviewView, ci: usize, c: &GridCol) -> 
         .pb(px(8.))
         .px(px(4.))
         .items_end()
-        .text_size(px(12.5))
+        .text_size(px(ty::SM_UP))
         .child(inner)
         .into_any_element()
 }
@@ -111,8 +126,8 @@ pub(super) fn row_head(t: &Tokens, v: &OverviewView, ri: usize, row: &GridRow) -
         .child(
             div()
                 .min_w_0()
-                .text_size(px(13.5))
-                .font_weight(w(600.))
+                .text_size(px(ty::BASE_UP))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(t.bright)
                 .whitespace_nowrap()
                 .overflow_hidden()
@@ -128,8 +143,8 @@ pub(super) fn row_head(t: &Tokens, v: &OverviewView, ri: usize, row: &GridRow) -
                 .border_1()
                 .border_color(t.line2)
                 .font_family(MONO_FAMILY)
-                .text_size(px(10.))
-                .line_height(px(13.))
+                .text_size(px(ty::MICRO))
+                .line_height(px(ty::LH_13))
                 .text_color(t.dim)
                 .child(row.lang),
         );
@@ -138,8 +153,8 @@ pub(super) fn row_head(t: &Tokens, v: &OverviewView, ri: usize, row: &GridRow) -
         head = head.child(div().flex_1()).child(
             div()
                 .flex_none()
-                .text_size(px(12.5))
-                .font_weight(w(600.))
+                .text_size(px(ty::SM_UP))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(t.dim)
                 .child(s(m)),
         );
@@ -186,7 +201,7 @@ pub(super) fn cell(
     } else if !cell.text.is_empty() {
         el = el.child(
             div()
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(tone(t, cell.tone))
                 .whitespace_nowrap()
                 .overflow_hidden()
@@ -225,15 +240,15 @@ fn tooltip(t: &Tokens, tip: &GridTip) -> impl IntoElement {
         .rounded(px(9.))
         .bg(t.bright)
         .text_color(t.bg)
-        .text_size(px(12.))
-        .line_height(px(18.))
+        .text_size(px(ty::SM))
+        .line_height(px(ty::LH_18))
         .shadow(shadow(t))
         .whitespace_nowrap()
         .child(arrow)
         .child(
             div()
                 .flex()
-                .child(div().font_weight(w(600.)).child(s(&tip.head)))
+                .child(div().font_weight(ty::SEMIBOLD).child(s(&tip.head)))
                 .when(!tip.why.is_empty(), |d| {
                     d.child(s(&format!(" · {}", tip.why)))
                 }),
@@ -263,7 +278,7 @@ pub(super) fn foot_head(t: &Tokens) -> AnyElement {
         .pl(px(16.))
         .border_b_1()
         .border_color(t.line)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .child("needed by")
         .into_any_element()
@@ -279,7 +294,12 @@ pub(super) fn foot_cell(
 ) -> AnyElement {
     cell_box(t, v, ci, c)
         .h_full()
-        .text_size(px(12.))
-        .child(div().font_weight(w(600.)).text_color(t.text).child(s(f)))
+        .text_size(px(ty::SM))
+        .child(
+            div()
+                .font_weight(ty::SEMIBOLD)
+                .text_color(t.text)
+                .child(s(f)),
+        )
         .into_any_element()
 }

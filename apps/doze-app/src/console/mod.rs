@@ -17,8 +17,7 @@ use gpui::{
 use crate::actions::{NextTable, PrevTable, RowDown, RowUp};
 use crate::instance::head::{chip, keys_bar};
 use crate::instance::ui::{self, text};
-use crate::theme::tokens;
-use crate::widgets::w;
+use crate::theme::{tokens, ty};
 
 /// One console tab.
 pub(crate) struct ConsoleTabView {
@@ -217,18 +216,18 @@ impl ConsoleTabView {
             .whitespace_nowrap()
             .overflow_hidden()
             .text_color(t.bright)
-            .font_weight(w(600.))
+            .font_weight(ty::SEMIBOLD)
             .child(text(&self.name))
             .child(
                 div()
-                    .font_weight(w(400.))
+                    .font_weight(ty::REGULAR)
                     .text_color(t.dim)
                     .child(text(&format!("· {title}"))),
             );
         if !p.state.is_empty() && !p.awake && !p.missing {
             top = top.child(
                 div()
-                    .font_weight(w(400.))
+                    .font_weight(ty::REGULAR)
                     .text_color(t.dim)
                     .overflow_hidden()
                     .text_ellipsis()
@@ -240,8 +239,8 @@ impl ConsoleTabView {
         }
         top = top.child(div().flex_1()).child(
             div()
-                .font_weight(w(400.))
-                .text_size(px(12.))
+                .font_weight(ty::REGULAR)
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .overflow_hidden()
                 .text_ellipsis()

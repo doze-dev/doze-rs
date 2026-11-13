@@ -8,8 +8,8 @@ use gpui::{AnyElement, Context, IntoElement, SharedString, div, prelude::*, px};
 use super::InstanceView;
 use super::ui::{self, button, state_mark, text};
 use crate::actions;
-use crate::theme::Tokens;
-use crate::widgets::{kbd_chip, switch, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::{kbd_chip, switch};
 
 /// The first key of the table's row `label`, as a chip writes it.
 pub(crate) fn chip(label: &str) -> String {
@@ -29,7 +29,7 @@ pub(crate) fn head(
     let mark = if p.is_task() {
         let l = p.look.unwrap_or(Look::NotRun);
         div()
-            .text_size(px(14.))
+            .text_size(px(ty::MD))
             .text_color(t.tone(l.tone()))
             .child(l.glyph())
             .into_any_element()
@@ -54,8 +54,8 @@ pub(crate) fn head(
                 .overflow_hidden()
                 .text_ellipsis()
                 .whitespace_nowrap()
-                .text_size(px(20.))
-                .font_weight(w(650.))
+                .text_size(px(ty::XL))
+                .font_weight(ty::HEADING)
                 .text_color(t.bright)
                 .child(text(&v.name)),
         )
@@ -167,7 +167,7 @@ fn switch_el(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> An
         .flex_none()
         .items_center()
         .gap(px(8.))
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .child(
             div()
                 .text_color(v.word_color(cx))
@@ -246,12 +246,12 @@ fn service_verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -
                         .max_w(px(220.))
                         .overflow_hidden()
                         .text_ellipsis()
-                        .text_size(px(12.))
+                        .text_size(px(ty::SM))
                         .child(text(&shown)),
                 )
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(ty::XS))
                         .opacity(0.7)
                         .child(text(&chip("Open in browser"))),
                 )
@@ -348,7 +348,7 @@ pub(crate) fn keys_bar(t: &Tokens, keys: Vec<(String, &str)>, note: &str) -> gpu
         .px(px(28.))
         .border_t_1()
         .border_color(t.line)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .whitespace_nowrap()
         .overflow_hidden()
@@ -361,7 +361,7 @@ pub(crate) fn keys_bar(t: &Tokens, keys: Vec<(String, &str)>, note: &str) -> gpu
                         .flex_none()
                         .items_center()
                         .gap(px(5.))
-                        .child(kbd_chip(t, &k, 11., 600., 6.))
+                        .child(kbd_chip(t, &k, ty::XS, ty::SEMIBOLD, 6.))
                         .child(SharedString::from(what.to_owned()))
                 }),
         )

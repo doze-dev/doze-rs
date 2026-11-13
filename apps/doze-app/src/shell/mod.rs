@@ -33,7 +33,7 @@ use crate::library::{LibraryEvent, LibraryView};
 use crate::map::{MapEvent, MapView};
 use crate::overlays::Overlay;
 use crate::overview::{OverviewEvent, OverviewView};
-use crate::theme::tokens;
+use crate::theme::{tokens, ty};
 use crate::widgets::UI_FAMILY;
 
 pub(crate) use nav::{Screen, Tab};
@@ -295,8 +295,8 @@ impl Render for Root {
             .key_context("Root")
             .bg(t.bg)
             .text_color(t.text)
-            .text_size(px(13.))
-            .line_height(px(20.))
+            .text_size(px(ty::BASE))
+            .line_height(px(ty::LH))
             .font_family(UI_FAMILY)
             .on_action(cx.listener(Self::on_palette))
             .on_action(cx.listener(Self::on_help))

@@ -2,8 +2,7 @@
 
 use gpui::{AnyElement, IntoElement, SharedString, div, prelude::*, px};
 
-use crate::theme::{Tokens, alpha};
-use crate::widgets::w;
+use crate::theme::{Tokens, alpha, ty};
 
 /// One line of the legend: a coloured word, and what it covers.
 fn legend(t: &Tokens, red: bool, k: &str, v: &str) -> gpui::Div {
@@ -14,7 +13,7 @@ fn legend(t: &Tokens, red: bool, k: &str, v: &str) -> gpui::Div {
         .flex()
         .items_center()
         .gap(px(6.))
-        .font_weight(w(600.))
+        .font_weight(ty::SEMIBOLD)
         .text_color(c)
         .child(div().size(px(7.)).rounded_full().bg(c))
         .child(SharedString::from(k.to_owned()));
@@ -38,7 +37,7 @@ fn top(t: &Tokens, title: String, said: String) -> gpui::Div {
         .flex()
         .items_center()
         .justify_center()
-        .text_size(px(18.))
+        .text_size(px(ty::LG_UP))
         .text_color(t.good)
         .child("✓");
     div()
@@ -52,14 +51,14 @@ fn top(t: &Tokens, title: String, said: String) -> gpui::Div {
         .child(
             div()
                 .mt(px(6.))
-                .text_size(px(15.))
-                .font_weight(w(650.))
+                .text_size(px(ty::MD_UP))
+                .font_weight(ty::HEADING)
                 .text_color(t.bright)
                 .child(SharedString::from(title)),
         )
         .child(
             div()
-                .text_size(px(12.5))
+                .text_size(px(ty::SM_UP))
                 .text_color(t.dim)
                 .child(SharedString::from(said)),
         )
@@ -87,7 +86,7 @@ pub(crate) fn calm(t: &Tokens, hidden: usize) -> AnyElement {
         .p(px(12.))
         .rounded(px(9.))
         .bg(t.well)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .child(legend(
             t,
             true,

@@ -12,8 +12,8 @@ use gpui_component::chart::AreaChart;
 
 use super::ConsoleTabView;
 use crate::instance::ui::{self, card, heading, text};
-use crate::theme::{Tokens, alpha};
-use crate::widgets::{MONO_FAMILY, kbd_chip, tracked, w};
+use crate::theme::{Tokens, alpha, ty};
+use crate::widgets::{MONO_FAMILY, kbd_chip, tracked};
 
 /// What a drawing can do: pick rows and run actions on a console tab; nothing on the overview.
 struct Draw<'a> {
@@ -179,8 +179,8 @@ impl Draw<'_> {
         self.cells(n, widths, cells)
             .min_h(px(28.))
             .bg(t.well)
-            .text_size(px(11.))
-            .font_weight(w(600.))
+            .text_size(px(ty::XS))
+            .font_weight(ty::SEMIBOLD)
     }
 
     fn row_cells(&self, r: &Row) -> Vec<(SharedString, gpui::Hsla)> {
@@ -259,11 +259,11 @@ impl Draw<'_> {
                     .border_1()
                     .border_color(t.line)
                     .bg(t.panel)
-                    .child(tracked(&s.label, 11., 400., t.dim, 0.66))
+                    .child(tracked(&s.label, ty::XS, ty::REGULAR, t.dim, 0.66))
                     .child(
                         div()
-                            .text_size(px(22.))
-                            .font_weight(w(600.))
+                            .text_size(px(ty::FIGURE))
+                            .font_weight(ty::SEMIBOLD)
                             .text_color(match s.ink {
                                 doze_desk::page::Ink::Text => t.bright,
                                 i => ui::ink(t, i),
@@ -294,14 +294,14 @@ impl Draw<'_> {
                     .child(
                         div()
                             .font_family(MONO_FAMILY)
-                            .text_size(px(12.))
-                            .line_height(px(19.))
+                            .text_size(px(ty::SM))
+                            .line_height(px(ty::LH_19))
                             .text_color(t.bright)
                             .child(text(last)),
                     )
                     .child(
                         div()
-                            .text_size(px(12.))
+                            .text_size(px(ty::SM))
                             .text_color(t.dim)
                             .child(text(&facts.join(" · "))),
                     );
@@ -319,7 +319,7 @@ impl Draw<'_> {
             .flex()
             .items_center()
             .bg(t.well)
-            .child(tracked(&n.title, 11., 600., t.dim, 0.55));
+            .child(tracked(&n.title, ty::XS, ty::SEMIBOLD, t.dim, 0.55));
         let body: AnyElement = if n.rows.is_empty() {
             div()
                 .px(px(12.))
@@ -351,7 +351,7 @@ impl Draw<'_> {
                                 .border_t_1()
                                 .border_color(t.line)
                                 .font_family(MONO_FAMILY)
-                                .text_size(px(12.))
+                                .text_size(px(ty::SM))
                         })
                         .collect::<Vec<_>>()
                 },
@@ -396,12 +396,12 @@ impl Draw<'_> {
                 .rounded(px(7.))
                 .text_color(if a.destructive { t.bad } else { t.text })
                 .hover(|s| s.bg(t.sel))
-                .child(kbd_chip(t, &a.key.to_string(), 11., 600., 6.))
+                .child(kbd_chip(t, &a.key.to_string(), ty::XS, ty::SEMIBOLD, 6.))
                 .child(text(&a.label))
                 .when(!a.resource.is_empty(), |d| {
                     d.child(
                         div()
-                            .text_size(px(12.))
+                            .text_size(px(ty::SM))
                             .text_color(t.dim)
                             .child(text(&format!("on {}", a.resource))),
                     )
@@ -438,8 +438,8 @@ impl Draw<'_> {
             .child(heading(t, &n.title, None))
             .child(
                 div()
-                    .text_size(px(22.))
-                    .font_weight(w(600.))
+                    .text_size(px(ty::FIGURE))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(t.bright)
                     .child(text(if n.last.is_empty() { "—" } else { &n.last })),
             )
