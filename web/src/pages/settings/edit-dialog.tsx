@@ -37,7 +37,10 @@ function Line({ label, line }: { label: string; line: SettingsLine }) {
   return (
     <p className="border-l-2 pl-3 text-[13px] leading-5">
       <b className="font-semibold text-foreground">{label}: </b>
-      <Spans spans={line.text} /> {line.dim && <span className="text-muted-foreground">{line.dim}</span>}
+      <Spans spans={line.text} />
+      {/* The server gives the line and its dim sentence apart; they read as two sentences. */}
+      {line.dim && !/[.:;!?]\s*$/.test(line.text.map((s) => s.text).join("")) ? "." : ""}{" "}
+      {line.dim && <span className="text-muted-foreground">{line.dim}</span>}
     </p>
   );
 }
