@@ -183,7 +183,7 @@ fn web_bar(
             if asleep {
                 v.flip(w, cx);
             }
-            cx.open_url(&u2);
+            crate::outward::open_url(cx, &u2);
         })),
     )
 }

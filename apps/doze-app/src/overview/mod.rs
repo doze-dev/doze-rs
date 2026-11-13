@@ -7,6 +7,10 @@
 //! it shows changed.
 
 mod act;
+mod addr;
+mod banners;
+mod choose;
+mod foot;
 mod grid;
 mod head;
 mod keys;
@@ -29,6 +33,8 @@ use gpui::{
     Render, Window, div, prelude::*, px,
 };
 use gpui_component::input::{InputEvent, InputState};
+
+pub(crate) use banners::stale_banner;
 
 use crate::actions::{
     ChooseStart, CopyAddress, DismissFailure, FilterRows, MoveDown, MoveLeft, MoveRight, MoveUp,
@@ -99,10 +105,10 @@ pub(crate) struct OverviewView {
     watch: Option<Watch>,
     /// The window's width at the last render (the Tiles go four, three or two across).
     pub(crate) width: f32,
-    /// The services with a verb in flight.
-    pub(crate) doing: std::collections::HashMap<String, doze_control::Verb>,
     /// The failure banner's "What doze printed" is open.
     pub(crate) printed: bool,
+    /// Where the Tiles are scrolled to: held here, so only the person (or a new stack) moves it, never a redraw.
+    pub(crate) tiles_scroll: gpui::ScrollHandle,
     /// The List's lines, and its virtual list.
     items: std::rc::Rc<Vec<list::Item>>,
     list: gpui::ListState,
@@ -137,6 +143,16 @@ impl OverviewView {
             },
         )
         .detach();
+        let map = cx.new(MapView::new);
+        cx.subscribe(
+            &map,
+            |this: &mut OverviewView, _, ev: &crate::map::MapEvent, cx| {
+                if let crate::map::MapEvent::Select(name) = ev {
+                    this.map_selected(name.as_deref(), cx);
+                }
+            },
+        )
+        .detach();
         OverviewView {
             hub,
             facts,
@@ -144,7 +160,7 @@ impl OverviewView {
             stack: None,
             home: Home::default(),
             page: Page::default(),
-            map: cx.new(MapView::new),
+            map,
             view: View::default(),
             selected: None,
             pane: None,
@@ -156,8 +172,8 @@ impl OverviewView {
             refs: HashMap::new(),
             watch: None,
             width: 1280.,
-            doing: std::collections::HashMap::new(),
             printed: false,
+            tiles_scroll: gpui::ScrollHandle::new(),
             items: std::rc::Rc::default(),
             list: gpui::ListState::new(0, gpui::ListAlignment::Top, px(200.)),
             focus: cx.focus_handle(),
@@ -180,6 +196,8 @@ impl OverviewView {
         self.key = key;
         self.stack = None;
         self.selected = None;
+        self.tiles_scroll.set_offset(gpui::point(px(0.), px(0.)));
+        self.map.update(cx, |m, cx| m.select(None, cx));
         self.cur = None;
         (self.grid.x, self.grid.y) = (0., 0.);
         self.refresh(cx);
@@ -199,7 +217,7 @@ impl OverviewView {
             self.watch = Some(self.hub.watch(&st.key, Topic::Stats));
         }
         let now = self.hub.now();
-        let (h, map_view) = if st.running {
+        let (mut h, map_view) = if st.running {
             let mut h = home(&st, now);
             h.changed = changed(&st, now);
             let refs = self
@@ -222,20 +240,21 @@ impl OverviewView {
             self.map.update(cx, |m, cx| m.set_page(&page, cx));
             self.page = page;
         }
+        self.machine(&mut h, &st, cx);
         let rows = all_rows(&h);
+        // Nothing is selected until a click or a key selects it (Go starts with none); a row that went away lets go.
         if self
             .selected
             .as_ref()
-            .is_none_or(|s| !rows.iter().any(|r| &r.name == s))
+            .is_some_and(|s| !rows.iter().any(|r| &r.name == s))
         {
-            self.selected = rows.first().map(|r| r.name.clone());
+            self.selected = None;
         }
         let p = match (&self.selected, st.running) {
             (Some(s), true) => pane(&st, s, now),
             _ => None,
         };
         self.stack = Some(st);
-        let (h, p) = act::mark_doing(h, p, &self.doing);
         if h != self.home || p != self.pane {
             self.home = h;
             self.pane = p;
@@ -244,6 +263,10 @@ impl OverviewView {
     }
 
     pub(crate) fn set_view(&mut self, v: View, cx: &mut Context<Self>) {
+        // The Map's selection starts clear on each view change (Go).
+        if v != self.view {
+            self.map.update(cx, |m, cx| m.select(None, cx));
+        }
         self.view = v;
         self.cur = None;
         if let Some(k) = &self.key {
@@ -272,34 +295,7 @@ impl OverviewView {
             .collect()
     }
 
-    pub(crate) fn select(&mut self, name: &str, cx: &mut Context<Self>) {
-        self.selected = Some(name.to_owned());
-        if let Some(st) = &self.stack
-            && st.running
-        {
-            self.pane = pane(st, name, self.hub.now());
-        }
-        cx.notify();
-    }
-
-    fn step(&mut self, by: isize, cx: &mut Context<Self>) {
-        let names: Vec<String> = self.shown().iter().map(|r| r.name.clone()).collect();
-        let i = self
-            .selected
-            .as_ref()
-            .and_then(|s| names.iter().position(|n| n == s));
-        let j = match i {
-            Some(i) => i
-                .saturating_add_signed(by)
-                .min(names.len().saturating_sub(1)),
-            None => 0,
-        };
-        if let Some(n) = names.get(j) {
-            self.select(&n.clone(), cx);
-        }
-    }
-
-    fn say(&mut self, words: &str, cx: &mut Context<Self>) {
+    pub(super) fn say(&mut self, words: &str, cx: &mut Context<Self>) {
         cx.emit(OverviewEvent::Say(words.to_owned()));
     }
 
@@ -337,31 +333,6 @@ impl OverviewView {
             .map(|row| row.name.clone());
         if let Some(n) = name {
             self.open(&n, None, cx);
-        }
-    }
-
-    fn copy_address(&mut self, cx: &mut Context<Self>) {
-        let row = self.selected.as_ref().and_then(|s| {
-            all_rows(&self.home)
-                .into_iter()
-                .find(|r| &r.name == s)
-                .cloned()
-        });
-        match row {
-            Some(r) if !r.address.is_empty() => {
-                let a = if r.url.is_empty() {
-                    r.address.clone()
-                } else {
-                    r.url.clone()
-                };
-                cx.write_to_clipboard(gpui::ClipboardItem::new_string(a.clone()));
-                self.say(
-                    &format!("copied the address of {} to the clipboard", r.name),
-                    cx,
-                );
-            }
-            Some(r) => self.say(&format!("{} has no address to copy.", r.name), cx),
-            None => {}
         }
     }
 
@@ -408,6 +379,7 @@ impl Render for OverviewView {
         };
         let lit = self.map.read(cx).lit.is_some();
         let lens = self.map.read(cx).lens.is_some();
+        let small = self.map.read(cx).small();
         div()
             .key_context("Overview")
             .track_focus(&self.focus)
@@ -440,11 +412,12 @@ impl Render for OverviewView {
                 let f = this.filter.clone();
                 f.update(cx, |i, cx| i.focus(window, cx));
             }))
+            .children(banners::stale(&t, self))
             .child(head::head(&t, self, cx))
             .children(act::banners(&t, self, cx))
-            .children(head::banners(&t, self))
+            .children(banners::banners(&t, self, cx))
             .child(strip::strip(&t, self, width))
             .child(body)
-            .child(keys::keys(&t, self, (lit, lens)))
+            .child(keys::keys(&t, self, (lit, lens, small)))
     }
 }

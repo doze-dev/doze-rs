@@ -8,7 +8,7 @@ use doze_desk::Hub;
 use doze_desk::palette::{
     self as model, Ask, DoKind, Doing, RecentCommand, RecentService, Row, Scope,
 };
-use gpui::{ClipboardItem, Context, Entity, EventEmitter, ScrollHandle, Window, prelude::*};
+use gpui::{Context, Entity, EventEmitter, ScrollHandle, Window, prelude::*};
 use gpui_component::input::{InputEvent, InputState};
 
 /// The action table's rows offered in ⌘K, as palette rows: the label, what it does, its key; ⏎ runs the action
@@ -184,7 +184,7 @@ impl Palette {
             self.cmds = doze_desk::palette::remember(&self.cmds, kept);
         }
         if doing.kind == DoKind::Copy {
-            cx.write_to_clipboard(ClipboardItem::new_string(doing.text.clone()));
+            crate::outward::copy(cx, &doing.text);
             self.copied = Some(r.label.clone());
             cx.notify();
             return;

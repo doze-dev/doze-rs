@@ -111,10 +111,10 @@ impl Root {
                     cx,
                 );
             }
-            FixKind::Edit => cx.open_with_system(std::path::Path::new(&f.path)),
+            FixKind::Edit => crate::outward::open_path(cx, std::path::Path::new(&f.path)),
             FixKind::Copy => {
-                cx.write_to_clipboard(gpui::ClipboardItem::new_string(f.text.clone()));
-                self.say("Copied the command", cx);
+                crate::outward::copy(cx, &f.text);
+                self.say("copied the command to the clipboard", cx);
             }
             FixKind::Show => self.show_item(it, window, cx),
             FixKind::Repair | FixKind::Clean => self.say(
@@ -190,13 +190,11 @@ impl Root {
         let motion = Motion::of(cx);
         let panel = div().absolute().top(px(44.)).right(px(184.)).child(b);
         let panel = if motion.moves() {
-            let travel = motion.travel;
+            // Go `.np`: `settle`, 160 ms from 6 px above.
             panel
-                .with_animation(
-                    "bell-in",
-                    gpui::Animation::new(motion.normal).with_easing(gpui::ease_out_quint()),
-                    move |d, p| d.opacity(p).top(px(44. - travel * (1.0 - p))),
-                )
+                .with_animation("bell-in", crate::motion::go_anim(160), move |d, p| {
+                    d.opacity(p).top(px(44. - 6. * (1.0 - p)))
+                })
                 .into_any_element()
         } else {
             panel.into_any_element()

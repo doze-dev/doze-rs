@@ -105,6 +105,8 @@ pub(crate) fn stats(m: &MapView) -> String {
                 m.cam.zoom * 100.0
             );
         }
+        // A small map counts nothing, as Go's never did: the cards and their lines say it.
+        None if m.small() => return String::new(),
         None => {}
     }
     let calls: u32 = l.edges.iter().map(|e| e.count.max(1)).sum();

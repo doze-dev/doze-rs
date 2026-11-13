@@ -297,7 +297,12 @@ fn rebuild(cx: &mut App) {
     let (busy, failed) = acting(cx);
     let job = cx.background_executor().spawn(async move {
         let (stacks, now) = (hub.stacks(), hub.now());
-        let mut items = crate::shell::attn::items_now(&stacks, &failed, &[], now);
+        let mut items = crate::shell::attn::items_now(
+            &stacks,
+            &failed,
+            &crate::shell::attn::Machine::default(),
+            now,
+        );
         items.extend(machine);
         (items, stacks, now)
     });

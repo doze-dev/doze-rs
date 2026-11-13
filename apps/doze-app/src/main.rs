@@ -18,6 +18,8 @@ mod assets;
 mod bench;
 mod cli;
 mod console;
+#[cfg(feature = "fixtures")]
+mod driver;
 mod empty;
 mod facts;
 #[cfg(feature = "fixtures")]
@@ -31,7 +33,9 @@ mod logbench;
 mod logs;
 mod map;
 mod model;
+mod motion;
 mod open;
+mod outward;
 mod overlays;
 mod overview;
 mod prefs;

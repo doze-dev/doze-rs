@@ -68,6 +68,7 @@ fn stat(t: &Tokens, value: &str, unit: &str, under: AnyElement, wide: bool) -> g
                 .line_height(px(ty::LH_26))
                 .font_weight(ty::SEMIBOLD)
                 .text_color(t.bright)
+                .font_features(ty::tabular())
                 .child(s(value)),
         )
         .child(
@@ -148,7 +149,7 @@ fn figures(
         under(t, tasks),
         false,
     ))
-    .when(stale, |d| d.opacity(0.5))
+    .when(stale, |d| d.opacity(0.55))
 }
 
 /// The memory figure's share bar (each instance its colour, biggest first) and the biggest few.
@@ -263,7 +264,7 @@ fn down_strip(t: &Tokens, st: &Stopped, tight: bool) -> impl IntoElement {
 }
 
 /// `.srccard`: the mistake where it is: the lines around it, what is wrong, what to write.
-fn source_card(t: &Tokens, c: &ConfigError) -> impl IntoElement {
+pub(super) fn source_card(t: &Tokens, c: &ConfigError) -> gpui::Div {
     let name = std::path::Path::new(&c.file)
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())

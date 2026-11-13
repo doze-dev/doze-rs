@@ -289,4 +289,6 @@ fn started(
     if !a.menu_bar {
         follow_args(cx, &a.forward);
     }
+    #[cfg(feature = "fixtures")]
+    crate::driver::start(cx);
 }

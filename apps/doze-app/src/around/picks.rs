@@ -35,7 +35,7 @@ pub(super) fn run(cx: &mut App, cmd: Cmd) {
         Cmd::Settings | Cmd::Updates => crate::app::follow_args(cx, &["doze://settings".into()]),
         Cmd::Quit => cx.quit(),
         Cmd::OpenStack(k) => notes::show_instance(cx, &key_str(&k), ""),
-        Cmd::OpenUrl(u) => cx.open_url(&u),
+        Cmd::OpenUrl(u) => crate::outward::open_url(cx, &u),
         Cmd::Stack(k, c) => stack(cx, &k, c),
         Cmd::Service(k, name, verb) => acts(cx, |a, cx| a.verb(&k, &name, verb, cx)),
         Cmd::Instance(k, name) => notes::show_instance(cx, &key_str(&k), &name),

@@ -16,6 +16,9 @@ use doze_desk::library::{Check, Doctor, parse_doctor};
 use doze_desk::overview::Shape;
 use gpui::{AsyncApp, Context, WeakEntity};
 
+mod left;
+mod names;
+
 /// How old the machine's report may be before it is asked again (Go's `doctorCached`).
 const DOCTOR_AGE: Duration = Duration::from_secs(30);
 
@@ -44,6 +47,16 @@ pub(crate) struct Facts {
     doctor_asked: bool,
     shapes: HashMap<PathBuf, Known>,
     asking: HashSet<PathBuf>,
+    /// Each stack's domain setup, by its key and domains (`names`).
+    trust: HashMap<String, (Instant, Vec<doze_desk::machine_names::Step>)>,
+    trust_asked: HashSet<String>,
+    /// Who holds the front door, and when that was read.
+    front: Option<(Instant, Option<String>)>,
+    /// The registry's URL for each host asked about, and when.
+    urls: HashMap<String, (Instant, Option<String>)>,
+    /// What stacks left behind, as last counted, and whether a count is under way.
+    left: Option<(Instant, doze_desk::leftovers::Counts)>,
+    left_asked: bool,
 }
 
 /// The `doze` a terminal would run. The app started from Finder has launchd's short PATH, so the places a terminal's
@@ -88,6 +101,12 @@ impl Facts {
             doctor_asked: false,
             shapes: HashMap::new(),
             asking: HashSet::new(),
+            trust: HashMap::new(),
+            trust_asked: HashSet::new(),
+            front: None,
+            urls: HashMap::new(),
+            left: None,
+            left_asked: false,
         }
     }
 
@@ -198,10 +217,11 @@ impl Facts {
                 let json = job.await;
                 let _ = this.update(cx, |f, cx| {
                     f.doctor_asked = false;
-                    f.doctor = Some((
-                        Instant::now(),
-                        json.as_deref().and_then(parse_doctor).unwrap_or_default(),
-                    ));
+                    let mut d = json.as_deref().and_then(parse_doctor).unwrap_or_default();
+                    if doze_desk::library::zone_off() {
+                        doze_desk::library::names_off(&mut d);
+                    }
+                    f.doctor = Some((Instant::now(), d));
                     cx.notify();
                 });
             })

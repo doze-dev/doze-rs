@@ -74,6 +74,46 @@ pub fn parse_doctor(json: &str) -> Option<Doctor> {
     Some(Doctor { checks })
 }
 
+/// Whether doze's names are switched off here (`DOZE_ZONE=off`, `0`, `false`, `no`; doze-names `Disabled`).
+#[must_use]
+pub fn zone_off() -> bool {
+    std::env::var("DOZE_ZONE").is_ok_and(|z| {
+        matches!(
+            z.trim().to_lowercase().as_str(),
+            "off" | "0" | "false" | "no"
+        )
+    })
+}
+
+/// With the names switched off, the machine's names part is that, and no more (Go `doctor`: "switched off
+/// (DOZE_ZONE)"), and the domains are not looked at.
+pub fn names_off(d: &mut Doctor) {
+    d.checks
+        .retain(|c| c.section != "names" && c.section != "domains");
+    d.checks.insert(
+        0,
+        Check {
+            name: "names".into(),
+            ok: false,
+            text: "switched off (DOZE_ZONE)".into(),
+            section: "names",
+        },
+    );
+}
+
+/// The command that sets a part up, as Go's doctor names it: `doze dns-setup` for a names step, `doze trust` for a
+/// domain; none for the names switched off.
+#[must_use]
+pub fn fix_of(c: &Check) -> &'static str {
+    match c.section {
+        _ if c.ok => "",
+        "names" if c.text.contains("DOZE_ZONE") => "",
+        "names" => "doze dns-setup",
+        "domains" => "doze trust",
+        _ => "",
+    }
+}
+
 /// The line itself (Go `machine`): each names step, then one summary of the domains, then routes no stack declares.
 pub fn machine(doctor: &Doctor, stacks: &[StackView]) -> Vec<Check> {
     let mut out = Vec::new();

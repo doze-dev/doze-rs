@@ -83,5 +83,11 @@ pub(crate) const BOLD: FontWeight = FontWeight(700.);
 /// The wordmark: Go's 750, drawn at 700.
 pub(crate) const BRAND_WEIGHT: FontWeight = FontWeight(700.);
 
+/// `font-variant-numeric: tabular-nums` (the strip, memory, tables): figures one width, so a number that changes
+/// does not shift what follows it.
+pub(crate) fn tabular() -> gpui::FontFeatures {
+    gpui::FontFeatures(std::sync::Arc::new(vec![("tnum".into(), 1)]))
+}
+
 #[cfg(test)]
 mod tests;
