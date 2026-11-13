@@ -64,11 +64,11 @@ export function MultiSelect({ options, value, onChange, noun = "items", classNam
             </Command>
           </PopoverContent>
         </Popover>
-        {value.length > 0 && (
-          <Button variant="ghost" size="icon-sm" aria-label={`Clear ${noun}`} onClick={() => onChange([])}>
-            <XIcon />
-          </Button>
-        )}
+        {/* Always there (hidden while nothing is chosen), so the trigger keeps its width: the popup is as wide as the trigger,
+            and a trigger that shrank under an open popup made WebKit report a ResizeObserver loop. */}
+        <Button variant="ghost" size="icon-sm" aria-label={`Clear ${noun}`} onClick={() => onChange([])} className={cn(value.length === 0 && "invisible")} disabled={value.length === 0} aria-hidden={value.length === 0 || undefined} tabIndex={value.length === 0 ? -1 : undefined}>
+          <XIcon />
+        </Button>
       </div>
       {chips && value.length > 0 && (
         <div className="flex flex-wrap gap-1.5" data-testid="multi-chips">

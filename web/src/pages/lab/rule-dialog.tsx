@@ -147,7 +147,7 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
                 <FormItem className="min-w-0">
                   <FormLabel>Topics</FormLabel>
                   <FormControl>
-                    <MultiSelect options={topics} value={list(field.value)} onChange={(v) => field.onChange(v.join(","))} noun="topics" aria-label="Topics" triggerClassName="w-full" className="min-w-0" />
+                    <MultiSelect options={topics} value={list(field.value)} onChange={(v) => field.onChange(v.join(","))} noun="topics" aria-label="Topics" triggerClassName="w-full" className="min-w-0" chips={false} />
                   </FormControl>
                   <FormDescription>{answer.topic_note ?? "None chosen: every topic."}</FormDescription>
                   <FieldError id="topic" text={errorOf(shown, "topic")} />
@@ -512,7 +512,7 @@ export function NewRehearsalDialog({ tab, compactTopics, onTab, onClose, onMade,
   const w = tab ? TAB_WORDS[tab] : undefined;
   return (
     <Dialog open={!!tab} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[56rem]" data-testid="lab-dialog" onCloseAutoFocus={restoreFocus}>
+      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto [scrollbar-gutter:stable] sm:max-w-[56rem]" data-testid="lab-dialog" onCloseAutoFocus={restoreFocus}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[20px] font-medium">
             <FlaskConicalIcon className="size-5 text-warn" aria-hidden /> New rehearsal

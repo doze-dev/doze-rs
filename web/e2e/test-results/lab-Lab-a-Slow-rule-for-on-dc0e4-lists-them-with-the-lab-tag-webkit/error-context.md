@@ -79,7 +79,7 @@ expect(received).toEqual(expected) // deep equality
           - generic [ref=f1e88]:
             - navigation "Breadcrumb"
             - generic [ref=f1e89]:
-              - generic [ref=f1e90]: Updated 05:42:50 UTC
+              - generic [ref=f1e90]: Updated 05:59:56 UTC
               - combobox "Refresh every" [ref=f1e91]:
                 - generic: "Refresh: Off"
               - button "Refresh" [ref=f1e92]
@@ -100,7 +100,7 @@ expect(received).toEqual(expected) // deep equality
               - generic "by the rules in force" [ref=f1e110]
             - generic [ref=f1e111]:
               - term [ref=f1e112]: Ended
-              - definition [ref=f1e114]: "4"
+              - definition [ref=f1e114]: "1"
               - generic "in the last hour" [ref=f1e115]
             - generic [ref=f1e116]:
               - term [ref=f1e117]: Done once
@@ -196,41 +196,20 @@ expect(received).toEqual(expected) // deep equality
                   - cell "slow" [ref=f1e261]
                   - cell "Removed" [ref=f1e263]
                   - cell "4" [ref=f1e264]
-                  - cell "05:42 – 05:42" [ref=f1e265]
-                - row [ref=f1e266]:
-                  - cell [ref=f1e267]:
-                    - button "Slow produce to orders" [ref=f1e268]
-                  - cell "slow" [ref=f1e269]
-                  - cell "Removed" [ref=f1e271]
-                  - cell "4" [ref=f1e272]
-                  - cell "05:42 – 05:42" [ref=f1e273]
-                - row [ref=f1e274]:
-                  - cell [ref=f1e275]:
-                    - button "Slow produce to orders" [ref=f1e276]
-                  - cell "slow" [ref=f1e277]
-                  - cell "Removed" [ref=f1e279]
-                  - cell "4" [ref=f1e280]
-                  - cell "05:42 – 05:42" [ref=f1e281]
-                - row [ref=f1e282]:
-                  - cell [ref=f1e283]:
-                    - button "Slow produce to orders" [ref=f1e284]
-                  - cell "slow" [ref=f1e285]
-                  - cell "Removed" [ref=f1e287]
-                  - cell "4" [ref=f1e288]
-                  - cell "05:42 – 05:42" [ref=f1e289]
-      - generic [ref=f1e290]:
-        - heading "Jump to a topic or group" [level=2] [ref=f1e291]
-        - paragraph [ref=f1e292]: Type a name, then Enter
+                  - cell "05:59 – 05:59" [ref=f1e265]
+      - generic [ref=f1e266]:
+        - heading "Jump to a topic or group" [level=2] [ref=f1e267]
+        - paragraph [ref=f1e268]: Type a name, then Enter
   - region "Notifications alt+T":
     - list:
-      - listitem [ref=f1e293]:
-        - generic [ref=f1e298]:
-          - generic [ref=f1e299]: Rule removed
-          - generic [ref=f1e300]: Slow produce to orders
-      - listitem [ref=f1e301]:
-        - generic [ref=f1e306]: Rule switched on
-      - listitem [ref=f1e308]:
-        - generic [ref=f1e313]: Rule switched off
+      - listitem [ref=f1e269]:
+        - generic [ref=f1e274]:
+          - generic [ref=f1e275]: Rule removed
+          - generic [ref=f1e276]: Slow produce to orders
+      - listitem [ref=f1e277]:
+        - generic [ref=f1e282]: Rule switched on
+      - listitem [ref=f1e284]:
+        - generic [ref=f1e289]: Rule switched off
 ```
 
 # Test source

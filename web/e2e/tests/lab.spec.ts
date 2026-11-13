@@ -44,7 +44,7 @@ test("Lab: a Slow rule for one client slows its requests; the rule counts them; 
     await form.getByRole("combobox", { name: "Topics" }).click();
     await page.getByRole("option", { name: /^orders\s*\d+ partitions?$/ }).click();
     await page.keyboard.press("Escape");
-    await expect(form.getByTestId("multi-chips").filter({ hasText: "orders" })).toBeVisible();
+    await expect(form.getByRole("combobox", { name: "Topics" })).toHaveText("orders");
     await expect(form.getByTestId("multi-chips").filter({ hasText: "Produce" })).toBeVisible();
     await form.getByTestId("lab-delay").fill("300");
     await choose(page, form.getByTestId("lab-share"), "Every request");
@@ -62,7 +62,6 @@ test("Lab: a Slow rule for one client slows its requests; the rule counts them; 
     await expect
       .poll(
         async () => {
-          await page.getByTestId("refresh-now").click({ force: true }).catch(() => {});
           const lab = await apiGet(page.request, "/api/v1/lab");
           return lab.home.active.find((r: { name: string }) => r.name === "Slow produce to orders")?.hits ?? 0;
         },
@@ -135,7 +134,9 @@ test("Lab: a Fail rule on Produce answers the producer with the code it names", 
     await page.getByTestId("lab-start").click();
     await expect(page.getByTestId("lab-rule-sheet")).toBeVisible();
     // The producer gets the code back (kafkajs names it by Kafka's name).
-    await expect.poll(() => app.errors.filter((e) => e === "NOT_LEADER_OR_FOLLOWER").length, { timeout: 15_000 }).toBeGreaterThan(0);
+    // kafkajs names code 6 by its older name (NOT_LEADER_FOR_PARTITION) or wraps it once its retries are spent.
+    await expect.poll(() => app.errors.filter((e) => /NOT_LEADER|leader/i.test(e)).length, { timeout: 25_000 }).toBeGreaterThan(0);
+    await expect.poll(async () => (await apiGet(page.request, "/api/v1/lab")).home.active[0]?.hits ?? 0, { timeout: 10_000 }).toBeGreaterThan(0);
     await page.reload();
     const sheet = page.getByTestId("lab-rule-sheet");
     await expect(sheet.getByRole("table", { name: "Requests the rule touched" })).toContainText("NOT_LEADER_OR_FOLLOWER");
