@@ -256,3 +256,35 @@ fn synthetic(n: usize) -> Script {
         ..Script::default()
     }
 }
+
+/// `$DOZE_APP_FIXTURE_CRASH=NAME@SECONDS`: the fixture's NAME crashes that long after launch, as a daemon would say it,
+/// so a run shows what the app does about a crash it did not start with (the menu bar's alert, a notification).
+pub(crate) fn crash_later(source: std::rc::Rc<crate::source::Source>, cx: &mut gpui::App) {
+    let Some((name, secs)) = std::env::var("DOZE_APP_FIXTURE_CRASH").ok().and_then(|v| {
+        let (n, s) = v.split_once('@')?;
+        Some((n.to_owned(), s.parse::<u64>().ok()?))
+    }) else {
+        return;
+    };
+    cx.spawn(async move |cx: &mut gpui::AsyncApp| {
+        cx.background_executor()
+            .timer(std::time::Duration::from_secs(secs))
+            .await;
+        let found = source
+            .first
+            .as_ref()
+            .and_then(|k| source.hub.stack(k))
+            .and_then(|st| st.instance(&name).cloned());
+        if let Some(mut v) = found {
+            v.state = "crashing".into();
+            v.last_error = "panic: STRIPE_KEY is required".into();
+            (v.restart_count, v.restart_max) = (1, 5);
+            source.push(&doze_control::Frame {
+                topic: "instances".into(),
+                instances: vec![v],
+                ..doze_control::Frame::default()
+            });
+        }
+    })
+    .detach();
+}

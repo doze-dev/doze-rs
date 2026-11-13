@@ -31,6 +31,7 @@ mod logbench;
 mod logs;
 mod map;
 mod model;
+mod open;
 mod overlays;
 mod overview;
 mod prefs;
@@ -74,6 +75,7 @@ fn main() -> ExitCode {
     let launched = Instant::now();
     match cli::parse(std::env::args().skip(1)) {
         Ok(cli::Cmd::App(a)) => app::run(a),
+        Ok(cli::Cmd::Open(a)) => open::run(a),
         Ok(cli::Cmd::Bench(b)) => bench::run(b, launched),
         #[cfg(feature = "capture")]
         Ok(cli::Cmd::Shot(s)) => shot::run(*s),

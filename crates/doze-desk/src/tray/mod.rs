@@ -95,7 +95,12 @@ pub fn build(stacks: &[StackView], now: SystemTime) -> Model {
             l.trouble = true;
             m.needs_you = true;
             l.sub = format!("{} is {}", v.name, words::look(v).word());
-            let b = words::because(v, &snap, now);
+            let mut b = words::because(v, &snap, now);
+            // Not the countdown ("next in 3s"): it would rebuild the menu every second, maybe while it is open (Go's
+            // line kept it and rebuilt). Needs you's detail still says it.
+            if let Some(i) = b.find(" · next in ") {
+                b.truncate(i);
+            }
             if !b.is_empty() {
                 l.sub = format!("{} · {b}", l.sub);
             }

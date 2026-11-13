@@ -9,8 +9,10 @@
 //! - [`on_batch`] is the hub moving: notes, the list (while closed), the menu;
 //! - [`window_list`] is the window's list, each time it builds one.
 
-mod notes;
+pub(crate) mod notes;
 mod picks;
+#[cfg(all(test, feature = "capture"))]
+mod tests;
 
 use std::collections::{BTreeSet, HashMap};
 use std::time::{Duration, SystemTime};

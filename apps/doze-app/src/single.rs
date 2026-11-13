@@ -46,10 +46,7 @@ pub(crate) fn claim(home: &Path, args: &[String]) -> std::io::Result<Launch> {
         std::fs::create_dir_all(dir)?;
     }
     let Some(held) = doze_os::fs::try_lock(&lock)? else {
-        let mut s = LocalStream::connect(&sock)?;
-        let line = serde_json::to_string(args).map_err(std::io::Error::other)?;
-        s.write_all(line.as_bytes())?;
-        s.write_all(b"\n")?;
+        send(&sock, args)?;
         return Ok(Launch::Forwarded);
     };
     // A socket left by an app that died goes: the lock says nobody listens on it.
@@ -63,6 +60,29 @@ pub(crate) fn claim(home: &Path, args: &[String]) -> std::io::Result<Launch> {
         _lock: held,
         args: rx,
     }))
+}
+
+/// Sends `args` to the app listening on `sock`.
+fn send(sock: &Path, args: &[String]) -> std::io::Result<()> {
+    let mut s = LocalStream::connect(sock)?;
+    let line = serde_json::to_string(args).map_err(std::io::Error::other)?;
+    s.write_all(line.as_bytes())?;
+    s.write_all(b"\n")
+}
+
+/// Hands `args` to the app that holds the home, when one does (`doze-app open`); `false` when none does, and then
+/// nothing is held: the launch that follows takes the home itself.
+///
+/// # Errors
+///
+/// When the lock cannot be read, or the app that holds it cannot be reached.
+pub(crate) fn hand_over(home: &Path, args: &[String]) -> std::io::Result<bool> {
+    let (lock, sock) = paths(home);
+    if !lock.exists() || doze_os::fs::try_lock(&lock)?.is_some() {
+        return Ok(false);
+    }
+    send(&sock, args)?;
+    Ok(true)
 }
 
 /// Reads one line of arguments from each launch that connects.

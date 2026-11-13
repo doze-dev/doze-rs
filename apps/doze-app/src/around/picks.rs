@@ -25,7 +25,7 @@ pub(super) fn picked(cx: &mut App, id: u32) {
     run(cx, cmd);
 }
 
-fn run(cx: &mut App, cmd: Cmd) {
+pub(super) fn run(cx: &mut App, cmd: Cmd) {
     match cmd {
         Cmd::OpenDoze => {
             crate::app::open(cx);

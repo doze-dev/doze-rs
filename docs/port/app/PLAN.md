@@ -20,6 +20,26 @@ feeds the help sheet, the chips, the menu bar and ⌘K, each command listed once
 trouble restarts it (Needs you's first fix). Still M3: Settings, Activity, Check for Updates, Settings › Machine's
 repair and clean-up (their rows say "soon").
 
+M3 steps 3.1, 3.2 and 3.5 (branch `app-m3-tray`): `doze-desk::tray` (Go's `Build`, `Split`, `NeedsOf` with their
+tests, and the whole menu as data with a signature and a text form) and `doze-desk::notify` (Go's D8 rules with their
+tests, the fix pressed outside the window, the notification's words); the app's `around` keeps one Needs you list for
+the menu bar and notifications (the window's while it is open, its own while it is closed) and opens the window when
+something pressed from the menu bar asks; `cargo xtask app-bundle` makes Doze.app; `doze-app open` hands over to a
+running app or starts one on its own. Differences and beyond Go:
+- each running stack's submenu also lists its services (wake, sleep, turn on, restart or run, as fits; their page and
+  logs) and All logs; the stack line leaves the restart countdown out, so a crash loop does not rebuild the menu every
+  second; menu lines carry the menu's generation, so a pick that arrives after a rebuild is dropped;
+- a note waits up to 2 s for Needs you to list its item, so the notification carries the fix button (Go posted at
+  once and often had none); its button presses the fix only while the item still offers it, and for a port's holder
+  only while the same pid holds the port (as Go); without a bundle a note is a toast and a Recent line, and stderr;
+- the Dock badge is Needs you's red count; Settings… and Check for Updates… go to `doze://settings` (step 3.4 builds
+  that page); the machine's items in the menu while the window is closed are the window's last (doctor runs only
+  with a window);
+- Q4 as built: the status item, its submenus and the Dock badge are objc2 in `doze-os::ui`; notifications need no
+  `unsafe` of ours (gpui's own `UNUserNotificationCenter` path). Q2 as built: the app is its own binary in the bundle;
+  Go's `doze open` handing off to the Rust bundle is a Go-side change not made here (`doze-app open` does the same
+  hand-off, and `$DOZE_APP_BUNDLE` names the bundle it starts).
+
 Where the M0 build differs from this plan:
 
 - The app lives at `apps/doze-app`, not `crates/doze-app`, so `default-members = ["crates/*", …]` leaves it out by

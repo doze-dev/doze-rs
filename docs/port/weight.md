@@ -407,3 +407,24 @@ runs).
 
 Acting adds nothing at rest: Needs you is built again from acting only when a stack begins or ends an action or a
 failure comes or goes (a toast alone does not), and the toasts' expiry timer runs only while a toast shows.
+
+### M3 steps 3.1, 3.2, 3.5 (the menu bar complete, notifications, Doze.app), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder`, footprint sampled with `footprint`; menu
+bar only is `doze-app --menu-bar` under a throwaway `DOZE_HOME`). The bench now starts the app's round-the-clock part
+as a launch does (`crate::around`: the menu, Needs you while no window is open, the notification rules).
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 12,899,472 B (+66 KB over M2 combined: the tray model, the notification rules, `open`) |
+| Packages | limit 560 | 535 (no new crate: notifications are gpui's own `UNUserNotificationCenter` path) |
+| Menu bar ready | ≤ 100 ms | 75 ms; 135 ms in a second run while another worktree was building (machine busy) |
+| First frame after the tray click | ≤ 100 ms | 47 / 54 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | 60 MB at 12 s, 56 MB at 27 s; 57 MB |
+| Menu bar only, footprint | ≤ 18 MB (PLAN §6); ≤ 35 MB (M3 brief) | 18 MB on an empty home; 22 MB with the fixture daemon (larder or crash) in the process |
+| After the window closes, footprint | ≤ 35 MB | **37 MB** 3 s and 8 s after the close (larder, fixture daemon in the process; M2 read 35 MB at 8 s): 2 MB over, not yet explained |
+| CPU, menu bar only | ≤ 0.05 % | 0.0 % (ps, sampled at 25 s) |
+
+The menu is rebuilt only when its signature changes: Needs you's detail (its "next in 4s") is left out of the
+signature, and the stack line no longer carries the countdown (Go's line did, so Go rebuilt its menu every second
+through a crash loop).

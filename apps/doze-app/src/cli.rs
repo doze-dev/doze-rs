@@ -2,6 +2,7 @@
 //!
 //! ```text
 //! doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar]      the app (a second launch hands these to the first)
+//! doze-app open [FOLDER | doze://…] [--show NAME]               hand over to the running app, or start it on its own
 //!          [--fixture NAME | --synth N]                         a fixture stack instead of the doze home (dev builds)
 //! doze-app shot --fixture larder --screen map --theme teal --mode light --size 1280x800 --out x.png
 //!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion]
@@ -86,7 +87,7 @@ pub(crate) struct Shot {
     pub(crate) query: Option<String>,
     pub(crate) scope: Option<String>,
     pub(crate) enter: bool,
-    /// Needs you's surface over the page: `bell`, `alerts`, `away`.
+    /// Needs you's surface over the page: `bell`, `alerts`, `away`; or `note`, a notification said in the app (M3).
     pub(crate) over: Option<String>,
     /// Needs you sees this machine not set up (names and a domain), as Go's fixture server did.
     pub(crate) machine_unset: bool,
@@ -106,6 +107,8 @@ pub(crate) struct Bench {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Cmd {
     App(App),
+    /// `doze-app open ...`: hand over to a running app, or start one on its own (`crate::open`).
+    Open(App),
     Shot(Box<Shot>),
     Bench(Bench),
 }
@@ -130,6 +133,10 @@ pub(crate) fn parse(args: impl IntoIterator<Item = String>) -> Result<Cmd, Strin
         Some("bench") => {
             args.next();
             bench(args).map(Cmd::Bench)
+        }
+        Some("open") => {
+            args.next();
+            app(args).map(Cmd::Open)
         }
         _ => app(args).map(Cmd::App),
     }

@@ -99,13 +99,20 @@ fn post(cx: &mut App, note: Note) {
         });
         return;
     }
+    in_app(cx, &n);
+}
+
+/// A notification said in the app, where the system will not take one (no bundle): a toast now if the window is open,
+/// a line kept among Recent either way, and stderr.
+pub(crate) fn in_app(cx: &mut App, n: &Native) {
     eprintln!(
         "doze-app: would notify: {} — {}",
         n.title,
         n.body.replace('\n', " · ")
     );
     if let Some(acts) = crate::act::acts(cx) {
-        let text = format!("{} — {}", n.title, note.body);
+        let first = n.body.lines().next().unwrap_or_default();
+        let text = format!("{} — {first}", n.title);
         acts.update(cx, |a, cx| a.say(text, true, cx));
     }
 }

@@ -245,6 +245,8 @@ fn started(
     boot_core(cx);
     cx.set_activation_policy(ActivationPolicy::Accessory);
     let hub = source.hub.clone();
+    #[cfg(feature = "fixtures")]
+    crate::fixture::crash_later(source.clone(), cx);
     cx.set_global(State {
         hub: hub.clone(),
         first: source.first.clone(),
