@@ -16,7 +16,7 @@ pub mod set;
 mod by_type;
 
 pub use acl::Acl;
-pub use codes::{operation, pattern, permission, resource};
+pub use codes::{Operation, ResourceType, UnknownCode, operation, pattern, permission, resource};
 pub use filter::{AclFilter, FilterError};
 pub use rules::{Resource, Rules, Subject, check_principal_shape};
 pub use set::AclSet;

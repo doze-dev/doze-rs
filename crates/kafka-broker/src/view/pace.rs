@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 
 use super::ConsoleView;
@@ -25,7 +25,7 @@ impl<F: Fs> ConsoleView<'_, F> {
     #[must_use]
     pub fn pace(&self, caller: &Caller) -> Option<Pace> {
         let b = self.broker;
-        b.cluster_allows(caller, operation::DESCRIBE_CONFIGS)
+        b.cluster_allows(caller, Operation::DescribeConfigs)
             .then_some(Pace {
                 cleaner_every: b.config.log_cleaner_every,
                 cleaner_on: b.config.log_cleaner_enable,

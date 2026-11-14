@@ -6,7 +6,7 @@ mod wait;
 use std::sync::Arc;
 use std::time::Duration;
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
@@ -16,7 +16,7 @@ use kafka_wire::messages::fetch_request::FetchTopic;
 use kafka_wire::messages::{FetchRequest, FetchResponse};
 use tokio::time::{Instant, timeout_at};
 
-use crate::partitions::{Partition, Stability};
+use crate::partitions::Partition;
 use crate::{Broker, Caller, Outcome};
 use round::Budget;
 
@@ -29,32 +29,6 @@ const MAX_WAIT: Duration = Duration::from_secs(30);
 pub(super) enum Place<F: Fs> {
     Error(ResponseError),
     Open(Arc<Partition<F>>),
-}
-
-/// What a fetch is told of a partition's transactions: the last stable offset in every case, and for `read_committed` the
-/// offset it may read to and the aborted transactions to skip.
-pub(super) enum Stable {
-    /// Nothing: the partition is not open.
-    Unasked,
-    /// The partition's last stable offset and aborted transactions.
-    Of(Stability),
-}
-
-/// Each open partition's last stable offset and aborted transactions, read from what its writer keeps for readers (so this
-/// does not wait for an append).
-fn stable<F: Fs>(wanted: &[Wanted<'_, F>]) -> Vec<Vec<Stable>> {
-    wanted
-        .iter()
-        .map(|w| {
-            w.places
-                .iter()
-                .map(|place| match place {
-                    Place::Open(p) => Stable::Of(p.stability()),
-                    Place::Error(_) => Stable::Unasked,
-                })
-                .collect()
-        })
-        .collect()
 }
 
 /// One topic of the request, with its partitions resolved.
@@ -84,8 +58,7 @@ impl<F: Fs> Broker<F> {
         let deadline = Instant::now() + waits;
         loop {
             let budget = Budget::new(req.max_bytes);
-            let stable = stable(&wanted);
-            let round = blocking_round(&wanted, &stable, &req, budget);
+            let round = blocking_round(&wanted, &req, budget);
             // An error is an answer: the client has to act on it, and making it wait would cost a consumer's offset
             // reset a whole wait.
             if round.failed
@@ -129,7 +102,7 @@ impl<F: Fs> Broker<F> {
     ) -> Vec<Wanted<'a, F>> {
         // A request from a follower (a broker id, not -1) is the cluster's, checked once for the whole request.
         let follower =
-            (req.replica_id.0 >= 0).then(|| self.cluster_allows(caller, operation::CLUSTER_ACTION));
+            (req.replica_id.0 >= 0).then(|| self.cluster_allows(caller, Operation::ClusterAction));
         let mut out = Vec::new();
         for t in &req.topics {
             let topic = self.fetch_topic(version, t);
@@ -162,7 +135,7 @@ impl<F: Fs> Broker<F> {
             None if version >= 13 => return true,
             None => t.topic.0.as_str(),
         };
-        self.topic_allows(caller, name, operation::READ)
+        self.topic_allows(caller, name, Operation::Read)
     }
 
     fn fetch_topic(&self, version: i16, t: &FetchTopic) -> Option<Arc<Topic>> {
@@ -197,11 +170,10 @@ impl<F: Fs> Broker<F> {
 
 fn blocking_round<F: Fs>(
     wanted: &[Wanted<'_, F>],
-    stable: &[Vec<Stable>],
     req: &FetchRequest,
     budget: Budget,
 ) -> round::Round {
-    crate::blocking::run(|| round::read(wanted, stable, req, budget))
+    crate::blocking::run(|| round::read(wanted, req, budget))
 }
 
 #[cfg(test)]

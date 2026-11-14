@@ -55,8 +55,11 @@ pub(super) fn can(
             principal: who,
             host,
         },
-        Resource { kind, name },
-        op,
+        Resource {
+            kind: ResourceType::try_from(kind).expect("a known resource type"),
+            name,
+        },
+        Operation::try_from(op).expect("a known operation"),
     )
 }
 

@@ -119,6 +119,17 @@ macro_rules! served_apis {
                         .map_err(|e| WireError::encode(stringify!($resp), e)), )*
                 }
             }
+
+            /// How many bytes [`Response::encode`] writes at `version` (the records are counted, not copied).
+            ///
+            /// # Errors
+            /// A response that cannot be written at that version.
+            pub fn compute_size(&self, version: i16) -> Result<usize, WireError> {
+                match self {
+                    $( Self::$key(r) => Encodable::compute_size(r, version)
+                        .map_err(|e| WireError::encode(stringify!($resp), e)), )*
+                }
+            }
         }
     };
 }

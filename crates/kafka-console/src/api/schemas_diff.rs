@@ -187,7 +187,7 @@ pub(super) async fn diff(
     let input = SchemaInput {
         schema: Some(b.schema.clone()),
         schema_type: Some(kind.name().to_owned()),
-        references: Some(b.references.clone()),
+        references: Some(b.references),
     };
     let checks = checks(&r, &subject, from, &input);
     json(

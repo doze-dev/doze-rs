@@ -86,6 +86,10 @@ async fn an_aborted_transaction_is_listed_so_that_a_consumer_skips_its_records()
             .unwrap()
             .is_empty()
     );
+    // A read that fails (here above the end) has no list at all: null, as Kafka sends (fetch-above-the-end).
+    let failed = rig.fetch_committed("t", 0, 99).await;
+    assert_ne!(failed.error_code, 0);
+    assert_eq!(failed.aborted_transactions, None);
 }
 
 #[tokio::test]

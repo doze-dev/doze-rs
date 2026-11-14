@@ -33,11 +33,11 @@ impl State {
     #[must_use]
     pub fn new(
         source: Source,
-        web: Base,
+        web: &Base,
         allow_hosts: Vec<String>,
         stop: CancellationToken,
     ) -> Shared {
-        Self::console(source, &web, allow_hosts, stop, &Limits::default())
+        Self::console(source, web, allow_hosts, stop, &Limits::default())
     }
 
     /// The state of the console served at `web` (`--console-prefix`).

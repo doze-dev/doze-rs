@@ -5,7 +5,7 @@ use kafka_meta::Topic;
 use kafka_wire::ResponseError;
 use kafka_wire::batch::{
     Batch, Compression, HEADER_LEN, ProduceRules, RecordError, RecordsRefused, Refusal, ScanRules,
-    Scanned,
+    Scanned, TimestampType,
 };
 use kafka_wire::ids::{PartitionId, TimestampMs};
 
@@ -66,18 +66,6 @@ pub(super) fn code_of(refusal: Refusal) -> ResponseError {
     }
 }
 
-/// The codec a topic stores: the producer's unless `compression.type` names another.
-fn stored_codec(topic: &Topic, produced: Compression) -> Compression {
-    match topic.config.get("compression.type").map(String::as_str) {
-        Some("uncompressed") => Compression::None,
-        Some("gzip") => Compression::Gzip,
-        Some("snappy") => Compression::Snappy,
-        Some("lz4") => Compression::Lz4,
-        Some("zstd") => Compression::Zstd,
-        _ => produced,
-    }
-}
-
 /// Holds the one batch of `records` to Kafka's rules and the topic's, in Kafka's order: the request's shape and the
 /// batch's header and size, then every record, then the size it is stored at. On success the batch's newest
 /// timestamp is the records' own, and its records are in the codec the topic stores.
@@ -89,8 +77,10 @@ pub(super) fn check(
     records: &Bytes,
     now: TimestampMs,
 ) -> Result<Accepted, Refused> {
-    let own = |key: &str| topic.config.get(key).and_then(|v| v.parse::<i64>().ok());
-    let max_batch = own("max.message.bytes").unwrap_or(defaults.message_max_bytes);
+    let settings = topic.settings();
+    let max_batch = settings
+        .max_message_bytes
+        .unwrap_or(defaults.message_max_bytes);
     let max = u64::try_from(max_batch).unwrap_or(0);
     let rules = ProduceRules {
         version,
@@ -102,23 +92,16 @@ pub(super) fn check(
         message: e.kafka_message(),
         records: Vec::new(),
     })?;
-    let log_append_time = topic
-        .config
-        .get("message.timestamp.type")
-        .is_some_and(|v| v == "LogAppendTime");
-    let (produced, target) = (
-        batch.attributes().compression(),
-        stored_codec(topic, batch.attributes().compression()),
-    );
+    let log_append_time = settings.timestamp_type == TimestampType::LogAppend;
+    // The codec the topic stores: the producer's unless `compression.type` names another.
+    let produced = batch.attributes().compression();
+    let target = settings.compression.unwrap_or(produced);
     let scan = ScanRules {
-        require_keys: topic
-            .config
-            .get("cleanup.policy")
-            .is_some_and(|v| v.split(',').any(|p| p.trim() == "compact")),
+        require_keys: settings.cleanup.compact,
         log_append_time,
         now,
-        before_max_ms: own("message.timestamp.before.max.ms").unwrap_or(i64::MAX),
-        after_max_ms: own("message.timestamp.after.max.ms").unwrap_or(AFTER_MAX_MS),
+        before_max_ms: settings.timestamp_before_max_ms.unwrap_or(i64::MAX),
+        after_max_ms: settings.timestamp_after_max_ms.unwrap_or(AFTER_MAX_MS),
         max_inflated: MAX_INFLATED,
         renumbering: target != produced,
     };

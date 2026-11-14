@@ -138,7 +138,7 @@ pub fn router(w: &World, recorder: &Arc<Recorder>) -> Router {
     let live = Live::new(w.backend.clone(), w.facts.clone()).with_recorder(Arc::clone(recorder));
     let state = State::new(
         Source::Live(Box::new(live)),
-        Base::root(),
+        &Base::root(),
         vec![],
         CancellationToken::new(),
     );

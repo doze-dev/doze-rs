@@ -137,7 +137,7 @@ pub(super) async fn page(State(s): State<Shared>, RawQuery(q): RawQuery) -> Resp
 
 pub(super) async fn create_form(State(s): State<Shared>, RawQuery(q): RawQuery) -> Response {
     let p = AclPost::of_query(q.as_deref());
-    json(StatusCode::OK, &s.source.acl_create_form(&p.fields()).await)
+    json(StatusCode::OK, &s.source.acl_create_form(&p.fields()))
 }
 
 fn posted(body: &[u8]) -> Option<AclPost> {

@@ -1,6 +1,6 @@
 //! Writing a response: a length, the response header, then the body.
 
-use bytes::{Bytes, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use kafka_protocol::messages::ResponseHeader;
 use kafka_protocol::protocol::Encodable;
 
@@ -17,10 +17,17 @@ use crate::error::WireError;
 /// # Errors
 /// A response that cannot be written at that version, or one larger than a frame can hold.
 pub fn encode(correlation_id: i32, version: i16, response: &Response) -> Result<Bytes, WireError> {
-    let mut out = BytesMut::from(&[0u8; 4][..]);
     let mut header = ResponseHeader::default();
     header.correlation_id = correlation_id;
     let header_version = response.api_key().response_header_version(version);
+    // Sized once from what the protocol computes, so a large Fetch is written into one allocation rather than grown
+    // (and copied) a doubling at a time. The length is still taken from what was written.
+    let size = header
+        .compute_size(header_version)
+        .map_err(|e| WireError::encode("response header", e))?
+        + response.compute_size(version)?;
+    let mut out = BytesMut::with_capacity(4 + size);
+    out.put_bytes(0, 4);
     header
         .encode(&mut out, header_version)
         .map_err(|e| WireError::encode("response header", e))?;

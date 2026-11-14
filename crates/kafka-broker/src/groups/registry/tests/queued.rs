@@ -7,7 +7,7 @@ use crate::groups::machine::{HeartbeatRequest, SyncRequest};
 /// A group that is in memory with a Delete ahead of whatever is put next.
 async fn with_a_deletion_queued(groups: &Groups, g: &GroupId) {
     emptied(groups, g).await;
-    let sender = groups.open.lock().await.get(g).unwrap().clone();
+    let sender = groups.live(g).unwrap();
     let (reply, _deleted) = oneshot::channel();
     sender
         .send(Command {
@@ -49,7 +49,7 @@ async fn a_consumer_joining_behind_the_deletion_of_its_group_makes_the_group_aga
         panic!("not answered: {answer:?}")
     };
     assert!(a.error.is_none(), "{:?}", a.error);
-    assert!(groups.open.lock().await.contains_key(&g));
+    assert!(groups.live(&g).is_some());
 }
 
 #[tokio::test]
@@ -70,7 +70,7 @@ async fn the_other_requests_behind_a_deletion_are_answered_as_by_a_group_with_no
     };
     assert_eq!(s.error, Some(ResponseError::UnknownMemberId));
     // And nothing was made for a request that cannot begin a group.
-    assert!(!groups.open.lock().await.contains_key(&g));
+    assert!(!groups.live(&g).is_some());
     let beat = Req::Heartbeat(HeartbeatRequest {
         member_id: MemberId::new("m").unwrap(),
         instance: None,

@@ -270,13 +270,12 @@ impl Linker<'_> {
         let mut scope = String::new();
         for part in package.split('.').filter(|p| !p.is_empty()) {
             scope = join(&scope, part);
-            if let Some(s) = self
+            if self
                 .pool
                 .syms
                 .get(&scope)
-                .filter(|s| s.kind != Kind::Package)
+                .is_some_and(|s| s.kind != Kind::Package)
             {
-                let _ = s;
                 return Err(Error::at(
                     0,
                     format!("package {scope} clashes with a type of that name"),

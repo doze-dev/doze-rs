@@ -33,12 +33,12 @@ impl MetaStore {
                 return Err(MetaError::TopicExists(name.clone()));
             }
         }
-        let topic = Arc::new(Topic {
-            name: name.clone(),
-            id: random_topic_id()?,
+        let topic = Arc::new(Topic::new(
+            name.clone(),
+            random_topic_id()?,
             partitions,
             config,
-        });
+        ));
         let record = topic.encode()?;
         let txn = self.begin()?;
         {

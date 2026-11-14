@@ -4,7 +4,7 @@
 //! With nothing stored and the default allowing, each check is one atomic load (`Authorizer::allows`) and
 //! allocates nothing, which is why a handler may ask once per topic of a request, on the Produce and Fetch paths.
 
-use kafka_auth::authz::{CLUSTER_NAME, operation, resource};
+use kafka_auth::authz::{CLUSTER_NAME, Operation, ResourceType};
 use kafka_storage::fs::Fs;
 
 use crate::{Broker, Caller};
@@ -18,38 +18,39 @@ pub(crate) const GROUP_DENIED: &str = "Group authorization failed.";
 
 /// The operations an ACL on a topic can name, which are the bits of a topic's authorized-operations field
 /// (`AclEntry.supportedOperations(TOPIC)`).
-const TOPIC_OPERATIONS: [i8; 8] = [
-    operation::READ,
-    operation::WRITE,
-    operation::CREATE,
-    operation::DESCRIBE,
-    operation::DELETE,
-    operation::ALTER,
-    operation::DESCRIBE_CONFIGS,
-    operation::ALTER_CONFIGS,
+const TOPIC_OPERATIONS: [Operation; 8] = [
+    Operation::Read,
+    Operation::Write,
+    Operation::Create,
+    Operation::Describe,
+    Operation::Delete,
+    Operation::Alter,
+    Operation::DescribeConfigs,
+    Operation::AlterConfigs,
 ];
 
 /// The same for the cluster resource (`AclEntry.supportedOperations(CLUSTER)`).
-const CLUSTER_OPERATIONS: [i8; 7] = [
-    operation::CREATE,
-    operation::CLUSTER_ACTION,
-    operation::DESCRIBE_CONFIGS,
-    operation::ALTER_CONFIGS,
-    operation::IDEMPOTENT_WRITE,
-    operation::ALTER,
-    operation::DESCRIBE,
+const CLUSTER_OPERATIONS: [Operation; 7] = [
+    Operation::Create,
+    Operation::ClusterAction,
+    Operation::DescribeConfigs,
+    Operation::AlterConfigs,
+    Operation::IdempotentWrite,
+    Operation::Alter,
+    Operation::Describe,
 ];
 
 impl<F: Fs> Broker<F> {
     /// Whether `who` may do `op` on the topic called `topic` (the name as the client sent it, whether the topic exists
     /// or not: Kafka asks before it looks).
-    pub(crate) fn topic_allows(&self, who: &Caller, topic: &str, op: i8) -> bool {
-        self.authz.allows(who, resource::TOPIC, topic, op)
+    pub(crate) fn topic_allows(&self, who: &Caller, topic: &str, op: Operation) -> bool {
+        self.authz.allows(who, ResourceType::Topic, topic, op)
     }
 
     /// Whether `who` may do `op` on the cluster.
-    pub(crate) fn cluster_allows(&self, who: &Caller, op: i8) -> bool {
-        self.authz.allows(who, resource::CLUSTER, CLUSTER_NAME, op)
+    pub(crate) fn cluster_allows(&self, who: &Caller, op: Operation) -> bool {
+        self.authz
+            .allows(who, ResourceType::Cluster, CLUSTER_NAME, op)
     }
 
     /// The topic's authorized operations as Kafka reports them: bit `1 << code` for each operation a topic ACL can
@@ -60,16 +61,19 @@ impl<F: Fs> Broker<F> {
 
     /// The cluster's authorized operations: 0 if `who` may not even DESCRIBE the cluster.
     pub(crate) fn cluster_operations(&self, who: &Caller) -> i32 {
-        if !self.cluster_allows(who, operation::DESCRIBE) {
+        if !self.cluster_allows(who, Operation::Describe) {
             return 0;
         }
         bits(&CLUSTER_OPERATIONS, |op| self.cluster_allows(who, op))
     }
 }
 
-fn bits(ops: &[i8], allowed: impl Fn(i8) -> bool) -> i32 {
+fn bits(ops: &[Operation], allowed: impl Fn(Operation) -> bool) -> i32 {
     ops.iter().filter(|op| allowed(**op)).fold(0, |field, op| {
-        field | 1_i32.checked_shl(u32::from(op.unsigned_abs())).unwrap_or(0)
+        field
+            | 1_i32
+                .checked_shl(u32::from(op.code().unsigned_abs()))
+                .unwrap_or(0)
     })
 }
 
@@ -80,7 +84,9 @@ mod tests {
     #[test]
     fn the_fields_are_utils_to_32_bit_field_of_the_operation_codes() {
         // READ 3, WRITE 4, CREATE 5, DELETE 6, ALTER 7, DESCRIBE 8, DESCRIBE_CONFIGS 10, ALTER_CONFIGS 11.
-        let every = TOPIC_OPERATIONS.iter().fold(0_i32, |f, op| f | (1 << op));
+        let every = TOPIC_OPERATIONS
+            .iter()
+            .fold(0_i32, |f, op| f | (1 << op.code()));
         assert_eq!(every, 0b1101_1111_1000);
         assert_eq!(bits(&TOPIC_OPERATIONS, |_| true), every);
         assert_eq!(bits(&TOPIC_OPERATIONS, |_| false), 0);

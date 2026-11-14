@@ -154,7 +154,7 @@ fn start_value(c: &BrokerConfigs, key: &str) -> String {
         .unwrap_or_default()
 }
 
-async fn world_for<'a>(
+fn world_for<'a>(
     b: &Backend,
     configs: &'a BrokerConfigs,
     who: &'a Followers,
@@ -183,7 +183,7 @@ pub async fn form(b: &Backend, key: &str, scope: &str) -> Option<SettingsEditVie
     let retention = b.intervals().map(|i| i.retention_check.as_secs());
     let configs = of_broker(b, node, retention).await.unwrap_or_default();
     let who = followers(b, key).await;
-    let w = world_for(b, &configs, &who, node).await;
+    let w = world_for(b, &configs, &who, node);
     let value = start_value(&configs, key);
     Some(view_of(
         &w,
@@ -230,7 +230,15 @@ pub async fn save(b: &Backend, f: SettingsFields<'_>, check: bool) -> SettingsRe
         let (code, message) = send(b, &resource_name(scope, node), f.key, f.value, true)
             .await
             .unwrap_or((-1, None));
-        return refused(b, f, scope, node, Some(said(code, message)), true).await;
+        return refused(
+            b,
+            f,
+            scope,
+            node,
+            Some(said(code, message.as_deref())),
+            true,
+        )
+        .await;
     }
     let who = followers(b, f.key).await;
     let w = World {
@@ -254,7 +262,15 @@ pub async fn save(b: &Backend, f: SettingsFields<'_>, check: bool) -> SettingsRe
         return refused(b, f, scope, node, None, check).await;
     };
     if code != 0 {
-        return refused(b, f, scope, node, Some(said(code, message)), check).await;
+        return refused(
+            b,
+            f,
+            scope,
+            node,
+            Some(said(code, message.as_deref())),
+            check,
+        )
+        .await;
     }
     if check {
         let checked = SettingsChecked {

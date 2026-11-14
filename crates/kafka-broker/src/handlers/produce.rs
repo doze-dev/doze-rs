@@ -6,7 +6,8 @@ mod request;
 
 use std::sync::Arc;
 
-use kafka_auth::authz::{operation, resource};
+use bytes::Bytes;
+use kafka_auth::authz::{Operation, ResourceType};
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::Response;
@@ -24,6 +25,9 @@ use crate::{Broker, Caller, Outcome, blocking, clock};
 use answer::{blank, failed, finish, storage_fault};
 use check::Accepted;
 use request::{refused_everywhere, request_refusal};
+
+/// What a partition that sent null records is checked as: nothing, without a copy of anything.
+static NO_RECORDS: Bytes = Bytes::new();
 
 /// A partition's answer, or what it is waiting for.
 enum Stage<F: Fs> {
@@ -64,7 +68,7 @@ impl<F: Fs> Broker<F> {
         let acks = req.acks;
         let may_write_txn = |id: &str| {
             self.authz
-                .allows(caller, resource::TRANSACTIONAL_ID, id, operation::WRITE)
+                .allows(caller, ResourceType::TransactionalId, id, Operation::Write)
         };
         let response = match request_refusal(&req, may_write_txn) {
             Some((code, message)) => refused_everywhere(&req, code, message.as_deref()),
@@ -145,7 +149,7 @@ impl<F: Fs> Broker<F> {
             None if version >= 13 => return true,
             None => t.name.0.as_str(),
         };
-        self.topic_allows(caller, name, operation::WRITE)
+        self.topic_allows(caller, name, Operation::Write)
     }
 
     /// Whether the topic a request looked up has been deleted since (its id is no longer in the metadata; a topic made
@@ -191,12 +195,12 @@ impl<F: Fs> Broker<F> {
             return unknown();
         }
         let now = clock::now();
-        let records = p.records.clone().unwrap_or_default();
+        let records = p.records.as_ref().unwrap_or(&NO_RECORDS);
         let Accepted {
             batch,
             log_append_time,
         } = match blocking::run(|| {
-            check::check(&self.defaults.get(), version, topic, id, &records, now)
+            check::check(&self.defaults.get(), version, topic, id, records, now)
         }) {
             Ok(accepted) => accepted,
             Err(refused) => return Stage::Done(self.refused(topic, id, refused).await),

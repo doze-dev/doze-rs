@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use kafka_auth::authz::{Acl, AclSet, Resource, Rules};
+use kafka_auth::authz::{Acl, AclSet, Operation, Resource, ResourceType, Rules};
 use kafka_meta::AclRecord;
 
 use crate::Caller;
@@ -46,7 +46,13 @@ impl Authorizer {
     }
 
     /// Whether `who` may do `op` on the resource.
-    pub(crate) fn allows(&self, who: &Caller, kind: i8, name: &str, op: i8) -> bool {
+    pub(crate) fn allows(
+        &self,
+        who: &Caller,
+        kind: ResourceType,
+        name: &str,
+        op: Operation,
+    ) -> bool {
         let set = self.set.load();
         if set.is_empty() && self.rules.default_allow {
             return true;
@@ -56,13 +62,13 @@ impl Authorizer {
     }
 
     /// Whether `who` may do `op` on at least one resource of type `kind`.
-    pub(crate) fn allows_some(&self, who: &Caller, op: i8, kind: i8) -> bool {
+    pub(crate) fn allows_some(&self, who: &Caller, kind: ResourceType, op: Operation) -> bool {
         let set = self.set.load();
         if set.is_empty() && self.rules.default_allow {
             return true;
         }
         self.rules
-            .authorize_by_resource_type(&set, who.subject(), op, kind)
+            .authorize_by_resource_type(&set, who.subject(), kind, op)
     }
 
     /// What `who` may DESCRIBE, as a value to keep: `None` if it is not narrowed at all (the default allows and no ACL

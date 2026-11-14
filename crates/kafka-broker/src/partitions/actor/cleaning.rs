@@ -24,7 +24,6 @@ pub(super) fn plan<F: Fs>(
     let stable = index.last_stable(log.end_offset().get());
     let aborted = index
         .aborted_between(log.start_offset().get(), stable)
-        .into_iter()
         .map(|a| AbortedTxn {
             producer: a.producer,
             first: a.first,

@@ -192,7 +192,7 @@ fn read(c: &Codec, bytes: &[u8], out: &mut SchemaShown) {
         }
         Err(why) => {
             out.preview = format!("schema id {} · does not decode", c.id());
-            out.error = Some(why);
+            out.error = Some(why.to_string());
         }
     }
 }

@@ -1,6 +1,6 @@
 //! DescribeAcls: the ACLs a filter selects.
 
-use kafka_auth::authz::{Acl, AclFilter, CLUSTER_NAME, operation, resource};
+use kafka_auth::authz::{Acl, AclFilter, CLUSTER_NAME, Operation, ResourceType};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::StrBytes;
@@ -37,10 +37,12 @@ impl<F: Fs> Broker<F> {
         }
         let mut resp = kafka_wire::messages::DescribeAclsResponse::default();
         resp.error_message = Some(text(""));
-        if !self
-            .authz
-            .allows(caller, resource::CLUSTER, CLUSTER_NAME, operation::DESCRIBE)
-        {
+        if !self.authz.allows(
+            caller,
+            ResourceType::Cluster,
+            CLUSTER_NAME,
+            Operation::Describe,
+        ) {
             resp.error_code = ResponseError::ClusterAuthorizationFailed.code();
             return Outcome::Respond(Response::DescribeAcls(resp));
         }

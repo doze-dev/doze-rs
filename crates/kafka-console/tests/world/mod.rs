@@ -78,7 +78,7 @@ impl World {
         let live = Live::new(self.backend.clone(), self.facts.clone());
         kafka_console::app::console(State::new(
             Source::Live(Box::new(live)),
-            Base::root(),
+            &Base::root(),
             vec![],
             CancellationToken::new(),
         ))
