@@ -22,16 +22,22 @@ pub mod domains;
 pub mod error;
 pub mod front;
 pub mod front_door;
+pub mod listen;
 pub mod nat;
+#[cfg(feature = "netd")]
+pub mod netd;
 pub mod pool;
+pub mod ports;
 mod proxy;
 pub mod registry;
 pub mod resolver;
+pub mod table;
 pub mod upstream;
 pub(crate) mod wire;
 
 pub use claims::{Lease, StackLease};
 pub use error::Error;
+pub use listen::{Forwarding, Listener};
 pub use pool::Net;
 pub use registry::{Entry, Registry};
 
@@ -83,6 +89,15 @@ impl Tier {
             Tier::Apex => "apex",
             Tier::Qualified => "qualified",
             Tier::Domain => "domain",
+        }
+    }
+
+    /// The tier the registry file spells `s`; an unknown spelling is a qualified name, the commonest.
+    pub fn parse(s: &str) -> Tier {
+        match s {
+            "apex" => Tier::Apex,
+            "domain" => Tier::Domain,
+            _ => Tier::Qualified,
         }
     }
 }
