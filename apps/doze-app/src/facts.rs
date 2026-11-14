@@ -19,8 +19,18 @@ use gpui::{AsyncApp, Context, WeakEntity};
 mod left;
 mod names;
 
-/// How old the machine's report may be before it is asked again (Go's `doctorCached`).
-const DOCTOR_AGE: Duration = Duration::from_secs(30);
+/// How old the machine's report may be before it is asked again, in the background: half a minute while a window
+/// shows a page, five minutes otherwise (Go `doctorWithin(stacks, lookEvery(30s))`; the Library's own read is 30 s, and
+/// it reads only while it shows).
+pub(crate) fn doctor_age(shown: bool) -> Duration {
+    Duration::from_secs(if shown { 30 } else { 5 * 60 })
+}
+
+/// Whether the window shows a page (the hub hears so from its visibility); without the app's state (a shot), it does.
+fn shown(cx: &gpui::App) -> bool {
+    cx.try_global::<crate::app::State>()
+        .is_none_or(|s| s.hub.visible())
+}
 
 /// Where the answers come from.
 #[derive(Debug, Clone)]
@@ -244,7 +254,7 @@ impl Facts {
     /// on screen until the new answer comes.
     pub(crate) fn forget_doctor(&mut self, cx: &mut Context<Self>) {
         if let Some((at, _)) = &mut self.doctor {
-            *at = at.checked_sub(DOCTOR_AGE).unwrap_or(*at);
+            *at = at.checked_sub(doctor_age(false)).unwrap_or(*at);
         }
         cx.notify();
     }
@@ -279,7 +289,7 @@ impl Facts {
         let fresh = self
             .doctor
             .as_ref()
-            .is_some_and(|(at, _)| at.elapsed() < DOCTOR_AGE);
+            .is_some_and(|(at, _)| at.elapsed() < doctor_age(shown(cx)));
         let dir = doctor_dir(stacks);
         if let (false, false, Some(doze), Some(dir)) = (fresh, self.doctor_asked, doze, dir) {
             self.doctor_asked = true;
@@ -341,4 +351,15 @@ pub(crate) fn set_up_machine(domains: &[&str]) -> Doctor {
         ));
     }
     Doctor { checks }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    #[test]
+    fn the_report_is_kept_half_a_minute_on_screen_and_five_minutes_off_it() {
+        assert_eq!(super::doctor_age(true), Duration::from_secs(30));
+        assert_eq!(super::doctor_age(false), Duration::from_secs(300));
+    }
 }

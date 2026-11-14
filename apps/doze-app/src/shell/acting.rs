@@ -210,6 +210,27 @@ impl Root {
 }
 
 impl Root {
+    /// An ask from the menu bar with the window open (Go `AskUp`, then the window opens on the stack): the stack's
+    /// page shows under the question, and the keys stay with the question.
+    pub(crate) fn show_key_under_ask(
+        &mut self,
+        key: StackKey,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        use gpui::Focusable as _;
+        self.show_key(key, window, cx);
+        let f = match &self.overlay {
+            Some(Overlay::Dialog(v)) => Some(v.focus_handle(cx)),
+            Some(Overlay::Preflight(v)) => Some(v.focus_handle(cx)),
+            Some(Overlay::Start(v)) => Some(v.focus_handle(cx)),
+            _ => None,
+        };
+        if let Some(f) = f {
+            window.focus(&f, cx);
+        }
+    }
+
     /// The hub the window reads.
     #[cfg_attr(not(feature = "capture"), allow(dead_code))] // WHY: shots find stacks by name
     pub(crate) fn hub(&self) -> &doze_desk::Hub {

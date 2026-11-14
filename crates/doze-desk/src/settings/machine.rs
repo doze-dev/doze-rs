@@ -87,6 +87,33 @@ pub fn parts(doctor: &Doctor, at: &DozeAt, version: &str) -> Vec<Part> {
     out
 }
 
+/// Needs you's machine parts (Go `MachineItems` reads the same doctor as Settings): doctor's names and domains, each with
+/// the command that sets it up (none for names switched off), then the app's own part, whose fix is the `ln -s` that
+/// puts doze on the PATH.
+pub fn attention_parts(
+    doctor: &Doctor,
+    at: &DozeAt,
+    version: &str,
+) -> Vec<crate::attention::MachinePart> {
+    let part = |section: &str, name: &str, ok: bool, text: &str, fix: &str| {
+        crate::attention::MachinePart {
+            section: section.into(),
+            name: name.into(),
+            ok,
+            text: text.into(),
+            fix: fix.into(),
+        }
+    };
+    let mut out: Vec<_> = doctor
+        .checks
+        .iter()
+        .map(|c| part(c.section, &c.name, c.ok, &c.text, crate::library::fix_of(c)))
+        .collect();
+    let app = app_part(at, version);
+    out.push(part(app.section, &app.name, app.ok, &app.text, &app.fix));
+    out
+}
+
 fn app_part(at: &DozeAt, version: &str) -> Part {
     let mut p = Part {
         section: "app",
@@ -222,6 +249,43 @@ pub fn report(parts: &[Part]) -> String {
 mod tests {
     use super::*;
     use crate::library::{Check, Doctor};
+
+    #[test]
+    fn needs_you_gets_the_app_part_with_its_link_command() {
+        let d = Doctor {
+            checks: vec![
+                check("names", "network", false),
+                check("domains", "route a.example", false),
+            ],
+        };
+        let at = DozeAt {
+            on_path: None,
+            elsewhere: Some(PathBuf::from("/Users/me/go/bin/doze")),
+        };
+        let p = attention_parts(&d, &at, "v0.2.0");
+        let fixes: Vec<(&str, &str)> = p
+            .iter()
+            .map(|p| (p.section.as_str(), p.fix.as_str()))
+            .collect();
+        assert_eq!(
+            fixes,
+            [
+                ("names", "doze dns-setup"),
+                ("domains", "doze trust"),
+                ("app", "ln -s /Users/me/go/bin/doze /usr/local/bin/doze"),
+            ]
+        );
+        assert_eq!(
+            p[2].text,
+            "not on your PATH: a terminal and scripts cannot find doze"
+        );
+        let found = DozeAt {
+            on_path: Some(PathBuf::from("/opt/homebrew/bin/doze")),
+            elsewhere: None,
+        };
+        let app = attention_parts(&Doctor::default(), &found, "v0.2.0");
+        assert!(app[0].ok && app[0].fix.is_empty());
+    }
 
     fn check(section: &'static str, name: &str, ok: bool) -> Check {
         Check {

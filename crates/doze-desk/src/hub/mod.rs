@@ -164,6 +164,11 @@ impl Hub {
         }
     }
 
+    /// Whether the UI shows (the last [`Hub::set_visible`]).
+    pub fn visible(&self) -> bool {
+        !lock(&self.shared.inner).hidden
+    }
+
     /// What time the hub says it is: the wall clock, or a test's or a fixture's, so a page's "up 14m" or countdown agrees
     /// with the hub.
     pub fn now(&self) -> std::time::SystemTime {
