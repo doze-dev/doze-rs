@@ -2,8 +2,8 @@
 //!
 //! - [`registry`]: subjects, versions, global ids, levels and modes, and the rules around them, written through to a
 //!   [`store::Storage`] (the broker's metadata database in the binary).
-//! - [`format`]: the seam a schema language plugs into; [`avro`] is the one this slice has. Protobuf and JSON Schema
-//!   join through [`format::Formats::all`].
+//! - [`format`]: the seam a schema language plugs into; [`avro`] and [`jsonschema`] are the languages so far;
+//!   Protobuf joins through [`format::Formats::all`].
 //! - [`api`]: the REST interface, request in, response out; [`server`] puts it on the network.
 //! - [`wire`]: the bytes a Confluent serializer frames a record value with.
 
@@ -12,6 +12,7 @@ pub mod avro;
 pub mod error;
 pub mod format;
 pub mod json;
+pub mod jsonschema;
 pub mod registry;
 pub mod server;
 pub mod store;
