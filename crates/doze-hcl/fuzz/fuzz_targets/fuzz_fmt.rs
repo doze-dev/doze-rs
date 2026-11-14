@@ -12,7 +12,9 @@ fn without_blanks(b: &[u8]) -> Vec<u8> {
 
 fuzz_target!(|data: &[u8]| {
     let out = format(data);
-    assert_eq!(without_blanks(&out), without_blanks(data));
+    // A leading byte order mark becomes blanks, as in Go.
+    let body = data.strip_prefix(&[0xef, 0xbb, 0xbf][..]).unwrap_or(data);
+    assert_eq!(without_blanks(&out), without_blanks(body));
     if let Ok(text) = std::str::from_utf8(data)
         && let Ok(mut e) = Edit::open(text)
     {

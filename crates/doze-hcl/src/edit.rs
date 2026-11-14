@@ -23,6 +23,7 @@ pub struct Edit {
     /// The end-of-file token, with the spaces before it (kept, as Go keeps them).
     eof: Owned,
     body: Body,
+    src: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,11 +56,16 @@ impl Edit {
             bytes: Vec::new(),
             spaces: 0,
         });
-        Ok(Edit { tokens, eof, body })
+        Ok(Edit {
+            tokens,
+            eof,
+            body,
+            src: src.to_owned(),
+        })
     }
 
     /// The top-level blocks: type and labels, in order. As in hclwrite, a quoted label whose text the
-    /// scanner splits into more than one literal token (one with `$` or `%`) is left out.
+    /// scanner splits into more than one literal token is left out.
     pub fn blocks(&self) -> Vec<(String, Vec<String>)> {
         self.body
             .blocks()
@@ -67,9 +73,8 @@ impl Edit {
                 let labels = b
                     .labels
                     .iter()
-                    .map(|l| l.as_str())
-                    .filter(|l| !l.contains(['$', '%']))
-                    .map(str::to_owned)
+                    .filter(|l| self.single_token(l))
+                    .map(|l| l.as_str().to_owned())
                     .collect();
                 (b.ident.as_str().to_owned(), labels)
             })
@@ -96,20 +101,7 @@ impl Edit {
         let mut toks = owned(text.as_bytes());
         toks.pop();
         // The block's tokens, through the newline that ends it.
-        let mut at = 0;
-        let mut taken = Vec::new();
-        for t in toks {
-            let start = at + t.spaces;
-            at = start + t.bytes.len();
-            if start < span.start {
-                continue;
-            }
-            let newline = start >= span.end && t.kind == Kind::Newline;
-            taken.push(t);
-            if newline {
-                break;
-            }
-        }
+        let taken = block_tokens(toks, &span);
         if self.has_items() {
             self.push_newline();
         }
@@ -176,6 +168,8 @@ impl Edit {
 
 /// hclwrite's `escapeQuotedStringLit`.
 fn quote(s: &str) -> String {
+    // cty strings are NFC.
+    let s: String = unicode_normalization::UnicodeNormalization::nfc(s).collect();
     let mut out = String::with_capacity(s.len());
     let mut chars = s.chars().peekable();
     while let Some(c) = chars.next() {
@@ -191,7 +185,7 @@ fn quote(s: &str) -> String {
                     out.push(c);
                 }
             }
-            c if c != ' ' && (c.is_control() || c.is_whitespace()) => {
+            c if !crate::value::quote::is_go_printable(c) => {
                 let n = u32::from(c);
                 if n < 0x10000 {
                     out.push_str(&format!("\\u{n:04x}"));
@@ -203,4 +197,48 @@ fn quote(s: &str) -> String {
         }
     }
     out
+}
+
+impl Edit {
+    /// Whether a label is one token in Go's scanner (an identifier, or a quoted string the scanner
+    /// does not split at a `$` or `%`): hclwrite reads only those as labels.
+    fn single_token(&self, l: &hcl_edit::structure::BlockLabel) -> bool {
+        let Some(span) = l.span() else { return true };
+        let raw = self.src.get(span).unwrap_or_default();
+        let literals = lex(raw.as_bytes())
+            .iter()
+            .filter(|t| t.kind == Kind::QuotedLit)
+            .count();
+        literals <= 1
+    }
+}
+
+/// A snippet block's tokens as hclwrite takes them: the comments right before it (no blank line
+/// between), the block, and the newline that ends it.
+fn block_tokens(toks: Vec<Owned>, span: &std::ops::Range<usize>) -> Vec<Owned> {
+    let mut at = 0;
+    let starts: Vec<usize> = toks
+        .iter()
+        .map(|t| {
+            let start = at + t.spaces;
+            at = start + t.bytes.len();
+            start
+        })
+        .collect();
+    let mut first = starts
+        .iter()
+        .position(|s| *s >= span.start)
+        .unwrap_or(toks.len());
+    while first > 0 && toks.get(first - 1).is_some_and(|t| t.kind == Kind::Comment) {
+        first -= 1;
+    }
+    let mut taken = Vec::new();
+    for (t, start) in toks.into_iter().zip(starts).skip(first) {
+        let newline = start >= span.end && t.kind == Kind::Newline;
+        taken.push(t);
+        if newline {
+            break;
+        }
+    }
+    taken
 }

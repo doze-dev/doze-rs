@@ -116,11 +116,17 @@ fn schema(c: &Json) -> Schema {
 
 #[test]
 fn bodies_read_against_a_schema_as_go_reads_them() {
+    for (set, go) in [("cases", "go"), ("cases-audit", "go-audit")] {
+        check_set(set, go);
+    }
+}
+
+fn check_set(set: &str, go_set: &str) {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/decode");
     let cases: Vec<Json> =
-        serde_json::from_str(&std::fs::read_to_string(format!("{dir}/cases.json")).unwrap())
+        serde_json::from_str(&std::fs::read_to_string(format!("{dir}/{set}.json")).unwrap())
             .unwrap();
-    let go: Vec<Json> = std::fs::read_to_string(format!("{dir}/go.jsonl"))
+    let go: Vec<Json> = std::fs::read_to_string(format!("{dir}/{go_set}.jsonl"))
         .unwrap()
         .lines()
         .map(|l| serde_json::from_str(l).unwrap())
@@ -142,11 +148,11 @@ fn bodies_read_against_a_schema_as_go_reads_them() {
             }
             continue;
         }
-        let names = ["f0.hcl", "f1.hcl"];
+        let names: Vec<String> = (0..srcs.len()).map(|i| format!("f{i}.hcl")).collect();
         let refs: Vec<BodyRef<'_>> = bodies
             .iter()
             .zip(&srcs)
-            .zip(names)
+            .zip(&names)
             .map(|((b, s), n)| BodyRef::file(b.as_ref().unwrap(), s, n))
             .collect();
         let body = if refs.len() == 1 {
@@ -165,7 +171,7 @@ fn bodies_read_against_a_schema_as_go_reads_them() {
         }
     }
     eprintln!(
-        "decode: {} of {} identical",
+        "decode {set}: {} of {} identical",
         cases.len() - diffs.len(),
         cases.len()
     );

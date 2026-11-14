@@ -11,7 +11,7 @@ mod csv;
 mod encoding;
 mod env;
 mod format;
-mod graphemes;
+pub(crate) mod graphemes;
 mod json;
 mod numeric;
 mod print;

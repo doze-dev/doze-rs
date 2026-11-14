@@ -9,18 +9,17 @@ use hcl_edit::expr::{Expression, TraversalOperator};
 use hcl_edit::template::{Directive, Element, Template};
 
 impl Evaluator<'_> {
-    pub(super) fn start_range(&self, e: &Expression) -> Range {
+    pub(crate) fn start_range(&self, e: &Expression) -> Range {
         let whole = self.range(e);
         match e {
             Expression::String(s) => {
                 let Some(span) = e.span() else { return whole };
                 // The literal part starts after the quote; an empty one at the end of the string.
-                let at = if s.value().is_empty() {
-                    span.end
-                } else {
-                    span.start + 1
-                };
-                self.src.range(at..at)
+                if s.value().is_empty() {
+                    return self.src.range(span.end..span.end);
+                }
+                self.src
+                    .range(span.start + 1..span.end.saturating_sub(1).max(span.start + 1))
             }
             Expression::StringTemplate(t) => {
                 let start = e.span().map_or(0, |s| s.start + 1);
@@ -49,10 +48,34 @@ impl Evaluator<'_> {
                 let dynamic_last = t.operators.last().filter(
                     |op| matches!(op.value(), TraversalOperator::Index(k) if !is_literal(k)),
                 );
-                match first_splat.or(dynamic_last) {
-                    Some(op) => self.range(op),
-                    None => whole,
+                match (first_splat, dynamic_last) {
+                    (Some(op), _) => self.range(op),
+                    // An index expression starts at its `[`.
+                    (None, Some(op)) => {
+                        let at = op.span().map_or(0, |s| s.start);
+                        self.src.range(at..at + 1)
+                    }
+                    (None, None) => whole,
                 }
+            }
+            // An opening bracket, a unary operator: the first token.
+            Expression::Array(_)
+            | Expression::Object(_)
+            | Expression::ForExpr(_)
+            | Expression::UnaryOp(_) => {
+                let at = e.span().map_or(0, |s| s.start);
+                self.src.range(at..at + 1)
+            }
+            // The name and its opening parenthesis.
+            Expression::FuncCall(_) => {
+                let Some(span) = e.span() else { return whole };
+                let open = self
+                    .src
+                    .text()
+                    .get(span.clone())
+                    .and_then(|t| t.find('('))
+                    .map_or(span.end, |i| span.start + i + 1);
+                self.src.range(span.start..open)
             }
             _ => whole,
         }

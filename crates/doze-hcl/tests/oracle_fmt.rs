@@ -104,3 +104,43 @@ fn fnv(b: &[u8]) -> String {
     });
     format!("{h:016x}")
 }
+
+/// The H3 audit's cases that once differed: Indic conjuncts (Go's textseg is Unicode 15.0, so
+/// grapheme clusters are counted without rule GB9c) in names, strings and comments being aligned.
+#[test]
+fn formats_the_audit_cases_as_go_does() {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let cases: Vec<serde_json::Value> = serde_json::from_str(
+        &std::fs::read_to_string(format!("{root}/testdata/fmt/cases-audit.json")).unwrap(),
+    )
+    .unwrap();
+    let go: Vec<serde_json::Value> =
+        std::fs::read_to_string(format!("{root}/testdata/fmt/go-audit.jsonl"))
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+    assert_eq!(cases.len(), go.len());
+    let bad: Vec<_> = cases
+        .iter()
+        .zip(&go)
+        .filter(|(c, g)| {
+            fnv(&format(c["src"].as_str().unwrap().as_bytes())) != g["h"].as_str().unwrap()
+        })
+        .map(|(c, _)| c["id"].to_string())
+        .collect();
+    assert!(bad.is_empty(), "{} differ: {bad:?}", bad.len());
+}
+
+/// Bytes that are not UTF-8 (a surrogate, a code point past U+10FFFF, an overlong form) count as
+/// one column each when aligning, as in Go.
+#[test]
+fn formats_invalid_utf8_as_go_does() {
+    let root = env!("CARGO_MANIFEST_DIR");
+    for e in std::fs::read_dir(format!("{root}/testdata/fmt-bytes/go")).unwrap() {
+        let name = e.unwrap().file_name().into_string().unwrap();
+        let src = std::fs::read(format!("{root}/testdata/fmt-bytes/src/{name}")).unwrap();
+        let want = std::fs::read(format!("{root}/testdata/fmt-bytes/go/{name}")).unwrap();
+        assert_eq!(format(&src), want, "{name}");
+    }
+}

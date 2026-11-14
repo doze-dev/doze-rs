@@ -255,35 +255,47 @@ impl<'a> BodyRef<'a> {
     }
 }
 
-/// gohcl's `DecodeExpression`: the expression's value converted to `ty`, or "Unsuitable value
-/// type" at the expression.
-pub fn value(attr: &Attr<'_>, ctx: &Context<'_>, ty: &Type) -> (Value, Diagnostics) {
-    let (v, ds) = Evaluator::new(attr.src).eval(attr.expr, ctx);
+/// gohcl's `DecodeExpression` into a Go value of type `ty`: the expression's own diagnostics, then
+/// "Unsuitable value type" at the expression's start when the value does not convert, is not
+/// known (`value must be known`), or is null where the Go target cannot hold null (`nullable`
+/// false: a non-pointer field). The value is the converted one, or the dynamic unknown.
+pub fn value(
+    attr: &Attr<'_>,
+    ctx: &Context<'_>,
+    ty: &Type,
+    nullable: bool,
+) -> (Value, Diagnostics) {
+    let ev = Evaluator::new(attr.src);
+    let (v, ds) = ev.eval(attr.expr, ctx);
     let mut ds = Diagnostics(ds.0.into_iter().map(|d| d.in_file(attr.file)).collect());
-    if ds.has_errors() {
-        return (v, ds);
-    }
-    match crate::convert::convert(&v, ty) {
-        Ok(v) => (v, ds),
+    let whole = attr
+        .expr
+        .span()
+        .map(|s| attr.src.range(s))
+        .unwrap_or_default();
+    let unsuitable = |why: String| {
+        Diagnostic::error(
+            "Unsuitable value type",
+            format!("Unsuitable value: {why}"),
+            ev.start_range(attr.expr),
+        )
+        .with_context(whole)
+        .in_file(attr.file)
+    };
+    let v = match crate::convert::convert(&v, ty) {
+        Ok(v) => v,
         Err(e) => {
-            let whole = attr
-                .expr
-                .span()
-                .map(|s| attr.src.range(s))
-                .unwrap_or_default();
-            let start = Range {
-                start: whole.start,
-                end: whole.start,
-            };
-            ds.push(
-                Diagnostic::error(
-                    "Unsuitable value type",
-                    format!("Unsuitable value: {}", e.0),
-                    start,
-                )
-                .with_context(whole),
-            );
-            (Value::DYNAMIC, ds)
+            ds.push(unsuitable(e.0));
+            return (Value::DYNAMIC, ds);
         }
+    };
+    if !v.is_wholly_known() {
+        ds.push(unsuitable("value must be known".into()));
+        return (Value::DYNAMIC, ds);
     }
+    if v.is_null() && !nullable {
+        ds.push(unsuitable("null value is not allowed".into()));
+        return (Value::DYNAMIC, ds);
+    }
+    (v, ds)
 }

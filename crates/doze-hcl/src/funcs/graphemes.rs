@@ -25,7 +25,7 @@ fn extends(c: char) -> bool {
 }
 
 /// The clusters with their byte offsets.
-pub(super) fn clusters(s: &str) -> Vec<(usize, &str)> {
+pub(crate) fn clusters(s: &str) -> Vec<(usize, &str)> {
     let mut out = Vec::new();
     for (at, g) in s.grapheme_indices(true) {
         if g.chars().nth(1).is_none() || !g.chars().any(is_linker) {
@@ -47,6 +47,38 @@ pub(super) fn clusters(s: &str) -> Vec<(usize, &str)> {
     out
 }
 
-pub(super) fn count(s: &str) -> usize {
+pub(crate) fn count(s: &str) -> usize {
     clusters(s).len()
+}
+
+/// Clusters in bytes that may not be UTF-8, as textseg counts them: a malformed sequence that
+/// Ragel's scanner reads as one character (an overlong form, a surrogate, a code point past
+/// U+10FFFF) is one cluster, and any other bad byte is one.
+pub(crate) fn count_bytes(b: &[u8]) -> usize {
+    let mut n = 0;
+    each(b, |_| n += 1);
+    n
+}
+
+/// Calls `f` with each cluster of `b`, counted as [`count_bytes`] counts them.
+pub(crate) fn each(b: &[u8], mut f: impl FnMut(&[u8])) {
+    let mut rest = b;
+    while !rest.is_empty() {
+        let valid = match std::str::from_utf8(rest) {
+            Ok(s) => s,
+            Err(e) => rest
+                .get(..e.valid_up_to())
+                .and_then(|v| std::str::from_utf8(v).ok())
+                .unwrap_or(""),
+        };
+        for (_, g) in clusters(valid) {
+            f(g.as_bytes());
+        }
+        rest = rest.get(valid.len()..).unwrap_or_default();
+        if !rest.is_empty() {
+            let bad = crate::lex::scan_utf8_len(rest).unwrap_or(1).max(1);
+            f(rest.get(..bad).unwrap_or_default());
+            rest = rest.get(bad..).unwrap_or_default();
+        }
+    }
 }

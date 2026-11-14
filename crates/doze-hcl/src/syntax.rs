@@ -2,7 +2,6 @@
 
 use crate::diag::{Diagnostic, Diagnostics, Pos, Range};
 use hcl_edit::structure::Body;
-use unicode_segmentation::UnicodeSegmentation;
 
 /// A source text and where its lines start, to turn byte offsets into positions.
 #[derive(Debug, Clone)]
@@ -39,6 +38,12 @@ impl Source {
             .and_then(|i| self.line_starts.get(i))
             .copied()
             .unwrap_or(0);
+        // A byte order mark is skipped as Go skips it: its bytes count, its column does not.
+        let start = if line == 1 && self.text.starts_with('\u{feff}') {
+            start.max(3).min(byte)
+        } else {
+            start
+        };
         let ascii = line
             .checked_sub(1)
             .and_then(|i| self.ascii.get(i))
@@ -74,7 +79,13 @@ pub fn parse_body(src: &Source) -> Result<Body, Diagnostics> {
     if found.has_errors() {
         return Err(found);
     }
-    hcl_edit::parser::parse_body(src.text()).map_err(|e| {
+    // Go skips a leading byte order mark; hcl-edit refuses it, so it reads blanks in its place
+    // (the same byte offsets).
+    let text = match src.text().strip_prefix('\u{feff}') {
+        Some(rest) => std::borrow::Cow::Owned(format!("   {rest}")),
+        None => std::borrow::Cow::Borrowed(src.text()),
+    };
+    hcl_edit::parser::parse_body(&text).map_err(|e| {
         // Only hcl-edit's own limits get here (catalogue S5): Go accepts the file.
         let p = src.pos(e.location().offset());
         Diagnostics::from(Diagnostic::error(
@@ -89,7 +100,9 @@ pub fn parse_body(src: &Source) -> Result<Body, Diagnostics> {
 /// cluster that starts with ASCII punctuation or a space and carries more characters (a combining
 /// mark, a joiner) is two in Go, because the punctuation is a token of its own.
 fn columns(s: &str) -> usize {
-    s.graphemes(true)
+    crate::funcs::graphemes::clusters(s)
+        .into_iter()
+        .map(|(_, g)| g)
         .map(|g| {
             let mut cs = g.chars();
             let first = cs

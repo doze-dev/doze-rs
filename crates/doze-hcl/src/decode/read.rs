@@ -210,10 +210,15 @@ pub(super) fn body_start(p: &Part<'_>, b: &Block, open: Range) -> Range {
         .attributes()
         .next()
         .filter(|_| b.body.blocks().next().is_none())
+        .filter(|_| {
+            single_line(
+                p.src.text(),
+                usize::try_from(open.end.byte).unwrap_or(usize::MAX),
+            )
+        })
         .and_then(|a| {
             let s = a.span()?;
-            (p.src.range(s.clone()).start.line == open.start.line)
-                .then(|| p.src.range(s.start..s.start))
+            Some(p.src.range(s.start..s.start))
         });
     one_line.unwrap_or(Range {
         start: open.start,
@@ -280,4 +285,25 @@ pub(super) fn tag(ds: Diagnostics, file: &str) -> Diagnostics {
             .map(|d| if d.file.is_none() { d.in_file(file) } else { d })
             .collect(),
     )
+}
+
+/// Whether Go reads the body after a `{` (ending at byte `from`) as a one-line block: the first
+/// token its peeker sees there is not a line break (or a comment ending in one), the end of the
+/// file or a `}`. Block comments without a line break at their end are skipped, as the peeker does.
+fn single_line(text: &str, from: usize) -> bool {
+    let mut rest = text.get(from..).unwrap_or_default();
+    loop {
+        rest = rest.trim_start_matches([' ', '\t']);
+        if let Some(after) = rest.strip_prefix("/*") {
+            match after.find("*/") {
+                Some(i) => rest = after.get(i + 2..).unwrap_or_default(),
+                None => return true,
+            }
+            continue;
+        }
+        return !(rest.is_empty()
+            || rest.starts_with(['\n', '}', '#'])
+            || rest.starts_with("\r\n")
+            || rest.starts_with("//"));
+    }
 }

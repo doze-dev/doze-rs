@@ -4,7 +4,6 @@
 //! `=` signs and trailing comments aligned across consecutive lines.
 
 use crate::lex::{Kind, Token, lex};
-use unicode_segmentation::UnicodeSegmentation;
 
 /// A token with the spaces written before it.
 #[derive(Debug, Clone, Copy)]
@@ -322,9 +321,7 @@ fn columns(toks: &[Tok<'_>], cell: &std::ops::Range<usize>) -> usize {
 }
 
 fn clusters(b: &[u8]) -> usize {
-    b.utf8_chunks()
-        .map(|c| c.valid().graphemes(true).count() + c.invalid().len())
-        .sum()
+    crate::funcs::graphemes::count_bytes(b)
 }
 
 /// `formatCells`: align `=` across consecutive assignment lines, then trailing comments.

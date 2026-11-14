@@ -2,7 +2,6 @@
 //! column counted in grapheme clusters, 0-based byte offset).
 
 use std::fmt;
-use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Pos {
@@ -154,7 +153,7 @@ impl Diagnostic {
             .split('\n')
             .nth(usize::try_from(line_no.checked_sub(1)?).ok()?)?
             .trim_end_matches('\r');
-        let last = u32::try_from(line.graphemes(true).count()).unwrap_or(u32::MAX) + 1;
+        let last = u32::try_from(crate::funcs::graphemes::count(line)).unwrap_or(u32::MAX) + 1;
         let end = if r.end.line == line_no {
             r.end.column.max(r.start.column + 1)
         } else {
