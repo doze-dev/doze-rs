@@ -131,6 +131,9 @@ fn boot(
         return Ok(done);
     };
     let p = mode.out();
+    for line in crate::cmd::trust_hint::lines(cfg, p) {
+        r.say(ctx.out, &line);
+    }
     if !follows {
         let line = format!(
             "{} up — supervised in the background. {}",

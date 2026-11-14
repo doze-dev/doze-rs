@@ -9,6 +9,9 @@ stdout:
 | ✓ db awake in 38ms
 | ✓ api awake in 1.2s
 | › up — supervised in the background. doze for the dash · doze down to stop
+stderr:
+| → db waking…
+| → api waking…
 json exit 0
 json:
 | {
@@ -30,6 +33,9 @@ json:
 |     ]
 |   }
 | }
+json stderr:
+| → db waking…
+| → api waking…
 
 $ doze up api --dry-run
 exit 0

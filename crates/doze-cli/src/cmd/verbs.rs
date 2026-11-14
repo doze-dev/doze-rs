@@ -10,6 +10,7 @@
 use crate::cli::args::{Names, SomeNames};
 use crate::cmd::ask::Asker;
 use crate::cmd::dry;
+use crate::cmd::progress::Boot;
 use crate::cmd::ready::Ready;
 use crate::cmd::report::Report;
 use crate::ctx::Ctx;
@@ -72,9 +73,20 @@ pub(crate) fn timed(
 ) -> Outcome {
     let mut r = Report::new(mode);
     let mut ready = Ready::watch(stack);
+    // `up` says each boot as it goes (Go `bootOne`); the others say only the result.
+    let log = (verb == Verb::Up).then(|| (stack.run_dir().log_file(), ctx.term.stderr));
     for name in targets {
         let start = Instant::now();
-        if let Err(stop) = ask.verb(verb, name) {
+        let asked = match &log {
+            Some(log) => {
+                let mut boot = Boot::begin(ctx.err, mode.err(), log.clone(), name);
+                let asked = ask.verb_while(verb, name, &mut || boot.poll(ctx.err));
+                boot.end(ctx.err);
+                asked
+            }
+            None => ask.verb(verb, name),
+        };
+        if let Err(stop) = asked {
             ready.stop();
             let d = r.stopped(name, &stop);
             return Ok(Done {

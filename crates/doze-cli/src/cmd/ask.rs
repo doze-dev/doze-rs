@@ -41,6 +41,16 @@ impl Asker {
 
     /// Runs `verb` on `target` (empty: the daemon's "all") and waits for it, at most `--timeout`.
     pub(crate) fn verb(&self, verb: Verb, target: &str) -> Result<(), Stop> {
+        self.verb_while(verb, target, &mut || {})
+    }
+
+    /// [`Asker::verb`], calling `meanwhile` between the steps of the wait (`up`'s progress).
+    pub(crate) fn verb_while(
+        &self,
+        verb: Verb,
+        target: &str,
+        meanwhile: &mut dyn FnMut(),
+    ) -> Result<(), Stop> {
         if self.interrupt.raised() {
             return Err(Stop::Interrupted);
         }
@@ -56,6 +66,7 @@ impl Asker {
             if let Some(answer) = pending.poll(STEP) {
                 return answer.map(drop).map_err(Stop::Failed);
             }
+            meanwhile();
             if Instant::now() >= deadline {
                 return Err(Stop::Failed(Error::Timeout(self.timeout)));
             }
