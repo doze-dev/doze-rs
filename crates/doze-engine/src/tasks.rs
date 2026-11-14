@@ -2,8 +2,82 @@
 //! runs is here, without I/O; its `inputs` are [`inputs`]; its record is [`crate::applied::TaskRecord`].
 
 pub mod inputs;
+pub(crate) mod run;
 
 use crate::applied::TaskRecord;
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+use std::time::Duration;
+
+/// A task as the engine runs it (Go's `runspec.TaskSpec`).
+#[derive(Debug, Clone, Default)]
+pub struct TaskSpec {
+    /// Its run line, as argument words (no shell, PLAN.md D14).
+    pub run: Vec<String>,
+    /// Where it runs, and what its `inputs` are relative to.
+    pub dir: PathBuf,
+    /// Added to doze's own environment.
+    pub env: BTreeMap<String, String>,
+    /// Globs of the files whose change makes it run again; none: it runs once, and again only after a failure.
+    pub inputs: Vec<String>,
+    /// Runs only when asked for (`doze task`), never because something needs it.
+    pub manual: bool,
+    /// How long one run may take; `None`: as long as it takes.
+    pub timeout: Option<Duration>,
+}
+
+impl TaskSpec {
+    /// A task running `argv` in `dir`.
+    pub fn new<I: IntoIterator<Item = S>, S: Into<String>>(
+        argv: I,
+        dir: impl Into<PathBuf>,
+    ) -> TaskSpec {
+        TaskSpec {
+            run: argv.into_iter().map(Into::into).collect(),
+            dir: dir.into(),
+            ..TaskSpec::default()
+        }
+    }
+
+    /// Sets its `inputs`.
+    pub fn inputs(mut self, globs: &[&str]) -> TaskSpec {
+        self.inputs = globs.iter().map(|g| (*g).to_string()).collect();
+        self
+    }
+}
+
+/// What to watch for a service that asked to be (Go's `watchSets`): its own globs, and the inputs of every task it
+/// waits for, through its needs. A restart runs those tasks first, and a task reruns when its inputs changed, so editing
+/// a migration restarts the app after the migration ran. One that did not ask to be watched is not.
+pub fn watch_sets(
+    stack: &crate::stack::Stack,
+    svc: &crate::stack::Service,
+) -> Vec<crate::watch::Set> {
+    if svc.watch.is_empty() {
+        return Vec::new();
+    }
+    let mut sets = svc.watch.clone();
+    let mut seen = std::collections::BTreeSet::new();
+    let mut todo: Vec<&str> = svc.needs.iter().rev().map(|n| n.name.as_str()).collect();
+    while let Some(name) = todo.pop() {
+        if !seen.insert(name) {
+            continue;
+        }
+        let Some(dep) = stack.service(name) else {
+            continue;
+        };
+        if let crate::stack::Kind::Task(t) = &dep.kind
+            && !t.inputs.is_empty()
+        {
+            sets.push(crate::watch::Set {
+                dir: t.dir.clone(),
+                globs: t.inputs.clone(),
+            });
+        }
+        todo.extend(dep.needs.iter().rev().map(|n| n.name.as_str()));
+    }
+    sets
+}
 
 /// Why a task is asked to run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,6 +119,52 @@ pub fn why_run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Go's `watchSets`: a watched service also watches the inputs of every task it waits for, through its needs (each
+    /// once, depth first); one that did not ask to be watched watches nothing.
+    #[test]
+    fn a_watched_service_also_watches_the_inputs_of_its_tasks() {
+        use crate::process::ProcessSpec;
+        use crate::stack::Service;
+        let proc = |n: &str| Service::process(n, ProcessSpec::new(["x"], "."));
+        let t = |n: &str, g: &str| Service::task(n, TaskSpec::new(["x"], n).inputs(&[g]));
+        let stack = crate::stack::Stack {
+            name: "t".into(),
+            config_name: "doze.hcl".into(),
+            data_dir: "/nonexistent".into(),
+            state_file: "/nonexistent/s".into(),
+            idle_timeout: None,
+            extra_env: BTreeMap::new(),
+            log_limits: doze_logstore::Options::default(),
+            services: vec![
+                proc("app")
+                    .watch("src", &["*.rs"])
+                    .needs("db")
+                    .needs("seed"),
+                proc("db").needs("migrate"),
+                t("migrate", "*.sql"),
+                t("seed", "*.csv").needs("migrate"),
+                proc("quiet").needs("migrate"),
+            ],
+        };
+        let sets = |n: &str| -> Vec<(String, Vec<String>)> {
+            let svc = stack.service(n).cloned().unwrap_or_else(|| proc("none"));
+            watch_sets(&stack, &svc)
+                .into_iter()
+                .map(|s| (s.dir.to_string_lossy().into_owned(), s.globs))
+                .collect()
+        };
+        let set = |d: &str, g: &str| (d.to_string(), vec![g.to_string()]);
+        assert_eq!(
+            sets("app"),
+            [
+                set("src", "*.rs"),
+                set("migrate", "*.sql"),
+                set("seed", "*.csv")
+            ]
+        );
+        assert!(sets("quiet").is_empty());
+    }
 
     fn rec(result: &str, inputs: &str) -> TaskRecord {
         TaskRecord {

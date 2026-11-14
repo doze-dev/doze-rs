@@ -47,6 +47,13 @@ pub fn encode(e: &Event) -> String {
 }
 
 /// Go's `time.RFC3339Nano`: the fraction with its trailing zeros dropped, `Z` for UTC, else `±hh:mm`.
+/// `t` as Go's `time.RFC3339Nano` writes it (what Go's JSON holds for a `time.Time`).
+pub fn go_time(t: OffsetDateTime) -> String {
+    let mut out = String::with_capacity(36);
+    rfc3339_nano(&mut out, t);
+    out
+}
+
 fn rfc3339_nano(out: &mut String, t: OffsetDateTime) {
     let _ = write!(
         out,

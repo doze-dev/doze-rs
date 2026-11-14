@@ -24,6 +24,10 @@ pub(crate) struct Start {
     pub(crate) rerun: bool,
     pub(crate) tx: watch::Sender<Phase>,
     pub(crate) cancel: watch::Receiver<Option<Cancel>>,
+    /// What asked for it (a task says who needed it).
+    pub(crate) cause: Cause,
+    /// A task runs whatever its state (`doze task`).
+    pub(crate) force: bool,
 }
 
 pub(crate) fn spawn(e: &Engine, name: &str, when: When, s: Start) {
@@ -32,12 +36,16 @@ pub(crate) fn spawn(e: &Engine, name: &str, when: When, s: Start) {
         rerun,
         tx,
         mut cancel,
+        cause,
+        force,
     } = s;
     let (e, name) = (e.clone(), name.to_string());
     tokio::spawn(async move {
         let run = async {
             if rerun {
                 rerun_on_ready(&e, &name, boot).await
+            } else if e.is_task(&name) {
+                crate::tasks::run::run(&e, &name, boot, &cause, force).await
             } else {
                 start(&e, &name, boot, when).await
             }
@@ -153,7 +161,7 @@ fn finish(
 }
 
 /// Wakes and holds every need, in order; a `Lazy` need is wired (its declared address), not woken.
-async fn wake_needs(
+pub(crate) async fn wake_needs(
     e: &Engine,
     svc: &Service,
     boot: u64,
@@ -203,7 +211,7 @@ fn declared_endpoint(e: &Engine, name: &str) -> Endpoint {
             };
             p.endpoint(&ctx).unwrap_or_default()
         }
-        Err(_) => Endpoint::default(),
+        Ok(SvcKind::Task(_)) | Err(_) => Endpoint::default(),
     }
 }
 
@@ -281,6 +289,9 @@ async fn plan_for(
                 }
             }
         }
+        SvcKind::Task(_) => {
+            return Err(Error::Failed(format!("{} is a task", svc.name)));
+        }
     };
     let mut planned = planned;
     for p in &mut planned.plan.processes {
@@ -331,7 +342,8 @@ fn register(
         if let Some(old) = live.watcher.take() {
             old.abort();
         }
-        live.watcher = crate::watch::restarter(e, &svc.name, &svc.watch);
+        live.watcher =
+            crate::watch::restarter(e, &svc.name, &crate::tasks::watch_sets(e.stack(), svc));
         r
     });
     tokio::spawn(crate::stop::watch(

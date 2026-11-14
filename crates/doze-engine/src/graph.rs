@@ -79,6 +79,7 @@ mod tests {
             name: "t".into(),
             config_name: "doze.hcl".into(),
             data_dir: "/nonexistent".into(),
+            state_file: "/nonexistent/.doze/state.json".into(),
             idle_timeout: None,
             extra_env: Default::default(),
             log_limits: Default::default(),

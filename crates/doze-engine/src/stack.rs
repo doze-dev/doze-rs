@@ -50,6 +50,17 @@ impl Service {
         }
     }
 
+    /// A task: a command that runs to its end and records how it went (`task`).
+    pub fn task(name: &str, spec: crate::tasks::TaskSpec) -> Service {
+        Service {
+            name: name.into(),
+            kind: Kind::Task(Box::new(spec)),
+            needs: Vec::new(),
+            sleep: Sleep::Default,
+            watch: Vec::new(),
+        }
+    }
+
     /// Adds a need, woken to health first.
     pub fn needs(mut self, name: &str) -> Service {
         self.needs.push(Need {
@@ -89,6 +100,7 @@ impl Service {
 pub enum Kind {
     Process(Box<ProcessSpec>),
     Planned(Arc<dyn Planner>),
+    Task(Box<crate::tasks::TaskSpec>),
 }
 
 /// A need of a service.
@@ -185,6 +197,8 @@ pub struct Stack {
     pub extra_env: BTreeMap<String, String>,
     /// What the log store keeps per instance (doze.hcl's `log_runs`, `log_bytes`; zero: 5 runs, 10 MiB).
     pub log_limits: doze_logstore::Options,
+    /// The applied state, `.doze/state.json` beside the config ([`crate::applied::path_for`]): task records, objects.
+    pub state_file: PathBuf,
 }
 
 impl Stack {

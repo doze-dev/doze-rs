@@ -108,6 +108,8 @@ pub struct Machine {
     table: Table,
     ctl: BTreeMap<String, Ctl>,
     declared: BTreeSet<String>,
+    /// The instances that are tasks: a wake of one is shown only once its run decides it has to run.
+    tasks: BTreeSet<String>,
     config: String,
     idle: Option<Duration>,
     shutting: bool,
@@ -131,6 +133,7 @@ impl Machine {
             table,
             ctl: BTreeMap::new(),
             declared,
+            tasks: BTreeSet::new(),
             config: config.into(),
             idle,
             shutting: false,
@@ -228,19 +231,25 @@ impl Machine {
         c.timer = None;
         c.restart_now = false;
         let rerun = c.ready_pending && c.unit.is_some();
-        let mut ev = Event::new(Kind::Wake, name).cause(cause.clone());
-        if rerun {
-            ev = ev.detail("on_ready again");
-        } else {
-            self.table.mark_booting(name);
+        let mut fx = Vec::new();
+        // A task's wake is journalled, and it is `booting`, only once its run decides it has to run
+        // ([`Machine::task_runs`]).
+        if !self.tasks.contains(name) {
+            let mut ev = Event::new(Kind::Wake, name).cause(cause.clone());
+            if rerun {
+                ev = ev.detail("on_ready again");
+            } else {
+                self.table.mark_booting(name);
+            }
+            fx.push(Effect::Journal(ev));
         }
-        let start = Effect::StartBoot {
+        fx.push(Effect::StartBoot {
             name: name.into(),
             boot,
             cause,
             rerun,
-        };
-        (Decision::Start(boot), vec![Effect::Journal(ev), start])
+        });
+        (Decision::Start(boot), fx)
     }
 
     fn current_boot(&self, name: &str, boot: u64) -> bool {
@@ -289,7 +298,8 @@ impl Machine {
         }
     }
 
-    /// Start `boot` of `name` failed before its processes ran: the needs it held are released, it is failed.
+    /// Start `boot` of `name` failed before its processes ran: the needs it held are released, it is failed. A start
+    /// already cancelled (it failed because of the stop) is cancelled, not failed.
     pub fn boot_failed(
         &mut self,
         name: &str,
@@ -300,6 +310,9 @@ impl Machine {
     ) -> Vec<Effect> {
         if !self.current_boot(name, boot) {
             return Vec::new();
+        }
+        if self.ctl(name).cancel_boot {
+            return self.boot_cancelled(name, boot, now);
         }
         let c = self.ctl(name);
         c.boot = None;
@@ -428,3 +441,5 @@ impl Machine {
 
 #[path = "machine_stop.rs"]
 mod stop;
+#[path = "machine_task.rs"]
+mod task;

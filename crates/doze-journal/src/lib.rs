@@ -17,7 +17,7 @@ mod gojson;
 mod read;
 mod write;
 
-pub use encode::encode;
+pub use encode::{encode, go_time};
 pub use event::{Cause, Event, parse_line};
 pub use read::{MAX_LINE, parse, read, read_file, rotated, since, tail};
 pub use write::{Journal, SUBSCRIBER_BUFFER};

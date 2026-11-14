@@ -103,6 +103,12 @@ impl Builder {
         self
     }
 
+    /// Where the applied state (task records) is kept (`<data_dir>/.doze/state.json` unless set).
+    pub fn state_file(mut self, path: impl Into<PathBuf>) -> Builder {
+        self.stack.state_file = path.into();
+        self
+    }
+
     /// Adds a service.
     pub fn service(mut self, s: Service) -> Builder {
         self.stack.services.push(s);
@@ -118,10 +124,12 @@ impl Builder {
 impl Engine {
     /// A builder for stack `name`, keeping its state under `data_dir` (`<home>/projects/<slug>`).
     pub fn builder(name: &str, data_dir: impl Into<PathBuf>) -> Builder {
+        let data_dir: PathBuf = data_dir.into();
         let stack = Stack {
             name: name.into(),
             config_name: "doze.hcl".into(),
-            data_dir: data_dir.into(),
+            state_file: data_dir.join(".doze").join("state.json"),
+            data_dir,
             idle_timeout: None,
             services: Vec::new(),
             extra_env: BTreeMap::new(),
@@ -134,7 +142,12 @@ impl Engine {
     pub fn new(stack: Stack) -> Result<Engine, BuildError> {
         crate::graph::check(&stack)?;
         let names = stack.services.iter().map(|s| s.name.clone());
-        let m = Machine::new(names, &stack.config_name, stack.idle_timeout);
+        let mut m = Machine::new(names, &stack.config_name, stack.idle_timeout);
+        for s in &stack.services {
+            if matches!(s.kind, crate::stack::Kind::Task(_)) {
+                m.declare_task(&s.name);
+            }
+        }
         let core = Core {
             m,
             handles: BTreeMap::new(),
@@ -312,9 +325,21 @@ impl Engine {
         cause: Cause,
         when: When,
     ) -> Result<Endpoint, Error> {
+        self.wake_inner(name, cause, when, false).await
+    }
+
+    /// A wake; `force`: a task it starts runs whatever its state (`doze task`).
+    pub(crate) async fn wake_inner(
+        &self,
+        name: &str,
+        cause: Cause,
+        when: When,
+        force: bool,
+    ) -> Result<Endpoint, Error> {
         let (rx, start) = self.decide_wake(name, cause).await;
         // The journal's `wake` goes out before the start can wake (and journal) its needs.
-        if let Some(s) = start {
+        if let Some(mut s) = start {
+            s.force = force;
             crate::boot::spawn(self, name, when, s);
         }
         let Some(mut rx) = rx? else {
@@ -374,6 +399,8 @@ impl Engine {
                             rerun,
                             tx,
                             cancel,
+                            cause: cause.clone(),
+                            force: false,
                         };
                         Some((Ok(Some(rx)), Some(s)))
                     }
