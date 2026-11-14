@@ -170,6 +170,7 @@ fn transcript(s: &Scenario) -> String {
 fn transcripts() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/transcripts");
     let bless = std::env::var_os("DOZE_BLESS").is_some();
+    let daemons = setup::sockets();
     let mut files: Vec<_> = std::fs::read_dir(&dir)
         .unwrap()
         .map(|e| e.unwrap().path())
@@ -181,6 +182,10 @@ fn transcripts() {
         .filter(|f| f.extension().is_some_and(|e| e == "txt"))
     {
         let want = std::fs::read_to_string(f).unwrap().replace("\r\n", "\n");
+        // A scenario with a running daemon needs the local control socket, which Windows has not yet.
+        if !daemons && want.lines().any(|l| l.starts_with("@ daemon")) {
+            continue;
+        }
         let got = transcript(&parse(&want));
         if got != want {
             if bless {

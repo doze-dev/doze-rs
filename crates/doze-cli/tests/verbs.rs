@@ -39,6 +39,9 @@ fn verbs(d: &doze_control::fixture::FixtureDaemon) -> Vec<String> {
 
 #[test]
 fn wake_starts_what_a_service_needs_first() {
+    if !setup::sockets() {
+        return;
+    }
     let (sb, host, d) = setup("shop");
     let ran = fixture::run(&sb, &host, Terminals::default(), false, &["wake", "worker"]);
     assert_eq!(ran.code, 0, "{}", ran.stderr);
@@ -48,6 +51,9 @@ fn wake_starts_what_a_service_needs_first() {
 
 #[test]
 fn pin_toggles_only_what_differs_and_each_name_once() {
+    if !setup::sockets() {
+        return;
+    }
     let (sb, host, d) = setup("shop"); // events is pinned, cache is not
     let ran = fixture::run(
         &sb,
@@ -76,6 +82,9 @@ fn pin_toggles_only_what_differs_and_each_name_once() {
 
 #[test]
 fn ctrl_c_during_a_verb_exits_130_at_once() {
+    if !setup::sockets() {
+        return;
+    }
     let (sb, host, _d) = setup("slow");
     let press = host.interrupt.clone();
     let t = std::thread::spawn(move || {
@@ -105,6 +114,9 @@ fn ctrl_c_during_a_verb_exits_130_at_once() {
 /// exit 0.
 #[test]
 fn ctrl_c_ends_a_follow_cleanly() {
+    if !setup::sockets() {
+        return;
+    }
     let (sb, host, _d) = setup("held");
     let press = host.interrupt.clone();
     let t = std::thread::spawn(move || {

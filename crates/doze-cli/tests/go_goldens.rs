@@ -52,22 +52,34 @@ fn stdout_of(script: &str, commands: &[&str]) -> String {
 
 #[test]
 fn status_is_go_s_table() {
+    if !setup::sockets() {
+        return;
+    }
     // Go's renderTable has no trailing newline after the summary line's own; fmt.Fprintln adds one each.
     assert_eq!(stdout_of("shop", &["status"]), golden("status"));
 }
 
 #[test]
 fn status_watch_is_go_s_redraws() {
+    if !setup::sockets() {
+        return;
+    }
     assert_eq!(stdout_of("watch", &["status -w"]), golden("status-watch"));
 }
 
 #[test]
 fn wake_is_go_s() {
+    if !setup::sockets() {
+        return;
+    }
     assert_eq!(stdout_of("wake", &["wake db events api"]), golden("wake"));
 }
 
 #[test]
 fn a_failed_wake_keeps_go_s_lines_and_says_the_failure_on_stderr() {
+    if !setup::sockets() {
+        return;
+    }
     let want: String = golden("wake-failed")
         .lines()
         .filter(|l| !l.starts_with('✗'))
@@ -78,6 +90,9 @@ fn a_failed_wake_keeps_go_s_lines_and_says_the_failure_on_stderr() {
 
 #[test]
 fn sleep_restart_reset_pin_are_go_s() {
+    if !setup::sockets() {
+        return;
+    }
     let got = stdout_of(
         "verbs",
         &[
@@ -93,6 +108,9 @@ fn sleep_restart_reset_pin_are_go_s() {
 
 #[test]
 fn logs_are_go_s() {
+    if !setup::sockets() {
+        return;
+    }
     let cases = [
         ("logs-one", "logs api --run 2"),
         ("logs-previous-run", "logs api --run 1"),

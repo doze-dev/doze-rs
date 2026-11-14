@@ -67,7 +67,11 @@ fn each_mistake_has_its_code() {
         ("why on a stopped stack", DOWN_LOGS, "why api", 0),
         ("nothing to wake", EMPTY, "wake", 1),
     ];
+    let daemons = setup::sockets();
     for (what, setup, args, code) in cases {
+        if !daemons && setup.iter().any(|s| s.starts_with("daemon")) {
+            continue;
+        }
         let r = run(setup, args);
         assert_eq!(r.code, *code, "{what}: doze {args}\n{}", r.stderr);
     }
@@ -81,13 +85,20 @@ fn json_carries_the_code_as_a_word_and_a_number() {
         (UP, "--json reset api", 9, "needs_confirmation"),
         (NOTHING, "--json status", 6, "no_config"),
     ];
+    let daemons = setup::sockets();
     for (setup, args, code, word) in cases {
+        if !daemons && setup.iter().any(|s| s.starts_with("daemon")) {
+            continue;
+        }
         let r = run(setup, args);
         assert_eq!(r.code, *code, "doze {args}");
         let v: serde_json::Value = serde_json::from_str(&r.stdout).unwrap();
         assert_eq!(v["schema"], "doze/v1");
         assert_eq!(v["error"]["code"], *word, "doze {args}");
         assert_eq!(v["error"]["exit"], u64::from(*code), "doze {args}");
+    }
+    if !daemons {
+        return;
     }
     // DOZE_JSON=1 asks for the envelope wherever there is a result.
     let r = run(
@@ -99,6 +110,9 @@ fn json_carries_the_code_as_a_word_and_a_number() {
 
 #[test]
 fn piped_output_is_plain_whatever_the_environment_says() {
+    if !setup::sockets() {
+        return;
+    }
     for env in [
         "env TERM=xterm-256color",
         "env CLICOLOR_FORCE=1",
