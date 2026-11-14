@@ -322,9 +322,10 @@ fn segment_of(body: &Json) -> Result<Option<(u32, u32)>, ApiError> {
         (None, Some(_)) => Err(bad_param(
             "The Segment parameter is required but was not present in the request when parameter TotalSegments is present",
         )),
-        (Some(s), Some(n)) if s >= n => Err(bad_param(&format!(
-            "The Segment parameter is zero-based and must be less than parameter TotalSegments: Segment: {s} is not less than TotalSegments: {n}"
-        ))),
+        // Recorded 2026-11-15: no prefix and no numbers.
+        (Some(s), Some(n)) if s >= n => Err(validation(
+            "The Segment parameter is zero-based and must be less than parameter TotalSegments",
+        )),
         (Some(s), Some(n)) => Ok(Some((
             u32::try_from(s).unwrap_or(0),
             u32::try_from(n).unwrap_or(1),

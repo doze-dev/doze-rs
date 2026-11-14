@@ -35,6 +35,46 @@
       }
     }
   },
+  "test_a_bus_policy": {
+    "policy": {
+      "Statement": [
+        {
+          "Action": "events:PutEvents",
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "444455556666"
+          },
+          "Resource": "arn:aws:events:us-east-1:<account>:event-bus/<name:bus>",
+          "Sid": "peer"
+        }
+      ],
+      "Version": "2012-10-17"
+    },
+    "put-permission": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "remove-again": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Statement with the provided id does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "remove-permission": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "statement-again": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
   "test_a_matching_event_reaches_the_queue": {
     "delivered": {
       "account": "<account>",
@@ -213,6 +253,32 @@
     "tag-rule": {
       "ResponseMetadata": {
         "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_input_settings_reach_the_queue": {
+    "constant": {
+      "Body": "{\"fixed\":  true}"
+    },
+    "path": {
+      "Body": "[\"book\",\"pen\"]"
+    },
+    "path-scalar": {
+      "Body": "\"ada\""
+    },
+    "transformer-json": {
+      "Body": "{\"who\": \"ada\", \"n\": 250, \"items\": [\"book\",\"pen\"], \"rule\": \"<rule>\"}"
+    },
+    "transformer-text": {
+      "Body": "\"hello ada\""
+    },
+    "transformer-text-unquoted": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid InputTemplate for target queue : [Source: (String)\"hello null\"; line: 1, column: 1]."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
       }
     }
   },

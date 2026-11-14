@@ -251,8 +251,27 @@ def test_tags(client, names, cleanup, snapshot, eventually):
         return r
 
     snapshot.match("list", eventually(tagged), unordered=("Tags",))
-    snapshot.match("untag", ddb.untag_resource(ResourceArn=arn, TagKeys=["env"]))
-    snapshot.error("reserved-prefix", lambda: ddb.tag_resource(ResourceArn=arn, Tags=[{"Key": "aws:x", "Value": "a"}]))
+    # AWS paces tag changes on a table: one made while the last is still being applied is refused with LimitExceededException
+    # ("Subscriber limit exceeded: Table tags are being updated", recorded 2026-11-15). Wait it out rather than record it.
+    snapshot.match("untag", paced(lambda: ddb.untag_resource(ResourceArn=arn, TagKeys=["env"])))
+    snapshot.error("reserved-prefix", lambda: paced(
+        lambda: ddb.tag_resource(ResourceArn=arn, Tags=[{"Key": "aws:x", "Value": "a"}])))
+
+
+def paced(fn, timeout=120):
+    """Call fn again while AWS says the table's tags are still being updated."""
+    import time
+
+    from botocore.exceptions import ClientError
+
+    deadline = time.time() + timeout
+    while True:
+        try:
+            return fn()
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "LimitExceededException" or time.time() > deadline:
+                raise
+            time.sleep(2)
 
 
 def test_stream_specification_on_an_existing_table(client, names, cleanup, snapshot):
@@ -362,7 +381,8 @@ def test_index_added_and_removed_later(client, names, cleanup, snapshot, eventua
         d = ddb.describe_table(TableName=name)["Table"]["GlobalSecondaryIndexes"][0]
         assert d["IndexStatus"] == "ACTIVE", "the index is still being built"
 
-    eventually(ready)
+    # On AWS a new index takes minutes to build, even over three items (more than the 60 s the 2026-11-15 recording waited).
+    eventually(ready, timeout=900, every=5)
     q = dict(TableName=name, IndexName="by-color", KeyConditionExpression="color = :c")
     snapshot.match("red", ddb.query(**q, ExpressionAttributeValues={":c": {"S": "red"}}))
     snapshot.error("two-index-updates", lambda: ddb.update_table(
@@ -455,19 +475,24 @@ def test_streams_api(client, names, cleanup, snapshot, eventually):
     arn = streams.list_streams(TableName=name)["Streams"][0]["StreamArn"]
     described = streams.describe_stream(StreamArn=arn)
     snapshot.match("describe", described, drop=volatile)
-    shard = described["StreamDescription"]["Shards"][0]["ShardId"]
+    # AWS gives a new on-demand table's stream several shards (four, recorded 2026-11-15), and a key's changes are in one of them:
+    # read them all.
+    shards = [s["ShardId"] for s in described["StreamDescription"]["Shards"]]
     ddb.put_item(TableName=name, Item={"pk": {"S": "a"}, "n": {"N": "1"}})
     ddb.update_item(TableName=name, Key={"pk": {"S": "a"}}, UpdateExpression="SET n = :v",
                     ExpressionAttributeValues={":v": {"N": "2"}})
     ddb.delete_item(TableName=name, Key={"pk": {"S": "a"}})
-    it = streams.get_shard_iterator(StreamArn=arn, ShardId=shard, ShardIteratorType="TRIM_HORIZON")["ShardIterator"]
+    its = {s: streams.get_shard_iterator(StreamArn=arn, ShardId=s, ShardIteratorType="TRIM_HORIZON")["ShardIterator"]
+           for s in shards}
     got = []
 
     def all_three():
-        nonlocal it
-        r = streams.get_records(ShardIterator=it)
-        got.extend(r["Records"])
-        it = r.get("NextShardIterator", it)
+        for s, it in list(its.items()):
+            if it is None:
+                continue
+            r = streams.get_records(ShardIterator=it)
+            got.extend(r["Records"])
+            its[s] = r.get("NextShardIterator")
         assert len(got) >= 3, "the records are not all there yet"
 
     eventually(all_three)

@@ -11,7 +11,6 @@ use crate::describe::{Shape, Sizes, description};
 use crate::meta::{Status, Table};
 use crate::req::{array_of, bad_param, bool_of, str_of, table_not_found, validation};
 use crate::schema::{MAX_GSI, billing, definitions, index, throughput};
-use crate::stream::stream_arn;
 use crate::tables::{new_stream, on_demand_of, warm_of};
 
 /// Members of UpdateTable that name things doze-aws does not build.
@@ -52,7 +51,7 @@ impl Core {
         }
         if !CHANGES.iter().any(|m| body.get(*m).is_some()) {
             return Err(validation(
-                "At least one of ProvisionedThroughput, BillingMode, UpdateStreamEnabled, GlobalSecondaryIndexUpdates or SSESpecification or ReplicaUpdates is required",
+                "At least one of ProvisionedThroughput, BillingMode, UpdateStreamEnabled, GlobalSecondaryIndexUpdates, SSESpecification, ReplicaUpdates, MultiAccountReplicaReady, ReplicaTransitRoleArn, MultiRegionConsistency, DeletionProtectionEnabled, OnDemandThroughput, WarmThroughput or TableClass is required",
             ));
         }
         if t.status != Status::Active {
@@ -236,9 +235,10 @@ fn update_stream(t: &mut Table, body: &Json, cx: &Cx<'_>) -> Result<bool, ApiErr
     let enable = bool_of(spec, "StreamEnabled").unwrap_or(false);
     let current = t.stream.as_ref().filter(|s| s.enabled);
     match (enable, current) {
-        (true, Some(s)) => Err(validation(format!(
-            "Table already has an enabled stream: {}",
-            stream_arn(cx.region(), cx.account(), &t.name, &s.label)
+        // Recorded 2026-11-15: the table's name, not the stream's ARN.
+        (true, Some(_)) => Err(validation(format!(
+            "Table already has an enabled stream: TableName: {}",
+            t.name
         ))),
         (false, None) => Err(validation("Table does not have an enabled stream")),
         (true, None) => {
