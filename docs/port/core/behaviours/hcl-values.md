@@ -90,5 +90,6 @@ source, and where doze-hcl holds each behaviour. The oracle is doze's `tools/ora
 | S3 | Open: where both refuse, hcl-edit places 13 of the corpus's syntax errors elsewhere than Go (an unterminated string at its start, not its end). Mapping syntax errors is H2's | counted, not hidden, by `oracle_eval.rs` |
 | S4 | Rules Go's parser has and hcl-edit lacks, checked after parsing: chained legacy index `a.1.0`, an attribute splat inside another, a number literal Go cannot read (Go's number token and `1.e5` come from vendor patch 5) | `audit.idx.30`, `audit2.trav.*`, `audit2.numlit.*` |
 | S5 | Deliberate difference: hcl-edit refuses more than 64 levels of nesting and 128 chained operators (stack safety); Go has no limit. No real configuration comes near | `audit3.05`–`.12` (known differences) |
+| S6 | Open: hcl-edit backtracks heavily on unclosed nested `[ {` (a 1.3 KB fuzz input takes 1.3 s, the same in upstream 0.10.0; `fuzz_parse` timed out on it under load). Not a crash; a slow parse of a hostile file. To fix in the parser when H2 maps syntax errors | fuzz artifact `timeout-82aa6510…` |
 
 Not in H1 (H2): the function library, `typeexpr`, the diagnostics renderer and the syntax-error mapping.
