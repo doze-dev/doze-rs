@@ -72,6 +72,8 @@ pub struct ModuleInstance {
     target: String,
     /// The module declares structural objects (its manifest's `objects` capability).
     structured: bool,
+    /// The module says doze does not sit in front of it: it stays up (its manifest's `supervised`).
+    supervised: bool,
     /// The toolchain the last start resolved, for `converge` and `prune`.
     toolchain: Mutex<Option<Toolchain>>,
 }
@@ -99,10 +101,18 @@ impl ModuleInstance {
             base,
             pins: Mutex::new(pins),
             sink: None,
+            supervised: false,
             target: target.into(),
             structured,
             toolchain: Mutex::new(None),
         }
+    }
+
+    /// The module is supervised: always on, never reaped when idle.
+    #[must_use]
+    pub fn supervised(mut self, on: bool) -> Self {
+        self.supervised = on;
+        self
     }
 
     /// Pins the module reports are passed to `sink` (and kept for this instance's later starts).
@@ -196,7 +206,7 @@ impl ModuleInstance {
             plan,
             endpoint: Endpoint { backend },
             restart: None,
-            supervised: false,
+            supervised: self.supervised,
             ready_within: READY_WITHIN,
         })
     }

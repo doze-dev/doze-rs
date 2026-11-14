@@ -54,12 +54,14 @@ pub struct Assembled {
     pub cfg: doze_config::Config,
     pub engine: doze_engine::Engine,
     pub labels: BTreeMap<String, Labels>,
+    /// Module instances whose module says doze does not sit in front of them.
+    pub supervised: std::collections::BTreeSet<String>,
 }
 
 impl Assembled {
     /// The instances doze sits in front of, for [`Front::open`].
     pub fn fronted(&self) -> Vec<Fronted> {
-        fronted(&self.cfg, &self.labels)
+        fronted(&self.cfg, &self.labels, &self.supervised)
     }
 }
 
@@ -72,11 +74,18 @@ pub async fn assemble(
     env: BTreeMap<String, String>,
 ) -> Result<Assembled, String> {
     let (path, version) = (config.to_string_lossy().into_owned(), version.to_owned());
-    let (cfg, labels, stack) = tokio::task::spawn_blocking(move || {
+    let (cfg, labels, stack, supervised) = tokio::task::spawn_blocking(move || {
         let cfg = load(&path, &version, catalog.as_ref(), env)?;
         let labels = labels(&cfg, catalog.as_ref());
         let stack = stack(&cfg, &catalog);
-        Ok::<_, String>((cfg, labels, stack))
+        let supervised = cfg
+            .instances
+            .iter()
+            .filter(|i| i.kind() == Kind::Module)
+            .filter(|i| catalog.manifest(&i.ty).is_some_and(|m| m.supervised))
+            .map(|i| i.name.clone())
+            .collect();
+        Ok::<_, String>((cfg, labels, stack, supervised))
     })
     .await
     .map_err(|e| e.to_string())??;
@@ -85,6 +94,7 @@ pub async fn assemble(
         cfg,
         engine,
         labels,
+        supervised,
     })
 }
 
@@ -104,11 +114,14 @@ fn stack(cfg: &doze_config::Config, catalog: &Arc<Catalog>) -> doze_engine::stac
 #[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 async fn run(config: &Path, version: &str) -> Result<(), String> {
     let catalog = Arc::new(catalog(config)?);
+    let assembled = assemble(config, version, catalog.clone(), BTreeMap::new()).await?;
+    let fronts = assembled.fronted();
     let Assembled {
         cfg,
         engine,
         labels,
-    } = assemble(config, version, catalog.clone(), BTreeMap::new()).await?;
+        ..
+    } = assembled;
     let run = RunDir::of(Path::new(&cfg.data_dir));
     doze_os::fs::private_dir(run.path()).map_err(|e| e.to_string())?;
     if ctl::running(&run) {
@@ -125,7 +138,7 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     // The idle reaper and the health prober (Go's `RunReaper`, `RunHealthProber`), and the module pool's own.
     let background = engine.background();
     let modules = tokio::spawn(reap_modules(catalog.clone()));
-    let front = Front::open(&engine, &fronted(&cfg, &labels)).await;
+    let front = Front::open(&engine, &fronts).await;
     let daemon = Daemon::new(engine.clone(), labels, info);
     let serving = daemon
         .serve()
@@ -250,13 +263,17 @@ fn labels(cfg: &doze_config::Config, cat: &Catalog) -> BTreeMap<String, Labels> 
 
 /// The instances doze sits in front of: every module that is not supervised, and every app or service with a port
 /// it does not bind itself.
-fn fronted(cfg: &doze_config::Config, labels: &BTreeMap<String, Labels>) -> Vec<Fronted> {
+fn fronted(
+    cfg: &doze_config::Config,
+    labels: &BTreeMap<String, Labels>,
+    supervised: &std::collections::BTreeSet<String>,
+) -> Vec<Fronted> {
     cfg.instances
         .iter()
         .filter(|i| i.enabled)
         .filter(|i| match &i.spec {
             Spec::Command(c) => i.port > 0 && !c.direct,
-            _ => i.kind() == Kind::Module,
+            _ => i.kind() == Kind::Module && !supervised.contains(&i.name),
         })
         .filter_map(|i| {
             let addr = labels.get(&i.name).map(|l| l.endpoint.clone())?;

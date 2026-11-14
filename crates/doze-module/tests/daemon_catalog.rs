@@ -44,6 +44,7 @@ impl Finder for Find {
 #[derive(Default)]
 struct Fetch {
     expected: Mutex<Vec<Option<String>>>,
+    majors: std::sync::atomic::AtomicUsize,
 }
 
 struct Shared(Arc<Fetch>);
@@ -54,6 +55,9 @@ impl Downloads for Shared {
         _e: &'a str,
         _m: &'a str,
     ) -> BoxFuture<'a, Result<String, Error>> {
+        self.0
+            .majors
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Box::pin(async { Ok("2.4.1".to_string()) })
     }
 
@@ -90,9 +94,10 @@ fn project(tag: &str) -> (PathBuf, u16) {
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(d.join("home")).unwrap();
     let port = free_port();
+    let off = free_port();
     let calls = d.join("calls").to_string_lossy().into_owned();
     let hcl = format!(
-        "module echo \"e\" {{\n  version = \"2\"\n  port = {port}\n  greeting = \"hi\"\n  settings = {{\n    calls = \"{calls}\"\n  }}\n  channel \"a\" {{\n    size = 2\n  }}\n}}\n\ntask \"show\" {{\n  run = \"true\"\n  manual = true\n  env = {{\n    U = module.e.url\n    T = module.e.env.ECHO_URL\n  }}\n}}\n"
+        "module echo \"e\" {{\n  version = \"2\"\n  port = {port}\n  greeting = \"hi\"\n  settings = {{\n    calls = \"{calls}\"\n  }}\n  channel \"a\" {{\n    size = 2\n  }}\n}}\n\nmodule echo \"off\" {{\n  version = \"2\"\n  port = {off}\n  enabled = false\n}}\n\ntask \"show\" {{\n  run = \"true\"\n  manual = true\n  env = {{\n    U = module.e.url\n    T = module.e.env.ECHO_URL\n  }}\n}}\n"
     );
     std::fs::write(d.join("doze.hcl"), hcl).unwrap();
     let lock = format!(
@@ -170,6 +175,8 @@ async fn wake_through_the_front(
     dir: &Path,
     fetch: &Fetch,
 ) {
+    let fronted: Vec<String> = a.fronted().into_iter().map(|f| f.name).collect();
+    assert_eq!(fronted, ["e"], "a disabled module gets no front");
     let front = Front::open(&a.engine, &a.fronted()).await;
     let conn = tokio::net::TcpStream::connect(addr).await.unwrap();
     let (r, mut w) = conn.into_split();
@@ -267,17 +274,18 @@ async fn a_version_the_module_does_not_serve_is_refused_at_load() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The engine pin a module reports at its first start is written to doze.lock (Go's `up` wrote it), so the next start
-/// asks no mirror.
+/// The engine pin a module reports at its first start is written to doze.lock (Go's `up` wrote it) and kept for the
+/// instance's next start, which asks no mirror.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_engine_pin_a_module_reports_is_written_to_the_lock() {
     let (dir, port) = project("pins");
     let lock = dir.join("doze.lock");
     std::fs::remove_file(&lock).unwrap();
+    let fetch = Arc::new(Fetch::default());
     let cat = Arc::new(Catalog::new(
         tokio::runtime::Handle::current(),
         Arc::new(Find::default()),
-        Arc::new(Shared(Arc::default())),
+        Arc::new(Shared(fetch.clone())),
         lock.clone(),
         dir.join("home"),
     ));
@@ -306,6 +314,16 @@ async fn the_engine_pin_a_module_reports_is_written_to_the_lock() {
             .map(String::as_str),
         Some("sha256:lock")
     );
+    // Asleep and woken again: the pin it reported is used, the mirror is not asked a second time.
+    a.engine
+        .stop("e", doze_engine::Cause::Command)
+        .await
+        .unwrap();
+    a.engine
+        .wake("e", doze_engine::Cause::Command)
+        .await
+        .unwrap();
+    assert_eq!(fetch.majors.load(std::sync::atomic::Ordering::SeqCst), 1);
     let _ = port;
     a.engine.shutdown().await;
     let _ = std::fs::remove_dir_all(&dir);

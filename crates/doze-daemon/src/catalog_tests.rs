@@ -1,6 +1,6 @@
 use super::*;
 
-fn manifest(versions: &[&str]) -> Manifest {
+pub(crate) fn manifest(versions: &[&str]) -> Manifest {
     Manifest {
         engine: "x".into(),
         category: String::new(),

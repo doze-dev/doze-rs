@@ -125,9 +125,20 @@ fn test_key() -> Option<ed25519_dalek::VerifyingKey> {
     if !cfg!(feature = "dozetest") {
         return None;
     }
-    std::env::var("DOZE_TEST_REGISTRY_KEY")
-        .ok()
-        .and_then(|k| signed::parse_key(&k))
+    let text = std::env::var("DOZE_TEST_REGISTRY_KEY").ok()?;
+    let key = signed::parse_key(&text);
+    #[allow(clippy::print_stderr)]
+    {
+        match key {
+            Some(_) => eprintln!(
+                "doze (dozetest): registry signatures checked with DOZE_TEST_REGISTRY_KEY, not the built-in key"
+            ),
+            None => eprintln!(
+                "doze (dozetest): DOZE_TEST_REGISTRY_KEY is not a key; the built-in key is used"
+            ),
+        }
+    }
+    key
 }
 
 // The exit class of a run is all `main` reports; keep the type in the signature honest.

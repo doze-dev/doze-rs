@@ -5,6 +5,16 @@
 //! This is the plain-TCP core of D2's listeners: no names, no TLS termination, no `wire.accept` hand-off yet.
 
 use doze_engine::{Cause, Engine};
+
+/// A line in the daemon's log (its stderr; no tracing subscriber is installed in `doze`).
+macro_rules! say {
+    ($($t:tt)*) => {{
+        #[allow(clippy::print_stderr)]
+        {
+            eprintln!("doze daemon: {}", format_args!($($t)*));
+        }
+    }};
+}
 use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::task::JoinHandle;
@@ -55,7 +65,7 @@ async fn accept(engine: Engine, name: String, l: TcpListener) {
                 tokio::spawn(splice(engine.clone(), name.clone(), conn, peer));
             }
             Err(err) => {
-                tracing::warn!("front {name}: accept: {err}");
+                say!("front {name}: accept: {err}");
                 tokio::time::sleep(std::time::Duration::from_millis(50)).await;
             }
         }
@@ -66,7 +76,7 @@ async fn splice(engine: Engine, name: String, mut conn: TcpStream, peer: SocketA
     let ep = match engine.wake(&name, Cause::Connection).await {
         Ok(ep) => ep,
         Err(err) => {
-            tracing::warn!("front {name}: a connection from {peer} could not wake it: {err}");
+            say!("front {name}: a connection from {peer} could not wake it: {err}");
             return;
         }
     };
@@ -77,7 +87,7 @@ async fn splice(engine: Engine, name: String, mut conn: TcpStream, peer: SocketA
     let mut backend = match dialed {
         Ok(b) => b,
         Err(err) => {
-            tracing::warn!("front {name}: {}: {err}", ep.backend);
+            say!("front {name}: {}: {err}", ep.backend);
             return;
         }
     };

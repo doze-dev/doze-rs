@@ -149,12 +149,9 @@ impl Catalog {
         &self.lock
     }
 
-    /// The pins `doze.lock` holds for builds of `engine`.
-    pub fn pins(&self, engine: &str) -> Vec<doze_module_proto::msg::run::Pin> {
+    /// Every engine pin `doze.lock` holds (a module takes the ones for the engines it runs, whatever they are named).
+    pub fn pins(&self) -> Vec<doze_module_proto::msg::run::Pin> {
         lock_pins(&self.lock)
-            .into_iter()
-            .filter(|p| p.engine == engine)
-            .collect()
     }
 }
 
@@ -235,6 +232,10 @@ pub fn lock_pins(path: &Path) -> Vec<doze_module_proto::msg::run::Pin> {
 /// offline. A lock that cannot be read or written is said in the log and left alone: the start goes on.
 #[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 pub fn record_pins(path: &Path, pins: &[doze_module_proto::msg::run::Pin]) {
+    // One writer at a time: two instances starting at once would each read, change and save, one losing the other's
+    // pins (and the save's temporary file is named by the pid, so the second rename found it gone).
+    static WRITING: Mutex<()> = Mutex::new(());
+    let _one = crate::lock(&WRITING);
     let mut lock = if path.exists() {
         match doze_fetch::lock::Lock::load(path) {
             Ok(l) => l,
@@ -406,4 +407,4 @@ pub fn supports(ty: &str, m: &Manifest, version: &str) -> Result<(), String> {
 
 #[cfg(test)]
 #[path = "catalog_tests.rs"]
-mod tests;
+pub(crate) mod tests;

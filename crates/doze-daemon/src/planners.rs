@@ -29,20 +29,10 @@ pub fn module(
         return Arc::new(NoModule { why });
     };
     let addr = doze_config::instance_addr(i, cat.as_ref()).unwrap_or_default();
-    let port = addr.rsplit_once(':').map_or("", |(_, p)| p);
     let tcp_only = as_module_sees_it(cat, i).is_some_and(|mi| cat.main_is_tcp(&mi));
-    let socket = m.backend_socket.as_ref().map(|file| {
-        run_dir
-            .join(&i.name)
-            .join(file.replace("{port}", port))
-            .to_string_lossy()
-            .into_owned()
-    });
-    let backend = match socket {
-        Some(p) if cfg!(unix) && !tcp_only && p.len() < SOCKET_PATH_MAX => Address::Unix(p),
-        _ => {
-            Address::Tcp(free_loopback().map_or_else(|| addr.clone(), |p| format!("127.0.0.1:{p}")))
-        }
+    let Some(backend) = backend(&addr, &i.name, &m, tcp_only, run_dir) else {
+        let why = format!("{}: no loopback port is free for its engine", i.name);
+        return Arc::new(NoModule { why });
     };
     let spec = match &i.spec {
         doze_config::Spec::Module(b) => crate::spec_tree::tree(b, &m.schema),
@@ -60,14 +50,47 @@ pub fn module(
         deps: Vec::new(),
         toolchain: None,
     };
-    let structured = m.caps & caps::OBJECTS != 0;
+    let (structured, supervised) = (m.caps & caps::OBJECTS != 0, m.supervised);
     let lock = cat.lock_path().to_path_buf();
     let sink: doze_engine::modules::PinSink =
         Arc::new(move |pins| catalog::record_pins(&lock, pins));
     Arc::new(
-        ModuleInstance::new(cat.pool.clone(), base, cat.pins(&i.ty), target, structured)
+        ModuleInstance::new(cat.pool.clone(), base, cat.pins(), target, structured)
+            .supervised(supervised)
             .with_pin_sink(sink),
     )
+}
+
+/// Where the engine listens for the main listener: the declared socket itself for `listen = "unix:…"` (nothing fronts
+/// it); else a socket file in its run folder, named as the manifest says, where the system has sockets, the engine can
+/// listen on one and the path fits; else a loopback port. `None`: no port could be had (never the declared address,
+/// which the front holds: it would dial itself).
+pub fn backend(
+    addr: &str,
+    name: &str,
+    m: &doze_module_proto::msg::hello::Manifest,
+    tcp_only: bool,
+    run_dir: &std::path::Path,
+) -> Option<Address> {
+    if let Some(p) = addr.strip_prefix("unix:") {
+        return Some(Address::Unix(p.to_string()));
+    }
+    let port = addr
+        .rsplit_once(':')
+        .map(|(_, p)| p)
+        .filter(|p| p.parse::<u16>().is_ok())
+        .map_or_else(|| m.default_port.to_string(), str::to_string);
+    let socket = m.backend_socket.as_ref().map(|file| {
+        run_dir
+            .join(name)
+            .join(file.replace("{port}", &port))
+            .to_string_lossy()
+            .into_owned()
+    });
+    match socket {
+        Some(p) if cfg!(unix) && !tcp_only && p.len() < SOCKET_PATH_MAX => Some(Address::Unix(p)),
+        _ => free_loopback().map(|p| Address::Tcp(format!("127.0.0.1:{p}"))),
+    }
 }
 
 /// The instance as its module sees it once planned (for what it publishes), if it is a module instance.
@@ -113,5 +136,64 @@ impl Planner for NoModule {
     fn plan<'a>(&'a self, _ctx: &'a PlanCtx) -> BoxFuture<'a, Result<Planned, String>> {
         let why = self.why.clone();
         Box::pin(async move { Err(why) })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    fn manifest(socket: Option<&str>) -> doze_module_proto::msg::hello::Manifest {
+        let mut m = crate::catalog::tests::manifest(&["17"]);
+        m.backend_socket = socket.map(String::from);
+        m
+    }
+
+    #[test]
+    fn the_backend_is_a_socket_where_one_fits_else_a_loopback_port() {
+        let m = manifest(Some(".s.PGSQL.{port}"));
+        let short = Path::new("/tmp/r");
+        let got = backend("127.0.0.1:15432", "db", &m, false, short);
+        if cfg!(unix) {
+            assert_eq!(got, Some(Address::Unix("/tmp/r/db/.s.PGSQL.15432".into())));
+        } else {
+            assert!(matches!(got, Some(Address::Tcp(_))), "{got:?}");
+        }
+        let long = Path::new("/tmp").join("x".repeat(100));
+        let tcp = |a: Option<Address>| matches!(a, Some(Address::Tcp(t)) if t.starts_with("127.0.0.1:") && t != "127.0.0.1:15432");
+        assert!(
+            tcp(backend("127.0.0.1:15432", "db", &m, false, &long)),
+            "too long for a socket address"
+        );
+        assert!(
+            tcp(backend("127.0.0.1:15432", "db", &m, true, short)),
+            "an engine that cannot listen on a socket"
+        );
+        assert!(
+            tcp(backend(
+                "127.0.0.1:15432",
+                "db",
+                &manifest(None),
+                false,
+                short
+            )),
+            "no socket declared"
+        );
+    }
+
+    #[test]
+    fn a_declared_socket_is_the_backend_and_a_port_that_is_no_port_takes_the_default() {
+        let m = manifest(Some(".s.PGSQL.{port}"));
+        assert_eq!(
+            backend("unix:/tmp/pg.sock", "db", &m, false, Path::new("/tmp/r")),
+            Some(Address::Unix("/tmp/pg.sock".into()))
+        );
+        if cfg!(unix) {
+            assert_eq!(
+                backend("db.local", "db", &m, false, Path::new("/tmp/r")),
+                Some(Address::Unix("/tmp/r/db/.s.PGSQL.5432".into()))
+            );
+        }
     }
 }

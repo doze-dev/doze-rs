@@ -54,3 +54,17 @@ Go's clients ignore fields they do not know, so these leave every field Go defin
 - `InstanceView.client` (string, omitted when empty): the client program the module declares, for `doze connect`.
 
 Both are filled from the module's own answer (`Catalog::published`); apps, services and tasks carry none.
+
+## D1 catalog audit (session 8, independent): what was found and done
+
+1. Two instances recording pins at once lost pins and failed the save (shared temporary name): `record_pins` takes a process-wide lock. *Fixed; no concurrent test.*
+2. The module reaper could stop a module mid-call (idle counted from a call's start; a download in `resolve` takes minutes): a module is idle only with no call in flight, counted from the last call's end (`Running::idle_for`). *Fixed; no test yet.*
+3. Supervised modules slept and got a front: `ModuleInstance::supervised` from the manifest; no front for them. *Fixed.*
+4. The backend port is chosen at daemon start and could be taken later (still so, until D2 grants per start); when no port could be had the backend fell back to the declared address, so the front dialled itself: now the instance cannot start and says why. *Self-loop fixed; the race stays for D2.*
+5. Front errors went to `tracing`, which `doze` does not install: they go to the daemon's log. *Fixed.*
+6. Mutations that survived: pins kept for a later start (now `the_engine_pin_a_module_reports…`: the mirror is asked once over two starts), the enabled filter (a disabled module in the test gets no front), the socket branch and its fallbacks (`planners::tests`). Still untested: the endpoint taken from the grant (the echo's check names the same place), `run()`'s wiring.
+7. `listen = "unix:/x"`: the declared socket is the engine's backend; a port that is not a number takes the manifest's default. *Fixed.*
+8. A second instance of a type with another major uses the first's build (one build per type). *Open, minor.*
+9. Pins were filtered by type, not engine: every lock pin is passed and the module takes its own. *Fixed.*
+10. A second daemon starts modules before refusing. *Open, minor.*
+11. The `dozetest` key: said on stderr when in use or not a key. *Fixed.*
