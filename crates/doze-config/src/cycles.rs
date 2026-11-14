@@ -23,13 +23,10 @@ pub(crate) fn check(cfg: &Config, src: &dyn Sources, ranges: &BTreeMap<String, A
             .or_default()
             .extend(t.refs.iter().chain(&t.after).map(|r| r.name.as_str()));
     }
-    let mut w = Walk {
-        edges: &edges,
-        state: BTreeMap::new(),
-    };
+    let mut state: BTreeMap<&str, u8> = BTreeMap::new();
     let names: Vec<&str> = edges.keys().copied().collect();
     for n in names {
-        if let Some(cycle) = w.visit(n, &mut Vec::new()) {
+        if let Some(cycle) = walk(&edges, &mut state, n) {
             let at = cycle
                 .last()
                 .and_then(|n| ranges.get(*n))
@@ -41,32 +38,37 @@ pub(crate) fn check(cfg: &Config, src: &dyn Sources, ranges: &BTreeMap<String, A
     Ok(())
 }
 
-struct Walk<'e> {
-    edges: &'e BTreeMap<&'e str, Vec<&'e str>>,
-    state: BTreeMap<&'e str, u8>,
-}
-
-impl<'e> Walk<'e> {
-    /// The path to the first name seen twice, if there is one.
-    fn visit(&mut self, n: &'e str, stack: &mut Vec<&'e str>) -> Option<Vec<&'e str>> {
-        match self.state.get(n) {
-            Some(2) => return None,
-            Some(1) => {
-                let mut c = stack.clone();
-                c.push(n);
-                return Some(c);
-            }
-            _ => {}
-        }
-        self.state.insert(n, 1);
-        stack.push(n);
-        for m in self.edges.get(n).into_iter().flatten() {
-            if let Some(c) = self.visit(m, stack) {
-                return Some(c);
-            }
-        }
-        stack.pop();
-        self.state.insert(n, 2);
-        None
+/// Go's recursive `visit`, with a stack of its own: the path to the first name seen twice.
+fn walk<'e>(
+    edges: &BTreeMap<&'e str, Vec<&'e str>>,
+    state: &mut BTreeMap<&'e str, u8>,
+    root: &'e str,
+) -> Option<Vec<&'e str>> {
+    if state.get(root) == Some(&2) {
+        return None;
     }
+    state.insert(root, 1);
+    let mut path: Vec<(&'e str, usize)> = vec![(root, 0)];
+    while let Some((n, next)) = path.last_mut() {
+        let n = *n;
+        let Some(&m) = edges.get(n).and_then(|e| e.get(*next)) else {
+            path.pop();
+            state.insert(n, 2);
+            continue;
+        };
+        *next += 1;
+        match state.get(m) {
+            Some(2) => {}
+            Some(1) => {
+                let mut c: Vec<&str> = path.iter().map(|(k, _)| *k).collect();
+                c.push(m);
+                return Some(c);
+            }
+            _ => {
+                state.insert(m, 1);
+                path.push((m, 0));
+            }
+        }
+    }
+    None
 }

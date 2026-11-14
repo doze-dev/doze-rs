@@ -7,9 +7,9 @@ use crate::load::{Declared, Loader, Pending, Probes};
 use crate::model::{Condition, Config, Dependency, Kind, Spec};
 use crate::refs::referenced;
 use doze_hcl::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-impl<'a> Loader<'a> {
+impl<'a> Loader<'a, '_> {
     pub(crate) fn evaluate(
         &mut self,
         cfg: &mut Config,
@@ -21,10 +21,8 @@ impl<'a> Loader<'a> {
         }
         let order = self.topo_order(cfg, pending)?;
         self.check_disabled(cfg, pending)?;
-        self.vars
-            .insert("module".into(), Value::Object(BTreeMap::new()));
-        self.vars
-            .insert("app".into(), Value::Object(BTreeMap::new()));
+        self.set_var("module", Value::Object(BTreeMap::new()));
+        self.set_var("app", Value::Object(BTreeMap::new()));
         let stand_ins = if self.shape {
             crate::shape::referenced_module_attrs(self.files)
         } else {
@@ -42,10 +40,8 @@ impl<'a> Loader<'a> {
             let Some(inst) = cfg.instances.get(p.idx) else {
                 continue;
             };
-            let kind = inst.kind().as_str();
-            if let Some(Value::Object(m)) = self.vars.get_mut(kind) {
-                m.insert(inst.name.clone(), attrs);
-            }
+            let (kind, name) = (inst.kind().as_str(), inst.name.clone());
+            self.publish(kind, &name, attrs);
         }
         Ok(())
     }
@@ -105,106 +101,103 @@ impl<'a> Loader<'a> {
         Ok(())
     }
 
-    /// Go's `topoOrder`: a depth-first order of the pending blocks (indexes into `pending`).
+    /// Go's `topoOrder`: a depth-first order of the pending blocks (indexes into `pending`), walked
+    /// with a stack of its own so that a long chain cannot overflow.
     fn topo_order(&self, cfg: &Config, pending: &[Pending<'a>]) -> Result<Vec<usize>> {
-        let by_name: BTreeMap<&str, usize> = pending
-            .iter()
-            .enumerate()
-            .filter_map(|(i, p)| cfg.instances.get(p.idx).map(|inst| (inst.name.as_str(), i)))
-            .collect();
+        let name_of = |i: usize| {
+            pending
+                .get(i)
+                .and_then(|p| cfg.instances.get(p.idx))
+                .map(|inst| inst.name.as_str())
+                .unwrap_or("")
+        };
+        let by_name: BTreeMap<&str, usize> = (0..pending.len()).map(|i| (name_of(i), i)).collect();
+        let deps_of = |i: usize| -> Vec<usize> {
+            pending
+                .get(i)
+                .and_then(|p| cfg.instances.get(p.idx))
+                .map(|inst| {
+                    inst.deps
+                        .iter()
+                        .filter_map(|d| by_name.get(d.name.as_str()).copied())
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        // 0 unvisited, 1 on the path, 2 done.
         let mut state = vec![0u8; pending.len()];
         let mut order = Vec::new();
-        for i in 0..pending.len() {
-            self.visit(
-                cfg,
-                pending,
-                &by_name,
-                i,
-                &mut Vec::new(),
-                &mut state,
-                &mut order,
-            )?;
+        for root in 0..pending.len() {
+            if state.get(root) == Some(&2) {
+                continue;
+            }
+            let mut path: Vec<(usize, Vec<usize>, usize)> = vec![(root, deps_of(root), 0)];
+            if let Some(s) = state.get_mut(root) {
+                *s = 1;
+            }
+            while let Some((i, deps, next)) = path.last_mut() {
+                let i = *i;
+                let Some(&j) = deps.get(*next) else {
+                    path.pop();
+                    if let Some(s) = state.get_mut(i) {
+                        *s = 2;
+                    }
+                    order.push(i);
+                    continue;
+                };
+                *next += 1;
+                match state.get(j) {
+                    Some(2) => {}
+                    Some(1) => {
+                        let mut cycle: Vec<&str> = path.iter().map(|(k, ..)| name_of(*k)).collect();
+                        cycle.push(name_of(j));
+                        let at = pending.get(j).map(|p| p.def.clone()).unwrap_or_default();
+                        return Err(pos_err(
+                            self.files,
+                            &at,
+                            "dependency cycle between instances",
+                            cycle.join(" → "),
+                        ));
+                    }
+                    _ => {
+                        if let Some(s) = state.get_mut(j) {
+                            *s = 1;
+                        }
+                        path.push((j, deps_of(j), 0));
+                    }
+                }
+            }
         }
         Ok(order)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn visit(
-        &self,
-        cfg: &Config,
-        pending: &[Pending<'a>],
-        by_name: &BTreeMap<&str, usize>,
-        i: usize,
-        stack: &mut Vec<String>,
-        state: &mut [u8],
-        order: &mut Vec<usize>,
-    ) -> Result<()> {
-        let (Some(p), Some(s)) = (pending.get(i), state.get(i).copied()) else {
-            return Ok(());
-        };
-        let Some(inst) = cfg.instances.get(p.idx) else {
-            return Ok(());
-        };
-        match s {
-            2 => return Ok(()),
-            1 => {
-                let mut cycle = stack.clone();
-                cycle.push(inst.name.clone());
-                return Err(pos_err(
-                    self.files,
-                    &p.def,
-                    "dependency cycle between instances",
-                    cycle.join(" → "),
-                ));
-            }
-            _ => {}
-        }
-        if let Some(s) = state.get_mut(i) {
-            *s = 1;
-        }
-        for d in &inst.deps {
-            if let Some(&j) = by_name.get(d.name.as_str()) {
-                stack.push(inst.name.clone());
-                let r = self.visit(cfg, pending, by_name, j, stack, state, order);
-                stack.pop();
-                r?;
-            }
-        }
-        if let Some(s) = state.get_mut(i) {
-            *s = 2;
-        }
-        order.push(i);
-        Ok(())
-    }
-
     fn check_disabled(&self, cfg: &Config, pending: &[Pending<'a>]) -> Result<()> {
+        let off: BTreeSet<&str> = pending
+            .iter()
+            .filter_map(|q| cfg.instances.get(q.idx))
+            .filter(|o| !o.enabled)
+            .map(|o| o.name.as_str())
+            .collect();
         for p in pending {
             let Some(inst) = cfg.instances.get(p.idx).filter(|i| i.enabled) else {
                 continue;
             };
-            for d in &inst.deps {
-                let off = pending.iter().any(|q| {
-                    cfg.instances
-                        .get(q.idx)
-                        .is_some_and(|o| o.name == d.name && !o.enabled)
-                });
-                if off {
-                    let q = doze_hcl::value::quote::go_quote;
-                    return Err(pos_err(
-                        self.files,
-                        &p.def,
-                        format!(
-                            "{} depends on {}, which is disabled",
-                            inst.title(),
-                            q(&d.name)
-                        ),
-                        format!(
-                            "enable {}, or disable {} as well",
-                            q(&d.name),
-                            q(&inst.name)
-                        ),
-                    ));
-                }
+            if let Some(d) = inst.deps.iter().find(|d| off.contains(d.name.as_str())) {
+                let q = doze_hcl::value::quote::go_quote;
+                return Err(pos_err(
+                    self.files,
+                    &p.def,
+                    format!(
+                        "{} depends on {}, which is disabled",
+                        inst.title(),
+                        q(&d.name)
+                    ),
+                    format!(
+                        "enable {}, or disable {} as well",
+                        q(&d.name),
+                        q(&inst.name)
+                    ),
+                ));
             }
         }
         Ok(())

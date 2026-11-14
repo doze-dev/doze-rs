@@ -67,23 +67,28 @@ pub(crate) fn decode_int(attr: &Attr<'_>, ctx: &Context<'_>) -> Result<i64, Diag
     match v.as_number().and_then(doze_hcl::Number::to_i64) {
         Some(n) => Ok(n),
         None => {
-            let ev = Evaluator::new(attr.src);
-            ds.push(
-                Diagnostic::error(
-                    "Unsuitable value type",
-                    format!(
-                        "Unsuitable value: value must be a whole number, between {} and {}",
-                        i64::MIN,
-                        i64::MAX
-                    ),
-                    ev.start_range(attr.expr),
-                )
-                .with_context(attr.range_of_expr())
-                .in_file(attr.file),
-            );
+            ds.push(unsuitable(
+                attr,
+                &format!(
+                    "value must be a whole number, between {} and {}",
+                    i64::MIN,
+                    i64::MAX
+                ),
+            ));
             Err(ds)
         }
     }
+}
+
+/// gocty's refusal of a value, as gohcl reports it: at the expression's start, in its context.
+pub(crate) fn unsuitable(attr: &Attr<'_>, why: &str) -> Diagnostic {
+    Diagnostic::error(
+        "Unsuitable value type",
+        format!("Unsuitable value: {why}"),
+        Evaluator::new(attr.src).start_range(attr.expr),
+    )
+    .with_context(attr.range_of_expr())
+    .in_file(attr.file)
 }
 
 /// The range of an attribute's expression.

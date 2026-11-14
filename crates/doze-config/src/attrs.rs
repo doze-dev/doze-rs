@@ -20,6 +20,20 @@ pub fn split_host_port(addr: &str) -> Option<(String, String)> {
     Some((host.to_owned(), port.to_owned()))
 }
 
+/// Go's `strconv.Atoi` as `attributesFor` uses it: a number out of range is clamped, anything
+/// else is 0.
+fn atoi(s: &str) -> i64 {
+    let digits = s.strip_prefix(['+', '-']).unwrap_or(s);
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return 0;
+    }
+    s.parse().unwrap_or(if s.starts_with('-') {
+        i64::MIN
+    } else {
+        i64::MAX
+    })
+}
+
 /// Go's `net.JoinHostPort`.
 pub fn join_host_port(host: &str, port: &str) -> String {
     if host.contains(':') {
@@ -66,7 +80,7 @@ fn where_attrs(m: &mut BTreeMap<String, Value>, ep: &Endpoint) {
         }
         Endpoint::Tcp(a) => {
             if let Some((host, port)) = split_host_port(a) {
-                m.insert("port".into(), Value::int(port.parse().unwrap_or(0)));
+                m.insert("port".into(), Value::int(atoi(&port)));
                 m.insert("host".into(), s(&host));
                 m.insert("socket".into(), s(""));
             }

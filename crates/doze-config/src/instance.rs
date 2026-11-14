@@ -37,7 +37,7 @@ struct Core {
     no_routes: bool,
 }
 
-impl<'a> Loader<'a> {
+impl<'a> Loader<'a, '_> {
     /// Go's `expandInstanceBlock`: one pending instance per stamp.
     pub(crate) fn expand_instance(
         &mut self,
@@ -220,7 +220,13 @@ impl<'a> Loader<'a> {
             return Ok(());
         };
         let lit = n.value();
-        if lit.is_u64() || lit.is_i64() {
+        let written = a
+            .expr
+            .span()
+            .and_then(|sp| a.src.text().get(sp))
+            .unwrap_or("");
+        // `-10.10` is a negation in Go's parser, not a literal, and is not checked.
+        if lit.is_u64() || lit.is_i64() || written.trim_start().starts_with('-') {
             return Ok(());
         }
         let text = a

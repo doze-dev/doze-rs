@@ -16,6 +16,16 @@
 //!    a mistake in its own body are the module's. The Rust modules declare a schema instead.
 //! 6. Go cannot override a module block in the oracle (its generic driver rejects the override's
 //!    body); doze-config lays the override over a module like any other block.
+//! 7. A `log_size` too large for 64 bits is refused as "not a size"; Go wraps it to a negative
+//!    byte count (the oracle's `multi/log-size` is listed as known in `oracle.rs`).
+//! 8. The shape pass gives a module's default port only if the module is in the cache
+//!    (`Modules::cached`); Go took it from a table compiled into doze, cached or not. The table
+//!    and its `temporal` exception are now each module's to declare.
+//! 9. A sibling named on the command line as `./x.doze.hcl` is read once (Go read it twice and
+//!    refused its own blocks as taken), and a folder whose name holds glob characters (`g[x]`)
+//!    loads its files (Go's `Glob` read the name as a pattern).
+//! 10. Deep chains (locals, `after`, references) are walked without recursion: Go's 20,000-local
+//!     chain loads here too, in well under a second, where a recursive walk overflows the stack.
 
 #![allow(
     clippy::unwrap_used,
@@ -294,6 +304,52 @@ fn route_names_are_not_checked_yet() {
     let src = "defaults {\n  names = true\n}\napp \"orders_pg\" {\n  run = \"x\"\n}\napp \"orders-pg\" {\n  run = \"y\"\n}\n";
     let e = load_one("routes", src, &Fixtures).unwrap_err();
     assert!(e.text.starts_with("domain conflict:"), "{}", e.text);
+}
+
+#[test]
+fn the_shape_pass_takes_a_default_port_from_the_cache_only() {
+    /// A catalog with postgres known but nothing cached.
+    struct NotCached;
+    impl Modules for NotCached {
+        fn lookup(&self, ty: &str, v: &str) -> Option<ModuleInfo> {
+            Fixtures.lookup(ty, v)
+        }
+        fn cached(&self, _ty: &str) -> Option<ModuleInfo> {
+            None
+        }
+        fn names(&self) -> Vec<String> {
+            Fixtures.names()
+        }
+    }
+    let src = "module postgres \"db\" {\n  version = 16\n}\n";
+    let s = Stack::new("shape-port", &[("doze.hcl", src)]);
+    let host = s.host(None);
+    let shape = doze_config::load_shape("doze.hcl", &opts(&host, &NotCached)).unwrap();
+    assert_eq!(shape.instance("db").unwrap().port, 0);
+    let cached = doze_config::load_shape("doze.hcl", &opts(&host, &Fixtures)).unwrap();
+    assert_eq!(cached.instance("db").unwrap().port, 5432);
+}
+
+#[test]
+fn deep_chains_load() {
+    let n = 20_000;
+    let mut src: String = (0..n)
+        .map(|i| format!("  l{i} = local.l{}\n", i + 1))
+        .collect();
+    src = format!("locals {{\n{src}  l{n} = \"end\"\n}}\nstack = local.l0\n");
+    let c = load_one("deep-locals", &src, &Fixtures).unwrap();
+    assert_eq!(c.stack_name, "end");
+    let tasks: String = (0..5_000)
+        .map(|i| {
+            format!(
+                "task \"t{i}\" {{\n  run = \"x\"\n  manual = true\n  after = [task.t{}]\n}}\n",
+                i + 1
+            )
+        })
+        .collect();
+    let src = format!("{tasks}task \"t5000\" {{\n  run = \"x\"\n  manual = true\n}}\n");
+    let c = load_one("deep-tasks", &src, &Fixtures).unwrap();
+    assert_eq!(c.tasks.len(), 5_001);
 }
 
 #[test]

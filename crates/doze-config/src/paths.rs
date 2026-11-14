@@ -67,7 +67,7 @@ pub fn project_slug(host: &dyn Host, config_path: &str) -> String {
 fn sanitize_slug(s: &str) -> String {
     let mut b = String::new();
     let mut prev_dash = false;
-    for r in s.to_lowercase().chars() {
+    for r in go_lower(s).chars() {
         if r.is_ascii_lowercase() || r.is_ascii_digit() {
             b.push(r);
             prev_dash = false;
@@ -93,14 +93,14 @@ pub fn resolve_home(cfg: &mut Config, host: &dyn Host) -> Result<(), String> {
         let home = host.home_dir().ok_or_else(|| {
             "resolving home dir for default doze home: $HOME is not defined".to_owned()
         })?;
-        cfg.home = path_string(&home.join(".doze"));
+        cfg.home = path_string(&clean(&home.join(".doze")));
     }
     if cfg.data_dir.is_empty() {
-        cfg.data_dir = path_string(
+        cfg.data_dir = path_string(&clean(
             &Path::new(&cfg.home)
                 .join("projects")
                 .join(project_slug(host, &cfg.path)),
-        );
+        ));
     }
     Ok(())
 }
@@ -108,7 +108,9 @@ pub fn resolve_home(cfg: &mut Config, host: &dyn Host) -> Result<(), String> {
 impl Config {
     /// Where a block keeps its data: `<data_dir>/clusters/<name>`.
     pub fn cluster_dir(&self, name: &str) -> String {
-        path_string(&Path::new(&self.data_dir).join("clusters").join(name))
+        path_string(&clean(
+            &Path::new(&self.data_dir).join("clusters").join(name),
+        ))
     }
 
     /// The stack's name as a DNS label: `stack`, else the config folder's name.
@@ -131,10 +133,28 @@ impl Config {
     }
 }
 
+/// Go's `unicode.ToLower`: the simple case mapping, one character for one (`İ` is `i`; Rust's
+/// full mapping adds a combining dot).
+pub fn go_lower_char(c: char) -> char {
+    let mut l = c.to_lowercase();
+    match (l.next(), l.next()) {
+        (Some(one), None) => one,
+        (Some(first), Some(_)) if first.is_ascii() => first,
+        _ => c,
+    }
+}
+
+/// Go's `strings.ToLower`.
+pub fn go_lower(s: &str) -> String {
+    s.chars().map(go_lower_char).collect()
+}
+
 /// A name as a DNS label: lower case, anything but letters and digits a dash, no dash at the ends.
 pub fn domain_label(name: &str) -> String {
     let s: String = name
-        .to_lowercase()
+        .chars()
+        .map(go_lower_char)
+        .collect::<String>()
         .chars()
         .map(|r| {
             if r.is_ascii_lowercase() || r.is_ascii_digit() {

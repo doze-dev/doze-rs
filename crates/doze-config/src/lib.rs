@@ -34,6 +34,7 @@ pub mod model;
 mod module_body;
 pub mod modules;
 mod order;
+mod override_expr;
 mod overrides;
 pub mod paths;
 mod refs;

@@ -190,11 +190,11 @@ fn field<'a>(attr: &Attr<'a>, ctx: &Context<'_>, ty: Ty) -> Result<Got<'a>, Diag
         Ty::Int => Got::Int(decode_int(attr, ctx)?),
         Ty::StrList => {
             let v = checked(decode(attr, ctx, &Type::list(Type::String), true))?;
-            Got::List(strings(&v))
+            Got::List(strings(&no_null_elements(attr, v)?))
         }
         Ty::StrMap => {
             let v = checked(decode(attr, ctx, &Type::Map(Box::new(Type::String)), true))?;
-            match v {
+            match no_null_elements(attr, v)? {
                 Value::Map(_, m) => Got::Map(
                     m.into_iter()
                         .map(|(k, v)| (k, v.as_str().unwrap_or_default().to_owned()))
@@ -206,6 +206,19 @@ fn field<'a>(attr: &Attr<'a>, ctx: &Context<'_>, ty: Ty) -> Result<Got<'a>, Diag
         Ty::Any => Got::Any(checked(eval(attr, ctx))?),
         Ty::Expr => Got::Expr(attr.clone()),
     })
+}
+
+/// A `[]string` or `map[string]string` element may not be null (gocty refuses it).
+fn no_null_elements(attr: &Attr<'_>, v: Value) -> Result<Value, Diagnostics> {
+    let null = match &v {
+        Value::List(_, es) | Value::Set(_, es) | Value::Tuple(es) => es.iter().any(Value::is_null),
+        Value::Map(_, m) | Value::Object(m) => m.values().any(Value::is_null),
+        _ => false,
+    };
+    if null {
+        return Err(crate::eval::unsuitable(attr, "null value is not allowed").into());
+    }
+    Ok(v)
 }
 
 fn checked((v, ds): (Value, Diagnostics)) -> Result<Value, Diagnostics> {

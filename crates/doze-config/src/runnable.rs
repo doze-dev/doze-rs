@@ -57,7 +57,7 @@ static TASK: Spec = Spec {
 /// A body without `after`, what `after` names, what the body references, and `after`'s waits.
 type Split<'a> = (Body<'a>, Vec<Ref>, Vec<Ref>, BTreeMap<String, Condition>);
 
-impl<'a> Loader<'a> {
+impl<'a> Loader<'a, '_> {
     /// Go's `declareRunnable`: a service's or task's name (and a service's port), per stamp.
     pub(crate) fn declare_runnable(&mut self, cfg: &mut Config, block: &Block<'a>) -> Result<()> {
         let files = self.files;
@@ -180,8 +180,8 @@ impl<'a> Loader<'a> {
                 )
             })
             .collect();
-        self.vars.insert("service".into(), Value::Object(services));
-        self.vars.insert("task".into(), Value::Object(tasks));
+        self.set_var("service", Value::Object(services));
+        self.set_var("task", Value::Object(tasks));
     }
 
     pub(crate) fn decode_runnables(&mut self, cfg: &mut Config, known: &Declared) -> Result<()> {

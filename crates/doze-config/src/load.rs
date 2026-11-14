@@ -94,18 +94,19 @@ impl Declared {
     }
 }
 
-pub(crate) struct Loader<'a> {
+pub(crate) struct Loader<'a, 'f> {
     pub files: &'a Files,
     pub opts: &'a Options<'a>,
     pub shape: bool,
-    pub funcs: Functions,
-    pub probes: Functions,
-    pub vars: BTreeMap<String, Value>,
+    pub funcs: &'f Functions,
+    pub probes: &'f Functions,
+    /// The stack's context, kept and grown in place as blocks publish (never cloned per use).
+    pub base: Context<'f>,
     pub decl_ranges: BTreeMap<String, At>,
     pub runnables: Vec<Runnable<'a>>,
 }
 
-impl std::fmt::Debug for Loader<'_> {
+impl std::fmt::Debug for Loader<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Loader")
             .field("shape", &self.shape)
@@ -113,7 +114,7 @@ impl std::fmt::Debug for Loader<'_> {
     }
 }
 
-impl<'a> Loader<'a> {
+impl<'a> Loader<'a, '_> {
     /// Runs `f` in the stack's context, inside a `count`/`for_each` stamp if any, with the probe
     /// functions if `probes`.
     pub(crate) fn in_ctx<R>(
@@ -122,18 +123,18 @@ impl<'a> Loader<'a> {
         probes: Probes,
         f: impl FnOnce(&Context<'_>) -> R,
     ) -> R {
-        let base = Context::new(self.vars.clone(), Some(&self.funcs));
+        let base = &self.base;
         match (probes, stamp) {
-            (Probes::No, None) => f(&base),
+            (Probes::No, None) => f(base),
             (Probes::No, Some(s)) => f(&base.child(s.clone())),
             (Probes::Outer, s) => {
-                let p = self.probe_scope(&base);
+                let p = self.probe_scope(base);
                 match s {
                     Some(s) => f(&p.child(s.clone())),
                     None => f(&p),
                 }
             }
-            (Probes::Inner, None) => f(&self.probe_scope(&base)),
+            (Probes::Inner, None) => f(&self.probe_scope(base)),
             (Probes::Inner, Some(s)) => {
                 let st = base.child(s.clone());
                 f(&self.probe_scope(&st))
@@ -144,8 +145,28 @@ impl<'a> Loader<'a> {
     /// A scope inside `c` whose own functions are the probes.
     fn probe_scope<'c>(&'c self, c: &'c Context<'c>) -> Context<'c> {
         let mut p = c.child(BTreeMap::new());
-        p.functions = Some(&self.probes);
+        p.functions = Some(self.probes);
         p
+    }
+
+    /// Publishes a root variable (`var`, `local`, `module`, …) to everything evaluated after.
+    pub(crate) fn set_var(&mut self, name: &str, v: Value) {
+        self.base
+            .variables
+            .get_or_insert_with(BTreeMap::new)
+            .insert(name.to_owned(), v);
+    }
+
+    /// One entry of a published object (`module.<name>`).
+    pub(crate) fn publish(&mut self, root: &str, name: &str, v: Value) {
+        if let Some(Value::Object(m)) = self
+            .base
+            .variables
+            .as_mut()
+            .and_then(|vars| vars.get_mut(root))
+        {
+            m.insert(name.to_owned(), v);
+        }
     }
 
     pub(crate) fn base_dir(&self, def: &At) -> String {
@@ -259,13 +280,14 @@ fn build<'a>(
         ..Config::default()
     };
     cfg.defaults.idle_timeout = DEFAULT_IDLE;
+    let (funcs, probes) = (functions(opts.host), crate::runspec::functions());
     let mut l = Loader {
         files,
         opts,
         shape,
-        funcs: functions(opts.host),
-        probes: crate::runspec::functions(),
-        vars: BTreeMap::new(),
+        funcs: &funcs,
+        probes: &probes,
+        base: Context::new(BTreeMap::new(), Some(&funcs)),
         decl_ranges: BTreeMap::new(),
         runnables: Vec::new(),
     };
@@ -315,7 +337,7 @@ fn classify<'a>(files: &Files, blocks: Vec<Block<'a>>) -> Result<Classified<'a>>
     Ok(c)
 }
 
-impl<'a> Loader<'a> {
+impl<'a> Loader<'a, '_> {
     fn build(
         &mut self,
         cfg: &mut Config,
@@ -332,10 +354,12 @@ impl<'a> Loader<'a> {
         let vs = self.in_ctx(None, Probes::No, |ctx| {
             vars::resolve_variables(files, &c.variables, &inputs, ctx)
         })?;
-        self.vars.insert("var".into(), Value::Object(vs));
-        let locals = vars::evaluate_locals(files, &c.locals, &self.vars, &self.funcs)?;
-        if !c.locals.is_empty() {
-            self.vars.insert("local".into(), Value::Object(locals));
+        self.set_var("var", Value::Object(vs));
+        let globals = self.base.variables.clone().unwrap_or_default();
+        let locals = vars::evaluate_locals(files, &c.locals, &globals, self.funcs)?;
+        // Go sets `local` only when some locals block assigns something.
+        if !locals.is_empty() {
+            self.set_var("local", Value::Object(locals));
         }
         self.root_attributes(cfg, &content.attributes)?;
         paths::resolve_home(cfg, self.opts.host).map_err(Error::msg)?;

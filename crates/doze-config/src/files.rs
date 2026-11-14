@@ -4,7 +4,7 @@
 use crate::error::{Error, Result, Sources, diag_error};
 use crate::host::Host;
 use crate::version;
-use doze_hcl::diag::Diagnostics;
+use doze_hcl::diag::{Diagnostic, Diagnostics, Severity};
 use doze_hcl::syntax::{Source, parse_body};
 use hcl_edit::structure::Body;
 use std::path::{Path, PathBuf};
@@ -144,18 +144,51 @@ pub fn io_text(e: &std::io::Error) -> String {
     match e.kind() {
         std::io::ErrorKind::NotFound => "no such file or directory".into(),
         std::io::ErrorKind::PermissionDenied => "permission denied".into(),
+        std::io::ErrorKind::IsADirectory => "is a directory".into(),
         _ => e.to_string(),
     }
 }
 
-/// Reads and parses every file.
+/// Reads and parses every file. A file that cannot be read, or is not UTF-8, is refused with
+/// hcl's diagnostics, as Go's parser refuses it.
 pub fn read_all(host: &dyn Host, names: &[String], current: &str) -> Result<Files> {
     let mut files = Files::default();
     for name in names {
         let abs: PathBuf = host.abs(Path::new(name));
-        let bytes = std::fs::read(&abs)
-            .map_err(|e| Error::failed(format!("open {name}: {}", io_text(&e))))?;
-        files.push(name, &String::from_utf8_lossy(&bytes), current)?;
+        let Ok(bytes) = std::fs::read(&abs) else {
+            let d = Diagnostic {
+                severity: Severity::Error,
+                summary: "Failed to read file".into(),
+                detail: format!(
+                    "The configuration file {} could not be read.",
+                    doze_hcl::value::quote::go_quote(name)
+                ),
+                subject: None,
+                context: None,
+                file: None,
+            };
+            return Err(diag_error(&files, d.into()));
+        };
+        match String::from_utf8(bytes) {
+            Ok(text) => files.push(name, &text, current)?,
+            Err(e) => {
+                let ds = doze_hcl::check::check(e.as_bytes(), name);
+                let ds = Diagnostics(ds.0.into_iter().map(|d| d.in_file(name)).collect());
+                files.files.push(File {
+                    name: name.clone(),
+                    src: Source::new(&String::from_utf8_lossy(e.as_bytes())),
+                    body: Body::default(),
+                });
+                return Err(newer_syntax(&files, ds, current));
+            }
+        }
     }
     Ok(files)
+}
+
+/// Go's `os.ReadFile` of an auto-vars file: its error is the load's, as text.
+pub fn read_auto(host: &dyn Host, name: &str) -> Result<Files> {
+    std::fs::read(host.abs(Path::new(name)))
+        .map_err(|e| Error::msg(format!("read {name}: {}", io_text(&e))))?;
+    read_all(host, &[name.to_owned()], "")
 }

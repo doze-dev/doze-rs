@@ -22,7 +22,14 @@ use std::path::{Path, PathBuf};
 use support::{Fixtures, OracleHost, config_json, normalize};
 
 /// Sources where we differ from Go on purpose, by mode and file, and why. Each must differ.
-const KNOWN: &[(&str, &str, &str)] = &[];
+const KNOWN: &[(&str, &str, &str)] = &[
+    (
+        "multi",
+        "log-size",
+        "a log_size past 2^63 bytes is refused; Go wraps it negative (differences.rs 7)",
+    ),
+    ("multi-shape", "log-size", "the same, in the shape pass"),
+];
 
 fn oracle_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/oracle")
