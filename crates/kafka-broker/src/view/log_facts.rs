@@ -150,7 +150,7 @@ impl<F: Fs> ConsoleView<'_, F> {
             let walk = crate::blocking::run(|| reader.survey(Budget::default()));
             facts.start = walk.start;
             facts.end = walk.end;
-            facts.last_stable = p.stability().last_stable.get();
+            facts.last_stable = p.last_stable().get();
             facts.partial = walk.partial;
             facts.tombstones = walk.tombstones.clone();
             facts.durability.offline = reader.offline_cause();
