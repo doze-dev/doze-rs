@@ -608,6 +608,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-model-scheduler"
+version = "0.0.0"
+dependencies = [
+ "aws-schema",
+]
+
+[[package]]
 name = "aws-model-secrets-manager"
 version = "0.0.0"
 dependencies = [
@@ -718,6 +725,28 @@ dependencies = [
  "sha1",
  "sha2",
  "tokio",
+]
+
+[[package]]
+name = "aws-scheduler"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-cron",
+ "aws-iam",
+ "aws-model-scheduler",
+ "aws-peers",
+ "aws-schema",
+ "aws-sqs",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-runtime",
+ "doze-store",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1457,6 +1486,7 @@ dependencies = [
  "aws-logs",
  "aws-peers",
  "aws-s3",
+ "aws-scheduler",
  "aws-schema",
  "aws-secrets",
  "aws-sfn",

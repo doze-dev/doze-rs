@@ -1,6 +1,6 @@
 # The AWS service models
 
-Smithy JSON AST (`"smithy": "2.0"`) models of 19 AWS services, the input of `cargo xtask codegen`. They are AWS's published
+Smithy JSON AST (`"smithy": "2.0"`) models of 20 AWS services, the input of `cargo xtask codegen`. They are AWS's published
 API models (the `aws/api-models-aws` repository, Apache-2.0, the same models the AWS SDKs are generated from), kept verbatim:
 nothing here is edited. Constraints the models lack (the SQS model has none at all) live in `codegen/overlays/`, each with the
 evidence it comes from.
@@ -12,6 +12,10 @@ If they are refreshed, re-run `cargo xtask codegen`, read the diff of the genera
 `dynamodb-streams.json` is the exception: it was not in the Go audit's set and was fetched on 2026-11-13 from
 `models/dynamodb-streams/service/2012-08-10/dynamodb-streams-2012-08-10.json` at upstream commit
 `f231310cc68b985a403274fb88f0f3856fe3b52f` (the `main` branch that day).
+
+`scheduler.json` (EventBridge Scheduler) was fetched on 2026-11-14 from `models/scheduler/service/2021-06-30/scheduler-2021-06-30.json` at
+upstream commit `46135f8468cd5cb60d983b97290c9f6661e359c6` (the `main` branch that day). It is an older-style model (prelude member
+targets such as `smithy.api#String`, and the Smithy 1.0 `@enum` trait), which `codegen/src/legacy.rs` reads; nothing in it is edited.
 
 `s3.reference.json` of the Go audit (a derived reference, not a model) is not carried over.
 
@@ -30,6 +34,7 @@ If they are refreshed, re-run `cargo xtask codegen`, read the diff of the genera
 | kms.json | 82e414ec6095a69dabe0e7de071a5b9704c413d3277ed1b293d3cbcd8dd6ce5f |
 | lambda.json | 8d1ae738f4deb32415e1871dc1ed678b8ee12a087438f309feaf0b813cba04e1 |
 | s3.json | 57431518807d8565e103b9bcc8f2610950e725645e28374e746bdf8e300cc37a |
+| scheduler.json | 275f9e955563b99984d052e384b27b65b48a2f3a3a1d3a1c9b82c95e6f5d9dd1 |
 | secrets-manager.json | b1bce4d92db3876e6811dd5900a26e4b6b9af15833425dc7a07a5e23886fa886 |
 | sfn.json | 2ef5bf10bf1b248a34d313f6bd6334e9f03e6eebf5c35784ab714ba01cca508a |
 | sns.json | 18f6b7a336227cb46df17f20108498357dbe79f255cf3bad759d0d58f6d0bcbf |

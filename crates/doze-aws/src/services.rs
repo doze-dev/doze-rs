@@ -42,6 +42,11 @@ pub(crate) const ALL: &[Svc] = &[
     ),
     svc("stepfunctions", "Step Functions", &["states", "sfn"]),
     svc("eventbridge", "EventBridge", &["events"]),
+    svc(
+        "scheduler",
+        "EventBridge Scheduler",
+        &["eventbridgescheduler"],
+    ),
     svc("kinesis", "Kinesis", &[]),
     svc("logs", "CloudWatch Logs", &["cloudwatchlogs"]),
     svc("cloudwatch", "CloudWatch", &["monitoring", "metrics"]),

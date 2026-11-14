@@ -111,7 +111,7 @@ fn from_nothing_to_a_stack() {
     let text = block.join("\n");
     assert!(text.contains("doze-aws is up"), "{text}");
     assert!(
-        text.contains("17 services in us-east-1, account 000000000000"),
+        text.contains("18 services in us-east-1, account 000000000000"),
         "{text}"
     );
     assert!(text.contains("doze-aws doctor"), "{text}");

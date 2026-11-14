@@ -120,7 +120,7 @@ mod tests {
         assert!(text.contains("endpoint   http://127.0.0.1:4566"), "{text}");
         assert!(
             text.contains(
-                "s3 and sqs in us-east-1, account 000000000000 (15 more with --services all)"
+                "s3 and sqs in us-east-1, account 000000000000 (16 more with --services all)"
             ),
             "{text}"
         );

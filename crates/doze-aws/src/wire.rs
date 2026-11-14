@@ -18,6 +18,7 @@ use crate::services::{Off, Svc};
 pub(crate) struct Resumable {
     cloudwatch: Option<Arc<aws_cloudwatch::Cloudwatch>>,
     eventbridge: Option<Arc<aws_eventbridge::Eventbridge>>,
+    scheduler: Option<Arc<aws_scheduler::Scheduler>>,
     dynamodb: Option<Arc<aws_dynamodb::Dynamodb>>,
     lambda: Option<Arc<aws_lambda::Lambda>>,
     states: Option<Arc<aws_sfn::Sfn>>,
@@ -30,6 +31,9 @@ impl Resumable {
             s.resume().await;
         }
         if let Some(s) = &self.eventbridge {
+            s.resume().await;
+        }
+        if let Some(s) = &self.scheduler {
             s.resume().await;
         }
         if let Some(s) = &self.dynamodb {
@@ -97,6 +101,7 @@ pub(crate) fn gateway(
     gw.credential_source = Some(iam.clone());
     let (cloudwatch, logs) = observability(&ctx, cfg);
     let eventbridge = Arc::new(aws_eventbridge::Eventbridge::new(ctx("eventbridge")));
+    let scheduler = Arc::new(aws_scheduler::Scheduler::new(ctx("scheduler")));
     let states = Arc::new(aws_sfn::Sfn::with_config(ctx("states"), states_config()));
     let (sqs, dynamodb, kinesis, lambda) = compute(&ctx, cfg);
     let cloudformation = aws_cloudformation::Cloudformation::with_config(
@@ -120,6 +125,7 @@ pub(crate) fn gateway(
         ("logs", logs),
         ("cloudwatch", cloudwatch.clone()),
         ("eventbridge", eventbridge.clone()),
+        ("scheduler", scheduler.clone()),
         ("lambda", lambda.clone()),
         ("stepfunctions", states.clone()),
         ("cloudformation", Arc::new(cloudformation)),
@@ -135,6 +141,7 @@ pub(crate) fn gateway(
     let resumable = Resumable {
         cloudwatch: on.keep("cloudwatch", &cloudwatch),
         eventbridge: on.keep("eventbridge", &eventbridge),
+        scheduler: on.keep("scheduler", &scheduler),
         dynamodb: on.keep("dynamodb", &dynamodb),
         lambda: on.keep("lambda", &lambda),
         states: on.keep("stepfunctions", &states),
