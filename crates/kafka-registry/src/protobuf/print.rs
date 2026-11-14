@@ -66,8 +66,10 @@ impl Printer<'_> {
         }
         let of = |pick: fn(&Decl) -> bool| f.decls.iter().filter(move |d| pick(d));
         for d in of(|d| matches!(d, Decl::Package(..))) {
-            if let Decl::Package(_, span) = d {
-                let s = format!("package {};", self.raw(*span));
+            // The parsed name, not the source span: a comment between its parts would be printed into the stored text and
+            // comment out the `;` when it is read again (found by the protobuf_schema fuzz target).
+            if let Decl::Package(name) = d {
+                let s = format!("package {name};");
                 self.line(0, &s);
             }
         }
