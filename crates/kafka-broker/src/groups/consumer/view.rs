@@ -55,3 +55,30 @@ impl ConsumerGroup {
         }
     }
 }
+
+#[cfg(feature = "inspect")]
+impl ConsumerGroup {
+    /// What the console is told of the group besides what ConsumerGroupDescribe says.
+    pub(crate) fn inspect(&self, now: crate::groups::machine::Millis) -> crate::groups::Inspect {
+        use crate::groups::inspect::MemberInspect;
+        crate::groups::Inspect {
+            generation: self.epoch,
+            leader: None,
+            rebalance: None,
+            members: self
+                .members
+                .values()
+                .map(|m| MemberInspect {
+                    id: m.id.clone(),
+                    session_ms: m
+                        .classic
+                        .as_ref()
+                        .map_or(self.cfg.session_ms, |c| c.session_ms),
+                    rebalance_ms: u64::try_from(m.rebalance_ms).ok().filter(|ms| *ms > 0),
+                    heard_ago_ms: now.0.saturating_sub(m.heard.0),
+                    rejoined: true,
+                })
+                .collect(),
+        }
+    }
+}

@@ -45,8 +45,19 @@ impl World {
 
     /// Runs one operation: the request as JSON in, the answer as JSON (or the error) out.
     pub(crate) fn run(&mut self, op: &str, request: &Value) -> Result<Value, aws_wire::ApiError> {
+        self.run_as(None, op, request)
+    }
+
+    /// Runs one operation as another service acting for the caller (Lambda writing a function's log).
+    pub(crate) fn run_as(
+        &mut self,
+        service: Option<&str>,
+        op: &str,
+        request: &Value,
+    ) -> Result<Value, aws_wire::ApiError> {
         let ix = self.h.op(op);
-        let call = self.h.call(ix, request)?;
+        let mut call = self.h.call(ix, request)?;
+        call.caller.service = service.map(str::to_owned);
         let out = self.core.dispatch(&call);
         if let Some(saved) = self.core.flush().unwrap() {
             saved.wait().unwrap();

@@ -1,9 +1,11 @@
 # Weight limits (docs/port/weight.md). A limit moves only with a written reason in that file.
 # package   max_bytes  max_packages  max_rss_kb  server args ({port} and {data} are filled in)
 #
-# doze-kafka: measured on ubuntu x86_64: 4,899,328 B (the macOS arm64 build is 3.4 MB); the limit is that plus about 5%.
-# These are the limits CI has enforced; the macOS idle figure is lower than Linux's 8 MB limit.
-doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
+# doze-kafka (the default build, with the console). Re-based 2026-11-13 by the weight pass (docs/port/weight.md, "Phase 9, weight pass"):
+# darwin arm64 5,797,328 B, Linux aarch64 (the doze-ubuntu VM) 6,626,840 B, 158 packages, 7.1 MB idle in the VM. The ubuntu x86_64 estimate is
+# 7.05 MB (darwin times the 1.216 of Phase 7) to 7.42 MB (the VM times 1.12); the limit is the larger plus about 5%. Before the pass the same
+# estimate was 9.8 MB against a 9 MB limit. The owner's ceiling is 10 MB; the first CI run replaces the estimate with a measurement.
+doze-kafka 7800000 161 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # doze-aws: measured 2026-11-12 on darwin/arm64 with SQS and its database: 2,687,088 B, 118 packages (the ones that only run at build time count: serde_derive
 # and its macro crates), 3,120 KB idle. It was 1,914,240 B and 109 packages before SQS kept its state on disk: redb is 507 KiB of the difference. The
 # byte limit is the macOS size times 1.3 (the Linux build of doze-kafka is about 1.2 times its macOS one) plus 5%; it is re-based from the first Linux CI run.
@@ -67,4 +69,29 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # commit cross-built for x86_64-unknown-linux-musl is 7,481,552 B (was 8,206,736 B): only 9% smaller, because 1.0 MB of an x86_64 Linux binary is unwind tables and relocations that
 # "z" does not touch (-Cforce-unwind-tables=no changes nothing on this target, which requires them). Byte limit = the musl size plus 5% = 7,855,000, rounded to 7,900,000 B.
 # Linux is 1.54 times the macOS size at "z"; Step Functions, API Gateway and CloudFormation will cost about 1.5 times what they cost on macOS. Packages unchanged at 240.
-doze-aws 7900000 240 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-13, A15 API Gateway (branch aws-a15-apigateway, alone on the 4,867,344 B / 233 base): 5,349,616 B on darwin/arm64 (+482 KB), 237 packages (+4), 4,576 KB idle (+176 KB).
+# Cross-built for x86_64-unknown-linux-musl: 8,261,008 B (+779 KB over 7,481,552 B; 1.62 times the macOS delta), which breaks the 7,900,000 B line, so the line moves (the owner
+# allows it now that every service is to be finished). NO new third-party package: Cargo.lock gains aws-apigateway, aws-model-api-gateway and aws-model-apigatewayv2 (linked for the
+# first time); the fourth counted line is a repeat line from a new edge. The bytes: both models' tables (124 + 103 operations), both control planes, the execute-api plane (VTL subset,
+# OpenAPI/YAML reader, JWT, WebSocket framing, HTTP client). Byte limit = the musl size plus 5% = 8,674,000, rounded to 8,700,000 B (87% of the 10 MB ceiling; Step Functions and
+# CloudFormation are still to come, about 1.7 MB of room); packages 240 unchanged (237 measured).
+# 2026-11-13, A14 Step Functions (branch aws-a14-stepfunctions, alone on the 4,867,344 B / 233 package base): 6,046,432 B on darwin/arm64, 248 packages, 4,832 KB idle
+# (+1,179 KB, +15 packages). Cross-built for x86_64-unknown-linux-musl: 9,388,976 B (+1.91 MB over 7,481,552). Of that, JSONata (jlens-core, its regex engine jlens-regress,
+# stacker and psm, and serde_json's preserve_order which jlens-core turns on for every crate) is 1.26 MB: the same tree with JSONata stubbed out is 8,100,144 B on Linux.
+# New third-party packages, all from jlens-core: jlens-core, jlens-regress, stacker, psm (with ar_archive_writer and object at build time: psm assembles a file, so a C
+# compiler for the target is needed to build), ryu-js, web-time; and, new to doze-aws though already in the lock, indexmap, equivalent, hashbrown, foldhash. JSONata is the default
+# "jsonata" feature of aws-asl and aws-sfn, so it can be left out of a build. Byte limit = the musl size plus 5% = 9,858,000, rounded to 9,900,000 B; packages 252
+# (248 plus 4). THIS IS OVER the owner's 9 MB CI default and leaves 0.1 MB of the 10 MB ceiling for API Gateway and CloudFormation: a decision for the owner (stage note).
+# 2026-11-13, A16 CloudFormation (branch aws-a16-cloudformation, alone on the 4,867,344 B / 233 package base): 5,549,504 B on darwin/arm64, 235 packages,
+# 4,688 KB idle (+682 KB, +2 packages: aws-cloudformation and the CloudFormation model tables; no new third-party package: regex-lite, flate2, sha2,
+# hmac and bytes were already linked). The same code cross-built for x86_64-unknown-linux-musl is 8,665,744 B (+1,184,192 B over 7,481,552 B; 1.56 times
+# the macOS size). What the bytes are: the template engine (the YAML reader, intrinsics, the SAM, include and language-extensions transforms), the
+# provisioning engine and rollback, about 130 resource types written against the other services' operations, and the CloudFormation model (90
+# operations). The limit had to move or CI fails: the musl size plus 5% = 9,098,031, rounded to 9,100,000 B; packages unchanged at 240. This is past the
+# owner's 9 MB CI default and leaves 0.9 MB of the 10 MB ceiling for Step Functions and API Gateway: the size decision PLAN records as pending is now due.
+# 2026-11-13, every service the Go edition served, merged (A14 + A15 + A16 together on the main line): 7,444,224 B on darwin/arm64, 258 packages, 5,344 KB idle.
+# Cross-built for x86_64-unknown-linux-musl: 11,764,560 B (10,561,264 B with aws-sfn's "jsonata" feature off, so JSONata is 1.20 MB of it). JSONata's psm needs a C compiler
+# and an ELF archiver for the target: CC_x86_64_unknown_linux_musl = a clang --target=x86_64-unknown-linux-musl wrapper, AR_x86_64_unknown_linux_musl = llvm-ar.
+# The owner raised doze-aws's ceiling from 10 MB to 20 MB ("Bump to 20 MB. Just use the freedom wisely", 2026-11-13); JSONata stays in. This line stays tight so that
+# every increase is still argued here: byte limit = the musl size plus 5% = 12,352,788, rounded to 12,400,000 B; packages 264 (258 plus 6).
+doze-aws 12400000 264 6144 --listen 127.0.0.1:{port} --data-dir {data}

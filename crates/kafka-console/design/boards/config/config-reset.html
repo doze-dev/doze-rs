@@ -1,9 +1,0 @@
-<!--screen {"id":"config-reset","kind":"dialog","title":"Reset to default","from":"topic-config","via":"Button: Reset (segment.bytes)","ops":["IncrementalAlterConfigs"],"refs":["cat:ADM-5","cat:ADM-6","cat:ADM-D4"],"data":"now","crumbs":[],"extras":["teaching","api-preview"]} -->
-<h2>Reset segment.bytes to default?</h2>
-<div class="body"><p style="margin:0 0 16px">The value set on <span class="mono">inventory.levels</span> is removed, so the topic follows the broker again.</p>
-<dl class="kv sm"><dt>Now</dt><dd class="mono">8388608<span class="sub">8 MiB, Dynamic topic</span></dd><dt>After</dt><dd class="mono">134217728<span class="sub">128 MiB, Static flag <span class="mono">--segment-bytes</span></span></dd></dl>
-<div class="teach" data-extra="teaching" style="margin-top:16px"><div><b>Takes effect</b> from the next append. Segments 1 to 7 keep their size.</div><div><b>Here</b> the active segment (0.6 MiB) would grow to 128 MiB before it rolls, so cleaning has nothing new to rewrite for a long while</div></div>
-<div class="apicall" data-extra="api-preview" style="margin-top:16px"><div class="hd">[[g:code 14]]The call</div><pre class="code" style="margin:0">IncrementalAlterConfigs v1
-  TOPIC inventory.levels
-  segment.bytes  DELETE</pre></div></div>
-<div class="foot"><a class="btn" href="@topic-config">Cancel</a><a class="btn danger fill" href="@topic-config" data-op="IncrementalAlterConfigs">Reset to default</a></div>

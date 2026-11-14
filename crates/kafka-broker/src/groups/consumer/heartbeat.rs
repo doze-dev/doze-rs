@@ -5,9 +5,11 @@ use kafka_wire::ids::{InstanceId, MemberId};
 
 use super::assign::Partitions;
 use super::join::{Parsed, parse};
+use super::notes::Moves;
 use super::pattern::Pattern;
 use super::{ConsumerGroup, Heartbeat, HeartbeatAnswer, Topics};
 use crate::groups::machine::{Answer, Effect, Millis, Token};
+use crate::groups::note::{Cause, Why};
 
 pub(super) fn not_a_member(member: &str, group: &str) -> String {
     format!("Member {member} is not a member of group {group}.")
@@ -111,8 +113,10 @@ impl ConsumerGroup {
             self.reset_session(&id, now, out);
             return Self::done(&id, req.epoch);
         }
+        let (before, was, who) = (self.epoch, self.members.len(), self.who_is(&id, None));
         self.remove_member(&id, out);
         self.bump_for_removal();
+        self.bumped(before, Why::new(Cause::MemberLeft, who, was), now, out);
         self.check_downgrade = true;
         Self::done(&id, req.epoch)
     }
@@ -136,7 +140,7 @@ impl ConsumerGroup {
                 return HeartbeatAnswer::refused(E::UnknownMemberId, not_a_member("", &req.group));
             }
         };
-        let Parsed { assignor, pattern } = match parse(req) {
+        let parsed = match parse(req) {
             Ok(parsed) => parsed,
             Err(refused) => return refused,
         };
@@ -147,6 +151,7 @@ impl ConsumerGroup {
             return answer;
         }
         let mut changed = false;
+        let was = self.members.len();
         let seated = if joining {
             self.seat(&id, req, &mut changed, out)
         } else {
@@ -155,37 +160,17 @@ impl ConsumerGroup {
         if let Err(refused) = seated {
             return refused;
         }
-        if let Some(m) = self.members.get_mut(&id) {
-            m.client_id.clone_from(&req.client_id);
-            m.client_host.clone_from(&req.client_host);
-            m.instance.clone_from(&req.instance);
-            m.rack.clone_from(&req.rack);
-            if let Some(names) = &req.subscribed
-                && m.subscribed != *names
-            {
-                m.subscribed.clone_from(names);
-                changed = true;
-            }
-            if let Some(text) = &req.regex
-                && text != m.pattern.as_ref().map_or("", Pattern::text)
-            {
-                m.pattern = pattern;
-                changed = true;
-            }
-            if req.assignor.is_some() && assignor != m.assignor {
-                m.assignor = assignor;
-                changed = true;
-            }
-        }
-        // A right to DESCRIBE given or taken since the last heartbeat, or the principal being another than the one that
-        // left the names and the partitions, changes what the member may have; what it holds of the rest goes now.
-        changed |= self.refresh_rights(&id, req.rights.clone(), topics, now, out);
-        self.reset_session(&id, now, out);
-        if changed {
-            self.bump_and_reassign(topics, now);
-        } else {
-            self.assign_if_due(topics, now);
-        }
+        // Why the group's epoch is to move, for the note: the first of the reasons below.
+        let mut cause = changed.then_some(Cause::MemberJoined);
+        changed |= self.take_profile(&id, req, parsed, &mut cause);
+        let moves = Moves {
+            changed,
+            cause,
+            was,
+            reason: None,
+            rights: req.rights.clone(),
+        };
+        self.settle(&id, moves, topics, now, out);
         // `None`: the member did not say what it owns this time.
         let reported: Option<Partitions> = req.owned.as_ref().map(|o| {
             o.iter()
@@ -194,6 +179,45 @@ impl ConsumerGroup {
         });
         self.reconcile(&id, reported.as_ref(), now, out);
         self.answer(&id)
+    }
+
+    /// What the request says of the member: who it is, and what it subscribes to by name, pattern and assignor. `true`: one
+    /// of the three changed, which moves the group's epoch (and is the cause, if no other came first).
+    fn take_profile(
+        &mut self,
+        id: &MemberId,
+        req: &Heartbeat,
+        parsed: Parsed,
+        cause: &mut Option<Cause>,
+    ) -> bool {
+        let Some(m) = self.members.get_mut(id) else {
+            return false;
+        };
+        m.client_id.clone_from(&req.client_id);
+        m.client_host.clone_from(&req.client_host);
+        m.instance.clone_from(&req.instance);
+        m.rack.clone_from(&req.rack);
+        let mut changed = false;
+        if let Some(names) = &req.subscribed
+            && m.subscribed != *names
+        {
+            m.subscribed.clone_from(names);
+            changed = true;
+        }
+        if let Some(text) = &req.regex
+            && text != m.pattern.as_ref().map_or("", Pattern::text)
+        {
+            m.pattern = parsed.pattern;
+            changed = true;
+        }
+        if req.assignor.is_some() && parsed.assignor != m.assignor {
+            m.assignor = parsed.assignor;
+            changed = true;
+        }
+        if changed {
+            cause.get_or_insert(Cause::SubscriptionChanged);
+        }
+        changed
     }
 
     /// A classic member heartbeating by this API is kept alive and changes nothing else (recorded).

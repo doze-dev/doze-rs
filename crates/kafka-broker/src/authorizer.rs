@@ -23,6 +23,8 @@ pub(crate) use self::rights::{TopicRights, permits};
 pub(crate) struct Authorizer {
     set: ArcSwap<AclSet>,
     rules: Arc<Rules>,
+    /// How many ACLs are in force, sent after each change is in force: the console's door watches it (SEC-250).
+    count: tokio::sync::watch::Sender<usize>,
 }
 
 impl Authorizer {
@@ -31,8 +33,11 @@ impl Authorizer {
         default_allow: bool,
         super_users: BTreeSet<String>,
     ) -> Self {
+        let set = set_of(stored);
+        let (count, _) = tokio::sync::watch::channel(set.len());
         Self {
-            set: ArcSwap::from_pointee(set_of(stored)),
+            set: ArcSwap::from_pointee(set),
+            count,
             rules: Arc::new(Rules {
                 default_allow,
                 super_users,
@@ -84,7 +89,19 @@ impl Authorizer {
     /// Puts `set` in force. Callers hold the broker's ACL lock, so two changes are never built from the same
     /// snapshot.
     pub(crate) fn replace(&self, set: AclSet) {
+        let len = set.len();
         self.set.store(Arc::new(set));
+        self.count.send_replace(len);
+    }
+
+    /// How many ACLs are in force: one atomic load and a length, no copy.
+    pub(crate) fn len(&self) -> usize {
+        self.set.load().len()
+    }
+
+    /// The count of ACLs in force, told after each change.
+    pub(crate) fn watch(&self) -> tokio::sync::watch::Receiver<usize> {
+        self.count.subscribe()
     }
 }
 

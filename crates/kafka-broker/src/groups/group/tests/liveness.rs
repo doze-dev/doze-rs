@@ -112,6 +112,7 @@ fn right_taken(assign_ms: u64, join_a_member: bool) -> (Option<usize>, Option<us
     }
     let gone = s.clients.remove(0);
     let target = LeaveTarget {
+        reason: None,
         member_id: Some(id(&gone.name)),
         instance: None,
     };

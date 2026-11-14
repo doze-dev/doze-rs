@@ -17,6 +17,8 @@ aws-schema = { path = "../aws-schema" }
 aws-wire = { path = "../aws-wire" }
 aws-core = { path = "../aws-core" }
 aws-cron = { path = "../aws-cron" }
+aws-webhook = { path = "../aws-webhook" }
+tokio-util = { version = "0.7", default-features = false }
 aws-peers = { path = "../aws-peers" }
 aws-iam-policy = { path = "../aws-iam-policy" }
 doze-runtime = { path = "../doze-runtime" }

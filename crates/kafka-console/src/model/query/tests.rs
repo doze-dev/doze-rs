@@ -18,7 +18,7 @@ fn each_filter_is_read_and_written_back() {
         "partition=0&offset=16098&key=ord-88410&isolation=read_committed&limit=10&time=2023-11-14+22%3A13",
     );
     assert!(notes.is_empty(), "{notes:?}");
-    assert_eq!(query.partition, Some(0));
+    assert_eq!(query.partitions, [0]);
     assert_eq!(query.offset, Some(16_098));
     assert_eq!(query.key.as_deref(), Some("ord-88410"));
     assert_eq!(query.reading, Reading::Committed);
@@ -62,13 +62,13 @@ fn a_value_that_cannot_be_used_is_a_sentence_and_the_rest_still_works() {
         assert_eq!(query.key.as_deref(), Some("k"), "{bad}");
         assert_eq!(
             (
-                query.partition,
+                query.partitions.clone(),
                 query.offset,
                 query.time.clone(),
                 query.reading,
                 query.limit
             ),
-            (None, None, None, Reading::Uncommitted, DEFAULT_LIMIT),
+            (vec![], None, None, Reading::Uncommitted, DEFAULT_LIMIT),
             "{bad}"
         );
     }
@@ -99,4 +99,21 @@ fn a_hostile_value_reaches_a_sentence_only_clipped_and_escaped_by_debug() {
 fn the_isolation_words_are_kafkas() {
     assert_eq!(Reading::Committed.word(), "read_committed");
     assert_eq!(Reading::Uncommitted.word(), "read_uncommitted");
+}
+
+#[test]
+fn several_partitions_are_a_repeated_field_ascending_once_each_and_bounded() {
+    let (query, notes) =
+        q("partition=2&partition=0&partition=2&partition=x&partition=-1&partition=");
+    assert_eq!(query.partitions, [0, 2]);
+    assert_eq!(notes.len(), 2, "{notes:?}");
+    assert!(query.filtered());
+    assert_eq!(query.to_query(), "?partition=0&partition=2");
+    let (again, _) = q(&query.to_query()[1..]);
+    assert_eq!(again, query);
+    let many: String = (0..1000).map(|i| format!("partition={i}&")).collect();
+    assert_eq!(
+        q(&many).0.partitions.len(),
+        64 // the form reader keeps 64 fields
+    );
 }

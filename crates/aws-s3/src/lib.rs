@@ -4,6 +4,9 @@
 //! Buckets are kept apart by region like every other service here (a bucket belongs to the region its creating request was signed
 //! for; the home region is `us-east-1`), so the same bucket name can exist in two regions, which AWS's global namespace forbids.
 //!
+//! A browser is served too: CORS preflights and response headers from the bucket's CORS rules, and a bucket's website (index and
+//! error documents) at its website host or `/_aws/s3-website/<bucket>/` (`web.rs`).
+//!
 //! Operations that have no meaning on one machine (ACLs, archive storage classes and restores, S3 Select, directory buckets, metadata
 //! tables, access points) are refused by name.
 
@@ -16,6 +19,7 @@ mod complete;
 mod config;
 mod copy;
 mod core;
+mod cors;
 mod delete;
 mod download;
 mod errors;
@@ -33,6 +37,7 @@ mod model;
 mod mplist;
 mod multipart;
 mod notify;
+mod public;
 mod put;
 mod receive;
 mod req;
@@ -41,6 +46,8 @@ mod tagging;
 mod timeutil;
 mod validate;
 mod versioning;
+mod web;
+mod website;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -51,7 +58,7 @@ use aws_model_s3::tables::TABLES;
 use aws_schema::json::Violation;
 use aws_wire::ApiError;
 use aws_wire::rest::{RestReply, RestService, Upload};
-use aws_wire::service::{BoxFuture, Call, Reply, Service};
+use aws_wire::service::{BoxFuture, Call, Reply, Service, Web, WebReply, WebRequest};
 use doze_fs::fs::RealFs;
 use doze_runtime::{Clock, Ctx, Keyed, Tasks};
 
@@ -256,6 +263,10 @@ impl Service for S3 {
         Some(self)
     }
 
+    fn web(&self) -> Option<&dyn Web> {
+        Some(self)
+    }
+
     /// S3 words a request that breaks the model's rules as `InvalidArgument`.
     fn invalid(&self, violation: &Violation) -> ApiError {
         let member = |ix: u32| TABLES.member(ix).map_or("", |m| m.name);
@@ -291,6 +302,30 @@ impl RestService for S3 {
         upload: Option<Box<dyn Upload>>,
     ) -> BoxFuture<'_, Result<RestReply, ApiError>> {
         Box::pin(self.inner.run(call, upload))
+    }
+
+    fn cors<'a>(
+        &'a self,
+        region: &'a str,
+        bucket: &'a str,
+        origin: &'a str,
+        method: &'a str,
+    ) -> BoxFuture<'a, Vec<(String, String)>> {
+        Box::pin(self.inner.cors_headers(region, bucket, origin, method))
+    }
+}
+
+impl Web for S3 {
+    fn owns(&self, host: &str, path: &str) -> bool {
+        web::owns(host, path)
+    }
+
+    fn owns_preflight(&self, _host: &str, path: &str) -> bool {
+        web::owns_preflight(path)
+    }
+
+    fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply> {
+        Box::pin(self.inner.serve_web(request))
     }
 }
 

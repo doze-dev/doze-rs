@@ -6,18 +6,17 @@ use aws_wire::ApiError;
 use doze_store::record;
 use serde_json::{Value, json};
 
-use crate::core::{Core, VERSION};
-use crate::model::{Bucket, Series, UNITS, sample_key, series_key};
+use crate::core::Core;
+use crate::model::{BUCKET_VERSION, Bucket, Series, UNITS, sample_key, series_key};
 use crate::req::{Req, bad_value, dimensions};
 
 /// Metric data points one call may carry.
 const MAX_DATA: usize = 1000;
 /// How far back a data point may be, and how far ahead (AWS: two weeks, two hours).
 const PAST_MS: i64 = 14 * 86_400_000;
-const FUTURE_MS: i64 = 2 * 3_600_000;
-/// Samples are kept this long (AWS keeps 15 days of one-minute data; this keeps a day, a weight choice recorded in the audit
-/// decisions), and one-second data this long (AWS: three hours).
-const KEEP_MS: i64 = 86_400_000;
+pub(crate) const FUTURE_MS: i64 = 2 * 3_600_000;
+/// Samples are kept for `--cloudwatch-retention-hours` (default a day: AWS keeps 15 days of one-minute data, and a local store is
+/// disposable; see [`crate::Settings`]), and one-second data at most this long (AWS: three hours).
 const KEEP_HIGH_RES_MS: i64 = 3 * 3_600_000;
 /// A metric with no new data point for this long is forgotten (AWS: two weeks).
 const KEEP_SERIES_MS: i64 = 14 * 86_400_000;
@@ -99,7 +98,7 @@ impl Core {
             }
         }
         for (row, b) in buckets {
-            let bytes = record::encode("bucket", VERSION, &b)
+            let bytes = record::encode("bucket", BUCKET_VERSION, &b)
                 .map_err(|e| ApiError::internal(e.to_string()))?;
             self.samples.put(row, bytes);
         }
@@ -115,8 +114,7 @@ impl Core {
             .get(self.db.as_ref(), row)
             .map_err(|e| ApiError::internal(e.to_string()))?
         {
-            Some(bytes) => record::decode("bucket", VERSION, &bytes)
-                .map_err(|e| ApiError::internal(e.to_string())),
+            Some(bytes) => Bucket::decode(&bytes).map_err(|e| ApiError::internal(e.to_string())),
             None => Ok(Bucket::default()),
         }
     }
@@ -180,11 +178,11 @@ impl Core {
         for (_, s) in self.series.iter() {
             self.samples.delete_range(
                 &sample_key(s.no, false, 0, 0),
-                &sample_key(s.no, false, now - KEEP_MS, 0),
+                &sample_key(s.no, false, now - self.keep_ms, 0),
             );
             self.samples.delete_range(
                 &sample_key(s.no, true, 0, 0),
-                &sample_key(s.no, true, now - KEEP_HIGH_RES_MS, 0),
+                &sample_key(s.no, true, now - KEEP_HIGH_RES_MS.min(self.keep_ms), 0),
             );
         }
     }
@@ -251,6 +249,7 @@ fn contribution(d: &Value, n: usize) -> Result<Contribution, ApiError> {
             min: get("Minimum")?,
             max: get("Maximum")?,
             values: Vec::new(),
+            seen: 0.0,
         }));
     }
     if let Some(v) = d.get("Value").filter(|v| !v.is_null()) {

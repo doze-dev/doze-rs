@@ -95,6 +95,35 @@ pub(crate) struct Queue {
     pub(crate) written: crate::persist::Written,
 }
 
+impl Queue {
+    /// Whether `m` has passed this queue's retention: from then on it is gone, whether or not it has been removed yet.
+    pub(crate) fn expired(&self, m: &Message, now_ms: i64) -> bool {
+        m.sent_ms <= now_ms - i64::from(self.attrs.retention_seconds) * 1000
+    }
+
+    /// Removes the messages past their retention. Unless `thorough`, only when the first one is (the cheap check every call makes):
+    /// a message moved in from another queue keeps its send time, so one further back can be older; it is counted out at once and
+    /// removed by the next thorough pass, which comes no later than the first message's own expiry.
+    pub(crate) fn expire(&mut self, now_ms: i64, thorough: bool) {
+        let cutoff = now_ms - i64::from(self.attrs.retention_seconds) * 1000;
+        let due = if thorough {
+            self.messages.iter().any(|m| m.sent_ms <= cutoff)
+        } else {
+            self.messages.first().is_some_and(|m| m.sent_ms <= cutoff)
+        };
+        if due {
+            self.messages.retain(|m| m.sent_ms > cutoff);
+        }
+    }
+
+    /// When the first message passes its retention; `None` for an empty queue.
+    pub(crate) fn expires_at(&self) -> Option<i64> {
+        self.messages
+            .first()
+            .map(|m| m.sent_ms + i64::from(self.attrs.retention_seconds) * 1000)
+    }
+}
+
 /// A queue's messages, oldest first. Reading is the slice's; every change goes through a method here, which remembers it
 /// for the store, so a change cannot be made and forgotten.
 #[derive(Default)]

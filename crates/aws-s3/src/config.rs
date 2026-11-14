@@ -1,7 +1,7 @@
 //! Bucket configuration: CORS, policy, lifecycle, encryption, website, logging, notification, ownership, public access block,
 //! accelerate, request payment, replication and Object Lock. Each is stored as the request carried it and returned as sent (so a
-//! template or a Terraform refresh sees no drift), after the checks AWS makes of it. Only the policy, the lifecycle rules, the
-//! encryption default and the notification targets act on anything locally.
+//! template or a Terraform refresh sees no drift), after the checks AWS makes of it. The policy, the lifecycle rules, the encryption
+//! default, the notification targets, CORS (`cors.rs`) and the website (`website.rs`, `web.rs`) act locally; the rest are only kept.
 
 use aws_model_s3::Operation;
 use aws_wire::ApiError;

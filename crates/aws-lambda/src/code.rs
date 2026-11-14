@@ -1,7 +1,7 @@
 //! Getting a function's (or a layer's) code in: an inline archive, an object in the local S3 (read over the peer bus as the caller),
-//! a directory run in place (`S3Bucket: _local_`), or an image URI (stored, never run). An archive is written whole as `code.zip` and
-//! unpacked beside it, in a directory named by a fresh id; the directory is never changed afterwards, so a published version can share
-//! it with `$LATEST`.
+//! a directory run in place (`S3Bucket: _local_`; for a layer, a zip it names is unpacked like an upload), or an image URI (stored,
+//! never run). An archive is written whole as `code.zip` and unpacked beside it, in a directory named by a fresh id; the directory is
+//! never changed afterwards, so a published version can share it with `$LATEST`.
 
 use std::path::{Path, PathBuf};
 
@@ -41,7 +41,7 @@ fn unzip_error(e: ZipError) -> ApiError {
     }
 }
 
-/// Reads the `Code` (or layer `Content`) member into a stored [`Code`], writing and unpacking an archive.
+/// Reads the `Code` (or, with `layer`, a layer's `Content`) member into a stored [`Code`], writing and unpacking an archive.
 ///
 /// # Errors
 /// A package that is not a zip, is too big, names an object that is not there, or names no source.
@@ -50,6 +50,7 @@ pub(crate) async fn stage(
     peers: Option<&Peers>,
     caller: &Caller,
     spec: &Value,
+    layer: bool,
 ) -> Result<Code, ApiError> {
     let text = |k: &str| {
         spec.get(k)
@@ -69,6 +70,16 @@ pub(crate) async fn stage(
         base64::decode(zip).ok_or_else(|| invalid("Could not decode the ZipFile."))?
     } else if let (Some(bucket), Some(key)) = (text("S3Bucket"), text("S3Key")) {
         if bucket == LOCAL_BUCKET {
+            // A layer named by its zip is unpacked as an uploaded one is (the Go edition's rule); a function's single file is a bootstrap
+            // run in place.
+            if layer && Path::new(key).is_file() {
+                let bytes = tokio::fs::read(key).await.map_err(|e| {
+                    invalid(format!(
+                        "The local layer archive {key} could not be read: {e}"
+                    ))
+                })?;
+                return unpack(base, bytes).await;
+            }
             return in_place(key);
         }
         fetch(peers, caller, bucket, key, text("S3ObjectVersion")).await?
@@ -249,4 +260,35 @@ fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
         std::fs::copy(from, to)?;
     }
     Ok(())
+}
+
+impl crate::Inner {
+    /// What an operation needs read before its state is touched: the code it brings, and the role it names.
+    pub(crate) async fn stage(
+        &self,
+        op: aws_model_lambda::Operation,
+        r: &crate::req::Req,
+    ) -> Result<crate::core::Staged, ApiError> {
+        use aws_model_lambda::Operation;
+        let mut staged = crate::core::Staged::default();
+        let base = self.region_dir(r.region());
+        let spec = match op {
+            Operation::CreateFunction => r.value("Code"),
+            Operation::PublishLayerVersion => r.value("Content"),
+            Operation::UpdateFunctionCode if r.flag("DryRun") != Some(true) => Some(&r.body),
+            _ => None,
+        };
+        if let Some(spec) = spec {
+            let layer = op == Operation::PublishLayerVersion;
+            staged.code = Some(stage(&base, self.peers.as_deref(), &r.caller, spec, layer).await?);
+        }
+        if matches!(
+            op,
+            Operation::CreateFunction | Operation::UpdateFunctionConfiguration
+        ) && let Some(role) = r.opt("Role")
+        {
+            staged.role = crate::role::check(self.peers.as_deref(), &r.caller, role).await;
+        }
+        Ok(staged)
+    }
 }

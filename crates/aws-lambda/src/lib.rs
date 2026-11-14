@@ -25,7 +25,9 @@ mod eventstream;
 mod functions;
 mod invoke;
 mod layers;
+mod livelog;
 mod mappings;
+mod metrics;
 mod model;
 mod perms;
 mod poll;
@@ -57,7 +59,7 @@ use aws_wire::service::{BoxFuture, Call, Reply, Service, Web};
 use doze_runtime::{Clock, Ctx, Keyed, Tasks};
 use serde_json::Value;
 
-use crate::core::{Answer, Ask, Core, Staged};
+use crate::core::{Answer, Ask, Core};
 use crate::req::Req;
 use crate::rt::Runtime;
 
@@ -101,6 +103,8 @@ pub(crate) struct Inner {
     pub(crate) tasks: Tasks,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) peers: Option<Arc<Peers>>,
+    /// `AWS/Lambda` counts, held until CloudWatch reads them (`metrics`).
+    pub(crate) meter: Arc<metrics::Meter>,
     pub(crate) rt: Runtime,
     pub(crate) logger: rt::logs::Logger,
     pub(crate) roles: role::Sessions,
@@ -134,6 +138,7 @@ impl Lambda {
             dir: ctx.dir.clone(),
             tasks: ctx.tasks.clone(),
             clock: Arc::clone(&ctx.clock),
+            meter: metrics::Meter::install(peers.as_ref()),
             peers,
             rt: Runtime::new(
                 ctx.tasks.clone(),
@@ -281,6 +286,7 @@ impl Inner {
         let region = call.caller.region.clone();
         let r = Req::new(&call);
         let staged = self.stage(op, &r).await?;
+        let checked = rt::check::checked(op, &call.caller, r.opt("FunctionName"));
         let answer = self
             .ask(
                 &region,
@@ -317,34 +323,14 @@ impl Inner {
             poll::sync(self, &region).await;
         }
         let out = reply?;
+        if let Some(checked) = checked {
+            self.warn_if_unlaunchable(checked).await;
+        }
         Ok(RestReply {
             json: out.json,
             status: out.status,
             body: None,
         })
-    }
-
-    /// What an operation needs read before its state is touched: the code it brings, and the role it names.
-    async fn stage(&self, op: Operation, r: &Req) -> Result<Staged, ApiError> {
-        let mut staged = Staged::default();
-        let base = self.region_dir(r.region());
-        let spec = match op {
-            Operation::CreateFunction => r.value("Code"),
-            Operation::PublishLayerVersion => r.value("Content"),
-            Operation::UpdateFunctionCode if r.flag("DryRun") != Some(true) => Some(&r.body),
-            _ => None,
-        };
-        if let Some(spec) = spec {
-            staged.code = Some(code::stage(&base, self.peers.as_deref(), &r.caller, spec).await?);
-        }
-        if matches!(
-            op,
-            Operation::CreateFunction | Operation::UpdateFunctionConfiguration
-        ) && let Some(role) = r.opt("Role")
-        {
-            staged.role = role::check(self.peers.as_deref(), &r.caller, role).await;
-        }
-        Ok(staged)
     }
 }
 

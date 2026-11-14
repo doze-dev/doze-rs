@@ -1,22 +1,33 @@
 //! Judging an alarm, and knowing when to judge it next.
 //!
-//! An alarm looks at its last `EvaluationPeriods` periods (aligned to the epoch, the newest being the one that holds the present),
-//! takes the statistic of each, and counts the ones that breach. That count only changes when data arrives or when time moves a
-//! period out of the window, so the next time worth looking at is computed, not polled for: the earliest boundary at which the
-//! verdict, with no further data, would differ from the state (see [`Core::refresh_due`]). The service sleeps to the earliest such
-//! time over all alarms and to nothing else.
+//! An alarm looks at its last `EvaluationPeriods` periods, takes the statistic of each, and counts the ones that breach. As AWS
+//! documents it (alarm-evaluation, read 2026-11-13): "For any period of one minute or longer, an alarm is evaluated every minute and
+//! the evaluation is based on the window of time defined by the Period and Evaluation Periods. For example, if the Period is 5
+//! minutes (300 seconds) and Evaluation Periods is 1, then at the end of minute 5 the alarm evaluates based on data from minutes 1 to
+//! 5", and a 10, 20 or 30 second alarm is evaluated every ten seconds; the window slides by that step and is not aligned to the
+//! clock. So the window ends at the last step boundary: the minute (or ten seconds) still filling is never judged, and an alarm
+//! cannot flip on half a period's data. (A period under ten seconds, which doze accepts and AWS does not, steps by its own length.)
+//!
+//! That verdict only changes when data arrives or when time moves a step of data from one period of the window to the next, so the
+//! next time worth looking at is computed, not polled for: the earliest such instant at which the verdict, with no further data,
+//! would differ from the state (see [`Core::refresh_due`]). The service sleeps to the earliest such time over all alarms and to
+//! nothing else.
 //!
 //! How the verdict is reached (breaching count against `DatapointsToAlarm`, missing data by `TreatMissingData`) is from AWS's
-//! documentation and memory; the scenarios record the shape of an alarm and its forced state, not an evaluation.
+//! documentation and memory; the scenarios record the shape of an alarm and its forced state, not an evaluation. Not matched: a
+//! multi-day alarm, which AWS evaluates hourly on data up to the hour, is evaluated here like any other.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::json;
 
 use crate::alarms::iso;
 use crate::core::{Core, Outgoing};
 use crate::model::{Alarm, Item, Kind, MAX_HISTORY, Spec, UNITS, series_key};
-use crate::stats::{Agg, value_of};
+use crate::stats::{Agg, is_percentile, value_of};
+
+/// Instants looked at when working out an alarm's next deadline, at most.
+const MAX_CANDIDATES: usize = 10_000;
 
 /// A verdict: the state the data calls for (`None` when the alarm should keep its state), and why.
 pub(crate) struct Verdict {
@@ -25,9 +36,21 @@ pub(crate) struct Verdict {
     pub(crate) data: String,
 }
 
-/// The start of the period that holds `at_ms`.
-fn boundary(at_ms: i64, period_ms: i64) -> i64 {
-    at_ms - at_ms.rem_euclid(period_ms)
+/// How far the window moves between evaluations: a minute for a period of a minute or more, ten seconds for 10 to 59 seconds, and
+/// the period itself below that.
+fn step_of(period_ms: i64) -> i64 {
+    if period_ms >= 60_000 {
+        60_000
+    } else if period_ms >= 10_000 {
+        10_000
+    } else {
+        period_ms.max(1)
+    }
+}
+
+/// The end of the window judged at `at_ms`: the last step boundary at or before it.
+fn window_end(at_ms: i64, period_ms: i64) -> i64 {
+    at_ms - at_ms.rem_euclid(step_of(period_ms))
 }
 
 /// Whether `value` breaches the threshold under the alarm's comparison.
@@ -53,38 +76,62 @@ fn comparison_words(spec: &Spec) -> &'static str {
 /// What judging an alarm reads of the metric: the statistic of each period it looks at, by period start.
 pub(crate) type Window = BTreeMap<i64, f64>;
 
+/// The metric's data by step: what the windows of several instants are made from.
+pub(crate) type Steps = BTreeMap<i64, Agg>;
+
+/// The statistic of each period of the window that ends at `end`, from the data by step.
+fn periods(spec: &Spec, steps: &Steps, end: i64) -> Window {
+    let period = spec.period_s * 1000;
+    let mut out = Window::new();
+    for k in 0..spec.evaluation_periods {
+        let start = end - (k + 1) * period;
+        let mut agg: Option<Agg> = None;
+        for (_, a) in steps.range(start..start + period) {
+            agg.get_or_insert_with(Agg::default).merge(a);
+        }
+        if let Some(v) = agg.and_then(|a| value_of(&a, &spec.stat)) {
+            out.insert(start, v);
+        }
+    }
+    out
+}
+
 impl Core {
-    /// The statistic of each period of the window that ends in the period holding `at_ms`.
-    pub(crate) fn window(&self, spec: &Spec, at_ms: i64) -> Window {
-        let period = spec.period_s * 1000;
-        let end = boundary(at_ms, period) + period;
-        let start = end - spec.evaluation_periods * period;
+    /// The alarm's metric from `from` to `to`, by step (all units together unless the alarm names one).
+    fn steps(&self, spec: &Spec, from: i64, to: i64) -> Steps {
+        let step = step_of(spec.period_s * 1000);
+        let from = from - from.rem_euclid(step);
         let key = series_key(&spec.namespace, &spec.metric, &spec.dims);
         let Some(series) = self.series.get(&key) else {
-            return Window::new();
+            return Steps::new();
         };
         let unit = spec
             .unit
             .as_deref()
             .and_then(|u| UNITS.iter().position(|x| *x == u));
-        let Ok(folded) = self.fold(series.no, (start, end), period, unit) else {
-            return Window::new();
+        let Ok(folded) = self.fold(series.no, (from, to), step, unit, is_percentile(&spec.stat))
+        else {
+            return Steps::new();
         };
-        let mut per: BTreeMap<i64, Agg> = BTreeMap::new();
+        let mut out = Steps::new();
         for ((at, _), agg) in folded {
-            let slot = per.entry(at).or_default();
-            slot.bucket.merge(&agg.bucket);
-            slot.bucket.values.extend(agg.bucket.values);
+            out.entry(at).or_default().merge(&agg);
         }
-        per.iter()
-            .filter_map(|(at, agg)| Some((*at, value_of(agg, &spec.stat)?)))
-            .collect()
+        out
     }
 
-    /// The verdict at the period that holds `at_ms`, given the data of `window`.
-    pub(crate) fn judge(spec: &Spec, window: &Window, at_ms: i64, now_ms: i64) -> Verdict {
+    /// The statistic of each period of the window an evaluation at `at_ms` looks at.
+    pub(crate) fn window(&self, spec: &Spec, at_ms: i64) -> Window {
         let period = spec.period_s * 1000;
-        let newest = boundary(at_ms, period);
+        let end = window_end(at_ms, period);
+        let steps = self.steps(spec, end - spec.evaluation_periods * period, end);
+        periods(spec, &steps, end)
+    }
+
+    /// The verdict on the window that ends at `end`, given its data.
+    pub(crate) fn judge(spec: &Spec, window: &Window, end: i64, now_ms: i64) -> Verdict {
+        let period = spec.period_s * 1000;
+        let newest = end - period;
         let n = spec.evaluation_periods;
         let (mut breaching, mut fine, mut unknown) = (Vec::new(), 0, 0);
         for k in 0..n {
@@ -219,7 +266,8 @@ impl Core {
         };
         let (spec, current) = (a.spec.clone(), a.state.clone());
         let window = self.window(&spec, now);
-        let v = Self::judge(&spec, &window, now, now);
+        let end = window_end(now, spec.period_s * 1000);
+        let v = Self::judge(&spec, &window, end, now);
         if let Some(state) = v.state.filter(|s| *s != current) {
             self.move_to(name, state, (&v.reason, Some(&v.data)), now, true);
         }
@@ -258,8 +306,10 @@ impl Core {
         }
     }
 
-    /// Works out when `name` next needs judging: the first period boundary, from now, at which the data it has would call for another
-    /// state than it is in. `after_now` leaves out the present (a forced state stands until the next boundary).
+    /// Works out when `name` next needs judging: the first instant, from now, at which the data it has would call for another state
+    /// than it is in. The window only changes when a step of data moves into it, from one of its periods to the next, or out of
+    /// it, so those instants are the only ones looked at. `after_now` leaves out the present (a forced state stands until the next
+    /// step).
     pub(crate) fn refresh_due(&mut self, name: &str, after_now: bool) {
         self.due.remove(name);
         let Some(a) = self.alarms.get(name).filter(|a| a.kind == Kind::Metric) else {
@@ -267,14 +317,30 @@ impl Core {
         };
         let (spec, current) = (a.spec.clone(), a.state.clone());
         let now = self.now_ms();
-        let window = self.window(&spec, now);
         let period = spec.period_s * 1000;
-        let here = boundary(now, period);
-        for j in i64::from(after_now)..=spec.evaluation_periods + 1 {
-            let at = if j == 0 { now } else { here + j * period };
-            let v = Self::judge(&spec, &window, at, now);
+        let step = step_of(period);
+        let end = window_end(now, period);
+        let n = spec.evaluation_periods;
+        let steps = self.steps(&spec, end - n * period, now + crate::put::FUTURE_MS + step);
+        let mut at: BTreeSet<i64> = BTreeSet::new();
+        if after_now {
+            at.insert(end + step);
+        } else {
+            at.insert(now);
+        }
+        for d in steps.keys() {
+            for k in 0..=n {
+                let c = d + step + k * period;
+                if c > end {
+                    at.insert(c);
+                }
+            }
+        }
+        for c in at.into_iter().take(MAX_CANDIDATES) {
+            let e = window_end(c, period);
+            let v = Self::judge(&spec, &periods(&spec, &steps, e), e, now);
             if v.state.is_some_and(|s| s != current) {
-                self.due.insert(name.to_owned(), at);
+                self.due.insert(name.to_owned(), c);
                 return;
             }
         }

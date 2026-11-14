@@ -1,6 +1,7 @@
 //! Secrets Manager: secrets with versions and staging labels, tags, deletion with a recovery window, resource policies and random
 //! passwords, as a state machine behind a lazy actor. State is on disk, values are sealed, and it survives an idle reap and a
-//! restart. Rotation (which drives a Lambda function) and replication to other regions are refused by name.
+//! restart. Rotation drives the secret's Lambda function through its four steps after `RotateSecret` answers (`rotate.rs`);
+//! replication to other regions is refused by name.
 
 mod authz;
 mod core;
@@ -13,6 +14,7 @@ mod model;
 mod password;
 mod policy;
 mod read;
+mod rotate;
 mod stage;
 mod tags;
 mod token;
@@ -37,6 +39,8 @@ const HOME_REGION: &str = "us-east-1";
 pub struct Secrets {
     /// One actor per region: a queue, parameter, secret or key belongs to the region that made it.
     actors: Keyed<Core>,
+    /// Where rotations are run (the task set) and what they call (the peer bus).
+    ctx: Arc<Ctx>,
 }
 
 impl Secrets {
@@ -44,7 +48,8 @@ impl Secrets {
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
         Self {
-            actors: Keyed::new("secretsmanager", ctx, HOME_REGION),
+            actors: Keyed::new("secretsmanager", Arc::clone(&ctx), HOME_REGION),
+            ctx,
         }
     }
 
@@ -64,12 +69,24 @@ impl Secrets {
             Err(e) => Answer {
                 reply: Err(ApiError::internal(e.to_string())),
                 durable: None,
+                run: None,
             },
         };
         if let Some(saved) = answer.durable.take()
             && let Err(e) = saved.await
         {
             answer.reply = Err(ApiError::internal(format!("could not save: {e}")));
+            answer.run = None;
+        }
+        // A rotation runs after its answer is saved, outside the actor: the function calls this service back.
+        if let Some(run) = answer.run.take()
+            && let Some(peers) = self
+                .ctx
+                .ext
+                .as_ref()
+                .and_then(|e| Arc::clone(e).downcast::<aws_peers::Peers>().ok())
+        {
+            self.ctx.tasks.spawn(rotate::run(peers, run));
         }
         answer.reply
     }

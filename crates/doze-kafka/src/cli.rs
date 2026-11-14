@@ -75,6 +75,12 @@ pub(crate) struct Args {
     /// How long a member of a consumer group of the new protocol (KIP-848) may be silent before it is removed.
     #[arg(long, default_value = "45s", value_parser = duration::parse)]
     consumer_session_timeout: Duration,
+    /// Accept the metrics clients push about themselves (KIP-714: GetTelemetrySubscriptions and PushTelemetry) and say so in
+    /// ApiVersions. Clients that support it then report every five seconds; the last report of each is kept in memory,
+    /// bounded (128 clients, 4 MiB), and is never read, shown or logged. `--client-telemetry=false` stops advertising the
+    /// two APIs (Kafka 4 only: older versions have none).
+    #[arg(long, default_value_t = true, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
+    client_telemetry: bool,
     /// Kafka major version to stand for (1-4).
     #[arg(long, default_value_t = 4)]
     kafka_version: u8,
@@ -141,7 +147,9 @@ pub(crate) struct Args {
     #[arg(long, hide = true)]
     meta_db: Option<String>,
     /// The web console: on unless `--console=false`. It listens beside the broker, in the same process, and shows what the
-    /// broker holds. A build without the `console` feature accepts the flag and serves none.
+    /// broker holds. It has no login and acts as a super user: on a shared machine any local process can use it without the
+    /// broker's password or past its ACLs (it is a tool for one developer), so turn it off there with `--console=false`. A
+    /// build without the `console` feature accepts the flag and serves none.
     #[arg(long, num_args = 0..=1, default_missing_value = "true", value_name = "BOOL")]
     console: Option<String>,
     /// Where the console listens (default 127.0.0.1:9093: the Kafka port plus one, on this machine only). If the default
@@ -155,10 +163,18 @@ pub(crate) struct Args {
     /// turns the check off). It guards against DNS rebinding: a request for any other `Host` is refused with 403.
     #[arg(long, value_name = "HOST", value_delimiter = ',')]
     console_allow_host: Vec<String>,
-    /// Accept serving the console beyond loopback although SASL or TLS is on (it has no login and is plain HTTP, so
-    /// without this that start is refused). Every page then says it is served beyond loopback with no login.
+    /// Accept serving the console beyond loopback although that makes it a wider door than the broker: SASL or TLS is on, ACLs
+    /// are in force (--acl-default deny, or ACLs stored), or --listen keeps Kafka on loopback. The console has no login, is plain
+    /// HTTP and acts as a super user, so without this that start is refused. Every page then says it is served beyond loopback.
+    /// Without it, a console beyond loopback in front of an open broker stops answering other machines while the broker has
+    /// any ACL (made after the start, over Kafka or from the console), and answers them again once none is left.
     #[arg(long)]
     console_unprotected: bool,
+    /// The Lab of the console: rules that delay, fail or drop requests on purpose, made from the console only and kept in memory.
+    /// On unless `--lab=false`; off when the console is off, and off by default when the console is served beyond loopback
+    /// (`--lab=true` switches it on there). Anyone who can reach the console can inject faults.
+    #[arg(long, num_args = 0..=1, default_missing_value = "true", value_name = "BOOL")]
+    lab: Option<String>,
 
     /// PEM certificate chain (leaf first) to serve TLS with. Needs --tls-key.
     #[cfg(feature = "tls")]
@@ -169,9 +185,11 @@ pub(crate) struct Args {
     #[arg(long, value_name = "FILE")]
     tls_key: Option<PathBuf>,
     // Without the feature the two flags are accepted, hidden, to be refused with a message that names the feature.
+    /// PEM certificate chain (leaf first) to serve TLS with. This build has no TLS and refuses the flag.
     #[cfg(not(feature = "tls"))]
     #[arg(long, hide = true)]
     tls_cert: Option<String>,
+    /// PEM private key of the certificate. This build has no TLS and refuses the flag.
     #[cfg(not(feature = "tls"))]
     #[arg(long, hide = true)]
     tls_key: Option<String>,
@@ -228,6 +246,7 @@ impl Args {
         broker.log_retention_check_every = self.log_retention_check_interval;
         broker.log_cleaner_every = self.log_cleaner_interval;
         broker.log_cleaner_enable = self.log_cleaner_enable;
+        broker.client_telemetry = self.client_telemetry;
         broker.max_open_partitions = self.max_open_partitions;
         broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
         broker.super_users = acl::super_users(&self.acl_super_user)?;
@@ -278,6 +297,7 @@ impl Args {
             prefix: &self.console_prefix,
             allow_hosts: &self.console_allow_host,
             unprotected: self.console_unprotected,
+            lab: self.lab.as_deref(),
             sasl,
             tls,
             listen: self.listen,
@@ -332,13 +352,16 @@ impl Args {
         }
         let given = [
             (
-                self.console.as_deref().is_some_and(|v| v != "false"),
+                self.console
+                    .as_deref()
+                    .is_some_and(|v| console::switch(v) != Some(false)),
                 "--console",
             ),
             (self.console_addr.is_some(), "--console-addr"),
             (self.console_prefix != "/", "--console-prefix"),
             (!self.console_allow_host.is_empty(), "--console-allow-host"),
             (self.console_unprotected, "--console-unprotected"),
+            (self.lab.is_some(), "--lab"),
         ];
         given
             .into_iter()
@@ -353,6 +376,8 @@ mod console;
 pub(crate) use console::Console;
 #[cfg(feature = "console")]
 pub(crate) use console::DEFAULT_ADDR as DEFAULT_CONSOLE_ADDR;
+#[cfg(feature = "console")]
+pub(crate) use console::stored_acls;
 mod sasl;
 pub(crate) use sasl::NO_USERS;
 mod tls;

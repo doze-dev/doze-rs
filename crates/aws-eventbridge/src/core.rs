@@ -76,8 +76,10 @@ pub(crate) struct Core {
     pub(crate) last_caller: Option<Caller>,
     /// When each archive's old events were last removed, by archive key.
     pub(crate) purged: HashMap<String, i64>,
-    /// Where work that must not wait on this actor is spawned (an event for another region).
+    /// Where work that must not wait on this actor is spawned (an event for another region, an API destination call).
     pub(crate) tasks: Tasks,
+    /// What the API destination calls made off the actor came to.
+    pub(crate) calls: Arc<crate::deliver_http::Calls>,
 }
 
 /// The operations this service runs. The others are refused by name before their request is read: partner event sources and global
@@ -214,6 +216,7 @@ impl Core {
             last_caller: None,
             purged: HashMap::new(),
             tasks,
+            calls: Arc::default(),
         }
     }
 

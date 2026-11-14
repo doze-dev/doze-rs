@@ -1,8 +1,6 @@
 //! Times, ages and bytes as the topic pages write them: how long ago, a clock time with milliseconds, a time typed into a
 //! filter, a hex dump. Pure.
 
-use super::civil;
-
 const SEC: i64 = 1000;
 const MIN: i64 = 60 * SEC;
 const HOUR: i64 = 60 * MIN;
@@ -24,19 +22,6 @@ pub fn ago(diff_ms: i64) -> String {
     } else {
         format!("{} d ago", d / DAY)
     }
-}
-
-/// `22:14:21.771`, UTC.
-#[must_use]
-pub fn clock_ms(ms: i64) -> String {
-    let c = civil(ms);
-    format!(
-        "{:02}:{:02}:{:02}.{:03}",
-        c.hour,
-        c.minute,
-        c.second,
-        ms.rem_euclid(1000)
-    )
 }
 
 /// Days since the epoch of a civil date (Howard Hinnant's algorithm, public domain), or `None` for a date that is not one.

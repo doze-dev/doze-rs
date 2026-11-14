@@ -11,25 +11,23 @@ fn plain(spans: &[Span]) -> String {
 }
 
 #[test]
-fn the_steady_sentence_says_how_long_and_how_it_stopped_and_what_it_holds() {
+fn the_steady_sentence_is_static_and_holds_no_number() {
     let v = fixtures::home(HomeState::Steady);
     assert_eq!(home_title(&v.state), "Home");
+    let s = plain(&home_sub(&v));
     assert_eq!(
-        plain(&home_sub(&v)),
-        "Running 3 d 4 h, last stop clean. It holds 9 topics and 21 partitions."
+        s,
+        "What this broker holds, who has spoken to it, and whether anything needs you."
     );
-}
-
-#[test]
-fn the_steady_sentence_has_a_form_for_each_last_stop() {
-    let mut v = fixtures::home(HomeState::Steady);
-    v.instance.last_stop = StopView::Unclean;
-    assert!(plain(&home_sub(&v)).starts_with("Running 3 d 4 h, last stop not clean. It holds"));
-    v.instance.last_stop = StopView::None;
-    v.instance.up_secs = 7;
+    // What used to be in it (how long it ran, the topics, the apps, the last request) is the strip of metric slots on Home.
+    assert!(!s.chars().any(|c| c.is_ascii_digit()), "{s}");
+    let mut other = v.clone();
+    other.spoke = None;
+    other.instance.up_secs = 7;
     assert_eq!(
-        plain(&home_sub(&v)),
-        "Running 7 s on a new data directory. It holds 9 topics and 21 partitions."
+        plain(&home_sub(&other)),
+        s,
+        "the sentence does not depend on the data"
     );
 }
 
@@ -46,20 +44,17 @@ fn the_quiet_sentence_names_the_listener_and_claims_no_client() {
 }
 
 #[test]
-fn the_instance_lede_follows_the_last_stop() {
+fn the_instance_lede_follows_the_last_stop_and_says_no_time() {
     let mut i = fixtures::home(HomeState::Steady).instance;
     assert_eq!(
         instance_lede(&i),
-        "Up 3 d 4 h. The last stop was clean, so every partition was trusted on start."
+        "The last stop was clean, so every partition was trusted on start."
     );
     i.last_stop = StopView::Unclean;
     assert!(instance_lede(&i).contains("not clean, so every partition was checked"));
     i.last_stop = StopView::None;
     i.up_secs = 120;
-    assert_eq!(
-        instance_lede(&i),
-        "Started 2 min ago on a new data directory."
-    );
+    assert_eq!(instance_lede(&i), "Started on a new data directory.");
 }
 
 #[test]
@@ -73,45 +68,34 @@ fn open_partitions_are_of_the_bound_when_there_is_one() {
 }
 
 #[test]
-fn the_advertised_ledes_say_whether_the_two_addresses_are_one() {
-    let mut p = fixtures::probe_ok();
-    assert_eq!(
-        home_advertised_lede(&p),
-        "A client asks for Metadata and then reconnects to the address in the answer, not to the one you gave it. Here that is 127.0.0.1:9092, the address the listener binds."
-    );
-    assert_eq!(
-        plain(&connect_advertised_lede(&p)),
-        "After Metadata a client reconnects to the advertised address. This broker advertises 127.0.0.1:9092, which is the address it listens on, and answers there."
-    );
-    assert_eq!(
-        advertised_instance_lede(&p),
-        "Advertised host and port equal the listener, so a client that reached it once can always reach it again."
-    );
-    p.same = false;
-    p.advertised = "kafka.test:19092".into();
-    p.verdict = Verdict::NotReachable;
-    assert!(home_advertised_lede(&p).ends_with(
-        "Here that is kafka.test:19092, not the address the listener binds (127.0.0.1:9092)."
-    ));
-    assert!(plain(&connect_advertised_lede(&p)).ends_with("kafka.test:19092, not the address it listens on (127.0.0.1:9092), and does not answer there."));
-    assert!(advertised_instance_lede(&p).contains("differ from the listener"));
-}
-
-#[test]
-fn a_verdict_has_one_word() {
-    assert_eq!(verdict_word(Verdict::Reachable), "Reachable");
-    assert_eq!(verdict_word(Verdict::NotReachable), "Not reachable");
-    assert_eq!(verdict_word(Verdict::NotChecked), "Not checked");
-}
-
-#[test]
 fn the_attention_headline_counts() {
     assert_eq!(
-        attention_headline(1),
+        attention_headline(1, 0),
         "1 thing needs you: a transaction is close to its timeout."
     );
     assert_eq!(
-        attention_headline(3),
+        attention_headline(3, 0),
         "3 things need you: 3 transactions are close to their timeout."
+    );
+}
+
+#[test]
+fn a_count_that_did_not_look_at_everything_is_a_floor_and_says_so() {
+    assert_eq!(
+        attention_headline(1, 4),
+        "At least 1 transaction is close to its timeout."
+    );
+    assert_eq!(
+        attention_headline(3, 1),
+        "At least 3 transactions are close to their timeout."
+    );
+    assert_eq!(unchecked_note(0), None);
+    assert_eq!(
+        unchecked_note(1).as_deref(),
+        Some("1 open transaction was not checked.")
+    );
+    assert_eq!(
+        unchecked_note(5).as_deref(),
+        Some("5 open transactions were not checked.")
     );
 }
