@@ -15,7 +15,7 @@ use crate::act::{Acts, Ask};
 use crate::actions::{Confirm, MoveLeft, MoveRight, Way1, Way2, Way3};
 use crate::kit::{keys_bar, mono, s};
 use crate::theme::{Tokens, mix, tokens, ty};
-use crate::widgets::{MONO_FAMILY, tracked};
+use crate::widgets::{Mono as _, tracked};
 
 /// The page.
 pub(crate) struct EmptyView {
@@ -132,7 +132,7 @@ fn found(t: &Tokens, e: &Empty) -> Option<AnyElement> {
                 .child(s(&it.where_))
                 .into_any_element(),
             div()
-                .font_family(MONO_FAMILY)
+                .mono_face()
                 .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .whitespace_nowrap()

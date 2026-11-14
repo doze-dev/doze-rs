@@ -107,6 +107,24 @@ Where the M0 build differs from this plan:
     "unready" https pill (need the trust check), the busy and failed banners (M2's actions), the Grid's sticky first
     column.
 
+**Owner rules, 2026-11-14 (branch `app-finish`).**
+
+- **Only a module's page can be customised, and only through what the module declares** (its console spec,
+  extensions, and the manifest's fields as they land). An app's, a task's and an outside service's page is the fixed
+  standard page: no console tabs, no extension blocks, no web tab, whatever the instance carries
+  (`doze-display` `tabs`, `doze-desk` `page::instance`, the console watch in `instance/mod.rs`; test
+  `tabs::owner_rule_tests::only_a_module_gets_console_or_web_tabs`; the Go oracle's answers are rewritten to this rule
+  in `tests/oracle/main.rs` `owner_rules`).
+- **The app hard-codes no module.** Module knowledge comes only from what the module declares through the SDK and
+  protocol; without a declaration the app shows a generic default. The three spots that still know modules by name
+  (the psql/redis-cli snippets in `doze-desk/src/page/snippets.rs`, ⌘K's `client_line` in `palette/instance.rs`, the
+  empty folder's table in `act/detect/mod.rs`) carry a `TODO(module contract)` and switch to the manifest's `client`
+  and `detect` fields when those land; they stay until then for parity.
+- **Nothing carries a "new" tag**: the whole app is new (the Grid's tag is gone).
+- **Privileged actions run from the app** (Repair, a clean-up that needs root, `doze doctor`) in the run sheet: the
+  steps shown before any password is asked, one system prompt per action, the output streamed, the outcome in words.
+  The commands come from one place (`doze-desk/src/settings/cli.rs`, `DOZE_APP_CLI`): today the Go CLI's.
+
 The owner's brief: "make the GUI as best as you can make it! Leave no stone
 unturned! It's got to squeeze the best out of GPUI and its components. Check
 what the Go doze GUI offers today and just make it the best god damn doze GUI

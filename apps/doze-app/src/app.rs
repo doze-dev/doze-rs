@@ -15,7 +15,7 @@ use gpui::{
 
 use crate::actions::{self, OpenPalette, Quit};
 use crate::cli;
-use crate::link::{self, Link};
+pub(crate) use crate::link::follow_args;
 use crate::prefs::{self, Frame};
 use crate::shell::Root;
 use crate::single::{self, Launch};
@@ -47,8 +47,17 @@ pub(crate) fn boot_core(cx: &mut App) {
             .map(|f| Cow::Borrowed(*f))
             .collect(),
     );
+    crate::handsoff::guard_keys(cx);
     cx.set_menus(actions::menus());
     cx.on_action(|_: &Quit, cx| cx.quit());
+    // About from the menu with no window open: the window first, on Settings › About (Go opened it for every item).
+    cx.on_action(|_: &actions::AboutDoze, cx| {
+        if let Some(h) = open(cx) {
+            let _ = h.update(cx, |root, window, cx| {
+                root.open_settings(Some(crate::settings::Section::About), false, window, cx);
+            });
+        }
+    });
     cx.on_action(|_: &OpenPalette, cx| {
         if let Some(h) = open(cx) {
             let _ = h.update(cx, |root, window, cx| {
@@ -73,7 +82,16 @@ pub(crate) fn boot_ui(cx: &mut App, choice: Choice) {
     cx.set_global(UiReady);
 }
 
-/// The frame of a first open: the main screen's work area.
+/// Frames the process's windows have committed to the screen so far (the renderer's count; 0 where it keeps none).
+/// The GPU driver holds about 150 MB for as long as frames keep coming, so an idle window must add none.
+pub(crate) fn frames_drawn() -> u64 {
+    #[cfg(target_os = "macos")]
+    return gpui_apple::metal_renderer::frames_drawn();
+    #[cfg(not(target_os = "macos"))]
+    0
+}
+
+/// The frame of a first open: the main screen's work area; with no screen known, Go's 960×640.
 fn first_bounds(cx: &App) -> Bounds<gpui::Pixels> {
     match prefs::frame() {
         Some(f) => Bounds {
@@ -81,7 +99,7 @@ fn first_bounds(cx: &App) -> Bounds<gpui::Pixels> {
             size: size(px(f.w as f32), px(f.h as f32)),
         },
         None => cx.primary_display().map_or_else(
-            || Bounds::centered(None, size(px(1280.), px(800.)), cx),
+            || Bounds::centered(None, size(px(960.), px(640.)), cx),
             |d| d.visible_bounds(),
         ),
     }
@@ -98,7 +116,8 @@ pub(crate) fn options(bounds: Bounds<gpui::Pixels>, show: bool) -> WindowOptions
         }),
         window_min_size: Some(size(px(760.), px(400.))),
         show,
-        focus: show,
+        // A hands-off run (tests, shots, the bench, a script) never takes the keyboard (`crate::handsoff`).
+        focus: show && !crate::handsoff::on(),
         ..Default::default()
     }
 }
@@ -110,12 +129,16 @@ pub(crate) fn open(cx: &mut App) -> Option<WindowHandle<Root>> {
         (s.hub.clone(), s.first.clone(), s.window, s.facts.clone())
     };
     if let Some(h) = existing {
-        let _ = h.update(cx, |_, w, _| w.activate_window());
-        cx.activate(true);
+        if !crate::handsoff::on() {
+            let _ = h.update(cx, |_, w, _| w.activate_window());
+            cx.activate(true);
+        }
         return Some(h);
     }
     boot_ui(cx, prefs::theme());
-    cx.set_activation_policy(ActivationPolicy::Regular);
+    if !crate::handsoff::on() {
+        cx.set_activation_policy(ActivationPolicy::Regular);
+    }
     let opts = options(first_bounds(cx), true);
     let h = cx
         .open_window(opts, |window, cx| {
@@ -133,54 +156,17 @@ pub(crate) fn open(cx: &mut App) -> Option<WindowHandle<Root>> {
             cx.new(|cx| Root::new(hub.clone(), first, facts, window, cx))
         })
         .ok()?;
-    hub.set_visible(true);
-    cx.global_mut::<State>().window = Some(h);
-    cx.activate(true);
-    Some(h)
-}
-
-/// Goes where a launch's arguments (or a `doze://` link) say: a stack, a service in it, a folder.
-pub(crate) fn follow_args(cx: &mut App, args: &[String]) {
-    let Some(h) = open(cx) else { return };
-    let mut it = args.iter();
-    let mut show: Option<String> = None;
-    let mut target: Option<Result<Link, String>> = None;
-    while let Some(a) = it.next() {
-        if a == "--show" {
-            show = it.next().cloned();
-        } else if let Some(v) = a.strip_prefix("--show=") {
-            show = Some(v.to_owned());
-        } else if link::is(a) {
-            target = Some(link::parse(a));
-        } else {
-            target = Some(Ok(Link::Open {
-                dir: a.into(),
-                show: None,
-            }));
-        }
+    // The meters follow the window's use (`Root::sync_hub`); a hands-off run streams them while the window lives.
+    if crate::handsoff::on() {
+        hub.set_visible(true);
     }
-    let _ = h.update(cx, |root, window, cx| match target {
-        Some(Ok(Link::Stack { stack, show: s })) => {
-            if !root.show(&stack, s.or(show).as_deref(), window, cx) {
-                root.say(format!("No stack called {stack} is known here."), cx);
-            }
-        }
-        Some(Ok(Link::Open { dir, show: s })) => {
-            root.open_dir(&dir, s.or(show).as_deref(), window, cx)
-        }
-        Some(Ok(Link::Library)) => root.go(crate::shell::Screen::Library, window, cx),
-        Some(Ok(Link::Settings(part))) => {
-            let part = part.unwrap_or_default();
-            let at = crate::settings::Section::parse(&part);
-            root.open_settings(at, part == "updates", window, cx);
-        }
-        Some(Err(e)) => root.say(e, cx),
-        None => {
-            if let Some(s) = show {
-                root.select(&s, cx);
-            }
-        }
-    });
+    cx.global_mut::<State>().window = Some(h);
+    if crate::handsoff::on() {
+        crate::handsoff::after_open(h.into(), cx);
+    } else {
+        cx.activate(true);
+    }
+    Some(h)
 }
 
 /// A batch from the hub: the menu-bar item and the notifications always (`crate::around`); the window only while it
@@ -190,6 +176,7 @@ fn pump(cx: &mut App, hub: Hub) {
         while let Ok(batch) = hub.updates().recv().await {
             cx.update(|cx| {
                 crate::around::on_batch(cx);
+                crate::activity::remember_batch(&hub, &batch, cx);
                 if let Some(h) = cx.try_global::<State>().and_then(|s| s.window) {
                     let _ = h.update(cx, |root, _, cx| root.apply(&batch, cx));
                 }
@@ -200,7 +187,18 @@ fn pump(cx: &mut App, hub: Hub) {
 }
 
 /// Runs the app until it quits.
-pub(crate) fn run(a: cli::App) -> ExitCode {
+pub(crate) fn run(mut a: cli::App) -> ExitCode {
+    crate::handsoff::from_env();
+    // A hands-off run on the owner's home would hand its arguments to his running app, which would come forward.
+    if crate::handsoff::on() && std::env::var_os("DOZE_HOME").is_none() {
+        eprintln!("doze-app: a hands-off or scripted run needs its own DOZE_HOME");
+        return ExitCode::FAILURE;
+    }
+    // A relative folder is the launching folder's, and a launch inside a project with no folder named opens it (Go
+    // `dirFrom`): resolved here, before a second launch hands them to the first, which runs elsewhere.
+    if let Ok(here) = std::env::current_dir() {
+        a.forward = crate::open::resolved(&a.forward, &here);
+    }
     let home = match doze_os::home::doze_home() {
         Ok(h) => h,
         Err(e) => {
@@ -285,13 +283,18 @@ fn started(
     })
     .detach();
     cx.spawn(async move |cx: &mut AsyncApp| {
+        // A doze:// link clicked anywhere on the system: followed a moment later, as Go's (the hub has to know the stacks).
         while let Ok(u) = urls.recv().await {
-            cx.update(|cx| follow_args(cx, &u));
+            cx.update(|cx| crate::link::follow_later(cx, u));
         }
     })
     .detach();
     if !a.menu_bar {
-        follow_args(cx, &a.forward);
+        if a.forward.iter().any(|x| crate::link::is(x)) {
+            crate::link::follow_later(cx, a.forward.clone());
+        } else {
+            follow_args(cx, &a.forward);
+        }
     }
     #[cfg(feature = "fixtures")]
     crate::driver::start(cx);

@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use crate::gonum::fixed;
 use crate::gotime::{self, HOUR, MINUTE, SECOND};
+use crate::grain;
 
 const MIB: i64 = 1 << 20;
 const GIB: i64 = 1 << 30;
@@ -40,7 +41,28 @@ pub(crate) fn clock_nanos(d: i64) -> String {
     )
 }
 
-/// How long a span is, in the coarsest unit that still says something: `12s`, `4m`, `3h`, `2d`. (Go: `Ago`.)
+/// A countdown that moves with time: [`clock`]'s `m:ss`, or to the minute (`4m`, `<1m`) inside [`crate::coarse`].
+#[must_use]
+pub fn countdown(d: Duration) -> String {
+    countdown_nanos(gotime::nanos(d))
+}
+
+pub(crate) fn countdown_nanos(d: i64) -> String {
+    if grain::is_coarse() {
+        grain::countdown(d)
+    } else {
+        clock_nanos(d)
+    }
+}
+
+/// Seconds to go, as `4s` (to the nearest second), or to the minute (`<1m`, `2m`) inside [`crate::coarse`].
+#[must_use]
+pub fn seconds_to_go(d: Duration) -> String {
+    grain::seconds_left(gotime::nanos(d))
+}
+
+/// How long ago something was, in the coarsest unit that still says something: `12s`, `4m`, `3h`, `2d` (Go: `Ago`);
+/// under a minute, `<1m` inside [`crate::coarse`].
 #[must_use]
 pub fn ago(d: Duration) -> String {
     ago_nanos(gotime::nanos(d))
@@ -48,6 +70,16 @@ pub fn ago(d: Duration) -> String {
 
 /// [`ago`] of a span that may be negative, when the clocks disagree: `-3s`.
 pub(crate) fn ago_nanos(d: i64) -> String {
+    if grain::is_coarse()
+        && let Some(w) = grain::age(d)
+    {
+        return w;
+    }
+    span(d)
+}
+
+/// How long a span is, in the coarsest unit that still says something: `12s`, `4m`, `3h`, `2d`. (Go: `Ago`.)
+pub(crate) fn span(d: i64) -> String {
     if d < MINUTE {
         format!("{}s", gotime::whole_seconds(d))
     } else if d < HOUR {

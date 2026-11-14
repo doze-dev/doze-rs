@@ -24,18 +24,21 @@ impl LogsView {
         }
     }
 
-    /// Copies the picked lines, else the lines in view, as they read.
+    /// Copies the picked lines, else the lines shown as Go's page holds them (its window of [`WINDOW`] lines: the newest
+    /// while it follows, else from the top of the view), as they read; and says how many (Go `copyShown`).
     pub(crate) fn copy_shown(&mut self, cx: &mut Context<Self>) {
+        let window = shown_window(self.index.len(), self.drawn.clone(), self.follow);
         let range = match self.picked {
             Some((a, b)) => {
                 let (a, b) = (self.index.row_of(a.min(b)), self.index.row_of(a.max(b)));
                 match (a, b) {
                     (Some(a), Some(b)) => a..b + 1,
-                    _ => self.drawn.clone(),
+                    _ => window,
                 }
             }
-            None => self.drawn.clone(),
+            None => window,
         };
+        let n = range.len();
         let (idx, now, zone, clock) = (&self.index, self.now, self.zone, self.clock);
         let text = self
             .hub
@@ -48,6 +51,16 @@ impl LogsView {
             })
             .unwrap_or_default();
         crate::outward::copy(cx, &text);
+        if let Some(acts) = crate::act::acts(cx) {
+            let what = if n == 1 {
+                "1 line".to_owned()
+            } else {
+                format!("{n} lines")
+            };
+            acts.update(cx, |a, cx| {
+                a.say(format!("copied {what} to the clipboard"), false, cx)
+            });
+        }
         cx.notify();
     }
 
@@ -140,5 +153,39 @@ impl LogsView {
             cx.notify();
         }))
         .on_action(cx.listener(|v, _: &LogsEnd, _, cx| v.set_follow(true, cx)))
+    }
+}
+
+/// How many lines Go's logs page holds at a time (`WINDOW`), and so copies with `c`.
+pub(crate) const WINDOW: usize = 200;
+
+/// The rows `c` copies with nothing picked: Go's window, the newest [`WINDOW`] while following, X/// 40 rows above the first row drawn; never past the `len` rows shown.
+pub(crate) fn shown_window(
+    len: usize,
+    drawn: std::ops::Range<usize>,
+    follow: bool,
+) -> std::ops::Range<usize> {
+    if follow || drawn.is_empty() {
+        len.saturating_sub(WINDOW)..len
+    } else {
+        // Go's list asks for its window 40 rows above the first one drawn (vlist.tsx `onNeed(first - 40)`).
+        let from = drawn.start.saturating_sub(40).min(len);
+        from..(from + WINDOW).min(len)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{WINDOW, shown_window};
+
+    /// Go's `c` copies the page's window of lines, not only the rows on screen.
+    #[test]
+    fn c_copies_go_s_window() {
+        assert_eq!(shown_window(50, 10..30, true), 0..50);
+        assert_eq!(shown_window(1000, 900..930, true), 800..1000);
+        assert_eq!(shown_window(1000, 100..130, false), 60..60 + WINDOW);
+        assert_eq!(shown_window(1000, 900..930, false), 860..1000);
+        assert_eq!(shown_window(1000, 10..30, false), 0..WINDOW);
+        assert_eq!(shown_window(0, 0..0, false), 0..0);
     }
 }

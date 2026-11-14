@@ -2,13 +2,15 @@
 //! every stack doze knows, running first with live figures, stopped below with when they last ran; the getting-started
 //! strip while it is still useful; what other doze programs run here; the machine line.
 
+mod addr;
 mod machine;
 mod others;
 
+use addr::addresses;
+pub use addr::{Addr, fronted, unready};
 pub use machine::{Check, Doctor, fix_of, machine, names_off, parse_doctor, zone_off};
 pub use others::{Names, Other, others};
 
-use std::collections::HashSet;
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -82,35 +84,6 @@ pub struct Bit {
     pub text: String,
     #[serde(skip_serializing_if = "str::is_empty")]
     pub tone: &'static str,
-}
-
-/// One address pill.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-pub struct Addr {
-    pub text: String,
-    /// What Open uses; empty for a name that is not http.
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub url: String,
-    pub up: bool,
-    /// An https domain this machine is not set up for yet: not a link, not up (Go `Unready`).
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
-    pub unready: bool,
-}
-
-/// The https pills of the stacks keyed in `unset` (whose domains are not set up here) are not offered as links: the
-/// stack's page says what the setup is. (Go `Library`.)
-pub fn unready(lib: &mut Library, unset: &[String]) {
-    for st in lib.stacks.iter_mut().filter(|s| unset.contains(&s.key)) {
-        for a in st
-            .addresses
-            .iter_mut()
-            .filter(|a| a.text.starts_with("https://"))
-        {
-            a.unready = true;
-            a.url.clear();
-            a.up = false;
-        }
-    }
 }
 
 /// One of the getting-started strip's three.
@@ -381,56 +354,6 @@ fn conn_word(n: u64) -> String {
         1 => "1 connection".to_owned(),
         n => format!("{n} connections"),
     }
-}
-
-/// The pills: every https domain, then the apps by name; three at most, and how many more there are.
-fn addresses(st: &StackView) -> (Vec<Addr>, usize) {
-    let snap = st.words();
-    let pairs: Vec<_> = st.instances.iter().zip(&snap.instances).collect();
-    let mut out: Vec<Addr> = Vec::new();
-    let mut seen: HashSet<&str> = HashSet::new();
-    for (v, i) in &pairs {
-        for d in v.domains.iter().filter(|d| !d.starts_with("*.")) {
-            if seen.insert(d) {
-                out.push(Addr {
-                    text: format!("https://{d}"),
-                    url: format!("https://{d}"),
-                    up: words::awake_now(i),
-                    unready: false,
-                });
-            }
-        }
-    }
-    let mut named: Vec<_> = pairs
-        .iter()
-        .filter(|(v, _)| v.kind != "task" && !v.domain.is_empty())
-        .collect();
-    named.sort_by_key(|(v, _)| v.kind != "app");
-    for (v, i) in named {
-        let reach = words::reach(i);
-        let addr = reach
-            .as_ref()
-            .map(|r| format!("{}{}", r.addr, r.port.unwrap_or_default()));
-        let web = addr.as_deref().is_some_and(|a| a.starts_with("http"))
-            && (v.kind != "module" || !v.url.is_empty() || !v.resource.is_empty());
-        out.push(match addr {
-            Some(a) if web => Addr {
-                text: a.clone(),
-                url: a,
-                up: words::awake_now(i),
-                unready: false,
-            },
-            _ => Addr {
-                text: v.domain.clone(),
-                url: String::new(),
-                up: words::awake_now(i),
-                unready: false,
-            },
-        });
-    }
-    let more = out.len().saturating_sub(3);
-    out.truncate(3);
-    (out, more)
 }
 
 /// What of a stack's files is gone, or empty when its doze.hcl is there (or its folder is not known).

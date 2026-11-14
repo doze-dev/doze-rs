@@ -3,6 +3,10 @@
 //! `doze://settings/updates` is About, asking GitHub now). The scheme and the host are matched
 //! without regard to case.
 
+mod follow;
+
+pub(crate) use follow::{follow_args, follow_later};
+
 use std::path::PathBuf;
 
 /// Where a link goes.

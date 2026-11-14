@@ -74,14 +74,23 @@ pub enum TrayIcon {
     Alert,
 }
 
-/// Template images for the two icons, PNG at 2x (44 × 44 for a 22 pt bar). The caller embeds them; macOS tints a
-/// template image to match the menu bar.
+/// Template images for the two icons. The caller embeds them; macOS tints a template image to match the menu bar.
 #[derive(Debug, Clone, Copy)]
 pub struct Icons {
     /// [`TrayIcon::Calm`].
-    pub calm: &'static [u8],
+    pub calm: Icon,
     /// [`TrayIcon::Alert`].
-    pub alert: &'static [u8],
+    pub alert: Icon,
+}
+
+/// One icon as PNG, drawn for each scale: `x1`'s pixels are the icon's size in points (18 tall for the menu bar),
+/// `x2` is the same picture at twice as many pixels, drawn at that size rather than scaled.
+#[derive(Debug, Clone, Copy)]
+pub struct Icon {
+    /// At 1x.
+    pub x1: &'static [u8],
+    /// At 2x.
+    pub x2: &'static [u8],
 }
 
 /// What runs when a menu line is chosen: its `id`. Called on the main thread.
@@ -135,9 +144,39 @@ impl Tray {
         self.inner.icon_frame()
     }
 
-    /// Opens the menu as a click on the item would (for a picture of it; the menu tracks until it is closed).
+    /// Opens the menu as a click on the item would, on the run loop's next turn (for a picture of it; the menu tracks
+    /// until it is closed).
     pub fn open_menu(&self) {
         self.inner.open_menu();
+    }
+
+    /// Closes the menu if it is open.
+    pub fn close_menu(&self) {
+        self.inner.close_menu();
+    }
+
+    /// The menu as AppKit holds it now, read back from its items (not from what was handed to [`Tray::set_menu`]): a
+    /// line each, indented by depth; `[Header]`, `----` for a separator, `>` for a submenu, `(disabled)` or the line's id in hex.
+    #[must_use]
+    pub fn menu_text(&self) -> String {
+        self.inner.menu_text()
+    }
+
+    /// Chooses the line at `path` (titles from the top menu down; each the line's title, its start after any state mark, or words in it) the way a
+    /// click on it does: the menu sends the line's action to its target, so `on_pick` hears it as it hears a click.
+    /// No pointer and no Accessibility: for checking every line against a real daemon.
+    ///
+    /// # Errors
+    ///
+    /// What was not found, or that the line is disabled.
+    pub fn choose(&self, path: &[&str]) -> Result<String, String> {
+        self.inner.choose(path)
+    }
+
+    /// Which picture the item shows now and its size in points, read back from its button.
+    #[must_use]
+    pub fn shown_icon(&self) -> Option<(TrayIcon, [f64; 2])> {
+        self.inner.shown_icon()
     }
 }
 
@@ -151,4 +190,25 @@ pub fn dock_badge(label: Option<&str>) {
 #[must_use]
 pub fn dock_badge_now() -> Option<String> {
     imp::dock_badge_now()
+}
+
+/// Asks the system, once, for leave to post notifications (Alert and Sound), so the first one is not lost to the
+/// question. Only from an app bundle (the notification centre refuses a bare binary); a no-op elsewhere and when the
+/// person already answered.
+pub fn ask_notifications() {
+    imp::ask_notifications();
+}
+
+/// Hands off (a test, a shot, the bench or a scripted run): every titled window of this app lets the pointer through
+/// to whatever is under it, so a person's clicks on the screen never reach it. Returns how many windows it set. A
+/// no-op where there is no AppKit.
+pub fn hands_off() -> usize {
+    imp::hands_off()
+}
+
+/// Whether this app holds the person's input: it is the active app (it gets the keyboard), and how many of its
+/// windows are key. A hands-off run checks both are none.
+#[must_use]
+pub fn holds_input() -> (bool, usize) {
+    imp::holds_input()
 }

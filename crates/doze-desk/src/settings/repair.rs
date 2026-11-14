@@ -8,6 +8,7 @@
 
 use std::path::PathBuf;
 
+use super::cli::{self, Flavour, Verb};
 use super::machine::{PATH_LINK, Part};
 use crate::view::StackView;
 
@@ -115,7 +116,11 @@ pub fn steps(stacks: &[StackView], parts: &[Part], link: Option<&std::path::Path
     };
     let mut out = Vec::new();
     if need("names") {
-        out.push(doze_step("the .doze names".into(), None, &["dns-setup"]));
+        out.push(doze_step(
+            "the .doze names".into(),
+            None,
+            cli::words(Flavour::default(), Verb::Names),
+        ));
     }
     if need("domains") {
         let mut any = false;
@@ -124,7 +129,11 @@ pub fn steps(stacks: &[StackView], parts: &[Part], link: Option<&std::path::Path
             if declares && !st.dir.is_empty() {
                 any = true;
                 let what = format!("{}'s domains", st.name);
-                out.push(doze_step(what, Some(PathBuf::from(&st.dir)), &["trust"]));
+                out.push(doze_step(
+                    what,
+                    Some(PathBuf::from(&st.dir)),
+                    cli::words(Flavour::default(), Verb::Trust),
+                ));
             }
         }
         // doze trust prunes stale routes in the same prompt; with no stack to run it in, the app prunes them itself.

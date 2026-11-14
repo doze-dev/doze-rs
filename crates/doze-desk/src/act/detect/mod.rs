@@ -52,6 +52,10 @@ impl Detected {
 }
 
 /// A module doze has, by what makes a project need it (Go `kinds`).
+///
+/// TODO(module contract): this table is module-specific (which imports, packages and images mean postgres, valkey…).
+/// It switches to what each module declares (manifest `detect`, through the SDK and protocol) once that field lands;
+/// kept until then for parity with Go. No new module may be added here.
 struct ModKind {
     module: &'static str,
     name: &'static str,

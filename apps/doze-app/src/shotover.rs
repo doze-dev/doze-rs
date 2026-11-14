@@ -71,8 +71,34 @@ pub(crate) fn stage(root: &mut Root, window: &mut Window, cx: &mut Context<Root>
             cx.notify();
         }
         Some("note") => note(root, &stacks, cx),
+        // The ⋯ menu: the selected Library row's (`--select` a stack by name), or the stack page head's.
+        Some("menu") => menu(root, s, cx),
         _ => {}
     }
+}
+
+/// The ⋯ menu: the selected Library row's (`--select` a stack by name), or the stack page head's.
+fn menu(root: &mut Root, s: &Shot, cx: &mut Context<Root>) {
+    crate::library::menu::opened();
+    if root.key().is_some() {
+        root.overview.update(cx, |o, cx| {
+            o.menu = true;
+            cx.notify();
+        });
+        return;
+    }
+    let pick = s.select.clone();
+    root.library.update(cx, |l, cx| {
+        let row = l
+            .lib
+            .stacks
+            .iter()
+            .find(|st| pick.as_deref().is_none_or(|n| st.name == n))
+            .map(|st| st.key.clone());
+        l.menu = row.clone();
+        l.selected = row;
+        cx.notify();
+    });
 }
 
 /// A notification said in the app (no bundle, M3): the rules see the stack well, then as the fixture has it, and

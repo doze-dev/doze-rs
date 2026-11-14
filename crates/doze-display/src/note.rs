@@ -75,10 +75,12 @@ pub fn note(v: &Instance, idle: Duration, now: SystemTime) -> Said {
     if quiet && v.idle_since.is_some() {
         let left = idle.wrapping_sub(gotime::since(now, v.idle_since));
         if left > 0 {
-            parts.push(format!(
-                "sleeps in {}",
+            let left = if crate::grain::is_coarse() {
+                crate::format::countdown_nanos(left)
+            } else {
                 gotime::duration_string(gotime::round(left, gotime::SECOND))
-            ));
+            };
+            parts.push(format!("sleeps in {left}"));
         }
     }
     Said {

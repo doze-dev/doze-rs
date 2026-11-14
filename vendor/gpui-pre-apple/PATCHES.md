@@ -43,6 +43,15 @@ fixture, 2026-11-13): total ink against Go's went from 1.12–1.45 to 1.00 ± 0.
 key chips, captions and mono, in dark and light themes. Nothing else changes: memory, binary and frame time are the
 same (one branch fewer per glyph).
 
-## 3. Lints
+## 3. A count of frames drawn (`src/metal_renderer.rs`: `frames_drawn`)
+
+`MetalRenderer::draw` adds one to a process-wide counter for each frame it commits to a window's drawable (offscreen
+captures are not counted), and says `frame N` at trace level (target `gpui_apple::frames`; `DOZE_APP_LOG=trace`).
+`gpui_apple::metal_renderer::frames_drawn()` reads it. The app's `bench` reports the frames an idle window drew and
+fails `--check` when there are any: on this Mac the GPU driver holds about 150 MB for as long as a window keeps
+drawing, even once a second (docs/port/weight.md, "the idle window"), so "draws nothing while idle" is the property
+that keeps an open window in its budget. One relaxed atomic add per frame; nothing else changes.
+
+## 4. Lints
 
 None changed: `vendor/` is excluded from the workspace, so its own `[lints]` table applies to it alone.

@@ -5,7 +5,7 @@ use gpui::{AnyElement, ClickEvent, Hsla, IntoElement, SharedString, Window, div,
 
 use crate::actions;
 use crate::theme::{Density, Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, icon, kbd_chip, kbd_plain, tracked};
+use crate::widgets::{Mono as _, icon, kbd_chip, kbd_plain, tracked};
 
 /// A click handler.
 pub(crate) type Click = Box<dyn Fn(&ClickEvent, &mut Window, &mut gpui::App) + 'static>;
@@ -34,6 +34,18 @@ pub(crate) fn btn(
     t: &Tokens,
     id: impl Into<gpui::ElementId>,
     label: &str,
+    key: &str,
+    kind: Btn,
+    click: Option<Click>,
+) -> gpui::Stateful<gpui::Div> {
+    btn_led(t, id, (None, label), key, kind, click)
+}
+
+/// A [`btn`] with something before its words (Go: `<span className="dot y" /> 2 left behind`).
+pub(crate) fn btn_led(
+    t: &Tokens,
+    id: impl Into<gpui::ElementId>,
+    (lead, label): (Option<AnyElement>, &str),
     key: &str,
     kind: Btn,
     click: Option<Click>,
@@ -84,6 +96,7 @@ pub(crate) fn btn(
         .whitespace_nowrap()
         .cursor_pointer()
         .child(crate::motion::tick(b_moving || f_moving))
+        .children(lead)
         .child(SharedString::from(label.to_owned()));
     b = crate::motion::track(b, &hid);
     b = crate::outward::Probe::probe(b, hid.clone(), label.to_owned());
@@ -237,7 +250,7 @@ pub(crate) fn heading(
 /// Text in the mono face.
 pub(crate) fn mono(text: impl Into<SharedString>, size: f32, color: Hsla) -> gpui::Div {
     div()
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(size))
         .text_color(color)
         .child(text.into())
@@ -281,4 +294,31 @@ pub(crate) fn word_line(word: &str, tone: Hsla, rest: &[&str]) -> gpui::StyledTe
         ..Default::default()
     };
     gpui::StyledText::new(text).with_highlights([(0..word.len(), style)])
+}
+
+/// How long a Copy link says "Copied" (Go `card.tsx`'s `Copy`: 1200 ms).
+pub(crate) const COPIED_FOR: std::time::Duration = std::time::Duration::from_millis(1200);
+
+/// The Copy link that said "Copied" last, and when.
+#[derive(Default)]
+struct CopiedLast(Option<(SharedString, std::time::Instant)>);
+
+impl gpui::Global for CopiedLast {}
+
+/// Has the Copy link `id` say "Copied" for [`COPIED_FOR`], then redraws `cx`'s view so it says Copy again.
+pub(crate) fn flip_copied<V: 'static>(id: impl Into<SharedString>, cx: &mut gpui::Context<V>) {
+    cx.set_global(CopiedLast(Some((id.into(), std::time::Instant::now()))));
+    cx.notify();
+    cx.spawn(async move |this, cx| {
+        cx.background_executor().timer(COPIED_FOR).await;
+        let _ = this.update(cx, |_, cx| cx.notify());
+    })
+    .detach();
+}
+
+/// Whether the Copy link `id` says "Copied" now.
+pub(crate) fn says_copied(id: &str, cx: &gpui::App) -> bool {
+    cx.try_global::<CopiedLast>()
+        .and_then(|c| c.0.as_ref())
+        .is_some_and(|(at, when)| at.as_ref() == id && when.elapsed() < COPIED_FOR)
 }
