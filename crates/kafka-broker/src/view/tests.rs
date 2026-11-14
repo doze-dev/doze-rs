@@ -88,3 +88,45 @@ async fn the_partition_limits_are_the_flags_and_only_for_who_may_create() {
     let nobody = Caller::anonymous(Some("127.0.0.1".parse().unwrap()));
     assert_eq!(closed.console_view().limits(&nobody), None);
 }
+
+#[tokio::test]
+async fn access_names_the_flag_users_and_the_super_users_and_never_what_they_log_in_with() {
+    use kafka_auth::{Credentials, Mechanism, Users};
+    let creds = Credentials::new([("zed".to_owned(), "PLANTED-pw-0123".to_owned())]).unwrap();
+    let mut config = Config::new("/data".into());
+    config.users = std::sync::Arc::new(
+        Users::derive(creds, &[Mechanism::Plain, Mechanism::ScramSha256]).unwrap(),
+    );
+    config.acl_default_allow = false;
+    config.super_users.insert("User:admin".to_owned());
+    let broker = Broker::open(fs(), config).unwrap();
+    let seen = broker.console_view().access(&console()).unwrap();
+    assert_eq!(seen.flag_users, ["zed"]);
+    assert_eq!(seen.super_users, ["User:admin"]);
+    assert!(!seen.acl_default_allow);
+    assert_eq!(seen.stored_users, 0);
+    let said = format!("{seen:?}");
+    assert!(
+        !said.contains("PLANTED"),
+        "a password is nowhere in the facts: {said}"
+    );
+    let nobody = Caller::anonymous(Some("127.0.0.1".parse().unwrap()));
+    assert_eq!(broker.console_view().access(&nobody), None);
+    assert_eq!(broker.console_view().intervals(&nobody), None);
+    assert_eq!(broker.console_view().data_size(&nobody), None);
+}
+
+#[tokio::test]
+async fn the_intervals_are_the_flags_of_this_run() {
+    let mut config = Config::new("/data".into());
+    config.log_retention_check_every = std::time::Duration::from_secs(7);
+    config.fsync_interval = std::time::Duration::from_millis(90);
+    config.log_cleaner_enable = false;
+    let broker = Broker::open(fs(), config).unwrap();
+    let seen = broker.console_view().intervals(&console()).unwrap();
+    assert_eq!(seen.retention_check.as_secs(), 7);
+    assert_eq!(seen.fsync.as_millis(), 90);
+    assert!(!seen.cleaner_on);
+    assert_eq!(seen.transactions.as_millis(), 500);
+    assert_eq!(seen.node_id, 1);
+}

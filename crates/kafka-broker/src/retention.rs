@@ -8,7 +8,7 @@ use kafka_meta::GroupLife;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::GroupId;
 
-use crate::groups::{Deleted, Members, State, View, expired};
+use crate::groups::{Deleted, Members, View, expired, members_of};
 use crate::{Broker, blocking, clock};
 
 /// The shortest and longest time between looks when it is not set.
@@ -90,26 +90,7 @@ impl<F: Fs> Broker<F> {
         };
         let life = blocking::run(|| self.meta.group_life(id)).ok().flatten();
         let described = self.groups.describe(id).await;
-        let members = match &described {
-            // A consumer group of the new protocol with members: not in a rebalance as far as its offsets go.
-            Some(d) if d.consumer.as_ref().is_some_and(|c| !c.members.is_empty()) => {
-                Members::Running {
-                    rebalancing: false,
-                    consumer: true,
-                    subscribed: d.subscribed.as_ref(),
-                }
-            }
-            Some(d) if !d.members.is_empty() => Members::Running {
-                rebalancing: matches!(
-                    d.state,
-                    State::PreparingRebalance | State::CompletingRebalance
-                ),
-                consumer: d.protocol_type.as_deref() == Some("consumer"),
-                subscribed: d.subscribed.as_ref(),
-            },
-            Some(_) => Members::Empty,
-            None => Members::NotInMemory,
-        };
+        let members = members_of(described.as_ref());
         let running = matches!(members, Members::Running { .. });
         let waiting = may_have_members(&members, life.as_ref(), now_ms, self.started_ms);
         let view = View {

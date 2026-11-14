@@ -23,6 +23,7 @@ use serde_json::{Value, json};
 use crate::{Config, Lambda};
 
 mod behaviour;
+mod concurrency;
 mod functions;
 mod inplace;
 mod invoking;

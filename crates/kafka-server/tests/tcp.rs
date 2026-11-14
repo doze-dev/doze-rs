@@ -93,11 +93,14 @@ async fn a_client_on_a_socket_gets_its_answer() {
         ApiKey::OffsetDelete,
         ApiKey::DescribeUserScramCredentials,
         ApiKey::AlterUserScramCredentials,
+        ApiKey::DescribeCluster,
         ApiKey::DescribeProducers,
         ApiKey::DescribeTransactions,
         ApiKey::ListTransactions,
         ApiKey::ConsumerGroupHeartbeat,
         ApiKey::ConsumerGroupDescribe,
+        ApiKey::GetTelemetrySubscriptions,
+        ApiKey::PushTelemetry,
     ];
     assert_eq!(
         ask(&mut socket).await,

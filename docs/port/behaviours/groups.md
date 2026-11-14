@@ -208,3 +208,14 @@ scenarios with the keep-alive skipping that request and found no classic step th
 ACLs (Phase 8); the Java client (no JDK on the machine, and the owner dropped it). (Cleared since: a member is shown with the
 address it connected from; every request queued behind a group's deletion is put again; the issued-id table has a cap for
 each group as well as one overall, and an id lasts the session timeout of the join that was given it.)
+
+## What the machines say of themselves (slice 9f)
+Since slice 9f a machine pushes `Effect::Note` beside the effects a step returns: why a rebalance began (a cause on every
+`begin_rebalance`: member joined, member left, session expired, the leader or a member joining again, the group made
+classic again), a generation formed, a member dropped at the rebalance timeout, the assignment handed out; and, for a
+consumer group, why the epoch moved (a cause on every bump: join, leave, expiry, revocation timeout, subscription, rights,
+a topic that changed, a classic group made a consumer group). A note is an extra effect and nothing reads it to decide: the
+same events through a machine with its notes taken out are the same answers, timers and states (the seeded differential in
+`groups::group::tests::differential`, a hash worked out before any note existed). The actor of the group keeps them in a
+ring (200 notes or 64 KiB per group, 100 groups, in memory only) for `ConsoleView::group_events`. The client's `reason`
+(JoinGroup and LeaveGroup v5) rides in the request, clipped to 128 bytes, only to be put in a note.

@@ -2,6 +2,7 @@
 //! quoted or bracketed run is one field); each named field of the pattern takes one, `...` takes any number, and a condition on
 //! a field must hold.
 
+use super::regex::Re;
 use super::{PatternError, glob};
 
 type R<T> = Result<T, PatternError>;
@@ -19,7 +20,14 @@ enum Item {
 
 /// Conditions joined by `||`, each of which is conditions joined by `&&`.
 #[derive(Debug)]
-struct Cond(Vec<Vec<(Op, String)>>);
+struct Cond(Vec<Vec<(Op, Val)>>);
+
+/// What a field is compared with: text (a number, or a string that may hold `*`), or a `%...%` expression.
+#[derive(Debug)]
+enum Val {
+    Text(String),
+    Re(Re),
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Op {
@@ -36,9 +44,6 @@ pub(super) fn parse(text: &str) -> R<Fields> {
         .strip_prefix('[')
         .and_then(|t| t.trim_end().strip_suffix(']'))
         .ok_or(PatternError::Invalid)?;
-    if inner.contains('%') {
-        return Err(PatternError::Regex);
-    }
     let items = split_commas(inner)
         .iter()
         .map(|part| item(part.trim()))
@@ -50,18 +55,24 @@ pub(super) fn parse(text: &str) -> R<Fields> {
     Ok(Fields { items })
 }
 
-/// Splits at commas outside double quotes.
+/// Splits at commas outside double quotes and outside a `%...%` expression (whose `{m,n}` has one).
 fn split_commas(text: &str) -> Vec<String> {
-    let (mut parts, mut cur, mut quoted) = (Vec::new(), String::new(), false);
+    let (mut parts, mut cur, mut quoted, mut regex) = (Vec::new(), String::new(), false, false);
+    let mut escaped = false;
     for c in text.chars() {
         match c {
-            '"' => {
+            '"' if !regex => {
                 quoted = !quoted;
                 cur.push(c);
             }
-            ',' if !quoted => parts.push(std::mem::take(&mut cur)),
+            '%' if !quoted && !escaped => {
+                regex = !regex;
+                cur.push(c);
+            }
+            ',' if !quoted && !regex => parts.push(std::mem::take(&mut cur)),
             _ => cur.push(c),
         }
+        escaped = c == '\\' && !escaped;
     }
     parts.push(cur);
     parts
@@ -100,12 +111,21 @@ fn cond(name: &str, text: &str) -> R<Cond> {
     Ok(Cond(or))
 }
 
-fn atom_of(atom: &str) -> R<(Op, String)> {
+fn atom_of(atom: &str) -> R<(Op, Val)> {
     let (op, rest) = ["!=", "<=", ">=", "=", "<", ">"]
         .iter()
         .find_map(|p| atom.strip_prefix(p).map(|r| (*p, r)))
         .ok_or(PatternError::Invalid)?;
     let value = rest.trim();
+    if let Some(body) = value.strip_prefix('%') {
+        let mut chars = body.chars();
+        let re = super::regex::read(&mut chars)?;
+        if chars.next().is_some() || !matches!(op, "=" | "!=") {
+            return Err(PatternError::Invalid);
+        }
+        let op = if op == "=" { Op::Eq } else { Op::Ne };
+        return Ok((op, Val::Re(re)));
+    }
     let value = value
         .strip_prefix('"')
         .and_then(|v| v.strip_suffix('"'))
@@ -121,7 +141,7 @@ fn atom_of(atom: &str) -> R<(Op, String)> {
         ">" => Op::Gt,
         _ => Op::Eq,
     };
-    Ok((op, value.to_owned()))
+    Ok((op, Val::Text(value.to_owned())))
 }
 
 /// The fields of a message.
@@ -170,9 +190,12 @@ fn holds(op: Op, value: &str, field: &str) -> bool {
 
 impl Cond {
     fn holds(&self, field: &str) -> bool {
-        self.0
-            .iter()
-            .any(|and| and.iter().all(|(op, v)| holds(*op, v, field)))
+        self.0.iter().any(|and| {
+            and.iter().all(|(op, v)| match v {
+                Val::Text(v) => holds(*op, v, field),
+                Val::Re(re) => re.found(field) == (*op == Op::Eq),
+            })
+        })
     }
 }
 
@@ -194,6 +217,22 @@ impl Fields {
             .zip(fields.iter())
             .chain(tail.iter().zip(fields.get(tail_from..)?.iter()));
         Some(pairs.map(|(i, f)| (i, f.as_str())).collect())
+    }
+
+    /// How many `%...%` the pattern holds.
+    pub(crate) fn regexes(&self) -> usize {
+        self.items
+            .iter()
+            .filter_map(|i| match i {
+                Item::Field(_, Some(Cond(or))) => Some(
+                    or.iter()
+                        .flatten()
+                        .filter(|(_, v)| matches!(v, Val::Re(_)))
+                        .count(),
+                ),
+                _ => None,
+            })
+            .sum()
     }
 
     pub(crate) fn matches(&self, message: &str) -> bool {

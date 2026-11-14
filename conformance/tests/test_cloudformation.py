@@ -349,3 +349,205 @@ def test_a_taken_name_fails_the_create(client, names, cleanup, snapshot, eventua
     # Unnamed, DescribeStacks lists live stacks only.
     assert name not in [s["StackName"] for s in cfn.describe_stacks()["Stacks"]]
     snapshot.match("their-queue-outlives-the-stack", sqs.get_queue_url(QueueName=theirs))
+
+
+# Written ahead of a recording (UNVERIFIED until recorded): YAML templates, change set records, nested stacks, custom
+# resources, dynamic references, IAM resources, SAM, termination protection and exports in use.
+
+WAIT = {"Delay": 1, "MaxAttempts": 300}
+CAPS = ["CAPABILITY_IAM", "CAPABILITY_NAMED_IAM", "CAPABILITY_AUTO_EXPAND"]
+
+
+def deploy(cfn, names, cleanup, template, label="stack", wait=True, **kw):
+    name = names(label)
+    body = template if isinstance(template, str) else json.dumps(template)
+    cfn.create_stack(StackName=name, TemplateBody=body, Capabilities=CAPS, **kw)
+
+    def delete():
+        cfn.update_termination_protection(StackName=name, EnableTerminationProtection=False)
+        cfn.delete_stack(StackName=name)
+        cfn.get_waiter("stack_delete_complete").wait(StackName=name, WaiterConfig=WAIT)
+
+    cleanup(delete)
+    if wait:
+        cfn.get_waiter("stack_create_complete").wait(StackName=name, WaiterConfig=WAIT)
+    return name
+
+
+def outputs(cfn, name):
+    stack = cfn.describe_stacks(StackName=name)["Stacks"][0]
+    return {o["OutputKey"]: o["OutputValue"] for o in stack.get("Outputs", [])}
+
+
+YAML = """
+Parameters:
+  Env: {Type: String, AllowedValues: [dev, prod], Default: dev}
+  Names: {Type: CommaDelimitedList, Default: 'a,b,c'}
+Mappings:
+  Sizes:
+    dev: {Memory: 128}
+    prod: {Memory: 1024}
+Conditions:
+  IsProd: !Equals [!Ref Env, prod]
+Resources:
+  Q:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${QueueName}'
+      DelaySeconds: !If [IsProd, 5, !Ref AWS::NoValue]
+  OnlyProd:
+    Type: AWS::SQS::Queue
+    Condition: IsProd
+Outputs:
+  Name: {Value: !GetAtt Q.QueueName}
+  Second: {Value: !Select [1, !Ref Names]}
+  Joined: {Value: !Join ['-', !Split [',', 'x,y,z']]}
+  Mem: {Value: !FindInMap [Sizes, !Ref Env, Memory]}
+  Cidr: {Value: !Select [1, !Cidr ['10.0.0.0/16', 3, 8]]}
+  B64: {Value: !Base64 hi}
+  Literal: {Value: !Sub '${!NotAVar}'}
+"""
+
+
+def test_a_yaml_template_with_conditions_and_mappings(client, names, cleanup, snapshot):
+    cfn = client("cloudformation")
+    queue = names("queue")
+    template = YAML.replace("Parameters:\n", "Parameters:\n  QueueName: {Type: String}\n", 1)
+    name = deploy(cfn, names, cleanup, template,
+                  Parameters=[{"ParameterKey": "QueueName", "ParameterValue": queue}])
+    snapshot.match("outputs", outputs(cfn, name))
+    snapshot.match("resources", sorted((r["LogicalResourceId"], r["ResourceType"]) for r in cfn.list_stack_resources(
+        StackName=name)["StackResourceSummaries"]))
+    snapshot.match("summary", cfn.get_template_summary(StackName=name), unordered=("Parameters", "ResourceTypes"))
+
+
+def test_a_change_set_records_what_it_would_change(client, names, cleanup, snapshot):
+    cfn = client("cloudformation")
+    queue = names("queue")
+    template = {"Parameters": {"V": {"Type": "Number", "Default": 30}},
+                "Resources": {"Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": queue, "VisibilityTimeout": {"Ref": "V"}}},
+                              "P": {"Type": "AWS::SSM::Parameter", "Properties": {
+                                  "Name": f"/{queue}/p", "Type": "String", "Value": {"Fn::GetAtt": ["Q", "Arn"]}}}}}
+    name = deploy(cfn, names, cleanup, template)
+    template["Resources"]["T"] = {"Type": "AWS::SNS::Topic", "Properties": {"TopicName": names("topic")}}
+    change = names("change")
+    cfn.create_change_set(StackName=name, ChangeSetName=change, TemplateBody=json.dumps(template),
+                          Parameters=[{"ParameterKey": "V", "ParameterValue": "45"}])
+    cfn.get_waiter("change_set_create_complete").wait(StackName=name, ChangeSetName=change, WaiterConfig=WAIT)
+    described = cfn.describe_change_set(StackName=name, ChangeSetName=change)
+    snapshot.match("changes", described["Changes"], unordered=("Changes",))
+    snapshot.match("listed", [(s["ChangeSetName"], s["Status"], s["ExecutionStatus"]) for s in cfn.list_change_sets(
+        StackName=name)["Summaries"]])
+    cfn.delete_change_set(StackName=name, ChangeSetName=change)
+    snapshot.error("deleted", lambda: cfn.describe_change_set(StackName=name, ChangeSetName=change))
+
+
+def test_a_nested_stack_from_s3(client, names, cleanup, snapshot):
+    cfn, s3 = client("cloudformation"), client("s3")
+    bucket = names("bucket")
+    s3.create_bucket(Bucket=bucket)
+    cleanup(s3.delete_bucket, Bucket=bucket)
+    child = {"Parameters": {"QueueName": {"Type": "String"}},
+             "Resources": {"Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": {"Ref": "QueueName"}}}},
+             "Outputs": {"Arn": {"Value": {"Fn::GetAtt": ["Q", "Arn"]}}}}
+    s3.put_object(Bucket=bucket, Key="child.json", Body=json.dumps(child).encode())
+    cleanup(s3.delete_object, Bucket=bucket, Key="child.json")
+    queue = names("queue")
+    parent = {"Resources": {"Child": {"Type": "AWS::CloudFormation::Stack", "Properties": {
+        "TemplateURL": f"https://{bucket}.s3.amazonaws.com/child.json", "Parameters": {"QueueName": queue}}}},
+        "Outputs": {"FromChild": {"Value": {"Fn::GetAtt": ["Child", "Outputs.Arn"]}}}}
+    name = deploy(cfn, names, cleanup, parent)
+    snapshot.match("outputs", outputs(cfn, name))
+    child_id = cfn.describe_stack_resource(StackName=name, LogicalResourceId="Child")["StackResourceDetail"]["PhysicalResourceId"]
+    nested = cfn.describe_stacks(StackName=child_id)["Stacks"][0]
+    snapshot.match("child", {k: nested[k] for k in ("StackStatus", "ParentId", "RootId")})
+
+
+CUSTOM = """
+import cfnresponse
+
+def handler(event, context):
+    data = {"Doubled": str(int(event["ResourceProperties"]["Number"]) * 2)}
+    cfnresponse.send(event, context, cfnresponse.SUCCESS, data, "custom-" + event["LogicalResourceId"])
+"""
+
+
+def test_a_custom_resource_backed_by_an_inline_function(client, names, cleanup, snapshot):
+    cfn = client("cloudformation")
+    trust = {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"},
+                                                     "Action": "sts:AssumeRole"}]}
+    template = {"Resources": {
+        "Role": {"Type": "AWS::IAM::Role", "Properties": {"RoleName": names("role"), "AssumeRolePolicyDocument": trust,
+                 "ManagedPolicyArns": ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]}},
+        "Fn": {"Type": "AWS::Lambda::Function", "Properties": {"FunctionName": names("fn"), "Runtime": "python3.12",
+               "Handler": "index.handler", "Role": {"Fn::GetAtt": ["Role", "Arn"]}, "Code": {"ZipFile": CUSTOM}, "Timeout": 30}},
+        "Custom": {"Type": "Custom::Doubler", "Properties": {"ServiceToken": {"Fn::GetAtt": ["Fn", "Arn"]}, "Number": 21}}},
+        "Outputs": {"Doubled": {"Value": {"Fn::GetAtt": ["Custom", "Doubled"]}}, "Id": {"Value": {"Ref": "Custom"}}}}
+    name = deploy(cfn, names, cleanup, template, label="custom")
+    snapshot.match("outputs", outputs(cfn, name))
+
+
+def test_dynamic_references_resolve_at_create(client, names, cleanup, snapshot):
+    cfn, ssm = client("cloudformation"), client("ssm")
+    source = f"/{names('src')}"
+    ssm.put_parameter(Name=source, Value="from-ssm", Type="String")
+    cleanup(ssm.delete_parameter, Name=source)
+    target = f"/{names('dst')}"
+    template = {"Resources": {"P": {"Type": "AWS::SSM::Parameter", "Properties": {
+        "Name": target, "Type": "String", "Value": f"x-{{{{resolve:ssm:{source}}}}}"}}}}
+    deploy(cfn, names, cleanup, template)
+    snapshot.match("resolved", ssm.get_parameter(Name=target)["Parameter"]["Value"])
+
+
+def test_iam_resources_land_in_iam(client, names, cleanup, snapshot):
+    cfn, iam = client("cloudformation"), client("iam")
+    role = names("role")
+    trust = {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"},
+                                                     "Action": "sts:AssumeRole"}]}
+    template = {"Resources": {"R": {"Type": "AWS::IAM::Role", "Properties": {"RoleName": role, "AssumeRolePolicyDocument": trust,
+                "Policies": [{"PolicyName": "inline", "PolicyDocument": {"Version": "2012-10-17", "Statement": [
+                    {"Effect": "Allow", "Action": "sqs:SendMessage", "Resource": "*"}]}}]}}},
+                "Outputs": {"Arn": {"Value": {"Fn::GetAtt": ["R", "Arn"]}}}}
+    name = deploy(cfn, names, cleanup, template)
+    snapshot.match("outputs", outputs(cfn, name))
+    snapshot.match("inline", iam.list_role_policies(RoleName=role)["PolicyNames"])
+
+
+def test_a_sam_template(client, names, cleanup, snapshot):
+    cfn = client("cloudformation")
+    template = {"Transform": "AWS::Serverless-2016-10-31", "Resources": {
+        "Table": {"Type": "AWS::Serverless::SimpleTable"},
+        "Fn": {"Type": "AWS::Serverless::Function", "Properties": {"Runtime": "python3.12", "Handler": "index.handler",
+               "InlineCode": "def handler(e, c):\n    return 1\n", "Environment": {"Variables": {"TABLE": {"Ref": "Table"}}}}}}}
+    name = deploy(cfn, names, cleanup, template, label="sam")
+    snapshot.match("resources", sorted((r["LogicalResourceId"], r["ResourceType"]) for r in cfn.list_stack_resources(
+        StackName=name)["StackResourceSummaries"]))
+    processed = cfn.get_template(StackName=name, TemplateStage="Processed")["TemplateBody"]
+    snapshot.match("processed-types", sorted({r["Type"] for r in processed["Resources"].values()}))
+
+
+def test_termination_protection_keeps_a_stack(client, names, cleanup, snapshot):
+    cfn = client("cloudformation")
+    name = deploy(cfn, names, cleanup, {"Resources": {"Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": names("q")}}}},
+                  EnableTerminationProtection=True)
+    snapshot.error("protected", lambda: cfn.delete_stack(StackName=name))
+    cfn.update_termination_protection(StackName=name, EnableTerminationProtection=False)
+    snapshot.match("unprotected", cfn.describe_stacks(StackName=name)["Stacks"][0]["EnableTerminationProtection"])
+
+
+def test_an_export_in_use_keeps_its_stack(client, names, cleanup, snapshot, eventually):
+    cfn = client("cloudformation")
+    export = names("export")
+    exporter = deploy(cfn, names, cleanup, {"Resources": {"Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": names("q")}}},
+                                            "Outputs": {"U": {"Value": {"Ref": "Q"}, "Export": {"Name": export}}}}, label="exporter")
+    importer = deploy(cfn, names, cleanup, {"Resources": {"P": {"Type": "AWS::SSM::Parameter", "Properties": {
+        "Name": f"/{names('p')}", "Type": "String", "Value": {"Fn::ImportValue": export}}}}}, label="importer")
+    snapshot.match("imports", cfn.list_imports(ExportName=export)["Imports"] == [importer])
+    cfn.delete_stack(StackName=exporter)
+
+    def settled():
+        s = cfn.describe_stacks(StackName=exporter)["Stacks"][0]
+        assert not s["StackStatus"].endswith("IN_PROGRESS"), s["StackStatus"]
+        return s["StackStatus"]
+
+    snapshot.match("exporter-status", eventually(settled, timeout=300, every=2))

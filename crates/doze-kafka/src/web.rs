@@ -1,4 +1,5 @@
-//! The web console beside the broker: bound before anything is opened, served until the broker is told to stop.
+//! The web console beside the broker: bound before anything is created (not the data directory, not its lock file),
+//! served until the broker is told to stop.
 //!
 //! The default address is `127.0.0.1:9093`, the Kafka port plus one, and a default that cannot be had (a second broker
 //! on the machine has it) leaves the broker running without a console and says so: an optional page does not stop a
@@ -49,6 +50,7 @@ pub(crate) async fn bind(console: &Console) -> Result<Option<Bound>> {
 /// [`bind`] with the default address given, so a test can make it busy.
 async fn bind_with_default(console: &Console, default: &str) -> Result<Option<Bound>> {
     if !console.enabled {
+        tracing::info!("the console is off (--console=false)");
         return Ok(None);
     }
     let explicit = console.addr.as_deref();
@@ -99,6 +101,50 @@ fn facts(
     }
 }
 
+/// How the broker was started, as far as Settings and Access say it: the flags, where the console listens, the certificate's
+/// file (never the key's), and how long a failed login waits.
+fn start_facts(
+    server: &ServerConfig,
+    console: &Console,
+    addr: &SocketAddr,
+    flags: Vec<kafka_console::model::SettingsFlag>,
+) -> kafka_console::facts_start::StartFacts {
+    kafka_console::facts_start::StartFacts {
+        flags,
+        console_addr: Some(addr.to_string()),
+        #[cfg(feature = "tls")]
+        tls_cert: server
+            .tls
+            .as_ref()
+            .map(|t| t.cert_file().display().to_string()),
+        #[cfg(not(feature = "tls"))]
+        tls_cert: None,
+        failed_login_delay: server.sasl.as_ref().map(|_| server.timeouts.failed_login),
+        console_unprotected: console.unprotected,
+    }
+}
+
+/// The door a console served beyond loopback has without `--console-unprotected`: the start let it be only because nothing
+/// guarded the broker, and only the ACLs can change that later, so it closes to other machines while there are any (SEC-250).
+/// `None` for a loopback console and for one the person accepted with `--console-unprotected`.
+fn door(console: &Console, addr: &SocketAddr) -> Option<kafka_console::door::Door> {
+    if addr.ip().is_loopback() || console.unprotected {
+        return None;
+    }
+    let path = kafka_console::base::Base::new(&console.prefix).url("/");
+    // A console on every interface is on loopback too; one on a single address is not.
+    let local = match addr.ip() {
+        std::net::IpAddr::V4(ip) if ip.is_unspecified() => {
+            Some(format!("http://127.0.0.1:{}{path}", addr.port()))
+        }
+        std::net::IpAddr::V6(ip) if ip.is_unspecified() => {
+            Some(format!("http://localhost:{}{path}", addr.port()))
+        }
+        _ => None,
+    };
+    Some(kafka_console::door::Door { local })
+}
+
 impl Bound {
     /// Starts serving: from here the console reads and acts on `broker` as `User:__console`.
     pub(crate) fn serve(
@@ -107,13 +153,28 @@ impl Bound {
         server: &ServerConfig,
         kafka: &Kafka,
         broker: &Arc<Broker<RealFs>>,
+        (recorder, flags, lab): (
+            Option<Arc<kafka_console::Recorder>>,
+            Vec<kafka_console::model::SettingsFlag>,
+            Option<Arc<kafka_server::fault::FaultTable>>,
+        ),
     ) -> Result<Serving> {
         let addr = self.listener.local_addr()?;
         let listener = server.advertise(kafka.local_addr());
         let facts = facts(server, kafka, &listener, &addr, &console.allow_hosts);
+        let start = start_facts(server, console, &addr, flags);
         let backend = kafka_console::Backend::new(Arc::clone(broker), listener, server.profile);
-        let source =
-            kafka_console::Source::Live(Box::new(kafka_console::Live::new(backend, facts)));
+        let mut live = kafka_console::Live::new(backend, facts).with_start(start);
+        if let Some(r) = recorder {
+            live = live.with_recorder(r);
+        }
+        if let Some(table) = lab {
+            live = live.with_lab(table);
+        }
+        if let Some(door) = door(console, &addr) {
+            live = live.with_door(door);
+        }
+        let source = kafka_console::Source::Live(Box::new(live));
         let settings = kafka_console::Settings {
             addr,
             prefix: console.prefix.clone(),
@@ -183,6 +244,36 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(bound.listener.local_addr().unwrap().ip().is_loopback());
+    }
+
+    #[test]
+    fn a_console_beyond_loopback_has_a_door_unless_unprotected_and_says_where_this_machine_finds_it()
+     {
+        let at = |addr: &str, unprotected: bool, prefix: &str| {
+            let c = Console {
+                unprotected,
+                prefix: prefix.to_owned(),
+                ..Console::default()
+            };
+            door(&c, &addr.parse().unwrap()).map(|d| d.local)
+        };
+        assert_eq!(at("127.0.0.1:9093", false, "/"), None);
+        assert_eq!(at("[::1]:9093", false, "/"), None);
+        assert_eq!(at("0.0.0.0:9093", true, "/"), None);
+        assert_eq!(
+            at("0.0.0.0:9093", false, "/"),
+            Some(Some("http://127.0.0.1:9093/".to_owned()))
+        );
+        assert_eq!(
+            at("0.0.0.0:9093", false, "/kafka"),
+            Some(Some("http://127.0.0.1:9093/kafka/".to_owned()))
+        );
+        assert_eq!(
+            at("[::]:9093", false, "/"),
+            Some(Some("http://localhost:9093/".to_owned()))
+        );
+        // On one network address only: there is no loopback console to point to.
+        assert_eq!(at("192.168.1.5:9093", false, "/"), Some(None));
     }
 
     #[tokio::test]

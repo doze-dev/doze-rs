@@ -9,6 +9,7 @@ use super::member::Member;
 use super::{ConsumerGroup, Topics};
 use crate::authorizer::permits;
 use crate::groups::machine::{Effect, Millis, TimerKind};
+use crate::groups::note::{Cause, Why};
 
 impl ConsumerGroup {
     /// Moves one member a step towards its target, never handing it a partition another member still holds.
@@ -102,6 +103,7 @@ impl ConsumerGroup {
         let generation = self.arm(TimerKind::Session(id.clone()), now.plus(session), out);
         if let Some(m) = self.members.get_mut(id) {
             m.session_gen = generation;
+            m.heard = now;
         }
     }
 
@@ -217,9 +219,12 @@ impl ConsumerGroup {
         if self.members.is_empty() {
             return;
         }
+        let before = self.epoch;
         if self.compute_targets(topics) {
             self.epoch = self.epoch.saturating_add(1);
         }
+        let why = Why::new(Cause::TopicChanged, None, self.members.len());
+        self.bumped(before, why, now, out);
         self.target_epoch = self.epoch;
         self.assigned_at = Some(now);
         self.arm_classic_revocations(now, out);

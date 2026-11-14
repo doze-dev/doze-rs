@@ -1,0 +1,1 @@
+function e(e){let t=encodeURIComponent(String(e)).replace(/[!'()*]/g,e=>`%${e.charCodeAt(0).toString(16).toUpperCase()}`);return t===`.`||t===`..`?`!${t}`:t}export{e as t};

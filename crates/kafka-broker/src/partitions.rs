@@ -118,6 +118,20 @@ impl<F: Fs> Partition<F> {
         answer.await.map_err(|_| gone())?
     }
 
+    /// Each producer's window of recent batches, for the console.
+    ///
+    /// # Errors
+    /// The log cannot be read, or the writer has gone.
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+    pub(crate) async fn windows(&self) -> Result<Vec<crate::producers::Window>, StorageError> {
+        let (reply, answer) = oneshot::channel();
+        self.commands
+            .send(Command::Windows(reply))
+            .await
+            .map_err(|_| gone())?;
+        answer.await.map_err(|_| gone())?
+    }
+
     /// Moves the start of the log up, through the writer, so that it happens between appends. The start now in force.
     ///
     /// # Errors

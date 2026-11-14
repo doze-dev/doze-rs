@@ -1,7 +1,9 @@
 //! The group machine, driven by a number for a clock and a map for timers: no sleeps, no tasks.
 
 mod commit;
+mod force;
 mod membership;
+mod notes;
 mod properties;
 mod rebalance;
 mod static_members;
@@ -29,6 +31,8 @@ pub(super) struct Group {
     pub(super) unanswered: HashSet<Token>,
     /// Requests the machine said would never be answered.
     pub(super) forgotten: HashSet<Token>,
+    /// What the machine said of itself, in order.
+    pub(super) notes: Vec<crate::groups::note::Note>,
 }
 
 /// Makes ids `m1`, `m2`, ... (and `i-<instance>-n` for a static member).
@@ -65,6 +69,7 @@ pub(super) fn protocols(names: &[&str]) -> Vec<Protocol> {
 /// A JoinGroup of a consumer at the usual timeouts.
 pub(super) fn join_request(member: Option<&str>, names: &[&str]) -> JoinRequest {
     JoinRequest {
+        reason: None,
         member_id: member.map(id),
         instance: None,
         protocol_type: "consumer".into(),
@@ -100,6 +105,7 @@ impl Group {
             timers: HashMap::new(),
             unanswered: HashSet::new(),
             forgotten: HashSet::new(),
+            notes: Vec::new(),
         }
     }
 
@@ -135,6 +141,8 @@ impl Group {
                 Effect::Disarm(kind) => {
                     self.timers.remove(&kind);
                 }
+                // What the machine says of itself, kept to be looked at.
+                Effect::Note(note) => self.notes.push(note),
             }
         }
     }
@@ -196,6 +204,7 @@ impl Group {
         let targets = members
             .iter()
             .map(|m| LeaveTarget {
+                reason: None,
                 member_id: Some(id(m)),
                 instance: None,
             })

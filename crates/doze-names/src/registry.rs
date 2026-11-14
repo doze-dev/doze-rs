@@ -91,6 +91,18 @@ impl Registry {
         }
     }
 
+    /// The same registry on another network: for tests, and for a caller that must plan for a machine other than
+    /// this one.
+    pub fn with_net(mut self, net: Net) -> Registry {
+        self.net = net;
+        self
+    }
+
+    /// The network this registry gives addresses on.
+    pub fn net(&self) -> Net {
+        self.net
+    }
+
     /// The file's location.
     pub fn path(&self) -> &Path {
         &self.path

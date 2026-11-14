@@ -116,9 +116,48 @@ fn space_delimited_patterns_name_fields_and_test_them() {
 }
 
 #[test]
-fn a_regular_expression_is_reported_not_guessed() {
-    for p in ["%ERR.*%", "{ $.a = %x% }", "[a, b = %x%]"] {
-        assert_eq!(parse(p).unwrap_err(), PatternError::Regex, "{p}");
+fn regular_expressions_search_in_every_form() {
+    assert!(m("%ERR|WARN%", "2026 WARN low disk"));
+    assert!(!m("%ERR|WARN%", "all fine"));
+    assert!(m("%^GET /api/v[12]%", "GET /api/v2/users"));
+    assert!(!m("%^GET%", " GET"), "an anchor anchors");
+    assert!(m("%time.?out% -retry", "timeout at db"));
+    assert!(!m("%time.?out% -retry", "time-out, retry"));
+    assert!(m("{ $.path = %^/api/v[12]/% }", r#"{"path": "/api/v1/x"}"#));
+    assert!(!m("{ $.path != %^/api/% }", r#"{"path": "/api/v1/x"}"#));
+    assert!(m("{ $.code = %^5\\d{2}$% }", r#"{"code": 503}"#));
+    assert!(
+        m("{ $.msg = \"50%\" }", r#"{"msg": "50%"}"#),
+        "a % in a quoted string is a %"
+    );
+    let line = "10.0.0.1 PUT /items 201";
+    assert!(m(
+        "[ip, method = %GET|PUT%, path, status = %^2\\d{2}$%]",
+        line
+    ));
+    assert!(
+        m("[ip = %^10\\.\\d{1,3}%, ...]", line),
+        "a comma inside {{m,n}} is the expression's"
+    );
+    assert!(!m("[ip, method != %PUT%, ...]", line));
+}
+
+#[test]
+fn regular_expressions_keep_to_aws_limits() {
+    assert_eq!(
+        parse("%a% %b% %c%").unwrap_err(),
+        PatternError::TooManyRegexes
+    );
+    assert_eq!(parse("%a% %b%").unwrap().regexes(), 2);
+    for bad in [
+        "%%",
+        "%(?i)x%",
+        "%open",
+        "{ $.n > %5% }",
+        "[a = %x%y]",
+        "%abcdefghijklmnopqrstuvwxyz%",
+    ] {
+        assert_eq!(parse(bad).unwrap_err(), PatternError::Invalid, "{bad}");
     }
 }
 

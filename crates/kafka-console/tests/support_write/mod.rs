@@ -83,7 +83,7 @@ pub fn router_of(w: &World, backend: Backend) -> Router {
         vec![],
         CancellationToken::new(),
     );
-    kafka_console::app::router(state)
+    kafka_console::app::console(state)
 }
 
 impl World {

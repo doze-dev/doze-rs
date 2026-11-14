@@ -265,7 +265,7 @@ The spike embedded the 7 Go files (322,445 bytes) so the weight numbers are an u
 - **Record values are hostile input.** Message keys, values and headers come from any client; the console shows them. maud escapes everything by
   default; the rule is that no component takes pre-rendered HTML and the JSON and hex views are built from tokens in Rust. A test renders a value of
   `<script>` and `"><img onerror>` in every place a record appears. Send `Content-Security-Policy: default-src 'self'; frame-ancestors 'none'`,
-  `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`.
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` (was no-referrer until the pages pass: the unbuilt page goes back to the page the visitor came from; no other origin is ever told).
 - **The console reads and writes the broker as a super user** when SASL is on (the Go edition's `__console` login; SEC-188's text says so). That is why the
   start-up rule refuses a console beyond loopback with SASL or TLS on unless `--console-unprotected`. Phase 9 mounts the guard, answers 403 with the
   guard's decision, and reports the exposure on the Access page.

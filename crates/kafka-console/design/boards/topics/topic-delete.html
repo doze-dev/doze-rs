@@ -1,9 +1,0 @@
-<!--screen {"id":"topic-delete","title":"Delete orders","kind":"dialog","from":"topic-detail","via":"Button: Delete topic","ops":["DeleteTopics"],"refs":["cat:T8","cat:F6","grounding:K4"],"data":"now","extras":["api-preview"],"crumbs":[]} -->
-<h2>Delete <span class="mono">orders</span>?</h2>
-<div class="body"><p style="margin:0 0 16px">This removes <b>48,213 records</b> in 3 partitions (7.9 MiB) from disk. It cannot be undone, and the name becomes free for a new, empty topic with a new id.</p>
-<div class="callout warn" style="margin-bottom:16px">[[g:warn 18]]<div><b>It is in use.</b> Group <span class="mono">payments-workers</span> reads it with 3 members, and transaction <span class="mono">orders-eos</span> is open on it. Their next requests are answered UNKNOWN_TOPIC_OR_PARTITION. <span class="mono">analytics</span> is empty but keeps its commits (expire in 3 d 2 h); if the topic is made again they will sit past its end.</div></div>
-<div class="field" style="margin-bottom:16px"><label>Type the name to confirm</label><div class="input mono"><input type="text" value="orders"></div></div>
-<div class="apicall" data-extra="api-preview"><div class="hd">[[g:api 14]]The call</div><pre class="code"><span class="k">DeleteTopics</span> v6
-  topics[0]
-    name: <span class="s">orders</span></pre></div></div>
-<div class="foot"><a class="btn" href="@topic-detail">Cancel</a><a class="btn danger fill" href="@topic-deleted" data-op="DeleteTopics">Delete topic</a></div>

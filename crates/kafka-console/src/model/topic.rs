@@ -3,7 +3,8 @@
 use super::Cleanup;
 
 /// One partition's offsets and files.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct PartitionRow {
     pub partition: i32,
     /// The log start: the oldest offset held.
@@ -32,7 +33,8 @@ impl PartitionRow {
 }
 
 /// A transaction that is open on the topic.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct OpenTxn {
     pub id: String,
     pub producer_id: i64,
@@ -44,7 +46,8 @@ pub struct OpenTxn {
 }
 
 /// The tabs' counts, where the broker can say them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct TabCounts {
     /// Groups with offsets committed on the topic.
     pub consumers: usize,
@@ -53,14 +56,16 @@ pub struct TabCounts {
 }
 
 /// The versions of the requests the pages say they make (the highest the broker's profile offers).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct CallVersions {
     pub fetch: i16,
     pub list_offsets: i16,
 }
 
 /// One topic.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct TopicHead {
     pub name: String,
     pub cleanup: Cleanup,

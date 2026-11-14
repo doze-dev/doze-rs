@@ -151,6 +151,12 @@ pub(crate) const KINDS: &[Kind] = &[
     ),
 ];
 
+/// The key a bucket's configurations hold once its ownership controls or public access block were deleted, so the bucket stops
+/// answering with the default a new bucket has (default encryption, by contrast, stays after a delete, as on AWS).
+pub(crate) fn deleted(kind: &str) -> String {
+    format!("{kind}-deleted")
+}
+
 /// The kind of configuration operation `op` reads, writes or removes.
 pub(crate) fn kind_of(op: Operation) -> Option<&'static Kind> {
     KINDS
@@ -188,7 +194,11 @@ impl Core {
             Value::String(s) => s.clone(),
             other => other.to_string(),
         };
+        if k.name == "ownership" {
+            self.check_ownership_change(req, &stored)?;
+        }
         if let Some(b) = self.buckets.get_mut(req.bucket()) {
+            b.configs.remove(&deleted(k.name));
             b.configs.insert(k.name.to_owned(), text);
             // Object Lock, once on, stays on (and with it versioning, which cannot then be suspended).
             b.object_lock |= k.name == "object-lock";
@@ -211,6 +221,11 @@ impl Core {
         let value = match bucket.configs.get(k.name) {
             Some(text) if k.name == "policy" => Value::String(text.clone()),
             Some(text) => serde_json::from_str(text).unwrap_or(Value::Null),
+            // A configuration with a default that was deleted is not found (deleted ownership controls enable ACLs, as
+            // `ObjectWriter`; a deleted public access block blocks nothing).
+            None if bucket.configs.contains_key(&deleted(k.name)) => {
+                return Err(no_config(k.name));
+            }
             // A bucket made with Object Lock has it on, with no default retention, until a configuration says otherwise.
             None if k.name == "object-lock" && bucket.object_lock => {
                 json!({"ObjectLockEnabled": "Enabled"})
@@ -234,9 +249,35 @@ impl Core {
         Out::json(Value::Object(out))
     }
 
+    /// Turning ACLs off (`BucketOwnerEnforced`) is refused while the bucket's own ACL grants anyone but the owner. (memory) AWS's words.
+    fn check_ownership_change(&self, req: &Req<'_>, stored: &Value) -> Result<(), ApiError> {
+        let enforcing = stored
+            .pointer("/Rules/0/ObjectOwnership")
+            .and_then(Value::as_str)
+            == Some("BucketOwnerEnforced");
+        let owner = crate::acl::owner_id(req.account());
+        let shared = self
+            .buckets
+            .get(req.bucket())
+            .and_then(|b| b.configs.get("acl"))
+            .and_then(|t| serde_json::from_str::<Vec<crate::acl::Grant>>(t).ok())
+            .is_some_and(|g| !crate::acl::owner_only(&g, &owner));
+        if enforcing && shared {
+            return Err(ApiError::new(
+                400,
+                "InvalidBucketAclWithObjectOwnership",
+                "Bucket cannot have ACLs set with ObjectOwnership's BucketOwnerEnforced setting",
+            ));
+        }
+        Ok(())
+    }
+
     fn delete_config(&mut self, req: &Req<'_>, k: &Kind) -> Answer {
         if let Some(b) = self.buckets.get_mut(req.bucket()) {
             b.configs.remove(k.name);
+            if matches!(k.name, "ownership" | "public-access-block") {
+                b.configs.insert(deleted(k.name), String::new());
+            }
         }
         if k.name == "lifecycle" {
             self.sync_marker();

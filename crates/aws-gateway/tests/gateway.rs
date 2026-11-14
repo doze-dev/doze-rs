@@ -22,12 +22,15 @@ use aws_schema::meta::ServiceMeta;
 use aws_schema::tables::Tables;
 use aws_schema::view::View;
 use aws_wire::ApiError;
-use aws_wire::service::{BoxFuture, Call, Output, Reply, Service};
+use aws_wire::service::{BoxFuture, Call, Extension, Output, Reply, Service};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 #[derive(Debug)]
 struct FakeSqs;
+
+/// The index the fake's own operation is called with.
+const PEEK: u32 = 1 << 16;
 
 impl Service for FakeSqs {
     fn meta(&self) -> &'static ServiceMeta {
@@ -42,9 +45,21 @@ impl Service for FakeSqs {
         TABLES.op(op).unwrap().name != "PurgeQueue"
     }
 
+    /// `PeekQueues`: an operation of the service's own, read and answered as `ListQueues` is.
+    fn extension(&self, name: &str) -> Option<Extension> {
+        (name == "PeekQueues").then(|| Extension {
+            op: PEEK,
+            shapes: TABLES.find_op("ListQueues").unwrap(),
+        })
+    }
+
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(async move {
-            let name = TABLES.op(call.op).unwrap().name;
+            let name = if call.op == PEEK {
+                "ListQueues"
+            } else {
+                TABLES.op(call.op).unwrap().name
+            };
             match name {
                 "ListQueues" => {
                     let view = View::<LQRq>::root(&call.arena, &call.body, call.root).unwrap();
@@ -132,6 +147,28 @@ async fn a_trusted_request_is_routed_decoded_called_and_encoded() {
     );
     assert!(head.contains("x-amzn-requestid: "), "{head}");
     assert_eq!(body, r#"{"QueueUrls":["http://sqs/000000000000/jobs"]}"#);
+    running.shutdown().await;
+}
+
+#[tokio::test]
+async fn an_operation_the_service_adds_borrows_a_model_operations_shapes() {
+    let (running, addr) = start(Auth::Trust).await;
+    let auth = format!("AWS4-HMAC-SHA256 {SCOPE}");
+    let (status, _, body) = send(
+        addr,
+        &trusting_headers("AmazonSQS.PeekQueues", &auth),
+        r#"{"QueueNamePrefix":"peeked"}"#,
+    )
+    .await;
+    assert_eq!(
+        (status, body.as_str()),
+        (200, r#"{"QueueUrls":["http://sqs/000000000000/peeked"]}"#)
+    );
+    let (status, _, _) = send(addr, &trusting_headers("AmazonSQS.Nothing", &auth), "{}").await;
+    assert_eq!(
+        status, 404,
+        "a name the service does not add is still unknown"
+    );
     running.shutdown().await;
 }
 

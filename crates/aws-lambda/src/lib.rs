@@ -3,8 +3,8 @@
 //! streams, asynchronous invocation with destinations, response streaming, and logs written to CloudWatch Logs in the shape AWS
 //! writes them. A function runs as its execution role: its process holds an STS session that IAM resolves.
 //!
-//! Management operations run in a state machine behind a lazy actor per region ([`core`]); running a function does not (it takes
-//! seconds) and happens beside the actor ([`invoke`], [`rt`]). Event source pollers wait for the source to say it has something
+//! Management operations run in a state machine behind a lazy actor per region (`core`); running a function does not (it takes
+//! seconds) and happens beside the actor (`invoke`, `rt`). Event source pollers wait for the source to say it has something
 //! (`poll`) and cost nothing when no mapping is enabled.
 //!
 //! **Stored and flagged, not acted on:** provisioned concurrency, code signing, runtime management, recursion detection, SnapStart,

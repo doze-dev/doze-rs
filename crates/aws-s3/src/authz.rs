@@ -28,6 +28,8 @@ fn action(op: Operation, versioned: bool) -> String {
         O::ListParts => "ListMultipartUploadParts",
         O::ListMultipartUploads => "ListBucketMultipartUploads",
         O::GetObjectTagging => v("GetObjectTagging", "GetObjectVersionTagging"),
+        O::GetObjectAcl => v("GetObjectAcl", "GetObjectVersionAcl"),
+        O::PutObjectAcl => v("PutObjectAcl", "PutObjectVersionAcl"),
         O::PutObjectTagging => v("PutObjectTagging", "PutObjectVersionTagging"),
         O::DeleteObjectTagging => v("DeleteObjectTagging", "DeleteObjectVersionTagging"),
         O::PutBucketCors | O::DeleteBucketCors => "PutBucketCORS",
@@ -108,18 +110,21 @@ impl Core {
             return Vec::new();
         };
         let bucket = req.bucket();
-        let policy = self
-            .buckets
-            .get(bucket)
-            .and_then(|b| b.configs.get("policy"))
-            .cloned();
+        let anonymous = req.call.caller.is_anonymous();
         let bucket_arn = format!("arn:aws:s3:::{bucket}");
-        let on_bucket =
-            |act: String| Need::new(act, bucket_arn.clone()).with_policy(policy.clone());
-        let on_object = |act: String, key: &str| {
-            Need::new(act, format!("{bucket_arn}/{key}")).with_policy(policy.clone())
+        let version = req.s("VersionId");
+        let on_bucket = |act: String| {
+            Need::new(act, bucket_arn.clone())
+                .with_policy(self.resource_policy(anonymous, bucket, None))
         };
-        let versioned = req.s("VersionId").is_some();
+        let on_object = |act: String, key: &str| {
+            Need::new(act, format!("{bucket_arn}/{key}")).with_policy(self.resource_policy(
+                anonymous,
+                bucket,
+                Some((key, version)),
+            ))
+        };
+        let versioned = version.is_some();
         let act = action(op, versioned);
         use Operation as O;
         match op {
@@ -142,12 +147,8 @@ impl Core {
                 .unwrap_or_default(),
             O::CopyObject => {
                 let mut v = vec![on_object(act, req.key())];
-                if let Some((b, k, _)) = req.s("CopySource").and_then(crate::copy::parse_source) {
-                    let src_policy = self
-                        .buckets
-                        .get(&b)
-                        .and_then(|x| x.configs.get("policy"))
-                        .cloned();
+                if let Some((b, k, id)) = req.s("CopySource").and_then(crate::copy::parse_source) {
+                    let src_policy = self.resource_policy(anonymous, &b, Some((&k, id.as_deref())));
                     v.push(
                         Need::new("s3:GetObject", format!("arn:aws:s3:::{b}/{k}"))
                             .with_policy(src_policy),

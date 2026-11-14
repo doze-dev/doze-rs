@@ -189,7 +189,7 @@ async fn run(
     };
     let account = inner.account_of(region);
     let caller = Caller {
-        access_key_id: "anonymous".to_owned(),
+        access_key_id: Caller::ANONYMOUS.to_owned(),
         account_id: account,
         region: region.to_owned(),
         endpoint: req.endpoint.clone(),

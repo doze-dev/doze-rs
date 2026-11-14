@@ -1,0 +1,26 @@
+[package]
+name = "aws-dynamodb-streams"
+version = "0.0.0"
+description = "DynamoDB Streams: ListStreams, DescribeStream, GetShardIterator and GetRecords over the records DynamoDB keeps"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-model-dynamodb-streams = { path = "../aws-model-dynamodb-streams" }
+aws-dynamodb = { path = "../aws-dynamodb" }
+aws-schema = { path = "../aws-schema" }
+aws-wire = { path = "../aws-wire" }
+aws-peers = { path = "../aws-peers" }
+aws-core = { path = "../aws-core" }
+serde_json = "1"
+
+[dev-dependencies]
+aws-testkit = { path = "../aws-testkit" }
+doze-runtime = { path = "../doze-runtime" }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "sync"] }

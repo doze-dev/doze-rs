@@ -1,0 +1,55 @@
+Facts {
+    topics: [
+        TopicFact {
+            name: "orders",
+            partitions: [
+                0,
+            ],
+            more: 0,
+        },
+    ],
+    topics_more: 0,
+    group: None,
+    member: None,
+    generation: None,
+    txn_id: Some(
+        "orders-eos",
+    ),
+    producer: Some(
+        (
+            4017,
+            2,
+        ),
+    ),
+    transactional: true,
+    acks: Some(
+        -1,
+    ),
+    from_offset: None,
+    wait_ms: None,
+    isolation: None,
+    reason: None,
+    what: None,
+    note: Some(
+        "Compacted topic cleanup.policy=compact requires every record to have a key",
+    ),
+    records: 3,
+    batches: 1,
+    bytes: 81,
+    items: 0,
+    asked: 0,
+    results: [
+        PartResult {
+            topic: "orders",
+            partition: 0,
+            code: 87,
+            offset: None,
+            records: 0,
+            bytes: 0,
+        },
+    ],
+    results_more: 0,
+    code: 87,
+    failed: 1,
+    record_note: None,
+}

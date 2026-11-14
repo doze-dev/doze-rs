@@ -70,8 +70,11 @@ impl<F: Fs> Broker<F> {
             p.error_code = ResponseError::UnknownTopicOrPartition.code();
             return;
         };
-        match self.partitions.get(topic, id).await {
-            Ok(partition) => match partition.txns().await {
+        // A partition never written has no producers: it is not opened for this (opening makes its first segment, so a read
+        // would write files).
+        match self.partitions.get_unless_empty(topic, id).await {
+            Ok(None) => {}
+            Ok(Some(partition)) => match partition.txns().await {
                 Ok(view) => {
                     p.active_producers = view
                         .producers

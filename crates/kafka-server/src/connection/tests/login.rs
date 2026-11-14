@@ -8,7 +8,7 @@ use kafka_wire::messages::{
 use super::*;
 
 /// A context that wants a login from alice (password "pw").
-fn needing_login(timeouts: Timeouts) -> Context<SimFs> {
+pub(super) fn needing_login(timeouts: Timeouts) -> Context<SimFs> {
     let users = [("alice".to_owned(), "pw".to_owned())];
     let auth = Authenticator::new(&[Mechanism::Plain], Credentials::new(users).unwrap()).unwrap();
     let mut ctx = context(timeouts);
@@ -81,7 +81,7 @@ fn metadata_with_garbage_body(id: i32) -> Bytes {
     framed(&payload)
 }
 
-async fn login(client: &mut DuplexStream) {
+pub(super) async fn login(client: &mut DuplexStream) {
     client.write_all(&handshake(1)).await.unwrap();
     let mut len = [0; 4];
     client.read_exact(&mut len).await.unwrap();

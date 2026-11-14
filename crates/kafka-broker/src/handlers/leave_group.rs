@@ -40,12 +40,18 @@ impl<F: Fs> Broker<F> {
                         .group_instance_id
                         .as_ref()
                         .map(|i| InstanceId::new(i.as_str())),
+                    // What the client says (v5 and later), clipped as it is read and never logged.
+                    reason: m
+                        .reason
+                        .as_ref()
+                        .and_then(|r| crate::groups::Reason::clip(r.as_str())),
                 })
                 .collect()
         } else {
             vec![LeaveTarget {
                 member_id: MemberId::new(req.member_id.as_str()),
                 instance: None,
+                reason: None,
             }]
         };
         let Some(Answer::Leave(results)) = self.groups.ask(&group, Req::Leave(targets)).await

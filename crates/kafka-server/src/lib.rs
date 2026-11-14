@@ -11,7 +11,10 @@
 mod accept;
 mod config;
 mod connection;
+mod connections;
+pub mod fault;
 mod frames;
+mod observer;
 mod pool;
 mod server;
 mod session;
@@ -19,6 +22,7 @@ mod session;
 mod tls;
 
 pub use config::{Config, MOST_FAILED_LOGIN_DELAY, Timeouts};
+pub use observer::{Answer, Asked, Call, ConnId, Observed, Observer, Opened, Pending};
 pub use server::{Running, Server};
 #[cfg(feature = "tls")]
 pub use tls::{TlsConfig, TlsError};

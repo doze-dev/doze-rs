@@ -12,4 +12,6 @@ mod expiry;
 mod finish;
 pub(crate) mod rules;
 
+#[cfg(feature = "inspect")]
+pub(crate) use coordinator::CHECK_EVERY;
 pub(crate) use entries::{Held, Txns};

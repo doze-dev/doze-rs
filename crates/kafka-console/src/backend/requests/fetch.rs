@@ -9,9 +9,6 @@ use kafka_wire::messages::{BrokerId, TopicName};
 
 /// What a table of records reads from one partition at a time: 256 KiB.
 pub const TABLE_BYTES: i32 = 256 << 10;
-/// What one record is read with: Kafka's default `max.message.bytes` and a batch header over it (1 MiB and 12 bytes).
-/// A Fetch returns the first batch whole even if it is larger, so a bigger record still arrives.
-pub const RECORD_BYTES: i32 = (1 << 20) + 12;
 
 /// The isolation level of a read: what a consumer of that level is given.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,6 +99,5 @@ mod tests {
     fn the_isolation_levels_are_the_protocols_numbers() {
         assert_eq!(Isolation::ReadUncommitted.level(), 0);
         assert_eq!(Isolation::ReadCommitted.level(), 1);
-        assert_eq!(RECORD_BYTES, 1_048_588);
     }
 }

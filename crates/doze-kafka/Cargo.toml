@@ -12,13 +12,21 @@ publish.workspace = true
 workspace = true
 
 [features]
-# TLS on the Kafka listener: --tls-cert and --tls-key. Off by default (weight is a feature); building it needs a C
-# compiler and assembler because of ring. See docs/port/weight.md.
-tls = ["kafka-server/tls", "dep:rustls"]
+# TLS on the Kafka listener (and the registry): --tls-cert and --tls-key. On in the default build since 2026-11-14 (the owner:
+# one build, not two for a few MB); building it needs a C compiler and assembler because of ring. `--no-default-features`
+# leaves it out with the console. See docs/port/weight.md.
+tls = ["kafka-server/tls", "dep:rustls", "kafka-registry?/tls"]
 # The web console, served beside the broker (`--console`, on by default). On in the default build: the owner's decision of
 # 2026-11-12 (docs/port/phase9.md, D1). `--no-default-features` is the lean broker with no HTTP in it at all.
 console = ["dep:kafka-console"]
-default = ["console"]
+# The Confluent-compatible schema registry, served beside the broker (`--schema-registry`, on by default, as in the Go edition).
+# Its HTTP stack is the console's (hyper), so it adds no package to the default build (docs/port/phase10.md, "Weight").
+registry = ["dep:kafka-registry"]
+# The doze module face (docs/port/phase11.md): run as `kafka-plugin` (the name a module release packages it under) or as
+# `doze-kafka module`, the binary speaks doze's module protocol 2 and plans itself as the engine. On in the default build,
+# like the console; `--no-default-features` leaves it out.
+module = ["dep:doze-module", "dep:doze-os", "dep:kafka-protocol", "dep:bytes"]
+default = ["console", "module", "registry", "tls"]
 
 [dependencies]
 kafka-auth = { path = "../kafka-auth" }
@@ -27,7 +35,7 @@ kafka-storage = { path = "../kafka-storage" }
 kafka-broker = { path = "../kafka-broker" }
 kafka-server = { path = "../kafka-server" }
 kafka-console = { path = "../kafka-console", optional = true }
-kafka-registry = { path = "../kafka-registry" }
+kafka-registry = { path = "../kafka-registry", optional = true }
 doze-runtime = { path = "../doze-runtime" }
 anyhow = "1"
 # The limit on open files: raised at start, and the open partitions sized to it.
@@ -39,8 +47,17 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["f
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"], optional = true }
 # Two worker threads by default (weight is a feature), and the signals a stop arrives by.
 tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "signal", "net", "time", "macros"] }
+# The module face (feature `module`): the SDK, and the client side of the Kafka messages it speaks to its own broker with.
+doze-module = { path = "../doze-module", optional = true }
+doze-os = { path = "../doze-os", optional = true }
+kafka-protocol = { version = "0.18", default-features = false, features = ["client"], optional = true }
+bytes = { version = "1", optional = true }
 
 [dev-dependencies]
+doze-module-test = { path = "../doze-module-test" }
+doze-module-host = { path = "../doze-module-host" }
+doze-module-proto = { path = "../doze-module-proto" }
+serde_json = "1"
 kafka-auth = { path = "../kafka-auth", features = ["client"] }
 kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
 kafka-protocol = { version = "0.18", default-features = false, features = ["client"] }

@@ -38,7 +38,7 @@ func (c churn) run(addr string) (string, error) {
 	}
 	s := scenario{assignor: "range"}
 	tl := newTally()
-	g, err := s.start(ctx, topic, group, c.clients, tl)
+	g, err := s.start(ctx, adm, topic, group, c.clients, tl)
 	if err != nil {
 		return "", err
 	}

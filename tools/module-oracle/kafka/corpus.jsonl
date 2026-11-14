@@ -1,0 +1,43 @@
+{"id":"kafka/000-example","engine":"kafka","version":"4","hcl":"kafka \"events\" {\n  version = 4\n  port    = 9092\n\n  auto_create_topics = true\n  default_partitions = 1\n  retention          = \"168h\"\n\n  topic \"orders\" {\n    partitions = 3\n  }\n  topic \"payments\" {\n    partitions = 1\n    config = { \"cleanup.policy\" = \"compact\" }\n  }\n}\n"}
+{"id":"kafka/001-version-1","engine":"kafka","version":"1","hcl":"kafka \"t\" {\n  version = \"1\"\n}\n"}
+{"id":"kafka/002-version-2","engine":"kafka","version":"2","hcl":"kafka \"t\" {\n  version = \"2\"\n}\n"}
+{"id":"kafka/003-version-3","engine":"kafka","version":"3","hcl":"kafka \"t\" {\n  version = \"3\"\n}\n"}
+{"id":"kafka/004-version-4","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n}\n"}
+{"id":"kafka/005-arg-auto_create_topics","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  auto_create_topics = true\n}\n"}
+{"id":"kafka/006-arg-default_partitions","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  default_partitions = 8\n}\n"}
+{"id":"kafka/007-arg-retention","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  retention = \"24h\"\n}\n"}
+{"id":"kafka/008-arg-retention_bytes","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  retention_bytes = 10\n}\n"}
+{"id":"kafka/009-arg-auto_create_topics-alt","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  auto_create_topics = false\n}\n"}
+{"id":"kafka/010-arg-default_partitions-alt","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  default_partitions = 9\n}\n"}
+{"id":"kafka/011-arg-retention-alt","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  retention = \"24h\"\n}\n"}
+{"id":"kafka/012-arg-retention_bytes-alt","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  retention_bytes = 11\n}\n"}
+{"id":"kafka/013-all-args","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  auto_create_topics = true\n  default_partitions = 8\n  retention = \"24h\"\n  retention_bytes = 10\n}\n"}
+{"id":"kafka/014-pair-auto_create_topics-default_partitions","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  auto_create_topics = false\n  default_partitions = 11\n}\n"}
+{"id":"kafka/015-pair-retention-retention_bytes","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  retention = \"24h\"\n  retention_bytes = 11\n}\n"}
+{"id":"kafka/016-block-topic","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"first\" {\n    partitions = 7\n    config = { tuning = \"on\" }\n  }\n}\n"}
+{"id":"kafka/017-block-topic-two","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"first\" {\n    partitions = 7\n    config = { tuning = \"on\" }\n  }\n  topic \"second\" {\n    partitions = 8\n    config = { alpha = \"1\", beta = \"two\" }\n  }\n}\n"}
+{"id":"kafka/018-block-topic-duplicate","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"same\" {\n    partitions = 7\n    config = { tuning = \"on\" }\n  }\n  topic \"same\" {\n    partitions = 8\n    config = { alpha = \"1\", beta = \"two\" }\n  }\n}\n"}
+{"id":"kafka/019-block-topic-","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic {\n    partitions = 7\n    config = { tuning = \"on\" }\n  }\n}\n"}
+{"id":"kafka/020-block-topic-with-args","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  auto_create_topics = true\n  default_partitions = 8\n  retention = \"24h\"\n  retention_bytes = 10\n  topic \"first\" {\n    partitions = 7\n    config = { tuning = \"on\" }\n  }\n}\n"}
+{"id":"kafka/021-unknown-arg","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  bogus_setting = 1\n}\n"}
+{"id":"kafka/022-wrong-type-retention","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  retention = [\"not\", \"a\", \"string\"]\n}\n"}
+{"id":"kafka/100-topic-config-real","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"orders\" {\n    partitions = 3\n    config = { \"cleanup.policy\" = \"compact\", \"retention.ms\" = \"86400000\" }\n  }\n}\n"}
+{"id":"kafka/101-topic-partitions-zero","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"orders\" {\n    partitions = 0\n  }\n}\n"}
+{"id":"kafka/102-topic-partitions-negative","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"orders\" {\n    partitions = -2\n  }\n}\n"}
+{"id":"kafka/103-topic-partitions-over-max","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"orders\" {\n    partitions = 5000\n  }\n}\n"}
+{"id":"kafka/104-topic-name-space","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"has space\" {}\n}\n"}
+{"id":"kafka/105-topic-name-dot","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \".\" {}\n}\n"}
+{"id":"kafka/106-topic-name-too-long","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\" {}\n}\n"}
+{"id":"kafka/107-topic-name-dotted","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"users.signed-up_v2\" {}\n}\n"}
+{"id":"kafka/108-topic-config-unknown","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"orders\" {\n    config = { \"retention.msec\" = \"1000\" }\n  }\n}\n"}
+{"id":"kafka/109-topic-config-bad-value","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  topic \"orders\" {\n    config = { \"cleanup.policy\" = \"shrink\" }\n  }\n}\n"}
+{"id":"kafka/110-retention-days","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  retention = \"7d\"\n}\n"}
+{"id":"kafka/111-retention-negative","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  retention = \"-1h\"\n}\n"}
+{"id":"kafka/112-retention-zero","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  retention = \"0s\"\n}\n"}
+{"id":"kafka/113-retention-compound","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  retention = \"1h30m\"\n}\n"}
+{"id":"kafka/114-default-partitions-zero","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  default_partitions = 0\n}\n"}
+{"id":"kafka/115-default-partitions-negative","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  default_partitions = -3\n}\n"}
+{"id":"kafka/116-retention-bytes-unbounded","engine":"kafka","version":"4","hcl":"kafka \"t\" {\n  version = \"4\"\n  retention_bytes = -1\n}\n"}
+{"id":"kafka/117-version-5","engine":"kafka","version":"5","hcl":"kafka \"t\" {\n  version = \"5\"\n}\n"}
+{"id":"kafka/118-version-dotted","engine":"kafka","version":"3.7","hcl":"kafka \"t\" {\n  version = \"3.7\"\n}\n"}
+{"id":"kafka/119-larder","engine":"kafka","version":"4","hcl":"kafka \"kafka\" {\n  version            = 4\n  port               = 9092\n  auto_create_topics = false\n\n  topic \"users.signed-up\" { partitions = 3 }\n  topic \"orders.placed\" { partitions = 3 }\n  topic \"payments.settled\" { partitions = 3 }\n  topic \"payments.failed\" { partitions = 3 }\n}\n"}

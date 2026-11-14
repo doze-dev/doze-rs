@@ -7,9 +7,11 @@ mod lives;
 mod offsets;
 mod producer_ids;
 mod registry;
+mod schemas;
 mod topics;
 mod txns;
 
+pub use schemas::Records;
 pub use topics::random_topic_id;
 
 use std::path::Path;
@@ -43,6 +45,10 @@ pub(super) const ACLS: TableDefinition<'static, &[u8], &[u8]> = TableDefinition:
 /// kept, which the reads take as none and the first write makes.
 pub(super) const CREDENTIALS: TableDefinition<'static, &[u8], &[u8]> =
     TableDefinition::new("credentials");
+
+/// The schema registry's records, opaque here (`store/schemas.rs`). Absent from a database made before the registry kept anything, which
+/// the reads take as none and the first write makes.
+pub(super) const SCHEMAS: TableDefinition<'static, &[u8], &[u8]> = TableDefinition::new("schemas");
 
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
 
