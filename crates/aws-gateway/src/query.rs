@@ -54,6 +54,11 @@ pub(crate) async fn handle(
             "Request is missing Action or Operation parameter",
         ))
     })?;
+    if tables.find_op(name).is_none()
+        && let Some(answer) = entry.service.query_extension(name, &form)
+    {
+        return Ok(extension_reply(id, answer.await));
+    }
     let op = tables.find_op(name).ok_or_else(|| {
         fail(&ApiError::new(
             400,
@@ -76,6 +81,18 @@ pub(crate) async fn handle(
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     let json = output_json(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
     Ok(query::success(meta, tables, op, &json, id))
+}
+
+/// A doze-only action's answer (JSON), with the request id every answer carries.
+fn extension_reply(id: &RequestId, r: aws_wire::service::WebReply) -> Out {
+    let mut builder = http::Response::builder().status(r.status);
+    for (k, v) in &r.headers {
+        builder = builder.header(k.as_str(), v.as_str());
+    }
+    builder
+        .header("x-amzn-RequestId", id.as_str())
+        .body(r.body.to_vec())
+        .unwrap_or_else(|_| http::Response::new(Vec::new()))
 }
 
 fn caller(shared: &Shared, parts: &Parts, claim: Claim) -> Caller {

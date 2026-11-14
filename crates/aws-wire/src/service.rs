@@ -210,6 +210,16 @@ pub trait Service: Send + Sync + 'static {
         None
     }
 
+    /// A doze-only `Action` on this service's Query endpoint (IAM's `DozeAccessLog`, as the Go edition served it), answered as JSON
+    /// from the request's form. Asked only for an action the model does not have; the default is none.
+    fn query_extension<'a>(
+        &'a self,
+        _action: &'a str,
+        _form: &'a std::collections::BTreeMap<String, String>,
+    ) -> Option<BoxFuture<'a, WebReply>> {
+        None
+    }
+
     /// Handles one call. An error names a modelled shape ([`ApiError::modeled`]) or states itself.
     fn call(&self, call: Call) -> BoxFuture<'_, Reply>;
 
