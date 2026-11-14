@@ -388,6 +388,34 @@
       "ScannedCount": 3
     }
   },
+  "test_index_added_and_removed_later": {
+    "red": {
+      "Count": 1,
+      "Items": [
+        {
+          "color": {
+            "S": "red"
+          },
+          "pk": {
+            "S": "a"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 1
+    },
+    "two-index-updates": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "One or more parameter values were invalid: Only one global secondary index update per index is allowed simultaneously. Index: by-color"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
   "test_item_round_trip_and_every_type": {
     "delete": {
       "Attributes": {

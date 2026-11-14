@@ -8,7 +8,7 @@ doze-aws was fixed.
 
 | module | before | after |
 |---|---|---|
-| dynamodb | 116 / 92 / 10 / 2 / 12 | 116 / 107 / 0 / 1 / 8 |
+| dynamodb | 116 / 92 / 10 / 2 / 12 | 116 / 109 / 0 / 1 / 6 |
 | eventbridge | 87 / 75 / 0 / 2 / 10 | 88 / 87 / 0 / 1 / 0 |
 | scheduler | 27 / 7 / 0 / 2 / 18 | 31 / 30 / 0 / 1 / 0 |
 | lambda | 58 / 53 / 0 / 3 / 2 | 67 / 66 / 0 / 1 / 0 |
@@ -34,13 +34,16 @@ the one decided deviation (DynamoDB stream shards). None is doze-aws answering a
 - PartiQL `SELEKT ...`: `Statement wasn't well formed, can't be processed: Expected data manipulation`.
 - Streams `GetShardIterator` on an unknown shard: `Requested resource not found: Shard does not exist` (no id).
 - A reserved tag key: `Tag Key cannot be prefixed with aws:, Key: aws:x`.
+- **Behaviour**: two `GlobalSecondaryIndexUpdates` naming one index are refused before either is applied: `One or more parameter
+  values were invalid: Only one global secondary index update per index is allowed simultaneously. Index: by-color` (doze-aws
+  applied the first and then failed the second with not-found). **Go wrong (fixed)**.
+- The 6 unverified labels are `test_contributor_insights_settings` (blocked by `iam:CreateServiceLinkedRole`, below).
 - **Behaviour**: a PartiQL write `ExecuteTransaction` answers `"Responses": []`, not an empty object. **Go weak (fixed)**.
 
 Scenarios fixed (they guessed AWS wrong): `test_tags` (AWS paces tag changes on a table: an untag straight after a tag is
 `LimitExceededException: Subscriber limit exceeded: Table tags are being updated`; the scenario now waits it out),
 `test_index_added_and_removed_later` (a new GSI over three items stayed `CREATING` for more than 15 minutes and was `ACTIVE`
-within about 50; the scenario now waits up to an hour, and its re-recording is the one still running when this note was written:
-see the report), `test_streams_api` (reads every shard: a key's records are in one of several). `test_tags` also paces its
+within about 50; the scenario now waits up to an hour; re-recorded), `test_streams_api` (reads every shard: a key's records are in one of several). `test_tags` also paces its
 cleanup's `DeleteTable`: its table stayed behind after the recording.
 
 ### EventBridge

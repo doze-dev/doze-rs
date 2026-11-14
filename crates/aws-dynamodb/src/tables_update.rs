@@ -131,6 +131,19 @@ impl Core {
         if updates.is_empty() {
             return Ok(false);
         }
+        // Recorded 2026-11-15: two updates naming one index are refused before either is looked at.
+        let mut named = std::collections::BTreeSet::new();
+        for u in updates {
+            let name = ["Create", "Delete", "Update"]
+                .iter()
+                .find_map(|k| u.get(*k).and_then(|b| str_of(b, "IndexName")))
+                .unwrap_or_default();
+            if !named.insert(name) {
+                return Err(bad_param(&format!(
+                    "Only one global secondary index update per index is allowed simultaneously. Index: {name}"
+                )));
+            }
+        }
         let mut defs = t.attribute_definitions();
         defs.extend(definitions(&cx.body)?);
         let mut structural = 0;
