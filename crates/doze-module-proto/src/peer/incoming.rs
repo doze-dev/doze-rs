@@ -75,6 +75,12 @@ pub(super) fn incoming(
         return refuse(inner, f.id, &e);
     }
     let Some(method) = method else { return Ok(()) };
+    // A callback inside one of our calls: its handler is running, so the handle that came with it has arrived.
+    if method.scope().is_some()
+        && let Some(id) = head.for_call
+    {
+        inner.let_go(id);
+    }
     let cancel = Cancel::default();
     if let Some(ms) = head.deadline_ms {
         let c = cancel.clone();

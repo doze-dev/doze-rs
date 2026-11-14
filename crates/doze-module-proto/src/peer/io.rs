@@ -24,6 +24,7 @@ pub(crate) fn start(
         side,
         out,
         pending: Mutex::new(HashMap::new()),
+        held: Mutex::new(HashMap::new()),
         serving: Mutex::new(HashMap::new()),
         credits: Mutex::new(HashMap::new()),
         next: AtomicU32::new(1),
@@ -175,6 +176,7 @@ fn answer(inner: &Arc<Inner>, f: Frame) -> Result<(), Error> {
     let Some(p) = inner.pending.lock().ok().and_then(|mut p| p.remove(&f.id)) else {
         return Ok(());
     };
+    inner.let_go(f.id);
     let result = match f.kind {
         Kind::Error => Err(msg::decode::<Error>(&f.body)
             .unwrap_or_else(|e| Error::new(ErrorKind::Internal, e.to_string()))),

@@ -9,6 +9,15 @@
 //! about to write (it is empty on Unix and [`TRAILER_LEN`] bytes on Windows), and writes the frame with
 //! [`Writer::write_exported`]. The receiver, reading a frame it knows carries a handle, splits the last
 //! [`TRAILER_LEN`] bytes off and calls [`Reader::import`]. Frames themselves are the caller's business.
+//!
+//! The sender keeps a [`Passable::hold`] until the other side has shown it has the handle: an answer to the frame
+//! that carried it, or anything sent only after reading that frame. A handle whose only reference is the message
+//! carrying it can be shut on the way. macOS's collector of descriptors in flight (`unp_gc`, run whenever any process
+//! closes a Unix socket while descriptors are in flight) can count it unreachable in the moment the receiver's
+//! `recvmsg` has taken the message off the channel but not yet installed the descriptor, and `sorflush`es it (the
+//! window is read from XNU's `uipc_usrreq.c`). The receiver then holds the right socket, peer address and all, but
+//! its first read returns 0 and the client's bytes are gone. Measured: about 1 in 60 hand-overs while another thread
+//! closes such sockets, none with the sender holding a copy (`doze-module-proto` `tests/handoff.rs`).
 
 use std::io;
 
@@ -86,6 +95,7 @@ impl Writer {
     }
 
     /// Prepares `handle` to travel to the other side. The handle is consumed: from here on it belongs to the frame.
+    /// Take a [`Passable::hold`] first and keep it until the other side shows it has the handle (module docs).
     pub fn export(&self, handle: Passable) -> io::Result<Exported> {
         let (trailer, ride) = self.0.export(handle.0)?;
         Ok(Exported { trailer, ride })
@@ -114,6 +124,20 @@ impl Exported {
 /// A connection that can be handed to the other side of a channel: a TCP stream (and on Unix, a Unix stream).
 #[derive(Debug)]
 pub struct Passable(imp::Handle);
+
+impl Passable {
+    /// A copy of the connection for the sender to keep while the handle is in flight, so it is never the message's
+    /// alone (module docs). Dropping it closes only the copy: the connection lives on with the other side.
+    pub fn hold(&self) -> io::Result<Held> {
+        self.0.try_clone().map(|c| Held { _copy: c })
+    }
+}
+
+/// The sender's copy of a connection it handed over; see [`Passable::hold`].
+#[derive(Debug)]
+pub struct Held {
+    _copy: imp::Handle,
+}
 
 impl From<std::net::TcpStream> for Passable {
     fn from(s: std::net::TcpStream) -> Passable {

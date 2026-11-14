@@ -21,7 +21,7 @@ use crate::frame::{self, Kind};
 use crate::method::{Direction, Method, Shape};
 use crate::msg::error::{Error, ErrorKind};
 use crate::msg::{self, CallHead};
-use doze_os::channel::Passable;
+use doze_os::channel::{Held, Passable};
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
@@ -79,6 +79,9 @@ pub(crate) struct Inner {
     side: Side,
     out: mpsc::UnboundedSender<Out>,
     pending: Mutex<HashMap<u32, Pending>>,
+    /// Our copies of connections handed over with calls still in flight, kept until the other side shows it has
+    /// them: its answer, or a callback inside the call (doze_os::channel, on why a handle must not travel alone).
+    held: Mutex<HashMap<u32, Held>>,
     serving: Mutex<HashMap<u32, serve::Cancel>>,
     credits: Mutex<HashMap<u32, Credit>>,
     next: AtomicU32,
@@ -157,6 +160,12 @@ impl Peer {
             for_call: opts.for_call,
         };
         let body = msg::encode_call(head, args).map_err(internal)?;
+        let held = opts
+            .handle
+            .as_ref()
+            .map(Passable::hold)
+            .transpose()
+            .map_err(internal)?;
         let out = match opts.handle {
             Some(handle) => Out::Pass {
                 id,
@@ -174,6 +183,9 @@ impl Peer {
                 return Err(Error::new(ErrorKind::Unavailable, "the connection ended"));
             }
             pending.insert(id, p(id));
+            if let Some(h) = held {
+                self.inner.held.lock().map_err(internal)?.insert(id, h);
+            }
         }
         self.inner.queue(out)?;
         Ok(id)
@@ -250,6 +262,7 @@ impl Peer {
         if let Ok(mut p) = self.inner.pending.lock() {
             p.remove(&id);
         }
+        self.inner.let_go(id);
         if let Ok(b) = frame::encode(id, Kind::Cancel, 0, &[], None) {
             let _ = self.inner.queue(Out::Frame(b));
         }
