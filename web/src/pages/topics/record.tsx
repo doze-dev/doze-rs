@@ -1,6 +1,7 @@
 // One record, completely (boards topic-record, topic-record-binary; classic pages/topics/record.rs): a Sheet over the
 // Messages page, routed by `?record=partition:offset` (a deep link opens the page with the record; Back closes it).
 import { InfoIcon, TriangleAlertIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ApiFailure } from "@/api/client";
 import { useRecord } from "@/api/topics";
@@ -64,6 +65,62 @@ function Block({ s, testid, prettyOn }: { s: Shown; testid: string; prettyOn?: b
   );
 }
 
+/** A key or value in the registry's wire format: what it reads as with its schema (laid out, with Copy), or why it does not, and
+ * the bytes as they are a toggle away. */
+function Decoded({ s, label, testid }: { s: Shown; label: string; testid: string }) {
+  const [raw, setRaw] = useState(false);
+  const k = s.schema!;
+  const named = k.subject ? (
+    <Link to="/schemas/subjects/$subject" params={{ subject: k.subject }} search={{ version: k.version ?? undefined }} className="font-mono text-link hover:underline" data-testid={`${testid}-subject`}>
+      {k.subject} v{k.version}
+    </Link>
+  ) : null;
+  return (
+    <Field
+      label={label}
+      aside={`${note(s)} · ${k.kind ?? "schema"} id ${k.id}`}
+      action={
+        <>
+          <ToggleGroup type="single" variant="outline" size="sm" value={raw ? "raw" : "decoded"} onValueChange={(x) => x && setRaw(x === "raw")} aria-label={`How the ${label.toLowerCase()} is shown`} data-testid={`${testid}-view`}>
+            <ToggleGroupItem value="decoded" className="px-2.5 text-[12.5px]">
+              Decoded
+            </ToggleGroupItem>
+            <ToggleGroupItem value="raw" className="px-2.5 text-[12.5px]">
+              Bytes
+            </ToggleGroupItem>
+          </ToggleGroup>
+          {!raw && k.json && <CopyButton text={k.json} what={`${label} copied`} label={`Copy ${label.toLowerCase()}`} />}
+        </>
+      }
+    >
+      {raw ? (
+        <Block s={s} testid={testid} />
+      ) : (
+        <>
+          <p className="text-[12.5px] text-muted-foreground">
+            {k.json ? <>Decoded with {named ?? `schema id ${k.id}`}{k.message && <> as <code className="font-mono">{k.message}</code></>}: magic byte 0, the id in four bytes, then the {k.kind === "PROTOBUF" ? "message index and the Protobuf body" : k.kind === "JSON" ? "JSON text" : "Avro binary"}.</> : <>Not decoded{named && <> (schema {named})</>}.</>}
+          </p>
+          {k.json && (
+            <pre data-testid={testid} className="max-h-[22rem] overflow-auto rounded-lg border bg-well px-3.5 py-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap break-all text-bright">
+              {k.json}
+            </pre>
+          )}
+          {k.error && (
+            <Callout tone="warn">
+              <b className="font-semibold text-bright">{k.kind ? "The bytes do not fit their schema." : `Schema id ${k.id} is not registered here.`}</b> <span data-testid={`${testid}-why`}>{k.error}</span>
+            </Callout>
+          )}
+          {k.mismatch && (
+            <Callout tone="warn">
+              <b className="font-semibold text-bright">It reads, but does not fit its JSON Schema.</b> <span data-testid={`${testid}-why`}>{k.mismatch}</span>
+            </Callout>
+          )}
+        </>
+      )}
+    </Field>
+  );
+}
+
 function StandingCallout({ v }: { v: RecordView }) {
   const lso = number(v.last_stable);
   if (v.standing === "above_lso") {
@@ -81,10 +138,10 @@ function StandingCallout({ v }: { v: RecordView }) {
       </Callout>
     );
   }
-  if (v.value.kind === "binary") {
+  if (v.value.kind === "binary" && !v.value.schema) {
     return (
       <Callout tone="info">
-        <b className="font-semibold text-bright">The value is not text.</b> {number(v.value.bytes)} bytes that are not valid UTF-8, shown as hex. Avro and Protobuf are decoded once schemas arrive (Phase 10); until then the bytes are all the broker can say.
+        <b className="font-semibold text-bright">The value is not text.</b> {number(v.value.bytes)} bytes that are not valid UTF-8, shown as hex. They do not start with the schema registry's wire header (a zero byte, then a schema id), so there is no schema to read them with.
       </Callout>
     );
   }
@@ -171,9 +228,16 @@ function Body({ v }: { v: RecordView }) {
   return (
     <div className="flex flex-col gap-5 px-6 pb-8" data-testid="record-body">
       <StandingCallout v={v} />
+      {v.key.schema ? (
+        <Decoded s={v.key} label="Key" testid="record-key" />
+      ) : (
       <Field label="Key" aside={note(v.key)} action={v.key.kind !== "null" && v.key.kind !== "empty" && <CopyButton text={v.key.text} what="Key copied" label="Copy key" iconOnly variant="ghost" />}>
         <Block s={v.key} testid="record-key" />
       </Field>
+      )}
+      {v.value.schema ? (
+        <Decoded s={v.value} label="Value" testid="record-value" />
+      ) : (
       <Field
         label="Value"
         aside={note(v.value)}
@@ -195,6 +259,7 @@ function Body({ v }: { v: RecordView }) {
       >
         <Block s={v.value} testid="record-value" prettyOn={view === "pretty"} />
       </Field>
+      )}
       <Field label="Headers" aside={v.headers.length ? String(v.headers.length) : "none"}>
         {v.headers.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">No headers were sent with this record.</p>

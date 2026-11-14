@@ -9,3 +9,4 @@ export { LogPage } from "./log";
 export { ProducersPage } from "./producers";
 export { TxnPage, TxnHeldPage } from "./txn";
 export { TopicConfigPage } from "./config";
+export { TopicSchemaPage } from "./schema";

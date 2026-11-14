@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
 import { TopicOverlays } from "./overlays";
 
-export type TopicTab = "messages" | "log" | "config" | "consumers" | "producers";
+export type TopicTab = "messages" | "log" | "config" | "consumers" | "producers" | "schema";
 
 /** Which part of a topic the address is: a tab, the partitions page (its own head, no tabs) or a transaction (Producers). */
 export function placeOf(pathname: string, topic: string): TopicTab | "partitions" {
@@ -31,7 +31,7 @@ export function placeOf(pathname: string, topic: string): TopicTab | "partitions
   const first = rest.split("/")[1] ?? "";
   if (first === "partitions") return "partitions";
   if (first === "transactions" || first === "producers") return "producers";
-  if (first === "log" || first === "config" || first === "consumers") return first;
+  if (first === "log" || first === "config" || first === "consumers" || first === "schema") return first;
   return "messages";
 }
 
@@ -177,15 +177,16 @@ const TABS: { id: TopicTab; label: string; to: string }[] = [
   { id: "config", label: "Config", to: "/topics/$topic/config" },
   { id: "consumers", label: "Consumers", to: "/topics/$topic/consumers" },
   { id: "producers", label: "Producers", to: "/topics/$topic/producers" },
+  { id: "schema", label: "Schema", to: "/topics/$topic/schema" },
 ];
 
 /** The five tabs, the same links in the same order with the same counts on every page of the topic. */
 function Tabs({ f, on }: { f: TopicFrame; on: TopicTab }) {
-  const counts: Partial<Record<TopicTab, number>> = { consumers: f.head.tabs.consumers, producers: f.head.tabs.producers };
+  const counts: Partial<Record<TopicTab, number>> = { consumers: f.head.tabs.consumers, producers: f.head.tabs.producers, schema: f.registry ? f.schemas : undefined };
   return (
     <nav aria-label="Topic" className="mt-6 border-b" data-testid="topic-tabs">
       <ul className="-mb-px flex gap-1 overflow-x-auto">
-        {TABS.map((t) => {
+        {TABS.filter((t) => t.id !== "schema" || f.registry).map((t) => {
           const active = t.id === on;
           return (
             <li key={t.id}>

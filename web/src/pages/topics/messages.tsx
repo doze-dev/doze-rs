@@ -55,6 +55,18 @@ function useSetSearch() {
 }
 
 function cellOf(s: Shown, what: "key" | "value") {
+  // A value in the registry's wire format: its language and id, then the value read with its schema (or why it is not).
+  if (s.schema) {
+    const k = s.schema;
+    return (
+      <span className="inline-flex max-w-full min-w-0 items-baseline gap-2" data-testid="schema-cell">
+        <span className="shrink-0 rounded bg-accent px-1.5 font-sans text-[11px] text-link" title={k.subject ? `${k.subject} v${k.version}, id ${k.id}` : `schema id ${k.id}`}>
+          {k.kind ?? "id"} · {k.id}
+        </span>
+        <span className={k.json && !k.error ? "truncate text-foreground" : "truncate text-muted-foreground"}>{k.preview}</span>
+      </span>
+    );
+  }
   if (s.kind === "null") return <span className="text-muted-foreground">null{what === "value" && " (deletion)"}</span>;
   if (s.kind === "empty") return <span className="text-muted-foreground">empty</span>;
   return s.preview;
@@ -100,7 +112,7 @@ function columns(open: (r: RecordRow) => void, wide: boolean): DataColumn<Record
     { id: "key", accessorFn: (r) => r.key.preview, header: "Key", size: wide ? 170 : 104, meta: { mono: true }, cell: ({ row: { original: r } }) => cellOf(r.key, "key") },
     {
       id: "value",
-      accessorFn: (r) => r.value.preview,
+      accessorFn: (r) => r.value.schema?.preview ?? r.value.preview,
       header: "Value",
       meta: { mono: true },
       cell: ({ row: { original: r } }) => <span className={r.value.kind === "binary" ? "text-muted-foreground" : "text-foreground"}>{cellOf(r.value, "value")}</span>,
