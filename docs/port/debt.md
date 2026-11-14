@@ -451,3 +451,14 @@ Statuses as above. Rules CON-100 and up in `behaviours/console.md`. The writing 
 | J497 | The Lab forms add fields the boards do not draw (client pattern, jitter, stop after hits, a random share, one hour): improvements, to be recorded as `improvement:` allow-list entries when the pages are built. | open: React rebuild |
 | J498 | `offsets-retention-restart` failed in the replay on main (and at `f14d65ac`) after 58 of 58 at `2b553b3f`. Not a regression of the broker: `2b553b3f` itself fails the same way (the same 17 differences) against the harness copy in use, and main passes it, and the full replay is 58 of 58, against a copy whose `Env.Quiet` is the Go repository's. The copy had three lines in `Env.Quiet` (`conformance/harness.go`) that return early for a ConsumerGroupHeartbeat, so the script's keep-alive never reaches the broker: the two KIP-848 members (`gc-gone`, `gc-back`) run out of their 1.5 s session, the groups go empty, and their offsets expire before the restart (`before-fetch-gc-*` answer -1, `before-describe-gc-gone` answers 69). The Go repository's `harness.go` (last changed 2026-10-30) has no such lines. Bisecting a broker change was moot. | done (harness copy; no broker change) |
 | J499 | Clippy on the lean build (`-p doze-kafka --no-default-features`) failed on main after the Lab merge: `groups::Force`, `groups::Forced` and `Reason::as_str` are used only with `inspect`. The two re-exports are under `cfg(feature = "inspect")`; `Force` and `as_str` are allowed dead without it, as `Groups::force` already was. | done |
+
+## J (continued). 2026-11-14, found while pushing Phase 10
+
+- **J500 (open): a WebKit flake in `live.spec.ts` "a broker that goes away and comes back".** It failed once in a full three-browser run on
+  main 124a254e (437 passed, 1 failed, 411 ms into the test) and was pushed, because the push script read the runner's exit code with bash's
+  `${PIPESTATUS[0]}` in zsh, where it does not exist, so the check could not fail (the earlier pushes that day had clean runs: 420/420,
+  438/438). It then passed 5 of 5 alone and 4 × 12 of 12 as the whole spec in WebKit; the failure's own output was lost (the script kept
+  only summary lines). Seen twice before in full WebKit runs (the console-acl-live slice, which closed the page before the broker is killed
+  for it). Also worth knowing: both e2e brokers (the harness's and this test's second one) take the registry's default 127.0.0.1:8081, so
+  the second runs without a registry; harmless today, but e2e brokers should name their own registry ports. Next: keep each full run's
+  complete output, and fix at the cause when it shows again.
