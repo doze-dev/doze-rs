@@ -148,11 +148,35 @@ pub(crate) async fn exec_ok(argv: &[String], pids: Option<&Pids>) -> bool {
 fn log_has(pattern: &str, log: &Path) -> Result<bool, NotReady> {
     let re = regex_lite::Regex::new(pattern)
         .map_err(|e| NotReady::Broken(format!("invalid log_line regex {pattern:?}: {e}")))?;
-    let text = std::fs::read_to_string(log).unwrap_or_default();
+    let text = log_tail(log);
     let lines: Vec<&str> = text.lines().collect();
     let from = lines.len().saturating_sub(LOG_LINES);
     Ok(lines.iter().skip(from).any(|l| re.is_match(l)))
 }
+
+/// The end of the log, at most [`LOG_TAIL`] bytes from its last whole line back: a probe every 10-100 ms must not read
+/// a large log whole each time (audit 2, minor 10).
+fn log_tail(log: &Path) -> String {
+    use std::io::{Read, Seek, SeekFrom};
+    let Ok(mut f) = std::fs::File::open(log) else {
+        return String::new();
+    };
+    let len = f.metadata().map_or(0, |m| m.len());
+    let from = len.saturating_sub(LOG_TAIL);
+    let mut bytes = Vec::new();
+    if f.seek(SeekFrom::Start(from)).is_err() || f.read_to_end(&mut bytes).is_err() {
+        return String::new();
+    }
+    let text = String::from_utf8_lossy(&bytes);
+    match (from > 0, text.split_once('\n')) {
+        // The first line was cut: it is not whole.
+        (true, Some((_, rest))) => rest.to_string(),
+        _ => text.into_owned(),
+    }
+}
+
+/// How much of the log's end a `log_line` probe reads: 200 lines of up to 1 KiB.
+const LOG_TAIL: u64 = 200 * 1024;
 
 #[cfg(test)]
 mod tests {
@@ -185,6 +209,27 @@ mod tests {
             probe(&bad, &log, None).await,
             Err(NotReady::Broken(_))
         ));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn a_log_line_probe_reads_only_the_end_of_a_large_log() {
+        let dir = std::env::temp_dir().join(format!("doze-engine-tail-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let log = dir.join("x.log");
+        let filler = "x".repeat(99) + "\n";
+        let text = format!("early marker\n{}late marker\n", filler.repeat(3000));
+        std::fs::write(&log, text).unwrap();
+        let late = Ready::LogLine("^late marker$".into());
+        assert_eq!(probe(&late, &log, None).await, Ok(true));
+        let early = Ready::LogLine("^early marker$".into());
+        assert_eq!(
+            probe(&early, &log, None).await,
+            Ok(false),
+            "300 KB back: not read"
+        );
+        let tail = log_tail(&log);
+        assert!(tail.starts_with(&filler), "starts at a whole line");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

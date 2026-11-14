@@ -28,6 +28,13 @@ pub fn tree_alive(pid: u32) -> bool {
     pid != 0 && (imp::alive(pid) || imp::group_alive(pid))
 }
 
+/// Whether this pid leads its own process group, as every tree's leader does ([`crate::tree::Tree`]): how a record
+/// that carries no start time (one an older doze wrote) is told from a process that merely took its pid. Never on
+/// Windows, which has no process groups of this kind.
+pub fn leads_own_group(pid: u32) -> bool {
+    pid != 0 && imp::leads_own_group(pid)
+}
+
 /// Whether recorded pids must be swept at start: not on Windows, where a dead daemon's Job objects already ended every
 /// tree it started, so a recorded pid that is alive belongs to someone else now.
 pub fn sweep_needed() -> bool {
@@ -95,6 +102,13 @@ mod imp {
         }
     }
 
+    pub(super) fn leads_own_group(pid: u32) -> bool {
+        let Some(pid) = i32::try_from(pid).ok().and_then(Pid::from_raw) else {
+            return false;
+        };
+        rustix::process::getpgid(Some(pid)).is_ok_and(|g| g == pid)
+    }
+
     pub(super) fn kill_recorded(pid: u32) -> std::io::Result<()> {
         let Some(pid) = i32::try_from(pid).ok().and_then(Pid::from_raw) else {
             return Ok(());
@@ -156,6 +170,10 @@ mod imp {
 
     pub(super) fn group_alive(_pid: u32) -> bool {
         // A tree's Job object ended every member when the daemon that held it died.
+        false
+    }
+
+    pub(super) fn leads_own_group(_pid: u32) -> bool {
         false
     }
 

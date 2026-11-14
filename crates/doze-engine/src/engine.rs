@@ -87,6 +87,12 @@ impl Builder {
         self
     }
 
+    /// doze's own variables for every process, step, hook and probe it runs (see [`crate::process::with_extra`]).
+    pub fn extra_env(mut self, env: BTreeMap<String, String>) -> Builder {
+        self.stack.extra_env = env;
+        self
+    }
+
     /// Adds a service.
     pub fn service(mut self, s: Service) -> Builder {
         self.stack.services.push(s);
@@ -108,6 +114,7 @@ impl Engine {
             data_dir: data_dir.into(),
             idle_timeout: None,
             services: Vec::new(),
+            extra_env: BTreeMap::new(),
         };
         Builder { stack }
     }

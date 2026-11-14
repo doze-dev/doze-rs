@@ -8,8 +8,10 @@ use common::*;
 use doze_engine::events::Kind;
 use doze_engine::exec;
 use doze_engine::logs::RunLog;
+use doze_engine::pidfile::Pids;
 use doze_engine::{Cause, Engine, ProcessSpec, State, Step};
-use doze_module_proto::msg::run::{Plan, Process, Ready};
+use doze_module_proto::msg::run::{Plan, Process, Ready, StopHow};
+use doze_os::tree::Stopped;
 use std::io::{BufRead, BufReader};
 use std::time::{Duration, Instant};
 
@@ -41,7 +43,7 @@ fn kill_host_at(d: &Dir, moment: &str) -> Vec<u32> {
 #[allow(clippy::unwrap_used)] // test code
 async fn next_engine_sweeps(d: &Dir, pids: &[u32]) {
     let next = Engine::builder("host", d.path()).build().unwrap();
-    let _ = next.reconcile();
+    assert!(next.reconcile().is_ok());
     assert!(all_gone(pids).await, "left behind: {pids:?}");
     let run = d.path().join("run");
     assert!(!run.join("backend-web.pid").exists());
@@ -52,21 +54,27 @@ async fn next_engine_sweeps(d: &Dir, pids: &[u32]) {
 async fn the_host_killed_while_running() {
     let d = Dir::new("host-run");
     let pids = kill_host_at(&d, "running");
+    leader_goes_alone(&pids, "running").await;
+    next_engine_sweeps(&d, &pids).await;
+}
+
+/// N2: Linux's PDEATHSIG (Windows's Job object) alone, before any sweep, ends the recorded leader: the command's, or
+/// at `setup` the step's.
+async fn leader_goes_alone(pids: &[u32], moment: &str) {
     if doze_os::process::leader_dies_with_parent() {
-        // Linux's PDEATHSIG (Windows's Job object) alone, before any sweep: the leader goes.
         let leader = pids.first().copied().unwrap_or(0);
         assert!(
             eventually(Duration::from_secs(5), || !doze_os::process::alive(leader)).await,
-            "the leader outlived its daemon"
+            "{moment}: the leader {leader} outlived its daemon"
         );
     }
-    next_engine_sweeps(&d, &pids).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_host_killed_while_a_start_waits_for_readiness() {
     let d = Dir::new("host-ready");
     let pids = kill_host_at(&d, "readiness");
+    leader_goes_alone(&pids, "readiness").await;
     next_engine_sweeps(&d, &pids).await;
 }
 
@@ -74,6 +82,7 @@ async fn the_host_killed_while_a_start_waits_for_readiness() {
 async fn the_host_killed_during_a_setup_step() {
     let d = Dir::new("host-setup");
     let pids = kill_host_at(&d, "setup");
+    leader_goes_alone(&pids, "setup").await;
     next_engine_sweeps(&d, &pids).await;
 }
 
@@ -291,4 +300,41 @@ async fn a_wake_during_a_stop_waits_for_the_old_run() {
     let _ = stopping.await;
     e.shutdown().await;
     assert!(all_gone(&[old, new]).await);
+}
+
+/// Audit 2, M2: a module's declared stop command is recorded in the instance's pidfiles while it runs (a host killed
+/// during it leaves nothing the sweep cannot find), and what it started goes with it when it overruns.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_stop_command_is_recorded_while_it_runs() {
+    let d = Dir::new("stopcmd");
+    let log = RunLog::open(&d.path().join("run"), "web").unwrap();
+    let left = d.file("left");
+    let mut p = helper_process("web", &free_addr(), vec![]);
+    p.stop = Some(StopHow::Command(run(&[
+        "slowchild",
+        &left.to_string_lossy(),
+    ])));
+    let pids = Pids::new(&d.path().join("run"), "web");
+    let plan = Plan { processes: vec![p] };
+    let mut unit = exec::start(&plan, &log, Duration::from_secs(10), Some(&pids))
+        .await
+        .unwrap();
+    let pid = unit.pid();
+    let stopping = tokio::spawn(async move { unit.stop(Duration::from_secs(2)).await });
+    let folder = d.path().join("run/backend-web.pids");
+    let step_recorded = || {
+        std::fs::read_dir(&folder).is_ok_and(|r| {
+            r.flatten()
+                .any(|e| e.file_name().to_string_lossy().starts_with("run-"))
+        })
+    };
+    assert!(eventually(Duration::from_secs(5), step_recorded).await);
+    let stopped = stopping.await.unwrap();
+    assert!(
+        matches!(stopped.first(), Some((_, Ok(Stopped::Forced(_))))),
+        "the stop command overran, the process was killed: {stopped:?}"
+    );
+    let child = pid_in(&left);
+    assert!(child > 0 && all_gone(&[pid, child]).await);
+    assert!(!step_recorded(), "the record went with the command");
 }

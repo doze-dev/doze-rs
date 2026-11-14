@@ -167,6 +167,9 @@ pub struct Stack {
     /// The stack's idle time; `None`: only services with a time of their own sleep.
     pub idle_timeout: Option<Duration>,
     pub services: Vec<Service>,
+    /// doze's own variables for everything it runs (the CA bundle the daemon sets up: `DOZE_CA_FILE`,
+    /// `SSL_CERT_FILE`…), added by [`crate::process::with_extra`]'s rule.
+    pub extra_env: BTreeMap<String, String>,
 }
 
 impl Stack {

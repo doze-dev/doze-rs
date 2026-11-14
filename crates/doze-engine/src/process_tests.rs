@@ -125,3 +125,98 @@ fn a_fronted_app_sleeps_by_default_and_sleep_decides_last() {
     assert_eq!(idle_policy(true, false, Sleep::After(d)), (false, Some(d)));
     assert_eq!(idle_policy(false, false, Sleep::Never), (true, None));
 }
+
+/// Go's `TestAProxiedAppMayNotSetItsOwnPort`: a fronted app may not set `PORT` or `HOST`; a portless one may.
+#[test]
+fn a_fronted_app_may_not_choose_its_own_port() {
+    let d = tmp("ownport");
+    for name in ["PORT", "HOST"] {
+        let err = ProcessSpec::new(["x"], &d)
+            .env(name, "8080")
+            .port(8080)
+            .check_block(Sleep::Default)
+            .unwrap_err();
+        assert!(
+            err.contains(&format!("env sets {name}")) && err.contains("direct = true"),
+            "{err}"
+        );
+    }
+    let worker = ProcessSpec::new(["x"], &d).env("PORT", "9");
+    assert!(
+        worker.check_block(Sleep::Default).is_ok(),
+        "a portless app may set PORT"
+    );
+    let mut direct = ProcessSpec::new(["x"], &d).env("PORT", "9").port(8080);
+    direct.direct = true;
+    assert!(
+        direct.check_block(Sleep::Default).is_ok(),
+        "a direct app binds it itself"
+    );
+}
+
+/// Go's `TestSleepNeedsDozeToHoldThePort`: only a fronted app can sleep, since only a connection wakes it.
+#[test]
+fn only_a_fronted_app_may_sleep() {
+    let d = tmp("sleepport");
+    let ten = Sleep::After(Duration::from_secs(600));
+    assert!(
+        ProcessSpec::new(["x"], &d)
+            .port(8080)
+            .check_block(ten)
+            .is_ok()
+    );
+    let err = ProcessSpec::new(["x"], &d).check_block(ten).unwrap_err();
+    assert_eq!(
+        err,
+        "sleep = \"10m0s\" needs doze to hold the app's port, so that a connection can wake it: declare a `port`, and do not set `direct`"
+    );
+    let mut direct = ProcessSpec::new(["x"], &d).port(8080);
+    direct.direct = true;
+    direct.service = true;
+    let err = direct.check_block(ten).unwrap_err();
+    assert!(err.contains("the service's port"), "{err}");
+    assert!(
+        ProcessSpec::new(["x"], &d)
+            .check_block(Sleep::Never)
+            .is_ok()
+    );
+    // The engine refuses such a block when it is built.
+    let svc = crate::Service::process("w", ProcessSpec::new(["x"], &d)).sleep(ten);
+    let built = crate::Engine::builder("t", &d).service(svc).build();
+    let err = built.err().map(|e| e.to_string()).unwrap_or_default();
+    assert!(err.starts_with("\"w\": sleep = "), "{err}");
+}
+
+/// Go's `TestAProcessesOwnVariableWinsOverDozesAndAnInheritedOneDoesNot`: doze's variables replace what a process
+/// merely inherited and yield to what it was given on purpose.
+#[test]
+fn a_chosen_variable_wins_over_dozes_and_an_inherited_one_does_not() {
+    let inherited = std::env::var("PATH").unwrap();
+    let extra: BTreeMap<String, String> = [
+        ("PATH", "/x/bin"),
+        ("REQUESTS_CA_BUNDLE", "/x/bundle.pem"),
+        ("DOZE_TEST_CA_FILE", "/x/root.crt"),
+    ]
+    .iter()
+    .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+    .collect();
+    let mut env: BTreeMap<String, String> = [
+        ("A", "1"),
+        ("PATH", inherited.as_str()),
+        ("REQUESTS_CA_BUNDLE", "/corp/bundle.pem"),
+    ]
+    .iter()
+    .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+    .collect();
+    with_extra(&mut env, &extra);
+    let got: Vec<(&str, &str)> = env.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    assert_eq!(
+        got,
+        [
+            ("A", "1"),
+            ("DOZE_TEST_CA_FILE", "/x/root.crt"),
+            ("PATH", "/x/bin"),
+            ("REQUESTS_CA_BUNDLE", "/corp/bundle.pem"),
+        ]
+    );
+}

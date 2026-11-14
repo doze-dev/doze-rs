@@ -73,14 +73,46 @@ impl Tree {
         self.child.stderr.take()
     }
 
-    /// Waits for the leader to exit.
+    /// Waits for the leader to exit, kills whatever it left in its tree, and returns how it ended. The leftovers are
+    /// signalled before the leader is reaped: its unreaped exit still holds the group id (Unix), so the signal cannot
+    /// reach a process that took the id over.
     pub async fn wait(&mut self) -> io::Result<ExitStatus> {
+        self.exited().await?;
+        let _ = self.os.kill();
         self.child.wait().await
     }
 
-    /// The leader's exit status if it has exited.
+    /// The leader's exit status if it has exited (whatever it left in its tree is killed first, as in [`Tree::wait`]).
     pub fn try_wait(&mut self) -> io::Result<Option<ExitStatus>> {
+        if self.running()? {
+            return Ok(None);
+        }
+        let _ = self.os.kill();
         self.child.try_wait()
+    }
+
+    /// Whether the leader is still running. It is not reaped when it has exited.
+    pub fn running(&mut self) -> io::Result<bool> {
+        #[cfg(unix)]
+        return self.os.exited().map(|e| !e);
+        #[cfg(windows)]
+        return self.child.try_wait().map(|s| s.is_none());
+    }
+
+    /// Waits until the leader has exited, without reaping it.
+    async fn exited(&mut self) -> io::Result<()> {
+        #[cfg(windows)]
+        return self.child.wait().await.map(drop);
+        #[cfg(unix)]
+        {
+            // No readiness event for an exit that must not be reaped: poll, quickly at first.
+            let mut pause = Duration::from_millis(2);
+            while self.running()? {
+                tokio::time::sleep(pause).await;
+                pause = (pause * 2).min(Duration::from_millis(50));
+            }
+            Ok(())
+        }
     }
 
     /// Kills the whole tree now.
@@ -112,13 +144,25 @@ impl Tree {
                 self.within(asked, grace).await
             }
         };
+        self.ended(status).await
+    }
+
+    /// Stops a tree its caller has already asked to stop by its own means (a stop command the caller ran and recorded
+    /// itself): waits up to `grace` for the leader to exit, then kills the tree; anything left in it goes either way.
+    /// An `Err` in `asked` (the asking failed) goes straight to the kill.
+    pub async fn stop_asked(
+        &mut self,
+        asked: io::Result<()>,
+        grace: Duration,
+    ) -> io::Result<Stopped> {
+        let status = self.within(asked, grace).await;
+        self.ended(status).await
+    }
+
+    async fn ended(&mut self, status: Option<io::Result<ExitStatus>>) -> io::Result<Stopped> {
         match status {
-            Some(st) => {
-                let st = st?;
-                // Leftover members (a leader that exited before its children) go too.
-                let _ = self.os.kill();
-                Ok(Stopped::Graceful(st))
-            }
+            // Leftover members (a leader that exited before its children) went in `wait`.
+            Some(st) => Ok(Stopped::Graceful(st?)),
             None => {
                 self.os.kill()?;
                 Ok(Stopped::Forced(self.child.wait().await?))
@@ -134,13 +178,19 @@ impl Tree {
         limit: Duration,
     ) -> Option<io::Result<ExitStatus>> {
         asked.ok()?;
-        tokio::time::timeout(limit, self.child.wait()).await.ok()
+        match tokio::time::timeout(limit, self.exited()).await {
+            Err(_) => None,
+            Ok(Err(e)) => Some(Err(e)),
+            Ok(Ok(())) => Some(self.wait().await),
+        }
     }
 }
 
 impl Drop for Tree {
     fn drop(&mut self) {
-        if matches!(self.child.try_wait(), Ok(None)) {
+        // Not reaped yet: the leader (running, or its unreaped exit) still holds the group id, and what it left behind
+        // goes with it.
+        if self.child.id().is_some() {
             let _ = self.os.kill();
         }
     }
@@ -162,10 +212,8 @@ async fn run_stop_command(argv: &[OsString], grace: Duration) -> io::Result<()> 
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     let mut tree = Tree::spawn(cmd)?;
-    let ended = tokio::time::timeout(grace, tree.wait()).await;
-    // Whatever it left running goes; on a timeout the command itself goes too.
-    let _ = tree.kill();
-    match ended {
+    // Whatever it left running goes with it (`wait`); on a timeout the command itself goes too (drop).
+    match tokio::time::timeout(grace, tree.wait()).await {
         Ok(st) => st.map(drop),
         Err(_) => Err(io::Error::new(
             io::ErrorKind::TimedOut,

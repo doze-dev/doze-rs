@@ -209,7 +209,11 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
             };
             let at = StepEnv {
                 dir: spec.dir.clone(),
-                env: spec.env_for(ctx, private),
+                env: {
+                    let mut env = spec.env_for(ctx, private);
+                    crate::process::with_extra(&mut env, &e.stack().extra_env);
+                    env
+                },
                 pids: Some(e.pids(&svc.name)),
             };
             if steps::setup_needed(&ctx.data_dir, &spec.setup) {
@@ -230,8 +234,25 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
             e.update(|c| c.live.entry(svc.name.clone()).or_default().steps = Some(steps));
             planned
         }
-        SvcKind::Planned(p) => p.plan(ctx).await.map_err(Error::Failed)?,
+        SvcKind::Planned(p) => {
+            // Bounded like a step: a planner that never answers must not hold the start (and every waiter) forever.
+            let limit = crate::steps::STEP_LIMIT;
+            match tokio::time::timeout(limit, p.plan(ctx)).await {
+                Ok(planned) => planned.map_err(Error::Failed)?,
+                Err(_) => {
+                    return Err(Error::Failed(format!(
+                        "planning \"{}\" did not finish within {}",
+                        svc.name,
+                        crate::godur::go_duration(limit)
+                    )));
+                }
+            }
+        }
     };
+    let mut planned = planned;
+    for p in &mut planned.plan.processes {
+        crate::process::with_extra(&mut p.env, &e.stack().extra_env);
+    }
     Ok((planned, log))
 }
 

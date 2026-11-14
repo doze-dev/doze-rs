@@ -18,6 +18,8 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct Unit {
     procs: Vec<(Process, Tree)>,
+    /// Where its short commands are recorded (a module's stop command among them).
+    pids: Option<Pids>,
 }
 
 /// The start order: each process after the ones it names; an unknown name or a cycle is an error (Go's `orderSpecs`,
@@ -126,7 +128,10 @@ pub async fn start(
     if ordered.is_empty() {
         return Err(StartError::from("spawn plan has no specs".to_string()));
     }
-    let mut unit = Unit { procs: Vec::new() };
+    let mut unit = Unit {
+        procs: Vec::new(),
+        pids: pids.cloned(),
+    };
     for p in ordered {
         let tree = match spawn_one(p, log) {
             Ok(t) => t,
@@ -157,7 +162,7 @@ async fn gate(
     let Some((_, tree)) = unit.procs.last_mut() else {
         return Err(StartError::from("nothing started".to_string()));
     };
-    let alive = || matches!(tree.try_wait(), Ok(None));
+    let alive = || matches!(tree.running(), Ok(true));
     let waited = ready::wait_ready(p.ready.as_ref(), budget, log.path(), pids, alive).await;
     if let Err(e) = waited {
         let timeout = matches!(e, NotReady::Timeout(_));
@@ -186,12 +191,32 @@ fn not_ready(name: &str, e: &NotReady, log: &RunLog) -> String {
 /// How long a process gets to stop after it is asked, before its tree is killed (Go: 8 s for SIGTERM).
 pub const STOP_GRACE: Duration = Duration::from_secs(8);
 
-fn stop_of(p: &Process) -> Stop {
-    match &p.stop {
+/// Stops one process the way its plan says. A module's stop command runs as a short command, recorded in the
+/// instance's pidfiles while it runs (audit 2, M2: a host killed during it must leave nothing unswept); the process's
+/// tree then gets `grace` to exit before it is killed.
+async fn stop_one(
+    p: &Process,
+    tree: &mut Tree,
+    grace: Duration,
+    pids: Option<&Pids>,
+) -> std::io::Result<Stopped> {
+    let how = match &p.stop {
         Some(StopHow::Interrupt) => Stop::Interrupt,
-        Some(StopHow::Command(argv)) => Stop::Command(argv.iter().map(Into::into).collect()),
         Some(StopHow::Terminate) | None => Stop::Terminate,
-    }
+        Some(StopHow::Command(argv)) => {
+            let short = crate::short::Short {
+                argv,
+                env: None,
+                dir: None,
+                out: None,
+            };
+            let asked = crate::short::run(short, grace, pids).await;
+            return tree
+                .stop_asked(asked.map_err(std::io::Error::other), grace)
+                .await;
+        }
+    };
+    tree.stop(&how, grace).await
 }
 
 impl Unit {
@@ -237,7 +262,8 @@ impl Unit {
     pub async fn stop(&mut self, grace: Duration) -> Vec<(String, std::io::Result<Stopped>)> {
         let mut out = Vec::new();
         while let Some((p, mut tree)) = self.procs.pop() {
-            out.push((p.name.clone(), tree.stop(&stop_of(&p), grace).await));
+            let stopped = stop_one(&p, &mut tree, grace, self.pids.as_ref()).await;
+            out.push((p.name.clone(), stopped));
         }
         out
     }

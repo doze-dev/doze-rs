@@ -2,7 +2,7 @@
 //! `up` starts things in.
 
 use crate::error::BuildError;
-use crate::stack::Stack;
+use crate::stack::{Kind, Stack};
 use std::collections::BTreeSet;
 
 /// Checks the stack: names unique, every need declared, no cycle (reported along its path).
@@ -14,6 +14,13 @@ pub fn check(stack: &Stack) -> Result<(), BuildError> {
         }
     }
     for s in &stack.services {
+        if let Kind::Process(spec) = &s.kind {
+            spec.check_block(s.sleep)
+                .map_err(|message| BuildError::Invalid {
+                    service: s.name.clone(),
+                    message,
+                })?;
+        }
         for n in &s.needs {
             if stack.service(&n.name).is_none() {
                 return Err(BuildError::UnknownNeed {
@@ -73,6 +80,7 @@ mod tests {
             config_name: "doze.hcl".into(),
             data_dir: "/nonexistent".into(),
             idle_timeout: None,
+            extra_env: Default::default(),
             services,
         }
     }

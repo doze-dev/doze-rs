@@ -3,7 +3,8 @@
 //!
 //! 1. one start at a time per instance;
 //! 2. nothing starts, restarts or registers after the shutdown, and the shutdown ends quiet;
-//! 3. a restart fires only from a timer no stop cancelled;
+//! 3. a restart fires only from a timer no stop, newer start, newer timer or shutdown cancelled (the shell keeps the
+//!    cancelled timers and fires them too);
 //! 4. holds add up: an instance's count is exactly its clients plus the instances holding it;
 //! 5. the reaper never stops a pinned instance;
 //! 6. a running instance has a unit; a unit is stopped at most once;
@@ -67,6 +68,8 @@ struct Shell {
     stopped: BTreeSet<u64>,
     registered: BTreeSet<u64>,
     timers: BTreeMap<u64, String>,
+    /// Timers a stop, a newer start, a newer timer or the shutdown cancelled: still fired, and must restart nothing.
+    dead: BTreeMap<u64, String>,
     cancels: BTreeMap<u64, String>,
     clients: BTreeMap<String, u32>,
     shut: bool,
@@ -77,6 +80,21 @@ fn pick<V: Clone>(m: &BTreeMap<u64, V>, i: usize) -> Option<(u64, V)> {
     (n > 0)
         .then(|| m.iter().nth(i % n).map(|(k, v)| (*k, v.clone())))
         .flatten()
+}
+
+/// The timers of `name` (all of them with `None`) are cancelled: the shell still fires them later.
+fn cancel_timers(s: &mut Shell, name: Option<&str>) {
+    let gone: Vec<u64> = s
+        .timers
+        .iter()
+        .filter(|(_, n)| name.is_none_or(|x| x == n.as_str()))
+        .map(|(t, _)| *t)
+        .collect();
+    for t in gone {
+        if let Some(n) = s.timers.remove(&t) {
+            s.dead.insert(t, n);
+        }
+    }
 }
 
 fn absorb(s: &mut Shell, m: &Machine, fx: Vec<Effect>) {
@@ -94,6 +112,7 @@ fn absorb(s: &mut Shell, m: &Machine, fx: Vec<Effect>) {
                     !s.boots.values().any(|n| *n == name),
                     "two starts of {name}"
                 );
+                cancel_timers(s, Some(&name));
                 s.boots.insert(boot, name);
             }
             Effect::StopUnit { name, generation } => {
@@ -109,6 +128,7 @@ fn absorb(s: &mut Shell, m: &Machine, fx: Vec<Effect>) {
             }
             Effect::Schedule { name, timer, .. } => {
                 assert!(!s.shut, "a restart scheduled after the shutdown");
+                cancel_timers(s, Some(&name));
                 s.timers.insert(timer, name);
             }
             Effect::RestartNow { name } => assert!(
@@ -219,7 +239,7 @@ fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
         }
         In::Stop(n) => {
             let name = NAMES.get(*n).copied().unwrap_or("db");
-            s.timers.retain(|_, t| t != name);
+            cancel_timers(s, Some(name));
             let fx = m.stop(name, Cause::Command).unwrap_or_default();
             absorb(s, m, fx);
         }
@@ -240,13 +260,7 @@ fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
                 }
             }
         }
-        In::Fire(k) => {
-            if let Some((t, name)) = pick(&s.timers, *k) {
-                s.timers.remove(&t);
-                let fx = m.restart_due(&name, t);
-                absorb(s, m, fx);
-            }
-        }
+        In::Fire(k) => fire_any(m, s, *k),
         In::Reap(ms) => {
             *now = now.after(Duration::from_millis(u64::from(*ms)));
             let fx = m.reap(*now);
@@ -274,11 +288,39 @@ fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
         In::Pin(n) => drop(m.toggle_pin(NAMES.get(*n).copied().unwrap_or("db"))),
         In::Shutdown => {
             s.shut = true;
+            cancel_timers(s, None);
             let fx = m.shutdown();
             absorb(s, m, fx);
         }
         _ => {}
     }
+}
+
+/// Any timer goes off, a live or a cancelled one.
+fn fire_any(m: &mut Machine, s: &mut Shell, k: usize) {
+    let all: BTreeMap<u64, String> = s
+        .timers
+        .iter()
+        .chain(s.dead.iter())
+        .map(|(t, n)| (*t, n.clone()))
+        .collect();
+    if let Some((t, name)) = pick(&all, k) {
+        fire(m, s, t, &name);
+    }
+}
+
+/// Timer `t` of `name` goes off; one that was cancelled restarts nothing (invariant 3).
+fn fire(m: &mut Machine, s: &mut Shell, t: u64, name: &str) {
+    let cancelled = s.dead.remove(&t).is_some();
+    s.timers.remove(&t);
+    let fx = m.restart_due(name, t);
+    if cancelled {
+        assert!(
+            !fx.iter().any(|f| matches!(f, Effect::RestartNow { .. })),
+            "{name} restarted from timer {t}, which was cancelled"
+        );
+    }
+    absorb(s, m, fx);
 }
 
 fn check(m: &Machine, s: &Shell, now: Now) {
@@ -340,7 +382,15 @@ fn drain(m: &mut Machine, s: &mut Shell, now: Now) {
             break;
         }
     }
-    s.timers.clear();
+    let left: Vec<(u64, String)> = s
+        .timers
+        .iter()
+        .chain(s.dead.iter())
+        .map(|(t, n)| (*t, n.clone()))
+        .collect();
+    for (t, name) in left {
+        fire(m, s, t, &name);
+    }
     assert!(m.quiet(), "not quiet after the shutdown");
 }
 

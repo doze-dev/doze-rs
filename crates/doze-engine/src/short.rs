@@ -66,14 +66,13 @@ pub(crate) async fn run(s: Short<'_>, limit: Duration, pids: Option<&Pids>) -> R
     }
     let mut tree = Tree::spawn(cmd).map_err(|e| e.to_string())?;
     let _recorded = pids.and_then(|p| tree.pid().map(|pid| p.short(pid)));
-    let ended = tokio::time::timeout(limit, tree.wait()).await;
-    // Whatever it started goes with it; after an overrun, so does the command.
-    let _ = tree.kill();
-    match ended {
+    // Whatever it started goes with it (`wait` kills the rest of its tree); after an overrun, so does the command.
+    match tokio::time::timeout(limit, tree.wait()).await {
         Ok(Ok(st)) if st.success() => Ok(()),
         Ok(Ok(st)) => Err(doze_os::process::exit_error(&st)),
         Ok(Err(e)) => Err(e.to_string()),
         Err(_) => {
+            let _ = tree.kill();
             let _ = tokio::time::timeout(Duration::from_secs(2), tree.wait()).await;
             Err(format!(
                 "did not finish within {}",

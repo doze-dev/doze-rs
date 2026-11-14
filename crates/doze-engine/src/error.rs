@@ -71,6 +71,8 @@ pub enum BuildError {
     UnknownNeed { service: String, need: String },
     /// Needs go round in a circle; the names along it.
     Cycle(Vec<String>),
+    /// A block asks for something that cannot work (Go refused it as the block was read).
+    Invalid { service: String, message: String },
 }
 
 impl std::fmt::Display for BuildError {
@@ -84,6 +86,7 @@ impl std::fmt::Display for BuildError {
                 )
             }
             BuildError::Cycle(path) => write!(f, "dependency cycle: {}", path.join(" → ")),
+            BuildError::Invalid { service, message } => write!(f, "\"{service}\": {message}"),
         }
     }
 }

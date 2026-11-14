@@ -73,9 +73,21 @@ impl Engine {
         }
     }
 
-    /// Kills what a previous daemon of this stack left running (its recorded pids). Call before anything starts.
-    pub fn reconcile(&self) -> Vec<u32> {
-        crate::pidfile::sweep(&self.stack().run_dir())
+    /// Kills what a previous daemon of this stack left running (its recorded pids) and returns those pids. It runs
+    /// only while this engine is quiet (nothing starting, running, being stopped or waiting to restart), under the
+    /// engine's lock, so no start can begin meanwhile: every record then is a previous daemon's. Otherwise it refuses,
+    /// since this engine's own processes match their records (audit 2, minor 8).
+    pub fn reconcile(&self) -> Result<Vec<u32>, Error> {
+        let run_dir = self.stack().run_dir();
+        self.update(|c| {
+            if c.m.quiet() {
+                Ok(crate::pidfile::sweep(&run_dir))
+            } else {
+                Err(Error::Failed(
+                    "not sweeping leftovers: this engine already runs something; sweep before anything starts".into(),
+                ))
+            }
+        })
     }
 }
 

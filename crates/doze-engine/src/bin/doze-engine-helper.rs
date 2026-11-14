@@ -45,6 +45,19 @@ fn main() {
             std::thread::sleep(ms(3));
             std::process::exit(arg(2).parse().unwrap_or(1));
         }
+        "say" => {
+            // `say <n> <code> <prefix>`: n lines "<prefix> <i>", then exit with code.
+            let n: u32 = arg(1).parse().unwrap_or(0);
+            for i in 1..=n {
+                println!("{} {i}", arg(3));
+            }
+            std::process::exit(arg(2).parse().unwrap_or(1));
+        }
+        "envto" => {
+            // `envto <file> <KEY>`: appends the variable's value (or "unset") to the file.
+            let v = std::env::var(arg(2)).unwrap_or_else(|_| "unset".into());
+            append_line(&arg(1), &v)
+        }
         "check" => std::process::exit(i32::from(!std::path::Path::new(&arg(1)).exists())),
         "append" => append(&arg(1)),
         "host" => rt.block_on(crate::host::host(&arg(1), &arg(2))),
@@ -128,6 +141,14 @@ async fn slowchild(file: &str) -> std::io::Result<()> {
     start_ignoring_child(file, false)?;
     tokio::time::sleep(Duration::from_secs(3600)).await;
     Ok(())
+}
+
+fn append_line(file: &str, line: &str) -> std::io::Result<()> {
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(file)?;
+    writeln!(f, "{line}")
 }
 
 fn append(file: &str) -> std::io::Result<()> {

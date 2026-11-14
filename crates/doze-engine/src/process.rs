@@ -68,6 +68,8 @@ pub struct ProcessSpec {
     pub setup: Vec<Step>,
     pub on_ready: Vec<Step>,
     pub stop: Vec<Step>,
+    /// Declared as a `service` block rather than an `app` (Go's `Config.Service`): only the words of errors.
+    pub service: bool,
 }
 
 impl ProcessSpec {
@@ -89,6 +91,7 @@ impl ProcessSpec {
             setup: Vec::new(),
             on_ready: Vec::new(),
             stop: Vec::new(),
+            service: false,
         }
     }
 
@@ -157,6 +160,29 @@ impl ProcessSpec {
         })
     }
 
+    /// What Go's `BindPort` refused as the block was read, with `sleep` the block's own: an app that sleeps must be
+    /// fronted (only a connection through doze's listener wakes it), and a fronted app may not choose its own `PORT`
+    /// or `HOST` (it would listen where doze is not forwarding, usually on the port doze holds).
+    pub fn check_block(&self, sleep: Sleep) -> Result<(), String> {
+        let what = if self.service { "service" } else { "app" };
+        if let (Sleep::After(d), false) = (sleep, self.proxied()) {
+            return Err(format!(
+                "sleep = \"{}\" needs doze to hold the {what}'s port, so that a connection can wake it: declare a `port`, and do not set `direct`",
+                crate::godur::go_duration(d)
+            ));
+        }
+        if let (true, Some(port)) = (self.proxied(), self.port) {
+            for name in ["PORT", "HOST"] {
+                if self.env.contains_key(name) {
+                    return Err(format!(
+                        "env sets {name}, but doze chooses it for an app with a `port`: remove it from env (the app is started with ${name}), or set `direct = true` to have the app bind {port} itself"
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Checks what Go checked before a start: its folder exists, its `env_file` exists.
     pub fn check(&self, name: &str) -> Result<(), String> {
         if !self.dir.is_dir() {
@@ -208,6 +234,20 @@ impl ProcessSpec {
             supervised: true,
             ready_within: self.ready_timeout,
         })
+    }
+}
+
+/// Adds doze's own variables (`extra`) to `env`, what a process is given on top of doze's environment (Go's
+/// `envWithExtra`). A variable the block chose on purpose wins (an app pointing `REQUESTS_CA_BUNDLE` at a corporate
+/// bundle keeps it); one that merely repeats what doze itself inherited is replaced, as an inherited one is.
+pub fn with_extra(env: &mut BTreeMap<String, String>, extra: &BTreeMap<String, String>) {
+    for (k, v) in extra {
+        let chosen = env
+            .get(k)
+            .is_some_and(|own| std::env::var(k).ok().as_deref() != Some(own.as_str()));
+        if !chosen {
+            env.insert(k.clone(), v.clone());
+        }
     }
 }
 

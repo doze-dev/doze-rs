@@ -4,15 +4,18 @@
 //! kills them by their recorded pids before it binds anything.
 //!
 //! Format: `run/backend-<name>.pid` holds the first process's pid as decimal digits (Go's), then a line with when it
-//! was spawned (Unix seconds). Everything else of that instance is in the folder `run/backend-<name>.pids/`: the
+//! started (Unix seconds, as the system reports it right after the spawn: the sweep compares like with like, so a wall
+//! clock step between spawn and sweep moves both). Everything else of that instance is in the folder `run/backend-<name>.pids/`: the
 //! plan's other processes as `<n>.pid`, and a short command running now (a step, a hook, an exec probe) as
 //! `run-<pid>.pid`, there while it runs. A folder cannot be mistaken for another instance's file (`backend-db.1.pid`
 //! once meant both instance `db`'s second process and an instance named `db.1`). Go's sweep does not parse a file
 //! with the second line, so it kills nothing it cannot identify.
 //!
-//! The sweep kills a recorded pid only when it is still the recorded process: its start time matches the spawn time
+//! The sweep kills a recorded pid only when it is still the recorded process: its start time matches the recorded one
 //! (a pid the system gave to someone else since is left alone), or its leader is gone but the process group it led
-//! still has members (a group id is never reused while the group exists).
+//! still has members (a group id is never reused while the group exists). A Go daemon's record has no start time; its
+//! process is taken as the recorded one when it leads its own group and started within seconds before the file was
+//! written (Go wrote it right after the spawn), so a Go daemon's engines are swept at the cut-over too.
 
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -34,10 +37,14 @@ impl Drop for Recorded {
     }
 }
 
-fn now_secs() -> u64 {
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
+fn secs(t: SystemTime) -> u64 {
+    t.duration_since(SystemTime::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs())
+}
+
+/// When `pid` started, as the sweep will read it (now, where the system cannot say).
+fn started_secs(pid: u32) -> u64 {
+    doze_os::process::started_at(pid).map_or_else(|| secs(SystemTime::now()), secs)
 }
 
 impl Pids {
@@ -60,7 +67,6 @@ impl Pids {
     /// Records the pids of the instance's processes, each with its spawn time; a pid already recorded keeps its first
     /// record.
     pub fn write(&self, pids: &[u32]) {
-        let now = now_secs();
         for (n, pid) in pids.iter().enumerate() {
             let file = if n == 0 {
                 self.first()
@@ -70,7 +76,7 @@ impl Pids {
             if read(&file).is_some_and(|(p, _)| p == *pid) {
                 continue;
             }
-            if let Err(e) = write_one(&file, *pid, now) {
+            if let Err(e) = write_one(&file, *pid, started_secs(*pid)) {
                 tracing::warn!("could not record the pid of \"{}\": {e}", self.name);
             }
         }
@@ -79,7 +85,7 @@ impl Pids {
     /// Records a short command while it runs.
     pub fn short(&self, pid: u32) -> Recorded {
         let file = self.folder().join(format!("run-{pid}.pid"));
-        if let Err(e) = write_one(&file, pid, now_secs()) {
+        if let Err(e) = write_one(&file, pid, started_secs(pid)) {
             tracing::warn!("could not record a step of \"{}\": {e}", self.name);
         }
         Recorded(file)
@@ -152,8 +158,11 @@ fn sweep_one(file: &Path, killed: &mut Vec<u32>) {
         return;
     }
     let sweep = doze_os::process::sweep_needed();
+    let written = std::fs::metadata(file)
+        .and_then(|m| m.modified())
+        .map_or(0, secs);
     if let Some(pid) = read(file)
-        .filter(|r| sweep && still_ours(*r))
+        .filter(|r| sweep && still_ours(*r, written))
         .map(|(p, _)| p)
     {
         match doze_os::process::kill_recorded(pid) {
@@ -170,8 +179,9 @@ fn sweep_one(file: &Path, killed: &mut Vec<u32>) {
 /// How far a process's start may be from its recorded spawn (seconds: `ps` and `/proc` round).
 const SAME_START: u64 = 5;
 
-/// Whether a recorded pid still names what was recorded. See the module docs.
-fn still_ours((pid, spawned): (u32, Option<u64>)) -> bool {
+/// Whether a recorded pid still names what was recorded, `written` being when its file was (Unix seconds). See the
+/// module docs.
+fn still_ours((pid, spawned): (u32, Option<u64>), written: u64) -> bool {
     if !doze_os::process::tree_alive(pid) {
         return false;
     }
@@ -183,6 +193,12 @@ fn still_ours((pid, spawned): (u32, Option<u64>)) -> bool {
         .map(|d| d.as_secs());
     match (started, spawned) {
         (Some(a), Some(b)) => a.abs_diff(b) <= SAME_START,
+        // Go's record: written just after the spawn, by a daemon whose trees led their own groups.
+        (Some(a), None) => {
+            a <= written + 1
+                && written - a.min(written) <= SAME_START
+                && doze_os::process::leads_own_group(pid)
+        }
         _ => false,
     }
 }
@@ -235,14 +251,14 @@ mod tests {
             let started = doze_os::process::started_at(me)
                 .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok());
             let started = started.map_or(0, |d| d.as_secs());
-            assert!(still_ours((me, Some(started))), "its own start time");
+            assert!(still_ours((me, Some(started)), now), "its own start time");
             assert!(
-                !still_ours((me, Some(now + 3600))),
+                !still_ours((me, Some(now + 3600)), now),
                 "a pid reused by another process"
             );
             assert!(
-                !still_ours((me, None)),
-                "nothing to identify it by (a Go pidfile)"
+                !still_ours((me, None), now + 3600),
+                "a Go record written long after this process started names another process"
             );
         }
     }
