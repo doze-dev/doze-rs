@@ -267,11 +267,25 @@ fn check_batch(entries: &[Value], max_size: u64) -> Result<(), ApiError> {
             "Two or more batch entries in the request have the same Id.",
         ));
     }
-    if !ids.iter().all(|i| valid_entry_id(i)) {
+    if let Some(bad) = ids.iter().find(|i| !i.is_empty() && !valid_characters(i)) {
+        // Recorded on AWS (2026-11-15).
+        return Err(ApiError::modeled(
+            "InvalidBatchEntryIdException",
+            format!(
+                "The Id of a batch entry in the batch request contains an impermissible character: {bad}"
+            ),
+        ));
+    }
+    if !ids.iter().all(|i| (1..=80).contains(&i.len())) {
+        // (memory)
         return Err(ApiError::modeled(
             "InvalidBatchEntryIdException",
             "The Id of a batch entry in a batch request doesn't abide by the specification.",
         ));
+    }
+    // An attribute AWS will not take refuses the whole batch, not the one entry (recorded 2026-11-15).
+    for e in entries {
+        message::check_attrs(&Message::from_json(e).attrs)?;
     }
     let total: usize = entries.iter().map(|e| Message::from_json(e).size()).sum();
     if total as u64 > max_size {
@@ -283,9 +297,7 @@ fn check_batch(entries: &[Value], max_size: u64) -> Result<(), ApiError> {
     Ok(())
 }
 
-fn valid_entry_id(id: &str) -> bool {
-    (1..=80).contains(&id.len())
-        && id
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+fn valid_characters(id: &str) -> bool {
+    id.bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }

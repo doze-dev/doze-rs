@@ -33,13 +33,16 @@ ALWAYS_OPAQUE = frozenset(("CurrentKeyMaterialId", "KeyMaterialId", "Subscriptio
 
 
 class Normalizer:
-    def __init__(self, account, endpoints=(), endpoint_patterns=(), region=None):
+    def __init__(self, account, endpoints=(), endpoint_patterns=(), region=None, caller=None):
         """account: the id this target answers as.
+        caller: the ARN of whoever the scenarios run as (AWS names it in a refusal: "User: <caller> is not authorized..."); the
+        recorder's SSO session on AWS and the local keys' principal on doze-aws, so it is written <caller> on both sides.
         endpoints: literal base URLs that mean "this service" on this target.
         endpoint_patterns: compiled regexes for the same, where a literal will
         not do (AWS answers from a different host per service).
         """
         self.account = account
+        self.caller = caller
         self.region = region
         self.endpoints = sorted(endpoints, key=len, reverse=True)
         self.endpoint_patterns = list(endpoint_patterns)
@@ -60,6 +63,10 @@ class Normalizer:
         return f"<{kind}:{seen[value]}>"
 
     def text(self, s):
+        if self.caller:
+            # Only where a refusal names who asked: the same ARN elsewhere (a policy's principal) is data, and on doze-aws the local
+            # keys' principal is the account root, which policies name too.
+            s = s.replace(f"User: {self.caller} ", "User: <caller> ")
         # Names first and longest first: a name is usually inside an ARN or a
         # URL, and "queue-1-dlq" must not be read as "queue-1" plus a suffix.
         for value in sorted(self.names, key=len, reverse=True):

@@ -68,7 +68,7 @@
     "put-bucket-acl": {
       "Error": {
         "Code": "AccessDenied",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: s3:PutBucketAcl on resource: \"arn:aws:s3:::<name:bucket>\" because public ACLs are prevented by the BlockPublicAcls setting in S3 Block Public Access."
+        "Message": "User: <caller> is not authorized to perform: s3:PutBucketAcl on resource: \"arn:aws:s3:::<name:bucket>\" because public ACLs are prevented by the BlockPublicAcls setting in S3 Block Public Access."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 403
@@ -86,7 +86,7 @@
     "put-object-acl": {
       "Error": {
         "Code": "AccessDenied",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: s3:PutObjectAcl on resource: \"arn:aws:s3:::<name:bucket>/k\" because public ACLs are prevented by the BlockPublicAcls setting in S3 Block Public Access."
+        "Message": "User: <caller> is not authorized to perform: s3:PutObjectAcl on resource: \"arn:aws:s3:::<name:bucket>/k\" because public ACLs are prevented by the BlockPublicAcls setting in S3 Block Public Access."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 403
@@ -124,14 +124,14 @@
         {
           "Grantee": {
             "Type": "Group",
-            "URI": "<endpoint>/groups/s3/LogDelivery"
+            "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
           },
           "Permission": "WRITE"
         },
         {
           "Grantee": {
             "Type": "Group",
-            "URI": "<endpoint>/groups/s3/LogDelivery"
+            "URI": "http://acs.amazonaws.com/groups/s3/LogDelivery"
           },
           "Permission": "READ_ACP"
         }
@@ -171,7 +171,7 @@
         {
           "Grantee": {
             "Type": "Group",
-            "URI": "<endpoint>/groups/global/AllUsers"
+            "URI": "http://acs.amazonaws.com/groups/global/AllUsers"
           },
           "Permission": "READ"
         }
@@ -227,7 +227,7 @@
     "public-acl-blocked": {
       "Error": {
         "Code": "AccessDenied",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: s3:PutObject on resource: \"arn:aws:s3:::<name:writer>/k\" because public ACLs are prevented by the BlockPublicAcls setting in S3 Block Public Access."
+        "Message": "User: <caller> is not authorized to perform: s3:PutObject on resource: \"arn:aws:s3:::<name:writer>/k\" because public ACLs are prevented by the BlockPublicAcls setting in S3 Block Public Access."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 403
@@ -251,6 +251,34 @@
         "HTTPStatusCode": 200
       },
       "ServerSideEncryption": "AES256"
+    }
+  },
+  "test_anonymous_reads_need_a_public_grant": {
+    "anonymous-allowed": {
+      "AcceptRanges": "bytes",
+      "Body": {
+        "<bytes>": "for anyone"
+      },
+      "ChecksumCRC32": "69FYYw==",
+      "ChecksumType": "FULL_OBJECT",
+      "ContentLength": 10,
+      "ContentType": "binary/octet-stream",
+      "ETag": "\"52d6ce48b58023dbc75550a39d307ee9\"",
+      "LastModified": "<datetime>",
+      "Metadata": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "anonymous-denied": {
+      "Error": {
+        "Code": "AccessDenied",
+        "Message": "Access Denied"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
     }
   },
   "test_bucket_and_object_lifecycle": {
@@ -1107,6 +1135,15 @@
       "Error": {
         "Code": "InvalidPart",
         "Message": "One or more of the specified parts could not be found.  The part may not have been uploaded, or the specified entity tag may not match the part's entity tag."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-order-real-tags": {
+      "Error": {
+        "Code": "InvalidPartOrder",
+        "Message": "The list of parts was not in ascending order. Parts must be ordered by part number."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400

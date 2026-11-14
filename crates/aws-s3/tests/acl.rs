@@ -36,10 +36,11 @@ async fn a_new_bucket_has_acls_disabled_and_reads_answer_the_owner() {
     );
     assert!(text.contains("<AccessControlList>"), "{text}");
 
-    // Writing an ACL is refused; the owner's own full control is accepted on an object write.
+    // Writing an ACL is refused (a public one by the public access block first, recorded 2026-11-15); the owner's own full
+    // control is accepted on an object write.
     let refused = lab.call("PUT", "/acb?acl", &[PUBLIC_READ], "").await;
-    assert_eq!(refused.status, 400);
-    assert!(refused.text().contains("AccessControlListNotSupported"));
+    assert_eq!(refused.status, 403);
+    assert!(refused.text().contains("BlockPublicAcls setting"));
     let private = lab
         .call("PUT", "/acb?acl", &[("x-amz-acl", "private")], "")
         .await;
@@ -57,7 +58,7 @@ async fn a_new_bucket_has_acls_disabled_and_reads_answer_the_owner() {
     assert_eq!(obj.status, 200);
     assert!(!obj.text().contains(ALL_USERS));
     let put_acl = lab.call("PUT", "/acb/k?acl", &[PUBLIC_READ], "").await;
-    assert!(put_acl.text().contains("AccessControlListNotSupported"));
+    assert!(put_acl.text().contains("BlockPublicAcls setting"));
     assert_eq!(
         lab.call("PUT", "/acb/k?acl", &[OWNER_FULL], "")
             .await

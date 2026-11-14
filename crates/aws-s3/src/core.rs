@@ -88,6 +88,7 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::ListObjectsV2
             | O::ListObjectVersions
             | O::GetObjectAttributes
+            | O::RestoreObject
             | O::GetObjectTagging
             | O::PutObjectTagging
             | O::DeleteObjectTagging
@@ -356,6 +357,7 @@ impl Core {
             O::ListObjects | O::ListObjectsV2 => self.list_objects(&req, op == O::ListObjectsV2),
             O::ListObjectVersions => self.list_object_versions(&req),
             O::GetObjectAttributes => self.get_object_attributes(&req),
+            O::RestoreObject => self.restore_object(&req),
             O::GetObjectTagging | O::GetBucketTagging => {
                 self.get_tagging(&req, op == O::GetBucketTagging)
             }

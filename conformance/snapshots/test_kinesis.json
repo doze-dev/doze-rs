@@ -346,6 +346,71 @@
       }
     }
   },
+  "test_account_settings": {
+    "describe": {
+      "MinimumThroughputBillingCommitment": {
+        "Status": "DISABLED"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_consumers_policy_and_tags_by_arn": {
+    "delete-with-consumers": {
+      "Error": {
+        "Code": "ResourceInUseException",
+        "Message": "DeleteStream can\u2019t delete <account>:<name:stream> because there are consumers associated with this data stream. To delete <name:stream> anyway, set the EnforceConsumerDeletion parameter to true to force the deletion of all the consumers that are associated with it."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "list-consumers": {
+      "Consumers": [
+        {
+          "ConsumerARN": "<ConsumerARN:1>",
+          "ConsumerCreationTimestamp": "<ConsumerCreationTimestamp:1>",
+          "ConsumerName": "c1"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "no-policy": {
+      "Policy": "{}",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "register": {
+      "Consumer": {
+        "ConsumerARN": "<ConsumerARN:1>",
+        "ConsumerCreationTimestamp": "<ConsumerCreationTimestamp:1>",
+        "ConsumerName": "c1"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tag-by-arn": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tags-by-arn": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        }
+      ]
+    }
+  },
   "test_every_iterator_type": {
     "after-sequence": [
       {

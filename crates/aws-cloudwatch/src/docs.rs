@@ -260,9 +260,9 @@ fn invalid_dashboard(path: &str, message: &str) -> ApiError {
 }
 
 fn no_dashboard(name: &str) -> ApiError {
-    // (memory)
+    // Recorded on AWS (2026-11-15, GetDashboard).
     ApiError::modeled(
         "DashboardNotFoundError",
-        format!("Dashboard named {name} does not exist."),
+        format!("Dashboard {name} does not exist"),
     )
 }

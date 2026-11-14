@@ -129,15 +129,10 @@ impl Core {
     }
 
     pub(crate) fn get_policy(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let arn = r.s("ResourceARN").to_owned();
-        match self.policy_stream(r)?.policy.clone() {
-            Some(p) => Ok(json!({"Policy": p})),
-            // The Go edition's finding G7: AWS answers a stream with no policy as not found (the words are memory).
-            None => Err(ApiError::modeled(
-                "ResourceNotFoundException",
-                format!("No resource policy is attached to {arn}."),
-            )),
-        }
+        // Recorded on AWS (2026-11-15): a stream without a policy answers an empty one, not a refusal (the Go edition's G7 was
+        // wrong).
+        let policy = self.policy_stream(r)?.policy.clone();
+        Ok(json!({"Policy": policy.unwrap_or_else(|| "{}".to_owned())}))
     }
 
     pub(crate) fn delete_policy(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {

@@ -125,3 +125,17 @@ pub(crate) fn no_resource() -> ApiError {
     // (memory)
     ApiError::modeled("ResourceNotFoundException", "Resource does not exist")
 }
+
+/// A refusal of an attribute check as `SetTopicAttributes` and `SetSubscriptionAttributes` word it: the attribute names itself, with
+/// no `Attributes Reason:` before it (recorded 2026-11-15: `Invalid parameter: FilterPolicy: ...`, `Invalid parameter:
+/// MaximumMessageSize: ...`, `Invalid parameter: DeliveryPolicy: ...`), where `CreateTopic` and `Subscribe` say `Invalid parameter:
+/// Attributes Reason: FilterPolicy: ...` (recorded 2026-11-09).
+pub(crate) fn as_set(mut e: ApiError) -> ApiError {
+    if let Some(rest) = e
+        .message
+        .strip_prefix("Invalid parameter: Attributes Reason: ")
+    {
+        e.message = format!("Invalid parameter: {rest}");
+    }
+    e
+}
