@@ -1,0 +1,15 @@
+[package]
+name = "doze-config"
+version = "0.0.0"
+description = "doze.hcl: doze's schema over doze-hcl, checked against Go's internal/config"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-hcl = { path = "../doze-hcl" }

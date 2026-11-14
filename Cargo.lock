@@ -1483,6 +1483,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-config"
+version = "0.0.0"
+dependencies = [
+ "doze-hcl",
+]
+
+[[package]]
 name = "doze-fs"
 version = "0.0.0"
 dependencies = [
