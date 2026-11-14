@@ -170,7 +170,7 @@ What 10b and 10c should not need to touch: `registry/*`, `api/*`, `store.rs`, `s
 - **Size headroom.** 0.2 MB of the CI byte limits are left after 10a on the Linux estimate; 10b and 10c must be measured before
   merging.
 - **The Linux size is an estimate** (the darwin size times 1.216); the first CI run measures it.
-- **TLS on the registry is exercised by the build and clippy only**: no test serves the registry over TLS yet (the server code is the
-  same apart from the handshake).
+- **TLS on the registry has no automated test**: it was checked by hand on 2026-11-14 (a release `--features tls` broker with a
+  self-signed certificate: a registration over HTTPS answered `{"id":1}`, plain HTTP to the same port got no answer).
 - **No independent audit yet.** The registry's own judgement of its fidelity rests on the oracle files; an audit should read the
   recordings against the catalogue.
