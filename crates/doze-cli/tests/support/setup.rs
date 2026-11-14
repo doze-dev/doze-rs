@@ -85,6 +85,28 @@ fn start_daemon(sb: &Sandbox, name: &str) -> FixtureDaemon {
     FixtureDaemon::start(&sock, script).unwrap()
 }
 
+/// Whether this machine has the daemon's local control socket (Windows has none yet: doze-os `local`). The tests
+/// that need a running daemon are skipped where it has none, as doze-control's own are.
+pub(crate) fn sockets() -> bool {
+    static ONCE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ONCE.get_or_init(probe)
+}
+
+fn probe() -> bool {
+    let p = std::env::temp_dir().join(format!("dz-probe-{}.sock", std::process::id()));
+    match doze_os::local::LocalListener::bind(&p) {
+        Ok(_) => {
+            let _ = std::fs::remove_file(&p);
+            true
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::Unsupported => {
+            eprintln!("skipped: {e}");
+            false
+        }
+        Err(e) => panic!("{e}"),
+    }
+}
+
 /// The sandbox project's state folder under the doze home.
 fn state_dir(sb: &Sandbox) -> std::path::PathBuf {
     StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"))
