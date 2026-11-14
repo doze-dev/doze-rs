@@ -2,7 +2,7 @@
 //! the terminals, the doze home, the official registry) and exits with the run's code.
 
 use doze_cli::diag::{Diagnostic, ids};
-use doze_cli::registry::{self, Base, signed};
+use doze_cli::registry::{self, signed};
 use doze_cli::{Ctx, Exit, Host, Terminals};
 use std::io::{self, BufWriter, IsTerminal, Write};
 use std::path::PathBuf;
@@ -39,6 +39,14 @@ impl Host for Process {
 }
 
 fn main() -> ExitCode {
+    if std::env::args().nth(1).as_deref() == Some(doze_cli::fetch_child::ARG) {
+        return match surroundings() {
+            Ok((home, _, registry)) => {
+                ExitCode::from(doze_cli::fetch_child::serve(&home, registry))
+            }
+            Err(_) => ExitCode::from(1),
+        };
+    }
     let term = Terminals {
         stdin: io::stdin().is_terminal(),
         stdout: io::stdout().is_terminal(),
@@ -100,10 +108,7 @@ fn surroundings() -> Result<(PathBuf, PathBuf, registry::Config), Diagnostic> {
         .fix("doze bug")
     })?;
     let registry = registry::Config {
-        bases: registry::HOSTS
-            .iter()
-            .map(|h| Base::Http((*h).to_string()))
-            .collect(),
+        bases: registry::bases_from_env(),
         key,
         budget: registry::BUDGET,
     };

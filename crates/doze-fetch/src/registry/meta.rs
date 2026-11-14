@@ -101,3 +101,23 @@ fn block(b: &Hash) -> BlockDoc {
         arguments: args(b),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The module contract grows (`client`, `detect`, …): a document with fields this doze does not read still parses,
+    /// and what it does read is intact. The cache keeps the published bytes as they are, so a newer reader finds them.
+    #[test]
+    fn fields_this_doze_does_not_read_are_left_alone() {
+        let src = "title: Valkey\ntagline: kv\ncategory: cache\nengine: valkey\nport: 6379\nexample: 'valkey \"cache\" {}'\n\
+                   client:\n  program: valkey-cli\n  args: [-p, '{port}']\n\
+                   detect:\n  packages:\n    npm: [ioredis, redis]\n  images: [valkey/valkey]\n\
+                   exampleLabel: cache\nsomethingNew: {nested: [1, 2]}\n";
+        let m = parse(src).unwrap();
+        assert_eq!(
+            (m.title.as_str(), m.engine.as_str(), m.port),
+            ("Valkey", "valkey", Some(6379))
+        );
+    }
+}

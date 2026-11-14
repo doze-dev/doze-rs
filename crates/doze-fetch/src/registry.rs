@@ -16,12 +16,45 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
-/// The registry, then its Pages host: `registry.doze-dev.com` had no DNS record on 2026-11-13 (proposal F1), and the
-/// Pages host serves the same signed files.
-pub const HOSTS: &[&str] = &[
-    "https://registry.doze-dev.com",
-    "https://doze-registry.pages.dev",
-];
+/// The registry doze uses unless told otherwise.
+pub const DEFAULT_BASE: &str = "https://registry.doze-dev.com";
+
+/// The registry's Cloudflare Pages host: the same signed files (the live test's target; an override while the
+/// registry's hostname has no DNS answer, as on 2026-11-14).
+pub const PAGES_BASE: &str = "https://doze-registry.pages.dev";
+
+/// The variable that overrides where the registry is: one or more bases, comma separated, each `https://…`,
+/// `file://<dir>` or a directory. Hosts are interchangeable (the signature is what is trusted, with the key built
+/// in), so pointing it elsewhere can never make doze run something unsigned.
+pub const OVERRIDE_VAR: &str = "DOZE_REGISTRY";
+
+/// The bases `value` names (see [`OVERRIDE_VAR`]); empty parts are skipped.
+pub fn parse_bases(value: &str) -> Vec<Base> {
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(|v| {
+            if v.starts_with("https://") || v.starts_with("http://") {
+                Base::Http(v.trim_end_matches('/').to_string())
+            } else {
+                Base::Dir(PathBuf::from(v.strip_prefix("file://").unwrap_or(v)))
+            }
+        })
+        .collect()
+}
+
+/// The registry's bases: [`OVERRIDE_VAR`] when set and not empty, else [`DEFAULT_BASE`].
+pub fn bases_from_env() -> Vec<Base> {
+    let set = std::env::var(OVERRIDE_VAR)
+        .map(|v| parse_bases(&v))
+        .unwrap_or_default();
+    if set.is_empty() {
+        vec![Base::Http(DEFAULT_BASE.to_string())]
+    } else {
+        set
+    }
+}
 
 /// The registry's pages on the website, for `--web`.
 pub const WEB: &str = "https://doze-dev.com/registry";
@@ -194,5 +227,23 @@ impl Cache {
                     .collect()
             })
             .unwrap_or_default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_override_names_hosts_and_directories() {
+        assert_eq!(
+            parse_bases(" https://doze-registry.pages.dev/ ,file:///srv/reg,, /tmp/r"),
+            vec![
+                Base::Http(PAGES_BASE.into()),
+                Base::Dir("/srv/reg".into()),
+                Base::Dir("/tmp/r".into()),
+            ]
+        );
+        assert!(parse_bases(" , ").is_empty());
     }
 }

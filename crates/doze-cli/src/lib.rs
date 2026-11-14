@@ -10,6 +10,7 @@ mod cmd;
 pub mod ctx;
 pub mod diag;
 pub mod exit;
+pub mod fetch_child;
 pub mod help;
 pub mod install;
 pub use doze_fetch::lock;
