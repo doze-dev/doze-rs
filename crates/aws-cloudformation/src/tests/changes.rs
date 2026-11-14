@@ -78,11 +78,16 @@ async fn a_change_set_says_what_it_would_do_and_does_it() {
         .find(|c| c["ResourceChange"]["LogicalResourceId"] == "T")
         .unwrap();
     assert_eq!(t["ResourceChange"]["Action"], "Add");
-    assert!(
-        changes
-            .iter()
-            .all(|c| c["ResourceChange"]["LogicalResourceId"] != "P")
-    );
+    assert_eq!(q["ResourceChange"]["Details"][1]["ChangeSource"], "DirectModification");
+    // P reads Q's ARN while Q changes, so P may change: AWS says so (recorded 2026-11-15).
+    let p = changes
+        .iter()
+        .find(|c| c["ResourceChange"]["LogicalResourceId"] == "P")
+        .unwrap();
+    let why = &p["ResourceChange"]["Details"][0];
+    assert_eq!(why["ChangeSource"], "ResourceAttribute");
+    assert_eq!(why["CausingEntity"], "Q.Arn");
+    assert_eq!(why["Evaluation"], "Dynamic");
     w.cfn("ExecuteChangeSet", json!({"ChangeSetName": second["Id"]}))
         .await
         .unwrap();

@@ -102,7 +102,7 @@ fn modify(w: &Working, id: &str, r: &Res, changed_params: &BTreeSet<String>) -> 
             (_, "Conditionally") | ("Conditional", _) => "Conditional",
             _ => "False",
         };
-        details.push(detail(
+        details.extend(detail(
             k,
             recreate,
             expr,
@@ -123,21 +123,29 @@ fn modify(w: &Working, id: &str, r: &Res, changed_params: &BTreeSet<String>) -> 
         "Replacement": replacement, "Scope": scope_list, "Details": details}}))
 }
 
-/// One property's change: where it came from (the template itself, a parameter, or a resource that changes).
+/// One property's change: where it came from (the template itself, a parameter, or a resource that changes). A change a
+/// parameter makes is told twice, as AWS tells it: the parameter, and a dynamic direct modification (recorded 2026-11-15).
 fn detail(
     prop: &str,
     recreate: &str,
     expr: Option<&Value>,
     dynamic: Option<&str>,
     changed_params: &BTreeSet<String>,
-) -> Value {
+) -> Vec<Value> {
     let attribute = if prop == "Tags" { "Tags" } else { "Properties" };
     let mut target = json!({"Attribute": attribute, "RequiresRecreation": recreate});
     if attribute == "Properties" {
         target.put("Name", prop.into());
     }
     if let Some(res) = dynamic {
-        return json!({"Target": target, "Evaluation": "Dynamic", "ChangeSource": "ResourceReference", "CausingEntity": res});
+        // An attribute read names the attribute (`Q.Arn`, recorded 2026-11-15); a Ref names the resource.
+        let (source, entity) = match expr.and_then(|e| attribute_of(e, res)) {
+            Some(att) => ("ResourceAttribute", format!("{res}.{att}")),
+            None => ("ResourceReference", res.to_owned()),
+        };
+        return vec![
+            json!({"Target": target, "Evaluation": "Dynamic", "ChangeSource": source, "CausingEntity": entity}),
+        ];
     }
     let mut refs = BTreeSet::new();
     if let Some(e) = expr {
@@ -148,11 +156,38 @@ fn detail(
         _ => None,
     });
     match param {
-        Some(p) => {
-            json!({"Target": target, "Evaluation": "Static", "ChangeSource": "ParameterReference", "CausingEntity": p})
+        Some(p) => vec![
+            json!({"Target": target.clone(), "Evaluation": "Static", "ChangeSource": "ParameterReference", "CausingEntity": p}),
+            json!({"Target": target, "Evaluation": "Dynamic", "ChangeSource": "DirectModification"}),
+        ],
+        None => vec![
+            json!({"Target": target, "Evaluation": "Static", "ChangeSource": "DirectModification"}),
+        ],
+    }
+}
+
+/// The attribute of `res` that `v` reads with `Fn::GetAtt` (either form) or `Fn::Sub`, if it reads one.
+pub(crate) fn attribute_of(v: &Value, res: &str) -> Option<String> {
+    match v {
+        Value::Object(o) => {
+            if let Some(g) = o.get("Fn::GetAtt") {
+                let (r, a) = match g {
+                    Value::String(s) => s.split_once('.').map(|(r, a)| (r, a.to_owned()))?,
+                    Value::Array(x) => (x.first()?.as_str()?, x.get(1)?.as_str()?.to_owned()),
+                    _ => return None,
+                };
+                return (r == res).then_some(a);
+            }
+            if let Some(Value::String(s)) = o.get("Fn::Sub").map(|x| x.as_array().and_then(|a| a.first()).unwrap_or(x)) {
+                let lead = format!("${{{res}.");
+                return s.find(&lead).and_then(|i| {
+                    let rest = &s[i + lead.len()..];
+                    rest.find('}').map(|end| rest[..end].to_owned())
+                });
+            }
+            o.values().find_map(|x| attribute_of(x, res))
         }
-        None => {
-            json!({"Target": target, "Evaluation": "Static", "ChangeSource": "DirectModification"})
-        }
+        Value::Array(a) => a.iter().find_map(|x| attribute_of(x, res)),
+        _ => None,
     }
 }

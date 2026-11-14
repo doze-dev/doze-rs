@@ -301,13 +301,14 @@ impl Core {
                 Some("User Initiated"),
             );
             self.push_event(&stack.id, in_progress);
+            // AWS cancels the delete: the stack goes back to the status it had, saying why (recorded 2026-11-15).
+            let reason = format!("Delete canceled. {user}");
             self.push_event(
                 &stack.id,
-                Draft::stack(&stack.name, &stack.id, "DELETE_FAILED", Some(&user)),
+                Draft::stack(&stack.name, &stack.id, &stack.status, Some(&reason)),
             );
             if let Some(s) = self.stacks.get_mut(&stack.id) {
-                s.status = "DELETE_FAILED".into();
-                s.reason = Some(user);
+                s.reason = Some(reason);
             }
             return Ok(json!({}));
         }
@@ -399,7 +400,7 @@ pub(crate) fn check_name(name: &str) -> Result<(), ApiError> {
         return Ok(());
     }
     Err(validation(format!(
-        "1 validation error detected: Value '{name}' at 'stackName' failed to satisfy constraint: Member must satisfy regular expression pattern: [a-zA-Z][-a-zA-Z0-9]*|arn:[-a-zA-Z0-9:/._+]*"
+        "1 validation error detected: Value '{name}' at 'stackName' failed to satisfy constraint: Member must satisfy regular expression pattern: [a-zA-Z][-a-zA-Z0-9]*"
     )))
 }
 
