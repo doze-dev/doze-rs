@@ -381,10 +381,6 @@ export function GalleryPage() {
           <TheForm />
         </Section>
 
-        <Section id="patterns" title="Combobox and MultiSelect with a pattern" description="The Lab's choice of a topic or a client: what is typed can be chosen as it is, a name or a glob of * and ?, not only an option.">
-          <ThePatterns />
-        </Section>
-
         <Section id="overlays" title="Dialog, Sheet, DropdownMenu, Popover, Tooltip" description="Esc closes, the focus returns to the opener; the Sheet has its own address (Back closes it).">
           <div className="flex flex-wrap items-center gap-2">
             <Dialog
@@ -548,6 +544,10 @@ export function GalleryPage() {
           >
             This topic is empty. Produce one, or point a client at it.
           </EmptyState>
+        </Section>
+
+        <Section id="patterns" title="Combobox and MultiSelect with a pattern" description="The Lab's choice of a topic or a client: what is typed can be chosen as it is, a name or a glob of * and ?, not only an option.">
+          <ThePatterns />
         </Section>
 
         <Section id="table" className="xl:col-span-2" title="DataTable" description="Fixed columns, ellipsis with the whole value on hover, sticky header, stable row ids; virtual past 500 rows.">
