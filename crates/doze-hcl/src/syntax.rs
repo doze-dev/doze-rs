@@ -1,10 +1,8 @@
 //! The syntax layer: hcl-edit parses, and a `Source` turns its byte spans into Go-style positions.
 
-use crate::diag::{Diagnostic, Pos, Range};
+use crate::diag::{Diagnostic, Diagnostics, Pos, Range};
 use hcl_edit::structure::Body;
 use unicode_segmentation::UnicodeSegmentation;
-
-mod rules;
 
 /// A source text and where its lines start, to turn byte offsets into positions.
 #[derive(Debug, Clone)]
@@ -67,19 +65,24 @@ impl Source {
     }
 }
 
-/// Parses a whole file body. A syntax error comes back as one diagnostic at its position.
+/// Parses a whole file body. A file Go refuses comes back with every diagnostic Go gives, in Go's
+/// order and at Go's positions (`check`); hcl-edit builds the tree only for a file that passes, so
+/// it never sees broken nesting.
 // fuzz:parser fuzz_parse
-pub fn parse_body(src: &Source) -> Result<Body, Diagnostic> {
-    let body = hcl_edit::parser::parse_body(src.text()).map_err(|e| {
+pub fn parse_body(src: &Source) -> Result<Body, Diagnostics> {
+    let found = crate::check::check(src.text().as_bytes(), "x.hcl");
+    if found.has_errors() {
+        return Err(found);
+    }
+    hcl_edit::parser::parse_body(src.text()).map_err(|e| {
+        // Only hcl-edit's own limits get here (catalogue S5): Go accepts the file.
         let p = src.pos(e.location().offset());
-        Diagnostic::error(
+        Diagnostics::from(Diagnostic::error(
             "Syntax error",
             e.message().to_string(),
             Range { start: p, end: p },
-        )
-    })?;
-    rules::check(src, &body)?;
-    Ok(body)
+        ))
+    })
 }
 
 /// Columns in a line prefix as Go counts them: grapheme clusters, segmented token by token. A

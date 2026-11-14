@@ -39,6 +39,7 @@ dependencies = [
  "hcl-edit",
  "num-bigint",
  "num-traits",
+ "unicode-ident",
  "unicode-normalization",
  "unicode-segmentation",
 ]

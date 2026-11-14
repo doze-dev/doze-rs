@@ -108,3 +108,15 @@ impl fmt::Display for Diagnostic {
         Ok(())
     }
 }
+
+impl fmt::Display for Diagnostics {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, d) in self.0.iter().enumerate() {
+            if i > 0 {
+                f.write_str("\n")?;
+            }
+            write!(f, "{d}")?;
+        }
+        Ok(())
+    }
+}

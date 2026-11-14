@@ -32,6 +32,8 @@ pub type ObjectIterMut<'a> = Box<dyn Iterator<Item = (ObjectKeyMut<'a>, &'a mut 
 #[derive(Debug, Clone, Eq, Default)]
 pub struct Object {
     items: VecMap<ObjectKey, ObjectValue>,
+    // PATCH (doze): items a later item with the same key replaced, in source order.
+    redefined: Vec<(ObjectKey, ObjectValue)>,
     trailing: RawString,
     decor: Decor,
     span: Option<Range<usize>>,
@@ -139,6 +141,27 @@ impl Object {
     #[inline]
     pub fn remove_entry(&mut self, key: &ObjectKey) -> Option<(ObjectKey, ObjectValue)> {
         self.items.remove_entry(key)
+    }
+
+    /// PATCH (doze): inserts an item as Go's parser keeps it. A key that is already present is
+    /// redefined: the new item takes the earlier one's place in the order, and the earlier item is
+    /// kept in [`Object::redefined`] (Go evaluates it, and checks keys for uniqueness, too).
+    pub(crate) fn insert_redefining(&mut self, key: ObjectKey, value: ObjectValue) {
+        match self.items.get_index_of(&key) {
+            Some(i) => {
+                let old = self.items.remove_index(i);
+                self.items.insert_at(i, key, value);
+                self.redefined.push(old);
+            }
+            None => {
+                self.items.insert(key, value);
+            }
+        }
+    }
+
+    /// PATCH (doze): the items a later item with the same key replaced, in source order.
+    pub fn redefined(&self) -> &[(ObjectKey, ObjectValue)] {
+        &self.redefined
     }
 
     /// An iterator visiting all key-value pairs in insertion order. The iterator element type is

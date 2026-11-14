@@ -1485,6 +1485,7 @@ dependencies = [
  "num-traits",
  "proptest",
  "serde_json",
+ "unicode-ident",
  "unicode-normalization",
  "unicode-segmentation",
 ]

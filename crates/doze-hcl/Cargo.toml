@@ -20,6 +20,8 @@ num-traits = "0.2"
 # cty strings are NFC; positions and strlen count grapheme clusters, as Go's textseg does.
 unicode-normalization = "0.1"
 unicode-segmentation = "1"
+# Identifiers: the Unicode ID_Start/ID_Continue classes, as hcl-edit reads them (Go: derived tables).
+unicode-ident = "1"
 
 [dev-dependencies]
 serde_json = "1"

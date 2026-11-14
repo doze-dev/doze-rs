@@ -1,5 +1,4 @@
 {
- "audit.obj.15": "vendor patch 3: a redefined object key replaces the earlier item while parsing, so an error inside the earlier value is not reported (catalogue E6)",
  "audit2.numlit.18": "number exponent limit ±2^17: 1e40000 is +Inf here, finite in Go (catalogue N9)",
  "audit2.numlit.19": "number exponent limit ±2^17: 1e-40000 is 0 here (catalogue N9)",
  "audit2.numlit.21": "number exponent limit ±2^17: 1e131071 is +Inf here (catalogue N9)",

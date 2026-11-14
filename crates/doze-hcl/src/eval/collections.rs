@@ -24,7 +24,11 @@ impl Evaluator<'_> {
         let mut diags = Diagnostics::default();
         let mut vals = BTreeMap::new();
         let mut known = true;
-        for (key, value) in o.iter() {
+        // Every item in source order, with those a later key redefined: Go evaluates them all.
+        let mut items: Vec<_> = o.iter().collect();
+        items.extend(o.redefined().iter().map(|(k, v)| (k, v)));
+        items.sort_by_key(|(k, _)| hcl_edit::Span::span(*k).map_or(0, |s| s.start));
+        for (key, value) in items {
             let (k, kd) = self.object_key(key, ctx);
             let key_failed = kd.has_errors();
             diags.extend(kd);
