@@ -78,6 +78,13 @@ impl TlsConfig {
     pub(crate) fn acceptor(&self) -> TlsAcceptor {
         TlsAcceptor::from(Arc::clone(&self.config))
     }
+
+    /// The server configuration the certificate and key were loaded into: the schema registry serves its HTTPS with the
+    /// broker's certificate (`--schema-registry-tls`).
+    #[must_use]
+    pub fn server_config(&self) -> Arc<rustls::ServerConfig> {
+        Arc::clone(&self.config)
+    }
 }
 
 impl fmt::Debug for TlsConfig {

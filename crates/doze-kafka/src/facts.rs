@@ -25,7 +25,7 @@ const SECRET: [&str; 1] = ["sasl-user"];
 const FILE_HIDDEN: [&str; 1] = ["tls-key"];
 
 /// The groups the table lists the flags under, in this order, and the flags of each in this order.
-pub(crate) const GROUPS: [(&str, &[&str]); 6] = [
+pub(crate) const GROUPS: [(&str, &[&str]); 7] = [
     (
         "Network and storage",
         &[
@@ -95,6 +95,14 @@ pub(crate) const GROUPS: [(&str, &[&str]); 6] = [
             "lab",
         ],
     ),
+    (
+        "Schema registry",
+        &[
+            "schema-registry",
+            "schema-registry-addr",
+            "schema-registry-tls",
+        ],
+    ),
 ];
 
 /// The flag as it is written on the command line, without its dashes (`data-dir`); clap's own id is the field's name.
@@ -108,6 +116,7 @@ fn no_default(arg: &Arg) -> &'static str {
         "advertised-host" => "the listen address",
         "advertised-port" => "the port bound",
         "console-addr" => "127.0.0.1:9093",
+        "schema-registry-addr" => "127.0.0.1:8081",
         _ if matches!(arg.get_action(), ArgAction::Append) => "none",
         _ => "unset",
     }

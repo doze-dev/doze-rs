@@ -61,7 +61,7 @@ pub struct PassNote {
     pub at_ms: i64,
     /// Partitions it looked at.
     pub looked: u32,
-    /// The partitions whose start it moved (at most [`MOST_DELETED`]).
+    /// The partitions whose start it moved (at most `MOST_DELETED`).
     pub deleted: Vec<DeletedNote>,
     /// More partitions than those listed had their start moved.
     pub more: u32,
