@@ -1,2 +1,6 @@
 # doze-hcl's oracle corpus: positions are byte and column exact, so no line-ending conversion on checkout.
 crates/doze-hcl/testdata/** -text
+# doze-config's oracle corpus: diagnostics are byte and column exact, so no line-ending conversion either.
+crates/doze-config/testdata/** -text
+# The embedded public suffix list: the same bytes on every checkout.
+crates/doze-config/data/*.fc -text

@@ -15,8 +15,6 @@ workspace = true
 doze-hcl = { path = "../doze-hcl" }
 # The syntax tree doze-hcl parses into (vendored and pinned: vendor/hcl-edit/PATCHES.md).
 hcl-edit = "0.10"
-# The public suffix list, compiled in (Go's golang.org/x/net/publicsuffix): no runtime file.
-psl = "2"
 # The project slug and the fingerprints are sha256, as Go's.
 sha2 = "0.11"
 hex = "0.4"
@@ -24,6 +22,8 @@ hex = "0.4"
 doze-engine = { path = "../doze-engine" }
 
 [dev-dependencies]
+# The oracle for src/psl.rs (tests/psl.rs): a release built from the same list revision.
+psl = "=2.1.254"
 serde_json = "1"
 # The real domain checks, for the oracle's host.
 doze-names = { path = "../doze-names" }
