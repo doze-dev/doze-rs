@@ -30,7 +30,7 @@ fn lines_are_assembled_and_tagged() {
     let r = s.begin("api").unwrap();
     let (mut out, mut err) = (r.writer(STDOUT), r.writer(STDERR));
     write!(out, "listening on ").unwrap();
-    write!(err, "warn: slow\n").unwrap();
+    writeln!(err, "warn: slow").unwrap();
     write!(out, ":8080\nready\r\n").unwrap();
     r.line(&format!("{STEP_PREFIX}setup"), "migrated 3");
     write!(out, "no newline yet").unwrap();

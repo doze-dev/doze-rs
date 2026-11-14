@@ -11,6 +11,7 @@
 //!
 //! Go is read for *what* (the behaviours are catalogued in docs/port/core/behaviours/engine.md), never for *how*.
 
+pub mod applied;
 pub mod error;
 pub mod events;
 pub mod exec;
@@ -28,6 +29,8 @@ pub mod stack;
 pub mod state;
 pub mod steps;
 pub mod supervise;
+pub mod tasks;
+pub mod watch;
 
 mod boot;
 mod engine;

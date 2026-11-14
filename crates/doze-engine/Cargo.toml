@@ -18,6 +18,8 @@ doze-logstore = { path = "../doze-logstore" }
 doze-os = { path = "../doze-os" }
 hex = "0.4"
 regex-lite = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 sha2 = "0.11"
 tokio = { version = "1.54", features = ["rt", "time", "process", "net", "io-util", "sync", "fs", "macros"] }
 tracing = "0.1"
