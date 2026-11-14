@@ -173,7 +173,8 @@ pub(crate) fn known_on_disk(stack: &Stack, name: &str) -> Result<(), Diagnostic>
     {
         return Ok(());
     }
-    let known: Vec<String> = std::fs::read_dir(doze_logstore::dir_of(stack.key.dir()))
+    // What disk knows: the log folders and the journal's names, both suggested from.
+    let mut known: Vec<String> = std::fs::read_dir(doze_logstore::dir_of(stack.key.dir()))
         .map(|d| {
             d.flatten()
                 .filter(|e| e.path().is_dir())
@@ -181,6 +182,12 @@ pub(crate) fn known_on_disk(stack: &Stack, name: &str) -> Result<(), Diagnostic>
                 .collect()
         })
         .unwrap_or_default();
+    known.extend(
+        doze_journal::read(&stack.key.journal())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|e| e.instance),
+    );
     let d = Diagnostic::new(
         ids::NO_SUCH_SERVICE,
         format!("nothing here knows a service called {name:?}"),
