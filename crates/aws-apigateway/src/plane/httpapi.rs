@@ -36,7 +36,7 @@ async fn serve(inner: &Inner, found: &Found, req: &Incoming) -> WebReply {
     let mut extra = Context::default();
     let arn = super::rest::method_arn(found, &req.method);
     let authorized = match text(&route.method, "authorizationType").unwrap_or("NONE") {
-        "JWT" => jwt::v2(found, route, req, &mut extra).await,
+        "JWT" => jwt::v2(&inner.plane.jwks, found, route, req, &mut extra).await,
         "CUSTOM" => auth::lambda_v2(inner, found, route, req, &mut extra).await,
         "AWS_IAM" => auth::iam(inner, found, req, &arn, &mut extra).await,
         _ => Ok(()),
@@ -121,7 +121,7 @@ async fn http(found: &Found, route: &Route, req: &Incoming, extra: &Context) -> 
     let out = request_of(found, route, req, extra);
     match client::call(&out).await {
         Ok(a) => reply::of(a.status, a.headers, a.body),
-        Err(why) if why.contains("timed out") => reply::message(504, "Gateway Timeout"),
+        Err(aws_webhook::Failure::Timeout(_)) => reply::message(504, "Gateway Timeout"),
         Err(why) => {
             tracing::warn!(
                 "execute-api {}: HTTP integration failed: {why}",
@@ -192,11 +192,9 @@ fn request_of(found: &Found, route: &Route, req: &Incoming, extra: &Context) -> 
         .and_then(Value::as_u64)
         .unwrap_or(30_000);
     Out {
-        method,
-        url,
         headers,
         body: req.body.clone(),
-        timeout: std::time::Duration::from_millis(timeout),
+        ..Out::new(method, url, std::time::Duration::from_millis(timeout))
     }
 }
 

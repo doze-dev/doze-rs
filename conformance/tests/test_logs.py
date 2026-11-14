@@ -133,6 +133,34 @@ def test_filter_patterns_of_each_form(client, names, cleanup, snapshot, eventual
     snapshot.match("wildcard-json-string", pick('{ $.route = "/s*" }', 1))
 
 
+def test_regular_expressions_in_filter_patterns(client, names, cleanup, snapshot, eventually):
+    """`%...%` in each form of pattern, and the quota of two in one pattern (written ahead of the recording)."""
+    logs = client("logs")
+    name = group(logs, names, cleanup)
+    logs.create_log_stream(logGroupName=name, logStreamName="web")
+    now = int(time.time() * 1000)
+    lines = ['10.0.0.1 PUT /items 201', '10.0.0.2 GET /items 503',
+             '{"path":"/api/v2/users","code":503}', '{"path":"/health","code":200}',
+             "timeout talking to db", "all fine"]
+    logs.put_log_events(logGroupName=name, logStreamName="web", logEvents=[
+        {"timestamp": now + i, "message": m} for i, m in enumerate(lines)])
+
+    def pick(pattern, want):
+        def poll():
+            r = logs.filter_log_events(logGroupName=name, filterPattern=pattern)
+            assert len(r["events"]) >= want, f"{len(r['events'])} of {want} so far"
+            return [e["message"] for e in r["events"]]
+        return eventually(poll, timeout=60)
+
+    snapshot.match("regex-term", pick("%time.?out|refused%", 1))
+    snapshot.match("regex-json", pick("{ $.path = %^/api/v[12]/% }", 1))
+    snapshot.match("regex-space", pick(r"[ip, method = %GET|PUT%, path, status = %^5\d\d$%]", 1))
+    snapshot.match("regex-test-metric-filter", logs.test_metric_filter(
+        filterPattern=r"%5\d\d%", logEventMessages=["status 503", "status 200"]))
+    snapshot.error("regex-three-in-one", lambda: logs.test_metric_filter(
+        filterPattern="%a% %b% %c%", logEventMessages=["a b c"]))
+
+
 def test_get_log_events_pages_in_both_directions(client, names, cleanup, snapshot, eventually):
     logs = client("logs")
     name = group(logs, names, cleanup)

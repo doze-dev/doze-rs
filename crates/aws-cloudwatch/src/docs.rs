@@ -19,6 +19,33 @@ fn dashboard_arn(account: &str, name: &str) -> String {
 }
 
 impl Core {
+    /// The tier-B families: stored, returned, not active locally (`stored.rs`).
+    fn run_stored(&mut self, op: Operation, r: &Req<'_>) -> Result<Value, ApiError> {
+        use crate::stored::{MUTE, RULE, STREAM};
+        use Operation as O;
+        match op {
+            O::PutMetricStream => self.put_metric_stream(r),
+            O::GetMetricStream => self.get_metric_stream(r),
+            O::ListMetricStreams => Ok(self.list_metric_streams(r)),
+            O::DeleteMetricStream => Ok(self.delete_stored(STREAM, r.s("Name"))),
+            O::StartMetricStreams => Ok(self.set_states(STREAM, &r.strings("Names"), "running")),
+            O::StopMetricStreams => Ok(self.set_states(STREAM, &r.strings("Names"), "stopped")),
+            O::PutInsightRule => self.put_insight_rule(r),
+            O::DescribeInsightRules => Ok(self.describe_insight_rules(r)),
+            O::DeleteInsightRules => Ok(self.delete_insight_rules(r)),
+            O::EnableInsightRules => Ok(self.set_states(RULE, &r.strings("RuleNames"), "ENABLED")),
+            O::DisableInsightRules => {
+                Ok(self.set_states(RULE, &r.strings("RuleNames"), "DISABLED"))
+            }
+            O::GetInsightRuleReport => self.get_insight_rule_report(r),
+            O::PutAlarmMuteRule => self.put_alarm_mute_rule(r),
+            O::GetAlarmMuteRule => self.get_alarm_mute_rule(r),
+            O::ListAlarmMuteRules => Ok(self.list_alarm_mute_rules(r)),
+            O::DeleteAlarmMuteRule => Ok(self.delete_stored(MUTE, r.s("AlarmMuteRuleName"))),
+            _ => Err(crate::core::not_built()),
+        }
+    }
+
     pub(crate) fn run_docs(&mut self, op: Operation, r: &Req<'_>) -> Result<Value, ApiError> {
         use Operation as O;
         match op {
@@ -29,7 +56,7 @@ impl Core {
             O::PutAnomalyDetector => self.put_detector(r),
             O::DescribeAnomalyDetectors => Ok(self.describe_detectors(r)),
             O::DeleteAnomalyDetector => self.delete_detector(r),
-            _ => Err(crate::core::not_built()),
+            other => self.run_stored(other, r),
         }
     }
 

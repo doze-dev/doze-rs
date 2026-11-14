@@ -1,6 +1,11 @@
 //! The SQS poller. It reads with `ReceiveMessage` over the peer bus, waits for SQS to say a message arrived when the queue is empty
 //! (and, while messages are in flight or delayed and so may come back by the clock alone, looks again each second), filters,
 //! invokes the function, and deletes what succeeded: all of a batch, or all but the items the function reports as failed.
+//!
+//! Batches run concurrently, up to `ScalingConfig.MaximumConcurrency` at once (a semaphore per mapping; AWS's range is 2 to 1,000).
+//! With none set, five: AWS starts an SQS mapping at five concurrent batches and scales from there (memory); locally five is the
+//! ceiling. A FIFO queue keeps each message group in order by itself: SQS does not hand out a group's next message while one of it
+//! is in flight.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -132,9 +137,24 @@ fn record(m: &Value, arn: &str, region: &str) -> Value {
     })
 }
 
+#[derive(Clone)]
 struct Queue {
     url: String,
     arn: String,
+}
+
+/// Concurrent batches when the mapping sets no `MaximumConcurrency` (memory: AWS's starting scale).
+const DEFAULT_CONCURRENCY: usize = 5;
+
+/// How many batches of one mapping may be with the function at once.
+fn concurrency(run: &Run) -> usize {
+    run.cfg
+        .pointer("/ScalingConfig/MaximumConcurrency")
+        .and_then(crate::int)
+        .and_then(|n| usize::try_from(n).ok())
+        .filter(|n| *n > 0)
+        .unwrap_or(DEFAULT_CONCURRENCY)
+        .min(1000)
 }
 
 impl Run {
@@ -353,10 +373,16 @@ pub(crate) async fn run(run: Run, sqs: Arc<aws_sqs::Sqs>) {
         }
     };
     let q = Queue { url, arn };
+    let permits = Arc::new(tokio::sync::Semaphore::new(concurrency(&run)));
     loop {
         if run.stop.is_cancelled() {
             return;
         }
+        // A batch is read only when there is room to run it, so nothing waits hidden in the queue for a free slot.
+        let permit = tokio::select! {
+            p = Arc::clone(&permits).acquire_owned() => match p { Ok(p) => p, Err(_) => return },
+            () = run.stop.cancelled() => return,
+        };
         let mut waiter = Wake::on({
             let sqs = Arc::clone(&sqs);
             async move { sqs.message_arrived().await }
@@ -365,9 +391,14 @@ pub(crate) async fn run(run: Run, sqs: Arc<aws_sqs::Sqs>) {
         let batch = run.gather(&peers, &q, &sqs).await;
         if !batch.is_empty() {
             drop(waiter);
-            run.handle(&peers, &q, batch).await;
+            let (one, peers, q) = (run.clone(), Arc::clone(&peers), q.clone());
+            run.inner.tasks.spawn(async move {
+                one.handle(&peers, &q, batch).await;
+                drop(permit);
+            });
             continue;
         }
+        drop(permit);
         let hidden = run.has_hidden(&peers, &q).await;
         let wake = tokio::time::sleep(Duration::from_secs(1));
         tokio::select! {

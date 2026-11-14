@@ -129,12 +129,8 @@ fn policy(core: &Core, req: &Req<'_>, body: &Value) -> Result<(), ApiError> {
         }
     }
     let public = crate::public::is_public(&doc);
-    let blocked = core
-        .require(req.bucket())?
-        .configs
-        .get("public-access-block")
-        .and_then(|c| serde_json::from_str::<Value>(c).ok())
-        .is_none_or(|c| c.get("BlockPublicPolicy").and_then(Value::as_bool) != Some(false));
+    core.require(req.bucket())?;
+    let blocked = core.blocks(req.bucket(), "BlockPublicPolicy");
     if public && blocked {
         // (memory) AWS's text for a public policy refused by the block.
         return Err(ApiError::new(

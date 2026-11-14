@@ -18,6 +18,8 @@ http = "1"
 bytes = "1"
 form_urlencoded = "1.2"
 sha2 = "0.11"
+# SigV2 presigned URLs sign with HMAC-SHA1 (already linked by S3's checksums).
+sha1 = "0.11"
 hmac = "0.13"
 thiserror = "2"
 

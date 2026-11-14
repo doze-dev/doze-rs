@@ -206,3 +206,16 @@ def test_error_captures_the_refusal_and_insists_on_one(tmp_path):
     assert s.error("allowed", lambda: None) is None
     with pytest.raises(AssertionError, match="the call succeeded"):
         s.finish()
+
+
+def test_a_doze_hint_after_aws_words_is_set_aside_and_aws_words_still_compared():
+    from harness.snapshot import _refusal
+
+    def refused(message):
+        return ClientError({"Error": {"Code": "QueueDeletedRecently", "Message": message}}, "CreateQueue")
+
+    aws_words = "You must wait 60 seconds after deleting a queue before you can create another with the same name."
+    hinted = aws_words + " doze-aws: start it with --sqs-skip-60s-waits to skip this wait in local test loops."
+    assert _refusal(refused(hinted))["Error"]["Message"] == aws_words
+    # Other words before the hint still differ.
+    assert _refusal(refused("Wait a minute. doze-aws: x"))["Error"]["Message"] != aws_words

@@ -44,9 +44,39 @@ pub(crate) fn members(t: &Tables, shape: u32, v: &Value, out: &mut String, depth
     }
     for i in sh.first..sh.first + sh.count {
         let Some(m) = t.member(i) else { continue };
+        // An `@xmlAttribute` member is written in its structure's opening tag (`attributes`).
+        if m.flags & 4 != 0 {
+            continue;
+        }
         if let Some(x) = obj.get(m.wire) {
             member(t, &m, x, out, depth + 1);
         }
+    }
+}
+
+/// The `@xmlAttribute` members of structure `shape` in `v`, as ` name="value"`; an `xsi:` one brings its namespace declaration.
+fn attributes(t: &Tables, shape: u32, v: &Value, out: &mut String) {
+    let (Some(sh), Some(obj)) = (t.shape(shape), v.as_object()) else {
+        return;
+    };
+    let mut declared = false;
+    for i in sh.first..sh.first + sh.count {
+        let Some(m) = t.member(i).filter(|m| m.flags & 4 != 0) else {
+            continue;
+        };
+        let Some(text) = obj.get(m.wire).and_then(Value::as_str) else {
+            continue;
+        };
+        let name = m.xml.unwrap_or(m.name);
+        if name.starts_with("xsi:") && !declared {
+            out.push_str(" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"");
+            declared = true;
+        }
+        out.push(' ');
+        out.push_str(name);
+        out.push_str("=\"");
+        escape(out, text);
+        out.push('"');
     }
 }
 
@@ -89,7 +119,16 @@ fn pair(
 /// A value of kind `m` written inside a tag called `tag`.
 fn tagged(t: &Tables, m: &MemberRef<'_>, tag: &str, v: &Value, out: &mut String, depth: usize) {
     match m.kind {
-        K_STRUCT | K_UNION => element(out, tag, |o| members(t, m.target, v, o, depth)),
+        K_STRUCT | K_UNION => {
+            out.push('<');
+            out.push_str(tag);
+            attributes(t, m.target, v, out);
+            out.push('>');
+            members(t, m.target, v, out, depth);
+            out.push_str("</");
+            out.push_str(tag);
+            out.push('>');
+        }
         K_LIST => element(out, tag, |o| {
             if let (Some(items), Some(e)) = (v.as_array(), t.member(m.target)) {
                 for item in items {

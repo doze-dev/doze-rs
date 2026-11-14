@@ -65,7 +65,7 @@ fn an_endpoint_that_cannot_confirm_waits_and_a_token_confirms_it() {
     let topic = w.topic("t");
     let said = w.ok(
         "Subscribe",
-        &json!({"TopicArn": topic, "Protocol": "https", "Endpoint": "https://example.com/hook"}),
+        &json!({"TopicArn": topic, "Protocol": "https", "Endpoint": "https://example.invalid/hook"}),
     );
     assert_eq!(said["SubscriptionArn"], "pending confirmation");
     let asked = w.ok("Subscribe", &json!({"TopicArn": topic, "Protocol": "email", "Endpoint": "a@example.com", "ReturnSubscriptionArn": true}));
