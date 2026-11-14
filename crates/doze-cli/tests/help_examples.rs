@@ -10,7 +10,7 @@
 #[path = "support/fixture.rs"]
 mod fixture;
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use doze_cli::Terminals;
 use doze_cli::cli::Cli;
 
@@ -54,6 +54,19 @@ fn every_example_in_help_parses() {
                 .next()
                 .unwrap();
             let argv: Vec<&str> = cmdline.split_whitespace().collect();
+            // An example under `doze wake --help` is a `doze wake` line (aliases included).
+            let sub = Cli::command();
+            let named = argv
+                .iter()
+                .skip(1)
+                .find(|a| !a.starts_with('-'))
+                .and_then(|w| sub.find_subcommand(w))
+                .map(|s| s.get_name().to_string());
+            assert_eq!(
+                named.as_deref(),
+                Some(*cmd),
+                "doze {cmd} --help shows {cmdline:?}"
+            );
             assert!(
                 Cli::try_parse_from(&argv).is_ok(),
                 "doze {cmd} --help shows {cmdline:?}, which doze does not accept"
