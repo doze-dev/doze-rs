@@ -346,3 +346,17 @@ use super::encode::write_message;
 fn enum_number(v: u64) -> i64 {
     i64::from(v as i32)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::base64;
+
+    /// Protojson writes `bytes` as standard base64 with padding (the shared encoder of `kafka-auth`).
+    #[test]
+    fn bytes_are_base64() {
+        assert_eq!(base64::encode(b""), "");
+        assert_eq!(base64::encode(b"h"), "aA==");
+        assert_eq!(base64::encode(b"hi"), "aGk=");
+        assert_eq!(base64::encode(b"hello"), "aGVsbG8=");
+    }
+}
