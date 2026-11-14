@@ -40,15 +40,27 @@ pub(crate) struct Error {
 
 impl Error {
     fn syntax(at: u32, msg: &str) -> Self {
-        Self { at: Some(at), msg: msg.to_owned(), syntax: true }
+        Self {
+            at: Some(at),
+            msg: msg.to_owned(),
+            syntax: true,
+        }
     }
 
     fn at(at: u32, msg: String) -> Self {
-        Self { at: Some(at), msg, syntax: false }
+        Self {
+            at: Some(at),
+            msg,
+            syntax: false,
+        }
     }
 
     fn plain(msg: String) -> Self {
-        Self { at: None, msg, syntax: false }
+        Self {
+            at: None,
+            msg,
+            syntax: false,
+        }
     }
 
     /// The message with its line and column in `src`, as Confluent words a syntax error (`Syntax error in :1:28:`).
@@ -87,7 +99,10 @@ impl SchemaFormat for Protobuf {
 /// Neither reading gives a schema; the message is about the text (or about the descriptor, when it is one).
 // fuzz:parser protobuf_schema
 pub fn parse(text: &str, refs: &[ResolvedRef]) -> Result<ProtobufSchema, String> {
-    let sources: Vec<(&str, &str)> = refs.iter().map(|r| (r.name.as_str(), r.text.as_str())).collect();
+    let sources: Vec<(&str, &str)> = refs
+        .iter()
+        .map(|r| (r.name.as_str(), r.text.as_str()))
+        .collect();
     let err = match read(text, &sources, false) {
         Ok(s) => return Ok(s),
         Err(e) => e,
@@ -99,7 +114,8 @@ pub fn parse(text: &str, refs: &[ResolvedRef]) -> Result<ProtobufSchema, String>
 }
 
 fn read(text: &str, sources: &[(&str, &str)], descriptor: bool) -> Result<ProtobufSchema, String> {
-    let ast = ast::parse(text).map_err(|e| format!("Could not parse Protobuf - {}", e.render(text)))?;
+    let ast =
+        ast::parse(text).map_err(|e| format!("Could not parse Protobuf - {}", e.render(text)))?;
     let pool = link::link(text, &ast, sources, descriptor)?;
     let file = pool.files.len().saturating_sub(1);
     Ok(ProtobufSchema {
@@ -115,7 +131,9 @@ impl ProtobufSchema {
     #[must_use]
     pub fn message_at(&self, indexes: &[usize]) -> Option<&str> {
         let (first, rest) = indexes.split_first()?;
-        let mut m = self.pool.msg(*self.pool.files.get(self.file)?.msgs.get(*first)?)?;
+        let mut m = self
+            .pool
+            .msg(*self.pool.files.get(self.file)?.msgs.get(*first)?)?;
         for i in rest {
             m = self.pool.msg(*m.nested.get(*i)?)?;
         }
@@ -129,7 +147,12 @@ impl ParsedSchema for ProtobufSchema {
         self.stored.clone()
     }
 
-    fn can_read(&self, writer: &dyn ParsedSchema, reader_is: Role, writer_is: Role) -> Vec<CompatReason> {
+    fn can_read(
+        &self,
+        writer: &dyn ParsedSchema,
+        reader_is: Role,
+        writer_is: Role,
+    ) -> Vec<CompatReason> {
         let Some(writer) = writer.as_any().downcast_ref::<Self>() else {
             return Vec::new();
         };

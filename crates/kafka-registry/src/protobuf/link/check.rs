@@ -42,42 +42,71 @@ fn is_bool(v: &Val) -> bool {
 impl Linker<'_> {
     pub(super) fn check_number(&self, n: i64, at: u32) -> Result<(), Error> {
         if !(1..=MAX_FIELD).contains(&n) {
-            return Err(Error::at(at, format!("field number {n} is out of range 1 to {MAX_FIELD}")));
+            return Err(Error::at(
+                at,
+                format!("field number {n} is out of range 1 to {MAX_FIELD}"),
+            ));
         }
         if (19000..=19999).contains(&n) {
-            return Err(Error::at(at, format!("field number {n} is reserved for the implementation (19000 to 19999)")));
+            return Err(Error::at(
+                at,
+                format!("field number {n} is reserved for the implementation (19000 to 19999)"),
+            ));
         }
         Ok(())
     }
 
     /// Options written somewhere `ctx` names (a letter of [`OPTION_TABLE`]), seen from `scope`.
-    pub(super) fn check_options(&self, u: &Unit<'_>, opts: &[Opt], ctx: &str, scope: &str) -> Result<(), Error> {
+    pub(super) fn check_options(
+        &self,
+        u: &Unit<'_>,
+        opts: &[Opt],
+        ctx: &str,
+        scope: &str,
+    ) -> Result<(), Error> {
         for o in opts {
             if let Some((name, true)) = o.name.first() {
-                if self.resolve(name, scope, u.file, |k| k == Kind::Extension).is_none() {
-                    return Err(Error::at(o.at, format!("option ({name}): unknown extension")));
+                if self
+                    .resolve(name, scope, u.file, |k| k == Kind::Extension)
+                    .is_none()
+                {
+                    return Err(Error::at(
+                        o.at,
+                        format!("option ({name}): unknown extension"),
+                    ));
                 }
                 continue;
             }
             let name = o.simple().unwrap_or_default();
             let found = OPTION_TABLE.split(';').find_map(|e| {
                 let mut w = e.split(' ');
-                (w.next() == Some(ctx) && w.next() == Some(name)).then(|| w.next().unwrap_or_default())
+                (w.next() == Some(ctx) && w.next() == Some(name))
+                    .then(|| w.next().unwrap_or_default())
             });
             let ok = match found {
                 None => {
-                    return Err(Error::at(o.at, format!(
-                        "option {}: google.protobuf.{} has no such option",
-                        o.name.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>().join("."),
-                        options_message(ctx)
-                    )));
+                    return Err(Error::at(
+                        o.at,
+                        format!(
+                            "option {}: google.protobuf.{} has no such option",
+                            o.name
+                                .iter()
+                                .map(|(n, _)| n.as_str())
+                                .collect::<Vec<_>>()
+                                .join("."),
+                            options_message(ctx)
+                        ),
+                    ));
                 }
                 Some("s") => matches!(o.val, Val::Str),
                 Some("b") => is_bool(&o.val),
                 Some(names) => matches!(&o.val, Val::Ident(v) if names.split(',').any(|n| n == v)),
             };
             if !ok {
-                return Err(Error::at(o.at, format!("option {name}: value of the wrong type")));
+                return Err(Error::at(
+                    o.at,
+                    format!("option {name}: value of the wrong type"),
+                ));
             }
         }
         Ok(())
@@ -92,7 +121,13 @@ impl Linker<'_> {
         Ok(())
     }
 
-    pub(super) fn check_field(&self, u: &Unit<'_>, f: &Field, fld: &Fld, scope: &str) -> Result<(), Error> {
+    pub(super) fn check_field(
+        &self,
+        u: &Unit<'_>,
+        f: &Field,
+        fld: &Fld,
+        scope: &str,
+    ) -> Result<(), Error> {
         let proto3 = self.proto3(u.file);
         let named = |m: &str| Error::at(f.at, format!("field {scope}.{}: {m}", f.name));
         if proto3 && f.label == Some(Label::Required) {
@@ -100,7 +135,9 @@ impl Linker<'_> {
         }
         let is_map = matches!(f.ty, super::TypeRef::Map(..));
         if !proto3 && f.label.is_none() && fld.oneof.is_none() && !is_map {
-            return Err(named("a label (optional, required or repeated) is required in proto2"));
+            return Err(named(
+                "a label (optional, required or repeated) is required in proto2",
+            ));
         }
         self.check_number(f.number, f.at)?;
         if let Ty::Enum(e) = fld.ty
@@ -112,8 +149,12 @@ impl Linker<'_> {
         let mut rest = Vec::new();
         for o in &f.opts {
             match o.simple() {
-                Some("default") => self.check_default(u, o, fld, proto3).map_err(|m| named(&m))?,
-                Some("json_name") if !matches!(o.val, Val::Str) => return Err(named("json_name must be a string")),
+                Some("default") => self
+                    .check_default(u, o, fld, proto3)
+                    .map_err(|m| named(&m))?,
+                Some("json_name") if !matches!(o.val, Val::Str) => {
+                    return Err(named("json_name must be a string"));
+                }
                 Some("json_name") => {}
                 Some("packed") => {
                     let packable = fld.card == Card::Repeated
@@ -121,7 +162,9 @@ impl Linker<'_> {
                         && !matches!(fld.ty, Ty::Scalar(9 | 12))
                         && !is_map;
                     if !packable {
-                        return Err(named("packed is only for repeated fields of numbers, bools or enums"));
+                        return Err(named(
+                            "packed is only for repeated fields of numbers, bools or enums",
+                        ));
                     }
                     rest.push(o);
                 }
@@ -144,7 +187,8 @@ impl Linker<'_> {
             Ty::Scalar(9 | 12) => matches!(o.val, Val::Str),
             Ty::Scalar(8) => is_bool(&o.val),
             Ty::Scalar(1 | 2) => {
-                matches!(&o.val, Val::Num(..)) || matches!(&o.val, Val::Ident(v) if v == "inf" || v == "nan")
+                matches!(&o.val, Val::Num(..))
+                    || matches!(&o.val, Val::Ident(v) if v == "inf" || v == "nan")
             }
             Ty::Scalar(t) => {
                 let unsigned = matches!(t, 4 | 6 | 7 | 13);
@@ -154,10 +198,20 @@ impl Linker<'_> {
                 matches!(&o.val, Val::Ident(v) if self.pool.enums.get(e).is_some_and(|e| e.values.contains(v)))
             }
         };
-        if ok { Ok(()) } else { Err("the default value does not fit the field".into()) }
+        if ok {
+            Ok(())
+        } else {
+            Err("the default value does not fit the field".into())
+        }
     }
 
-    pub(super) fn check_message(&self, u: &Unit<'_>, i: usize, items: &[Item], at: u32) -> Result<(), Error> {
+    pub(super) fn check_message(
+        &self,
+        u: &Unit<'_>,
+        i: usize,
+        items: &[Item],
+        at: u32,
+    ) -> Result<(), Error> {
         let Some(m) = self.pool.msg(i) else {
             return Ok(());
         };
@@ -167,7 +221,10 @@ impl Linker<'_> {
             if let Item::Reserved(r) = item {
                 for (a, b) in ranges_of(r, MAX_FIELD) {
                     if a < 1 || a > b || b > MAX_FIELD {
-                        return Err(Error::at(r.at, format!("reserved range {a} to {b} is not valid")));
+                        return Err(Error::at(
+                            r.at,
+                            format!("reserved range {a} to {b} is not valid"),
+                        ));
                     }
                     reserved.push((a, b));
                 }
@@ -177,9 +234,14 @@ impl Linker<'_> {
         let proto3 = self.proto3(u.file);
         for (n, f) in m.fields.iter().enumerate() {
             let num = i64::from(f.number);
-            let clash = |what: String| Error::at(at, format!("message {}: field {} {what}", m.full, f.name));
+            let clash = |what: String| {
+                Error::at(at, format!("message {}: field {} {what}", m.full, f.name))
+            };
             if let Some(g) = m.fields.iter().take(n).find(|g| g.number == f.number) {
-                return Err(clash(format!("uses number {} already used by {}", f.number, g.name)));
+                return Err(clash(format!(
+                    "uses number {} already used by {}",
+                    f.number, g.name
+                )));
             }
             if reserved.iter().any(|&(a, b)| a <= num && num <= b) {
                 return Err(clash(format!("uses reserved number {num}")));
@@ -191,7 +253,11 @@ impl Linker<'_> {
                 return Err(clash(format!("uses number {num}, in an extension range")));
             }
             if proto3
-                && let Some(g) = m.fields.iter().take(n).find(|g| json_name(&g.name) == json_name(&f.name))
+                && let Some(g) = m
+                    .fields
+                    .iter()
+                    .take(n)
+                    .find(|g| json_name(&g.name) == json_name(&f.name))
             {
                 return Err(clash(format!("has the JSON name of field {}", g.name)));
             }
@@ -208,7 +274,10 @@ impl Linker<'_> {
             match d {
                 EnumItem::Value(v) => {
                     if i32::try_from(v.number).is_err() {
-                        return Err(Error::at(v.at, format!("enum value {} is out of range", v.name)));
+                        return Err(Error::at(
+                            v.at,
+                            format!("enum value {} is out of range", v.name),
+                        ));
                     }
                     self.check_options(u, &v.opts, "V", &e.name)?;
                     values.push((&v.name, v.number, v.at));
@@ -218,7 +287,8 @@ impl Linker<'_> {
                     names.extend(r.names.iter());
                 }
                 EnumItem::Option(o) => {
-                    alias |= o.simple() == Some("allow_alias") && matches!(&o.val, Val::Ident(v) if v == "true");
+                    alias |= o.simple() == Some("allow_alias")
+                        && matches!(&o.val, Val::Ident(v) if v == "true");
                     self.check_options(u, std::slice::from_ref(o), "E", &e.name)?;
                 }
             }
@@ -234,11 +304,18 @@ impl Linker<'_> {
         for (n, &(name, num, at)) in values.iter().enumerate() {
             if values.iter().take(n).any(|v| v.1 == num) {
                 if !alias {
-                    return Err(Error::at(at, format!("enum value {name} reuses number {num}; set allow_alias to allow it")));
+                    return Err(Error::at(
+                        at,
+                        format!(
+                            "enum value {name} reuses number {num}; set allow_alias to allow it"
+                        ),
+                    ));
                 }
                 aliased = true;
             }
-            if reserved.iter().any(|&(a, b)| a <= num && num <= b) || names.iter().any(|r| *r == name) {
+            if reserved.iter().any(|&(a, b)| a <= num && num <= b)
+                || names.iter().any(|r| *r == name)
+            {
                 return Err(Error::at(at, format!("enum value {name} is reserved")));
             }
         }

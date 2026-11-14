@@ -12,26 +12,43 @@ macro_rules! p3 {
 
 const FILES: &[(&str, &str)] = &[
     ("any", p3!("message Any{string type_url=1;bytes value=2;}")),
-    ("duration", p3!("message Duration{int64 seconds=1;int32 nanos=2;}")),
-    ("timestamp", p3!("message Timestamp{int64 seconds=1;int32 nanos=2;}")),
+    (
+        "duration",
+        p3!("message Duration{int64 seconds=1;int32 nanos=2;}"),
+    ),
+    (
+        "timestamp",
+        p3!("message Timestamp{int64 seconds=1;int32 nanos=2;}"),
+    ),
     ("empty", p3!("message Empty{}")),
-    ("field_mask", p3!("message FieldMask{repeated string paths=1;}")),
-    ("source_context", p3!("message SourceContext{string file_name=1;}")),
+    (
+        "field_mask",
+        p3!("message FieldMask{repeated string paths=1;}"),
+    ),
+    (
+        "source_context",
+        p3!("message SourceContext{string file_name=1;}"),
+    ),
     (
         "struct",
-        p3!("message Struct{map<string,Value> fields=1;}message Value{oneof kind{NullValue null_value=1;\
+        p3!(
+            "message Struct{map<string,Value> fields=1;}message Value{oneof kind{NullValue null_value=1;\
 double number_value=2;string string_value=3;bool bool_value=4;Struct struct_value=5;ListValue list_value=6;}}\
-enum NullValue{NULL_VALUE=0;}message ListValue{repeated Value values=1;}"),
+enum NullValue{NULL_VALUE=0;}message ListValue{repeated Value values=1;}"
+        ),
     ),
     (
         "wrappers",
-        p3!("message DoubleValue{double value=1;}message FloatValue{float value=1;}message Int64Value{int64 value=1;}\
+        p3!(
+            "message DoubleValue{double value=1;}message FloatValue{float value=1;}message Int64Value{int64 value=1;}\
 message UInt64Value{uint64 value=1;}message Int32Value{int32 value=1;}message UInt32Value{uint32 value=1;}\
-message BoolValue{bool value=1;}message StringValue{string value=1;}message BytesValue{bytes value=1;}"),
+message BoolValue{bool value=1;}message StringValue{string value=1;}message BytesValue{bytes value=1;}"
+        ),
     ),
     (
         "type",
-        p3!("import \"google/protobuf/any.proto\";import \"google/protobuf/source_context.proto\";\
+        p3!(
+            "import \"google/protobuf/any.proto\";import \"google/protobuf/source_context.proto\";\
 message Type{string name=1;repeated Field fields=2;repeated string oneofs=3;repeated Option options=4;\
 SourceContext source_context=5;Syntax syntax=6;string edition=7;}\
 message Field{enum Kind{TYPE_UNKNOWN=0;TYPE_DOUBLE=1;TYPE_FLOAT=2;TYPE_INT64=3;TYPE_UINT64=4;TYPE_INT32=5;\
@@ -43,15 +60,18 @@ bool packed=8;repeated Option options=9;string json_name=10;string default_value
 message Enum{string name=1;repeated EnumValue enumvalue=2;repeated Option options=3;\
 SourceContext source_context=4;Syntax syntax=5;string edition=6;}\
 message EnumValue{string name=1;int32 number=2;repeated Option options=3;}\
-message Option{string name=1;Any value=2;}enum Syntax{SYNTAX_PROTO2=0;SYNTAX_PROTO3=1;SYNTAX_EDITIONS=2;}"),
+message Option{string name=1;Any value=2;}enum Syntax{SYNTAX_PROTO2=0;SYNTAX_PROTO3=1;SYNTAX_EDITIONS=2;}"
+        ),
     ),
     (
         "api",
-        p3!("import \"google/protobuf/source_context.proto\";import \"google/protobuf/type.proto\";\
+        p3!(
+            "import \"google/protobuf/source_context.proto\";import \"google/protobuf/type.proto\";\
 message Api{string name=1;repeated Method methods=2;repeated Option options=3;string version=4;\
 SourceContext source_context=5;repeated Mixin mixins=6;Syntax syntax=7;}\
 message Method{string name=1;string request_type_url=2;bool request_streaming=3;string response_type_url=4;\
-bool response_streaming=5;repeated Option options=6;Syntax syntax=7;}message Mixin{string name=1;string root=2;}"),
+bool response_streaming=5;repeated Option options=6;Syntax syntax=7;}message Mixin{string name=1;string root=2;}"
+        ),
     ),
 ];
 
@@ -68,7 +88,9 @@ message ExtensionRangeOptions{extensions 1000 to max;}";
 
 /// The text of a well-known file, by its import path.
 pub(super) fn source(path: &str) -> Option<&'static str> {
-    let name = path.strip_prefix("google/protobuf/")?.strip_suffix(".proto")?;
+    let name = path
+        .strip_prefix("google/protobuf/")?
+        .strip_suffix(".proto")?;
     if name == "descriptor" {
         return Some(DESCRIPTOR);
     }

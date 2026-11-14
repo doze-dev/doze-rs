@@ -205,7 +205,13 @@ impl Printer {
         let (public, weak) = (ints(fd, 10), ints(fd, 11));
         for (i, dep) in all(fd, 3).enumerate() {
             let i = i64::try_from(i).ok()?;
-            let m = if weak.contains(&i) { "weak " } else if public.contains(&i) { "public " } else { "" };
+            let m = if weak.contains(&i) {
+                "weak "
+            } else if public.contains(&i) {
+                "public "
+            } else {
+                ""
+            };
             let _ = writeln!(self.out, "import {m}{};", quote(&text(dep)?));
         }
         if let Some(o) = get(fd, 8).and_then(sub) {
@@ -217,7 +223,11 @@ impl Printer {
                 (23, "deprecated", false),
                 (37, "csharp_namespace", true),
             ] {
-                let v = if is_text { get_text(&o, n).map(|t| quote(&t)) } else { get_bool(&o, n).map(|b| b.to_string()) };
+                let v = if is_text {
+                    get_text(&o, n).map(|t| quote(&t))
+                } else {
+                    get_bool(&o, n).map(|b| b.to_string())
+                };
                 if let Some(v) = v {
                     let _ = writeln!(self.out, "option {name} = {v};");
                 }
@@ -239,7 +249,13 @@ impl Printer {
         let _ = writeln!(self.out, "service {} {{", get_text(s, 1)?);
         for m in all(s, 2) {
             let m = sub(m)?;
-            let stream = |n| if get_bool(&m, n) == Some(true) { "stream " } else { "" };
+            let stream = |n| {
+                if get_bool(&m, n) == Some(true) {
+                    "stream "
+                } else {
+                    ""
+                }
+            };
             let _ = writeln!(
                 self.out,
                 "  rpc {} ({}{}) returns ({}{});",
@@ -272,7 +288,11 @@ impl Printer {
         for r in all(m, 9) {
             let r = sub(r)?;
             let (a, b) = (get(&r, 1).and_then(int)?, get(&r, 2).and_then(int)? - 1);
-            let to = if a == b { String::new() } else { format!(" to {b}") };
+            let to = if a == b {
+                String::new()
+            } else {
+                format!(" to {b}")
+            };
             let _ = writeln!(self.out, "{pad}  reserved {a}{to};");
         }
         for r in all(m, 10) {
@@ -285,7 +305,10 @@ impl Printer {
         }
         for (i, o) in all(m, 8).enumerate() {
             let i = i64::try_from(i).ok()?;
-            let members: Vec<_> = fs.iter().filter(|f| in_oneof(f) && get(f, 9).and_then(int) == Some(i)).collect();
+            let members: Vec<_> = fs
+                .iter()
+                .filter(|f| in_oneof(f) && get(f, 9).and_then(int) == Some(i))
+                .collect();
             if members.is_empty() {
                 continue; // the synthetic oneof of a proto3 optional
             }
@@ -340,7 +363,12 @@ impl Printer {
             [one] => format!(" [{one}]"),
             _ => format!(" [\n{pad}  {}\n{pad}]", opts.join(&format!(",\n{pad}  "))),
         };
-        let _ = writeln!(self.out, "{pad}{prefix}{type_name} {} = {}{o};", get_text(f, 1)?, get(f, 3).and_then(int)?);
+        let _ = writeln!(
+            self.out,
+            "{pad}{prefix}{type_name} {} = {}{o};",
+            get_text(f, 1)?,
+            get(f, 3).and_then(int)?
+        );
         Some(())
     }
 
@@ -353,7 +381,12 @@ impl Printer {
         for v in all(e, 2) {
             let v = sub(v)?;
             let n = get(&v, 2).and_then(int).unwrap_or(0);
-            let _ = writeln!(self.out, "{pad}  {} = {};", get_text(&v, 1)?, i32::try_from(n).ok()?);
+            let _ = writeln!(
+                self.out,
+                "{pad}  {} = {};",
+                get_text(&v, 1)?,
+                i32::try_from(n).ok()?
+            );
         }
         let _ = writeln!(self.out, "{pad}}}");
         Some(())

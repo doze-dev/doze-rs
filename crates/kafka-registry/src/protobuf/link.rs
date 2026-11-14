@@ -23,8 +23,8 @@ pub(super) enum Ty {
 
 /// The scalar types, at their descriptor type numbers (10, 11 and 14 are group, message and enum).
 pub(super) const SCALARS: [&str; 19] = [
-    "", "double", "float", "int64", "uint64", "int32", "fixed64", "fixed32", "bool", "string", "", "", "bytes",
-    "uint32", "", "sfixed32", "sfixed64", "sint32", "sint64",
+    "", "double", "float", "int64", "uint64", "int32", "fixed64", "fixed32", "bool", "string", "",
+    "", "bytes", "uint32", "", "sfixed32", "sfixed64", "sint32", "sint64",
 ];
 
 fn scalar(name: &str) -> Option<u8> {
@@ -135,7 +135,12 @@ struct Unit<'a> {
 ///
 /// # Errors
 /// An import not found, or a rule of the language broken; the message says where.
-pub(super) fn link(src: &str, ast: &File, sources: &[(&str, &str)], descriptor: bool) -> Result<Pool, String> {
+pub(super) fn link(
+    src: &str,
+    ast: &File,
+    sources: &[(&str, &str)],
+    descriptor: bool,
+) -> Result<Pool, String> {
     let mut l = Linker {
         pool: Pool::default(),
         sources,
@@ -203,7 +208,9 @@ impl Linker<'_> {
                 self.missing.get_or_insert(path.to_owned());
                 self.descriptor.then_some("")
             })
-            .ok_or_else(|| format!("import \"{path}\" was not found: no reference has that name"))?;
+            .ok_or_else(|| {
+                format!("import \"{path}\" was not found: no reference has that name")
+            })?;
         self.loading.push(path.to_owned());
         let ast = parse(src).map_err(|e| format!("{path}: {}", e.render(src)))?;
         self.load_deps(&ast)?;
@@ -233,7 +240,12 @@ impl Linker<'_> {
                     let Some(&(_, f)) = self.parsed.iter().find(|(q, _)| q == p) else {
                         return Err(format!("import \"{p}\" was not found"));
                     };
-                    let reach = self.pool.files.get(f).map(|x| x.public.clone()).unwrap_or_default();
+                    let reach = self
+                        .pool
+                        .files
+                        .get(f)
+                        .map(|x| x.public.clone())
+                        .unwrap_or_default();
                     info.visible.push(f);
                     info.visible.extend(&reach);
                     if *kind == "public" {
@@ -250,15 +262,35 @@ impl Linker<'_> {
 
     /// Declares every name of a file, then links what refers to names.
     fn unit(&mut self, u: &Unit<'_>, check: bool) -> Result<(), Error> {
-        let package = self.pool.files.get(u.file).map(|f| f.package.clone()).unwrap_or_default();
+        let package = self
+            .pool
+            .files
+            .get(u.file)
+            .map(|f| f.package.clone())
+            .unwrap_or_default();
         let mut scope = String::new();
         for part in package.split('.').filter(|p| !p.is_empty()) {
             scope = join(&scope, part);
-            if let Some(s) = self.pool.syms.get(&scope).filter(|s| s.kind != Kind::Package) {
+            if let Some(s) = self
+                .pool
+                .syms
+                .get(&scope)
+                .filter(|s| s.kind != Kind::Package)
+            {
                 let _ = s;
-                return Err(Error::at(0, format!("package {scope} clashes with a type of that name")));
+                return Err(Error::at(
+                    0,
+                    format!("package {scope} clashes with a type of that name"),
+                ));
             }
-            self.pool.syms.insert(scope.clone(), Sym { kind: Kind::Package, file: u.file, idx: 0 });
+            self.pool.syms.insert(
+                scope.clone(),
+                Sym {
+                    kind: Kind::Package,
+                    file: u.file,
+                    idx: 0,
+                },
+            );
         }
         let mut work = Vec::new();
         for d in &u.ast.decls {
@@ -292,13 +324,22 @@ impl Linker<'_> {
         Ok(())
     }
 
-    fn declare(&mut self, full: &str, kind: Kind, file: usize, idx: usize, at: u32) -> Result<(), Error> {
+    fn declare(
+        &mut self,
+        full: &str,
+        kind: Kind,
+        file: usize,
+        idx: usize,
+        at: u32,
+    ) -> Result<(), Error> {
         if let Some(old) = self.pool.syms.get(full)
             && !(old.kind == Kind::Package && kind == Kind::Package)
         {
             return Err(Error::at(at, format!("\"{full}\" is already defined")));
         }
-        self.pool.syms.insert(full.to_owned(), Sym { kind, file, idx });
+        self.pool
+            .syms
+            .insert(full.to_owned(), Sym { kind, file, idx });
         Ok(())
     }
 
@@ -317,14 +358,27 @@ impl Linker<'_> {
         Ok(i)
     }
 
-    fn message<'a>(&mut self, file: usize, scope: &str, m: &'a Message, work: &mut Vec<Work<'a>>) -> Result<usize, Error> {
+    fn message<'a>(
+        &mut self,
+        file: usize,
+        scope: &str,
+        m: &'a Message,
+        work: &mut Vec<Work<'a>>,
+    ) -> Result<usize, Error> {
         let i = self.new_msg(join(scope, &m.name), file, m.at)?;
         self.body(file, i, &m.body, m.at, work)?;
         Ok(i)
     }
 
     /// Declares what a message body declares: nested types, groups and map entries (as messages), fields and oneofs.
-    fn body<'a>(&mut self, file: usize, i: usize, items: &'a [Item], at: u32, work: &mut Vec<Work<'a>>) -> Result<(), Error> {
+    fn body<'a>(
+        &mut self,
+        file: usize,
+        i: usize,
+        items: &'a [Item],
+        at: u32,
+        work: &mut Vec<Work<'a>>,
+    ) -> Result<(), Error> {
         let full = self.pool.msg(i).map(|m| m.full.clone()).unwrap_or_default();
         work.push(Work::Body(i, items, at));
         for item in items {
@@ -333,7 +387,14 @@ impl Linker<'_> {
         Ok(())
     }
 
-    fn body_item<'a>(&mut self, file: usize, i: usize, full: &str, item: &'a Item, work: &mut Vec<Work<'a>>) -> Result<(), Error> {
+    fn body_item<'a>(
+        &mut self,
+        file: usize,
+        i: usize,
+        full: &str,
+        item: &'a Item,
+        work: &mut Vec<Work<'a>>,
+    ) -> Result<(), Error> {
         let nest = |l: &mut Self, n: usize| {
             if let Some(m) = l.pool.msgs.get_mut(i) {
                 m.nested.push(n);
@@ -358,9 +419,18 @@ impl Linker<'_> {
             }
             Item::Group(g) => {
                 if !g.name.starts_with(|c: char| c.is_ascii_uppercase()) {
-                    return Err(Error::at(g.at, format!("group {} must start with a capital letter", g.name)));
+                    return Err(Error::at(
+                        g.at,
+                        format!("group {} must start with a capital letter", g.name),
+                    ));
                 }
-                self.declare(&join(full, &g.name.to_ascii_lowercase()), Kind::Field, file, 0, g.at)?;
+                self.declare(
+                    &join(full, &g.name.to_ascii_lowercase()),
+                    Kind::Field,
+                    file,
+                    0,
+                    g.at,
+                )?;
                 let n = self.new_msg(join(full, &g.name), file, g.at)?;
                 nest(self, n);
                 self.body(file, n, &g.body, g.at, work)?;
@@ -377,7 +447,13 @@ impl Linker<'_> {
         Ok(())
     }
 
-    fn enumeration<'a>(&mut self, file: usize, scope: &str, e: &'a Enum, work: &mut Vec<Work<'a>>) -> Result<(), Error> {
+    fn enumeration<'a>(
+        &mut self,
+        file: usize,
+        scope: &str,
+        e: &'a Enum,
+        work: &mut Vec<Work<'a>>,
+    ) -> Result<(), Error> {
         let full = join(scope, &e.name);
         let i = self.pool.enums.len();
         self.declare(&full, Kind::Enum, file, i, e.at)?;
@@ -414,12 +490,22 @@ impl Linker<'_> {
     fn sees(&self, file: usize, s: &Sym) -> bool {
         s.kind == Kind::Package
             || s.file == file
-            || self.pool.files.get(file).is_some_and(|f| f.visible.contains(&s.file))
+            || self
+                .pool
+                .files
+                .get(file)
+                .is_some_and(|f| f.visible.contains(&s.file))
     }
 
     /// Resolves `name` from `scope` as Protobuf does: the innermost scope that has its first part decides.
     fn resolve(&self, name: &str, scope: &str, file: usize, want: fn(Kind) -> bool) -> Option<Sym> {
-        let find = |full: &str| self.pool.syms.get(full).copied().filter(|s| self.sees(file, s));
+        let find = |full: &str| {
+            self.pool
+                .syms
+                .get(full)
+                .copied()
+                .filter(|s| self.sees(file, s))
+        };
         if let Some(abs) = name.strip_prefix('.') {
             return find(abs).filter(|s| want(s.kind));
         }
@@ -428,7 +514,10 @@ impl Linker<'_> {
         loop {
             if let Some(s) = find(&join(&scope, first)) {
                 if first.len() < name.len() {
-                    if matches!(s.kind, Kind::Package | Kind::Message | Kind::Enum | Kind::Service) {
+                    if matches!(
+                        s.kind,
+                        Kind::Package | Kind::Message | Kind::Enum | Kind::Service
+                    ) {
                         return find(&join(&scope, name)).filter(|s| want(s.kind));
                     }
                 } else if want(s.kind) {
@@ -438,7 +527,9 @@ impl Linker<'_> {
             if scope.is_empty() {
                 return None;
             }
-            scope = scope.rfind('.').map_or(String::new(), |i| scope.get(..i).unwrap_or_default().to_owned());
+            scope = scope.rfind('.').map_or(String::new(), |i| {
+                scope.get(..i).unwrap_or_default().to_owned()
+            });
         }
     }
 
@@ -456,22 +547,42 @@ impl Linker<'_> {
             return Ok(Ty::Scalar(t));
         }
         let s = self
-            .resolve(name, scope, file, |k| matches!(k, Kind::Message | Kind::Enum))
+            .resolve(name, scope, file, |k| {
+                matches!(k, Kind::Message | Kind::Enum)
+            })
             .ok_or_else(|| self.unresolved(name, at))?;
-        Ok(if s.kind == Kind::Enum { Ty::Enum(s.idx) } else { Ty::Message(s.idx) })
+        Ok(if s.kind == Kind::Enum {
+            Ty::Enum(s.idx)
+        } else {
+            Ty::Message(s.idx)
+        })
     }
 
     fn work(&mut self, u: &Unit<'_>, w: &Work<'_>, check: bool) -> Result<(), Error> {
         match w {
             Work::Body(i, items, at) => self.link_body(u, *i, items, *at, check),
             Work::Map(i, k, v, at) => {
-                let scope = self.pool.msg(*i).map(|m| m.full.clone()).unwrap_or_default();
+                let scope = self
+                    .pool
+                    .msg(*i)
+                    .map(|m| m.full.clone())
+                    .unwrap_or_default();
                 let key = self.ty(k, &scope, u.file, *at)?;
                 if check && !matches!(key, Ty::Scalar(t) if !matches!(t, 1 | 2 | 12)) {
-                    return Err(Error::at(*at, format!("map key type {k} is not an integer, bool or string")));
+                    return Err(Error::at(
+                        *at,
+                        format!("map key type {k} is not an integer, bool or string"),
+                    ));
                 }
                 let val = self.ty(v, &scope, u.file, *at)?;
-                let field = |name: &str, number, ty| Fld { name: name.to_owned(), number, card: Card::Optional, explicit: false, ty, oneof: None };
+                let field = |name: &str, number, ty| Fld {
+                    name: name.to_owned(),
+                    number,
+                    card: Card::Optional,
+                    explicit: false,
+                    ty,
+                    oneof: None,
+                };
                 if let Some(m) = self.pool.msgs.get_mut(*i) {
                     m.fields = vec![field("key", 1, key), field("value", 2, val)];
                 }
@@ -488,7 +599,10 @@ impl Linker<'_> {
                 let full = join(scope, &s.name);
                 for r in &s.rpcs {
                     for (_, t, span) in [&r.input, &r.output] {
-                        if self.resolve(t, &full, u.file, |k| k == Kind::Message).is_none() {
+                        if self
+                            .resolve(t, &full, u.file, |k| k == Kind::Message)
+                            .is_none()
+                        {
                             return Err(self.unresolved(t, span.0));
                         }
                     }
@@ -509,7 +623,14 @@ impl Linker<'_> {
     }
 
     /// The fields of a message (and of its oneofs), linked and checked.
-    fn link_body(&mut self, u: &Unit<'_>, i: usize, items: &[Item], at: u32, check: bool) -> Result<(), Error> {
+    fn link_body(
+        &mut self,
+        u: &Unit<'_>,
+        i: usize,
+        items: &[Item],
+        at: u32,
+        check: bool,
+    ) -> Result<(), Error> {
         let full = self.pool.msg(i).map(|m| m.full.clone()).unwrap_or_default();
         let mut fields = Vec::new();
         let mut oneofs = Vec::new();
@@ -524,9 +645,15 @@ impl Linker<'_> {
                     let before = fields.len();
                     for d in &o.body {
                         match d {
-                            Item::Field(f) => fields.push(self.field(u, f, &full, Some(n), check)?),
-                            Item::Group(g) => fields.push(self.group(u, g, &full, Some(n), check)?),
-                            Item::Option(op) if check => self.check_options(u, std::slice::from_ref(op), "O", &full)?,
+                            Item::Field(f) => {
+                                fields.push(self.field(u, f, &full, Some(n), check)?)
+                            }
+                            Item::Group(g) => {
+                                fields.push(self.group(u, g, &full, Some(n), check)?)
+                            }
+                            Item::Option(op) if check => {
+                                self.check_options(u, std::slice::from_ref(op), "O", &full)?
+                            }
                             _ => {}
                         }
                     }
@@ -536,14 +663,23 @@ impl Linker<'_> {
                 }
                 Item::Extensions(r, opts) => {
                     if check && self.proto3(u.file) {
-                        return Err(Error::at(r.at, "extension ranges are not allowed in proto3".into()));
+                        return Err(Error::at(
+                            r.at,
+                            "extension ranges are not allowed in proto3".into(),
+                        ));
                     }
                     if check {
                         self.check_options(u, opts, "X", &full)?;
                     }
-                    ranges.extend(r.ranges.iter().map(|&(a, b)| (a, if b == MAX_WORD { MAX_FIELD } else { b })));
+                    ranges.extend(
+                        r.ranges
+                            .iter()
+                            .map(|&(a, b)| (a, if b == MAX_WORD { MAX_FIELD } else { b })),
+                    );
                 }
-                Item::Option(o) if check => self.check_options(u, std::slice::from_ref(o), "M", &full)?,
+                Item::Option(o) if check => {
+                    self.check_options(u, std::slice::from_ref(o), "M", &full)?
+                }
                 _ => {}
             }
         }
@@ -558,7 +694,14 @@ impl Linker<'_> {
         Ok(())
     }
 
-    fn field(&self, u: &Unit<'_>, f: &Field, scope: &str, oneof: Option<usize>, check: bool) -> Result<Fld, Error> {
+    fn field(
+        &self,
+        u: &Unit<'_>,
+        f: &Field,
+        scope: &str,
+        oneof: Option<usize>,
+        check: bool,
+    ) -> Result<Fld, Error> {
         let (ty, card) = match &f.ty {
             TypeRef::Named(n, _) => (self.ty(n, scope, u.file, f.at)?, card(f.label)),
             TypeRef::Map(..) => {
@@ -585,12 +728,22 @@ impl Linker<'_> {
         Ok(fld)
     }
 
-    fn group(&self, u: &Unit<'_>, g: &super::ast::Group, scope: &str, oneof: Option<usize>, check: bool) -> Result<Fld, Error> {
+    fn group(
+        &self,
+        u: &Unit<'_>,
+        g: &super::ast::Group,
+        scope: &str,
+        oneof: Option<usize>,
+        check: bool,
+    ) -> Result<Fld, Error> {
         if check && self.proto3(u.file) {
             return Err(Error::at(g.at, "groups are not allowed in proto3".into()));
         }
         if check && g.label.is_none() && oneof.is_none() {
-            return Err(Error::at(g.at, format!("group {}: a label is required in proto2", g.name)));
+            return Err(Error::at(
+                g.at,
+                format!("group {}: a label is required in proto2", g.name),
+            ));
         }
         let s = self
             .pool
@@ -619,14 +772,23 @@ impl Linker<'_> {
         let Some(m) = self.pool.msg(target.idx) else {
             return Ok(());
         };
-        if check && self.proto3(u.file) && !(m.full.starts_with("google.protobuf.") && m.full.ends_with("Options")) {
-            return Err(Error::at(e.at, "extensions in proto3 may only define custom options".into()));
+        if check
+            && self.proto3(u.file)
+            && !(m.full.starts_with("google.protobuf.") && m.full.ends_with("Options"))
+        {
+            return Err(Error::at(
+                e.at,
+                "extensions in proto3 may only define custom options".into(),
+            ));
         }
         for item in &e.body {
             let (number, at) = match item {
                 Item::Field(f) => {
                     if matches!(f.ty, TypeRef::Map(..)) || f.label == Some(Label::Required) {
-                        return Err(Error::at(f.at, "an extension may not be a map or required".into()));
+                        return Err(Error::at(
+                            f.at,
+                            "an extension may not be a map or required".into(),
+                        ));
                     }
                     self.field(u, f, scope, None, check)?;
                     (f.number, f.at)
@@ -634,8 +796,16 @@ impl Linker<'_> {
                 Item::Group(g) => (g.number, g.at),
                 _ => continue,
             };
-            if check && !m.ext_ranges.iter().any(|&(a, b)| a <= number && number <= b) {
-                return Err(Error::at(at, format!("{} has no extension range for number {number}", m.full)));
+            if check
+                && !m
+                    .ext_ranges
+                    .iter()
+                    .any(|&(a, b)| a <= number && number <= b)
+            {
+                return Err(Error::at(
+                    at,
+                    format!("{} has no extension range for number {number}", m.full),
+                ));
             }
         }
         Ok(())
@@ -689,5 +859,7 @@ mod check;
 
 /// A reserved statement's ranges, `max` made `max`.
 fn ranges_of(r: &Reserved, max: i64) -> impl Iterator<Item = (i64, i64)> + '_ {
-    r.ranges.iter().map(move |&(a, b)| (a, if b == MAX_WORD { max } else { b }))
+    r.ranges
+        .iter()
+        .map(move |&(a, b)| (a, if b == MAX_WORD { max } else { b }))
 }

@@ -84,8 +84,8 @@ pub(super) fn lex(src: &str) -> Result<Vec<Token>, Error> {
                 }
                 Tok::Ident
             }
-            b'=' | b';' | b'{' | b'}' | b'[' | b']' | b'(' | b')' | b'<' | b'>' | b',' | b'.' | b':'
-            | b'-' | b'+' | b'/' => {
+            b'=' | b';' | b'{' | b'}' | b'[' | b']' | b'(' | b')' | b'<' | b'>' | b',' | b'.'
+            | b':' | b'-' | b'+' | b'/' => {
                 i += 1;
                 Tok::Punct(c)
             }

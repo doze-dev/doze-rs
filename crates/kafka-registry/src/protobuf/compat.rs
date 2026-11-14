@@ -14,7 +14,9 @@ use crate::format::{CompatReason, Role};
 /// Confluent's sentence by change type, the reader written as the new schema.
 fn sentence(kind: &str) -> Option<&'static str> {
     Some(match kind {
-        "FIELD_KIND_CHANGED" => "The type of a field at path '{}' in the new schema does not match the old schema",
+        "FIELD_KIND_CHANGED" => {
+            "The type of a field at path '{}' in the new schema does not match the old schema"
+        }
         "FIELD_MOVED_TO_EXISTING_ONEOF" => {
             "A field in the oneof at path '{}' in the new schema is outside an existing oneof in the old schema"
         }
@@ -27,14 +29,24 @@ fn sentence(kind: &str) -> Option<&'static str> {
         "FIELD_SCALAR_KIND_CHANGED" => {
             "The kind of a SCALAR field at path '{}' in the new schema does not match its kind in the old schema"
         }
-        "MESSAGE_REMOVED" => "The new schema is missing a MESSAGE type at path '{}' in the old schema",
+        "MESSAGE_REMOVED" => {
+            "The new schema is missing a MESSAGE type at path '{}' in the old schema"
+        }
         "MULTIPLE_FIELDS_MOVED_TO_ONEOF" => {
             "Multiple fields in the oneof at path '{}' in the new schema are outside a oneof in the old schema"
         }
-        "ONEOF_FIELD_REMOVED" => "The new schema is missing a oneof field at path '{}' in the old schema",
-        "PACKAGE_CHANGED" => "The package at '{}' in the new schema does not match the package in the old schema",
-        "REQUIRED_FIELD_ADDED" => "A required field  at path '{}' in the new schema is missing in the old schema",
-        "REQUIRED_FIELD_REMOVED" => "The new schema is missing a required field at path: '{}' in the old schema",
+        "ONEOF_FIELD_REMOVED" => {
+            "The new schema is missing a oneof field at path '{}' in the old schema"
+        }
+        "PACKAGE_CHANGED" => {
+            "The package at '{}' in the new schema does not match the package in the old schema"
+        }
+        "REQUIRED_FIELD_ADDED" => {
+            "A required field  at path '{}' in the new schema is missing in the old schema"
+        }
+        "REQUIRED_FIELD_REMOVED" => {
+            "The new schema is missing a required field at path: '{}' in the old schema"
+        }
         _ => return None,
     })
 }
@@ -63,7 +75,11 @@ impl<'a> Side<'a> {
             let Some(m) = self.pool.msg(i).filter(|m| !m.map_entry) else {
                 continue;
             };
-            let name = if f.package.is_empty() { &m.full } else { m.full.strip_prefix(&prefix).unwrap_or(&m.full) };
+            let name = if f.package.is_empty() {
+                &m.full
+            } else {
+                m.full.strip_prefix(&prefix).unwrap_or(&m.full)
+            };
             out.insert(name.to_owned(), m);
             todo.extend(&m.nested);
         }
@@ -86,9 +102,17 @@ impl<'a> Side<'a> {
             return String::new();
         };
         if m.file == self.file
-            && let Some(p) = self.pool.files.get(self.file).filter(|f| !f.package.is_empty())
+            && let Some(p) = self
+                .pool
+                .files
+                .get(self.file)
+                .filter(|f| !f.package.is_empty())
         {
-            return m.full.strip_prefix(&format!("{}.", p.package)).unwrap_or(&m.full).to_owned();
+            return m
+                .full
+                .strip_prefix(&format!("{}.", p.package))
+                .unwrap_or(&m.full)
+                .to_owned();
         }
         m.full.clone()
     }
@@ -139,7 +163,10 @@ struct Diff<'a> {
 
 impl Diff<'_> {
     fn add(&mut self, kind: &'static str, path: String, text: &str) {
-        if !matches!(kind, "MESSAGE_ADDED" | "FIELD_ADDED" | "FIELD_REMOVED" | "ONEOF_FIELD_ADDED") {
+        if !matches!(
+            kind,
+            "MESSAGE_ADDED" | "FIELD_ADDED" | "FIELD_REMOVED" | "ONEOF_FIELD_ADDED"
+        ) {
             self.changes.push((kind, path, text.to_owned()));
         }
     }
@@ -167,7 +194,11 @@ impl Diff<'_> {
         for (num, f) in &of {
             let mut path = field_path(name, o, f);
             let Some(g) = nf.get(num) else {
-                let kind = if f.card == Card::Required { "REQUIRED_FIELD_REMOVED" } else { "FIELD_REMOVED" };
+                let kind = if f.card == Card::Required {
+                    "REQUIRED_FIELD_REMOVED"
+                } else {
+                    "FIELD_REMOVED"
+                };
                 self.add(kind, path, "");
                 continue;
             };
@@ -178,7 +209,11 @@ impl Diff<'_> {
         }
         for (num, g) in &nf {
             if !of.contains_key(num) {
-                let kind = if g.card == Card::Required { "REQUIRED_FIELD_ADDED" } else { "FIELD_ADDED" };
+                let kind = if g.card == Card::Required {
+                    "REQUIRED_FIELD_ADDED"
+                } else {
+                    "FIELD_ADDED"
+                };
                 self.add(kind, field_path(name, n, g), "");
             }
         }
@@ -191,24 +226,35 @@ impl Diff<'_> {
     fn oneofs(&mut self, name: &str, o: &Msg, n: &Msg, of: &BTreeMap<i32, &Fld>) {
         let lost = |i: usize, one: &String| {
             o.oneofs.iter().position(|x| x == one).is_some_and(|j| {
-                o.fields
-                    .iter()
-                    .filter(|f| f.oneof == Some(j))
-                    .any(|f| !n.fields.iter().any(|g| g.oneof == Some(i) && g.number == f.number))
+                o.fields.iter().filter(|f| f.oneof == Some(j)).any(|f| {
+                    !n.fields
+                        .iter()
+                        .any(|g| g.oneof == Some(i) && g.number == f.number)
+                })
             })
         };
         for (i, one) in n.oneofs.iter().enumerate() {
             let moved = n
                 .fields
                 .iter()
-                .filter(|f| f.oneof == Some(i) && of.get(&f.number).is_some_and(|g| g.oneof.is_none()))
+                .filter(|f| {
+                    f.oneof == Some(i) && of.get(&f.number).is_some_and(|g| g.oneof.is_none())
+                })
                 .count();
             if moved > 0 && o.oneofs.contains(one) {
                 if !lost(i, one) {
-                    self.add("FIELD_MOVED_TO_EXISTING_ONEOF", format!("#/{name}/{one}"), "");
+                    self.add(
+                        "FIELD_MOVED_TO_EXISTING_ONEOF",
+                        format!("#/{name}/{one}"),
+                        "",
+                    );
                 }
             } else if moved > 1 {
-                self.add("MULTIPLE_FIELDS_MOVED_TO_ONEOF", format!("#/{name}/{one}"), "");
+                self.add(
+                    "MULTIPLE_FIELDS_MOVED_TO_ONEOF",
+                    format!("#/{name}/{one}"),
+                    "",
+                );
             }
         }
         for (i, one) in n.oneofs.iter().enumerate() {
@@ -216,8 +262,16 @@ impl Diff<'_> {
                 continue;
             };
             for f in o.fields.iter().filter(|f| f.oneof == Some(j)) {
-                if !n.fields.iter().any(|g| g.oneof == Some(i) && g.number == f.number) {
-                    self.add("ONEOF_FIELD_REMOVED", format!("#/{name}/{one}/{}", f.number), "");
+                if !n
+                    .fields
+                    .iter()
+                    .any(|g| g.oneof == Some(i) && g.number == f.number)
+                {
+                    self.add(
+                        "ONEOF_FIELD_REMOVED",
+                        format!("#/{name}/{one}/{}", f.number),
+                        "",
+                    );
                 }
             }
         }
@@ -239,8 +293,12 @@ impl Diff<'_> {
         if self.changes.len() > before {
             return;
         }
-        let (ol, nl) = (label(o, self.old.proto3_of(om)), label(n, self.new.proto3_of(nm)));
-        let both_delimited = ol != "required" && nl != "required" && length_delimited(o) && length_delimited(n);
+        let (ol, nl) = (
+            label(o, self.old.proto3_of(om)),
+            label(n, self.new.proto3_of(nm)),
+        );
+        let both_delimited =
+            ol != "required" && nl != "required" && length_delimited(o) && length_delimited(n);
         if !ol.is_empty() && !nl.is_empty() && ol != nl && !both_delimited {
             if length_delimited(o) {
                 self.add(
@@ -277,8 +335,14 @@ pub(super) fn can_read(
     writer_is: Role,
 ) -> Vec<CompatReason> {
     let mut d = Diff {
-        old: Side { pool: writer.0, file: writer.1 },
-        new: Side { pool: reader.0, file: reader.1 },
+        old: Side {
+            pool: writer.0,
+            file: writer.1,
+        },
+        new: Side {
+            pool: reader.0,
+            file: reader.1,
+        },
         changes: Vec::new(),
     };
     d.files();

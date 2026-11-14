@@ -230,7 +230,9 @@ impl Parser<'_> {
     }
 
     fn text(&self, t: Token) -> &str {
-        self.src.get(t.start as usize..t.end as usize).unwrap_or_default()
+        self.src
+            .get(t.start as usize..t.end as usize)
+            .unwrap_or_default()
     }
 
     /// Where the next token starts (the end of the text when there is none).
@@ -383,7 +385,10 @@ impl Parser<'_> {
 
     fn file_decl(&mut self, file: &File) -> Result<Decl, Error> {
         let at = self.at();
-        let word = self.peek(0).filter(|t| t.kind == Tok::Ident).map(|t| self.text(t).to_owned());
+        let word = self
+            .peek(0)
+            .filter(|t| t.kind == Tok::Ident)
+            .map(|t| self.text(t).to_owned());
         match word.as_deref() {
             Some("package") => {
                 if file.decls.iter().any(|d| matches!(d, Decl::Package(..))) {
@@ -398,7 +403,11 @@ impl Parser<'_> {
                 self.i += 1;
                 let mut kind = "";
                 if self.is_word(0, "public") || self.is_word(0, "weak") {
-                    kind = if self.is_word(0, "public") { "public" } else { "weak" };
+                    kind = if self.is_word(0, "public") {
+                        "public"
+                    } else {
+                        "weak"
+                    };
                     self.i += 1;
                 }
                 let start = self.at();
@@ -472,13 +481,20 @@ impl Parser<'_> {
             }
             Tok::Punct(c @ (b'-' | b'+')) => {
                 self.i += 1;
-                let n = self.peek(0).filter(|n| n.kind != Tok::Str && n.kind != Tok::Punct(b'{'));
-                let Some(n) = n.filter(|n| n.kind != Tok::Ident || matches!(self.text(*n), "inf" | "nan")) else {
+                let n = self
+                    .peek(0)
+                    .filter(|n| n.kind != Tok::Str && n.kind != Tok::Punct(b'{'));
+                let Some(n) =
+                    n.filter(|n| n.kind != Tok::Ident || matches!(self.text(*n), "inf" | "nan"))
+                else {
                     return self.err("a number");
                 };
                 self.i += 1;
                 let sign = if c == b'-' { "-" } else { "" };
-                Ok(Val::Num(format!("{sign}{}", self.text(n)), n.kind != Tok::Int))
+                Ok(Val::Num(
+                    format!("{sign}{}", self.text(n)),
+                    n.kind != Tok::Int,
+                ))
             }
             Tok::Punct(b'{') => {
                 self.skip_aggregate()?;
@@ -561,7 +577,10 @@ impl Parser<'_> {
 
     fn message_item(&mut self) -> Result<Item, Error> {
         let decl = |p: &Self| p.peek(1).is_some_and(|t| t.kind == Tok::Ident) && p.is(2, b'{');
-        let word = self.peek(0).filter(|t| t.kind == Tok::Ident).map(|t| self.text(t).to_owned());
+        let word = self
+            .peek(0)
+            .filter(|t| t.kind == Tok::Ident)
+            .map(|t| self.text(t).to_owned());
         Ok(match word.as_deref() {
             Some("message") if decl(self) => Item::Message(self.message()?),
             Some("enum") if decl(self) => Item::Enum(self.enumeration()?),
@@ -609,9 +628,16 @@ impl Parser<'_> {
             }
         }
         if !r.names.is_empty() && !r.ranges.is_empty() {
-            return Err(Error::syntax(at, "reserved names and numbers must be separate statements"));
+            return Err(Error::syntax(
+                at,
+                "reserved names and numbers must be separate statements",
+            ));
         }
-        let opts = if names { Vec::new() } else { self.compact_options()? };
+        let opts = if names {
+            Vec::new()
+        } else {
+            self.compact_options()?
+        };
         r.span = (at, self.end());
         self.end_statement()?;
         Ok((r, opts))
@@ -644,7 +670,10 @@ impl Parser<'_> {
         }
         let ty = if self.is_word(0, "map") && self.is(1, b'<') {
             if label.is_some() || !labels {
-                return Err(Error::syntax(at, "map fields cannot have labels or be in a oneof"));
+                return Err(Error::syntax(
+                    at,
+                    "map fields cannot have labels or be in a oneof",
+                ));
             }
             self.i += 2;
             let (k, ks) = self.dotted(true)?;
@@ -801,7 +830,10 @@ impl Parser<'_> {
     fn rpc_type(&mut self) -> Result<RpcType, Error> {
         self.expect(b'(')?;
         // `stream .a.B` streams; `stream.B` (no space) is a type named so.
-        let glued = self.peek(0).zip(self.peek(1)).is_some_and(|(a, b)| a.end == b.start && b.kind == Tok::Punct(b'.'));
+        let glued = self
+            .peek(0)
+            .zip(self.peek(1))
+            .is_some_and(|(a, b)| a.end == b.start && b.kind == Tok::Punct(b'.'));
         let stream = self.is_word(0, "stream") && !self.is(1, b')') && !glued;
         self.i += usize::from(stream);
         let (name, span) = self.dotted(true)?;

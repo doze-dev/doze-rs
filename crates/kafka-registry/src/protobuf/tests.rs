@@ -31,44 +31,137 @@ fn reference(name: &str, text: &str) -> ResolvedRef {
 #[test]
 fn what_the_language_refuses_is_refused() {
     for (bad, why) in [
-        ("syntax = \"proto3\"; message {", "Syntax error in :1:28: expected a name"),
+        (
+            "syntax = \"proto3\"; message {",
+            "Syntax error in :1:28: expected a name",
+        ),
         ("syntax = \"proto4\";", "proto2\" or \"proto3"),
         ("edition = \"2023\";", "editions are not supported"),
-        ("message M { int32 a = 1; }", "a label (optional, required or repeated) is required in proto2"),
-        ("syntax = \"proto3\"; message M { required int32 a = 1; }", "required fields are not allowed in proto3"),
-        ("syntax = \"proto3\"; message M { int32 a = 0; }", "out of range"),
-        ("syntax = \"proto3\"; message M { int32 a = 536870912; }", "out of range"),
-        ("syntax = \"proto3\"; message M { int32 a = 19000; }", "reserved for the implementation"),
-        ("syntax = \"proto3\"; message M { int32 a = 1; string b = 1; }", "already used by a"),
-        ("syntax = \"proto3\"; message M { int32 a = 1; string a = 2; }", "already defined"),
-        ("syntax = \"proto3\"; message M { reserved 2; int32 a = 2; }", "reserved number 2"),
-        ("syntax = \"proto3\"; message M { reserved \"a\"; int32 a = 2; }", "reserved name"),
-        ("syntax = \"proto3\"; message M { N n = 1; }", "unknown type N"),
-        ("syntax = \"proto3\"; message M { map<float, int32> m = 1; }", "map key type float"),
-        ("syntax = \"proto3\"; message M { oneof o { repeated int32 a = 1; } }", "must not have labels"),
-        ("syntax = \"proto3\"; message M { oneof o { } }", "has no fields"),
-        ("syntax = \"proto3\"; enum E { A = 1; }", "first value of a proto3 enum must be zero"),
+        (
+            "message M { int32 a = 1; }",
+            "a label (optional, required or repeated) is required in proto2",
+        ),
+        (
+            "syntax = \"proto3\"; message M { required int32 a = 1; }",
+            "required fields are not allowed in proto3",
+        ),
+        (
+            "syntax = \"proto3\"; message M { int32 a = 0; }",
+            "out of range",
+        ),
+        (
+            "syntax = \"proto3\"; message M { int32 a = 536870912; }",
+            "out of range",
+        ),
+        (
+            "syntax = \"proto3\"; message M { int32 a = 19000; }",
+            "reserved for the implementation",
+        ),
+        (
+            "syntax = \"proto3\"; message M { int32 a = 1; string b = 1; }",
+            "already used by a",
+        ),
+        (
+            "syntax = \"proto3\"; message M { int32 a = 1; string a = 2; }",
+            "already defined",
+        ),
+        (
+            "syntax = \"proto3\"; message M { reserved 2; int32 a = 2; }",
+            "reserved number 2",
+        ),
+        (
+            "syntax = \"proto3\"; message M { reserved \"a\"; int32 a = 2; }",
+            "reserved name",
+        ),
+        (
+            "syntax = \"proto3\"; message M { N n = 1; }",
+            "unknown type N",
+        ),
+        (
+            "syntax = \"proto3\"; message M { map<float, int32> m = 1; }",
+            "map key type float",
+        ),
+        (
+            "syntax = \"proto3\"; message M { oneof o { repeated int32 a = 1; } }",
+            "must not have labels",
+        ),
+        (
+            "syntax = \"proto3\"; message M { oneof o { } }",
+            "has no fields",
+        ),
+        (
+            "syntax = \"proto3\"; enum E { A = 1; }",
+            "first value of a proto3 enum must be zero",
+        ),
         ("syntax = \"proto3\"; enum E { }", "at least one value"),
-        ("syntax = \"proto3\"; enum E { A = 0; B = 0; }", "reuses number 0"),
-        ("syntax = \"proto3\"; enum E { option allow_alias = true; A = 0; B = 1; }", "no two values share"),
-        ("syntax = \"proto3\"; enum E { A = 0; } enum F { A = 0; }", "\"A\" is already defined"),
-        ("syntax = \"proto3\"; message M { int32 a = 1 [default = 1]; }", "not allowed in proto3"),
-        ("syntax = \"proto3\"; message M { int32 a_b = 1; int32 aB = 2; }", "JSON name"),
-        ("syntax = \"proto3\"; message M { extensions 100 to 199; }", "not allowed in proto3"),
-        ("syntax = \"proto3\"; message M { int32 a = 1 [packed = true]; }", "packed"),
-        ("syntax = \"proto3\"; option java_package = 1;", "wrong type"),
-        ("syntax = \"proto3\"; option no_such = true;", "has no such option"),
-        ("syntax = \"proto3\"; option (no.such) = true;", "unknown extension"),
-        ("syntax = \"proto3\"; import \"other.proto\";", "import \"other.proto\" was not found"),
-        ("message M { optional int32 a = 1 [default = \"x\"]; }", "default value does not fit"),
+        (
+            "syntax = \"proto3\"; enum E { A = 0; B = 0; }",
+            "reuses number 0",
+        ),
+        (
+            "syntax = \"proto3\"; enum E { option allow_alias = true; A = 0; B = 1; }",
+            "no two values share",
+        ),
+        (
+            "syntax = \"proto3\"; enum E { A = 0; } enum F { A = 0; }",
+            "\"A\" is already defined",
+        ),
+        (
+            "syntax = \"proto3\"; message M { int32 a = 1 [default = 1]; }",
+            "not allowed in proto3",
+        ),
+        (
+            "syntax = \"proto3\"; message M { int32 a_b = 1; int32 aB = 2; }",
+            "JSON name",
+        ),
+        (
+            "syntax = \"proto3\"; message M { extensions 100 to 199; }",
+            "not allowed in proto3",
+        ),
+        (
+            "syntax = \"proto3\"; message M { int32 a = 1 [packed = true]; }",
+            "packed",
+        ),
+        (
+            "syntax = \"proto3\"; option java_package = 1;",
+            "wrong type",
+        ),
+        (
+            "syntax = \"proto3\"; option no_such = true;",
+            "has no such option",
+        ),
+        (
+            "syntax = \"proto3\"; option (no.such) = true;",
+            "unknown extension",
+        ),
+        (
+            "syntax = \"proto3\"; import \"other.proto\";",
+            "import \"other.proto\" was not found",
+        ),
+        (
+            "message M { optional int32 a = 1 [default = \"x\"]; }",
+            "default value does not fit",
+        ),
         ("message M { optional group g = 1 { } }", "capital letter"),
-        ("syntax = \"proto3\"; service S { rpc A (B) returns (B); }", "unknown type B"),
-        ("syntax = \"proto3\"; message M { string s = 1 /* never closed", "unterminated block comment"),
-        ("syntax = \"proto3\"; message M { string s = 1 [default = \"x\n\"]; }", "unterminated string"),
+        (
+            "syntax = \"proto3\"; service S { rpc A (B) returns (B); }",
+            "unknown type B",
+        ),
+        (
+            "syntax = \"proto3\"; message M { string s = 1 /* never closed",
+            "unterminated block comment",
+        ),
+        (
+            "syntax = \"proto3\"; message M { string s = 1 [default = \"x\n\"]; }",
+            "unterminated string",
+        ),
         ("not a schema", "Syntax error"),
     ] {
         let got = refused(bad);
-        assert!(got.contains(why), "{bad}\n  refused with: {got}\n  expected: {why}");
+        assert!(
+            got.contains(why),
+            "{bad}\n  refused with: {got}\n  expected: {why}"
+        );
     }
 }
 
@@ -175,7 +268,12 @@ fn a_descriptor_is_stored_as_confluent_stores_it() {
             continue;
         }
         let got = got.unwrap_or_else(|e| panic!("{}: {e}", c["name"]));
-        assert_eq!(got.canonical(false), c["canonical"].as_str().unwrap(), "{}", c["name"]);
+        assert_eq!(
+            got.canonical(false),
+            c["canonical"].as_str().unwrap(),
+            "{}",
+            c["name"]
+        );
     }
 }
 
@@ -187,7 +285,10 @@ fn garbage_is_not_a_descriptor() {
     // A descriptor whose import is missing is refused as Confluent words it.
     let main = "CgptYWluLnByb3RvEgNhcHAaCWRlcC5wcm90byInCgZQZXJzb24SHQoEaG9tZRgBIAEoCzIJLmRlcC5BZGRyUgRob21lYgZwcm90bzM=";
     assert_eq!(refused(main), "Could not resolve type: .dep.Addr");
-    let dep = reference("dep.proto", "syntax = \"proto3\"; package dep; message Addr { string city = 1; }");
+    let dep = reference(
+        "dep.proto",
+        "syntax = \"proto3\"; package dep; message Addr { string city = 1; }",
+    );
     assert!(parse(main, &[dep]).is_ok());
     // Found by fuzzing: a descriptor importing a file no reference gives, though none of its types is used, is
     // refused (its stored text would name an import that cannot be read again).
@@ -197,10 +298,20 @@ fn garbage_is_not_a_descriptor() {
 
 #[test]
 fn imports_are_found_by_reference_name_and_public_imports_pass_through() {
-    let base = reference("base.proto", "syntax = \"proto3\"; package base; message B { int32 x = 1; }");
-    let mid = reference("mid.proto", "syntax = \"proto3\"; import public \"base.proto\"; package mid; message C {}");
-    let hidden = reference("hidden.proto", "syntax = \"proto3\"; import \"base.proto\"; package hid; message D {}");
-    let through = "syntax = \"proto3\"; import \"mid.proto\"; message M { base.B b = 1; mid.C c = 2; }";
+    let base = reference(
+        "base.proto",
+        "syntax = \"proto3\"; package base; message B { int32 x = 1; }",
+    );
+    let mid = reference(
+        "mid.proto",
+        "syntax = \"proto3\"; import public \"base.proto\"; package mid; message C {}",
+    );
+    let hidden = reference(
+        "hidden.proto",
+        "syntax = \"proto3\"; import \"base.proto\"; package hid; message D {}",
+    );
+    let through =
+        "syntax = \"proto3\"; import \"mid.proto\"; message M { base.B b = 1; mid.C c = 2; }";
     assert!(parse(through, &[base.clone(), mid]).is_ok());
     // A type of a file imported by an import (not publicly) is not seen.
     let not_seen = "syntax = \"proto3\"; import \"hidden.proto\"; message M { base.B b = 1; }";
@@ -237,9 +348,17 @@ fn message_indexes_name_messages_as_confluents_serializers_number_them() {
 
 #[test]
 fn deep_nesting_is_refused_not_overflowed() {
-    let deep = format!("syntax = \"proto3\"; {}{}", "message M { ".repeat(5000), "}".repeat(5000));
+    let deep = format!(
+        "syntax = \"proto3\"; {}{}",
+        "message M { ".repeat(5000),
+        "}".repeat(5000)
+    );
     assert!(refused(&deep).contains("nested too deeply"));
-    let value = format!("syntax = \"proto3\"; option (x) = {}{};", "{ a ".repeat(5000), "}".repeat(5000));
+    let value = format!(
+        "syntax = \"proto3\"; option (x) = {}{};",
+        "{ a ".repeat(5000),
+        "}".repeat(5000)
+    );
     assert!(refused(&value).contains("nested too deeply"));
 }
 
@@ -261,7 +380,13 @@ fn register(r: &Registry, subject: &str, text: &str, refs: Vec<Reference>) -> Re
 #[test]
 fn a_schema_with_an_import_registers_and_is_compared() {
     let r = Registry::open(Box::new(MemoryStorage::default())).unwrap();
-    register(&r, "proto-dep", "syntax = \"proto3\"; package dep; message Addr { string city = 1; }", vec![]).unwrap();
+    register(
+        &r,
+        "proto-dep",
+        "syntax = \"proto3\"; package dep; message Addr { string city = 1; }",
+        vec![],
+    )
+    .unwrap();
     let dep = Reference {
         name: "dep.proto".into(),
         subject: "proto-dep".into(),
@@ -269,8 +394,13 @@ fn a_schema_with_an_import_registers_and_is_compared() {
     };
     let main = "syntax = \"proto3\"; import \"dep.proto\"; message P { dep.Addr home = 1; }";
     register(&r, "proto-main", main, vec![dep.clone()]).unwrap();
-    let retyped = SchemaInput::of(SchemaType::Protobuf, "syntax = \"proto3\"; message P { string home = 1; }");
-    let (_, found) = r.check("proto-main", Some("latest"), &retyped, false, None).unwrap();
+    let retyped = SchemaInput::of(
+        SchemaType::Protobuf,
+        "syntax = \"proto3\"; message P { string home = 1; }",
+    );
+    let (_, found) = r
+        .check("proto-main", Some("latest"), &retyped, false, None)
+        .unwrap();
     assert!(!found.is_empty());
     // Without its reference the import is not found.
     let e = register(&r, "proto-main2", main, vec![]).unwrap_err();

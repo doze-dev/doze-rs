@@ -13,7 +13,9 @@
 
 use std::fmt::Write as _;
 
-use super::ast::{Decl, Enum, EnumItem, Extend, Field, File, Group, Item, Message, Opt, Service, Span, TypeRef};
+use super::ast::{
+    Decl, Enum, EnumItem, Extend, Field, File, Group, Item, Message, Opt, Service, Span, TypeRef,
+};
 
 /// The stored text of `file`, read from `src`.
 pub(super) fn print(src: &str, file: &File) -> String {
@@ -90,7 +92,10 @@ impl Printer<'_> {
                 self.line(0, &s);
             }
         }
-        if f.decls.iter().any(|d| matches!(d, Decl::Message(_) | Decl::Enum(_))) {
+        if f.decls
+            .iter()
+            .any(|d| matches!(d, Decl::Message(_) | Decl::Enum(_)))
+        {
             self.out.push('\n');
         }
         for d in &f.decls {
@@ -305,10 +310,20 @@ impl Printer<'_> {
         }
         for r in &s.rpcs {
             let end = |(stream, _, span): &(bool, String, Span)| {
-                format!("{}{}", if *stream { "stream " } else { "" }, self.raw(*span))
+                format!(
+                    "{}{}",
+                    if *stream { "stream " } else { "" },
+                    self.raw(*span)
+                )
             };
             let mut t = String::new();
-            let _ = write!(t, "rpc {} ({}) returns ({})", r.name, end(&r.input), end(&r.output));
+            let _ = write!(
+                t,
+                "rpc {} ({}) returns ({})",
+                r.name,
+                end(&r.input),
+                end(&r.output)
+            );
             if r.opts.is_empty() {
                 t.push(';');
                 self.line(1, &t);

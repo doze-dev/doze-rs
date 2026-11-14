@@ -31,6 +31,9 @@ fuzz_target!(|data: &[u8]| {
     let stored = s.canonical(false);
     let again = parse(&stored, &refs).expect("the stored text reads again");
     assert_eq!(again.canonical(false), stored);
-    assert!(s.can_read(&again, Role::New, Role::Old).is_empty(), "a schema reads its own data");
+    assert!(
+        s.can_read(&again, Role::New, Role::Old).is_empty(),
+        "a schema reads its own data"
+    );
     let _ = s.message_at(&[0, 0]);
 });
