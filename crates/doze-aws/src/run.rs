@@ -168,7 +168,10 @@ fn compute(
     Arc<aws_lambda::Lambda>,
 ) {
     let sqs = Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs"))));
-    let dynamodb = Arc::new(aws_dynamodb::Dynamodb::new(Arc::new(ctx("dynamodb"))));
+    let dynamodb = Arc::new(aws_dynamodb::Dynamodb::with_windows(
+        Arc::new(ctx("dynamodb")),
+        args.dynamodb_windows(),
+    ));
     let kinesis = Arc::new(aws_kinesis::Kinesis::new(Arc::new(ctx("kinesis"))));
     let lambda = Arc::new(aws_lambda::Lambda::with_config(
         Arc::new(ctx("lambda")),

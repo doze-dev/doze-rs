@@ -136,3 +136,14 @@ and `weight.md`; none of those was touched here. Each behaviour carries one call
   facts are no visible benefit against +8.6 MB resident for a modest data set, growing with queued messages. **AWS-correct** as is (what
   AWS shows is reproduced by the clock); the experiment was not committed. The fix-sqs-dynamodb note's guess ("not worth the idle
   cost") is now a measurement.
+
+## 8. DynamoDB transitional windows as flags (`crates/doze-aws/src/cli.rs`, `crates/aws-dynamodb/src/core.rs`)
+
+- `doze-aws --dynamodb-create-ms MS`, `--dynamodb-update-ms MS`, `--dynamodb-delete-ms MS` (documented in `--help`: what each state is,
+  that AWS takes seconds to minutes, that the default 0 lets a waiter pass on its first probe). Each falls back to its environment
+  variable `DOZE_DDB_CREATE_MS` / `_UPDATE_MS` / `_DELETE_MS` (the older spelling, kept as an alias), then to 0. The values reach each
+  region's actor through `Dynamodb::with_windows` (a host context carrying the bus and the windows, as CloudWatch's settings do); a
+  host that passes none still reads the environment, so nothing else changes. **Go weak (bettered):** Go's (and this port's)
+  windows were environment-only and undocumented. **AWS-correct** default unchanged (states exist; their length is local).
+- Test: `tests/expiry.rs` `the_host_s_windows_reach_the_actor` (a table made through the service stays `CREATING` for the host's
+  window, then is `ACTIVE`).

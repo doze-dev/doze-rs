@@ -94,6 +94,16 @@ pub(crate) struct Args {
     /// Name resources a template leaves unnamed after their logical id, instead of AWS's `<stack>-<logical>-<random>`.
     #[arg(long)]
     pub(crate) cfn_logical_names: bool,
+    /// Milliseconds a new DynamoDB table (or index) stays `CREATING` before it is `ACTIVE`. AWS takes seconds to minutes; the default,
+    /// 0, lets a waiter pass on its first probe. Raise it to test code that waits. Also read from `DOZE_DDB_CREATE_MS`.
+    #[arg(long, value_name = "MS")]
+    pub(crate) dynamodb_create_ms: Option<u64>,
+    /// Milliseconds a DynamoDB table stays `UPDATING` after `UpdateTable` (default 0). Also read from `DOZE_DDB_UPDATE_MS`.
+    #[arg(long, value_name = "MS")]
+    pub(crate) dynamodb_update_ms: Option<u64>,
+    /// Milliseconds a DynamoDB table stays `DELETING` after `DeleteTable` (default 0). Also read from `DOZE_DDB_DELETE_MS`.
+    #[arg(long, value_name = "MS")]
+    pub(crate) dynamodb_delete_ms: Option<u64>,
 }
 
 /// What CloudFormation does with types it does not make.
@@ -108,6 +118,19 @@ pub(crate) enum CfnUnsupported {
 }
 
 impl Args {
+    /// DynamoDB's transitional windows: each flag, else its environment variable (the older spelling), else 0.
+    pub(crate) fn dynamodb_windows(&self) -> aws_dynamodb::Windows {
+        let pick = |flag: Option<u64>, env: &str| {
+            flag.or_else(|| std::env::var(env).ok()?.parse().ok())
+                .map_or(0, |ms| i64::try_from(ms).unwrap_or(i64::MAX))
+        };
+        aws_dynamodb::Windows {
+            create_ms: pick(self.dynamodb_create_ms, "DOZE_DDB_CREATE_MS"),
+            update_ms: pick(self.dynamodb_update_ms, "DOZE_DDB_UPDATE_MS"),
+            delete_ms: pick(self.dynamodb_delete_ms, "DOZE_DDB_DELETE_MS"),
+        }
+    }
+
     /// CloudFormation's configuration.
     pub(crate) fn cloudformation(&self) -> aws_cloudformation::Config {
         use aws_cloudformation::Unsupported;
