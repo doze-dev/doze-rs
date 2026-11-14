@@ -3,7 +3,7 @@
 //! sets by cty's set ordering, without duplicates).
 
 mod equality;
-pub(crate) mod quote;
+pub mod quote;
 pub(crate) mod refine;
 mod set;
 

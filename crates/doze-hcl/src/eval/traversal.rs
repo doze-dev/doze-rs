@@ -17,6 +17,32 @@ use hcl_edit::repr::Decorated;
 
 impl Evaluator<'_> {
     pub(super) fn traversal(&self, t: &Traversal, ctx: &Context<'_>) -> Out {
+        // `var.a.b`: step into a known object by reference, so that only what is read is copied (a
+        // stack's `local` or `module` object can hold thousands of entries).
+        if let hcl_edit::expr::Expression::Variable(v) = &t.expr
+            && let Ok(root) = ctx.lookup(v.as_str())
+        {
+            let (mut cur, mut n) = (root, 0);
+            for op in &t.operators {
+                let (Op::GetAttr(name), Value::Object(m)) = (op.value(), cur) else {
+                    break;
+                };
+                let Some(next) = m.get(name.as_str()) else {
+                    break;
+                };
+                (cur, n) = (next, n + 1);
+            }
+            if n > 0 {
+                let rest = t.operators.get(n..).unwrap_or(&[]);
+                return self.walk(
+                    cur.clone(),
+                    Diagnostics::default(),
+                    self.range(&t.expr),
+                    rest,
+                    ctx,
+                );
+            }
+        }
         let (base, diags) = self.eval(&t.expr, ctx);
         self.walk(base, diags, self.range(&t.expr), &t.operators, ctx)
     }

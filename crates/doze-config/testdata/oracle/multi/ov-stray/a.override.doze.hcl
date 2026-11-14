@@ -1,0 +1,3 @@
+app "web" {
+  enabled = false
+}

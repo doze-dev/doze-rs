@@ -124,6 +124,17 @@ impl<'a> BodyRef<'a> {
         }
     }
 
+    /// The syntax under this body, part by part, with its source and file name: everything in it,
+    /// whatever `partial_content` took (Go's `hclsyntax.Body.Attributes` keeps those too).
+    pub fn syntax(&self) -> impl Iterator<Item = (&'a Body, &'a Source, &'a str)> + '_ {
+        self.parts.iter().map(|p| (p.body, p.src, p.file))
+    }
+
+    /// Whether `partial_content` already took the attribute `name` from this body.
+    pub fn took(&self, name: &str) -> bool {
+        self.parts.iter().all(|p| p.hidden_attrs.contains(name))
+    }
+
     /// The file the missing-item range is in.
     pub fn file_name(&self) -> &str {
         self.parts.first().map_or("", |p| p.file)

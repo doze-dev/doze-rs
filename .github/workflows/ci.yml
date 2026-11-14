@@ -309,6 +309,13 @@ jobs:
             mkdir -p "corpus/$t"
             cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=4096
           done
+      - name: Fuzz the doze.hcl loader (both passes, seeded with the oracle corpus) and the public suffix lookup for 30 seconds each
+        working-directory: crates/doze-config/fuzz
+        run: |
+          mkdir -p corpus/fuzz_load
+          cargo fuzz run fuzz_load corpus/fuzz_load ../testdata/oracle/files -- -max_total_time=30 -max_len=4096
+          mkdir -p corpus/fuzz_psl
+          cargo fuzz run fuzz_psl corpus/fuzz_psl -- -max_total_time=30 -max_len=512
       - name: Fuzz the PLAIN token for 30 seconds
         working-directory: crates/kafka-auth/fuzz
         run: |

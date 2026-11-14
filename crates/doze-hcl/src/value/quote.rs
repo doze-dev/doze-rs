@@ -4,7 +4,7 @@ use std::fmt::Write;
 
 /// Go's `strconv.Quote`: printable runes as they are, the usual backslash escapes, `\xNN`, `\uNNNN`
 /// or `\UNNNNNNNN` for the rest.
-pub(crate) fn go_quote(s: &str) -> String {
+pub fn go_quote(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
     for c in s.chars() {
