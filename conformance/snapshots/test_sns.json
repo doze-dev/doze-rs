@@ -65,8 +65,7 @@
   "test_confirmation_is_awaited_by_https_and_not_by_a_queue": {
     "counts": {
       "SubscriptionsConfirmed": "0",
-      "SubscriptionsDeleted": "0",
-      "SubscriptionsPending": "0"
+      "SubscriptionsPending": "2"
     },
     "https": {
       "ResponseMetadata": {
@@ -554,11 +553,11 @@
     },
     "bad-topic-name": {
       "Error": {
-        "Code": "AuthorizationError",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: SNS:CreateTopic on resource: arn:aws:sns:us-east-1:<account>:not a topic name! because no identity-based policy allows the SNS:CreateTopic action"
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Topic Name"
       },
       "ResponseMetadata": {
-        "HTTPStatusCode": 403
+        "HTTPStatusCode": 400
       }
     },
     "empty-message": {

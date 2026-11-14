@@ -11,6 +11,8 @@ use std::net::IpAddr;
 
 use serde_json::Value;
 
+use crate::filter_at::Fault;
+
 /// The most a policy may fan out to: the product of the lengths of its arrays.
 const MAX_COMBINATIONS: u64 = 150;
 /// The most attribute names a policy on message attributes may have.
@@ -71,12 +73,13 @@ pub(crate) struct Rules {
 pub(crate) fn parse(text: &str, body_scope: bool) -> Result<Rules, String> {
     let value: Value = serde_json::from_str(text).map_err(|e| json_failure(text, &e))?;
     let Value::Object(map) = &value else {
-        return Err("Filter policy must be a JSON object".into());
+        // Recorded on AWS (2026-11-15).
+        return Err(Fault::at("Filter is not an object", &value).located(text, &value));
     };
     if !body_scope && map.keys().filter(|k| *k != "$or").count() > MAX_ATTRIBUTE_NAMES {
         return Err("Filter policy can not have more than 5 keys".into());
     }
-    let rules = rules(map, body_scope, 0)?;
+    let rules = rules(map, body_scope, 0).map_err(|f| f.located(text, &value))?;
     if combinations(&rules) > MAX_COMBINATIONS {
         return Err("Filter policy is too complex".into());
     }
@@ -103,9 +106,9 @@ fn json_failure(text: &str, e: &serde_json::Error) -> String {
     format!("failed to parse JSON. {e}")
 }
 
-fn rules(map: &serde_json::Map<String, Value>, body: bool, depth: u32) -> Result<Rules, String> {
+fn rules(map: &serde_json::Map<String, Value>, body: bool, depth: u32) -> Result<Rules, Fault> {
     if depth > 5 {
-        return Err("Filter policy is too deeply nested".into());
+        return Err(Fault::plain("Filter policy is too deeply nested"));
     }
     let mut out = Rules::default();
     for (key, value) in map {
@@ -118,55 +121,63 @@ fn rules(map: &serde_json::Map<String, Value>, body: bool, depth: u32) -> Result
     Ok(out)
 }
 
-fn branches(value: &Value, body: bool, depth: u32) -> Result<Vec<Rules>, String> {
+fn branches(value: &Value, body: bool, depth: u32) -> Result<Vec<Rules>, Fault> {
     let Value::Array(list) = value else {
-        return Err("$or must be an array of objects".into());
+        return Err(Fault::at("$or must be an array of objects", value));
     };
     list.iter()
         .map(|b| match b {
             Value::Object(m) => rules(m, body, depth + 1),
-            _ => Err("$or must be an array of objects".into()),
+            _ => Err(Fault::at("$or must be an array of objects", b)),
         })
         .collect()
 }
 
-fn node(key: &str, value: &Value, body: bool, depth: u32) -> Result<Node, String> {
+fn node(key: &str, value: &Value, body: bool, depth: u32) -> Result<Node, Fault> {
     match value {
         Value::Array(list) => Ok(Node::Leaf(
             list.iter().map(cond).collect::<Result<Vec<_>, _>>()?,
         )),
         Value::Object(m) if body => Ok(Node::Nested(rules(m, body, depth + 1)?)),
-        _ => Err(format!(
-            "Attribute name '{key}' must be followed by an array"
+        _ => Err(Fault::at(
+            format!("Attribute name '{key}' must be followed by an array"),
+            value,
         )),
     }
 }
 
-fn cond(v: &Value) -> Result<Cond, String> {
+fn cond(v: &Value) -> Result<Cond, Fault> {
+    let bad = || Fault::at("Match value must be String, number, true, false, or null", v);
     match v {
         Value::String(s) => Ok(Cond::Str(s.clone())),
-        Value::Number(n) => n
-            .as_f64()
-            .map(Cond::Num)
-            .ok_or_else(|| "Match value must be String, number, true, false, or null".into()),
+        Value::Number(n) => n.as_f64().map(Cond::Num).ok_or_else(bad),
         Value::Bool(b) => Ok(Cond::Bool(*b)),
         Value::Null => Ok(Cond::Null),
         Value::Object(m) => operator(m),
-        Value::Array(_) => Err("Match value must be String, number, true, false, or null".into()),
+        Value::Array(_) => Err(bad()),
     }
 }
 
-fn operator(m: &serde_json::Map<String, Value>) -> Result<Cond, String> {
+fn operator(m: &serde_json::Map<String, Value>) -> Result<Cond, Fault> {
     let mut it = m.iter();
     let (Some((name, arg)), None) = (it.next(), it.next()) else {
-        return Err("Match pattern must have exactly one operator".into());
+        return Err(Fault::plain("Match pattern must have exactly one operator"));
     };
+    match name.as_str() {
+        "anything-but" => anything_but(arg),
+        _ => operator_arg(name, arg).map_err(|message| Fault::at(message, arg)),
+    }
+}
+
+/// One operator and its argument. What is wrong is located at the argument: that is where Jackson's reader stands when AWS finds it
+/// (recorded 2026-11-15 for an unknown operator and for `exists` that is not a boolean).
+fn operator_arg(name: &str, arg: &Value) -> Result<Cond, String> {
     let text = |what: &str| {
         arg.as_str()
             .map(str::to_owned)
             .ok_or_else(|| format!("{what} match pattern must be a string"))
     };
-    match name.as_str() {
+    match name {
         "prefix" => text("prefix").map(Cond::Prefix),
         "suffix" => text("suffix").map(Cond::Suffix),
         "wildcard" => {
@@ -179,7 +190,6 @@ fn operator(m: &serde_json::Map<String, Value>) -> Result<Cond, String> {
             .ok_or_else(|| "exists match pattern must be either true or false.".into()),
         "numeric" => numeric(arg),
         "cidr" => cidr(arg),
-        "anything-but" => anything_but(arg),
         other => Err(format!("Unrecognized match type {other}")),
     }
 }
@@ -228,13 +238,13 @@ fn cidr(arg: &Value) -> Result<Cond, String> {
     Ok(Cond::Cidr(addr, bits))
 }
 
-fn anything_but(arg: &Value) -> Result<Cond, String> {
+fn anything_but(arg: &Value) -> Result<Cond, Fault> {
     match arg {
         Value::Object(m) => match operator(m)? {
             Cond::Prefix(p) => Ok(Cond::ButPrefix(p)),
             Cond::Suffix(s) => Ok(Cond::ButSuffix(s)),
             Cond::Wildcard(w) => Ok(Cond::ButWildcard(w)),
-            _ => Err("Unsupported anything-but pattern".into()),
+            _ => Err(Fault::at("Unsupported anything-but pattern", arg)),
         },
         Value::Array(items) => Ok(Cond::ButExact(
             items.iter().map(exact).collect::<Result<Vec<_>, _>>()?,
@@ -243,10 +253,10 @@ fn anything_but(arg: &Value) -> Result<Cond, String> {
     }
 }
 
-fn exact(v: &Value) -> Result<Cond, String> {
+fn exact(v: &Value) -> Result<Cond, Fault> {
     match cond(v)? {
         c @ (Cond::Str(_) | Cond::Num(_)) => Ok(c),
-        _ => Err("Unsupported anything-but pattern".into()),
+        _ => Err(Fault::at("Unsupported anything-but pattern", v)),
     }
 }
 
@@ -297,7 +307,7 @@ mod tests {
     #[test]
     fn what_is_wrong_is_said() {
         let err = |p: &str| parse(p, false).unwrap_err();
-        assert!(err("[]").contains("JSON object"));
+        assert!(err("[]").starts_with("Filter is not an object\n at [Source: (String)\"[]\"; line: 1, column: 2]"));
         assert!(err(r#"{"a":[{"foo":1}]}"#).contains("Unrecognized match type foo"));
         assert!(err(r#"{"a":[{"exists":"yes"}]}"#).contains("exists match pattern"));
         assert!(err(r#"{"a":[{"numeric":["~",1]}]}"#).contains("numeric range operator"));

@@ -10,9 +10,6 @@ use crate::filter_match::Attribute;
 use crate::model::Topic;
 use crate::req::{invalid, invalid_because};
 
-/// The most message attributes one message carries.
-const MAX_ATTRIBUTES: usize = 10;
-
 /// One attribute of a message.
 #[derive(Clone, Debug)]
 pub(crate) struct Attr {
@@ -148,24 +145,22 @@ pub(crate) fn check_body(m: &Message) -> Result<(), ApiError> {
     Ok(())
 }
 
-fn check_attrs(attrs: &BTreeMap<String, Attr>) -> Result<(), ApiError> {
-    if attrs.len() > MAX_ATTRIBUTES {
-        return Err(invalid_because(
-            "MessageAttributes",
-            format!(
-                "Number of message attributes [{}] exceeds the allowed maximum [{MAX_ATTRIBUTES}] for Publish API",
-                attrs.len()
-            ),
-        ));
-    }
+/// Each attribute on its own. There is no count to keep to: AWS took eleven on a publish to a topic (recorded 2026-11-15); the
+/// ten SQS allows is applied where a message is handed to a queue (`dead_letter.rs`).
+pub(crate) fn check_attrs(attrs: &BTreeMap<String, Attr>) -> Result<(), ApiError> {
     attrs.iter().try_for_each(|(name, a)| check_attr(name, a))
+}
+
+/// An attribute AWS will not take: its own code, and no `Invalid parameter:` before the words (recorded 2026-11-15:
+/// `ParameterValueInvalid`, `The message attribute 'a' has an invalid message attribute type, ...`).
+fn bad_value(message: String) -> ApiError {
+    ApiError::modeled("InvalidParameterValueException", message)
 }
 
 fn check_attr(name: &str, a: &Attr) -> Result<(), ApiError> {
     let kind = a.data_type.split('.').next().unwrap_or_default();
     if !matches!(kind, "String" | "Number" | "Binary") {
-        return Err(invalid_because(
-            "MessageAttributes",
+        return Err(bad_value(
             format!(
                 "The message attribute '{name}' has an invalid message attribute type, the set of supported type prefixes is Binary, Number, and String."
             ),
@@ -177,8 +172,7 @@ fn check_attr(name: &str, a: &Attr) -> Result<(), ApiError> {
         a.string_value.as_ref().is_some_and(|v| !v.is_empty())
     };
     if !present {
-        return Err(invalid_because(
-            "MessageAttributes",
+        return Err(bad_value(
             format!(
                 "The message attribute '{name}' must contain non-empty message attribute value for message attribute type '{}'.",
                 a.data_type
@@ -190,8 +184,7 @@ fn check_attr(name: &str, a: &Attr) -> Result<(), ApiError> {
             .as_deref()
             .is_some_and(|v| v.trim().parse::<f64>().is_err())
     {
-        return Err(invalid_because(
-            "MessageAttributes",
+        return Err(bad_value(
             format!("Could not cast message attribute '{name}' value to number."),
         ));
     }
@@ -212,8 +205,9 @@ fn check_kind(topic: &Topic, m: &Message) -> Result<(), ApiError> {
     }
     if !topic.fifo {
         return match &m.dedup_id {
-            // (memory)
-            Some(_) => Err(invalid(
+            // Recorded on AWS (2026-11-15).
+            Some(_) => Err(invalid_because(
+                "MessageDeduplicationId",
                 "The request includes MessageDeduplicationId parameter that is not valid for this topic type",
             )),
             None => Ok(()),

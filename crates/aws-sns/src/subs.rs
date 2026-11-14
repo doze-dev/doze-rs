@@ -215,6 +215,13 @@ impl Core {
     /// `Unsubscribe`.
     pub(crate) fn unsubscribe(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let key = self.find_subscription(r.s("SubscriptionArn"), r)?;
+        // Recorded on AWS (2026-11-15): one that still waits for its confirmation goes only with its topic.
+        if self.subs.get(&key).is_some_and(|s| !s.confirmed) {
+            return Err(invalid_because(
+                "SubscriptionArn",
+                "Cannot unsubscribe a subscription that is pending confirmation",
+            ));
+        }
         if let Some(sub) = self.subs.remove(&key)
             && let Some(topic) = self.topics.get_mut(&sub.topic)
         {
@@ -227,7 +234,14 @@ impl Core {
     pub(crate) fn get_subscription_attributes(&self, r: &Req<'_>) -> Result<Value, ApiError> {
         let key = self.find_subscription(r.s("SubscriptionArn"), r)?;
         let sub = self.subs.get(&key).ok_or_else(no_subscription)?;
-        Ok(json!({"Attributes": sub_attrs::describe(sub)}))
+        let mut attrs = sub_attrs::describe(sub);
+        // Recorded on AWS (2026-11-15): an HTTPS subscription reports the delivery policy it is held to.
+        if matches!(sub.protocol.as_str(), "http" | "https")
+            && let Some(topic) = self.topics.get(&sub.topic)
+        {
+            attrs.insert("EffectiveDeliveryPolicy".into(), topic.subscription_delivery());
+        }
+        Ok(json!({"Attributes": attrs}))
     }
 
     /// `SetSubscriptionAttributes`: the whole set is checked as it will be, so a scope change re-reads the filter policy.
@@ -253,8 +267,11 @@ impl Core {
         if name == "FilterPolicy" && !value.is_empty() {
             next.entry("FilterPolicyScope".into())
                 .or_insert_with(|| "MessageAttributes".into());
+        } else if name == "FilterPolicy" {
+            // Recorded on AWS (2026-11-15): clearing the policy takes its scope with it.
+            next.remove("FilterPolicyScope");
         }
-        sub_attrs::check_all(&next, &sub.protocol, fifo)?;
+        sub_attrs::check_all(&next, &sub.protocol, fifo).map_err(crate::req::as_set)?;
         sub_attrs::normalize(&mut next);
         if let Some(s) = self.subs.get_mut(&key) {
             s.attrs = next;

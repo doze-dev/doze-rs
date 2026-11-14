@@ -378,9 +378,14 @@ def test_multipart_parts_are_replaced_listed_and_aborted(client, names, cleanup,
     first = s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=1, Body=b"a" * (5 * MB))
     again = s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=1, Body=b"b" * (5 * MB))
     assert first["ETag"] != again["ETag"]
-    s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=3, Body=b"tail")
+    tail = s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=3, Body=b"tail")
     paged = s3.list_parts(Bucket=name, Key="m", UploadId=uid, MaxParts=1)
     assert [p["PartNumber"] for p in paged["Parts"]] == [1] and paged["IsTruncated"] is True
+    # With entity tags that do not match, AWS answers InvalidPart before it looks at the order (recorded 2026-11-15); with the
+    # real ones, the order is the question.
+    snapshot.error("bad-order-real-tags", lambda: s3.complete_multipart_upload(
+        Bucket=name, Key="m", UploadId=uid, MultipartUpload={"Parts": [
+            {"PartNumber": 3, "ETag": tail["ETag"]}, {"PartNumber": 1, "ETag": again["ETag"]}]}), drop=("UploadId",))
     snapshot.error("bad-order", lambda: s3.complete_multipart_upload(
         Bucket=name, Key="m", UploadId=uid, MultipartUpload={"Parts": [
             {"PartNumber": 3, "ETag": '"x"'}, {"PartNumber": 1, "ETag": '"y"'}]}), drop=("UploadId",))

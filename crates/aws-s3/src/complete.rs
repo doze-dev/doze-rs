@@ -57,7 +57,15 @@ fn listed(req: &Req<'_>) -> Result<Vec<Listed>, ApiError> {
 
 impl Core {
     /// The stored parts that match the list, in order.
+    /// Recorded on AWS (2026-11-15): a part that is not there (or whose tag differs) is found before an order that is wrong.
     fn matched_parts(&self, id: &str, list: &[Listed]) -> Result<Vec<(u32, PartRec)>, ApiError> {
+        let stored = |l: &Listed| {
+            self.parts
+                .get(&part_row(id, l.number))
+                .filter(|p| p.etag == l.etag)
+                .ok_or_else(invalid_part)
+        };
+        list.iter().try_for_each(|l| stored(l).map(drop))?;
         if list
             .iter()
             .zip(list.iter().skip(1))
@@ -66,16 +74,12 @@ impl Core {
             return Err(ApiError::new(
                 400,
                 "InvalidPartOrder",
-                "The list of parts was not in ascending order. The parts list must be specified in order by part number.",
+                "The list of parts was not in ascending order. Parts must be ordered by part number.",
             ));
         }
         let mut out = Vec::new();
         for (i, l) in list.iter().enumerate() {
-            let part = self
-                .parts
-                .get(&part_row(id, l.number))
-                .filter(|p| p.etag == l.etag)
-                .ok_or_else(invalid_part)?;
+            let part = stored(l)?;
             if i + 1 < list.len() && part.size < MIN_PART {
                 return Err(ApiError::new(
                     400,

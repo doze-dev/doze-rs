@@ -104,6 +104,15 @@ pub(crate) fn bad_digest(what: &str) -> ApiError {
     )
 }
 
+/// Recorded on AWS (2026-11-15): Content-MD5 has words of its own; the other checksums say "the calculated checksum".
+pub(crate) fn md5_mismatch() -> ApiError {
+    e(
+        400,
+        "BadDigest",
+        "The Content-MD5 you specified did not match what we received.",
+    )
+}
+
 pub(crate) fn not_modified() -> ApiError {
     e(304, "NotModified", "Not Modified")
 }
