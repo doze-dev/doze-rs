@@ -535,3 +535,21 @@ doze: `cmd/doze/*`, `internal/{config,runspec,runtime,registry,supervisor,health
 `website/src/content/docs/{reference/cli.md,hcl/*}`; doze-names (whole); doze-modules `modules/{mariadb,ferret,postgres}`
 (at `pgext`); doze-rs `docs/port/{modules/PLAN.md,modules/compat.md,names/PLAN.md,oracle.md,weight.md}`, `cli-design`
 `docs/port/cli/proposal.md`, `app-plan` `docs/port/app/PLAN.md`.
+
+---
+
+## 10. Log: track L (builder A)
+
+- **2026-11-14, C0 (rails), done.** doze `rust-oracle` pushed: `DOZE_BIN` (test/integration, test/bench),
+  `DOZE_MODULE_BIN_DIR`, `tools/oracle-dump` (parse, syntax, refs, fmt, edit, eval, convert, config with
+  diagnostics and positions) and the control-frame capture; the process-engine integration tests and
+  `ground.ts` pass against Go through the hooks. pgext merged into doze-modules main (`a8500e0`, vet and
+  `go test -race` green). Go baselines and the weight probe: `weight.md`. Landing the open PR stacks is the
+  coordinator's.
+- **2026-11-14, H1 (doze-hcl values and evaluator), done**, PR `core-h1`. Gate: spike corpus 637/653
+  identical (the rest are H2: 7 function calls, 9 syntax-error positions), 190/190 sources accept/refuse
+  as Go, fuzzed. An independent audit added 869 oracle cases and found real gaps (cty refinements,
+  multiplication precision, number-literal grammar, Go's extra syntax rules, two quadratic paths); all
+  fixed, three reviewed differences kept and documented (`crates/doze-hcl/testdata/eval/known-differences.json`).
+  Open: hcl-edit's slow path on unclosed nesting (upstream; for H2). Counted as H1's planned scope
+  (21 days); next is H2 (functions, typeexpr, diagnostics, syntax-error mapping).
