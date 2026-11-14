@@ -188,15 +188,25 @@ fn add_field(p: &mut Parts, m: &Tokens, field: &syn::Field) -> syn::Result<()> {
     let (since, until) = (opt_u32(f.since), opt_u32(f.until));
     p.reads
         .push(quote! { let #var = cx.field::<#ty>(map, #name, #default, (#since, #until)); });
-    if f.label {
-        p.labels.push(quote! { #name.to_string() });
-    } else {
-        if f.key {
-            p.keys.push(quote! { #name.to_string() });
-        }
+    identity(p, &f, &name);
+    if !f.label {
         p.attrs.push(attr_tokens(m, &name, ty, &f, &default));
     }
     Ok(())
+}
+
+/// The labels, then the keys, as the `identity()` list.
+fn identity_list(labels: &[Tokens], keys: &[Tokens]) -> Tokens {
+    quote! { vec![#(#labels,)* #(#keys),*] }
+}
+
+/// A label, or a `key` argument: part of what makes two blocks the same one.
+fn identity(p: &mut Parts, f: &FieldSpec, name: &str) {
+    if f.label {
+        p.labels.push(quote! { #name.to_string() });
+    } else if f.key {
+        p.keys.push(quote! { #name.to_string() });
+    }
 }
 
 fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
@@ -223,6 +233,7 @@ fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
         builds,
         names,
     } = p;
+    let identity = identity_list(&labels, &keys);
     let ident = &input.ident;
     Ok(quote! {
         impl #m::spec::Spec for #ident {
@@ -233,7 +244,7 @@ fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
                 vec![#(#labels),*]
             }
             fn identity() -> ::std::vec::Vec<::std::string::String> {
-                vec![#(#labels,)* #(#keys),*]
+                #identity
             }
             fn decode(node: &#m::proto::msg::value::Node, cx: &mut #m::spec::Decoding) -> ::core::option::Option<Self> {
                 let map = cx.map(node, "the block")?;
