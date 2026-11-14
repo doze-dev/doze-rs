@@ -85,8 +85,16 @@ fn palette(
     let home = tempfile::tempdir().unwrap();
     let hub = doze_desk::Hub::new(doze_desk::Options::new(home.path()));
     std::mem::forget(home);
-    let (p, cx) = cx
-        .add_window_view(|window, cx| Palette::new(hub, String::new(), String::new(), window, cx));
+    let (p, cx) = cx.add_window_view(|window, cx| {
+        Palette::new(
+            hub,
+            String::new(),
+            String::new(),
+            Default::default(),
+            window,
+            cx,
+        )
+    });
     let seen: Rc<RefCell<Vec<String>>> = Rc::default();
     let s = seen.clone();
     cx.update(|_, cx| {

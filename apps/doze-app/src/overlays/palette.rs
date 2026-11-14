@@ -59,6 +59,18 @@ pub(crate) struct Palette {
     extra: Vec<Row>,
     /// The box's placeholder as last set.
     pub(super) hint: String,
+    /// What the window knows beyond the stacks (Go `Service.Palette`): the stopped stacks whose doze.hcl does not
+    /// load, by key, and Needs you's items.
+    told: Told,
+}
+
+/// What the window tells the palette beyond the stacks.
+#[derive(Default)]
+pub(crate) struct Told {
+    /// Stopped stacks whose doze.hcl does not load, by key: their Up rows open their page.
+    pub(crate) broken: std::collections::BTreeSet<String>,
+    /// Needs you's list: its red stack-level items join "Needs you" on the empty palette.
+    pub(crate) needs: Vec<doze_desk::attention::Item>,
 }
 
 impl EventEmitter<PaletteEvent> for Palette {}
@@ -69,6 +81,7 @@ impl Palette {
         hub: Hub,
         current: String,
         inst: String,
+        told: Told,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -97,6 +110,7 @@ impl Palette {
             scroll: ScrollHandle::new(),
             hint: String::new(),
             extra: table_rows(),
+            told,
         };
         p.compute(cx);
         p
@@ -120,6 +134,10 @@ impl Palette {
             extra: &self.extra,
         };
         self.model = model::palette(&stacks, &ask);
+        model::broken_up(&mut self.model, &self.told.broken);
+        if q.trim().is_empty() && self.scope.is_none() {
+            model::stack_needs(&mut self.model, &self.told.needs);
+        }
         self.on = 0;
         self.scroll.scroll_to_item(0);
     }

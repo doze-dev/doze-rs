@@ -29,7 +29,20 @@ impl Root {
             _ => String::new(),
         };
         let hub = self.hub.clone();
-        let p = cx.new(|cx| Palette::new(hub, current, inst, window, cx));
+        self.library.update(cx, |l, cx| l.refresh(cx));
+        let told = crate::overlays::palette::Told {
+            broken: self
+                .library
+                .read(cx)
+                .lib
+                .stacks
+                .iter()
+                .filter(|s| !s.running && !s.broken.is_empty() && !s.dir.is_empty())
+                .map(|s| s.key.clone())
+                .collect(),
+            needs: self.attn.list.items.clone(),
+        };
+        let p = cx.new(|cx| Palette::new(hub, current, inst, told, window, cx));
         cx.subscribe_in(&p, window, |this, _, ev: &PaletteEvent, window, cx| {
             let PaletteEvent::Do(d) = ev;
             let d = d.clone();
