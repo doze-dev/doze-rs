@@ -83,8 +83,17 @@ impl RunLog {
         &self.run
     }
 
-    /// Adds one line doze writes itself on `stream` (`s:hook`, say).
+    /// Adds one line doze writes itself on `stream` (`s:hook`, say). A closed run keeps nothing, and says so in the
+    /// daemon's own log (E2 audit 1, m6: a write there is a bug, never silent).
     pub fn line(&self, stream: &str, text: &str) {
+        if self.run.is_closed() {
+            tracing::debug!(
+                "run {} of \"{}\" is closed: {stream} line dropped",
+                self.run.id(),
+                self.run.instance()
+            );
+            return;
+        }
         self.run.line(stream, text);
     }
 

@@ -6,8 +6,8 @@
 //! `path.Match`), and a segment of `**` matches any number of segments, none included.
 
 use sha2::{Digest, Sha256};
-use std::collections::BTreeSet;
-use std::path::Path;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 /// Folders a pattern walks into only by naming them.
 const SKIPPED: [&str; 3] = [".git", "node_modules", ".doze"];
@@ -191,7 +191,16 @@ fn root(pattern: &str) -> String {
 /// are not there yet match nothing; `.git`, `node_modules` and `.doze` are walked only by a pattern that names them;
 /// links are not followed into.
 pub fn files(dir: &Path, patterns: &[String]) -> Vec<String> {
-    let mut found = BTreeSet::new();
+    found(dir, patterns)
+        .into_keys()
+        .map(|rel| String::from_utf8_lossy(&rel).into_owned())
+        .collect()
+}
+
+/// What [`files`] finds, keyed by the relative path's bytes (a name that is not UTF-8 is kept as Go keeps it, E2 audit
+/// 1, m5; it is matched as text with its invalid bytes replaced), with where each file is.
+fn found(dir: &Path, patterns: &[String]) -> BTreeMap<Vec<u8>, PathBuf> {
+    let mut found = BTreeMap::new();
     for pat in patterns {
         // Go's `filepath.ToSlash`: only where a backslash is the separator; elsewhere it escapes the next character.
         let pat = if std::path::MAIN_SEPARATOR == '\\' {
@@ -207,35 +216,34 @@ pub fn files(dir: &Path, patterns: &[String]) -> Vec<String> {
         };
         if !meta.is_dir() {
             if matches(pat, &base) {
-                found.insert(base);
+                found.insert(base.clone().into_bytes(), start);
             }
             continue;
         }
-        walk(&start, &base, pat, &mut found);
+        walk(&start, base.as_bytes(), pat, &mut found);
     }
-    found.into_iter().collect()
+    found
 }
 
-fn walk(at: &Path, rel: &str, pat: &str, found: &mut BTreeSet<String>) {
+fn walk(at: &Path, rel: &[u8], pat: &str, found: &mut BTreeMap<Vec<u8>, PathBuf>) {
     let Ok(entries) = std::fs::read_dir(at) else {
         return;
     };
     for e in entries.flatten() {
-        let Ok(name) = e.file_name().into_string() else {
-            continue;
-        };
-        let child = if rel.is_empty() {
-            name.clone()
-        } else {
-            format!("{rel}/{name}")
-        };
+        let os = e.file_name();
+        let name = os.to_string_lossy();
+        let mut child = rel.to_vec();
+        if !rel.is_empty() {
+            child.push(b'/');
+        }
+        child.extend_from_slice(os.as_encoded_bytes());
         let is_dir = e.file_type().is_ok_and(|t| t.is_dir());
         if is_dir {
-            if !(SKIPPED.contains(&name.as_str()) && !pat.contains(&name)) {
+            if !(SKIPPED.contains(&name.as_ref()) && !pat.contains(name.as_ref())) {
                 walk(&e.path(), &child, pat, found);
             }
-        } else if matches(pat, &child) {
-            found.insert(child);
+        } else if matches(pat, &String::from_utf8_lossy(&child)) {
+            found.insert(child, e.path());
         }
     }
 }
@@ -243,14 +251,14 @@ fn walk(at: &Path, rel: &str, pat: &str, found: &mut BTreeSet<String>) {
 /// A digest of the paths and contents of the files the patterns match, and how many there are; Go's: sha256 over each
 /// file's path, a zero byte and its content's sha256, in path order. No match is a valid, stable hash.
 pub fn hash(dir: &Path, patterns: &[String]) -> (String, usize) {
-    let files = files(dir, patterns);
+    let files = found(dir, patterns);
     let mut h = Sha256::new();
-    for rel in &files {
+    for (rel, path) in &files {
         // Streamed, as Go's `io.Copy`: a large input costs a buffer, not its size (E2 audit 1, M4).
-        let Some(digest) = file_digest(&dir.join(rel)) else {
+        let Some(digest) = file_digest(path) else {
             continue; // gone between the walk and the read
         };
-        h.update(rel.as_bytes());
+        h.update(rel);
         h.update([0]);
         h.update(digest);
     }

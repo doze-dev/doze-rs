@@ -71,6 +71,30 @@ pub struct Applied {
     pub tasks: BTreeMap<String, TaskRecord>,
 }
 
+/// Escapes as Go's `json.Marshal` does: `<`, `>`, `&`, U+2028 and U+2029 as `\u` sequences (E2 audit 1, m2), so the
+/// file is the same bytes whichever doze wrote it. In JSON these can only be inside strings.
+fn go_escape(json: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(json.len());
+    let mut i = 0;
+    while let Some(&b) = json.get(i) {
+        let ls = json.get(i..i + 3).filter(|w| w.starts_with(&[0xE2, 0x80]));
+        match (b, ls.and_then(|w| w.get(2))) {
+            (b'<', _) => out.extend_from_slice(b"\\u003c"),
+            (b'>', _) => out.extend_from_slice(b"\\u003e"),
+            (b'&', _) => out.extend_from_slice(b"\\u0026"),
+            (0xE2, Some(0xA8)) => out.extend_from_slice(b"\\u2028"),
+            (0xE2, Some(0xA9)) => out.extend_from_slice(b"\\u2029"),
+            _ => {
+                out.push(b);
+                i += 1;
+                continue;
+            }
+        }
+        i += if b == 0xE2 { 3 } else { 1 };
+    }
+    out
+}
+
 /// The state file for a config: `.doze/state.json` beside it (in it, when the path is a folder).
 pub fn path_for(config: &Path) -> PathBuf {
     let dir = if config.is_dir() {
@@ -130,7 +154,7 @@ impl Applied {
             outputs: self.outputs.clone(),
             tasks: self.tasks.clone(),
         };
-        let bytes = serde_json::to_vec_pretty(&disk).map_err(io::Error::other)?;
+        let bytes = go_escape(&serde_json::to_vec_pretty(&disk).map_err(io::Error::other)?);
         if let Some(dir) = path.parent() {
             ensure_dot_doze(dir)?;
         }

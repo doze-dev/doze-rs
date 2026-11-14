@@ -33,7 +33,8 @@ struct RunState {
     /// Each writer's stream and the line it is assembling.
     partials: Vec<(String, Vec<u8>)>,
     closed: bool,
-    /// The line being formatted; reused, so a line costs no allocation.
+    /// The lines formatted and not yet written: every complete line of one chunk goes in one write (E2 audit 1, m8).
+    /// Reused, so a line costs no allocation.
     buf: Vec<u8>,
 }
 
@@ -178,36 +179,46 @@ impl Run {
     pub fn line(&self, stream: &str, text: &str) {
         let mut st = lock(&self.inner.state);
         self.write_locked(&mut st, stream, text.as_bytes());
+        self.flush_locked(&mut st);
     }
 
     fn write_locked(&self, st: &mut RunState, stream: &str, text: &[u8]) {
         if st.closed || st.file.is_none() {
             return;
         }
-        let mut line = std::mem::take(&mut st.buf);
-        line.clear();
-        line.extend_from_slice(crate::stamp(SystemTime::now()).as_bytes());
-        line.push(b' ');
-        line.extend_from_slice(stream.as_bytes());
-        line.push(b' ');
-        line.extend_from_slice(text);
-        line.push(b'\n');
-        let len = u64::try_from(line.len()).unwrap_or(u64::MAX);
+        let stamp = crate::stamp(SystemTime::now());
+        let len = stamp.len() + stream.len() + text.len() + 3;
+        let len = u64::try_from(len).unwrap_or(u64::MAX);
         let store = &self.inner.store;
         if st.size > 0 && st.size.saturating_add(len) > store.inner.max_bytes / 4 {
+            // What the old segment has pending goes to it first.
+            self.flush_locked(st);
             let next = st.seg.saturating_add(1);
             st.file = self.open(next).ok();
             st.seg = next;
             st.size = 0;
             store.prune(&self.inner.instance, self.inner.id, next);
         }
-        if let Some(f) = st.file.as_mut()
-            && f.write_all(&line).is_ok()
-        {
-            st.size = st.size.saturating_add(len);
+        st.buf.extend_from_slice(stamp.as_bytes());
+        st.buf.push(b' ');
+        st.buf.extend_from_slice(stream.as_bytes());
+        st.buf.push(b' ');
+        st.buf.extend_from_slice(text);
+        st.buf.push(b'\n');
+        st.size = st.size.saturating_add(len);
+    }
+
+    /// Writes the pending lines in one write and wakes the followers.
+    fn flush_locked(&self, st: &mut RunState) {
+        if st.buf.is_empty() {
+            return;
         }
-        st.buf = line;
-        store.wake(&self.inner.instance);
+        if let Some(f) = st.file.as_mut() {
+            // A failed write loses these lines, as one failed line write did; the run goes on.
+            let _ = f.write_all(&st.buf);
+        }
+        st.buf.clear();
+        self.inner.store.wake(&self.inner.instance);
     }
 
     /// Ends the run: a line still being assembled is recorded as it stands, and the file is closed. The run stays
@@ -228,6 +239,7 @@ impl Run {
                 let (stream, text) = (stream.clone(), std::mem::take(partial));
                 self.write_locked(&mut st, &stream, &text);
             }
+            self.flush_locked(&mut st);
             st.closed = true;
             st.file = None;
         }
@@ -260,7 +272,7 @@ impl LineWriter {
         let mut rest = bytes;
         while !rest.is_empty() {
             let Some((stream, partial)) = st.partials.get_mut(self.slot) else {
-                return;
+                break;
             };
             let room = MAX_LINE.saturating_sub(partial.len()).max(1);
             let (line, after, whole) = match rest.iter().take(room + 1).position(|b| *b == b'\n') {
@@ -271,7 +283,7 @@ impl LineWriter {
             partial.extend_from_slice(line.unwrap_or_default());
             rest = after.unwrap_or_default();
             if !whole {
-                return;
+                break;
             }
             let mut text = std::mem::take(partial);
             if text.last() == Some(&b'\r') {
@@ -280,6 +292,7 @@ impl LineWriter {
             let stream = stream.clone();
             run.write_locked(&mut st, &stream, &text);
         }
+        run.flush_locked(&mut st);
     }
 }
 
@@ -297,6 +310,7 @@ impl LineWriter {
         }
         let (stream, text) = (stream.clone(), std::mem::take(partial));
         run.write_locked(&mut st, &stream, &text);
+        run.flush_locked(&mut st);
     }
 }
 

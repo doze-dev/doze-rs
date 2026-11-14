@@ -94,7 +94,9 @@ impl Store {
     }
 
     /// Hands every line of `instance` from `from` on to `emit`, and keeps going as lines are written, into new runs
-    /// too, until `emit` returns `false`, a read fails, or the future is dropped.
+    /// too, until `emit` returns `false`, a read fails, or the future is dropped. The files are read on tokio's blocking
+    /// threads, a batch at a time, so a long backlog never holds a runtime worker (E2 audit 1, m9). Call it within a
+    /// tokio runtime.
     pub async fn follow(
         &self,
         instance: &str,
@@ -106,7 +108,11 @@ impl Store {
             let mut wait = self.waiter(instance);
             wait.borrow_and_update();
             loop {
-                let (lines, next) = self.read(instance, from, BATCH)?;
+                let (store, inst) = (self.clone(), instance.to_string());
+                let (lines, next) =
+                    tokio::task::spawn_blocking(move || store.read(&inst, from, BATCH))
+                        .await
+                        .map_err(io::Error::other)??;
                 let n = lines.len();
                 for l in lines {
                     if !emit(l) {

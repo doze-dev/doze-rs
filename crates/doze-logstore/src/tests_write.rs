@@ -298,3 +298,30 @@ fn an_endless_line_is_cut_and_remove_deletes_everything() {
     assert!(!t.path().join("api").exists() && r.is_closed());
     assert!(s.live("api").is_none());
 }
+
+/// E2 audit 1, m8: a chunk of many lines goes in one write, and still moves to a new segment at a quarter of the cap
+/// mid-chunk: every line lands, in order, in segments each under the quarter.
+#[test]
+fn a_chunk_of_lines_is_split_across_segments_in_order() {
+    let t = tempfile::tempdir().unwrap();
+    const CAP: u64 = 16 * 1024;
+    let s = Store::with_options(t.path(), opts(0, CAP));
+    let r = s.begin("api").unwrap();
+    let w = r.writer(STDOUT);
+    let chunk: String = (0..100)
+        .map(|i| format!("{i:03} {}\n", "y".repeat(60)))
+        .collect();
+    w.push(chunk.as_bytes());
+    let segs: Vec<u64> = std::fs::read_dir(t.path().join("api"))
+        .unwrap()
+        .map(|e| e.unwrap().metadata().unwrap().len())
+        .collect();
+    assert!(segs.len() >= 2, "{segs:?}");
+    assert!(segs.iter().all(|n| *n <= CAP / 4), "{segs:?}");
+    let all = s.tail("api", 0, 1000).unwrap();
+    let firsts: Vec<String> = all.iter().map(|l| l.text[..3].to_string()).collect();
+    let want: Vec<String> = (0..100).map(|i| format!("{i:03}")).collect();
+    // The oldest segments may be pruned to the cap; what is left is the newest lines, in order.
+    assert_eq!(firsts, want[want.len() - firsts.len()..]);
+    assert_eq!(firsts.last().map(String::as_str), Some("099"));
+}

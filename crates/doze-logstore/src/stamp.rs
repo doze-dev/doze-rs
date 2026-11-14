@@ -35,17 +35,58 @@ fn civil(days: u64) -> (u64, u64, u64) {
 /// Go's layout, digit for digit.
 pub(crate) fn is_stamp(s: &str) -> bool {
     const LAYOUT: &[u8] = b"dddd-dd-ddTdd:dd:dd.ddddddZ";
-    s.len() == LAYOUT.len()
+    let shaped = s.len() == LAYOUT.len()
         && s.bytes().zip(LAYOUT).all(|(c, l)| match l {
             b'd' => c.is_ascii_digit(),
             l => c == *l,
-        })
+        });
+    // The ranges Go's `time.Parse` checks too (E2 audit 1, m4): month, the day in that month, hour, minute, second.
+    let n = |from: usize, to: usize| {
+        s.get(from..to)
+            .and_then(|d| d.parse::<u32>().ok())
+            .unwrap_or(u32::MAX)
+    };
+    shaped && {
+        let (year, month, day) = (n(0, 4), n(5, 7), n(8, 10));
+        let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+        let days = match month {
+            2 if leap => 29,
+            2 => 28,
+            4 | 6 | 9 | 11 => 30,
+            _ => 31,
+        };
+        (1..=12).contains(&month)
+            && (1..=days).contains(&day)
+            && n(11, 13) < 24
+            && n(14, 16) < 60
+            && n(17, 19) < 60
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    /// Go's `time.Parse` refuses what is out of range, and so does this (E2 audit 1, m4).
+    #[test]
+    fn a_stamp_out_of_range_is_not_a_stamp() {
+        assert!(is_stamp("2024-02-29T23:59:59.999999Z"));
+        for bad in [
+            "2023-02-29T00:00:00.000000Z",
+            "2024-13-01T00:00:00.000000Z",
+            "2024-00-01T00:00:00.000000Z",
+            "2024-04-31T00:00:00.000000Z",
+            "2024-01-00T00:00:00.000000Z",
+            "2024-01-01T24:00:00.000000Z",
+            "2024-01-01T00:60:00.000000Z",
+            "2024-01-01T00:00:60.000000Z",
+            "2024-01-01T00:00:00.0000000Z",
+            "2024-01-01T00:00:00.00000Z",
+        ] {
+            assert!(!is_stamp(bad), "{bad}");
+        }
+    }
 
     #[test]
     fn stamps_are_gos_layout_in_utc_with_microseconds_truncated() {

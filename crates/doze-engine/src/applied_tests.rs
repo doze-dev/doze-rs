@@ -126,3 +126,19 @@ fn one_sync_at_a_time() {
     drop(held);
     assert!(lock(&path).is_ok());
 }
+
+/// E2 audit 1, m2: Go's `json.Marshal` escapes `<`, `>`, `&`, U+2028 and U+2029; the file is the same bytes either way,
+/// and reads back to the same text.
+#[test]
+fn strings_are_escaped_as_go_escapes_them() {
+    let t = tempfile::tempdir().unwrap();
+    let path = t.path().join("state.json");
+    let mut s = Applied::default();
+    let url = "postgres://h/db?a=1&b=<2>\u{2028}\u{2029}é";
+    s.outputs.insert("url".into(), url.into());
+    s.save(&path).unwrap();
+    let go = "{\n  \"version\": 1,\n  \"instances\": {},\n  \"outputs\": {\n    \"url\": \
+              \"postgres://h/db?a=1\\u0026b=\\u003c2\\u003e\\u2028\\u2029é\"\n  }\n}";
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), go);
+    assert_eq!(Applied::load(&path).unwrap().outputs["url"], url);
+}
