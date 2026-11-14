@@ -35,6 +35,7 @@ aws-testkit = { path = "../aws-testkit" }
 aws-gateway = { path = "../aws-gateway" }
 aws-sqs = { path = "../aws-sqs" }
 aws-auth = { path = "../aws-auth" }
+aws-iam = { path = "../aws-iam" }
 http = "1"
 doze-fs = { path = "../doze-fs", features = ["sim"] }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync", "net", "io-util"] }

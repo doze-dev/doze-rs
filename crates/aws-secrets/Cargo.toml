@@ -18,6 +18,7 @@ aws-wire = { path = "../aws-wire" }
 aws-core = { path = "../aws-core" }
 aws-seal = { path = "../aws-seal" }
 aws-peers = { path = "../aws-peers" }
+aws-cron = { path = "../aws-cron" }
 doze-runtime = { path = "../doze-runtime" }
 doze-store = { path = "../doze-store" }
 serde_json = "1"

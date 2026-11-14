@@ -20,6 +20,7 @@ mod naming;
 pub(crate) mod policy;
 mod s3;
 mod s3_config;
+mod scheduler;
 mod secrets;
 mod sfn;
 pub(crate) mod skip;
@@ -203,6 +204,7 @@ fn service_label(service: &str) -> String {
         "events" => "EventBridge".into(),
         "monitoring" => "CloudWatch".into(),
         "states" => "Sfn".into(),
+        "scheduler" => "Scheduler".into(),
         other => other.to_owned(),
     }
 }
@@ -235,6 +237,7 @@ pub(crate) async fn create(rc: &Rc, props: &Value) -> Done {
         "StepFunctions" => Box::pin(sfn::create(rc, props)).await,
         "ApiGateway" => Box::pin(apigw::create(rc, props)).await,
         "ApiGatewayV2" => Box::pin(apigwv2::create(rc, props)).await,
+        "Scheduler" => Box::pin(scheduler::create(rc, props)).await,
         _ => Box::pin(more::create(rc, props)).await,
     }
 }
@@ -258,6 +261,7 @@ pub(crate) async fn update(rc: &Rc, old: &Res, props: &Value) -> Done {
         "StepFunctions" => Box::pin(sfn::update(rc, old, props)).await,
         "ApiGateway" => Box::pin(apigw_more::update(rc, old, props)).await,
         "ApiGatewayV2" => Box::pin(apigwv2::update(rc, old, props)).await,
+        "Scheduler" => Box::pin(scheduler::update(rc, old, props)).await,
         _ => Box::pin(more::update(rc, old, props)).await,
     }
 }
@@ -281,6 +285,7 @@ pub(crate) async fn delete(rc: &Rc, res: &Res) -> Result<(), String> {
         "StepFunctions" => Box::pin(sfn::delete(rc, res)).await,
         "ApiGateway" => Box::pin(apigw_more::delete(rc, res)).await,
         "ApiGatewayV2" => Box::pin(apigwv2::delete(rc, res)).await,
+        "Scheduler" => Box::pin(scheduler::delete(rc, res)).await,
         _ => Box::pin(more::delete(rc, res)).await,
     }
 }

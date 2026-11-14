@@ -98,6 +98,8 @@ fn create_only_rest(ty: &str) -> &'static [&'static str] {
         "AWS::Events::Archive" => &["ArchiveName", "SourceArn"],
         "AWS::Events::Connection" | "AWS::Events::ApiDestination" => &["Name"],
         "AWS::Events::EventBusPolicy" => &["StatementId", "EventBusName"],
+        "AWS::Scheduler::Schedule" => &["Name", "GroupName"],
+        "AWS::Scheduler::ScheduleGroup" => &["Name"],
         "AWS::CloudWatch::Alarm" | "AWS::CloudWatch::CompositeAlarm" => &["AlarmName"],
         "AWS::CloudWatch::Dashboard" => &["DashboardName"],
         "AWS::StepFunctions::StateMachine" => &["StateMachineName", "StateMachineType"],
@@ -134,7 +136,9 @@ pub(crate) fn name_property(ty: &str) -> Option<&'static str> {
         | "AWS::SecretsManager::Secret"
         | "AWS::Kinesis::Stream"
         | "AWS::Events::Rule"
-        | "AWS::Events::EventBus" => "Name",
+        | "AWS::Events::EventBus"
+        | "AWS::Scheduler::Schedule"
+        | "AWS::Scheduler::ScheduleGroup" => "Name",
         "AWS::S3::Bucket" => "BucketName",
         "AWS::DynamoDB::Table" | "AWS::DynamoDB::GlobalTable" => "TableName",
         "AWS::IAM::Role" => "RoleName",
@@ -168,6 +172,7 @@ pub(crate) fn identifiers(ty: &str) -> Option<Vec<&'static str>> {
         "AWS::KMS::Key" => "KeyId",
         "AWS::SecretsManager::Secret" => "Id",
         "AWS::Events::Rule" => "Arn",
+        "AWS::Scheduler::Schedule" | "AWS::Scheduler::ScheduleGroup" => "Name",
         "AWS::StepFunctions::StateMachine" => "Arn",
         _ => return None,
     }])

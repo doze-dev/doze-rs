@@ -129,10 +129,11 @@ pub(crate) async fn request(
     body: &[u8],
 ) -> Reply {
     let mut s = TcpStream::connect(addr).await.unwrap();
-    s.write_all(head(method, host, path, extra, body.len()).as_bytes())
-        .await
-        .unwrap();
-    s.write_all(body).await.unwrap();
+    // Head and body in one write: a request refused before its body is read (403 on a blocked public ACL) is closed
+    // by the server, and a body still arriving after that close made macOS answer with a reset instead of the reply.
+    let mut request = head(method, host, path, extra, body.len()).into_bytes();
+    request.extend_from_slice(body);
+    s.write_all(&request).await.unwrap();
     let mut raw = Vec::new();
     s.read_to_end(&mut raw).await.unwrap();
     parse(&raw)

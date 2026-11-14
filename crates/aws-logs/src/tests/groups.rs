@@ -125,11 +125,35 @@ fn the_refusals_are_worded_as_aws_worded_them() {
         (code.as_str(), msg.as_str()),
         ("InvalidParameterException", "Invalid filter pattern")
     );
-    let (code, _) = w.err(
+    w.ok(
         "FilterLogEvents",
         &json!({"logGroupName": "/g", "filterPattern": "%x%"}),
     );
-    assert_eq!(code, "NotImplemented");
+}
+
+#[test]
+fn a_group_holds_at_most_five_regular_expressions_across_its_filters() {
+    let mut w = World::new();
+    w.group("/g");
+    let metric = |name: &str, pattern: &str| {
+        json!({"logGroupName": "/g", "filterName": name, "filterPattern": pattern,
+            "metricTransformations": [{"metricName": "m", "metricNamespace": "n", "metricValue": "1"}]})
+    };
+    w.ok("PutMetricFilter", &metric("a", "%x% %y%"));
+    w.ok("PutMetricFilter", &metric("b", "%x% %y%"));
+    w.ok("PutMetricFilter", &metric("c", "%x%"));
+    let (code, _) = w.err("PutMetricFilter", &metric("d", "%z%"));
+    assert_eq!(code, "LimitExceededException");
+    // Replacing a filter counts what it will hold, not what it held.
+    w.ok("PutMetricFilter", &metric("c", "%z%"));
+    w.ok("PutMetricFilter", &metric("d", "no regex here"));
+    let (code, _) = w.err("PutMetricFilter", &metric("e", "%a% %b% %c%"));
+    assert_eq!(code, "LimitExceededException");
+    let tested = w.ok(
+        "TestMetricFilter",
+        &json!({"filterPattern": "%5\\d\\d%", "logEventMessages": ["status 503", "status 200"]}),
+    );
+    assert_eq!(tested["matches"].as_array().unwrap().len(), 1);
 }
 
 #[test]
