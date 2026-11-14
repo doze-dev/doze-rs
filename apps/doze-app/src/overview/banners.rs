@@ -92,6 +92,27 @@ pub(crate) fn stale_banner(t: &Tokens, text: &str) -> AnyElement {
     )
 }
 
+/// An instance page's word that its stack's doze.hcl does not load (Go `instance.tsx`, `inst.broken`): a warn banner
+/// with See why, which goes to the stack's page, where the mistake is shown.
+pub(crate) fn broken_banner(
+    t: &Tokens,
+    (broken, stack): (&str, &str),
+    see_why: crate::kit::Click,
+) -> AnyElement {
+    let why =
+        btn(t, "see-why", "See why", "", Btn::Plain, Some(see_why)).probe("see-why", "See why");
+    banner(
+        t,
+        "banner-broken",
+        (t.warn, Mark::Dot(t.warn)),
+        (
+            &format!("{broken}: {stack} keeps running the file it started with."),
+            "Nothing in it is applied until the file loads.",
+        ),
+        vec![why.into_any_element()],
+    )
+}
+
 /// The banners of a stack's doze.hcl and domains, in Go's order.
 pub(super) fn banners(
     t: &Tokens,

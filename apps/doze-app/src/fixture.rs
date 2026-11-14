@@ -238,6 +238,11 @@ fn seed_larder(work: &Path, loaded: Option<std::time::SystemTime>) -> anyhow::Re
             .open(dir.join("doze.hcl"))?;
         f.set_modified(t)?;
     }
+    // `$DOZE_APP_FIXTURE_BROKEN`: its doze.hcl does not load (line 9), as the CLI would say, for the banners' shots.
+    if std::env::var_os("DOZE_APP_FIXTURE_BROKEN").is_some() {
+        let said = r#"{"ok":false,"error":{"code":"config_invalid","message":"the stack's config has a mistake —\n\nError: Unsuitable value type\n\n  on doze.hcl line 9, in app \"orders\":\n   9:   port = \"eighty\"\n\nUnsuitable value: a number is required"}}"#;
+        std::fs::write(dir.join("status.json"), said).context("larder's status")?;
+    }
     Ok(dir.display().to_string())
 }
 

@@ -212,6 +212,7 @@ impl Root {
             )
         });
         let (broken, checking) = broken;
+        self.tell_broken(&broken, now, cx);
         let parts: Vec<MachinePart> = match self.attn.parts.clone() {
             Some(p) => p,
             None => doctor
