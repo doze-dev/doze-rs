@@ -1,218 +1,151 @@
-//! Wiring: the services, the gateway, and the stop.
+//! Serving: take the data directory, listen, say so, run until stopped, and tidy up.
 
-use std::sync::Arc;
-use std::time::Duration;
+use std::path::PathBuf;
+use std::time::Instant;
 
-use anyhow::{Context, Result};
-use aws_auth::{Credential, Secret, StaticCredentials};
-use aws_eventbridge::Eventbridge;
-use aws_gateway::{Auth, Config, Gateway};
-use aws_peers::Peers;
-use aws_wire::service::Service;
-use doze_runtime::{Ctx, DataDirLock, SystemClock, Tasks};
+use doze_runtime::{DataDirLock, Tasks};
 
-use crate::cli::{Args, AuthMode};
+use crate::config::Config;
+use crate::instance::{self, Instance, endpoint_of};
+use crate::services::Svc;
+use crate::style::{Stream, Style};
 
-pub(crate) async fn run(args: Args) -> Result<()> {
-    let _lock = DataDirLock::take(&args.data_dir, "doze-aws")?;
-    let tasks = Tasks::new();
-    // The bus the services call each other over; each is registered on it as well as on the gateway.
-    let peers = Peers::new();
-    let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
-    let ctx = |name: &str| Ctx {
-        dir: args.data_dir.join(name),
-        idle: Duration::from_secs(args.idle_secs),
-        tasks: tasks.clone(),
-        clock: Arc::new(SystemClock),
-        ext: Some(Arc::clone(&ext)),
+/// Serves until Ctrl-C or SIGTERM; a start that fails is told plainly (it says what to do).
+pub(crate) fn main(cfg: &Config, started: Instant) -> i32 {
+    let colour = std::io::IsTerminal::is_terminal(&std::io::stderr())
+        && std::env::var_os("NO_COLOR").is_none_or(|v| v.is_empty());
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_ansi(colour)
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
+        )
+        .init();
+    let runtime = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .thread_name("doze-aws")
+        .build()
+    {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("doze-aws: {e}");
+            return 1;
+        }
     };
-    let mut config = Config::new(args.listen);
-    config.account_id.clone_from(&args.account);
-    config.auth = auth_of(&args);
-    peers.set_mode(args.iam.into());
-    let (iam, sts) = aws_iam::services(Arc::new(ctx("iam")));
-    let iam = Arc::new(iam);
-    peers.set_authorizer(iam.clone());
-    // Under `--auth verify`, a key the command line does not name may be one IAM issued (an access key or a role session).
-    config.credential_source = Some(iam.clone());
-    let (cloudwatch, logs) = observability(&ctx, &args);
-    let eventbridge = Arc::new(Eventbridge::new(Arc::new(ctx("eventbridge"))));
-    let states = Arc::new(aws_sfn::Sfn::with_config(
-        Arc::new(ctx("states")),
-        states_config(),
-    ));
-    let (sqs, dynamodb, kinesis, lambda) = compute(&ctx, &args);
-    let services: Vec<Arc<dyn Service>> = vec![
-        iam,
-        Arc::new(sts),
-        sqs,
-        Arc::new(aws_ssm::Ssm::new(Arc::new(ctx("ssm")))),
-        Arc::new(aws_secrets::Secrets::new(Arc::new(ctx("secretsmanager")))),
-        Arc::new(aws_kms::Kms::new(Arc::new(ctx("kms")))),
-        Arc::new(aws_sns::Sns::new(Arc::new(ctx("sns")))),
-        dynamodb.clone(),
-        Arc::new(aws_s3::S3::new(Arc::new(ctx("s3")))),
-        kinesis,
-        logs,
-        cloudwatch.clone(),
-        eventbridge.clone(),
-        lambda.clone(),
-        states.clone(),
-        Arc::new(aws_cloudformation::Cloudformation::with_config(
-            Arc::new(ctx("cloudformation")),
-            args.cloudformation(),
-        )),
-    ];
-    let running = gateway_of(config, services, &ctx, &peers, &dynamodb)
-        .bind()
-        .await
-        .with_context(|| format!("listening on {}", args.listen))?;
-    // Alarms that were pending when the process last stopped are judged again; nothing else would wake their region.
-    cloudwatch.resume().await;
-    eventbridge.resume().await;
-    dynamodb.resume().await;
-    // Event source mappings that were enabled when the process last stopped poll again; functions find the other services here.
-    lambda.set_endpoint(&format!("http://{}", running.local_addr()));
-    lambda.resume().await;
-    // Executions that were running when the process last stopped carry on: calls that were out are made again, waits re-armed.
-    states.resume().await;
+    match runtime.block_on(run(cfg, started)) {
+        Ok(()) => 0,
+        Err(message) => {
+            eprintln!("\n{message}\n");
+            1
+        }
+    }
+}
+
+async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
+    let data = cfg.data_dir();
+    let _lock = match DataDirLock::take(&data, "doze-aws") {
+        Ok(lock) => lock,
+        Err(doze_runtime::LockError::Held { .. }) => {
+            return Err(crate::startfail::data_dir_held(&data));
+        }
+        Err(e) => return Err(format!("doze-aws cannot use its data directory: {e}")),
+    };
+    let on = crate::services::parse_list(&cfg.list("services"))?;
+    let listen: std::net::SocketAddr = cfg
+        .text("listen")
+        .parse()
+        .map_err(|e| format!("--listen: {e}"))?;
+    let mut me = Instance {
+        pid: std::process::id(),
+        region: cfg.text("region"),
+        account: cfg.text("account"),
+        auth: cfg.text("auth"),
+        services: on.iter().map(|s| s.name.to_owned()).collect(),
+        version: crate::VERSION.to_owned(),
+        started: unix_secs(),
+        data_dir: data.display().to_string(),
+        ..Instance::default()
+    };
+    let mut gw = aws_gateway::Config::new(listen);
+    gw.account_id = cfg.text("account");
+    gw.default_region = cfg.text("region");
+    gw.auth = crate::wire::auth_of(cfg);
+    gw.health = Some(me.health());
+    let tasks = Tasks::new();
+    let (gateway, resumable) = crate::wire::gateway(cfg, gw, &on, &tasks);
+    let running = match gateway.bind().await {
+        Ok(r) => r,
+        Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+            return Err(crate::startfail::port_taken(listen));
+        }
+        Err(e) => return Err(format!("doze-aws cannot listen on {listen}: {e}")),
+    };
+    me.endpoint = endpoint_of(running.local_addr());
+    resumable.resume(&me.endpoint).await;
     // The line a supervisor (and the conformance harness) waits for.
     tracing::info!("doze-aws listening on {}", running.local_addr());
+    if cfg.text("auth") == "verify" {
+        (me.access_key, me.secret_key) =
+            (Some(cfg.text("access-key")), Some(cfg.text("secret-key")));
+    }
+    if let Err(e) = instance::write(&data, &me) {
+        tracing::warn!(
+            "{}: {e} (`doze-aws env` will not find this instance by its data directory)",
+            instance::FILE
+        );
+    }
+    announce(cfg, &me, &on, started);
     wait_for_stop().await;
     tracing::info!("stopping");
     running.shutdown().await;
     tasks.shutdown().await;
+    instance::remove(&data);
     Ok(())
 }
 
-/// CloudWatch and Logs with their local storage bounds from the command line.
-fn observability(
-    ctx: &impl Fn(&str) -> Ctx,
-    args: &Args,
-) -> (Arc<aws_cloudwatch::Cloudwatch>, Arc<dyn Service>) {
-    let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::with_settings(
-        Arc::new(ctx("cloudwatch")),
-        aws_cloudwatch::Settings {
-            retention: Duration::from_secs(args.cloudwatch_retention_hours * 3600),
-        },
-    ));
-    let settings = aws_logs::Settings {
-        retention: (args.logs_retention_days > 0)
-            .then(|| Duration::from_secs(args.logs_retention_days * 86_400)),
-        max_events: args.logs_max_events,
+/// The ready block, then the template `--template` names, applied beside the server.
+fn announce(cfg: &Config, me: &Instance, on: &[&'static Svc], started: Instant) {
+    let ready = crate::ready::Ready {
+        endpoint: &me.endpoint,
+        services: on,
+        region: &me.region,
+        account: &me.account,
+        took: started.elapsed(),
+        config: cfg,
+        shell: crate::env::Shell::pick(None),
     };
-    let logs = Arc::new(aws_logs::Logs::with_settings(
-        Arc::new(ctx("logs")),
-        settings,
-    ));
-    (cloudwatch, logs)
-}
-
-/// The gateway with every service, each also on the bus; then the services that share a signing name with another, which the bus
-/// cannot key by it.
-fn gateway_of(
-    config: Config,
-    services: Vec<Arc<dyn Service>>,
-    ctx: &impl Fn(&str) -> Ctx,
-    peers: &Arc<Peers>,
-    dynamodb: &Arc<aws_dynamodb::Dynamodb>,
-) -> Gateway {
-    let mut gateway = Gateway::new(config);
-    for service in services {
-        peers.register(Arc::clone(&service));
-        gateway = gateway.with(service);
+    print!("{}", ready.render(Style::of(Stream::Out)));
+    let template = cfg.text("template");
+    if template.is_empty() {
+        return;
     }
-    // DynamoDB Streams signs as `dynamodb` too: the gateway routes it by its target prefix, and it is not on the peer bus.
-    let streams = aws_dynamodb_streams::Streams::new(dynamodb.clone(), Some(peers.clone()));
-    gateway = gateway.with(Arc::new(streams));
-    // API Gateway's two APIs sign alike (`apigateway`); the gateway tells them apart by path, the bus by name.
-    let (rest_apis, http_apis) = aws_apigateway::services(Arc::new(ctx("apigateway")));
-    let (rest_apis, http_apis): (Arc<dyn Service>, Arc<dyn Service>) =
-        (Arc::new(rest_apis), Arc::new(http_apis));
-    peers.register_as("apigateway", Arc::clone(&rest_apis));
-    peers.register_as("apigatewayv2", Arc::clone(&http_apis));
-    gateway.with(rest_apis).with(http_apis)
-}
-
-/// Who may call: anyone (trust), or the one key from the command line (verify; IAM's own keys are added by the credential source).
-fn auth_of(args: &Args) -> Auth {
-    match args.auth {
-        AuthMode::Trust => Auth::Trust,
-        AuthMode::Verify => {
-            let mut creds = StaticCredentials::new();
-            creds.insert(
-                args.access_key.clone(),
-                Credential {
-                    secret: Secret::new(args.secret_key.clone()),
-                    session_token: None,
-                    expires_at: None,
-                },
-            );
-            Auth::Verify(Arc::new(creds))
-        }
+    let client = me.client();
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let plan = crate::apply::Plan {
+        file: PathBuf::from(template),
+        stack: crate::apply::stack_name(&cwd),
+        params: Vec::new(),
+    };
+    // A blocking client on its own thread: the server's one thread keeps serving the calls it makes. A failed apply is reported
+    // and the server stays up, so the template can be fixed and applied again with `doze-aws apply`.
+    let spawned = std::thread::Builder::new()
+        .name("doze-aws-apply".into())
+        .spawn(move || match client {
+            Ok(c) => {
+                let _ =
+                    crate::apply::apply(&crate::cfn::Cfn::new(c), &plan, Style::of(Stream::Out));
+            }
+            Err(e) => eprintln!("doze-aws: --template: {e}"),
+        });
+    if let Err(e) = spawned {
+        tracing::warn!("--template was not applied: {e}");
     }
 }
 
-/// SQS, DynamoDB, Kinesis and Lambda, made together: Lambda wakes its event source pollers from the sources themselves, so it is
-/// handed them (the peer bus does not carry a wake-up).
-fn compute(
-    ctx: &impl Fn(&str) -> Ctx,
-    args: &Args,
-) -> (
-    Arc<aws_sqs::Sqs>,
-    Arc<aws_dynamodb::Dynamodb>,
-    Arc<aws_kinesis::Kinesis>,
-    Arc<aws_lambda::Lambda>,
-) {
-    let sqs = Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs"))));
-    let dynamodb = Arc::new(aws_dynamodb::Dynamodb::new(Arc::new(ctx("dynamodb"))));
-    let kinesis = Arc::new(aws_kinesis::Kinesis::new(Arc::new(ctx("kinesis"))));
-    let lambda = Arc::new(aws_lambda::Lambda::with_config(
-        Arc::new(ctx("lambda")),
-        lambda_config(args),
-    ));
-    lambda.connect(aws_lambda::Sources {
-        sqs: Arc::clone(&sqs),
-        kinesis: Arc::clone(&kinesis),
-        dynamodb: Arc::clone(&dynamodb),
-    });
-    (sqs, dynamodb, kinesis, lambda)
-}
-
-/// How Lambda runs functions: the idle time and quiet flag from the command line, and the interpreters from `DOZE_LAMBDA_PYTHON`,
-/// `_NODE`, `_RUBY`, `_JAVA` and `_DOTNET` (the one on `PATH` otherwise).
-fn lambda_config(args: &Args) -> aws_lambda::Config {
-    let env = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
-    aws_lambda::Config {
-        runtime: aws_lambda::RuntimeConfig {
-            idle: Duration::from_secs(args.lambda_idle_secs),
-            interpreters: aws_lambda::Interpreters {
-                python: env("DOZE_LAMBDA_PYTHON"),
-                node: env("DOZE_LAMBDA_NODE"),
-                ruby: env("DOZE_LAMBDA_RUBY"),
-                java: env("DOZE_LAMBDA_JAVA"),
-                dotnet: env("DOZE_LAMBDA_DOTNET"),
-            },
-        },
-        quiet: args.lambda_quiet,
-    }
-}
-
-/// Step Functions' local-testing settings, from the environment: `DOZE_SFN_WAIT_SCALE` (every Wait and retry interval multiplied by
-/// it) and `SFN_MOCK_CONFIG` (Step Functions Local's mock configuration file; `DOZE_SFN_MOCK_CONFIG` also works).
-fn states_config() -> aws_sfn::Config {
-    let env = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
-    let mut config = aws_sfn::Config::default();
-    if let Some(scale) = env("DOZE_SFN_WAIT_SCALE").and_then(|s| s.parse::<f64>().ok()) {
-        config.wait_scale = scale.max(0.0);
-    }
-    if let Some(path) = env("DOZE_SFN_MOCK_CONFIG").or_else(|| env("SFN_MOCK_CONFIG")) {
-        match aws_sfn::Config::read_mocks(std::path::Path::new(&path)) {
-            Ok(mocks) => config.mocks = Some(mocks),
-            Err(e) => tracing::warn!("step functions: the mock configuration is not used: {e}"),
-        }
-    }
-    config
+fn unix_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
 }
 
 /// Resolves on Ctrl-C or, on Unix, SIGTERM.
