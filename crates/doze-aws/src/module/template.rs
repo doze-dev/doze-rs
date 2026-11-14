@@ -15,13 +15,11 @@ use super::template_more::{function, key, parameter, rule, secret, state_machine
 /// The stack's resources, by logical id.
 pub(crate) type Resources = Map<String, Value>;
 
-/// A logical id for a block: its kind and its label's letters and digits, then a hash of the label when anything
-/// was dropped or changed, so `a-b` and `ab` never meet. Stable across runs: the stack's resources keep their ids.
+/// A logical id for a block: its kind, its label's letters and digits, then eight hex digits of a hash of the label,
+/// so `a-b` and `ab` never meet. A resource made for a block (`…Dlq`, `…Sub0`, `…Alias`) adds a suffix with a
+/// letter that is not a hex digit, so it can never be another block's id. Stable across runs.
 pub(crate) fn id(kind: &str, name: &str) -> String {
     let clean: String = name.chars().filter(char::is_ascii_alphanumeric).collect();
-    if clean == name && !clean.is_empty() {
-        return format!("{kind}{clean}");
-    }
     // FNV-1a: stable everywhere, no dependency.
     let hash = name.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
         (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)

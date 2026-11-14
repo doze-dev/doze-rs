@@ -1,5 +1,17 @@
 //! The `aws` block: the Go module's (`doze-aws/module/config.go`), argument for argument, so a doze.hcl written for it
 //! decodes here unchanged. Each nested block is one resource of the stack the module keeps (`template.rs`).
+//!
+//! Where it behaves differently from Go (each deliberate, see check.rs and converge.rs):
+//! - refused before boot, where Go failed at converge or quietly did something else: a reference to a block nobody
+//!   declared; `content_dedup` without `fifo`; `max_receives` without a `dlq`; a rule with both a pattern and a
+//!   schedule, or a schedule on another bus; a key attribute with two types; an empty state machine definition;
+//!   a function's missing code directory;
+//! - a FIFO queue's name gets `.fifo` when its label lacks it (SQS requires it);
+//! - `secret` takes `value` only: `binary` is refused (the stack's secret takes text), and so is no value;
+//! - `force` is read and does nothing: a declared value is written whenever its declaration changes, so a value an app
+//!   rotated is overwritten by the next change to that block (Go never touched an existing secret or parameter);
+//! - a resource declared here that already exists outside the stack (made by hand, by `doze-aws apply`, or by a block
+//!   removed and added back) fails the converge: CloudFormation import is not built in doze-aws yet, where Go adopted it.
 
 use std::collections::BTreeMap;
 

@@ -17,6 +17,7 @@
 //! - the shell client (`aws`, pointed at the instance) and `doze init`'s detection are declared.
 
 mod check;
+mod check_more;
 mod converge;
 mod spec;
 mod template;
@@ -41,8 +42,7 @@ const PLUGIN_SUFFIX: &str = "-plugin";
 /// The region the instance runs in and the module signs for.
 pub(crate) const REGION: &str = "us-east-1";
 
-/// The published example: the Go module's, but for the state machine's Lambda ARN, which names the account by
-/// CloudFormation's own pseudo parameter rather than a constant.
+/// The published example: the Go module's, less its function and state machine (they need code beside doze.hcl).
 const EXAMPLE: &str = r#"aws "local" {
   port = 4566
 

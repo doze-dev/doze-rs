@@ -91,7 +91,7 @@ async fn kcat_lists_produces_and_consumes_through_the_granted_address() {
     let addr = main.addr.clone();
     let k = kcat.to_owned();
     let (meta, got) = tokio::task::spawn_blocking(move || {
-        // The module's own shell line: `kcat -b {host}:{port} -L`.
+        // The line the module declares as its shell client (module/hints.rs): `kcat -b {host}:{port} -L`.
         let meta = run(&k, &["-b", &addr, "-L", "-m", "10"], None);
         run(
             &k,

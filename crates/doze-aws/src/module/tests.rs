@@ -24,7 +24,9 @@ fn it_is_the_module_as_aws_plugin_or_doze_aws_module_and_the_server_otherwise() 
 
 #[test]
 fn logical_ids_are_stable_and_never_meet() {
-    assert_eq!(id("Queue", "emails"), "Queueemails");
+    assert!(id("Queue", "emails").starts_with("Queueemails"));
+    // A derived id ("…Dlq") can never be another block's: every block id ends in eight hex digits.
+    assert_ne!(format!("{}Dlq", id("Queue", "a")), id("Queue", "aDlq"));
     assert_ne!(id("Queue", "a-b"), id("Queue", "ab"));
     assert_eq!(id("Queue", "a-b"), id("Queue", "a-b"));
     assert!(

@@ -38,20 +38,19 @@ pub(crate) fn function(r: &mut Resources, f: &Function, dir: &str) {
     let mut p = Map::new();
     p.insert("FunctionName".into(), f.name.clone().into());
     p.insert("Runtime".into(), runtime.into());
-    p.insert(
-        "Handler".into(),
-        f.handler
-            .clone()
-            .unwrap_or_else(|| "bootstrap".into())
-            .into(),
-    );
+    // A `provided` runtime runs its `bootstrap`; the others need the person's handler.
+    let handler = f
+        .handler
+        .clone()
+        .or_else(|| runtime_is_provided(f).then(|| "bootstrap".to_owned()));
+    put(&mut p, "Handler", handler.map(Value::from));
     p.insert(
         "Code".into(),
         json!({ "S3Bucket": "_local_", "S3Key": code_dir(&f.code, dir) }),
     );
     p.insert(
         "Role".into(),
-        json!({ "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:role/doze" }),
+        json!({ "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:role/stackfile" }),
     );
     put(&mut p, "Timeout", f.timeout.map(Value::from));
     put(&mut p, "MemorySize", f.memory.map(Value::from));
@@ -142,13 +141,47 @@ pub(crate) fn rule(r: &mut Resources, x: &Rule) {
     if !targets.is_empty() {
         p.insert("Targets".into(), targets.into());
     }
-    r.insert(id("Rule", &x.name), resource("AWS::Events::Rule", p));
+    let mut rule = resource("AWS::Events::Rule", p);
+    // A bus of its own is made with the rule (Go's module made it too); the default bus is always there.
+    if let Some(bus) = x.bus.as_deref().filter(|b| *b != "default") {
+        let bus_id = id("Bus", bus);
+        let mut b = Map::new();
+        b.insert("Name".into(), bus.into());
+        r.insert(bus_id.clone(), resource("AWS::Events::EventBus", b));
+        if let Some(o) = rule.as_object_mut() {
+            o.insert("DependsOn".into(), bus_id.into());
+        }
+    }
+    r.insert(id("Rule", &x.name), rule);
+}
+
+/// Whether the function runs a `provided` runtime (the default).
+fn runtime_is_provided(f: &Function) -> bool {
+    f.runtime
+        .as_deref()
+        .is_none_or(|r| r.starts_with("provided"))
+}
+
+/// The usage a key spec implies when none is declared, as Go's module inferred it: signing keys for RSA and ECC,
+/// MAC keys for HMAC, encryption otherwise.
+fn usage_of(k: &Key) -> Option<String> {
+    if k.usage.is_some() {
+        return k.usage.clone();
+    }
+    let spec = k.spec.as_deref()?.to_ascii_uppercase();
+    if spec.starts_with("RSA_") || spec.starts_with("ECC_") {
+        Some("SIGN_VERIFY".into())
+    } else if spec.starts_with("HMAC_") {
+        Some("GENERATE_VERIFY_MAC".into())
+    } else {
+        None
+    }
 }
 
 pub(crate) fn key(r: &mut Resources, k: &Key) {
     let mut p = Map::new();
     put(&mut p, "KeySpec", k.spec.clone().map(Value::from));
-    put(&mut p, "KeyUsage", k.usage.clone().map(Value::from));
+    put(&mut p, "KeyUsage", usage_of(k).map(Value::from));
     put(
         &mut p,
         "Description",
@@ -215,7 +248,11 @@ pub(crate) fn state_machine(r: &mut Resources, m: &StateMachine) {
     );
     p.insert(
         "StateMachineType".into(),
-        m.kind.clone().unwrap_or_else(|| "STANDARD".into()).into(),
+        m.kind
+            .as_deref()
+            .unwrap_or("STANDARD")
+            .to_ascii_uppercase()
+            .into(),
     );
     put(&mut p, "Tags", tags(&m.tags));
     r.insert(

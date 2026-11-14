@@ -59,25 +59,19 @@ fn apply(cfn: &Cfn, body: &str, empty: bool) -> Result<()> {
         settle(cfn)?;
         stack = cfn.stack(STACK).map_err(|e| failed(&e))?;
     }
-    if let Some(s) = &stack
-        && matches!(
-            s.status.as_str(),
-            "ROLLBACK_COMPLETE" | "REVIEW_IN_PROGRESS" | "ROLLBACK_FAILED"
-        )
-    {
-        // A first create that rolled back holds nothing (retained resources stay) and cannot be updated: AWS makes you
-        // delete it.
-        cfn.delete_stack(STACK).map_err(|e| failed(&e))?;
-        settle(cfn)?;
-        stack = None;
-    }
-    match stack {
-        None if empty => Ok(()),
-        None => {
-            cfn.create_stack(STACK, body, &[]).map_err(|e| failed(&e))?;
-            outcome(cfn, &settle(cfn)?, "CREATE_COMPLETE")
+    let there = match &stack {
+        Some(s) => unstick(cfn, &s.status)?,
+        None => false,
+    };
+    match (there, empty) {
+        (false, true) => Ok(()),
+        (false, false) => {
+            let seen = seen(cfn);
+            cfn.create_stack_clean(STACK, body)
+                .map_err(|e| failed(&e))?;
+            outcome(cfn, &settle(cfn)?, "CREATE_COMPLETE", &seen)
         }
-        Some(_) => update(cfn, body),
+        (true, _) => update(cfn, body),
     }
 }
 
@@ -97,6 +91,7 @@ fn update(cfn: &Cfn, body: &str) -> Result<()> {
             break c;
         }
         if started.elapsed() > SETTLE {
+            let _ = cfn.delete_change_set(&id);
             return Err(Error::new(
                 ErrorKind::TimedOut,
                 "the change set never settled",
@@ -116,8 +111,47 @@ fn update(cfn: &Cfn, body: &str) -> Result<()> {
             format!("keeping the aws stack: {}", changes.reason),
         ));
     }
+    let seen = seen(cfn);
     cfn.execute_change_set(&id).map_err(|e| failed(&e))?;
-    outcome(cfn, &settle(cfn)?, "UPDATE_COMPLETE")
+    outcome(cfn, &settle(cfn)?, "UPDATE_COMPLETE", &seen)
+}
+
+/// Moves on a stack a converge cannot update (a first create that failed, an update or delete a stop cut short,
+/// which doze-aws marks failed when it starts again); whether the stack is still there to update.
+fn unstick(cfn: &Cfn, status: &str) -> Result<bool> {
+    let call = |action: &str| cfn.stack_call(action, STACK).map_err(|e| failed(&e));
+    match status {
+        // Nothing to keep: a create that never finished, or a stack half deleted. AWS makes you delete it.
+        "ROLLBACK_COMPLETE" | "ROLLBACK_FAILED" | "REVIEW_IN_PROGRESS" | "CREATE_FAILED"
+        | "DELETE_FAILED" => {
+            cfn.delete_stack(STACK).map_err(|e| failed(&e))?;
+            match settle(cfn)?.as_str() {
+                "" | "DELETE_COMPLETE" => Ok(false),
+                other => Err(Error::new(
+                    ErrorKind::Invalid,
+                    format!("the aws stack could not be cleared: it is {other}"),
+                )),
+            }
+        }
+        "UPDATE_FAILED" => {
+            call("RollbackStack")?;
+            settle(cfn).map(|_| true)
+        }
+        "UPDATE_ROLLBACK_FAILED" => {
+            call("ContinueUpdateRollback")?;
+            settle(cfn).map(|_| true)
+        }
+        _ => Ok(true),
+    }
+}
+
+/// The stack's events so far, so a failure reports only what this converge did.
+fn seen(cfn: &Cfn) -> Vec<String> {
+    cfn.events(STACK)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|e| e.id)
+        .collect()
 }
 
 /// Waits until the stack is no longer changing; its status then ("" when it is gone).
@@ -146,14 +180,19 @@ fn settle(cfn: &Cfn) -> Result<String> {
 }
 
 /// `Ok` when the stack reached `want`; otherwise what failed, from its events.
-fn outcome(cfn: &Cfn, status: &str, want: &str) -> Result<()> {
+fn outcome(cfn: &Cfn, status: &str, want: &str, seen: &[String]) -> Result<()> {
     if status == want {
         return Ok(());
     }
     let events = cfn.events(STACK).unwrap_or_default();
     let why: Vec<String> = events
         .iter()
-        .filter(|e| e.status.ends_with("_FAILED") && !e.reason.is_empty() && e.logical != STACK)
+        .filter(|e| {
+            e.status.ends_with("_FAILED")
+                && !e.reason.is_empty()
+                && e.logical != STACK
+                && !seen.contains(&e.id)
+        })
         .take(5)
         .map(|e| format!("{} ({}): {}", e.logical, e.kind, e.reason))
         .collect();

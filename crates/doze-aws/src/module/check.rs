@@ -11,20 +11,20 @@ use super::spec::{AwsSpec, Destination, Index, Table};
 use super::template::{key_parts, queue_name};
 use super::template_more::code_dir;
 
-fn key(k: &str) -> PathSeg {
+pub(super) fn key(k: &str) -> PathSeg {
     PathSeg::Key(k.into())
 }
 
-fn idx(i: usize) -> PathSeg {
+pub(super) fn idx(i: usize) -> PathSeg {
     PathSeg::Index(u32::try_from(i).unwrap_or(u32::MAX))
 }
 
 /// What a check found, each at its path.
 #[derive(Debug, Default)]
-struct Found(Vec<Diagnostic>);
+pub(super) struct Found(Vec<Diagnostic>);
 
 impl Found {
-    fn at(&mut self, path: Vec<PathSeg>, message: String, hint: Option<&str>) {
+    pub(super) fn at(&mut self, path: Vec<PathSeg>, message: String, hint: Option<&str>) {
         self.0.push(Diagnostic {
             path,
             message,
@@ -34,7 +34,7 @@ impl Found {
 }
 
 /// The names each kind of block declares, for references between them.
-struct Names {
+pub(super) struct Names {
     queues: BTreeSet<String>,
     topics: BTreeSet<String>,
     functions: BTreeSet<String>,
@@ -49,7 +49,7 @@ impl Names {
         }
     }
 
-    fn has(&self, kind: &str, name: &str) -> bool {
+    pub(super) fn has(&self, kind: &str, name: &str) -> bool {
         match kind {
             "queue" => self.queues.contains(name),
             "topic" => self.topics.contains(name),
@@ -105,8 +105,8 @@ pub(crate) fn check(s: &AwsSpec, dir: &str) -> Vec<Diagnostic> {
         table(t, vec![key("table"), idx(i)], &mut f);
     }
     functions(s, &names, dir, &mut f);
-    rules(s, &names, &mut f);
-    rest(s, &mut f);
+    super::check_more::rules(s, &names, &mut f);
+    super::check_more::rest(s, &mut f);
     f.0
 }
 
@@ -161,7 +161,23 @@ fn queues(s: &AwsSpec, names: &Names, f: &mut Found) {
             );
         }
         match q.dlq.as_deref() {
-            Some("auto") | None => {}
+            Some("auto") => {
+                let companion = format!("{}-dlq", q.name.trim_end_matches(".fifo"));
+                if names
+                    .queues
+                    .iter()
+                    .any(|n| n.trim_end_matches(".fifo") == companion)
+                {
+                    f.at(
+                        here("dlq"),
+                        format!(
+                            "dlq = \"auto\" makes {companion:?}, which another queue block declares"
+                        ),
+                        Some("dlq = the name of that queue"),
+                    );
+                }
+            }
+            None => {}
             Some(d) if d == q.name => f.at(
                 here("dlq"),
                 format!("queue {:?} cannot be its own dead-letter queue", q.name),
@@ -213,7 +229,7 @@ fn one_target(
     }
 }
 
-fn json(text: Option<&str>, here: Vec<PathSeg>, f: &mut Found) {
+pub(super) fn json(text: Option<&str>, here: Vec<PathSeg>, f: &mut Found) {
     let Some(t) = text.map(str::trim).filter(|t| !t.is_empty()) else {
         return;
     };
@@ -234,6 +250,21 @@ fn key_ok(k: &str) -> bool {
 
 fn table(t: &Table, here: Vec<PathSeg>, f: &mut Found) {
     let hint = Some("\"pk:S\" or \"pk:S sk:N\"; types S, N or B");
+    // One attribute, one type: the table and its indexes share their attribute definitions.
+    let mut types: Vec<(String, String)> = Vec::new();
+    for k in std::iter::once(&t.key).chain(t.gsi.iter().chain(&t.lsi).map(|i| &i.key)) {
+        for (n, ty) in key_parts(k) {
+            match types.iter().find(|(a, _)| *a == n) {
+                Some((_, was)) if *was != ty => f.at(
+                    here.clone(),
+                    format!("attribute {n:?} is {was} in one key and {ty} in another"),
+                    None,
+                ),
+                Some(_) => {}
+                None => types.push((n, ty)),
+            }
+        }
+    }
     if !key_ok(&t.key) {
         f.at(
             [here.clone(), vec![key("key")]].concat(),
@@ -331,89 +362,5 @@ fn functions(s: &AwsSpec, names: &Names, dir: &str, f: &mut Found) {
                 );
             }
         }
-    }
-}
-
-fn rules(s: &AwsSpec, names: &Names, f: &mut Found) {
-    for (i, r) in s.rule.iter().enumerate() {
-        let here = |k: &str| vec![key("rule"), idx(i), key(k)];
-        if r.pattern.is_none() == r.schedule.is_none() {
-            f.at(
-                vec![key("rule"), idx(i)],
-                format!(
-                    "rule {:?} needs a pattern or a schedule (one of them)",
-                    r.name
-                ),
-                None,
-            );
-        }
-        json(r.pattern.as_deref(), here("pattern"), f);
-        for (j, t) in r.targets.iter().enumerate() {
-            let at = [here("targets"), vec![idx(j)]].concat();
-            match t.split_once(':') {
-                Some((kind @ ("queue" | "topic" | "lambda"), name)) if names.has(kind, name) => {}
-                Some((kind @ ("queue" | "topic" | "lambda"), name)) => {
-                    f.at(
-                        at,
-                        format!("no {kind} {name:?} is declared in this block"),
-                        None,
-                    );
-                }
-                _ => f.at(
-                    at,
-                    format!("{t:?} is not a target"),
-                    Some("\"queue:name\", \"topic:name\" or \"lambda:name\""),
-                ),
-            }
-        }
-    }
-}
-
-fn rest(s: &AwsSpec, f: &mut Found) {
-    for (i, x) in s.secret.iter().enumerate() {
-        if x.binary.is_some() {
-            f.at(
-                vec![key("secret"), idx(i), key("binary")],
-                "binary secrets cannot be declared (CloudFormation takes text only)".into(),
-                Some("value = \"...\""),
-            );
-        } else if x.value.is_none() {
-            f.at(
-                vec![key("secret"), idx(i)],
-                format!("secret {:?} needs a value", x.name),
-                None,
-            );
-        }
-    }
-    for (i, p) in s.parameter.iter().enumerate() {
-        if let Some(k) = p
-            .kind
-            .as_deref()
-            .filter(|k| !matches!(*k, "String" | "StringList"))
-        {
-            f.at(
-                vec![key("parameter"), idx(i), key("type")],
-                format!("{k:?} is not a parameter type"),
-                Some("String or StringList"),
-            );
-        }
-    }
-    for (i, m) in s.state_machine.iter().enumerate() {
-        if let Some(k) = m
-            .kind
-            .as_deref()
-            .filter(|k| !matches!(*k, "STANDARD" | "EXPRESS"))
-        {
-            f.at(
-                vec![key("state_machine"), idx(i), key("type")],
-                format!("{k:?} is not a state machine type"),
-                Some("STANDARD or EXPRESS"),
-            );
-        }
-        json(
-            Some(&m.definition),
-            vec![key("state_machine"), idx(i), key("definition")],
-            f,
-        );
     }
 }
