@@ -21,6 +21,40 @@ pub(super) fn drop_root(uid: u32, gid: u32) -> io::Result<()> {
     Ok(())
 }
 
+pub(super) fn ids() -> (u32, u32) {
+    (
+        rustix::process::getuid().as_raw(),
+        rustix::process::getgid().as_raw(),
+    )
+}
+
+/// The home directory the user database gives `uid`.
+pub(super) fn home_of(uid: u32) -> Option<std::path::PathBuf> {
+    use std::os::unix::ffi::OsStrExt;
+    // SAFETY: a zeroed passwd is a valid value for getpwuid_r to fill (plain integers and null pointers).
+    let mut pwd: libc::passwd = unsafe { std::mem::zeroed() };
+    let mut buf = vec![0 as libc::c_char; 16 * 1024];
+    let mut found: *mut libc::passwd = std::ptr::null_mut();
+    // SAFETY: every pointer is to memory of ours that outlives the call, and the length is the buffer's own; on
+    // success pwd's strings point into buf, which is read below while still alive.
+    let rc = unsafe {
+        libc::getpwuid_r(
+            uid,
+            &raw mut pwd,
+            buf.as_mut_ptr(),
+            buf.len(),
+            &raw mut found,
+        )
+    };
+    if rc != 0 || found.is_null() || pwd.pw_dir.is_null() {
+        return None;
+    }
+    // SAFETY: getpwuid_r succeeded, so pw_dir is a NUL-terminated string inside buf.
+    let dir = unsafe { std::ffi::CStr::from_ptr(pwd.pw_dir) };
+    let path = std::path::PathBuf::from(std::ffi::OsStr::from_bytes(dir.to_bytes()));
+    (!path.as_os_str().is_empty()).then_some(path)
+}
+
 fn check(rc: libc::c_int, what: &str) -> io::Result<()> {
     if rc == 0 {
         return Ok(());

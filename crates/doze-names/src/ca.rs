@@ -193,8 +193,20 @@ impl Ca {
     /// Replaces the authority with a new one; everything minted before is dropped. The old root is kept under
     /// `previous/` with its fingerprint remembered, so the next trust prompt can stop trusting it. Works on a root
     /// that cannot be read, which is when it is needed.
+    ///
+    /// When the old root cannot be read, what the machine's store holds of doze roots is remembered too (Go's
+    /// `RotateCA`): the files that would name them are what is broken, and a root nobody can name must not stay
+    /// trusted.
     pub fn rotate(dir: &Path) -> Result<Ca, Error> {
+        let readable = matches!(Ca::probe(dir), Ok(Some(_)));
         let mut previous = read_previous(dir);
+        if !readable {
+            for fp in crate::trust_store::trusted_doze_roots() {
+                if !previous.contains(&fp) {
+                    previous.push(fp);
+                }
+            }
+        }
         if let Ok(pem) = std::fs::read_to_string(dir.join(ROOT_CRT))
             && let Ok(old) = Certificate::from_pem(pem.as_bytes())
             && let Ok(der) = old.to_der()
@@ -213,8 +225,7 @@ impl Ca {
         doze_os::fs::private_dir(dir)?;
         let _lock = doze_os::fs::lock(&dir.join(".lock"))?;
         let ca = Ca::create(dir, previous)?;
-        let text = serde_json::to_string(&ca.previous).map_err(std::io::Error::other)?;
-        write_atomic(&dir.join(PREVIOUS_FILE), text.as_bytes(), false)?;
+        write_previous(dir, &ca.previous)?;
         Ok(ca)
     }
 
@@ -242,6 +253,51 @@ impl Ca {
     pub fn previous_path(&self, fp: &str) -> PathBuf {
         self.dir.join(PREVIOUS_DIR).join(format!("{fp}.crt"))
     }
+
+    /// The folder the authority lives in.
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+
+    /// The root's common name, which is how stores list it.
+    pub fn common_name(&self) -> String {
+        crate::bundle::common_name(&self.root).unwrap_or_default()
+    }
+
+    /// When the root expires, as a date.
+    pub fn expires(&self) -> String {
+        let t = self
+            .root
+            .tbs_certificate()
+            .validity()
+            .not_after
+            .to_date_time();
+        format!("{:04}-{:02}-{:02}", t.year(), t.month(), t.day())
+    }
+
+    /// Drops the rotated-out roots the machine no longer trusts, and their files: after a prompt removed them.
+    pub fn forget_untrusted_previous(&mut self) -> Result<(), Error> {
+        let (keep, gone): (Vec<String>, Vec<String>) = std::mem::take(&mut self.previous)
+            .into_iter()
+            .partition(|fp| crate::trust_store::fingerprint_trusted(Some(self), fp));
+        for fp in gone {
+            let _ = std::fs::remove_file(self.previous_path(&fp));
+        }
+        self.previous = keep;
+        write_previous(&self.dir, &self.previous)
+    }
+}
+
+/// Writes `previous.json`, or removes it when nothing is left to untrust.
+fn write_previous(dir: &Path, fps: &[String]) -> Result<(), Error> {
+    if fps.is_empty() {
+        return match std::fs::remove_file(dir.join(PREVIOUS_FILE)) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.into()),
+            _ => Ok(()),
+        };
+    }
+    let text = serde_json::to_string(fps).map_err(std::io::Error::other)?;
+    write_atomic(&dir.join(PREVIOUS_FILE), text.as_bytes(), false)
 }
 
 /// The fingerprints of roots rotated out, from `previous.json`; anything that is not a fingerprint is dropped (the
@@ -250,7 +306,8 @@ fn read_previous(dir: &Path) -> Vec<String> {
     let text = std::fs::read_to_string(dir.join(PREVIOUS_FILE)).unwrap_or_default();
     let fps: Vec<String> = serde_json::from_str(&text).unwrap_or_default();
     fps.into_iter()
-        .filter(|fp| fp.len() == 64 && fp.bytes().all(|b| b.is_ascii_hexdigit()))
+        .filter(|fp| crate::trust_store::valid_fingerprint(fp))
+        .map(|fp| fp.to_ascii_lowercase())
         .collect()
 }
 

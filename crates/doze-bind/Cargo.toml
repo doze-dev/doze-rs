@@ -1,0 +1,16 @@
+[package]
+name = "doze-bind"
+version = "0.0.0"
+description = "Where each instance of a stack is reached: its name, its listeners' public ports, its routes through the front door, and the grant its module is told (docs/design/next/module-names.md)"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-names = { path = "../doze-names" }
+doze-module-proto = { path = "../doze-module-proto" }
