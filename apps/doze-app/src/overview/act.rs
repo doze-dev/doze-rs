@@ -249,7 +249,7 @@ fn printed(t: &Tokens, f: &Failure) -> gpui::Div {
         .text_size(px(ty::XS_UP))
         .line_height(px(ty::LH_17))
         .text_color(t.dim)
-        .children(f.lines.iter().rev().take(8).rev().map(|l| {
+        .children(f.lines.iter().rev().take(40).rev().map(|l| {
             div().child(if l.is_empty() {
                 " ".to_owned()
             } else {

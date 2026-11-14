@@ -356,10 +356,10 @@ impl Render for Palette {
             .flex_col()
             .overflow_hidden()
             .rounded(px(12.))
-            .border_1()
-            .border_color(t.line2)
-            .bg(t.panel)
-            .shadow(super::shadow(&t))
+            // Go `grow`: the frame grows from .985 behind the words (GPUI scales no element).
+            .relative()
+            .p(px(1.))
+            .child(super::scrim::grown_frame(&t, t.line2, 12., "palette-frame"))
             .on_action(cx.listener(|this, _: &ScopeIn, window, cx| {
                 if !this.scope_in(window, cx) {
                     cx.propagate();

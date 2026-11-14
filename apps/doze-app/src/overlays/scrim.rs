@@ -78,10 +78,16 @@ pub(crate) fn center(
 /// A dialog's frame (fill, `border`, shadow), drawn behind its words: it grows from .985 of the dialog's size as it
 /// enters (Go `grow`), the words staying as they are (GPUI scales no element).
 pub(crate) fn frame(t: &Tokens, border: Hsla) -> AnyElement {
+    grown_frame(t, border, 12., "dialog-frame")
+}
+
+/// A panel's frame (fill, `border`, shadow, `radius`) that grows from .985 of the panel's size as it enters (Go
+/// `grow`: the dialog, the palette, the keys sheet), animated as `id`.
+pub(crate) fn grown_frame(t: &Tokens, border: Hsla, radius: f32, id: &'static str) -> AnyElement {
     let frame = div()
         .absolute()
         .inset_0()
-        .rounded(px(12.))
+        .rounded(px(radius))
         .border_1()
         .border_color(border)
         .bg(t.panel)
@@ -90,8 +96,8 @@ pub(crate) fn frame(t: &Tokens, border: Hsla) -> AnyElement {
         return frame.into_any_element();
     }
     frame
-        .with_animation("dialog-frame", crate::motion::go_anim(180), |d, p| {
-            let k = gpui::relative(0.0075 * (1.0 - crate::motion::traced("dialog-frame", p)));
+        .with_animation(id, crate::motion::go_anim(180), move |d, p| {
+            let k = gpui::relative(0.0075 * (1.0 - crate::motion::traced(id, p)));
             d.top(k).bottom(k).left(k).right(k)
         })
         .into_any_element()
