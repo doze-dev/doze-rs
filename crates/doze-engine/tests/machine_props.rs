@@ -9,7 +9,11 @@
 //! 5. the reaper never stops a pinned instance;
 //! 6. a running instance has a unit; a unit is stopped at most once;
 //! 7. a crashing instance is within its restart budget;
-//! 8. a crashing instance has its restart pending (a timer, its wake, or a start in flight).
+//! 8. a crashing instance has its restart pending: a live timer, a restart wake the shell still owes (it plays them as
+//!    the engine does: `Busy` is retried, `Join` waits on that start), or a fresh start in flight (audit 4, N3);
+//! 9. a failed instance has no restart pending; at most an `on_ready` rerun or a cancelled start is in flight (audit
+//!    4, N2);
+//! 10. a restart whose timer went off keeps the stack from being quiet until its wake ran.
 
 use doze_engine::lifecycle::Now;
 use doze_engine::machine::{Decision, Effect, Machine, Unit};
@@ -33,6 +37,7 @@ enum In {
     Stop(usize),
     Gone(usize),
     Fire(usize),
+    RestartWake(usize),
     Cancelled(usize),
     Reap(u16),
     Client(usize, bool),
@@ -53,6 +58,7 @@ fn input() -> impl Strategy<Value = In> {
         2 => (0usize..3).prop_map(In::Stop),
         2 => i().prop_map(In::Gone),
         2 => i().prop_map(In::Fire),
+        2 => i().prop_map(In::RestartWake),
         2 => i().prop_map(In::Cancelled),
         1 => (0u16..3000).prop_map(In::Reap),
         2 => ((0usize..3), any::<bool>()).prop_map(|(a, b)| In::Client(a, b)),
@@ -72,6 +78,10 @@ struct Shell {
     /// Timers a stop, a newer start, a newer timer or the shutdown cancelled: still fired, and must restart nothing.
     dead: BTreeMap<u64, String>,
     cancels: BTreeMap<u64, String>,
+    /// Starts that only rerun `on_ready`.
+    reruns: BTreeSet<u64>,
+    /// Restart wakes owed (`RestartNow`), in order; `false` once a stop, a newer start or the shutdown cancelled it.
+    restarts: Vec<(String, bool)>,
     clients: BTreeMap<String, u32>,
     shut: bool,
 }
@@ -96,6 +106,11 @@ fn cancel_timers(s: &mut Shell, name: Option<&str>) {
             s.dead.insert(t, n);
         }
     }
+    for (n, live) in &mut s.restarts {
+        if name.is_none_or(|x| x == n.as_str()) {
+            *live = false;
+        }
+    }
 }
 
 fn absorb(s: &mut Shell, m: &Machine, fx: Vec<Effect>) {
@@ -107,6 +122,7 @@ fn absorb(s: &mut Shell, m: &Machine, fx: Vec<Effect>) {
                 if rerun {
                     // Only `on_ready` again: it registers no processes.
                     s.registered.insert(boot);
+                    s.reruns.insert(boot);
                 }
                 assert!(!s.shut, "a start after the shutdown");
                 assert!(
@@ -124,7 +140,7 @@ fn absorb(s: &mut Shell, m: &Machine, fx: Vec<Effect>) {
                 s.units.remove(&generation);
                 s.stops.insert(generation, name);
             }
-            Effect::CancelBoot { name, boot } => {
+            Effect::CancelBoot { name, boot, .. } => {
                 s.cancels.insert(boot, name);
             }
             Effect::Schedule { name, timer, .. } => {
@@ -132,10 +148,14 @@ fn absorb(s: &mut Shell, m: &Machine, fx: Vec<Effect>) {
                 cancel_timers(s, Some(&name));
                 s.timers.insert(timer, name);
             }
-            Effect::RestartNow { name } => assert!(
-                !s.shut && !m.shutting_down(),
-                "{name} restarted after the shutdown"
-            ),
+            Effect::RestartNow { name } => {
+                assert!(
+                    !s.shut && !m.shutting_down(),
+                    "{name} restarted after the shutdown"
+                );
+                assert!(!m.quiet(), "quiet with the restart of {name} owed");
+                s.restarts.push((name, true));
+            }
             _ => {}
         }
     }
@@ -214,7 +234,7 @@ fn step(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
         In::ReadyFail(k) => {
             if let Some((b, name)) = pick(&s.boots, *k) {
                 s.boots.remove(&b);
-                let fx = m.on_ready_failed(&name, b, "x", d);
+                let fx = m.on_ready_failed(&name, b, "x", d, *now);
                 absorb(s, m, fx);
             }
         }
@@ -262,6 +282,7 @@ fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
             }
         }
         In::Fire(k) => fire_any(m, s, *k),
+        In::RestartWake(k) => restart_wake(m, s, *k),
         In::Reap(ms) => {
             *now = now.after(Duration::from_millis(u64::from(*ms)));
             let fx = m.reap(*now);
@@ -297,6 +318,36 @@ fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
     }
 }
 
+/// The engine's restart wake for a `RestartNow`: `Busy` is asked again later, anything else is its answer.
+fn restart_wake(m: &mut Machine, s: &mut Shell, k: usize) {
+    let n = s.restarts.len();
+    if n == 0 {
+        return;
+    }
+    let Some((name, live)) = s.restarts.get(k % n).cloned() else {
+        return;
+    };
+    let (dec, fx) = m.wake(&name, Cause::Restart);
+    // Invariant 3, for the wake: a cancelled restart starts nothing.
+    assert!(
+        live || !matches!(dec, Decision::Start(_)),
+        "{name}: a cancelled restart started it"
+    );
+    if dec != Decision::Busy {
+        s.restarts.remove(k % n);
+    }
+    absorb(s, m, fx);
+}
+
+/// Whether the shell still owes `name` its restart: a live timer, a restart wake, or a fresh start in flight.
+fn owed(s: &Shell, name: &str) -> bool {
+    s.timers.values().any(|n| n == name)
+        || s.restarts.iter().any(|(n, live)| n == name && *live)
+        || s.boots
+            .iter()
+            .any(|(b, n)| n == name && !s.reruns.contains(b) && !s.cancels.contains_key(b))
+}
+
 /// Any timer goes off, a live or a cancelled one.
 fn fire_any(m: &mut Machine, s: &mut Shell, k: usize) {
     let all: BTreeMap<u64, String> = s
@@ -324,82 +375,9 @@ fn fire(m: &mut Machine, s: &mut Shell, t: u64, name: &str) {
     absorb(s, m, fx);
 }
 
-fn check(m: &Machine, s: &Shell, now: Now) {
-    for name in NAMES {
-        let live = s
-            .units
-            .values()
-            .chain(s.stops.values())
-            .filter(|n| *n == name)
-            .count();
-        assert!(live <= 1, "{name} has {live} copies running at once");
-    }
-    for inst in m.table().snapshot(now) {
-        let clients = s.clients.get(&inst.name).copied().unwrap_or(0);
-        if inst.state.running() {
-            let has = s
-                .units
-                .values()
-                .chain(s.stops.values())
-                .any(|n| *n == inst.name);
-            assert!(has, "{} is {:?} with no unit", inst.name, inst.state);
-            assert_eq!(
-                inst.conns,
-                clients + m.held_by_instances(&inst.name),
-                "holds of {}",
-                inst.name
-            );
-        }
-        if inst.state == State::Crashing {
-            assert!(inst.restart_count <= inst.restart_max, "{inst:?}");
-            // Invariant 8: `crashing` promises a restart: a timer, its wake, or a start in flight (audit 3, M1).
-            assert!(
-                m.pending(&inst.name),
-                "{} is crashing with nothing pending",
-                inst.name
-            );
-        }
-    }
-}
-
-/// Plays every outcome the shell still owes, as a shutdown does.
-fn drain(m: &mut Machine, s: &mut Shell, now: Now) {
-    let fx = m.shutdown();
-    absorb(s, m, fx);
-    for _ in 0..50 {
-        let boots: Vec<(u64, String)> = s.boots.iter().map(|(b, n)| (*b, n.clone())).collect();
-        for (b, name) in boots {
-            s.boots.remove(&b);
-            // A start that has not registered yet does so now (and is stopped: the stack is shutting down); one that
-            // has finishes.
-            let fx = if s.registered.insert(b) {
-                m.register(&name, b, unit(true), now).2
-            } else {
-                m.boot_done(&name, b, Duration::ZERO, now).1
-            };
-            absorb(s, m, fx);
-        }
-        let stops: Vec<(u64, String)> = s.stops.iter().map(|(g, n)| (*g, n.clone())).collect();
-        for (g, name) in stops {
-            s.stops.remove(&g);
-            let fx = m.unit_gone(&name, g, now);
-            absorb(s, m, fx);
-        }
-        if s.boots.is_empty() && s.stops.is_empty() {
-            break;
-        }
-    }
-    let left: Vec<(u64, String)> = s
-        .timers
-        .iter()
-        .chain(s.dead.iter())
-        .map(|(t, n)| (*t, n.clone()))
-        .collect();
-    for (t, name) in left {
-        fire(m, s, t, &name);
-    }
-    assert!(m.quiet(), "not quiet after the shutdown");
-}
+#[path = "props/machine_check.rs"]
+mod machine_check;
+use machine_check::{check, drain};
 
 proptest! {
     #![proptest_config(ProptestConfig { cases: 3000, ..ProptestConfig::default() })]

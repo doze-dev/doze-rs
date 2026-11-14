@@ -1,7 +1,7 @@
 //! The machine's other inputs: an exit by itself, a stop and its end, a due restart, the reaper's tick, the shutdown,
 //! holds, pin and off.
 
-use super::{Ctl, Effect, Machine};
+use super::{Cancel, Ctl, Effect, Machine};
 use crate::error::Error;
 use crate::events::{Cause, Event, Kind};
 use crate::lifecycle::{AfterExit, Exit, Now};
@@ -24,8 +24,9 @@ impl Machine {
         }
         c.unit = None;
         c.ready_pending = false;
-        // An `on_ready` rerun of the unit that just exited has nothing left to run on: it is cancelled, so the
-        // restart's wake starts afresh instead of joining it (audit 3, M1).
+        // A start in flight (an `on_ready` rerun, or the first start's `on_ready`) has nothing left to run on: it is
+        // cancelled, so the restart's wake starts afresh instead of joining it (audit 3, M1), and its waiters hear the
+        // crash (audit 4, N1).
         let rerun = c.boot.filter(|_| !c.cancel_boot);
         if rerun.is_some() {
             c.cancel_boot = true;
@@ -48,6 +49,7 @@ impl Machine {
             fx.push(Effect::CancelBoot {
                 name: name.into(),
                 boot,
+                why: Cancel::Exited,
             });
         }
         if !shutting_down {
@@ -86,6 +88,7 @@ impl Machine {
             fx.push(Effect::CancelBoot {
                 name: name.into(),
                 boot,
+                why: Cancel::Stopped,
             });
         }
         c.ready_pending = false;

@@ -3,7 +3,7 @@
 //! registered.
 
 use doze_engine::lifecycle::Now;
-use doze_engine::machine::{Decision, Effect, Machine, Unit};
+use doze_engine::machine::{Cancel, Decision, Effect, Machine, Unit};
 use doze_engine::restart::{Policy, Restart};
 use doze_engine::{Cause, State};
 use std::time::Duration;
@@ -102,7 +102,8 @@ fn a_start_stopped_before_it_registered_is_reaped() {
         fx,
         vec![Effect::CancelBoot {
             name: "api".into(),
-            boot
+            boot,
+            why: Cancel::Stopped,
         }]
     );
     assert!(matches!(m.wake("api", Cause::Command).0, Decision::Busy));
