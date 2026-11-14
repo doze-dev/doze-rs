@@ -171,6 +171,14 @@ impl ProcessSpec {
                 crate::godur::go_duration(d)
             ));
         }
+        if let (None, Some(Probe::Tcp | Probe::Http(_))) = (self.port, &self.ready) {
+            let kind = if matches!(self.ready, Some(Probe::Tcp)) {
+                "tcp"
+            } else {
+                "http"
+            };
+            return Err(format!("ready = {kind}(…) needs a `port` to probe"));
+        }
         if let (true, Some(port)) = (self.proxied(), self.port) {
             for name in ["PORT", "HOST"] {
                 if self.env.contains_key(name) {

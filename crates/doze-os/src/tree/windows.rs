@@ -103,7 +103,8 @@ impl Tree {
 
     /// Windows has no second stage: the CTRL_BREAK already sent stands, then the kill.
     pub(super) fn quit(&self) -> io::Result<()> {
-        Ok(())
+        // No second stage to wait out: straight to the kill (audit 3, minor 12).
+        Err(io::Error::other("no second stop stage on Windows"))
     }
 
     pub(super) fn kill(&self) -> io::Result<()> {

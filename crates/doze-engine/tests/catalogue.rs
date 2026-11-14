@@ -201,6 +201,8 @@ async fn a_failed_start_quotes_this_runs_last_200_lines() {
         .collect();
     let want: Vec<String> = (51..=250).map(|i| format!("first {i}")).collect();
     assert_eq!(quoted, want, "{first}");
+    // Audit 3, minor 10: a failed start leaves no record.
+    assert!(!d.path().join("run/backend-w.pid").exists());
     let second = engine("second")
         .wake("w", Cause::Command)
         .await

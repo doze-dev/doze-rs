@@ -253,7 +253,13 @@ impl Unit {
 
     /// Kills every tree now (after an exit: whatever the exited process left behind goes too).
     pub fn kill(&mut self) {
-        for (_, t) in self.procs.iter_mut().rev() {
+        // A reaped leader's group id may belong to someone else now: only trees whose leader is not reaped.
+        for (_, t) in self
+            .procs
+            .iter_mut()
+            .rev()
+            .filter(|(_, t)| t.pid().is_some())
+        {
             let _ = t.kill();
         }
     }
@@ -262,6 +268,10 @@ impl Unit {
     pub async fn stop(&mut self, grace: Duration) -> Vec<(String, std::io::Result<Stopped>)> {
         let mut out = Vec::new();
         while let Some((p, mut tree)) = self.procs.pop() {
+            // A process that already exited (and was reaped) is not signalled again (audit 3, minor 2).
+            if tree.pid().is_none() {
+                continue;
+            }
             let stopped = stop_one(&p, &mut tree, grace, self.pids.as_ref()).await;
             out.push((p.name.clone(), stopped));
         }

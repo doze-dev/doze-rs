@@ -180,6 +180,12 @@ fn only_a_fronted_app_may_sleep() {
             .check_block(Sleep::Never)
             .is_ok()
     );
+    // Go's third `BindPort` refusal: a port check with no port (audit 3, minor 9).
+    let err = ProcessSpec::new(["x"], &d)
+        .ready(Probe::Tcp)
+        .check_block(Sleep::Default)
+        .unwrap_err();
+    assert_eq!(err, "ready = tcp(…) needs a `port` to probe");
     // The engine refuses such a block when it is built.
     let svc = crate::Service::process("w", ProcessSpec::new(["x"], &d)).sleep(ten);
     let built = crate::Engine::builder("t", &d).service(svc).build();

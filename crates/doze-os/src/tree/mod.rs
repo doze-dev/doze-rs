@@ -31,7 +31,9 @@ pub enum Stop {
     Terminate,
     /// SIGINT on Unix (postgres: fast shutdown); CTRL_BREAK on Windows.
     Interrupt,
-    /// Run this command (program and arguments, no shell), then wait for the tree to exit.
+    /// Run this command (program and arguments, no shell), then wait for the tree to exit. The command runs as a tree
+    /// of its own that nothing records: a caller that must leave nothing unswept runs it itself, recorded, and calls
+    /// [`Tree::stop_asked`] (the engine does).
     Command(Vec<OsString>),
 }
 
@@ -105,11 +107,19 @@ impl Tree {
         return self.child.wait().await.map(drop);
         #[cfg(unix)]
         {
-            // No readiness event for an exit that must not be reaped: poll, quickly at first.
-            let mut pause = Duration::from_millis(2);
+            // An exit that must not be reaped has no event of its own: SIGCHLD (any child's) is the wake-up, and each
+            // one is checked with `waitid(WNOWAIT)`. The listener is made before the first check, so no exit falls in
+            // between; a long timeout is the safety net. An idle tree costs no wake-ups (audit 3, M2: polling cost
+            // 120 a second for 20 trees). Without a signal listener, it polls at 50 ms.
+            let mut sigchld =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::child()).ok();
             while self.running()? {
-                tokio::time::sleep(pause).await;
-                pause = (pause * 2).min(Duration::from_millis(50));
+                match sigchld.as_mut() {
+                    Some(s) => {
+                        let _ = tokio::time::timeout(CHILD_SAFETY_NET, s.recv()).await;
+                    }
+                    None => tokio::time::sleep(Duration::from_millis(50)).await,
+                }
             }
             Ok(())
         }
@@ -195,6 +205,10 @@ impl Drop for Tree {
         }
     }
 }
+
+/// How long a wait for a leader's exit trusts SIGCHLD before it looks anyway.
+#[cfg(unix)]
+const CHILD_SAFETY_NET: Duration = Duration::from_secs(30);
 
 /// How long an interrupted process gets before SIGQUIT (Go's database stop: SIGINT 5 s, SIGQUIT 3 s, SIGKILL).
 const INTERRUPT_PATIENCE: Duration = Duration::from_secs(5);

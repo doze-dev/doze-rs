@@ -179,6 +179,9 @@ fn sweep_one(file: &Path, killed: &mut Vec<u32>) {
 /// How far a process's start may be from its recorded spawn (seconds: `ps` and `/proc` round).
 const SAME_START: u64 = 5;
 
+/// How long after its spawn Go may have written a record: the longest readiness budget, with its hooks.
+const GO_RECORD_AFTER: u64 = 15 * 60;
+
 /// Whether a recorded pid still names what was recorded, `written` being when its file was (Unix seconds). See the
 /// module docs.
 fn still_ours((pid, spawned): (u32, Option<u64>), written: u64) -> bool {
@@ -193,10 +196,11 @@ fn still_ours((pid, spawned): (u32, Option<u64>), written: u64) -> bool {
         .map(|d| d.as_secs());
     match (started, spawned) {
         (Some(a), Some(b)) => a.abs_diff(b) <= SAME_START,
-        // Go's record: written just after the spawn, by a daemon whose trees led their own groups.
+        // Go's record: written once the start was ready (up to its readiness budget and hooks after the spawn), by a
+        // daemon whose trees led their own groups (audit 3, minor 3).
         (Some(a), None) => {
             a <= written + 1
-                && written - a.min(written) <= SAME_START
+                && written - a.min(written) <= GO_RECORD_AFTER
                 && doze_os::process::leads_own_group(pid)
         }
         _ => false,

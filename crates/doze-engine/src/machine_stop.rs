@@ -24,6 +24,12 @@ impl Machine {
         }
         c.unit = None;
         c.ready_pending = false;
+        // An `on_ready` rerun of the unit that just exited has nothing left to run on: it is cancelled, so the
+        // restart's wake starts afresh instead of joining it (audit 3, M1).
+        let rerun = c.boot.filter(|_| !c.cancel_boot);
+        if rerun.is_some() {
+            c.cancel_boot = true;
+        }
         let held = std::mem::take(&mut c.held);
         let (restart, supervised) = (c.restart, c.supervised);
         for h in &held {
@@ -38,6 +44,12 @@ impl Machine {
         };
         let after = self.table.exited(name, exit, now);
         let mut fx = vec![Effect::RemovePids { name: name.into() }];
+        if let Some(boot) = rerun {
+            fx.push(Effect::CancelBoot {
+                name: name.into(),
+                boot,
+            });
+        }
         if !shutting_down {
             fx.push(Effect::Journal(Event::new(Kind::Crash, name).detail(text)));
         }
@@ -67,7 +79,7 @@ impl Machine {
         self.declared(name)?;
         self.table.reset_restart(name);
         let c = self.ctl(name);
-        let cancelled = c.timer.take().is_some();
+        let cancelled = c.timer.take().is_some() | std::mem::take(&mut c.restart_now);
         let mut fx = Vec::new();
         if let Some(boot) = c.boot {
             c.cancel_boot = true;
@@ -121,6 +133,7 @@ impl Machine {
             return Vec::new();
         }
         c.timer = None;
+        c.restart_now = true;
         vec![Effect::RestartNow { name: name.into() }]
     }
 
@@ -239,5 +252,5 @@ fn holds_on(c: &Ctl, name: &str) -> u32 {
 }
 
 fn active(c: &Ctl) -> bool {
-    c.unit.is_some() || c.boot.is_some() || c.timer.is_some()
+    c.unit.is_some() || c.boot.is_some() || c.timer.is_some() || c.restart_now
 }

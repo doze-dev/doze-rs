@@ -8,7 +8,8 @@
 //! 4. holds add up: an instance's count is exactly its clients plus the instances holding it;
 //! 5. the reaper never stops a pinned instance;
 //! 6. a running instance has a unit; a unit is stopped at most once;
-//! 7. a crashing instance is within its restart budget.
+//! 7. a crashing instance is within its restart budget;
+//! 8. a crashing instance has its restart pending (a timer, its wake, or a start in flight).
 
 use doze_engine::lifecycle::Now;
 use doze_engine::machine::{Decision, Effect, Machine, Unit};
@@ -351,6 +352,12 @@ fn check(m: &Machine, s: &Shell, now: Now) {
         }
         if inst.state == State::Crashing {
             assert!(inst.restart_count <= inst.restart_max, "{inst:?}");
+            // Invariant 8: `crashing` promises a restart: a timer, its wake, or a start in flight (audit 3, M1).
+            assert!(
+                m.pending(&inst.name),
+                "{} is crashing with nothing pending",
+                inst.name
+            );
         }
     }
 }

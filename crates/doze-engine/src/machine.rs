@@ -82,6 +82,8 @@ struct Ctl {
     registered: bool,
     cancel_boot: bool,
     timer: Option<u64>,
+    /// A restart timer went off and its wake has not run yet: a stop in between cancels it (audit 3, minor 1).
+    restart_now: bool,
     ready_pending: bool,
     restart: Option<Restart>,
     supervised: bool,
@@ -161,7 +163,11 @@ impl Machine {
     /// Nothing runs, nothing is being stopped or started, no restart is pending.
     pub fn quiet(&self) -> bool {
         self.ctl.values().all(|c| {
-            c.unit.is_none() && c.stopping.is_empty() && c.boot.is_none() && c.timer.is_none()
+            c.unit.is_none()
+                && c.stopping.is_empty()
+                && c.boot.is_none()
+                && c.timer.is_none()
+                && !c.restart_now
         })
     }
 
@@ -179,6 +185,15 @@ impl Machine {
         let running = self.table.state(name).is_some_and(|s| s.running());
         let off = self.table.is_off(name);
         let c = self.ctl(name);
+        if cause == Cause::Restart && !c.restart_now {
+            // The restart this wake was for was cancelled (a stop landed after its timer went off).
+            return (
+                Decision::Refuse(Error::Failed(format!(
+                    "the restart of \"{name}\" was cancelled"
+                ))),
+                Vec::new(),
+            );
+        }
         if !c.stopping.is_empty() || (c.boot.is_some() && c.cancel_boot) {
             return (Decision::Busy, Vec::new());
         }
@@ -198,6 +213,7 @@ impl Machine {
         c.cancel_boot = false;
         // A start now supersedes a restart still waiting out its backoff (Go's `TestScheduleRestartSupersedes`).
         c.timer = None;
+        c.restart_now = false;
         let rerun = c.ready_pending && c.unit.is_some();
         let mut ev = Event::new(Kind::Wake, name).cause(cause.clone());
         if rerun {
@@ -228,7 +244,11 @@ impl Machine {
         c.boot = None;
         c.cancel_boot = false;
         let held = std::mem::take(&mut c.held);
-        let idle = c.unit.is_none() && c.stopping.is_empty();
+        // Only a cancelled fresh start leaves it asleep; a cancelled `on_ready` rerun whose process crashed meanwhile
+        // keeps the crash's state (`crashing` with its restart pending, or `failed`).
+        let idle = c.unit.is_none()
+            && c.stopping.is_empty()
+            && self.table.state(name) == Some(crate::state::State::Booting);
         for h in &held {
             self.table.release(h, now);
         }
@@ -237,6 +257,13 @@ impl Machine {
         }
         self.table.mark_reaped(name);
         vec![Effect::RemovePids { name: name.into() }]
+    }
+
+    /// Whether `name` has a start in flight or a restart pending (what a `crashing` state promises).
+    pub fn pending(&self, name: &str) -> bool {
+        self.ctl
+            .get(name)
+            .is_some_and(|c| c.boot.is_some() || c.timer.is_some() || c.restart_now)
     }
 
     /// Start `boot` of `name` woke `need` and holds it now.
