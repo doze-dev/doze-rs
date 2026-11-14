@@ -1,6 +1,8 @@
 // The other pages of a topic (slice R1a): Partitions, Consumers, Log (with the Lab's Compact now on a compacted topic),
 // Producers and a transaction. Each asserts what the page says and what its controls do.
+import { Kafka, logLevel } from "kafkajs";
 import { expect, overflowX, test } from "./fixtures";
+import { SEEDED } from "../playwright.config";
 
 test("Partitions: its own head, a row per partition, and Delete records asks for its dialog in the address", async ({ page }) => {
   await page.goto("/topics/orders");
@@ -65,6 +67,22 @@ test("Log: the ruler, the cards and the segments; a segment opens in place; the 
     // Polled: crossing 1280 px the sidebar folds to icons with its own short transition.
     await expect.poll(() => overflowX(page), { message: `${width}` }).toBeLessThanOrEqual(0);
   }
+});
+
+test("Log of an empty partition: it says so, and gives the command that writes the first record (CON-533)", async ({ page }, info) => {
+  const topic = `r5-empty-${info.project.name}`;
+  const kafka = new Kafka({ clientId: "r5-empty", brokers: [process.env.E2E_KAFKA ?? SEEDED.kafka], logLevel: logLevel.NOTHING });
+  const admin = kafka.admin();
+  await admin.connect();
+  if (!(await admin.listTopics()).includes(topic)) await admin.createTopics({ topics: [{ topic, numPartitions: 1 }], waitForLeaders: true });
+  await admin.disconnect();
+  await page.goto(`/topics/${topic}/log`);
+  await expect(page.getByTestId("log-state")).toHaveText("Empty");
+  await expect(page.getByText("This log has nothing in it")).toBeVisible();
+  const cmd = page.locator("pre").filter({ hasText: "kcat -P" });
+  await expect(cmd).toContainText(`kcat -P -b `);
+  await expect(cmd).toContainText(`-t ${topic}`);
+  await expect(page.getByRole("button", { name: "Produce a record" })).toBeVisible();
 });
 
 test("Compact now on a compacted topic: a Dialog with the planner's verdict, and its outcome in the broker's words", async ({ page }) => {
