@@ -186,10 +186,7 @@ impl<F: Fs> Broker<F> {
             undo();
             return Err(storage(&e));
         }
-        let updated = self.meta.update_topic(&topic.name, |t| Topic {
-            partitions: count,
-            ..t.clone()
-        });
+        let updated = self.meta.update_topic(&topic.name, |t| t.with_partitions(count));
         match updated {
             Ok(Some(_)) => Ok(()),
             Ok(None) => {

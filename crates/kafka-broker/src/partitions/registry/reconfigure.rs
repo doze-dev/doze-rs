@@ -99,10 +99,7 @@ mod tests {
             slot.set(Arc::clone(&open)).ok().unwrap();
         };
         let config = BTreeMap::from([("segment.bytes".to_owned(), "1".to_owned())]);
-        let changed = Arc::new(Topic {
-            config,
-            ..(*topic).clone()
-        });
+        let changed = Arc::new(topic.with_config(config));
         let topics = [changed];
         tokio::join!(partitions.reconfigure(&topics), finish);
         for _ in 0..4 {

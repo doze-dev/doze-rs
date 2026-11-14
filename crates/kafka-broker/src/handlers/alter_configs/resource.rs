@@ -5,7 +5,6 @@
 use std::collections::HashMap;
 
 use kafka_auth::authz::{operation, resource};
-use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::ids::TopicName;
@@ -188,10 +187,7 @@ impl<F: Fs> Broker<F> {
         }
         let changed = blocking::run(|| {
             self.meta
-                .update_topic(&name, |t| Topic {
-                    config: next.clone(),
-                    ..t.clone()
-                })
+                .update_topic(&name, |t| t.with_config(next))
         })
         .map_err(|e| {
             tracing::error!(topic = %r.name, error = %e, "configs: could not store a topic's configs");

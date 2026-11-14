@@ -129,12 +129,7 @@ impl<F: Fs> Broker<F> {
         let topic = if validate_only {
             // Kafka answers a validation with an id it made up for the topic that was not created.
             let id = random_topic_id().map_err(storage_fault)?;
-            Topic {
-                name,
-                id,
-                partitions,
-                config,
-            }
+            Topic::new(name, id, partitions, config)
         } else {
             let made = self.make_topic(&name, partitions, config, beside);
             made.map(|t| (*t).clone()).map_err(made_wrong)?
