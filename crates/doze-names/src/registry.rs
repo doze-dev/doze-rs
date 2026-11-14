@@ -179,7 +179,7 @@ impl Registry {
 
 #[cfg(test)]
 #[path = "registry_tests.rs"]
-mod tests;
+pub(crate) mod tests;
 #[cfg(test)]
 #[path = "registry_tests_more.rs"]
 mod tests_more;

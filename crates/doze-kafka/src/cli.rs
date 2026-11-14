@@ -1,6 +1,6 @@
 //! The command line.
 //!
-//! The flags that matter are here. The ones of parts that come in later phases (the schema registry's) are
+//! The flags that matter are here. The ones of parts that come in later phases are
 //! accepted and ignored, hidden from the help, so that the conformance harness, which passes them all, can run the
 //! scenarios of the parts that exist. A flag that would make the broker safer or different in a way a user would
 //! rely on is refused instead when it cannot be honoured: a broker that ignored `--tls-cert` would send in the
@@ -193,6 +193,10 @@ pub(crate) struct Args {
     #[cfg(not(feature = "tls"))]
     #[arg(long, hide = true)]
     tls_key: Option<String>,
+
+    /// The schema registry's flags (`cli/registry.rs`).
+    #[command(flatten)]
+    pub(crate) registry: registry::RegistryArgs,
 }
 
 /// What the command line comes to once it has been checked.
@@ -202,6 +206,9 @@ pub(crate) struct Settings {
     pub(crate) server: ServerConfig,
     /// The console flags (`web.rs` serves the console they describe).
     pub(crate) console: Console,
+    /// The schema registry's flags (`registry.rs` serves the registry they describe).
+    #[cfg_attr(not(feature = "registry"), allow(dead_code))]
+    pub(crate) registry: Registry,
     /// What the operator chose that leaves something open, to be said once at start.
     pub(crate) warnings: Vec<String>,
 }
@@ -265,7 +272,8 @@ impl Args {
             data_dir: &self.data_dir,
         })?;
         broker.users = sasl.users;
-        let (console, mut warnings) = self.console_rule(sasl.authenticator.is_some(), tls_on)?;
+        let (console, registry, mut warnings) =
+            self.web_rules(sasl.authenticator.is_some(), tls_on)?;
         warnings.extend(tls::key_warning(self.tls_key.as_ref()));
         let server = ServerConfig {
             sasl: sasl.authenticator,
@@ -285,8 +293,23 @@ impl Args {
             broker,
             server,
             console,
+            registry,
             warnings,
         })
+    }
+
+    /// The console's and the schema registry's flags, and what they leave open.
+    fn web_rules(&self, sasl: bool, tls: bool) -> Result<(Console, Registry, Vec<String>)> {
+        let (console, mut warnings) = self.console_rule(sasl, tls)?;
+        let names: Vec<String> = self
+            .console_allow_host
+            .iter()
+            .chain(&self.advertised_host)
+            .cloned()
+            .collect();
+        let (registry, notes) = registry::setup(&self.registry, self.listen, tls, sasl, &names)?;
+        warnings.extend(notes);
+        Ok((console, registry, warnings))
     }
 
     /// The console flags, and the start-up rule between them and what protects the broker.
@@ -347,8 +370,9 @@ impl Args {
     /// The flags of later parts that were given a value and are being ignored, for a warning. A build without the
     /// `console` feature has no console, so it names the console flags that were given.
     pub(crate) fn ignored(&self) -> Vec<&'static str> {
+        let mut out = self.registry_ignored();
         if cfg!(feature = "console") {
-            return Vec::new();
+            return out;
         }
         let given = [
             (
@@ -363,11 +387,29 @@ impl Args {
             (self.console_unprotected, "--console-unprotected"),
             (self.lab.is_some(), "--lab"),
         ];
-        given
-            .into_iter()
-            .filter(|(on, _)| *on)
-            .map(|(_, name)| name)
-            .collect()
+        out.extend(
+            given
+                .into_iter()
+                .filter(|(on, _)| *on)
+                .map(|(_, name)| name),
+        );
+        out
+    }
+
+    /// The registry flags that were given, in a build without the `registry` feature.
+    fn registry_ignored(&self) -> Vec<&'static str> {
+        if cfg!(feature = "registry") {
+            return Vec::new();
+        }
+        let r = &self.registry;
+        [
+            (r.schema_registry_addr.is_some(), "--schema-registry-addr"),
+            (!r.schema_registry_tls, "--schema-registry-tls"),
+        ]
+        .into_iter()
+        .filter(|(on, _)| *on)
+        .map(|(_, name)| name)
+        .collect()
     }
 }
 
@@ -380,6 +422,8 @@ pub(crate) use console::DEFAULT_ADDR as DEFAULT_CONSOLE_ADDR;
 pub(crate) use console::stored_acls;
 mod sasl;
 pub(crate) use sasl::NO_USERS;
+mod registry;
+pub(crate) use registry::Registry;
 mod tls;
 
 #[cfg(test)]

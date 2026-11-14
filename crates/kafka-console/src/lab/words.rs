@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use kafka_server::fault::{AddError, Effect, Matcher, Share, Spec};
+use kafka_server::fault::{AddError, Effect, LONGEST_NAME, Matcher, Share, Spec};
 use kafka_wire::messages::ApiKey;
 
 use crate::model::lab::LabKind;
@@ -171,9 +171,21 @@ pub fn sentence(spec: &Spec) -> String {
     }
 }
 
-/// What the rule is called when its maker gave it no name: `Slow produce to orders`, `Fail inventory.levels fetches`.
+/// What the rule is called when its maker gave it no name: `Slow produce to orders`, `Fail inventory.levels fetches`. Cut to
+/// the broker's [`LONGEST_NAME`] with an ellipsis: a topic or client name may be longer than a rule's name may be, and a
+/// default the broker refuses would make the rule impossible to start without typing a name.
 #[must_use]
 pub fn default_name(spec: &Spec) -> String {
+    let whole = whole_name(spec);
+    if whole.chars().count() <= LONGEST_NAME {
+        return whole;
+    }
+    let mut cut: String = whole.chars().take(LONGEST_NAME - 1).collect();
+    cut.push('…');
+    cut
+}
+
+fn whole_name(spec: &Spec) -> String {
     let api = spec
         .matcher
         .apis
