@@ -114,6 +114,22 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::PutAnomalyDetector
             | O::DescribeAnomalyDetectors
             | O::DeleteAnomalyDetector
+            | O::PutMetricStream
+            | O::GetMetricStream
+            | O::ListMetricStreams
+            | O::DeleteMetricStream
+            | O::StartMetricStreams
+            | O::StopMetricStreams
+            | O::PutInsightRule
+            | O::DescribeInsightRules
+            | O::DeleteInsightRules
+            | O::EnableInsightRules
+            | O::DisableInsightRules
+            | O::GetInsightRuleReport
+            | O::PutAlarmMuteRule
+            | O::GetAlarmMuteRule
+            | O::ListAlarmMuteRules
+            | O::DeleteAlarmMuteRule
     )
 }
 

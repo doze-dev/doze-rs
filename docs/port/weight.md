@@ -483,3 +483,13 @@ the owner leaves to the builder.
 - Idle memory is not weighed: the CLI serves nothing by itself (the line's `0`; the daemon gets its own line when it
   exists). Downloads run in `doze __fetch` children, so none of this is resident in a daemon.
 - The 10 MB ceiling (owner, 2026-11-12) stands far above.
+
+## One build: TLS in the default (2026-11-14, owner decision)
+
+Asked whether to keep a separate TLS build "for a few MB", the owner chose one build, and raised the ceiling to 15 MB the same day. `tls` is
+now a default feature of `doze-kafka`; `--no-default-features` (no console, registry, module or TLS) stays only as an internal check that the
+broker core needs none of them. CI: the `weight-tls` size job is gone; its size and packages are the `weight` job's single line
+(`xtask/weight-limits.txt`), and a `weight-tls-idle` job keeps the one thing it measured that the default job does not: idle memory with a
+certificate loaded (10,610 KB). The single build, with the module face and the registry's Avro and JSON Schema, is 7,669,200 B on darwin
+arm64, 183 packages, 7,472 KB idle; about 10.43 MB on ubuntu x86_64 at CI's 1.36. Limit 10,951,617 B, 186 packages, 9,996 KB, estimates
+until CI measures them. Building from source needs a C compiler and an assembler (ring); release binaries are unaffected.

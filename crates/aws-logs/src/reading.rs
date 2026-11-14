@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 
 use crate::core::{Core, VERSION};
 use crate::model::{Event, Stream, stream_key};
-use crate::pattern::{self, PatternError};
+use crate::pattern;
 use crate::req::{Put, Req, invalid, no_group, no_stream};
 
 /// Events one call returns at most (the API's own limit).
@@ -140,14 +140,7 @@ impl Core {
         if self.groups.get(&group).is_none() {
             return Err(no_group());
         }
-        let pattern = pattern::parse(r.s("filterPattern")).map_err(|e| match e {
-            PatternError::Invalid => invalid("Invalid filter pattern"),
-            PatternError::Regex => ApiError::new(
-                501,
-                "NotImplemented",
-                "Regular expressions in filter patterns are not built in doze-aws.",
-            ),
-        })?;
+        let pattern = pattern::parse(r.s("filterPattern")).map_err(crate::filters::refused)?;
         let streams = self.selected_streams(r, &group)?;
         self.sweep(&group);
         let limit = r

@@ -37,6 +37,15 @@ pub(crate) struct Core {
     pub(crate) written_meta: Vec<u8>,
     /// The bus, for asking whether a caller may do what it asks.
     pub(crate) peers: Option<Arc<Peers>>,
+    /// `--sqs-skip-60s-waits`: a deleted queue's name is free at once and a queue may be purged again at once.
+    pub(crate) skip_waits: bool,
+}
+
+/// What the host hands each region's actor: the bus, and the local settings.
+#[derive(Debug)]
+pub(crate) struct Ext {
+    pub(crate) peers: Option<Arc<Peers>>,
+    pub(crate) skip_waits: bool,
 }
 
 /// What the actor answers: the reply, whether the caller may wait for a better one (a receive that found nothing), the commit the
@@ -67,10 +76,13 @@ impl doze_runtime::Service for Core {
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
         let persist = Persist::open(&ctx.dir)?;
         let mut core = Self::restore(Arc::clone(&ctx.clock), Some(persist));
-        core.peers = ctx
-            .ext
-            .as_ref()
-            .and_then(|e| Arc::clone(e).downcast::<Peers>().ok());
+        let ext = ctx.ext.as_ref();
+        if let Some(ours) = ext.and_then(|e| Arc::clone(e).downcast::<Ext>().ok()) {
+            core.peers.clone_from(&ours.peers);
+            core.skip_waits = ours.skip_waits;
+        } else {
+            core.peers = ext.and_then(|e| Arc::clone(e).downcast::<Peers>().ok());
+        }
         Ok(core)
     }
 
@@ -120,6 +132,7 @@ impl Core {
             removed: Vec::new(),
             written_meta: Vec::new(),
             peers: None,
+            skip_waits: false,
         }
     }
 

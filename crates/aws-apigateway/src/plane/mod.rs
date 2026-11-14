@@ -15,8 +15,10 @@ mod client;
 mod cors;
 mod custom;
 mod event;
+mod execlog;
 mod find;
 mod httpapi;
+mod jwks;
 mod jwt;
 mod lambda;
 mod mapping;
@@ -38,7 +40,7 @@ use crate::core::{Answer, Api, Ask};
 
 /// An HTTP answer read from bytes (for the fuzz target).
 pub(crate) fn client_parse(raw: &[u8]) -> bool {
-    client::parse(raw).is_ok()
+    aws_webhook::fuzz::http_answer(raw)
 }
 
 /// A JSON Web Token read (for the fuzz target).
@@ -46,11 +48,13 @@ pub(crate) fn jwt_decode(text: &str) -> bool {
     jwt::decode(text).is_some()
 }
 
-/// What the plane keeps beside the actors: the authorizer cache and the open WebSocket connections.
+/// What the plane keeps beside the actors: the authorizer cache, the open WebSocket connections, the issuers' keys.
 #[derive(Debug, Default)]
 pub(crate) struct State {
     pub(crate) cache: auth::Cache,
     pub(crate) ws: ws::Connections,
+    /// The JWT authorizers' issuers' keys.
+    pub(crate) jwks: jwks::Jwks,
 }
 
 impl State {
@@ -176,16 +180,16 @@ impl Incoming {
 
 /// Where a request is addressed.
 #[derive(Debug, PartialEq, Eq)]
-struct Addr {
-    api: String,
-    region: Option<String>,
-    rest: String,
+pub(crate) struct Addr {
+    pub(crate) api: String,
+    pub(crate) region: Option<String>,
+    pub(crate) rest: String,
     via_host: bool,
 }
 
 const PREFIX: &str = "/_aws/execute-api/";
 
-fn addr(host: &str, path: &str) -> Option<Addr> {
+pub(crate) fn addr(host: &str, path: &str) -> Option<Addr> {
     if let Some(after) = path.strip_prefix(PREFIX) {
         let (api, rest) = after.split_once('/').unwrap_or((after, ""));
         return (!api.is_empty()).then(|| Addr {
@@ -210,9 +214,10 @@ fn addr(host: &str, path: &str) -> Option<Addr> {
     })
 }
 
-/// Whether a request is the plane's: an execute-api host or the `/_aws/execute-api/` path.
+/// Whether a request is the plane's: an execute-api host or the `/_aws/execute-api/` path. The `@connections` management API at
+/// those addresses is a signed REST service of its own (`management.rs`), routed by the gateway.
 pub(crate) fn owns(host: &str, path: &str) -> bool {
-    addr(host, path).is_some()
+    addr(host, path).is_some() && !path.contains("/@connections/")
 }
 
 /// Answers an execute-api request.
@@ -220,9 +225,6 @@ pub(crate) async fn serve(inner: Arc<Inner>, request: WebRequest) -> WebReply {
     let Some(addr) = addr(&request.host, &request.path) else {
         return reply::message(404, "Not Found");
     };
-    if let Some((stage, conn)) = ws::management_path(&addr.rest) {
-        return ws::manage(&inner, &addr.api, stage, conn, request).await;
-    }
     let incoming = Incoming {
         method: request.method,
         query: crate::plane::mapping::query_pairs(&request.query),
