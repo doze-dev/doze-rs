@@ -100,9 +100,9 @@ async fn a_name_that_can_never_be_a_topic_is_invalid_and_not_merely_unknown() {
 /// and never consumed its assignment.
 #[tokio::test]
 async fn a_request_with_topic_ids_is_answered_by_id_whatever_the_names_say() {
+    use kafka_wire::Uuid;
     use kafka_wire::api::Request;
     use kafka_wire::api::Response;
-    use kafka_wire::Uuid;
     use kafka_wire::messages::MetadataRequest;
     use kafka_wire::messages::metadata_request::MetadataRequestTopic;
     let rig = rig();

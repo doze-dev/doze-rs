@@ -685,3 +685,20 @@ corpus pairs, verdicts and reasons word for word. +217 KB on darwin over the mod
 CI's measured 1.36), no third-party package; no limit moved. The default build is about 9.24 MB on ubuntu, 0.76 MB under the 10 MB
 ceiling; the TLS build (module plus registry) is about 10.3 MB, over it, and was about 10.0 MB with the module alone: the owner's call. Protobuf (10b) and JSON Schema (10c) plug into `format::Formats`; the record-value codec is 10d. `phase10.md` has
 the weight table, the extension points and the slices; `behaviours/registry.md` the catalogue (REG-1 to REG-27, REG-D1 to REG-D14).
+
+**The official Java client in the interop suite (2026-11-15, branch `interop-java`).** `interop/java/Interop.java`, one file run by the
+JDK's source launcher (no Maven or Gradle), with Temurin 21.0.13+9 pinned through proto in `interop/.prototools` and the jars fetched by
+`bun interop/java/fetch.ts` from Maven Central into `~/.cache/doze-interop/java/`, each checked against a SHA-256 pinned in the script:
+kafka-clients 4.4.0 and 2.8.2 with their runtime dependencies (snappy-java 1.1.10.7 for both: 2.8.2's 1.1.8.1 has no Apple Silicon
+library). `run.sh -java` runs it alone; `-sasl`, `-tls` and `-versions` run it after the Go clients (4.4 at every major, 2.8 at Kafka 1
+and 2). 29 plain scenarios, skipped by ApiVersions as the Go ones are: every codec with headers, idempotence, transactions (commit/abort,
+`sendOffsetsToTransaction`, the last stable offset), classic and KIP-848 groups incl. commits during rebalances (G848-10) and a broker-side
+regular expression, the Admin client (topics, configs, partitions, records, offsets incl. MAX_TIMESTAMP, cluster, ACLs, SCRAM users,
+groups, transactions), `offsetsForTimes` on LogAppendTime and compressed topics, size limits; and the SASL and TLS cells. **One broker
+defect found and fixed:** Metadata v12 by topic id. The Java consumer asks for the topics a KIP-848 regular expression assigned it by id,
+with the name left at `""`; doze read the `""` as a name (INVALID_TOPIC_EXCEPTION) and the member never consumed. Kafka 4.3.1
+(`KafkaApis.handleTopicMetadataRequest`, 895-911) answers such a request by id. Test first:
+`tests/topics::a_request_with_topic_ids_is_answered_by_id_whatever_the_names_say`; catalogue T9 in `behaviours/topics.md`. One test
+error, not the broker's: two SCRAM alterations of one user in a request are DUPLICATE_RESOURCE in KRaft, as doze does (SEC catalogue).
+Not checked: a ZooKeeper-era broker (Kafka 2.7 to 3.x on ZooKeeper) keys that check by user and mechanism, and doze applies the KRaft
+rule at every `--kafka-version`. The matrix is in `interop/README.md`.
