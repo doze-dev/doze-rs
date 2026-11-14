@@ -219,7 +219,11 @@ fn under_log_append_time_every_record_is_at_its_batchs_append_time() {
         (1_000, Some((offset(0), at(a1)))),
         (a2 + 1, None),
     ] {
-        assert_eq!(r.offset_for_timestamp(at(target)).unwrap(), want, "{target}");
+        assert_eq!(
+            r.offset_for_timestamp(at(target)).unwrap(),
+            want,
+            "{target}"
+        );
     }
     assert_eq!(
         r.offset_of_max_timestamp().unwrap(),
@@ -228,7 +232,8 @@ fn under_log_append_time_every_record_is_at_its_batchs_append_time() {
 }
 
 #[test]
-fn a_batch_whose_records_cannot_be_read_answers_at_the_grain_of_its_header_and_is_skipped_when_too_old() {
+fn a_batch_whose_records_cannot_be_read_answers_at_the_grain_of_its_header_and_is_skipped_when_too_old()
+ {
     let (_fs, _dir, mut log) = fresh(NEVER);
     // It says gzip and is not: its records cannot be walked, so only the header's newest timestamp can be looked at.
     let gzip = Batch::parse(

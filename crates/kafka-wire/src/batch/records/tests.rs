@@ -93,7 +93,10 @@ fn times_of(b: &Batch) -> Vec<(i32, i64)> {
 fn under_log_append_time_every_record_has_the_batchs_newest_timestamp() {
     // DefaultRecordBatch: `logAppendTime = timestampType() == LOG_APPEND_TIME ? maxTimestamp() : null`, and a record
     // with a log append time reports it in place of base timestamp + delta.
-    let body: Vec<u8> = [(0, 0), (5, 1)].iter().flat_map(|(t, o)| record(*t, *o)).collect();
+    let body: Vec<u8> = [(0, 0), (5, 1)]
+        .iter()
+        .flat_map(|(t, o)| record(*t, *o))
+        .collect();
     let b = with(1_000, 9_000, 0x08, body, 2);
     assert_eq!(times_of(&b), [(0, 9_000), (1, 9_000)]);
 }

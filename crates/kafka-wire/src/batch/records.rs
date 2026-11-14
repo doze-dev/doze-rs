@@ -69,7 +69,11 @@ impl Batch {
         let count = self.record_count();
         RecordTimes {
             // A source that cannot be opened is a walk that fails at its first record.
-            left: if source.is_some() { count } else { count.min(1) },
+            left: if source.is_some() {
+                count
+            } else {
+                count.min(1)
+            },
             cursor: source.map(|source| Cursor { source, taken: 0 }),
             first_timestamp: self.first_timestamp().get(),
             stamped,

@@ -111,7 +111,11 @@ mod tests {
         bytes.push(0x02);
         let mut rest = bytes.as_slice();
         assert_eq!(read(&mut rest), None);
-        assert_eq!(rest.len(), 10, "nothing is taken from a slice that holds no number");
+        assert_eq!(
+            rest.len(),
+            10,
+            "nothing is taken from a slice that holds no number"
+        );
         // With only the last bit, it is i64::MIN.
         bytes[9] = 0x01;
         assert_eq!(read(&mut bytes.as_slice()), Some(i64::MIN));

@@ -50,10 +50,7 @@ fn partition_data(index: i32) -> PartitionProduceData {
 async fn a_produce_that_looked_its_topic_up_before_a_delete_is_told_the_topic_is_unknown() {
     for (opened_first, acks) in [(false, -1_i16), (true, -1), (false, 1), (true, 1)] {
         let broker = broker_with("t").await;
-        let topic = broker
-            .meta
-            .topic(&TopicName::parse("t").unwrap())
-            .unwrap();
+        let topic = broker.meta.topic(&TopicName::parse("t").unwrap()).unwrap();
         let txn = Txn {
             id: None,
             held: None,
@@ -63,7 +60,12 @@ async fn a_produce_that_looked_its_topic_up_before_a_delete_is_told_the_topic_is
             let stage = broker
                 .start(9, acks == -1, &txn, Some(&topic), &partition_data(0))
                 .await;
-            assert_eq!(finish(stage, acks == -1, |id| broker.deleted(id)).await.error_code, 0);
+            assert_eq!(
+                finish(stage, acks == -1, |id| broker.deleted(id))
+                    .await
+                    .error_code,
+                0
+            );
         }
         delete(&broker, "t").await;
         let stage = broker

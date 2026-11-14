@@ -97,7 +97,11 @@ pub(super) fn failed(
 /// UNKNOWN_TOPIC_OR_PARTITION (`ReplicaManager.getPartitionOrException` once the metadata has dropped the topic): a
 /// client's ordinary race, logged at debug. Otherwise it is the disk, answered as Kafka answers a full one: the code,
 /// no offsets and no message (the cause is in the broker's log, not in a client's).
-pub(super) fn storage_fault(index: i32, e: &StorageError, deleted: bool) -> PartitionProduceResponse {
+pub(super) fn storage_fault(
+    index: i32,
+    e: &StorageError,
+    deleted: bool,
+) -> PartitionProduceResponse {
     if deleted {
         tracing::debug!(error = %e, partition = index, "a produce raced the delete of its topic");
         return failed(index, ResponseError::UnknownTopicOrPartition, None);

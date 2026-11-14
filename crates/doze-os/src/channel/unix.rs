@@ -44,7 +44,8 @@ pub(super) fn module_channel() -> io::Result<Channel> {
     // (psql, mariadb …) never inherit the channel (S0 measured a grandchild holding it otherwise).
     // A module run by hand has a terminal, a file or nothing there: said as NotConnected, before stdin is touched.
     let stdin = std::io::stdin();
-    let kind = rustix::fs::fstat(stdin.as_fd()).map(|s| rustix::fs::FileType::from_raw_mode(s.st_mode));
+    let kind =
+        rustix::fs::fstat(stdin.as_fd()).map(|s| rustix::fs::FileType::from_raw_mode(s.st_mode));
     if !matches!(kind, Ok(rustix::fs::FileType::Socket)) {
         return Err(io::Error::new(
             io::ErrorKind::NotConnected,
