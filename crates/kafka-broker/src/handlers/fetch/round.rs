@@ -78,6 +78,8 @@ pub(super) fn read<F: Fs>(
             let mut data = PartitionData::default();
             data.partition_index = asked.partition;
             data.error_code = 0;
+            // Null unless a `read_committed` read succeeds below (the default is an empty list, not null).
+            data.aborted_transactions = None;
             match place {
                 Place::Error(code) => {
                     data.error_code = code.code();
