@@ -178,7 +178,8 @@ impl Table {
         self.slot(name).view.last_error = msg.to_string();
     }
 
-    /// Marks its declared structure known-incomplete (a convergence or setup failed), until [`Table::clear_tainted`].
+    /// Marks its declared structure known-incomplete (a convergence or setup failed), or clears that (only a
+    /// successful convergence does).
     pub fn set_tainted(&mut self, name: &str, tainted: bool) {
         self.slot(name).view.tainted = tainted;
     }
