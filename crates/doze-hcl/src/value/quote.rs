@@ -37,7 +37,7 @@ pub(crate) fn go_quote(s: &str) -> String {
 /// Go's `unicode.IsPrint`, closely: controls, separators other than the space, format characters,
 /// surrogates' neighbours and non-characters are not printable. Rust's standard library has no
 /// general-category tables; the ranges below cover what occurs in text.
-fn is_go_printable(c: char) -> bool {
+pub(crate) fn is_go_printable(c: char) -> bool {
     if c == ' ' {
         return true;
     }

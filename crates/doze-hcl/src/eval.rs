@@ -209,21 +209,22 @@ fn levenshtein(a: &str, b: &str) -> usize {
 }
 
 /// Evaluates the single expression in `x = <expr>` of `text`, for tests and the oracle.
-pub fn eval_attribute(text: &str, name: &str, ctx: &Context<'_>) -> Result<Out, Diagnostic> {
+pub fn eval_attribute(text: &str, name: &str, ctx: &Context<'_>) -> Result<Out, Box<Diagnostic>> {
     let src = Source::new(text);
-    let body = crate::syntax::parse_body(&src).map_err(|ds| {
-        let p = src.pos(0);
-        ds.0.into_iter()
-            .next()
-            .unwrap_or_else(|| Diagnostic::error("Syntax error", "", Range { start: p, end: p }))
-    })?;
+    let body =
+        crate::syntax::parse_body(&src).map_err(|ds| {
+            let p = src.pos(0);
+            Box::new(ds.0.into_iter().next().unwrap_or_else(|| {
+                Diagnostic::error("Syntax error", "", Range { start: p, end: p })
+            }))
+        })?;
     let Some(attr) = body.get_attribute(name) else {
         let p = src.pos(0);
-        return Err(Diagnostic::error(
+        return Err(Box::new(Diagnostic::error(
             "Missing attribute",
             name.to_owned(),
             Range { start: p, end: p },
-        ));
+        )));
     };
     Ok(Evaluator::new(&src).eval(&attr.value, ctx))
 }

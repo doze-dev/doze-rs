@@ -69,7 +69,7 @@ impl Evaluator<'_> {
             }
         }
         if let Err(d) = arity(&name, func, &args, whole) {
-            return (Value::DYNAMIC, d.into());
+            return (Value::DYNAMIC, (*d).into());
         }
         let vals = self.convert_args(func, &mut args, whole, ctx, &mut diags);
         if diags.has_errors() {

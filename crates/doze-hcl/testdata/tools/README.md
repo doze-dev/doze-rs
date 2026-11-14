@@ -12,3 +12,7 @@ PATH=/usr/bin:/bin`), as the scripts do.
 | `eval/go-<set>.jsonl` | `env -i PATH=/usr/bin:/bin /tmp/oracle-dump eval ../eval/exprs-<set>.json > ../eval/go-<set>.jsonl` |
 
 The generators are seeded, so the same command gives the same corpus.
+| `fmt/*.hcl` (each accepted source formatted) | `/tmp/oracle-dump fmt ../sources ../fmt` |
+| `fmt/go-cases.jsonl` (every syntax case formatted, as hashes) | `/tmp/oracle-dump fmtcases ../syntax/cases.json > /tmp/f.jsonl && bun fmthash.ts /tmp/f.jsonl ../fmt/go-cases.jsonl` |
+| `edit/go.jsonl` (`doze add` and `doze init` edits) | `env -i PATH=/usr/bin:/bin /tmp/oracle-dump editcases ../edit/cases.json > ../edit/go.jsonl` |
+| `decode/` (bodies against schemas, merged files) | `bun gen-content.ts ../.. > ../decode/cases.json && env -i PATH=/usr/bin:/bin /tmp/oracle-dump content ../decode/cases.json > ../decode/go.jsonl` |
