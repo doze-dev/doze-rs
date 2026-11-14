@@ -117,7 +117,7 @@ impl Engine {
     }
 
     /// What a module call about `name` is told: its folders and where its needs are now.
-    fn ctx_for(&self, name: &str) -> PlanCtx {
+    pub fn ctx_for(&self, name: &str) -> PlanCtx {
         let needs = self
             .service(name)
             .map(|s| s.needs.iter().map(|n| n.name.clone()).collect::<Vec<_>>())

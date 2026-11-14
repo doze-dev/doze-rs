@@ -14,6 +14,8 @@ use doze_module_proto::msg::value::{Node, Value};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
+mod admin;
+
 /// How long a module's processes may take to be ready.
 const READY_WITHIN: Duration = Duration::from_secs(90);
 

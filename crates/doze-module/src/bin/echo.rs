@@ -46,6 +46,20 @@ impl Module for Echo {
             backend_socket: Some("echo.sock".into()),
             example: "echo \"e\" {\n  version = \"2\"\n}\n".into(),
             console: Some(console()),
+            // The engine's own build has a client: `doze connect` runs it there, at doze's address for the instance.
+            client: Some(doze_module::proto::msg::hello::ClientCommand {
+                program: "doze-module-echo-engine".into(),
+                args: ["client", "{host}", "{port}"].map(String::from).to_vec(),
+                env: BTreeMap::from([("ECHO_PASSWORD".into(), "{password}".into())]),
+                fallbacks: vec!["nc".into()],
+            }),
+            actions: vec![doze_module::proto::msg::console::Action {
+                id: "purge".into(),
+                label: "Purge".into(),
+                kind: "channel".into(),
+                destructive: true,
+                input_hint: None,
+            }],
             targets: [
                 "aarch64-apple-darwin",
                 "aarch64-unknown-linux-gnu",
@@ -189,6 +203,59 @@ impl Objects for Echo {
     }
 }
 
+impl doze_module::caps::Admin for Echo {
+    async fn resources(
+        &self,
+        cx: &Cx<EchoSpec>,
+    ) -> Result<Vec<doze_module::proto::msg::console::Resource>> {
+        Ok(cx
+            .spec
+            .channel
+            .iter()
+            .map(|c| doze_module::proto::msg::console::Resource {
+                kind: "channel".into(),
+                name: c.name.clone(),
+                status: "open".into(),
+                info: BTreeMap::from([("size".to_string(), c.size.to_string())]),
+            })
+            .collect())
+    }
+
+    async fn run_action(
+        &self,
+        cx: &Cx<EchoSpec>,
+        action: &str,
+        resource: &str,
+        _input: Option<&str>,
+    ) -> Result<String> {
+        record(&cx.spec, &format!("{action} {resource}"));
+        Ok(format!("{action}d {resource}"))
+    }
+}
+
+impl doze_module::caps::Console for Echo {
+    /// Two rows naming the panel and the selector, then the stream ends.
+    async fn tail(
+        &self,
+        _cx: &Cx<EchoSpec>,
+        panel: &str,
+        selector: &str,
+        out: &doze_module::caps::Rows<'_>,
+    ) -> Result<()> {
+        for i in 1..=2 {
+            let row = doze_module::proto::msg::console::Row {
+                cells: BTreeMap::from([
+                    ("panel".to_string(), panel.to_string()),
+                    ("n".to_string(), format!("{selector}{i}")),
+                ]),
+                tone: String::new(),
+            };
+            out.send(&row).await?;
+        }
+        Ok(())
+    }
+}
+
 /// With the setting `calls` (a file), appends `what` to it: the order the host called in, for the engine's tests.
 fn record(spec: &EchoSpec, what: &str) {
     use std::io::Write as _;
@@ -209,6 +276,8 @@ fn main() -> std::process::ExitCode {
         .release(env!("CARGO_PKG_VERSION"))
         .objects()
         .wire()
+        .admin()
+        .console()
         .run()
 }
 

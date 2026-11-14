@@ -10,10 +10,14 @@
 //! through the runtime's handle. A unary request runs to its end even if its client goes (Go ran them on the daemon's
 //! context); a stream ends with its connection or its `cancel`.
 
+mod admin;
 pub mod catalog;
+mod client;
+mod console;
 pub mod ctl;
 pub mod entry;
 pub mod front;
+mod meters;
 pub mod planners;
 mod session;
 pub mod spec_tree;
@@ -63,6 +67,10 @@ pub(crate) struct Inner {
     pub(crate) socket: PathBuf,
     pub(crate) stopping: AtomicBool,
     pub(crate) conns: AtomicUsize,
+    /// Recent meter readings.
+    pub(crate) meters: meters::Ring,
+    /// Each module instance, for its data, console and client.
+    pub(crate) modules: entry::Modules,
 }
 
 /// A running server; dropping it does not stop it, [`Serving::stop`] does.
@@ -94,15 +102,31 @@ impl Daemon {
             socket,
             stopping: AtomicBool::new(false),
             conns: AtomicUsize::new(0),
+            meters: meters::Ring::default(),
+            modules: entry::Modules::new(),
         };
         Daemon {
             inner: Arc::new(inner),
         }
     }
 
+    /// The module instances it serves data and consoles for. Before [`Daemon::serve`] and before it is cloned.
+    #[must_use]
+    pub fn with_modules(mut self, modules: entry::Modules) -> Daemon {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.modules = modules;
+        }
+        self
+    }
+
     /// The engine it serves.
     pub fn engine(&self) -> &Engine {
         &self.inner.engine
+    }
+
+    /// Keeps recent meter readings while nobody subscribes to them (Go's `runMeters`), until aborted.
+    pub fn keep_meters(&self) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(meters::keep(self.clone()))
     }
 
     /// Where it listens.

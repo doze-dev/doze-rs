@@ -4,110 +4,17 @@
 //! connection to its declared port wakes it through the daemon's front.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use doze_daemon::catalog::{Catalog, Finder};
+use doze_daemon::catalog::Catalog;
 use doze_daemon::front::Front;
 use doze_engine::modules::Pinned;
-use doze_module_host::{BoxFuture, Downloads};
-use doze_module_proto::msg::error::Error;
-use doze_module_proto::msg::run::{Ensure, Ensured};
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
-/// Finds the echo module's build, and says which types it was asked for.
-#[derive(Default)]
-struct Find {
-    asked: Mutex<Vec<(String, Vec<String>)>>,
-}
-
-impl Finder for Find {
-    fn find<'a>(
-        &'a self,
-        ty: &'a str,
-        majors: &'a [String],
-        _lock: &'a Path,
-    ) -> BoxFuture<'a, Result<PathBuf, String>> {
-        self.asked
-            .lock()
-            .unwrap()
-            .push((ty.to_string(), majors.to_vec()));
-        let found = (ty == "echo")
-            .then(|| PathBuf::from(env!("CARGO_BIN_EXE_doze-module-echo")))
-            .ok_or_else(|| format!("module doze/{ty} is not published in the registry"));
-        Box::pin(async move { found })
-    }
-}
-
-/// Hands out the echo engine's folder and remembers the hash each `ensure` expected.
-#[derive(Default)]
-struct Fetch {
-    expected: Mutex<Vec<Option<String>>>,
-    majors: std::sync::atomic::AtomicUsize,
-}
-
-struct Shared(Arc<Fetch>);
-
-impl Downloads for Shared {
-    fn resolve_major<'a>(
-        &'a self,
-        _e: &'a str,
-        _m: &'a str,
-    ) -> BoxFuture<'a, Result<String, Error>> {
-        self.0
-            .majors
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        Box::pin(async { Ok("2.4.1".to_string()) })
-    }
-
-    fn ensure<'a>(&'a self, req: &'a Ensure) -> BoxFuture<'a, Result<Ensured, Error>> {
-        self.0
-            .expected
-            .lock()
-            .unwrap()
-            .push(req.expected_sha.clone());
-        let engine = PathBuf::from(env!("CARGO_BIN_EXE_doze-module-echo-engine"));
-        let bin_dir = engine
-            .parent()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        Box::pin(async move {
-            Ok(Ensured {
-                bin_dir,
-                digest: "sha256:lock".into(),
-            })
-        })
-    }
-}
-
-fn free_port() -> u16 {
-    std::net::TcpListener::bind(("127.0.0.1", 0))
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-}
-
-fn project(tag: &str) -> (PathBuf, u16) {
-    let d = std::env::temp_dir().join(format!("doze-daemon-catalog-{tag}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&d);
-    std::fs::create_dir_all(d.join("home")).unwrap();
-    let port = free_port();
-    let off = free_port();
-    // An HCL string reads `\U` as an escape: a Windows path goes in with forward slashes, which Windows accepts.
-    let calls = d.join("calls").to_string_lossy().replace('\\', "/");
-    let hcl = format!(
-        "module echo \"e\" {{\n  version = \"2\"\n  port = {port}\n  greeting = \"hi\"\n  settings = {{\n    calls = \"{calls}\"\n  }}\n  channel \"a\" {{\n    size = 2\n  }}\n}}\n\nmodule echo \"off\" {{\n  version = \"2\"\n  port = {off}\n  enabled = false\n}}\n\ntask \"show\" {{\n  run = \"true\"\n  manual = true\n  env = {{\n    U = module.e.url\n    T = module.e.env.ECHO_URL\n  }}\n}}\n"
-    );
-    std::fs::write(d.join("doze.hcl"), hcl).unwrap();
-    let lock = format!(
-        "engines:\n  echo:\n    \"2\":\n      resolved: 2.4.1\n      source: mirror\n      hashes:\n        {}: sha256:pinned\n",
-        doze_fetch::triple()
-    );
-    std::fs::write(d.join("doze.lock"), lock).unwrap();
-    (d, port)
-}
+mod daemon_support;
+use daemon_support::*;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_module_block_runs_through_the_catalog_and_a_connection_wakes_it() {

@@ -276,6 +276,11 @@ jobs:
           cargo fuzz run fuzz_env corpus/fuzz_env -- -max_total_time=30 -max_len=65536
           mkdir -p corpus/fuzz_glob
           cargo fuzz run fuzz_glob corpus/fuzz_glob -- -max_total_time=30 -max_len=512 -timeout=2
+      - name: Fuzz the process-table reader for 30 seconds
+        working-directory: crates/doze-os/fuzz
+        run: |
+          mkdir -p corpus/fuzz_ps
+          cargo fuzz run fuzz_ps corpus/fuzz_ps -- -max_total_time=30 -max_len=65536
       - name: Fuzz the module protocol's frame decoder for 30 seconds
         working-directory: crates/doze-module-proto/fuzz
         run: |

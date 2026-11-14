@@ -41,7 +41,7 @@ pub use types::console::{
     ConsoleRow, ConsoleSpec, ConsoleTab,
 };
 pub use types::frame::{ActionView, EventFrame, Frame, Hello, LogFrame, ResourceView, Response};
-pub use types::instance::{HolderView, InstanceView, ProcView, StatView, TaskView};
+pub use types::instance::{ClientView, HolderView, InstanceView, ProcView, StatView, TaskView};
 pub use types::journal::{Cause, Event};
 pub use types::ops::{
     JOURNAL_FROM_START, LogQuery, Op, PROTO_VERSION, Snapshot, Subscription, Topic, Verb, fault,
