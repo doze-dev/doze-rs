@@ -144,6 +144,7 @@ pub(crate) async fn serve(
     let _transactions = broker.start_transactions();
     let _logs = broker.start_log_sweeper();
     let _cleaner = broker.start_log_cleaner();
+    let _closer = broker.start_partition_closer();
     let _control = crate::control::serve(&broker);
     // The registry before the console: the console reads it in this process.
     let (schemas, registry_status) = start_registry(registry_listener, &server, &broker)?;

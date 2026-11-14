@@ -145,6 +145,7 @@ mod tests {
             loaded: true,
             txns: shared(index),
             cleaned_to: 0,
+            upkeep: std::sync::Arc::default(),
         }
     }
 

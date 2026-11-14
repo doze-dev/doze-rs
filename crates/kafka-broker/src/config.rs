@@ -53,6 +53,10 @@ pub struct Config {
     /// How many partitions stay open at once (each holds files open): past it the least recently used are closed,
     /// and open again when asked for. Zero keeps every partition open once opened.
     pub max_open_partitions: usize,
+    /// A partition nothing has asked for in this long, and that nothing holds, is closed (flushed, its files let go) and
+    /// opens again when it is next asked for: an idle broker holds no partition's files. Five minutes; zero keeps an opened
+    /// partition open until `max_open_partitions` closes it.
+    pub partition_idle_close: Duration,
     /// How often every topic's retention is applied to its partitions (`log.retention.check.interval.ms`).
     pub log_retention_check_every: Duration,
     /// How often compacted topics are looked at to be cleaned (`log.cleaner.backoff.ms`).
@@ -110,6 +114,7 @@ impl Config {
             default_partitions: 1,
             max_partitions: 1000,
             max_open_partitions: 512,
+            partition_idle_close: Duration::from_secs(300),
             log_retention_check_every: Duration::from_secs(300),
             log_cleaner_every: Duration::from_secs(15),
             log_cleaner_enable: true,

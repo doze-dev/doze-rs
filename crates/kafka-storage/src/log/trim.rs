@@ -129,8 +129,8 @@ impl<F: Fs> PartitionLog<F> {
         Ok(drop)
     }
 
-    /// The first time after which retention could take something from this log if nothing is written to it: when its
-    /// oldest segment (the one an age bound takes first, and the one before which none is taken) outlives `policy`'s age.
+    /// The first time at which retention could take something from this log if nothing is written to it: when its oldest
+    /// segment (the one an age bound takes first, and the one before which none is taken) has outlived `policy`'s age.
     /// `None` when no age bound is set or the log holds nothing: then only a write (or a change of the policy) can change
     /// what retention takes, since a size bound is judged from sizes alone.
     ///
@@ -151,7 +151,8 @@ impl<F: Fs> PartitionLog<F> {
                 .doing("judging the age of a segment")?,
             None => return Ok(None),
         };
-        Ok(Some(oldest.saturating_add(max_age)))
+        // Taken once older than the bound: `age < now - max_age`.
+        Ok(Some(oldest.saturating_add(max_age).saturating_add(1)))
     }
 
     /// The base of the segment after the oldest.

@@ -4,19 +4,19 @@
 use std::collections::HashMap;
 use std::sync::PoisonError;
 
-use kafka_storage::compact::{AbortedTxn, CleanJob, Params};
+use kafka_storage::compact::{AbortedTxn, Params, Planned};
 use kafka_storage::fs::Fs;
 use kafka_storage::{PartitionLog, StorageError};
 use kafka_wire::ids::Offset;
 
 use super::{Memory, relearn};
 
-/// A round of cleaning for the log, if it is due one.
+/// A round of cleaning for the log, if it is due one; if not, when it could next be.
 pub(super) fn plan<F: Fs>(
     log: &PartitionLog<F>,
     memory: &mut Memory,
     params: &Params,
-) -> Result<Option<CleanJob<F>>, StorageError> {
+) -> Result<Planned<F>, StorageError> {
     if !memory.loaded {
         relearn(log, memory)?;
     }
@@ -33,7 +33,7 @@ pub(super) fn plan<F: Fs>(
         .collect();
     drop(index);
     let producers: HashMap<_, _> = memory.producers.lasts();
-    log.clean_job(
+    log.plan_clean(
         params,
         Offset::new(stable).unwrap_or(Offset::ZERO),
         aborted,

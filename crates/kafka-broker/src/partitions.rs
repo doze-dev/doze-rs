@@ -8,6 +8,7 @@
 
 mod actor;
 mod registry;
+mod upkeep;
 
 use std::sync::{Arc, PoisonError, RwLock};
 
@@ -24,8 +25,9 @@ use actor::{Append, Command};
 /// How many of a round's segments the writer puts in place in one go: each takes three directory flushes (about 13 ms
 /// measured under load), so this keeps an append from waiting more than a fifth of a second for a round.
 const INSTALL_AT_A_TIME: usize = 16;
-pub(crate) use actor::{Trim, TxnView, Written};
+pub(crate) use actor::{Retained, Trim, TxnView, Written};
 pub(crate) use registry::Partitions;
+pub(crate) use upkeep::{Chore, Upkeep, Verdict, settings_print};
 
 /// How many appends may wait for a partition's writer before the next sender waits.
 pub(super) const QUEUE: usize = 32;
@@ -145,14 +147,32 @@ impl<F: Fs> Partition<F> {
         answer.await.map_err(|_| gone())?
     }
 
-    /// A round of cleaning, if the log is due one, planned by the writer.
+    /// Applies retention, through the writer, and says when it could next take something.
+    ///
+    /// # Errors
+    /// A removal or a read of a segment's age failed, or the writer has gone.
+    pub(crate) async fn retain(
+        &self,
+        policy: kafka_storage::Retention,
+        now: TimestampMs,
+    ) -> Result<Retained, StorageError> {
+        let (reply, answer) = oneshot::channel();
+        self.commands
+            .send(Command::Retain(policy, now, reply))
+            .await
+            .map_err(|_| gone())?;
+        answer.await.map_err(|_| gone())?
+    }
+
+    /// A round of cleaning, if the log is due one, planned by the writer; with the writer's count of changes when it was
+    /// judged.
     ///
     /// # Errors
     /// The log's history cannot be read, or the writer has gone.
     pub(crate) async fn plan_clean(
         &self,
         params: kafka_storage::compact::Params,
-    ) -> Result<Option<kafka_storage::compact::CleanJob<F>>, StorageError> {
+    ) -> Result<(kafka_storage::compact::Planned<F>, u64), StorageError> {
         let (reply, answer) = oneshot::channel();
         self.commands
             .send(Command::Clean(params, reply))

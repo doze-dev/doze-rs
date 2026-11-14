@@ -190,3 +190,23 @@ fn when_the_epochs_are_used_up_the_producer_id_is_replaced_and_the_old_one_is_st
         Err(E::ProducerFenced)
     );
 }
+
+#[test]
+fn the_next_step_is_the_first_moment_the_timeout_or_the_expiry_holds() {
+    let limit = 7_000;
+    let open = rec(TxnState::Ongoing);
+    let at = next_step_ms(&open, limit).unwrap();
+    assert_eq!(at, 61_001);
+    assert!(!expired(&open, at - 1) && expired(&open, at), "exactly then");
+    for state in [
+        TxnState::Empty,
+        TxnState::CompleteCommit,
+        TxnState::CompleteAbort,
+    ] {
+        let r = rec(state);
+        let at = next_step_ms(&r, limit).unwrap();
+        assert!(!idle(&r, at - 1, limit) && idle(&r, at, limit), "{state:?}");
+    }
+    assert_eq!(next_step_ms(&rec(TxnState::PrepareCommit), limit), None);
+    assert_eq!(next_step_ms(&rec(TxnState::PrepareAbort), limit), None);
+}
