@@ -3014,6 +3014,7 @@ dependencies = [
 name = "doze-module"
 version = "0.0.0"
 dependencies = [
+ "doze-cli",
  "doze-config",
  "doze-daemon",
  "doze-engine",
@@ -3024,6 +3025,7 @@ dependencies = [
  "doze-module-release",
  "doze-module-test",
  "doze-os",
+ "doze-projects",
  "hex",
  "minicbor",
  "serde_json",

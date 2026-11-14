@@ -4,6 +4,7 @@
 pub(crate) mod add;
 mod ask;
 pub(crate) mod bug;
+pub(crate) mod connect;
 pub(crate) mod console;
 pub(crate) mod decl;
 pub(crate) mod declared;
@@ -105,6 +106,7 @@ pub(crate) fn dispatch(
         Cmd::Env(e) => env::run(ctx, mode, &e),
         Cmd::Url(u) => env::url(ctx, mode, &u),
         Cmd::Sync(s) => sync::run(ctx, mode, &s),
+        Cmd::Connect(c) => connect::run(ctx, mode, &c),
         Cmd::Open(o) => open::run(ctx, mode, &o, notices),
         Cmd::Modules(m) => match m.command {
             None => modules::run(ctx, mode),

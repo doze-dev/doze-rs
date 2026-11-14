@@ -20,6 +20,22 @@ pub(crate) fn answer(state: &State, req: &Request) -> Response {
             ..lock(&state.script).status.clone()
         },
         Op::Logs => logs(state, req),
+        // The Rust daemon's op: the scripted change list, the target's alone when one is named.
+        Op::Plan => {
+            let s = lock(&state.script);
+            outcome(
+                s.failure("plan", &req.db),
+                Response {
+                    changes: s
+                        .plan
+                        .iter()
+                        .filter(|c| req.db.is_empty() || c.instance == req.db)
+                        .cloned()
+                        .collect(),
+                    ..Response::default()
+                },
+            )
+        }
         Op::Admin => {
             pause(state);
             let s = lock(&state.script);

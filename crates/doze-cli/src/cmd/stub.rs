@@ -9,12 +9,17 @@ use crate::diag::{Diagnostic, ids};
 pub(crate) enum Needs {
     /// It talks to the doze daemon.
     Daemon,
+    /// It is a module's own work, through a call the Rust daemon does not serve yet.
+    ModuleCall,
 }
 
 impl Needs {
     fn why(self) -> &'static str {
         match self {
             Needs::Daemon => "it talks to the doze daemon, which comes with the Rust core",
+            Needs::ModuleCall => {
+                "it is the module's own work (a major-version upgrade of its data), through a daemon call that is not built yet"
+            }
         }
     }
 }
@@ -22,8 +27,9 @@ impl Needs {
 /// What `cmd` waits for, or `None` if it is built.
 pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
     Some(match cmd {
-        Cmd::Migrate(_) | Cmd::Connect(_) => Needs::Daemon,
+        Cmd::Migrate(_) => Needs::ModuleCall,
         Cmd::Doctor(_)
+        | Cmd::Connect(_)
         | Cmd::Sync(_)
         | Cmd::Env(_)
         | Cmd::Url(_)

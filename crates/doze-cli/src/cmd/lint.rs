@@ -20,7 +20,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 
 /// Why the module pass did not run, when the person did not ask to skip it.
-const NO_MODULE_PASS: &str = "needs this doze's daemon modules, core plan D1; so do the port and network checks across the stack";
+const NO_MODULE_PASS: &str = "each module checks its own block through the daemon, a call that is not built yet; so do the port and network checks across the stack";
 
 /// Go's lint result; the field names are a published contract.
 #[derive(Debug, Serialize)]

@@ -60,6 +60,50 @@ impl Interrupt {
     }
 }
 
+/// Hands Ctrl-C to a command this process waits for on the same terminal (`doze connect`, `doze run`): from now on it
+/// no longer ends this process. The terminal sends it to the command too, which decides (a database shell cancels its
+/// query and stays), and this process goes on waiting for it and reports how it ended. A handler, not "ignore", so the
+/// command starts with the default (an ignored signal would be inherited across exec). SIGTERM is left as it is.
+pub fn pass_to_child() -> io::Result<()> {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_io()
+        .build()?;
+    let mut ctrl_c = rt.block_on(async { CtrlC::new() })?;
+    thread::Builder::new()
+        .name("doze-pass-ctrl-c".into())
+        .spawn(move || while rt.block_on(ctrl_c.recv()) {})?;
+    Ok(())
+}
+
+#[cfg(unix)]
+struct CtrlC(tokio::signal::unix::Signal);
+
+#[cfg(unix)]
+impl CtrlC {
+    fn new() -> io::Result<CtrlC> {
+        use tokio::signal::unix::{SignalKind, signal};
+        signal(SignalKind::interrupt()).map(CtrlC)
+    }
+
+    async fn recv(&mut self) -> bool {
+        self.0.recv().await.is_some()
+    }
+}
+
+#[cfg(windows)]
+struct CtrlC(tokio::signal::windows::CtrlC);
+
+#[cfg(windows)]
+impl CtrlC {
+    fn new() -> io::Result<CtrlC> {
+        tokio::signal::windows::ctrl_c().map(CtrlC)
+    }
+
+    async fn recv(&mut self) -> bool {
+        self.0.recv().await.is_some()
+    }
+}
+
 #[cfg(unix)]
 struct Waiter {
     int: tokio::signal::unix::Signal,
@@ -118,6 +162,16 @@ mod tests {
         assert!(!copy.raised());
         i.raise();
         assert!(copy.raised());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ctrl_c_passed_to_a_child_does_not_end_this_process() {
+        pass_to_child().unwrap();
+        rustix::process::kill_process(rustix::process::getpid(), rustix::process::Signal::INT)
+            .unwrap();
+        thread::sleep(std::time::Duration::from_millis(100));
+        // Still here: the signal was taken, not fatal.
     }
 
     #[cfg(unix)]

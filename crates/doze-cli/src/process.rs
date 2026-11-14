@@ -62,6 +62,9 @@ impl Host for Process {
         args: &[String],
         env: &[(String, String)],
     ) -> io::Result<u8> {
+        // Ctrl-C is the command's (a shell cancels its query and stays): doze waits for it and gives its code. Go's
+        // `doze run` died on it and left the command holding the terminal.
+        let _ = doze_os::interrupt::pass_to_child();
         let status = Command::new(program)
             .args(args)
             .envs(env.iter().map(|(k, v)| (k, v)))

@@ -32,6 +32,9 @@ doze-module-proto = { path = "../doze-module-proto" }
 doze-daemon = { path = "../doze-daemon" }
 doze-config = { path = "../doze-config" }
 doze-fetch = { path = "../doze-fetch" }
+# doze connect end to end (tests/cli_connect.rs): the CLI against this module's client.
+doze-cli = { path = "../doze-cli" }
+doze-projects = { path = "../doze-projects" }
 
 [[bin]]
 # Test module only: the echo module tests/echo.rs drives through a real host peer.

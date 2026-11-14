@@ -17,7 +17,7 @@ use crate::paint::Paint;
 use crate::stack::{self, Stack};
 use crate::view::View;
 use doze_config::Config;
-use doze_control::Snapshot;
+use doze_control::{Connection, Snapshot};
 use serde::{Serialize, Serializer};
 
 /// One variable, as Go's `EnvPair`.
@@ -118,6 +118,17 @@ pub(crate) fn asked(
     names: &[String],
     what: &str,
 ) -> Result<(Config, Snapshot), Diagnostic> {
+    let (_, cfg, conn) = opened(ctx, mode, names, what)?;
+    Ok((cfg, stack::snapshot(&conn)?))
+}
+
+/// [`asked`]'s stack, config and connection, for a command that goes on to ask the daemon more.
+pub(crate) fn opened(
+    ctx: &mut Ctx<'_>,
+    mode: &Mode,
+    names: &[String],
+    what: &str,
+) -> Result<(Stack, Config, Connection), Diagnostic> {
     let stack = Stack::find(ctx, mode)?;
     stack::check_offline(&stack, names)?;
     let cfg = stack.loader.shape(&stack.project)?;
@@ -133,7 +144,7 @@ pub(crate) fn asked(
             c
         }
     };
-    Ok((cfg, stack::snapshot(&conn)?))
+    Ok((stack, cfg, conn))
 }
 
 /// The variables of `names` (none: every declared one), in the stack's order, then the authority's.

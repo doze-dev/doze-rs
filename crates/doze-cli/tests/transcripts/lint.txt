@@ -7,7 +7,7 @@ $ doze lint
 exit 11
 stdout:
 | ✓ doze.hcl passes the first pass: 3 modules, 3 apps
-|   ! module blocks not checked (needs this doze's daemon modules, core plan D1; so do the port and network checks across the stack): kafka, postgres, valkey
+|   ! module blocks not checked (each module checks its own block through the daemon, a call that is not built yet; so do the port and network checks across the stack): kafka, postgres, valkey
 stderr:
 | ! lint is partial: not every block was checked
 |   fix: --offline runs the first pass alone and accepts it (exit 0)
@@ -31,7 +31,7 @@ json:
 |       "postgres",
 |       "valkey"
 |     ],
-|     "why": "needs this doze's daemon modules, core plan D1; so do the port and network checks across the stack"
+|     "why": "each module checks its own block through the daemon, a call that is not built yet; so do the port and network checks across the stack"
 |   },
 |   "error": {
 |     "code": "partial",

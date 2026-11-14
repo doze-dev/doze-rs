@@ -51,6 +51,8 @@ pub(crate) fn prepare(setup: &[String]) -> (Sandbox, FakeHost, Option<FixtureDae
                 std::fs::write(to, text.replace("\\n", "\n")).unwrap();
             }
             "project" => project(&sb, arg),
+            // `@ exe bin/psql`: an empty program under the sandbox, runnable (a client `connect` finds).
+            "exe" => exe(&sb.root.join(arg)),
             "cached" => {
                 for f in ["index.yaml", "meta.yaml"] {
                     let to = sb.home().join("registry/doze").join(arg).join(f);
@@ -84,11 +86,26 @@ pub(crate) fn prepare(setup: &[String]) -> (Sandbox, FakeHost, Option<FixtureDae
     (sb, host, daemon)
 }
 
-/// A fixture daemon playing `tests/fixtures/daemon/<name>.ndjson` on the sandbox project's control socket.
+/// An empty program at `to`, runnable.
+fn exe(to: &Path) {
+    std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+    std::fs::write(to, "").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(to, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+}
+
+/// A fixture daemon playing `tests/fixtures/daemon/<name>.ndjson` on the sandbox project's control socket; `{sandbox}`
+/// in it is the sandbox's folder.
 fn start_daemon(sb: &Sandbox, name: &str) -> FixtureDaemon {
     let script =
         Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("tests/fixtures/daemon/{name}.ndjson"));
-    let script = Script::load(&script).unwrap();
+    let text = std::fs::read_to_string(&script)
+        .unwrap()
+        .replace("{sandbox}", &sb.root.display().to_string());
+    let script = Script::parse(name, &text).unwrap();
     let sock = StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl")).socket();
     std::fs::create_dir_all(sock.parent().unwrap()).unwrap();
     FixtureDaemon::start(&sock, script).unwrap()

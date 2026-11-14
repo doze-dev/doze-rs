@@ -1,10 +1,17 @@
-# sync applies doze.hcl through the daemon's apply; it can drop data, so it asks, and refuses with no one to answer
-# (exit 9) unless -y. --dry-run waits for the modules' change list (DZ0001). A typo is exit 4 before anything.
+# sync (Go sync.go): the change list first, from the daemon's plan op (each module's objects against what was applied;
+# nothing woken or written); no changes is exit 0 with nothing asked; else it asks, and refuses with no one to answer
+# (exit 9) unless -y. --dry-run is the list. A typo is exit 4 before anything.
 @ project bare
-@ daemon env
+@ daemon sync
 
 $ doze sync
 exit 9
+stdout:
+| db (postgres)
+|   + database shop
+|   ~ role app
+|   - extension pgvector
+| cache (valkey)  nothing to change
 stderr:
 | error[DZ0705]: sync needs confirmation and no one can answer here
 |   it drops what was applied before and is no longer declared
@@ -30,7 +37,24 @@ json:
 $ doze sync -y
 exit 0
 stdout:
+| db (postgres)
+|   + database shop
+|   ~ role app
+|   - extension pgvector
+| cache (valkey)  nothing to change
 | ✓ sync complete
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sync",
+|   "ok": true
+| }
+
+$ doze sync cache
+exit 0
+stdout:
+| no changes — declared structure is up to date
 json exit 0
 json:
 | {
@@ -42,6 +66,10 @@ json:
 $ doze sync db -y
 exit 0
 stdout:
+| db (postgres)
+|   + database shop
+|   ~ role app
+|   - extension pgvector
 | ✓ sync complete
 json exit 0
 json:
@@ -78,25 +106,68 @@ json:
 | }
 
 $ doze sync --dry-run
-exit 1
-stderr:
-| error[DZ0001]: `doze sync --dry-run` is not built yet: it talks to the doze daemon, which comes with the Rust core
-|   the change list comes from each module's plan, which the daemon does not give yet; doze sync -y applies
-|   fix: the Go doze does this today
-json exit 1
+exit 0
+stdout:
+| db (postgres)
+|   + database shop
+|   ~ role app
+|   - extension pgvector
+| cache (valkey)  nothing to change
+|   dry run: nothing was changed · doze sync applies this
+json exit 0
 json:
 | {
 |   "schema": "doze/v1",
 |   "command": "doze sync",
-|   "ok": false,
-|   "error": {
-|     "code": "failed",
-|     "message": "`doze sync --dry-run` is not built yet: it talks to the doze daemon, which comes with the Rust core",
-|     "exit": 1,
-|     "id": "DZ0001",
-|     "notes": [
-|       "the change list comes from each module's plan, which the daemon does not give yet; doze sync -y applies"
-|     ],
-|     "fix": "the Go doze does this today"
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze sync",
+|     "plan": [
+|       {
+|         "title": "db (postgres)",
+|         "changes": [
+|           {
+|             "op": "+",
+|             "subject": "database shop"
+|           },
+|           {
+|             "op": "~",
+|             "subject": "role app"
+|           },
+|           {
+|             "op": "-",
+|             "subject": "extension pgvector"
+|           }
+|         ]
+|       },
+|       {
+|         "title": "cache (valkey)",
+|         "changes": []
+|       }
+|     ]
+|   }
+| }
+
+$ doze sync cache --dry-run
+exit 0
+stdout:
+| cache (valkey)  nothing to change
+|   dry run: nothing was changed · doze sync cache applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sync",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze sync cache",
+|     "plan": [
+|       {
+|         "title": "cache (valkey)",
+|         "changes": []
+|       }
+|     ]
 |   }
 | }

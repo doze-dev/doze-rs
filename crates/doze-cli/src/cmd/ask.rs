@@ -39,6 +39,16 @@ impl Asker {
         }
     }
 
+    /// One that leaves Ctrl-C alone (it ends the run, as it always does), for a command that later hands Ctrl-C to a
+    /// command of its own (`connect`).
+    pub(crate) fn unwatched(conn: Connection, mode: &Mode) -> Asker {
+        Asker {
+            conn,
+            interrupt: Interrupt::never(),
+            timeout: mode.timeout,
+        }
+    }
+
     /// Runs `verb` on `target` (empty: the daemon's "all") and waits for it, at most `--timeout`.
     pub(crate) fn verb(&self, verb: Verb, target: &str) -> Result<(), Stop> {
         self.verb_while(verb, target, &mut || {})

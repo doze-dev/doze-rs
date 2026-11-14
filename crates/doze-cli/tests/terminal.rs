@@ -103,7 +103,7 @@ fn on_terminal(sb: &Sandbox, args: &[&str]) -> Option<(i32, String)> {
 #[test]
 fn a_person_at_a_terminal_sees_colour_and_the_update_line_once() {
     let sb = sandbox("pty");
-    let Some((code, first)) = on_terminal(&sb, &["connect", "db"]) else {
+    let Some((code, first)) = on_terminal(&sb, &["migrate", "db"]) else {
         eprintln!("skipped: no pseudo-terminal on this platform");
         return;
     };
@@ -116,7 +116,7 @@ fn a_person_at_a_terminal_sees_colour_and_the_update_line_once() {
         first.contains("doze 9.9.9 is out (you have dev): valkey sleeps with a snapshot"),
         "no update line:\n{first}"
     );
-    let (_, second) = on_terminal(&sb, &["connect", "db"]).unwrap();
+    let (_, second) = on_terminal(&sb, &["migrate", "db"]).unwrap();
     assert!(
         !second.contains("9.9.9"),
         "the update line twice in a day:\n{second}"
@@ -127,7 +127,7 @@ fn a_person_at_a_terminal_sees_colour_and_the_update_line_once() {
 #[test]
 fn a_script_gets_plain_text_and_no_update_line() {
     let sb = sandbox("pipe");
-    let out = doze(&sb, &["connect", "db"])
+    let out = doze(&sb, &["migrate", "db"])
         .stdin(Stdio::null())
         .output()
         .unwrap();

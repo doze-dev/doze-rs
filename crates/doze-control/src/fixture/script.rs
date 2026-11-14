@@ -7,6 +7,7 @@
 //! {"wait_ms":50}                                             a pause between frames
 //! {"log":{"instance":"api","line":"listening",…}}            a line an instance printed, for the `logs` op
 //! {"admin_result":"purged 3 messages"}                       what `admin` answers
+//! {"plan":[{"instance":"db","change":"create","kind":"database","name":"shop"}]}  what `plan` answers
 //! {"fail":{"key":"wake api","error":"boom","code":"timeout"}} an op ("op" or "op target") that fails
 //! {"verb_delay_ms":800}                                     how long each verb and data action takes to answer
 //! ```
@@ -14,7 +15,7 @@
 //! The scripts of the Go fixture hubs (shop, crash, modules, larder, …) were captured from Go's own
 //! `internal/control/fixture` and are in `testdata/go/scripts`.
 
-use crate::{Frame, LogFrame, Response, codec};
+use crate::{ChangeView, Frame, LogFrame, Response, codec};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::time::Duration;
@@ -30,6 +31,7 @@ pub enum Entry {
     WaitMs(u64),
     Log(LogFrame),
     AdminResult(String),
+    Plan(Vec<ChangeView>),
     Fail(Fail),
     VerbDelayMs(u64),
 }
@@ -63,6 +65,8 @@ pub struct Script {
     /// What each instance has printed.
     pub logs: Vec<LogFrame>,
     pub admin_result: String,
+    /// What `plan` answers (the Rust daemon's op); each instance's changes, the target's alone when one is named.
+    pub plan: Vec<ChangeView>,
     pub fail: Vec<Fail>,
     /// How long each verb (and data action) takes before it answers, as a real one takes a moment: so a page shows it
     /// busy.
@@ -116,6 +120,7 @@ impl Script {
             Entry::WaitMs(ms) => self.steps.push(Step::Wait(Duration::from_millis(ms))),
             Entry::Log(l) => self.logs.push(l),
             Entry::AdminResult(r) => self.admin_result = r,
+            Entry::Plan(p) => self.plan = p,
             Entry::Fail(f) => self.fail.push(f),
             Entry::VerbDelayMs(ms) => self.verb_delay = Duration::from_millis(ms),
         }
@@ -128,6 +133,7 @@ impl Script {
         entries.extend(
             (!self.admin_result.is_empty()).then(|| Entry::AdminResult(self.admin_result.clone())),
         );
+        entries.extend((!self.plan.is_empty()).then(|| Entry::Plan(self.plan.clone())));
         entries.extend(self.fail.iter().cloned().map(Entry::Fail));
         entries.extend((!self.verb_delay.is_zero()).then(|| {
             Entry::VerbDelayMs(u64::try_from(self.verb_delay.as_millis()).unwrap_or(u64::MAX))

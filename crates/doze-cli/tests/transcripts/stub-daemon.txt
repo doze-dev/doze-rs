@@ -5,7 +5,7 @@
 $ doze migrate db
 exit 1
 stderr:
-| error[DZ0001]: `doze migrate` is not built yet: it talks to the doze daemon, which comes with the Rust core
+| error[DZ0001]: `doze migrate` is not built yet: it is the module's own work (a major-version upgrade of its data), through a daemon call that is not built yet
 |   fix: the Go doze does this today
 json exit 1
 json:
@@ -15,7 +15,7 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "failed",
-|     "message": "`doze migrate` is not built yet: it talks to the doze daemon, which comes with the Rust core",
+|     "message": "`doze migrate` is not built yet: it is the module's own work (a major-version upgrade of its data), through a daemon call that is not built yet",
 |     "exit": 1,
 |     "id": "DZ0001",
 |     "fix": "the Go doze does this today"
@@ -23,7 +23,7 @@ json:
 | }
 tty exit 1
 tty stderr:
-| ⟨1;31merror[DZ0001]:⟨0m ⟨1m`doze migrate` is not built yet: it talks to the doze daemon, which comes with the Rust core⟨0m
+| ⟨1;31merror[DZ0001]:⟨0m ⟨1m`doze migrate` is not built yet: it is the module's own work (a major-version upgrade of its data), through a daemon call that is not built yet⟨0m
 |   ⟨2mfix:⟨0m ⟨36mthe Go doze does this today⟨0m
 tty spawned:
 | __refresh --latest
@@ -31,7 +31,7 @@ tty spawned:
 $ doze migrate db --dry-run
 exit 1
 stderr:
-| error[DZ0001]: `doze migrate` is not built yet: it talks to the doze daemon, which comes with the Rust core
+| error[DZ0001]: `doze migrate` is not built yet: it is the module's own work (a major-version upgrade of its data), through a daemon call that is not built yet
 |   fix: the Go doze does this today
 json exit 1
 json:
@@ -41,7 +41,7 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "failed",
-|     "message": "`doze migrate` is not built yet: it talks to the doze daemon, which comes with the Rust core",
+|     "message": "`doze migrate` is not built yet: it is the module's own work (a major-version upgrade of its data), through a daemon call that is not built yet",
 |     "exit": 1,
 |     "id": "DZ0001",
 |     "fix": "the Go doze does this today"
@@ -49,53 +49,5 @@ json:
 | }
 tty exit 1
 tty stderr:
-| ⟨1;31merror[DZ0001]:⟨0m ⟨1m`doze migrate` is not built yet: it talks to the doze daemon, which comes with the Rust core⟨0m
-|   ⟨2mfix:⟨0m ⟨36mthe Go doze does this today⟨0m
-
-$ doze connect db
-exit 1
-stderr:
-| error[DZ0001]: `doze connect` is not built yet: it talks to the doze daemon, which comes with the Rust core
-|   fix: the Go doze does this today
-json exit 2
-json:
-| {
-|   "schema": "doze/v1",
-|   "command": "doze connect",
-|   "ok": false,
-|   "error": {
-|     "code": "usage",
-|     "message": "this command has no JSON result",
-|     "exit": 2,
-|     "id": "DZ0103",
-|     "fix": "drop --json"
-|   }
-| }
-tty exit 1
-tty stderr:
-| ⟨1;31merror[DZ0001]:⟨0m ⟨1m`doze connect` is not built yet: it talks to the doze daemon, which comes with the Rust core⟨0m
-|   ⟨2mfix:⟨0m ⟨36mthe Go doze does this today⟨0m
-
-$ doze connect cache
-exit 1
-stderr:
-| error[DZ0001]: `doze connect` is not built yet: it talks to the doze daemon, which comes with the Rust core
-|   fix: the Go doze does this today
-json exit 2
-json:
-| {
-|   "schema": "doze/v1",
-|   "command": "doze connect",
-|   "ok": false,
-|   "error": {
-|     "code": "usage",
-|     "message": "this command has no JSON result",
-|     "exit": 2,
-|     "id": "DZ0103",
-|     "fix": "drop --json"
-|   }
-| }
-tty exit 1
-tty stderr:
-| ⟨1;31merror[DZ0001]:⟨0m ⟨1m`doze connect` is not built yet: it talks to the doze daemon, which comes with the Rust core⟨0m
+| ⟨1;31merror[DZ0001]:⟨0m ⟨1m`doze migrate` is not built yet: it is the module's own work (a major-version upgrade of its data), through a daemon call that is not built yet⟨0m
 |   ⟨2mfix:⟨0m ⟨36mthe Go doze does this today⟨0m
