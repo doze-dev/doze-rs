@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeSet, HashSet};
 
-use kafka_auth::authz::{Acl, AclSet, CLUSTER_NAME, operation, resource};
+use kafka_auth::authz::{Acl, AclSet, CLUSTER_NAME, Operation, ResourceType};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::StrBytes;
@@ -52,17 +52,18 @@ impl<F: Fs> Broker<F> {
         let all = |code: ResponseError, message: Option<&str>| {
             acls.iter().map(|_| result(code.code(), message)).collect()
         };
-        let results: Vec<AclCreationResult> =
-            if !self
-                .authz
-                .allows(caller, resource::CLUSTER, CLUSTER_NAME, operation::ALTER)
-            {
-                all(ResponseError::ClusterAuthorizationFailed, None)
-            } else if acls.iter().any(Acl::has_filter_only_code) {
-                all(ResponseError::UnknownServerError, None)
-            } else {
-                self.store_acls(&acls)
-            };
+        let results: Vec<AclCreationResult> = if !self.authz.allows(
+            caller,
+            ResourceType::Cluster,
+            CLUSTER_NAME,
+            Operation::Alter,
+        ) {
+            all(ResponseError::ClusterAuthorizationFailed, None)
+        } else if acls.iter().any(Acl::has_filter_only_code) {
+            all(ResponseError::UnknownServerError, None)
+        } else {
+            self.store_acls(&acls)
+        };
         let mut resp = CreateAclsResponse::default();
         resp.results = results;
         Outcome::Respond(Response::CreateAcls(resp))

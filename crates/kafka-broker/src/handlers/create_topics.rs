@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::{Collision, MetaError, Topic, random_topic_id};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
@@ -47,13 +47,13 @@ impl<F: Fs> Broker<F> {
     /// Asked before anything else is looked at (a name that exists, or is invalid, is not revealed to a caller that
     /// may not create it): `ControllerApis.createTopics`.
     fn creation_access(&self, caller: &Caller, raw: &str, cluster: bool) -> Option<Access> {
-        (cluster || self.topic_allows(caller, raw, operation::CREATE)).then(|| Access {
-            configs: self.topic_allows(caller, raw, operation::DESCRIBE_CONFIGS),
+        (cluster || self.topic_allows(caller, raw, Operation::Create)).then(|| Access {
+            configs: self.topic_allows(caller, raw, Operation::DescribeConfigs),
         })
     }
 
     fn create_each(&self, caller: &Caller, req: &CreateTopicsRequest) -> CreateTopicsResponse {
-        let cluster = self.cluster_allows(caller, operation::CREATE);
+        let cluster = self.cluster_allows(caller, Operation::Create);
         // The topics refused for want of CREATE come last, after every other answer.
         let mut denied = Vec::new();
         // A name listed twice is a malformed request: neither entry is acted on, and Kafka answers once per name.
@@ -117,7 +117,8 @@ impl<F: Fs> Broker<F> {
         }
         let partitions = self.partitions_requested(t)?;
         let config = config_map(t);
-        topic_config::validate(&config).map_err(|why| (ResponseError::InvalidConfig, why))?;
+        topic_config::validate(&config)
+            .map_err(|why| (ResponseError::InvalidConfig, why.to_string()))?;
         let limit = self.config.max_partitions;
         if partitions.get() > limit {
             let why = format!(
@@ -129,12 +130,7 @@ impl<F: Fs> Broker<F> {
         let topic = if validate_only {
             // Kafka answers a validation with an id it made up for the topic that was not created.
             let id = random_topic_id().map_err(storage_fault)?;
-            Topic {
-                name,
-                id,
-                partitions,
-                config,
-            }
+            Topic::new(name, id, partitions, config)
         } else {
             let made = self.make_topic(&name, partitions, config, beside);
             made.map(|t| (*t).clone()).map_err(made_wrong)?

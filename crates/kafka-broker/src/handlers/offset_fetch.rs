@@ -12,7 +12,7 @@ use kafka_wire::messages::offset_fetch_response::{
 };
 use kafka_wire::messages::{OffsetFetchRequest, OffsetFetchResponse, TopicName as WireName};
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 
 use crate::{Broker, Caller, Outcome, blocking};
 
@@ -73,7 +73,7 @@ impl<F: Fs> Broker<F> {
                     .map(|t| (&t.name, t.partition_indexes.as_slice()))
                     .collect()
             });
-            if !guard.group(operation::DESCRIBE, req.group_id.as_str()) {
+            if !guard.group(Operation::Describe, req.group_id.as_str()) {
                 guard::refuse_old(version, &asked, &mut resp);
                 return Outcome::Respond(kafka_wire::api::Response::OffsetFetch(resp));
             }
@@ -92,7 +92,7 @@ impl<F: Fs> Broker<F> {
                 let mut group = OffsetFetchResponseGroup::default();
                 group.group_id = g.group_id.clone();
                 let member = g.member_id.as_ref().map(|m| m.as_str());
-                if !guard.group(operation::DESCRIBE, g.group_id.as_str()) {
+                if !guard.group(Operation::Describe, g.group_id.as_str()) {
                     group.error_code = kafka_wire::ResponseError::GroupAuthorizationFailed.code();
                     resp.groups.push(group);
                     continue;

@@ -25,7 +25,7 @@ pub use inspect::{CleanOutcome, ConsoleLab, LabOutcome};
 
 #[cfg(feature = "inspect")]
 mod inspect {
-    use kafka_auth::authz::{operation, resource};
+    use kafka_auth::authz::{Operation, ResourceType};
     use kafka_wire::ids::{GroupId, MemberId, PartitionId, TopicName};
 
     use super::{Broker, Fs};
@@ -109,7 +109,7 @@ mod inspect {
         fn group_id(&self, caller: &Caller, group: &str) -> Option<GroupId> {
             self.broker
                 .authz
-                .allows(caller, resource::GROUP, group, operation::DELETE)
+                .allows(caller, ResourceType::Group, group, Operation::Delete)
                 .then(|| GroupId::parse(group).ok())
                 .flatten()
         }
@@ -119,7 +119,7 @@ mod inspect {
             if self
                 .broker
                 .authz
-                .allows(caller, resource::GROUP, group, operation::DELETE)
+                .allows(caller, ResourceType::Group, group, Operation::Delete)
             {
                 LabOutcome::NoSuchGroup
             } else {
@@ -146,7 +146,7 @@ mod inspect {
             partition: i32,
         ) -> CleanOutcome {
             let b = self.broker;
-            if !b.topic_allows(caller, topic, operation::ALTER) {
+            if !b.topic_allows(caller, topic, Operation::Alter) {
                 return CleanOutcome::Denied;
             }
             let (Ok(name), Some(id)) = (TopicName::parse(topic), PartitionId::new(partition))

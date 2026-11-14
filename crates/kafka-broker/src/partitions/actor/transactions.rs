@@ -151,7 +151,7 @@ mod tests {
 
     fn aborted_held(memory: &Memory) -> usize {
         let index = memory.txns.read().unwrap();
-        index.aborted_between(0, i64::MAX).len()
+        index.aborted_between(0, i64::MAX).count()
     }
 
     #[test]

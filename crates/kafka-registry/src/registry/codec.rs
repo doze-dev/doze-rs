@@ -96,20 +96,27 @@ mod tests {
         let r = registry();
         reg(&r, "orders-value", SchemaType::Avro, ORDER);
         let (c, _) = r.codec_for("orders-value", "1").unwrap();
-        let e = c.encode(r#"{"id":"x"}"#).unwrap_err();
+        let e = c.encode(r#"{"id":"x"}"#).unwrap_err().to_string();
         assert_eq!(e, "id: expected a number, not \"x\"");
         let e = c
             .encode(r#"{"id":1,"state":"GONE","lines":[],"tags":{},"code":"AB","blob":"","f":1}"#)
-            .unwrap_err();
+            .unwrap_err()
+            .to_string();
         assert!(
             e.starts_with("state: \"GONE\" is not a symbol of enum shop.State"),
             "{e}"
         );
         let e = c
             .encode(r#"{"id":1,"state":"NEW","tags":{},"code":"AB","blob":"","f":1}"#)
-            .unwrap_err();
+            .unwrap_err()
+            .to_string();
         assert_eq!(e, "field \"lines\" is missing and has no default");
-        assert!(c.encode("{").unwrap_err().starts_with("not JSON"));
+        assert!(
+            c.encode("{")
+                .unwrap_err()
+                .to_string()
+                .starts_with("not JSON")
+        );
     }
 
     #[test]
@@ -125,23 +132,28 @@ mod tests {
         // A block of 2^62 nulls: no bytes each, so the budget refuses it.
         let mut v = crate::wire::header(id).to_vec();
         v.extend([0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f]);
-        let e = c.decode(&v).unwrap_err();
+        let e = c.decode(&v).unwrap_err().to_string();
         assert!(e.contains("more than"), "{e}");
         let id = reg(&r, "t", SchemaType::Avro, r#""string""#);
         let c = r.codec(id).unwrap();
         let mut v = crate::wire::header(id).to_vec();
         v.extend([0xfe, 0xff, 0xff, 0xff, 0x0f, b'a']);
-        let e = c.decode(&v).unwrap_err();
+        let e = c.decode(&v).unwrap_err().to_string();
         assert!(
             e.starts_with("the payload does not match the schema (a string length of"),
             "{e}"
         );
         assert_eq!(
-            c.decode(b"plain").unwrap_err(),
+            c.decode(b"plain").unwrap_err().to_string(),
             "not in the registry's wire format"
         );
         let other = crate::wire::header(id + 7);
-        assert!(c.decode(&other).unwrap_err().contains("names schema id"));
+        assert!(
+            c.decode(&other)
+                .unwrap_err()
+                .to_string()
+                .contains("names schema id")
+        );
     }
 
     #[test]
@@ -157,7 +169,12 @@ mod tests {
         let mut v = crate::wire::header(id).to_vec();
         v.extend(std::iter::repeat_n(2u8, 500));
         v.push(0);
-        assert!(c.decode(&v).unwrap_err().contains("levels deep"));
+        assert!(
+            c.decode(&v)
+                .unwrap_err()
+                .to_string()
+                .contains("levels deep")
+        );
     }
 
     #[test]
@@ -191,7 +208,7 @@ mod tests {
                 "#/kind: \"c\" is not one of its enum values",
             ),
         ] {
-            assert_eq!(c.encode(bad).unwrap_err(), why, "{bad}");
+            assert_eq!(c.encode(bad).unwrap_err().to_string(), why, "{bad}");
         }
         let mut stored = crate::wire::header(id).to_vec();
         stored.extend(br#"{"id":0}"#);
@@ -199,7 +216,12 @@ mod tests {
         assert_eq!(d.mismatch.as_deref(), Some("#/id: 0 is under its minimum"));
         stored.truncate(5);
         stored.extend(b"not json");
-        assert!(c.decode(&stored).unwrap_err().contains("not JSON"));
+        assert!(
+            c.decode(&stored)
+                .unwrap_err()
+                .to_string()
+                .contains("not JSON")
+        );
     }
 
     const PROTO: &str = r#"syntax = "proto3";
@@ -258,14 +280,20 @@ message Other { bool ok = 1; }
         );
         let mut v = crate::wire::header(id).to_vec();
         v.extend([2, 18]);
-        assert!(c.decode(&v).unwrap_err().contains("outside the schema"));
+        assert!(
+            c.decode(&v)
+                .unwrap_err()
+                .to_string()
+                .contains("outside the schema")
+        );
         assert_eq!(
-            c.encode(r#"{"nope":1}"#).unwrap_err(),
+            c.encode(r#"{"nope":1}"#).unwrap_err().to_string(),
             "shop.v1.Order has no field \"nope\""
         );
         assert!(
             c.encode(r#"{"state":"GONE"}"#)
                 .unwrap_err()
+                .to_string()
                 .starts_with("state: \"GONE\" is not a value")
         );
     }
@@ -278,7 +306,7 @@ message Other { bool ok = 1; }
         // A length far past the end; a group that never ends.
         let mut v = crate::wire::header(id).to_vec();
         v.extend([0, 0x12, 0xff, 0xff, 0xff, 0x0f]);
-        assert!(c.decode(&v).unwrap_err().contains("are left"));
+        assert!(c.decode(&v).unwrap_err().to_string().contains("are left"));
         let mut v = crate::wire::header(id).to_vec();
         v.extend([0, 0x4b]);
         v.extend(std::iter::repeat_n(0x4bu8, 300));

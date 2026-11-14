@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_storage::topic_dirs;
@@ -56,7 +56,7 @@ impl<F: Fs> Broker<F> {
             .iter()
             .filter(|t| count.get(t.name.0.as_str()).copied().unwrap_or(0) <= 1);
         let (permitted, refused): (Vec<_>, Vec<_>) =
-            single.partition(|t| self.topic_allows(caller, &t.name.0, operation::ALTER));
+            single.partition(|t| self.topic_allows(caller, &t.name.0, Operation::Alter));
         for t in refused {
             let denied = (E::TopicAuthorizationFailed, None);
             resp.results.push(answer(t, Err(denied)));
@@ -186,10 +186,9 @@ impl<F: Fs> Broker<F> {
             undo();
             return Err(storage(&e));
         }
-        let updated = self.meta.update_topic(&topic.name, |t| Topic {
-            partitions: count,
-            ..t.clone()
-        });
+        let updated = self
+            .meta
+            .update_topic(&topic.name, |t| t.with_partitions(count));
         match updated {
             Ok(Some(_)) => Ok(()),
             Ok(None) => {

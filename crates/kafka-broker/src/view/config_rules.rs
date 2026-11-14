@@ -1,7 +1,7 @@
 //! What a topic config's value may be, in words, for the Config page of the console: the table's own rule for each key,
 //! so the page never carries a second copy of it.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 
 use super::ConsoleView;
@@ -23,7 +23,7 @@ impl<F: Fs> ConsoleView<'_, F> {
     #[must_use]
     pub fn topic_config_rules(&self, caller: &Caller, topic: &str) -> Option<Vec<ConfigRule>> {
         let b = self.broker;
-        if !b.topic_allows(caller, topic, operation::DESCRIBE_CONFIGS) {
+        if !b.topic_allows(caller, topic, Operation::DescribeConfigs) {
             return None;
         }
         let name = kafka_wire::ids::TopicName::parse(topic).ok()?;

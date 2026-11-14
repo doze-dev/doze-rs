@@ -4,7 +4,7 @@
 //! Nothing here is on disk: a restart empties every ring, and so does a group's deletion. Asking is a request to the
 //! group's task like any other, which changes nothing.
 
-use kafka_auth::authz::{operation, resource};
+use kafka_auth::authz::{Operation, ResourceType};
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::GroupId;
 
@@ -97,7 +97,7 @@ impl<F: Fs> ConsoleView<'_, F> {
         let b = self.broker;
         if !b
             .authz
-            .allows(caller, resource::GROUP, group, operation::DESCRIBE)
+            .allows(caller, ResourceType::Group, group, Operation::Describe)
         {
             return None;
         }

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use super::{Acl, AclFilter, pattern, resource};
+use super::{Acl, AclFilter, ResourceType, pattern, resource};
 
 /// The ACLs of one resource type, split by how they name resources.
 #[derive(Debug, Clone, Default)]
@@ -77,7 +77,7 @@ impl AclSet {
     }
 
     /// The ACLs of resource type `kind`; none for a type that cannot be stored.
-    pub(super) fn of_type(&self, kind: i8) -> Option<&ByType> {
-        self.types.get(usize::try_from(kind).ok()?)
+    pub(super) fn of_type(&self, kind: ResourceType) -> Option<&ByType> {
+        self.types.get(usize::try_from(kind.code()).ok()?)
     }
 }

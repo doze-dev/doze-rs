@@ -1,7 +1,7 @@
 //! DescribeConfigs: the configs of a topic or of the broker, each with where its value comes from (source:
 //! `ConfigHelper.describeConfigs`).
 
-use kafka_auth::authz::{operation, resource};
+use kafka_auth::authz::{Operation, ResourceType};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::StrBytes;
@@ -82,14 +82,14 @@ impl<F: Fs> Broker<F> {
         r: &DescribeConfigsResource,
     ) -> Option<(E, &'static str)> {
         let name = r.resource_name.as_str();
-        let ask = |kind: i8| {
+        let ask = |kind: ResourceType| {
             self.authz
-                .allows(caller, kind, name, operation::DESCRIBE_CONFIGS)
+                .allows(caller, kind, name, Operation::DescribeConfigs)
         };
-        let cluster = || self.cluster_allows(caller, operation::DESCRIBE_CONFIGS);
+        let cluster = || self.cluster_allows(caller, Operation::DescribeConfigs);
         let (allowed, error, message) = match r.resource_type {
             TOPIC => (
-                ask(resource::TOPIC),
+                ask(ResourceType::Topic),
                 E::TopicAuthorizationFailed,
                 TOPIC_DENIED,
             ),
@@ -98,7 +98,7 @@ impl<F: Fs> Broker<F> {
                 (cluster(), E::ClusterAuthorizationFailed, CLUSTER_DENIED)
             }
             GROUP => (
-                ask(resource::GROUP),
+                ask(ResourceType::Group),
                 E::GroupAuthorizationFailed,
                 GROUP_DENIED,
             ),

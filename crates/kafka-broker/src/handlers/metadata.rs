@@ -1,6 +1,6 @@
 //! Metadata: this broker, and the topics it has.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
@@ -224,13 +224,13 @@ impl<F: Fs> Broker<F> {
     }
 
     fn can_describe(&self, caller: &Caller, topic: &str) -> bool {
-        self.topic_allows(caller, topic, operation::DESCRIBE)
+        self.topic_allows(caller, topic, Operation::Describe)
     }
 
     /// CREATE on the cluster covers every topic; failing that, CREATE on the topic itself.
     fn can_create(&self, caller: &Caller, topic: &str) -> bool {
-        self.cluster_allows(caller, operation::CREATE)
-            || self.topic_allows(caller, topic, operation::CREATE)
+        self.cluster_allows(caller, Operation::Create)
+            || self.topic_allows(caller, topic, Operation::Create)
     }
 
     /// Makes the topics that Metadata requests asked for and found missing, one at a time, under the topic lock. One that

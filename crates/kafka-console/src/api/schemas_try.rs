@@ -64,7 +64,7 @@ pub(crate) fn encode(
     let bytes = match c.encode(value) {
         Ok(b) => b,
         Err(why) => {
-            out.error = Some(why);
+            out.error = Some(why.to_string());
             return Ok((out, Vec::new()));
         }
     };

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::StrBytes;
 use kafka_wire::messages::list_groups_response::ListedGroup;
@@ -19,7 +19,7 @@ impl<F: Fs> Broker<F> {
     /// A caller that may DESCRIBE the cluster sees every group; any other sees those it may DESCRIBE.
     pub(crate) async fn list_groups(&self, caller: &Caller, req: &ListGroupsRequest) -> Outcome {
         let guard = self.guard(caller);
-        let sees_all = guard.cluster(operation::DESCRIBE);
+        let sees_all = guard.cluster(Operation::Describe);
         let mut resp = ListGroupsResponse::default();
         // (protocol type, state, group type)
         let mut all: BTreeMap<String, (String, &'static str, &'static str)> = BTreeMap::new();
@@ -61,7 +61,7 @@ impl<F: Fs> Broker<F> {
                     .any(|f| f.as_str().eq_ignore_ascii_case(value))
         };
         for (id, (protocol_type, state, group_type)) in all {
-            if !sees_all && !guard.group(operation::DESCRIBE, &id) {
+            if !sees_all && !guard.group(Operation::Describe, &id) {
                 continue;
             }
             if !wanted(&req.states_filter, state) || !wanted(&req.types_filter, group_type) {

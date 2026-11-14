@@ -6,8 +6,8 @@
 use std::collections::HashSet;
 
 use super::{
-    Acl, AclSet, Resource, Rules, Subject, WILDCARD, WILDCARD_PRINCIPAL, operation, pattern,
-    permission,
+    Acl, AclSet, Operation, Resource, ResourceType, Rules, Subject, WILDCARD, WILDCARD_PRINCIPAL,
+    operation, pattern, permission,
 };
 
 /// The name checked first, so that a super user (and the default, when it allows) passes whatever the ACLs say.
@@ -27,8 +27,8 @@ impl Rules {
         &self,
         set: &AclSet,
         who: Subject<'_>,
-        op: i8,
-        kind: i8,
+        kind: ResourceType,
+        op: Operation,
     ) -> bool {
         if self.authorize(
             set,
@@ -81,10 +81,10 @@ impl Rules {
 }
 
 /// Whether the ACL is for this principal, from this host, about exactly this operation (or ALL).
-fn for_subject(acl: &Acl, who: Subject<'_>, op: i8) -> bool {
+fn for_subject(acl: &Acl, who: Subject<'_>, op: Operation) -> bool {
     (acl.host == WILDCARD || acl.host == who.host)
         && (acl.principal == who.principal || acl.principal == WILDCARD_PRINCIPAL)
-        && (acl.operation == op || acl.operation == operation::ALL)
+        && (acl.operation == op.code() || acl.operation == operation::ALL)
 }
 
 /// Every non-empty prefix of `name`, the shortest first, `name` itself last.

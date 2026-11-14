@@ -153,7 +153,7 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
     let live = Live::new(w.backend.clone(), w.facts.clone()).with_recorder(Arc::clone(&recorder));
     let state = State::new(
         Source::Live(Box::new(live)),
-        Base::root(),
+        &Base::root(),
         vec![],
         CancellationToken::new(),
     );
@@ -223,7 +223,7 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
             .with_lab(kafka_server::fault::FaultTable::new());
         kafka_console::app::console(State::new(
             Source::Live(Box::new(live)),
-            Base::root(),
+            &Base::root(),
             vec![],
             CancellationToken::new(),
         ))

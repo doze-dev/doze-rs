@@ -153,7 +153,8 @@ fn a_shell_word_is_bare_when_safe_and_quoted_when_not() {
         ("a b", "'a b'"),
         ("it's", "'it'\\''s'"),
         ("$(rm -rf /)", "'$(rm -rf /)'"),
-        ("a\nb", "'a b'"),
+        ("a\nb", "$'a\\nb'"),
+        ("=ls", "'=ls'"),
         ("`x`", "'`x`'"),
         ("a;b", "'a;b'"),
     ] {

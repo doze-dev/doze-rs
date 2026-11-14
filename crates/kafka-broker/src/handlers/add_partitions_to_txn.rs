@@ -1,6 +1,6 @@
 //! AddPartitionsToTxn (the shape of versions 0 to 3: one transaction): what the transaction will write to.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::api::Response;
@@ -47,7 +47,7 @@ impl<F: Fs> Broker<F> {
             let topic = TopicName::parse(&t.name.0)
                 .ok()
                 .and_then(|n| self.meta.topic(&n));
-            let barred = !guard.topic(operation::WRITE, t.name.0.as_str());
+            let barred = !guard.topic(Operation::Write, t.name.0.as_str());
             let mut codes = Vec::new();
             for &p in &t.partitions {
                 let known = !barred
@@ -89,7 +89,7 @@ impl<F: Fs> Broker<F> {
                 })
                 .collect()
         };
-        if !guard.txn(operation::WRITE, id) {
+        if !guard.txn(Operation::Write, id) {
             return everywhere(E::TransactionalIdAuthorizationFailed);
         }
         // Every partition is judged before the coordinator is asked anything: one that cannot be added leaves the rest

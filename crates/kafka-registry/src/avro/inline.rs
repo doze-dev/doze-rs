@@ -63,7 +63,7 @@ impl Inliner {
         if !name.contains('.') {
             full = full_name(name, enclosing);
             if !self.defs.contains_key(&full) {
-                full = name.to_owned(); // a name in the null namespace
+                name.clone_into(&mut full); // a name in the null namespace
             }
         }
         if self.done.contains(&full) {

@@ -1,6 +1,6 @@
 //! OffsetCommit: a group's progress, stored in the metadata database.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::{Committed, MetaError, OffsetCommit, StoredOffset};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
@@ -28,10 +28,10 @@ impl<F: Fs> Broker<F> {
         req: &OffsetCommitRequest,
     ) -> Outcome {
         let guard = self.guard(caller);
-        if !guard.group(operation::READ, req.group_id.as_str()) {
+        if !guard.group(Operation::Read, req.group_id.as_str()) {
             return blanket(req, ResponseError::GroupAuthorizationFailed);
         }
-        let barred = |name: &str| !guard.topic(operation::READ, name);
+        let barred = |name: &str| !guard.topic(Operation::Read, name);
         let fence = self.fence_unless_barred(version, req, &barred).await;
         let mut resp = OffsetCommitResponse::default();
         // Each partition is judged; those that pass are stored together in one write.

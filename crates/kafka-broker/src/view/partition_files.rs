@@ -3,7 +3,7 @@
 //! Nothing is opened for this and nothing is kept. A partition that is open answers from its reader's snapshot of
 //! segments (and says if a flush failed); one that is not is read from its directory. Both give the same facts.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_storage::topic_dirs::partition_dir;
 use kafka_storage::{SegmentInfo, segments_on_disk};
@@ -43,7 +43,7 @@ impl<F: Fs> ConsoleView<'_, F> {
     #[must_use]
     pub fn partition_files(&self, caller: &Caller, topic: &str) -> Option<Vec<PartitionFiles>> {
         let b = self.broker;
-        if !b.topic_allows(caller, topic, operation::DESCRIBE) {
+        if !b.topic_allows(caller, topic, Operation::Describe) {
             return None;
         }
         let name = TopicName::parse(topic).ok()?;

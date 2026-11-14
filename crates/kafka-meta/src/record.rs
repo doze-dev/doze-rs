@@ -8,10 +8,12 @@ use kafka_wire::ids::{PartitionCount, TopicId, TopicName};
 use serde::{Deserialize, Serialize};
 
 use crate::MetaError;
+use crate::settings::TopicSettings;
 
 const VERSION: u8 = 1;
 
-/// A topic as the broker knows it.
+/// A topic as the broker knows it. Made with [`Topic::new`], which reads its settings from its configs; a topic is shared
+/// behind an `Arc` and replaced, never changed, when its configs change.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Topic {
     /// Its name.
@@ -22,21 +24,71 @@ pub struct Topic {
     pub partitions: PartitionCount,
     /// The configs set on it; an absent key has the broker's default.
     pub config: BTreeMap<String, String>,
+    /// What the broker acts on of `config` as it stores a batch.
+    settings: TopicSettings,
 }
 
-#[derive(Serialize, Deserialize)]
-struct Stored {
+/// What is written of a topic (its name is the key it is stored under).
+#[derive(Serialize)]
+struct Stored<'a> {
+    id: [u8; 16],
+    partitions: i32,
+    config: &'a BTreeMap<String, String>,
+}
+
+/// What is read back.
+#[derive(Deserialize)]
+struct Read {
     id: [u8; 16],
     partitions: i32,
     config: BTreeMap<String, String>,
 }
 
 impl Topic {
+    /// A topic with these configs set on it.
+    #[must_use]
+    pub fn new(
+        name: TopicName,
+        id: TopicId,
+        partitions: PartitionCount,
+        config: BTreeMap<String, String>,
+    ) -> Self {
+        let settings = TopicSettings::of(&config);
+        Self {
+            name,
+            id,
+            partitions,
+            config,
+            settings,
+        }
+    }
+
+    /// This topic with `config` set on it in place of its configs.
+    #[must_use]
+    pub fn with_config(&self, config: BTreeMap<String, String>) -> Self {
+        Self::new(self.name.clone(), self.id, self.partitions, config)
+    }
+
+    /// This topic grown to `partitions`.
+    #[must_use]
+    pub fn with_partitions(&self, partitions: PartitionCount) -> Self {
+        Self {
+            partitions,
+            ..self.clone()
+        }
+    }
+
+    /// What the broker acts on of its configs as it stores a batch.
+    #[must_use]
+    pub fn settings(&self) -> &TopicSettings {
+        &self.settings
+    }
+
     pub(crate) fn encode(&self) -> Result<Vec<u8>, MetaError> {
         let stored = Stored {
             id: *self.id.as_bytes(),
             partitions: self.partitions.get(),
-            config: self.config.clone(),
+            config: &self.config,
         };
         postcard::to_extend(&stored, vec![VERSION]).map_err(|e| {
             MetaError::Corrupt(format!("topic '{}' cannot be written: {e}", self.name))
@@ -49,13 +101,12 @@ impl Topic {
         if *version != VERSION {
             return Err(corrupt(&format!("version {version} is not known")));
         }
-        let stored: Stored = postcard::from_bytes(body).map_err(|e| corrupt(&e.to_string()))?;
-        Ok(Self {
-            name: TopicName::parse(name).map_err(|e| corrupt(&e.to_string()))?,
-            id: TopicId::from_bytes(stored.id),
-            partitions: PartitionCount::new(stored.partitions)
-                .ok_or_else(|| corrupt("no partitions"))?,
-            config: stored.config,
-        })
+        let stored: Read = postcard::from_bytes(body).map_err(|e| corrupt(&e.to_string()))?;
+        Ok(Self::new(
+            TopicName::parse(name).map_err(|e| corrupt(&e.to_string()))?,
+            TopicId::from_bytes(stored.id),
+            PartitionCount::new(stored.partitions).ok_or_else(|| corrupt("no partitions"))?,
+            stored.config,
+        ))
     }
 }

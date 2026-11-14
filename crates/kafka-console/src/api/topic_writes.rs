@@ -141,7 +141,7 @@ fn draft_of(fresh: Draft, f: &[(String, String)]) -> Draft {
     let template = Template::from_id(text(f, "template"));
     let (cleanup, retention) = crate::gather::template_values(template);
     d.template = template;
-    d.name = text(f, "name").to_owned();
+    text(f, "name").clone_into(&mut d.name);
     if let Some(p) = field(f, "partitions") {
         p.clone_into(&mut d.partitions);
     }
@@ -168,7 +168,7 @@ fn step_sub(step: Step) -> &'static str {
 
 async fn create_form(State(s): State<Shared>, RawQuery(q): RawQuery) -> Response {
     let f = query(q.as_ref());
-    let draft = draft_of(s.source.fresh_draft().await, &f);
+    let draft = draft_of(s.source.fresh_draft(), &f);
     let view = s
         .source
         .create_form(draft, Step::from_id(text(&f, "step")))
@@ -195,7 +195,7 @@ fn first_error(v: &CreateView) -> String {
 /// `POST /api/v1/create-topic` (`mode=check` for "Check only", which sends `validate_only` and makes nothing).
 async fn create(State(s): State<Shared>, body: Bytes) -> Response {
     let f = parse_body(&body);
-    let draft = draft_of(s.source.fresh_draft().await, &f);
+    let draft = draft_of(s.source.fresh_draft(), &f);
     let check = text(&f, "mode") == "check";
     match s.source.create_topic(draft, check).await {
         CreateResult::Created(c) => {

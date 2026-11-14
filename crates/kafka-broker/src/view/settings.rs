@@ -8,7 +8,7 @@
 use std::path::Path;
 use std::time::Duration;
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 
 use super::ConsoleView;
@@ -70,7 +70,7 @@ impl<F: Fs> ConsoleView<'_, F> {
     #[must_use]
     pub fn intervals(&self, caller: &Caller) -> Option<Intervals> {
         let b = self.broker;
-        b.cluster_allows(caller, operation::DESCRIBE_CONFIGS)
+        b.cluster_allows(caller, Operation::DescribeConfigs)
             .then_some(Intervals {
                 retention_check: b.config.log_retention_check_every,
                 cleaner: b.config.log_cleaner_every,
@@ -88,7 +88,7 @@ impl<F: Fs> ConsoleView<'_, F> {
     #[must_use]
     pub fn access(&self, caller: &Caller) -> Option<AccessFacts> {
         let b = self.broker;
-        if !b.cluster_allows(caller, operation::DESCRIBE) {
+        if !b.cluster_allows(caller, Operation::Describe) {
             return None;
         }
         let mut flag_users: Vec<String> = b
@@ -120,7 +120,7 @@ impl<F: Fs> ConsoleView<'_, F> {
     #[must_use]
     pub fn data_size(&self, caller: &Caller) -> Option<DataSize> {
         let b = self.broker;
-        b.cluster_allows(caller, operation::DESCRIBE)
+        b.cluster_allows(caller, Operation::Describe)
             .then(|| walk(&b.config.data_dir))
     }
 }

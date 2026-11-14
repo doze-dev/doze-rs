@@ -136,5 +136,9 @@ pub fn story(id: &str) -> Option<StoryView> {
         .filter(|g| g.as_str() != id)
         .filter_map(|g| events(g).map(|e| (g.clone(), e)))
         .collect();
-    Some(crate::gather::story::assemble(lag, events(id), &others))
+    Some(crate::gather::story::assemble(
+        lag,
+        events(id).as_ref(),
+        &others,
+    ))
 }

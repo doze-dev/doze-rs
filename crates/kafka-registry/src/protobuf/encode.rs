@@ -166,17 +166,18 @@ fn one(pool: &Pool, f: &Fld, v: &Json, out: &mut Vec<u8>, depth: usize) -> Res<(
     Ok(())
 }
 
+/// Bytes as Protobuf's JSON writes them: base64, standard or URL-safe, padded or not (as Go's `protojson` reads them). The
+/// text is copied once, into the standard alphabet with its padding, to decode.
 fn from_base64(s: &str) -> Res<Vec<u8>> {
-    let std: String = s
-        .chars()
-        .map(|c| match c {
-            '-' => '+',
-            '_' => '/',
-            c => c,
-        })
-        .collect();
-    let padded = format!("{std}{}", "=".repeat((4 - std.len() % 4) % 4));
-    crate::codec::base64_bytes(&padded).ok_or_else(|| format!("{s:?} is not base64"))
+    let unpadded = s.trim_end_matches('=');
+    let mut std = Vec::with_capacity(unpadded.len().next_multiple_of(4));
+    std.extend(unpadded.bytes().map(|c| match c {
+        b'-' => b'+',
+        b'_' => b'/',
+        c => c,
+    }));
+    std.resize(unpadded.len().next_multiple_of(4), b'=');
+    kafka_auth::crypto::base64::decode_lax(&std).map_err(|_| format!("{s:?} is not base64"))
 }
 
 fn number_text(v: &Json) -> Res<&str> {
@@ -293,4 +294,19 @@ pub(super) fn sample(pool: &Pool, m: &Msg, depth: usize) -> Json {
             })
             .collect(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::from_base64;
+
+    #[test]
+    fn bytes_are_read_from_either_alphabet_padded_or_not() {
+        for text in ["+/8=", "-_8=", "-_8", "+/8"] {
+            assert_eq!(from_base64(text), Ok(vec![0xfb, 0xff]), "{text}");
+        }
+        assert_eq!(from_base64(""), Ok(vec![]));
+        assert!(from_base64("Q").is_err(), "one character is no byte");
+        assert!(from_base64("a b=").is_err());
+    }
 }

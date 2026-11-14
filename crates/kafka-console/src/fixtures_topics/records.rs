@@ -293,7 +293,7 @@ pub fn record(name: &str, partition: i32, offset: i64) -> Option<RecordView> {
         .into_iter()
         .find(|r| r.partition == partition && r.offset == offset)?;
     let mut v = orders_record();
-    v.topic = name.to_owned();
+    name.clone_into(&mut v.topic);
     v.partition = partition;
     v.offset = offset;
     v.key = found.key;
