@@ -15,7 +15,7 @@ use crate::actions::{BellFix, BellNotNow, BellShow, MoveDown, MoveUp};
 use crate::kit::{Btn, btn};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, tokens, ty};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, kbd_chip, tracked};
+use crate::widgets::{Mono as _, UI_FAMILY, kbd_chip, tracked};
 
 /// What the panel asks its owner to do.
 pub(crate) enum BellEvent {
@@ -181,7 +181,7 @@ impl Bell {
                 .whitespace_nowrap()
                 .child(SharedString::from(it.detail.clone()));
             text = text.child(if it.mono {
-                d.font_family(MONO_FAMILY).text_size(px(ty::XS_UP))
+                d.mono_face().text_size(px(ty::XS_UP))
             } else {
                 d
             });

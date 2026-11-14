@@ -23,8 +23,28 @@ const CHILD: &str = "DOZE_APP_CHILD";
 const OPEN: &str =
     "✓ doze is open · the bat stays in the menu bar; stacks keep running when it quits";
 
-/// A folder argument made absolute (the app may run from elsewhere); links and flags as they are.
-pub(crate) fn absolute(args: &[String]) -> Vec<String> {
+/// A launch's arguments as Go's `dirFrom` reads a second launch's: a folder made absolute against `cwd`, the folder it
+/// ran in (the app that hears it runs elsewhere); with no folder or link named, the project `cwd` is inside, found
+/// upward as the CLI finds doze.hcl (none found, none added). Links, flags and `--show NAME` stay as they are.
+pub(crate) fn resolved(args: &[String], cwd: &Path) -> Vec<String> {
+    let mut out = absolute(args, cwd);
+    if !names_a_place(&out)
+        && let Some(p) = project_dir(cwd)
+    {
+        out.insert(0, p.to_string_lossy().into_owned());
+    }
+    out
+}
+
+/// The nearest folder at or above `dir` with a doze.hcl (Go `projectDir`).
+fn project_dir(dir: &Path) -> Option<PathBuf> {
+    dir.ancestors()
+        .find(|d| d.join("doze.hcl").is_file())
+        .map(Path::to_path_buf)
+}
+
+/// A folder argument made absolute against `cwd`; links and flags as they are.
+fn absolute(args: &[String], cwd: &Path) -> Vec<String> {
     let mut out = Vec::new();
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -34,22 +54,16 @@ pub(crate) fn absolute(args: &[String]) -> Vec<String> {
         } else if a.starts_with('-') || crate::link::is(a) {
             out.push(a.clone());
         } else {
-            let p = std::path::absolute(a).unwrap_or_else(|_| PathBuf::from(a));
-            out.push(p.to_string_lossy().into_owned());
+            out.push(cwd.join(a).to_string_lossy().into_owned());
         }
     }
     out
 }
 
 pub(crate) fn run(mut a: cli::App) -> ExitCode {
-    a.forward = absolute(&a.forward);
-    // No folder and no link: the folder this is run in, when it has a doze.hcl (Go: the doze.hcl here).
-    let named = names_a_place(&a.forward);
-    if !named
-        && std::path::Path::new("doze.hcl").is_file()
-        && let Ok(here) = std::env::current_dir()
-    {
-        a.forward.insert(0, here.to_string_lossy().into_owned());
+    // No folder and no link: the project the folder this is run in is inside (Go: doze.hcl found upward).
+    if let Ok(here) = std::env::current_dir() {
+        a.forward = resolved(&a.forward, &here);
     }
     let home = match doze_os::home::doze_home() {
         Ok(h) => h,
@@ -194,6 +208,8 @@ fn tail(path: &Path, from: u64) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::absolute;
 
     #[test]
@@ -211,11 +227,41 @@ mod tests {
             .iter()
             .map(|s| (*s).to_owned())
             .collect();
-        let out = absolute(&args);
-        assert!(
-            out.first()
-                .is_some_and(|p| p.starts_with('/') && p.ends_with("/shop"))
-        );
+        let out = absolute(&args, Path::new("/code"));
+        assert_eq!(out.first().map(String::as_str), Some("/code/shop"));
         assert_eq!(out.get(1..), args.get(1..));
+    }
+}
+
+#[cfg(test)]
+mod upward {
+    use super::resolved;
+
+    fn v(s: &[&str]) -> Vec<String> {
+        s.iter().map(|x| (*x).to_owned()).collect()
+    }
+
+    #[test]
+    fn a_launch_inside_a_project_opens_the_project_found_upward() {
+        let root = std::env::temp_dir().join(format!("doze-app-upward-{}", std::process::id()));
+        let deep = root.join("shop/src/api");
+        std::fs::create_dir_all(&deep).unwrap();
+        std::fs::write(root.join("shop/doze.hcl"), "stack = \"shop\"\n").unwrap();
+        let shop = root.join("shop").to_string_lossy().into_owned();
+        // Bare --show: the project around the folder it ran in, then the instance.
+        assert_eq!(
+            resolved(&v(&["--show", "db"]), &deep),
+            v(&[&shop, "--show", "db"])
+        );
+        // A relative folder is the folder it ran in's, not the app's.
+        assert_eq!(
+            resolved(&v(&["api"]), &root.join("shop/src")),
+            v(&[&format!("{shop}/src/api")])
+        );
+        // A link names its place; nothing is added.
+        assert_eq!(resolved(&v(&["doze://shop"]), &deep), v(&["doze://shop"]));
+        // No project above: nothing is added.
+        assert_eq!(resolved(&[], &root), Vec::<String>::new());
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

@@ -11,7 +11,7 @@ use super::{SettingsEvent, SettingsView};
 use crate::instance::ui::{copy_link, text};
 use crate::kit::{Btn, btn};
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{dot, tracked};
+use crate::widgets::{Mono as _, dot, tracked};
 
 pub(super) fn page(
     t: &Tokens,
@@ -252,7 +252,7 @@ pub(super) fn row(
             div()
                 .flex_1()
                 .min_w_0()
-                .when(wide, |d| d.font_family(crate::widgets::MONO_FAMILY))
+                .when(wide, |d| d.mono_face())
                 .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .whitespace_nowrap()

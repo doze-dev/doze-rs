@@ -33,12 +33,7 @@ pub(crate) fn center(
 ) -> AnyElement {
     let full = || div().absolute().top(px(0.)).left(px(0.)).size_full();
     // A dialog dims the page more than the palette does (Go `.scrim`: .62 against `.scrim.top`'s .35).
-    let dim = if t.dark {
-        alpha(crate::theme::mix(t.well, gpui::black(), 50.), 0.62)
-    } else {
-        t.scrim()
-    };
-    let scrim = full().bg(dim);
+    let scrim = full().bg(t.dialog_scrim());
     // The holder covers the window over the scrim, so it hears a press outside the panel (the panel stops its own).
     let holder = full()
         .flex()

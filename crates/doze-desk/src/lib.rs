@@ -40,6 +40,7 @@ mod select;
 mod series;
 pub mod settings;
 mod stack;
+pub mod titles;
 pub mod tray;
 mod view;
 

@@ -10,7 +10,7 @@ use crate::overlays::shadow;
 use crate::overview::OverviewView;
 use crate::overview::tiles::row_dot;
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, tracked};
+use crate::widgets::{Mono as _, tracked};
 
 /// A cell's box: its width, its line on the left when it starts a group, the column's light.
 pub(super) fn cell_box(t: &Tokens, v: &OverviewView, ci: usize, c: &GridCol) -> gpui::Div {
@@ -143,7 +143,7 @@ pub(super) fn row_head(t: &Tokens, v: &OverviewView, ri: usize, row: &GridRow) -
                 .rounded(px(3.))
                 .border_1()
                 .border_color(t.line2)
-                .font_family(MONO_FAMILY)
+                .mono_face()
                 .text_size(px(ty::MICRO))
                 .line_height(px(ty::LH_13))
                 .text_color(t.dim)
@@ -263,7 +263,7 @@ fn tooltip(t: &Tokens, tip: &GridTip) -> impl IntoElement {
                 .gap(px(4.))
                 .child(
                     div()
-                        .font_family(MONO_FAMILY)
+                        .mono_face()
                         .text_color(mix(t.accent, t.bg, 45.))
                         .child(s(&tip.reference)),
                 )

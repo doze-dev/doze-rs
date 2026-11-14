@@ -15,7 +15,7 @@ use super::snippets;
 use super::ui::{self, banner, card, heading, kv_row, pill, text};
 use crate::console::blocks;
 use crate::theme::{Tokens, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 mod vitals;
 
@@ -359,7 +359,7 @@ fn recent(t: &Tokens, p: &InstancePage) -> gpui::Div {
     let mut rows = div()
         .flex()
         .flex_col()
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::SM))
         .line_height(px(ty::LH_21));
     if p.recent.is_empty() {

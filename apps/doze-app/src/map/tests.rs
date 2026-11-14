@@ -289,3 +289,45 @@ fn a_switch_to_the_map_draws_its_cards_as_soon_as_its_size_is_known(cx: &mut Tes
     );
     assert!(shown > 0, "cards are in view and drawn");
 }
+
+/// A card reached by Tab (Go: cards are buttons): it is not selected yet; ⏎ selects it; Tab goes in reading order.
+#[gpui::test]
+fn a_card_with_the_keys_is_selected_by_enter(cx: &mut TestAppContext) {
+    let (_src, m, vcx) = map(cx, "medium-150");
+    vcx.update(|_, cx| {
+        m.update(cx, |m, cx| {
+            let id = m.layout.cards.first().map(|c| c.name.clone()).unwrap();
+            let id = m.layout.card_named(&id).unwrap();
+            m.jump_to(id, cx);
+            m.lit = None;
+        })
+    });
+    vcx.run_until_parked();
+    let (name, handle) = vcx.update(|_, cx| {
+        let m = m.read(cx);
+        let c = m.layout.cards.first().unwrap();
+        (c.name.clone(), m.card_keys.0.get(&c.name).cloned().unwrap())
+    });
+    vcx.update(|window, cx| window.focus(&handle, cx));
+    vcx.run_until_parked();
+    vcx.update(|_, cx| m.update(cx, |_, cx| cx.notify()));
+    vcx.run_until_parked();
+    assert_eq!(name_of(&m, vcx), None, "focus alone does not select");
+    assert_eq!(
+        vcx.update(|_, cx| m.read(cx).keyed_card()),
+        Some(name.clone())
+    );
+    vcx.simulate_keystrokes("enter");
+    vcx.run_until_parked();
+    assert_eq!(name_of(&m, vcx), Some(name));
+    // The handles go in the layout's order.
+    let ordered = vcx.update(|_, cx| {
+        let m = m.read(cx);
+        m.layout
+            .cards
+            .iter()
+            .map(|c| m.card_keys.0.get(&c.name).map(|h| h.tab_index))
+            .collect::<Vec<_>>()
+    });
+    assert!(ordered.windows(2).all(|w| w[0] < w[1]), "{ordered:?}");
+}

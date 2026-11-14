@@ -104,18 +104,6 @@ impl MapView {
 
     /// ⏎ (Go overview.tsx, the Map's Enter): opens the selected card's page, unless its stack is down; with nothing
     /// selected, selects the first card, so the first ⏎ selects and the second opens.
-    fn confirm(&mut self, cx: &mut Context<Self>) {
-        if let Some(&id) = self.hits.get(self.hit) {
-            self.jump_to(id, cx);
-        } else if let Some(c) = self.lit.and_then(|id| self.layout.card(id)) {
-            if self.running {
-                cx.emit(super::MapEvent::Open(c.name.clone()));
-            }
-        } else if self.lit.is_none() {
-            self.step(1.0, 0.0, cx);
-        }
-    }
-
     /// Viewport pixels for a window position.
     fn local(&self, p: gpui::Point<gpui::Pixels>) -> (f32, f32) {
         let (x, y, _, _) = self.viewport.get();
@@ -387,14 +375,12 @@ impl Render for MapView {
             self.refit();
         }
         let now = std::time::Instant::now();
-        if self.cam.tick(now) {
-            window.request_animation_frame();
-        }
+        let flying = self.cam.tick(now);
         let motion = crate::theme::Motion::of(cx);
         let times = super::fade::times(motion);
         let on = self.lit_on().map(std::rc::Rc::new);
         self.fades.note(self.lit, on, self.hover, times, now);
-        if self.fades.running(now) {
+        if flying || self.fades.running(now) {
             window.request_animation_frame();
         }
         let mut body = div()
@@ -425,6 +411,7 @@ impl Render for MapView {
             .on_action(cx.listener(|this, _: &MoveLeft, _, cx| this.arrow(-1.0, 0.0, cx)))
             .on_action(cx.listener(|this, _: &MoveRight, _, cx| this.arrow(1.0, 0.0, cx)))
             .on_action(cx.listener(|this, _: &Confirm, _, cx| this.confirm(cx)));
+        self.note_keys(window, cx);
         let large = self.large(&t, cx);
         let window_w = f32::from(window.viewport_size().width);
         body = body

@@ -130,9 +130,10 @@ pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl 
         .child(crate::motion::tick(bell_moving || help_moving))
         .probe("bell", format!("bell red={red} yellow={yellow}"))
         .when(root.bell_open(), |d| d.bg(t.sel))
-        // Something broken: the bell turns red, as Go's "hot" bell; open, it takes the accent (the count still says).
+        // Something broken: Go's "hot" bell, its border the bad colour 55% into the panel and no fill; open, it takes
+        // the accent (the count still says).
         .when(red > 0 && !root.bell_open(), |d| {
-            d.border_color(t.bad).bg(crate::theme::alpha(t.bad, 0.14))
+            d.border_color(crate::theme::mix(t.bad, t.panel, 55.))
         })
         .when(root.bell_open(), |d| d.border_color(t.accent))
         .child(icon("icons/bell.svg", 16., bell_ink))
@@ -140,11 +141,14 @@ pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl 
             d.child(
                 div()
                     .absolute()
-                    .top(px(4.))
-                    .right(px(4.))
+                    .top(px(3.))
+                    .right(px(3.))
                     .size(px(8.))
                     .rounded_full()
-                    .bg(t.warn),
+                    .bg(t.warn)
+                    // Go `.bell .yd`: a 1.5 px ring of the panel round the dot (inside its 8 px).
+                    .border(px(1.5))
+                    .border_color(t.panel),
             )
         })
         .occlude()

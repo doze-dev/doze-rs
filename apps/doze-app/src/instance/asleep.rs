@@ -7,7 +7,7 @@ use super::InstanceView;
 use super::overview::connect;
 use super::ui::{button, text};
 use crate::theme::{Tokens, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 /// An asleep module or service: it wakes on the next connection; Wake, or wake and open its console.
 pub(crate) fn asleep(
@@ -148,7 +148,7 @@ fn web_bar(
         .child(
             div()
                 .font_weight(ty::REGULAR)
-                .font_family(MONO_FAMILY)
+                .mono_face()
                 .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .child(text(&format!("· {url}"))),

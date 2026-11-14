@@ -8,12 +8,12 @@ use super::ActivityView;
 use crate::instance::ui::{card, heading, text};
 use crate::kit::{Btn, btn, tone};
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, seg};
+use crate::widgets::{Mono as _, seg};
 
 /// `.head`: Activity, "shop · db · the last 24 hours", Every service, the span, Back to the stack.
 pub(super) fn head(
     t: &Tokens,
-    v: &ActivityView,
+    (v, find_on): (&ActivityView, bool),
     cx: &mut Context<ActivityView>,
 ) -> impl IntoElement {
     let stack = v.model.as_ref().map_or_else(
@@ -40,12 +40,14 @@ pub(super) fn head(
     let mut row = title(t, &path);
     if let Some(input) = &v.input {
         row = row.child(
-            div()
-                .w(px(200.))
-                .flex_none()
-                .child(gpui_component::Sizable::small(
-                    gpui_component::input::Input::new(input),
-                )),
+            crate::widgets::framed_input(
+                t,
+                "activity/find",
+                find_on,
+                gpui_component::input::Input::new(input),
+            )
+            .w(px(200.))
+            .flex_none(),
         );
     }
     row.when(!v.only.is_empty(), |d| {
@@ -145,6 +147,7 @@ fn stat(t: &Tokens, v: &str, s: &str, bad: bool) -> gpui::Div {
             div()
                 .text_size(px(ty::SUMMARY))
                 .line_height(px(ty::LH_30))
+                .font_features(ty::tabular())
                 .font_weight(ty::HEADING)
                 .whitespace_nowrap()
                 .text_color(if bad { t.bad } else { t.bright })
@@ -202,7 +205,7 @@ pub(super) fn lines(t: &Tokens, ls: &[Line]) -> impl IntoElement {
         .flex()
         .flex_col()
         .gap(px(3.))
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::SM))
         .children(ls.iter().map(|l| {
             div()

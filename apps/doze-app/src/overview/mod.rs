@@ -23,7 +23,6 @@ mod tiles;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use doze_control::Topic;
 use doze_desk::overview::{Home, Pane, Refs, Row, home, pane, refs_in, stopped_home};
@@ -93,6 +92,8 @@ pub(crate) struct OverviewView {
     pub(crate) map: Entity<MapView>,
     pub(crate) view: View,
     pub(crate) selected: Option<String>,
+    /// Each shown service's name as a control the keyboard reaches by Tab (Go `Name`), and the one with the keys.
+    pub(super) names: (HashMap<String, gpui::FocusHandle>, Option<String>),
     pub(crate) pane: Option<Pane>,
     pub(crate) filter: Entity<InputState>,
     pub(crate) query: String,
@@ -170,6 +171,7 @@ impl OverviewView {
             map,
             view: View::default(),
             selected: None,
+            names: (HashMap::new(), None),
             pane: None,
             filter,
             query: String::new(),
@@ -232,7 +234,7 @@ impl OverviewView {
         let now = self.hub.now();
         let (mut h, map_view) = if st.running {
             let mut h = home(&st, now);
-            h.changed = changed(&st, now);
+            h.changed = banners::changed(&st, now);
             let refs = self
                 .refs
                 .entry(st.dir.clone())
@@ -369,20 +371,13 @@ pub(crate) fn all_rows(h: &Home) -> Vec<&Row> {
     h.groups.iter().flat_map(|g| g.rows.iter()).collect()
 }
 
-/// doze.hcl saved after the running stack read it (Go `ConfigChangedOf`).
-fn changed(st: &StackView, now: SystemTime) -> Option<doze_desk::overview::ConfigChanged> {
-    let mtime = std::fs::metadata(Path::new(&st.dir).join("doze.hcl"))
-        .and_then(|m| m.modified())
-        .ok()?;
-    doze_desk::overview::config_changed(mtime, st.loaded, now)
-}
-
 impl Render for OverviewView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = tokens(cx);
         let width = f32::from(window.viewport_size().width);
         self.width = width;
         self.filter_on = self.filter.read(cx).focus_handle(cx).is_focused(window);
+        self.keep_names(window, cx);
         let body = match self.view {
             View::Tiles => tiles::view(&t, self, cx).into_any_element(),
             View::List => list::view(&t, self, cx).into_any_element(),
@@ -401,6 +396,7 @@ impl Render for OverviewView {
         div()
             .key_context("Overview")
             .track_focus(&self.focus)
+            .on_key_down(choose::tab)
             .flex()
             .flex_col()
             .size_full()

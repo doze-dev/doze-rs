@@ -13,11 +13,12 @@ mod task;
 pub(crate) mod ui;
 mod verbs;
 
+pub(crate) use ui::zone;
+
 use std::time::{Duration, Instant};
 
 use doze_control::Topic;
 use doze_desk::page::instance::{InstancePage, instance_page};
-use doze_desk::page::time::Zone;
 use doze_desk::{Batch, ConsoleWatch, Hub, Parts, StackKey, Watch, ports};
 use doze_display as words;
 use gpui::{
@@ -42,12 +43,8 @@ pub(crate) enum InstanceEvent {
     Home,
     /// Say something at the foot.
     Say(SharedString),
-}
-
-/// The person's zone now: the clock times on the page.
-pub(crate) fn zone() -> Zone {
-    use chrono::Offset as _;
-    Zone(chrono::Local::now().offset().fix().local_minus_utc())
+    /// The page turned to another tab (the window title says "api logs" on Logs).
+    Tab,
 }
 
 /// An instance's page.
@@ -250,6 +247,7 @@ impl InstanceView {
             self.console = None;
         }
         self.sync_run(cx);
+        cx.emit(InstanceEvent::Tab);
     }
 
     /// A task's output follows the run picked in the runs table (the newest until another is).

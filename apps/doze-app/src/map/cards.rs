@@ -10,7 +10,7 @@ use crate::instance::ui::state_mark;
 use crate::model::Row;
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, alpha, mix, ty};
-use crate::widgets::{MONO_FAMILY, icon};
+use crate::widgets::{Mono as _, icon};
 
 /// Lengths scaled by the zoom.
 #[derive(Clone, Copy)]
@@ -42,7 +42,7 @@ fn badge(t: &Tokens, z: Z, text: String) -> gpui::Div {
         .rounded(z.p(4.))
         .border_1()
         .border_color(t.line)
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(z.p(ty::MICRO))
         .font_weight(ty::SEMIBOLD)
         .text_color(t.dim)
@@ -115,6 +115,14 @@ fn frame(t: &Tokens, z: Z, c: &Card, at: (f32, f32), radius: f32) -> gpui::Div {
         .bg(t.panel)
         .text_color(t.text)
         .line_height(z.p(ty::LH))
+}
+
+/// The card as a Tab stop (Go: a card is a button; `.node:focus-visible` draws no ring, the selection says it).
+fn keyed(f: gpui::Div, m: &MapView, c: &Card) -> gpui::Div {
+    match m.card_keys.0.get(&c.name) {
+        Some(h) => f.track_focus(h),
+        None => f,
+    }
 }
 
 /// The accent ring, at `a` of its strength (it fades in and out with the hover and the selection).
@@ -241,7 +249,7 @@ fn framed_border(t: &Tokens, m: &MapView, c: &Card, border: gpui::Hsla) -> (gpui
 fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark) -> AnyElement {
     let r = m.rows.get(&c.name);
     let task = c.kind == Kind::Task;
-    let mut f = frame(t, z, c, at, if task { 8. } else { 11. })
+    let mut f = keyed(frame(t, z, c, at, if task { 8. } else { 11. }), m, c)
         .gap(z.p(7.))
         .px(z.p(13.))
         .py(z.p(11.));
@@ -269,7 +277,7 @@ fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark
 
 fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark) -> AnyElement {
     let r = m.rows.get(&c.name);
-    let mut f = frame(t, z, c, at, 11.)
+    let mut f = keyed(frame(t, z, c, at, 11.), m, c)
         .gap(z.p(3.))
         .px(z.p(13.))
         .py(z.p(10.));

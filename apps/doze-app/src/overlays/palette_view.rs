@@ -11,7 +11,7 @@ use gpui_component::input::Input;
 use super::palette::Palette;
 use crate::actions::{BackOut, Confirm, FirstAct, MoveDown, MoveUp, ScopeIn, ScopeOut};
 use crate::theme::{Tokens, tokens, ty};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, icon, kbd_chip, kbd_plain, tracked};
+use crate::widgets::{Mono as _, UI_FAMILY, icon, kbd_chip, kbd_plain, tracked};
 
 /// A palette tone's colour (Go's dot classes `g y r b`, and `dim`, `acc`).
 fn ink(t: &Tokens, tone: &str) -> Hsla {
@@ -95,12 +95,10 @@ fn right(t: &Tokens, r: &Row, on: bool, copied: bool) -> AnyElement {
             .into_any_element();
     }
     if on && !r.cli.is_empty() && !r.doing.ask {
-        return small(r.cli.clone(), t.dim)
-            .font_family(MONO_FAMILY)
-            .into_any_element();
+        return small(r.cli.clone(), t.dim).mono_face().into_any_element();
     }
     small(r.key.clone(), if on { t.text } else { t.dim })
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::XS))
         .into_any_element()
 }

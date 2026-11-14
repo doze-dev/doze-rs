@@ -8,7 +8,7 @@ use super::LibraryView;
 use crate::kit::{heading, need, pill, s, tone};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
-use crate::widgets::{MONO_FAMILY, dot, switch};
+use crate::widgets::{Mono as _, dot, switch};
 
 /// The columns' widths: the dot, then name / running / addresses share the rest, then last and the controls.
 const DOT_W: f32 = 10.;
@@ -184,7 +184,7 @@ fn name(t: &Tokens, st: &LibStack, tight: bool) -> impl IntoElement {
                 .child(s(&st.name)),
         )
         .child(
-            dir.font_family(MONO_FAMILY)
+            dir.mono_face()
                 .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .whitespace_nowrap()

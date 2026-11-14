@@ -8,7 +8,7 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px, relative};
 use super::InstanceView;
 use super::ui::{self, card, heading, step_num, text};
 use crate::theme::{Tokens, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 pub(crate) fn task(t: &Tokens, v: &mut InstanceView, cx: &mut Context<InstanceView>) -> AnyElement {
     if v.page.runs.is_empty() {
@@ -37,9 +37,9 @@ fn not_run(t: &Tokens, v: &InstanceView) -> AnyElement {
                 .text_color(t.dim)
                 .items_baseline()
                 .child("From a terminal: ")
-                .child(div().font_family(MONO_FAMILY).text_color(t.bright).child(text(&format!("doze task {}", v.name))))
+                .child(div().mono_face().text_color(t.bright).child(text(&format!("doze task {}", v.name))))
                 .child(". From a script: the same, with ")
-                .child(div().font_family(MONO_FAMILY).child("--json"))
+                .child(div().mono_face().child("--json"))
                 .child("."),
         );
     let right = div()
@@ -165,7 +165,7 @@ fn command(t: &Tokens, v: &InstanceView) -> Option<AnyElement> {
             t,
             "run",
             div()
-                .font_family(MONO_FAMILY)
+                .mono_face()
                 .text_size(px(ty::SM))
                 .text_color(t.bright)
                 .child(text(&p.run)),
@@ -335,11 +335,7 @@ fn run_row(
         .border_t_1()
         .border_color(t.line)
         .when(on, |d| d.bg(t.pick))
-        .child(
-            a.font_family(MONO_FAMILY)
-                .text_size(px(ty::SM))
-                .child(text(&r.when)),
-        )
+        .child(a.mono_face().text_size(px(ty::SM)).child(text(&r.when)))
         .child(
             b.flex()
                 .items_center()

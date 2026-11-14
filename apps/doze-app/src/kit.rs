@@ -5,7 +5,7 @@ use gpui::{AnyElement, ClickEvent, Hsla, IntoElement, SharedString, Window, div,
 
 use crate::actions;
 use crate::theme::{Density, Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, icon, kbd_chip, kbd_plain, tracked};
+use crate::widgets::{Mono as _, icon, kbd_chip, kbd_plain, tracked};
 
 /// A click handler.
 pub(crate) type Click = Box<dyn Fn(&ClickEvent, &mut Window, &mut gpui::App) + 'static>;
@@ -34,6 +34,18 @@ pub(crate) fn btn(
     t: &Tokens,
     id: impl Into<gpui::ElementId>,
     label: &str,
+    key: &str,
+    kind: Btn,
+    click: Option<Click>,
+) -> gpui::Stateful<gpui::Div> {
+    btn_led(t, id, (None, label), key, kind, click)
+}
+
+/// A [`btn`] with something before its words (Go: `<span className="dot y" /> 2 left behind`).
+pub(crate) fn btn_led(
+    t: &Tokens,
+    id: impl Into<gpui::ElementId>,
+    (lead, label): (Option<AnyElement>, &str),
     key: &str,
     kind: Btn,
     click: Option<Click>,
@@ -84,6 +96,7 @@ pub(crate) fn btn(
         .whitespace_nowrap()
         .cursor_pointer()
         .child(crate::motion::tick(b_moving || f_moving))
+        .children(lead)
         .child(SharedString::from(label.to_owned()));
     b = crate::motion::track(b, &hid);
     b = crate::outward::Probe::probe(b, hid.clone(), label.to_owned());
@@ -237,7 +250,7 @@ pub(crate) fn heading(
 /// Text in the mono face.
 pub(crate) fn mono(text: impl Into<SharedString>, size: f32, color: Hsla) -> gpui::Div {
     div()
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(size))
         .text_color(color)
         .child(text.into())

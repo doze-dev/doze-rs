@@ -38,6 +38,9 @@ pub(crate) struct Attn {
     timer: bool,
     /// The machine's parts as a shot stages them, in place of doctor's.
     pub(crate) parts: Option<Vec<MachinePart>>,
+    /// Where the `doze` is (the app's own part of the machine), looked for again with each new doctor report (Go: with
+    /// each `doctor`), by the report's number.
+    at: Option<(u64, doze_desk::settings::machine::DozeAt)>,
     /// Acting's facts as last built from: the stacks mid-action, and each failed action's words, by stack.
     acting: (BTreeSet<String>, BTreeMap<String, String>),
 }
@@ -57,6 +60,7 @@ impl Attn {
             dirty: false,
             timer: false,
             parts: None,
+            at: None,
             acting: (BTreeSet::new(), BTreeMap::new()),
         }
     }
@@ -191,7 +195,7 @@ impl Root {
         let stacks = self.hub.stacks();
         let now = self.hub.now();
         let home = self.hub.home().to_path_buf();
-        let (doctor, broken, left) = self.attn.facts.update(cx, |f, cx| {
+        let (doctor, broken, left, (live, seen)) = self.attn.facts.update(cx, |f, cx| {
             // A running stack's doze.hcl is read again when saved (the CLI's word on it, as the page has it).
             let broken: HashMap<String, String> = stacks
                 .iter()
@@ -209,26 +213,28 @@ impl Root {
                 f.leftovers(&home, &stacks, cx)
                     .map(|l| doze_desk::settings::leftovers::counts(&l))
                     .unwrap_or_default(),
+                (f.live(), f.doctor_seen()),
             )
         });
         let (broken, checking) = broken;
         self.tell_broken(&broken, now, cx);
         let parts: Vec<MachinePart> = match self.attn.parts.clone() {
             Some(p) => p,
-            None => doctor
-                .map(|d| {
-                    d.checks
-                        .into_iter()
-                        .map(|c| MachinePart {
-                            fix: doze_desk::library::fix_of(&c).to_owned(),
-                            section: c.section.into(),
-                            name: c.name,
-                            ok: c.ok,
-                            text: c.text,
-                        })
-                        .collect()
-                })
-                .unwrap_or_default(),
+            None => {
+                if self.attn.at.as_ref().is_none_or(|(n, _)| *n != seen) {
+                    self.attn.at = Some((seen, crate::settings::doze_at(!live)));
+                }
+                let at = self
+                    .attn
+                    .at
+                    .as_ref()
+                    .map(|(_, a)| a)
+                    .cloned()
+                    .unwrap_or_default();
+                doctor
+                    .map(|d| doze_desk::settings::machine::attention_parts(&d, &at, crate::VERSION))
+                    .unwrap_or_default()
+            }
         };
         let machine = Machine {
             parts,

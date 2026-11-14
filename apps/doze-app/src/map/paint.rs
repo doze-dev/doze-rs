@@ -24,7 +24,7 @@ use gpui::{
     prelude::*, px, quad, size,
 };
 
-use super::cache::{Cache, build, level, place};
+use super::cache::{CALL_WIDTH, Cache, build, level, place};
 use super::fade::blend;
 use super::{DETAIL_ZOOM, LABEL_ZOOM, MapView};
 use crate::theme::{Tokens, alpha, mix};
@@ -277,9 +277,10 @@ impl Scene {
             };
             // The Go map's `.edge { transition: stroke .2s }`: a line changes colour, it does not pop.
             let color = blend(of(from), of(self.lit), self.pl);
-            self.cache.line(&self.l, e, lv, &mut |p, at| {
-                window.paint_path(place(p, self.z / at, o), color)
-            });
+            self.cache
+                .line(&self.l, e, lv, self.lit.is_some(), &mut |p, at| {
+                    window.paint_path(place(p, self.z / at, o), color)
+                });
         }
     }
 
@@ -295,9 +296,10 @@ impl Scene {
         let color = blend(of(self.fades.lit_from), of(self.lit), self.pl);
         for &e in &self.vis.edges {
             if self.l.edges.get(e).is_some_and(|x| x.across) {
-                self.cache.line(&self.l, e, lv, &mut |p, at| {
-                    window.paint_path(place(p, self.z / at, o), color)
-                });
+                self.cache
+                    .line(&self.l, e, lv, self.lit.is_some(), &mut |p, at| {
+                        window.paint_path(place(p, self.z / at, o), color)
+                    });
             }
         }
     }
@@ -313,7 +315,7 @@ impl Scene {
                 return;
             }
             let z = self.z;
-            let width = 1.5_f32.max(2.0 / z);
+            let width = CALL_WIDTH.max(2.0 / z);
             let head = 1.0_f64.max(0.7 / f64::from(z));
             for edge in self.l.edges.iter().filter(|e| e.from == c || e.to == c) {
                 for p in build(&edge.path, z, width, head) {

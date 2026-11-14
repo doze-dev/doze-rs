@@ -71,7 +71,7 @@ pub(crate) fn follow_args(cx: &mut App, args: &[String]) {
         Some(Err(e)) => root.say(e, cx),
         None => {
             if let Some(s) = show {
-                root.select(&s, cx);
+                root.open_or_select(&s, window, cx);
             }
         }
     });

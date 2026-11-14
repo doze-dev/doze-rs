@@ -54,11 +54,13 @@ pub(crate) struct Tab {
 }
 
 /// The window's title: where the page is (Go app.tsx `titled`), which the Window menu lists and a screen reader
-/// reads on every move. `stack` is the shown stack's name.
-pub(crate) fn title(screen: &Screen, stack: &str) -> String {
+/// reads on every move. `stack` is the shown stack's name; `logs` says the instance page is on its Logs tab, which is
+/// Go's one-instance logs page ("api logs · shop · doze").
+pub(crate) fn title(screen: &Screen, stack: &str, logs: bool) -> String {
     match screen {
         Screen::Library => "Home · doze".into(),
         Screen::Settings => "Settings · doze".into(),
+        Screen::Instance(_, name) if logs => format!("{name} logs · {stack} · doze"),
         Screen::Instance(_, name) => format!("{name} · {stack} · doze"),
         Screen::Logs(_) => format!("All logs · {stack} · doze"),
         Screen::Activity(_) => format!("Activity · {stack} · doze"),
@@ -141,7 +143,7 @@ impl Root {
             }
         }
         self.moved(&screen);
-        self.retitle(&screen, window);
+        self.retitle(&screen, window, cx);
         self.screen = screen;
         self.refresh_tabs(cx);
         self.wind(cx);
@@ -183,14 +185,15 @@ impl Root {
         }
     }
 
-    /// The window's title for `screen`.
-    fn retitle(&self, screen: &Screen, window: &mut Window) {
+    /// The window's title for `screen` (again when the instance page turns to or from its Logs tab).
+    pub(super) fn retitle(&self, screen: &Screen, window: &mut Window, cx: &Context<Self>) {
         let stack = screen
             .key()
             .and_then(|k| self.hub.stack(k))
             .map(|s| s.name)
             .unwrap_or_default();
-        window.set_window_title(&title(screen, &stack));
+        let logs = matches!(&self.inside, Some(super::inside::Inside::Instance(v)) if v.read(cx).tab == words::TAB_LOGS);
+        window.set_window_title(&title(screen, &stack, logs));
     }
 
     /// The closed tabs the prefs remember (`closedTabs`).
@@ -260,24 +263,31 @@ mod tests {
     #[test]
     fn the_title_says_where_the_page_is_in_go_words() {
         let k = StackKey::new("/code/shop");
-        assert_eq!(title(&Screen::Library, ""), "Home · doze");
-        assert_eq!(title(&Screen::Settings, ""), "Settings · doze");
-        assert_eq!(title(&Screen::Stack(k.clone()), "shop"), "shop · doze");
-        assert_eq!(title(&Screen::Stack(k.clone()), ""), "doze");
+        assert_eq!(title(&Screen::Library, "", false), "Home · doze");
+        assert_eq!(title(&Screen::Settings, "", false), "Settings · doze");
         assert_eq!(
-            title(&Screen::Instance(k.clone(), "api".into()), "shop"),
+            title(&Screen::Stack(k.clone()), "shop", false),
+            "shop · doze"
+        );
+        assert_eq!(title(&Screen::Stack(k.clone()), "", false), "doze");
+        assert_eq!(
+            title(&Screen::Instance(k.clone(), "api".into()), "shop", false),
             "api · shop · doze"
         );
         assert_eq!(
-            title(&Screen::Logs(k.clone()), "shop"),
+            title(&Screen::Instance(k.clone(), "api".into()), "shop", true),
+            "api logs · shop · doze"
+        );
+        assert_eq!(
+            title(&Screen::Logs(k.clone()), "shop", false),
             "All logs · shop · doze"
         );
         assert_eq!(
-            title(&Screen::Activity(k), "shop"),
+            title(&Screen::Activity(k), "shop", false),
             "Activity · shop · doze"
         );
         assert_eq!(
-            title(&Screen::Empty("/code/new".into()), ""),
+            title(&Screen::Empty("/code/new".into()), "", false),
             "A folder · doze"
         );
     }

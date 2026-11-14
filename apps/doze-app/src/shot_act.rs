@@ -141,6 +141,17 @@ fn start(root: &mut Root, act: &str, window: &mut Window, cx: &mut Context<Root>
                 acts.update(cx, |a, cx| a.choose_start(k, cx));
             }
         }
+        // Tab from the page: the keys go to the first name, which selects its service (Go `Name` onFocus).
+        "tab" | "tab-enter" => {
+            window.focus_next(cx);
+            window.focus_next(cx);
+        }
+        // The Library's machine line with two things left behind and Repair to offer.
+        "library-left" => root.library.update(cx, |l, cx| {
+            l.left = 2;
+            l.repairable = true;
+            cx.notify();
+        }),
         "empty" | "add" => root.open_dir(&folder(false), None, window, cx),
         "empty-found" => root.open_dir(&folder(true), None, window, cx),
         _ => eprintln!("doze-app shot: no act {act}"),
@@ -161,6 +172,8 @@ fn then(root: &mut Root, act: &str, window: &mut Window, cx: &mut Context<Root>)
     match act {
         "recent" => root.acts.update(cx, |a, cx| a.toggle_recent(cx)),
         "add" => window.dispatch_action(Box::new(crate::actions::Way2), cx),
+        // ⏎ on the name or the card Tab reached: a card is selected by it.
+        "tab-enter" => window.dispatch_action(Box::new(crate::actions::Confirm), cx),
         _ => {}
     }
 }
