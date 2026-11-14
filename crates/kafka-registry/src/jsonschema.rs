@@ -11,6 +11,7 @@
 mod check;
 mod compat;
 mod doc;
+mod instance;
 mod node;
 mod number;
 
@@ -110,6 +111,23 @@ impl ParsedSchema for ParsedJsonSchema {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    /// A JSON Schema payload is JSON text: it is read, checked against the schema, and shown as it is. A value that does
+    /// not fit is still shown, with why (the caller decides), so this answers only text that is not JSON.
+    fn decode(&self, body: &[u8]) -> Result<crate::codec::Decoded, String> {
+        let text = std::str::from_utf8(body).map_err(|e| format!("the body is not UTF-8 ({e})"))?;
+        let json = Json::parse(text).map_err(|e| format!("the body is not JSON ({e})"))?;
+        Ok(crate::codec::Decoded {
+            mismatch: instance::check(&self.arena, &json).err(),
+            json,
+            message: None,
+        })
+    }
+
+    fn encode(&self, value: &Json) -> Result<Vec<u8>, String> {
+        instance::check(&self.arena, value)?;
+        Ok(value.to_text().into_bytes())
     }
 }
 
