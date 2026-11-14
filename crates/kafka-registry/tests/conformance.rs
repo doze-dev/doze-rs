@@ -136,17 +136,13 @@ const GO_DIFFERENCES: &[(&str, &str)] = &[
 
 /// Steps that need a schema language this build does not read yet: they pass when its slice lands and is listed in
 /// `Formats::all`, and are then taken off this list.
-const PENDING: &[(&str, &str)] = &[
-    ("canonical-forms/15", "JSON Schema: slice 10c."),
-    ("canonical-forms/16", "JSON Schema: slice 10c."),
-];
+const PENDING: &[(&str, &str)] = &[];
 
 /// Whole recordings about a language this build does not read yet.
 const PENDING_SCENARIOS: &[(&str, &str)] = &[
-    ("nested-references", "JSON Schema references: slice 10c."),
     (
         "other-schema-types",
-        "JSON Schema and Protobuf beside Avro: slices 10b and 10c (ids follow the JSON and Protobuf registrations).",
+        "Protobuf beside Avro and JSON Schema: slice 10b (ids follow the Protobuf registration).",
     ),
     ("protobuf-canonical-forms", "Protobuf: slice 10b."),
     ("protobuf-descriptor-with-import", "Protobuf: slice 10b."),

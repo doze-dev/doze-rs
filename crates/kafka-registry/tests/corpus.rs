@@ -44,7 +44,24 @@ struct ReasonsFile {
 }
 
 /// The languages whose corpus this build answers. Protobuf (10b) and JSON Schema (10c) add theirs.
-const KINDS: &[SchemaType] = &[SchemaType::Avro];
+const KINDS: &[SchemaType] = &[SchemaType::Avro, SchemaType::Json];
+
+/// Pairs (kind/name) where this registry answers otherwise than Confluent on purpose, with the deviation.
+const DIFFERENCES: &[(&str, &str)] = &[
+    (
+        "JSON/exclusiveMaximum increased",
+        "Confluent answers 500 when exclusiveMaximum is lowered; this registry answers the comparison (REG-D16).",
+    ),
+    (
+        "JSON/exclusiveMaximum decreased",
+        "Confluent answers 500 when exclusiveMaximum is lowered; this registry answers the comparison (REG-D16).",
+    ),
+];
+
+fn differs(kind: SchemaType, name: &str) -> bool {
+    let key = format!("{}/{name}", kind.name());
+    DIFFERENCES.iter().any(|(k, _)| *k == key)
+}
 
 fn data(file: &str) -> String {
     fs::read_to_string(
@@ -135,7 +152,7 @@ fn every_recorded_verdict_and_reason_is_confluents() {
         let cases = corpus(kind);
         let mut bad = Vec::new();
         let mut refusals = 0;
-        for c in &cases {
+        for c in cases.iter().filter(|c| !differs(kind, &c.name)) {
             let want = [&c.backward, &c.forward, &c.full];
             for (level, want) in ["BACKWARD", "FORWARD", "FULL"].iter().zip(want) {
                 let (got, why) = verdict(&api, kind, c, level);
