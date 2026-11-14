@@ -378,3 +378,28 @@ No limit moved (7,800,000 B, 161 packages): a person lowers them, with the first
 
 **doze-aws with every Go service (2026-11-13, release-aws): 7,444,224 B (7.10 MiB) on darwin/arm64, 258 packages, idle 5,344 KB; 11,764,560 B on x86_64 Linux (musl), 10,561,264 B with JSONata off.** Over the "z" base (4,867,344 B / 233 on macOS, 7,481,552 B on Linux): Step Functions, API Gateway and CloudFormation together add 2.58 MB on macOS and 4.28 MB on Linux (1.66 times). The owner raised doze-aws's ceiling to 20 MB the same day; the CI line is 12,400,000 B (musl plus 5%) and 264 packages. Cross-building now needs a C compiler and an ELF archiver for the target (JSONata's `psm`): a `clang --target=x86_64-unknown-linux-musl` wrapper as `CC_x86_64_unknown_linux_musl` and `llvm-ar` as `AR_x86_64_unknown_linux_musl`.
 
+
+## Limits raised to the measured values (2026-11-14, owner decision)
+
+Main's CI had been red on the weight jobs since the React console and the doze-aws A14 to A16 merges. The owner decided on 2026-11-14 to raise
+the budgets to what CI measures, with no headroom: the limits below are the numbers the ubuntu x86_64 runners measured on main that day
+(runs 43501441380 and 43570638000; the second is main plus the build fixes of PR #7). Sizes and package counts were the same in both runs;
+idle memory is one sample two or three seconds after start and moves between runs, so where the two runs differed the larger is the limit.
+
+| job | measured | old limit | new limit |
+|---|---|---|---|
+| `weight`, doze-kafka binary | 8,174,048 B | 7,800,000 B | **8,174,048 B** |
+| `weight`, doze-kafka idle | 9,316 / 9,228 KB | 8,192 KB | **9,316 KB** |
+| `weight`, doze-aws idle | 8,612 / 9,484 KB | 6,144 KB | **9,484 KB** |
+| `weight-lean` binary | 5,263,296 B | 5,200,000 B | **5,263,296 B** |
+| `weight-tls` binary | 9,279,000 B | 8,750,000 B | **9,279,000 B** |
+| `weight-tls` idle | 10,164 / 10,196 KB | 8,192 KB | **10,196 KB** |
+
+The other limits held and did not move: packages (doze-kafka 155 of 161, doze-aws 259 of 264, lean 127 of 130, tls 166 of 173), doze-aws
+bytes (11,641,952 of 12,400,000) and the lean build's idle (6,932 / 6,764 KB of 8,192).
+
+The brief for this change named the figures of PR #7's run of 2026-11-12 (kafka idle 8,780 KB, aws idle 6,676 KB, lean 5.64 MB, tls 166
+packages and 9,408 KB idle). Main moved 407 commits after that run, so these are the re-measured values: the lean binary shrank (R5 removed
+the classic console), the idle figures rose, and two byte limits that the weight pass of 2026-11-13 had lowered (doze-kafka 7.8 MB, tls
+8.75 MB) were also crossed, so they were raised to the measurement under the same decision. Both stay under the owner's ceilings (9 MB for
+the default build, 10 MB with TLS).
