@@ -95,7 +95,8 @@ fn project(tag: &str) -> (PathBuf, u16) {
     std::fs::create_dir_all(d.join("home")).unwrap();
     let port = free_port();
     let off = free_port();
-    let calls = d.join("calls").to_string_lossy().into_owned();
+    // An HCL string reads `\U` as an escape: a Windows path goes in with forward slashes, which Windows accepts.
+    let calls = d.join("calls").to_string_lossy().replace('\\', "/");
     let hcl = format!(
         "module echo \"e\" {{\n  version = \"2\"\n  port = {port}\n  greeting = \"hi\"\n  settings = {{\n    calls = \"{calls}\"\n  }}\n  channel \"a\" {{\n    size = 2\n  }}\n}}\n\nmodule echo \"off\" {{\n  version = \"2\"\n  port = {off}\n  enabled = false\n}}\n\ntask \"show\" {{\n  run = \"true\"\n  manual = true\n  env = {{\n    U = module.e.url\n    T = module.e.env.ECHO_URL\n  }}\n}}\n"
     );
