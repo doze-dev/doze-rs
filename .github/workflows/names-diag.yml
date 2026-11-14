@@ -16,17 +16,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Loop doze-names' unit tests
+      - name: Loop doze-names' unit tests, four at once
         shell: bash
         run: |
           cargo test -p doze-names --lib --no-run
           exe=$(ls -t target/debug/deps/doze_names-*.exe | head -1)
           fails=0
-          for i in $(seq 1 150); do
-            if ! "$exe" --nocapture > out.txt 2>&1; then
-              fails=$((fails+1))
-              echo "=== run $i failed"
-              grep -E "DIAG|panicked|left|right|FAILED" out.txt | head -200
-            fi
+          mkdir -p out
+          for i in $(seq 1 60); do
+            for k in 1 2 3 4; do "$exe" --nocapture > out/$i-$k.txt 2>&1 & done
+            wait
+            for k in 1 2 3 4; do
+              if grep -q "FAILED" out/$i-$k.txt; then
+                fails=$((fails+1))
+                echo "=== run $i-$k failed"
+                grep -E "DIAG|panicked|left|right" out/$i-$k.txt | head -80
+              fi
+            done
           done
-          echo "failed $fails of 150"
+          echo "failed $fails of 240"
+          echo "--- DIAG errors over every run:"
+          cat out/*.txt | grep -E "DIAG.*(failed|error|Err)" | sed -E 's/[0-9]{4,}//g' | sort | uniq -c | sort -rn | head -40
