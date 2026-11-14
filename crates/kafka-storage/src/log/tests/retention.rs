@@ -322,3 +322,35 @@ fn a_partition_that_is_not_open_loses_its_expired_active_segment_too_and_starts_
         "nothing is left to remove"
     );
 }
+
+#[test]
+fn retention_due_is_when_the_oldest_segment_outlives_the_age_bound_and_never_without_one() {
+    // Three segments stamped 1,000; an age bound of 5,000: nothing goes at 6,000, and the oldest goes at 6,001.
+    let (_fs, _dir, mut log) = three_segments(1_000);
+    let policy = Retention {
+        max_bytes: None,
+        max_age_ms: Some(5_000),
+    };
+    let due = log.retention_due(policy).unwrap();
+    assert_eq!(due, Some(6_001));
+    assert_eq!(
+        log.enforce_retention(policy, TimestampMs::from_wire(6_000))
+            .unwrap(),
+        0,
+        "not before the time said"
+    );
+    assert!(
+        log.enforce_retention(policy, TimestampMs::from_wire(6_001))
+            .unwrap()
+            > 0,
+        "and something goes just after it"
+    );
+    // A size bound alone changes nothing with time, and an empty log has nothing to age.
+    let by_size = Retention {
+        max_bytes: Some(1),
+        max_age_ms: None,
+    };
+    assert_eq!(log.retention_due(by_size).unwrap(), None);
+    let (_fs, _dir, empty) = fresh(2 * one());
+    assert_eq!(empty.retention_due(policy).unwrap(), None);
+}

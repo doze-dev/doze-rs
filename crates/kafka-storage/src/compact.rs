@@ -21,7 +21,7 @@ pub(crate) use checkpoint::{read as read_checkpoint, write as write_checkpoint};
 pub fn checkpoint_of<F: crate::fs::Fs>(fs: &F, dir: &std::path::Path) -> i64 {
     read_checkpoint(fs, dir).get()
 }
-pub use plan::{Facts, Limit, Params, Plan, Reading, judge, reading};
+pub use plan::{Facts, Limit, Params, Plan, Reading, judge, next_due, reading};
 pub use txn::AbortedTxn;
-pub use types::{CleanJob, Cleaned, LastOf, Replacement};
+pub use types::{CleanJob, Cleaned, LastOf, Planned, Replacement};
 pub(crate) use types::{Input, temporary};

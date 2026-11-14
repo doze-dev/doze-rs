@@ -123,7 +123,8 @@ pub struct SettingsInterval {
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsIntervals {
     pub rows: Vec<SettingsInterval>,
-    /// How often open transactions are looked at (no flag sets it).
+    /// How soon a transaction whose end could not be carried out is tried again (no flag sets it; timeouts are acted on at
+    /// their time).
     pub transactions: String,
     pub retention_every: String,
     pub cleaner_every: String,

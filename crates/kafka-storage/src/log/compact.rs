@@ -12,7 +12,9 @@ use kafka_wire::ids::Offset;
 
 use super::PartitionLog;
 use crate::compact::plan::{self, Facts, Params};
-use crate::compact::{AbortedTxn, CleanJob, Cleaned, Input, LastOf, Replacement, temporary};
+use crate::compact::{
+    AbortedTxn, CleanJob, Cleaned, Input, LastOf, Planned, Replacement, temporary,
+};
 use crate::compact::{read_checkpoint, write_checkpoint};
 use crate::error::{Doing, StorageError};
 use crate::fs::Fs;
@@ -31,6 +33,26 @@ impl<F: Fs> PartitionLog<F> {
         aborted: Vec<AbortedTxn>,
         producers: HashMap<i64, LastOf>,
     ) -> Result<Option<CleanJob<F>>, StorageError> {
+        Ok(
+            match self.plan_clean(params, last_stable, aborted, producers)? {
+                Planned::Due(job) => Some(job),
+                Planned::NotDue { .. } => None,
+            },
+        )
+    }
+
+    /// [`Self::clean_job`], and, when the log is not due, the first time it could be with nothing written to it
+    /// ([`plan::next_due`]), so that a cleaner can leave it alone until then.
+    ///
+    /// # Errors
+    /// A failed read of a segment's timestamps.
+    pub fn plan_clean(
+        &self,
+        params: &Params,
+        last_stable: Offset,
+        aborted: Vec<AbortedTxn>,
+        producers: HashMap<i64, LastOf>,
+    ) -> Result<Planned<F>, StorageError> {
         let ages = params.min_lag_ms > 0 || params.max_lag_ms != i64::MAX;
         let mut facts = Vec::with_capacity(self.sealed.len());
         let forced = params.max_lag_ms != i64::MAX;
@@ -68,14 +90,15 @@ impl<F: Fs> PartitionLog<F> {
         } else {
             recorded.max(self.start)
         };
-        let Some(plan) = plan::judge(
-            &facts,
+        let (checkpoint, unstable, active) = (
             checkpoint.get(),
             last_stable.get(),
             self.active.base().get(),
-            params,
-        ) else {
-            return Ok(None);
+        );
+        let Some(plan) = plan::judge(&facts, checkpoint, unstable, active, params) else {
+            return Ok(Planned::NotDue {
+                next_ms: plan::next_due(&facts, checkpoint, unstable, active, params),
+            });
         };
         let mut segments = Vec::with_capacity(self.sealed.len());
         for (i, s) in self.sealed.iter().enumerate() {
@@ -89,7 +112,7 @@ impl<F: Fs> PartitionLog<F> {
                 view: s.view(),
             });
         }
-        Ok(Some(CleanJob {
+        Ok(Planned::Due(CleanJob {
             fs: self.fs.clone(),
             dir: self.dir.clone(),
             segments,

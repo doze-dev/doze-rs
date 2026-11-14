@@ -31,7 +31,8 @@ pub struct Intervals {
     pub group_initial_rebalance: Duration,
     /// `--consumer-session-timeout`.
     pub consumer_session: Duration,
-    /// How often open transactions are looked at: no flag sets it.
+    /// How soon a transaction whose end could not be carried out is tried again (timeouts and expiries are acted on at their
+    /// time, not on a cadence): no flag sets it.
     pub transactions: Duration,
     /// This broker's id (the resource name its own dynamic configs go under).
     pub node_id: i32,

@@ -7,7 +7,8 @@ import type { SettingsRound } from "./SettingsRound";
  */
 export type SettingsIntervals = { rows: Array<SettingsInterval>, 
 /**
- * How often open transactions are looked at (no flag sets it).
+ * How soon a transaction whose end could not be carried out is tried again (no flag sets it; timeouts are acted on at
+ * their time).
  */
 transactions: string, retention_every: string, cleaner_every: string, cleaner_on: boolean, 
 /**

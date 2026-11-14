@@ -11,6 +11,7 @@ use kafka_wire::ids::{Offset, TimestampMs};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{Instant, sleep_until};
 
+use super::upkeep::Upkeep;
 use crate::blocking;
 use crate::producers::{Producers, Stored, Verdict, last_of};
 use crate::txn_index::{Open, TxnIndex};
@@ -28,10 +29,16 @@ pub(super) enum Command<F: Fs> {
     Windows(oneshot::Sender<Result<Vec<crate::producers::Window>, StorageError>>),
     /// Move the start of the log up; answers the start now in force.
     Trim(Trim, oneshot::Sender<Result<Offset, StorageError>>),
-    /// Plan a round of cleaning, if the log is due one.
+    /// Apply retention now; answers the start now in force and when retention could next take something.
+    Retain(
+        Retention,
+        TimestampMs,
+        oneshot::Sender<Result<Retained, StorageError>>,
+    ),
+    /// Plan a round of cleaning, if the log is due one; answers with the count of changes it was judged at.
     Clean(
         kafka_storage::compact::Params,
-        oneshot::Sender<Result<Option<kafka_storage::compact::CleanJob<F>>, StorageError>>,
+        oneshot::Sender<Result<(kafka_storage::compact::Planned<F>, u64), StorageError>>,
     ),
     /// Put a round of cleaning in place; answers how many segments it replaced.
     Install(
@@ -53,6 +60,17 @@ pub(crate) enum Trim {
     Retention(Retention, TimestampMs),
     /// DeleteRecords: everything below the offset, or (`None`) everything.
     Before(Option<Offset>),
+}
+
+/// What a pass of retention left.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Retained {
+    /// The log start now in force.
+    pub(crate) start: Offset,
+    /// When retention could next take something, if nothing is written (`PartitionLog::retention_due`).
+    pub(crate) due_ms: Option<i64>,
+    /// The writer's count of changes when that was judged.
+    pub(crate) changes: u64,
 }
 
 /// What became of an append.
@@ -94,6 +112,8 @@ struct Memory {
     /// record left; they are let go one round later, so that a reader that began on the old segments is not told less than
     /// what it reads.
     cleaned_to: i64,
+    /// Counts the changes this writer makes, for the chores that leave an unchanged partition alone.
+    upkeep: Arc<Upkeep>,
 }
 
 /// Takes commands until the queue closes or a Close arrives: appends are written in the order they came, then one
@@ -105,6 +125,7 @@ pub(super) async fn run<F: Fs>(
     mut queue: mpsc::Receiver<Command<F>>,
     fsync_interval: Duration,
     txns: Arc<RwLock<TxnIndex>>,
+    upkeep: Arc<Upkeep>,
 ) {
     let mut unflushed_since: Option<Instant> = None;
     let mut memory = Memory {
@@ -112,6 +133,7 @@ pub(super) async fn run<F: Fs>(
         loaded: false,
         txns,
         cleaned_to: 0,
+        upkeep,
     };
     loop {
         let next = match unflushed_since {
@@ -172,6 +194,7 @@ fn work<F: Fs>(
             Command::Append(a) => {
                 let result = append_one(log, memory, &a);
                 if matches!(result, Ok(Written::Appended(_))) {
+                    memory.upkeep.changed();
                     wrote = true;
                     wants_flush |= a.durable;
                 }
@@ -185,14 +208,20 @@ fn work<F: Fs>(
                 let _ = reply.send(view(log, memory));
             }
             Command::Trim(how, reply) => {
+                memory.upkeep.changed();
                 let _ = reply.send(trim(log, memory, how));
             }
+            Command::Retain(policy, now, reply) => {
+                let _ = reply.send(retain(log, memory, policy, now));
+            }
             Command::Clean(params, reply) => {
-                let _ = reply.send(cleaning::plan(log, memory, &params));
+                let planned = cleaning::plan(log, memory, &params);
+                let _ = reply.send(planned.map(|p| (p, memory.upkeep.changes())));
             }
             Command::Install(cleaned, reply) => {
                 let installed = log.install_cleaned(&cleaned);
                 if installed.is_ok() {
+                    memory.upkeep.changed();
                     memory
                         .txns
                         .write()
@@ -203,7 +232,10 @@ fn work<F: Fs>(
                 let _ = reply.send(installed);
             }
             Command::Discard(cleaned) => log.discard_cleaned(&cleaned),
-            Command::Configure(config) => log.set_config(config),
+            Command::Configure(config) => {
+                memory.upkeep.changed();
+                log.set_config(config);
+            }
             Command::Close(done) => closing = Some(done),
         }
     }
@@ -217,6 +249,25 @@ fn work<F: Fs>(
         Flushed::NothingWritten
     };
     (closing, flushed)
+}
+
+/// Applies retention, and says when it could next take something. A pass that took something is a change.
+fn retain<F: Fs>(
+    log: &mut PartitionLog<F>,
+    memory: &mut Memory,
+    policy: Retention,
+    now: TimestampMs,
+) -> Result<Retained, StorageError> {
+    let before = log.start_offset();
+    let start = trim(log, memory, Trim::Retention(policy, now))?;
+    if start != before {
+        memory.upkeep.changed();
+    }
+    Ok(Retained {
+        start,
+        due_ms: log.retention_due(policy)?,
+        changes: memory.upkeep.changes(),
+    })
 }
 
 /// Judges the batch by what is known of its producer, if it has one, writes it if it is to be, and remembers it.

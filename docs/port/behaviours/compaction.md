@@ -17,6 +17,18 @@ transaction and the first segment newer than `min.compaction.lag.ms`, is dirty; 
 than `min.cleanable.dirty.ratio` (0.5) of all, or when the first dirty segment is older than `max.compaction.lag.ms`. The segment
 that holds the first dirty offset is dirty whole. Test: `compact::plan::tests::*`.
 
+A log judged not due is not judged again (not opened, its producers' history not read back) until it changes or until the first
+moment the verdict can change with nothing written (`plan::next_due`): a dirty segment held back by `min.compaction.lag.ms` comes of
+age, or the first dirty segment has waited `max.compaction.lag.ms`. Every other input (sizes, checkpoint, first unstable offset, the
+active segment) moves only with a write, a marker, a trim or a round put in place, which the partition's writer counts; the
+verdict holds the count it was made at and the settings it was judged by. Kafka's cleaner re-reads every log each pass; the
+verdicts are the same, only the reading is saved (before this an idle broker reopened every compacted partition every 15 s,
+replaying up to 16 MiB of producer history, measured 3 to 5 threads and +2 MB per topic each pass). Test:
+`compact::plan::tests::a_log_judged_not_due_stays_not_due_until_the_time_next_due_names_and_is_due_then_if_ever`,
+`compact::plan::tests::next_due_names_the_moment_the_minimum_lag_lets_a_segment_go_and_the_maximum_forces_one`,
+`idle_upkeep::a_compacted_partition_found_clean_is_not_opened_again_until_it_is_written_to`,
+`idle_upkeep::a_partition_held_back_by_the_minimum_lag_is_left_alone_until_the_lag_has_passed_and_cleaned_then`.
+
 ## CMP-2. What stays (source)
 A record stays if it is the latest for its key in the dirty part (or is past what the offset map covers). A record with no key goes.
 A deletion (no value) stays until its batch's delete horizon: the first time a batch keeps one it is given `now + delete.retention.ms`,
