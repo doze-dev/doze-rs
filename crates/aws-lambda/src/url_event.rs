@@ -38,17 +38,7 @@ pub(crate) fn event_of(req: &WebRequest, path: &str, id: &str, region: &str) -> 
         .filter(|(k, _)| k == "cookie")
         .flat_map(|(_, v)| v.split("; "))
         .collect();
-    let content_type = req
-        .headers
-        .iter()
-        .find(|(k, _)| k == "content-type")
-        .map(|(_, v)| v.as_str());
-    let (body, encoded) = match std::str::from_utf8(&req.body) {
-        Ok(text) if is_text(content_type) => (text.to_owned(), false),
-        _ => (base64::encode(&req.body), true),
-    };
-    let now = aws_core::time::format_http_date(0);
-    let _ = now;
+    let (body, encoded) = body_of(req);
     let ua = headers.get("user-agent").cloned().unwrap_or(Value::Null);
     let mut event = json!({
         "version": "2.0",
@@ -79,6 +69,19 @@ pub(crate) fn event_of(req: &WebRequest, path: &str, id: &str, region: &str) -> 
         crate::set(&mut event, "body", Value::String(body));
     }
     event
+}
+
+/// The body as the function sees it, and whether it is base64.
+fn body_of(req: &WebRequest) -> (String, bool) {
+    let content_type = req
+        .headers
+        .iter()
+        .find(|(k, _)| k == "content-type")
+        .map(|(_, v)| v.as_str());
+    match std::str::from_utf8(&req.body) {
+        Ok(text) if is_text(content_type) => (text.to_owned(), false),
+        _ => (base64::encode(&req.body), true),
+    }
 }
 
 fn decode(s: &str) -> String {
