@@ -150,12 +150,13 @@ pub trait ParsedSchema: Debug + Send + Sync + Any {
 pub struct Formats(Vec<Box<dyn SchemaFormat>>);
 
 impl Formats {
-    /// Every language the crate has. Protobuf (slice 10b) and JSON Schema (10c) are added here.
+    /// Every language the crate has, in the order `GET /schemas/types` lists them (Confluent's, [`SchemaType::LISTED`]).
     #[must_use]
     pub fn all() -> Self {
         Self(vec![
-            Box::new(crate::avro::Avro),
             Box::new(crate::jsonschema::JsonSchema),
+            Box::new(crate::protobuf::Protobuf),
+            Box::new(crate::avro::Avro),
         ])
     }
 
