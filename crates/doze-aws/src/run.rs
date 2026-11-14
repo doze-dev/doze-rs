@@ -42,12 +42,13 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         states_config(),
     ));
     let (sqs, dynamodb, kinesis, lambda) = compute(&ctx, &args);
+    let secrets = Arc::new(aws_secrets::Secrets::new(Arc::new(ctx("secretsmanager"))));
     let services: Vec<Arc<dyn Service>> = vec![
         iam,
         Arc::new(sts),
         sqs,
         Arc::new(aws_ssm::Ssm::new(Arc::new(ctx("ssm")))),
-        Arc::new(aws_secrets::Secrets::new(Arc::new(ctx("secretsmanager")))),
+        secrets.clone(),
         Arc::new(aws_kms::Kms::new(Arc::new(ctx("kms")))),
         Arc::new(aws_sns::Sns::new(Arc::new(ctx("sns")))),
         dynamodb.clone(),
@@ -71,6 +72,8 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     cloudwatch.resume().await;
     eventbridge.resume().await;
     dynamodb.resume().await;
+    // Scheduled secret rotations: what came due while stopped starts now, and the next window is waited for.
+    secrets.resume().await;
     // Event source mappings that were enabled when the process last stopped poll again; functions find the other services here.
     lambda.set_endpoint(&format!("http://{}", running.local_addr()));
     lambda.resume().await;
