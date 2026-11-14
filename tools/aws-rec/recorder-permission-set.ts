@@ -26,6 +26,8 @@ const policy = {
         "events:TestEventPattern", "logs:TestMetricFilter", "states:TestState", "iam:SimulateCustomPolicy",
         // Learned 2026-11-15: validation with no resource, an account read, and the default schedule group (it cannot carry our prefix).
         "states:ValidateStateMachineDefinition", "kinesis:DescribeAccountSettings", "scheduler:GetScheduleGroup",
+        // Learned 2026-11-15: BatchGetSecretValue is authorized on "*" (each secret is then checked by GetSecretValue on its own ARN).
+        "secretsmanager:BatchGetSecretValue",
         // Added 2026-11-12 for the KMS and Secrets Manager scenarios written before they were recorded: no resource, nothing stored.
         "kms:GenerateRandom", "secretsmanager:GetRandomPassword", "secretsmanager:ValidateResourcePolicy",
       ],
