@@ -4,7 +4,7 @@
 //!
 //! IAM is also the authorizer every service asks (`--iam off|soft|enforce`): off asks nothing; soft evaluates every request against
 //! the caller's policies, logs what would be refused and lets it through; enforce refuses it in AWS's words. Soft and enforce keep
-//! an access log of the questions, from which doze generates a least-privilege policy ([`accesslog`]).
+//! an access log of the questions, from which doze generates a least-privilege policy (`accesslog`).
 
 mod accesslog;
 mod account;

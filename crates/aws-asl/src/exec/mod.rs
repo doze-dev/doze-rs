@@ -3,7 +3,7 @@
 //! to continue it, so an execution that was waiting (a `Wait`, a task, a token) is written to disk and carried on after a restart.
 //!
 //! The interpreter changes an execution and says what happened: the history events (with AWS's ids: global, chained per branch),
-//! the task calls the service must make, and the end. It never does I/O and never reads a clock: [`Env`] is handed in.
+//! the task calls the service must make, and the end. It never does I/O and never reads a clock: `Env` is handed in.
 
 mod choose;
 mod events;
