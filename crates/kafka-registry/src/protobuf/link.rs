@@ -63,7 +63,9 @@ pub(super) struct Msg {
 #[derive(Debug)]
 pub(super) struct EnumInfo {
     pub(super) file: usize,
-    values: Vec<String>,
+    pub(super) values: Vec<String>,
+    /// Each value's number, beside its name.
+    pub(super) numbers: Vec<i64>,
 }
 
 #[derive(Debug)]

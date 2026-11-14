@@ -9,6 +9,7 @@
 
 pub mod api;
 pub mod avro;
+pub mod codec;
 pub mod error;
 pub mod format;
 pub mod json;

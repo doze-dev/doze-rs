@@ -1,6 +1,6 @@
-import { ActivityIcon, BoxesIcon, FlaskConicalIcon, HomeIcon, type LucideIcon, PlugIcon, Rows3Icon, SettingsIcon, ShieldIcon, SwatchBookIcon, UsersIcon } from "lucide-react";
+import { ActivityIcon, BoxesIcon, FileJson2Icon, FlaskConicalIcon, HomeIcon, type LucideIcon, PlugIcon, Rows3Icon, SettingsIcon, ShieldIcon, SwatchBookIcon, UsersIcon } from "lucide-react";
 
-export type NavItem = { label: string; to: string; icon: LucideIcon; count?: "topics" | "groups"; keywords?: string };
+export type NavItem = { label: string; to: string; icon: LucideIcon; count?: "topics" | "groups" | "schemas"; keywords?: string };
 
 /** The sidebar, in the direction's order: Home, Live, the resources, Access, Lab, Settings. */
 export const NAV: NavItem[] = [
@@ -8,6 +8,7 @@ export const NAV: NavItem[] = [
   { label: "Live", to: "/live", icon: ActivityIcon, keywords: "wire requests tape" },
   { label: "Topics", to: "/topics", icon: Rows3Icon, count: "topics" },
   { label: "Groups", to: "/groups", icon: UsersIcon, count: "groups", keywords: "consumers lag" },
+  { label: "Schemas", to: "/schemas", icon: FileJson2Icon, count: "schemas", keywords: "registry avro protobuf json subjects" },
   { label: "Access", to: "/access", icon: ShieldIcon, keywords: "acl sasl tls security" },
   { label: "Lab", to: "/lab", icon: FlaskConicalIcon, keywords: "faults rehearse" },
   { label: "Settings", to: "/settings", icon: SettingsIcon, keywords: "config flags" },

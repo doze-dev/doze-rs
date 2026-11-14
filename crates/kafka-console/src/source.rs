@@ -33,6 +33,8 @@ pub struct Live {
     /// The door that closes to other machines while the broker has ACLs (SEC-250); None: nothing to close (a loopback console,
     /// or `--console-unprotected`).
     pub door: Option<crate::door::Door>,
+    /// The schema registry beside the broker, or why there is none.
+    pub schemas: crate::schemas::Schemas,
 }
 
 impl Live {
@@ -47,6 +49,7 @@ impl Live {
             start: crate::facts_start::StartFacts::default(),
             lab: None,
             door: None,
+            schemas: crate::schemas::Schemas::default(),
         }
     }
 
@@ -62,6 +65,13 @@ impl Live {
     #[must_use]
     pub fn with_lab(mut self, table: std::sync::Arc<kafka_server::fault::FaultTable>) -> Self {
         self.lab = Some(std::sync::Arc::new(crate::lab::Lab::new(table)));
+        self
+    }
+
+    /// The same, with the schema registry (or why there is none).
+    #[must_use]
+    pub fn with_schemas(mut self, schemas: crate::schemas::Schemas) -> Self {
+        self.schemas = schemas;
         self
     }
 
@@ -142,6 +152,20 @@ pub enum Source {
 }
 
 impl Source {
+    /// The schema registry, or why there is none (the fixtures have none).
+    #[must_use]
+    pub fn schemas(&self) -> &crate::schemas::Schemas {
+        match self {
+            Self::Live(l) => &l.schemas,
+            #[cfg(any(test, feature = "examples"))]
+            Self::Fixture => {
+                static NONE: crate::schemas::Schemas =
+                    crate::schemas::Schemas::Off(crate::schemas::Off::Absent);
+                &NONE
+            }
+        }
+    }
+
     /// The top bar.
     pub async fn chrome(&self) -> Chrome {
         match self {

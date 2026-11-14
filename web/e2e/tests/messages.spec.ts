@@ -17,7 +17,7 @@ async function pageBoxes(page: import("@playwright/test").Page, selectors: strin
 
 const rows = (page: import("@playwright/test").Page) => page.getByRole("table", { name: "Records, newest first" }).locator("tbody tr[data-row]");
 
-test("the frame: one h1, the stats, the transaction region, five tabs as routes, and a tab switch moves nothing above it", async ({ page }) => {
+test("the frame: one h1, the stats, the transaction region, the tabs as routes (Schema while there is a registry), and a tab switch moves nothing above it", async ({ page }) => {
   await page.goto("/topics/orders");
   await expect(page.locator("h1")).toHaveText("orders");
   await expect(page.locator("h1")).toHaveCount(1);
@@ -26,12 +26,15 @@ test("the frame: one h1, the stats, the transaction region, five tabs as routes,
   for (const label of ["Partitions", "Retention", "Records", "Size on disk", "Last write"]) await expect(strip).toContainText(label);
   await expect(page.getByTestId("txn-region")).toBeVisible();
   const tabs = page.getByTestId("topic-tabs");
-  await expect(tabs.getByRole("link")).toHaveText([/^Messages$/, /^Log$/, /^Config$/, /^Consumers\s*\d+$/, /^Producers\s*\d+$/]);
+  // The Schema tab is there while the broker has a registry (the seeded one has).
+  const registry = (await (await page.request.get("/api/v1/shell", { headers: { "X-Console": "1" } })).json()).schemas !== null;
+  await expect(tabs.getByRole("link")).toHaveText([/^Messages$/, /^Log$/, /^Config$/, /^Consumers\s*\d+$/, /^Producers\s*\d+$/, ...(registry ? [/^Schema\s*\d+$/] : [])]);
   const before = await pageBoxes(page, ["h1", "[data-testid=topic-tabs]", "[data-testid=txn-region]"]);
   for (const [tab, url] of [
     ["Log", /\/topics\/orders\/log$/],
     ["Consumers", /\/topics\/orders\/consumers$/],
     ["Producers", /\/topics\/orders\/producers$/],
+    ...(registry ? ([["Schema", /\/topics\/orders\/schema$/]] as const) : []),
     ["Messages", /\/topics\/orders\/messages$/],
   ] as const) {
     await tabs.getByRole("link", { name: new RegExp(`^${tab}`) }).click();

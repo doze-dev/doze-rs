@@ -2,7 +2,7 @@
 // sent, and in the same dialog what the broker answered: the offset it chose, or its refusal in Kafka's words.
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlusIcon, SendIcon, XIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import type { ProduceRefusedAnswer } from "@/api/types/ProduceRefusedAnswer";
 import type { ProducedAnswer } from "@/api/types/ProducedAnswer";
@@ -22,10 +22,13 @@ import { CallBlock, Done, FieldError, RefusalCallout, TeachLines, Teaching, Stic
 const MOST_HEADERS = 8;
 const AUTO = "auto";
 
-type Values = { partition: string; key: string; value: string; headers: { name: string; value: string }[]; acks: "-1" | "1" | "0" };
+const NO_SCHEMA = "-";
+
+type Values = { partition: string; key: string; value: string; headers: { name: string; value: string }[]; acks: "-1" | "1" | "0"; schema: string };
 
 function fieldsOf(v: Values): Record<string, string> {
   const out: Record<string, string> = { partition: v.partition === AUTO ? "" : v.partition, key: v.key, value: v.value, acks: v.acks };
+  if (v.schema && v.schema !== NO_SCHEMA) out.schema = v.schema;
   v.headers
     .filter((h) => h.name !== "" || h.value !== "")
     .slice(0, MOST_HEADERS)
@@ -92,7 +95,7 @@ function Result({ a, onAnother }: { a: ProducedAnswer; onAnother: () => void }) 
 
 export function ProduceBody({ topic, open }: { topic: string; open: boolean }) {
   const qc = useQueryClient();
-  const form = useForm<Values>({ defaultValues: { partition: AUTO, key: "", value: "", headers: [{ name: "", value: "" }], acks: "-1" } });
+  const form = useForm<Values>({ defaultValues: { partition: AUTO, key: "", value: "", headers: [{ name: "", value: "" }], acks: "-1", schema: "" } });
   const headers = useFieldArray({ control: form.control, name: "headers" });
   const watched = useWatch({ control: form.control }) as Values;
   const q = useDebounced(queryOf(fieldsOf({ ...form.getValues(), ...watched })), 250);
@@ -106,6 +109,14 @@ export function ProduceBody({ topic, open }: { topic: string; open: boolean }) {
   const view = preview.data?.view;
   const errors = refused?.refused.view.errors ?? invalid?.errors;
   const hint = useMemo(() => jsonHint(watched.value ?? ""), [watched.value]);
+  // The schema starts on `<topic>-value` when the registry has it (as a serializer would), else none: chosen once, then the person's.
+  const subjects = preview.data?.subjects ?? [];
+  const suggested = preview.data?.suggested ?? null;
+  useEffect(() => {
+    if (form.getValues("schema") === "" && preview.data) form.setValue("schema", suggested ?? NO_SCHEMA);
+  }, [preview.data, suggested, form]);
+  const schema = watched.schema && watched.schema !== NO_SCHEMA ? watched.schema : null;
+  const encoded = schema ? preview.data?.encoded : null;
 
   if (send.data) {
     return (
@@ -158,12 +169,56 @@ export function ProduceBody({ topic, open }: { topic: string; open: boolean }) {
           <FieldError>{errors?.key}</FieldError>
         </div>
       </div>
+      {subjects.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="ps">Schema subject</Label>
+          <Controller
+            control={form.control}
+            name="schema"
+            render={({ field }) => (
+              <Select value={field.value || NO_SCHEMA} onValueChange={field.onChange}>
+                <SelectTrigger id="ps" className="w-full font-mono" data-testid="schema">
+                  <SelectValue>{field.value && field.value !== NO_SCHEMA ? `encode with ${field.value}` : "No schema: send the bytes as typed"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_SCHEMA}>No schema: send the bytes as typed</SelectItem>
+                  {subjects.map((s) => (
+                    <SelectItem key={s} value={s} className="font-mono">
+                      encode with {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          <p className="text-[12.5px] text-muted-foreground">With a subject, the value is typed as JSON and sent as a Confluent serializer would: a zero byte, the schema id, then the encoded value, with its latest version.</p>
+        </div>
+      )}
       <div className="flex flex-col gap-2">
         <Label htmlFor="pv">Value</Label>
         <Textarea id="pv" rows={3} spellCheck={false} className="max-h-48 min-h-20 font-mono text-[13px]" {...form.register("value")} data-testid="value" placeholder='{"order_id": "ord-1"}' />
-        <p className={hint && !hint.ok ? "text-[12.5px] text-warn" : "text-[12.5px] text-muted-foreground"} data-testid="json-hint">
-          {hint ? hint.text : "Text or JSON. Leave it empty for a record with no value (on a compacted topic, a deletion)."}
-        </p>
+        {schema ? (
+          <div className="flex flex-col gap-2" aria-live="polite" data-testid="encoded">
+            {encoded?.ok ? (
+              <>
+                <p className="text-[12.5px] text-good">
+                  Fits {encoded.subject} v{encoded.version}. Encoded preview · {encoded.size} B: 00 magic · the id {encoded.id} in four bytes · then the {encoded.kind === "PROTOBUF" ? "message index and Protobuf" : encoded.kind === "JSON" ? "JSON" : "Avro"} body.
+                </p>
+                <pre className="max-h-28 overflow-auto rounded-lg border bg-well px-3 py-2 font-mono text-[12px] break-all whitespace-pre-wrap text-bright" data-testid="encoded-hex">
+                  {encoded.hex}
+                </pre>
+              </>
+            ) : (
+              <p className={encoded ? "text-[12.5px] text-warn" : "text-[12.5px] text-muted-foreground"} data-testid="encoded-error">
+                {encoded?.error ?? "Type the value as JSON: it is checked and encoded as you type."}
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className={hint && !hint.ok ? "text-[12.5px] text-warn" : "text-[12.5px] text-muted-foreground"} data-testid="json-hint">
+            {hint ? hint.text : "Text or JSON. Leave it empty for a record with no value (on a compacted topic, a deletion)."}
+          </p>
+        )}
       </div>
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-sm font-medium">
@@ -227,7 +282,7 @@ export function ProduceBody({ topic, open }: { topic: string; open: boolean }) {
           <CallBlock title="The answer" lines={refused.refused.answer} testId="the-answer" />
         </div>
       )}
-      {send.error && !refused && !invalid && <FieldError>{send.error.message}</FieldError>}
+      {send.error && !refused && (!invalid || (!invalid.errors.partition && !invalid.errors.key && !invalid.errors.acks)) && <FieldError>{send.error.message}</FieldError>}
       {!refused && view && <CallBlock lines={view.call} />}
       <StickyFooter>
         <DialogClose asChild>

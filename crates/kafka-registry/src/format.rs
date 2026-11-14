@@ -143,6 +143,29 @@ pub trait ParsedSchema: Debug + Send + Sync + Any {
 
     /// This schema, for a language to look at a writer of its own kind.
     fn as_any(&self) -> &dyn Any;
+
+    /// Reads a record's payload (the bytes after the wire header) as JSON ([`crate::codec`]).
+    ///
+    /// # Errors
+    /// The bytes do not fit the schema, or the language has no codec here.
+    fn decode(&self, body: &[u8]) -> Result<crate::codec::Decoded, String> {
+        let _ = body;
+        Err("this build has no codec for the language".to_owned())
+    }
+
+    /// A JSON value of the schema's shape, every field at its zero value: what the console's Try and Produce boxes start with.
+    fn sample(&self) -> crate::json::Json {
+        crate::json::Json::Object(Vec::new())
+    }
+
+    /// Writes a JSON value as a record's payload (without the wire header).
+    ///
+    /// # Errors
+    /// The value does not fit the schema, in words.
+    fn encode(&self, value: &crate::json::Json) -> Result<Vec<u8>, String> {
+        let _ = value;
+        Err("this build has no codec for the language".to_owned())
+    }
 }
 
 /// The languages this build reads.

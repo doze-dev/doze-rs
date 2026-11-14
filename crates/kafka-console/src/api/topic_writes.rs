@@ -23,6 +23,7 @@ use axum::routing::get;
 use serde::Serialize;
 
 use super::json;
+use super::schemas::try_it::{Encoded, encode_with, schema_choice};
 use crate::calls::{kcat_consume, kcat_produce};
 use crate::form::{get as field, parse, parse_body, text};
 use crate::model::{
@@ -228,6 +229,12 @@ pub struct ProduceForm {
     pub view: ProduceView,
     pub acks_teach: Teach,
     pub key_help: Vec<Span>,
+    /// The subjects a value may be encoded with (none without a registry).
+    pub subjects: Vec<String>,
+    /// The one the dialog starts on: `<topic>-value` when it exists.
+    pub suggested: Option<String>,
+    /// The value encoded with the chosen schema: what will be sent, or why it does not fit.
+    pub encoded: Option<Encoded>,
 }
 
 /// A record the broker took (200), with the sentences of the board's banner.
@@ -269,6 +276,7 @@ fn produce_input(f: &[(String, String)]) -> ProduceInput {
         value: text(f, "value").to_owned(),
         headers,
         acks: text(f, "acks").to_owned(),
+        encoded: None,
     }
 }
 
@@ -277,16 +285,44 @@ async fn produce_form(
     Path(topic): Path<String>,
     RawQuery(q): RawQuery,
 ) -> Response {
-    let input = produce_input(&query(q.as_ref()));
+    let fields = query(q.as_ref());
+    let input = produce_input(&fields);
     let Some(view) = s.source.produce_form(&topic, &input).await else {
         return no_topic(&topic);
     };
+    let subjects = s
+        .source
+        .schemas()
+        .registry()
+        .map(|r| r.subjects("", false, false))
+        .unwrap_or_default();
+    let wanted = format!("{topic}-value");
+    let suggested = subjects.iter().find(|x| **x == wanted).cloned();
+    let encoded = schema_choice(&fields)
+        .filter(|_| !input.value.trim().is_empty())
+        .map(|choice| match encode_with(&s, &choice, &input.value) {
+            Ok((e, _)) => e,
+            Err(why) => Encoded {
+                ok: false,
+                error: Some(why),
+                id: 0,
+                version: 0,
+                kind: String::new(),
+                subject: choice.0,
+                size: 0,
+                hex: String::new(),
+                json: None,
+            },
+        });
     json(
         StatusCode::OK,
         &ProduceForm {
             acks_teach: write_words::acks_teach(view.transaction.as_deref()),
             key_help: write_words::key_help(&view),
             view,
+            subjects,
+            suggested,
+            encoded,
         },
     )
 }
@@ -322,7 +358,19 @@ fn visibility(p: &Produced) -> (String, String) {
 }
 
 async fn produce(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes) -> Response {
-    let input = produce_input(&parse_body(&body));
+    let fields = parse_body(&body);
+    let mut input = produce_input(&fields);
+    if let Some(choice) = schema_choice(&fields) {
+        match encode_with(&s, &choice, &input.value) {
+            Ok((_, bytes)) => input.encoded = Some(bytes),
+            Err(why) => {
+                let Some(view) = s.source.produce_form(&topic, &input).await else {
+                    return no_topic(&topic);
+                };
+                return invalid(&why, &view);
+            }
+        }
+    }
     match s.source.produce(&topic, &input).await {
         ProduceResult::Sent(p) => {
             let (visible_lead, visible) = visibility(&p);

@@ -1436,3 +1436,76 @@ answers other machines`, what happened, why it stopped, the two ways forward (us
 loopback address; restart with `--console-unprotected`), the server's own words, and Try again (a reload: the console answers
 again once every ACL is deleted). No sidebar, top bar or toast behind it. Files: `web/e2e/tests/closed-to-network.spec.ts`, the
 bun test `web/src/api/closed.test.ts`.
+
+# The Schemas pages and the schema parts of the others (Phase 10, slice 10d)
+
+The console reads the schema registry in its own process (`crate::schemas::Schemas`, handed over by `doze-kafka`'s
+`registry.rs` before the console starts), never over HTTP to the address the registry serves. The codec (a record's payload
+read as JSON, JSON written as a payload) is `kafka_registry::codec`, one implementation per language behind
+`ParsedSchema::decode`/`encode` (REG-35 to REG-38).
+
+## CON-1500. Schemas says "off" with the reason when there is no registry
+The sidebar's Schemas item stays and its count says `off` when `ShellView.schemas` is null (Sc-14); `GET /api/v1/schemas` always
+answers, with `off: {title, reason, command}` (`--schema-registry=false`, the address taken, the records unreadable, a build
+without the `registry` feature) and the page shows it with the command that starts one; every other Schemas call answers 409
+`SCHEMAS_OFF`; Connect has no registry lines. Test: `without_a_registry_the_pages_say_why`.
+
+## CON-1501. The subjects list: search, type, soft-deleted, the topic a name points at
+`/schemas?q=&type=&deleted=1`: the subjects as a DataTable (type, latest version and id, versions, level with "(global)" when
+inherited, references, last registered), filters in the address; a soft-deleted subject only with the toggle. A subject's line
+names the topic its name points at (TopicNameStrategy `<topic>-value`/`-key`, TopicRecordNameStrategy `<topic>-<record>`).
+Tests: `subjects_are_registered_checked_diffed_configured_and_deleted`, `subjects_name_their_topics_by_the_strategies_clients_use`;
+file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1502. A subject's page: versions, the schema laid out, references both ways, where it is used
+`/schemas/subjects/<s>?version=&stored=1`: the versions newest first (who registered each and when; the console's own say "this
+console"), the version laid out one field or property a line (or as stored) with Copy, its references, the schemas that
+reference it, the other subjects holding its id, the Avro view with references written out, the level and mode, the topics its
+name points at. A subject that does not exist is `{missing}` in Confluent's words (40401). Test:
+`subjects_are_registered_checked_diffed_configured_and_deleted`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1503. Register checks as you type, in Confluent's words, with Go's one fix
+`/schemas/new?subject=`: `POST /api/v1/schemas/check` (stores nothing) answers `first`, `compatible`, `incompatible` (each reason
+with Confluent's type, path and sentence, against the versions the level calls for) or `invalid` (42201 and the parser's words).
+A field of a new Avro schema that old data lacks (READER_FIELD_MISSING_DEFAULT_VALUE at `/fields/N`) offers `Add "default": <zero>`,
+applied to the draft only. Registering a refused draft answers `refused` with status 409, code 409 and the same reasons; nothing is
+stored. Test: `subjects_are_registered_checked_diffed_configured_and_deleted`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1504. The diff of two versions and each level's verdict
+`/schemas/subjects/<s>/diff?from=&to=&layout=unified`: a line diff of the two schemas laid out (a changed field is one line),
+side by side or unified, the lines added and removed, and the registry's check of `to` following `from` at BACKWARD, FORWARD and
+FULL, stored nowhere. Tests: `a_changed_line_is_one_removed_and_one_added_and_the_rest_is_kept`,
+`subjects_are_registered_checked_diffed_configured_and_deleted`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1505. Levels, modes and deletes are the registry's own calls, refused in its words
+`?dialog=compatibility` sets a subject's level (or `default` to remove its own) and mode (READWRITE, READONLY; set only when it
+changes); `?dialog=delete-version` soft-deletes the version on screen, or deletes a soft-deleted one for good;
+`?dialog=delete-subject` soft-deletes, then deletes for good only with the subject's name typed (`CONFIRM` otherwise). A refusal
+(42205 read-only, 40407 permanent before soft) stays in the dialog with its status, code and sentence. The focus returns to the
+opener. Test: `subjects_are_registered_checked_diffed_configured_and_deleted`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1510. A record in the wire format is shown decoded with its schema
+A key or value that starts with byte 0 and a schema id is read with that schema (Avro binary to Avro's JSON, unions tagged;
+Protobuf by its message index to protojson; JSON Schema text, checked) in the Messages table (`AVRO · <id>` and the value on one
+line; a value the table kept only in part is named, not decoded), the tail, and the record Sheet (laid out, with the subject and
+version that hold the id, `<topic>-value` first, linked; a Bytes toggle). An id not registered says so (40403); bytes that do not
+fit say why; a JSON value that reads but does not fit its schema says why. Tests:
+`records_decode_with_their_schemas_and_produce_encodes`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1511. Try encodes a JSON value with a version, sending nothing
+`?dialog=try` on a subject: a value typed as JSON (starting from the schema's shape at zero values), checked and encoded as a
+serializer would (`POST /api/v1/schemas/try`): the size, the bytes as hex (magic byte, id, value) and the value read back; or why
+it does not fit. Tests: `records_decode_with_their_schemas_and_produce_encodes`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1512. Produce encodes with a subject, server-side, and shows what will be sent
+The Produce dialog has a Schema subject (starting on `<topic>-value` when the registry has it; "No schema" sends the bytes as
+typed): the value is typed as JSON, encoded with the subject's latest version on the server, and the preview shows the encoded
+bytes; a value that does not fit is `invalid` with the codec's words and nothing is sent. Test:
+`records_decode_with_their_schemas_and_produce_encodes`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1513. Topics, a topic's Schema tab and Connect name the registry
+The topics list has a Schema subject column while there is a registry (`TopicsResponse.subjects`: `<topic>-value`, else `-key`);
+a topic's Schema tab lists the subjects named for it and those whose ids its newest records carry, and the ids no subject holds;
+Connect has the registry's address and the serializer's `schema.registry.url` (with `basic.auth.*` under SASL), from the real
+flags. Tests: `subjects_are_registered_checked_diffed_configured_and_deleted`,
+`records_decode_with_their_schemas_and_produce_encodes`; file: `web/e2e/tests/schemas.spec.ts`.

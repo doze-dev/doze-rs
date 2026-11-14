@@ -258,6 +258,8 @@ fn tombstone_record() -> RecordView {
         text: "FV-BAN-X".to_owned(),
         clipped: false,
         preview: "FV-BAN-X".to_owned(),
+        framed: None,
+        schema: None,
     };
     v.value = Shown {
         kind: crate::model::Kind::Null,
@@ -265,6 +267,8 @@ fn tombstone_record() -> RecordView {
         text: String::new(),
         clipped: false,
         preview: String::new(),
+        framed: None,
+        schema: None,
     };
     v.headers.clear();
     v.producer = None;

@@ -55,6 +55,8 @@ pub(crate) struct Field {
     pub(crate) aliases: Vec<String>,
     pub(crate) ty: Ty,
     pub(crate) has_default: bool,
+    /// The default as written, for a value the console encodes without the field.
+    pub(crate) default: Option<Json>,
 }
 
 /// A parsed schema: its root type and every named type it and its references define.
@@ -286,6 +288,7 @@ impl Parser {
                 aliases: aliases(f)?,
                 ty,
                 has_default: default.is_some(),
+                default: default.cloned(),
             });
         }
         Ok(out)

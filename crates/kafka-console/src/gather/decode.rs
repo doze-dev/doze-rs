@@ -10,7 +10,7 @@
 //! - A table cell shows the first 47 characters on one line, or `binary · ` and the first 8 bytes in hex.
 
 use crate::format::{hex_dump, hex_prefix};
-use crate::model::{Kind, Shown};
+use crate::model::{Framed, Kind, Shown};
 
 /// How much of a text is shown.
 pub const TEXT_CAP: usize = 64 << 10;
@@ -78,6 +78,8 @@ pub fn shown(value: Option<&[u8]>, len: u64) -> Shown {
             text: String::new(),
             clipped: false,
             preview: String::new(),
+            framed: None,
+            schema: None,
         };
     };
     if len == 0 {
@@ -87,13 +89,22 @@ pub fn shown(value: Option<&[u8]>, len: u64) -> Shown {
             text: String::new(),
             clipped: false,
             preview: String::new(),
+            framed: None,
+            schema: None,
         };
     }
     let kept_all = u64::try_from(bytes.len()).is_ok_and(|n| n >= len);
-    match text_of(bytes, kept_all) {
+    let mut out = match text_of(bytes, kept_all) {
         Some(text) => as_text(text, len, kept_all),
         None => as_binary(bytes, len),
+    };
+    if bytes.len() >= 5 && bytes.first() == Some(&0) {
+        out.framed = Some(Framed {
+            bytes: bytes.to_vec(),
+            whole: kept_all,
+        });
     }
+    out
 }
 
 /// The text the bytes are, if they are UTF-8. A prefix cut in the middle of a character is still text up to there.
@@ -120,6 +131,8 @@ fn as_text(text: &str, len: u64, kept_all: bool) -> Shown {
             let head = prefix(text, PREVIEW_CHARS * 4);
             one_line(head, clipped || head.len() < text.len())
         },
+        framed: None,
+        schema: None,
     }
 }
 
@@ -132,6 +145,8 @@ fn as_binary(bytes: &[u8], len: u64) -> Shown {
         text: hex_dump(cut),
         clipped: u64::try_from(cut.len()).map_or(true, |n| n < len),
         preview: format!("binary · {hex}{}", if more || len > 8 { " …" } else { "" }),
+        framed: None,
+        schema: None,
     }
 }
 
