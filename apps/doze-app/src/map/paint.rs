@@ -24,7 +24,7 @@ use gpui::{
     prelude::*, px, quad, size,
 };
 
-use super::cache::{Cache, build, level, place};
+use super::cache::{CALL_WIDTH, Cache, build, level, place};
 use super::fade::blend;
 use super::{DETAIL_ZOOM, LABEL_ZOOM, MapView};
 use crate::theme::{Tokens, alpha, mix};
@@ -216,13 +216,15 @@ impl Scene {
             size: size(bounds.size.width, h),
         };
         window.paint_quad(gpui::fill(b, alpha(self.t.panel, 0.45)));
-        window.paint_quad(gpui::fill(
-            Bounds {
-                origin: b.origin,
-                size: size(b.size.width, px(1.)),
-            },
-            self.t.line2,
-        ));
+        // Its top rule is dashed, 1 px (Go `.band { border-top: 1px dashed var(--line2) }`), dashes as WebKit draws them.
+        let dash = px((3.0 * self.z).max(1.));
+        let y = top + px(0.5);
+        let mut rule = PathBuilder::stroke(px(1.)).dash_array(&[dash, dash]);
+        rule.move_to(point(b.origin.x, y));
+        rule.line_to(point(b.origin.x + b.size.width, y));
+        if let Ok(path) = rule.build() {
+            window.paint_path(path, self.t.line2);
+        }
     }
 
     /// Single calls: batched polylines up to [`DETAIL_ZOOM`], curves with heads above it. Past
@@ -243,7 +245,12 @@ impl Scene {
         if !self.quiet {
             self.across(o, window, lv, strength);
         }
-        let faded = alpha(self.t.line2, 0.6);
+        // A dimmed call: `line2` itself on a small map (Go `.edge.dim`); quieter past sixty cards, where there are many.
+        let faded = if large {
+            alpha(self.t.line2, 0.6)
+        } else {
+            self.t.line2
+        };
         let from = self.fades.lit_from;
         if lv < DETAIL_ZOOM {
             let of = |lit: Option<CardId>| {
@@ -270,9 +277,10 @@ impl Scene {
             };
             // The Go map's `.edge { transition: stroke .2s }`: a line changes colour, it does not pop.
             let color = blend(of(from), of(self.lit), self.pl);
-            self.cache.line(&self.l, e, lv, &mut |p, at| {
-                window.paint_path(place(p, self.z / at, o), color)
-            });
+            self.cache
+                .line(&self.l, e, lv, self.lit.is_some(), &mut |p, at| {
+                    window.paint_path(place(p, self.z / at, o), color)
+                });
         }
     }
 
@@ -288,15 +296,17 @@ impl Scene {
         let color = blend(of(self.fades.lit_from), of(self.lit), self.pl);
         for &e in &self.vis.edges {
             if self.l.edges.get(e).is_some_and(|x| x.across) {
-                self.cache.line(&self.l, e, lv, &mut |p, at| {
-                    window.paint_path(place(p, self.z / at, o), color)
-                });
+                self.cache
+                    .line(&self.l, e, lv, self.lit.is_some(), &mut |p, at| {
+                        window.paint_path(place(p, self.z / at, o), color)
+                    });
             }
         }
     }
 
     /// The focus card's own calls, on top of everything, at full strength: curves with heads at any zoom, built
-    /// fresh at the exact zoom (a card has a handful), at least 2 px wide and with a head that still shows far out.
+    /// fresh at the exact zoom (a card has a handful), Go's 1.6 wide (`.map .edge`, scaling with the map as Go's SVG
+    /// stroke does) and with a head that still shows far out.
     ///
     /// They fade: a selection's in over the dim's 200 ms (and the last selection's out), the pointer's card's in over
     /// the hover's 120 ms as the last card's fade out.
@@ -306,7 +316,7 @@ impl Scene {
                 return;
             }
             let z = self.z;
-            let width = 1.5_f32.max(2.0 / z);
+            let width = CALL_WIDTH;
             let head = 1.0_f64.max(0.7 / f64::from(z));
             for edge in self.l.edges.iter().filter(|e| e.from == c || e.to == c) {
                 for p in build(&edge.path, z, width, head) {

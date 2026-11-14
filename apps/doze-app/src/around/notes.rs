@@ -85,7 +85,8 @@ pub(super) fn flush(cx: &mut App) {
 fn post(cx: &mut App, note: Note) {
     let Some(a) = around(cx) else { return };
     let n = native(&note, &a.list);
-    let bundled = a.bundled;
+    // A hands-off run (tests, shots, scripts) says nothing to the system's notification centre.
+    let bundled = a.bundled && !crate::handsoff::on();
     record(&n, bundled);
     if bundled {
         a.posted.retain(|(tag, _)| *tag != n.tag);

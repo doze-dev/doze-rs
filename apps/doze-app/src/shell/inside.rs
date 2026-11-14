@@ -21,6 +21,34 @@ pub(crate) enum Inside {
 }
 
 impl Root {
+    /// Tells the instance page on screen whether its stack's doze.hcl loads (`broken`: the loader's words, by stack
+    /// folder, for the running stacks), so it says so as Go's does.
+    pub(super) fn tell_broken(
+        &mut self,
+        broken: &std::collections::HashMap<String, String>,
+        now: std::time::SystemTime,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(Inside::Instance(v)) = &self.inside else {
+            return;
+        };
+        let dir = self
+            .hub
+            .stack(&v.read(cx).key)
+            .map(|st| st.dir.clone())
+            .unwrap_or_default();
+        let said = broken.get(&dir).map(|err| {
+            let file = std::path::Path::new(&dir).join("doze.hcl");
+            doze_desk::overview::config_error(&file, err, None, now).broken()
+        });
+        v.update(cx, |v, cx| {
+            if v.broken != said {
+                v.broken = said;
+                cx.notify();
+            }
+        });
+    }
+
     /// Opens the page of the instance `name` of the stack shown.
     pub(crate) fn open_instance(
         &mut self,
@@ -86,6 +114,10 @@ impl Root {
                     this.leave_inside(window, cx);
                 }
                 InstanceEvent::Say(s) => this.say(s.clone(), cx),
+                InstanceEvent::Tab => {
+                    let screen = this.screen.clone();
+                    this.retitle(&screen, window, cx);
+                }
             },
         )
         .detach();

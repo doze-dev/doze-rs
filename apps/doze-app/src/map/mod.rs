@@ -24,6 +24,7 @@ mod chrome;
 mod detail;
 pub(crate) mod fade;
 mod flight;
+mod keys;
 mod lens;
 mod paint;
 mod regions;
@@ -107,6 +108,10 @@ pub(crate) struct MapView {
     /// The minimap is wanted (it shows only when the drawing is well past the viewport).
     pub(crate) minimap: bool,
     pub(crate) search: Option<Entity<InputState>>,
+    /// The keys are in the find box, in the tile list's filter: their frames take the accent (Go `.filter`).
+    pub(crate) keys_in: (bool, bool),
+    /// Each card's Tab stop, by name (Go: cards are buttons), and the card with the keys.
+    pub(crate) card_keys: (HashMap<String, FocusHandle>, Option<CardId>),
     pub(crate) hits: Vec<CardId>,
     /// The highlighted hit.
     pub(crate) hit: usize,
@@ -146,6 +151,8 @@ impl MapView {
             hover: None,
             minimap: true,
             search: None,
+            keys_in: (false, false),
+            card_keys: (HashMap::new(), None),
             hits: Vec::new(),
             hit: 0,
             viewport: Rc::default(),

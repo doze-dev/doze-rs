@@ -5,7 +5,7 @@
 //! The switch, the menu and the keys act through `crate::act` (M2): a busy row says what it is doing.
 
 mod act;
-mod menu;
+pub(crate) mod menu;
 mod parts;
 mod rows;
 
@@ -19,7 +19,7 @@ use gpui::{
     prelude::*, px,
 };
 
-use crate::actions::{MoveDown, MoveUp, OpenStack, RemoveStack, ToggleStack};
+use crate::actions::{CloseOverlay, MoveDown, MoveUp, OpenStack, RemoveStack, ToggleStack};
 use crate::facts::Facts;
 use crate::kit::{chip_of, keys_bar};
 use crate::theme::{Density, tokens};
@@ -50,6 +50,12 @@ pub(crate) struct LibraryView {
     pub(crate) density: Density,
     hints: Hints,
     others: (Option<Instant>, Vec<Other>),
+    /// What stacks left behind, as the window's look last found it, and whether Repair has something to do here.
+    pub(crate) left: usize,
+    pub(crate) repairable: bool,
+    pub(crate) repairing: bool,
+    /// Where doze is, for the PATH part (read once).
+    at: Option<doze_desk::settings::DozeAt>,
     pub(crate) focus: FocusHandle,
 }
 
@@ -78,17 +84,37 @@ impl LibraryView {
                 connected,
             },
             others: (None, Vec::new()),
+            left: 0,
+            repairable: false,
+            repairing: false,
+            at: None,
             focus: cx.focus_handle(),
         };
         v.refresh(cx);
         v
     }
 
+    /// Whether Repair has something to do here, and the app can ask for the password (Go `repairable`).
+    fn repairable_now(&mut self, live: bool, doctor: Option<doze_desk::library::Doctor>) -> bool {
+        let at = self
+            .at
+            .get_or_insert_with(|| crate::settings::doze_at(!live))
+            .clone();
+        live && doze_os::privilege::admin_supported()
+            && doctor.is_some_and(|d| {
+                doze_desk::settings::machine::fixable(&doze_desk::settings::machine::parts(
+                    &d,
+                    &at,
+                    crate::VERSION,
+                ))
+            })
+    }
+
     /// Reads every stack again; redraws only if the page changed.
     pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
         let stacks = self.hub.stacks();
         let home = self.hub.home().to_path_buf();
-        let (shapes, doctor, unset) = self.facts.update(cx, |f, cx| {
+        let (shapes, doctor, unset, left, live) = self.facts.update(cx, |f, cx| {
             let shapes: Vec<_> = stacks
                 .iter()
                 .map(|s| if s.running { None } else { f.shape(&s.dir, cx) })
@@ -99,7 +125,8 @@ impl LibraryView {
                 .filter(|s| f.setup(s, &home, cx).is_some())
                 .map(|s| s.key.dir().display().to_string())
                 .collect();
-            (shapes, f.doctor(&stacks, cx), unset)
+            let left = f.leftovers(&home, &stacks, cx).map_or(0, |l| l.len());
+            (shapes, f.doctor(&stacks, cx), unset, left, f.live())
         });
         let shape_of = |st: &StackView| {
             stacks
@@ -109,7 +136,19 @@ impl LibraryView {
         };
         let mut lib = library(&stacks, &shape_of, self.hints, self.hub.now());
         doze_desk::library::unready(&mut lib, &unset);
-        lib.machine = doctor.map(|d| machine(&d, &stacks)).unwrap_or_default();
+        // An app's or a service's pill is the registry's URL for its name: port-less behind the front door (Go).
+        self.facts.update(cx, |f, _| {
+            doze_desk::library::fronted(&mut lib, |host| f.url_for(&home, host));
+        });
+        lib.machine = doctor
+            .as_ref()
+            .map(|d| machine(d, &stacks))
+            .unwrap_or_default();
+        let repairable = self.repairable_now(live, doctor);
+        if (left, repairable) != (self.left, self.repairable) {
+            (self.left, self.repairable) = (left, repairable);
+            cx.notify();
+        }
         if self.others.0.is_none_or(|at| at.elapsed() > OTHERS_EVERY) {
             self.others = (Some(Instant::now()), others(self.hub.home()));
         }
@@ -235,6 +274,14 @@ impl Render for LibraryView {
             .flex()
             .flex_col()
             .size_full()
+            // Esc closes an open ⋯ menu and nothing else (Go: the menu owns the keyboard while open).
+            .on_action(cx.listener(|this, _: &CloseOverlay, _, cx| {
+                if this.menu.take().is_some() {
+                    cx.notify();
+                } else {
+                    cx.propagate();
+                }
+            }))
             .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.step(-1, cx)))
             .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.step(1, cx)))
             .on_action(cx.listener(|this, _: &OpenStack, _, cx| {
@@ -246,7 +293,12 @@ impl Render for LibraryView {
             .on_action(cx.listener(|this, _: &RemoveStack, _, cx| this.remove_selected(cx)))
             .child(parts::head(&t, self, cx))
             .child(body)
-            .child(parts::machine_line(&t, &self.lib.machine, cx))
+            .child(parts::machine_line(
+                &t,
+                &self.lib.machine,
+                (self.left, self.repairable, self.repairing),
+                cx,
+            ))
             .child(keys_bar(
                 &t,
                 &keys,

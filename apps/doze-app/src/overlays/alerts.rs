@@ -11,7 +11,7 @@ use gpui::{
 use crate::kit::{Btn, btn};
 use crate::shell::Root;
 use crate::theme::{Motion, Tokens, alpha, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 /// Fades `el` in, unless motion is reduced: an alert as Go's toasts `rise` (220 ms from 8 px below), the away strip
 /// as Go's `.away` settles (240 ms from 6 px above).
@@ -112,7 +112,7 @@ fn alert(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpui::Div
                         .whitespace_nowrap()
                         .child(SharedString::from(it.detail.clone()));
                     d.child(if it.mono {
-                        line.font_family(MONO_FAMILY).text_size(px(ty::XS_UP))
+                        line.mono_face().text_size(px(ty::XS_UP))
                     } else {
                         line
                     })
@@ -218,7 +218,7 @@ fn away_row(
             div()
                 .w(px(84.))
                 .flex_none()
-                .font_family(MONO_FAMILY)
+                .mono_face()
                 .text_size(px(ty::XS_UP))
                 .text_color(t.dim)
                 .child(SharedString::from(e.at.clone())),

@@ -7,10 +7,10 @@ use doze_control::Verb;
 use doze_desk::act::{Busy, Failure, StackAction};
 use gpui::{AnyElement, Context, div, prelude::*, px};
 
-use super::{OverviewView, all_rows};
+use super::{OverviewView, View, all_rows};
 use crate::kit::{Btn, btn, s};
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 impl OverviewView {
     fn acts(
@@ -113,7 +113,11 @@ impl OverviewView {
 
     /// Space: the selected row's switch.
     pub(super) fn toggle_selected(&mut self, cx: &mut Context<Self>) {
-        if let Some(n) = self.selected.clone() {
+        // On the Map, a card reached by Tab and not selected yet is the one space acts on (Go flow.tsx).
+        let keyed = (self.view == View::Map)
+            .then(|| self.map.read(cx).keyed_card())
+            .flatten();
+        if let Some(n) = keyed.or_else(|| self.selected.clone()) {
             self.toggle_row(&n, cx);
         }
     }
@@ -245,11 +249,11 @@ fn printed(t: &Tokens, f: &Failure) -> gpui::Div {
         .bg(t.well)
         .border_1()
         .border_color(t.line)
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::XS_UP))
         .line_height(px(ty::LH_17))
         .text_color(t.dim)
-        .children(f.lines.iter().rev().take(8).rev().map(|l| {
+        .children(f.lines.iter().rev().take(40).rev().map(|l| {
             div().child(if l.is_empty() {
                 " ".to_owned()
             } else {
@@ -289,25 +293,28 @@ fn failure_words(
                 .child(s(&f.what)),
         )
         .child(div().text_size(px(ty::SM)).text_color(tone).child(line))
-        .child(
-            div()
-                .id("fail-printed")
-                .mt(px(4.))
-                .text_size(px(ty::XS_UP))
-                .text_color(t.dim)
-                .cursor_pointer()
-                .hover(|d| d.text_color(t.text))
-                .child(if open {
-                    "▾ What doze printed"
-                } else {
-                    "▸ What doze printed"
-                })
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.printed = !this.printed;
-                    cx.notify();
-                })),
-        )
-        .when(open, |d| d.child(printed(t, f)))
+        // Go folds what doze printed away only when there is something: no lines, no fold.
+        .when(!f.lines.is_empty(), |d| {
+            d.child(
+                div()
+                    .id("fail-printed")
+                    .mt(px(4.))
+                    .text_size(px(ty::XS_UP))
+                    .text_color(t.dim)
+                    .cursor_pointer()
+                    .hover(|d| d.text_color(t.text))
+                    .child(if open {
+                        "▾ What doze printed"
+                    } else {
+                        "▸ What doze printed"
+                    })
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.printed = !this.printed;
+                        cx.notify();
+                    })),
+            )
+        })
+        .when(open && !f.lines.is_empty(), |d| d.child(printed(t, f)))
 }
 
 /// Edit doze.hcl (a mistake in it), Try again (a stopped stack), Copy, Dismiss.
@@ -343,7 +350,10 @@ fn failure_acts(
     let lines = f.lines.join("\n");
     let copy = Box::new(cx.listener(move |this, _, _, cx| {
         crate::outward::copy(cx, &lines);
-        this.say("copied what doze printed", cx);
+        this.say(
+            &doze_desk::copied::copied(doze_desk::copied::WHAT_IT_SAID),
+            cx,
+        );
     }));
     let dismiss = Box::new(cx.listener(|this, _, _, cx| this.dismiss_failure(cx)));
     acts.child(btn(t, "fail-copy", "Copy", "", Btn::Quiet, Some(copy)))
@@ -391,4 +401,32 @@ pub(super) fn observe_acts(cx: &mut Context<OverviewView>) {
         cx.notify();
     })
     .detach();
+}
+
+impl crate::library::menu::MenuHost for OverviewView {
+    fn menu_act(&mut self, _: &str, action: StackAction, cx: &mut Context<Self>) {
+        self.menu = false;
+        self.stack_act(action, cx);
+    }
+
+    fn menu_choose(&mut self, _: &str, cx: &mut Context<Self>) {
+        self.menu = false;
+        self.choose_start(cx);
+    }
+
+    fn menu_reveal(&mut self, dir: &str, file: bool, cx: &mut Context<Self>) {
+        self.menu = false;
+        let dir = std::path::Path::new(dir);
+        if file {
+            crate::outward::open_path(cx, &dir.join("doze.hcl"));
+        } else {
+            crate::outward::reveal(cx, dir);
+        }
+        cx.notify();
+    }
+
+    fn menu_close(&mut self, cx: &mut Context<Self>) {
+        self.menu = false;
+        cx.notify();
+    }
 }

@@ -190,14 +190,14 @@ impl Tokens {
         })
     }
 
-    /// The scrim under an overlay: the palette's darkest ink, a third opaque in the dark (`.scrim.top`), lighter in
-    /// the light.
+    /// The scrim under the palette: Go `.scrim.top`, rgba(9, 8, 14, .35), the same in every theme and mode.
     pub(crate) fn scrim(&self) -> Hsla {
-        if self.dark {
-            alpha(mix(self.well, gpui::black(), 50.), 0.42)
-        } else {
-            alpha(self.bright, 0.28)
-        }
+        scrim(0.35)
+    }
+
+    /// The scrim under a dialog: Go `.scrim`, rgba(9, 8, 14, .62), the same in every theme and mode.
+    pub(crate) fn dialog_scrim(&self) -> Hsla {
+        scrim(0.62)
     }
 
     /// A tone of the words as a color.
@@ -214,7 +214,7 @@ impl Tokens {
 }
 
 /// One theme of the file: gpui-component's config and doze's tokens.
-fn load(palette: Palette, dark: bool) -> anyhow::Result<(ThemeConfig, Tokens)> {
+pub(crate) fn load(palette: Palette, dark: bool) -> anyhow::Result<(ThemeConfig, Tokens)> {
     let set: Set = serde_json::from_str(THEMES).context("themes/doze.json")?;
     let name = format!(
         "doze {} {}",
@@ -282,6 +282,17 @@ pub(crate) fn mix(a: Hsla, b: Hsla, pct: f32) -> Hsla {
     .into()
 }
 
+/// Go's scrim ink, rgba(9, 8, 14), at opacity `a`.
+fn scrim(a: f32) -> Hsla {
+    Rgba {
+        r: 9.0 / 255.0,
+        g: 8.0 / 255.0,
+        b: 14.0 / 255.0,
+        a,
+    }
+    .into()
+}
+
 /// The color at opacity `a`.
 pub(crate) fn alpha(c: Hsla, a: f32) -> Hsla {
     Hsla { a, ..c }
@@ -290,6 +301,29 @@ pub(crate) fn alpha(c: Hsla, a: f32) -> Hsla {
 #[cfg(test)]
 mod tests {
     use super::{Palette, load};
+
+    #[test]
+    fn the_scrims_are_gos_one_ink_in_every_theme() {
+        for p in Palette::ALL {
+            for dark in [true, false] {
+                let (_, t) = load(p, dark).unwrap();
+                let (s, d) = (
+                    gpui::Rgba::from(t.scrim()),
+                    gpui::Rgba::from(t.dialog_scrim()),
+                );
+                assert_eq!(
+                    (
+                        (s.r * 255.).round(),
+                        (s.g * 255.).round(),
+                        (s.b * 255.).round()
+                    ),
+                    (9., 8., 14.)
+                );
+                assert!((s.a - 0.35).abs() < 1e-3 && (d.a - 0.62).abs() < 1e-3);
+                assert_eq!(((d.r * 255.).round(), (d.b * 255.).round()), (9., 14.));
+            }
+        }
+    }
 
     #[test]
     fn every_palette_loads_in_both_modes() {

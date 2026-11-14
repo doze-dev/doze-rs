@@ -13,7 +13,8 @@ use crate::instance::ui::state_mark;
 use crate::kit::{chip_of, s, word_line};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, dot, icon, switch, tracked};
+use crate::widgets::{Mono as _, dot, icon, switch, tip, tracked};
+use doze_desk::overview::titles;
 
 /// Tiles to a row at the window's width.
 pub(super) fn per_row(v: &OverviewView) -> usize {
@@ -93,23 +94,8 @@ pub(super) fn row_switch(
             .on_click(say)
             .into_any_element();
     }
-    if r.paused {
-        // `.lock`: the glyph in a dashed pill the size of a switch; only the file brings it back.
-        return div()
-            .flex_none()
-            .w(px(34.))
-            .h(px(18.))
-            .flex()
-            .items_center()
-            .justify_center()
-            .rounded(px(9.))
-            .border_1()
-            .border_dashed()
-            .border_color(t.line2)
-            .text_size(px(ty::BASE))
-            .text_color(t.dim)
-            .child(r.look.glyph)
-            .into_any_element();
+    if r.paused && !r.down {
+        return lock(t, id, r.look.glyph).into_any_element();
     }
     div()
         .id(id)
@@ -121,6 +107,7 @@ pub(super) fn row_switch(
             false,
             r.off || r.frozen,
         ))
+        .tooltip(tip(titles::switch(r)))
         .when(!r.frozen, |d| d.cursor_pointer().on_click(say))
         .probe(
             format!("sw-{}", r.name),
@@ -129,8 +116,10 @@ pub(super) fn row_switch(
         .into_any_element()
 }
 
-/// `.toolbar .filter`: the filter box and its key.
+/// `.toolbar .filter`: the filter box and its key. With the keys in it, its frame takes the accent's tint, easing
+/// over 120 ms (Go `.filter:focus-within`, `transition: border-color 120ms`).
 pub(super) fn filter(t: &Tokens, v: &OverviewView) -> impl IntoElement {
+    let (frame, moving) = crate::widgets::input_frame(t, "overview/filter", v.filter_on);
     div().flex().flex_none().px(px(28.)).pb(px(14.)).child(
         div()
             .flex()
@@ -142,8 +131,9 @@ pub(super) fn filter(t: &Tokens, v: &OverviewView) -> impl IntoElement {
             .pr(px(8.))
             .rounded(px(7.))
             .border_1()
-            .border_color(t.line2)
+            .border_color(frame)
             .bg(t.well)
+            .child(crate::motion::tick(moving))
             .child(
                 div().flex_1().child(
                     Input::new(&v.filter)
@@ -157,7 +147,7 @@ pub(super) fn filter(t: &Tokens, v: &OverviewView) -> impl IntoElement {
                     .px(px(5.))
                     .rounded(px(4.))
                     .bg(t.sel)
-                    .font_family(MONO_FAMILY)
+                    .mono_face()
                     .text_size(px(ty::XS))
                     .line_height(px(ty::LH_15))
                     .font_weight(ty::SEMIBOLD)
@@ -194,7 +184,7 @@ fn group_head(t: &Tokens, title: &str, what: &str) -> impl IntoElement {
 fn tile_top(
     t: &Tokens,
     r: &Row,
-    (dim, stack): (bool, &str),
+    (dim, stack, keys): (bool, &str, (Option<&gpui::FocusHandle>, bool)),
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let name = div()
@@ -211,7 +201,7 @@ fn tile_top(
         .gap(px(8.))
         .min_w_0()
         .child(row_dot(t, r))
-        .child(name)
+        .child(super::choose::name_ring(t, name, keys))
         .when(r.pinned, |d| d.child(icon("icons/pin.svg", 13., t.accent)))
         // The lock stands where the switch would (the mark by the name already says ⊘).
         .child(div().flex_1())
@@ -232,7 +222,7 @@ fn tile_state(t: &Tokens, r: &Row) -> impl IntoElement {
 fn tile(
     t: &Tokens,
     r: &Row,
-    (selected, stack): (bool, &str),
+    (selected, stack, keys): (bool, &str, (Option<&gpui::FocusHandle>, bool)),
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let off = !r.on && r.kind != "task";
@@ -282,7 +272,7 @@ fn tile(
         .bg(bg)
         .when(off, |d| d.border_dashed())
         .child(crate::motion::tick(b_moving || g_moving))
-        .child(tile_top(t, r, (off && !selected, stack), cx))
+        .child(tile_top(t, r, (off && !selected, stack, keys), cx))
         .child(tile_state(t, r))
         .child(super::foot::tile_foot(t, r, cx))
         .probe(format!("tile-{}", r.name), r.name.clone())
@@ -336,6 +326,7 @@ pub(super) fn view(
                     (
                         v.selected.as_deref() == Some(r.name.as_str()),
                         v.home.key.as_str(),
+                        v.name_keys(&r.name),
                     ),
                     cx,
                 ));
@@ -362,4 +353,29 @@ pub(super) fn view(
         .min_h_0()
         .child(filter(t, v))
         .child(body)
+}
+
+/// `.lock`: the glyph in a dashed pill the size of a switch (34×18), titled "enabled = false in doze.hcl: only the
+/// file brings it back". A tile's and the instance head's paused switch.
+pub(crate) fn lock(
+    t: &Tokens,
+    id: impl Into<gpui::ElementId>,
+    glyph: &'static str,
+) -> gpui::Stateful<gpui::Div> {
+    div()
+        .id(id)
+        .tooltip(tip(titles::LOCK))
+        .flex_none()
+        .w(px(34.))
+        .h(px(18.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(px(9.))
+        .border_1()
+        .border_dashed()
+        .border_color(t.line2)
+        .text_size(px(ty::BASE))
+        .text_color(t.dim)
+        .child(glyph)
 }

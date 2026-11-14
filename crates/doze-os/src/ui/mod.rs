@@ -152,3 +152,24 @@ pub fn dock_badge(label: Option<&str>) {
 pub fn dock_badge_now() -> Option<String> {
     imp::dock_badge_now()
 }
+
+/// Asks the system, once, for leave to post notifications (Alert and Sound), so the first one is not lost to the
+/// question. Only from an app bundle (the notification centre refuses a bare binary); a no-op elsewhere and when the
+/// person already answered.
+pub fn ask_notifications() {
+    imp::ask_notifications();
+}
+
+/// Hands off (a test, a shot, the bench or a scripted run): every titled window of this app lets the pointer through
+/// to whatever is under it, so a person's clicks on the screen never reach it. Returns how many windows it set. A
+/// no-op where there is no AppKit.
+pub fn hands_off() -> usize {
+    imp::hands_off()
+}
+
+/// Whether this app holds the person's input: it is the active app (it gets the keyboard), and how many of its
+/// windows are key. A hands-off run checks both are none.
+#[must_use]
+pub fn holds_input() -> (bool, usize) {
+    imp::holds_input()
+}

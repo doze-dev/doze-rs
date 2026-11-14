@@ -170,3 +170,32 @@ fn without_a_prompt_the_machine_parts_say_how() {
     let done = clear("route:stale.test", &m, &mut Record::default());
     assert!(done.bad && done.said.contains("doze doctor --fix"));
 }
+
+#[test]
+fn a_shown_clean_up_touches_only_what_it_showed() {
+    let w = world();
+    let m = look(&w, true);
+    let all = chosen("all", &m);
+    assert!(all.contains(&"pid:101".to_owned()), "{all:?}");
+    assert!(
+        !all.iter().any(|id| id.starts_with("dir:")),
+        "data is never in Clean up"
+    );
+    // Shown: one process only. A process, routes or the authority found since are not touched.
+    let mut hands = Record::default();
+    let done = clear_these(&["pid:101".into(), "pid:102".into()], &m, &mut hands);
+    assert!(!done.bad, "{done:?}");
+    assert!(hands.asked.contains(&"term 101".to_owned()));
+    assert!(hands.asked.contains(&"term 102".to_owned()));
+    assert!(
+        !hands.asked.iter().any(|a| a.starts_with("admin")),
+        "nothing shown asked for root: {:?}",
+        hands.asked
+    );
+    let mut none = Record::default();
+    assert_eq!(
+        clear_these(&[], &m, &mut none).said,
+        "nothing was left behind to clear"
+    );
+    assert!(none.asked.is_empty());
+}

@@ -87,6 +87,8 @@ pub struct Looked {
     pub unbindable: BTreeSet<u16>,
     /// The domains not set up on this machine.
     pub untrusted: Vec<String>,
+    /// The app can ask for the administrator's password (Go `s.admin != nil`): the domains' check offers Set up.
+    pub admin: bool,
 }
 
 impl Looked {
@@ -113,6 +115,7 @@ impl Looked {
             held,
             unbindable,
             untrusted,
+            admin: false,
         }
     }
 }
@@ -315,11 +318,17 @@ fn domains_check(p: &mut Preflight, name: &str, set: &Starting<'_>, looked: &Loo
         detail: format!(
             "{name} starts anyway; its .doze names answer until it is. This waits in Needs you."
         ),
-        fixes: vec![Fix {
-            label: "Copy doze trust".into(),
-            kind: FixKind::Repair,
-            primary: false,
-        }],
+        // Go offers Set up only where it can ask for the password; elsewhere the check stands alone (Needs you has
+        // the command).
+        fixes: if looked.admin {
+            vec![Fix {
+                label: "Set up (one password)".into(),
+                kind: FixKind::Repair,
+                primary: false,
+            }]
+        } else {
+            Vec::new()
+        },
         ..PreCheck::default()
     });
 }

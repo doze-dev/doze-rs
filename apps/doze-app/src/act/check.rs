@@ -79,7 +79,9 @@ fn look(hub: &Hub, ports: &[u16], untrusted: Vec<String>) -> Looked {
         .iter()
         .map(|(a, b, p)| (a.as_str(), b.as_str(), *p))
         .collect();
-    Looked::look(ports.iter().copied(), &refs, untrusted)
+    let mut l = Looked::look(ports.iter().copied(), &refs, untrusted);
+    l.admin = doze_os::privilege::admin_supported();
+    l
 }
 
 /// Stops `pid` if it still holds one of `ports` and is not doze's; says why not otherwise.
@@ -249,10 +251,8 @@ impl Acts {
     pub(crate) fn fix(&mut self, c: &Check, kind: &FixKind, cx: &mut Context<Self>) {
         match kind {
             FixKind::Edit(path) => crate::outward::open_url(cx, &format!("file://{path}")),
-            FixKind::Repair => {
-                crate::outward::copy(cx, "doze trust");
-                self.say("copied doze trust: run it in a terminal (one password) to set this Mac's names up", false, cx);
-            }
+            // The run sheet, over the page: the machine's setup, shown first.
+            FixKind::Repair => cx.emit(ActsEvent::Repair),
             FixKind::Remove => self.stack(&c.key, StackAction::Remove, cx),
             FixKind::Without(n) => {
                 let names: Vec<String> = c.names.iter().filter(|x| *x != n).cloned().collect();

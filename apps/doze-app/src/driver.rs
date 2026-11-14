@@ -158,6 +158,8 @@ pub(crate) fn start(cx: &mut App) {
                 continue;
             }
             note("step", &format!("{}: {line}", n + 1));
+            // Before each step: the run still holds none of the owner's input, or it stops here.
+            cx.update(crate::handsoff::recheck);
             if !play(line, cx).await {
                 break;
             }
@@ -361,7 +363,7 @@ fn send(cx: &mut AsyncApp, ev: PlatformInput) {
     cx.update(|cx| {
         if let Some(h) = cx.try_global::<crate::app::State>().and_then(|s| s.window) {
             let _ = cx.update_window(h.into(), |_, window, cx| {
-                window.dispatch_event(ev, cx);
+                crate::handsoff::sending(|| window.dispatch_event(ev, cx));
             });
         }
     });
@@ -376,7 +378,7 @@ fn key(cx: &mut AsyncApp, keys: &str) {
         if let Some(h) = cx.try_global::<crate::app::State>().and_then(|s| s.window) {
             let _ = cx.update_window(h.into(), |_, window, cx| {
                 let focused = window.focused(cx).is_some();
-                let handled = window.dispatch_keystroke(k, cx);
+                let handled = crate::handsoff::sending(|| window.dispatch_keystroke(k, cx));
                 note(
                     "keyed",
                     &format!(

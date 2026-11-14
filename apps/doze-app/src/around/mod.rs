@@ -95,6 +95,8 @@ pub(crate) fn start(cx: &mut App, hub: &Hub, mode: &crate::facts::Mode) {
     let bundled = bundled();
     if bundled {
         cx.on_system_notification_response(notes::respond);
+        // NOTE-05: asked once, at start, as Go did; not with the first note, which would be lost to the question.
+        doze_os::ui::ask_notifications();
     }
     cx.set_global(Around {
         hub: hub.clone(),
@@ -145,8 +147,8 @@ fn open_later(cx: &mut App) {
 }
 
 /// Acting raised a question, a sheet or a folder to show: with no window open it came from the menu bar or a
-/// notification, so the window opens on the stack and asks there. With a window open the window hears it itself;
-/// it is brought forward.
+/// notification, so the window opens on the stack and asks there. With a window open the window hears it itself; when
+/// it came from outside, the window is brought forward onto the stack's page.
 fn asked(acts: gpui::Entity<Acts>, ev: &ActsEvent, cx: &mut App) {
     let had = cx
         .try_global::<crate::app::State>()
@@ -156,7 +158,7 @@ fn asked(acts: gpui::Entity<Acts>, ev: &ActsEvent, cx: &mut App) {
         ActsEvent::Ask(a) => a.key.clone(),
         ActsEvent::Check(c) => Some(c.key.clone()),
         ActsEvent::Start(k, _) => Some(k.clone()),
-        ActsEvent::Open(_) => None,
+        ActsEvent::Open(_) | ActsEvent::Repair => None,
     };
     let outside = around(cx)
         .and_then(|a| a.outside_until.take())
@@ -168,11 +170,15 @@ fn asked(acts: gpui::Entity<Acts>, ev: &ActsEvent, cx: &mut App) {
     let Some(h) = crate::app::open(cx) else {
         return;
     };
+    // From the menu bar or a notification, the window shows the stack's page and asks there, open already or not (Go
+    // `AskUp` then `open(dir)`).
+    if let Some(k) = key {
+        let _ = h.update(cx, |root, window, cx| {
+            root.show_key_under_ask(k, window, cx)
+        });
+    }
     if had {
         return;
-    }
-    if let Some(k) = key {
-        let _ = h.update(cx, |root, window, cx| root.show_key(k, window, cx));
     }
     // The window is new: its root hears acting from now on, so it is told again.
     let ev = ev.clone();

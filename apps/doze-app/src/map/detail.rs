@@ -82,7 +82,12 @@ pub(crate) fn search_box(
         .bg(t.panel)
         .text_size(px(ty::SM_UP))
         .shadow(vec![shadow(t)])
-        .child(Input::new(input))
+        .child(crate::widgets::framed_input(
+            t,
+            "map/find",
+            m.keys_in.0,
+            Input::new(input),
+        ))
         .child(list);
     enter(panel, "map-find-in", Motion::of(cx), 0.0, -1.0)
 }

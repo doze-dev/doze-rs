@@ -113,6 +113,16 @@ fn show(cx: &mut App, it: &Item) {
 pub(super) fn press(cx: &mut App, it: &Item, f: &Fix) -> bool {
     match outside(it, f) {
         Outside::Page => return false,
+        Outside::Clean => {
+            if let Some(h) = crate::app::open(cx) {
+                let _ = h.update(cx, |root, window, cx| {
+                    root.open_settings(Some(crate::settings::Section::Machine), false, window, cx);
+                    if let Some(s) = root.pages.settings.clone() {
+                        s.update(cx, |s, cx| s.clear("all", cx));
+                    }
+                });
+            }
+        }
         Outside::Verb(k, name, v) => acts(cx, |a, cx| a.run_verbs(&k, v, vec![name], cx)),
         Outside::Holder(k, name, pid) => acts(cx, |a, cx| a.stop_holder_for(&k, &name, pid, cx)),
         Outside::Stack(k, action) => acts(cx, |a, cx| a.stack(&k, action, cx)),

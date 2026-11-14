@@ -1,10 +1,11 @@
 //! Settings' slow parts, off the UI thread: the login item, Repair, the look for leftovers and clearing them, the
 //! update check. A fixture's source acts on nothing: its machine is made up (`Staged`), and its buttons say so.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
+use doze_desk::settings::Job;
 use doze_desk::settings::leftovers::{self, Cleared};
-use doze_desk::settings::repair::{self, Fail, Hands};
+use doze_desk::settings::repair;
 use doze_desk::settings::update::{self, Update};
 use doze_desk::settings::{DozeAt, SystemHands};
 use gpui::Context;
@@ -27,7 +28,7 @@ pub(super) fn login_item(fixture: bool) -> Option<PathBuf> {
 }
 
 /// Where the `doze` is: a fixture's is where Homebrew puts it.
-pub(super) fn doze_at(fixture: bool) -> DozeAt {
+pub(crate) fn doze_at(fixture: bool) -> DozeAt {
     if fixture {
         return DozeAt {
             on_path: Some("/opt/homebrew/bin/doze".into()),
@@ -40,7 +41,32 @@ pub(super) fn doze_at(fixture: bool) -> DozeAt {
 
 /// The doze the app's own login item starts: this program, in the menu bar only.
 fn this_app() -> PathBuf {
-    std::env::current_exe().unwrap_or_else(|_| PathBuf::from("doze-app"))
+    let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("doze-app"));
+    stable(&exe, std::env::var_os("PATH").as_deref())
+}
+
+/// The path to write into the login item (Go `autostart.Stable`): the program itself inside an app bundle, else the
+/// same program found on the `PATH` when it is the same file, so an upgrade into a new folder (Homebrew's Cellar) does
+/// not leave the item pointing at a version that is gone.
+fn stable(exe: &std::path::Path, path: Option<&std::ffi::OsStr>) -> PathBuf {
+    if exe.to_string_lossy().contains(".app/Contents/MacOS/") {
+        return exe.to_path_buf();
+    }
+    let Some(name) = exe.file_name() else {
+        return exe.to_path_buf();
+    };
+    let on_path = path
+        .map(|p| std::env::split_paths(p).collect::<Vec<_>>())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|d| d.join(name))
+        .find(|p| p.is_file());
+    match on_path {
+        Some(p) if std::fs::canonicalize(&p).ok() == std::fs::canonicalize(exe).ok() => {
+            std::path::absolute(&p).unwrap_or(p)
+        }
+        _ => exe.to_path_buf(),
+    }
 }
 
 impl SettingsView {
@@ -55,7 +81,18 @@ impl SettingsView {
         };
         let on = !self.login;
         match doze_os::autostart::set(&path, on, &this_app(), &["--menu-bar"]) {
-            Ok(()) => self.login = on,
+            Ok(()) => {
+                self.login = on;
+                cx.emit(SettingsEvent::Say(
+                    if on {
+                        "doze will start at login, in the menu bar"
+                    } else {
+                        "doze will not start at login"
+                    }
+                    .into(),
+                    false,
+                ));
+            }
             Err(e) => cx.emit(SettingsEvent::Say(
                 format!("could not change the login item: {e}"),
                 true,
@@ -64,54 +101,37 @@ impl SettingsView {
         cx.notify();
     }
 
-    fn hands(&self) -> Option<SystemHands> {
-        Some(SystemHands {
-            doze: crate::facts::find_doze()?,
-            home: self.hub.home().to_path_buf(),
-        })
+    /// The machine's hands for a clear that needs no root: stopping a process, deleting a folder (no CLI involved, so
+    /// a missing `doze` does not stop it), refusing anything that would ask for the password.
+    fn hands(&self) -> NoRoot {
+        let cli = doze_desk::settings::Cli::from_env()
+            .unwrap_or_else(|| doze_desk::settings::Cli::go(PathBuf::from("doze")));
+        NoRoot(SystemHands::new(cli, self.hub.home().to_path_buf()))
     }
 
-    /// Repair: the steps the failing parts need, behind the system's prompt; doctor looks again after.
+    /// Repair: the steps the failing parts need, shown in the run sheet before anything asks for the password; the
+    /// sheet runs them, streams what they print and has doctor look again after.
     pub(crate) fn repair(&mut self, cx: &mut Context<Self>) {
-        if self.repairing {
-            return;
-        }
-        if self.fixture {
+        if self.parts.is_empty() {
             cx.emit(SettingsEvent::Say(
-                "a fixture repairs nothing on this machine".into(),
+                "doze doctor has not answered yet; Repair waits for its report".into(),
                 true,
             ));
+            self.refresh(cx);
             return;
         }
-        let Some(mut hands) = self.hands() else {
-            cx.emit(SettingsEvent::Say(
-                "this app cannot find doze to run the setup: copy the fix into a terminal".into(),
-                true,
-            ));
-            return;
-        };
         let steps = repair::steps(
             &self.hub.stacks(),
             &self.parts,
             self.at.elsewhere.as_deref(),
         );
-        let home = self.hub.home().to_path_buf();
-        self.repairing = true;
-        cx.notify();
-        let job = cx.background_executor().spawn(async move {
-            let mut prune = |h: &mut dyn Hands| prune_routes(&home, h);
-            repair::run(&steps, &mut hands, &mut prune)
-        });
-        cx.spawn(async move |this, cx| {
-            let out = job.await;
-            let _ = this.update(cx, |v, cx| {
-                v.repairing = false;
-                v.repaired = Some(out);
-                v.facts.update(cx, |f, cx| f.forget_doctor(cx));
-                v.refresh(cx);
-            });
-        })
-        .detach();
+        cx.emit(SettingsEvent::Run(Job::Repair(steps)));
+    }
+
+    /// `doze doctor` itself, its report streamed into the run sheet (no password).
+    pub(crate) fn run_doctor(&mut self, cx: &mut Context<Self>) {
+        let dir = crate::facts::doctor_dir(&self.hub.stacks());
+        cx.emit(SettingsEvent::Run(Job::Doctor(dir)));
     }
 
     /// Looks again for what stacks left behind: a fixture's made-up machine, or this one through the window's one
@@ -160,9 +180,15 @@ impl SettingsView {
             cx.notify();
             return;
         }
-        let Some(mut hands) = self.hands() else {
+        // Clean up, a route and the authority go through the run sheet, which shows what it will do from a fresh look
+        // before anything asks for the password, and acts on that alone. A single process or data folder (asked
+        // already) is cleared at once, by hands that refuse root.
+        if id == "all" || id.starts_with("route:") || id.starts_with("ca:") {
+            cx.emit(SettingsEvent::Run(Job::Clear(id.to_owned())));
+            cx.notify();
             return;
-        };
+        }
+        let mut hands = self.hands();
         self.busy = id.to_owned();
         cx.notify();
         let (id, home, stacks, admin) = (
@@ -173,11 +199,7 @@ impl SettingsView {
         );
         let job = cx.background_executor().spawn(async move {
             let m = leftovers::gather(&home, &stacks, admin);
-            if id == "all" {
-                leftovers::clear_all(&m, &mut hands)
-            } else {
-                leftovers::clear(&id, &m, &mut hands)
-            }
+            leftovers::clear(&id, &m, &mut hands)
         });
         cx.spawn(async move |this, cx| {
             let Cleared { said, bad } = job.await;
@@ -240,13 +262,59 @@ fn current() -> &'static str {
     option_env!("DOZE_VERSION").unwrap_or("dev")
 }
 
-/// Removes every stale route behind one prompt, then forgets them (a repair's step when no stack runs doze trust).
-fn prune_routes(home: &Path, hands: &mut dyn Hands) -> Result<(), Fail> {
-    let m = leftovers::gather(home, &[], true);
-    let script = leftovers::route_script(&m.routes);
-    if script.is_empty() {
-        return Ok(());
+#[cfg(all(test, unix))]
+mod tests {
+    #[test]
+    fn the_login_item_names_the_path_that_survives_an_upgrade() {
+        let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+        let cellar = dir.path().join("Cellar/1.0/bin");
+        let bin = dir.path().join("bin");
+        std::fs::create_dir_all(&cellar).unwrap_or_else(|e| panic!("{e}"));
+        std::fs::create_dir_all(&bin).unwrap_or_else(|e| panic!("{e}"));
+        let exe = cellar.join("doze-app");
+        std::fs::write(&exe, "").unwrap_or_else(|e| panic!("{e}"));
+        std::os::unix::fs::symlink(&exe, bin.join("doze-app")).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(
+            super::stable(&exe, Some(bin.as_os_str())),
+            bin.join("doze-app")
+        );
+        assert_eq!(super::stable(&exe, None), exe);
+        let bundled = std::path::Path::new("/Applications/Doze.app/Contents/MacOS/doze-app");
+        assert_eq!(super::stable(bundled, Some(bin.as_os_str())), bundled);
     }
-    hands.admin("remove stale routes", &script)?;
-    leftovers::forget_routes(home, &m.routes).map_err(|e| Fail::Failed(e.to_string()))
+}
+
+/// Hands that never ask for the administrator's password: a clear done at once, outside the run sheet, must not raise
+/// the system's prompt for something nobody was shown.
+struct NoRoot(SystemHands);
+
+impl doze_desk::settings::Hands for NoRoot {
+    fn doze(
+        &mut self,
+        dir: Option<&std::path::Path>,
+        args: &[String],
+    ) -> Result<(), doze_desk::settings::Fail> {
+        self.0.doze(dir, args)
+    }
+    fn admin(&mut self, _: &str, _: &str) -> Result<(), doze_desk::settings::Fail> {
+        Err(doze_desk::settings::Fail::Failed(
+            "this needs the administrator's password: use Clean up, which shows what it runs first"
+                .into(),
+        ))
+    }
+    fn terminate(&mut self, pid: u32) -> Result<(), doze_desk::settings::Fail> {
+        self.0.terminate(pid)
+    }
+    fn kill(&mut self, pid: u32) -> Result<(), doze_desk::settings::Fail> {
+        self.0.kill(pid)
+    }
+    fn alive(&mut self, pid: u32) -> bool {
+        self.0.alive(pid)
+    }
+    fn pause(&mut self) {
+        self.0.pause();
+    }
+    fn remove_dir(&mut self, dir: &std::path::Path) -> Result<(), doze_desk::settings::Fail> {
+        self.0.remove_dir(dir)
+    }
 }

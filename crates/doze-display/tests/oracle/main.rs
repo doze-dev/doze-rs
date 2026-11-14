@@ -18,7 +18,7 @@ mod strings;
 use std::collections::BTreeMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 /// Where `~` stands in every case: the oracle sets `$HOME` to this.
 pub(crate) const HOME: &str = "/home/dev";
@@ -70,12 +70,13 @@ fn says_what_go_says() {
         let kind = case["case"].as_str().expect("a case kind");
         *counts.entry(kind.to_owned()).or_default() += 1;
         let got = say(kind, &case["in"]);
-        if got != case["out"] {
+        let want = owner_rules(kind, &case["in"], case["out"].clone());
+        if got != want {
             wrong.push(format!(
                 "line {} ({kind}) in {}\n   go: {}\n rust: {got}",
                 n + 1,
                 case["in"],
-                case["out"]
+                want
             ));
         }
     }
@@ -88,4 +89,32 @@ fn says_what_go_says() {
         wrong.len(),
         wrong[..wrong.len().min(20)].join("\n")
     );
+}
+
+/// Where the owner decided past Go, Go's answer is rewritten to the decision before comparing; everything else must
+/// match as Go said it.
+///
+/// - Only a module's page is customised, and only by what it declares: an app, a task, an outside service (or an
+///   instance of no kind) gets the standard tabs, whatever console or web address it carries. Go gave any non-task
+///   with a console its console tabs, and any service with a web address a web tab.
+fn owner_rules(kind: &str, input: &Value, mut out: Value) -> Value {
+    if kind != "snap" {
+        return out;
+    }
+    let Some(insts) = input["instances"].as_array() else {
+        return out;
+    };
+    let Some(each) = out["each"].as_array_mut() else {
+        return out;
+    };
+    for (v, o) in insts.iter().zip(each.iter_mut()) {
+        let tabs: &[&str] = match v["kind"].as_str().unwrap_or("") {
+            "module" => continue,
+            "task" => &["last run", "logs"],
+            "" => &["overview", "logs"],
+            _ => &["logs"],
+        };
+        o["tabs"] = tabs.iter().map(|t| json!([t, t])).collect();
+    }
+    out
 }

@@ -2,6 +2,7 @@
 //! with a short fade and a few pixels of travel (the owner's bar: gentle, 120–280 ms), and simply appears when the
 //! system reduces motion.
 
+pub(crate) mod admin;
 pub(crate) mod alerts;
 pub(crate) mod bell;
 mod bell_calm;
@@ -32,6 +33,8 @@ pub(crate) enum Overlay {
     Start(gpui::Entity<start::StartView>),
     /// Needs you, under the bell.
     Bell(gpui::Entity<bell::Bell>),
+    /// A privileged job: shown, then run with its output.
+    Admin(gpui::Entity<admin::AdminView>),
 }
 
 /// The shadow an overlay casts: a tight one at its edge and a wide one under it, so a panel lifts off a light page as
@@ -65,7 +68,12 @@ pub(crate) fn layer(
     id: &'static str,
 ) -> AnyElement {
     let full = || div().absolute().top(px(0.)).left(px(0.)).size_full();
-    let scrim = full().bg(t.scrim());
+    // The palette sits on Go's lighter `.scrim.top`; the help sheet on the `.scrim` a dialog has.
+    let scrim = full().bg(if id == "palette" {
+        t.scrim()
+    } else {
+        t.dialog_scrim()
+    });
     let holder = full()
         .flex()
         .justify_center()

@@ -6,7 +6,7 @@ use gpui::{Context, Window};
 use super::{Root, Screen};
 use crate::actions::{
     AboutDoze, Back, EditConfig, Forward, FullScreen, GoTab, HideDoze, HideOthers, Minimize,
-    OpenDocs, RowLogs, ShowAll, ShowHelp, Zoom,
+    OpenDocs, RowLogs, ShowAll, Zoom,
 };
 
 /// How many places back are kept.
@@ -155,16 +155,36 @@ impl Root {
             .on_action(cx.listener(|this, _: &EditConfig, _, cx| this.edit_config(cx)))
             .on_action(cx.listener(|this, _: &RowLogs, window, cx| this.row_logs(window, cx)))
             .on_action(
-                cx.listener(|this, _: &AboutDoze, window, cx| this.on_help(&ShowHelp, window, cx)),
+                // Go's About is the app's About (TRAY-07): Settings › About, with the version and the update line.
+                cx.listener(|this, _: &AboutDoze, window, cx| {
+                    this.open_settings(Some(crate::settings::Section::About), false, window, cx);
+                }),
             )
             .on_action(cx.listener(|_, _: &OpenDocs, _, cx| crate::outward::open_url(cx, DOCS)))
-            .on_action(cx.listener(|_, _: &HideDoze, _, cx| cx.hide()))
-            .on_action(cx.listener(|_, _: &HideOthers, _, cx| cx.hide_other_apps()))
-            .on_action(cx.listener(|_, _: &ShowAll, _, cx| cx.unhide_other_apps()))
+            .on_action(cx.listener(|_, _: &HideDoze, _, cx| {
+                if outward_ok() {
+                    cx.hide();
+                }
+            }))
+            .on_action(cx.listener(|_, _: &HideOthers, _, cx| {
+                if outward_ok() {
+                    cx.hide_other_apps();
+                }
+            }))
+            .on_action(cx.listener(|_, _: &ShowAll, _, cx| {
+                if outward_ok() {
+                    cx.unhide_other_apps();
+                }
+            }))
             .on_action(cx.listener(|_, _: &Minimize, window, _| window.minimize_window()))
             .on_action(cx.listener(|_, _: &Zoom, window, _| window.zoom_window()))
             .on_action(cx.listener(|_, _: &FullScreen, window, _| window.toggle_fullscreen()))
     }
+}
+
+/// Hiding and showing other apps reach the owner's own windows: never from a hands-off run.
+fn outward_ok() -> bool {
+    !crate::handsoff::on()
 }
 
 #[cfg(test)]

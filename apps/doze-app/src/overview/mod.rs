@@ -23,7 +23,6 @@ mod tiles;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use doze_control::Topic;
 use doze_desk::overview::{Home, Pane, Refs, Row, home, pane, refs_in, stopped_home};
@@ -34,12 +33,13 @@ use gpui::{
 };
 use gpui_component::input::{InputEvent, InputState};
 
-pub(crate) use banners::stale_banner;
+pub(crate) use banners::{broken_banner, stale_banner};
+pub(crate) use tiles::lock;
 
 use crate::actions::{
-    ChooseStart, CopyAddress, DismissFailure, FilterRows, MoveDown, MoveLeft, MoveRight, MoveUp,
-    OpenRowService, OpenService, PinIt, RestartIt, SleepIt, ToggleService, TryAgain, UpAsLastTime,
-    ViewGrid, ViewList, ViewMap, ViewTiles, WakeIt,
+    ChooseStart, CloseOverlay, CopyAddress, DismissFailure, FilterRows, MoveDown, MoveLeft,
+    MoveRight, MoveUp, OpenRowService, OpenService, PinIt, RestartIt, SleepIt, ToggleService,
+    TryAgain, UpAsLastTime, ViewGrid, ViewList, ViewMap, ViewTiles, WakeIt,
 };
 use crate::facts::Facts;
 use crate::map::MapView;
@@ -89,10 +89,12 @@ pub(crate) struct OverviewView {
     pub(crate) key: Option<StackKey>,
     stack: Option<StackView>,
     pub(crate) home: Home,
-    page: Page,
+    pub(crate) page: Page,
     pub(crate) map: Entity<MapView>,
     pub(crate) view: View,
     pub(crate) selected: Option<String>,
+    /// Each shown service's name as a control the keyboard reaches by Tab (Go `Name`), and the one with the keys.
+    pub(super) names: (HashMap<String, gpui::FocusHandle>, Option<String>),
     pub(crate) pane: Option<Pane>,
     pub(crate) filter: Entity<InputState>,
     pub(crate) query: String,
@@ -103,10 +105,17 @@ pub(crate) struct OverviewView {
     pub(crate) grid: grid::Scroll,
     refs: HashMap<String, Refs>,
     watch: Option<Watch>,
+    /// The stack's logs, watched while a row is selected (Go: home + a selected row streams its logs), so its Logs
+    /// open on lines already heard.
+    pub(super) logs: Option<Watch>,
     /// The window's width at the last render (the Tiles go four, three or two across).
     pub(crate) width: f32,
     /// The failure banner's "What doze printed" is open.
     pub(crate) printed: bool,
+    /// The head's ⋯ menu is open.
+    pub(crate) menu: bool,
+    /// The filter box has the keys (its frame takes the accent's tint).
+    pub(crate) filter_on: bool,
     /// Where the Tiles are scrolled to: held here, so only the person (or a new stack) moves it, never a redraw.
     pub(crate) tiles_scroll: gpui::ScrollHandle,
     /// The List's lines, and its virtual list.
@@ -163,6 +172,7 @@ impl OverviewView {
             map,
             view: View::default(),
             selected: None,
+            names: (HashMap::new(), None),
             pane: None,
             filter,
             query: String::new(),
@@ -171,8 +181,11 @@ impl OverviewView {
             grid: grid::Scroll::default(),
             refs: HashMap::new(),
             watch: None,
+            logs: None,
             width: 1280.,
             printed: false,
+            menu: false,
+            filter_on: false,
             tiles_scroll: gpui::ScrollHandle::new(),
             items: std::rc::Rc::default(),
             list: gpui::ListState::new(0, gpui::ListAlignment::Top, px(200.)),
@@ -186,6 +199,7 @@ impl OverviewView {
             return;
         }
         self.watch = key.as_ref().map(|k| self.hub.watch(k, Topic::Stats));
+        self.logs = None;
         let remembered = key
             .as_ref()
             .and_then(|k| crate::prefs::view(&k.dir().display().to_string()));
@@ -196,6 +210,7 @@ impl OverviewView {
         self.key = key;
         self.stack = None;
         self.selected = None;
+        self.menu = false;
         self.tiles_scroll.set_offset(gpui::point(px(0.), px(0.)));
         self.map.update(cx, |m, cx| m.select(None, cx));
         self.cur = None;
@@ -206,6 +221,7 @@ impl OverviewView {
     /// Stops watching the stack's meters (the page is not shown).
     pub(crate) fn hide(&mut self) {
         self.watch = None;
+        self.logs = None;
     }
 
     /// Reads the stack again; redraws only if the page changed.
@@ -219,7 +235,7 @@ impl OverviewView {
         let now = self.hub.now();
         let (mut h, map_view) = if st.running {
             let mut h = home(&st, now);
-            h.changed = changed(&st, now);
+            h.changed = banners::changed(&st, now);
             let refs = self
                 .refs
                 .entry(st.dir.clone())
@@ -249,6 +265,10 @@ impl OverviewView {
             .is_some_and(|s| !rows.iter().any(|r| &r.name == s))
         {
             self.selected = None;
+        }
+        let logs = self.selected.is_some() && st.running;
+        if logs != self.logs.is_some() {
+            self.logs = logs.then(|| self.hub.watch(&st.key, Topic::Logs));
         }
         let p = match (&self.selected, st.running) {
             (Some(s), true) => pane(&st, s, now),
@@ -352,19 +372,13 @@ pub(crate) fn all_rows(h: &Home) -> Vec<&Row> {
     h.groups.iter().flat_map(|g| g.rows.iter()).collect()
 }
 
-/// doze.hcl saved after the running stack read it (Go `ConfigChangedOf`).
-fn changed(st: &StackView, now: SystemTime) -> Option<doze_desk::overview::ConfigChanged> {
-    let mtime = std::fs::metadata(Path::new(&st.dir).join("doze.hcl"))
-        .and_then(|m| m.modified())
-        .ok()?;
-    doze_desk::overview::config_changed(mtime, st.loaded, now)
-}
-
 impl Render for OverviewView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = tokens(cx);
         let width = f32::from(window.viewport_size().width);
         self.width = width;
+        self.filter_on = self.filter.read(cx).focus_handle(cx).is_focused(window);
+        self.keep_names(window, cx);
         let body = match self.view {
             View::Tiles => tiles::view(&t, self, cx).into_any_element(),
             View::List => list::view(&t, self, cx).into_any_element(),
@@ -383,9 +397,16 @@ impl Render for OverviewView {
         div()
             .key_context("Overview")
             .track_focus(&self.focus)
+            .on_key_down(choose::tab)
             .flex()
             .flex_col()
             .size_full()
+            .when(self.menu, |d| {
+                d.on_action(cx.listener(|this, _: &CloseOverlay, _, cx| {
+                    this.menu = false;
+                    cx.notify();
+                }))
+            })
             .on_action(cx.listener(|this, _: &ViewTiles, _, cx| this.set_view(View::Tiles, cx)))
             .on_action(cx.listener(|this, _: &ViewList, _, cx| this.set_view(View::List, cx)))
             .on_action(cx.listener(|this, _: &ViewMap, _, cx| this.set_view(View::Map, cx)))

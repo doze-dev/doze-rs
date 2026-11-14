@@ -168,6 +168,7 @@ fn instances<T: 'static>(
                             .flex_none()
                             .text_size(px(ty::XS_UP))
                             .text_color(if x.trouble { t.bad } else { t.dim })
+                            .font_features(ty::tabular())
                             .child(text(if x.trouble { x.look.word() } else { &x.note })),
                     ),
             );

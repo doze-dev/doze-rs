@@ -24,6 +24,7 @@ mod coalesce;
 mod conn;
 mod console;
 pub mod convert;
+pub mod copied;
 mod error;
 mod events;
 mod hub;
@@ -40,6 +41,7 @@ mod select;
 mod series;
 pub mod settings;
 mod stack;
+pub mod titles;
 pub mod tray;
 mod view;
 

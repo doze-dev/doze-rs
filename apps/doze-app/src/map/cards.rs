@@ -2,7 +2,6 @@
 //! length together) and placed in the viewport; only the cards in view are built. The captions, and between far and
 //! close, the cards' names.
 
-use doze_display::Kind as WordKind;
 use doze_map::{Card, CardId, Kind, Role};
 use gpui::{AnyElement, BoxShadow, IntoElement, SharedString, Styled, div, point, prelude::*, px};
 
@@ -11,7 +10,7 @@ use crate::instance::ui::state_mark;
 use crate::model::Row;
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, alpha, mix, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::{Mono as _, icon};
 
 /// Lengths scaled by the zoom.
 #[derive(Clone, Copy)]
@@ -43,21 +42,25 @@ fn badge(t: &Tokens, z: Z, text: String) -> gpui::Div {
         .rounded(z.p(4.))
         .border_1()
         .border_color(t.line)
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(z.p(ty::MICRO))
         .font_weight(ty::SEMIBOLD)
         .text_color(t.dim)
         .child(SharedString::from(text))
 }
 
-fn top_row(t: &Tokens, z: Z, c: &Card, r: Option<&Row>) -> impl IntoElement {
+/// The top row, as Go's `.top`: dot, name, then on an app's card its language and pin, and the memory at the right
+/// while it is awake (nothing otherwise: the mark already says the state). A band card has no language or pin.
+fn top_row(t: &Tokens, z: Z, c: &Card, r: Option<&Row>, node: bool) -> impl IntoElement {
     let name = div()
-        .flex_none()
+        .min_w_0()
         .text_size(z.p(ty::MD))
         .line_height(z.p(ty::LH))
         .font_weight(ty::HEADING)
         .text_color(t.bright)
         .whitespace_nowrap()
+        .overflow_hidden()
+        .text_ellipsis()
         .child(SharedString::from(c.name.clone()));
     let dot = state_dot(t, z.p(8.), r);
     let mut row = div()
@@ -65,23 +68,31 @@ fn top_row(t: &Tokens, z: Z, c: &Card, r: Option<&Row>) -> impl IntoElement {
         .items_center()
         .gap(z.p(7.))
         .w_full()
+        .min_w_0()
         .child(dot)
         .child(name);
-    if let Some(l) = c.lang {
+    if node && let Some(l) = c.lang {
         row = row.child(badge(t, z, l.badge().to_string()));
     }
+    // A collapsed group's card (only a large map collapses one) says how many it stands for.
     if c.members > 1 {
         row = row.child(badge(t, z, format!("×{}", c.members)));
     }
-    // An awake one's memory, else its state's word (a task says its word on its second line).
-    let said = r.filter(|r| r.kind != WordKind::Task);
-    if let Some((text, color)) = super::state::word(t, said) {
+    if node && r.is_some_and(|r| r.pinned) {
+        row = row.child(
+            div()
+                .flex_none()
+                .child(icon("icons/pin.svg", 13. * z.0, t.accent)),
+        );
+    }
+    if let Some(text) = super::state::mem(r) {
         row = row.child(
             div()
                 .ml_auto()
                 .flex_none()
                 .text_size(z.p(ty::SM))
-                .text_color(color)
+                .text_color(t.dim)
+                .font_features(ty::tabular())
                 .child(SharedString::from(text)),
         );
     }
@@ -104,6 +115,14 @@ fn frame(t: &Tokens, z: Z, c: &Card, at: (f32, f32), radius: f32) -> gpui::Div {
         .bg(t.panel)
         .text_color(t.text)
         .line_height(z.p(ty::LH))
+}
+
+/// The card as a Tab stop (Go: a card is a button; `.node:focus-visible` draws no ring, the selection says it).
+fn keyed(f: gpui::Div, m: &MapView, c: &Card) -> gpui::Div {
+    match m.card_keys.0.get(&c.name) {
+        Some(h) => f.track_focus(h),
+        None => f,
+    }
 }
 
 /// The accent ring, at `a` of its strength (it fades in and out with the hover and the selection).
@@ -194,12 +213,18 @@ fn chips(t: &Tokens, z: Z, m: &MapView, c: &Card, mark: Mark) -> gpui::Div {
     if c.fold {
         let f = m.folds.get(&c.name);
         let (glyph, color) = f.map_or(("✓", t.good), |f| (f.glyph, t.tone(f.tone)));
+        let title = f.map(|f| SharedString::from(f.title.clone()));
         row = row.child(
             div()
+                .id(SharedString::from(format!("fold-{}", c.name)))
+                .when_some(title, |d, title| {
+                    d.tooltip(move |window, cx| {
+                        gpui_component::tooltip::Tooltip::new(title.clone()).build(window, cx)
+                    })
+                })
                 .ml_auto()
                 .flex_none()
                 .text_size(z.p(ty::XS_UP))
-                .font_weight(ty::BOLD)
                 .text_color(color)
                 .child(glyph),
         );
@@ -224,7 +249,7 @@ fn framed_border(t: &Tokens, m: &MapView, c: &Card, border: gpui::Hsla) -> (gpui
 fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark) -> AnyElement {
     let r = m.rows.get(&c.name);
     let task = c.kind == Kind::Task;
-    let mut f = frame(t, z, c, at, if task { 8. } else { 11. })
+    let mut f = keyed(frame(t, z, c, at, if task { 8. } else { 11. }), m, c)
         .gap(z.p(7.))
         .px(z.p(13.))
         .py(z.p(11.));
@@ -245,14 +270,14 @@ fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark
         f = f.shadow(ring(t, z, mark.sel, mark.hot));
     }
     f.when(mark.opacity < 1.0, |d| d.opacity(mark.opacity))
-        .child(top_row(t, z, c, r))
+        .child(top_row(t, z, c, r, true))
         .child(chips(t, z, m, c, mark))
         .into_any_element()
 }
 
 fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark) -> AnyElement {
     let r = m.rows.get(&c.name);
-    let mut f = frame(t, z, c, at, 11.)
+    let mut f = keyed(frame(t, z, c, at, 11.), m, c)
         .gap(z.p(3.))
         .px(z.p(13.))
         .py(z.p(10.));
@@ -303,7 +328,7 @@ fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Ma
         used = used.child(SharedString::from(format!(" · {}", u.name)));
     }
     f.when(mark.opacity < 1.0, |d| d.opacity(mark.opacity))
-        .child(top_row(t, z, c, r))
+        .child(top_row(t, z, c, r, false))
         .child(line().child(SharedString::from(what)))
         .child(line().child(used))
         .into_any_element()

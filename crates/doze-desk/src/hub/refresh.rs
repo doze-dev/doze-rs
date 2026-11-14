@@ -76,7 +76,9 @@ pub(super) fn wanted(inner: &Inner, key: &StackKey) -> Wanted {
             .unwrap_or(0)
     };
     Wanted {
-        stats: n(Topic::Stats) > 0,
+        stats: !inner.hidden && n(Topic::Stats) > 0,
+        // Logs keep coming while hidden: the pages read the hub's ring (Go fetched its window again), so a line said
+        // meanwhile must be in it.
         logs: n(Topic::Logs) > 0,
     }
 }

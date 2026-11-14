@@ -502,3 +502,161 @@ reach GitHub. When the Rust CLI has `doze version --check`, the app asks it inst
 Activity at rest: it reads the journal again every ten seconds while shown (as Go's page did), off the UI thread, and
 redraws only when a figure changed; the strips are painted, so a 2,000-service stack builds only the rows in view
 (`doze-desk` lays out 2,000 services over 10,000 events in a few milliseconds, `tests/activity.rs`).
+
+### app-finish (full parity, privileged actions), measured 2026-11-14
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder`, `footprint` of that pid; menu bar only is
+`doze-app --menu-bar` on an empty throwaway `DOZE_HOME`). The base is `app-try` at a112aa29, built the same way.
+
+| | Budget | app-try (a112aa29) | app-finish |
+|---|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | — | 13,447,312 B at the end of the branch (13,430,736 B before the audit's fixes) |
+| Binary with `fixtures` | | 13,530,368 B | 13,712,704 B (+182 KB: the run sheet, the command source and plan, the streaming hands, the parity rows) |
+| Packages (`cargo tree -p doze-app --edges normal --prefix none`, unique) | limit 560 | 407 | 407 (none added: `objc2-user-notifications` and `block2`, now named by `doze-os` for the notification question at start, were in the tree through gpui) |
+| Menu bar ready | ≤ 100 ms | 81–145 ms | 77–180 ms (interleaved runs, same spread; the machine was building in another worktree) |
+| First frame after the tray click | ≤ 100 ms | 43–68 ms | 40–96 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | **224–226 MB** | **225–226 MB** (0.0 % CPU) |
+| After the window closes | ≤ 35 MB | — | 38 MB (two runs, 10 s after the close) |
+| Menu bar only, footprint | ≤ 18 MB | — | 19 MB, 0.0 % CPU |
+
+**The open window is over its budget, and was before this branch.** Of the 225 MB, 147 MB is one category,
+"Owned physical footprint (unmapped) (graphics)" in 30 regions (GPU memory), against 4 MB in the M3 and Map 150
+builds; the rest is in line with those (IOSurface 32 MB, Malloc Small 26 MB). The window is static (0.0 % CPU), so it
+is a held allocation, not a redraw loop. Bisected on release builds of the merges into `app-preview`:
+
+| build | open and idle | graphics |
+|---|---|---|
+| db499759 (M2, before the merges) | 57 MB | 4 MB |
+| 8e36b742 (+ app-type) | 56 MB | 4 MB |
+| 902ddd0d (+ app-states) | 226 MB | 147 MB |
+| 59e22ed2 (+ app-map-150) | 56 MB | 4 MB |
+| 4792f2ae (+ app-m3-tray), ebe7d11b (Geist), a112aa29 (app-try) | 224–226 MB | 147 MB |
+
+It is not monotonic in the merge order, so it is an interaction (a texture held for something app-states draws, which
+the Map-150 merge happened to avoid and the tray merge brought back), not one commit's cost. Not fixed here: it predates
+this branch and needs its own look (Metal's allocation trace in Instruments on the larder page). After the close it
+drops to 38 MB, 3 MB over that line (35–36 MB at M3).
+
+What this branch adds at rest: nothing that wakes. The run sheet exists only while open; the config look stamps the
+known stacks' files every two seconds (a `stat` each) and redraws only on a change; doctor and the leftovers look keep
+their old cadence. Notifications ask for leave once at start, from a bundle only.
+
+### The idle window (app-finish, follow-up), measured 2026-11-14
+
+**Root cause of the 225 MB.** The idle stack page drew one frame a second, and while frames keep coming, even one a
+second, the GPU driver keeps about 147 MB of "Owned physical footprint (unmapped) (graphics)" for the process (the
+redraw floor described above). The frames came from `shell/clock.rs` (added by `app-states`): while a page shows text
+that changes with time alone, it is read again every second, and larder has a dozing instance whose "sleeps in 0:48"
+changes every second, so every read was a frame. Evidence, same binary (the renderer's frame counter, vendor
+PATCHES.md §3, read by `doze-app bench`): on the external display 27 frames in 27 s of idling, 223–225 MB, 147 MB
+graphics; with a log line per read, "sleeps in 0:48" → "0:47" → … once a second.
+
+**Why the bisect was not monotonic.** It measured where the window landed, not the code. `bench` centred the window on
+the main display; on this Mac the built-in display's copy of it was hidden (the window reported `Hidden` and the page
+still changed every second, but no frames were delivered), so builds measured while it landed there read 56–57 MB
+(4 MB graphics) and the rest 224–226 MB. Re-run here: the pre-fix build reads 57 MB on display 0 and 225 MB on display 1.
+`bench --display N` now chooses the display, so a reading is never taken from a window the system hides.
+
+**The fix.** Time-driven reads need the person (`shell/attention.rs`): the window counts as in use while it is key and
+was touched (a key, a click, the pointer, the wheel; becoming key counts) in the last 30 s. The clock, the instance
+page's tick and Activity's ten-second read run only then, and the hub streams the meters only while the window is on
+screen and in use (`Root::sync_hub`: a real daemon sends meters every second, so a page showing changing figures would
+otherwise draw a frame a second too). Left alone, the page still hears every change of state, at most once a second;
+a touch reads everything again at once. Also fixed: the instance page's tick started a second loop on each of its own
+reads, so loops doubled every second while a countdown showed (4,092 reads in 10 s in the test).
+
+**Measured** (`release-app`, `doze-app bench --fixture larder --display 1 --check --budget 85`, the window on screen;
+footprint at 12 s and 27 s after launch, and 42 s, which is about 10 s after the close; two runs):
+
+| | Budget | before (app-finish b55487cf) | after |
+|---|---|---|---|
+| Window open and idle (larder, on screen) | ≤ 85 MB | 223–225 MB (147 MB graphics), 27 frames in 27 s | **61 / 57 MB** and 61 / 57 MB (4 MB graphics), **0 frames** |
+| The same on the main display (where it was hidden) | | 57 MB | 61 / 57 MB, 0 frames |
+| Window in use (`--in-use`: counted as touched at open), then left alone | | — | 224 MB while the countdown ticks (28 frames, the last at 31 s), 78 MB 9 s after the last frame, 73 MB from then on |
+| After the window closes | ≤ 35 MB | 38 MB | 37–38 MB |
+| Menu bar only (empty home, `--menu-bar`) | ≤ 18 MB | 19 MB | 19 MB, 0.0 % CPU |
+| CPU, window open and idle | ≤ 0.3 % | 0.0 % | 0.0 % |
+| Binary, `release-app`, no capture | ≤ 16 MB | 13,447,312 B | 13,464,000 B (+16,688 B: attention, hands-off, the bench's check) |
+| Binary with `fixtures` | | 13,712,704 B | 13,745,968 B |
+| Packages (CI's count, `--target aarch64-apple-darwin`) | limit 560 | 538 | 539 (`gpui-pre-apple`, already in the tree, now named directly for its frame count) |
+
+What a window in use costs is the redraw floor, as before: about 225 MB while something on it moves, back to about
+75 MB within ten seconds of the last frame. The open window over the 85 MB line is now the window someone is using,
+not one left open.
+
+**The guard.** `shell/idle_tests.rs` (gpui test windows over the fixture daemon, the app's time and the hub's clock run
+on together): an untouched window draws 0 frames in 30 s while its countdown runs; a window in use draws, then stops
+once left alone, and a touch draws again; a pointer over a window that is not key draws nothing; the meters stream
+only while in use; the instance page reads once a second, not more. Without the gate the first two fail, and the
+instance test reports 4,092 reads. `doze-app bench --check [--budget MB]` exits 1 when a window left alone drew a frame
+or passed the budget (checked: an `--in-use` run with `--budget 85` exits 1 at 223 MB); CI's app job runs it on larder.
+
+Not covered: a window left alone while All logs follows still draws (that is following), and an untouched window's
+countdown and "last update Ns ago" show the figure of the last batch until a touch.
+
+### A truthful idle window (app-finish, follow-up), measured 2026-11-14
+
+**What was wrong with the fix above.** Stopping every time-driven read on an untouched window kept it at ~57 MB, but a
+window someone was *looking at* without touching froze: "sleeps in 0:48" stayed 0:48, the meters stopped, and a
+daemon that froze never got its "last update Ns ago" banner (the page asked for no meters, so it was not even
+metered). That is the "untrue dashboard" the banner exists to prevent.
+
+**The rule now** (`shell/attention.rs` `Mode`, `shell/clock.rs`):
+
+| The window is | Words that move with time | Changes of state | Meters | Frames of its own |
+|---|---|---|---|---|
+| hidden (minimised, covered, another Space, display asleep: the platform's occlusion state) | not read | kept, taken in when shown | not streamed | none |
+| on screen, not in use ("glanced at") | to the minute: "sleeps in 4m", "<1m", "up <1m", "last update <1m ago", "next in <1m" | at most once a second | streamed, taken in at most every 10 s | one when a word to the minute changes |
+| in use (key, touched in the last 30 s) | to the second, as before | as they come | as they come | as before |
+
+- The words come from doze-display (`doze_display::coarse`, `grain.rs`): fine is Go's and the default everywhere, so
+  the CLI and the oracle are unchanged; coarse uses Go's `Ago` units (`4m`, `3h`) and `<1m` for the last minute.
+  Every coarse word also notes when it will next read differently, and `coarse` returns the soonest; the window
+  schedules one wake for that moment (`arm_next`) instead of ticking. A wake whose words read the same draws nothing
+  (the views are `PartialEq`). Needs you and Activity build their words off the UI thread, so they carry the grain
+  into the job; the instance page's countdown ring moves when its words do.
+- The stale banner: one wake at the shown stack's `last_frame + STALE_AFTER`, put off by every frame; a frozen
+  daemon's banner shows in one frame. Entrances (the banner's 240 ms settle) are skipped on a window glanced at, so
+  each change is one frame.
+- doze-desk: a meters frame now reports `Parts::STATS` only (it reported `INSTANCES` too for each row's ram/cpu/
+  connections), so a window can tell the meters moving from a change of state.
+
+**Tests** (`shell/idle_tests.rs`, gpui test windows over the fixture daemon; the daemon's meters arrive every second of
+the test's time, `Source::beat`):
+
+- glanced at for 180 s on larder: 4 frames, each one a change of what the page says (at 48.0 s the dozing countdown
+  ran out; at 57.7, 117.8 and 177.5 s the rows' "up 18m" turned 19m, 20m, 21m); no frame with nothing changed;
+- hidden for 150 s: 0 frames and the page not read; shown again, it catches up at once;
+- larder-stale glanced at: the banner "last update <1m ago" in exactly 1 frame, about 3 s after the last frame, then
+  "1m ago" at the minute;
+- in use: the countdown to the second (a frame a second); left alone, it goes to the minute in one frame, then
+  nothing while the words hold;
+- `grain.rs`: the coarse words and their next change; fine words are Go's (`last update 5s ago`, `0:48`, `12s`).
+
+`bench --check` now allows a window glanced at `--per-minute N` frames a minute (default 2), and a `--hidden` one
+(the app hides once the window is open, as ⌘H) none; CI runs both on larder. `--at 12,30,60` prints the footprint at
+those seconds after the window opens.
+
+**Measured** (`release-app` with `fixtures`, `doze-app bench --fixture larder --display 1 --idle 63 --at 12,30,60`).
+This Mac's displays were asleep and the session locked while it ran (`pmset -g log`: display off since 18:38), and the
+platform reported the window `Hidden` on both displays, so every reading below is a hidden window's:
+
+| | before (1e486a31) | after |
+|---|---|---|
+| Hidden, footprint at 12 / 30 / 60 s | 60 / 57 / 57 MB | 57 / 57 / 57 MB |
+| Hidden, frames in 60 s | 0 | 0 (`--check --hidden`: ok) |
+
+**Not measured yet, for the owner, at the screen:** the visible readings. Untouched for 60 s, expect at most about two
+frames in 60 s and ~57–60 MB most of the time, with a spike towards ~200 MB for ~10 s after each frame; in use, the
+redraw floor (~225 MB) as before:
+
+```
+DOZE_HOME=$(mktemp -d) doze-app bench --fixture larder --display 1 --idle 63 --at 12,30,60 --check --budget 85
+DOZE_HOME=$(mktemp -d) doze-app bench --fixture larder --display 1 --idle 63 --at 12,30,60 --in-use
+```
+
+**Open: the meters' 10 s.** The fixture sends the same meters frame every second, so the page never changes for
+them here. A real daemon's meters do change: a glanced-at stack page then takes them in every 10 s, and if a figure
+it shows moves (a row's MB, the vitals), that is a frame every 10 s, the same span as the driver's ~10 s hold, so the
+~147 MB would stay. The `--per-minute 2` check would fail for such a page. Options: a longer cadence (30–60 s) or
+meters only in use. It needs a decision and a measurement against a live stack.

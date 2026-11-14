@@ -15,6 +15,7 @@
 //! doze-app bench --fixture shop --logs [--follow SECONDS]          the logs viewer: 100k lines scrolled, then followed
 //! doze-app bench --fixture medium-150 --map                         the Map: frames while it pans, zooms and hovers
 //! doze-app bench [--idle S] [--closed S]                         with no fixture: $DOZE_HOME (a fixture served apart)
+//!          [--display N] [--in-use | --hidden] [--at 12,30,60] [--check [--budget MB] [--per-minute N]]
 //! doze-app fixture-serve NAME ROOT                               a fixture daemon alone, on its own socket under ROOT/home
 //! ```
 
@@ -120,6 +121,21 @@ pub(crate) struct Bench {
     pub(crate) follow: u64,
     /// The Map under load instead (`--map`): frames drawn offscreen while it pans, zooms and hovers.
     pub(crate) map: bool,
+    /// The display the window opens on, by index (`--display N`); the main one when none.
+    pub(crate) display: Option<usize>,
+    /// The window counts as in use when it opens (`--in-use`): its clocks run for a while, then it is left alone.
+    pub(crate) in_use: bool,
+    /// Fail when the window left alone draws, or passes `budget` MB (`--check`, `--budget MB`).
+    pub(crate) check: bool,
+    pub(crate) budget: Option<f64>,
+    /// `--check`: how many frames a minute a window glanced at (on screen, untouched) may draw, its words written to
+    /// the minute (`--per-minute N`, default 2).
+    pub(crate) per_minute: u64,
+    /// The window is hidden once open (`--hidden`: the app hides, as ⌘H would), so its idle reading is a covered
+    /// window's; `--check` then allows no frame at all.
+    pub(crate) hidden: bool,
+    /// Footprint readings this many seconds after the window opens (`--at 12,30,60`), as `footprint_at_s S MB`.
+    pub(crate) at: Vec<u64>,
 }
 
 /// What to do.
@@ -299,6 +315,7 @@ fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
     let mut b = Bench {
         idle: 20,
         follow: 30,
+        per_minute: 2,
         ..Bench::default()
     };
     while let Some(a) = args.next() {
@@ -310,6 +327,18 @@ fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
             "--closed" => b.closed = Some(number(&value(&mut args, &a)?, "--closed")?),
             "--logs" => b.logs = true,
             "--map" => b.map = true,
+            "--in-use" => b.in_use = true,
+            "--check" => b.check = true,
+            "--hidden" => b.hidden = true,
+            "--per-minute" => b.per_minute = number(&value(&mut args, &a)?, "--per-minute")?,
+            "--at" => {
+                b.at = value(&mut args, &a)?
+                    .split(',')
+                    .map(|s| number(s.trim(), "--at"))
+                    .collect::<Result<_, _>>()?;
+            }
+            "--budget" => b.budget = Some(number(&value(&mut args, &a)?, "--budget")?),
+            "--display" => b.display = Some(number(&value(&mut args, &a)?, "--display")?),
             "--follow" => b.follow = number(&value(&mut args, &a)?, "--follow")?,
             _ => return Err(format!("bench: unknown flag {a}")),
         }

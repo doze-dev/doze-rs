@@ -15,7 +15,7 @@ use super::snippets;
 use super::ui::{self, banner, card, heading, kv_row, pill, text};
 use crate::console::blocks;
 use crate::theme::{Tokens, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 mod vitals;
 
@@ -84,19 +84,14 @@ pub(crate) fn overview(
 
 /// Above the cards: a crashing service's banner, and the port clash.
 /// The crash banner's two lines. Not ready in time is its own failure (Needs you says so: "did not become ready"), and
-/// a page with nothing to show from the last run points at the logs instead; a failed one is not tried again, so there
-/// is nothing to stop.
+/// a page with nothing to show from the last run points at the logs instead.
 fn crash_words(c: &doze_desk::page::parts::Crash) -> (String, &'static str) {
     let not_ready = c.error.contains("not become ready");
-    let sub = match (c.last_run.is_empty(), c.gave_up || not_ready) {
-        (true, true) => "Its logs usually say why. Fix it and press Restart.",
-        (true, false) => {
-            "Its logs usually say why. Fix it and press Try now, or stop trying while you look."
-        }
-        (false, true) => "What it said is below. Fix it and press Restart.",
-        (false, false) => {
-            "What it said is below. Fix it and press Try now, or stop trying while you look."
-        }
+    // The head keeps Stop trying and Try now in every crash state (Go's), so the line names them in every one.
+    let sub = if c.last_run.is_empty() {
+        "Its logs usually say why. Fix it and press Try now, or stop trying while you look."
+    } else {
+        "What it said is below. Fix it and press Try now, or stop trying while you look."
     };
     let said = if not_ready {
         "It started but never answered, so doze stopped it. It waits for you.".to_owned()
@@ -220,8 +215,11 @@ fn said(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> AnyElem
             heading(t, "What it said", Some("· the last lines before it exited"))
                 .child(div().flex_1())
                 .child(
-                    ui::copy_link(t, "copy-said", if copied { "Copied" } else { "Copy" })
-                        .on_click(cx.listener(move |v, _, _, cx| v.copy("said", &joined, cx))),
+                    ui::copy_link(t, "copy-said", if copied { "Copied" } else { "Copy" }).on_click(
+                        cx.listener(move |v, _, _, cx| {
+                            v.copy("said", &joined, doze_desk::copied::WHAT_IT_SAID, cx)
+                        }),
+                    ),
                 ),
         )
         .child(code)
@@ -238,13 +236,13 @@ pub(crate) fn connect(
 ) -> AnyElement {
     let mut c = card(t).child(heading(t, title, sub));
     for r in &v.page.connect {
-        let (id, copy) = (format!("kv-{}", r.k), r.copy.clone());
+        let (id, copy, k) = (format!("kv-{}", r.k), r.copy.clone(), r.k.clone());
         let id2 = id.clone();
         c = c.child(kv_row(
             t,
             r,
             v.is_copied(&id),
-            cx.listener(move |v, _, _, cx| v.copy(&id2, &copy, cx)),
+            cx.listener(move |v, _, _, cx| v.copy(&id2, &copy, doze_desk::copied::row(&k), cx)),
         ));
     }
     c.into_any_element()
@@ -359,7 +357,7 @@ fn recent(t: &Tokens, p: &InstancePage) -> gpui::Div {
     let mut rows = div()
         .flex()
         .flex_col()
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::SM))
         .line_height(px(ty::LH_21));
     if p.recent.is_empty() {

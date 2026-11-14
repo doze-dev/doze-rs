@@ -7,13 +7,13 @@ use gpui::{AnyElement, IntoElement, SharedString, div, prelude::*, px};
 
 use crate::actions::{self, Scope, Spec};
 use crate::theme::{Tokens, ty};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, kbd_chip, tracked};
+use crate::widgets::{Mono as _, UI_FAMILY, kbd_chip, tracked};
 
 /// Runs of rows that fold into one line: the run's first label, how many rows, the line's label.
 const FOLDED: [(&str, usize, &str); 9] = [
     ("Tab 1", 9, "A stack's tab"),
     ("Tiles", 4, "Tiles · List · Map · Grid"),
-    ("Debug and up", 4, "Level: debug, info, warn, error"),
+    ("Debug and up", 4, "Level: debug to error"),
     ("Stack above", 2, "Move"),
     ("Service above", 4, "Move"),
     ("Cell above", 4, "Move"),
@@ -110,10 +110,10 @@ fn line(t: &Tokens, l: &Line) -> AnyElement {
         .flex()
         .items_center()
         .gap(px(8.))
-        .h(px(18.))
+        .h(px(LINE_H))
         .text_size(px(ty::SM))
         .child(
-            div().flex().gap(px(3.)).w(px(78.)).flex_none().children(
+            div().flex().gap(px(3.)).w(px(70.)).flex_none().children(
                 l.keys
                     .iter()
                     .take(2)
@@ -154,7 +154,7 @@ fn group(t: &Tokens, title: &str, ls: &[Line]) -> (f32, AnyElement) {
         )
         .children(ls.iter().map(|l| line(t, l)))
         .into_any_element();
-    (28. + 18. * ls.len() as f32, el)
+    (GROUP_H + LINE_H * ls.len() as f32, el)
 }
 
 /// The words a person meets, and what each means.
@@ -195,6 +195,7 @@ fn words(t: &Tokens) -> impl IntoElement {
                 .child(tracked("The words", ty::XS, ty::HEADING, t.dim, 0.66)),
         )
         .children(super::glossary::WORDS.iter().map(word))
+        .child(div().flex_none().h(px(8.)))
 }
 
 /// Where to start each new column so that the tallest of `n` columns, the groups kept in order, is as short as it can
@@ -225,15 +226,19 @@ fn split(h: &[f32], n: usize) -> Vec<usize> {
     best(h, 0, n).1
 }
 
-/// The groups, in reading order, packed into four columns of about the same height.
-fn columns(t: &Tokens) -> impl IntoElement {
+/// The groups, in reading order, packed into as few columns (three or four) as let the tallest fit `room`, each of
+/// about the same height: a short window takes a column more, and past four the keys scroll with room under the last row.
+fn columns(t: &Tokens, room: f32) -> gpui::Div {
     let groups: Vec<(f32, AnyElement)> = actions::help()
         .into_iter()
         .filter(|(_, rows)| !rows.is_empty())
         .map(|(sc, rows)| group(t, sc.title(), &lines(&rows)))
         .collect();
     let heights: Vec<f32> = groups.iter().map(|g| g.0).collect();
-    let cuts = split(&heights, 3);
+    let cuts = (3..=4)
+        .map(|n| split(&heights, n))
+        .find(|cuts| tallest(&heights, cuts) <= room)
+        .unwrap_or_else(|| split(&heights, 4));
     let mut cols: Vec<gpui::Div> = Vec::new();
     let mut col = div().flex().flex_col().flex_1().min_w_0();
     for (i, (_, el)) in groups.into_iter().enumerate() {
@@ -246,7 +251,7 @@ fn columns(t: &Tokens) -> impl IntoElement {
         col = col.child(el);
     }
     cols.push(col);
-    div().flex().gap(px(24.)).children(cols)
+    div().flex().gap(px(18.)).children(cols)
 }
 
 /// The sheet's foot: the keys are commands too, the version, esc.
@@ -264,20 +269,10 @@ fn foot(t: &Tokens, version: &str) -> gpui::Div {
         .child(
             div()
                 .flex()
-                .child(
-                    div()
-                        .font_family(MONO_FAMILY)
-                        .text_color(t.text)
-                        .child("doze sleep db"),
-                )
+                .child(div().mono_face().text_color(t.text).child("doze sleep db"))
                 .child(","),
         )
-        .child(
-            div()
-                .font_family(MONO_FAMILY)
-                .text_color(t.text)
-                .child("doze logs api"),
-        )
+        .child(div().mono_face().text_color(t.text).child("doze logs api"))
         .child("· scripts and CI use those. Letters are off while a console has focus.")
         .child(div().flex_1())
         .child(SharedString::from(format!("doze {version}")))
@@ -286,7 +281,8 @@ fn foot(t: &Tokens, version: &str) -> gpui::Div {
 }
 
 /// The sheet.
-pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
+pub(crate) fn sheet(t: &Tokens, version: &str, height: f32) -> impl IntoElement {
+    let room = height - INSET_TOP - INSET - CHROME;
     let _ = Scope::Global;
     let foot = foot(t, version);
     let panel = div()
@@ -302,10 +298,8 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
         .line_height(px(ty::LH_18))
         .overflow_hidden()
         .rounded(px(14.))
-        .border_1()
-        .border_color(t.line2)
-        .bg(t.panel)
-        .shadow(super::shadow(t))
+        .relative()
+        .child(super::scrim::grown_frame(t, t.line2, 14., "help-frame"))
         .child(
             div()
                 .text_size(px(ty::LG))
@@ -326,7 +320,7 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
                         .min_w_0()
                         .min_h_0()
                         .overflow_y_scroll()
-                        .child(columns(t)),
+                        .child(columns(t, room).pb(px(8.))),
                 )
                 .child(words(t)),
         )
@@ -343,6 +337,26 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
         .justify_center()
         .items_start()
         .child(panel)
+}
+
+/// A line of keys, and a group's heading with the space under the group.
+const LINE_H: f32 = 18.;
+const GROUP_H: f32 = 30.;
+/// The panel's own height around the keys: its padding, the title, the foot and the gaps between them.
+const CHROME: f32 = 2. * 14. + 26. + 2. * 8. + 42. + 8.;
+
+/// How tall the tallest column is when the groups are cut at `cuts`.
+fn tallest(h: &[f32], cuts: &[usize]) -> f32 {
+    let mut edges = vec![0];
+    edges.extend_from_slice(cuts);
+    edges.push(h.len());
+    edges
+        .windows(2)
+        .map(|w| match w {
+            [a, b] => h.get(*a..*b).map_or(0., |s| s.iter().sum()),
+            _ => 0.,
+        })
+        .fold(0., f32::max)
 }
 
 /// The title bar's height and a margin under it.

@@ -4,17 +4,21 @@
 //! Nothing here acts on the machine by itself: a repair or a clean-up goes through [`Hands`], which the app makes
 //! from [`SystemHands`] (the real CLI, the real administrator prompt) and a test or a fixture from a recorder.
 
+pub mod cli;
 mod hands;
 pub mod leftovers;
 pub mod machine;
+pub mod plan;
 #[cfg(test)]
 mod record;
 pub mod repair;
 pub mod update;
 
-pub use hands::SystemHands;
+pub use cli::Cli;
+pub use hands::{Out, Said, SystemHands};
 pub use leftovers::{Leftover, Machine};
 pub use machine::{DozeAt, Part};
+pub use plan::{Job, Planned};
 pub use repair::{Fail, Hands, Outcome, Step};
 pub use update::Update;
 

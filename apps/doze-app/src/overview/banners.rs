@@ -11,7 +11,7 @@ use crate::actions::EditConfig;
 use crate::kit::{Btn, btn, s};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, dot};
+use crate::widgets::{Mono as _, dot, tip};
 
 /// The mark at a banner's left: Go's `.dot` in the tone, or `.ring` (cool, 2 px) for the daemon's.
 #[derive(Clone, Copy)]
@@ -92,6 +92,27 @@ pub(crate) fn stale_banner(t: &Tokens, text: &str) -> AnyElement {
     )
 }
 
+/// An instance page's word that its stack's doze.hcl does not load (Go `instance.tsx`, `inst.broken`): a warn banner
+/// with See why, which goes to the stack's page, where the mistake is shown.
+pub(crate) fn broken_banner(
+    t: &Tokens,
+    (broken, stack): (&str, &str),
+    see_why: crate::kit::Click,
+) -> AnyElement {
+    let why =
+        btn(t, "see-why", "See why", "", Btn::Plain, Some(see_why)).probe("see-why", "See why");
+    banner(
+        t,
+        "banner-broken",
+        (t.warn, Mark::Dot(t.warn)),
+        (
+            &format!("{broken}: {stack} keeps running the file it started with."),
+            "Nothing in it is applied until the file loads.",
+        ),
+        vec![why.into_any_element()],
+    )
+}
+
 /// The banners of a stack's doze.hcl and domains, in Go's order.
 pub(super) fn banners(
     t: &Tokens,
@@ -160,8 +181,8 @@ pub(super) fn banners(
     out
 }
 
-/// The domains' setup (Go `home.setup`): what is not reachable yet and what is missing. The machine's setup takes an
-/// admin prompt, which this app does not raise: the command is offered to copy, for a terminal.
+/// The domains' setup (Go `home.setup`): what is not reachable yet and what is missing; Set up the machine (one
+/// password) where the app can ask (the run sheet, Repair), and the command to copy, for a terminal.
 fn setup(
     t: &Tokens,
     su: &doze_desk::machine_names::Setup,
@@ -183,16 +204,51 @@ fn setup(
         .cursor_pointer()
         .hover(|d| d.text_color(t.bright))
         .child("Copy")
-        .child(div().font_family(MONO_FAMILY).child(s(&su.command)))
+        .child(div().mono_face().child(s(&su.command)))
         .probe("copy-trust", format!("Copy {}", su.command))
+        .tooltip(tip(doze_desk::titles::COPY_COMMAND))
         .on_click(cx.listener(move |this, _, _, cx| {
             this.copy_text(&command, "the command", cx);
         }));
+    let mut buttons = Vec::new();
+    if su.prompt {
+        buttons.push(
+            btn(
+                t,
+                "set-up-machine",
+                "Set up the machine",
+                "",
+                Btn::Primary,
+                Some(Box::new(|_, window, cx| {
+                    window.dispatch_action(Box::new(crate::actions::RepairMachine), cx);
+                })),
+            )
+            .tooltip(tip(doze_desk::titles::SET_UP_MACHINE))
+            .child(
+                div()
+                    .font_weight(ty::REGULAR)
+                    .opacity(0.75)
+                    .child("(one password)"),
+            )
+            .into_any_element(),
+        );
+    }
+    buttons.push(copy.into_any_element());
     banner(
         t,
         "banner-setup",
         (t.cool, Mark::Dot(t.cool)),
         (&su.text, &su.detail),
-        vec![copy.into_any_element()],
+        buttons,
     )
+}
+
+/// doze.hcl saved after the running stack read it (Go `ConfigChangedOf`).
+pub(super) fn changed(
+    st: &doze_desk::StackView,
+    now: std::time::SystemTime,
+) -> Option<doze_desk::overview::ConfigChanged> {
+    // The newest of doze.hcl, *.doze.hcl and *.auto.doze.vars (Go's config stamp), not doze.hcl alone.
+    let mtime = crate::facts::stamp(std::path::Path::new(&st.dir))?.0;
+    doze_desk::overview::config_changed(mtime, st.loaded, now)
 }

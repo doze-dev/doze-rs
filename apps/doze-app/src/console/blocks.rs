@@ -236,6 +236,7 @@ impl Draw<'_> {
                     .text_size(px(ty::FIGURE))
                     .font_weight(ty::SEMIBOLD)
                     .text_color(t.bright)
+                    .font_features(ty::tabular())
                     .child(text(if n.last.is_empty() { "—" } else { &n.last })),
             )
             .child(div().h(px(40.)).w_full().child(line))

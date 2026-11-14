@@ -32,6 +32,7 @@ pub(crate) fn start(
         "update-none" => update(crate::VERSION.trim_start_matches('v'), ""),
         "update-offline" => update("", "could not reach GitHub to check"),
         "journal" | "hover" => return Some(journal(root, act == "hover", cx)),
+        "run-sheet" | "run-done" => return Some(run_sheet(root, act == "run-done", window, cx)),
         _ => return None,
     };
     let s = root.pages.settings.clone()?;
@@ -321,4 +322,38 @@ pub(crate) fn activity(
             a.find_words(f, window, cx);
         }
     });
+}
+
+/// The run sheet over Settings › Machine: Repair's plan for a machine with its parts not in place, before it runs, or
+/// after a run that printed and ended well (made up: a shot runs nothing).
+fn run_sheet(root: &mut Root, ran: bool, window: &mut Window, cx: &mut Context<Root>) -> u64 {
+    let steps = vec![
+        doze_desk::settings::Step {
+            what: "the .doze names".into(),
+            dir: None,
+            args: vec!["dns-setup".into()],
+            script: String::new(),
+            prune: false,
+        },
+        doze_desk::settings::Step {
+            what: "shop's domains".into(),
+            dir: Some(std::env::temp_dir().join("shop")),
+            args: vec!["trust".into()],
+            script: String::new(),
+            prune: false,
+        },
+        doze_desk::settings::Step {
+            what: "put doze on your PATH".into(),
+            dir: None,
+            args: Vec::new(),
+            script: "mkdir -p /usr/local/bin\nln -sf '/Users/you/go/bin/doze' /usr/local/bin/doze"
+                .into(),
+            prune: false,
+        },
+    ];
+    root.open_admin(doze_desk::settings::Job::Repair(steps), window, cx);
+    if let Some(a) = root.pages.admin.clone() {
+        a.update(cx, |v, cx| crate::overlays::admin::stage(v, ran, cx));
+    }
+    300
 }

@@ -97,7 +97,7 @@ fn crash_detail(err: &str, v: &Instance, now: SystemTime) -> String {
     if let Some(next) = v.next_restart
         && let Ok(d) = next.duration_since(now)
     {
-        try_ = format!("{try_}, next in {}s", (d.as_secs_f64() + 0.5) as u64);
+        try_ = format!("{try_}, next in {}", words::seconds_to_go(d));
     }
     if err.is_empty() {
         try_

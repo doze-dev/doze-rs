@@ -229,6 +229,13 @@ jobs:
           $app shot --fixture crash --screen library --over note --out shots/notify-in-app.png
           $app shot --synth 2000 --screen grid --at 3000,20000 --out shots/grid-2k-scrolled.png
           ls -la shots
+      # A window left alone draws only when a word to the minute changes (at most 2 frames a minute), a hidden one
+      # nothing (each frame keeps ~150 MB of GPU memory; docs/port/weight.md), and every run here keeps its hands off
+      # the runner's input (crate::handsoff: exit 3 if the window took the focus).
+      - name: An idle window draws (almost) nothing
+        run: |
+          target/debug/doze-app bench --fixture larder --idle 15 --closed 1 --check --per-minute 2
+          target/debug/doze-app bench --fixture larder --idle 15 --closed 1 --check --hidden
       - name: Screens inside a stack (instance, logs, consoles)
         run: |
           app=target/debug/doze-app
