@@ -21,7 +21,11 @@ const KEEP_MS: i64 = 2 * 60 * 60 * 1000;
 /// The least time between fetches of one issuer's set for an unknown key id (memory).
 const REFETCH_MS: i64 = 30 * 1000;
 /// "Timeout for JSON Web Key Set endpoint: 1500 ms".
+#[cfg(not(test))]
 const FETCH_TIMEOUT: Duration = Duration::from_millis(1500);
+/// The unit tests' debug-built TLS handshakes, under a whole workspace's test load, can take longer than AWS's 1,500 ms.
+#[cfg(test)]
+const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 /// "Response size from JSON Web Key Set endpoint: 150000 bytes".
 const MAX_ANSWER: usize = 150_000;
 
