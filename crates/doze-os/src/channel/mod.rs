@@ -47,6 +47,10 @@ pub async fn pair() -> io::Result<(Channel, Channel)> {
 
 /// The module's end of the channel. Call it once, before starting any other process: on Unix it also points the
 /// module's stdin at the null device, so nothing the module runs inherits the channel.
+///
+/// # Errors
+/// [`io::ErrorKind::NotConnected`] (Unix) or [`io::ErrorKind::NotFound`] (Windows) when the process was not started by
+/// doze, so there is no channel: a module run by hand. Anything else is the channel failing.
 pub fn module_channel() -> io::Result<Channel> {
     imp::module_channel().map(Channel)
 }

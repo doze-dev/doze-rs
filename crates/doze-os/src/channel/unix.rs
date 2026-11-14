@@ -42,7 +42,16 @@ pub(super) async fn pair() -> io::Result<(Channel, Channel)> {
 pub(super) fn module_channel() -> io::Result<Channel> {
     // Our own copy of the socket (close-on-exec), then fd 0 becomes /dev/null so programs this module runs
     // (psql, mariadb …) never inherit the channel (S0 measured a grandchild holding it otherwise).
-    let ctl = std::io::stdin().as_fd().try_clone_to_owned()?;
+    // A module run by hand has a terminal, a file or nothing there: said as NotConnected, before stdin is touched.
+    let stdin = std::io::stdin();
+    let kind = rustix::fs::fstat(stdin.as_fd()).map(|s| rustix::fs::FileType::from_raw_mode(s.st_mode));
+    if !matches!(kind, Ok(rustix::fs::FileType::Socket)) {
+        return Err(io::Error::new(
+            io::ErrorKind::NotConnected,
+            "standard input is not a socket from doze",
+        ));
+    }
+    let ctl = stdin.as_fd().try_clone_to_owned()?;
     let null = rustix::fs::open(
         "/dev/null",
         rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC,
