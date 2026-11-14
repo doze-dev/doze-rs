@@ -21,10 +21,13 @@ impl ConsumerGroup {
                 self.heartbeat(token, &hb, &source.topics(), now, &mut out);
             }
             Event::Timer(key) => self.timer(&key, now, &mut out),
+            Event::Force(token, force) => {
+                self.force(token, &force, &source.topics(), now, &mut out);
+            }
             Event::TopicsChanged => self.topics_changed(&source.topics(), now, &mut out),
             Event::Describe(token) => out.push(Effect::Reply(
                 token,
-                Answer::Describe(self.description(&source.topics())),
+                Answer::Describe(self.description(&source.topics(), now)),
             )),
             Event::Delete(token) => {
                 let refused = (!self.members.is_empty()).then_some(E::NonEmptyGroup);
@@ -44,7 +47,7 @@ impl ConsumerGroup {
             Event::Heartbeat(token, req) => {
                 self.classic_heartbeat(token, &req, &source.topics(), now, &mut out)
             }
-            Event::Leave(token, targets) => self.classic_leave(token, &targets, &mut out),
+            Event::Leave(token, targets) => self.classic_leave(token, &targets, now, &mut out),
         }
         out
     }
@@ -80,7 +83,8 @@ impl ConsumerGroup {
     }
 
     /// The group as the classic APIs and ListGroups see it: not described by the classic APIs, but listed.
-    fn description(&self, topics: &Topics) -> Description {
+    #[cfg_attr(not(feature = "inspect"), allow(unused_variables))]
+    fn description(&self, topics: &Topics, now: Millis) -> Description {
         // The names members subscribe to, and the topics that exist which a member's pattern matches.
         let mut subscribed: BTreeSet<String> = self
             .members
@@ -106,6 +110,8 @@ impl ConsumerGroup {
             members: Vec::new(),
             subscribed: Some(subscribed),
             consumer: Some(self.view()),
+            #[cfg(feature = "inspect")]
+            inspect: Box::new(self.inspect(now)),
         }
     }
 }

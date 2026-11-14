@@ -5,9 +5,13 @@
 //! 3. Dial that address back and ask ApiVersions: can a client that was told it get there?
 //!
 //! Every dial has its own short deadline, and the whole check one of 1.5 s, so a page that shows it is never held longer.
-//! It runs when asked ("Check again") and once at page load (a result under 30 s old is reused), never on a timer.
+//! It runs when asked ("Check again") and at a load of Connect (a result under 30 s old is reused), never on a timer and
+//! never for a read of Home, which can be refreshed on an interval (it uses [`Prober::peek`], which dials nothing). Callers that arrive while a
+//! check is running share its result, so many at once are one set of dials. A check that did not finish claims nothing and
+//! is not reused: the next page load tries again.
 
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use kafka_wire::api::Response;
@@ -169,20 +173,80 @@ pub struct Prober {
     facts: Facts,
     backend: Backend,
     last: Mutex<Option<(Instant, ProbeView)>>,
+    /// Held while a check runs: one at a time.
+    flight: tokio::sync::Mutex<()>,
+    /// Checks finished so far: a caller that waited for the flight and sees this changed shares the result it left.
+    finished: AtomicU64,
+    /// How old a result may be and still be shown at page load.
+    fresh: Duration,
 }
 
 impl Prober {
     #[must_use]
     pub fn new(facts: Facts, backend: Backend) -> Self {
+        Self::with_fresh(facts, backend, FRESH)
+    }
+
+    /// A prober that reuses a result for `fresh` (a test's shorter [`FRESH`]).
+    #[must_use]
+    pub fn with_fresh(facts: Facts, backend: Backend, fresh: Duration) -> Self {
         Self {
             facts,
             backend,
             last: Mutex::new(None),
+            flight: tokio::sync::Mutex::new(()),
+            finished: AtomicU64::new(0),
+            fresh,
         }
     }
 
-    /// Runs the check now. A check that does not finish in [`DEADLINE`] claims nothing.
+    /// Runs the check now, unless one is running: then it waits for that one and shares its result. A check that does
+    /// not finish in [`DEADLINE`] claims nothing.
     pub async fn run(&self) -> ProbeView {
+        let before = self.finished.load(Ordering::Acquire);
+        let _flight = self.flight.lock().await;
+        if self.finished.load(Ordering::Acquire) != before
+            && let Some((_, shared)) = self.last_result()
+        {
+            return shared;
+        }
+        let view = self.measure().await;
+        *self
+            .last
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) =
+            Some((Instant::now(), view.clone()));
+        self.finished.fetch_add(1, Ordering::Release);
+        view
+    }
+
+    fn last_result(&self) -> Option<(Instant, ProbeView)> {
+        self.last
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// What the last check said, however old, and never a dial; before any check, "Not checked".
+    #[must_use]
+    pub fn peek(&self) -> ProbeView {
+        self.last_result()
+            .map_or_else(|| self.unchecked(), |(_, v)| v)
+    }
+
+    fn unchecked(&self) -> ProbeView {
+        let f = &self.facts;
+        ProbeView {
+            verdict: Verdict::NotChecked,
+            rules: Vec::<Rule>::new(),
+            listen: f.bootstrap(),
+            advertised: f.advertised(),
+            same: f.bootstrap() == f.advertised(),
+            metadata_version: self.backend.version(ApiKey::Metadata),
+        }
+    }
+
+    async fn measure(&self) -> ProbeView {
         let f = &self.facts;
         let measure = async {
             let (to_listener, to_advertised) = (f.dial_listener(), f.advertised());
@@ -201,36 +265,18 @@ impl Prober {
                 advertised_dial: Some(advertised),
             }
         };
-        let view = match tokio::time::timeout(DEADLINE, measure).await {
+        match tokio::time::timeout(DEADLINE, measure).await {
             Ok(m) => judge(&m),
-            Err(_) => ProbeView {
-                verdict: Verdict::NotChecked,
-                rules: Vec::<Rule>::new(),
-                listen: f.bootstrap(),
-                advertised: f.advertised(),
-                same: f.bootstrap() == f.advertised(),
-                metadata_version: self.backend.version(ApiKey::Metadata),
-            },
-        };
-        *self
-            .last
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) =
-            Some((Instant::now(), view.clone()));
-        view
+            Err(_) => self.unchecked(),
+        }
     }
 
-    /// The last result if it is fresh, else a new one.
+    /// The last result if it is fresh and says something, else a new one.
     pub async fn cached(&self) -> ProbeView {
-        let kept = {
-            let last = self
-                .last
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            last.as_ref()
-                .filter(|(at, _)| at.elapsed() < FRESH)
-                .map(|(_, v)| v.clone())
-        };
+        let kept = self
+            .last_result()
+            .filter(|(at, v)| at.elapsed() < self.fresh && v.verdict != Verdict::NotChecked)
+            .map(|(_, v)| v);
         match kept {
             Some(v) => v,
             None => self.run().await,

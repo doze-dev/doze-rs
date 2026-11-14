@@ -1,0 +1,1 @@
+app "w" { run = "x"  env = { A = module.dbb.url } }

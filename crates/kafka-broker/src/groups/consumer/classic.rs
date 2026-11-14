@@ -98,6 +98,7 @@ impl ConsumerGroup {
             group.members.insert(id.clone(), m);
             group.reset_session(&id, now, out);
         }
+        group.note_adopted(group.members.len(), now, out);
         group
     }
 

@@ -1,0 +1,5374 @@
+[
+ {
+  "id": "hand1.0000",
+  "expr": "format(\"%[2]s %[1]s\", \"a\", \"b\")"
+ },
+ {
+  "id": "hand1.0001",
+  "expr": "format(\"%[3]s\", \"a\")"
+ },
+ {
+  "id": "hand1.0002",
+  "expr": "format(\"%[0]s\", \"a\")"
+ },
+ {
+  "id": "hand1.0003",
+  "expr": "format(\"%-5s|\", \"ß\")"
+ },
+ {
+  "id": "hand1.0004",
+  "expr": "format(\"%05s|\", \"x\")"
+ },
+ {
+  "id": "hand1.0005",
+  "expr": "format(\"%05d\", -3)"
+ },
+ {
+  "id": "hand1.0006",
+  "expr": "format(\"%+d\", 3)"
+ },
+ {
+  "id": "hand1.0007",
+  "expr": "format(\"% d\", 3)"
+ },
+ {
+  "id": "hand1.0008",
+  "expr": "format(\"% +d\", 3)"
+ },
+ {
+  "id": "hand1.0009",
+  "expr": "format(\"%#v\", 1)"
+ },
+ {
+  "id": "hand1.0010",
+  "expr": "format(\"%x\", 255)"
+ },
+ {
+  "id": "hand1.0011",
+  "expr": "format(\"%X\", -255)"
+ },
+ {
+  "id": "hand1.0012",
+  "expr": "format(\"%o\", 8)"
+ },
+ {
+  "id": "hand1.0013",
+  "expr": "format(\"%b\", 5)"
+ },
+ {
+  "id": "hand1.0014",
+  "expr": "format(\"%q\", \"a\\\"b\")"
+ },
+ {
+  "id": "hand1.0015",
+  "expr": "format(\"%t\", true)"
+ },
+ {
+  "id": "hand1.0016",
+  "expr": "format(\"%v\", [1, 2])"
+ },
+ {
+  "id": "hand1.0017",
+  "expr": "format(\"%v\", {a = 1, b = \"x\"})"
+ },
+ {
+  "id": "hand1.0018",
+  "expr": "format(\"%v\", null)"
+ },
+ {
+  "id": "hand1.0019",
+  "expr": "format(\"%s\", null)"
+ },
+ {
+  "id": "hand1.0020",
+  "expr": "format(\"%d\", 1.5)"
+ },
+ {
+  "id": "hand1.0021",
+  "expr": "format(\"%d\", \"12\")"
+ },
+ {
+  "id": "hand1.0022",
+  "expr": "format(\"%s\", 12)"
+ },
+ {
+  "id": "hand1.0023",
+  "expr": "format(\"%s\", true)"
+ },
+ {
+  "id": "hand1.0024",
+  "expr": "format(\"%%\")"
+ },
+ {
+  "id": "hand1.0025",
+  "expr": "format(\"%\")"
+ },
+ {
+  "id": "hand1.0026",
+  "expr": "format(\"abc%\")"
+ },
+ {
+  "id": "hand1.0027",
+  "expr": "format(\"%z\", 1)"
+ },
+ {
+  "id": "hand1.0028",
+  "expr": "format(\"%5.2f\", 3.14159)"
+ },
+ {
+  "id": "hand1.0029",
+  "expr": "format(\"%-8.3s|\", \"abcdef\")"
+ },
+ {
+  "id": "hand1.0030",
+  "expr": "format(\"%.0s|\", \"x\")"
+ },
+ {
+  "id": "hand1.0031",
+  "expr": "format(\"%10v|\", [1])"
+ },
+ {
+  "id": "hand1.0032",
+  "expr": "format(\"%s\", var.later)"
+ },
+ {
+  "id": "hand1.0033",
+  "expr": "format(var.later, 1)"
+ },
+ {
+  "id": "hand1.0034",
+  "expr": "format(\"%d %d\", 1)"
+ },
+ {
+  "id": "hand1.0035",
+  "expr": "format(\"%d\", 1, 2)"
+ },
+ {
+  "id": "hand1.0036",
+  "expr": "format(\"%[2]d %d\", 1, 2, 3)"
+ },
+ {
+  "id": "hand1.0037",
+  "expr": "format(\"%[1]d %[1]d\", 5)"
+ },
+ {
+  "id": "hand1.0038",
+  "expr": "format(\"%x\", \"hi\")"
+ },
+ {
+  "id": "hand1.0039",
+  "expr": "format(\"%X\", 1.5)"
+ },
+ {
+  "id": "hand1.0040",
+  "expr": "format(\"%e\", \"1e3\")"
+ },
+ {
+  "id": "hand1.0041",
+  "expr": "format(\"%*d\", 1, 2)"
+ },
+ {
+  "id": "hand1.0042",
+  "expr": "format(\"%-05d|\", 3)"
+ },
+ {
+  "id": "hand1.0043",
+  "expr": "format(\"%+.2e\", 12345)"
+ },
+ {
+  "id": "hand1.0044",
+  "expr": "format(\"%#x\", 255)"
+ },
+ {
+  "id": "hand1.0045",
+  "expr": "format(\"%#o\", 8)"
+ },
+ {
+  "id": "hand1.0046",
+  "expr": "format(\"%5t|\", true)"
+ },
+ {
+  "id": "hand1.0047",
+  "expr": "format(\"%-5q|\", \"a\")"
+ },
+ {
+  "id": "hand1.0048",
+  "expr": "format(\"%q\", \"ü\\n\\t\")"
+ },
+ {
+  "id": "hand1.0049",
+  "expr": "format(\"%q\", 12)"
+ },
+ {
+  "id": "hand1.0050",
+  "expr": "format(\"%v\", var.later)"
+ },
+ {
+  "id": "hand1.0051",
+  "expr": "format(\"%v\", var.any)"
+ },
+ {
+  "id": "hand1.0052",
+  "expr": "format(\"%s\", [var.later])"
+ },
+ {
+  "id": "hand1.0053",
+  "expr": "format(\"%v\", [var.later])"
+ },
+ {
+  "id": "hand1.0054",
+  "expr": "format(\"%d\", 1e30)"
+ },
+ {
+  "id": "hand1.0055",
+  "expr": "format(\"%d\", -0)"
+ },
+ {
+  "id": "hand1.0056",
+  "expr": "format(\"%x\", 1e30)"
+ },
+ {
+  "id": "hand1.0057",
+  "expr": "format(\"%b\", -5)"
+ },
+ {
+  "id": "hand1.0058",
+  "expr": "format(\"%o\", -8)"
+ },
+ {
+  "id": "hand1.0059",
+  "expr": "format(\"%v\", \"x\")"
+ },
+ {
+  "id": "hand1.0060",
+  "expr": "format(\"%#v\", \"x\")"
+ },
+ {
+  "id": "hand1.0061",
+  "expr": "format(\"%x\", -1)"
+ },
+ {
+  "id": "hand1.0062",
+  "expr": "format(\"%d\", 18446744073709551616)"
+ },
+ {
+  "id": "hand1.0063",
+  "expr": "format(\"%5%\")"
+ },
+ {
+  "id": "hand1.0064",
+  "expr": "format(\"%-5%|\")"
+ },
+ {
+  "id": "hand1.0065",
+  "expr": "format(\"%[1]\")"
+ },
+ {
+  "id": "hand1.0066",
+  "expr": "format(\"%[x]d\", 1)"
+ },
+ {
+  "id": "hand1.0067",
+  "expr": "format(\"%.[2]d\", 1, 2)"
+ },
+ {
+  "id": "hand1.0068",
+  "expr": "format(\"%3c\", 65)"
+ },
+ {
+  "id": "hand1.0069",
+  "expr": "format(\"%U\", 65)"
+ },
+ {
+  "id": "hand1.0070",
+  "expr": "format(\"%5s|\", \"e\\u0301\")"
+ },
+ {
+  "id": "hand1.0071",
+  "expr": "format(\"%.2s|\", \"e\\u0301e\\u0301x\")"
+ },
+ {
+  "id": "hand1.0072",
+  "expr": "format(\"%10.4f|%-10s|\", 3.14159, \"ab\")"
+ },
+ {
+  "id": "hand1.0073",
+  "expr": "format(\"%5s|\", \"漢字\")"
+ },
+ {
+  "id": "hand1.0074",
+  "expr": "format(\"%-6s|\", \"👍🏽\")"
+ },
+ {
+  "id": "hand1.0075",
+  "expr": "format(\"%[2]s\", \"a\")"
+ },
+ {
+  "id": "hand1.0076",
+  "expr": "format(\"%[1]s %s %s\", \"a\", \"b\")"
+ },
+ {
+  "id": "hand1.0077",
+  "expr": "format(\"%[3]s %[1]s\", \"a\", \"b\", \"c\")"
+ },
+ {
+  "id": "hand1.0078",
+  "expr": "format(\"%[2]s\", \"a\", \"b\")"
+ },
+ {
+  "id": "hand1.0079",
+  "expr": "format(\"%[1]s\", \"a\", \"b\")"
+ },
+ {
+  "id": "hand1.0080",
+  "expr": "format(\"%s\", \"a\", var.later)"
+ },
+ {
+  "id": "hand1.0081",
+  "expr": "format(\"%v %v\", var.any, 1)"
+ },
+ {
+  "id": "hand1.0082",
+  "expr": "format(\"%.3v\", \"abcdef\")"
+ },
+ {
+  "id": "hand1.0083",
+  "expr": "format(\"%.3v\", 3.14159)"
+ },
+ {
+  "id": "hand1.0084",
+  "expr": "format(\"%8.3v|\", 3.14159)"
+ },
+ {
+  "id": "hand1.0085",
+  "expr": "format(\"%-08.3f|\", -3.14159)"
+ },
+ {
+  "id": "hand1.0086",
+  "expr": "format(\"%+08.3f|\", 3.14159)"
+ },
+ {
+  "id": "hand1.0087",
+  "expr": "format(\"% 08.3f|\", 3.14159)"
+ },
+ {
+  "id": "hand1.0088",
+  "expr": "format(\"%08v\", 12)"
+ },
+ {
+  "id": "hand1.0089",
+  "expr": "format(\"%v\", 1e-7)"
+ },
+ {
+  "id": "hand1.0090",
+  "expr": "format(\"%v\", 100000000000000000000)"
+ },
+ {
+  "id": "hand1.0091",
+  "expr": "format(\"%v\", 1e21)"
+ },
+ {
+  "id": "hand1.0092",
+  "expr": "format(\"%v\", -0)"
+ },
+ {
+  "id": "hand1.0093",
+  "expr": "format(\"%s\", -0)"
+ },
+ {
+  "id": "hand1.0094",
+  "expr": "format(\"%s\", 1e21)"
+ },
+ {
+  "id": "hand1.0095",
+  "expr": "format(\"%s\", 0.1)"
+ },
+ {
+  "id": "hand1.0096",
+  "expr": "format(\"%s\", 1/3)"
+ },
+ {
+  "id": "hand1.0097",
+  "expr": "format(\"%d\", 1/3)"
+ },
+ {
+  "id": "hand1.0098",
+  "expr": "format(\"%f\", \"x\")"
+ },
+ {
+  "id": "hand1.0099",
+  "expr": "format(\"%t\", \"true\")"
+ },
+ {
+  "id": "hand1.0100",
+  "expr": "format(\"%t\", 1)"
+ },
+ {
+  "id": "hand1.0101",
+  "expr": "format(\"%v\", true)"
+ },
+ {
+  "id": "hand1.0102",
+  "expr": "format(\"%s\", [1])"
+ },
+ {
+  "id": "hand1.0103",
+  "expr": "format(\"%s\", {a = 1})"
+ },
+ {
+  "id": "hand1.0104",
+  "expr": "format(\"%v\", toset([\"b\", \"a\"]))"
+ },
+ {
+  "id": "hand1.0105",
+  "expr": "format(\"%v\", tomap({b = 1, a = 2}))"
+ },
+ {
+  "id": "hand1.0106",
+  "expr": "format(\"%v\", [null])"
+ },
+ {
+  "id": "hand1.0107",
+  "expr": "format(\"%v\", {a = null})"
+ },
+ {
+  "id": "hand1.0108",
+  "expr": "format(\"%q\", null)"
+ },
+ {
+  "id": "hand1.0109",
+  "expr": "format(\"%v\", var.none)"
+ },
+ {
+  "id": "hand1.0110",
+  "expr": "format(\"%d\", var.none)"
+ },
+ {
+  "id": "hand1.0111",
+  "expr": "format(\"%d\", var.later)"
+ },
+ {
+  "id": "hand1.0112",
+  "expr": "format(\"%z\", var.later)"
+ },
+ {
+  "id": "hand1.0113",
+  "expr": "format(\"%[5]s\", var.later)"
+ },
+ {
+  "id": "hand1.0114",
+  "expr": "format(\"%s\", [\"a\"]...)"
+ },
+ {
+  "id": "hand1.0115",
+  "expr": "format(\"%s %s\", [\"a\", \"b\"]...)"
+ },
+ {
+  "id": "hand1.0116",
+  "expr": "format(\"%s %s\", var.tags...)"
+ },
+ {
+  "id": "hand1.0117",
+  "expr": "format([\"%s\", \"a\"]...)"
+ },
+ {
+  "id": "hand1.0118",
+  "expr": "format(\"%d\", [\"a\"]...)"
+ },
+ {
+  "id": "hand1.0119",
+  "expr": "format(\"%10.3s|\", \"👍🏽👍🏽👍🏽👍🏽\")"
+ },
+ {
+  "id": "hand1.0120",
+  "expr": "format(\"%.1q\", \"abc\")"
+ },
+ {
+  "id": "hand1.0121",
+  "expr": "format(\"%10q|\", \"a\")"
+ },
+ {
+  "id": "hand1.0122",
+  "expr": "format(\"%x\", \"ü\")"
+ },
+ {
+  "id": "hand1.0123",
+  "expr": "format(\"%X\", \"hi\")"
+ },
+ {
+  "id": "hand1.0124",
+  "expr": "format(\"% x\", \"hi\")"
+ },
+ {
+  "id": "hand1.0125",
+  "expr": "format(\"%e\", 0)"
+ },
+ {
+  "id": "hand1.0126",
+  "expr": "format(\"%G\", 1e-5)"
+ },
+ {
+  "id": "hand1.0127",
+  "expr": "format(\"%.100f\", 1)"
+ },
+ {
+  "id": "hand1.0128",
+  "expr": "format(\"%200d\", 1)"
+ },
+ {
+  "id": "hand1.0129",
+  "expr": "format(\"%.1000f\", 0.1)"
+ },
+ {
+  "id": "hand1.0130",
+  "expr": "format(\"%-+5d|\", 3)"
+ },
+ {
+  "id": "hand1.0131",
+  "expr": "format(\"%#b\", 5)"
+ },
+ {
+  "id": "hand1.0132",
+  "expr": "format(\"%#e\", 1)"
+ },
+ {
+  "id": "hand1.0133",
+  "expr": "format(\"%#g\", 1)"
+ },
+ {
+  "id": "hand1.0134",
+  "expr": "format(\"%08.3e\", -1)"
+ },
+ {
+  "id": "hand1.0135",
+  "expr": "format(\"%s%%%s\", \"a\", \"b\")"
+ },
+ {
+  "id": "hand1.0136",
+  "expr": "format(\"%!\", 1)"
+ },
+ {
+  "id": "hand1.0137",
+  "expr": "format(\"%[1]d%[1]s\", 1)"
+ },
+ {
+  "id": "hand1.0138",
+  "expr": "format(\"%[-1]d\", 1)"
+ },
+ {
+  "id": "hand1.0139",
+  "expr": "format(\"%[99999999999999999999]d\", 1)"
+ },
+ {
+  "id": "hand1.0140",
+  "expr": "format(\"%99999999999999999999d\", 1)"
+ },
+ {
+  "id": "hand1.0141",
+  "expr": "format(\"%.99999999999999999999d\", 1)"
+ },
+ {
+  "id": "hand1.0142",
+  "expr": "formatlist(\"%s-%s\", [\"a\", \"b\"], \"x\")"
+ },
+ {
+  "id": "hand1.0143",
+  "expr": "formatlist(\"%s-%s\", [\"a\", \"b\"], [\"x\"])"
+ },
+ {
+  "id": "hand1.0144",
+  "expr": "formatlist(\"%s\", [])"
+ },
+ {
+  "id": "hand1.0145",
+  "expr": "formatlist(\"%s\", var.later)"
+ },
+ {
+  "id": "hand1.0146",
+  "expr": "formatlist(\"%s\", [var.later])"
+ },
+ {
+  "id": "hand1.0147",
+  "expr": "formatlist(\"%s\", toset([\"a\"]))"
+ },
+ {
+  "id": "hand1.0148",
+  "expr": "formatlist(\"%s\", {a = 1})"
+ },
+ {
+  "id": "hand1.0149",
+  "expr": "formatlist(\"%s %s\", [\"a\"], [\"b\", \"c\"])"
+ },
+ {
+  "id": "hand1.0150",
+  "expr": "formatlist(\"%[2]s\", [\"a\"], [\"b\"])"
+ },
+ {
+  "id": "hand1.0151",
+  "expr": "formatlist(\"%s\", null)"
+ },
+ {
+  "id": "hand1.0152",
+  "expr": "formatlist(\"%s\", [null])"
+ },
+ {
+  "id": "hand1.0153",
+  "expr": "formatlist(\"x\")"
+ },
+ {
+  "id": "hand1.0154",
+  "expr": "formatlist(var.later, [\"a\"])"
+ },
+ {
+  "id": "hand1.0155",
+  "expr": "formatlist(\"%v\", [[1], [2]])"
+ },
+ {
+  "id": "hand1.0156",
+  "expr": "formatlist(\"%s\", [\"a\"], var.tags)"
+ },
+ {
+  "id": "hand1.0157",
+  "expr": "formatlist(\"%s %s\", var.tags, var.tags)"
+ },
+ {
+  "id": "hand1.0158",
+  "expr": "formatlist(\"%s\", var.any)"
+ },
+ {
+  "id": "hand1.0159",
+  "expr": "formatlist(\"%s\", tolist(var.any))"
+ },
+ {
+  "id": "hand1.0160",
+  "expr": "formatlist(\"%s\", [1, \"a\", true])"
+ },
+ {
+  "id": "hand1.0161",
+  "expr": "formatlist(\"%d\", [\"a\"])"
+ },
+ {
+  "id": "hand1.0162",
+  "expr": "formatlist(\"%s\", [], [\"a\"])"
+ },
+ {
+  "id": "hand1.0163",
+  "expr": "formatlist(\"%s %s\", [], [])"
+ },
+ {
+  "id": "hand1.0164",
+  "expr": "formatlist(\"%s\", var.set)"
+ },
+ {
+  "id": "hand1.0165",
+  "expr": "formatlist([\"%s\", \"%d\"], [1, 2])"
+ },
+ {
+  "id": "hand1.0166",
+  "expr": "formatlist(\"%s\", [\"a\"], null)"
+ },
+ {
+  "id": "hand1.0167",
+  "expr": "formatlist(\"%s %s\", [\"a\"], var.later)"
+ },
+ {
+  "id": "hand1.0168",
+  "expr": "formatlist(\"%s %s\", [\"a\", \"b\"], [var.later])"
+ },
+ {
+  "id": "hand1.0169",
+  "expr": "formatlist(\"%z\", [\"a\"])"
+ },
+ {
+  "id": "hand1.0170",
+  "expr": "formatlist(\"%s\", [[\"a\"]])"
+ },
+ {
+  "id": "hand1.0171",
+  "expr": "formatlist(\"%s\", tomap({a = \"x\"}))"
+ },
+ {
+  "id": "hand1.0172",
+  "expr": "formatlist(\"%s\", [\"a\"]...)"
+ },
+ {
+  "id": "hand1.0173",
+  "expr": "regex(\"(?i)ABC\", \"abc\")"
+ },
+ {
+  "id": "hand1.0174",
+  "expr": "regex(\"\\\\Qa.b\\\\E\", \"a.b\")"
+ },
+ {
+  "id": "hand1.0175",
+  "expr": "regex(\"\\\\Qa.b\", \"xa.b\")"
+ },
+ {
+  "id": "hand1.0176",
+  "expr": "regex(\"\\\\Qa\\\\E*\", \"aaa\")"
+ },
+ {
+  "id": "hand1.0177",
+  "expr": "regex(\"(?i)\\\\Qab\\\\E\", \"AB\")"
+ },
+ {
+  "id": "hand1.0178",
+  "expr": "regex(\"[\\\\Q]\\\\E]\", \"]\")"
+ },
+ {
+  "id": "hand1.0179",
+  "expr": "regex(\"(?P<x>a)(?P<y>b)?\", \"a\")"
+ },
+ {
+  "id": "hand1.0180",
+  "expr": "regex(\"(a)(b)?\", \"a\")"
+ },
+ {
+  "id": "hand1.0181",
+  "expr": "regex(\"(a)|(b)\", \"b\")"
+ },
+ {
+  "id": "hand1.0182",
+  "expr": "regex(\"\", \"abc\")"
+ },
+ {
+  "id": "hand1.0183",
+  "expr": "regex(\"x*\", \"abc\")"
+ },
+ {
+  "id": "hand1.0184",
+  "expr": "regex(\"[[:alpha:]]+\", \"abc1\")"
+ },
+ {
+  "id": "hand1.0185",
+  "expr": "regex(\"\\\\w+\", \"héllo\")"
+ },
+ {
+  "id": "hand1.0186",
+  "expr": "regex(\"\\\\b.\", \"éa\")"
+ },
+ {
+  "id": "hand1.0187",
+  "expr": "regex(\"\\\\bfoo\\\\b\", \"éfoo\")"
+ },
+ {
+  "id": "hand1.0188",
+  "expr": "regex(\"\\\\s\", \"\\u000b\")"
+ },
+ {
+  "id": "hand1.0189",
+  "expr": "regex(\"\\\\s+\", \"\\u00a0 x\")"
+ },
+ {
+  "id": "hand1.0190",
+  "expr": "regex(\"[[:space:]]\", \"\\u000b\")"
+ },
+ {
+  "id": "hand1.0191",
+  "expr": "regex(\"(?s).+\", \"a\\nb\")"
+ },
+ {
+  "id": "hand1.0192",
+  "expr": "regex(\".+\", \"a\\nb\")"
+ },
+ {
+  "id": "hand1.0193",
+  "expr": "regex(\"(?m)^b$\", \"a\\nb\")"
+ },
+ {
+  "id": "hand1.0194",
+  "expr": "regex(\"(?U)a+\", \"aaa\")"
+ },
+ {
+  "id": "hand1.0195",
+  "expr": "regex(\"(?U)a+?\", \"aaa\")"
+ },
+ {
+  "id": "hand1.0196",
+  "expr": "regex(\"a{2,}\", \"aaa\")"
+ },
+ {
+  "id": "hand1.0197",
+  "expr": "regex(\"a{,2}\", \"a{,2}\")"
+ },
+ {
+  "id": "hand1.0198",
+  "expr": "regex(\"a{2\", \"a{2\")"
+ },
+ {
+  "id": "hand1.0199",
+  "expr": "regex(\"a{}\", \"a{}\")"
+ },
+ {
+  "id": "hand1.0200",
+  "expr": "regex(\"\\\\pL+\", \"ab1\")"
+ },
+ {
+  "id": "hand1.0201",
+  "expr": "regex(\"\\\\p{Greek}+\", \"αβ\")"
+ },
+ {
+  "id": "hand1.0202",
+  "expr": "regex(\"[^\\\\x00-\\\\x7F]\", \"aé\")"
+ },
+ {
+  "id": "hand1.0203",
+  "expr": "regex(\"\\\\x{1F600}\", \"😀\")"
+ },
+ {
+  "id": "hand1.0204",
+  "expr": "regex(\"(?i)straße\", \"STRASSE\")"
+ },
+ {
+  "id": "hand1.0205",
+  "expr": "regex(\"(?i)ſ\", \"s\")"
+ },
+ {
+  "id": "hand1.0206",
+  "expr": "regex(\"(?i)k\", \"\\u212a\")"
+ },
+ {
+  "id": "hand1.0207",
+  "expr": "regex(\"(?i)\\u212a\", \"k\")"
+ },
+ {
+  "id": "hand1.0208",
+  "expr": "regex(\"[[:^digit:]]\", \"1a\")"
+ },
+ {
+  "id": "hand1.0209",
+  "expr": "regex(\"\\\\C\", \"a\")"
+ },
+ {
+  "id": "hand1.0210",
+  "expr": "regex(\"a++\", \"a\")"
+ },
+ {
+  "id": "hand1.0211",
+  "expr": "regex(\"a**\", \"a\")"
+ },
+ {
+  "id": "hand1.0212",
+  "expr": "regex(\"(?<n>a)\", \"a\")"
+ },
+ {
+  "id": "hand1.0213",
+  "expr": "regex(\"(?P<n>a)(?P<n>b)\", \"ab\")"
+ },
+ {
+  "id": "hand1.0214",
+  "expr": "regex(\"(\", \"\")"
+ },
+ {
+  "id": "hand1.0215",
+  "expr": "regex(\")\", \"\")"
+ },
+ {
+  "id": "hand1.0216",
+  "expr": "regex(\"[z-a]\", \"\")"
+ },
+ {
+  "id": "hand1.0217",
+  "expr": "regex(\"x{1001}\", \"\")"
+ },
+ {
+  "id": "hand1.0218",
+  "expr": "regex(\"x{1000}\", \"\")"
+ },
+ {
+  "id": "hand1.0219",
+  "expr": "regex(\"(x{100}){100}\", \"\")"
+ },
+ {
+  "id": "hand1.0220",
+  "expr": "regex(\"((x{10}){10}){11}\", \"\")"
+ },
+ {
+  "id": "hand1.0221",
+  "expr": "regex(\"(?P<1a>x)\", \"x\")"
+ },
+ {
+  "id": "hand1.0222",
+  "expr": "regex(\"\\\\8\", \"\")"
+ },
+ {
+  "id": "hand1.0223",
+  "expr": "regex(\"\\\\1\", \"\")"
+ },
+ {
+  "id": "hand1.0224",
+  "expr": "regex(\"\\\\z\", \"\")"
+ },
+ {
+  "id": "hand1.0225",
+  "expr": "regex(\"a\\\\Z\", \"a\")"
+ },
+ {
+  "id": "hand1.0226",
+  "expr": "regex(\"(?i:a)b\", \"Ab\")"
+ },
+ {
+  "id": "hand1.0227",
+  "expr": "regex(\"(?-i)a\", \"A\")"
+ },
+ {
+  "id": "hand1.0228",
+  "expr": "regex(\"(?i)(?-i)a\", \"A\")"
+ },
+ {
+  "id": "hand1.0229",
+  "expr": "regex(\"\\\\pN\", \"²\")"
+ },
+ {
+  "id": "hand1.0230",
+  "expr": "regex(\"\\\\d\", \"٣\")"
+ },
+ {
+  "id": "hand1.0231",
+  "expr": "regex(\"[\\\\d]\", \"٣\")"
+ },
+ {
+  "id": "hand1.0232",
+  "expr": "regex(\"\\\\D\", \"٣\")"
+ },
+ {
+  "id": "hand1.0233",
+  "expr": "regex(\"[[:word:]]+\", \"é\")"
+ },
+ {
+  "id": "hand1.0234",
+  "expr": "regex(\"\\\\W\", \"é\")"
+ },
+ {
+  "id": "hand1.0235",
+  "expr": "regex(\"\\\\S\", \"\\u00a0\")"
+ },
+ {
+  "id": "hand1.0236",
+  "expr": "regex(\"(?i)[a-z]+\", \"ÀB\")"
+ },
+ {
+  "id": "hand1.0237",
+  "expr": "regex(\"^\", \"\")"
+ },
+ {
+  "id": "hand1.0238",
+  "expr": "regex(\"$\", \"abc\")"
+ },
+ {
+  "id": "hand1.0239",
+  "expr": "regex(\"[[:alpha:][:digit:]]+\", \"a1\")"
+ },
+ {
+  "id": "hand1.0240",
+  "expr": "regex(\"[a-\\\\d]\", \"\")"
+ },
+ {
+  "id": "hand1.0241",
+  "expr": "regex(\"\\\\p{^Greek}\", \"a\")"
+ },
+ {
+  "id": "hand1.0242",
+  "expr": "regex(\"\\\\PL\", \"1\")"
+ },
+ {
+  "id": "hand1.0243",
+  "expr": "regex(\"\\\\P{L}\", \"1\")"
+ },
+ {
+  "id": "hand1.0244",
+  "expr": "regex(\"\\\\p{L\", \"\")"
+ },
+ {
+  "id": "hand1.0245",
+  "expr": "regex(\"\\\\pX\", \"\")"
+ },
+ {
+  "id": "hand1.0246",
+  "expr": "regex(\"[\\\\p{Lu}]\", \"A\")"
+ },
+ {
+  "id": "hand1.0247",
+  "expr": "regex(\"\\\\p{Latin}\", \"a\")"
+ },
+ {
+  "id": "hand1.0248",
+  "expr": "regex(\"\\\\p{Any}\", \"a\")"
+ },
+ {
+  "id": "hand1.0249",
+  "expr": "regex(\"\\\\p{Han}+\", \"漢字\")"
+ },
+ {
+  "id": "hand1.0250",
+  "expr": "regex(\"\\\\p{Braille}\", \"⠁\")"
+ },
+ {
+  "id": "hand1.0251",
+  "expr": "regex(\"\\\\p{Lu}\", \"a\")"
+ },
+ {
+  "id": "hand1.0252",
+  "expr": "regex(\"(?i)\\\\p{Lu}\", \"a\")"
+ },
+ {
+  "id": "hand1.0253",
+  "expr": "regex(\"(?i)[[:upper:]]\", \"a\")"
+ },
+ {
+  "id": "hand1.0254",
+  "expr": "regex(\"(?i)[^a]\", \"A\")"
+ },
+ {
+  "id": "hand1.0255",
+  "expr": "regex(\"\\\\x41\", \"A\")"
+ },
+ {
+  "id": "hand1.0256",
+  "expr": "regex(\"\\\\101\", \"A\")"
+ },
+ {
+  "id": "hand1.0257",
+  "expr": "regex(\"\\\\0\", \"\\u0000\")"
+ },
+ {
+  "id": "hand1.0258",
+  "expr": "regex(\"\\\\a\\\\f\\\\t\\\\n\\\\r\\\\v\", \"\\u0007\\f\\t\\n\\r\\u000b\")"
+ },
+ {
+  "id": "hand1.0259",
+  "expr": "regex(\"\\\\e\", \"\")"
+ },
+ {
+  "id": "hand1.0260",
+  "expr": "regex(\"[[.a.]]\", \"\")"
+ },
+ {
+  "id": "hand1.0261",
+  "expr": "regex(\"[[=a=]]\", \"\")"
+ },
+ {
+  "id": "hand1.0262",
+  "expr": "regex(\"(?i)Σ\", \"ς\")"
+ },
+ {
+  "id": "hand1.0263",
+  "expr": "regex(\"(?i)ǅ\", \"ǆ\")"
+ },
+ {
+  "id": "hand1.0264",
+  "expr": "regex(\"(?is)A.\", \"a\\n\")"
+ },
+ {
+  "id": "hand1.0265",
+  "expr": "regex(\"(?i-s)A.\", \"a\\n\")"
+ },
+ {
+  "id": "hand1.0266",
+  "expr": "regex(\"(?)\", \"\")"
+ },
+ {
+  "id": "hand1.0267",
+  "expr": "regex(\"(?x) a\", \"a\")"
+ },
+ {
+  "id": "hand1.0268",
+  "expr": "regex(\"(?P=name)\", \"\")"
+ },
+ {
+  "id": "hand1.0269",
+  "expr": "regex(\"(?=a)\", \"a\")"
+ },
+ {
+  "id": "hand1.0270",
+  "expr": "regex(\"(?!a)\", \"a\")"
+ },
+ {
+  "id": "hand1.0271",
+  "expr": "regex(\"(?<=a)b\", \"ab\")"
+ },
+ {
+  "id": "hand1.0272",
+  "expr": "regex(\"(?#comment)\", \"\")"
+ },
+ {
+  "id": "hand1.0273",
+  "expr": "regex(\"(?:)\", \"\")"
+ },
+ {
+  "id": "hand1.0274",
+  "expr": "regex(\"(?i)\", \"a\")"
+ },
+ {
+  "id": "hand1.0275",
+  "expr": "regex(\"a|\", \"b\")"
+ },
+ {
+  "id": "hand1.0276",
+  "expr": "regex(\"|\", \"b\")"
+ },
+ {
+  "id": "hand1.0277",
+  "expr": "regex(\"()\", \"\")"
+ },
+ {
+  "id": "hand1.0278",
+  "expr": "regex(\"(?P<>a)\", \"a\")"
+ },
+ {
+  "id": "hand1.0279",
+  "expr": "regex(\"[]a]\", \"]\")"
+ },
+ {
+  "id": "hand1.0280",
+  "expr": "regex(\"[^]a]\", \"b\")"
+ },
+ {
+  "id": "hand1.0281",
+  "expr": "regex(\"[a-]\", \"-\")"
+ },
+ {
+  "id": "hand1.0282",
+  "expr": "regex(\"[-a]\", \"-\")"
+ },
+ {
+  "id": "hand1.0283",
+  "expr": "regex(\"[\\\\-]\", \"-\")"
+ },
+ {
+  "id": "hand1.0284",
+  "expr": "regex(\"\\\\-\", \"-\")"
+ },
+ {
+  "id": "hand1.0285",
+  "expr": "regex(\"\\\\_\", \"_\")"
+ },
+ {
+  "id": "hand1.0286",
+  "expr": "regex(\"\\\\<\", \"<\")"
+ },
+ {
+  "id": "hand1.0287",
+  "expr": "regex(\"\\\\@\", \"@\")"
+ },
+ {
+  "id": "hand1.0288",
+  "expr": "regex(\"\\\\~\", \"~\")"
+ },
+ {
+  "id": "hand1.0289",
+  "expr": "regex(\"\\\\ \", \" \")"
+ },
+ {
+  "id": "hand1.0290",
+  "expr": "regex(\"\\\\#\", \"#\")"
+ },
+ {
+  "id": "hand1.0291",
+  "expr": "regex(\"\\\\&\", \"&\")"
+ },
+ {
+  "id": "hand1.0292",
+  "expr": "regex(\"\\\\%\", \"%\")"
+ },
+ {
+  "id": "hand1.0293",
+  "expr": "regex(\"\\\\'\", \"'\")"
+ },
+ {
+  "id": "hand1.0294",
+  "expr": "regex(\"\\\\\\\"\", \"\\\"\")"
+ },
+ {
+  "id": "hand1.0295",
+  "expr": "regex(\"\\\\/\", \"/\")"
+ },
+ {
+  "id": "hand1.0296",
+  "expr": "regex(\"\\\\:\", \":\")"
+ },
+ {
+  "id": "hand1.0297",
+  "expr": "regex(\"\\\\g\", \"g\")"
+ },
+ {
+  "id": "hand1.0298",
+  "expr": "regex(\"\\\\k<a>\", \"\")"
+ },
+ {
+  "id": "hand1.0299",
+  "expr": "regex(\"\\\\h\", \"\")"
+ },
+ {
+  "id": "hand1.0300",
+  "expr": "regex(\"\\\\R\", \"\")"
+ },
+ {
+  "id": "hand1.0301",
+  "expr": "regex(\"\\\\X\", \"\")"
+ },
+ {
+  "id": "hand1.0302",
+  "expr": "regex(\"\\\\K\", \"\")"
+ },
+ {
+  "id": "hand1.0303",
+  "expr": "regex(\"\\\\G\", \"\")"
+ },
+ {
+  "id": "hand1.0304",
+  "expr": "regex(\"\\\\B\", \"ab\")"
+ },
+ {
+  "id": "hand1.0305",
+  "expr": "regex(\"\\\\b\", \"\")"
+ },
+ {
+  "id": "hand1.0306",
+  "expr": "regex(\"\\\\A\", \"\")"
+ },
+ {
+  "id": "hand1.0307",
+  "expr": "regex(\"a*?\", \"aaa\")"
+ },
+ {
+  "id": "hand1.0308",
+  "expr": "regex(\"(a*)+\", \"b\")"
+ },
+ {
+  "id": "hand1.0309",
+  "expr": "regex(\"(a|ab)(c|bcd)(d*)\", \"abcd\")"
+ },
+ {
+  "id": "hand1.0310",
+  "expr": "regex(\"(?P<first>\\\\w+) (?P<last>\\\\w+)\", \"jane doe\")"
+ },
+ {
+  "id": "hand1.0311",
+  "expr": "regex(\"(?P<a>x)(y)\", \"xy\")"
+ },
+ {
+  "id": "hand1.0312",
+  "expr": "regex(\"(x)(?P<a>y)\", \"xy\")"
+ },
+ {
+  "id": "hand1.0313",
+  "expr": "regex(\"[a-c&&b]\", \"b\")"
+ },
+ {
+  "id": "hand1.0314",
+  "expr": "regex(\"[a-c--b]\", \"b\")"
+ },
+ {
+  "id": "hand1.0315",
+  "expr": "regex(\"[a-c~~b]\", \"~\")"
+ },
+ {
+  "id": "hand1.0316",
+  "expr": "regex(\"[[]\", \"[\")"
+ },
+ {
+  "id": "hand1.0317",
+  "expr": "regex(\"[[:foo:]]\", \"\")"
+ },
+ {
+  "id": "hand1.0318",
+  "expr": "regex(\"[:alpha:]\", \"a\")"
+ },
+ {
+  "id": "hand1.0319",
+  "expr": "regex(\"[[:alpha:]-z]\", \"-\")"
+ },
+ {
+  "id": "hand1.0320",
+  "expr": "regex(\"[a-[:digit:]]\", \"\")"
+ },
+ {
+  "id": "hand1.0321",
+  "expr": "regex(\"\\\\Q\\\\E\", \"\")"
+ },
+ {
+  "id": "hand1.0322",
+  "expr": "regex(\"a\\\\Q\", \"a\")"
+ },
+ {
+  "id": "hand1.0323",
+  "expr": "regex(\"\\\\Q\\\\\\\\E\", \"\\\\\")"
+ },
+ {
+  "id": "hand1.0324",
+  "expr": "regex(\"[\\\\Qa-c\\\\E]\", \"b\")"
+ },
+ {
+  "id": "hand1.0325",
+  "expr": "regex(\"x{2}{3}\", \"xxxxxx\")"
+ },
+ {
+  "id": "hand1.0326",
+  "expr": "regex(\"x{2}*\", \"xx\")"
+ },
+ {
+  "id": "hand1.0327",
+  "expr": "regex(\"x*{2}\", \"xx\")"
+ },
+ {
+  "id": "hand1.0328",
+  "expr": "regex(\"(?i)\\u0130\", \"i\")"
+ },
+ {
+  "id": "hand1.0329",
+  "expr": "regex(\"(?i)i\", \"\\u0130\")"
+ },
+ {
+  "id": "hand1.0330",
+  "expr": "regex(\"(?i)ß\", \"ẞ\")"
+ },
+ {
+  "id": "hand1.0331",
+  "expr": "regex(\"\\\\N{LATIN SMALL LETTER A}\", \"a\")"
+ },
+ {
+  "id": "hand1.0332",
+  "expr": "regex(\"\\\\u0041\", \"A\")"
+ },
+ {
+  "id": "hand1.0333",
+  "expr": "regex(\"\\\\x{110000}\", \"\")"
+ },
+ {
+  "id": "hand1.0334",
+  "expr": "regex(\"\\\\x{D800}\", \"\")"
+ },
+ {
+  "id": "hand1.0335",
+  "expr": "regex(\"\\\\x{}\", \"\")"
+ },
+ {
+  "id": "hand1.0336",
+  "expr": "regex(\"\\\\x{41\", \"\")"
+ },
+ {
+  "id": "hand1.0337",
+  "expr": "regex(\"\\\\x4\", \"\")"
+ },
+ {
+  "id": "hand1.0338",
+  "expr": "regex(\"[\\\\x{0}-\\\\x{10FFFF}]\", \"a\")"
+ },
+ {
+  "id": "hand1.0339",
+  "expr": "regex(\"[^\\\\x{0}-\\\\x{10FFFF}]\", \"a\")"
+ },
+ {
+  "id": "hand1.0340",
+  "expr": "regex(\"\\\\p{Cs}\", \"\")"
+ },
+ {
+  "id": "hand1.0341",
+  "expr": "regex(\"\\\\p{Co}\", \"\")"
+ },
+ {
+  "id": "hand1.0342",
+  "expr": "regex(\"\\\\p{Cn}\", \"\")"
+ },
+ {
+  "id": "hand1.0343",
+  "expr": "regex(\"\\\\p{greek}\", \"α\")"
+ },
+ {
+  "id": "hand1.0344",
+  "expr": "regex(\"\\\\p{Is_Greek}\", \"α\")"
+ },
+ {
+  "id": "hand1.0345",
+  "expr": "regex(\"\\\\p{L&}\", \"a\")"
+ },
+ {
+  "id": "hand1.0346",
+  "expr": "regex(\"\\\\p{Letter}\", \"a\")"
+ },
+ {
+  "id": "hand1.0347",
+  "expr": "regex(\"\\\\p{Lc}\", \"a\")"
+ },
+ {
+  "id": "hand1.0348",
+  "expr": "regex(\"\\\\p{LC}\", \"a\")"
+ },
+ {
+  "id": "hand1.0349",
+  "expr": "regex(\"\\\\p{Zs}+\", \"\\u00a0\\u3000\")"
+ },
+ {
+  "id": "hand1.0350",
+  "expr": "regex(\"\\\\p{Common}\", \"1\")"
+ },
+ {
+  "id": "hand1.0351",
+  "expr": "regex(\"\\\\p{Inherited}\", \"\\u0301\")"
+ },
+ {
+  "id": "hand1.0352",
+  "expr": "regex(\"\\\\p{Unknown}\", \"\")"
+ },
+ {
+  "id": "hand1.0353",
+  "expr": "regex(\".\", \"\\u0301\")"
+ },
+ {
+  "id": "hand1.0354",
+  "expr": "regex(\"(?i)[k]\", \"\\u212a\")"
+ },
+ {
+  "id": "hand1.0355",
+  "expr": "regex(\"(?i)[^k]\", \"\\u212a\")"
+ },
+ {
+  "id": "hand1.0356",
+  "expr": "regex(\"(?i)[a-z]\", \"\\u017f\")"
+ },
+ {
+  "id": "hand1.0357",
+  "expr": "regex(\"[[:^alpha:][:digit:]]\", \"a\")"
+ },
+ {
+  "id": "hand1.0358",
+  "expr": "regex(\"[^[:^alpha:]]\", \"a\")"
+ },
+ {
+  "id": "hand1.0359",
+  "expr": "regex(var.later, \"a\")"
+ },
+ {
+  "id": "hand1.0360",
+  "expr": "regex(\"a\", var.later)"
+ },
+ {
+  "id": "hand1.0361",
+  "expr": "regex(\"(\", var.later)"
+ },
+ {
+  "id": "hand1.0362",
+  "expr": "regex(\"(a)\", var.later)"
+ },
+ {
+  "id": "hand1.0363",
+  "expr": "regex(\"(?P<x>a)\", var.later)"
+ },
+ {
+  "id": "hand1.0364",
+  "expr": "regex(\"(?P<x>a)(b)\", \"ab\")"
+ },
+ {
+  "id": "hand1.0365",
+  "expr": "regex(1, 1)"
+ },
+ {
+  "id": "hand1.0366",
+  "expr": "regex(\"a\", null)"
+ },
+ {
+  "id": "hand1.0367",
+  "expr": "regex(null, \"a\")"
+ },
+ {
+  "id": "hand1.0368",
+  "expr": "regex(\"b\", \"abc\")"
+ },
+ {
+  "id": "hand1.0369",
+  "expr": "regex(\"z\", \"abc\")"
+ },
+ {
+  "id": "hand1.0370",
+  "expr": "regex(\"^$\", \"\")"
+ },
+ {
+  "id": "hand1.0371",
+  "expr": "regex(\"(?m)$\", \"a\\n\")"
+ },
+ {
+  "id": "hand1.0372",
+  "expr": "regex(\"(?m)^\", \"\\na\")"
+ },
+ {
+  "id": "hand1.0373",
+  "expr": "regex(\"\\\\$\", \"$\")"
+ },
+ {
+  "id": "hand1.0374",
+  "expr": "regex(\"[$]\", \"$\")"
+ },
+ {
+  "id": "hand1.0375",
+  "expr": "regex(\"a{0}\", \"a\")"
+ },
+ {
+  "id": "hand1.0376",
+  "expr": "regex(\"a{0,0}\", \"a\")"
+ },
+ {
+  "id": "hand1.0377",
+  "expr": "regex(\"(a){0}\", \"a\")"
+ },
+ {
+  "id": "hand1.0378",
+  "expr": "regex(\"(?P<n>a){0}\", \"a\")"
+ },
+ {
+  "id": "hand1.0379",
+  "expr": "regex(\"[\\\\s\\\\S]\", \"\\n\")"
+ },
+ {
+  "id": "hand1.0380",
+  "expr": "regex(\"[\\\\w-]+\", \"a-b\")"
+ },
+ {
+  "id": "hand1.0381",
+  "expr": "regex(\"[\\\\b]\", \"\\b\")"
+ },
+ {
+  "id": "hand1.0382",
+  "expr": "regex(\"\\\\Pl\", \"\")"
+ },
+ {
+  "id": "hand1.0383",
+  "expr": "regex(\"\\\\pl\", \"\")"
+ },
+ {
+  "id": "hand1.0384",
+  "expr": "regex(\"\\\\p{}\", \"\")"
+ },
+ {
+  "id": "hand1.0385",
+  "expr": "regex(\"\\\\p\", \"\")"
+ },
+ {
+  "id": "hand1.0386",
+  "expr": "regex(\"\\\\\", \"\")"
+ },
+ {
+  "id": "hand1.0387",
+  "expr": "regex(\"a\\\\\", \"\")"
+ },
+ {
+  "id": "hand1.0388",
+  "expr": "regex(\"[a\", \"\")"
+ },
+ {
+  "id": "hand1.0389",
+  "expr": "regex(\"[^\", \"\")"
+ },
+ {
+  "id": "hand1.0390",
+  "expr": "regex(\"(?i\", \"\")"
+ },
+ {
+  "id": "hand1.0391",
+  "expr": "regex(\"(?P<a\", \"\")"
+ },
+ {
+  "id": "hand1.0392",
+  "expr": "regex(\"(?P\", \"\")"
+ },
+ {
+  "id": "hand1.0393",
+  "expr": "regex(\"x{1,1001}\", \"\")"
+ },
+ {
+  "id": "hand1.0394",
+  "expr": "regex(\"x{1001,}\", \"\")"
+ },
+ {
+  "id": "hand1.0395",
+  "expr": "regex(\"x{2,1}\", \"\")"
+ },
+ {
+  "id": "hand1.0396",
+  "expr": "split(\"\", \"abc\")"
+ },
+ {
+  "id": "hand1.0397",
+  "expr": "split(\"\", \"\")"
+ },
+ {
+  "id": "hand1.0398",
+  "expr": "split(\",\", \"\")"
+ },
+ {
+  "id": "hand1.0399",
+  "expr": "split(\"ab\", \"ababab\")"
+ },
+ {
+  "id": "hand1.0400",
+  "expr": "split(\",\", \"a,,b,\")"
+ },
+ {
+  "id": "hand1.0401",
+  "expr": "split(\"e\\u0301\", \"xe\\u0301y\")"
+ },
+ {
+  "id": "hand1.0402",
+  "expr": "split(\"\\u0301\", \"xe\\u0301y\")"
+ },
+ {
+  "id": "hand1.0403",
+  "expr": "split(var.later, \"a,b\")"
+ },
+ {
+  "id": "hand1.0404",
+  "expr": "split(\",\", var.later)"
+ },
+ {
+  "id": "hand1.0405",
+  "expr": "split(\",\", null)"
+ },
+ {
+  "id": "hand1.0406",
+  "expr": "split(1, \"a1b\")"
+ },
+ {
+  "id": "hand1.0407",
+  "expr": "replace(\"abc\", \"\", \"-\")"
+ },
+ {
+  "id": "hand1.0408",
+  "expr": "replace(\"\", \"\", \"x\")"
+ },
+ {
+  "id": "hand1.0409",
+  "expr": "replace(\"abc\", \"/b/\", \"$0$0\")"
+ },
+ {
+  "id": "hand1.0410",
+  "expr": "replace(\"abc\", \"/(?P<x>b)/\", \"[$x]\")"
+ },
+ {
+  "id": "hand1.0411",
+  "expr": "replace(\"abc\", \"/b/\", \"$1\")"
+ },
+ {
+  "id": "hand1.0412",
+  "expr": "replace(\"abc\", \"/b/\", \"$$\")"
+ },
+ {
+  "id": "hand1.0413",
+  "expr": "replace(\"abc\", \"/b/\", \"${0}x\")"
+ },
+ {
+  "id": "hand1.0414",
+  "expr": "replace(\"abc\", \"/\", \"x\")"
+ },
+ {
+  "id": "hand1.0415",
+  "expr": "replace(\"a/b\", \"//\", \"x\")"
+ },
+ {
+  "id": "hand1.0416",
+  "expr": "replace(\"abc\", \"/(/\", \"x\")"
+ },
+ {
+  "id": "hand1.0417",
+  "expr": "replace(\"aaa\", \"/a*/\", \"-\")"
+ },
+ {
+  "id": "hand1.0418",
+  "expr": "replace(\"abc\", \"/x*/\", \"-\")"
+ },
+ {
+  "id": "hand1.0419",
+  "expr": "replace(\"héllo\", \"/./\", \"x\")"
+ },
+ {
+  "id": "hand1.0420",
+  "expr": "replace(\"abc\", \"/(?i)B/\", \"x\")"
+ },
+ {
+  "id": "hand1.0421",
+  "expr": "replace(\"a.b\", \".\", \"x\")"
+ },
+ {
+  "id": "hand1.0422",
+  "expr": "replace(\"abc\", \"/$/\", \"x\")"
+ },
+ {
+  "id": "hand1.0423",
+  "expr": "replace(\"abc\", \"/^/\", \"x\")"
+ },
+ {
+  "id": "hand1.0424",
+  "expr": "replace(\"abc\", \"/b/\", \"$\")"
+ },
+ {
+  "id": "hand1.0425",
+  "expr": "replace(\"abc\", \"/b/\", \"$a\")"
+ },
+ {
+  "id": "hand1.0426",
+  "expr": "replace(\"abc\", \"/(b)/\", \"$1x\")"
+ },
+ {
+  "id": "hand1.0427",
+  "expr": "replace(\"abc\", \"/(b)/\", \"${1}x\")"
+ },
+ {
+  "id": "hand1.0428",
+  "expr": "replace(\"abc\", \"/(b)/\", \"${1\")"
+ },
+ {
+  "id": "hand1.0429",
+  "expr": "replace(\"abc\", \"/(b)/\", \"$+\")"
+ },
+ {
+  "id": "hand1.0430",
+  "expr": "replace(\"abc\", \"/(b)/\", \"$-1\")"
+ },
+ {
+  "id": "hand1.0431",
+  "expr": "replace(\"abc\", \"/(b)/\", \"$99\")"
+ },
+ {
+  "id": "hand1.0432",
+  "expr": "replace(\"abc\", \"/(?P<x>b)/\", \"${x}${x}\")"
+ },
+ {
+  "id": "hand1.0433",
+  "expr": "replace(\"abc\", \"/(?P<x_1>b)/\", \"$x_1!\")"
+ },
+ {
+  "id": "hand1.0434",
+  "expr": "replace(\"abc\", \"/b/\", \"\\\\0\")"
+ },
+ {
+  "id": "hand1.0435",
+  "expr": "replace(\"aaa\", \"/a*?/\", \"-\")"
+ },
+ {
+  "id": "hand1.0436",
+  "expr": "replace(\"abc\", \"/\\\\b/\", \"|\")"
+ },
+ {
+  "id": "hand1.0437",
+  "expr": "replace(\"é\", \"/\\\\B/\", \"|\")"
+ },
+ {
+  "id": "hand1.0438",
+  "expr": "replace(\"e\\u0301\", \"\\u0301\", \"x\")"
+ },
+ {
+  "id": "hand1.0439",
+  "expr": "replace(\"e\\u0301\", \"e\", \"x\")"
+ },
+ {
+  "id": "hand1.0440",
+  "expr": "replace(\"ab\", \"/(a)(b)/\", \"$2$1\")"
+ },
+ {
+  "id": "hand1.0441",
+  "expr": "replace(\"abab\", \"a\", \"\")"
+ },
+ {
+  "id": "hand1.0442",
+  "expr": "replace(var.later, \"a\", \"b\")"
+ },
+ {
+  "id": "hand1.0443",
+  "expr": "replace(\"a\", var.later, \"b\")"
+ },
+ {
+  "id": "hand1.0444",
+  "expr": "replace(\"a\", \"a\", var.later)"
+ },
+ {
+  "id": "hand1.0445",
+  "expr": "replace(\"a\", \"/a/\", var.later)"
+ },
+ {
+  "id": "hand1.0446",
+  "expr": "replace(\"a\", \"/(/\", var.later)"
+ },
+ {
+  "id": "hand1.0447",
+  "expr": "replace(null, \"a\", \"b\")"
+ },
+ {
+  "id": "hand1.0448",
+  "expr": "replace(\"aaa\", \"aa\", \"b\")"
+ },
+ {
+  "id": "hand1.0449",
+  "expr": "replace(\"abc\", \"/[/\", \"x\")"
+ },
+ {
+  "id": "hand1.0450",
+  "expr": "replace(\"x\", \"/x/\", \"$\")"
+ },
+ {
+  "id": "hand1.0451",
+  "expr": "replace(\"x\", \"/(x)/\", \"$1$\")"
+ },
+ {
+  "id": "hand1.0452",
+  "expr": "replace(\"xx\", \"/x/\", \"$0$\")"
+ },
+ {
+  "id": "hand1.0453",
+  "expr": "substr(\"e\\u0301abc\", 0, 1)"
+ },
+ {
+  "id": "hand1.0454",
+  "expr": "substr(\"👍🏽x\", 1, 1)"
+ },
+ {
+  "id": "hand1.0455",
+  "expr": "substr(\"abc\", -1, 1)"
+ },
+ {
+  "id": "hand1.0456",
+  "expr": "substr(\"abc\", -4, 1)"
+ },
+ {
+  "id": "hand1.0457",
+  "expr": "substr(\"abc\", 1, -1)"
+ },
+ {
+  "id": "hand1.0458",
+  "expr": "substr(\"abc\", 5, 1)"
+ },
+ {
+  "id": "hand1.0459",
+  "expr": "substr(\"abc\", 3, 1)"
+ },
+ {
+  "id": "hand1.0460",
+  "expr": "substr(\"abc\", 1, 0)"
+ },
+ {
+  "id": "hand1.0461",
+  "expr": "substr(\"abc\", 1.5, 1)"
+ },
+ {
+  "id": "hand1.0462",
+  "expr": "substr(\"abc\", 0, -2)"
+ },
+ {
+  "id": "hand1.0463",
+  "expr": "substr(\"\", 0, -1)"
+ },
+ {
+  "id": "hand1.0464",
+  "expr": "substr(\"abc\", -3, -1)"
+ },
+ {
+  "id": "hand1.0465",
+  "expr": "substr(\"abc\", 0, 1e20)"
+ },
+ {
+  "id": "hand1.0466",
+  "expr": "substr(\"abc\", 0, 9223372036854775808)"
+ },
+ {
+  "id": "hand1.0467",
+  "expr": "substr(\"abc\", -9223372036854775809, 1)"
+ },
+ {
+  "id": "hand1.0468",
+  "expr": "substr(\"abc\", 2, 9223372036854775807)"
+ },
+ {
+  "id": "hand1.0469",
+  "expr": "substr(\"abc\", 0, 1.9)"
+ },
+ {
+  "id": "hand1.0470",
+  "expr": "substr(\"abc\", -0.5, 1)"
+ },
+ {
+  "id": "hand1.0471",
+  "expr": "substr(\"🇺🇸🇬🇧\", 1, 1)"
+ },
+ {
+  "id": "hand1.0472",
+  "expr": "substr(\"abc\", var.later, 1)"
+ },
+ {
+  "id": "hand1.0473",
+  "expr": "substr(var.later, 0, 1)"
+ },
+ {
+  "id": "hand1.0474",
+  "expr": "substr(\"abc\", null, 1)"
+ },
+ {
+  "id": "hand1.0475",
+  "expr": "substr(\"abc\", \"1\", \"1\")"
+ },
+ {
+  "id": "hand1.0476",
+  "expr": "strlen(\"🇺🇸🇬🇧\")"
+ },
+ {
+  "id": "hand1.0477",
+  "expr": "strlen(\"\\r\\n\")"
+ },
+ {
+  "id": "hand1.0478",
+  "expr": "strlen(\"\\n\\r\")"
+ },
+ {
+  "id": "hand1.0479",
+  "expr": "strlen(\"각\")"
+ },
+ {
+  "id": "hand1.0480",
+  "expr": "strlen(\"a\\u200db\")"
+ },
+ {
+  "id": "hand1.0481",
+  "expr": "strlen(\"👨‍👩‍👧\")"
+ },
+ {
+  "id": "hand1.0482",
+  "expr": "strlen(\"\\u0301\")"
+ },
+ {
+  "id": "hand1.0483",
+  "expr": "strlen(\"a\\u0301\\u0301\\u0301\")"
+ },
+ {
+  "id": "hand1.0484",
+  "expr": "strlen(\"\\u0e01\\u0e33\")"
+ },
+ {
+  "id": "hand1.0485",
+  "expr": "strlen(\"क्ष\")"
+ },
+ {
+  "id": "hand1.0486",
+  "expr": "strlen(\"\\u1100\\u1100\\uac00\")"
+ },
+ {
+  "id": "hand1.0487",
+  "expr": "strlen(\"\\ud55c\")"
+ },
+ {
+  "id": "hand1.0488",
+  "expr": "strlen(\"🏳️‍🌈\")"
+ },
+ {
+  "id": "hand1.0489",
+  "expr": "strlen(\"a\\u200c\")"
+ },
+ {
+  "id": "hand1.0490",
+  "expr": "strlen(\"\\u000d\\u000a\\u0301\")"
+ },
+ {
+  "id": "hand1.0491",
+  "expr": "strlen(\"\\u0600a\")"
+ },
+ {
+  "id": "hand1.0492",
+  "expr": "strlen(\"\\u0915\\u094d\\u0937\\u093f\")"
+ },
+ {
+  "id": "hand1.0493",
+  "expr": "strlen(var.later)"
+ },
+ {
+  "id": "hand1.0494",
+  "expr": "strlen(1234)"
+ },
+ {
+  "id": "hand1.0495",
+  "expr": "strlen(null)"
+ },
+ {
+  "id": "hand1.0496",
+  "expr": "title(\"hello-world o'neil ǆx 1abc éa\")"
+ },
+ {
+  "id": "hand1.0497",
+  "expr": "title(\"ǆemal\")"
+ },
+ {
+  "id": "hand1.0498",
+  "expr": "title(\"ﬁsh\")"
+ },
+ {
+  "id": "hand1.0499",
+  "expr": "title(\"a.b_c d\\u00a0e\")"
+ },
+ {
+  "id": "hand1.0500",
+  "expr": "title(\"x\\u2003y\")"
+ },
+ {
+  "id": "hand1.0501",
+  "expr": "title(\"'a\")"
+ },
+ {
+  "id": "hand1.0502",
+  "expr": "title(\"ßa\")"
+ },
+ {
+  "id": "hand1.0503",
+  "expr": "title(\"ŉa\")"
+ },
+ {
+  "id": "hand1.0504",
+  "expr": "title(\"élan\")"
+ },
+ {
+  "id": "hand1.0505",
+  "expr": "title(\"123abc\")"
+ },
+ {
+  "id": "hand1.0506",
+  "expr": "title(\"hello\\tworld\\nfoo\")"
+ },
+ {
+  "id": "hand1.0507",
+  "expr": "title(\"ᾳ\")"
+ },
+ {
+  "id": "hand1.0508",
+  "expr": "upper(\"ﬁ\")"
+ },
+ {
+  "id": "hand1.0509",
+  "expr": "upper(\"ß\")"
+ },
+ {
+  "id": "hand1.0510",
+  "expr": "upper(\"ŉ\")"
+ },
+ {
+  "id": "hand1.0511",
+  "expr": "upper(\"ǅ\")"
+ },
+ {
+  "id": "hand1.0512",
+  "expr": "upper(\"ᾳ\")"
+ },
+ {
+  "id": "hand1.0513",
+  "expr": "upper(\"i\")"
+ },
+ {
+  "id": "hand1.0514",
+  "expr": "upper(\"ı\")"
+ },
+ {
+  "id": "hand1.0515",
+  "expr": "upper(\"ſ\")"
+ },
+ {
+  "id": "hand1.0516",
+  "expr": "upper(\"µ\")"
+ },
+ {
+  "id": "hand1.0517",
+  "expr": "upper(\"ÿ\")"
+ },
+ {
+  "id": "hand1.0518",
+  "expr": "upper(\"\\u0345\")"
+ },
+ {
+  "id": "hand1.0519",
+  "expr": "lower(\"İ\")"
+ },
+ {
+  "id": "hand1.0520",
+  "expr": "lower(\"Σ\")"
+ },
+ {
+  "id": "hand1.0521",
+  "expr": "lower(\"ΟΔΟΣ\")"
+ },
+ {
+  "id": "hand1.0522",
+  "expr": "lower(\"ΑΣ Β\")"
+ },
+ {
+  "id": "hand1.0523",
+  "expr": "lower(\"ẞ\")"
+ },
+ {
+  "id": "hand1.0524",
+  "expr": "lower(\"Ǆ\")"
+ },
+ {
+  "id": "hand1.0525",
+  "expr": "lower(\"K\")"
+ },
+ {
+  "id": "hand1.0526",
+  "expr": "lower(\"Ω\")"
+ },
+ {
+  "id": "hand1.0527",
+  "expr": "lower(\"I\")"
+ },
+ {
+  "id": "hand1.0528",
+  "expr": "trim(\"aabba\", \"ab\")"
+ },
+ {
+  "id": "hand1.0529",
+  "expr": "trim(\"xx\", \"\")"
+ },
+ {
+  "id": "hand1.0530",
+  "expr": "trim(\"e\\u0301\", \"\\u0301\")"
+ },
+ {
+  "id": "hand1.0531",
+  "expr": "trim(\"éa\", \"e\")"
+ },
+ {
+  "id": "hand1.0532",
+  "expr": "trim(\"👍🏽x👍🏽\", \"👍\")"
+ },
+ {
+  "id": "hand1.0533",
+  "expr": "trim(\"abc\", \"\")"
+ },
+ {
+  "id": "hand1.0534",
+  "expr": "trimspace(\"\\u00a0x\\u2003\")"
+ },
+ {
+  "id": "hand1.0535",
+  "expr": "trimspace(\"\\u200bx\")"
+ },
+ {
+  "id": "hand1.0536",
+  "expr": "trimspace(\"\\u0085x\")"
+ },
+ {
+  "id": "hand1.0537",
+  "expr": "trimspace(\"\\u001cx\")"
+ },
+ {
+  "id": "hand1.0538",
+  "expr": "trimspace(\"\\u180ex\")"
+ },
+ {
+  "id": "hand1.0539",
+  "expr": "trimspace(\"\\u3000x\\u3000\")"
+ },
+ {
+  "id": "hand1.0540",
+  "expr": "trimspace(\"\\ufeffx\")"
+ },
+ {
+  "id": "hand1.0541",
+  "expr": "trimspace(\"\\u000bx\\u000c\")"
+ },
+ {
+  "id": "hand1.0542",
+  "expr": "trimspace(\"\\u2028x\\u2029\")"
+ },
+ {
+  "id": "hand1.0543",
+  "expr": "trimprefix(\"abc\", \"\")"
+ },
+ {
+  "id": "hand1.0544",
+  "expr": "trimprefix(\"e\\u0301\", \"e\")"
+ },
+ {
+  "id": "hand1.0545",
+  "expr": "trimsuffix(\"abc\", \"\")"
+ },
+ {
+  "id": "hand1.0546",
+  "expr": "trimsuffix(\"e\\u0301\", \"\\u0301\")"
+ },
+ {
+  "id": "hand1.0547",
+  "expr": "trimprefix(\"aaa\", \"a\")"
+ },
+ {
+  "id": "hand1.0548",
+  "expr": "chomp(\"a\\r\\n\\r\\n\")"
+ },
+ {
+  "id": "hand1.0549",
+  "expr": "chomp(\"a\\r\")"
+ },
+ {
+  "id": "hand1.0550",
+  "expr": "chomp(\"a\\n\\r\")"
+ },
+ {
+  "id": "hand1.0551",
+  "expr": "chomp(\"a\\n\\n\\r\\n\")"
+ },
+ {
+  "id": "hand1.0552",
+  "expr": "chomp(\"\\r\\n\")"
+ },
+ {
+  "id": "hand1.0553",
+  "expr": "chomp(\"a\\r\\r\")"
+ },
+ {
+  "id": "hand1.0554",
+  "expr": "indent(2, \"a\\n\\nb\\n\")"
+ },
+ {
+  "id": "hand1.0555",
+  "expr": "indent(-1, \"a\\nb\")"
+ },
+ {
+  "id": "hand1.0556",
+  "expr": "indent(1.5, \"a\\nb\")"
+ },
+ {
+  "id": "hand1.0557",
+  "expr": "indent(2, \"a\\r\\nb\")"
+ },
+ {
+  "id": "hand1.0558",
+  "expr": "indent(0, \"\")"
+ },
+ {
+  "id": "hand1.0559",
+  "expr": "indent(2, \"\")"
+ },
+ {
+  "id": "hand1.0560",
+  "expr": "indent(2, \"\\n\")"
+ },
+ {
+  "id": "hand1.0561",
+  "expr": "indent(\"2\", \"a\\nb\")"
+ },
+ {
+  "id": "hand1.0562",
+  "expr": "indent(var.later, \"a\\nb\")"
+ },
+ {
+  "id": "hand1.0563",
+  "expr": "indent(2, var.later)"
+ },
+ {
+  "id": "hand1.0564",
+  "expr": "indent(9223372036854775808, \"a\\nb\")"
+ },
+ {
+  "id": "hand1.0565",
+  "expr": "join(\",\", [\"a\", null])"
+ },
+ {
+  "id": "hand1.0566",
+  "expr": "join(\",\", [var.later])"
+ },
+ {
+  "id": "hand1.0567",
+  "expr": "join(\",\", var.set)"
+ },
+ {
+  "id": "hand1.0568",
+  "expr": "join(\",\", [1, 2])"
+ },
+ {
+  "id": "hand1.0569",
+  "expr": "join(\",\", [\"a\"], [\"b\"])"
+ },
+ {
+  "id": "hand1.0570",
+  "expr": "join(\",\")"
+ },
+ {
+  "id": "hand1.0571",
+  "expr": "join(var.later, [\"a\"])"
+ },
+ {
+  "id": "hand1.0572",
+  "expr": "join(\",\", [])"
+ },
+ {
+  "id": "hand1.0573",
+  "expr": "join(\",\", [[\"a\"]])"
+ },
+ {
+  "id": "hand1.0574",
+  "expr": "join(\",\", [\"a\", var.later], [\"b\"])"
+ },
+ {
+  "id": "hand1.0575",
+  "expr": "join(\",\", null)"
+ },
+ {
+  "id": "hand1.0576",
+  "expr": "join(\",\", [], [])"
+ },
+ {
+  "id": "hand1.0577",
+  "expr": "join(\",\", [\"a\"], null)"
+ },
+ {
+  "id": "hand1.0578",
+  "expr": "join(\",\", tolist(var.any))"
+ },
+ {
+  "id": "hand1.0579",
+  "expr": "join(null, [\"a\"])"
+ },
+ {
+  "id": "hand1.0580",
+  "expr": "join(\",\", [true])"
+ },
+ {
+  "id": "hand1.0581",
+  "expr": "jsonencode(-0)"
+ },
+ {
+  "id": "hand1.0582",
+  "expr": "jsonencode(1e300)"
+ },
+ {
+  "id": "hand1.0583",
+  "expr": "jsonencode(1e-300)"
+ },
+ {
+  "id": "hand1.0584",
+  "expr": "jsonencode(0.1)"
+ },
+ {
+  "id": "hand1.0585",
+  "expr": "jsonencode(1/3)"
+ },
+ {
+  "id": "hand1.0586",
+  "expr": "jsonencode(2/3)"
+ },
+ {
+  "id": "hand1.0587",
+  "expr": "jsonencode(123456789012345678901234567890)"
+ },
+ {
+  "id": "hand1.0588",
+  "expr": "jsonencode(1e21)"
+ },
+ {
+  "id": "hand1.0589",
+  "expr": "jsonencode(1e20)"
+ },
+ {
+  "id": "hand1.0590",
+  "expr": "jsonencode(0.000001)"
+ },
+ {
+  "id": "hand1.0591",
+  "expr": "jsonencode(1e-7)"
+ },
+ {
+  "id": "hand1.0592",
+  "expr": "jsonencode(-1e-7)"
+ },
+ {
+  "id": "hand1.0593",
+  "expr": "jsonencode(1.5e-6)"
+ },
+ {
+  "id": "hand1.0594",
+  "expr": "jsonencode(12345678.9)"
+ },
+ {
+  "id": "hand1.0595",
+  "expr": "jsonencode(9007199254740993)"
+ },
+ {
+  "id": "hand1.0596",
+  "expr": "jsonencode(0.30000000000000004)"
+ },
+ {
+  "id": "hand1.0597",
+  "expr": "jsonencode(\"<>&\\u2028\\u2029\")"
+ },
+ {
+  "id": "hand1.0598",
+  "expr": "jsonencode(\"\\u007f\")"
+ },
+ {
+  "id": "hand1.0599",
+  "expr": "jsonencode(\"\\u0000\\u001f\")"
+ },
+ {
+  "id": "hand1.0600",
+  "expr": "jsonencode(\"\\ufffd\")"
+ },
+ {
+  "id": "hand1.0601",
+  "expr": "jsonencode(\"e\\u0301\")"
+ },
+ {
+  "id": "hand1.0602",
+  "expr": "jsonencode(\"\\\\/\\\"\")"
+ },
+ {
+  "id": "hand1.0603",
+  "expr": "jsonencode({b = 1, a = 2, B = 3})"
+ },
+ {
+  "id": "hand1.0604",
+  "expr": "jsonencode({\"é\" = 1, \"e\" = 2, \"z\" = 3, \"Z\" = 4, \"10\" = 5, \"9\" = 6})"
+ },
+ {
+  "id": "hand1.0605",
+  "expr": "jsonencode(toset([3, 1, 2]))"
+ },
+ {
+  "id": "hand1.0606",
+  "expr": "jsonencode(toset([10, 9, 1.5, -1, 100]))"
+ },
+ {
+  "id": "hand1.0607",
+  "expr": "jsonencode(toset([\"b\", \"a\", \"B\", \"é\", \"e\"]))"
+ },
+ {
+  "id": "hand1.0608",
+  "expr": "jsonencode(tomap({b = 1, a = 2}))"
+ },
+ {
+  "id": "hand1.0609",
+  "expr": "jsonencode([toset([{b = 1}, {b = 2}])])"
+ },
+ {
+  "id": "hand1.0610",
+  "expr": "jsonencode(toset([[2], [1], [1, 0]]))"
+ },
+ {
+  "id": "hand1.0611",
+  "expr": "jsonencode(toset([{a = \"y\"}, {a = \"x\"}]))"
+ },
+ {
+  "id": "hand1.0612",
+  "expr": "jsonencode(toset([true, false]))"
+ },
+ {
+  "id": "hand1.0613",
+  "expr": "jsonencode(null)"
+ },
+ {
+  "id": "hand1.0614",
+  "expr": "jsonencode([null])"
+ },
+ {
+  "id": "hand1.0615",
+  "expr": "jsonencode({a = null})"
+ },
+ {
+  "id": "hand1.0616",
+  "expr": "jsonencode(var.later)"
+ },
+ {
+  "id": "hand1.0617",
+  "expr": "jsonencode([var.later])"
+ },
+ {
+  "id": "hand1.0618",
+  "expr": "jsonencode(var.any)"
+ },
+ {
+  "id": "hand1.0619",
+  "expr": "jsonencode(var.none)"
+ },
+ {
+  "id": "hand1.0620",
+  "expr": "jsonencode(var.users)"
+ },
+ {
+  "id": "hand1.0621",
+  "expr": "jsonencode(var.set)"
+ },
+ {
+  "id": "hand1.0622",
+  "expr": "jsonencode(-1e-400)"
+ },
+ {
+  "id": "hand1.0623",
+  "expr": "jsonencode(1e400)"
+ },
+ {
+  "id": "hand1.0624",
+  "expr": "jsonencode(tolist([]))"
+ },
+ {
+  "id": "hand1.0625",
+  "expr": "jsonencode(tomap({}))"
+ },
+ {
+  "id": "hand1.0626",
+  "expr": "jsonencode(toset([]))"
+ },
+ {
+  "id": "hand1.0627",
+  "expr": "jsonencode(range(0, 1, 0.1))"
+ },
+ {
+  "id": "hand1.0628",
+  "expr": "jsonencode(1e-5)"
+ },
+ {
+  "id": "hand1.0629",
+  "expr": "jsonencode(1e-6)"
+ },
+ {
+  "id": "hand1.0630",
+  "expr": "jsonencode(123e-20)"
+ },
+ {
+  "id": "hand1.0631",
+  "expr": "jsonencode(100)"
+ },
+ {
+  "id": "hand1.0632",
+  "expr": "jsonencode(1e2)"
+ },
+ {
+  "id": "hand1.0633",
+  "expr": "jsonencode(-123.456e10)"
+ },
+ {
+  "id": "hand1.0634",
+  "expr": "jsondecode(\"{\\\"a\\\":1,\\\"a\\\":2}\")"
+ },
+ {
+  "id": "hand1.0635",
+  "expr": "jsondecode(\"{\\\"a\\\":1,\\\"a\\\":\\\"x\\\"}\")"
+ },
+ {
+  "id": "hand1.0636",
+  "expr": "jsondecode(\"[1,2\")"
+ },
+ {
+  "id": "hand1.0637",
+  "expr": "jsondecode(\"\")"
+ },
+ {
+  "id": "hand1.0638",
+  "expr": "jsondecode(\" 1 \")"
+ },
+ {
+  "id": "hand1.0639",
+  "expr": "jsondecode(\"1 2\")"
+ },
+ {
+  "id": "hand1.0640",
+  "expr": "jsondecode(\"123456789012345678901234567890\")"
+ },
+ {
+  "id": "hand1.0641",
+  "expr": "jsondecode(\"1e400\")"
+ },
+ {
+  "id": "hand1.0642",
+  "expr": "jsondecode(\"-0\")"
+ },
+ {
+  "id": "hand1.0643",
+  "expr": "jsondecode(\"-0.0\")"
+ },
+ {
+  "id": "hand1.0644",
+  "expr": "jsondecode(\"1.0\")"
+ },
+ {
+  "id": "hand1.0645",
+  "expr": "jsondecode(\"\\\"\\\\ud800\\\"\")"
+ },
+ {
+  "id": "hand1.0646",
+  "expr": "jsondecode(\"\\\"\\\\udc00\\\\ud800\\\"\")"
+ },
+ {
+  "id": "hand1.0647",
+  "expr": "jsondecode(\"\\\"\\\\ud83d\\\\ude00\\\"\")"
+ },
+ {
+  "id": "hand1.0648",
+  "expr": "jsondecode(\"\\\"\\\\u00e9\\\"\")"
+ },
+ {
+  "id": "hand1.0649",
+  "expr": "jsondecode(\"\\\"e\\\\u0301\\\"\")"
+ },
+ {
+  "id": "hand1.0650",
+  "expr": "jsondecode(\"{\\\"\\\":1}\")"
+ },
+ {
+  "id": "hand1.0651",
+  "expr": "jsondecode(\"{\\\"a\\\":null}\")"
+ },
+ {
+  "id": "hand1.0652",
+  "expr": "jsondecode(\"null\")"
+ },
+ {
+  "id": "hand1.0653",
+  "expr": "jsondecode(\"true\")"
+ },
+ {
+  "id": "hand1.0654",
+  "expr": "jsondecode(\"01\")"
+ },
+ {
+  "id": "hand1.0655",
+  "expr": "jsondecode(\"1.\")"
+ },
+ {
+  "id": "hand1.0656",
+  "expr": "jsondecode(\".5\")"
+ },
+ {
+  "id": "hand1.0657",
+  "expr": "jsondecode(\"+1\")"
+ },
+ {
+  "id": "hand1.0658",
+  "expr": "jsondecode(\"NaN\")"
+ },
+ {
+  "id": "hand1.0659",
+  "expr": "jsondecode(\"\\\"\\\\x41\\\"\")"
+ },
+ {
+  "id": "hand1.0660",
+  "expr": "jsondecode(\"\\\"\\t\\\"\")"
+ },
+ {
+  "id": "hand1.0661",
+  "expr": "jsondecode(\"{\\\"a\\\" 1}\")"
+ },
+ {
+  "id": "hand1.0662",
+  "expr": "jsondecode(\"[1,]\")"
+ },
+ {
+  "id": "hand1.0663",
+  "expr": "jsondecode(\"{\\\"a\\\":1,}\")"
+ },
+ {
+  "id": "hand1.0664",
+  "expr": "jsondecode(\"{\\\"b\\\":1,\\\"a\\\":[1,\\\"x\\\",null,{\\\"c\\\":true}]}\")"
+ },
+ {
+  "id": "hand1.0665",
+  "expr": "jsondecode(\"\\\"\\\\/\\\"\")"
+ },
+ {
+  "id": "hand1.0666",
+  "expr": "jsondecode(\"1E2\")"
+ },
+ {
+  "id": "hand1.0667",
+  "expr": "jsondecode(\"1e+2\")"
+ },
+ {
+  "id": "hand1.0668",
+  "expr": "jsondecode(\"-\")"
+ },
+ {
+  "id": "hand1.0669",
+  "expr": "jsondecode(\"[]\")"
+ },
+ {
+  "id": "hand1.0670",
+  "expr": "jsondecode(\"{}\")"
+ },
+ {
+  "id": "hand1.0671",
+  "expr": "jsondecode(\"\\u00a0 1\")"
+ },
+ {
+  "id": "hand1.0672",
+  "expr": "jsondecode(\"\\ufeff1\")"
+ },
+ {
+  "id": "hand1.0673",
+  "expr": "jsondecode(var.later)"
+ },
+ {
+  "id": "hand1.0674",
+  "expr": "jsondecode(null)"
+ },
+ {
+  "id": "hand1.0675",
+  "expr": "jsondecode(\"1e-400\")"
+ },
+ {
+  "id": "hand1.0676",
+  "expr": "jsondecode(\"{\\\"a\\\":1}  \\n\")"
+ },
+ {
+  "id": "hand1.0677",
+  "expr": "jsondecode(\"[1]x\")"
+ },
+ {
+  "id": "hand1.0678",
+  "expr": "jsondecode(\"[1] ]\")"
+ },
+ {
+  "id": "hand1.0679",
+  "expr": "jsondecode(\"\\\"\\\\u0000\\\"\")"
+ },
+ {
+  "id": "hand1.0680",
+  "expr": "jsondecode(\"\\\"\\\\uD800x\\\"\")"
+ },
+ {
+  "id": "hand1.0681",
+  "expr": "jsondecode(\"\\\"\\\\u12\\\"\")"
+ },
+ {
+  "id": "hand1.0682",
+  "expr": "jsondecode(\"\\\"\\\\u\")"
+ },
+ {
+  "id": "hand1.0683",
+  "expr": "jsondecode(\"\\\"abc\")"
+ },
+ {
+  "id": "hand1.0684",
+  "expr": "jsondecode(\"tru\")"
+ },
+ {
+  "id": "hand1.0685",
+  "expr": "jsondecode(\"nul\")"
+ },
+ {
+  "id": "hand1.0686",
+  "expr": "jsondecode(\"[true, nulll]\")"
+ },
+ {
+  "id": "hand1.0687",
+  "expr": "jsondecode(\"{\\\"a\\\":{\\\"b\\\":{\\\"c\\\":[1,[2,[3]]]}}}\")"
+ },
+ {
+  "id": "hand1.0688",
+  "expr": "jsondecode(\"[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]\")"
+ },
+ {
+  "id": "hand1.0689",
+  "expr": "jsondecode(\"{\\\"a\\\":1}{\\\"b\\\":2}\")"
+ },
+ {
+  "id": "hand1.0690",
+  "expr": "jsondecode(\"1//c\")"
+ },
+ {
+  "id": "hand1.0691",
+  "expr": "jsondecode(\"0.1e1\")"
+ },
+ {
+  "id": "hand1.0692",
+  "expr": "jsondecode(\"1E-0\")"
+ },
+ {
+  "id": "hand1.0693",
+  "expr": "jsondecode(\"-01\")"
+ },
+ {
+  "id": "hand1.0694",
+  "expr": "jsondecode(\"2e\")"
+ },
+ {
+  "id": "hand1.0695",
+  "expr": "jsondecode(\"0x10\")"
+ },
+ {
+  "id": "hand1.0696",
+  "expr": "jsondecode(\"[1,\\n2]\")"
+ },
+ {
+  "id": "hand1.0697",
+  "expr": "jsondecode(\"\\r\\n\\t 1\")"
+ },
+ {
+  "id": "hand1.0698",
+  "expr": "jsondecode(\"\\f1\")"
+ },
+ {
+  "id": "hand1.0699",
+  "expr": "jsondecode(\"\\u000b1\")"
+ },
+ {
+  "id": "hand1.0700",
+  "expr": "jsondecode(\"\\\"a\\u0000\\\"\")"
+ },
+ {
+  "id": "hand1.0701",
+  "expr": "jsondecode(\"\\\"\\u007f\\\"\")"
+ },
+ {
+  "id": "hand1.0702",
+  "expr": "jsondecode(\"{1:2}\")"
+ },
+ {
+  "id": "hand1.0703",
+  "expr": "jsondecode(\"{\\\"a\\\"}\")"
+ },
+ {
+  "id": "hand1.0704",
+  "expr": "jsondecode(\"[,1]\")"
+ },
+ {
+  "id": "hand1.0705",
+  "expr": "jsondecode(\"99999999999999999999.99999999999999999999\")"
+ },
+ {
+  "id": "hand1.0706",
+  "expr": "jsondecode(\"1e1000\")"
+ },
+ {
+  "id": "hand1.0707",
+  "expr": "jsondecode(\"4.9e-324\")"
+ },
+ {
+  "id": "hand1.0708",
+  "expr": "jsondecode(\"2.5e-324\")"
+ },
+ {
+  "id": "hand1.0709",
+  "expr": "jsondecode(\"1.7976931348623157e309\")"
+ },
+ {
+  "id": "hand1.0710",
+  "expr": "jsondecode(1)"
+ },
+ {
+  "id": "hand1.0711",
+  "expr": "jsondecode(true)"
+ },
+ {
+  "id": "hand1.0712",
+  "expr": "jsondecode(\"{\\\"a\\\":1,\\\"b\\\":[1,2],\\\"a\\\":3}\")"
+ },
+ {
+  "id": "hand1.0713",
+  "expr": "jsondecode(\"{\\\"b\\\":1, \\\"a\\\":2}\")"
+ },
+ {
+  "id": "hand1.0714",
+  "expr": "csvdecode(\"a,b\\n1,2\")"
+ },
+ {
+  "id": "hand1.0715",
+  "expr": "csvdecode(\"a,b\\r\\n1,2\\r\\n\")"
+ },
+ {
+  "id": "hand1.0716",
+  "expr": "csvdecode(\"a,b\\n1\")"
+ },
+ {
+  "id": "hand1.0717",
+  "expr": "csvdecode(\"a,b\\n1,2,3\")"
+ },
+ {
+  "id": "hand1.0718",
+  "expr": "csvdecode(\"\\ufeffa,b\\n1,2\")"
+ },
+ {
+  "id": "hand1.0719",
+  "expr": "csvdecode(\"\\\"a\\\"\\\"b\\\",c\\n1,2\")"
+ },
+ {
+  "id": "hand1.0720",
+  "expr": "csvdecode(\"a,b\\n\\\"x\\ny\\\",2\")"
+ },
+ {
+  "id": "hand1.0721",
+  "expr": "csvdecode(\"a,b\\n\\\"x\\r\\ny\\\",2\")"
+ },
+ {
+  "id": "hand1.0722",
+  "expr": "csvdecode(\"a,a\\n1,2\")"
+ },
+ {
+  "id": "hand1.0723",
+  "expr": "csvdecode(\"\")"
+ },
+ {
+  "id": "hand1.0724",
+  "expr": "csvdecode(\"a,b\")"
+ },
+ {
+  "id": "hand1.0725",
+  "expr": "csvdecode(\"a,b\\n\")"
+ },
+ {
+  "id": "hand1.0726",
+  "expr": "csvdecode(\"a\\n\\n1\")"
+ },
+ {
+  "id": "hand1.0727",
+  "expr": "csvdecode(\"a\\n\\n\\n1\\n\\n\")"
+ },
+ {
+  "id": "hand1.0728",
+  "expr": "csvdecode(\"a,b\\n1,\\\"2\")"
+ },
+ {
+  "id": "hand1.0729",
+  "expr": "csvdecode(\"a,b\\n1,x\\\"y\")"
+ },
+ {
+  "id": "hand1.0730",
+  "expr": "csvdecode(\"a,b\\n1,\\\"x\\\"y\")"
+ },
+ {
+  "id": "hand1.0731",
+  "expr": "csvdecode(\" a , b \\n 1 , 2 \")"
+ },
+ {
+  "id": "hand1.0732",
+  "expr": "csvdecode(\"a;b\\n1;2\")"
+ },
+ {
+  "id": "hand1.0733",
+  "expr": "csvdecode(\"#a\\n1\")"
+ },
+ {
+  "id": "hand1.0734",
+  "expr": "csvdecode(\"a\\r1\")"
+ },
+ {
+  "id": "hand1.0735",
+  "expr": "csvdecode(\"a\\r\\n1\")"
+ },
+ {
+  "id": "hand1.0736",
+  "expr": "csvdecode(\"a,b\\n1,2\\n\\n\")"
+ },
+ {
+  "id": "hand1.0737",
+  "expr": "csvdecode(var.later)"
+ },
+ {
+  "id": "hand1.0738",
+  "expr": "csvdecode(\"a\\n\\\"\\\"\")"
+ },
+ {
+  "id": "hand1.0739",
+  "expr": "csvdecode(\"\\\"\\\"\\n1\")"
+ },
+ {
+  "id": "hand1.0740",
+  "expr": "csvdecode(\",\\n1,2\")"
+ },
+ {
+  "id": "hand1.0741",
+  "expr": "csvdecode(\"a,b\\n,\")"
+ },
+ {
+  "id": "hand1.0742",
+  "expr": "csvdecode(\"a\\n \\\"x\\\"\")"
+ },
+ {
+  "id": "hand1.0743",
+  "expr": "csvdecode(\"a\\n\\\"x\\\" \")"
+ },
+ {
+  "id": "hand1.0744",
+  "expr": "csvdecode(\"a\\n\\\"\\\"\\\"\\\"\")"
+ },
+ {
+  "id": "hand1.0745",
+  "expr": "csvdecode(\"a\\n1\\n2,3\")"
+ },
+ {
+  "id": "hand1.0746",
+  "expr": "csvdecode(\"a,b\\n1,2\\n3\")"
+ },
+ {
+  "id": "hand1.0747",
+  "expr": "csvdecode(null)"
+ },
+ {
+  "id": "hand1.0748",
+  "expr": "csvdecode(\"é,ü\\nx,y\")"
+ },
+ {
+  "id": "hand1.0749",
+  "expr": "csvdecode(\"a\\n\\u00a0\")"
+ },
+ {
+  "id": "hand1.0750",
+  "expr": "csvdecode(\"a\\n\\\"a\\nb\")"
+ },
+ {
+  "id": "hand1.0751",
+  "expr": "csvdecode(\"a\\n\\\"a\\r\\\"\")"
+ },
+ {
+  "id": "hand1.0752",
+  "expr": "csvdecode(\"a\\n1\\r\")"
+ },
+ {
+  "id": "hand1.0753",
+  "expr": "csvdecode(\"a\\r\\r\\n1\")"
+ },
+ {
+  "id": "hand1.0754",
+  "expr": "csvdecode(\"a,\\\"b\\nc\\\"\\n1,2\")"
+ },
+ {
+  "id": "hand1.0755",
+  "expr": "csvdecode(\"a\\n1\\n\\\"\")"
+ },
+ {
+  "id": "hand1.0756",
+  "expr": "csvdecode(\"a\\n\\\"x\\\"\\\"\")"
+ },
+ {
+  "id": "hand1.0757",
+  "expr": "csvdecode(\"\\\"a\\nb\\\",c\\n1,2\\n3\")"
+ },
+ {
+  "id": "hand1.0758",
+  "expr": "parseint(\"ff\", 16)"
+ },
+ {
+  "id": "hand1.0759",
+  "expr": "parseint(\"FF\", 16)"
+ },
+ {
+  "id": "hand1.0760",
+  "expr": "parseint(\"-ff\", 16)"
+ },
+ {
+  "id": "hand1.0761",
+  "expr": "parseint(\"+10\", 10)"
+ },
+ {
+  "id": "hand1.0762",
+  "expr": "parseint(\"0x10\", 16)"
+ },
+ {
+  "id": "hand1.0763",
+  "expr": "parseint(\"0x10\", 0)"
+ },
+ {
+  "id": "hand1.0764",
+  "expr": "parseint(\"z\", 36)"
+ },
+ {
+  "id": "hand1.0765",
+  "expr": "parseint(\"Z\", 62)"
+ },
+ {
+  "id": "hand1.0766",
+  "expr": "parseint(\"z\", 62)"
+ },
+ {
+  "id": "hand1.0767",
+  "expr": "parseint(\"10\", 1)"
+ },
+ {
+  "id": "hand1.0768",
+  "expr": "parseint(\"10\", 63)"
+ },
+ {
+  "id": "hand1.0769",
+  "expr": "parseint(\"10\", 2.5)"
+ },
+ {
+  "id": "hand1.0770",
+  "expr": "parseint(\"\", 10)"
+ },
+ {
+  "id": "hand1.0771",
+  "expr": "parseint(\" 1\", 10)"
+ },
+ {
+  "id": "hand1.0772",
+  "expr": "parseint(\"1_000\", 10)"
+ },
+ {
+  "id": "hand1.0773",
+  "expr": "parseint(\"99999999999999999999999999\", 10)"
+ },
+ {
+  "id": "hand1.0774",
+  "expr": "parseint(\"-99999999999999999999999999\", 36)"
+ },
+ {
+  "id": "hand1.0775",
+  "expr": "parseint(\"1.5\", 10)"
+ },
+ {
+  "id": "hand1.0776",
+  "expr": "parseint(10, 10)"
+ },
+ {
+  "id": "hand1.0777",
+  "expr": "parseint(\"-0\", 10)"
+ },
+ {
+  "id": "hand1.0778",
+  "expr": "parseint(\"- 1\", 10)"
+ },
+ {
+  "id": "hand1.0779",
+  "expr": "parseint(\"๓\", 10)"
+ },
+ {
+  "id": "hand1.0780",
+  "expr": "parseint(\"1e3\", 10)"
+ },
+ {
+  "id": "hand1.0781",
+  "expr": "parseint(var.later, 10)"
+ },
+ {
+  "id": "hand1.0782",
+  "expr": "parseint(\"10\", var.later)"
+ },
+ {
+  "id": "hand1.0783",
+  "expr": "parseint(\"10\", -2)"
+ },
+ {
+  "id": "hand1.0784",
+  "expr": "parseint(\"10\", 37)"
+ },
+ {
+  "id": "hand1.0785",
+  "expr": "parseint(\"A\", 36)"
+ },
+ {
+  "id": "hand1.0786",
+  "expr": "parseint(\"a\", 37)"
+ },
+ {
+  "id": "hand1.0787",
+  "expr": "parseint(\"--1\", 10)"
+ },
+ {
+  "id": "hand1.0788",
+  "expr": "parseint(\"0b101\", 2)"
+ },
+ {
+  "id": "hand1.0789",
+  "expr": "parseint(\"+\", 10)"
+ },
+ {
+  "id": "hand1.0790",
+  "expr": "parseint(\"-\", 10)"
+ },
+ {
+  "id": "hand1.0791",
+  "expr": "parseint(\"+-1\", 10)"
+ },
+ {
+  "id": "hand1.0792",
+  "expr": "parseint(\"0\", 2)"
+ },
+ {
+  "id": "hand1.0793",
+  "expr": "parseint(\"2\", 2)"
+ },
+ {
+  "id": "hand1.0794",
+  "expr": "parseint(\"12\", \"10\")"
+ },
+ {
+  "id": "hand1.0795",
+  "expr": "parseint(\"10\", null)"
+ },
+ {
+  "id": "hand1.0796",
+  "expr": "parseint(null, 10)"
+ },
+ {
+  "id": "hand1.0797",
+  "expr": "parseint(\"10\", 9223372036854775808)"
+ },
+ {
+  "id": "hand1.0798",
+  "expr": "parseint(\"Zz\", 62)"
+ },
+ {
+  "id": "hand1.0799",
+  "expr": "parseint(\"zZ\", 62)"
+ },
+ {
+  "id": "hand1.0800",
+  "expr": "parseint(\"0o17\", 8)"
+ },
+ {
+  "id": "hand1.0801",
+  "expr": "parseint(\"ffffffffffffffffffffffffffffffff\", 16)"
+ },
+ {
+  "id": "hand1.0802",
+  "expr": "parseint(\"1\", 1e300)"
+ },
+ {
+  "id": "hand1.0803",
+  "expr": "parseint(\"ⅰ\", 10)"
+ },
+ {
+  "id": "hand1.0804",
+  "expr": "parseint(\"１\", 10)"
+ },
+ {
+  "id": "hand1.0805",
+  "expr": "range(0)"
+ },
+ {
+  "id": "hand1.0806",
+  "expr": "range(-3)"
+ },
+ {
+  "id": "hand1.0807",
+  "expr": "range(1, 0)"
+ },
+ {
+  "id": "hand1.0808",
+  "expr": "range(0, 1, 0.1)"
+ },
+ {
+  "id": "hand1.0809",
+  "expr": "range(0, 1, 0.3)"
+ },
+ {
+  "id": "hand1.0810",
+  "expr": "range(1, 0, -0.25)"
+ },
+ {
+  "id": "hand1.0811",
+  "expr": "range(0, 3, 0)"
+ },
+ {
+  "id": "hand1.0812",
+  "expr": "range(0, 3, -1)"
+ },
+ {
+  "id": "hand1.0813",
+  "expr": "range(3, 0, 1)"
+ },
+ {
+  "id": "hand1.0814",
+  "expr": "range(0.5, 3)"
+ },
+ {
+  "id": "hand1.0816",
+  "expr": "range(1025)"
+ },
+ {
+  "id": "hand1.0818",
+  "expr": "range(0, 1025)"
+ },
+ {
+  "id": "hand1.0820",
+  "expr": "range(0, 0.3, 0.1)"
+ },
+ {
+  "id": "hand1.0821",
+  "expr": "range(0, 1, 1/3)"
+ },
+ {
+  "id": "hand1.0822",
+  "expr": "range(0, 10, 3)"
+ },
+ {
+  "id": "hand1.0823",
+  "expr": "range(-1.5)"
+ },
+ {
+  "id": "hand1.0824",
+  "expr": "range(var.later)"
+ },
+ {
+  "id": "hand1.0825",
+  "expr": "range(1, 2, 3, 4)"
+ },
+ {
+  "id": "hand1.0826",
+  "expr": "range()"
+ },
+ {
+  "id": "hand1.0827",
+  "expr": "range(0, var.later)"
+ },
+ {
+  "id": "hand1.0828",
+  "expr": "range(0, 3, var.later)"
+ },
+ {
+  "id": "hand1.0829",
+  "expr": "range(null)"
+ },
+ {
+  "id": "hand1.0830",
+  "expr": "range(\"3\")"
+ },
+ {
+  "id": "hand1.0831",
+  "expr": "range(1e300)"
+ },
+ {
+  "id": "hand1.0832",
+  "expr": "range(-1e300)"
+ },
+ {
+  "id": "hand1.0833",
+  "expr": "range(0, 1e300, 1e299)"
+ },
+ {
+  "id": "hand1.0834",
+  "expr": "range(0, -1, -0.1)"
+ },
+ {
+  "id": "hand1.0835",
+  "expr": "range(0.1, 0.5, 0.1)"
+ },
+ {
+  "id": "hand1.0836",
+  "expr": "range(1e-300)"
+ },
+ {
+  "id": "hand1.0837",
+  "expr": "range(-0)"
+ },
+ {
+  "id": "hand1.0838",
+  "expr": "range(0, 0)"
+ },
+ {
+  "id": "hand1.0839",
+  "expr": "range(5, 5, -1)"
+ },
+ {
+  "id": "hand1.0840",
+  "expr": "range(0, 1, 1e-300)"
+ },
+ {
+  "id": "hand1.0841",
+  "expr": "range(0, 1, -1)"
+ },
+ {
+  "id": "hand1.0842",
+  "expr": "range(1, 0, 1)"
+ },
+ {
+  "id": "hand1.0843",
+  "expr": "range(9007199254740992, 9007199254740995)"
+ },
+ {
+  "id": "hand1.0844",
+  "expr": "range(0.5)"
+ },
+ {
+  "id": "hand1.0845",
+  "expr": "range(-0.5)"
+ },
+ {
+  "id": "hand1.0846",
+  "expr": "range(2.5, 0)"
+ },
+ {
+  "id": "hand1.0847",
+  "expr": "flatten([[1], [\"a\"]])"
+ },
+ {
+  "id": "hand1.0848",
+  "expr": "flatten([[], [[]]])"
+ },
+ {
+  "id": "hand1.0849",
+  "expr": "flatten([null, [1]])"
+ },
+ {
+  "id": "hand1.0850",
+  "expr": "flatten([var.later, [1]])"
+ },
+ {
+  "id": "hand1.0851",
+  "expr": "flatten([tolist(var.any)])"
+ },
+ {
+  "id": "hand1.0852",
+  "expr": "flatten(toset([[1], [2]]))"
+ },
+ {
+  "id": "hand1.0853",
+  "expr": "flatten([[var.any]])"
+ },
+ {
+  "id": "hand1.0854",
+  "expr": "flatten(var.any)"
+ },
+ {
+  "id": "hand1.0855",
+  "expr": "flatten([var.any, 1])"
+ },
+ {
+  "id": "hand1.0856",
+  "expr": "flatten({a = var.later, b = [1, 2]})"
+ },
+ {
+  "id": "hand1.0857",
+  "expr": "flatten({a = var.later})"
+ },
+ {
+  "id": "hand1.0858",
+  "expr": "flatten({a = 1})"
+ },
+ {
+  "id": "hand1.0859",
+  "expr": "flatten({a = [1], b = var.later})"
+ },
+ {
+  "id": "hand1.0860",
+  "expr": "flatten(tomap({a = var.later}))"
+ },
+ {
+  "id": "hand1.0861",
+  "expr": "flatten(tomap({a = \"x\"}))"
+ },
+ {
+  "id": "hand1.0862",
+  "expr": "flatten(\"abc\")"
+ },
+ {
+  "id": "hand1.0863",
+  "expr": "flatten(null)"
+ },
+ {
+  "id": "hand1.0864",
+  "expr": "flatten([[null]])"
+ },
+ {
+  "id": "hand1.0865",
+  "expr": "flatten([tolist([]), toset([1])])"
+ },
+ {
+  "id": "hand1.0866",
+  "expr": "flatten([[[1]], [[[2]]]])"
+ },
+ {
+  "id": "hand1.0867",
+  "expr": "flatten([tolist([\"a\"]), [var.later]])"
+ },
+ {
+  "id": "hand1.0868",
+  "expr": "flatten([{a = 1}, [2]])"
+ },
+ {
+  "id": "hand1.0869",
+  "expr": "flatten([[1], var.none])"
+ },
+ {
+  "id": "hand1.0870",
+  "expr": "merge({a = 1}, {a = \"x\"})"
+ },
+ {
+  "id": "hand1.0871",
+  "expr": "merge({a = 1}, tomap({b = 2}))"
+ },
+ {
+  "id": "hand1.0872",
+  "expr": "merge(tomap({a = 1}), tomap({b = \"x\"}))"
+ },
+ {
+  "id": "hand1.0873",
+  "expr": "merge(tomap({a = 1}), tomap({b = true}))"
+ },
+ {
+  "id": "hand1.0874",
+  "expr": "merge(null, {a = 1})"
+ },
+ {
+  "id": "hand1.0875",
+  "expr": "merge({a = 1}, null)"
+ },
+ {
+  "id": "hand1.0876",
+  "expr": "merge(var.any, {a = 1})"
+ },
+ {
+  "id": "hand1.0877",
+  "expr": "merge({a = var.later})"
+ },
+ {
+  "id": "hand1.0878",
+  "expr": "merge([1])"
+ },
+ {
+  "id": "hand1.0879",
+  "expr": "merge()"
+ },
+ {
+  "id": "hand1.0880",
+  "expr": "merge(tomap({}), {})"
+ },
+ {
+  "id": "hand1.0881",
+  "expr": "merge({a = 1}, var.later)"
+ },
+ {
+  "id": "hand1.0882",
+  "expr": "merge(tomap({a = 1}), {b = 2})"
+ },
+ {
+  "id": "hand1.0883",
+  "expr": "merge(tomap({a = 1}), tomap({b = [1]}))"
+ },
+ {
+  "id": "hand1.0884",
+  "expr": "merge({a = 1}, {}, tomap({}))"
+ },
+ {
+  "id": "hand1.0885",
+  "expr": "merge(null)"
+ },
+ {
+  "id": "hand1.0886",
+  "expr": "merge(null, null)"
+ },
+ {
+  "id": "hand1.0887",
+  "expr": "merge(tomap({a = var.later}), tomap({a = \"x\"}))"
+ },
+ {
+  "id": "hand1.0888",
+  "expr": "merge({a = 1}, var.any)"
+ },
+ {
+  "id": "hand1.0889",
+  "expr": "merge(var.env, {C = 3})"
+ },
+ {
+  "id": "hand1.0890",
+  "expr": "merge(var.env, tomap({C = 3}))"
+ },
+ {
+  "id": "hand1.0891",
+  "expr": "merge(tomap({a = [1]}), tomap({b = [\"x\"]}))"
+ },
+ {
+  "id": "hand1.0892",
+  "expr": "merge({b = 1, a = 2})"
+ },
+ {
+  "id": "hand1.0893",
+  "expr": "coalesce(null, \"\", \"x\")"
+ },
+ {
+  "id": "hand1.0894",
+  "expr": "coalesce(\"\", 1)"
+ },
+ {
+  "id": "hand1.0895",
+  "expr": "coalesce(1, \"x\")"
+ },
+ {
+  "id": "hand1.0896",
+  "expr": "coalesce(null, null)"
+ },
+ {
+  "id": "hand1.0897",
+  "expr": "coalesce()"
+ },
+ {
+  "id": "hand1.0898",
+  "expr": "coalesce(var.later, \"x\")"
+ },
+ {
+  "id": "hand1.0899",
+  "expr": "coalesce(\"x\", var.later)"
+ },
+ {
+  "id": "hand1.0900",
+  "expr": "coalesce(null, var.later)"
+ },
+ {
+  "id": "hand1.0901",
+  "expr": "coalesce([], [1])"
+ },
+ {
+  "id": "hand1.0902",
+  "expr": "coalesce(true, \"x\")"
+ },
+ {
+  "id": "hand1.0903",
+  "expr": "coalesce({a = 1}, {b = 2})"
+ },
+ {
+  "id": "hand1.0904",
+  "expr": "coalesce(var.none, var.name)"
+ },
+ {
+  "id": "hand1.0905",
+  "expr": "coalesce(var.any, \"x\")"
+ },
+ {
+  "id": "hand1.0906",
+  "expr": "coalesce(\"\", \"\")"
+ },
+ {
+  "id": "hand1.0907",
+  "expr": "coalesce(null, \"\", var.later)"
+ },
+ {
+  "id": "hand1.0908",
+  "expr": "coalesce(\"\", var.later, \"x\")"
+ },
+ {
+  "id": "hand1.0909",
+  "expr": "coalesce(1, true)"
+ },
+ {
+  "id": "hand1.0910",
+  "expr": "coalesce([1], [\"a\"])"
+ },
+ {
+  "id": "hand1.0911",
+  "expr": "coalesce(tolist([]), [\"a\"])"
+ },
+ {
+  "id": "hand1.0912",
+  "expr": "coalesce(null, [1, \"a\"])"
+ },
+ {
+  "id": "hand1.0913",
+  "expr": "coalesce(0, 1)"
+ },
+ {
+  "id": "hand1.0914",
+  "expr": "coalesce(false, true)"
+ },
+ {
+  "id": "hand1.0915",
+  "expr": "concat([1], [\"a\"])"
+ },
+ {
+  "id": "hand1.0916",
+  "expr": "concat(tolist([1]), tolist([\"a\"]))"
+ },
+ {
+  "id": "hand1.0917",
+  "expr": "concat(toset([1]), [2])"
+ },
+ {
+  "id": "hand1.0918",
+  "expr": "concat([1], var.later)"
+ },
+ {
+  "id": "hand1.0919",
+  "expr": "concat([1], null)"
+ },
+ {
+  "id": "hand1.0920",
+  "expr": "concat(var.any, [1])"
+ },
+ {
+  "id": "hand1.0921",
+  "expr": "concat()"
+ },
+ {
+  "id": "hand1.0922",
+  "expr": "concat([])"
+ },
+ {
+  "id": "hand1.0923",
+  "expr": "concat(tolist([]), tolist([\"a\"]))"
+ },
+ {
+  "id": "hand1.0924",
+  "expr": "concat([var.later], [1])"
+ },
+ {
+  "id": "hand1.0925",
+  "expr": "concat(tolist([1]), [true])"
+ },
+ {
+  "id": "hand1.0926",
+  "expr": "concat(tolist([1]), [[1]])"
+ },
+ {
+  "id": "hand1.0927",
+  "expr": "concat(tolist([1]), tolist([\"a\"]), tolist([true]))"
+ },
+ {
+  "id": "hand1.0928",
+  "expr": "concat(tolist(var.any), [1])"
+ },
+ {
+  "id": "hand1.0929",
+  "expr": "concat(var.tags, [\"d\"])"
+ },
+ {
+  "id": "hand1.0930",
+  "expr": "concat(var.tags, [1])"
+ },
+ {
+  "id": "hand1.0931",
+  "expr": "concat(var.tags, var.set)"
+ },
+ {
+  "id": "hand1.0932",
+  "expr": "concat({a = 1})"
+ },
+ {
+  "id": "hand1.0933",
+  "expr": "concat(\"a\")"
+ },
+ {
+  "id": "hand1.0934",
+  "expr": "concat([1], tolist(var.any))"
+ },
+ {
+  "id": "hand1.0935",
+  "expr": "distinct([1, \"1\"])"
+ },
+ {
+  "id": "hand1.0936",
+  "expr": "distinct([1, 1.0, \"a\", \"a\"])"
+ },
+ {
+  "id": "hand1.0937",
+  "expr": "distinct(tolist([var.later, \"a\"]))"
+ },
+ {
+  "id": "hand1.0938",
+  "expr": "distinct(tolist([\"a\", var.later, \"a\"]))"
+ },
+ {
+  "id": "hand1.0939",
+  "expr": "distinct([[1], [1]])"
+ },
+ {
+  "id": "hand1.0940",
+  "expr": "distinct(toset([1]))"
+ },
+ {
+  "id": "hand1.0941",
+  "expr": "distinct([])"
+ },
+ {
+  "id": "hand1.0942",
+  "expr": "distinct([null, null])"
+ },
+ {
+  "id": "hand1.0943",
+  "expr": "distinct(tolist([null, \"a\", null]))"
+ },
+ {
+  "id": "hand1.0944",
+  "expr": "distinct(var.any)"
+ },
+ {
+  "id": "hand1.0945",
+  "expr": "distinct(var.tags)"
+ },
+ {
+  "id": "hand1.0946",
+  "expr": "distinct([1, 2, 1, 3, 2])"
+ },
+ {
+  "id": "hand1.0947",
+  "expr": "distinct(tolist([{a = 1}, {a = 1}]))"
+ },
+ {
+  "id": "hand1.0948",
+  "expr": "sort([3, 1, 2])"
+ },
+ {
+  "id": "hand1.0949",
+  "expr": "sort([\"b\", 1])"
+ },
+ {
+  "id": "hand1.0950",
+  "expr": "sort([\"10\", \"9\", \"a\", \"B\", \"é\", \"e\\u0301\", \"\"])"
+ },
+ {
+  "id": "hand1.0951",
+  "expr": "sort([var.later, \"a\"])"
+ },
+ {
+  "id": "hand1.0952",
+  "expr": "sort([\"a\", null])"
+ },
+ {
+  "id": "hand1.0953",
+  "expr": "sort(toset([\"b\", \"a\"]))"
+ },
+ {
+  "id": "hand1.0954",
+  "expr": "sort([])"
+ },
+ {
+  "id": "hand1.0955",
+  "expr": "sort([true])"
+ },
+ {
+  "id": "hand1.0956",
+  "expr": "sort([1, 10, 9])"
+ },
+ {
+  "id": "hand1.0957",
+  "expr": "sort([\"1\", \"10\", \"9\"])"
+ },
+ {
+  "id": "hand1.0958",
+  "expr": "sort(tolist(var.any))"
+ },
+ {
+  "id": "hand1.0959",
+  "expr": "sort(var.set)"
+ },
+ {
+  "id": "hand1.0960",
+  "expr": "sort(var.any)"
+ },
+ {
+  "id": "hand1.0961",
+  "expr": "sort([[1]])"
+ },
+ {
+  "id": "hand1.0962",
+  "expr": "reverse(toset([1, 2]))"
+ },
+ {
+  "id": "hand1.0963",
+  "expr": "reverse([1, \"a\"])"
+ },
+ {
+  "id": "hand1.0964",
+  "expr": "reverse([])"
+ },
+ {
+  "id": "hand1.0965",
+  "expr": "reverse(var.tags)"
+ },
+ {
+  "id": "hand1.0966",
+  "expr": "reverse(var.any)"
+ },
+ {
+  "id": "hand1.0967",
+  "expr": "reverse(tolist([var.later, \"a\"]))"
+ },
+ {
+  "id": "hand1.0968",
+  "expr": "reverse({a = 1})"
+ },
+ {
+  "id": "hand1.0969",
+  "expr": "reverse(\"abc\")"
+ },
+ {
+  "id": "hand1.0970",
+  "expr": "reverse(null)"
+ },
+ {
+  "id": "hand1.0971",
+  "expr": "slice([1, 2, 3], 1, 1)"
+ },
+ {
+  "id": "hand1.0972",
+  "expr": "slice([1, 2, 3], 2, 1)"
+ },
+ {
+  "id": "hand1.0973",
+  "expr": "slice([1, 2, 3], 0, 4)"
+ },
+ {
+  "id": "hand1.0974",
+  "expr": "slice([1, \"a\", true], 1, 3)"
+ },
+ {
+  "id": "hand1.0975",
+  "expr": "slice(var.tags, var.port, 1)"
+ },
+ {
+  "id": "hand1.0976",
+  "expr": "slice([1, 2], -1, 1)"
+ },
+ {
+  "id": "hand1.0977",
+  "expr": "slice(tolist([1, 2]), 0, 1.5)"
+ },
+ {
+  "id": "hand1.0978",
+  "expr": "slice(var.tags, 0, var.later)"
+ },
+ {
+  "id": "hand1.0979",
+  "expr": "slice(var.tags, var.later, 1)"
+ },
+ {
+  "id": "hand1.0980",
+  "expr": "slice(var.any, 0, 1)"
+ },
+ {
+  "id": "hand1.0981",
+  "expr": "slice(toset([1, 2]), 0, 1)"
+ },
+ {
+  "id": "hand1.0982",
+  "expr": "slice([], 0, 0)"
+ },
+ {
+  "id": "hand1.0983",
+  "expr": "slice(tolist([]), 0, 0)"
+ },
+ {
+  "id": "hand1.0984",
+  "expr": "slice([1, 2], 2, 2)"
+ },
+ {
+  "id": "hand1.0985",
+  "expr": "slice(var.tags, 0, 9223372036854775808)"
+ },
+ {
+  "id": "hand1.0986",
+  "expr": "slice([1,2,3], \"1\", \"2\")"
+ },
+ {
+  "id": "hand1.0987",
+  "expr": "element([1, 2, 3], 5)"
+ },
+ {
+  "id": "hand1.0988",
+  "expr": "element([1, 2, 3], -1)"
+ },
+ {
+  "id": "hand1.0989",
+  "expr": "element([], 0)"
+ },
+ {
+  "id": "hand1.0990",
+  "expr": "element([\"a\", 1], 1)"
+ },
+ {
+  "id": "hand1.0991",
+  "expr": "element([\"a\", 1], 3)"
+ },
+ {
+  "id": "hand1.0992",
+  "expr": "element(toset([1]), 0)"
+ },
+ {
+  "id": "hand1.0993",
+  "expr": "element([1, 2], 1.5)"
+ },
+ {
+  "id": "hand1.0994",
+  "expr": "element(var.tags, var.later)"
+ },
+ {
+  "id": "hand1.0995",
+  "expr": "element([var.later, 1], 2)"
+ },
+ {
+  "id": "hand1.0996",
+  "expr": "element(var.any, 0)"
+ },
+ {
+  "id": "hand1.0997",
+  "expr": "element(var.tags, -4)"
+ },
+ {
+  "id": "hand1.0998",
+  "expr": "element(var.tags, 9223372036854775808)"
+ },
+ {
+  "id": "hand1.0999",
+  "expr": "element(tolist([]), 0)"
+ },
+ {
+  "id": "hand1.1000",
+  "expr": "element(var.tags, 1e300)"
+ },
+ {
+  "id": "hand1.1001",
+  "expr": "lookup({a = 1}, \"b\", \"x\")"
+ },
+ {
+  "id": "hand1.1002",
+  "expr": "lookup({a = 1}, \"b\")"
+ },
+ {
+  "id": "hand1.1003",
+  "expr": "lookup(tomap({a = 1}), \"b\", \"x\")"
+ },
+ {
+  "id": "hand1.1004",
+  "expr": "lookup({a = 1, b = \"x\"}, \"a\", null)"
+ },
+ {
+  "id": "hand1.1005",
+  "expr": "lookup({a = 1}, var.later, 2)"
+ },
+ {
+  "id": "hand1.1006",
+  "expr": "lookup(var.any, \"a\", 1)"
+ },
+ {
+  "id": "hand1.1007",
+  "expr": "lookup({a = var.later}, \"a\")"
+ },
+ {
+  "id": "hand1.1008",
+  "expr": "lookup({}, \"a\", \"x\")"
+ },
+ {
+  "id": "hand1.1009",
+  "expr": "lookup([1], \"0\", 1)"
+ },
+ {
+  "id": "hand1.1010",
+  "expr": "lookup({a = 1, b = \"x\"}, \"a\", \"d\")"
+ },
+ {
+  "id": "hand1.1011",
+  "expr": "lookup({a = 1, b = \"x\"}, \"b\", 1)"
+ },
+ {
+  "id": "hand1.1012",
+  "expr": "lookup({a = [1], b = [\"x\"]}, \"a\", [])"
+ },
+ {
+  "id": "hand1.1013",
+  "expr": "lookup(tomap({a = 1}), \"a\", \"x\")"
+ },
+ {
+  "id": "hand1.1014",
+  "expr": "lookup(tomap({a = 1}), \"z\", true)"
+ },
+ {
+  "id": "hand1.1015",
+  "expr": "lookup(var.env, \"A\", 1)"
+ },
+ {
+  "id": "hand1.1016",
+  "expr": "lookup(var.env, \"Z\")"
+ },
+ {
+  "id": "hand1.1017",
+  "expr": "lookup(var.env, var.later)"
+ },
+ {
+  "id": "hand1.1018",
+  "expr": "lookup(var.env, var.later, 1)"
+ },
+ {
+  "id": "hand1.1019",
+  "expr": "lookup({a = 1}, var.later)"
+ },
+ {
+  "id": "hand1.1020",
+  "expr": "lookup({a = 1}, null, 1)"
+ },
+ {
+  "id": "hand1.1021",
+  "expr": "lookup(null, \"a\", 1)"
+ },
+ {
+  "id": "hand1.1022",
+  "expr": "lookup({a = 1}, \"a\", var.later)"
+ },
+ {
+  "id": "hand1.1023",
+  "expr": "lookup({a = 1}, \"a\", \"b\", \"c\")"
+ },
+ {
+  "id": "hand1.1024",
+  "expr": "keys({b = 1, a = 2})"
+ },
+ {
+  "id": "hand1.1025",
+  "expr": "keys(tomap({}))"
+ },
+ {
+  "id": "hand1.1026",
+  "expr": "keys({})"
+ },
+ {
+  "id": "hand1.1027",
+  "expr": "keys(var.any)"
+ },
+ {
+  "id": "hand1.1028",
+  "expr": "keys({a = var.later})"
+ },
+ {
+  "id": "hand1.1029",
+  "expr": "keys(var.env)"
+ },
+ {
+  "id": "hand1.1030",
+  "expr": "keys(tomap({b = 1, a = 2}))"
+ },
+ {
+  "id": "hand1.1031",
+  "expr": "keys([1])"
+ },
+ {
+  "id": "hand1.1032",
+  "expr": "keys(null)"
+ },
+ {
+  "id": "hand1.1033",
+  "expr": "keys(tomap(var.any))"
+ },
+ {
+  "id": "hand1.1034",
+  "expr": "keys({\"é\" = 1, \"e\" = 2, \"z\" = 3, \"Z\" = 4})"
+ },
+ {
+  "id": "hand1.1035",
+  "expr": "values({b = 1, a = \"x\"})"
+ },
+ {
+  "id": "hand1.1036",
+  "expr": "values(tomap({b = 1, a = 2}))"
+ },
+ {
+  "id": "hand1.1037",
+  "expr": "values({})"
+ },
+ {
+  "id": "hand1.1038",
+  "expr": "values(tomap({}))"
+ },
+ {
+  "id": "hand1.1039",
+  "expr": "values(var.any)"
+ },
+ {
+  "id": "hand1.1040",
+  "expr": "values({a = var.later, b = 1})"
+ },
+ {
+  "id": "hand1.1041",
+  "expr": "values(var.env)"
+ },
+ {
+  "id": "hand1.1042",
+  "expr": "values([1])"
+ },
+ {
+  "id": "hand1.1043",
+  "expr": "values(null)"
+ },
+ {
+  "id": "hand1.1044",
+  "expr": "contains([1, \"a\"], \"1\")"
+ },
+ {
+  "id": "hand1.1045",
+  "expr": "contains([\"a\"], 1)"
+ },
+ {
+  "id": "hand1.1046",
+  "expr": "contains([var.later], \"a\")"
+ },
+ {
+  "id": "hand1.1047",
+  "expr": "contains([\"a\", var.later], \"a\")"
+ },
+ {
+  "id": "hand1.1048",
+  "expr": "contains([\"b\", var.later], \"a\")"
+ },
+ {
+  "id": "hand1.1049",
+  "expr": "contains(toset([\"a\"]), \"a\")"
+ },
+ {
+  "id": "hand1.1050",
+  "expr": "contains([[1]], [1])"
+ },
+ {
+  "id": "hand1.1051",
+  "expr": "contains([], null)"
+ },
+ {
+  "id": "hand1.1052",
+  "expr": "contains([\"a\"], null)"
+ },
+ {
+  "id": "hand1.1053",
+  "expr": "contains([null], null)"
+ },
+ {
+  "id": "hand1.1054",
+  "expr": "contains(var.tags, var.later)"
+ },
+ {
+  "id": "hand1.1055",
+  "expr": "contains(var.any, \"a\")"
+ },
+ {
+  "id": "hand1.1056",
+  "expr": "contains({a = 1}, 1)"
+ },
+ {
+  "id": "hand1.1057",
+  "expr": "contains(var.set, \"a\")"
+ },
+ {
+  "id": "hand1.1058",
+  "expr": "contains([1, 2], \"x\")"
+ },
+ {
+  "id": "hand1.1059",
+  "expr": "contains([1], 1.0)"
+ },
+ {
+  "id": "hand1.1060",
+  "expr": "contains(tolist([var.later]), \"a\")"
+ },
+ {
+  "id": "hand1.1061",
+  "expr": "contains(null, \"a\")"
+ },
+ {
+  "id": "hand1.1062",
+  "expr": "length(\"e\\u0301\")"
+ },
+ {
+  "id": "hand1.1063",
+  "expr": "length(null)"
+ },
+ {
+  "id": "hand1.1064",
+  "expr": "length(var.later)"
+ },
+ {
+  "id": "hand1.1065",
+  "expr": "length({a = var.later})"
+ },
+ {
+  "id": "hand1.1066",
+  "expr": "length(toset([var.later, \"a\"]))"
+ },
+ {
+  "id": "hand1.1067",
+  "expr": "length(tolist(var.any))"
+ },
+ {
+  "id": "hand1.1068",
+  "expr": "length(var.any)"
+ },
+ {
+  "id": "hand1.1069",
+  "expr": "length(\"\")"
+ },
+ {
+  "id": "hand1.1070",
+  "expr": "length(1)"
+ },
+ {
+  "id": "hand1.1071",
+  "expr": "length(true)"
+ },
+ {
+  "id": "hand1.1072",
+  "expr": "length(var.none)"
+ },
+ {
+  "id": "hand1.1073",
+  "expr": "length(\"👍🏽\")"
+ },
+ {
+  "id": "hand1.1074",
+  "expr": "tomap({a = 1, b = \"x\"})"
+ },
+ {
+  "id": "hand1.1075",
+  "expr": "tomap({a = 1, b = true})"
+ },
+ {
+  "id": "hand1.1076",
+  "expr": "tomap({a = [1], b = [\"x\"]})"
+ },
+ {
+  "id": "hand1.1077",
+  "expr": "tomap({a = null, b = 1})"
+ },
+ {
+  "id": "hand1.1078",
+  "expr": "tomap({a = null})"
+ },
+ {
+  "id": "hand1.1079",
+  "expr": "tomap({})"
+ },
+ {
+  "id": "hand1.1080",
+  "expr": "tomap([])"
+ },
+ {
+  "id": "hand1.1081",
+  "expr": "tomap({a = var.later, b = 1})"
+ },
+ {
+  "id": "hand1.1082",
+  "expr": "tomap({a = {x = 1}, b = {y = 2}})"
+ },
+ {
+  "id": "hand1.1083",
+  "expr": "tomap({a = {x = 1}, b = {x = \"s\"}})"
+ },
+ {
+  "id": "hand1.1084",
+  "expr": "tomap({a = [1], b = \"x\"})"
+ },
+ {
+  "id": "hand1.1085",
+  "expr": "tomap({a = var.any, b = 1})"
+ },
+ {
+  "id": "hand1.1086",
+  "expr": "tomap({a = [], b = [1]})"
+ },
+ {
+  "id": "hand1.1087",
+  "expr": "tomap({a = {}, b = {x = 1}})"
+ },
+ {
+  "id": "hand1.1088",
+  "expr": "tomap(var.env)"
+ },
+ {
+  "id": "hand1.1089",
+  "expr": "tomap(null)"
+ },
+ {
+  "id": "hand1.1090",
+  "expr": "tomap(var.any)"
+ },
+ {
+  "id": "hand1.1091",
+  "expr": "tomap(var.later)"
+ },
+ {
+  "id": "hand1.1092",
+  "expr": "tomap([{a = 1}])"
+ },
+ {
+  "id": "hand1.1093",
+  "expr": "toset([1, \"a\"])"
+ },
+ {
+  "id": "hand1.1094",
+  "expr": "toset([1, null])"
+ },
+ {
+  "id": "hand1.1095",
+  "expr": "toset([null])"
+ },
+ {
+  "id": "hand1.1096",
+  "expr": "toset([[1], [\"a\"]])"
+ },
+ {
+  "id": "hand1.1097",
+  "expr": "toset([1, 1.0, \"1\"])"
+ },
+ {
+  "id": "hand1.1098",
+  "expr": "toset([var.later, 1])"
+ },
+ {
+  "id": "hand1.1099",
+  "expr": "toset({a = 1})"
+ },
+ {
+  "id": "hand1.1100",
+  "expr": "toset([\"a\", var.any])"
+ },
+ {
+  "id": "hand1.1101",
+  "expr": "toset([true, \"true\"])"
+ },
+ {
+  "id": "hand1.1102",
+  "expr": "toset([[], [1]])"
+ },
+ {
+  "id": "hand1.1103",
+  "expr": "toset([{a = 1}, {a = \"1\"}])"
+ },
+ {
+  "id": "hand1.1104",
+  "expr": "toset([{a = 1}, {b = 1}])"
+ },
+ {
+  "id": "hand1.1105",
+  "expr": "toset(null)"
+ },
+ {
+  "id": "hand1.1106",
+  "expr": "toset(var.any)"
+ },
+ {
+  "id": "hand1.1107",
+  "expr": "toset(var.tags)"
+ },
+ {
+  "id": "hand1.1108",
+  "expr": "toset(\"a\")"
+ },
+ {
+  "id": "hand1.1109",
+  "expr": "toset([var.none])"
+ },
+ {
+  "id": "hand1.1110",
+  "expr": "tolist([1, true])"
+ },
+ {
+  "id": "hand1.1111",
+  "expr": "tolist([{a = 1}, {b = 2}])"
+ },
+ {
+  "id": "hand1.1112",
+  "expr": "tolist([{a = 1}, {a = \"x\"}])"
+ },
+ {
+  "id": "hand1.1113",
+  "expr": "tolist([[1], []])"
+ },
+ {
+  "id": "hand1.1114",
+  "expr": "tolist([null, null])"
+ },
+ {
+  "id": "hand1.1115",
+  "expr": "tolist(null)"
+ },
+ {
+  "id": "hand1.1116",
+  "expr": "tolist(var.set)"
+ },
+ {
+  "id": "hand1.1117",
+  "expr": "tolist(toset([3, 1, 2]))"
+ },
+ {
+  "id": "hand1.1118",
+  "expr": "tolist([var.later, 1])"
+ },
+ {
+  "id": "hand1.1119",
+  "expr": "tolist([1, [1]])"
+ },
+ {
+  "id": "hand1.1120",
+  "expr": "tolist([{a = 1, b = 2}, {a = 1}])"
+ },
+ {
+  "id": "hand1.1121",
+  "expr": "tolist({a = 1})"
+ },
+ {
+  "id": "hand1.1122",
+  "expr": "tolist(var.env)"
+ },
+ {
+  "id": "hand1.1123",
+  "expr": "tolist([tomap({a = 1}), {b = \"x\"}])"
+ },
+ {
+  "id": "hand1.1124",
+  "expr": "tostring(1e300)"
+ },
+ {
+  "id": "hand1.1125",
+  "expr": "tostring(-0)"
+ },
+ {
+  "id": "hand1.1126",
+  "expr": "tostring(null)"
+ },
+ {
+  "id": "hand1.1127",
+  "expr": "tostring([])"
+ },
+ {
+  "id": "hand1.1128",
+  "expr": "tostring(true)"
+ },
+ {
+  "id": "hand1.1129",
+  "expr": "tostring(1/3)"
+ },
+ {
+  "id": "hand1.1130",
+  "expr": "tostring(var.later)"
+ },
+ {
+  "id": "hand1.1131",
+  "expr": "tostring(var.any)"
+ },
+ {
+  "id": "hand1.1132",
+  "expr": "tostring({})"
+ },
+ {
+  "id": "hand1.1133",
+  "expr": "tostring(1e21)"
+ },
+ {
+  "id": "hand1.1134",
+  "expr": "tostring(0.000001)"
+ },
+ {
+  "id": "hand1.1135",
+  "expr": "tonumber(\"0x10\")"
+ },
+ {
+  "id": "hand1.1136",
+  "expr": "tonumber(\"1e5\")"
+ },
+ {
+  "id": "hand1.1137",
+  "expr": "tonumber(\" 1\")"
+ },
+ {
+  "id": "hand1.1138",
+  "expr": "tonumber(\"1 \")"
+ },
+ {
+  "id": "hand1.1139",
+  "expr": "tonumber(\"1_0\")"
+ },
+ {
+  "id": "hand1.1140",
+  "expr": "tonumber(\"Inf\")"
+ },
+ {
+  "id": "hand1.1141",
+  "expr": "tonumber(\"NaN\")"
+ },
+ {
+  "id": "hand1.1142",
+  "expr": "tonumber(\".5\")"
+ },
+ {
+  "id": "hand1.1143",
+  "expr": "tonumber(\"5.\")"
+ },
+ {
+  "id": "hand1.1144",
+  "expr": "tonumber(\"+5\")"
+ },
+ {
+  "id": "hand1.1145",
+  "expr": "tonumber(\"-0\")"
+ },
+ {
+  "id": "hand1.1146",
+  "expr": "tonumber(\"1e400\")"
+ },
+ {
+  "id": "hand1.1147",
+  "expr": "tonumber(\"1e-400\")"
+ },
+ {
+  "id": "hand1.1148",
+  "expr": "tonumber(\"\")"
+ },
+ {
+  "id": "hand1.1149",
+  "expr": "tonumber(true)"
+ },
+ {
+  "id": "hand1.1150",
+  "expr": "tonumber(null)"
+ },
+ {
+  "id": "hand1.1151",
+  "expr": "tonumber(\"0b1\")"
+ },
+ {
+  "id": "hand1.1152",
+  "expr": "tonumber(\"1E5\")"
+ },
+ {
+  "id": "hand1.1153",
+  "expr": "tonumber(\"١\")"
+ },
+ {
+  "id": "hand1.1154",
+  "expr": "tonumber(\"00012\")"
+ },
+ {
+  "id": "hand1.1155",
+  "expr": "tonumber(\"-.5\")"
+ },
+ {
+  "id": "hand1.1156",
+  "expr": "tobool(\"True\")"
+ },
+ {
+  "id": "hand1.1157",
+  "expr": "tobool(\"1\")"
+ },
+ {
+  "id": "hand1.1158",
+  "expr": "tobool(null)"
+ },
+ {
+  "id": "hand1.1159",
+  "expr": "tobool(var.any)"
+ },
+ {
+  "id": "hand1.1160",
+  "expr": "tobool(\"false\")"
+ },
+ {
+  "id": "hand1.1161",
+  "expr": "tobool(\"\")"
+ },
+ {
+  "id": "hand1.1162",
+  "expr": "tobool(1)"
+ },
+ {
+  "id": "hand1.1163",
+  "expr": "tobool(var.later)"
+ },
+ {
+  "id": "hand1.1164",
+  "expr": "env(\"PATH\")"
+ },
+ {
+  "id": "hand1.1165",
+  "expr": "env(\"NOPE\")"
+ },
+ {
+  "id": "hand1.1166",
+  "expr": "env(\"NOPE\", \"d\")"
+ },
+ {
+  "id": "hand1.1167",
+  "expr": "env(\"NOPE\", \"a\", \"b\")"
+ },
+ {
+  "id": "hand1.1168",
+  "expr": "env(\"PATH\", 1)"
+ },
+ {
+  "id": "hand1.1169",
+  "expr": "env(1)"
+ },
+ {
+  "id": "hand1.1170",
+  "expr": "env(null)"
+ },
+ {
+  "id": "hand1.1171",
+  "expr": "env(var.later)"
+ },
+ {
+  "id": "hand1.1172",
+  "expr": "env(\"NOPE\", var.later)"
+ },
+ {
+  "id": "hand1.1173",
+  "expr": "env(\"NOPE\", null)"
+ },
+ {
+  "id": "hand1.1174",
+  "expr": "env(\"\")"
+ },
+ {
+  "id": "hand1.1175",
+  "expr": "env(\"PATH=\")"
+ },
+ {
+  "id": "hand1.1176",
+  "expr": "env(\"PATH\", null)"
+ },
+ {
+  "id": "hand1.1177",
+  "expr": "env()"
+ },
+ {
+  "id": "hand1.1178",
+  "expr": "env([\"PATH\"]...)"
+ },
+ {
+  "id": "hand1.1179",
+  "expr": "env(\"NOPE\", [\"a\", \"b\"]...)"
+ },
+ {
+  "id": "hand1.1180",
+  "expr": "env(\"NOPE\", [])"
+ },
+ {
+  "id": "hand1.1181",
+  "expr": "env_of({env = {A = \"1\"}}, {env = {A = \"2\"}})"
+ },
+ {
+  "id": "hand1.1182",
+  "expr": "env_of({name = \"db\", env = {A = \"1\"}}, {name = \"mq\", env = {A = \"2\"}})"
+ },
+ {
+  "id": "hand1.1183",
+  "expr": "env_of({env = {}})"
+ },
+ {
+  "id": "hand1.1184",
+  "expr": "env_of()"
+ },
+ {
+  "id": "hand1.1185",
+  "expr": "env_of({env = {A = var.later}})"
+ },
+ {
+  "id": "hand1.1186",
+  "expr": "env_of({env = var.later})"
+ },
+ {
+  "id": "hand1.1187",
+  "expr": "env_of(null)"
+ },
+ {
+  "id": "hand1.1188",
+  "expr": "env_of({x = 1})"
+ },
+ {
+  "id": "hand1.1189",
+  "expr": "env_of({env = {A = 1}})"
+ },
+ {
+  "id": "hand1.1190",
+  "expr": "env_of({env = [\"a\"]})"
+ },
+ {
+  "id": "hand1.1191",
+  "expr": "env_of({env = {A = true, B = \"x\"}})"
+ },
+ {
+  "id": "hand1.1192",
+  "expr": "env_of({name = 1, env = {A = \"1\"}}, {name = 2, env = {A = \"2\"}})"
+ },
+ {
+  "id": "hand1.1193",
+  "expr": "env_of({name = null, env = {A = \"1\"}})"
+ },
+ {
+  "id": "hand1.1194",
+  "expr": "env_of({name = null, env = {A = \"1\"}}, {env = {A = \"2\"}})"
+ },
+ {
+  "id": "hand1.1195",
+  "expr": "env_of({env = tomap({A = \"1\"})})"
+ },
+ {
+  "id": "hand1.1196",
+  "expr": "env_of({env = {A = \"1\"}}, var.any)"
+ },
+ {
+  "id": "hand1.1197",
+  "expr": "env_of(var.any)"
+ },
+ {
+  "id": "hand1.1198",
+  "expr": "env_of({env = {A = null}})"
+ },
+ {
+  "id": "hand1.1199",
+  "expr": "env_of({env = null})"
+ },
+ {
+  "id": "hand1.1200",
+  "expr": "env_of([{env = {}}])"
+ },
+ {
+  "id": "hand1.1201",
+  "expr": "env_of([{env = {A = \"1\"}}]...)"
+ },
+ {
+  "id": "hand1.1202",
+  "expr": "env_of({name = \"a\", env = {A = \"1\"}}, {env = {A = \"2\"}})"
+ },
+ {
+  "id": "hand1.1203",
+  "expr": "env_of({env = {A = \"1\", B = \"2\"}}, {env = {C = \"3\"}})"
+ },
+ {
+  "id": "hand1.1204",
+  "expr": "env_of({env = {A = [1]}})"
+ },
+ {
+  "id": "hand1.1205",
+  "expr": "env_of({env = {A = {x = 1}}})"
+ },
+ {
+  "id": "hand1.1206",
+  "expr": "env_of({env = tomap({A = 1})})"
+ },
+ {
+  "id": "hand1.1207",
+  "expr": "env_of({env = {A = \"1\"}}, null)"
+ },
+ {
+  "id": "hand1.1208",
+  "expr": "env_of({env = {A = \"1\"}}, {x = 1})"
+ },
+ {
+  "id": "hand1.1209",
+  "expr": "env_of({env = \"x\"})"
+ },
+ {
+  "id": "hand1.1210",
+  "expr": "env_of({env = 1})"
+ },
+ {
+  "id": "hand1.1211",
+  "expr": "env_of({env = toset([\"a\"])})"
+ },
+ {
+  "id": "hand1.1212",
+  "expr": "env_of({env = {B = \"1\", A = \"2\"}})"
+ },
+ {
+  "id": "hand1.1213",
+  "expr": "env_of({env = {A = var.none}})"
+ },
+ {
+  "id": "hand1.1214",
+  "expr": "env_of({env = {A = 1, B = 2}})"
+ },
+ {
+  "id": "hand1.1215",
+  "expr": "env_of({env = {}}, {env = {}})"
+ },
+ {
+  "id": "hand1.1216",
+  "expr": "env_of({env = tomap({})})"
+ },
+ {
+  "id": "hand1.1217",
+  "expr": "env_of({name = [1], env = {A = \"1\"}}, {env = {A = \"2\"}})"
+ },
+ {
+  "id": "hand1.1218",
+  "expr": "env_of({name = \"x\", env = {A = \"1\"}}, {name = var.later, env = {A = \"2\"}})"
+ },
+ {
+  "id": "hand1.1219",
+  "expr": "abs(-0)"
+ },
+ {
+  "id": "hand1.1220",
+  "expr": "abs(var.later)"
+ },
+ {
+  "id": "hand1.1221",
+  "expr": "ceil(1e300)"
+ },
+ {
+  "id": "hand1.1222",
+  "expr": "ceil(-0.5)"
+ },
+ {
+  "id": "hand1.1223",
+  "expr": "floor(-0.5)"
+ },
+ {
+  "id": "hand1.1224",
+  "expr": "ceil(1/3)"
+ },
+ {
+  "id": "hand1.1225",
+  "expr": "floor(-1e-300)"
+ },
+ {
+  "id": "hand1.1226",
+  "expr": "max()"
+ },
+ {
+  "id": "hand1.1227",
+  "expr": "max(1, \"2\")"
+ },
+ {
+  "id": "hand1.1228",
+  "expr": "max(\"a\")"
+ },
+ {
+  "id": "hand1.1229",
+  "expr": "max(var.later, 1)"
+ },
+ {
+  "id": "hand1.1230",
+  "expr": "max([1, 2]...)"
+ },
+ {
+  "id": "hand1.1231",
+  "expr": "min(1, null)"
+ },
+ {
+  "id": "hand1.1232",
+  "expr": "max(-0, 0)"
+ },
+ {
+  "id": "hand1.1233",
+  "expr": "min(0, -0)"
+ },
+ {
+  "id": "hand1.1234",
+  "expr": "ceil(9007199254740993.5)"
+ },
+ {
+  "id": "hand1.1235",
+  "expr": "floor(123456789012345678901234567890.5)"
+ },
+ {
+  "id": "hand1.1236",
+  "expr": "abs(-1e400)"
+ },
+ {
+  "id": "hand1.1237",
+  "expr": "ceil(1e400)"
+ },
+ {
+  "id": "hand1.1238",
+  "expr": "max(1e400, 1)"
+ },
+ {
+  "id": "hand1.1239",
+  "expr": "min(var.any, 1)"
+ },
+ {
+  "id": "hand1.1240",
+  "expr": "max(toset([1, 2])...)"
+ },
+ {
+  "id": "hand1.1241",
+  "expr": "max(var.tags...)"
+ },
+ {
+  "id": "hand1.1242",
+  "expr": "max([]...)"
+ },
+ {
+  "id": "hand1.1243",
+  "expr": "max(var.any...)"
+ },
+ {
+  "id": "hand1.1244",
+  "expr": "max(tolist(var.any)...)"
+ },
+ {
+  "id": "hand1.1245",
+  "expr": "abs(\"-1\")"
+ },
+ {
+  "id": "hand1.1246",
+  "expr": "abs(true)"
+ },
+ {
+  "id": "hand1.1247",
+  "expr": "ceil(null)"
+ },
+ {
+  "id": "hand1.1248",
+  "expr": "floor(\"1.5\")"
+ },
+ {
+  "id": "hand1.1249",
+  "expr": "upper(var.later) == null"
+ },
+ {
+  "id": "hand1.1250",
+  "expr": "strlen(var.later) >= 0"
+ },
+ {
+  "id": "hand1.1251",
+  "expr": "strlen(var.later) == -1"
+ },
+ {
+  "id": "hand1.1252",
+  "expr": "length(var.any) >= 0"
+ },
+ {
+  "id": "hand1.1253",
+  "expr": "length(var.later) < 0"
+ },
+ {
+  "id": "hand1.1254",
+  "expr": "format(\"ab%s\", var.later) == \"x\""
+ },
+ {
+  "id": "hand1.1255",
+  "expr": "format(\"ab%s\", var.later) == \"abc\""
+ },
+ {
+  "id": "hand1.1256",
+  "expr": "format(\"%s\", var.later) == null"
+ },
+ {
+  "id": "hand1.1257",
+  "expr": "format(\"%d\", tonumber(var.later)) == null"
+ },
+ {
+  "id": "hand1.1258",
+  "expr": "jsonencode(var.later) == null"
+ },
+ {
+  "id": "hand1.1259",
+  "expr": "jsonencode(var.later) == \"x\""
+ },
+ {
+  "id": "hand1.1260",
+  "expr": "length(concat([1], var.any))"
+ },
+ {
+  "id": "hand1.1261",
+  "expr": "length(tolist(var.any)) >= 0"
+ },
+ {
+  "id": "hand1.1262",
+  "expr": "keys(var.any) == null"
+ },
+ {
+  "id": "hand1.1263",
+  "expr": "sort(var.any) == null"
+ },
+ {
+  "id": "hand1.1264",
+  "expr": "range(var.later) == null"
+ },
+ {
+  "id": "hand1.1265",
+  "expr": "length(flatten(var.any)) >= 0"
+ },
+ {
+  "id": "hand1.1266",
+  "expr": "join(\",\", var.any) == null"
+ },
+ {
+  "id": "hand1.1267",
+  "expr": "split(\",\", var.later) == null"
+ },
+ {
+  "id": "hand1.1268",
+  "expr": "length(split(\",\", var.later)) >= 1"
+ },
+ {
+  "id": "hand1.1269",
+  "expr": "length(split(\",\", var.later)) == 0"
+ },
+ {
+  "id": "hand1.1270",
+  "expr": "replace(var.later, \"a\", \"b\") == null"
+ },
+ {
+  "id": "hand1.1271",
+  "expr": "abs(tonumber(var.later)) >= 0"
+ },
+ {
+  "id": "hand1.1272",
+  "expr": "abs(tonumber(var.later)) < 0"
+ },
+ {
+  "id": "hand1.1273",
+  "expr": "length(distinct(var.any)) >= 0"
+ },
+ {
+  "id": "hand1.1274",
+  "expr": "merge({a = 1}, var.any) == null"
+ },
+ {
+  "id": "hand1.1275",
+  "expr": "coalesce(var.later, \"x\") == null"
+ },
+ {
+  "id": "hand1.1276",
+  "expr": "csvdecode(var.later) == null"
+ },
+ {
+  "id": "hand1.1277",
+  "expr": "formatlist(\"%s\", var.later) == null"
+ },
+ {
+  "id": "hand1.1278",
+  "expr": "length(formatlist(\"%s\", [\"a\", var.later]))"
+ },
+ {
+  "id": "hand1.1279",
+  "expr": "length(formatlist(\"%s\", var.later))"
+ },
+ {
+  "id": "hand1.1280",
+  "expr": "length(keys(tomap(var.any))) >= 0"
+ },
+ {
+  "id": "hand1.1281",
+  "expr": "lower(var.later) == null"
+ },
+ {
+  "id": "hand1.1282",
+  "expr": "\"${var.later}x\" == \"x\""
+ },
+ {
+  "id": "hand1.1283",
+  "expr": "tostring(var.later) == null"
+ },
+ {
+  "id": "hand1.1284",
+  "expr": "tolist(var.any) == null"
+ },
+ {
+  "id": "hand1.1285",
+  "expr": "parseint(var.later, 10) == null"
+ },
+ {
+  "id": "hand1.1286",
+  "expr": "substr(var.later, 0, 1) == null"
+ },
+ {
+  "id": "hand1.1287",
+  "expr": "title(var.later) == null"
+ },
+ {
+  "id": "hand1.1288",
+  "expr": "indent(2, var.later) == null"
+ },
+ {
+  "id": "hand1.1289",
+  "expr": "element(var.tags, 0) == null"
+ },
+ {
+  "id": "hand1.1290",
+  "expr": "lookup(var.env, \"A\") == null"
+ },
+ {
+  "id": "hand1.1291",
+  "expr": "env(var.later) == null"
+ },
+ {
+  "id": "hand1.1292",
+  "expr": "env_of(var.any) == null"
+ },
+ {
+  "id": "hand1.1293",
+  "expr": "ceil(tonumber(var.later)) == null"
+ },
+ {
+  "id": "hand1.1294",
+  "expr": "upper(\"ab${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand1.1295",
+  "expr": "upper(\"ab${var.later}\") == \"AB\""
+ },
+ {
+  "id": "hand1.1296",
+  "expr": "lower(\"AB${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand1.1297",
+  "expr": "trimspace(\" ab${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand1.1298",
+  "expr": "chomp(\"ab${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand1.1299",
+  "expr": "jsondecode(var.later) == null"
+ },
+ {
+  "id": "hand1.1300",
+  "expr": "regex(\"a\", var.later) == null"
+ },
+ {
+  "id": "hand1.1301",
+  "expr": "length(regex(\"(a)(b)\", var.later))"
+ },
+ {
+  "id": "hand1.1302",
+  "expr": "contains(var.tags, var.later) == null"
+ },
+ {
+  "id": "hand1.1303",
+  "expr": "max(tonumber(var.later), 1) == null"
+ },
+ {
+  "id": "hand1.1304",
+  "expr": "length(range(var.later)) >= 0"
+ },
+ {
+  "id": "hand1.1305",
+  "expr": "length(concat(var.tags, tolist(var.any))) >= 3"
+ },
+ {
+  "id": "hand1.1306",
+  "expr": "length(concat(var.tags, tolist(var.any))) < 3"
+ },
+ {
+  "id": "hand1.1307",
+  "expr": "length(toset(var.any)) >= 0"
+ },
+ {
+  "id": "hand1.1308",
+  "expr": "length(toset([var.later, \"a\"])) >= 1"
+ },
+ {
+  "id": "hand1.1309",
+  "expr": "length(toset([var.later, \"a\"])) > 2"
+ },
+ {
+  "id": "hand1.1310",
+  "expr": "length(toset([var.later, \"a\"])) == 0"
+ },
+ {
+  "id": "hand1.1311",
+  "expr": "length(distinct(tolist([var.later, \"a\"]))) > 2"
+ },
+ {
+  "id": "hand1.1312",
+  "expr": "length(tolist(toset([var.later, var.later]))) >= 1"
+ },
+ {
+  "id": "hand1.1313",
+  "expr": "length(sort(tolist([var.later, \"a\"])))"
+ },
+ {
+  "id": "hand1.1314",
+  "expr": "length(reverse(tolist(var.any)))"
+ },
+ {
+  "id": "hand1.1315",
+  "expr": "length(slice(tolist(var.any), 0, 2))"
+ },
+ {
+  "id": "hand1.1316",
+  "expr": "length(slice(var.tags, 0, tonumber(var.later)))"
+ },
+ {
+  "id": "hand1.1317",
+  "expr": "length(values(tomap(var.any))) >= 0"
+ },
+ {
+  "id": "hand1.1318",
+  "expr": "length(keys({a = var.later}))"
+ },
+ {
+  "id": "hand1.1319",
+  "expr": "length(merge({a = 1}, var.any)) >= 1"
+ },
+ {
+  "id": "hand1.1320",
+  "expr": "length(merge(tomap({a = 1}), tomap(var.any))) >= 1"
+ },
+ {
+  "id": "hand1.1321",
+  "expr": "length(flatten([var.later, [1]]))"
+ },
+ {
+  "id": "hand1.1322",
+  "expr": "length(jsondecode(var.later))"
+ },
+ {
+  "id": "hand1.1323",
+  "expr": "length(csvdecode(var.later)) >= 0"
+ },
+ {
+  "id": "hand1.1324",
+  "expr": "strlen(upper(var.later)) >= 0"
+ },
+ {
+  "id": "hand1.1325",
+  "expr": "strlen(\"ab${var.later}\") >= 2"
+ },
+ {
+  "id": "hand1.1326",
+  "expr": "strlen(\"ab${var.later}\") < 2"
+ },
+ {
+  "id": "hand1.1327",
+  "expr": "length(format(\"ab%s\", var.later)) >= 2"
+ },
+ {
+  "id": "hand1.1328",
+  "expr": "length(\"ab${var.later}\") > 1"
+ },
+ {
+  "id": "hand1.1329",
+  "expr": "format(\"%s\", \"ab${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand1.1330",
+  "expr": "format(\"x%s\", \"ab${var.later}\") == \"xb\""
+ },
+ {
+  "id": "hand1.1331",
+  "expr": "format(\"%5s\", var.later) == \"x\""
+ },
+ {
+  "id": "hand1.1332",
+  "expr": "format(\"%-5s\", var.later) == \"x\""
+ },
+ {
+  "id": "hand1.1333",
+  "expr": "format(\"%s%s\", \"a\", var.later) == \"b\""
+ },
+ {
+  "id": "hand1.1334",
+  "expr": "format(\"%%%s\", var.later) == \"x\""
+ },
+ {
+  "id": "hand1.1335",
+  "expr": "format(\"%[1]s\", var.later) == \"x\""
+ },
+ {
+  "id": "hand1.1336",
+  "expr": "replace(\"ab${var.later}\", \"a\", \"b\") == \"x\""
+ },
+ {
+  "id": "hand1.1337",
+  "expr": "substr(\"ab${var.later}\", 0, 1) == \"x\""
+ },
+ {
+  "id": "hand1.1338",
+  "expr": "title(\"ab${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand1.1339",
+  "expr": "trim(\"ab${var.later}\", \"a\") == \"x\""
+ },
+ {
+  "id": "hand1.1340",
+  "expr": "trimprefix(\"ab${var.later}\", \"a\") == \"x\""
+ },
+ {
+  "id": "hand1.1341",
+  "expr": "indent(2, \"ab${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand1.1342",
+  "expr": "join(\"\", [\"a\", var.later]) == \"x\""
+ },
+ {
+  "id": "hand1.1343",
+  "expr": "jsonencode(\"ab${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand1.1344",
+  "expr": "tostring(\"ab${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand1.1345",
+  "expr": "coalesce(\"ab${var.later}\", \"x\") == \"x\""
+ }
+]

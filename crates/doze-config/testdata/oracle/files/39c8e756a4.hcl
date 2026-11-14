@@ -1,0 +1,1 @@
+module fakeproc "worker" {}

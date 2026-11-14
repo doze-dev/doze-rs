@@ -1,17 +1,5 @@
 use super::*;
 
-fn head(retention_ms: Option<i64>, cleanup: &str) -> TopicHead {
-    TopicHead {
-        name: "orders".to_owned(),
-        cleanup: cleanup.to_owned(),
-        partitions: 3,
-        retention_ms,
-        records: 48_214,
-        transactions: Vec::new(),
-        held_back: Vec::new(),
-    }
-}
-
 fn text(spans: &[Span]) -> String {
     spans
         .iter()
@@ -37,44 +25,6 @@ fn what_the_broker_waited_for_is_said_by_acks() {
     assert_eq!(acked(1), "acknowledged once written (acks 1)");
     assert!(acked(0).starts_with("not acknowledged"));
     assert_eq!(acked(7), "acknowledged");
-}
-
-#[test]
-fn partitions_are_named_with_the_topic_and_joined_in_words() {
-    assert_eq!(partitions_of("orders", vec![]), "");
-    assert_eq!(partitions_of("orders", vec![0]), "orders-0");
-    assert_eq!(partitions_of("orders", vec![1, 0]), "orders-0 and orders-1");
-    assert_eq!(
-        partitions_of("orders", vec![2, 0, 1, 1]),
-        "orders-0, orders-1 and orders-2"
-    );
-}
-
-#[test]
-fn the_sentence_under_a_topic_says_what_the_broker_read() {
-    assert_eq!(
-        text(&head_sentence(&head(Some(604_800_000), "delete"))),
-        "orders has 3 partitions, keeps records for 7 d, holds 48,214 records and was last written just now."
-    );
-    assert_eq!(
-        text(&head_sentence(&head(Some(-1), "delete"))),
-        "orders has 3 partitions, keeps records for ever, holds 48,214 records and was last written just now."
-    );
-    assert_eq!(
-        text(&head_sentence(&head(None, "compact"))),
-        "orders has 3 partitions, holds 48,214 records and was last written just now."
-    );
-    // A compacted topic's retention is not what keeps its records.
-    assert!(!text(&head_sentence(&head(Some(604_800_000), "compact"))).contains("keeps records"));
-    let mut h = head(Some(604_800_000), "delete");
-    h.transactions = vec![("orders-eos".to_owned(), vec![0, 1])];
-    h.held_back = vec![(0, 6)];
-    assert_eq!(
-        text(&head_sentence(&h)),
-        "orders has 3 partitions, keeps records for 7 d, holds 48,214 records and was last written just now. A transaction is open on orders-0 and orders-1: read_committed consumers are held 6 records behind on orders-0."
-    );
-    h.held_back.clear();
-    assert!(text(&head_sentence(&h)).ends_with("A transaction is open on orders-0 and orders-1."));
 }
 
 #[test]
