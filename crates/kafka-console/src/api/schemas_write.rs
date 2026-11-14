@@ -9,7 +9,6 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use kafka_registry::format::{CompatReason, SchemaType};
-use kafka_registry::json::Json;
 use kafka_registry::registry::{CompatFinding, Origin, RegisterResult};
 use kafka_registry::store::Reference;
 use kafka_registry::{Registry, RegistryError, SchemaInput};
@@ -82,8 +81,16 @@ pub struct FindingView {
 pub enum CheckAnswer {
     /// A new subject: nothing to compare with; it would be version 1.
     First { kind: String },
-    Compatible { level: String, compared: Vec<u32>, kind: String },
-    Incompatible { level: String, compared: Vec<u32>, findings: Vec<FindingView> },
+    Compatible {
+        level: String,
+        compared: Vec<u32>,
+        kind: String,
+    },
+    Incompatible {
+        level: String,
+        compared: Vec<u32>,
+        findings: Vec<FindingView>,
+    },
     /// The registry refused the draft itself (42201 invalid schema, 42208 invalid subject, ...).
     Invalid { error_code: u32, message: String },
 }
@@ -94,17 +101,31 @@ pub enum CheckAnswer {
 #[serde(tag = "outcome", rename_all = "snake_case")]
 pub enum SchemaWrite {
     /// Registered: the id, the version, whether the subject already held it, and the other subjects holding the id.
-    Registered { id: u32, version: u32, existed: bool, shared: Vec<String> },
+    Registered {
+        id: u32,
+        version: u32,
+        existed: bool,
+        shared: Vec<String>,
+    },
     /// A level or mode set or removed: what is in force now.
     Configured { level: String, mode: String },
     /// Versions deleted (soft, or for good).
     Deleted { versions: Vec<u32>, permanent: bool },
     /// The registry refused it: Confluent's status, code and sentence, and for a 409 the reasons.
-    Refused { status: u16, error_code: u32, message: String, findings: Vec<FindingView> },
+    Refused {
+        status: u16,
+        error_code: u32,
+        message: String,
+        findings: Vec<FindingView>,
+    },
 }
 
 pub(super) fn bad_body() -> Response {
-    error(StatusCode::BAD_REQUEST, "BAD_REQUEST", "The request's body is not what this write takes.")
+    error(
+        StatusCode::BAD_REQUEST,
+        "BAD_REQUEST",
+        "The request's body is not what this write takes.",
+    )
 }
 
 fn refused(e: &RegistryError, findings: Vec<FindingView>) -> Response {
@@ -141,7 +162,7 @@ fn reason(p: &SchemaPost, r: &CompatReason) -> ReasonView {
         kind: r.kind.clone(),
         path: r.path.clone(),
         description: r.description.clone(),
-        fix: fix(p, r),
+        fix: super::fix::fix(p, r),
     }
 }
 
@@ -156,62 +177,6 @@ fn findings(p: &SchemaPost, found: &[CompatFinding]) -> Vec<FindingView> {
         .collect()
 }
 
-/// The zero value Avro would take as a default for a field of this type, if it has one Go offered.
-fn zero_of(t: &Json) -> Option<Json> {
-    let raw = |s: &str| Some(Json::Raw(s.to_owned()));
-    match t {
-        Json::Str(s) => match s.as_str() {
-            "null" => raw("null"),
-            "string" | "bytes" => Some(Json::Str(String::new())),
-            "int" | "long" | "float" | "double" => raw("0"),
-            "boolean" => raw("false"),
-            _ => None,
-        },
-        Json::Array(branches) => branches.first().and_then(zero_of),
-        Json::Object(_) => match t.get("type").and_then(Json::as_str) {
-            Some("array") => Some(Json::Array(Vec::new())),
-            Some("map") => Some(Json::Object(Vec::new())),
-            Some(prim) => zero_of(&Json::Str(prim.to_owned())),
-            None => None,
-        },
-        Json::Raw(_) => None,
-    }
-}
-
-/// The value a JSON pointer names, to change.
-fn at_pointer<'a>(j: &'a mut Json, pointer: &str) -> Option<&'a mut Json> {
-    let mut here = j;
-    for token in pointer.split('/').skip(1).filter(|t| !t.is_empty()) {
-        let token = token.replace("~1", "/").replace("~0", "~");
-        here = match here {
-            Json::Object(m) => m.iter_mut().find(|(k, _)| *k == token).map(|(_, v)| v)?,
-            Json::Array(items) => items.get_mut(token.parse::<usize>().ok()?)?,
-            _ => return None,
-        };
-    }
-    Some(here)
-}
-
-/// Go's one fix: a field of the new Avro schema that old data lacks, given its type's zero as a default.
-fn fix(p: &SchemaPost, r: &CompatReason) -> Option<FixView> {
-    if r.kind != "READER_FIELD_MISSING_DEFAULT_VALUE"
-        || SchemaType::named(&p.schema_type) != Some(SchemaType::Avro)
-        || !r.description.contains("in the new schema")
-    {
-        return None;
-    }
-    let mut j = Json::parse(&p.schema).ok()?;
-    let field = at_pointer(&mut j, &r.path)?;
-    let zero = zero_of(field.get("type")?)?;
-    let name = field.get("name").and_then(Json::as_str).unwrap_or_default().to_owned();
-    let label = format!("Add \"default\": {} to {name}", zero.to_text());
-    field.set("default", zero);
-    Some(FixView {
-        label,
-        schema: kafka_registry::codec::pretty(&j),
-    })
-}
-
 fn registry(s: &Shared) -> Option<std::sync::Arc<Registry>> {
     s.source.schemas().registry().cloned()
 }
@@ -222,13 +187,22 @@ pub(super) async fn check(State(s): State<Shared>, body: Bytes) -> Response {
     let Ok(p) = serde_json::from_slice::<SchemaPost>(&body) else {
         return bad_body();
     };
-    let kind = SchemaType::named(&p.schema_type).map_or_else(|| p.schema_type.clone(), |k| k.name().to_owned());
-    let answer = match r.check(&p.subject, None, &input(&p), p.normalize, p.level.as_deref()) {
+    let kind = SchemaType::named(&p.schema_type)
+        .map_or_else(|| p.schema_type.clone(), |k| k.name().to_owned());
+    let answer = match r.check(
+        &p.subject,
+        None,
+        &input(&p),
+        p.normalize,
+        p.level.as_deref(),
+    ) {
         Err(e) => CheckAnswer::Invalid {
             error_code: e.error_code,
             message: e.message,
         },
-        Ok((compared, _)) if compared.is_empty() && r.versions(&p.subject, false).is_err() => CheckAnswer::First { kind },
+        Ok((compared, _)) if compared.is_empty() && r.versions(&p.subject, false).is_err() => {
+            CheckAnswer::First { kind }
+        }
         Ok((compared, found)) if found.is_empty() => CheckAnswer::Compatible {
             level: r.level_for(&p.subject, p.level.as_deref()),
             compared,
@@ -281,7 +255,10 @@ pub(super) async fn register(State(s): State<Shared>, body: Bytes) -> Response {
                 },
             )
         }
-        Ok(RegisterResult::Latest(_)) => refused(&RegistryError::invalid_schema("Invalid schema: schema may not be empty"), Vec::new()),
+        Ok(RegisterResult::Latest(_)) => refused(
+            &RegistryError::invalid_schema("Invalid schema: schema may not be empty"),
+            Vec::new(),
+        ),
         Err(e) if e.error_code == 409 => {
             let found = r
                 .check(&p.subject, None, &input, p.normalize, None)
@@ -335,8 +312,14 @@ fn configured(r: &Registry, subject: &str, p: &ConfigPost) -> Response {
         Ok(()) => json(
             StatusCode::OK,
             &SchemaWrite::Configured {
-                level: r.level(subject, true).map(|l| l.name().to_owned()).unwrap_or_default(),
-                mode: r.mode(subject, true).map(|m| m.name().to_owned()).unwrap_or_default(),
+                level: r
+                    .level(subject, true)
+                    .map(|l| l.name().to_owned())
+                    .unwrap_or_default(),
+                mode: r
+                    .mode(subject, true)
+                    .map(|m| m.name().to_owned())
+                    .unwrap_or_default(),
             },
         ),
         Err(e) => refused(&e, Vec::new()),
@@ -344,7 +327,11 @@ fn configured(r: &Registry, subject: &str, p: &ConfigPost) -> Response {
 }
 
 /// `POST /api/v1/schemas/subjects/{subject}/config`.
-pub(super) async fn config(State(s): State<Shared>, Path(raw): Path<String>, body: Bytes) -> Response {
+pub(super) async fn config(
+    State(s): State<Shared>,
+    Path(raw): Path<String>,
+    body: Bytes,
+) -> Response {
     let Some(r) = registry(&s) else { return off() };
     let Ok(p) = serde_json::from_slice::<ConfigPost>(&body) else {
         return bad_body();
@@ -375,14 +362,20 @@ pub struct DeletePost {
     pub confirm: Option<String>,
 }
 
-pub(super) async fn delete(State(s): State<Shared>, Path(raw): Path<String>, body: Bytes) -> Response {
+pub(super) async fn delete(
+    State(s): State<Shared>,
+    Path(raw): Path<String>,
+    body: Bytes,
+) -> Response {
     let Some(r) = registry(&s) else { return off() };
     let Ok(p) = serde_json::from_slice::<DeletePost>(&body) else {
         return bad_body();
     };
     let subject = subject_of(&raw);
     let done = match p.version {
-        Some(v) => r.delete_version(&subject, &v.to_string(), p.permanent).map(|n| vec![n]),
+        Some(v) => r
+            .delete_version(&subject, &v.to_string(), p.permanent)
+            .map(|n| vec![n]),
         None => {
             if p.permanent && p.confirm.as_deref() != Some(subject.as_str()) {
                 return error(
@@ -405,4 +398,3 @@ pub(super) async fn delete(State(s): State<Shared>, Path(raw): Path<String>, bod
         Err(e) => refused(&e, Vec::new()),
     }
 }
-

@@ -225,7 +225,9 @@ pub fn named_topics(subject: &str, topics: &[String]) -> Vec<(String, &'static s
             subject
                 .strip_prefix(t.as_str())
                 .and_then(|rest| rest.strip_prefix('-'))
-                .is_some_and(|record| record.contains('.') || record.starts_with(char::is_uppercase))
+                .is_some_and(|record| {
+                    record.contains('.') || record.starts_with(char::is_uppercase)
+                })
         })
         .map(|t| (t.clone(), "record"))
         .collect();
@@ -252,13 +254,24 @@ mod tests {
     #[test]
     fn subjects_name_their_topics_by_the_strategies_clients_use() {
         let topics: Vec<String> = ["orders", "pay", "orders.v2"].map(str::to_owned).to_vec();
-        assert_eq!(named_topics("orders-value", &topics), vec![("orders".to_owned(), "value")]);
-        assert_eq!(named_topics("orders-key", &topics), vec![("orders".to_owned(), "key")]);
-        assert_eq!(named_topics("pay-shop.Payment", &topics), vec![("pay".to_owned(), "record")]);
+        assert_eq!(
+            named_topics("orders-value", &topics),
+            vec![("orders".to_owned(), "value")]
+        );
+        assert_eq!(
+            named_topics("orders-key", &topics),
+            vec![("orders".to_owned(), "key")]
+        );
+        assert_eq!(
+            named_topics("pay-shop.Payment", &topics),
+            vec![("pay".to_owned(), "record")]
+        );
         assert!(named_topics("shop.Order", &topics).is_empty());
         assert!(named_topics("gone-value", &topics).is_empty());
         assert!(named_topics("-value", &topics).is_empty());
-        let subjects: Vec<String> = ["orders-key", "orders-value", "pay-key"].map(str::to_owned).to_vec();
+        let subjects: Vec<String> = ["orders-key", "orders-value", "pay-key"]
+            .map(str::to_owned)
+            .to_vec();
         assert_eq!(subject_of("orders", &subjects), Some("orders-value"));
         assert_eq!(subject_of("pay", &subjects), Some("pay-key"));
         assert_eq!(subject_of("x", &subjects), None);
@@ -267,7 +280,42 @@ mod tests {
     #[test]
     fn off_says_why_in_words() {
         assert!(Off::Disabled.reason().contains("--schema-registry=false"));
-        assert!(Off::Unreadable("bad record".into()).reason().contains("(bad record)"));
+        assert!(
+            Off::Unreadable("bad record".into())
+                .reason()
+                .contains("(bad record)")
+        );
         assert_eq!(Off::Absent.title(), "Not in this build");
+    }
+}
+
+/// How a client reaches the schema registry.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct RegistryConnect {
+    pub url: String,
+    /// It asks for the broker's SASL users as HTTP basic authentication.
+    pub basic_auth: bool,
+    /// The lines a serializer's properties take.
+    pub properties: String,
+    /// `SCHEMA_REGISTRY_URL=...`.
+    pub environment: String,
+}
+
+impl RegistryConnect {
+    #[must_use]
+    pub fn new(url: &str, basic_auth: bool) -> Self {
+        let mut properties = format!("schema.registry.url={url}");
+        if basic_auth {
+            properties.push_str(
+                "\nbasic.auth.credentials.source=USER_INFO\nbasic.auth.user.info=<user>:<password>",
+            );
+        }
+        Self {
+            url: url.to_owned(),
+            basic_auth,
+            properties,
+            environment: format!("SCHEMA_REGISTRY_URL={url}"),
+        }
     }
 }

@@ -221,11 +221,6 @@ mod tests {
             ..registry("127.0.0.1:1", true)
         };
         assert!(matches!(bind(&off).await.unwrap(), Err(Off::Disabled)));
-        assert!(
-            bind(&registry("127.0.0.1:0", true))
-                .await
-                .unwrap()
-                .is_ok()
-        );
+        assert!(bind(&registry("127.0.0.1:0", true)).await.unwrap().is_ok());
     }
 }

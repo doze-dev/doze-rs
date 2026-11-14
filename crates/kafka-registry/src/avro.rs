@@ -4,6 +4,7 @@
 
 mod codec;
 mod compat;
+mod encode;
 mod inline;
 mod schema;
 mod text;
@@ -104,7 +105,7 @@ impl ParsedSchema for AvroSchema {
     }
 
     fn encode(&self, value: &Json) -> Result<Vec<u8>, String> {
-        codec::encode(&self.schema, value)
+        encode::encode(&self.schema, value)
     }
 
     fn sample(&self) -> Json {

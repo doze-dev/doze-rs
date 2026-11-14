@@ -211,36 +211,7 @@ pub struct ConnectResponse {
     pub connect: ConnectView,
     pub words: ConnectWords,
     /// The schema registry beside the broker, for clients' `schema.registry.url`; none when it is off.
-    pub registry: Option<RegistryConnect>,
-}
-
-/// How a client reaches the schema registry.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-pub struct RegistryConnect {
-    pub url: String,
-    /// It asks for the broker's SASL users as HTTP basic authentication.
-    pub basic_auth: bool,
-    /// The lines a serializer's properties take.
-    pub properties: String,
-    /// `SCHEMA_REGISTRY_URL=...`.
-    pub environment: String,
-}
-
-impl RegistryConnect {
-    #[must_use]
-    pub fn new(url: &str, basic_auth: bool) -> Self {
-        let mut properties = format!("schema.registry.url={url}");
-        if basic_auth {
-            properties.push_str("\nbasic.auth.credentials.source=USER_INFO\nbasic.auth.user.info=<user>:<password>");
-        }
-        Self {
-            url: url.to_owned(),
-            basic_auth,
-            properties,
-            environment: format!("SCHEMA_REGISTRY_URL={url}"),
-        }
-    }
+    pub registry: Option<crate::schemas::RegistryConnect>,
 }
 
 impl ConnectResponse {
@@ -311,8 +282,11 @@ async fn home(State(s): State<Shared>) -> Response {
 
 async fn connect(State(s): State<Shared>) -> Response {
     let mut answer = ConnectResponse::new(s.source.connect().await);
-    if let crate::schemas::Schemas::On { url, basic_auth, .. } = s.source.schemas() {
-        answer.registry = Some(RegistryConnect::new(url, *basic_auth));
+    if let crate::schemas::Schemas::On {
+        url, basic_auth, ..
+    } = s.source.schemas()
+    {
+        answer.registry = Some(crate::schemas::RegistryConnect::new(url, *basic_auth));
     }
     json(StatusCode::OK, &answer)
 }
@@ -471,7 +445,6 @@ pub const GET_PATHS: &[&str] = &[
     // are in api/lab_tests.rs and the browser gate.
     "/api/v1/lab",
     "/api/v1/lab/guide",
-    // The Schemas pages (10d): the list answers why there is no registry; a subject is SCHEMAS_OFF without one, and its
-    // own tests read it over a registry (tests/live_api_schemas.rs).
+    // 10d: the list says why there is no registry; the rest are read over one in tests/live_api_schemas*.rs.
     "/api/v1/schemas",
 ];

@@ -159,7 +159,8 @@ impl Source {
             Self::Live(l) => &l.schemas,
             #[cfg(any(test, feature = "examples"))]
             Self::Fixture => {
-                static NONE: crate::schemas::Schemas = crate::schemas::Schemas::Off(crate::schemas::Off::Absent);
+                static NONE: crate::schemas::Schemas =
+                    crate::schemas::Schemas::Off(crate::schemas::Off::Absent);
                 &NONE
             }
         }

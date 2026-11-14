@@ -47,18 +47,27 @@ fn type_of(v: &Json) -> &'static str {
 
 fn bounds(n: &Dec, min: Option<&Dec>, max: Option<&Dec>, path: &str) -> Res {
     if min.is_some_and(|m| n < m) {
-        return Err(format!("{path}: it has fewer properties than its minProperties"));
+        return Err(format!(
+            "{path}: it has fewer properties than its minProperties"
+        ));
     }
     if max.is_some_and(|m| n > m) {
-        return Err(format!("{path}: it has more properties than its maxProperties"));
+        return Err(format!(
+            "{path}: it has more properties than its maxProperties"
+        ));
     }
     Ok(())
 }
 
-#[expect(clippy::too_many_lines, reason = "one arm a kind of node, read side by side")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one arm a kind of node, read side by side"
+)]
 fn at(a: &Arena, id: Id, v: &Json, path: &str, depth: usize) -> Res {
     if depth > MAX_DEPTH {
-        return Err(format!("{path}: the value nests more than {MAX_DEPTH} levels deep"));
+        return Err(format!(
+            "{path}: the value nests more than {MAX_DEPTH} levels deep"
+        ));
     }
     let next = depth + 1;
     match &a.node(id).kind {
@@ -78,7 +87,10 @@ fn at(a: &Arena, id: Id, v: &Json, path: &str, depth: usize) -> Res {
             };
             let n = count(t.chars().count());
             if s.min_len.as_ref().is_some_and(|m| n < *m) {
-                return Err(format!("{path}: {} is shorter than its minLength", shown(v)));
+                return Err(format!(
+                    "{path}: {} is shorter than its minLength",
+                    shown(v)
+                ));
             }
             if s.max_len.as_ref().is_some_and(|m| n > *m) {
                 return Err(format!("{path}: {} is longer than its maxLength", shown(v)));
@@ -97,10 +109,12 @@ fn at(a: &Arena, id: Id, v: &Json, path: &str, depth: usize) -> Res {
                 return Err(format!("{path}: expected an integer, not {}", shown(v)));
             }
             let t = shown(v);
-            if n.min.as_ref().is_some_and(|m| d < *m) || n.ex_min.as_ref().is_some_and(|m| d <= *m) {
+            if n.min.as_ref().is_some_and(|m| d < *m) || n.ex_min.as_ref().is_some_and(|m| d <= *m)
+            {
                 return Err(format!("{path}: {t} is under its minimum"));
             }
-            if n.max.as_ref().is_some_and(|m| d > *m) || n.ex_max.as_ref().is_some_and(|m| d >= *m) {
+            if n.max.as_ref().is_some_and(|m| d > *m) || n.ex_max.as_ref().is_some_and(|m| d >= *m)
+            {
                 return Err(format!("{path}: {t} is over its maximum"));
             }
             if n.multiple_of.as_ref().is_some_and(|m| !d.is_multiple_of(m)) {
@@ -114,10 +128,16 @@ fn at(a: &Arena, id: Id, v: &Json, path: &str, depth: usize) -> Res {
             };
             let n = count(items.len());
             if arr.min_items.as_ref().is_some_and(|m| n < *m) {
-                return Err(format!("{path}: {} items is fewer than its minItems", items.len()));
+                return Err(format!(
+                    "{path}: {} items is fewer than its minItems",
+                    items.len()
+                ));
             }
             if arr.max_items.as_ref().is_some_and(|m| n > *m) {
-                return Err(format!("{path}: {} items is more than its maxItems", items.len()));
+                return Err(format!(
+                    "{path}: {} items is more than its maxItems",
+                    items.len()
+                ));
             }
             for (i, x) in items.iter().enumerate() {
                 let item = match &arr.tuple {
@@ -151,13 +171,20 @@ fn at(a: &Arena, id: Id, v: &Json, path: &str, depth: usize) -> Res {
                 match (o.prop(k), o.additional) {
                     (Some(p), _) => at(a, p, x, &here, next)?,
                     (None, Some(NOTHING)) => {
-                        return Err(format!("{path}: property {k:?} is not allowed (additionalProperties is false)"));
+                        return Err(format!(
+                            "{path}: property {k:?} is not allowed (additionalProperties is false)"
+                        ));
                     }
                     (None, Some(extra)) => at(a, extra, x, &here, next)?,
                     (None, None) => {}
                 }
             }
-            bounds(&count(m.len()), o.min_props.as_ref(), o.max_props.as_ref(), path)?;
+            bounds(
+                &count(m.len()),
+                o.min_props.as_ref(),
+                o.max_props.as_ref(),
+                path,
+            )?;
             for (k, needs) in &o.dependencies {
                 if v.get(k).is_some()
                     && let Some(n) = needs.iter().find(|n| v.get(n).is_none())
@@ -172,7 +199,10 @@ fn at(a: &Arena, id: Id, v: &Json, path: &str, depth: usize) -> Res {
             if values.contains(&c) {
                 Ok(())
             } else {
-                Err(format!("{path}: {} is not one of its enum values", shown(v)))
+                Err(format!(
+                    "{path}: {} is not one of its enum values",
+                    shown(v)
+                ))
             }
         }
         Kind::Const(c) => {
@@ -187,12 +217,18 @@ fn at(a: &Arena, id: Id, v: &Json, path: &str, depth: usize) -> Res {
             if *n != ANY && at(a, *n, v, path, next).is_err() {
                 Ok(())
             } else {
-                Err(format!("{path}: the value matches the schema under \"not\""))
+                Err(format!(
+                    "{path}: the value matches the schema under \"not\""
+                ))
             }
         }
         Kind::Cond([cond, then, other]) => {
             let Some(cond) = cond else { return Ok(()) };
-            let branch = if at(a, *cond, v, path, next).is_ok() { then } else { other };
+            let branch = if at(a, *cond, v, path, next).is_ok() {
+                then
+            } else {
+                other
+            };
             branch.map_or(Ok(()), |b| at(a, b, v, path, next))
         }
     }
@@ -214,11 +250,16 @@ fn combined(a: &Arena, crit: Crit, ids: &[Id], v: &Json, path: &str, next: usize
             Err(first.unwrap_or_else(|| format!("{path}: no schema of its anyOf fits")))
         }
         Crit::One => {
-            let fits = ids.iter().filter(|id| at(a, **id, v, path, next).is_ok()).count();
+            let fits = ids
+                .iter()
+                .filter(|id| at(a, **id, v, path, next).is_ok())
+                .count();
             match fits {
                 1 => Ok(()),
                 0 => Err(format!("{path}: no schema of its oneOf fits")),
-                n => Err(format!("{path}: {n} schemas of its oneOf fit, and exactly one must")),
+                n => Err(format!(
+                    "{path}: {n} schemas of its oneOf fit, and exactly one must"
+                )),
             }
         }
     }
@@ -244,8 +285,13 @@ pub(crate) fn sample(a: &Arena, id: Id, depth: usize) -> Json {
                 .map(|(n, p)| (n.clone(), sample(a, *p, depth + 1)))
                 .collect(),
         ),
-        Kind::Enum(values) => values.first().and_then(|v| Json::parse(v).ok()).unwrap_or_else(|| raw("null")),
+        Kind::Enum(values) => values
+            .first()
+            .and_then(|v| Json::parse(v).ok())
+            .unwrap_or_else(|| raw("null")),
         Kind::Const(c) => Json::parse(c).unwrap_or_else(|_| raw("null")),
-        Kind::Combined(_, ids) => ids.first().map_or_else(|| raw("null"), |i| sample(a, *i, depth + 1)),
+        Kind::Combined(_, ids) => ids
+            .first()
+            .map_or_else(|| raw("null"), |i| sample(a, *i, depth + 1)),
     }
 }

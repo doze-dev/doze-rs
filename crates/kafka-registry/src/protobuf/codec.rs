@@ -27,7 +27,11 @@ impl<'a> Reader<'a> {
     fn take(&mut self, n: usize) -> Res<&'a [u8]> {
         let end = self.at.checked_add(n).filter(|e| *e <= self.b.len());
         let Some(end) = end else {
-            return Err(format!("{n} bytes are needed at byte {} and {} are left", self.at, self.b.len().saturating_sub(self.at)));
+            return Err(format!(
+                "{n} bytes are needed at byte {} and {} are left",
+                self.at,
+                self.b.len().saturating_sub(self.at)
+            ));
         };
         let out = self.b.get(self.at..end).ok_or("past the end")?;
         self.at = end;
@@ -57,7 +61,8 @@ impl<'a> Reader<'a> {
 /// Reads `body`: the message index, then the message it names.
 pub(super) fn decode(pool: &Pool, file: usize, body: &[u8]) -> Res<(Json, String)> {
     let (idx, rest) = crate::wire::message_indexes(body).map_err(|e| e.to_string())?;
-    let m = message_at(pool, file, &idx).ok_or_else(|| format!("message index {idx:?} is outside the schema"))?;
+    let m = message_at(pool, file, &idx)
+        .ok_or_else(|| format!("message index {idx:?} is outside the schema"))?;
     let mut budget = Budget::default();
     let json = message(pool, m, &mut Reader { b: rest, at: 0 }, None, &mut budget)?;
     Ok((json, m.full.clone()))
@@ -73,16 +78,29 @@ fn message_at<'p>(pool: &'p Pool, file: usize, idx: &[usize]) -> Option<&'p Msg>
 }
 
 /// A message's fields, until the bytes end (or, for a group, its end tag).
-fn message(pool: &Pool, m: &Msg, r: &mut Reader<'_>, group: Option<u64>, budget: &mut Budget) -> Res<Json> {
+fn message(
+    pool: &Pool,
+    m: &Msg,
+    r: &mut Reader<'_>,
+    group: Option<u64>,
+    budget: &mut Budget,
+) -> Res<Json> {
     let mut out: Vec<(String, Json)> = Vec::new();
     while !r.done() {
         let tag = r.varint()?;
         let (number, wire) = (tag >> 3, tag & 7);
         if wire == 4 {
-            return if group == Some(number) { Ok(Json::Object(out)) } else { Err(format!("an end of group {number} that was not begun")) };
+            return if group == Some(number) {
+                Ok(Json::Object(out))
+            } else {
+                Err(format!("an end of group {number} that was not begun"))
+            };
         }
         budget.take(1)?;
-        let field = m.fields.iter().find(|f| u64::try_from(f.number).ok() == Some(number));
+        let field = m
+            .fields
+            .iter()
+            .find(|f| u64::try_from(f.number).ok() == Some(number));
         let Some(f) = field else {
             skip(r, wire, number, budget)?;
             continue;
@@ -102,7 +120,9 @@ fn put(out: &mut Vec<(String, Json)>, pool: &Pool, f: &Fld, values: Vec<Json>) {
     let map = matches!(f.ty, Ty::Message(i) if pool.msg(i).is_some_and(|m| m.map_entry));
     let slot = out.iter().position(|(k, _)| *k == name);
     if f.card != Card::Repeated {
-        let Some(v) = values.into_iter().last() else { return };
+        let Some(v) = values.into_iter().last() else {
+            return;
+        };
         match slot.and_then(|i| out.get_mut(i)) {
             Some((_, old)) => *old = v,
             None => out.push((name, v)),
@@ -110,7 +130,14 @@ fn put(out: &mut Vec<(String, Json)>, pool: &Pool, f: &Fld, values: Vec<Json>) {
         return;
     }
     let i = slot.unwrap_or_else(|| {
-        out.push((name, if map { Json::Object(Vec::new()) } else { Json::Array(Vec::new()) }));
+        out.push((
+            name,
+            if map {
+                Json::Object(Vec::new())
+            } else {
+                Json::Array(Vec::new())
+            },
+        ));
         out.len() - 1
     });
     match out.get_mut(i).map(|(_, v)| v) {
@@ -130,13 +157,26 @@ fn put(out: &mut Vec<(String, Json)>, pool: &Pool, f: &Fld, values: Vec<Json>) {
     }
 }
 
-fn field_values(pool: &Pool, f: &Fld, wire: u64, number: u64, r: &mut Reader<'_>, budget: &mut Budget) -> Res<Vec<Json>> {
+fn field_values(
+    pool: &Pool,
+    f: &Fld,
+    wire: u64,
+    number: u64,
+    r: &mut Reader<'_>,
+    budget: &mut Budget,
+) -> Res<Vec<Json>> {
     match f.ty {
         Ty::Message(i) => {
             expect(wire, 2, f)?;
             let m = pool.msg(i).ok_or("a message the schema does not define")?;
             let body = r.len()?;
-            Ok(vec![message(pool, m, &mut Reader { b: body, at: 0 }, None, budget)?])
+            Ok(vec![message(
+                pool,
+                m,
+                &mut Reader { b: body, at: 0 },
+                None,
+                budget,
+            )?])
         }
         Ty::Group(i) => {
             expect(wire, 3, f)?;
@@ -148,7 +188,12 @@ fn field_values(pool: &Pool, f: &Fld, wire: u64, number: u64, r: &mut Reader<'_>
                 let n = enum_number(r.varint()?);
                 let info = pool.enums.get(e);
                 Ok(info
-                    .and_then(|i| i.numbers.iter().position(|x| *x == n).and_then(|p| i.values.get(p)))
+                    .and_then(|i| {
+                        i.numbers
+                            .iter()
+                            .position(|x| *x == n)
+                            .and_then(|p| i.values.get(p))
+                    })
                     .map_or_else(|| Json::Raw(n.to_string()), |name| Json::Str(name.clone())))
             };
             packed_or_one(wire, 0, r, budget, one)
@@ -159,7 +204,11 @@ fn field_values(pool: &Pool, f: &Fld, wire: u64, number: u64, r: &mut Reader<'_>
                 expect(wire, 2, f)?;
                 let b = r.len()?;
                 return Ok(vec![if t == 9 {
-                    Json::Str(std::str::from_utf8(b).map_err(|e| format!("{}: a string that is not UTF-8 ({e})", f.name))?.to_owned())
+                    Json::Str(
+                        std::str::from_utf8(b)
+                            .map_err(|e| format!("{}: a string that is not UTF-8 ({e})", f.name))?
+                            .to_owned(),
+                    )
                 } else {
                     Json::Str(base64(b))
                 }]);
@@ -173,17 +222,28 @@ fn expect(wire: u64, want: u64, f: &Fld) -> Res<()> {
     if wire == want {
         Ok(())
     } else {
-        Err(format!("field {} ({}) has wire type {wire}, not {want}", f.name, f.number))
+        Err(format!(
+            "field {} ({}) has wire type {wire}, not {want}",
+            f.name, f.number
+        ))
     }
 }
 
 /// One value in its natural wire type, or a packed run of them (wire type 2).
-fn packed_or_one(wire: u64, natural: u64, r: &mut Reader<'_>, budget: &mut Budget, mut one: impl FnMut(&mut Reader<'_>) -> Res<Json>) -> Res<Vec<Json>> {
+fn packed_or_one(
+    wire: u64,
+    natural: u64,
+    r: &mut Reader<'_>,
+    budget: &mut Budget,
+    mut one: impl FnMut(&mut Reader<'_>) -> Res<Json>,
+) -> Res<Vec<Json>> {
     if wire == natural {
         return Ok(vec![one(r)?]);
     }
     if wire != 2 {
-        return Err(format!("wire type {wire} where {natural} or a packed run was expected"));
+        return Err(format!(
+            "wire type {wire} where {natural} or a packed run was expected"
+        ));
     }
     let b = r.len()?;
     let mut inner = Reader { b, at: 0 };
@@ -205,10 +265,17 @@ pub(super) fn natural_wire(t: u8) -> u64 {
     }
 }
 
-#[expect(clippy::cast_possible_truncation, reason = "Protobuf's 32-bit varints are the low bits of the 64")]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "Protobuf's 32-bit varints are the low bits of the 64"
+)]
 fn scalar(t: u8, r: &mut Reader<'_>) -> Res<Json> {
-    let fixed4 = |r: &mut Reader<'_>| -> Res<[u8; 4]> { r.take(4)?.try_into().map_err(|_| "four bytes".to_owned()) };
-    let fixed8 = |r: &mut Reader<'_>| -> Res<[u8; 8]> { r.take(8)?.try_into().map_err(|_| "eight bytes".to_owned()) };
+    let fixed4 = |r: &mut Reader<'_>| -> Res<[u8; 4]> {
+        r.take(4)?.try_into().map_err(|_| "four bytes".to_owned())
+    };
+    let fixed8 = |r: &mut Reader<'_>| -> Res<[u8; 8]> {
+        r.take(8)?.try_into().map_err(|_| "eight bytes".to_owned())
+    };
     let raw = |s: String| Json::Raw(s);
     Ok(match t {
         1 => float(f64::from_le_bytes(fixed8(r)?)),
@@ -240,13 +307,19 @@ fn skip(r: &mut Reader<'_>, wire: u64, number: u64, budget: &mut Budget) -> Res<
         1 => r.take(8).map(drop),
         2 => r.len().map(drop),
         5 => r.take(4).map(drop),
-        3 => budget.deeper(|b| loop {
-            let tag = r.varint()?;
-            if tag & 7 == 4 {
-                return if tag >> 3 == number { Ok(()) } else { Err("a group ends where another began".into()) };
+        3 => budget.deeper(|b| {
+            loop {
+                let tag = r.varint()?;
+                if tag & 7 == 4 {
+                    return if tag >> 3 == number {
+                        Ok(())
+                    } else {
+                        Err("a group ends where another began".into())
+                    };
+                }
+                b.take(1)?;
+                skip(r, tag & 7, tag >> 3, b)?;
             }
-            b.take(1)?;
-            skip(r, tag & 7, tag >> 3, b)?;
         }),
         other => Err(format!("wire type {other} is not one Protobuf has")),
     }
@@ -257,7 +330,10 @@ const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012
 fn base64(b: &[u8]) -> String {
     let mut out = String::with_capacity(b.len().div_ceil(3) * 4);
     for chunk in b.chunks(3) {
-        let n = chunk.iter().enumerate().fold(0u32, |n, (i, c)| n | (u32::from(*c) << (16 - 8 * i)));
+        let n = chunk
+            .iter()
+            .enumerate()
+            .fold(0u32, |n, (i, c)| n | (u32::from(*c) << (16 - 8 * i)));
         for i in 0..4 {
             if i <= chunk.len() {
                 let d = usize::try_from((n >> (18 - 6 * i)) & 63).unwrap_or(0);
@@ -283,7 +359,10 @@ pub(super) fn encode(pool: &Pool, file: usize, value: &Json) -> Res<Vec<u8>> {
 use super::encode::write_message;
 
 /// An enum value as it is on the wire: an int32, sign-extended to ten bytes when negative.
-#[expect(clippy::cast_possible_truncation, reason = "an enum number is the low 32 bits")]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "an enum number is the low 32 bits"
+)]
 fn enum_number(v: u64) -> i64 {
     i64::from(v as i32)
 }

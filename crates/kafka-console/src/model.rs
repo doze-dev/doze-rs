@@ -52,8 +52,8 @@ pub use producers::{
 pub(crate) mod write;
 
 pub use messages::{
-    Framed, HeaderRow, Hold, Kind, MessagesView, Reach, RecordRow, RecordTxn, RecordView, SchemaShown,
-    Shown, Standing,
+    Framed, HeaderRow, Hold, Kind, MessagesView, Reach, RecordRow, RecordTxn, RecordView,
+    SchemaShown, Shown, Standing,
 };
 pub use query::{DEFAULT_LIMIT, MOST_KEY, MOST_LIMIT, MessageQuery, Reading};
 pub use topic::{CallVersions, OpenTxn, PartitionRow, TabCounts, TopicHead};

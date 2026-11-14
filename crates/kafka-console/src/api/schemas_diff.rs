@@ -67,8 +67,16 @@ pub fn lines(a: &[&str], b: &[&str]) -> Vec<DiffLine> {
     };
     let (n, m) = (a.len(), b.len());
     if n.saturating_mul(m) > MOST_CELLS {
-        let mut out: Vec<DiffLine> = a.iter().enumerate().map(|(i, t)| line("del", Some(i + 1), None, t)).collect();
-        out.extend(b.iter().enumerate().map(|(j, t)| line("add", None, Some(j + 1), t)));
+        let mut out: Vec<DiffLine> = a
+            .iter()
+            .enumerate()
+            .map(|(i, t)| line("del", Some(i + 1), None, t))
+            .collect();
+        out.extend(
+            b.iter()
+                .enumerate()
+                .map(|(j, t)| line("add", None, Some(j + 1), t)),
+        );
         return out;
     }
     // lcs[i][j]: the common lines of a[i..] and b[j..], kept as one row-major table.
@@ -115,7 +123,38 @@ pub fn lines(a: &[&str], b: &[&str]) -> Vec<DiffLine> {
     out
 }
 
-pub(super) async fn diff(State(s): State<Shared>, Path(raw): Path<String>, RawQuery(q): RawQuery) -> Response {
+/// The registry's verdict on `input` following version `from`, at BACKWARD, FORWARD and FULL.
+fn checks(
+    r: &kafka_registry::Registry,
+    subject: &str,
+    from: u32,
+    input: &SchemaInput,
+) -> Vec<LevelCheck> {
+    ["BACKWARD", "FORWARD", "FULL"]
+        .into_iter()
+        .map(|level| {
+            let found = r.check(subject, Some(&from.to_string()), input, false, Some(level));
+            let reason = match &found {
+                Ok((_, f)) => f
+                    .first()
+                    .and_then(|x| x.details.first())
+                    .map(|d| format!("{}: {}", d.kind, d.description)),
+                Err(e) => Some(e.message.clone()),
+            };
+            LevelCheck {
+                level: level.to_owned(),
+                ok: reason.is_none(),
+                reason,
+            }
+        })
+        .collect()
+}
+
+pub(super) async fn diff(
+    State(s): State<Shared>,
+    Path(raw): Path<String>,
+    RawQuery(q): RawQuery,
+) -> Response {
     let Some(r) = s.source.schemas().registry().cloned() else {
         return off();
     };
@@ -150,24 +189,7 @@ pub(super) async fn diff(State(s): State<Shared>, Path(raw): Path<String>, RawQu
         schema_type: Some(kind.name().to_owned()),
         references: Some(b.references.clone()),
     };
-    let checks = ["BACKWARD", "FORWARD", "FULL"]
-        .into_iter()
-        .map(|level| {
-            let found = r.check(&subject, Some(&from.to_string()), &input, false, Some(level));
-            let reason = match &found {
-                Ok((_, f)) => f
-                    .first()
-                    .and_then(|x| x.details.first())
-                    .map(|d| format!("{}: {}", d.kind, d.description)),
-                Err(e) => Some(e.message.clone()),
-            };
-            LevelCheck {
-                level: level.to_owned(),
-                ok: reason.is_none(),
-                reason,
-            }
-        })
-        .collect();
+    let checks = checks(&r, &subject, from, &input);
     json(
         StatusCode::OK,
         &DiffResponse {
@@ -194,9 +216,19 @@ mod tests {
         let ops: Vec<(&str, &str)> = d.iter().map(|l| (l.op.as_str(), l.text.as_str())).collect();
         assert_eq!(
             ops,
-            [("same", "{"), ("same", "  a"), ("del", "  b"), ("add", "  c"), ("add", "  d"), ("same", "}")]
+            [
+                ("same", "{"),
+                ("same", "  a"),
+                ("del", "  b"),
+                ("add", "  c"),
+                ("add", "  d"),
+                ("same", "}")
+            ]
         );
-        assert_eq!((d[2].old, d[2].new, d[3].old, d[3].new), (Some(3), None, None, Some(3)));
+        assert_eq!(
+            (d[2].old, d[2].new, d[3].old, d[3].new),
+            (Some(3), None, None, Some(3))
+        );
         assert!(lines(&[], &[]).is_empty());
     }
 }

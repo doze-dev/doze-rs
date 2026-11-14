@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use super::off;
 use super::write::bad_body;
 use crate::api::json;
+use crate::form::text;
 use crate::state::Shared;
 
 /// `POST /api/v1/schemas/try`: a JSON value encoded with a version.
@@ -42,7 +43,12 @@ pub struct Encoded {
 }
 
 /// Encodes `value` with a version of `subject`.
-pub(crate) fn encode(r: &Registry, subject: &str, version: &str, value: &str) -> Result<(Encoded, Vec<u8>), RegistryError> {
+pub(crate) fn encode(
+    r: &Registry,
+    subject: &str,
+    version: &str,
+    value: &str,
+) -> Result<(Encoded, Vec<u8>), RegistryError> {
     let (c, number) = r.codec_for(subject, version)?;
     let mut out = Encoded {
         ok: false,
@@ -64,8 +70,16 @@ pub(crate) fn encode(r: &Registry, subject: &str, version: &str, value: &str) ->
     };
     out.ok = true;
     out.size = bytes.len();
-    out.hex = bytes.iter().take(256).map(|b| format!("{b:02x}")).collect::<Vec<_>>().join(" ");
-    out.json = c.decode(&bytes).ok().map(|d| kafka_registry::codec::pretty(&d.json));
+    out.hex = bytes
+        .iter()
+        .take(256)
+        .map(|b| format!("{b:02x}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    out.json = c
+        .decode(&bytes)
+        .ok()
+        .map(|d| kafka_registry::codec::pretty(&d.json));
     Ok((out, bytes))
 }
 
@@ -92,5 +106,42 @@ pub(super) async fn try_value(State(s): State<Shared>, body: Bytes) -> Response 
                 json: None,
             },
         ),
+    }
+}
+
+/// The schema the value is to be encoded with: a subject and a version (`latest` when none is given), or none.
+pub(crate) fn schema_choice(f: &[(String, String)]) -> Option<(String, String)> {
+    let subject = text(f, "schema").trim();
+    let version = text(f, "schema_version").trim();
+    (!subject.is_empty()).then(|| {
+        (
+            subject.to_owned(),
+            if version.is_empty() {
+                "latest"
+            } else {
+                version
+            }
+            .to_owned(),
+        )
+    })
+}
+
+/// The value encoded with the chosen schema, or why it cannot be.
+pub(crate) fn encode_with(
+    s: &Shared,
+    (subject, version): &(String, String),
+    value: &str,
+) -> Result<(Encoded, Vec<u8>), String> {
+    let Some(r) = s.source.schemas().registry() else {
+        return Err("there is no schema registry to encode the value with".to_owned());
+    };
+    match encode(r, subject, version, value) {
+        Ok((e, bytes)) if e.ok => Ok((e, bytes)),
+        Ok((e, _)) => Err(format!(
+            "the value does not fit {subject} version {}: {}",
+            e.version,
+            e.error.unwrap_or_default()
+        )),
+        Err(e) => Err(e.message),
     }
 }

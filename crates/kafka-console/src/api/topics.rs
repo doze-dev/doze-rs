@@ -419,7 +419,10 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
             get(record),
         )
         .route(&web.url("/api/v1/topics/{topic}/consumers"), get(consumers))
-        .route(&web.url("/api/v1/topics/{topic}/schemas"), get(schema::schemas))
+        .route(
+            &web.url("/api/v1/topics/{topic}/schemas"),
+            get(schema::schemas),
+        )
         .route(&web.url("/api/v1/topics/{topic}/log"), get(log::log))
         .route(
             &web.url("/api/v1/topics/{topic}/log/compact"),

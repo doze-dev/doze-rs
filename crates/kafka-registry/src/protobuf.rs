@@ -189,10 +189,12 @@ impl ParsedSchema for ProtobufSchema {
             .get(self.file)
             .and_then(|f| f.msgs.first())
             .and_then(|i| self.pool.msg(*i))
-            .map_or_else(|| crate::json::Json::Object(Vec::new()), |m| encode::sample(&self.pool, m, 0))
+            .map_or_else(
+                || crate::json::Json::Object(Vec::new()),
+                |m| encode::sample(&self.pool, m, 0),
+            )
     }
 }
 
 #[cfg(test)]
 mod tests;
-

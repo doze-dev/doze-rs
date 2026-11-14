@@ -48,7 +48,12 @@ pub struct TopicSchemas {
     pub unknown: Vec<u32>,
 }
 
-fn subject_row(r: &kafka_registry::Registry, subject: &str, position: &str, carried: usize) -> Option<TopicSubject> {
+fn subject_row(
+    r: &kafka_registry::Registry,
+    subject: &str,
+    position: &str,
+    carried: usize,
+) -> Option<TopicSubject> {
     let v = r.version(subject, "latest", false).ok()?;
     let kind = v.schema_type.unwrap_or(SchemaType::Avro);
     Some(TopicSubject {
@@ -78,28 +83,37 @@ fn carried_ids(rows: &[crate::model::RecordRow]) -> BTreeMap<u32, usize> {
     ids
 }
 
+/// The tab's answer with no registry: why there is none.
+fn off_answer(s: &Shared, topic: String) -> Response {
+    let why = match s.source.schemas() {
+        crate::schemas::Schemas::Off(o) => o.reason(),
+        crate::schemas::Schemas::On { .. } => String::new(),
+    };
+    json(
+        StatusCode::OK,
+        &TopicSchemas {
+            topic,
+            off: Some(why),
+            subjects: Vec::new(),
+            scanned: 0,
+            unknown: Vec::new(),
+        },
+    )
+}
+
 pub(crate) async fn schemas(State(s): State<Shared>, Path(name): Path<String>) -> Response {
     if !valid(&name) {
         return no_topic(&name);
     }
-    let Some(view) = s.source.messages(&name, MessageQuery::default(), vec![]).await else {
+    let Some(view) = s
+        .source
+        .messages(&name, MessageQuery::default(), vec![])
+        .await
+    else {
         return no_topic(&name);
     };
     let Some(r) = s.source.schemas().registry().cloned() else {
-        let why = match s.source.schemas() {
-            crate::schemas::Schemas::Off(o) => o.reason(),
-            crate::schemas::Schemas::On { .. } => String::new(),
-        };
-        return json(
-            StatusCode::OK,
-            &TopicSchemas {
-                topic: name,
-                off: Some(why),
-                subjects: Vec::new(),
-                scanned: 0,
-                unknown: Vec::new(),
-            },
-        );
+        return off_answer(&s, name);
     };
     let ids = carried_ids(&view.rows);
     let mut carried: BTreeMap<String, usize> = BTreeMap::new();
@@ -121,7 +135,10 @@ pub(crate) async fn schemas(State(s): State<Shared>, Path(name): Path<String>) -
         .subjects("", false, false)
         .into_iter()
         .filter_map(|subject| {
-            let named = named_topics(&subject, &topic).into_iter().next().map(|(_, p)| p);
+            let named = named_topics(&subject, &topic)
+                .into_iter()
+                .next()
+                .map(|(_, p)| p);
             let n = carried.get(&subject).copied().unwrap_or(0);
             let position = named.or((n > 0).then_some("carried"))?;
             subject_row(&r, &subject, position, n)
@@ -133,7 +150,11 @@ pub(crate) async fn schemas(State(s): State<Shared>, Path(name): Path<String>) -
         "record" => 2,
         _ => 3,
     };
-    subjects.sort_by(|a, b| order(&a.position).cmp(&order(&b.position)).then(a.subject.cmp(&b.subject)));
+    subjects.sort_by(|a, b| {
+        order(&a.position)
+            .cmp(&order(&b.position))
+            .then(a.subject.cmp(&b.subject))
+    });
     json(
         StatusCode::OK,
         &TopicSchemas {

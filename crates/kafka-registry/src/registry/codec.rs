@@ -14,9 +14,9 @@ impl Registry {
         if !s.schemas.contains_key(&id) {
             return Err(RegistryError::schema_id_not_found(id));
         }
-        let p = self
-            .parse_stored(&s, id)
-            .map_err(|e| RegistryError::invalid_schema(format!("schema {id} cannot be read: {e}")))?;
+        let p = self.parse_stored(&s, id).map_err(|e| {
+            RegistryError::invalid_schema(format!("schema {id} cannot be read: {e}"))
+        })?;
         Ok(Codec::new(id, p.kind, p.parsed))
     }
 
@@ -59,7 +59,12 @@ mod tests {
 
     fn reg(r: &Registry, subject: &str, kind: SchemaType, text: &str) -> u32 {
         match r
-            .register(subject, &SchemaInput::of(kind, text), false, &Origin::default())
+            .register(
+                subject,
+                &SchemaInput::of(kind, text),
+                false,
+                &Origin::default(),
+            )
             .unwrap()
         {
             RegisterResult::Id(id) => id,
@@ -93,9 +98,16 @@ mod tests {
         let (c, _) = r.codec_for("orders-value", "1").unwrap();
         let e = c.encode(r#"{"id":"x"}"#).unwrap_err();
         assert_eq!(e, "id: expected a number, not \"x\"");
-        let e = c.encode(r#"{"id":1,"state":"GONE","lines":[],"tags":{},"code":"AB","blob":"","f":1}"#).unwrap_err();
-        assert!(e.starts_with("state: \"GONE\" is not a symbol of enum shop.State"), "{e}");
-        let e = c.encode(r#"{"id":1,"state":"NEW","tags":{},"code":"AB","blob":"","f":1}"#).unwrap_err();
+        let e = c
+            .encode(r#"{"id":1,"state":"GONE","lines":[],"tags":{},"code":"AB","blob":"","f":1}"#)
+            .unwrap_err();
+        assert!(
+            e.starts_with("state: \"GONE\" is not a symbol of enum shop.State"),
+            "{e}"
+        );
+        let e = c
+            .encode(r#"{"id":1,"state":"NEW","tags":{},"code":"AB","blob":"","f":1}"#)
+            .unwrap_err();
         assert_eq!(e, "field \"lines\" is missing and has no default");
         assert!(c.encode("{").unwrap_err().starts_with("not JSON"));
     }
@@ -103,7 +115,12 @@ mod tests {
     #[test]
     fn hostile_avro_bytes_are_refused_before_anything_is_allocated() {
         let r = registry();
-        let id = reg(&r, "s", SchemaType::Avro, r#"{"type":"array","items":"null"}"#);
+        let id = reg(
+            &r,
+            "s",
+            SchemaType::Avro,
+            r#"{"type":"array","items":"null"}"#,
+        );
         let c = r.codec(id).unwrap();
         // A block of 2^62 nulls: no bytes each, so the budget refuses it.
         let mut v = crate::wire::header(id).to_vec();
@@ -115,8 +132,14 @@ mod tests {
         let mut v = crate::wire::header(id).to_vec();
         v.extend([0xfe, 0xff, 0xff, 0xff, 0x0f, b'a']);
         let e = c.decode(&v).unwrap_err();
-        assert!(e.starts_with("the payload does not match the schema (a string length of"), "{e}");
-        assert_eq!(c.decode(b"plain").unwrap_err(), "not in the registry's wire format");
+        assert!(
+            e.starts_with("the payload does not match the schema (a string length of"),
+            "{e}"
+        );
+        assert_eq!(
+            c.decode(b"plain").unwrap_err(),
+            "not in the registry's wire format"
+        );
         let other = crate::wire::header(id + 7);
         assert!(c.decode(&other).unwrap_err().contains("names schema id"));
     }
@@ -151,10 +174,22 @@ mod tests {
             (r#"{"tags":[]}"#, "#: required property \"id\" is missing"),
             (r#"{"id":0}"#, "#/id: 0 is under its minimum"),
             (r#"{"id":1.5}"#, "#/id: expected an integer, not 1.5"),
-            (r#"{"id":1,"x":1}"#, "#: property \"x\" is not allowed (additionalProperties is false)"),
-            (r#"{"id":1,"tags":["a","a"]}"#, "#/tags: its items are not unique"),
-            (r#"{"id":1,"tags":[1]}"#, "#/tags/0: expected a string, not a number"),
-            (r#"{"id":1,"kind":"c"}"#, "#/kind: \"c\" is not one of its enum values"),
+            (
+                r#"{"id":1,"x":1}"#,
+                "#: property \"x\" is not allowed (additionalProperties is false)",
+            ),
+            (
+                r#"{"id":1,"tags":["a","a"]}"#,
+                "#/tags: its items are not unique",
+            ),
+            (
+                r#"{"id":1,"tags":[1]}"#,
+                "#/tags/0: expected a string, not a number",
+            ),
+            (
+                r#"{"id":1,"kind":"c"}"#,
+                "#/kind: \"c\" is not one of its enum values",
+            ),
         ] {
             assert_eq!(c.encode(bad).unwrap_err(), why, "{bad}");
         }
@@ -191,7 +226,9 @@ message Other { bool ok = 1; }
         let c = r.codec(id).unwrap();
         // What a serializer writes: header, index [0] as a single 0, then order_id 150 (08 96 01) and note "hi".
         let mut v = crate::wire::header(id).to_vec();
-        v.extend([0, 0x08, 0x96, 0x01, 0x12, 0x02, b'h', b'i', 0x98, 0x06, 0x01]);
+        v.extend([
+            0, 0x08, 0x96, 0x01, 0x12, 0x02, b'h', b'i', 0x98, 0x06, 0x01,
+        ]);
         let d = c.decode(&v).unwrap();
         assert_eq!(d.json.to_text(), r#"{"orderId":"150","note":"hi"}"#);
         assert_eq!(d.message.as_deref(), Some("shop.v1.Order"));
@@ -208,16 +245,29 @@ message Other { bool ok = 1; }
         let mut v = crate::wire::header(id).to_vec();
         v.extend([2, 2, 0x08, 0x01]);
         let d = c.decode(&v).unwrap();
-        assert_eq!((d.json.to_text().as_str(), d.message.as_deref()), (r#"{"ok":true}"#, Some("shop.v1.Other")));
+        assert_eq!(
+            (d.json.to_text().as_str(), d.message.as_deref()),
+            (r#"{"ok":true}"#, Some("shop.v1.Other"))
+        );
         let mut v = crate::wire::header(id).to_vec();
         // The map's entry is nested first, where protoc puts it: Line is [0, 1].
         v.extend([4, 0, 2, 0x0a, 0x01, b'z']);
-        assert_eq!(c.decode(&v).unwrap().message.as_deref(), Some("shop.v1.Order.Line"));
+        assert_eq!(
+            c.decode(&v).unwrap().message.as_deref(),
+            Some("shop.v1.Order.Line")
+        );
         let mut v = crate::wire::header(id).to_vec();
         v.extend([2, 18]);
         assert!(c.decode(&v).unwrap_err().contains("outside the schema"));
-        assert_eq!(c.encode(r#"{"nope":1}"#).unwrap_err(), "shop.v1.Order has no field \"nope\"");
-        assert!(c.encode(r#"{"state":"GONE"}"#).unwrap_err().starts_with("state: \"GONE\" is not a value"));
+        assert_eq!(
+            c.encode(r#"{"nope":1}"#).unwrap_err(),
+            "shop.v1.Order has no field \"nope\""
+        );
+        assert!(
+            c.encode(r#"{"state":"GONE"}"#)
+                .unwrap_err()
+                .starts_with("state: \"GONE\" is not a value")
+        );
     }
 
     #[test]

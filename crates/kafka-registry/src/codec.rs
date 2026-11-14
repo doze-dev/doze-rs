@@ -49,7 +49,10 @@ impl Budget {
     ///
     /// # Errors
     /// Deeper than [`MAX_DEPTH`], or whatever `f` says.
-    pub fn deeper<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T, String>) -> Result<T, String> {
+    pub fn deeper<T>(
+        &mut self,
+        f: impl FnOnce(&mut Self) -> Result<T, String>,
+    ) -> Result<T, String> {
         if self.depth == 0 {
             return Err(format!("it nests more than {MAX_DEPTH} levels deep"));
         }
@@ -275,7 +278,11 @@ mod tests {
         assert!(b.take(1).is_err());
         let mut b = Budget::default();
         fn dig(b: &mut Budget, n: usize) -> Result<(), String> {
-            if n == 0 { Ok(()) } else { b.deeper(|b| dig(b, n - 1)) }
+            if n == 0 {
+                Ok(())
+            } else {
+                b.deeper(|b| dig(b, n - 1))
+            }
         }
         assert!(dig(&mut b, MAX_DEPTH).is_ok());
         assert!(dig(&mut b, MAX_DEPTH + 1).is_err());

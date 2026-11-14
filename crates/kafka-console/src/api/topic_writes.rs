@@ -23,6 +23,7 @@ use axum::routing::get;
 use serde::Serialize;
 
 use super::json;
+use super::schemas::try_it::{Encoded, encode_with, schema_choice};
 use crate::calls::{kcat_consume, kcat_produce};
 use crate::form::{get as field, parse, parse_body, text};
 use crate::model::{
@@ -33,7 +34,6 @@ use crate::phrases::{acked, clock_ms};
 use crate::state::Shared;
 use crate::validate::retention_words;
 use crate::write_words;
-use super::schemas::try_it::{Encoded, encode};
 
 /// The most header rows a produce carries (as the classic dialog).
 const MOST_HEADERS: usize = 8;
@@ -280,34 +280,6 @@ fn produce_input(f: &[(String, String)]) -> ProduceInput {
     }
 }
 
-/// The schema the value is to be encoded with: a subject and a version (`latest` when none is given), or none.
-fn schema_choice(f: &[(String, String)]) -> Option<(String, String)> {
-    let subject = text(f, "schema").trim();
-    let version = text(f, "schema_version").trim();
-    (!subject.is_empty()).then(|| {
-        (
-            subject.to_owned(),
-            if version.is_empty() { "latest" } else { version }.to_owned(),
-        )
-    })
-}
-
-/// The value encoded with the chosen schema, or why it cannot be.
-fn encode_with(s: &Shared, (subject, version): &(String, String), value: &str) -> Result<(Encoded, Vec<u8>), String> {
-    let Some(r) = s.source.schemas().registry() else {
-        return Err("there is no schema registry to encode the value with".to_owned());
-    };
-    match encode(r, subject, version, value) {
-        Ok((e, bytes)) if e.ok => Ok((e, bytes)),
-        Ok((e, _)) => Err(format!(
-            "the value does not fit {subject} version {}: {}",
-            e.version,
-            e.error.unwrap_or_default()
-        )),
-        Err(e) => Err(e.message),
-    }
-}
-
 async fn produce_form(
     State(s): State<Shared>,
     Path(topic): Path<String>,
@@ -326,20 +298,21 @@ async fn produce_form(
         .unwrap_or_default();
     let wanted = format!("{topic}-value");
     let suggested = subjects.iter().find(|x| **x == wanted).cloned();
-    let encoded = schema_choice(&fields).map(|choice| match encode_with(&s, &choice, &input.value) {
-        Ok((e, _)) => e,
-        Err(why) => Encoded {
-            ok: false,
-            error: Some(why),
-            id: 0,
-            version: 0,
-            kind: String::new(),
-            subject: choice.0,
-            size: 0,
-            hex: String::new(),
-            json: None,
-        },
-    });
+    let encoded =
+        schema_choice(&fields).map(|choice| match encode_with(&s, &choice, &input.value) {
+            Ok((e, _)) => e,
+            Err(why) => Encoded {
+                ok: false,
+                error: Some(why),
+                id: 0,
+                version: 0,
+                kind: String::new(),
+                subject: choice.0,
+                size: 0,
+                hex: String::new(),
+                json: None,
+            },
+        });
     json(
         StatusCode::OK,
         &ProduceForm {

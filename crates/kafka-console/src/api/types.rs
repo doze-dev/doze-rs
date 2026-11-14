@@ -170,7 +170,6 @@ fn all() -> BTreeMap<String, String> {
 
 /// The Schemas pages and the schema parts of the others (10d).
 fn schemas(cfg: &Config, out: &mut BTreeMap<String, String>) {
-    use super::RegistryConnect;
     use super::schemas::diff::{DiffLine, DiffResponse, LevelCheck};
     use super::schemas::try_it::{Encoded, TryPost};
     use super::schemas::write::{
@@ -183,6 +182,7 @@ fn schemas(cfg: &Config, out: &mut BTreeMap<String, String>) {
     };
     use super::topics::schema::{TopicSchemas, TopicSubject};
     use crate::model::SchemaShown;
+    use crate::schemas::RegistryConnect;
     one::<SchemasResponse>(cfg, out);
     one::<SchemasOff>(cfg, out);
     one::<SubjectRow>(cfg, out);
