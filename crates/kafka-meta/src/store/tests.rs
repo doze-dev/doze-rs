@@ -217,7 +217,8 @@ fn a_changed_topic_keeps_its_name_and_id_is_durable_and_a_failed_write_changes_n
     disk.fail_any(1, Failure::Io);
     assert!(
         store
-            .update_topic(&name("t"), |t| t.with_partitions(PartitionCount::new(20).unwrap()))
+            .update_topic(&name("t"), |t| t
+                .with_partitions(PartitionCount::new(20).unwrap()))
             .is_err()
     );
     assert_eq!(store.topic(&name("t")), Some(changed));

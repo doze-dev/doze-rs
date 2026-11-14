@@ -42,7 +42,11 @@ impl CleanupPolicy {
                 delete: true,
             };
         };
-        let names = |kind: &str| value.split(',').any(|k| k.trim().eq_ignore_ascii_case(kind));
+        let names = |kind: &str| {
+            value
+                .split(',')
+                .any(|k| k.trim().eq_ignore_ascii_case(kind))
+        };
         Self {
             compact: names("compact"),
             delete: names("delete"),
@@ -106,7 +110,10 @@ mod tests {
         assert_eq!(none.timestamp_type, TimestampType::Create);
         assert_eq!(none.max_message_bytes, None);
         assert!(none.cleanup.delete && !none.cleanup.compact);
-        let odd = of(&[("compression.type", "producer"), ("max.message.bytes", "lots")]);
+        let odd = of(&[
+            ("compression.type", "producer"),
+            ("max.message.bytes", "lots"),
+        ]);
         assert_eq!((odd.compression, odd.max_message_bytes), (None, None));
     }
 
@@ -122,7 +129,11 @@ mod tests {
         assert_eq!(s.compression, Some(Compression::None));
         assert_eq!(s.timestamp_type, TimestampType::LogAppend);
         assert_eq!(
-            (s.max_message_bytes, s.timestamp_before_max_ms, s.timestamp_after_max_ms),
+            (
+                s.max_message_bytes,
+                s.timestamp_before_max_ms,
+                s.timestamp_after_max_ms
+            ),
             (Some(1000), Some(5), Some(6))
         );
         for (name, codec) in [
