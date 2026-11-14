@@ -30,6 +30,8 @@ enum Stage<F: Fs> {
     Done(PartitionProduceResponse),
     Waiting {
         answer: PartitionProduceResponse,
+        /// The topic the request looked up, to tell a write its delete took away from a failed one.
+        topic: TopicId,
         partition: Arc<Partition<F>>,
         pending: Pending,
         appended_at: Option<TimestampMs>,
@@ -120,7 +122,8 @@ impl<F: Fs> Broker<F> {
             r.name = t.name.clone();
             r.topic_id = t.topic_id;
             for stage in stages {
-                r.partition_responses.push(finish(stage, durable).await);
+                r.partition_responses
+                    .push(finish(stage, durable, |id| self.deleted(id)).await);
             }
             resp.responses.push(r);
         }
@@ -143,6 +146,13 @@ impl<F: Fs> Broker<F> {
             None => t.name.0.as_str(),
         };
         self.topic_allows(caller, name, operation::WRITE)
+    }
+
+    /// Whether the topic a request looked up has been deleted since (its id is no longer in the metadata; a topic made
+    /// again with its name has another id). DeleteTopics changes the metadata before it closes the partitions and
+    /// removes their files, so a write those take away from under a Produce sees the topic gone here.
+    fn deleted(&self, topic: TopicId) -> bool {
+        self.meta.topic_by_id(topic).is_none()
     }
 
     /// The topic a request names: by id from v13, by name before.
@@ -210,7 +220,7 @@ impl<F: Fs> Broker<F> {
         }
         let partition = match self.partitions.get(topic, id).await {
             Ok(partition) => partition,
-            Err(e) => return Stage::Done(storage_fault(p.index, &e)),
+            Err(e) => return Stage::Done(storage_fault(p.index, &e, self.deleted(topic.id))),
         };
         let clock_kind = if log_append_time {
             TimestampType::LogAppend
@@ -220,11 +230,12 @@ impl<F: Fs> Broker<F> {
         match partition.submit(batch, now, clock_kind, durable).await {
             Ok(pending) => Stage::Waiting {
                 answer: blank(p.index),
+                topic: topic.id,
                 partition,
                 pending,
                 appended_at: log_append_time.then_some(now),
             },
-            Err(e) => Stage::Done(storage_fault(p.index, &e)),
+            Err(e) => Stage::Done(storage_fault(p.index, &e, self.deleted(topic.id))),
         }
     }
 
@@ -255,3 +266,6 @@ impl<F: Fs> Broker<F> {
         r
     }
 }
+
+#[cfg(test)]
+mod tests;
