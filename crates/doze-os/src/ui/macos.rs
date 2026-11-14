@@ -204,3 +204,20 @@ pub(super) fn dock_badge_now() -> Option<String> {
     let tile = NSApplication::sharedApplication(mtm).dockTile();
     tile.badgeLabel().map(|s| s.to_string())
 }
+
+pub(super) fn ask_notifications() {
+    use objc2_foundation::NSBundle;
+    use objc2_user_notifications::{UNAuthorizationOptions, UNUserNotificationCenter};
+    // The notification centre raises an exception, aborting the process, for a binary outside a bundle.
+    if NSBundle::mainBundle().bundleIdentifier().is_none() {
+        return;
+    }
+    let center = UNUserNotificationCenter::currentNotificationCenter();
+    let done = block2::RcBlock::new(
+        |_granted: objc2::runtime::Bool, _error: *mut objc2_foundation::NSError| {},
+    );
+    center.requestAuthorizationWithOptions_completionHandler(
+        UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound,
+        &done,
+    );
+}

@@ -31,3 +31,5 @@ pub(super) fn dock_badge(_: Option<&str>) {}
 pub(super) fn dock_badge_now() -> Option<String> {
     None
 }
+
+pub(super) fn ask_notifications() {}

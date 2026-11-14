@@ -95,6 +95,8 @@ pub(crate) fn start(cx: &mut App, hub: &Hub, mode: &crate::facts::Mode) {
     let bundled = bundled();
     if bundled {
         cx.on_system_notification_response(notes::respond);
+        // NOTE-05: asked once, at start, as Go did; not with the first note, which would be lost to the question.
+        doze_os::ui::ask_notifications();
     }
     cx.set_global(Around {
         hub: hub.clone(),

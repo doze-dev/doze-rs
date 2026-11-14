@@ -152,3 +152,10 @@ pub fn dock_badge(label: Option<&str>) {
 pub fn dock_badge_now() -> Option<String> {
     imp::dock_badge_now()
 }
+
+/// Asks the system, once, for leave to post notifications (Alert and Sound), so the first one is not lost to the
+/// question. Only from an app bundle (the notification centre refuses a bare binary); a no-op elsewhere and when the
+/// person already answered.
+pub fn ask_notifications() {
+    imp::ask_notifications();
+}
