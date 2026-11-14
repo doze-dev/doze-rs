@@ -58,9 +58,30 @@ impl Drop for Sandbox {
     }
 }
 
-/// A loopback port nobody is using right now.
+/// Where handed-out ports come from: below every system's ephemeral range (Linux starts at 32768, macOS and
+/// Windows at 49152), so an outgoing connection made in the gap between this probe and the engine's bind cannot be
+/// given the same port. A port from the ephemeral range (`bind(":0")`) could be, and was: "events exited before it
+/// was ready: Address already in use" on Linux CI.
+const PORTS: std::ops::Range<u32> = 20_000..32_000;
+
+static NEXT_PORT: AtomicU32 = AtomicU32::new(0);
+
+/// A loopback port nobody is using right now, outside the ephemeral range, and never the same one twice in this
+/// process. Each process starts at its own offset so concurrent test binaries rarely ask for the same ports.
 pub fn free_port() -> std::io::Result<u16> {
-    Ok(std::net::TcpListener::bind("127.0.0.1:0")?
-        .local_addr()?
-        .port())
+    let span = PORTS.end - PORTS.start;
+    let start = std::process::id().wrapping_mul(97) % span;
+    for _ in 0..span {
+        let n = NEXT_PORT.fetch_add(1, Ordering::Relaxed);
+        let Ok(port) = u16::try_from(PORTS.start + (start + n) % span) else {
+            continue;
+        };
+        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            return Ok(port);
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AddrInUse,
+        "no free loopback port below the ephemeral range",
+    ))
 }
