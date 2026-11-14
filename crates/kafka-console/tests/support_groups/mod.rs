@@ -194,7 +194,10 @@ pub async fn produce(w: &World, topic: &str, partition: i32, n: usize) {
 /// What a group committed on a topic, by partition (OffsetFetch as a client asks it).
 pub async fn committed(w: &World, group: &str) -> Vec<(String, i32, i64)> {
     let Response::OffsetFetch(r) = w
-        .ask(9, kafka_console::backend::requests::committed_of(&[group.to_owned()]))
+        .ask(
+            9,
+            kafka_console::backend::requests::committed_of(&[group.to_owned()]),
+        )
         .await
     else {
         panic!("not OffsetFetch")
@@ -210,7 +213,6 @@ pub async fn committed(w: &World, group: &str) -> Vec<(String, i32, i64)> {
         })
         .collect()
 }
-
 
 /// A broker with `orders` (3 partitions holding 4, 3 and 2 records).
 pub async fn with_orders(name: &str, tweak: impl FnOnce(&mut kafka_broker::Config)) -> World {

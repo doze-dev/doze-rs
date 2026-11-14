@@ -109,7 +109,13 @@ async fn a_commit_beyond_the_end_of_a_recreated_topic_is_past_the_end_never_nega
     let r = rows(&g);
     let seen: Vec<_> = r
         .iter()
-        .map(|r| (r["partition"].as_i64().unwrap(), r["end"].as_i64().unwrap(), r["lag"].clone()))
+        .map(|r| {
+            (
+                r["partition"].as_i64().unwrap(),
+                r["end"].as_i64().unwrap(),
+                r["lag"].clone(),
+            )
+        })
         .collect();
     assert_eq!(
         seen,
@@ -123,7 +129,11 @@ async fn a_commit_beyond_the_end_of_a_recreated_topic_is_past_the_end_never_nega
     no_negative_lag(&g);
     let list = ok(&app, "/api/v1/groups").await;
     let row = list_row(&list, "analytics");
-    assert_eq!(row["lag"]["ahead"], serde_json::json!(["orders-0", 3]), "{row}");
+    assert_eq!(
+        row["lag"]["ahead"],
+        serde_json::json!(["orders-0", 3]),
+        "{row}"
+    );
     no_negative_lag(&list);
     w.stop().await;
 }
@@ -140,7 +150,11 @@ async fn a_group_with_no_commit_shows_no_commits_and_not_the_log_end_as_lag() {
     let r = rows(&g);
     assert_eq!(r.len(), 3, "{g}");
     for row in r {
-        assert_eq!(row["lag"], serde_json::json!({"kind": "no_commit"}), "{row}");
+        assert_eq!(
+            row["lag"],
+            serde_json::json!({"kind": "no_commit"}),
+            "{row}"
+        );
         assert!(row["committed"].is_null(), "{row}");
     }
     assert_eq!(g["head"]["lag_total"], 0, "the log end (9) is not lag");
@@ -149,7 +163,11 @@ async fn a_group_with_no_commit_shows_no_commits_and_not_the_log_end_as_lag() {
     let row = list_row(&list, "fulfilment");
     assert_eq!(row["lag"]["any_commit"], false, "{row}");
     assert_eq!(row["lag"]["total"], 0, "{row}");
-    assert_eq!(row["lag"]["uncommitted"], serde_json::json!(["orders"]), "{row}");
+    assert_eq!(
+        row["lag"]["uncommitted"],
+        serde_json::json!(["orders"]),
+        "{row}"
+    );
     w.stop().await;
 }
 
@@ -158,7 +176,13 @@ async fn a_group_with_no_commit_shows_no_commits_and_not_the_log_end_as_lag() {
 #[tokio::test]
 async fn a_classic_group_with_a_member_and_commits_shows_what_the_protocol_hides() {
     let w = with_orders("ag-classic", |_| {}).await;
-    let member = stable_group(&w, "search-indexer", "roundrobin", &[("orders", &[0, 1, 2])]).await;
+    let member = stable_group(
+        &w,
+        "search-indexer",
+        "roundrobin",
+        &[("orders", &[0, 1, 2])],
+    )
+    .await;
     commit_as_member(&w, "search-indexer", &member, 1, &[(0, 1), (1, 3), (2, 2)]).await;
     let app = api(&w);
     let g = ok(&app, "/api/v1/groups/search-indexer").await;
@@ -249,7 +273,12 @@ async fn a_consumer_group_of_the_new_protocol_is_described_by_its_own_api() {
             .as_array()
             .unwrap()
             .iter()
-            .map(|p| (p["topic"].as_str().unwrap().to_owned(), p["partition"].as_i64().unwrap()))
+            .map(|p| {
+                (
+                    p["topic"].as_str().unwrap().to_owned(),
+                    p["partition"].as_i64().unwrap(),
+                )
+            })
             .collect();
         v.sort();
         v
@@ -295,17 +324,31 @@ async fn deleting_offsets_forgets_them_and_a_subscribed_topic_is_refused() {
     let member = stable_group(&w, "search-indexer", "range", &[("orders", &[0, 1, 2])]).await;
     commit_as_member(&w, "search-indexer", &member, 1, &[(0, 1)]).await;
     let app = api(&w);
-    let (s, r) = post(&app, "/api/v1/groups/analytics/offsets/delete", r#"{"topics":["orders"]}"#).await;
+    let (s, r) = post(
+        &app,
+        "/api/v1/groups/analytics/offsets/delete",
+        r#"{"topics":["orders"]}"#,
+    )
+    .await;
     assert_eq!(s, StatusCode::OK, "{r}");
     assert_eq!(r["outcome"], "done", "{r}");
     assert!(committed(&w, "analytics").await.is_empty());
-    let (s, r) = post(&app, "/api/v1/groups/search-indexer/offsets/delete", r#"{"topics":["orders"]}"#).await;
+    let (s, r) = post(
+        &app,
+        "/api/v1/groups/search-indexer/offsets/delete",
+        r#"{"topics":["orders"]}"#,
+    )
+    .await;
     assert_eq!(s, StatusCode::OK, "{r}");
     assert_eq!(r["outcome"], "refused", "{r}");
     assert_eq!(r["code"], "GROUP_SUBSCRIBED_TO_TOPIC");
     assert_eq!(r["number"], 86);
     assert!(r["offsets"].is_object(), "the dialog's data again: {r}");
-    assert_eq!(committed(&w, "search-indexer").await.len(), 1, "nothing was forgotten");
+    assert_eq!(
+        committed(&w, "search-indexer").await.len(),
+        1,
+        "nothing was forgotten"
+    );
     w.stop().await;
 }
 
@@ -395,7 +438,10 @@ async fn a_hostile_group_id_is_one_segment_and_comes_back_as_the_same_text() {
             let path = format!("/api/v1/groups/{e}{tail}");
             let v = ok(&app, &path).await;
             if matches!(tail, "" | "?expiring=1" | "/story") {
-                assert_eq!(v["head"]["id"], id, "{path}: the id comes back as the same text");
+                assert_eq!(
+                    v["head"]["id"], id,
+                    "{path}: the id comes back as the same text"
+                );
             }
             assert!(v.is_object(), "{path}");
         }
@@ -404,7 +450,12 @@ async fn a_hostile_group_id_is_one_segment_and_comes_back_as_the_same_text() {
         let list = ok(&app, "/api/v1/groups").await;
         list_row(&list, id);
         // Its offsets go as a write of that group, not of another one.
-        let (_, r) = post(&app, &format!("/api/v1/groups/{e}/offsets/delete"), r#"{"topics":["orders"]}"#).await;
+        let (_, r) = post(
+            &app,
+            &format!("/api/v1/groups/{e}/offsets/delete"),
+            r#"{"topics":["orders"]}"#,
+        )
+        .await;
         assert_eq!(r["outcome"], "done", "{id}: {r}");
         assert!(committed(&w, id).await.is_empty(), "{id}");
     }

@@ -48,8 +48,16 @@ async fn without_a_recorder_or_a_round_the_settings_answer_names_none() {
     let w = support_write::world("as-unwired", |_, _| {}).await;
     w.create_topic("orders", 1, &[]).await;
     let v = settings(&support_api::api(&w)).await;
-    assert_eq!(v["profile"]["speaking"], serde_json::json!([]), "no client is named");
-    assert!(v["intervals"]["round"].is_null(), "no round: {}", v["intervals"]);
+    assert_eq!(
+        v["profile"]["speaking"],
+        serde_json::json!([]),
+        "no client is named"
+    );
+    assert!(
+        v["intervals"]["round"].is_null(),
+        "no round: {}",
+        v["intervals"]
+    );
     assert_eq!(offsets_note(&v), "kept for 7 d", "no group is named");
     w.stop().await;
 
@@ -85,7 +93,11 @@ async fn without_a_recorder_or_a_round_the_settings_answer_names_none() {
             .any(|s| s["client"] == "fulfilment" && s["api"] == "Fetch" && s["version"] == 12),
         "{speaking:?}"
     );
-    assert_eq!(v["intervals"]["round"]["topic"], "compacted.levels", "{}", v["intervals"]);
+    assert_eq!(
+        v["intervals"]["round"]["topic"], "compacted.levels",
+        "{}",
+        v["intervals"]
+    );
     assert!(
         offsets_note(&v).starts_with("kept for 7 d; analytics' expire in 6 d 23 h"),
         "{}",

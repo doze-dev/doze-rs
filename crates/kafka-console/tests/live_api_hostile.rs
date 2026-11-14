@@ -81,7 +81,9 @@ async fn hostile_keys_values_headers_and_names_come_back_as_text() {
         let mut all = Vec::new();
         strings(&v, &mut all);
         for s in &all {
-            for c in ['\u{202e}', '\u{2066}', '\u{0}', '\u{feff}', '\u{2028}', '\u{7f}'] {
+            for c in [
+                '\u{202e}', '\u{2066}', '\u{0}', '\u{feff}', '\u{2028}', '\u{7f}',
+            ] {
                 assert!(!s.contains(c), "{path}: {c:?} came through in {s:.80}");
             }
             assert!(s.len() <= 70 * 1024, "{path}: a line of {} bytes", s.len());
@@ -158,7 +160,11 @@ async fn on_an_acl_broker_a_principal_that_may_describe_but_not_read_is_refused_
     };
     let viewer = as_who("viewer");
     let (_, list) = get(&viewer, "/api/v1/topics").await;
-    assert_eq!(listed(&list), vec!["orders".to_owned()], "only what it may describe");
+    assert_eq!(
+        listed(&list),
+        vec!["orders".to_owned()],
+        "only what it may describe"
+    );
     let (s, msgs) = get(&viewer, "/api/v1/topics/orders/messages").await;
     assert_eq!(s, StatusCode::OK, "{msgs}");
     let text = msgs.to_string();
@@ -172,15 +178,25 @@ async fn on_an_acl_broker_a_principal_that_may_describe_but_not_read_is_refused_
     );
     let (_, hidden) = get(&viewer, "/api/v1/topics/gz.events").await;
     let (_, never) = get(&viewer, "/api/v1/topics/never.made").await;
-    assert_eq!(hidden["missing"]["code"], "UNKNOWN_TOPIC_OR_PARTITION", "{hidden}");
-    assert_eq!(hidden["missing"]["code"], never["missing"]["code"], "a topic it may not describe is not there");
+    assert_eq!(
+        hidden["missing"]["code"], "UNKNOWN_TOPIC_OR_PARTITION",
+        "{hidden}"
+    );
+    assert_eq!(
+        hidden["missing"]["code"], never["missing"]["code"],
+        "a topic it may not describe is not there"
+    );
     let (s, _) = get(&viewer, "/api/v1/topics/gz.events/messages").await;
     assert_eq!(s, StatusCode::NOT_FOUND);
     let nobody = as_who("nobody");
     let (_, none) = get(&nobody, "/api/v1/topics").await;
     assert!(listed(&none).is_empty(), "an empty broker: {none}");
     let (_, all) = get(&api(&w), "/api/v1/topics/orders/messages").await;
-    assert_eq!(all["view"]["rows"].as_array().unwrap().len(), 3, "the console reads everything");
+    assert_eq!(
+        all["view"]["rows"].as_array().unwrap().len(),
+        3,
+        "the console reads everything"
+    );
     assert!(!all.to_string().contains("AUTHORIZATION_FAILED"));
     w.stop().await;
 }

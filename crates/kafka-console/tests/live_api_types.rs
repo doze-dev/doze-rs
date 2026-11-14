@@ -113,11 +113,18 @@ async fn a_source_and_a_refusal_are_sent_as_the_typescript_types_say() {
     assert_eq!(refusal["name"], "INVALID_REQUEST", "{refusal}");
     // AccessAcls.refused: `KafkaRefusal | null`, null for the console and a refusal for a caller DescribeAcls refuses.
     let (_, access) = get(&app, "/api/v1/access").await;
-    assert_eq!(keys(&access["access"]["acls"]), ts_keys("AccessAcls"), "{access}");
+    assert_eq!(
+        keys(&access["access"]["acls"]),
+        ts_keys("AccessAcls"),
+        "{access}"
+    );
     assert!(access["access"]["acls"]["refused"].is_null(), "{access}");
     w.stop().await;
     let s = support_access::secured("api-types-acl", false).await;
-    let nobody = Caller::new(Principal::user("nobody"), Some("127.0.0.1".parse().unwrap()));
+    let nobody = Caller::new(
+        Principal::user("nobody"),
+        Some("127.0.0.1".parse().unwrap()),
+    );
     let app = support_access::router_with(
         s.w.facts.clone(),
         support_access::start(false),

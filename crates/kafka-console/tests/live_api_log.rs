@@ -194,7 +194,10 @@ async fn retention_is_named_before_and_after_a_pass() {
     let before = ok(&app, "/api/v1/topics/orders/log").await;
     assert_eq!(before["state"], "retention");
     let r = &before["view"]["retention"];
-    assert!(r["last_pass"].is_null(), "no pass has run since the broker started");
+    assert!(
+        r["last_pass"].is_null(),
+        "no pass has run since the broker started"
+    );
     assert_eq!(r["max_bytes"], 3000);
     let would = r["would_delete"].as_i64().unwrap();
     assert!(would > 0, "{r}");
@@ -208,7 +211,10 @@ async fn retention_is_named_before_and_after_a_pass() {
     w.broker.check_logs().await;
     let moved = w.offset("orders", 0, -2).await;
     assert!(moved > start, "the pass deleted segments");
-    assert_eq!(moved, new_start, "the next pass did what the answer said it would");
+    assert_eq!(
+        moved, new_start,
+        "the next pass did what the answer said it would"
+    );
     let after = ok(&app, "/api/v1/topics/orders/log").await;
     let pass = &after["view"]["retention"]["last_pass"];
     assert_eq!(
@@ -236,7 +242,10 @@ async fn an_empty_log_says_how_the_first_record_gets_there() {
     assert_eq!(cells.len(), 1);
     assert_eq!(cells[0]["cell"], "active");
     // One record and it is a log.
-    assert_eq!(w.produce_batch("orders.dlq", 0, records(1), None).await.0, 0);
+    assert_eq!(
+        w.produce_batch("orders.dlq", 0, records(1), None).await.0,
+        0
+    );
     let v = ok(&app, "/api/v1/topics/orders.dlq/log").await;
     assert_ne!(v["state"], "empty", "{v}");
     w.stop().await;
@@ -271,7 +280,11 @@ async fn the_producers_answer_names_the_transaction_that_holds_the_stable_offset
     let v = ok(&app, "/api/v1/topics/orders/producers").await;
     let view = &v["view"];
     assert_eq!(view["end"], end);
-    assert_eq!(view["last_stable"], end - 3, "the open transaction's first offset");
+    assert_eq!(
+        view["last_stable"],
+        end - 3,
+        "the open transaction's first offset"
+    );
     assert_eq!(v["held"], 3);
     assert_eq!(view["open"][0]["id"], "orders-eos");
     assert_eq!(view["open"][0]["state"], "Ongoing");
@@ -288,7 +301,10 @@ async fn the_producers_answer_names_the_transaction_that_holds_the_stable_offset
     let batches = idem["batches"].as_array().unwrap();
     assert_eq!(batches.len(), 5, "the last five of seven: {idem}");
     assert_eq!(batches[0]["last_sequence"], seq - 1, "newest first");
-    assert_eq!(batches[4]["first_sequence"], 3, "the two oldest are forgotten");
+    assert_eq!(
+        batches[4]["first_sequence"], 3,
+        "the two oldest are forgotten"
+    );
     assert!(idem["txn"].is_null());
     let txn = producer(t.0);
     assert_eq!(txn["txn"]["id"], "orders-eos");
@@ -332,12 +348,19 @@ async fn a_transaction_answer_says_what_it_holds_back_and_what_the_timeout_will_
     assert_eq!(v["timeout"], "60 s");
     let left = v["left_ms"].as_i64().unwrap();
     assert!((50_000..=60_000).contains(&left), "{left}");
-    assert!(said(&v["holding"]).contains("orders-1 that is 0"), "{}", said(&v["holding"]));
+    assert!(
+        said(&v["holding"]).contains("orders-1 that is 0"),
+        "{}",
+        said(&v["holding"])
+    );
     assert_eq!(w.end_txn("orders-eos", t, true).await, 0);
     let over = ok(&app, "/api/v1/topics/orders/transactions/orders-eos").await;
     assert_eq!(over["view"]["txn"]["state"], "CompleteCommit");
     assert_eq!(over["held"], 0);
-    assert_eq!(said(&over["unended_before"]), "It is over: nothing is left to abort.");
+    assert_eq!(
+        said(&over["unended_before"]),
+        "It is over: nothing is left to abort."
+    );
     let (s, none) = get(&app, "/api/v1/topics/orders/transactions/nobody").await;
     assert_eq!(s, StatusCode::OK, "an answer, not a failed request: {none}");
     assert!(none.get("view").is_none());
@@ -389,11 +412,17 @@ async fn a_caller_without_rights_is_told_no_such_topic() {
     let nobody = kafka_broker::Caller::anonymous(Some("127.0.0.1".parse().unwrap()));
     let app = support_write::router_of(&w, w.backend.acting_as(nobody));
     let (_, never) = get(&app, "/api/v1/topics/never-made/log").await;
-    for path in ["/api/v1/topics/orders/log", "/api/v1/topics/orders/producers"] {
+    for path in [
+        "/api/v1/topics/orders/log",
+        "/api/v1/topics/orders/producers",
+    ] {
         let (status, v) = get(&app, path).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{path}: {v}");
         assert!(v.get("view").is_none(), "{path}: {v}");
-        assert_eq!(v["code"], never["code"], "not told apart from no topic: {v}");
+        assert_eq!(
+            v["code"], never["code"],
+            "not told apart from no topic: {v}"
+        );
     }
     // The transaction it may not describe is a transaction it is not told of.
     let (_, v) = get(&app, "/api/v1/topics/orders/transactions/tx").await;
@@ -426,7 +455,12 @@ async fn a_get_of_these_answers_reads_and_changes_nothing() {
         w.topics().await,
         w.offset("orders", 0, -1).await,
         w.offset("inventory.levels", 0, -1).await,
-        w.backend.log_facts("inventory.levels", 0).await.unwrap().segments.len(),
+        w.backend
+            .log_facts("inventory.levels", 0)
+            .await
+            .unwrap()
+            .segments
+            .len(),
     );
     for path in [
         "/api/v1/topics/orders/log",
@@ -459,7 +493,12 @@ async fn a_get_of_these_answers_reads_and_changes_nothing() {
             w.topics().await,
             w.offset("orders", 0, -1).await,
             w.offset("inventory.levels", 0, -1).await,
-            w.backend.log_facts("inventory.levels", 0).await.unwrap().segments.len(),
+            w.backend
+                .log_facts("inventory.levels", 0)
+                .await
+                .unwrap()
+                .segments
+                .len(),
         ),
         before,
         "the log was not compacted, nothing was written"

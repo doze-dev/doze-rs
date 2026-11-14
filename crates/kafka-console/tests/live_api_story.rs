@@ -128,7 +128,11 @@ async fn the_story_is_the_generations_newest_first_from_the_ring() {
     assert_eq!(left["who"]["member"], member.as_str());
     assert_eq!(left["who"]["client"], "test");
     let reason = left["who"]["reason"].as_str().unwrap();
-    assert_eq!(reason, "r".repeat(128), "the client's reason, clipped to 128 bytes");
+    assert_eq!(
+        reason,
+        "r".repeat(128),
+        "the client's reason, clipped to 128 bytes"
+    );
     assert_eq!(joined["who"]["reason"], "starting up");
     assert_eq!(joined["leader"], member.as_str());
     assert!(joined["settled_ms"].as_i64().is_some(), "{joined}");
@@ -143,7 +147,10 @@ async fn the_story_is_the_generations_newest_first_from_the_ring() {
     causes.sort_by_key(ToString::to_string);
     assert_eq!(
         causes,
-        vec![serde_json::json!(["member_joined", 1]), serde_json::json!(["member_left", 1])]
+        vec![
+            serde_json::json!(["member_joined", 1]),
+            serde_json::json!(["member_left", 1])
+        ]
     );
     assert_eq!(v["flap"]["flapping"], false);
     assert_eq!(v["flap"]["needs"], 3);
@@ -192,7 +199,10 @@ async fn the_story_says_what_the_ring_keeps_and_when_it_is_full() {
     let gens = generations(&v);
     let oldest = gens.last().unwrap()["generation"].as_i64().unwrap();
     let newest = gens[0]["generation"].as_i64().unwrap();
-    assert!(oldest > 1, "generation 1 is older than the ring keeps: {oldest}");
+    assert!(
+        oldest > 1,
+        "generation 1 is older than the ring keeps: {oldest}"
+    );
     assert!(newest > oldest);
     assert!(
         gens.windows(2)
@@ -210,7 +220,13 @@ async fn a_hostile_group_id_is_text_on_the_story() {
     let w = instant("as-hostile", false).await;
     let app = api(&w);
     let long = "g".repeat(255);
-    for id in ["a/b?c%d é 😀", "<script>alert(1)</script>", "..", "a\"b'c", &long] {
+    for id in [
+        "a/b?c%d é 😀",
+        "<script>alert(1)</script>",
+        "..",
+        "a\"b'c",
+        &long,
+    ] {
         let (s, v) = get(&app, &format!("/api/v1/groups/{}/story", enc(id))).await;
         assert_eq!(s, StatusCode::NOT_FOUND, "{id}: {v}");
         assert_eq!(v["code"], "GROUP_NOT_FOUND");
