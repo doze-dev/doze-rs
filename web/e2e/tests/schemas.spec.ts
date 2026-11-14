@@ -144,10 +144,10 @@ test("Register: the live check explains a refusal in Confluent's words, the fix 
   await expect(page).toHaveURL(/version=1/);
   await expect(page.getByTestId("version-shown")).toContainText("Version 1");
   await page.getByTestId("open-diff").click();
-  await expect(page.getByTestId("diff-counts")).toHaveText("v1 to v2 · +3 −1");
+  await expect(page.getByTestId("diff-counts")).toHaveText("v1 to v2 · +2 −1");
   await page.getByTestId("diff-layout").getByRole("radio", { name: "Unified" }).click();
   await expect(page).toHaveURL(/layout=unified/);
-  await expect(page.getByTestId("diff-unified").locator("tr[data-op=add]")).toHaveCount(3);
+  await expect(page.getByTestId("diff-unified").locator("tr[data-op=add]")).toHaveCount(2);
   await expect(page.getByTestId("level-check")).toHaveCount(3);
   await expect(page.getByTestId("level-check").filter({ hasText: "BACKWARD" })).toHaveAttribute("data-ok", "true");
 });

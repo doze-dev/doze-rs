@@ -83,6 +83,21 @@ fn carried_ids(rows: &[crate::model::RecordRow]) -> BTreeMap<u32, usize> {
     ids
 }
 
+/// One schema registered under many subjects has one id: the one named for this topic, else one named for a record (no
+/// `-key` or `-value`), else the first.
+fn holder<'a>(subjects: &'a [String], topic: &str) -> Option<&'a String> {
+    let topic = [topic.to_owned()];
+    subjects
+        .iter()
+        .find(|s| !named_topics(s, &topic).is_empty())
+        .or_else(|| {
+            subjects
+                .iter()
+                .find(|s| crate::schemas::topic_of(s).is_none())
+        })
+        .or_else(|| subjects.first())
+}
+
 /// The tab's answer with no registry: why there is none.
 fn off_answer(s: &Shared, topic: String) -> Response {
     let why = match s.source.schemas() {
@@ -121,10 +136,9 @@ pub(crate) async fn schemas(State(s): State<Shared>, Path(name): Path<String>) -
     for (id, n) in &ids {
         match r.id_versions(*id, false) {
             Ok(held) if !held.is_empty() => {
-                let mut subjects: Vec<String> = held.into_iter().map(|(s, _)| s).collect();
-                subjects.dedup();
-                for subject in subjects {
-                    *carried.entry(subject).or_default() += n;
+                let subjects: Vec<String> = held.into_iter().map(|(s, _)| s).collect();
+                if let Some(subject) = holder(&subjects, &name) {
+                    *carried.entry(subject.clone()).or_default() += n;
                 }
             }
             _ => unknown.push(*id),
