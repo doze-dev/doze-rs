@@ -7,7 +7,7 @@
 // One browser at a time (workers: 1): the machine is shared.
 import { defineConfig, devices } from "@playwright/test";
 
-export const SEEDED = { kafka: "127.0.0.1:39092", console: "http://127.0.0.1:39094", registry: "127.0.0.1:39081" };
+export const SEEDED = { kafka: "127.0.0.1:39092", console: "http://127.0.0.1:39094", registry: "127.0.0.1:39093" };
 const baseURL = process.env.E2E_URL ?? SEEDED.console;
 
 export default defineConfig({
