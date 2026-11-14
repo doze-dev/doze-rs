@@ -28,7 +28,10 @@ pub fn unpack(archive: &[u8], content_dir: &Path, digest: &str) -> Result<PathBu
     untar(archive, &tmp).map_err(|e| format!("extracting: {e}"))?;
     let bin = find_bin(&tmp).ok_or("the archive has no bin/ directory")?;
     if let Some(inner) = bin.parent().filter(|p| *p != tmp) {
-        for e in std::fs::read_dir(inner).map_err(|e| e.to_string())?.flatten() {
+        for e in std::fs::read_dir(inner)
+            .map_err(|e| e.to_string())?
+            .flatten()
+        {
             std::fs::rename(e.path(), tmp.join(e.file_name())).map_err(|e| e.to_string())?;
         }
     }
@@ -59,10 +62,19 @@ fn find_bin(root: &Path) -> Option<PathBuf> {
     while !queue.is_empty() {
         let mut next = Vec::new();
         for dir in queue {
-            let Ok(entries) = std::fs::read_dir(&dir) else { continue };
-            let mut subdirs: Vec<PathBuf> = entries.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            let mut subdirs: Vec<PathBuf> = entries
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| p.is_dir())
+                .collect();
             subdirs.sort();
-            if let Some(b) = subdirs.iter().find(|p| p.file_name().is_some_and(|n| n == "bin")) {
+            if let Some(b) = subdirs
+                .iter()
+                .find(|p| p.file_name().is_some_and(|n| n == "bin"))
+            {
                 return Some(b.clone());
             }
             next.extend(subdirs);
@@ -94,13 +106,20 @@ pub(crate) mod tests {
     fn a_nested_bin_comes_to_the_top_and_the_sha_is_kept() {
         let d = std::env::temp_dir().join(format!("doze-fetch-archive-{}", std::process::id()));
         let content = d.join("valkey/9.1.1-x");
-        let a = targz(&[("valkey-9/bin/valkey-server", b"#!", true), ("valkey-9/README", b"r", false)]);
+        let a = targz(&[
+            ("valkey-9/bin/valkey-server", b"#!", true),
+            ("valkey-9/README", b"r", false),
+        ]);
         let bin = unpack(&a, &content, "sha256:ab").unwrap();
         assert!(bin.join("valkey-server").exists() && content.join("README").exists());
         assert_eq!(recorded_sha(&content).as_deref(), Some("sha256:ab"));
         assert!(!content.with_extension("tmp").exists());
         let none = targz(&[("lib/x.so", b"x", false)]);
-        assert!(unpack(&none, &d.join("other"), "sha256:1").unwrap_err().contains("no bin/"));
+        assert!(
+            unpack(&none, &d.join("other"), "sha256:1")
+                .unwrap_err()
+                .contains("no bin/")
+        );
         let _ = std::fs::remove_dir_all(&d);
     }
 }

@@ -40,7 +40,9 @@ pub fn parse_manifest(src: &str) -> Result<BTreeMap<String, EngineManifest>, Yam
     let h = yaml::mapping(src)?;
     let mut out = BTreeMap::new();
     for (engine, m) in sub(&h, "engines")?.into_iter().flat_map(entries) {
-        let yaml_rust2::Yaml::Hash(m) = m else { continue };
+        let yaml_rust2::Yaml::Hash(m) = m else {
+            continue;
+        };
         let versions = sub(m, "versions")?
             .into_iter()
             .flat_map(entries)
@@ -48,16 +50,33 @@ pub fn parse_manifest(src: &str) -> Result<BTreeMap<String, EngineManifest>, Yam
             .collect();
         let mut artifacts = BTreeMap::new();
         for (full, by_triple) in sub(m, "artifacts")?.into_iter().flat_map(entries) {
-            let yaml_rust2::Yaml::Hash(by_triple) = by_triple else { continue };
+            let yaml_rust2::Yaml::Hash(by_triple) = by_triple else {
+                continue;
+            };
             let arts = entries(by_triple)
                 .filter_map(|(t, a)| {
-                    let yaml_rust2::Yaml::Hash(a) = a else { return None };
-                    Some((t, Artifact { url: text(a, "url"), sha256: text(a, "sha256"), sig: text(a, "sig") }))
+                    let yaml_rust2::Yaml::Hash(a) = a else {
+                        return None;
+                    };
+                    Some((
+                        t,
+                        Artifact {
+                            url: text(a, "url"),
+                            sha256: text(a, "sha256"),
+                            sig: text(a, "sig"),
+                        },
+                    ))
                 })
                 .collect();
             artifacts.insert(full, arts);
         }
-        out.insert(engine, EngineManifest { versions, artifacts });
+        out.insert(
+            engine,
+            EngineManifest {
+                versions,
+                artifacts,
+            },
+        );
     }
     Ok(out)
 }
@@ -76,7 +95,11 @@ impl Mirror {
     /// The mirror for `home`, as the environment sets it.
     pub fn from_env(home: &Path) -> Mirror {
         let root = std::env::var("DOZE_MIRROR").unwrap_or_else(|_| DEFAULT_ROOT.into());
-        Mirror { root, home: home.into(), key: None }
+        Mirror {
+            root,
+            home: home.into(),
+            key: None,
+        }
     }
 
     fn base(&self, engine: &str) -> String {
@@ -88,10 +111,13 @@ impl Mirror {
 
     fn manifest(&self, engine: &str) -> Result<EngineManifest, String> {
         let url = format!("{}/index.yaml", self.base(engine).trim_end_matches('/'));
-        let body = http::get(&url, DOWNLOAD_BUDGET).map_err(|f| format!("fetching mirror manifest {url}: {}", said(&f)))?;
+        let body = http::get(&url, DOWNLOAD_BUDGET)
+            .map_err(|f| format!("fetching mirror manifest {url}: {}", said(&f)))?;
         let text = String::from_utf8_lossy(&body);
-        let mut all = parse_manifest(&text).map_err(|e| format!("parsing mirror manifest: {}", e.message))?;
-        all.remove(engine).ok_or_else(|| format!("mirror has no engine \"{engine}\""))
+        let mut all =
+            parse_manifest(&text).map_err(|e| format!("parsing mirror manifest: {}", e.message))?;
+        all.remove(engine)
+            .ok_or_else(|| format!("mirror has no engine \"{engine}\""))
     }
 
     /// The full version the mirror maps `major` of `engine` to.
@@ -109,7 +135,13 @@ impl Mirror {
     }
 
     /// Makes the build present and verified; its `bin/` and the archive's `sha256:<hex>`. `expected` is the lock's pin.
-    pub fn ensure(&self, engine: &str, full: &str, triple: &str, expected: Option<&str>) -> Result<(PathBuf, String), String> {
+    pub fn ensure(
+        &self,
+        engine: &str,
+        full: &str,
+        triple: &str,
+        expected: Option<&str>,
+    ) -> Result<(PathBuf, String), String> {
         let content = self.content_dir(engine, full, triple);
         if archive::has_files(&content.join("bin")) {
             return cached(&content, &format!("{engine} {full} ({triple})"), expected);
@@ -123,10 +155,19 @@ impl Mirror {
         let url = if art.url.contains("://") {
             art.url.clone()
         } else {
-            format!("{}/{}", self.base(engine).trim_end_matches('/'), art.url.trim_start_matches('/'))
+            format!(
+                "{}/{}",
+                self.base(engine).trim_end_matches('/'),
+                art.url.trim_start_matches('/')
+            )
         };
         let what = format!("{engine} {full} ({triple})");
-        let want = Want { manifest_sha: &art.sha256, sig: &art.sig, expected, key: self.key.as_ref() };
+        let want = Want {
+            manifest_sha: &art.sha256,
+            sig: &art.sig,
+            expected,
+            key: self.key.as_ref(),
+        };
         download(&url, &content, &what, &want)
     }
 }
@@ -150,7 +191,11 @@ pub(crate) fn said(f: &Failure) -> String {
 }
 
 /// A cached build, unless the lock pins another archive.
-pub(crate) fn cached(content: &Path, what: &str, expected: Option<&str>) -> Result<(PathBuf, String), String> {
+pub(crate) fn cached(
+    content: &Path,
+    what: &str,
+    expected: Option<&str>,
+) -> Result<(PathBuf, String), String> {
     let digest = archive::recorded_sha(content).unwrap_or_default();
     if let Some(want) = expected.filter(|w| !digest.is_empty() && *w != digest) {
         return Err(format!(
@@ -162,21 +207,37 @@ pub(crate) fn cached(content: &Path, what: &str, expected: Option<&str>) -> Resu
 }
 
 /// Downloads, verifies (lock pin first, else manifest checksum; and the signature when there is a key), unpacks.
-pub(crate) fn download(url: &str, content: &Path, what: &str, want: &Want<'_>) -> Result<(PathBuf, String), String> {
-    let bytes = http::get_up_to(url, DOWNLOAD_BUDGET, ARCHIVE_LIMIT).map_err(|f| format!("downloading {url}: {}", said(&f)))?;
+pub(crate) fn download(
+    url: &str,
+    content: &Path,
+    what: &str,
+    want: &Want<'_>,
+) -> Result<(PathBuf, String), String> {
+    let bytes = http::get_up_to(url, DOWNLOAD_BUDGET, ARCHIVE_LIMIT)
+        .map_err(|f| format!("downloading {url}: {}", said(&f)))?;
     let got = signed::sha256_hex(&bytes);
     let digest = format!("sha256:{got}");
     match want.expected {
-        Some(pin) if pin != digest => return Err(format!("checksum mismatch for {what}: locked {pin}, got {digest}")),
+        Some(pin) if pin != digest => {
+            return Err(format!(
+                "checksum mismatch for {what}: locked {pin}, got {digest}"
+            ));
+        }
         Some(_) => {}
-        None if want.manifest_sha.is_empty() => return Err(format!("no checksum available to verify {what}")),
+        None if want.manifest_sha.is_empty() => {
+            return Err(format!("no checksum available to verify {what}"));
+        }
         None if !want.manifest_sha.eq_ignore_ascii_case(&got) => {
-            return Err(format!("checksum mismatch for {what}: manifest {}, got {got}", want.manifest_sha));
+            return Err(format!(
+                "checksum mismatch for {what}: manifest {}, got {got}",
+                want.manifest_sha
+            ));
         }
         None => {}
     }
     if let Some(key) = want.key {
-        signed::verify_hex(key, &got, want.sig).map_err(|r| format!("signature check failed for {what}: {r}"))?;
+        signed::verify_hex(key, &got, want.sig)
+            .map_err(|r| format!("signature check failed for {what}: {r}"))?;
     }
     let bin = archive::unpack(&bytes, content, &digest)?;
     Ok((bin, digest))
