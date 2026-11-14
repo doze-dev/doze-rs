@@ -2,11 +2,10 @@
 //! It asks only when the page asks (About opens, Check now, the menu's Check for Updates…); nothing runs in the
 //! background. An answer is kept six hours, or until a check is forced.
 //!
-//! The HTTPS request goes through the system's `curl` (owner's question Q6, decided in docs/port/weight.md): it ships
-//! with macOS and Windows and nearly every Linux desktop, and costs the app no bytes, where an HTTPS client in the
-//! binary costs 0.6 to 0.9 MB and 13 to 32 crates. No `curl`, or no network, reads as "could not reach GitHub".
+//! The request itself is the app's to make, through doze's one HTTP client (`doze_cli::http`, the system's `curl` in the
+//! app: docs/port/weight.md, "One HTTP stack"); this module only reads the answer. No `curl`, or no network, reads as
+//! "could not reach GitHub".
 
-use std::process::Command;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -193,33 +192,6 @@ impl Kept {
     pub fn keep(&mut self, now: SystemTime, u: Update) {
         self.last = Some((now, u));
     }
-}
-
-/// Asks GitHub through the system's `curl`: the status and the body, or `None` when it could not be reached.
-pub fn fetch(url: &str) -> Option<(u16, String)> {
-    let out = Command::new("curl")
-        .args([
-            "--silent",
-            "--show-error",
-            "--location",
-            "--max-time",
-            "8",
-            "--proto",
-            "=https",
-            "--header",
-            "Accept: application/vnd.github+json",
-            "--user-agent",
-            "doze",
-            "--write-out",
-            "\n%{http_code}",
-            url,
-        ])
-        .output()
-        .ok()?;
-    let text = String::from_utf8_lossy(&out.stdout);
-    let (body, code) = text.rsplit_once('\n')?;
-    let code: u16 = code.trim().parse().ok()?;
-    (code != 0).then(|| (code, body.to_owned()))
 }
 
 #[cfg(test)]

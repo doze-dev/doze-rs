@@ -2655,6 +2655,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-module-ferret"
+version = "0.0.0"
+dependencies = [
+ "doze-module",
+ "doze-module-proto",
+ "doze-module-test",
+ "doze-os",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "doze-module-host"
 version = "0.0.0"
 dependencies = [
