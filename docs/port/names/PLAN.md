@@ -161,7 +161,7 @@ crates/doze-os/src/tun/       utun on macOS
 | N3 ✓ | CA and front door: Host/SNI routing, leaf minting, first-come :80/:443 | ca, ingress | 3 |
 | N4 ✓ (root run pending) | Listen/forward; macOS netd: tunnel, translation, table cache (privileged parts tested on the owner's Mac) | listen, nat, netd, e2e_darwin | 5 |
 | N5 | Setup and trust per OS as data: macOS, Linux (in the Lima VM with sudo), Windows (NRPT, in CI) | setup, setup_linux, setup_netd_linux, setup_darwin, resolvconf, trust | 5 |
-| N6 | Wire into Rust doze-aws and doze-kafka (`aws.doze`, `kafka.doze` again), then the core | their own e2e | 2 |
+| N6 ✓ (core side) | Names for modules, as doze `docs/design/next/module-names.md` (agreed 2026-11-07) has it: the core claims, modules declare listeners and routes. Not inside doze-aws/doze-kafka: the standalone binaries left the zone on 2026-11-07 (doze-aws 5c1caad) | doze-bind plan + bind | 2 |
 
 About 23 days. N0 to N3 need no privilege and run unattended; N4 and N5 need root (the owner's Mac, the Lima VM, the
 elevated Windows runners). Tests never touch the real zone: a private home with `DOZE_ZONE_RESOLVER` and
@@ -185,4 +185,13 @@ elevated Windows runners). Tests never touch the real zone: a private home with 
   and by-hand runs. Better than Go: https to a routed name on macOS (the table forwards 443 to the front door too, job
   version 4); no heal thread in every program (ports.rs says why). Root end-to-end: `scripts/names-e2e-darwin.sh`
   (owner runs it once: stops Go's launchd daemon for the run, runs ours for a throwaway home, restores Go's).
-- **Not started**: N5 (setup and trust), N6 (wiring into doze-aws, doze-kafka and the core).
+- **N6 built 2026-11-13** (branch names-n6, crate `doze-bind`): the core side of module names. `plan` is pure (the
+  stack's declarations to names, public ports, routes and URLs, with every collision found before anything runs and
+  both parties named: a sibling route that is another instance's name, two services on one port without names, the
+  person's port on another listener's). `bind` claims each instance's name, twins child and sibling routes, opens
+  each public port with `Lease::listen`, publishes the routes to the front door, and returns protocol 2's
+  `Granted` per listener; dropping it gives everything back. The four cases of the design (postgres, kafka, aws,
+  mailpit-like) are its tests. It plugs into the Rust core's daemon when that exists (the proxy accepts on the bound
+  sockets). Note: the standalone doze-aws and doze-kafka binaries do not join the zone (owner, 2026-11-07); doze-aws
+  and every other module reach names by declaring routes.
+- **Not started**: N5 (setup and trust).

@@ -37,7 +37,7 @@ pub(super) struct File {
 
 #[derive(Debug)]
 pub(super) enum Decl {
-    Package(String, Span),
+    Package(String),
     /// The modifier (`public`, `weak` or none), the path, the path's source.
     Import(&'static str, String, Span),
     Option(Opt),

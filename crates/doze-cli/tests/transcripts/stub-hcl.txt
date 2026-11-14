@@ -1,0 +1,101 @@
+# lint, fmt, init and add need doze.hcl read, and there is no HCL crate in the workspace yet.
+
+$ doze lint
+exit 1
+stderr:
+| error[DZ0001]: `doze lint` is not built yet: it reads doze.hcl, and the workspace has no HCL crate yet (the core port brings one)
+|   fix: the Go doze does this today
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze lint",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "`doze lint` is not built yet: it reads doze.hcl, and the workspace has no HCL crate yet (the core port brings one)",
+|     "exit": 1,
+|     "id": "DZ0001",
+|     "fix": "the Go doze does this today"
+|   }
+| }
+
+$ doze fmt --check
+exit 1
+stderr:
+| error[DZ0001]: `doze fmt` is not built yet: it reads doze.hcl, and the workspace has no HCL crate yet (the core port brings one)
+|   fix: the Go doze does this today
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze fmt",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "`doze fmt` is not built yet: it reads doze.hcl, and the workspace has no HCL crate yet (the core port brings one)",
+|     "exit": 1,
+|     "id": "DZ0001",
+|     "fix": "the Go doze does this today"
+|   }
+| }
+
+$ doze modules upgrade --check
+exit 1
+stderr:
+| error[DZ0001]: `doze modules upgrade` is not built yet: choosing what fits needs the engine versions doze.hcl declares, and doze.lock is written by the core
+|   fix: the Go doze does this today
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules upgrade",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "`doze modules upgrade` is not built yet: choosing what fits needs the engine versions doze.hcl declares, and doze.lock is written by the core",
+|     "exit": 1,
+|     "id": "DZ0001",
+|     "fix": "the Go doze does this today"
+|   }
+| }
+
+$ doze doctor --fix --dry-run
+exit 1
+stderr:
+| error[DZ0001]: `doze doctor --fix` is not built yet: the one-sudo machine setup for names and certificates is not ported yet
+|   fix: the Go doze does this today
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze doctor",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "`doze doctor --fix` is not built yet: the one-sudo machine setup for names and certificates is not ported yet",
+|     "exit": 1,
+|     "id": "DZ0001",
+|     "fix": "the Go doze does this today"
+|   }
+| }
+
+$ doze bug
+exit 1
+stderr:
+| error[DZ0001]: `doze bug` is not built yet: the report needs the stack's shape and its logs, which come from the core
+|   fix: the Go doze does this today
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze bug",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "`doze bug` is not built yet: the report needs the stack's shape and its logs, which come from the core",
+|     "exit": 1,
+|     "id": "DZ0001",
+|     "fix": "the Go doze does this today"
+|   }
+| }

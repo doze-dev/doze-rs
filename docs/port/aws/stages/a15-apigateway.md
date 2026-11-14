@@ -81,7 +81,7 @@ region that has files):
   `SQS-SendMessage/ReceiveMessage/DeleteMessage/PurgeQueue`, `EventBridge-PutEvents`, `Kinesis-PutRecord`, `StepFunctions-StartExecution/
   StartSyncExecution/StopExecution` (Step Functions answers when its stage lands; until then the bus says no such service).
 - **HTTP and HTTP_PROXY** with parameter mappings (REST `integration.request.*`; HTTP API `overwrite:path`, `append:/overwrite:/remove:` on
-  headers and query), `{proxy}` placeholders, timeouts (504). Plain `http://` only: there is no TLS client (as SNS and EventBridge).
+  headers and query), `{proxy}` placeholders, timeouts (504). Plain `http://` only: there is no TLS client (as SNS and EventBridge). **(Superseded 2026-11-14: outbound https is built; see `stages/tls.md`.)**
 - **Authorizers:** Lambda TOKEN and REQUEST (REST) and REQUEST in payload 1.0/2.0 with simple or policy answers (HTTP), identity sources,
   validation expressions, the function's `Unauthorized` as 401, the returned **IAM policy evaluated by `aws-iam-policy`** for the method ARN
   (explicit deny wording), context and `principalId` on the event, AWS's cache by authorizer and identity for the TTL (bounded, cleared by any
@@ -196,7 +196,7 @@ Lambda-proxy scenarios cover proxy; a Lambda authorizer needs a function process
 ## Open decisions for the owner
 
 1. **Deployments as snapshots** (AWS's behaviour) replaces Go's "serve the live API". If the owner prefers Go's convenience, a flag could serve live.
-2. **No TLS client**: HTTP integrations, JWKS fetches and `https://` backends cannot be called; JWT signatures from an `https://` issuer are not
+2. **No TLS client**: HTTP integrations, JWKS fetches and `https://` backends cannot be called; JWT signatures from an `https://` issuer are not **(Superseded 2026-11-14: outbound https is built; see `stages/tls.md`.)**
    verified (claims are). Same size decision as SNS and EventBridge.
 3. **The `@connections` API has no model** in the repository (`apigatewaymanagementapi`); it is served by hand on the plane and its signatures are
    not checked. Adding the model would let the gateway route and verify it.

@@ -1,0 +1,18 @@
+# --web opens the module's page on the registry site; no browser is the machine's problem.
+
+$ doze modules docs valkey --web
+exit 0
+stdout:
+| → opened https://doze-dev.com/registry/doze/valkey/ in your browser
+opened:
+| https://doze-dev.com/registry/doze/valkey/
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules docs",
+|   "ok": true,
+|   "data": {
+|     "opened": "https://doze-dev.com/registry/doze/valkey/"
+|   }
+| }

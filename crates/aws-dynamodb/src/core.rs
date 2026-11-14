@@ -20,14 +20,25 @@ use crate::stream::{Batch, StreamInfo};
 
 const VERSION: u8 = 1;
 
-/// How long a table or index stays in a transitional state (`CREATING`, `UPDATING`, `DELETING`). AWS takes seconds to minutes; the
-/// default here is none, so a waiter passes on its first probe, and a test that wants to see the state turns them up with
-/// `DOZE_DDB_CREATE_MS`, `DOZE_DDB_UPDATE_MS` and `DOZE_DDB_DELETE_MS`.
+/// How long a table or index stays in a transitional state (`CREATING`, `UPDATING`, `DELETING`), in milliseconds. AWS takes seconds
+/// to minutes; the default here is none, so a waiter passes on its first probe, and a test that wants to see the state turns them up
+/// (`doze-aws --dynamodb-create-ms` and its siblings; a host that passes none falls back to `DOZE_DDB_CREATE_MS`, `DOZE_DDB_UPDATE_MS`
+/// and `DOZE_DDB_DELETE_MS`).
 #[derive(Clone, Copy, Debug, Default)]
-pub(crate) struct Windows {
-    pub(crate) create_ms: i64,
-    pub(crate) update_ms: i64,
-    pub(crate) delete_ms: i64,
+pub struct Windows {
+    /// `CREATING`, after `CreateTable` (and an index added by `UpdateTable`: `CREATING` on the index).
+    pub create_ms: i64,
+    /// `UPDATING`, after `UpdateTable`.
+    pub update_ms: i64,
+    /// `DELETING`, after `DeleteTable`.
+    pub delete_ms: i64,
+}
+
+/// What the host hands each region's actor: the bus, and the transitional windows.
+#[derive(Debug)]
+pub(crate) struct Ext {
+    pub(crate) peers: Option<Arc<Peers>>,
+    pub(crate) windows: Windows,
 }
 
 impl Windows {
@@ -147,7 +158,15 @@ impl doze_runtime::Service for Core {
     type Error = StoreError;
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
-        Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
+        let mut core = Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))?;
+        if let Some(ext) = ctx
+            .ext
+            .as_ref()
+            .and_then(|e| Arc::clone(e).downcast::<Ext>().ok())
+        {
+            core.windows = ext.windows;
+        }
+        Ok(core)
     }
 
     async fn handle(&mut self, req: Request) -> Answer {
@@ -407,9 +426,11 @@ fn endpoints(cx: &Cx<'_>) -> Json {
     serde_json::json!({"Endpoints": [{"Address": host, "CachePeriodInMinutes": 1440}]})
 }
 
-/// The bus the host handed this service, if it did.
-fn peers_of(ctx: &Ctx) -> Option<Arc<Peers>> {
-    ctx.ext
-        .as_ref()
-        .and_then(|e| Arc::clone(e).downcast::<Peers>().ok())
+/// The bus the host handed this service, if it did (directly, or inside the [`Ext`] that also carries the windows).
+pub(crate) fn peers_of(ctx: &Ctx) -> Option<Arc<Peers>> {
+    let ext = ctx.ext.as_ref()?;
+    if let Ok(ours) = Arc::clone(ext).downcast::<Ext>() {
+        return ours.peers.clone();
+    }
+    Arc::clone(ext).downcast::<Peers>().ok()
 }

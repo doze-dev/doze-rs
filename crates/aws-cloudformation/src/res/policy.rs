@@ -42,6 +42,7 @@ const SERVED: &[&str] = &[
     "ApiGateway",
     "ApiGatewayV2",
     "CloudFormation",
+    "Scheduler",
 ];
 
 /// Types of a served family that are skipped (stored nowhere, reported on the resource), with why.

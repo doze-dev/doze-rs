@@ -1,0 +1,38 @@
+[package]
+name = "doze-fetch"
+version = "0.0.0"
+description = "Fetching what doze runs: the signed module registry, engine builds from the mirror, the cache, and doze.lock"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-module-proto = { path = "../doze-module-proto" }
+doze-module-host = { path = "../doze-module-host" }
+# Cross-process file locks: parallel `__fetch` children share the cache and doze.lock.
+doze-os = { path = "../doze-os" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+yaml-rust2 = "0.13"
+# The registry's signatures (the index, each artifact, the release file): verify only, with the key built in.
+ed25519-dalek = { version = "3", default-features = false, features = [] }
+sha2 = "0.11"
+hex = "0.4"
+base64ct = { version = "1", features = ["alloc"] }
+# One blocking GET with a deadline. Downloads run in a child (`doze __fetch`), never in the daemon.
+ureq = { version = "3", default-features = false, features = ["rustls-no-provider", "gzip"] }
+# TLS for ureq: ring as the provider (as doze-names), and this machine's trust store for roots.
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
+rustls-native-certs = "0.8"
+# Engine and module archives (.tar.gz); pure Rust.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+tar = { version = "0.4", default-features = false }
+tokio = { version = "1.54", features = ["process", "io-util", "rt"] }
+
+[dev-dependencies]
+tokio = { version = "1.54", features = ["rt", "macros"] }

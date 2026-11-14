@@ -1,6 +1,6 @@
 //! API destinations: an HTTP endpoint, a method and a connection. They are stored and described. A rule target that is an API
-//! destination makes an HTTP request (`deliver_http.rs`) over a Basic or API key connection to an `http://` endpoint; OAuth client
-//! credentials and `https://` are not called (SCOPE.md defers the token request; there is no TLS client). A destination is `ACTIVE`
+//! destination makes an HTTP request (`deliver_http.rs`) over a Basic or API key connection to an `http://` or `https://` endpoint; OAuth
+//! client credentials are not called (SCOPE.md defers the token request). A destination is `ACTIVE`
 //! while its connection exists and is authorized.
 //!
 //! The wording of refusals is from memory.

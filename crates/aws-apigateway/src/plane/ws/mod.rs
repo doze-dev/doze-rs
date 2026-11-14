@@ -2,8 +2,7 @@
 //! the API has one) runs first and may refuse; each message is routed by the API's `routeSelectionExpression` (`$request.body.action`)
 //! to its route or `$default`; `$disconnect` runs when the connection ends. A backend talks back through the `@connections`
 //! management API (`POST`, `GET`, `DELETE /<stage>/@connections/<id>`, the `apigatewaymanagementapi` client pointed at
-//! `<endpoint>/_aws/execute-api/<api>/<stage>`). There is no model for that API in this repository, so it is served by hand here and
-//! its requests' signatures are not checked.
+//! `<endpoint>/_aws/execute-api/<api>/<stage>`), served from its model like any REST service (`management.rs`).
 
 mod frame;
 mod session;
@@ -11,7 +10,8 @@ mod session;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use aws_wire::service::{Upgrade, WebReply, WebRequest};
+use aws_wire::ApiError;
+use aws_wire::service::{Upgrade, WebRequest};
 use bytes::Bytes;
 use serde_json::json;
 use tokio::sync::mpsc;
@@ -77,31 +77,28 @@ impl Connections {
     }
 }
 
-/// `<stage>/@connections/<id>` of a management request.
-pub(crate) fn management_path(rest: &str) -> Option<(&str, &str)> {
-    let (stage, after) = rest.split_once('/')?;
-    let id = after.strip_prefix("@connections/")?;
-    Some((stage, id))
+/// What the management API asks of a connection.
+pub(crate) enum Manage {
+    Post(Bytes),
+    Get,
+    Delete,
 }
 
-fn gone(id: &str) -> WebReply {
-    let mut r = reply::message(410, &format!("Connection {id} is gone"));
-    r.headers
-        .push(("x-amzn-ErrorType".into(), "GoneException".into()));
-    r
+/// A connection that is not there (any more). (memory) AWS's message.
+fn gone(id: &str) -> ApiError {
+    ApiError::new(410, "GoneException", format!("Connection {id} is gone"))
 }
 
-/// The `@connections` API: post to a connection, read it, or close it.
-pub(crate) async fn manage(
-    inner: &Arc<Inner>,
+/// The `@connections` API (`management.rs`): post to a connection of `api`, read it, or close it. The answer is the operation's
+/// output, by the model's wire names.
+pub(crate) fn manage(
+    inner: &Inner,
     api: &str,
-    _stage: &str,
-    conn: &str,
-    request: WebRequest,
-) -> WebReply {
-    let id = aws_core::uri::decode_str(conn).map_or_else(|| conn.to_owned(), |c| c.into_owned());
+    id: &str,
+    what: Manage,
+) -> Result<serde_json::Value, ApiError> {
     let found = inner.plane.ws.with(|m| {
-        m.get(&id).filter(|c| c.api == api).map(|c| {
+        m.get(id).filter(|c| c.api == api).map(|c| {
             (
                 c.tx.clone(),
                 c.connected_ms,
@@ -112,29 +109,31 @@ pub(crate) async fn manage(
         })
     });
     let Some((tx, connected, last, ip, agent)) = found else {
-        return gone(&id);
+        return Err(gone(id));
     };
     let iso = |ms: i64| aws_core::time::format_iso8601(ms / 1000);
-    match request.method.as_str() {
-        "POST" => match tx.try_send(Out::Text(String::from_utf8_lossy(&request.body).into_owned())) {
-            Ok(()) => reply::of(200, Vec::new(), Bytes::new()),
-            Err(mpsc::error::TrySendError::Full(_)) => {
-                let mut r = reply::message(429, "Rate exceeded");
-                r.headers.push(("x-amzn-ErrorType".into(), "LimitExceededException".into()));
-                r
+    match what {
+        Manage::Post(data) => {
+            match tx.try_send(Out::Text(String::from_utf8_lossy(&data).into_owned())) {
+                Ok(()) => Ok(json!({})),
+                // (memory)
+                Err(mpsc::error::TrySendError::Full(_)) => Err(ApiError::new(
+                    429,
+                    "LimitExceededException",
+                    "Rate exceeded",
+                )),
+                Err(mpsc::error::TrySendError::Closed(_)) => Err(gone(id)),
             }
-            Err(mpsc::error::TrySendError::Closed(_)) => gone(&id),
-        },
-        "GET" => reply::of(
-            200,
-            vec![("Content-Type".into(), "application/json".into())],
-            Bytes::from(json!({"connectedAt": iso(connected), "identity": {"sourceIp": ip, "userAgent": agent}, "lastActiveAt": iso(last)}).to_string()),
-        ),
-        "DELETE" => {
-            drop(tx.try_send(Out::Close));
-            reply::of(204, Vec::new(), Bytes::new())
         }
-        _ => reply::message(405, "Method Not Allowed"),
+        Manage::Get => Ok(json!({
+            "connectedAt": iso(connected),
+            "identity": {"sourceIp": ip, "userAgent": agent},
+            "lastActiveAt": iso(last),
+        })),
+        Manage::Delete => {
+            drop(tx.try_send(Out::Close));
+            Ok(json!({}))
+        }
     }
 }
 

@@ -107,6 +107,7 @@ impl Core {
             parts: Vec::new(),
             tags: Vec::new(),
             lock: crate::model::Lock::default(),
+            acl: None,
         };
         self.put_row(bucket, &marker)?;
         Ok(Removed {

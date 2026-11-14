@@ -54,7 +54,7 @@ fn call_of(req: &WebRequest, id: &RequestId) -> Result<Call, ApiError> {
         op: Operation::ConfirmSubscription.index(),
         id: id.clone(),
         caller: Caller {
-            access_key_id: "anonymous".to_owned(),
+            access_key_id: Caller::ANONYMOUS.to_owned(),
             account_id: (*account).to_owned(),
             region: (*region).to_owned(),
             endpoint: req.endpoint.clone(),

@@ -14,7 +14,7 @@ use doze_store::{Ack, Db, StoreError};
 use crate::model::{Rotation, Secret};
 use crate::rotate::Run;
 
-const FILE: &str = "secrets.redb";
+pub(crate) const FILE: &str = "secrets.redb";
 const SECRETS: &str = "secrets";
 const ROTATIONS: &str = "rotations";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
@@ -25,8 +25,8 @@ const VERSION: u8 = 1;
 pub(crate) struct Core {
     pub(crate) secrets: Records<Secret>,
     pub(crate) rotations: Records<Rotation>,
-    /// A rotation the call just started, run after its answer is saved.
-    pub(crate) run: Option<Run>,
+    /// The rotations the call (or the timer's tick) just started, run after the answer is saved.
+    pub(crate) runs: Vec<Run>,
     /// The other services (KMS keeps every secret's value), when there are any.
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) clock: Arc<dyn Clock>,
@@ -35,13 +35,22 @@ pub(crate) struct Core {
     next_purge_ms: Option<i64>,
 }
 
+/// What the actor is asked: a call from a client, or the rotation timer's tick (start every rotation that is due).
+#[derive(Debug)]
+pub(crate) enum Request {
+    Call(Box<Call>),
+    Tick,
+}
+
 /// What the actor answers: the reply, and the commit it must wait for.
 #[derive(Debug)]
 pub(crate) struct Answer {
     pub(crate) reply: Reply,
     pub(crate) durable: Option<Ack>,
-    /// A rotation to run once the answer is saved.
-    pub(crate) run: Option<Run>,
+    /// The rotations to run once the answer is saved.
+    pub(crate) runs: Vec<Run>,
+    /// When the next scheduled rotation of the region is due, for the region's timer.
+    pub(crate) next_due: Option<i64>,
 }
 
 /// The operations this service runs. The others are refused by name before their request is read: replication to other
@@ -56,7 +65,7 @@ pub(crate) fn built(op: Operation) -> bool {
 }
 
 impl doze_runtime::Service for Core {
-    type Request = Call;
+    type Request = Request;
     type Response = Answer;
     type Error = StoreError;
 
@@ -64,7 +73,11 @@ impl doze_runtime::Service for Core {
         Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
     }
 
-    async fn handle(&mut self, call: Call) -> Answer {
+    async fn handle(&mut self, request: Request) -> Answer {
+        let call = match request {
+            Request::Call(call) => *call,
+            Request::Tick => return self.tick(),
+        };
         if let Some(peers) = self.peers.clone()
             && peers.mode() != Mode::Off
             && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
@@ -72,7 +85,8 @@ impl doze_runtime::Service for Core {
             return Answer {
                 reply: Err(refusal),
                 durable: None,
-                run: None,
+                runs: Vec::new(),
+                next_due: self.next_due(),
             };
         }
         let mut reply = self.dispatch(&call).await;
@@ -83,12 +97,13 @@ impl doze_runtime::Service for Core {
                 None
             }
         };
-        let run = if reply.is_ok() { self.run.take() } else { None };
-        self.run = None;
+        let runs = std::mem::take(&mut self.runs);
+        let runs = if reply.is_ok() { runs } else { Vec::new() };
         Answer {
             reply,
             durable,
-            run,
+            runs,
+            next_due: self.next_due(),
         }
     }
 
@@ -137,7 +152,7 @@ impl Core {
         Self {
             secrets,
             rotations,
-            run: None,
+            runs: Vec::new(),
             peers,
             clock,
             db,
@@ -207,7 +222,7 @@ impl Core {
             Operation::GetResourcePolicy => self.get_resource_policy(call),
             Operation::DeleteResourcePolicy => self.delete_resource_policy(call),
             Operation::ValidateResourcePolicy => self.validate_resource_policy(call),
-            Operation::RotateSecret => self.rotate_secret(call),
+            Operation::RotateSecret => self.rotate_secret(call).await,
             Operation::CancelRotateSecret => self.cancel_rotate_secret(call),
             _ => Err(ApiError::new(
                 501,
