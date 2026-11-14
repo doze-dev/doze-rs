@@ -34,6 +34,7 @@ aws-sfn = { path = "../aws-sfn" }
 aws-cloudformation = { path = "../aws-cloudformation" }
 aws-peers = { path = "../aws-peers" }
 aws-wire = { path = "../aws-wire" }
+aws-webhook = { path = "../aws-webhook" }
 aws-schema = { path = "../aws-schema" }
 aws-core = { path = "../aws-core" }
 doze-runtime = { path = "../doze-runtime" }

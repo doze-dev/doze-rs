@@ -41,6 +41,27 @@ pub(crate) fn main(cfg: &Config, started: Instant) -> i32 {
     }
 }
 
+/// Whom outbound https calls trust: the OS store, `--ca-file`, or (said loudly) nothing is verified.
+fn outbound_tls(cfg: &Config) -> Result<(), String> {
+    let ca = cfg.text("ca-file");
+    let ca = (!ca.is_empty()).then(|| PathBuf::from(&ca));
+    let trust = aws_webhook::Trust::new(ca.as_deref(), cfg.switch("insecure-outbound-tls"))?;
+    if trust.insecure {
+        tracing::warn!(
+            "--insecure-outbound-tls: the certificates of outbound https calls (SNS https subscriptions, API destinations, API Gateway HTTP integrations, JWT issuers) are NOT verified. Use this only with local servers; --ca-file <PEM> trusts a self-signed certificate without turning verification off"
+        );
+    }
+    if let Some(file) = &ca {
+        tracing::info!(
+            "outbound https trusts the OS trust store and {} certificate(s) of {}",
+            trust.extra.len(),
+            file.display()
+        );
+    }
+    aws_webhook::configure(trust);
+    Ok(())
+}
+
 async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     let data = cfg.data_dir();
     let _lock = match DataDirLock::take(&data, "doze-aws") {
@@ -50,6 +71,7 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
         }
         Err(e) => return Err(format!("doze-aws cannot use its data directory: {e}")),
     };
+    outbound_tls(cfg)?;
     let on = crate::services::parse_list(&cfg.list("services"))?;
     let listen: std::net::SocketAddr = cfg
         .text("listen")

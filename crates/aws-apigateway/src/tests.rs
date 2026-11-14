@@ -22,6 +22,7 @@ use crate::{ApiGateway, ApiGatewayV2};
 mod openapi;
 mod plane;
 mod rest;
+mod tls;
 mod v2;
 mod websocket;
 

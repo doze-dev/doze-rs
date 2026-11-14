@@ -249,6 +249,22 @@ pub(crate) const KEYS: &[Key] = &[
         "Milliseconds a DynamoDB table stays DELETING after DeleteTable",
         SERVICES,
     ),
+    key(
+        "ca-file",
+        Kind::Text,
+        "",
+        "PEM",
+        "Certificate authorities trusted for outbound https (SNS, API destinations, API Gateway, JWT issuers), beside the OS store",
+        SERVICES,
+    ),
+    key(
+        "insecure-outbound-tls",
+        Kind::Switch,
+        "false",
+        "",
+        "Do not verify outbound https certificates (local self-signed servers only)",
+        SERVICES,
+    ),
 ];
 
 /// The setting called `name`.

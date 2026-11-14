@@ -76,7 +76,9 @@ impl Config {
             let overruled = filed
                 .filter(|(v, _)| matches!(source, Source::Flag | Source::Env) && *v != value)
                 .map(|(v, _)| v);
-            if key.name == "data-dir" || (key.name == "template" && !value.concat().is_empty()) {
+            if key.name == "data-dir"
+                || (matches!(key.name, "template" | "ca-file") && !value.concat().is_empty())
+            {
                 let base = if matches!(source, Source::File(_)) {
                     &file_dir
                 } else {

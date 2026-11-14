@@ -1,135 +1,221 @@
-//! The one HTTP request a service makes to the outside (an EventBridge API destination, an SNS `http` subscription): HTTP/1.1 over a
-//! plain TCP connection, one request, `Connection: close`, the answer's status line read and the rest ignored. There is no TLS client in
-//! doze-aws (a size decision the owner has not made), so an `https://` endpoint is not called; the caller says so.
+//! The HTTP requests the services make to the outside: an SNS `http`/`https` subscription, an EventBridge API destination, an API
+//! Gateway HTTP integration, a JWT authorizer's key fetch. HTTP/1.1, one request per connection (`Connection: close`; nothing here
+//! kept connections before, and none of these callers sends often enough to the same place for a pool to pay for its idle sockets),
+//! over plain TCP for `http://` and TLS (rustls) for `https://`.
 //!
-//! The request waits at most five seconds; callers run it off their actor, so nothing waits on it but the delivery itself.
+//! **Trust** ([`Trust`], `tls.rs`) is set once at start ([`configure`]) from doze-aws's flags; the TLS configuration is built on the
+//! first `https://` call, so a process that never calls out never reads the OS trust store. A refused certificate is explained with
+//! the flag that fixes it.
+//!
+//! **Timeouts** are the caller's (each service's own, as AWS documents them): the whole exchange, connecting included, must finish in
+//! [`Request::timeout`]. Callers run requests off their actor, so nothing waits on one but the delivery itself.
 
+mod answer;
+mod tls;
+mod url;
+
+#[cfg(any(test, feature = "test-server"))]
+pub mod test_server;
+
+use std::fmt;
+use std::sync::OnceLock;
 use std::time::Duration;
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio::sync::OnceCell;
 
-/// How long a request may take, connecting and answering.
-const TIMEOUT: Duration = Duration::from_secs(5);
-/// How much of the answer is read: the status line is all that is used.
-const READ_LIMIT: usize = 8 * 1024;
+pub use tls::Trust;
 
 /// A request to send.
 #[derive(Debug)]
 pub struct Request<'a> {
     pub method: &'a str,
-    /// `http://host:port/path?query`.
+    /// `http://host[:port]/path?query` or `https://…`.
     pub url: &'a str,
     pub headers: &'a [(String, String)],
-    pub body: &'a str,
+    pub body: &'a [u8],
+    /// The most the whole exchange may take, connecting and the TLS handshake included.
+    pub timeout: Duration,
+    /// The most bytes of the answer read; past it the call fails (unless only the status is wanted).
+    pub limit: usize,
+    /// Read the status line and stop (a delivery that only judges the status).
+    pub status_only: bool,
+    /// Accept a certificate no trusted authority signed, if it is for the name called (API Gateway's
+    /// `tlsConfig.insecureSkipVerification`).
+    pub skip_verification: bool,
 }
 
-/// Why nothing was sent, or what came back.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Sent {
-    /// The status the server answered.
-    Status(u16),
-    /// The request could not be made (connection refused, timeout, an answer that is not HTTP).
-    Failed(String),
-    /// The scheme is one this client does not speak.
-    Unsupported(String),
-}
-
-/// `host`, `port` and `path?query` of an `http://` URL.
-fn split(url: &str) -> Option<(&str, u16, String)> {
-    let rest = url.strip_prefix("http://")?;
-    let (authority, path) = rest
-        .find(['/', '?'])
-        .map_or((rest, "/"), |i| rest.split_at(i));
-    let path = if path.starts_with('?') {
-        format!("/{path}")
-    } else {
-        path.to_owned()
-    };
-    let (host, port) = match authority.rsplit_once(':') {
-        Some((h, p)) => (h, p.parse().ok()?),
-        None => (authority, 80),
-    };
-    (!host.is_empty()).then_some((host, port, path))
-}
-
-/// The request as bytes: the headers the caller gave, then ours.
-fn head(r: &Request<'_>, host: &str, path: &str) -> String {
-    let mut out = format!("{} {path} HTTP/1.1\r\nHost: {host}\r\n", r.method);
-    for (k, v) in r.headers {
-        // A header value may not carry a line break; one that does is cut at it.
-        let v = v.split(['\r', '\n']).next().unwrap_or_default();
-        out.push_str(&format!("{k}: {v}\r\n"));
-    }
-    out.push_str(&format!(
-        "Content-Length: {}\r\nConnection: close\r\n\r\n",
-        r.body.len()
-    ));
-    out
-}
-
-/// Makes the request.
-pub async fn send(r: &Request<'_>) -> Sent {
-    let Some((host, port, path)) = split(r.url) else {
-        return Sent::Unsupported(format!(
-            "{} is not an http:// URL; this client does not speak TLS",
-            r.url
-        ));
-    };
-    match tokio::time::timeout(TIMEOUT, exchange(r, host, port, &path)).await {
-        Ok(Ok(status)) => Sent::Status(status),
-        Ok(Err(why)) => Sent::Failed(why),
-        Err(_) => Sent::Failed(format!("no answer from {host}:{port} in {TIMEOUT:?}")),
-    }
-}
-
-async fn exchange(r: &Request<'_>, host: &str, port: u16, path: &str) -> Result<u16, String> {
-    let mut stream = TcpStream::connect((host, port))
-        .await
-        .map_err(|e| format!("could not connect to {host}:{port}: {e}"))?;
-    let wire = head(r, host, path) + r.body;
-    stream
-        .write_all(wire.as_bytes())
-        .await
-        .map_err(|e| format!("could not send: {e}"))?;
-    let mut answer = Vec::new();
-    let mut buf = [0u8; 1024];
-    while answer.len() < READ_LIMIT && !answer.contains(&b'\n') {
-        let n = stream
-            .read(&mut buf)
-            .await
-            .map_err(|e| format!("could not read the answer: {e}"))?;
-        if n == 0 {
-            break;
+impl<'a> Request<'a> {
+    /// A request with no headers or body, five seconds and 1 MiB.
+    #[must_use]
+    pub fn new(method: &'a str, url: &'a str) -> Self {
+        Self {
+            method,
+            url,
+            headers: &[],
+            body: &[],
+            timeout: Duration::from_secs(5),
+            limit: 1024 * 1024,
+            status_only: false,
+            skip_verification: false,
         }
-        answer.extend_from_slice(buf.get(..n).unwrap_or_default());
     }
-    let line = String::from_utf8_lossy(&answer);
-    let status = line
-        .lines()
-        .next()
-        .and_then(|l| l.split(' ').nth(1))
-        .and_then(|s| s.parse().ok());
-    status.ok_or_else(|| "the answer was not HTTP".to_owned())
+}
+
+/// What came back.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Answer {
+    pub status: u16,
+    pub headers: Vec<(String, String)>,
+    pub body: Vec<u8>,
+}
+
+/// Why no answer came back.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Failure {
+    /// The URL is not `http://` or `https://`.
+    Unsupported(String),
+    /// The connection could not be made, or broke.
+    Connect(String),
+    /// The server's certificate was refused (the message names the flag that fixes it), or the handshake failed.
+    Tls(String),
+    /// No answer in time.
+    Timeout(String),
+    /// The answer is not HTTP, or is larger than the limit.
+    Protocol(String),
+}
+
+impl fmt::Display for Failure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (Self::Unsupported(m)
+        | Self::Connect(m)
+        | Self::Tls(m)
+        | Self::Timeout(m)
+        | Self::Protocol(m)) = self;
+        f.write_str(m)
+    }
+}
+
+/// A client: its trust, and the TLS configuration built from it on first use.
+#[derive(Debug)]
+pub struct Client {
+    trust: Trust,
+    tls: OnceCell<Result<tls::Connectors, String>>,
+}
+
+impl Client {
+    #[must_use]
+    pub fn new(trust: Trust) -> Self {
+        Self {
+            trust,
+            tls: OnceCell::new(),
+        }
+    }
+
+    /// Makes the request.
+    ///
+    /// # Errors
+    /// No answer came back: see [`Failure`].
+    pub async fn fetch(&self, r: &Request<'_>) -> Result<Answer, Failure> {
+        let Some(t) = url::split(r.url) else {
+            return Err(Failure::Unsupported(format!(
+                "{} is not an http:// or https:// URL",
+                r.url
+            )));
+        };
+        let at = format!("{}:{}", t.host, t.port);
+        let exchange = async {
+            let wire = answer::wire(r, t.authority, &t.path);
+            let mut tcp = TcpStream::connect((t.host, t.port))
+                .await
+                .map_err(|e| Failure::Connect(format!("could not connect to {at}: {e}")))?;
+            if !t.tls {
+                return answer::exchange(&mut tcp, r, &wire).await;
+            }
+            let connectors = self.connectors().await?;
+            let connector = if r.skip_verification {
+                &connectors.lenient
+            } else {
+                &connectors.strict
+            };
+            let name = tls::server_name(t.host).map_err(Failure::Tls)?;
+            let mut stream = connector
+                .connect(name, tcp)
+                .await
+                .map_err(|e| Failure::Tls(tls::explain(t.host, t.port, &e)))?;
+            answer::exchange(&mut stream, r, &wire).await
+        };
+        tokio::time::timeout(r.timeout, exchange)
+            .await
+            .map_err(|_| Failure::Timeout(format!("no answer from {at} in {:?}", r.timeout)))?
+    }
+
+    async fn connectors(&self) -> Result<tls::Connectors, Failure> {
+        let built = self
+            .tls
+            .get_or_init(|| async {
+                let trust = self.trust.clone();
+                // Reading the OS store touches the disk and, on macOS, the keychain: not on the runtime's thread.
+                tokio::task::spawn_blocking(move || tls::connectors(&trust))
+                    .await
+                    .unwrap_or_else(|e| Err(e.to_string()))
+            })
+            .await;
+        built
+            .clone()
+            .map_err(|e| Failure::Tls(format!("outbound TLS is not available: {e}")))
+    }
+}
+
+static CLIENT: OnceLock<Client> = OnceLock::new();
+
+/// Sets the trust every service's requests use. The first call wins (doze-aws makes it once, at start, before any service runs);
+/// without it, the OS trust store alone is used.
+pub fn configure(trust: Trust) -> bool {
+    CLIENT.set(Client::new(trust)).is_ok()
+}
+
+fn client() -> &'static Client {
+    CLIENT.get_or_init(|| Client::new(default_trust()))
+}
+
+/// Unconfigured: the OS trust store.
+#[cfg(not(feature = "test-server"))]
+fn default_trust() -> Trust {
+    Trust {
+        os_store: true,
+        ..Trust::default()
+    }
+}
+
+/// Unconfigured in a test build: the test CA alone, whichever test makes the first request.
+#[cfg(feature = "test-server")]
+fn default_trust() -> Trust {
+    test_server::Ca::get().trust()
+}
+
+/// Makes the request with the process's client.
+///
+/// # Errors
+/// No answer came back: see [`Failure`].
+pub async fn fetch(r: &Request<'_>) -> Result<Answer, Failure> {
+    client().fetch(r).await
+}
+
+/// For the fuzz targets.
+pub mod fuzz {
+    /// An HTTP answer read from any bytes.
+    #[must_use]
+    pub fn http_answer(raw: &[u8]) -> bool {
+        crate::answer::parse(raw).is_ok()
+    }
+
+    /// A URL taken apart.
+    #[must_use]
+    pub fn url(text: &str) -> bool {
+        crate::url::split(text).is_some()
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn urls_are_taken_apart() {
-        assert_eq!(
-            split("http://localhost:9000/a/b?c=1"),
-            Some(("localhost", 9000, "/a/b?c=1".to_owned()))
-        );
-        assert_eq!(
-            split("http://example.test"),
-            Some(("example.test", 80, "/".to_owned()))
-        );
-        assert_eq!(split("http://h?x=1"), Some(("h", 80, "/?x=1".to_owned())));
-        assert_eq!(split("https://example.test/"), None);
-        assert_eq!(split("http://:80/"), None);
-        assert_eq!(split("http://h:notaport/"), None);
-    }
-}
+mod tests;
