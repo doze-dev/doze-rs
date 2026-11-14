@@ -101,6 +101,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "time",
  "tokio",
  "tracing",
 ]
@@ -144,6 +145,7 @@ dependencies = [
 name = "doze-os"
 version = "0.0.0"
 dependencies = [
+ "libc",
  "rustix",
  "tokio",
  "windows-sys",

@@ -25,3 +25,9 @@ name = "fuzz_glob"
 path = "fuzz_targets/fuzz_glob.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_porttrap"
+path = "fuzz_targets/fuzz_porttrap.rs"
+test = false
+doc = false

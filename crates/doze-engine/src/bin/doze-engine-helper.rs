@@ -108,7 +108,10 @@ async fn listen(delay: Duration) -> std::io::Result<()> {
         writeln!(f, "{}", std::process::id())?;
     }
     tokio::time::sleep(delay).await;
-    let port = std::env::var("PORT").unwrap_or_else(|_| "0".into());
+    // `LISTEN_ON` overrides `$PORT`: an app that ignores the port doze gave it (the port trap).
+    let port = std::env::var("LISTEN_ON")
+        .or_else(|_| std::env::var("PORT"))
+        .unwrap_or_else(|_| "0".into());
     let l = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}")).await?;
     println!("listening on {}", l.local_addr()?.port());
     let serve = async {

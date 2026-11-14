@@ -21,6 +21,7 @@ pub mod lifecycle;
 pub mod logs;
 pub mod machine;
 pub mod pidfile;
+pub mod porttrap;
 pub mod process;
 pub mod ready;
 pub mod reaper;

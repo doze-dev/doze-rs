@@ -166,11 +166,13 @@ pub async fn start(
                 return Err(e);
             }
             Err(Gate::NotReady(e)) => {
+                // Asked before the stop, while the app is still up to be looked at (Go's order).
+                let hint = trap_hint(&mut unit, p, &e).await;
                 // Stopped first, as Go's `stopAll`: the pumps drain and the run closes, so the quote has the process's
                 // last words, a line without its newline included (E2 audit 1, M1).
                 unit.stop(STOP_GRACE).await;
                 return Err(StartError {
-                    message: not_ready(&p.name, &e, log),
+                    message: not_ready(&p.name, &e, &hint, log),
                     timeout: matches!(e, NotReady::Timeout(_)),
                 });
             }
@@ -210,14 +212,37 @@ async fn gate(
     Ok(())
 }
 
-fn not_ready(name: &str, e: &NotReady, log: &RunLog) -> String {
+fn not_ready(name: &str, e: &NotReady, hint: &str, log: &RunLog) -> String {
+    let mut msg = format!("{name} not ready: {e}");
+    if !hint.is_empty() {
+        msg.push_str(". ");
+        msg.push_str(hint);
+    }
     // Go quotes the newest run's last 200 lines.
     let tail = log.recent(200).join("\n");
     let tail = tail.trim();
-    if tail.is_empty() {
-        format!("{name} not ready: {e}")
-    } else {
-        format!("{name} not ready: {e}\n{tail}")
+    if !tail.is_empty() {
+        msg.push('\n');
+        msg.push_str(tail);
+    }
+    msg
+}
+
+/// The port trap's hint for a process whose check timed out while it still ran with a `$PORT` doze gave it.
+async fn trap_hint(unit: &mut Unit, p: &Process, e: &NotReady) -> String {
+    let port = crate::porttrap::env_port(&p.env);
+    if port == 0 || !matches!(e, NotReady::Timeout(_)) {
+        return String::new();
+    }
+    let Some((_, tree)) = unit.procs.last_mut() else {
+        return String::new();
+    };
+    let Some(pid) = tree.pid().filter(|_| matches!(tree.running(), Ok(true))) else {
+        return String::new();
+    };
+    match crate::porttrap::listening(pid).await {
+        Some(ports) => crate::porttrap::hint(&p.name, port, &ports),
+        None => String::new(),
     }
 }
 
