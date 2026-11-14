@@ -44,10 +44,10 @@ impl Core {
             .aliases
             .iter()
             .filter(|a| a.routes.iter().any(|(v, _)| *v == n))
-            .map(|a| format!("{key}:{}", a.name))
+            .map(|a| a.name.clone())
             .collect();
         if !routed.is_empty() {
-            // (memory)
+            // Recorded 2026-11-15: the aliases by name, and a 400 (all of Step Functions' client errors are).
             return Err(conflict(format!(
                 "Version to be deleted must not be referenced by an alias. Current list of aliases referencing this version: [{}]",
                 routed.join(", ")

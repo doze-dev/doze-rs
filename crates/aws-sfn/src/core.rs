@@ -89,6 +89,8 @@ pub(crate) struct Core {
     pub(crate) region: String,
     /// The local-testing settings of the last request.
     pub(crate) config: Arc<crate::Config>,
+    /// Tokens already answered, newest last, with the activity ARN (empty for a callback): a second answer is `TaskTimedOut`.
+    pub(crate) spent: VecDeque<(String, String)>,
 }
 
 /// Every operation of the model is built (Go's support table marks all 37 F).
@@ -193,6 +195,7 @@ impl Core {
             last_caller: None,
             region: String::new(),
             config: Arc::default(),
+            spent: VecDeque::new(),
         }
     }
 

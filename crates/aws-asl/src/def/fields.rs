@@ -114,10 +114,10 @@ impl<'a> Obj<'a> {
             (None, Some(Value::String(p))) => Num::Path(p.clone()),
             (None, None) => Num::None,
             (Some(_), Some(_)) => {
-                // (memory)
+                // Worded as AWS words the Wait state's choice (recorded 2026-11-15); the order for this pair is (memory).
                 out.push(Diagnostic::error(
                     SCHEMA,
-                    format!("Only one of these fields is allowed: [{name}, {path}]"),
+                    format!("There should only be one of the following fields: [{path}, {name}]"),
                     &self.at,
                 ));
                 Num::None
@@ -137,11 +137,11 @@ impl<'a> Obj<'a> {
     pub(super) fn only(&self, allowed: &[&str], out: &mut Vec<Diagnostic>) {
         for name in self.map.keys() {
             if !allowed.contains(&name.as_str()) {
-                // (memory)
+                // Recorded 2026-11-15: placed at the object, not at the field.
                 out.push(Diagnostic::error(
                     SCHEMA,
-                    format!("The field '{name}' is not supported by Step Functions"),
-                    &self.here(name),
+                    format!("Field '{name}' is not supported"),
+                    &self.at,
                 ));
             }
         }
@@ -157,11 +157,13 @@ impl<'a> Obj<'a> {
         if missing.is_empty() {
             return true;
         }
-        out.push(Diagnostic::error(
-            SCHEMA,
-            format!("These fields are required: [{}]", missing.join(", ")),
-            &self.at,
-        ));
+        // A state without its Type is worded on its own (recorded 2026-11-15); the list form is recorded for StartAt.
+        let message = if missing == ["Type"] {
+            "The field 'Type' is required".to_owned()
+        } else {
+            format!("These fields are required: [{}]", missing.join(", "))
+        };
+        out.push(Diagnostic::error(SCHEMA, message, &self.at));
         false
     }
 }

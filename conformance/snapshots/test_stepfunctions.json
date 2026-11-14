@@ -618,6 +618,137 @@
       "status": "SUCCEEDED"
     }
   },
+  "test_validation_diagnostics": {
+    "validate-all-not-last": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "diagnostics": [
+        {
+          "code": "SCHEMA_VALIDATION_FAILED",
+          "location": "/States/A/Resource",
+          "message": "Parameters field is required for resource ARN: arn:aws:states:::lambda:invoke",
+          "severity": "ERROR"
+        },
+        {
+          "code": "SCHEMA_VALIDATION_FAILED",
+          "location": "/States/A/Retry[0]/ErrorEquals[0]",
+          "message": "States.ALL must appear alone and at end of list",
+          "severity": "ERROR"
+        }
+      ],
+      "result": "FAIL",
+      "truncated": false
+    },
+    "validate-bad-result-path": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "diagnostics": [
+        {
+          "code": "SCHEMA_VALIDATION_FAILED",
+          "location": "/States/A/ResultPath",
+          "message": "Value is not a Reference Path: '[' must be followed by ' or '['",
+          "severity": "ERROR"
+        }
+      ],
+      "result": "FAIL",
+      "truncated": false
+    },
+    "validate-missing-type": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "diagnostics": [
+        {
+          "code": "SCHEMA_VALIDATION_FAILED",
+          "location": "/States/A",
+          "message": "The field 'Type' is required",
+          "severity": "ERROR"
+        },
+        {
+          "code": "MISSING_END_STATE",
+          "message": "Workflow has no terminal state",
+          "severity": "ERROR"
+        }
+      ],
+      "result": "FAIL",
+      "truncated": false
+    },
+    "validate-neither-next-nor-end": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "diagnostics": [
+        {
+          "code": "SCHEMA_VALIDATION_FAILED",
+          "location": "/States/A",
+          "message": "This object should have only one of the following fields: [Next, End]",
+          "severity": "ERROR"
+        },
+        {
+          "code": "MISSING_END_STATE",
+          "message": "Workflow has no terminal state",
+          "severity": "ERROR"
+        }
+      ],
+      "result": "FAIL",
+      "truncated": false
+    },
+    "validate-next-and-end": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "diagnostics": [
+        {
+          "code": "SCHEMA_VALIDATION_FAILED",
+          "location": "/States/A",
+          "message": "There should only be one of the following fields: [Next, End]",
+          "severity": "ERROR"
+        }
+      ],
+      "result": "FAIL",
+      "truncated": false
+    },
+    "validate-unknown-field": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "diagnostics": [
+        {
+          "code": "SCHEMA_VALIDATION_FAILED",
+          "location": "/States/A",
+          "message": "Field 'Nope' is not supported",
+          "severity": "ERROR"
+        }
+      ],
+      "result": "FAIL",
+      "truncated": false
+    },
+    "validate-valid": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "diagnostics": [],
+      "result": "OK",
+      "truncated": false
+    },
+    "validate-wait-without-time": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "diagnostics": [
+        {
+          "code": "SCHEMA_VALIDATION_FAILED",
+          "location": "/States/A",
+          "message": "This object should have only one of the following fields: [SecondsPath, Seconds, TimestampPath, Timestamp]",
+          "severity": "ERROR"
+        }
+      ],
+      "result": "FAIL",
+      "truncated": false
+    }
+  },
   "test_versions_and_aliases": {
     "create-alias": {
       "ResponseMetadata": {

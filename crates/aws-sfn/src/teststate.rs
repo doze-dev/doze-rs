@@ -290,7 +290,7 @@ fn answer(run: &Ran<'_>, name: &str, seen: &Seen, r: &Value) -> Value {
         out.insert("nextState".into(), json!(n));
     }
     if let Some(o) = output {
-        out.insert("output".into(), json!(o));
+        out.insert("output".into(), json!(as_given(o, r)));
     }
     if status != "SUCCEEDED"
         && let Some((e, c)) = &seen.failure
@@ -311,11 +311,15 @@ fn inspection(run: &Ran<'_>, seen: &Seen, root: &aws_asl::exec::Frame) -> Value 
     let (def, before, env) = (run.def, run.before, run.env);
     let mut data = Map::new();
     data.insert("input".into(), json!(before.input));
-    for (k, v) in before.inspect_input(def, 1, env) {
+    let shaped = before.inspect_input(def, 1, env);
+    let pass = pass_result(def, &shaped);
+    for (k, v) in shaped {
         data.insert(k.into(), json!(v.to_string()));
     }
-    if let Some(res) = &seen.result {
-        data.insert("result".into(), json!(res.to_string()));
+    if let Some(res) = seen.result.as_ref().or(pass.as_ref()) {
+        if seen.result.is_some() {
+            data.insert("result".into(), json!(res.to_string()));
+        }
         let mut at = before.clone();
         if let Some(f) = at.frames.first_mut() {
             f.state.clone_from(&def.start_at);
@@ -324,7 +328,10 @@ fn inspection(run: &Ran<'_>, seen: &Seen, root: &aws_asl::exec::Frame) -> Value 
             data.insert(k.into(), json!(v.to_string()));
         }
     }
-    data.insert("variables".into(), json!(root.vars));
+    // AWS leaves variables out while there are none (recorded 2026-11-15).
+    if !matches!(root.vars.as_str(), "" | "{}") {
+        data.insert("variables".into(), json!(root.vars));
+    }
     if root.status == Status::RetryWait {
         let wait = (root.wake_at - env.now_ms).max(0) / 1000;
         let index = root.attempts.iter().position(|a| *a > 0).unwrap_or(0);
@@ -334,4 +341,30 @@ fn inspection(run: &Ran<'_>, seen: &Seen, root: &aws_asl::exec::Frame) -> Value 
         );
     }
     Value::Object(data)
+}
+
+/// A Pass state's result, which AWS carries through the result fields of the inspection like a task's (recorded 2026-11-15):
+/// its `Result`, or else its input as `Parameters` and `InputPath` left it.
+fn pass_result(def: &Definition, shaped: &[(&'static str, Value)]) -> Option<Value> {
+    let state = def.state(&def.start_at)?;
+    let aws_asl::def::Kind::Pass { result } = &state.kind else {
+        return None;
+    };
+    if let Some(r) = result {
+        return Some(r.clone());
+    }
+    ["afterParameters", "afterInputPath"]
+        .iter()
+        .find_map(|k| shaped.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()))
+}
+
+/// The output as the caller wrote it when the state left the input as it was: AWS hands the text back untouched (a Choice
+/// state's output keeps the input's spacing, recorded 2026-11-15).
+fn as_given(output: String, r: &Value) -> String {
+    let given = r.get("input").and_then(Value::as_str).unwrap_or("{}");
+    let same = serde_json::from_str::<Value>(given)
+        .ok()
+        .zip(serde_json::from_str::<Value>(&output).ok())
+        .is_some_and(|(a, b)| a == b);
+    if same { given.to_owned() } else { output }
 }
