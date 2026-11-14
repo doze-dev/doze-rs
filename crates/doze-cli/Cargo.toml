@@ -19,6 +19,7 @@ path = "src/main.rs"
 doze-os = { path = "../doze-os" }
 doze-names = { path = "../doze-names" }
 doze-module-proto = { path = "../doze-module-proto" }
+doze-fetch = { path = "../doze-fetch" }
 clap = { version = "4", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }
 clap_complete = "4"
 serde = { version = "1", features = ["derive"] }

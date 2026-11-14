@@ -1,7 +1,7 @@
 #![no_main]
 //! Any text, as a module's documentation from the registry, without a panic.
 
-use doze_cli::registry::meta;
+use doze_fetch::registry::meta;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

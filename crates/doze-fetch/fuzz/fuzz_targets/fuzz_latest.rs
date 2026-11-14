@@ -1,7 +1,7 @@
 #![no_main]
 //! Any text, as the registry's release file, without a panic; nothing unsigned is ever accepted.
 
-use doze_cli::registry::{latest, signed};
+use doze_fetch::registry::{latest, signed};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

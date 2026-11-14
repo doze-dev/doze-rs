@@ -2,7 +2,7 @@
 //! Any text, as a module index from the registry, without a panic; whatever parses gives a payload that is JSON and
 //! never verifies with the key built in unless it was signed by it.
 
-use doze_cli::registry::{index, signed};
+use doze_fetch::registry::{index, signed};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

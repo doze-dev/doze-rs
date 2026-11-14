@@ -10,34 +10,9 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 doze-cli = { path = ".." }
-serde_json = "1"
 
 # Not part of the main workspace: fuzzing needs a nightly toolchain.
 [workspace]
-
-[[bin]]
-name = "fuzz_index"
-path = "fuzz_targets/fuzz_index.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "fuzz_meta"
-path = "fuzz_targets/fuzz_meta.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "fuzz_latest"
-path = "fuzz_targets/fuzz_latest.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "fuzz_lock"
-path = "fuzz_targets/fuzz_lock.rs"
-test = false
-doc = false
 
 [[bin]]
 name = "fuzz_duration"

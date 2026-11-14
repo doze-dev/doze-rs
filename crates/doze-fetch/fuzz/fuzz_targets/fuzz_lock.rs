@@ -1,7 +1,7 @@
 #![no_main]
 //! Any text, as a doze.lock (hand edits, merges), without a panic; an error's position is inside the text.
 
-use doze_cli::lock;
+use doze_fetch::lock;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

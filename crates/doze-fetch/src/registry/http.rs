@@ -23,6 +23,20 @@ pub(crate) enum Failure {
 
 /// GETs `url`, giving up after `timeout` in all.
 pub(crate) fn get(url: &str, timeout: Duration) -> Result<Vec<u8>, Failure> {
+    get_up_to(url, timeout, LIMIT)
+}
+
+/// The most an archive (an engine build, a module) may be.
+pub(crate) const ARCHIVE_LIMIT: u64 = 1 << 30;
+
+/// GETs `url` (or reads a `file://` path, as Go's fetcher did), up to `limit` bytes.
+pub(crate) fn get_up_to(url: &str, timeout: Duration, limit: u64) -> Result<Vec<u8>, Failure> {
+    if let Some(path) = url.strip_prefix("file://") {
+        return std::fs::read(path).map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => Failure::Status(404),
+            k => Failure::Unreachable(format!("cannot read it ({k})")),
+        });
+    }
     let mut resp = agent()
         .get(url)
         .config()
@@ -36,7 +50,7 @@ pub(crate) fn get(url: &str, timeout: Duration) -> Result<Vec<u8>, Failure> {
     }
     resp.body_mut()
         .with_config()
-        .limit(LIMIT)
+        .limit(limit)
         .read_to_vec()
         .map_err(|e| Failure::Unreachable(words(&e, timeout)))
 }
@@ -93,7 +107,7 @@ fn agent() -> &'static ureq::Agent {
         ureq::Agent::config_builder()
             .tls_config(tls)
             .http_status_as_error(false)
-            .user_agent(concat!("doze-cli/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("doze/", env!("CARGO_PKG_VERSION")))
             .build()
             .into()
     })
