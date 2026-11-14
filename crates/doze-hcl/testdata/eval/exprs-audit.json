@@ -1,0 +1,2362 @@
+[
+ {
+  "id": "audit.num.00",
+  "expr": "\"0x10\" + 1"
+ },
+ {
+  "id": "audit.num.01",
+  "expr": "\"1p3\" + 0"
+ },
+ {
+  "id": "audit.num.02",
+  "expr": "\" 1\" + 1"
+ },
+ {
+  "id": "audit.num.03",
+  "expr": "\"1_000\" + 1"
+ },
+ {
+  "id": "audit.num.04",
+  "expr": "\"Inf\" + 0"
+ },
+ {
+  "id": "audit.num.05",
+  "expr": "\"-inf\" + 0"
+ },
+ {
+  "id": "audit.num.06",
+  "expr": "\"+Inf\" - \"+Inf\""
+ },
+ {
+  "id": "audit.num.07",
+  "expr": "\".5\" + 0"
+ },
+ {
+  "id": "audit.num.08",
+  "expr": "\"5.\" + 0"
+ },
+ {
+  "id": "audit.num.09",
+  "expr": "\".\" + 0"
+ },
+ {
+  "id": "audit.num.10",
+  "expr": "\"\" + 0"
+ },
+ {
+  "id": "audit.num.11",
+  "expr": "\"1e\" + 0"
+ },
+ {
+  "id": "audit.num.12",
+  "expr": "\"1e+\" + 0"
+ },
+ {
+  "id": "audit.num.13",
+  "expr": "\"-\" + 0"
+ },
+ {
+  "id": "audit.num.14",
+  "expr": "\"+1\" + 0"
+ },
+ {
+  "id": "audit.num.15",
+  "expr": "\"--1\" + 0"
+ },
+ {
+  "id": "audit.num.16",
+  "expr": "\"1e-400\" + 0"
+ },
+ {
+  "id": "audit.num.17",
+  "expr": "\"1E2\" + 0"
+ },
+ {
+  "id": "audit.num.18",
+  "expr": "\"1P-2\" + 0"
+ },
+ {
+  "id": "audit.num.19",
+  "expr": "\"0.1p1\" + 0"
+ },
+ {
+  "id": "audit.num.20",
+  "expr": "\"1e2147483648\" + 0"
+ },
+ {
+  "id": "audit.num.21",
+  "expr": "\"1p2147483647\" + 0"
+ },
+ {
+  "id": "audit.num.22",
+  "expr": "1e-400"
+ },
+ {
+  "id": "audit.num.23",
+  "expr": "1/3 * 3"
+ },
+ {
+  "id": "audit.num.24",
+  "expr": "123456789012345678901234567890 * 987654321098765432109876543210"
+ },
+ {
+  "id": "audit.num.25",
+  "expr": "1e155 / 3"
+ },
+ {
+  "id": "audit.num.26",
+  "expr": "7 % -3"
+ },
+ {
+  "id": "audit.num.27",
+  "expr": "-7 % -3"
+ },
+ {
+  "id": "audit.num.28",
+  "expr": "7.5 % 2"
+ },
+ {
+  "id": "audit.num.29",
+  "expr": "-7.5 % 2"
+ },
+ {
+  "id": "audit.num.30",
+  "expr": "0.3 % 0.1"
+ },
+ {
+  "id": "audit.num.31",
+  "expr": "1e100 % 7"
+ },
+ {
+  "id": "audit.num.32",
+  "expr": "5 % 1e-400"
+ },
+ {
+  "id": "audit.num.33",
+  "expr": "-0 % 5"
+ },
+ {
+  "id": "audit.num.34",
+  "expr": "0 % -5"
+ },
+ {
+  "id": "audit.num.35",
+  "expr": "-5 % 5"
+ },
+ {
+  "id": "audit.num.36",
+  "expr": "-0 + 0"
+ },
+ {
+  "id": "audit.num.37",
+  "expr": "-0 - 0"
+ },
+ {
+  "id": "audit.num.38",
+  "expr": "-0 * -0"
+ },
+ {
+  "id": "audit.num.39",
+  "expr": "0 / -5"
+ },
+ {
+  "id": "audit.num.40",
+  "expr": "-0 / 5"
+ },
+ {
+  "id": "audit.num.41",
+  "expr": "-(0)"
+ },
+ {
+  "id": "audit.num.42",
+  "expr": "-(-0)"
+ },
+ {
+  "id": "audit.num.43",
+  "expr": "0 - 0"
+ },
+ {
+  "id": "audit.num.44",
+  "expr": "-1 * 0"
+ },
+ {
+  "id": "audit.num.45",
+  "expr": "1 / 3 == 0.33333333333333333333"
+ },
+ {
+  "id": "audit.num.46",
+  "expr": "var.port / 3 * 3 == var.port"
+ },
+ {
+  "id": "audit.num.47",
+  "expr": "\"1\" == 1"
+ },
+ {
+  "id": "audit.num.48",
+  "expr": "1e400 == 1e400 + 1"
+ },
+ {
+  "id": "audit.num.49",
+  "expr": "\"10\" > 9"
+ },
+ {
+  "id": "audit.num.50",
+  "expr": "\"abc\" > 1"
+ },
+ {
+  "id": "audit.num.51",
+  "expr": "\"1e400\" > 1"
+ },
+ {
+  "id": "audit.num.52",
+  "expr": "0.1 * 3 == 0.3"
+ },
+ {
+  "id": "audit.num.53",
+  "expr": "0.1 + 0.2 - 0.3"
+ },
+ {
+  "id": "audit.num.54",
+  "expr": "(1/0) == (1/0)"
+ },
+ {
+  "id": "audit.num.55",
+  "expr": "(1/0) > 1e400"
+ },
+ {
+  "id": "audit.num.56",
+  "expr": "-(1/0) < -1e400"
+ },
+ {
+  "id": "audit.num.57",
+  "expr": "(1/0) + 1"
+ },
+ {
+  "id": "audit.num.58",
+  "expr": "(1/0) / (1/0)"
+ },
+ {
+  "id": "audit.num.59",
+  "expr": "0 / 0"
+ },
+ {
+  "id": "audit.num.60",
+  "expr": "(1/0) * -1"
+ },
+ {
+  "id": "audit.num.61",
+  "expr": "1 / (1/0)"
+ },
+ {
+  "id": "audit.num.62",
+  "expr": "-1 / (1/0)"
+ },
+ {
+  "id": "audit.num.63",
+  "expr": "9007199254740993"
+ },
+ {
+  "id": "audit.num.64",
+  "expr": "0.1"
+ },
+ {
+  "id": "audit.num.65",
+  "expr": "1.0"
+ },
+ {
+  "id": "audit.num.66",
+  "expr": "1.50"
+ },
+ {
+  "id": "audit.num.67",
+  "expr": "100e-2"
+ },
+ {
+  "id": "audit.num.68",
+  "expr": "1e-7"
+ },
+ {
+  "id": "audit.num.69",
+  "expr": "12345678901234567890.123456789"
+ },
+ {
+  "id": "audit.num.70",
+  "expr": "2.5e-5 * 4e5"
+ },
+ {
+  "id": "audit.num.71",
+  "expr": "3 % 0.7"
+ },
+ {
+  "id": "audit.num.72",
+  "expr": "1e30 % 1e-30"
+ },
+ {
+  "id": "audit.num.73",
+  "expr": "-0.0"
+ },
+ {
+  "id": "audit.num.74",
+  "expr": "0.000"
+ },
+ {
+  "id": "audit.num.75",
+  "expr": "1 - 0.9"
+ },
+ {
+  "id": "audit.num.76",
+  "expr": "1e20 + 1 - 1e20"
+ },
+ {
+  "id": "audit.num.77",
+  "expr": "local.n / 7"
+ },
+ {
+  "id": "audit.num.78",
+  "expr": "var.port % 0"
+ },
+ {
+  "id": "audit.num.79",
+  "expr": "-5 % 0"
+ },
+ {
+  "id": "audit.str2num.00",
+  "expr": "\"${1e400}\""
+ },
+ {
+  "id": "audit.str2num.01",
+  "expr": "\"${0.1 + 0.2}\""
+ },
+ {
+  "id": "audit.str2num.02",
+  "expr": "\"${-0}\""
+ },
+ {
+  "id": "audit.str2num.03",
+  "expr": "\"${1/3}\""
+ },
+ {
+  "id": "audit.str2num.04",
+  "expr": "\"${1e-7}\""
+ },
+ {
+  "id": "audit.str2num.05",
+  "expr": "\"${100000000000000000000000}\""
+ },
+ {
+  "id": "audit.str2num.06",
+  "expr": "\"${1/0}\""
+ },
+ {
+  "id": "audit.str2num.07",
+  "expr": "\"${-1/0}\""
+ },
+ {
+  "id": "audit.str2num.08",
+  "expr": "\"x${1.50}\""
+ },
+ {
+  "id": "audit.str2num.09",
+  "expr": "\"x${1e2}\""
+ },
+ {
+  "id": "audit.str2num.10",
+  "expr": "\"x${true}\""
+ },
+ {
+  "id": "audit.str2num.11",
+  "expr": "\"x${-0.0}\""
+ },
+ {
+  "id": "audit.set.00",
+  "expr": "!var.flag ? var.set : [\"c\", \"a\", \"a\", \"b\"]"
+ },
+ {
+  "id": "audit.set.01",
+  "expr": "!var.flag ? var.set : [10, 9, 1e400, 0.1, -0, 0]"
+ },
+ {
+  "id": "audit.set.02",
+  "expr": "!var.flag ? var.set : [true, false]"
+ },
+ {
+  "id": "audit.set.03",
+  "expr": "!var.flag ? var.set : [var.later, \"a\"]"
+ },
+ {
+  "id": "audit.set.04",
+  "expr": "!var.flag ? var.set : [\"a\", null]"
+ },
+ {
+  "id": "audit.set.05",
+  "expr": "!var.flag ? var.set : []"
+ },
+ {
+  "id": "audit.set.06",
+  "expr": "!var.flag ? var.set : [[1]]"
+ },
+ {
+  "id": "audit.set.07",
+  "expr": "!var.flag ? var.set : [\"b\", \"B\", \"a\", \"\\u00E9\", \"\\u00E9\", \"10\", \"9\", \"\", \" \", \"Z\"]"
+ },
+ {
+  "id": "audit.set.08",
+  "expr": "!var.flag ? var.set : [var.any, \"a\"]"
+ },
+ {
+  "id": "audit.set.09",
+  "expr": "!var.flag ? var.set : [\"0.10\", \"0.1\", \"1e1\"]"
+ },
+ {
+  "id": "audit.set.10",
+  "expr": "var.set == var.set"
+ },
+ {
+  "id": "audit.set.11",
+  "expr": "var.set == [\"a\", \"b\"]"
+ },
+ {
+  "id": "audit.set.12",
+  "expr": "(!var.flag ? var.set : [\"b\", \"a\"]) == var.set"
+ },
+ {
+  "id": "audit.set.13",
+  "expr": "(!var.flag ? var.set : [var.later]) == var.set"
+ },
+ {
+  "id": "audit.set.14",
+  "expr": "(!var.flag ? var.set : [\"a\", \"c\"]) == var.set"
+ },
+ {
+  "id": "audit.set.15",
+  "expr": "(!var.flag ? var.set : [\"a\"]) != var.set"
+ },
+ {
+  "id": "audit.set.16",
+  "expr": "[for x in (!var.flag ? var.set : [\"z\", \"y\", \"x\"]) : x]"
+ },
+ {
+  "id": "audit.set.17",
+  "expr": "(!var.flag ? var.set : [\"z\", \"y\"])[*]"
+ },
+ {
+  "id": "audit.eq.00",
+  "expr": "[1, \"a\"] == [1, \"a\"]"
+ },
+ {
+  "id": "audit.eq.01",
+  "expr": "{a = 1} == {a = 1.0}"
+ },
+ {
+  "id": "audit.eq.02",
+  "expr": "[var.later] == [var.later]"
+ },
+ {
+  "id": "audit.eq.03",
+  "expr": "[var.later] == [1, 2]"
+ },
+ {
+  "id": "audit.eq.04",
+  "expr": "[null] == [null]"
+ },
+ {
+  "id": "audit.eq.05",
+  "expr": "var.none == var.none"
+ },
+ {
+  "id": "audit.eq.06",
+  "expr": "null == var.any"
+ },
+ {
+  "id": "audit.eq.07",
+  "expr": "var.any == var.any"
+ },
+ {
+  "id": "audit.eq.08",
+  "expr": "var.later != var.later"
+ },
+ {
+  "id": "audit.eq.09",
+  "expr": "[1, var.later] == [2, \"x\"]"
+ },
+ {
+  "id": "audit.eq.10",
+  "expr": "[var.later, 1] == [\"x\", 2]"
+ },
+ {
+  "id": "audit.eq.11",
+  "expr": "var.later == 1"
+ },
+ {
+  "id": "audit.eq.12",
+  "expr": "var.any == null"
+ },
+ {
+  "id": "audit.eq.13",
+  "expr": "var.none == var.later"
+ },
+ {
+  "id": "audit.eq.14",
+  "expr": "[var.any] == [1]"
+ },
+ {
+  "id": "audit.eq.15",
+  "expr": "[var.any] == [1, 2]"
+ },
+ {
+  "id": "audit.eq.16",
+  "expr": "{a = var.any} == {b = 1}"
+ },
+ {
+  "id": "audit.eq.17",
+  "expr": "var.tags == var.tags"
+ },
+ {
+  "id": "audit.eq.18",
+  "expr": "var.env == {A = \"1\", B = \"2\"}"
+ },
+ {
+  "id": "audit.eq.19",
+  "expr": "var.tags == [\"a\", \"b\", \"c\"]"
+ },
+ {
+  "id": "audit.eq.20",
+  "expr": "(var.flag ? var.tags : []) == [\"a\", \"b\", \"c\"]"
+ },
+ {
+  "id": "audit.eq.21",
+  "expr": "[] == []"
+ },
+ {
+  "id": "audit.eq.22",
+  "expr": "{} == {}"
+ },
+ {
+  "id": "audit.eq.23",
+  "expr": "[] == {}"
+ },
+ {
+  "id": "audit.eq.24",
+  "expr": "null == []"
+ },
+ {
+  "id": "audit.eq.25",
+  "expr": "var.later == var.none"
+ },
+ {
+  "id": "audit.eq.26",
+  "expr": "1 != var.any"
+ },
+ {
+  "id": "audit.eq.27",
+  "expr": "\"\\u00E9\" == \"\\u00E9\""
+ },
+ {
+  "id": "audit.eq.28",
+  "expr": "var.users[0] == {name = \"ann\", age = 31}"
+ },
+ {
+  "id": "audit.eq.29",
+  "expr": "var.users[0] == {age = 31, name = \"ann\"}"
+ },
+ {
+  "id": "audit.eq.30",
+  "expr": "0 == -0"
+ },
+ {
+  "id": "audit.eq.31",
+  "expr": "[0] == [-0]"
+ },
+ {
+  "id": "audit.eq.32",
+  "expr": "true == \"true\""
+ },
+ {
+  "id": "audit.eq.33",
+  "expr": "var.port == \"8080\""
+ },
+ {
+  "id": "audit.conv.00",
+  "expr": "var.flag ? 1 : \"a\""
+ },
+ {
+  "id": "audit.conv.01",
+  "expr": "var.flag ? true : \"a\""
+ },
+ {
+  "id": "audit.conv.02",
+  "expr": "var.flag ? [1] : [\"a\"]"
+ },
+ {
+  "id": "audit.conv.03",
+  "expr": "var.flag ? [1, 2] : [\"a\"]"
+ },
+ {
+  "id": "audit.conv.04",
+  "expr": "var.flag ? {a = 1} : {a = \"x\"}"
+ },
+ {
+  "id": "audit.conv.05",
+  "expr": "var.flag ? {a = 1} : {b = \"x\"}"
+ },
+ {
+  "id": "audit.conv.06",
+  "expr": "var.flag ? {a = 1} : {b = [1]}"
+ },
+ {
+  "id": "audit.conv.07",
+  "expr": "var.flag ? [[1]] : [[\"a\", 2]]"
+ },
+ {
+  "id": "audit.conv.08",
+  "expr": "var.flag ? var.any : 1"
+ },
+ {
+  "id": "audit.conv.09",
+  "expr": "var.later == \"\" ? 1 : \"a\""
+ },
+ {
+  "id": "audit.conv.10",
+  "expr": "var.any ? 1 : 2"
+ },
+ {
+  "id": "audit.conv.11",
+  "expr": "var.later ? 1 : 2"
+ },
+ {
+  "id": "audit.conv.12",
+  "expr": "\"true\" ? 1 : 2"
+ },
+ {
+  "id": "audit.conv.13",
+  "expr": "\"yes\" ? 1 : 2"
+ },
+ {
+  "id": "audit.conv.14",
+  "expr": "\"1\" ? 1 : 2"
+ },
+ {
+  "id": "audit.conv.15",
+  "expr": "\"0\" ? 1 : 2"
+ },
+ {
+  "id": "audit.conv.16",
+  "expr": "var.flag ? var.env : var.users[0]"
+ },
+ {
+  "id": "audit.conv.17",
+  "expr": "var.flag ? var.tags : var.set"
+ },
+ {
+  "id": "audit.conv.18",
+  "expr": "var.flag ? var.tags : var.users"
+ },
+ {
+  "id": "audit.conv.19",
+  "expr": "var.flag ? [] : {}"
+ },
+ {
+  "id": "audit.conv.20",
+  "expr": "var.flag ? [null] : [1]"
+ },
+ {
+  "id": "audit.conv.21",
+  "expr": "var.flag ? {} : null"
+ },
+ {
+  "id": "audit.conv.22",
+  "expr": "var.flag ? null : null"
+ },
+ {
+  "id": "audit.conv.23",
+  "expr": "var.flag ? var.none : 1"
+ },
+ {
+  "id": "audit.conv.24",
+  "expr": "var.flag ? [var.any] : [\"a\"]"
+ },
+ {
+  "id": "audit.conv.25",
+  "expr": "var.flag ? {a = [1]} : {a = [\"x\", \"y\"]}"
+ },
+ {
+  "id": "audit.conv.26",
+  "expr": "var.flag ? [{a = 1}] : [{a = 1, b = 2}]"
+ },
+ {
+  "id": "audit.conv.27",
+  "expr": "var.flag ? [{a = 1}, {b = 2}] : []"
+ },
+ {
+  "id": "audit.conv.28",
+  "expr": "var.flag ? var.users : [{name = \"c\"}]"
+ },
+ {
+  "id": "audit.conv.29",
+  "expr": "var.flag ? var.users : [{name = \"c\", age = \"x\"}]"
+ },
+ {
+  "id": "audit.conv.30",
+  "expr": "var.flag ? var.users : [{name = \"c\", age = 1, z = 1}]"
+ },
+ {
+  "id": "audit.conv.31",
+  "expr": "var.flag ? {a = 1, b = \"x\"} : {a = \"y\", b = 2}"
+ },
+ {
+  "id": "audit.conv.32",
+  "expr": "var.flag ? [true] : [1]"
+ },
+ {
+  "id": "audit.conv.33",
+  "expr": "var.flag ? var.env : {A = 1}"
+ },
+ {
+  "id": "audit.conv.34",
+  "expr": "var.flag ? var.env : {A = [1]}"
+ },
+ {
+  "id": "audit.conv.35",
+  "expr": "var.flag ? var.tags : [var.later]"
+ },
+ {
+  "id": "audit.conv.36",
+  "expr": "var.flag ? var.tags : [null]"
+ },
+ {
+  "id": "audit.conv.37",
+  "expr": "var.flag ? var.tags : var.later"
+ },
+ {
+  "id": "audit.conv.38",
+  "expr": "var.flag ? var.tags : var.any"
+ },
+ {
+  "id": "audit.conv.39",
+  "expr": "!var.flag ? var.tags : [1, true]"
+ },
+ {
+  "id": "audit.conv.40",
+  "expr": "!var.flag ? var.env : {X = 1, Y = true}"
+ },
+ {
+  "id": "audit.conv.41",
+  "expr": "!var.flag ? var.env : {}"
+ },
+ {
+  "id": "audit.conv.42",
+  "expr": "var.flag ? [[1], [2, 3]] : []"
+ },
+ {
+  "id": "audit.conv.43",
+  "expr": "var.flag ? [[1], [\"a\", 3]] : []"
+ },
+ {
+  "id": "audit.conv.44",
+  "expr": "var.flag ? [{a = 1}, {a = \"x\"}] : []"
+ },
+ {
+  "id": "audit.conv.45",
+  "expr": "var.later != \"\" ? var.tags : []"
+ },
+ {
+  "id": "audit.conv.46",
+  "expr": "var.later != \"\" ? nope : 1"
+ },
+ {
+  "id": "audit.conv.47",
+  "expr": "var.flag ? 1 : var.later"
+ },
+ {
+  "id": "audit.conv.48",
+  "expr": "!var.flag ? 1 : var.later"
+ },
+ {
+  "id": "audit.conv.49",
+  "expr": "null ? nope : 1"
+ },
+ {
+  "id": "audit.conv.50",
+  "expr": "var.none ? nope : nope2"
+ },
+ {
+  "id": "audit.conv.51",
+  "expr": "var.flag ? nope : nope2"
+ },
+ {
+  "id": "audit.conv.52",
+  "expr": "[] ? 1 : 2"
+ },
+ {
+  "id": "audit.ops.00",
+  "expr": "true || nope"
+ },
+ {
+  "id": "audit.ops.01",
+  "expr": "false && nope"
+ },
+ {
+  "id": "audit.ops.02",
+  "expr": "nope && false"
+ },
+ {
+  "id": "audit.ops.03",
+  "expr": "nope || false"
+ },
+ {
+  "id": "audit.ops.04",
+  "expr": "nope || nope2"
+ },
+ {
+  "id": "audit.ops.05",
+  "expr": "var.later || nope"
+ },
+ {
+  "id": "audit.ops.06",
+  "expr": "var.any || nope"
+ },
+ {
+  "id": "audit.ops.07",
+  "expr": "true || [1]"
+ },
+ {
+  "id": "audit.ops.08",
+  "expr": "false || null"
+ },
+ {
+  "id": "audit.ops.09",
+  "expr": "var.none || true"
+ },
+ {
+  "id": "audit.ops.10",
+  "expr": "var.later || null"
+ },
+ {
+  "id": "audit.ops.11",
+  "expr": "null && true"
+ },
+ {
+  "id": "audit.ops.12",
+  "expr": "var.any && false"
+ },
+ {
+  "id": "audit.ops.13",
+  "expr": "var.flag && var.any"
+ },
+ {
+  "id": "audit.ops.14",
+  "expr": "1 + \"2\""
+ },
+ {
+  "id": "audit.ops.15",
+  "expr": "\"a\" + 1"
+ },
+ {
+  "id": "audit.ops.16",
+  "expr": "1 + true"
+ },
+ {
+  "id": "audit.ops.17",
+  "expr": "[1] + 1"
+ },
+ {
+  "id": "audit.ops.18",
+  "expr": "\"5\" - \"2\""
+ },
+ {
+  "id": "audit.ops.19",
+  "expr": "\"5\" * \"2\""
+ },
+ {
+  "id": "audit.ops.20",
+  "expr": "-\"3\""
+ },
+ {
+  "id": "audit.ops.21",
+  "expr": "!\"true\""
+ },
+ {
+  "id": "audit.ops.22",
+  "expr": "!\"x\""
+ },
+ {
+  "id": "audit.ops.23",
+  "expr": "1 < \"2\""
+ },
+ {
+  "id": "audit.ops.24",
+  "expr": "\"10\" < \"9\""
+ },
+ {
+  "id": "audit.ops.25",
+  "expr": "null > 1"
+ },
+ {
+  "id": "audit.ops.26",
+  "expr": "var.none + 1"
+ },
+ {
+  "id": "audit.ops.27",
+  "expr": "var.any + 1"
+ },
+ {
+  "id": "audit.ops.28",
+  "expr": "var.any == 1"
+ },
+ {
+  "id": "audit.ops.29",
+  "expr": "1 + var.later"
+ },
+ {
+  "id": "audit.ops.30",
+  "expr": "[] + nope"
+ },
+ {
+  "id": "audit.ops.31",
+  "expr": "nope + []"
+ },
+ {
+  "id": "audit.ops.32",
+  "expr": "nope + nope2"
+ },
+ {
+  "id": "audit.ops.33",
+  "expr": "-nope"
+ },
+ {
+  "id": "audit.ops.34",
+  "expr": "!nope"
+ },
+ {
+  "id": "audit.ops.35",
+  "expr": "-[1]"
+ },
+ {
+  "id": "audit.ops.36",
+  "expr": "var.later > var.any"
+ },
+ {
+  "id": "audit.ops.37",
+  "expr": "var.any - var.any"
+ },
+ {
+  "id": "audit.ops.38",
+  "expr": "true && var.later"
+ },
+ {
+  "id": "audit.ops.39",
+  "expr": "var.later && true"
+ },
+ {
+  "id": "audit.ops.40",
+  "expr": "\"x\" || true"
+ },
+ {
+  "id": "audit.ops.41",
+  "expr": "1 == 1 == true"
+ },
+ {
+  "id": "audit.ops.42",
+  "expr": "!!true"
+ },
+ {
+  "id": "audit.ops.43",
+  "expr": "1 + -1"
+ },
+ {
+  "id": "audit.ops.44",
+  "expr": "2 * -3 % 4"
+ },
+ {
+  "id": "audit.ops.45",
+  "expr": "-2 * 3"
+ },
+ {
+  "id": "audit.ops.46",
+  "expr": "!var.flag || var.flag && false"
+ },
+ {
+  "id": "audit.ops.47",
+  "expr": "1 < 2 && 2 < 3"
+ },
+ {
+  "id": "audit.ops.48",
+  "expr": "5 - 3 - 1"
+ },
+ {
+  "id": "audit.ops.49",
+  "expr": "8 / 4 / 2"
+ },
+ {
+  "id": "audit.ops.50",
+  "expr": "var.port > var.later"
+ },
+ {
+  "id": "audit.ops.51",
+  "expr": "var.later + var.later"
+ },
+ {
+  "id": "audit.ops.52",
+  "expr": "(var.later == \"x\") || true"
+ },
+ {
+  "id": "audit.ops.53",
+  "expr": "(var.later == \"x\") && false"
+ },
+ {
+  "id": "audit.obj.00",
+  "expr": "{\"a\" = 1}"
+ },
+ {
+  "id": "audit.obj.01",
+  "expr": "{\"a b\" = 1}"
+ },
+ {
+  "id": "audit.obj.02",
+  "expr": "{(1) = 2}"
+ },
+ {
+  "id": "audit.obj.03",
+  "expr": "{(true) = 1}"
+ },
+ {
+  "id": "audit.obj.04",
+  "expr": "{(1.5) = 1}"
+ },
+ {
+  "id": "audit.obj.05",
+  "expr": "{(1e400) = 1}"
+ },
+ {
+  "id": "audit.obj.06",
+  "expr": "{(var.any) = 1}"
+ },
+ {
+  "id": "audit.obj.07",
+  "expr": "{(var.later) = 1, b = 2}"
+ },
+ {
+  "id": "audit.obj.08",
+  "expr": "{(\"${var.name}x\") = 1}"
+ },
+ {
+  "id": "audit.obj.09",
+  "expr": "{a = 1, (local.n) = 2}"
+ },
+ {
+  "id": "audit.obj.10",
+  "expr": "{a = 1, \"a\" = 2}"
+ },
+ {
+  "id": "audit.obj.11",
+  "expr": "{(var.name) = 1, shop = 2}"
+ },
+ {
+  "id": "audit.obj.12",
+  "expr": "{shop = 1, (var.name) = 2}"
+ },
+ {
+  "id": "audit.obj.13",
+  "expr": "{([1]) = 1}"
+ },
+ {
+  "id": "audit.obj.14",
+  "expr": "{a = 1, a = nope}"
+ },
+ {
+  "id": "audit.obj.15",
+  "expr": "{a = nope, a = 1}"
+ },
+ {
+  "id": "audit.obj.16",
+  "expr": "{a = 1 b = 2}"
+ },
+ {
+  "id": "audit.obj.17",
+  "expr": "{a = 1,}"
+ },
+ {
+  "id": "audit.obj.18",
+  "expr": "{\"a\": 1}"
+ },
+ {
+  "id": "audit.obj.19",
+  "expr": "{for = 1}"
+ },
+ {
+  "id": "audit.obj.20",
+  "expr": "{if = 1}"
+ },
+ {
+  "id": "audit.obj.21",
+  "expr": "{true = 1}"
+ },
+ {
+  "id": "audit.obj.22",
+  "expr": "{false = 1, null = 2}"
+ },
+ {
+  "id": "audit.obj.23",
+  "expr": "{(var.tags[0]) = 1}"
+ },
+ {
+  "id": "audit.obj.24",
+  "expr": "{var.tags[0] = 1}"
+ },
+ {
+  "id": "audit.obj.25",
+  "expr": "{(nope) = 1}"
+ },
+ {
+  "id": "audit.obj.26",
+  "expr": "{(nope) = nope2}"
+ },
+ {
+  "id": "audit.obj.27",
+  "expr": "{a = nope, b = nope2}"
+ },
+ {
+  "id": "audit.obj.28",
+  "expr": "{\"${nope}\" = 1}"
+ },
+ {
+  "id": "audit.obj.29",
+  "expr": "{b = 1, a = 2, \"B\" = 3, \"_\" = 4, \"1\" = 5}"
+ },
+ {
+  "id": "audit.obj.30",
+  "expr": "{a = var.later}.a"
+ },
+ {
+  "id": "audit.obj.31",
+  "expr": "{(var.later) = 1}.a"
+ },
+ {
+  "id": "audit.obj.32",
+  "expr": "{(var.none) = nope}"
+ },
+ {
+  "id": "audit.obj.33",
+  "expr": "{a = 1, b = 2}[\"b\"]"
+ },
+ {
+  "id": "audit.obj.34",
+  "expr": "{\"\\u00E9\" = 1, \"\\u00E9\" = 2}"
+ },
+ {
+  "id": "audit.obj.35",
+  "expr": "{a = {b = {c = 1}}}.a.b.c"
+ },
+ {
+  "id": "audit.obj.36",
+  "expr": "{a = 1}.b"
+ },
+ {
+  "id": "audit.obj.37",
+  "expr": "{a = 1}[var.later]"
+ },
+ {
+  "id": "audit.tup.00",
+  "expr": "[1, \"a\", null, var.later]"
+ },
+ {
+  "id": "audit.tup.01",
+  "expr": "[var.any]"
+ },
+ {
+  "id": "audit.tup.02",
+  "expr": "[,]"
+ },
+ {
+  "id": "audit.tup.03",
+  "expr": "[1,,2]"
+ },
+ {
+  "id": "audit.tup.04",
+  "expr": "[nope, nope2]"
+ },
+ {
+  "id": "audit.tup.05",
+  "expr": "[1, [2, [3, [4]]]]"
+ },
+ {
+  "id": "audit.tup.06",
+  "expr": "[]"
+ },
+ {
+  "id": "audit.tup.07",
+  "expr": "[null]"
+ },
+ {
+  "id": "audit.idx.00",
+  "expr": "var.tags[\"1\"]"
+ },
+ {
+  "id": "audit.idx.01",
+  "expr": "var.tags[\"x\"]"
+ },
+ {
+  "id": "audit.idx.02",
+  "expr": "var.tags[true]"
+ },
+ {
+  "id": "audit.idx.03",
+  "expr": "var.env[\"A\"]"
+ },
+ {
+  "id": "audit.idx.04",
+  "expr": "var.env[var.later]"
+ },
+ {
+  "id": "audit.idx.05",
+  "expr": "var.env[var.any]"
+ },
+ {
+  "id": "audit.idx.06",
+  "expr": "var.any[0]"
+ },
+ {
+  "id": "audit.idx.07",
+  "expr": "var.any.x"
+ },
+ {
+  "id": "audit.idx.08",
+  "expr": "var.users[var.later]"
+ },
+ {
+  "id": "audit.idx.09",
+  "expr": "var.users[\"1\"].name"
+ },
+ {
+  "id": "audit.idx.10",
+  "expr": "var.set[\"a\"]"
+ },
+ {
+  "id": "audit.idx.11",
+  "expr": "var.tags[-0]"
+ },
+ {
+  "id": "audit.idx.12",
+  "expr": "var.tags[0.0]"
+ },
+ {
+  "id": "audit.idx.13",
+  "expr": "var.tags[1e400]"
+ },
+ {
+  "id": "audit.idx.14",
+  "expr": "{a = 1}[\"a\"]"
+ },
+ {
+  "id": "audit.idx.15",
+  "expr": "{a = 1}[\"b\"]"
+ },
+ {
+  "id": "audit.idx.16",
+  "expr": "{a = 1}[0]"
+ },
+ {
+  "id": "audit.idx.17",
+  "expr": "\"abc\"[0]"
+ },
+ {
+  "id": "audit.idx.18",
+  "expr": "[1, 2][var.any]"
+ },
+ {
+  "id": "audit.idx.19",
+  "expr": "null[0]"
+ },
+ {
+  "id": "audit.idx.20",
+  "expr": "var.users[2]"
+ },
+ {
+  "id": "audit.idx.21",
+  "expr": "[1, 2, 3][1].x"
+ },
+ {
+  "id": "audit.idx.22",
+  "expr": "var.env.A.B"
+ },
+ {
+  "id": "audit.idx.23",
+  "expr": "{a = {b = 1}}[\"a\"][\"b\"]"
+ },
+ {
+  "id": "audit.idx.24",
+  "expr": "{a = 1}.a.b"
+ },
+ {
+  "id": "audit.idx.25",
+  "expr": "var.users[0][\"na${\"me\"}\"]"
+ },
+ {
+  "id": "audit.idx.26",
+  "expr": "var.tags[local.n - 1]"
+ },
+ {
+  "id": "audit.idx.27",
+  "expr": "var.tags[local.n - 0.5]"
+ },
+ {
+  "id": "audit.idx.28",
+  "expr": "var.tags.1"
+ },
+ {
+  "id": "audit.idx.29",
+  "expr": "var.users.1.age"
+ },
+ {
+  "id": "audit.idx.30",
+  "expr": "[[1, 2], [3, 4]].1.0"
+ },
+ {
+  "id": "audit.idx.31",
+  "expr": "[[1, 2], [3, 4]][1][0]"
+ },
+ {
+  "id": "audit.idx.32",
+  "expr": "var.tags[nope]"
+ },
+ {
+  "id": "audit.idx.33",
+  "expr": "nope[nope2]"
+ },
+ {
+  "id": "audit.idx.34",
+  "expr": "var.tags[var.none]"
+ },
+ {
+  "id": "audit.idx.35",
+  "expr": "var.env[var.none]"
+ },
+ {
+  "id": "audit.idx.36",
+  "expr": "(var.later == \"\" ? var.tags : [])[0]"
+ },
+ {
+  "id": "audit.idx.37",
+  "expr": "(var.later == \"\" ? var.tags : [])[5]"
+ },
+ {
+  "id": "audit.idx.38",
+  "expr": "(var.later == \"\" ? var.env : {})[\"A\"]"
+ },
+ {
+  "id": "audit.idx.39",
+  "expr": "(var.flag ? var.tags : [])[-1]"
+ },
+ {
+  "id": "audit.idx.40",
+  "expr": "[var.later][0]"
+ },
+ {
+  "id": "audit.idx.41",
+  "expr": "{a = 1}[null]"
+ },
+ {
+  "id": "audit.idx.42",
+  "expr": "[1, 2][null]"
+ },
+ {
+  "id": "audit.idx.43",
+  "expr": "var.tags[0][0]"
+ },
+ {
+  "id": "audit.idx.44",
+  "expr": "var.users[0].name.x"
+ },
+ {
+  "id": "audit.idx.45",
+  "expr": "(var.flag ? var.users : [])[0].name"
+ },
+ {
+  "id": "audit.idx.46",
+  "expr": "(var.flag ? var.users : [])[1].nope"
+ },
+ {
+  "id": "audit.idx.47",
+  "expr": "var.env[\"A\"].x"
+ },
+ {
+  "id": "audit.idx.48",
+  "expr": "var.tags[1][*]"
+ },
+ {
+  "id": "audit.splat.00",
+  "expr": "var.users[*][\"name\"]"
+ },
+ {
+  "id": "audit.splat.01",
+  "expr": "var.users.*[\"name\"]"
+ },
+ {
+  "id": "audit.splat.02",
+  "expr": "var.tags[*][0]"
+ },
+ {
+  "id": "audit.splat.03",
+  "expr": "var.tags.*[0]"
+ },
+ {
+  "id": "audit.splat.04",
+  "expr": "var.any[*]"
+ },
+ {
+  "id": "audit.splat.05",
+  "expr": "var.any.*.x"
+ },
+ {
+  "id": "audit.splat.06",
+  "expr": "var.env[*].A"
+ },
+ {
+  "id": "audit.splat.07",
+  "expr": "{a = 1}[*].a"
+ },
+ {
+  "id": "audit.splat.08",
+  "expr": "null[*].a"
+ },
+ {
+  "id": "audit.splat.09",
+  "expr": "[var.later, \"a\"][*]"
+ },
+ {
+  "id": "audit.splat.10",
+  "expr": "[var.any][*].x"
+ },
+ {
+  "id": "audit.splat.11",
+  "expr": "[null, {a = 1}][*].a"
+ },
+ {
+  "id": "audit.splat.12",
+  "expr": "[[1, 2], [3]][*][*]"
+ },
+ {
+  "id": "audit.splat.13",
+  "expr": "var.users[*].name[*]"
+ },
+ {
+  "id": "audit.splat.14",
+  "expr": "[{a = {b = 1}}][*].a.b"
+ },
+ {
+  "id": "audit.splat.15",
+  "expr": "[for u in var.users : u][*].name"
+ },
+ {
+  "id": "audit.splat.16",
+  "expr": "(var.flag ? var.users : [])[*].name"
+ },
+ {
+  "id": "audit.splat.17",
+  "expr": "(var.flag ? var.users : []).*.name"
+ },
+ {
+  "id": "audit.splat.18",
+  "expr": "(var.later == \"\" ? var.tags : [])[*]"
+ },
+ {
+  "id": "audit.splat.19",
+  "expr": "(var.later == \"\" ? var.users : [])[*].name"
+ },
+ {
+  "id": "audit.splat.20",
+  "expr": "(!var.flag ? var.set : [])[*]"
+ },
+ {
+  "id": "audit.splat.21",
+  "expr": "var.users[*].name[1]"
+ },
+ {
+  "id": "audit.splat.22",
+  "expr": "var.users.*.name[1]"
+ },
+ {
+  "id": "audit.splat.23",
+  "expr": "var.users[*].age + 1"
+ },
+ {
+  "id": "audit.splat.24",
+  "expr": "[[{a = 1}]][*][0].a"
+ },
+ {
+  "id": "audit.splat.25",
+  "expr": "[{a = [{b = 1}]}][*].a[*].b"
+ },
+ {
+  "id": "audit.splat.26",
+  "expr": "var.users[*].nope.x"
+ },
+ {
+  "id": "audit.splat.27",
+  "expr": "var.none.*.x"
+ },
+ {
+  "id": "audit.splat.28",
+  "expr": "[1, 2][*].x"
+ },
+ {
+  "id": "audit.splat.29",
+  "expr": "[{a = 1}, {b = 2}][*].a"
+ },
+ {
+  "id": "audit.splat.30",
+  "expr": "var.later.*"
+ },
+ {
+  "id": "audit.splat.31",
+  "expr": "(var.flag ? [{a = 1}, {a = 2}] : [])[*].a"
+ },
+ {
+  "id": "audit.splat.32",
+  "expr": "[for x in [1] : {a = x}][*].a"
+ },
+ {
+  "id": "audit.splat.33",
+  "expr": "var.users[*][0]"
+ },
+ {
+  "id": "audit.splat.34",
+  "expr": "[[1], [2, 3]][*][1]"
+ },
+ {
+  "id": "audit.for.00",
+  "expr": "[for x in var.users : x.name if x.age > var.later]"
+ },
+ {
+  "id": "audit.for.01",
+  "expr": "{for x in [\"a\", \"b\", \"a\"] : x => x...}"
+ },
+ {
+  "id": "audit.for.02",
+  "expr": "{for x in [1, 2, 1] : x => x...}"
+ },
+ {
+  "id": "audit.for.03",
+  "expr": "{for k, v in var.env : k => v...}"
+ },
+ {
+  "id": "audit.for.04",
+  "expr": "[for x in var.any : x]"
+ },
+ {
+  "id": "audit.for.05",
+  "expr": "[for x in [var.later, \"a\"] : x]"
+ },
+ {
+  "id": "audit.for.06",
+  "expr": "{for x in [var.later] : x => 1}"
+ },
+ {
+  "id": "audit.for.07",
+  "expr": "[for x in [1, 2] : nope if false]"
+ },
+ {
+  "id": "audit.for.08",
+  "expr": "[for x in [1, 2] : x if nope]"
+ },
+ {
+  "id": "audit.for.09",
+  "expr": "[for i, x in var.set : i]"
+ },
+ {
+  "id": "audit.for.10",
+  "expr": "[for i, x in \"abc\" : x]"
+ },
+ {
+  "id": "audit.for.11",
+  "expr": "[for x in 1 : x]"
+ },
+ {
+  "id": "audit.for.12",
+  "expr": "[for x, y in var.users : x]"
+ },
+ {
+  "id": "audit.for.13",
+  "expr": "{for i, x in var.tags : x => i}"
+ },
+ {
+  "id": "audit.for.14",
+  "expr": "[for x in var.tags : x if null]"
+ },
+ {
+  "id": "audit.for.15",
+  "expr": "[for x in var.tags : x if \"true\"]"
+ },
+ {
+  "id": "audit.for.16",
+  "expr": "[for x in var.tags : x if 1]"
+ },
+ {
+  "id": "audit.for.17",
+  "expr": "{for x in var.tags : x => x if x != \"b\"}"
+ },
+ {
+  "id": "audit.for.18",
+  "expr": "[for x in [[1, 2], [3]] : [for y in x : y * 10]]"
+ },
+ {
+  "id": "audit.for.19",
+  "expr": "[for var in [1] : var]"
+ },
+ {
+  "id": "audit.for.20",
+  "expr": "[for local in [1] : var.name]"
+ },
+ {
+  "id": "audit.for.21",
+  "expr": "[for x in var.users : x.nope]"
+ },
+ {
+  "id": "audit.for.22",
+  "expr": "{for x in var.users : x.name => x}"
+ },
+ {
+  "id": "audit.for.23",
+  "expr": "{for x in [1, 2] : x => x}"
+ },
+ {
+  "id": "audit.for.24",
+  "expr": "{for x in [1.5, 1e400] : x => x}"
+ },
+ {
+  "id": "audit.for.25",
+  "expr": "{for x in [true] : x => x}"
+ },
+ {
+  "id": "audit.for.26",
+  "expr": "[for x in var.env : x]"
+ },
+ {
+  "id": "audit.for.27",
+  "expr": "[for k, v in {b = 1, a = 2, \"A\" = 3, \"_\" = 4} : k]"
+ },
+ {
+  "id": "audit.for.28",
+  "expr": "[for x in [] : x]"
+ },
+ {
+  "id": "audit.for.29",
+  "expr": "{for x in [] : x => x}"
+ },
+ {
+  "id": "audit.for.30",
+  "expr": "{for x in [\"a\", \"b\"] : x => x... if x == \"a\"}"
+ },
+ {
+  "id": "audit.for.31",
+  "expr": "{for x in [\"a\", \"a\"] : x => x if x == var.later}"
+ },
+ {
+  "id": "audit.for.32",
+  "expr": "{for x in [\"a\", \"b\"] : x => var.later}"
+ },
+ {
+  "id": "audit.for.33",
+  "expr": "[for x in [\"a\"] : var.later]"
+ },
+ {
+  "id": "audit.for.34",
+  "expr": "{for x in var.users : x.name => x.age...}"
+ },
+ {
+  "id": "audit.for.35",
+  "expr": "{for x in [1, 2] : \"k\" => x...}"
+ },
+ {
+  "id": "audit.for.36",
+  "expr": "[for x in [1, 2] : x...]"
+ },
+ {
+  "id": "audit.for.37",
+  "expr": "{for x in [1] : x}"
+ },
+ {
+  "id": "audit.for.38",
+  "expr": "[for x in [1] : x => x]"
+ },
+ {
+  "id": "audit.for.39",
+  "expr": "[for x, x in [1] : x]"
+ },
+ {
+  "id": "audit.for.40",
+  "expr": "[for x in [nope] : x]"
+ },
+ {
+  "id": "audit.for.41",
+  "expr": "{for x in [1, 2] : nope => x}"
+ },
+ {
+  "id": "audit.for.42",
+  "expr": "[for x in [1, 2] : nope]"
+ },
+ {
+  "id": "audit.for.43",
+  "expr": "{for x in [\"a\", \"b\"] : x => [x]...}"
+ },
+ {
+  "id": "audit.for.44",
+  "expr": "[for k, v in var.users[0] : \"${k}=${v}\"]"
+ },
+ {
+  "id": "audit.for.45",
+  "expr": "{for x in var.tags : x => x if var.later == x}"
+ },
+ {
+  "id": "audit.for.46",
+  "expr": "[for x in var.tags : x if x == \"a\" || x == var.later]"
+ },
+ {
+  "id": "audit.for.47",
+  "expr": "{for x in [\"b\", \"a\"] : x => x}"
+ },
+ {
+  "id": "audit.for.48",
+  "expr": "[for x in {b = 2, a = 1} : x]"
+ },
+ {
+  "id": "audit.for.49",
+  "expr": "[for x in var.users[0] : x]"
+ },
+ {
+  "id": "audit.for.50",
+  "expr": "[for i, x in var.users[0] : i]"
+ },
+ {
+  "id": "audit.for.51",
+  "expr": "[for x in [1, 2, 3] : x if x > var.any]"
+ },
+ {
+  "id": "audit.for.52",
+  "expr": "{for x in [1] : var.any => x}"
+ },
+ {
+  "id": "audit.for.53",
+  "expr": "{for x in [1] : var.none => x}"
+ },
+ {
+  "id": "audit.for.54",
+  "expr": "[for x in (var.later == \"\" ? var.tags : []) : x]"
+ },
+ {
+  "id": "audit.for.55",
+  "expr": "{for x in [\"a\"] : x => nope if false}"
+ },
+ {
+  "id": "audit.for.56",
+  "expr": "[for x in [\"a\"] : x if var.none == null]"
+ },
+ {
+  "id": "audit.for.57",
+  "expr": "{for x in [1, 2] : \"k\" => x}"
+ },
+ {
+  "id": "audit.tmpl.00",
+  "expr": "\"${1}\""
+ },
+ {
+  "id": "audit.tmpl.01",
+  "expr": "\"${var.tags}\""
+ },
+ {
+  "id": "audit.tmpl.02",
+  "expr": "\"x${var.tags}\""
+ },
+ {
+  "id": "audit.tmpl.03",
+  "expr": "\"${var.none}\""
+ },
+ {
+  "id": "audit.tmpl.04",
+  "expr": "\"a${var.none}\""
+ },
+ {
+  "id": "audit.tmpl.05",
+  "expr": "\"${var.later}\""
+ },
+ {
+  "id": "audit.tmpl.06",
+  "expr": "\"a${var.later}\""
+ },
+ {
+  "id": "audit.tmpl.07",
+  "expr": "\"a${var.any}\""
+ },
+ {
+  "id": "audit.tmpl.08",
+  "expr": "\"${true}x\""
+ },
+ {
+  "id": "audit.tmpl.09",
+  "expr": "\"a ${ \"b\" } c\""
+ },
+ {
+  "id": "audit.tmpl.10",
+  "expr": "\"${~ \"b\" ~}\""
+ },
+ {
+  "id": "audit.tmpl.11",
+  "expr": "\"a  ${~ var.name ~}  b\""
+ },
+ {
+  "id": "audit.tmpl.12",
+  "expr": "\"%{if var.flag}yes%{else}no%{endif}\""
+ },
+ {
+  "id": "audit.tmpl.13",
+  "expr": "\"%{if var.later == \"\"}a%{endif}\""
+ },
+ {
+  "id": "audit.tmpl.14",
+  "expr": "\"%{if var.none}a%{endif}\""
+ },
+ {
+  "id": "audit.tmpl.15",
+  "expr": "\"%{if \"true\"}a%{endif}\""
+ },
+ {
+  "id": "audit.tmpl.16",
+  "expr": "\"%{if 1}a%{endif}\""
+ },
+ {
+  "id": "audit.tmpl.17",
+  "expr": "\"%{for x in var.tags}${x},%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.18",
+  "expr": "\"%{for i, x in var.tags}${i}=${x} %{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.19",
+  "expr": "\"%{for x in var.env}${x}%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.20",
+  "expr": "\"%{for k, v in var.env}${k}=${v};%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.21",
+  "expr": "\"%{for x in var.later}x%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.22",
+  "expr": "\"%{for x in var.none}x%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.23",
+  "expr": "\"%{for x in [var.later]}${x}%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.24",
+  "expr": "\"a %{~ if true ~} b %{~ endif ~} c\""
+ },
+ {
+  "id": "audit.tmpl.25",
+  "expr": "\"$${x}\""
+ },
+ {
+  "id": "audit.tmpl.26",
+  "expr": "\"%%{x}\""
+ },
+ {
+  "id": "audit.tmpl.27",
+  "expr": "\"$$\""
+ },
+ {
+  "id": "audit.tmpl.28",
+  "expr": "\"$\""
+ },
+ {
+  "id": "audit.tmpl.29",
+  "expr": "\"%\""
+ },
+ {
+  "id": "audit.tmpl.30",
+  "expr": "\"a$${\""
+ },
+ {
+  "id": "audit.tmpl.31",
+  "expr": "\"\\u00e9\""
+ },
+ {
+  "id": "audit.tmpl.32",
+  "expr": "\"\\U0001F600\""
+ },
+ {
+  "id": "audit.tmpl.33",
+  "expr": "\"\\x41\""
+ },
+ {
+  "id": "audit.tmpl.34",
+  "expr": "\"\\a\""
+ },
+ {
+  "id": "audit.tmpl.35",
+  "expr": "\"\\uD800\""
+ },
+ {
+  "id": "audit.tmpl.36",
+  "expr": "\"\\u0065\\u0301\""
+ },
+ {
+  "id": "audit.tmpl.37",
+  "expr": "\"e\\u0301\" == \"\\u00e9\""
+ },
+ {
+  "id": "audit.tmpl.38",
+  "expr": "\"${var.name}${var.name}\""
+ },
+ {
+  "id": "audit.tmpl.39",
+  "expr": "\"%{ for x in [1,2] ~}\n${x}\n%{~ endfor }\""
+ },
+ {
+  "id": "audit.tmpl.40",
+  "expr": "\"%{for x in [1, 2]}%{for y in [3, 4]}${x}${y} %{endfor}%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.41",
+  "expr": "\"%{if true}a%{else}b%{else}c%{endif}\""
+ },
+ {
+  "id": "audit.tmpl.42",
+  "expr": "\"%{endif}\""
+ },
+ {
+  "id": "audit.tmpl.43",
+  "expr": "\"%{if true}\""
+ },
+ {
+  "id": "audit.tmpl.44",
+  "expr": "\"%{ for x in }\""
+ },
+ {
+  "id": "audit.tmpl.45",
+  "expr": "\"${ 1 + }\""
+ },
+ {
+  "id": "audit.tmpl.46",
+  "expr": "\"e${\"\\u0301\"}\" == \"\\u00e9\""
+ },
+ {
+  "id": "audit.tmpl.47",
+  "expr": "\"e${\"\\u0301\"}\""
+ },
+ {
+  "id": "audit.tmpl.48",
+  "expr": "\"${nope}${nope2}\""
+ },
+ {
+  "id": "audit.tmpl.49",
+  "expr": "\"%{if nope}a%{endif}\""
+ },
+ {
+  "id": "audit.tmpl.50",
+  "expr": "\"%{for x in [1]}${nope}%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.51",
+  "expr": "\"${[1]}\""
+ },
+ {
+  "id": "audit.tmpl.52",
+  "expr": "\"${{a = 1}}\""
+ },
+ {
+  "id": "audit.tmpl.53",
+  "expr": "\"${var.users[0].age}\""
+ },
+ {
+  "id": "audit.tmpl.54",
+  "expr": "\"%{if var.flag ~} a %{~ endif}\""
+ },
+ {
+  "id": "audit.tmpl.55",
+  "expr": "\"x ${~ \"y\"}\""
+ },
+ {
+  "id": "audit.tmpl.56",
+  "expr": "\"%{for x in [\"a\", \"b\"] ~} ${x} %{~ endfor}\""
+ },
+ {
+  "id": "audit.tmpl.57",
+  "expr": "\"%{for x in [1, null]}${x}%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.58",
+  "expr": "\"%{for x in [[1]]}${x}%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.59",
+  "expr": "\"\\\\${x}\""
+ },
+ {
+  "id": "audit.tmpl.60",
+  "expr": "\"\\\"${var.name}\\\"\""
+ },
+ {
+  "id": "audit.tmpl.61",
+  "expr": "\"%{if false}${nope}%{endif}\""
+ },
+ {
+  "id": "audit.tmpl.62",
+  "expr": "\"%{if true}%{if false}a%{else}b%{endif}%{endif}\""
+ },
+ {
+  "id": "audit.tmpl.63",
+  "expr": "\"%{ if var.flag }x%{ endif }\""
+ },
+ {
+  "id": "audit.tmpl.64",
+  "expr": "\"%{if var.any}a%{endif}\""
+ },
+ {
+  "id": "audit.tmpl.65",
+  "expr": "\"a${var.later}b${nope}\""
+ },
+ {
+  "id": "audit.tmpl.66",
+  "expr": "\"\\$${x}\""
+ },
+ {
+  "id": "audit.tmpl.67",
+  "expr": "\"${\"${\"${var.name}\"}\"}\""
+ },
+ {
+  "id": "audit.tmpl.68",
+  "expr": "\"%{for x in var.set}${x}%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.69",
+  "expr": "\"%{for x in var.users}${x.name}%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.70",
+  "expr": "\"%{for x in var.users}${x}%{endfor}\""
+ },
+ {
+  "id": "audit.tmpl.71",
+  "expr": "\"${1e400 / 3}\""
+ },
+ {
+  "id": "audit.tmpl.72",
+  "expr": "\"\\n\\r\\t\""
+ },
+ {
+  "id": "audit.tmpl.73",
+  "expr": "\"\\\\\""
+ },
+ {
+  "id": "audit.tmpl.74",
+  "expr": "\"\\\""
+ },
+ {
+  "id": "audit.tmpl.75",
+  "expr": "\"tab\tin\""
+ },
+ {
+  "id": "audit.heredoc.00",
+  "expr": "<<EOT\na\r\nb\nEOT\n"
+ },
+ {
+  "id": "audit.heredoc.01",
+  "expr": "<<-EOT\n\t  a\n  \tb\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.02",
+  "expr": "<<-EOT\n  a\n\n  b\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.03",
+  "expr": "<<-EOT\n    a\n   \n    b\n    EOT\n"
+ },
+ {
+  "id": "audit.heredoc.04",
+  "expr": "<<-EOT\n  a ${var.name} b\n    ${var.name}\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.05",
+  "expr": "<<-EOT\n  %{if true}\n    yes\n  %{endif}\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.06",
+  "expr": "<<EOT\n  %{~ if true ~}\n  x\n  %{~ endif ~}\nEOT\n"
+ },
+ {
+  "id": "audit.heredoc.07",
+  "expr": "<<EOT\na\\nb\nEOT\n"
+ },
+ {
+  "id": "audit.heredoc.08",
+  "expr": "<<EOT\nEOTX\nEOT\n"
+ },
+ {
+  "id": "audit.heredoc.09",
+  "expr": "<<EOT\nx\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.10",
+  "expr": "<<-EOT\na\n  b\nEOT\n"
+ },
+ {
+  "id": "audit.heredoc.11",
+  "expr": "<<EOT\nno newline at end EOT"
+ },
+ {
+  "id": "audit.heredoc.12",
+  "expr": "<<-EOT\n\ta\n    b\n\tEOT\n"
+ },
+ {
+  "id": "audit.heredoc.13",
+  "expr": "<<-EOT\n  ${var.name}x\n   ${var.name}\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.14",
+  "expr": "<<-EOT\r\n  a\r\n  EOT\r\n"
+ },
+ {
+  "id": "audit.heredoc.15",
+  "expr": "<<EOT\r\na\r\nEOT\r\n"
+ },
+ {
+  "id": "audit.heredoc.16",
+  "expr": "<<-EOT\n  a\n    b\n EOT\n"
+ },
+ {
+  "id": "audit.heredoc.17",
+  "expr": "<<-EOT\n\n\n  a\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.18",
+  "expr": "<<-EOT\n  a\n \n  b\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.19",
+  "expr": "<<-EOT\n  %{for x in var.tags}\n    ${x}\n  %{endfor}\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.20",
+  "expr": "<<-EOT\n  %{for x in var.tags~}\n    ${x}\n  %{endfor~}\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.21",
+  "expr": "<<EOT\n${var.later}\nEOT\n"
+ },
+ {
+  "id": "audit.heredoc.22",
+  "expr": "<<EOT\n${nope}\nEOT\n"
+ },
+ {
+  "id": "audit.heredoc.23",
+  "expr": "<<EOT\n\"quoted\" \\t\nEOT\n"
+ },
+ {
+  "id": "audit.heredoc.24",
+  "expr": "<<-EOT\n  ${~ var.name}\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.25",
+  "expr": "<<-EOT\n    x ${var.name}\n  y\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.26",
+  "expr": "<<-EOT\n  a\n  b ${\n  var.name}\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.27",
+  "expr": "<<-EOT\n  é\n   x\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.28",
+  "expr": "<<-EOT\n    a\n\t  b\n  EOT\n"
+ },
+ {
+  "id": "audit.heredoc.29",
+  "expr": "<<EOT\n%{if true}a%{endif}\nEOT\n"
+ },
+ {
+  "id": "audit.heredoc.30",
+  "expr": "<<EOT\nEOT"
+ },
+ {
+  "id": "audit.heredoc.31",
+  "expr": "<<EOT\n\nEOT\n"
+ },
+ {
+  "id": "audit.heredoc.32",
+  "expr": "<<-EOT\n  a\n  EOT   \n"
+ },
+ {
+  "id": "audit.heredoc.33",
+  "expr": "<<-EOT\n  a\n\tEOT\n"
+ },
+ {
+  "id": "audit.heredoc.34",
+  "expr": "<<EOT\n${\"a\"}${\"b\"}\nEOT\n"
+ },
+ {
+  "id": "audit.heredoc.35",
+  "expr": "<<-EOT\n  $${x}\n    %%{y}\n  EOT\n"
+ },
+ {
+  "id": "audit.call.00",
+  "expr": "nope(1)"
+ },
+ {
+  "id": "audit.call.01",
+  "expr": "nope(nope2)"
+ },
+ {
+  "id": "audit.call.02",
+  "expr": "nope(var.tags...)"
+ },
+ {
+  "id": "audit.call.03",
+  "expr": "nope(1, )"
+ },
+ {
+  "id": "audit.call.04",
+  "expr": "nope(...)"
+ },
+ {
+  "id": "audit.call.05",
+  "expr": "nope(1 2)"
+ },
+ {
+  "id": "audit.call.06",
+  "expr": "a::b::c(1)"
+ },
+ {
+  "id": "audit.call.07",
+  "expr": "core::nope(1)"
+ },
+ {
+  "id": "audit.call.08",
+  "expr": "nope()"
+ },
+ {
+  "id": "audit.call.09",
+  "expr": "nope(var.later)"
+ },
+ {
+  "id": "audit.call.10",
+  "expr": "Nope(1)"
+ },
+ {
+  "id": "audit.call.11",
+  "expr": "nope (1)"
+ },
+ {
+  "id": "audit.call.12",
+  "expr": "nope(\n1,\n2\n)"
+ },
+ {
+  "id": "audit.call.13",
+  "expr": "nope(1)(2)"
+ },
+ {
+  "id": "audit.call.14",
+  "expr": "nope(1).x"
+ },
+ {
+  "id": "audit.call.15",
+  "expr": "nope(1)[0]"
+ },
+ {
+  "id": "audit.call.16",
+  "expr": "1 + nope(2)"
+ },
+ {
+  "id": "audit.call.17",
+  "expr": "nope(1, nope2(2))"
+ },
+ {
+  "id": "audit.call.18",
+  "expr": "[nope(1), nope2(2)]"
+ },
+ {
+  "id": "audit.call.19",
+  "expr": "var.flag ? nope(1) : 2"
+ },
+ {
+  "id": "audit.call.20",
+  "expr": "!var.flag ? nope(1) : 2"
+ },
+ {
+  "id": "audit.call.21",
+  "expr": "nope::(1)"
+ },
+ {
+  "id": "audit.call.22",
+  "expr": "::nope(1)"
+ },
+ {
+  "id": "audit.uni.00",
+  "expr": "\"é\" + nope"
+ },
+ {
+  "id": "audit.uni.01",
+  "expr": "\"👩‍👩‍👧\" + nope"
+ },
+ {
+  "id": "audit.uni.02",
+  "expr": "\"日本語\" + nope"
+ },
+ {
+  "id": "audit.uni.03",
+  "expr": "\"a\tb\" + nope"
+ },
+ {
+  "id": "audit.uni.04",
+  "expr": "\"éx\" == \"éx\""
+ },
+ {
+  "id": "audit.uni.05",
+  "expr": "{\"é\" = 1}"
+ },
+ {
+  "id": "audit.uni.06",
+  "expr": "\"é😀\" + nope2"
+ },
+ {
+  "id": "audit.uni.07",
+  "expr": "[\"🇫🇷\", nope]"
+ },
+ {
+  "id": "audit.uni.08",
+  "expr": "\"́\" + nope"
+ },
+ {
+  "id": "audit.uni.09",
+  "expr": "\"ﬁ\" == \"fi\""
+ },
+ {
+  "id": "audit.uni.10",
+  "expr": "\"Å\" == \"Å\""
+ },
+ {
+  "id": "audit.uni.11",
+  "expr": "\"Å\" == \"Å\""
+ },
+ {
+  "id": "audit.uni.12",
+  "expr": "{ \"Ω\" = 1, \"Ω\" = 2 }"
+ },
+ {
+  "id": "audit.uni.13",
+  "expr": "<<EOT\né\nEOT\n"
+ },
+ {
+  "id": "audit.uni.14",
+  "expr": "\"x\" +\n  \"é\" + nope"
+ },
+ {
+  "id": "audit.uni.15",
+  "expr": "\"﻿\" + nope"
+ }
+]
