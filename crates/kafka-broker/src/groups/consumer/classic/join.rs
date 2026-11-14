@@ -4,9 +4,11 @@ use kafka_wire::ResponseError as E;
 use kafka_wire::ids::MemberId;
 
 use super::super::member::{ClassicSeat, Member};
+use super::super::notes::Moves;
 use super::super::{ConsumerGroup, Topics};
 use super::{partitions_of, subscription};
 use crate::groups::machine::{Answer, Effect, JoinAnswer, JoinRequest, Millis, Token};
+use crate::groups::note::Cause;
 
 impl ConsumerGroup {
     /// A classic JoinGroup to a consumer group: its protocol type must be `consumer`, it must offer some protocol, and
@@ -72,8 +74,11 @@ impl ConsumerGroup {
         if let Some(refused) = self.id_refusal(req, &id) {
             return refused;
         }
+        let was = self.members.len();
         let (mut member, mut changed, replaced_consumer) =
             self.classic_member(&id, predecessor, out);
+        // Why the group's epoch is to move, for the note: the first of the reasons below.
+        let mut cause = changed.then_some(Cause::MemberJoined);
         // A member asking in holds what its JoinGroup says it still owns and has given up the rest.
         let owned = partitions_of(&sub.owned, topics);
         member.assigned.retain(|p| owned.contains(p));
@@ -83,6 +88,7 @@ impl ConsumerGroup {
         if member.subscribed != sub.topics {
             member.subscribed.clone_from(&sub.topics);
             changed = true;
+            cause.get_or_insert(Cause::SubscriptionChanged);
         }
         member.classic = Some(ClassicSeat {
             protocols: req.protocols.clone(),
@@ -99,13 +105,14 @@ impl ConsumerGroup {
         self.members.insert(id.clone(), member);
         // Its principal's rights, as the join brought them: what it was left by a member it replaced, or holds from before
         // a right was taken away, goes before anything is told (SEC-231).
-        changed |= self.refresh_rights(&id, req.rights.clone(), topics, now, out);
-        self.reset_session(&id, now, out);
-        if changed {
-            self.bump_and_reassign(topics, now);
-        } else {
-            self.assign_if_due(topics, now);
-        }
+        let moves = Moves {
+            changed,
+            cause,
+            was,
+            reason: req.reason.clone(),
+            rights: req.rights.clone(),
+        };
+        self.settle(&id, moves, topics, now, out);
         self.reconcile(&id, Some(&owned), now, out);
         self.end_revocation_if_given_up(&id, out);
         self.arm_classic_revocations(now, out);
