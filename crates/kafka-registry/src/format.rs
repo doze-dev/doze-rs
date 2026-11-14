@@ -153,7 +153,7 @@ impl Formats {
     /// Every language the crate has. Protobuf (slice 10b) and JSON Schema (10c) are added here.
     #[must_use]
     pub fn all() -> Self {
-        Self(vec![Box::new(crate::avro::Avro)])
+        Self(vec![Box::new(crate::avro::Avro), Box::new(crate::protobuf::Protobuf)])
     }
 
     /// Only the languages given (a test's).

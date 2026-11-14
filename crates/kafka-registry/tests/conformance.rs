@@ -146,10 +146,8 @@ const PENDING_SCENARIOS: &[(&str, &str)] = &[
     ("nested-references", "JSON Schema references: slice 10c."),
     (
         "other-schema-types",
-        "JSON Schema and Protobuf beside Avro: slices 10b and 10c (ids follow the JSON and Protobuf registrations).",
+        "JSON Schema beside Protobuf and Avro: slice 10c (the Protobuf ids follow the JSON registrations).",
     ),
-    ("protobuf-canonical-forms", "Protobuf: slice 10b."),
-    ("protobuf-descriptor-with-import", "Protobuf: slice 10b."),
 ];
 
 fn sub(s: &str, base: u64) -> String {

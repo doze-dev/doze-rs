@@ -12,6 +12,7 @@ pub mod avro;
 pub mod error;
 pub mod format;
 pub mod json;
+pub mod protobuf;
 pub mod registry;
 pub mod server;
 pub mod store;

@@ -1,0 +1,1 @@
+//! Protobuf on its own.

@@ -44,7 +44,7 @@ struct ReasonsFile {
 }
 
 /// The languages whose corpus this build answers. Protobuf (10b) and JSON Schema (10c) add theirs.
-const KINDS: &[SchemaType] = &[SchemaType::Avro];
+const KINDS: &[SchemaType] = &[SchemaType::Avro, SchemaType::Protobuf];
 
 fn data(file: &str) -> String {
     fs::read_to_string(
