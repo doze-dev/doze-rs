@@ -177,7 +177,18 @@ pub(crate) fn function_events(
             }
             "SNS" => sns_event(name, &id, &props, &target, r, out),
             "S3" => s3_event((name, &id), &props, &target, r, all, out)?,
-            "Schedule" | "ScheduleV2" | "EventBridgeRule" | "CloudWatchEvent" => {
+            "ScheduleV2" => super::sam_schedule::schedule_event(
+                name,
+                ev,
+                &props,
+                &super::sam_schedule::Target {
+                    arn: target.clone(),
+                    action: "lambda:InvokeFunction",
+                },
+                r,
+                out,
+            ),
+            "Schedule" | "EventBridgeRule" | "CloudWatchEvent" => {
                 rule_event(name, &id, &props, &target, r, out)
             }
             "CloudWatchLogs" => {
@@ -306,7 +317,7 @@ fn s3_event(
     Ok(())
 }
 
-/// A schedule or EventBridge rule targeting `target`. `ScheduleV2` is made as a rule too (EventBridge Scheduler is not served).
+/// A schedule (`Schedule`, the older kind) or EventBridge rule targeting `target`. `ScheduleV2` is a Scheduler schedule (`sam_schedule.rs`).
 pub(crate) fn rule_event(
     name: &str,
     id: &str,

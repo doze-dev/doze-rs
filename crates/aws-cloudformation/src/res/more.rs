@@ -61,6 +61,8 @@ const MAPPED: &[&str] = &[
     "AWS::Events::Archive",
     "AWS::Events::Connection",
     "AWS::Events::ApiDestination",
+    "AWS::Scheduler::Schedule",
+    "AWS::Scheduler::ScheduleGroup",
     "AWS::CloudWatch::Alarm",
     "AWS::CloudWatch::CompositeAlarm",
     "AWS::CloudWatch::Dashboard",

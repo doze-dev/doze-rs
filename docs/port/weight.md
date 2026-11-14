@@ -469,3 +469,34 @@ With the module face (Phase 11) and the schema registry's foundation (Phase 10a)
 TLS build, or a higher ceiling), the owner chose to raise the ceiling. The `weight-tls` job's limit is now 10,833,014 B (that estimate
 plus 5%) and 186 packages, until CI's next run on main measures it; Protobuf (10b) and JSON Schema (10c) will move it again, each with
 its numbers. The default build's limit (9,386,171 B, 174 packages) is unchanged.
+
+## One build: TLS in the default (2026-11-14, owner decision)
+
+Asked whether to keep a separate TLS build "for a few MB", the owner chose one build, and raised the ceiling to 15 MB the same day. `tls` is
+now a default feature of `doze-kafka`; `--no-default-features` (no console, registry, module or TLS) stays only as an internal check that the
+broker core needs none of them. CI: the `weight-tls` size job is gone; its size and packages are the `weight` job's single line
+(`xtask/weight-limits.txt`), and a `weight-tls-idle` job keeps the one thing it measured that the default job does not: idle memory with a
+certificate loaded (10,610 KB). The single build, with the module face and the registry's Avro and JSON Schema, is 7,669,200 B on darwin
+arm64, 183 packages, 7,472 KB idle; about 10.43 MB on ubuntu x86_64 at CI's 1.36. Limit 10,951,617 B, 186 packages, 9,996 KB, estimates
+until CI measures them. Building from source needs a C compiler and an assembler (ring); release binaries are unaffected.
+
+## One build: CI's measurements (2026-11-14)
+
+Main's first CI run with the one build (TLS in the default, the registry with Avro, JSON Schema and Protobuf), run 43588988185 on PR #45,
+replaces the estimates above, by the rule of "Limits raised to the measured values": bytes and packages exact, idle the median of three
+plus 5%. Small, justified rises under the owner's delegation of 2026-11-14.
+
+| job | measured | old limit | new limit |
+|---|---|---|---|
+| `weight`, doze-kafka binary | 10,634,592 B, 183 packages | 10,951,617 B, 186 (estimates) | **10,634,592 B, 183** |
+| `weight`, doze-kafka idle | 10,488 / 10,048 / 10,576 KB, median 10,488 | 9,996 KB (estimate) | **11,013 KB** |
+| `weight-lean` binary | 5,274,120 B | 5,263,296 B | **5,274,120 B** (+10,824 B: the module face's and registry's shared code reached the lean build) |
+| `weight-tls-idle` | 10,932 / 10,916 / 10,936 KB, median 10,932 | 10,610 KB | **11,479 KB** |
+
+doze-aws held (median 8,728 KB of 9,413) and the lean build's idle held (6,920 KB of 7,229). doze-kafka's idle has risen about 1.2 MB since
+2026-11-12 (the console, then the registry on by default); that is in issue #36.
+
+doze-aws, from the same PR's next run (43592223803, main with the aws-tls, aws-gaps and aws-correctness merges): 13,128,520 B and 274
+packages, inside the 13,900,000 B / 280 lines its stage set; idle 9,964 / 10,036 / 10,024 KB, median 10,024 KB, so its idle line is
+**10,526 KB** (was 9,413). That is +1.06 MB over the median of 8,964 KB measured before those merges; added to issue #36 beside the A14 to
+A16 step. In the same run doze-kafka's idle median was 10,648 KB, inside its new 11,013 KB.

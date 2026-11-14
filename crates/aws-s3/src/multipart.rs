@@ -58,6 +58,7 @@ impl Core {
             return;
         };
         self.upload_locks.remove(row);
+        self.upload_acls.remove(row);
         let prefix = format!("{}\0", u.id);
         let parts: Vec<(String, String)> = self
             .parts
@@ -77,6 +78,7 @@ impl Core {
         // Checked now so the refusal comes at the start; the bucket's default retention is applied when the upload completes.
         let asked = crate::lock::requested(req, self.now_ms())?;
         self.new_lock(bucket, asked)?;
+        let acl = self.object_write_acl(req)?;
         let algo = req.s("ChecksumAlgorithm").and_then(Algo::parse);
         let kind = algo.map(|a| match req.s("ChecksumType") {
             Some("FULL_OBJECT") => CKind::FullObject,
@@ -103,6 +105,9 @@ impl Core {
         let row = upload_row(bucket, key, &id);
         if asked != crate::model::Lock::default() {
             self.upload_locks.insert(row.clone(), asked);
+        }
+        if let Some(acl) = acl {
+            self.upload_acls.insert(row.clone(), acl);
         }
         self.uploads.insert(row, upload);
         let mut out = Map::new();

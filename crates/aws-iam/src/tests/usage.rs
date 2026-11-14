@@ -370,3 +370,36 @@ async fn the_root_is_answered_without_waking_iam_and_the_log_and_generator_are_s
     assert_eq!(unknown.status, 404);
     let _ = iam.meta();
 }
+
+#[tokio::test]
+async fn the_doze_actions_are_also_query_actions_as_in_the_go_edition() {
+    use aws_peers::Authorizer;
+    use aws_wire::service::Service;
+    let dir = temp();
+    let ctx = Ctx {
+        dir: dir.path().to_owned(),
+        idle: std::time::Duration::from_secs(300),
+        tasks: Tasks::new(),
+        clock: Arc::new(SystemClock),
+        ext: None,
+    };
+    let (iam, _sts) = crate::services(Arc::new(ctx));
+    iam.authorize(
+        &caller("test", None),
+        vec![Need::new("sqs:SendMessage", QUEUE)],
+    )
+    .await
+    .unwrap();
+    let form: std::collections::BTreeMap<String, String> =
+        [("Action".to_owned(), "DozeAccessLog".to_owned())].into();
+    let by_action = iam.query_extension("DozeAccessLog", &form).unwrap().await;
+    assert_eq!(by_action.status, 200);
+    assert_eq!(
+        body(&by_action)["Entries"].as_array().map(Vec::len),
+        Some(1)
+    );
+    assert!(
+        iam.query_extension("ListUsers", &form).is_none(),
+        "only doze's own actions are taken"
+    );
+}

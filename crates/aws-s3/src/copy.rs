@@ -127,6 +127,8 @@ impl Core {
         check_not_onto_itself(req, &src, &bucket, replace, dest)?;
         // The copy has the lock its own request names (or the bucket's default), never the source's.
         let lock = self.new_lock(&bucket, crate::lock::requested(req, self.now_ms())?)?;
+        // A copy has the ACL its own request names, never the source's (memory: as AWS documents for CopyObject).
+        let acl = self.object_write_acl(req)?;
         self.guard_replace(&bucket, &key)?;
         let algo = req
             .s("ChecksumAlgorithm")
@@ -153,6 +155,7 @@ impl Core {
             parts: Vec::new(),
             tags,
             lock,
+            acl,
         };
         let stored = self.install(&bucket, v)?;
         self.note(req, Kind::Object("ObjectCreated:Copy"), &stored);

@@ -93,7 +93,8 @@ async fn a_websocket_api_connects_routes_answers_and_is_managed() {
     let gateway =
         aws_gateway::Gateway::new(aws_gateway::Config::new("127.0.0.1:0".parse().unwrap()))
             .with(Arc::new(w.v1.clone()))
-            .with(Arc::new(w.v2.clone()));
+            .with(Arc::new(w.v2.clone()))
+            .with(Arc::new(w.v1.management()));
     let running = gateway.bind().await.unwrap();
     let addr = running.local_addr();
 
