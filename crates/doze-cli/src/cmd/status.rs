@@ -56,7 +56,7 @@ impl Report {
             running: true,
             idle: snap.idle_timeout.to_std(),
             now,
-            views: stack::declared(snap).cloned().collect(),
+            views: go_order(stack::declared(snap).cloned().collect()),
         }
     }
 
@@ -362,4 +362,15 @@ fn plain_state(v: &InstanceView) -> &str {
         s if awake(s) || matches!(s, "crashing" | "failed" | "done") => s,
         _ => "asleep",
     }
+}
+
+/// The order Go's `status --json` lists services in: doze.hcl's modules and apps, then its services, then its tasks.
+/// Within each the daemon's order stands (the declaration order itself is doze.hcl's, read in C2).
+fn go_order(mut views: Vec<InstanceView>) -> Vec<InstanceView> {
+    views.sort_by_key(|v| match v.kind.as_str() {
+        "service" => 1,
+        "task" => 2,
+        _ => 0,
+    });
+    views
 }

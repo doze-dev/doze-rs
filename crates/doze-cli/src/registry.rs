@@ -186,6 +186,31 @@ impl Cache {
         fs::rename(&tmp, &file)
     }
 
+    /// What every module this machine has documentation for declares (module contract): the union a project is
+    /// guessed against and shells are offered from. A copy that does not read is left out, never guessed from.
+    pub fn hints(&self, ns: &str) -> Vec<doze_module_proto::msg::hints::ModuleHints> {
+        let mut names = self.modules(ns);
+        names.sort();
+        names
+            .into_iter()
+            .filter_map(|m| {
+                let text =
+                    fs::read_to_string(self.root.join(ns).join(&m).join("meta.yaml")).ok()?;
+                let meta = meta::parse(&text).ok()?;
+                Some(doze_module_proto::msg::hints::ModuleHints {
+                    label: if meta.label.is_empty() {
+                        m.clone()
+                    } else {
+                        meta.label
+                    },
+                    module: m,
+                    client: meta.client,
+                    detect: meta.detect,
+                })
+            })
+            .collect()
+    }
+
     /// The modules this machine has documentation for, for "did you mean".
     pub fn modules(&self, ns: &str) -> Vec<String> {
         fs::read_dir(self.root.join(ns))
