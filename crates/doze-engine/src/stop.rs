@@ -96,7 +96,10 @@ impl Engine {
 pub(crate) fn spawn_stop(e: &Engine, name: String, generation: u64) -> JoinHandle<()> {
     let e = e.clone();
     tokio::spawn(async move {
-        let handle = e.update(|c| c.handles.get(&generation).cloned());
+        let handle = e.update(|c| {
+            unwatch(c, &name);
+            c.handles.get(&generation).cloned()
+        });
         if let Some(h) = handle {
             tracing::info!("reaping \"{name}\"…");
             let patience = stop_steps(&e, &name).await;
@@ -134,6 +137,13 @@ async fn stop_steps(e: &Engine, name: &str) -> Duration {
     }
 }
 
+/// Stops watching `name`'s files: it no longer runs (a restart watches again when it registers).
+fn unwatch(c: &mut crate::engine::Core, name: &str) {
+    if let Some(w) = c.live.get_mut(name).and_then(|l| l.watcher.take()) {
+        w.abort();
+    }
+}
+
 /// Reports restart `timer` of `name` due after `delay`.
 pub(crate) fn spawn_timer(e: &Engine, name: String, timer: u64, delay: Duration) {
     let e = e.clone();
@@ -150,6 +160,7 @@ pub(crate) async fn watch(e: Engine, name: String, generation: u64, handle: Hand
         return;
     };
     let fx = e.update(|c| {
+        unwatch(c, &name);
         let fx =
             c.m.exited(&name, generation, success, &text, Now::current());
         if !c.m.stopping(&name, generation) {

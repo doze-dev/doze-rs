@@ -96,6 +96,36 @@ where
     }
 }
 
+/// Polls `sets` for a running instance; each change restarts it: a stop, then a wake, both caused by `watch` naming
+/// the path (Go's `startWatch`). The restart runs as a task of its own, since the stop ends this poller.
+pub(crate) fn restarter(
+    e: &crate::Engine,
+    name: &str,
+    sets: &[Set],
+) -> Option<tokio::task::AbortHandle> {
+    if sets.is_empty() {
+        return None;
+    }
+    let (e, name) = (e.clone(), name.to_string());
+    let task = tokio::spawn(poll(sets.to_vec(), DEFAULT_INTERVAL, move |path| {
+        let (e, name) = (e.clone(), name.clone());
+        async move {
+            let cause = crate::Cause::Watch(path.to_string_lossy().into_owned());
+            tracing::info!("\"{name}\": {} changed, restarting", path.display());
+            tokio::spawn(async move {
+                if let Err(err) = e.stop(&name, cause.clone()).await {
+                    tracing::warn!("restarting \"{name}\": {err}");
+                    return;
+                }
+                if let Err(err) = e.wake(&name, cause).await {
+                    tracing::warn!("restarting \"{name}\": {err}");
+                }
+            });
+        }
+    }));
+    Some(task.abort_handle())
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::indexing_slicing)]

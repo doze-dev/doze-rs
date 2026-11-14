@@ -60,6 +60,8 @@ pub(crate) struct Live {
     pub(crate) supervised: bool,
     /// Its readiness check, which the health prober repeats.
     pub(crate) health: Option<Ready>,
+    /// The poller of its `watch` files while it runs.
+    pub(crate) watcher: Option<tokio::task::AbortHandle>,
 }
 
 /// Where a start stands.

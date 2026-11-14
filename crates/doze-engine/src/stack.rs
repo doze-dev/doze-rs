@@ -23,6 +23,8 @@ pub struct Service {
     pub needs: Vec<Need>,
     /// The block's own `sleep`, which decides last.
     pub sleep: Sleep,
+    /// Files whose change restarts it while it runs (`watch`); none: it is never restarted for a file.
+    pub watch: Vec<crate::watch::Set>,
 }
 
 impl Service {
@@ -33,6 +35,7 @@ impl Service {
             kind: Kind::Process(Box::new(spec)),
             needs: Vec::new(),
             sleep: Sleep::Default,
+            watch: Vec::new(),
         }
     }
 
@@ -43,6 +46,7 @@ impl Service {
             kind: Kind::Planned(planner),
             needs: Vec::new(),
             sleep: Sleep::Default,
+            watch: Vec::new(),
         }
     }
 
@@ -60,6 +64,15 @@ impl Service {
         self.needs.push(Need {
             name: name.into(),
             when,
+        });
+        self
+    }
+
+    /// Restarts it (stop, then wake, cause `watch` naming the path) when a file `globs` match under `dir` changes.
+    pub fn watch(mut self, dir: impl Into<std::path::PathBuf>, globs: &[&str]) -> Service {
+        self.watch.push(crate::watch::Set {
+            dir: dir.into(),
+            globs: globs.iter().map(|g| (*g).to_string()).collect(),
         });
         self
     }
