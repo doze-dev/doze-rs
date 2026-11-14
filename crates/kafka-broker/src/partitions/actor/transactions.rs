@@ -87,6 +87,17 @@ pub(super) fn view<F: Fs>(
     })
 }
 
+/// Each producer's window of recent batches (reads the log's history the first time, like [`view`]).
+pub(super) fn windows<F: Fs>(
+    log: &PartitionLog<F>,
+    memory: &mut Memory,
+) -> Result<Vec<crate::producers::Window>, StorageError> {
+    if !memory.loaded {
+        relearn(log, memory)?;
+    }
+    Ok(memory.producers.windows())
+}
+
 /// A new, shared index.
 pub(crate) fn shared(index: TxnIndex) -> Arc<RwLock<TxnIndex>> {
     Arc::new(RwLock::new(index))

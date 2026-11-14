@@ -260,7 +260,8 @@ pub(super) async fn prepare(mut run: Run) -> Run {
                     .collect();
                 let mut seed = HashMap::new();
                 for shard in shards {
-                    super::kinesis::shard_iterator(&run, &peers, &arn, &shard, &mut seed).await;
+                    super::kinesis::shard_iterator(&run, &peers, &arn, &shard, &mut seed, false)
+                        .await;
                 }
                 run.seed = seed;
             }

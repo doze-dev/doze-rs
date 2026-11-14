@@ -92,6 +92,10 @@ pub struct Config {
     /// The users that can log in. The broker loads the credentials stored over the API into it when it opens and keeps
     /// it up to date; the server's authenticator shares it, so a change applies to the next login.
     pub users: Arc<Users>,
+    /// Whether the broker serves client telemetry (KIP-714: GetTelemetrySubscriptions and PushTelemetry) and says so in
+    /// ApiVersions. On by default, as the recordings have it; off, a client that sends either is disconnected as for any
+    /// API the broker does not serve.
+    pub client_telemetry: bool,
 }
 
 impl Config {
@@ -122,6 +126,7 @@ impl Config {
             acl_default_allow: true,
             super_users: BTreeSet::new(),
             users: Arc::new(Users::none()),
+            client_telemetry: true,
         }
     }
 }

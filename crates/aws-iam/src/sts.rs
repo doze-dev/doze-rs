@@ -1,17 +1,19 @@
 //! STS: who a request is, and the sessions that give someone else's identity for a while.
 //!
-//! In **soft** mode (the only mode so far) a role can be assumed by anyone and a role that does not exist can be assumed too: a
-//! session is made for its ARN. Real accounts refuse both, but a deploy tool's first act is to assume roles (CDK's bootstrap roles)
-//! that a local account has never been told about. The trust policy is stored and returned, and is evaluated when enforcement is.
+//! With IAM **off** or **soft**, a role can be assumed by anyone and a role that does not exist can be assumed too: a session is
+//! made for its ARN. Real accounts refuse both, but a deploy tool's first act is to assume roles (CDK's bootstrap roles) that a
+//! local account has never been told about. Under **enforce**, `AssumeRole` needs the role's trust policy (see `authz`).
 
 use aws_model_sts::Operation;
 use aws_wire::ApiError;
 use serde_json::{Value, json};
+use sha1::{Digest, Sha1};
 
 use crate::core::Core;
 use crate::entity::new_id;
 use crate::model::Kind;
 use crate::req::{Req, secs};
+use crate::saml;
 use crate::session::{Session, SessionKind};
 
 const MIN_SECS: i64 = 900;
@@ -77,7 +79,7 @@ impl Core {
             Some(Operation::AssumeRoleWithWebIdentity) => {
                 self.assume_with_token(r, "WebIdentityToken")
             }
-            Some(Operation::AssumeRoleWithSAML) => self.assume_with_token(r, "SAMLAssertion"),
+            Some(Operation::AssumeRoleWithSAML) => self.assume_with_saml(r),
             Some(Operation::AssumeRoot) => self.assume_root(r),
             Some(Operation::GetSessionToken) => self.get_session_token(r),
             Some(Operation::GetFederationToken) => self.get_federation_token(r),
@@ -173,8 +175,65 @@ impl Core {
         Ok(json!({"Credentials": self.credentials(&s), "SourceIdentity": s.source_identity}))
     }
 
-    /// `AssumeRoleWithWebIdentity` and `AssumeRoleWithSAML`: the token or assertion is not checked (signatures are not validated); the
-    /// subject, issuer and audience are read from it when it is a JWT.
+    /// `AssumeRoleWithSAML`: the assertion is read for its subject, issuer, recipient and AWS attributes, and echoed as AWS echoes
+    /// them; its signature is not checked (see [`crate::saml`]).
+    fn assume_with_saml(&self, r: &Req<'_>) -> Result<Value, ApiError> {
+        let arn = r.s("RoleArn");
+        let name = role_name_of(arn)?;
+        let duration = r.int("DurationSeconds").unwrap_or(DEFAULT_ROLE_SECS);
+        let known = self.entity(Kind::Role, name).ok();
+        if duration < MIN_SECS || duration > known.map_or(MAX_ROLE_SECS, |e| e.max_session_secs) {
+            return Err(validation("DurationSeconds is out of range for this role."));
+        }
+        let assertion = saml::read(r.s("SAMLAssertion")).ok_or_else(|| {
+            // (memory) The error is the modelled one; the sentence is doze's.
+            ApiError::modeled(
+                "InvalidIdentityTokenException",
+                "The SAML assertion could not be read: it must be base64 of a SAML response.",
+            )
+        })?;
+        // AWS takes the session name from the assertion's RoleSessionName attribute. (memory) An assertion without one is
+        // given a fixed name here.
+        let session_name = assertion
+            .role_session_name
+            .clone()
+            .unwrap_or_else(|| "saml-session".to_owned());
+        let role_id = known.map_or_else(|| new_id("AROA"), |e| Ok(e.id.clone()))?;
+        let mut s = self.session(
+            Who {
+                kind: SessionKind::Role,
+                subject: arn,
+                name: &session_name,
+                id: format!("{role_id}:{session_name}"),
+                secs: duration,
+            },
+            r,
+        )?;
+        s.source_identity.clone_from(&assertion.source_identity);
+        // The provider's name, from `arn:aws:iam::<account>:saml-provider/<name>`.
+        let provider = r
+            .s("PrincipalArn")
+            .split_once(":saml-provider/")
+            .map_or("", |(_, n)| n);
+        // (memory) AWS documents NameQualifier as BASE64(SHA1(issuer + account id + "/" + provider name)).
+        let qualifier = aws_core::base64::encode(&Sha1::digest(
+            format!("{}{}/{provider}", assertion.issuer, r.account()).as_bytes(),
+        ));
+        let audience = if assertion.recipient.is_empty() {
+            &assertion.audience
+        } else {
+            &assertion.recipient
+        };
+        Ok(json!({
+            "Credentials": self.credentials(&s),
+            "AssumedRoleUser": {"AssumedRoleId": s.id, "Arn": format!("arn:aws:sts::{}:assumed-role/{name}/{session_name}", r.account())},
+            "Subject": assertion.name_id, "SubjectType": assertion.subject_type(), "Issuer": assertion.issuer,
+            "Audience": audience, "NameQualifier": qualifier, "SourceIdentity": s.source_identity,
+        }))
+    }
+
+    /// `AssumeRoleWithWebIdentity`: the token is not checked (signatures are not validated); the subject, issuer and audience are
+    /// read from it when it is a JWT.
     fn assume_with_token(&self, r: &Req<'_>, member: &str) -> Result<Value, ApiError> {
         let arn = r.s("RoleArn");
         let name = role_name_of(arn)?;
@@ -184,7 +243,7 @@ impl Core {
             return Err(validation("DurationSeconds is out of range for this role."));
         }
         let claims = claims_of(r.s(member));
-        let session_name = r.opt("RoleSessionName").unwrap_or("saml-session");
+        let session_name = r.s("RoleSessionName");
         let role_id = known.map_or_else(|| new_id("AROA"), |e| Ok(e.id.clone()))?;
         let s = self.session(
             Who {
@@ -204,15 +263,9 @@ impl Core {
                 .unwrap_or_default()
                 .to_owned()
         };
-        if member == "WebIdentityToken" {
-            return Ok(json!({
-                "Credentials": self.credentials(&s), "AssumedRoleUser": assumed,
-                "SubjectFromWebIdentityToken": text("sub"), "Provider": text("iss"), "Audience": text("aud"),
-            }));
-        }
         Ok(json!({
             "Credentials": self.credentials(&s), "AssumedRoleUser": assumed,
-            "Subject": text("sub"), "SubjectType": "persistent", "Issuer": text("iss"), "Audience": text("aud"),
+            "SubjectFromWebIdentityToken": text("sub"), "Provider": text("iss"), "Audience": text("aud"),
         }))
     }
 

@@ -204,3 +204,140 @@ fn a_metric_filter_turns_matching_events_into_data_points() {
         json!({"Name": "route", "Value": "/a"})
     );
 }
+
+#[test]
+fn a_batch_with_no_match_reports_the_default_value_once_a_minute() {
+    let mut w = world();
+    w.ok(
+        "PutMetricFilter",
+        &json!({"logGroupName": "/g", "filterName": "errors", "filterPattern": "ERROR",
+            "metricTransformations": [{"metricName": "Errors", "metricNamespace": "App", "metricValue": "1",
+                "defaultValue": 0.0, "unit": "Count"}]}),
+    );
+    w.put("/g", "app", NOW, &["INFO all well"]);
+    assert_eq!(w.core.emit.len(), 1);
+    let d = &w.core.emit[0];
+    assert_eq!(d["Namespace"], "App");
+    assert_eq!(
+        d["MetricData"],
+        json!([{"MetricName": "Errors", "Value": 0.0, "Timestamp": NOW as f64 / 1000.0, "Unit": "Count"}])
+    );
+    w.core.emit.clear();
+    // The same minute: reported already.
+    w.clock.advance(10_000);
+    w.put("/g", "app", NOW + 10_000, &["INFO still well"]);
+    assert!(w.core.emit.is_empty());
+    // A match is reported as the value, never beside a default in the same batch.
+    w.put("/g", "app", NOW + 10_001, &["ERROR boom"]);
+    assert_eq!(w.core.emit.len(), 1);
+    assert_eq!(w.core.emit[0]["MetricData"][0]["Value"], 1.0);
+    w.core.emit.clear();
+    // The next minute with logs and no match reports it again; a filter without a default reports nothing.
+    w.clock.advance(60_000);
+    w.put("/g", "app", NOW + 70_000, &["INFO later"]);
+    assert_eq!(w.core.emit.len(), 1);
+    assert_eq!(w.core.emit[0]["MetricData"][0]["Value"], 0.0);
+}
+
+#[test]
+fn a_filter_with_dimensions_reports_no_default() {
+    let mut w = world();
+    w.ok(
+        "PutMetricFilter",
+        &json!({"logGroupName": "/g", "filterName": "f", "filterPattern": "{ $.ms = * }",
+            "metricTransformations": [{"metricName": "M", "metricNamespace": "App", "metricValue": "$.ms",
+                "defaultValue": 0.0, "dimensions": {"route": "$.route"}}]}),
+    );
+    w.put("/g", "app", NOW, &["no json here"]);
+    assert!(w.core.emit.is_empty());
+    // `= *` selects the event whatever the type of the field.
+    w.put("/g", "app", NOW + 1, &[r#"{"ms":3,"route":"/a"}"#]);
+    assert_eq!(w.core.emit[0]["MetricData"][0]["Value"], 3.0);
+}
+
+#[test]
+fn embedded_metric_format_lines_lambda_writes_become_data_points() {
+    let mut w = world();
+    let line = format!(
+        r#"{{"_aws":{{"Timestamp":{NOW},"CloudWatchMetrics":[{{"Namespace":"shop","Dimensions":[["service"]],"Metrics":[{{"Name":"latency","Unit":"Milliseconds"}}]}}]}},"service":"cart","latency":42}}"#
+    );
+    let put = json!({"logGroupName": "/g", "logStreamName": "app", "logEvents": [
+        {"timestamp": NOW, "message": "START RequestId: 1 Version: $LATEST\n"},
+        {"timestamp": NOW, "message": format!("{line}\n")}]});
+    w.run_as(Some("lambda"), "PutLogEvents", &put).unwrap();
+    assert_eq!(w.core.emit.len(), 1);
+    let d = &w.core.emit[0];
+    assert_eq!(d["Namespace"], "shop");
+    assert_eq!(d["MetricData"][0]["MetricName"], "latency");
+    assert_eq!(d["MetricData"][0]["Values"], json!([42.0]));
+    assert_eq!(
+        d["MetricData"][0]["Dimensions"],
+        json!([{"Name": "service", "Value": "cart"}])
+    );
+    // The line itself is kept as a log event.
+    let all = w.ok(
+        "GetLogEvents",
+        &json!({"logGroupName": "/g", "logStreamName": "app", "startFromHead": true}),
+    );
+    assert_eq!(messages(&all).len(), 2);
+    // A client's PutLogEvents is not read for EMF: AWS needs a header doze is not handed.
+    w.core.emit.clear();
+    w.ok("PutLogEvents", &put);
+    assert!(w.core.emit.is_empty());
+}
+
+#[test]
+fn the_local_bound_removes_old_events_but_the_group_reports_no_retention() {
+    let mut w = world();
+    w.put("/g", "app", NOW, &["a week old soon"]);
+    // Eight days on, with no retention on the group: the local seven-day bound has removed the event.
+    w.clock.advance(8 * 86_400_000);
+    let now = NOW + 8 * 86_400_000;
+    w.put("/g", "app", now, &["fresh"]);
+    let all = w.ok(
+        "GetLogEvents",
+        &json!({"logGroupName": "/g", "logStreamName": "app", "startFromHead": true}),
+    );
+    assert_eq!(messages(&all), ["fresh"]);
+    let g = &w.ok("DescribeLogGroups", &json!({}))["logGroups"][0];
+    assert!(g.get("retentionInDays").is_none(), "AWS keeps forever: {g}");
+    assert_eq!(g["storedBytes"], 5 + 26);
+    // With no local bound (`--logs-retention-days 0`) an old event stays.
+    let mut w = world();
+    w.core.keep_ms = None;
+    w.put("/g", "app", NOW, &["kept"]);
+    w.clock.advance(30 * 86_400_000);
+    w.put("/g", "app", NOW + 30 * 86_400_000, &["new"]);
+    let all = w.ok(
+        "GetLogEvents",
+        &json!({"logGroupName": "/g", "logStreamName": "app", "startFromHead": true}),
+    );
+    assert_eq!(messages(&all), ["kept", "new"]);
+}
+
+#[test]
+fn a_group_past_its_event_cap_loses_its_oldest_events() {
+    let mut w = world();
+    w.stream("/g", "later");
+    w.core.max_events = 10;
+    let old: Vec<String> = (0..6).map(|i| format!("old {i}")).collect();
+    let old: Vec<&str> = old.iter().map(String::as_str).collect();
+    w.put("/g", "app", NOW, &old);
+    let new: Vec<String> = (0..6).map(|i| format!("new {i}")).collect();
+    let new: Vec<&str> = new.iter().map(String::as_str).collect();
+    w.put("/g", "later", NOW + 1000, &new);
+    // Twelve is past ten: the oldest go until the group holds nine.
+    let all = w.ok("FilterLogEvents", &json!({"logGroupName": "/g"}));
+    let left = messages(&all);
+    assert_eq!(left.len(), 9, "{left:?}");
+    assert_eq!(left[0], "old 3");
+    let streams = w.ok(
+        "DescribeLogStreams",
+        &json!({"logGroupName": "/g", "orderBy": "LogStreamName"}),
+    );
+    assert_eq!(streams["logStreams"][0]["firstEventTimestamp"], NOW + 3);
+    assert_eq!(
+        w.ok("DescribeLogGroups", &json!({}))["logGroups"][0]["storedBytes"],
+        3 * (5 + 26) + 6 * (5 + 26)
+    );
+}

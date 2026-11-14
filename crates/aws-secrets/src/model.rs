@@ -61,6 +61,22 @@ impl Secret {
     }
 }
 
+/// A secret's rotation: kept in a table of its own, so the secret record and the rows already on disk keep their shape.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub(crate) struct Rotation {
+    /// The rotation function's ARN.
+    pub(crate) function: Option<String>,
+    pub(crate) after_days: Option<i64>,
+    pub(crate) duration: Option<String>,
+    pub(crate) schedule: Option<String>,
+    pub(crate) enabled: bool,
+    /// When rotation was last configured, the base of `NextRotationDate` before a first rotation.
+    pub(crate) configured_ms: Option<i64>,
+    pub(crate) last_ms: Option<i64>,
+    /// The token of the rotation in progress, whose version carries `AWSPENDING`.
+    pub(crate) pending: Option<String>,
+}
+
 /// The start of the UTC day `ms` falls in.
 pub(crate) const fn day_of(ms: i64) -> i64 {
     ms - ms.rem_euclid(DAY_MS)

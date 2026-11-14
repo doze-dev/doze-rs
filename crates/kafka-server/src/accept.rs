@@ -75,7 +75,7 @@ pub(crate) async fn run<F: Fs>(
         // handshake holds a place in the limit and nothing else. The peer's address is the socket's, taken before.
         tasks.spawn(async move {
             let _permit = permit;
-            let end = serve_socket(socket, (peer.ip(), arrived), &ctx, &tls, &stop).await;
+            let end = serve_socket(socket, (peer, arrived), &ctx, &tls, &stop).await;
             debug!(%peer, %end, "connection closed");
         });
     }
@@ -85,12 +85,12 @@ pub(crate) async fn run<F: Fs>(
 #[cfg(not(feature = "tls"))]
 async fn serve_socket<F: Fs>(
     mut socket: TcpStream,
-    (ip, arrived): (std::net::IpAddr, Instant),
+    (peer, arrived): (std::net::SocketAddr, Instant),
     ctx: &Context<F>,
     (): &Tls,
     stop: &CancellationToken,
 ) -> End {
-    connection::serve(&mut socket, ctx, Some(ip), arrived, stop).await
+    connection::serve(&mut socket, ctx, Some(peer), arrived, stop).await
 }
 
 /// One accepted socket: after a TLS handshake if the server has a certificate, else in the clear. The handshake has the
@@ -98,21 +98,21 @@ async fn serve_socket<F: Fs>(
 #[cfg(feature = "tls")]
 async fn serve_socket<F: Fs>(
     mut socket: TcpStream,
-    (ip, arrived): (std::net::IpAddr, Instant),
+    (peer, arrived): (std::net::SocketAddr, Instant),
     ctx: &Context<F>,
     tls: &Tls,
     stop: &CancellationToken,
 ) -> End {
     use tokio::io::AsyncWriteExt;
     let Some(acceptor) = tls else {
-        return connection::serve(&mut socket, ctx, Some(ip), arrived, stop).await;
+        return connection::serve(&mut socket, ctx, Some(peer), arrived, stop).await;
     };
     let by = arrived + ctx.timeouts.pre_auth;
     let mut stream = match crate::tls::accept(acceptor, socket, by, stop).await {
         Ok(stream) => stream,
         Err(end) => return end,
     };
-    let end = connection::serve(&mut stream, ctx, Some(ip), arrived, stop).await;
+    let end = connection::serve(&mut stream, ctx, Some(peer), arrived, stop).await;
     // Say goodbye the TLS way (a close_notify) so a client reads a clean end and not a truncation; but a client that
     // has stopped reading does not hold a stop.
     let _ = tokio::time::timeout(CLOSE_NOTIFY, stream.shutdown()).await;

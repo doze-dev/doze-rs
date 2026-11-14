@@ -71,6 +71,9 @@ impl Core {
                 .or_insert_with(|| "MessageAttributes".into());
         }
         let sub = self.new_subscription(&topic, protocol, endpoint, attrs, r);
+        if matches!(protocol, "http" | "https") {
+            self.ask_to_confirm(&sub, &r.call.caller.endpoint);
+        }
         let answer = shown(&sub);
         self.subs.insert(sub.arn.clone(), sub);
         Ok(json!({"SubscriptionArn": answer}))

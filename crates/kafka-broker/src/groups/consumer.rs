@@ -18,9 +18,11 @@
 pub(crate) mod assign;
 mod classic;
 mod fetch;
+mod force;
 mod heartbeat;
 mod join;
 mod member;
+mod notes;
 mod pattern;
 pub(crate) mod protocol;
 mod reconcile;

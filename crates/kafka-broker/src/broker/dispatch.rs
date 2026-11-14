@@ -87,14 +87,17 @@ impl<F: Fs> Broker<F> {
             Request::AlterUserScramCredentials(r) => {
                 self.alter_user_scram_credentials(caller, &r).await
             }
-            // Not served yet (or answered by the connection). Each moves out of this arm into a handler when its
-            // phase lands.
-            Request::ApiVersions(_)
-            | Request::SaslHandshake(_)
-            | Request::SaslAuthenticate(_)
-            | Request::DescribeCluster(_)
-            | Request::GetTelemetrySubscriptions(_)
-            | Request::PushTelemetry(_) => Outcome::Close,
+            Request::DescribeCluster(r) => {
+                self.describe_cluster(listener, caller, &r, head.version)
+            }
+            // Telemetry is served only when `Config::client_telemetry` is on: the connection refuses the two
+            // otherwise (they are neither advertised nor accepted), so these arms see them only then.
+            Request::GetTelemetrySubscriptions(r) => self.get_telemetry_subscriptions(&r),
+            Request::PushTelemetry(r) => self.push_telemetry(&r),
+            // Answered by the connection.
+            Request::ApiVersions(_) | Request::SaslHandshake(_) | Request::SaslAuthenticate(_) => {
+                Outcome::Close
+            }
         }
     }
 }

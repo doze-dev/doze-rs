@@ -122,6 +122,13 @@ fn inside(dest: &Path, name: &str) -> Option<PathBuf> {
     clean.then(|| dest.join(relative))
 }
 
+/// The names of an archive's entries; none when it is not one.
+pub(crate) fn names(zip: &[u8]) -> Vec<String> {
+    entries(zip)
+        .map(|list| list.iter().map(|e| e.name.to_owned()).collect())
+        .unwrap_or_default()
+}
+
 /// Unpacks `zip` into `dest` (created if need be).
 ///
 /// # Errors

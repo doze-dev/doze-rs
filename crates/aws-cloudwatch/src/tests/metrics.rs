@@ -207,3 +207,32 @@ fn old_samples_and_quiet_metrics_are_forgotten_and_the_series_count_is_bounded()
         "the sample from two days ago was removed when the metric was next written"
     );
 }
+
+#[test]
+fn the_retention_setting_bounds_what_is_kept() {
+    let ask = |w: &mut World| {
+        w.ok(
+            "GetMetricStatistics",
+            &json!({"Namespace": "T", "MetricName": "old", "Statistics": ["Sum"], "Period": 60,
+                "StartTime": (NOW - 3 * 3_600_000) as f64 / 1000.0, "EndTime": NOW as f64 / 1000.0}),
+        )["Datapoints"]
+            .as_array()
+            .map_or(0, Vec::len)
+    };
+    let put = |w: &mut World| {
+        w.ok(
+            "PutMetricData",
+            &json!({"Namespace": "T", "MetricData": [{"MetricName": "old", "Value": 1.0,
+                "Timestamp": (NOW - 2 * 3_600_000) as f64 / 1000.0}]}),
+        );
+    };
+    // The default keeps a day: a point two hours old is there.
+    let mut w = World::new();
+    put(&mut w);
+    assert_eq!(ask(&mut w), 1);
+    // Kept for an hour (`--cloudwatch-retention-hours 1`), the same point is gone once the store is trimmed on the write.
+    let mut w = World::new();
+    w.core.keep_ms = 3_600_000;
+    put(&mut w);
+    assert_eq!(ask(&mut w), 0);
+}

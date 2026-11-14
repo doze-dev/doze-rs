@@ -34,7 +34,7 @@ fn id() -> String {
 }
 
 /// `2026-11-12T10:00:00.123Z`: the time of a notification, to the millisecond.
-fn timestamp(ms: i64) -> String {
+pub(crate) fn timestamp(ms: i64) -> String {
     let whole = aws_core::time::format_iso8601(ms.div_euclid(1000));
     format!(
         "{}.{:03}Z",

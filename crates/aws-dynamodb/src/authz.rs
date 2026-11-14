@@ -44,6 +44,21 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
             .flat_map(|m| m.keys().map(|t| on(&action, t)))
             .collect(),
         Operation::TransactWriteItems | Operation::TransactGetItems => transaction(&body, &on),
+        Operation::ExecuteStatement => partiql(std::slice::from_ref(&body), region, account),
+        Operation::BatchExecuteStatement => partiql(
+            body.get("Statements")
+                .and_then(Value::as_array)
+                .map_or(&[][..], Vec::as_slice),
+            region,
+            account,
+        ),
+        Operation::ExecuteTransaction => partiql(
+            body.get("TransactStatements")
+                .and_then(Value::as_array)
+                .map_or(&[][..], Vec::as_slice),
+            region,
+            account,
+        ),
         Operation::TagResource | Operation::UntagResource | Operation::ListTagsOfResource => {
             vec![Need::new(
                 format!("dynamodb:{action}"),
@@ -52,6 +67,22 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
         }
         _ => vec![on(&action, str_of(&body, "TableName").unwrap_or_default())],
     }
+}
+
+/// A PartiQL statement asks for `dynamodb:PartiQLSelect` (`Insert`, `Update`, `Delete`) on the table, or on the index it reads. One that
+/// does not parse asks for nothing: it is refused on its own terms.
+fn partiql(statements: &[Value], region: &str, account: &str) -> Vec<Need> {
+    statements
+        .iter()
+        .filter_map(|s| crate::partiql::action_of(str_of(s, "Statement")?))
+        .map(|(action, table, index)| {
+            let mut arn = table_arn(region, account, &table);
+            if let Some(ix) = index {
+                arn = format!("{arn}/index/{ix}");
+            }
+            Need::new(format!("dynamodb:{action}"), arn)
+        })
+        .collect()
 }
 
 /// A transaction asks for the action of each of its parts.

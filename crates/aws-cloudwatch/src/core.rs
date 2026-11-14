@@ -71,6 +71,10 @@ pub(crate) struct Core {
     pub(crate) trimmed_ms: i64,
     /// Metrics written by the call in progress that an alarm watches.
     pub(crate) to_evaluate: Vec<String>,
+    /// How long samples are kept (`Settings::retention`).
+    pub(crate) keep_ms: i64,
+    /// The namespaces last said to be watched by an alarm (see [`Core::tell_watched`]).
+    told_watched: Option<Vec<String>>,
 }
 
 /// What the actor answers.
@@ -119,7 +123,9 @@ impl doze_runtime::Service for Core {
     type Error = StoreError;
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
-        Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
+        let mut core = Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))?;
+        core.keep_ms = ms(settings_of(ctx).retention);
+        Ok(core)
     }
 
     async fn handle(&mut self, req: Request) -> Answer {
@@ -145,6 +151,7 @@ impl doze_runtime::Service for Core {
                 (self.identified(caller), empty())
             }
         };
+        self.tell_watched(&caller.region);
         self.deliver(&caller).await;
         let durable = match self.flush() {
             Ok(ack) => ack,
@@ -235,7 +242,29 @@ impl Core {
             outbox: Vec::new(),
             trimmed_ms: 0,
             to_evaluate: Vec::new(),
+            keep_ms: ms(crate::Settings::default().retention),
+            told_watched: None,
         }
+    }
+
+    /// Tells the bus which namespaces this region's metric alarms watch, when that changed, so a producer that holds its data
+    /// until it is read (Lambda) sends the data an alarm needs as it makes it.
+    fn tell_watched(&mut self, region: &str) {
+        let mut namespaces: Vec<String> = self
+            .alarms
+            .iter()
+            .filter(|(_, a)| a.kind == crate::model::Kind::Metric)
+            .map(|(_, a)| a.spec.namespace.clone())
+            .collect();
+        namespaces.sort();
+        namespaces.dedup();
+        if self.told_watched.as_ref() == Some(&namespaces) {
+            return;
+        }
+        if let Some(peers) = &self.peers {
+            peers.watch_namespaces(region, namespaces.clone());
+        }
+        self.told_watched = Some(namespaces);
     }
 
     pub(crate) fn now_ms(&self) -> i64 {
@@ -356,9 +385,25 @@ pub(crate) fn not_built() -> ApiError {
     )
 }
 
-/// The bus the host handed this service, if it did.
-fn peers_of(ctx: &Ctx) -> Option<Arc<Peers>> {
+/// The bus the host handed this service, if it did (directly, or inside the [`crate::Ext`] a region's actor is given).
+pub(crate) fn peers_of(ctx: &Ctx) -> Option<Arc<Peers>> {
+    let ext = ctx.ext.as_ref()?;
+    if let Ok(ours) = Arc::clone(ext).downcast::<crate::Ext>() {
+        return ours.peers.clone();
+    }
+    Arc::clone(ext).downcast::<Peers>().ok()
+}
+
+/// The local settings in a region actor's context.
+fn settings_of(ctx: &Ctx) -> crate::Settings {
     ctx.ext
         .as_ref()
-        .and_then(|e| Arc::clone(e).downcast::<Peers>().ok())
+        .and_then(|e| Arc::clone(e).downcast::<crate::Ext>().ok())
+        .map(|e| e.settings)
+        .unwrap_or_default()
+}
+
+/// Milliseconds of a duration, as a time in this service is kept.
+fn ms(d: std::time::Duration) -> i64 {
+    i64::try_from(d.as_millis()).unwrap_or(i64::MAX)
 }
