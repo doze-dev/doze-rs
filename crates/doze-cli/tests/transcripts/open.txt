@@ -2,6 +2,7 @@
 # over SSH it shows the status table, as Go does; --console waits for the Rust daemon.
 @ project bare
 @ no-json
+@ env DISPLAY=:0
 @ file app/Doze.app/Contents/MacOS/doze-app #!/bin/sh\n
 @ env DOZE_APP_BUNDLE={sandbox}/app/Doze.app
 

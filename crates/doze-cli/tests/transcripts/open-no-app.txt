@@ -1,6 +1,7 @@
 # open with no app on this machine: where it looked, and what to do.
 @ project bare
 @ no-json
+@ env DISPLAY=:0
 
 $ doze open
 exit 10
