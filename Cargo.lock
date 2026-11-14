@@ -1491,6 +1491,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-journal"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "time",
+]
+
+[[package]]
 name = "doze-kafka"
 version = "0.0.0"
 dependencies = [
@@ -1511,6 +1521,13 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "doze-logstore"
+version = "0.0.0"
+dependencies = [
+ "tempfile",
 ]
 
 [[package]]
