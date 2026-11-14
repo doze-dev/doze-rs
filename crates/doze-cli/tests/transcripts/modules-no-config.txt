@@ -1,0 +1,41 @@
+# No doze.hcl here or above: 6, and how to get one.
+
+$ doze modules
+exit 6
+stderr:
+| error[DZ0302]: there is no doze.hcl here or in any parent directory
+|   fix: doze init writes one · -c <path> points at one elsewhere
+json exit 6
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules",
+|   "ok": false,
+|   "error": {
+|     "code": "no_config",
+|     "message": "there is no doze.hcl here or in any parent directory",
+|     "exit": 6,
+|     "id": "DZ0302",
+|     "fix": "doze init writes one · -c <path> points at one elsewhere"
+|   }
+| }
+
+$ doze -c elsewhere/doze.hcl modules
+exit 6
+stderr:
+| error[DZ0302]: there is no doze.hcl at elsewhere/doze.hcl
+|   fix: check the path given to -c
+json exit 6
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules",
+|   "ok": false,
+|   "error": {
+|     "code": "no_config",
+|     "message": "there is no doze.hcl at elsewhere/doze.hcl",
+|     "exit": 6,
+|     "id": "DZ0302",
+|     "fix": "check the path given to -c"
+|   }
+| }

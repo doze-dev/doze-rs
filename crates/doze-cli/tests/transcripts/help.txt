@@ -1,0 +1,121 @@
+# The root help is a table of contents: every command once, in the groups a person thinks in (F8: no empty group).
+@ no-json
+
+$ doze --help
+exit 0
+stdout:
+| doze runs real local services without Docker: Postgres, MariaDB, Valkey, Kvrocks,
+| FerretDB, Temporal, Kafka and the whole local AWS. Each wakes on its first
+| connection and sleeps when it is idle.
+| 
+| `doze` alone opens the app; over SSH it is the dash, and piped it prints the
+| status table. Everything the app does is also a command here, for scripts,
+| Makefiles and CI.
+| 
+| Usage: doze [command] [flags]
+| 
+| The stack:
+|   up                        Bring the stack up in the background: converge it with doze.hcl, then wake every service
+|   down                      Put every service to sleep and stop doze, then check nothing is left running
+|   sync                      Converge the stack with doze.hcl: create what is new, change what changed, remove what went
+|   status (tree, ls, ps)     Every service: its state, its address and what it uses
+|   env                       The services' connection variables, as exports to eval (or lines for a .env)
+|   run                       Run a command with the stack up (with --env, its variables set)
+| 
+| One service:
+|   wake (boot)               Wake services now, with what they depend on (no name: everything)
+|   sleep (reap)              Put services to sleep, keeping their data (no name: everything awake)
+|   restart                   Stop services and start them again
+|   reset                     Delete services' data; each starts fresh on its next wake
+|   migrate                   Move a postgres service's data to the major version doze.hcl now declares
+|   task                      Run a task now, or list the tasks and how they last ran
+|   pin (keepawake)           Keep services awake past their idle time (--off lets them sleep again)
+|   off                       Take services out of this run: stop them, and nothing wakes them until doze on
+|   on                        Put services back into this run; each wakes on its next connection
+|   logs                      What services printed, also while asleep, after a crash, or with doze down
+|   url (copy)                A service's connect line (pipe it to your clipboard)
+|   connect                   Open the engine's own client on a service (valkey-cli, psql), signed in
+|   why                       Why a service is awake or asleep: what woke it, what keeps it, when it sleeps
+| 
+| Set up and edit:
+|   init                      Write a doze.hcl for this project from what it finds, saying why (or a wizard)
+|   add                       Add a module or a service to doze.hcl
+|   lint                      Check doze.hcl without touching the daemon or any data
+|   fmt                       Format doze.hcl and its sibling *.doze.hcl files
+|   doctor                    Check this machine and project for what would stop doze, and say how to fix it
+|   dns-setup                 One-time machine setup for .doze names (the same as doze doctor --fix)
+|   trust                     Set this machine up for the stack's own domains: routes and https (one sudo)
+| 
+| The app:
+|   open                      Open the doze app at this project, or a module's web console (--console)
+| 
+| Modules and the lockfile:
+|   modules (mod)             The modules the stack uses: each pin in doze.lock and the newest release that fits
+| 
+| Other:
+|   version                   Print the doze version
+|   update                    Update doze the way it was installed, without stopping services
+|   bug                       Write a bug report (versions, the stack's shape, recent logs) to a file
+|   completion                Print the completion script for a shell
+|   help                      Help for doze or one of its commands
+| 
+| Flags for every command:
+|   -c, --config <path>       Path to doze.hcl (a directory: its doze.hcl); found here or in a parent when not given
+|       --var <name=value>    Set a config variable (repeatable)
+|       --json                Print the result as one JSON envelope, doze/v1 (DOZE_JSON=1)
+|   -q, --quiet               Print nothing on stdout: the exit code is the answer
+|   -y, --yes                 Answer yes to every question (DOZE_YES=1)
+|       --timeout <duration>  How long to wait for one service to become ready
+|       --no-color            No colour (NO_COLOR=1)
+|   -h, --help                Help (doze help <command> for one command)
+| 
+| `doze help <command>` shows a command's own flags.
+
+$ doze help modules
+exit 0
+stdout:
+| The modules the stack uses: each pin in doze.lock and the newest release that fits
+| 
+| Usage: doze modules [OPTIONS]
+|        doze modules <COMMAND>
+| 
+| Commands:
+|   upgrade  Move module pins in doze.lock to the newest releases that fit
+|   docs     A module's documentation: what it runs, an example, every argument
+|   verify   Re-check every pin in doze.lock against the signed registry index
+|   help     Print this message or the help of the given subcommand(s)
+| 
+| Options:
+|   -h, --help  Print help
+| 
+| Flags for every command:
+|   -c, --config <path>       Path to doze.hcl (a directory: its doze.hcl); found here or in a parent when not given
+|       --var <name=value>    Set a config variable (repeatable)
+|       --json                Print the result as one JSON envelope, doze/v1 (DOZE_JSON=1)
+|   -q, --quiet               Print nothing on stdout: the exit code is the answer
+|   -y, --yes                 Answer yes to every question (DOZE_YES=1)
+|       --timeout <duration>  How long to wait for one service to become ready [default: 5m]
+|       --no-color            No colour (NO_COLOR=1)
+
+$ doze modules docs --help
+exit 0
+stdout:
+| A module's documentation: what it runs, an example, every argument
+| 
+| Usage: doze modules docs [OPTIONS] <module>
+| 
+| Arguments:
+|   <module>  valkey, postgres, … (or namespace/module)
+| 
+| Options:
+|       --web   Open its page on the registry site instead
+|   -h, --help  Print help
+| 
+| Flags for every command:
+|   -c, --config <path>       Path to doze.hcl (a directory: its doze.hcl); found here or in a parent when not given
+|       --var <name=value>    Set a config variable (repeatable)
+|       --json                Print the result as one JSON envelope, doze/v1 (DOZE_JSON=1)
+|   -q, --quiet               Print nothing on stdout: the exit code is the answer
+|   -y, --yes                 Answer yes to every question (DOZE_YES=1)
+|       --timeout <duration>  How long to wait for one service to become ready [default: 5m]
+|       --no-color            No colour (NO_COLOR=1)

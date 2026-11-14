@@ -1,0 +1,42 @@
+# A name the registry does not have: 4, with the nearest it does.
+@ registry
+
+$ doze modules docs valky
+exit 4
+stderr:
+| error[DZ0203]: there is no module called valky in the registry
+|   fix: did you mean valkey? doze modules docs valkey
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules docs",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "there is no module called valky in the registry",
+|     "exit": 4,
+|     "id": "DZ0203",
+|     "fix": "did you mean valkey? doze modules docs valkey"
+|   }
+| }
+
+$ doze modules docs Valkey
+exit 2
+stderr:
+| error[DZ0101]: `Valkey` is not a module name
+|   fix: a module is named like valkey, or namespace/module
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules docs",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "`Valkey` is not a module name",
+|     "exit": 2,
+|     "id": "DZ0101",
+|     "fix": "a module is named like valkey, or namespace/module"
+|   }
+| }

@@ -1,0 +1,47 @@
+# The registry unreachable, the indexes on this machine: checked against them, and said to be partial (11).
+@ project pinned
+@ cached valkey
+@ cached postgres
+
+$ doze modules verify
+exit 11
+stdout:
+| registry key ed25519 642a…09 (built into this doze)
+| ! postgres 0.2.5  sha256 620e…b4c5 matches this machine's copy of the signed index (not downloaded here)
+| ! valkey   0.2.1  sha256 aec1…f903 matches this machine's copy of the signed index (not downloaded here)
+|   2 of 2 verified on {triple}
+stderr:
+| ! the registry can't be reached: postgres, valkey checked only against this machine's copy of the index
+|   fix: run it again when the registry can be reached
+json exit 11
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules verify",
+|   "ok": false,
+|   "data": {
+|     "key": "642a…09",
+|     "modules": [
+|       {
+|         "detail": "sha256 620e…b4c5 matches this machine's copy of the signed index (not downloaded here)",
+|         "module": "postgres",
+|         "state": "verified_offline",
+|         "version": "0.2.5"
+|       },
+|       {
+|         "detail": "sha256 aec1…f903 matches this machine's copy of the signed index (not downloaded here)",
+|         "module": "valkey",
+|         "state": "verified_offline",
+|         "version": "0.2.1"
+|       }
+|     ],
+|     "platform": "{triple}"
+|   },
+|   "error": {
+|     "code": "partial",
+|     "message": "the registry can't be reached: postgres, valkey checked only against this machine's copy of the index",
+|     "exit": 11,
+|     "id": "DZ0503",
+|     "fix": "run it again when the registry can be reached"
+|   }
+| }
