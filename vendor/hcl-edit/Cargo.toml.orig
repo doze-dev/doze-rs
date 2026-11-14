@@ -1,0 +1,46 @@
+[package]
+name = "hcl-edit"
+version = "0.10.0"
+authors = ["Martin Ohmann <martinohmann@gmail.com>"]
+license = "MIT OR Apache-2.0"
+description = "Parse and modify HCL while preserving comments and whitespace"
+repository = "https://github.com/martinohmann/hcl-rs"
+documentation = "https://docs.rs/hcl-edit/"
+keywords = ["hcl"]
+categories = ["encoding"]
+readme = "README.md"
+edition = "2021"
+include = [
+  "CHANGELOG.md",
+  "Cargo.toml",
+  "LICENSE*",
+  "README.md",
+  "benches/**/*",
+  "examples/**/*",
+  "src/**/*",
+  "tests/**/*"
+]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+all-features = true
+
+[features]
+default = []
+perf = ["hcl-primitives/perf"]
+
+[dependencies]
+fnv = "1.0"
+hcl-primitives = { version = "0.1.13", path = "../hcl-primitives" }
+pratt = "0.4.0"
+vecmap-rs = "0.2"
+winnow = "1.0"
+
+[dev-dependencies]
+indoc = "2.0"
+pretty_assertions = "1.4"
+testdata = { path = "../testdata" }
+
+[[example]]
+name = "interpolation-unwrapping"
+test = true

@@ -1,0 +1,100 @@
+{"id":"prim.00","ok":true,"type":"string","value":"1.5"}
+{"id":"prim.01","ok":true,"type":"string","value":"true"}
+{"id":"prim.02","ok":true,"type":"number","value":{"num":"12.5"}}
+{"err":"a number is required","id":"prim.03","ok":false}
+{"id":"prim.04","ok":true,"type":"bool","value":true}
+{"err":"a bool is required; to convert from string, use lowercase \"true\"","id":"prim.05","ok":false}
+{"err":"a bool is required","id":"prim.06","ok":false}
+{"err":"bool required, but have number","id":"prim.07","ok":false}
+{"err":"number required, but have bool","id":"prim.08","ok":false}
+{"id":"prim.09","ok":true,"type":"string","value":null}
+{"id":"prim.10","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"prim.11","ok":true,"type":"number","value":null}
+{"id":"prim.12","ok":true,"type":"string","value":"5"}
+{"err":"string required, but have tuple","id":"prim.13","ok":false}
+{"err":"number required, but have object","id":"prim.14","ok":false}
+{"id":"coll.00","ok":true,"type":["list","string"],"value":["1","2"]}
+{"id":"coll.01","ok":true,"type":["list","string"],"value":["1","a"]}
+{"err":"a number is required","id":"coll.02","ok":false}
+{"id":"coll.03","ok":true,"type":["list","string"],"value":["1","a"]}
+{"err":"all list elements must have the same type","id":"coll.04","ok":false}
+{"id":"coll.05","ok":true,"type":["list","string"],"value":[]}
+{"id":"coll.06","ok":true,"type":["list","dynamic"],"value":[]}
+{"id":"coll.07","ok":true,"type":["set","string"],"value":["a","b"]}
+{"id":"coll.08","ok":true,"type":["set","number"],"value":[{"num":"1"},{"num":"2"},{"num":"10"}]}
+{"id":"coll.09","ok":true,"type":["set","bool"],"value":[false,true]}
+{"id":"coll.10","ok":true,"type":["set",["object",{"a":"number"}]],"value":[{"obj":[["a",{"num":"0"}]]},{"obj":[["a",{"num":"1"}]]}]}
+{"id":"coll.11","ok":true,"type":["set",["list","number"]],"value":[[{"num":"1"},{"num":"1"}],[{"num":"1"}],[{"num":"2"}]]}
+{"id":"coll.12","ok":true,"type":["set","number"],"value":[{"num":"0.1"}]}
+{"id":"coll.13","ok":true,"type":["set","string"],"value":["a","b","c"]}
+{"id":"coll.14","ok":true,"type":["list","string"],"value":["a","b"]}
+{"err":"a number is required","id":"coll.15","ok":false}
+{"id":"coll.16","ok":true,"type":["map","string"],"value":{"obj":[["a","1"],["b","x"]]}}
+{"id":"coll.17","ok":true,"type":["map","string"],"value":{"obj":[["a","1"],["b","x"]]}}
+{"err":"all map elements must have the same type","id":"coll.18","ok":false}
+{"id":"coll.19","ok":true,"type":["map","string"],"value":{"obj":[]}}
+{"id":"coll.20","ok":true,"type":["map","number"],"value":{"obj":[["A",{"num":"1"}],["B",{"num":"2"}]]}}
+{"id":"coll.21","ok":true,"type":["map",["tuple",["string"]]],"value":{"obj":[["a",["1"]],["b",["x"]]]}}
+{"id":"coll.22","ok":true,"type":["map",["list","string"]],"value":{"obj":[["a",["1"]],["b",[]]]}}
+{"id":"coll.23","ok":true,"type":["list",["list","string"]],"value":[["1"],["a","2"]]}
+{"id":"coll.24","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a","1"]]},{"obj":[["a","x"]]}]}
+{"id":"coll.25","ok":true,"type":["list",["map","number"]],"value":[{"obj":[["a",{"num":"1"}]]},{"obj":[["b",{"num":"2"}]]}]}
+{"id":"coll.26","ok":true,"type":["list","string"],"value":[null,"a"]}
+{"id":"coll.27","ok":true,"type":["list","string"],"value":[null,null]}
+{"id":"coll.28","ok":true,"type":["list","string"],"value":[{"unknown":true},"a"]}
+{"id":"coll.29","ok":true,"type":["set","string"],"value":["1",{"unknown":true}]}
+{"id":"coll.30","ok":true,"type":["set","string"],"value":["a",null]}
+{"id":"coll.31","ok":true,"type":["map","number"],"value":{"obj":[["a",null]]}}
+{"id":"coll.32","ok":true,"type":["list",["object",{"age":"string","name":"string"}]],"value":[{"obj":[["age","31"],["name","ann"]]},{"obj":[["age","27"],["name","bo"]]}]}
+{"err":"map of string required","id":"coll.33","ok":false}
+{"id":"coll.34","ok":true,"type":["object",{"A":"number","B":"string"}],"value":{"obj":[["A",{"num":"1"}],["B","2"]]}}
+{"err":"map has no element for required attribute \"C\"","id":"coll.35","ok":false}
+{"id":"coll.36","ok":true,"type":["object",{"A":"string","C":"string"}],"value":{"obj":[["A","1"],["C",null]]}}
+{"id":"coll.37","ok":true,"type":["object",{"A":"bool"}],"value":{"obj":[["A",true]]}}
+{"id":"obj.00","ok":true,"type":["object",{"a":"string"}],"value":{"obj":[["a","1"]]}}
+{"err":"attribute \"b\" is required","id":"obj.01","ok":false}
+{"id":"obj.02","ok":true,"type":["object",{"a":"string","b":"number"}],"value":{"obj":[["a","1"],["b",null]]}}
+{"id":"obj.03","ok":true,"type":["object",{"a":["list","string"]}],"value":{"obj":[["a",null]]}}
+{"err":"attribute \"a\": object required, but have tuple","id":"obj.04","ok":false}
+{"id":"obj.05","ok":true,"type":["object",{"a":["object",{"x":"number"}]}],"value":{"obj":[["a",{"obj":[["x",null]]}]]}}
+{"err":"attributes \"a\", \"b\", and \"c\" are required","id":"obj.06","ok":false}
+{"err":"attributes \"a\" and \"b\" are required","id":"obj.07","ok":false}
+{"err":"a number is required","id":"obj.08","ok":false}
+{"err":"object required, but have string","id":"obj.09","ok":false}
+{"id":"obj.10","ok":true,"type":["object",{"a":"number"}],"value":null}
+{"id":"tup.00","ok":true,"type":["tuple",["string","string"]],"value":["1","a"]}
+{"err":"tuple required","id":"tup.01","ok":false}
+{"err":"a number is required","id":"tup.02","ok":false}
+{"err":"tuple required","id":"tup.03","ok":false}
+{"id":"dyn.00","ok":true,"type":["list","string"],"value":{"unknown":true}}
+{"id":"dyn.01","ok":true,"type":["list","string"],"value":[{"unknown":true}]}
+{"id":"dyn.02","ok":true,"type":["map","string"],"value":{"obj":[["a",{"unknown":true}]]}}
+{"id":"dyn.03","ok":true,"type":["list","number"],"value":[{"unknown":true},{"num":"1"}]}
+{"err":"list of dynamic required, but have string","id":"dyn.04","ok":false}
+{"err":"list of dynamic required, but have string","id":"dyn.05","ok":false}
+{"id":"un.00","ok":true,"type":"string"}
+{"id":"un.01","ok":false}
+{"id":"un.02","ok":true,"type":"string"}
+{"id":"un.03","ok":true,"type":["list","string"]}
+{"id":"un.04","ok":true,"type":["list","string"]}
+{"id":"un.05","ok":true,"type":["map","string"]}
+{"id":"un.06","ok":true,"type":["object",{"a":"string"}]}
+{"id":"un.07","ok":true,"type":["map","string"]}
+{"id":"un.08","ok":false}
+{"id":"un.09","ok":true,"type":["list","string"]}
+{"id":"un.10","ok":true,"type":["tuple",["string","string"]]}
+{"id":"un.11","ok":true,"type":["list","string"]}
+{"id":"un.12","ok":false}
+{"id":"un.13","ok":true,"type":"string"}
+{"id":"un.14","ok":true,"type":"dynamic"}
+{"id":"un.15","ok":true,"type":["set","string"]}
+{"id":"un.16","ok":true,"type":["list","string"]}
+{"id":"un.17","ok":true,"type":["map",["list","string"]]}
+{"id":"un.18","ok":false}
+{"id":"un.19","ok":true,"type":"string"}
+{"id":"un.20","ok":true,"type":"string"}
+{"id":"un.21","ok":true,"type":["list","number"]}
+{"id":"un.22","ok":true,"type":["list","number"]}
+{"id":"un.23","ok":true,"type":["object",{"a":["list","string"]}]}
+{"id":"un.24","ok":true,"type":"dynamic"}
+{"id":"un.25","ok":true,"type":"dynamic"}
