@@ -24,6 +24,8 @@ const policy = {
         "budgets:ViewBudget", "ce:GetCostAndUsage", "tag:GetResources",
         // Stateless checks: they evaluate what is sent and store nothing.
         "events:TestEventPattern", "logs:TestMetricFilter", "states:TestState", "iam:SimulateCustomPolicy",
+        // Learned 2026-11-15: validation with no resource, an account read, and the default schedule group (it cannot carry our prefix).
+        "states:ValidateStateMachineDefinition", "kinesis:DescribeAccountSettings", "scheduler:GetScheduleGroup",
         // Added 2026-11-12 for the KMS and Secrets Manager scenarios written before they were recorded: no resource, nothing stored.
         "kms:GenerateRandom", "secretsmanager:GetRandomPassword", "secretsmanager:ValidateResourcePolicy",
       ],
@@ -68,6 +70,8 @@ const policy = {
         `${A}:events:${R}:*:api-destination/${P}*`,
         `${A}:scheduler:${R}:*:schedule/*/${P}*`,
         `${A}:scheduler:${R}:*:schedule-group/${P}*`,
+        // Learned 2026-11-15: DeleteScheduleGroup asks for scheduler:DeleteSchedule on every schedule of the group (schedule/<group>/*).
+        `${A}:scheduler:${R}:*:schedule/${P}*/*`,
         `${A}:lambda:${R}:*:function:${P}*`,
         `${A}:lambda:${R}:*:function:${P}*:*`,
         `${A}:lambda:${R}:*:layer:${P}*`,
@@ -97,7 +101,8 @@ const policy = {
       Sid: "AccountLevelCallsThatCannotBePrefixed",
       Effect: "Allow",
       // execute-api:ManageConnections added 2026-11-14: the WebSocket @connections API (correctness stream).
-      Action: ["cloudwatch:PutMetricData", "apigateway:*", "execute-api:Invoke", "execute-api:ManageConnections"],
+      // cloudwatch:PutCompositeAlarm added 2026-11-15: AWS authorizes it against alarm:*, not the alarm's own name.
+      Action: ["cloudwatch:PutMetricData", "cloudwatch:PutCompositeAlarm", "apigateway:*", "execute-api:Invoke", "execute-api:ManageConnections"],
       Resource: "*",
       Condition: region,
     },
