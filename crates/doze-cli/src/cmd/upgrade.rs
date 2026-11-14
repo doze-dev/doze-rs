@@ -198,6 +198,39 @@ fn upgrade(
 }
 
 fn finish(done: Upgraded, u: &Upgrade) -> Outcome {
+    let problem = problem(&done, u);
+    if u.dry.dry_run && !u.check {
+        let mut plan = Plan::new("doze modules upgrade");
+        for r in &done.modules {
+            match r.status.as_str() {
+                "upgrade available" => plan.step(
+                    &r.module,
+                    Op::Change,
+                    format!("{} → {}", r.pinned, r.selected),
+                    r.source.clone(),
+                ),
+                "failed" => plan.step(
+                    &r.module,
+                    Op::Do,
+                    "not known: it would fail",
+                    r.error.clone(),
+                ),
+                _ => plan.unchanged(&r.module),
+            }
+        }
+        return Ok(Done {
+            view: View::Plan(plan),
+            problem,
+        });
+    }
+    Ok(Done {
+        view: View::Upgraded(done),
+        problem,
+    })
+}
+
+/// What stops the run: a module that failed (by name, with a fix that fits), or with `--check` a pin that would move.
+fn problem(done: &Upgraded, u: &Upgrade) -> Option<Diagnostic> {
     let failed: Vec<&Row> = done
         .modules
         .iter()
@@ -208,7 +241,7 @@ fn finish(done: Upgraded, u: &Upgrade) -> Outcome {
         .iter()
         .filter(|r| r.status == "upgrade available")
         .count();
-    let problem = if let [first, ..] = failed.as_slice() {
+    if let [first, ..] = failed.as_slice() {
         let mut d = Diagnostic::new(
             ids::UPGRADE_FAILED,
             format!("{} module(s) failed", failed.len()),
@@ -247,35 +280,7 @@ fn finish(done: Upgraded, u: &Upgrade) -> Outcome {
         )
     } else {
         None
-    };
-    if u.dry.dry_run && !u.check {
-        let mut plan = Plan::new("doze modules upgrade");
-        for r in &done.modules {
-            match r.status.as_str() {
-                "upgrade available" => plan.step(
-                    &r.module,
-                    Op::Change,
-                    format!("{} → {}", r.pinned, r.selected),
-                    r.source.clone(),
-                ),
-                "failed" => plan.step(
-                    &r.module,
-                    Op::Do,
-                    "not known: it would fail",
-                    r.error.clone(),
-                ),
-                _ => plan.unchanged(&r.module),
-            }
-        }
-        return Ok(Done {
-            view: View::Plan(plan),
-            problem,
-        });
     }
-    Ok(Done {
-        view: View::Upgraded(done),
-        problem,
-    })
 }
 
 impl Upgraded {
