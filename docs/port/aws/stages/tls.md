@@ -21,11 +21,22 @@ client, now folded in):
 - **rustls 0.23 with ring, tokio-rustls**: what doze-kafka and doze-names already use. HTTP/1.1, one request per connection
   (`Connection: close`): the old clients kept no connections either, and a pool would hold idle sockets for callers that rarely
   repeat a destination.
-- **Trust: the operating system's store, read lazily**, through `rustls-native-certs` (macOS keychains with their trust settings,
-  Windows' store, Linux's bundle via openssl-probe or `SSL_CERT_FILE`), on the first `https://` call, in `spawn_blocking` (it touches
-  the disk and the keychain). A corporate proxy's CA lives there and is trusted. Chosen over `rustls-platform-verifier`, which is
-  more faithful on macOS and Windows (it asks the OS to verify) but may fetch revocation data inside the handshake, on doze-aws's one
-  runtime thread; both link Security.framework on macOS, so neither is lighter there.
+- **Trust: the operating system's store, read lazily** (`os_roots.rs`), on the first `https://` call, in `spawn_blocking`. A
+  corporate proxy's CA lives there and is trusted.
+  - **Linux, Windows:** `rustls-native-certs` (the bundle openssl-probe finds or `SSL_CERT_FILE`; the Windows store).
+  - **macOS (tls2):** `/usr/bin/security find-certificate -a -p` over the system roots keychain
+    (`/System/Library/Keychains/SystemRootCertificates.keychain`), the system keychain (`/Library/Keychains/System.keychain`, where MDM
+    and corporate proxies install CAs) and the user's login keychain (`mkcert -install`, a hand-trusted local CA). Listing needs no
+    password and shows no prompt; it takes about 15 ms. The binary no longer links Security.framework or CoreFoundation, which cost
+    3.5 MB of idle RSS (below). **Known difference:** keychain trust settings are not read, so every certificate in those keychains
+    is a root: one marked "Never Trust" is trusted, and so is one sitting in the login keychain unmarked. `--ca-file` is the precise
+    alternative. If no keychain can be read and no `--ca-file` is given, an https call fails with "the OS trust store could not be
+    read (…); start doze-aws with --ca-file <PEM> to name the authorities to trust". No bundled fallback (webpki-roots): it would add
+    bytes for a case (`/usr/bin/security` missing) that a macOS install does not have.
+  - Not `rustls-platform-verifier`: it asks the OS to verify (more faithful on macOS and Windows) but may fetch revocation data inside
+    the handshake, on doze-aws's one runtime thread, and links Security.framework on macOS.
+  - Checked by hand with the release binary: an HTTP API quick-created with `--target https://example.com` answered 200 with the page
+    (161 roots read from the three keychains).
 - **`--ca-file <PEM>`**: extra roots (one or more certificates). A self-signed server's own certificate works as its CA. Read and
   checked at start: a missing file or one with no certificate stops doze-aws with the file named.
 - **`--insecure-outbound-tls`**: nothing is verified (the handshake's signatures still are). Off by default; a warning at start says
@@ -82,8 +93,9 @@ client, now folded in):
 `xtask/weight-limits.txt`, 2026-11-14 (tls): macOS 8,077,296 B (+633,072), 274 packages (+16); Linux musl 12,733,856 B (+968,816). The
 limit moves to 13,400,000 B / 280 packages. Idle: Linux unchanged (nothing is read at start); **macOS idle RSS 5,280 → 9,104 KB**,
 because the binary now links Security.framework and CoreFoundation; the process's own memory (phys_footprint) is +576 KB, the rest
-are shared framework pages. Avoiding that would mean reading the keychains through `/usr/bin/security` on first use instead of
-linking the framework, which loses the keychains' trust settings: an owner call, not made here.
+are shared framework pages. **Superseded by tls2 (integrator's call):** the keychains are read through `/usr/bin/security` instead, and on the merged
+`aws` line the macOS figures went from 8,360,592 B / 276 packages / 9,968 KB idle (over the 9,413 KB limit) to 8,342,432 B / 270 packages
+/ 6,432 KB idle; `otool -L` shows only libSystem and libiconv again. Linux code is unchanged by tls2, so its size is too.
 
 Cross-building for musl now compiles ring's C. clang 21's `<stddef.h>` sends a `*-linux-musl` triple to a musl sysroot that is not
 there, so the `CC_x86_64_unknown_linux_musl` wrapper used for the measurement rewrites the triple to `x86_64-unknown-linux-gnu`, adds
@@ -97,6 +109,5 @@ there, so the `CC_x86_64_unknown_linux_musl` wrapper used for the measurement re
 - SNS's 15-second attempt timeout and the JWT `www-authenticate` descriptions are from memory; recording against AWS settles them.
 - No boto3 conformance scenario: the harness starts doze-aws without `--ca-file` and has no TLS endpoint to point at; every
   behaviour above is covered by the Rust tests instead.
-- macOS idle (above).
 - Connections are not reused. If a caller ever posts to one destination often enough for it to matter (an SNS fan-out to one
   webhook), a small per-host pool with an idle deadline is the next step.

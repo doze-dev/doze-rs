@@ -107,4 +107,8 @@ doze-kafka 8174048 161 9761 --listen 127.0.0.1:{port} --data-dir {data}
 # Idle: the trust store is read on the first https call, so nothing is read at start, and Linux idle is unchanged. On macOS the binary now links Security.framework and
 # CoreFoundation: the local idle RSS went from 5,280 KB to 9,104 KB, of which phys_footprint is +576 KB (2,400 to 2,976 KB) and the rest shared framework pages. The CI
 # idle line (Linux) is not moved. Byte limit = the musl size plus 5% = 13,370,549, rounded to 13,400,000 B (67% of the 20 MB ceiling); packages 280 (274 plus 6).
+# 2026-11-14, tls2 (branch aws-tls2 on the merged aws line be553d87): on macOS the keychains are listed with /usr/bin/security on the first https call instead of
+# through Security.framework, so rustls-native-certs, security-framework(-sys), core-foundation(-sys) and bitflags leave the macOS build. darwin/arm64 release-aws:
+# 8,342,432 B (was 8,360,592 B on the merged line), 270 packages (was 276), idle 6,432 KB (was 9,968 KB, over the line); otool -L lists libSystem and libiconv only.
+# Linux and Windows keep rustls-native-certs; the Linux code is unchanged, so the musl size is too. Limits unchanged.
 doze-aws 13400000 280 9413 --listen 127.0.0.1:{port} --data-dir {data}
