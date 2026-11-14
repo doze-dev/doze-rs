@@ -126,7 +126,12 @@ impl Harness {
         let mut instance = new_instance(parsed, &sandbox)?;
         module.decode(&instance).await.map_err(|e| render(&e))?;
         let listeners = checked_network(&module, &instance).await?;
-        instance.listeners = crate::grant::grant(&listeners, &sandbox, &instance)?;
+        let socket = module
+            .manifest
+            .backend_socket
+            .as_ref()
+            .map(|s| s.replace("{port}", &module.manifest.default_port.to_string()));
+        instance.listeners = crate::grant::grant(&listeners, &sandbox, &instance, socket)?;
         let args = ResolveArgs {
             instance: instance.clone(),
             target: target(),

@@ -235,7 +235,8 @@ portable `process` engine, the app's tray and notifications) belongs to the core
 
 ## Bugs to fix rather than port (from the module audit)
 
-1. ⚑ postgres `autovacuum`: docs say default true, code defaults to off. Pick one.
+1. ✓ postgres `autovacuum`: docs say default true, code defaults to off. Pick one. (Step 11: on, as the description
+   always said and PostgreSQL's own default; `autovacuum = false` turns it off.)
 2. `declareWanted` process-global map in postgres extensions (fixed by D2).
 3. Any executable in an extension bundle's `bin/` overrides a toolchain tool by name (could shadow `psql`).
    Only declared tools override.
@@ -253,9 +254,16 @@ portable `process` engine, the app's tray and notifications) belongs to the core
 9. ✓ temporal: Describe lists `["1"]` but the code and CI use "1.1"; any `describe` failure is read as "absent"
    and triggers `create`. Fix the label; only "not found" means absent. (Fixed in step 8: `version = 1` is the newest 1.x;
    only "is not found" is absent, and converge proves a dead server errors instead.)
-10. ⚑ postgres prune: `DROP ROLE` without REASSIGN/DROP OWNED fails on owners; removed `member_of` is never
-    revoked; removing a password never clears it. Converge to the declared state.
-11. postgres settings: case-insensitive lookup vs case-sensitive override check. One rule.
+10. ✓ postgres prune: `DROP ROLE` without REASSIGN/DROP OWNED fails on owners; removed `member_of` is never
+    revoked; removing a password never clears it. Converge to the declared state. (Step 11: a pruned role's objects
+    pass to `postgres` in every database and its privileges go, so the data stays; memberships, password, expiry,
+    role settings, comments and database options are put back to what is declared; grants are objects, revoked when
+    removed and narrowed when a privilege leaves the list.)
+11. ✓ postgres settings: case-insensitive lookup vs case-sensitive override check. One rule. (Step 11: names have no
+    case everywhere; two names PostgreSQL reads as one, and a setting doze owns, are refused at their line.)
+12. ⚑ ferret auth (follow-up, coordinator 2026-11-14): `auth = true` and `user` blocks stay refused at their line.
+    Real auth needs a SCRAM client in the module and a doze-owned admin user that converge authenticates as (about
+    a day). Not built in M1.
 
 ## Things the core port inherits (not in this plan, recorded so they are not lost)
 

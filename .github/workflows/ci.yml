@@ -106,6 +106,9 @@ jobs:
       # ferret is two builds: the FerretDB gateway (the version a block names) and PostgreSQL with DocumentDB (pinned).
       FERRETDB: "2.7.0"
       DOCUMENTDB: "0.112-0"
+      # postgres: each major's newest build; the release is `postgres`, its files `postgresql-<version>-<target>`.
+      POSTGRES17: "17.12.0"
+      POSTGRES18: "18.7.0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -125,13 +128,25 @@ jobs:
             tar -xzf "$dir/$art" -C "$dir"
             echo "$var=$dir/$name-$v-$TARGET/bin" >> "$GITHUB_ENV"
           done
-      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-module-ferret -p doze-names --no-fail-fast -- --nocapture
+          for e in "DOZE_POSTGRES_BINDIR:$POSTGRES18" "POSTGRES17_BINDIR:$POSTGRES17"; do
+            var=${e%%:*}; v=${e#*:}
+            dir="$RUNNER_TEMP/engines/postgresql-$v"; art="postgresql-$v-$TARGET.tar.gz"
+            mkdir -p "$dir"
+            gh release download postgres -R doze-dev/doze-binaries -p "$art" -p "$art.sha256" -D "$dir"
+            (cd "$dir" && shasum -a 256 -c "$art.sha256")
+            tar -xzf "$dir/$art" -C "$dir"
+            echo "$var=$dir/postgresql-$v-$TARGET/bin" >> "$GITHUB_ENV"
+          done
+      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-module-ferret -p doze-module-postgres -p doze-names --no-fail-fast -- --nocapture
       - name: valkey's acceptance on its other major (8)
         shell: bash
         run: DOZE_VALKEY_BINDIR="$VALKEY8_BINDIR" cargo test -p doze-module-valkey --test acceptance --no-fail-fast -- --nocapture
       - name: mariadb's acceptance on its newest line (12.2)
         shell: bash
         run: DOZE_MARIADB_BINDIR="$MARIADB12_BINDIR" cargo test -p doze-module-mariadb --test acceptance --no-fail-fast -- --nocapture
+      - name: postgres's acceptance on its other major (17)
+        shell: bash
+        run: DOZE_POSTGRES_BINDIR="$POSTGRES17_BINDIR" cargo test -p doze-module-postgres --test acceptance --no-fail-fast -- --nocapture
 
   # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
   # portable; a red job here is information about what is still Unix-only, not noise.
@@ -413,6 +428,11 @@ jobs:
             mkdir -p "corpus/$target"
             cargo fuzz run "$target" "corpus/$target" -- -max_total_time=30 -max_len=65536
           done
+      - name: Fuzz postgres's object-name reader for 30 seconds
+        working-directory: crates/doze-module-postgres/fuzz
+        run: |
+          mkdir -p corpus/fuzz_names
+          cargo fuzz run fuzz_names corpus/fuzz_names -- -max_total_time=30 -max_len=4096
       - name: Fuzz the .doze resolver's DNS wire, upstream and setup parsers for 30 seconds each
         working-directory: crates/doze-names/fuzz
         run: |
