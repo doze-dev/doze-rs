@@ -102,3 +102,20 @@ sections, parent-only nodes, IP addresses). Evidence: `psl` as a dev-dependency 
 300,000 random names (one reviewed difference, where psl and Go part, pinned to Go); and, built from
 Go's own list revision, 131,275/131,275 names identical to Go. Refresh: `bun
 crates/doze-config/data/refresh-psl.ts`.
+
+## C2a: doze reads doze.hcl (2026-11-14, Builder A)
+
+`doze-cli` now links doze-config and doze-hcl (and hcl-edit with winnow), and clap_complete's dynamic engine for
+completions. Measured as before (release profile, darwin/arm64):
+
+| Build | Size | Packages |
+|---|---|---|
+| `doze` at P1 (no HCL) | 4,070,592 B | 185 (Linux VM) |
+| C2a, HCL crates at opt-level 3 | 6,421,104 B | |
+| C2a, HCL crates at `opt-level = "s"` (adopted: config is read once per command) | 6,157,408 B | |
+| C2a with the completion engine | **6,207,024 B** | **210** |
+
+The 2.1 MB is the HCL language the plan always put in `doze` (the C0 probe counted hcl-edit and the evaluator); it
+is over the 0.3 MB the builder decides alone, so it is stated here and in PR #51. `doze` stays under its 9 MB line
+with about 2.8 MB for the engine, daemon and names still to come. The CI package line moves from 200 to 230.
+The app binary links doze-cli, so it carries the same 2.1 MB (owner item for the app's 16 MB line).

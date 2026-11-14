@@ -587,6 +587,20 @@ doze: `cmd/doze/*`, `internal/{config,runspec,runtime,registry,supervisor,health
     - Route names in `validateNetworks` need module listener declarations.
     - `psl` costs 0.84 MB (weight.md); that is an owner call.
   - Days: planned 15 (11–19); done in one session. Next on track L: C2.
+- **2026-11-14, H4 follow-up: public suffix list owned.** `psl` (+0.84 MB) replaced by doze-config's own
+  front-coded copy (78 KB, publicsuffix.org 2026-11-13, commit 71c235dd), decoded on the first `domains` check:
+  +0.08 MB. Go's matching exactly: psl kept as a dev-dependency oracle (every rule and 300,000 random names; the one
+  psl-vs-Go difference, a parent-only TLD, pinned to Go); built from Go's list revision, 131,275/131,275 names
+  identical to Go. CI on #47/#48 was red for test-side reasons (serde_json `preserve_order` in workspace builds,
+  Windows paths in the Go oracle); fixed in core-h3, core-h4 and core-h4-wire. The `weight*` failures are kafka's
+  lines, inherited from main (#45).
+- **2026-11-14, C2a, done (first slice of C2)**, PR #51 (`core-c2a`, on #41, merges #47). The CLI reads
+  doze.hcl's shape offline: `status` with the daemon down (Go's golden byte for byte), name checks before
+  "not running" for every verb, O6 diagnostics at Go's line and column, `lint` (module pass pending D1, exit 11),
+  `fmt` (`--check`, `--dry-run` diff), `-c <dir>`, `--var`, dynamic completions in four shells, help examples.
+  Independent audit: 14 findings, all fixed or documented. `doze` 6.2 MB (weight.md). About 4 of C2's 20 days.
+  Next: `init`/`add` (module declarations from the registry's cached meta), then the daemon verbs (`up`, `down`,
+  `env`, `url`, `run`, `connect`) as D1 lands, `modules upgrade` with F1's lock writer, `bug`, `open`.
 - **2026-11-14, plan deviation (engine track; decided by the coordinator for the owner): the engine does not link
   doze-fetch.** §3 put "the module pool with the real fetch service" in E2. Instead `doze-engine` takes any
   `Downloads` and the `doze.lock` pins as values, and D1 (the daemon) wires F1's `ChildDownloads` and loads the
