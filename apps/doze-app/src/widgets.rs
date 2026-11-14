@@ -47,6 +47,15 @@ pub(crate) fn tracked(
         )
 }
 
+/// A hover title (Go's `title=`): a tooltip with `words`, for `.tooltip(tip(...))` on an element with an id. GPUI has
+/// no accessibility tree, so Go's `aria-label`s have no counterpart; the title is what a pointer still gets.
+pub(crate) fn tip(
+    words: impl Into<SharedString>,
+) -> impl Fn(&mut gpui::Window, &mut gpui::App) -> gpui::AnyView + 'static {
+    let words: SharedString = words.into();
+    move |window, cx| gpui_component::tooltip::Tooltip::new(words.clone()).build(window, cx)
+}
+
 /// `.dot` (8px disc) and `.ring` (8px, 2px cool border).
 pub(crate) fn dot(color: Hsla) -> impl IntoElement {
     div().size(px(8.)).flex_none().rounded_full().bg(color)

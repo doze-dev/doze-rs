@@ -8,7 +8,12 @@ use crate::actions::{OpenBell, OpenPalette, ShowHelp};
 use crate::kit::{chip_of, s};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
-use crate::widgets::{dot, icon, kbd_plain};
+use crate::widgets::{dot, icon, kbd_plain, tip};
+
+thread_local! {
+    /// A press on the bar itself, not yet moved: the next move drags the window.
+    static MOVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 
 fn tab(
     t: &Tokens,
@@ -142,14 +147,33 @@ pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl 
                     .bg(t.warn),
             )
         })
+        .occlude()
+        .tooltip(tip(format!("{}  ⌘⇧N", root.attn.list.bell_label())))
         .on_click(cx.listener(|this, _, window, cx| this.on_bell(&OpenBell, window, cx)));
     let help = square(t, "help")
         .text_size(px(ty::BASE))
         .font_weight(ty::SEMIBOLD)
         .text_color(help_ink)
         .child("?")
+        .occlude()
+        .tooltip(tip("Keyboard shortcuts  ?  ⌘/"))
         .on_click(cx.listener(|this, _, window, cx| this.on_help(&ShowHelp, window, cx)));
+    // Double-click zooms the window, as any title bar does; the strip itself is the drag region (Go titlebar.tsx).
+    // Tabs and buttons occlude it, so a press on them never moves the window.
     div()
+        .id("titlebar")
+        .on_click(|e, window, _| {
+            if e.click_count() == 2 {
+                window.zoom_window();
+            }
+        })
+        .on_mouse_down(gpui::MouseButton::Left, |_, _, _| MOVE.set(true))
+        .on_mouse_up(gpui::MouseButton::Left, |_, _, _| MOVE.set(false))
+        .on_mouse_move(|_, window, _| {
+            if MOVE.replace(false) {
+                window.start_window_move();
+            }
+        })
         .flex()
         .flex_none()
         .items_end()
@@ -189,6 +213,8 @@ fn search(t: &Tokens, cx: &mut Context<Root>) -> impl IntoElement {
         .text_color(t.text)
         .cursor_pointer()
         .hover(|s| s.bg(t.sel))
+        .occlude()
+        .tooltip(tip("Search a name, or type a verb and a name (⌘K)"))
         .on_click(cx.listener(|this, _, window, cx| this.on_palette(&OpenPalette, window, cx)))
         .child(kbd_plain(
             &chip_of("Search or do…"),
@@ -216,6 +242,8 @@ fn tabs(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl IntoElement {
             div().child("Home").into_any_element(),
         ],
     )
+    .occlude()
+    .tooltip(tip("Home  ⌘0"))
     .on_click(cx.listener(|this, _, window, cx| this.go(Screen::Library, window, cx)));
     div()
         .flex()
@@ -264,7 +292,13 @@ fn pending_tab(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> Option<AnyEle
             .into_any_element(),
         close.into_any_element(),
     ];
-    Some(tab(t, true, "tab-pending", body).into_any_element())
+    let tip_dir = dir.display().to_string();
+    Some(
+        tab(t, true, "tab-pending", body)
+            .occlude()
+            .tooltip(tip(tip_dir))
+            .into_any_element(),
+    )
 }
 
 fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>) -> AnyElement {
@@ -290,11 +324,20 @@ fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>
     if tb.troubled > 0 {
         body.push(badge(t, tb.troubled).into_any_element());
     }
-    if on || !tb.running {
+    // `.stabx`: on every tab, seen (opacity) while the tab is the one shown or under the pointer.
+    let id: gpui::ElementId = ("tab", i).into();
+    let over = crate::motion::hovered(&format!("stab/{id}"));
+    {
         let k = tb.key.clone();
         body.push(
             div()
                 .id(("tab-close", i))
+                .opacity(if on || over { 1. } else { 0. })
+                .tooltip(tip(if tb.running {
+                    "Close the tab. The stack keeps running; open it again from Home."
+                } else {
+                    "Close the tab"
+                }))
                 .size(px(16.))
                 .rounded(px(4.))
                 .flex()
@@ -311,7 +354,19 @@ fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>
         );
     }
     let key = tb.key.clone();
-    tab(t, on, ("tab", i), body)
+    let title = format!(
+        "{}{}  ⌘{}",
+        tb.dir,
+        if tb.running && !tb.live {
+            " · daemon not answering"
+        } else {
+            ""
+        },
+        i + 1
+    );
+    tab(t, on, id, body)
+        .occlude()
+        .tooltip(tip(title))
         .on_click(
             cx.listener(move |this, _, window, cx| this.go(Screen::Stack(key.clone()), window, cx)),
         )

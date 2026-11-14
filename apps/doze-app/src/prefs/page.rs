@@ -32,3 +32,48 @@ pub(crate) fn shown_path() -> String {
         None => "~/.doze/desk/prefs.json".into(),
     }
 }
+
+/// The stacks whose tab was closed (`closedTabs`; Go kept `doze.closedTabs` in the page's storage): still running,
+/// listed in the Library, back in the strip when opened again. By the stack's folder, as `last` names it.
+pub(crate) fn closed_tabs() -> Vec<String> {
+    closed_of(&load())
+}
+
+fn closed_of(m: &serde_json::Map<String, Value>) -> Vec<String> {
+    m.get("closedTabs")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Keeps the closed tabs.
+pub(crate) fn save_closed_tabs(keys: &[String]) {
+    save(|m| {
+        m.insert(
+            "closedTabs".into(),
+            Value::Array(keys.iter().cloned().map(Value::String).collect()),
+        );
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::closed_of;
+    use serde_json::json;
+
+    #[test]
+    fn closed_tabs_read_as_strings_and_anything_else_reads_as_none() {
+        let m = json!({"closedTabs": ["/code/shop", 3, "/code/api"]});
+        assert_eq!(
+            closed_of(m.as_object().unwrap()),
+            vec!["/code/shop".to_owned(), "/code/api".to_owned()]
+        );
+        let bad = json!({"closedTabs": "x"});
+        assert!(closed_of(bad.as_object().unwrap()).is_empty());
+    }
+}

@@ -44,11 +44,28 @@ impl Screen {
 pub(crate) struct Tab {
     pub(crate) key: StackKey,
     pub(crate) name: String,
+    /// The folder its doze.hcl is in: the tab's hover title.
+    pub(crate) dir: String,
     pub(crate) running: bool,
     /// How many of its instances are in trouble, tasks aside (Go: the summary's `troubled`): the tab's red dot and badge.
     pub(crate) troubled: usize,
     /// Its daemon answers (Go: `live`): a running stack out of touch has a yellow dot.
     pub(crate) live: bool,
+}
+
+/// The window's title: where the page is (Go app.tsx `titled`), which the Window menu lists and a screen reader
+/// reads on every move. `stack` is the shown stack's name.
+pub(crate) fn title(screen: &Screen, stack: &str) -> String {
+    match screen {
+        Screen::Library => "Home · doze".into(),
+        Screen::Settings => "Settings · doze".into(),
+        Screen::Instance(_, name) => format!("{name} · {stack} · doze"),
+        Screen::Logs(_) => format!("All logs · {stack} · doze"),
+        Screen::Activity(_) => format!("Activity · {stack} · doze"),
+        Screen::Empty(_) => "A folder · doze".into(),
+        Screen::Stack(_) if !stack.is_empty() => format!("{stack} · doze"),
+        Screen::Stack(_) => "doze".into(),
+    }
 }
 
 /// The sidebar's foot, as Go's: "doze v0.1.2 · 2 stacks".
@@ -65,10 +82,7 @@ impl Root {
     /// Shows `screen`: its page reads the hub, the other stops watching, the keys go to it.
     pub(crate) fn go(&mut self, screen: Screen, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(k) = screen.key() {
-            if !self.opened.contains(k) {
-                self.opened.push(k.clone());
-            }
-            self.hidden.retain(|h| h != k);
+            self.reopened_tab(&k.clone());
         }
         match &screen {
             Screen::Instance(k, name) => {
@@ -127,29 +141,74 @@ impl Root {
             }
         }
         self.moved(&screen);
+        self.retitle(&screen, window);
         self.screen = screen;
         self.refresh_tabs(cx);
         self.wind(cx);
         cx.notify();
     }
 
-    /// Closes a stopped stack's tab (a running stack's tab stays while it runs).
+    /// Takes a stack's tab off the strip; the stack keeps running, and its tab stays put away (remembered across
+    /// launches) until it is opened again. Closing the tab on screen goes to the tab before it, or after it, or Home
+    /// (Go `closeTab`).
     pub(crate) fn close_tab(
         &mut self,
         key: &StackKey,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let next = neighbour(&self.tabs, key);
         self.opened.retain(|k| k != key);
-        // A running stack's tab stays put away until the stack is opened again (it keeps running).
-        if !self.hidden.contains(key) {
-            self.hidden.push(key.clone());
-        }
+        self.hidden.retain(|k| k != key);
+        self.hidden.push(key.clone());
+        self.keep_closed();
         if self.key() == Some(key) {
-            self.go(Screen::Library, window, cx);
+            match next {
+                Some(k) => self.go(Screen::Stack(k), window, cx),
+                None => self.go(Screen::Library, window, cx),
+            }
         } else {
             self.refresh_tabs(cx);
         }
+    }
+
+    /// A stack's page opens: its tab is in the strip again.
+    fn reopened_tab(&mut self, k: &StackKey) {
+        if !self.opened.contains(k) {
+            self.opened.push(k.clone());
+        }
+        if self.hidden.contains(k) {
+            self.hidden.retain(|h| h != k);
+            self.keep_closed();
+        }
+    }
+
+    /// The window's title for `screen`.
+    fn retitle(&self, screen: &Screen, window: &mut Window) {
+        let stack = screen
+            .key()
+            .and_then(|k| self.hub.stack(k))
+            .map(|s| s.name)
+            .unwrap_or_default();
+        window.set_window_title(&title(screen, &stack));
+    }
+
+    /// The closed tabs the prefs remember (`closedTabs`).
+    pub(super) fn closed_tabs() -> Vec<StackKey> {
+        crate::prefs::page::closed_tabs()
+            .iter()
+            .map(StackKey::new)
+            .collect()
+    }
+
+    /// Writes the closed tabs to the prefs (`closedTabs`).
+    fn keep_closed(&self) {
+        let keys: Vec<String> = self
+            .hidden
+            .iter()
+            .map(|k| k.dir().to_string_lossy().into_owned())
+            .collect();
+        crate::prefs::page::save_closed_tabs(&keys);
     }
 
     /// The tabs, from the hub; redraws only when they changed.
@@ -171,6 +230,7 @@ impl Root {
                         .count(),
                     key: s.key,
                     name: s.name,
+                    dir: s.dir,
                     running: s.running,
                     live: s.link.conn == doze_desk::Conn::Live,
                 }
@@ -180,5 +240,68 @@ impl Root {
             self.tabs = tabs;
             cx.notify();
         }
+    }
+}
+
+/// The tab to show when the tab `key` closes: the one before it, else the one after it (Go `closeTab`).
+pub(crate) fn neighbour(tabs: &[Tab], key: &StackKey) -> Option<StackKey> {
+    let i = tabs.iter().position(|t| &t.key == key)?;
+    i.checked_sub(1)
+        .and_then(|j| tabs.get(j))
+        .or_else(|| tabs.get(i + 1))
+        .map(|t| t.key.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Screen, Tab, neighbour, title};
+    use doze_desk::StackKey;
+
+    #[test]
+    fn the_title_says_where_the_page_is_in_go_words() {
+        let k = StackKey::new("/code/shop");
+        assert_eq!(title(&Screen::Library, ""), "Home · doze");
+        assert_eq!(title(&Screen::Settings, ""), "Settings · doze");
+        assert_eq!(title(&Screen::Stack(k.clone()), "shop"), "shop · doze");
+        assert_eq!(title(&Screen::Stack(k.clone()), ""), "doze");
+        assert_eq!(
+            title(&Screen::Instance(k.clone(), "api".into()), "shop"),
+            "api · shop · doze"
+        );
+        assert_eq!(
+            title(&Screen::Logs(k.clone()), "shop"),
+            "All logs · shop · doze"
+        );
+        assert_eq!(
+            title(&Screen::Activity(k), "shop"),
+            "Activity · shop · doze"
+        );
+        assert_eq!(
+            title(&Screen::Empty("/code/new".into()), ""),
+            "A folder · doze"
+        );
+    }
+
+    #[test]
+    fn closing_a_tab_goes_to_the_one_before_then_after() {
+        let tab = |k: &str| Tab {
+            key: StackKey::new(k),
+            name: k.into(),
+            dir: k.into(),
+            running: true,
+            troubled: 0,
+            live: true,
+        };
+        let tabs = vec![tab("a"), tab("b"), tab("c")];
+        assert_eq!(
+            neighbour(&tabs, &StackKey::new("b")),
+            Some(StackKey::new("a"))
+        );
+        assert_eq!(
+            neighbour(&tabs, &StackKey::new("a")),
+            Some(StackKey::new("b"))
+        );
+        assert_eq!(neighbour(&tabs[..1], &StackKey::new("a")), None);
+        assert_eq!(neighbour(&tabs, &StackKey::new("z")), None);
     }
 }
