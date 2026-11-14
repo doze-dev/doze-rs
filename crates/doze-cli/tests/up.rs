@@ -262,6 +262,7 @@ fn up_starts_the_daemon_and_down_stops_it() {
     let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
     let up = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
     let pid = doze_projects::daemon_pid(&key).map(|p| p.pid);
+    let _reap = Reap(pid); // a failed assert below still stops the daemon
     let stop = |pid: Option<u32>| {
         if let Some(pid) = pid.filter(|p| doze_os::process::alive(*p)) {
             let _ = doze_os::process::terminate(pid);
@@ -318,6 +319,7 @@ fn run_starts_the_daemon_then_the_command() {
         &["run", "--", "mytool", "a", "b"],
     );
     let pid = doze_projects::daemon_pid(&key).map(|p| p.pid);
+    let _reap = Reap(pid); // a failed assert below still stops the daemon
     let down = fixture::run(&sb, &host, Terminals::default(), false, &["down"]);
     assert_eq!(ran.code, 0, "{}", ran.stderr);
     assert!(pid.is_some(), "the daemon was started");
@@ -325,5 +327,35 @@ fn run_starts_the_daemon_then_the_command() {
     assert_eq!(
         host.spawned.borrow().last().cloned().unwrap_or_default(),
         ["run mytool", "a", "b"]
+    );
+}
+
+/// Stops the daemon a test started (by its exact pid, while it lives) however the test ends.
+struct Reap(Option<u32>);
+
+impl Drop for Reap {
+    fn drop(&mut self) {
+        if let Some(pid) = self.0.filter(|p| doze_os::process::alive(*p)) {
+            let _ = doze_os::process::terminate(pid);
+        }
+    }
+}
+
+/// A doze.hcl that moves the state folder: refused before anything is asked, remembered or started (audit 2, major 1).
+#[test]
+fn a_moved_state_folder_is_refused_before_anything_starts() {
+    let (sb, host, _) = setup::prepare(&["project bare".to_owned()]);
+    let elsewhere = sb.root.join("elsewhere");
+    let hcl = format!(
+        "data_dir = \"{}\"\n\napp \"web\" {{\n  run = \"true\"\n}}\n",
+        elsewhere.display()
+    );
+    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
+    let ran = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
+    assert_eq!(ran.code, 1, "{}", ran.stderr);
+    assert!(ran.stderr.contains("keeps its state in"), "{}", ran.stderr);
+    assert!(
+        !elsewhere.join("project.json").exists(),
+        "a refused up remembered"
     );
 }

@@ -62,11 +62,7 @@ fn agree(go: &Path) {
         for file in [FILE_NAME, "project.json.bad"] {
             let want = std::fs::read(go.join(case).join(file)).ok();
             let got = std::fs::read(dir.join(file)).ok();
-            assert_eq!(
-                got.as_deref().map(String::from_utf8_lossy),
-                want.as_deref().map(String::from_utf8_lossy),
-                "{case}/{file}"
-            );
+            assert_eq!(got, want, "{case}/{file}: bytes differ");
         }
         // What was written reads back as written.
         let back = load(&dir).unwrap().unwrap();

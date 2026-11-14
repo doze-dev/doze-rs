@@ -61,10 +61,36 @@ doze-logstore lose no public item, and every CI job of both sides is there. The 
    "not running", and the leftovers are listed.
 4. `cleared` is an addition to Go's JSON, and the exit codes changed (refusal 1, timeout 8). Now in rows 3 and 4.
 5. **Suspicion, open:**
-   - A daemon whose long-lived parent never reaps it stays a zombie, which `kill(pid, 0)` still sees. D1's `ctl` must
-     detach it (double fork or reap).
+   - A daemon whose long-lived parent never reaps it stays a zombie. Closed by D1: `spawn_detached` reaps it on a thread.
    - `clear` after a stop could remove the files of a daemon that a concurrent `up` has just started. Closed: `down`
      and `up` take D1's stack lock (`run/doze.ctl.lock`).
 6. Tests now cover the main cases, with SIGTERM asserted, and the 20 s timeout (row 3).
 7. Windows: row 5, tested by `tests/down_windows.rs` (CI's Windows runners).
 8. Inherited: `fuzz_porttrap` was never run in CI. It now runs in the fuzz job.
+
+## Independent audit (2026-11-15, second, at 9ad5676b)
+
+Fixed:
+
+1. **Major:** a doze.hcl that sets `home` or `data_dir` puts the daemon's socket where the CLI does not look (stack.rs
+   uses the default place), so `up` would wait 10 s and orphan the daemon. `up` and `run` now refuse that case with
+   DZ0001 before anything is asked, remembered or started; following the config's folder is open (stack.rs).
+2. **Major:** `main` read argv with `std::env::args`, which panics on a non-UTF-8 argument; now `args_os`.
+3. A snapshot that fails no longer fails `up` (Go goes on without it).
+4. The recorded `config` is cleaned, as Go's `filepath.Abs` (`-c ../x/doze.hcl`).
+5. `up --dry-run` on a terminal plans the default answer (last time's set), as the run without input would.
+6. Windows: `up` and `run` say the daemon cannot run there yet (no local socket, core plan W) instead of spawning one
+   that fails.
+7. The real-daemon tests stop their daemon by its pid whatever fails; the writer's test compares raw bytes.
+
+Open, with reasons:
+
+- The stack lock is advisory and partial: `down` skips it when the run folder does not exist yet and ignores a lock
+  error; `up` against a running daemon takes none; and the daemon writes its pid file just after its socket accepts, so
+  a `down` in that instant refuses (exit 1, "no daemon pid") rather than racing. Closing that window needs D1 to write
+  the pid file before it accepts.
+- Extra fields' raw values: a lone `\ud800` escape or invalid UTF-8 inside a newer doze's field is written as U+FFFD,
+  where Go keeps the bytes. Not seen in any file a doze writes.
+- Go's per-boot progress on stderr ("→ name waking…", relayed download lines, the elapsed tick) is not printed yet.
+- `down` with a doze.hcl that does not load stops the stack (exit 0) where Go refused with exit 5: for the owner.
+- `run/doze.ctl.lock` and `run/doze.log` stay after `down` (the socket and pid file do not).

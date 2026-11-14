@@ -198,7 +198,7 @@ func readLines(file string) error {
 }
 
 // updates are the records projects.Update is held to: each case's starting record (none: never written) and its
-// change. doze-projects' tests/oracle.rs makes the same changes and compares the bytes.
+// change. doze-projects' tests/write.rs makes the same changes and compares the bytes.
 var updates = []struct {
 	name, in string
 	change   func(*projects.Project)

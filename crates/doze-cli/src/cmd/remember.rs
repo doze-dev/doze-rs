@@ -228,7 +228,7 @@ fn remember(
     (cfg, dir): (&Config, &Path),
     change: impl FnOnce(&mut Project),
 ) {
-    let config = ctx.cwd.join(&cfg.path);
+    let config = doze_config::paths::clean(&ctx.cwd.join(&cfg.path)); // as Go's `filepath.Abs`
     let written = doze_projects::update(dir, |p| {
         p.config = config.to_string_lossy().into_owned();
         p.name = cfg.stack();

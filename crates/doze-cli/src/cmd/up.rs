@@ -9,7 +9,7 @@
 
 use crate::cli::args::Up;
 use crate::cmd::ask::Asker;
-use crate::cmd::{dry, logs, remember, verbs};
+use crate::cmd::{dry, logs, remember, stub, verbs};
 use crate::ctx::Ctx;
 use crate::diag::{Diagnostic, ids};
 use crate::notice::Notices;
@@ -34,11 +34,16 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Up, notices: &mut Notices)
     let asked = stack::unique(&a.services);
     check(&cfg, &asked, a)?;
     let conn = stack.open(mode.timeout)?;
-    let snap = conn.as_ref().map(stack::snapshot).transpose()?;
+    // A snapshot that cannot be had is no snapshot (Go's `running = nil`): it only adds to what is remembered.
+    let snap = conn.as_ref().and_then(|c| stack::snapshot(c).ok());
+    if conn.is_none() && !a.dry.dry_run {
+        moved(&cfg, &stack)?; // before anything is asked or remembered
+    }
     let dir = remember::record_dir(&cfg, stack.key.dir());
     let targets = if asked.is_empty() {
         let quiet = Mode {
-            json: mode.json || a.dry.dry_run, // a plan never asks
+            // A plan never asks: it shows what the default answer (yes: last time's set) starts.
+            yes: mode.yes || a.dry.dry_run,
             ..mode.clone()
         };
         remember::choose(ctx, &quiet, notices, (&cfg, &dir), (a.last, a.all))
@@ -58,15 +63,42 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Up, notices: &mut Notices)
     remember::remember_up(ctx, notices, (&cfg, &dir), &targets, snap.as_ref());
     let conn = match conn {
         Some(c) => c,
-        None => start(ctx, mode, &stack)?,
+        None => start(ctx, mode, &stack, &cfg)?,
     };
     boot(ctx, mode, (&stack, &cfg), conn, (&closure, a.follow))
 }
 
+/// A doze.hcl that moves the state folder (`home`, `data_dir`): its daemon would listen there while this CLI looks at the
+/// default place (stack.rs), so `up` would wait on a socket that never comes and leave the daemon orphaned. Refused
+/// until the CLI follows the loaded config's folder.
+fn moved(cfg: &Config, stack: &Stack) -> Result<(), Diagnostic> {
+    let theirs = doze_config::paths::clean(std::path::Path::new(&cfg.data_dir));
+    if theirs == doze_config::paths::clean(stack.key.dir()) {
+        return Ok(());
+    }
+    Err(stub::not_built("doze up", stub::Needs::Daemon).note(format!(
+        "this doze.hcl keeps its state in {} (`home` or `data_dir`); starting a daemon there is not built yet",
+        theirs.display()
+    )))
+}
+
 /// Starts the stack's daemon (Go `startDaemon`) under the stack lock, unless another `up` started it while this one
 /// waited for the lock, and connects to it.
-pub(crate) fn start(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<Connection, Diagnostic> {
+pub(crate) fn start(
+    ctx: &Ctx<'_>,
+    mode: &Mode,
+    stack: &Stack,
+    cfg: &Config,
+) -> Result<Connection, Diagnostic> {
+    moved(cfg, stack)?;
     let run = RunDir::of(stack.key.dir());
+    // No local control socket on this system yet (Windows: the named pipe, core plan W): said, nothing started.
+    if let Err(e) = doze_os::local::LocalStream::connect(&run.socket())
+        && e.kind() == std::io::ErrorKind::Unsupported
+    {
+        return Err(stub::not_built("doze up", stub::Needs::Daemon)
+            .note("this system has no local control socket for the daemon yet (core plan W)"));
+    }
     let refused = |what: String| {
         Diagnostic::new(ids::DAEMON_REFUSED, what)
             .fix("doze bug writes a report with the daemon's log")
