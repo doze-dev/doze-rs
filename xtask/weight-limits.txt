@@ -12,7 +12,9 @@
 # +765 KB on ubuntu x86_64: 8,939,211 B estimated; limit that plus 5%, 9,386,171 B, until the next CI run on main replaces it with the
 # measurement (the owner's rule). Packages 161 + 13 = 174. This leaves about 0.6 MB under the owner's 10 MB ceiling; whether the module face
 # stays in the default build is the owner's call (phase11.md).
-doze-kafka 9386171 174 9761 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-14, CI's first runs on main with the module face and the registry (f2ad9895, e1279e35) replace the estimate: 9,258,144 B, 171 packages,
+# idle medians 9,992 and 10,164 KB; the idle limit is the larger plus 5% (10,673 KB). docs/port/weight.md, "After the registry and the module face".
+doze-kafka 9258144 171 10673 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # doze-aws: measured 2026-11-12 on darwin/arm64 with SQS and its database: 2,687,088 B, 118 packages (the ones that only run at build time count: serde_derive

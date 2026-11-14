@@ -187,7 +187,7 @@ jobs:
           echo "idle samples:$samples KB"
           rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "binary $size B, $crates packages, idle $rss KB"
-          [ "$size" -le 5263296 ] || { echo "lean binary over 5,263,296 B"; exit 1; }
+          [ "$size" -le 5274120 ] || { echo "lean binary over 5,274,120 B"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
           [ "$rss" -le 7229 ] || { echo "idle resident memory over 7,229 KB in the lean build"; exit 1; }
           ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }
@@ -230,9 +230,9 @@ jobs:
           # 2026-11-14 (owner decision: "Raise the ceiling" for the TLS build, which the module face and the schema registry took over
           # 10 MB): 7,586,144 B on darwin with both, times CI's measured 1.36, is 10,317,156 B on ubuntu x86_64; the limit is that plus 5%
           # until the next CI run on main measures it. Packages: 183 locally, plus CI's usual 3 more lines.
-          [ "$size" -le 10833014 ] || { echo "tls binary over 10,833,014 B"; exit 1; }
-          [ "$crates" -le 186 ] || { echo "more than 186 packages with tls"; exit 1; }
-          [ "$rss" -le 10610 ] || { echo "idle resident memory over 10,610 KB with tls"; exit 1; }
+          [ "$size" -le 10406568 ] || { echo "tls binary over 10,406,568 B"; exit 1; }
+          [ "$crates" -le 183 ] || { echo "more than 183 packages with tls"; exit 1; }
+          [ "$rss" -le 11412 ] || { echo "idle resident memory over 11,412 KB with tls"; exit 1; }
 
   # The React console (web/, docs/port/console/react-plan.md): its built bundle is committed in crates/kafka-console/web-dist
   # so that `cargo build` needs no bun. This rebuilds it from the locked dependencies and fails if the result differs from what

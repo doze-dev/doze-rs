@@ -469,3 +469,21 @@ With the module face (Phase 11) and the schema registry's foundation (Phase 10a)
 TLS build, or a higher ceiling), the owner chose to raise the ceiling. The `weight-tls` job's limit is now 10,833,014 B (that estimate
 plus 5%) and 186 packages, until CI's next run on main measures it; Protobuf (10b) and JSON Schema (10c) will move it again, each with
 its numbers. The default build's limit (9,386,171 B, 174 packages) is unchanged.
+
+## After the registry and the module face: CI's measurements (2026-11-14)
+
+Main's first CI runs with Phase 11 (the module face) and Phase 10a (the schema registry) merged, f2ad9895 and e1279e35, replace the estimates
+of the two entries above, by the rule of "Limits raised to the measured values" (bytes and packages exact, idle the median of three plus 5%).
+
+| job | f2ad9895 | e1279e35 | old limit | new limit |
+|---|---|---|---|---|
+| `weight`, doze-kafka binary | 9,258,144 B, 171 packages | 9,258,096 B, 171 | 9,386,171 B (estimate), 174 | **9,258,144 B, 171** |
+| `weight`, doze-kafka idle (median of three) | 9,992 KB | 10,164 KB | 9,761 KB | **10,673 KB** |
+| `weight-lean` binary | 5,274,120 B | 5,274,120 B | 5,263,296 B | **5,274,120 B** |
+| `weight-tls` binary | | 10,406,568 B, 183 packages | 10,833,014 B (estimate), 186 | **10,406,568 B, 183** |
+| `weight-tls` idle (median of three) | | 10,868 KB | 10,610 KB | **11,412 KB** |
+
+doze-kafka's idle rose about 0.8 MB (median 9,296 to 10,164 KB) with the registry, which is on by default and opens its store over the
+metadata database at start (fc23dbf6); the lean build, which has neither, moved 10,824 B and its idle did not move. Judged as a justified
+increase under the owner's delegation of 2026-11-14 and added to issue #36, where whether the registry's store can open lazily is asked.
+doze-aws held (8,976 KB of 9,413).
