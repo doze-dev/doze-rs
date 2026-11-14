@@ -319,7 +319,17 @@ async fn exec(
     mut cancel: CancelRx,
 ) -> Result<Ended, String> {
     let (prog, args) = ts.run.split_first().ok_or("an empty run line")?;
-    let mut env = ts.env.clone();
+    let mut env = match &ts.env_file {
+        Some(f) if !f.exists() => {
+            return Err(format!(
+                "env_file {} does not exist; create it (often by copying .env.example), or remove env_file from the block",
+                f.display()
+            ));
+        }
+        Some(f) => crate::process::parse_env_file(f),
+        None => std::collections::BTreeMap::new(),
+    };
+    env.extend(ts.env.clone());
     crate::process::with_extra(&mut env, &e.stack().extra_env);
     let mut cmd = tokio::process::Command::new(crate::short::program_in(prog, Some(&env)));
     cmd.args(args)

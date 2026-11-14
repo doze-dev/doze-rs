@@ -126,11 +126,14 @@ async fn larder_runs_in_the_engine() {
         extra_env: ca_env(&tls.join("ca.pem"), &tls.join("bundle.pem")),
     };
     let stack = to_stack(&cfg, &w);
-    let tasks = cfg.tasks.len();
     assert_eq!(
         stack.services.len(),
-        cfg.instances.len() - tasks,
-        "every block but the tasks"
+        cfg.instances.iter().filter(|i| i.enabled).count(),
+        "every enabled block, tasks included"
+    );
+    assert!(
+        stack.services.iter().any(|s| matches!(s.kind, doze_engine::stack::Kind::Task(_))),
+        "larder's tasks are tasks"
     );
     let gateway = stack.service("gateway").unwrap();
     assert!(

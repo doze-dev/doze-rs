@@ -16,8 +16,11 @@ pub struct TaskSpec {
     pub run: Vec<String>,
     /// Where it runs, and what its `inputs` are relative to.
     pub dir: PathBuf,
-    /// Added to doze's own environment.
+    /// Added to doze's own environment, over its `env_file`.
     pub env: BTreeMap<String, String>,
+    /// A dotenv file read at each run (Go's `runspec` reads it per run); one that is not there fails the run before
+    /// anything starts.
+    pub env_file: Option<PathBuf>,
     /// Globs of the files whose change makes it run again; none: it runs once, and again only after a failure.
     pub inputs: Vec<String>,
     /// Runs only when asked for (`doze task`), never because something needs it.
