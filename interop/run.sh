@@ -3,7 +3,7 @@
 # (sarama, franz-go, kafka-go, librdkafka), stops the broker, and exits with the clients' status.
 # Usage: interop/run.sh [-only <scenario>]   (see interop/README.md)
 #        interop/run.sh -sasl                 the SASL cells instead: PLAIN, SCRAM-SHA-256 and SCRAM-SHA-512 for each library
-#        interop/run.sh -tls                  the TLS cells: builds the broker with --features tls, makes a throwaway CA and certificate with
+#        interop/run.sh -tls                  the TLS cells (TLS is in the default build): makes a throwaway CA and certificate with
 #                                             openssl, and runs each library over SASL_SSL (SCRAM-SHA-512) and over SSL (no SASL)
 #        interop/run.sh -kafka-version N      the broker stands for Kafka major N (1 to 4, default 4): started with --kafka-version N, and
 #                                             the clients configured for it (-kafka-major N); combines with -only, -sasl and -tls
@@ -67,7 +67,6 @@ if [ -z "$sasl" ] && [ -z "$tls" ]; then
 fi
 
 features=()
-if [ -n "$tls" ]; then features=(--features tls); fi
 cargo build --release -p doze-kafka ${features[@]+"${features[@]}"} --manifest-path "$root/Cargo.toml"
 port="$(( (RANDOM % 20000) + 30000 ))"
 # -sasl: every mechanism on, one user; the clients log in with PLAIN and both SCRAM hashes (interop/go/sasl.go).

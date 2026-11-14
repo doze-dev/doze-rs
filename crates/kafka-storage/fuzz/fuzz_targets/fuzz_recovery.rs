@@ -15,6 +15,7 @@ use libfuzzer_sys::fuzz_target;
 const CONFIG: LogConfig = LogConfig {
     segment_bytes: 1 << 20,
     index_interval_bytes: 256,
+    segment_ms: None,
 };
 
 fn disk(log: &[u8], index: &[u8]) -> (SimFs, PathBuf) {
