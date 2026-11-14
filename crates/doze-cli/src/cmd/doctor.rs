@@ -61,24 +61,26 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode) -> Outcome {
     }
     checks.extend(doze_doctor::leftovers::checks(m.home()));
     let count = |s: State| checks.iter().filter(|c| c.state == s).count();
-    let problem = if count(State::Fail) > 0 {
-        Some(Diagnostic::new(
+    let problem =
+        if count(State::Fail) > 0 {
+            Some(Diagnostic::new(
             ids::CHECKS_FAILED,
             "some checks need attention (marked ✗ above)",
-        ))
-    } else {
-        let n = count(State::NotChecked);
-        (n > 0).then(|| {
-            Diagnostic::new(
-                ids::NOT_ALL_CHECKED,
-                format!(
-                    "{} of {} checked; {n} could not be (marked ·)",
-                    checks.len() - n,
-                    checks.len()
-                ),
-            )
-        })
-    };
+        )
+        .fix("each ✗ says what it needs · doze doctor --fix sets up what it can (one password)"))
+        } else {
+            let n = count(State::NotChecked);
+            (n > 0).then(|| {
+                Diagnostic::new(
+                    ids::NOT_ALL_CHECKED,
+                    format!(
+                        "{} of {} checked; {n} could not be (marked ·)",
+                        checks.len() - n,
+                        checks.len()
+                    ),
+                )
+            })
+        };
     Ok(Done {
         view: View::Doctor(Report::new(checks)),
         problem,

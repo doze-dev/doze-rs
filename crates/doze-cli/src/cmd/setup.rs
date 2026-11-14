@@ -111,7 +111,8 @@ pub(crate) fn dns_setup(ctx: &mut Ctx<'_>, a: &crate::cli::setup::DnsSetup) -> O
         return Err(Diagnostic::new(
             ids::NAMES_OFF,
             "names are switched off (DOZE_ZONE=off), so there is nothing to set up",
-        ));
+        )
+        .fix("unset DOZE_ZONE to use .doze names, then run it again"));
     }
     let r = repair::plan(&m, None);
     finish(ctx, &m, r, a.dry_run, "doze dns-setup", None)

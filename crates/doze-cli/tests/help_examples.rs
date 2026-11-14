@@ -29,6 +29,13 @@ const WITH_EXAMPLES: &[&str] = &[
     "lint",
     "fmt",
     "completion",
+    "init",
+    "add",
+    "open",
+    "modules",
+    "modules upgrade",
+    "update",
+    "bug",
 ];
 
 #[test]
@@ -37,7 +44,10 @@ fn every_example_in_help_parses() {
     let host = fixture::FakeHost::default();
     let mut seen = 0;
     for cmd in WITH_EXAMPLES {
-        let ran = fixture::run(&sb, &host, Terminals::default(), false, &[cmd, "--help"]);
+        let mut words: Vec<&str> = cmd.split(' ').collect();
+        let top = words.first().copied().unwrap_or_default();
+        words.push("--help");
+        let ran = fixture::run(&sb, &host, Terminals::default(), false, &words);
         assert_eq!(ran.code, 0, "{cmd}: {}", ran.stderr);
         let (_, examples) = ran
             .stdout
@@ -67,7 +77,7 @@ fn every_example_in_help_parses() {
                 .map(|s| s.get_name().to_string());
             assert_eq!(
                 named.as_deref(),
-                Some(*cmd),
+                Some(top),
                 "doze {cmd} --help shows {cmdline:?}"
             );
             assert!(

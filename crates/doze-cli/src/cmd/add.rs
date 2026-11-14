@@ -71,7 +71,8 @@ pub(crate) fn read(path: &Path, shown: &str) -> Result<Option<String>, Diagnosti
         Err(e) => Err(Diagnostic::new(
             ids::CONFIG_UNREADABLE,
             format!("{shown} can't be read: {e}"),
-        )),
+        )
+        .fix("check the file's permissions, or point -c at another config")),
     }
 }
 

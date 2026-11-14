@@ -45,9 +45,35 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Open, notices: &mut Notice
         args.push(p.dir.display().to_string());
     }
     if let Some(s) = &a.show {
+        check_show(ctx, mode, args.get(1).map(String::as_str), s)?;
         args.extend(["--show".to_owned(), s.clone()]);
     }
     hand_over(ctx, &args)
+}
+
+/// `--show <name>` names a service of the project being opened: a typo is said here, with the nearest name, rather
+/// than by a window that opens on nothing. A link, or a project that does not read, is left to the app.
+fn check_show(
+    ctx: &Ctx<'_>,
+    mode: &Mode,
+    place: Option<&str>,
+    name: &str,
+) -> Result<(), Diagnostic> {
+    if place.is_some_and(|p| p.starts_with("doze://")) {
+        return Ok(());
+    }
+    let project = match place {
+        Some(dir) => crate::project::find(Path::new(dir), None),
+        None => crate::project::find(&ctx.cwd, mode.config.as_deref()),
+    };
+    let Some(cfg) = project.and_then(|p| crate::config::shape_of(ctx, mode, &p).ok()) else {
+        return Ok(());
+    };
+    let names = super::declared::names(&cfg);
+    if names.iter().any(|n| n == name) {
+        return Ok(());
+    }
+    Err(crate::stack::not_in(&names, name))
 }
 
 /// Bare `doze`: the app on a terminal with a display, the status table over SSH or when piped (O2).

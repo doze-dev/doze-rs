@@ -148,7 +148,7 @@ pub(crate) fn not_declared(snap: &Snapshot, name: &str) -> Diagnostic {
 }
 
 /// "the stack has no service called …", with the ones it has (`owned`).
-fn not_in(owned: &[String], name: &str) -> Diagnostic {
+pub(crate) fn not_in(owned: &[String], name: &str) -> Diagnostic {
     let all: Vec<&str> = owned.iter().map(String::as_str).collect();
     let d = Diagnostic::new(
         ids::NO_SUCH_SERVICE,

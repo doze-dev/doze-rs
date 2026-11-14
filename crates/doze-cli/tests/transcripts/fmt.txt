@@ -104,6 +104,7 @@ stderr:
 |    |               ^
 |    |
 |    = No closing marker was found for the string.
+|   fix: correct the syntax in bad/doze.hcl, then: doze fmt
 json exit 5
 json:
 | {
@@ -115,6 +116,7 @@ json:
 |     "message": "bad/doze.hcl does not parse, so it was not formatted",
 |     "exit": 5,
 |     "id": "DZ0301",
+|     "fix": "correct the syntax in bad/doze.hcl, then: doze fmt",
 |     "more": [
 |       {
 |         "code": "config_invalid",

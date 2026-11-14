@@ -75,11 +75,12 @@ impl Diagnostic {
                 }
             }
         }
-        if let Some(fix) = &self.fix {
-            out.push_str(&format!("  {} {}\n", p.dim("fix:"), p.cmd(fix)));
-        }
+        // The further problems of the same pass, then the one next step for the group (rule 4).
         for d in self.more.iter().flat_map(|m| m.iter()) {
             out.push_str(&d.render(p));
+        }
+        if let Some(fix) = &self.fix {
+            out.push_str(&format!("  {} {}\n", p.dim("fix:"), p.cmd(fix)));
         }
         out
     }

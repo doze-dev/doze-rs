@@ -10,6 +10,14 @@ exit 0
 spawned:
 | run doze-app open {sandbox}/project --show cache
 
+$ doze open --show cach
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "cach"
+|   did you mean "cache"?
+|   it has cache, db
+|   fix: doze status
+
 $ doze open doze://shop/db
 exit 0
 spawned:

@@ -72,3 +72,44 @@ pub(crate) const COMPLETION: &str = "Examples:
   doze completion fish | source                      in ~/.config/fish/config.fish
   doze completion powershell | Out-String | Invoke-Expression
 Service names complete from the stack's doze.hcl as you type.";
+
+pub(crate) const INIT: &str = "Examples:
+  doze init                  write doze.hcl from what this project says, each block with why
+  doze init --dry-run        show the file, write nothing
+  doze init --wizard         pick the modules yourself (on a terminal)
+  doze init --force          write over the doze.hcl that is here";
+
+pub(crate) const ADD: &str = "Examples:
+  doze add postgres                   module postgres \"db\", from what the module declares
+  doze add postgres main --port 5433  a second one, named and on its own port
+  doze add mongo                      not a module: a service (a binary here, or a container)
+  doze add mongo --as container       say how it runs
+  doze add valkey --dry-run           show the block, write nothing";
+
+pub(crate) const OPEN: &str = "Examples:
+  doze open                  the app, at this project
+  doze open ~/code/shop      the app, at that project
+  doze open doze://shop/db   a stack, at one service (links from the app work here too)
+  doze open --show db        the window at db";
+
+pub(crate) const MODULES: &str = "Examples:
+  doze modules                        each pin in doze.lock and the newest release that fits
+  doze modules upgrade --check        would any pin move? exit 1 if so (CI)
+  doze modules upgrade --dry-run      each pin from and to, changing nothing
+  doze modules upgrade valkey         move valkey's pin, then commit doze.lock
+  doze modules docs valkey            a module's arguments and an example
+  doze modules verify                 every pin against the signed registry";
+
+pub(crate) const UPGRADE: &str = "Examples:
+  doze modules upgrade                every module doze.hcl declares
+  doze modules upgrade valkey         only valkey
+  doze modules upgrade --check        exit 1 if any pin would move (CI)
+  doze modules upgrade --dry-run      each pin from and to";
+
+pub(crate) const UPDATE: &str = "Examples:
+  doze update --dry-run      the newest doze, and how this install would take it
+  doze update                take it (Homebrew runs brew upgrade doze)";
+
+pub(crate) const BUG: &str = "Examples:
+  doze bug                   write the report and say where it is (nothing is sent)
+  doze --json bug | jq -r .data.report";
