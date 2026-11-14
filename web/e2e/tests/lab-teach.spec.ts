@@ -58,6 +58,10 @@ test("Lab: each recipe fills the dialog with the broker's names, and Start makes
   try {
     const ready = async () => ((await apiGet(page.request, "/api/v1/lab/guide")).recipes as Recipe[]).filter((r) => !r.needs).map((r) => r.id);
     await expect.poll(ready, { timeout: 40_000 }).toEqual(expect.arrayContaining(["slow-produce", "slow-fetch", "fail-leader", "fail-timeout", "drop-once", "drop-flap", "expire-member", "rebalance-group"]));
+    // The recipes name the busiest topic and app on the wire: wait until that is this test's own traffic, not another spec's
+    // writes still on the tape (the hostile spec's topic, say), so the page and this test read the same recipe.
+    const own = async () => ((await apiGet(page.request, "/api/v1/lab/guide")).recipes as Recipe[]).find((r) => r.id === "slow-produce")?.fields;
+    await expect.poll(own, { timeout: 40_000 }).toMatchObject({ topic: "orders" });
     // The rule recipes: the form says each field; the preview is the server's sentence for those fields; Start makes that rule.
     for (const id of ["slow-produce", "slow-fetch", "fail-leader", "fail-timeout"]) {
       await clean(page, baseURL!);

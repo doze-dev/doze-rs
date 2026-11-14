@@ -225,9 +225,11 @@ jobs:
           # 2026-11-14 (owner decision): the size limit is CI's measurement on main that day, exact; idle is the median of three starts
           # (10,104 KB) plus 5%, 10,610 KB
           # (weight.md, "Limits raised to the measured values").
-          [ "$size" -le 9279000 ] || { echo "tls binary over 9,279,000 B"; exit 1; }
-          # 158 for the default build in the Linux VM, plus the 11 lines the feature adds, plus 4.
-          [ "$crates" -le 173 ] || { echo "more than 173 packages with tls"; exit 1; }
+          # 2026-11-14 (owner decision: "Raise the ceiling" for the TLS build, which the module face and the schema registry took over
+          # 10 MB): 7,586,144 B on darwin with both, times CI's measured 1.36, is 10,317,156 B on ubuntu x86_64; the limit is that plus 5%
+          # until the next CI run on main measures it. Packages: 183 locally, plus CI's usual 3 more lines.
+          [ "$size" -le 10833014 ] || { echo "tls binary over 10,833,014 B"; exit 1; }
+          [ "$crates" -le 186 ] || { echo "more than 186 packages with tls"; exit 1; }
           [ "$rss" -le 10610 ] || { echo "idle resident memory over 10,610 KB with tls"; exit 1; }
 
   # The React console (web/, docs/port/console/react-plan.md): its built bundle is committed in crates/kafka-console/web-dist
