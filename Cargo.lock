@@ -2739,6 +2739,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-bind"
+version = "0.0.0"
+dependencies = [
+ "doze-module-proto",
+ "doze-names",
+]
+
+[[package]]
 name = "doze-control"
 version = "0.0.0"
 dependencies = [
@@ -2951,6 +2959,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "p256",
+ "privesc",
  "rustls",
  "serde",
  "serde_json",
@@ -7178,6 +7187,17 @@ dependencies = [
  "primefield",
  "serdect",
  "wnaf",
+]
+
+[[package]]
+name = "privesc"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be4ba7d6241edab38818c6de5a80b3342dc7cdf23b643aa80f57b075accb237b"
+dependencies = [
+ "thiserror 2.0.21",
+ "which",
+ "windows 0.62.2",
 ]
 
 [[package]]

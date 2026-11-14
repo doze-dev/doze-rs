@@ -13,6 +13,7 @@
 //! Every name resolves to an address of its own ([`pool`]), which is what lets each service hold its canonical port:
 //! every Kafka on 9092, every local AWS on 80.
 
+mod bundle;
 pub mod ca;
 mod ca_cert;
 mod ca_leaf;
@@ -30,14 +31,19 @@ pub mod pool;
 pub mod ports;
 mod proxy;
 pub mod registry;
+pub mod resolvconf;
 pub mod resolver;
+pub mod routes;
+#[cfg(feature = "setup")]
+pub mod setup;
 pub mod table;
+pub mod trust_store;
 pub mod upstream;
 pub(crate) mod wire;
 
 pub use claims::{Lease, StackLease};
 pub use error::Error;
-pub use listen::{Forwarding, Listener};
+pub use listen::{Forwarding, Listener, pool_usable};
 pub use pool::Net;
 pub use registry::{Entry, Registry};
 
@@ -57,6 +63,14 @@ pub const RESOLVER_IFACE: &str = "doze0";
 /// systemd 255: 0.0.0.0:53, 127.0.0.53:53 and 127.0.0.54:53 all in use), and systemd-resolved (since v249,
 /// `DNS=addr:port`) and dnsmasq (`server=/zone/addr#port`) both take a port.
 pub const RESOLVER_PORT: u16 = 5323;
+/// Where the resolver listens on Windows, on port 53: the Name Resolution Policy Table sends a namespace to server
+/// addresses only (`Add-DnsClientNrptRule -NameServers` takes no port; the `host:port` form Microsoft documents is the
+/// DirectAccess proxy's), so the zone's server must be on 53, and an address of its own in 127/8 keeps it clear of
+/// anything on 127.0.0.1. Windows has no privileged ports, so binding it needs nothing.
+pub const RESOLVER_IP_WINDOWS: &str = "127.0.0.53";
+/// The first argument that makes a doze program run as the network daemon: setup installs a copy of the program and
+/// starts it with this (Go's `helperArg`, the same word, so either language's daemon reads the other's job).
+pub const HELPER_ARG: &str = "__doze-netd";
 
 /// Moves the zone's DNS server, for a zone that must not touch the machine's real one (a test, two zones side by
 /// side). With [`ENV_HOME`] and the ingress variables it makes a zone private; every program in it must be given the
@@ -182,12 +196,15 @@ pub fn disabled() -> bool {
 }
 
 /// Where the resolver listens: [`ENV_RESOLVER`] if set; on Linux [`RESOLVER_IP`] (systemd-resolved will not take a
-/// loopback server); elsewhere 127.0.0.1. Both on [`RESOLVER_PORT`].
+/// loopback server) and on macOS 127.0.0.1, both on [`RESOLVER_PORT`]; on Windows [`RESOLVER_IP_WINDOWS`] on 53.
 pub fn resolver_addr() -> String {
     if let Ok(a) = std::env::var(ENV_RESOLVER)
         && !a.trim().is_empty()
     {
         return a.trim().to_string();
+    }
+    if cfg!(target_os = "windows") {
+        return format!("{RESOLVER_IP_WINDOWS}:53");
     }
     let ip = if cfg!(target_os = "linux") {
         RESOLVER_IP
@@ -219,6 +236,11 @@ mod tests {
 /// The parsers, for the fuzz targets (crates/doze-names/fuzz); not an API.
 #[doc(hidden)]
 pub mod fuzzing {
+    pub use crate::bundle::pem_blocks;
+    pub use crate::resolvconf::detect_from;
+    #[cfg(feature = "setup")]
+    pub use crate::setup::{hosts::replace_block, netd_serves};
+    pub use crate::trust_store::{link_domains, nrpt_rules, sha256_lines};
     pub use crate::upstream::{resolv_conf_servers, scutil_servers};
     pub use crate::wire::{answer, cap_ttl};
 }

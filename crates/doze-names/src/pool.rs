@@ -51,6 +51,14 @@ pub const VIRTUAL: Net = Net {
     virtual_: true,
 };
 
+/// A translated network whose daemon address is 127.0.0.1: what tests use to run the translating half (forwards, the
+/// ports file, the table) on any machine with no daemon, as Go's `translatedLoopback` did.
+pub const TRANSLATED_LOOPBACK: Net = Net {
+    a: 127,
+    b: 0,
+    virtual_: true,
+};
+
 impl Net {
     /// This machine's network.
     pub fn native() -> Net {
@@ -103,6 +111,14 @@ pub fn apex_addr(net: Net, service: &str) -> Option<Ipv4Addr> {
         .iter()
         .find(|(s, _)| *s == service)
         .map(|(_, off)| net.at(*off))
+}
+
+/// The well-known services and their offsets, in address order (setup writes them into /etc/hosts).
+#[cfg(feature = "setup")]
+pub(crate) fn apex_services() -> Vec<(&'static str, u16)> {
+    let mut all = APEX_OFFSET.to_vec();
+    all.sort_by_key(|(_, off)| *off);
+    all
 }
 
 /// Whether a stack may not be called `name`: its services would sit under a machine-wide name (a stack called "aws"
