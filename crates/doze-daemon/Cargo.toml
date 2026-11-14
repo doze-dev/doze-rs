@@ -1,0 +1,26 @@
+[package]
+name = "doze-daemon"
+version = "0.0.0"
+description = "The doze daemon: one stack's engine behind control protocol 2 on a local socket"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-control = { path = "../doze-control" }
+doze-engine = { path = "../doze-engine" }
+doze-journal = { path = "../doze-journal" }
+doze-logstore = { path = "../doze-logstore" }
+doze-os = { path = "../doze-os" }
+serde_json = "1"
+tokio = { version = "1.54", features = ["rt", "time", "sync", "macros"] }
+tracing = "0.1"
+
+[dev-dependencies]
+doze-control = { path = "../doze-control", features = ["test-support"] }
+tokio = { version = "1.54", features = ["rt-multi-thread", "time", "sync", "macros"] }
