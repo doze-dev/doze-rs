@@ -1,0 +1,25 @@
+# And it can be turned off.
+@ latest 9.9.9
+@ tty
+@ env DOZE_NO_UPDATE_NOTIFIER=1
+
+$ doze version
+exit 0
+stdout:
+| doze dev ({os}/{arch}, module protocol 2)
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze version",
+|   "ok": true,
+|   "data": {
+|     "version": "dev",
+|     "os": "{os}",
+|     "arch": "{arch}",
+|     "protocol": 2
+|   }
+| }
+tty exit 0
+tty stdout:
+| doze dev ({os}/{arch}, module protocol 2)

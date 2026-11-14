@@ -1,0 +1,185 @@
+# Command-line mistakes exit 2 in doze's own shape, with the help that fixes them.
+
+$ doze nosuch
+exit 2
+stderr:
+| error[DZ0101]: unrecognized subcommand 'nosuch'
+|   fix: doze --help
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "unrecognized subcommand 'nosuch'",
+|     "exit": 2,
+|     "id": "DZ0101",
+|     "fix": "doze --help"
+|   }
+| }
+
+$ doze wkae
+exit 2
+stderr:
+| error[DZ0101]: unrecognized subcommand 'wkae'
+|   a similar subcommand exists: 'wake'
+|   fix: doze --help
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "unrecognized subcommand 'wkae'",
+|     "exit": 2,
+|     "id": "DZ0101",
+|     "notes": [
+|       "a similar subcommand exists: 'wake'"
+|     ],
+|     "fix": "doze --help"
+|   }
+| }
+
+$ doze restart
+exit 2
+stderr:
+| error[DZ0101]: the following required arguments were not provided: <name>...
+|   fix: doze restart --help
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze restart",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "the following required arguments were not provided: \u003cname\u003e...",
+|     "exit": 2,
+|     "id": "DZ0101",
+|     "fix": "doze restart --help"
+|   }
+| }
+
+$ doze pin cache --off --toggle
+exit 2
+stderr:
+| error[DZ0101]: the argument '--off' cannot be used with '--toggle'
+|   fix: doze pin --help
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze pin",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "the argument '--off' cannot be used with '--toggle'",
+|     "exit": 2,
+|     "id": "DZ0101",
+|     "fix": "doze pin --help"
+|   }
+| }
+
+$ doze up --timeout 5
+exit 2
+stderr:
+| error[DZ0101]: invalid value '5' for '--timeout <duration>': `5` is not a duration: write it as 90s, 5m or 1h30m
+|   fix: doze up --help
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze up",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "invalid value '5' for '--timeout \u003cduration\u003e': `5` is not a duration: write it as 90s, 5m or 1h30m",
+|     "exit": 2,
+|     "id": "DZ0101",
+|     "fix": "doze up --help"
+|   }
+| }
+
+$ doze up --var 1x=2
+exit 2
+stderr:
+| error[DZ0101]: invalid value '1x=2' for '--var <name=value>': `1x` is not a variable name: letters, digits, _ and -, starting with a letter
+|   fix: doze up --help
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze up",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "invalid value '1x=2' for '--var \u003cname=value\u003e': `1x` is not a variable name: letters, digits, _ and -, starting with a letter",
+|     "exit": 2,
+|     "id": "DZ0101",
+|     "fix": "doze up --help"
+|   }
+| }
+
+$ doze version --json -q
+exit 2
+stdout:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze version",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "--json and -q ask for opposite things",
+|     "exit": 2,
+|     "id": "DZ0102",
+|     "fix": "pick one: --json for a program, -q for the exit code alone"
+|   }
+| }
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze version",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "--json and -q ask for opposite things",
+|     "exit": 2,
+|     "id": "DZ0102",
+|     "fix": "pick one: --json for a program, -q for the exit code alone"
+|   }
+| }
+
+$ doze completion bash --json
+exit 2
+stdout:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze completion",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "this command has no JSON result",
+|     "exit": 2,
+|     "id": "DZ0103",
+|     "fix": "drop --json"
+|   }
+| }
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze completion",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "this command has no JSON result",
+|     "exit": 2,
+|     "id": "DZ0103",
+|     "fix": "drop --json"
+|   }
+| }

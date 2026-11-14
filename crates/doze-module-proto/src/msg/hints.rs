@@ -58,6 +58,17 @@ impl ClientCommand {
     }
 }
 
+/// What one module declares for doze's guessing, gathered from its manifest (the registry's `meta.yaml` publishes it):
+/// its name, the label a block of it gets by default, and its two hints. Each surface takes the union over the modules it
+/// knows; a module that declares nothing is never guessed and offers no shell (the generic default).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ModuleHints {
+    pub module: String,
+    pub label: String,
+    pub client: Option<ClientCommand>,
+    pub detect: Option<Detect>,
+}
+
 fn fill(template: &str, vars: &BTreeMap<&str, String>) -> String {
     let mut out = String::with_capacity(template.len());
     let mut rest = template;

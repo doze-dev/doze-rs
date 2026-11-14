@@ -1,0 +1,31 @@
+# A merge left in doze.lock is pointed at, line and column (config_invalid, 5).
+@ project conflict
+
+$ doze modules
+exit 5
+stderr:
+| error[DZ0303]: doze.lock can't be read: a merge conflict was left in it
+|   --> doze.lock:3:1
+|    |
+|  3 | <<<<<<< HEAD
+|    | ^
+|   fix: resolve it by hand, or delete doze.lock and let doze up pin again
+json exit 5
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules",
+|   "ok": false,
+|   "error": {
+|     "code": "config_invalid",
+|     "message": "doze.lock can't be read: a merge conflict was left in it",
+|     "exit": 5,
+|     "id": "DZ0303",
+|     "span": {
+|       "file": "doze.lock",
+|       "line": 3,
+|       "column": 1
+|     },
+|     "fix": "resolve it by hand, or delete doze.lock and let doze up pin again"
+|   }
+| }

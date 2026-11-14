@@ -36,7 +36,7 @@ undocumented_unsafe_blocks = "deny"
 multiple_unsafe_ops_per_block = "deny"
 
 [dependencies]
-tokio = { version = "1.54", features = ["net", "process", "io-util", "time", "rt", "signal"] }
+tokio = { version = "1.54", features = ["net", "process", "io-util", "time", "rt", "signal", "macros"] }
 
 # The desktop app's native surface (module `ui`): the menu-bar item and the Dock badge, through objc2 on macOS. Off unless
 # the app asks for it, so nothing else links AppKit. docs/port/app/PLAN.md §4.2.
@@ -53,7 +53,7 @@ objc2-app-kit = { version = "0.3", optional = true, default-features = false, fe
 ] }
 
 [target.'cfg(unix)'.dependencies]
-rustix = { version = "1.1.6", features = ["net", "stdio", "process", "fs"] }
+rustix = { version = "1.1.6", features = ["net", "stdio", "process", "fs", "pty"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [

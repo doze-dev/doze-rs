@@ -1,0 +1,7 @@
+✓ cache asleep
+✓ web asleep
+✓ everything is asleep
+✓ api restarted in 310ms
+✓ db reset — its data is gone; the next wake provisions it fresh
+✓ events already pinned
+✓ cache pinned — it stays awake until unpinned or the daemon stops

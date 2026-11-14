@@ -1,0 +1,45 @@
+# A module whose index this machine has no copy of: partial (11), fetched in the background for next time.
+@ project pinned
+@ cached valkey
+
+$ doze modules
+exit 11
+stdout:
+| module     pinned   newest that fits
+| postgres   0.2.5    not known yet
+| valkey     0.2.1    0.3.0
+|   1 upgrade waiting · doze modules upgrade valkey
+stderr:
+| ! the newest release of postgres is not known: this machine has no copy of its index
+|   fix: it is being fetched in the background: run doze modules again in a moment
+spawned:
+| __refresh --module doze/postgres
+json exit 11
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules",
+|   "ok": false,
+|   "data": {
+|     "lock": "{sandbox}/project/doze.lock",
+|     "modules": [
+|       {
+|         "module": "postgres",
+|         "pinned": "0.2.5",
+|         "note": "not known yet"
+|       },
+|       {
+|         "module": "valkey",
+|         "pinned": "0.2.1",
+|         "newest": "0.3.0"
+|       }
+|     ]
+|   },
+|   "error": {
+|     "code": "partial",
+|     "message": "the newest release of postgres is not known: this machine has no copy of its index",
+|     "exit": 11,
+|     "id": "DZ0503",
+|     "fix": "it is being fetched in the background: run doze modules again in a moment"
+|   }
+| }
