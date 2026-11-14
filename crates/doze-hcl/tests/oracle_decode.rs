@@ -162,7 +162,8 @@ fn check_set(set: &str, go_set: &str) {
         };
         let got = read(&body, c["mode"].as_str().unwrap(), &schema(c), true);
         // Ranges outside diagnostics (the missing-item range) carry no file here.
-        let strip = |j: &Json| serde_json::to_string(j).unwrap();
+        // Keys sorted, whether or not a workspace build turns on serde_json's `preserve_order`.
+        let strip = |j: &Json| sorted(j).to_string();
         if strip(&got) != strip(&g["top"]) {
             diffs.push(format!(
                 "{} {}: {:?}\n   go:   {}\n   rust: {}",
@@ -181,4 +182,21 @@ fn check_set(set: &str, go_set: &str) {
         diffs.len(),
         diffs.iter().take(6).cloned().collect::<Vec<_>>().join("\n")
     );
+}
+
+/// The same value with every object's keys in order.
+fn sorted(j: &Json) -> Json {
+    match j {
+        Json::Object(o) => {
+            let mut keys: Vec<_> = o.iter().collect();
+            keys.sort_by(|a, b| a.0.cmp(b.0));
+            Json::Object(
+                keys.into_iter()
+                    .map(|(k, v)| (k.clone(), sorted(v)))
+                    .collect(),
+            )
+        }
+        Json::Array(a) => Json::Array(a.iter().map(sorted).collect()),
+        other => other.clone(),
+    }
 }
