@@ -27,9 +27,17 @@ pub(crate) fn get(url: &str, timeout: Duration) -> Result<Vec<u8>, Failure> {
 }
 
 /// The most an archive (an engine build, a module) may be.
+#[allow(
+    dead_code,
+    reason = "used by the mirror and module downloads, landing next in F1"
+)]
 pub(crate) const ARCHIVE_LIMIT: u64 = 1 << 30;
 
 /// GETs `url` (or reads a `file://` path, as Go's fetcher did), up to `limit` bytes.
+#[allow(
+    dead_code,
+    reason = "used by the mirror and module downloads, landing next in F1"
+)]
 pub(crate) fn get_up_to(url: &str, timeout: Duration, limit: u64) -> Result<Vec<u8>, Failure> {
     if let Some(path) = url.strip_prefix("file://") {
         return std::fs::read(path).map_err(|e| match e.kind() {

@@ -194,10 +194,10 @@ impl Lock {
         if !self.dirty {
             return Ok(());
         }
-        if let Some(v) = doze.map(|v| v.trim_start_matches('v')) {
-            if self.doze.is_empty() || compare_versions(&self.doze, v).is_lt() {
-                self.doze = v.into();
-            }
+        if let Some(v) = doze.map(|v| v.trim_start_matches('v'))
+            && (self.doze.is_empty() || compare_versions(&self.doze, v).is_lt())
+        {
+            self.doze = v.into();
         }
         if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
             std::fs::create_dir_all(dir)?;
@@ -210,7 +210,7 @@ impl Lock {
     }
 }
 
-fn sorted<'a, V>(m: &'a BTreeMap<String, V>) -> Vec<(&'a String, &'a V)> {
+fn sorted<V>(m: &BTreeMap<String, V>) -> Vec<(&String, &V)> {
     let mut v: Vec<_> = m.iter().collect();
     v.sort_by(|a, b| key_order(a.0, b.0));
     v
