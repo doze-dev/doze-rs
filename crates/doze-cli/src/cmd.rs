@@ -25,6 +25,7 @@ pub(crate) mod stub;
 pub(crate) mod task;
 mod trust;
 pub(crate) mod update;
+pub(crate) mod upgrade;
 mod verbs;
 pub(crate) mod verify;
 pub(crate) mod version;
@@ -89,7 +90,7 @@ pub(crate) fn dispatch(
             None => modules::run(ctx, mode),
             Some(ModulesCmd::Docs(d)) => docs::run(ctx, mode, &d, notices),
             Some(ModulesCmd::Verify) => verify::run(ctx, mode),
-            Some(ModulesCmd::Upgrade(_)) => Err(stub::not_built(command, stub::Needs::Lock)),
+            Some(ModulesCmd::Upgrade(u)) => upgrade::run(ctx, mode, &u),
         },
         other => Err(stub::not_built(
             command,

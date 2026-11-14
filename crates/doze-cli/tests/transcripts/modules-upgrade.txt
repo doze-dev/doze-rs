@@ -1,0 +1,212 @@
+# modules upgrade: --check reports each pin and the newest release that fits (exit 1 when one would move);
+# --dry-run is the plan, pin from and to; a module doze.hcl does not declare is named with "did you mean"; an
+# upgrade whose build cannot be fetched fails by name and leaves doze.lock as it was.
+@ registry
+@ project pinned
+
+$ doze modules upgrade --check
+exit 1
+stdout:
+| MODULE    SOURCE         PINNED  SELECTED  STATUS
+| valkey    doze/valkey    0.2.1   0.3.0     upgrade available
+| postgres  doze/postgres  0.2.5   -         failed
+stderr:
+| error[DZ0205]: 1 module(s) failed
+|   postgres: no release of postgres supports postgres 17; latest (0.2.5) supports 8, 9
+|   fix: doze modules docs postgres shows what each release supports
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules upgrade",
+|   "ok": false,
+|   "data": {
+|     "lock": "doze.lock",
+|     "check": true,
+|     "modules": [
+|       {
+|         "module": "valkey",
+|         "source": "doze/valkey",
+|         "pinned": "0.2.1",
+|         "selected": "0.3.0",
+|         "status": "upgrade available"
+|       },
+|       {
+|         "module": "postgres",
+|         "source": "doze/postgres",
+|         "pinned": "0.2.5",
+|         "selected": "-",
+|         "status": "failed",
+|         "error": "no release of postgres supports postgres 17; latest (0.2.5) supports 8, 9"
+|       }
+|     ]
+|   },
+|   "error": {
+|     "code": "failed",
+|     "message": "1 module(s) failed",
+|     "exit": 1,
+|     "id": "DZ0205",
+|     "notes": [
+|       "postgres: no release of postgres supports postgres 17; latest (0.2.5) supports 8, 9"
+|     ],
+|     "fix": "doze modules docs postgres shows what each release supports"
+|   }
+| }
+
+$ doze modules upgrade --dry-run
+exit 1
+stdout:
+| valkey
+|   ~ 0.2.1 → 0.3.0             doze/valkey
+| postgres
+|   → not known: it would fail  no release of postgres supports postgres 17; latest (0.2.5) supports 8, 9
+|   dry run: nothing was changed · doze modules upgrade applies this
+stderr:
+| error[DZ0205]: 1 module(s) failed
+|   postgres: no release of postgres supports postgres 17; latest (0.2.5) supports 8, 9
+|   fix: doze modules docs postgres shows what each release supports
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules upgrade",
+|   "ok": false,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze modules upgrade",
+|     "plan": [
+|       {
+|         "title": "valkey",
+|         "changes": [
+|           {
+|             "op": "~",
+|             "subject": "0.2.1 → 0.3.0",
+|             "detail": "doze/valkey"
+|           }
+|         ]
+|       },
+|       {
+|         "title": "postgres",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "not known: it would fail",
+|             "detail": "no release of postgres supports postgres 17; latest (0.2.5) supports 8, 9"
+|           }
+|         ]
+|       }
+|     ]
+|   },
+|   "error": {
+|     "code": "failed",
+|     "message": "1 module(s) failed",
+|     "exit": 1,
+|     "id": "DZ0205",
+|     "notes": [
+|       "postgres: no release of postgres supports postgres 17; latest (0.2.5) supports 8, 9"
+|     ],
+|     "fix": "doze modules docs postgres shows what each release supports"
+|   }
+| }
+
+$ doze modules upgrade valky
+exit 4
+stderr:
+| error[DZ0702]: doze.hcl declares no valky module
+|   fix: did you mean valkey? doze modules upgrade valkey
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules upgrade",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "doze.hcl declares no valky module",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "fix": "did you mean valkey? doze modules upgrade valkey"
+|   }
+| }
+
+$ doze modules upgrade valkey
+exit 1
+stdout:
+| MODULE  SOURCE       PINNED  SELECTED  STATUS
+| valkey  doze/valkey  0.2.1   -         failed
+stderr:
+| error[DZ0205]: 1 module(s) failed
+|   valkey: downloading https://example.invalid/valkey-0.3.0-{triple}.tar.gz: no DNS answer
+|   fix: check the network, then: doze modules upgrade valkey
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules upgrade",
+|   "ok": false,
+|   "data": {
+|     "lock": "doze.lock",
+|     "check": false,
+|     "modules": [
+|       {
+|         "module": "valkey",
+|         "source": "doze/valkey",
+|         "pinned": "0.2.1",
+|         "selected": "-",
+|         "status": "failed",
+|         "error": "downloading https://example.invalid/valkey-0.3.0-{triple}.tar.gz: no DNS answer"
+|       }
+|     ]
+|   },
+|   "error": {
+|     "code": "failed",
+|     "message": "1 module(s) failed",
+|     "exit": 1,
+|     "id": "DZ0205",
+|     "notes": [
+|       "valkey: downloading https://example.invalid/valkey-0.3.0-{triple}.tar.gz: no DNS answer"
+|     ],
+|     "fix": "check the network, then: doze modules upgrade valkey"
+|   }
+| }
+
+$ doze modules
+exit 11
+stdout:
+| module     pinned   newest that fits
+| postgres   0.2.5    not known yet
+| valkey     0.2.1    not known yet
+stderr:
+| ! the newest release of postgres, valkey is not known: this machine has no copy of its index
+|   fix: it is being fetched in the background: run doze modules again in a moment
+spawned:
+| __refresh --module doze/postgres --module doze/valkey
+json exit 11
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules",
+|   "ok": false,
+|   "data": {
+|     "lock": "{sandbox}/project/doze.lock",
+|     "modules": [
+|       {
+|         "module": "postgres",
+|         "pinned": "0.2.5",
+|         "note": "not known yet"
+|       },
+|       {
+|         "module": "valkey",
+|         "pinned": "0.2.1",
+|         "note": "not known yet"
+|       }
+|     ]
+|   },
+|   "error": {
+|     "code": "partial",
+|     "message": "the newest release of postgres, valkey is not known: this machine has no copy of its index",
+|     "exit": 11,
+|     "id": "DZ0503",
+|     "fix": "it is being fetched in the background: run doze modules again in a moment"
+|   }
+| }

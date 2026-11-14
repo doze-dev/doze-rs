@@ -1,0 +1,15 @@
+# modules upgrade needs the registry: with it out of reach each module fails by name (never a move it did not make).
+@ project pinned
+@ no-json
+
+$ doze modules upgrade --check
+exit 1
+stdout:
+| MODULE    SOURCE         PINNED  SELECTED  STATUS
+| valkey    doze/valkey    0.2.1   -         failed
+| postgres  doze/postgres  0.2.5   -         failed
+stderr:
+| error[DZ0205]: 2 module(s) failed
+|   valkey: fetching module index doze/valkey/index.yaml: {sandbox}/unreachable: no registry in that directory
+|   postgres: fetching module index doze/postgres/index.yaml: {sandbox}/unreachable: no registry in that directory
+|   fix: check the network, then: doze modules upgrade valkey

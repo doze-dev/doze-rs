@@ -3,8 +3,8 @@
 //! contracts the transcript tests pin. `data` is each result serialised in its own field order, as Go's structs are.
 
 use crate::cmd::{
-    add, docs, doctor, format, init, lint, logs, modules, report, setup, status, task, verify,
-    version, why,
+    add, docs, doctor, format, init, lint, logs, modules, report, setup, status, task, upgrade,
+    verify, version, why,
 };
 use crate::paint::Paint;
 use crate::plan::Plan;
@@ -42,6 +42,7 @@ pub enum View {
     Fmt(format::Formatted),
     Added(add::Added),
     Inited(init::Inited),
+    Upgraded(upgrade::Upgraded),
 }
 
 impl View {
@@ -68,6 +69,7 @@ impl View {
             View::Fmt(f) => f.human(p),
             View::Added(a) => a.human(p),
             View::Inited(i) => i.human(p),
+            View::Upgraded(u) => u.human(p),
         }
     }
 
@@ -116,6 +118,7 @@ impl Serialize for View {
             View::Fmt(f) => f.serialize(s),
             View::Added(a) => a.serialize(s),
             View::Inited(i) => i.serialize(s),
+            View::Upgraded(u) => u.serialize(s),
         }
     }
 }

@@ -2,7 +2,6 @@
 //! (`failed`, DZ0001): never a fake success, never a dry run of a plan it cannot make.
 
 use crate::cli::Cmd;
-use crate::cli::setup::ModulesCmd;
 use crate::diag::{Diagnostic, ids};
 
 /// What a command is waiting for.
@@ -12,8 +11,6 @@ pub(crate) enum Needs {
     Daemon,
     /// The app.
     App,
-    /// It reads doze.hcl and writes doze.lock.
-    Lock,
     /// The stack's shape and logs.
     Report,
     /// Handing the daemon over to the new doze.
@@ -25,9 +22,6 @@ impl Needs {
         match self {
             Needs::Daemon => "it talks to the doze daemon, which comes with the Rust core",
             Needs::App => "the app is not part of the Rust doze yet",
-            Needs::Lock => {
-                "doze.lock is written by doze-fetch's lock writer (core plan F1, in progress), which it waits for"
-            }
             Needs::Report => "it comes with a later slice of the CLI (core plan C2)",
             Needs::Handover => "handing the running daemon over to the new doze is the core's job",
         }
@@ -46,7 +40,6 @@ pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
         | Cmd::Url(_)
         | Cmd::Connect(_) => Needs::Daemon,
         Cmd::Open(_) => Needs::App,
-        Cmd::Modules(m) if matches!(m.command, Some(ModulesCmd::Upgrade(_))) => Needs::Lock,
         Cmd::Bug => Needs::Report,
         Cmd::Doctor(_)
         | Cmd::DnsSetup(_)

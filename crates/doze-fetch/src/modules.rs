@@ -220,7 +220,8 @@ impl Modules {
         self.ready(src, &version, &bin, Vec::new())
     }
 
-    fn no_fit(&self, src: &Source, majors: &[String], fit: &Fit) -> String {
+    /// Why no release of `src` fits (Go's words: the doze it needs, the protocol, the engine majors).
+    pub fn no_fit(&self, src: &Source, majors: &[String], fit: &Fit) -> String {
         let what = if majors.is_empty() {
             src.short()
         } else {
