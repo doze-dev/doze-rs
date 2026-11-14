@@ -207,3 +207,10 @@ fn plain(status: u16, body: Vec<u8>) -> hyper::Response<Full<Bytes>> {
         .insert(CONTENT_TYPE, HeaderValue::from_static(api::CONTENT_TYPE));
     out
 }
+
+/// TLS for the listener with the broker's certificate.
+#[cfg(feature = "tls")]
+#[must_use]
+pub fn tls(config: Arc<tokio_rustls::rustls::ServerConfig>) -> Tls {
+    Some(tokio_rustls::TlsAcceptor::from(config))
+}

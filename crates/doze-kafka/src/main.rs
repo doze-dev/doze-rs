@@ -6,6 +6,8 @@ mod descriptors;
 mod duration;
 #[cfg(feature = "console")]
 mod facts;
+#[cfg(feature = "registry")]
+mod registry;
 mod run;
 #[cfg(feature = "console")]
 mod web;
@@ -65,17 +67,7 @@ fn main() -> Result<()> {
         // The certificate's file, never the key's content (nor the key file's name: it says nothing a log needs).
         tracing::info!(cert = %tls.cert_file().display(), "TLS is on: clients must connect with TLS (1.2 or newer)");
     }
-    for flag in args.ignored() {
-        if flag.starts_with("--console") {
-            tracing::warn!(
-                "{flag} is accepted and ignored: this build has no console (it is built without the `console` feature)"
-            );
-        } else {
-            tracing::warn!(
-                "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"
-            );
-        }
-    }
+    warn_ignored(&args);
     for warning in &settings.warnings {
         tracing::warn!("{warning}");
     }
@@ -95,8 +87,29 @@ fn main() -> Result<()> {
     // (In a build without the console this is the unit value: there is nothing to bind.)
     #[cfg_attr(not(feature = "console"), allow(clippy::let_unit_value))]
     let console = bind_console(&runtime, &settings);
+    #[cfg_attr(not(feature = "registry"), allow(clippy::let_unit_value))]
+    let registry = bind_registry(&runtime, &settings);
     let _lock = doze_runtime::DataDirLock::take(&args.data_dir, "doze-kafka")?;
-    runtime.block_on(run::serve(settings, console, flags))
+    runtime.block_on(run::serve(settings, (console, registry), flags))
+}
+
+/// Says which flags were given to parts this build does not have.
+fn warn_ignored(args: &cli::Args) {
+    for flag in args.ignored() {
+        if flag.starts_with("--schema-registry") {
+            tracing::warn!(
+                "{flag} is accepted and ignored: this build has no schema registry (it is built without the `registry` feature)"
+            );
+        } else if flag.starts_with("--console") {
+            tracing::warn!(
+                "{flag} is accepted and ignored: this build has no console (it is built without the `console` feature)"
+            );
+        } else {
+            tracing::warn!(
+                "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"
+            );
+        }
+    }
 }
 
 /// The console's address is had before anything is created, the data directory and its lock file included (SEC-247): one the
@@ -115,3 +128,23 @@ fn bind_console(runtime: &tokio::runtime::Runtime, settings: &cli::Settings) -> 
 /// A build without the console binds none.
 #[cfg(not(feature = "console"))]
 fn bind_console(_: &tokio::runtime::Runtime, _: &cli::Settings) -> run::ConsoleBound {}
+
+/// The registry's address is had before anything is created, as the console's is: one the operator chose that cannot be bound
+/// stops the start with exit 2.
+#[cfg(feature = "registry")]
+fn bind_registry(
+    runtime: &tokio::runtime::Runtime,
+    settings: &cli::Settings,
+) -> run::RegistryBound {
+    match runtime.block_on(registry::bind(&settings.registry)) {
+        Ok(bound) => bound,
+        Err(e) => {
+            eprintln!("Error: {e:#}");
+            std::process::exit(2);
+        }
+    }
+}
+
+/// A build without the registry binds none.
+#[cfg(not(feature = "registry"))]
+fn bind_registry(_: &tokio::runtime::Runtime, _: &cli::Settings) -> run::RegistryBound {}
