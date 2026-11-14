@@ -43,3 +43,19 @@ with the first `doze` binary that links the engine.
 
 Under O1 the app binary links the same CLI library on top of the GUI, so its line (app plan Q5, ≤ 16 MB) must absorb
 roughly this plus doze's own code: about 9 MB on top of GPUI's 12 to 16 MB. **That would break the app's 16 MB line**: the app plan's Q5 line needs restating under O1 (owner item).
+
+## E2: the engine links doze-journal (2026-11-14, Builder B)
+
+The engine now writes the journal and the log store, so it links `doze-journal` (serde, serde_json, `time` with
+formatting and parsing) and `doze-logstore` (tokio `sync` and `rt` only), and the module host for the module pool
+(`doze-module-host`, already in the probe). `time` is the only new third-party crate. Measured as the probe above plus
+`doze-journal` called for real (parse a line, encode it, format its time), same profile, darwin/arm64, same day:
+
+| Build | Size |
+|---|---|
+| the probe (dependencies only) | 4,681,408 B |
+| the probe + doze-journal and `time` | 4,714,512 B (**+33,104 B, +0.7%**) |
+
+Judgement call (the owner leaves small rises to the builder): accepted. 33 KB is under 0.4% of the 9 MB line, and the
+journal's Go-exact RFC 3339 with nanoseconds and offsets is what `time` buys; hand-rolling it would save little and
+risk the byte-for-byte format the app reads.
