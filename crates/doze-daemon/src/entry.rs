@@ -4,7 +4,7 @@
 //!
 //! Interim (D1, next step): module blocks are accepted with what every module has and their instances say, when woken,
 //! that this daemon does not run modules yet. The module catalog over the pool (each module's own manifest and
-//! attributes, F1's downloads and doze.lock's pins) replaces [`Pending`] and [`NoModule`] without changing this file's
+//! attributes, F1's downloads and doze.lock's pins) replaces `Pending` and `NoModule` without changing this file's
 //! shape. Apps, services and tasks run in full.
 
 use crate::ctl::{self, RunDir};
