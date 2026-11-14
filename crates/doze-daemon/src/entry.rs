@@ -71,32 +71,34 @@ pub async fn assemble(
     catalog: Arc<Catalog>,
     env: BTreeMap<String, String>,
 ) -> Result<Assembled, String> {
-    let (path, version, cat) = (
-        config.to_string_lossy().into_owned(),
-        version.to_owned(),
-        catalog.clone(),
-    );
-    let (cfg, labels) = tokio::task::spawn_blocking(move || {
-        let cfg = load(&path, &version, cat.as_ref(), env)?;
-        let labels = labels(&cfg, cat.as_ref());
-        Ok::<_, String>((cfg, labels))
+    let (path, version) = (config.to_string_lossy().into_owned(), version.to_owned());
+    let (cfg, labels, stack) = tokio::task::spawn_blocking(move || {
+        let cfg = load(&path, &version, catalog.as_ref(), env)?;
+        let labels = labels(&cfg, catalog.as_ref());
+        let stack = stack(&cfg, &catalog);
+        Ok::<_, String>((cfg, labels, stack))
     })
     .await
     .map_err(|e| e.to_string())??;
-    let target = doze_fetch::triple();
-    let planner =
-        |i: &Instance| -> Arc<dyn Planner> { crate::planners::module(&catalog, i, &target) };
-    let wiring = doze_config::stack::Wiring {
-        planner: &planner,
-        extra_env: ca_env(Path::new(&cfg.home)),
-    };
-    let engine = doze_engine::Engine::new(doze_config::stack::to_stack(&cfg, &wiring))
-        .map_err(|e| e.to_string())?;
+    let engine = doze_engine::Engine::new(stack).map_err(|e| e.to_string())?;
     Ok(Assembled {
         cfg,
         engine,
         labels,
     })
+}
+
+/// The engine's stack, each module instance planned through the catalog (which asks its module: a blocking thread's).
+fn stack(cfg: &doze_config::Config, catalog: &Arc<Catalog>) -> doze_engine::stack::Stack {
+    let (target, run_dir) = (doze_fetch::triple(), Path::new(&cfg.data_dir).join("run"));
+    let planner = |i: &Instance| -> Arc<dyn Planner> {
+        crate::planners::module(catalog, i, &target, &run_dir)
+    };
+    let wiring = doze_config::stack::Wiring {
+        planner: &planner,
+        extra_env: ca_env(Path::new(&cfg.home)),
+    };
+    doze_config::stack::to_stack(cfg, &wiring)
 }
 
 #[allow(clippy::print_stderr)] // the daemon's stderr is its log file

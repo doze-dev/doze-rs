@@ -132,6 +132,18 @@ impl Catalog {
         })
     }
 
+    /// Whether the instance's engine cannot listen on a socket file (its main listener is `tcp`, PLAN.md D13).
+    pub fn main_is_tcp(&self, i: &Instance) -> bool {
+        let Some(m) = self.running(&i.engine) else {
+            return false;
+        };
+        self.rt
+            .block_on(m.network(i))
+            .unwrap_or_default()
+            .iter()
+            .any(|l| l.name == MAIN && l.tcp)
+    }
+
     /// The pins `doze.lock` holds for builds of `engine`.
     pub fn pins(&self, engine: &str) -> Vec<doze_module_proto::msg::run::Pin> {
         lock_pins(&self.lock)

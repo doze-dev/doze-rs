@@ -8,7 +8,7 @@
 use crate::stack::{BoxFuture, Endpoint, PlanCtx, Planned, Planner, Structure};
 use doze_module_host::{Downloads, Pool};
 use doze_module_proto::msg::error::Error as ModError;
-use doze_module_proto::msg::instance::{Instance, Object, Toolchain};
+use doze_module_proto::msg::instance::{Address, Instance, Object, Toolchain};
 use doze_module_proto::msg::run::{Ensure, Ensured, Pin, Ready, ResolveArgs, WithToolchain};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -137,14 +137,23 @@ impl ModuleInstance {
         };
         m.provision(&with).await.map_err(|e| e.message)?;
         let plan = m.plan(&with).await.map_err(|e| e.message)?;
-        // Where it is reached: what its first process's check waits on.
-        let backend = plan
-            .processes
-            .iter()
-            .find_map(|p| match &p.ready {
-                Some(Ready::Tcp(a)) => Some(a.clone()),
-                Some(Ready::Socket(p)) => Some(format!("unix:{p}")),
-                _ => None,
+        // Where it is reached: the backend the host granted its main listener, else what its first process's check
+        // waits on (a module whose check is a command or a log line still has its grant).
+        let granted = self
+            .base
+            .listeners
+            .get(doze_module_proto::network::MAIN)
+            .map(|g| match &g.backend {
+                Address::Tcp(a) => a.clone(),
+                Address::Unix(p) => format!("unix:{p}"),
+            });
+        let backend = granted
+            .or_else(|| {
+                plan.processes.iter().find_map(|p| match &p.ready {
+                    Some(Ready::Tcp(a)) => Some(a.clone()),
+                    Some(Ready::Socket(p)) => Some(format!("unix:{p}")),
+                    _ => None,
+                })
             })
             .unwrap_or_default();
         Ok(Planned {

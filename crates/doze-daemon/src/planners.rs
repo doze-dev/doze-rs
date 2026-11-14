@@ -1,8 +1,10 @@
 //! What runs a module instance: the engine's [`ModuleInstance`] over the catalog's pool, given the instance as its
 //! module sees it (its block as the protocol's value tree, its granted main listener) and the lock's engine pins.
 //!
-//! Until D2's listeners, the main listener's backend is a loopback port chosen when the daemon starts: the engine
-//! listens there and the daemon's front ([`crate::front`]) forwards the declared address to it, waking it first.
+//! The main listener's backend (PLAN.md D13) is a socket file in the instance's run folder, named as the module's
+//! manifest names it (`backend_socket`, `{port}` filled in), where the system has sockets and the engine can listen on
+//! one and the path fits a socket address; a loopback port chosen when the daemon starts otherwise. The daemon's front ([`crate::front`]) forwards the
+//! declared address to it, waking it first.
 
 use crate::catalog::{self, Catalog};
 use doze_config::Instance;
@@ -15,14 +17,33 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 /// The planner of module instance `i`; one that says why it cannot run when its module was not found.
-pub fn module(cat: &Arc<Catalog>, i: &Instance, target: &str) -> Arc<dyn Planner> {
+pub fn module(
+    cat: &Arc<Catalog>,
+    i: &Instance,
+    target: &str,
+    run_dir: &std::path::Path,
+) -> Arc<dyn Planner> {
     let Some(m) = cat.manifest(&i.ty) else {
         let why = doze_config::modules::Modules::lookup_error(cat.as_ref(), &i.ty)
             .unwrap_or_else(|| format!("no module for {:?}", i.ty));
         return Arc::new(NoModule { why });
     };
     let addr = doze_config::instance_addr(i, cat.as_ref()).unwrap_or_default();
-    let backend = free_loopback().map_or_else(|| addr.clone(), |p| format!("127.0.0.1:{p}"));
+    let port = addr.rsplit_once(':').map_or("", |(_, p)| p);
+    let tcp_only = as_module_sees_it(cat, i).is_some_and(|mi| cat.main_is_tcp(&mi));
+    let socket = m.backend_socket.as_ref().map(|file| {
+        run_dir
+            .join(&i.name)
+            .join(file.replace("{port}", port))
+            .to_string_lossy()
+            .into_owned()
+    });
+    let backend = match socket {
+        Some(p) if cfg!(unix) && !tcp_only && p.len() < SOCKET_PATH_MAX => Address::Unix(p),
+        _ => {
+            Address::Tcp(free_loopback().map_or_else(|| addr.clone(), |p| format!("127.0.0.1:{p}")))
+        }
+    };
     let spec = match &i.spec {
         doze_config::Spec::Module(b) => crate::spec_tree::tree(b, &m.schema),
         _ => crate::spec_tree::tree(&Default::default(), &m.schema),
@@ -35,10 +56,7 @@ pub fn module(cat: &Arc<Catalog>, i: &Instance, target: &str) -> Arc<dyn Planner
         socket_dir: String::new(),
         spec,
         host: String::new(),
-        listeners: BTreeMap::from([(
-            MAIN.to_string(),
-            catalog::granted(addr, Address::Tcp(backend)),
-        )]),
+        listeners: BTreeMap::from([(MAIN.to_string(), catalog::granted(addr, backend))]),
         deps: Vec::new(),
         toolchain: None,
     };
@@ -74,6 +92,10 @@ pub fn as_module_sees_it(cat: &Catalog, i: &Instance) -> Option<ModInstance> {
     };
     Some(catalog::instance_for(&call, &m))
 }
+
+/// The longest socket path every Unix binds (macOS's `sun_path` holds 104 bytes with its nul); a longer one gets a
+/// loopback port instead.
+const SOCKET_PATH_MAX: usize = 104;
 
 /// A loopback port no one holds right now.
 fn free_loopback() -> Option<u16> {
