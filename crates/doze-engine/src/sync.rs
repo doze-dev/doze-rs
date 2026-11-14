@@ -35,7 +35,11 @@ impl Engine {
             self.wake(&n, Cause::Command).await?;
             let ctx = self.ctx_for(&n);
             let fail = |e: String| Error::Failed(format!("syncing \"{n}\": {e}"));
-            s.converge(&ctx).await.map_err(fail)?;
+            if let Err(e) = s.converge(&ctx).await {
+                crate::converge::clear(&ctx.data_dir);
+                return Err(fail(e));
+            }
+            crate::converge::mark(&ctx.data_dir, &s.fingerprint());
             let desired = s.objects(&ctx).await.map_err(fail)?;
             let removed = applied::removed(st.objects(&n), &desired);
             if !removed.is_empty() {

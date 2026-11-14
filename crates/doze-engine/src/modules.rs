@@ -10,6 +10,7 @@ use doze_module_host::{Downloads, Pool};
 use doze_module_proto::msg::error::Error as ModError;
 use doze_module_proto::msg::instance::{Address, Instance, Object, Toolchain};
 use doze_module_proto::msg::run::{Ensure, Ensured, Pin, Ready, ResolveArgs, WithToolchain};
+use doze_module_proto::msg::value::{Node, Value};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -284,5 +285,72 @@ impl Structure for ModuleInstance {
             };
             m.prune(&args).await.map_err(|e| e.message)
         })
+    }
+
+    /// The version and the declared block, without where in the file each value was written (an edit elsewhere in
+    /// doze.hcl changes nothing here), as sha256 hex.
+    fn fingerprint(&self) -> String {
+        let spec = without_spans(&self.base.spec);
+        let bytes =
+            doze_module_proto::msg::encode(&(self.base.version.as_str(), spec)).unwrap_or_default();
+        hex::encode(<sha2::Sha256 as sha2::Digest>::digest(&bytes))
+    }
+}
+
+/// `n` with every source position cleared.
+fn without_spans(n: &Node) -> Node {
+    let value = match &n.value {
+        Value::List(items) => Value::List(items.iter().map(without_spans).collect()),
+        Value::Map(m) => Value::Map(
+            m.iter()
+                .map(|(k, v)| (k.clone(), without_spans(v)))
+                .collect(),
+        ),
+        v => v.clone(),
+    };
+    Node::bare(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use doze_module_proto::msg::value::Span;
+
+    fn at(start: u32, value: Value) -> Node {
+        Node {
+            span: Span {
+                file: 0,
+                start,
+                end: start + 1,
+            },
+            value,
+        }
+    }
+
+    #[test]
+    fn where_a_value_was_written_is_not_part_of_the_structure() {
+        let block = |shift: u32, db: &str| {
+            let inner = at(shift + 2, Value::String(db.into()));
+            let list = at(shift + 1, Value::List(vec![inner]));
+            at(shift, Value::Map([("databases".to_string(), list)].into()))
+        };
+        assert_eq!(
+            without_spans(&block(10, "shop")),
+            without_spans(&block(90, "shop"))
+        );
+        assert_ne!(
+            without_spans(&block(10, "shop")),
+            without_spans(&block(10, "orders"))
+        );
+        assert_eq!(
+            without_spans(&block(10, "shop")),
+            Node::bare(Value::Map(
+                [(
+                    "databases".to_string(),
+                    Node::bare(Value::List(vec![Node::bare(Value::String("shop".into()))]))
+                )]
+                .into()
+            ))
+        );
     }
 }

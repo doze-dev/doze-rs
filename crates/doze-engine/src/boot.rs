@@ -121,7 +121,14 @@ async fn start(e: &Engine, name: &str, boot: u64, when: When) -> Result<Endpoint
     let pids = e.pids(name);
     let unit =
         match crate::exec::start(&planned.plan, &log, planned.ready_within, Some(&pids)).await {
-            Ok(u) => u,
+            Ok(u) => match crate::converge::after_ready(e, &svc, &ctx, u).await {
+                Ok(u) => u,
+                Err(err) => {
+                    pids.remove();
+                    log.close().await;
+                    return Err(fail(err));
+                }
+            },
             Err(err) => {
                 pids.remove();
                 log.close().await;

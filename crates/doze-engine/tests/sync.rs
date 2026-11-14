@@ -19,6 +19,10 @@ use std::time::Duration;
 struct Module {
     desired: Mutex<Vec<Object>>,
     calls: Mutex<Vec<String>>,
+    /// What `fingerprint` says.
+    fp: Mutex<String>,
+    /// `converge` fails with this.
+    broken: Mutex<Option<String>>,
 }
 
 fn obj(name: &str) -> Object {
@@ -90,7 +94,12 @@ impl Structure for Module {
 
     fn converge<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<(), String>> {
         self.call(format!("converge {}", ctx.name));
-        Box::pin(async { Ok(()) })
+        let broken = self.broken.lock().ok().and_then(|b| b.clone());
+        Box::pin(async move { broken.map_or(Ok(()), Err) })
+    }
+
+    fn fingerprint(&self) -> String {
+        self.fp.lock().map(|f| f.clone()).unwrap_or_default()
     }
 
     fn prune<'a>(
@@ -138,7 +147,11 @@ async fn sync_converges_then_prunes_what_is_no_longer_declared() {
     // `a` and `c` go: pruned in reverse of the order they were created.
     m.declare(&["b"]);
     e.sync(Some("db")).await.unwrap();
-    assert_eq!(m.calls(), ["converge db", "converge db", "prune c,a"]);
+    // The first wake converged the fresh instance, then each sync converged.
+    assert_eq!(
+        m.calls(),
+        ["converge db", "converge db", "converge db", "prune c,a"]
+    );
     let st = Applied::load(&d.path().join(".doze/state.json")).unwrap();
     assert_eq!(st.objects("db"), [obj("b")]);
     e.shutdown().await;
@@ -152,7 +165,7 @@ async fn destroy_drops_everything_and_an_off_instance_is_not_synced() {
     m.declare(&["a", "b"]);
     e.sync(None).await.unwrap();
     e.destroy(None).await.unwrap();
-    assert_eq!(m.calls(), ["converge db", "prune b,a"]);
+    assert_eq!(m.calls(), ["converge db", "converge db", "prune b,a"]);
     assert_eq!(
         e.get("db").unwrap().state,
         State::Reaped,
@@ -162,7 +175,7 @@ async fn destroy_drops_everything_and_an_off_instance_is_not_synced() {
     assert!(st.objects("db").is_empty());
     e.set_off("db", true).await.unwrap();
     e.sync(None).await.unwrap();
-    assert_eq!(m.calls().len(), 2, "off: not converged");
+    assert_eq!(m.calls().len(), 3, "off: not converged");
     assert!(e.sync(Some("nope")).await.is_err());
     let _ = e.wake("web", Cause::Command).await;
     e.shutdown().await;
@@ -211,7 +224,7 @@ async fn destroy_forgets_outputs_and_undeclared_instances_and_the_converged_mark
     );
     assert_eq!(
         m.calls(),
-        ["converge db", "prune a"],
+        ["converge db", "converge db", "prune a"],
         "nothing asked of a module for gone"
     );
     e.shutdown().await;
@@ -239,5 +252,49 @@ async fn a_sync_keeps_the_records_of_the_tasks_it_ran() {
     );
     let st = Applied::load(&d.path().join(".doze/state.json")).unwrap();
     assert_eq!(st.objects("db"), [obj("a")]);
+    e.shutdown().await;
+}
+
+/// Go's boot guard: a fresh instance is converged as it starts (its databases exist after `up`, no `apply`), once;
+/// a changed declaration converges on the next start; a failed converge stops it, taints it and leaves no marker, so
+/// the next start tries again.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_start_converges_a_fresh_or_changed_instance_once() {
+    let d = Dir::new("bootconverge");
+    let m = Arc::new(Module::default());
+    *m.fp.lock().unwrap() = "one".into();
+    let e = engine(&d, &m);
+    let marker = d.path().join("clusters/db/.doze-converged");
+    e.wake("db", Cause::Command).await.unwrap();
+    assert_eq!(m.calls(), ["converge db"], "fresh: converged as it started");
+    assert_eq!(
+        std::fs::read_to_string(&marker).unwrap(),
+        "one",
+        "Go's marker: the fingerprint, no newline"
+    );
+    e.stop("db", Cause::Command).await.unwrap();
+    e.wake("db", Cause::Command).await.unwrap();
+    assert_eq!(m.calls(), ["converge db"], "converged before: not again");
+    e.stop("db", Cause::Command).await.unwrap();
+    *m.fp.lock().unwrap() = "two".into();
+    *m.broken.lock().unwrap() = Some("role \"app\" cannot be made".into());
+    let err = e.wake("db", Cause::Command).await.unwrap_err().to_string();
+    assert!(
+        err.contains("provisioning \"db\": role \"app\" cannot be made"),
+        "{err}"
+    );
+    let view = e.get("db").unwrap();
+    assert!(view.tainted && !view.state.running(), "{view:?}");
+    assert!(!marker.exists(), "a failed converge leaves no marker");
+    *m.broken.lock().unwrap() = None;
+    e.wake("db", Cause::Command).await.unwrap();
+    assert_eq!(
+        m.calls().len(),
+        3,
+        "the next start tries again: {:?}",
+        m.calls()
+    );
+    assert!(!e.get("db").unwrap().tainted);
+    assert_eq!(std::fs::read_to_string(&marker).unwrap(), "two");
     e.shutdown().await;
 }
