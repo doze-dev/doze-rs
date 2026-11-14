@@ -814,7 +814,7 @@ the daemon down, on examples/shop's doze.hcl, median of 80 after 5 warm-ups, on 
   measured twice, the baseline rebuilt to the byte). The broker's profile and its hot path are untouched, since `release` is unchanged.
   The workspace's per-package overrides (clap and regex at "z") are inherited: `release-doze` measures the same as `release`
   with `opt-level` overridden.
-- **Headroom**: 1.88 MB under the 9 MB line on x86_64 Linux (target 1.5 MB), 3.47 MB on darwin.
+- **Headroom**: 1.88 MB under the 9 MB line on x86_64 Linux (target 1.5 MB), 3.47 MB on darwin. CI confirmed it on bc68fd9b: `doze` 7,086,496 B on ubuntu x86_64 (from 8,948,248 B, so 1.91 MB under the line), 219 packages, and a warm `doze status` with a median of 11.15 ms on the shared runner (no earlier CI figure to compare with; the darwin before and after is above).
 - **Cost**: about 0.3 ms on a warm `doze status` (7.65–8.06 to 8.20–8.29 ms), inside run-to-run noise and half the 15 ms budget.
   CI's weight-doze job now also reports the x86_64 Linux number (not gated). "z" saves 0.22 MB more on Linux but turns off loop
   vectorisation for the daemon to come (log store, proxy); not worth it with this headroom.
