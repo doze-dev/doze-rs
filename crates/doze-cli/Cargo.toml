@@ -15,6 +15,11 @@ workspace = true
 name = "doze"
 path = "src/main.rs"
 
+[features]
+# Test builds only (Go's `dozetest` tag): the registry key may be replaced through DOZE_TEST_REGISTRY_KEY, so a
+# throwaway, locally signed registry can stand in for the real one. Release builds never have it.
+dozetest = []
+
 [dependencies]
 doze-os = { path = "../doze-os" }
 doze-names = { path = "../doze-names" }

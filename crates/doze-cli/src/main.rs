@@ -105,7 +105,7 @@ fn surroundings() -> Result<(PathBuf, PathBuf, registry::Config), Diagnostic> {
         )
         .fix("cd to a directory that exists")
     })?;
-    let key = signed::builtin_key().ok_or_else(|| {
+    let key = test_key().or_else(signed::builtin_key).ok_or_else(|| {
         Diagnostic::new(
             ids::BUG,
             "the registry key built into this doze is not a key",
@@ -118,6 +118,16 @@ fn surroundings() -> Result<(PathBuf, PathBuf, registry::Config), Diagnostic> {
         budget: registry::BUDGET,
     };
     Ok((home, cwd, registry))
+}
+
+/// A `dozetest` build's stand-in registry key (DOZE_TEST_REGISTRY_KEY); never in a release build.
+fn test_key() -> Option<ed25519_dalek::VerifyingKey> {
+    if !cfg!(feature = "dozetest") {
+        return None;
+    }
+    std::env::var("DOZE_TEST_REGISTRY_KEY")
+        .ok()
+        .and_then(|k| signed::parse_key(&k))
 }
 
 // The exit class of a run is all `main` reports; keep the type in the signature honest.
