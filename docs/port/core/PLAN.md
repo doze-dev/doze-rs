@@ -1,6 +1,6 @@
 # doze core and CLI in Rust: the plan to finish
 
-Status: proposed 2026-11-14, not approved. Owner's brief: "finish the real app and the real CLI in full… It's time to go
+Status: **approved 2026-11-14** with the owner decisions in [section 8](#8-owner-decisions) (O1 reshaped and O2 reversed by the owner; the rest as recommended). Building with three builders. Owner's brief: "finish the real app and the real CLI in full… It's time to go
 for the entire finish." When this plan is done, doze is Rust end to end: engine and daemon, doze.hcl, the full CLI, every
 module, names and setup, the app. The Go product is then only an oracle.
 
@@ -62,7 +62,7 @@ exists; **new** = nothing yet; **drop** = not ported (with the reason).
 | `internal/adminprompt` | 167 / 54 | A privileged script behind the system's admin prompt | `doze-names::setup` (privesc) | PR #9 |
 | `internal/ui` | 446 / 0 | ANSI tables, colours, formatters for the CLI | `doze-cli::render` | part: PR #10 `output.rs` |
 | `internal/brand` | 249 / 104 | Colours and type tokens for every surface | `doze-display::brand` | part (the app has its theme) |
-| `internal/dash` | 7,294 / 3,413 | The terminal dashboard (bare `doze` over SSH), Bubble Tea | `doze-dash` (ratatui) | new · **decision O2** |
+| `internal/dash` | 7,294 / 3,413 | The terminal dashboard (bare `doze` over SSH), Bubble Tea | none | **drop** (O2: `status -w` is the screen over SSH) |
 | `internal/desk/*` | 14,532 / 2,658 | The Wails desktop app (hub, views, serve, tray, notify, prefs, link, autostart, devserve, web) | `apps/doze-app` + `doze-desk` (app plan) | PR #15 to #30 (app plan, 171 days, not counted here) |
 | `internal/dotdoze`, `dozeversion`, `netutil`, `inputs` | 37 + 68 + 29 / 49 + 17 | The `.doze` folder, own version, free ports | `doze-config`, `doze-cli`, `doze-os::net` | part |
 | root package `doze` | 1,863 / 1,007 | The embeddable Go facade: `Serve`/`Attach`, `NewStack` builder, `Session.Topology` | `doze-engine::Engine::builder` + `doze-control::Client` | drop the Go API · **decision O4** |
@@ -92,11 +92,11 @@ any of them is new work, out of this plan (listed under decision O9).
 | `cmd/doze` exit codes, action parity | `exitcode_test.go`, `parity_test.go` | re-expressed as Rust transcripts and one parity test over the verb table | none |
 | `internal/control` protocol + `fakedaemon` scripts | 14 tests, ndjson scripts | Go-captured frames replayed against the Rust server, normalised | a capture program (exists on `app-parity`: `testdata/go/capture`) |
 | `internal/config` (107 tests, inline HCL) + `TestDocExamplesParse` (every HCL fence of the docs) + the HCL spike corpus (190 sources, 653 expressions) | | a Go **dump** program writes each loaded config (or its diagnostics with spans) as JSON; Rust writes the same; bun diffs | `tools/oracle-dump` on the oracle branch |
-| `website/scripts/ground.ts` (`make ground`) | every command, flag and doze.hcl field the docs name | point it at the Rust binary | `GROUND_BIN` env |
+| `website/scripts/ground.ts` (`make ground`) | every command, flag and doze.hcl field the docs name | point it at the Rust binary | none: it already reads `DOZE_BIN` |
 | `test/bench` (budget.json) | wake and `up`/`down` times on `examples/shop` | repoint the binary | `DOZE_BIN` |
 | the app's real-daemon parity checklist | 286 rows (Go passes 285) | the same rows with the Rust daemon underneath the Rust app | none |
 | `tools/module-oracle` (doze-rs) | 184 cases from the Go modules | exists | none |
-| `tools/look` (dash scenes vs boards) | dash scenes | only if the dash is ported (O2) | none |
+| `tools/look` (dash scenes vs boards) | dash scenes | not used: the dash is dropped (O2) | none |
 
 The Go edition stays the reference until cut-over: behaviour fixes land in Go first (as the kafka port did), then Go is frozen.
 
@@ -107,24 +107,26 @@ The Go edition stays the reference until cut-over: behaviour fixes land in Go fi
 ### 2.1 Crates and their boundaries
 
 ```
-                         doze  (one binary: CLI + daemon + netd + dash)
-                           │
-   ┌───────────────┬───────┴────────┬──────────────┬─────────────┬────────────┐
- doze-cli      doze-daemon      doze-dash     doze-detect   doze-doctor   doze-names::netd
-   │  (client)    │  (server)        │                           │             (__netd)
-   │              │                  │                           │
-   │      ┌───────┴────────┐         │                           │
+   doze  (binary: CLI only, for CI and servers)        Doze.app's binary  (GUI + the full CLI)
+        │  main.rs: doze_cli::main()                         │  main.rs: argv dispatch → doze_cli::main() or the GUI
+        └──────────────────────┬─────────────────────────────┘
+                          doze-cli  (library: every command, the self-exec dispatch, renderers)
+                               │
+   ┌──────────────┬────────────┴───┬─────────────┬────────────┐
+   │ (client)  doze-daemon      doze-detect   doze-doctor   doze-names::netd
+   │              │  (server)                                    (__netd)
+   │      ┌───────┴────────┐
    │   doze-engine     doze-bind ── doze-names (registry, resolver, front door, CA, setup, trust)
    │      │   │   │
    │      │   │   └── doze-module-host ── doze-module-proto ── doze-os
    │      │   └────── doze-fetch (registry index, binaries, module fetch, doze.lock)
    │      └────────── doze-config ── doze-hcl
    │
-   ├── doze-control (types, codec, client; server feature) ◄── also the app
-   ├── doze-display (words) ◄── also the app and the dash
-   └── doze-projects, doze-journal (formats) ◄── also the app
+   ├── doze-control (types, codec, client; server feature) ◄── also the GUI
+   ├── doze-display (words) ◄── also the GUI
+   └── doze-projects, doze-journal (formats) ◄── also the GUI
 
- Doze.app: doze-app (GPUI) ── doze-desk ── doze-control (client), doze-display, doze-projects, doze-journal
+ GUI: doze-app (GPUI) ── doze-desk ── doze-control (client), doze-display, doze-projects, doze-journal
  Modules: separate binaries from the registry (doze-module-postgres, …), launched by doze-module-host
 ```
 
@@ -138,10 +140,9 @@ Arrows are Cargo dependencies, and Cargo enforces them. The rules each boundary 
 | **`doze-daemon`** (new) | the long-running process: the control server (every op and topic of protocol 2), the per-instance proxy listeners (wake on connect, splice, `wire.accept` hand-off, TLS termination), names through `doze-bind` (leases, front door routes, domains, dynamic add/remove), meters and stats, console and admin passthrough, `ctl` (spawn, stop, probe, detach) | terminals, rendering |
 | **`doze-control`** (PR #11, extended) | protocol 2 types (byte-compatible with Go), the sans-IO NDJSON codec, the client, the fixture daemon; **new**: a `server` feature with a `Handler` trait and a tokio server loop, so client and server share one definition of every frame | engine internals |
 | **`doze-fetch`** (new, from PR #10's `registry/`) | the signed index (ed25519 key compiled in), module and engine fetch, the content-addressed cache, `doze.lock` read **and write**, the host side of protocol 2's `fetch.*` | stacks |
-| **`doze-cli`** (PR #10, extended) | clap surface, the three renderers (terminal, plain, JSON envelope `doze/v1`), diagnostics renderer, notices, exit classes, transcripts; every command; the self-exec dispatch | engine internals (it is a client of the daemon, as the app is), except the read-only config shape for offline commands |
+| **`doze-cli`** (PR #10, extended; a **library** plus a thin `doze` bin, O1) | clap surface, the three renderers (terminal, plain, JSON envelope `doze/v1`), diagnostics renderer, notices, exit classes, transcripts; every command; the self-exec dispatch | engine internals (it is a client of the daemon, as the app is), except the read-only config shape for offline commands |
 | **`doze-detect`** (new) | `init`: what a project needs, with the reason for each block, never invented (CLI proposal F6) | |
 | **`doze-doctor`** (new) | checks (names, domains, registry, app, leftovers, versions) and the repair plan, as data; used by `doze doctor` and the app's Settings › Machine | the prompt itself (that is `doze-names::setup`) |
-| **`doze-dash`** (new, O2) | the terminal dashboard on ratatui, a client of `doze-control` | engine internals |
 | `doze-names`, `doze-bind` | the zone, resolver, front door, CA, netd, setup and trust (names plan) | |
 | `doze-os` (main) | every OS difference: process trees, channels, fd/socket hand-off, locks, owner-only dirs, cloning, detach, privilege, `which`, net, **new**: ports (who holds a port), named-pipe admin socket on Windows | |
 
@@ -158,22 +159,32 @@ Arrows are Cargo dependencies, and Cargo enforces them. The rules each boundary 
 | Errors | `fault` kinds, wrapped errors | `thiserror` enums per crate mapped to `fault::Kind` once, at the boundary; `anyhow` only in the binary |
 | Downloads | in-process, plus a `__fetch` child | the same split: `doze-fetch` in a child (`__fetch`) so a hung download never blocks the daemon |
 | Embedding | Go `Serve` / `Attach` | `doze_engine::Engine::builder()` (in-process) and `doze_control::Client` (attach); the same API the daemon and tests use |
-| Weight | 28-ish MB Go binary, Wails linked in | features: `dash`, `tls-front-door`; app in its own binary; budgets in CI from the first phase |
+| Weight | 28-ish MB Go binary, Wails linked in | features: `tls-front-door`; the CLI-only `doze` carries no GUI; budgets in CI from the first phase |
 
-### 2.3 The single binary
+### 2.3 Two binaries, one CLI (decision O1)
 
-`doze` is one executable (crate `doze-cli`, `src/main.rs`). The dispatch is the first thing `main` does:
+The owner's call (2026-11-14): **`doze` is a CLI-only binary** for CI and servers, and **the Doze.app binary contains both
+the GUI and the full CLI**. So the CLI is a library, `doze-cli` (`lib.rs` with `pub fn main() -> ExitCode`), linked into
+both:
+
+- `doze` (crate `doze-cli`, `src/bin/doze.rs`) calls `doze_cli::main()` and nothing else. No GPUI, no GUI dependencies.
+- The app binary (crate `doze-app`) looks at argv first: anything a CLI call would be (a subcommand, a flag, `__daemon`,
+  `__netd`, `__fetch`, or a launch from a terminal) goes to `doze_cli::main()`; only a GUI launch starts GPUI. The `doze`
+  the app puts on the PATH is that same binary, and the daemon, netd and fetch children the app starts are the app
+  binary self-exec'd. One code path for every command, whichever binary runs it.
+
+The dispatch inside `doze_cli::main()` is the first thing it does:
 
 | argv | Runs | Notes |
 |---|---|---|
 | `doze __netd …` | `doze_names::netd::run` | **must be first**, before clap, logging or tokio (Go's `names.Helper()` rule). The netd that `dns-setup` installs is a copy of the `doze` binary that ran setup (Go's model) |
 | `doze __daemon --config <abs>` | `doze_daemon::run` | one daemon per project (Go: `projects/<slug>/run/doze.admin.sock`, `doze.pid`, `doze.log`) |
 | `doze __fetch …` | `doze_fetch::child` | downloads in a child |
-| `doze` (bare) | terminal + GUI session → open `Doze.app` (execs `doze-app`); SSH → the dash (O2); piped → `status` | the CLI proposal's three faces |
+| `doze` (bare) | terminal + GUI session → open `Doze.app`; SSH, no GUI, or piped → `status` | the dash is dropped (O2): `status -w` is the live screen over SSH |
 | anything else | clap, the CLI | |
 
-`Doze.app` holds two binaries: `doze` (above) and `doze-app` (GPUI). The app plan's Q2 asks whether the app joins `doze`; it
-cannot under the 10 MB ceiling (the app alone is 12.1 to 15.6 MB), so this plan assumes **two binaries** (decision O1).
+Weight: the 10 MB ceiling and the 9 MB CI line apply to `doze`. The app binary carries the CLI library on top of the GUI,
+so its own line (app plan Q5, ≤ 16 MB) must absorb the CLI; the C0 weight probe reports both numbers.
 Modules are separate binaries fetched from the registry, launched by `doze-module-host` over a socketpair (protocol 2).
 
 **Where names and netd fit**: the daemon is the only writer of the zone for its stack (names plan); it takes leases
@@ -234,9 +245,8 @@ Three tracks run in parallel from day one (the critical path, section 6, assumes
 | **M3** | **kafka and aws module faces** | steps 14 (kafka 3) and 15 (aws 4) | differential vs the Go modules; Larder on Rust doze | 7 (6–10) |
 | **X** | **Cut-over** | Section 3.2 | Section 3.2 | 8 (6–11) |
 | **M2** | **postgres extensions** | step 13: catalog, bundles via `fetch.*`, ledgered install, PG18 paths (needs `pgext` merged in Go, O7) | `bundle_test` scenarios, the gated pgext e2e on 17 and 18 | 9 (7–12) |
-| **T** | **The terminal dash** (O2) | ratatui port of `internal/dash` from its boards: home, focus, modal, blocks (module consoles), palette, adaptive layout, glyph sets | `tools/look` scenes vs the boards; the dash goldens; a client of the same protocol | 18 (14–24) |
 | **W** | **Windows, whole** | the daemon's named-pipe admin socket, `ctl` detach, the process engine and supervision under Job objects, names (NRPT), the CLI end to end; integration suite on `windows-latest` and `windows-11-arm` | `test/integration` (minus engines with no Windows build) green on both Windows runners | 9 (7–12) |
-| | **Total** | | | **229 (178–298)** |
+| | **Total** (phase T, the terminal dash, removed by O2) | | | **211 (164–274)** |
 
 The modules rows (M1, M2, M3 = 36 days) are the modules plan's remaining steps, counted here because the brief puts them
 in; they are not extra on top of that plan.
@@ -267,11 +277,11 @@ with the two shortcuts in section 6.2.
 - **Go is frozen**: tagged, kept buildable as the oracle, no new behaviour.
 
 **Not gating cut-over** (still in "the entire finish", built in parallel where a builder is free, section 6.2): M2
-(postgres extensions), T (dash), W (Windows); then protocol 3 (Contract 2's state words) if O3 says so.
+(postgres extensions) and W (Windows); then protocol 3 (Contract 2's state words) if O3 says so.
 
 ### 3.3 What reaches the CLI and the app first
 
-Builders: **L** runs C0 then H1–H4, C2 and X; **E** runs E1, F1, E2, D1, D2, then T and W; **M** runs C1, M1, M3, P1,
+Builders: **L** runs C0 then H1–H4, C2 and X; **E** runs E1, F1, E2, D1, D2, then W; **M** runs C1, M1, M3, P1,
 then M2. Days are from the start, without the shortcuts of 6.2.
 
 | Day | What becomes real |
@@ -301,7 +311,7 @@ flags), and where it lands:
 | Group | Commands and flags | Phase |
 |---|---|---|
 | Global | `-c/--config` (dir merges `*.hcl`), `--var`, `--json`/`DOZE_JSON` (NDJSON for `logs -f`, `status -w`), `-q`, `-y`/`DOZE_YES`, `--timeout`, `--no-color`/`NO_COLOR`, `-h`, exit codes | C1 (flags, envelopes, codes); `-c`/`--var` need H4 → C2 |
-| The app | bare `doze` (app / dash over SSH / status piped), `open [dir]`, `open doze://stack[/service]`, `open --show`, `open --console` (new) | C2; the SSH face waits for T |
+| The app | bare `doze` (app, or `status` over SSH and piped), `open [dir]`, `open doze://stack[/service]`, `open --show`, `open --console` (new) | C2 (over SSH, bare `doze` is `status`: O2) |
 | The stack | `up [svc…] -f --last --all`, `down`, `sync [svc] --dry-run`, `status` (`tree`/`ls`/`ps`) `-w --graph`, `env [svc…] --dotenv`, `run [--env] -- cmd` | `status` C1; the rest C2 |
 | One service | `wake` (`boot`), `sleep` (`reap`), `restart`, `reset`, `migrate`, `task`, `pin` (`keepawake`) `--off --toggle`, `off`, `on`, `logs -f --run --since -n`, `url` (`copy`), `connect` (new), `why` (new) | verbs, `logs`, `why` C1; `migrate`, `url`, `connect` C2 |
 | Set up and edit | `init --wizard --force`, `add --version --port --as --dry-run`, `lint --offline`, `fmt --check`, `doctor --fix --print-fix`, `dns-setup --check --print --uninstall`, `trust --check --print --remove --rotate` | `init`/`add`/`lint`/`fmt` C2 (need H3/H4); `doctor`/`dns-setup`/`trust` P1 |
@@ -368,8 +378,8 @@ the app (M0: 26 planned).
 | Privileged | P1 | 7 (5–9) |
 | Modules | M1 20, M3 7, M2 9 | 36 (29–48) |
 | Cut-over | X | 8 (6–11) |
-| After cut-over | T 18, W 9 | 27 (21–36) |
-| **Total effort** | | **229 engineer-days (178–298)** |
+| After cut-over | W 9 (T dropped, O2) | 9 (7–12) |
+| **Total effort** | | **211 engineer-days (164–274)** |
 
 Not in this total: the app plan's own remaining work (it has its own 171-day plan, much of it already built), and the
 kafka and aws engines' own plans.
@@ -391,16 +401,16 @@ the critical path.
 - Start C2's daemon-only commands (`up`, `down`, `env`, `run`, `url`, `connect`) on stacks built in code while H4 runs.
   That saves about 6 more.
 
-With both: **about 83 days to cut-over (66–106)**. The dash and Windows (T, W: 27 days) are "after cut-over" in what
-they gate, but builder E is free from day 60 and can do them in parallel; M2 fits on builder M after day 48 once `pgext` is
+With both: **about 83 days to cut-over (66–106)**. Windows (W, 9 days) is "after cut-over" in what it
+gates, but builder E is free from day 60 and can do it in parallel; M2 fits on builder M after day 48 once `pgext` is
 merged. So the **whole finish lands within about a week of cut-over: about 90 to 100 days of calendar (75–125)** with
-three builders, or 229 days (178–298) for one.
+three builders, or 211 days (164–274) for one.
 
 ### 6.3 Weight budgets (the ceiling is 10 MB per binary)
 
 | Binary | Budget (CI line under the ceiling) | Why it is at risk |
 |---|---|---|
-| `doze` (CLI + daemon + netd + dash) | **9 MB** line, 10 MB ceiling (macOS arm64, stripped) | it links tokio, hyper (front door), rustls + ureq (fetch), ed25519, hcl-edit/winnow, astro-float, regex, x509-cert/p256, tun-rs and ratatui. The C0 weight probe measures this first. Levers if it is over: `opt-level = "s"` + fat LTO (`release-app` showed −20%), the dash behind a feature, one HTTP stack (hyper) for both fetch and front door instead of ureq + hyper, `regex-lite` where the full engine is not needed |
+| `doze` (CLI + daemon + netd; the app binary carries the same on top of the GUI, O1) | **9 MB** line, 10 MB ceiling (macOS arm64, stripped) | it links tokio, hyper (front door), rustls + ureq (fetch), ed25519, hcl-edit/winnow, astro-float, regex, x509-cert/p256 and tun-rs. The C0 weight probe measures this first. Levers if it is over: `opt-level = "s"` + fat LTO (`release-app` showed −20%), one HTTP stack (hyper) for both fetch and front door instead of ureq + hyper, `regex-lite` where the full engine is not needed |
 | `doze-app` | the app plan's ≤ 16 MB (app plan Q5; it has its own line) | not changed here |
 | each module | the modules plan's lines | |
 | daemon idle RSS | **≤ 8 MB** with nothing awake (to confirm against the Go baseline taken in C0) | tokio threads; keep it current-thread unless measured otherwise |
@@ -430,7 +440,7 @@ three builders, or 229 days (178–298) for one.
 | **Process supervision** | **systemd** (`Restart=`, `KillMode=control-group`, socket activation, `sd_notify` readiness), **s6** / **runit** (readiness fd, supervision trees, finish scripts), **launchd** (on-demand jobs), **supervisord**, **process-compose** (the closest analogue: dependency conditions, readiness probes, restart policies, one YAML), **overmind**/**foreman** (Procfile, process groups), **Docker Compose** (`depends_on: condition: service_healthy`), Kubernetes probes, **watchexec** and its **process-wrap** crate (process groups on Unix, Job objects on Windows), **pueue** (a Rust daemon with a socket client) | the lifecycle as a state machine with a restart budget (systemd), readiness as a typed probe (k8s), process tree as the unit (s6, Job objects), declared stop per process (D15). process-wrap is evaluated against `doze-os::tree` in E1; doze-os stays if it already covers it |
 | **Lazy wake / scale to zero** | **systemd socket activation** and **inetd**, **launchd** `Sockets`, **Fly.io** machines autostop/autostart proxy, **Knative** activator, **OrbStack**'s on-demand machines | accept first, then wake, then splice; the listener never closes while asleep (socket activation); the activator's "hold the request while cold" |
 | **HCL** | **hashicorp/hcl v2** + **go-cty** (the reference), **hclwrite** (formatter), Terraform's `typeexpr`/`convert`, **OpenTofu**, **hcl-edit** / **hcl-rs** (Rust syntax; the evaluator is not usable), **tree-sitter-hcl**, **ensan** (stale), **magma-cty** (types only), the Terraform language server (diagnostics) | hcl-edit for syntax and spans; cty's semantics ported by hand on astro-float; Terraform's diagnostic shapes; nothing else is mature enough (spike) |
-| **CLI frameworks** | **clap** (derive; already used in doze-rs), **bpaf**/**argh**/**lexopt** (lighter), **clap_complete** dynamic completion (`CompleteEnv`), **annotate-snippets** (rustc's renderer) / **miette** / **ariadne** (diagnostics), **indicatif** (progress), **anstream**/**owo-colors** (colour that respects NO_COLOR), **ratatui** (TUI), and for UX: **cargo**/**rustc** errors, **clig.dev**, **gh** (JSON per command), **fly launch** (detect and say why), **mise**/**bun** (instant), **Terraform** plan (dry runs object by object) | clap stays (already paid for); dynamic completions via clap_complete; diagnostics stay PR #10's own `snippet.rs` unless annotate-snippets is smaller and as good; ratatui for the dash |
+| **CLI frameworks** | **clap** (derive; already used in doze-rs), **bpaf**/**argh**/**lexopt** (lighter), **clap_complete** dynamic completion (`CompleteEnv`), **annotate-snippets** (rustc's renderer) / **miette** / **ariadne** (diagnostics), **indicatif** (progress), **anstream**/**owo-colors** (colour that respects NO_COLOR), **ratatui** (TUI), and for UX: **cargo**/**rustc** errors, **clig.dev**, **gh** (JSON per command), **fly launch** (detect and say why), **mise**/**bun** (instant), **Terraform** plan (dry runs object by object) | clap stays (already paid for); dynamic completions via clap_complete; diagnostics stay PR #10's own `snippet.rs` unless annotate-snippets is smaller and as good |
 | **Daemon control** | Docker's API on a unix socket, **LSP** (JSON-RPC with ids and cancel), **Nushell**'s plugin protocol, tokio-util `LinesCodec`, Windows named pipes (`tokio::net::windows::named_pipe`) | Go's protocol 2 is already this shape; kept |
 | **Fetch, signing, locks** | **cargo** index + `Cargo.lock`, Go's `go.sum`, **Homebrew** bottles, **minisign** (ed25519), **TUF** (not taken: too heavy for one signing key) | the signed index with a compiled-in key, checksums pinned in `doze.lock` |
 | **File watching** | **notify** crate, **watchexec**, Go's polling `watch` | keep polling (Go's measured choice: it works on every filesystem and costs nothing at rest); notify only if a measurement asks |
@@ -439,20 +449,23 @@ three builders, or 229 days (178–298) for one.
 
 ## 8. Owner decisions
 
-| # | Decision | Recommendation |
-|---|---|---|
-| **O1** | One binary or two: does the app join `doze`? (app plan Q2) | **Two**: `doze` (CLI + daemon + netd + dash) under 10 MB, `doze-app` beside it in `Doze.app`. Joining breaks the ceiling (the app alone is 12–16 MB) and slows every CLI call |
-| **O2** | The terminal dash: port it (ratatui, ~18 days, after cut-over) or drop bare `doze` over SSH in favour of `status -w`? | **Port it, after cut-over.** The website and the CLI proposal promise it, and it is the only screen over SSH. If time is short, it is the first thing to defer |
-| **O3** | Compatibility at cut-over: protocol 2 byte for byte, and Go's on-disk formats | **Yes to both.** The app switches with no change, data survives, and Go/Rust run side by side for the oracle. Contract 2's state renames become protocol 3, done once in one commit across daemon, app and CLI after cut-over |
-| **O4** | The embeddable Go API (`doze.Serve`/`Attach`, `NewStack`) | **Drop it.** The Rust equivalents are `doze_engine::Engine::builder()` and `doze_control::Client`; no public library promise before 1.0 |
-| **O5** | A `rust-oracle` branch in the Go doze repo with test-only hooks (`DOZE_BIN`, `GROUND_BIN`, `tools/oracle-dump`) | **Yes**, as kafka did (`rust-oracle` in doze-kafka). It never ships; it is how the Go suites judge the Rust binary |
-| **O6** | Diagnostic wording: match Go's text, or re-baseline to the CLI proposal's rustc-style messages? | **Re-baseline the wording; keep positions exact.** Line, column and the offending span must match Go; the words follow the proposal's rules (whose problem, a fix) |
-| **O7** | Merge and push `pgext` (11 commits, +2,577 lines) in Go before the postgres port (modules plan D9) | **Yes, now.** The oracle must be the code that ships; M2 is blocked without it |
-| **O8** | The registry hostname: `registry.doze-dev.com` still has no DNS answer (CLI proposal F1, checked again 2026-11-14) | **Fix the DNS now** (a Cloudflare record), or every fresh Go install stays broken; the Rust fetch tests use a local registry until then |
-| **O9** | Module scope at cut-over | **postgres, mariadb, ferret, valkey, kvrocks, temporal, kafka, aws** (the registry's eight). Mailpit, minio, nats and friends stay `service` recipes in `doze-detect`; real modules for them are a later plan |
-| **O10** | Windows at cut-over or after? | **After** (phase W, right after). macOS and Linux are what Go supports today; Windows has no oracle and gets its own gate |
-| **O11** | `doze fmt` byte-identical to Go's `hclwrite.Format`? | **Yes.** People run `fmt --check` in CI; a different formatter would fail their builds on upgrade |
-| **O12** | Three builders in parallel (L, E, M tracks) | **Yes.** One builder is about 229 days; three is about 95 to cut-over (83 with the HCL split) |
+Decided by the owner on 2026-11-14: start building with three builders; O1 and O2 as written in the last column; O5 and O7
+yes; O3, O4, O6 and O8 to O12 as recommended.
+
+| # | Decision | Recommendation | Decided 2026-11-14 |
+|---|---|---|---|
+| **O1** | One binary or two: does the app join `doze`? (app plan Q2) | **Two**: `doze` (CLI + daemon + netd + dash) under 10 MB, `doze-app` beside it in `Doze.app`. Joining breaks the ceiling (the app alone is 12–16 MB) and slows every CLI call | **Two binaries, shaped differently**: `doze` is CLI-only, for CI and servers; the Doze.app binary contains both the GUI and the full CLI. The CLI is a library (`doze-cli`) linked into both (section 2.3) |
+| **O2** | The terminal dash: port it (ratatui, ~18 days, after cut-over) or drop bare `doze` over SSH in favour of `status -w`? | **Port it, after cut-over.** The website and the CLI proposal promise it, and it is the only screen over SSH. If time is short, it is the first thing to defer | **Drop the terminal dash entirely**; phase T removed. Bare `doze` over SSH is `status` |
+| **O3** | Compatibility at cut-over: protocol 2 byte for byte, and Go's on-disk formats | **Yes to both.** The app switches with no change, data survives, and Go/Rust run side by side for the oracle. Contract 2's state renames become protocol 3, done once in one commit across daemon, app and CLI after cut-over | as recommended |
+| **O4** | The embeddable Go API (`doze.Serve`/`Attach`, `NewStack`) | **Drop it.** The Rust equivalents are `doze_engine::Engine::builder()` and `doze_control::Client`; no public library promise before 1.0 | as recommended |
+| **O5** | A `rust-oracle` branch in the Go doze repo with test-only hooks (`DOZE_BIN`, `DOZE_MODULE_BIN_DIR`, `tools/oracle-dump`) | **Yes**, as kafka did (`rust-oracle` in doze-kafka). It never ships; it is how the Go suites judge the Rust binary | **Yes**, test-only hooks allowed. Pushed 2026-11-14 as doze `rust-oracle` |
+| **O6** | Diagnostic wording: match Go's text, or re-baseline to the CLI proposal's rustc-style messages? | **Re-baseline the wording; keep positions exact.** Line, column and the offending span must match Go; the words follow the proposal's rules (whose problem, a fix) | as recommended |
+| **O7** | Merge and push `pgext` (11 commits, +2,577 lines) in Go before the postgres port (modules plan D9) | **Yes, now.** The oracle must be the code that ships; M2 is blocked without it | **Yes, now.** Done 2026-11-14: rebased on main, vet and `go test -race` green, doze-modules main `a8500e0` |
+| **O8** | The registry hostname: `registry.doze-dev.com` still has no DNS answer (CLI proposal F1, checked again 2026-11-14) | **Fix the DNS now** (a Cloudflare record), or every fresh Go install stays broken; the Rust fetch tests use a local registry until then | as recommended |
+| **O9** | Module scope at cut-over | **postgres, mariadb, ferret, valkey, kvrocks, temporal, kafka, aws** (the registry's eight). Mailpit, minio, nats and friends stay `service` recipes in `doze-detect`; real modules for them are a later plan | as recommended |
+| **O10** | Windows at cut-over or after? | **After** (phase W, right after). macOS and Linux are what Go supports today; Windows has no oracle and gets its own gate | as recommended |
+| **O11** | `doze fmt` byte-identical to Go's `hclwrite.Format`? | **Yes.** People run `fmt --check` in CI; a different formatter would fail their builds on upgrade | as recommended |
+| **O12** | Three builders in parallel (L, E, M tracks) | **Yes.** One builder is about 211 days; three is about 95 to cut-over (83 with the HCL split) | as recommended |
 
 ---
 
@@ -491,7 +504,6 @@ crates/doze-fetch/src/
   lib.rs  index.rs  signed.rs  select.rs  meta.rs  binaries.rs  modules.rs  cache.rs  lock.rs (read + write)  child.rs
 crates/doze-detect/src/   lib.rs  go.rs  node.rs  python.rs  compose.rs  make.rs  render.rs  known.rs
 crates/doze-doctor/src/   lib.rs  checks/{names,domains,registry,app,versions}.rs  leftovers.rs  repair.rs
-crates/doze-dash/src/     (phase T) app.rs  home.rs  focus.rs  modal.rs  blocks.rs  palette.rs  layout.rs  glyphs.rs  keymap.rs
 crates/doze-module-mariadb/  doze-module-ferret/  doze-module-postgres/     (modules plan steps 9–13)
 scripts/core-privileged-e2e-darwin.sh                                      (P1, owner-run)
 ```
@@ -512,12 +524,13 @@ scripts/core-privileged-e2e-darwin.sh                                      (P1, 
 ### 9.3 In the Go repos (oracle only, never shipped)
 
 - doze `rust-oracle` branch: `test/integration/harness.go` (`DOZE_BIN`, `DOZE_MODULE_BIN_DIR`), `test/bench`
-  (`DOZE_BIN`), `website/scripts/ground.ts` (`GROUND_BIN`), `tools/oracle-dump/` (config, diagnostics, fmt, frames).
+  (`DOZE_BIN`), `website/scripts/ground.ts` (already reads `DOZE_BIN`), `tools/oracle-dump/` (parse, syntax, refs, fmt, edit, eval, config
+  with diagnostics and positions), `internal/control/fixture` capture (frames). Pushed 2026-11-14.
 - doze-modules: `pgext` merged and pushed (O7).
 
 ### 9.4 Read as the spec
 
-doze: `cmd/doze/*`, `internal/{config,runspec,runtime,registry,supervisor,health,daemon,control,proxy,netplan,endpoints,state,logstore,journal,projects,watch,inputs,modules,binaries,detect,actions,fault,portholder,dash}`,
+doze: `cmd/doze/*`, `internal/{config,runspec,runtime,registry,supervisor,health,daemon,control,proxy,netplan,endpoints,state,logstore,journal,projects,watch,inputs,modules,binaries,detect,actions,fault,portholder}`,
 `engine/process`, `docs/design/next/{daemon-api,lifecycle,networking,module-names,config}.md`,
 `website/src/content/docs/{reference/cli.md,hcl/*}`; doze-names (whole); doze-modules `modules/{mariadb,ferret,postgres}`
 (at `pgext`); doze-rs `docs/port/{modules/PLAN.md,modules/compat.md,names/PLAN.md,oracle.md,weight.md}`, `cli-design`
