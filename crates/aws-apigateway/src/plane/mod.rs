@@ -15,6 +15,7 @@ mod client;
 mod cors;
 mod custom;
 mod event;
+mod execlog;
 mod find;
 mod httpapi;
 mod jwks;
@@ -179,16 +180,16 @@ impl Incoming {
 
 /// Where a request is addressed.
 #[derive(Debug, PartialEq, Eq)]
-struct Addr {
-    api: String,
-    region: Option<String>,
-    rest: String,
+pub(crate) struct Addr {
+    pub(crate) api: String,
+    pub(crate) region: Option<String>,
+    pub(crate) rest: String,
     via_host: bool,
 }
 
 const PREFIX: &str = "/_aws/execute-api/";
 
-fn addr(host: &str, path: &str) -> Option<Addr> {
+pub(crate) fn addr(host: &str, path: &str) -> Option<Addr> {
     if let Some(after) = path.strip_prefix(PREFIX) {
         let (api, rest) = after.split_once('/').unwrap_or((after, ""));
         return (!api.is_empty()).then(|| Addr {
@@ -213,9 +214,10 @@ fn addr(host: &str, path: &str) -> Option<Addr> {
     })
 }
 
-/// Whether a request is the plane's: an execute-api host or the `/_aws/execute-api/` path.
+/// Whether a request is the plane's: an execute-api host or the `/_aws/execute-api/` path. The `@connections` management API at
+/// those addresses is a signed REST service of its own (`management.rs`), routed by the gateway.
 pub(crate) fn owns(host: &str, path: &str) -> bool {
-    addr(host, path).is_some()
+    addr(host, path).is_some() && !path.contains("/@connections/")
 }
 
 /// Answers an execute-api request.
@@ -223,9 +225,6 @@ pub(crate) async fn serve(inner: Arc<Inner>, request: WebRequest) -> WebReply {
     let Some(addr) = addr(&request.host, &request.path) else {
         return reply::message(404, "Not Found");
     };
-    if let Some((stage, conn)) = ws::management_path(&addr.rest) {
-        return ws::manage(&inner, &addr.api, stage, conn, request).await;
-    }
     let incoming = Incoming {
         method: request.method,
         query: crate::plane::mapping::query_pairs(&request.query),

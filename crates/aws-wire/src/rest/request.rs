@@ -140,6 +140,15 @@ fn payload(tables: &Tables, m: &MemberRef<'_>, body: &[u8]) -> Result<Option<Val
 /// The member of a body-bound structure that is in the XML root.
 fn child(tables: &Tables, m: &MemberRef<'_>, root: &Elem) -> Option<Value> {
     let name = m.xml.unwrap_or(m.name);
+    // An `@xmlAttribute` member (a grantee's `xsi:type`) is an attribute of the element, read by its local name.
+    if m.flags & 4 != 0 {
+        let local = name.rsplit(':').next().unwrap_or(name);
+        return root
+            .attrs
+            .iter()
+            .find(|(k, _)| k == local)
+            .map(|(_, v)| scalar(m.kind, v));
+    }
     if m.kind == K_LIST && m.flags & 2 != 0 {
         let element = tables.member(m.target)?;
         let items: Vec<Value> = root

@@ -166,6 +166,10 @@ fn paired(
     let gateway = gateway.with(on.wrap("dynamodb", Arc::new(streams)));
     // API Gateway's two APIs sign alike (`apigateway`); the gateway tells them apart by path, the bus by name.
     let (rest_apis, http_apis) = aws_apigateway::services(apigateway);
+    // The `@connections` management API signs as `execute-api`, a name of its own.
+    let management: Arc<dyn Service> = Arc::new(rest_apis.management());
+    peers.register(Arc::clone(&management));
+    let gateway = gateway.with(on.wrap("apigateway", management));
     let (rest_apis, http_apis): (Arc<dyn Service>, Arc<dyn Service>) =
         (Arc::new(rest_apis), Arc::new(http_apis));
     peers.register_as("apigateway", Arc::clone(&rest_apis));

@@ -19,6 +19,7 @@ use serde_json::{Value, json};
 
 use crate::{ApiGateway, ApiGatewayV2};
 
+mod logs;
 mod openapi;
 mod plane;
 mod rest;
@@ -40,6 +41,26 @@ pub(crate) struct World {
 
 impl World {
     pub(crate) fn new() -> Self {
+        Self::on(None)
+    }
+
+    /// With CloudWatch Logs on a peer bus, for the logs a stage writes.
+    pub(crate) fn with_logs() -> (Self, Arc<aws_peers::Peers>) {
+        let peers = aws_peers::Peers::new();
+        peers.set_mode(aws_peers::Mode::Off);
+        let w = Self::on(Some(peers.clone()));
+        let logs = aws_logs::Logs::new(Arc::new(Ctx {
+            dir: w._dir.path().join("logs"),
+            idle: Duration::from_secs(300),
+            tasks: w.tasks.clone(),
+            clock: Arc::new(SystemClock),
+            ext: Some(peers.clone()),
+        }));
+        peers.register(Arc::new(logs));
+        (w, peers)
+    }
+
+    fn on(peers: Option<Arc<aws_peers::Peers>>) -> Self {
         let dir = TempDir::new("apigateway");
         let tasks = Tasks::new();
         let ctx = Arc::new(Ctx {
@@ -47,7 +68,7 @@ impl World {
             idle: Duration::from_secs(300),
             tasks: tasks.clone(),
             clock: Arc::new(SystemClock),
-            ext: None,
+            ext: peers.map(|p| p as Arc<dyn std::any::Any + Send + Sync>),
         });
         let (v1, v2) = crate::services(ctx);
         Self {

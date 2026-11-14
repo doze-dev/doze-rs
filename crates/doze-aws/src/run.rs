@@ -92,6 +92,8 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     gw.account_id = cfg.text("account");
     gw.default_region = cfg.text("region");
     gw.auth = crate::wire::auth_of(cfg);
+    // A verifying gateway serves an unsigned S3 request as the anonymous principal only when IAM is there to judge it.
+    gw.anonymous = cfg.text("iam") != "off";
     gw.health = Some(me.health());
     let tasks = Tasks::new();
     let (gateway, resumable) = crate::wire::gateway(cfg, gw, &on, &tasks);

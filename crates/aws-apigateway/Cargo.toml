@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 aws-model-api-gateway = { path = "../aws-model-api-gateway" }
 aws-model-apigatewayv2 = { path = "../aws-model-apigatewayv2" }
+aws-model-apigatewaymanagementapi = { path = "../aws-model-apigatewaymanagementapi" }
 aws-schema = { path = "../aws-schema" }
 aws-wire = { path = "../aws-wire" }
 aws-core = { path = "../aws-core" }
@@ -40,6 +41,7 @@ tracing = "0.1"
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }
 aws-webhook = { path = "../aws-webhook", features = ["test-server"] }
+aws-logs = { path = "../aws-logs" }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync", "net", "io-util"] }
 
 [dev-dependencies.aws-gateway]

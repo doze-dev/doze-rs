@@ -201,7 +201,9 @@ dependencies = [
  "aws-core",
  "aws-gateway",
  "aws-iam-policy",
+ "aws-logs",
  "aws-model-api-gateway",
+ "aws-model-apigatewaymanagementapi",
  "aws-model-apigatewayv2",
  "aws-peers",
  "aws-schema",
@@ -246,6 +248,7 @@ dependencies = [
  "form_urlencoded",
  "hmac",
  "http",
+ "sha1",
  "sha2",
  "thiserror",
 ]
@@ -565,6 +568,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-model-apigatewaymanagementapi"
+version = "0.0.0"
+dependencies = [
+ "aws-schema",
+]
+
+[[package]]
 name = "aws-model-apigatewayv2"
 version = "0.0.0"
 dependencies = [
@@ -748,6 +758,7 @@ dependencies = [
  "aws-core",
  "aws-eventbridge",
  "aws-gateway",
+ "aws-iam",
  "aws-model-s3",
  "aws-peers",
  "aws-schema",
