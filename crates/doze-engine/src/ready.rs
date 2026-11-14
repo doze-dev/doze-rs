@@ -17,6 +17,9 @@ const MAX_BACKOFF: Duration = Duration::from_millis(100);
 pub const LIVENESS_GRACE: Duration = Duration::from_millis(750);
 /// One probe's own limit.
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
+/// One loopback connect's limit: a listener answers in well under a millisecond, and Windows retries a refused
+/// connection for about 2 s before it says so, which would put that under every probe.
+const CONNECT_LIMIT: Duration = Duration::from_millis(250);
 /// How many lines of the log a `log_line` probe reads (Go: the newest run's last 200).
 const LOG_LINES: usize = 200;
 
@@ -87,7 +90,10 @@ pub async fn wait_ready(
 pub async fn probe(ready: &Ready, log: &Path) -> Result<bool, NotReady> {
     let once = async {
         match ready {
-            Ready::Tcp(addr) => Ok(doze_os::net::connect_tcp(addr).await.is_ok()),
+            Ready::Tcp(addr) => Ok(matches!(
+                tokio::time::timeout(CONNECT_LIMIT, doze_os::net::connect_tcp(addr)).await,
+                Ok(Ok(_))
+            )),
             Ready::Socket(path) => match doze_os::net::connect_unix(path).await {
                 Ok(_) => Ok(true),
                 Err(e) if e.kind() == std::io::ErrorKind::Unsupported => {
@@ -111,7 +117,9 @@ async fn http_ok(url: &str) -> bool {
     let (host, path) = rest
         .split_once('/')
         .map_or((rest, "/".to_string()), |(h, p)| (h, format!("/{p}")));
-    let Ok(mut s) = tokio::net::TcpStream::connect(host).await else {
+    let Ok(Ok(mut s)) =
+        tokio::time::timeout(CONNECT_LIMIT, tokio::net::TcpStream::connect(host)).await
+    else {
         return false;
     };
     let req = format!("GET {path} HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n");
