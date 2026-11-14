@@ -362,6 +362,10 @@ pub struct ProduceInput {
     pub headers: Vec<(String, String)>,
     /// `-1`, `1` or `0`; empty is `-1`.
     pub acks: String,
+    /// The value as bytes to send instead of `value`'s text: a value encoded with a registry schema (wire header and all).
+    #[serde(skip)]
+    #[cfg_attr(test, ts(skip))]
+    pub encoded: Option<Vec<u8>>,
 }
 
 /// What a produce came to.

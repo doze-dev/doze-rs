@@ -159,6 +159,24 @@ impl Schemas {
     }
 }
 
+impl Schemas {
+    /// Every row's key and value read with their schemas (each schema read once).
+    pub fn decorate_rows(&self, rows: &mut [crate::model::RecordRow], topic: &str) {
+        let mut codecs = Codecs::default();
+        for r in rows {
+            self.decorate(&mut r.key, topic, true, &mut codecs);
+            self.decorate(&mut r.value, topic, false, &mut codecs);
+        }
+    }
+
+    /// A record's key and value read with their schemas.
+    pub fn decorate_record(&self, r: &mut crate::model::RecordView) {
+        let mut codecs = Codecs::default();
+        self.decorate(&mut r.key, &r.topic, true, &mut codecs);
+        self.decorate(&mut r.value, &r.topic, false, &mut codecs);
+    }
+}
+
 fn read(c: &Codec, bytes: &[u8], out: &mut SchemaShown) {
     match c.decode(bytes) {
         Ok(d) => {

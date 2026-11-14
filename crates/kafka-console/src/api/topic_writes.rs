@@ -33,6 +33,7 @@ use crate::phrases::{acked, clock_ms};
 use crate::state::Shared;
 use crate::validate::retention_words;
 use crate::write_words;
+use super::schemas::try_it::{Encoded, encode};
 
 /// The most header rows a produce carries (as the classic dialog).
 const MOST_HEADERS: usize = 8;
@@ -228,6 +229,12 @@ pub struct ProduceForm {
     pub view: ProduceView,
     pub acks_teach: Teach,
     pub key_help: Vec<Span>,
+    /// The subjects a value may be encoded with (none without a registry).
+    pub subjects: Vec<String>,
+    /// The one the dialog starts on: `<topic>-value` when it exists.
+    pub suggested: Option<String>,
+    /// The value encoded with the chosen schema: what will be sent, or why it does not fit.
+    pub encoded: Option<Encoded>,
 }
 
 /// A record the broker took (200), with the sentences of the board's banner.
@@ -269,6 +276,35 @@ fn produce_input(f: &[(String, String)]) -> ProduceInput {
         value: text(f, "value").to_owned(),
         headers,
         acks: text(f, "acks").to_owned(),
+        encoded: None,
+    }
+}
+
+/// The schema the value is to be encoded with: a subject and a version (`latest` when none is given), or none.
+fn schema_choice(f: &[(String, String)]) -> Option<(String, String)> {
+    let subject = text(f, "schema").trim();
+    let version = text(f, "schema_version").trim();
+    (!subject.is_empty()).then(|| {
+        (
+            subject.to_owned(),
+            if version.is_empty() { "latest" } else { version }.to_owned(),
+        )
+    })
+}
+
+/// The value encoded with the chosen schema, or why it cannot be.
+fn encode_with(s: &Shared, (subject, version): &(String, String), value: &str) -> Result<(Encoded, Vec<u8>), String> {
+    let Some(r) = s.source.schemas().registry() else {
+        return Err("there is no schema registry to encode the value with".to_owned());
+    };
+    match encode(r, subject, version, value) {
+        Ok((e, bytes)) if e.ok => Ok((e, bytes)),
+        Ok((e, _)) => Err(format!(
+            "the value does not fit {subject} version {}: {}",
+            e.version,
+            e.error.unwrap_or_default()
+        )),
+        Err(e) => Err(e.message),
     }
 }
 
@@ -277,16 +313,42 @@ async fn produce_form(
     Path(topic): Path<String>,
     RawQuery(q): RawQuery,
 ) -> Response {
-    let input = produce_input(&query(q.as_ref()));
+    let fields = query(q.as_ref());
+    let input = produce_input(&fields);
     let Some(view) = s.source.produce_form(&topic, &input).await else {
         return no_topic(&topic);
     };
+    let subjects = s
+        .source
+        .schemas()
+        .registry()
+        .map(|r| r.subjects("", false, false))
+        .unwrap_or_default();
+    let wanted = format!("{topic}-value");
+    let suggested = subjects.iter().find(|x| **x == wanted).cloned();
+    let encoded = schema_choice(&fields).map(|choice| match encode_with(&s, &choice, &input.value) {
+        Ok((e, _)) => e,
+        Err(why) => Encoded {
+            ok: false,
+            error: Some(why),
+            id: 0,
+            version: 0,
+            kind: String::new(),
+            subject: choice.0,
+            size: 0,
+            hex: String::new(),
+            json: None,
+        },
+    });
     json(
         StatusCode::OK,
         &ProduceForm {
             acks_teach: write_words::acks_teach(view.transaction.as_deref()),
             key_help: write_words::key_help(&view),
             view,
+            subjects,
+            suggested,
+            encoded,
         },
     )
 }
@@ -322,7 +384,19 @@ fn visibility(p: &Produced) -> (String, String) {
 }
 
 async fn produce(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes) -> Response {
-    let input = produce_input(&parse_body(&body));
+    let fields = parse_body(&body);
+    let mut input = produce_input(&fields);
+    if let Some(choice) = schema_choice(&fields) {
+        match encode_with(&s, &choice, &input.value) {
+            Ok((_, bytes)) => input.encoded = Some(bytes),
+            Err(why) => {
+                let Some(view) = s.source.produce_form(&topic, &input).await else {
+                    return no_topic(&topic);
+                };
+                return invalid(&why, &view);
+            }
+        }
+    }
     match s.source.produce(&topic, &input).await {
         ProduceResult::Sent(p) => {
             let (visible_lead, visible) = visibility(&p);

@@ -210,6 +210,37 @@ pub struct ConnectWords {
 pub struct ConnectResponse {
     pub connect: ConnectView,
     pub words: ConnectWords,
+    /// The schema registry beside the broker, for clients' `schema.registry.url`; none when it is off.
+    pub registry: Option<RegistryConnect>,
+}
+
+/// How a client reaches the schema registry.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct RegistryConnect {
+    pub url: String,
+    /// It asks for the broker's SASL users as HTTP basic authentication.
+    pub basic_auth: bool,
+    /// The lines a serializer's properties take.
+    pub properties: String,
+    /// `SCHEMA_REGISTRY_URL=...`.
+    pub environment: String,
+}
+
+impl RegistryConnect {
+    #[must_use]
+    pub fn new(url: &str, basic_auth: bool) -> Self {
+        let mut properties = format!("schema.registry.url={url}");
+        if basic_auth {
+            properties.push_str("\nbasic.auth.credentials.source=USER_INFO\nbasic.auth.user.info=<user>:<password>");
+        }
+        Self {
+            url: url.to_owned(),
+            basic_auth,
+            properties,
+            environment: format!("SCHEMA_REGISTRY_URL={url}"),
+        }
+    }
 }
 
 impl ConnectResponse {
@@ -228,7 +259,11 @@ impl ConnectResponse {
                 "doze-kafka --listen 0.0.0.0:{port} \\\n  --advertised-host 192.168.1.20 \\\n  --advertised-port {port}"
             ),
         };
-        Self { connect, words }
+        Self {
+            connect,
+            words,
+            registry: None,
+        }
     }
 }
 
@@ -249,6 +284,8 @@ pub struct ShellView {
     /// The sidebar's counts.
     pub topics: usize,
     pub groups: usize,
+    /// The subjects the registry lists; none when there is no registry (the sidebar says "off").
+    pub schemas: Option<usize>,
 }
 
 /// `GET /api/v1/jump?q=`: the palette's data. Pages are the client's own list.
@@ -273,10 +310,11 @@ async fn home(State(s): State<Shared>) -> Response {
 }
 
 async fn connect(State(s): State<Shared>) -> Response {
-    json(
-        StatusCode::OK,
-        &ConnectResponse::new(s.source.connect().await),
-    )
+    let mut answer = ConnectResponse::new(s.source.connect().await);
+    if let crate::schemas::Schemas::On { url, basic_auth, .. } = s.source.schemas() {
+        answer.registry = Some(RegistryConnect::new(url, *basic_auth));
+    }
+    json(StatusCode::OK, &answer)
 }
 
 /// `POST /api/v1/probe`: run the advertised-listener check now.
@@ -298,6 +336,11 @@ async fn shell(State(s): State<Shared>) -> Response {
             unprotected: chrome.unprotected,
             topics,
             groups,
+            schemas: s
+                .source
+                .schemas()
+                .registry()
+                .map(|r| r.subjects("", false, false).len()),
         },
     )
 }
