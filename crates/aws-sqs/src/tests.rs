@@ -289,33 +289,6 @@ fn the_refusals_aws_recorded() {
     );
 }
 
-/// AWS's 60-second waits are on by default, in AWS's words with doze's sentence after them; `--sqs-skip-60s-waits` turns them off.
-#[test]
-fn the_sixty_second_waits_are_aws_s_unless_skipped() {
-    let mut w = World::new();
-    let url = w.queue("q");
-    w.ok(Operation::PurgeQueue, &json!({"QueueUrl": url}));
-    let (_, shape, message) = w.err(Operation::PurgeQueue, &json!({"QueueUrl": url}));
-    assert_eq!(shape, "PurgeQueueInProgress");
-    assert!(
-        message.starts_with(
-            "Only one PurgeQueue operation on q is allowed every 60 seconds. doze-aws: "
-        )
-    );
-    assert!(message.contains("--sqs-skip-60s-waits"));
-    w.ok(Operation::DeleteQueue, &json!({"QueueUrl": url}));
-    let (_, shape, message) = w.err(Operation::CreateQueue, &json!({"QueueName": "q"}));
-    assert_eq!(shape, "QueueDeletedRecently");
-    assert!(message.starts_with("You must wait 60 seconds after deleting a queue before you can create another with the same name. doze-aws: "));
-
-    w.core.skip_waits = true;
-    let url = w.queue("q");
-    w.ok(Operation::PurgeQueue, &json!({"QueueUrl": url}));
-    w.ok(Operation::PurgeQueue, &json!({"QueueUrl": url}));
-    w.ok(Operation::DeleteQueue, &json!({"QueueUrl": url}));
-    w.queue("q");
-}
-
 #[test]
 fn a_receive_out_of_range_is_refused_with_the_reason() {
     let mut w = World::new();
@@ -434,6 +407,7 @@ fn output_json(op: Operation, out: &aws_wire::service::Output) -> Value {
 mod long_poll;
 mod persistence;
 mod retention;
+mod waits;
 
 /// A directory of its own that goes away with it.
 struct TempDir(std::path::PathBuf);

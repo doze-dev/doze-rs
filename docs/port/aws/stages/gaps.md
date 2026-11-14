@@ -161,5 +161,5 @@ and `weight.md`; none of those was touched here. Each behaviour carries one call
   `conformance/harness/snapshot.py`, with a selftest proving AWS's words before it are still compared). That is a harness change the
   integrator should know of: it is the general way for doze to add one hint after AWS's words without losing exactness. **Go weak
   (bettered):** the refusal now tells a developer what to do next.
-- Tests: `aws-sqs` `the_sixty_second_waits_are_aws_s_unless_skipped`; `selftest/test_harness.py`
+- Tests: `aws-sqs` `tests/waits.rs`; `selftest/test_harness.py`
   `test_a_doze_hint_after_aws_words_is_set_aside_and_aws_words_still_compared`.
