@@ -2,9 +2,170 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
+  },
+  "test_a_task_token_and_a_caught_failure": {
+    "caught-error-name": "SQS.QueueDoesNotExistException",
+    "token-answer": {
+      "approved": true
+    },
+    "token-history": [
+      "ExecutionStarted",
+      "TaskStateEntered",
+      "TaskScheduled",
+      "TaskStarted",
+      "TaskFailed",
+      "TaskStateExited",
+      "TaskStateEntered",
+      "TaskScheduled",
+      "TaskStarted",
+      "TaskSubmitted",
+      "TaskSucceeded",
+      "TaskStateExited",
+      "ExecutionSucceeded"
+    ]
+  },
+  "test_an_activity_worker": {
+    "activity-history": [
+      "ExecutionStarted",
+      "TaskStateEntered",
+      "ActivityScheduled",
+      "ActivityStarted",
+      "ActivitySucceeded",
+      "TaskStateExited",
+      "ExecutionSucceeded"
+    ],
+    "activity-output": {
+      "output": {
+        "done": 7
+      },
+      "status": "SUCCEEDED"
+    },
+    "create-activity": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "activityArn": "arn:aws:states:us-east-1:<account>:activity:<name:activity>",
+      "creationDate": "<creationDate:1>"
+    },
+    "describe-activity": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "activityArn": "arn:aws:states:us-east-1:<account>:activity:<name:activity>",
+      "creationDate": "<creationDate:1>",
+      "encryptionConfiguration": {
+        "type": "AWS_OWNED_KEY"
+      },
+      "name": "<name:activity>"
+    },
+    "task-input": {
+      "job": 7
+    },
+    "token-spent": {
+      "Error": {
+        "Code": "TaskTimedOut",
+        "Message": "Task Timed Out: 'arn:aws:states:us-east-1:<account>:activity:<name:activity>'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_express_sync_and_test_state": {
+    "sync": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "billingDetails": "<billingDetails:1>",
+      "executionArn": "<executionArn:1>",
+      "input": {
+        "a": 2,
+        "b": 3
+      },
+      "inputDetails": {
+        "included": true
+      },
+      "name": "<name:run>",
+      "output": {
+        "sum": 5
+      },
+      "outputDetails": {
+        "included": true
+      },
+      "startDate": "<startDate:1>",
+      "stateMachineArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>",
+      "status": "SUCCEEDED",
+      "stopDate": "<stopDate:1>"
+    },
+    "sync-failed": {
+      "cause": "because",
+      "error": "Nope",
+      "status": "FAILED"
+    },
+    "test-choice": {
+      "nextState": "Big",
+      "output": "{\"n\": 5}",
+      "status": "SUCCEEDED"
+    },
+    "test-pass": {
+      "inspection": {
+        "afterInputPath": {
+          "b": 1
+        },
+        "afterParameters": {
+          "x": 1
+        },
+        "afterResultPath": {
+          "a": {
+            "b": 1
+          },
+          "r": {
+            "x": 1
+          }
+        },
+        "afterResultSelector": {
+          "x": 1
+        },
+        "input": {
+          "a": {
+            "b": 1
+          }
+        }
+      },
+      "nextState": "After",
+      "output": {
+        "a": {
+          "b": 1
+        },
+        "r": {
+          "x": 1
+        }
+      },
+      "status": "SUCCEEDED"
+    }
+  },
+  "test_jsonata_and_variables": {
+    "jsonata": {
+      "cause": null,
+      "error": null,
+      "output": {
+        "n": 2,
+        "size": "big",
+        "total": 13
+      },
+      "status": "SUCCEEDED"
+    },
+    "jsonpath-variables": {
+      "cause": null,
+      "error": null,
+      "output": {
+        "said": "there"
+      },
+      "status": "SUCCEEDED"
+    }
   },
   "test_machine_lifecycle_and_history": {
     "create": {
@@ -261,6 +422,71 @@
       }
     }
   },
+  "test_stop_tags_and_a_map_run": {
+    "map-output": {
+      "output": [
+        1,
+        2,
+        3
+      ],
+      "status": "SUCCEEDED"
+    },
+    "map-run": {
+      "itemCounts": {
+        "aborted": 0,
+        "failed": 0,
+        "failuresNotRedrivable": 0,
+        "pending": 0,
+        "pendingRedrive": 0,
+        "resultsWritten": 3,
+        "running": 0,
+        "succeeded": 3,
+        "timedOut": 0,
+        "total": 3
+      },
+      "maxConcurrency": 2,
+      "status": "SUCCEEDED"
+    },
+    "stop": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "stopDate": "<stopDate:1>"
+    },
+    "stopped": {
+      "cause": "by test",
+      "error": "Halt",
+      "redriveStatus": "REDRIVABLE",
+      "status": "ABORTED"
+    },
+    "stopped-history": [
+      "ExecutionStarted",
+      "WaitStateEntered",
+      "ExecutionAborted"
+    ],
+    "tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "tags": [
+        {
+          "key": "team",
+          "value": "a"
+        }
+      ]
+    },
+    "tags-after": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "tags": [
+        {
+          "key": "env",
+          "value": "dev"
+        }
+      ]
+    }
+  },
   "test_the_states_language": {
     "choice": {
       "cause": null,
@@ -390,6 +616,143 @@
         "carried": true
       },
       "status": "SUCCEEDED"
+    }
+  },
+  "test_versions_and_aliases": {
+    "create-alias": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "creationDate": "<creationDate:3>",
+      "stateMachineAliasArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>:<name:alias>"
+    },
+    "create-published": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "creationDate": "<creationDate:1>",
+      "stateMachineArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>",
+      "stateMachineVersionArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>:1"
+    },
+    "delete-alias": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-routed-version": {
+      "Error": {
+        "Code": "ConflictException",
+        "Message": "Version to be deleted must not be referenced by an alias. Current list of aliases referencing this version: [<name:alias>]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe-alias": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "creationDate": "<creationDate:3>",
+      "name": "<name:alias>",
+      "routingConfiguration": [
+        {
+          "stateMachineVersionArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>:1",
+          "weight": 100
+        }
+      ],
+      "stateMachineAliasArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>:<name:alias>"
+    },
+    "describe-version": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "creationDate": "<creationDate:1>",
+      "definition": {
+        "StartAt": "A",
+        "States": {
+          "A": {
+            "End": true,
+            "Result": "one",
+            "Type": "Pass"
+          }
+        }
+      },
+      "description": "first",
+      "encryptionConfiguration": {
+        "type": "AWS_OWNED_KEY"
+      },
+      "loggingConfiguration": {
+        "includeExecutionData": false,
+        "level": "OFF"
+      },
+      "name": "<name:machine>",
+      "roleArn": "arn:aws:iam::<account>:role/<name:role-1>",
+      "stateMachineArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>:1",
+      "status": "ACTIVE",
+      "tracingConfiguration": {
+        "enabled": false
+      },
+      "type": "STANDARD"
+    },
+    "list-versions": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "stateMachineVersions": [
+        {
+          "creationDate": "<creationDate:2>",
+          "stateMachineVersionArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>:2"
+        },
+        {
+          "creationDate": "<creationDate:1>",
+          "stateMachineVersionArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>:1"
+        }
+      ]
+    },
+    "publish": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "creationDate": "<creationDate:2>",
+      "stateMachineVersionArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>:2"
+    },
+    "run-through-alias": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "executionArn": "arn:aws:states:us-east-1:<account>:execution:<name:machine>:<name:run>",
+      "input": {
+        "via": "alias"
+      },
+      "inputDetails": {
+        "included": true
+      },
+      "name": "<name:run>",
+      "output": "one",
+      "outputDetails": {
+        "included": true
+      },
+      "startDate": "<startDate:1>",
+      "stateMachineAliasArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>:<name:alias>",
+      "stateMachineArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>",
+      "stateMachineVersionArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>:1",
+      "status": "SUCCEEDED",
+      "stopDate": "<stopDate:1>"
+    },
+    "update-alias": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "updateDate": "<updateDate:1>"
+    },
+    "weights-not-100": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Sum of routing configuration weights must equal 100. Received: [50]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
     }
   }
 }

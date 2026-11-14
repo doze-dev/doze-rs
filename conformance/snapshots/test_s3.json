@@ -2,9 +2,256 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
+  },
+  "test_acls_are_disabled_on_a_new_bucket": {
+    "bucket-acl": {
+      "Grants": [
+        {
+          "Grantee": {
+            "ID": "<ID:1>",
+            "Type": "CanonicalUser"
+          },
+          "Permission": "FULL_CONTROL"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create-with-public-read": {
+      "Error": {
+        "Code": "InvalidBucketAclWithObjectOwnership",
+        "Message": "Bucket cannot have ACLs set with ObjectOwnership's BucketOwnerEnforced setting"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "object-acl": {
+      "Grants": [
+        {
+          "Grantee": {
+            "ID": "<ID:1>",
+            "Type": "CanonicalUser"
+          },
+          "Permission": "FULL_CONTROL"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "object-acl-absent": {
+      "Error": {
+        "Code": "NoSuchKey",
+        "Message": "The specified key does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "ownership": {
+      "OwnershipControls": {
+        "Rules": [
+          {
+            "ObjectOwnership": "BucketOwnerEnforced"
+          }
+        ]
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put-bucket-acl": {
+      "Error": {
+        "Code": "AccessDenied",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: s3:PutBucketAcl on resource: \"arn:aws:s3:::<name:bucket>\" because public ACLs are prevented by the BlockPublicAcls setting in S3 Block Public Access."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    },
+    "put-bucket-acl-private": {
+      "Error": {
+        "Code": "AccessControlListNotSupported",
+        "Message": "The bucket does not allow ACLs"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put-object-acl": {
+      "Error": {
+        "Code": "AccessDenied",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: s3:PutObjectAcl on resource: \"arn:aws:s3:::<name:bucket>/k\" because public ACLs are prevented by the BlockPublicAcls setting in S3 Block Public Access."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    },
+    "put-object-owner-full-control": {
+      "ChecksumCRC32": "jNwWgw==",
+      "ChecksumType": "FULL_OBJECT",
+      "ETag": "\"9dd4e461268c8034f5c8564e155c67a6\"",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "put-object-public-read": {
+      "Error": {
+        "Code": "AccessControlListNotSupported",
+        "Message": "The bucket does not allow ACLs"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_acls_once_object_ownership_enables_them": {
+    "bucket-acl": {
+      "Grants": [
+        {
+          "Grantee": {
+            "ID": "<ID:1>",
+            "Type": "CanonicalUser"
+          },
+          "Permission": "FULL_CONTROL"
+        },
+        {
+          "Grantee": {
+            "Type": "Group",
+            "URI": "<endpoint>/groups/s3/LogDelivery"
+          },
+          "Permission": "WRITE"
+        },
+        {
+          "Grantee": {
+            "Type": "Group",
+            "URI": "<endpoint>/groups/s3/LogDelivery"
+          },
+          "Permission": "READ_ACP"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-ownership": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      }
+    },
+    "enforce": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "enforce-while-shared": {
+      "Error": {
+        "Code": "InvalidBucketAclWithObjectOwnership",
+        "Message": "Bucket cannot have ACLs set with ObjectOwnership's BucketOwnerEnforced setting"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "object-acl": {
+      "Grants": [
+        {
+          "Grantee": {
+            "ID": "<ID:1>",
+            "Type": "CanonicalUser"
+          },
+          "Permission": "FULL_CONTROL"
+        },
+        {
+          "Grantee": {
+            "Type": "Group",
+            "URI": "<endpoint>/groups/global/AllUsers"
+          },
+          "Permission": "READ"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "object-acl-private": {
+      "Grants": [
+        {
+          "Grantee": {
+            "ID": "<ID:1>",
+            "Type": "CanonicalUser"
+          },
+          "Permission": "FULL_CONTROL"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "ownership": {
+      "OwnershipControls": {
+        "Rules": [
+          {
+            "ObjectOwnership": "ObjectWriter"
+          }
+        ]
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "ownership-gone": {
+      "Error": {
+        "Code": "OwnershipControlsNotFoundError",
+        "Message": "The bucket ownership controls were not found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "public-access-block-gone": {
+      "Error": {
+        "Code": "NoSuchPublicAccessBlockConfiguration",
+        "Message": "The public access block configuration was not found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "public-acl-blocked": {
+      "Error": {
+        "Code": "AccessDenied",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: s3:PutObject on resource: \"arn:aws:s3:::<name:writer>/k\" because public ACLs are prevented by the BlockPublicAcls setting in S3 Block Public Access."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    },
+    "put-bucket-acl": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put-object-acl": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put-public-read": {
+      "ChecksumCRC32": "jNwWgw==",
+      "ChecksumType": "FULL_OBJECT",
+      "ETag": "\"9dd4e461268c8034f5c8564e155c67a6\"",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    }
   },
   "test_bucket_and_object_lifecycle": {
     "copy": {
@@ -284,6 +531,155 @@
       }
     }
   },
+  "test_bucket_policy_status": {
+    "no-policy": {
+      "Error": {
+        "Code": "NoSuchBucketPolicy",
+        "Message": "The bucket policy does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "private-policy": {
+      "PolicyStatus": {
+        "IsPublic": false
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "public-policy": {
+      "PolicyStatus": {
+        "IsPublic": true
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_checksums_are_held_to_what_was_sent": {
+    "attributes": {
+      "Checksum": {
+        "ChecksumSHA256": "GacQZrQtMFOFgNejYQTJiq+ETpdG+udRVN2JU3Qt1do=",
+        "ChecksumType": "FULL_OBJECT"
+      },
+      "ETag": "63ad50cefaf6fd40daae37bfe51f54e4",
+      "LastModified": "<datetime>",
+      "ObjectSize": 16,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StorageClass": "STANDARD"
+    },
+    "not-stored": {
+      "Error": {
+        "Code": "404",
+        "Message": "Not Found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "sha256": {
+      "ChecksumSHA256": "GacQZrQtMFOFgNejYQTJiq+ETpdG+udRVN2JU3Qt1do=",
+      "ChecksumType": "FULL_OBJECT",
+      "ETag": "\"63ad50cefaf6fd40daae37bfe51f54e4\"",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "wrong-md5": {
+      "Error": {
+        "Code": "BadDigest",
+        "Message": "The Content-MD5 you specified did not match what we received."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "wrong-sha256": {
+      "Error": {
+        "Code": "BadDigest",
+        "Message": "The SHA256 you specified did not match the calculated checksum."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_conditional_reads_and_writes": {
+    "create-only-if-absent": {
+      "Error": {
+        "Code": "PreconditionFailed",
+        "Message": "At least one of the pre-conditions you specified did not hold"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 412
+      }
+    },
+    "if-match-mismatch": {
+      "Error": {
+        "Code": "PreconditionFailed",
+        "Message": "At least one of the pre-conditions you specified did not hold"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 412
+      }
+    },
+    "if-match-write": {
+      "Error": {
+        "Code": "PreconditionFailed",
+        "Message": "At least one of the pre-conditions you specified did not hold"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 412
+      }
+    },
+    "if-none-match-304": {
+      "Error": {
+        "Code": "304",
+        "Message": "Not Modified"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 304
+      }
+    }
+  },
+  "test_copy_between_buckets_with_versions_and_tags": {
+    "copy-from-absent-bucket": {
+      "Error": {
+        "Code": "NoSuchBucket",
+        "Message": "The specified bucket does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "tags-copied": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TagSet": [
+        {
+          "Key": "a",
+          "Value": "1"
+        }
+      ]
+    },
+    "tags-replaced": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TagSet": [
+        {
+          "Key": "b",
+          "Value": "2"
+        }
+      ]
+    }
+  },
   "test_copy_replaces_or_keeps_metadata": {
     "absent-source": {
       "Error": {
@@ -331,6 +727,163 @@
         "HTTPStatusCode": 200
       },
       "ServerSideEncryption": "AES256"
+    }
+  },
+  "test_keys_with_awkward_characters_survive_listing_and_reading": {
+    "delimited": {
+      "CommonPrefixes": [
+        {
+          "Prefix": "a/"
+        },
+        {
+          "Prefix": "trailing/"
+        },
+        {
+          "Prefix": "\u00fcn\u00efcode/"
+        }
+      ],
+      "Contents": [
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"6b65ba1ea1e75ec5d5bdbff30ff1be31\"",
+          "Key": "percent%25",
+          "LastModified": "<datetime>",
+          "Size": 10,
+          "StorageClass": "STANDARD"
+        },
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"77b5f54245a4551c5876226678f88b52\"",
+          "Key": "plus+sign",
+          "LastModified": "<datetime>",
+          "Size": 9,
+          "StorageClass": "STANDARD"
+        },
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"effe8342a08750ae2f7edd7275c3f8d6\"",
+          "Key": "q?mark",
+          "LastModified": "<datetime>",
+          "Size": 6,
+          "StorageClass": "STANDARD"
+        },
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"cf4be071b64afa4ba06371ce57b418f7\"",
+          "Key": "tilde~",
+          "LastModified": "<datetime>",
+          "Size": 6,
+          "StorageClass": "STANDARD"
+        },
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"37fdaf3e3ab85c6a9c523cf1e111b274\"",
+          "Key": "with space",
+          "LastModified": "<datetime>",
+          "Size": 10,
+          "StorageClass": "STANDARD"
+        }
+      ],
+      "Delimiter": "/",
+      "EncodingType": "url",
+      "IsTruncated": false,
+      "KeyCount": 8,
+      "MaxKeys": 1000,
+      "Name": "<name:bucket>",
+      "Prefix": "",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_lifecycle_rules_are_checked_when_put": {
+    "bad-status": {
+      "Error": {
+        "Code": "MalformedXML",
+        "Message": "The XML you provided was not well-formed or did not validate against our published schema"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "kept-as-sent": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Rules": [
+        {
+          "Expiration": {
+            "Days": 30
+          },
+          "Filter": {
+            "And": {
+              "ObjectSizeGreaterThan": 10,
+              "Prefix": "logs/",
+              "Tags": [
+                {
+                  "Key": "t",
+                  "Value": "1"
+                }
+              ]
+            }
+          },
+          "ID": "a",
+          "Status": "Enabled"
+        }
+      ],
+      "TransitionDefaultMinimumObjectSize": "all_storage_classes_128K"
+    },
+    "no-action": {
+      "Error": {
+        "Code": "InvalidRequest",
+        "Message": "At least one action needs to be specified in a rule"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "size-and-tag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TransitionDefaultMinimumObjectSize": "all_storage_classes_128K"
+    },
+    "zero-days": {
+      "Error": {
+        "Code": "InvalidArgument",
+        "Message": "'Days' for Expiration action must be a positive integer"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_listing_pages_across_delimiters": {
+    "empty-prefix": {
+      "EncodingType": "url",
+      "IsTruncated": false,
+      "KeyCount": 0,
+      "MaxKeys": 1000,
+      "Name": "<name:bucket>",
+      "Prefix": "nothing/",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
     }
   },
   "test_listing_with_prefix_delimiter_and_pages": {
@@ -540,6 +1093,44 @@
       }
     }
   },
+  "test_multipart_parts_are_replaced_listed_and_aborted": {
+    "after-abort": {
+      "Error": {
+        "Code": "NoSuchUpload",
+        "Message": "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "bad-order": {
+      "Error": {
+        "Code": "InvalidPart",
+        "Message": "One or more of the specified parts could not be found.  The part may not have been uploaded, or the specified entity tag may not match the part's entity tag."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "missing-part": {
+      "Error": {
+        "Code": "InvalidPart",
+        "Message": "One or more of the specified parts could not be found.  The part may not have been uploaded, or the specified entity tag may not match the part's entity tag."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "part-number-range": {
+      "Error": {
+        "Code": "InvalidArgument",
+        "Message": "Part number must be an integer between 1 and 10000, inclusive"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
   "test_multipart_upload": {
     "abort": {
       "ResponseMetadata": {
@@ -697,6 +1288,246 @@
     "standard-queue": {
       "ResponseMetadata": {
         "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_object_lock_configuration_and_the_default_retention": {
+    "a-date-in-the-past": {
+      "Error": {
+        "Code": "InvalidArgument",
+        "Message": "The retain until date must be in the future!"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "both-days-and-years": {
+      "Error": {
+        "Code": "MalformedXML",
+        "Message": "The XML you provided was not well-formed or did not validate against our published schema"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "default-retention": {
+      "ObjectLockConfiguration": {
+        "ObjectLockEnabled": "Enabled",
+        "Rule": {
+          "DefaultRetention": {
+            "Days": 1,
+            "Mode": "GOVERNANCE"
+          }
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "enabled-with-no-rule": {
+      "ObjectLockConfiguration": {
+        "ObjectLockEnabled": "Enabled"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "explicit-retention": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Retention": {
+        "Mode": "GOVERNANCE",
+        "RetainUntilDate": "<datetime>"
+      }
+    },
+    "lock-configuration-of-an-unlocked-bucket": {
+      "Error": {
+        "Code": "ObjectLockConfigurationNotFoundError",
+        "Message": "Object Lock configuration does not exist for this bucket"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "lock-headers-on-an-unlocked-bucket": {
+      "Error": {
+        "Code": "InvalidRequest",
+        "Message": "Bucket is missing ObjectLockConfiguration"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "mode-without-a-date": {
+      "Error": {
+        "Code": "InvalidArgument",
+        "Message": "x-amz-object-lock-retain-until-date and x-amz-object-lock-mode must both be supplied"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "object-takes-the-default": {
+      "ObjectLockMode": "GOVERNANCE"
+    },
+    "put-default-retention": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put-retention-on-an-unlocked-bucket": {
+      "Error": {
+        "Code": "InvalidRequest",
+        "Message": "Bucket is missing Object Lock Configuration"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "retention-on-an-unlocked-bucket": {
+      "Error": {
+        "Code": "InvalidRequest",
+        "Message": "Bucket is missing Object Lock Configuration"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_object_lock_legal_hold": {
+    "bypass-does-not-lift-a-hold": {
+      "Error": {
+        "Code": "AccessDenied",
+        "Message": "Access Denied because object protected by object lock."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    },
+    "delete-after-hold": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      },
+      "VersionId": "<VersionId:1>"
+    },
+    "delete-under-hold": {
+      "Error": {
+        "Code": "AccessDenied",
+        "Message": "Access Denied because object protected by object lock."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    },
+    "head-shows-the-hold": {
+      "ObjectLockLegalHoldStatus": "ON"
+    },
+    "hold-off": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "hold-on": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "legal-hold": {
+      "LegalHold": {
+        "Status": "ON"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "legal-hold-off": {
+      "LegalHold": {
+        "Status": "OFF"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "no-legal-hold-yet": {
+      "Error": {
+        "Code": "NoSuchObjectLockConfiguration",
+        "Message": "The specified object does not have a ObjectLock configuration"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    }
+  },
+  "test_object_lock_retention_blocks_deletes_and_governance_can_be_bypassed": {
+    "batch-delete-the-version": {
+      "Errors": [
+        {
+          "Code": "AccessDenied",
+          "Key": "k",
+          "Message": "Access Denied because object protected by object lock.",
+          "VersionId": "<VersionId:1>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-the-version": {
+      "Error": {
+        "Code": "AccessDenied",
+        "Message": "Access Denied because object protected by object lock."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    },
+    "delete-with-bypass": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      },
+      "VersionId": "<VersionId:1>"
+    },
+    "extend": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "no-retention-yet": {
+      "Error": {
+        "Code": "NoSuchObjectLockConfiguration",
+        "Message": "The specified object does not have a ObjectLock configuration"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "put-retention": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "retention": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Retention": {
+        "Mode": "GOVERNANCE",
+        "RetainUntilDate": "<datetime>"
+      }
+    },
+    "shorten-with-bypass": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "shorten-without-bypass": {
+      "Error": {
+        "Code": "AccessDenied",
+        "Message": "Access Denied because object protected by object lock."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
       }
     }
   },
@@ -876,6 +1707,17 @@
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 412
+      }
+    }
+  },
+  "test_refused_by_name": {
+    "restore": {
+      "Error": {
+        "Code": "InvalidObjectState",
+        "Message": "Restore is not allowed for the object's current storage class"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
       }
     }
   },
@@ -1109,6 +1951,20 @@
           "VersionId": "<VersionId:1>"
         }
       ]
+    }
+  },
+  "test_versions_delete_markers_and_removing_a_version": {
+    "remove-version": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      },
+      "VersionId": "<VersionId:1>"
+    },
+    "suspended": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Status": "Suspended"
     }
   }
 }

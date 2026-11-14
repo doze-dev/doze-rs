@@ -1,0 +1,114 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-15",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_schedule_lifecycle": {
+    "create": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScheduleArn": "arn:aws:scheduler:us-east-1:<account>:schedule/default/<name:schedule>"
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-deleted": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Schedule <name:schedule> does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "get": {
+      "ActionAfterCompletion": "NONE",
+      "Arn": "arn:aws:scheduler:us-east-1:<account>:schedule/default/<name:schedule>",
+      "CreationDate": "<CreationDate:1>",
+      "Description": "weekday mornings",
+      "FlexibleTimeWindow": {
+        "MaximumWindowInMinutes": 15,
+        "Mode": "FLEXIBLE"
+      },
+      "GroupName": "default",
+      "LastModificationDate": "<LastModificationDate:1>",
+      "Name": "<name:schedule>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScheduleExpression": "cron(0 9 ? * MON-FRI *)",
+      "ScheduleExpressionTimezone": "Europe/Paris",
+      "State": "ENABLED",
+      "Target": {
+        "Arn": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+        "Input": "hello",
+        "RetryPolicy": {
+          "MaximumEventAgeInSeconds": 86400,
+          "MaximumRetryAttempts": 185
+        },
+        "RoleArn": "arn:aws:iam::<account>:role/<name:role-1>"
+      }
+    },
+    "get-after-update": {
+      "ActionAfterCompletion": "NONE",
+      "Arn": "arn:aws:scheduler:us-east-1:<account>:schedule/default/<name:schedule>",
+      "CreationDate": "<CreationDate:1>",
+      "FlexibleTimeWindow": {
+        "Mode": "OFF"
+      },
+      "GroupName": "default",
+      "LastModificationDate": "<LastModificationDate:2>",
+      "Name": "<name:schedule>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScheduleExpression": "rate(1 hour)",
+      "ScheduleExpressionTimezone": "UTC",
+      "State": "DISABLED",
+      "Target": {
+        "Arn": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+        "Input": "hello",
+        "RetryPolicy": {
+          "MaximumEventAgeInSeconds": 86400,
+          "MaximumRetryAttempts": 185
+        },
+        "RoleArn": "arn:aws:iam::<account>:role/<name:role-1>"
+      }
+    },
+    "get-deleted": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Schedule <name:schedule> does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "list": [
+      {
+        "Arn": "arn:aws:scheduler:us-east-1:<account>:schedule/default/<name:schedule>",
+        "CreationDate": "<CreationDate:1>",
+        "GroupName": "default",
+        "LastModificationDate": "<LastModificationDate:2>",
+        "Name": "<name:schedule>",
+        "State": "DISABLED",
+        "Target": {
+          "Arn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+        }
+      }
+    ],
+    "list-enabled": [],
+    "update": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScheduleArn": "arn:aws:scheduler:us-east-1:<account>:schedule/default/<name:schedule>"
+    }
+  }
+}

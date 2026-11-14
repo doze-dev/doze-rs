@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -48,6 +48,32 @@
         "HTTPStatusCode": 200
       },
       "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+    }
+  },
+  "test_fifo_deduplication": {
+    "attributes": {
+      "ContentBasedDeduplication": "true",
+      "FifoTopic": "true"
+    },
+    "delivered": [
+      "other",
+      "same"
+    ],
+    "no-dedup-id": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: The topic should either have ContentBasedDeduplication enabled or MessageDeduplicationId provided explicitly"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "same-message-id-for-a-duplicate": true,
+    "same-sequence-for-a-duplicate": true,
+    "turn-content-based-off": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
     }
   },
   "test_fifo_topic_delivers_to_a_fifo_queue": {
@@ -100,6 +126,30 @@
       }
     }
   },
+  "test_filter_policy_on_attributes": {
+    "delivered": [
+      "passes",
+      "sentinel"
+    ]
+  },
+  "test_filter_policy_on_the_message_body": {
+    "delivered": [
+      "{\"order\": [{\"kind\": \"slow\"}, {\"kind\": \"rush\", \"qty\": 9}], \"paid\": true}",
+      "{\"order\": {\"kind\": \"rush\", \"qty\": 2}, \"paid\": true, \"tag\": \"sentinel\"}",
+      "{\"order\": {\"kind\": \"rush\", \"qty\": 3}, \"paid\": true}"
+    ]
+  },
+  "test_filter_policy_with_or_exists_and_arrays": {
+    "delivered": [
+      "an array",
+      "red",
+      "round no size",
+      "sentinel"
+    ]
+  },
+  "test_json_structure_picks_the_member_for_the_protocol": {
+    "delivered": "for the queue"
+  },
   "test_publish_batch": {
     "delivered": [
       "one",
@@ -143,6 +193,110 @@
       "Error": {
         "Code": "BatchEntryIdsNotDistinct",
         "Message": "Two or more batch entries in the request have the same Id."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_publish_checks": {
+    "at-the-limit": {
+      "MessageId": "<MessageId:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "bad-attribute-type": {
+      "Error": {
+        "Code": "ParameterValueInvalid",
+        "Message": "The message attribute 'a' has an invalid message attribute type, the set of supported type prefixes is Binary, Number, and String."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "dedup-id-on-a-standard-topic": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: MessageDeduplicationId Reason: The request includes MessageDeduplicationId parameter that is not valid for this topic type"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "eleven-attributes": {
+      "MessageId": "<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "empty-attribute-value": {
+      "Error": {
+        "Code": "ParameterValueInvalid",
+        "Message": "The message attribute 'a' must contain non-empty message attribute value for message attribute type 'String'."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "json-that-is-not-json": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Message Structure - JSON message body failed to parse"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "json-without-default": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Message Structure - No default entry in JSON message body"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-target": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: TopicArn or TargetArn Reason: no value for required parameter"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-a-number": {
+      "Error": {
+        "Code": "ParameterValueInvalid",
+        "Message": "Could not cast message attribute 'a' value to number."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "subject-too-long": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Subject"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "subject-with-a-newline": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Subject"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "too-long": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Message too long"
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
@@ -303,6 +457,135 @@
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 404
+      }
+    }
+  },
+  "test_subscribe_twice_and_set_subscription_attributes": {
+    "after-clear": {
+      "Attributes": {
+        "ConfirmationWasAuthenticated": "true",
+        "Endpoint": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+        "Owner": "<account>",
+        "PendingConfirmation": "false",
+        "Protocol": "sqs",
+        "RawMessageDelivery": "false",
+        "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>",
+        "SubscriptionPrincipal": "<SubscriptionPrincipal:1>",
+        "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "after-filter": {
+      "Attributes": {
+        "ConfirmationWasAuthenticated": "true",
+        "Endpoint": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+        "FilterPolicy": "{\"kind\":[\"order\"],\"n\":[{\"numeric\":[\">\",1]}]}",
+        "FilterPolicyScope": "MessageAttributes",
+        "Owner": "<account>",
+        "PendingConfirmation": "false",
+        "Protocol": "sqs",
+        "RawMessageDelivery": "false",
+        "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>",
+        "SubscriptionPrincipal": "<SubscriptionPrincipal:1>",
+        "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "again": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>"
+    },
+    "again-with-attributes": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Attributes Reason: Subscription already exists with different attributes"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-raw": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: RawMessageDelivery: Invalid value [sometimes]. Must be true or false."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-scope": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: FilterPolicyScope: Invalid value [Everything]. Please use either MessageBody or MessageAttributes"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "body-scope-over-a-flat-policy": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "clear-filter": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "exists-not-a-bool": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: FilterPolicy: exists match pattern must be either true or false.\n at [Source: (String)\"{\"kind\":[{\"exists\":\"yes\"}]}\"; line: 1, column: 21]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-an-object": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: FilterPolicy: Filter is not an object\n at [Source: (String)\"[1]\"; line: 1, column: 2]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-filter": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "too-complex": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: FilterPolicy: Filter policy is too complex"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unknown": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: AttributeName"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unknown-operator": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: FilterPolicy: Unrecognized match type nope\n at [Source: (String)\"{\"kind\":[{\"nope\":1}]}\"; line: 1, column: 19]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
       }
     }
   },

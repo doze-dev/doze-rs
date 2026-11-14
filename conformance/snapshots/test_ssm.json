@@ -2,9 +2,71 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
+  },
+  "test_a_secrets_manager_secret_read_through_parameter_store": {
+    "absent": {
+      "Error": {
+        "Code": "ParameterNotFound",
+        "Message": "An error occurred (ParameterNotFound) when referencing Secrets Manager: Secret aws/reference/secretsmanager/<name:secret>-absent not found. Secrets Manager can't find the specified secret."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bulk": {
+      "InvalidParameters": [
+        "/aws/reference/secretsmanager/<name:secret>-absent"
+      ],
+      "Parameters": [
+        {
+          "ARN": "arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-DBPmwC",
+          "LastModifiedDate": "<datetime>",
+          "Name": "/aws/reference/secretsmanager/<name:secret>",
+          "SourceResult": "{\"ARN\":\"arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-DBPmwC\",\"name\":\"<name:secret>\",\"versionId\":\"<uuid:1>\",\"secretString\":\"s3cret\",\"versionStages\":[\"AWSCURRENT\"],\"createdDate\":\"Nov 14, 2026, 8:53:14 PM\"}",
+          "Type": "SecureString",
+          "Value": "s3cret",
+          "Version": "<Version:1>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "by-path-does-not-list-it": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "The parameter doesn't meet the parameter name requirements. The parameter name must begin with a forward slash \"/\". It can't be prefixed with \\\"aws\\\" or \\\"ssm\\\" (case-insensitive). It must use only letters, numbers, or the following symbols: . (period), - (hyphen), _ (underscore). Special characters are not allowed. All sub-paths, if specified, must use the forward slash symbol \"/\". Valid example: /get/parameters2-/by1./path0_."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "open": {
+      "Parameter": {
+        "ARN": "arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-DBPmwC",
+        "LastModifiedDate": "<datetime>",
+        "Name": "/aws/reference/secretsmanager/<name:secret>",
+        "SourceResult": "{\"ARN\":\"arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-DBPmwC\",\"name\":\"<name:secret>\",\"versionId\":\"<uuid:1>\",\"secretString\":\"s3cret\",\"versionStages\":[\"AWSCURRENT\"],\"createdDate\":\"Nov 14, 2026, 8:53:14 PM\"}",
+        "Type": "SecureString",
+        "Value": "s3cret",
+        "Version": "<Version:1>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "sealed": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "WithDecryption flag must be True for retrieving a Secret Manager secret."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
   },
   "test_parameter_lifecycle_and_versions": {
     "delete": {
@@ -329,8 +391,8 @@
     },
     "path-without-slash": {
       "Error": {
-        "Code": "AccessDeniedException",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: ssm:GetParametersByPath on resource: arn:aws:ssm:us-east-1:<account>:parameter/no-leading-slash because no identity-based policy allows the ssm:GetParametersByPath action"
+        "Code": "ValidationException",
+        "Message": "The parameter doesn't meet the parameter name requirements. The parameter name must begin with a forward slash \"/\". It can't be prefixed with \\\"aws\\\" or \\\"ssm\\\" (case-insensitive). It must use only letters, numbers, or the following symbols: . (period), - (hyphen), _ (underscore). Special characters are not allowed. All sub-paths, if specified, must use the forward slash symbol \"/\". Valid example: /get/parameters2-/by1./path0_."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
@@ -339,7 +401,7 @@
     "reserved-prefix": {
       "Error": {
         "Code": "AccessDeniedException",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: ssm:PutParameter on resource: arn:aws:ssm:us-east-1:<account>:parameter/aws/not-yours because no identity-based policy allows the ssm:PutParameter action"
+        "Message": "No access to reserved parameter name: aws/not-yours."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
@@ -347,8 +409,8 @@
     },
     "reserved-word": {
       "Error": {
-        "Code": "AccessDeniedException",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: ssm:PutParameter on resource: arn:aws:ssm:us-east-1:<account>:parameter/ssm-not-yours because no identity-based policy allows the ssm:PutParameter action"
+        "Code": "ValidationException",
+        "Message": "Parameter name: can't be prefixed with \"aws\" or \"ssm\" (case-insensitive)."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
@@ -364,7 +426,7 @@
     "reserved-word-starts-a-segment": {
       "Error": {
         "Code": "AccessDeniedException",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: ssm:PutParameter on resource: arn:aws:ssm:us-east-1:<account>:parameter/awsome-dzc/x because no identity-based policy allows the ssm:PutParameter action"
+        "Message": "No access to reserved parameter name: awsome-dzc/x."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
@@ -405,6 +467,404 @@
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_secure_strings_read_in_bulk_and_in_history": {
+    "bulk-open": {
+      "InvalidParameters": [],
+      "Parameters": [
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/secret",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "Name": "/<name:param>/secret",
+          "Type": "SecureString",
+          "Value": "second",
+          "Version": 2
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "by-path-open": {
+      "Parameters": [
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/secret",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "Name": "/<name:param>/secret",
+          "Type": "SecureString",
+          "Value": "second",
+          "Version": 2
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe": {
+      "Parameters": [
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/secret",
+          "DataType": "text",
+          "KeyId": "alias/aws/ssm",
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/secret",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "SecureString",
+          "Version": 2
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "history-open": {
+      "Parameters": [
+        {
+          "DataType": "text",
+          "KeyId": "alias/aws/ssm",
+          "Labels": [],
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/secret",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "SecureString",
+          "Value": "first",
+          "Version": 1
+        },
+        {
+          "DataType": "text",
+          "KeyId": "alias/aws/ssm",
+          "Labels": [],
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/secret",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "SecureString",
+          "Value": "second",
+          "Version": 2
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "history-sealed": {
+      "Parameters": [
+        {
+          "DataType": "text",
+          "KeyId": "alias/aws/ssm",
+          "Labels": [],
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/secret",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "SecureString",
+          "Value": "<Value:1>",
+          "Version": 1
+        },
+        {
+          "DataType": "text",
+          "KeyId": "alias/aws/ssm",
+          "Labels": [],
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/secret",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "SecureString",
+          "Value": "<Value:2>",
+          "Version": 2
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "overwrite-keeps-type": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tier": "Standard",
+      "Version": 2
+    }
+  },
+  "test_tags_filters_and_unlabel": {
+    "add-tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "bad-filter-key": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Value 'Nonsense' at 'parameterFilters.1.member.key' failed to satisfy constraint: Member must satisfy regular expression pattern: tag:.+|Name|Type|KeyId|Path|Label|Tier|DataType"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "by-path-one-level": {
+      "Parameters": [
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/a",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/a",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "String",
+          "Version": 1
+        },
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/b",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/b",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "StringList",
+          "Version": 1
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "by-type": {
+      "Parameters": [
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/b",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/b",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "StringList",
+          "Version": 1
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "label-bad": {
+      "InvalidLabels": [
+        "1bad"
+      ],
+      "ParameterVersion": 2,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "label-two": {
+      "InvalidLabels": [],
+      "ParameterVersion": 2,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "list-tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TagList": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        },
+        {
+          "Key": "team",
+          "Value": "x"
+        }
+      ]
+    },
+    "put-with-tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tier": "Standard",
+      "Version": 1
+    },
+    "remove-tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tags-after": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TagList": [
+        {
+          "Key": "team",
+          "Value": "x"
+        }
+      ]
+    },
+    "tags-of-a-document-type": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Value at 'resourceType' failed to satisfy constraint: Member is not a valid resourceType"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "tags-of-absent": {
+      "Error": {
+        "Code": "InvalidResourceId",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unlabel": {
+      "InvalidLabels": [
+        "absent"
+      ],
+      "RemovedLabels": [
+        "one"
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_value_limits_and_allowed_pattern": {
+    "bad-data-type": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "You can\u2019t change a parameter\u2019s data type."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-pattern": {
+      "Error": {
+        "Code": "InvalidAllowedPatternException",
+        "Message": "The syntax of the allowedPattern parameter is invalid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "description-after-overwrite": [
+      {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200
+        },
+        "Tier": "Standard",
+        "Version": 2
+      },
+      {
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200
+        },
+        "Tier": "Standard",
+        "Version": 3
+      },
+      {
+        "Parameters": [
+          {
+            "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/digits",
+            "AllowedPattern": "^\\d+$",
+            "DataType": "text",
+            "Description": "kept?",
+            "LastModifiedDate": "<datetime>",
+            "LastModifiedUser": "arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud",
+            "Name": "/<name:param>/digits",
+            "Policies": [],
+            "Tier": "Standard",
+            "Type": "String",
+            "Version": 3
+          }
+        ],
+        "ResponseMetadata": {
+          "HTTPStatusCode": 200
+        }
+      }
+    ],
+    "exactly-4096": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tier": "Standard",
+      "Version": 1
+    },
+    "over-4096-standard": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Standard tier parameters support a maximum parameter value of 4096 characters. To create a larger parameter value, upgrade the parameter to use the advanced-parameter tier. For more information, see https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-advanced-parameters.html"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "pattern": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tier": "Standard",
+      "Version": 1
+    },
+    "pattern-kept": {
+      "Parameters": [
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/digits",
+          "AllowedPattern": "^\\d+$",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/digits",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "String",
+          "Version": 1
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "pattern-mismatch": {
+      "Error": {
+        "Code": "ParameterPatternMismatchException",
+        "Message": "Parameter value, cannot be validated against allowedPattern: ^\\d+$"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "policies-on-standard": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "You can't assign parameter policies to a standard-parameter tier. You must upgrade the parameter to use the advanced-parameter tier. For more information, see https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-advanced-parameters.html"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "tags-with-overwrite": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid request: tags and overwrite can't be used together. To create a parameter with tags, please remove overwrite flag. To update tags for an existing parameter, please use AddTagsToResource or RemoveTagsFromResource."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
       }
     }
   }

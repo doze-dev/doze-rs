@@ -2,9 +2,218 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
+  },
+  "test_a_merge_names_both_parents_and_a_closed_shard_reads_to_its_end": {
+    "first-parent-drained": {
+      "ChildShards": [
+        {
+          "HashKeyRange": {
+            "EndingHashKey": "226854911280625642308916404954512140969",
+            "StartingHashKey": "0"
+          },
+          "ParentShards": [
+            "shardId-000000000000",
+            "shardId-000000000001"
+          ],
+          "ShardId": "shardId-000000000003"
+        }
+      ],
+      "Data": [
+        {
+          "<bytes>": "zero"
+        }
+      ]
+    },
+    "merge": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "merge-a-closed-shard": {
+      "Error": {
+        "Code": "InvalidArgumentException",
+        "Message": "Shard shardId-000000000000 in stream <name:stream> under account <account> has already been merged or split, and thus is not eligible for merging or splitting."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "merge-a-gap": {
+      "Error": {
+        "Code": "InvalidArgumentException",
+        "Message": "Shards shardId-000000000000 and shardId-000000000002 in stream <name:stream> under account <account> are not an adjacent pair of shards eligible for merging"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "merge-an-absent-shard": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Could not find shard shardId-000000000099 in stream <name:stream> under account <account>."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "merge-with-itself": {
+      "Error": {
+        "Code": "InvalidArgumentException",
+        "Message": "Shards shardId-000000000000 and shardId-000000000000 in stream <name:stream> under account <account> are not an adjacent pair of shards eligible for merging"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "second-parent-drained": {
+      "ChildShards": [
+        {
+          "HashKeyRange": {
+            "EndingHashKey": "226854911280625642308916404954512140969",
+            "StartingHashKey": "0"
+          },
+          "ParentShards": [
+            "shardId-000000000000",
+            "shardId-000000000001"
+          ],
+          "ShardId": "shardId-000000000003"
+        }
+      ],
+      "Data": [
+        {
+          "<bytes>": "one"
+        }
+      ]
+    },
+    "shards": [
+      {
+        "HashKeyRange": {
+          "EndingHashKey": "113427455640312821154458202477256070484",
+          "StartingHashKey": "0"
+        },
+        "SequenceNumberRange": {
+          "EndingSequenceNumber": "<EndingSequenceNumber:1>",
+          "StartingSequenceNumber": "<StartingSequenceNumber:1>"
+        },
+        "ShardId": "shardId-000000000000"
+      },
+      {
+        "HashKeyRange": {
+          "EndingHashKey": "226854911280625642308916404954512140969",
+          "StartingHashKey": "113427455640312821154458202477256070485"
+        },
+        "SequenceNumberRange": {
+          "EndingSequenceNumber": "<EndingSequenceNumber:2>",
+          "StartingSequenceNumber": "<StartingSequenceNumber:2>"
+        },
+        "ShardId": "shardId-000000000001"
+      },
+      {
+        "HashKeyRange": {
+          "EndingHashKey": "340282366920938463463374607431768211455",
+          "StartingHashKey": "226854911280625642308916404954512140970"
+        },
+        "SequenceNumberRange": {
+          "StartingSequenceNumber": "<StartingSequenceNumber:3>"
+        },
+        "ShardId": "shardId-000000000002"
+      },
+      {
+        "AdjacentParentShardId": "shardId-000000000001",
+        "HashKeyRange": {
+          "EndingHashKey": "226854911280625642308916404954512140969",
+          "StartingHashKey": "0"
+        },
+        "ParentShardId": "shardId-000000000000",
+        "SequenceNumberRange": {
+          "StartingSequenceNumber": "<StartingSequenceNumber:4>"
+        },
+        "ShardId": "shardId-000000000003"
+      }
+    ]
+  },
+  "test_a_new_shard_count_re_tiles_the_stream": {
+    "scale-up": {
+      "CurrentShardCount": 1,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StreamARN": "arn:aws:kinesis:us-east-1:<account>:stream/<name:stream>",
+      "StreamName": "<name:stream>",
+      "TargetShardCount": 2
+    },
+    "scale-up-past-double": {
+      "Error": {
+        "Code": "InvalidArgumentException",
+        "Message": "UpdateShardCount cannot scale up over double your current open shard count. Current open shard count: 2 Target shard count: 5"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "shards": [
+      {
+        "HashKeyRange": {
+          "EndingHashKey": "340282366920938463463374607431768211455",
+          "StartingHashKey": "0"
+        },
+        "SequenceNumberRange": {
+          "EndingSequenceNumber": "<EndingSequenceNumber:1>",
+          "StartingSequenceNumber": "<StartingSequenceNumber:1>"
+        },
+        "ShardId": "shardId-000000000000"
+      },
+      {
+        "HashKeyRange": {
+          "EndingHashKey": "170141183460469231731687303715884105727",
+          "StartingHashKey": "0"
+        },
+        "ParentShardId": "shardId-000000000000",
+        "SequenceNumberRange": {
+          "StartingSequenceNumber": "<StartingSequenceNumber:2>"
+        },
+        "ShardId": "shardId-000000000001"
+      },
+      {
+        "HashKeyRange": {
+          "EndingHashKey": "340282366920938463463374607431768211455",
+          "StartingHashKey": "170141183460469231731687303715884105728"
+        },
+        "ParentShardId": "shardId-000000000000",
+        "SequenceNumberRange": {
+          "StartingSequenceNumber": "<StartingSequenceNumber:3>"
+        },
+        "ShardId": "shardId-000000000002"
+      }
+    ],
+    "summary": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StreamDescriptionSummary": {
+        "ChannelCount": 0,
+        "ConsumerCount": 0,
+        "EncryptionType": "NONE",
+        "EnhancedMonitoring": [
+          {
+            "ShardLevelMetrics": []
+          }
+        ],
+        "MaxRecordSizeInKiB": 1024,
+        "OpenShardCount": 2,
+        "RetentionPeriodHours": 24,
+        "StreamARN": "arn:aws:kinesis:us-east-1:<account>:stream/<name:stream>",
+        "StreamCreationTimestamp": "<datetime>",
+        "StreamModeDetails": {
+          "StreamMode": "PROVISIONED"
+        },
+        "StreamName": "<name:stream>",
+        "StreamStatus": "ACTIVE"
+      }
+    }
   },
   "test_a_split_closes_the_parent_even_if_it_never_held_a_record": {
     "parent-closed": {
@@ -50,6 +259,121 @@
         "HTTPStatusCode": 200
       }
     }
+  },
+  "test_a_split_hands_a_records_shard_over_to_its_children": {
+    "open-shards": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Shards": [
+        {
+          "HashKeyRange": {
+            "EndingHashKey": "170141183460469231731687303715884105727",
+            "StartingHashKey": "0"
+          },
+          "ParentShardId": "shardId-000000000000",
+          "SequenceNumberRange": {
+            "StartingSequenceNumber": "<StartingSequenceNumber:1>"
+          },
+          "ShardId": "shardId-000000000001"
+        },
+        {
+          "HashKeyRange": {
+            "EndingHashKey": "340282366920938463463374607431768211455",
+            "StartingHashKey": "170141183460469231731687303715884105728"
+          },
+          "ParentShardId": "shardId-000000000000",
+          "SequenceNumberRange": {
+            "StartingSequenceNumber": "<StartingSequenceNumber:2>"
+          },
+          "ShardId": "shardId-000000000002"
+        }
+      ]
+    },
+    "parent-drained": {
+      "ChildShards": [
+        {
+          "HashKeyRange": {
+            "EndingHashKey": "170141183460469231731687303715884105727",
+            "StartingHashKey": "0"
+          },
+          "ParentShards": [
+            "shardId-000000000000"
+          ],
+          "ShardId": "shardId-000000000001"
+        },
+        {
+          "HashKeyRange": {
+            "EndingHashKey": "340282366920938463463374607431768211455",
+            "StartingHashKey": "170141183460469231731687303715884105728"
+          },
+          "ParentShards": [
+            "shardId-000000000000"
+          ],
+          "ShardId": "shardId-000000000002"
+        }
+      ],
+      "Data": [
+        {
+          "<bytes>": "before"
+        }
+      ]
+    },
+    "routing-after": {
+      "ShardId": "shardId-000000000002"
+    },
+    "split": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "split-a-closed-shard": {
+      "Error": {
+        "Code": "InvalidArgumentException",
+        "Message": "Shard shardId-000000000000 in stream <name:stream> under account <account> has already been merged or split, and thus is not eligible for merging or splitting."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "split-outside-the-shard": {
+      "Error": {
+        "Code": "InvalidArgumentException",
+        "Message": "NewStartingHashKey 0 used in SplitShard() on shard shardId-000000000000 in stream <name:stream> under account <account> is not both greater than one plus the shard's StartingHashKey 0 and less than the shard's EndingHashKey 340282366920938463463374607431768211455."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_every_iterator_type": {
+    "after-sequence": [
+      {
+        "<bytes>": "b"
+      },
+      {
+        "<bytes>": "c"
+      }
+    ],
+    "at-sequence": [
+      {
+        "<bytes>": "a"
+      },
+      {
+        "<bytes>": "b"
+      },
+      {
+        "<bytes>": "c"
+      }
+    ],
+    "at-timestamp": [
+      {
+        "<bytes>": "b"
+      },
+      {
+        "<bytes>": "c"
+      }
+    ]
   },
   "test_partition_keys_route_across_shards": {
     "explicit-hash-key": {

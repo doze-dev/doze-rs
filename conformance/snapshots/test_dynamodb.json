@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -50,7 +50,7 @@
     "twenty-six": {
       "Error": {
         "Code": "ValidationException",
-        "Message": "1 validation error detected: Value '{<name:table>=[WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k0, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k1, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k2, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k3, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k4, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k5, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k6, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k7, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k8, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k9, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k10, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k11, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k12, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k13, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k14, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k15, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k16, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k17, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k18, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k19, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k20, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k21, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k22, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k23, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k24, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k25, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null)]}' at 'requestItems' failed to satisfy constraint: Map value must satisfy constraint: [Member must have length less than or equal to 25, Member must have length greater than or equal to 1]"
+        "Message": "1 validation error detected: Value at 'RequestItems.<name:table>.member' failed to satisfy constraint: Member must have length less than or equal to 25"
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
@@ -558,6 +558,335 @@
       }
     }
   },
+  "test_key_and_item_limits": {
+    "bad-number": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: The parameter cannot be converted to a numeric value: 12abc"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "duplicate-set-members": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: One or more parameter values were invalid: Input collection [\"a\", \"a\"] contains duplicates."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "empty-key": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "One or more parameter values are not valid. The AttributeValue for a key attribute cannot contain an empty string value. Key: pk"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "item-over-400kb": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Item size has exceeded the maximum allowed size"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "key-over-2048-bytes": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "One or more parameter values were invalid: Size of hashkey has exceeded the maximum size limit of2048 bytes"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "key-with-extra-attribute": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "The provided key element does not match the schema"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "number-normalised": {
+      "Attributes": {
+        "n": {
+          "N": "1.23"
+        },
+        "pk": {
+          "S": "a"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_partiql_batch_and_transaction": {
+    "batch-read": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Responses": [
+        {
+          "Item": {
+            "pk": {
+              "S": "a"
+            }
+          },
+          "TableName": "<name:table>"
+        },
+        {
+          "TableName": "<name:table>"
+        }
+      ]
+    },
+    "batch-write": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Responses": [
+        {
+          "TableName": "<name:table>"
+        },
+        {
+          "Error": {
+            "Code": "DuplicateItem",
+            "Message": "Duplicate primary key exists in table"
+          },
+          "TableName": "<name:table>"
+        },
+        {
+          "Error": {
+            "Code": "ConditionalCheckFailed",
+            "Message": "The conditional request failed"
+          },
+          "TableName": "<name:table>"
+        }
+      ]
+    },
+    "nothing-written": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "read-transaction": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Responses": [
+        {
+          "Item": {
+            "pk": {
+              "S": "new"
+            }
+          }
+        },
+        {
+          "Item": {
+            "n": {
+              "N": "1"
+            }
+          }
+        }
+      ]
+    },
+    "transaction": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Responses": []
+    },
+    "transaction-cancelled": {
+      "Error": {
+        "Code": "TransactionCanceledException",
+        "Message": "Transaction cancelled, please refer cancellation reasons for specific reasons [None, DuplicateItem]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_partiql_statements": {
+    "delete": {
+      "Items": [
+        {
+          "n": {
+            "N": "9"
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "2"
+          },
+          "title": {
+            "S": "Ho"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "insert": {
+      "Items": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "insert-duplicate": {
+      "Error": {
+        "Code": "DuplicateItemException",
+        "Message": "Duplicate primary key exists in table"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-a-statement": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Statement wasn't well formed, can't be processed: Expected data manipulation"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "parameters-do-not-match": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Number of parameters in request and statement don't match."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "select-by-key": {
+      "Items": [
+        {
+          "n": {
+            "N": "5"
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "1"
+          },
+          "title": {
+            "S": "Hi"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "select-filtered": {
+      "Items": [
+        {
+          "title": {
+            "S": "Ho"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "update": {
+      "Items": [
+        {
+          "n": {
+            "N": "6"
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "1"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "update-of-nothing": {
+      "Error": {
+        "Code": "ConditionalCheckFailedException",
+        "Message": "The conditional request failed"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "update-without-whole-key": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Where clause does not contain a mandatory equality on all key attributes"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_point_in_time_recovery_is_a_round_trip": {
+    "absent-table": {
+      "Error": {
+        "Code": "TableNotFoundException",
+        "Message": "Table not found: <name:absent>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "after": {
+      "ContinuousBackupsDescription": {
+        "ContinuousBackupsStatus": "ENABLED",
+        "PointInTimeRecoveryDescription": {
+          "EarliestRestorableDateTime": "<datetime>",
+          "LatestRestorableDateTime": "<datetime>",
+          "PointInTimeRecoveryStatus": "ENABLED",
+          "RecoveryPeriodInDays": 7
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "before": {
+      "ContinuousBackupsDescription": {
+        "ContinuousBackupsStatus": "ENABLED",
+        "PointInTimeRecoveryDescription": {
+          "PointInTimeRecoveryStatus": "DISABLED"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "enable": {
+      "ContinuousBackupsDescription": {
+        "ContinuousBackupsStatus": "ENABLED",
+        "PointInTimeRecoveryDescription": {
+          "EarliestRestorableDateTime": "<datetime>",
+          "LatestRestorableDateTime": "<datetime>",
+          "PointInTimeRecoveryStatus": "ENABLED",
+          "RecoveryPeriodInDays": 7
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
   "test_query_and_scan": {
     "all": {
       "Count": 5,
@@ -1004,6 +1333,259 @@
       }
     }
   },
+  "test_scan_pages_and_segments": {
+    "all-keys": {
+      "keys": [
+        "k0",
+        "k1",
+        "k2",
+        "k3",
+        "k4",
+        "k5",
+        "k6"
+      ]
+    },
+    "filtered": {
+      "Count": 2,
+      "Items": [
+        {
+          "n": {
+            "N": "5"
+          },
+          "pk": {
+            "S": "k5"
+          }
+        },
+        {
+          "n": {
+            "N": "6"
+          },
+          "pk": {
+            "S": "k6"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 7
+    },
+    "segment-out-of-range": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "The Segment parameter is zero-based and must be less than parameter TotalSegments"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "segments-add-up": {
+      "total": 7
+    }
+  },
+  "test_stream_specification_on_an_existing_table": {
+    "enable": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TableDescription": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "BillingModeSummary": {
+          "BillingMode": "PAY_PER_REQUEST",
+          "LastUpdateToPayPerRequestDateTime": "<datetime>"
+        },
+        "CreationDateTime": "<datetime>",
+        "DeletionProtectionEnabled": false,
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "NumberOfDecreasesToday": 0,
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0
+        },
+        "StreamSpecification": {
+          "StreamEnabled": true,
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        },
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>",
+        "TableId": "<uuid:1>",
+        "TableName": "<name:table>",
+        "WarmThroughput": {
+          "ReadUnitsPerSecond": 12000,
+          "Status": "ACTIVE",
+          "WriteUnitsPerSecond": 4000
+        }
+      }
+    },
+    "enable-again": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Table already has an enabled stream: TableName: <name:table>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-change-at-all": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "At least one of ProvisionedThroughput, BillingMode, UpdateStreamEnabled, GlobalSecondaryIndexUpdates, SSESpecification, ReplicaUpdates, MultiAccountReplicaReady, ReplicaTransitRoleArn, MultiRegionConsistency, DeletionProtectionEnabled, OnDemandThroughput, WarmThroughput or TableClass is required"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_streams_api": {
+    "bad-iterator": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid ShardIterator"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StreamDescription": {
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "Shards": [
+          {
+            "SequenceNumberRange": {}
+          },
+          {
+            "SequenceNumberRange": {}
+          },
+          {
+            "SequenceNumberRange": {}
+          },
+          {
+            "SequenceNumberRange": {}
+          }
+        ],
+        "StreamStatus": "ENABLED",
+        "StreamViewType": "NEW_AND_OLD_IMAGES",
+        "TableName": "<name:table>"
+      }
+    },
+    "list": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Streams": [
+        {
+          "TableName": "<name:table>"
+        }
+      ]
+    },
+    "records": {
+      "Records": [
+        {
+          "awsRegion": "us-east-1",
+          "dynamodb": {
+            "Keys": {
+              "pk": {
+                "S": "a"
+              }
+            },
+            "NewImage": {
+              "n": {
+                "N": "1"
+              },
+              "pk": {
+                "S": "a"
+              }
+            },
+            "SizeBytes": 9,
+            "StreamViewType": "NEW_AND_OLD_IMAGES"
+          },
+          "eventName": "INSERT",
+          "eventSource": "aws:dynamodb",
+          "eventVersion": "1.1"
+        },
+        {
+          "awsRegion": "us-east-1",
+          "dynamodb": {
+            "Keys": {
+              "pk": {
+                "S": "a"
+              }
+            },
+            "NewImage": {
+              "n": {
+                "N": "2"
+              },
+              "pk": {
+                "S": "a"
+              }
+            },
+            "OldImage": {
+              "n": {
+                "N": "1"
+              },
+              "pk": {
+                "S": "a"
+              }
+            },
+            "SizeBytes": 15,
+            "StreamViewType": "NEW_AND_OLD_IMAGES"
+          },
+          "eventName": "MODIFY",
+          "eventSource": "aws:dynamodb",
+          "eventVersion": "1.1"
+        },
+        {
+          "awsRegion": "us-east-1",
+          "dynamodb": {
+            "Keys": {
+              "pk": {
+                "S": "a"
+              }
+            },
+            "OldImage": {
+              "n": {
+                "N": "2"
+              },
+              "pk": {
+                "S": "a"
+              }
+            },
+            "SizeBytes": 9,
+            "StreamViewType": "NEW_AND_OLD_IMAGES"
+          },
+          "eventName": "REMOVE",
+          "eventSource": "aws:dynamodb",
+          "eventVersion": "1.1"
+        }
+      ]
+    },
+    "unknown-shard": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Requested resource not found: Shard does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
   "test_table_lifecycle": {
     "create": {
       "ResponseMetadata": {
@@ -1111,6 +1693,174 @@
       },
       "TimeToLiveDescription": {
         "TimeToLiveStatus": "DISABLED"
+      }
+    }
+  },
+  "test_transaction_rules": {
+    "applied-once": {
+      "Item": {
+        "n": {
+          "N": "1"
+        },
+        "pk": {
+          "S": "ctr"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "cancelled-with-the-item": {
+      "Error": {
+        "Code": "TransactionCanceledException",
+        "Message": "Transaction cancelled, please refer cancellation reasons for specific reasons [ConditionalCheckFailed]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "first": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Responses": [
+        {},
+        {
+          "Item": {
+            "n": {
+              "N": "1"
+            },
+            "pk": {
+              "S": "ctr"
+            }
+          }
+        }
+      ]
+    },
+    "replay": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "same-token-other-request": {
+      "Error": {
+        "Code": "IdempotentParameterMismatchException",
+        "Message": "Specified idempotent token was used with different request parameters within the idempotency window"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "two-operations-on-one-item": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Transaction request cannot include multiple operations on one item"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_update_expression_forms": {
+    "add-to-a-string": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "An operand in the update expression has an incorrect data type"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "arithmetic-on-a-string": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "An operand in the update expression has an incorrect data type"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "list-append-and-nested": {
+      "Attributes": {
+        "c": {
+          "N": "0"
+        },
+        "l": {
+          "L": [
+            {
+              "N": "1"
+            },
+            {
+              "N": "4"
+            }
+          ]
+        },
+        "l2": {
+          "L": [
+            {
+              "N": "2"
+            },
+            {
+              "N": "3"
+            }
+          ]
+        },
+        "m": {
+          "M": {
+            "k": {
+              "S": "v"
+            },
+            "k2": {
+              "S": "w"
+            }
+          }
+        },
+        "n": {
+          "N": "10"
+        },
+        "pk": {
+          "S": "a"
+        },
+        "s": {
+          "SS": [
+            "x",
+            "y",
+            "z"
+          ]
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "overlapping-paths": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Invalid UpdateExpression: Two document paths overlap with each other; must remove or rewrite one of these paths; path one: [m, k], path two: [m]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-delete": {
+      "Attributes": {
+        "n": {
+          "N": "15"
+        },
+        "s": {
+          "SS": [
+            "x",
+            "z"
+          ]
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
       }
     }
   }
