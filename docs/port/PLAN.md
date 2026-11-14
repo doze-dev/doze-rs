@@ -681,6 +681,7 @@ join. The matrix is in `interop/README.md`. CI runs no interop (local by the own
 basic authentication with the SASL users and TLS with the broker's certificate, the wire header, and Avro written in Rust (no
 library: `apache-avro` would have added 35 packages and still not given Confluent's reasons). `--schema-registry` is on by default as
 in Go, behind a `registry` feature of the binary. The Go oracle passes: every Avro step of the 30 recorded scripts and all 392 Avro
-corpus pairs, verdicts and reasons word for word. +233 KB, no third-party package; no limit moved, but 0.2 MB of headroom is left on
-the Linux estimate. Protobuf (10b) and JSON Schema (10c) plug into `format::Formats`; the record-value codec is 10d. `phase10.md` has
+corpus pairs, verdicts and reasons word for word. +217 KB on darwin over the module face (about 0.29 MB on ubuntu at
+CI's measured 1.36), no third-party package; no limit moved. The default build is about 9.24 MB on ubuntu, 0.76 MB under the 10 MB
+ceiling; the TLS build (module plus registry) is about 10.3 MB, over it, and was about 10.0 MB with the module alone: the owner's call. Protobuf (10b) and JSON Schema (10c) plug into `format::Formats`; the record-value codec is 10d. `phase10.md` has
 the weight table, the extension points and the slices; `behaviours/registry.md` the catalogue (REG-1 to REG-27, REG-D1 to REG-D14).

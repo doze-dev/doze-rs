@@ -398,6 +398,43 @@ cost every standalone user pays for a face only doze uses: **owner's decision** 
 stays in the default build or moves behind a non-default feature that the release of `kafka-plugin` turns on (the lean broker would
 then be 6.0 MB again, and the gate's test run would need that feature turned on to keep testing the module).
 
+**Corrected the same day, merging with main:** CI had by then measured the default build before the module on ubuntu x86_64 at 8,174,048 B, so the
+macOS-to-Linux ratio is 1.36 (8,174,048 / 6,011,568), not 1.216. With the module that is about 8.94 MB on ubuntu x86_64, about 0.6 MB under
+the 10 MB ceiling; the limit is now 9,386,171 B (that plus 5%) and 174 packages until the next CI run measures it (`weight-limits.txt`).
+The schema registry (Phase 10) must fit in what is left, or the module face moves behind a feature: the owner decides.
+## Limits raised to the measured values (2026-11-14, owner decision)
+
+Main's CI had been red on the weight jobs since the React console and the doze-aws A14 to A16 merges. The owner decided on 2026-11-14 to raise
+the budgets to what CI measures on the ubuntu x86_64 runners. Byte and package limits are the measurement exactly (they are the same in every
+run of one commit). Idle memory is not: one sample two or three seconds after start moved by up to 870 KB between runs of the same commit
+(doze-aws: 8,612 and 9,484 KB). So the method changed with this entry:
+
+- **Idle memory is the median of three fresh starts**, each with an empty data directory, read two (`cargo xtask weight`) or three (the
+  `weight-lean` and `weight-tls` jobs) seconds after the server listens. All three samples are printed.
+- **An idle limit is that median plus 5%**, rounded up to the KB, for the noise that is left. Byte and package limits get no headroom.
+
+Measured in run 43572452563 (main plus PR #7's build fixes):
+
+| job | measured | old limit | new limit |
+|---|---|---|---|
+| `weight`, doze-kafka binary | 8,174,048 B | 7,800,000 B | **8,174,048 B** |
+| `weight`, doze-kafka idle | 9,428 / 9,296 / 9,280 KB, median 9,296 | 8,192 KB | **9,761 KB** |
+| `weight`, doze-aws idle | 8,964 / 8,952 / 9,088 KB, median 8,964 | 6,144 KB | **9,413 KB** |
+| `weight-lean` binary | 5,263,296 B | 5,200,000 B | **5,263,296 B** |
+| `weight-lean` idle | 6,972 / 6,884 / 6,876 KB, median 6,884 | 8,192 KB | **7,229 KB** (lowered: same rule) |
+| `weight-tls` binary | 9,279,000 B | 8,750,000 B | **9,279,000 B** |
+| `weight-tls` idle | 10,080 / 10,104 / 10,280 KB, median 10,104 | 8,192 KB | **10,610 KB** |
+
+Packages did not move (doze-kafka 155 of 161, doze-aws 259 of 264, lean 127 of 130, tls 166 of 173), nor did doze-aws bytes (11,641,952 of
+12,400,000). The two byte limits the weight pass of 2026-11-13 had lowered (doze-kafka 7.8 MB, tls 8.75 MB) were crossed by later merges and
+raised under the same decision; both stay under the owner's hard ceilings (kafka 10 MB, doze-aws 20 MB).
+
+**Why idle grew** (issue #36, from the `weight` job of every main push since 2026-11-12): doze-aws went from about 5.2 MB to about 9 MB in two
+steps. 128eab40 (doze-aws at `opt-level = "z"`) cost about 1.4 MB: a deliberate trade for a smaller binary, accepted. The A14 to A16 merges
+(`04c500b4..e1ab82d4`: Step Functions, API Gateway, CloudFormation) cost about 1.5 MB more with no request made, which points at something
+built at start; it stays open in #36 as a regression to fix. doze-kafka's default and TLS builds rose about 0.3 to 0.5 MB with the React
+console merge (bc4db1ac); the lean build stayed flat.
+
 ## Phase 10, slice 10a: the schema registry (2026-11-14, branch `p10-registry`), release, darwin/arm64
 
 The registry (Avro, every REST route, storage in `meta.redb`) on by default behind the `registry` feature. The libraries weighed for
@@ -415,7 +452,12 @@ the default build is about 7.59 MB (97% of its limit) and the TLS build about 8.
 that before they merge.
 
 **10a on top of the module face (merged with main at Phase 11, 2026-11-14):** the default build 6,791,104 B on darwin arm64 (+216,800 B over
-the module's 6,574,304 B), 171 packages, 7,248 KB idle: within 8,400,000 B / 175 (about 8.26 MB on the Linux estimate, 98%). With
-`--features tls`: 7,586,144 B and 183 `cargo tree` lines. The CI TLS job's lines (8.75 MB, 173) were already passed by the module alone; they
-are now 9,700,000 B (darwin times 1.216 plus 5%) and 187, 0.3 MB under the owner's 10 MB ceiling. The next lever is the owner's: the
-module and the registry are each a feature a release can leave out.
+the module's 6,574,304 B), 171 packages, 7,248 KB idle. With `--features tls`: 7,586,144 B and 183 `cargo tree` lines.
+
+**The ceiling, with CI's measured ratio (2026-11-14).** CI measured ubuntu x86_64 at 1.36 times darwin (8,174,048 B against
+6,011,568 B), not the 1.216 used above. On that scale: the default build with the module face and 10a is about 9.24 MB, under main's
+line of 9,386,171 B (which does not move) and 0.76 MB under the owner's 10 MB ceiling; 10a itself is about 0.29 MB of it. **The TLS
+build does not fit:** 7,586,144 B times 1.36 is about 10.32 MB, over the 10 MB ceiling, and the module face alone already puts it at
+about 10.0 MB (main's TLS line, 9,279,000 B and 173, was measured before the module; the module adds 13 packages). No limit was raised;
+the CI TLS job will fail on main with or without the registry until the owner decides (leave the module or the registry out of the
+`tls` release, or take a size lever such as `opt-level = "z"` on more of the tree).

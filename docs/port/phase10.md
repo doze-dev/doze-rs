@@ -32,9 +32,15 @@ at 2f1bb66.
 | **10a merged on the module face** | **6,791,104** | **+216,800** | **171** | 7,248 KB |
 | 10a on the module face, `--features tls` | 7,586,144 | | 183 lines | |
 
-After the merge with Phase 11 the default limits are 8,400,000 B, 175 packages and 8,192 KB, which 10a fits (about 8.26 MB on the
-Linux estimate, 98%). The CI TLS job's lines moved to 9,700,000 B and 187 (darwin times 1.216 plus 5%, 0.3 MB under the owner's
-10 MB ceiling; the module alone had already passed the old 8.75 MB and 173). The paragraph below is the measurement before the merge.
+**The ceiling, with CI's measured ratio (2026-11-14).** CI measured ubuntu x86_64 at 1.36 times darwin (8,174,048 B against
+6,011,568 B), not the 1.216 used above. On that scale: the default build with the module face and 10a is about 9.24 MB, under main's
+line of 9,386,171 B (which does not move) and 0.76 MB under the owner's 10 MB ceiling; 10a itself is about 0.29 MB of it. **The TLS
+build does not fit:** 7,586,144 B times 1.36 is about 10.32 MB, over the 10 MB ceiling, and the module face alone already puts it at
+about 10.0 MB (main's TLS line, 9,279,000 B and 173, was measured before the module; the module adds 13 packages). No limit was raised;
+the CI TLS job will fail on main with or without the registry until the owner decides (leave the module or the registry out of the
+`tls` release, or take a size lever such as `opt-level = "z"` on more of the tree).
+
+The paragraph below is the measurement before the merge, on the old 1.216 scale.
 
 The limits are 7,800,000 B, 161 packages and 8,192 KB (`xtask/weight-limits.txt`), and the CI TLS job's are 8,750,000 B and 173
 lines. **No limit moves.** The packages line went from 155 to 156 only by a repeated `cargo tree` line: the one new package is
