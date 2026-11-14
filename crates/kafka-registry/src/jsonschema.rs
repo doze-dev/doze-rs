@@ -80,14 +80,20 @@ impl ParsedSchema for ParsedJsonSchema {
         self.stored.clone()
     }
 
-    fn can_read(&self, writer: &dyn ParsedSchema, reader_is: Role, writer_is: Role) -> Vec<CompatReason> {
+    fn can_read(
+        &self,
+        writer: &dyn ParsedSchema,
+        reader_is: Role,
+        writer_is: Role,
+    ) -> Vec<CompatReason> {
         let Some(writer) = writer.as_any().downcast_ref::<Self>() else {
             return Vec::new();
         };
         compat::changes(&writer.arena, &self.arena)
             .into_iter()
             .map(|c| {
-                let description = compat::describe(c.kind, &c.path, reader_is.word(), writer_is.word());
+                let description =
+                    compat::describe(c.kind, &c.path, reader_is.word(), writer_is.word());
                 // The closing quote is Confluent's own: a double quote opens the description and a single one
                 // closes it (recorded: json-reasons.json).
                 let text = format!("{{errorType:\"{}\", description:\"{description}'}}", c.kind);

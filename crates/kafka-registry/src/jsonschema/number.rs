@@ -25,7 +25,11 @@ impl Dec {
             Some(i) => (rest.get(..i)?, rest.get(i + 1..)?),
             None => (rest, "0"),
         };
-        let (int, frac) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+        let (int, frac) = match mantissa.split_once('.') {
+            Some((_, "")) => return None,
+            Some(parts) => parts,
+            None => (mantissa, ""),
+        };
         if int.is_empty() || !int.bytes().chain(frac.bytes()).all(|b| b.is_ascii_digit()) {
             return None;
         }
@@ -40,7 +44,11 @@ impl Dec {
         let lead = digits.iter().take_while(|d| **d == 0).count();
         digits.drain(..lead);
         if digits.is_empty() {
-            return Some(Self { neg: false, digits, exp: 0 });
+            return Some(Self {
+                neg: false,
+                digits,
+                exp: 0,
+            });
         }
         Some(Self { neg, digits, exp })
     }

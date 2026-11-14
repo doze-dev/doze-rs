@@ -40,9 +40,8 @@ impl Draft {
     fn of_doc(doc: &Json) -> Result<Self, String> {
         match field(doc, "$schema") {
             None => Ok(Self::D7),
-            Some(Json::Str(url)) => {
-                Self::of_url(url).ok_or_else(|| format!("$schema \"{url}\" is not a JSON Schema draft"))
-            }
+            Some(Json::Str(url)) => Self::of_url(url)
+                .ok_or_else(|| format!("$schema \"{url}\" is not a JSON Schema draft")),
             Some(_) => Err("$schema must be a string".to_owned()),
         }
     }
@@ -125,9 +124,14 @@ impl Docs {
         for r in first {
             let json = Json::parse(&r.text)
                 .map_err(|e| format!("reference \"{}\": Invalid JSON: {e}", r.name))?;
-            let names = if r.names.is_empty() { &by_name } else { &r.names };
+            let names = if r.names.is_empty() {
+                &by_name
+            } else {
+                &r.names
+            };
             docs.push(Doc {
-                draft: Draft::of_doc(&json).map_err(|e| format!("reference \"{}\": {e}", r.name))?,
+                draft: Draft::of_doc(&json)
+                    .map_err(|e| format!("reference \"{}\": {e}", r.name))?,
                 json,
                 names: index(names),
             });

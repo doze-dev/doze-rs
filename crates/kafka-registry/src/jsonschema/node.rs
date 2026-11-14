@@ -27,17 +27,17 @@ const MAX_NODES: usize = 200_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Crit {
-    AllOf,
-    AnyOf,
-    OneOf,
+    All,
+    Any,
+    One,
 }
 
 impl Crit {
     pub(crate) fn name(self) -> &'static str {
         match self {
-            Self::AllOf => "allOf",
-            Self::AnyOf => "anyOf",
-            Self::OneOf => "oneOf",
+            Self::All => "allOf",
+            Self::Any => "anyOf",
+            Self::One => "oneOf",
         }
     }
 }
@@ -86,7 +86,10 @@ pub(crate) struct Obj {
 
 impl Obj {
     pub(crate) fn prop(&self, name: &str) -> Option<Id> {
-        self.props.iter().find(|(n, _)| n == name).map(|(_, id)| *id)
+        self.props
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, id)| *id)
     }
 
     pub(crate) fn requires(&self, name: &str) -> bool {
@@ -152,7 +155,10 @@ pub(crate) fn load(docs: &Docs) -> Result<Arena, String> {
     };
     let root = docs.doc(0).map(|d| &d.json).ok_or("no schema")?;
     let root = l.node(0, root)?;
-    Ok(Arena { nodes: l.nodes, root })
+    Ok(Arena {
+        nodes: l.nodes,
+        root,
+    })
 }
 
 fn leaf(kind: Kind) -> Node {
@@ -182,13 +188,23 @@ impl Loader<'_> {
 
     fn push_node(&mut self, kind: Kind, has_default: bool) -> Result<Id, String> {
         if self.nodes.len() >= MAX_NODES {
-            return Err(format!("schema has more than {MAX_NODES} subschemas to compare"));
+            return Err(format!(
+                "schema has more than {MAX_NODES} subschemas to compare"
+            ));
         }
-        let height = 1 + children(&kind).iter().map(|c| self.height(*c)).max().unwrap_or(0);
+        let height = 1 + children(&kind)
+            .iter()
+            .map(|c| self.height(*c))
+            .max()
+            .unwrap_or(0);
         if height > MAX_HEIGHT {
             return Err(too_deep());
         }
-        self.nodes.push(Node { kind, has_default, height });
+        self.nodes.push(Node {
+            kind,
+            has_default,
+            height,
+        });
         Id::try_from(self.nodes.len() - 1).map_err(|_| too_deep())
     }
 
@@ -229,9 +245,16 @@ impl Loader<'_> {
         if let Some(own) = self.typed(doc, m)? {
             parts.push(own);
         }
-        for (key, crit) in [("allOf", Crit::AllOf), ("anyOf", Crit::AnyOf), ("oneOf", Crit::OneOf)] {
+        for (key, crit) in [
+            ("allOf", Crit::All),
+            ("anyOf", Crit::Any),
+            ("oneOf", Crit::One),
+        ] {
             if let Some(Json::Array(items)) = field(m, key) {
-                let subs = items.iter().map(|s| self.node(doc, s)).collect::<Result<_, _>>()?;
+                let subs = items
+                    .iter()
+                    .map(|s| self.node(doc, s))
+                    .collect::<Result<_, _>>()?;
                 parts.push(self.push(Kind::Combined(crit, subs))?);
             }
         }
@@ -260,7 +283,7 @@ impl Loader<'_> {
                 Ok(*one)
             }
             [one] => Ok(*one),
-            _ => self.push_node(Kind::Combined(Crit::AllOf, parts), has_default),
+            _ => self.push_node(Kind::Combined(Crit::All, parts), has_default),
         }
     }
 }
@@ -275,7 +298,12 @@ fn children(kind: &Kind) -> Vec<Id> {
             .chain(a.additional.iter())
             .copied()
             .collect(),
-        Kind::Obj(o) => o.props.iter().map(|(_, id)| *id).chain(o.additional).collect(),
+        Kind::Obj(o) => o
+            .props
+            .iter()
+            .map(|(_, id)| *id)
+            .chain(o.additional)
+            .collect(),
         Kind::Combined(_, subs) => subs.clone(),
         Kind::Not(id) => vec![*id],
         Kind::Cond(c) => c.iter().flatten().copied().collect(),
@@ -299,7 +327,10 @@ fn canonical_value(v: &Json) -> String {
                 .collect();
             format!("{{{}}}", inner.join(","))
         }
-        Json::Array(a) => format!("[{}]", a.iter().map(canonical_value).collect::<Vec<_>>().join(",")),
+        Json::Array(a) => format!(
+            "[{}]",
+            a.iter().map(canonical_value).collect::<Vec<_>>().join(",")
+        ),
         other => other.to_text(),
     }
 }
@@ -337,7 +368,9 @@ impl Loader<'_> {
         let typed = self.types(doc, m)?;
         let values = self.push(values)?;
         match typed {
-            Some(t) => self.push(Kind::Combined(Crit::AllOf, vec![t, values])).map(Some),
+            Some(t) => self
+                .push(Kind::Combined(Crit::All, vec![t, values]))
+                .map(Some),
             None => Ok(Some(values)),
         }
     }
@@ -351,10 +384,41 @@ impl Loader<'_> {
         if types.is_empty() {
             // No "type": the keywords present say which kind it is.
             let inferred = [
-                ("object", &["properties", "required", "additionalProperties", "patternProperties", "minProperties", "maxProperties", "dependencies", "propertyNames"][..]),
-                ("array", &["items", "additionalItems", "minItems", "maxItems", "uniqueItems", "contains"][..]),
+                (
+                    "object",
+                    &[
+                        "properties",
+                        "required",
+                        "additionalProperties",
+                        "patternProperties",
+                        "minProperties",
+                        "maxProperties",
+                        "dependencies",
+                        "propertyNames",
+                    ][..],
+                ),
+                (
+                    "array",
+                    &[
+                        "items",
+                        "additionalItems",
+                        "minItems",
+                        "maxItems",
+                        "uniqueItems",
+                        "contains",
+                    ][..],
+                ),
                 ("string", &["minLength", "maxLength", "pattern"][..]),
-                ("number", &["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"][..]),
+                (
+                    "number",
+                    &[
+                        "minimum",
+                        "maximum",
+                        "exclusiveMinimum",
+                        "exclusiveMaximum",
+                        "multipleOf",
+                    ][..],
+                ),
             ];
             match inferred.iter().find(|(_, keys)| has_any(m, keys)) {
                 Some((t, _)) => types.push(t),
@@ -367,7 +431,7 @@ impl Loader<'_> {
         }
         match nodes.as_slice() {
             [one] => Ok(Some(*one)),
-            _ => self.push(Kind::Combined(Crit::AnyOf, nodes)).map(Some),
+            _ => self.push(Kind::Combined(Crit::Any, nodes)).map(Some),
         }
     }
 
@@ -376,7 +440,9 @@ impl Loader<'_> {
             "string" => Kind::Str(Str {
                 min_len: number(field(m, "minLength")),
                 max_len: number(field(m, "maxLength")),
-                pattern: field(m, "pattern").and_then(Json::as_str).map(str::to_owned),
+                pattern: field(m, "pattern")
+                    .and_then(Json::as_str)
+                    .map(str::to_owned),
             }),
             "integer" | "number" => Kind::Num(numeric(m, t == "integer")),
             "boolean" => Kind::Bool,
@@ -397,7 +463,12 @@ impl Loader<'_> {
         };
         match field(m, "items") {
             Some(Json::Array(items)) => {
-                a.tuple = Some(items.iter().map(|s| self.node(doc, s)).collect::<Result<_, _>>()?);
+                a.tuple = Some(
+                    items
+                        .iter()
+                        .map(|s| self.node(doc, s))
+                        .collect::<Result<_, _>>()?,
+                );
             }
             Some(s) => a.items = Some(self.node(doc, s)?),
             None => {}
@@ -409,7 +480,10 @@ impl Loader<'_> {
     }
 
     fn is_any(&self, id: Id) -> bool {
-        matches!(self.nodes.get(id as usize).map(|n| &n.kind), Some(Kind::Any))
+        matches!(
+            self.nodes.get(id as usize).map(|n| &n.kind),
+            Some(Kind::Any)
+        )
     }
 
     fn obj(&mut self, doc: usize, m: &Json) -> Result<Obj, String> {
@@ -437,7 +511,11 @@ impl Loader<'_> {
         if let Some(deps @ Json::Object(_)) = field(m, "dependencies") {
             for (k, v) in members(deps) {
                 if let Json::Array(arr) = v {
-                    let mut names: Vec<String> = arr.iter().filter_map(Json::as_str).map(str::to_owned).collect();
+                    let mut names: Vec<String> = arr
+                        .iter()
+                        .filter_map(Json::as_str)
+                        .map(str::to_owned)
+                        .collect();
                     names.sort();
                     o.dependencies.push((k.to_owned(), names));
                 }
