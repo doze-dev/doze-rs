@@ -99,6 +99,9 @@ pub struct Response {
     /// An admin action's result line (`admin`).
     #[serde(skip_serializing_if = "String::is_empty")]
     pub result: String,
+    /// The `plan` op's answer, in the order `apply` would make them (Rust daemon, additive).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub changes: Vec<ChangeView>,
 }
 
 /// One instance-tagged log line (Go `LogFrame`).
@@ -121,6 +124,17 @@ pub struct LogFrame {
 #[serde(default)]
 pub struct EventFrame {
     pub instance: InstanceView,
+}
+
+/// One change `apply` would make (Rust daemon, additive: the `plan` op).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ChangeView {
+    pub instance: String,
+    /// `create`, `update` or `delete`.
+    pub change: String,
+    pub kind: String,
+    pub name: String,
 }
 
 /// A builtin's sub-resource (Go `ResourceView`).

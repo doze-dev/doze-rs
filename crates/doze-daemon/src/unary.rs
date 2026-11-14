@@ -30,6 +30,7 @@ pub(crate) fn answer(d: &Daemon, req: &doze_control::Request) -> Response {
         Op::Reset => return rt.block_on(crate::admin::reset(d, &req.db)),
         Op::Resources => return rt.block_on(crate::admin::resources(d, &req.db)),
         Op::Admin => return rt.block_on(crate::admin::admin(d, req)),
+        Op::Plan => return rt.block_on(plan(d, &req.db)),
         Op::Add | Op::Remove => Err(Error::Failed(format!(
             "{} is not in the Rust daemon yet",
             op.as_str()
@@ -93,6 +94,30 @@ fn status(d: &Daemon) -> Response {
             views
         },
         ..Response::default()
+    }
+}
+
+/// What `apply` would change (the `plan` op).
+async fn plan(d: &Daemon, db: &str) -> Response {
+    match d.engine().plan(target(db)).await {
+        Ok(planned) => Response {
+            ok: true,
+            changes: planned
+                .into_iter()
+                .flat_map(|(instance, changes)| {
+                    changes
+                        .into_iter()
+                        .map(move |(c, o)| doze_control::ChangeView {
+                            instance: instance.clone(),
+                            change: c.as_str().into(),
+                            kind: o.kind,
+                            name: o.name,
+                        })
+                })
+                .collect(),
+            ..Response::default()
+        },
+        Err(err) => failed(&err.to_string(), code(&err)),
     }
 }
 

@@ -184,8 +184,8 @@ fn requests_are_written_as_go_writes_them() {
 #[test]
 fn the_names_match_go() {
     // server.go dispatches 23 op names (with the aliases down/sleep, boot/wake, keepawake/pin); types.go has five
-    // topics; daemon.go ten verbs.
-    assert_eq!(Op::ALL.len(), 23);
+    // topics; daemon.go ten verbs. The Rust daemon adds `plan`.
+    assert_eq!(Op::ALL.len(), 24);
     assert_eq!(Topic::ALL.len(), 5);
     assert_eq!(Verb::ALL.len(), 10);
     for op in Op::ALL {

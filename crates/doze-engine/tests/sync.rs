@@ -298,3 +298,34 @@ async fn a_start_converges_a_fresh_or_changed_instance_once() {
     assert_eq!(std::fs::read_to_string(&marker).unwrap(), "two");
     e.shutdown().await;
 }
+
+/// `plan`: what a sync would change, asked of the module without waking the instance or changing anything.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_plan_lists_the_changes_and_changes_nothing() {
+    let d = Dir::new("plan");
+    let m = Arc::new(Module::default());
+    let e = engine(&d, &m);
+    m.declare(&["a", "b"]);
+    let words = |p: doze_engine::sync::Synced| -> Vec<String> {
+        p.into_iter()
+            .flat_map(|(n, ch)| {
+                ch.into_iter()
+                    .map(move |(c, o)| format!("{n} {} {}", c.as_str(), o.name))
+            })
+            .collect()
+    };
+    assert_eq!(
+        words(e.plan(None).await.unwrap()),
+        ["db create a", "db create b"]
+    );
+    assert_eq!(e.get("db").unwrap().state, State::Reaped, "not woken");
+    assert!(m.calls().is_empty(), "nothing converged: {:?}", m.calls());
+    e.sync(None).await.unwrap();
+    assert!(
+        e.plan(None).await.unwrap().is_empty(),
+        "in line: no changes"
+    );
+    m.declare(&["b"]);
+    assert_eq!(words(e.plan(Some("db")).await.unwrap()), ["db delete a"]);
+    e.shutdown().await;
+}

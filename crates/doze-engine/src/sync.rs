@@ -52,6 +52,29 @@ impl Engine {
         Ok(out)
     }
 
+    /// What `sync` would change for `name` (every instance with structure, when `None`), changing nothing and waking
+    /// nothing: each module says what its declaration wants, against what was applied before.
+    pub async fn plan(&self, name: Option<&str>) -> Result<Synced, Error> {
+        let path = self.stack().state_file.clone();
+        let st = Applied::load(&path).map_err(|e| io_err("reading", &path, &e))?;
+        let mut out = Vec::new();
+        for n in self.targets(name)? {
+            let off = self.update(|c| c.m.table().is_off(&n));
+            let Some(s) = self.structure_of(&n).filter(|_| !off) else {
+                continue;
+            };
+            let desired = s
+                .objects(&self.ctx_for(&n))
+                .await
+                .map_err(|e| Error::Failed(format!("planning \"{n}\": {e}")))?;
+            let changes = applied::diff(st.objects(&n), &desired);
+            if !changes.is_empty() {
+                out.push((n.clone(), changes));
+            }
+        }
+        Ok(out)
+    }
+
     /// Drops every object applied for `name` (every instance in the state, when `None`) and forgets them. Each is woken
     /// to run the drops, then stopped. One no longer declared is only forgotten: there is nothing to drop it against.
     pub async fn destroy(&self, name: Option<&str>) -> Result<(), Error> {

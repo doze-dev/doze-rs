@@ -86,6 +86,13 @@ async fn resources_actions_the_console_and_a_reset_come_from_the_module() {
         r["error"], "instance \"e\" is not running — boot it first",
         "{r}"
     );
+    // The plan: what a sync would make, asked of the module without waking it.
+    let r = c.ask(r#"{"id":30,"op":"plan"}"#);
+    assert_eq!(
+        r["changes"],
+        serde_json::json!([{"instance":"e","change":"create","kind":"channel","name":"a"}]),
+        "{r}"
+    );
     d.engine()
         .wake("e", doze_engine::Cause::Command)
         .await

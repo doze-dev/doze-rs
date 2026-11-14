@@ -40,7 +40,9 @@ pub use types::console::{
     CELL_RUNTIME, ConsoleColumn, ConsoleExtension, ConsoleFrame, ConsoleNode, ConsolePanel,
     ConsoleRow, ConsoleSpec, ConsoleTab,
 };
-pub use types::frame::{ActionView, EventFrame, Frame, Hello, LogFrame, ResourceView, Response};
+pub use types::frame::{
+    ActionView, ChangeView, EventFrame, Frame, Hello, LogFrame, ResourceView, Response,
+};
 pub use types::instance::{ClientView, HolderView, InstanceView, ProcView, StatView, TaskView};
 pub use types::journal::{Cause, Event};
 pub use types::ops::{
