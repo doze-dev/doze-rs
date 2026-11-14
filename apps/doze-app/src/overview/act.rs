@@ -392,3 +392,31 @@ pub(super) fn observe_acts(cx: &mut Context<OverviewView>) {
     })
     .detach();
 }
+
+impl crate::library::menu::MenuHost for OverviewView {
+    fn menu_act(&mut self, _: &str, action: StackAction, cx: &mut Context<Self>) {
+        self.menu = false;
+        self.stack_act(action, cx);
+    }
+
+    fn menu_choose(&mut self, _: &str, cx: &mut Context<Self>) {
+        self.menu = false;
+        self.choose_start(cx);
+    }
+
+    fn menu_reveal(&mut self, dir: &str, file: bool, cx: &mut Context<Self>) {
+        self.menu = false;
+        let dir = std::path::Path::new(dir);
+        if file {
+            crate::outward::open_path(cx, &dir.join("doze.hcl"));
+        } else {
+            crate::outward::reveal(cx, dir);
+        }
+        cx.notify();
+    }
+
+    fn menu_close(&mut self, cx: &mut Context<Self>) {
+        self.menu = false;
+        cx.notify();
+    }
+}

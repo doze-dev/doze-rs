@@ -5,7 +5,7 @@
 //! The switch, the menu and the keys act through `crate::act` (M2): a busy row says what it is doing.
 
 mod act;
-mod menu;
+pub(crate) mod menu;
 mod parts;
 mod rows;
 
@@ -19,7 +19,7 @@ use gpui::{
     prelude::*, px,
 };
 
-use crate::actions::{MoveDown, MoveUp, OpenStack, RemoveStack, ToggleStack};
+use crate::actions::{CloseOverlay, MoveDown, MoveUp, OpenStack, RemoveStack, ToggleStack};
 use crate::facts::Facts;
 use crate::kit::{chip_of, keys_bar};
 use crate::theme::{Density, tokens};
@@ -235,6 +235,14 @@ impl Render for LibraryView {
             .flex()
             .flex_col()
             .size_full()
+            // Esc closes an open ⋯ menu and nothing else (Go: the menu owns the keyboard while open).
+            .on_action(cx.listener(|this, _: &CloseOverlay, _, cx| {
+                if this.menu.take().is_some() {
+                    cx.notify();
+                } else {
+                    cx.propagate();
+                }
+            }))
             .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.step(-1, cx)))
             .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.step(1, cx)))
             .on_action(cx.listener(|this, _: &OpenStack, _, cx| {

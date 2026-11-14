@@ -4,10 +4,11 @@
 use gpui::{Context, IntoElement, div, prelude::*, px, relative};
 
 use super::{OverviewView, View};
-use crate::kit::{Btn, btn, chip_of, density, s};
+use crate::kit::{Btn, btn, density, s};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
-use crate::widgets::{icon, switch, tag};
+use crate::widgets::{switch, tag, tip};
+use doze_desk::overview::titles;
 
 /// `.head`: the name, the folder and how long up (or stopped and when); the views; Activity, All logs; Up.
 pub(super) fn head(
@@ -36,17 +37,54 @@ pub(super) fn head(
             Box::new(move |_, _, cx| e.update(cx, |this, cx| this.set_density(d, cx)))
         }));
     }
-    row.child(views(t, v, cx))
-        .child(go(t, "Activity", &crate::actions::Activity))
-        .child(go(t, "All logs", &crate::actions::AllLogs))
+    let busy = v.busy(cx).0;
+    let row = row
+        .relative()
+        .child(views(t, v, cx))
+        // Go's keys on these are A and L (shift-a, shift-l: `e.key` "A", "L"); ⌘L also opens All logs.
+        .child(go(
+            t,
+            "Activity",
+            "A",
+            titles::ACTIVITY,
+            &crate::actions::Activity,
+        ))
+        .child(go(
+            t,
+            "All logs",
+            "L",
+            titles::ALL_LOGS,
+            &crate::actions::AllLogs,
+        ))
         .child(up(
             t,
-            (h.running, v.busy(cx).0),
-            &h.key,
+            (h.running, busy),
+            (&h.key, v.menu),
             h.stopped.as_ref().is_some_and(|s| !s.problem.is_empty()),
             cx,
+        ));
+    // Go: the same `StackMenu` as the Library row's, for this stack.
+    let st = doze_desk::library::LibStack {
+        key: h.key.clone(),
+        name: h.stack.clone(),
+        dir: h.dir.clone(),
+        running: h.running,
+        live: true,
+        declared: h.total,
+        ..Default::default()
+    };
+    row.when(v.menu, |d| {
+        d.child(crate::library::menu::menu(
+            t,
+            &st,
+            (MENU_AT, busy.is_some()),
+            cx,
         ))
+    })
 }
+
+/// Where the head's menu hangs: 8 px into the head's foot, as Go's `top: calc(100% - 8px)`.
+const MENU_AT: f32 = 70.;
 
 /// The segmented switch: Tiles · List · Map · Grid (new).
 fn views(t: &Tokens, v: &OverviewView, cx: &mut Context<OverviewView>) -> impl IntoElement {
@@ -91,7 +129,7 @@ fn views(t: &Tokens, v: &OverviewView, cx: &mut Context<OverviewView>) -> impl I
 fn up(
     t: &Tokens,
     (running, busy): (bool, Option<doze_desk::act::Busy>),
-    key: &str,
+    (key, menu): (&str, bool),
     broken: bool,
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
@@ -119,25 +157,18 @@ fn up(
                     true,
                     broken || busy.is_some(),
                 ))
-                .when(busy.is_none(), |d| {
+                .when(broken, |d| d.tooltip(tip(titles::BROKEN_UP)))
+                .when(busy.is_none() && !broken, |d| {
                     d.on_click(cx.listener(|this, _, _, cx| this.flip_stack(cx)))
                 }),
         )
-        .child(
-            div()
-                .id("stack-more")
-                .size(px(28.))
-                .rounded(px(7.))
-                .flex()
-                .items_center()
-                .justify_center()
-                .hover(|d| d.bg(t.sel))
-                .child(icon("icons/dots.svg", 16., t.dim))
-                // The stack's commands (restart, stop, choose what starts, edit, remove) are all in ⌘K.
-                .on_click(|_, window, cx| {
-                    window.dispatch_action(Box::new(crate::actions::OpenPalette), cx)
-                }),
-        )
+        .child(crate::library::menu::more(
+            t,
+            "stack-more",
+            menu,
+            |this: &mut OverviewView, _| this.menu = !this.menu,
+            cx,
+        ))
 }
 
 /// The head's left: the stack's name, and its folder and how long it is up.
@@ -173,17 +204,24 @@ fn title_row(t: &Tokens, stack: &str, path: &str) -> gpui::Div {
         .child(div().flex_1())
 }
 
-/// A quiet button that does what the action table's row does (Activity ⇧A, All logs ⇧L).
-fn go(t: &Tokens, label: &'static str, a: &dyn gpui::Action) -> impl IntoElement {
+/// A quiet button that does what the action table's row does (Activity A, All logs L), with Go's chip and title.
+fn go(
+    t: &Tokens,
+    label: &'static str,
+    chip: &str,
+    title: &'static str,
+    a: &dyn gpui::Action,
+) -> impl IntoElement {
     let a = a.boxed_clone();
     btn(
         t,
         label,
         label,
-        &chip_of(label),
+        chip,
         Btn::Quiet,
         Some(Box::new(move |_, window, cx| {
             window.dispatch_action(a.boxed_clone(), cx)
         })),
     )
+    .tooltip(tip(title))
 }
