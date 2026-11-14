@@ -1,4 +1,4 @@
-//! What each instance printed, as the doze daemon keeps it on disk (Go `internal/logstore`, its format kept): under
+//! What each instance printed, as doze keeps it on disk (Go `internal/logstore`, its format kept): under
 //! `<project state>/logs/<instance>/`, each start of the instance is a run, and a run is one or more segment files
 //! `r000012.s000.log` of plain text, one line per line printed:
 //!
@@ -6,16 +6,52 @@
 //! 2026-10-10T09:15:02.418305Z o listening on :8080
 //! ```
 //!
-//! a UTC timestamp, the stream (`o` stdout, `e` stderr, `s:<step>` a step), and the text. This crate reads it, so the
-//! logs of a stopped or crashed instance, or of a stack whose daemon is down, stay readable (`doze logs`). The daemon
-//! is the one writer and may be mid-line: only complete lines are read.
+//! a UTC timestamp, the stream (`o` stdout, `e` stderr, `s:<step>` a step), and the text. Nothing is held in memory
+//! beyond a partial line per writer, so a daemon's footprint does not grow with what its services print, and the logs
+//! of a stopped or crashed instance, or of a stack whose daemon is down, stay readable (`doze logs`).
+//!
+//! The daemon is the one writer ([`Store::begin`], then [`Run`]); it may be mid-line, so readers take only complete
+//! lines. A follower ([`Store::follow`]) is woken by the writer, not by a timer, and reads from the file, so it never
+//! misses a line however far behind it falls.
 
+mod read;
+mod stamp;
+mod write;
+
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+
+pub use read::{Cursor, RunInfo};
+pub use stamp::stamp;
+pub use write::{LineWriter, MAX_LINE, Run};
 
 /// The lines a tail gives when none is asked for (the Go daemon's `logBacklog`).
 pub const BACKLOG: usize = 200;
+
+/// The stream of what a process wrote to stdout.
+pub const STDOUT: &str = "o";
+/// The stream of what a process wrote to stderr.
+pub const STDERR: &str = "e";
+/// A step's stream is this and its moment: `s:setup`.
+pub const STEP_PREFIX: &str = "s:";
+
+/// Runs kept per instance, the live one included, when [`Options::max_runs`] is 0.
+pub const DEFAULT_MAX_RUNS: usize = 5;
+/// Bytes kept per instance across its runs, when [`Options::max_bytes`] is 0.
+pub const DEFAULT_MAX_BYTES: u64 = 10 << 20;
+
+/// What is kept, per instance. A run moves to a new segment at a quarter of `max_bytes`; old segments are what pruning
+/// deletes, so most of the cap stays in use.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Options {
+    /// Runs kept, the live one included; 0 is [`DEFAULT_MAX_RUNS`].
+    pub max_runs: usize,
+    /// Bytes kept across all runs; 0 is [`DEFAULT_MAX_BYTES`].
+    pub max_bytes: u64,
+}
 
 /// One line an instance printed.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,10 +64,22 @@ pub struct Line {
     pub text: String,
 }
 
-/// A log folder: `<project state>/logs`.
+/// A log folder: `<project state>/logs`. Cheap to clone; every clone is the same store, so a reader sees the writer's
+/// live run and is woken by its lines.
 #[derive(Debug, Clone)]
 pub struct Store {
+    inner: Arc<Shared>,
+}
+
+#[derive(Debug)]
+struct Shared {
     dir: PathBuf,
+    max_runs: usize,
+    max_bytes: u64,
+    /// The run being written, per instance.
+    live: Mutex<HashMap<String, Run>>,
+    /// Moves on every line an instance gets; followers wait on it.
+    changed: Mutex<HashMap<String, tokio::sync::watch::Sender<u64>>>,
 }
 
 /// Why a tail has nothing to give.
@@ -64,55 +112,98 @@ impl std::fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// One file of a run.
 #[derive(Debug, Clone)]
-struct Segment {
-    run: u32,
-    path: PathBuf,
+pub(crate) struct Segment {
+    pub(crate) run: u32,
+    pub(crate) seg: u32,
+    pub(crate) path: PathBuf,
+    pub(crate) size: u64,
+}
+
+fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 impl Store {
+    /// The store rooted at `dir`, with the default limits. Nothing is created until something is written.
     pub fn open(dir: impl Into<PathBuf>) -> Store {
-        Store { dir: dir.into() }
+        Store::with_options(dir, Options::default())
+    }
+
+    /// The store rooted at `dir`, keeping what `opts` says.
+    pub fn with_options(dir: impl Into<PathBuf>, opts: Options) -> Store {
+        let max_runs = match opts.max_runs {
+            0 => DEFAULT_MAX_RUNS,
+            n => n,
+        };
+        let max_bytes = match opts.max_bytes {
+            0 => DEFAULT_MAX_BYTES,
+            n => n,
+        };
+        Store {
+            inner: Arc::new(Shared {
+                dir: dir.into(),
+                max_runs,
+                max_bytes,
+                live: Mutex::new(HashMap::new()),
+                changed: Mutex::new(HashMap::new()),
+            }),
+        }
+    }
+
+    /// The folder.
+    pub fn dir(&self) -> &Path {
+        &self.inner.dir
     }
 
     /// The segments of `instance`, oldest first.
-    fn segments(&self, instance: &str) -> io::Result<Vec<Segment>> {
-        let entries = match std::fs::read_dir(self.dir.join(instance)) {
+    pub(crate) fn segments(&self, instance: &str) -> io::Result<Vec<Segment>> {
+        let entries = match std::fs::read_dir(self.inner.dir.join(instance)) {
             Ok(e) => e,
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
             Err(e) => return Err(e),
         };
-        let mut out: Vec<(u32, u32, Segment)> = entries
+        let mut out: Vec<Segment> = entries
             .filter_map(Result::ok)
             .filter_map(|e| {
                 let name = e.file_name();
                 let (run, seg) = segment_name(name.to_str()?)?;
-                Some((
+                let size = e.metadata().ok()?.len();
+                Some(Segment {
                     run,
                     seg,
-                    Segment {
-                        run,
-                        path: e.path(),
-                    },
-                ))
+                    path: e.path(),
+                    size,
+                })
             })
             .collect();
-        out.sort_by_key(|(r, s, _)| (*r, *s));
-        Ok(out.into_iter().map(|(_, _, s)| s).collect())
+        out.sort_by_key(|s| (s.run, s.seg));
+        Ok(out)
     }
 
     /// The last `n` lines of one run of `instance`: run 0 is the newest, a negative run counts back from it (-1 is
     /// the one before), a positive one is a run by its number. An instance that never printed has no lines.
     pub fn tail(&self, instance: &str, run: i64, n: usize) -> Result<Vec<Line>, Error> {
+        self.tail_at(instance, run, n).map(|(lines, _)| lines)
+    }
+
+    /// [`Store::tail`], and the cursor just past the lines: where a follower goes on from.
+    pub fn tail_at(
+        &self,
+        instance: &str,
+        run: i64,
+        n: usize,
+    ) -> Result<(Vec<Line>, Cursor), Error> {
         let segs = self.segments(instance).map_err(Error::Io)?;
         if segs.is_empty() {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), Cursor::default()));
         }
         let mut ids: Vec<u32> = segs.iter().map(|s| s.run).collect();
         ids.dedup();
         let run = if run <= 0 {
             let back = usize::try_from(run.unsigned_abs()).unwrap_or(usize::MAX);
-            let at = ids.len().checked_sub(back + 1);
+            let at = ids.len().checked_sub(back.saturating_add(1));
             match at.and_then(|i| ids.get(i)) {
                 Some(id) => *id,
                 None => {
@@ -132,9 +223,15 @@ impl Store {
             });
         }
         let mut out: Vec<Line> = Vec::new();
+        let mut end: Option<Cursor> = None;
         for sg in segs.iter().rev().filter(|s| s.run == run) {
-            let mut lines =
+            let (mut lines, off) =
                 tail_segment(instance, sg, n.saturating_sub(out.len())).map_err(Error::Io)?;
+            end.get_or_insert(Cursor {
+                run: sg.run,
+                seg: sg.seg,
+                offset: off,
+            });
             lines.append(&mut out);
             out = lines;
             if out.len() >= n {
@@ -143,12 +240,12 @@ impl Store {
         }
         let extra = out.len().saturating_sub(n);
         out.drain(..extra);
-        Ok(out)
+        Ok((out, end.unwrap_or_default()))
     }
 }
 
 /// `r000012.s003.log` → (12, 3); exactly Go's name, nothing else.
-fn segment_name(name: &str) -> Option<(u32, u32)> {
+pub(crate) fn segment_name(name: &str) -> Option<(u32, u32)> {
     let rest = name.strip_prefix('r')?.strip_suffix(".log")?;
     let (run, seg) = rest.split_once(".s")?;
     let ok = |s: &str, w: usize| s.len() >= w && s.bytes().all(|b| b.is_ascii_digit());
@@ -156,15 +253,21 @@ fn segment_name(name: &str) -> Option<(u32, u32)> {
         return None;
     }
     let (r, s) = (run.parse().ok()?, seg.parse().ok()?);
-    (format!("r{r:06}.s{s:03}.log") == name).then_some((r, s))
+    (file_name(r, s) == name).then_some((r, s))
 }
 
-/// The last `n` complete lines of a segment, read backwards in blocks so the cost is what is returned.
-fn tail_segment(instance: &str, sg: &Segment, n: usize) -> io::Result<Vec<Line>> {
+/// The file of segment `seg` of run `run`.
+pub(crate) fn file_name(run: u32, seg: u32) -> String {
+    format!("r{run:06}.s{seg:03}.log")
+}
+
+/// The last `n` complete lines of a segment, read backwards in blocks so the cost is what is returned, and the offset
+/// just past the last of them.
+fn tail_segment(instance: &str, sg: &Segment, n: usize) -> io::Result<(Vec<Line>, u64)> {
     const BLOCK: u64 = 64 * 1024;
     let mut f = match File::open(&sg.path) {
         Ok(f) => f,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()), // pruned meanwhile
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok((Vec::new(), 0)), // pruned meanwhile
         Err(e) => return Err(e),
     };
     let size = f.metadata()?.len();
@@ -188,9 +291,11 @@ fn tail_segment(instance: &str, sg: &Segment, n: usize) -> io::Result<Vec<Line>>
         buf.drain(..first);
     }
     // Only complete lines: stop before one still being written.
+    let from = size.saturating_sub(buf.len() as u64);
     let Some(last) = buf.iter().rposition(|b| *b == b'\n') else {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), from));
     };
+    let end = from.saturating_add(last as u64).saturating_add(1);
     buf.truncate(last);
     let mut out: Vec<Line> = buf
         .split(|b| *b == b'\n')
@@ -198,7 +303,7 @@ fn tail_segment(instance: &str, sg: &Segment, n: usize) -> io::Result<Vec<Line>>
         .collect();
     let extra = out.len().saturating_sub(n);
     out.drain(..extra);
-    Ok(out)
+    Ok((out, end))
 }
 
 // fuzz:parser fuzz_logline
@@ -207,7 +312,7 @@ pub fn parse_line(instance: &str, run: u32, raw: &[u8]) -> Option<Line> {
     let raw = String::from_utf8_lossy(raw);
     let (stamp, rest) = raw.split_once(' ')?;
     let (stream, text) = rest.split_once(' ').unwrap_or((rest, ""));
-    if !is_stamp(stamp) {
+    if !stamp::is_stamp(stamp) {
         return None;
     }
     Some(Line {
@@ -219,16 +324,6 @@ pub fn parse_line(instance: &str, run: u32, raw: &[u8]) -> Option<Line> {
     })
 }
 
-/// Go's layout `2006-01-02T15:04:05.000000Z`, digit for digit.
-fn is_stamp(s: &str) -> bool {
-    const LAYOUT: &[u8] = b"dddd-dd-ddTdd:dd:dd.ddddddZ";
-    s.len() == LAYOUT.len()
-        && s.bytes().zip(LAYOUT).all(|(c, l)| match l {
-            b'd' => c.is_ascii_digit(),
-            l => c == *l,
-        })
-}
-
 /// The log folder of a project state folder.
 pub fn dir_of(project_state: &Path) -> PathBuf {
     project_state.join("logs")
@@ -236,3 +331,5 @@ pub fn dir_of(project_state: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_write;

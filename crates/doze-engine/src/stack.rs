@@ -170,6 +170,8 @@ pub struct Stack {
     /// doze's own variables for everything it runs (the CA bundle the daemon sets up: `DOZE_CA_FILE`,
     /// `SSL_CERT_FILE`…), added by [`crate::process::with_extra`]'s rule.
     pub extra_env: BTreeMap<String, String>,
+    /// What the log store keeps per instance (doze.hcl's `log_runs`, `log_bytes`; zero: 5 runs, 10 MiB).
+    pub log_limits: doze_logstore::Options,
 }
 
 impl Stack {
@@ -178,9 +180,19 @@ impl Stack {
         self.data_dir.join("clusters").join(name)
     }
 
-    /// The stack's runtime folder (pidfiles, sockets).
+    /// The stack's runtime folder (pidfiles, sockets, the journal).
     pub fn run_dir(&self) -> PathBuf {
         self.data_dir.join("run")
+    }
+
+    /// The log store's folder: `logs/<instance>/`.
+    pub fn logs_dir(&self) -> PathBuf {
+        doze_logstore::dir_of(&self.data_dir)
+    }
+
+    /// The journal: `run/journal.jsonl` (Go's path; the app reads it there).
+    pub fn journal_path(&self) -> PathBuf {
+        self.run_dir().join("journal.jsonl")
     }
 
     /// Looks a service up by name.

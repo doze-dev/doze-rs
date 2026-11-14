@@ -18,6 +18,8 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct Unit {
     procs: Vec<(Process, Tree)>,
+    /// Where its processes print; closed once they are all stopped.
+    log: Option<RunLog>,
     /// Where its short commands are recorded (a module's stop command among them).
     pids: Option<Pids>,
 }
@@ -57,37 +59,48 @@ fn visit<'a>(
     Ok(())
 }
 
-fn spawn_one(p: &Process, log: &RunLog) -> Result<Tree, String> {
+/// Spawns one process, its output pumped into `log`; in a plan of several, each line says which one printed it
+/// (`o:<name>`, as Go).
+fn spawn_one(p: &Process, log: &RunLog, several: bool) -> Result<Tree, String> {
     let mut cmd = tokio::process::Command::new(crate::short::program_in(&p.program, Some(&p.env)));
     cmd.args(&p.args)
         .envs(&p.env)
         .stdin(Stdio::null())
-        .stdout(log.stdio().map_err(|e| e.to_string())?)
-        .stderr(log.stdio().map_err(|e| e.to_string())?);
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     if let Some(d) = &p.dir {
         cmd.current_dir(d);
     }
-    Tree::spawn(cmd).map_err(|e| format!("starting \"{}\": {e}", p.name))
+    let mut tree = Tree::spawn(cmd).map_err(|e| format!("starting \"{}\": {e}", p.name))?;
+    let part = if several {
+        format!(":{}", p.name)
+    } else {
+        String::new()
+    };
+    log.attach(&mut tree, &part);
+    Ok(tree)
 }
 
-/// Runs a hook (program and arguments) in the process's folder and environment, its output into the log; a failure
-/// quotes that output (Go's `<name> hook "<line>": exit status 1: <output>`).
+/// Runs a hook (program and arguments) in the process's folder and environment, its output into the log as `s:hook`;
+/// a failure quotes that output (Go's `<name> hook "<line>": exit status 1: <output>`).
 async fn run_hook(
     p: &Process,
     hook: &[String],
     log: &RunLog,
     pids: Option<&Pids>,
 ) -> Result<(), String> {
-    let from = log.size();
+    let capture = crate::logs::Capture::default();
+    let stream = format!("{}hook", doze_logstore::STEP_PREFIX);
     let short = crate::short::Short {
         argv: hook,
         env: Some(&p.env),
         dir: p.dir.as_deref().map(std::path::Path::new),
-        out: Some(log),
+        out: Some((log, &stream)),
+        capture: Some(&capture),
     };
     let ran = crate::short::run(short, crate::steps::STEP_LIMIT, pids).await;
     ran.map_err(|e| {
-        let out = log.since(from);
+        let out = capture.text();
         let line = hook.join(" ");
         let msg = format!("{} hook \"{line}\": {e}", p.name);
         match out.trim() {
@@ -130,10 +143,12 @@ pub async fn start(
     }
     let mut unit = Unit {
         procs: Vec::new(),
+        log: Some(log.clone()),
         pids: pids.cloned(),
     };
+    let several = ordered.len() > 1;
     for p in ordered {
-        let tree = match spawn_one(p, log) {
+        let tree = match spawn_one(p, log, several) {
             Ok(t) => t,
             Err(e) => {
                 unit.stop(STOP_GRACE).await;
@@ -163,7 +178,7 @@ async fn gate(
         return Err(StartError::from("nothing started".to_string()));
     };
     let alive = || matches!(tree.running(), Ok(true));
-    let waited = ready::wait_ready(p.ready.as_ref(), budget, log.path(), pids, alive).await;
+    let waited = ready::wait_ready(p.ready.as_ref(), budget, Some(log), pids, alive).await;
     if let Err(e) = waited {
         let timeout = matches!(e, NotReady::Timeout(_));
         return Err(StartError {
@@ -179,7 +194,7 @@ async fn gate(
 
 fn not_ready(name: &str, e: &NotReady, log: &RunLog) -> String {
     // Go quotes the newest run's last 200 lines.
-    let tail = log.tail(200).join("\n");
+    let tail = log.recent(200).join("\n");
     let tail = tail.trim();
     if tail.is_empty() {
         format!("{name} not ready: {e}")
@@ -209,6 +224,7 @@ async fn stop_one(
                 env: None,
                 dir: None,
                 out: None,
+                capture: None,
             };
             let asked = crate::short::run(short, grace, pids).await;
             return tree
@@ -274,6 +290,9 @@ impl Unit {
             }
             let stopped = stop_one(&p, &mut tree, grace, self.pids.as_ref()).await;
             out.push((p.name.clone(), stopped));
+        }
+        if let Some(log) = self.log.take() {
+            log.close().await;
         }
         out
     }

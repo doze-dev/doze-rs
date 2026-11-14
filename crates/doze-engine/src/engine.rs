@@ -28,6 +28,8 @@ pub struct Engine {
 #[derive(Debug)]
 pub(crate) struct Inner {
     pub(crate) stack: Stack,
+    logs: doze_logstore::Store,
+    journal: Option<doze_journal::Journal>,
     core: Mutex<Core>,
     changed: watch::Sender<u64>,
     transitions: broadcast::Sender<Instance>,
@@ -93,6 +95,12 @@ impl Builder {
         self
     }
 
+    /// What the log store keeps per instance.
+    pub fn log_limits(mut self, limits: doze_logstore::Options) -> Builder {
+        self.stack.log_limits = limits;
+        self
+    }
+
     /// Adds a service.
     pub fn service(mut self, s: Service) -> Builder {
         self.stack.services.push(s);
@@ -115,6 +123,7 @@ impl Engine {
             idle_timeout: None,
             services: Vec::new(),
             extra_env: BTreeMap::new(),
+            log_limits: doze_logstore::Options::default(),
         };
         Builder { stack }
     }
@@ -131,7 +140,18 @@ impl Engine {
             cancels: BTreeMap::new(),
             live: BTreeMap::new(),
         };
+        let logs = doze_logstore::Store::with_options(stack.logs_dir(), stack.log_limits);
+        // The record screens read. Without it the engine still runs (Go's daemon: "nothing will be recorded").
+        let journal = match doze_journal::Journal::open(&stack.journal_path(), 0) {
+            Ok(j) => Some(j),
+            Err(err) => {
+                tracing::warn!("journal: {err} (nothing will be recorded)");
+                None
+            }
+        };
         let inner = Inner {
+            logs,
+            journal,
             stack,
             core: Mutex::new(core),
             changed: watch::channel(0).0,
@@ -146,6 +166,16 @@ impl Engine {
     /// The stack it runs.
     pub fn stack(&self) -> &Stack {
         &self.inner.stack
+    }
+
+    /// What every instance printed: runs kept on disk, readable while it runs and after.
+    pub fn logs(&self) -> &doze_logstore::Store {
+        &self.inner.logs
+    }
+
+    /// The journal the engine writes (`None` if it could not be opened); D1's `journal` topic subscribes to it.
+    pub fn journal(&self) -> Option<&doze_journal::Journal> {
+        self.inner.journal.as_ref()
     }
 
     fn lock(&self) -> MutexGuard<'_, Core> {
@@ -226,9 +256,12 @@ impl Engine {
         })
     }
 
-    /// Records what the engine did.
+    /// Records what the engine did: into the journal, then to subscribers of [`Engine::events`].
     pub(crate) fn event(&self, e: Event) {
         tracing::debug!(kind = e.kind.as_str(), instance = %e.instance, detail = %e.detail);
+        if let Some(j) = &self.inner.journal {
+            j.append(e.to_journal());
+        }
         let _ = self.inner.events.send(e);
     }
 

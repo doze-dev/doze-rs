@@ -95,6 +95,7 @@ async fn start(e: &Engine, name: &str, boot: u64, when: When) -> Result<Endpoint
             Ok(u) => u,
             Err(err) => {
                 pids.remove();
+                log.close().await;
                 let kind = if err.timeout {
                     Error::Timeout
                 } else {
@@ -198,8 +199,26 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
         Error::Failed(format!("{what} for \"{}\": {err}", svc.name))
     };
     doze_os::fs::private_dir(&ctx.data_dir).map_err(|err| io("creating the data folder", err))?;
-    let log =
-        RunLog::open(&e.stack().run_dir(), &svc.name).map_err(|err| io("opening the log", err))?;
+    let log = RunLog::begin(e.logs(), &svc.name).map_err(|err| io("opening the log", err))?;
+    match plan_for(e, svc, ctx, &log).await {
+        Ok(planned) => Ok((planned, log)),
+        Err(err) => {
+            log.close().await;
+            Err(err)
+        }
+    }
+}
+
+/// `setup` when this data folder needs it, then the plan, with doze's own variables in every process.
+async fn plan_for(
+    e: &Engine,
+    svc: &Service,
+    ctx: &PlanCtx,
+    log: &RunLog,
+) -> Result<Planned, Error> {
+    let io = |what: &str, err: std::io::Error| {
+        Error::Failed(format!("{what} for \"{}\": {err}", svc.name))
+    };
     let planned = match &svc.kind {
         SvcKind::Process(spec) => {
             let private = if spec.proxied() {
@@ -217,7 +236,7 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
                 pids: Some(e.pids(&svc.name)),
             };
             if steps::setup_needed(&ctx.data_dir, &spec.setup) {
-                let ran = steps::run(Moment::Setup, &spec.setup, &at, &log, |r| {
+                let ran = steps::run(Moment::Setup, &spec.setup, &at, log, |r| {
                     step_event(e, &svc.name, r)
                 })
                 .await;
@@ -253,7 +272,7 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
     for p in &mut planned.plan.processes {
         crate::process::with_extra(&mut p.env, &e.stack().extra_env);
     }
-    Ok((planned, log))
+    Ok(planned)
 }
 
 /// A port nothing listens on now (Go's `netutil.FreePort`).

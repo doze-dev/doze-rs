@@ -112,11 +112,8 @@ pub(crate) async fn probe_once(e: &Engine) {
         let healthy = match ready {
             None => true,
             Some(r) => matches!(
-                tokio::time::timeout(
-                    HEALTH_TIMEOUT,
-                    crate::ready::probe(&r, std::path::Path::new(""), Some(&pids))
-                )
-                .await,
+                tokio::time::timeout(HEALTH_TIMEOUT, crate::ready::probe(&r, None, Some(&pids)))
+                    .await,
                 Ok(Ok(true))
             ),
         };

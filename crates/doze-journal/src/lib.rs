@@ -1,4 +1,4 @@
-//! The Go doze daemon's journal, read from disk: every wake, sleep, crash and restart, with what caused it and how
+//! The doze daemon's journal, written and read: every wake, sleep, crash and restart, with what caused it and how
 //! long it took. The app reads it for Activity ("woke in 38 ms, because worker asked") and for Away (what happened
 //! while you were gone).
 //!
@@ -7,15 +7,20 @@
 //! kept. Sequence numbers rise across rotations and daemon restarts. A line that does not decode is skipped, which is
 //! how a write cut short by a crash reads; an event without a sequence number is skipped too.
 //!
-//! This crate only reads: the daemon is the one writer, and it appends without a lock, so a reader can see a last
-//! line still being written. That line does not decode and is skipped; the next read sees it whole.
+//! The daemon is the one writer ([`Journal`], Go's format byte for byte: [`encode`]), and it appends without a lock
+//! a reader in another process could take, so a reader can see a last line still being written. That line does not
+//! decode and is skipped; the next read sees it whole.
 
+mod encode;
 mod event;
 mod gojson;
 mod read;
+mod write;
 
+pub use encode::encode;
 pub use event::{Cause, Event, parse_line};
 pub use read::{MAX_LINE, parse, read, read_file, rotated, since, tail};
+pub use write::{Journal, SUBSCRIBER_BUFFER};
 
 /// A start began.
 pub const WAKE: &str = "wake";

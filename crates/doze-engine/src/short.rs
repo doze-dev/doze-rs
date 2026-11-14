@@ -6,7 +6,7 @@
 //! One deliberate difference from Go, whose `sh -c` steps could leave a background process running: whatever a short
 //! command started is killed when it ends, so "nothing left behind" holds for steps as for processes.
 
-use crate::logs::RunLog;
+use crate::logs::{Capture, RunLog};
 use crate::pidfile::Pids;
 use doze_os::tree::Tree;
 use std::collections::BTreeMap;
@@ -21,8 +21,10 @@ pub(crate) struct Short<'a> {
     /// Added to doze's own environment; its `PATH`, if any, is where the program is looked up.
     pub env: Option<&'a BTreeMap<String, String>>,
     pub dir: Option<&'a Path>,
-    /// Where its output goes (nowhere when `None`).
-    pub out: Option<&'a RunLog>,
+    /// Where its output goes, on which stream (nowhere when `None`).
+    pub out: Option<(&'a RunLog, &'a str)>,
+    /// Also keeps the end of its output, to quote (a hook's failure).
+    pub capture: Option<&'a Capture>,
 }
 
 /// The program to run: a bare name is looked up on the `PATH` the command is given (else doze's own), with `PATHEXT`
@@ -55,17 +57,27 @@ pub(crate) async fn run(s: Short<'_>, limit: Duration, pids: Option<&Pids>) -> R
     if let Some(d) = s.dir {
         cmd.current_dir(d);
     }
-    match s.out {
-        Some(log) => {
-            cmd.stdout(log.stdio().map_err(|e| e.to_string())?)
-                .stderr(log.stdio().map_err(|e| e.to_string())?);
-        }
-        None => {
-            cmd.stdout(Stdio::null()).stderr(Stdio::null());
-        }
+    if s.out.is_some() {
+        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    } else {
+        cmd.stdout(Stdio::null()).stderr(Stdio::null());
     }
     let mut tree = Tree::spawn(cmd).map_err(|e| e.to_string())?;
     let _recorded = pids.and_then(|p| tree.pid().map(|pid| p.short(pid)));
+    let pumps = match s.out {
+        Some((log, stream)) => {
+            let own = Capture::default();
+            log.attach_short(&mut tree, stream, s.capture.unwrap_or(&own))
+        }
+        None => Vec::new(),
+    };
+    let ended = wait(&mut tree, limit).await;
+    // The tree is gone (its pipes closed with it): what it printed last reaches the log before this returns.
+    crate::logs::drain(pumps).await;
+    ended
+}
+
+async fn wait(tree: &mut Tree, limit: Duration) -> Result<(), String> {
     // Whatever it started goes with it (`wait` kills the rest of its tree); after an overrun, so does the command.
     match tokio::time::timeout(limit, tree.wait()).await {
         Ok(Ok(st)) if st.success() => Ok(()),

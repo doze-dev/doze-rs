@@ -60,7 +60,7 @@ async fn when_one_process_exits_the_others_are_stopped_gracefully() {
         }
     );
     assert!(all_gone(&pids).await);
-    let text = std::fs::read_to_string(log.path()).unwrap_or_default();
+    let text = log.text();
     assert!(
         text.contains("stopping"),
         "db was asked to stop and said so, not killed: {text:?}"

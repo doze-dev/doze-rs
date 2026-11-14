@@ -1,6 +1,6 @@
 //! Running a module's plan the way the core does, with the core's own executor (`doze_engine::exec`, promoted from
 //! here in E1): processes in `after` order as doze-os trees, each gated on its readiness check, then its hooks; stopped
-//! in reverse order with the module's declared stop. Output goes to one log file, never pipes (W0).
+//! in reverse order with the module's declared stop. Output goes to one run of the log store, as the core keeps it.
 
 use doze_engine::exec::{self, Unit};
 use doze_engine::logs::RunLog;
@@ -28,7 +28,7 @@ pub async fn start(plan: &Plan, logs: &Path, limit: Duration) -> Result<Started,
 impl Started {
     /// What the plan's processes printed so far (one log for the plan, as the core keeps it).
     pub fn log(&self, _process: &str) -> String {
-        std::fs::read_to_string(self.log.path()).unwrap_or_default()
+        self.log.text()
     }
 
     /// Stops every process in reverse order, each the way its module declared; how each ended.

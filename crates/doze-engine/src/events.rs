@@ -122,4 +122,21 @@ impl Event {
         self.detail = detail.into();
         self
     }
+
+    /// As a journal line (the journal stamps its sequence number and time).
+    pub fn to_journal(&self) -> doze_journal::Event {
+        doze_journal::Event {
+            kind: self.kind.as_str().into(),
+            instance: self.instance.clone(),
+            cause: doze_journal::Cause {
+                kind: self.cause.kind().into(),
+                by: self.cause.by().into(),
+            },
+            took_ns: self
+                .took
+                .map_or(0, |d| i64::try_from(d.as_nanos()).unwrap_or(i64::MAX)),
+            detail: self.detail.clone(),
+            ..doze_journal::Event::default()
+        }
+    }
 }

@@ -1473,12 +1473,15 @@ dependencies = [
 name = "doze-engine"
 version = "0.0.0"
 dependencies = [
+ "doze-journal",
+ "doze-logstore",
  "doze-module-proto",
  "doze-os",
  "hex",
  "proptest",
  "regex-lite",
  "sha2",
+ "tempfile",
  "tokio",
  "tracing",
 ]
@@ -1498,6 +1501,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "time",
+ "tokio",
 ]
 
 [[package]]
@@ -1528,6 +1532,7 @@ name = "doze-logstore"
 version = "0.0.0"
 dependencies = [
  "tempfile",
+ "tokio",
 ]
 
 [[package]]

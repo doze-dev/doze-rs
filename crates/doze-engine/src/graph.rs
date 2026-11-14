@@ -81,6 +81,7 @@ mod tests {
             data_dir: "/nonexistent".into(),
             idle_timeout: None,
             extra_env: Default::default(),
+            log_limits: Default::default(),
             services,
         }
     }
