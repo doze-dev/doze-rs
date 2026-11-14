@@ -1509,3 +1509,12 @@ a topic's Schema tab lists the subjects named for it and those whose ids its new
 Connect has the registry's address and the serializer's `schema.registry.url` (with `basic.auth.*` under SASL), from the real
 flags. Tests: `subjects_are_registered_checked_diffed_configured_and_deleted`,
 `records_decode_with_their_schemas_and_produce_encodes`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1514. A page being left starts no request and logs nothing
+Between `beforeunload` and the next document, a request the page asks for (a query, a refresh, the Live tail, a topic's tail, a
+page's or a dialog's code) waits (`web/src/lib/leaving.ts`: the fetch client, both stream readers, every lazy chunk): it is never
+sent if the page goes, and is sent if the page stays (`pageshow`, or 3 s with the page still here). A chunk load the leaving cut
+short waits the same way instead of reaching the router's error boundary. WebKit refuses a request started in that window and
+logs "Fetch API cannot load <url> due to access control checks." (Playwright: a page error) whether or not the page handles it;
+Firefox and WebKit log a cut chunk load through React. No console line and no page error, unfiltered, in all three browsers
+(J500). File: `web/e2e/tests/leaving.spec.ts`.

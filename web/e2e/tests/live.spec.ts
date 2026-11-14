@@ -68,8 +68,8 @@ test.afterAll(async () => {
   await stopTraffic?.();
 });
 
-// A fresh browser state for each test, before its first page (a second navigation right after the first cut the first
-// page's requests short, which WebKit reports as errors).
+// A fresh browser state for each test, before its first page, with no second navigation to clear it (a page left as its
+// requests start was logged by WebKit as errors until J500 held them, CON-1514; one navigation is still the quicker way).
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     if (!sessionStorage.getItem("r3-clean")) {
@@ -459,8 +459,9 @@ test.describe("a broker that goes away and comes back", () => {
       // Close the page before the hook kills this broker: an open tail cut then (or its reconnects) is logged after the filter
       // below has run (WebKit: "The network connection was lost").
       await page.close();
-      // The browser's own report of the requests the test made fail (the broker was killed), not a fault of the page.
-      for (let i = errors.length - 1; i >= 0; i--) if (/ERR_CONNECTION_REFUSED|ERR_EMPTY_RESPONSE|ERR_INCOMPLETE_CHUNKED|Failed to load resource|NetworkError|network connection was lost|Could not connect/i.test(errors[i]!)) errors.splice(i, 1);
+      // The browser's own console report of the requests the test made fail (the broker was killed), not a fault of the page.
+      // Only console lines: a page error (an uncaught exception, an unhandled rejection) fails the test whatever its words (J500).
+      for (let i = errors.length - 1; i >= 0; i--) if (errors[i]!.startsWith("console: ") && /ERR_CONNECTION_REFUSED|ERR_EMPTY_RESPONSE|ERR_INCOMPLETE_CHUNKED|Failed to load resource|NetworkError|network connection was lost|Could not connect/i.test(errors[i]!)) errors.splice(i, 1);
     }
   });
 });

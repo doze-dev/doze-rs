@@ -454,7 +454,7 @@ Statuses as above. Rules CON-100 and up in `behaviours/console.md`. The writing 
 
 ## J (continued). 2026-11-14, found while pushing Phase 10
 
-- **J500 (open): a WebKit flake in `live.spec.ts` "a broker that goes away and comes back".** It failed once in a full three-browser run on
+- **J500 (closed 2026-11-14): a WebKit flake in `live.spec.ts` "a broker that goes away and comes back".** It failed once in a full three-browser run on
   main 124a254e (437 passed, 1 failed, 411 ms into the test) and was pushed, because the push script read the runner's exit code with bash's
   `${PIPESTATUS[0]}` in zsh, where it does not exist, so the check could not fail (the earlier pushes that day had clean runs: 420/420,
   438/438). It then passed 5 of 5 alone and 4 × 12 of 12 as the whole spec in WebKit; the failure's own output was lost (the script kept
@@ -462,3 +462,28 @@ Statuses as above. Rules CON-100 and up in `behaviours/console.md`. The writing 
   for it). Also worth knowing: both e2e brokers (the harness's and this test's second one) take the registry's default 127.0.0.1:8081, so
   the second runs without a registry; harmless today, but e2e brokers should name their own registry ports. Next: keep each full run's
   complete output, and fix at the cause when it shows again.
+
+  **Cause.** It showed again (p10d) with its output: two page errors, `/127.0.0.1:39194/api/v1/shell due to access control checks.` and
+  the same for `/api/v1/live`. Not the broker going away, and not an unhandled rejection. They are WebKit's own log line "Fetch API
+  cannot load <url> due to access control checks.", which WebKit writes for a request a page *starts* after `beforeunload` (the next
+  document asked for, not yet in), handled or not; Playwright's WebKit backend reports every JavaScript-sourced console error as a page
+  error (`splitErrorMessage` cuts "…http:" off the front, hence the leading `/`). The test went to `/live`, then at once to `/live?tail=1`,
+  and lost the race when the first page's shell and live queries started in that window. Measured in WebKit: going to a second address
+  while the first page boots logged it 23 times in 60 round trips, each fetch traced as started after `beforeunload` and before `pagehide`;
+  a handled fetch started there is logged, one in flight when the page is left is cancelled quietly, and a genuinely unhandled one reads
+  "Unhandled Promise Rejection: TypeError: Load failed" instead. Killing the broker under Home, Topics and the Live tail (refresh 5 s) gave
+  only console "Failed to load resource" lines and no `unhandledrejection` in the page: no fetch path in `web/src` leaves a rejection
+  unhandled (react-query owns every query's, `refetch`/`invalidateQueries` do not reject, the tails catch theirs). The same window also
+  cut a lazy route chunk's load, which the router's boundary caught and React logged (Firefox: "error loading dynamically imported
+  module"; WebKit: "Importing a module script failed.").
+
+  **Fix.** `web/src/lib/leaving.ts`: from `beforeunload` until the page stays (`pageshow`, or 3 s still here), every request waits: the
+  fetch client (`api`), the topic tail (`streamEvents`), the Live tail (`TailStream`), and every lazy chunk (`unlessLeaving` around the
+  router's `lazyRouteComponent` and the two `React.lazy` dialogs; a chunk load the leaving cut short waits and loads again if the page
+  stays). A held request is never sent if the page goes. The fetch client also maps a body cut mid-read to `UNREACHABLE`, its words for an
+  unreachable console, not the browser's "Load failed". The reproducer is `web/e2e/tests/leaving.spec.ts` (CON-1514): the next document
+  held 700 ms and Refresh, the Live tail, a topic's tail or a sidebar page started 20 ms into it, plus the natural race, with no error
+  filtered. Before the fix WebKit failed every deterministic case (3 of 3 iterations each) and the race; after, 54 of 54 in three runs over
+  three browsers. `live.spec.ts` now filters only console network lines, never a page error, and passed 10 of 10 alone in WebKit.
+  Seen on the way: Firefox drops about one Playwright `goto` in nine when it follows a page load at once (NS_BINDING_ABORTED or
+  NS_ERROR_FAILURE, 14 of 120 with or without the console's `beforeunload` listener); the race case tolerates only that, in Firefox only.

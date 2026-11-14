@@ -1,6 +1,7 @@
 // The console's fetch client. Every request carries `X-Console: 1`, the proof the server's API guard asks for (a page on
 // another site cannot send a custom header without a CORS preflight, which the console never grants). A refusal comes back
 // as `{ code, message }` and is thrown as an ApiFailure with those words.
+import { untilStaying } from "../lib/leaving";
 import { isClosed, markClosed } from "./closed";
 import type { ApiError } from "./types/ApiError";
 
@@ -34,13 +35,17 @@ export async function api<T>(path: string, init: RequestInit = {}, signal?: Abor
   headers.set("X-Console", "1");
   headers.set("Accept", "application/json");
   let res: Response;
+  let text: string;
   try {
+    // A page being left sends nothing (lib/leaving.ts, J500).
+    await untilStaying(signal);
     res = await fetch(`${basePath}${path}`, { ...init, headers, credentials: "same-origin", signal });
+    // The body can be cut too (the broker killed mid-answer): the same words, not the browser's "Load failed".
+    text = await res.text();
   } catch (e) {
     if ((e as Error).name === "AbortError") throw e;
     throw new ApiFailure(0, { code: "UNREACHABLE", message: "The console did not answer. Is doze-kafka still running?" });
   }
-  const text = await res.text();
   let body: unknown;
   try {
     body = text ? JSON.parse(text) : null;
