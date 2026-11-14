@@ -1,0 +1,10 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false ] },
+      { "name": "web", 1engine": app", "state": "a)sl "endpoint": "127.0.0.1:3000", "domain": "web.acmendsOn": ["db"] }
+    ]
+  }
+}

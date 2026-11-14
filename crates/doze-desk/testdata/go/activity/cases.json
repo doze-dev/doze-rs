@@ -1,0 +1,7282 @@
+{
+ "now": "2026-11-06T20:00:00Z",
+ "cases": [
+  {
+   "name": "shop-day",
+   "running": true,
+   "instances": [
+    {
+     "name": "api",
+     "kind": "app",
+     "state": "active"
+    },
+    {
+     "name": "db",
+     "kind": "module",
+     "state": "reaped"
+    }
+   ],
+   "span": "24h",
+   "inst": "",
+   "ram": {
+    "db": 536870912
+   },
+   "events": [
+    {
+     "seq": 1,
+     "time": "2026-11-05T14:00:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 2,
+     "time": "2026-11-06T00:00:00Z",
+     "kind": "wake",
+     "instance": "db",
+     "cause": {
+      "kind": "dependency",
+      "by": "api"
+     }
+    },
+    {
+     "seq": 3,
+     "time": "2026-11-06T00:00:03.600Z",
+     "kind": "ready",
+     "instance": "db",
+     "took": 180000000
+    },
+    {
+     "seq": 4,
+     "time": "2026-11-06T01:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 5,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "api",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 6,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 7,
+     "time": "2026-11-06T10:00:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 8,
+     "time": "2026-11-06T10:00:36Z",
+     "kind": "ready",
+     "instance": "api",
+     "took": 1200000000
+    },
+    {
+     "seq": 9,
+     "time": "2026-11-06T15:00:00Z",
+     "kind": "wake",
+     "instance": "db",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 10,
+     "time": "2026-11-06T16:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 11,
+     "time": "2026-11-06T16:30:00Z",
+     "kind": "step",
+     "instance": "migrate",
+     "detail": "on_ready"
+    },
+    {
+     "seq": 12,
+     "time": "2026-11-06T18:00:00Z",
+     "kind": "crash",
+     "instance": "api",
+     "detail": "panic: boom\ngoroutine 1 [running]:"
+    },
+    {
+     "seq": 13,
+     "time": "2026-11-06T18:06:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "restart"
+     }
+    },
+    {
+     "seq": 14,
+     "time": "2026-11-06T19:30:00Z",
+     "kind": "wake",
+     "instance": "cache",
+     "cause": {
+      "kind": "watch",
+      "by": "src/app.ts"
+     }
+    },
+    {
+     "seq": 15,
+     "time": "2026-11-06T19:36:00Z",
+     "kind": "failed",
+     "instance": "cache",
+     "detail": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "seq": 16,
+     "time": "2026-11-06T19:42:00Z",
+     "kind": "give_up",
+     "instance": "cache",
+     "detail": "crashed 5 times in a minute"
+    },
+    {
+     "seq": 17,
+     "time": "2026-11-06T19:48:00Z",
+     "kind": "wake",
+     "instance": "old",
+     "cause": {
+      "kind": "timer"
+     }
+    },
+    {
+     "seq": 18,
+     "time": "2026-11-06T19:54:00Z",
+     "kind": "sleep",
+     "instance": "old"
+    }
+   ]
+  },
+  {
+   "name": "shop-hour",
+   "running": true,
+   "instances": [
+    {
+     "name": "api",
+     "kind": "app",
+     "state": "active"
+    },
+    {
+     "name": "db",
+     "kind": "module",
+     "state": "reaped"
+    }
+   ],
+   "span": "1h",
+   "inst": "",
+   "ram": {},
+   "events": [
+    {
+     "seq": 1,
+     "time": "2026-11-05T14:00:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 2,
+     "time": "2026-11-06T00:00:00Z",
+     "kind": "wake",
+     "instance": "db",
+     "cause": {
+      "kind": "dependency",
+      "by": "api"
+     }
+    },
+    {
+     "seq": 3,
+     "time": "2026-11-06T00:00:03.600Z",
+     "kind": "ready",
+     "instance": "db",
+     "took": 180000000
+    },
+    {
+     "seq": 4,
+     "time": "2026-11-06T01:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 5,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "api",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 6,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 7,
+     "time": "2026-11-06T10:00:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 8,
+     "time": "2026-11-06T10:00:36Z",
+     "kind": "ready",
+     "instance": "api",
+     "took": 1200000000
+    },
+    {
+     "seq": 9,
+     "time": "2026-11-06T15:00:00Z",
+     "kind": "wake",
+     "instance": "db",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 10,
+     "time": "2026-11-06T16:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 11,
+     "time": "2026-11-06T16:30:00Z",
+     "kind": "step",
+     "instance": "migrate",
+     "detail": "on_ready"
+    },
+    {
+     "seq": 12,
+     "time": "2026-11-06T18:00:00Z",
+     "kind": "crash",
+     "instance": "api",
+     "detail": "panic: boom\ngoroutine 1 [running]:"
+    },
+    {
+     "seq": 13,
+     "time": "2026-11-06T18:06:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "restart"
+     }
+    },
+    {
+     "seq": 14,
+     "time": "2026-11-06T19:30:00Z",
+     "kind": "wake",
+     "instance": "cache",
+     "cause": {
+      "kind": "watch",
+      "by": "src/app.ts"
+     }
+    },
+    {
+     "seq": 15,
+     "time": "2026-11-06T19:36:00Z",
+     "kind": "failed",
+     "instance": "cache",
+     "detail": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "seq": 16,
+     "time": "2026-11-06T19:42:00Z",
+     "kind": "give_up",
+     "instance": "cache",
+     "detail": "crashed 5 times in a minute"
+    },
+    {
+     "seq": 17,
+     "time": "2026-11-06T19:48:00Z",
+     "kind": "wake",
+     "instance": "old",
+     "cause": {
+      "kind": "timer"
+     }
+    },
+    {
+     "seq": 18,
+     "time": "2026-11-06T19:54:00Z",
+     "kind": "sleep",
+     "instance": "old"
+    }
+   ]
+  },
+  {
+   "name": "shop-week",
+   "running": true,
+   "instances": [
+    {
+     "name": "api",
+     "kind": "app",
+     "state": "active"
+    },
+    {
+     "name": "db",
+     "kind": "module",
+     "state": "reaped"
+    }
+   ],
+   "span": "7d",
+   "inst": "",
+   "ram": {
+    "db": 536870912,
+    "api": 314572800
+   },
+   "events": [
+    {
+     "seq": 1,
+     "time": "2026-11-05T14:00:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 2,
+     "time": "2026-11-06T00:00:00Z",
+     "kind": "wake",
+     "instance": "db",
+     "cause": {
+      "kind": "dependency",
+      "by": "api"
+     }
+    },
+    {
+     "seq": 3,
+     "time": "2026-11-06T00:00:03.600Z",
+     "kind": "ready",
+     "instance": "db",
+     "took": 180000000
+    },
+    {
+     "seq": 4,
+     "time": "2026-11-06T01:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 5,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "api",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 6,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 7,
+     "time": "2026-11-06T10:00:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 8,
+     "time": "2026-11-06T10:00:36Z",
+     "kind": "ready",
+     "instance": "api",
+     "took": 1200000000
+    },
+    {
+     "seq": 9,
+     "time": "2026-11-06T15:00:00Z",
+     "kind": "wake",
+     "instance": "db",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 10,
+     "time": "2026-11-06T16:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 11,
+     "time": "2026-11-06T16:30:00Z",
+     "kind": "step",
+     "instance": "migrate",
+     "detail": "on_ready"
+    },
+    {
+     "seq": 12,
+     "time": "2026-11-06T18:00:00Z",
+     "kind": "crash",
+     "instance": "api",
+     "detail": "panic: boom\ngoroutine 1 [running]:"
+    },
+    {
+     "seq": 13,
+     "time": "2026-11-06T18:06:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "restart"
+     }
+    },
+    {
+     "seq": 14,
+     "time": "2026-11-06T19:30:00Z",
+     "kind": "wake",
+     "instance": "cache",
+     "cause": {
+      "kind": "watch",
+      "by": "src/app.ts"
+     }
+    },
+    {
+     "seq": 15,
+     "time": "2026-11-06T19:36:00Z",
+     "kind": "failed",
+     "instance": "cache",
+     "detail": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "seq": 16,
+     "time": "2026-11-06T19:42:00Z",
+     "kind": "give_up",
+     "instance": "cache",
+     "detail": "crashed 5 times in a minute"
+    },
+    {
+     "seq": 17,
+     "time": "2026-11-06T19:48:00Z",
+     "kind": "wake",
+     "instance": "old",
+     "cause": {
+      "kind": "timer"
+     }
+    },
+    {
+     "seq": 18,
+     "time": "2026-11-06T19:54:00Z",
+     "kind": "sleep",
+     "instance": "old"
+    }
+   ]
+  },
+  {
+   "name": "shop-db",
+   "running": true,
+   "instances": [
+    {
+     "name": "api",
+     "kind": "app",
+     "state": "active"
+    },
+    {
+     "name": "db",
+     "kind": "module",
+     "state": "reaped"
+    }
+   ],
+   "span": "24h",
+   "inst": "db",
+   "ram": {},
+   "events": [
+    {
+     "seq": 1,
+     "time": "2026-11-05T14:00:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 2,
+     "time": "2026-11-06T00:00:00Z",
+     "kind": "wake",
+     "instance": "db",
+     "cause": {
+      "kind": "dependency",
+      "by": "api"
+     }
+    },
+    {
+     "seq": 3,
+     "time": "2026-11-06T00:00:03.600Z",
+     "kind": "ready",
+     "instance": "db",
+     "took": 180000000
+    },
+    {
+     "seq": 4,
+     "time": "2026-11-06T01:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 5,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "api",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 6,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 7,
+     "time": "2026-11-06T10:00:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 8,
+     "time": "2026-11-06T10:00:36Z",
+     "kind": "ready",
+     "instance": "api",
+     "took": 1200000000
+    },
+    {
+     "seq": 9,
+     "time": "2026-11-06T15:00:00Z",
+     "kind": "wake",
+     "instance": "db",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 10,
+     "time": "2026-11-06T16:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 11,
+     "time": "2026-11-06T16:30:00Z",
+     "kind": "step",
+     "instance": "migrate",
+     "detail": "on_ready"
+    },
+    {
+     "seq": 12,
+     "time": "2026-11-06T18:00:00Z",
+     "kind": "crash",
+     "instance": "api",
+     "detail": "panic: boom\ngoroutine 1 [running]:"
+    },
+    {
+     "seq": 13,
+     "time": "2026-11-06T18:06:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "restart"
+     }
+    },
+    {
+     "seq": 14,
+     "time": "2026-11-06T19:30:00Z",
+     "kind": "wake",
+     "instance": "cache",
+     "cause": {
+      "kind": "watch",
+      "by": "src/app.ts"
+     }
+    },
+    {
+     "seq": 15,
+     "time": "2026-11-06T19:36:00Z",
+     "kind": "failed",
+     "instance": "cache",
+     "detail": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "seq": 16,
+     "time": "2026-11-06T19:42:00Z",
+     "kind": "give_up",
+     "instance": "cache",
+     "detail": "crashed 5 times in a minute"
+    },
+    {
+     "seq": 17,
+     "time": "2026-11-06T19:48:00Z",
+     "kind": "wake",
+     "instance": "old",
+     "cause": {
+      "kind": "timer"
+     }
+    },
+    {
+     "seq": 18,
+     "time": "2026-11-06T19:54:00Z",
+     "kind": "sleep",
+     "instance": "old"
+    }
+   ]
+  },
+  {
+   "name": "shop-stopped",
+   "running": false,
+   "instances": [
+    {
+     "name": "api",
+     "kind": "app",
+     "state": "active"
+    },
+    {
+     "name": "db",
+     "kind": "module",
+     "state": "reaped"
+    }
+   ],
+   "span": "24h",
+   "inst": "",
+   "ram": {},
+   "events": [
+    {
+     "seq": 1,
+     "time": "2026-11-05T14:00:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 2,
+     "time": "2026-11-06T00:00:00Z",
+     "kind": "wake",
+     "instance": "db",
+     "cause": {
+      "kind": "dependency",
+      "by": "api"
+     }
+    },
+    {
+     "seq": 3,
+     "time": "2026-11-06T00:00:03.600Z",
+     "kind": "ready",
+     "instance": "db",
+     "took": 180000000
+    },
+    {
+     "seq": 4,
+     "time": "2026-11-06T01:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 5,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "api",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 6,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "shutdown"
+     }
+    }
+   ]
+  },
+  {
+   "name": "shop-empty",
+   "running": false,
+   "instances": [
+    {
+     "name": "api",
+     "kind": "app",
+     "state": "active"
+    },
+    {
+     "name": "db",
+     "kind": "module",
+     "state": "reaped"
+    }
+   ],
+   "span": "1h",
+   "inst": "",
+   "ram": {},
+   "events": []
+  },
+  {
+   "name": "shop-bad-span",
+   "running": true,
+   "instances": [
+    {
+     "name": "api",
+     "kind": "app",
+     "state": "active"
+    },
+    {
+     "name": "db",
+     "kind": "module",
+     "state": "reaped"
+    }
+   ],
+   "span": "3d",
+   "inst": "",
+   "ram": {},
+   "events": [
+    {
+     "seq": 1,
+     "time": "2026-11-05T14:00:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 2,
+     "time": "2026-11-06T00:00:00Z",
+     "kind": "wake",
+     "instance": "db",
+     "cause": {
+      "kind": "dependency",
+      "by": "api"
+     }
+    },
+    {
+     "seq": 3,
+     "time": "2026-11-06T00:00:03.600Z",
+     "kind": "ready",
+     "instance": "db",
+     "took": 180000000
+    },
+    {
+     "seq": 4,
+     "time": "2026-11-06T01:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 5,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "api",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 6,
+     "time": "2026-11-06T08:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 7,
+     "time": "2026-11-06T10:00:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 8,
+     "time": "2026-11-06T10:00:36Z",
+     "kind": "ready",
+     "instance": "api",
+     "took": 1200000000
+    },
+    {
+     "seq": 9,
+     "time": "2026-11-06T15:00:00Z",
+     "kind": "wake",
+     "instance": "db",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 10,
+     "time": "2026-11-06T16:00:00Z",
+     "kind": "sleep",
+     "instance": "db",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 11,
+     "time": "2026-11-06T16:30:00Z",
+     "kind": "step",
+     "instance": "migrate",
+     "detail": "on_ready"
+    },
+    {
+     "seq": 12,
+     "time": "2026-11-06T18:00:00Z",
+     "kind": "crash",
+     "instance": "api",
+     "detail": "panic: boom\ngoroutine 1 [running]:"
+    },
+    {
+     "seq": 13,
+     "time": "2026-11-06T18:06:00Z",
+     "kind": "wake",
+     "instance": "api",
+     "cause": {
+      "kind": "restart"
+     }
+    },
+    {
+     "seq": 14,
+     "time": "2026-11-06T19:30:00Z",
+     "kind": "wake",
+     "instance": "cache",
+     "cause": {
+      "kind": "watch",
+      "by": "src/app.ts"
+     }
+    },
+    {
+     "seq": 15,
+     "time": "2026-11-06T19:36:00Z",
+     "kind": "failed",
+     "instance": "cache",
+     "detail": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "seq": 16,
+     "time": "2026-11-06T19:42:00Z",
+     "kind": "give_up",
+     "instance": "cache",
+     "detail": "crashed 5 times in a minute"
+    },
+    {
+     "seq": 17,
+     "time": "2026-11-06T19:48:00Z",
+     "kind": "wake",
+     "instance": "old",
+     "cause": {
+      "kind": "timer"
+     }
+    },
+    {
+     "seq": 18,
+     "time": "2026-11-06T19:54:00Z",
+     "kind": "sleep",
+     "instance": "old"
+    }
+   ]
+  },
+  {
+   "name": "big-week",
+   "running": true,
+   "instances": [
+    {
+     "name": "svc-0",
+     "kind": "service",
+     "state": "active",
+     "ram": 67108864
+    },
+    {
+     "name": "svc-1",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-2",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-3",
+     "kind": "service",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-4",
+     "kind": "task",
+     "state": "active",
+     "ram": 134217728
+    },
+    {
+     "name": "svc-5",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-6",
+     "kind": "service",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-7",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-8",
+     "kind": "app",
+     "state": "active",
+     "ram": 201326592
+    },
+    {
+     "name": "svc-9",
+     "kind": "task",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-10",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-11",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    }
+   ],
+   "span": "7d",
+   "inst": "",
+   "ram": {
+    "svc-0": 67108864,
+    "svc-4": 134217728,
+    "svc-8": 201326592
+   },
+   "events": [
+    {
+     "seq": 19,
+     "time": "2026-10-31T04:00:00Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 20,
+     "time": "2026-10-31T04:00:03.600Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 1626875996
+    },
+    {
+     "seq": 21,
+     "time": "2026-10-31T05:26:39.735Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 22,
+     "time": "2026-10-31T06:17:15.392Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 23,
+     "time": "2026-10-31T06:17:18.992Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 223679065
+    },
+    {
+     "seq": 24,
+     "time": "2026-10-31T06:48:24.755Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 25,
+     "time": "2026-10-31T07:34:03.622Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 26,
+     "time": "2026-10-31T07:34:07.222Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 1152193397
+    },
+    {
+     "seq": 27,
+     "time": "2026-10-31T07:46:03.622Z",
+     "kind": "crash",
+     "instance": "svc-11",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 28,
+     "time": "2026-10-31T08:29:01.152Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 29,
+     "time": "2026-10-31T08:29:04.752Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2428736329
+    },
+    {
+     "seq": 30,
+     "time": "2026-10-31T08:42:39.885Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 31,
+     "time": "2026-10-31T11:02:16.833Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 32,
+     "time": "2026-10-31T11:02:20.433Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 2676956981
+    },
+    {
+     "seq": 33,
+     "time": "2026-10-31T11:14:16.833Z",
+     "kind": "crash",
+     "instance": "svc-5",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 34,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 35,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 36,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 37,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 38,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 39,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 40,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 41,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 42,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 43,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 44,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 45,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 46,
+     "time": "2026-10-31T18:59:44.419Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 47,
+     "time": "2026-10-31T18:59:48.019Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2452861547
+    },
+    {
+     "seq": 49,
+     "time": "2026-10-31T19:48:15.356Z",
+     "kind": "wake",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 50,
+     "time": "2026-10-31T19:48:18.956Z",
+     "kind": "ready",
+     "instance": "svc-4",
+     "took": 1976563900
+    },
+    {
+     "seq": 51,
+     "time": "2026-10-31T20:30:11.121Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 48,
+     "time": "2026-10-31T20:34:50.471Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 52,
+     "time": "2026-10-31T22:52:29.364Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 53,
+     "time": "2026-10-31T22:52:32.964Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 1674259185
+    },
+    {
+     "seq": 54,
+     "time": "2026-10-31T23:53:55.805Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 55,
+     "time": "2026-11-01T01:17:49.211Z",
+     "kind": "wake",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 56,
+     "time": "2026-11-01T01:17:52.811Z",
+     "kind": "ready",
+     "instance": "svc-4",
+     "took": 2520798325
+    },
+    {
+     "seq": 57,
+     "time": "2026-11-01T02:06:12.723Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 58,
+     "time": "2026-11-01T04:08:57.645Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-6"
+     }
+    },
+    {
+     "seq": 59,
+     "time": "2026-11-01T04:09:01.245Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 712075352
+    },
+    {
+     "seq": 60,
+     "time": "2026-11-01T04:20:57.645Z",
+     "kind": "crash",
+     "instance": "svc-7",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 61,
+     "time": "2026-11-01T06:37:23.519Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-3"
+     }
+    },
+    {
+     "seq": 62,
+     "time": "2026-11-01T06:37:27.119Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1355714321
+    },
+    {
+     "seq": 63,
+     "time": "2026-11-01T06:49:23.519Z",
+     "kind": "crash",
+     "instance": "svc-6",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 64,
+     "time": "2026-11-01T09:38:12.342Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 65,
+     "time": "2026-11-01T09:38:15.942Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 2550528466
+    },
+    {
+     "seq": 66,
+     "time": "2026-11-01T10:58:18.838Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 67,
+     "time": "2026-11-01T13:08:00.220Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-4"
+     }
+    },
+    {
+     "seq": 68,
+     "time": "2026-11-01T13:08:03.820Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1894769668
+    },
+    {
+     "seq": 69,
+     "time": "2026-11-01T13:41:47.958Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 70,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 71,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 72,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 73,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 74,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 75,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 76,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 77,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 78,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 79,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 80,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 81,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 82,
+     "time": "2026-11-01T17:57:32.364Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 83,
+     "time": "2026-11-01T17:57:35.964Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 1296281576
+    },
+    {
+     "seq": 84,
+     "time": "2026-11-01T19:04:39.170Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 85,
+     "time": "2026-11-01T19:25:14.699Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 86,
+     "time": "2026-11-01T19:25:18.299Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 848228216
+    },
+    {
+     "seq": 87,
+     "time": "2026-11-01T19:38:18.464Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 88,
+     "time": "2026-11-01T22:44:51.870Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-2"
+     }
+    },
+    {
+     "seq": 89,
+     "time": "2026-11-01T22:44:55.470Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2482427090
+    },
+    {
+     "seq": 90,
+     "time": "2026-11-01T23:17:26.096Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 91,
+     "time": "2026-11-02T00:48:47.270Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-0"
+     }
+    },
+    {
+     "seq": 92,
+     "time": "2026-11-02T00:48:50.870Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 1263384541
+    },
+    {
+     "seq": 94,
+     "time": "2026-11-02T02:20:46.198Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-10"
+     }
+    },
+    {
+     "seq": 95,
+     "time": "2026-11-02T02:20:49.798Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2163273811
+    },
+    {
+     "seq": 93,
+     "time": "2026-11-02T02:53:39.035Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 96,
+     "time": "2026-11-02T02:57:34.558Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 97,
+     "time": "2026-11-02T03:43:35.184Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-9"
+     }
+    },
+    {
+     "seq": 98,
+     "time": "2026-11-02T03:43:38.784Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 1519750714
+    },
+    {
+     "seq": 99,
+     "time": "2026-11-02T05:23:02.238Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 100,
+     "time": "2026-11-02T05:56:18.535Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-7"
+     }
+    },
+    {
+     "seq": 101,
+     "time": "2026-11-02T05:56:22.135Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 2665943741
+    },
+    {
+     "seq": 102,
+     "time": "2026-11-02T06:42:49.630Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 103,
+     "time": "2026-11-02T08:52:14.660Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 104,
+     "time": "2026-11-02T08:52:18.260Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 541110634
+    },
+    {
+     "seq": 105,
+     "time": "2026-11-02T09:39:07.510Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 106,
+     "time": "2026-11-02T09:43:07.434Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 107,
+     "time": "2026-11-02T09:43:11.034Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 2446360588
+    },
+    {
+     "seq": 108,
+     "time": "2026-11-02T10:55:25.069Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 109,
+     "time": "2026-11-02T11:16:30.195Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 110,
+     "time": "2026-11-02T11:16:33.795Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1928430318
+    },
+    {
+     "seq": 112,
+     "time": "2026-11-02T12:42:37.525Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 113,
+     "time": "2026-11-02T12:42:41.125Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2470062106
+    },
+    {
+     "seq": 111,
+     "time": "2026-11-02T13:11:55.358Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 114,
+     "time": "2026-11-02T13:26:03.207Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 115,
+     "time": "2026-11-02T15:29:25.833Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 116,
+     "time": "2026-11-02T15:29:29.433Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1065560817
+    },
+    {
+     "seq": 117,
+     "time": "2026-11-02T16:48:51.574Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 118,
+     "time": "2026-11-02T17:36:36.087Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 119,
+     "time": "2026-11-02T17:36:39.687Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1348527431
+    },
+    {
+     "seq": 120,
+     "time": "2026-11-02T17:51:31.290Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 121,
+     "time": "2026-11-02T20:03:49.263Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 122,
+     "time": "2026-11-02T20:03:52.863Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 1823624342
+    },
+    {
+     "seq": 124,
+     "time": "2026-11-02T20:55:03.929Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-5"
+     }
+    },
+    {
+     "seq": 125,
+     "time": "2026-11-02T20:55:07.529Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 2476876616
+    },
+    {
+     "seq": 126,
+     "time": "2026-11-02T21:19:57.472Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 123,
+     "time": "2026-11-02T21:20:05.333Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 127,
+     "time": "2026-11-03T00:18:56.279Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 128,
+     "time": "2026-11-03T00:18:59.879Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 656869500
+    },
+    {
+     "seq": 129,
+     "time": "2026-11-03T00:30:56.279Z",
+     "kind": "crash",
+     "instance": "svc-3",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 130,
+     "time": "2026-11-03T03:18:12.474Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-0"
+     }
+    },
+    {
+     "seq": 131,
+     "time": "2026-11-03T03:18:16.074Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 1220261771
+    },
+    {
+     "seq": 132,
+     "time": "2026-11-03T04:17:29.580Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 133,
+     "time": "2026-11-03T04:33:10.784Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 134,
+     "time": "2026-11-03T04:33:14.384Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1795718461
+    },
+    {
+     "seq": 135,
+     "time": "2026-11-03T05:16:33.164Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 136,
+     "time": "2026-11-03T07:13:36.775Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 137,
+     "time": "2026-11-03T07:13:40.375Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 327969431
+    },
+    {
+     "seq": 138,
+     "time": "2026-11-03T07:36:23.960Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 139,
+     "time": "2026-11-03T08:42:07.659Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 140,
+     "time": "2026-11-03T08:42:11.259Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1312064409
+    },
+    {
+     "seq": 141,
+     "time": "2026-11-03T08:51:55.528Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 142,
+     "time": "2026-11-03T09:35:07.877Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 143,
+     "time": "2026-11-03T09:35:11.477Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 1478706836
+    },
+    {
+     "seq": 144,
+     "time": "2026-11-03T09:47:07.877Z",
+     "kind": "crash",
+     "instance": "svc-0",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 145,
+     "time": "2026-11-03T13:14:42.832Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 146,
+     "time": "2026-11-03T13:14:46.432Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 637679189
+    },
+    {
+     "seq": 147,
+     "time": "2026-11-03T14:16:46.459Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 148,
+     "time": "2026-11-03T15:29:06.327Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 149,
+     "time": "2026-11-03T15:29:09.927Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 1790958166
+    },
+    {
+     "seq": 150,
+     "time": "2026-11-03T16:09:03.352Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 151,
+     "time": "2026-11-03T18:33:54.670Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-1"
+     }
+    },
+    {
+     "seq": 152,
+     "time": "2026-11-03T18:33:58.270Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 2177678078
+    },
+    {
+     "seq": 153,
+     "time": "2026-11-03T18:47:02.028Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 154,
+     "time": "2026-11-03T19:36:15.497Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 155,
+     "time": "2026-11-03T19:36:19.097Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 781149297
+    },
+    {
+     "seq": 156,
+     "time": "2026-11-03T20:49:04.680Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 157,
+     "time": "2026-11-03T22:52:13.953Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 158,
+     "time": "2026-11-03T22:52:17.553Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1522641062
+    },
+    {
+     "seq": 159,
+     "time": "2026-11-04T00:15:32.207Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 160,
+     "time": "2026-11-04T01:06:31.510Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 161,
+     "time": "2026-11-04T01:06:35.110Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2960299015
+    },
+    {
+     "seq": 162,
+     "time": "2026-11-04T02:35:12.136Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 163,
+     "time": "2026-11-04T04:26:54.034Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 164,
+     "time": "2026-11-04T04:26:57.634Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 1497469425
+    },
+    {
+     "seq": 165,
+     "time": "2026-11-04T06:27:56.603Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 166,
+     "time": "2026-11-04T07:57:11.796Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-0"
+     }
+    },
+    {
+     "seq": 167,
+     "time": "2026-11-04T07:57:15.396Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 2113894075
+    },
+    {
+     "seq": 168,
+     "time": "2026-11-04T08:09:11.796Z",
+     "kind": "crash",
+     "instance": "svc-10",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 169,
+     "time": "2026-11-04T10:27:59.770Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 170,
+     "time": "2026-11-04T10:28:03.370Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 36514163
+    },
+    {
+     "seq": 172,
+     "time": "2026-11-04T11:17:54.031Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 173,
+     "time": "2026-11-04T11:17:57.631Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 1549045175
+    },
+    {
+     "seq": 174,
+     "time": "2026-11-04T11:29:54.031Z",
+     "kind": "crash",
+     "instance": "svc-5",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 171,
+     "time": "2026-11-04T12:15:03.596Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 175,
+     "time": "2026-11-04T13:01:28.222Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-9"
+     }
+    },
+    {
+     "seq": 176,
+     "time": "2026-11-04T13:01:31.822Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 2335919737
+    },
+    {
+     "seq": 177,
+     "time": "2026-11-04T13:50:59.069Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 178,
+     "time": "2026-11-04T16:11:11.507Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-1"
+     }
+    },
+    {
+     "seq": 179,
+     "time": "2026-11-04T16:11:15.107Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1721825569
+    },
+    {
+     "seq": 180,
+     "time": "2026-11-04T16:28:33.720Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 181,
+     "time": "2026-11-04T17:41:48.527Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 182,
+     "time": "2026-11-04T17:41:52.127Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 950505852
+    },
+    {
+     "seq": 183,
+     "time": "2026-11-04T18:51:33.258Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 184,
+     "time": "2026-11-04T21:21:09.308Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-10"
+     }
+    },
+    {
+     "seq": 185,
+     "time": "2026-11-04T21:21:12.908Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2795614242
+    },
+    {
+     "seq": 186,
+     "time": "2026-11-04T22:34:21.441Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 187,
+     "time": "2026-11-05T00:16:45.304Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 188,
+     "time": "2026-11-05T00:16:48.904Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1418659508
+    },
+    {
+     "seq": 190,
+     "time": "2026-11-05T01:02:23.873Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 191,
+     "time": "2026-11-05T01:02:27.473Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 2354518890
+    },
+    {
+     "seq": 189,
+     "time": "2026-11-05T01:40:46.324Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 192,
+     "time": "2026-11-05T02:43:16.384Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 193,
+     "time": "2026-11-05T02:57:58.544Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 194,
+     "time": "2026-11-05T02:58:02.144Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 2010233223
+    },
+    {
+     "seq": 195,
+     "time": "2026-11-05T03:57:38.662Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 196,
+     "time": "2026-11-05T05:31:05.474Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 197,
+     "time": "2026-11-05T05:31:09.074Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 39628386
+    },
+    {
+     "seq": 199,
+     "time": "2026-11-05T06:30:49.314Z",
+     "kind": "wake",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-9"
+     }
+    },
+    {
+     "seq": 200,
+     "time": "2026-11-05T06:30:52.914Z",
+     "kind": "ready",
+     "instance": "svc-4",
+     "took": 2646048545
+    },
+    {
+     "seq": 201,
+     "time": "2026-11-05T07:01:43.627Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 198,
+     "time": "2026-11-05T07:29:44.436Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 202,
+     "time": "2026-11-05T07:32:44.061Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-6"
+     }
+    },
+    {
+     "seq": 203,
+     "time": "2026-11-05T07:32:47.661Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2944766163
+    },
+    {
+     "seq": 204,
+     "time": "2026-11-05T09:00:31.537Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 205,
+     "time": "2026-11-05T11:12:08.917Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 206,
+     "time": "2026-11-05T11:12:12.517Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 2055928230
+    },
+    {
+     "seq": 207,
+     "time": "2026-11-05T12:58:24.941Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 208,
+     "time": "2026-11-05T13:49:30.273Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 209,
+     "time": "2026-11-05T13:49:33.873Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1538025856
+    },
+    {
+     "seq": 210,
+     "time": "2026-11-05T14:29:15.211Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 211,
+     "time": "2026-11-05T17:30:49.778Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 212,
+     "time": "2026-11-05T17:30:53.378Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 1970990180
+    },
+    {
+     "seq": 213,
+     "time": "2026-11-05T18:56:27.039Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 214,
+     "time": "2026-11-05T19:01:34.151Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 215,
+     "time": "2026-11-05T19:01:37.751Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 597345829
+    },
+    {
+     "seq": 216,
+     "time": "2026-11-05T20:09:39.881Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 217,
+     "time": "2026-11-05T20:15:03.889Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 218,
+     "time": "2026-11-05T20:15:07.489Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 126516669
+    },
+    {
+     "seq": 219,
+     "time": "2026-11-05T21:43:38.760Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 220,
+     "time": "2026-11-05T23:22:53.085Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-7"
+     }
+    },
+    {
+     "seq": 221,
+     "time": "2026-11-05T23:22:56.685Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1645416140
+    },
+    {
+     "seq": 222,
+     "time": "2026-11-06T00:28:13.862Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 223,
+     "time": "2026-11-06T01:11:54.087Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 224,
+     "time": "2026-11-06T01:11:57.687Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 889777779
+    },
+    {
+     "seq": 225,
+     "time": "2026-11-06T01:30:50.813Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 226,
+     "time": "2026-11-06T04:25:42.949Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 227,
+     "time": "2026-11-06T04:25:46.549Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2626775264
+    },
+    {
+     "seq": 228,
+     "time": "2026-11-06T04:54:58.793Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 229,
+     "time": "2026-11-06T08:00:24.600Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-3"
+     }
+    },
+    {
+     "seq": 230,
+     "time": "2026-11-06T08:00:28.200Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1780526876
+    },
+    {
+     "seq": 231,
+     "time": "2026-11-06T08:12:24.600Z",
+     "kind": "crash",
+     "instance": "svc-2",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 232,
+     "time": "2026-11-06T08:58:01.720Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 233,
+     "time": "2026-11-06T08:58:05.320Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 2868293434
+    },
+    {
+     "seq": 235,
+     "time": "2026-11-06T09:50:42.338Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-2"
+     }
+    },
+    {
+     "seq": 236,
+     "time": "2026-11-06T09:50:45.938Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 391703456
+    },
+    {
+     "seq": 237,
+     "time": "2026-11-06T10:04:31.585Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 234,
+     "time": "2026-11-06T10:25:55.268Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 238,
+     "time": "2026-11-06T12:21:50.598Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 239,
+     "time": "2026-11-06T12:21:54.198Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 1688591122
+    },
+    {
+     "seq": 240,
+     "time": "2026-11-06T12:54:59.654Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 241,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 242,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 243,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 244,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 245,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 246,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 247,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 248,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 249,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 250,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 251,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 252,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 253,
+     "time": "2026-11-06T16:10:17.825Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 254,
+     "time": "2026-11-06T16:10:21.425Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1367851585
+    },
+    {
+     "seq": 255,
+     "time": "2026-11-06T16:22:17.825Z",
+     "kind": "crash",
+     "instance": "svc-6",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 256,
+     "time": "2026-11-06T19:35:24.384Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-1"
+     }
+    },
+    {
+     "seq": 257,
+     "time": "2026-11-06T19:35:27.984Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 2987575739
+    },
+    {
+     "seq": 258,
+     "time": "2026-11-06T19:42:33.902Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    }
+   ]
+  },
+  {
+   "name": "big-day",
+   "running": true,
+   "instances": [
+    {
+     "name": "svc-0",
+     "kind": "service",
+     "state": "active",
+     "ram": 67108864
+    },
+    {
+     "name": "svc-1",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-2",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-3",
+     "kind": "service",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-4",
+     "kind": "task",
+     "state": "active",
+     "ram": 134217728
+    },
+    {
+     "name": "svc-5",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-6",
+     "kind": "service",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-7",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-8",
+     "kind": "app",
+     "state": "active",
+     "ram": 201326592
+    },
+    {
+     "name": "svc-9",
+     "kind": "task",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-10",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-11",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    }
+   ],
+   "span": "24h",
+   "inst": "",
+   "ram": {},
+   "events": [
+    {
+     "seq": 19,
+     "time": "2026-10-31T04:00:00Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 20,
+     "time": "2026-10-31T04:00:03.600Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 1626875996
+    },
+    {
+     "seq": 21,
+     "time": "2026-10-31T05:26:39.735Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 22,
+     "time": "2026-10-31T06:17:15.392Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 23,
+     "time": "2026-10-31T06:17:18.992Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 223679065
+    },
+    {
+     "seq": 24,
+     "time": "2026-10-31T06:48:24.755Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 25,
+     "time": "2026-10-31T07:34:03.622Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 26,
+     "time": "2026-10-31T07:34:07.222Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 1152193397
+    },
+    {
+     "seq": 27,
+     "time": "2026-10-31T07:46:03.622Z",
+     "kind": "crash",
+     "instance": "svc-11",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 28,
+     "time": "2026-10-31T08:29:01.152Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 29,
+     "time": "2026-10-31T08:29:04.752Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2428736329
+    },
+    {
+     "seq": 30,
+     "time": "2026-10-31T08:42:39.885Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 31,
+     "time": "2026-10-31T11:02:16.833Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 32,
+     "time": "2026-10-31T11:02:20.433Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 2676956981
+    },
+    {
+     "seq": 33,
+     "time": "2026-10-31T11:14:16.833Z",
+     "kind": "crash",
+     "instance": "svc-5",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 34,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 35,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 36,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 37,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 38,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 39,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 40,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 41,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 42,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 43,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 44,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 45,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 46,
+     "time": "2026-10-31T18:59:44.419Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 47,
+     "time": "2026-10-31T18:59:48.019Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2452861547
+    },
+    {
+     "seq": 49,
+     "time": "2026-10-31T19:48:15.356Z",
+     "kind": "wake",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 50,
+     "time": "2026-10-31T19:48:18.956Z",
+     "kind": "ready",
+     "instance": "svc-4",
+     "took": 1976563900
+    },
+    {
+     "seq": 51,
+     "time": "2026-10-31T20:30:11.121Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 48,
+     "time": "2026-10-31T20:34:50.471Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 52,
+     "time": "2026-10-31T22:52:29.364Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 53,
+     "time": "2026-10-31T22:52:32.964Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 1674259185
+    },
+    {
+     "seq": 54,
+     "time": "2026-10-31T23:53:55.805Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 55,
+     "time": "2026-11-01T01:17:49.211Z",
+     "kind": "wake",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 56,
+     "time": "2026-11-01T01:17:52.811Z",
+     "kind": "ready",
+     "instance": "svc-4",
+     "took": 2520798325
+    },
+    {
+     "seq": 57,
+     "time": "2026-11-01T02:06:12.723Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 58,
+     "time": "2026-11-01T04:08:57.645Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-6"
+     }
+    },
+    {
+     "seq": 59,
+     "time": "2026-11-01T04:09:01.245Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 712075352
+    },
+    {
+     "seq": 60,
+     "time": "2026-11-01T04:20:57.645Z",
+     "kind": "crash",
+     "instance": "svc-7",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 61,
+     "time": "2026-11-01T06:37:23.519Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-3"
+     }
+    },
+    {
+     "seq": 62,
+     "time": "2026-11-01T06:37:27.119Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1355714321
+    },
+    {
+     "seq": 63,
+     "time": "2026-11-01T06:49:23.519Z",
+     "kind": "crash",
+     "instance": "svc-6",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 64,
+     "time": "2026-11-01T09:38:12.342Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 65,
+     "time": "2026-11-01T09:38:15.942Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 2550528466
+    },
+    {
+     "seq": 66,
+     "time": "2026-11-01T10:58:18.838Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 67,
+     "time": "2026-11-01T13:08:00.220Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-4"
+     }
+    },
+    {
+     "seq": 68,
+     "time": "2026-11-01T13:08:03.820Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1894769668
+    },
+    {
+     "seq": 69,
+     "time": "2026-11-01T13:41:47.958Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 70,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 71,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 72,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 73,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 74,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 75,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 76,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 77,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 78,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 79,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 80,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 81,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 82,
+     "time": "2026-11-01T17:57:32.364Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 83,
+     "time": "2026-11-01T17:57:35.964Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 1296281576
+    },
+    {
+     "seq": 84,
+     "time": "2026-11-01T19:04:39.170Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 85,
+     "time": "2026-11-01T19:25:14.699Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 86,
+     "time": "2026-11-01T19:25:18.299Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 848228216
+    },
+    {
+     "seq": 87,
+     "time": "2026-11-01T19:38:18.464Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 88,
+     "time": "2026-11-01T22:44:51.870Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-2"
+     }
+    },
+    {
+     "seq": 89,
+     "time": "2026-11-01T22:44:55.470Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2482427090
+    },
+    {
+     "seq": 90,
+     "time": "2026-11-01T23:17:26.096Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 91,
+     "time": "2026-11-02T00:48:47.270Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-0"
+     }
+    },
+    {
+     "seq": 92,
+     "time": "2026-11-02T00:48:50.870Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 1263384541
+    },
+    {
+     "seq": 94,
+     "time": "2026-11-02T02:20:46.198Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-10"
+     }
+    },
+    {
+     "seq": 95,
+     "time": "2026-11-02T02:20:49.798Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2163273811
+    },
+    {
+     "seq": 93,
+     "time": "2026-11-02T02:53:39.035Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 96,
+     "time": "2026-11-02T02:57:34.558Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 97,
+     "time": "2026-11-02T03:43:35.184Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-9"
+     }
+    },
+    {
+     "seq": 98,
+     "time": "2026-11-02T03:43:38.784Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 1519750714
+    },
+    {
+     "seq": 99,
+     "time": "2026-11-02T05:23:02.238Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 100,
+     "time": "2026-11-02T05:56:18.535Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-7"
+     }
+    },
+    {
+     "seq": 101,
+     "time": "2026-11-02T05:56:22.135Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 2665943741
+    },
+    {
+     "seq": 102,
+     "time": "2026-11-02T06:42:49.630Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 103,
+     "time": "2026-11-02T08:52:14.660Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 104,
+     "time": "2026-11-02T08:52:18.260Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 541110634
+    },
+    {
+     "seq": 105,
+     "time": "2026-11-02T09:39:07.510Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 106,
+     "time": "2026-11-02T09:43:07.434Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 107,
+     "time": "2026-11-02T09:43:11.034Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 2446360588
+    },
+    {
+     "seq": 108,
+     "time": "2026-11-02T10:55:25.069Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 109,
+     "time": "2026-11-02T11:16:30.195Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 110,
+     "time": "2026-11-02T11:16:33.795Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1928430318
+    },
+    {
+     "seq": 112,
+     "time": "2026-11-02T12:42:37.525Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 113,
+     "time": "2026-11-02T12:42:41.125Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2470062106
+    },
+    {
+     "seq": 111,
+     "time": "2026-11-02T13:11:55.358Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 114,
+     "time": "2026-11-02T13:26:03.207Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 115,
+     "time": "2026-11-02T15:29:25.833Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 116,
+     "time": "2026-11-02T15:29:29.433Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1065560817
+    },
+    {
+     "seq": 117,
+     "time": "2026-11-02T16:48:51.574Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 118,
+     "time": "2026-11-02T17:36:36.087Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 119,
+     "time": "2026-11-02T17:36:39.687Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1348527431
+    },
+    {
+     "seq": 120,
+     "time": "2026-11-02T17:51:31.290Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 121,
+     "time": "2026-11-02T20:03:49.263Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 122,
+     "time": "2026-11-02T20:03:52.863Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 1823624342
+    },
+    {
+     "seq": 124,
+     "time": "2026-11-02T20:55:03.929Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-5"
+     }
+    },
+    {
+     "seq": 125,
+     "time": "2026-11-02T20:55:07.529Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 2476876616
+    },
+    {
+     "seq": 126,
+     "time": "2026-11-02T21:19:57.472Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 123,
+     "time": "2026-11-02T21:20:05.333Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 127,
+     "time": "2026-11-03T00:18:56.279Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 128,
+     "time": "2026-11-03T00:18:59.879Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 656869500
+    },
+    {
+     "seq": 129,
+     "time": "2026-11-03T00:30:56.279Z",
+     "kind": "crash",
+     "instance": "svc-3",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 130,
+     "time": "2026-11-03T03:18:12.474Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-0"
+     }
+    },
+    {
+     "seq": 131,
+     "time": "2026-11-03T03:18:16.074Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 1220261771
+    },
+    {
+     "seq": 132,
+     "time": "2026-11-03T04:17:29.580Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 133,
+     "time": "2026-11-03T04:33:10.784Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 134,
+     "time": "2026-11-03T04:33:14.384Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1795718461
+    },
+    {
+     "seq": 135,
+     "time": "2026-11-03T05:16:33.164Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 136,
+     "time": "2026-11-03T07:13:36.775Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 137,
+     "time": "2026-11-03T07:13:40.375Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 327969431
+    },
+    {
+     "seq": 138,
+     "time": "2026-11-03T07:36:23.960Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 139,
+     "time": "2026-11-03T08:42:07.659Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 140,
+     "time": "2026-11-03T08:42:11.259Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1312064409
+    },
+    {
+     "seq": 141,
+     "time": "2026-11-03T08:51:55.528Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 142,
+     "time": "2026-11-03T09:35:07.877Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 143,
+     "time": "2026-11-03T09:35:11.477Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 1478706836
+    },
+    {
+     "seq": 144,
+     "time": "2026-11-03T09:47:07.877Z",
+     "kind": "crash",
+     "instance": "svc-0",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 145,
+     "time": "2026-11-03T13:14:42.832Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 146,
+     "time": "2026-11-03T13:14:46.432Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 637679189
+    },
+    {
+     "seq": 147,
+     "time": "2026-11-03T14:16:46.459Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 148,
+     "time": "2026-11-03T15:29:06.327Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 149,
+     "time": "2026-11-03T15:29:09.927Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 1790958166
+    },
+    {
+     "seq": 150,
+     "time": "2026-11-03T16:09:03.352Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 151,
+     "time": "2026-11-03T18:33:54.670Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-1"
+     }
+    },
+    {
+     "seq": 152,
+     "time": "2026-11-03T18:33:58.270Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 2177678078
+    },
+    {
+     "seq": 153,
+     "time": "2026-11-03T18:47:02.028Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 154,
+     "time": "2026-11-03T19:36:15.497Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 155,
+     "time": "2026-11-03T19:36:19.097Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 781149297
+    },
+    {
+     "seq": 156,
+     "time": "2026-11-03T20:49:04.680Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 157,
+     "time": "2026-11-03T22:52:13.953Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 158,
+     "time": "2026-11-03T22:52:17.553Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1522641062
+    },
+    {
+     "seq": 159,
+     "time": "2026-11-04T00:15:32.207Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 160,
+     "time": "2026-11-04T01:06:31.510Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 161,
+     "time": "2026-11-04T01:06:35.110Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2960299015
+    },
+    {
+     "seq": 162,
+     "time": "2026-11-04T02:35:12.136Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 163,
+     "time": "2026-11-04T04:26:54.034Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 164,
+     "time": "2026-11-04T04:26:57.634Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 1497469425
+    },
+    {
+     "seq": 165,
+     "time": "2026-11-04T06:27:56.603Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 166,
+     "time": "2026-11-04T07:57:11.796Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-0"
+     }
+    },
+    {
+     "seq": 167,
+     "time": "2026-11-04T07:57:15.396Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 2113894075
+    },
+    {
+     "seq": 168,
+     "time": "2026-11-04T08:09:11.796Z",
+     "kind": "crash",
+     "instance": "svc-10",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 169,
+     "time": "2026-11-04T10:27:59.770Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 170,
+     "time": "2026-11-04T10:28:03.370Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 36514163
+    },
+    {
+     "seq": 172,
+     "time": "2026-11-04T11:17:54.031Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 173,
+     "time": "2026-11-04T11:17:57.631Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 1549045175
+    },
+    {
+     "seq": 174,
+     "time": "2026-11-04T11:29:54.031Z",
+     "kind": "crash",
+     "instance": "svc-5",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 171,
+     "time": "2026-11-04T12:15:03.596Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 175,
+     "time": "2026-11-04T13:01:28.222Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-9"
+     }
+    },
+    {
+     "seq": 176,
+     "time": "2026-11-04T13:01:31.822Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 2335919737
+    },
+    {
+     "seq": 177,
+     "time": "2026-11-04T13:50:59.069Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 178,
+     "time": "2026-11-04T16:11:11.507Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-1"
+     }
+    },
+    {
+     "seq": 179,
+     "time": "2026-11-04T16:11:15.107Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1721825569
+    },
+    {
+     "seq": 180,
+     "time": "2026-11-04T16:28:33.720Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 181,
+     "time": "2026-11-04T17:41:48.527Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 182,
+     "time": "2026-11-04T17:41:52.127Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 950505852
+    },
+    {
+     "seq": 183,
+     "time": "2026-11-04T18:51:33.258Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 184,
+     "time": "2026-11-04T21:21:09.308Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-10"
+     }
+    },
+    {
+     "seq": 185,
+     "time": "2026-11-04T21:21:12.908Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2795614242
+    },
+    {
+     "seq": 186,
+     "time": "2026-11-04T22:34:21.441Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 187,
+     "time": "2026-11-05T00:16:45.304Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 188,
+     "time": "2026-11-05T00:16:48.904Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1418659508
+    },
+    {
+     "seq": 190,
+     "time": "2026-11-05T01:02:23.873Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 191,
+     "time": "2026-11-05T01:02:27.473Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 2354518890
+    },
+    {
+     "seq": 189,
+     "time": "2026-11-05T01:40:46.324Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 192,
+     "time": "2026-11-05T02:43:16.384Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 193,
+     "time": "2026-11-05T02:57:58.544Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 194,
+     "time": "2026-11-05T02:58:02.144Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 2010233223
+    },
+    {
+     "seq": 195,
+     "time": "2026-11-05T03:57:38.662Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 196,
+     "time": "2026-11-05T05:31:05.474Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 197,
+     "time": "2026-11-05T05:31:09.074Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 39628386
+    },
+    {
+     "seq": 199,
+     "time": "2026-11-05T06:30:49.314Z",
+     "kind": "wake",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-9"
+     }
+    },
+    {
+     "seq": 200,
+     "time": "2026-11-05T06:30:52.914Z",
+     "kind": "ready",
+     "instance": "svc-4",
+     "took": 2646048545
+    },
+    {
+     "seq": 201,
+     "time": "2026-11-05T07:01:43.627Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 198,
+     "time": "2026-11-05T07:29:44.436Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 202,
+     "time": "2026-11-05T07:32:44.061Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-6"
+     }
+    },
+    {
+     "seq": 203,
+     "time": "2026-11-05T07:32:47.661Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2944766163
+    },
+    {
+     "seq": 204,
+     "time": "2026-11-05T09:00:31.537Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 205,
+     "time": "2026-11-05T11:12:08.917Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 206,
+     "time": "2026-11-05T11:12:12.517Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 2055928230
+    },
+    {
+     "seq": 207,
+     "time": "2026-11-05T12:58:24.941Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 208,
+     "time": "2026-11-05T13:49:30.273Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 209,
+     "time": "2026-11-05T13:49:33.873Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1538025856
+    },
+    {
+     "seq": 210,
+     "time": "2026-11-05T14:29:15.211Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 211,
+     "time": "2026-11-05T17:30:49.778Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 212,
+     "time": "2026-11-05T17:30:53.378Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 1970990180
+    },
+    {
+     "seq": 213,
+     "time": "2026-11-05T18:56:27.039Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 214,
+     "time": "2026-11-05T19:01:34.151Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 215,
+     "time": "2026-11-05T19:01:37.751Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 597345829
+    },
+    {
+     "seq": 216,
+     "time": "2026-11-05T20:09:39.881Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 217,
+     "time": "2026-11-05T20:15:03.889Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 218,
+     "time": "2026-11-05T20:15:07.489Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 126516669
+    },
+    {
+     "seq": 219,
+     "time": "2026-11-05T21:43:38.760Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 220,
+     "time": "2026-11-05T23:22:53.085Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-7"
+     }
+    },
+    {
+     "seq": 221,
+     "time": "2026-11-05T23:22:56.685Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1645416140
+    },
+    {
+     "seq": 222,
+     "time": "2026-11-06T00:28:13.862Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 223,
+     "time": "2026-11-06T01:11:54.087Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 224,
+     "time": "2026-11-06T01:11:57.687Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 889777779
+    },
+    {
+     "seq": 225,
+     "time": "2026-11-06T01:30:50.813Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 226,
+     "time": "2026-11-06T04:25:42.949Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 227,
+     "time": "2026-11-06T04:25:46.549Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2626775264
+    },
+    {
+     "seq": 228,
+     "time": "2026-11-06T04:54:58.793Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 229,
+     "time": "2026-11-06T08:00:24.600Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-3"
+     }
+    },
+    {
+     "seq": 230,
+     "time": "2026-11-06T08:00:28.200Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1780526876
+    },
+    {
+     "seq": 231,
+     "time": "2026-11-06T08:12:24.600Z",
+     "kind": "crash",
+     "instance": "svc-2",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 232,
+     "time": "2026-11-06T08:58:01.720Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 233,
+     "time": "2026-11-06T08:58:05.320Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 2868293434
+    },
+    {
+     "seq": 235,
+     "time": "2026-11-06T09:50:42.338Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-2"
+     }
+    },
+    {
+     "seq": 236,
+     "time": "2026-11-06T09:50:45.938Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 391703456
+    },
+    {
+     "seq": 237,
+     "time": "2026-11-06T10:04:31.585Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 234,
+     "time": "2026-11-06T10:25:55.268Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 238,
+     "time": "2026-11-06T12:21:50.598Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 239,
+     "time": "2026-11-06T12:21:54.198Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 1688591122
+    },
+    {
+     "seq": 240,
+     "time": "2026-11-06T12:54:59.654Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 241,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 242,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 243,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 244,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 245,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 246,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 247,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 248,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 249,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 250,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 251,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 252,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 253,
+     "time": "2026-11-06T16:10:17.825Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 254,
+     "time": "2026-11-06T16:10:21.425Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1367851585
+    },
+    {
+     "seq": 255,
+     "time": "2026-11-06T16:22:17.825Z",
+     "kind": "crash",
+     "instance": "svc-6",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 256,
+     "time": "2026-11-06T19:35:24.384Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-1"
+     }
+    },
+    {
+     "seq": 257,
+     "time": "2026-11-06T19:35:27.984Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 2987575739
+    },
+    {
+     "seq": 258,
+     "time": "2026-11-06T19:42:33.902Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    }
+   ]
+  },
+  {
+   "name": "big-svc-3",
+   "running": true,
+   "instances": [
+    {
+     "name": "svc-0",
+     "kind": "service",
+     "state": "active",
+     "ram": 67108864
+    },
+    {
+     "name": "svc-1",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-2",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-3",
+     "kind": "service",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-4",
+     "kind": "task",
+     "state": "active",
+     "ram": 134217728
+    },
+    {
+     "name": "svc-5",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-6",
+     "kind": "service",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-7",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-8",
+     "kind": "app",
+     "state": "active",
+     "ram": 201326592
+    },
+    {
+     "name": "svc-9",
+     "kind": "task",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-10",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    },
+    {
+     "name": "svc-11",
+     "kind": "app",
+     "state": "reaped",
+     "ram": 0
+    }
+   ],
+   "span": "7d",
+   "inst": "svc-3",
+   "ram": {},
+   "events": [
+    {
+     "seq": 19,
+     "time": "2026-10-31T04:00:00Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 20,
+     "time": "2026-10-31T04:00:03.600Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 1626875996
+    },
+    {
+     "seq": 21,
+     "time": "2026-10-31T05:26:39.735Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 22,
+     "time": "2026-10-31T06:17:15.392Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 23,
+     "time": "2026-10-31T06:17:18.992Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 223679065
+    },
+    {
+     "seq": 24,
+     "time": "2026-10-31T06:48:24.755Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 25,
+     "time": "2026-10-31T07:34:03.622Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 26,
+     "time": "2026-10-31T07:34:07.222Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 1152193397
+    },
+    {
+     "seq": 27,
+     "time": "2026-10-31T07:46:03.622Z",
+     "kind": "crash",
+     "instance": "svc-11",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 28,
+     "time": "2026-10-31T08:29:01.152Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 29,
+     "time": "2026-10-31T08:29:04.752Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2428736329
+    },
+    {
+     "seq": 30,
+     "time": "2026-10-31T08:42:39.885Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 31,
+     "time": "2026-10-31T11:02:16.833Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 32,
+     "time": "2026-10-31T11:02:20.433Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 2676956981
+    },
+    {
+     "seq": 33,
+     "time": "2026-10-31T11:14:16.833Z",
+     "kind": "crash",
+     "instance": "svc-5",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 34,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 35,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 36,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 37,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 38,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 39,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 40,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 41,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 42,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 43,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 44,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 45,
+     "time": "2026-10-31T14:08:46.345Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 46,
+     "time": "2026-10-31T18:59:44.419Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 47,
+     "time": "2026-10-31T18:59:48.019Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2452861547
+    },
+    {
+     "seq": 49,
+     "time": "2026-10-31T19:48:15.356Z",
+     "kind": "wake",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 50,
+     "time": "2026-10-31T19:48:18.956Z",
+     "kind": "ready",
+     "instance": "svc-4",
+     "took": 1976563900
+    },
+    {
+     "seq": 51,
+     "time": "2026-10-31T20:30:11.121Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 48,
+     "time": "2026-10-31T20:34:50.471Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 52,
+     "time": "2026-10-31T22:52:29.364Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 53,
+     "time": "2026-10-31T22:52:32.964Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 1674259185
+    },
+    {
+     "seq": 54,
+     "time": "2026-10-31T23:53:55.805Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 55,
+     "time": "2026-11-01T01:17:49.211Z",
+     "kind": "wake",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 56,
+     "time": "2026-11-01T01:17:52.811Z",
+     "kind": "ready",
+     "instance": "svc-4",
+     "took": 2520798325
+    },
+    {
+     "seq": 57,
+     "time": "2026-11-01T02:06:12.723Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 58,
+     "time": "2026-11-01T04:08:57.645Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-6"
+     }
+    },
+    {
+     "seq": 59,
+     "time": "2026-11-01T04:09:01.245Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 712075352
+    },
+    {
+     "seq": 60,
+     "time": "2026-11-01T04:20:57.645Z",
+     "kind": "crash",
+     "instance": "svc-7",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 61,
+     "time": "2026-11-01T06:37:23.519Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-3"
+     }
+    },
+    {
+     "seq": 62,
+     "time": "2026-11-01T06:37:27.119Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1355714321
+    },
+    {
+     "seq": 63,
+     "time": "2026-11-01T06:49:23.519Z",
+     "kind": "crash",
+     "instance": "svc-6",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 64,
+     "time": "2026-11-01T09:38:12.342Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 65,
+     "time": "2026-11-01T09:38:15.942Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 2550528466
+    },
+    {
+     "seq": 66,
+     "time": "2026-11-01T10:58:18.838Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 67,
+     "time": "2026-11-01T13:08:00.220Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-4"
+     }
+    },
+    {
+     "seq": 68,
+     "time": "2026-11-01T13:08:03.820Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1894769668
+    },
+    {
+     "seq": 69,
+     "time": "2026-11-01T13:41:47.958Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 70,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 71,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 72,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 73,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 74,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 75,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 76,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 77,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 78,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 79,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 80,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 81,
+     "time": "2026-11-01T14:24:34.329Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 82,
+     "time": "2026-11-01T17:57:32.364Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 83,
+     "time": "2026-11-01T17:57:35.964Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 1296281576
+    },
+    {
+     "seq": 84,
+     "time": "2026-11-01T19:04:39.170Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 85,
+     "time": "2026-11-01T19:25:14.699Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 86,
+     "time": "2026-11-01T19:25:18.299Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 848228216
+    },
+    {
+     "seq": 87,
+     "time": "2026-11-01T19:38:18.464Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 88,
+     "time": "2026-11-01T22:44:51.870Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-2"
+     }
+    },
+    {
+     "seq": 89,
+     "time": "2026-11-01T22:44:55.470Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2482427090
+    },
+    {
+     "seq": 90,
+     "time": "2026-11-01T23:17:26.096Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 91,
+     "time": "2026-11-02T00:48:47.270Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-0"
+     }
+    },
+    {
+     "seq": 92,
+     "time": "2026-11-02T00:48:50.870Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 1263384541
+    },
+    {
+     "seq": 94,
+     "time": "2026-11-02T02:20:46.198Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-10"
+     }
+    },
+    {
+     "seq": 95,
+     "time": "2026-11-02T02:20:49.798Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2163273811
+    },
+    {
+     "seq": 93,
+     "time": "2026-11-02T02:53:39.035Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 96,
+     "time": "2026-11-02T02:57:34.558Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 97,
+     "time": "2026-11-02T03:43:35.184Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-9"
+     }
+    },
+    {
+     "seq": 98,
+     "time": "2026-11-02T03:43:38.784Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 1519750714
+    },
+    {
+     "seq": 99,
+     "time": "2026-11-02T05:23:02.238Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 100,
+     "time": "2026-11-02T05:56:18.535Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-7"
+     }
+    },
+    {
+     "seq": 101,
+     "time": "2026-11-02T05:56:22.135Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 2665943741
+    },
+    {
+     "seq": 102,
+     "time": "2026-11-02T06:42:49.630Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 103,
+     "time": "2026-11-02T08:52:14.660Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 104,
+     "time": "2026-11-02T08:52:18.260Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 541110634
+    },
+    {
+     "seq": 105,
+     "time": "2026-11-02T09:39:07.510Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 106,
+     "time": "2026-11-02T09:43:07.434Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 107,
+     "time": "2026-11-02T09:43:11.034Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 2446360588
+    },
+    {
+     "seq": 108,
+     "time": "2026-11-02T10:55:25.069Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 109,
+     "time": "2026-11-02T11:16:30.195Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 110,
+     "time": "2026-11-02T11:16:33.795Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1928430318
+    },
+    {
+     "seq": 112,
+     "time": "2026-11-02T12:42:37.525Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 113,
+     "time": "2026-11-02T12:42:41.125Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2470062106
+    },
+    {
+     "seq": 111,
+     "time": "2026-11-02T13:11:55.358Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 114,
+     "time": "2026-11-02T13:26:03.207Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 115,
+     "time": "2026-11-02T15:29:25.833Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 116,
+     "time": "2026-11-02T15:29:29.433Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1065560817
+    },
+    {
+     "seq": 117,
+     "time": "2026-11-02T16:48:51.574Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 118,
+     "time": "2026-11-02T17:36:36.087Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 119,
+     "time": "2026-11-02T17:36:39.687Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1348527431
+    },
+    {
+     "seq": 120,
+     "time": "2026-11-02T17:51:31.290Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 121,
+     "time": "2026-11-02T20:03:49.263Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 122,
+     "time": "2026-11-02T20:03:52.863Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 1823624342
+    },
+    {
+     "seq": 124,
+     "time": "2026-11-02T20:55:03.929Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-5"
+     }
+    },
+    {
+     "seq": 125,
+     "time": "2026-11-02T20:55:07.529Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 2476876616
+    },
+    {
+     "seq": 126,
+     "time": "2026-11-02T21:19:57.472Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 123,
+     "time": "2026-11-02T21:20:05.333Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 127,
+     "time": "2026-11-03T00:18:56.279Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 128,
+     "time": "2026-11-03T00:18:59.879Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 656869500
+    },
+    {
+     "seq": 129,
+     "time": "2026-11-03T00:30:56.279Z",
+     "kind": "crash",
+     "instance": "svc-3",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 130,
+     "time": "2026-11-03T03:18:12.474Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-0"
+     }
+    },
+    {
+     "seq": 131,
+     "time": "2026-11-03T03:18:16.074Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 1220261771
+    },
+    {
+     "seq": 132,
+     "time": "2026-11-03T04:17:29.580Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 133,
+     "time": "2026-11-03T04:33:10.784Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 134,
+     "time": "2026-11-03T04:33:14.384Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1795718461
+    },
+    {
+     "seq": 135,
+     "time": "2026-11-03T05:16:33.164Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 136,
+     "time": "2026-11-03T07:13:36.775Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 137,
+     "time": "2026-11-03T07:13:40.375Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 327969431
+    },
+    {
+     "seq": 138,
+     "time": "2026-11-03T07:36:23.960Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 139,
+     "time": "2026-11-03T08:42:07.659Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 140,
+     "time": "2026-11-03T08:42:11.259Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1312064409
+    },
+    {
+     "seq": 141,
+     "time": "2026-11-03T08:51:55.528Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 142,
+     "time": "2026-11-03T09:35:07.877Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 143,
+     "time": "2026-11-03T09:35:11.477Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 1478706836
+    },
+    {
+     "seq": 144,
+     "time": "2026-11-03T09:47:07.877Z",
+     "kind": "crash",
+     "instance": "svc-0",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 145,
+     "time": "2026-11-03T13:14:42.832Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 146,
+     "time": "2026-11-03T13:14:46.432Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 637679189
+    },
+    {
+     "seq": 147,
+     "time": "2026-11-03T14:16:46.459Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 148,
+     "time": "2026-11-03T15:29:06.327Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 149,
+     "time": "2026-11-03T15:29:09.927Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 1790958166
+    },
+    {
+     "seq": 150,
+     "time": "2026-11-03T16:09:03.352Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 151,
+     "time": "2026-11-03T18:33:54.670Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-1"
+     }
+    },
+    {
+     "seq": 152,
+     "time": "2026-11-03T18:33:58.270Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 2177678078
+    },
+    {
+     "seq": 153,
+     "time": "2026-11-03T18:47:02.028Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 154,
+     "time": "2026-11-03T19:36:15.497Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 155,
+     "time": "2026-11-03T19:36:19.097Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 781149297
+    },
+    {
+     "seq": 156,
+     "time": "2026-11-03T20:49:04.680Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 157,
+     "time": "2026-11-03T22:52:13.953Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 158,
+     "time": "2026-11-03T22:52:17.553Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1522641062
+    },
+    {
+     "seq": 159,
+     "time": "2026-11-04T00:15:32.207Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 160,
+     "time": "2026-11-04T01:06:31.510Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 161,
+     "time": "2026-11-04T01:06:35.110Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2960299015
+    },
+    {
+     "seq": 162,
+     "time": "2026-11-04T02:35:12.136Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 163,
+     "time": "2026-11-04T04:26:54.034Z",
+     "kind": "wake",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 164,
+     "time": "2026-11-04T04:26:57.634Z",
+     "kind": "ready",
+     "instance": "svc-3",
+     "took": 1497469425
+    },
+    {
+     "seq": 165,
+     "time": "2026-11-04T06:27:56.603Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 166,
+     "time": "2026-11-04T07:57:11.796Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-0"
+     }
+    },
+    {
+     "seq": 167,
+     "time": "2026-11-04T07:57:15.396Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 2113894075
+    },
+    {
+     "seq": 168,
+     "time": "2026-11-04T08:09:11.796Z",
+     "kind": "crash",
+     "instance": "svc-10",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 169,
+     "time": "2026-11-04T10:27:59.770Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 170,
+     "time": "2026-11-04T10:28:03.370Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 36514163
+    },
+    {
+     "seq": 172,
+     "time": "2026-11-04T11:17:54.031Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 173,
+     "time": "2026-11-04T11:17:57.631Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 1549045175
+    },
+    {
+     "seq": 174,
+     "time": "2026-11-04T11:29:54.031Z",
+     "kind": "crash",
+     "instance": "svc-5",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 171,
+     "time": "2026-11-04T12:15:03.596Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 175,
+     "time": "2026-11-04T13:01:28.222Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-9"
+     }
+    },
+    {
+     "seq": 176,
+     "time": "2026-11-04T13:01:31.822Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 2335919737
+    },
+    {
+     "seq": 177,
+     "time": "2026-11-04T13:50:59.069Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 178,
+     "time": "2026-11-04T16:11:11.507Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-1"
+     }
+    },
+    {
+     "seq": 179,
+     "time": "2026-11-04T16:11:15.107Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1721825569
+    },
+    {
+     "seq": 180,
+     "time": "2026-11-04T16:28:33.720Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 181,
+     "time": "2026-11-04T17:41:48.527Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 182,
+     "time": "2026-11-04T17:41:52.127Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 950505852
+    },
+    {
+     "seq": 183,
+     "time": "2026-11-04T18:51:33.258Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 184,
+     "time": "2026-11-04T21:21:09.308Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-10"
+     }
+    },
+    {
+     "seq": 185,
+     "time": "2026-11-04T21:21:12.908Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2795614242
+    },
+    {
+     "seq": 186,
+     "time": "2026-11-04T22:34:21.441Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 187,
+     "time": "2026-11-05T00:16:45.304Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 188,
+     "time": "2026-11-05T00:16:48.904Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1418659508
+    },
+    {
+     "seq": 190,
+     "time": "2026-11-05T01:02:23.873Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 191,
+     "time": "2026-11-05T01:02:27.473Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 2354518890
+    },
+    {
+     "seq": 189,
+     "time": "2026-11-05T01:40:46.324Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 192,
+     "time": "2026-11-05T02:43:16.384Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 193,
+     "time": "2026-11-05T02:57:58.544Z",
+     "kind": "wake",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 194,
+     "time": "2026-11-05T02:58:02.144Z",
+     "kind": "ready",
+     "instance": "svc-0",
+     "took": 2010233223
+    },
+    {
+     "seq": 195,
+     "time": "2026-11-05T03:57:38.662Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 196,
+     "time": "2026-11-05T05:31:05.474Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 197,
+     "time": "2026-11-05T05:31:09.074Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 39628386
+    },
+    {
+     "seq": 199,
+     "time": "2026-11-05T06:30:49.314Z",
+     "kind": "wake",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-9"
+     }
+    },
+    {
+     "seq": 200,
+     "time": "2026-11-05T06:30:52.914Z",
+     "kind": "ready",
+     "instance": "svc-4",
+     "took": 2646048545
+    },
+    {
+     "seq": 201,
+     "time": "2026-11-05T07:01:43.627Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 198,
+     "time": "2026-11-05T07:29:44.436Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 202,
+     "time": "2026-11-05T07:32:44.061Z",
+     "kind": "wake",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-6"
+     }
+    },
+    {
+     "seq": 203,
+     "time": "2026-11-05T07:32:47.661Z",
+     "kind": "ready",
+     "instance": "svc-8",
+     "took": 2944766163
+    },
+    {
+     "seq": 204,
+     "time": "2026-11-05T09:00:31.537Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 205,
+     "time": "2026-11-05T11:12:08.917Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 206,
+     "time": "2026-11-05T11:12:12.517Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 2055928230
+    },
+    {
+     "seq": 207,
+     "time": "2026-11-05T12:58:24.941Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 208,
+     "time": "2026-11-05T13:49:30.273Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 209,
+     "time": "2026-11-05T13:49:33.873Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1538025856
+    },
+    {
+     "seq": 210,
+     "time": "2026-11-05T14:29:15.211Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 211,
+     "time": "2026-11-05T17:30:49.778Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 212,
+     "time": "2026-11-05T17:30:53.378Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 1970990180
+    },
+    {
+     "seq": 213,
+     "time": "2026-11-05T18:56:27.039Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 214,
+     "time": "2026-11-05T19:01:34.151Z",
+     "kind": "wake",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 215,
+     "time": "2026-11-05T19:01:37.751Z",
+     "kind": "ready",
+     "instance": "svc-11",
+     "took": 597345829
+    },
+    {
+     "seq": 216,
+     "time": "2026-11-05T20:09:39.881Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 217,
+     "time": "2026-11-05T20:15:03.889Z",
+     "kind": "wake",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 218,
+     "time": "2026-11-05T20:15:07.489Z",
+     "kind": "ready",
+     "instance": "svc-9",
+     "took": 126516669
+    },
+    {
+     "seq": 219,
+     "time": "2026-11-05T21:43:38.760Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 220,
+     "time": "2026-11-05T23:22:53.085Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-7"
+     }
+    },
+    {
+     "seq": 221,
+     "time": "2026-11-05T23:22:56.685Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 1645416140
+    },
+    {
+     "seq": 222,
+     "time": "2026-11-06T00:28:13.862Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 223,
+     "time": "2026-11-06T01:11:54.087Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 224,
+     "time": "2026-11-06T01:11:57.687Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 889777779
+    },
+    {
+     "seq": 225,
+     "time": "2026-11-06T01:30:50.813Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 226,
+     "time": "2026-11-06T04:25:42.949Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 227,
+     "time": "2026-11-06T04:25:46.549Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 2626775264
+    },
+    {
+     "seq": 228,
+     "time": "2026-11-06T04:54:58.793Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 229,
+     "time": "2026-11-06T08:00:24.600Z",
+     "kind": "wake",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-3"
+     }
+    },
+    {
+     "seq": 230,
+     "time": "2026-11-06T08:00:28.200Z",
+     "kind": "ready",
+     "instance": "svc-2",
+     "took": 1780526876
+    },
+    {
+     "seq": 231,
+     "time": "2026-11-06T08:12:24.600Z",
+     "kind": "crash",
+     "instance": "svc-2",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 232,
+     "time": "2026-11-06T08:58:01.720Z",
+     "kind": "wake",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 233,
+     "time": "2026-11-06T08:58:05.320Z",
+     "kind": "ready",
+     "instance": "svc-5",
+     "took": 2868293434
+    },
+    {
+     "seq": 235,
+     "time": "2026-11-06T09:50:42.338Z",
+     "kind": "wake",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-2"
+     }
+    },
+    {
+     "seq": 236,
+     "time": "2026-11-06T09:50:45.938Z",
+     "kind": "ready",
+     "instance": "svc-7",
+     "took": 391703456
+    },
+    {
+     "seq": 237,
+     "time": "2026-11-06T10:04:31.585Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 234,
+     "time": "2026-11-06T10:25:55.268Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 238,
+     "time": "2026-11-06T12:21:50.598Z",
+     "kind": "wake",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "command"
+     }
+    },
+    {
+     "seq": 239,
+     "time": "2026-11-06T12:21:54.198Z",
+     "kind": "ready",
+     "instance": "svc-10",
+     "took": 1688591122
+    },
+    {
+     "seq": 240,
+     "time": "2026-11-06T12:54:59.654Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "idle"
+     }
+    },
+    {
+     "seq": 241,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-0",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 242,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 243,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-2",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 244,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-3",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 245,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-4",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 246,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-5",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 247,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 248,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-7",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 249,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-8",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 250,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-9",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 251,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-10",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 252,
+     "time": "2026-11-06T13:22:27.602Z",
+     "kind": "sleep",
+     "instance": "svc-11",
+     "cause": {
+      "kind": "shutdown"
+     }
+    },
+    {
+     "seq": 253,
+     "time": "2026-11-06T16:10:17.825Z",
+     "kind": "wake",
+     "instance": "svc-6",
+     "cause": {
+      "kind": "connection"
+     }
+    },
+    {
+     "seq": 254,
+     "time": "2026-11-06T16:10:21.425Z",
+     "kind": "ready",
+     "instance": "svc-6",
+     "took": 1367851585
+    },
+    {
+     "seq": 255,
+     "time": "2026-11-06T16:22:17.825Z",
+     "kind": "crash",
+     "instance": "svc-6",
+     "detail": "exit status 1"
+    },
+    {
+     "seq": 256,
+     "time": "2026-11-06T19:35:24.384Z",
+     "kind": "wake",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "dependency",
+      "by": "svc-1"
+     }
+    },
+    {
+     "seq": 257,
+     "time": "2026-11-06T19:35:27.984Z",
+     "kind": "ready",
+     "instance": "svc-1",
+     "took": 2987575739
+    },
+    {
+     "seq": 258,
+     "time": "2026-11-06T19:42:33.902Z",
+     "kind": "sleep",
+     "instance": "svc-1",
+     "cause": {
+      "kind": "idle"
+     }
+    }
+   ]
+  }
+ ]
+}

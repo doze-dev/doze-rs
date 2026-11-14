@@ -1,0 +1,9 @@
+[[[[  "[",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "proc@ss", "group": "app", ".tate&&&&&&&&&&&{
+  "schema": "doze/v1",
+  "comman&&&&&&&&&&&&&&&&&&&&&d": "doz&&&e statu&

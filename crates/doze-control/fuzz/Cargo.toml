@@ -1,0 +1,28 @@
+[package]
+name = "doze-control-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+doze-control = { path = ".." }
+serde_json = "1"
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "fuzz_codec"
+path = "fuzz_targets/fuzz_codec.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_text"
+path = "fuzz_targets/fuzz_text.rs"
+test = false
+doc = false

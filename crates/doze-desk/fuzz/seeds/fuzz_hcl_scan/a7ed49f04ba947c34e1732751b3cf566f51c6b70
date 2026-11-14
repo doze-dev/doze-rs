@@ -1,0 +1,11 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint" "process",ate": "asleep", "enabled": true, "conns": 1, "memBytes": 0, "cpuPerces": 0, "cpuPercent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

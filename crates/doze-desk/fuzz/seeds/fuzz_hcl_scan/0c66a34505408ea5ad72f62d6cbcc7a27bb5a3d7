@@ -1,0 +1,12 @@
+stack = "acme"
+
+duefalts {
+  names = t#ue
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = odule posagrate" {
+  run = "go run ./cmd/migrate"
+  env = { DATABASE_URL = module.db.url }
+}

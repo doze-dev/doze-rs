@@ -1,0 +1,11 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "p", "state" ":asleep", "enabled": true, "enengine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "\web.acme.doze", "conn"engine": "valkey", "version": "8", "group": "module", "st#te": "asleep", "enabled": true, "endpoi": ["db"] }
+    ]
+  }
+}

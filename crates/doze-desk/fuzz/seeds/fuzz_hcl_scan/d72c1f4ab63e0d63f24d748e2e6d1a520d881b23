@@ -1,0 +1,6 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+                                                                                      true, "endpoint": "127.0.0.1:8080", "domain": "api.agme.doze", "conns": 0,, "domain": "api.agme.doz    ]
+  }
+}

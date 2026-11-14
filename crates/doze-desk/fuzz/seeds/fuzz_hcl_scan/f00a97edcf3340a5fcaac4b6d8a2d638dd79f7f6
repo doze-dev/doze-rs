@@ -1,0 +1,34 @@
+stack = "acme"
+
+defaults {
+ 	names = true
+}
+
+app "axi" {
+  run  = "go run ./cmdn = "go run ./cmd/worker"
+}
+
+module posatgres "db" { version = 34 }
+
+module valkestack = "acme"
+
+defaults {
+ 	names = true
+}
+
+app "axi" {
+  run  = "go run ./cmdn = "go run ./cm = 34 }
+
+module valkestack = "acme"
+
+defaults {
+ 	names = true
+}
+
+app "axi" {
+  run  = "go run ./cmdmodule posatgres "db" { version = 34 }
+
+moYhe" { version = 8 }
+
+task "migrate"v = { DATABASE_URL = moduy "caYhe" { version = 8 rl }
+}

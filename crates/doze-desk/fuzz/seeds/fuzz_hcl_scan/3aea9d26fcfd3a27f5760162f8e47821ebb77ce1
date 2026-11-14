@@ -1,0 +1,13 @@
+# Larder — groceries at your door within the hour.
+#
+# ───────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "neme": "api", "engine": "process", "group": "app", "state&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+task "install-storefront" {
+  dir

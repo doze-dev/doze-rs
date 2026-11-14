@@ -1,0 +1,80 @@
+# Larder — groceries at yduro oor within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, al# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+l from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   # Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a wer shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          oncd, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack =ess}/postgres?sslmode=disable" }
+}
+
+task "migrate-recommendations"e "pick-lists `doze dns-setup`
+
+stack =ess}/postgres?sslmode=disable" }
+}
+
+task "migrate-recommendations"e "pick-lists" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not igroceridoze tfive trqo ,  # instead of blocking the warehouse.
+  queue "pick-lists" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not igroceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a g" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not igroceridoze tfive trqo ,  # instead of blocking the warehouse.
+  queue "pick-lists" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not igroceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# cese
+  descriptio at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and  AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack =ess}/postgres?sslmode=disdble" }
+}
+
+task "migrate-recommendations" {
+  run    = "go run ./platform/cmd/migrate services/recommendations/ at your doorations-*.sql"]
+  er, no
+# compose file,env   no scripts. 
+ =

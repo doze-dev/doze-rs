@@ -24,8 +24,9 @@ jobs:
       # rust-toolchain.toml pins the version and components.
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - run: cargo fmt --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      # The desktop app is left out here: it has its own macOS job (`app`, below).
+      - run: cargo clippy --workspace --exclude doze-app --all-targets -- -D warnings
+      - run: cargo test --workspace --exclude doze-app
       # The broker without the console (`--no-default-features`) and the console crate on its own: the two runs above build
       # the default features only. The lean build is the Phase 8 broker with no HTTP in it (docs/port/weight.md, "lean").
       - run: cargo clippy --no-default-features -p doze-kafka -p kafka-console --all-targets -- -D warnings
@@ -41,6 +42,8 @@ jobs:
           SIM_SEEDS: "200"
       # The generated aws-model crates are what the models and overlays produce (docs/port/aws/PLAN.md, rule 11).
       - run: cargo xtask codegen --check
+      # The desktop app's themes are what the Go app's tokens.css gives (apps/doze-app/themes).
+      - run: cargo xtask themes --check
       # No file grows past the hard size limit (docs/port/PLAN.md, quality rule 1).
       - run: cargo xtask lint-size
       # Every parser has a fuzz target (a `// fuzz:parser` marker with no target fails).
@@ -56,7 +59,7 @@ jobs:
       # (decision D1: `default = []` would take the console out and the size limits, being upper bounds, would not notice).
       - run: bun tools/check-console-catalogue.ts --lean-tree --default-tree
       # Public docs build without broken links.
-      - run: cargo doc --workspace --no-deps
+      - run: cargo doc --workspace --exclude doze-app --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
 
@@ -77,10 +80,19 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind --all-targets -- -D warnings
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind --no-fail-fast -- --nocapture
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli --all-targets --features doze-control/test-support -- -D warnings
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli --no-fail-fast -- --nocapture
       - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
         run: cargo clippy -p doze-names --features netd --all-targets -- -D warnings && cargo test -p doze-names --features netd --no-fail-fast
+      - name: doze-names with machine setup and trust (every system's scripts are tested on every system)
+        run: cargo clippy -p doze-names --features setup --all-targets -- -D warnings && cargo test -p doze-names --features setup --no-fail-fast
+      # The runner is elevated, so this is setup for real: the NRPT rule for .doze to the resolver on 127.0.0.53:53, a
+      # name answered through the system resolver (getaddrinfo, the DNS client, the rule), a declared domain routed and a
+      # throwaway doze CA trusted in the machine's Root store and removed, then uninstall (crates/doze-names/tests/setup_root.rs).
+      - name: doze-names setup and trust for real (Windows, elevated)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: DOZE_NAMES_ROOT_E2E=1 DOZE_HOME="$RUNNER_TEMP/doze-names-e2e" cargo test -p doze-names --features setup --test setup_root -- --nocapture
 
   # Module acceptance (docs/port/modules/PLAN.md D12): each module boots the engine build doze-binaries publishes, on
   # every target the module declares. DOZE_ACCEPTANCE turns a missing build into a failure, so a skip cannot pass for a
@@ -132,7 +144,135 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo check --workspace --all-targets
+      - run: cargo check --workspace --exclude doze-app --all-targets
+
+  # The desktop app (apps/doze-app, docs/port/app/PLAN.md step 0.1): GPUI pulls in a few hundred crates and its macOS renderer
+  # compiles Metal shaders, so the app is not a default member and has this job of its own. It lints and tests the app (with and
+  # without offscreen capture) and doze-os's `ui` feature, holds the app to its own weight line (docs/port/weight.md, "The desktop
+  # app"), and renders the screens offscreen through a fixture daemon: the PNGs are this run's artifacts, to look at.
+  app:
+    runs-on: macos-latest
+    env:
+      # Whether the signing secrets exist (a step cannot test a secret directly).
+      HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Metal toolchain (Xcode ships it as a separate component)
+        run: xcodebuild -downloadComponent MetalToolchain || true
+      - run: cargo clippy -p doze-app --all-targets --features capture -- -D warnings
+      - run: cargo clippy -p doze-app --all-targets -- -D warnings
+      - run: cargo clippy -p doze-os --features ui --all-targets -- -D warnings
+      - run: cargo test -p doze-app --features capture
+      - name: The app's weight line (binary at most 16 MB, packages at most 560; the release-app build has no capture)
+        run: |
+          cargo build --profile release-app -p doze-app
+          size=$(stat -f %z target/release-app/doze-app)
+          crates=$(cargo tree -p doze-app --prefix none --edges normal --target aarch64-apple-darwin | sort -u | wc -l | tr -d ' ')
+          echo "doze-app: $size bytes, $crates packages"
+          [ "$size" -le 16000000 ] || { echo "doze-app over 16 MB (PLAN.md §6)"; exit 1; }
+          [ "$crates" -le 560 ] || { echo "doze-app over 560 packages (docs/port/weight.md)"; exit 1; }
+      # Doze.app (PLAN.md step 3.5): signed ad hoc, or with a Developer ID and notarised when the secrets exist. With no
+      # secrets (forks, and until the owner adds them) the import is skipped and the bundle is signed ad hoc.
+      - name: Signing identity (only when the secrets exist)
+        if: env.HAS_CERT == 'true'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+        run: |
+          kc="$RUNNER_TEMP/doze.keychain-db"; pw=$(uuidgen)
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$kc"
+          # codesign runs without a prompt only once the key's partition list allows it.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pw" "$kc" > /dev/null
+          security list-keychains -d user -s "$kc"
+          if [ -n "$NOTARY_KEY_P8" ]; then echo "$NOTARY_KEY_P8" > "$RUNNER_TEMP/notary.p8"; fi
+      - name: Doze.app
+        env:
+          DOZE_SIGN_ID: ${{ secrets.DOZE_SIGN_ID }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+          HAS_NOTARY: ${{ secrets.NOTARY_KEY_P8 != '' }}
+        run: |
+          # One condition for both steps: a Developer ID only with the identity imported above, else ad hoc.
+          if [ "$HAS_CERT" != "true" ]; then unset DOZE_SIGN_ID NOTARY_KEY_ID NOTARY_ISSUER_ID; HAS_NOTARY=false; fi
+          if [ "$HAS_CERT" = "true" ] && [ -z "$DOZE_SIGN_ID" ]; then echo "::warning::MACOS_CERT_P12 is set but DOZE_SIGN_ID is not: signing ad hoc"; fi
+          if [ "$HAS_NOTARY" = "true" ]; then export NOTARY_KEY_PATH="$RUNNER_TEMP/notary.p8"; fi
+          cargo xtask app-bundle --no-build --id dev.doze.app --version "0.0.${GITHUB_RUN_NUMBER}" --out bundle
+          plutil -p bundle/Doze.app/Contents/Info.plist
+          codesign -dv bundle/Doze.app
+          ditto -c -k --keepParent bundle/Doze.app bundle/Doze.app.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Doze.app
+          path: bundle/Doze.app.zip
+      - name: Screens, offscreen (fixture daemon → hub → page)
+        run: |
+          cargo build -p doze-app --features capture
+          mkdir -p shots
+          app=target/debug/doze-app
+          for theme in violet teal; do for mode in dark light; do
+            $app shot --fixture larder --screen map --theme $theme --mode $mode --size 1280x800 --out shots/map-larder-$theme-$mode.png
+            $app shot --fixture larder --screen palette --theme $theme --mode $mode --size 1280x800 --out shots/palette-$theme-$mode.png
+            $app shot --fixture larder --screen help --theme $theme --mode $mode --size 1280x800 --out shots/help-$theme-$mode.png
+            for fx in shop crash larder none; do
+              $app shot --fixture $fx --screen library --theme $theme --mode $mode --out shots/library-$fx-$theme-$mode.png
+            done
+            for sc in tiles list grid; do
+              $app shot --fixture shop --screen $sc --theme $theme --mode $mode --out shots/$sc-shop-$theme-$mode.png
+              $app shot --fixture shop --stack acme --screen $sc --theme $theme --mode $mode --out shots/$sc-stopped-$theme-$mode.png
+            done
+            $app shot --fixture larder --screen grid --hover orders/catalog --theme $theme --mode $mode --out shots/grid-larder-tip-$theme-$mode.png
+          done; done
+          $app shot --fixture larder --screen map --select gateway --size 1280x800 --out shots/map-larder-selected.png
+          $app shot --fixture larder --screen map --size 900x620 --out shots/map-larder-small.png
+          $app shot --synth 2000 --screen map --size 2560x1440 --out shots/map-2k-fit.png
+          $app shot --synth 2000 --screen map --size 2560x1440 --zoom 1 --at 3000,3000 --out shots/map-2k-100.png
+          $app shot --synth 2000 --screen map --size 2560x1440 --zoom 1 --select data0-session-48 --out shots/map-2k-selected.png
+          $app shot --fixture crash --screen list --select api --out shots/list-crash-api.png
+          $app shot --fixture shop --screen list --density compact --out shots/list-shop-compact.png
+          $app shot --synth 2000 --screen list --out shots/list-2k.png
+          $app shot --synth 2000 --screen grid --out shots/grid-2k.png
+          # M2: the dialogs, the sheets, a failed start, the empty folder (each done through the same calls a key makes)
+          for act in sleep restart reset-typed; do $app shot --fixture shop --screen list --select db --act $act --out shots/act-$act.png; done
+          for act in start preflight failed recent; do $app shot --fixture shop --stack acme --screen tiles --act $act --out shots/act-$act.png; done
+          for act in remove empty-found add; do $app shot --fixture shop --screen library --act $act --out shots/act-$act.png; done
+          $app shot --fixture modules --screen instance --select events --tab console:_ --act action-typed --out shots/act-action.png
+          # M2: ⌘K and Needs you (the bell, the alerts, the away strip), and a failed start in Needs you
+          $app shot --fixture shop --screen palette --query "sleep ca" --out shots/palette-sleep-ca.png
+          $app shot --fixture shop --screen palette --scope shop/db --out shots/palette-scope.png
+          $app shot --fixture crash --screen palette --query api --out shots/palette-crash-api.png
+          for over in bell alerts away; do $app shot --fixture crash --screen tiles --over $over --out shots/attn-$over.png; done
+          $app shot --fixture shop --stack acme --screen tiles --act failed --over bell --out shots/attn-failed.png
+          # M3: a notification said in the app (no bundle)
+          $app shot --fixture crash --screen library --over note --out shots/notify-in-app.png
+          $app shot --synth 2000 --screen grid --at 3000,20000 --out shots/grid-2k-scrolled.png
+          ls -la shots
+      - name: Screens inside a stack (instance, logs, consoles)
+        run: |
+          app=target/debug/doze-app
+          for theme in violet teal; do for mode in dark light; do
+            $app shot --fixture shop --screen instance --select api --theme $theme --mode $mode --out shots/instance-api-$theme-$mode.png
+            $app shot --fixture crash --screen instance --select api --theme $theme --mode $mode --out shots/instance-crash-$theme-$mode.png
+            $app shot --fixture shop --screen logs --theme $theme --mode $mode --out shots/logs-all-$theme-$mode.png
+            $app shot --fixture modules --screen instance --select events --tab console:_ --theme $theme --mode $mode --out shots/console-events-$theme-$mode.png
+          done; done
+          $app shot --fixture shop --screen instance --select db --out shots/instance-db.png
+          $app shot --fixture shop --screen instance --select migrate --out shots/instance-task.png
+          $app shot --fixture shop --screen instance --select api --tab logs --filter "/GET|slow/" --out shots/logs-api-pattern.png
+          $app shot --fixture shop --screen logs --filter orders --find-mode --out shots/logs-all-find.png
+          $app shot --fixture modules --screen instance --select db --tab console:activity --out shots/console-db.png
+          $app shot --fixture larder-portclash --screen instance --select gateway --hold 8000 --out shots/instance-portclash.png
+          ls -la shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: doze-app-shots
+          path: shots/
 
   # Weight is a feature (docs/port/weight.md): numbers may only rise with a written reason, so the limits (xtask/weight-limits.txt) sit a
   # little above the measured values and a change that crosses one has to move the limit and say why.
@@ -277,15 +417,33 @@ jobs:
           cargo fuzz run fuzz_reply corpus/fuzz_reply -- -max_total_time=30 -max_len=65536
           mkdir -p corpus/fuzz_text
           cargo fuzz run fuzz_text corpus/fuzz_text -- -max_total_time=30 -max_len=65536
+      - name: Fuzz the control protocol's NDJSON codec (seeded with a real Go daemon's frames) and its Go duration and time text for 30 seconds each
+        working-directory: crates/doze-control/fuzz
+        run: |
+          mkdir -p corpus/fuzz_codec corpus/fuzz_text
+          cargo fuzz run fuzz_codec corpus/fuzz_codec ../testdata/go/live -- -max_total_time=30 -max_len=65536
+          cargo fuzz run fuzz_text corpus/fuzz_text -- -max_total_time=30 -max_len=256
       - name: Fuzz temporal's duration parser for 30 seconds
         working-directory: crates/doze-module-temporal/fuzz
         run: |
           mkdir -p corpus/fuzz_duration
           cargo fuzz run fuzz_duration corpus/fuzz_duration -- -max_total_time=30
-      - name: Fuzz the .doze resolver's DNS wire and upstream parsers for 30 seconds each
+      - name: Fuzz the .doze resolver's DNS wire, upstream and setup parsers for 30 seconds each
         working-directory: crates/doze-names/fuzz
         run: |
-          for t in fuzz_wire fuzz_text; do
+          for t in fuzz_wire fuzz_text fuzz_setup; do
+            mkdir -p "corpus/$t"
+            cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=4096
+          done
+      - name: Fuzz the journal reader for 30 seconds
+        working-directory: crates/doze-journal/fuzz
+        run: |
+          mkdir -p corpus/fuzz_line
+          cargo fuzz run fuzz_line corpus/fuzz_line seeds/fuzz_line -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the words' parsers (cleaning, log levels, Go's float grammar) for 30 seconds each
+        working-directory: crates/doze-display/fuzz
+        run: |
+          for t in fuzz_clean fuzz_level fuzz_number; do
             mkdir -p "corpus/$t"
             cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=4096
           done

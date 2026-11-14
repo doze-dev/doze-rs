@@ -1,0 +1,40 @@
+{
+  "instance": "",
+  "total": 1,
+  "from": 0,
+  "lines": [
+    {
+      "instance": "api",
+      "time": "19:32:40",
+      "rel": "-2m 00s",
+      "line": "slow query 212ms SELECT * FROM orders WHERE customer_id = $1",
+      "level": "WRN",
+      "rank": 2,
+      "run": 1
+    }
+  ],
+  "runs": [
+    1
+  ],
+  "levels": [
+    "debug and up",
+    "info and up",
+    "warnings and up",
+    "errors only"
+  ],
+  "counts": [
+    0,
+    33,
+    1,
+    0
+  ],
+  "matches": 0,
+  "instances": [
+    "doze",
+    "db",
+    "api",
+    "web",
+    "mongo",
+    "migrate"
+  ]
+}

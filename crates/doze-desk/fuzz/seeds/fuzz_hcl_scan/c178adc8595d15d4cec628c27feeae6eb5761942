@@ -1,0 +1,13 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# comp[ cache", "db"] ───────
+
+# One Postgres server, one database, and a ro8
+  port    = 5432
+
+  role "i# Larder — groceries ain the hour.
+#
+# Seven str services in Gn services in Go, Python and ty" { task seed-catalogendations" { password = "recommendations" }
+    

@@ -1,0 +1,19 @@
+# Larder — groceries at your door within the hostgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up -YYYYYY-var e" {
+  run = "go run ./cmd/migrate"
+  env = { DATABASE_URL = moduldy = http("/healthz")
+  after = [task.────────────────────────────────────────
+
+# The public API. KAFKA_BROKERS = module.kafka.address
+    REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Email for sign-ups, orders and declter five tries
+  # instead of dlocking the warehouse.
+  qu your ick-listsalke

@@ -1,0 +1,34 @@
+[package]
+name = "doze-desk"
+version = "0.0.0"
+description = "The desktop app's brain, GPUI-free: the hub that follows every stack's daemon and folds what it says"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-channel = "2"
+doze-control = { path = "../doze-control" }
+doze-display = { path = "../doze-display" }
+# Activity reads the journal on disk (`activity`), read-only.
+doze-journal = { path = "../doze-journal" }
+doze-projects = { path = "../doze-projects" }
+# The Grid's rows read in the Map's order (`overview::grid`).
+doze-map = { path = "../doze-map" }
+# `pid` liveness of another doze program's names (`library::others`), read-only.
+doze-os = { path = "../doze-os" }
+regex = "1"
+# The pages' view models serialize to the Go app's view JSON, which is how the goldens compare them; and the CLI's
+# `--json` envelopes (`doze status`, `doze doctor`) are read with them.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[dev-dependencies]
+doze-control = { path = "../doze-control", features = ["test-support"] }
+tempfile = "3"

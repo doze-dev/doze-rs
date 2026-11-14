@@ -1,0 +1,9 @@
+# Larder — groceries at your dooservices/payments/mi  = { DATABASE_URL = "postgres://payments:payments@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-recommendations" {
+  run    = "go run ./platform/cmd/migrate services/recommendations/migrations"
+  inputs = ["serv, and a role and schem0a per service: each
+#"service connects as itself and can only ter = "identity" }
+  schema "catalog" { owner = 
+task "install-f

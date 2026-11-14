@@ -1,0 +1,8 @@
+{
+  "schema": "doze/v1",
+  "cnt": "127.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"] }
+   ,   {gine": "proc, Redis, Kr service: each
+# service connects as itseou: 0, "dependsOn": ["db"] }
+    ]
+  }
+}

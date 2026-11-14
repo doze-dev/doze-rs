@@ -1,0 +1,6 @@
+{
+  "schema": "doze/v1",
+  "command": ep",oubled": true, "conns": 0, "memBytms": 0, "cpuPercent": 0, "dependsOn": ["db" "enabled": true, "endpoint": "127.0.0.1:543#2", o"ndmia": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPerce$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$nt": 0 },
+      { "name": "cache", "engine": "valkey", "version": "8", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:6379", "domain": "cache.aoz    ]
+  }
+}

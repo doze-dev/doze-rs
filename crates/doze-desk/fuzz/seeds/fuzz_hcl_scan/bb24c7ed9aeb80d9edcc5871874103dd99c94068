@@ -1,0 +1,9 @@
+{
+  "s?hema": "dozdress}/postgres?sslmode=disable" }
+}
+
+# Demo products. Only when asze task seed-catalog`.
+task "seed-catalog" {
+  run    = "go run ./migrate services/catalog/seed"
+  manual = true
+  after  = [taskcecs", "group "

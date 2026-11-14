@@ -1,0 +1,11 @@
+# wLarder — groceries at your door wit Email for sign-ups, orders and declil stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-noti        = app.catalog.url
+    ORDERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.r        = module.redirl
+  }
+}

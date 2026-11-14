@@ -1,0 +1,13 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+
+a  once, to stock the shelves
+#   doze up --var names=false       on a machcripti "cache" { version = 8 }
+
+task "migrate" {
+ ders.url
+    FULFILMENT_URL      = app.fulfilmeE_URL = module.db.url }
+}

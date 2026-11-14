@@ -6,13 +6,17 @@
 //! - `weight`: release size, package count and idle memory against `xtask/weight-limits.txt`.
 //! - `conformance`: the boto3 harness against a server, scored against the AWS recordings.
 //! - `codegen`: regenerates the `aws-model-*` crates from the models (`--check` fails if they are stale).
+//! - `themes`: converts the Go app's design tokens into the desktop app's themes (`--check` fails if they are stale).
 //! - `gates`: the pre-commit checks, in order.
+//! - `app-bundle`: Doze.app around the desktop app, signed ad hoc (or with `DOZE_SIGN_ID`).
 
+mod app_bundle;
 mod codegen;
 mod conformance;
 mod fuzz_check;
 mod gates;
 mod lint_size;
+mod themes;
 mod weight;
 
 use std::process::ExitCode;
@@ -25,7 +29,9 @@ fn main() -> ExitCode {
         Some("weight") => weight::run(&args.collect::<Vec<_>>()),
         Some("codegen") => codegen::run(&args.collect::<Vec<_>>()),
         Some("conformance") => conformance::run(args.collect()),
+        Some("themes") => themes::run(&args.collect::<Vec<_>>()),
         Some("gates") => gates::run(&args.collect::<Vec<_>>()),
+        Some("app-bundle") => app_bundle::run(&args.collect::<Vec<_>>()),
         Some(other) => usage(&format!("unknown task `{other}`")),
         None => usage("no task given"),
     }
@@ -39,7 +45,9 @@ fn usage(problem: &str) -> ExitCode {
          weight [package ...]              binary size, packages, idle memory against the limits file\n  \
          conformance [--cmd T | --endpoint U] [module ...]   score a server against the AWS recordings\n  \
          codegen [--check]                 regenerate the aws-model crates (or fail if they are stale)\n  \
-         gates [--quick] [--keep-going]    fmt, clippy, lint-size, fuzz-check, tests"
+         themes [--check]                  the desktop app's themes from tokens.css (or fail if stale)
+         gates [--quick] [--keep-going]    fmt, clippy, lint-size, fuzz-check, tests
+         app-bundle [--profile P] [--out DIR] [--id ID] [--name N] [--no-scheme]   Doze.app, signed"
     );
     ExitCode::from(2)
 }

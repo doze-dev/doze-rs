@@ -1,0 +1,20 @@
+stack = "acme"
+08}
+
+app "web" {
+  ru.acme.com"]
+  env     = { API_URL = app.aworker" {
+  run = "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+module van     = "pnpm dev"
+  port    = 3000
+  domains = [rate"
+  env = { hct D
+module van     = "pnpm dev"
+  port    = 3000
+  domains = [rate"
+  env = { hct DATABASE_URL = module%.db.url }
+}

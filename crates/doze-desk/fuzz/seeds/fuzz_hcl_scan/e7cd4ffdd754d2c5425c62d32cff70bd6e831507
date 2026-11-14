@@ -1,0 +1,24 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.ac{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok"                  from this directory
+#   doze task seed-catalog          once, to assword = "paymmemByt= [es "trin{ version = 17 }
+
+module valkey "cache" { version = 8 }
+
+task "migrate" {
+  run = "go run ./cmd/migrate"
+  env = { DATABASE_U: 0, "dependsOn": ["api"] },
+    n S3.
+# ions" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  s

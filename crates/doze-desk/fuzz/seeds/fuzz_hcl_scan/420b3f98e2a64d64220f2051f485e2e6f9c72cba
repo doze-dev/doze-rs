@@ -1,0 +1,66 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "dom{
+  "schema": "doze/v1",
+  "command": "doze st "command": "doze status",
+  "ok": truatus",
+  "ok": true,
+  "data"B {
+    "daemon": { "run "running"on and TypeScript, a gateway and{ "name": "api", "engine": "process", "group ""app", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "group": "module", "staonce, to stock the shelves
+#   doze up --var names=false       on a machijpline without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 254.: truatus",
+  "ok": true,
+  "data"B {
+    "daemon": { "run "running"on and TypeScript, a gateway and{ "name": "api", "engine": "process", "group ""app", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "group": "module", "staonce, to stock the shelves
+#   doze up --var names=false       on a machijpline without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 254.0.0.1."
+}
+
+defaultcommendations" {
+  ds {
+  sleep = "2m"
+  names = var.names
+
+379", "domain": "cache.acme.doze", "conns": 0, "memBytes":leep",er"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <servic= var.names
+
+379", "domain": "cache.acme.doze", "conns": 0, "memBytes":leep",0"enabled": true, "endpoint": "127.0.ves
+#   doze up --var names=false       on a machine without `doze dns-service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identiion = 9
+  #ort    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# ratherue
+  descripens to ": true, "conns": 0, "memBytes": 0, "cpuPewrptircento": 0, "dependsOn":n = "Publiish ["db"] }
+     ]
+  }
+<t}

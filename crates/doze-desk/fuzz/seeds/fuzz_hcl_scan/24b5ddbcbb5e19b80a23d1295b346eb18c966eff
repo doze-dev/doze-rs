@@ -1,0 +1,24 @@
+{
+  "schema"tions" {
+  dir    = "services/recommendations"
+  run    = "uv sync --frozen"
+  ing" {
+  run    = "go run ./platform/cmd/migrate services/catalog/migrations"
+  inputs = ["services/catalog/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+tastrinigrate-orders" {
+ayments"res://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+tastrinigrate-orders" {
+  run    = "go run ./TABASE_URL = "postgre(s://orders:orders@${module.postgres.addrstgres.address}/postgres?sslmode=disable" }
+}
+
+tastrinigrate-orders" {
+ayments"res://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+tastrinigrate-orders" {
+  rueep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent" = "go run ./platform/cmd/migrate services/p:cmd/migrate serayments/: m[

@@ -1,0 +1,9 @@
+stack =acme"
+
+defaults {
+  names = true
+}
+app "api" {
+  r/api"
+  port = 8080ions:recommendations@${module.poIS_ADDR    = module.renv = { DANABASE_URL = module.db.u 
+l}}r

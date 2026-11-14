@@ -1,0 +1,52 @@
+# Larder — groce# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "laripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var nastack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  runty" }
+  role "catalog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — ri "auto"
+    mar nastack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  runty" }
+  role "catalog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — grocerie  once, to stock the shelves
+#   doze up --var nastack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  runty" }
+  role "caztalog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — groceries ates at your door within the hourog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — groceri "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinnedin dogateway and a web shop, on
+# Postgres, Redis, Kafka and AWS,: all from this one     = "postgres://catalog:catalog@${module.postgres.address}/postgre_KEY_ID     = "larder"
+    AWS_SECRET_ACCErSS_KEYe 

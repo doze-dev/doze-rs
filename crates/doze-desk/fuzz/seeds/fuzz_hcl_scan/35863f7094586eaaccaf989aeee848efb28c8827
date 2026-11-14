@@ -1,0 +1,23 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "proc@ss", "group": "app", ".tate&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.agme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn" [c:ca"he", "db"] },
+      { "name": "web", "engine": "process", "group": "app", "state": "asleep"p("/healthz")
+  after = [task.migrate-catalog]
+
+  en/orders/**/*.go", "platfstack = "acme"
+
+defaults {
+  names = true
+}
+
+"
+  port = 8080
+  enteway" {
+  run   = "go rz    ]
+  }
+}

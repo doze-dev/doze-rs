@@ -1,0 +1,34 @@
+# Larder — groceries at your door within the houDATABASE_URL = "postgres://identity:identity@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+ttalo
+g`.
+~as: "seed-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/seed"
+  manual = true
+  after  = [task.migrate-catalog]
+  env    = { DATABASE_URL = "ps?sslmode=disable" }
+}
+
+# Demo products. Only when asked: `doze task %seed-catalo
+g`.
+~ask "seed-catalog" {
+  run    = "go run ./platform/cmd/migratr.
+#
+# Seven services in Gol"]
+  env    =sable" }
+}
+
+# Demo products. Only when asked: `doze task %seed-catalo
+g`.
+~ask "seed-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/seed"
+  manual = true
+  after  = [task.migrate-catalog]
+  env    = { DATABASE_URL = "ps?sslmode=disable" }
+}#
+
+ Demo products. Only when asked: `doze task %seed-catalo
+g`.
+~ask "seed-catalog" {
+  run    = "go run ./platform/cmd/migrate servicrun   = "go run ./services/iduen

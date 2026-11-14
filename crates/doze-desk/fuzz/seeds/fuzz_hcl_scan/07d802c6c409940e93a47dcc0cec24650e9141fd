@@ -1,0 +1,41 @@
+{
+  "schema": "doze/v1",
+stack`= "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run = "go run ./cmd/~pi"
+  port = 8080
+  env  = { DATABASE_URV = module&db.url, CACHE_URL = module"
+  port = 8080
+  env  = { DATABASE_URL = module&db.url, CACHE_URL = modulec.ache.url }
+}
+nning": false },
+    "services": [
+      { "name": "apir", l }"engin "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run = "go run ./cmd/~pi"
+  port = 8080
+  env  = { DATABASE_URL = module&db.url, CACHE_URL = module"
+  port = 8080
+  env  = { DATABASE_Ursion = 16 }
+
+module valkey "cache" { version = 8 }
+
+task "migrate" {
+  run = "./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module&db.url, Csk", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["db"] }
+    ]
+ 
+ }
+}
+}

@@ -1,0 +1,278 @@
+{
+  "key": "/k",
+  "stack": "shop",
+  "span": "24h",
+  "ticks": [
+    {
+      "at": 0,
+      "label": "20:00"
+    },
+    {
+      "at": 0.16666666666666666,
+      "label": "00:00"
+    },
+    {
+      "at": 0.3333333333333333,
+      "label": "04:00"
+    },
+    {
+      "at": 0.5,
+      "label": "08:00"
+    },
+    {
+      "at": 0.6666666666666666,
+      "label": "12:00"
+    },
+    {
+      "at": 0.8333333333333334,
+      "label": "16:00"
+    },
+    {
+      "at": 1,
+      "label": "now"
+    }
+  ],
+  "summary": {
+    "up": "22h of 24h",
+    "asleep": "73%",
+    "wakes": 6,
+    "crashes": 3
+  },
+  "rows": [
+    {
+      "name": "api",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "asleepPart": 0.004545454545454545,
+      "asleep": "6m asleep · 0%",
+      "wakes": 2,
+      "wokenBy": "1 to restart · 1 when asked",
+      "crashes": 1,
+      "spans": [
+        {
+          "from": 0,
+          "to": 0.5,
+          "title": "awake 18h · woke when asked · slept (shutdown)"
+        },
+        {
+          "from": 0.5833333333333334,
+          "to": 0.9166666666666666,
+          "ready": 0.58375,
+          "title": "awake 8h · woke when asked · crash"
+        },
+        {
+          "from": 0.9208333333333333,
+          "to": 1,
+          "title": "awake 1h · woke to restart · still awake",
+          "open": true
+        }
+      ],
+      "marks": [
+        {
+          "at": 0.9166666666666666,
+          "kind": "crash",
+          "title": "Fri 18:00 crash · panic: boom"
+        }
+      ]
+    },
+    {
+      "name": "db",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9090909090909091,
+      "asleep": "20h asleep · 91%",
+      "wakes": 2,
+      "wokenBy": "1 by a connection · 1 for api",
+      "spans": [
+        {
+          "from": 0.16666666666666666,
+          "to": 0.20833333333333334,
+          "ready": 0.16670833333333332,
+          "title": "awake 1h · woke for api · slept (idle)"
+        },
+        {
+          "from": 0.7916666666666666,
+          "to": 0.8333333333333334,
+          "title": "awake 1h · woke by a connection · slept (idle)"
+        }
+      ],
+      "marks": []
+    },
+    {
+      "name": "cache",
+      "look": {
+        "word": "gone",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9954545454545455,
+      "asleep": "22h asleep · 100%",
+      "wakes": 1,
+      "wokenBy": "1 for a change to src/app.ts",
+      "crashes": 2,
+      "spans": [
+        {
+          "from": 0.9791666666666666,
+          "to": 0.9833333333333333,
+          "title": "awake 6m · woke for a change to src/app.ts · failed"
+        }
+      ],
+      "marks": [
+        {
+          "at": 0.9833333333333333,
+          "kind": "failed",
+          "title": "Fri 19:36 failed · xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+        },
+        {
+          "at": 0.9875,
+          "kind": "give_up",
+          "title": "Fri 19:42 give up · crashed 5 times in a minute"
+        }
+      ]
+    },
+    {
+      "name": "old",
+      "look": {
+        "word": "gone",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9954545454545455,
+      "asleep": "22h asleep · 100%",
+      "wakes": 1,
+      "wokenBy": "1 by timer",
+      "spans": [
+        {
+          "from": 0.9916666666666667,
+          "to": 0.9958333333333333,
+          "title": "awake 6m · woke by timer · slept (asked)"
+        }
+      ],
+      "marks": []
+    }
+  ],
+  "trouble": [
+    {
+      "at": "19:42:00",
+      "kind": "gave",
+      "text": "cache up restarting: crashed 5 times in a minute",
+      "tone": "bad"
+    },
+    {
+      "at": "19:36:00",
+      "kind": "failed:",
+      "text": "cache xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "tone": "bad"
+    },
+    {
+      "at": "18:00:00",
+      "kind": "crashed:",
+      "text": "api panic: boom\ngoroutine 1 [running]",
+      "tone": "bad"
+    }
+  ],
+  "events": [
+    {
+      "at": "19:54:00",
+      "kind": "went",
+      "text": "old to sleep",
+      "tone": "dim"
+    },
+    {
+      "at": "19:48:00",
+      "kind": "woke",
+      "text": "old ",
+      "tone": "accent"
+    },
+    {
+      "at": "19:42:00",
+      "kind": "gave",
+      "text": "cache up restarting: crashed 5 times in a minute",
+      "tone": "dim"
+    },
+    {
+      "at": "19:36:00",
+      "kind": "failed:",
+      "text": "cache xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "tone": "dim"
+    },
+    {
+      "at": "19:30:00",
+      "kind": "woke",
+      "text": "cache (src/app.ts changed)",
+      "tone": "accent"
+    },
+    {
+      "at": "18:06:00",
+      "kind": "woke",
+      "text": "api (restart policy)",
+      "tone": "accent"
+    },
+    {
+      "at": "18:00:00",
+      "kind": "crashed:",
+      "text": "api panic: boom\ngoroutine 1 [running]:",
+      "tone": "dim"
+    },
+    {
+      "at": "16:00:00",
+      "kind": "went",
+      "text": "db to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "15:00:00",
+      "kind": "woke",
+      "text": "db (a connection)",
+      "tone": "accent"
+    },
+    {
+      "at": "10:00:36",
+      "kind": "ready",
+      "text": "api in 1.2s",
+      "tone": "good"
+    },
+    {
+      "at": "10:00:00",
+      "kind": "woke",
+      "text": "api (asked for)",
+      "tone": "accent"
+    },
+    {
+      "at": "08:00:00",
+      "kind": "went",
+      "text": "db to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "08:00:00",
+      "kind": "went",
+      "text": "api to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "01:00:00",
+      "kind": "went",
+      "text": "db to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "00:00:03",
+      "kind": "ready",
+      "text": "db in 180ms",
+      "tone": "good"
+    },
+    {
+      "at": "00:00:00",
+      "kind": "woke",
+      "text": "db (api needed it)",
+      "tone": "accent"
+    }
+  ]
+}

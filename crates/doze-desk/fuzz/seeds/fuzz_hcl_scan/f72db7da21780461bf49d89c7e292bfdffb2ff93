@@ -1,0 +1,8 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "dataV": {
+    "dasOn"	: true, "endpoint"
+  }
+}

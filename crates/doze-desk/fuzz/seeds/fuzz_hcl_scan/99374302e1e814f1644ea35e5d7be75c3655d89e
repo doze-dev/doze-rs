@@ -1,0 +1,10 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "dataV": {
+    "daemon": { "running": false },
+    "services": [
+  "					: true, "endpoint": "254.0.0.1:5,"43 "d2omain": " "dependsOn"	: true, "endpoint"
+  }
+}

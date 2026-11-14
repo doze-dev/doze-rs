@@ -1,0 +1,41 @@
+
+null
+[]
+{}
+{"kind":"wake"}
+{"seq":0}
+{"seq":-1}
+{"seq":1.5}
+{"seq":1e2}
+{"seq":"1"}
+{"seq":18446744073709551615}
+{"seq":18446744073709551616}
+{"seq":1,"took":"38ms"}
+{"seq":1,"took":-5}
+{"seq":1,"kind":5}
+{"seq":1,"time":"yesterday"}
+{"seq":1,"time":"2026-11-13T15:00:00.123456789+05:30"}
+{"seq":1,"time":"2026-11-13T15:00:00Z","time":null}
+{"seq":1,"cause":"idle"}
+{"seq":1,"cause":null}
+{"seq":1} trailing
+{"seq":1,}
+ {"seq":1} 
+{"SEQ":4,"Kind":"wake","INSTANCE":"db","Cause":{"KIND":"idle","By":"x"}}
+{"seq":1,"seq":2,"cause":{"kind":"watch"},"cause":{"by":"a.ts"}}
+{"seq":3,"kind":"wake","kind":null}
+{"seq":1,"extra":[1,{"x":1e400}],"detail":"é😀\n"}
+{"seq":1,"detail":"tab	raw"}
+{"seq":1,"detail":"lone \ud800 surrogate"}
+{"seq":1,"time":"2026-11-13t15:00:00z"}
+{"seq":1,"time":"0001-01-01T05:30:00+05:30"}
+{"seq":-0}
+{"seq":1,"time":"2016-12-31T23:59:60Z"}
+{"seq":1,"time":"2026-11-13T15:00:00,5Z"}
+{"seq":1,"time":"2026-11-13 15:00:00Z"}
+{"seq":1,"time":"2026-02-30T15:00:00Z"}
+{"seq":1,"time":"2026-11-13T15:00:00.1234567891Z"}
+{"seq":1,"time":"2026-11-13T15:00:00-00:00"}
+{"seq":1,"time":"10000-11-13T15:00:00Z"}
+{"seq":1,"kind":"wake"}
+{"seq":1,"detail":"bad � byte"}

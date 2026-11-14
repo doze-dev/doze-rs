@@ -1,0 +1,178 @@
+# Larder — groceries at your door within d an order's life. Reserves stock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platform/**/*.go"]
+  port  = 8003
+  ready = http("/healthz")
+  after = [task.migrate-orders]
+  sleep = "never" # it consumes Kafka: no request would ever wake it
+
+  env = {
+    DATABASE_URL  = "postgres://orders:orders@${modul = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://payments:payments@${module..kafka.address
+    AWS_ENDPOINT_URL = module.aws.url
+    PICK_LISTS_QUEUE = "pick-lists"
+    RECEIPTS_BUCKET  = "receipts"
+    ORDERS_URL       =pit --smtp $HOST:$PORT --listen 127.0.0.1:8025 --database $DATA/mail    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: installed again only when one changes.
+task "install-notifications" {
+  dir    = "services/notifications"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+  dir    = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefron"product-images"
+  }
+l-notifications" {
+  dir    = "services/notifications"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+  dir    = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefron"product-images"
+  }
+}
+
+# Basket, checkout and an order's life. Reserves stock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platform/**/*.go"]
+  port  = 8003
+  ready = http("/healthz")
+  after = [task.migrate-orders]
+  sleep = "never" # it consumes Kafka: no request would ever wake it
+
+  env = {
+    DATABASE_URL  = "postgres://orders:orders@${modul = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://payments:payments@${module..kafka.address
+    AWS_ENDPOINT_URL = module.aws.url
+    PICK_LISTS_QUEUE = "pick-lists"
+    RECEIPTS_BUCKET  = "receipts"
+    ORDERS_URL       = app.orders.url
+
+    # boto3 takes its credentials from the environment; doze's AWS accepts any.
+    AWS_ACCESS_KEY_ID     = "larder"
+    AWS_SECRET_ACCESS_KEY = "larder"
+    AWS_DEFAULT_REGION    = "eu-west-2"
+  n   = "go run ./services/payments"
+  watch AFKA_BROKERS    = module.kafka.address
+    AWS_ENDPOINT_URL = module.aws.url
+    PICK_LISTS_QUEUE = "pick-lists"
+    RECEIPTS_BUCKET  = "receipts"
+    ORDERS_URL       = app.orders.url
+
+    # boto3 takes its credentials from the environment; doze's AWS accepts any.
+    AWS_ACCESS_KEY_ID     = "larder"
+    AWS_SECRET_ACCESS_KEY = "larder"
+    AWS_DEFAULT_REGION    = "eu-west-2"
+  }
+}
+
+# "Goes well with": co-purchases coun   AWS_DEFAULT_REGION    = "eu-west-2"
+  }
+}
+
+# "Goes well with": co-purchases counted from ordebun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+  dir    = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefron"product-images"
+  }
+}
+
+# Basket, checkout and an order's life. Reserves stock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platform/**/*.go"]
+  port  = 8003
+  ready = http("/healthz")
+  after = [task.migrate-orders]
+  sleep = "never" # it consumes Kafka: no request would ever wake it
+
+  env = {
+    DATABASE_URL  = "postgres://orders:orders@${modul = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://payments:payments@${module..kafka.address
+    AWS_ENDPOINT_URL = module.aws.url
+    PICK_LISTS_QUEUE = "pick-lists"
+    RECEIPTS_BUCKET  = "receipts"
+────────────────────────────────────────────────────────────
+
+# The public API. Checks sessions with identity, rate-limits in Redis and
+# forwards /api/... to the service that owns the answer.
+app "gateway" {
+  run   = "go run ./apps/gateway"
+  watch = ["apps/gateway/**/*.go", "platform/**/*.go"]
+  port  = 8000
+  ready = http("/healthz")
+
+  env = {
+    IDENTITY_URL        = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5173
+  ready = http("/")
+  after = [task.install-storefront]
+
+  env = {
+    GATEWAY_URL = app.gateway.url
+  }
+}

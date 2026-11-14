@@ -1,0 +1,29 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                     ask runs before the app that
+# lists it in `after`, and again only when its .sql files change.
+
+task "migrate-identity" {
+un ./platform/cmd/migrate services/identity/migrations"
+  inputs = ["services/identity/migrations/*.sql"]
+  env  orm/cmd/migrate services/catalog/migrations"
+  inputs = ["services/catalog/migrati}
+}
+
+task "migrate-payments" {
+  run    = "go run ./platform/cmd/migrate services/payments/migrations"
+  inputs = ["services/payments/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://payments:payments@${module.postgres.address}/postg ./platform/cmd/migrate services/catalog/seed"
+  manual = true
+  after  = [task.migppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppprate-catalog]
+  env    = { DATABASE_URL = "postgres://ca when one changes.
+task "install-notifications" {
+  dir    = "ser──────
+
+# Customers, sign-in and sessions. Publishes users.signed-up.
+app "identity" {
+  run   = "go run ./services/iduen

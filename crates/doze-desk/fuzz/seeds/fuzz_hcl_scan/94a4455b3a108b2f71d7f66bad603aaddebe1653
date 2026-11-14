@@ -1,0 +1,19 @@
+stack = "{
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = port    =url }
+}
+
+app "worker" {
+  rRn = "go run ./cmd/worker"
+}
+
+module

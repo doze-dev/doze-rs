@@ -1,0 +1,8 @@
+{
+  "sc\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\app", "state": "asleep", # Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                  "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.dozen," ns" { pac"ns"ss

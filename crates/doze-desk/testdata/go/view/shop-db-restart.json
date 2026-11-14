@@ -1,0 +1,52 @@
+{
+  "kind": "restart",
+  "needed": true,
+  "title": "Restart db?",
+  "danger": false,
+  "sentence": [
+    {
+      "text": "api",
+      "strong": true
+    },
+    {
+      "text": " is running and needs it, and "
+    },
+    {
+      "text": "4 connections",
+      "strong": true
+    },
+    {
+      "text": " are open to it right now."
+    }
+  ],
+  "rows": [
+    {
+      "k": "What happens",
+      "v": "It stops and starts again. Every connection drops; clients that reconnect find it back in a few seconds, those that do not stay down.",
+      "mono": false
+    },
+    {
+      "k": "Data",
+      "v": "Kept. Nothing is deleted.",
+      "mono": false
+    }
+  ],
+  "buttons": [
+    {
+      "label": "Restart db",
+      "verb": "restart",
+      "targets": [
+        "db"
+      ],
+      "primary": true
+    },
+    {
+      "label": "Cancel",
+      "cancel": true
+    }
+  ],
+  "default": 0,
+  "foot": [
+    "doze only asks when something is using it. Restarting an idle one never asks."
+  ]
+}

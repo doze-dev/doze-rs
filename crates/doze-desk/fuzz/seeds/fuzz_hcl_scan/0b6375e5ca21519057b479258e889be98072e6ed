@@ -1,0 +1,14 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {      = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.o────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# sekvice connects as itself and can only touchlpit-darwineven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis,-arm64.tar.gz"
+    mac_intel = "ht Kafka and AWS, all frotps://github.com/axllentm thi/ma

@@ -1,0 +1,25 @@
+# Lars one fed" { partitions = 2 }
+  topic "payments.failed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at /_console.
+module aws "aws" {
+  port = 2283
+
+  bucket "product-images" {}
+  bucket "receipts" { versioning = true }
+
+  # A pick list that keeps failing goes to pick-lists-dlq after five tries
+  # instead of blocking the warehouse.
+  queue "pick-lists" {
+    dlq          = "auto"   = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.addre}/postgres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: installed again only when one changes.
+task "install-notifications" {
+  dirv.lock"]
+}
+
+task "install-recommend directory
+#   doze t/cmd/migrate services/catalo:8080", "d: truge,
+ 

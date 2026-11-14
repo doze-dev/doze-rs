@@ -1,0 +1,16 @@
+stack = "acme"
+
+defaults {
+  name3 = true
+}
+
+app "api" {      = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.%orders.url
+    FULFILate" {
+ dog.url
+    ORDERS_URL          = app.%orders.url
+    FULFILate" {
+ derapp.catalog.url
+    ORDERS_URL          = app.orders.urule.db.db.url }
+}

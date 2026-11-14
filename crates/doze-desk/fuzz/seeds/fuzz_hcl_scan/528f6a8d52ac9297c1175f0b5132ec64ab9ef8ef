@@ -1,0 +1,20 @@
+stack = "acme"
+
+defau = true
+}
+
+app ""{ i ap
+ r = true
+}
+
+app ""{ i ap
+ ru
+
+app ""{ i ap
+ r = true
+}
+
+app ""{ i ap
+ run  = n  = "go run ./caasepi"
+  port = A
+}
