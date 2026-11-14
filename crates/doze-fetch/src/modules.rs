@@ -104,10 +104,10 @@ impl Modules {
         let key = src.to_string();
         let old = lock.modules.get(&key).map(|p| p.version.clone());
         // An upgrade needs the registry: no offline fallback to the cache, which would report a move it did not make
-        // (Go's `Upgrade` returns the index error).
-        self.index_from(src)?;
+        // (Go's `Upgrade` returns the index error). The index is fetched once (F1 audit 3, minor 4).
+        let got = self.index_from(src)?;
         let mut fresh = Lock::default();
-        let r = self.fresh(src, majors, &mut fresh)?;
+        let r = self.take_newest(src, majors, got, &mut fresh)?;
         if let Some(pin) = fresh.modules.remove(&key) {
             lock.record_module(&key, pin);
         }
@@ -177,6 +177,18 @@ impl Modules {
                 return self.ready(src, &v, &bin, vec![note]);
             }
         };
+        self.take_newest(src, majors, (idx, from), lock)
+    }
+
+    /// The newest release in `idx` that fits, downloaded and pinned in `lock`.
+    fn take_newest(
+        &self,
+        src: &Source,
+        majors: &[String],
+        (idx, from): (Index, String),
+        lock: &mut Lock,
+    ) -> Result<Resolved, String> {
+        let key = src.to_string();
         let version = match select::newest_that_fits(&idx, self.here(), majors) {
             Fit::Release(v) if crate::lock::plain(&v) => v,
             Fit::Release(v) => return Err(format!("module {key}: {v:?} is not a plain version")),
@@ -297,7 +309,7 @@ impl Modules {
             .artifacts
             .get(&self.triple)
             .ok_or_else(|| format!("module {src} {version} has no artifact for {}", self.triple))?;
-        let url = self.artifact_url(src, &art.url, from);
+        let url = self.artifact_url(src, &art.url, from)?;
         let want = Want {
             manifest_sha: &art.sha256,
             sig: &art.sig,
@@ -316,17 +328,22 @@ impl Modules {
 
     /// An artifact's address: absolute as published, or relative to the module's folder on the registry base that
     /// served the index (`from`; the first base if none matches).
-    fn artifact_url(&self, src: &Source, url: &str, from: &str) -> String {
+    /// A `file://` address is taken only from an index on this machine (F1 audit 3, minor 3).
+    fn artifact_url(&self, src: &Source, url: &str, from: &str) -> Result<String, String> {
+        let served = self.registry.bases.iter().find(|b| b.name() == from);
+        let base = served.or(self.registry.bases.first());
         if url.contains("://") {
-            return url.to_string();
+            return match base {
+                Some(registry::Base::Http(b)) => mirror::local_only_from_local(url, b),
+                _ => Ok(url.to_string()),
+            };
         }
         let rel = src.file(url.trim_start_matches('/'));
-        let served = self.registry.bases.iter().find(|b| b.name() == from);
-        match served.or(self.registry.bases.first()) {
+        Ok(match base {
             Some(registry::Base::Http(b)) => format!("{}/{rel}", b.trim_end_matches('/')),
             Some(registry::Base::Dir(d)) => format!("file://{}", d.join(rel).display()),
             None => rel,
-        }
+        })
     }
 
     /// The newest build of `src` this machine has for this platform.

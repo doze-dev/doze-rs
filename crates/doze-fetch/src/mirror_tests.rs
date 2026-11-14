@@ -60,3 +60,33 @@ fn a_build_is_fetched_verified_cached_and_held_to_its_pin() {
     assert!(err.starts_with("checksum mismatch"), "{err}");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// F1 audit 3, minor 3: an https manifest may not point at a file on this machine; a local one may.
+#[test]
+fn a_remote_manifest_may_not_name_a_local_file() {
+    let err =
+        local_only_from_local("file:///etc/passwd", "https://mirror.example/valkey").unwrap_err();
+    assert!(err.contains("may not point at a file"), "{err}");
+    for base in ["file:///srv/mirror/valkey", "/srv/mirror/valkey"] {
+        assert_eq!(
+            local_only_from_local("file:///srv/a.tgz", base).as_deref(),
+            Ok("file:///srv/a.tgz")
+        );
+    }
+    assert!(local_only_from_local("https://cdn.example/a.tgz", "https://mirror.example").is_ok());
+}
+
+/// F1 audit 3, minor 4: a tmp left beside a build that is already cached is swept when the build is used.
+#[test]
+fn a_tmp_beside_a_cached_build_is_swept() {
+    let d = std::env::temp_dir().join(format!("doze-fetch-sweep-{}", std::process::id()));
+    let content = d.join("valkey/9.1.1-x");
+    std::fs::create_dir_all(content.join("bin")).unwrap();
+    std::fs::write(content.join("bin/valkey-server"), b"#!").unwrap();
+    let tmp = d.join("valkey/9.1.1-x.tmp4242");
+    std::fs::create_dir_all(&tmp).unwrap();
+    let (bin, _) = cached(&content, "valkey", None).unwrap();
+    assert_eq!(bin, content.join("bin"));
+    assert!(!tmp.exists());
+    let _ = std::fs::remove_dir_all(&d);
+}

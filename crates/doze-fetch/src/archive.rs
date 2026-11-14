@@ -37,7 +37,7 @@ pub fn unpack(archive: &[u8], content_dir: &Path, digest: &str) -> Result<PathBu
 }
 
 /// Every `<build>.tmp*` beside the build.
-fn clear_tmps(content_dir: &Path) {
+pub(crate) fn clear_tmps(content_dir: &Path) {
     let (Some(parent), Some(name)) = (content_dir.parent(), content_dir.file_name()) else {
         return;
     };
@@ -60,6 +60,8 @@ fn unpack_via(
 ) -> Result<PathBuf, String> {
     let tmp = tmp.to_path_buf();
     untar(archive, &tmp, UNPACKED_LIMIT).map_err(|e| format!("extracting: {e}"))?;
+    // Nobody else may change a binary in place (Go kept a 0666 or 0777 entry's write bits; fetch.md D-modes).
+    doze_os::fs::drop_shared_write(&tmp).map_err(|e| format!("extracting: {e}"))?;
     let bin = find_bin(&tmp).ok_or("the archive has no bin/ directory")?;
     if let Some(inner) = bin.parent().filter(|p| *p != tmp) {
         for e in std::fs::read_dir(inner)
@@ -221,6 +223,31 @@ pub(crate) mod tests {
         assert!(unpack(b"not an archive", &content, "sha256:1").is_err());
         let left: Vec<_> = std::fs::read_dir(d.join("v")).unwrap().flatten().collect();
         assert!(left.is_empty(), "{left:?}");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// F1 audit 3, minors 1 and 2: setuid and setgid are dropped and nobody but the user may write what is unpacked
+    /// (4755 becomes 755, 0777 becomes 755, 0666 becomes 644). Unix only: Windows has no modes to read.
+    #[test]
+    fn unpacked_modes_lose_setuid_and_shared_write() {
+        let d = std::env::temp_dir().join(format!("doze-fetch-modes-{}", std::process::id()));
+        let content = d.join("x/1-t");
+        let gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        let mut b = tar::Builder::new(gz);
+        for (path, mode) in [("bin/suid", 0o4755), ("bin/ww", 0o777), ("share/f", 0o666)] {
+            let mut h = tar::Header::new_gnu();
+            h.set_size(1);
+            h.set_mode(mode);
+            h.set_cksum();
+            b.append_data(&mut h, path, &b"x"[..]).unwrap();
+        }
+        let a = b.into_inner().unwrap().finish().unwrap();
+        unpack(&a, &content, "sha256:ab").unwrap();
+        for (path, want) in [("bin/suid", 0o755), ("bin/ww", 0o755), ("share/f", 0o644)] {
+            if let Some(m) = doze_os::fs::mode(&content.join(path)) {
+                assert_eq!(m, want, "{path}: {m:o}");
+            }
+        }
         let _ = std::fs::remove_dir_all(&d);
     }
 

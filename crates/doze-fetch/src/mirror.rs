@@ -152,12 +152,13 @@ impl Mirror {
             .get(full)
             .and_then(|a| a.get(triple))
             .ok_or_else(|| format!("mirror has no {engine} {full} artifact for {triple}"))?;
+        let base = self.base(engine);
         let url = if art.url.contains("://") {
-            art.url.clone()
+            local_only_from_local(&art.url, &base)?
         } else {
             format!(
                 "{}/{}",
-                self.base(engine).trim_end_matches('/'),
+                base.trim_end_matches('/'),
                 art.url.trim_start_matches('/')
             )
         };
@@ -170,6 +171,17 @@ impl Mirror {
         };
         download(&url, &content, &what, &want)
     }
+}
+
+/// An absolute artifact URL as a manifest at `base` gives it: a `file://` one only from a manifest that is itself on
+/// this machine (F1 audit 3, minor 3: a remote, unsigned manifest must not make doze read local files).
+pub(crate) fn local_only_from_local(url: &str, base: &str) -> Result<String, String> {
+    if url.starts_with("file://") && base.contains("://") && !base.starts_with("file://") {
+        return Err(format!(
+            "refusing {url}: a manifest from {base} may not point at a file on this machine"
+        ));
+    }
+    Ok(url.to_string())
 }
 
 /// What a download is checked against.
@@ -190,8 +202,21 @@ pub(crate) fn said(f: &Failure) -> String {
     }
 }
 
-/// A cached build, unless the lock pins another archive.
+/// A cached build, unless the lock pins another archive. What a child killed mid-unpack left beside it is swept when
+/// nobody holds the build's lock (F1 audit 3: not only when the build is fetched again).
 pub(crate) fn cached(
+    content: &Path,
+    what: &str,
+    expected: Option<&str>,
+) -> Result<(PathBuf, String), String> {
+    if let Ok(Some(_held)) = doze_os::fs::try_lock(&lock_path(content)) {
+        archive::clear_tmps(content);
+    }
+    cached_held(content, what, expected)
+}
+
+/// [`cached`], for a caller that holds the build's lock already.
+fn cached_held(
     content: &Path,
     what: &str,
     expected: Option<&str>,
@@ -217,7 +242,8 @@ pub(crate) fn download(
 ) -> Result<(PathBuf, String), String> {
     let _held = lock_build(content)?;
     if archive::has_files(&content.join("bin")) {
-        return cached(content, what, want.expected);
+        archive::clear_tmps(content);
+        return cached_held(content, what, want.expected);
     }
     let bytes = http::get_up_to(url, DOWNLOAD_BUDGET, ARCHIVE_LIMIT)
         .map_err(|f| format!("downloading {url}: {}", said(&f)))?;
@@ -251,14 +277,18 @@ pub(crate) fn download(
 
 /// The cross-process lock on one cache build, held while it is checked, downloaded and unpacked.
 pub(crate) fn lock_build(content: &Path) -> Result<doze_os::fs::Lock, String> {
-    let mut name = content.as_os_str().to_owned();
-    name.push(".lock");
-    let path = PathBuf::from(name);
+    let path = lock_path(content);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("creating {}: {e}", parent.display()))?;
     }
     doze_os::fs::lock(&path).map_err(|e| format!("locking {}: {e}", path.display()))
+}
+
+fn lock_path(content: &Path) -> PathBuf {
+    let mut name = content.as_os_str().to_owned();
+    name.push(".lock");
+    PathBuf::from(name)
 }
 
 #[cfg(test)]

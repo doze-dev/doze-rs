@@ -74,6 +74,10 @@ fn a_persisted_module_request_pins_it_and_says_so_once() {
 }
 
 /// Audit F1, M3: children resolving different modules at once all save into one `doze.lock`; no pin is lost.
+///
+/// Without the lock this fails, but not first on a lost update: the threads share one pid, so they write the same
+/// temp file beside `doze.lock` and one rename finds it already moved (an error). Separate children would lose pins
+/// instead. Either way only the lock makes every save land.
 #[test]
 fn concurrent_saves_keep_every_pin() {
     let reg = registry("concurrent", &[("0.3.0", 2, &["9"])], "");
@@ -99,6 +103,29 @@ fn concurrent_saves_keep_every_pin() {
     for n in &names {
         assert!(saved.modules.contains_key(&format!("doze/{n}")), "{n} lost");
     }
+}
+
+/// F1 audit 3, minor 1: when the lock folder cannot be made, the note names it (`<home>/locks`), and the request
+/// still succeeds without the pin.
+#[test]
+fn a_lock_folder_that_cannot_be_made_is_named() {
+    let reg = registry("lockdir", &[("0.3.0", 2, &["9"])], "");
+    let p = place(modules(&reg));
+    std::fs::create_dir_all(&p.modules.home).unwrap();
+    let locks = p.modules.home.join("locks");
+    std::fs::write(&locks, "a file, not a folder").unwrap();
+    let r = serve(
+        &Request::Module {
+            source: valkey().to_string(),
+            majors: majors(&["9"]),
+            lock: Some(reg.home.join("doze.lock")),
+            persist: true,
+        },
+        &p,
+    );
+    assert_eq!((r.error.as_deref(), r.version.as_str()), (None, "0.3.0"));
+    let want = format!("taking the doze.lock lock in {}", locks.display());
+    assert!(r.notes.iter().any(|n| n.contains(&want)), "{r:?}");
 }
 
 /// Audit F1, minor 4 (Go's `loadLock`): a lock written by a newer doze is said, once per resolve that reads it.

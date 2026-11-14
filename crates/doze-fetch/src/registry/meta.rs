@@ -1,6 +1,7 @@
 //! A module's `meta.yaml`: the documentation the registry site renders and `doze modules docs` prints, as
 //! `doze-module-release` (and Go's `dzm meta` before it) writes it from the module's own manifest. It is prose, not
-//! signed and never executed; what decides what runs is the signed index.
+//! signed, and doze never runs anything because of it: what decides what runs is the signed index. Its `client` is
+//! shown (docs, the app) but `doze connect` takes the client from the signed module's own hello.
 
 use super::yaml::{self, YamlError, get, text, texts};
 use doze_module_proto::msg::hints::{ClientCommand, Detect};
@@ -58,7 +59,8 @@ pub struct Meta {
     /// The `version` written when none is named.
     #[serde(skip_serializing_if = "String::is_empty")]
     pub default_version: String,
-    /// The module's shell client (`doze connect`); none means no shell is offered.
+    /// The module's shell client as the unsigned meta.yaml states it, for display only (`doze connect` runs the one
+    /// the signed module's hello gives); none means no shell is offered.
     #[serde(skip)]
     pub client: Option<ClientCommand>,
     /// How a project shows it uses the engine (`doze init`, the app's empty folder); none means it is never guessed.
