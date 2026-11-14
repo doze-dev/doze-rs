@@ -111,6 +111,8 @@ impl<M: Module + crate::caps::Wire> Server<M> {
                     return;
                 };
                 let std_conn = std::net::TcpStream::from(handle);
+                // A client gone without a word must not hold its instance awake for ever.
+                let _ = doze_os::net::keepalive(&std_conn);
                 let conn = match std_conn
                     .set_nonblocking(true)
                     .and_then(|()| tokio::net::TcpStream::from_std(std_conn))

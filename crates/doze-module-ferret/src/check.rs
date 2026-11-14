@@ -16,6 +16,12 @@ pub(crate) const OWNED: &[&str] = &[
     "debug_addr",
     "state_dir",
     "auth",
+    // Each would take over doze's setup: another database URL, or TCP listeners where nothing listens on TCP.
+    "postgresql_url_file",
+    "listen_data_api_addr",
+    "listen_mcp_addr",
+    "mode",
+    "proxy_addr",
 ];
 
 fn key(k: &str) -> PathSeg {

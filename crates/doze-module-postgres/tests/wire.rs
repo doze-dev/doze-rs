@@ -44,6 +44,8 @@ fn major(h: &Harness) -> u32 {
 struct Boots {
     addr: Address,
     in_use: AtomicI64,
+    /// The most sessions spliced at once: a filter that never acquired would leave `in_use` at 0 too.
+    peak: AtomicI64,
 }
 
 impl Backends for Boots {
@@ -51,7 +53,8 @@ impl Backends for Boots {
         Box::pin(async move { Ok(self.addr.clone()) })
     }
     fn acquire(&self, _: &str) {
-        self.in_use.fetch_add(1, Ordering::SeqCst);
+        let now = self.in_use.fetch_add(1, Ordering::SeqCst) + 1;
+        self.peak.fetch_max(now, Ordering::SeqCst);
     }
     fn release(&self, _: &str) {
         self.in_use.fetch_sub(1, Ordering::SeqCst);
@@ -76,6 +79,7 @@ async fn front(h: &Harness, req: WireAccept) -> Front {
     let boots = Arc::new(Boots {
         addr: booted.backend().unwrap(),
         in_use: AtomicI64::new(0),
+        peak: AtomicI64::new(0),
     });
     let m: Arc<Running> = Arc::new(h.module_with(Some(boots.clone())).await.unwrap());
     let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -139,6 +143,11 @@ async fn psql_connects_through_the_filter_and_sessions_are_counted() {
         f.boots.in_use.load(Ordering::SeqCst),
         0,
         "acquire and release do not balance"
+    );
+    assert_eq!(
+        f.boots.peak.load(Ordering::SeqCst),
+        1,
+        "each session was acquired"
     );
     f.booted.stop(Duration::from_secs(20)).await;
 }

@@ -250,9 +250,11 @@ pub(crate) async fn accept(
     let socket = match host.boot().await {
         Ok(Address::Unix(p)) => p,
         Ok(Address::Tcp(a)) => {
-            return Err(err(format!(
+            let e = err(format!(
                 "postgres listens on its socket; the host booted it on {a}"
-            )));
+            ));
+            refuse(&mut client, "57P03", &e.message).await;
+            return Err(e);
         }
         Err(e) => {
             refuse(
@@ -264,16 +266,21 @@ pub(crate) async fn accept(
             return Err(e);
         }
     };
-    let mut server = doze_os::net::connect_unix(&socket).await.map_err(|e| {
-        Error::new(
-            ErrorKind::Unavailable,
-            format!("the server is not answering: {e}"),
-        )
-    })?;
-    server
-        .write_all(&raw)
-        .await
-        .map_err(|e| Error::new(ErrorKind::Unavailable, e.to_string()))?;
+    let connected = async {
+        let mut s = doze_os::net::connect_unix(&socket).await?;
+        s.write_all(&raw).await.map(|()| s)
+    };
+    let server = match connected.await {
+        Ok(s) => s,
+        Err(e) => {
+            let e = Error::new(
+                ErrorKind::Unavailable,
+                format!("the server is not answering: {e}"),
+            );
+            refuse(&mut client, "57P03", &e.message).await;
+            return Err(e);
+        }
+    };
     host.acquire().await?;
     splice(client, server, cancels, &socket).await;
     host.release().await
@@ -295,9 +302,11 @@ async fn splice(
     let down = async {
         let mut sr = BufReader::new(sr);
         // The key stays registered while the session lives.
-        let _guard = handshake(&mut sr, &mut cw, cancels, socket)
-            .await
-            .unwrap_or_default();
+        // A server message the filter cannot read ends the session: the client's stream would be out of step.
+        let Ok(_guard) = handshake(&mut sr, &mut cw, cancels, socket).await else {
+            let _ = cw.shutdown().await;
+            return;
+        };
         let _ = tokio::io::copy_buf(&mut sr, &mut cw).await;
         let _ = cw.shutdown().await;
     };

@@ -264,6 +264,16 @@ portable `process` engine, the app's tray and notifications) belongs to the core
 12. ⚑ ferret auth (follow-up, coordinator 2026-11-14): `auth = true` and `user` blocks stay refused at their line.
     Real auth needs a SCRAM client in the module and a doze-owned admin user that converge authenticates as (about
     a day). Not built in M1.
+13. Open from the M1 re-audit (2026-11-14; its high and medium findings are fixed: ferret's socket cleared before
+    its running check, postgres's racing template makers, keepalive on handed-over clients, versions CI never accepted
+    (mariadb 11.8, postgres 16 added); also mariadb's pid check, ferret's owned keys, the filter's 10 000-byte startup
+    limit, a reply on every refused path, direct SSL named, a bad handshake ending the session):
+    ferret prune drops collections nobody declared with a removed database (as Go; postgres refuses that);
+    mariadb owned options can be spelled as prefixes (`sock`, `datad`); a template clone that fails half way cannot be
+    retried (clone beside and rename); ferret compound index keys lose their order (BTreeMap, as Go); fuzz markers for
+    ferret's seed reader, mariadb's grant-name and SHOW GRANTS readers, postgres's psql row split; filter tests for
+    GSSENC, a second encryption request and the startup timeout; small consistency nits (unknown prune kinds,
+    `tool()` and `tc.tools`, socket paths unescaped in URLs, "already running" wording).
 
 ## Things the core port inherits (not in this plan, recorded so they are not lost)
 

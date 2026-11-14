@@ -9,8 +9,8 @@ pub(crate) const CANCEL_REQUEST: u32 = 80_877_102;
 /// Protocol 3.x: the major in the top 16 bits.
 const PROTOCOL_3: u32 = 3 << 16;
 
-/// The longest startup packet read (Go's limit; PostgreSQL's own is 10 000 bytes).
-pub(crate) const MAX_STARTUP: usize = 1 << 20;
+/// The longest startup packet read: PostgreSQL's own limit (Go allowed 1 MiB, held for every slow client).
+pub(crate) const MAX_STARTUP: usize = 10_000;
 /// The longest server message read during the handshake.
 pub(crate) const MAX_MESSAGE: usize = 1 << 20;
 /// A cancel key's secret: 4 bytes in protocol 3.0, up to 256 in 3.2 (PostgreSQL 18).
@@ -46,6 +46,10 @@ pub(crate) fn first(header: [u8; 8]) -> Result<First, String> {
         CANCEL_REQUEST if (12..=12 + MAX_SECRET).contains(&len) => Ok(First::Cancel(len - 8)),
         CANCEL_REQUEST => Err(format!("malformed cancel request (len={len})")),
         _ if (8..=MAX_STARTUP).contains(&len) => Ok(First::Startup(len - 8)),
+        // A TLS record (ClientHello) where a startup belongs: PostgreSQL 17's direct SSL.
+        _ if a == 0x16 => {
+            Err("direct SSL is not supported; connect with sslnegotiation=postgres".into())
+        }
         _ => Err(format!("implausible startup length {len}")),
     }
 }

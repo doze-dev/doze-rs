@@ -44,13 +44,17 @@ async fn make(tc: &Toolchain, dir: &Path) -> Result<()> {
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let staging = parent.join(format!(".{name}.part-{}", std::process::id()));
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    // Unique to this call: two first boots of one version share a template and may make it at once.
+    let staging = parent.join(format!(".{name}.part-{}-{nonce}", std::process::id()));
     let _ = std::fs::remove_dir_all(&staging);
     let made = initdb(tc, &staging).await;
     let placed = made.and_then(|()| {
         if !provisioned(dir) {
-            // An empty or half-made folder (no PG_VERSION) holds no cluster.
-            let _ = std::fs::remove_dir_all(dir);
+            // An empty folder holds no cluster; one with anything in it is never removed here.
+            let _ = std::fs::remove_dir(dir);
         }
         std::fs::rename(&staging, dir).map_err(help::io_error("placing", dir))
     });

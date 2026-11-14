@@ -223,11 +223,15 @@ fn stale_pid(pid: &Path, name: &str) -> Result<()> {
     let live = std::fs::read_to_string(pid)
         .ok()
         .and_then(|t| t.trim().parse::<u32>().ok())
-        .filter(|p| doze_os::process::alive(*p));
+        // Another user's process with that number (a reboot reused it) is not the server that wrote the file.
+        .filter(|p| doze_os::process::alive_own(*p));
     if let Some(p) = live {
         return Err(doze_module::proto::msg::error::Error::new(
             doze_module::proto::msg::error::ErrorKind::Unavailable,
-            format!("instance {name:?} appears to be running already (pid {p})"),
+            format!(
+                "instance {name:?} appears to already be running (pid {p}); remove {} if you are sure it is not",
+                pid.display()
+            ),
         ));
     }
     help::clear_stale(pid)

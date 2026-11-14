@@ -190,8 +190,9 @@ impl Module for Ferret {
 
     async fn plan(&self, cx: &Cx<FerretSpec>, tc: &Toolchain) -> Result<Plan> {
         let inst = &cx.instance;
-        let backend = help::prepare_backend(inst, SOCKET)?;
+        // The running check (postmaster.pid) first: clearing the gateway's socket of a live instance would cut it off.
         let postgres = pg::postgres(inst, tc)?;
+        let backend = help::prepare_backend(inst, SOCKET)?;
         let mut env = BTreeMap::from([
             ("FERRETDB_POSTGRESQL_URL".to_string(), pg::url(inst)),
             ("FERRETDB_DEBUG_ADDR".into(), String::new()),
