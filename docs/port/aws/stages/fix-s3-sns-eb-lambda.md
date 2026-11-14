@@ -61,7 +61,7 @@ and the `BlockPublicPolicy` refusal both use it.
 - Off the actor: one task per POST, retried on no answer, 429 or 5xx (memory) under the subscription's `DeliveryPolicy` or the topic's
   effective one (default three retries 20 s apart; the backoff phase is linear, AWS's other functions are approximated (memory)), then
   dropped with a log line.
-- `https`: stored, kept pending, and a warning says doze-aws has no TLS client (the owner's open decision).
+- `https`: stored, kept pending, and a warning says doze-aws has no TLS client (the owner's open decision). **(Superseded 2026-11-14: outbound https is built; see `stages/tls.md`.)**
 - `wildcard` and `anything-but: {wildcard}` are in the SNS Developer Guide ("String value matching"), so they are accepted; the matcher
   is EventBridge's, copied (40 lines) rather than depending on EventBridge.
 - The shared client: EventBridge's `http.rs` moved, unchanged, to a new first-party crate `aws-webhook`, which both use.
@@ -109,7 +109,7 @@ from `tests/behaviour.rs` to `tests/inplace.rs`, unchanged.
 
 ## Open
 
-- `https` endpoints for SNS and EventBridge wait for the owner's TLS decision.
+- `https` endpoints for SNS and EventBridge wait for the owner's TLS decision. **(Superseded 2026-11-14: outbound https is built; see `stages/tls.md`.)**
 - The website is served to any caller; AWS wants a public-read policy (and `BlockPublicPolicy` off) for its website endpoint.
 - An SNS `ConfirmSubscription` through the `SubscribeURL` is asked as an anonymous caller of the topic's account; under `--iam enforce`
   that is the account's root, as every unsigned request to a trusting gateway is.

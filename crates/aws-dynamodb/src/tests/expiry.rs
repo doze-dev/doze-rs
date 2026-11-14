@@ -230,3 +230,45 @@ fn the_streams_api_lists_a_tables_stream_with_its_shard() {
             .is_empty()
     );
 }
+
+/// The windows a host passes (`doze-aws --dynamodb-create-ms`) reach every region's actor.
+#[tokio::test]
+async fn the_host_s_windows_reach_the_actor() {
+    let dir = TempDir::new("ddb-windows");
+    let clock = Arc::new(ManualClock::at(NOW_MS));
+    let tasks = Tasks::new();
+    let svc = Dynamodb::with_windows(
+        Arc::new(Ctx {
+            dir: dir.path().to_path_buf(),
+            idle: Duration::from_secs(60),
+            tasks: tasks.clone(),
+            clock: clock.clone(),
+            ext: None,
+        }),
+        crate::Windows {
+            create_ms: 2_000,
+            update_ms: 0,
+            delete_ms: 0,
+        },
+    );
+    let h = Harness::new(Dynamodb::new(Arc::new(Ctx {
+        dir: TempDir::new("ddb-decode-w").path().to_path_buf(),
+        idle: Duration::from_secs(60),
+        tasks: Tasks::new(),
+        clock: clock.clone(),
+        ext: None,
+    })));
+    let call = |op: &str, body: Value| {
+        let ix = h.op(op);
+        let call = h.call(ix, &body).unwrap();
+        let svc = &svc;
+        let h = &h;
+        async move { h.json(ix, &svc.call(call).await.unwrap()) }
+    };
+    let made = call("CreateTable", table_with_stream()).await;
+    assert_eq!(made["TableDescription"]["TableStatus"], "CREATING");
+    clock.advance(2_000);
+    let described = call("DescribeTable", json!({"TableName": "sessions"})).await;
+    assert_eq!(described["Table"]["TableStatus"], "ACTIVE");
+    tasks.shutdown().await;
+}

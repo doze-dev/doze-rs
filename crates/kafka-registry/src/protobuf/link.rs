@@ -232,7 +232,7 @@ impl Linker<'_> {
         };
         for d in &ast.decls {
             match d {
-                Decl::Package(p, _) => info.package.clone_from(p),
+                Decl::Package(p) => info.package.clone_from(p),
                 Decl::Import(kind, p, _) => {
                     let Some(&(_, f)) = self.parsed.iter().find(|(q, _)| q == p) else {
                         return Err(format!("import \"{p}\" was not found"));

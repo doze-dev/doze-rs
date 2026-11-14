@@ -3,7 +3,7 @@
 //! `_schemas` topic; nothing on the wire observes the difference). [`MemoryStorage`] is for tests, and for a registry that
 //! need not outlive its process.
 //!
-//! The keys are typed ([`Key`]) and written as a tag byte and the parts; the values are a version byte and postcard, as
+//! The keys are typed (`Key`) and written as a tag byte and the parts; the values are a version byte and postcard, as
 //! the broker's own records are.
 
 use std::collections::BTreeMap;

@@ -29,6 +29,18 @@ pub struct Caller {
     pub session_token: Option<String>,
 }
 
+impl Caller {
+    /// The access key id of a request that carried no signature at all (S3 with `curl` or a browser, a website page, an SNS
+    /// `SubscribeURL`): AWS's anonymous principal, which only a resource policy that grants `"Principal": "*"` lets in.
+    pub const ANONYMOUS: &'static str = "anonymous";
+
+    /// Whether the request carried no signature.
+    #[must_use]
+    pub fn is_anonymous(&self) -> bool {
+        self.access_key_id == Self::ANONYMOUS
+    }
+}
+
 /// One decoded request, owned, so it can cross to the task that owns the service.
 #[derive(Debug)]
 pub struct Call {
@@ -195,6 +207,16 @@ pub trait Service: Send + Sync + 'static {
     /// An operation this service adds to its model, by the name in `X-Amz-Target` (SQS's `DozePeek`, which the console reads a
     /// queue with). Not an AWS operation: the default is none. Only a JSON-protocol service is asked.
     fn extension(&self, _name: &str) -> Option<Extension> {
+        None
+    }
+
+    /// A doze-only `Action` on this service's Query endpoint (IAM's `DozeAccessLog`, as the Go edition served it), answered as JSON
+    /// from the request's form. Asked only for an action the model does not have; the default is none.
+    fn query_extension<'a>(
+        &'a self,
+        _action: &'a str,
+        _form: &'a std::collections::BTreeMap<String, String>,
+    ) -> Option<BoxFuture<'a, WebReply>> {
         None
     }
 

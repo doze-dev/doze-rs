@@ -9,6 +9,7 @@ pub(crate) mod sam_api;
 pub(crate) mod sam_events;
 pub(crate) mod sam_policies;
 pub(crate) mod sam_role;
+pub(crate) mod sam_schedule;
 pub(crate) mod sam_sfn;
 
 use std::collections::BTreeMap;

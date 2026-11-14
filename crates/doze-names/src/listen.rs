@@ -142,6 +142,18 @@ impl Drop for Forwarding {
     }
 }
 
+/// Whether this machine can put names on addresses of their own: the daemon's interface is up (macOS), or loopback
+/// addresses past 127.0.0.1 can be bound (Linux, Windows). Without it every service shares 127.0.0.1 and needs a port of
+/// its own.
+pub fn pool_usable(net: crate::Net) -> bool {
+    let probe = if net.virtual_ {
+        net.gateway()
+    } else {
+        net.at(crate::pool::DYNAMIC_BASE)
+    };
+    TcpListener::bind((probe, 0)).is_ok()
+}
+
 impl Registry {
     /// A listener on `addr` for whichever of this process's names has that address: [`Lease::listen`] for a caller
     /// that carries addresses about and not leases. An address that is no name's (127.0.0.1 on a machine with no

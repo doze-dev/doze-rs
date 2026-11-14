@@ -6,6 +6,7 @@
 
 pub(crate) mod filter;
 mod kinesis;
+mod parallel;
 pub(crate) mod sqs;
 mod streams;
 

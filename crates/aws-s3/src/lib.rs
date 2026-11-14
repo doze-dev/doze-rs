@@ -7,9 +7,12 @@
 //! A browser is served too: CORS preflights and response headers from the bucket's CORS rules, and a bucket's website (index and
 //! error documents) at its website host or `/_aws/s3-website/<bucket>/` (`web.rs`).
 //!
-//! Operations that have no meaning on one machine (ACLs, archive storage classes and restores, S3 Select, directory buckets, metadata
+//! ACLs follow Object Ownership as AWS has since April 2023 (`acl.rs`): disabled on a new bucket, kept and weighed once enabled.
+//!
+//! Operations that have no meaning on one machine (archive storage classes and restores, S3 Select, directory buckets, metadata
 //! tables, access points) are refused by name.
 
+mod acl;
 mod attrs;
 mod authz;
 mod blob;
@@ -26,6 +29,7 @@ mod errors;
 mod eventbridge;
 mod events;
 mod get;
+mod grants;
 mod idconfig;
 mod janitor;
 mod lifecycle;

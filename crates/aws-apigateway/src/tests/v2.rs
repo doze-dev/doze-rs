@@ -5,14 +5,6 @@ use serde_json::{Value, json};
 
 use super::{World, body, header};
 
-fn enc(v: &Value) -> String {
-    aws_core::base64::encode(v.to_string().as_bytes())
-        .replace('+', "-")
-        .replace('/', "_")
-        .trim_end_matches('=')
-        .to_owned()
-}
-
 #[tokio::test]
 async fn an_http_api_routes_answers_cors_and_checks_tokens() {
     let w = World::new();
@@ -44,7 +36,8 @@ async fn an_http_api_routes_answers_cors_and_checks_tokens() {
     )
     .await
     .unwrap();
-    let issuer = "https://issuer.test";
+    let idp = super::tls::Issuer::start(aws_webhook::test_server::Ca::get().identity()).await;
+    let issuer = idp.url.as_str();
     let auth = w
         .http("CreateAuthorizer", json!({"ApiId": id, "name": "jwt", "authorizerType": "JWT", "identitySource": ["$request.header.Authorization"],
             "jwtConfiguration": {"issuer": issuer, "audience": ["me"]}}))
@@ -105,13 +98,7 @@ async fn an_http_api_routes_answers_cors_and_checks_tokens() {
         .web("GET", &format!("/_aws/execute-api/{id}/secret"), "", &[])
         .await;
     assert_eq!(no_token.status, 401);
-    let token = |claims: Value| {
-        format!(
-            "Bearer {}.{}.c2ln",
-            enc(&json!({"alg": "RS256"})),
-            enc(&claims)
-        )
-    };
+    let token = |claims: Value| super::tls::Issuer::sign(&claims);
     let far = 4_000_000_000_i64;
     let wrong = token(json!({"iss": issuer, "aud": "other", "exp": far, "scope": "read"}));
     assert_eq!(

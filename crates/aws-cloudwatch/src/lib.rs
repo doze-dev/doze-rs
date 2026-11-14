@@ -16,10 +16,11 @@
 //!
 //! Built: `PutMetricData`, `GetMetricStatistics`, `GetMetricData` (a single `MetricStat` per query), `ListMetrics`; alarms
 //! (`PutMetricAlarm`, `PutCompositeAlarm`, describing, deleting, `SetAlarmState`, enabling and disabling actions, history, tags);
-//! dashboards (the body kept verbatim); anomaly detectors (stored). Metric-math alarms and composite alarms are stored and returned;
+//! dashboards (the body kept verbatim); anomaly detectors (stored); metric streams, Contributor Insights rules and alarm mute rules
+//! (stored, returned and tagged, not active locally: `stored.rs`). Metric-math alarms and composite alarms are stored and returned;
 //! they are not evaluated, and say so in their reason. An alarm action on an SNS topic or a Lambda function is carried out through
 //! the peer bus when that service runs; otherwise the alarm's history says it was not delivered. Refused by name: everything else
-//! (metric streams, Contributor Insights, the widget image, OTel enrichment, mute rules, resource metrics configuration).
+//! (managed Contributor Insights rules, the widget image, OTel enrichment, resource metrics configuration).
 
 mod actions;
 mod alarms;
@@ -32,6 +33,8 @@ mod put;
 mod read;
 mod req;
 mod stats;
+mod stored;
+mod stored_rules;
 mod timers;
 
 #[cfg(test)]
