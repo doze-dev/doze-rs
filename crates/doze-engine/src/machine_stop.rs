@@ -68,12 +68,16 @@ impl Machine {
         self.table.reset_restart(name);
         let c = self.ctl(name);
         let cancelled = c.timer.take().is_some();
-        if c.boot.is_some() {
+        let mut fx = Vec::new();
+        if let Some(boot) = c.boot {
             c.cancel_boot = true;
+            fx.push(Effect::CancelBoot {
+                name: name.into(),
+                boot,
+            });
         }
         c.ready_pending = false;
         let unit = c.unit.take();
-        let mut fx = Vec::new();
         if let Some((generation, ..)) = unit {
             let held = std::mem::take(&mut c.held);
             c.stopping.insert(generation, (cause, held));

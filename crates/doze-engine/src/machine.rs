@@ -24,6 +24,9 @@ pub enum Effect {
         cause: Cause,
         rerun: bool,
     },
+    /// Cancel start `boot` of `name` now (drop what it is doing: its processes go with it), then report
+    /// [`Machine::boot_cancelled`].
+    CancelBoot { name: String, boot: u64 },
     /// Stop unit `generation` of `name`, then report [`Machine::unit_gone`].
     StopUnit { name: String, generation: u64 },
     /// Record these pids for `name`.
@@ -51,6 +54,9 @@ pub enum Decision {
     Join(u64),
     /// A new start: `StartBoot` is among the effects.
     Start(u64),
+    /// A previous run is still being stopped or a start cancelled: ask again once it is gone (two copies must never
+    /// run against one data folder, and the old one's records must not be overwritten).
+    Busy,
     Refuse(Error),
 }
 
@@ -173,6 +179,9 @@ impl Machine {
         let running = self.table.state(name).is_some_and(|s| s.running());
         let off = self.table.is_off(name);
         let c = self.ctl(name);
+        if !c.stopping.is_empty() || (c.boot.is_some() && c.cancel_boot) {
+            return (Decision::Busy, Vec::new());
+        }
         if let Some(b) = c.boot {
             return (Decision::Join(b), Vec::new());
         }
@@ -207,6 +216,27 @@ impl Machine {
 
     fn current_boot(&self, name: &str, boot: u64) -> bool {
         self.ctl.get(name).is_some_and(|c| c.boot == Some(boot))
+    }
+
+    /// Start `boot` of `name` was cancelled (a stop, `off`, the shutdown) and has dropped what it was doing: the needs
+    /// it held are released, and it is asleep, not failed.
+    pub fn boot_cancelled(&mut self, name: &str, boot: u64, now: Now) -> Vec<Effect> {
+        if !self.current_boot(name, boot) {
+            return Vec::new();
+        }
+        let c = self.ctl(name);
+        c.boot = None;
+        c.cancel_boot = false;
+        let held = std::mem::take(&mut c.held);
+        let idle = c.unit.is_none() && c.stopping.is_empty();
+        for h in &held {
+            self.table.release(h, now);
+        }
+        if !idle {
+            return Vec::new();
+        }
+        self.table.mark_reaped(name);
+        vec![Effect::RemovePids { name: name.into() }]
     }
 
     /// Start `boot` of `name` woke `need` and holds it now.

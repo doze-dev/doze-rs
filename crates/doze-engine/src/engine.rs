@@ -42,6 +42,8 @@ pub(crate) struct Core {
     pub(crate) handles: BTreeMap<u64, Handle>,
     /// Starts in flight by id.
     pub(crate) boots: BTreeMap<u64, watch::Receiver<Phase>>,
+    /// What cancels each start in flight.
+    pub(crate) cancels: BTreeMap<u64, watch::Sender<bool>>,
     pub(crate) live: BTreeMap<String, Live>,
 }
 
@@ -119,6 +121,7 @@ impl Engine {
             m,
             handles: BTreeMap::new(),
             boots: BTreeMap::new(),
+            cancels: BTreeMap::new(),
             live: BTreeMap::new(),
         };
         let inner = Inner {
@@ -189,6 +192,7 @@ impl Engine {
                 }
                 // Starts are spawned by the wake that decided them (it knows how far to wake).
                 Effect::StartBoot { .. } => {}
+                Effect::CancelBoot { boot, .. } => waits.push(self.cancel_boot(boot)),
             }
         }
         waits
@@ -197,6 +201,22 @@ impl Engine {
     /// Where `name`'s processes are recorded.
     pub(crate) fn pids(&self, name: &str) -> crate::pidfile::Pids {
         crate::pidfile::Pids::new(&self.stack().run_dir(), name)
+    }
+
+    /// Cancels start `boot`; the task ends once the start has dropped what it was doing.
+    fn cancel_boot(&self, boot: u64) -> JoinHandle<()> {
+        let rx = {
+            let c = self.lock();
+            if let Some(tx) = c.cancels.get(&boot) {
+                let _ = tx.send(true);
+            }
+            c.boots.get(&boot).cloned()
+        };
+        tokio::spawn(async move {
+            if let Some(mut rx) = rx {
+                let _ = rx.wait_for(|p| !matches!(p, Phase::Booting)).await;
+            }
+        })
     }
 
     /// Records what the engine did.
@@ -250,25 +270,11 @@ impl Engine {
         cause: Cause,
         when: When,
     ) -> Result<Endpoint, Error> {
-        let (rx, fx) = self.update(|c| {
-            let (d, fx) = c.m.wake(name, cause);
-            let rerun = fx
-                .iter()
-                .any(|f| matches!(f, Effect::StartBoot { rerun: true, .. }));
-            let rx = match d {
-                Decision::Running => Ok(None),
-                Decision::Refuse(e) => Err(e),
-                Decision::Join(b) => Ok(c.boots.get(&b).cloned()),
-                Decision::Start(b) => {
-                    let (tx, rx) = watch::channel(Phase::Booting);
-                    c.boots.insert(b, rx.clone());
-                    crate::boot::spawn(self, name, b, when, rerun, tx);
-                    Ok(Some(rx))
-                }
-            };
-            (rx, fx)
-        });
-        self.run(fx);
+        let (rx, start) = self.decide_wake(name, cause).await;
+        // The journal's `wake` goes out before the start can wake (and journal) its needs.
+        if let Some(s) = start {
+            crate::boot::spawn(self, name, when, s);
+        }
         let Some(mut rx) = rx? else {
             return Ok(self
                 .lock()
@@ -284,6 +290,58 @@ impl Engine {
             _ => Err(Error::Failed(format!(
                 "the start of \"{name}\" was abandoned"
             ))),
+        }
+    }
+
+    /// The machine's answer to a wake, waiting while a previous run is still being stopped or cancelled; the effects
+    /// are run here, and a new start is handed back to be spawned.
+    async fn decide_wake(
+        &self,
+        name: &str,
+        cause: Cause,
+    ) -> (
+        Result<Option<watch::Receiver<Phase>>, Error>,
+        Option<crate::boot::Start>,
+    ) {
+        let mut changes = self.changes();
+        loop {
+            let (d, fx) = self.update(|c| c.m.wake(name, cause.clone()));
+            let rerun = fx
+                .iter()
+                .any(|f| matches!(f, Effect::StartBoot { rerun: true, .. }));
+            let answer = match d {
+                Decision::Busy => None,
+                Decision::Running => Some((Ok(None), None)),
+                Decision::Refuse(e) => Some((Err(e), None)),
+                Decision::Join(b) => match self.lock().boots.get(&b).cloned() {
+                    Some(rx) => Some((Ok(Some(rx)), None)),
+                    None => Some((
+                        Err(Error::Failed(format!("the start of \"{name}\" was lost"))),
+                        None,
+                    )),
+                },
+                Decision::Start(b) => {
+                    let (tx, rx) = watch::channel(Phase::Booting);
+                    let (cancel_tx, cancel) = watch::channel(false);
+                    self.update(|c| {
+                        c.boots.insert(b, rx.clone());
+                        c.cancels.insert(b, cancel_tx);
+                    });
+                    let s = crate::boot::Start {
+                        boot: b,
+                        rerun,
+                        tx,
+                        cancel,
+                    };
+                    Some((Ok(Some(rx)), Some(s)))
+                }
+            };
+            self.run(fx);
+            if let Some(a) = answer {
+                return a;
+            }
+            // Bounded poll as well as the change feed: a stop's end always moves the version, but never wait blind.
+            let _ = tokio::time::timeout(Duration::from_millis(50), changes.changed()).await;
         }
     }
 

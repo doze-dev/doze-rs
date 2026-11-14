@@ -97,7 +97,16 @@ fn the_shutdown_cancels_a_pending_restart() {
 fn a_start_stopped_before_it_registered_is_reaped() {
     let mut m = machine();
     let boot = started(&mut m);
-    assert!(m.stop("api", Cause::Command).unwrap().is_empty());
+    let fx = m.stop("api", Cause::Command).unwrap();
+    assert_eq!(
+        fx,
+        vec![Effect::CancelBoot {
+            name: "api".into(),
+            boot
+        }]
+    );
+    assert!(matches!(m.wake("api", Cause::Command).0, Decision::Busy));
+    // The cancel had not landed yet: the processes registered first, and are stopped at once.
     let (generation, ok, fx) = m.register("api", boot, unit(), Now::current());
     assert!(!ok);
     assert_eq!(
@@ -111,4 +120,22 @@ fn a_start_stopped_before_it_registered_is_reaped() {
     let api = m.table().get("api", Now::current()).unwrap();
     assert_eq!(api.state, State::Reaped);
     assert!(m.quiet());
+}
+
+/// The usual order: the cancel lands before the start registers; the start drops its work and the instance sleeps.
+#[test]
+fn a_cancelled_start_sleeps_and_frees_the_next_wake() {
+    let mut m = machine();
+    let boot = started(&mut m);
+    let _ = m.stop("api", Cause::Command).unwrap();
+    let _ = m.boot_cancelled("api", boot, Now::current());
+    assert_eq!(
+        m.table().get("api", Now::current()).unwrap().state,
+        State::Reaped
+    );
+    assert!(m.quiet());
+    assert!(matches!(
+        m.wake("api", Cause::Command).0,
+        Decision::Start(_)
+    ));
 }

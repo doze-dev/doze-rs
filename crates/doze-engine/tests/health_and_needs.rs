@@ -131,7 +131,7 @@ async fn a_lazy_need_is_wired_with_its_declared_address_and_not_woken() {
         .first()
         .cloned()
         .unwrap_or_default();
-    let sock = d.path().join("run/db/s.sock");
+    let sock = d.path().join("run").join("db").join("s.sock");
     assert_eq!(
         seen.get("db").map(|ep| ep.backend.clone()),
         Some(format!("unix:{}", sock.display())),

@@ -17,22 +17,46 @@ use std::time::Instant;
 use tokio::sync::watch;
 
 /// Spawns start `boot` of `name`; `tx` hears how it ended.
-pub(crate) fn spawn(
-    e: &Engine,
-    name: &str,
-    boot: u64,
-    when: When,
-    rerun: bool,
-    tx: watch::Sender<Phase>,
-) {
+/// A start the machine decided: its id, whether it only reruns `on_ready`, who hears how it ended, what cancels it.
+#[derive(Debug)]
+pub(crate) struct Start {
+    pub(crate) boot: u64,
+    pub(crate) rerun: bool,
+    pub(crate) tx: watch::Sender<Phase>,
+    pub(crate) cancel: watch::Receiver<bool>,
+}
+
+pub(crate) fn spawn(e: &Engine, name: &str, when: When, s: Start) {
+    let Start {
+        boot,
+        rerun,
+        tx,
+        mut cancel,
+    } = s;
     let (e, name) = (e.clone(), name.to_string());
     tokio::spawn(async move {
-        let res = if rerun {
-            rerun_on_ready(&e, &name, boot).await
-        } else {
-            start(&e, &name, boot, when).await
+        let run = async {
+            if rerun {
+                rerun_on_ready(&e, &name, boot).await
+            } else {
+                start(&e, &name, boot, when).await
+            }
         };
-        e.update(|c| c.boots.remove(&boot));
+        // A cancel drops the start where it is: a process it spawned is a Tree (dropped: killed), a step's record goes
+        // with its guard. Then the machine hears it, and the instance is asleep.
+        let res = tokio::select! {
+            biased;
+            _ = cancel.wait_for(|c| *c) => {
+                let fx = e.update(|c| c.m.boot_cancelled(&name, boot, Now::current()));
+                e.run(fx);
+                Err(Error::Failed(format!("{name} was stopped while it was starting")))
+            }
+            r = run => r,
+        };
+        e.update(|c| {
+            c.boots.remove(&boot);
+            c.cancels.remove(&boot);
+        });
         let _ = tx.send(match res {
             Ok(ep) => Phase::Ready(ep),
             Err(err) => Phase::Failed(err),

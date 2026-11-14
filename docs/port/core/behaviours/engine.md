@@ -58,8 +58,8 @@ test that holds it. "Go test" names the Go test the item comes from, where there
 ## Nothing left behind
 
 Every process the engine starts is a doze-os tree, recorded in the pidfiles from the moment it is spawned: the plan's
-processes, and each short command while it runs (`setup`, `on_ready` and `stop` steps, hooks, exec probes, a module's
-stop command). Layout: `run/backend-<name>.pid` (Go's file: the first process), and `run/backend-<name>.pids/` with
+processes, and each short command while it runs (`setup`, `on_ready` and `stop` steps, hooks, exec probes). Not yet: a
+module's declared stop command (`StopHow::Command`) runs as a tree of its own but is not recorded (open, audit 2 M2). Layout: `run/backend-<name>.pid` (Go's file: the first process), and `run/backend-<name>.pids/` with
 `<n>.pid` for the plan's other processes and `run-<pid>.pid` for a short command. Each record carries its spawn time,
 and the sweep kills a recorded pid only while it is still that process.
 
@@ -82,7 +82,8 @@ and the sweep kills a recorded pid only while it is still that process.
 | D5 | An HTTP check follows redirects to the final status | a 3xx counts as ready | no HTTP client in the engine; a redirect means something answers |
 | D6 | Logs go to the log store with stream tags (`s:setup`, `s:hook`) | E1 writes `run/<name>.log` (this run; the previous one is `<name>.prev.log`), untagged | the log store is E2; the calls (`stdio`, `line`, `tail`, `size`, `since`) stay |
 | D7 | A held need's count drops to zero when the need itself stops, while its dependant still runs | the dependant's hold survives the need's stop | the count must say who holds it; zeroing it let the reaper and `holders` lie (found by the machine proptest) |
-| D8 | A stop or `off` during a start is lost: the start completes and the instance runs | the start is cancelled: its processes are stopped as soon as they register, and it is `reaped`, not `failed` | a stop must win, and `off` must not lie; nothing failed |
+| D8 | A stop or `off` during a start is lost: the start completes and the instance runs | the start is cancelled at once wherever it is (needs, `setup`, readiness, hooks, `on_ready`): what it started is killed with its trees, and it is `reaped`, not `failed`; a start that registered before the cancel landed is stopped at once (`tests/leftovers.rs a_stop_during_a_start_wins`, `tests/machine_cases.rs`) | a stop must win, and `off` must not lie; nothing failed |
+| D15 | A wake during a stop starts a second copy beside the one being stopped | it waits until the old run is gone (`Decision::Busy`); the proptest asserts one copy per instance (`tests/leftovers.rs a_wake_during_a_stop_waits_for_the_old_run`) | two copies on one data folder, and an old copy whose record was overwritten, are what "nothing left behind" forbids |
 | D9 | `booting` keeps the last run's pid, backend and health | `booting` clears them | they describe a process that is gone; the proptest showed a stale pid under `booting` |
 | D10 | A crash publishes `reaped`, then the restart count, then `crashing` | one transition per decision (`crashing` with its count) | intermediate states nobody acts on are noise; the version still moves |
 | D11 | An invalid `log_line` regex counts as "not yet" until the timeout | the start fails at once, naming the regex | waiting a minute for a typo helps nobody |

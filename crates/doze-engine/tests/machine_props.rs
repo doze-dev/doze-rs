@@ -31,6 +31,7 @@ enum In {
     Stop(usize),
     Gone(usize),
     Fire(usize),
+    Cancelled(usize),
     Reap(u16),
     Client(usize, bool),
     Pin(usize),
@@ -50,6 +51,7 @@ fn input() -> impl Strategy<Value = In> {
         2 => (0usize..3).prop_map(In::Stop),
         2 => i().prop_map(In::Gone),
         2 => i().prop_map(In::Fire),
+        2 => i().prop_map(In::Cancelled),
         1 => (0u16..3000).prop_map(In::Reap),
         2 => ((0usize..3), any::<bool>()).prop_map(|(a, b)| In::Client(a, b)),
         1 => (0usize..3).prop_map(In::Pin),
@@ -65,6 +67,7 @@ struct Shell {
     stopped: BTreeSet<u64>,
     registered: BTreeSet<u64>,
     timers: BTreeMap<u64, String>,
+    cancels: BTreeMap<u64, String>,
     clients: BTreeMap<String, u32>,
     shut: bool,
 }
@@ -79,7 +82,13 @@ fn pick<V: Clone>(m: &BTreeMap<u64, V>, i: usize) -> Option<(u64, V)> {
 fn absorb(s: &mut Shell, m: &Machine, fx: Vec<Effect>) {
     for f in fx {
         match f {
-            Effect::StartBoot { name, boot, .. } => {
+            Effect::StartBoot {
+                name, boot, rerun, ..
+            } => {
+                if rerun {
+                    // Only `on_ready` again: it registers no processes.
+                    s.registered.insert(boot);
+                }
                 assert!(!s.shut, "a start after the shutdown");
                 assert!(
                     !s.boots.values().any(|n| *n == name),
@@ -94,6 +103,9 @@ fn absorb(s: &mut Shell, m: &Machine, fx: Vec<Effect>) {
                 );
                 s.units.remove(&generation);
                 s.stops.insert(generation, name);
+            }
+            Effect::CancelBoot { name, boot } => {
+                s.cancels.insert(boot, name);
             }
             Effect::Schedule { name, timer, .. } => {
                 assert!(!s.shut, "a restart scheduled after the shutdown");
@@ -144,7 +156,14 @@ fn step(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
             }
         }
         In::Fail(k) => {
-            if let Some((b, name)) = pick(&s.boots, *k) {
+            // A start fails this way only before its processes registered (after, it is `ReadyFail` or `Done`).
+            let open: BTreeMap<u64, String> = s
+                .boots
+                .iter()
+                .filter(|(b, _)| !s.registered.contains(b))
+                .map(|(b, n)| (*b, n.clone()))
+                .collect();
+            if let Some((b, name)) = pick(&open, *k) {
                 s.boots.remove(&b);
                 let fx = m.boot_failed(&name, b, "boom", d, *now);
                 absorb(s, m, fx);
@@ -211,6 +230,16 @@ fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
                 absorb(s, m, fx);
             }
         }
+        In::Cancelled(k) => {
+            // A cancelled start drops what it was doing and says so.
+            if let Some((b, name)) = pick(&s.cancels, *k) {
+                s.cancels.remove(&b);
+                if s.boots.remove(&b).is_some() {
+                    let fx = m.boot_cancelled(&name, b, *now);
+                    absorb(s, m, fx);
+                }
+            }
+        }
         In::Fire(k) => {
             if let Some((t, name)) = pick(&s.timers, *k) {
                 s.timers.remove(&t);
@@ -253,6 +282,15 @@ fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
 }
 
 fn check(m: &Machine, s: &Shell, now: Now) {
+    for name in NAMES {
+        let live = s
+            .units
+            .values()
+            .chain(s.stops.values())
+            .filter(|n| *n == name)
+            .count();
+        assert!(live <= 1, "{name} has {live} copies running at once");
+    }
     for inst in m.table().snapshot(now) {
         let clients = s.clients.get(&inst.name).copied().unwrap_or(0);
         if inst.state.running() {

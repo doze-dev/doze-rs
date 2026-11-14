@@ -233,13 +233,15 @@ async fn hooks_run_after_readiness_and_a_failure_says_why() {
     );
 }
 
-/// Minor 11: a stop while a start waits for readiness wins: the start fails, the instance is asleep (not failed, not
-/// running), and its process is gone.
+/// Audit 2, B1: a stop while a start waits for readiness wins at once (not when the readiness budget runs out): the
+/// start fails, the instance is asleep (not failed, not running), and its process is gone.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_stop_during_a_start_wins() {
     let d = Dir::new("stopstart");
+    let mut spec = listener(&d, 30_000);
+    spec.ready_timeout = Duration::from_secs(60);
     let e = Engine::builder("t", d.path())
-        .service(svc("api", listener(&d, 800)))
+        .service(svc("api", spec))
         .build()
         .unwrap();
     let waking = {
@@ -247,12 +249,46 @@ async fn a_stop_during_a_start_wins() {
         tokio::spawn(async move { e.wake("api", Cause::Command).await })
     };
     assert!(eventually(Duration::from_secs(5), || lines(&d.file("starts")) == 1).await);
+    let t = Instant::now();
     e.stop("api", Cause::Command).await.unwrap();
-    let woke = waking.await.unwrap();
+    assert!(t.elapsed() < Duration::from_secs(3), "{:?}", t.elapsed());
+    let woke = tokio::time::timeout(Duration::from_secs(3), waking)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(woke.is_err(), "{woke:?}");
-    let api = e.get("api").unwrap();
-    assert_eq!(api.state, State::Reaped);
+    assert_eq!(e.get("api").unwrap().state, State::Reaped);
     let pid = pid_in(&d.file("starts"));
     assert!(pid > 0 && all_gone(&[pid]).await);
     assert!(!d.path().join("run/backend-api.pid").exists());
+}
+
+/// Audit 2, B2: a wake while the previous run is still being stopped waits for it: never two copies at once, and the
+/// old one's record is not overwritten while it lives.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_wake_during_a_stop_waits_for_the_old_run() {
+    let d = Dir::new("wakestop");
+    let e = Engine::builder("t", d.path())
+        .service(svc("w", ProcessSpec::new(run(&["ignore"]), d.path())))
+        .build()
+        .unwrap();
+    e.wake("w", Cause::Command).await.unwrap();
+    let old = pid_of(&e, "w");
+    let stopping = {
+        let e = e.clone();
+        tokio::spawn(async move { e.stop("w", Cause::Command).await })
+    };
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    e.wake("w", Cause::Command).await.unwrap();
+    assert!(
+        !doze_os::process::alive(old),
+        "the old run was gone before the new one started"
+    );
+    let new = pid_of(&e, "w");
+    assert!(new > 0 && new != old);
+    let recorded = std::fs::read_to_string(d.path().join("run/backend-w.pid")).unwrap_or_default();
+    assert!(recorded.starts_with(&format!("{new}\n")), "{recorded:?}");
+    let _ = stopping.await;
+    e.shutdown().await;
+    assert!(all_gone(&[old, new]).await);
 }
