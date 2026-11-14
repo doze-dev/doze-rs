@@ -116,6 +116,19 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) wakes: std::sync::atomic::AtomicU64,
 }
 
+/// Says what was found of the metadata database's permissions, if anything needs saying.
+fn say_file_mode(mode: FileMode) {
+    match mode {
+        FileMode::Private => {}
+        FileMode::Narrowed => tracing::info!(
+            "the metadata database (it holds SCRAM keys) was readable by group or others and is now readable by its owner only"
+        ),
+        FileMode::Wide => tracing::warn!(
+            "the metadata database (it holds SCRAM keys) is readable by group or others and could not be narrowed: run chmod 600 on meta.redb"
+        ),
+    }
+}
+
 impl<F: Fs> Broker<F> {
     /// Opens the broker's state under `config.data_dir`, making it if it is not there.
     ///
@@ -133,15 +146,7 @@ impl<F: Fs> Broker<F> {
             .iter()
             .any(|e| e.name.starts_with("meta.redb"));
         let meta = Arc::new(MetaStore::open(&fs, &config.data_dir)?);
-        match meta.file_mode() {
-            FileMode::Private => {}
-            FileMode::Narrowed => tracing::info!(
-                "the metadata database (it holds SCRAM keys) was readable by group or others and is now readable by its owner only"
-            ),
-            FileMode::Wide => tracing::warn!(
-                "the metadata database (it holds SCRAM keys) is readable by group or others and could not be narrowed: run chmod 600 on meta.redb"
-            ),
-        }
+        say_file_mode(meta.file_mode());
         // Read, and removed before anything is written: a marker that came back after a power cut would vouch for a
         // log this run was in the middle of writing.
         let stop = StopState::begin(&fs, &config.data_dir)?;
