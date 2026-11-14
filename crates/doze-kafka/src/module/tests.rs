@@ -358,3 +358,63 @@ fn the_console_is_the_go_modules_three_panels_and_the_web_console() {
     assert_eq!(a.len(), 1);
     assert_eq!((a[0].id.as_str(), a[0].kind.as_str()), ("produce", "topic"));
 }
+
+/// The console and actions as the app's fixture takes them (`apps/doze-app/fixtures/consoles.ts`, type `Spec` and
+/// `Action`): only the fields that are set.
+fn console_json() -> serde_json::Value {
+    use serde_json::{Map, Value, json};
+    let c = admin::console();
+    let panels: Vec<Value> = c
+        .panels
+        .iter()
+        .map(|p| {
+            let mut o = Map::new();
+            o.insert("id".into(), json!(p.id));
+            o.insert("title".into(), json!(p.title));
+            o.insert("kind".into(), json!(p.kind));
+            if !p.source.is_empty() {
+                o.insert("source".into(), json!(p.source));
+            }
+            let columns: Vec<Value> = p
+                .columns
+                .iter()
+                .map(|col| json!({"key": col.key, "title": col.title, "role": col.role, "align": col.align}))
+                .collect();
+            o.insert("columns".into(), Value::Array(columns));
+            if let Some(s) = &p.select {
+                o.insert("select".into(), json!(s));
+            }
+            Value::Object(o)
+        })
+        .collect();
+    let actions: Vec<Value> = admin::actions()
+        .iter()
+        .map(|a| {
+            json!({"id": a.id, "label": a.label, "kind": a.kind, "destructive": a.destructive, "input_hint": a.input_hint})
+        })
+        .collect();
+    json!({
+        "spec": {"front": c.front, "web_url": c.web_url, "panels": panels, "tabs": [], "extend": []},
+        "actions": actions,
+    })
+}
+
+/// The kafka module's console and actions, pinned: the app's fixture for a kafka instance is regenerated from
+/// `console.snapshot.json`, never written by hand. `DOZE_UPDATE_SNAPSHOT=1` rewrites it after a deliberate change.
+#[test]
+#[cfg(feature = "console")]
+fn the_console_and_actions_match_their_snapshot() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/src/module/console.snapshot.json"
+    );
+    let now = serde_json::to_string_pretty(&console_json()).unwrap() + "\n";
+    if std::env::var_os("DOZE_UPDATE_SNAPSHOT").is_some() {
+        std::fs::write(path, &now).unwrap();
+    }
+    let pinned = std::fs::read_to_string(path).unwrap_or_default();
+    assert_eq!(
+        pinned, now,
+        "the console changed: review it, then DOZE_UPDATE_SNAPSHOT=1"
+    );
+}
