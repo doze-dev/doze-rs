@@ -53,9 +53,8 @@ pub(crate) fn body_of(r: &Req, blob: bool) -> Result<Value, ApiError> {
     };
     let doc = read(&text).map_err(|why| bad(format!("Invalid OpenAPI input: {why}")))?;
     if !doc.is_object() || (doc.get("openapi").is_none() && doc.get("swagger").is_none()) {
-        return Err(bad(
-            "Invalid OpenAPI input: the document names neither `openapi` nor `swagger`",
-        ));
+        // Recorded 2026-11-15.
+        return Err(bad("Unable to determine OAS/Swagger version"));
     }
     Ok(doc)
 }

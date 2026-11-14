@@ -91,7 +91,7 @@ async fn a_rest_api_is_built_patched_and_deployed() {
             {"op": "replace", "path": "/~1ping/GET/throttling/rateLimit", "value": "5"},
             {"op": "replace", "path": "/cacheClusterEnabled", "value": "true"},
             {"op": "replace", "path": "/accessLogSettings/format", "value": "$context.requestId"},
-            {"op": "add", "path": "/variables/b", "value": "2"}]}),
+            {"op": "replace", "path": "/variables/b", "value": "2"}]}),
         )
         .await
         .unwrap();
@@ -229,7 +229,7 @@ async fn keys_plans_account_tags_domains_and_parts() {
         )
         .await
         .unwrap_err();
-    assert_eq!(nope.code, "BadRequestException");
+    assert_eq!(nope.code, "NotFoundException");
     let pk = w
         .rest(
             "CreateUsagePlanKey",
