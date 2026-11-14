@@ -117,7 +117,10 @@ pub fn parse(src: &str) -> Result<Lock, YamlError> {
 fn conflict(src: &str) -> Option<usize> {
     let mut at = 0;
     for line in src.split_inclusive('\n') {
-        if line.starts_with("<<<<<<< ") || line.starts_with("=======") || line.starts_with(">>>>>>> ") {
+        if line.starts_with("<<<<<<< ")
+            || line.starts_with("=======")
+            || line.starts_with(">>>>>>> ")
+        {
             return Some(at);
         }
         at += line.len();
@@ -129,7 +132,9 @@ impl Lock {
     /// Reads `path`; a missing file is an empty lock.
     pub fn load(path: &Path) -> Result<Lock, String> {
         match std::fs::read_to_string(path) {
-            Ok(text) => parse(&text).map_err(|e| format!("parsing {}: {}", path.display(), e.message)),
+            Ok(text) => {
+                parse(&text).map_err(|e| format!("parsing {}: {}", path.display(), e.message))
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Lock::default()),
             Err(e) => Err(format!("reading {}: {e}", path.display())),
         }
@@ -247,7 +252,11 @@ pub fn render(lock: &Lock) -> String {
     if !lock.downloads.is_empty() {
         o.push_str("downloads:\n");
         for (url, sha) in sorted(&lock.downloads) {
-            o.push_str(&format!("    {}:\n        sha256: {}\n", out(url), out(sha)));
+            o.push_str(&format!(
+                "    {}:\n        sha256: {}\n",
+                out(url),
+                out(sha)
+            ));
         }
     }
     o

@@ -19,7 +19,11 @@ pub fn key_order(a: &str, b: &str) -> Ordering {
         }
         if xl || yl {
             let a_first = if digits { xl } else { yl };
-            return if a_first { Ordering::Less } else { Ordering::Greater };
+            return if a_first {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            };
         }
         return digit_runs(&ar, &br, i);
     }
@@ -38,13 +42,17 @@ fn digit_runs(ar: &[char], br: &[char], i: usize) -> Ordering {
     let run = |s: &[char], mut n: i64| {
         let mut end = i;
         while let Some(c) = s.get(end).filter(|c| c.is_ascii_digit()) {
-            n = n.wrapping_mul(10).wrapping_add(i64::from(u32::from(*c) - u32::from('0')));
+            n = n
+                .wrapping_mul(10)
+                .wrapping_add(i64::from(u32::from(*c) - u32::from('0')));
             end += 1;
         }
         (n, end)
     };
     let ((an, ai), (bn, bi)) = (run(ar, an), run(br, bn));
-    an.cmp(&bn).then(ai.cmp(&bi)).then_with(|| ar.get(i).cmp(&br.get(i)))
+    an.cmp(&bn)
+        .then(ai.cmp(&bi))
+        .then_with(|| ar.get(i).cmp(&br.get(i)))
 }
 
 /// A scalar as yaml.v3 writes a Go string.
@@ -62,9 +70,10 @@ pub fn scalar(s: &str) -> String {
 /// Whether the plain text would read back as a string (yaml.v3's `resolve` plus its 1.1 booleans and base-60 floats).
 fn resolves_to_string(s: &str) -> bool {
     const WORDS: &[&str] = &[
-        "true", "True", "TRUE", "false", "False", "FALSE", "", "~", "null", "Null", "NULL", ".nan", ".NaN", ".NAN",
-        ".inf", ".Inf", ".INF", "+.inf", "+.Inf", "+.INF", "-.inf", "-.Inf", "-.INF", "y", "Y", "yes", "Yes",
-        "YES", "on", "On", "ON", "n", "N", "no", "No", "NO", "off", "Off", "OFF",
+        "true", "True", "TRUE", "false", "False", "FALSE", "", "~", "null", "Null", "NULL", ".nan",
+        ".NaN", ".NAN", ".inf", ".Inf", ".INF", "+.inf", "+.Inf", "+.INF", "-.inf", "-.Inf",
+        "-.INF", "y", "Y", "yes", "Yes", "YES", "on", "On", "ON", "n", "N", "no", "No", "NO",
+        "off", "Off", "OFF",
     ];
     if WORDS.contains(&s) || base60(s) {
         return false;
@@ -80,12 +89,22 @@ fn resolves_to_string(s: &str) -> bool {
 /// An integer in any base Go's `ParseInt(_, 0, 64)`/`ParseUint` take, or a yaml-style float.
 fn number(p: &str) -> bool {
     let unsigned = p.strip_prefix(['+', '-']).unwrap_or(p);
-    let radix = |digits: &str, base: u32| !digits.is_empty() && digits.chars().all(|c| c.is_digit(base));
-    let int = if let Some(h) = unsigned.strip_prefix("0x").or_else(|| unsigned.strip_prefix("0X")) {
+    let radix =
+        |digits: &str, base: u32| !digits.is_empty() && digits.chars().all(|c| c.is_digit(base));
+    let int = if let Some(h) = unsigned
+        .strip_prefix("0x")
+        .or_else(|| unsigned.strip_prefix("0X"))
+    {
         radix(h, 16)
-    } else if let Some(b) = unsigned.strip_prefix("0b").or_else(|| unsigned.strip_prefix("0B")) {
+    } else if let Some(b) = unsigned
+        .strip_prefix("0b")
+        .or_else(|| unsigned.strip_prefix("0B"))
+    {
         radix(b, 2)
-    } else if let Some(o) = unsigned.strip_prefix("0o").or_else(|| unsigned.strip_prefix("0O")) {
+    } else if let Some(o) = unsigned
+        .strip_prefix("0o")
+        .or_else(|| unsigned.strip_prefix("0O"))
+    {
         radix(o, 8)
     } else if unsigned.len() > 1 && unsigned.starts_with('0') {
         radix(unsigned, 8)
@@ -99,7 +118,10 @@ fn number(p: &str) -> bool {
 fn yaml_float(p: &str) -> bool {
     let s = p.strip_prefix(['+', '-']).unwrap_or(p);
     let (mant, exp) = match s.find(['e', 'E']) {
-        Some(at) => (s.get(..at).unwrap_or(""), Some(s.get(at + 1..).unwrap_or(""))),
+        Some(at) => (
+            s.get(..at).unwrap_or(""),
+            Some(s.get(at + 1..).unwrap_or("")),
+        ),
         None => (s, None),
     };
     let digits = |t: &str| t.bytes().all(|b| b.is_ascii_digit());
@@ -145,11 +167,15 @@ fn timestamp(s: &str) -> bool {
     let (date, time) = match rest.find(['T', 't', ' ']) {
         Some(at) => {
             let zoned = rest.get(at..=at) != Some(" ");
-            (rest.get(..at).unwrap_or(""), Some((rest.get(at + 1..).unwrap_or(""), zoned)))
+            (
+                rest.get(..at).unwrap_or(""),
+                Some((rest.get(at + 1..).unwrap_or(""), zoned)),
+            )
         }
         None => (rest, None),
     };
-    let short = |t: &str, max: u32| (1..=2).contains(&t.len()) && t.parse::<u32>().is_ok_and(|n| n <= max);
+    let short =
+        |t: &str, max: u32| (1..=2).contains(&t.len()) && t.parse::<u32>().is_ok_and(|n| n <= max);
     let date_ok = matches!(date.split_once('-'), Some((m, d)) if short(m, 12) && short(d, 31) && m != "0" && d != "0" && m != "00" && d != "00");
     date_ok && time.is_none_or(|(t, zoned)| time_ok(t, zoned))
 }
@@ -157,16 +183,26 @@ fn timestamp(s: &str) -> bool {
 /// `15:4:5`, optional `.fraction`, then (after 'T') a zone `Z` or `±hh:mm`, or (after a space) nothing.
 fn time_ok(t: &str, zoned: bool) -> bool {
     let mut parts = t.splitn(3, ':');
-    let (h, m, rest) = (parts.next().unwrap_or(""), parts.next().unwrap_or(""), parts.next().unwrap_or(""));
-    let short = |x: &str, max: u32| (1..=2).contains(&x.len()) && x.parse::<u32>().is_ok_and(|n| n <= max);
-    let sec_end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+    let (h, m, rest) = (
+        parts.next().unwrap_or(""),
+        parts.next().unwrap_or(""),
+        parts.next().unwrap_or(""),
+    );
+    let short =
+        |x: &str, max: u32| (1..=2).contains(&x.len()) && x.parse::<u32>().is_ok_and(|n| n <= max);
+    let sec_end = rest
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(rest.len());
     let mut tail = rest.get(sec_end..).unwrap_or("");
     if let Some(frac) = tail.strip_prefix('.') {
-        let n = frac.find(|c: char| !c.is_ascii_digit()).unwrap_or(frac.len());
+        let n = frac
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(frac.len());
         tail = frac.get(n..).unwrap_or("");
     }
     let zone_ok = if zoned {
-        tail == "Z" || matches!(tail.as_bytes(), [b'+' | b'-', a, b, b':', c, d] if [a, b, c, d].iter().all(|x| x.is_ascii_digit()))
+        tail == "Z"
+            || matches!(tail.as_bytes(), [b'+' | b'-', a, b, b':', c, d] if [a, b, c, d].iter().all(|x| x.is_ascii_digit()))
     } else {
         tail.is_empty()
     };
@@ -177,7 +213,12 @@ fn time_ok(t: &str, zoned: bool) -> bool {
 fn has_special(s: &str) -> bool {
     s.chars().any(|c| {
         let u = u32::from(c);
-        !(c == '\n' || (0x20..=0x7e).contains(&u) || u == 0x85 || (0xa0..=0xd7ff).contains(&u) || (0xe000..=0xfffd).contains(&u) && u != 0xfeff || (0x10000..=0x10ffff).contains(&u))
+        !(c == '\n'
+            || (0x20..=0x7e).contains(&u)
+            || u == 0x85
+            || (0xa0..=0xd7ff).contains(&u)
+            || (0xe000..=0xfffd).contains(&u) && u != 0xfeff
+            || (0x10000..=0x10ffff).contains(&u))
     })
 }
 
@@ -190,7 +231,8 @@ fn plain_allowed(s: &str) -> bool {
     };
     let follows_blank = |i: usize| b.get(i + 1).is_none_or(|c| *c == b' ');
     let bad_first = match first {
-        b'#' | b',' | b'[' | b']' | b'{' | b'}' | b'&' | b'*' | b'!' | b'|' | b'>' | b'\'' | b'"' | b'%' | b'@' | b'`' => true,
+        b'#' | b',' | b'[' | b']' | b'{' | b'}' | b'&' | b'*' | b'!' | b'|' | b'>' | b'\''
+        | b'"' | b'%' | b'@' | b'`' => true,
         b'-' | b'?' | b':' => follows_blank(0),
         _ => false,
     };

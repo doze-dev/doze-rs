@@ -20,23 +20,37 @@ fn reads_what_go_writes() {
 fn a_merge_conflict_is_named_where_it_starts() {
     let src = "modules:\n<<<<<<< HEAD\n    doze/valkey:\n";
     let e = parse(src).unwrap_err();
-    assert_eq!((e.message.as_str(), e.at), ("a merge conflict was left in it", Some(9)));
+    assert_eq!(
+        (e.message.as_str(), e.at),
+        ("a merge conflict was left in it", Some(9))
+    );
 }
 
 #[test]
 fn records_change_it_only_when_something_differs() {
     let mut l = Lock::default();
-    let pin = Pin { version: "0.2.1".into(), protocol: 2, ..Pin::default() };
+    let pin = Pin {
+        version: "0.2.1".into(),
+        protocol: 2,
+        ..Pin::default()
+    };
     l.record_module("doze/valkey", pin.clone());
     assert!(l.dirty);
     l.dirty = false;
     l.record_module("doze/valkey", pin);
     l.record_module("doze/x", Pin::default());
-    assert!(!l.dirty, "the same pin, or one without a version, changes nothing");
+    assert!(
+        !l.dirty,
+        "the same pin, or one without a version, changes nothing"
+    );
     l.record_download("https://x", "sha256:1");
     l.dirty = false;
     l.record_download("https://x", "sha256:2");
-    assert_eq!((l.downloads["https://x"].as_str(), l.dirty), ("sha256:1", false), "the first checksum stays");
+    assert_eq!(
+        (l.downloads["https://x"].as_str(), l.dirty),
+        ("sha256:1", false),
+        "the first checksum stays"
+    );
     let e = |r: &str, h: &[(&str, &str)]| EnginePin {
         resolved: r.into(),
         source: "mirror".into(),
@@ -44,9 +58,17 @@ fn records_change_it_only_when_something_differs() {
     };
     l.record_engine("postgres", "16", e("16.4.0", &[("a", "sha256:1")]));
     l.record_engine("postgres", "16", e("16.4.0", &[("b", "sha256:2")]));
-    assert_eq!(l.engines["postgres"]["16"].hashes.len(), 2, "hashes add up for one version");
+    assert_eq!(
+        l.engines["postgres"]["16"].hashes.len(),
+        2,
+        "hashes add up for one version"
+    );
     l.record_engine("postgres", "16", e("16.5.0", &[("b", "sha256:3")]));
-    assert_eq!(l.engines["postgres"]["16"].hashes.len(), 1, "a new version starts over");
+    assert_eq!(
+        l.engines["postgres"]["16"].hashes.len(),
+        1,
+        "a new version starts over"
+    );
     l.drop_module("doze/valkey");
     assert!(!l.modules.contains_key("doze/valkey"));
 }
@@ -55,7 +77,10 @@ fn records_change_it_only_when_something_differs() {
 fn save_writes_only_a_change_and_names_the_newest_doze() {
     let dir = std::env::temp_dir().join(format!("doze-fetch-lock-{}", std::process::id()));
     let path = dir.join(FILE);
-    let mut l = Lock { doze: "0.2.0".into(), ..Lock::default() };
+    let mut l = Lock {
+        doze: "0.2.0".into(),
+        ..Lock::default()
+    };
     l.save(&path, Some("0.3.0")).unwrap();
     assert!(!path.exists(), "nothing changed, nothing written");
     l.record_download("https://x", "sha256:1");
@@ -66,6 +91,10 @@ fn save_writes_only_a_change_and_names_the_newest_doze() {
     let mut older = back.clone();
     older.record_download("https://y", "sha256:2");
     older.save(&path, Some("0.1.0")).unwrap();
-    assert_eq!(Lock::load(&path).unwrap().doze, "0.3.0", "an older doze does not lower it");
+    assert_eq!(
+        Lock::load(&path).unwrap().doze,
+        "0.3.0",
+        "an older doze does not lower it"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
