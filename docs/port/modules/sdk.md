@@ -94,6 +94,10 @@ The fields, and the default when a module leaves one out:
 | `default_version` | the `version` `doze add` writes | the newest engine the module's index entry supports |
 | `example_label` | the label a new block gets (`module valkey "cache"`) | the module's name |
 
+Only modules customise their page in the app, through their declared console spec, its extensions and the manifest
+fields above. Apps, tasks and outside services (`app`, `task`, `service` blocks) always get the fixed standard pages:
+there is no declaration mechanism for them in the protocol, the CLI or doze.hcl, and none is to be added.
+
 Keep it lean: doze is for debugging and performance. A new module-facing field is added only when several modules
 genuinely need it; the change that adds one carries one line saying which modules and why, for debugging or
 performance. A field that fits one tool belongs in that module (its console, its actions), not in the contract.
