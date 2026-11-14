@@ -39,6 +39,12 @@ test = false
 doc = false
 
 [[bin]]
+name = "protobuf_schema"
+path = "fuzz_targets/protobuf_schema.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "json_schema"
 path = "fuzz_targets/json_schema.rs"
 test = false

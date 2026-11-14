@@ -32,8 +32,8 @@ const APEX_OFFSET: &[(&str, u16)] = &[("aws", 2), ("kafka", 3)];
 /// How this machine gives a name an address.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Net {
-    a: u8,
-    b: u8,
+    pub(crate) a: u8,
+    pub(crate) b: u8,
     /// No service can bind its address: the block is routed to the daemon's interface.
     pub virtual_: bool,
 }

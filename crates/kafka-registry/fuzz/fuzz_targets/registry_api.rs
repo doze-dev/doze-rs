@@ -31,7 +31,9 @@ fn seeded() -> &'static Api {
 }
 
 fuzz_target!(|data: &[u8]| {
-    let Some((&m, rest)) = data.split_first() else { return };
+    let Some((&m, rest)) = data.split_first() else {
+        return;
+    };
     let text = String::from_utf8_lossy(rest);
     let mut parts = text.splitn(4, '\n');
     let target = parts.next().unwrap_or_default();
@@ -48,7 +50,10 @@ fuzz_target!(|data: &[u8]| {
     };
     let resp = seeded().serve(&r);
     assert!(
-        matches!(resp.status, 200 | 400 | 401 | 403 | 404 | 405 | 409 | 413 | 415 | 422 | 500),
+        matches!(
+            resp.status,
+            200 | 400 | 401 | 403 | 404 | 405 | 409 | 413 | 415 | 422 | 500
+        ),
         "{} for {r:?}",
         resp.status
     );

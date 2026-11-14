@@ -43,18 +43,18 @@ struct ReasonsFile {
     reasons: BTreeMap<String, BTreeMap<String, Vec<String>>>,
 }
 
-/// The languages whose corpus this build answers. Protobuf (10b) and JSON Schema (10c) add theirs.
-const KINDS: &[SchemaType] = &[SchemaType::Avro, SchemaType::Json];
+/// The languages whose corpus this build answers: all three.
+const KINDS: &[SchemaType] = &[SchemaType::Avro, SchemaType::Protobuf, SchemaType::Json];
 
 /// Pairs (kind/name) where this registry answers otherwise than Confluent on purpose, with the deviation.
 const DIFFERENCES: &[(&str, &str)] = &[
     (
         "JSON/exclusiveMaximum increased",
-        "Confluent answers 500 when exclusiveMaximum is lowered; this registry answers the comparison (REG-D16).",
+        "Confluent answers 500 when exclusiveMaximum is lowered; this registry answers the comparison (REG-D18).",
     ),
     (
         "JSON/exclusiveMaximum decreased",
-        "Confluent answers 500 when exclusiveMaximum is lowered; this registry answers the comparison (REG-D16).",
+        "Confluent answers 500 when exclusiveMaximum is lowered; this registry answers the comparison (REG-D18).",
     ),
 ];
 

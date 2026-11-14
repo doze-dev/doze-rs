@@ -159,7 +159,7 @@ crates/doze-os/src/tun/       utun on macOS
 | N1 ✓ | Names, pool, registry, leases, liveness, ports file, routes, domains | registry, allocator, domains, subtree, stack, peers, private_zone, heal, format | 4 |
 | N2 ✓ | Resolver and upstream: first-come bind and take-over between processes, zone answers, forwarding | resolver, peers, private_zone | 3 |
 | N3 ✓ | CA and front door: Host/SNI routing, leaf minting, first-come :80/:443 | ca, ingress | 3 |
-| N4 | Listen/forward; macOS netd: tunnel, translation, table cache (privileged parts tested on the owner's Mac) | listen, nat, netd, e2e_darwin | 5 |
+| N4 ✓ (root run pending) | Listen/forward; macOS netd: tunnel, translation, table cache (privileged parts tested on the owner's Mac) | listen, nat, netd, e2e_darwin | 5 |
 | N5 | Setup and trust per OS as data: macOS, Linux (in the Lima VM with sudo), Windows (NRPT, in CI) | setup, setup_linux, setup_netd_linux, setup_darwin, resolvconf, trust | 5 |
 | N6 | Wire into Rust doze-aws and doze-kafka (`aws.doze`, `kafka.doze` again), then the core | their own e2e | 2 |
 
@@ -177,5 +177,12 @@ elevated Windows runners). Tests never touch the real zone: a private home with 
 - **Deferred, said here**: HTTP/2 on the https port (Go offers h2; browsers fall back to HTTP/1.1, and hyper's h2 adds
   weight to every program that links this crate); the CA bundle with the system roots (`Bundle`, for
   `SSL_CERT_FILE`) and `RotateCA`'s list of roots the machine trusts, both of which read platform trust stores: N5.
-- **Not started**: N4 (listen/forward, the macOS daemon), N5 (setup and trust), N6 (wiring into doze-aws, doze-kafka
-  and the core). N4 and N5 need root.
+- **N4 built 2026-11-13** (branch names-n4): `Lease::listen` / `bind_addr` / `forward` / `unforward` and
+  `Registry::listen` (listen.rs; a dropped listener takes its registration with it), the ports file in Go's format
+  (ports.rs), the daemon's table and its stamp-checked cache (table.rs: inode, time and size, so a same-size rewrite is
+  seen), and the daemon (netd.rs, feature `netd`: tun-rs tunnel, `/sbin/route`, `doze_os::privilege::drop_root`, the
+  packet loop, the zone resolver as `doze-netd`; Linux: the resolver alone, never root). Binary `doze-netd` for tests
+  and by-hand runs. Better than Go: https to a routed name on macOS (the table forwards 443 to the front door too, job
+  version 4); no heal thread in every program (ports.rs says why). Root end-to-end: `scripts/names-e2e-darwin.sh`
+  (owner runs it once: stops Go's launchd daemon for the run, runs ours for a throwaway home, restores Go's).
+- **Not started**: N5 (setup and trust), N6 (wiring into doze-aws, doze-kafka and the core).

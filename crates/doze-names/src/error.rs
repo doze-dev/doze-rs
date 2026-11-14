@@ -36,6 +36,11 @@ pub enum Error {
     NotHeld(String),
     /// The certificate authority could not be made, read or used.
     Ca(String),
+    /// The doze network is not up, so a translated name cannot be listened on: setup has not run, or its daemon is
+    /// not running. Says what was tried.
+    NetworkDown { host: String, why: std::io::Error },
+    /// An address that is none of this process's names, asked to listen on as one.
+    NotMine(String),
     /// Reading or writing the registry failed.
     Io(std::io::Error),
 }
@@ -74,6 +79,13 @@ impl fmt::Display for Error {
             ),
             Error::NotHeld(host) => write!(f, "{host} is not held by this process"),
             Error::Ca(why) => write!(f, "the doze certificate authority: {why}"),
+            Error::NetworkDown { host, why } => write!(
+                f,
+                "{host}: the doze network is not running (run `doze dns-setup`): {why}"
+            ),
+            Error::NotMine(addr) => {
+                write!(f, "listen {addr}: no name of this program has that address")
+            }
             Error::Io(e) => write!(f, "the names registry: {e}"),
         }
     }

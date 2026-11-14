@@ -1,10 +1,11 @@
 # Phase 10: the schema registry
 
-Status: **slices 10a and 10c built (2026-11-14, branches `p10-registry` and `p10c-jsonschema`), not yet audited.** The registry's model, its storage in the broker's
-metadata database, every REST route the Go edition serves, the host guard, basic authentication and TLS as the Go binary has them,
-the wire header, Avro whole and (10c) JSON Schema whole, wired into `doze-kafka` behind the `registry` feature (on by default, as `--schema-registry` is in
-Go). Protobuf (10b) is to be added by another agent through the extension points below; the record-value codec
-the console needs is 10d. The catalogue is `behaviours/registry.md` (REG-1 to REG-34, REG-D1 to REG-D20).
+Status: **slices 10a, 10b and 10c done (2026-11-14, branches `p10-registry`, `p10b-protobuf` and `p10c-jsonschema`, merged on
+branch `registry-merge`), not yet audited.** The registry's model, its storage in the broker's metadata database, every REST route
+the Go edition serves, the host guard, basic authentication and TLS as the Go binary has them, the wire header, and all three
+languages whole (Avro, 10b Protobuf, 10c JSON Schema), wired into `doze-kafka` behind the `registry` feature (on by default, as
+`--schema-registry` is in Go). **Next: 10d**, the console's Schemas pages and schema-aware Messages/Produce, with the record-value
+codec they need. The catalogue is `behaviours/registry.md` (REG-1 to REG-37, REG-D1 to REG-D22; REG-D13 retired).
 
 Goal: a Confluent client (any serializer, `kafka-avro-console-producer`, Schema Registry's own Maven plugin) pointed at
 `http://127.0.0.1:8081` cannot tell this registry from Confluent's, except where `behaviours/registry.md` lists a deviation; and the
@@ -33,6 +34,12 @@ at 2f1bb66.
 | 10a on the module face, `--features tls` | 7,586,144 | | 183 lines | |
 | **10c (JSON Schema) on 10a** | **6,841,120** | **+50,016** | **171** | 7,312 KB |
 | 10c, `--features tls` | 7,669,200 | +83,056 | 183 lines | |
+| **10b (Protobuf) on 10a** | **6,857,840** | **+66,736** | **171** | 7,376 KB |
+| 10b with `--features tls` | 7,669,392 | +83,248 | 183 lines | |
+| 10b merged with main f2ad9895 | 6,874,368 | | 171 | 7,456 KB |
+| 10b merged with main f2ad9895, `--features tls` | 7,669,376 | | 183 lines | |
+| **10a + 10b + 10c (all three languages), main e29f79ce + p10b** | **6,924,368** | **+83,248** on 10c alone, +133,264 on 10a | **171** | 7,376 KB |
+| 10a + 10b + 10c, `--features tls` | 7,735,920 | +66,720 on 10c alone, +149,776 on 10a | 183 lines | |
 
 **The ceiling, with CI's measured ratio (2026-11-14).** CI measured ubuntu x86_64 at 1.36 times darwin (8,174,048 B against
 6,011,568 B), not the 1.216 used above. On that scale: the default build with the module face and 10a is about 9.24 MB, under main's
@@ -48,6 +55,20 @@ library only). Measured on the same machine at the same commit, before and after
 Times 1.36: the default build is about 9.30 MB on ubuntu x86_64, under its 9,386,171 B line (which does not move); the TLS build
 about 10.43 MB (the owner raised the ceiling to 15 MB on 2026-11-14; the single limit is the coordinator's, set from these numbers).
 JSON Schema costs about 0.07 MB on ubuntu, against 1.7 to 2.5 MB for either library.
+
+**10b (measured 2026-11-14, darwin/arm64, before merging main f2ad9895).** Protobuf adds 66,736 B to the default build and 83,248 B
+to the TLS build, and no package (171 and 183 unchanged): a parser, linker, printer, compatibility walk and descriptor decoder of
+its own instead of `protox` + `prost-reflect`'s 545,872 B and 25 packages. On CI's scale (times 1.36): the default build about
+9,326,662 B, under its line of 9,386,171 B (99.4%); the TLS build about 10,430,373 B. The owner raised the ceiling to 15 MB for both
+builds the same day, and is folding `tls` into the default build; the single limit is set from these numbers by the coordinator.
+
+**10b and 10c together (measured 2026-11-14, darwin/arm64, branch `registry-merge`: main e29f79ce with 10c, merged with
+p10b-protobuf).** `cargo xtask weight doze-kafka`: 6,924,368 B, 171 packages, 7,376 KB idle (samples 7,376, 7,456, 7,376), "ok"
+against `xtask/weight-limits.txt`. `--features tls`: 7,735,920 B, 183 `cargo tree --edges normal` lines. Both languages add no
+package; together they cost 133,264 B (default) and 149,776 B (TLS) over 10a on the module face, about 0.18 and 0.20 MB on ubuntu.
+On CI's scale (times 1.36) the default build is about 9,417,140 B, **about 31 KB over** the default line of 9,386,171 B, which the
+two slices measured apart each stayed under; the TLS build is about 10,520,851 B, under the CI TLS job's 10,833,014 B and 186. No
+limit was changed here: the coming "one build" change folds `tls` into the default and sets one limit from these numbers.
 
 The paragraph below is the measurement before the merge, on the old 1.216 scale.
 
@@ -156,9 +177,42 @@ What 10b and 10c should not need to touch: `registry/*`, `api/*`, `store.rs`, `s
 | Slice | What | State |
 |---|---|---|
 | 10a | registry model, storage, REST API (Confluent's routes and `/_doze/`), host guard, basic auth, TLS, the wire header, Avro, the flags; ports of the Go tests; fuzz targets; the catalogue | **built** |
-| 10b | Protobuf: `.proto` text and `FileDescriptorProto` input, Confluent's printing, compatibility, message indexes; the protobuf conformance scripts and corpus | to do (another agent) |
-| 10c | JSON Schema: parsing and validity of the schema, Confluent's structural compatibility, `$ref` across references; the JSON scripts and corpus | **built** (branch `p10c-jsonschema`), not yet audited |
-| 10d | the record-value codec for the console (Avro, Protobuf, JSON payload to JSON and back, with the guard against hostile Avro bytes of Go's `avroguard.go`) and the console's registry pages | to do |
+| 10b | Protobuf: `.proto` text and `FileDescriptorProto` input, Confluent's printing, compatibility, message indexes; the protobuf conformance scripts and corpus | **done** (branch `p10b-protobuf`, merged; not yet audited) |
+| 10c | JSON Schema: parsing and validity of the schema, Confluent's structural compatibility, `$ref` across references; the JSON scripts and corpus | **done** (branch `p10c-jsonschema`, merged; not yet audited) |
+| 10d | the console's Schemas pages and schema-aware Messages/Produce, with the record-value codec they need (Avro, Protobuf, JSON payload to JSON and back, with the guard against hostile Avro bytes of Go's `avroguard.go`) | **next** |
+
+**10b and 10c merged (2026-11-14, branch `registry-merge`).** With both languages in, nothing is pending: `PENDING` and
+`PENDING_SCENARIOS` in `tests/conformance.rs` are empty and `other-schema-types` (Avro, Protobuf and JSON Schema registered side by
+side, 17 steps) replays with no difference. The conformance replay plays all 469 steps of the 30 scripts; 445 are compared and pass,
+24 are Go's own deviations (REG-D1 to REG-D7). The corpus: Avro 392 of 392 pairs, Protobuf 600 of 600, JSON Schema 465 of 467 (the
+two of REG-D18), verdicts at three levels and reasons word for word; check equals register on every pair. `GET /schemas/types` is
+Confluent's `["JSON","PROTOBUF","AVRO"]`. The catalogue numbers clashed (both slices began at the next free number): 10b's kept
+REG-28 to REG-32 and REG-D15 to REG-D17; 10c's moved from REG-30..34 to REG-33..37 and from REG-D16..D20 to REG-D18..D22.
+REG-D13 (which language was not yet read) is retired.
+
+## Slice 10b: Protobuf (built 2026-11-14, branch `p10b-protobuf`)
+
+Written here, no Protobuf crate (the choice above; the owner later allowed `protox` + `prost-reflect`, but the hand-written one
+already gave every recorded answer, so it stayed). About 3,500 lines, tests included:
+
+```
+crates/kafka-registry/src/protobuf.rs     the format: parse (text, else a base64 descriptor), stored text, can_read, message_at
+  protobuf/lex.rs        tokens as spans; string escapes
+  protobuf/ast.rs        the parser: declarations in order with the spans the stored text repeats; nesting bounded at 100
+  protobuf/print.rs      Confluent's printing (the Go edition's protoprint.go, plus what it dropped: REG-D16)
+  protobuf/link.rs       imports (references, then the well-known types), symbols, Protobuf's scoping, maps and groups as messages
+    protobuf/link/check.rs   protoc's rules and the built-in options table
+  protobuf/wkt.rs        the eleven well-known files, compactly
+  protobuf/compat.rs     Confluent's SchemaDiff rules and sentences (the Go edition's protocompat.go, and random 045 fixed)
+  protobuf/desc.rs       a FileDescriptorProto decoded and printed as Confluent prints it (protofromdesc.go)
+```
+
+Results: the 600 Protobuf corpus pairs give Confluent's verdict at three levels and its reasons word for word, with no deviation
+(the Go edition had one, "random 045", now answered as Confluent does); check equals register on every pair at four levels; the
+recorded scripts `protobuf-canonical-forms` and `protobuf-descriptor-with-import` replay with no difference; the descriptor
+fixture (`tests/data/protobuf/protodesc.json`) is stored as Confluent stored it. `other-schema-types` waited for 10c (its Protobuf
+ids follow its JSON registrations) and passes since the merge. A fuzz target (`protobuf_schema`) found one bug in its first minutes (a descriptor
+importing a file nobody gives, REG-D17), now a test. Catalogue: REG-28 to REG-32, REG-D15 to REG-D17.
 
 ## Tests (10a)
 
@@ -172,11 +226,12 @@ What 10b and 10c should not need to touch: `registry/*`, `api/*`, `store.rs`, `s
   flags. Not ported: the codec and guard tests (10d), the JSON and Protobuf tests (10b, 10c), `TestOldCanonicalFormsAreStillFound`
   (REG-D12), the `.doze` host cases (REG-D8).
 
-## Slice 10c: JSON Schema
+## Slice 10c: JSON Schema (built 2026-11-14, branch `p10c-jsonschema`)
 
 `src/jsonschema.rs` and `src/jsonschema/{doc,check,node,compat,number}.rs` (with submodules), about 3,100 lines with the tests (480),
 behind the one line in
-`Formats::all()`. What it does is REG-30 to REG-34; where it departs from Confluent or Go, REG-D16 to REG-D20.
+`Formats::all()`. What it does is REG-33 to REG-37; where it departs from Confluent or Go, REG-D18 to REG-D22 (numbered REG-30..34 and
+REG-D16..D20 on its branch, moved when 10b's took those).
 
 - **doc.rs**: the schema and each schema its references reach as documents with their own names (`ResolvedRef.node` and `names`),
   each with its draft (`$schema`, draft 7 by default); `$ref` resolution by name, JSON pointer and anchor.
@@ -190,12 +245,12 @@ behind the one line in
 - **number.rs**: exact decimals for limits and `multipleOf`.
 
 Tests: the corpus (467 pairs; 465 compared at three levels with every reason word for word, the two `exclusiveMaximum` pairs are
-REG-D16), the conformance scripts with every JSON step (`nested-references` whole, the JSON steps of `canonical-forms` and
-`other-schema-types`, which waits for 10b only for its Protobuf steps), ten unit and property tests in `src/jsonschema/tests.rs`,
+REG-D18), the conformance scripts with every JSON step (`nested-references` whole, the JSON steps of `canonical-forms` and
+`other-schema-types`, which passes whole since 10b is merged), ten unit and property tests in `src/jsonschema/tests.rs`,
 and the `json_schema` fuzz target (about a million runs locally, none failing).
 
 Not done, with reason: instance validation (a payload against a schema) is the codec's, 10d; `$id` as a base URI for references and
-`format` are not used by Confluent's compatibility and the corpus has none (REG-D20); patterns are scanned, not compiled (REG-D17).
+`format` are not used by Confluent's compatibility and the corpus has none (REG-D22); patterns are scanned, not compiled (REG-D19).
 
 ## Risks
 

@@ -19,6 +19,8 @@
 doze-kafka 10951617 186 9996 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
+# 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
+# Times 1.36: about 9.33 MB, under this line, which this slice does not move (docs/port/phase10.md, "10b").
 # doze-aws: measured 2026-11-12 on darwin/arm64 with SQS and its database: 2,687,088 B, 118 packages (the ones that only run at build time count: serde_derive
 # and its macro crates), 3,120 KB idle. It was 1,914,240 B and 109 packages before SQS kept its state on disk: redb is 507 KiB of the difference. The
 # byte limit is the macOS size times 1.3 (the Linux build of doze-kafka is about 1.2 times its macOS one) plus 5%; it is re-based from the first Linux CI run.
