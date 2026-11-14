@@ -100,9 +100,17 @@ fn why_it_exited(text: &str) -> String {
     let lines: Vec<&str> = text.lines().collect();
     let from = lines
         .iter()
-        .rposition(|l| l.starts_with("panic:") || l.starts_with("fatal error:") || l.starts_with("Error:"))
+        .rposition(|l| {
+            l.starts_with("panic:") || l.starts_with("fatal error:") || l.starts_with("Error:")
+        })
         .unwrap_or(lines.len().saturating_sub(5));
-    lines.iter().skip(from).take(8).copied().collect::<Vec<_>>().join(" | ")
+    lines
+        .iter()
+        .skip(from)
+        .take(8)
+        .copied()
+        .collect::<Vec<_>>()
+        .join(" | ")
 }
 
 async fn wait_ready(

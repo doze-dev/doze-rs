@@ -152,7 +152,7 @@ pub fn clock(ms: i64) -> String {
 
 mod read;
 
-pub use read::{ago, clock_ms, hex_dump, hex_prefix, parse_time};
+pub use read::{ago, hex_dump, hex_prefix, parse_time};
 
 #[cfg(test)]
 mod tests;

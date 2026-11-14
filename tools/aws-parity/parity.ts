@@ -12,8 +12,10 @@ for (const line of support.split("\n")) {
   const h = line.match(/^## (.+?) — API support/);
   if (h) { cur = h[1]; sections[cur] = {}; continue; }
   if (!cur) continue;
-  const r = line.match(/^\| ([A-Za-z0-9 /]+?) \| (F|C|S|—) \|/);
-  if (r && r[1] !== "Operation") for (const op of r[1].split("/").map(s => s.trim()).filter(Boolean)) sections[cur][op] = r[2];
+  // The first cell may name several operations ("A / B"), wrap them in prose or parentheses ("PartiQL (ExecuteStatement, ...)"):
+  // every capitalised word in it is a candidate, and only the model's own operation names are kept below.
+  const r = line.match(/^\| ([^|]+?) \| (F|C|S|—) \|/);
+  if (r && r[1] !== "Operation") for (const op of r[1].match(/[A-Z][A-Za-z0-9]+/g) ?? []) sections[cur][op] = r[2];
 }
 const svcs: any[] = [
   { go: "SQS", model: "sqs", sign: "sqs", kind: "json", ver: "1.0", target: "AmazonSQS" },

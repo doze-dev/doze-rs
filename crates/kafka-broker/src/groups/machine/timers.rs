@@ -1,6 +1,9 @@
 //! What happens when a timer runs out.
 
+use kafka_wire::ids::MemberId;
+
 use super::{Effect, GroupMachine, Millis, TimerKey, TimerKind};
+use crate::groups::note::{Cause, Named};
 
 impl GroupMachine {
     pub(super) fn timer(&mut self, key: &TimerKey, now: Millis, out: &mut Vec<Effect>) {
@@ -18,8 +21,7 @@ impl GroupMachine {
                     return;
                 }
                 let id = id.clone();
-                self.drop_member(&id, out);
-                self.rebalance_after_change(now, out);
+                self.session_expired(&id, now, out);
             }
             TimerKind::Rebalance => {
                 if self
@@ -34,6 +36,14 @@ impl GroupMachine {
             // A consumer group's timer: not this machine's.
             TimerKind::Revoke(_) => {}
         }
+    }
+
+    /// A member's session has run out: it leaves the group, and the rest rebalance.
+    pub(super) fn session_expired(&mut self, id: &MemberId, now: Millis, out: &mut Vec<Effect>) {
+        let gone: Vec<Named> = self.who_is(id, None).into_iter().collect();
+        self.drop_member(id, out);
+        let why = self.why_gone(Cause::SessionExpired, gone);
+        self.rebalance_after_change(now, why, out);
     }
 
     /// The initial delay's window is over: if a member arrived during it, wait again; if not, go on.

@@ -24,6 +24,8 @@ pub(super) enum Command<F: Fs> {
     Append(Append),
     /// What the partition knows of its transactions and producers.
     Txns(oneshot::Sender<Result<TxnView, StorageError>>),
+    /// Each producer's window of recent batches, for the console.
+    Windows(oneshot::Sender<Result<Vec<crate::producers::Window>, StorageError>>),
     /// Move the start of the log up; answers the start now in force.
     Trim(Trim, oneshot::Sender<Result<Offset, StorageError>>),
     /// Plan a round of cleaning, if the log is due one.
@@ -175,6 +177,9 @@ fn work<F: Fs>(
                 }
                 // The producer waiting on this learns of the append now and of its flush by the ticket.
                 let _ = a.reply.send(result);
+            }
+            Command::Windows(reply) => {
+                let _ = reply.send(transactions::windows(log, memory));
             }
             Command::Txns(reply) => {
                 let _ = reply.send(view(log, memory));

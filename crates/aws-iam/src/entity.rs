@@ -8,7 +8,7 @@ use aws_wire::ApiError;
 use serde_json::{Value, json};
 
 use crate::core::{Core, entity_key};
-use crate::errors::{conflict, exists, invalid_input, limit, malformed, no_such_policy};
+use crate::errors::{conflict, exists, invalid_input, limit, malformed};
 use crate::model::{Entity, Kind};
 use crate::req::{Req, page, tag_list};
 use crate::view;
@@ -86,12 +86,13 @@ impl Core {
         Ok(json!({ kind.title(): shown }))
     }
 
-    /// A permissions boundary must be a policy that exists.
-    pub(crate) fn checked_boundary(&self, arn: Option<&str>) -> Result<Option<String>, ApiError> {
+    /// A permissions boundary must be a policy that exists: the account's, or an AWS-managed one (kept from then on).
+    pub(crate) fn checked_boundary(
+        &mut self,
+        arn: Option<&str>,
+    ) -> Result<Option<String>, ApiError> {
         let Some(arn) = arn else { return Ok(None) };
-        if self.policies.get(arn).is_none() {
-            return Err(no_such_policy(arn));
-        }
+        self.known_policy(arn)?;
         Ok(Some(arn.to_owned()))
     }
 

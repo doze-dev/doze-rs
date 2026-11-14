@@ -20,6 +20,7 @@ use crate::answer::{
 };
 use crate::core::{Answer, Ask};
 use crate::errors::{not_runnable, throttled};
+use crate::livelog::Live;
 use crate::req::Req;
 use crate::resolve::{Resolved, Resolving};
 use crate::rt::api::Chunk;
@@ -47,6 +48,8 @@ pub(crate) struct Started {
     timeout: Duration,
     start_ms: i64,
     caller: Caller,
+    /// What the invocation is counted under in `AWS/Lambda`.
+    metric: crate::metrics::Target,
 }
 
 /// How one invocation ended.
@@ -249,14 +252,19 @@ impl Inner {
             trace_id: input.trace_id,
         };
         let (timeout, start_ms) = (ask.timeout, self.clock.now_ms());
+        let metric = crate::metrics::Target::of(rs, caller);
         let running = match self.rt.begin(ask).await {
             Ok(r) => r,
-            Err(None) => {
-                return Err(throttled(
-                    "ReservedFunctionConcurrentInvocationLimitExceeded",
-                ));
+            Err(why) => {
+                self.count_invocation(&metric, crate::metrics::Outcome::not_started(why.is_none()))
+                    .await;
+                return match why {
+                    None => Err(throttled(
+                        "ReservedFunctionConcurrentInvocationLimitExceeded",
+                    )),
+                    Some(why) => Ok(Err(launch_failure(&why))),
+                };
             }
-            Err(Some(why)) => return Ok(Err(launch_failure(&why))),
         };
         Ok(Ok(Started {
             running,
@@ -268,6 +276,7 @@ impl Inner {
             timeout,
             start_ms,
             caller: caller.clone(),
+            metric,
         }))
     }
 
@@ -288,6 +297,7 @@ impl Inner {
             timeout,
             start_ms,
             caller,
+            metric,
         } = started;
         let id = running.id.clone();
         let mut out = RunOut {
@@ -297,7 +307,18 @@ impl Inner {
             content_type: None,
             log: String::new(),
         };
-        let (healthy, status) = self.wait(&mut running, &mut out, stream, timeout).await;
+        let mut live = Live::new(
+            running.tap(),
+            &group,
+            &caller,
+            start_ms,
+            &id,
+            &version,
+            json_logs,
+            &name,
+        );
+        let waited = self.wait(&mut running, &mut out, stream, timeout);
+        let (healthy, status) = self.with_live_log(&mut live, waited).await;
         let end_ms = self.clock.now_ms();
         let fin = running.finish(healthy, &self.rt).await;
         let report = Report {
@@ -309,12 +330,23 @@ impl Inner {
             status,
             json: json_logs,
         };
-        let rows = events(start_ms, end_ms.max(start_ms), &fin.lines, &report);
+        let rows = events(
+            start_ms,
+            end_ms.max(start_ms),
+            &live.all_lines(&fin.lines),
+            &report,
+        );
         out.log = rows.iter().map(|(_, m)| m.as_str()).collect();
         self.echo(&name, &fin.lines);
+        let rest = live.unsent(rows);
         self.logger
-            .write(self.peers.as_deref(), &caller, &group, &fin.stream, rows)
+            .write(self.peers.as_deref(), &caller, &group, &fin.stream, rest)
             .await;
+        let ran = crate::metrics::Outcome::Ran {
+            duration_ms: fin.duration_ms,
+            error: out.error,
+        };
+        self.count_invocation(&metric, ran).await;
         out
     }
 
@@ -364,7 +396,7 @@ impl Inner {
     }
 
     /// Prints what the function wrote to our own log, unless it is quiet.
-    fn echo(&self, name: &str, lines: &[(i64, String)]) {
+    pub(crate) fn echo(&self, name: &str, lines: &[(i64, String)]) {
         if self.config.quiet {
             return;
         }

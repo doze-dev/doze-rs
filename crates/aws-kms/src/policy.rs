@@ -1,4 +1,5 @@
-//! A key's policy: stored and returned as given. It is not evaluated until the IAM stage can. `default` is the only policy name.
+//! A key's policy: stored and returned as given, and evaluated by IAM as the key's resource policy on every request that names the key
+//! (`authz.rs`). `default` is the only policy name.
 
 use aws_model_kms::keys::{
     GetKeyPolicyRequest as Get, GetKeyPolicyResponse as Got, ListKeyPoliciesRequest as List,

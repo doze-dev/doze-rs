@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use crate::core::Core;
 use crate::model::{Series, UNITS, series_key};
 use crate::req::{Put, Req, bad_value, dimension_list, dimensions, secs};
-use crate::stats::{Agg, known, value_of};
+use crate::stats::{Agg, is_percentile, known, value_of};
 
 /// Datapoints one `GetMetricStatistics` may return (AWS: 1,440).
 const MAX_POINTS: i64 = 1440;
@@ -60,7 +60,13 @@ impl Core {
             .opt("Unit")
             .and_then(|u| UNITS.iter().position(|x| *x == u));
         let folded = match self.series.get(&key) {
-            Some(s) => self.fold(s.no, (align(start, period), end), period * 1000, unit)?,
+            Some(s) => self.fold(
+                s.no,
+                (align(start, period), end),
+                period * 1000,
+                unit,
+                !extended.is_empty(),
+            )?,
             None => Default::default(),
         };
         let datapoints: Vec<Value> = folded
@@ -159,15 +165,14 @@ impl Core {
                 (align(window.0, period), window.1),
                 period * 1000,
                 unit,
+                is_percentile(&which),
             )?,
             None => Default::default(),
         };
         // One value per period: the units of a period are folded together here, as a query names no unit.
         let mut per: std::collections::BTreeMap<i64, Agg> = std::collections::BTreeMap::new();
         for ((at, _), agg) in folded {
-            let slot = per.entry(at).or_default();
-            slot.bucket.merge(&agg.bucket);
-            slot.bucket.values.extend(agg.bucket.values);
+            per.entry(at).or_default().merge(&agg);
         }
         let mut points: Vec<(i64, f64)> = per
             .iter()

@@ -11,10 +11,12 @@ use doze_runtime::{Clock, Ctx};
 use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
 
-use crate::model::Secret;
+use crate::model::{Rotation, Secret};
+use crate::rotate::Run;
 
 const FILE: &str = "secrets.redb";
 const SECRETS: &str = "secrets";
+const ROTATIONS: &str = "rotations";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 const VERSION: u8 = 1;
 
@@ -22,6 +24,9 @@ const VERSION: u8 = 1;
 #[derive(Debug)]
 pub(crate) struct Core {
     pub(crate) secrets: Records<Secret>,
+    pub(crate) rotations: Records<Rotation>,
+    /// A rotation the call just started, run after its answer is saved.
+    pub(crate) run: Option<Run>,
     /// The other services (KMS keeps every secret's value), when there are any.
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) clock: Arc<dyn Clock>,
@@ -35,16 +40,16 @@ pub(crate) struct Core {
 pub(crate) struct Answer {
     pub(crate) reply: Reply,
     pub(crate) durable: Option<Ack>,
+    /// A rotation to run once the answer is saved.
+    pub(crate) run: Option<Run>,
 }
 
 /// The operations this service runs. The others are refused by name before their request is read: replication to other
-/// regions is not built (one account, one region each), and rotation drives a Lambda function, which waits for Lambda.
+/// regions is not built (one account, one region each).
 pub(crate) fn built(op: Operation) -> bool {
     !matches!(
         op,
-        Operation::RotateSecret
-            | Operation::CancelRotateSecret
-            | Operation::ReplicateSecretToRegions
+        Operation::ReplicateSecretToRegions
             | Operation::RemoveRegionsFromReplication
             | Operation::StopReplicationToReplica
     )
@@ -67,6 +72,7 @@ impl doze_runtime::Service for Core {
             return Answer {
                 reply: Err(refusal),
                 durable: None,
+                run: None,
             };
         }
         let mut reply = self.dispatch(&call).await;
@@ -77,7 +83,13 @@ impl doze_runtime::Service for Core {
                 None
             }
         };
-        Answer { reply, durable }
+        let run = if reply.is_ok() { self.run.take() } else { None };
+        self.run = None;
+        Answer {
+            reply,
+            durable,
+            run,
+        }
     }
 
     async fn close(self) {
@@ -91,7 +103,15 @@ impl Core {
     /// Secrets Manager with no disk (the rules alone are under test).
     #[cfg(test)]
     pub(crate) fn in_memory(clock: Arc<dyn Clock>, peers: Option<Arc<Peers>>) -> Self {
-        Self::with(clock, Records::new(SECRETS, "secret", VERSION), peers, None)
+        Self::with(
+            clock,
+            (
+                Records::new(SECRETS, "secret", VERSION),
+                Records::new(ROTATIONS, "rotation", VERSION),
+            ),
+            peers,
+            None,
+        )
     }
 
     pub(crate) fn open_in(
@@ -99,22 +119,25 @@ impl Core {
         clock: Arc<dyn Clock>,
         peers: Option<Arc<Peers>>,
     ) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[SECRETS])?;
+        let db = Db::open(dir, FILE, &[SECRETS, ROTATIONS])?;
         let read = db.read()?;
         let secrets = Records::load(SECRETS, "secret", VERSION, &read)?;
+        let rotations = Records::load(ROTATIONS, "rotation", VERSION, &read)?;
         drop(read);
-        Ok(Self::with(clock, secrets, peers, Some(db)))
+        Ok(Self::with(clock, (secrets, rotations), peers, Some(db)))
     }
 
     fn with(
         clock: Arc<dyn Clock>,
-        secrets: Records<Secret>,
+        (secrets, rotations): (Records<Secret>, Records<Rotation>),
         peers: Option<Arc<Peers>>,
         db: Option<Db>,
     ) -> Self {
         let next_purge_ms = secrets.iter().filter_map(|(_, s)| s.purge_ms).min();
         Self {
             secrets,
+            rotations,
+            run: None,
             peers,
             clock,
             db,
@@ -151,7 +174,7 @@ impl Core {
 
     /// Sends what the last call changed to the writer; the [`Ack`] resolves when it is on disk.
     pub(crate) fn flush(&mut self) -> Result<Option<Ack>, StoreError> {
-        let changes = vec![self.secrets.stage()?];
+        let changes = vec![self.secrets.stage()?, self.rotations.stage()?];
         Ok(self.db.as_ref().and_then(|db| db.submit(changes)))
     }
 
@@ -184,6 +207,8 @@ impl Core {
             Operation::GetResourcePolicy => self.get_resource_policy(call),
             Operation::DeleteResourcePolicy => self.delete_resource_policy(call),
             Operation::ValidateResourcePolicy => self.validate_resource_policy(call),
+            Operation::RotateSecret => self.rotate_secret(call),
+            Operation::CancelRotateSecret => self.cancel_rotate_secret(call),
             _ => Err(ApiError::new(
                 501,
                 "NotImplemented",

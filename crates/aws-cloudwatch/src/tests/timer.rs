@@ -122,7 +122,16 @@ async fn a_restart_judges_again_the_alarms_that_were_pending_without_a_request()
     ))
     .await
     .unwrap();
-    assert_eq!(described(&h, &one).await, "ALARM");
+    // The second holding the datapoint is judged when it is over.
+    let mut seen = false;
+    for _ in 0..30 {
+        if described(&h, &one).await == "ALARM" {
+            seen = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(seen, "the alarm saw the datapoint");
     // The process stops with the alarm in ALARM and a deadline pending.
     before.shutdown().await;
     drop(one);
@@ -164,8 +173,12 @@ async fn the_timer_sleeps_to_the_deadline_and_is_gone_when_there_is_none() {
         &json!({"Namespace": "T", "MetricData": [{"MetricName": "m", "Value": 150.0, "StorageResolution": 1}]}),
     )
     .await;
-    assert_eq!(rig.state().await, "ALARM", "data judges the alarm at once");
     assert!(rig.svc.timer_armed("us-east-1"), "a deadline is pending");
+    // The second holding the datapoint is judged when it is over, by the timer.
+    assert!(
+        rig.until("ALARM", 3).await,
+        "the alarm saw the datapoint when its second ended"
+    );
     // No request changes anything from here; the second ends, the datapoint leaves the window, and the alarm goes back by itself.
     assert!(
         rig.until("OK", 4).await,

@@ -147,6 +147,8 @@ fn one(c: &Cond, v: &Scalar) -> bool {
         (Cond::ButExact(list), Scalar::Str(_) | Scalar::Num(_)) => !list.iter().any(|x| one(x, v)),
         (Cond::ButPrefix(p), Scalar::Str(s)) => !s.starts_with(p.as_str()),
         (Cond::ButSuffix(p), Scalar::Str(s)) => !s.ends_with(p.as_str()),
+        (Cond::Wildcard(p), Scalar::Str(s)) => crate::wildcard::matches(p, s),
+        (Cond::ButWildcard(p), Scalar::Str(s)) => !crate::wildcard::matches(p, s),
         (Cond::Numeric(tests), Scalar::Num(n)) => {
             tests.iter().all(|(cmp, x)| compare(*cmp, *n, *x))
         }
@@ -244,6 +246,16 @@ mod tests {
         assert!(s(r#"{"k":[{"prefix":"ord"}]}"#, "order"));
         assert!(!s(r#"{"k":[{"prefix":"ord"}]}"#, "reorder"));
         assert!(s(r#"{"k":[{"suffix":"der"}]}"#, "order"));
+        assert!(s(r#"{"k":[{"wildcard":"*ball"}]}"#, "baseball"));
+        assert!(!s(r#"{"k":[{"wildcard":"*ball"}]}"#, "hockey"));
+        assert!(s(
+            r#"{"k":[{"anything-but":{"wildcard":"*ball"}}]}"#,
+            "hockey"
+        ));
+        assert!(!s(
+            r#"{"k":[{"anything-but":{"wildcard":"*ball"}}]}"#,
+            "baseball"
+        ));
         assert!(s(r#"{"k":[{"equals-ignore-case":"ORDER"}]}"#, "order"));
         assert!(s(r#"{"k":[{"anything-but":"refund"}]}"#, "order"));
         assert!(!s(

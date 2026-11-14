@@ -304,3 +304,46 @@ async fn what_is_not_built_is_refused_by_name() {
     ));
     w.stop().await;
 }
+
+#[tokio::test]
+async fn a_function_this_host_cannot_launch_is_created_and_fails_when_invoked() {
+    let w = World::new();
+    // A Java package without the runtime interface client: kept (AWS would take it), with a warning in the log.
+    let made = w
+        .create(
+            "j",
+            "java21",
+            "example.Handler::handleRequest",
+            &[("example/Handler.class", b"x", 0o644)],
+        )
+        .await;
+    assert_eq!(made["State"], "Active");
+    let out = w.invoke("j", &json!({})).await;
+    assert_eq!(out["FunctionError"], "Unhandled", "{out}");
+    w.stop().await;
+}
+
+#[tokio::test]
+async fn a_layer_named_in_place_by_its_zip_is_unpacked_like_an_upload() {
+    use sha2::Digest;
+    let w = World::new();
+    let zip = crate::zipread::build(&[("python/helper.py", b"X = 1", 0o644)]);
+    let path = std::env::temp_dir().join(format!("doze-lambda-layer-{}.zip", std::process::id()));
+    std::fs::write(&path, &zip).unwrap();
+    let layer = w
+        .ok(
+            "PublishLayerVersion",
+            json!({"LayerName": "zipped", "Content": {"S3Bucket": "_local_", "S3Key": path.to_string_lossy()}}),
+        )
+        .await;
+    assert_eq!(layer["Content"]["CodeSize"], zip.len());
+    assert_eq!(
+        layer["Content"]["CodeSha256"],
+        aws_core::base64::encode(&sha2::Sha256::digest(&zip))
+    );
+    // The package is kept and served like an uploaded one.
+    let location = layer["Content"]["Location"].as_str().unwrap();
+    assert!(location.contains("/_aws/lambda/code/"), "{location}");
+    drop(std::fs::remove_file(&path));
+    w.stop().await;
+}

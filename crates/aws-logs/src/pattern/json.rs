@@ -321,6 +321,14 @@ impl Parser {
     fn after_path(&mut self, sel: Selector) -> R<Expr> {
         match self.next()? {
             Tok::Op(op) => match self.next()? {
+                // An unquoted `*` tests that the field is there, whatever its type: `{ $.latency = * }` selects every event that has
+                // one (a number, a string, a boolean, an object or null), and `!= *` every event that has none, as `NOT EXISTS`
+                // does. The type-blind reading is from AWS's documentation and memory; no recording has a non-string field.
+                Tok::Word(w) if w == "*" => match op {
+                    Op::Eq => Ok(Expr::Exists(sel, true)),
+                    Op::Ne => Ok(Expr::Exists(sel, false)),
+                    _ => Err(PatternError::Invalid),
+                },
                 Tok::Lit(lit) => Ok(Expr::Cmp(sel, op, lit)),
                 Tok::Word(w) => Ok(Expr::Cmp(sel, op, Lit::Str(w))),
                 _ => Err(PatternError::Invalid),

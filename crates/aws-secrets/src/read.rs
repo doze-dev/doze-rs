@@ -51,6 +51,13 @@ impl Core {
             return Err(marked_for_deletion());
         }
         let (vid, v) = pick(secret, version, stage)?;
+        // A rotation's pending version has no value until the function puts one. (memory)
+        if !crate::rotate::has_value(v) {
+            return Err(no_value(&version.map_or_else(
+                || format!("staging label: {}", stage.unwrap_or(crate::model::CURRENT)),
+                |id| format!("VersionId: {id}"),
+            )));
+        }
         let value = self.kms_open(call, secret, vid, &v.sealed).await?;
         let read = Read {
             arn: secret.arn.clone(),

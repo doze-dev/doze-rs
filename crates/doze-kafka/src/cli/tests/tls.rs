@@ -76,3 +76,38 @@ fn a_key_file_others_can_read_is_warned_about_and_a_private_one_is_not() {
     assert!(settings(&flags).unwrap().warnings.is_empty());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn tls_alone_refuses_a_console_on_the_network_unless_unprotected() {
+    // SEC-243: Kafka on every interface, TLS on, nothing else: the plain-HTTP console would hand out what TLS keeps.
+    let (cert, key) = (fixture("ec-chain.pem"), fixture("ec-key-pkcs8.pem"));
+    let flags = [
+        "--tls-cert",
+        &cert,
+        "--tls-key",
+        &key,
+        "--listen",
+        "0.0.0.0:9092",
+        "--console-addr",
+        "0.0.0.0:9093",
+    ];
+    let said = settings(&flags).unwrap_err();
+    assert!(
+        said.starts_with("config: the console has no login and is plain HTTP, and TLS is on: serving it on 0.0.0.0:9093 would let anyone who can reach that address read topics and messages sent unencrypted. Keep --console-addr on loopback"),
+        "{said}"
+    );
+    let accepted: Vec<&str> = flags
+        .iter()
+        .copied()
+        .chain(["--console-unprotected"])
+        .collect();
+    let set = settings(&accepted).unwrap();
+    assert!(
+        set.warnings
+            .iter()
+            .any(|w| w.contains("although TLS is on (--console-unprotected)")),
+        "{:?}",
+        set.warnings
+    );
+    assert!(!set.console.lab);
+}

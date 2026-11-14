@@ -1,0 +1,121 @@
+{
+  "actions": [
+    {
+      "destructive": false,
+      "id": "produce",
+      "input_hint": "message value",
+      "kind": "topic",
+      "label": "Produce a message"
+    }
+  ],
+  "spec": {
+    "extend": [],
+    "front": "console",
+    "panels": [
+      {
+        "columns": [
+          {
+            "align": "left",
+            "key": "name",
+            "role": "",
+            "title": "Topic"
+          },
+          {
+            "align": "right",
+            "key": "partitions",
+            "role": "count",
+            "title": "Partitions"
+          },
+          {
+            "align": "right",
+            "key": "high",
+            "role": "count",
+            "title": "Messages"
+          },
+          {
+            "align": "right",
+            "key": "high",
+            "role": "rate",
+            "title": "Rate"
+          }
+        ],
+        "id": "topics",
+        "kind": "table",
+        "source": "topic",
+        "title": "Topics"
+      },
+      {
+        "columns": [
+          {
+            "align": "left",
+            "key": "name",
+            "role": "",
+            "title": "Group"
+          },
+          {
+            "align": "left",
+            "key": "state",
+            "role": "state",
+            "title": "State"
+          },
+          {
+            "align": "right",
+            "key": "members",
+            "role": "count",
+            "title": "Members"
+          },
+          {
+            "align": "right",
+            "key": "lag",
+            "role": "lag",
+            "title": "Lag"
+          }
+        ],
+        "id": "groups",
+        "kind": "table",
+        "source": "group",
+        "title": "Consumer groups"
+      },
+      {
+        "columns": [
+          {
+            "align": "left",
+            "key": "time",
+            "role": "time",
+            "title": "Time"
+          },
+          {
+            "align": "right",
+            "key": "partition",
+            "role": "",
+            "title": "P"
+          },
+          {
+            "align": "right",
+            "key": "offset",
+            "role": "",
+            "title": "Offset"
+          },
+          {
+            "align": "left",
+            "key": "key",
+            "role": "",
+            "title": "Key"
+          },
+          {
+            "align": "left",
+            "key": "value",
+            "role": "",
+            "title": "Value"
+          }
+        ],
+        "id": "tail",
+        "kind": "stream",
+        "select": "topics",
+        "title": "Tail"
+      }
+    ],
+    "tabs": [],
+    "web_url": "http://{address:console}"
+  }
+}

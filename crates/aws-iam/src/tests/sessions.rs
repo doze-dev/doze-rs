@@ -173,3 +173,50 @@ fn session_tokens_federation_and_web_identity() {
         "000000000000"
     );
 }
+
+#[test]
+fn a_saml_assertion_is_read_for_its_subject_issuer_and_session_name_and_echoed() {
+    let mut w = World::new();
+    let assertion = aws_core::base64::encode(crate::saml::tests::ASSERTION.as_bytes());
+    let out = w.sts_ok(
+        "AssumeRoleWithSAML",
+        &json!({
+            "RoleArn": "arn:aws:iam::000000000000:role/r",
+            "PrincipalArn": "arn:aws:iam::000000000000:saml-provider/idp",
+            "SAMLAssertion": assertion,
+        }),
+    );
+    assert_eq!(out["Subject"], "alice&co");
+    assert_eq!(out["SubjectType"], "persistent");
+    assert_eq!(out["Issuer"], "https://idp.example.com/saml");
+    assert_eq!(out["Audience"], "https://signin.aws.amazon.com/saml");
+    assert_eq!(
+        out["AssumedRoleUser"]["Arn"],
+        "arn:aws:sts::000000000000:assumed-role/r/alice@example.com"
+    );
+    // BASE64(SHA1(issuer + account + "/" + provider)), worked out by hand for this assertion.
+    let expected = {
+        use sha1::Digest;
+        aws_core::base64::encode(&sha1::Sha1::digest(
+            b"https://idp.example.com/saml000000000000/idp",
+        ))
+    };
+    assert_eq!(out["NameQualifier"], expected.as_str());
+    let token = out["Credentials"]["SessionToken"].as_str().unwrap();
+    w.sts.session_token = Some(token.to_owned());
+    assert_eq!(
+        w.sts_ok("GetCallerIdentity", &json!({}))["Arn"],
+        "arn:aws:sts::000000000000:assumed-role/r/alice@example.com"
+    );
+    w.sts.session_token = None;
+    // What is not an assertion is refused.
+    let (code, _) = w.sts_err(
+        "AssumeRoleWithSAML",
+        &json!({
+            "RoleArn": "arn:aws:iam::000000000000:role/r",
+            "PrincipalArn": "arn:aws:iam::000000000000:saml-provider/idp",
+            "SAMLAssertion": aws_core::base64::encode(b"<not-saml"),
+        }),
+    );
+    assert_eq!(code, "InvalidIdentityTokenException");
+}
