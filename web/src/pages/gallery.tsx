@@ -112,6 +112,25 @@ function Out({ id, children }: { id: string; children: React.ReactNode }) {
   );
 }
 
+function ThePatterns() {
+  const [one, setOne] = useState<string | null>(null);
+  const [many, setMany] = useState<string[]>([]);
+  return (
+    <div className="grid items-start gap-5 md:grid-cols-2">
+      <div className="flex min-w-0 flex-col gap-2">
+        <Label htmlFor="p-one">Topic, or a pattern</Label>
+        <Combobox id="p-one" pattern options={TOPICS} value={one} onChange={setOne} placeholder="Any topic…" search="A name, or a glob like orders.*" aria-label="Topic or pattern" className="w-full" />
+        <Out id="pattern-one">{one ?? "none"}</Out>
+      </div>
+      <div className="flex min-w-0 flex-col gap-2">
+        <Label>Topics, or patterns</Label>
+        <MultiSelect pattern options={TOPICS} value={many} onChange={setMany} noun="topics" aria-label="Topics or patterns" triggerClassName="w-full" className="min-w-0" />
+        <Out id="pattern-many">{many.length ? many.join(", ") : "none"}</Out>
+      </div>
+    </div>
+  );
+}
+
 function TheForm() {
   const [submitted, setSubmitted] = useState<FormValues | null>(null);
   const form = useForm<FormValues>({
@@ -360,6 +379,10 @@ export function GalleryPage() {
 
         <Section id="form" title="Form: Input, Textarea, Select, Combobox, MultiSelect, RadioGroup, Switch, Checkbox" description="react-hook-form with a zod schema: the errors are Kafka's rules, the submit shows what was sent.">
           <TheForm />
+        </Section>
+
+        <Section id="patterns" title="Combobox and MultiSelect with a pattern" description="The Lab's choice of a topic or a client: what is typed can be chosen as it is, a name or a glob of * and ?, not only an option.">
+          <ThePatterns />
         </Section>
 
         <Section id="overlays" title="Dialog, Sheet, DropdownMenu, Popover, Tooltip" description="Esc closes, the focus returns to the opener; the Sheet has its own address (Back closes it).">

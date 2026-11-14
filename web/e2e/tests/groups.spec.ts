@@ -195,6 +195,46 @@ test("Story: the generations newest first; a rebalance opens as a Sheet, the fla
   } else await expect(page.getByTestId("story-quiet")).toContainText("A quiet story is a good one");
 });
 
+test("Story: a generation in the address is a number the ring holds, else the Sheet says it does not, and anything else is dropped (CON-615)", async ({ page }) => {
+  await page.goto(`/groups/${member}/story?generation=99999`);
+  const sheet = page.getByTestId("rebalance-sheet");
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText("The ring does not hold this rebalance");
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  for (const junk of ["%3Cscript%3Ealert(1)%3C%2Fscript%3E", "abc"]) {
+    await page.goto(`/groups/${member}/story?generation=${junk}`);
+    await expect(page.getByTestId("story-timeline")).toBeVisible();
+    await expect(sheet).toHaveCount(0);
+    expect(await page.locator("body").innerText()).not.toContain("<script>");
+  }
+});
+
+test("Story: a group with one rebalance and nothing since is a quiet story: no Now card, no causes, one generation (CON-617)", async ({ page }, info) => {
+  test.setTimeout(60_000);
+  const calm = `r2-calm-${info.project.name}`;
+  const c = kafka(`${calm}-app`).consumer({ groupId: calm, sessionTimeout: 15_000, heartbeatInterval: 1_000 });
+  await c.connect();
+  await c.subscribe({ topic: TOPIC, fromBeginning: true });
+  await c.run({ eachMessage: async () => undefined });
+  try {
+    await page.goto(`/groups/${calm}/story`);
+    // Polled: the group is stable once its member has synced.
+    await expect(async () => {
+      await page.reload();
+      await expect(page.getByTestId("story-quiet")).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 20_000 });
+    await expect(page.getByTestId("story-quiet")).toContainText("No member has come, gone or timed out since");
+    await expect(page.getByTestId("generation")).toHaveCount(1);
+    await expect(page.getByTestId("generation")).toContainText("Member joined");
+    await expect(page.getByTestId("story-now")).toHaveCount(0);
+    await expect(page.getByTestId("story-flapping")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Where the cause comes from" })).toHaveCount(0);
+  } finally {
+    await c.disconnect();
+  }
+});
+
 test("Wire: the Live slice's dock of the group, filtered by kind and by text", async ({ page }) => {
   await page.goto(`/groups/${member}/wire`);
   await expect(page.getByTestId("group-tabs").getByRole("link", { name: /^Wire/ })).toHaveAttribute("aria-current", "page");
