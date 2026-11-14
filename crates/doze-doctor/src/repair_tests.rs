@@ -80,7 +80,7 @@ fn nothing_set_up_is_repaired_by_the_zone_install() {
     assert!(failing.iter().all(|c| c.name.starts_with("names: ")
         && c.fix.as_deref() == Some(crate::FIX_NAMES)
         && !c.ok));
-    let r = plan(&m, None).unwrap();
+    let r = plan(&m, None);
     assert_eq!(r.parts.len(), 1);
     let one = r.one().unwrap();
     assert!(one.script.contains("dev.doze.netd"), "{}", one.script);
@@ -98,7 +98,7 @@ fn a_zone_switched_off_needs_nothing() {
     let checks = names::checks(&m);
     assert_eq!(checks.len(), 1);
     assert_eq!(checks[0].state, State::Ok);
-    assert!(plan(&m, None).unwrap().is_empty());
+    assert!(plan(&m, None).is_empty());
 }
 
 /// A domain the stack's daemon recorded is the stack's: it is checked, and the repair routes it in the same prompt as
@@ -133,7 +133,7 @@ fn a_recorded_domain_is_checked_and_routed_with_the_zone() {
             .any(|c| c.name == "domains: certificate authority" && c.state == State::NotChecked)
     );
 
-    let r = plan(&m, Some(&stack)).unwrap();
+    let r = plan(&m, Some(&stack));
     let kinds: Vec<Kind> = r.parts.iter().map(|p| p.kind).collect();
     assert_eq!(kinds, [Kind::Names, Kind::Domains]);
     let one = r.one().unwrap();
@@ -169,7 +169,7 @@ fn a_check_says_ok_unless_it_fails_and_keeps_a_fix_only_when_failing() {
     let bad = Check::step("x", false, "broken").fix("doze trust");
     assert!(!bad.ok && bad.fix.as_deref() == Some("doze trust"));
     let unknown = Check::new("x", State::NotChecked, "?");
-    assert!(unknown.ok);
+    assert!(!unknown.ok, "not looked at is never a tick");
     assert_eq!(
         serde_json::to_value(&bad).unwrap(),
         serde_json::json!({"name":"x","state":"fail","ok":false,"detail":"broken","fix":"doze trust"})
@@ -177,4 +177,22 @@ fn a_check_says_ok_unless_it_fails_and_keeps_a_fix_only_when_failing() {
     assert!(
         crate::zone_off(Some(" OFF ")) && !crate::zone_off(Some("on")) && !crate::zone_off(None)
     );
+}
+
+/// PowerShell parts each run in their own script block under one stop-on-error preference; plans of two shells are
+/// never combined.
+#[test]
+fn powershell_parts_are_blocks_and_shells_never_mix() {
+    let ps = |what: &str, s: &str| Plan {
+        what: what.into(),
+        shell: Shell::PowerShell,
+        script: s.into(),
+    };
+    let (a, b) = (ps("one", "Write-Output 1\n"), ps("two", "Write-Output 2\n"));
+    let both = combine([&a, &b]).unwrap();
+    assert_eq!(
+        both.script,
+        "$ErrorActionPreference = 'Stop'\n& {\nWrite-Output 1\n}\n& {\nWrite-Output 2\n}\n"
+    );
+    assert_eq!(combine([&a, &sh("x", "true\n")]), None);
 }

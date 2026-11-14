@@ -17,6 +17,7 @@ json:
 |   "command": "doze doctor",
 |   "ok": false,
 |   "data": {
+|     "ok": false,
 |     "checks": [
 |       {
 |         "name": "platform",

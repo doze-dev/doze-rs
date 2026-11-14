@@ -17,7 +17,7 @@ use crate::view::View;
 use doze_doctor::domains::StackDomains;
 use doze_doctor::repair::{self, Repair};
 use doze_doctor::{Check, Machine, State};
-use doze_names::setup::{How, Options, Plan, Shell, pasteable, run_plan};
+use doze_names::setup::{Plan, Shell, pasteable};
 use serde::Serialize;
 
 /// The script a privileged command would run, shown instead of run.
@@ -100,7 +100,7 @@ pub(crate) fn dns_setup(ctx: &mut Ctx<'_>, a: &crate::cli::setup::DnsSetup) -> O
         let checks = doze_doctor::names::checks(&m);
         let ok = checks.iter().all(|c| c.state != State::Fail);
         return Ok(Done {
-            view: View::Doctor(Report { checks }),
+            view: View::Doctor(Report::new(checks)),
             problem: (!ok).then(|| machine::missing(".doze names are", "doze dns-setup")),
         });
     }
@@ -113,7 +113,7 @@ pub(crate) fn dns_setup(ctx: &mut Ctx<'_>, a: &crate::cli::setup::DnsSetup) -> O
             "names are switched off (DOZE_ZONE=off), so there is nothing to set up",
         ));
     }
-    let r = repair::plan(&m, None).map_err(|e| machine::failed(&e))?;
+    let r = repair::plan(&m, None);
     finish(ctx, &m, r, a.dry_run, "doze dns-setup", None)
 }
 
@@ -122,7 +122,7 @@ pub(crate) fn fix(ctx: &mut Ctx<'_>, mode: &Mode, dry_run: bool) -> Outcome {
     let m = machine::machine(ctx);
     let stack = project::find(&ctx.cwd, mode.config.as_deref())
         .map(|p| StackDomains::recorded(m.home(), &p.dir));
-    let r = repair::plan(&m, stack.as_ref()).map_err(|e| machine::failed(&e))?;
+    let r = repair::plan(&m, stack.as_ref());
     finish(ctx, &m, r, dry_run, "doze doctor --fix", stack.as_ref())
 }
 
@@ -140,6 +140,11 @@ fn finish(
         .iter()
         .map(|d| format!("✗ route {d} · another program routes it; doze leaves it alone"))
         .collect();
+    said.extend(r.cannot.iter().map(|w| format!("✗ cannot repair {w}")));
+    let cannot = r
+        .cannot
+        .first()
+        .map(|w| Diagnostic::new(ids::SETUP_FAILED, format!("cannot repair {w}")));
     let Some(plan) = r.one() else {
         if dry_run {
             return Ok(Done::ok(View::Script(Script {
@@ -147,11 +152,16 @@ fn finish(
                 plan: None,
             })));
         }
-        said.push("✓ already set up — nothing to do".into());
-        return Ok(Done::ok(View::Ran(Ran {
-            said,
-            checks: Vec::new(),
-        })));
+        if cannot.is_none() {
+            said.push("✓ already set up — nothing to do".into());
+        }
+        return Ok(Done {
+            view: View::Ran(Ran {
+                said,
+                checks: Vec::new(),
+            }),
+            problem: cannot,
+        });
     };
     if dry_run {
         return Ok(Done::ok(View::Script(Script {
@@ -167,24 +177,30 @@ fn finish(
     if stack.is_some() {
         checks.extend(doze_doctor::domains::checks(m, stack));
     }
+    // A tick only for what is in place: a part still missing after the script is the run's problem, names or domains.
     let problem = still
         .first()
-        .map(|why| Diagnostic::new(ids::SETUP_FAILED, format!("setup ran, but {why}")));
+        .cloned()
+        .or_else(|| {
+            checks
+                .iter()
+                .find(|c| c.state == State::Fail)
+                .map(|c| format!("{} is still not in place", c.name))
+        })
+        .map(|why| Diagnostic::new(ids::SETUP_FAILED, format!("setup ran, but {why}")))
+        .or(cannot);
     Ok(Done {
         view: View::Ran(Ran { said, checks }),
         problem,
     })
 }
 
-/// Runs `plan` as root through the host: one prompt.
+/// Runs `plan` as root through the host: one prompt. Always the host, even when this process is root already (the
+/// real host runs it by its own shell then): a test's recorder must never be bypassed.
 pub(crate) fn run(ctx: &Ctx<'_>, plan: &Plan) -> Result<(), Diagnostic> {
-    let mut runner = machine::runner(ctx);
-    let mut sink = Vec::new();
-    let mut o = Options {
-        out: &mut sink,
-        how: How::With(&mut runner),
-    };
-    run_plan(&mut o, plan).map_err(|e| machine::failed(&e))
+    ctx.host
+        .privileged(plan, machine::prompt(ctx))
+        .map_err(|r| machine::refused(&r, plan))
 }
 
 /// `doze dns-setup --uninstall`: the zone's setup, every recorded route and every doze authority's trust, in one

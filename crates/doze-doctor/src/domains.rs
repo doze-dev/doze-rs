@@ -103,21 +103,28 @@ pub fn checks(m: &Machine, stack: Option<&StackDomains>) -> Vec<Check> {
     };
     let stack = stack.unwrap_or(&empty);
     let auth = Authority::probe(home);
+    let uses = uses_doze_ca(home, stack);
     let mut out = Vec::new();
     if !stack.domains.is_empty() {
-        if let Some(why) = &auth.broken {
-            out.push(
+        let says =
+            |state, detail: &str| Check::new("domains: certificate authority", state, detail);
+        match (&auth.broken, uses, &auth.ca) {
+            (Some(why), _, _) => out.push(
                 Check::step("domains: certificate authority", false, why.clone()).fix(FIX_ROTATE),
-            );
-        } else if auth.ca.is_none() {
-            out.push(Check::new(
-                "domains: certificate authority",
+            ),
+            (None, None, _) => out.push(says(
+                State::NotChecked,
+                "whether a domain is served from the doze authority is known once the stack is up",
+            )),
+            (None, Some(true), None) => out.push(says(
                 State::NotChecked,
                 "none made yet: the daemon makes it when a stack serves a domain over https",
-            ));
+            )),
+            _ => {}
         }
     }
-    let req = request(home, stack, auth.ca);
+    let ca = auth.ca.filter(|_| uses == Some(true));
+    let req = request(home, stack, ca);
     if req.domains.is_empty() && req.prune.is_empty() {
         return out;
     }
@@ -150,4 +157,20 @@ pub fn checks(m: &Machine, stack: Option<&StackDomains>) -> Vec<Check> {
 /// Whether the stack's domains need nothing done.
 pub fn set_up(m: &Machine, stack: Option<&StackDomains>) -> bool {
     checks(m, stack).iter().all(|c| c.state != State::Fail)
+}
+
+/// Whether the stack serves a domain from the doze authority, so the authority must be trusted here (Go `usesDozeCA`:
+/// a domain without the person's own certificate). Its daemon registers each domain in the zone with the certificate
+/// the person brought, if any; `None` while none is registered (the stack is not up), when nothing says.
+pub fn uses_doze_ca(home: &Path, stack: &StackDomains) -> Option<bool> {
+    let zone = Registry::open(home, "doze doctor");
+    let found: Vec<doze_names::Entry> = stack
+        .domains
+        .iter()
+        .filter_map(|d| zone.lookup(d))
+        .collect();
+    if found.is_empty() {
+        return None;
+    }
+    Some(found.iter().any(|e| e.cert.is_empty()))
 }

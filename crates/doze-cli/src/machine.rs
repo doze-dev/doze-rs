@@ -37,34 +37,25 @@ pub(crate) fn prompt(ctx: &Ctx<'_>) -> bool {
     ctx.var(PROMPT_ENV).as_deref() == Some("1")
 }
 
-/// A runner for `doze_names` that hands the plan to the host.
-pub(crate) fn runner<'a>(ctx: &'a Ctx<'_>) -> impl FnMut(&Plan) -> io::Result<()> + 'a {
-    let ask = prompt(ctx);
-    move |plan: &Plan| {
-        ctx.host
-            .privileged(plan, ask)
-            .map_err(|r| io::Error::other(r.to_string()))
+/// What a refused or failed privileged run says: a cancelled prompt in the words the app looks for (exit 1), no way
+/// to ask (exit 10), a failed script with what it was for (exit 10).
+pub(crate) fn refused(r: &Refused, plan: &Plan) -> Diagnostic {
+    match r {
+        Refused::Cancelled => Diagnostic::new(ids::PROMPT_CANCELLED, CANCELLED)
+            .note("nothing more was changed; run the command again to finish"),
+        Refused::Unsupported => {
+            Diagnostic::new(ids::NO_PROMPT, r.to_string()).fix("run it in a terminal")
+        }
+        Refused::Failed(why) => Diagnostic::new(
+            ids::PRIVILEGED_FAILED,
+            format!("the privileged step failed ({}): {why}", plan.what),
+        ),
     }
 }
 
-/// What a failed setup run says: a cancelled prompt in the words the app looks for, a failed script with what it was
-/// for.
+/// What a setup step that is not the script says (reading the machine, the authority's files).
 pub(crate) fn failed(e: &doze_names::Error) -> Diagnostic {
-    let text = e.to_string();
-    if text.contains(CANCELLED) {
-        return Diagnostic::new(ids::PROMPT_CANCELLED, CANCELLED)
-            .note("nothing more was changed; run the command again to finish");
-    }
-    if text.contains("no way to ask for an administrator") {
-        return Diagnostic::new(ids::NO_PROMPT, text).fix("run it in a terminal");
-    }
-    match e {
-        doze_names::Error::Privileged { what, why } => Diagnostic::new(
-            ids::PRIVILEGED_FAILED,
-            format!("the privileged step failed ({what}): {why}"),
-        ),
-        _ => Diagnostic::new(ids::SETUP_FAILED, text),
-    }
+    Diagnostic::new(ids::SETUP_FAILED, e.to_string())
 }
 
 /// `--check` found something missing: exit 1 with the command that sets it up.
@@ -73,25 +64,52 @@ pub(crate) fn missing(what: &str, fix: &str) -> Diagnostic {
         .fix(format!("{fix} (one sudo)"))
 }
 
-/// Runs `plan` as root on the real machine (the real process's [`crate::Host::privileged`]).
+/// Runs `plan` as root on the real machine (the real process's [`crate::Host::privileged`]): its own shell when it is
+/// root already, the system's prompt when asked for and there is one (Go `adminprompt.Requested`), else sudo on the
+/// terminal. What the script prints goes to stderr, so `--json`'s stdout is the envelope alone.
 pub(crate) fn run_as_root(plan: &Plan, prompt: bool) -> Result<(), Refused> {
-    if prompt && plan.shell == Shell::Sh && !doze_os::privilege::is_privileged().unwrap_or(false) {
-        use doze_os::privilege::{AdminError, admin, admin_supported};
-        if admin_supported() {
+    use doze_os::privilege::{AdminError, admin, admin_supported, is_privileged};
+    let root = is_privileged().unwrap_or(false);
+    if plan.shell == Shell::Sh {
+        if !root && prompt && admin_supported() {
             return admin(&plan.what, &plan.script).map_err(|e| match e {
                 AdminError::Cancelled => Refused::Cancelled,
                 AdminError::Unsupported => Refused::Unsupported,
                 AdminError::Failed(why) => Refused::Failed(why),
             });
         }
+        let mut c = if root {
+            std::process::Command::new("sh")
+        } else {
+            eprintln!("doze needs sudo once: {}", plan.what);
+            let mut s = std::process::Command::new("sudo");
+            s.arg("sh");
+            s
+        };
+        c.arg("-c").arg(&plan.script).stdout(io::stderr());
+        return match c.status() {
+            Ok(s) if s.success() => Ok(()),
+            Ok(s) => Err(Refused::Failed(format!("the script exited with {s}"))),
+            Err(e) => Err(Refused::Failed(e.to_string())),
+        };
     }
-    // A terminal's sudo, the process's own shell when it is root already, UAC on Windows.
+    // PowerShell (Windows): UAC through doze-names, or the process's own shell when elevated already.
     let mut err = io::stderr();
-    let how = if prompt { How::Prompt } else { How::Terminal };
-    let mut o = Options { out: &mut err, how };
-    doze_names::setup::run_plan(&mut o, plan).map_err(|e| match e {
-        doze_names::Error::Privileged { why, .. } => Refused::Failed(why.to_string()),
-        other => Refused::Failed(other.to_string()),
+    let mut o = Options {
+        out: &mut err,
+        how: How::Prompt,
+    };
+    doze_names::setup::run_plan(&mut o, plan).map_err(|e| {
+        let why = match e {
+            doze_names::Error::Privileged { why, .. } => why.to_string(),
+            other => other.to_string(),
+        };
+        // ERROR_CANCELLED (1223): the person said no to UAC.
+        if why.contains("1223") || why.to_ascii_lowercase().contains("cancel") {
+            Refused::Cancelled
+        } else {
+            Refused::Failed(why)
+        }
     })
 }
 

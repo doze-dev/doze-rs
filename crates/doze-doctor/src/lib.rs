@@ -37,8 +37,8 @@ pub struct Check {
     /// prefixes are the machine contract the app's Settings › Machine reads (Go's doctor names them so).
     pub name: String,
     pub state: State,
-    /// Whether it is not failing (Go's `ok`, which the app reads). A check that could not be made is not failing, and
-    /// is still not a tick: `state` says which.
+    /// Whether it was verified to be fine (Go's `ok`, which the app reads): a check that could not be made is not `ok`,
+    /// so the app never shows it as a tick; `state` says whether it failed or was not looked at.
     pub ok: bool,
     pub detail: String,
     /// The command that puts it right, when one does.
@@ -51,7 +51,7 @@ impl Check {
         Check {
             name: name.into(),
             state,
-            ok: state != State::Fail,
+            ok: matches!(state, State::Ok | State::Warn),
             detail: detail.into(),
             fix: None,
         }

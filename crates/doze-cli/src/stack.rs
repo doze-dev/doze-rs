@@ -127,10 +127,16 @@ pub(crate) fn check_names(snap: &Snapshot, names: &[String]) -> Result<(), Diagn
 /// "the stack has no service called …", with the ones it has.
 pub(crate) fn not_declared(snap: &Snapshot, name: &str) -> Diagnostic {
     let all: Vec<&str> = declared(snap).map(|v| v.name.as_str()).collect();
+    let owned: Vec<String> = all.iter().map(|s| (*s).to_owned()).collect();
     let d = Diagnostic::new(
         ids::NO_SUCH_SERVICE,
         format!("the stack has no service called {name:?}"),
     );
+    // A typo gets the name it is closest to, first (as clap does for commands).
+    let d = match crate::suggest::nearest(name, &owned) {
+        Some(near) => d.note(format!("did you mean {near:?}?")),
+        None => d,
+    };
     if all.is_empty() {
         d.note("it declares none").fix("doze add <module>")
     } else {
@@ -167,10 +173,23 @@ pub(crate) fn known_on_disk(stack: &Stack, name: &str) -> Result<(), Diagnostic>
     {
         return Ok(());
     }
-    Err(Diagnostic::new(
+    let known: Vec<String> = std::fs::read_dir(doze_logstore::dir_of(stack.key.dir()))
+        .map(|d| {
+            d.flatten()
+                .filter(|e| e.path().is_dir())
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect()
+        })
+        .unwrap_or_default();
+    let d = Diagnostic::new(
         ids::NO_SUCH_SERVICE,
         format!("nothing here knows a service called {name:?}"),
-    )
-    .note("doze is not running, and no log or journal of the stack names it")
-    .fix("doze status"))
+    );
+    let d = match crate::suggest::nearest(name, &known) {
+        Some(near) => d.note(format!("did you mean {near:?}?")),
+        None => d,
+    };
+    Err(d
+        .note("doze is not running, and no log or journal of the stack names it")
+        .fix("doze status"))
 }

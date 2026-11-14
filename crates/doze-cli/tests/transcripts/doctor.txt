@@ -22,6 +22,7 @@ json:
 |   "command": "doze doctor",
 |   "ok": false,
 |   "data": {
+|     "ok": false,
 |     "checks": [
 |       {
 |         "name": "platform",
@@ -38,7 +39,7 @@ json:
 |       {
 |         "name": "config",
 |         "state": "not_checked",
-|         "ok": true,
+|         "ok": false,
 |         "detail": "{sandbox}/project/doze.hcl found; what is in it is checked by doze lint, which needs the core"
 |       },
 |       {

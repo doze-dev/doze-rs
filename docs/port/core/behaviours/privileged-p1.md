@@ -37,3 +37,23 @@ the commands in-process with a recorder in place of root (`crates/doze-cli/tests
 - **Not yet in doctor**: the leftovers sweep of processes, sockets and data folders (the app's Settings › Machine has
   it, `doze-desk/src/settings/leftovers`); the port-holder lines and the system-resolver probe of a stack's names
   (both need the stack's ports and names from doze.hcl, H3).
+
+## After the independent audit (2026-11-14)
+
+Fixed: the script always goes through the CLI's `Host` (a root process no longer bypassed a test's recorder);
+`doctor --fix` exits 10 when a part, names or domains, is still missing after the run; `trust --rotate` is refused with
+`--check` or `--dry-run` (it used to make the new authority before looking); a plain `trust` with a broken authority
+says so (exit 10, fix `doze trust --rotate`); the authority is trusted only when a domain is served from it (the daemon
+registers each domain with the person's own certificate, if any: Go `usesDozeCA`), so a left-over root is never added to
+the system's store; a not-checked line is `ok: false`, so the app never shows it as a tick; `DOZE_ADMIN_PROMPT=1` with no
+system prompt (a Linux machine without a desktop) falls back to sudo, as Go's `Requested()` does; what the script prints
+goes to stderr, so `--json` stays one envelope; a UAC "no" reads as a cancel; `trust --remove` forgets the stack in the
+routes record only after its routes are gone; a part that cannot be planned (no setup on this system, a broken
+authority) is said and the rest is still repaired; `doctor --dry-run` without `--fix` is a usage error; `data.ok` is
+back in `doctor --json`; the owner script keeps the System keychain's doze roots and trusts them again afterwards.
+
+More differences from Go, by design:
+- **`doctor` outside a project** reports a missing `.doze` setup as a warning, not a failure: a machine that never ran
+  `dns-setup` is not broken. Inside a project the parts fail, until doze.hcl is read (H3) and they can be limited to a
+  stack that uses names, as Go did.
+- **`--rotate` with `--check` or `--dry-run`** is a usage error (Go rotated before looking).

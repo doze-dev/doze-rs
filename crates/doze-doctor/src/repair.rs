@@ -36,24 +36,38 @@ pub struct Repair {
     pub parts: Vec<Part>,
     /// Routes the stack wants that another program on the machine owns: never touched, said.
     pub foreign: Vec<String>,
+    /// What cannot be repaired here and why (the zone cannot be set up on this system, the authority is broken): said,
+    /// and the rest is still repaired.
+    pub cannot: Vec<String>,
     request: Option<TrustRequest>,
 }
 
-/// The repair for what is missing on `m` for `stack`: nothing when everything is in place.
-pub fn plan(m: &Machine, stack: Option<&StackDomains>) -> Result<Repair, Error> {
-    let mut parts = Vec::new();
-    if !m.zone_off
-        && !names::set_up(m)
-        && let Some(plan) = m.setup.install_plan()?
-    {
-        parts.push(Part {
-            kind: Kind::Names,
-            plan,
-        });
+/// The repair for what is missing on `m` for `stack`: nothing when everything is in place. A part that cannot be
+/// planned does not stop the others.
+pub fn plan(m: &Machine, stack: Option<&StackDomains>) -> Repair {
+    let (mut parts, mut cannot) = (Vec::new(), Vec::new());
+    if !m.zone_off && !names::set_up(m) {
+        match m.setup.install_plan() {
+            Ok(Some(plan)) => parts.push(Part {
+                kind: Kind::Names,
+                plan,
+            }),
+            Ok(None) => {}
+            Err(e) => cannot.push(format!("the .doze names: {e}")),
+        }
     }
     let (mut foreign, mut request) = (Vec::new(), None);
     if let Some(stack) = stack.filter(|s| !s.domains.is_empty()) {
-        let req = domains::request(m.home(), stack, Authority::probe(m.home()).ca);
+        let auth = Authority::probe(m.home());
+        if let Some(why) = &auth.broken {
+            cannot.push(format!(
+                "the certificate authority: {why} (doze trust --rotate)"
+            ));
+        }
+        let ca = auth
+            .ca
+            .filter(|_| domains::uses_doze_ca(m.home(), stack) == Some(true));
+        let req = domains::request(m.home(), stack, ca);
         let (plan, theirs) = trust_plan(m.setup.os, &req);
         foreign = theirs;
         if let Some(plan) = plan {
@@ -64,11 +78,12 @@ pub fn plan(m: &Machine, stack: Option<&StackDomains>) -> Result<Repair, Error> 
             request = Some(req);
         }
     }
-    Ok(Repair {
+    Repair {
         parts,
         foreign,
+        cannot,
         request,
-    })
+    }
 }
 
 impl Repair {
@@ -118,6 +133,10 @@ impl Repair {
 pub fn combine<'a>(plans: impl IntoIterator<Item = &'a Plan>) -> Option<Plan> {
     let plans: Vec<&Plan> = plans.into_iter().collect();
     let (first, rest) = plans.split_first()?;
+    // One script runs in one shell: plans of different shells are never combined (they cannot come from one system).
+    if rest.iter().any(|p| p.shell != first.shell) {
+        return None;
+    }
     if rest.is_empty() {
         return Some((*first).clone());
     }

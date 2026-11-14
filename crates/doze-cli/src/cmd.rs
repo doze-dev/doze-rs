@@ -54,6 +54,11 @@ pub(crate) fn dispatch(
     match cmd {
         Cmd::Version => version::run(),
         Cmd::Completion(c) => Ok(Done::ok(View::Raw(completion(c.shell)))),
+        Cmd::Doctor(d) if d.dry_run && !d.fix && !d.print_fix => Err(crate::diag::Diagnostic::new(
+            crate::diag::ids::USAGE,
+            "--dry-run goes with --fix: doctor itself changes nothing",
+        )
+        .fix("doze doctor --fix --dry-run")),
         Cmd::Doctor(d) if d.fix || d.print_fix => setup::fix(ctx, mode, d.dry_run || d.print_fix),
         Cmd::Doctor(_) => doctor::run(ctx, mode),
         Cmd::DnsSetup(a) => setup::dns_setup(ctx, &a),

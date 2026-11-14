@@ -18,7 +18,18 @@ use serde::Serialize;
 /// What `doctor` shows.
 #[derive(Debug, Clone, Serialize)]
 pub struct Report {
+    /// Whether every check was verified fine (Go's `data.ok`).
+    pub ok: bool,
     pub checks: Vec<Check>,
+}
+
+impl Report {
+    pub(crate) fn new(checks: Vec<Check>) -> Report {
+        Report {
+            ok: checks.iter().all(|c| c.ok),
+            checks,
+        }
+    }
 }
 
 pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode) -> Outcome {
@@ -30,7 +41,19 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode) -> Outcome {
     checks.extend(config(found.as_ref()));
     checks.push(registry(ctx));
     let m = machine::machine(ctx);
-    checks.extend(doze_doctor::names::checks(&m));
+    // Outside a project the zone is only worth knowing about: a machine that never ran dns-setup is not broken (Go
+    // listed these only for a stack using names). Inside one, until doze.hcl is read (H3), a missing part fails.
+    checks.extend(doze_doctor::names::checks(&m).into_iter().map(|c| {
+        if found.is_none() && c.state == State::Fail {
+            Check {
+                state: State::Warn,
+                ok: true,
+                ..c
+            }
+        } else {
+            c
+        }
+    }));
     if let Some(p) = &found {
         checks.push(daemon(ctx, p));
         let stack = StackDomains::recorded(m.home(), &p.dir);
@@ -57,7 +80,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode) -> Outcome {
         })
     };
     Ok(Done {
-        view: View::Doctor(Report { checks }),
+        view: View::Doctor(Report::new(checks)),
         problem,
     })
 }

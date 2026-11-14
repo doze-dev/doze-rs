@@ -167,7 +167,10 @@ fn the_repair_is_one_prompt_for_the_zone_and_the_domains() {
     let first = ran.stdout.lines().next().unwrap();
     assert!(first.contains("; and "), "{first}");
     assert!(first.contains(DOMAIN), "{first}");
-    let _ = doze(&sb, &host, &["doctor", "--fix"]);
+    // Nothing really ran behind the recorder: the parts still missing make it exit 10, never a pass.
+    let ran = doze(&sb, &host, &["doctor", "--fix"]);
+    assert_eq!(ran.code, 10, "{}\n{}", ran.stdout, ran.stderr);
+    assert!(ran.stderr.contains("setup ran, but"), "{}", ran.stderr);
     let got = handed(&host);
     assert_eq!(got.len(), 1, "one prompt: {got:?}");
     assert!(got[0].1.contains(DOMAIN));
@@ -239,4 +242,53 @@ fn uninstall_shows_and_runs_one_script() {
 #[test]
 fn the_daemon_word_is_a_command() {
     assert!(doze_cli::is_command(doze_names::HELPER_ARG));
+}
+
+/// A look or a dry run never makes an authority: `--rotate` with either is refused before anything happens.
+#[test]
+fn rotate_never_runs_with_check_or_dry_run() {
+    let (sb, host) = machine();
+    record_domain(&sb);
+    for extra in ["--check", "--dry-run", "--print"] {
+        let ran = doze(&sb, &host, &["trust", "--rotate", extra]);
+        assert_eq!(ran.code, 2, "{extra}: {}", ran.stderr);
+    }
+    assert!(!sb.home().join("ca").exists(), "no authority was made");
+    assert!(handed(&host).is_empty());
+}
+
+/// The authority is trusted only when a domain is served from it: with the stack down nothing says so, and the
+/// script routes the domain alone, even with an authority on disk.
+#[test]
+fn an_authority_no_domain_uses_is_not_trusted() {
+    let (sb, host) = machine();
+    record_domain(&sb);
+    doze_names::ca::Ca::load_or_create(&doze_names::ca::ca_dir(&sb.home())).unwrap();
+    let ran = doze(&sb, &host, &["trust", "--dry-run"]);
+    assert_eq!(ran.code, 0, "{}", ran.stderr);
+    assert!(ran.stdout.contains(DOMAIN), "{}", ran.stdout);
+    assert!(
+        !ran.stdout.contains("certificate authority"),
+        "{}",
+        ran.stdout
+    );
+}
+
+/// A cancelled `trust --remove` leaves the record as it was, so the routes are not taken for stale.
+#[test]
+fn a_cancelled_remove_keeps_the_record() {
+    let (sb, mut host) = machine();
+    record_domain(&sb);
+    host.refuse = Some(Refused::Cancelled);
+    let ran = doze(&sb, &host, &["trust", "--remove"]);
+    assert_eq!(ran.code, 1, "{}", ran.stderr);
+    let stack = doze_doctor::domains::StackDomains::recorded(&sb.home(), &sb.project());
+    assert_eq!(stack.domains, [DOMAIN]);
+}
+
+#[test]
+fn doctor_dry_run_needs_fix() {
+    let (sb, host) = machine();
+    let ran = doze(&sb, &host, &["doctor", "--dry-run"]);
+    assert_eq!(ran.code, 2, "{}", ran.stderr);
 }

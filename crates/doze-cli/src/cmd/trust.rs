@@ -22,14 +22,28 @@ use doze_names::routes::Routes;
 use doze_names::setup::trust::{TrustRequest, trust_plan, trust_status, untrust_plan};
 use std::path::Path;
 
-/// `doze trust`.
-pub(crate) fn run_trust(ctx: &mut Ctx<'_>, mode: &Mode, a: &Trust) -> Outcome {
+/// Flags that do not go together.
+fn flags(a: &Trust) -> Result<(), Diagnostic> {
     if a.rotate && a.remove {
         return Err(
             Diagnostic::new(ids::USAGE, "--rotate and --remove do not go together")
                 .fix("doze trust --help"),
         );
     }
+    if a.rotate && (a.check || a.dry_run) {
+        // A rotation makes a new authority at once: a look or a dry run must change nothing.
+        return Err(Diagnostic::new(
+            ids::USAGE,
+            "--rotate makes a new authority, so it does not go with --check or --dry-run",
+        )
+        .fix("doze trust --check, then doze trust --rotate"));
+    }
+    Ok(())
+}
+
+/// `doze trust`.
+pub(crate) fn run_trust(ctx: &mut Ctx<'_>, mode: &Mode, a: &Trust) -> Outcome {
+    flags(a)?;
     let project = crate::cmd::modules::find(ctx, mode)?;
     let m = machine::machine(ctx);
     let home = m.home().to_path_buf();
@@ -46,12 +60,22 @@ pub(crate) fn run_trust(ctx: &mut Ctx<'_>, mode: &Mode, a: &Trust) -> Outcome {
     }
     let mut said = Vec::new();
     let auth = authority(&home, a.rotate, &mut said)?;
-    let mut req = request(&home, &stack, auth.ca);
+    if a.remove {
+        let req = request(&home, &stack, auth.ca);
+        return remove(ctx, &home, &stack, req, (m.setup.os, a.dry_run));
+    }
+    // The authority is trusted only when a domain is served from it (Go `usesDozeCA`), or when it was just made.
+    let used = a.rotate || doze_doctor::domains::uses_doze_ca(&home, &stack) == Some(true);
+    let mut req = request(&home, &stack, auth.ca.filter(|_| used));
     if a.check {
         return Ok(check(&req, auth.broken.as_deref()));
     }
-    if a.remove {
-        return remove(ctx, &home, &stack, req, a.dry_run);
+    if let Some(why) = &auth.broken {
+        return Err(Diagnostic::new(
+            ids::SETUP_FAILED,
+            format!("the certificate authority cannot be used: {why}"),
+        )
+        .fix(doze_doctor::FIX_ROTATE));
     }
     let (plan, foreign) = trust_plan(m.setup.os, &req);
     said.extend(
@@ -73,16 +97,7 @@ pub(crate) fn run_trust(ctx: &mut Ctx<'_>, mode: &Mode, a: &Trust) -> Outcome {
         }
     }
     req.prune.clear();
-    for d in &stack.domains {
-        let any = if wildcard(d) { "  any subdomain," } else { " " };
-        said.push(format!("✓ https://{d}{any} once the stack is up"));
-    }
-    if a.rotate {
-        said.push(
-            "› processes already running trust the old authority: restart the stack to have them read the new one"
-                .into(),
-        );
-    }
+    said.extend(after_lines(&stack.domains, a.rotate));
     let checks = steps(&req);
     // A tick only for what is in place: a script that ran and left a part missing is said, not passed over.
     let problem = checks.iter().find(|c| c.state == State::Fail).map(|c| {
@@ -95,6 +110,24 @@ pub(crate) fn run_trust(ctx: &mut Ctx<'_>, mode: &Mode, a: &Trust) -> Outcome {
         view: View::Ran(Ran { said, checks }),
         problem,
     })
+}
+
+/// What a person reads after the run: where each domain answers, and what a rotation means for running processes.
+fn after_lines(domains: &[String], rotated: bool) -> Vec<String> {
+    let mut out: Vec<String> = domains
+        .iter()
+        .map(|d| {
+            let any = if wildcard(d) { "  any subdomain," } else { " " };
+            format!("✓ https://{d}{any} once the stack is up")
+        })
+        .collect();
+    if rotated {
+        out.push(
+            "› processes already running trust the old authority: restart the stack to have them read the new one"
+                .into(),
+        );
+    }
+    out
 }
 
 /// The authority to trust: a new one with `--rotate` (whatever state the old one is in), else the one there is. Only
@@ -151,7 +184,7 @@ fn check(req: &TrustRequest, broken: Option<&str>) -> Done {
         doze_doctor::FIX_DOMAINS
     };
     Done {
-        view: View::Doctor(Report { checks }),
+        view: View::Doctor(Report::new(checks)),
         problem: (!ok).then(|| machine::missing("the domains are", fix)),
     }
 }
@@ -163,7 +196,7 @@ fn remove(
     home: &Path,
     stack: &StackDomains,
     mut req: TrustRequest,
-    dry_run: bool,
+    (os, dry_run): (doze_names::setup::Os, bool),
 ) -> Outcome {
     let routes = Routes::open(home);
     let others = |d: &String| routes.claimants(d).iter().any(|c| *c != stack.dir);
@@ -181,19 +214,28 @@ fn remove(
     } else {
         req.ca = None; // another stack still serves a domain from it
     }
-    let plan = untrust_plan(doze_names::setup::Os::native(), &req);
+    let plan = untrust_plan(os, &req);
     if dry_run {
         return Ok(Done::ok(View::Script(Script {
             applies_with: "doze trust --remove".into(),
             plan,
         })));
     }
-    let _ = routes.forget_project(&stack.dir);
+    // The record forgets this stack only once its routes are gone: a cancelled prompt leaves both as they were.
+    let forget = || {
+        routes
+            .forget_project(&stack.dir)
+            .map_err(|e| machine::failed(&e))
+    };
     let mut said = Vec::new();
     match plan {
-        None => said.push("nothing to remove".into()),
+        None => {
+            forget()?;
+            said.push("nothing to remove".into());
+        }
         Some(plan) => {
             run(ctx, &plan)?;
+            forget()?;
             for d in &req.domains {
                 routes.removed(d).map_err(|e| machine::failed(&e))?;
             }

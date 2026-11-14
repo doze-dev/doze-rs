@@ -279,6 +279,13 @@ jobs:
       # Builds release, measures size, packages and idle memory, and fails over the limits in xtask/weight-limits.txt
       # (the doze-kafka line is the console build; see the comment above).
       - run: cargo xtask weight
+
+  # The CLI-only doze, in a job of its own so its line is judged whatever the other binaries do.
+  weight-doze:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
       # The CLI-only doze (core plan §6.3: a 9 MB line under the 10 MB ceiling). P1 measured 4,986,168 B and 185 packages
       # on Linux aarch64 (the Lima VM); the package line leaves room for the core's crates as they land (weight.md).
       - name: doze (the CLI) under 9 MB

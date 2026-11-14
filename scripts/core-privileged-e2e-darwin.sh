@@ -68,6 +68,11 @@ restore() {
     sudo tar -xpf "$BACKUP/keep.tar" -C /
     [[ -f $JOB ]] && sudo launchctl bootstrap system "$JOB"
   fi
+  # The doze roots the System keychain trusted before the run (Go's ~/.doze/ca among them): trust --remove and
+  # uninstall take every doze root away, so each is trusted again.
+  for pem in "$BACKUP"/root-*.pem; do
+    [[ -f $pem ]] && sudo security add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain "$pem" && echo "    trusted again: $(basename "$pem")"
+  done
   sudo launchctl print system/dev.doze.netd >/dev/null 2>&1 && echo "    Go's daemon: running" || echo "    Go's daemon: not installed"
   echo "    work folder (kept for its logs): $WORK"
 }
@@ -79,6 +84,10 @@ if [[ ${#existing[@]} -gt 0 ]]; then
   sudo tar -cpf "$BACKUP/keep.tar" -C / "${existing[@]}"
   echo "==> kept Go's setup: ${existing[*]}"
 fi
+# Keep the doze roots the System keychain trusts now (restore() trusts them again).
+security find-certificate -a -c "doze" -p /Library/Keychains/System.keychain 2>/dev/null \
+  | awk -v d="$BACKUP" '/BEGIN CERT/{n++} n{print > (d "/root-" n ".pem")}'
+ls "$BACKUP"/root-*.pem >/dev/null 2>&1 && echo "==> kept the trusted doze roots: $(ls "$BACKUP"/root-*.pem | wc -l | tr -d ' ')"
 trap restore EXIT
 
 step "doze dns-setup --check (before: reports what is missing, exit 1 is expected)"
