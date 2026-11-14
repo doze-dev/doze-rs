@@ -308,10 +308,8 @@ pub(crate) fn sheet(t: &Tokens, version: &str, height: f32) -> impl IntoElement 
         .line_height(px(ty::LH_18))
         .overflow_hidden()
         .rounded(px(14.))
-        .border_1()
-        .border_color(t.line2)
-        .bg(t.panel)
-        .shadow(super::shadow(t))
+        .relative()
+        .child(super::scrim::grown_frame(t, t.line2, 14., "help-frame"))
         .child(
             div()
                 .text_size(px(ty::LG))

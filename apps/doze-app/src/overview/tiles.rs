@@ -13,7 +13,8 @@ use crate::instance::ui::state_mark;
 use crate::kit::{chip_of, s, word_line};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, dot, icon, switch, tracked};
+use crate::widgets::{MONO_FAMILY, dot, icon, switch, tip, tracked};
+use doze_desk::overview::titles;
 
 /// Tiles to a row at the window's width.
 pub(super) fn per_row(v: &OverviewView) -> usize {
@@ -93,9 +94,11 @@ pub(super) fn row_switch(
             .on_click(say)
             .into_any_element();
     }
-    if r.paused {
+    if r.paused && !r.down {
         // `.lock`: the glyph in a dashed pill the size of a switch; only the file brings it back.
         return div()
+            .id(id)
+            .tooltip(tip(titles::LOCK))
             .flex_none()
             .w(px(34.))
             .h(px(18.))
@@ -121,6 +124,7 @@ pub(super) fn row_switch(
             false,
             r.off || r.frozen,
         ))
+        .tooltip(tip(titles::switch(r)))
         .when(!r.frozen, |d| d.cursor_pointer().on_click(say))
         .probe(
             format!("sw-{}", r.name),
@@ -129,8 +133,17 @@ pub(super) fn row_switch(
         .into_any_element()
 }
 
-/// `.toolbar .filter`: the filter box and its key.
+/// `.toolbar .filter`: the filter box and its key. With the keys in it, its frame takes the accent's tint, easing
+/// over 120 ms (Go `.filter:focus-within`, `transition: border-color 120ms`).
 pub(super) fn filter(t: &Tokens, v: &OverviewView) -> impl IntoElement {
+    let (frame, moving) = crate::motion::colour(
+        "overview/filter/border",
+        if v.filter_on {
+            mix(t.accent, t.line2, 45.)
+        } else {
+            t.line2
+        },
+    );
     div().flex().flex_none().px(px(28.)).pb(px(14.)).child(
         div()
             .flex()
@@ -142,8 +155,9 @@ pub(super) fn filter(t: &Tokens, v: &OverviewView) -> impl IntoElement {
             .pr(px(8.))
             .rounded(px(7.))
             .border_1()
-            .border_color(t.line2)
+            .border_color(frame)
             .bg(t.well)
+            .child(crate::motion::tick(moving))
             .child(
                 div().flex_1().child(
                     Input::new(&v.filter)

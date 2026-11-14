@@ -190,13 +190,13 @@ impl Tokens {
         })
     }
 
-    /// The scrim under an overlay: the palette's darkest ink, a third opaque in the dark (`.scrim.top`), lighter in
-    /// the light.
+    /// The scrim under an overlay: the palette's darkest ink at .35 (Go `.scrim.top`: rgba(9, 8, 14, .35) in either
+    /// mode); in the light the darkest ink is the bright one.
     pub(crate) fn scrim(&self) -> Hsla {
         if self.dark {
-            alpha(mix(self.well, gpui::black(), 50.), 0.42)
+            alpha(mix(self.well, gpui::black(), 50.), 0.35)
         } else {
-            alpha(self.bright, 0.28)
+            alpha(self.bright, 0.35)
         }
     }
 

@@ -13,6 +13,7 @@ mod pane;
 pub mod refs;
 mod shape;
 mod stopped;
+pub mod titles;
 mod vitals;
 
 pub(crate) use config::on_file;

@@ -51,6 +51,25 @@ impl Attention {
             .filter(|i| i.red && !i.fixed && i.key == key)
             .count()
     }
+
+    /// What the bell says (Go bell.tsx `label`): "Needs you: 2 broken now, 1 worth doing", "Needs you: 1 worth
+    /// doing", "Needs you: nothing". Its hover title adds "  ⌘⇧N".
+    #[must_use]
+    pub fn bell_label(&self) -> String {
+        let (red, yellow) = (self.red, self.yellow);
+        if red > 0 {
+            let more = if yellow > 0 {
+                format!(", {yellow} worth doing")
+            } else {
+                String::new()
+            };
+            format!("Needs you: {red} broken now{more}")
+        } else if yellow > 0 {
+            format!("Needs you: {yellow} worth doing")
+        } else {
+            "Needs you: nothing".to_owned()
+        }
+    }
 }
 
 /// One thing that needs the person.

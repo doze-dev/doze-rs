@@ -100,15 +100,22 @@ impl Root {
         }
     }
 
-    /// A terminal in a folder.
+    /// A terminal in a folder: Terminal on macOS, the desktop's own elsewhere (Go `OpenTerminal`).
     fn terminal(&mut self, dir: &str, cx: &mut Context<Self>) {
+        if !std::path::Path::new(dir).is_dir() {
+            self.say(format!("{dir} is not a folder"), cx);
+            return;
+        }
         #[cfg(target_os = "macos")]
         let ok = std::process::Command::new("open")
             .args(["-a", "Terminal", dir])
             .spawn()
             .is_ok();
         #[cfg(not(target_os = "macos"))]
-        let ok = false;
+        let ok = std::process::Command::new("x-terminal-emulator")
+            .current_dir(dir)
+            .spawn()
+            .is_ok();
         if !ok {
             self.say(format!("No terminal could be opened in {dir}."), cx);
         }

@@ -91,6 +91,7 @@ pub(super) fn col_head(t: &Tokens, v: &OverviewView, ci: usize, c: &GridCol) -> 
                     .text_size(px(ty::XS))
                     .line_height(px(ty::LH_14))
                     .text_color(t.dim)
+                    .font_features(ty::tabular())
                     .child(s(
                         r.map_or(" ", |r| if r.mem.is_empty() { " " } else { &r.mem })
                     )),
@@ -156,6 +157,7 @@ pub(super) fn row_head(t: &Tokens, v: &OverviewView, ri: usize, row: &GridRow) -
                 .text_size(px(ty::SM_UP))
                 .font_weight(ty::SEMIBOLD)
                 .text_color(t.dim)
+                .font_features(ty::tabular())
                 .child(s(m)),
         );
     }

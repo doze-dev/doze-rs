@@ -134,7 +134,7 @@ impl Root {
             map,
             tabs: Vec::new(),
             opened: Vec::new(),
-            hidden: Vec::new(),
+            hidden: Root::closed_tabs(),
             overlay: None,
             inside: None,
             acts: acts.clone(),
@@ -215,6 +215,7 @@ impl Root {
         let Some(v) = self.hub.stacks().into_iter().find(|s| s.name == name) else {
             return false;
         };
+        crate::prefs::note_dir(&v.dir);
         self.go(Screen::Stack(v.key), window, cx);
         if let Some(card) = show {
             self.select(card, cx);
@@ -224,6 +225,9 @@ impl Root {
 
     /// Shows the stack `key`.
     pub(crate) fn show_key(&mut self, key: StackKey, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(st) = self.hub.stack(&key) {
+            crate::prefs::note_dir(&st.dir);
+        }
         self.go(Screen::Stack(key), window, cx);
     }
 
@@ -255,6 +259,7 @@ impl Root {
         } else {
             dir.parent().map(PathBuf::from).unwrap_or_default()
         };
+        crate::prefs::note_dir(&dir.to_string_lossy());
         match self
             .hub
             .stacks()

@@ -37,9 +37,9 @@ use gpui_component::input::{InputEvent, InputState};
 pub(crate) use banners::stale_banner;
 
 use crate::actions::{
-    ChooseStart, CopyAddress, DismissFailure, FilterRows, MoveDown, MoveLeft, MoveRight, MoveUp,
-    OpenRowService, OpenService, PinIt, RestartIt, SleepIt, ToggleService, TryAgain, UpAsLastTime,
-    ViewGrid, ViewList, ViewMap, ViewTiles, WakeIt,
+    ChooseStart, CloseOverlay, CopyAddress, DismissFailure, FilterRows, MoveDown, MoveLeft,
+    MoveRight, MoveUp, OpenRowService, OpenService, PinIt, RestartIt, SleepIt, ToggleService,
+    TryAgain, UpAsLastTime, ViewGrid, ViewList, ViewMap, ViewTiles, WakeIt,
 };
 use crate::facts::Facts;
 use crate::map::MapView;
@@ -107,6 +107,10 @@ pub(crate) struct OverviewView {
     pub(crate) width: f32,
     /// The failure banner's "What doze printed" is open.
     pub(crate) printed: bool,
+    /// The head's ⋯ menu is open.
+    pub(crate) menu: bool,
+    /// The filter box has the keys (its frame takes the accent's tint).
+    pub(crate) filter_on: bool,
     /// Where the Tiles are scrolled to: held here, so only the person (or a new stack) moves it, never a redraw.
     pub(crate) tiles_scroll: gpui::ScrollHandle,
     /// The List's lines, and its virtual list.
@@ -173,6 +177,8 @@ impl OverviewView {
             watch: None,
             width: 1280.,
             printed: false,
+            menu: false,
+            filter_on: false,
             tiles_scroll: gpui::ScrollHandle::new(),
             items: std::rc::Rc::default(),
             list: gpui::ListState::new(0, gpui::ListAlignment::Top, px(200.)),
@@ -196,6 +202,7 @@ impl OverviewView {
         self.key = key;
         self.stack = None;
         self.selected = None;
+        self.menu = false;
         self.tiles_scroll.set_offset(gpui::point(px(0.), px(0.)));
         self.map.update(cx, |m, cx| m.select(None, cx));
         self.cur = None;
@@ -365,6 +372,7 @@ impl Render for OverviewView {
         let t = tokens(cx);
         let width = f32::from(window.viewport_size().width);
         self.width = width;
+        self.filter_on = self.filter.read(cx).focus_handle(cx).is_focused(window);
         let body = match self.view {
             View::Tiles => tiles::view(&t, self, cx).into_any_element(),
             View::List => list::view(&t, self, cx).into_any_element(),
@@ -386,6 +394,12 @@ impl Render for OverviewView {
             .flex()
             .flex_col()
             .size_full()
+            .when(self.menu, |d| {
+                d.on_action(cx.listener(|this, _: &CloseOverlay, _, cx| {
+                    this.menu = false;
+                    cx.notify();
+                }))
+            })
             .on_action(cx.listener(|this, _: &ViewTiles, _, cx| this.set_view(View::Tiles, cx)))
             .on_action(cx.listener(|this, _: &ViewList, _, cx| this.set_view(View::List, cx)))
             .on_action(cx.listener(|this, _: &ViewMap, _, cx| this.set_view(View::Map, cx)))

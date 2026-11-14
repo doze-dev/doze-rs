@@ -73,7 +73,7 @@ pub(crate) fn boot_ui(cx: &mut App, choice: Choice) {
     cx.set_global(UiReady);
 }
 
-/// The frame of a first open: the main screen's work area.
+/// The frame of a first open: the main screen's work area; with no screen known, Go's 960×640.
 fn first_bounds(cx: &App) -> Bounds<gpui::Pixels> {
     match prefs::frame() {
         Some(f) => Bounds {
@@ -81,7 +81,7 @@ fn first_bounds(cx: &App) -> Bounds<gpui::Pixels> {
             size: size(px(f.w as f32), px(f.h as f32)),
         },
         None => cx.primary_display().map_or_else(
-            || Bounds::centered(None, size(px(1280.), px(800.)), cx),
+            || Bounds::centered(None, size(px(960.), px(640.)), cx),
             |d| d.visible_bounds(),
         ),
     }
