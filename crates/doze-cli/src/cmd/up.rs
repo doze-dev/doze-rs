@@ -33,12 +33,6 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Up, notices: &mut Notices)
     let cfg = stack.loader.shape(&stack.project)?;
     let asked = stack::unique(&a.services);
     check(&cfg, &asked, a)?;
-    // The stack lock, held while the daemon starts and the stack boots, so a `down` never stops it half-way.
-    let lock = if a.dry.dry_run {
-        None
-    } else {
-        Some(stack::lock(ctx, &stack)?)
-    };
     let conn = stack.open(mode.timeout)?;
     // A snapshot that cannot be had is no snapshot (Go's `running = nil`): it only adds to what is remembered.
     let snap = conn.as_ref().and_then(|c| stack::snapshot(c).ok());
@@ -63,11 +57,15 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Up, notices: &mut Notices)
         let plan = dry::wake_as("doze up", &shown, &closure, (&targets, &asked), starts);
         return Ok(Done::ok(View::Plan(plan)));
     }
+    // The stack lock, held while the daemon starts and the stack boots, so a `down` never stops it half-way; taken
+    // after the question, so a `down` elsewhere does not wait on someone's answer.
+    let lock = stack::lock(ctx, &stack)?;
     remember::remember_up(ctx, notices, (&cfg, &dir), &targets, snap.as_ref());
     let conn = match conn {
         Some(c) => c,
         None => start(ctx, mode, &stack)?,
     };
+    let lock = Some(lock);
     boot(ctx, mode, (&stack, &cfg), conn, (&closure, a.follow), lock)
 }
 
@@ -131,8 +129,10 @@ fn boot(
         return Ok(done);
     };
     let p = mode.out();
-    for line in crate::cmd::trust_hint::lines(cfg, p) {
-        r.say(ctx.out, &line);
+    if !mode.json {
+        for line in crate::cmd::trust_hint::lines(cfg, p) {
+            r.say(ctx.out, &line);
+        }
     }
     if !follows {
         let line = format!(

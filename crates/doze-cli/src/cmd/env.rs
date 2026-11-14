@@ -5,7 +5,8 @@
 //! the modules answer, nothing wakes; connecting is what wakes a service), which is said on stderr.
 //!
 //! Go's rules kept: names checked against doze.hcl first (exit 4); a variable two services answer to keeps the first
-//! bare and suffixes the next with its name (`DATABASE_URL_REPORTS`); a stack that serves a domain from the doze
+//! bare and suffixes the next with its name (`DATABASE_URL_REPORTS`), and any other variable two answer keeps the
+//! first answer only (Go added AWS_REGION and the like once); a stack that serves a domain from the doze
 //! authority adds the variables that point clients at it. Go's AWS stand-in credentials are the aws module's to answer.
 
 use crate::cli::args::{Env, Service};
@@ -148,7 +149,11 @@ pub(crate) fn pairs(
         let main = v.env.get_key_value(&v.env_var);
         let rest = v.env.iter().filter(|(k, _)| **k != v.env_var);
         for (var, value) in main.into_iter().chain(rest) {
-            let var = if out.iter().any(|p| &p.var == var) {
+            let taken = out.iter().any(|p| &p.var == var);
+            if value.is_empty() || (taken && *var != v.env_var) {
+                continue; // a shared variable (AWS_REGION) keeps the first answer, as Go added it once
+            }
+            let var = if taken {
                 format!("{var}_{}", suffix(&v.name))
             } else {
                 var.clone()

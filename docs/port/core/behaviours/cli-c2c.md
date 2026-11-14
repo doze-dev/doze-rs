@@ -33,8 +33,8 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
 | 15 | `open --console <name>` (new; the Go dash's `o`, `display.WebURL`): the instance's `console`, else its `web_url`, from the running stack, opened in the browser; with no display (SSH, Linux with none) the address is printed (stdout) for opening elsewhere. A name not declared is exit 4 (checked offline first when doze is stopped), doze stopped is exit 7, an instance without a console exit 1 (DZ0709), a browser that fails exit 10. It has a JSON result (`{name, url, opened}`); plain `open` still has none | transcripts `open`, `open-console`, `open-console-ssh` |
 | 16 | `update`'s hand-over: after `brew upgrade doze`, each running stack, under its lock: what is awake read from its daemon, the daemon stopped as `down` stops it (identified pid only), a new one started from the `doze` on the PATH with the doze.hcl its record names, what was awake woken again. JSON adds `stacks: [{stack, moved, detail}]`; a stack not moved is named with why and the run exits 11. The services stop for that moment (passing listeners on is the daemon's, compat.md rule 5); `--var`s the stack was started with are not carried over | `tests/handover.rs` (the built doze moved to a new daemon, web woken again; a stack with no daemon pid: exit 11) |
 
-| 17 | `env [service…] [--dotenv]`, `url <name>` and `run --env` (Go env.go, `urlCmd`): each module's own answer from the running stack (`InstanceView.env`, `https`/`url`/`endpoint`; D1's catalog at 872e3f18), nothing module-specific in the CLI. Names checked against doze.hcl first (exit 4, 5). With doze stopped the daemon is started for it (as `run` starts it; said on stderr; nothing wakes). Go's output kept: `export VAR='value'  # engine service`, `KEY=value` for `--dotenv`, a JSON list of `{service, engine, var, value}`, url's `{name, url}`; a variable two services answer keeps the first bare and suffixes the next (`_NAME`); the doze authority's four variables for a stack that serves a domain from it. An instance's own variable comes first, then the rest in name order | transcript `env`; `tests/env.rs` (the built doze started, the app not woken) |
-| 18 | `sync [service] [-y]` (Go sync.go) through the daemon's `apply`: names first (exit 4), a question on a terminal, exit 9 with no one to answer and no `-y`, "✓ sync complete". With doze stopped the daemon is started for it and left running (Go ran a runtime of its own and stopped it) | transcript `sync` |
+| 17 | `env [service…] [--dotenv]`, `url <name>` and `run --env` (Go env.go, `urlCmd`): each module's own answer from the running stack (`InstanceView.env`, `https`/`url`/`endpoint`; D1's catalog at 872e3f18), nothing module-specific in the CLI. Names checked against doze.hcl first (exit 4, 5). With doze stopped the daemon is started for it (as `run` starts it; said on stderr; nothing wakes). Go's output kept: `export VAR='value'  # engine service`, `KEY=value` for `--dotenv`, a JSON list of `{service, engine, var, value}`, url's `{name, url}`; an instance's own variable (`env_var`) that two services answer keeps the first bare and suffixes the next (`_NAME`), any other variable keeps the first answer only (Go added AWS_REGION and the like once), an empty value is skipped; the doze authority's four variables for a stack that serves a domain from it. An instance's own variable comes first, then the rest in name order | transcript `env`; `tests/env.rs` (the built doze started, the app not woken) |
+| 18 | `sync [service] [-y]` (Go sync.go) through the daemon's `apply`: names first (exit 4), a question on a terminal, exit 9 with no one to answer and no `-y`, "✓ sync complete". With doze stopped the daemon is started for it and stopped after (as Go's own runtime was). **Listed difference:** Go asked only when its change list was not empty, so a sync with nothing to do was exit 0 without a terminal; with no list on the wire this asks every time (exit 9 without `-y`) | transcript `sync` |
 
 ## Pending (each says so: DZ0001, exit 1)
 
@@ -105,3 +105,31 @@ Open, with reasons:
   coordinator as a listed improvement (row 13), for the owner to veto.
 - `doctor` and `bug` still find the state folder at the default place (they do not load the config).
 - `run/doze.ctl.lock` and `run/doze.log` stay after `down` (the socket and pid file do not).
+
+## Independent audit (2026-11-15, third, at f124cc25)
+
+Fixed:
+
+1. **Major:** `update` could stop every stack when the new doze is broken. It now runs `<new doze> version` first and stops
+   nothing if that fails; after a stack whose new daemon did not start, the rest are left on the old doze. Writing the
+   test for this found a real bug: the halt check was evaluated after the stack had already been handed over. Tests:
+   `tests/handover.rs` `a_new_doze_that_does_not_run_stops_nothing`.
+2. **Major:** `env` suffixed and reordered shared variables (AWS_REGION per aws instance). Only an instance's own variable
+   is suffixed now; the rest keep the first answer; empty values are skipped.
+3. **Major:** `sync` on a stopped stack left the daemon running. It is now stopped after. The exit 9 with no change list
+   is listed (row 18).
+4. A wake failure after a successful hand-over says `moved: true` with the failure in the detail.
+5. `up` takes the lock after the question, not before. `down` waits for the pid file only while it is missing. The
+   broken-config warning no longer claims the stack was stopped. The trust hint is not probed under `--json`. Host
+   `run`'s doc comment is restored.
+
+Open, with reasons:
+
+- On Windows, `env`, `url` and `sync` with doze stopped are DZ0001: they start the daemon, which has no local socket
+  there yet (core plan W). Go read the config offline. This lands with W.
+- `down` waits on the stack lock without a bound while an `up` boots. A wedged boot is ended by Ctrl-C on that `up`.
+- A relative `data_dir` resolves against the current folder (as Go). `update`'s hand-over only finds stacks under
+  `<home>/projects`, so a stack whose state folder is moved is not handed over (it keeps the old doze until restarted).
+- With a broken doze.hcl, `down` looks at the default state folder. A stack that moved it is not found there.
+- The fuzz target checks a stable round trip, not each kept field against its source bytes.
+- doze.hcl is read twice per command (`Stack::find`, then the command).

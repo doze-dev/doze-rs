@@ -51,8 +51,6 @@ pub trait Host {
     fn read_line(&self) -> Option<String> {
         None
     }
-    /// Runs `program` with `args`, this terminal its terminal, and gives its exit code (`doze open` hands the
-    /// command to the app). Nothing is run by default: only the real process and a test's recorder do anything.
     /// [`Host::run`] with `env` added to the program's environment (`doze run --env`).
     fn run_env(
         &self,
@@ -63,6 +61,8 @@ pub trait Host {
         let _ = env;
         self.run(program, args)
     }
+    /// Runs `program` with `args`, this terminal its terminal, and gives its exit code (`doze open` hands the
+    /// command to the app). Nothing is run by default: only the real process and a test's recorder do anything.
     fn run(&self, program: &std::path::Path, args: &[String]) -> io::Result<u8> {
         let _ = (program, args);
         Err(io::Error::new(

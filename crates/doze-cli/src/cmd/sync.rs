@@ -1,8 +1,9 @@
 //! `doze sync [service] [-y]` (Go cmd/doze/sync.go): the stack brought in line with doze.hcl, through the daemon's
 //! `apply` (each module creates what is new, updates what changed, and drops what it applied before and is no longer
 //! declared; a service turned off is left alone). Names are checked against doze.hcl first (exit 4). It can drop data,
-//! so it asks on a terminal and refuses without one unless `-y` (exit 9), as Go does. With doze stopped the daemon is
-//! started for it (Go ran a runtime of its own, then stopped it).
+//! so it asks on a terminal and refuses without one unless `-y` (exit 9). Go asked only when its change list was not
+//! empty; with no list on the wire this asks every time (a listed difference). With doze stopped the daemon is
+//! started for it and stopped after, as Go's own runtime was.
 //!
 //! Go showed the change list before asking, from each module's plan; that list is not on the wire yet, so `--dry-run`
 //! says it waits for it (DZ0001) rather than show a plan it cannot make, and the question names what can change.
@@ -30,11 +31,22 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Sync) -> Outcome {
         let _ = writeln!(ctx.out, "sync cancelled");
         return Ok(Done::ok(View::Silent));
     }
+    let started = stack.open(mode.timeout)?.is_none();
     crate::cmd::env::asked(ctx, mode, &names, "doze sync")?;
     let conn = stack.require(mode.timeout, "doze sync")?;
-    conn.run_verb(Verb::Sync, &target).map_err(|e| {
+    let applied = conn.run_verb(Verb::Sync, &target).map_err(|e| {
         crate::stack::daemon_error(&e, (!target.is_empty()).then_some(target.as_str()))
-    })?;
+    });
+    drop(conn);
+    if started {
+        // Started for this sync: stopped again, as Go's own runtime stopped everything it ran.
+        let _lock = crate::stack::lock(ctx, &stack)?;
+        if let Some(pid) = crate::cmd::down::identify(&stack.key) {
+            crate::cmd::down::stop(pid)?;
+        }
+        crate::cmd::down::clear(&crate::cmd::down::leftovers(&stack.key));
+    }
+    applied?;
     let line = format!("{} sync complete", mode.out().ok("✓"));
     Ok(Done::ok(View::Raw(format!("{line}\n"))))
 }

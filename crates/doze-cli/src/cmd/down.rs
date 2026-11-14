@@ -100,15 +100,16 @@ fn decide(stack: &Stack) -> Result<Found, Diagnostic> {
         return Ok(Found::Daemon(pid));
     }
     if stack.read()?.is_some() {
-        // A daemon that has just started answers a moment before its pid file is written.
+        // A daemon that has just started answers a moment before its pid file is written; a pid file that names
+        // another process is not waited for.
         let waited = Instant::now();
-        while waited.elapsed() < PID_WAIT {
+        while waited.elapsed() < PID_WAIT && !stack.key.pid_file().exists() {
             std::thread::sleep(POLL);
             if let Some(pid) = identify(&stack.key) {
                 return Ok(Found::Daemon(pid));
             }
         }
-        return Ok(Found::Unknown);
+        return Ok(identify(&stack.key).map_or(Found::Unknown, Found::Daemon));
     }
     Ok(Found::Gone(leftovers(&stack.key)))
 }
@@ -153,7 +154,7 @@ fn remember(ctx: &Ctx<'_>, notices: &mut Notices, stack: &Stack) {
         Ok(cfg) => cfg,
         Err(d) => {
             notices.add(format!(
-                "doze.hcl does not load ({}); the stack is stopped anyway, and what was awake is not remembered for the next up",
+                "doze.hcl does not load ({}); down goes on, and what was awake is not remembered for the next up",
                 d.message
             ));
             return;

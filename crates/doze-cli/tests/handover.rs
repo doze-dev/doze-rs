@@ -117,3 +117,43 @@ fn a_stack_that_cannot_be_moved_is_named_and_the_update_is_partial() {
         upd.stderr
     );
 }
+
+/// A new doze that does not run stops nothing: every stack stays on the old one, named, exit 11.
+#[test]
+fn a_new_doze_that_does_not_run_stops_nothing() {
+    if !setup::sockets() {
+        return;
+    }
+    let (sb, mut host, _) = setup::prepare(&["registry".to_owned(), "project bare".to_owned()]);
+    host.daemon_exe = Some(std::path::PathBuf::from(env!("CARGO_BIN_EXE_doze")));
+    let bin = sb.root.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    for (name, body) in [("brew", "#!/bin/sh\n"), ("doze", "#!/bin/sh\nexit 1\n")] {
+        std::fs::write(bin.join(name), body).unwrap();
+        std::fs::set_permissions(bin.join(name), std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    host.env.insert("PATH".into(), bin.display().to_string());
+    let hcl = format!(
+        "stack = \"shop\"\nhome = \"{}\"\n\napp \"web\" {{\n  run = \"exec sleep 600\"\n}}\n",
+        sb.home().display()
+    );
+    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
+    let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
+    let up = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
+    let old = doze_projects::daemon_pid(&key).map(|p| p.pid);
+    let _reap = Reap(old.into_iter().collect());
+    assert_eq!(up.code, 0, "{}", up.stderr);
+    let upd = fixture::run(&sb, &host, Terminals::default(), true, &["update"]);
+    assert_eq!(upd.code, 11, "{}\n{}", upd.stdout, upd.stderr);
+    assert!(
+        upd.stderr.contains("does not run; nothing was stopped"),
+        "{}",
+        upd.stderr
+    );
+    assert!(
+        old.is_some_and(doze_os::process::alive),
+        "the old daemon was stopped"
+    );
+    let down = fixture::run(&sb, &host, Terminals::default(), false, &["down"]);
+    assert_eq!(down.code, 0, "{}", down.stderr);
+}
