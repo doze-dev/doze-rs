@@ -115,7 +115,7 @@ fn read(schema: &Schema, t: &Ty, r: &mut Reader<'_>, budget: &mut Budget) -> Res
             if f.is_finite() {
                 Json::Raw(format!("{f:?}").trim_end_matches(".0").to_owned())
             } else {
-                Json::Str(format!("{f}"))
+                float(f64::from(f))
             }
         }
         Ty::Double => float(f64::from_le_bytes(r.fixed::<8>()?)),

@@ -45,6 +45,13 @@ fn whole(v: &Json) -> Res<i64> {
 }
 
 fn real(v: &Json) -> Res<f64> {
+    // JSON has no number for these: they are written as words (as a decoded value shows them).
+    match v.as_str() {
+        Some("NaN") => return Ok(f64::NAN),
+        Some("Infinity") => return Ok(f64::INFINITY),
+        Some("-Infinity") => return Ok(f64::NEG_INFINITY),
+        _ => {}
+    }
     let t = number(v)?;
     t.parse::<f64>().map_err(|_| format!("{t} is not a number"))
 }

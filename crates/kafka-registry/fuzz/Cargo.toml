@@ -49,3 +49,9 @@ name = "json_schema"
 path = "fuzz_targets/json_schema.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "codec"
+path = "fuzz_targets/codec.rs"
+test = false
+doc = false

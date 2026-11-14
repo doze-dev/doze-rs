@@ -184,7 +184,16 @@ pub fn float(f: f64) -> Json {
     if f.is_finite() {
         Json::Raw(format!("{f:?}").trim_end_matches(".0").to_owned())
     } else {
-        Json::Str(format!("{f}"))
+        Json::Str(
+            if f.is_nan() {
+                "NaN"
+            } else if f > 0.0 {
+                "Infinity"
+            } else {
+                "-Infinity"
+            }
+            .to_owned(),
+        )
     }
 }
 
@@ -268,7 +277,7 @@ mod tests {
         assert_eq!(float(1.5), Json::Raw("1.5".into()));
         assert_eq!(float(3.0), Json::Raw("3".into()));
         assert_eq!(float(f64::NAN), Json::Str("NaN".into()));
-        assert_eq!(float(f64::INFINITY), Json::Str("inf".into()));
+        assert_eq!(float(f64::INFINITY), Json::Str("Infinity".into()));
     }
 
     #[test]
