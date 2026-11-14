@@ -97,7 +97,11 @@ pub(crate) const GROUPS: [(&str, &[&str]); 7] = [
     ),
     (
         "Schema registry",
-        &["schema-registry", "schema-registry-addr", "schema-registry-tls"],
+        &[
+            "schema-registry",
+            "schema-registry-addr",
+            "schema-registry-tls",
+        ],
     ),
 ];
 

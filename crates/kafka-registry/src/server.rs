@@ -166,19 +166,21 @@ async fn answer(
     r.user_agent = header(&req, &USER_AGENT).unwrap_or_default();
     r.peer = peer.ip().to_string();
     r.own = req.headers().contains_key(api::log::OWN_HEADER);
-    let body =
-        tokio::time::timeout(READ_TIMEOUT, Limited::new(req.into_body(), limit).collect()).await;
-    r.body = match body {
-        Ok(Ok(collected)) => Body::Read(collected.to_bytes().to_vec()),
-        Ok(Err(e))
-            if e.downcast_ref::<http_body_util::LengthLimitError>()
-                .is_some() =>
-        {
-            Body::TooLarge(limit)
-        }
-        // A body that stopped arriving, or a broken connection: nothing to answer that anybody reads.
-        _ => return Ok(plain(408, Vec::new())),
-    };
+    // A request for a host the guard refuses is refused before anything else is looked at: its body is not read (REG-3).
+    if api.admits_host(&r.host) {
+        let body = Limited::new(req.into_body(), limit).collect();
+        r.body = match tokio::time::timeout(READ_TIMEOUT, body).await {
+            Ok(Ok(collected)) => Body::Read(collected.to_bytes().to_vec()),
+            Ok(Err(e))
+                if e.downcast_ref::<http_body_util::LengthLimitError>()
+                    .is_some() =>
+            {
+                Body::TooLarge(limit)
+            }
+            // A body that stopped arriving, or a broken connection: nothing to answer that anybody reads.
+            _ => return Ok(plain(408, Vec::new())),
+        };
+    }
     let resp = tokio::task::spawn_blocking(move || api.serve(&r)).await;
     let resp = resp.unwrap_or_else(|_| Response {
         status: 500,

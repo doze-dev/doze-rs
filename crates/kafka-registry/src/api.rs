@@ -135,6 +135,13 @@ impl Api {
         }
     }
 
+    /// Whether a request for `host` gets past the host guard: the server reads no body for one that does not (it is refused
+    /// before anything else is looked at, REG-3).
+    #[must_use]
+    pub fn admits_host(&self, host: &str) -> bool {
+        kafka_auth::hostguard::allowed(host, &self.options.allowed_hosts)
+    }
+
     /// The registry behind the API.
     #[must_use]
     pub fn registry(&self) -> &Arc<Registry> {
@@ -155,7 +162,7 @@ impl Api {
 
     fn answer(&self, req: &Request) -> (Response, Captures, String) {
         let none = Captures::default();
-        if !kafka_auth::hostguard::allowed(&req.host, &self.options.allowed_hosts) {
+        if !self.admits_host(&req.host) {
             let msg = format!(
                 "This schema registry does not answer to the host name {}. If that is a name you chose, start doze-kafka with --console-allow-host={} (the registry answers to the same names as the console, and to --advertised-host).",
                 text::quoted(&req.host),
