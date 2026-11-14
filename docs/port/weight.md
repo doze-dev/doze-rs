@@ -434,3 +434,30 @@ steps. 128eab40 (doze-aws at `opt-level = "z"`) cost about 1.4 MB: a deliberate 
 (`04c500b4..e1ab82d4`: Step Functions, API Gateway, CloudFormation) cost about 1.5 MB more with no request made, which points at something
 built at start; it stays open in #36 as a regression to fix. doze-kafka's default and TLS builds rose about 0.3 to 0.5 MB with the React
 console merge (bc4db1ac); the lean build stayed flat.
+
+## Phase 10, slice 10a: the schema registry (2026-11-14, branch `p10-registry`), release, darwin/arm64
+
+The registry (Avro, every REST route, storage in `meta.redb`) on by default behind the `registry` feature. The libraries weighed for
+it and not taken (apache-avro, protox with prost-reflect, jsonschema, boon) are in `phase10.md`, "Weight first".
+
+| | main (2f1bb66) | 10a |
+|---|---|---|
+| doze-kafka binary | 6,011,568 B | **6,244,864 B** (+233,296 B; +413,984 B before the crate was built at `opt-level = "z"`) |
+| packages (`cargo xtask weight`) | 155 | **156** (a repeated `cargo tree` line; no third-party package added) |
+| idle | 6,960 KB | 7,184 KB (the registry listens on 127.0.0.1:8081) |
+| with `--features tls` | | 7,039,920 B, 168 `cargo tree` lines |
+
+No limit moved (7,800,000 B, 161 packages, 8,192 KB; TLS job 8,750,000 B and 173 lines). On the Linux estimate (darwin times 1.216)
+the default build is about 7.59 MB (97% of its limit) and the TLS build about 8.56 MB (98%): 10b and 10c are to be measured against
+that before they merge.
+
+**10a on top of the module face (merged with main at Phase 11, 2026-11-14):** the default build 6,791,104 B on darwin arm64 (+216,800 B over
+the module's 6,574,304 B), 171 packages, 7,248 KB idle. With `--features tls`: 7,586,144 B and 183 `cargo tree` lines.
+
+**The ceiling, with CI's measured ratio (2026-11-14).** CI measured ubuntu x86_64 at 1.36 times darwin (8,174,048 B against
+6,011,568 B), not the 1.216 used above. On that scale: the default build with the module face and 10a is about 9.24 MB, under main's
+line of 9,386,171 B (which does not move) and 0.76 MB under the owner's 10 MB ceiling; 10a itself is about 0.29 MB of it. **The TLS
+build does not fit:** 7,586,144 B times 1.36 is about 10.32 MB, over the 10 MB ceiling, and the module face alone already puts it at
+about 10.0 MB (main's TLS line, 9,279,000 B and 173, was measured before the module; the module adds 13 packages). No limit was raised;
+the CI TLS job will fail on main with or without the registry until the owner decides (leave the module or the registry out of the
+`tls` release, or take a size lever such as `opt-level = "z"` on more of the tree).

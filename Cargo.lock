@@ -2265,8 +2265,22 @@ dependencies = [
 name = "kafka-registry"
 version = "0.0.0"
 dependencies = [
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "kafka-auth",
  "kafka-meta",
- "kafka-wire",
+ "kafka-storage",
+ "postcard",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]

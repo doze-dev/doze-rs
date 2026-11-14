@@ -206,7 +206,8 @@ fn broker_has(flag: &str) -> bool {
 /// `--schema-registry-addr` (docs/port/phase11.md, "The schema registry"). Until then the instance has no registry
 /// listener, rather than a name that answers nothing.
 fn has_registry() -> bool {
-    broker_has("schema-registry-addr")
+    // A build without the `registry` feature accepts the flags and serves none (REG-26).
+    cfg!(feature = "registry") && broker_has("schema-registry-addr")
 }
 
 fn has_console() -> bool {

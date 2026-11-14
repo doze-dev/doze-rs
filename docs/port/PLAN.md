@@ -216,6 +216,9 @@ estimates, not calendar time.
 | 10 | **Schema registry.** REST routes, `SchemaFormat` for Avro/Protobuf/JSON, wire codec, storage in `kafka-meta`. Highest fidelity risk (Protobuf canonical form and compatibility). | registry conformance scenarios + compat corpora | 5–8 |
 | 11 | **Module and release.** ~~`serve` mode (unix sockets) so doze's Go module can re-exec the Rust binary~~ (obsolete: "all Rust, no Go stitching", 2026-11-12). Now module plan step 14: `doze-kafka` gains its doze module face on the Rust module SDK (protocol 2); inherited gates; cutover decision (the owner's). **Built 2026-11-14 (branch `p11-module`, `phase11.md`)**: oracle against the Go kafka module, 43 cases, every difference listed; the published example and the Larder example's kafka block booted through the core's boot sequence in `doze-module-test`. | ~~doze runs the Larder example on the Rust broker~~ the Larder block boots and converges through the harness's boot sequence; the real doze run waits for the Rust core | 3–5 |
 
+| 10 | **Schema registry.** REST routes, `SchemaFormat` for Avro/Protobuf/JSON, wire codec, storage in `kafka-meta`. Highest fidelity risk (Protobuf canonical form and compatibility). 10a (model, API, Avro) built 2026-11-14: `phase10.md`. | registry conformance scenarios + compat corpora | 5–8 |
+| 11 | **Module and release.** `serve` mode (unix sockets) so doze's Go module can re-exec the Rust binary; Rust-edition docs; inherited gates; cutover decision. | doze runs the Larder example on the Rust broker | 3–5 |
+
 About 50–75 sessions. Phases 1–3 are the checkpoint: a working broker for real
 clients with weight measured against Go.
 
@@ -672,3 +675,13 @@ members, and kafka-go had an empty assignment. Whenever kcat joined first it led
 subscription, which is version 1 without its owned partitions. The broker passes those bytes through untouched, as Kafka
 does, and `-members librdkafka,kafka-go` fails at every major. The suite now seats the first member before the others
 join. The matrix is in `interop/README.md`. CI runs no interop (local by the owner's choice, 2026-11-09), so CI is unchanged.
+
+**Phase 10, slice 10a built (2026-11-14, branch `p10-registry`), not yet audited.** The schema registry's model, its storage in a
+`schemas` table of `meta.redb`, every REST route the Go edition serves (Confluent's 29 and the five under `/_doze/`), the host guard,
+basic authentication with the SASL users and TLS with the broker's certificate, the wire header, and Avro written in Rust (no
+library: `apache-avro` would have added 35 packages and still not given Confluent's reasons). `--schema-registry` is on by default as
+in Go, behind a `registry` feature of the binary. The Go oracle passes: every Avro step of the 30 recorded scripts and all 392 Avro
+corpus pairs, verdicts and reasons word for word. +217 KB on darwin over the module face (about 0.29 MB on ubuntu at
+CI's measured 1.36), no third-party package; no limit moved. The default build is about 9.24 MB on ubuntu, 0.76 MB under the 10 MB
+ceiling; the TLS build (module plus registry) is about 10.3 MB, over it, and was about 10.0 MB with the module alone: the owner's call. Protobuf (10b) and JSON Schema (10c) plug into `format::Formats`; the record-value codec is 10d. `phase10.md` has
+the weight table, the extension points and the slices; `behaviours/registry.md` the catalogue (REG-1 to REG-27, REG-D1 to REG-D14).
