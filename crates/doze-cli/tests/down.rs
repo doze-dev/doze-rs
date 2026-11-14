@@ -172,3 +172,43 @@ fn a_daemon_that_does_not_stop_is_named_with_its_pid_after_twenty_seconds() {
     // Nothing is cleared while the daemon may still be there.
     assert!(key.pid_file().exists());
 }
+
+/// Go's `rememberDown`: what was awake is added to what `up` recorded, before the daemon is stopped.
+#[test]
+fn down_remembers_what_was_awake_for_the_next_up() {
+    let sb = fixture::Sandbox::new("down-remember");
+    let key = stack(&sb);
+    std::fs::write(
+        sb.project().join("doze.hcl"),
+        "stack = \"shop\"\napp \"api\" { run = \"a\" }\napp \"worker\" { run = \"w\" }\napp \"web\" { run = \"x\" }\n",
+    )
+    .unwrap();
+    doze_projects::update(key.dir(), |p| p.last_set = vec!["api".into()]).unwrap();
+    let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/daemon/down-awake.ndjson");
+    let script = doze_control::fixture::Script::load(&script).unwrap();
+    let daemon = doze_control::fixture::FixtureDaemon::start(&key.socket(), script).unwrap();
+    let (pid, reaper) = stand_in(&key, true);
+    let ran = run(&sb, &["down"]);
+    // `down` removed its socket, so the fixture could not wake its accept loop to shut it down: left to the process.
+    std::mem::forget(daemon);
+    if ran.code != 0 {
+        let _ = doze_os::process::kill(pid);
+    }
+    assert_eq!(ran.code, 0, "{}", ran.stderr);
+    reaper.join().unwrap();
+    let r = doze_projects::load(key.dir()).unwrap().unwrap();
+    assert_eq!(r.last_set, ["api", "worker"]);
+    assert!(r.last_down.is_some());
+    assert_eq!(r.name, "shop");
+}
+
+#[test]
+fn down_with_nothing_running_still_records_the_down() {
+    let sb = fixture::Sandbox::new("down-record");
+    let key = stack(&sb);
+    let ran = run(&sb, &["down"]);
+    assert_eq!(ran.code, 0, "{}", ran.stderr);
+    let r = doze_projects::load(key.dir()).unwrap().unwrap();
+    assert!(r.last_down.is_some() && r.last_set.is_empty());
+}

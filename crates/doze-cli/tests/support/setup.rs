@@ -21,7 +21,7 @@ pub(crate) fn prepare(setup: &[String]) -> (Sandbox, FakeHost, Option<FixtureDae
     for d in setup {
         let (verb, arg) = d.split_once(' ').unwrap_or((d, ""));
         match verb {
-            "registry" | "tty" | "no-json" => {}
+            "registry" | "tty" | "no-json" | "untimed" => {}
             "env" => {
                 let (k, v) = arg.split_once('=').unwrap();
                 let v = v.replace("{sandbox}", &sb.root.display().to_string());

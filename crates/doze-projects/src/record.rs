@@ -1,5 +1,5 @@
 //! The record each stack keeps between runs (`<home>/projects/<slug>/project.json`), read as Go's `projects.Load`
-//! and `projects.List` read it.
+//! and `projects.List` read it (written by `write.rs`).
 
 use crate::gojson::{self, is};
 use serde_json::value::RawValue;
@@ -29,12 +29,21 @@ pub struct Project {
     pub last_down: Option<OffsetDateTime>,
     /// What was started last time, as the names asked for (their dependencies follow). Empty means everything.
     pub last_set: Vec<String>,
-    /// Fields a newer doze wrote, as written (Go keeps them through a save; this reader only shows them).
+    /// Fields a newer doze wrote, as written; a save keeps them.
     pub extra: BTreeMap<String, Box<RawValue>>,
     dir: PathBuf,
 }
 
 impl Project {
+    /// A record never written: Go's `Load` of a missing file.
+    pub(crate) fn fresh(dir: &Path) -> Project {
+        Project {
+            schema: SCHEMA,
+            dir: dir.to_path_buf(),
+            ..Project::default()
+        }
+    }
+
     /// The project's state folder, which is also its stack key.
     pub fn dir(&self) -> &Path {
         &self.dir

@@ -42,14 +42,9 @@ pub(crate) fn wake(ctx: &mut Ctx<'_>, mode: &Mode, a: &Names) -> Outcome {
             &snap, &closure, &targets, &asked,
         ))));
     }
-    timed(
-        ctx,
-        mode,
-        (&stack, &ask),
-        Verb::Wake,
-        &closure,
-        ("awake", "awake"),
-    )
+    timed(ctx, mode, (&stack, &ask), Verb::Wake, &closure, &|_| {
+        ("awake", "awake")
+    })
 }
 
 /// `doze restart <name…>`.
@@ -60,19 +55,20 @@ pub(crate) fn restart(ctx: &mut Ctx<'_>, mode: &Mode, a: &SomeNames) -> Outcome 
     if a.dry.dry_run {
         return Ok(Done::ok(View::Plan(dry::restart(&snap, &names))));
     }
-    let what = ("restarted", "restarted");
-    timed(ctx, mode, (&stack, &ask), Verb::Restart, &names, what)
+    let what = |_: &str| ("restarted", "restarted");
+    timed(ctx, mode, (&stack, &ask), Verb::Restart, &names, &what)
 }
 
 /// Runs a verb that starts something on each target, with how long each took to be ready (from the journal, on a
-/// connection of its own so a busy journal never holds the verb's answer up).
-fn timed(
+/// connection of its own so a busy journal never holds the verb's answer up). `label` gives each target's state and
+/// line (`up` says a task is done).
+pub(crate) fn timed(
     ctx: &mut Ctx<'_>,
     mode: &Mode,
     (stack, ask): (&Stack, &Asker),
     verb: Verb,
     targets: &[String],
-    (state, line): (&str, &str),
+    label: &dyn Fn(&str) -> (&'static str, &'static str),
 ) -> Outcome {
     let mut r = Report::new(mode);
     let mut ready = Ready::watch(stack);
@@ -87,6 +83,7 @@ fn timed(
             });
         }
         let took = ready.of(name, start.elapsed());
+        let (state, line) = label(name);
         r.ok(ctx.out, name, state, line, took);
     }
     ready.stop();

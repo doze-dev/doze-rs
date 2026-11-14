@@ -11,6 +11,8 @@
 //
 //	projects <home>    records three projects (one with a field a newer doze wrote, one broken) under <home>,
 //	                   then prints projects.List(<home>) as JSON lines
+//	update <root>      for each case, writes <root>/<case>.in as the record (when the case has one), then
+//	                   projects.Update(<root>/<case>) with the case's change
 //	journal <path>     appends events with rotation at 600 bytes, tears the last line, then prints journal.Read
 //	                   as JSON lines
 //	lines <file>       reads each line of <file> as a journal of its own; prints the event Go reads as JSON, or skip
@@ -38,6 +40,8 @@ func main() {
 	switch os.Args[1] {
 	case "projects":
 		err = writeProjects(os.Args[2])
+	case "update":
+		err = writeUpdates(os.Args[2])
 	case "journal":
 		err = writeJournal(os.Args[2])
 	case "lines":
@@ -187,6 +191,50 @@ func readLines(file string) error {
 			continue
 		}
 		if err := printJSON(events[0]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// updates are the records projects.Update is held to: each case's starting record (none: never written) and its
+// change. doze-projects' tests/oracle.rs makes the same changes and compares the bytes.
+var updates = []struct {
+	name, in string
+	change   func(*projects.Project)
+}{
+	{"fresh", "", func(p *projects.Project) {
+		p.Config, p.Name, p.LastUp, p.LastSet = "/code/shop/doze.hcl", "shop", at, []string{"api", "worker"}
+	}},
+	{"newer", "{ \"schema\": 3, \"zeta\": { \"b\" : [1, 2.50, \"<x>\"] },\n \"Name\": \"Old\", \"config\":\"/c/doze.hcl\", " +
+		"\"last_up\": \"2026-11-12T08:00:00.500+05:30\", \"tabs\": null }", func(p *projects.Project) { p.LastDown = at }},
+	{"broken", `{"config":`, func(p *projects.Project) { p.Config = "/c/doze.hcl" }},
+	{"escapes", "", func(p *projects.Project) {
+		p.Config, p.Name = "/c/a&b <x>/doze.hcl", "line sep\x01\b\f\t\"\\é"
+	}},
+	{"cleared", `{"schema":1,"config":"/c","name":"n","last_set":["a"],"last_up":"2026-01-02T03:04:05Z"}`,
+		func(p *projects.Project) { p.LastSet, p.Name = nil, "" }},
+	{"null", `null`, func(p *projects.Project) { p.Name = "x" }},
+	{"fraction", "", func(p *projects.Project) {
+		p.Config, p.LastUp = "/c", time.Date(2026, 1, 1, 0, 0, 0, 500000000, time.FixedZone("", -(3*3600+30*60)))
+	}},
+}
+
+func writeUpdates(root string) error {
+	for _, c := range updates {
+		dir := filepath.Join(root, c.name)
+		if c.in != "" {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(root, c.name+".in"), []byte(c.in), 0o644); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(dir, projects.FileName), []byte(c.in), 0o644); err != nil {
+				return err
+			}
+		}
+		if err := projects.Update(dir, c.change); err != nil {
 			return err
 		}
 	}

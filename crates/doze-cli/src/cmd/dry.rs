@@ -64,7 +64,17 @@ pub(crate) fn wake(
     targets: &[String],
     named: &[String],
 ) -> Plan {
-    let mut plan = Plan::new(applies("doze wake", named, &[]));
+    wake_as("doze wake", snap, closure, (targets, named))
+}
+
+/// A wake's plan under another command's name (`doze up`).
+pub(crate) fn wake_as(
+    command: &str,
+    snap: &Snapshot,
+    closure: &[String],
+    (targets, named): (&[String], &[String]),
+) -> Plan {
+    let mut plan = Plan::new(applies(command, named, &[]));
     for name in closure {
         match find(snap, name) {
             Some(v) if awake(&v.state) => plan.unchanged(name),

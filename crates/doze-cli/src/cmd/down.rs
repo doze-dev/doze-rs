@@ -9,12 +9,13 @@
 //!
 //! The run and `--dry-run` share one decision ([`decide`]), so the plan says exactly what the run would do.
 //! The result is Go's: `{"stopped": true}` and "✓ doze stopped", or `{"stopped": false}` and "doze is not running";
-//! `cleared` (the leftovers removed) is added. What was awake is not yet remembered for the next `up` (Go's
-//! `rememberDown`): that comes with `up`'s choice of services (C2c, pending).
+//! `cleared` (the leftovers removed) is added. What was awake is remembered for the next `up` first (Go's
+//! `rememberDown`, [`crate::cmd::remember`]).
 
 use crate::cli::args::DryRun;
 use crate::ctx::Ctx;
 use crate::diag::{Diagnostic, ids};
+use crate::notice::Notices;
 use crate::output::{Done, Mode, Outcome};
 use crate::paint::Paint;
 use crate::plan::{Op, Plan};
@@ -66,11 +67,14 @@ enum Found {
 }
 
 /// `doze down [--dry-run]`.
-pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &DryRun) -> Outcome {
+pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &DryRun, notices: &mut Notices) -> Outcome {
     let stack = Stack::find(ctx, mode)?;
     let found = decide(&stack)?;
     if a.dry_run {
         return Ok(Done::ok(View::Plan(plan(&stack, &found)?)));
+    }
+    if !matches!(found, Found::Unknown) {
+        remember(ctx, notices, &stack);
     }
     let stopped = match found {
         Found::Unknown => return Err(unknown()),
@@ -123,6 +127,21 @@ fn unknown() -> Diagnostic {
         "a doze daemon answers for this stack, but its pid file (run/doze.pid in the stack's state folder) names no process doze started",
     )
     .fix("doze bug writes a report with the daemon's log")
+}
+
+/// What was awake, remembered first so the next `up` can offer it (Go `rememberDown`). A config that does not load
+/// does not keep the stack from stopping (Go refused to stop it): it is said, and nothing is remembered.
+fn remember(ctx: &Ctx<'_>, notices: &mut Notices, stack: &Stack) {
+    let cfg = match stack.loader.shape(&stack.project) {
+        Ok(cfg) => cfg,
+        Err(d) => {
+            notices.add(format!("could not remember this run: {}", d.message));
+            return;
+        }
+    };
+    let snap = stack.read().ok().flatten().and_then(|c| c.snapshot().ok());
+    let dir = crate::cmd::remember::record_dir(&cfg, stack.key.dir());
+    crate::cmd::remember::remember_down(ctx, notices, (&cfg, &dir), snap.as_ref());
 }
 
 /// SIGTERM to exactly `pid`, then wait for it to go. False: the pid was not ours to signal after all (another user's,

@@ -55,18 +55,28 @@ impl Raw {
     }
 }
 
-fn daemon(tag: &str) -> (Daemon, doze_daemon::Serving, PathBuf) {
+/// A daemon on a socket of its own; `None` (the test skips) where this system has no local control socket yet
+/// (Windows, until the named pipe: core plan W).
+fn daemon(tag: &str) -> Option<(Daemon, doze_daemon::Serving, PathBuf)> {
     let dir = temp(tag);
     let e = Engine::builder("t", &dir).build().unwrap();
     let sock = dir.join("run/doze.admin.sock");
     let d = Daemon::at(e, BTreeMap::new(), StackInfo::default(), sock.clone());
-    let s = d.serve().unwrap();
-    (d, s, sock)
+    match d.serve() {
+        Ok(s) => Some((d, s, sock)),
+        Err(e) if e.kind() == std::io::ErrorKind::Unsupported => {
+            eprintln!("skipped: {e}");
+            None
+        }
+        Err(e) => panic!("{e}"),
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn the_hello_and_the_refusals_are_gos() {
-    let (_d, s, sock) = daemon("hello");
+    let Some((_d, s, sock)) = daemon("hello") else {
+        return;
+    };
     let go = go_lines("session.ndjson");
     let mut c = Raw::open(&sock);
     c.say(r#"{"hello":{"proto":2,"client":"cli"}}"#);
@@ -83,7 +93,9 @@ async fn the_hello_and_the_refusals_are_gos() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn unary_errors_and_a_stream_are_worded_as_go() {
-    let (_d, s, sock) = daemon("unary");
+    let Some((_d, s, sock)) = daemon("unary") else {
+        return;
+    };
     let go = go_lines("session.ndjson");
     let mut c = Raw::open(&sock);
     c.say(r#"{"hello":{"proto":2}}"#);
@@ -116,7 +128,9 @@ async fn unary_errors_and_a_stream_are_worded_as_go() {
 /// doze-control's own client drives the daemon: status, a verb, and the instances topic's first snapshot.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn the_control_client_reads_status() {
-    let (_d, s, sock) = daemon("client");
+    let Some((_d, s, sock)) = daemon("client") else {
+        return;
+    };
     let client = doze_control::Client::socket(&sock);
     let got = tokio::task::spawn_blocking(move || client.dial().and_then(|c| c.snapshot()))
         .await

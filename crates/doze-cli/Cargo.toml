@@ -42,6 +42,8 @@ doze-journal = { path = "../doze-journal" }
 doze-logstore = { path = "../doze-logstore" }
 # Log lines are stamped with this machine's wall clock, as Go's `time.Local`: the zone from TZ or the system's.
 jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-platform"] }
+# The project record's times (doze-projects already brings it in).
+time = "0.3"
 clap = { version = "4", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions", "string"] }
 # Completions: the static scripts, and the dynamic engine the shell calls back into (`COMPLETE=<shell> doze`).
 clap_complete = { version = "4", features = ["unstable-dynamic"] }

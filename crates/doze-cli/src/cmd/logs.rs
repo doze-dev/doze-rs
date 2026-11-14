@@ -24,12 +24,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Logs) -> Outcome {
         Some(d) => Some(ctx.now.checked_sub(d).unwrap_or(SystemTime::UNIX_EPOCH)),
         None => None,
     };
-    let zone = zone(ctx);
-    let page = Page {
-        prefix: names.len() > 1,
-        width: names.iter().map(|n| n.chars().count()).max().unwrap_or(0),
-        zone,
-    };
+    let page = Page::of(ctx, &names);
     if a.follow {
         if a.run != 0 {
             return Err(Diagnostic::new(
@@ -128,7 +123,7 @@ fn disk(stack: &Stack, q: &LogQuery) -> Result<Vec<LogFrame>, Diagnostic> {
 }
 
 /// `logs -f`: the backlog and then every line as it is written, from one subscription so none falls between.
-fn follow(
+pub(crate) fn follow(
     ctx: &mut Ctx<'_>,
     mode: &Mode,
     conn: &Connection,
@@ -177,6 +172,15 @@ pub(crate) struct Page {
 }
 
 impl Page {
+    /// How lines of `names` are drawn, each saying whose it is when there are several.
+    pub(crate) fn of(ctx: &Ctx<'_>, names: &[String]) -> Page {
+        Page {
+            prefix: names.len() > 1,
+            width: names.iter().map(|n| n.chars().count()).max().unwrap_or(0),
+            zone: zone(ctx),
+        }
+    }
+
     /// One line (Go `formatLogLine`): the time on this machine's clock, whose it is when several are shown, a mark for
     /// stderr or a step, and the text as the service printed it.
     pub(crate) fn line(&self, l: &LogFrame, p: Paint) -> String {

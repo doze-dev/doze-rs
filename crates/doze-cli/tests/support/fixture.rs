@@ -239,6 +239,8 @@ pub(crate) struct FakeHost {
     pub refuse: Option<doze_cli::ctx::Refused>,
     /// The Applications folders the host reports (`@ app`: a Doze.app in the sandbox).
     pub apps: Vec<PathBuf>,
+    /// What the person types, a line per question asked (`read_line`); none left: the input ended.
+    pub answers: RefCell<std::collections::VecDeque<String>>,
 }
 
 impl Host for FakeHost {
@@ -304,6 +306,9 @@ impl Host for FakeHost {
     }
     fn settle(&self) -> std::time::Duration {
         std::time::Duration::ZERO
+    }
+    fn read_line(&self) -> Option<String> {
+        self.answers.borrow_mut().pop_front()
     }
 }
 
