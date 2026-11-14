@@ -1,0 +1,138 @@
+# why: the state in the app's words from the daemon, and what the journal says woke it, made it ready and last
+# stopped it.
+@ project bare
+@ daemon shop
+@ now 2026-10-10T09:15:00Z
+@ env TZ=UTC
+@ journal {"seq":1,"time":"2026-10-10T09:02:11Z","kind":"wake","instance":"cache","cause":{"kind":"connection"}}
+@ journal {"seq":2,"time":"2026-10-10T09:02:12Z","kind":"ready","instance":"cache","took":1240000000}
+@ journal {"seq":3,"time":"2026-10-10T08:55:00Z","kind":"sleep","instance":"cache","cause":{"kind":"idle"}}
+@ journal {"seq":4,"time":"2026-10-10T09:14:00Z","kind":"crash","instance":"worker","detail":"exited with status 1"}
+
+$ doze why cache
+exit 0
+stdout:
+| cache is dozing
+|   sleeps in 4:12
+|   09:02:11 woke (a connection)
+|   09:02:12 ready in 1.24s
+|   last stop: 08:55:00 went to sleep (idle)
+|   no restarts
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze why",
+|   "ok": true,
+|   "data": {
+|     "name": "cache",
+|     "running": true,
+|     "state": "dozing",
+|     "because": "sleeps in 4:12",
+|     "restarts": 0,
+|     "events": [
+|       {
+|         "at": "09:02:11",
+|         "kind": "wake",
+|         "said": "woke (a connection)"
+|       },
+|       {
+|         "at": "09:02:12",
+|         "kind": "ready",
+|         "said": "ready in 1.24s"
+|       },
+|       {
+|         "at": "08:55:00",
+|         "kind": "sleep",
+|         "said": "went to sleep (idle)"
+|       }
+|     ],
+|     "live": {
+|       "name": "cache",
+|       "kind": "module",
+|       "engine": "valkey",
+|       "state": "idle",
+|       "version": "9",
+|       "pid": 4102,
+|       "conns": 0,
+|       "started_at": "0001-01-01T00:00:00Z",
+|       "idle_since": "2026-10-10T09:14:12Z",
+|       "ram": 5242880,
+|       "endpoint": "127.0.0.1:6379",
+|       "declared": true,
+|       "next_restart": "0001-01-01T00:00:00Z"
+|     }
+|   }
+| }
+
+$ doze why worker
+exit 0
+stdout:
+| worker is crashing
+|   try 2 of 5 · next in 4s
+|   last stop: 09:14:00 crashed: exited with status 1
+|   restarted 2 times
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze why",
+|   "ok": true,
+|   "data": {
+|     "name": "worker",
+|     "running": true,
+|     "state": "crashing",
+|     "because": "try 2 of 5 · next in 4s",
+|     "restarts": 2,
+|     "events": [
+|       {
+|         "at": "09:14:00",
+|         "kind": "crash",
+|         "said": "crashed: exited with status 1"
+|       }
+|     ],
+|     "live": {
+|       "name": "worker",
+|       "kind": "app",
+|       "needs": [
+|         "events"
+|       ],
+|       "engine": "process",
+|       "state": "crashing",
+|       "version": "builtin",
+|       "pid": 0,
+|       "conns": 0,
+|       "started_at": "0001-01-01T00:00:00Z",
+|       "idle_since": "0001-01-01T00:00:00Z",
+|       "last_error": "exited with status 1; restarting (2/5) in 4s",
+|       "declared": true,
+|       "restart_count": 2,
+|       "restart_max": 5,
+|       "next_restart": "2026-10-10T09:15:04Z"
+|     }
+|   }
+| }
+
+$ doze why nope
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "nope"
+|   it has db, cache, events, api, worker, web
+|   fix: doze status
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze why",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "the stack has no service called \"nope\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "it has db, cache, events, api, worker, web"
+|     ],
+|     "fix": "doze status"
+|   }
+| }

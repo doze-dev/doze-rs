@@ -1,0 +1,36 @@
+# A project with nothing pinned yet.
+@ project bare
+
+$ doze modules
+exit 0
+stdout:
+| nothing pinned yet · doze up pins the modules doze.hcl uses
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules",
+|   "ok": true,
+|   "data": {
+|     "lock": "{sandbox}/project/doze.lock",
+|     "modules": []
+|   }
+| }
+
+$ doze modules verify
+exit 0
+stdout:
+| registry key ed25519 642a…09 (built into this doze)
+| nothing pinned yet · doze up pins the modules doze.hcl uses
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules verify",
+|   "ok": true,
+|   "data": {
+|     "key": "642a…09",
+|     "platform": "{triple}",
+|     "modules": []
+|   }
+| }

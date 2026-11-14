@@ -1,4 +1,5 @@
-//! The file: one redb database per region with four tables (the table records, the items, the index entries, the stream records),
+//! The file: one redb database per region with five tables (the table records, the Contributor Insights settings, the items, the
+//! index entries, the stream records),
 //! written through the group-commit writer. Items are read from the file when a request needs them; nothing but the table
 //! records is kept in memory.
 
@@ -13,8 +14,10 @@ use crate::keys::Space;
 
 /// redb's page cache: items are read when needed, and the idle heap is measured.
 const CACHE_BYTES: usize = 1 << 20;
-const FILE: &str = "dynamodb.redb";
+pub(crate) const FILE: &str = "dynamodb.redb";
 pub(crate) const TABLES: &str = "tables";
+/// The Contributor Insights settings, by table (and `table/index`).
+pub(crate) const INSIGHTS: &str = "insights";
 
 type Def = TableDefinition<'static, &'static [u8], &'static [u8]>;
 
@@ -69,11 +72,22 @@ impl Disk {
         fs.create_dir_all(dir)?;
         let store = Store::open(&fs, dir, FILE, CACHE_BYTES, |txn| {
             txn.open_table(TableDefinition::<&str, &[u8]>::new(TABLES))?;
+            txn.open_table(TableDefinition::<&str, &[u8]>::new(INSIGHTS))?;
             for space in [Space::Items, Space::Index, Space::Stream] {
                 txn.open_table(def(space))?;
             }
             Ok(())
         })?;
+        // A file made before Contributor Insights were kept has no table for them.
+        let missing = store
+            .begin_read()?
+            .open_table(TableDefinition::<&str, &[u8]>::new(INSIGHTS))
+            .is_err();
+        if missing {
+            let txn = store.begin()?;
+            txn.open_table(TableDefinition::<&str, &[u8]>::new(INSIGHTS))?;
+            txn.commit()?;
+        }
         let writer = GroupCommit::start(store.clone())?;
         Ok(Self { store, writer })
     }

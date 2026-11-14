@@ -15,6 +15,8 @@ pub use admin::{AdminError, admin, admin_supported, prompt};
 
 #[cfg(windows)]
 mod dacl;
+#[cfg(unix)]
+mod unix;
 #[cfg(windows)]
 mod windows;
 
@@ -59,6 +61,57 @@ pub fn relaunch_unprivileged() -> io::Result<Option<i32>> {
         Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             "doze does not run as root; run it as your own user",
+        ))
+    }
+}
+
+/// The real user and group ids of this process (not the effective ones: under sudo both are root's; `SUDO_UID` says
+/// who asked). `None` on Windows, which has no numeric ids.
+pub fn ids() -> Option<(u32, u32)> {
+    #[cfg(unix)]
+    {
+        Some(unix::ids())
+    }
+    #[cfg(windows)]
+    {
+        None
+    }
+}
+
+/// The home directory of the user with this uid, from the user database: for a program run under sudo, whose `HOME`
+/// may be root's, to find the person's own. `None` on Windows, or when the user is unknown.
+pub fn home_of(uid: u32) -> Option<std::path::PathBuf> {
+    #[cfg(unix)]
+    {
+        unix::home_of(uid)
+    }
+    #[cfg(windows)]
+    {
+        let _ = uid;
+        None
+    }
+}
+
+/// Gives up root for good, becoming `uid`/`gid` (supplementary groups: `gid` alone). For a daemon started as root
+/// to do one privileged thing (open a tunnel, add a route) and nothing else: call it before any thread starts, since
+/// the change must cover the whole process. Checked afterwards: a process that could get root back is an error.
+pub fn drop_root(uid: u32, gid: u32) -> io::Result<()> {
+    if uid == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "drop_root: the user to become must not be root",
+        ));
+    }
+    #[cfg(unix)]
+    {
+        unix::drop_root(uid, gid)
+    }
+    #[cfg(windows)]
+    {
+        let _ = gid;
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "drop_root: there is no root to give up on Windows",
         ))
     }
 }

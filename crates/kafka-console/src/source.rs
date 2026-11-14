@@ -6,11 +6,16 @@ use crate::backend::Backend;
 use crate::facts::{self, Facts};
 use crate::format::date_time;
 use crate::gather;
+use crate::model::Chrome;
 use crate::model::{Access, ConnectView, HomeView, ProbeView};
 use crate::probe::Prober;
 use crate::snippets;
-use crate::ui::shell::Chrome;
 
+mod consumers;
+mod groups;
+mod live;
+mod settings;
+mod story;
 mod topics;
 
 /// A live broker: the in-process handle, how it was started, and the advertised-listener check.
@@ -19,6 +24,15 @@ pub struct Live {
     pub backend: Backend,
     pub facts: Facts,
     pub prober: Prober,
+    /// What the broker was asked, if the console was started with a recorder (slice 9e).
+    pub recorder: Option<std::sync::Arc<crate::recorder::Recorder>>,
+    /// The flags and the rest of how the binary started the broker (empty where not known).
+    pub start: crate::facts_start::StartFacts,
+    /// The Lab, when it is on (`--lab`, the default): the broker's fault table and the rehearsals kept. None: switched off.
+    pub lab: Option<std::sync::Arc<crate::lab::Lab>>,
+    /// The door that closes to other machines while the broker has ACLs (SEC-250); None: nothing to close (a loopback console,
+    /// or `--console-unprotected`).
+    pub door: Option<crate::door::Door>,
 }
 
 impl Live {
@@ -29,7 +43,33 @@ impl Live {
             backend,
             facts,
             prober,
+            recorder: None,
+            start: crate::facts_start::StartFacts::default(),
+            lab: None,
+            door: None,
         }
+    }
+
+    /// The same, closing to other machines while the broker has ACLs (a console beyond loopback that only an open broker let
+    /// start without `--console-unprotected`).
+    #[must_use]
+    pub fn with_door(mut self, door: crate::door::Door) -> Self {
+        self.door = Some(door);
+        self
+    }
+
+    /// The same, with the Lab on over the fault table the server was given.
+    #[must_use]
+    pub fn with_lab(mut self, table: std::sync::Arc<kafka_server::fault::FaultTable>) -> Self {
+        self.lab = Some(std::sync::Arc::new(crate::lab::Lab::new(table)));
+        self
+    }
+
+    /// The same, told how the binary started the broker: the Settings and Access pages say it.
+    #[must_use]
+    pub fn with_start(mut self, start: crate::facts_start::StartFacts) -> Self {
+        self.start = start;
+        self
     }
 
     async fn access(&self) -> Access {
@@ -40,25 +80,30 @@ impl Live {
         facts::access(&self.facts, acls, allow)
     }
 
+    /// Home. A read of Home never dials: it shows what the last advertised-listener check said, however old, or "Not
+    /// checked" before the first. Home can be refreshed on an interval, and a dial of an unreachable address can hold a read
+    /// for up to 1.5 s; only "Check again" (`POST /api/v1/probe`) dials.
     async fn home(&self) -> HomeView {
         let now = now_ms();
         let (topics, partitions) = gather::counts(&self.backend).await;
-        let attention = gather::nearest(&self.backend, now).await;
+        let looked = gather::nearest(&self.backend, now).await;
         let access = self.access().await;
         let instance = self
             .backend
             .instance()
             .map(|i| gather::instance_view(&i, &self.facts, access, now));
-        let probe = self.prober.cached().await;
+        let probe = self.prober.peek();
         let instance = instance.unwrap_or_else(|| unknown_instance(&self.facts, &probe));
         HomeView {
-            state: gather::choose(topics, attention),
+            state: gather::choose(topics, looked.attention),
             listen: self.facts.bootstrap(),
             loopback: self.facts.loopback(),
             topics,
             partitions,
             probe,
             instance,
+            unchecked: looked.unchecked,
+            spoke: self.recorder.as_ref().map(|r| r.spoke()),
         }
     }
 }
@@ -97,17 +142,6 @@ pub enum Source {
 }
 
 impl Source {
-    /// The fragments a Home page asks the stream to watch: none over the fixtures, which do not change and which a
-    /// refetch would turn back into the steady state.
-    #[must_use]
-    pub fn watch(&self) -> &'static [&'static str] {
-        match self {
-            Self::Live(_) => crate::stream::HOME_IDS,
-            #[cfg(any(test, feature = "examples"))]
-            Self::Fixture => &[],
-        }
-    }
-
     /// The top bar.
     pub async fn chrome(&self) -> Chrome {
         match self {

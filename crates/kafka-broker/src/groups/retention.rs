@@ -126,5 +126,27 @@ pub(crate) fn expired(
     }
 }
 
+/// What a group's description says of its members, in the terms the rules above judge by.
+pub(crate) fn members_of(described: Option<&super::Description>) -> Members<'_> {
+    match described {
+        // A consumer group of the new protocol with members: not in a rebalance as far as its offsets go.
+        Some(d) if d.consumer.as_ref().is_some_and(|c| !c.members.is_empty()) => Members::Running {
+            rebalancing: false,
+            consumer: true,
+            subscribed: d.subscribed.as_ref(),
+        },
+        Some(d) if !d.members.is_empty() => Members::Running {
+            rebalancing: matches!(
+                d.state,
+                super::State::PreparingRebalance | super::State::CompletingRebalance
+            ),
+            consumer: d.protocol_type.as_deref() == Some("consumer"),
+            subscribed: d.subscribed.as_ref(),
+        },
+        Some(_) => Members::Empty,
+        None => Members::NotInMemory,
+    }
+}
+
 #[cfg(test)]
 mod tests;

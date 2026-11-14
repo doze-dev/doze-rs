@@ -22,11 +22,11 @@ const SWEEP_EVERY: usize = 1_000;
 
 /// A batch that was written: its sequence range, where it went and what its newest timestamp was as stored.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Seen {
-    first: i32,
-    last: i32,
-    base_offset: i64,
-    max_timestamp: i64,
+pub(crate) struct Seen {
+    pub(crate) first: i32,
+    pub(crate) last: i32,
+    pub(crate) base_offset: i64,
+    pub(crate) max_timestamp: i64,
 }
 
 #[derive(Debug)]
@@ -268,6 +268,33 @@ impl Producers {
                         marker_epoch: p.epoch,
                     },
                 )
+            })
+            .collect()
+    }
+}
+
+/// What one producer's window holds, for the console to show: read only.
+#[derive(Debug, Clone)]
+#[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+pub(crate) struct Window {
+    pub(crate) id: i64,
+    pub(crate) epoch: i16,
+    pub(crate) last_used_ms: i64,
+    /// The last batches written, oldest first.
+    pub(crate) recent: Vec<Seen>,
+}
+
+impl Producers {
+    /// Every producer's window (at most five batches each), in no order. Changes nothing.
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+    pub(crate) fn windows(&self) -> Vec<Window> {
+        self.by_id
+            .iter()
+            .map(|(id, p)| Window {
+                id: *id,
+                epoch: p.epoch,
+                last_used_ms: p.last_used_ms,
+                recent: p.recent.iter().copied().collect(),
             })
             .collect()
     }

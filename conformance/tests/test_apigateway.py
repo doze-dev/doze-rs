@@ -190,3 +190,209 @@ def test_refusals(client, names, cleanup, snapshot):
     snapshot.error("route-to-absent-integration", lambda: v2.create_route(
         ApiId=aid, RouteKey="GET /x", Target="integrations/neverwas"))
     snapshot.error("bad-protocol", lambda: v2.create_api(Name=names("bad"), ProtocolType="GOPHER"))
+
+
+# Written ahead of a recording (A15, 2026-11-13): UNVERIFIED until recorded. They create nothing billed by the hour (no cache
+# cluster, no custom domain), and the account's CloudWatch role is never set.
+
+def mock_api(api, names, cleanup, part="ping", stage=None):
+    """A REST API with GET /<part> answered by MOCK: (api id, resource id)."""
+    rid = api.create_rest_api(name=names("api"))["id"]
+    cleanup(api.delete_rest_api, restApiId=rid)
+    root = api.get_resources(restApiId=rid)["items"][0]["id"]
+    res = api.create_resource(restApiId=rid, parentId=root, pathPart=part)["id"]
+    at = dict(restApiId=rid, resourceId=res, httpMethod="GET")
+    api.put_method(**at, authorizationType="NONE")
+    api.put_integration(**at, type="MOCK", requestTemplates={"application/json": '{"statusCode": 200}'})
+    api.put_method_response(**at, statusCode="200")
+    api.put_integration_response(**at, statusCode="200", responseTemplates={"application/json": '{"ok": true}'})
+    if stage:
+        api.create_deployment(restApiId=rid, stageName=stage)
+    return rid, res
+
+
+def test_rest_api_update_operations(client, names, cleanup, snapshot):
+    api = client("apigateway")
+    rid, res = mock_api(api, names, cleanup)
+    at = dict(restApiId=rid, resourceId=res, httpMethod="GET")
+    snapshot.match("update-method", api.update_method(**at, patchOperations=[
+        {"op": "replace", "path": "/operationName", "value": "ping"},
+        {"op": "add", "path": "/requestParameters/method.request.querystring.q", "value": "false"}]))
+    snapshot.match("update-integration", api.update_integration(**at, patchOperations=[
+        {"op": "replace", "path": "/timeoutInMillis", "value": "1000"},
+        {"op": "replace", "path": "/passthroughBehavior", "value": "NEVER"}]), opaque=IDS)
+    snapshot.match("update-method-response", api.update_method_response(**at, statusCode="200", patchOperations=[
+        {"op": "add", "path": "/responseParameters/method.response.header.X-Ping", "value": "false"}]))
+    snapshot.match("update-integration-response", api.update_integration_response(**at, statusCode="200", patchOperations=[
+        {"op": "add", "path": "/responseParameters/method.response.header.X-Ping", "value": "'pong'"}]))
+    snapshot.error("update-an-unknown-path", lambda: api.update_method(**at, patchOperations=[
+        {"op": "replace", "path": "/nonsense", "value": "1"}]))
+    snapshot.match("get-method", api.get_method(**at), opaque=IDS)
+    snapshot.error("put-the-method-twice", lambda: api.put_method(**at, authorizationType="NONE"))
+    dep = api.create_deployment(restApiId=rid, stageName="dev", variables={"color": "blue"})
+    snapshot.match("update-stage", api.update_stage(restApiId=rid, stageName="dev", patchOperations=[
+        {"op": "replace", "path": "/tracingEnabled", "value": "true"},
+        {"op": "add", "path": "/variables/size", "value": "large"},
+        {"op": "replace", "path": "/*/*/metrics/enabled", "value": "true"},
+        {"op": "replace", "path": "/*/*/throttling/burstLimit", "value": "100"}]), opaque=IDS + CLOCK)
+    snapshot.error("logging-without-a-role", lambda: api.update_stage(restApiId=rid, stageName="dev", patchOperations=[
+        {"op": "replace", "path": "/*/*/logging/loglevel", "value": "INFO"}]))
+    snapshot.match("update-deployment", api.update_deployment(restApiId=rid, deploymentId=dep["id"], patchOperations=[
+        {"op": "replace", "path": "/description", "value": "first"}]), opaque=IDS + CLOCK)
+    snapshot.match("update-rest-api", api.update_rest_api(restApiId=rid, patchOperations=[
+        {"op": "replace", "path": "/description", "value": "changed"},
+        {"op": "add", "path": "/binaryMediaTypes/image~1png"}]), opaque=IDS + CLOCK)
+
+
+def test_models_validators_and_gateway_responses(client, names, cleanup, snapshot):
+    api = client("apigateway")
+    rid, _ = mock_api(api, names, cleanup)
+    snapshot.match("default-models", sorted(m["name"] for m in api.get_models(restApiId=rid)["items"]))
+    snapshot.match("model", api.create_model(restApiId=rid, name="Pet", contentType="application/json",
+                                             schema='{"type": "object"}'), opaque=IDS)
+    snapshot.error("model-twice", lambda: api.create_model(restApiId=rid, name="Pet", contentType="application/json",
+                                                           schema='{"type": "object"}'))
+    snapshot.error("model-bad-name", lambda: api.create_model(restApiId=rid, name="no-dash", contentType="application/json",
+                                                              schema='{"type": "object"}'))
+    snapshot.match("validator", api.create_request_validator(restApiId=rid, name="body", validateRequestBody=True),
+                   opaque=IDS)
+    snapshot.match("default-response", api.get_gateway_response(restApiId=rid, responseType="MISSING_AUTHENTICATION_TOKEN"))
+    snapshot.match("put-response", api.put_gateway_response(
+        restApiId=rid, responseType="DEFAULT_4XX", statusCode="418",
+        responseParameters={"gatewayresponse.header.X-Teapot": "'yes'"}))
+    snapshot.match("response-types", sorted(
+        r["responseType"] for r in api.get_gateway_responses(restApiId=rid, limit=500)["items"]))
+
+
+def test_api_keys_and_usage_plans(client, names, cleanup, snapshot, target, eventually):
+    api = client("apigateway")
+    rid, res = mock_api(api, names, cleanup, stage="live")
+    key = snapshot.match("key", api.create_api_key(name=names("key"), enabled=True,
+                                                   value="doze0123456789abcdefghijk"), opaque=IDS + CLOCK)
+    cleanup(api.delete_api_key, apiKey=key["id"])
+    snapshot.match("key-hidden", api.get_api_key(apiKey=key["id"]), opaque=IDS + CLOCK)
+    plan = snapshot.match("plan", api.create_usage_plan(name=names("plan"), apiStages=[{"apiId": rid, "stage": "live"}],
+                                                        quota={"limit": 100, "period": "DAY"}), opaque=IDS + ("apiId",))
+    cleanup(api.delete_usage_plan, usagePlanId=plan["id"])
+    snapshot.match("plan-key", api.create_usage_plan_key(usagePlanId=plan["id"], keyId=key["id"], keyType="API_KEY"),
+                   opaque=IDS)
+    cleanup(api.delete_usage_plan_key, usagePlanId=plan["id"], keyId=key["id"])
+    snapshot.error("absent-stage-in-a-plan", lambda: api.create_usage_plan(
+        name=names("plan2"), apiStages=[{"apiId": rid, "stage": "nope"}]))
+    api.update_method(restApiId=rid, resourceId=res, httpMethod="GET",
+                      patchOperations=[{"op": "replace", "path": "/apiKeyRequired", "value": "true"}])
+    api.create_deployment(restApiId=rid, stageName="live")
+
+    def keyless():
+        r = call(target.execute_api_url(rid, "live", "ping"))
+        assert r["status"] == 403, r
+        return r
+
+    snapshot.match("without-a-key", eventually(keyless, timeout=60))
+
+    def keyed():
+        r = call(target.execute_api_url(rid, "live", "ping"), headers={"x-api-key": "doze0123456789abcdefghijk"})
+        assert r["status"] == 200, r
+        return r
+
+    snapshot.match("with-the-key", eventually(keyed, timeout=60))
+
+
+IMPORT = '''openapi: 3.0.1
+info:
+  title: imported
+  version: "1"
+paths:
+  /pets/{id}:
+    get:
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: ok
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseTemplates:
+              application/json: '{"id": "$input.params(''id'')"}'
+'''
+
+
+def test_import_and_export_a_rest_api(client, names, cleanup, snapshot, target, eventually):
+    api = client("apigateway")
+    made = snapshot.match("import", api.import_rest_api(body=IMPORT.encode()), opaque=IDS + CLOCK)
+    rid = made["id"]
+    cleanup(api.delete_rest_api, restApiId=rid)
+    snapshot.match("paths", sorted(r["path"] for r in api.get_resources(restApiId=rid)["items"]))
+    api.create_deployment(restApiId=rid, stageName="v1")
+
+    def answered():
+        r = call(target.execute_api_url(rid, "v1", "pets/7"))
+        assert r["status"] == 200, r
+        return r
+
+    snapshot.match("call", eventually(answered, timeout=60))
+    exported = api.get_export(restApiId=rid, stageName="v1", exportType="oas30", accepts="application/json")
+    doc = json.loads(exported["body"].read())
+    snapshot.match("export-paths", sorted(doc["paths"]))
+    snapshot.match("export-methods", sorted(doc["paths"]["/pets/{id}"]))
+    snapshot.error("not-openapi", lambda: api.import_rest_api(body=b'{"hello": "world"}'))
+
+
+def test_http_api_routes_stages_and_deployments(client, names, cleanup, snapshot):
+    v2 = client("apigatewayv2")
+    made = snapshot.match("create", v2.create_api(
+        Name=names("api"), ProtocolType="HTTP",
+        CorsConfiguration={"AllowOrigins": ["https://example.com"], "AllowMethods": ["GET"], "MaxAge": 60}),
+        opaque=IDS + CLOCK)
+    aid = made["ApiId"]
+    cleanup(v2.delete_api, ApiId=aid)
+    integ = snapshot.match("integration", v2.create_integration(
+        ApiId=aid, IntegrationType="HTTP_PROXY", IntegrationMethod="GET", IntegrationUri="https://example.com/{proxy}"),
+        opaque=IDS)
+    target_ = f"integrations/{integ['IntegrationId']}"
+    route = snapshot.match("route", v2.create_route(ApiId=aid, RouteKey="GET /items/{proxy+}", Target=target_), opaque=IDS)
+    snapshot.error("route-twice", lambda: v2.create_route(ApiId=aid, RouteKey="GET /items/{proxy+}", Target=target_))
+    snapshot.match("update-route", v2.update_route(ApiId=aid, RouteId=route["RouteId"], OperationName="items"), opaque=IDS)
+    snapshot.match("stage", v2.create_stage(ApiId=aid, StageName="manual", StageVariables={"a": "1"}), opaque=IDS + CLOCK)
+    dep = snapshot.match("deployment", v2.create_deployment(ApiId=aid, StageName="manual"), opaque=IDS + CLOCK)
+    snapshot.match("stage-after", v2.get_stage(ApiId=aid, StageName="manual"), opaque=IDS + CLOCK)
+    snapshot.match("update-stage", v2.update_stage(ApiId=aid, StageName="manual", StageVariables={"b": "2"}),
+                   opaque=IDS + CLOCK)
+    snapshot.error("delete-a-used-integration", lambda: v2.delete_integration(
+        ApiId=aid, IntegrationId=integ["IntegrationId"]))
+    snapshot.error("delete-a-served-deployment", lambda: v2.delete_deployment(ApiId=aid, DeploymentId=dep["DeploymentId"]))
+    v2.delete_cors_configuration(ApiId=aid)
+    snapshot.match("after-cors", v2.get_api(ApiId=aid), opaque=IDS + CLOCK)
+
+
+def test_websocket_api_control_plane(client, names, cleanup, snapshot):
+    v2 = client("apigatewayv2")
+    made = snapshot.match("create", v2.create_api(
+        Name=names("ws"), ProtocolType="WEBSOCKET", RouteSelectionExpression="$request.body.action"),
+        opaque=IDS + CLOCK)
+    aid = made["ApiId"]
+    cleanup(v2.delete_api, ApiId=aid)
+    snapshot.error("no-selection-expression", lambda: v2.create_api(Name=names("ws2"), ProtocolType="WEBSOCKET"))
+    integ = snapshot.match("integration", v2.create_integration(ApiId=aid, IntegrationType="MOCK",
+                                                                RequestTemplates={"$default": '{"statusCode": 200}'}),
+                           opaque=IDS)
+    snapshot.match("integration-response", v2.create_integration_response(
+        ApiId=aid, IntegrationId=integ["IntegrationId"], IntegrationResponseKey="$default",
+        ResponseTemplates={"$default": '{"echo": true}'}), opaque=IDS + ("IntegrationResponseId",))
+    route = snapshot.match("route", v2.create_route(ApiId=aid, RouteKey="$default",
+                                                    Target=f"integrations/{integ['IntegrationId']}",
+                                                    RouteResponseSelectionExpression="$default"), opaque=IDS)
+    snapshot.match("route-response", v2.create_route_response(ApiId=aid, RouteId=route["RouteId"],
+                                                              RouteResponseKey="$default"),
+                   opaque=IDS + ("RouteResponseId",))
+    snapshot.match("stage", v2.create_stage(ApiId=aid, StageName="prod", AutoDeploy=True), opaque=IDS + CLOCK)
+    snapshot.match("routes", sorted(r["RouteKey"] for r in v2.get_routes(ApiId=aid)["Items"]))

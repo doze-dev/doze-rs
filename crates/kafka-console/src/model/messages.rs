@@ -3,7 +3,9 @@
 use super::{MessageQuery, TopicHead};
 
 /// Where a record stands for a `read_committed` consumer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum Standing {
     /// Below the last stable offset and not aborted: both isolation levels see it.
     Committed,
@@ -14,7 +16,9 @@ pub enum Standing {
 }
 
 /// What a key or a value is, as far as the bytes say.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ShownKind"))]
+#[serde(rename_all = "snake_case")]
 pub enum Kind {
     /// Not there (a null key, a deletion's value).
     Null,
@@ -27,7 +31,8 @@ pub enum Kind {
 }
 
 /// A key, a value or a header's value, ready to show.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Shown {
     pub kind: Kind,
     /// The true size in bytes.
@@ -40,7 +45,8 @@ pub struct Shown {
 }
 
 /// One row of the table.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct RecordRow {
     pub partition: i32,
     pub offset: i64,
@@ -51,7 +57,8 @@ pub struct RecordRow {
 }
 
 /// A partition's place in the `read_committed` explanation.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Hold {
     pub partition: i32,
     pub high_watermark: i64,
@@ -61,7 +68,8 @@ pub struct Hold {
 }
 
 /// What the read did, in numbers a sentence can use.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Reach {
     /// Records returned.
     pub returned: usize,
@@ -78,7 +86,8 @@ pub struct Reach {
 }
 
 /// The Messages page.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct MessagesView {
     pub head: TopicHead,
     pub query: MessageQuery,
@@ -91,14 +100,16 @@ pub struct MessagesView {
 }
 
 /// A header of a record.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct HeaderRow {
     pub key: String,
     pub value: Shown,
 }
 
 /// The transaction a record belongs to, as far as the broker says.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct RecordTxn {
     pub id: Option<String>,
     /// `Ongoing`, `PrepareCommit`, ... where the coordinator still has it.
@@ -108,7 +119,8 @@ pub struct RecordTxn {
 }
 
 /// One record, completely.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct RecordView {
     pub topic: String,
     pub partition: i32,

@@ -1,0 +1,39 @@
+[package]
+name = "kafka-registry-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+kafka-registry = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "json_node"
+path = "fuzz_targets/json_node.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "avro_schema"
+path = "fuzz_targets/avro_schema.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "registry_api"
+path = "fuzz_targets/registry_api.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "wire"
+path = "fuzz_targets/wire.rs"
+test = false
+doc = false

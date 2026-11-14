@@ -5,11 +5,52 @@
 #        interop/run.sh -sasl                 the SASL cells instead: PLAIN, SCRAM-SHA-256 and SCRAM-SHA-512 for each library
 #        interop/run.sh -tls                  the TLS cells: builds the broker with --features tls, makes a throwaway CA and certificate with
 #                                             openssl, and runs each library over SASL_SSL (SCRAM-SHA-512) and over SSL (no SASL)
+#        interop/run.sh -kafka-version N      the broker stands for Kafka major N (1 to 4, default 4): started with --kafka-version N, and
+#                                             the clients configured for it (-kafka-major N); combines with -only, -sasl and -tls
+#        interop/run.sh -versions             once per major, 1 to 4 (a broker and a fresh data directory each), then a summary per
+#                                             major; with -sasl, the SASL cells per major
 set -euo pipefail
 sasl=""
 tls=""
-if [ "${1:-}" = "-sasl" ]; then sasl=1; shift; fi
-if [ "${1:-}" = "-tls" ]; then tls=1; shift; fi
+major=""
+versions=""
+rest=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -sasl) sasl=1; shift ;;
+    -tls) tls=1; shift ;;
+    -versions) versions=1; shift ;;
+    -kafka-version)
+      major="${2:-}"
+      case "$major" in 1 | 2 | 3 | 4) ;; *) echo "-kafka-version takes 1, 2, 3 or 4" >&2; exit 2 ;; esac
+      shift 2 ;;
+    *) rest+=("$1"); shift ;;
+  esac
+done
+set -- ${rest[@]+"${rest[@]}"}
+
+# -versions: this script once per major, each with a broker of its own; the per-major summary counts the lines the Go program
+# prints (ok, skip, FAIL), and the skips are listed with their reasons.
+if [ -n "$versions" ]; then
+  if [ -n "$major" ]; then echo "-versions runs every major; leave out -kafka-version" >&2; exit 2; fi
+  out="$(mktemp -d)"
+  trap 'rm -rf "$out"' EXIT
+  status=0
+  for m in 1 2 3 4; do
+    echo "=== Kafka $m ==="
+    if ! "$0" ${sasl:+-sasl} ${tls:+-tls} -kafka-version "$m" "$@" 2>&1 | tee "$out/$m.log"; then status=1; echo "Kafka $m: FAILED"; fi
+  done
+  echo
+  echo "=== per major ==="
+  for m in 1 2 3 4; do
+    printf 'Kafka %s: %3d passed, %2d skipped, %2d failed\n' "$m" \
+      "$(grep -c '^ok ' "$out/$m.log" || true)" "$(grep -c '^skip ' "$out/$m.log" || true)" "$(grep -c '^FAIL' "$out/$m.log" || true)"
+    grep -E '^(skip|FAIL)' "$out/$m.log" | sed 's/^/    /' || true
+  done
+  exit "$status"
+fi
+major="${major:-4}"
+set -- -kafka-major "$major" "$@"
 command -v kcat >/dev/null || { echo "interop needs kcat (librdkafka): brew install kcat" >&2; exit 2; }
 command -v cc >/dev/null || { echo "interop needs a C compiler (it builds a librdkafka transactional producer)" >&2; exit 2; }
 command -v go >/dev/null || { echo "interop needs go" >&2; exit 2; }
@@ -36,7 +77,7 @@ if [ -n "$sasl" ]; then
   set -- -sasl "$@"
 fi
 bin="${CARGO_TARGET_DIR:-$root/target}/release/doze-kafka"
-common=(--default-partitions 3 --consumer-session-timeout 6s --log-cleaner-interval 500ms)
+common=(--kafka-version "$major" --default-partitions 3 --consumer-session-timeout 6s --log-cleaner-interval 500ms)
 # -tls: a throwaway CA and a server certificate for localhost and 127.0.0.1 (two steps for the key: LibreSSL, which macOS ships, writes
 # a key the broker cannot read from the one-line `req -newkey ec`; -sha256 because LibreSSL signs with SHA-1 otherwise). Two brokers:
 # one with TLS and SCRAM-SHA-512 (SASL_SSL) and one with TLS alone (SSL).

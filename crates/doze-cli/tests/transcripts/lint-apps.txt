@@ -1,0 +1,63 @@
+# lint of a stack with no module blocks: both passes are complete, so it is valid (exit 0), with doze-config's
+# warnings listed under the verdict; a mistake is drawn at its line and column (exit 5).
+@ project bare
+@ file project/doze.hcl stack = "a"\n\napp "web" {\n  run  = "serve"\n  port = 8080\n  sleep = "never"\n}\n\nservice "mail" {\n  run = "mailpit"\n}\n\ntask "seed" {\n  run = "seed"\n}\n
+@ file project/broken/doze.hcl app "web" {\n  run = "serve"\n  port = "eighty"\n}\n
+
+$ doze lint
+exit 0
+stdout:
+| ✓ doze.hcl is valid: 1 app, 1 service, 1 task
+|   ! doze.hcl:13,1-12: task "seed" runs only by doze task seed: nothing lists it in after; add manual = true to say so, or task.seed to the after of what needs it
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze lint",
+|   "ok": true,
+|   "data": {
+|     "config": "doze.hcl",
+|     "declared": {
+|       "app": 1,
+|       "service": 1,
+|       "task": 1
+|     },
+|     "disabled": 0,
+|     "unchecked": [],
+|     "warnings": [
+|       "doze.hcl:13,1-12: task \"seed\" runs only by doze task seed: nothing lists it in after; add manual = true to say so, or task.seed to the after of what needs it"
+|     ]
+|   }
+| }
+
+$ doze -c broken lint
+exit 5
+stderr:
+| error[DZ0301]: Unsuitable value type
+|   --> broken/doze.hcl:3:11
+|    |
+|  3 |   port = "eighty"
+|    |           ^^^^^^
+|    |
+|    = Unsuitable value: a number is required
+json exit 5
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze lint",
+|   "ok": false,
+|   "error": {
+|     "code": "config_invalid",
+|     "message": "Unsuitable value type",
+|     "exit": 5,
+|     "id": "DZ0301",
+|     "span": {
+|       "file": "broken/doze.hcl",
+|       "line": 3,
+|       "column": 11
+|     },
+|     "notes": [
+|       "Unsuitable value: a number is required"
+|     ]
+|   }
+| }

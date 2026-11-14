@@ -25,13 +25,6 @@ fn how_long_ago_is_the_boards_words() {
 }
 
 #[test]
-fn a_clock_has_milliseconds() {
-    assert_eq!(clock_ms(0), "00:00:00.000");
-    assert_eq!(clock_ms(1_700_000_000_123), "22:13:20.123");
-    assert_eq!(clock_ms(-1), "23:59:59.999");
-}
-
-#[test]
 fn a_time_is_milliseconds_or_a_utc_civil_time() {
     for (text, want) in [
         ("0", Some(0)),

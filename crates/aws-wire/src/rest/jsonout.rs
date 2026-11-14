@@ -44,7 +44,8 @@ pub fn render(tables: &Tables, op: u32, out: &Value, status: Option<u16>) -> Ren
                 has_payload = true;
                 payload(&mut r, m, value);
             }
-            0 => {
+            // An output member the model binds to the query (API Gateway's `position`) can only travel in the body, where SDKs read it.
+            0 | 2 => {
                 has_body = true;
                 if let Some(v) = value.filter(|v| !v.is_null()) {
                     object.insert(m.wire.to_owned(), v.clone());

@@ -76,3 +76,33 @@ crates/doze-module/
 The echo module, started as a real process through `doze-os`, passes: hello and manifest (schema from the derive),
 `decode` with a diagnostic at the right path, `network`, `connection`, `resolve` calling the host's `fetch.ensure`,
 `provision`, `plan`; green on five targets.
+
+## The module contract
+
+Owner rule (2026-11-14): **nothing module-specific is hard-coded in doze**, in the app or the CLI. What doze knows
+about an engine comes from its module, through the SDK and protocol 2 (`Manifest` in
+`doze-module-proto/src/msg/hello.rs`), and reaches the core and the app through the registry (`meta.yaml`, written
+by `doze-module-release`, read by `doze_cli::registry::Cache::hints`). Where a module declares nothing, a generic
+default applies; doze never fills the gap with its own table.
+
+The fields, and the default when a module leaves one out:
+
+| Field | What it is for | Default |
+|---|---|---|
+| `client` (`ClientCommand`) | the shell on an instance: program, argv template over `{host}` `{port}` `{url}` `{password}`, env template (secrets go here, never argv), fallbacks on `PATH`. Feeds `doze connect` and the app's "open shell" | no shell is offered (`connect` exits 1 and points at `doze url`) |
+| `detect` (`Detect`) | how `doze init`/`add` and the app's empty folder recognise a project that uses the engine: packages by ecosystem (`go`, `npm`, …), container images, env variables | the module is never guessed |
+| `default_version` | the `version` `doze add` writes | the newest engine the module's index entry supports |
+| `example_label` | the label a new block gets (`module valkey "cache"`) | the module's name |
+
+Only modules customise their page in the app, through their declared console spec, its extensions and the manifest
+fields above. Apps, tasks and outside services (`app`, `task`, `service` blocks) always get the fixed standard pages:
+there is no declaration mechanism for them in the protocol, the CLI or doze.hcl, and none is to be added.
+
+Keep it lean: doze is for debugging and performance. A new module-facing field is added only when several modules
+genuinely need it; the change that adds one carries one line saying which modules and why, for debugging or
+performance. A field that fits one tool belongs in that module (its console, its actions), not in the contract.
+
+Declared today: valkey and kvrocks (`client`, `detect`), temporal (`detect`; it has no shell, its CLI is not a
+session). kafka and aws declare theirs when their module faces are built (core plan M3); postgres, mariadb and ferret
+when they are ported (M1). The app's empty-folder table (`doze-desk` `act/detect`) takes the union of the modules'
+`detect`, with nothing built in.

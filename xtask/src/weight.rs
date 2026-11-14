@@ -182,9 +182,32 @@ fn unique_lines(text: &str) -> usize {
     lines.collect::<BTreeSet<_>>().len()
 }
 
+/// How many times the server is started to measure idle memory. One sample moved by up to 870 KB between
+/// CI runs (docs/port/weight.md, 2026-11-14); the median of three fresh starts is the figure compared.
+const IDLE_SAMPLES: usize = 3;
+
+/// The median of [`IDLE_SAMPLES`] idle measurements, each from a fresh start.
+fn idle_rss_kb(binary: &Path, args: &[String]) -> Result<u64, String> {
+    let mut samples = Vec::with_capacity(IDLE_SAMPLES);
+    for _ in 0..IDLE_SAMPLES {
+        samples.push(idle_rss_kb_once(binary, args)?);
+    }
+    eprintln!("idle samples for {}: {samples:?} KB", binary.display());
+    Ok(median(&mut samples))
+}
+
+/// The middle value (the lower middle for an even count), 0 for no samples. `samples` is sorted in place.
+fn median(samples: &mut [u64]) -> u64 {
+    samples.sort_unstable();
+    samples
+        .get(samples.len().saturating_sub(1) / 2)
+        .copied()
+        .unwrap_or(0)
+}
+
 /// Starts the server on a free port with an empty data directory, waits until it accepts, lets it settle,
 /// and reads its resident set from `ps` (the same on Linux and macOS).
-fn idle_rss_kb(binary: &Path, args: &[String]) -> Result<u64, String> {
+fn idle_rss_kb_once(binary: &Path, args: &[String]) -> Result<u64, String> {
     let port = free_port()?;
     let data = std::env::temp_dir().join(format!("xtask-weight-{}-{port}", std::process::id()));
     fs::create_dir_all(&data).map_err(|e| e.to_string())?;
@@ -244,6 +267,13 @@ fn read_rss_kb(pid: u32) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_median_of_three_ignores_one_outlier_either_way() {
+        assert_eq!(median(&mut [9_484, 8_612, 8_700]), 8_700);
+        assert_eq!(median(&mut [100, 9_000, 9_100]), 9_000);
+        assert_eq!(median(&mut [7]), 7);
+    }
 
     const SAMPLE: &str =
         "# comment\n\ndoze-kafka 5150000 115 8192 --listen 127.0.0.1:{port} --data-dir {data}\n";

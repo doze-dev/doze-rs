@@ -259,3 +259,5 @@ fn bytes_after_the_last_gzip_member_that_do_not_begin_another_are_not_read() {
     cut.extend_from_slice(&gzip(b"more")[..6]);
     assert!(batch(1, cut, 10).scan(&rules(1 << 20), &"t-0").is_err());
 }
+
+mod payload;

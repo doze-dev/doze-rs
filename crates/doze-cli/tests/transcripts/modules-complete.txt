@@ -1,0 +1,43 @@
+# Both indexes here: the pins, the newest that fits this doze, and the upgrade waiting.
+@ project pinned
+@ cached valkey
+@ cached postgres
+@ tty
+
+$ doze mod
+exit 0
+stdout:
+| module     pinned   newest that fits
+| postgres   0.2.5    0.2.5
+| valkey     0.2.1    0.3.0
+|   1 upgrade waiting · doze modules upgrade valkey
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules",
+|   "ok": true,
+|   "data": {
+|     "lock": "{sandbox}/project/doze.lock",
+|     "modules": [
+|       {
+|         "module": "postgres",
+|         "pinned": "0.2.5",
+|         "newest": "0.2.5"
+|       },
+|       {
+|         "module": "valkey",
+|         "pinned": "0.2.1",
+|         "newest": "0.3.0"
+|       }
+|     ]
+|   }
+| }
+tty exit 0
+tty stdout:
+| ⟨2mmodule     pinned   newest that fits⟨0m
+| postgres   0.2.5    0.2.5
+| valkey     0.2.1    ⟨33m0.3.0⟨0m
+|   1 upgrade waiting · ⟨36mdoze modules upgrade valkey⟨0m
+tty spawned:
+| __refresh --latest

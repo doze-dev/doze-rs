@@ -1,0 +1,67 @@
+# A broken doze.hcl with the daemon down stops sleep and logs with no names too (exit 5), as Go loads it first.
+@ project bare
+@ file project/doze.hcl app "api" {\n  port = 8080\n}\n
+
+$ doze sleep
+exit 5
+stderr:
+| error[DZ0301]: Missing required argument
+|   --> doze.hcl:1:11
+|    |
+|  1 | app "api" {
+|    |           ^
+|    |
+|    = The argument "run" is required, but no definition was found.
+json exit 5
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sleep",
+|   "ok": false,
+|   "error": {
+|     "code": "config_invalid",
+|     "message": "Missing required argument",
+|     "exit": 5,
+|     "id": "DZ0301",
+|     "span": {
+|       "file": "doze.hcl",
+|       "line": 1,
+|       "column": 11
+|     },
+|     "notes": [
+|       "The argument \"run\" is required, but no definition was found."
+|     ]
+|   }
+| }
+
+$ doze logs
+exit 5
+stderr:
+| error[DZ0301]: Missing required argument
+|   --> doze.hcl:1:11
+|    |
+|  1 | app "api" {
+|    |           ^
+|    |
+|    = The argument "run" is required, but no definition was found.
+json exit 5
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": false,
+|   "error": {
+|     "code": "config_invalid",
+|     "message": "Missing required argument",
+|     "exit": 5,
+|     "id": "DZ0301",
+|     "span": {
+|       "file": "doze.hcl",
+|       "line": 1,
+|       "column": 11
+|     },
+|     "notes": [
+|       "The argument \"run\" is required, but no definition was found."
+|     ]
+|   }
+| }

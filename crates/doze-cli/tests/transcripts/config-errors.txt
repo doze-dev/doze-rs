@@ -1,0 +1,236 @@
+# A doze.hcl with mistakes, with the daemon down: each problem at Go's line and column, drawn with the source line
+# and a caret (O6); a did-you-mean under the caret; every problem of the pass, not only the first. Exit 5, before
+# anything else (as Go loads the config first).
+@ project bare
+@ file project/doze.hcl stack = "s"\n\nmodule valkey "cache" {\n  version = 9\n}\n\napp "api" {\n  rnu  = "x"\n  prot = 8080\n}\n
+
+$ doze status
+exit 5
+stderr:
+| error[DZ0301]: Missing required argument
+|   --> doze.hcl:7:11
+|    |
+|  7 | app "api" {
+|    |           ^
+|    |
+|    = The argument "run" is required, but no definition was found.
+| error[DZ0301]: Unsupported argument
+|   --> doze.hcl:8:3
+|    |
+|  8 |   rnu  = "x"
+|    |   ^^^ did you mean "env"?
+|    |
+|    = An argument named "rnu" is not expected here.
+| error[DZ0301]: Unsupported argument
+|   --> doze.hcl:9:3
+|    |
+|  9 |   prot = 8080
+|    |   ^^^^
+|    |
+|    = An argument named "prot" is not expected here.
+json exit 5
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze status",
+|   "ok": false,
+|   "error": {
+|     "code": "config_invalid",
+|     "message": "Missing required argument",
+|     "exit": 5,
+|     "id": "DZ0301",
+|     "span": {
+|       "file": "doze.hcl",
+|       "line": 7,
+|       "column": 11
+|     },
+|     "notes": [
+|       "The argument \"run\" is required, but no definition was found."
+|     ],
+|     "more": [
+|       {
+|         "code": "config_invalid",
+|         "message": "Unsupported argument",
+|         "exit": 5,
+|         "id": "DZ0301",
+|         "span": {
+|           "file": "doze.hcl",
+|           "line": 8,
+|           "column": 3,
+|           "label": "did you mean \"env\"?"
+|         },
+|         "notes": [
+|           "An argument named \"rnu\" is not expected here."
+|         ]
+|       },
+|       {
+|         "code": "config_invalid",
+|         "message": "Unsupported argument",
+|         "exit": 5,
+|         "id": "DZ0301",
+|         "span": {
+|           "file": "doze.hcl",
+|           "line": 9,
+|           "column": 3
+|         },
+|         "notes": [
+|           "An argument named \"prot\" is not expected here."
+|         ]
+|       }
+|     ]
+|   }
+| }
+
+$ doze sleep api
+exit 5
+stderr:
+| error[DZ0301]: Missing required argument
+|   --> doze.hcl:7:11
+|    |
+|  7 | app "api" {
+|    |           ^
+|    |
+|    = The argument "run" is required, but no definition was found.
+| error[DZ0301]: Unsupported argument
+|   --> doze.hcl:8:3
+|    |
+|  8 |   rnu  = "x"
+|    |   ^^^ did you mean "env"?
+|    |
+|    = An argument named "rnu" is not expected here.
+| error[DZ0301]: Unsupported argument
+|   --> doze.hcl:9:3
+|    |
+|  9 |   prot = 8080
+|    |   ^^^^
+|    |
+|    = An argument named "prot" is not expected here.
+json exit 5
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sleep",
+|   "ok": false,
+|   "error": {
+|     "code": "config_invalid",
+|     "message": "Missing required argument",
+|     "exit": 5,
+|     "id": "DZ0301",
+|     "span": {
+|       "file": "doze.hcl",
+|       "line": 7,
+|       "column": 11
+|     },
+|     "notes": [
+|       "The argument \"run\" is required, but no definition was found."
+|     ],
+|     "more": [
+|       {
+|         "code": "config_invalid",
+|         "message": "Unsupported argument",
+|         "exit": 5,
+|         "id": "DZ0301",
+|         "span": {
+|           "file": "doze.hcl",
+|           "line": 8,
+|           "column": 3,
+|           "label": "did you mean \"env\"?"
+|         },
+|         "notes": [
+|           "An argument named \"rnu\" is not expected here."
+|         ]
+|       },
+|       {
+|         "code": "config_invalid",
+|         "message": "Unsupported argument",
+|         "exit": 5,
+|         "id": "DZ0301",
+|         "span": {
+|           "file": "doze.hcl",
+|           "line": 9,
+|           "column": 3
+|         },
+|         "notes": [
+|           "An argument named \"prot\" is not expected here."
+|         ]
+|       }
+|     ]
+|   }
+| }
+
+$ doze logs cache
+exit 5
+stderr:
+| error[DZ0301]: Missing required argument
+|   --> doze.hcl:7:11
+|    |
+|  7 | app "api" {
+|    |           ^
+|    |
+|    = The argument "run" is required, but no definition was found.
+| error[DZ0301]: Unsupported argument
+|   --> doze.hcl:8:3
+|    |
+|  8 |   rnu  = "x"
+|    |   ^^^ did you mean "env"?
+|    |
+|    = An argument named "rnu" is not expected here.
+| error[DZ0301]: Unsupported argument
+|   --> doze.hcl:9:3
+|    |
+|  9 |   prot = 8080
+|    |   ^^^^
+|    |
+|    = An argument named "prot" is not expected here.
+json exit 5
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": false,
+|   "error": {
+|     "code": "config_invalid",
+|     "message": "Missing required argument",
+|     "exit": 5,
+|     "id": "DZ0301",
+|     "span": {
+|       "file": "doze.hcl",
+|       "line": 7,
+|       "column": 11
+|     },
+|     "notes": [
+|       "The argument \"run\" is required, but no definition was found."
+|     ],
+|     "more": [
+|       {
+|         "code": "config_invalid",
+|         "message": "Unsupported argument",
+|         "exit": 5,
+|         "id": "DZ0301",
+|         "span": {
+|           "file": "doze.hcl",
+|           "line": 8,
+|           "column": 3,
+|           "label": "did you mean \"env\"?"
+|         },
+|         "notes": [
+|           "An argument named \"rnu\" is not expected here."
+|         ]
+|       },
+|       {
+|         "code": "config_invalid",
+|         "message": "Unsupported argument",
+|         "exit": 5,
+|         "id": "DZ0301",
+|         "span": {
+|           "file": "doze.hcl",
+|           "line": 9,
+|           "column": 3
+|         },
+|         "notes": [
+|           "An argument named \"prot\" is not expected here."
+|         ]
+|       }
+|     ]
+|   }
+| }
