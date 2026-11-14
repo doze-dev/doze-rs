@@ -32,6 +32,53 @@ impl State {
     }
 }
 
+impl State {
+    /// The versions a subject delete removes, or why it may not: a read-only subject, none, the wrong order of soft and
+    /// permanent, a version another schema references.
+    fn subject_targets(&self, subject: &str, permanent: bool) -> Result<Vec<u32>, RegistryError> {
+        let s = self;
+        if s.mode_of(subject) == Mode::ReadOnly {
+            return Err(RegistryError::read_only(subject));
+        }
+        let has_any = !s.versions(subject).is_empty();
+        let alive = s.exists(subject);
+        if !has_any || (!permanent && !alive) {
+            if has_any {
+                return Err(RegistryError::new(
+                    404,
+                    code::SUBJECT_SOFT_DELETED,
+                    format!(
+                        "Subject '{subject}' was soft deleted.Set permanent=true to delete permanently"
+                    ),
+                ));
+            }
+            return Err(RegistryError::subject_not_found(subject));
+        }
+        if permanent && alive {
+            return Err(RegistryError::new(
+                404,
+                code::SUBJECT_NOT_SOFT_DELETED,
+                format!(
+                    "Subject '{subject}' was not deleted first before being permanently deleted"
+                ),
+            ));
+        }
+        let targets: Vec<u32> = s
+            .versions(subject)
+            .iter()
+            .filter(|v| permanent || !v.rec.deleted)
+            .map(|v| v.number)
+            .collect();
+        if let Some(&n) = targets
+            .iter()
+            .find(|&&n| !s.referencing(subject, n).is_empty())
+        {
+            return Err(RegistryError::reference_exists(subject, n));
+        }
+        Ok(targets)
+    }
+}
+
 impl Registry {
     /// Deletes one version: soft, or `permanent` once it is soft-deleted. Returns its number.
     ///
@@ -115,44 +162,7 @@ impl Registry {
         permanent: bool,
     ) -> Result<Vec<u32>, RegistryError> {
         let mut s = self.lock();
-        if s.mode_of(subject) == Mode::ReadOnly {
-            return Err(RegistryError::read_only(subject));
-        }
-        let has_any = !s.versions(subject).is_empty();
-        let alive = s.exists(subject);
-        if !has_any || (!permanent && !alive) {
-            if has_any {
-                return Err(RegistryError::new(
-                    404,
-                    code::SUBJECT_SOFT_DELETED,
-                    format!(
-                        "Subject '{subject}' was soft deleted.Set permanent=true to delete permanently"
-                    ),
-                ));
-            }
-            return Err(RegistryError::subject_not_found(subject));
-        }
-        if permanent && alive {
-            return Err(RegistryError::new(
-                404,
-                code::SUBJECT_NOT_SOFT_DELETED,
-                format!(
-                    "Subject '{subject}' was not deleted first before being permanently deleted"
-                ),
-            ));
-        }
-        let targets: Vec<u32> = s
-            .versions(subject)
-            .iter()
-            .filter(|v| permanent || !v.rec.deleted)
-            .map(|v| v.number)
-            .collect();
-        if let Some(&n) = targets
-            .iter()
-            .find(|&&n| !s.referencing(subject, n).is_empty())
-        {
-            return Err(RegistryError::reference_exists(subject, n));
-        }
+        let targets = s.subject_targets(subject, permanent)?;
         let mut b = Batch::default();
         for v in s
             .versions(subject)

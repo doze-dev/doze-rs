@@ -276,16 +276,7 @@ impl Writer {
             }
             _ => {
                 self.key(first, "fields");
-                self.out.push('[');
-                if let Some(Json::Array(fields)) = n.get("fields") {
-                    for (i, fld) in fields.iter().enumerate() {
-                        if i > 0 {
-                            self.out.push(',');
-                        }
-                        self.field(fld, space.as_deref())?;
-                    }
-                }
-                self.out.push(']');
+                self.fields(n, space.as_deref())?;
                 self.props(
                     first,
                     n,
@@ -297,6 +288,21 @@ impl Writer {
             self.key(first, "aliases");
             a.write(&mut self.out);
         }
+        Ok(())
+    }
+
+    /// A record's fields, as a list.
+    fn fields(&mut self, n: &Json, space: Option<&str>) -> Result<(), String> {
+        self.out.push('[');
+        if let Some(Json::Array(fields)) = n.get("fields") {
+            for (i, fld) in fields.iter().enumerate() {
+                if i > 0 {
+                    self.out.push(',');
+                }
+                self.field(fld, space)?;
+            }
+        }
+        self.out.push(']');
         Ok(())
     }
 
