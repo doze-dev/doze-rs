@@ -288,8 +288,7 @@ fn up_starts_the_daemon_and_down_stops_it() {
     assert!(!key.socket().exists() && !key.pid_file().exists());
 }
 
-/// `doze run`: the daemon is started first, then the command runs (here the host records it), and `--env` says it
-/// waits for the modules' answers.
+/// `doze run`: the daemon is started first, then the command runs (here the host records it), with `--env` too.
 #[test]
 fn run_starts_the_daemon_then_the_command() {
     if !std::path::Path::new("/bin/sh").exists() || !setup::sockets() {
@@ -310,7 +309,8 @@ fn run_starts_the_daemon_then_the_command() {
         false,
         &["run", "--env", "--", "true"],
     );
-    assert_eq!(env.code, 1, "{}", env.stderr);
+    // --env: the modules' variables (an app stack answers none), then the command.
+    assert_eq!(env.code, 0, "{}", env.stderr);
     let ran = fixture::run(
         &sb,
         &host,

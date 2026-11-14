@@ -12,6 +12,7 @@ mod docs_view;
 pub(crate) mod doctor;
 pub(crate) mod down;
 mod dry;
+pub(crate) mod env;
 pub(crate) mod fetch;
 pub(crate) mod format;
 mod graph;
@@ -30,6 +31,7 @@ mod run;
 pub(crate) mod setup;
 pub(crate) mod status;
 pub(crate) mod stub;
+mod sync;
 pub(crate) mod task;
 mod trust;
 mod trust_hint;
@@ -100,6 +102,9 @@ pub(crate) fn dispatch(
         Cmd::Down(d) => down::run(ctx, mode, &d, notices),
         Cmd::Up(u) => up::run(ctx, mode, &u, notices),
         Cmd::Run(r) => run::run(ctx, mode, &r),
+        Cmd::Env(e) => env::run(ctx, mode, &e),
+        Cmd::Url(u) => env::url(ctx, mode, &u),
+        Cmd::Sync(s) => sync::run(ctx, mode, &s),
         Cmd::Open(o) => open::run(ctx, mode, &o, notices),
         Cmd::Modules(m) => match m.command {
             None => modules::run(ctx, mode),

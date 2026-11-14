@@ -261,6 +261,20 @@ impl Host for FakeHost {
             Ok(())
         }
     }
+    /// The environment it was given is recorded first, as `env K=V…`.
+    fn run_env(
+        &self,
+        program: &std::path::Path,
+        args: &[String],
+        env: &[(String, String)],
+    ) -> std::io::Result<u8> {
+        if !env.is_empty() {
+            let mut line = vec!["env".to_owned()];
+            line.extend(env.iter().map(|(k, v)| format!("{k}={v}")));
+            self.spawned.borrow_mut().push(line);
+        }
+        self.run(program, args)
+    }
     fn run(&self, program: &std::path::Path, args: &[String]) -> std::io::Result<u8> {
         let name = program
             .file_name()

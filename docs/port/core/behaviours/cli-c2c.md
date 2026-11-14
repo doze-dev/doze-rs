@@ -33,14 +33,20 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
 | 15 | `open --console <name>` (new; the Go dash's `o`, `display.WebURL`): the instance's `console`, else its `web_url`, from the running stack, opened in the browser; with no display (SSH, Linux with none) the address is printed (stdout) for opening elsewhere. A name not declared is exit 4 (checked offline first when doze is stopped), doze stopped is exit 7, an instance without a console exit 1 (DZ0709), a browser that fails exit 10. It has a JSON result (`{name, url, opened}`); plain `open` still has none | transcripts `open`, `open-console`, `open-console-ssh` |
 | 16 | `update`'s hand-over: after `brew upgrade doze`, each running stack, under its lock: what is awake read from its daemon, the daemon stopped as `down` stops it (identified pid only), a new one started from the `doze` on the PATH with the doze.hcl its record names, what was awake woken again. JSON adds `stacks: [{stack, moved, detail}]`; a stack not moved is named with why and the run exits 11. The services stop for that moment (passing listeners on is the daemon's, compat.md rule 5); `--var`s the stack was started with are not carried over | `tests/handover.rs` (the built doze moved to a new daemon, web woken again; a stack with no daemon pid: exit 11) |
 
+| 17 | `env [service…] [--dotenv]`, `url <name>` and `run --env` (Go env.go, `urlCmd`): each module's own answer from the running stack (`InstanceView.env`, `https`/`url`/`endpoint`; D1's catalog at 872e3f18), nothing module-specific in the CLI. Names checked against doze.hcl first (exit 4, 5). With doze stopped the daemon is started for it (as `run` starts it; said on stderr; nothing wakes). Go's output kept: `export VAR='value'  # engine service`, `KEY=value` for `--dotenv`, a JSON list of `{service, engine, var, value}`, url's `{name, url}`; a variable two services answer keeps the first bare and suffixes the next (`_NAME`); the doze authority's four variables for a stack that serves a domain from it. An instance's own variable comes first, then the rest in name order | transcript `env`; `tests/env.rs` (the built doze started, the app not woken) |
+| 18 | `sync [service] [-y]` (Go sync.go) through the daemon's `apply`: names first (exit 4), a question on a terminal, exit 9 with no one to answer and no `-y`, "✓ sync complete". With doze stopped the daemon is started for it and left running (Go ran a runtime of its own and stopped it) | transcript `sync` |
+
 ## Pending (each says so: DZ0001, exit 1)
 
-- `env`, `url`: Go reads only the config, plus each module's `ConnString` (the plugin's plan). In Rust, a module's
-  `env_var` and URL come from its plan (`doze-module-proto` `instance.rs`) through doze-module-host. The CLI must plan
-  modules offline (cached build, hello, plan) or ask the daemon. The `InstanceView` on the wire carries no URL today.
-- `run --env`: needs `env` (the modules' answers on the wire).
-- `connect`: the client comes from the signed module's own hello (doze-fetch `meta.rs`), so it needs the module host.
-- `sync` (`apply`), `migrate`, lint's module pass.
+- `connect`: the view carries only the client's program name (`client`); the module's whole `ClientCommand` (its
+  arguments and variables with `{host}`, `{port}`, `{password}`, the engine build it is looked for in, the fallbacks)
+  is not on the wire. The CLI cannot run it without knowing the module, so it waits for D1 to publish the resolved
+  command (argv and env) on the view.
+- `sync --dry-run`: the change list is each module's plan, which the daemon does not give.
+- `migrate` and lint's module pass: they need the modules' own answers (a task run through the module host, the
+  modules' lint), which the daemon does not serve yet.
+- Go's AWS stand-in credentials in `env` (`AWS_ACCESS_KEY_ID` and the rest when an `AWS_ENDPOINT_URL*` is present) are
+  the aws module's to answer in its `env`; the CLI does not add them.
 
 ## Oracle
 

@@ -22,10 +22,11 @@ impl Needs {
 /// What `cmd` waits for, or `None` if it is built.
 pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
     Some(match cmd {
-        Cmd::Sync(_) | Cmd::Env(_) | Cmd::Migrate(_) | Cmd::Url(_) | Cmd::Connect(_) => {
-            Needs::Daemon
-        }
+        Cmd::Migrate(_) | Cmd::Connect(_) => Needs::Daemon,
         Cmd::Doctor(_)
+        | Cmd::Sync(_)
+        | Cmd::Env(_)
+        | Cmd::Url(_)
         | Cmd::Up(_)
         | Cmd::Run(_)
         | Cmd::Down(_)

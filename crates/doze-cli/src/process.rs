@@ -53,7 +53,19 @@ impl Host for Process {
     }
 
     fn run(&self, program: &std::path::Path, args: &[String]) -> io::Result<u8> {
-        let status = Command::new(program).args(args).status()?;
+        self.run_env(program, args, &[])
+    }
+
+    fn run_env(
+        &self,
+        program: &std::path::Path,
+        args: &[String],
+        env: &[(String, String)],
+    ) -> io::Result<u8> {
+        let status = Command::new(program)
+            .args(args)
+            .envs(env.iter().map(|(k, v)| (k, v)))
+            .status()?;
         Ok(status
             .code()
             .and_then(|c| u8::try_from(c).ok())
