@@ -54,17 +54,13 @@ fn main() {
             std::process::exit(arg(2).parse().unwrap_or(1));
         }
         "partial" => {
-            // `partial <text> <code>`: <text> to stderr with no newline, then exit with code.
+            // `partial <text> <code>`: <text> to stderr with no newline, then exit with code (`hang`: stay up).
             eprint!("{}", arg(1));
             let _ = std::io::Write::flush(&mut std::io::stderr());
+            if arg(2) == "hang" {
+                let _ = rt.block_on(ignore());
+            }
             std::process::exit(arg(2).parse().unwrap_or(1));
-        }
-        "hang_partial" => {
-            // `hang_partial <text>`: <text> to stderr with no newline, then stays up (its last words are only in the
-            // pump until the pipe closes).
-            eprint!("{}", arg(1));
-            let _ = std::io::Write::flush(&mut std::io::stderr());
-            rt.block_on(ignore())
         }
         "escape" => {
             // `escape <pidfile>`: starts a chatter that leaves the group (a new session) holding stdout, records its

@@ -125,7 +125,7 @@ async fn an_escaped_holder_of_the_pipe_neither_hangs_a_stop_nor_writes_after_it(
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_quote_has_a_partial_line_still_in_the_pump() {
     let d = Dir::new("quotepartial");
-    let mut spec = doze_engine::ProcessSpec::new(run(&["hang_partial", "LAST-WORDS"]), d.path())
+    let mut spec = doze_engine::ProcessSpec::new(run(&["partial", "LAST-WORDS", "hang"]), d.path())
         .ready(doze_engine::Probe::Log("^never$".into()));
     spec.ready_timeout = Duration::from_secs(1);
     let e = doze_engine::Engine::builder("t", d.path())
