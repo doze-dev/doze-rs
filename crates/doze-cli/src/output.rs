@@ -150,7 +150,13 @@ pub(crate) fn finish(
             schema: "doze/v1",
             command,
             ok: exit == Exit::Ok,
-            data: view.as_ref().map(View::json),
+            // Keys sorted: serde_json's `preserve_order` is a workspace-wide feature (another crate turns it on), so
+            // without this the order of a `data` object would depend on what else was built alongside the CLI.
+            data: view.as_ref().map(|v| {
+                let mut data = v.json();
+                data.sort_all_objects();
+                data
+            }),
             warnings: notices.lines(),
             error: problem.as_ref().map(Diagnostic::json),
         };
