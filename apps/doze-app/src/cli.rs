@@ -16,6 +16,7 @@
 //! doze-app bench --fixture medium-150 --map                         the Map: frames while it pans, zooms and hovers
 //! doze-app bench [--idle S] [--closed S]                         with no fixture: $DOZE_HOME (a fixture served apart)
 //! doze-app fixture-serve NAME ROOT                               a fixture daemon alone, on its own socket under ROOT/home
+//! doze-app status | logs | wake | …                              the doze CLI, whole (main.rs `as_cli`)
 //! ```
 
 use std::path::PathBuf;

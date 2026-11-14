@@ -14,6 +14,8 @@ workspace = true
 [dependencies]
 async-channel = "2"
 doze-control = { path = "../doze-control", features = ["words"] }
+# The modules' own `detect` declarations, which the empty folder's scan is handed (the module contract).
+doze-module-proto = { path = "../doze-module-proto" }
 doze-display = { path = "../doze-display" }
 # Activity reads the journal on disk (`activity`), read-only.
 doze-journal = { path = "../doze-journal" }
