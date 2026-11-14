@@ -85,5 +85,19 @@ for (const { engine, description: d } of input as { engine: string; description:
   const str = plain.find((a) => a.Type === "string");
   if (str) add(engine, `wrong-type-${str.Name}`, latest, block(engine, latest, [`${str.Name} = ["not", "a", "string"]`]));
 }
+// postgres extensions from doze's catalog (modules plan step 13): names, aliases, names a bundle provides, pins, majors.
+const pgext: [string, string, string][] = [
+  ["catalog", "18", `extensions = ["vector"]`],
+  ["catalog-alias-line", "17", `extension "pgvector" {\n    version = "0.8"\n  }`],
+  ["catalog-release", "17", `extension "vector" {\n    version = "0.8.1"\n  }`],
+  ["catalog-provided", "18", `extensions = ["postgis_raster"]`],
+  ["catalog-requires", "18", `extensions = ["vectorscale"]`],
+  ["catalog-major", "17", `extensions = ["vectorscale"]`],
+  ["catalog-major-old", "14", `extensions = ["timescaledb"]`],
+  ["catalog-bad-pin", "18", `extension "vector" {\n    version = "latest"\n  }`],
+  ["catalog-bad-pin-optional", "18", `extension "vector" {\n    version = "v1"\n    optional = true\n  }`],
+  ["catalog-typo", "18", `extensions = ["vectr"]`],
+];
+if (cases.some((c) => c.engine === "postgres")) for (const [kind, v, body] of pgext) add("postgres", kind, v, block("postgres", v, [body]));
 for (const c of cases) console.log(JSON.stringify(c));
 console.error(`${cases.length} cases: ${[...new Set(cases.map((c) => c.engine))].map((e) => `${e} ${cases.filter((c) => c.engine === e).length}`).join(", ")}`);

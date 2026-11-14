@@ -5,9 +5,11 @@ pub mod accept;
 pub mod boot;
 mod grant;
 pub mod hcl;
+mod local;
 pub mod oracle;
 pub mod run;
 pub mod sandbox;
 
 pub use accept::acceptance;
 pub use boot::{Boot, Booted, Harness, Stops, target};
+pub use local::LocalEngine;

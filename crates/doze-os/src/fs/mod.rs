@@ -83,6 +83,12 @@ pub fn clone_dir(src: &Path, dst: &Path) -> io::Result<()> {
     imp::clone_dir(src, dst)
 }
 
+/// Makes `link` a symbolic link to `target`, as an extension bundle carries a library under its version names
+/// (`libx.so.1` to `libx.so.1.2`). Windows refuses: a link there needs a privilege, and no engine that runs there ships one.
+pub fn symlink(target: &Path, link: &Path) -> io::Result<()> {
+    imp::symlink(target, link)
+}
+
 /// The identity of the file at `path` on its volume: the inode on Unix, the file index on Windows. A file replaced by a
 /// rename has a new one even when its time and size are the same as the old one's. `None` when it cannot be read.
 pub fn file_id(path: &Path) -> Option<u64> {

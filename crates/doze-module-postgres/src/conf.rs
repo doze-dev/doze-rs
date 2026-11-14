@@ -1,6 +1,7 @@
 //! What doze writes into the cluster on every boot: `doze.conf` (its tuning and the person's settings), included once
 //! from `postgresql.conf`, and a `pg_hba.conf` that trusts the socket only.
 
+use crate::preload::{ExtConf, MERGED};
 use crate::spec::PostgresSpec;
 use doze_module::{Result, help};
 use std::path::Path;
@@ -36,10 +37,10 @@ fn on_off(b: bool) -> &'static str {
     if b { "on" } else { "off" }
 }
 
-/// `doze.conf`: the typed tuning, then the person's settings sorted (they win over the tuning, as in Go), then
-/// `listen_addresses = ''` last so nothing turns TCP on. `check` has refused owned keys, keys that differ only in case,
+/// `doze.conf`: the typed tuning, then the person's settings sorted (they win over the tuning, as in Go), then what the
+/// extensions add (list settings merged with the person's), then `listen_addresses = ''` last so nothing turns TCP on. `check` has refused owned keys, keys that differ only in case,
 /// and anything that would not stay one line.
-pub(crate) fn doze_conf(s: &PostgresSpec) -> String {
+pub(crate) fn doze_conf(s: &PostgresSpec, ext: &ExtConf) -> String {
     let buffers = if s.shared_buffers.is_empty() {
         "16MB"
     } else {
@@ -60,8 +61,15 @@ pub(crate) fn doze_conf(s: &PostgresSpec) -> String {
         ("full_page_writes".into(), on_off(s.fsync).into()),
     ];
     for (k, v) in help::settings(&s.settings, &OWNED) {
-        lines.push((k.to_string(), quote(v)));
+        if !MERGED.iter().any(|m| m.eq_ignore_ascii_case(k)) {
+            lines.push((k.to_string(), quote(v)));
+        }
     }
+    lines.extend(
+        ext.lines(&s.settings)
+            .into_iter()
+            .map(|(k, v)| (k, quote(&v))),
+    );
     lines.push(("listen_addresses".into(), quote("")));
     let mut out = HEADER.to_string();
     for (k, v) in lines {
@@ -72,9 +80,9 @@ pub(crate) fn doze_conf(s: &PostgresSpec) -> String {
 
 /// Writes doze.conf and pg_hba.conf, and makes sure postgresql.conf includes doze.conf (once; the rest of that file is
 /// the cluster's own).
-pub(crate) fn write(pgdata: &Path, s: &PostgresSpec) -> Result<()> {
+pub(crate) fn write(pgdata: &Path, s: &PostgresSpec, ext: &ExtConf) -> Result<()> {
     let conf = pgdata.join("doze.conf");
-    doze_os::fs::write_private(&conf, doze_conf(s).as_bytes())
+    doze_os::fs::write_private(&conf, doze_conf(s, ext).as_bytes())
         .map_err(help::io_error("writing", &conf))?;
     let main = pgdata.join("postgresql.conf");
     let text = std::fs::read_to_string(&main).map_err(help::io_error("reading", &main))?;

@@ -91,6 +91,7 @@ pub(crate) async fn provision(
     inst: &Instance,
     tc: &Toolchain,
     s: &PostgresSpec,
+    ext: &crate::preload::ExtConf,
 ) -> Result<Provisioned> {
     let data = Path::new(&inst.data_dir);
     let made = if provisioned(data) {
@@ -100,7 +101,7 @@ pub(crate) async fn provision(
         Provisioned::Fresh
     };
     check_version(inst, data)?;
-    conf::write(data, s)?;
+    conf::write(data, s, ext)?;
     Ok(made)
 }
 

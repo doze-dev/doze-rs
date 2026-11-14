@@ -163,10 +163,10 @@ jobs:
         run: DOZE_MARIADB_BINDIR="$MARIADB118_BINDIR" cargo test -p doze-module-mariadb --test acceptance --no-fail-fast -- --nocapture
       - name: postgres's acceptance on 16 (the oldest major the published example is promised on)
         shell: bash
-        run: DOZE_POSTGRES_BINDIR="$POSTGRES16_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --test declared --no-fail-fast -- --nocapture
+        run: DOZE_POSTGRES_BINDIR="$POSTGRES16_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --test declared --test extensions --no-fail-fast -- --nocapture
       - name: postgres's acceptance on its other major (17)
         shell: bash
-        run: DOZE_POSTGRES_BINDIR="$POSTGRES17_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --test declared --no-fail-fast -- --nocapture
+        run: DOZE_POSTGRES_BINDIR="$POSTGRES17_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --test declared --test extensions --no-fail-fast -- --nocapture
 
   # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
   # portable; a red job here is information about what is still Unix-only, not noise.
@@ -483,13 +483,15 @@ jobs:
             mkdir -p "corpus/$target"
             cargo fuzz run "$target" "corpus/$target" -- -max_total_time=30 -max_len=65536
           done
-      - name: Fuzz postgres's wire protocol reader, object-name reader and psql row reader for 30 seconds each
+      - name: Fuzz postgres's wire protocol reader, object-name reader, psql row reader and extension bundle reader for 30 seconds each
         working-directory: crates/doze-module-postgres/fuzz
         run: |
           for target in fuzz_wire fuzz_names fuzz_rows; do
             mkdir -p "corpus/$target"
             cargo fuzz run "$target" "corpus/$target" -- -max_total_time=30 -max_len=65536
           done
+          mkdir -p corpus/fuzz_bundle
+          cargo fuzz run fuzz_bundle corpus/fuzz_bundle seeds/fuzz_bundle -- -max_total_time=30 -max_len=1048576
       - name: Fuzz mariadb's grant-name and privilege readers for 30 seconds
         working-directory: crates/doze-module-mariadb/fuzz
         run: |

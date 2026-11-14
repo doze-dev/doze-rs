@@ -13,21 +13,33 @@
 //! - SQL goes to psql on its standard input, so no password reaches a command line, and no `PG*` variable or psqlrc of
 //!   the machine's changes where it goes; a database closed to connections is closed after converge, not before;
 //! - the cluster is made beside its folder and renamed in, and the server stops with a fast shutdown (Go's default,
-//!   smart, waited for every client to leave).
+//!   smart, waited for every client to leave);
+//! - extensions from doze's catalog and from `source` bundles (modules plan step 13, `bundle`): each instance's own,
+//!   in a fixed order, pinned in doze.lock (a `source` by its hash, with an optional declared `sha256`), installed by
+//!   the ledger on 14 to 17 and from the bundle's own folder on 18, never shadowing a toolchain program, and moved up in
+//!   place when a newer bundle is declared (`source` bundles too; Go created those once).
 
 mod admin;
+mod bundle;
+mod bundle_read;
+mod catalog;
 mod check;
 mod cluster;
 mod conf;
 mod converge;
+mod create;
 mod ext;
 mod filter;
+mod ledger;
 mod names;
+mod preload;
 mod prune;
 mod psql;
 mod rows;
+mod source;
 mod spec;
 mod sql;
+mod tarball;
 mod wire;
 
 use doze_module::caps::{BackendUrl, Wire, WireHost};
@@ -184,101 +196,130 @@ impl Module for Postgres {
         })
     }
 
-    /// `DOZE_POSTGRES_BINDIR` (a developer's own build), else the lock's pin, else an exact version, else the major
-    /// through the host. Extensions add nothing here until the catalog's bundles are fetched (step 13).
+    /// The engine, then the instance's extension bundles ([`bundle::resolve`]), each pinned for doze.lock.
     async fn resolve(&self, cx: &Cx<PostgresSpec>, pins: &[Pin], target: &str) -> Result<Resolved> {
-        let spec = cx.instance.version.clone();
-        let normal = if help::is_exact(&spec, 1) {
-            exact(&spec)
-        } else {
-            spec.clone()
-        };
-        if let Some(dir) = std::env::var_os("DOZE_POSTGRES_BINDIR").filter(|d| !d.is_empty()) {
-            let toolchain = Toolchain {
-                engine: "postgres".into(),
-                full: normal,
-                bin_dir: dir.to_string_lossy().into_owned(),
-                tools: BTreeMap::new(),
-            };
-            return Ok(Resolved {
-                toolchain,
-                pins: vec![],
-            });
-        }
-        let pin = pins
-            .iter()
-            .find(|p| p.engine == "postgres" && p.spec == spec);
-        let full = match pin {
-            Some(p) => p.resolved.clone(),
-            None if help::is_exact(&spec, 1) => normal,
-            None => cx.fetch().resolve_major("postgres", &spec).await?,
-        };
-        let expected = pin.and_then(|p| p.hashes.get(target)).map(String::as_str);
-        let got = cx
-            .fetch()
-            .ensure("postgres", &full, target, expected)
-            .await?;
-        let pin = Pin {
-            engine: "postgres".into(),
-            spec,
-            resolved: full.clone(),
-            hashes: BTreeMap::from([(target.to_string(), got.digest)]),
-        };
-        let toolchain = Toolchain {
-            engine: "postgres".into(),
-            full,
-            bin_dir: got.bin_dir,
-            tools: BTreeMap::new(),
-        };
-        Ok(Resolved {
-            toolchain,
-            pins: vec![pin],
-        })
+        let mut r = engine(cx, pins, target).await?;
+        let more = bundle::resolve(cx, &mut r.toolchain, pins, target).await?;
+        r.pins.extend(more);
+        Ok(r)
     }
 
     async fn provision(&self, cx: &Cx<PostgresSpec>, tc: &Toolchain) -> Result<Provisioned> {
-        cluster::provision(&cx.instance, tc, &cx.spec).await
+        let inst = &cx.instance;
+        let ext = preload::ext_conf(&cx.spec, tc, check::major(&inst.version), &inst.name);
+        let before = preload::preload_line(&inst.data_dir);
+        let made = cluster::provision(inst, tc, &cx.spec, &ext).await?;
+        let after = preload::preload_line(&inst.data_dir);
+        if made == Provisioned::Existing && before != after {
+            let show = |s: &str| {
+                if s.is_empty() {
+                    "nothing".to_owned()
+                } else {
+                    s.to_owned()
+                }
+            };
+            cx.log(
+                2,
+                format!("shared_preload_libraries changes from {} to {}; PostgreSQL starts with the new set", show(&before), show(&after)),
+            );
+        }
+        Ok(made)
     }
 
     async fn plan(&self, cx: &Cx<PostgresSpec>, tc: &Toolchain) -> Result<Plan> {
-        let inst = &cx.instance;
-        let (dir, port) = psql::backend(inst)?;
-        let sockets = Path::new(&dir);
-        doze_os::fs::private_dir(sockets)
-            .map_err(help::io_error("creating socket dir", sockets))?;
-        cluster::stale(inst, &sockets.join(format!(".s.PGSQL.{port}")))?;
-        let path = |p: PathBuf| p.to_string_lossy().into_owned();
-        let args = [
-            "-D",
-            &inst.data_dir,
-            "-k",
-            &dir,
-            "-p",
-            &port,
-            "-c",
-            "listen_addresses=",
-        ]
-        .map(String::from)
-        .to_vec();
-        let mut ready = vec![path(tool(tc, "pg_isready"))];
-        ready.extend(
-            ["-h", &dir, "-p", &port, "-d", "postgres", "-U", "postgres"].map(String::from),
-        );
-        Ok(Plan {
-            processes: vec![Process {
-                name: "postgres".into(),
-                program: path(tool(tc, "postgres")),
-                args,
-                env: BTreeMap::new(),
-                dir: None,
-                after: vec![],
-                ready: Some(Ready::Exec(ready)),
-                hooks: vec![],
-                // A fast shutdown: open sessions are ended, not waited for; the data is checkpointed.
-                stop: Some(StopHow::Interrupt),
-            }],
-        })
+        plan(cx, tc)
     }
+}
+
+/// `DOZE_POSTGRES_BINDIR` (a developer's own build), else the lock's pin, else an exact version, else the major through
+/// the host.
+async fn engine(cx: &Cx<PostgresSpec>, pins: &[Pin], target: &str) -> Result<Resolved> {
+    let spec = cx.instance.version.clone();
+    let normal = if help::is_exact(&spec, 1) {
+        exact(&spec)
+    } else {
+        spec.clone()
+    };
+    if let Some(dir) = std::env::var_os("DOZE_POSTGRES_BINDIR").filter(|d| !d.is_empty()) {
+        let toolchain = Toolchain {
+            engine: "postgres".into(),
+            full: normal,
+            bin_dir: dir.to_string_lossy().into_owned(),
+            tools: BTreeMap::new(),
+        };
+        return Ok(Resolved {
+            toolchain,
+            pins: vec![],
+        });
+    }
+    let pin = pins
+        .iter()
+        .find(|p| p.engine == "postgres" && p.spec == spec);
+    let full = match pin {
+        Some(p) => p.resolved.clone(),
+        None if help::is_exact(&spec, 1) => normal,
+        None => cx.fetch().resolve_major("postgres", &spec).await?,
+    };
+    let expected = pin.and_then(|p| p.hashes.get(target)).map(String::as_str);
+    let got = cx
+        .fetch()
+        .ensure("postgres", &full, target, expected)
+        .await?;
+    let pin = Pin {
+        engine: "postgres".into(),
+        spec,
+        resolved: full.clone(),
+        hashes: BTreeMap::from([(target.to_string(), got.digest)]),
+    };
+    let toolchain = Toolchain {
+        engine: "postgres".into(),
+        full,
+        bin_dir: got.bin_dir,
+        tools: BTreeMap::new(),
+    };
+    Ok(Resolved {
+        toolchain,
+        pins: vec![pin],
+    })
+}
+
+/// The server on its socket only, with the environment its extension bundles need.
+fn plan(cx: &Cx<PostgresSpec>, tc: &Toolchain) -> Result<Plan> {
+    let inst = &cx.instance;
+    let (dir, port) = psql::backend(inst)?;
+    let sockets = Path::new(&dir);
+    doze_os::fs::private_dir(sockets).map_err(help::io_error("creating socket dir", sockets))?;
+    cluster::stale(inst, &sockets.join(format!(".s.PGSQL.{port}")))?;
+    let path = |p: PathBuf| p.to_string_lossy().into_owned();
+    let args = [
+        "-D",
+        &inst.data_dir,
+        "-k",
+        &dir,
+        "-p",
+        &port,
+        "-c",
+        "listen_addresses=",
+    ]
+    .map(String::from)
+    .to_vec();
+    let mut ready = vec![path(tool(tc, "pg_isready"))];
+    ready.extend(["-h", &dir, "-p", &port, "-d", "postgres", "-U", "postgres"].map(String::from));
+    let env = preload::ext_conf(&cx.spec, tc, check::major(&inst.version), &inst.name).env;
+    Ok(Plan {
+        processes: vec![Process {
+            name: "postgres".into(),
+            program: path(tool(tc, "postgres")),
+            args,
+            env,
+            dir: None,
+            after: vec![],
+            ready: Some(Ready::Exec(ready)),
+            hooks: vec![],
+            // A fast shutdown: open sessions are ended, not waited for; the data is checkpointed.
+            stop: Some(StopHow::Interrupt),
+        }],
+    })
 }
 
 impl BackendUrl for Postgres {

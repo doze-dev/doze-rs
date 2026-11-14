@@ -108,14 +108,18 @@ pub(crate) struct Schema {
 pub(crate) struct Extension {
     #[spec(label)]
     pub name: String,
-    #[spec(doc = "The SQL version to create; a different one later updates it in place.")]
+    #[spec(
+        doc = "For doze's catalog (vector, pg_cron, postgis, …): the bundle's line (\"0.8\") or release (\"0.8.1\"), its newest by default. Otherwise the SQL version to create. A different one later updates it in place."
+    )]
     pub version: Option<String>,
     #[spec(doc = "Schema to install the extension into.")]
     pub schema: Option<String>,
     #[spec(
-        doc = "Path of a bundle (.tar.gz with share/ and lib/) for an extension the toolchain does not ship, relative to this file."
+        doc = "Path of a bundle (.tar.gz with share/ and lib/) for an extension neither the toolchain nor doze's catalog has, relative to this file. Pinned by its hash in doze.lock."
     )]
     pub source: Option<String>,
+    #[spec(doc = "The SHA-256 the source bundle must have (hex).")]
+    pub sha256: Option<String>,
     #[spec(
         default = false,
         doc = "Skip (don't fail) if the extension is unavailable."
@@ -153,6 +157,7 @@ pub(crate) struct Ext {
     pub version: Option<String>,
     pub schema: Option<String>,
     pub source: Option<String>,
+    pub sha256: Option<String>,
     pub optional: bool,
     pub cascade: bool,
 }
@@ -162,26 +167,28 @@ impl PostgresSpec {
     pub(crate) fn exts(&self) -> Vec<Ext> {
         let mut out: Vec<Ext> = Vec::new();
         for n in &self.extensions {
-            let n = crate::ext::canonical(n);
+            let n = crate::catalog::canonical(n);
             if !out.iter().any(|e| e.name == n) {
                 out.push(Ext {
                     name: n,
                     version: None,
                     schema: None,
                     source: None,
+                    sha256: None,
                     optional: false,
                     cascade: false,
                 });
             }
         }
         for e in &self.extension {
-            let name = crate::ext::canonical(&e.name);
+            let name = crate::catalog::canonical(&e.name);
             out.retain(|o| o.name != name);
             out.push(Ext {
                 name,
                 version: e.version.clone().filter(|v| !v.is_empty()),
                 schema: e.schema.clone().filter(|v| !v.is_empty()),
                 source: e.source.clone().filter(|v| !v.is_empty()),
+                sha256: e.sha256.clone().filter(|v| !v.is_empty()),
                 optional: e.optional,
                 cascade: e.cascade,
             });

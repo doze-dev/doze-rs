@@ -1,42 +1,19 @@
 //! The core's boot sequence, for tests: launch the module, decode the block, check its network, grant listeners, resolve
 //! (downloads come from a local build directory), provision, plan, start, and converge when fresh.
 
+use crate::local::{LocalBuild, LocalEngine};
 use crate::run::{self, Started};
 use crate::sandbox::Sandbox;
-use doze_module_host::{BoxFuture, Downloads, Running, Services};
+use doze_module_host::{Running, Services};
 use doze_module_proto::msg::error::Error;
 use doze_module_proto::msg::hello::caps;
 use doze_module_proto::msg::instance::{Address, Instance, Listener, Toolchain};
-use doze_module_proto::msg::run::{Ensure, Ensured, Provisioned, ResolveArgs, WithToolchain};
+use doze_module_proto::msg::run::{Pin, Provisioned, ResolveArgs, WithToolchain};
 use doze_module_proto::network;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-
-/// Engine builds come from one local directory (`DOZE_<ENGINE>_BINDIR` in a module's own tests).
-struct LocalBuild {
-    bin_dir: PathBuf,
-    full: String,
-}
-
-impl Downloads for LocalBuild {
-    fn resolve_major<'a>(
-        &'a self,
-        _e: &'a str,
-        _m: &'a str,
-    ) -> BoxFuture<'a, Result<String, Error>> {
-        Box::pin(async move { Ok(self.full.clone()) })
-    }
-    fn ensure<'a>(&'a self, _r: &'a Ensure) -> BoxFuture<'a, Result<Ensured, Error>> {
-        Box::pin(async move {
-            Ok(Ensured {
-                bin_dir: self.bin_dir.to_string_lossy().into_owned(),
-                digest: "sha256:local".into(),
-            })
-        })
-    }
-}
 
 /// A module under test.
 #[derive(Debug, Clone)]
@@ -65,6 +42,8 @@ pub struct Booted {
     pub instance: Instance,
     pub toolchain: Toolchain,
     pub fresh: bool,
+    /// What resolve pinned, as the core keeps them in doze.lock.
+    pub pins: Vec<Pin>,
     started: Started,
     _sandbox: Sandbox,
 }
@@ -103,15 +82,30 @@ impl Harness {
         self.module_with(None).await
     }
 
+    /// Starts the module with other engines it fetches served from local folders.
+    pub async fn module_extra(&self, extra: &[LocalEngine]) -> Result<Running, String> {
+        self.launch(None, extra).await
+    }
+
     /// Starts the module with `backends` serving its `wire.accept` hand-offs (a test of a wire filter boots an
     /// instance, then hands this module client connections for it).
     pub async fn module_with(
         &self,
         backends: Option<Arc<dyn doze_module_host::Backends>>,
     ) -> Result<Running, String> {
+        self.launch(backends, &[]).await
+    }
+
+    async fn launch(
+        &self,
+        backends: Option<Arc<dyn doze_module_host::Backends>>,
+        extra: &[LocalEngine],
+    ) -> Result<Running, String> {
         let downloads = Arc::new(LocalBuild {
+            engine: self.engine.clone(),
             bin_dir: self.bin_dir.clone(),
             full: self.full.clone(),
+            extra: extra.to_vec(),
         });
         let services = Services {
             downloads,
@@ -139,9 +133,10 @@ impl Harness {
         &self,
         hcl: &str,
         tcp: bool,
+        extra: &[LocalEngine],
     ) -> Result<(Arc<Running>, Sandbox, Instance), String> {
         let sandbox = Sandbox::new().map_err(|e| e.to_string())?;
-        let module = Arc::new(self.module().await?);
+        let module = Arc::new(self.module_extra(extra).await?);
         let parsed =
             crate::hcl::parse_block(hcl, &module.manifest.schema).map_err(|e| e.to_string())?;
         if parsed.engine != self.engine {
@@ -170,17 +165,24 @@ impl Harness {
     /// into the data directory before provision, as the core does for a first boot); converge runs on a fresh or a
     /// cloned data directory.
     pub async fn boot_with(&self, hcl: &str, how: Boot) -> Result<Booted, String> {
-        let (module, sandbox, mut instance) = self.prepare(hcl, how.tcp).await?;
+        self.boot_extra(hcl, how, &[]).await
+    }
+
+    /// [`Harness::boot_with`], with other engines the module fetches served from local folders.
+    pub async fn boot_extra(
+        &self,
+        hcl: &str,
+        how: Boot,
+        extra: &[LocalEngine],
+    ) -> Result<Booted, String> {
+        let (module, sandbox, mut instance) = self.prepare(hcl, how.tcp, extra).await?;
         let args = ResolveArgs {
             instance: instance.clone(),
             target: target(),
             pins: vec![],
         };
-        let toolchain = module
-            .resolve(&args)
-            .await
-            .map_err(|e| render(&e))?
-            .toolchain;
+        let resolved = module.resolve(&args).await.map_err(|e| render(&e))?;
+        let (toolchain, pins) = (resolved.toolchain, resolved.pins);
         instance.toolchain = Some(toolchain.clone());
         if how.template {
             let tmpl = sandbox
@@ -217,6 +219,7 @@ impl Harness {
             instance,
             toolchain,
             fresh,
+            pins,
             started,
             _sandbox: sandbox,
         })
@@ -252,6 +255,7 @@ impl Booted {
             module,
             instance,
             toolchain,
+            pins,
             started,
             _sandbox: sandbox,
             ..
@@ -270,6 +274,66 @@ impl Booted {
             instance,
             toolchain,
             fresh,
+            pins,
+            started,
+            _sandbox: sandbox,
+        };
+        Ok((stops, awake))
+    }
+
+    /// What doze does when doze.hcl changes: stop the instance, decode the new block, resolve again with the lock's
+    /// pins, provision, plan, start, and converge, in the same sandbox. The pins resolve returned replace the old ones
+    /// of the same engine and spec.
+    pub async fn redeclare(self, hcl: &str, grace: Duration) -> Result<(Stops, Booted), String> {
+        let Booted {
+            module,
+            mut instance,
+            pins: old,
+            started,
+            _sandbox: sandbox,
+            ..
+        } = self;
+        let stops = started.stop(grace).await;
+        let parsed =
+            crate::hcl::parse_block(hcl, &module.manifest.schema).map_err(|e| e.to_string())?;
+        instance.spec = parsed.spec;
+        instance.version = parsed.version;
+        module.decode(&instance).await.map_err(|e| render(&e))?;
+        let args = ResolveArgs {
+            instance: instance.clone(),
+            target: target(),
+            pins: old.clone(),
+        };
+        let resolved = module.resolve(&args).await.map_err(|e| render(&e))?;
+        let mut pins: Vec<Pin> = old
+            .into_iter()
+            .filter(|o| {
+                !resolved
+                    .pins
+                    .iter()
+                    .any(|n| n.engine == o.engine && n.spec == o.spec)
+            })
+            .collect();
+        pins.extend(resolved.pins);
+        let toolchain = resolved.toolchain;
+        instance.toolchain = Some(toolchain.clone());
+        let with = WithToolchain {
+            instance: instance.clone(),
+            toolchain: toolchain.clone(),
+        };
+        let fresh = module.provision(&with).await.map_err(|e| render(&e))? == Provisioned::Fresh;
+        let plan = module.plan(&with).await.map_err(|e| render(&e))?;
+        let logs = sandbox.logs().map_err(|e| e.to_string())?;
+        let started = run::start(&plan, &logs, Duration::from_secs(90)).await?;
+        if module.manifest.caps & caps::CONVERGE != 0 {
+            module.converge(&with).await.map_err(|e| render(&e))?;
+        }
+        let awake = Booted {
+            module,
+            instance,
+            toolchain,
+            fresh,
+            pins,
             started,
             _sandbox: sandbox,
         };

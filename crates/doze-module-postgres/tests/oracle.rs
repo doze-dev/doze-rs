@@ -149,6 +149,11 @@ async fn refused_at_their_line() {
         ("app", "  schema \"pg_x\" {}\n", "pg_"),
         ("app", "  extensions = [\"plpgsql\"]\n", "built into"),
         ("app", "  extensions = [\"pg_trgn\"]\n", "no extension"),
+        (
+            "app",
+            "  extension \"postgis\" {\n    version = \"3.5\"\n  }\n  extension \"postgis_raster\" {\n    version = \"3.6\"\n  }\n",
+            "two releases",
+        ),
         ("postgres", "", "for itself"),
         ("template1", "", "for itself"),
         (
