@@ -58,8 +58,9 @@ fn a_crash_during_an_on_ready_rerun_keeps_its_restart() {
     };
     let fx = m.exited("w", g, false, "exit status 1", now);
     assert!(
-        fx.iter()
-            .any(|f| matches!(f, Effect::CancelBoot { boot, why: Cancel::Exited, .. } if *boot == rerun)),
+        fx.iter().any(
+            |f| matches!(f, Effect::CancelBoot { boot, why: Cancel::Exited, .. } if *boot == rerun)
+        ),
         "{fx:?}"
     );
     let fx = m.restart_due("w", timer_of(&fx));
@@ -116,7 +117,10 @@ fn a_rerun_failing_after_the_crash_cancelled_it_is_cancelled() {
     assert!(fx.is_empty(), "{fx:?}");
     let i = m.table().get("w", now).unwrap();
     assert_eq!(i.state, State::Crashing);
-    assert!(i.last_error.starts_with("exit status 1; restarting"), "{i:?}");
+    assert!(
+        i.last_error.starts_with("exit status 1; restarting"),
+        "{i:?}"
+    );
     assert!(m.pending("w"));
     let fx = m.restart_due("w", timer);
     assert!(fx.iter().any(|f| matches!(f, Effect::RestartNow { .. })));

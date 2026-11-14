@@ -192,8 +192,7 @@ async fn a_log_check_waits_for_this_runs_line() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_crash_during_the_first_on_ready_is_reported_as_the_crash() {
     let d = Dir::new("firstready");
-    let mut spec =
-        ProcessSpec::new(run(&["exit", "3", "800"]), d.path()).restart(quick_restart(1));
+    let mut spec = ProcessSpec::new(run(&["exit", "3", "800"]), d.path()).restart(quick_restart(1));
     spec.on_ready = vec![Step::argv(["sleep", "5"])];
     let e = Engine::builder("t", d.path())
         .service(svc("w", spec))

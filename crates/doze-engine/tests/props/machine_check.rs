@@ -99,4 +99,3 @@ pub(super) fn drain(m: &mut Machine, s: &mut Shell, now: Now) {
     }
     assert!(m.quiet(), "not quiet after the shutdown");
 }
-
