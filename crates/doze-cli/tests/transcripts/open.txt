@@ -1,0 +1,29 @@
+# open hands the app the command, the folder made absolute; with no app here it says where it looked (exit 10);
+# over SSH it shows the status table, as Go does; --console waits for the Rust daemon.
+@ project bare
+@ no-json
+@ file app/Doze.app/Contents/MacOS/doze-app #!/bin/sh\n
+@ env DOZE_APP_BUNDLE={sandbox}/app/Doze.app
+
+$ doze open --show cache
+exit 0
+spawned:
+| run doze-app open {sandbox}/project --show cache
+
+$ doze open doze://shop/db
+exit 0
+spawned:
+| run doze-app open doze://shop/db
+
+$ doze open nowhere
+exit 6
+stderr:
+| error[DZ0302]: there is no folder nowhere
+|   fix: doze open <folder> opens a project's folder · doze open doze://<stack> opens a stack
+
+$ doze open --console flows
+exit 1
+stderr:
+| error[DZ0001]: `doze open --console` is not built yet: it talks to the doze daemon, which comes with the Rust core
+|   the console's address is the running module's (its web UI port), which the Rust daemon gives
+|   fix: until then: doze url <name> prints the service's address

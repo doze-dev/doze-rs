@@ -3,6 +3,7 @@
 
 pub(crate) mod add;
 mod ask;
+pub(crate) mod bug;
 pub(crate) mod decl;
 pub(crate) mod declared;
 pub(crate) mod docs;
@@ -16,6 +17,7 @@ pub(crate) mod init;
 pub(crate) mod lint;
 pub(crate) mod logs;
 pub(crate) mod modules;
+pub(crate) mod open;
 mod pin;
 mod ready;
 pub(crate) mod report;
@@ -48,7 +50,7 @@ pub(crate) fn dispatch(
     notices: &mut Notices,
 ) -> Outcome {
     let Some(cmd) = cmd else {
-        return Err(stub::bare());
+        return open::bare(ctx, mode, notices);
     };
     let command = match &cmd {
         Cmd::Doctor(d) if d.fix || d.print_fix => "doze doctor --fix",
@@ -86,6 +88,8 @@ pub(crate) fn dispatch(
         Cmd::Fmt(f) => format::run(ctx, mode, &f),
         Cmd::Add(a) => add::run(ctx, mode, &a),
         Cmd::Init(i) => init::run(ctx, mode, &i),
+        Cmd::Bug => bug::run(ctx, mode),
+        Cmd::Open(o) => open::run(ctx, mode, &o, notices),
         Cmd::Modules(m) => match m.command {
             None => modules::run(ctx, mode),
             Some(ModulesCmd::Docs(d)) => docs::run(ctx, mode, &d, notices),

@@ -52,6 +52,14 @@ impl Host for Process {
         Some(matches!(answer.trim().to_lowercase().as_str(), "y" | "yes"))
     }
 
+    fn run(&self, program: &std::path::Path, args: &[String]) -> io::Result<u8> {
+        let status = Command::new(program).args(args).status()?;
+        Ok(status
+            .code()
+            .and_then(|c| u8::try_from(c).ok())
+            .unwrap_or(1))
+    }
+
     fn read_line(&self) -> Option<String> {
         let mut line = String::new();
         match io::stdin().read_line(&mut line) {

@@ -6,8 +6,7 @@ $ doze update --dry-run
 exit 0
 stdout:
 | doze dev → 9.9.9
-|   → install doze 9.9.9                  through Homebrew: brew upgrade doze
-|   → hand the running daemon over to it  services keep running
+|   → install doze 9.9.9  through Homebrew: brew upgrade doze
 |   + valkey sleeps with a snapshot
 |   dry run: nothing was changed · doze update applies this
 json exit 0
@@ -29,11 +28,6 @@ json:
 |             "detail": "through Homebrew: brew upgrade doze"
 |           },
 |           {
-|             "op": "→",
-|             "subject": "hand the running daemon over to it",
-|             "detail": "services keep running"
-|           },
-|           {
 |             "op": "+",
 |             "subject": "valkey sleeps with a snapshot"
 |           }
@@ -46,8 +40,8 @@ json:
 $ doze update
 exit 1
 stderr:
-| error[DZ0001]: `doze update` is not built yet: handing the running daemon over to the new doze is the core's job
-|   fix: until then: brew upgrade doze
+| error[DZ0602]: Homebrew's brew is not on the PATH
+|   fix: brew upgrade doze, wherever brew is
 json exit 1
 json:
 | {
@@ -56,9 +50,9 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "failed",
-|     "message": "`doze update` is not built yet: handing the running daemon over to the new doze is the core's job",
+|     "message": "Homebrew's brew is not on the PATH",
 |     "exit": 1,
-|     "id": "DZ0001",
-|     "fix": "until then: brew upgrade doze"
+|     "id": "DZ0602",
+|     "fix": "brew upgrade doze, wherever brew is"
 |   }
 | }

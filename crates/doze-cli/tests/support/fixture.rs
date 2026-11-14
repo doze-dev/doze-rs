@@ -255,6 +255,19 @@ impl Host for FakeHost {
             Ok(())
         }
     }
+    fn run(&self, program: &std::path::Path, args: &[String]) -> std::io::Result<u8> {
+        let name = program
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let mut line = vec![format!("run {name}")];
+        line.extend(args.iter().cloned());
+        self.spawned.borrow_mut().push(line);
+        Ok(0)
+    }
+    fn applications(&self) -> Vec<PathBuf> {
+        Vec::new()
+    }
     fn spawn_background(&self, args: &[&str]) -> std::io::Result<()> {
         self.spawned
             .borrow_mut()

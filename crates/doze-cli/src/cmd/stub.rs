@@ -9,21 +9,12 @@ use crate::diag::{Diagnostic, ids};
 pub(crate) enum Needs {
     /// It talks to the doze daemon.
     Daemon,
-    /// The app.
-    App,
-    /// The stack's shape and logs.
-    Report,
-    /// Handing the daemon over to the new doze.
-    Handover,
 }
 
 impl Needs {
     fn why(self) -> &'static str {
         match self {
             Needs::Daemon => "it talks to the doze daemon, which comes with the Rust core",
-            Needs::App => "the app is not part of the Rust doze yet",
-            Needs::Report => "it comes with a later slice of the CLI (core plan C2)",
-            Needs::Handover => "handing the running daemon over to the new doze is the core's job",
         }
     }
 }
@@ -39,8 +30,6 @@ pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
         | Cmd::Migrate(_)
         | Cmd::Url(_)
         | Cmd::Connect(_) => Needs::Daemon,
-        Cmd::Open(_) => Needs::App,
-        Cmd::Bug => Needs::Report,
         Cmd::Doctor(_)
         | Cmd::DnsSetup(_)
         | Cmd::Trust(_)
@@ -59,6 +48,8 @@ pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
         | Cmd::Fmt(_)
         | Cmd::Add(_)
         | Cmd::Init(_)
+        | Cmd::Bug
+        | Cmd::Open(_)
         | Cmd::Modules(_)
         | Cmd::Version
         | Cmd::Update(_)
@@ -76,13 +67,4 @@ pub(crate) fn not_built(command: &str, needs: Needs) -> Diagnostic {
         format!("`{command}` is not built yet: {}", needs.why()),
     )
     .fix("the Go doze does this today")
-}
-
-/// Bare `doze`: the app on a terminal, the status table when piped. Neither exists yet.
-pub(crate) fn bare() -> Diagnostic {
-    Diagnostic::new(
-        ids::NOT_BUILT,
-        "`doze` alone opens the app, or prints the status table when piped: neither is built yet",
-    )
-    .fix("doze --help lists the commands")
 }

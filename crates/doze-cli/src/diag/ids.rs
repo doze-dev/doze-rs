@@ -114,3 +114,5 @@ pub const REPORT_UNWRITABLE: Id = id("DZ0003", Exit::Failed);
 pub const NO_APP: Id = id("DZ0408", Exit::Machine);
 /// `update`: this install is updated by its own tool (brew, a package manager), which the message names.
 pub const SELF_UPDATE_UNSUPPORTED: Id = id("DZ0602", Exit::Failed);
+/// `update`: the install tool (brew) failed or could not be run.
+pub const UPDATE_FAILED: Id = id("DZ0603", Exit::Failed);

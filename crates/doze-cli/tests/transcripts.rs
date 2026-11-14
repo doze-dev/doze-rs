@@ -53,6 +53,17 @@ fn normalize(text: &str, sb: &Sandbox) -> String {
     let root = sb.root.display().to_string();
     let os_arch = doze_cli::platform::os_arch();
     let (os, arch) = os_arch.split_once('/').unwrap();
+    // The sandbox as the system resolves it too (/tmp is /private/tmp on a Mac).
+    let canon = sb
+        .root
+        .canonicalize()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| root.clone());
+    let text = if canon == root {
+        text.to_owned()
+    } else {
+        text.replace(&canon, "{sandbox}")
+    };
     let mut t = text
         .replace(&root.replace('\\', "\\\\"), "{sandbox}")
         .replace(&root, "{sandbox}")
@@ -152,7 +163,11 @@ fn transcript(s: &Scenario) -> String {
                     .drain(..)
                     .map(|a| a.join(" "))
                     .collect();
-                section(&mut r, &format!("{label}spawned"), &spawned.join("\n"));
+                section(
+                    &mut r,
+                    &format!("{label}spawned"),
+                    &normalize(&spawned.join("\n"), &sb),
+                );
                 let opened: Vec<String> = host.opened.borrow_mut().drain(..).collect();
                 section(&mut r, &format!("{label}opened"), &opened.join("\n"));
             }

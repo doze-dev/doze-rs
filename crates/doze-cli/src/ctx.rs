@@ -46,6 +46,27 @@ pub trait Host {
     fn read_line(&self) -> Option<String> {
         None
     }
+    /// Runs `program` with `args`, this terminal its terminal, and gives its exit code (`doze open` hands the
+    /// command to the app). Nothing is run by default: only the real process and a test's recorder do anything.
+    fn run(&self, program: &std::path::Path, args: &[String]) -> io::Result<u8> {
+        let _ = (program, args);
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "nothing is run here",
+        ))
+    }
+    /// The folders an installed Doze.app is looked for in: on a Mac `~/Applications` and `/Applications`.
+    fn applications(&self) -> Vec<PathBuf> {
+        if !crate::platform::os_arch().starts_with("darwin") {
+            return Vec::new();
+        }
+        let mut out: Vec<PathBuf> = std::env::home_dir()
+            .map(|h| h.join("Applications"))
+            .into_iter()
+            .collect();
+        out.push(PathBuf::from("/Applications"));
+        out
+    }
     /// Where the machine's system files are (`/etc/resolver`, the launchd job, …): the real ones, or a test's
     /// temporary root, so nothing a test does reads or writes the machine's.
     fn setup_paths(&self) -> doze_names::setup::Paths {
