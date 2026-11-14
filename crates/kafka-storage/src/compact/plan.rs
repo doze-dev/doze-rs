@@ -49,6 +49,45 @@ pub struct Plan {
     pub clean_bytes: u64,
 }
 
+/// What stops cleaning short of the log's end.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Limit {
+    /// The active segment, which is never cleaned.
+    Active,
+    /// The first offset still open to a transaction.
+    Transaction,
+    /// The first dirty segment that is newer than `min.compaction.lag.ms`.
+    TooNew,
+}
+
+/// What the planner reads of a log, whether or not it is due: the numbers the rules are judged by. Read-only: the console
+/// shows these beside the verdict, and [`judge`] is made from them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Reading {
+    /// The first offset that may not be cleaned, and what sets it.
+    pub upto: i64,
+    pub limit: Limit,
+    /// The first offset not yet cleaned (the checkpoint, no lower than the first segment).
+    pub first_dirty: i64,
+    /// The base of the segment that holds `first_dirty`: it and what follows are dirty.
+    pub dirty_start: i64,
+    /// Bytes in the cleanable dirty part, and below it.
+    pub dirty_bytes: u64,
+    pub clean_bytes: u64,
+    /// The first dirty segment's first record is older than `max.compaction.lag.ms`: due whatever the share.
+    pub waited_too_long: bool,
+}
+
+impl Reading {
+    /// The dirty share of the cleanable log, as the planner compares it with `min.cleanable.dirty.ratio`; `None` with
+    /// nothing dirty.
+    #[must_use]
+    pub fn ratio(&self) -> Option<f64> {
+        (self.dirty_bytes > 0)
+            .then(|| self.dirty_bytes as f64 / (self.dirty_bytes + self.clean_bytes) as f64)
+    }
+}
+
 /// The cleanable range of the log, and whether it is worth cleaning now. `None`: nothing to do.
 ///
 /// `segments` are the sealed segments, oldest first; `checkpoint` is where cleaning last got to; `unstable` is the first
@@ -61,6 +100,28 @@ pub fn judge(
     active_base: i64,
     p: &Params,
 ) -> Option<Plan> {
+    let r = reading(segments, checkpoint, unstable, active_base, p);
+    if r.dirty_bytes == 0 {
+        return None;
+    }
+    let ratio = r.dirty_bytes as f64 / (r.dirty_bytes + r.clean_bytes) as f64;
+    (ratio > p.min_dirty_ratio || r.waited_too_long).then_some(Plan {
+        upto: r.upto,
+        first_dirty: r.first_dirty,
+        dirty_bytes: r.dirty_bytes,
+        clean_bytes: r.clean_bytes,
+    })
+}
+
+/// What [`judge`] reads of the log, said whether or not the log is due.
+#[must_use]
+pub fn reading(
+    segments: &[Facts],
+    checkpoint: i64,
+    unstable: i64,
+    active_base: i64,
+    p: &Params,
+) -> Reading {
     let first_dirty = segments
         .first()
         .map_or(checkpoint, |s| checkpoint.max(s.base));
@@ -78,6 +139,13 @@ pub fn judge(
         .find(|s| s.newest_ms > p.now_ms.saturating_sub(p.min_lag_ms))
         .map_or(i64::MAX, |s| s.base);
     let upto = unstable.min(active_base).min(too_new);
+    let limit = if too_new < unstable.min(active_base) {
+        Limit::TooNew
+    } else if unstable < active_base {
+        Limit::Transaction
+    } else {
+        Limit::Active
+    };
     let (mut dirty, mut clean) = (0u64, 0u64);
     for s in segments {
         if s.base < dirty_start {
@@ -86,10 +154,6 @@ pub fn judge(
             dirty += s.size;
         }
     }
-    if dirty == 0 {
-        return None;
-    }
-    let ratio = dirty as f64 / (dirty + clean) as f64;
     // Forced once the earliest first-batch timestamp of the dirty segments is older than the maximum lag
     // (`LogCleanerManager.maxCompactionDelay`): a segment is as old as its first record, not its last.
     let waited_too_long = p.max_lag_ms != i64::MAX
@@ -99,12 +163,15 @@ pub fn judge(
             .map(|s| s.oldest_ms)
             .min()
             .is_some_and(|earliest| earliest < p.now_ms.saturating_sub(p.max_lag_ms));
-    (ratio > p.min_dirty_ratio || waited_too_long).then_some(Plan {
+    Reading {
         upto,
+        limit,
         first_dirty,
+        dirty_start,
         dirty_bytes: dirty,
         clean_bytes: clean,
-    })
+        waited_too_long,
+    }
 }
 
 #[cfg(test)]

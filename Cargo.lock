@@ -2188,6 +2188,7 @@ version = "0.0.0"
 dependencies = [
  "arc-swap",
  "bytes",
+ "crc32c",
  "flate2",
  "getrandom 0.4.3",
  "kafka-auth",
@@ -2210,17 +2211,22 @@ dependencies = [
  "flate2",
  "futures-util",
  "http-body-util",
+ "hyper",
+ "hyper-util",
  "kafka-auth",
  "kafka-broker",
  "kafka-console",
+ "kafka-protocol",
  "kafka-server",
  "kafka-storage",
  "kafka-wire",
- "maud",
+ "serde",
+ "serde_json",
  "tokio",
  "tokio-util",
  "tower",
  "tracing",
+ "ts-rs",
 ]
 
 [[package]]
@@ -2359,28 +2365,6 @@ name = "matchit"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
-
-[[package]]
-name = "maud"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8156733e27020ea5c684db5beac5d1d611e1272ab17901a49466294b84fc217e"
-dependencies = [
- "itoa",
- "maud_macros",
-]
-
-[[package]]
-name = "maud_macros"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7261b00f3952f617899bc012e3dbd56e4f0110a038175929fa5d18e5a19913ca"
-dependencies = [
- "proc-macro2",
- "proc-macro2-diagnostics",
- "quote",
- "syn 2.0.119",
-]
 
 [[package]]
 name = "md-5"
@@ -2675,18 +2659,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "proc-macro2-diagnostics"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af066a9c399a26e020ada66a034357a868728e72cd426f3adcd35f80d88d88c8"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
- "version_check",
 ]
 
 [[package]]
@@ -3240,6 +3212,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "termcolor"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
+dependencies = [
+ "winapi-util",
+]
+
+[[package]]
 name = "thiserror"
 version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3508,6 +3489,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "ts-rs"
+version = "12.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "756050066659291d47a554a9f558125db17428b073c5ffce1daf5dcb0f7231d8"
+dependencies = [
+ "thiserror",
+ "ts-rs-macros",
+]
+
+[[package]]
+name = "ts-rs-macros"
+version = "12.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38d90eea51bc7988ef9e674bf80a85ba6804739e535e9cab48e4bb34a8b652aa"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+ "termcolor",
+]
+
+[[package]]
 name = "twox-hash"
 version = "2.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3574,12 +3577,6 @@ name = "vecmap-rs"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58c1dc449b873236909c7f325adf395071c209047737d831183e95c692413adf"
-
-[[package]]
-name = "version_check"
-version = "0.9.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vsimd"
@@ -3672,6 +3669,15 @@ checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "winapi-util"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
+dependencies = [
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

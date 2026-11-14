@@ -36,6 +36,7 @@ fn group(name: &str) -> GroupId {
 /// A JoinGroup for a consumer.
 fn join(member: Option<&MemberId>, instance: Option<&str>) -> Req {
     Req::Join(JoinRequest {
+        reason: None,
         member_id: member.cloned(),
         instance: instance.map(InstanceId::new),
         protocol_type: "consumer".into(),
@@ -69,6 +70,7 @@ async fn emptied(groups: &Groups, name: &GroupId) {
     }
     let id = joined(groups.ask(name, req).await).member_id.unwrap();
     let leave = Req::Leave(vec![LeaveTarget {
+        reason: None,
         member_id: Some(id),
         instance: None,
     }]);

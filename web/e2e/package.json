@@ -1,0 +1,14 @@
+{
+  "name": "doze-kafka-console-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bunx --bun playwright test",
+    "install-browsers": "bunx --bun playwright install firefox webkit chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/bun": "1.4.4",
+    "kafkajs": "2.2.4"
+  }
+}

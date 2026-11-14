@@ -3,7 +3,7 @@
 use std::net::SocketAddr;
 
 use crate::model::Access;
-use crate::ui::shell::Chrome;
+use crate::model::Chrome;
 
 /// How the broker was started.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -1,0 +1,50 @@
+Facts {
+    topics: [
+        TopicFact {
+            name: "payments.settled",
+            partitions: [
+                0,
+            ],
+            more: 0,
+        },
+    ],
+    topics_more: 0,
+    group: Some(
+        "payments-workers",
+    ),
+    member: Some(
+        "m-1",
+    ),
+    generation: Some(
+        4,
+    ),
+    txn_id: None,
+    producer: None,
+    transactional: false,
+    acks: None,
+    from_offset: None,
+    wait_ms: None,
+    isolation: None,
+    reason: None,
+    what: None,
+    note: None,
+    records: 0,
+    batches: 0,
+    bytes: 0,
+    items: 0,
+    asked: 0,
+    results: [
+        PartResult {
+            topic: "payments.settled",
+            partition: 0,
+            code: 22,
+            offset: None,
+            records: 0,
+            bytes: 0,
+        },
+    ],
+    results_more: 0,
+    code: 22,
+    failed: 1,
+    record_note: None,
+}

@@ -85,6 +85,34 @@ pub(super) fn open<'a>(
     }))
 }
 
+// fuzz:parser fuzz_batch
+/// Whether `body`, compressed with `codec`, reads to its end and inflates to at most `limit` bytes. Nothing is kept: the
+/// stream is read through a fixed buffer, so a payload that claims far more than it weighs costs the decompressor's window
+/// and not its claim. A payload that is not compressed (`Compression::None`) is its own size, which the caller has held to
+/// `limit`; a codec number this broker does not know cannot be read, so is not.
+#[must_use]
+pub fn inflates_within(codec: Compression, body: &[u8], limit: u64) -> bool {
+    if codec == Compression::None {
+        return body.len() as u64 <= limit;
+    }
+    // Every codec's stream has a header, so nothing at all is not one (lz4's decoder would call it an empty stream, and Kafka's
+    // reads of the four would fail on it).
+    if body.is_empty() {
+        return false;
+    }
+    let Ok(mut stream) = open(codec, body, limit) else {
+        return false;
+    };
+    let mut buffer = [0_u8; 8192];
+    loop {
+        match stream.read(&mut buffer) {
+            Ok(0) => return true,
+            Ok(_) => {}
+            Err(_) => return false,
+        }
+    }
+}
+
 /// The members of a gzip stream, one after another: when a member ends, another follows only if the next bytes begin
 /// one, and anything else after the last member is not read (Kafka stops there too, and so a batch with bytes after its
 /// stream is accepted).
