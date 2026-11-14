@@ -6,7 +6,7 @@
 //! inside the codec (see `docs/port/phase3.md`, slice 3f).
 
 use super::layout::HEADER_LEN;
-use super::{Batch, Compression};
+use super::{Batch, Compression, varint};
 use crate::ids::TimestampMs;
 
 /// One record's place and time.
@@ -61,32 +61,17 @@ impl Iterator for RecordTimes<'_> {
 
 impl RecordTimes<'_> {
     fn read_one(&mut self) -> Option<RecordTime> {
-        let length = usize::try_from(varint(&mut self.rest)?).ok()?;
+        let length = usize::try_from(varint::read(&mut self.rest)?).ok()?;
         let (mut record, after) = (self.rest.get(..length)?, self.rest.get(length..)?);
         self.rest = after;
         record = record.get(1..)?; // the record's attribute byte
-        let timestamp_delta = varint(&mut record)?;
-        let offset_delta = i32::try_from(varint(&mut record)?).ok()?;
+        let timestamp_delta = varint::read(&mut record)?;
+        let offset_delta = i32::try_from(varint::read(&mut record)?).ok()?;
         Some(RecordTime {
             offset_delta,
             timestamp: TimestampMs::from_wire(self.first_timestamp.checked_add(timestamp_delta)?),
         })
     }
-}
-
-/// A zigzag varint (Kafka's `varint` and `varlong`) off the front of `bytes`.
-fn varint(bytes: &mut &[u8]) -> Option<i64> {
-    let mut value = 0u64;
-    for shift in (0..70).step_by(7) {
-        let (&byte, rest) = bytes.split_first()?;
-        *bytes = rest;
-        value |= u64::from(byte & 0x7f).checked_shl(shift)?;
-        if byte & 0x80 == 0 {
-            // Zigzag: the low bit is the sign.
-            return Some(((value >> 1) as i64) ^ -((value & 1) as i64));
-        }
-    }
-    None // more than ten bytes is no number
 }
 
 #[cfg(test)]

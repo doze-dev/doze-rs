@@ -22,6 +22,7 @@ mod recode;
 mod records;
 mod scan;
 mod stamp;
+mod varint;
 
 use bytes::Bytes;
 

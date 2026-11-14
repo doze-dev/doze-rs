@@ -2,6 +2,8 @@
 
 use std::io::{self, BufRead};
 
+use crate::batch::varint;
+
 /// Why reading a field stopped.
 pub(super) enum Stop {
     /// The records section ended, cleanly, where a field should be.
@@ -43,19 +45,10 @@ impl<R: BufRead> Cursor<R> {
 
     /// A zigzag varint of at most 64 bits.
     pub(super) fn varint(&mut self) -> Result<i64, Stop> {
-        let mut value = 0u64;
-        for shift in (0..64).step_by(7) {
-            let byte = self.byte()?;
-            // The tenth byte may carry only the one bit that is left.
-            if shift == 63 && byte > 1 {
-                return Err(Stop::Number);
-            }
-            value |= u64::from(byte & 0x7f) << shift;
-            if byte & 0x80 == 0 {
-                return Ok(((value >> 1) as i64) ^ -((value & 1) as i64));
-            }
-        }
-        Err(Stop::Number)
+        varint::pull(|| self.byte()).map_err(|bad| match bad {
+            varint::Bad::TooLong => Stop::Number,
+            varint::Bad::Source(stop) => stop,
+        })
     }
 
     pub(super) fn skip(&mut self, mut n: u64) -> Result<(), Stop> {

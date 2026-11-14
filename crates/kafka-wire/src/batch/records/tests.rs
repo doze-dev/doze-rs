@@ -49,3 +49,24 @@ fn each_record_has_its_offset_delta_and_the_batchs_first_timestamp_plus_its_own_
         .collect();
     assert_eq!(got, [(0, 1_000), (1, 1_005), (2, 997), (3, 71_000)]);
 }
+
+#[test]
+fn a_timestamp_delta_whose_tenth_byte_carries_more_than_the_last_bit_is_unreadable() {
+    let mut body = vec![0u8]; // attributes
+    body.extend([0xff; 9]);
+    body.push(0x02); // no 64-bit number
+    body.extend(zigzag(0)); // offset delta
+    body.extend(zigzag(-1));
+    body.extend(zigzag(-1));
+    body.extend(zigzag(0));
+    let mut section = zigzag(body.len() as i64);
+    section.extend(body);
+    let bytes = BatchBuilder::new()
+        .records(1)
+        .timestamps(0, 0)
+        .body(section)
+        .build();
+    let b = Batch::parse(bytes).unwrap();
+    let times: Vec<_> = b.record_times().unwrap().collect();
+    assert_eq!(times, [Err(())]);
+}
