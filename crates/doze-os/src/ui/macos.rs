@@ -221,3 +221,28 @@ pub(super) fn ask_notifications() {
         &done,
     );
 }
+
+pub(super) fn hands_off() -> usize {
+    use objc2_app_kit::NSWindowStyleMask;
+    let Some(mtm) = MainThreadMarker::new() else {
+        return 0;
+    };
+    let mut n = 0;
+    for w in NSApplication::sharedApplication(mtm).windows().iter() {
+        // The menu-bar item's own window is borderless; the app's windows have a title bar.
+        if w.styleMask().contains(NSWindowStyleMask::Titled) {
+            w.setIgnoresMouseEvents(true);
+            n += 1;
+        }
+    }
+    n
+}
+
+pub(super) fn holds_input() -> (bool, usize) {
+    let Some(mtm) = MainThreadMarker::new() else {
+        return (false, 0);
+    };
+    let app = NSApplication::sharedApplication(mtm);
+    let key = app.windows().iter().filter(|w| w.isKeyWindow()).count();
+    (app.isActive(), key)
+}

@@ -30,11 +30,14 @@ pub(crate) fn run(s: Shot) -> ExitCode {
     let _held = s
         .hold
         .and_then(|p| std::net::TcpListener::bind(("127.0.0.1", p)).ok());
+    // Far off screen, but a window all the same: it never takes the owner's input (`crate::handsoff`).
+    crate::handsoff::set();
     gpui_platform::application()
         .with_assets(crate::assets::Assets)
         .with_quit_mode(QuitMode::Explicit)
         .run(move |cx: &mut App| {
             crate::app::boot_core(cx);
+            cx.set_activation_policy(gpui::ActivationPolicy::Accessory);
             crate::app::boot_ui(
                 cx,
                 Choice {
@@ -61,6 +64,7 @@ pub(crate) fn run(s: Shot) -> ExitCode {
                 cx.quit();
                 return;
             };
+            crate::handsoff::after_open(h.into(), cx);
             let pumped = hub.clone();
             cx.spawn(async move |cx: &mut AsyncApp| {
                 // The window hears the hub's batches, as the app's pump has it.

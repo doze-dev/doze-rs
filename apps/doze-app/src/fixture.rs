@@ -39,6 +39,8 @@ pub(crate) struct Fixture {
     root: PathBuf,
     home: PathBuf,
     daemon: Option<FixtureDaemon>,
+    /// Milliseconds the hub's clock runs ahead of the wall clock (a test moves time on with [`Fixture::skew`]).
+    skew: Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl Fixture {
@@ -71,6 +73,7 @@ impl Fixture {
                 root,
                 home,
                 daemon: None,
+                skew: Arc::default(),
             });
         }
         // `medium-150`, or `medium-150x500` for 500 calls rather than two an app.
@@ -124,6 +127,7 @@ impl Fixture {
             root,
             home,
             daemon: Some(daemon),
+            skew: Arc::default(),
         })
     }
 
@@ -136,7 +140,11 @@ impl Fixture {
             .unwrap_or_default();
         let mut o = Options::new(self.home.clone());
         let start = std::time::Instant::now();
-        o.clock = doze_desk::Clock::from_fn(move || epoch() + start.elapsed());
+        let skew = self.skew.clone();
+        o.clock = doze_desk::Clock::from_fn(move || {
+            let ahead = skew.load(std::sync::atomic::Ordering::Relaxed);
+            epoch() + start.elapsed() + std::time::Duration::from_millis(ahead)
+        });
         o.dial = Arc::new(move |_, _| Client::socket(sock.clone()).named("app"));
         o
     }
@@ -148,6 +156,13 @@ impl Fixture {
         if let Some(d) = &self.daemon {
             d.push(f);
         }
+    }
+
+    /// Moves the hub's clock on by `ms` (a test's time, which the wall clock does not follow).
+    #[cfg(all(test, feature = "capture"))]
+    pub(crate) fn skew(&self, ms: u64) {
+        self.skew
+            .fetch_add(ms, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// What the daemon was asked, in order.

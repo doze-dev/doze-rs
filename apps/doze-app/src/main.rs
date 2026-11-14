@@ -25,6 +25,7 @@ mod empty;
 mod facts;
 #[cfg(feature = "fixtures")]
 mod fixture;
+mod handsoff;
 mod instance;
 mod kit;
 mod library;
@@ -105,7 +106,7 @@ fn main() -> ExitCode {
         }
         Err(e) => {
             eprintln!(
-                "doze-app: {e}\n\nusage: doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar] [--fixture NAME | --synth N]\n       doze-app shot --fixture NAME --screen library|tiles|list|map|grid|palette|help|instance|logs [--stack NAME] --theme T --mode dark|light --size WxH --out FILE\n                     [--select NAME] [--tab ID] [--filter TEXT] [--find-mode] [--level 0-3] [--hold PORT] [--density D]\n       doze-app bench [--fixture NAME | --synth N] [--idle SECONDS] [--logs [--follow SECONDS]]"
+                "doze-app: {e}\n\nusage: doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar] [--fixture NAME | --synth N]\n       doze-app shot --fixture NAME --screen library|tiles|list|map|grid|palette|help|instance|logs [--stack NAME] --theme T --mode dark|light --size WxH --out FILE\n                     [--select NAME] [--tab ID] [--filter TEXT] [--find-mode] [--level 0-3] [--hold PORT] [--density D]\n       doze-app bench [--fixture NAME | --synth N] [--idle SECONDS] [--display N] [--in-use] [--check [--budget MB]] [--logs [--follow SECONDS]]"
             );
             ExitCode::from(2)
         }

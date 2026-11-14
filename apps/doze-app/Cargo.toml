@@ -47,5 +47,10 @@ doze-map = { path = "../../crates/doze-map" }
 doze-projects = { path = "../../crates/doze-projects" }
 doze-os = { path = "../../crates/doze-os", features = ["ui"] }
 
+# The macOS renderer (in the tree through gpui_platform; the vendored copy): named for its frame count, which the
+# bench and the idle guard read (vendor/gpui-pre-apple/PATCHES.md §3).
+[target.'cfg(target_os = "macos")'.dependencies]
+gpui_apple = { package = "gpui-pre-apple", version = "=0.3.12" }
+
 [dev-dependencies]
 tempfile = "3"

@@ -81,6 +81,14 @@ impl Source {
         }
     }
 
+    /// Moves the hub's clock on by `ms`, as the app's own (faked) time moves in a test.
+    #[cfg(all(test, feature = "capture"))]
+    pub(crate) fn skew(&self, ms: u64) {
+        if let Some(fx) = &self._fixture {
+            fx.skew(ms);
+        }
+    }
+
     /// The verbs the fixture daemon was asked, as `op target` (`sleep db`).
     #[cfg(all(test, feature = "capture"))]
     pub(crate) fn verbs(&self) -> Vec<String> {

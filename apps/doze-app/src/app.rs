@@ -47,8 +47,17 @@ pub(crate) fn boot_core(cx: &mut App) {
             .map(|f| Cow::Borrowed(*f))
             .collect(),
     );
+    crate::handsoff::guard_keys(cx);
     cx.set_menus(actions::menus());
     cx.on_action(|_: &Quit, cx| cx.quit());
+    // About from the menu with no window open: the window first, on Settings › About (Go opened it for every item).
+    cx.on_action(|_: &actions::AboutDoze, cx| {
+        if let Some(h) = open(cx) {
+            let _ = h.update(cx, |root, window, cx| {
+                root.open_settings(Some(crate::settings::Section::About), false, window, cx);
+            });
+        }
+    });
     cx.on_action(|_: &OpenPalette, cx| {
         if let Some(h) = open(cx) {
             let _ = h.update(cx, |root, window, cx| {
@@ -71,6 +80,15 @@ pub(crate) fn boot_ui(cx: &mut App, choice: Choice) {
     let keys = actions::keymap(cx);
     cx.bind_keys(keys);
     cx.set_global(UiReady);
+}
+
+/// Frames the process's windows have committed to the screen so far (the renderer's count; 0 where it keeps none).
+/// The GPU driver holds about 150 MB for as long as frames keep coming, so an idle window must add none.
+pub(crate) fn frames_drawn() -> u64 {
+    #[cfg(target_os = "macos")]
+    return gpui_apple::metal_renderer::frames_drawn();
+    #[cfg(not(target_os = "macos"))]
+    0
 }
 
 /// The frame of a first open: the main screen's work area; with no screen known, Go's 960×640.
@@ -98,7 +116,8 @@ pub(crate) fn options(bounds: Bounds<gpui::Pixels>, show: bool) -> WindowOptions
         }),
         window_min_size: Some(size(px(760.), px(400.))),
         show,
-        focus: show,
+        // A hands-off run (tests, shots, the bench, a script) never takes the keyboard (`crate::handsoff`).
+        focus: show && !crate::handsoff::on(),
         ..Default::default()
     }
 }
@@ -110,12 +129,16 @@ pub(crate) fn open(cx: &mut App) -> Option<WindowHandle<Root>> {
         (s.hub.clone(), s.first.clone(), s.window, s.facts.clone())
     };
     if let Some(h) = existing {
-        let _ = h.update(cx, |_, w, _| w.activate_window());
-        cx.activate(true);
+        if !crate::handsoff::on() {
+            let _ = h.update(cx, |_, w, _| w.activate_window());
+            cx.activate(true);
+        }
         return Some(h);
     }
     boot_ui(cx, prefs::theme());
-    cx.set_activation_policy(ActivationPolicy::Regular);
+    if !crate::handsoff::on() {
+        cx.set_activation_policy(ActivationPolicy::Regular);
+    }
     let opts = options(first_bounds(cx), true);
     let h = cx
         .open_window(opts, |window, cx| {
@@ -130,18 +153,19 @@ pub(crate) fn open(cx: &mut App) -> Option<WindowHandle<Root>> {
                 });
                 true
             });
-            // Minimised, behind another window or on a sleeping display: nothing streams until it shows again (Go's
-            // visibilitychange blur and refocus).
-            let h = hub.clone();
-            window
-                .observe_window_visibility(move |v, _, _| h.set_visible(v.is_visible()))
-                .detach();
             cx.new(|cx| Root::new(hub.clone(), first, facts, window, cx))
         })
         .ok()?;
-    hub.set_visible(true);
+    // The meters follow the window's use (`Root::sync_hub`); a hands-off run streams them while the window lives.
+    if crate::handsoff::on() {
+        hub.set_visible(true);
+    }
     cx.global_mut::<State>().window = Some(h);
-    cx.activate(true);
+    if crate::handsoff::on() {
+        crate::handsoff::after_open(h.into(), cx);
+    } else {
+        cx.activate(true);
+    }
     Some(h)
 }
 
@@ -164,6 +188,12 @@ fn pump(cx: &mut App, hub: Hub) {
 
 /// Runs the app until it quits.
 pub(crate) fn run(mut a: cli::App) -> ExitCode {
+    crate::handsoff::from_env();
+    // A hands-off run on the owner's home would hand its arguments to his running app, which would come forward.
+    if crate::handsoff::on() && std::env::var_os("DOZE_HOME").is_none() {
+        eprintln!("doze-app: a hands-off or scripted run needs its own DOZE_HOME");
+        return ExitCode::FAILURE;
+    }
     // A relative folder is the launching folder's, and a launch inside a project with no folder named opens it (Go
     // `dirFrom`): resolved here, before a second launch hands them to the first, which runs elsewhere.
     if let Ok(here) = std::env::current_dir() {

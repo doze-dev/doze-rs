@@ -26,9 +26,8 @@ pub(crate) fn expand(url: &str) -> String {
 /// browser connection through the front door is what wakes a service).
 pub(crate) fn open_url(cx: &App, url: &str) {
     let url = expand(url);
-    #[cfg(feature = "fixtures")]
-    if crate::driver::active() {
-        crate::driver::note("open", &url);
+    if crate::handsoff::on() {
+        said("open", &url);
         return;
     }
     match url.strip_prefix("file://") {
@@ -39,9 +38,8 @@ pub(crate) fn open_url(cx: &App, url: &str) {
 
 /// Puts `text` on the clipboard.
 pub(crate) fn copy(cx: &mut App, text: &str) {
-    #[cfg(feature = "fixtures")]
-    if crate::driver::active() {
-        crate::driver::note("copy", text);
+    if crate::handsoff::on() {
+        said("copy", text);
         return;
     }
     cx.write_to_clipboard(ClipboardItem::new_string(text.to_owned()));
@@ -74,9 +72,8 @@ impl<T: ParentElement + Sized> Probe for T {}
 
 /// Opens a file (or a folder) in its app.
 pub(crate) fn open_path(cx: &App, path: &std::path::Path) {
-    #[cfg(feature = "fixtures")]
-    if crate::driver::active() {
-        crate::driver::note("open", &format!("file://{}", path.display()));
+    if crate::handsoff::on() {
+        said("open", &format!("file://{}", path.display()));
         return;
     }
     cx.open_with_system(path);
@@ -84,9 +81,8 @@ pub(crate) fn open_path(cx: &App, path: &std::path::Path) {
 
 /// Shows a file or folder in Finder.
 pub(crate) fn reveal(cx: &App, path: &std::path::Path) {
-    #[cfg(feature = "fixtures")]
-    if crate::driver::active() {
-        crate::driver::note("reveal", &path.display().to_string());
+    if crate::handsoff::on() {
+        said("reveal", &path.display().to_string());
         return;
     }
     cx.reveal_path(path);
@@ -105,4 +101,12 @@ pub(crate) fn note_line(said: &doze_desk::settings::Said) {
         };
         crate::driver::note(kind, text);
     }
+}
+
+/// What a hands-off run would have sent out of the app: to the script's log, when one plays.
+fn said(kind: &str, text: &str) {
+    #[cfg(feature = "fixtures")]
+    crate::driver::note(kind, text);
+    #[cfg(not(feature = "fixtures"))]
+    let _ = (kind, text);
 }

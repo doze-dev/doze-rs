@@ -119,12 +119,39 @@ const BAR: [(MenuName, &str, &[Place]); 6] = [
 
 fn item(s: &Spec) -> MenuItem {
     MenuItem::Action {
-        name: s.label.into(),
+        name: title_case(s.label).into(),
         action: (s.make)(),
         os_action: None,
         checked: false,
         disabled: !s.built,
     }
+}
+
+/// A row's words as a menu writes them, in Go's (and the Mac's) title case: "Open Folder…", "Search or Do…",
+/// "Needs You". The table keeps the sentence case the palette and the keys sheet show. Small words stay small past the
+/// first, and doze's own name and file names (`doze`, `doze.hcl`) stay as they are written.
+fn title_case(label: &str) -> String {
+    const SMALL: [&str; 12] = [
+        "a", "an", "and", "as", "by", "for", "from", "in", "of", "on", "or", "the",
+    ];
+    label
+        .split(' ')
+        .enumerate()
+        .map(|(i, w)| {
+            let mut c = w.chars();
+            match c.next() {
+                Some(f)
+                    if f.is_lowercase()
+                        && !w.starts_with("doze")
+                        && (i == 0 || !SMALL.contains(&w)) =>
+                {
+                    f.to_uppercase().chain(c).collect()
+                }
+                _ => w.to_owned(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// The Edit menu's text commands, which the system routes to the focused box.
@@ -236,6 +263,28 @@ mod tests {
                     _ => println!("  (system menu)"),
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod words {
+    use super::title_case;
+
+    #[test]
+    fn a_menu_writes_its_rows_in_gos_title_case() {
+        for (ours, menu) in [
+            ("Open folder…", "Open Folder…"),
+            ("All logs", "All Logs"),
+            ("Search or do…", "Search or Do…"),
+            ("Needs you", "Needs You"),
+            ("Close the window", "Close the Window"),
+            ("Remove the stack from doze…", "Remove the Stack from doze…"),
+            ("Edit doze.hcl", "Edit doze.hcl"),
+            ("About doze", "About doze"),
+            ("doze Docs", "doze Docs"),
+        ] {
+            assert_eq!(title_case(ours), menu);
         }
     }
 }

@@ -44,6 +44,15 @@ const SHADERS_SOURCE_FILE: &str = include_str!(concat!(env!("OUT_DIR"), "/stitch
 // window-sized 4-sample intermediate texture alive for as long as any path is drawn.
 // https://developer.apple.com/documentation/metal/mtldevice/1433355-supportstexturesamplecount
 const PATH_SAMPLE_COUNT: u32 = 1;
+
+// PATCH (doze, vendor/gpui-pre-apple/PATCHES.md §3): frames committed to a window's drawable, counted, so the app can
+// prove an idle window draws nothing (GPU memory follows drawing: see docs/port/weight.md).
+static FRAMES_DRAWN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// How many frames every window of this process has committed to the screen so far (offscreen captures not counted).
+pub fn frames_drawn() -> u64 {
+    FRAMES_DRAWN.load(std::sync::atomic::Ordering::Relaxed)
+}
 /// Metal requires the offset a buffer is bound at to be 256-byte aligned.
 const INSTANCE_BUFFER_ALIGNMENT: usize = 256;
 const MAX_INSTANCE_BUFFER_SIZE: usize = 256 * 1024 * 1024;
@@ -637,6 +646,9 @@ impl MetalRenderer {
             }
         };
 
+        // PATCH (doze, PATCHES.md §3): count the frame, and say so at trace level for `DOZE_APP_LOG=trace`.
+        let n = FRAMES_DRAWN.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        log::trace!(target: "gpui_apple::frames", "frame {n}");
         if self.presents_with_transaction {
             command_buffer.commit();
             command_buffer.waitUntilScheduled();

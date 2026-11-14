@@ -53,24 +53,6 @@ fn line(i: usize) -> Frame {
     }
 }
 
-/// The process's footprint in megabytes, as `footprint` reads it.
-fn footprint() -> Option<f64> {
-    let out = std::process::Command::new("footprint")
-        .arg(std::process::id().to_string())
-        .output()
-        .ok()?;
-    let text = String::from_utf8_lossy(&out.stdout);
-    let after = text.split("Footprint:").nth(1)?;
-    let mut it = after.split_whitespace();
-    let n: f64 = it.next()?.parse().ok()?;
-    match it.next()? {
-        "KB" => Some(n / 1024.),
-        "MB" => Some(n),
-        "GB" => Some(n * 1024.),
-        _ => None,
-    }
-}
-
 async fn pause(cx: &mut AsyncApp, ms: u64) {
     cx.background_executor()
         .timer(Duration::from_millis(ms))
@@ -188,7 +170,10 @@ async fn follow(cx: &mut AsyncApp, h: WindowHandle<Root>, src: &Source, secs: u6
         }
         if last_read.elapsed() >= Duration::from_secs(1) {
             last_read = Instant::now();
-            let fp = cx.background_executor().spawn(async { footprint() }).await;
+            let fp = cx
+                .background_executor()
+                .spawn(async { crate::bench::footprint() })
+                .await;
             peak = peak.max(fp.unwrap_or(0.));
         }
         pause(cx, 5).await;
@@ -196,7 +181,10 @@ async fn follow(cx: &mut AsyncApp, h: WindowHandle<Root>, src: &Source, secs: u6
     println!("follow_lines {sent}");
     println!("follow_footprint_max_mb {peak:.0}");
     pause(cx, 10_000).await;
-    let after = cx.background_executor().spawn(async { footprint() }).await;
+    let after = cx
+        .background_executor()
+        .spawn(async { crate::bench::footprint() })
+        .await;
     println!("after_follow_footprint_mb {:.0}", after.unwrap_or(0.));
 }
 
@@ -204,13 +192,13 @@ async fn follow(cx: &mut AsyncApp, h: WindowHandle<Root>, src: &Source, secs: u6
 pub(crate) async fn run(cx: &mut AsyncApp, src: Rc<Source>, follow_secs: u64) {
     let (hub, first, facts) = (src.hub.clone(), src.first.clone(), src.facts.clone());
     let opened = cx.update(|cx| {
-        cx.set_activation_policy(gpui::ActivationPolicy::Regular);
         let bounds = gpui::Bounds::centered(None, gpui::size(gpui::px(1280.), gpui::px(800.)), cx);
         cx.open_window(crate::app::options(bounds, true), |window, cx| {
             cx.new(|cx| Root::new(hub.clone(), first.clone(), facts.clone(), window, cx))
         })
     });
     let Ok(h) = opened else { return };
+    cx.update(|cx| crate::handsoff::after_open(h.into(), cx));
     hub.set_visible(true);
     let pumped = hub.clone();
     cx.spawn(async move |cx: &mut AsyncApp| {
@@ -220,17 +208,17 @@ pub(crate) async fn run(cx: &mut AsyncApp, src: Rc<Source>, follow_secs: u64) {
     })
     .detach();
     pause(cx, 5000).await;
-    if let Some(fp) = footprint() {
+    if let Some(fp) = crate::bench::footprint() {
         println!("stack_page_footprint_mb {fp:.0}");
     }
     idle_pace(cx, h).await;
     let _ = h.update(cx, |root, window, cx| root.open_logs(window, cx));
-    if let Some(fp) = footprint() {
+    if let Some(fp) = crate::bench::footprint() {
         println!("logs_open_footprint_mb {fp:.0}");
     }
     fill(cx, &src).await;
     pause(cx, 1000).await;
-    if let Some(fp) = footprint() {
+    if let Some(fp) = crate::bench::footprint() {
         println!("full_ring_footprint_mb {fp:.0}");
     }
     scroll(cx, h).await;

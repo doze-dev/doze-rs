@@ -540,3 +540,56 @@ drops to 38 MB, 3 MB over that line (35–36 MB at M3).
 What this branch adds at rest: nothing that wakes. The run sheet exists only while open; the config look stamps the
 known stacks' files every two seconds (a `stat` each) and redraws only on a change; doctor and the leftovers look keep
 their old cadence. Notifications ask for leave once at start, from a bundle only.
+
+### The idle window (app-finish, follow-up), measured 2026-11-14
+
+**Root cause of the 225 MB.** The idle stack page drew one frame a second, and while frames keep coming, even one a
+second, the GPU driver keeps about 147 MB of "Owned physical footprint (unmapped) (graphics)" for the process (the
+redraw floor described above). The frames came from `shell/clock.rs` (added by `app-states`): while a page shows text
+that changes with time alone, it is read again every second, and larder has a dozing instance whose "sleeps in 0:48"
+changes every second, so every read was a frame. Evidence, same binary (the renderer's frame counter, vendor
+PATCHES.md §3, read by `doze-app bench`): on the external display 27 frames in 27 s of idling, 223–225 MB, 147 MB
+graphics; with a log line per read, "sleeps in 0:48" → "0:47" → … once a second.
+
+**Why the bisect was not monotonic.** It measured where the window landed, not the code. `bench` centred the window on
+the main display; on this Mac the built-in display's copy of it was hidden (the window reported `Hidden` and the page
+still changed every second, but no frames were delivered), so builds measured while it landed there read 56–57 MB
+(4 MB graphics) and the rest 224–226 MB. Re-run here: the pre-fix build reads 57 MB on display 0 and 225 MB on display 1.
+`bench --display N` now chooses the display, so a reading is never taken from a window the system hides.
+
+**The fix.** Time-driven reads need the person (`shell/attention.rs`): the window counts as in use while it is key and
+was touched (a key, a click, the pointer, the wheel; becoming key counts) in the last 30 s. The clock, the instance
+page's tick and Activity's ten-second read run only then, and the hub streams the meters only while the window is on
+screen and in use (`Root::sync_hub`: a real daemon sends meters every second, so a page showing changing figures would
+otherwise draw a frame a second too). Left alone, the page still hears every change of state, at most once a second;
+a touch reads everything again at once. Also fixed: the instance page's tick started a second loop on each of its own
+reads, so loops doubled every second while a countdown showed (4,092 reads in 10 s in the test).
+
+**Measured** (`release-app`, `doze-app bench --fixture larder --display 1 --check --budget 85`, the window on screen;
+footprint at 12 s and 27 s after launch, and 42 s, which is about 10 s after the close; two runs):
+
+| | Budget | before (app-finish b55487cf) | after |
+|---|---|---|---|
+| Window open and idle (larder, on screen) | ≤ 85 MB | 223–225 MB (147 MB graphics), 27 frames in 27 s | **61 / 57 MB** and 61 / 57 MB (4 MB graphics), **0 frames** |
+| The same on the main display (where it was hidden) | | 57 MB | 61 / 57 MB, 0 frames |
+| Window in use (`--in-use`: counted as touched at open), then left alone | | — | 224 MB while the countdown ticks (28 frames, the last at 31 s), 78 MB 9 s after the last frame, 73 MB from then on |
+| After the window closes | ≤ 35 MB | 38 MB | 37–38 MB |
+| Menu bar only (empty home, `--menu-bar`) | ≤ 18 MB | 19 MB | 19 MB, 0.0 % CPU |
+| CPU, window open and idle | ≤ 0.3 % | 0.0 % | 0.0 % |
+| Binary, `release-app`, no capture | ≤ 16 MB | 13,447,312 B | 13,464,000 B (+16,688 B: attention, hands-off, the bench's check) |
+| Binary with `fixtures` | | 13,712,704 B | 13,745,968 B |
+| Packages (CI's count, `--target aarch64-apple-darwin`) | limit 560 | 538 | 539 (`gpui-pre-apple`, already in the tree, now named directly for its frame count) |
+
+What a window in use costs is the redraw floor, as before: about 225 MB while something on it moves, back to about
+75 MB within ten seconds of the last frame. The open window over the 85 MB line is now the window someone is using,
+not one left open.
+
+**The guard.** `shell/idle_tests.rs` (gpui test windows over the fixture daemon, the app's time and the hub's clock run
+on together): an untouched window draws 0 frames in 30 s while its countdown runs; a window in use draws, then stops
+once left alone, and a touch draws again; a pointer over a window that is not key draws nothing; the meters stream
+only while in use; the instance page reads once a second, not more. Without the gate the first two fail, and the
+instance test reports 4,092 reads. `doze-app bench --check [--budget MB]` exits 1 when a window left alone drew a frame
+or passed the budget (checked: an `--in-use` run with `--budget 85` exits 1 at 223 MB); CI's app job runs it on larder.
+
+Not covered: a window left alone while All logs follows still draws (that is following), and an untouched window's
+countdown and "last update Ns ago" show the figure of the last batch until a touch.

@@ -5,9 +5,12 @@
 
 mod acting;
 mod admin;
+pub(crate) mod attention;
 pub(crate) mod attn;
 mod clock;
 mod history;
+#[cfg(all(test, feature = "capture"))]
+mod idle_tests;
 mod inside;
 mod nav;
 mod needs;
@@ -148,6 +151,7 @@ impl Root {
             pages: pages::Pages::new(facts.clone(), fixture),
         };
         root.rebuild_attention(cx);
+        root.follow_use(window, cx);
         root.hear(&acts, window, cx);
         // A fixture or a link names the stack; else the page the window last showed, when Settings › General's
         // "Reopen the page I had" is on (Go: reopen where I was).
@@ -310,6 +314,12 @@ impl Root {
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    /// How many times the window was drawn (the root renders once a frame), for the idle tests.
+    pub(crate) static RENDERS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
 impl Focusable for Root {
     fn focus_handle(&self, _: &gpui::App) -> FocusHandle {
         self.focus.clone()
@@ -320,6 +330,8 @@ impl Render for Root {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         #[cfg(feature = "fixtures")]
         crate::driver::frame();
+        #[cfg(test)]
+        RENDERS.with(|r| r.set(r.get() + 1));
         crate::motion::set_reduced(cx.reduce_motion());
         crate::motion::frame();
         self.follow_system(window, cx);
@@ -380,6 +392,7 @@ impl Render for Root {
             .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
                 this.dropped(paths, window, cx)
             }))
+            .child(self.touches(cx))
             .child(page)
             .child(self.foot_column(cx))
             .children(self.overlay_el(f32::from(window.viewport_size().height), cx))

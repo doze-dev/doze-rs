@@ -114,7 +114,13 @@ impl ActivityView {
         cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor().timer(EVERY).await;
-                if this.update(cx, |v, cx| v.read(cx)).is_err() {
+                // Only while the window is in use: the span ends at "now", so each read redraws (a touch reads again).
+                let used = cx
+                    .update(|cx| crate::shell::attention::attended(cx.background_executor().now()));
+                if used && this.update(cx, |v, cx| v.read(cx)).is_err() {
+                    break;
+                }
+                if this.upgrade().is_none() {
                     break;
                 }
             }

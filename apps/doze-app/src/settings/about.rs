@@ -24,7 +24,7 @@ pub(super) fn page(
         .child(set_row(
             t,
             "doze",
-            "this app, and the doze command it runs for stacks",
+            "the app and the CLI are one binary",
             div()
                 .flex()
                 .flex_col()
@@ -37,7 +37,9 @@ pub(super) fn page(
                     "doze-dev.com",
                     "",
                     Btn::Plain,
-                    Some(Box::new(|_, _, cx| cx.open_url("https://doze-dev.com"))),
+                    Some(Box::new(|_, _, cx| {
+                        crate::outward::open_url(cx, "https://doze-dev.com")
+                    })),
                 ))),
         ))
 }
@@ -131,7 +133,7 @@ fn newer(t: &Tokens, u: &Update, col: gpui::Div, cx: &mut Context<SettingsView>)
                 "What's new",
                 "",
                 Btn::Primary,
-                Some(Box::new(move |_, _, cx| cx.open_url(&url))),
+                Some(Box::new(move |_, _, cx| crate::outward::open_url(cx, &url))),
             ))
             .child(btn(
                 t,

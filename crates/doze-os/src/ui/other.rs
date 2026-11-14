@@ -33,3 +33,11 @@ pub(super) fn dock_badge_now() -> Option<String> {
 }
 
 pub(super) fn ask_notifications() {}
+
+pub(super) fn hands_off() -> usize {
+    0
+}
+
+pub(super) fn holds_input() -> (bool, usize) {
+    (false, 0)
+}

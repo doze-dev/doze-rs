@@ -111,7 +111,7 @@ pub(crate) const ATTN: &[Spec] = &[
     row!("First fix", "the highlighted item's", BellFix, ["enter"], Bell, None, false, true),
     row!("Show", "the page that explains it", BellShow, ["cmd-enter"], Bell, None, false, true),
     row!("Not now", "until what it says changes", BellNotNow, ["n"], Bell, None, false, true),
-    row!("About doze", "the version, the keys", AboutDoze, [], Global, Some(Doze), false, true),
+    row!("About doze", "the version, a newer doze", AboutDoze, [], Global, Some(Doze), false, true),
     row!("Check for Updates…", "a newer doze", CheckUpdates, [], Global, Some(Doze), false, true),
     row!("Hide doze", "", HideDoze, ["cmd-h"], Global, Some(Doze), false, true),
     row!("Hide Others", "", HideOthers, ["alt-cmd-h"], Global, Some(Doze), false, true),

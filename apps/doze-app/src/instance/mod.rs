@@ -10,6 +10,7 @@ mod overview;
 pub(crate) mod side;
 mod snippets;
 mod task;
+pub(crate) mod tick;
 pub(crate) mod ui;
 mod verbs;
 
@@ -189,39 +190,6 @@ impl InstanceView {
         self.look_up_holder(port, cx);
         self.tick(cx);
         cx.notify();
-    }
-
-    /// Repaints once a second while a countdown shows (dozing, the next try), and only then.
-    fn tick(&mut self, cx: &mut Context<Self>) {
-        let counting = self.page.dozing.is_some()
-            || self.metered
-            || self
-                .page
-                .crash
-                .as_ref()
-                .is_some_and(|c| !c.next_in.is_empty());
-        if !counting || self.ticking {
-            return;
-        }
-        self.ticking = true;
-        cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor().timer(Duration::from_secs(1)).await;
-                let more = this.update(cx, |v, cx| {
-                    v.ticking = false;
-                    v.refresh(cx);
-                    let more = v.page.dozing.is_some()
-                        || v.metered
-                        || v.page.crash.as_ref().is_some_and(|c| !c.next_in.is_empty());
-                    v.ticking = more;
-                    more
-                });
-                if !matches!(more, Ok(true)) {
-                    return;
-                }
-            }
-        })
-        .detach();
     }
 
     /// Makes the open tab's view: the logs (or a task's runs), a module's console.

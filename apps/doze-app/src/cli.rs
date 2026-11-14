@@ -120,6 +120,13 @@ pub(crate) struct Bench {
     pub(crate) follow: u64,
     /// The Map under load instead (`--map`): frames drawn offscreen while it pans, zooms and hovers.
     pub(crate) map: bool,
+    /// The display the window opens on, by index (`--display N`); the main one when none.
+    pub(crate) display: Option<usize>,
+    /// The window counts as in use when it opens (`--in-use`): its clocks run for a while, then it is left alone.
+    pub(crate) in_use: bool,
+    /// Fail when the window left alone draws, or passes `budget` MB (`--check`, `--budget MB`).
+    pub(crate) check: bool,
+    pub(crate) budget: Option<f64>,
 }
 
 /// What to do.
@@ -310,6 +317,10 @@ fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
             "--closed" => b.closed = Some(number(&value(&mut args, &a)?, "--closed")?),
             "--logs" => b.logs = true,
             "--map" => b.map = true,
+            "--in-use" => b.in_use = true,
+            "--check" => b.check = true,
+            "--budget" => b.budget = Some(number(&value(&mut args, &a)?, "--budget")?),
+            "--display" => b.display = Some(number(&value(&mut args, &a)?, "--display")?),
             "--follow" => b.follow = number(&value(&mut args, &a)?, "--follow")?,
             _ => return Err(format!("bench: unknown flag {a}")),
         }

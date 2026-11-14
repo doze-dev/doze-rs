@@ -2433,6 +2433,7 @@ dependencies = [
  "doze-projects",
  "gpui-component",
  "gpui-pre",
+ "gpui-pre-apple",
  "gpui-pre-platform",
  "log",
  "lyon",
