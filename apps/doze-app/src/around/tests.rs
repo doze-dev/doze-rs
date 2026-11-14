@@ -26,7 +26,12 @@ fn started(cx: &mut TestAppContext) -> Source {
     let src = Source::fixture("shop", None).unwrap();
     let key = src.first.clone().unwrap();
     let start = Instant::now();
-    while !src.hub.stack(&key).is_some_and(|s| s.link.is_live()) {
+    // Live and with its first snapshot in: the link goes live before the instances arrive, and `crash` reads api.
+    while !src
+        .hub
+        .stack(&key)
+        .is_some_and(|s| s.link.is_live() && s.instance("api").is_some())
+    {
         assert!(start.elapsed() < Duration::from_secs(10), "no stack");
         std::thread::sleep(Duration::from_millis(20));
     }

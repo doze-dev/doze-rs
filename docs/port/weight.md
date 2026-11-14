@@ -874,3 +874,66 @@ means frame and layout time, which this step did not measure. It is the lever th
 and the config when they join the CLI (the CLI alone is 4.6 MB at `"s"`), and it is the app owner's call, with the
 frame-time numbers of `doze-app bench` beside it.
 
+## The app's size profile: small core, fast GUI (measured 2026-11-15)
+
+The app carries the whole CLI (owner decision) and, with core C2a, doze-config and the HCL crates. Measured on a branch
+that merges PR #49 (`app-finish-http`), PR #51 (`core-c2a`) and core step 0 (47276b53, "One HTTP stack", from
+core-m1: #49 is only its app half), the `release-app` build with everything at `opt-level = "s"` was **16,102,720 B and
+650 packages**, over its 16,000,000 B line. The engine and the daemon have still to join.
+
+**Method.** darwin/arm64 (M5 Max), each option a cargo profile inheriting `release-app` with per-package
+`opt-level` overrides (fat LTO, one codegen unit). Size: the plain build, as CI builds it. Timings: the same profile with
+`capture`, `doze-app bench` on the external display (`--display 1`; the built-in display hides the window and sends it no
+frames): `--fixture larder` (menu bar ready, first frame), `--fixture medium-150 --map` (Map frames drawn in full
+offscreen, layout), `--fixture shop --logs` (100k lines: fill, scroll on screen, each frame drawn offscreen). The CLI:
+`doze-app status` against `doze-app fixture-serve larder` (a real round trip on the control socket) and `doze-app
+version`, 40 runs after 3 warm-ups, median. Options interleaved, rounds in both orders; medians of 3 to 8 rounds. The
+machine was shared with other builds (load average 14 to 21), so differences under about 5% are noise. The package
+count (650) does not depend on the profile.
+
+| Option | What is at which level | Binary | Map layout | Map pan, median / p99 | Logs: fill 100k; draw, median | First frame | `status` / `version` |
+|---|---|---|---|---|---|---|---|
+| A (before) | everything "s" | 16,102,720 B | 0.87 ms | 10.5 / 11.4 ms | 389 ms; 7.3 ms | 82 ms | 9.62 / 8.96 ms |
+| B | everything "z" | 12,224,112 B | 1.31 ms | 10.6 / 11.3 ms | **990 ms**; 6.8 ms | 74 ms | 9.79 / 9.00 ms |
+| C | GUI 3, the core "z" | 17,963,600 B | 1.13 ms | 9.5 / 10.5 ms | 357 ms; 6.8 ms | 73 ms | 9.19 / 8.33 ms |
+| D | GUI "s", the core "z" | 15,074,752 B | 1.13 ms | 9.8 / 10.6 ms | 398 ms; 6.8 ms | 69 ms | 9.00 / 8.40 ms |
+| E | base "z", the GUI's frame path "s" | 20,966,320 B | | | | | |
+| F | base "z", the GUI's frame path 3 | 22,955,248 B | | | | | |
+| G | D, and the GUI tree's cold parsers "z" | 14,880,272 B | 1.12 ms | 9.8 / 10.5 ms | 398 ms; 7.1 ms | 74 ms | 9.76 / 8.96 ms |
+| H | D, and the GUI's frame path 3 | 22,865,632 B | | | | | |
+| **I (taken)** | G, with doze-desk and doze-map back at "s" | **15,240,704 B** | **0.82 ms** | 10.0 / 10.7 ms | 394 ms; 7.2 ms | 76 ms | 9.86 / 9.18 ms |
+
+"The core" is the 124 packages the app links only for the CLI and what it runs (the doze-* core crates, clap, the HCL
+and YAML readers, jiff and time, tokio, hyper, rustls, ring, the CA's and netd's crates), serde_json and the regex
+crates. "The GUI's frame path" is gpui and its platform crates, gpui-component, the app, taffy, font-kit, core-text,
+lyon, etagere, ropey and the text-segmentation crates. "The GUI tree's cold parsers" are what GPUI links but reads once:
+the image decoders, markdown and HTML, TOML, the i18n tables, file watching. Logs scroll on screen at the display's
+pace in every option (33.3 ms a frame, the external display at 30 Hz), so the offscreen draw time is the figure that
+compares.
+
+What the numbers say:
+- **"z" everywhere (B) costs the GUI**: the 100k-line fill takes 2.5 times as long and the Map's layout 50% longer.
+- **GPUI at opt-level 3 does not fit**: C is 1.9 MB over the line. H and F, which raise only the frame path to 3, and E, which
+  lowers everything else to "z", are bigger still (20.9 to 23.0 MB). Mixing opt levels across GPUI's own crates
+  inflates the binary under fat LTO. The mechanism was not chased; the measurement rules those options out.
+- **The core at "z" costs the GUI nothing**, except that doze-desk and doze-map are the app's own crates on the
+  page's path: at "z" (D, G) the Map's layout is 30% slower (0.87 to 1.13 ms). Kept at "s" (I), it is back (0.82 ms).
+- **The CLI through the app is within noise**: `status` +2.5% and `version` +2.5% for I against A. A command's time is
+  mostly the process starting (dyld and the GUI frameworks), not the CLI's code.
+
+**Taken: I**, 15,240,704 B (−862,016 B, −5.4%), 650 packages; `Cargo.toml`'s `release-app` lists the packages, grouped.
+No measurable GUI regression; the CLI under 10%.
+
+**The engine and the daemon.** A probe built from core-d1 as it stands (doze-engine and doze-daemon, serving the control
+socket, over a base of tokio and serde_json; fat LTO) adds 619,600 B at "z", 748,912 B at "s" and 1,062,336 B at 3.
+At "z", as the core is here, that projects the app to about **15.86 MB**, under 16 MB with about 140 KB of room. Both
+crates are still in progress (D1 and E2 are open PRs), so this is a floor. If they grow by more than about a fifth, the
+app no longer fits 16 MB. The levers left are a patched gpui-component without the image formats (about 0.55 MB,
+above) and the CLI's clock on chrono instead of jiff (about 120 KB). After that, the 16 MB ceiling itself is an owner
+question.
+
+**The CI line** moves from 16,000,000 B to **15,500,000 B**: this build plus about 260 KB, so creep is caught here. The
+engine's join (projected +0.62 MB) brings it back to 16 MB with its own numbers. Packages stay at 650 (measured 650).
+
+`doze-app bench --logs` now takes `--display N` as the open bench does. Without it, on a Mac whose built-in display
+hides the window, the scroll step waits for frames that never come.

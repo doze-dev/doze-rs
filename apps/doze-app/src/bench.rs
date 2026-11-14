@@ -71,7 +71,7 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
                 let _keep = src.clone();
                 cx.background_executor().timer(Duration::from_secs(2)).await;
                 if logs {
-                    logs_bench(cx, src, follow).await;
+                    logs_bench(cx, src, follow, watch.display).await;
                 } else {
                     time_open(cx, hub, first, watch).await;
                 }
@@ -249,13 +249,19 @@ async fn map_bench(cx: &mut AsyncApp, h: gpui::WindowHandle<Root>) {
     }
 }
 
-/// The logs viewer under load (`--logs`; a build with fixtures).
-async fn logs_bench(cx: &mut AsyncApp, src: Rc<crate::source::Source>, follow: u64) {
+/// The logs viewer under load (`--logs`; a build with fixtures), on the display `--display` names: its scroll counts
+/// frames the display delivers, and a display that hides the window delivers none.
+async fn logs_bench(
+    cx: &mut AsyncApp,
+    src: Rc<crate::source::Source>,
+    follow: u64,
+    display: Option<usize>,
+) {
     #[cfg(feature = "fixtures")]
-    crate::logbench::run(cx, src, follow).await;
+    crate::logbench::run(cx, src, follow, display).await;
     #[cfg(not(feature = "fixtures"))]
     {
-        let _ = (cx, src, follow);
+        let _ = (cx, src, follow, display);
         eprintln!("doze-app bench --logs needs a build with the `fixtures` feature");
     }
 }
