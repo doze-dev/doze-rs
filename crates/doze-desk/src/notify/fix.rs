@@ -21,6 +21,9 @@ pub enum Outside {
     Stack(StackKey, StackAction),
     /// Put a failed start away.
     Dismiss(StackKey),
+    /// Clean up what stacks left behind (Go `ClearLeftover("all")`): the app runs it from Settings › Machine, where
+    /// a step that needs the password shows in the run sheet first.
+    Clean,
     /// This one asks first: open the item's page.
     Page,
 }
@@ -36,6 +39,7 @@ pub fn outside(it: &Item, f: &Fix) -> Outside {
         (FixKind::Stack, "up-last") => Outside::Stack(key, StackAction::UpLast),
         (FixKind::Holder, _) if f.pid > 0 => Outside::Holder(key, it.instance.clone(), f.pid),
         (FixKind::Dismiss, _) => Outside::Dismiss(key),
+        (FixKind::Clean, _) => Outside::Clean,
         _ => Outside::Page,
     }
 }

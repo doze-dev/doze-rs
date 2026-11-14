@@ -36,7 +36,7 @@ pub(crate) enum Mode {
 /// A stopped stack's shape, and the doze.hcl it was read from.
 #[derive(Debug, Clone)]
 struct Known {
-    stamp: Option<SystemTime>,
+    stamp: Option<Stamp>,
     shape: Shape,
 }
 
@@ -47,6 +47,8 @@ pub(crate) struct Facts {
     doctor_asked: bool,
     /// How many answers doctor has given: a repair waits for the next.
     doctor_seen: u64,
+    /// The two-second look at the configs is running.
+    looking_configs: bool,
     shapes: HashMap<PathBuf, Known>,
     asking: HashSet<PathBuf>,
     /// Each stack's domain setup, by its key and domains (`names`).
@@ -83,11 +85,30 @@ pub(crate) fn doctor_dir(stacks: &[StackView]) -> Option<PathBuf> {
         .map(|s| PathBuf::from(&s.dir))
 }
 
-fn stamp(dir: &Path) -> Option<SystemTime> {
-    std::fs::metadata(dir.join("doze.hcl"))
-        .and_then(|m| m.modified())
-        .ok()
+/// A stack's config as last seen: the newest change among its files, and their sizes together.
+type Stamp = (SystemTime, u64);
+
+/// The stamp of the stack's config in `dir` (Go `configStamp`): `doze.hcl`, every `*.doze.hcl` and every
+/// `*.auto.doze.vars` beside it, the newest change and the sizes summed, so an edit to any of them is seen.
+pub(crate) fn stamp(dir: &Path) -> Option<Stamp> {
+    let main = std::fs::metadata(dir.join("doze.hcl")).ok()?;
+    let mut out = (main.modified().ok()?, main.len());
+    for e in std::fs::read_dir(dir).ok()?.flatten() {
+        let name = e.file_name();
+        let name = name.to_string_lossy();
+        if name != "doze.hcl"
+            && (name.ends_with(".doze.hcl") || name.ends_with(".auto.doze.vars"))
+            && let Ok(m) = e.metadata()
+            && let Ok(t) = m.modified()
+        {
+            out = (out.0.max(t), out.1 + m.len());
+        }
+    }
+    Some(out)
 }
+
+/// How often the configs the pages have read are looked at again (Go `configLook`).
+const CONFIG_LOOK: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// Runs `doze --json <args>` in `dir`, for its envelope. The app's own marker is not passed on.
 pub(crate) fn run(doze: &Path, dir: &Path, args: &[&str]) -> Option<String> {
@@ -108,6 +129,7 @@ impl Facts {
             doctor: None,
             doctor_asked: false,
             doctor_seen: 0,
+            looking_configs: false,
             shapes: HashMap::new(),
             asking: HashSet::new(),
             trust: HashMap::new(),
@@ -127,6 +149,7 @@ impl Facts {
         if !dir.is_absolute() {
             return None;
         }
+        self.look_configs(cx);
         let now = stamp(&dir);
         if let Some(k) = self.shapes.get(&dir).filter(|k| k.stamp == now) {
             return Some(k.shape.clone());
@@ -161,11 +184,42 @@ impl Facts {
         }
     }
 
+    /// Every two seconds while shapes are known, their configs are stamped again; a change wakes the pages (which
+    /// then read the file again), and nothing else happens: an unchanged look redraws nothing.
+    fn look_configs(&mut self, cx: &mut Context<Self>) {
+        if self.looking_configs || self.shapes.is_empty() {
+            return;
+        }
+        self.looking_configs = true;
+        cx.spawn(async move |this: WeakEntity<Facts>, cx: &mut AsyncApp| {
+            loop {
+                cx.background_executor().timer(CONFIG_LOOK).await;
+                let go_on = this.update(cx, |f, cx| {
+                    let changed = f
+                        .shapes
+                        .iter()
+                        .any(|(dir, k)| k.stamp.is_some() && stamp(dir) != k.stamp);
+                    if changed {
+                        cx.notify();
+                    }
+                    if f.shapes.is_empty() {
+                        f.looking_configs = false;
+                    }
+                    f.looking_configs
+                });
+                if !matches!(go_on, Ok(true)) {
+                    break;
+                }
+            }
+        })
+        .detach();
+    }
+
     fn ask_status(
         &mut self,
         doze: PathBuf,
         dir: PathBuf,
-        at: Option<SystemTime>,
+        at: Option<Stamp>,
         cx: &mut Context<Self>,
     ) {
         let job = cx.background_executor().spawn({

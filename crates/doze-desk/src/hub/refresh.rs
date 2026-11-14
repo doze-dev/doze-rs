@@ -76,8 +76,8 @@ pub(super) fn wanted(inner: &Inner, key: &StackKey) -> Wanted {
             .unwrap_or(0)
     };
     Wanted {
-        stats: n(Topic::Stats) > 0,
-        logs: n(Topic::Logs) > 0,
+        stats: !inner.hidden && n(Topic::Stats) > 0,
+        logs: !inner.hidden && n(Topic::Logs) > 0,
     }
 }
 

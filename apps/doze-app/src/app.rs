@@ -130,6 +130,12 @@ pub(crate) fn open(cx: &mut App) -> Option<WindowHandle<Root>> {
                 });
                 true
             });
+            // Minimised, behind another window or on a sleeping display: nothing streams until it shows again (Go's
+            // visibilitychange blur and refocus).
+            let h = hub.clone();
+            window
+                .observe_window_visibility(move |v, _, _| h.set_visible(v.is_visible()))
+                .detach();
             cx.new(|cx| Root::new(hub.clone(), first, facts, window, cx))
         })
         .ok()?;

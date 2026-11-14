@@ -52,6 +52,7 @@ mod shot_m3;
 mod shotover;
 mod single;
 mod source;
+mod stderr_log;
 mod theme;
 mod tray;
 mod widgets;
@@ -81,6 +82,7 @@ fn source_for(from: &cli::From, home: PathBuf) -> anyhow::Result<Source> {
 
 fn main() -> ExitCode {
     let launched = Instant::now();
+    stderr_log::init();
     match cli::parse(std::env::args().skip(1)) {
         Ok(cli::Cmd::App(a)) => app::run(a),
         Ok(cli::Cmd::Open(a)) => open::run(a),

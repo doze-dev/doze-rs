@@ -97,6 +97,9 @@ struct Inner {
     wants: HashMap<StackKey, HashMap<Topic, usize>>,
     /// How many pages show each instance's console, by stack.
     consoles: HashMap<StackKey, BTreeMap<String, usize>>,
+    /// No window shows (closed, minimised, behind another, on a sleeping display): meters and logs are not
+    /// streamed, whatever pages watch (Go: a hidden page blurs, and nothing streams).
+    hidden: bool,
 }
 
 impl Hub {
@@ -151,6 +154,14 @@ impl Hub {
     /// The UI was shown or hidden; while hidden it hears of nothing (unless the policy says otherwise).
     pub fn set_visible(&self, visible: bool) {
         let _ = self.shared.input.try_send(Input::Visible(visible));
+        let mut inner = lock(&self.shared.inner);
+        if inner.hidden == !visible {
+            return;
+        }
+        inner.hidden = !visible;
+        for (key, s) in &inner.stacks {
+            s.command(crate::stack::Cmd::Topics(refresh::wanted(&inner, key)));
+        }
     }
 
     /// What time the hub says it is: the wall clock, or a test's or a fixture's, so a page's "up 14m" or countdown agrees

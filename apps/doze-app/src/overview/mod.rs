@@ -103,6 +103,9 @@ pub(crate) struct OverviewView {
     pub(crate) grid: grid::Scroll,
     refs: HashMap<String, Refs>,
     watch: Option<Watch>,
+    /// The stack's logs, watched while a row is selected (Go: home + a selected row streams its logs), so its Logs
+    /// open on lines already heard.
+    pub(super) logs: Option<Watch>,
     /// The window's width at the last render (the Tiles go four, three or two across).
     pub(crate) width: f32,
     /// The failure banner's "What doze printed" is open.
@@ -175,6 +178,7 @@ impl OverviewView {
             grid: grid::Scroll::default(),
             refs: HashMap::new(),
             watch: None,
+            logs: None,
             width: 1280.,
             printed: false,
             menu: false,
@@ -192,6 +196,7 @@ impl OverviewView {
             return;
         }
         self.watch = key.as_ref().map(|k| self.hub.watch(k, Topic::Stats));
+        self.logs = None;
         let remembered = key
             .as_ref()
             .and_then(|k| crate::prefs::view(&k.dir().display().to_string()));
@@ -213,6 +218,7 @@ impl OverviewView {
     /// Stops watching the stack's meters (the page is not shown).
     pub(crate) fn hide(&mut self) {
         self.watch = None;
+        self.logs = None;
     }
 
     /// Reads the stack again; redraws only if the page changed.
@@ -256,6 +262,10 @@ impl OverviewView {
             .is_some_and(|s| !rows.iter().any(|r| &r.name == s))
         {
             self.selected = None;
+        }
+        let logs = self.selected.is_some() && st.running;
+        if logs != self.logs.is_some() {
+            self.logs = logs.then(|| self.hub.watch(&st.key, Topic::Logs));
         }
         let p = match (&self.selected, st.running) {
             (Some(s), true) => pane(&st, s, now),

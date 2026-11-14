@@ -11,6 +11,9 @@ impl OverviewView {
             && st.running
         {
             self.pane = doze_desk::overview::pane(st, name, self.hub.now());
+            if self.logs.is_none() {
+                self.logs = Some(self.hub.watch(&st.key, doze_control::Topic::Logs));
+            }
         }
         cx.notify();
     }

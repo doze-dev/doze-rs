@@ -41,7 +41,32 @@ pub(crate) fn doze_at(fixture: bool) -> DozeAt {
 
 /// The doze the app's own login item starts: this program, in the menu bar only.
 fn this_app() -> PathBuf {
-    std::env::current_exe().unwrap_or_else(|_| PathBuf::from("doze-app"))
+    let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("doze-app"));
+    stable(&exe, std::env::var_os("PATH").as_deref())
+}
+
+/// The path to write into the login item (Go `autostart.Stable`): the program itself inside an app bundle, else the
+/// same program found on the `PATH` when it is the same file, so an upgrade into a new folder (Homebrew's Cellar) does
+/// not leave the item pointing at a version that is gone.
+fn stable(exe: &std::path::Path, path: Option<&std::ffi::OsStr>) -> PathBuf {
+    if exe.to_string_lossy().contains(".app/Contents/MacOS/") {
+        return exe.to_path_buf();
+    }
+    let Some(name) = exe.file_name() else {
+        return exe.to_path_buf();
+    };
+    let on_path = path
+        .map(|p| std::env::split_paths(p).collect::<Vec<_>>())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|d| d.join(name))
+        .find(|p| p.is_file());
+    match on_path {
+        Some(p) if std::fs::canonicalize(&p).ok() == std::fs::canonicalize(exe).ok() => {
+            std::path::absolute(&p).unwrap_or(p)
+        }
+        _ => exe.to_path_buf(),
+    }
 }
 
 impl SettingsView {
@@ -56,7 +81,18 @@ impl SettingsView {
         };
         let on = !self.login;
         match doze_os::autostart::set(&path, on, &this_app(), &["--menu-bar"]) {
-            Ok(()) => self.login = on,
+            Ok(()) => {
+                self.login = on;
+                cx.emit(SettingsEvent::Say(
+                    if on {
+                        "doze will start at login, in the menu bar"
+                    } else {
+                        "doze will not start at login"
+                    }
+                    .into(),
+                    false,
+                ));
+            }
             Err(e) => cx.emit(SettingsEvent::Say(
                 format!("could not change the login item: {e}"),
                 true,
@@ -232,4 +268,26 @@ impl SettingsView {
 /// This doze's version for the update check: the release build's, or "dev".
 fn current() -> &'static str {
     option_env!("DOZE_VERSION").unwrap_or("dev")
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    #[test]
+    fn the_login_item_names_the_path_that_survives_an_upgrade() {
+        let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+        let cellar = dir.path().join("Cellar/1.0/bin");
+        let bin = dir.path().join("bin");
+        std::fs::create_dir_all(&cellar).unwrap_or_else(|e| panic!("{e}"));
+        std::fs::create_dir_all(&bin).unwrap_or_else(|e| panic!("{e}"));
+        let exe = cellar.join("doze-app");
+        std::fs::write(&exe, "").unwrap_or_else(|e| panic!("{e}"));
+        std::os::unix::fs::symlink(&exe, bin.join("doze-app")).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(
+            super::stable(&exe, Some(bin.as_os_str())),
+            bin.join("doze-app")
+        );
+        assert_eq!(super::stable(&exe, None), exe);
+        let bundled = std::path::Path::new("/Applications/Doze.app/Contents/MacOS/doze-app");
+        assert_eq!(super::stable(bundled, Some(bin.as_os_str())), bundled);
+    }
 }
