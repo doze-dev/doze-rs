@@ -1,93 +1,44 @@
-# doze down --dry-run against a running daemon: what is awake would sleep, and the daemon would stop; nothing is asked.
+# A daemon answers but its pid file names no process doze started (here the fixture daemon writes none): down refuses,
+# dry run or not, and says why (exit 1), never "not running" while it runs (Go said exit 0 and left it running).
 @ project bare
 @ daemon verbs
 
 $ doze down --dry-run
-exit 0
-stdout:
-| db
-|   → sleep            its data stays
-| cache
-|   → sleep            its data stays
-| events
-|   → sleep            its data stays
-| api
-|   → sleep            its data stays
-| added
-|   → sleep            its data stays
-| doze
-|   - stop the daemon  nothing is left listening
-|   dry run: nothing was changed · doze down applies this
-json exit 0
+exit 1
+stderr:
+| error[DZ0703]: a doze daemon answers for this stack, but its pid file ({sandbox}/home/projects/project-2eee06fd/run/doze.pid) names no process doze started
+|   fix: doze bug writes a report with the daemon's log
+json exit 1
 json:
 | {
 |   "schema": "doze/v1",
 |   "command": "doze down",
-|   "ok": true,
-|   "data": {
-|     "dry_run": true,
-|     "applies_with": "doze down",
-|     "plan": [
-|       {
-|         "title": "db",
-|         "changes": [
-|           {
-|             "op": "→",
-|             "subject": "sleep",
-|             "detail": "its data stays"
-|           }
-|         ]
-|       },
-|       {
-|         "title": "cache",
-|         "changes": [
-|           {
-|             "op": "→",
-|             "subject": "sleep",
-|             "detail": "its data stays"
-|           }
-|         ]
-|       },
-|       {
-|         "title": "events",
-|         "changes": [
-|           {
-|             "op": "→",
-|             "subject": "sleep",
-|             "detail": "its data stays"
-|           }
-|         ]
-|       },
-|       {
-|         "title": "api",
-|         "changes": [
-|           {
-|             "op": "→",
-|             "subject": "sleep",
-|             "detail": "its data stays"
-|           }
-|         ]
-|       },
-|       {
-|         "title": "added",
-|         "changes": [
-|           {
-|             "op": "→",
-|             "subject": "sleep",
-|             "detail": "its data stays"
-|           }
-|         ]
-|       },
-|       {
-|         "title": "doze",
-|         "changes": [
-|           {
-|             "op": "-",
-|             "subject": "stop the daemon",
-|             "detail": "nothing is left listening"
-|           }
-|         ]
-|       }
-|     ]
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "a doze daemon answers for this stack, but its pid file ({sandbox}/home/projects/project-1a1b23f4/run/doze.pid) names no process doze started",
+|     "exit": 1,
+|     "id": "DZ0703",
+|     "fix": "doze bug writes a report with the daemon's log"
+|   }
+| }
+
+$ doze down
+exit 1
+stderr:
+| error[DZ0703]: a doze daemon answers for this stack, but its pid file ({sandbox}/home/projects/project-2eee06fd/run/doze.pid) names no process doze started
+|   fix: doze bug writes a report with the daemon's log
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze down",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "a doze daemon answers for this stack, but its pid file ({sandbox}/home/projects/project-1a1b23f4/run/doze.pid) names no process doze started",
+|     "exit": 1,
+|     "id": "DZ0703",
+|     "fix": "doze bug writes a report with the daemon's log"
 |   }
 | }
