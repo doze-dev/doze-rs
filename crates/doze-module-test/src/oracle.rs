@@ -73,6 +73,8 @@ fn instance(case: &Json, parsed: hcl::Parsed, backend: &str) -> Instance {
         listeners: BTreeMap::from([("main".to_string(), main)]),
         deps: vec![],
         toolchain: None,
+        // The Go oracle decoded every case with this base directory.
+        dir: "/base".into(),
         name,
     }
 }

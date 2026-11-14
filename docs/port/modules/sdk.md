@@ -39,7 +39,9 @@ fn main() -> std::process::ExitCode {
   the registry) and of decoding (typed fields from the core's `Value` tree, with a diagnostic at the field's path for
   anything wrong). They cannot drift. Supported: `String`, `bool`, integers, `f64`, `Option<T>`, `Vec<T>`,
   `BTreeMap<String, T>`, nested `#[spec(block)]` structs (repeated: `Vec<…>`, labelled: a `#[spec(label)]` field).
-  Field attributes: `doc`, `default`, `since`, `until`, `rename`. `Module::check` adds semantic rules a schema cannot
+  Field attributes: `doc`, `default`, `since`, `until`, `rename`, `key` (an argument that joins the labels in a
+  block's identity: two blocks with the same labels and the same key values, as written, are refused; a module whose
+  key has a default, as mariadb's `host` "%", catches "left out" equal to the default in its own `check`). `Module::check` adds semantic rules a schema cannot
   state, as diagnostics.
 - **Block encoding in the `Value` tree** (the core's side of the contract): an argument is a map entry; a nested block
   type is a map entry holding a list of maps, one per block; a block's labels are entries of its map named after the
@@ -98,11 +100,14 @@ Only modules customise their page in the app, through their declared console spe
 fields above. Apps, tasks and outside services (`app`, `task`, `service` blocks) always get the fixed standard pages:
 there is no declaration mechanism for them in the protocol, the CLI or doze.hcl, and none is to be added.
 
+`Instance.dir` (protocol field 10, 2026-11-14): the folder of the file that declares the block, so a relative path in a
+block means what Go's `baseDir` made it mean. Two modules need it: ferret's `seed` and postgres's extension `source`.
+
 Keep it lean: doze is for debugging and performance. A new module-facing field is added only when several modules
 genuinely need it; the change that adds one carries one line saying which modules and why, for debugging or
 performance. A field that fits one tool belongs in that module (its console, its actions), not in the contract.
 
-Declared today: valkey and kvrocks (`client`, `detect`), temporal (`detect`; it has no shell, its CLI is not a
+Declared today: ferret (`client`: `mongosh` with the URL, `mongo` as the fallback; `detect`: the MongoDB drivers and ODMs for Go, npm and PyPI, the `mongo` and `ferretdb/ferretdb` images, `MONGODB_URI`, `MONGO_URL`, `MONGODB_URL`), valkey and kvrocks (`client`, `detect`), temporal (`detect`; it has no shell, its CLI is not a
 session). kafka and aws declare theirs when their module faces are built (core plan M3); postgres, mariadb and ferret
-when they are ported (M1). The app's empty-folder table (`doze-desk` `act/detect`) takes the union of the modules'
+when they are ported (M1); postgres declares both (`client`: the engine's `psql` with the URL; `detect`: pgx and lib/pq, pg, postgres and pg-promise, psycopg and asyncpg, tokio-postgres, the `postgres`, `postgis/postgis` and `pgvector/pgvector` images, `POSTGRES_URL`, `POSTGRESQL_URL`, `PGHOST`); mariadb declares both (`client`: the engine's `mariadb` client, the password in `MYSQL_PWD`; `detect`: the MySQL and MariaDB drivers for Go, npm and PyPI, the `mariadb` and `mysql` images, `MYSQL_URL`, `MARIADB_URL`, `MYSQL_HOST`). The app's empty-folder table (`doze-desk` `act/detect`) takes the union of the modules'
 `detect`, with nothing built in.

@@ -75,10 +75,8 @@ impl<M: Module> Server<M> {
                     return;
                 };
                 let (src, dst) = (a.template_dir.clone(), a.dest_dir.clone());
-                let r = tokio::task::spawn_blocking(move || {
-                    doze_os::fs::clone_dir(src.as_ref(), dst.as_ref())
-                })
-                .await;
+                let r = tokio::task::spawn_blocking(move || clone_into(src.as_ref(), dst.as_ref()))
+                    .await;
                 drop(match r {
                     Ok(Ok(())) => call.responder.ok(&Unit {}),
                     Ok(Err(e)) => call.responder.err(&Error::new(
@@ -113,6 +111,8 @@ impl<M: Module + crate::caps::Wire> Server<M> {
                     return;
                 };
                 let std_conn = std::net::TcpStream::from(handle);
+                // A client gone without a word must not hold its instance awake for ever.
+                let _ = doze_os::net::keepalive(&std_conn);
                 let conn = match std_conn
                     .set_nonblocking(true)
                     .and_then(|()| tokio::net::TcpStream::from_std(std_conn))
@@ -139,4 +139,16 @@ impl<M: Module + crate::caps::Wire> Server<M> {
             }),
         )
     }
+}
+
+/// The template cloned to `dst`, its parent made first (private, as Go's `Clone` made it) and an empty `dst` left
+/// by an earlier attempt removed; a `dst` holding anything is refused, never overwritten.
+fn clone_into(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    if let Some(parent) = dst.parent() {
+        doze_os::fs::private_dir(parent)?;
+    }
+    if std::fs::read_dir(dst).is_ok_and(|mut d| d.next().is_none()) {
+        std::fs::remove_dir(dst)?;
+    }
+    doze_os::fs::clone_dir(src, dst)
 }

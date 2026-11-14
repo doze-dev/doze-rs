@@ -82,5 +82,6 @@ pub fn instance() -> doze_module_proto::msg::instance::Instance {
         listeners: Default::default(),
         deps: vec![],
         toolchain: None,
+        dir: String::new(),
     }
 }

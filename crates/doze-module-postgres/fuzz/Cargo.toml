@@ -1,0 +1,27 @@
+[package]
+name = "doze-module-postgres-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain. The module is a binary crate, so the parsers are
+# included by path.
+[workspace]
+
+[[bin]]
+name = "fuzz_names"
+path = "fuzz_targets/fuzz_names.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_wire"
+path = "fuzz_targets/fuzz_wire.rs"
+test = false
+doc = false
