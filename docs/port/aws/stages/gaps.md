@@ -147,3 +147,19 @@ and `weight.md`; none of those was touched here. Each behaviour carries one call
   windows were environment-only and undocumented. **AWS-correct** default unchanged (states exist; their length is local).
 - Test: `tests/expiry.rs` `the_host_s_windows_reach_the_actor` (a table made through the service stays `CREATING` for the host's
   window, then is `ACTIVE`).
+
+## 9. SQS 60-second windows: AWS's by default, `--sqs-skip-60s-waits` for test loops (`crates/aws-sqs/src/queues.rs`)
+
+- **Default unchanged and AWS-correct:** re-creating a deleted queue's name within 60 s is `QueueDeletedRecently`, a second
+  `PurgeQueue` within 60 s is `PurgeQueueInProgress`. **Go wrong (fixed earlier, kept):** Go made them opt-in (`--sqs-strict`).
+- **`doze-aws --sqs-skip-60s-waits`** frees a deleted queue's name at once and lets a queue be purged again at once, for local test
+  loops that make and drop the same queue (it reaches each region's actor through `Sqs::with_settings`). The name says exactly what
+  it does; it is documented in `--help` with AWS's behaviour beside it.
+- **The refusals name it.** AWS's recorded words are unchanged, and one sentence follows them: "... with the same name. doze-aws: start
+  it with --sqs-skip-60s-waits to skip this wait in local test loops." (`SKIP_HINT`). So the recorded labels still match exactly, the
+  conformance harness takes a trailing ` doze-aws: ...` sentence off a refusal's message before comparing (`DOZE_HINT` in
+  `conformance/harness/snapshot.py`, with a selftest proving AWS's words before it are still compared). That is a harness change the
+  integrator should know of: it is the general way for doze to add one hint after AWS's words without losing exactness. **Go weak
+  (bettered):** the refusal now tells a developer what to do next.
+- Tests: `aws-sqs` `the_sixty_second_waits_are_aws_s_unless_skipped`; `selftest/test_harness.py`
+  `test_a_doze_hint_after_aws_words_is_set_aside_and_aws_words_still_compared`.

@@ -22,6 +22,10 @@ use crate::url;
 
 /// How long a deleted queue's name, and a purge, are held (the minute AWS holds them).
 pub(crate) const WAIT_MS: i64 = 60_000;
+/// The sentence after AWS's words in the two 60-second refusals: what turns the wait off locally. AWS's own words before it are
+/// unchanged (recorded); the conformance harness takes a trailing `doze-aws:` sentence off before it compares.
+pub(crate) const SKIP_HINT: &str =
+    " doze-aws: start it with --sqs-skip-60s-waits to skip this wait in local test loops.";
 
 /// What a standard queue's name may be, as the message AWS gives says.
 const NAME_RULE: &str =
@@ -60,10 +64,12 @@ impl Core {
             }
         } else {
             let now = self.now_ms();
-            if self.deleted.get(name).is_some_and(|at| now - at < WAIT_MS) {
+            if !self.skip_waits && self.deleted.get(name).is_some_and(|at| now - at < WAIT_MS) {
                 return Err(ApiError::modeled(
                     "QueueDeletedRecently",
-                    "You must wait 60 seconds after deleting a queue before you can create another with the same name.",
+                    format!(
+                        "You must wait 60 seconds after deleting a queue before you can create another with the same name.{SKIP_HINT}"
+                    ),
                 ));
             }
             let tags = tags::check(
@@ -227,12 +233,13 @@ impl Core {
         let v = request::<Purge>(call)?;
         let queue_url = v.get(Purge::QUEUE_URL).ok_or_else(|| missing("QueueUrl"))?;
         let now = self.now_ms();
+        let skip = self.skip_waits;
         let queue = self.queue_mut(call, queue_url)?;
-        if queue.purged_ms.is_some_and(|at| now - at < WAIT_MS) {
+        if !skip && queue.purged_ms.is_some_and(|at| now - at < WAIT_MS) {
             return Err(ApiError::modeled(
                 "PurgeQueueInProgress",
                 format!(
-                    "Only one PurgeQueue operation on {} is allowed every 60 seconds.",
+                    "Only one PurgeQueue operation on {} is allowed every 60 seconds.{SKIP_HINT}",
                     queue.name
                 ),
             ));

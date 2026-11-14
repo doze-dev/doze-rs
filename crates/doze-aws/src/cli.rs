@@ -94,6 +94,11 @@ pub(crate) struct Args {
     /// Name resources a template leaves unnamed after their logical id, instead of AWS's `<stack>-<logical>-<random>`.
     #[arg(long)]
     pub(crate) cfn_logical_names: bool,
+    /// Let a deleted SQS queue's name be used again at once, and a queue be purged again at once. AWS makes both wait 60 seconds
+    /// (`QueueDeletedRecently`, `PurgeQueueInProgress`), and so does doze-aws by default; this is for local test loops that make and
+    /// drop the same queue over and over.
+    #[arg(long)]
+    pub(crate) sqs_skip_60s_waits: bool,
     /// Milliseconds a new DynamoDB table (or index) stays `CREATING` before it is `ACTIVE`. AWS takes seconds to minutes; the default,
     /// 0, lets a waiter pass on its first probe. Raise it to test code that waits. Also read from `DOZE_DDB_CREATE_MS`.
     #[arg(long, value_name = "MS")]

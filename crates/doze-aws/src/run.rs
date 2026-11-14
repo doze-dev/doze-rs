@@ -167,7 +167,10 @@ fn compute(
     Arc<aws_kinesis::Kinesis>,
     Arc<aws_lambda::Lambda>,
 ) {
-    let sqs = Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs"))));
+    let sqs = Arc::new(aws_sqs::Sqs::with_settings(
+        Arc::new(ctx("sqs")),
+        args.sqs_skip_60s_waits,
+    ));
     let dynamodb = Arc::new(aws_dynamodb::Dynamodb::with_windows(
         Arc::new(ctx("dynamodb")),
         args.dynamodb_windows(),
