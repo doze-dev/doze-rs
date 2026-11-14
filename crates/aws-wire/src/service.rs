@@ -29,6 +29,18 @@ pub struct Caller {
     pub session_token: Option<String>,
 }
 
+impl Caller {
+    /// The access key id of a request that carried no signature at all (S3 with `curl` or a browser, a website page, an SNS
+    /// `SubscribeURL`): AWS's anonymous principal, which only a resource policy that grants `"Principal": "*"` lets in.
+    pub const ANONYMOUS: &'static str = "anonymous";
+
+    /// Whether the request carried no signature.
+    #[must_use]
+    pub fn is_anonymous(&self) -> bool {
+        self.access_key_id == Self::ANONYMOUS
+    }
+}
+
 /// One decoded request, owned, so it can cross to the task that owns the service.
 #[derive(Debug)]
 pub struct Call {
