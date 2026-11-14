@@ -728,6 +728,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-scheduler"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-cron",
+ "aws-iam",
+ "aws-model-scheduler",
+ "aws-peers",
+ "aws-schema",
+ "aws-sqs",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-runtime",
+ "doze-store",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "aws-schema"
 version = "0.0.0"
 dependencies = [
