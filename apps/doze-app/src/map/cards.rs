@@ -10,7 +10,7 @@ use crate::instance::ui::state_mark;
 use crate::model::Row;
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, alpha, mix, ty};
-use crate::widgets::{MONO_FAMILY, icon};
+use crate::widgets::{Mono as _, icon};
 
 /// Lengths scaled by the zoom.
 #[derive(Clone, Copy)]
@@ -42,7 +42,7 @@ fn badge(t: &Tokens, z: Z, text: String) -> gpui::Div {
         .rounded(z.p(4.))
         .border_1()
         .border_color(t.line)
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(z.p(ty::MICRO))
         .font_weight(ty::SEMIBOLD)
         .text_color(t.dim)

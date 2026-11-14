@@ -12,7 +12,7 @@ use crate::act::{Check, Then};
 use crate::actions::{Confirm, GoAnyway};
 use crate::kit::{Btn, btn, s};
 use crate::theme::{Tokens, tokens, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 /// What the sheet ends with.
 #[derive(Debug, Clone)]
@@ -112,7 +112,7 @@ impl PreflightView {
         if !c.detail.is_empty() {
             let d = dim(&c.detail);
             body = body.child(if c.mono {
-                d.font_family(MONO_FAMILY).text_size(px(ty::XS_UP))
+                d.mono_face().text_size(px(ty::XS_UP))
             } else {
                 d
             });

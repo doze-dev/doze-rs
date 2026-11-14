@@ -11,7 +11,7 @@ use crate::actions::EditConfig;
 use crate::kit::{Btn, btn, s};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, dot};
+use crate::widgets::{Mono as _, dot, tip};
 
 /// The mark at a banner's left: Go's `.dot` in the tone, or `.ring` (cool, 2 px) for the daemon's.
 #[derive(Clone, Copy)]
@@ -204,8 +204,9 @@ fn setup(
         .cursor_pointer()
         .hover(|d| d.text_color(t.bright))
         .child("Copy")
-        .child(div().font_family(MONO_FAMILY).child(s(&su.command)))
+        .child(div().mono_face().child(s(&su.command)))
         .probe("copy-trust", format!("Copy {}", su.command))
+        .tooltip(tip(doze_desk::titles::COPY_COMMAND))
         .on_click(cx.listener(move |this, _, _, cx| {
             this.copy_text(&command, "the command", cx);
         }));
@@ -222,6 +223,7 @@ fn setup(
                     window.dispatch_action(Box::new(crate::actions::RepairMachine), cx);
                 })),
             )
+            .tooltip(tip(doze_desk::titles::SET_UP_MACHINE))
             .child(
                 div()
                     .font_weight(ty::REGULAR)

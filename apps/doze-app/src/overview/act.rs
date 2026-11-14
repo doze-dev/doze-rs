@@ -10,7 +10,7 @@ use gpui::{AnyElement, Context, div, prelude::*, px};
 use super::{OverviewView, all_rows};
 use crate::kit::{Btn, btn, s};
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 impl OverviewView {
     fn acts(
@@ -245,7 +245,7 @@ fn printed(t: &Tokens, f: &Failure) -> gpui::Div {
         .bg(t.well)
         .border_1()
         .border_color(t.line)
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::XS_UP))
         .line_height(px(ty::LH_17))
         .text_color(t.dim)

@@ -9,7 +9,7 @@ use super::{SettingsEvent, SettingsView};
 use crate::instance::ui::text;
 use crate::kit::{Btn, btn};
 use crate::theme::{Tokens, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 use doze_desk::settings::Update;
 
 pub(super) fn page(
@@ -29,12 +29,7 @@ pub(super) fn page(
                 .flex()
                 .flex_col()
                 .gap(px(8.))
-                .child(
-                    div()
-                        .font_family(MONO_FAMILY)
-                        .text_color(t.bright)
-                        .child(crate::VERSION),
-                )
+                .child(div().mono_face().text_color(t.bright).child(crate::VERSION))
                 .child(update_line(t, v, cx))
                 .child(div().flex().child(btn(
                     t,

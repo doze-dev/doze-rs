@@ -15,7 +15,7 @@ use crate::act::Ask;
 use crate::actions::{Confirm, DialogNo, DialogYes, MoveLeft, MoveRight};
 use crate::kit::{mono, s, tone};
 use crate::theme::{Tokens, alpha, mix, tokens, ty};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, dot, kbd_plain};
+use crate::widgets::{Mono as _, UI_FAMILY, dot, kbd_plain};
 
 /// What the dialog ends with.
 #[derive(Debug, Clone)]
@@ -145,10 +145,7 @@ fn facts(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
         let words = f.spans.iter().map(|sp| {
             let d = div().child(s(&sp.text));
             match (sp.strong, sp.mono) {
-                (_, true) => d
-                    .font_family(MONO_FAMILY)
-                    .font_weight(ty::SEMIBOLD)
-                    .text_color(t.bright),
+                (_, true) => d.mono_face().font_weight(ty::SEMIBOLD).text_color(t.bright),
                 (true, _) => d.font_weight(ty::SEMIBOLD).text_color(t.bright),
                 _ => d.text_color(tone(t, &f.tone)),
             }
@@ -225,9 +222,7 @@ fn input(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
                     .px_0()
                     .text_size(px(ty::BASE))
                     .text_color(t.bright)
-                    .when(!v.c.dialog.type_name.is_empty(), |x| {
-                        x.font_family(MONO_FAMILY)
-                    }),
+                    .when(!v.c.dialog.type_name.is_empty(), |x| x.mono_face()),
             ),
         );
     let name = &v.c.dialog.type_name;

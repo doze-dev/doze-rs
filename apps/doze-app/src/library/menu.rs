@@ -14,7 +14,7 @@ use doze_desk::act::StackAction;
 use crate::kit::s;
 use crate::overlays::shadow;
 use crate::theme::{Tokens, ty};
-use crate::widgets::{MONO_FAMILY, icon, kbd_plain};
+use crate::widgets::{Mono as _, icon, kbd_plain};
 
 /// What a view that opens the menu does with its items.
 pub(crate) trait MenuHost: 'static + Sized {
@@ -124,7 +124,7 @@ impl Item {
             .whitespace_nowrap()
             .overflow_hidden()
             .text_ellipsis()
-            .when(self.what == Do::Reveal, |d| d.font_family(MONO_FAMILY))
+            .when(self.what == Do::Reveal, |d| d.mono_face())
             .child(s(&self.sub));
         let title = div()
             .font_weight(ty::SEMIBOLD)

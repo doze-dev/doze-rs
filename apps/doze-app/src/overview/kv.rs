@@ -6,7 +6,7 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 use super::OverviewView;
 use crate::kit::s;
 use crate::theme::{Tokens, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 /// `.kv`: the key, the value, and Copy when there is something to copy.
 pub(super) struct Kv<'a> {
@@ -75,7 +75,7 @@ impl<'a> Kv<'a> {
             value
         } else {
             value
-                .font_family(MONO_FAMILY)
+                .mono_face()
                 .whitespace_nowrap()
                 .overflow_hidden()
                 .text_ellipsis()

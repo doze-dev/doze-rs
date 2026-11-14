@@ -7,7 +7,7 @@ use gpui::{AnyElement, IntoElement, SharedString, div, prelude::*, px};
 
 use crate::actions::{self, Scope, Spec};
 use crate::theme::{Tokens, ty};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, kbd_chip, tracked};
+use crate::widgets::{Mono as _, UI_FAMILY, kbd_chip, tracked};
 
 /// Runs of rows that fold into one line: the run's first label, how many rows, the line's label.
 const FOLDED: [(&str, usize, &str); 9] = [
@@ -269,20 +269,10 @@ fn foot(t: &Tokens, version: &str) -> gpui::Div {
         .child(
             div()
                 .flex()
-                .child(
-                    div()
-                        .font_family(MONO_FAMILY)
-                        .text_color(t.text)
-                        .child("doze sleep db"),
-                )
+                .child(div().mono_face().text_color(t.text).child("doze sleep db"))
                 .child(","),
         )
-        .child(
-            div()
-                .font_family(MONO_FAMILY)
-                .text_color(t.text)
-                .child("doze logs api"),
-        )
+        .child(div().mono_face().text_color(t.text).child("doze logs api"))
         .child("· scripts and CI use those. Letters are off while a console has focus.")
         .child(div().flex_1())
         .child(SharedString::from(format!("doze {version}")))

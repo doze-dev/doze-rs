@@ -114,6 +114,10 @@ impl Root {
                     this.leave_inside(window, cx);
                 }
                 InstanceEvent::Say(s) => this.say(s.clone(), cx),
+                InstanceEvent::Tab => {
+                    let screen = this.screen.clone();
+                    this.retitle(&screen, window, cx);
+                }
             },
         )
         .detach();

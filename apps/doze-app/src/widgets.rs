@@ -10,6 +10,17 @@ use crate::theme::{Tokens, ty};
 pub(crate) const MONO_FAMILY: &str = "Geist Mono";
 pub(crate) const UI_FAMILY: &str = "Geist";
 
+/// `.mono, code, kbd`: the mono face, its ligatures off (Go `font-variant-ligatures: none`), so `//`, `->` and `!=`
+/// in an address or a command read as typed. The words inside inherit both.
+pub(crate) trait Mono: Styled + Sized {
+    fn mono_face(self) -> Self {
+        self.font_family(MONO_FAMILY)
+            .font_features(gpui::FontFeatures::disable_ligatures())
+    }
+}
+
+impl<T: Styled> Mono for T {}
+
 /// An SVG icon (assets.rs) in a colour, `size` square.
 pub(crate) fn icon(path: &'static str, size: f32, color: Hsla) -> impl IntoElement {
     svg()
@@ -143,7 +154,7 @@ pub(crate) fn kbd_plain(
         .flex()
         .flex_none()
         .items_center()
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(size))
         .font_weight(weight)
         .text_color(color)
@@ -166,7 +177,7 @@ pub(crate) fn kbd_chip(
         .py(px(1.))
         .rounded(px(4.))
         .bg(t.sel)
-        .font_family(MONO_FAMILY)
+        .mono_face()
         // The chip keeps its height: a larger symbol sits in the same line.
         .line_height(px(size + ty::CHIP_LEAD))
         .text_size(px(size))

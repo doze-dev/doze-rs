@@ -13,7 +13,7 @@ use crate::instance::ui::state_mark;
 use crate::kit::{chip_of, s, word_line};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, dot, icon, switch, tip, tracked};
+use crate::widgets::{Mono as _, dot, icon, switch, tip, tracked};
 use doze_desk::overview::titles;
 
 /// Tiles to a row at the window's width.
@@ -171,7 +171,7 @@ pub(super) fn filter(t: &Tokens, v: &OverviewView) -> impl IntoElement {
                     .px(px(5.))
                     .rounded(px(4.))
                     .bg(t.sel)
-                    .font_family(MONO_FAMILY)
+                    .mono_face()
                     .text_size(px(ty::XS))
                     .line_height(px(ty::LH_15))
                     .font_weight(ty::SEMIBOLD)

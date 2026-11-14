@@ -10,7 +10,7 @@ use super::tiles::{row_dot, word_tone};
 use super::{OverviewView, all_rows};
 use crate::kit::{Btn, Click, btn, chip_of, s, tone, word_line};
 use crate::theme::{Tokens, ty};
-use crate::widgets::{MONO_FAMILY, dot, tracked};
+use crate::widgets::{Mono as _, dot, tracked};
 
 const PANE_W: f32 = 372.;
 
@@ -271,7 +271,7 @@ fn live(t: &Tokens, r: &Row, p: &Pane, cx: &mut Context<OverviewView>) -> AnyEle
             .bg(t.panel)
             .border_1()
             .border_color(t.line)
-            .font_family(MONO_FAMILY)
+            .mono_face()
             .text_size(px(ty::SM))
             .text_color(t.bad)
             .child(s(&c.error));

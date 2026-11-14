@@ -80,6 +80,7 @@ fn chart_card(
                         .text_size(px(ty::FIGURE))
                         .font_weight(ty::SEMIBOLD)
                         .text_color(t.bright)
+                        .font_features(ty::tabular())
                         .child(text(&c.now)),
                 )
                 .child(div().text_color(t.dim).child(text(&c.sub))),

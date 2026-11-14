@@ -68,7 +68,12 @@ pub(crate) fn layer(
     id: &'static str,
 ) -> AnyElement {
     let full = || div().absolute().top(px(0.)).left(px(0.)).size_full();
-    let scrim = full().bg(t.scrim());
+    // The palette sits on Go's lighter `.scrim.top`; the help sheet on the `.scrim` a dialog has.
+    let scrim = full().bg(if id == "palette" {
+        t.scrim()
+    } else {
+        t.dialog_scrim()
+    });
     let holder = full()
         .flex()
         .justify_center()
