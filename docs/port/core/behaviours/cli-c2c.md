@@ -19,9 +19,9 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
 |---|---|---|
 | 1 | `down` stops the daemon its pid file names, and only when that pid is still the daemon: a live process that leads its own group (the daemon runs in a session of its own; D1's `ctl` must keep that) and started no later than the pid file was written. It sends SIGTERM to that exact pid and waits up to 20 s (Go's budget). Go signalled whatever held the pid; a stale file naming a stranger, or another user's process (EPERM), now means "not running" and the file is cleared Go's result: `{"stopped": true}` and "✓ doze stopped", or `{"stopped": false}` and "doze is not running" | `tests/down.rs` (child processes play the daemon and a stranger; SIGTERM checked; pid 1), transcript `down` |
 | 2 | Better than Go (rule 8): after the stop, no socket and no pid file are left. A leftover of a daemon that is already gone is removed, and the removal is said | `tests/down.rs` `leftovers_of_a_daemon_that_is_gone_are_removed_and_said` |
-| 3 | A socket that answers with no daemon pid behind it is refused, with the reason (exit 1; Go said exit 0 and left it running). A daemon that does not stop is named with its pid (exit 8; Go said 1). Untested: the 20 s timeout | transcript `down-dry-run` |
+| 3 | A socket that answers with no daemon pid behind it is refused, with the reason (exit 1; Go said exit 0 and left it running). A daemon that does not stop is named with its pid (exit 8; Go said 1). | transcript `down-dry-run`; `tests/down.rs` `a_daemon_that_does_not_stop_is_named_with_its_pid_after_twenty_seconds` (a leader that ignores SIGTERM: exit 8 after 20 s, nothing cleared) |
 | 4 | `down --dry-run` makes the same decision as the run: what is awake (from the snapshot) and the daemon stopping with its pid, or the leftovers it would remove, or the same refusal. It signals nothing. JSON adds `cleared` (leftovers removed) to Go's `{"stopped"}`, left out when empty | transcripts `down`, `down-dry-run` |
-| 5 | On Windows a daemon is never identified (no process groups), so `down` clears leftovers and says "not running"; stopping waits for the named-pipe daemon (core plan W). Untested on Windows (`tests/down.rs` is Unix-only) |
+| 5 | On Windows a daemon is never identified (no process groups), so `down` clears leftovers and says "not running"; stopping waits for the named-pipe daemon (core plan W). | `tests/down_windows.rs` (a live pid in the file is never signalled; the file is cleared) |
 
 ## Pending (each says so: DZ0001, exit 1)
 
@@ -61,6 +61,6 @@ doze-logstore lose no public item, and every CI job of both sides is there. The 
      detach it (double fork or reap).
    - `clear` after a stop could remove the files of a daemon that a concurrent `up` has just started. This needs the
      stack lock that `up` will take.
-6. Tests were added for the main cases, with SIGTERM asserted. Not yet tested: the 20 s timeout.
-7. Windows: row 5, untested.
+6. Tests now cover the main cases, with SIGTERM asserted, and the 20 s timeout (row 3).
+7. Windows: row 5, tested by `tests/down_windows.rs` (CI's Windows runners).
 8. Inherited: `fuzz_porttrap` was never run in CI. It now runs in the fuzz job.

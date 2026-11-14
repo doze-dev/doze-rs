@@ -137,3 +137,38 @@ fn leftovers_of_a_daemon_that_is_gone_are_removed_and_said() {
     );
     assert!(!key.pid_file().exists());
 }
+
+#[test]
+fn a_daemon_that_does_not_stop_is_named_with_its_pid_after_twenty_seconds() {
+    let sb = fixture::Sandbox::new("down-stuck");
+    let key = stack(&sb);
+    // A leader that ignores SIGTERM: what a daemon wedged in its shutdown looks like.
+    let mut child = Command::new("sh")
+        .args(["-c", "trap '' TERM; while :; do sleep 1; done"])
+        .process_group(0)
+        .spawn()
+        .unwrap();
+    let pid = child.id();
+    std::fs::write(key.pid_file(), format!("{pid}\n")).unwrap();
+    let started = std::time::Instant::now();
+    let ran = run(&sb, &["--json", "down"]);
+    let waited = started.elapsed();
+    let survived = doze_os::process::alive(pid);
+    let _ = doze_os::process::kill(pid);
+    let _ = child.wait();
+    assert_eq!(ran.code, 8, "{}", ran.stdout);
+    assert!(survived, "the stuck stand-in was stopped some other way");
+    assert!(waited >= std::time::Duration::from_secs(20), "{waited:?}");
+    let v: serde_json::Value = serde_json::from_str(&ran.stdout).unwrap();
+    assert_eq!(v["error"]["code"], "timeout", "{}", ran.stdout);
+    assert!(
+        v["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains(&format!("(pid {pid}) did not stop")),
+        "{}",
+        ran.stdout
+    );
+    // Nothing is cleared while the daemon may still be there.
+    assert!(key.pid_file().exists());
+}
