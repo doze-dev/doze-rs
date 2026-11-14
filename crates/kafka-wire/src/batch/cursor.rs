@@ -1,4 +1,5 @@
-//! The records section as the scan reads it: a byte at a time for the numbers, whole fields skipped.
+//! The records section as a stream (uncompressed bytes, or a codec's output) is read: a byte at a time for the
+//! numbers, whole fields skipped. The scan and the walk of record times share it.
 
 use std::io::{self, BufRead};
 

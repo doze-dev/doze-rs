@@ -14,6 +14,9 @@ use crate::fs::Fs;
 /// How much of the log one read of a lookup takes.
 const CHUNK: usize = 1 << 20;
 
+/// The most a compressed batch is inflated to: what Produce lets one inflate to, so every stored batch fits.
+const MOST_INFLATED: u64 = 64 << 20;
+
 /// An offset and the time of the record at it.
 pub type OffsetAt = (Offset, TimestampMs);
 
@@ -85,19 +88,18 @@ impl<F: Fs> LogReader<F> {
     }
 }
 
-/// The first record of `batch` at or after `start` whose timestamp passes `wanted`. A batch whose records cannot be
-/// walked (a compressed one) answers for its first visible record with the batch's newest timestamp, the finest
-/// grain its header has.
+/// The first record of `batch` at or after `start` whose timestamp passes `wanted`, its time as Kafka gives it (in a
+/// LogAppendTime batch, every record's is the batch's newest). A compressed batch is walked through its codec, as
+/// Kafka's `searchForTimestamp` and `offsetOfMaxTimestamp` do; only this one batch is, and as a stream. A batch whose
+/// records cannot be read (a codec this build lacks) answers for its first visible record with the batch's newest
+/// timestamp, the finest grain its header has.
 fn within(batch: &Batch, start: Offset, wanted: impl Fn(TimestampMs) -> bool) -> Option<OffsetAt> {
     let base = batch.base_offset()?;
     let by_header = || {
         let first = base.get().max(start.get());
         Some((Offset::new(first)?, batch.max_timestamp()))
     };
-    let Some(records) = batch.record_times() else {
-        return by_header();
-    };
-    for record in records {
+    for record in batch.record_times(MOST_INFLATED) {
         let Ok(record) = record else {
             return by_header();
         };

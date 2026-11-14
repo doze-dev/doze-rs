@@ -154,10 +154,83 @@ fn lookups_agree_with_a_list_of_every_record() {
     }
 }
 
+/// `spread`, its records compressed with lz4 as a producer would send them.
+fn lz4(first: i64, deltas: &[i64]) -> Batch {
+    let plain = spread(first, deltas);
+    let newest = plain.max_timestamp();
+    plain
+        .recode(kafka_wire::batch::Compression::Lz4, 1 << 20, newest)
+        .unwrap()
+}
+
 #[test]
-fn a_compressed_batch_answers_at_the_grain_of_its_header_and_is_skipped_when_too_old() {
+fn a_compressed_batch_is_inflated_to_find_the_record_as_kafka_does() {
+    // Kafka's FileRecords.searchForTimestamp and RecordBatch.offsetOfMaxTimestamp iterate the records of a compressed
+    // batch; the audit's probe recorded +250 -> offset 3 at +300, +400 and -3 -> offset 4 at +400.
     let (_fs, _dir, mut log) = fresh(NEVER);
-    // Its records are inside the codec, so only the header's newest timestamp can be looked at.
+    log.append(
+        &[lz4(10_000, &[0, 100, 200, 300, 400])],
+        NOW,
+        TimestampType::Create,
+    )
+    .unwrap();
+    let r = log.reader();
+    assert_eq!(
+        r.offset_for_timestamp(at(10_250)).unwrap(),
+        Some((offset(3), at(10_300)))
+    );
+    assert_eq!(
+        r.offset_for_timestamp(at(10_400)).unwrap(),
+        Some((offset(4), at(10_400)))
+    );
+    assert_eq!(
+        r.offset_of_max_timestamp().unwrap(),
+        Some((offset(4), at(10_400)))
+    );
+    // Out of order inside the batch: the first record at the newest time, not the batch's first.
+    log.append(&[lz4(20_000, &[0, 50, 20])], NOW, TimestampType::Create)
+        .unwrap();
+    let r = log.reader();
+    assert_eq!(
+        r.offset_of_max_timestamp().unwrap(),
+        Some((offset(6), at(20_050)))
+    );
+    assert_eq!(
+        r.offset_for_timestamp(at(20_010)).unwrap(),
+        Some((offset(6), at(20_050)))
+    );
+}
+
+#[test]
+fn under_log_append_time_every_record_is_at_its_batchs_append_time() {
+    // The audit's probe against Kafka: two batches the producer stamped 1000, the broker at A1 and A2. Kafka answers
+    // A1-1 and A1 with offset 0 at A1, A1+1 with offset 2 at A2, -3 with 2 at A2, and 1000 with 0 at A1.
+    let (_fs, _dir, mut log) = fresh(NEVER);
+    let (a1, a2) = (NOW.get(), NOW.get() + 34);
+    log.append(&[spread(1_000, &[0, 5])], at(a1), TimestampType::LogAppend)
+        .unwrap();
+    log.append(&[spread(1_000, &[0])], at(a2), TimestampType::LogAppend)
+        .unwrap();
+    let r = log.reader();
+    for (target, want) in [
+        (a1 - 1, Some((offset(0), at(a1)))),
+        (a1, Some((offset(0), at(a1)))),
+        (a1 + 1, Some((offset(2), at(a2)))),
+        (1_000, Some((offset(0), at(a1)))),
+        (a2 + 1, None),
+    ] {
+        assert_eq!(r.offset_for_timestamp(at(target)).unwrap(), want, "{target}");
+    }
+    assert_eq!(
+        r.offset_of_max_timestamp().unwrap(),
+        Some((offset(2), at(a2)))
+    );
+}
+
+#[test]
+fn a_batch_whose_records_cannot_be_read_answers_at_the_grain_of_its_header_and_is_skipped_when_too_old() {
+    let (_fs, _dir, mut log) = fresh(NEVER);
+    // It says gzip and is not: its records cannot be walked, so only the header's newest timestamp can be looked at.
     let gzip = Batch::parse(
         BatchBuilder::new()
             .records(3)

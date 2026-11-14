@@ -8,6 +8,7 @@ mod attributes;
 #[cfg(any(test, feature = "test-support"))]
 pub mod build;
 mod compose;
+mod cursor;
 mod error;
 mod filter;
 mod header;

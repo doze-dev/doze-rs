@@ -8,10 +8,9 @@
 use std::fmt::Display;
 use std::io::{BufRead, BufReader};
 
-mod cursor;
 mod judge;
 
-use cursor::{Cursor, Fault, Stop};
+use super::cursor::{Cursor, Fault, Stop};
 use judge::Judge;
 
 use super::inflate::{self, InflateError};

@@ -2,7 +2,7 @@
 //! batch uses, held to a limit on what may be inflated. For display only: nothing here is written back, and a record
 //! that cannot be read ends the walk with an error rather than a guess.
 
-use super::{Batch, RecordsRefused, Refusal, varint};
+use super::{Batch, RecordsRefused, Refusal, TimestampType, varint};
 use crate::ids::Offset;
 
 /// The most headers one record is read with; a record that claims more is unreadable (it cannot hold them).
@@ -16,7 +16,8 @@ pub type LookedHeader<'a> = (&'a [u8], Option<&'a [u8]>);
 pub struct Looked<'a> {
     /// Its offset in the log.
     pub offset: i64,
-    /// Its timestamp (the batch's first timestamp plus the record's delta).
+    /// Its timestamp: the batch's first timestamp plus the record's delta, or, in a batch the broker stamped
+    /// (LogAppendTime), the batch's newest timestamp.
     pub timestamp: i64,
     /// Its key, if it has one.
     pub key: Option<&'a [u8]>,
@@ -87,6 +88,9 @@ impl Batch {
         let inflated = self.inflated(max_inflated)?;
         let base = self.base_offset().map_or(0, Offset::get);
         let first = self.first_timestamp().get();
+        // A batch the broker stamped gives every record its newest timestamp, as Kafka's DefaultRecordBatch does.
+        let stamped = (self.attributes().timestamp_type() == TimestampType::LogAppend)
+            .then(|| self.max_timestamp().get());
         let mut rest = inflated.as_slice();
         for _ in 0..self.record_count() {
             let length = varint::read(&mut rest)
@@ -96,8 +100,11 @@ impl Batch {
                 .get(..length)
                 .ok_or_else(|| unreadable("a record is cut short"))?;
             rest = rest.get(length..).unwrap_or_default();
-            let looked =
+            let mut looked =
                 parse(record, base, first).ok_or_else(|| unreadable("a record cannot be read"))?;
+            if let Some(at) = stamped {
+                looked.timestamp = at;
+            }
             if !look(&looked) {
                 break;
             }
