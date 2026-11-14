@@ -5,6 +5,8 @@
 # darwin arm64 5,797,328 B, Linux aarch64 (the doze-ubuntu VM) 6,626,840 B, 158 packages, 7.1 MB idle in the VM. The ubuntu x86_64 estimate is
 # 7.05 MB (darwin times the 1.216 of Phase 7) to 7.42 MB (the VM times 1.12); the limit is the larger plus about 5%. Before the pass the same
 # estimate was 9.8 MB against a 9 MB limit. The owner's ceiling is 10 MB; the first CI run replaces the estimate with a measurement.
+# 2026-11-14, Phase 10a (the schema registry, Avro, on by default): 6,244,864 B on darwin/arm64 (+233 KB), 156 packages (a repeated line; no
+# third-party package), 7,184 KB idle. About 7.59 MB on the Linux estimate: 97% of the line. Unchanged; 10b and 10c are measured before they merge.
 doze-kafka 7800000 161 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # doze-aws: measured 2026-11-12 on darwin/arm64 with SQS and its database: 2,687,088 B, 118 packages (the ones that only run at build time count: serde_derive
 # and its macro crates), 3,120 KB idle. It was 1,914,240 B and 109 packages before SQS kept its state on disk: redb is 507 KiB of the difference. The

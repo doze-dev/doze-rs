@@ -48,6 +48,8 @@ jobs:
       # index, every test name it quotes a real `fn` (tools/check-security-catalogue.ts; bun is the only extra tool).
       - uses: oven-sh/setup-bun@v2
       - run: bun tools/check-security-catalogue.ts
+      # The same checks of the schema registry's catalogue (docs/port/behaviours/registry.md, REG-n).
+      - run: bun tools/check-registry-catalogue.ts
       # The Phase 9 catalogue (docs/port/behaviours/console.md): each CON number defined once, none referenced without a
       # definition, every test name it quotes a real `fn`; the lean tree has no HTTP and the default tree has the console
       # (decision D1: `default = []` would take the console out and the size limits, being upper bounds, would not notice).
