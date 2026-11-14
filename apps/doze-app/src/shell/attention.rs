@@ -1,19 +1,32 @@
-//! Whether the person is using the window: it is the key window and they touched it (a key, a click, the pointer, the
-//! wheel) in the last [`FOR`]. Opening it, or bringing it to the front, counts as a touch.
+//! How the window is being looked at, which says how often what it shows may change ([`Mode`]):
+//! - **in use**: on screen, the key window, and touched (a key, a click, the pointer, the wheel) in the last [`FOR`];
+//!   opening it, or bringing it to the front, counts as a touch;
+//! - **glanced at**: on screen, but not in use;
+//! - **hidden**: minimised, covered by other windows, on another Space or on a sleeping display (the platform's
+//!   occlusion state).
 //!
-//! Why it matters: text that changes with time alone (a dozing row's "sleeps in 0:48", a crash's "next in 4s", "last
-//! update 5s ago") is read again once a second, and each read that changes the words draws a frame. While frames keep
-//! coming, even one a second, the GPU driver holds about 150 MB for the process (docs/port/weight.md, "the idle
-//! window"), which put an open, untouched window at 225 MB against its 85 MB budget. So the once-a-second reads run
-//! only while the window is in use; an untouched window changes only when the hub brings news (Go's cadence: its
-//! pages moved with the daemon's pushes), and a touch reads everything again at once, so the person never acts on a
-//! figure older than the moment they came back.
+//! Why it matters: while frames keep coming, even one a second, the GPU driver holds about 150 MB for the process
+//! (docs/port/weight.md, "the idle window"). Text that changes with time alone (a dozing row's "sleeps in 0:48", a
+//! crash's "next in 4s", "last update 5s ago") read again every second is a frame every second. So it is read every
+//! second only in use; glanced at, it is written to the minute and read again only when its words would change
+//! (`shell::clock`); hidden, nothing is drawn, and what changed is drawn when the window shows again.
 
 use std::cell::Cell;
 use std::time::{Duration, Instant};
 
 /// How long after the last touch the window still counts as in use.
 pub(crate) const FOR: Duration = Duration::from_secs(30);
+
+/// How the window is being looked at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Mode {
+    /// Not on screen: no frames of its own.
+    Hidden,
+    /// On screen, not in use: words to the minute, changes of state at most once a second, the meters every ten.
+    Glance,
+    /// In use: everything to the second, as it happens.
+    Use,
+}
 
 thread_local! {
     /// The last touch (the main thread's: the one window lives there).
@@ -22,6 +35,22 @@ thread_local! {
     static KEY: Cell<bool> = const { Cell::new(false) };
     /// Whether the window is on screen.
     static VISIBLE: Cell<bool> = const { Cell::new(true) };
+}
+
+/// How the window is being looked at, at `now`.
+pub(crate) fn mode(now: Instant) -> Mode {
+    if !visible() {
+        Mode::Hidden
+    } else if attended(now) {
+        Mode::Use
+    } else {
+        Mode::Glance
+    }
+}
+
+/// Whether the window is in use at `now`: on screen, key, and touched in the last [`FOR`].
+pub(crate) fn in_use(now: Instant) -> bool {
+    mode(now) == Mode::Use
 }
 
 /// The person touched the window at `now`; whether that brought it back into use (it is key, and was untouched until
@@ -41,14 +70,20 @@ pub(crate) fn lapses_in(now: Instant) -> Option<Duration> {
         .map(|t| (t + FOR).saturating_duration_since(now))
 }
 
-/// Whether the window is on screen (not minimised, not hidden behind others), as the platform last said.
+/// Whether the window is on screen (not minimised, not covered, not on a sleeping display), as the platform last said.
 pub(crate) fn set_visible(v: bool) {
     VISIBLE.with(|x| x.set(v));
 }
 
-/// Whether the hub should stream what only a person looking needs (the meters): on screen and in use.
-pub(crate) fn wants_meters(now: Instant) -> bool {
-    VISIBLE.with(Cell::get) && attended(now)
+/// Whether the window is on screen.
+pub(crate) fn visible() -> bool {
+    VISIBLE.with(Cell::get)
+}
+
+/// Whether the hub should stream the meters: while the window is on screen, in use or not (glanced at, the page
+/// takes them in every ten seconds; and a page that hears none could not say its daemon went quiet).
+pub(crate) fn wants_meters() -> bool {
+    visible()
 }
 
 /// The window became key, or stopped being key; becoming key counts as a touch. Whether it was untouched until then.
@@ -61,7 +96,7 @@ pub(crate) fn key(is_key: bool, now: Instant) -> bool {
     is_key && !was
 }
 
-/// Whether the window is in use at `now`: key, and touched in the last [`FOR`].
+/// Whether the window is key and was touched in the last [`FOR`] at `now` (on screen or not).
 pub(crate) fn attended(now: Instant) -> bool {
     KEY.with(Cell::get)
         && LAST
@@ -80,7 +115,7 @@ pub(crate) fn reset() {
 mod tests {
     use std::time::{Duration, Instant};
 
-    use super::{FOR, attended, key, reset, touch};
+    use super::{FOR, Mode, attended, key, mode, reset, set_visible, touch};
 
     #[test]
     fn the_window_is_in_use_while_key_and_touched_lately() {
@@ -102,6 +137,20 @@ mod tests {
         assert!(attended(t + FOR));
         key(false, t + FOR);
         assert!(!attended(t + FOR), "a window that is not key is not in use");
+        reset();
+    }
+
+    #[test]
+    fn a_window_off_screen_is_hidden_whatever_its_use() {
+        reset();
+        let t = Instant::now();
+        assert_eq!(mode(t), Mode::Glance, "on screen, untouched");
+        key(true, t);
+        assert_eq!(mode(t), Mode::Use);
+        set_visible(false);
+        assert_eq!(mode(t), Mode::Hidden, "key and touched, but covered");
+        set_visible(true);
+        assert_eq!(mode(t + FOR), Mode::Glance, "left alone");
         reset();
     }
 }

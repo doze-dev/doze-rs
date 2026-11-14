@@ -163,8 +163,9 @@ impl Root {
         root
     }
 
-    /// A batch from the hub: re-read what is shown if the batch touches it; the tabs when the list or a stack moved.
-    pub(crate) fn apply(&mut self, batch: &Batch, cx: &mut Context<Self>) {
+    /// A batch taken in (see `clock` for when): re-read what is shown if the batch touches it; the tabs when the list or
+    /// a stack moved.
+    pub(crate) fn apply_now(&mut self, batch: &Batch, cx: &mut Context<Self>) {
         self.refresh_tabs(cx);
         self.report_tasks(cx);
         self.rebuild_attention(cx);
@@ -191,8 +192,12 @@ impl Root {
         self.wind(cx);
     }
 
-    /// Reads what is shown again; redraws only what changed.
+    /// Reads what is shown again, its words as the window is looked at (`clock`); redraws only what changed.
     pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.timed(cx, Self::refresh_shown);
+    }
+
+    pub(super) fn refresh_shown(&mut self, cx: &mut Context<Self>) {
         self.refresh_tabs(cx);
         match &self.screen {
             Screen::Library => self.library.update(cx, |l, cx| l.refresh(cx)),
@@ -332,7 +337,9 @@ impl Render for Root {
         crate::driver::frame();
         #[cfg(test)]
         RENDERS.with(|r| r.set(r.get() + 1));
-        crate::motion::set_reduced(cx.reduce_motion());
+        // A window glanced at draws each change in one frame: no entrance runs on it (see `clock`).
+        let glanced = attention::mode(cx.background_executor().now()) == attention::Mode::Glance;
+        crate::motion::set_reduced(cx.reduce_motion() || glanced);
         crate::motion::frame();
         self.follow_system(window, cx);
         let t = tokens(cx);

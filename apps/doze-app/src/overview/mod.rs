@@ -89,7 +89,7 @@ pub(crate) struct OverviewView {
     pub(crate) key: Option<StackKey>,
     stack: Option<StackView>,
     pub(crate) home: Home,
-    page: Page,
+    pub(crate) page: Page,
     pub(crate) map: Entity<MapView>,
     pub(crate) view: View,
     pub(crate) selected: Option<String>,

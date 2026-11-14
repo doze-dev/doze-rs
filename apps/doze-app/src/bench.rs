@@ -66,6 +66,9 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
                 in_use: b.in_use,
                 check: b.check,
                 budget: b.budget,
+                per_minute: b.per_minute,
+                hidden: b.hidden,
+                at: b.at.clone(),
             };
             cx.spawn(async move |cx: &mut AsyncApp| {
                 let _keep = src.clone();
@@ -94,6 +97,12 @@ struct Watch {
     /// (`--check`, `--budget MB`).
     check: bool,
     budget: Option<f64>,
+    /// Frames a minute allowed to a window glanced at (`--per-minute`).
+    per_minute: u64,
+    /// Hides the app once the window is open (`--hidden`), so the window is covered.
+    hidden: bool,
+    /// Footprint readings, seconds after the window opens (`--at`).
+    at: Vec<u64>,
     /// Counts the window as in use when it opens (`--in-use`), as a click on it would: its clocks run for
     /// `shell::attention::FOR`, then it is left alone.
     in_use: bool,
@@ -146,14 +155,23 @@ async fn time_open(
             root.wind(cx);
         });
     }
+    if w.hidden {
+        // As ⌘H: every window of the app off screen, the platform's occlusion state says so (nothing of the person's
+        // is touched: the app is not active, and hiding it activates nothing).
+        cx.update(|cx| cx.hide());
+    }
     if w.map {
         map_bench(cx, h).await;
     }
-    let drawn = idle_frames(cx, if w.map { 0 } else { w.idle }).await;
+    let drawn = idle_frames(cx, if w.map { 0 } else { w.idle }, t, &w.at).await;
     let fp = cx.background_executor().spawn(async { footprint() }).await;
     if let Some(mb) = fp {
         println!("idle_footprint_mb {mb:.0}");
     }
+    let _ = h.update(cx, |_, w, cx| {
+        let mode = crate::shell::attention::mode(cx.background_executor().now());
+        println!("window_mode {mode:?} visible={}", w.is_visible());
+    });
     println!("idle_done");
     if w.check {
         checked(drawn, fp, &w);
@@ -168,17 +186,30 @@ async fn time_open(
 
 /// Idles for `secs`, counting the frames drawn after the first three seconds (the page settling: its first batch, a
 /// fade in): `idle_frames N`, and `idle_frame_ms T` for each of the first twenty, from the window's open. An idle
-/// window draws none.
-async fn idle_frames(cx: &mut AsyncApp, secs: u64) -> u64 {
+/// window draws none; one glanced at, a frame when a word to the minute changes. `footprint_at_s S MB` at each of
+/// `samples` seconds after `opened`.
+async fn idle_frames(cx: &mut AsyncApp, secs: u64, opened: Instant, samples: &[u64]) -> u64 {
     let t = Instant::now();
     let settle = Duration::from_secs(3).min(Duration::from_secs(secs));
     cx.background_executor().timer(settle).await;
     let start = crate::app::frames_drawn();
     let (mut last, mut shown, mut at) = (start, 0, 0);
+    let mut samples: Vec<u64> = samples.to_vec();
+    samples.sort_unstable();
     while t.elapsed() < Duration::from_secs(secs) {
         cx.background_executor()
             .timer(Duration::from_millis(50))
             .await;
+        while samples
+            .first()
+            .is_some_and(|s| opened.elapsed() >= Duration::from_secs(*s))
+        {
+            let s = samples.remove(0);
+            let fp = cx.background_executor().spawn(async { footprint() }).await;
+            if let Some(mb) = fp {
+                println!("footprint_at_s {s} {mb:.0}");
+            }
+        }
         let now = crate::app::frames_drawn();
         if now != last {
             at = t.elapsed().as_millis();
@@ -198,9 +229,18 @@ async fn idle_frames(cx: &mut AsyncApp, secs: u64) -> u64 {
 /// platform's quit would exit 0).
 fn checked(drawn: u64, fp: Option<f64>, w: &Watch) {
     let mut bad = Vec::new();
-    if drawn > 0 && !w.in_use {
+    // Hidden, nothing; glanced at (on screen, untouched), a frame when a word to the minute changes: `per_minute` for
+    // each minute (or part of one) counted; in use, what moves.
+    let counted = w.idle.saturating_sub(3);
+    let allowed = if w.hidden {
+        0
+    } else {
+        w.per_minute * counted.div_ceil(60).max(1)
+    };
+    if drawn > allowed && (w.hidden || !w.in_use) {
+        let how = if w.hidden { "hidden" } else { "glanced at" };
         bad.push(format!(
-            "{drawn} frames drawn by a window left alone (0 allowed)"
+            "{drawn} frames drawn by a window {how} in {counted} s ({allowed} allowed)"
         ));
     }
     if let (Some(limit), Some(mb)) = (w.budget, fp)

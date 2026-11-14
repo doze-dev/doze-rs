@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::time::Duration;
 
-use crate::format::{ago, mb};
+use crate::format::mb;
 use crate::gonum::{fixed, max, min};
 
 /// How often the daemon samples the meters.
@@ -209,7 +209,7 @@ pub fn span_word(n: u64) -> String {
     if (60..600).contains(&secs) && !secs.is_multiple_of(60) {
         return format!("{}m {:02}s", secs / 60, secs % 60);
     }
-    ago(d)
+    crate::format::span(crate::gotime::nanos(d))
 }
 
 #[cfg(test)]

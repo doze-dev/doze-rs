@@ -15,6 +15,7 @@
 //!   when a figure changed.
 
 mod head;
+mod read;
 mod rows;
 mod strip;
 
@@ -23,7 +24,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
 
-use doze_desk::activity::{Activity, Ask, Span, activity_of, events_of};
+use doze_desk::activity::{Activity, Span};
 use doze_desk::{Batch, Hub, Parts, StackKey};
 use gpui::{
     AppContext as _, Bounds, Context, Entity, EventEmitter, FocusHandle, Focusable, IntoElement,
@@ -37,6 +38,8 @@ use crate::actions::{
 
 /// How often the page reads the journal again while it shows.
 const EVERY: Duration = Duration::from_secs(10);
+/// How many [`EVERY`]s between reads while the window is looked at but not used: once a minute.
+const GLANCED: u32 = 6;
 
 /// What the page tells the window.
 #[derive(Debug, Clone)]
@@ -110,15 +113,26 @@ impl ActivityView {
             focus: cx.focus_handle(),
         };
         v.read(cx);
-        // Read again every ten seconds while the page lives (it is dropped when the window leaves it).
+        // Read again every ten seconds while the page lives (it is dropped when the window leaves it) and the window is
+        // in use; once a minute while it is only looked at; never while it is hidden. The span ends at "now", so each
+        // read redraws (a touch reads again at once).
         cx.spawn(async move |this, cx| {
+            let mut waited = 0u32;
             loop {
                 cx.background_executor().timer(EVERY).await;
-                // Only while the window is in use: the span ends at "now", so each read redraws (a touch reads again).
-                let used = cx
-                    .update(|cx| crate::shell::attention::attended(cx.background_executor().now()));
-                if used && this.update(cx, |v, cx| v.read(cx)).is_err() {
-                    break;
+                waited += 1;
+                let mode =
+                    cx.update(|cx| crate::shell::attention::mode(cx.background_executor().now()));
+                let due = match mode {
+                    crate::shell::attention::Mode::Use => true,
+                    crate::shell::attention::Mode::Glance => waited >= GLANCED,
+                    crate::shell::attention::Mode::Hidden => false,
+                };
+                if due {
+                    waited = 0;
+                    if this.update(cx, |v, cx| v.read(cx)).is_err() {
+                        break;
+                    }
                 }
                 if this.upgrade().is_none() {
                     break;
@@ -127,37 +141,6 @@ impl ActivityView {
         })
         .detach();
         v
-    }
-
-    /// Reads the journal and lays it out, off the UI thread; the page keeps what it shows until the answer lands.
-    pub(crate) fn read(&mut self, cx: &mut Context<Self>) {
-        let Some(st) = self.hub.stack(&self.key) else {
-            return;
-        };
-        let ram = remember_ram(&st, cx);
-        self.asked += 1;
-        let (n, span, only, now) = (self.asked, self.span, self.only.clone(), self.hub.now());
-        let zone = crate::instance::zone();
-        let job = cx.background_executor().spawn(async move {
-            let events = events_of(&st);
-            let ask = Ask {
-                span,
-                inst: &only,
-                ram: &ram,
-                now,
-                zone,
-            };
-            activity_of(&st, events, ask)
-        });
-        cx.spawn(async move |this, cx| {
-            let a = job.await;
-            let _ = this.update(cx, |v, cx| {
-                if v.asked == n {
-                    v.landed_model(a, cx);
-                }
-            });
-        })
-        .detach();
     }
 
     fn landed_model(&mut self, a: Activity, cx: &mut Context<Self>) {

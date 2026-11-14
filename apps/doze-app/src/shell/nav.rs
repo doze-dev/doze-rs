@@ -149,7 +149,7 @@ impl Root {
         self.retitle(&screen, window, cx);
         self.screen = screen;
         self.refresh_tabs(cx);
-        self.wind(cx);
+        self.keep_time(cx);
         cx.notify();
     }
 
