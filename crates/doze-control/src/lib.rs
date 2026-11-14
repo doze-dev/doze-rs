@@ -24,6 +24,8 @@ pub mod types;
 
 #[cfg(feature = "test-support")]
 pub mod fixture;
+#[cfg(feature = "words")]
+pub mod words;
 
 pub use client::{
     Backoff, CALL_TIMEOUT, Client, Connection, Follow, FollowEvent, HELLO_TIMEOUT, Pending, Stream,

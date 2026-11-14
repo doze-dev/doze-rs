@@ -13,7 +13,7 @@ workspace = true
 
 [dependencies]
 async-channel = "2"
-doze-control = { path = "../doze-control" }
+doze-control = { path = "../doze-control", features = ["words"] }
 doze-display = { path = "../doze-display" }
 # Activity reads the journal on disk (`activity`), read-only.
 doze-journal = { path = "../doze-journal" }

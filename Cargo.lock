@@ -2505,6 +2505,7 @@ version = "0.0.0"
 dependencies = [
  "async-channel",
  "doze-control",
+ "doze-display",
  "doze-os",
  "serde",
  "serde_json",
