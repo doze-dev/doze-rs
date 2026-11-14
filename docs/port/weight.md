@@ -502,3 +502,41 @@ reach GitHub. When the Rust CLI has `doze version --check`, the app asks it inst
 Activity at rest: it reads the journal again every ten seconds while shown (as Go's page did), off the UI thread, and
 redraws only when a figure changed; the strips are painted, so a 2,000-service stack builds only the rows in view
 (`doze-desk` lays out 2,000 services over 10,000 events in a few milliseconds, `tests/activity.rs`).
+
+### app-finish (full parity, privileged actions), measured 2026-11-14
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder`, `footprint` of that pid; menu bar only is
+`doze-app --menu-bar` on an empty throwaway `DOZE_HOME`). The base is `app-try` at a112aa29, built the same way.
+
+| | Budget | app-try (a112aa29) | app-finish |
+|---|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | — | 13,430,736 B |
+| Binary with `fixtures` | | 13,530,368 B | 13,712,704 B (+182 KB: the run sheet, the command source and plan, the streaming hands, the parity rows) |
+| Packages (`cargo tree -p doze-app --edges normal --prefix none`, unique) | limit 560 | 407 | 407 (none added: `objc2-user-notifications` and `block2`, now named by `doze-os` for the notification question at start, were in the tree through gpui) |
+| Menu bar ready | ≤ 100 ms | 81–145 ms | 77–180 ms (interleaved runs, same spread; the machine was building in another worktree) |
+| First frame after the tray click | ≤ 100 ms | 43–68 ms | 40–96 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | **224–226 MB** | **225–226 MB** (0.0 % CPU) |
+| After the window closes | ≤ 35 MB | — | 38 MB (two runs, 10 s after the close) |
+| Menu bar only, footprint | ≤ 18 MB | — | 19 MB, 0.0 % CPU |
+
+**The open window is over its budget, and was before this branch.** Of the 225 MB, 147 MB is one category,
+"Owned physical footprint (unmapped) (graphics)" in 30 regions (GPU memory), against 4 MB in the M3 and Map 150
+builds; the rest is in line with those (IOSurface 32 MB, Malloc Small 26 MB). The window is static (0.0 % CPU), so it
+is a held allocation, not a redraw loop. Bisected on release builds of the merges into `app-preview`:
+
+| build | open and idle | graphics |
+|---|---|---|
+| db499759 (M2, before the merges) | 57 MB | 4 MB |
+| 8e36b742 (+ app-type) | 56 MB | 4 MB |
+| 902ddd0d (+ app-states) | 226 MB | 147 MB |
+| 59e22ed2 (+ app-map-150) | 56 MB | 4 MB |
+| 4792f2ae (+ app-m3-tray), ebe7d11b (Geist), a112aa29 (app-try) | 224–226 MB | 147 MB |
+
+It is not monotonic in the merge order, so it is an interaction (a texture held for something app-states draws, which
+the Map-150 merge happened to avoid and the tray merge brought back), not one commit's cost. Not fixed here: it predates
+this branch and needs its own look (Metal's allocation trace in Instruments on the larder page). After the close it
+drops to 38 MB, 3 MB over that line (35–36 MB at M3).
+
+What this branch adds at rest: nothing that wakes. The run sheet exists only while open; the config look stamps the
+known stacks' files every two seconds (a `stat` each) and redraws only on a change; doctor and the leftovers look keep
+their old cadence. Notifications ask for leave once at start, from a bundle only.
