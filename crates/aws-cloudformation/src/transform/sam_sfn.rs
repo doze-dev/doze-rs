@@ -88,6 +88,15 @@ fn event(name: &str, ev: &str, e: &Value, r: &Value, out: &mut Out) -> Result<()
             "Transform AWS::Serverless-2016-10-31 failed with: Event {ev} of state machine {name}: event type {ty} is not served by doze-aws"
         )));
     }
+    if ty == "ScheduleV2" {
+        let props = e.get("Properties").cloned().unwrap_or(json!({}));
+        let target = super::sam_schedule::Target {
+            arn: json!({"Ref": name}),
+            action: "states:StartExecution",
+        };
+        super::sam_schedule::schedule_event(name, ev, &props, &target, r, out);
+        return Ok(());
+    }
     let id = format!("{name}{ev}");
     let role_id = format!("{id}Role");
     let doc = json!({"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "states:StartExecution", "Resource": {"Ref": name}}]});

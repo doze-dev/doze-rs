@@ -290,6 +290,7 @@ mod tests {
                 .map(|(k, v)| ((*k).into(), (*v).into()))
                 .collect(),
             lock: crate::model::Lock::default(),
+            acl: None,
         }
     }
 

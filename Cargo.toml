@@ -57,6 +57,9 @@ panic = "abort"
 # hot path (kafka-broker, -wire, -storage, -meta, -server, redb, tokio, the codecs) stays at opt-level 3.
 [profile.release.package.kafka-console]
 opt-level = "z"
+# The schema registry is HTTP and schema text, answered a few times a second at most: built for size too (docs/port/phase10.md).
+[profile.release.package.kafka-registry]
+opt-level = "z"
 [profile.release.package.axum]
 opt-level = "z"
 [profile.release.package.axum-core]

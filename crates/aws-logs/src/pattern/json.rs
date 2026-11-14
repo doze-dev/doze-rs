@@ -2,6 +2,7 @@
 
 use serde_json::Value;
 
+use super::regex::Re;
 use super::{PatternError, glob};
 
 type R<T> = Result<T, PatternError>;
@@ -104,6 +105,8 @@ pub(crate) enum Lit {
     Num(f64),
     Bool(bool),
     Null,
+    /// `%...%`: the value (a string, or a number as written) contains a match.
+    Re(Re),
 }
 
 impl Expr {
@@ -116,12 +119,23 @@ impl Expr {
             Self::Exists(sel, yes) => sel.first(v).is_some() == *yes,
         }
     }
+
+    /// How many `%...%` the expression holds.
+    pub(crate) fn regexes(&self) -> usize {
+        match self {
+            Self::And(parts) | Self::Or(parts) => parts.iter().map(Self::regexes).sum(),
+            Self::Cmp(_, _, Lit::Re(_)) => 1,
+            _ => 0,
+        }
+    }
 }
 
 /// Whether a value is equal to a literal (a string literal may hold `*`).
 fn same(x: &Value, lit: &Lit) -> bool {
     match (x, lit) {
         (Value::String(s), Lit::Str(p)) => glob(p, s),
+        (Value::String(s), Lit::Re(re)) => re.found(s),
+        (Value::Number(n), Lit::Re(re)) => re.found(&n.to_string()),
         (Value::Number(n), Lit::Num(l)) => n.as_f64().is_some_and(|f| (f - l).abs() < f64::EPSILON),
         (Value::Bool(b), Lit::Bool(l)) => b == l,
         (Value::Null, Lit::Null) => true,
@@ -187,6 +201,10 @@ fn lex(text: &str) -> R<Vec<Tok>> {
                 }));
             }
             '"' => out.push(Tok::Lit(Lit::Str(quoted(&mut chars)?))),
+            '%' => {
+                let mut body = chars.by_ref().map(|x| x.1);
+                out.push(Tok::Lit(Lit::Re(super::regex::read(&mut body)?)));
+            }
             _ => {
                 let end = text
                     .get(at..)
@@ -235,9 +253,6 @@ pub(super) fn parse(text: &str) -> R<Expr> {
         .strip_prefix('{')
         .and_then(|t| t.trim_end().strip_suffix('}'))
         .ok_or(PatternError::Invalid)?;
-    if inner.contains('%') {
-        return Err(PatternError::Regex);
-    }
     let toks = lex(inner)?;
     let mut p = Parser { toks, at: 0 };
     let e = p.or()?;
@@ -329,6 +344,10 @@ impl Parser {
                     Op::Ne => Ok(Expr::Exists(sel, false)),
                     _ => Err(PatternError::Invalid),
                 },
+                // An expression compares by `=` and `!=` alone.
+                Tok::Lit(Lit::Re(_)) if !matches!(op, Op::Eq | Op::Ne) => {
+                    Err(PatternError::Invalid)
+                }
                 Tok::Lit(lit) => Ok(Expr::Cmp(sel, op, lit)),
                 Tok::Word(w) => Ok(Expr::Cmp(sel, op, Lit::Str(w))),
                 _ => Err(PatternError::Invalid),

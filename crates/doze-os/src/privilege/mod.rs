@@ -15,6 +15,8 @@ pub use admin::{AdminError, admin, admin_supported, prompt};
 
 #[cfg(windows)]
 mod dacl;
+#[cfg(unix)]
+mod unix;
 #[cfg(windows)]
 mod windows;
 
@@ -59,6 +61,30 @@ pub fn relaunch_unprivileged() -> io::Result<Option<i32>> {
         Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             "doze does not run as root; run it as your own user",
+        ))
+    }
+}
+
+/// Gives up root for good, becoming `uid`/`gid` (supplementary groups: `gid` alone). For a daemon started as root
+/// to do one privileged thing (open a tunnel, add a route) and nothing else: call it before any thread starts, since
+/// the change must cover the whole process. Checked afterwards: a process that could get root back is an error.
+pub fn drop_root(uid: u32, gid: u32) -> io::Result<()> {
+    if uid == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "drop_root: the user to become must not be root",
+        ));
+    }
+    #[cfg(unix)]
+    {
+        unix::drop_root(uid, gid)
+    }
+    #[cfg(windows)]
+    {
+        let _ = gid;
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "drop_root: there is no root to give up on Windows",
         ))
     }
 }
