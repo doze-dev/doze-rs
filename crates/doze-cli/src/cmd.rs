@@ -23,6 +23,7 @@ mod pin;
 mod ready;
 mod remember;
 pub(crate) mod report;
+mod run;
 pub(crate) mod setup;
 pub(crate) mod status;
 pub(crate) mod stub;
@@ -94,6 +95,7 @@ pub(crate) fn dispatch(
         Cmd::Bug => bug::run(ctx, mode),
         Cmd::Down(d) => down::run(ctx, mode, &d, notices),
         Cmd::Up(u) => up::run(ctx, mode, &u, notices),
+        Cmd::Run(r) => run::run(ctx, mode, &r),
         Cmd::Open(o) => open::run(ctx, mode, &o, notices),
         Cmd::Modules(m) => match m.command {
             None => modules::run(ctx, mode),

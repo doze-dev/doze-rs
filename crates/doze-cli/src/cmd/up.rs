@@ -65,7 +65,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Up, notices: &mut Notices)
 
 /// Starts the stack's daemon (Go `startDaemon`) under the stack lock, unless another `up` started it while this one
 /// waited for the lock, and connects to it.
-fn start(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<Connection, Diagnostic> {
+pub(crate) fn start(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<Connection, Diagnostic> {
     let run = RunDir::of(stack.key.dir());
     let refused = |what: String| {
         Diagnostic::new(ids::DAEMON_REFUSED, what)

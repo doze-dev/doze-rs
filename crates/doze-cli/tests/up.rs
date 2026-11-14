@@ -286,3 +286,44 @@ fn up_starts_the_daemon_and_down_stops_it() {
     );
     assert!(!key.socket().exists() && !key.pid_file().exists());
 }
+
+/// `doze run`: the daemon is started first, then the command runs (here the host records it), and `--env` says it
+/// waits for the modules' answers.
+#[test]
+fn run_starts_the_daemon_then_the_command() {
+    if !std::path::Path::new("/bin/sh").exists() || !setup::sockets() {
+        return;
+    }
+    let (sb, mut host, _) = setup::prepare(&["project bare".to_owned()]);
+    host.daemon_exe = Some(std::path::PathBuf::from(env!("CARGO_BIN_EXE_doze")));
+    let hcl = format!(
+        "stack = \"shop\"\nhome = \"{}\"\n\napp \"web\" {{\n  run = \"exec sleep 600\"\n}}\n",
+        sb.home().display()
+    );
+    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
+    let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
+    let env = fixture::run(
+        &sb,
+        &host,
+        Terminals::default(),
+        false,
+        &["run", "--env", "--", "true"],
+    );
+    assert_eq!(env.code, 1, "{}", env.stderr);
+    let ran = fixture::run(
+        &sb,
+        &host,
+        Terminals::default(),
+        false,
+        &["run", "--", "mytool", "a", "b"],
+    );
+    let pid = doze_projects::daemon_pid(&key).map(|p| p.pid);
+    let down = fixture::run(&sb, &host, Terminals::default(), false, &["down"]);
+    assert_eq!(ran.code, 0, "{}", ran.stderr);
+    assert!(pid.is_some(), "the daemon was started");
+    assert_eq!(down.code, 0, "{}", down.stderr);
+    assert_eq!(
+        host.spawned.borrow().last().cloned().unwrap_or_default(),
+        ["run mytool", "a", "b"]
+    );
+}
