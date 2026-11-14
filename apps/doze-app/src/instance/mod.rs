@@ -73,6 +73,8 @@ pub(crate) struct InstanceView {
     ticking: bool,
     /// The stack's daemon is not answering, or has gone quiet: the banner's words.
     stale: Option<String>,
+    /// Its stack's doze.hcl does not load: `doze.hcl does not load (line 9)` (set by the window, from the facts).
+    pub(crate) broken: Option<String>,
     /// Its meters are watched, so a frame is due every second: the page reads the hub again each second.
     metered: bool,
     _watches: (Watch, Watch, Option<ConsoleWatch>),
@@ -104,6 +106,7 @@ impl InstanceView {
             copied: None,
             ticking: false,
             stale: None,
+            broken: None,
             metered: false,
             _watches: watches,
             focus: cx.focus_handle(),
@@ -399,6 +402,10 @@ impl Render for InstanceView {
                     .when(self.stale.is_some(), |d| d.opacity(0.55))
                     .child(head::head(&t, self, cx)),
             )
+            .children(self.broken.as_deref().map(|b| {
+                let home = cx.listener(|_, _, _, cx| cx.emit(InstanceEvent::Home));
+                crate::overview::broken_banner(&t, (b, &self.page.stack), Box::new(home))
+            }))
             .child(head::tabs(&t, self, cx))
             .child(body)
             .when(!console && self.tab != words::TAB_LOGS, |d| {

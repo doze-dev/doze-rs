@@ -105,20 +105,27 @@ impl<'a> Kv<'a> {
         let Some(c) = self.copy else {
             return row.into_any_element();
         };
-        let what = self.k.to_lowercase();
+        // Go's `Copy`: "Copied" for 1200 ms, and "copied the value to the clipboard".
+        let id = gpui::SharedString::from(format!("copy-{}", self.k));
+        let word = if crate::kit::says_copied(&id, cx) {
+            "Copied"
+        } else {
+            "Copy"
+        };
         row.child(
             div()
-                .id(gpui::SharedString::from(format!("copy-{}", self.k)))
+                .id(id.clone())
                 .flex_none()
                 .text_size(px(ty::XS))
                 .font_weight(ty::MEDIUM)
                 .text_color(t.accent)
                 .cursor_pointer()
                 .hover(|d| d.underline())
-                .child("Copy")
+                .child(word)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     crate::outward::copy(cx, &c);
-                    this.say(&format!("Copied the {what}"), cx);
+                    crate::kit::flip_copied(id.clone(), cx);
+                    this.say("copied the value to the clipboard", cx);
                 })),
         )
         .into_any_element()

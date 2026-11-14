@@ -34,7 +34,7 @@ use gpui::{
 };
 use gpui_component::input::{InputEvent, InputState};
 
-pub(crate) use banners::stale_banner;
+pub(crate) use banners::{broken_banner, stale_banner};
 
 use crate::actions::{
     ChooseStart, CloseOverlay, CopyAddress, DismissFailure, FilterRows, MoveDown, MoveLeft,

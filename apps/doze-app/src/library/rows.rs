@@ -258,11 +258,15 @@ fn pills(t: &Tokens, st: &LibStack, cx: &mut Context<LibraryView>) -> impl IntoE
     for (i, a) in st.addresses.iter().enumerate() {
         let url = a.url.clone();
         let id = format!("pill-{}-{i}", st.name);
+        let title = gpui::SharedString::from(a.title());
         p = p.child(
             pill(t, &a.text, a.up, a.up && !a.url.is_empty())
                 .id(gpui::SharedString::from(id.clone()))
                 .when(!url.is_empty(), |d| d.cursor_pointer())
                 .probe(id, a.text.clone())
+                .tooltip(move |window, cx| {
+                    gpui_component::tooltip::Tooltip::new(title.clone()).build(window, cx)
+                })
                 .on_click(cx.listener(move |this, _, _, cx| {
                     cx.stop_propagation();
                     if !url.is_empty() {

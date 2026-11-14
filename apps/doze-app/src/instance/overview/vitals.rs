@@ -2,7 +2,6 @@
 
 use doze_desk::page::instance::InstancePage;
 use doze_desk::page::parts::Chart;
-use doze_display::Look;
 use gpui::{AnyElement, Hsla, IntoElement, SharedString, div, prelude::*, px};
 use gpui_component::chart::AreaChart;
 
@@ -12,18 +11,13 @@ use crate::theme::{Tokens, alpha, ty};
 
 /// The charts on the right, or why there are none.
 pub(super) fn charts(t: &Tokens, p: &InstancePage) -> Vec<AnyElement> {
+    // Go says only this, whatever the state: its "Off: nothing runs…" line asks for a look word ("disabled") that no
+    // look has, so it never shows.
     let Some(v) = &p.vitals else {
-        let why = if p.paused {
-            "Paused in doze.hcl: nothing runs, nothing is measured."
-        } else if p.look == Some(Look::Off) {
-            "Off: nothing runs, nothing is measured."
-        } else {
-            "no readings yet"
-        };
         return vec![
             card(t)
                 .child(heading(t, "Vitals", None))
-                .child(div().text_color(t.dim).child(why))
+                .child(div().text_color(t.dim).child("no readings yet"))
                 .into_any_element(),
         ];
     };

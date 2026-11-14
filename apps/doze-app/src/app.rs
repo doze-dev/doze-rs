@@ -15,7 +15,7 @@ use gpui::{
 
 use crate::actions::{self, OpenPalette, Quit};
 use crate::cli;
-use crate::link::{self, Link};
+pub(crate) use crate::link::follow_args;
 use crate::prefs::{self, Frame};
 use crate::shell::Root;
 use crate::single::{self, Launch};
@@ -145,50 +145,6 @@ pub(crate) fn open(cx: &mut App) -> Option<WindowHandle<Root>> {
     Some(h)
 }
 
-/// Goes where a launch's arguments (or a `doze://` link) say: a stack, a service in it, a folder.
-pub(crate) fn follow_args(cx: &mut App, args: &[String]) {
-    let Some(h) = open(cx) else { return };
-    let mut it = args.iter();
-    let mut show: Option<String> = None;
-    let mut target: Option<Result<Link, String>> = None;
-    while let Some(a) = it.next() {
-        if a == "--show" {
-            show = it.next().cloned();
-        } else if let Some(v) = a.strip_prefix("--show=") {
-            show = Some(v.to_owned());
-        } else if link::is(a) {
-            target = Some(link::parse(a));
-        } else {
-            target = Some(Ok(Link::Open {
-                dir: a.into(),
-                show: None,
-            }));
-        }
-    }
-    let _ = h.update(cx, |root, window, cx| match target {
-        Some(Ok(Link::Stack { stack, show: s })) => {
-            if !root.show(&stack, s.or(show).as_deref(), window, cx) {
-                root.say(format!("No stack called {stack} is known here."), cx);
-            }
-        }
-        Some(Ok(Link::Open { dir, show: s })) => {
-            root.open_dir(&dir, s.or(show).as_deref(), window, cx)
-        }
-        Some(Ok(Link::Library)) => root.go(crate::shell::Screen::Library, window, cx),
-        Some(Ok(Link::Settings(part))) => {
-            let part = part.unwrap_or_default();
-            let at = crate::settings::Section::parse(&part);
-            root.open_settings(at, part == "updates", window, cx);
-        }
-        Some(Err(e)) => root.say(e, cx),
-        None => {
-            if let Some(s) = show {
-                root.select(&s, cx);
-            }
-        }
-    });
-}
-
 /// A batch from the hub: the menu-bar item and the notifications always (`crate::around`); the window only while it
 /// is open.
 fn pump(cx: &mut App, hub: Hub) {
@@ -196,6 +152,7 @@ fn pump(cx: &mut App, hub: Hub) {
         while let Ok(batch) = hub.updates().recv().await {
             cx.update(|cx| {
                 crate::around::on_batch(cx);
+                crate::activity::remember_batch(&hub, &batch, cx);
                 if let Some(h) = cx.try_global::<State>().and_then(|s| s.window) {
                     let _ = h.update(cx, |root, _, cx| root.apply(&batch, cx));
                 }
@@ -291,13 +248,18 @@ fn started(
     })
     .detach();
     cx.spawn(async move |cx: &mut AsyncApp| {
+        // A doze:// link clicked anywhere on the system: followed a moment later, as Go's (the hub has to know the stacks).
         while let Ok(u) = urls.recv().await {
-            cx.update(|cx| follow_args(cx, &u));
+            cx.update(|cx| crate::link::follow_later(cx, u));
         }
     })
     .detach();
     if !a.menu_bar {
-        follow_args(cx, &a.forward);
+        if a.forward.iter().any(|x| crate::link::is(x)) {
+            crate::link::follow_later(cx, a.forward.clone());
+        } else {
+            follow_args(cx, &a.forward);
+        }
     }
     #[cfg(feature = "fixtures")]
     crate::driver::start(cx);

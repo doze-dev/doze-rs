@@ -16,12 +16,18 @@ impl Root {
             DoKind::Page => self.open_page(d, window, cx),
             DoKind::Copy => {
                 crate::outward::copy(cx, &d.text);
-                self.say(format!("Copied {}", d.text), cx);
+                self.say(
+                    format!("copied the connect line of {} to the clipboard", d.target),
+                    cx,
+                );
             }
-            DoKind::Open => match d.text.strip_prefix("file://") {
-                Some(path) => crate::outward::open_path(cx, std::path::Path::new(path)),
-                None => crate::outward::open_url(cx, &d.text),
-            },
+            DoKind::Open => {
+                match d.text.strip_prefix("file://") {
+                    Some(path) => crate::outward::open_path(cx, std::path::Path::new(path)),
+                    None => crate::outward::open_url(cx, &d.text),
+                }
+                self.say(format!("opened {}", d.text), cx);
+            }
             DoKind::Terminal => self.terminal(&d.text, cx),
             DoKind::Verb => {
                 let v = Verb {
@@ -57,9 +63,13 @@ impl Root {
             ("home", _) => self.go(Screen::Stack(key), window, cx),
             ("instance", false) => self.go(Screen::Instance(key, d.target.clone()), window, cx),
             ("logs", true) => self.go(Screen::Logs(key), window, cx),
+            // One service's logs are the merged page with it ticked alone in the sidebar (Go `pick`).
             ("logs", false) => {
-                self.go(Screen::Instance(key, d.target.clone()), window, cx);
-                self.open_tab(Some("logs"), window, cx);
+                self.go(Screen::Logs(key), window, cx);
+                if let Some(super::inside::Inside::Logs(l)) = &self.inside {
+                    let only = std::collections::BTreeSet::from([d.target.clone()]);
+                    l.update(cx, |l, cx| l.set_show(Some(only), cx));
+                }
             }
             ("activity", _) => {
                 self.go(Screen::Activity(key), window, cx);

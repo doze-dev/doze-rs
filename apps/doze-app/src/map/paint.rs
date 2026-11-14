@@ -216,13 +216,15 @@ impl Scene {
             size: size(bounds.size.width, h),
         };
         window.paint_quad(gpui::fill(b, alpha(self.t.panel, 0.45)));
-        window.paint_quad(gpui::fill(
-            Bounds {
-                origin: b.origin,
-                size: size(b.size.width, px(1.)),
-            },
-            self.t.line2,
-        ));
+        // Its top rule is dashed, 1 px (Go `.band { border-top: 1px dashed var(--line2) }`), dashes as WebKit draws them.
+        let dash = px((3.0 * self.z).max(1.));
+        let y = top + px(0.5);
+        let mut rule = PathBuilder::stroke(px(1.)).dash_array(&[dash, dash]);
+        rule.move_to(point(b.origin.x, y));
+        rule.line_to(point(b.origin.x + b.size.width, y));
+        if let Ok(path) = rule.build() {
+            window.paint_path(path, self.t.line2);
+        }
     }
 
     /// Single calls: batched polylines up to [`DETAIL_ZOOM`], curves with heads above it. Past
@@ -243,7 +245,12 @@ impl Scene {
         if !self.quiet {
             self.across(o, window, lv, strength);
         }
-        let faded = alpha(self.t.line2, 0.6);
+        // A dimmed call: `line2` itself on a small map (Go `.edge.dim`); quieter past sixty cards, where there are many.
+        let faded = if large {
+            alpha(self.t.line2, 0.6)
+        } else {
+            self.t.line2
+        };
         let from = self.fades.lit_from;
         if lv < DETAIL_ZOOM {
             let of = |lit: Option<CardId>| {
