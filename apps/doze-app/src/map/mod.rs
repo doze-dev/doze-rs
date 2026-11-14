@@ -107,6 +107,8 @@ pub(crate) struct MapView {
     /// The minimap is wanted (it shows only when the drawing is well past the viewport).
     pub(crate) minimap: bool,
     pub(crate) search: Option<Entity<InputState>>,
+    /// The keys are in the find box, in the tile list's filter: their frames take the accent (Go `.filter`).
+    pub(crate) keys_in: (bool, bool),
     pub(crate) hits: Vec<CardId>,
     /// The highlighted hit.
     pub(crate) hit: usize,
@@ -146,6 +148,7 @@ impl MapView {
             hover: None,
             minimap: true,
             search: None,
+            keys_in: (false, false),
             hits: Vec::new(),
             hit: 0,
             viewport: Rc::default(),
@@ -285,6 +288,17 @@ impl MapView {
         let name = id.and_then(|i| self.layout.card(i)).map(|c| c.name.clone());
         cx.emit(MapEvent::Select(name));
         cx.notify();
+    }
+
+    /// Notes where the keys are, for the text boxes' frames (each render).
+    pub(crate) fn note_keys(&mut self, window: &Window, cx: &gpui::App) {
+        let on = |i: Option<&Entity<InputState>>| {
+            i.is_some_and(|i| crate::widgets::has_keys(i, window, cx))
+        };
+        self.keys_in = (
+            on(self.search.as_ref()),
+            on(self.list.as_ref().map(|l| &l.input)),
+        );
     }
 
     /// Opens the find box (or focuses it again).

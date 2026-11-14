@@ -214,7 +214,7 @@ impl Tokens {
 }
 
 /// One theme of the file: gpui-component's config and doze's tokens.
-fn load(palette: Palette, dark: bool) -> anyhow::Result<(ThemeConfig, Tokens)> {
+pub(crate) fn load(palette: Palette, dark: bool) -> anyhow::Result<(ThemeConfig, Tokens)> {
     let set: Set = serde_json::from_str(THEMES).context("themes/doze.json")?;
     let name = format!(
         "doze {} {}",

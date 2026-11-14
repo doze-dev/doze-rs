@@ -387,14 +387,12 @@ impl Render for MapView {
             self.refit();
         }
         let now = std::time::Instant::now();
-        if self.cam.tick(now) {
-            window.request_animation_frame();
-        }
+        let flying = self.cam.tick(now);
         let motion = crate::theme::Motion::of(cx);
         let times = super::fade::times(motion);
         let on = self.lit_on().map(std::rc::Rc::new);
         self.fades.note(self.lit, on, self.hover, times, now);
-        if self.fades.running(now) {
+        if flying || self.fades.running(now) {
             window.request_animation_frame();
         }
         let mut body = div()
@@ -425,6 +423,7 @@ impl Render for MapView {
             .on_action(cx.listener(|this, _: &MoveLeft, _, cx| this.arrow(-1.0, 0.0, cx)))
             .on_action(cx.listener(|this, _: &MoveRight, _, cx| this.arrow(1.0, 0.0, cx)))
             .on_action(cx.listener(|this, _: &Confirm, _, cx| this.confirm(cx)));
+        self.note_keys(window, cx);
         let large = self.large(&t, cx);
         let window_w = f32::from(window.viewport_size().width);
         body = body

@@ -253,7 +253,10 @@ pub(crate) fn list(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option
                 .items_center()
                 .gap(px(12.))
                 .pt(px(10.))
-                .child(div().w(px(280.)).child(Input::new(&l.input)))
+                .child(
+                    crate::widgets::framed_input(t, "map/list", m.keys_in.1, Input::new(&l.input))
+                        .w(px(280.)),
+                )
                 .child(chips)
                 .child(
                     div()

@@ -13,7 +13,7 @@ use crate::widgets::{Mono as _, seg};
 /// `.head`: Activity, "shop · db · the last 24 hours", Every service, the span, Back to the stack.
 pub(super) fn head(
     t: &Tokens,
-    v: &ActivityView,
+    (v, find_on): (&ActivityView, bool),
     cx: &mut Context<ActivityView>,
 ) -> impl IntoElement {
     let stack = v.model.as_ref().map_or_else(
@@ -40,12 +40,14 @@ pub(super) fn head(
     let mut row = title(t, &path);
     if let Some(input) = &v.input {
         row = row.child(
-            div()
-                .w(px(200.))
-                .flex_none()
-                .child(gpui_component::Sizable::small(
-                    gpui_component::input::Input::new(input),
-                )),
+            crate::widgets::framed_input(
+                t,
+                "activity/find",
+                find_on,
+                gpui_component::input::Input::new(input),
+            )
+            .w(px(200.))
+            .flex_none(),
         );
     }
     row.when(!v.only.is_empty(), |d| {

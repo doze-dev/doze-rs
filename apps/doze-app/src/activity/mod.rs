@@ -358,8 +358,12 @@ impl Focusable for ActivityView {
 }
 
 impl Render for ActivityView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = crate::theme::tokens(cx);
+        let find_on = self
+            .input
+            .as_ref()
+            .is_some_and(|i| crate::widgets::has_keys(i, window, cx));
         let page = div()
             .id("activity")
             .key_context("Activity")
@@ -380,7 +384,7 @@ impl Render for ActivityView {
                     v.set_only(&n, cx);
                 }
             }))
-            .child(head::head(&t, self, cx));
+            .child(head::head(&t, (self, find_on), cx));
         let Some(_) = &self.model else {
             return page.child(
                 div()

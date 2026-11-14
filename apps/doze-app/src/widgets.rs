@@ -67,6 +67,53 @@ pub(crate) fn tip(
     move |window, cx| gpui_component::tooltip::Tooltip::new(words.clone()).build(window, cx)
 }
 
+/// Go `.filter, .input` (`transition: border-color 120ms`, tinted `:focus-within`): the frame colour of the text box
+/// `key`, the accent 45% into line2 while it has the keys, easing over 120 ms; and whether it is still moving (the
+/// frame then carries a `motion::tick`).
+pub(crate) fn input_frame(t: &Tokens, key: &str, focused: bool) -> (Hsla, bool) {
+    let to = if focused {
+        crate::theme::mix(t.accent, t.line2, 45.)
+    } else {
+        t.line2
+    };
+    crate::motion::colour(&format!("{key}/border"), to)
+}
+
+/// A text box in Go's `.filter` frame: 28 high, the well, its border easing to the accent's tint with the keys in it.
+pub(crate) fn framed_input(
+    t: &Tokens,
+    key: &str,
+    focused: bool,
+    input: gpui_component::input::Input,
+) -> gpui::Div {
+    let (frame, moving) = input_frame(t, key, focused);
+    div()
+        .flex()
+        .items_center()
+        .h(px(28.))
+        .px(px(2.))
+        .rounded(px(7.))
+        .border_1()
+        .border_color(frame)
+        .bg(t.well)
+        .child(crate::motion::tick(moving))
+        .child(
+            div()
+                .flex_1()
+                .child(input.appearance(false).text_size(px(ty::SM))),
+        )
+}
+
+/// Whether the keys are in `input` (for [`input_frame`]).
+pub(crate) fn has_keys(
+    input: &gpui::Entity<gpui_component::input::InputState>,
+    window: &gpui::Window,
+    cx: &gpui::App,
+) -> bool {
+    use gpui::Focusable as _;
+    input.read(cx).focus_handle(cx).is_focused(window)
+}
+
 /// `.dot` (8px disc) and `.ring` (8px, 2px cool border).
 pub(crate) fn dot(color: Hsla) -> impl IntoElement {
     div().size(px(8.)).flex_none().rounded_full().bg(color)
@@ -236,4 +283,23 @@ pub(crate) fn seg(
                     }
                 }),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::input_frame;
+    use crate::theme::{Palette, load, mix};
+
+    #[test]
+    fn a_text_box_frame_eases_to_the_accent_tint_with_the_keys() {
+        let (_, t) = load(Palette::ALL[0], true).unwrap();
+        assert_eq!(input_frame(&t, "test/a", false), (t.line2, false));
+        let (shown, moving) = input_frame(&t, "test/a", true);
+        assert!(moving, "the border eases, it does not switch");
+        assert_ne!(shown, mix(t.accent, t.line2, 45.));
+        assert_eq!(
+            input_frame(&t, "test/b", true).0,
+            mix(t.accent, t.line2, 45.)
+        );
+    }
 }

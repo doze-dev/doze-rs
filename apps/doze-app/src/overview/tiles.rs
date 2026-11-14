@@ -136,14 +136,7 @@ pub(super) fn row_switch(
 /// `.toolbar .filter`: the filter box and its key. With the keys in it, its frame takes the accent's tint, easing
 /// over 120 ms (Go `.filter:focus-within`, `transition: border-color 120ms`).
 pub(super) fn filter(t: &Tokens, v: &OverviewView) -> impl IntoElement {
-    let (frame, moving) = crate::motion::colour(
-        "overview/filter/border",
-        if v.filter_on {
-            mix(t.accent, t.line2, 45.)
-        } else {
-            t.line2
-        },
-    );
+    let (frame, moving) = crate::widgets::input_frame(t, "overview/filter", v.filter_on);
     div().flex().flex_none().px(px(28.)).pb(px(14.)).child(
         div()
             .flex()
