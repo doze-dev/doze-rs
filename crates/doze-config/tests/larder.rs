@@ -132,7 +132,10 @@ async fn larder_runs_in_the_engine() {
         "every enabled block, tasks included"
     );
     assert!(
-        stack.services.iter().any(|s| matches!(s.kind, doze_engine::stack::Kind::Task(_))),
+        stack
+            .services
+            .iter()
+            .any(|s| matches!(s.kind, doze_engine::stack::Kind::Task(_))),
         "larder's tasks are tasks"
     );
     let gateway = stack.service("gateway").unwrap();

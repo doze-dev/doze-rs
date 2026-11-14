@@ -34,19 +34,32 @@ fn live() -> &'static Live {
             .build()
             .expect("a runtime");
         let _in = rt.enter();
-        let engine = Engine::builder("fuzz", &dir).build().expect("an empty stack");
+        let engine = Engine::builder("fuzz", &dir)
+            .build()
+            .expect("an empty stack");
         let sock = dir.join("d.sock");
-        let d = Daemon::at(engine, Default::default(), StackInfo::default(), sock.clone());
+        let d = Daemon::at(
+            engine,
+            Default::default(),
+            StackInfo::default(),
+            sock.clone(),
+        );
         let serving = d.serve().expect("serving");
-        Live { sock, _rt: rt, _serving: serving }
+        Live {
+            sock,
+            _rt: rt,
+            _serving: serving,
+        }
     })
 }
 
 fuzz_target!(|data: &[u8]| {
     let l = live();
     let mut c = LocalStream::connect(&l.sock).expect("the daemon accepts");
-    c.set_read_timeout(Some(Duration::from_millis(100))).expect("a timeout");
-    c.write_all(b"{\"hello\":{\"proto\":2,\"client\":\"fuzz\"}}\n").expect("hello");
+    c.set_read_timeout(Some(Duration::from_millis(100)))
+        .expect("a timeout");
+    c.write_all(b"{\"hello\":{\"proto\":2,\"client\":\"fuzz\"}}\n")
+        .expect("hello");
     let _ = c.write_all(data);
     let _ = c.write_all(b"\n");
     let mut buf = [0u8; 8192];

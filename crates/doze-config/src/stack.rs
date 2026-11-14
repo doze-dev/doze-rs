@@ -46,11 +46,7 @@ pub fn ca_env(root: &Path, bundle: &Path) -> BTreeMap<String, String> {
 
 /// The engine's stack for `cfg`.
 pub fn to_stack(cfg: &Config, w: &Wiring<'_>) -> Stack {
-    let kept: Vec<&Instance> = cfg
-        .instances
-        .iter()
-        .filter(|i| i.enabled)
-        .collect();
+    let kept: Vec<&Instance> = cfg.instances.iter().filter(|i| i.enabled).collect();
     let names: BTreeSet<&str> = kept.iter().map(|i| i.name.as_str()).collect();
     let services = kept.iter().map(|i| service(i, w, &names)).collect();
     let config_name = Path::new(&cfg.path).file_name().map_or_else(
