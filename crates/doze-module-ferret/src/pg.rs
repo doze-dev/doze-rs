@@ -22,7 +22,7 @@ pub(crate) const DOCUMENTDB: &str = "0.112-0";
 const PORT: &str = "5432";
 
 /// The settings the extension needs, rewritten on every boot (Go's, less the loopback listener); then the socket the
-/// extension connects back to.
+/// extension and pg_cron reach the server on (`socket_settings`).
 const CONF: &str = "# Managed by doze; rewritten on every boot.
 listen_addresses = ''
 shared_preload_libraries = 'pg_cron,pg_documentdb_core,pg_documentdb'
@@ -130,16 +130,24 @@ pub(crate) fn url(inst: &Instance) -> String {
     )
 }
 
-/// `documentdb.localhost_connection_string`: the socket directory as a libpq `host`, quoted for libpq and then for the
-/// configuration file.
-fn self_connection(sock: &Path) -> String {
+/// A value in postgresql.conf: in single quotes, a quote doubled and a backslash doubled (the file reads `\\` as an
+/// escape).
+fn conf_value(s: &str) -> String {
+    format!("'{}'", s.replace('\\', "\\\\").replace('\'', "''"))
+}
+
+/// What points at the socket: `documentdb.localhost_connection_string` (the extension's connection back to its own
+/// server, a libpq string, so the path is quoted for libpq first) and pg_cron's `cron.host` (unused with background
+/// workers, but Go set it so nothing would reach for TCP; with no TCP listener it names the socket directory).
+fn socket_settings(sock: &Path) -> String {
     let libpq = format!(
         "host='{}'",
         path(sock).replace('\\', "\\\\").replace('\'', "\\'")
     );
     format!(
-        "documentdb.localhost_connection_string = '{}'\n",
-        libpq.replace('\'', "''")
+        "documentdb.localhost_connection_string = {}\ncron.host = {}\n",
+        conf_value(&libpq),
+        conf_value(&path(sock))
     )
 }
 
@@ -154,7 +162,7 @@ pub(crate) async fn provision(inst: &Instance, tc: &Toolchain) -> Result<Provisi
         Provisioned::Fresh
     };
     let conf = pgdata.join("doze.conf");
-    let text = format!("{CONF}{}", self_connection(&pgsock(inst)));
+    let text = format!("{CONF}{}", socket_settings(&pgsock(inst)));
     doze_os::fs::write_private(&conf, text.as_bytes()).map_err(help::io_error("writing", &conf))?;
     let hba = pgdata.join("pg_hba.conf");
     doze_os::fs::write_private(&hba, HBA.as_bytes()).map_err(help::io_error("writing", &hba))?;
@@ -284,11 +292,14 @@ fn stale(inst: &Instance, pgdata: &Path, sock: &Path) -> Result<()> {
     let live = std::fs::read_to_string(&pidfile)
         .ok()
         .and_then(|t| t.lines().next().and_then(|l| l.trim().parse::<u32>().ok()))
-        .filter(|p| doze_os::process::alive(*p));
+        // Another user's process with that number is not the server that wrote the file (a reboot reused it), as
+        // PostgreSQL's own lock check reads it.
+        .filter(|p| doze_os::process::alive_own(*p));
     if let Some(p) = live {
         let msg = format!(
-            "ferret {:?} appears to be running already (pid {p})",
-            inst.name
+            "ferret {:?} appears to be running already (pid {p}); remove {} if you are sure it is not",
+            inst.name,
+            pidfile.display()
         );
         return Err(Error::new(ErrorKind::Unavailable, msg));
     }
@@ -306,15 +317,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_self_connection_names_the_socket_quoted_twice() {
+    fn the_socket_settings_are_quoted_for_libpq_then_for_the_file() {
         assert_eq!(
-            self_connection(Path::new("/tmp/s/pg")),
-            "documentdb.localhost_connection_string = 'host=''/tmp/s/pg'''\n"
+            socket_settings(Path::new("/tmp/s/pg")),
+            "documentdb.localhost_connection_string = 'host=''/tmp/s/pg'''\ncron.host = '/tmp/s/pg'\n"
         );
-        // A quote in the path is escaped for libpq, then doubled for the configuration file.
+        // libpq's \' then the file's doubling of both the backslash and the quote: PostgreSQL reads back host='/tmp/o\'k'.
         assert_eq!(
-            self_connection(Path::new("/tmp/o'k")),
-            "documentdb.localhost_connection_string = 'host=''/tmp/o\\''k'''\n"
+            socket_settings(Path::new("/tmp/o'k")),
+            "documentdb.localhost_connection_string = 'host=''/tmp/o\\\\''k'''\ncron.host = '/tmp/o''k'\n"
         );
     }
 }

@@ -55,10 +55,6 @@ impl Client {
 
     /// Every document of a cursor command's first batch and the batches after it (`listCollections`,
     /// `listIndexes`).
-    #[allow(
-        dead_code,
-        reason = "tests/acceptance.rs reads what converge made with it, through this file"
-    )]
     pub(crate) async fn all(
         &mut self,
         db: &str,

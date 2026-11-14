@@ -24,6 +24,7 @@ const INDEX: &str = "index";
 const DEADLINE: Duration = Duration::from_secs(60);
 /// Documents per insert: well under MongoDB's 100,000 and its 48 MB message.
 const BATCH: usize = 1000;
+const BATCH_BYTES: usize = 16 << 20;
 
 /// MongoDB's codes for "it is already there" and "it is not there".
 const NAMESPACE_EXISTS: i64 = 48;
@@ -126,10 +127,7 @@ async fn index(c: &mut Client, db: &str, coll: &str, ix: &Index) -> Result<()> {
                 Some(INDEX_OPTIONS_CONFLICT | INDEX_KEY_SPECS_CONFLICT)
             ) =>
         {
-            let drop = Doc::new()
-                .with("dropIndexes", coll)
-                .with("index", name.as_str());
-            c.run(db, drop)
+            clear_way(c, db, coll, ix)
                 .await
                 .map_err(|e| failed(format!("rebuilding {}", what()), &e))?;
             c.run(db, create())
@@ -139,6 +137,68 @@ async fn index(c: &mut Client, db: &str, coll: &str, ix: &Index) -> Result<()> {
         }
         Err(e) => Err(failed(format!("creating {}", what()), &e)),
     }
+}
+
+/// Drops what stands in the index's way: an index of its name with other keys or options, or one with its keys under
+/// another name (a renamed index; prune would only drop the old name after converge, so converge would never pass).
+async fn clear_way(
+    c: &mut Client,
+    db: &str,
+    coll: &str,
+    ix: &Index,
+) -> std::result::Result<(), Failure> {
+    let name = index_name(ix);
+    let want = index_spec(ix);
+    let list = Doc::new().with("listIndexes", coll);
+    for have in c.all(db, list, coll).await? {
+        let same_name = have.str("name") == Some(name.as_str());
+        let same_keys = match (have.doc("key"), want.doc("key")) {
+            (Some(a), Some(b)) => same_key(a, b),
+            _ => false,
+        };
+        if let (true, Some(old)) = (same_name || same_keys, have.str("name")) {
+            c.run(db, Doc::new().with("dropIndexes", coll).with("index", old))
+                .await?;
+        }
+    }
+    Ok(())
+}
+
+/// Two key documents name the same fields in the same order with the same directions (a server may send 1 as 1.0).
+fn same_key(a: &Doc, b: &Doc) -> bool {
+    let dir = |v: &Bson| match v {
+        Bson::Int32(n) => Some(i64::from(*n)),
+        Bson::Int64(n) => Some(*n),
+        Bson::Double(d) if d.fract() == 0.0 => Some(*d as i64),
+        _ => None,
+    };
+    a.0.len() == b.0.len()
+        && a.0
+            .iter()
+            .zip(&b.0)
+            .all(|((ka, va), (kb, vb))| ka == kb && dir(va).is_some() && dir(va) == dir(vb))
+}
+
+/// Seed documents per insert: at most `BATCH` and about 16 MB, well under MongoDB's 48 MB message (Go's driver split
+/// by size too).
+fn batches(docs: &[Doc]) -> Vec<Vec<Bson>> {
+    let mut out: Vec<Vec<Bson>> = Vec::new();
+    let mut size = 0;
+    for d in docs {
+        let n = d.to_bytes().len();
+        let full = out
+            .last()
+            .is_none_or(|b| b.len() >= BATCH || size + n > BATCH_BYTES);
+        if full {
+            out.push(Vec::new());
+            size = 0;
+        }
+        size += n;
+        if let Some(b) = out.last_mut() {
+            b.push(Bson::Doc(d.clone()));
+        }
+    }
+    out
 }
 
 /// Inserts the seed's documents while the collection is empty, so a second converge never doubles them.
@@ -160,8 +220,7 @@ async fn seed_collection(
         return Ok(());
     }
     let docs = check::read_seed(seed, dir).map_err(|why| Error::new(ErrorKind::Invalid, why))?;
-    for batch in docs.chunks(BATCH) {
-        let docs: Vec<Bson> = batch.iter().cloned().map(Bson::Doc).collect();
+    for docs in batches(&docs) {
         let insert = Doc::new()
             .with("insert", coll)
             .with("documents", docs)
@@ -204,7 +263,7 @@ impl Objects for Ferret {
                 for (name, keys, unique) in &ixs {
                     out.push(Object {
                         kind: INDEX.into(),
-                        name: format!("{}.{} {name}", d.name, c.name),
+                        name: format!("{}.{}${name}", d.name, c.name),
                         hash: help::object_hash(&(keys, unique)),
                     });
                 }
@@ -245,7 +304,8 @@ fn drop_command(o: &Object) -> Option<(String, Doc)> {
             Some((db.into(), Doc::new().with("drop", coll)))
         }
         INDEX => {
-            let (ns, name) = o.name.split_once(' ')?;
+            // `$` cannot be in a database or collection name, so it divides the namespace from the index's name.
+            let (ns, name) = o.name.split_once('$')?;
             let (db, coll) = ns.split_once('.')?;
             Some((
                 db.into(),
@@ -287,12 +347,12 @@ mod tests {
             name: name.into(),
             hash: String::new(),
         };
-        let (db, cmd) = drop_command(&o(INDEX, "shop.orders by_day")).unwrap();
+        let (db, cmd) = drop_command(&o(INDEX, "shop.my orders$by_day")).unwrap();
         assert_eq!(db, "shop");
         assert_eq!(
             cmd,
             Doc::new()
-                .with("dropIndexes", "orders")
+                .with("dropIndexes", "my orders")
                 .with("index", "by_day")
         );
         let (db, cmd) = drop_command(&o(COLLECTION, "shop.a.b")).unwrap();

@@ -3,7 +3,7 @@
 //! - nothing listens on TCP: Go's PostgreSQL port and FerretDB debug port were picked at random from 30000-40000 per
 //!   plan; Rust's PostgreSQL has its socket only (the fixed 5432 names the socket file) and the debug handler is off;
 //! - the extension hook is an argument list, not a shell line (PLAN.md D14);
-//! - indexes are objects of their own (`db.coll name`), so one removed from doze.hcl is dropped;
+//! - indexes are objects of their own (`db.coll$name`), so one removed from doze.hcl is dropped;
 //! - `auth = true` and `user` blocks are refused at their line: with auth on, FerretDB 2.7 refuses doze's own setup
 //!   (`createUser requires authentication`), so Go failed at boot; without it, Go ignored the users;
 //! - a seed file that is not there is refused at its line (Go failed at converge): the published example's
@@ -79,7 +79,7 @@ fn with_index_objects(go: &mut Value, rust: &Value) {
     for o in objects {
         out.push(o.clone());
         if o["kind"] == "collection" {
-            let prefix = format!("{} ", o["name"].as_str().unwrap());
+            let prefix = format!("{}$", o["name"].as_str().unwrap());
             out.extend(
                 rust["objects"]
                     .as_array()

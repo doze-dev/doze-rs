@@ -12,6 +12,11 @@ pub(crate) fn documents(text: &str) -> Result<Vec<Doc>, String> {
     let Value::Array(items) = v else {
         return Err("it must be a JSON array of documents".into());
     };
+    if let Some(k) = nul_key(&Value::Array(items.clone())) {
+        return Err(format!(
+            "the key {k:?} holds a NUL, which BSON cannot store"
+        ));
+    }
     items
         .into_iter()
         .enumerate()
@@ -20,6 +25,21 @@ pub(crate) fn documents(text: &str) -> Result<Vec<Doc>, String> {
             _ => Err(format!("item {i} is not a document (an object)")),
         })
         .collect()
+}
+
+/// A key anywhere in `v` that holds a NUL (BSON keys end at one).
+fn nul_key(v: &Value) -> Option<String> {
+    match v {
+        Value::Object(o) => o.iter().find_map(|(k, v)| {
+            if k.contains('\0') {
+                Some(k.clone())
+            } else {
+                nul_key(v)
+            }
+        }),
+        Value::Array(a) => a.iter().find_map(nul_key),
+        _ => None,
+    }
 }
 
 fn object(o: serde_json::Map<String, Value>) -> Doc {
@@ -67,8 +87,9 @@ mod tests {
     }
 
     #[test]
-    fn field_order_is_the_files() {
-        // serde_json's preserve_order is not on: keys come back sorted, which is what Go's map did too.
+    fn fields_come_back_sorted_as_go_stored_them() {
+        // serde_json's preserve_order is not on (it would change every crate's JSON in a workspace build): keys come
+        // back sorted, as Go's map stored them.
         let d = documents(r#"[{"_id": 1, "tags": ["x", {"y": null}], "ok": true}]"#).unwrap();
         let keys: Vec<&str> = d[0].0.iter().map(|(k, _)| k.as_str()).collect();
         assert_eq!(keys, ["_id", "ok", "tags"]);
@@ -79,5 +100,10 @@ mod tests {
         assert!(documents("{}").unwrap_err().contains("array"));
         assert!(documents("[1]").unwrap_err().contains("item 0"));
         assert!(documents("[").unwrap_err().contains("not JSON"));
+        assert!(
+            documents(r#"[{"a": {"b\u0000c": 1}}]"#)
+                .unwrap_err()
+                .contains("NUL")
+        );
     }
 }

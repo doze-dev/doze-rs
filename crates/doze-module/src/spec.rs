@@ -14,7 +14,8 @@ pub trait Spec: Sized {
     fn labels() -> Vec<String> {
         Vec::new()
     }
-    /// What makes two blocks of the type the same one: its labels, then its `key` arguments. Two the same is refused.
+    /// What makes two blocks of the type the same one: its labels, then its `key` arguments, compared as written (a
+    /// left-out key is not its default). Two the same are refused.
     fn identity() -> Vec<String> {
         Self::labels()
     }

@@ -7,7 +7,7 @@ use doze_module::proto::msg::instance::Instance;
 use doze_module::proto::msg::value::PathSeg;
 use std::path::Path;
 
-/// FERRETDB_* settings doze sets itself (Go's list, and telemetry is left to the user).
+/// FERRETDB_* settings doze sets itself (Go's list and `listen_tls`; telemetry is left to the user).
 pub(crate) const OWNED: &[&str] = &[
     "postgresql_url",
     "listen_unix",
@@ -151,9 +151,26 @@ fn collection(
             ));
         }
     }
+    let mut seen: Vec<(String, Vec<(&String, &i64)>)> = Vec::new();
     for (i, ix) in c.index.iter().enumerate() {
         let mut p = here.clone();
         p.extend([key("index"), index(i)]);
+        let (name, keys) = (
+            crate::converge::index_name(ix),
+            ix.keys.iter().collect::<Vec<_>>(),
+        );
+        if seen.iter().any(|(n, k)| *n == name || *k == keys) {
+            let msg = format!(
+                "index {name:?} has the name or the keys of another index on {:?}",
+                c.name
+            );
+            out.push(at(
+                p.clone(),
+                msg,
+                Some("one index block per name and per set of keys"),
+            ));
+        }
+        seen.push((name, keys));
         index_rules(ix, p, out);
     }
 }
@@ -200,11 +217,26 @@ fn index_rules(ix: &Index, here: Vec<PathSeg>, out: &mut Vec<Diagnostic>) {
 /// The seed file's documents: the path relative to the block's folder, read and parsed now so a missing or broken file
 /// is said at its line, not at the first converge.
 pub(crate) fn read_seed(seed: &str, dir: &str) -> Result<Vec<crate::bson::Doc>, String> {
+    if dir.is_empty() && !Path::new(seed).is_absolute() {
+        return Err(format!(
+            "seed {seed:?} is relative, and doze gave no folder for it to be relative to"
+        ));
+    }
     let file = seed_path(seed, dir);
     let text = std::fs::read_to_string(&file)
         .map_err(|e| format!("cannot read seed {}: {e}", file.display()))?;
-    json::documents(&text).map_err(|why| format!("seed {}: {why}", file.display()))
+    let docs = json::documents(&text).map_err(|why| format!("seed {}: {why}", file.display()))?;
+    if let Some(i) = docs.iter().position(|d| d.to_bytes().len() > MAX_DOCUMENT) {
+        return Err(format!(
+            "seed {}: document {i} is over MongoDB's 16 MiB",
+            file.display()
+        ));
+    }
+    Ok(docs)
 }
+
+/// MongoDB's largest document.
+const MAX_DOCUMENT: usize = 16 << 20;
 
 /// Where the seed file is: as given when absolute, else under the block's folder.
 pub(crate) fn seed_path(seed: &str, dir: &str) -> std::path::PathBuf {
@@ -239,7 +271,7 @@ fn users(s: &FerretSpec, out: &mut Vec<Diagnostic>) {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[allow(clippy::unwrap_used, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 
@@ -262,5 +294,97 @@ mod tests {
         assert_eq!(seed_path("s.json", "/p"), Path::new("/p/s.json"));
         assert_eq!(seed_path("/abs/s.json", "/p"), Path::new("/abs/s.json"));
         assert_eq!(seed_path("s.json", ""), Path::new("s.json"));
+    }
+    fn spec(settings: &[(&str, &str)], indexes: Vec<Index>) -> FerretSpec {
+        FerretSpec {
+            database: vec![crate::Database {
+                name: "shop".into(),
+                collection: vec![Collection {
+                    name: "c".into(),
+                    seed: None,
+                    index: indexes,
+                }],
+            }],
+            settings: settings
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            auth: false,
+            user: vec![],
+        }
+    }
+
+    fn ix(name: Option<&str>, keys: &[(&str, i64)]) -> Index {
+        Index {
+            name: name.map(str::to_owned),
+            keys: keys.iter().map(|(k, v)| (k.to_string(), *v)).collect(),
+            unique: false,
+        }
+    }
+
+    fn messages(s: &FerretSpec) -> Vec<String> {
+        let inst = Instance {
+            name: "f".into(),
+            engine: "ferret".into(),
+            version: "2.7".into(),
+            data_dir: String::new(),
+            socket_dir: String::new(),
+            spec: doze_module::proto::msg::value::Node::bare(
+                doze_module::proto::msg::value::Value::Null,
+            ),
+            host: String::new(),
+            listeners: Default::default(),
+            deps: vec![],
+            toolchain: None,
+            dir: String::new(),
+        };
+        check(s, &inst).into_iter().map(|d| d.message).collect()
+    }
+
+    #[test]
+    fn owned_and_malformed_settings_are_refused() {
+        let m = messages(&spec(
+            &[
+                ("Debug_Addr", "x"),
+                ("log level", "y"),
+                ("log_level", "debug"),
+            ],
+            vec![],
+        ));
+        assert_eq!(m.len(), 2, "{m:?}");
+        assert!(m[0].contains("FERRETDB_DEBUG_ADDR is doze's"), "{m:?}");
+        assert!(m[1].contains("not a FerretDB setting name"), "{m:?}");
+    }
+
+    #[test]
+    fn index_keys_and_repeats_are_refused() {
+        let m = messages(&spec(&[], vec![ix(None, &[("a", 2)]), ix(None, &[])]));
+        assert!(
+            m.iter().any(|x| x.contains("must be 1 or -1, not 2")),
+            "{m:?}"
+        );
+        assert!(m.iter().any(|x| x.contains("at least one key")), "{m:?}");
+        let same_keys = messages(&spec(
+            &[],
+            vec![ix(Some("a"), &[("k", 1)]), ix(Some("b"), &[("k", 1)])],
+        ));
+        assert_eq!(same_keys.len(), 1, "{same_keys:?}");
+        let same_name = messages(&spec(
+            &[],
+            vec![ix(Some("a"), &[("k", 1)]), ix(Some("a"), &[("j", 1)])],
+        ));
+        assert_eq!(same_name.len(), 1, "{same_name:?}");
+        assert!(
+            messages(&spec(
+                &[],
+                vec![ix(None, &[("k", 1)]), ix(None, &[("k", -1)])]
+            ))
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_relative_seed_needs_a_folder() {
+        assert!(read_seed("s.json", "").unwrap_err().contains("relative"));
     }
 }

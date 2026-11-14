@@ -77,7 +77,6 @@ impl Doc {
     }
 
     /// A document field.
-    #[allow(dead_code, reason = "used by Client::all")]
     pub(crate) fn doc(&self, key: &str) -> Option<&Doc> {
         match self.get(key)? {
             Bson::Doc(d) => Some(d),

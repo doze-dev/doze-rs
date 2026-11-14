@@ -8,6 +8,12 @@ pub fn alive(pid: u32) -> bool {
     pid != 0 && imp::alive(pid)
 }
 
+/// Whether `pid` is a live process this user owns (may signal). A pid file's process that is another user's is not the
+/// one that wrote it (PostgreSQL's own lock check reads EPERM so), e.g. after a reboot reused the number.
+pub fn alive_own(pid: u32) -> bool {
+    pid != 0 && imp::alive_own(pid)
+}
+
 /// Asks a process to stop: SIGTERM on Unix, which it may catch and finish its work for. Windows has no such polite
 /// word for a process doze did not start, so there it is refused.
 pub fn terminate(pid: u32) -> std::io::Result<()> {
@@ -44,6 +50,13 @@ mod imp {
             Ok(()) => true,
             Err(e) => e == Errno::PERM,
         }
+    }
+
+    pub(super) fn alive_own(pid: u32) -> bool {
+        i32::try_from(pid)
+            .ok()
+            .and_then(Pid::from_raw)
+            .is_some_and(|pid| test_kill_process(pid).is_ok())
     }
 
     pub(super) fn terminate(pid: u32) -> std::io::Result<()> {
@@ -88,6 +101,19 @@ mod imp {
         // SAFETY: `handle` was opened above and is closed exactly once.
         unsafe { CloseHandle(handle) };
         ok != 0 && code == u32::try_from(STILL_ACTIVE).unwrap_or(259)
+    }
+
+    /// A process another user owns cannot be opened for its exit code (access denied), so `alive`'s second half is
+    /// exactly "ours".
+    pub(super) fn alive_own(pid: u32) -> bool {
+        // SAFETY: OpenProcess takes plain values and returns a handle or null; no pointers are passed.
+        let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+        if handle.is_null() {
+            return false;
+        }
+        // SAFETY: `handle` was opened above and is closed exactly once.
+        unsafe { CloseHandle(handle) };
+        alive(pid)
     }
 
     pub(super) fn terminate(_: u32) -> std::io::Result<()> {

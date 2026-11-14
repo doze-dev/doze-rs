@@ -39,7 +39,9 @@ fn main() -> std::process::ExitCode {
   the registry) and of decoding (typed fields from the core's `Value` tree, with a diagnostic at the field's path for
   anything wrong). They cannot drift. Supported: `String`, `bool`, integers, `f64`, `Option<T>`, `Vec<T>`,
   `BTreeMap<String, T>`, nested `#[spec(block)]` structs (repeated: `Vec<…>`, labelled: a `#[spec(label)]` field).
-  Field attributes: `doc`, `default`, `since`, `until`, `rename`. `Module::check` adds semantic rules a schema cannot
+  Field attributes: `doc`, `default`, `since`, `until`, `rename`, `key` (an argument that joins the labels in a
+  block's identity: two blocks with the same labels and the same key values, as written, are refused; a module whose
+  key has a default, as mariadb's `host` "%", catches "left out" equal to the default in its own `check`). `Module::check` adds semantic rules a schema cannot
   state, as diagnostics.
 - **Block encoding in the `Value` tree** (the core's side of the contract): an argument is a map entry; a nested block
   type is a map entry holding a list of maps, one per block; a block's labels are entries of its map named after the

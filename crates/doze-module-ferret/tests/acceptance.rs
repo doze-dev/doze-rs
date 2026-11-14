@@ -246,7 +246,7 @@ async fn converge_rebuilds_a_changed_index_and_prune_drops_what_left() {
         .collect();
     assert_eq!(
         removed.iter().map(|o| o.name.as_str()).collect::<Vec<_>>(),
-        ["shop.products by_qty", "shop.old"]
+        ["shop.products$by_qty", "shop.old"]
     );
     b.module
         .prune(&PruneArgs {
@@ -267,6 +267,42 @@ async fn converge_rebuilds_a_changed_index_and_prune_drops_what_left() {
     );
     assert_eq!(collections(&mut c, "shop").await, ["products"]);
     graceful(&b.stop(Duration::from_secs(30)).await);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_renamed_index_converges() {
+    let Some(h) = harness() else { return };
+    let b = h.boot(SEEDED).await.unwrap();
+    // The same keys under a new name: the old index is in the way of the new one until prune, which runs after.
+    let renamed = SEEDED.replace("name = \"by_qty\"", "name = \"qty_desc\"");
+    let mut inst = b.instance.clone();
+    inst.spec = doze_module_test::hcl::parse_block(&renamed, &b.module.manifest.schema)
+        .unwrap()
+        .spec;
+    let with = WithToolchain {
+        instance: inst,
+        toolchain: b.toolchain.clone(),
+    };
+    b.module.converge(&with).await.unwrap();
+    b.module.converge(&with).await.unwrap();
+    let mut c = client(&b).await;
+    assert_eq!(
+        names(&indexes(&mut c, "shop", "products").await),
+        ["_id_", "qty_desc", "sku_1"]
+    );
+    graceful(&b.stop(Duration::from_secs(30)).await);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_seed_the_server_refuses_fails_the_converge() {
+    let Some(h) = harness() else { return };
+    // Two documents with one _id: the insert says ok and lists the second in writeErrors.
+    let dup = SEEDED.replace("tests/seed/products.json", "tests/seed/duplicate.json");
+    let e = h.boot(&dup).await.unwrap_err();
+    assert!(
+        e.contains("seeding shop.products") && e.contains("11000"),
+        "{e}"
+    );
 }
 
 #[tokio::test(flavor = "current_thread")]
