@@ -168,7 +168,10 @@ impl InstanceView {
             })
             .unwrap_or_else(|| instance_page(&st, &self.name, None, now, zone()));
         self.dir.clone_from(&st.dir);
-        let has_console = st.instance(&self.name).is_some_and(|v| v.has_console);
+        // A console is a module's alone (the owner's rule): no other kind's page subscribes to one.
+        let has_console = st
+            .instance(&self.name)
+            .is_some_and(|v| v.has_console && v.kind == "module");
         if has_console && self._watches.2.is_none() {
             self._watches.2 = Some(self.hub.watch_console(&self.key, &self.name));
         }

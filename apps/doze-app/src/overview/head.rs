@@ -7,7 +7,7 @@ use super::{OverviewView, View};
 use crate::kit::{Btn, btn, density, s};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
-use crate::widgets::{switch, tag, tip};
+use crate::widgets::{switch, tip};
 use doze_desk::overview::titles;
 
 /// `.head`: the name, the folder and how long up (or stopped and when); the views; Activity, All logs; Up.
@@ -86,7 +86,7 @@ pub(super) fn head(
 /// Where the head's menu hangs: 8 px into the head's foot, as Go's `top: calc(100% - 8px)`.
 const MENU_AT: f32 = 70.;
 
-/// The segmented switch: Tiles · List · Map · Grid (new).
+/// The segmented switch: Tiles · List · Map · Grid (no "new" tag: the owner's call, the whole app is new).
 fn views(t: &Tokens, v: &OverviewView, cx: &mut Context<OverviewView>) -> impl IntoElement {
     div()
         .flex()
@@ -118,7 +118,6 @@ fn views(t: &Tokens, v: &OverviewView, cx: &mut Context<OverviewView>) -> impl I
                 .when(!on, |d| d.text_color(t.dim).hover(|d| d.text_color(t.text)))
                 .when(i < 3, |d| d.border_r_1().border_color(t.line))
                 .child(label)
-                .when(view == View::Grid, |d| d.child(tag(t, "new")))
                 .probe(format!("view-{}", view.word()), label)
                 .on_click(cx.listener(move |this, _, _, cx| this.set_view(view, cx)))
         }))

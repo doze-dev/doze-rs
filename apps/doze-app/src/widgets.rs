@@ -175,19 +175,6 @@ pub(crate) fn kbd_chip(
         .children(key_runs(text, size))
 }
 
-/// `.tag`: the NEW pill, 9px/700, .08em tracking.
-pub(crate) fn tag(t: &Tokens, text: &str) -> impl IntoElement {
-    div()
-        .flex_none()
-        .px(px(4.))
-        .h(px(14.))
-        .flex()
-        .items_center()
-        .rounded(px(3.))
-        .bg(t.accent)
-        .child(tracked(text, ty::TAG, ty::BOLD, t.ink, 0.72))
-}
-
 /// What a segmented-control cell does when clicked.
 pub(crate) type OnClick = crate::kit::Click;
 
