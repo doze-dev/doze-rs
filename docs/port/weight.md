@@ -932,8 +932,32 @@ app no longer fits 16 MB. The levers left are a patched gpui-component without t
 above) and the CLI's clock on chrono instead of jiff (about 120 KB). After that, the 16 MB ceiling itself is an owner
 question.
 
-**The CI line** moves from 16,000,000 B to **15,500,000 B**: this build plus about 260 KB, so creep is caught here. The
-engine's join (projected +0.62 MB) brings it back to 16 MB with its own numbers. Packages stay at 650 (measured 650).
+**The CI line** first moved to 15,500,000 B, this build plus about 260 KB. It now follows the 20 MB ceiling below.
+
+**The image formats (vendor/gpui-pre/PATCHES.md).** gpui-pre, gpui-pre-macos and gpui-pre-apple each hard-code
+`image` with every format it decodes. The app decodes none of them: its tray PNGs go through AppKit, and everything
+else is SVG through resvg. All three are now vendored with `features = ["png"]`, and GIF and WebP decoding return an
+error. Result: **14,526,560 B (−730,768 B), 634 packages** (was 650). The shots of library, tiles, map, palette, about
+and instance (the bat mark and the icons) were compared with the build before the patch and draw the same.
+
+**The ceiling is now 20 MB (owner decision, 2026-11-15).** The app is one binary with the GUI, the whole CLI and,
+soon, the daemon, so the 16 MB budget, set for a GUI alone, no longer describes it. The CI line follows the rule the
+other binaries use: **the measured size plus 5%, 15,252,888 B**, and the measured package count, 634. With the engine
+and the daemon as they stand (+0.62 MB at "z") the app projects to about 15.15 MB, 4.85 MB under the ceiling.
+
+**opt-level 3, checked again with the room** (same method, the machine quieter; medians of 5 interleaved rounds; P is
+the profile above with the image patch):
+
+| | Binary | Map layout | Map pan / zoom / hover / fly, median | First frame | `status` / `version` |
+|---|---|---|---|---|---|
+| P (taken) | 14,526,560 B | 0.56 ms | 5.1 / 5.4 / 5.5 / 6.1 ms | 45 ms | 7.56 / 7.32 ms |
+| J: P with doze-desk and doze-map at 3 | 14,806,928 B | 0.79 ms | 6.8 / 6.7 / 8.0 / 8.1 ms | 59 ms | 10.07 / 8.18 ms |
+| K: P with the base at 3 (all of GPUI and the app) | 17,348,784 B | 0.70 ms | 5.2 / 4.9 / 5.5 / 5.2 ms | 50 ms | 9.02 / 8.83 ms |
+
+Neither is a real gain. J is no faster anywhere, and reads slower in every figure on this shared machine (the cause
+was not chased; it is not a gain either way). K costs 2.8 MB and moves the Map's frames by under a millisecond either way. So P stays. The
+logs bench could not run in this round: the window got no frames from the display, as before `--display` existed, so
+the logs figures are the ones above.
 
 `doze-app bench --logs` now takes `--display N` as the open bench does. Without it, on a Mac whose built-in display
 hides the window, the scroll step waits for frames that never come.
