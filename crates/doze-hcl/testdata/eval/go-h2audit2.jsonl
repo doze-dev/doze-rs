@@ -1,0 +1,402 @@
+{"id":"hand2.0000","ok":true,"type":"bool","value":false}
+{"id":"hand2.0003","ok":true,"type":"bool","value":false}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":30,"byte":29},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"format\" failed: unrecognized format character '1' at offset 4.","sev":"error","summary":"Error in function call"}],"id":"hand2.0005","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":29,"byte":28},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"format\" failed: not enough arguments for \"%[1000001]d\" at 0: need index 1000001 but have 1 total.","sev":"error","summary":"Error in function call"}],"id":"hand2.0006","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":24,"byte":23},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"format\" failed: unrecognized format character '%' at offset 8.","sev":"error","summary":"Error in function call"}],"id":"hand2.0007","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"flatten\" failed: can only flatten lists, sets and tuples.","sev":"error","summary":"Error in function call"}],"id":"hand2.0010","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"flatten\" failed: can only flatten lists, sets and tuples.","sev":"error","summary":"Error in function call"}],"id":"hand2.0011","ok":false,"stage":"eval"}
+{"id":"hand2.0012","ok":true,"type":["tuple",["string",["object",{"c":["tuple",["number"]]}]]],"value":[{"unknown":true},{"obj":[["c",[{"num":"1"}]]]}]}
+{"id":"hand2.0013","ok":true,"type":["tuple",["string","number"]],"value":[{"unknown":true},{"num":"1"}]}
+{"id":"hand2.0014","ok":true,"type":["tuple",["dynamic","string"]],"value":[null,{"unknown":true}]}
+{"id":"hand2.0015","ok":true,"type":["tuple",[["object",{"a":"string"}]]],"value":[{"obj":[["a",{"unknown":true}]]}]}
+{"id":"hand2.0016","ok":true,"type":["tuple",["string","string"]],"value":[{"unknown":true},"x"]}
+{"id":"hand2.0017","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"hand2.0018","ok":true,"type":["tuple",["string","number"]],"value":[{"unknown":true},{"num":"1"}]}
+{"id":"hand2.0019","ok":true,"type":["tuple",["number","number","string"]],"value":[{"num":"1"},{"num":"2"},{"unknown":true}]}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":21,"byte":20},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"flatten\" failed: can only flatten lists, sets and tuples.","sev":"error","summary":"Error in function call"}],"id":"hand2.0020","ok":false,"stage":"eval"}
+{"id":"hand2.0021","ok":true,"type":["tuple",["string"]],"value":[{"unknown":true}]}
+{"id":"hand2.0022","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"hand2.0023","ok":true,"type":["map","string"],"value":{"obj":[["a","a"],["b","b"]]}}
+{"id":"hand2.0024","ok":true,"type":["map","string"],"value":{"obj":[]}}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":26,"byte":25},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"env_of\" failed: panic in function implementation: not a string","sev":"error","summary":"Error in function call"}],"id":"hand2.0025","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":34,"byte":33},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"env_of\" failed: panic in function implementation: not a string","sev":"error","summary":"Error in function call"}],"id":"hand2.0026","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":44,"byte":43},"file":"x.hcl","start":{"line":1,"col":43,"byte":42}},"context":{"end":{"line":1,"col":64,"byte":63},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"blocks\" parameter: x and argument 2 both set A; write that one by hand, for example env = merge(env_of(module.x), { A = module.argument 2.url }).","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0027","ok":false,"stage":"eval"}
+{"id":"hand2.0028","ok":true,"type":["map","string"],"value":{"obj":[]}}
+{"id":"hand2.0029","ok":true,"type":["map","string"],"value":{"obj":[]}}
+{"diags":[{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":24,"byte":23}},"context":{"end":{"line":1,"col":26,"byte":25},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"blocks\" parameter: env_of takes blocks that publish env, such as module.db.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0030","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":32,"byte":31},"file":"x.hcl","start":{"line":1,"col":31,"byte":30}},"context":{"end":{"line":1,"col":47,"byte":46},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"blocks\" parameter: argument 1 and argument 2 both set A; write that one by hand, for example env = merge(env_of(module.argument 1), { A = module.argument 2.url }).","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0031","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":30,"byte":29},"file":"x.hcl","start":{"line":1,"col":29,"byte":28}},"context":{"end":{"line":1,"col":47,"byte":46},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"blocks\" parameter: argument 1 and argument 2 both set A; write that one by hand, for example env = merge(env_of(module.argument 1), { A = module.argument 2.url }).","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0032","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":38,"byte":37},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"env_of\" failed: panic in function implementation: not a string","sev":"error","summary":"Error in function call"}],"id":"hand2.0033","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":43,"byte":42},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"env_of\" failed: panic in function implementation: not a string","sev":"error","summary":"Error in function call"}],"id":"hand2.0034","ok":false,"stage":"eval"}
+{"id":"hand2.0035","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0036","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0037","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0038","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"hand2.0039","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"hand2.0040","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0041","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0042","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0043","ok":true,"type":"bool","value":true}
+{"id":"hand2.0044","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0045","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0046","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0047","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"hand2.0048","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"hand2.0049","ok":true,"type":"number","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":19,"byte":18}},"context":{"end":{"line":1,"col":50,"byte":49},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"detail":"Invalid value for \"seqs\" parameter: all arguments must be lists or tuples; got set of string.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0050","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":19,"byte":18}},"context":{"end":{"line":1,"col":50,"byte":49},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"detail":"Invalid value for \"seqs\" parameter: all arguments must be lists or tuples; got set of string.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0051","ok":false,"stage":"eval"}
+{"id":"hand2.0052","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"hand2.0053","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"hand2.0054","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0055","ok":true,"type":"bool","value":true}
+{"id":"hand2.0056","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"hand2.0057","ok":true,"type":"bool","value":true}
+{"id":"hand2.0058","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0059","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0060","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0061","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"hand2.0062","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"hand2.0063","ok":true,"type":"bool","value":true}
+{"id":"hand2.0064","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0065","ok":true,"type":["list","string"],"value":{"unknown":true}}
+{"id":"hand2.0066","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0067","ok":true,"type":["list","string"],"value":{"unknown":true}}
+{"id":"hand2.0068","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"hand2.0069","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"hand2.0070","ok":true,"type":["list","string"],"value":{"unknown":true}}
+{"id":"hand2.0071","ok":true,"type":"bool","value":true}
+{"id":"hand2.0072","ok":true,"type":"bool","value":true}
+{"id":"hand2.0073","ok":true,"type":"bool","value":true}
+{"id":"hand2.0074","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0075","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0076","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0077","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0078","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0079","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0080","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"hand2.0081","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0082","ok":true,"type":"string","value":"9007199254740993"}
+{"id":"hand2.0083","ok":true,"type":"string","value":"20000000000001"}
+{"id":"hand2.0084","ok":true,"type":"string","value":"9007199254740993.000000"}
+{"id":"hand2.0085","ok":true,"type":"string","value":"1.234568e+29"}
+{"id":"hand2.0086","ok":true,"type":"string","value":"1.23e+29"}
+{"id":"hand2.0087","ok":true,"type":"string","value":"1.2345678901234567890123456789e+29"}
+{"id":"hand2.0088","ok":true,"type":"string","value":"123456789012345678901234567890"}
+{"id":"hand2.0089","ok":true,"type":"string","value":"123456789012345678901234567890"}
+{"id":"hand2.0090","ok":true,"type":"string","value":"1100011101110100100001111111101101100001101110011111000001110111001001110001111110000101011010010"}
+{"id":"hand2.0091","ok":true,"type":"string","value":"1447626234640431647336510000000000"}
+{"id":"hand2.0092","ok":true,"type":"string","value":"C9F2C9CD04674EDEA40000000"}
+{"id":"hand2.0093","ok":true,"type":"string","value":"0.33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333335"}
+{"id":"hand2.0094","ok":true,"type":"string","value":"0.333333"}
+{"id":"hand2.0095","ok":true,"type":"string","value":"0.333333333333333333333333333333333333333333333333333333333333"}
+{"id":"hand2.0096","ok":true,"type":"string","value":"3.333333e-01"}
+{"id":"hand2.0097","ok":true,"type":"string","value":"1.0000000000000000000000000000000000000000e-01"}
+{"id":"hand2.0098","ok":true,"type":"string","value":"0.3"}
+{"id":"hand2.0099","ok":true,"type":"string","value":"0.3"}
+{"id":"hand2.0100","ok":true,"type":"string","value":"100000000000000000000"}
+{"id":"hand2.0101","ok":true,"type":"string","value":"-100000000000000000000"}
+{"id":"hand2.0102","ok":true,"type":"string","value":"-56bc75e2d63100000"}
+{"id":"hand2.0103","ok":true,"type":"string","value":"2"}
+{"id":"hand2.0104","ok":true,"type":"string","value":"1"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"format\" failed: unsupported value for \"%d\" at 0: an integer is required.","sev":"error","summary":"Error in function call"}],"id":"hand2.0105","ok":false,"stage":"eval"}
+{"id":"hand2.0106","ok":true,"type":"string","value":"1e-400"}
+{"id":"hand2.0107","ok":true,"type":"string","value":"1.000000e-400"}
+{"id":"hand2.0108","ok":true,"type":"string","value":"1.000000e+40000"}
+{"id":"hand2.0109","ok":true,"type":"string","value":"9.999999999999999e+22"}
+{"id":"hand2.0110","ok":true,"type":"string","value":"1e+23"}
+{"id":"hand2.0111","ok":true,"type":"string","value":"1e+23"}
+{"id":"hand2.0112","ok":true,"type":"string","value":"100000000000000000000000.000000"}
+{"id":"hand2.0113","ok":true,"type":"string","value":"0.000000"}
+{"id":"hand2.0114","ok":true,"type":"string","value":"5e-324"}
+{"id":"hand2.0115","ok":true,"type":"string","value":"2.2250738585072014e-308"}
+{"id":"hand2.0116","ok":true,"type":"string","value":"1.797693e+308"}
+{"id":"hand2.0117","ok":true,"type":"string","value":"1.7976931348623157e+308"}
+{"id":"hand2.0118","ok":true,"type":"string","value":"1.7976931348623159e+308"}
+{"id":"hand2.0119","ok":true,"type":"string","value":"1.797693e+308"}
+{"id":"hand2.0120","ok":true,"type":"string","value":"179769313486231590000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}
+{"id":"hand2.0121","ok":true,"type":"string","value":"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005"}
+{"id":"hand2.0122","ok":true,"type":"string","value":"0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025"}
+{"id":"hand2.0123","ok":true,"type":"string","value":"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"}
+{"id":"hand2.0124","ok":true,"type":"string","value":"99999999999999990000000"}
+{"id":"hand2.0125","ok":true,"type":"string","value":"100000000000000000000000"}
+{"id":"hand2.0126","ok":true,"type":"string","value":"0.3"}
+{"id":"hand2.0127","ok":true,"type":"string","value":"0.3"}
+{"id":"hand2.0128","ok":true,"type":"string","value":"179769313486231590000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}
+{"id":"hand2.0129","ok":true,"type":"string","value":"0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005"}
+{"id":"hand2.0130","ok":true,"type":"string","value":"-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005"}
+{"id":"hand2.0131","ok":true,"type":"string","value":"-5e-325"}
+{"id":"hand2.0132","ok":true,"type":"string","value":"-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005"}
+{"id":"hand2.0133","ok":true,"type":"string","value":"1"}
+{"id":"hand2.0134","ok":true,"type":"string","value":"1"}
+{"id":"hand2.0135","ok":true,"type":"string","value":"10"}
+{"id":"hand2.0136","ok":true,"type":"string","value":"A"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":35,"byte":34},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0137","ok":false,"stage":"eval"}
+{"id":"hand2.0138","ok":true,"type":"string","value":"A"}
+{"id":"hand2.0139","ok":true,"type":"string","value":"A"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":33,"byte":32},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0140","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":30,"byte":29},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0141","ok":false,"stage":"eval"}
+{"id":"hand2.0142","ok":true,"type":"string","value":"a"}
+{"id":"hand2.0143","ok":true,"type":"string","value":"\t"}
+{"id":"hand2.0144","ok":true,"type":"string","value":""}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":30,"byte":30},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0145","ok":false,"stage":"eval"}
+{"id":"hand2.0146","ok":true,"type":"string","value":" "}
+{"id":"hand2.0147","ok":true,"type":"string","value":"!$+<=>^`|~"}
+{"id":"hand2.0148","ok":true,"type":"string","value":"f"}
+{"id":"hand2.0149","ok":true,"type":"string","value":"fF"}
+{"id":"hand2.0150","ok":true,"type":"string","value":"K"}
+{"id":"hand2.0151","ok":true,"type":"string","value":"K"}
+{"id":"hand2.0152","ok":true,"type":"string","value":"K"}
+{"id":"hand2.0153","ok":true,"type":"string","value":"K"}
+{"id":"hand2.0154","ok":true,"type":"string","value":"k"}
+{"id":"hand2.0155","ok":true,"type":"string","value":"́"}
+{"id":"hand2.0156","ok":true,"type":"string","value":"a\rb"}
+{"id":"hand2.0157","ok":true,"type":"string","value":"a\rb"}
+{"id":"hand2.0158","ok":true,"type":"string","value":"\n"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0159","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":29,"byte":28},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0160","ok":false,"stage":"eval"}
+{"id":"hand2.0161","ok":true,"type":"string","value":"a"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":22,"byte":22},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0162","ok":false,"stage":"eval"}
+{"id":"hand2.0163","ok":true,"type":"string","value":"a"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":24,"byte":25},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0164","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":26,"byte":27},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0165","ok":false,"stage":"eval"}
+{"id":"hand2.0166","ok":true,"type":"string","value":"1"}
+{"id":"hand2.0167","ok":true,"type":"string","value":"١٢"}
+{"id":"hand2.0168","ok":true,"type":"string","value":"a1"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":26,"byte":25},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0169","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0170","ok":false,"stage":"eval"}
+{"id":"hand2.0171","ok":true,"type":"string","value":"a"}
+{"id":"hand2.0172","ok":true,"type":"string","value":"a"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":27,"byte":28},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0173","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":29,"byte":28},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0174","ok":false,"stage":"eval"}
+{"id":"hand2.0175","ok":true,"type":"string","value":"\u0000"}
+{"id":"hand2.0176","ok":true,"type":["tuple",["string","string"]],"value":["a",""]}
+{"id":"hand2.0177","ok":true,"type":["tuple",["string","string"]],"value":["aaa",""]}
+{"id":"hand2.0178","ok":true,"type":"string","value":"a"}
+{"id":"hand2.0179","ok":true,"type":"string","value":"aaa"}
+{"id":"hand2.0180","ok":true,"type":"string","value":"a"}
+{"id":"hand2.0181","ok":true,"type":"string","value":"a\n"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":31,"byte":30},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"regex\" failed: pattern did not match any part of the given string.","sev":"error","summary":"Error in function call"}],"id":"hand2.0182","ok":false,"stage":"eval"}
+{"id":"hand2.0183","ok":true,"type":"string","value":"\n"}
+{"id":"hand2.0184","ok":true,"type":"string","value":"xxx"}
+{"diags":[{"at":{"end":{"line":1,"col":33,"byte":32},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":39,"byte":38},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"pattern\" parameter: invalid regexp pattern: invalid repeat count in {0,1000}.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0185","ok":false,"stage":"eval"}
+{"id":"hand2.0186","ok":true,"type":"string","value":"aaaaaaaaaaaaaaaa"}
+{"id":"hand2.0187","ok":true,"type":["tuple",["string","string","string","string","string","string","string","string","string","string","string"]],"value":["a","a","a","a","a","a","a","a","a","a","a"]}
+{"id":"hand2.0188","ok":true,"type":["object",{"n_1":"string"}],"value":{"obj":[["n_1","a"]]}}
+{"diags":[{"at":{"end":{"line":1,"col":22,"byte":21},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":29,"byte":28},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"pattern\" parameter: invalid regexp pattern: invalid named capture in (?P<n.1>.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0189","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":20,"byte":20},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":27,"byte":27},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"pattern\" parameter: invalid regexp pattern: invalid named capture in (?P<ñ>.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0190","ok":false,"stage":"eval"}
+{"id":"hand2.0191","ok":true,"type":["object",{"a1":"string","a2":"string"}],"value":{"obj":[["a1","a"],["a2",null]]}}
+{"id":"hand2.0192","ok":true,"type":["object",{"a":"string","b":"string"}],"value":{"obj":[["a","x"],["b",null]]}}
+{"id":"hand2.0193","ok":true,"type":["object",{"a":"string","b":"string"}],"value":{"obj":[["a",null],["b","y"]]}}
+{"id":"hand2.0194","ok":true,"type":["object",{"a":"string"}],"value":{"obj":[["a",""]]}}
+{"id":"hand2.0195","ok":true,"type":["object",{"a":"string"}],"value":{"obj":[["a",""]]}}
+{"id":"hand2.0196","ok":true,"type":["object",{"a":"string"}],"value":{"obj":[["a",null]]}}
+{"id":"hand2.0197","ok":true,"type":["tuple",["string"]],"value":[null]}
+{"id":"hand2.0198","ok":true,"type":["tuple",["string"]],"value":["a"]}
+{"id":"hand2.0199","ok":true,"type":["tuple",["string"]],"value":["b"]}
+{"id":"hand2.0200","ok":true,"type":["tuple",["string","string"]],"value":["a","c"]}
+{"id":"hand2.0201","ok":true,"type":"string","value":"("}
+{"id":"hand2.0202","ok":true,"type":"string","value":"("}
+{"id":"hand2.0203","ok":true,"type":["tuple",["string"]],"value":["a"]}
+{"id":"hand2.0204","ok":true,"type":"string","value":"(a)"}
+{"id":"hand2.0205","ok":true,"type":["tuple",["string"]],"value":[")"]}
+{"diags":[{"at":{"end":{"line":1,"col":21,"byte":20},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"pattern\" parameter: invalid regexp pattern: invalid escape sequence in \\Q.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0206","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":27,"byte":26},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"pattern\" parameter: invalid regexp pattern: invalid escape sequence in \\Q.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0207","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":30,"byte":29},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"pattern\" parameter: invalid regexp pattern: invalid escape sequence in \\Q.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0208","ok":false,"stage":"eval"}
+{"id":"hand2.0209","ok":true,"type":"string","value":"abc"}
+{"id":"hand2.0210","ok":true,"type":"string","value":"ab"}
+{"diags":[{"at":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"pattern\" parameter: invalid regexp pattern: invalid escape sequence in \\E.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0211","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":21,"byte":20},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"pattern\" parameter: invalid regexp pattern: invalid escape sequence in \\E.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0212","ok":false,"stage":"eval"}
+{"id":"hand2.0213","ok":true,"type":"string","value":"k"}
+{"id":"hand2.0214","ok":true,"type":"string","value":"ABC"}
+{"id":"hand2.0215","ok":true,"type":"string","value":"a\nb"}
+{"id":"hand2.0216","ok":true,"type":"string","value":"a\nb"}
+{"id":"hand2.0217","ok":true,"type":"string","value":"a\nb\n"}
+{"id":"hand2.0218","ok":true,"type":"string","value":"aaa"}
+{"id":"hand2.0219","ok":true,"type":"string","value":"éé"}
+{"id":"hand2.0220","ok":true,"type":"string","value":"a b"}
+{"id":"hand2.0221","ok":true,"type":"string","value":"a\u000bb"}
+{"id":"hand2.0222","ok":true,"type":"string","value":"a\u000bb"}
+{"id":"hand2.0223","ok":true,"type":"string","value":"ab"}
+{"diags":[{"at":{"end":{"line":1,"col":45,"byte":44},"file":"x.hcl","start":{"line":1,"col":44,"byte":43}},"detail":"There is no variable named \"y\".","sev":"error","summary":"Unknown variable"},{"at":{"end":{"line":1,"col":50,"byte":49},"file":"x.hcl","start":{"line":1,"col":49,"byte":48}},"detail":"There is no variable named \"x\".","sev":"error","summary":"Unknown variable"}],"id":"hand2.0224","ok":false,"stage":"eval"}
+{"id":"hand2.0225","ok":true,"type":"string","value":"ab"}
+{"id":"hand2.0226","ok":true,"type":"string","value":"ab"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":31},"file":"x.hcl","start":{"line":1,"col":31,"byte":30}},"detail":"Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax.","sev":"error","summary":"Invalid multi-line string"},{"at":{"end":{"line":2,"col":1,"byte":31},"file":"x.hcl","start":{"line":1,"col":31,"byte":30}},"context":{"end":{"line":2,"col":1,"byte":31},"file":"x.hcl","start":{"line":1,"col":30,"byte":29}},"detail":"No closing marker was found for the string.","sev":"error","summary":"Unterminated template string"}],"id":"hand2.0227","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":30,"byte":29},"file":"x.hcl","start":{"line":1,"col":29,"byte":28}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"hand2.0228","ok":false,"stage":"parse"}
+{"id":"hand2.0229","ok":true,"type":"string","value":"ab"}
+{"id":"hand2.0230","ok":true,"type":"string","value":"ab"}
+{"id":"hand2.0231","ok":true,"type":"string","value":"ab"}
+{"id":"hand2.0232","ok":true,"type":"string","value":"ab"}
+{"id":"hand2.0233","ok":true,"type":"string","value":"ab"}
+{"id":"hand2.0234","ok":true,"type":"string","value":"a"}
+{"id":"hand2.0235","ok":true,"type":"string","value":"abc"}
+{"id":"hand2.0236","ok":true,"type":"string","value":"é"}
+{"id":"hand2.0237","ok":true,"type":"string","value":"é"}
+{"id":"hand2.0238","ok":true,"type":"string","value":"é"}
+{"id":"hand2.0239","ok":true,"type":"string","value":"Σ"}
+{"id":"hand2.0240","ok":true,"type":"string","value":"ǅ"}
+{"id":"hand2.0241","ok":true,"type":"string","value":"\r\n"}
+{"id":"hand2.0242","ok":true,"type":"string","value":"b"}
+{"id":"hand2.0243","ok":true,"type":"string","value":"x"}
+{"id":"hand2.0244","ok":true,"type":"string","value":"🇺🇸"}
+{"id":"hand2.0245","ok":true,"type":"string","value":"🇬"}
+{"id":"hand2.0246","ok":true,"type":"string","value":"क्"}
+{"id":"hand2.0247","ok":true,"type":"string","value":"각"}
+{"id":"hand2.0248","ok":true,"type":"string","value":"a‍‍"}
+{"id":"hand2.0249","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"hand2.0250","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0251","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0252","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0253","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"hand2.0254","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0255","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0256","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0257","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0258","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0259","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0260","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"hand2.0261","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"hand2.0262","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0263","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"hand2.0264","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0265","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0266","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"hand2.0267","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0268","ok":true,"type":"string","value":"É"}
+{"id":"hand2.0269","ok":true,"type":"string","value":"é"}
+{"id":"hand2.0270","ok":true,"type":"string","value":"ǰ"}
+{"id":"hand2.0271","ok":true,"type":"string","value":"ﬀ"}
+{"id":"hand2.0272","ok":true,"type":"string","value":"ᾈ"}
+{"id":"hand2.0273","ok":true,"type":"string","value":"ᾈa"}
+{"id":"hand2.0274","ok":true,"type":"string","value":"ǲa"}
+{"id":"hand2.0275","ok":true,"type":"string","value":"ǅ"}
+{"id":"hand2.0276","ok":true,"type":"string","value":"ǅ"}
+{"id":"hand2.0277","ok":true,"type":"string","value":"ǅ"}
+{"id":"hand2.0278","ok":true,"type":"string","value":"ﬀa"}
+{"id":"hand2.0279","ok":true,"type":"string","value":"ŉ"}
+{"id":"hand2.0280","ok":true,"type":"string","value":"Ιa"}
+{"id":"hand2.0281","ok":true,"type":"string","value":"Aͅ"}
+{"id":"hand2.0282","ok":true,"type":"string","value":"Helló World"}
+{"id":"hand2.0283","ok":true,"type":"string","value":"A-B—c"}
+{"id":"hand2.0284","ok":true,"type":"string","value":"A—b"}
+{"id":"hand2.0285","ok":true,"type":"string","value":"(A)[B]{C}"}
+{"id":"hand2.0286","ok":true,"type":"string","value":"A/B\\C"}
+{"id":"hand2.0287","ok":true,"type":"string","value":"A1b 1a"}
+{"id":"hand2.0288","ok":true,"type":"string","value":"A²b"}
+{"id":"hand2.0289","ok":true,"type":"string","value":"X Y"}
+{"id":"hand2.0290","ok":true,"type":"string","value":"ǆ"}
+{"id":"hand2.0291","ok":true,"type":"string","value":"ß"}
+{"id":"hand2.0292","ok":true,"type":"string","value":"ω"}
+{"id":"hand2.0293","ok":true,"type":"string","value":"k"}
+{"id":"hand2.0294","ok":true,"type":"string","value":"å"}
+{"id":"hand2.0295","ok":true,"type":"string","value":"ŉ"}
+{"id":"hand2.0296","ok":true,"type":"string","value":"ǰ"}
+{"id":"hand2.0297","ok":true,"type":"string","value":"ΐ"}
+{"id":"hand2.0298","ok":true,"type":"string","value":"ẖ"}
+{"id":"hand2.0299","ok":true,"type":"string","value":"ﬀ"}
+{"id":"hand2.0300","ok":true,"type":"string","value":"ᾈ"}
+{"id":"hand2.0301","ok":true,"type":"string","value":"ᾼ"}
+{"id":"hand2.0302","ok":true,"type":"string","value":"և"}
+{"id":"hand2.0303","ok":true,"type":"string","value":"ßß"}
+{"id":"hand2.0304","ok":true,"type":"string","value":"ß"}
+{"id":"hand2.0305","ok":true,"type":"string","value":"և"}
+{"id":"hand2.0306","ok":true,"type":"string","value":"ᾈ"}
+{"id":"hand2.0307","ok":true,"type":"string","value":"ﬁ"}
+{"id":"hand2.0308","ok":true,"type":"string","value":"[{\"a\":2},{\"b\":1}]"}
+{"id":"hand2.0309","ok":true,"type":"string","value":"[{\"a\":1,\"b\":1},{\"a\":2,\"b\":1}]"}
+{"id":"hand2.0310","ok":true,"type":"string","value":"[\"1\",\"10\",\"9\"]"}
+{"id":"hand2.0311","ok":true,"type":"string","value":"[-1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,-10,-1,0,0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001,1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000]"}
+{"id":"hand2.0312","ok":true,"type":"string","value":"[[1,2],[1],[2]]"}
+{"id":"hand2.0313","ok":true,"type":"string","value":"[[1,2],[1]]"}
+{"id":"hand2.0314","ok":true,"type":"string","value":"[null]"}
+{"id":"hand2.0315","ok":true,"type":"string","value":"{\"a\":{\"x\":2,\"y\":1},\"z\":[1,3]}"}
+{"id":"hand2.0316","ok":true,"type":"string","value":"[\"\",\"A\",\"a\",\"ab\",\"b\"]"}
+{"id":"hand2.0317","ok":true,"type":"string","value":"[\"f\",\"é\"]"}
+{"id":"hand2.0318","ok":true,"type":"string","value":"[false,true]"}
+{"id":"hand2.0319","ok":true,"type":["list",["list","number"]],"value":[[{"num":"1"},{"num":"2"}],[{"num":"1"}],[{"num":"2"}]]}
+{"id":"hand2.0320","ok":true,"type":["list",["set","number"]],"value":[[{"num":"1"},{"num":"2"}],[{"num":"1"}]]}
+{"id":"hand2.0321","ok":true,"type":["list",["object",{"a":"number","b":"number"}]],"value":[{"obj":[["a",{"num":"1"}],["b",{"num":"1"}]]},{"obj":[["a",{"num":"2"}],["b",{"num":"1"}]]}]}
+{"id":"hand2.0322","ok":true,"type":["list","string"],"value":["","A","a","ab","b"]}
+{"id":"hand2.0323","ok":true,"type":["list","number"],"value":[{"num":"-1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},{"num":"-10"},{"num":"-1"},{"num":"0"},{"num":"0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"},{"num":"1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}]}
+{"id":"hand2.0324","ok":true,"type":["list","bool"],"value":[false,true]}
+{"id":"hand2.0325","ok":true,"type":["list",["list","string"]],"value":[["a","b"],["a"],[]]}
+{"id":"hand2.0326","ok":true,"type":["list",["map","string"]],"value":[{"obj":[["a","2"]]},{"obj":[["b","1"]]},{"obj":[]}]}
+{"id":"hand2.0327","ok":true,"type":["list",["object",{"a":"string","b":"string"}]],"value":[{"obj":[["a","1"],["b","2"]]},{"obj":[["a","3"],["b","4"]]}]}
+{"id":"hand2.0328","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a"," "]]}]}
+{"id":"hand2.0329","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a","1"]]}]}
+{"id":"hand2.0330","ok":true,"type":["list",["object",{"a":"string","b":"string"}]],"value":[{"obj":[["a","1"],["b","2\""]]}]}
+{"diags":[{"at":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":31,"byte":30},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"csvdecode\" failed: CSV parse error on line 2: extraneous or missing \" in quoted-field.","sev":"error","summary":"Error in function call"}],"id":"hand2.0331","ok":false,"stage":"eval"}
+{"id":"hand2.0332","ok":true,"type":["list",["object",{"a":"string","b":"string"}]],"value":[{"obj":[["a","1"],["b",""]]}]}
+{"id":"hand2.0333","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a","x\"y"]]}]}
+{"diags":[{"at":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":31,"byte":30},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"csvdecode\" failed: CSV parse error on line 2: extraneous or missing \" in quoted-field.","sev":"error","summary":"Error in function call"}],"id":"hand2.0334","ok":false,"stage":"eval"}
+{"id":"hand2.0335","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a","x\ry"]]}]}
+{"diags":[{"at":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":27,"byte":26},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"csvdecode\" failed: CSV parse error on line 1: extraneous or missing \" in quoted-field.","sev":"error","summary":"Error in function call"}],"id":"hand2.0336","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"csvdecode\" failed: CSV parse error on line 2: wrong number of fields.","sev":"error","summary":"Error in function call"}],"id":"hand2.0337","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Call to function \"csvdecode\" failed: CSV parse error on line 2: wrong number of fields.","sev":"error","summary":"Error in function call"}],"id":"hand2.0338","ok":false,"stage":"eval"}
+{"id":"hand2.0339","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a","1"]]}]}
+{"id":"hand2.0340","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a","1"]]},{"obj":[["a","2"]]}]}
+{"id":"hand2.0341","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a","\t1\t"]]}]}
+{"id":"hand2.0342","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a","1"]]}]}
+{"id":"hand2.0343","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a","1"]]}]}
+{"id":"hand2.0344","ok":true,"type":["list",["object",{" ":"string"}]],"value":[{"obj":[[" ","a"]]},{"obj":[[" ","1"]]}]}
+{"id":"hand2.0345","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a","1"]]},{"obj":[["a"," "]]},{"obj":[["a","2"]]}]}
+{"id":"hand2.0346","ok":true,"type":"string","value":"1"}
+{"id":"hand2.0347","ok":true,"type":"string","value":"TRUE"}
+{"id":"hand2.0348","ok":true,"type":"string","value":"1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}
+{"id":"hand2.0349","ok":true,"type":"string","value":"-0"}
+{"id":"hand2.0350","ok":true,"type":"string","value":"0.33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333335"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":11,"byte":10}},"context":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"str\" parameter: string required, but have tuple.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0351","ok":false,"stage":"eval"}
+{"id":"hand2.0352","ok":true,"type":"string","value":"1.5,true,x"}
+{"id":"hand2.0353","ok":true,"type":"string","value":"1,2"}
+{"id":"hand2.0354","ok":true,"type":"string","value":"a1b"}
+{"id":"hand2.0355","ok":true,"type":["list","string"],"value":["1.5"]}
+{"id":"hand2.0356","ok":true,"type":"string","value":"23"}
+{"id":"hand2.0357","ok":true,"type":"string","value":"12945"}
+{"id":"hand2.0358","ok":true,"type":"string","value":"frue"}
+{"id":"hand2.0359","ok":true,"type":"number","value":{"num":"4"}}
+{"id":"hand2.0360","ok":true,"type":"number","value":{"num":"157"}}
+{"id":"hand2.0361","ok":true,"type":"string","value":"00"}
+{"id":"hand2.0362","ok":true,"type":"string","value":"1"}
+{"id":"hand2.0363","ok":true,"type":"string","value":"1"}
+{"id":"hand2.0364","ok":true,"type":"string","value":"1"}
+{"id":"hand2.0365","ok":true,"type":"bool","value":false}
+{"id":"hand2.0366","ok":true,"type":"bool","value":false}
+{"id":"hand2.0367","ok":true,"type":"string","value":"x"}
+{"id":"hand2.0368","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"hand2.0369","ok":true,"type":"string","value":"x"}
+{"id":"hand2.0370","ok":true,"type":"string","value":"a"}
+{"diags":[{"at":{"end":{"line":1,"col":24,"byte":23},"file":"x.hcl","start":{"line":1,"col":20,"byte":19}},"context":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"index\" parameter: number required, but have bool.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0371","ok":false,"stage":"eval"}
+{"id":"hand2.0372","ok":true,"type":["tuple",["string"]],"value":["a"]}
+{"id":"hand2.0373","ok":true,"type":["list","number"],"value":[{"num":"1"},{"num":"2"}]}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"params\" parameter: a number is required.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0374","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":14,"byte":13}},"context":{"end":{"line":1,"col":22,"byte":21},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"number\" parameter: first argument must be a string, not number.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0375","ok":false,"stage":"eval"}
+{"id":"hand2.0376","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"hand2.0377","ok":true,"type":"number","value":{"num":"1"}}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"context":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"num\" parameter: a number is required.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0378","ok":false,"stage":"eval"}
+{"id":"hand2.0379","ok":true,"type":"string","value":"1"}
+{"id":"hand2.0380","ok":true,"type":"string","value":"a"}
+{"id":"hand2.0381","ok":true,"type":"string","value":"1"}
+{"id":"hand2.0382","ok":true,"type":["tuple",["string","number"]],"value":["a",{"num":"1"}]}
+{"id":"hand2.0383","ok":true,"type":["tuple",["string","number"]],"value":["a",{"num":"1"}]}
+{"id":"hand2.0384","ok":true,"type":["list","string"],"value":["a","1"]}
+{"id":"hand2.0385","ok":true,"type":["object",{"a":"string","b":"number"}],"value":{"obj":[["a","x"],["b",{"num":"1"}]]}}
+{"id":"hand2.0386","ok":true,"type":["object",{"a":"string","b":"number"}],"value":{"obj":[["a","x"],["b",{"num":"1"}]]}}
+{"id":"hand2.0387","ok":true,"type":["object",{"a":"string","b":"number"}],"value":{"obj":[["a","x"],["b",{"num":"1"}]]}}
+{"id":"hand2.0388","ok":true,"type":["object",{"a":"number","b":"string"}],"value":{"obj":[["a",{"num":"1"}],["b","x"]]}}
+{"id":"hand2.0389","ok":true,"type":["object",{"a":"number","b":"bool"}],"value":{"obj":[["a",{"num":"1"}],["b",true]]}}
+{"id":"hand2.0390","ok":true,"type":["object",{"a":"number","b":["tuple",["number"]]}],"value":{"obj":[["a",{"num":"1"}],["b",[{"num":"1"}]]]}}
+{"id":"hand2.0391","ok":true,"type":["map","string"],"value":{"obj":[["a","1"],["b","x"],["c","true"]]}}
+{"id":"hand2.0392","ok":true,"type":["map","string"],"value":{"obj":[["a","1"],["b","2"]]}}
+{"id":"hand2.0393","ok":true,"type":["map","string"],"value":{"obj":[["a","true"],["b","x"]]}}
+{"id":"hand2.0394","ok":true,"type":["list","string"],"value":["1","x","true"]}
+{"id":"hand2.0395","ok":true,"type":["list","string"],"value":["1","2","false"]}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":22,"byte":21},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"v\" parameter: cannot convert tuple to list of any single type.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0396","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":11,"byte":10}},"context":{"end":{"line":1,"col":21,"byte":20},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Invalid value for \"v\" parameter: cannot convert tuple to set of any single type.","sev":"error","summary":"Invalid function argument"}],"id":"hand2.0397","ok":false,"stage":"eval"}
+{"id":"hand2.0398","ok":true,"type":["set","string"],"value":["1","a","true"]}
+{"id":"hand2.0399","ok":true,"type":["list","string"],"value":["1"]}
+{"id":"hand2.0400","ok":true,"type":["list","string"],"value":["1","a"]}
+{"id":"hand2.0401","ok":true,"type":["list","string"],"value":["1","a"]}
+{"id":"hand2.0402","ok":true,"type":["list","string"],"value":["a","true"]}
+{"id":"hand2.0403","ok":true,"type":["tuple",["number","string"]],"value":[{"num":"1"},"a"]}
+{"id":"hand2.0404","ok":true,"type":["tuple",["string","number"]],"value":["a",{"num":"1"}]}
+{"id":"hand2.0405","ok":true,"type":["tuple",["number","string"]],"value":[{"num":"1"},"x"]}
+{"id":"hand2.0406","ok":true,"type":["tuple",["string","string"]],"value":["a","b"]}

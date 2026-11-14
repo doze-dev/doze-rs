@@ -554,7 +554,7 @@ fn object_items<'i>(
             let value_terminator = match ch {
                 '}' => {
                     value.set_terminator(ObjectValueTerminator::None);
-                    object.insert(key, value);
+                    object.insert_redefining(key, value);
                     state.borrow_mut().on_expr_term(Expression::Object(object));
                     return Ok(());
                 }
@@ -596,7 +596,7 @@ fn object_items<'i>(
             };
 
             value.set_terminator(value_terminator);
-            object.insert(key, value);
+            object.insert_redefining(key, value);
         }
     }
 }

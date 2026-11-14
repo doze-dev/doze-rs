@@ -35,3 +35,15 @@ name = "fuzz_number"
 path = "fuzz_targets/fuzz_number.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_check"
+path = "fuzz_targets/fuzz_check.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_funcs"
+path = "fuzz_targets/fuzz_funcs.rs"
+test = false
+doc = false

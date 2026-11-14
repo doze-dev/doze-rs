@@ -23,8 +23,7 @@ inside `${ }` and `%{ }` are unaffected.
 ## 3. Redefined object keys (`src/parser/expr.rs`)
 
 `{a = 1, a = 2}` was a parse error ("unique object key; found redefined object key"). Go accepts it and
-the later item wins. The parser now replaces the earlier item. One difference remains: Go also evaluates
-the earlier value (so an error inside it is still reported); here it is gone before evaluation.
+the later item wins. The parser now replaces the earlier item. Patch 6 keeps the earlier item too.
 
 ## 4. Directive bodies inside quoted strings (`src/parser/template.rs`, `src/parser/nesting.rs`)
 
@@ -42,6 +41,21 @@ digits after a `.` (so `1.e5`, which Go reads as 100000, failed), read `1.5.2` a
 and refused literals beyond f64. The parser now takes Go's token and refuses an invalid one where it
 starts, as Go does. The value it stores is a placeholder: doze-hcl reads the literal's text. Upstream's
 unit tests for the old parser are replaced by one for the new grammar.
+
+## 6. Redefined object keys, kept (`src/expr/object.rs`, `src/parser/expr.rs`)
+
+Patch 3 dropped the earlier item. Go keeps every item: it evaluates the earlier value (so an error in
+it is reported) and `typeexpr` refuses a redefined attribute ("Object constructor map keys must be
+unique"). `Object` now keeps the replaced items, in source order, in `Object::redefined()`; the parser
+inserts through `Object::insert_redefining`, which puts the later item in the earlier one's place.
+Nothing else in hcl-edit reads the new field.
+
+## Not patched: the slow path on unclosed nesting
+
+hcl-edit backtracks heavily on unclosed nested brackets (`[{[{…`: 1.3 KB took 1.3 s). doze-hcl does
+not patch the parser for it: its own Go-shaped syntax check (`crates/doze-hcl/src/check`) runs first
+and refuses every unbalanced file, in linear time, before hcl-edit sees it
+(`crates/doze-hcl/tests/hostile.rs`).
 
 ## Tests
 

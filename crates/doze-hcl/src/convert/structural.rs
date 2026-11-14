@@ -97,6 +97,13 @@ pub(super) fn apply_structural(
                 .collect::<Result<_, _>>()?;
             Ok(Value::Tuple(out))
         }
+        // A set holding unknowns has an unknown length, so its list is unknown (cty's
+        // `conversionCollectionToList`, which keeps the set's element type).
+        (Value::Set(ety, es), Type::List(_))
+            if es.len() > 1 && es.iter().any(|e| !e.is_known()) =>
+        {
+            Ok(Value::unknown(Type::list(ety.clone())))
+        }
         (Value::List(ety, es) | Value::Set(ety, es), Type::List(want)) => {
             let out = convert_each(es, want, unsafe_)?;
             let empty_ety = if **want == Type::Dynamic {

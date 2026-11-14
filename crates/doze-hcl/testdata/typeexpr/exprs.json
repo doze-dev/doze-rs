@@ -1,0 +1,450 @@
+[
+ {
+  "id": "te.000",
+  "expr": "string"
+ },
+ {
+  "id": "te.001",
+  "expr": "number"
+ },
+ {
+  "id": "te.002",
+  "expr": "bool"
+ },
+ {
+  "id": "te.003",
+  "expr": "any"
+ },
+ {
+  "id": "te.004",
+  "expr": "list"
+ },
+ {
+  "id": "te.005",
+  "expr": "map"
+ },
+ {
+  "id": "te.006",
+  "expr": "set"
+ },
+ {
+  "id": "te.007",
+  "expr": "object"
+ },
+ {
+  "id": "te.008",
+  "expr": "tuple"
+ },
+ {
+  "id": "te.009",
+  "expr": "optional"
+ },
+ {
+  "id": "te.010",
+  "expr": "null"
+ },
+ {
+  "id": "te.011",
+  "expr": "true"
+ },
+ {
+  "id": "te.012",
+  "expr": "foo"
+ },
+ {
+  "id": "te.013",
+  "expr": "String"
+ },
+ {
+  "id": "te.014",
+  "expr": "list(string)"
+ },
+ {
+  "id": "te.015",
+  "expr": "set(number)"
+ },
+ {
+  "id": "te.016",
+  "expr": "map(bool)"
+ },
+ {
+  "id": "te.017",
+  "expr": "list(any)"
+ },
+ {
+  "id": "te.018",
+  "expr": "map(list(string))"
+ },
+ {
+  "id": "te.019",
+  "expr": "list(list(list(number)))"
+ },
+ {
+  "id": "te.020",
+  "expr": "set(map(any))"
+ },
+ {
+  "id": "te.021",
+  "expr": "list()"
+ },
+ {
+  "id": "te.022",
+  "expr": "list(string, number)"
+ },
+ {
+  "id": "te.023",
+  "expr": "list(string, number, bool)"
+ },
+ {
+  "id": "te.024",
+  "expr": "map(string, string)"
+ },
+ {
+  "id": "te.025",
+  "expr": "set()"
+ },
+ {
+  "id": "te.026",
+  "expr": "string()"
+ },
+ {
+  "id": "te.027",
+  "expr": "number(1)"
+ },
+ {
+  "id": "te.028",
+  "expr": "bool(x)"
+ },
+ {
+  "id": "te.029",
+  "expr": "any()"
+ },
+ {
+  "id": "te.030",
+  "expr": "any(string)"
+ },
+ {
+  "id": "te.031",
+  "expr": "object({})"
+ },
+ {
+  "id": "te.032",
+  "expr": "object({a = string})"
+ },
+ {
+  "id": "te.033",
+  "expr": "object({a = string, b = number})"
+ },
+ {
+  "id": "te.034",
+  "expr": "object({ a = list(string)\n b = map(any) })"
+ },
+ {
+  "id": "te.035",
+  "expr": "object({a = optional(string)})"
+ },
+ {
+  "id": "te.036",
+  "expr": "object({a = optional(string, \"x\")})"
+ },
+ {
+  "id": "te.037",
+  "expr": "object({a = optional()})"
+ },
+ {
+  "id": "te.038",
+  "expr": "object({a = optional(string, 1, 2)})"
+ },
+ {
+  "id": "te.039",
+  "expr": "object({a = string, a = number})"
+ },
+ {
+  "id": "te.040",
+  "expr": "object({\"a\" = string})"
+ },
+ {
+  "id": "te.041",
+  "expr": "object({(a) = string})"
+ },
+ {
+  "id": "te.042",
+  "expr": "object({a.b = string})"
+ },
+ {
+  "id": "te.043",
+  "expr": "object({1 = string})"
+ },
+ {
+  "id": "te.044",
+  "expr": "object({a = foo})"
+ },
+ {
+  "id": "te.045",
+  "expr": "object({a = list()})"
+ },
+ {
+  "id": "te.046",
+  "expr": "object({a = optional(foo)})"
+ },
+ {
+  "id": "te.047",
+  "expr": "object({a = object({b = optional(number)})})"
+ },
+ {
+  "id": "te.048",
+  "expr": "object(string)"
+ },
+ {
+  "id": "te.049",
+  "expr": "object([string])"
+ },
+ {
+  "id": "te.050",
+  "expr": "object()"
+ },
+ {
+  "id": "te.051",
+  "expr": "object({}, {})"
+ },
+ {
+  "id": "te.052",
+  "expr": "object({a = string}, x)"
+ },
+ {
+  "id": "te.053",
+  "expr": "tuple([])"
+ },
+ {
+  "id": "te.054",
+  "expr": "tuple([string])"
+ },
+ {
+  "id": "te.055",
+  "expr": "tuple([string, number, bool])"
+ },
+ {
+  "id": "te.056",
+  "expr": "tuple([list(string), object({a = any})])"
+ },
+ {
+  "id": "te.057",
+  "expr": "tuple(string)"
+ },
+ {
+  "id": "te.058",
+  "expr": "tuple({a = string})"
+ },
+ {
+  "id": "te.059",
+  "expr": "tuple()"
+ },
+ {
+  "id": "te.060",
+  "expr": "tuple([], [])"
+ },
+ {
+  "id": "te.061",
+  "expr": "tuple([foo])"
+ },
+ {
+  "id": "te.062",
+  "expr": "tuple([string, list()])"
+ },
+ {
+  "id": "te.063",
+  "expr": "optional(string)"
+ },
+ {
+  "id": "te.064",
+  "expr": "optional(string, 1)"
+ },
+ {
+  "id": "te.065",
+  "expr": "foo(string)"
+ },
+ {
+  "id": "te.066",
+  "expr": "string.x"
+ },
+ {
+  "id": "te.067",
+  "expr": "var.x"
+ },
+ {
+  "id": "te.068",
+  "expr": "list[0]"
+ },
+ {
+  "id": "te.069",
+  "expr": "\"string\""
+ },
+ {
+  "id": "te.070",
+  "expr": "(string)"
+ },
+ {
+  "id": "te.071",
+  "expr": "[string]"
+ },
+ {
+  "id": "te.072",
+  "expr": "{a = string}"
+ },
+ {
+  "id": "te.073",
+  "expr": "1"
+ },
+ {
+  "id": "te.074",
+  "expr": "-1"
+ },
+ {
+  "id": "te.075",
+  "expr": "string + 1"
+ },
+ {
+  "id": "te.076",
+  "expr": "list(string)[0]"
+ },
+ {
+  "id": "te.077",
+  "expr": "list(\"string\")"
+ },
+ {
+  "id": "te.078",
+  "expr": "map(string.foo)"
+ },
+ {
+  "id": "te.079",
+  "expr": "list(string...)"
+ },
+ {
+  "id": "te.080",
+  "expr": "upper(string)"
+ },
+ {
+  "id": "te.081",
+  "expr": "a::b(string)"
+ },
+ {
+  "id": "te.082",
+  "expr": "list(\n  string\n)"
+ },
+ {
+  "id": "te.083",
+  "expr": "object({\n  a = string\n  b = optional(number)\n})"
+ },
+ {
+  "id": "te.084",
+  "expr": "object({a = optional(string), b = optional(list(object({c = optional(bool)})))})"
+ },
+ {
+  "id": "te.085",
+  "expr": "map(object({name = string, port = optional(number)}))"
+ },
+ {
+  "id": "te.086",
+  "expr": "set(tuple([string, number]))"
+ },
+ {
+  "id": "te.087",
+  "expr": "list(optional(string))"
+ },
+ {
+  "id": "te.088",
+  "expr": "map(optional(string))"
+ },
+ {
+  "id": "te.089",
+  "expr": "tuple([optional(string)])"
+ },
+ {
+  "id": "te.090",
+  "expr": "object({a = optional(string, null)})"
+ },
+ {
+  "id": "te.091",
+  "expr": "object({a = optional(list(string), [])})"
+ },
+ {
+  "id": "te.092",
+  "expr": "object({a = optional(number, \"x\")})"
+ },
+ {
+  "id": "te.093",
+  "expr": "object({a = optional(number, var.x)})"
+ },
+ {
+  "id": "te.094",
+  "expr": "object({for k in x : k => string})"
+ },
+ {
+  "id": "te.095",
+  "expr": "list(for x in y : x)"
+ },
+ {
+  "id": "te.096",
+  "expr": "list(string) # comment"
+ },
+ {
+  "id": "te.097",
+  "expr": "map( string )"
+ },
+ {
+  "id": "te.098",
+  "expr": "object({ a: string })"
+ },
+ {
+  "id": "te.099",
+  "expr": "object({a = string,})"
+ },
+ {
+  "id": "te.100",
+  "expr": "list(any)"
+ },
+ {
+  "id": "te.101",
+  "expr": "map(any)"
+ },
+ {
+  "id": "te.102",
+  "expr": "object({a = any})"
+ },
+ {
+  "id": "te.103",
+  "expr": "tuple([any])"
+ },
+ {
+  "id": "te.104",
+  "expr": "LIST(string)"
+ },
+ {
+  "id": "te.105",
+  "expr": "List(string)"
+ },
+ {
+  "id": "te.106",
+  "expr": "list(String)"
+ },
+ {
+  "id": "te.107",
+  "expr": "number.x"
+ },
+ {
+  "id": "te.108",
+  "expr": "list(string).x"
+ },
+ {
+  "id": "te.109",
+  "expr": "any.x"
+ },
+ {
+  "id": "te.110",
+  "expr": "object({a = string, b = number, a = bool})"
+ },
+ {
+  "id": "te.111",
+  "expr": "object({a = object({a = object({a = string})})})"
+ }
+]

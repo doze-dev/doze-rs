@@ -302,6 +302,13 @@ jobs:
             mkdir -p "corpus/$t"
             cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=4096
           done
+      - name: Fuzz doze-hcl (tokens and syntax check, parse, evaluate, numbers) for 30 seconds each
+        working-directory: crates/doze-hcl/fuzz
+        run: |
+          for t in fuzz_check fuzz_parse fuzz_eval fuzz_number fuzz_funcs; do
+            mkdir -p "corpus/$t"
+            cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=4096
+          done
       - name: Fuzz the PLAIN token for 30 seconds
         working-directory: crates/kafka-auth/fuzz
         run: |

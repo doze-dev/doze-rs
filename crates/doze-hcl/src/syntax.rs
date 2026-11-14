@@ -1,10 +1,7 @@
 //! The syntax layer: hcl-edit parses, and a `Source` turns its byte spans into Go-style positions.
 
-use crate::diag::{Diagnostic, Pos, Range};
+use crate::diag::{Diagnostic, Diagnostics, Pos, Range};
 use hcl_edit::structure::Body;
-use unicode_segmentation::UnicodeSegmentation;
-
-mod rules;
 
 /// A source text and where its lines start, to turn byte offsets into positions.
 #[derive(Debug, Clone)]
@@ -41,6 +38,12 @@ impl Source {
             .and_then(|i| self.line_starts.get(i))
             .copied()
             .unwrap_or(0);
+        // A byte order mark is skipped as Go skips it: its bytes count, its column does not.
+        let start = if line == 1 && self.text.starts_with('\u{feff}') {
+            start.max(3).min(byte)
+        } else {
+            start
+        };
         let ascii = line
             .checked_sub(1)
             .and_then(|i| self.ascii.get(i))
@@ -67,26 +70,39 @@ impl Source {
     }
 }
 
-/// Parses a whole file body. A syntax error comes back as one diagnostic at its position.
+/// Parses a whole file body. A file Go refuses comes back with every diagnostic Go gives, in Go's
+/// order and at Go's positions (`check`); hcl-edit builds the tree only for a file that passes, so
+/// it never sees broken nesting.
 // fuzz:parser fuzz_parse
-pub fn parse_body(src: &Source) -> Result<Body, Diagnostic> {
-    let body = hcl_edit::parser::parse_body(src.text()).map_err(|e| {
+pub fn parse_body(src: &Source) -> Result<Body, Diagnostics> {
+    let found = crate::check::check(src.text().as_bytes(), "x.hcl");
+    if found.has_errors() {
+        return Err(found);
+    }
+    // Go skips a leading byte order mark; hcl-edit refuses it, so it reads blanks in its place
+    // (the same byte offsets).
+    let text = match src.text().strip_prefix('\u{feff}') {
+        Some(rest) => std::borrow::Cow::Owned(format!("   {rest}")),
+        None => std::borrow::Cow::Borrowed(src.text()),
+    };
+    hcl_edit::parser::parse_body(&text).map_err(|e| {
+        // Only hcl-edit's own limits get here (catalogue S5): Go accepts the file.
         let p = src.pos(e.location().offset());
-        Diagnostic::error(
+        Diagnostics::from(Diagnostic::error(
             "Syntax error",
             e.message().to_string(),
             Range { start: p, end: p },
-        )
-    })?;
-    rules::check(src, &body)?;
-    Ok(body)
+        ))
+    })
 }
 
 /// Columns in a line prefix as Go counts them: grapheme clusters, segmented token by token. A
 /// cluster that starts with ASCII punctuation or a space and carries more characters (a combining
 /// mark, a joiner) is two in Go, because the punctuation is a token of its own.
 fn columns(s: &str) -> usize {
-    s.graphemes(true)
+    crate::funcs::graphemes::clusters(s)
+        .into_iter()
+        .map(|(_, g)| g)
         .map(|g| {
             let mut cs = g.chars();
             let first = cs

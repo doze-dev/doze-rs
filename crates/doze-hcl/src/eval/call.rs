@@ -9,12 +9,14 @@ use crate::function::{self, Function, Param};
 use crate::types::Type;
 use crate::value::Value;
 use crate::value::quote::go_quote;
+use hcl_edit::Span;
 use hcl_edit::expr::{Expression, FuncCall};
 
 /// An argument: its value (once evaluated) and where it came from.
 pub(super) struct Arg<'a> {
     pub(super) expr: Option<&'a Expression>,
     pub(super) value: Option<Value>,
+    /// Where Go points a diagnostic about it (`StartRange`).
     pub(super) at: Range,
 }
 
@@ -32,6 +34,20 @@ impl Evaluator<'_> {
             .map(|n| format!("{}::", n.as_str()))
             .collect::<String>()
             + f.name.name.as_str();
+        // Go's StartRange of a call: its name and the opening parenthesis.
+        let head = {
+            let from = f.name.name.span().map_or(0, |s| s.end);
+            let open = self
+                .src
+                .text()
+                .get(from..)
+                .and_then(|t| t.find('('))
+                .map_or(from, |i| from + i + 1);
+            Range {
+                start: name_at.start,
+                end: self.src.pos(open),
+            }
+        };
         let func = match lookup(ctx, &name) {
             Ok(func) => func,
             Err(diag) => return (Value::DYNAMIC, diag(name_at, whole).into()),
@@ -43,7 +59,7 @@ impl Evaluator<'_> {
             .map(|e| Arg {
                 expr: Some(e),
                 value: None,
-                at: self.range(*e),
+                at: self.start_range(e),
             })
             .collect();
         if f.args.expand_final() {
@@ -62,7 +78,7 @@ impl Evaluator<'_> {
         match function::call(func, &vals) {
             Ok(v) => (v, diags),
             Err(e) => {
-                diags.push(call_error(&name, func, &e, &args, whole));
+                diags.push(call_error(&name, func, &e, &args, (whole, head)));
                 (Value::DYNAMIC, diags)
             }
         }
@@ -85,9 +101,10 @@ impl Evaluator<'_> {
         if diags.has_errors() {
             return Err((Value::DYNAMIC, diags));
         }
+        let expr_at = self.range(expr);
         let bad = |detail: &str, mut diags: Diagnostics| {
             diags.push(
-                Diagnostic::error("Invalid expanding argument value", detail, last.at)
+                Diagnostic::error("Invalid expanding argument value", detail, expr_at)
                     .with_context(whole),
             );
             Err((Value::DYNAMIC, diags))
@@ -113,7 +130,8 @@ impl Evaluator<'_> {
             args.push(Arg {
                 expr: None,
                 value: Some(e),
-                at: last.at,
+                // An expanded argument is reported over the whole expression, as in Go.
+                at: self.range(expr),
             });
         }
         Ok(diags)
@@ -169,11 +187,11 @@ fn call_error(
     func: &dyn Function,
     e: &function::FuncError,
     args: &[Arg<'_>],
-    whole: Range,
+    (whole, head): (Range, Range),
 ) -> Diagnostic {
     let failed = || {
         let detail = format!("Call to function {} failed: {}.", go_quote(name), e.msg);
-        Diagnostic::error("Error in function call", detail, whole).with_context(whole)
+        Diagnostic::error("Error in function call", detail, head).with_context(whole)
     };
     let Some(i) = e.arg else { return failed() };
     let param = func.params().get(i).or_else(|| func.var_param());
