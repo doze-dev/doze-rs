@@ -461,3 +461,11 @@ build does not fit:** 7,586,144 B times 1.36 is about 10.32 MB, over the 10 MB c
 about 10.0 MB (main's TLS line, 9,279,000 B and 173, was measured before the module; the module adds 13 packages). No limit was raised;
 the CI TLS job will fail on main with or without the registry until the owner decides (leave the module or the registry out of the
 `tls` release, or take a size lever such as `opt-level = "z"` on more of the tree).
+
+## The TLS build over 10 MB: the owner raised its ceiling (2026-11-14)
+
+With the module face (Phase 11) and the schema registry's foundation (Phase 10a), `--features tls` is 7,586,144 B on darwin arm64, about
+10.32 MB on ubuntu x86_64 at CI's measured ratio of 1.36. Asked whether to make room (module face opt-in, no module or no registry in the
+TLS build, or a higher ceiling), the owner chose to raise the ceiling. The `weight-tls` job's limit is now 10,833,014 B (that estimate
+plus 5%) and 186 packages, until CI's next run on main measures it; Protobuf (10b) and JSON Schema (10c) will move it again, each with
+its numbers. The default build's limit (9,386,171 B, 174 packages) is unchanged.
