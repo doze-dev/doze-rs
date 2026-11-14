@@ -103,3 +103,20 @@ and `weight.md`; none of those was touched here. Each behaviour carries one call
   reports it). The dimension sets (`FunctionName` and none; not `Resource`) are `(memory)`.
 - Tests: `metrics/tests.rs` (most-in-flight per minute and region, nothing else counted) and the end-to-end test with a real
   `provided` function now reads `ConcurrentExecutions` `Maximum` 1 back from CloudWatch.
+
+## 6. Event source mapping concurrency (`crates/aws-lambda/src/poll/parallel.rs`, `poll/sqs.rs`)
+
+- **SQS `ScalingConfig.MaximumConcurrency`:** a semaphore per mapping; a batch is read only when a slot is free (so nothing sits
+  hidden in the queue waiting), and each batch runs in its own task holding its slot. With no `MaximumConcurrency`, five batches at
+  once: AWS starts an SQS mapping at five concurrent batches and scales up (memory); locally five is the ceiling. A FIFO queue keeps
+  each message group in order by itself (SQS does not hand out a group's next message while one is in flight). **Go weak
+  (bettered):** Go, and this port until now, ran one batch at a time per mapping.
+- **Kinesis and DynamoDB streams `ParallelizationFactor` (1 to 10):** the poller reads up to `BatchSize × factor` records of a shard,
+  deals them into `factor` lanes by a stable hash (FNV-1a) of the partition key (Kinesis) or the item's key (DynamoDB), delivers each
+  lane in batches of `BatchSize` in its own task with the shared retry, bisect, record-age and failure-destination semantics, and
+  saves the shard's position past the whole read only when every lane is over (a restart reads again what was not finished:
+  at-least-once, as on AWS). Records of one key stay in order. Factor 1 is the old path unchanged. **AWS-correct** (Lambda Developer
+  Guide, "parallelization factor"); **Go weak (bettered):** Go read shards one batch at a time.
+- Tests: `poll/parallel.rs` (a key keeps its lane and order), `tests/concurrency.rs` with real Python functions: six SQS batches under
+  `MaximumConcurrency: 2` are seen two at a time and never more; thirty Kinesis records over five keys with factor 3 arrive each once,
+  every key in order.
