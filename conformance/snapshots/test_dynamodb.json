@@ -1696,6 +1696,42 @@
       }
     }
   },
+  "test_tags": {
+    "list": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        },
+        {
+          "Key": "team",
+          "Value": "a"
+        }
+      ]
+    },
+    "reserved-prefix": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Tag Key cannot be prefixed with aws:, Key: aws:x"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "tag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "untag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
   "test_transaction_rules": {
     "applied-once": {
       "Item": {

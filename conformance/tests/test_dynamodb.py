@@ -242,6 +242,9 @@ def test_point_in_time_recovery_is_a_round_trip(client, names, cleanup, snapshot
 def test_tags(client, names, cleanup, snapshot, eventually):
     ddb = client("dynamodb")
     name, created = table(ddb, names, cleanup)
+    # Deleting is paced like tagging: after the 2026-11-15 recording the table stayed behind, its plain delete most likely refused
+    # while the tags settled (the cleanup does not say why).
+    cleanup(paced, lambda: ddb.delete_table(TableName=name))
     arn = created["TableDescription"]["TableArn"]
     snapshot.match("tag", ddb.tag_resource(ResourceArn=arn, Tags=[{"Key": "team", "Value": "a"}, {"Key": "env", "Value": "dev"}]))
 
@@ -381,8 +384,8 @@ def test_index_added_and_removed_later(client, names, cleanup, snapshot, eventua
         d = ddb.describe_table(TableName=name)["Table"]["GlobalSecondaryIndexes"][0]
         assert d["IndexStatus"] == "ACTIVE", "the index is still being built"
 
-    # On AWS a new index takes minutes to build, even over three items (more than the 60 s the 2026-11-15 recording waited).
-    eventually(ready, timeout=900, every=5)
+    # On AWS a new index can take most of an hour to build, even over three items (2026-11-15: more than 15 minutes, done within 50).
+    eventually(ready, timeout=3600, every=15)
     q = dict(TableName=name, IndexName="by-color", KeyConditionExpression="color = :c")
     snapshot.match("red", ddb.query(**q, ExpressionAttributeValues={":c": {"S": "red"}}))
     snapshot.error("two-index-updates", lambda: ddb.update_table(
