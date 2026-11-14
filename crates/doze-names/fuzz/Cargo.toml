@@ -9,7 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-doze-names = { path = ".." }
+doze-names = { path = "..", features = ["setup"] }
 
 # Not part of the main workspace: fuzzing needs a nightly toolchain.
 [workspace]
@@ -29,5 +29,11 @@ doc = false
 [[bin]]
 name = "fuzz_packet"
 path = "fuzz_targets/fuzz_packet.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_setup"
+path = "fuzz_targets/fuzz_setup.rs"
 test = false
 doc = false
