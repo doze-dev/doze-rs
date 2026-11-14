@@ -25,22 +25,22 @@ const OPEN: &str =
 
 /// A launch's arguments as Go's `dirFrom` reads a second launch's: a folder made absolute against `cwd`, the folder it
 /// ran in (the app that hears it runs elsewhere); with no folder or link named, the project `cwd` is inside, found
-/// upward as the CLI finds doze.hcl (none found, none added). Links, flags and `--show NAME` stay as they are.
+/// upward as the CLI finds doze.hcl, else that folder itself (Go). Links, flags and `--show NAME` stay as they are.
 pub(crate) fn resolved(args: &[String], cwd: &Path) -> Vec<String> {
     let mut out = absolute(args, cwd);
-    if !names_a_place(&out)
-        && let Some(p) = project_dir(cwd)
-    {
-        out.insert(0, p.to_string_lossy().into_owned());
+    if !names_a_place(&out) {
+        out.insert(0, project_dir(cwd).to_string_lossy().into_owned());
     }
     out
 }
 
-/// The nearest folder at or above `dir` with a doze.hcl (Go `projectDir`).
-fn project_dir(dir: &Path) -> Option<PathBuf> {
+/// The nearest folder at or above `dir` with a doze.hcl, or `dir` itself when none has one (Go `projectDir`): the
+/// folder then opens on its own page, to set it up.
+fn project_dir(dir: &Path) -> PathBuf {
     dir.ancestors()
         .find(|d| d.join("doze.hcl").is_file())
-        .map(Path::to_path_buf)
+        .unwrap_or(dir)
+        .to_path_buf()
 }
 
 /// A folder argument made absolute against `cwd`; links and flags as they are.
@@ -260,8 +260,8 @@ mod upward {
         );
         // A link names its place; nothing is added.
         assert_eq!(resolved(&v(&["doze://shop"]), &deep), v(&["doze://shop"]));
-        // No project above: nothing is added.
-        assert_eq!(resolved(&[], &root), Vec::<String>::new());
+        // No project above: the folder itself, as Go's projectDir.
+        assert_eq!(resolved(&[], &root), v(&[&root.to_string_lossy()]));
         let _ = std::fs::remove_dir_all(&root);
     }
 }

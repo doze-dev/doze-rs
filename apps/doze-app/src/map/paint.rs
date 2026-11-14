@@ -305,7 +305,8 @@ impl Scene {
     }
 
     /// The focus card's own calls, on top of everything, at full strength: curves with heads at any zoom, built
-    /// fresh at the exact zoom (a card has a handful), at least 2 px wide and with a head that still shows far out.
+    /// fresh at the exact zoom (a card has a handful), Go's 1.6 wide (`.map .edge`, scaling with the map as Go's SVG
+    /// stroke does) and with a head that still shows far out.
     ///
     /// They fade: a selection's in over the dim's 200 ms (and the last selection's out), the pointer's card's in over
     /// the hover's 120 ms as the last card's fade out.
@@ -315,7 +316,7 @@ impl Scene {
                 return;
             }
             let z = self.z;
-            let width = CALL_WIDTH.max(2.0 / z);
+            let width = CALL_WIDTH;
             let head = 1.0_f64.max(0.7 / f64::from(z));
             for edge in self.l.edges.iter().filter(|e| e.from == c || e.to == c) {
                 for p in build(&edge.path, z, width, head) {

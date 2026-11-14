@@ -259,31 +259,35 @@ fn service_verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -
         ));
     }
     if let (Some(u), true) = (url, serving) {
-        let shown = u
-            .trim_start_matches("https://")
-            .trim_start_matches("http://")
-            .to_owned();
-        out.push(
-            button(t, "open", "Open", "", true)
-                .child(
-                    div()
-                        .max_w(px(220.))
-                        .overflow_hidden()
-                        .text_ellipsis()
-                        .text_size(px(ty::SM))
-                        .child(text(&shown)),
-                )
-                .child(
-                    div()
-                        .text_size(px(ty::XS))
-                        .opacity(0.7)
-                        .child(text(&chip("Open in browser"))),
-                )
-                .on_click(cx.listener(|v, _, _, cx| v.open_address(cx)))
-                .into_any_element(),
-        );
+        out.push(open_button(t, &u, cx));
     }
     out
+}
+
+/// Open <address> o: the address without its scheme, titled with the whole URL as Go's.
+fn open_button(t: &Tokens, u: &str, cx: &mut Context<InstanceView>) -> AnyElement {
+    let shown = u
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .to_owned();
+    button(t, "open", "Open", "", true)
+        .tooltip(tip(u.to_owned()))
+        .child(
+            div()
+                .max_w(px(220.))
+                .overflow_hidden()
+                .text_ellipsis()
+                .text_size(px(ty::SM))
+                .child(text(&shown)),
+        )
+        .child(
+            div()
+                .text_size(px(ty::XS))
+                .opacity(0.7)
+                .child(text(&chip("Open in browser"))),
+        )
+        .on_click(cx.listener(|v, _, _, cx| v.open_address(cx)))
+        .into_any_element()
 }
 
 /// `.ptabs`: the page's tabs, the open one underlined in the accent.
