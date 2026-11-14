@@ -1539,6 +1539,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-daemon"
+version = "0.0.0"
+dependencies = [
+ "doze-control",
+ "doze-engine",
+ "doze-journal",
+ "doze-logstore",
+ "doze-os",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "doze-display"
 version = "0.0.0"
 dependencies = [
