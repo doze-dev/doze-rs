@@ -253,6 +253,34 @@
       "ServerSideEncryption": "AES256"
     }
   },
+  "test_anonymous_reads_need_a_public_grant": {
+    "anonymous-allowed": {
+      "AcceptRanges": "bytes",
+      "Body": {
+        "<bytes>": "for anyone"
+      },
+      "ChecksumCRC32": "69FYYw==",
+      "ChecksumType": "FULL_OBJECT",
+      "ContentLength": 10,
+      "ContentType": "binary/octet-stream",
+      "ETag": "\"52d6ce48b58023dbc75550a39d307ee9\"",
+      "LastModified": "<datetime>",
+      "Metadata": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "anonymous-denied": {
+      "Error": {
+        "Code": "AccessDenied",
+        "Message": "Access Denied"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    }
+  },
   "test_bucket_and_object_lifecycle": {
     "copy": {
       "CopyObjectResult": {

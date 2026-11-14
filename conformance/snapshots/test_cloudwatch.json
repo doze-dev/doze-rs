@@ -91,6 +91,63 @@
       }
     }
   },
+  "test_composite_alarms_dashboards_and_history": {
+    "delete-dashboard": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe-composite": {
+      "CompositeAlarms": [
+        {
+          "ActionsEnabled": true,
+          "AlarmActions": [],
+          "AlarmArn": "arn:aws:cloudwatch:us-east-1:<account>:alarm:<name:composite>",
+          "AlarmConfigurationUpdatedTimestamp": "<AlarmConfigurationUpdatedTimestamp:1>",
+          "AlarmName": "<name:composite>",
+          "AlarmRule": "ALARM(<name:alarm>)",
+          "InsufficientDataActions": [],
+          "OKActions": [],
+          "StateTransitionedTimestamp": "<StateTransitionedTimestamp:1>",
+          "StateUpdatedTimestamp": "<StateUpdatedTimestamp:1>"
+        }
+      ],
+      "LogAlarms": [],
+      "MetricAlarms": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get-dashboard": {
+      "same-body": true
+    },
+    "get-deleted-dashboard": {
+      "Error": {
+        "Code": "ResourceNotFound",
+        "Message": "Dashboard <name:dash> does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "history": [
+      "Alarm updated from INSUFFICIENT_DATA to ALARM"
+    ],
+    "list-dashboards": [
+      "<name:dash>"
+    ],
+    "put-composite": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put-dashboard": {
+      "DashboardValidationMessages": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
   "test_metric_data_reads_back_as_statistics": {
     "get-metric-data": {
       "Messages": [],

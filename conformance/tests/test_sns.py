@@ -260,9 +260,15 @@ def test_topic_permissions_attributes_and_tags(client, names, cleanup, snapshot,
         TopicArn=arn, AttributeName="MaximumMessageSize", AttributeValue="100"))
     snapshot.outcome("set-content-based-on-a-standard-topic", lambda: sns.set_topic_attributes(
         TopicArn=arn, AttributeName="ContentBasedDeduplication", AttributeValue="true"))
-    snapshot.match("set-delivery-policy", sns.set_topic_attributes(
+    # AWS wants the whole retry policy, not one field of it (recorded 2026-11-15: "minDelayTarget must be specified").
+    snapshot.outcome("set-delivery-policy-partial", lambda: sns.set_topic_attributes(
         TopicArn=arn, AttributeName="DeliveryPolicy",
         AttributeValue=json.dumps({"http": {"defaultHealthyRetryPolicy": {"numRetries": 5}}})))
+    snapshot.match("set-delivery-policy", sns.set_topic_attributes(
+        TopicArn=arn, AttributeName="DeliveryPolicy",
+        AttributeValue=json.dumps({"http": {"defaultHealthyRetryPolicy": {
+            "minDelayTarget": 20, "maxDelayTarget": 20, "numRetries": 3, "numMaxDelayRetries": 0,
+            "numNoDelayRetries": 0, "numMinDelayRetries": 0, "backoffFunction": "linear"}}})))
     attrs = sns.get_topic_attributes(TopicArn=arn)["Attributes"]
     for doc in ("Policy", "EffectiveDeliveryPolicy", "DeliveryPolicy"):
         if doc in attrs:
@@ -289,7 +295,8 @@ def test_confirmation_is_awaited_by_https_and_not_by_a_queue(client, names, clea
     snapshot.match("counts", {k: v for k, v in sns.get_topic_attributes(TopicArn=arn)["Attributes"].items()
                               if k.startswith("Subscriptions")})
     snapshot.error("wrong-token", lambda: sns.confirm_subscription(TopicArn=arn, Token="0" * 64))
-    snapshot.match("unsubscribe-pending", sns.unsubscribe(SubscriptionArn=pending["SubscriptionArn"]))
+    # AWS refuses to unsubscribe what is still pending (recorded 2026-11-15); deleting the topic takes it away.
+    snapshot.outcome("unsubscribe-pending", lambda: sns.unsubscribe(SubscriptionArn=pending["SubscriptionArn"]))
     snapshot.outcome("unsubscribe-again", lambda: sns.unsubscribe(SubscriptionArn=pending["SubscriptionArn"]))
 
 
@@ -447,10 +454,13 @@ def test_batch_reports_each_message(client, names, cleanup, snapshot):
     sns = client("sns")
     arn = sns.create_topic(Name=names("topic"))["TopicArn"]
     cleanup(sns.delete_topic, TopicArn=arn)
-    snapshot.match("mixed", sns.publish_batch(TopicArn=arn, PublishBatchRequestEntries=[
+    # An attribute of an unknown type refuses the whole batch, not the one entry (recorded 2026-11-15).
+    snapshot.outcome("mixed", lambda: sns.publish_batch(TopicArn=arn, PublishBatchRequestEntries=[
         {"Id": "ok", "Message": "fine"},
         {"Id": "bad-attribute", "Message": "x", "MessageAttributes": {"a": {"DataType": "Date", "StringValue": "v"}}},
         {"Id": "also-ok", "Message": "fine"}]), opaque=("MessageId",))
+    snapshot.match("all-fine", sns.publish_batch(TopicArn=arn, PublishBatchRequestEntries=[
+        {"Id": "ok", "Message": "fine"}, {"Id": "also-ok", "Message": "fine"}]), opaque=("MessageId",))
     snapshot.outcome("bad-id", lambda: sns.publish_batch(TopicArn=arn, PublishBatchRequestEntries=[
         {"Id": "has a space", "Message": "x"}]))
     snapshot.outcome("too-long", lambda: sns.publish_batch(TopicArn=arn, PublishBatchRequestEntries=[

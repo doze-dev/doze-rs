@@ -103,8 +103,8 @@ fn the_shard_count_is_bounded_by_double_and_half_and_by_the_stream_mode() {
     let mut w = World::new();
     w.stream("s", 2);
     let (code, message) = scale(&mut w, 5).unwrap_err();
-    assert_eq!(code, "LimitExceededException");
-    assert!(message.contains("from 2 to 5"), "{message}");
+    assert_eq!(code, "InvalidArgumentException");
+    assert!(message.contains("Current open shard count: 2 Target shard count: 5"), "{message}");
     w.stream("big", 4);
     let (code, _) = w
         .run(
@@ -113,7 +113,7 @@ fn the_shard_count_is_bounded_by_double_and_half_and_by_the_stream_mode() {
         )
         .map(|_| (String::new(), String::new()))
         .unwrap_or_else(|e| (e.code.to_string(), e.message));
-    assert_eq!(code, "LimitExceededException");
+    assert_eq!(code, "InvalidArgumentException");
     // The count it has already is not a change.
     let same = scale(&mut w, 2).unwrap();
     assert_eq!(same["CurrentShardCount"], 2);

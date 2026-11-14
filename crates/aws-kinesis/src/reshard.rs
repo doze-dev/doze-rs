@@ -8,7 +8,7 @@
 //!
 //! Recorded on AWS (2026-11-09, `test_a_split_closes_the_parent_even_if_it_never_held_a_record`): the answer to a split is empty; the
 //! parent is closed at once even if it never held a record; the children are `ParentShardId`-linked and split the range at
-//! `NewStartingHashKey` (the lower child ends one below it). Every refusal below is worded from memory, and each says so.
+//! `NewStartingHashKey` (the lower child ends one below it). The refusals were recorded on 2026-11-15, except where one says (memory).
 
 use aws_wire::ApiError;
 use serde_json::{Value, json};
@@ -35,7 +35,7 @@ impl Core {
         if shard.ended_seq.is_some() {
             // (memory)
             return Err(invalid(format!(
-                "Shard {id} in stream {} under account {account} is closed, so it cannot be split.",
+                "Shard {id} in stream {} under account {account} has already been merged or split, and thus is not eligible for merging or splitting.",
                 s.name
             )));
         }
@@ -44,7 +44,7 @@ impl Core {
         // its end. (memory)
         let Some(at) = key.parse::<u128>().ok().filter(|k| *k > lo && *k <= hi) else {
             return Err(invalid(format!(
-                "NewStartingHashKey {key} used in SplitShard() on shard {id} in stream {} under account {account} is not both greater than one plus the shard's StartingHashKey {lo} and less than or equal to the shard's EndingHashKey {hi}.",
+                "NewStartingHashKey {key} used in SplitShard() on shard {id} in stream {} under account {account} is not both greater than one plus the shard's StartingHashKey {lo} and less than the shard's EndingHashKey {hi}.",
                 s.name
             )));
         };
@@ -62,32 +62,39 @@ impl Core {
         let s = self.stream_mut(r)?;
         ready(s, &account, now)?;
         let (a_id, b_id) = (r.s("ShardToMerge"), r.s("AdjacentShardToMerge"));
-        let a = find(s, a_id, &account)?;
-        let b = find(s, b_id, &account)?;
+        // Recorded on AWS (2026-11-15): MergeShards words a missing shard its own way, not GetShardIterator's.
+        let missing = |id: &str| {
+            ApiError::modeled(
+                "ResourceNotFoundException",
+                format!("Could not find shard {id} in stream {} under account {account}.", s.name),
+            )
+        };
+        let a = shard_number(a_id).and_then(|n| s.shard(n)).ok_or_else(|| missing(a_id))?;
+        let b = shard_number(b_id).and_then(|n| s.shard(n)).ok_or_else(|| missing(b_id))?;
         let (a, b) = (a.clone(), b.clone());
-        if a.id == b.id {
-            // (memory)
-            return Err(invalid(format!(
-                "Shard {a_id} in stream {} under account {account} cannot be merged with itself.",
+        // Recorded on AWS (2026-11-15): a shard and itself are "not an adjacent pair", in the same words as a gap.
+        let not_adjacent = || {
+            invalid(format!(
+                "Shards {a_id} and {b_id} in stream {} under account {account} are not an adjacent pair of shards eligible for merging",
                 s.name
-            )));
+            ))
+        };
+        if a.id == b.id {
+            return Err(not_adjacent());
         }
         for shard in [&a, &b] {
             if shard.ended_seq.is_some() {
-                // (memory)
+                // Recorded on AWS (2026-11-15).
                 return Err(invalid(format!(
-                    "Shard {} in stream {} under account {account} is closed, so it cannot be merged.",
+                    "Shard {} in stream {} under account {account} has already been merged or split, and thus is not eligible for merging or splitting.",
                     shard.name(),
                     s.name
                 )));
             }
         }
-        // Merging two shards that are not neighbours would leave the hash keys between them with no shard. (memory)
+        // Merging two shards that are not neighbours would leave the hash keys between them with no shard (recorded 2026-11-15).
         if a.end.checked_add(1) != Some(b.start) && b.end.checked_add(1) != Some(a.start) {
-            return Err(invalid(format!(
-                "Shards {a_id} and {b_id} in stream {} under account {account} are not an adjacent pair of shards eligible for merging.",
-                s.name
-            )));
+            return Err(not_adjacent());
         }
         let after = s.close(a.id, now).max(s.close(b.id, now));
         // The child names the shard to merge as its parent and the other as the adjacent parent. (memory)
@@ -129,15 +136,19 @@ impl Core {
         if target == current {
             return Ok(out);
         }
-        // The documented defaults: not more than double, not below half. (memory: the code and words)
-        if target > current.saturating_mul(2) || target.saturating_mul(2) < current {
-            return Err(ApiError::modeled(
-                "LimitExceededException",
-                format!(
-                    "Cannot update the shard count of stream {} under account {account} from {current} to {target}: the new count may not be more than double or less than half the current one.",
-                    s.name
-                ),
-            ));
+        // The documented defaults: not more than double, not below half. Recorded on AWS (2026-11-15) for doubling; the halving
+        // words follow the same form. (memory: the halving words)
+        let direction = if target > current.saturating_mul(2) {
+            Some("up over double")
+        } else if target.saturating_mul(2) < current {
+            Some("down below half")
+        } else {
+            None
+        };
+        if let Some(direction) = direction {
+            return Err(invalid(format!(
+                "UpdateShardCount cannot scale {direction} your current open shard count. Current open shard count: {current} Target shard count: {target}"
+            )));
         }
         if used - current + target > SHARD_LIMIT {
             return Err(over_the_limit(&account, r.region()));

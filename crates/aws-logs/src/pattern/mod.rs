@@ -18,10 +18,12 @@ use regex::Re;
 use serde_json::Value;
 
 /// Why a pattern was not accepted.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum PatternError {
     /// AWS answers `Invalid filter pattern`.
     Invalid,
+    /// AWS answers `Invalid character(s) in term '<text>'`: the text between two `%...%` of an unstructured pattern.
+    Term(String),
     /// More regular expressions than one filter pattern may hold.
     TooManyRegexes,
 }
@@ -128,11 +130,23 @@ fn is_word(c: char) -> bool {
 fn terms(text: &str) -> Result<Vec<Term>, PatternError> {
     let mut out = Vec::new();
     let mut chars = text.chars().peekable();
+    // The whitespace after a `%...%`: AWS reads it as a term of its own, so a second expression after it is refused
+    // (recorded 2026-11-15: `%a% %b% %c%` is "Invalid character(s) in term ' '", before any count of expressions).
+    let mut gap: Option<String> = None;
     while let Some(&c) = chars.peek() {
         if c.is_whitespace() {
+            if let Some(g) = gap.as_mut() {
+                g.push(c);
+            }
             chars.next();
             continue;
         }
+        if c == '%' {
+            if let Some(g) = gap.take().filter(|g| !g.is_empty()) {
+                return Err(PatternError::Term(g));
+            }
+        }
+        gap = None;
         let kind = match c {
             '-' => Kind::Not,
             '?' => Kind::Either,
@@ -150,6 +164,7 @@ fn terms(text: &str) -> Result<Vec<Term>, PatternError> {
                 kind,
                 re: Some(re),
             });
+            gap = Some(String::new());
             continue;
         }
         if chars.peek() == Some(&'"') {

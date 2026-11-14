@@ -17,6 +17,135 @@
       }
     }
   },
+  "test_batch_reports_each_message": {
+    "all-fine": {
+      "Failed": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Successful": [
+        {
+          "Id": "ok",
+          "MessageId": "<MessageId:1>"
+        },
+        {
+          "Id": "also-ok",
+          "MessageId": "<MessageId:2>"
+        }
+      ]
+    },
+    "bad-id": {
+      "Error": {
+        "Code": "InvalidBatchEntryId",
+        "Message": "The Id of a batch entry in the batch request contains an impermissible character: has a space"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "mixed": {
+      "Error": {
+        "Code": "ParameterValueInvalid",
+        "Message": "The message attribute 'a' has an invalid message attribute type, the set of supported type prefixes is Binary, Number, and String."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "too-long": {
+      "Error": {
+        "Code": "BatchRequestTooLong",
+        "Message": "The length of all the messages put together is more than the limit."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_confirmation_is_awaited_by_https_and_not_by_a_queue": {
+    "counts": {
+      "SubscriptionsConfirmed": "0",
+      "SubscriptionsDeleted": "0",
+      "SubscriptionsPending": "0"
+    },
+    "https": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SubscriptionArn": "pending confirmation"
+    },
+    "https-with-arn": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>"
+    },
+    "listed": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Subscriptions": [
+        {
+          "Endpoint": "https://example.com/dzc",
+          "Owner": "<account>",
+          "Protocol": "https",
+          "SubscriptionArn": "PendingConfirmation",
+          "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+        },
+        {
+          "Endpoint": "https://example.com/dzc-two",
+          "Owner": "<account>",
+          "Protocol": "https",
+          "SubscriptionArn": "PendingConfirmation",
+          "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+        }
+      ]
+    },
+    "pending-attributes": {
+      "Attributes": {
+        "ConfirmationWasAuthenticated": "false",
+        "EffectiveDeliveryPolicy": "{\"healthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"sicklyRetryPolicy\":null,\"throttlePolicy\":null,\"requestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"},\"guaranteed\":false}",
+        "Endpoint": "https://example.com/dzc-two",
+        "Owner": "<account>",
+        "PendingConfirmation": "true",
+        "Protocol": "https",
+        "RawMessageDelivery": "false",
+        "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>",
+        "SubscriptionPrincipal": "<SubscriptionPrincipal:1>",
+        "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "unsubscribe-again": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: SubscriptionArn Reason: Cannot unsubscribe a subscription that is pending confirmation"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unsubscribe-pending": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: SubscriptionArn Reason: Cannot unsubscribe a subscription that is pending confirmation"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "wrong-token": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Token"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
   "test_create_again_must_agree": {
     "different-attribute": {
       "Error": {
@@ -691,6 +820,267 @@
           "Value": "dev"
         }
       ]
+    }
+  },
+  "test_topic_permissions_attributes_and_tags": {
+    "add-permission": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "add-permission-again": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Statement already exists"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "add-permission-bad-action": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Policy statement action out of service scope!"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "attributes-after": {
+      "Attributes": {
+        "DeliveryPolicy": {
+          "http": {
+            "defaultHealthyRetryPolicy": {
+              "backoffFunction": "linear",
+              "maxDelayTarget": 20,
+              "minDelayTarget": 20,
+              "numMaxDelayRetries": 0,
+              "numMinDelayRetries": 0,
+              "numNoDelayRetries": 0,
+              "numRetries": 3
+            },
+            "disableSubscriptionOverrides": false
+          }
+        },
+        "DisplayName": "",
+        "EffectiveDeliveryPolicy": {
+          "http": {
+            "defaultHealthyRetryPolicy": {
+              "backoffFunction": "linear",
+              "maxDelayTarget": 20,
+              "minDelayTarget": 20,
+              "numMaxDelayRetries": 0,
+              "numMinDelayRetries": 0,
+              "numNoDelayRetries": 0,
+              "numRetries": 3
+            },
+            "defaultRequestPolicy": {
+              "headerContentType": "text/plain; charset=UTF-8"
+            },
+            "disableSubscriptionOverrides": false
+          }
+        },
+        "MaximumMessageSize": "2048",
+        "Owner": "<account>",
+        "Policy": {
+          "Id": "__default_policy_ID",
+          "Statement": [
+            {
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:SetTopicAttributes",
+                "SNS:AddPermission",
+                "SNS:RemovePermission",
+                "SNS:DeleteTopic",
+                "SNS:Subscribe",
+                "SNS:ListSubscriptionsByTopic",
+                "SNS:Publish"
+              ],
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "<account>"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Resource": "arn:aws:sns:us-east-1:<account>:<name:topic>",
+              "Sid": "__default_statement_ID"
+            }
+          ],
+          "Version": "2008-10-17"
+        },
+        "SubscriptionsConfirmed": "0",
+        "SubscriptionsDeleted": "0",
+        "SubscriptionsPending": "0",
+        "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      }
+    },
+    "listed": [
+      "arn:aws:sns:us-east-1:<account>:<name:topic>"
+    ],
+    "policy-after-add": {
+      "Id": "__default_policy_ID",
+      "Statement": [
+        {
+          "Action": [
+            "SNS:GetTopicAttributes",
+            "SNS:SetTopicAttributes",
+            "SNS:AddPermission",
+            "SNS:RemovePermission",
+            "SNS:DeleteTopic",
+            "SNS:Subscribe",
+            "SNS:ListSubscriptionsByTopic",
+            "SNS:Publish"
+          ],
+          "Condition": {
+            "StringEquals": {
+              "AWS:SourceOwner": "<account>"
+            }
+          },
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "*"
+          },
+          "Resource": "arn:aws:sns:us-east-1:<account>:<name:topic>",
+          "Sid": "__default_statement_ID"
+        },
+        {
+          "Action": [
+            "SNS:Publish",
+            "SNS:Subscribe"
+          ],
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "arn:aws:iam::<account>:root"
+          },
+          "Resource": "arn:aws:sns:us-east-1:<account>:<name:topic>",
+          "Sid": "friends"
+        }
+      ],
+      "Version": "2008-10-17"
+    },
+    "policy-after-remove": {
+      "Id": "__default_policy_ID",
+      "Statement": [
+        {
+          "Action": [
+            "SNS:GetTopicAttributes",
+            "SNS:SetTopicAttributes",
+            "SNS:AddPermission",
+            "SNS:RemovePermission",
+            "SNS:DeleteTopic",
+            "SNS:Subscribe",
+            "SNS:ListSubscriptionsByTopic",
+            "SNS:Publish"
+          ],
+          "Condition": {
+            "StringEquals": {
+              "AWS:SourceOwner": "<account>"
+            }
+          },
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "*"
+          },
+          "Resource": "arn:aws:sns:us-east-1:<account>:<name:topic>",
+          "Sid": "__default_statement_ID"
+        }
+      ],
+      "Version": "2008-10-17"
+    },
+    "remove-permission": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "remove-permission-again": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "reserved-tag": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Tags Reason: Caller is an end user and not allowed to mutate system tags"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "retag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "set-content-based-on-a-standard-topic": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: AttributeName"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-delivery-policy": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "set-delivery-policy-partial": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: DeliveryPolicy: http.defaultHealthyRetryPolicy.minDelayTarget must be specified"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-size": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "set-size-too-small": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: MaximumMessageSize: 100 is not an integer between 1024 and 1048576 bytes"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "tags-after": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "Key": "team",
+          "Value": "b"
+        }
+      ]
+    },
+    "tags-at-creation": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        },
+        {
+          "Key": "team",
+          "Value": "a"
+        }
+      ]
+    },
+    "untag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
     }
   }
 }

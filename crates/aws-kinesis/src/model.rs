@@ -138,7 +138,9 @@ impl Stream {
     /// Closes shard `id` at the current end of the stream. Returns the sequence number it ends at: no record of the shard is past it,
     /// and none is before the shard started (a shard that never held a record is closed all the same).
     pub(crate) fn close(&mut self, id: u32, now_ms: i64) -> u128 {
-        let floor = ms_seq(now_ms);
+        // Each shard ends at a number of its own, even two closed in the same instant: AWS gave the two parents of a merge
+        // different `EndingSequenceNumber`s (recorded 2026-11-15).
+        let floor = ms_seq(now_ms) + u128::from(id);
         let Some(shard) = self.shards.iter_mut().find(|s| s.id == id) else {
             return 0;
         };
