@@ -19,6 +19,7 @@ pub mod channel;
 pub mod detach;
 pub mod fs;
 pub mod home;
+pub mod local;
 pub mod net;
 pub mod privilege;
 pub mod process;
