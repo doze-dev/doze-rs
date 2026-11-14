@@ -479,3 +479,19 @@ broker core needs none of them. CI: the `weight-tls` size job is gone; its size 
 certificate loaded (10,610 KB). The single build, with the module face and the registry's Avro and JSON Schema, is 7,669,200 B on darwin
 arm64, 183 packages, 7,472 KB idle; about 10.43 MB on ubuntu x86_64 at CI's 1.36. Limit 10,951,617 B, 186 packages, 9,996 KB, estimates
 until CI measures them. Building from source needs a C compiler and an assembler (ring); release binaries are unaffected.
+
+## One build: CI's measurements (2026-11-14)
+
+Main's first CI run with the one build (TLS in the default, the registry with Avro, JSON Schema and Protobuf), run 43588988185 on PR #45,
+replaces the estimates above, by the rule of "Limits raised to the measured values": bytes and packages exact, idle the median of three
+plus 5%. Small, justified rises under the owner's delegation of 2026-11-14.
+
+| job | measured | old limit | new limit |
+|---|---|---|---|
+| `weight`, doze-kafka binary | 10,634,592 B, 183 packages | 10,951,617 B, 186 (estimates) | **10,634,592 B, 183** |
+| `weight`, doze-kafka idle | 10,488 / 10,048 / 10,576 KB, median 10,488 | 9,996 KB (estimate) | **11,013 KB** |
+| `weight-lean` binary | 5,274,120 B | 5,263,296 B | **5,274,120 B** (+10,824 B: the module face's and registry's shared code reached the lean build) |
+| `weight-tls-idle` | 10,932 / 10,916 / 10,936 KB, median 10,932 | 10,610 KB | **11,479 KB** |
+
+doze-aws held (median 8,728 KB of 9,413) and the lean build's idle held (6,920 KB of 7,229). doze-kafka's idle has risen about 1.2 MB since
+2026-11-12 (the console, then the registry on by default); that is in issue #36.
