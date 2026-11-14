@@ -1,6 +1,6 @@
 //! The menu bar, as data (Go `internal/desk/tray`, the MenuBar and MenuBarNeeds boards): the bat alone (never a
 //! number), the alert mark when something needs you, one line per stack with a quiet second half, the Needs you
-//! section above them, and each stack a submenu of what fits its state. The app turns a [`Menu`] into native items
+//! section above them, and each stack a submenu of what fits its state. The app turns a menu (from [`menu`]) into native items
 //! and rebuilds them only when the menu's [`signature`] changes; the words come from `doze-display`, so the menu bar,
 //! the CLI and the window say the same thing.
 //!
