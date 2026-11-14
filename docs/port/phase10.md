@@ -174,7 +174,8 @@ What 10b and 10c should not need to touch: `registry/*`, `api/*`, `store.rs`, `s
 
 ## Slice 10c: JSON Schema
 
-`src/jsonschema.rs` and `src/jsonschema/{doc,check,node,compat,number}.rs`, about 1,900 lines with tests, behind the one line in
+`src/jsonschema.rs` and `src/jsonschema/{doc,check,node,compat,number}.rs` (with submodules), about 3,100 lines with the tests (480),
+behind the one line in
 `Formats::all()`. What it does is REG-30 to REG-34; where it departs from Confluent or Go, REG-D16 to REG-D20.
 
 - **doc.rs**: the schema and each schema its references reach as documents with their own names (`ResolvedRef.node` and `names`),
