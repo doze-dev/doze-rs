@@ -41,7 +41,7 @@ The Go kafka module lives beside its broker in `doze-kafka/module` and needs SDK
 so its oracle is a Go module of its own: `kafka/main.go`, the same answer shape plus each case's `network`, against an instance
 granted as a v0.12 doze grants it. 43 cases: 23 from `corpus.ts` and 20 from `kafka/extra.ts` (what the generated values cannot
 reach: real topic configs, names and counts Kafka refuses, versions, durations, the Larder block). Compared in
-`crates/doze-kafka/tests/module.rs` (docs/port/phase11.md). Regenerate (needs `../../../doze-kafka` and Go):
+`crates/doze-kafka/tests/module_oracle.rs` (docs/port/phase11.md). Regenerate (needs `../../../doze-kafka` and Go):
 
 ```
 (cd tools/module-oracle/kafka && GOFLAGS=-mod=mod GOPROXY=off go build -o /tmp/kafka-oracle .)
