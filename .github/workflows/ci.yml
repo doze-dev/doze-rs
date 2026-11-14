@@ -76,8 +76,8 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names --all-targets -- -D warnings
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names --no-fail-fast -- --nocapture
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-hcl --all-targets -- -D warnings
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-hcl --no-fail-fast -- --nocapture
       - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
         run: cargo clippy -p doze-names --features netd --all-targets -- -D warnings && cargo test -p doze-names --features netd --no-fail-fast
 
@@ -119,7 +119,7 @@ jobs:
             tar -xzf "$dir/$art" -C "$dir"
             echo "$var=$dir/$name-$v-$TARGET/bin" >> "$GITHUB_ENV"
           done
-      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names --no-fail-fast -- --nocapture
+      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-hcl --no-fail-fast -- --nocapture
       - name: valkey's acceptance on its other major (8)
         shell: bash
         run: DOZE_VALKEY_BINDIR="$VALKEY8_BINDIR" cargo test -p doze-module-valkey --test acceptance --no-fail-fast -- --nocapture

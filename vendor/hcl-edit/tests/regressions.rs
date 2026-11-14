@@ -1,0 +1,409 @@
+use hcl_edit::expr::{
+    BinaryOp, BinaryOperator, Conditional, Expression, Object, ObjectKey, ObjectValue,
+};
+use hcl_edit::structure::{Attribute, Block, Body, Structure};
+use hcl_edit::template::{Element, Interpolation, Template};
+use hcl_edit::{Decorate, Decorated, Ident, Span};
+use pretty_assertions::assert_eq;
+
+macro_rules! assert_ok {
+    ($input:expr) => {
+        assert!($input.parse::<Body>().is_ok());
+    };
+}
+
+macro_rules! assert_err {
+    ($input:expr) => {
+        assert!($input.parse::<Body>().is_err());
+    };
+}
+
+// https://github.com/martinohmann/hcl-rs/issues/248
+#[test]
+fn issue_248() {
+    let expr = Expression::from("${foo}");
+
+    let encoded = expr.to_string();
+    assert_eq!(encoded, "\"$${foo}\"");
+
+    let parsed: Expression = encoded.parse().unwrap();
+    assert_eq!(parsed, expr);
+}
+
+// https://github.com/martinohmann/hcl-rs/issues/256
+#[test]
+fn issue_256() {
+    let input = "$${escaped1} ${unescaped} $${escaped2} $$ESCAPED_SHELL_VAR\n$SHELL_VAR";
+    let parsed: Template = input.parse().unwrap();
+    let expected = Template::from_iter([
+        Element::from("${escaped1} "),
+        Element::from(Interpolation::new(Ident::new("unescaped"))),
+        Element::from(" ${escaped2} $$ESCAPED_SHELL_VAR\n$SHELL_VAR"),
+    ]);
+
+    assert_eq!(parsed, expected);
+}
+
+// https://github.com/martinohmann/hcl-rs/issues/270
+#[test]
+fn issue_270() {
+    let no_trailing_newline = String::from("block {\nfoo = \"bar\"\n}\nbar = \"baz\"");
+    let trailing_newline = format!("{no_trailing_newline}\n");
+
+    // Parsed
+    let parsed: Body = no_trailing_newline.parse().unwrap();
+    assert_eq!(parsed.to_string(), no_trailing_newline);
+
+    let parsed: Body = trailing_newline.parse().unwrap();
+    assert_eq!(parsed.to_string(), trailing_newline);
+
+    // Manually constructed
+    let mut body = Body::builder()
+        .block(
+            Block::builder(Ident::new("block"))
+                .attribute(Attribute::new(Ident::new("foo"), "bar"))
+                .build(),
+        )
+        .attribute(Attribute::new(Ident::new("bar"), "baz"))
+        .build();
+    assert_eq!(body.to_string(), trailing_newline);
+
+    body.set_prefer_omit_trailing_newline(true);
+    assert_eq!(body.to_string(), no_trailing_newline);
+}
+
+// https://github.com/martinohmann/hcl-rs/issues/284
+#[test]
+fn issue_284() {
+    let input = r#"
+      locals {
+        test = {
+          a = b// this comment breaks the parser
+          c = d // but this one doesn't
+        }
+      }
+    "#;
+
+    let res: Result<Body, _> = input.parse();
+    assert!(res.is_ok());
+}
+
+// https://github.com/martinohmann/hcl-rs/issues/294
+#[test]
+fn issue_294() {
+    let input = r#"
+        foo = bar
+        block {}
+        labeled_block "label" {}
+    "#;
+
+    let body: Body = input.parse().unwrap();
+
+    assert_eq!(body.len(), 3);
+
+    for structure in &body {
+        let ident = match structure {
+            Structure::Attribute(attr) => &attr.key,
+            Structure::Block(block) => &block.ident,
+        };
+
+        assert!(
+            ident.span().is_some(),
+            "ident `{ident}` misses span information in {structure:?}"
+        );
+    }
+}
+
+// https://github.com/martinohmann/hcl-rs/issues/319
+// https://github.com/martinohmann/hcl-rs/issues/426
+#[test]
+fn issues_319_426() {
+    // single line expressions with parenthesis
+    assert_ok! {r#"
+        foo = (true ? "bar" : "baz")
+    "#};
+    assert_ok! {r#"
+        foo = (1 > 2)
+    "#};
+    assert_ok! {r#"
+        foo = (var.foo[2])
+    "#};
+
+    // multiline expressions with parenthesis
+    assert_ok! {r#"
+        foo = (true ?
+            "bar" :
+            "baz"
+        )
+    "#};
+    assert_ok! {r#"
+        foo = (
+            1
+            >
+            2
+        )
+    "#};
+    assert_ok! {r#"
+        foo = (
+            var
+                .foo
+                [2]
+        )
+    "#};
+
+    // invalid multiline expressions without parenthesis
+    assert_err! {r#"
+        foo = true ?
+            "bar" :
+            "baz"
+    "#};
+    assert_err! {r#"
+        foo = 1
+            >
+            2
+    "#};
+    assert_err! {r#"
+        foo = var
+            .foo
+            [2]
+    "#};
+
+    // multiline expressions in traversal index operator
+    assert_ok! {r#"
+        foo = var.foo[
+            bar &&
+            baz ? 0 :
+            1
+        ]
+    "#};
+
+    // multiline expressions in template string interpolation
+    assert_ok! {r#"
+        foo = "template-string-${
+            bar &&
+            baz ? "qux" :
+            ""
+        }"
+    "#};
+}
+
+// https://github.com/martinohmann/hcl-rs/issues/350
+#[test]
+fn issue_350() {
+    let unicode_input = r#"
+        locals {
+            é = 4
+        }
+        output "ééé" {
+            value = local.é
+        }
+    "#;
+    assert!(unicode_input.parse::<Body>().is_ok());
+}
+
+// https://github.com/martinohmann/hcl-rs/issues/367
+#[test]
+fn issue_367() {
+    // multiline expressions with function calls
+    assert_ok! {r#"
+        foo = length(
+            true
+            ? "bar"
+            : "baz"
+        )
+    "#};
+    assert_ok! {r#"
+        foo = length(
+            1
+            >
+            2
+        )
+    "#};
+    assert_ok! {r#"
+        foo = length(
+            var
+                .foo
+                [2]
+        )
+    "#};
+
+    // multiline expressions with arrays
+    assert_ok! {r#"
+        foo = [
+            true
+            ? "bar"
+            : "baz"
+        ]
+    "#};
+    assert_ok! {r#"
+        foo = [
+            1
+            >
+            2
+        ]
+    "#};
+    assert_ok! {r#"
+        foo = [
+            var.foo
+            || "yes"
+        ]
+    "#};
+    assert_ok! {r#"
+        foo = [
+            var
+                .foo
+                [2]
+        ]
+    "#};
+    assert_ok! {r#"
+        foo = [
+            for a in range(10) :
+            var.foo
+            || "yes"
+        ]
+    "#};
+    assert_ok! {r#"
+        foo = [
+            for a in range(10) :
+            var.foo
+            if a > 5
+            || "yes"
+        ]
+    "#};
+    assert_ok! {r#"
+        beep = {
+            for num in range(1) :
+            num => splatme...
+        }
+    "#};
+
+    // unsupported multiline expressions with objects
+    assert_err! {r#"
+        beep = {
+            a = true
+            ? "bar"
+            : "baz"
+        }
+    "#};
+    assert_err! {r#"
+        beep = {
+            a = 1
+            >
+            2
+        }
+    "#};
+
+    // multiline expressions for expressions
+    assert_ok! {r#"
+        beep = {
+            for
+            num in [1] :
+            num => num
+        }
+    "#};
+
+    // spread operator with nontrivial expressions
+    assert_ok! {r#"
+        origins = {
+            for behavior in var.behaviors :
+            behavior.origin => behavior.path...
+        }
+    "#};
+    assert_ok! {r#"
+        origins = {
+            for behavior in var.behaviors :
+            behavior.origin => behavior.path...
+            if behavior.origin != null
+            && !startswith(behavior.origin, "forbidden/")
+        }
+    "#};
+}
+
+// https://github.com/martinohmann/hcl-rs/issues/452
+#[test]
+fn issue_452() {
+    let input = "1 + 1 == 2 ? 3 : 4";
+
+    let parsed: Expression = input.parse().unwrap();
+    let expected = Expression::from(Conditional::new(
+        BinaryOp::new(
+            BinaryOp::new(1, BinaryOperator::Plus, 1),
+            BinaryOperator::Eq,
+            2,
+        ),
+        3,
+        4,
+    ));
+    assert_eq!(expected, parsed);
+}
+
+// https://github.com/martinohmann/hcl-rs/pull/457
+#[test]
+fn issue_457() {
+    assert!(hcl_edit::parser::parse_expr("").is_err());
+}
+
+// The string literal "-9223372036854775808" (i64's minimum value) is parsed
+// into an intermediate value that caused a panic before it could be converted
+// into its valid final value (i64::MIN).
+// That intermediate value (i.e., 9,223,372,036,854,775,808) is one larger than
+// the biggest positive i64 (i.e., 9,223,372,036,854,775,807).
+#[test]
+fn parse_i64_min_literal() {
+    let input = "-9223372036854775808";
+
+    let parsed: Expression = input.parse().unwrap();
+    let expected = Expression::from(i64::MIN);
+    assert_eq!(expected, parsed);
+}
+
+// https://github.com/martinohmann/hcl-rs/issues/548
+#[test]
+fn issue_548() {
+    // `\b`, `\f` and `\/` are JSON escapes which are not part of the HCL spec.
+    assert_err!(r#"a = "\b""#);
+    assert_err!(r#"a = "\f""#);
+    assert_err!(r#"a = "\/""#);
+
+    // Backspace and form feed must be encoded using unicode escapes so that the encoded output
+    // can be parsed again.
+    let expr = Expression::from("a\u{8}b\u{c}c");
+
+    let encoded = expr.to_string();
+    assert_eq!(encoded, r#""a\u0008b\u000cc""#);
+
+    let parsed: Expression = encoded.parse().unwrap();
+    assert_eq!(parsed, expr);
+}
+
+// https://github.com/martinohmann/hcl-rs/issues/567
+#[test]
+fn issue_567() {
+    for key in ["true", "false", "null", "for"] {
+        let mut object = Object::new();
+        object.insert(
+            ObjectKey::Ident(Decorated::new(Ident::new(key))),
+            ObjectValue::new(1),
+        );
+        let expr = Expression::Object(object);
+
+        let encoded = expr.to_string();
+        assert_eq!(encoded, format!("{{\"{key}\" = 1,}}"));
+
+        let parsed: Expression = encoded.parse().unwrap();
+        let mut expected = Object::new();
+        expected.insert(ObjectKey::Expression(key.into()), ObjectValue::new(1));
+        assert_eq!(parsed, Expression::Object(expected));
+    }
+
+    // Decor of keyword keys is preserved.
+    let mut key = Decorated::new(Ident::new("for"));
+    key.decor_mut().set_prefix("  ");
+    key.decor_mut().set_suffix(" /* c */ ");
+    let mut object = Object::new();
+    object.insert(ObjectKey::Ident(key), ObjectValue::new(1));
+    assert_eq!(
+        Expression::Object(object).to_string(),
+        "{  \"for\" /* c */ = 1,}"
+    );
+}
