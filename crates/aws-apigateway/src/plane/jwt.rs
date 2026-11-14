@@ -179,12 +179,13 @@ pub(crate) async fn v2(
     let token = decode(&raw).ok_or_else(|| refused("token is malformed"))?;
     let config = auth.get("jwtConfiguration").cloned().unwrap_or(Value::Null);
     let issuer = text(&config, "issuer").unwrap_or_default();
-    if text(&token.claims, "iss") != Some(issuer) {
-        return Err(refused("the token has an invalid issuer"));
-    }
+    // The keys are the configured issuer's, whatever the token claims: a token from elsewhere fails here or on `iss`.
     signature_ok(jwks, issuer, &token, req.now_ms)
         .await
         .map_err(|why| refused(&why))?;
+    if text(&token.claims, "iss") != Some(issuer) {
+        return Err(refused("the token has an invalid issuer"));
+    }
     if let Some(why) = claims_refuse(&token.claims, &config, req.now_ms / 1000) {
         return Err(refused(&why));
     }
