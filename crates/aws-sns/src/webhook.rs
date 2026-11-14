@@ -23,6 +23,7 @@ use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
 
 use crate::core::Core;
+use crate::dead_letter::{DeadLetter, Failure};
 use crate::deliver::Published;
 use crate::envelope::{self, Context};
 use crate::model::Subscription;
@@ -42,6 +43,8 @@ struct Post {
     what: String,
     stop: CancellationToken,
     under_way: Arc<std::sync::atomic::AtomicUsize>,
+    /// Where the message goes when delivery finally fails (the subscription's `RedrivePolicy`).
+    dead: Option<DeadLetter>,
 }
 
 /// The waits, in seconds, between the attempts the delivery policy allows (`healthyRetryPolicy` or the topic's
@@ -130,15 +133,18 @@ impl Core {
             sub,
             headers,
             Value::Object(doc).to_string(),
-            Vec::new(),
+            (Vec::new(), None),
             "confirmation",
         );
     }
 
     /// POSTs one notification to a confirmed `http` subscription.
-    pub(crate) fn to_endpoint(&self, p: &Published<'_>, sub: &Subscription) -> Result<(), String> {
+    pub(crate) fn to_endpoint(&self, p: &Published<'_>, sub: &Subscription) -> Result<(), Failure> {
         if sub.protocol == "https" {
-            return Err("doze-aws has no TLS client, so https endpoints are not called".to_owned());
+            return Err(Failure::new(
+                "NotBuilt",
+                "doze-aws has no TLS client, so https endpoints are not called",
+            ));
         }
         let text = p.message.text_for("http");
         let mut headers = vec![
@@ -174,7 +180,15 @@ impl Core {
             })
             .and_then(|t| serde_json::from_str::<Value>(&t).ok())
             .unwrap_or(Value::Null);
-        self.post(sub, headers, body, retry_waits(&policy), "notification");
+        let (dead_body, attrs) = self.delivered_body(p, sub);
+        let dead = self.dead_letter_of(p, sub, dead_body, attrs);
+        self.post(
+            sub,
+            headers,
+            body,
+            (retry_waits(&policy), dead),
+            "notification",
+        );
         Ok(())
     }
 
@@ -183,7 +197,7 @@ impl Core {
         sub: &Subscription,
         mut headers: Vec<(String, String)>,
         body: String,
-        retries: Vec<u64>,
+        (retries, dead): (Vec<u64>, Option<DeadLetter>),
         what: &str,
     ) {
         use std::sync::atomic::Ordering;
@@ -209,11 +223,22 @@ impl Core {
             what: format!("{what} for {}", sub.arn),
             stop: self.tasks.stopping(),
             under_way: Arc::clone(&self.webhooks),
+            dead,
         }));
     }
 }
 
-async fn send(post: Post) {
+async fn send(mut post: Post) {
+    let failed = attempt(&post).await;
+    if let (Some(why), Some(dead)) = (failed, post.dead.take()) {
+        dead.send(&why).await;
+    }
+    post.under_way
+        .fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
+}
+
+/// Makes the POST and its retries; the failure that ended them, when delivery finally failed. The codes are (memory).
+async fn attempt(post: &Post) -> Option<Failure> {
     let mut waits = post.retries.iter();
     loop {
         let sent = aws_webhook::send(&Request {
@@ -224,33 +249,37 @@ async fn send(post: Post) {
         })
         .await;
         let why = match sent {
-            Sent::Status(s) if (200..300).contains(&s) => break,
-            Sent::Status(s) if s == 429 || s >= 500 => format!("{} answered {s}", post.url),
+            Sent::Status(s) if (200..300).contains(&s) => return None,
+            Sent::Status(s) if s == 429 || s >= 500 => {
+                Failure::new("EndpointError", format!("{} answered {s}", post.url))
+            }
             Sent::Status(s) => {
                 tracing::warn!("SNS {}: {} answered {s}; not retried", post.what, post.url);
-                break;
+                return Some(Failure::new(
+                    "EndpointError",
+                    format!("{} answered {s}", post.url),
+                ));
             }
-            Sent::Failed(why) => why,
+            Sent::Failed(why) => Failure::new("EndpointUnavailable", why),
             Sent::Unsupported(why) => {
                 tracing::warn!("SNS {}: {why}", post.what);
-                break;
+                return None;
             }
         };
         let Some(wait) = waits.next() else {
             tracing::warn!(
-                "SNS {}: {why}; the delivery policy's retries are spent",
-                post.what
+                "SNS {}: {}; the delivery policy's retries are spent",
+                post.what,
+                why.message
             );
-            break;
+            return Some(why);
         };
-        tracing::debug!("SNS {}: {why}; retrying in {wait} s", post.what);
+        tracing::debug!("SNS {}: {}; retrying in {wait} s", post.what, why.message);
         tokio::select! {
             () = tokio::time::sleep(Duration::from_secs(*wait)) => {}
-            () = post.stop.cancelled() => break,
+            () = post.stop.cancelled() => return None,
         }
     }
-    post.under_way
-        .fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
 }
 
 #[cfg(test)]

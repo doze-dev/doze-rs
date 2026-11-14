@@ -12,6 +12,7 @@ mod arn;
 mod authz;
 mod confirm;
 mod core;
+mod dead_letter;
 mod deliver;
 mod envelope;
 mod filter;

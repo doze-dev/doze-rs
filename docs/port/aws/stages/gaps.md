@@ -32,3 +32,20 @@ and `weight.md`; none of those was touched here. Each behaviour carries one call
 - Open: a failed rotation is not reattempted by the schedule (AWS says "That rotation will be reattempted"; locally it stays until
   `CancelRotateSecret` or a new `RotateSecret` after the label is cleared). The function's resource policy for
   `secretsmanager.amazonaws.com` is not checked.
+
+## 2. SNS dead-letter queues (`crates/aws-sns/src/dead_letter.rs`, `deliver.rs`, `webhook.rs`)
+
+- **A subscription's `RedrivePolicy` now receives what finally failed**, over the peer bus to SQS. When: an `sqs` or `lambda`
+  subscription's client-side failure (the queue or function is gone, the queue policy refuses the topic under `--iam enforce`) moves the
+  message at once, because AWS does not retry client-side errors; an `http` subscription's message moves when the delivery policy's
+  retries are spent on a 5xx, a 429 or no answer, or at once on another 4xx. An `https` subscription is not called (no TLS client) and
+  that is not a failed delivery: nothing is dead-lettered. **Go weak (bettered):** Go stored the policy and dropped the message.
+- **What is sent:** the body the subscription would have been given (the JSON envelope; the raw message and its attributes for a raw
+  subscription), FIFO group and deduplication id for a FIFO topic, plus the string attributes `ERROR_CODE`, `ERROR_MESSAGE`, `RequestID`
+  and `TopicArn` (the message's own attributes give way to keep SQS's ten). The attribute names and the codes in them (the SQS or Lambda
+  error code; `EndpointError`/`EndpointUnavailable` for http) are `(memory)`: not recorded. The dead-letter queue's own policy must let
+  the topic send, as for an `sqs` subscription (refused under enforce, logged under soft). **AWS-correct** in where and when (the SNS
+  Developer Guide's dead-letter pages); wording unrecorded.
+- Tests: `tests/delivery.rs` `a_message_that_cannot_be_delivered_goes_to_the_dead_letter_queue_with_why` (a real SQS beside it).
+- Open: AWS retries server-side errors to SQS/Lambda for up to 23 days before dead-lettering; locally a peer call has no server-side
+  failure worth retrying, so none is retried.
