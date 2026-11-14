@@ -2,14 +2,16 @@
 //! served over control protocol 2 on a local socket, so the CLI and the desktop app drive it as they drove Go's.
 //!
 //! The wire is doze-control's (NDJSON, the hello, ids, `cancel`, the frames); this crate is the server side: the
-//! connection loop ((`session`)), the unary ops ((`unary`)), the streams and topics ((`topics`)), and the instance
-//! view the wire carries ([`view`]). What the engine does not know about an instance (its engine name, version, kind,
+//! connection loop ((`session`)), the unary ops ((`unary`)), the streams and topics ((`topics`)), the instance
+//! view the wire carries ([`view`]), `doze __daemon` itself ([`entry`]) and its lifecycle from outside ([`ctl`]). What the engine does not know about an instance (its engine name, version, kind,
 //! endpoint words) comes from the config as [`Labels`]; the daemon never reads doze.hcl itself.
 //!
 //! Connections are threads, as in the fixture daemon: a request runs on its own thread, which waits on the engine
 //! through the runtime's handle. A unary request runs to its end even if its client goes (Go ran them on the daemon's
 //! context); a stream ends with its connection or its `cancel`.
 
+pub mod ctl;
+pub mod entry;
 mod session;
 mod topics;
 mod unary;

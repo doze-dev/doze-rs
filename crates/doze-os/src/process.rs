@@ -52,6 +52,16 @@ pub fn kill_recorded(pid: u32) -> io::Result<()> {
     imp::kill_recorded(pid)
 }
 
+/// Asks the process with this exact pid to stop: SIGTERM on Unix (how `doze down` stops a daemon, as Go's `Stop` did). On
+/// Windows a process on another console cannot be sent CTRL_BREAK, so this says `Unsupported` and the caller decides
+/// (a daemon's Job objects end its engines when it is terminated). A pid that is not there is not an error.
+pub fn ask_to_stop(pid: u32) -> io::Result<()> {
+    if pid == 0 {
+        return Ok(());
+    }
+    imp::ask_to_stop(pid)
+}
+
 /// How a process ended, in Go's words (the journal and `status` show them): "exited with status 1", or for a
 /// signal "exited: signal: killed".
 pub fn exit_text(status: &ExitStatus) -> String {
@@ -81,6 +91,16 @@ mod imp {
     use rustix::io::Errno;
     use rustix::process::{Pid, Signal, kill_process, kill_process_group, test_kill_process};
     use std::os::unix::process::ExitStatusExt;
+
+    pub(super) fn ask_to_stop(pid: u32) -> std::io::Result<()> {
+        let Some(pid) = i32::try_from(pid).ok().and_then(Pid::from_raw) else {
+            return Ok(());
+        };
+        match kill_process(pid, Signal::TERM) {
+            Ok(()) | Err(Errno::SRCH) => Ok(()),
+            Err(e) => Err(e.into()),
+        }
+    }
 
     pub(super) fn alive(pid: u32) -> bool {
         let Some(pid) = i32::try_from(pid).ok().and_then(Pid::from_raw) else {
@@ -175,6 +195,10 @@ mod imp {
 
     pub(super) fn leads_own_group(_pid: u32) -> bool {
         false
+    }
+
+    pub(super) fn ask_to_stop(_pid: u32) -> std::io::Result<()> {
+        Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
     }
 
     pub(super) fn kill_recorded(pid: u32) -> std::io::Result<()> {

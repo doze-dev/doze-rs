@@ -126,18 +126,7 @@ async fn larder_runs_in_the_engine() {
         extra_env: ca_env(&tls.join("ca.pem"), &tls.join("bundle.pem")),
     };
     let stack = to_stack(&cfg, &w);
-    assert_eq!(
-        stack.services.len(),
-        cfg.instances.iter().filter(|i| i.enabled).count(),
-        "every enabled block, tasks included"
-    );
-    assert!(
-        stack
-            .services
-            .iter()
-            .any(|s| matches!(s.kind, doze_engine::stack::Kind::Task(_))),
-        "larder's tasks are tasks"
-    );
+    every_block_runs(&cfg, &stack);
     let gateway = stack.service("gateway").unwrap();
     assert!(
         gateway.needs.iter().any(|n| n.name == "redis"),
@@ -172,4 +161,20 @@ async fn larder_runs_in_the_engine() {
         "nothing else was woken"
     );
     e.shutdown().await;
+}
+
+/// Every enabled block is an engine service, larder's tasks as tasks.
+fn every_block_runs(cfg: &doze_config::model::Config, stack: &doze_engine::stack::Stack) {
+    let enabled = cfg.instances.iter().filter(|i| i.enabled).count();
+    assert_eq!(
+        stack.services.len(),
+        enabled,
+        "every enabled block, tasks included"
+    );
+    let tasks = stack
+        .services
+        .iter()
+        .filter(|s| matches!(s.kind, doze_engine::stack::Kind::Task(_)))
+        .count();
+    assert_eq!(tasks, cfg.tasks.len(), "larder's tasks are tasks");
 }

@@ -10,9 +10,17 @@
 use std::io;
 use std::process::Command;
 
-/// Starts `cmd` detached and returns its pid. Nothing waits for it.
+/// Starts `cmd` detached and returns its pid. A thread of the starter's reaps it if it ends while the starter still
+/// runs, so a long-lived starter (the app) keeps no zombie; a starter that exits first leaves it to init.
 pub fn spawn_detached(cmd: Command) -> io::Result<u32> {
-    imp::spawn(cmd)
+    let mut child = imp::spawn(cmd)?;
+    let pid = child.id();
+    let reaper = std::thread::Builder::new()
+        .name("doze-reap".into())
+        .spawn(move || child.wait().map(drop));
+    // Without the thread the pid is still right; only the reaping is lost.
+    drop(reaper);
+    Ok(pid)
 }
 
 #[cfg(unix)]
@@ -22,13 +30,12 @@ mod imp {
     use std::process::Command;
 
     #[allow(unsafe_code)] // the one pre_exec hook here; its SAFETY reason is below
-    pub(super) fn spawn(mut cmd: Command) -> io::Result<u32> {
+    pub(super) fn spawn(mut cmd: Command) -> io::Result<std::process::Child> {
         let hook = || rustix::process::setsid().map(drop).map_err(io::Error::from);
         // SAFETY: the hook runs in the child between fork and exec and only makes the setsid syscall through rustix:
         // no allocation, no locks, async-signal-safe.
         unsafe { cmd.pre_exec(hook) };
-        let child = cmd.spawn()?;
-        Ok(child.id())
+        cmd.spawn()
     }
 }
 
@@ -41,15 +48,15 @@ mod imp {
         CREATE_BREAKAWAY_FROM_JOB, CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW,
     };
 
-    pub(super) fn spawn(mut cmd: Command) -> io::Result<u32> {
+    pub(super) fn spawn(mut cmd: Command) -> io::Result<std::process::Child> {
         let base = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP;
         cmd.creation_flags(base | CREATE_BREAKAWAY_FROM_JOB);
         match cmd.spawn() {
-            Ok(child) => Ok(child.id()),
+            Ok(child) => Ok(child),
             // The starter's job forbids breaking away: start inside it (it then ends with that job).
             Err(e) if e.raw_os_error() == Some(5) => {
                 cmd.creation_flags(base);
-                Ok(cmd.spawn()?.id())
+                cmd.spawn()
             }
             Err(e) => Err(e),
         }

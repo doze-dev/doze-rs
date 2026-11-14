@@ -39,6 +39,11 @@ impl Host for Process {
 }
 
 fn main() -> ExitCode {
+    // `doze __daemon --config <path>`: the stack's daemon (doze-daemon's `ctl::start` runs it detached).
+    if std::env::args().nth(1).as_deref() == Some(doze_daemon::ctl::ARG) {
+        let args: Vec<String> = std::env::args().skip(2).collect();
+        return doze_daemon::entry::main(&args, doze_cli::ctx::VERSION);
+    }
     if std::env::args().nth(1).as_deref() == Some(doze_cli::fetch_child::ARG) {
         return match surroundings() {
             Ok((home, _, registry)) => {

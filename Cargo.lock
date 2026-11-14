@@ -1691,6 +1691,7 @@ dependencies = [
  "base64ct",
  "clap",
  "clap_complete",
+ "doze-daemon",
  "doze-fetch",
  "doze-module-proto",
  "doze-names",
@@ -1740,10 +1741,12 @@ dependencies = [
 name = "doze-daemon"
 version = "0.0.0"
 dependencies = [
+ "doze-config",
  "doze-control",
  "doze-engine",
  "doze-journal",
  "doze-logstore",
+ "doze-names",
  "doze-os",
  "serde_json",
  "tokio",
