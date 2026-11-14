@@ -83,6 +83,27 @@ fn diags_json(e: &doze_config::Error) -> Vec<Json> {
         .collect()
 }
 
+/// A diagnostic as text with its keys sorted, whether or not serde_json keeps insertion order (a
+/// workspace build turns on `preserve_order` for another crate; a `-p doze-config` build does not).
+fn canon(j: &Json) -> String {
+    fn sorted(j: &Json) -> Json {
+        match j {
+            Json::Object(o) => {
+                let mut keys: Vec<_> = o.iter().collect();
+                keys.sort_by(|a, b| a.0.cmp(b.0));
+                Json::Object(
+                    keys.into_iter()
+                        .map(|(k, v)| (k.clone(), sorted(v)))
+                        .collect(),
+                )
+            }
+            Json::Array(a) => Json::Array(a.iter().map(sorted).collect()),
+            other => other.clone(),
+        }
+    }
+    sorted(j).to_string()
+}
+
 /// Go's answer without what we do not compare (`err` when there are diagnostics).
 fn go_side(mut g: Json) -> Json {
     let has_diags = g
@@ -98,7 +119,7 @@ fn go_side(mut g: Json) -> Json {
             o.insert("config".into(), normalize(c));
         }
         if let Some(Json::Array(ds)) = o.remove("diags") {
-            let set: BTreeSet<String> = ds.iter().map(Json::to_string).collect();
+            let set: BTreeSet<String> = ds.iter().map(canon).collect();
             o.insert("diags".into(), json!(set));
         }
     }
@@ -115,7 +136,7 @@ fn rust_side(
         Ok(c) => json!({"ok": true, "config": normalize(config_json(&c))}),
         Err(e) => {
             let ds = diags_json(&e);
-            let set: BTreeSet<String> = ds.iter().map(Json::to_string).collect();
+            let set: BTreeSet<String> = ds.iter().map(canon).collect();
             let mut j = json!({"ok": false, "kind": if e.is_invalid() { "config_invalid" } else { "failed" }, "diags": set});
             if ds.is_empty() {
                 j["err"] = json!(e.text);

@@ -24,3 +24,9 @@ name = "fuzz_load"
 path = "fuzz_targets/fuzz_load.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_psl"
+path = "fuzz_targets/fuzz_psl.rs"
+test = false
+doc = false

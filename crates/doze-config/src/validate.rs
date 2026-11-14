@@ -220,8 +220,5 @@ pub fn check_domains(
 /// Go's `publicsuffix.EffectiveTLDPlusOne` succeeds: the name has a label of its own under its
 /// public suffix.
 fn registrable(name: &str) -> bool {
-    if name.is_empty() || name.starts_with('.') || name.ends_with('.') || name.contains("..") {
-        return false;
-    }
-    psl::domain(name.as_bytes()).is_some_and(|d| d.as_bytes().len() <= name.len())
+    crate::psl::effective_tld_plus_one(name).is_some()
 }

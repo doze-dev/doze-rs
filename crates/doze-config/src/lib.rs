@@ -6,10 +6,10 @@
 //! through [`Modules`]. Nothing module-specific is in this crate.
 //!
 //! The pipeline, in Go's order: files ([`files`]), old forms and the root schema ([`kinds`]),
-//! overrides ([`overrides`]), variables and locals ([`vars`]), defaults and tls ([`defaults`]),
-//! module and app blocks declared ([`instance`], [`foreach`]), services and tasks declared
-//! ([`runnable`]), bodies decoded in dependency order ([`order`], [`deps`], [`command`],
-//! [`module_body`], [`shape`]), cycles ([`cycles`]), outputs, warnings ([`lint`]), and the checks
+//! overrides (`overrides`), variables and locals ([`vars`]), defaults and tls (`defaults`),
+//! module and app blocks declared (`instance`, `foreach`), services and tasks declared
+//! (`runnable`), bodies decoded in dependency order (`order`, `deps`, [`command`],
+//! `module_body`, `shape`), cycles (`cycles`), outputs, warnings (`lint`), and the checks
 //! across the stack ([`validate`]).
 
 mod attrs;
@@ -37,6 +37,7 @@ mod order;
 mod override_expr;
 mod overrides;
 pub mod paths;
+pub mod psl;
 mod refs;
 mod render;
 mod runcmd;
