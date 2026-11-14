@@ -37,6 +37,8 @@ const svcs: any[] = [
   { go: "Lambda", model: "lambda", sign: "lambda", kind: "rest" },
   { go: "API Gateway", model: "api-gateway", sign: "apigateway", kind: "rest" },
   { go: "API Gateway v2 (HTTP APIs)", model: "apigatewayv2", sign: "apigateway", kind: "rest" },
+  // Go had no Scheduler: every operation built shows as beyond Go.
+  { go: "EventBridge Scheduler", model: "scheduler", sign: "scheduler", kind: "rest" },
 ];
 const addr = process.argv[2];
 function refused(r: Response, text: string): boolean {
