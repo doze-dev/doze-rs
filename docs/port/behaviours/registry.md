@@ -2,11 +2,12 @@
 
 Slice 10a is built (2026-11-14, branch `p10-registry`): the registry's model, its storage in the broker's metadata database,
 every REST route the Go edition serves (Confluent's and doze's own under `/_doze/`), the host guard, basic authentication and TLS
-as the Go binary has them, the wire header, and the Avro language whole. Protobuf (10b) and JSON Schema (10c) plug in through
+as the Go binary has them, the wire header, and the Avro language whole. JSON Schema is built (10c, 2026-11-14, branch
+`p10c-jsonschema`); Protobuf (10b) plugs in through
 `format::Formats` (`phase10.md`, "Extension points"). This file is the catalogue: what Confluent's registry does, as the Go edition
 recorded it against cp-schema-registry 7.7.1, and the test that holds each rule. The sources of truth are the recordings copied
 from doze-kafka: `crates/kafka-registry/tests/data/conformance/*.json` (30 scripts, 469 steps) and the compatibility corpus
-`tests/data/compat/avro.json` (392 pairs with Confluent's verdict at BACKWARD, FORWARD and FULL) with `avro-reasons.json`
+`tests/data/compat/avro.json` and `json.json` (392 and 467 pairs with Confluent's verdict at BACKWARD, FORWARD and FULL) with `avro-reasons.json` and `json-reasons.json`
 (Confluent's reasons, word for word, for every refusal). Nothing here is written from memory of what Confluent does.
 
 The numbers are checked by `tools/check-registry-catalogue.ts` (`bun tools/check-registry-catalogue.ts`; a CI step): no REG-n or
@@ -29,8 +30,13 @@ Deviations: where this registry answers otherwise than Confluent's, or than the 
 - **REG-D10** a busy default address leaves the broker running without a registry (Rust edition).
 - **REG-D11** Avro names may use any letter, as Java's parser allows (Rust edition).
 - **REG-D12** the store is the broker's redb database; records the Go edition stored are not read (Rust edition).
-- **REG-D13** Protobuf and JSON Schema are not read yet (slices 10b, 10c).
+- **REG-D13** Protobuf is not read yet (slice 10b).
 - **REG-D14** the record-value codec (decode a payload to JSON, encode JSON) is not in 10a.
+- **REG-D16** a lowered exclusiveMaximum is compared, where Confluent answers 500 (as in Go).
+- **REG-D17** a JSON Schema pattern is checked for the syntax errors Java refuses, not compiled (Rust edition).
+- **REG-D18** JSON Schema references, repeated keys, multiples and enum-with-type as Confluent, where Go was not (Rust edition).
+- **REG-D19** a JSON Schema comparison is bounded: reasons, subschemas, height (Rust edition).
+- **REG-D20** JSON Schema: `normalize` changes nothing, `format` is ignored, `$id` is not a reference base (as in Go).
 
 ## The API
 
@@ -46,8 +52,8 @@ Tests: `routes_match_by_segment_and_method`, `bodies_of_other_types_are_refused_
 The 30 conformance scripts recorded from Confluent are replayed (ids as offsets from a probed base, as the Go harness does) and
 every step must give Confluent's status, challenge, error code and message (an "Invalid schema" message is compared by its start;
 a parser's own words after ", details:" are not compared), and anything else whole. The steps that differ on purpose are listed
-with their deviation (REG-D1 to REG-D7); the scripts about Protobuf and JSON Schema wait for 10b and 10c (REG-D13). Avro steps:
-all pass.
+with their deviation (REG-D1 to REG-D7); the scripts about Protobuf wait for 10b (REG-D13). Avro and JSON Schema steps (the
+JSON steps of `canonical-forms` and `other-schema-types`, and `nested-references` whole) all pass.
 Test: `every_recorded_scenario_answers_as_confluent_did`.
 
 ### REG-3. The host is judged first, then the credentials
@@ -179,6 +185,52 @@ Tests: `the_stored_text_is_avros_own_order_and_namespaces_are_written_once`, `no
 with its full name, and named after that; it parses on its own. A schema with no references is not "inlined".
 Tests: `the_resolved_view_writes_each_referenced_type_out_once`, `a_schema_without_references_is_not_inlined`.
 
+## JSON Schema
+
+### REG-30. Every recorded JSON verdict and reason is Confluent's
+465 of the 467 corpus pairs (171 by hand, 300 generated, less the two of REG-D16) give Confluent's verdict at BACKWARD, FORWARD
+and FULL, and every refusal gives Confluent's reasons word for word (`{errorType:"…", description:"…'}`, Confluent's own closing
+quote). The rules are Confluent's `SchemaDiff`, as the Go edition's `jsoncompat.go` recorded them: a structural walk naming each
+difference, a fixed set of them compatible; open, closed and partially open content models for properties and tuple items;
+required with and without defaults; number limits, integer to number; enums and const; allOf, anyOf and oneOf branches paired
+identical first, then compatible; not; if/then/else; dependencies; properties in the order a Java `HashMap` gives them. A type with
+an enum or const beside it is two schemas combined, as Confluent's library reads it (so "enum with type" gives Confluent's
+COMBINED_TYPE_SUBSCHEMAS_CHANGED, which the Go edition listed as a difference).
+Tests: `every_recorded_verdict_and_reason_is_confluents`, `additional_items_and_dependencies_are_named_as_confluent_names_them`,
+`numbers_compare_by_value_and_multiples_are_exact`.
+
+### REG-31. What a schema's draft refuses is refused
+Drafts 4, 6, 7, 2019-09 and 2020-12, named by `$schema` (http or https, an empty fragment allowed; draft 7 when none, Confluent's
+default); any other `$schema` is refused. Each keyword the draft has is checked against the draft's meta-schema (a type that is not
+one, a count that is not a non-negative integer, a `multipleOf` of 0, a repeated `required` name, an empty or repeated `enum`
+before 2019-09, an empty `allOf`, a boolean schema in draft 4, an array `items` in 2020-12, ...), and every `$ref` the schema uses
+must reach something; a reference inside an unused definition is not followed, as Go's library does not compile it. Keywords a
+draft does not have are annotations. The refusal is 42201 and names the place (`#/properties/a/type: "nonsense" is not a type`).
+Tests: `what_is_not_a_schema_of_its_draft_is_refused`, `what_its_draft_allows_is_accepted`.
+
+### REG-32. The stored text is the schema compacted
+Spaces go, keys keep their order, numbers keep their text, strings take Jackson's escapes (REG-D9), and a key written twice is kept
+once with its last value where it first was, as Jackson reads it. The same schema spaced two ways is one schema with one id
+(recorded: canonical-forms).
+Test: `the_stored_text_is_compact_and_a_repeated_key_is_kept_once`.
+
+### REG-33. References
+A `$ref` names one of the schema's references (all of it, or a fragment of it: `address.json#/definitions/city`) or a fragment of
+the document it is written in: a JSON pointer (through objects and arrays, `~0`, `~1` and `%XX` escapes) or an anchor (`$anchor`,
+or an `$id` of `#name` before 2019-09). Each referenced schema is its own document with its own names, so `x.json` in a schema
+and in a schema it references can be two schemas (recorded: nested-references). A reference back into a schema being read compares
+as "anything" at the point of recursion.
+Tests: `a_name_means_what_the_schema_using_it_says`, `an_address_changed_to_a_number_is_breaking_through_a_reference`,
+`every_recorded_scenario_answers_as_confluent_did`.
+
+### REG-34. A comparison costs the pairs there are, not the paths
+Every comparison of two subschemas is asked once (whether it changes anything, whether it breaks anything) and remembered, so a
+diamond of 26 levels of references (2^26 paths) and the pairing of combined branches cost their pairs; the reasons are listed by
+one walk that goes only where something breaks, at most 1,000 of them (REG-D19). Any schema reads its own data, and its stored
+text reads back as itself.
+Tests: `a_diamond_of_references_compares_in_its_size_and_its_reasons_are_bounded`,
+`a_recursive_schema_compares_with_itself_and_stops`, `any_schema_reads_its_own_data_and_its_stored_text_reads_back_the_same`.
+
 ## doze's own routes
 
 ### REG-23. The overview and a version's history
@@ -212,8 +264,8 @@ Tests: `the_default_address_is_confluents_port_or_any_port_beside_a_broker_on_po
 `the_table_is_exactly_the_list_of_flags_clap_has_less_the_ones_that_are_accepted_and_ignored`.
 
 ### REG-27. Every parser is fuzzed
-The ordered JSON, Avro schemas (with a reference), any request to the API against a seeded registry, and the wire header each have
-a target in `crates/kafka-registry/fuzz` (`json_node.rs`, `avro_schema.rs`, `registry_api.rs`, `wire.rs`), run 30 s each in CI.
+The ordered JSON, Avro schemas (with a reference), JSON Schemas (with a reference, compared with a second one), any request to the API against a seeded registry, and the wire header each have
+a target in `crates/kafka-registry/fuzz` (`json_node.rs`, `avro_schema.rs`, `json_schema.rs`, `registry_api.rs`, `wire.rs`), run 30 s each in CI.
 Tests: `text_that_is_not_json_is_refused`, `hosts_lose_their_port_and_quotes`.
 
 ## Deviations
@@ -244,7 +296,26 @@ Tests: `text_that_is_not_json_is_refused`, `hosts_lose_their_port_and_quotes`.
 - **REG-D12.** The records live in a `schemas` table of the broker's `meta.redb` (postcard values), not in bbolt with JSON values;
   a Go data directory is not read. So the Go edition's re-indexing of schemas stored in an earlier text form (`indexCurrentForms`,
   `TestOldCanonicalFormsAreStillFound`) has nothing to do here; if this edition's stored form ever changes, that index comes with it.
-- **REG-D13.** Until slices 10b and 10c, a PROTOBUF or JSON schema is refused as invalid (42201, "not read by this build") and
-  `GET /schemas/types` lists only AVRO. The conformance scripts and corpus files for those languages are kept for them.
+- **REG-D13.** Until slice 10b, a PROTOBUF schema is refused as invalid (42201, "not read by this build") and
+  `GET /schemas/types` lists JSON and AVRO. The conformance scripts and corpus files for Protobuf are kept for it.
 - **REG-D14.** The Go edition's codec (an Avro, Protobuf or JSON payload decoded to JSON for the console, and JSON encoded for its
   producer, behind a guard against hostile Avro bytes) is not in 10a: the console has no registry page yet. Slice 10d.
+- **REG-D16.** Confluent answers 500 when a JSON Schema's `exclusiveMaximum` is lowered (its checker has no name for that change;
+  recorded: "exclusiveMaximum increased" FORWARD, "exclusiveMaximum decreased" BACKWARD); this registry answers the comparison
+  (EXCLUSIVE_MAXIMUM_DECREASED, incompatible). The two corpus pairs are skipped (`DIFFERENCES` in `tests/corpus.rs`). As Go.
+- **REG-D17.** A JSON Schema `pattern` or `patternProperties` name is refused for the errors Java's `Pattern` (Confluent's) refuses
+  that a syntax scan can see: an unclosed group or class, an unmatched `)`, a trailing backslash, a quantifier with nothing to
+  repeat. It is not compiled (no regular-expression engine is linked), so a rarer error Java would refuse is taken. The Go edition
+  compiled patterns with Go's RE2, which refuses lookaheads and backreferences that Confluent accepts; they are accepted here.
+- **REG-D18.** Where the Go edition's JSON Schema reading differed from Confluent's, this one follows Confluent: a `#...` reference
+  inside a referenced schema is resolved in that schema (Go resolved it in the schema being registered); a pointer may pass through
+  arrays (`#/allOf/0`) and use `%XX` escapes, and an anchor is found (Go refused both); a key written twice is stored once (Go stored
+  both); `multipleOf` is compared in exact decimals (0.3 is a multiple of 0.1; Go used a binary float); a type with an enum beside it
+  is two schemas combined, so "enum with type" gives Confluent's reason (Go's `corpusReasonDifferences` listed it).
+- **REG-D19.** A JSON Schema comparison lists at most 1,000 reasons; a schema that makes more than 200,000 subschemas, nests more than
+  64 deep, or whose references chain more than 160 nodes high is refused as too deep or large to compare (42201). The Go edition had
+  the 64 but neither of the others, and a deep chain or a diamond of references could make it compare for hours or recurse without
+  bound.
+- **REG-D20.** For JSON Schema, `?normalize=true` stores the same text, `format` is ignored by compatibility (Confluent's rule), and
+  an `$id` is not a base for references: a `$ref` to an absolute URI an embedded `$id` declares is unresolved. As Go; the
+  recordings have no step on any of them.
