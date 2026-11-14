@@ -53,6 +53,39 @@ impl View {
             View::Verify(r) => serde_json::to_value(r),
             View::Doctor(r) => serde_json::to_value(r),
         };
-        v.unwrap_or(Value::Null)
+        sorted(v.unwrap_or(Value::Null))
+    }
+}
+
+/// The JSON contract has its object keys in sorted order, whatever the build. A `Value`'s map keeps insertion order
+/// when any crate in the build turns on serde_json's `preserve_order` (cargo unifies features across a workspace
+/// build), and sorts otherwise; so the order is fixed here rather than left to the feature set.
+fn sorted(v: Value) -> Value {
+    match v {
+        Value::Object(m) => {
+            let mut pairs: Vec<(String, Value)> = m.into_iter().collect();
+            pairs.sort_by(|a, b| a.0.cmp(&b.0));
+            Value::Object(pairs.into_iter().map(|(k, v)| (k, sorted(v))).collect())
+        }
+        Value::Array(a) => Value::Array(a.into_iter().map(sorted).collect()),
+        other => other,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sorted;
+    use serde_json::{Map, Value, json};
+
+    #[test]
+    fn keys_come_out_sorted_whatever_order_they_went_in() {
+        let mut inner = Map::new();
+        inner.insert("state".into(), json!("ok"));
+        inner.insert("name".into(), json!("platform"));
+        let mut outer = Map::new();
+        outer.insert("z".into(), json!([Value::Object(inner)]));
+        outer.insert("a".into(), json!(1));
+        let text = serde_json::to_string(&sorted(Value::Object(outer))).unwrap_or_default();
+        assert_eq!(text, r#"{"a":1,"z":[{"name":"platform","state":"ok"}]}"#);
     }
 }

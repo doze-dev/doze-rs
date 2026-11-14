@@ -1,0 +1,2 @@
+# Go wrote these byte for byte; a Windows checkout must not turn their LF into CRLF.
+* -text
