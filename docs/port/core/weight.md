@@ -37,9 +37,9 @@ panic = abort).
 | release, opt-level "s" | **3.77 MB** |
 
 So the dependencies take about half the 9 MB line, and doze's own code (engine, daemon, config, HCL, CLI) has about
-4.3 MB at opt-level 3, or 5.2 MB at "s". Whether that is enough is not yet measured (doze.s own code is mostly unwritten); it is not slack to spend: the levers in PLAN 6.3 stay ready
+4.3 MB at opt-level 3, or 5.2 MB at "s". Whether that is enough is not yet measured (doze's own code is mostly unwritten); it is not slack to spend: the levers in PLAN 6.3 stay ready
 (opt "s"/"z" for cold crates, `regex-lite` where full regex is not needed, one HTTP stack). The CI line for `doze` goes in
 with the first `doze` binary that links the engine.
 
 Under O1 the app binary links the same CLI library on top of the GUI, so its line (app plan Q5, ≤ 16 MB) must absorb
-roughly this plus doze's own code: about 9 MB on top of GPUI's 12 to 16 MB. **That would break the app.s 16 MB line**: the app plan.s Q5 line needs restating under O1 (owner item).
+roughly this plus doze's own code: about 9 MB on top of GPUI's 12 to 16 MB. **That would break the app's 16 MB line**: the app plan's Q5 line needs restating under O1 (owner item).
