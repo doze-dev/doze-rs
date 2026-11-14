@@ -27,6 +27,11 @@ pub trait Host {
     fn spawn_background(&self, args: &[&str]) -> io::Result<()>;
     /// This program's own path, which says how doze was installed.
     fn exe(&self) -> Option<PathBuf>;
+    /// The program `up` starts as the stack's daemon (`doze __daemon`): this one. A test's host names the built `doze`, or
+    /// none, so nothing is started.
+    fn daemon_exe(&self) -> Option<PathBuf> {
+        self.exe()
+    }
     /// The time now, for what a follow redraws ("sleeps in 4m"). A test's clock stands still.
     fn now(&self) -> SystemTime {
         SystemTime::now()

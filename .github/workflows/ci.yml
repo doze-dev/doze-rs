@@ -316,6 +316,7 @@ jobs:
       # modules upgrade, bug, open, update): 6,802,928 B and 221 packages on darwin (docs/port/weight.md, "Core C2b").
       # doze is built with its own profile, release-doze ("s"): 8,948,248 B here at release, 7.1 MB at release-doze
       # (docs/port/weight.md, "doze's profile").
+      # C2c with D1 (`__daemon` in this binary): 6,211,408 B and 234 packages on darwin; the package line moves to 240.
       - name: doze (the CLI) under 9 MB
         run: |
           cargo build --profile release-doze -p doze-cli
@@ -323,7 +324,7 @@ jobs:
           crates=$(cargo tree -p doze-cli --prefix none --edges normal | sort -u | wc -l)
           echo "doze: $size bytes, $crates packages"
           [ "$size" -le 9000000 ] || { echo "doze over 9 MB (core plan §6.3)"; exit 1; }
-          [ "$crates" -le 230 ] || { echo "doze over 230 packages (docs/port/weight.md)"; exit 1; }
+          [ "$crates" -le 240 ] || { echo "doze over 240 packages (docs/port/weight.md)"; exit 1; }
       # Reported, not gated (a shared runner's timing is too noisy for a line): a warm `doze status` with the daemon down, on
       # the app's acme fixture (doze.hcl read, the table drawn), median of 50 after 5 warm-ups. Core plan §6.3: under 15 ms.
       - name: doze status, warm (reported)

@@ -4,14 +4,14 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
 `cmd/doze/{up,down,env,run,sync,migrate,daemonctl,remember}.go`, `internal/daemonctl` and `internal/endpoints` at doze
 23b73d6, and the CLI proposal (rules 3, 7, 8; `--dry-run` table; exit codes).
 
-## What D1 gives today, and what it does not
+## What D1 gives (merged at b51674d3)
 
-- `doze-daemon` (#50) is a library: `Daemon::new(engine, labels, info).serve()` over control protocol 2. It answers
-  `status`, `up`, `wake`/`boot`, `sleep`/`down`, `restart`, `task`, `pin`, `off`/`on`, `apply`, `destroy`, `logs` and the
-  streams. `reset`, `add`, `remove`, `resources` and `admin` are refused.
-- Not in #50 yet: the `__daemon` entry (config → module pool with F1's downloads and doze.lock → `to_stack` → engine →
-  daemon), and `ctl` (spawn detached, wait for the socket, pid file, stop). Both are in D1's row of the plan. Until they
-  land, the CLI cannot **start** a daemon. Every command that would start one says so (DZ0001, exit 1); none fakes it.
+- `doze __daemon` (the daemon is this binary, as Go's was) and `ctl` (start, pid, stop, the stack lock). Apps, services
+  and tasks run; modules do not yet (waking one says so), and `InstanceView.env`/`client` are on the wire but empty
+  until D1's module catalog lands. So `env`, `url` and `connect` still wait for those fields to be filled.
+- A config that moves the state folder (`home`, `data_dir`) is found by the CLI at the default place (stack.rs), while
+  the daemon uses the config's: `up` then waits for a socket the daemon does not open. Open: C2 reads the loaded config's
+  folder.
 
 ## Built
 
@@ -25,10 +25,10 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
 | 6 | `down` remembers what was awake before it stops the daemon (Go `rememberDown`): the snapshot's awake services are joined to the set `up` recorded, as roots; `last_down` is stamped even with nothing running. A doze.hcl that does not load does not keep the stack from stopping (Go refused to stop it): it is a notice and nothing is remembered | `tests/down.rs` `down_remembers_what_was_awake_for_the_next_up`, `down_with_nothing_running_still_records_the_down` |
 | 7 | `up` against a running daemon (Go `up.go`, `remember.go`): names checked against doze.hcl first (exit 4), `--last`/`--all` with names refused (exit 2), `-f` with `--json` refused before anything is asked or remembered (Go remembered, then refused). A bare `up` chooses: `--all` everything; `--last` last time's set (or everything, said); nothing smaller recorded: everything; a terminal with `-y`: last time's set, said; a terminal: "Last time: …. Start the same? [Y/n, a = everything]"; otherwise everything, with how to get last time's set. Then op `up` for each target and what it needs, needs first ("✓ db awake in 38ms", a task "done"), and "› up — supervised in the background. doze for the dash · doze down to stop"; `-f` streams the process services' logs until Ctrl-C (detaches). The set is written to `project.json` before the first `up` op, as Go writes it. `--dry-run` asks nothing and remembers nothing | `tests/up.rs` (requests and the record checked), transcript `up` |
 | 8 | doze-projects writes the record (`update`, `save`) byte for byte as Go's `projects.Update`/`Save`: struct order, or all keys sorted when a newer doze's fields are kept (compacted), Go's string escapes and RFC 3339 nano times with their offset, a newline, written beside and renamed, mode 0600; an unreadable record set aside as `project.json.bad` | `doze-projects/tests/write.rs` against `tests/fixtures/updates` (Go wrote them, tools/doze-oracle `update`) and live when Go is here |
+| 9 | `up` with no daemon running starts it (D1's `ctl::start`: `doze __daemon --config <abs>`, its own session, output to `run/doze.log`, `--var`s as `DOZE_VAR_*`, 10 s for the socket, the log's end quoted on failure) under the stack lock, then boots as row 7; a second `up` that waited for the lock finds it running and starts none. `down` takes the same lock (when the run folder exists), so a stop never races a start. `up --dry-run` with no daemon says the daemon would start, then the wakes from doze.hcl | `tests/up.rs` `up_starts_the_daemon_and_down_stops_it` (the built doze as the daemon, the app ran, down leaves nothing), `with_no_daemon_up_starts_one_or_says_why_it_could_not` |
 
 ## Pending (each says so: DZ0001, exit 1)
 
-- `up` with no daemon running: starting it needs D1's `__daemon` and `ctl`. Against a running one it is built (row 7).
 - `up`'s trust hint (Go `trustHint`: domains not set up on this machine) is not printed yet.
 - `env`, `url`: Go reads only the config, plus each module's `ConnString` (the plugin's plan). In Rust, a module's
   `env_var` and URL come from its plan (`doze-module-proto` `instance.rs`) through doze-module-host. The CLI must plan
@@ -62,8 +62,8 @@ doze-logstore lose no public item, and every CI job of both sides is there. The 
 5. **Suspicion, open:**
    - A daemon whose long-lived parent never reaps it stays a zombie, which `kill(pid, 0)` still sees. D1's `ctl` must
      detach it (double fork or reap).
-   - `clear` after a stop could remove the files of a daemon that a concurrent `up` has just started. This needs the
-     stack lock that `up` will take.
+   - `clear` after a stop could remove the files of a daemon that a concurrent `up` has just started. Closed: `down`
+     and `up` take D1's stack lock (`run/doze.ctl.lock`).
 6. Tests now cover the main cases, with SIGTERM asserted, and the 20 s timeout (row 3).
 7. Windows: row 5, tested by `tests/down_windows.rs` (CI's Windows runners).
 8. Inherited: `fuzz_porttrap` was never run in CI. It now runs in the fuzz job.

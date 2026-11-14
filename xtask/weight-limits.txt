@@ -141,4 +141,6 @@ doze-aws 13900000 280 10526 --listen 127.0.0.1:{port} --data-dir {data}
 # CLI's own (core plan §6.3: 9 MB under the 10 MB ceiling, 230 packages), the same as the weight-doze job's (docs/port/weight.md, "Core C2b").
 # 2026-11-15: weighed in its own profile, release-doze (opt-level "s"): 5,531,712 B on darwin/arm64, 7,123,432 B on x86_64 Linux (weight.md,
 # "doze's profile"). Line unchanged.
-doze-cli 9000000 230 0
+# C2c with D1 merged (`__daemon`: the daemon is in this binary): 6,211,408 B (+680 KB) and 234 packages on darwin/arm64 in
+# release-doze. Bytes stay under the 9 MB line; packages to 240 (the daemon's crates; weight.md, "C2c").
+doze-cli 9000000 240 0

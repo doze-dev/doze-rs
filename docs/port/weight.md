@@ -853,3 +853,11 @@ the daemon down, on examples/shop's doze.hcl, median of 80 after 5 warm-ups, on 
   Release tooling for `doze` must use the same profile; `--release` still builds a working, bigger `doze`.
 - **The app** (`release-app`, already "s" throughout) is not changed by this: its 16 MB line has been red since C2a
   (16,733,040 B at #51, 17,064,576 B at #53); that is the app's size profile, worked on separately.
+
+## C2c: the daemon inside `doze` (2026-11-15)
+
+With D1's `doze __daemon` merged into C2c (the daemon, the engine, doze-config's full load and the control server are now in the
+CLI's binary, as Go's were), `doze` in `release-doze` on darwin/arm64 is 6,211,408 B (C2b: 5,531,712 B, +680 KB) and 234 packages
+(C2b: 221). Bytes stay 2.8 MB under the 9 MB line (x86_64 Linux, about 1.29 times darwin, should be near 8.0 MB; CI's weight-doze
+job reports it). The package line moves from 230 to 240: the daemon's own crates, a small rise with its reason, under the owner's
+delegation of 2026-11-14.

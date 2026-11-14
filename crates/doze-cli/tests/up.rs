@@ -217,12 +217,72 @@ fn a_task_is_done_not_awake() {
 }
 
 #[test]
-fn with_no_daemon_up_says_starting_it_is_not_built() {
+fn with_no_daemon_up_starts_one_or_says_why_it_could_not() {
     let (sb, host, _) = setup::prepare(&["project shop".to_owned()]);
-    let ran = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
-    assert_eq!(ran.code, 1, "{}", ran.stderr);
-    assert!(ran.stderr.contains("DZ0001"), "{}", ran.stderr);
-    // The names are still checked first, as Go checks them.
+    // The names are checked first, as Go checks them.
     let typo = fixture::run(&sb, &host, Terminals::default(), false, &["up", "api2"]);
     assert_eq!(typo.code, 4, "{}", typo.stderr);
+    // The plan says the daemon starts; nothing is started or remembered.
+    let plan = fixture::run(
+        &sb,
+        &host,
+        Terminals::default(),
+        false,
+        &["up", "api", "--dry-run"],
+    );
+    assert_eq!(plan.code, 0, "{}", plan.stderr);
+    assert!(plan.stdout.contains("start the daemon"), "{}", plan.stdout);
+    // A host that names no program to start: said, exit 1.
+    let ran = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
+    assert_eq!(ran.code, 1, "{}", ran.stderr);
+    assert!(
+        ran.stderr.contains("could not find this doze program"),
+        "{}",
+        ran.stderr
+    );
+}
+
+/// The real thing: `up` starts the built `doze` as the stack's daemon (D1's `__daemon`), wakes the app, and `down`
+/// stops it, leaving no process, socket or pid file.
+#[test]
+fn up_starts_the_daemon_and_down_stops_it() {
+    if !std::path::Path::new("/bin/sh").exists() || !setup::sockets() {
+        return; // the app's run line goes through `sh -c`; Windows runs commands its own way (W)
+    }
+    let (sb, mut host, _) = setup::prepare(&["project bare".to_owned()]);
+    host.daemon_exe = Some(std::path::PathBuf::from(env!("CARGO_BIN_EXE_doze")));
+    let marker = sb.root.join("web.ran");
+    // `home` keeps the daemon in the sandbox whatever this process's environment says (never ~/.doze).
+    let hcl = format!(
+        "stack = \"shop\"\nhome = \"{}\"\n\napp \"web\" {{\n  run = \"echo up > {} && exec sleep 600\"\n}}\n",
+        sb.home().display(),
+        marker.display()
+    );
+    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
+    let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
+    let up = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
+    let pid = doze_projects::daemon_pid(&key).map(|p| p.pid);
+    let stop = |pid: Option<u32>| {
+        if let Some(pid) = pid.filter(|p| doze_os::process::alive(*p)) {
+            let _ = doze_os::process::terminate(pid);
+        }
+    };
+    if up.code != 0 {
+        stop(pid);
+        panic!("{}\n{}", up.stdout, up.stderr);
+    }
+    assert!(up.stdout.contains("✓ web awake"), "{}", up.stdout);
+    assert!(marker.exists(), "the app ran");
+    assert!(record(&sb).last_up.is_some());
+    let down = fixture::run(&sb, &host, Terminals::default(), false, &["--json", "down"]);
+    if down.code != 0 {
+        stop(pid);
+    }
+    assert_eq!(down.code, 0, "{}", down.stderr);
+    assert!(down.stdout.contains("\"stopped\": true"), "{}", down.stdout);
+    assert!(
+        pid.is_some_and(|p| !doze_os::process::alive(p)),
+        "the daemon is gone"
+    );
+    assert!(!key.socket().exists() && !key.pid_file().exists());
 }

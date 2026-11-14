@@ -64,17 +64,26 @@ pub(crate) fn wake(
     targets: &[String],
     named: &[String],
 ) -> Plan {
-    wake_as("doze wake", snap, closure, (targets, named))
+    wake_as("doze wake", snap, closure, (targets, named), false)
 }
 
-/// A wake's plan under another command's name (`doze up`).
+/// A wake's plan under another command's name (`doze up`), starting the daemon first when `starts`.
 pub(crate) fn wake_as(
     command: &str,
     snap: &Snapshot,
     closure: &[String],
     (targets, named): (&[String], &[String]),
+    starts: bool,
 ) -> Plan {
     let mut plan = Plan::new(applies(command, named, &[]));
+    if starts {
+        plan.step(
+            "doze",
+            Op::Do,
+            "start the daemon",
+            "it supervises the stack in the background",
+        );
+    }
     for name in closure {
         match find(snap, name) {
             Some(v) if awake(&v.state) => plan.unchanged(name),

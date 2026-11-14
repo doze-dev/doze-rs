@@ -241,6 +241,8 @@ pub(crate) struct FakeHost {
     pub apps: Vec<PathBuf>,
     /// What the person types, a line per question asked (`read_line`); none left: the input ended.
     pub answers: RefCell<std::collections::VecDeque<String>>,
+    /// The program `up` starts as the daemon (`None`: nothing is started).
+    pub daemon_exe: Option<PathBuf>,
 }
 
 impl Host for FakeHost {
@@ -309,6 +311,9 @@ impl Host for FakeHost {
     }
     fn read_line(&self) -> Option<String> {
         self.answers.borrow_mut().pop_front()
+    }
+    fn daemon_exe(&self) -> Option<PathBuf> {
+        self.daemon_exe.clone()
     }
 }
 

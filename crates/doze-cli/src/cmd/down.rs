@@ -69,6 +69,12 @@ enum Found {
 /// `doze down [--dry-run]`.
 pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &DryRun, notices: &mut Notices) -> Outcome {
     let stack = Stack::find(ctx, mode)?;
+    // Under the stack lock `up` takes to start the daemon, so a stop never races a start (D1 audit). A stack that never
+    // ran has no run folder, and none is made for the lock.
+    let run = doze_daemon::ctl::RunDir::of(stack.key.dir());
+    let _lock = (!a.dry_run && run.path().is_dir())
+        .then(|| doze_daemon::ctl::StackLock::take(&run).ok())
+        .flatten();
     let found = decide(&stack)?;
     if a.dry_run {
         return Ok(Done::ok(View::Plan(plan(&stack, &found)?)));
