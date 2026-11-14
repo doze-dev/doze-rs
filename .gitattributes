@@ -7,3 +7,5 @@ crates/doze-config/data/*.fc -text
 # doze-cli: Go goldens and transcripts are compared byte for byte.
 crates/doze-cli/tests/fixtures/** -text
 crates/doze-cli/tests/transcripts/** -text
+# doze-detect's oracle corpus and Go's scaffolds: compared byte for byte, so no line-ending conversion on checkout.
+crates/doze-detect/tests/fixtures/** -text
