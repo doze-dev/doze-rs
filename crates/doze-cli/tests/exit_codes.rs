@@ -23,6 +23,11 @@ fn run(setup: &[&str], args: &str) -> fixture::Ran {
 
 const UP: &[&str] = &["project bare", "daemon shop"];
 const DOWN: &[&str] = &["project bare"];
+const DOWN_LOGS: &[&str] = &[
+    "project bare",
+    "logfile api r000001.s000.log 2026-10-10T09:05:00.000000Z o up",
+];
+const EMPTY: &[&str] = &["project bare", "daemon empty"];
 const NOTHING: &[&str] = &[];
 
 #[test]
@@ -46,8 +51,21 @@ fn each_mistake_has_its_code() {
         ("status of a stopped stack", DOWN, "status", 0),
         ("sleep of a stopped stack", DOWN, "sleep", 0),
         ("unpinning on a stopped stack", DOWN, "pin --off api", 0),
-        ("logs of a stopped stack", DOWN, "logs api", 0),
-        ("why on a stopped stack", DOWN, "why api", 0),
+        (
+            "logs of a name nothing on disk knows, doze stopped",
+            DOWN,
+            "logs api",
+            4,
+        ),
+        (
+            "why of a name nothing on disk knows, doze stopped",
+            DOWN,
+            "why api",
+            4,
+        ),
+        ("logs of a stopped stack", DOWN_LOGS, "logs api", 0),
+        ("why on a stopped stack", DOWN_LOGS, "why api", 0),
+        ("nothing to wake", EMPTY, "wake", 1),
     ];
     for (what, setup, args, code) in cases {
         let r = run(setup, args);

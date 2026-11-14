@@ -100,7 +100,7 @@ fn strings_map(h: &Hash, key: &str) -> BTreeMap<String, String> {
         .as_hash()
         .map(|m| {
             m.iter()
-                .filter_map(|(k, v)| Some((k.as_str()?.to_owned(), v.as_str()?.to_owned())))
+                .filter_map(|(k, v)| Some((yaml::scalar(k)?, yaml::scalar(v)?)))
                 .collect()
         })
         .unwrap_or_default()
@@ -121,12 +121,12 @@ fn detect(h: &Hash) -> Detect {
         .map(|m| {
             m.iter()
                 .filter_map(|(k, v)| {
-                    let names = v
-                        .as_vec()?
-                        .iter()
-                        .filter_map(|s| s.as_str().map(str::to_owned))
-                        .collect();
-                    Some((k.as_str()?.to_owned(), names))
+                    // One package may be written without the list around it.
+                    let names = match v {
+                        Yaml::Array(a) => a.iter().filter_map(yaml::scalar).collect(),
+                        one => vec![yaml::scalar(one)?],
+                    };
+                    Some((yaml::scalar(k)?, names))
                 })
                 .collect()
         })

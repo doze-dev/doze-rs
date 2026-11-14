@@ -2,7 +2,8 @@
 //! `verbReport`), and kept for `--json` as `{"results": […]}` in the order they ran. A verb that fails stops there:
 //! the services before it keep their lines, the failure is the run's error.
 
-use crate::diag::Diagnostic;
+use crate::cmd::ask::Stop;
+use crate::diag::{Diagnostic, ids};
 use crate::output::Mode;
 use crate::paint::Paint;
 use crate::stack::daemon_error;
@@ -128,10 +129,37 @@ impl Report {
             error: e.to_string(),
             ..Outcome::default()
         });
-        if d.fix.is_some() {
-            d
-        } else {
+        // The logs say why a start failed; a refusal that names its own remedy needs no pointer there.
+        let started = [
+            "not ready",
+            "exited",
+            "crash",
+            "gave up",
+            "did not become ready",
+        ]
+        .iter()
+        .any(|w| d.message.contains(w));
+        if d.fix.is_none() && started {
             d.fix(format!("doze logs {name}"))
+        } else {
+            d
+        }
+    }
+
+    /// Records how `name` stopped: refused (as [`Report::fail`]) or interrupted (exit 130, as Go).
+    pub(crate) fn stopped(&mut self, name: &str, stop: &Stop) -> Diagnostic {
+        match stop {
+            Stop::Failed(e) => self.fail(name, e),
+            Stop::Interrupted => {
+                self.results.push(Outcome {
+                    name: name.to_owned(),
+                    error: "interrupted".to_owned(),
+                    ..Outcome::default()
+                });
+                Diagnostic::new(ids::INTERRUPTED, "interrupted").note(
+                    "doze finishes what it was already asked; doze status shows where it got to",
+                )
+            }
         }
     }
 }

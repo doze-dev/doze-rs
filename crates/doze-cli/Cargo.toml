@@ -48,3 +48,6 @@ rustls-native-certs = "0.8"
 ed25519-dalek = { version = "3", default-features = false, features = [] }
 # The scripted daemon on a real socket: the commands that talk to doze are tested through the protocol they use.
 doze-control = { path = "../doze-control", features = ["words", "test-support"] }
+# The writer of meta.yaml, so the module contract is tested through the real round trip.
+doze-module-release = { path = "../doze-module-release" }
+doze-module-proto = { path = "../doze-module-proto" }

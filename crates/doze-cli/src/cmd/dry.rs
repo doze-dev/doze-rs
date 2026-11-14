@@ -34,7 +34,7 @@ fn order<'a>(
 }
 
 /// What a wake (or a task, or a restart's dependencies) would start, in order.
-fn wake_order<'a>(snap: &'a Snapshot, targets: &'a [String]) -> Vec<&'a str> {
+pub(crate) fn wake_order<'a>(snap: &'a Snapshot, targets: &'a [String]) -> Vec<&'a str> {
     let (mut visiting, mut out) = (Vec::new(), Vec::new());
     for t in targets {
         order(snap, t, &mut visiting, &mut out);
@@ -56,10 +56,16 @@ fn reason(snap: &Snapshot, name: &str, asked: &[String]) -> String {
     format!("{} needs it", by.join(", "))
 }
 
-/// `doze wake --dry-run`.
-pub(crate) fn wake(snap: &Snapshot, targets: &[String], command: &str, named: &[String]) -> Plan {
-    let mut plan = Plan::new(applies(command, named, &[]));
-    for name in wake_order(snap, targets) {
+/// `doze wake --dry-run`: `closure` is what the run would start, in its order; `targets` what it was asked for (or
+/// everything); `named` the names typed.
+pub(crate) fn wake(
+    snap: &Snapshot,
+    closure: &[String],
+    targets: &[String],
+    named: &[String],
+) -> Plan {
+    let mut plan = Plan::new(applies("doze wake", named, &[]));
+    for name in closure {
         match find(snap, name) {
             Some(v) if awake(&v.state) => plan.unchanged(name),
             _ => plan.step(name, Op::Do, "wake", reason(snap, name, targets)),

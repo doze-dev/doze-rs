@@ -72,3 +72,61 @@ fn hints_round_trip_and_the_default_is_nothing() {
     assert_eq!(d.images, ["valkey/valkey"]);
     assert_eq!(d.env["REDIS_URL"], "url");
 }
+
+/// The real round trip: what doze-module-release writes for a manifest is what the registry cache reads back.
+#[test]
+fn what_the_release_writes_is_what_doze_reads() {
+    use doze_module_proto::msg::hello::Manifest;
+    use doze_module_proto::msg::hints::{ClientCommand, Detect};
+    use std::collections::BTreeMap;
+    let client = ClientCommand {
+        program: "psql".into(),
+        args: vec!["{url}".into(), "-X".into()],
+        env: BTreeMap::from([("PGPASSWORD".into(), "{password}".into())]),
+        fallbacks: vec![],
+    };
+    let detect = Detect {
+        packages: BTreeMap::from([
+            ("go".into(), vec!["github.com/jackc/pgx".into()]),
+            ("npm".into(), vec!["pg".into(), "@prisma/client".into()]),
+        ]),
+        images: vec!["postgres".into(), "postgis/postgis".into()],
+        env: BTreeMap::from([("DATABASE_URL".into(), "url".into())]),
+    };
+    let m = Manifest {
+        engine: "postgres".into(),
+        category: "database".into(),
+        title: "Postgres".into(),
+        tagline: "t".into(),
+        versions: vec!["17".into()],
+        exact_dots: 0,
+        default_port: 5432,
+        boot_budget_ms: None,
+        supervised: false,
+        backend_socket: None,
+        caps: 0,
+        schema: Default::default(),
+        example: String::new(),
+        console: None,
+        actions: vec![],
+        targets: vec![],
+        description: None,
+        homepage: None,
+        source: None,
+        example_label: Some("db".into()),
+        default_version: Some("17".into()),
+        client: Some(client.clone()),
+        detect: Some(detect.clone()),
+    };
+    let yaml = doze_module_release::meta_yaml(&m).unwrap();
+    let home = std::env::temp_dir().join(format!("dz-hints-rt-{}", std::process::id()));
+    let d = home.join("registry/doze/postgres");
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join("meta.yaml"), &yaml).unwrap();
+    let got = Cache::new(&home).hints("doze");
+    let _ = std::fs::remove_dir_all(&home);
+    assert_eq!(got.len(), 1, "{yaml}");
+    assert_eq!(got[0].label, "db");
+    assert_eq!(got[0].client.as_ref(), Some(&client));
+    assert_eq!(got[0].detect.as_ref(), Some(&detect));
+}

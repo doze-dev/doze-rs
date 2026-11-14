@@ -36,8 +36,9 @@ pub(crate) fn run(
         let _ = writeln!(ctx.err, "{} {name} running…", mode.err().dim("→"));
     }
     let start = Instant::now();
-    if let Err(e) = conn.run_verb(Verb::Task, name) {
-        let d = r.fail(name, &e);
+    let ask = crate::cmd::ask::Asker::new(conn, ctx, mode);
+    if let Err(stop) = ask.verb(Verb::Task, name) {
+        let d = r.stopped(name, &stop);
         return Ok(Done {
             view: View::Verbs(r),
             problem: Some(d),

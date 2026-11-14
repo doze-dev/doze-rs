@@ -366,7 +366,7 @@ fn plain_state(v: &InstanceView) -> &str {
 
 /// The order Go's `status --json` lists services in: doze.hcl's modules and apps, then its services, then its tasks.
 /// Within each the daemon's order stands (the declaration order itself is doze.hcl's, read in C2).
-fn go_order(mut views: Vec<InstanceView>) -> Vec<InstanceView> {
+pub(crate) fn go_order(mut views: Vec<InstanceView>) -> Vec<InstanceView> {
     views.sort_by_key(|v| match v.kind.as_str() {
         "service" => 1,
         "task" => 2,
