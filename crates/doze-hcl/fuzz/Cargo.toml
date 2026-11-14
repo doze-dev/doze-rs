@@ -47,3 +47,9 @@ name = "fuzz_fmt"
 path = "fuzz_targets/fuzz_fmt.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_funcs"
+path = "fuzz_targets/fuzz_funcs.rs"
+test = false
+doc = false

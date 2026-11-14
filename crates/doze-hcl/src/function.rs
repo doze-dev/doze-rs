@@ -3,7 +3,7 @@
 //! of the result type instead of running.
 
 use crate::types::Type;
-use crate::value::Value;
+use crate::value::{Refinement, Value};
 use std::collections::BTreeMap;
 use std::fmt;
 
@@ -84,6 +84,12 @@ pub trait Function: Send + Sync {
 
     /// Runs with arguments that are known where the parameters asked for known ones.
     fn call(&self, args: &[Value], ret: &Type) -> Result<Value, FuncError>;
+
+    /// cty's `RefineResult`: what is known of every result, added to an unknown one (whether the
+    /// call returned it or never ran because an argument was not ready).
+    fn refine_result(&self) -> Option<Refinement> {
+        None
+    }
 }
 
 /// The functions an expression may call, by name.
@@ -100,10 +106,15 @@ pub fn call(f: &dyn Function, args: &[Value]) -> Result<Value, FuncError> {
         let p = params.get(i).or_else(|| f.var_param());
         !v.is_known() && !p.is_some_and(|p| p.allow_unknown)
     });
-    if not_ready {
-        return Ok(Value::unknown(ret));
-    }
-    f.call(args, &ret)
+    let v = if not_ready {
+        Value::unknown(ret)
+    } else {
+        f.call(args, &ret)?
+    };
+    Ok(match f.refine_result() {
+        Some(r) => v.refine_with(&r),
+        None => v,
+    })
 }
 
 /// cty's `returnTypeForValues`: arity, nulls, dynamic-typed arguments and conformance, then the

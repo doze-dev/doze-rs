@@ -11,6 +11,7 @@ pub mod diag;
 pub mod edit;
 pub mod eval;
 pub mod fmt;
+pub mod funcs;
 pub mod function;
 pub mod lex;
 pub mod number;

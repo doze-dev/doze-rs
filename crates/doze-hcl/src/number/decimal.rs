@@ -143,26 +143,17 @@ fn decimal_of(x: &Float) -> Decimal {
 
 /// `x.Text('f', -1)`: plain notation, the shortest digits that read back.
 pub(crate) fn text_f(x: &Float) -> String {
-    let mut out = String::new();
-    if x.neg {
-        out.push('-');
-    }
-    if x.is_inf() {
-        if !x.neg {
-            out.push('+');
-        }
-        out.push_str("Inf");
-        return out;
-    }
-    let mut d = decimal_of(x);
-    round_shortest(&mut d, x);
-    let prec = (d.len() - d.exp).max(0);
-    fmt_f(&mut out, prec, &d);
-    out
+    text(x, b'f', -1)
 }
 
 /// `x.Text('g', 10)` (big.Float's `String`), used where cty orders sets of structured values.
 pub(crate) fn text_g10(x: &Float) -> String {
+    text(x, b'g', 10)
+}
+
+/// Go's `x.Text(fmt, prec)` for `e`, `E`, `f`, `g` and `G`; a negative `prec` asks for the shortest
+/// digits that read back.
+pub(crate) fn text(x: &Float, fmt: u8, prec: i64) -> String {
     let mut out = String::new();
     if x.neg {
         out.push('-');
@@ -175,23 +166,58 @@ pub(crate) fn text_g10(x: &Float) -> String {
         return out;
     }
     let mut d = decimal_of(x);
-    let mut prec = 10;
-    d.round(prec);
+    let shortest = prec < 0;
+    let prec = if shortest {
+        round_shortest(&mut d, x);
+        match fmt {
+            b'e' | b'E' => d.len() - 1,
+            b'f' => (d.len() - d.exp).max(0),
+            _ => d.len(),
+        }
+    } else {
+        match fmt {
+            b'e' | b'E' => {
+                d.round(1 + prec);
+                prec
+            }
+            b'f' => {
+                d.round(d.exp + prec);
+                prec
+            }
+            _ => {
+                let p = prec.max(1);
+                d.round(p);
+                p
+            }
+        }
+    };
+    match fmt {
+        b'e' | b'E' => fmt_e(&mut out, char::from(fmt), prec, &d),
+        b'f' => fmt_f(&mut out, prec, &d),
+        _ => fmt_g(&mut out, fmt, prec, shortest, &d),
+    }
+    out
+}
+
+fn fmt_g(out: &mut String, fmt: u8, mut prec: i64, shortest: bool, d: &Decimal) {
     let mut eprec = prec;
     if eprec > d.len() && d.len() >= d.exp {
         eprec = d.len();
     }
+    if shortest {
+        eprec = 6;
+    }
     let exp = d.exp - 1;
     if exp < -4 || exp >= eprec {
         prec = prec.min(d.len());
-        fmt_e(&mut out, prec - 1, &d);
+        let e = if fmt == b'G' { 'E' } else { 'e' };
+        fmt_e(out, e, prec - 1, d);
     } else {
         if prec > d.exp {
             prec = d.len();
         }
-        fmt_f(&mut out, (prec - d.exp).max(0), &d);
+        fmt_f(out, (prec - d.exp).max(0), d);
     }
-    out
 }
 
 fn fmt_f(out: &mut String, prec: i64, d: &Decimal) {
@@ -210,7 +236,7 @@ fn fmt_f(out: &mut String, prec: i64, d: &Decimal) {
     }
 }
 
-fn fmt_e(out: &mut String, prec: i64, d: &Decimal) {
+fn fmt_e(out: &mut String, e: char, prec: i64, d: &Decimal) {
     out.push(char::from(if d.mant.is_empty() { b'0' } else { d.at(0) }));
     if prec > 0 {
         out.push('.');
@@ -225,7 +251,7 @@ fn fmt_e(out: &mut String, prec: i64, d: &Decimal) {
             i += 1;
         }
     }
-    out.push('e');
+    out.push(e);
     let exp = if d.mant.is_empty() { 0 } else { d.exp - 1 };
     out.push(if exp < 0 { '-' } else { '+' });
     let a = exp.unsigned_abs();

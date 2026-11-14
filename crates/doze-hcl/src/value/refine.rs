@@ -27,6 +27,56 @@ impl Refinement {
             ..Refinement::default()
         }
     }
+
+    /// Adds what `more` knows: the longer prefix, the tighter bounds.
+    pub fn merge(&mut self, more: &Refinement) {
+        self.not_null |= more.not_null;
+        if more.prefix.len() > self.prefix.len() {
+            self.prefix.clone_from(&more.prefix);
+        }
+        self.lower = tighter(self.lower.take(), more.lower.clone(), Ordering::Greater);
+        self.upper = tighter(self.upper.take(), more.upper.clone(), Ordering::Less);
+        self.len = match (self.len, more.len) {
+            (None, l) | (l, None) => l,
+            (Some((a, ah)), Some((b, bh))) => {
+                let hi = match (ah, bh) {
+                    (Some(x), Some(y)) => Some(x.min(y)),
+                    (x, y) => x.or(y),
+                };
+                Some((a.max(b), hi))
+            }
+        };
+    }
+}
+
+/// Of two number bounds, the one further in direction `dir`; on a tie the exclusive one.
+fn tighter(
+    a: Option<(Number, bool)>,
+    b: Option<(Number, bool)>,
+    dir: Ordering,
+) -> Option<(Number, bool)> {
+    match (a, b) {
+        (None, x) | (x, None) => x,
+        (Some(a), Some(b)) => match b.0.cmp_value(&a.0) {
+            o if o == dir => Some(b),
+            Ordering::Equal => Some((a.0, a.1 && b.1)),
+            _ => Some(a),
+        },
+    }
+}
+
+/// cty's `NewValue` for a collection whose length is known exactly: an empty collection, a list of
+/// that many unknowns, or a set of one unknown.
+fn exact_collection(t: &Type, n: usize) -> Option<Value> {
+    let unknowns = |e: &Type| vec![Value::unknown(e.clone()); n];
+    match t {
+        Type::List(e) => Some(Value::List((**e).clone(), unknowns(e))),
+        Type::Set(e) if n <= 1 => Some(Value::Set((**e).clone(), unknowns(e))),
+        Type::Map(e) if n == 0 => {
+            Some(Value::Map((**e).clone(), std::collections::BTreeMap::new()))
+        }
+        _ => None,
+    }
 }
 
 impl Value {
@@ -51,7 +101,27 @@ impl Value {
         {
             return Value::Number(lo.clone());
         }
+        if let (true, Some((lo, Some(hi)))) = (r.not_null, r.len)
+            && lo == hi
+            && let Some(v) = exact_collection(&t, lo)
+        {
+            return v;
+        }
         Value::Unknown(t, Some(Box::new(r)))
+    }
+
+    /// cty's `RefineWith`: an unknown (not of the dynamic type) gains what `more` says; anything
+    /// else is returned as it is.
+    pub fn refine_with(self, more: &Refinement) -> Value {
+        let Value::Unknown(t, r) = self else {
+            return self;
+        };
+        if t == Type::Dynamic {
+            return Value::Unknown(t, r);
+        }
+        let mut r = r.map(|r| *r).unwrap_or_default();
+        r.merge(more);
+        Value::refined(t, r)
     }
 
     /// What is known about this value: for a known value, exactly it; for an unknown, its refinement.
