@@ -587,3 +587,8 @@ doze: `cmd/doze/*`, `internal/{config,runspec,runtime,registry,supervisor,health
     - Route names in `validateNetworks` need module listener declarations.
     - `psl` costs 0.84 MB (weight.md); that is an owner call.
   - Days: planned 15 (11–19); done in one session. Next on track L: C2.
+- **2026-11-14, plan deviation (engine track; decided by the coordinator for the owner): the engine does not link
+  doze-fetch.** §3 put "the module pool with the real fetch service" in E2. Instead `doze-engine` takes any
+  `Downloads` and the `doze.lock` pins as values, and D1 (the daemon) wires F1's `ChildDownloads` and loads the
+  lock. Reason: the engine stays pure (no network, no registry, no lock file I/O) and lighter, and its tests keep
+  using in-memory downloads. No days move: the wiring is a small part of D1's 12.
