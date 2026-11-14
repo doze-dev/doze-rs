@@ -33,6 +33,8 @@ at 2f1bb66.
 | 10a on the module face, `--features tls` | 7,586,144 | | 183 lines | |
 | **10b (Protobuf) on 10a** | **6,857,840** | **+66,736** | **171** | 7,376 KB |
 | 10b with `--features tls` | 7,669,392 | +83,248 | 183 lines | |
+| 10b merged with main f2ad9895 | 6,874,368 | | 171 | 7,456 KB |
+| 10b merged with main f2ad9895, `--features tls` | 7,669,376 | | 183 lines | |
 
 **The ceiling, with CI's measured ratio (2026-11-14).** CI measured ubuntu x86_64 at 1.36 times darwin (8,174,048 B against
 6,011,568 B), not the 1.216 used above. On that scale: the default build with the module face and 10a is about 9.24 MB, under main's
