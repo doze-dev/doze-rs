@@ -289,6 +289,13 @@ jobs:
         run: |
           mkdir -p corpus/acl_filter
           cargo fuzz run acl_filter corpus/acl_filter seeds/acl_filter -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the schema registry (ordered JSON, Avro schemas, the REST API, the wire header) for 30 seconds each
+        working-directory: crates/kafka-registry/fuzz
+        run: |
+          for t in json_node avro_schema registry_api wire; do
+            mkdir -p "corpus/$t"
+            cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=65536
+          done
       - name: Fuzz the allowed-hosts guard for 30 seconds
         working-directory: crates/kafka-auth/fuzz
         run: |
