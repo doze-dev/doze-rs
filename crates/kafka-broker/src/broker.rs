@@ -247,6 +247,12 @@ impl<F: Fs> Broker<F> {
         self.config.client_telemetry
     }
 
+    /// The metadata database, for what keeps its records beside the broker's: the schema registry (`kafka-registry`).
+    #[must_use]
+    pub fn meta(&self) -> &Arc<MetaStore> {
+        &self.meta
+    }
+
     /// How many ACLs are in force now: one atomic load, cheap enough for every console request (SEC-188, SEC-250). A change is
     /// counted before its CreateAcls or DeleteAcls is answered.
     #[must_use]

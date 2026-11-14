@@ -54,7 +54,7 @@ async fn described(b: &Backend, ids: &[String]) -> Vec<TxnRow> {
     out
 }
 
-/// Every transaction the broker knows (at most [`MOST_TXNS`]), by id, and how many more there are.
+/// Every transaction the broker knows (at most `MOST_TXNS`), by id, and how many more there are.
 pub async fn all_txns(b: &Backend) -> (Vec<TxnRow>, usize) {
     let Ok(Response::ListTransactions(list)) = b.call(requests::list_all_transactions()).await
     else {

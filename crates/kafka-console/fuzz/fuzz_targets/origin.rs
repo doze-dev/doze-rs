@@ -16,10 +16,13 @@ fuzz_target!(|data: &[u8]| {
     };
     let mut parts = text.split('\0');
     let method = parts.next().unwrap_or("");
-    let pick = |bit: u8, part: Option<&str>| (present & bit != 0).then(|| part.unwrap_or(""));
-    let origin = pick(1, parts.next());
-    let site = pick(2, parts.next());
-    let host = pick(4, parts.next());
+    // A fn, not a closure: a closure's elided `&str` argument and its result get unrelated lifetimes.
+    fn pick(present: u8, bit: u8, part: Option<&str>) -> Option<&str> {
+        (present & bit != 0).then(|| part.unwrap_or(""))
+    }
+    let origin = pick(present, 1, parts.next());
+    let site = pick(present, 2, parts.next());
+    let host = pick(present, 4, parts.next());
     let got = check(method, origin, site, host);
     if method.eq_ignore_ascii_case("GET") || method.eq_ignore_ascii_case("HEAD") {
         assert!(got.is_ok(), "{method:?}");
