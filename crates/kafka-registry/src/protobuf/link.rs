@@ -142,13 +142,17 @@ pub(super) fn link(src: &str, ast: &File, sources: &[(&str, &str)], descriptor: 
         parsed: Vec::new(),
         loading: Vec::new(),
         descriptor,
+        missing: None,
     };
     l.load_deps(ast)?;
     let main = l.pool.files.len();
     l.add_file(ast)?;
     let unit = Unit { ast, file: main };
     l.unit(&unit, true).map_err(|e| e.render(src))?;
-    Ok(l.pool)
+    match l.missing {
+        Some(path) => Err(format!("Could not resolve import: {path}")),
+        None => Ok(l.pool),
+    }
 }
 
 struct Linker<'a> {
@@ -158,6 +162,8 @@ struct Linker<'a> {
     parsed: Vec<(String, usize)>,
     loading: Vec<String>,
     descriptor: bool,
+    /// An import a descriptor names that no reference gives.
+    missing: Option<String>,
 }
 
 fn join(scope: &str, name: &str) -> String {
@@ -193,7 +199,10 @@ impl Linker<'_> {
             .map(|(_, s)| *s)
             .or_else(|| wkt::source(path))
             // A descriptor's missing import shows as the types it should have given, as Confluent words it.
-            .or_else(|| self.descriptor.then_some(""))
+            .or_else(|| {
+                self.missing.get_or_insert(path.to_owned());
+                self.descriptor.then_some("")
+            })
             .ok_or_else(|| format!("import \"{path}\" was not found: no reference has that name"))?;
         self.loading.push(path.to_owned());
         let ast = parse(src).map_err(|e| format!("{path}: {}", e.render(src)))?;

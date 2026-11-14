@@ -2,7 +2,8 @@
 
 Slice 10a is built (2026-11-14, branch `p10-registry`): the registry's model, its storage in the broker's metadata database,
 every REST route the Go edition serves (Confluent's and doze's own under `/_doze/`), the host guard, basic authentication and TLS
-as the Go binary has them, the wire header, and the Avro language whole. Protobuf (10b) and JSON Schema (10c) plug in through
+as the Go binary has them, the wire header, and the Avro language whole. Slice 10b (2026-11-14, branch `p10b-protobuf`) adds
+Protobuf (REG-28 to REG-32). JSON Schema (10c) plugs in through
 `format::Formats` (`phase10.md`, "Extension points"). This file is the catalogue: what Confluent's registry does, as the Go edition
 recorded it against cp-schema-registry 7.7.1, and the test that holds each rule. The sources of truth are the recordings copied
 from doze-kafka: `crates/kafka-registry/tests/data/conformance/*.json` (30 scripts, 469 steps) and the compatibility corpus
@@ -29,8 +30,11 @@ Deviations: where this registry answers otherwise than Confluent's, or than the 
 - **REG-D10** a busy default address leaves the broker running without a registry (Rust edition).
 - **REG-D11** Avro names may use any letter, as Java's parser allows (Rust edition).
 - **REG-D12** the store is the broker's redb database; records the Go edition stored are not read (Rust edition).
-- **REG-D13** Protobuf and JSON Schema are not read yet (slices 10b, 10c).
+- **REG-D13** JSON Schema is not read yet (slice 10c).
 - **REG-D14** the record-value codec (decode a payload to JSON, encode JSON) is not in 10a.
+- **REG-D15** Protobuf: the language rules checked are protoc's main ones; editions are refused (Rust edition).
+- **REG-D16** Protobuf: declarations the Go edition's printer dropped are kept in the stored text (Rust edition).
+- **REG-D17** Protobuf: a descriptor importing a file no reference gives is refused (Rust edition).
 
 ## The API
 
@@ -46,8 +50,8 @@ Tests: `routes_match_by_segment_and_method`, `bodies_of_other_types_are_refused_
 The 30 conformance scripts recorded from Confluent are replayed (ids as offsets from a probed base, as the Go harness does) and
 every step must give Confluent's status, challenge, error code and message (an "Invalid schema" message is compared by its start;
 a parser's own words after ", details:" are not compared), and anything else whole. The steps that differ on purpose are listed
-with their deviation (REG-D1 to REG-D7); the scripts about Protobuf and JSON Schema wait for 10b and 10c (REG-D13). Avro steps:
-all pass.
+with their deviation (REG-D1 to REG-D7); the scripts about JSON Schema wait for 10c (REG-D13). Avro and Protobuf steps
+(protobuf-canonical-forms, protobuf-descriptor-with-import): all pass.
 Test: `every_recorded_scenario_answers_as_confluent_did`.
 
 ### REG-3. The host is judged first, then the credentials
@@ -179,6 +183,58 @@ Tests: `the_stored_text_is_avros_own_order_and_namespaces_are_written_once`, `no
 with its full name, and named after that; it parses on its own. A schema with no references is not "inlined".
 Tests: `the_resolved_view_writes_each_referenced_type_out_once`, `a_schema_without_references_is_not_inlined`.
 
+## Protobuf (slice 10b)
+
+Written here, with no Protobuf crate (`src/protobuf.rs` and `src/protobuf/`): a lexer and parser of proto2 and proto3 text, a
+linker (imports, Protobuf's scoping, maps and groups made messages, the language's rules), Confluent's printing, Confluent's
+compatibility rules, and a decoder of base64 `FileDescriptorProto`s. The oracle is the Go edition's `protobuf.go`, `protoprint.go`,
+`protocompat.go` and `protofromdesc.go`, and the recordings: `tests/data/compat/protobuf.json` (600 pairs: 99 by hand, 300
+generated, with Confluent's verdict at three levels) and `protobuf-reasons.json`.
+
+### REG-28. Every recorded Protobuf verdict and reason is Confluent's
+All 600 pairs give Confluent's verdict at BACKWARD, FORWARD and FULL ("invalid" where it refused a schema, 103 of them), and every
+refusal gives Confluent's reasons word for word, in its order. Messages are matched by name (nested ones by their path, `#/O/I`),
+fields by number; a change of package, a removed message, a field whose wire type family, message type, map-ness or (for numbers,
+where the syntax writes labels) label changed, a required field added or removed, a oneof that lost a member, and fields moved
+into a oneof break readers; enums and services are not compared. The Go edition differed on one pair ("random 045"): a field moved
+into a oneof that also lost a member. Confluent reports only the lost member, and so does this registry (the rule fits "random
+161" too).
+Tests: `every_recorded_verdict_and_reason_is_confluents`, `a_check_agrees_with_a_registration_on_every_pair`.
+
+### REG-29. What protoc refuses is refused
+A syntax error says where, as Confluent words it (`Could not parse Protobuf - Syntax error in :1:28: ...`). The linker refuses an
+unknown or unseen type (a type of a file imported by an import is seen only through `import public`), names resolved from the
+innermost scope that has their first part (as protoc: no looking outward after a miss), a name defined twice (enum values are
+siblings of their enum), field numbers out of range, in 19000 to 19999, reused, reserved or in an extension range, reserved names,
+a missing label in proto2, `required`, defaults, groups and extension ranges in proto3, a proto2 enum used in proto3, map keys that
+are not integers, bools or strings, labels in a oneof, an empty oneof or enum, a proto3 enum not starting at zero, aliases without
+`allow_alias` (and `allow_alias` without aliases), conflicting JSON names in proto3, `packed` on what cannot be packed, a default
+that does not fit its field, built-in options by name and value type, and custom options naming no extension. Nesting past 100
+levels is refused, so hostile text cannot exhaust the stack.
+Tests: `what_the_language_refuses_is_refused`, `names_resolve_from_the_innermost_scope`, `deep_nesting_is_refused_not_overflowed`.
+
+### REG-30. The stored text is Confluent's printing
+Syntax and package; the imports; the file options; every message, then every enum; extends; services. In a message: reserved,
+options, fields, oneofs, groups, nested messages then enums, extends, extension ranges, each section after a blank line (padded to
+the indent in a nested message); a field's options inline when one, one to a line when several (its own, then `default`, then
+`json_name`); comments dropped; tokens as written with white space collapsed. What is stored reads back as itself.
+`?normalize=true` changes nothing for Protobuf, as in the Go edition.
+Tests: `every_recorded_scenario_answers_as_confluent_did` (protobuf-canonical-forms), `what_the_language_allows_is_read_and_stored`,
+`the_stored_text_of_every_corpus_schema_reads_back_as_itself`.
+
+### REG-31. Imports and descriptors
+An import is found among the references by their names, or is a well-known type (`google/protobuf/{any, api, descriptor, duration,
+empty, field_mask, source_context, struct, timestamp, type, wrappers}.proto`), which need no reference. Text that is not `.proto`
+is read as a base64 `FileDescriptorProto` (confluent-kafka's serializers send that), printed as Confluent prints a descriptor and
+stored like any other schema; a type it cannot resolve is `Could not resolve type: .dep.Addr`, as Confluent says.
+Tests: `imports_are_found_by_reference_name_and_public_imports_pass_through`, `a_descriptor_is_stored_as_confluent_stores_it`,
+`garbage_is_not_a_descriptor`, `a_schema_with_an_import_registers_and_is_compared`.
+
+### REG-32. Message indexes name messages
+The indexes of a value's header name a message as Confluent's serializers number them: `[0]` the first message of the file,
+`[1, 0]` the first message nested in the second (for the codec, 10d).
+Test: `message_indexes_name_messages_as_confluents_serializers_number_them`.
+
 ## doze's own routes
 
 ### REG-23. The overview and a version's history
@@ -213,7 +269,9 @@ Tests: `the_default_address_is_confluents_port_or_any_port_beside_a_broker_on_po
 
 ### REG-27. Every parser is fuzzed
 The ordered JSON, Avro schemas (with a reference), any request to the API against a seeded registry, and the wire header each have
-a target in `crates/kafka-registry/fuzz` (`json_node.rs`, `avro_schema.rs`, `registry_api.rs`, `wire.rs`), run 30 s each in CI.
+a target in `crates/kafka-registry/fuzz` (`json_node.rs`, `avro_schema.rs`, `protobuf_schema.rs`, `registry_api.rs`, `wire.rs`), run 30 s each
+in CI. Protobuf schemas (text or descriptor, with an imported file) too: a stored text reads again as itself and a schema reads its
+own data.
 Tests: `text_that_is_not_json_is_refused`, `hosts_lose_their_port_and_quotes`.
 
 ## Deviations
@@ -244,7 +302,18 @@ Tests: `text_that_is_not_json_is_refused`, `hosts_lose_their_port_and_quotes`.
 - **REG-D12.** The records live in a `schemas` table of the broker's `meta.redb` (postcard values), not in bbolt with JSON values;
   a Go data directory is not read. So the Go edition's re-indexing of schemas stored in an earlier text form (`indexCurrentForms`,
   `TestOldCanonicalFormsAreStillFound`) has nothing to do here; if this edition's stored form ever changes, that index comes with it.
-- **REG-D13.** Until slices 10b and 10c, a PROTOBUF or JSON schema is refused as invalid (42201, "not read by this build") and
-  `GET /schemas/types` lists only AVRO. The conformance scripts and corpus files for those languages are kept for them.
+- **REG-D13.** Until slice 10c, a JSON schema is refused as invalid (42201, "not read by this build") and `GET /schemas/types`
+  lists PROTOBUF and AVRO. The conformance scripts and corpus file for JSON Schema are kept for it.
 - **REG-D14.** The Go edition's codec (an Avro, Protobuf or JSON payload decoded to JSON for the console, and JSON encoded for its
   producer, behind a guard against hostile Avro bytes) is not in 10a: the console has no registry page yet. Slice 10d.
+- **REG-D15.** Protobuf is checked by protoc's main rules (REG-29), not by all of protocompile's: a custom option's value is not
+  checked against its extension's type, and `descriptor.proto` is known by its message names (enough to extend the options
+  messages), not its fields. Editions (`edition = "2023"`) are refused: Confluent 7.7.1 reads proto2 and proto3, and the Go
+  edition's printer dropped the edition line.
+- **REG-D16.** The Go edition's printer dropped a group in a oneof, an `extend` inside a message and an rpc's options, so their
+  stored text lost declarations. Here they are kept: the group in its oneof, the extend in a section after the nested types, the
+  rpc's options in a block (`rpc R (A) returns (B) {\n    option deprecated = true;\n  };`, as Square's wire, Confluent's printer,
+  writes it). None of these is recorded from Confluent.
+- **REG-D17.** A descriptor that imports a file no reference gives is refused (`Could not resolve import: dep.proto`) even when no
+  type of it is used: its stored text would name an import that cannot be read again (found by fuzzing). An unresolved type is
+  still worded as Confluent words it.

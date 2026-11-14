@@ -147,9 +147,33 @@ What 10b and 10c should not need to touch: `registry/*`, `api/*`, `store.rs`, `s
 | Slice | What | State |
 |---|---|---|
 | 10a | registry model, storage, REST API (Confluent's routes and `/_doze/`), host guard, basic auth, TLS, the wire header, Avro, the flags; ports of the Go tests; fuzz targets; the catalogue | **built** |
-| 10b | Protobuf: `.proto` text and `FileDescriptorProto` input, Confluent's printing, compatibility, message indexes; the protobuf conformance scripts and corpus | to do (another agent) |
+| 10b | Protobuf: `.proto` text and `FileDescriptorProto` input, Confluent's printing, compatibility, message indexes; the protobuf conformance scripts and corpus | **built** (branch `p10b-protobuf`, not yet audited) |
 | 10c | JSON Schema: parsing and validity of the schema, Confluent's structural compatibility, `$ref` across references; the JSON scripts and corpus | to do (another agent) |
 | 10d | the record-value codec for the console (Avro, Protobuf, JSON payload to JSON and back, with the guard against hostile Avro bytes of Go's `avroguard.go`) and the console's registry pages | to do |
+
+## Slice 10b: Protobuf (built 2026-11-14, branch `p10b-protobuf`)
+
+Written here, no Protobuf crate (the choice above; the owner later allowed `protox` + `prost-reflect`, but the hand-written one
+already gave every recorded answer, so it stayed). About 2,300 lines with tests:
+
+```
+crates/kafka-registry/src/protobuf.rs     the format: parse (text, else a base64 descriptor), stored text, can_read, message_at
+  protobuf/lex.rs        tokens as spans; string escapes
+  protobuf/ast.rs        the parser: declarations in order with the spans the stored text repeats; nesting bounded at 100
+  protobuf/print.rs      Confluent's printing (the Go edition's protoprint.go, plus what it dropped: REG-D16)
+  protobuf/link.rs       imports (references, then the well-known types), symbols, Protobuf's scoping, maps and groups as messages
+    protobuf/link/check.rs   protoc's rules and the built-in options table
+  protobuf/wkt.rs        the eleven well-known files, compactly
+  protobuf/compat.rs     Confluent's SchemaDiff rules and sentences (the Go edition's protocompat.go, and random 045 fixed)
+  protobuf/desc.rs       a FileDescriptorProto decoded and printed as Confluent prints it (protofromdesc.go)
+```
+
+Results: the 600 Protobuf corpus pairs give Confluent's verdict at three levels and its reasons word for word, with no deviation
+(the Go edition had one, "random 045", now answered as Confluent does); check equals register on every pair at four levels; the
+recorded scripts `protobuf-canonical-forms` and `protobuf-descriptor-with-import` replay with no difference; the descriptor
+fixture (`tests/data/protobuf/protodesc.json`) is stored as Confluent stored it. `other-schema-types` stays pending for 10c (its
+Protobuf ids follow its JSON registrations). A fuzz target (`protobuf_schema`) found one bug in its first minutes (a descriptor
+importing a file nobody gives, REG-D17), now a test. Catalogue: REG-28 to REG-32, REG-D15 to REG-D17.
 
 ## Tests (10a)
 

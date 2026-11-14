@@ -311,7 +311,7 @@ jobs:
       - name: Fuzz the schema registry (ordered JSON, Avro schemas, the REST API, the wire header) for 30 seconds each
         working-directory: crates/kafka-registry/fuzz
         run: |
-          for t in json_node avro_schema registry_api wire; do
+          for t in json_node avro_schema protobuf_schema registry_api wire; do
             mkdir -p "corpus/$t"
             cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=65536
           done

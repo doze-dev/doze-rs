@@ -800,7 +800,9 @@ impl Parser<'_> {
 
     fn rpc_type(&mut self) -> Result<RpcType, Error> {
         self.expect(b'(')?;
-        let stream = self.is_word(0, "stream") && !self.is(1, b')') && !self.is(1, b'.');
+        // `stream .a.B` streams; `stream.B` (no space) is a type named so.
+        let glued = self.peek(0).zip(self.peek(1)).is_some_and(|(a, b)| a.end == b.start && b.kind == Tok::Punct(b'.'));
+        let stream = self.is_word(0, "stream") && !self.is(1, b')') && !glued;
         self.i += usize::from(stream);
         let (name, span) = self.dotted(true)?;
         self.expect(b')')?;
