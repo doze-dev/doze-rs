@@ -378,3 +378,22 @@ No limit moved (7,800,000 B, 161 packages): a person lowers them, with the first
 
 **doze-aws with every Go service (2026-11-13, release-aws): 7,444,224 B (7.10 MiB) on darwin/arm64, 258 packages, idle 5,344 KB; 11,764,560 B on x86_64 Linux (musl), 10,561,264 B with JSONata off.** Over the "z" base (4,867,344 B / 233 on macOS, 7,481,552 B on Linux): Step Functions, API Gateway and CloudFormation together add 2.58 MB on macOS and 4.28 MB on Linux (1.66 times). The owner raised doze-aws's ceiling to 20 MB the same day; the CI line is 12,400,000 B (musl plus 5%) and 264 packages. Cross-building now needs a C compiler and an ELF archiver for the target (JSONata's `psm`): a `clang --target=x86_64-unknown-linux-musl` wrapper as `CC_x86_64_unknown_linux_musl` and `llvm-ar` as `AR_x86_64_unknown_linux_musl`.
 
+
+## Phase 11, the module face in the default build (2026-11-14, branch `p11-module`), release, darwin/arm64
+
+`doze-kafka` gained the doze module face (feature `module`, on by default like the console; docs/port/phase11.md): the module
+SDK (`doze-module`, `doze-module-proto`, `doze-os`, `minicbor`, `sha2`, `hex`, `rustix`) and the client half of the Kafka
+messages the module speaks to its own broker with.
+
+| darwin arm64, fat LTO | without `module` | default build |
+|---|---|---|
+| doze-kafka binary | 6,011,568 B | **6,574,304 B** (+562,736 B, +9.4%) |
+| packages (`cargo xtask weight`) | 158 | **171** (+13: the SDK's five crates, `minicbor`, `minicbor-derive`, `hex`, `sha2`, `const-oid`, `rustix`, `errno`, `bitflags`; `kafka-protocol` and `syn` counted again on new edges) |
+| idle | | 7,152 KB (the module code does not run in a broker) |
+
+`cargo bloat` puts about 250 KiB of text in the SDK (`doze_module` 120 KiB, `doze_module_proto` 82 KiB, `minicbor` 46 KiB); the rest
+is the module code and the request encoders and response decoders it uses. The Linux limits became 8,400,000 B (the macOS size times
+1.216, the Phase 7 ratio, plus 5%: 8,394,071) and 175 packages (171 plus 4); idle unchanged. Under the owner's 10 MB ceiling, but a
+cost every standalone user pays for a face only doze uses: **owner's decision** (phase11.md, cutover readiness) whether the module
+stays in the default build or moves behind a non-default feature that the release of `kafka-plugin` turns on (the lean broker would
+then be 6.0 MB again, and the gate's test run would need that feature turned on to keep testing the module).
