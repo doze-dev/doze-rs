@@ -176,12 +176,22 @@ pub fn configure(trust: Trust) -> bool {
 }
 
 fn client() -> &'static Client {
-    CLIENT.get_or_init(|| {
-        Client::new(Trust {
-            os_store: true,
-            ..Trust::default()
-        })
-    })
+    CLIENT.get_or_init(|| Client::new(default_trust()))
+}
+
+/// Unconfigured: the OS trust store.
+#[cfg(not(feature = "test-server"))]
+fn default_trust() -> Trust {
+    Trust {
+        os_store: true,
+        ..Trust::default()
+    }
+}
+
+/// Unconfigured in a test build: the test CA alone, whichever test makes the first request.
+#[cfg(feature = "test-server")]
+fn default_trust() -> Trust {
+    test_server::Ca::get().trust()
 }
 
 /// Makes the request with the process's client.

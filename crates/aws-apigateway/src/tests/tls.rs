@@ -139,8 +139,8 @@ async fn a_jwt_from_an_https_issuer_is_verified_and_the_backend_is_called_over_h
     assert_eq!(
         (r.status, &r.body[..]),
         (200, &b"inside"[..]),
-        "{:?}",
-        body(&r)
+        "{}",
+        why(&r)
     );
     assert!(backend.seen(1).await[0].starts_with("GET /inside HTTP/1.1\r\n"));
 

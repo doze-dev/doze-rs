@@ -68,7 +68,8 @@ impl Ca {
         }
     }
 
-    /// Makes the process's client trust this CA (the first configuration wins; every test of a binary shares the one CA).
+    /// Makes the process's client trust this CA (the first configuration wins; every test of a binary shares the one CA, and an
+    /// unconfigured client in a build with this feature trusts it anyway).
     pub fn install(&self) {
         crate::configure(self.trust());
     }
