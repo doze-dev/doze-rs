@@ -37,6 +37,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 async-channel = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+doze-cli = { path = "../../crates/doze-cli" }
 doze-control = { path = "../../crates/doze-control" }
 doze-desk = { path = "../../crates/doze-desk" }
 doze-display = { path = "../../crates/doze-display" }

@@ -502,3 +502,17 @@ reach GitHub. When the Rust CLI has `doze version --check`, the app asks it inst
 Activity at rest: it reads the journal again every ten seconds while shown (as Go's page did), off the UI thread, and
 redraws only when a figure changed; the strips are painted, so a 2,000-service stack builds only the rows in view
 (`doze-desk` lays out 2,000 services over 10,000 events in a few milliseconds, `tests/activity.rs`).
+
+**The app carries the CLI (core C1, 2026-11-14).** Owner decision: Doze.app holds the GUI and the full CLI in one
+binary, `doze-app <command>` being the doze CLI (`doze` alone stays CLI-only, under 10 MB). Linking `doze-cli` into
+`doze-app` (darwin/arm64, `release-app`):
+
+| | Line | app-try (a112aa29) | With the CLI |
+|---|---|---|---|
+| Binary | ≤ 16 MB | not re-measured here (13,131,648 B at M3 combined) | 15,137,792 B |
+| Packages (`cargo tree -p doze-app --edges normal --target aarch64-apple-darwin`, unique lines) | was 560, now 640 | 537 | 631 |
+
+The 94 packages are the CLI's own: clap, the registry client (ureq, rustls, ring, the platform roots, ed25519), the
+YAML reader and jiff for the wall clock. The package line moves to 640 (the measured 631 plus 9) because the owner's
+decision puts them there; the byte line stays 16 MB, now with 0.86 MB of room. If that room is needed back, the
+lever is one HTTP and TLS stack shared by the app and the CLI (core plan §6.3).

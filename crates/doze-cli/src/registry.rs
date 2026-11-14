@@ -6,6 +6,8 @@ mod http;
 pub mod index;
 pub mod latest;
 pub mod meta;
+/// What a module declares for doze's guessing (module contract), as [`Cache::hints`] gathers it.
+pub use doze_module_proto::msg::hints::ModuleHints;
 pub mod select;
 pub mod signed;
 pub mod source;

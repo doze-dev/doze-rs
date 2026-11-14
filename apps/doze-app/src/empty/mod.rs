@@ -32,6 +32,14 @@ impl Focusable for EmptyView {
     }
 }
 
+/// What the modules this machine knows declare (the registry's copies in the doze home): the folder is guessed against
+/// them alone, never against a table of the app's own.
+fn module_hints() -> Vec<doze_cli::registry::ModuleHints> {
+    doze_os::home::doze_home()
+        .map(|h| doze_cli::registry::Cache::new(&h).hints("doze"))
+        .unwrap_or_default()
+}
+
 impl EmptyView {
     pub(crate) fn new(dir: PathBuf, acts: Entity<Acts>, cx: &mut Context<Self>) -> EmptyView {
         cx.observe(&acts, |_, _, cx| cx.notify()).detach();
@@ -40,7 +48,7 @@ impl EmptyView {
         cx.spawn(async move |this, cx| {
             let found = cx
                 .background_executor()
-                .spawn(async move { detect(&d) })
+                .spawn(async move { detect(&d, &module_hints()) })
                 .await;
             let _ = this.update(cx, |v, cx| {
                 v.page = empty_of(&v.dir, &found);
