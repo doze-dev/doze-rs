@@ -51,6 +51,9 @@ pub(crate) struct Tab {
     pub(crate) troubled: usize,
     /// Its daemon answers (Go: `live`): a running stack out of touch has a yellow dot.
     pub(crate) live: bool,
+    /// Its doze.hcl does not load (Go: the summary's `broken`): the tab's dot is yellow and its title says so, on
+    /// every page.
+    pub(crate) broken: bool,
 }
 
 /// The window's title: where the page is (Go app.tsx `titled`), which the Window menu lists and a screen reader
@@ -216,6 +219,7 @@ impl Root {
 
     /// The tabs, from the hub; redraws only when they changed.
     pub(crate) fn refresh_tabs(&mut self, cx: &mut Context<Self>) {
+        let facts = self.pages.facts.clone();
         let tabs: Vec<Tab> = self
             .hub
             .stacks()
@@ -225,7 +229,12 @@ impl Root {
             })
             .map(|s| {
                 let snap = s.words();
+                let broken = !s.dir.is_empty()
+                    && facts.update(cx, |f, cx| {
+                        f.shape(&s.dir, cx).is_some_and(|sh| sh.error.is_some())
+                    });
                 Tab {
+                    broken,
                     troubled: snap
                         .instances
                         .iter()
@@ -301,6 +310,7 @@ mod tests {
             running: true,
             troubled: 0,
             live: true,
+            broken: false,
         };
         let tabs = vec![tab("a"), tab("b"), tab("c")];
         assert_eq!(

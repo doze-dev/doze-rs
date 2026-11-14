@@ -40,10 +40,17 @@ impl Root {
                     }
                 }
                 AdminEvent::Busy(b) => {
+                    let b = *b;
                     if repair && let Some(s) = this.pages.settings.clone() {
-                        let b = *b;
                         s.update(cx, |s, cx| {
                             s.repairing = b;
+                            cx.notify();
+                        });
+                    }
+                    // Home's machine line says "Setting up…" while a Repair runs, as Go's Library did.
+                    if repair {
+                        this.library.update(cx, |l, cx| {
+                            l.repairing = b;
                             cx.notify();
                         });
                     }

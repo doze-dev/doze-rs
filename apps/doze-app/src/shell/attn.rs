@@ -145,9 +145,8 @@ pub(crate) fn items_now(
     let mut out = Vec::new();
     for st in stacks {
         let missing = doze_desk::library::missing_files(&st.dir);
-        let mtime = std::fs::metadata(std::path::Path::new(&st.dir).join("doze.hcl"))
-            .and_then(|m| m.modified())
-            .ok();
+        // The newest of doze.hcl, *.doze.hcl and *.auto.doze.vars (Go's config stamp).
+        let mtime = crate::facts::stamp(std::path::Path::new(&st.dir)).map(|s| s.0);
         // A running stack's doze.hcl that does not load is the item; "changed" only when it loads (Go).
         let file = std::path::Path::new(&st.dir).join("doze.hcl");
         let config = m

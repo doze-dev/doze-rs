@@ -13,6 +13,9 @@ pub const ACTIVITY: &str =
 /// The head's All logs button.
 pub const ALL_LOGS: &str = "Every service's logs, merged (L)";
 
+/// The figures strip, faded while the daemon is not answering (`.strip.faded`).
+pub const STALE_STRIP: &str = "the last figures heard; the daemon is not answering";
+
 /// The head's Up switch while doze.hcl does not load.
 pub const BROKEN_UP: &str = "doze.hcl does not load, so the stack cannot start";
 
@@ -72,6 +75,14 @@ mod tests {
         assert_eq!(switch(&r), "paused in doze.hcl (enabled = false)");
         r.off = false;
         assert_eq!(switch(&r), "Start the stack with api and what it needs");
+    }
+
+    #[test]
+    fn a_faded_strip_says_whose_figures_they_are() {
+        assert_eq!(
+            super::STALE_STRIP,
+            "the last figures heard; the daemon is not answering"
+        );
     }
 
     #[test]

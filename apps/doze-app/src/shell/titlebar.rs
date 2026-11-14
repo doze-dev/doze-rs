@@ -309,6 +309,9 @@ fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>
     let on = root.key() == Some(&tb.key);
     let tone = if tb.troubled > 0 {
         t.bad
+    } else if tb.broken {
+        // Go: a doze.hcl that does not load is the tab's yellow dot, on every page.
+        t.warn
     } else if tb.running && tb.live {
         t.good
     } else if tb.running {
@@ -331,37 +334,14 @@ fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>
     // `.stabx`: on every tab, seen (opacity) while the tab is the one shown or under the pointer.
     let id: gpui::ElementId = ("tab", i).into();
     let over = crate::motion::hovered(&format!("stab/{id}"));
-    {
-        let k = tb.key.clone();
-        body.push(
-            div()
-                .id(("tab-close", i))
-                .opacity(if on || over { 1. } else { 0. })
-                .tooltip(tip(if tb.running {
-                    "Close the tab. The stack keeps running; open it again from Home."
-                } else {
-                    "Close the tab"
-                }))
-                .size(px(16.))
-                .rounded(px(4.))
-                .flex()
-                .items_center()
-                .justify_center()
-                .text_color(t.dim)
-                .hover(|d| d.bg(t.line).text_color(t.bright))
-                .child(icon("icons/close.svg", 10., t.dim))
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    cx.stop_propagation();
-                    this.close_tab(&k, window, cx);
-                }))
-                .into_any_element(),
-        );
-    }
+    body.push(close_x(t, (i, tb), on || over, cx));
     let key = tb.key.clone();
     let title = format!(
         "{}{}  ⌘{}",
         tb.dir,
-        if tb.running && !tb.live {
+        if tb.broken {
+            " · doze.hcl does not load"
+        } else if tb.running && !tb.live {
             " · daemon not answering"
         } else {
             ""
@@ -374,5 +354,35 @@ fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>
         .on_click(
             cx.listener(move |this, _, window, cx| this.go(Screen::Stack(key.clone()), window, cx)),
         )
+        .into_any_element()
+}
+
+/// `.stabx`: the tab's ×, seen while `shown`; under the pointer it turns bright on the line colour (`.stabx:hover`).
+fn close_x(t: &Tokens, (i, tb): (usize, &Tab), shown: bool, cx: &mut Context<Root>) -> AnyElement {
+    let k = tb.key.clone();
+    let xid = format!("stabx/{i}");
+    let x_ink = if crate::motion::hovered(&xid) {
+        t.bright
+    } else {
+        t.dim
+    };
+    crate::motion::track(div().id(("tab-close", i)), &xid)
+        .opacity(if shown { 1. } else { 0. })
+        .tooltip(tip(if tb.running {
+            "Close the tab. The stack keeps running; open it again from Home."
+        } else {
+            "Close the tab"
+        }))
+        .size(px(16.))
+        .rounded(px(4.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .hover(|d| d.bg(t.line))
+        .child(icon("icons/close.svg", 10., x_ink))
+        .on_click(cx.listener(move |this, _, window, cx| {
+            cx.stop_propagation();
+            this.close_tab(&k, window, cx);
+        }))
         .into_any_element()
 }

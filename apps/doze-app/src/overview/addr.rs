@@ -53,7 +53,8 @@ impl OverviewView {
                 }
                 if let Some(err) = err {
                     let file = std::path::Path::new(&st.dir).join("doze.hcl");
-                    let saved = std::fs::metadata(&file).and_then(|m| m.modified()).ok();
+                    // When the config was saved: the newest of its files (Go's stamp), not doze.hcl alone.
+                    let saved = crate::facts::stamp(std::path::Path::new(&st.dir)).map(|s| s.0);
                     let now = self.hub.now();
                     h.config = Some(doze_desk::overview::config_error(&file, &err, saved, now));
                     h.changed = None;
