@@ -13,6 +13,17 @@ pub(super) fn check(m: &Machine, s: &Shell, now: Now) {
         assert!(live <= 1, "{name} has {live} copies running at once");
     }
     for inst in m.table().snapshot(now) {
+        // Invariant 11.
+        if inst.name == TASK {
+            assert!(!inst.state.running(), "the task is {:?}", inst.state);
+        } else {
+            assert_ne!(
+                inst.state,
+                State::Done,
+                "{} is done and not a task",
+                inst.name
+            );
+        }
         let clients = s.clients.get(&inst.name).copied().unwrap_or(0);
         if inst.state.running() {
             let has = s
@@ -40,7 +51,7 @@ pub(super) fn check(m: &Machine, s: &Shell, now: Now) {
         if inst.state == State::Failed {
             // Invariant 9: at most a rerun, or a start whose cancel is on its way, is in flight.
             let rerun = s.boots.iter().any(|(b, n)| {
-                *n == inst.name && (s.reruns.contains(b) || s.cancels.contains_key(b))
+                *n == inst.name && (s.reruns.contains(b) || s.cancels.contains_key(b) || *n == TASK)
             });
             assert!(
                 !m.pending(&inst.name) || rerun,
@@ -66,7 +77,9 @@ pub(super) fn drain(m: &mut Machine, s: &mut Shell, now: Now) {
             s.boots.remove(&b);
             // A start that has not registered yet does so now (and is stopped: the stack is shutting down); one that
             // has finishes.
-            let fx = if s.registered.insert(b) {
+            let fx = if name == TASK {
+                m.task_skipped(&name, b, now)
+            } else if s.registered.insert(b) {
                 m.register(&name, b, unit(true), now).2
             } else {
                 m.boot_done(&name, b, Duration::ZERO, now).1
