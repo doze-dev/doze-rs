@@ -31,6 +31,8 @@ at 2f1bb66.
 | main with the module face (Phase 11) | 6,574,304 | | 171 | 7,152 KB |
 | **10a merged on the module face** | **6,791,104** | **+216,800** | **171** | 7,248 KB |
 | 10a on the module face, `--features tls` | 7,586,144 | | 183 lines | |
+| **10b (Protobuf) on 10a** | **6,857,840** | **+66,736** | **171** | 7,376 KB |
+| 10b with `--features tls` | 7,669,392 | +83,248 | 183 lines | |
 
 **The ceiling, with CI's measured ratio (2026-11-14).** CI measured ubuntu x86_64 at 1.36 times darwin (8,174,048 B against
 6,011,568 B), not the 1.216 used above. On that scale: the default build with the module face and 10a is about 9.24 MB, under main's
@@ -39,6 +41,12 @@ build does not fit:** 7,586,144 B times 1.36 is about 10.32 MB, over the 10 MB c
 about 10.0 MB (main's TLS line, 9,279,000 B and 173, was measured before the module; the module adds 13 packages). No limit was raised;
 the CI TLS job will fail on main with or without the registry until the owner decides (leave the module or the registry out of the
 `tls` release, or take a size lever such as `opt-level = "z"` on more of the tree).
+
+**10b (measured 2026-11-14, darwin/arm64, before merging main f2ad9895).** Protobuf adds 66,736 B to the default build and 83,248 B
+to the TLS build, and no package (171 and 183 unchanged): a parser, linker, printer, compatibility walk and descriptor decoder of
+its own instead of `protox` + `prost-reflect`'s 545,872 B and 25 packages. On CI's scale (times 1.36): the default build about
+9,326,662 B, under its line of 9,386,171 B (99.4%); the TLS build about 10,430,373 B. The owner raised the ceiling to 15 MB for both
+builds the same day, and is folding `tls` into the default build; the single limit is set from these numbers by the coordinator.
 
 The paragraph below is the measurement before the merge, on the old 1.216 scale.
 
@@ -154,7 +162,7 @@ What 10b and 10c should not need to touch: `registry/*`, `api/*`, `store.rs`, `s
 ## Slice 10b: Protobuf (built 2026-11-14, branch `p10b-protobuf`)
 
 Written here, no Protobuf crate (the choice above; the owner later allowed `protox` + `prost-reflect`, but the hand-written one
-already gave every recorded answer, so it stayed). About 2,300 lines with tests:
+already gave every recorded answer, so it stayed). About 3,500 lines, tests included:
 
 ```
 crates/kafka-registry/src/protobuf.rs     the format: parse (text, else a base64 descriptor), stored text, can_read, message_at
