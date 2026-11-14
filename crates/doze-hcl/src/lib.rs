@@ -8,6 +8,7 @@ pub mod check;
 pub mod convert;
 pub mod diag;
 pub mod eval;
+pub mod funcs;
 pub mod function;
 pub mod lex;
 pub mod number;

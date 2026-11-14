@@ -15,6 +15,7 @@ use hcl_edit::expr::{Expression, FuncCall};
 pub(super) struct Arg<'a> {
     pub(super) expr: Option<&'a Expression>,
     pub(super) value: Option<Value>,
+    /// Where Go points a diagnostic about it (`StartRange`).
     pub(super) at: Range,
 }
 
@@ -43,7 +44,7 @@ impl Evaluator<'_> {
             .map(|e| Arg {
                 expr: Some(e),
                 value: None,
-                at: self.range(*e),
+                at: self.start_range(e),
             })
             .collect();
         if f.args.expand_final() {
@@ -85,9 +86,10 @@ impl Evaluator<'_> {
         if diags.has_errors() {
             return Err((Value::DYNAMIC, diags));
         }
+        let expr_at = self.range(expr);
         let bad = |detail: &str, mut diags: Diagnostics| {
             diags.push(
-                Diagnostic::error("Invalid expanding argument value", detail, last.at)
+                Diagnostic::error("Invalid expanding argument value", detail, expr_at)
                     .with_context(whole),
             );
             Err((Value::DYNAMIC, diags))

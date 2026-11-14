@@ -6,8 +6,8 @@
 //!
 //!     env -i PATH=/usr/bin:/bin oracle-dump eval exprs-<set>.json > go-<set>.jsonl
 //!
-//! Function calls are H2's: a case that calls a function Go knows is counted, not compared, until
-//! the library exists.
+//! Functions are doze.hcl's table (`funcs::doze_functions_with_env`), with `env` reading Go's
+//! oracle environment (only `PATH` is set).
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -16,8 +16,9 @@
 )]
 
 use doze_hcl::eval::{Context, eval_attribute};
-use doze_hcl::function::Functions;
+use doze_hcl::funcs::doze_functions_with_env;
 use serde_json::{Value as Json, json};
+use std::sync::Arc;
 
 mod support;
 
@@ -58,17 +59,13 @@ fn go_result(line: &Json) -> Json {
     json!({"ok": false, "stage": stage, "at": at.unwrap_or(Json::Null)})
 }
 
-fn calls_a_function(expr: &str) -> bool {
-    let b = expr.as_bytes();
-    expr.match_indices('(').any(|(i, _)| {
-        i > 0
-            && b.get(i - 1)
-                .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
-    })
+/// What `env` sees under the oracle: `env -i PATH=/usr/bin:/bin`.
+fn oracle_env(name: &str) -> Option<String> {
+    (name == "PATH").then(|| "/usr/bin:/bin".to_owned())
 }
 
-/// (identical, deferred to H2 functions, syntax errors at another position, differences)
-fn run(set: &str) -> (usize, usize, Vec<String>, Vec<String>, usize) {
+/// (identical, syntax errors at another position, differences, known differences)
+fn run(set: &str) -> (usize, Vec<String>, Vec<String>, usize) {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/eval");
     let cases: Vec<Json> =
         serde_json::from_str(&std::fs::read_to_string(format!("{dir}/exprs-{set}.json")).unwrap())
@@ -83,9 +80,9 @@ fn run(set: &str) -> (usize, usize, Vec<String>, Vec<String>, usize) {
         go.len(),
         "{set}: corpus and Go output differ in length; regenerate go-{set}.jsonl"
     );
-    let funcs = Functions::new();
+    let funcs = doze_functions_with_env(Arc::new(oracle_env));
     let ctx = Context::new(variables(), Some(&funcs));
-    let (mut same, mut deferred, mut syntax, mut diffs) = (0, 0, Vec::new(), Vec::new());
+    let (mut same, mut syntax, mut diffs) = (0, Vec::new(), Vec::new());
     // Reviewed, documented differences (testdata/eval/known-differences.json): counted, not failed;
     // one that starts matching Go is reported, so the list cannot go stale.
     let known: serde_json::Map<String, Json> = serde_json::from_str(
@@ -108,18 +105,11 @@ fn run(set: &str) -> (usize, usize, Vec<String>, Vec<String>, usize) {
             known_count += 1;
         } else if want["stage"] == "parse" && got["stage"] == "parse" {
             syntax.push(format!("{id}: go {} rust {}", want["at"], got["at"]));
-        } else if calls_a_function(expr) && g["ok"] == json!(true)
-            || calls_a_function(expr)
-                && !expr.contains("nope")
-                && !expr.contains("uper")
-                && !expr.contains("::")
-        {
-            deferred += 1;
         } else {
             diffs.push(format!("{id}: {expr}\n   go:   {want}\n   rust: {got}"));
         }
     }
-    (same, deferred, syntax, diffs, known_count)
+    (same, syntax, diffs, known_count)
 }
 
 /// Every `exprs-<set>.json` in `testdata/eval` with its `go-<set>.jsonl` (the spike's 653, H1's own,
@@ -140,9 +130,9 @@ fn every_corpus_matches_go() {
     assert!(sets.len() >= 2, "corpus sets: {sets:?}");
     let mut all = Vec::new();
     for set in &sets {
-        let (same, deferred, syntax, diffs, known) = run(set);
+        let (same, syntax, diffs, known) = run(set);
         eprintln!(
-            "{set}: {same} identical, {known} known differences, {deferred} deferred to H2 (functions), {} syntax errors placed differently (H2), {} different",
+            "{set}: {same} identical, {known} known differences, {} syntax errors placed differently (H2), {} different",
             syntax.len(),
             diffs.len()
         );

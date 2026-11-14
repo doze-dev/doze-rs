@@ -218,6 +218,26 @@ impl Number {
         decimal::text_f(&self.0)
     }
 
+    /// Go's `Text(fmt, prec)` for `fmt` one of `e E f g G`; a negative `prec` is the shortest form.
+    pub fn text_with(&self, fmt: u8, prec: i64) -> String {
+        decimal::text(&self.0, fmt, prec)
+    }
+
+    /// A big integer as Go's `new(big.Float).SetInt(i)` makes it: exact, with the larger of 64 bits
+    /// and the integer's own length as precision.
+    pub fn from_bigint(neg: bool, mag: BigUint) -> Number {
+        let prec = u32::try_from(mag.bits()).unwrap_or(u32::MAX).max(64);
+        let neg = neg && mag != BigUint::default();
+        Number(Float::from_parts(neg, mag, 0, prec))
+    }
+
+    /// An integer at this value's precision (Go's `f.SetInt(i)` on a float that has one): what
+    /// `ceil` and `floor` return.
+    pub fn with_integer(&self, neg: bool, mag: BigUint) -> Number {
+        let neg = neg && mag != BigUint::default();
+        Number(Float::from_parts(neg, mag, 0, self.0.prec))
+    }
+
     /// Go's `big.Float.String()` (`Text('g', 10)`), which cty's set ordering hashes.
     pub fn text_g10(&self) -> String {
         decimal::text_g10(&self.0)
