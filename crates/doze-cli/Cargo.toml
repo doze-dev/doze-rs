@@ -17,6 +17,9 @@ default = ["tls"]
 # `doze` binary, which must work where nothing else is installed. Without it requests go through the system's curl
 # (the desktop app; docs/port/weight.md, "One HTTP stack").
 tls = ["doze-fetch/tls"]
+# Test builds only (Go's `dozetest` tag): the registry key may be replaced through DOZE_TEST_REGISTRY_KEY, so a
+# throwaway, locally signed registry can stand in for the real one. Release builds never have it.
+dozetest = []
 
 [[bin]]
 name = "doze"

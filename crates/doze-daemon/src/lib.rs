@@ -10,9 +10,13 @@
 //! through the runtime's handle. A unary request runs to its end even if its client goes (Go ran them on the daemon's
 //! context); a stream ends with its connection or its `cancel`.
 
+pub mod catalog;
 pub mod ctl;
 pub mod entry;
+pub mod front;
+pub mod planners;
 mod session;
+pub mod spec_tree;
 mod topics;
 mod unary;
 pub mod view;

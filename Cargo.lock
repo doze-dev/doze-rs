@@ -2827,8 +2827,12 @@ dependencies = [
  "doze-config",
  "doze-control",
  "doze-engine",
+ "doze-fetch",
+ "doze-hcl",
  "doze-journal",
  "doze-logstore",
+ "doze-module-host",
+ "doze-module-proto",
  "doze-names",
  "doze-os",
  "serde_json",
@@ -3010,7 +3014,10 @@ dependencies = [
 name = "doze-module"
 version = "0.0.0"
 dependencies = [
+ "doze-config",
+ "doze-daemon",
  "doze-engine",
+ "doze-fetch",
  "doze-module-derive",
  "doze-module-host",
  "doze-module-proto",

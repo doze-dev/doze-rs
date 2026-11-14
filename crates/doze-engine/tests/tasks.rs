@@ -333,6 +333,11 @@ async fn a_task_stopped_while_its_needs_start_ends_failed() {
 /// leaves it asleep (E2 audit 3).
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_task_stopped_after_its_command_ended_still_journals_its_end() {
+    // On Windows the child's Job ends with the command, so no pipe outlives it and the run ends before the stop: the
+    // case does not arise there.
+    if std::env::consts::OS == "windows" {
+        return;
+    }
     let d = Dir::new("taskdrain");
     let pidf = d.file("left.pid");
     let e = Engine::builder("t", d.path())
@@ -370,8 +375,9 @@ async fn a_task_stopped_after_its_command_ended_still_journals_its_end() {
 async fn a_task_stopped_while_it_decides_ends_at_once_and_says_why() {
     let d = Dir::new("taskdecide");
     let (fifo, ran) = (d.file("in.fifo"), d.file("ran"));
+    // Git Bash on Windows has a `mkfifo` that makes a file a read does not wait on: no FIFO there.
     let made = std::process::Command::new("mkfifo").arg(&fifo).status();
-    if !made.is_ok_and(|s| s.success()) {
+    if !made.is_ok_and(|s| s.success()) || std::env::consts::OS == "windows" {
         return;
     }
     let mut ts = task(&d, &["append", &ran.to_string_lossy()]);

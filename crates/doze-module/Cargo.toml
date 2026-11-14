@@ -29,6 +29,9 @@ doze-os = { path = "../doze-os" }
 doze-module-host = { path = "../doze-module-host" }
 tokio = { version = "1.54", features = ["rt", "rt-multi-thread", "time", "process", "macros", "net", "io-util"] }
 doze-module-proto = { path = "../doze-module-proto" }
+doze-daemon = { path = "../doze-daemon" }
+doze-config = { path = "../doze-config" }
+doze-fetch = { path = "../doze-fetch" }
 
 [[bin]]
 # Test module only: the echo module tests/echo.rs drives through a real host peer.

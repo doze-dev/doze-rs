@@ -2,16 +2,19 @@
 //! engine's stack, and served over control protocol 2 on its socket until SIGTERM or SIGINT; then the engine stops
 //! everything it started and the socket and pid file go.
 //!
-//! Interim (D1, next step): module blocks are accepted with what every module has and their instances say, when woken,
-//! that this daemon does not run modules yet. The module catalog over the pool (each module's own manifest and
-//! attributes, F1's downloads and doze.lock's pins) replaces `Pending` and `NoModule` without changing this file's
-//! shape. Apps, services and tasks run in full.
+//! Module blocks go through the module catalog ([`crate::catalog`]): each type's build is found through F1 (a `__fetch`
+//! child, pinned in `doze.lock`), its module started in the pool, and what it declares (manifest, attributes,
+//! connection) is what the config and the views see. The instances doze sits in front of get a listener on their
+//! declared address ([`crate::front`]): a connection wakes them.
 
+use crate::catalog::{Catalog, Fetched};
 use crate::ctl::{self, RunDir};
+use crate::front::{Front, Fronted};
 use crate::{Daemon, Labels, StackInfo};
-use doze_config::modules::{ModuleInfo, Modules};
 use doze_config::{Instance, Kind, Spec};
-use doze_engine::stack::{BoxFuture, PlanCtx, Planned, Planner};
+use doze_engine::modules::Pinned;
+use doze_engine::stack::Planner;
+use doze_fetch::child::ChildDownloads;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -44,12 +47,81 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
     }
 }
 
+/// A stack made ready to serve: its config, its engine (module instances planned through the catalog), and what the
+/// views say of each instance.
+#[derive(Debug)]
+pub struct Assembled {
+    pub cfg: doze_config::Config,
+    pub engine: doze_engine::Engine,
+    pub labels: BTreeMap<String, Labels>,
+    /// Module instances whose module says doze does not sit in front of them.
+    pub supervised: std::collections::BTreeSet<String>,
+}
+
+impl Assembled {
+    /// The instances doze sits in front of, for [`Front::open`].
+    pub fn fronted(&self) -> Vec<Fronted> {
+        fronted(&self.cfg, &self.labels, &self.supervised)
+    }
+}
+
+/// Loads the stack at `config` with `catalog` (on a blocking thread: the catalog asks its modules as the config is
+/// read) and builds its engine. `env` is read before this process's environment (a test's `DOZE_HOME`).
+pub async fn assemble(
+    config: &Path,
+    version: &str,
+    catalog: Arc<Catalog>,
+    env: BTreeMap<String, String>,
+) -> Result<Assembled, String> {
+    let (path, version) = (config.to_string_lossy().into_owned(), version.to_owned());
+    let (cfg, labels, stack, supervised) = tokio::task::spawn_blocking(move || {
+        let cfg = load(&path, &version, catalog.as_ref(), env)?;
+        let labels = labels(&cfg, catalog.as_ref());
+        let stack = stack(&cfg, &catalog);
+        let supervised = cfg
+            .instances
+            .iter()
+            .filter(|i| i.kind() == Kind::Module)
+            .filter(|i| catalog.manifest(&i.ty).is_some_and(|m| m.supervised))
+            .map(|i| i.name.clone())
+            .collect();
+        Ok::<_, String>((cfg, labels, stack, supervised))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    let engine = doze_engine::Engine::new(stack).map_err(|e| e.to_string())?;
+    Ok(Assembled {
+        cfg,
+        engine,
+        labels,
+        supervised,
+    })
+}
+
+/// The engine's stack, each module instance planned through the catalog (which asks its module: a blocking thread's).
+fn stack(cfg: &doze_config::Config, catalog: &Arc<Catalog>) -> doze_engine::stack::Stack {
+    let (target, run_dir) = (doze_fetch::triple(), Path::new(&cfg.data_dir).join("run"));
+    let planner = |i: &Instance| -> Arc<dyn Planner> {
+        crate::planners::module(catalog, i, &target, &run_dir)
+    };
+    let wiring = doze_config::stack::Wiring {
+        planner: &planner,
+        extra_env: ca_env(Path::new(&cfg.home)),
+    };
+    doze_config::stack::to_stack(cfg, &wiring)
+}
+
 #[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 async fn run(config: &Path, version: &str) -> Result<(), String> {
-    let (path, version) = (config.to_string_lossy().into_owned(), version.to_owned());
-    let cfg = tokio::task::spawn_blocking(move || load(&path, &version))
-        .await
-        .map_err(|e| e.to_string())??;
+    let catalog = Arc::new(catalog(config)?);
+    let assembled = assemble(config, version, catalog.clone(), BTreeMap::new()).await?;
+    let fronts = assembled.fronted();
+    let Assembled {
+        cfg,
+        engine,
+        labels,
+        ..
+    } = assembled;
     let run = RunDir::of(Path::new(&cfg.data_dir));
     doze_os::fs::private_dir(run.path()).map_err(|e| e.to_string())?;
     if ctl::running(&run) {
@@ -58,19 +130,16 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
             run.socket().display()
         ));
     }
-    let planner = |i: &Instance| -> Arc<dyn Planner> { Arc::new(NoModule { ty: i.ty.clone() }) };
-    let wiring = doze_config::stack::Wiring {
-        planner: &planner,
-        extra_env: ca_env(Path::new(&cfg.home)),
-    };
-    let engine = doze_engine::Engine::new(doze_config::stack::to_stack(&cfg, &wiring))
-        .map_err(|e| e.to_string())?;
     let info = StackInfo {
         listen: cfg.listen.clone(),
         dir: cfg.dir.clone(),
         loaded: Some(std::time::SystemTime::now()),
     };
-    let daemon = Daemon::new(engine.clone(), labels(&cfg), info);
+    // The idle reaper and the health prober (Go's `RunReaper`, `RunHealthProber`), and the module pool's own.
+    let background = engine.background();
+    let modules = tokio::spawn(reap_modules(catalog.clone()));
+    let front = Front::open(&engine, &fronts).await;
+    let daemon = Daemon::new(engine.clone(), labels, info);
     let serving = daemon
         .serve()
         .map_err(|e| format!("serving {}: {e}", run.socket().display()))?;
@@ -86,18 +155,37 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
         asked.map_or_else(|e| e.to_string(), |()| "asked to".into())
     );
     serving.stop();
+    front.close();
+    modules.abort();
+    drop(background);
     engine.shutdown().await;
     let _ = std::fs::remove_file(run.pid_file());
     Ok(())
 }
 
+/// Stops module processes nothing has called for a while, now and then.
+async fn reap_modules(catalog: Arc<Catalog>) {
+    loop {
+        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+        catalog.pool.reap_idle().await;
+    }
+}
+
 /// The stack at `path`, as the CLI loads it: this process's environment (`DOZE_VAR_*` included), doze-names' checks.
-fn load(path: &str, version: &str) -> Result<doze_config::Config, String> {
+fn load(
+    path: &str,
+    version: &str,
+    modules: &dyn doze_config::modules::Modules,
+    env: BTreeMap<String, String>,
+) -> Result<doze_config::Config, String> {
     let domains = Domains;
-    let host = doze_config::host::OsHost { domains: &domains };
+    let host = Overlay {
+        os: doze_config::host::OsHost { domains: &domains },
+        env: Arc::new(env),
+    };
     let opts = doze_config::Options {
         host: &host,
-        modules: &Pending,
+        modules,
         vars: BTreeMap::new(),
         version: version.into(),
     };
@@ -113,8 +201,34 @@ fn ca_env(home: &Path) -> BTreeMap<String, String> {
     doze_config::stack::ca_env(&tls.join("ca.pem"), &tls.join("bundle.pem"))
 }
 
-/// What the config says about each instance, for the views.
-fn labels(cfg: &doze_config::Config) -> BTreeMap<String, Labels> {
+/// The catalog for the stack at `config`: module builds through a `__fetch` child of this very program, the lock
+/// beside doze.hcl, and the lock's engine pins in front of the downloads modules ask for.
+fn catalog(config: &Path) -> Result<Catalog, String> {
+    let program = std::env::current_exe().map_err(|e| format!("this program's path: {e}"))?;
+    let fetch = ChildDownloads {
+        program,
+        args: Vec::new(),
+        env: Vec::new(),
+    };
+    let dir = config.parent().unwrap_or_else(|| Path::new("."));
+    let lock = dir.join(doze_fetch::lock::FILE);
+    let downloads = Arc::new(Pinned {
+        inner: fetch.clone(),
+        pins: crate::catalog::lock_pins(&lock),
+    });
+    let home = doze_os::home::doze_home().map_err(|e| format!("the doze home: {e}"))?;
+    Ok(Catalog::new(
+        tokio::runtime::Handle::current(),
+        Arc::new(Fetched(fetch)),
+        downloads,
+        lock,
+        home,
+    ))
+}
+
+/// What the config says about each instance, for the views; a module instance's variables, URL and client as its
+/// module answers them.
+fn labels(cfg: &doze_config::Config, cat: &Catalog) -> BTreeMap<String, Labels> {
     cfg.instances
         .iter()
         .map(|i| {
@@ -122,7 +236,7 @@ fn labels(cfg: &doze_config::Config) -> BTreeMap<String, Labels> {
                 Spec::Command(c) => c.run.clone(),
                 _ => String::new(),
             };
-            let l = Labels {
+            let mut l = Labels {
                 kind: match i.kind() {
                     Kind::Module => String::new(),
                     k => k.as_str().into(),
@@ -131,14 +245,72 @@ fn labels(cfg: &doze_config::Config) -> BTreeMap<String, Labels> {
                 version: i.version.clone(),
                 run,
                 needs: i.deps.iter().map(|d| d.name.clone()).collect(),
-                endpoint: doze_config::instance_addr(i, &Pending).unwrap_or_default(),
+                endpoint: doze_config::instance_addr(i, cat).unwrap_or_default(),
                 domain: i.domains.first().cloned().unwrap_or_default(),
                 paused: !i.enabled,
                 ..Labels::default()
             };
+            if i.kind() == Kind::Module
+                && let Some(p) =
+                    crate::planners::as_module_sees_it(cat, i).and_then(|mi| cat.published(&mi))
+            {
+                (l.url, l.env_var, l.env, l.client) = (p.url, p.env_var, p.env, p.client);
+            }
             (i.name.clone(), l)
         })
         .collect()
+}
+
+/// The instances doze sits in front of: every module that is not supervised, and every app or service with a port
+/// it does not bind itself.
+fn fronted(
+    cfg: &doze_config::Config,
+    labels: &BTreeMap<String, Labels>,
+    supervised: &std::collections::BTreeSet<String>,
+) -> Vec<Fronted> {
+    cfg.instances
+        .iter()
+        .filter(|i| i.enabled)
+        .filter(|i| match &i.spec {
+            Spec::Command(c) => i.port > 0 && !c.direct,
+            _ => i.kind() == Kind::Module && !supervised.contains(&i.name),
+        })
+        .filter_map(|i| {
+            let addr = labels.get(&i.name).map(|l| l.endpoint.clone())?;
+            (!addr.is_empty() && !addr.starts_with("unix:")).then(|| Fronted {
+                name: i.name.clone(),
+                addr,
+            })
+        })
+        .collect()
+}
+
+/// This process's machine, with some variables set first.
+struct Overlay<'a> {
+    os: doze_config::host::OsHost<'a>,
+    env: Arc<BTreeMap<String, String>>,
+}
+
+impl doze_config::host::Host for Overlay<'_> {
+    fn env_lookup(&self) -> doze_hcl::funcs::EnvLookup {
+        let (os, env) = (self.os.env_lookup(), self.env.clone());
+        Arc::new(move |name: &str| env.get(name).cloned().or_else(|| os(name)))
+    }
+    fn cwd(&self) -> PathBuf {
+        self.os.cwd()
+    }
+    fn home_dir(&self) -> Option<PathBuf> {
+        self.os.home_dir()
+    }
+    fn valid_domain(&self, host: &str) -> Result<(), String> {
+        self.os.valid_domain(host)
+    }
+    fn route_domain(&self, host: &str) -> String {
+        self.os.route_domain(host)
+    }
+    fn check_certificate(&self, cert: &Path, key: &Path, domain: &str) -> Result<(), String> {
+        self.os.check_certificate(cert, key, domain)
+    }
 }
 
 /// doze-names' domain checks for the config.
@@ -158,37 +330,5 @@ impl doze_config::host::DomainChecks for Domains {
             }
         }
         Ok(())
-    }
-}
-
-/// The interim module catalog: every module type is accepted with what every module has (see the module docs).
-struct Pending;
-
-impl Modules for Pending {
-    fn lookup(&self, ty: &str, _version: &str) -> Option<ModuleInfo> {
-        self.cached(ty)
-    }
-    fn cached(&self, _ty: &str) -> Option<ModuleInfo> {
-        Some(ModuleInfo::default())
-    }
-    fn names(&self) -> Vec<String> {
-        Vec::new()
-    }
-}
-
-/// A module instance this daemon cannot run yet.
-#[derive(Debug)]
-struct NoModule {
-    ty: String,
-}
-
-impl Planner for NoModule {
-    fn plan<'a>(&'a self, _ctx: &'a PlanCtx) -> BoxFuture<'a, Result<Planned, String>> {
-        let ty = self.ty.clone();
-        Box::pin(async move {
-            Err(format!(
-                "module {ty:?}: the Rust daemon does not run modules yet (the module catalog over the pool comes next in D1)"
-            ))
-        })
     }
 }

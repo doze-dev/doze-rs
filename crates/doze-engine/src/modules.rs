@@ -8,7 +8,7 @@
 use crate::stack::{BoxFuture, Endpoint, PlanCtx, Planned, Planner, Structure};
 use doze_module_host::{Downloads, Pool};
 use doze_module_proto::msg::error::Error as ModError;
-use doze_module_proto::msg::instance::{Instance, Object, Toolchain};
+use doze_module_proto::msg::instance::{Address, Instance, Object, Toolchain};
 use doze_module_proto::msg::run::{Ensure, Ensured, Pin, Ready, ResolveArgs, WithToolchain};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -58,15 +58,22 @@ impl<D: Downloads> Downloads for Pinned<D> {
     }
 }
 
+/// Where the pins a module's `resolve` reports go (the daemon writes them to `doze.lock`, as Go's `up` did).
+pub type PinSink = Arc<dyn Fn(&[Pin]) + Send + Sync>;
+
 /// One instance its module plans.
 pub struct ModuleInstance {
     pool: Arc<Pool>,
     /// What the config says: name, engine, version, the checked spec (its folders are filled in per call).
     base: Instance,
-    pins: Vec<Pin>,
+    /// The lock's pins, and those its module reported since (so a later start needs no mirror).
+    pins: Mutex<Vec<Pin>>,
+    sink: Option<PinSink>,
     target: String,
     /// The module declares structural objects (its manifest's `objects` capability).
     structured: bool,
+    /// The module says doze does not sit in front of it: it stays up (its manifest's `supervised`).
+    supervised: bool,
     /// The toolchain the last start resolved, for `converge` and `prune`.
     toolchain: Mutex<Option<Toolchain>>,
 }
@@ -92,10 +99,43 @@ impl ModuleInstance {
         ModuleInstance {
             pool,
             base,
-            pins,
+            pins: Mutex::new(pins),
+            sink: None,
+            supervised: false,
             target: target.into(),
             structured,
             toolchain: Mutex::new(None),
+        }
+    }
+
+    /// The module is supervised: always on, never reaped when idle.
+    #[must_use]
+    pub fn supervised(mut self, on: bool) -> Self {
+        self.supervised = on;
+        self
+    }
+
+    /// Pins the module reports are passed to `sink` (and kept for this instance's later starts).
+    #[must_use]
+    pub fn with_pin_sink(mut self, sink: PinSink) -> Self {
+        self.sink = Some(sink);
+        self
+    }
+
+    /// Keeps `new` pins (each replacing the one for its engine and spec) and passes them on.
+    fn keep_pins(&self, new: &[Pin]) {
+        if new.is_empty() {
+            return;
+        }
+        {
+            let mut pins = self.pins.lock().unwrap_or_else(PoisonError::into_inner);
+            for p in new {
+                pins.retain(|q| !(q.engine == p.engine && q.spec == p.spec));
+                pins.push(p.clone());
+            }
+        }
+        if let Some(sink) = &self.sink {
+            sink(new);
         }
     }
 
@@ -123,9 +163,15 @@ impl ModuleInstance {
         let args = ResolveArgs {
             instance: i.clone(),
             target: self.target.clone(),
-            pins: self.pins.clone(),
+            pins: self
+                .pins
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone(),
         };
-        let toolchain = m.resolve(&args).await.map_err(|e| e.message)?.toolchain;
+        let resolved = m.resolve(&args).await.map_err(|e| e.message)?;
+        self.keep_pins(&resolved.pins);
+        let toolchain = resolved.toolchain;
         *self
             .toolchain
             .lock()
@@ -137,21 +183,30 @@ impl ModuleInstance {
         };
         m.provision(&with).await.map_err(|e| e.message)?;
         let plan = m.plan(&with).await.map_err(|e| e.message)?;
-        // Where it is reached: what its first process's check waits on.
-        let backend = plan
-            .processes
-            .iter()
-            .find_map(|p| match &p.ready {
-                Some(Ready::Tcp(a)) => Some(a.clone()),
-                Some(Ready::Socket(p)) => Some(format!("unix:{p}")),
-                _ => None,
+        // Where it is reached: the backend the host granted its main listener, else what its first process's check
+        // waits on (a module whose check is a command or a log line still has its grant).
+        let granted = self
+            .base
+            .listeners
+            .get(doze_module_proto::network::MAIN)
+            .map(|g| match &g.backend {
+                Address::Tcp(a) => a.clone(),
+                Address::Unix(p) => format!("unix:{p}"),
+            });
+        let backend = granted
+            .or_else(|| {
+                plan.processes.iter().find_map(|p| match &p.ready {
+                    Some(Ready::Tcp(a)) => Some(a.clone()),
+                    Some(Ready::Socket(p)) => Some(format!("unix:{p}")),
+                    _ => None,
+                })
             })
             .unwrap_or_default();
         Ok(Planned {
             plan,
             endpoint: Endpoint { backend },
             restart: None,
-            supervised: false,
+            supervised: self.supervised,
             ready_within: READY_WITHIN,
         })
     }

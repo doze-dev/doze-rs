@@ -153,7 +153,10 @@ fn a_linked_root_folder_is_not_walked_as_go() {
         .arg(real.path())
         .arg(t.path().join("migrations"))
         .status();
-    if !made.is_ok_and(|s| s.success()) {
+    // Git Bash on Windows "links" by copying the folder: that is no link.
+    let linked = std::fs::symlink_metadata(t.path().join("migrations"))
+        .is_ok_and(|m| m.file_type().is_symlink());
+    if !made.is_ok_and(|s| s.success()) || !linked {
         return;
     }
     let empty = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -163,4 +166,20 @@ fn a_linked_root_folder_is_not_walked_as_go() {
     );
     assert_eq!(files(t.path(), &pats(&["migrations/**"])), ["migrations"]);
     assert_eq!(hash(t.path(), &pats(&["migrations/**"])).0, empty);
+}
+
+/// Many `**` against a deep path is decided once per pair of segments: the fuzzer's timeout found the exponential
+/// search (every split at every `**`).
+#[test]
+fn many_double_stars_against_a_deep_path_answer_at_once() {
+    let pattern = vec!["**/a"; 40].join("/") + "/b";
+    let name = vec!["a"; 60].join("/");
+    let started = std::time::Instant::now();
+    assert!(!matches(&pattern, &name));
+    assert!(matches(&pattern, &(name.clone() + "/b")));
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(1),
+        "{:?}",
+        started.elapsed()
+    );
 }

@@ -139,7 +139,7 @@ fn surroundings() -> Result<(PathBuf, PathBuf, registry::Config), Diagnostic> {
         )
         .fix("cd to a directory that exists")
     })?;
-    let key = signed::builtin_key().ok_or_else(|| {
+    let key = test_key().or_else(signed::builtin_key).ok_or_else(|| {
         Diagnostic::new(
             ids::BUG,
             "the registry key built into this doze is not a key",
@@ -164,4 +164,25 @@ fn working_dir() -> io::Result<PathBuf> {
         Some(p) if p.is_absolute() && p.canonicalize().ok() == real.canonicalize().ok() => p,
         _ => real,
     })
+}
+
+/// A `dozetest` build's stand-in registry key (DOZE_TEST_REGISTRY_KEY); never in a release build.
+fn test_key() -> Option<ed25519_dalek::VerifyingKey> {
+    if !cfg!(feature = "dozetest") {
+        return None;
+    }
+    let text = std::env::var("DOZE_TEST_REGISTRY_KEY").ok()?;
+    let key = signed::parse_key(&text);
+    #[allow(clippy::print_stderr)]
+    {
+        match key {
+            Some(_) => eprintln!(
+                "doze (dozetest): registry signatures checked with DOZE_TEST_REGISTRY_KEY, not the built-in key"
+            ),
+            None => eprintln!(
+                "doze (dozetest): DOZE_TEST_REGISTRY_KEY is not a key; the built-in key is used"
+            ),
+        }
+    }
+    key
 }

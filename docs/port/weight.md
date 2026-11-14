@@ -861,3 +861,15 @@ CLI's binary, as Go's were), `doze` in `release-doze` on darwin/arm64 is 6,211,4
 (C2b: 221). Bytes stay 2.8 MB under the 9 MB line (x86_64 Linux, about 1.29 times darwin, should be near 8.0 MB; CI's weight-doze
 job reports it). The package line moves from 230 to 240: the daemon's own crates, a small rise with its reason, under the owner's
 delegation of 2026-11-14.
+
+## Core D1 with the module catalog (`doze` carries the daemon), measured 2026-11-15, release, darwin/arm64
+
+| | bytes | packages (normal, unique) |
+|---|---|---|
+| D1 `__daemon` and `ctl` (b51674d3) | 6,219,760 | 168 |
+| + E2's CI fixes, the module catalog, the front, pins in doze.lock, the reaper (96c9137b) | 6,832,160 | 168 |
+
++612 KB, no new package: doze-module-host and doze-module-proto were already linked through the engine; the cost is the
+catalog's and the front's code, F1's module path now reached from the daemon, and E2's merge. Under the 8.5 MB line
+(the owner's ceiling for `doze` is 9 MB). Measured with `--release`: the `release-doze` profile is on #53/#56, not on
+this branch; Linux with it is measured once D1 and C2c meet (CI's weight job measures x86_64 on each push).
