@@ -8,6 +8,7 @@
 
 mod accesslog;
 mod account;
+mod anonymous;
 mod attached;
 mod authz;
 mod awsmanaged;
@@ -84,6 +85,12 @@ impl Shared {
     /// Whether `caller` may do `needs`. A key IAM cannot have issued is the account root's, which is allowed everything: that is
     /// answered (and logged) here, without waking the actor, so an account with no identities costs nothing.
     async fn authorize(&self, caller: &Caller, needs: Vec<Need>) -> Result<(), ApiError> {
+        // An unsigned request is nobody: only a resource policy that grants to anyone lets it in.
+        if caller.is_anonymous() {
+            let (verdict, seen) = anonymous::authorize(self.mode(), &needs, self.clock.now_ms());
+            self.record(seen);
+            return verdict;
+        }
         if !(caller.access_key_id.starts_with("AKIA") || caller.access_key_id.starts_with("ASIA")) {
             let now = self.clock.now_ms();
             let root = format!("arn:aws:iam::{}:root", caller.account_id);
@@ -140,6 +147,16 @@ impl Shared {
         if let Ok(body) = std::str::from_utf8(&request.body) {
             form.extend(aws_wire::query::parse_form(body));
         }
+        self.doze_action(request.path.trim_start_matches(DOZE_PATH), &form)
+    }
+
+    /// A doze-only action (`DozeAccessLog`, `DozeGeneratePolicy`), by its name and parameters: from its own address, or as a Query
+    /// `Action` on the IAM endpoint (as the Go edition served them).
+    fn doze_action(
+        &self,
+        action: &str,
+        form: &std::collections::BTreeMap<String, String>,
+    ) -> WebReply {
         let yes = |k: &str| form.get(k).is_some_and(|v| v.eq_ignore_ascii_case("true"));
         let mode = match self.mode() {
             Mode::Off => "off",
@@ -152,7 +169,7 @@ impl Shared {
                 &json!({"Code": "InternalFailure", "Message": "The access log is unavailable."}),
             );
         };
-        match request.path.trim_start_matches(DOZE_PATH) {
+        match action {
             "DozeAccessLog" => {
                 if yes("Reset") {
                     *log = None;
@@ -321,6 +338,20 @@ impl Service for Iam {
 
     fn serves(&self, op: u32) -> bool {
         aws_model_iam::Operation::from_index(op).is_some_and(|o| ops::BUILT.contains(&o))
+    }
+
+    /// `Action=DozeAccessLog` and `Action=DozeGeneratePolicy` on the Query endpoint, as the Go edition served them (also at
+    /// `/_doze/iam/<name>`). Signed like any IAM call.
+    fn query_extension<'a>(
+        &'a self,
+        action: &'a str,
+        form: &'a std::collections::BTreeMap<String, String>,
+    ) -> Option<BoxFuture<'a, WebReply>> {
+        action
+            .starts_with("Doze")
+            .then(|| -> BoxFuture<'a, WebReply> {
+                Box::pin(async move { self.0.doze_action(action, form) })
+            })
     }
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {

@@ -8,6 +8,13 @@
 mod civil;
 mod days;
 mod field;
+mod local;
+mod tz;
+#[rustfmt::skip]
+mod zones;
+
+pub use local::parse_scheduler;
+pub use tz::{Local, Zone};
 
 use civil::Civil;
 use days::Days;
@@ -32,6 +39,9 @@ pub enum Schedule {
     Rate { every_ms: i64 },
     /// A cron expression.
     Cron(Cron),
+    /// `at(yyyy-mm-ddThh:mm:ss)` (EventBridge Scheduler only): once, at a wall clock reading kept in milliseconds as if the clock were
+    /// UTC. Read by [`parse_scheduler`], never by [`parse`].
+    At { wall_ms: i64 },
 }
 
 /// A `cron(...)` expression.
@@ -118,6 +128,7 @@ impl Schedule {
                 anchor_ms.checked_add(periods.checked_add(1)?.checked_mul(*every_ms)?)
             }
             Self::Cron(c) => c.next_after(after_ms),
+            Self::At { wall_ms } => (*wall_ms > after_ms).then_some(*wall_ms),
         }
     }
 }
@@ -126,7 +137,7 @@ impl Schedule {
 const LAST_YEAR: i64 = 2199;
 
 impl Cron {
-    fn next_after(&self, after_ms: i64) -> Option<i64> {
+    pub(crate) fn next_after(&self, after_ms: i64) -> Option<i64> {
         let mut at = Civil::of_ms(after_ms.checked_add(60_000)?);
         while at.year <= LAST_YEAR {
             at = match self.step(at) {

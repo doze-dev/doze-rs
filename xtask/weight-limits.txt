@@ -113,4 +113,22 @@ doze-kafka 10634592 183 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # every increase is still argued here: byte limit = the musl size plus 5% = 12,352,788, rounded to 12,400,000 B; packages 264 (258 plus 6).
 # 2026-11-14, owner decision: idle is the median of three starts on CI that day (8,964 KB) plus 5% for noise, 9,413 KB. Growth: issue #36.
 # docs/port/weight.md, "Limits raised to the measured values".
-doze-aws 12400000 264 9413 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-14, outbound TLS (branch aws-tls, alone on 70ce8e3d; docs/port/aws/stages/tls.md): SNS https subscriptions, API destinations, API Gateway https integrations and
+# JWKS fetches call https:// through aws-webhook (rustls 0.23 with ring, tokio-rustls, rustls-native-certs; the same rustls and ring doze-kafka and doze-names link).
+# darwin/arm64 release-aws: 8,077,296 B (+633,072 B over the base's 7,444,224 B measured the same day), 274 packages (+16). x86_64-unknown-linux-musl: 12,733,856 B
+# (+968,816 B over the base's 11,765,040 B). New third-party packages: rustls, rustls-webpki, rustls-pki-types, ring, untrusted, tokio-rustls, rustls-native-certs, and per
+# platform openssl-probe (Linux), security-framework(-sys), core-foundation(-sys), bitflags (macOS), schannel (Windows). ring's C needs a C compiler for the target: clang 21's
+# <stddef.h> sends a musl triple to a musl sysroot, so the cross-build compiles ring for the gnu triple with -ffreestanding and stub <assert.h>/<string.h> (stage note).
+# Idle: the trust store is read on the first https call, so nothing is read at start, and Linux idle is unchanged. On macOS the binary now links Security.framework and
+# CoreFoundation: the local idle RSS went from 5,280 KB to 9,104 KB, of which phys_footprint is +576 KB (2,400 to 2,976 KB) and the rest shared framework pages. The CI
+# idle line (Linux) is not moved. Byte limit = the musl size plus 5% = 13,370,549, rounded to 13,400,000 B (67% of the 20 MB ceiling); packages 280 (274 plus 6).
+# 2026-11-14, tls2 (branch aws-tls2 on the merged aws line be553d87): on macOS the keychains are listed with /usr/bin/security on the first https call instead of
+# through Security.framework, so rustls-native-certs, security-framework(-sys), core-foundation(-sys) and bitflags leave the macOS build. darwin/arm64 release-aws:
+# 8,342,432 B (was 8,360,592 B on the merged line), 270 packages (was 276), idle 6,432 KB (was 9,968 KB, over the line); otool -L lists libSystem and libiconv only.
+# Linux and Windows keep rustls-native-certs; the Linux code is unchanged, so the musl size is too. Limits unchanged.
+# 2026-11-14, the server side finished (cli, scheduler, gaps, tls, tls2 and correctness merged on the aws line): darwin/arm64 release-aws 8,375,808 B, 271 packages,
+# idle 6,480 KB; x86_64-unknown-linux-musl 13,259,720 B, which leaves 1% under the 13,400,000 line. The new bytes since the TLS line: EventBridge Scheduler (its crate,
+# model and a 597-zone time-zone rule table instead of a tz database), the command layer (subcommands, settings table, apply/export/doctor), the gaps (rotation
+# schedule, SNS dead letters, Logs regex patterns, stored metric streams and insight rules), S3 ACLs and SigV2, and the @connections model. Byte limit = the musl
+# size plus 5% = 13,922,706, rounded to 13,900,000 B (70% of the 20 MB ceiling); packages and idle unchanged.
+doze-aws 13900000 280 9413 --listen 127.0.0.1:{port} --data-dir {data}

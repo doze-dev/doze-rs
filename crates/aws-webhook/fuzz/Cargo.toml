@@ -1,0 +1,27 @@
+[package]
+name = "aws-webhook-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+aws-webhook = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "fuzz_http_answer"
+path = "fuzz_targets/fuzz_http_answer.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_webhook_url"
+path = "fuzz_targets/fuzz_webhook_url.rs"
+test = false
+doc = false

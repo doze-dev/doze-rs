@@ -60,6 +60,8 @@ pub(crate) struct Shared {
     pub(crate) config: Config,
     /// Where sessions on upgraded connections run, so a shutdown ends them too.
     tasks: doze_runtime::Tasks,
+    /// When the gateway started (for `/_doze/health`).
+    started: std::time::Instant,
 }
 
 impl Shared {
@@ -80,7 +82,13 @@ impl Shared {
             by_target,
             config,
             tasks,
+            started: std::time::Instant::now(),
         }
+    }
+
+    /// When the gateway started.
+    pub(crate) fn started(&self) -> std::time::Instant {
+        self.started
     }
 
     /// The gateway's task set.
@@ -158,6 +166,9 @@ pub(crate) type Fail = Box<Out>;
 pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Response<RespBody> {
     let id = RequestId::new();
     let (mut parts, body) = req.into_parts();
+    if let Some(health) = crate::health::answer(shared, &parts) {
+        return health;
+    }
     let body = match crate::web::serve(shared, &id, &mut parts, body).await {
         Ok(response) => return response,
         Err(body) => body,
@@ -165,20 +176,24 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
     // A REST service (S3) streams its bodies and words its errors its own way, so it has its own path.
     let claim = match Claim::parse(&parts) {
         Ok(found) => found,
-        // boto3 signs an S3 presigned URL with SigV2 unless told otherwise, and S3 accepts it. With no keys to check it against, a
-        // trusting gateway takes the access key as given and holds the URL to its expiry.
-        Err(AuthError::UnsupportedAlgorithm) if shared.trusts() => {
-            crate::presign::sigv2_claim(&parts)
-        }
+        // boto3 signs an S3 presigned URL with SigV2 unless told otherwise, and S3 accepts it. A verifying gateway checks it (in
+        // `rest.rs`); a trusting one takes the access key as given and holds the URL to its expiry.
+        Err(AuthError::UnsupportedAlgorithm) => crate::presign::sigv2_claim(&parts),
         Err(_) => None,
     };
-    // A request with no signature at all, to a gateway that trusts, is a person with curl or a browser: S3 serves it as the local
-    // account.
+    // A request with no signature at all is a person with curl or a browser: S3 serves it as the anonymous principal, whom IAM
+    // (soft or enforce) judges by the bucket's policy and ACLs. A verifying gateway does so only when IAM is there to judge.
     let claim = claim.or_else(|| {
-        shared
-            .trusts()
+        (shared.trusts() || shared.config.anonymous)
             .then(|| crate::presign::anonymous_claim(&parts))
             .flatten()
+    });
+    // Neither an unsigned request nor a SigV2 URL names a region: they are for the configured default.
+    let claim = claim.map(|mut c| {
+        if c.scope_date.is_empty() {
+            c.region.clone_from(&shared.config.default_region);
+        }
+        c
     });
     if let Some(claim) = claim
         && let Some(entry) = shared.rest_entry(&claim.service, &parts).filter(|e| {

@@ -20,6 +20,7 @@ turn the suite into doze-aws agreeing with itself.
 import datetime
 import json
 import pathlib
+import re
 
 from botocore.exceptions import ClientError
 
@@ -173,10 +174,18 @@ class Snapshot:
                     "$", "<listed in deviations.py>", "<no longer differs: remove the entry>")]))
 
 
+# A sentence doze-aws adds after AWS's own words in a refusal, saying what turns a local behaviour off (" doze-aws: start it with
+# --sqs-skip-60s-waits ..."). AWS's words before it are compared exactly; the sentence itself is doze's, and AWS never says it.
+DOZE_HINT = re.compile(r" doze-aws: [^\n]*$")
+
+
 def _refusal(e):
     err = e.response.get("Error", {})
+    message = err.get("Message")
+    if isinstance(message, str):
+        message = DOZE_HINT.sub("", message)
     return {
-        "Error": {"Code": err.get("Code"), "Message": err.get("Message")},
+        "Error": {"Code": err.get("Code"), "Message": message},
         "ResponseMetadata": e.response.get("ResponseMetadata", {}),
     }
 
