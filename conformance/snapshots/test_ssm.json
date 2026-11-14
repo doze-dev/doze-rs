@@ -22,10 +22,19 @@
       ],
       "Parameters": [
         {
-          "ARN": "arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-DBPmwC",
+          "ARN": "arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-<suffix>",
           "LastModifiedDate": "<datetime>",
           "Name": "/aws/reference/secretsmanager/<name:secret>",
-          "SourceResult": "{\"ARN\":\"arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-DBPmwC\",\"name\":\"<name:secret>\",\"versionId\":\"<uuid:1>\",\"secretString\":\"s3cret\",\"versionStages\":[\"AWSCURRENT\"],\"createdDate\":\"Nov 14, 2026, 8:53:14 PM\"}",
+          "SourceResult": {
+            "ARN": "arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-<suffix>",
+            "createdDate": "<date>",
+            "name": "<name:secret>",
+            "secretString": "s3cret",
+            "versionId": "<uuid:1>",
+            "versionStages": [
+              "AWSCURRENT"
+            ]
+          },
           "Type": "SecureString",
           "Value": "s3cret",
           "Version": "<Version:1>"
@@ -46,10 +55,19 @@
     },
     "open": {
       "Parameter": {
-        "ARN": "arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-DBPmwC",
+        "ARN": "arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-<suffix>",
         "LastModifiedDate": "<datetime>",
         "Name": "/aws/reference/secretsmanager/<name:secret>",
-        "SourceResult": "{\"ARN\":\"arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-DBPmwC\",\"name\":\"<name:secret>\",\"versionId\":\"<uuid:1>\",\"secretString\":\"s3cret\",\"versionStages\":[\"AWSCURRENT\"],\"createdDate\":\"Nov 14, 2026, 8:53:14 PM\"}",
+        "SourceResult": {
+          "ARN": "arn:aws:secretsmanager:us-east-1:<account>:secret:<name:secret>-<suffix>",
+          "createdDate": "<date>",
+          "name": "<name:secret>",
+          "secretString": "s3cret",
+          "versionId": "<uuid:1>",
+          "versionStages": [
+            "AWSCURRENT"
+          ]
+        },
         "Type": "SecureString",
         "Value": "s3cret",
         "Version": "<Version:1>"
@@ -785,7 +803,7 @@
             "DataType": "text",
             "Description": "kept?",
             "LastModifiedDate": "<datetime>",
-            "LastModifiedUser": "arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud",
+            "LastModifiedUser": "<LastModifiedUser:1>",
             "Name": "/<name:param>/digits",
             "Policies": [],
             "Tier": "Standard",

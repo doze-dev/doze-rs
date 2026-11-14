@@ -73,11 +73,9 @@ impl Core {
         let text = v.get(One::NAME).unwrap_or_default();
         let decrypt = v.get(One::WITH_DECRYPTION).unwrap_or(false);
         if let Some(secret) = text.strip_prefix(REFERENCE) {
-            let (version, value) = self.reference(call, secret, decrypt).await?;
+            let r = self.reference(call, secret, decrypt).await?;
             return reply::<OneResult>(|o| {
-                o.put_object(OneResult::PARAMETER, |p| {
-                    shown(p, call, text, &version, None, &value)
-                });
+                o.put_object(OneResult::PARAMETER, |p| shown_reference(p, text, &r));
             });
         }
         let selector = name::selector(text);
@@ -103,7 +101,7 @@ impl Core {
         for text in names {
             if let Some(secret) = text.strip_prefix(REFERENCE) {
                 match self.reference(call, secret, decrypt).await {
-                    Ok((version, value)) => referenced.push((text, version, value)),
+                    Ok(r) => referenced.push((text, r)),
                     Err(_) => missing.push(text),
                 }
                 continue;
@@ -127,8 +125,8 @@ impl Core {
                 for (selector, version, value) in &found {
                     l.push(|p| shown(p, call, selector.name, version, selector.qualifier, value));
                 }
-                for (name, version, value) in &referenced {
-                    l.push(|p| shown(p, call, name, version, None, value));
+                for (name, r) in &referenced {
+                    l.push(|p| shown_reference(p, name, r));
                 }
             });
             o.put_list(ManyResult::INVALID_PARAMETERS, |l| {
@@ -197,6 +195,17 @@ pub(crate) fn shown(
         &name::arn(&call.caller.region, &call.caller.account_id, name),
     );
     p.put(Shown::DATA_TYPE, &v.data_type);
+}
+
+/// A Secrets Manager secret read through Parameter Store: its ARN is the secret's, and it has no data type.
+fn shown_reference(p: &mut Object<'_, Shown>, name: &str, r: &crate::reference::Referenced) {
+    p.put(Shown::NAME, name);
+    p.put(Shown::TYPE, r.version.kind.as_str());
+    p.put(Shown::VALUE, &r.value);
+    p.put_int(Shown::VERSION, r.version.number);
+    p.put_time(Shown::LAST_MODIFIED_DATE, seconds(r.version.modified_ms));
+    p.put(Shown::SOURCE_RESULT, &r.source);
+    p.put(Shown::ARN, &r.arn);
 }
 
 fn past(h: &mut Object<'_, Past>, name: &str, v: &Version, value: &str) {

@@ -21,6 +21,7 @@ use std::sync::Arc;
 use aws_model_ssm::Operation;
 use aws_model_ssm::meta::META;
 use aws_model_ssm::tables::TABLES;
+use aws_schema::json::Violation;
 use aws_wire::ApiError;
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
 use doze_runtime::{Ctx, Keyed};
@@ -88,6 +89,30 @@ impl Service for Ssm {
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(self.ask(call))
+    }
+
+    /// The Coral front end's wording, with SSM's two departures (recorded 2026-11-15): a resource type that is not one is named
+    /// without its value, and a pattern of the form `^(...)$` is printed without its anchors and its group.
+    fn invalid(&self, violation: &Violation) -> ApiError {
+        let mut error = aws_wire::service::default_invalid(&TABLES, violation);
+        match violation {
+            Violation::Enum { member, .. }
+                if TABLES
+                    .member(*member)
+                    .is_some_and(|m| m.name == "ResourceType") =>
+            {
+                error.message = "1 validation error detected: Value at 'resourceType' failed to satisfy constraint: Member is not a valid resourceType".to_owned();
+            }
+            Violation::Pattern { .. } => {
+                if let Some((head, tail)) = error.message.split_once("pattern: (")
+                    && let Some(inner) = tail.strip_suffix(')')
+                {
+                    error.message = format!("{head}pattern: {inner}");
+                }
+            }
+            _ => {}
+        }
+        error
     }
 }
 

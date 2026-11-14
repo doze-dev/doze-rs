@@ -189,6 +189,11 @@ fn a_label_moves_with_update_secret_version_stage() {
     );
     w.ok("UpdateSecretVersionStage", &json!({"SecretId": "s", "VersionStage": "AWSCURRENT", "MoveToVersionId": two, "RemoveFromVersionId": one}));
     assert_eq!(w.get("s")["VersionId"], two.as_str());
+    // Recorded 2026-11-15: a label moved onto a version comes after the ones it had.
+    assert_eq!(
+        w.get("s")["VersionStages"],
+        json!(["PENDING", "AWSCURRENT"])
+    );
     let previous = w.ok(
         "GetSecretValue",
         &json!({"SecretId": "s", "VersionStage": "AWSPREVIOUS"}),
@@ -201,6 +206,13 @@ fn a_label_moves_with_update_secret_version_stage() {
         )
         .0,
         "InvalidParameterException"
+    );
+    assert_eq!(
+        w.err("UpdateSecretVersionStage", &json!({"SecretId": "s", "VersionStage": "X"})),
+        (
+            "InvalidRequestException".into(),
+            "To update staging label X, you must specify RemoveFromVersionId and/or MoveToVersionId.".into()
+        )
     );
 }
 

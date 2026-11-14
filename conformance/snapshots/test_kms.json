@@ -522,16 +522,16 @@
       "Truncated": false
     },
     "material-changed": {
-      "changed": false
+      "changed": true
     },
     "no-grants": {
       "Grants": [
         {
           "CreationDate": "<datetime>",
-          "GrantId": "ebe45cc0c4758919e2a33f69199638a20080f90d5d2ba2e9bcc76a1de1c5c539",
+          "GrantId": "<GrantId:2>",
           "GranteePrincipal": "arn:aws:iam::<account>:root",
-          "IssuingAccount": "arn:aws:iam::<account>:root",
-          "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+          "IssuingAccount": "<IssuingAccount:1>",
+          "KeyId": "<KeyId:1>",
           "Name": "g1",
           "Operations": [
             "Decrypt"
@@ -587,7 +587,7 @@
     "revoke-absent": {
       "Error": {
         "Code": "NotFoundException",
-        "Message": "Grant ID 44259d64c2e4375975555830e8a116fabfbf85317f07f35ed369661398a8c56a not found"
+        "Message": "Grant ID <name:grant-id> not found"
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
@@ -612,7 +612,15 @@
       "ResponseMetadata": {
         "HTTPStatusCode": 200
       },
-      "Rotations": [],
+      "Rotations": [
+        {
+          "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+          "KeyMaterialId": "<KeyMaterialId:1>",
+          "KeyMaterialState": "CURRENT",
+          "RotationDate": "<datetime>",
+          "RotationType": "ON_DEMAND"
+        }
+      ],
       "Truncated": false
     },
     "same-name-same-grant": {
@@ -711,14 +719,14 @@
     "re-encrypt": {
       "CiphertextBlob": "<CiphertextBlob:1>",
       "DestinationEncryptionAlgorithm": "SYMMETRIC_DEFAULT",
-      "DestinationKeyMaterialId": "524df801acb2fe34866067911108f74963786f3981b6af2c73447ef762361d68",
+      "DestinationKeyMaterialId": "<DestinationKeyMaterialId:1>",
       "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
       "ResponseMetadata": {
         "HTTPStatusCode": 200
       },
       "SourceEncryptionAlgorithm": "SYMMETRIC_DEFAULT",
       "SourceKeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:2>",
-      "SourceKeyMaterialId": "b2fc12c9b4730a2b69dcc6f185bc1b90236facd6abfd6c5ab351b9b7cfaef727"
+      "SourceKeyMaterialId": "<SourceKeyMaterialId:1>"
     },
     "re-encrypt-wrong-context": {
       "Error": {

@@ -1,9 +1,10 @@
 //! What a parameter may be called, and how a request names one.
 //!
 //! The service model gives `Name` a length and nothing else, so the rules here come from its documentation and from what AWS
-//! answered when the conformance scenarios were recorded (2026-11-09). A name that breaks a character rule was answered with
-//! the "can't be prefixed with ssm" text; the reserved-prefix cases were answered `AccessDenied` by the recorder's policy, so
-//! their words (and whether `/awsome/x` is allowed) are not recorded.
+//! answered when the conformance scenarios were recorded (2026-11-09 and 2026-11-15). A name that breaks a character rule is
+//! answered with the long "can't be prefixed with ssm" text. A name whose first part begins with `aws` (`/aws/x`, and
+//! `/awsome/x` too) is AWS's own: `AccessDeniedException`, naming it without its leading slash. A name that begins with `ssm`
+//! is refused with the short text.
 
 use aws_wire::ApiError;
 
@@ -13,8 +14,8 @@ const MAX_LEVELS: usize = 15;
 /// The words AWS used for a name with a character it does not allow (recorded).
 const NAME_RULE: &str = "Parameter name: can't be prefixed with \"ssm\" (case-insensitive). If formed as a path, it can consist of sub-paths divided by slash symbol; each sub-path can be formed as a mix of letters, numbers and the following 3 symbols .-_";
 
-/// The words for a path that is not one (unrecorded: the recorder was denied this call).
-const PATH_RULE: &str = "The parameter doesn't meet the parameter name requirements. The parameter name must begin with a forward slash \"/\". It can't be prefixed with \"aws\" or \"ssm\" (case-insensitive). It must use only letters, numbers, or the following symbols: . (period), - (hyphen), _ (underscore). Special characters are not allowed. All sub-paths, if specified, must use the forward slash symbol \"/\". Valid example: /get/parameters2-/by1./path0_.";
+/// The words for a path that is not one, or that is under `/aws/reference` (recorded 2026-11-15: the backslashes are AWS's).
+const PATH_RULE: &str = "The parameter doesn't meet the parameter name requirements. The parameter name must begin with a forward slash \"/\". It can't be prefixed with \\\"aws\\\" or \\\"ssm\\\" (case-insensitive). It must use only letters, numbers, or the following symbols: . (period), - (hyphen), _ (underscore). Special characters are not allowed. All sub-paths, if specified, must use the forward slash symbol \"/\". Valid example: /get/parameters2-/by1./path0_.";
 
 pub(crate) fn validation(message: impl Into<String>) -> ApiError {
     ApiError::modeled("ValidationException", message)
@@ -41,15 +42,17 @@ pub(crate) fn check_write(name: &str) -> Result<(), ApiError> {
     if !segments.iter().all(|s| segment_ok(s)) {
         return Err(validation(NAME_RULE));
     }
-    let first = segments.first().copied().unwrap_or_default();
-    let lower = first.to_ascii_lowercase();
-    let reserved = if name.starts_with('/') {
-        lower == "aws" || lower == "ssm"
-    } else {
-        lower.starts_with("aws") || lower.starts_with("ssm")
-    };
-    if reserved {
-        return Err(validation(NAME_RULE));
+    let lower = path.to_ascii_lowercase();
+    if lower.starts_with("aws") {
+        return Err(ApiError::modeled(
+            "AccessDeniedException",
+            format!("No access to reserved parameter name: {path}."),
+        ));
+    }
+    if lower.starts_with("ssm") {
+        return Err(validation(
+            "Parameter name: can't be prefixed with \"aws\" or \"ssm\" (case-insensitive).",
+        ));
     }
     Ok(())
 }
@@ -59,6 +62,10 @@ pub(crate) fn check_path(path: &str) -> Result<&str, ApiError> {
     let Some(rest) = path.strip_prefix('/') else {
         return Err(validation(PATH_RULE));
     };
+    // The secrets read through `/aws/reference/secretsmanager` are not listed: AWS refuses the path (recorded 2026-11-15).
+    if rest.to_ascii_lowercase().starts_with("aws/reference") {
+        return Err(validation(PATH_RULE));
+    }
     let trimmed = path.trim_end_matches('/');
     let rest = rest.trim_end_matches('/');
     if !rest.is_empty() && !rest.split('/').all(segment_ok) {

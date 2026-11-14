@@ -33,9 +33,8 @@ impl Core {
         add(!off(Ask::EXCLUDE_PUNCTUATION), PUNCTUATION);
         add(v.get(Ask::INCLUDE_SPACE).unwrap_or(false), " ");
         if sets.is_empty() {
-            // (memory)
             return Err(invalid_request(
-                "The password character set is empty: no characters are left to choose from.",
+                "All characters have been excluded from selection.",
             ));
         }
         let require_each = v.get(Ask::REQUIRE_EACH_INCLUDED_TYPE).unwrap_or(true);
