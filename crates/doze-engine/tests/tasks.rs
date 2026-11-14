@@ -149,9 +149,11 @@ async fn inputs_and_manual_decide_whether_it_runs() {
     e.shutdown().await;
 }
 
-/// A stop while a task runs ends it: its process is gone, it is asleep, and it leaves no record, so it runs again.
+/// A stop while a task runs asks it to stop (it exits 0 on SIGTERM: not killed), and the run ends as Go's does: the
+/// caller hears "was stopped", the record and the journal say `failed`, its log run is closed; it is asleep, and what
+/// it started is gone. The record written over the old `done` is the stop's (E2 audit 2, n1, n2, n4).
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_stopped_task_leaves_no_record() {
+async fn a_stopped_task_is_asked_to_stop_and_ends_failed() {
     let d = Dir::new("taskstop");
     let pidf = d.file("gc.pid");
     let e = Engine::builder("t", d.path())
@@ -187,9 +189,20 @@ async fn a_stopped_task_leaves_no_record() {
         .await
         .unwrap()
         .unwrap();
-    assert!(woke.is_err());
+    let said = "task \"long\" was stopped (exited with status 0)";
+    assert_eq!(woke.unwrap_err().to_string(), said);
     assert_eq!(e.get("long").unwrap().state, State::Reaped);
-    assert!(e.task_record("long").is_none());
+    let rec = e.task_record("long").unwrap();
+    assert_eq!(
+        (rec.result.as_str(), rec.why.as_str()),
+        ("failed", "asked for")
+    );
+    assert_eq!(
+        journal(&d),
+        [ev("wake", "long", "asked for"), ev("failed", "long", said)]
+    );
+    let runs = e.logs().runs("long").unwrap();
+    assert!(runs.iter().all(|r| !r.live), "the run is closed: {runs:?}");
     assert!(
         all_gone(&[pid_in(&pidf)]).await,
         "what it started goes with it"
@@ -270,5 +283,42 @@ async fn run_task_racing_a_needed_wake_still_runs() {
     let _ = needed.await;
     assert_eq!(lines(&ran), 2);
     assert_eq!(e.task_record("m").unwrap().why, "asked for");
+    e.shutdown().await;
+}
+
+/// A stop while what a task needs is still starting: the task never ran, but its wake was journalled, so its end is
+/// too (Go's `fail` on a cancelled `bootDeps`): `failed`, "was stopped while what it needs was starting"; asleep.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_task_stopped_while_its_needs_start_ends_failed() {
+    let d = Dir::new("taskstopneeds");
+    let ran = d.file("ran");
+    let e = Engine::builder("t", d.path())
+        .service(svc("slow", listener(&d, 60_000)))
+        .service(Service::task("seed", task(&d, &["append", &ran.to_string_lossy()])).needs("slow"))
+        .build()
+        .unwrap();
+    let waking = {
+        let e = e.clone();
+        tokio::spawn(async move { e.run_task("seed").await })
+    };
+    assert!(
+        eventually(Duration::from_secs(5), || e.get("slow").unwrap().state
+            == State::Booting)
+        .await
+    );
+    e.stop("seed", Cause::Command).await.unwrap();
+    let woke = tokio::time::timeout(Duration::from_secs(3), waking)
+        .await
+        .unwrap()
+        .unwrap();
+    let said = "task \"seed\" was stopped while what it needs was starting";
+    assert_eq!(woke.unwrap_err().to_string(), said);
+    assert_eq!(lines(&ran), 0, "it never ran");
+    assert_eq!(e.get("seed").unwrap().state, State::Reaped);
+    let seed: Vec<_> = journal(&d).into_iter().filter(|j| j.1 == "seed").collect();
+    assert_eq!(
+        seed,
+        [ev("wake", "seed", "asked for"), ev("failed", "seed", said)]
+    );
     e.shutdown().await;
 }

@@ -41,30 +41,37 @@ pub(crate) fn spawn(e: &Engine, name: &str, when: When, s: Start) {
     } = s;
     let (e, name) = (e.clone(), name.to_string());
     tokio::spawn(async move {
+        let task = !rerun && e.is_task(&name);
         let run = async {
             if rerun {
                 rerun_on_ready(&e, &name, boot).await
-            } else if e.is_task(&name) {
-                crate::tasks::run::run(&e, &name, boot, &cause, force).await
             } else {
                 start(&e, &name, boot, when).await
             }
         };
         // A cancel drops the start where it is: a process it spawned is a Tree (dropped: killed), a step's record goes
-        // with its guard. Then the machine hears it, and the instance is asleep.
-        let res = tokio::select! {
-            biased;
-            _ = cancel.wait_for(Option::is_some) => {
-                let fx = e.update(|c| c.m.boot_cancelled(&name, boot, Now::current()));
-                e.run(fx);
-                Err(Error::Failed(String::new()))
+        // with its guard. Then the machine hears it, and the instance is asleep. A task watches its cancel itself: its
+        // command is asked to stop, and its end journalled (Go's "was stopped").
+        let res = if task {
+            crate::tasks::run::run(&e, &name, boot, &cause, force, cancel.clone()).await
+        } else {
+            tokio::select! {
+                biased;
+                _ = cancel.wait_for(Option::is_some) => {
+                    let fx = e.update(|c| c.m.boot_cancelled(&name, boot, Now::current()));
+                    e.run(fx);
+                    Err(Error::Failed(String::new()))
+                }
+                r = run => r,
             }
-            r = run => r,
         };
         // A cancelled start's waiters hear why, whichever side won the race (audit 4, N1 and N2).
         let why = *cancel.borrow();
+        // A task's run that a stop cut short says so itself (Go's "was stopped"); only its empty early cancel is mapped.
         let res = match (res, why) {
-            (Err(_), Some(why)) => Err(cancelled(&name, why)),
+            (Err(err), Some(why)) if !task || err.to_string().is_empty() => {
+                Err(cancelled(&name, why))
+            }
             (res, _) => res,
         };
         e.update(|c| {

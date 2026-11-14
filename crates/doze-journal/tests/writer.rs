@@ -83,6 +83,30 @@ fn rotation_keeps_one_old_file_and_the_sequence() {
     );
 }
 
+/// Go rotates when an event would pass the cap (`size+len > maxBytes`), so a file that fills it exactly is not rotated;
+/// one byte less and it is.
+#[test]
+fn an_event_that_fills_the_cap_exactly_does_not_rotate() {
+    let (_t, probe) = path();
+    let j = Journal::open(&probe, 0).unwrap();
+    let events = [j.append(ev("wake", "db")), j.append(ev("ready", "db"))];
+    j.close();
+    let bytes = std::fs::read(&probe).unwrap();
+    let cap = bytes.len() as u64;
+    for (max, rotates) in [(cap, false), (cap - 1, true)] {
+        let (_t, p) = path();
+        let j = Journal::open(&p, max).unwrap();
+        for e in &events {
+            j.append(e.clone());
+        }
+        j.close();
+        assert_eq!(rotated(&p).exists(), rotates, "cap {max} of {cap}");
+        if !rotates {
+            assert_eq!(std::fs::read(&p).unwrap(), bytes);
+        }
+    }
+}
+
 /// Reopened right after a rotation (the live file empty), the sequence goes on from the rotated file.
 #[test]
 fn a_reopen_right_after_a_rotation_goes_on_from_the_rotated_file() {

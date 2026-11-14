@@ -2,9 +2,12 @@
 //! output is a log run and its start and end are journal events; what differs is that it decides whether it has to run,
 //! ends `done`, and records how it went in the applied state.
 //!
-//! One deliberate difference from Go: the record is dropped when a run starts, so a run cut short (a stop, the daemon
-//! killed) leaves none and the task runs again at its next trigger. Go kept the previous record, which could say `done`
-//! for a migration that stopped half way.
+//! A stop while it runs asks the command to stop (SIGTERM, then the kill after the grace), and the run ends as Go's
+//! does: `failed` in the journal and in the record ("was stopped"); the instance is asleep, as any cancelled start is.
+//!
+//! One deliberate difference from Go: the record is dropped just before the command starts, so a run the daemon never
+//! saw end (it was killed) leaves none and the task runs again at its next trigger. Go kept the previous record, which
+//! could say `done` for a migration that stopped half way.
 
 use super::{Ask, TaskSpec, why_run};
 use crate::applied::{Applied, TaskRecord};
@@ -13,9 +16,40 @@ use crate::error::Error;
 use crate::events::Cause;
 use crate::lifecycle::Now;
 use crate::logs::RunLog;
+use crate::machine::Cancel;
 use crate::stack::{Endpoint, Kind, When};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
+use tokio::sync::watch;
+
+/// What cancels a start (a stop, `off`, the shutdown).
+type CancelRx = watch::Receiver<Option<Cancel>>;
+
+/// How a run's command ended.
+enum Ended {
+    /// Exited 0.
+    Done,
+    /// Exited otherwise: its code (-1 for a signal or an overrun).
+    Exit(i32),
+    /// Stopped by a cancel: how it ended once asked.
+    Stopped(String),
+}
+
+/// `fut`, unless the start is cancelled first (`None`; a cancel already sent wins at once).
+async fn unless_cancelled<T>(cancel: &mut CancelRx, fut: impl Future<Output = T>) -> Option<T> {
+    tokio::select! {
+        biased;
+        _ = cancel.wait_for(Option::is_some) => None,
+        v = fut => Some(v),
+    }
+}
+
+/// A start cancelled before its command ran: asleep, and its waiters hear the cancel's reason (`boot::spawn`).
+fn cancelled_early(e: &Engine, name: &str, boot: u64) -> Error {
+    let fx = e.update(|c| c.m.boot_cancelled(name, boot, Now::current()));
+    e.run(fx);
+    Error::Failed(String::new())
+}
 
 /// How many of a failed run's last lines its error quotes (Go's).
 const QUOTE: usize = 10;
@@ -85,14 +119,45 @@ impl Engine {
     }
 }
 
-/// Start `boot` of task `name`: whether it has to run, then its needs, then its command. `force`: `doze task`.
+/// Start `boot` of task `name`: whether it has to run, then its needs, then its command. `force`: `doze task`. It
+/// watches `cancel` itself, so a command already running is asked to stop rather than dropped.
 pub(crate) async fn run(
     e: &Engine,
     name: &str,
     boot: u64,
     cause: &Cause,
     force: bool,
+    mut cancel: CancelRx,
 ) -> Result<Endpoint, Error> {
+    let decided = unless_cancelled(&mut cancel, decide(e, name, boot, cause, force)).await;
+    match decided {
+        None => Err(cancelled_early(e, name, boot)),
+        Some(Err(err)) => Err(err),
+        Some(Ok(None)) => Ok(Endpoint::default()),
+        Some(Ok(Some((svc, ts, why, hash)))) => {
+            let run = Run {
+                e,
+                name,
+                boot,
+                started: Instant::now(),
+                ran_at: now_rfc3339(),
+                why,
+                hash,
+            };
+            run.go(&svc, &ts, cancel).await
+        }
+    }
+}
+
+/// Whether task `name` has to run: its service, spec, why and inputs hash when it does (it is then `booting`, its wake
+/// journalled), `None` when it does not.
+async fn decide(
+    e: &Engine,
+    name: &str,
+    boot: u64,
+    cause: &Cause,
+    force: bool,
+) -> Result<Option<(crate::stack::Service, Box<TaskSpec>, String, String)>, Error> {
     let svc = e.service(name)?.clone();
     let Kind::Task(ts) = &svc.kind else {
         return Err(Error::Failed(format!("{name} is not a task")));
@@ -124,28 +189,18 @@ pub(crate) async fn run(
     let Some(why) = why_run(ask, ts.manual, has_inputs, &hash, last.as_ref(), needed_by) else {
         let fx = e.update(|c| c.m.task_skipped(name, boot, Now::current()));
         e.run(fx);
-        return Ok(Endpoint::default());
+        return Ok(None);
     };
     let fx = e.update(|c| c.m.task_runs(name, boot, cause.clone(), &why));
     if fx.is_empty() {
-        // Cancelled before it ran (E2 audit 2, n3): nothing is dropped or started; the cancel says why.
-        return Err(Error::Failed(format!(
-            "{name} was stopped while it was starting"
-        )));
+        // Cancelled before it ran (E2 audit 2, n3): nothing is dropped or started, the start ends asleep, and the
+        // cancel says why (`boot::spawn`).
+        return Err(cancelled_early(e, name, boot));
     }
     e.run(fx);
     tracing::info!("running task \"{name}\" ({why})…");
-    e.set_task_record(name, None);
-    let run = Run {
-        e,
-        name,
-        boot,
-        started: Instant::now(),
-        ran_at: now_rfc3339(),
-        why,
-        hash,
-    };
-    run.go(&svc, ts).await
+    let ts = ts.clone();
+    Ok(Some((svc, ts, why, hash)))
 }
 
 /// One run that has to happen.
@@ -160,19 +215,30 @@ struct Run<'a> {
 }
 
 impl Run<'_> {
-    async fn go(&self, svc: &crate::stack::Service, ts: &TaskSpec) -> Result<Endpoint, Error> {
-        crate::boot::wake_needs(self.e, svc, self.boot)
-            .await
-            .map_err(|err| self.fail(err, 0))?;
+    async fn go(
+        &self,
+        svc: &crate::stack::Service,
+        ts: &TaskSpec,
+        mut cancel: CancelRx,
+    ) -> Result<Endpoint, Error> {
+        let needs = crate::boot::wake_needs(self.e, svc, self.boot);
+        match unless_cancelled(&mut cancel, needs).await {
+            // Its wake is journalled: its end is too (Go's `fail` on a cancelled `bootDeps`).
+            None => return Err(self.stopped("while what it needs was starting")),
+            Some(r) => r.map_err(|err| self.fail(err, 0))?,
+        };
         let log = RunLog::begin(self.e.logs(), self.name).map_err(|err| {
             let msg = format!("opening the log for \"{}\": {err}", self.name);
             self.fail(Error::Failed(msg), 0)
         })?;
-        let ended = exec(self.e, self.name, ts, &log).await;
+        // From here the command runs: a run the daemon never sees end leaves no record (the module doc).
+        self.e.set_task_record(self.name, None);
+        let ended = exec(self.e, self.name, ts, &log, cancel).await;
         log.close().await;
         match ended {
-            Ok(None) => Ok(self.done()),
-            Ok(Some(code)) => {
+            Ok(Ended::Done) => Ok(self.done()),
+            Ok(Ended::Stopped(how)) => Err(self.stopped(&format!("({how})"))),
+            Ok(Ended::Exit(code)) => {
                 let mut msg = format!("task \"{}\" failed: exit {code}", self.name);
                 for line in log.recent(QUOTE) {
                     msg.push('\n');
@@ -211,6 +277,19 @@ impl Run<'_> {
         err
     }
 
+    /// Go's end of a run a stop cut short: recorded and journalled `failed`, "was stopped" and `how`; asleep in the table.
+    fn stopped(&self, how: &str) -> Error {
+        let (name, boot) = (self.name, self.boot);
+        let msg = format!("task \"{name}\" was stopped {how}");
+        self.e.set_task_record(name, Some(self.record("failed", 0)));
+        let took = self.started.elapsed();
+        let fx = self
+            .e
+            .update(|c| c.m.task_stopped(name, boot, &msg, took, Now::current()));
+        self.e.run(fx);
+        Error::Failed(msg)
+    }
+
     fn done(&self) -> Endpoint {
         let (name, boot) = (self.name, self.boot);
         self.e.set_task_record(name, Some(self.record("done", 0)));
@@ -227,9 +306,15 @@ impl Run<'_> {
     }
 }
 
-/// Runs the task's command to its end, its output into `log`: `None` when it exited 0, else its exit code (-1 for a
-/// signal or an overrun). `Err`: it could not start.
-async fn exec(e: &Engine, name: &str, ts: &TaskSpec, log: &RunLog) -> Result<Option<i32>, String> {
+/// Runs the task's command to its end, its output into `log`; a cancel asks it to stop (SIGTERM, the kill after the
+/// grace). `Err`: it could not start.
+async fn exec(
+    e: &Engine,
+    name: &str,
+    ts: &TaskSpec,
+    log: &RunLog,
+    mut cancel: CancelRx,
+) -> Result<Ended, String> {
     let (prog, args) = ts.run.split_first().ok_or("an empty run line")?;
     let mut env = ts.env.clone();
     crate::process::with_extra(&mut env, &e.stack().extra_env);
@@ -245,14 +330,27 @@ async fn exec(e: &Engine, name: &str, ts: &TaskSpec, log: &RunLog) -> Result<Opt
     let _recorded = tree.pid().map(|pid| pids.short(pid));
     log.attach(&mut tree, "");
     let limit = ts.timeout.unwrap_or(NO_LIMIT);
-    match tokio::time::timeout(limit, tree.wait()).await {
-        Ok(Ok(st)) if st.success() => Ok(None),
-        Ok(Ok(st)) => Ok(Some(st.code().unwrap_or(-1))),
-        Ok(Err(err)) => Err(err.to_string()),
-        Err(_) => {
+    let waited = unless_cancelled(&mut cancel, tokio::time::timeout(limit, tree.wait())).await;
+    match waited {
+        Some(Ok(Ok(st))) if st.success() => Ok(Ended::Done),
+        Some(Ok(Ok(st))) => Ok(Ended::Exit(st.code().unwrap_or(-1))),
+        Some(Ok(Err(err))) => Err(err.to_string()),
+        Some(Err(_)) => {
             let _ = tree.kill();
             let _ = tokio::time::timeout(Duration::from_secs(2), tree.wait()).await;
-            Ok(Some(-1))
+            Ok(Ended::Exit(-1))
+        }
+        None => {
+            let how = match tree
+                .stop(&doze_os::tree::Stop::Terminate, crate::exec::STOP_GRACE)
+                .await
+            {
+                Ok(doze_os::tree::Stopped::Graceful(st) | doze_os::tree::Stopped::Forced(st)) => {
+                    doze_os::process::exit_text(&st)
+                }
+                Err(err) => format!("stopping it: {err}"),
+            };
+            Ok(Ended::Stopped(how))
         }
     }
 }

@@ -332,4 +332,6 @@ pub fn dir_of(project_state: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_guards;
+#[cfg(test)]
 mod tests_write;

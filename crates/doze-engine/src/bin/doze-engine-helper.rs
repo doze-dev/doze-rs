@@ -4,6 +4,7 @@
 //!   then exits 0. Each start appends a line to `$STARTS` when set.
 //! - `exit <code> [after_ms]`: exits with the code.
 //! - `grandchild <file>`: starts a child of its own (same tree), writes the child's pid to the file, then serves.
+//! - `forklisten`: starts a child that serves (and prints its port); the parent itself listens on nothing.
 //! - `ignore`: ignores being asked to stop.
 //! - `slowchild <file>`: starts a child that ignores signals, writes its pid to the file, then never gets ready.
 //! - `crashchild <file> <code> <after_ms>`: starts a child that ignores signals, appends its pid to the file, then
@@ -58,19 +59,8 @@ fn main() {
             partial(&arg(1), arg(2) == "hang", &rt);
             std::process::exit(arg(2).parse().unwrap_or(1));
         }
-        "escape" => {
-            // `escape <pidfile>`: starts a chatter that leaves the group (a new session) holding stdout, records its
-            // pid, then listens like `listen`.
-            let mut cmd = std::process::Command::new(std::env::current_exe().unwrap_or_default());
-            cmd.arg("chatter").stdin(std::process::Stdio::null());
-            match doze_os::detach::spawn_detached(cmd) {
-                Ok(pid) => {
-                    let _ = std::fs::write(arg(1), pid.to_string());
-                }
-                Err(e) => fail(&e.to_string()),
-            }
-            rt.block_on(listen(Duration::ZERO))
-        }
+        "escape" => rt.block_on(escape(&arg(1))),
+        "forklisten" => fork_listen(),
         "chatter" => {
             for i in 0..300 {
                 println!("escaped says {i}");
@@ -158,6 +148,26 @@ fn start_ignoring_child(file: &str, append: bool) -> std::io::Result<()> {
     writeln!(f, "{}", child.id())?;
     std::mem::forget(child);
     Ok(())
+}
+
+/// `escape <pidfile>`: starts a chatter that leaves the group (a new session) holding stdout, records its pid, then
+/// listens like `listen`.
+async fn escape(pidfile: &str) -> std::io::Result<()> {
+    let mut cmd = std::process::Command::new(std::env::current_exe()?);
+    cmd.arg("chatter").stdin(std::process::Stdio::null());
+    let pid = doze_os::detach::spawn_detached(cmd)?;
+    std::fs::write(pidfile, pid.to_string())?;
+    listen(Duration::ZERO).await
+}
+
+/// `forklisten`: a parent that does not listen, with a child that does (`listen` on `$LISTEN_ON`, printing its port on
+/// the shared stdout). The parent exits when the child does (`$STOP_FILE`).
+fn fork_listen() -> std::io::Result<()> {
+    let mut child = std::process::Command::new(std::env::current_exe()?)
+        .arg("listen")
+        .stdin(std::process::Stdio::null())
+        .spawn()?;
+    child.wait().map(drop)
 }
 
 async fn grandchild(file: &str) -> std::io::Result<()> {

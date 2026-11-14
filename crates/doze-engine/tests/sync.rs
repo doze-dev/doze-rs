@@ -168,6 +168,55 @@ async fn destroy_drops_everything_and_an_off_instance_is_not_synced() {
     e.shutdown().await;
 }
 
+/// Go's `Destroy`: one instance's destroy keeps the outputs, a whole destroy forgets them; an instance in the state that
+/// the config no longer declares is forgotten without a module call; the converged marker goes with the structure (E2
+/// audit 2, n9: S1, S8).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn destroy_forgets_outputs_and_undeclared_instances_and_the_converged_marker() {
+    let d = Dir::new("destroyall");
+    let m = Arc::new(Module::default());
+    let e = engine(&d, &m);
+    m.declare(&["a"]);
+    e.sync(None).await.unwrap();
+    let path = d.path().join(".doze/state.json");
+    let mut st = Applied::load(&path).unwrap();
+    st.set("gone", vec![obj("x")]);
+    st.outputs.insert("db_url".into(), "postgres://x".into());
+    st.save(&path).unwrap();
+    let marker = e
+        .stack()
+        .cluster_dir("db")
+        .join(doze_engine::sync::CONVERGED_MARKER);
+    std::fs::create_dir_all(marker.parent().unwrap()).unwrap();
+    std::fs::write(&marker, "fp").unwrap();
+    e.destroy(Some("db")).await.unwrap();
+    assert!(
+        !marker.exists(),
+        "the converged marker goes with the structure"
+    );
+    let st = Applied::load(&path).unwrap();
+    assert_eq!(
+        st.outputs.len(),
+        1,
+        "one instance's destroy keeps the outputs"
+    );
+    assert_eq!(st.objects("gone"), [obj("x")]);
+    e.destroy(None).await.unwrap();
+    let st = Applied::load(&path).unwrap();
+    assert!(st.outputs.is_empty(), "a whole destroy forgets the outputs");
+    assert!(
+        st.instances.is_empty(),
+        "undeclared: forgotten: {:?}",
+        st.instances
+    );
+    assert_eq!(
+        m.calls(),
+        ["converge db", "prune a"],
+        "nothing asked of a module for gone"
+    );
+    e.shutdown().await;
+}
+
 /// E2 audit 2, M1: a task the sync's wakes ran keeps its record (the sync saves over the file as it is then).
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_sync_keeps_the_records_of_the_tasks_it_ran() {

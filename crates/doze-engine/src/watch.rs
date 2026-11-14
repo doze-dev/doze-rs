@@ -181,4 +181,73 @@ mod tests {
         assert_eq!(count(), 2, "a removal is a change");
         task.abort();
     }
+
+    /// One watched folder with `main.go` in it, and a count of the changes `poll` reports there.
+    fn watched() -> (tempfile::TempDir, PathBuf, Arc<Mutex<usize>>, Vec<Set>) {
+        let t = tempfile::tempdir().unwrap();
+        let file = t.path().join("main.go");
+        write(&file, "package main");
+        let sets = vec![Set {
+            dir: t.path().to_path_buf(),
+            globs: vec!["*.go".into()],
+        }];
+        (t, file, Arc::new(Mutex::new(0)), sets)
+    }
+
+    /// The clock is paused, so ticks fall at 100 ms steps exactly and the edits between them (at 50, 150, ...) land in
+    /// a known interval each: the look is a blocking task, which holds the paused clock until it is done.
+    const STEP: Duration = Duration::from_millis(100);
+
+    /// Edits that go on for several intervals are one change, reported only once they stop: nothing while the files are
+    /// still changing.
+    #[tokio::test(start_paused = true)]
+    async fn nothing_is_reported_while_the_files_keep_changing() {
+        let (_t, file, got, sets) = watched();
+        let seen = got.clone();
+        let task = tokio::spawn(poll(sets, STEP, move |_| {
+            *seen.lock().unwrap() += 1;
+            async {}
+        }));
+        tokio::time::sleep(STEP / 2).await;
+        for i in 0..4 {
+            // A longer body each time, so the size alone tells every look that it changed.
+            write(&file, &format!("package main {}", "/".repeat(i + 1)));
+            tokio::time::sleep(STEP).await;
+        }
+        assert_eq!(*got.lock().unwrap(), 0, "reported while still changing");
+        tokio::time::sleep(STEP * 2).await;
+        assert_eq!(*got.lock().unwrap(), 1, "reported once quiet");
+        task.abort();
+    }
+
+    /// What the reaction writes to a watched file is not a change, so a reaction that edits what it watches does not
+    /// run again on its own edit.
+    #[tokio::test(start_paused = true)]
+    async fn what_the_reaction_writes_is_not_a_change() {
+        let (_t, file, got, sets) = watched();
+        let (seen, own) = (got.clone(), file.clone());
+        let task = tokio::spawn(poll(sets, STEP, move |_| {
+            let n = {
+                let mut n = seen.lock().unwrap();
+                *n += 1;
+                *n
+            };
+            write(
+                &own,
+                &format!("package main // formatted {}", "/".repeat(n)),
+            );
+            async {}
+        }));
+        tokio::time::sleep(STEP / 2).await;
+        write(&file, "package main // edited");
+        tokio::time::sleep(STEP * 3).await;
+        assert_eq!(*got.lock().unwrap(), 1, "the edit was reported");
+        tokio::time::sleep(STEP * 10).await;
+        assert_eq!(
+            *got.lock().unwrap(),
+            1,
+            "the reaction's own write was reported"
+        );
+        task.abort();
+    }
 }

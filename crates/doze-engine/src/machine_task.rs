@@ -38,6 +38,26 @@ impl Machine {
         Vec::new()
     }
 
+    /// Task run `boot` of `name` was stopped while its command ran (a stop, `off`, the shutdown), and the command is
+    /// gone: asleep as any cancelled start, with Go's `failed` "was stopped" in the journal.
+    pub fn task_stopped(
+        &mut self,
+        name: &str,
+        boot: u64,
+        msg: &str,
+        took: Duration,
+        now: Now,
+    ) -> Vec<Effect> {
+        if !self.current_boot(name, boot) {
+            return Vec::new();
+        }
+        let mut fx = vec![Effect::Journal(
+            Event::new(Kind::Failed, name).took(took).detail(msg),
+        )];
+        fx.extend(self.boot_cancelled(name, boot, now));
+        fx
+    }
+
     /// Task run `boot` of `name` exited 0: the needs it held are released, it is `done`.
     pub fn task_done(&mut self, name: &str, boot: u64, took: Duration, now: Now) -> Vec<Effect> {
         if !self.current_boot(name, boot) {

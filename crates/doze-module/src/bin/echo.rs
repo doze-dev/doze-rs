@@ -65,6 +65,8 @@ impl Module for Echo {
     }
 
     fn check(&self, spec: &EchoSpec, _instance: &Instance) -> Vec<Diagnostic> {
+        // Every call decodes and checks the spec first: `decode` is the one call that does nothing after.
+        record(spec, "check");
         let at = |i: usize| {
             vec![
                 PathSeg::Key("channel".into()),
@@ -101,10 +103,12 @@ impl Module for Echo {
     }
 
     async fn resolve(&self, cx: &Cx<EchoSpec>, pins: &[Pin], target: &str) -> Result<Resolved> {
+        record(&cx.spec, "resolve");
         help::resolve_via(cx, pins, target, 2).await
     }
 
     async fn provision(&self, cx: &Cx<EchoSpec>, _tc: &Toolchain) -> Result<Provisioned> {
+        record(&cx.spec, "provision");
         let marker = std::path::Path::new(&cx.instance.data_dir).join("ECHO_VERSION");
         if marker.exists() {
             return Ok(Provisioned::Existing);
@@ -121,6 +125,7 @@ impl Module for Echo {
     }
 
     async fn plan(&self, cx: &Cx<EchoSpec>, tc: &Toolchain) -> Result<Plan> {
+        record(&cx.spec, "plan");
         cx.log(2, "planning the echo engine");
         // Listen where the host said (PLAN.md D13): a Unix socket, or loopback TCP where the host gives no sockets.
         let backend = cx.instance.listeners.get("main").map(|l| l.backend.clone());
@@ -181,6 +186,21 @@ impl Objects for Echo {
                 hash: String::new(),
             })
             .collect())
+    }
+}
+
+/// With the setting `calls` (a file), appends `what` to it: the order the host called in, for the engine's tests.
+fn record(spec: &EchoSpec, what: &str) {
+    use std::io::Write as _;
+    let Some(file) = spec.settings.get("calls") else {
+        return;
+    };
+    let f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(file);
+    if let Ok(mut f) = f {
+        let _ = writeln!(f, "{what}");
     }
 }
 

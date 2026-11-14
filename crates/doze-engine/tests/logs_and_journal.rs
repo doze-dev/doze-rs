@@ -62,6 +62,24 @@ async fn each_start_is_a_run_with_its_streams_tagged() {
     assert!(all_gone(&[pid, pid2]).await);
 }
 
+/// A start that fails before its process runs (here its `setup`) closes the run it opened: what the step printed is
+/// kept, and the run is no longer the one being written.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_failed_setup_closes_its_run() {
+    let d = Dir::new("logsetupfail");
+    let mut spec = listener(&d, 0);
+    spec.setup = vec![Step::argv(run(&["say", "1", "3", "setup broke"]))];
+    let e = Engine::builder("t", d.path())
+        .service(svc("web", spec))
+        .build()
+        .unwrap();
+    assert!(e.wake("web", Cause::Command).await.is_err());
+    assert_eq!(texts(&e, "web"), ["1 s:setup setup broke 1"]);
+    assert!(e.logs().live("web").is_none(), "the run is still open");
+    assert!(!e.logs().runs("web").unwrap()[0].live);
+    e.shutdown().await;
+}
+
 async fn got_eventually(e: &Engine) -> bool {
     eventually(Duration::from_secs(5), || {
         e.logs()

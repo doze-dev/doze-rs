@@ -12,6 +12,10 @@ use crate::stack::{Kind, PlanCtx, Structure};
 use doze_module_proto::msg::instance::Object;
 use std::collections::BTreeMap;
 
+/// The file Go's daemon writes in an instance's data folder once its structure converged (with the spec's
+/// fingerprint); a destroy removes it.
+pub const CONVERGED_MARKER: &str = ".doze-converged";
+
 /// What a sync changed, per instance, in the order it was applied.
 pub type Synced = Vec<(String, Vec<(Change, Object)>)>;
 
@@ -68,6 +72,9 @@ impl Engine {
                 dropped.map_err(|e| Error::Failed(format!("destroying \"{n}\": {e}")))?;
             }
             st.set(&n, Vec::new());
+            // Go's converged marker goes with the structure, or a boot that reads it would take the dropped objects
+            // as converged (`Destroy`, apply.go). Absent is the usual case.
+            let _ = std::fs::remove_file(self.stack().cluster_dir(&n).join(CONVERGED_MARKER));
         }
         if name.is_none() {
             st.outputs = BTreeMap::new();
