@@ -107,7 +107,10 @@ fn pax(data: &[u8]) -> (Option<String>, Option<String>) {
     let text = String::from_utf8_lossy(data);
     let mut rest: &str = &text;
     while let Some((len, _)) = rest.split_once(' ') {
-        let Ok(n) = len.parse::<usize>() else { break };
+        // A record counts its own length digits and the space: anything shorter cannot move the reader on.
+        let Some(n) = len.parse::<usize>().ok().filter(|n| *n > len.len()) else {
+            break;
+        };
         let Some(record) = rest.get(..n) else { break };
         rest = rest.get(n..).unwrap_or_default();
         let kv = record.split_once(' ').map_or("", |(_, kv)| kv);
@@ -146,6 +149,10 @@ fn entries(raw: &[u8]) -> Result<Vec<Raw>, String> {
             b'0' | 0 | b'2' => {
                 let name = long.take().unwrap_or(h.name);
                 let link = long_link.take().unwrap_or(h.link);
+                // An old archiver's folder: a plain entry whose name ends in `/`.
+                if name.ends_with('/') && h.kind != b'2' {
+                    continue;
+                }
                 let body = if h.kind == b'2' {
                     Err(link)
                 } else {
@@ -153,7 +160,9 @@ fn entries(raw: &[u8]) -> Result<Vec<Raw>, String> {
                 };
                 out.push((name, h.mode, body));
             }
-            b'5' | b'g' => {
+            // Folders, global headers, and hard links (GNU tar writes one for a second copy of a library; as Go did,
+            // it is left out, and a bundle that needs it fails its own checks).
+            b'5' | b'g' | b'1' => {
                 long = None;
                 long_link = None;
             }
@@ -202,6 +211,10 @@ fn kept(parts: &[&str]) -> bool {
 fn place(raw: Vec<Raw>) -> Result<Vec<Item>, String> {
     let mut named = Vec::new();
     for (name, mode, body) in raw {
+        // macOS's zip-and-tar habit: resource forks under `__MACOSX/` are never part of a bundle.
+        if name.trim_start_matches("./").starts_with("__MACOSX/") {
+            continue;
+        }
         let parts =
             clean(&name).ok_or_else(|| format!("entry {name:?} points outside the bundle"))?;
         named.push((
@@ -307,6 +320,25 @@ mod tests {
         assert!(entries(&dev).is_err());
         let short = tar(&[("share/x", b'0', &[1u8; 600], "")]);
         assert!(entries(short.get(..700).unwrap()).is_err());
+    }
+
+    #[test]
+    fn a_pax_record_that_counts_nothing_ends_the_header() {
+        assert_eq!(pax(b"0 path=x\n"), (None, None));
+        assert_eq!(pax(b"1 x"), (None, None));
+    }
+
+    #[test]
+    fn hard_links_old_folders_and_macos_forks_are_left_out() {
+        let raw = tar(&[
+            ("b/share/", b'0', b"", ""),
+            ("b/share/extension/x.control", b'0', b"1", ""),
+            ("b/lib/libx.so.1", b'1', b"", "b/lib/libx.so"),
+            ("__MACOSX/b/._x", b'0', b"junk", ""),
+        ]);
+        let items = place(entries(&raw).unwrap()).unwrap();
+        let paths: Vec<&str> = items.iter().map(|i| i.path.as_str()).collect();
+        assert_eq!(paths, ["share/extension/x.control"]);
     }
 
     #[test]

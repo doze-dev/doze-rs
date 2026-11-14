@@ -838,7 +838,7 @@ this kind has until the modules plan sets per-module lines.
 
 ## Core M2: postgres extensions (pgext), measured 2026-11-15, release, darwin/arm64
 
-`doze-module-postgres` goes from **1,796,912 B to 2,045,600 B** (+248,688 B, +13.8%), and from 49 to 59 packages.
+`doze-module-postgres` goes from **1,796,912 B to 2,062,128 B** (+265,216 B, +14.8%, after the audit fixes; 2,045,600 B before them), and from 49 to 59 packages.
 The ten new packages are `flate2` and `miniz_oxide`, which inflate a `source` bundle's `.tar.gz` (the tar reader is the
 module's own, fuzzed as `fuzz_bundle`), and `serde_json` with its small dependencies, which read bundle.json and
 read and write the toolchain's ledger in Go's JSON shape. In `cargo bloat` those crates are about 39 KiB of text

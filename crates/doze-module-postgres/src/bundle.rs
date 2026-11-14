@@ -148,10 +148,14 @@ pub(crate) async fn resolve(
             }
             Want::Source(e) => crate::source::source_bundle(cx, e, pins, target),
         };
+        let wins_ties = matches!(want, Want::Source(_));
         let placed = match got {
-            Ok((root, pin)) => install(tc, &mut tree, major, &root, &name)
-                .await
-                .map(|notes| (root, pin, notes)),
+            Ok((root, pin, m)) => match crate::preload::refused(&m) {
+                Some(why) => Err(failed(format!("extension bundle {name}: {why}"))),
+                None => install(tc, &mut tree, major, &root, &m, wins_ties)
+                    .await
+                    .map(|notes| (root, pin, notes)),
+            },
             Err(e) => Err(e),
         };
         match placed {
@@ -179,7 +183,7 @@ async fn catalog_bundle(
     major: u32,
     pins: &[Pin],
     target: &str,
-) -> Result<(PathBuf, Pin)> {
+) -> Result<(PathBuf, Pin, Manifest)> {
     let spec = pin.unwrap_or_else(|| entry.line(major)).to_owned();
     let engine = entry.key(major);
     let locked = pins.iter().find(|p| p.engine == engine && p.spec == spec);
@@ -214,7 +218,39 @@ async fn catalog_bundle(
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_default();
-    let m = manifest(&root, entry.name);
+    let m = catalog_manifest(&root, &engine, &full, entry, major)?;
+    let pin = Pin {
+        engine,
+        spec,
+        resolved: full,
+        hashes: BTreeMap::from([(target.to_owned(), got.digest)]),
+    };
+    Ok((root, pin, m))
+}
+
+/// A catalog bundle's bundle.json, which must be there and readable (Go refused it otherwise), for this extension and
+/// this major, with its control file.
+fn catalog_manifest(
+    root: &Path,
+    engine: &str,
+    full: &str,
+    entry: &Entry,
+    major: u32,
+) -> Result<Manifest> {
+    let text = std::fs::read_to_string(root.join("bundle.json")).map_err(|e| {
+        failed(format!(
+            "extension bundle {engine} {full} has no bundle.json: {e}"
+        ))
+    })?;
+    let mut m = Manifest::parse(&text)
+        .map_err(|e| failed(format!("extension bundle {engine} {full}: {e}")))?;
+    // The release, as Go recorded it: a control file's version is only the SQL one (pg_cron 1.6.4 makes 1.6).
+    if m.version.is_empty() {
+        full.clone_into(&mut m.version);
+    }
+    if m.name.is_empty() {
+        m.name = entry.name.to_owned();
+    }
     let wrong = if m.name != entry.name {
         Some(format!("holds {:?}, not {}", m.name, entry.name))
     } else if m.pg_major != 0 && m.pg_major != u64::from(major) {
@@ -223,20 +259,14 @@ async fn catalog_bundle(
             m.pg_major
         ))
     } else {
-        control_version(&root, entry.name)
+        control_version(root, entry.name)
             .is_none()
             .then(|| format!("has no share/extension/{}.control", entry.name))
     };
     if let Some(w) = wrong {
         return Err(failed(format!("extension bundle {engine} {full} {w}")));
     }
-    let pin = Pin {
-        engine,
-        spec,
-        resolved: full,
-        hashes: BTreeMap::from([(target.to_owned(), got.digest)]),
-    };
-    Ok((root, pin))
+    Ok(m)
 }
 
 /// On 14 to 17, the bundle copied into the toolchain (its folders asked of `pg_config` once).
@@ -245,7 +275,8 @@ async fn install(
     tree: &mut Option<Tree>,
     major: u32,
     root: &Path,
-    name: &str,
+    m: &Manifest,
+    wins_ties: bool,
 ) -> Result<Vec<String>> {
     if major >= 18 {
         return Ok(vec![]);
@@ -270,7 +301,7 @@ async fn install(
             t
         }
     };
-    ledger::install(&t, root, &manifest(root, name)).map_err(failed)
+    ledger::install(&t, root, m, wins_ties).map_err(failed)
 }
 
 /// A bundle's own programs (pg_repack's client) as tools, unless the toolchain has one of that name: a bundle adds to

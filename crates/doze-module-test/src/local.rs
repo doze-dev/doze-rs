@@ -27,10 +27,19 @@ fn missing(what: String) -> Error {
     Error::new(ErrorKind::NotFound, what)
 }
 
+impl LocalBuild {
+    /// Whether `engine` is answered with the module's own build: its engine, or any engine when the test gave no others
+    /// (ferret fetches documentdb from the same folder). Given others, an engine not among them is not found, so a
+    /// missing build cannot pass for the module's own.
+    fn serves_main(&self, engine: &str) -> bool {
+        engine == self.engine || self.extra.is_empty()
+    }
+}
+
 impl Downloads for LocalBuild {
     fn resolve_major<'a>(&'a self, e: &'a str, m: &'a str) -> BoxFuture<'a, Result<String, Error>> {
         Box::pin(async move {
-            if e == self.engine || !self.extra.iter().any(|x| x.engine == e) {
+            if self.serves_main(e) {
                 return Ok(self.full.clone());
             }
             self.extra
@@ -44,7 +53,7 @@ impl Downloads for LocalBuild {
 
     fn ensure<'a>(&'a self, r: &'a Ensure) -> BoxFuture<'a, Result<Ensured, Error>> {
         Box::pin(async move {
-            if r.engine == self.engine || !self.extra.iter().any(|x| x.engine == r.engine) {
+            if self.serves_main(&r.engine) {
                 return Ok(Ensured {
                     bin_dir: self.bin_dir.to_string_lossy().into_owned(),
                     digest: "sha256:local".into(),

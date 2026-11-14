@@ -252,7 +252,30 @@ fn extensions(s: &PostgresSpec, inst: &Instance, major: u32, out: &mut Vec<Diagn
             ],
         };
         if let Some((why, hint)) = ext::refused(e, major, &inst.dir) {
-            out.push(at(path, why, Some(&hint)));
+            out.push(at(path.clone(), why, Some(&hint)));
+        }
+        // Two names from one bundle (postgis and postgis_raster) pinned to different releases: one bundle is fetched.
+        let bundle_of = |x: &crate::spec::Ext| {
+            catalog::lookup(&x.name)
+                .filter(|_| x.source.is_none() && !catalog::is_contrib(&x.name, major))
+                .map(|r| r.entry.name)
+        };
+        let earlier = s.exts().into_iter().take(i).find(|p| {
+            bundle_of(p).is_some()
+                && bundle_of(p) == bundle_of(e)
+                && p.version.is_some()
+                && e.version.is_some()
+                && p.version != e.version
+        });
+        if let (Some(p), Some(b)) = (earlier, bundle_of(e)) {
+            out.push(at(
+                path,
+                format!(
+                    "{} and {} come from one bundle, {b}, pinned to two releases",
+                    p.name, e.name
+                ),
+                Some("pin one release, or pin only one of them"),
+            ));
         }
     }
 }

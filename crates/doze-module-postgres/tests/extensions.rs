@@ -199,7 +199,8 @@ fn bundles(name: &str, major: &str, into: &Path) -> Vec<(String, PathBuf, PathBu
             Some((v, root, archive))
         })
         .collect();
-    out.sort_by(|a, b| a.0.cmp(&b.0));
+    let key = |v: &str| -> Vec<u64> { v.split('.').map(|p| p.parse().unwrap_or(0)).collect() };
+    out.sort_by_key(|a| key(&a.0));
     out
 }
 

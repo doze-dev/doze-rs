@@ -185,6 +185,43 @@ impl ExtConf {
     }
 }
 
+/// What a bundle's bundle.json asks of the server that doze.conf or the server's environment cannot take: a setting
+/// doze owns or merges, a name or value that would not stay one line, an environment name with `=`. The person's own
+/// settings are refused at their line by `check`; a bundle's are refused when it is resolved, naming it.
+pub(crate) fn refused(m: &crate::bundle_read::Manifest) -> Option<String> {
+    let line = |v: &str| !v.chars().any(char::is_control);
+    if let Some(k) = m.settings.keys().find(|k| {
+        let lower = k.to_ascii_lowercase();
+        !crate::conf::setting_name(k)
+            || crate::conf::OWNED.contains(&lower.as_str())
+            || MERGED.contains(&lower.as_str())
+    }) {
+        return Some(format!(
+            "its bundle.json sets {k:?}, which a bundle may not set"
+        ));
+    }
+    if let Some((k, _)) = m.settings.iter().find(|(_, v)| !line(v)) {
+        return Some(format!(
+            "its bundle.json gives {k:?} a value with a line break or control character"
+        ));
+    }
+    if let Some(p) = m
+        .preload
+        .iter()
+        .find(|p| p.is_empty() || !line(p) || p.contains([',', '\'', '"']))
+    {
+        return Some(format!(
+            "its bundle.json preloads {p:?}, which is not a library name"
+        ));
+    }
+    m.env
+        .iter()
+        .find(|(k, v)| k.is_empty() || k.contains(['=', '\0']) || v.contains('\0'))
+        .map(|(k, _)| {
+            format!("its bundle.json sets the environment variable {k:?}, which cannot be set")
+        })
+}
+
 /// The `shared_preload_libraries` line doze.conf in `data_dir` has, empty when none.
 pub(crate) fn preload_line(data_dir: &str) -> String {
     let conf = std::path::Path::new(data_dir).join("doze.conf");
@@ -249,6 +286,35 @@ mod tests {
                 "/mine:$libdir".to_string()
             )]
         );
+    }
+
+    #[test]
+    fn a_bundle_may_not_set_what_doze_owns_or_break_a_line() {
+        use crate::bundle_read::Manifest;
+        let with = |k: &str, v: &str| Manifest {
+            settings: BTreeMap::from([(k.to_string(), v.to_string())]),
+            ..Manifest::default()
+        };
+        assert!(refused(&with("cron.database_name", "{db}")).is_none());
+        for (k, v) in [
+            ("port", "1"),
+            ("Include", "x"),
+            ("shared_preload_libraries", "x"),
+            ("a\nb", "1"),
+            ("x.y", "1\nport = 2"),
+        ] {
+            assert!(refused(&with(k, v)).is_some(), "{k:?} {v:?}");
+        }
+        let bad_lib = Manifest {
+            preload: vec!["a,b".into()],
+            ..Manifest::default()
+        };
+        assert!(refused(&bad_lib).is_some());
+        let bad_env = Manifest {
+            env: BTreeMap::from([("A=B".into(), "1".into())]),
+            ..Manifest::default()
+        };
+        assert!(refused(&bad_env).is_some());
     }
 
     #[test]

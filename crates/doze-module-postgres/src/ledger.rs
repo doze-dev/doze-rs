@@ -51,13 +51,14 @@ fn vendored(key: &str) -> bool {
 }
 
 /// What to do with one file, by the ledger's rules: `Ok(true)` to write it, `Ok(false)` to leave the one there.
+/// An error names no path; the caller adds it.
 fn decide(
     key: &str,
-    dest: &Path,
     have: Option<&str>,
     sum: &str,
     m: &Manifest,
     owner: Option<&Owner>,
+    wins_ties: bool,
 ) -> Result<bool, String> {
     let Some(have) = have else { return Ok(true) };
     if have != sum && vendored(key) {
@@ -67,17 +68,18 @@ fn decide(
     match owner {
         _ if have == sum => Ok(false),
         Some(o) if o.sha256 == have && o.ext != m.name => Err(format!(
-            "{} belongs to extension {} {}; not overwriting it with {}'s",
-            dest.display(),
+            "it belongs to extension {} {}; not overwriting it with {}'s",
             o.ext,
             o.version,
             m.name
         )),
-        Some(o) if o.sha256 == have => Ok(newer(o)),
-        _ => Err(format!(
-            "{} already exists with different content and doze did not put it there; not overwriting it",
-            dest.display()
-        )),
+        // A `source` bundle rebuilt at the same version is the one declared now: its files win (Go unpacked over them).
+        Some(o) if o.sha256 == have => {
+            Ok(newer(o) || (wins_ties && compare(&m.version, &o.version) == Ordering::Equal))
+        }
+        _ => Err(
+            "it already exists with different content and doze did not put it there; not overwriting it".into(),
+        ),
     }
 }
 
@@ -88,6 +90,7 @@ fn place(
     key: &str,
     m: &Manifest,
     files: &mut Ledger,
+    wins_ties: bool,
 ) -> Result<bool, String> {
     let fingerprint = sum(src)?.ok_or_else(|| format!("{} vanished", src.display()))?;
     let have = sum(dest)?;
@@ -105,7 +108,9 @@ fn place(
         }
         return Ok(claim);
     }
-    if !decide(key, dest, have.as_deref(), &fingerprint, m, owner)? {
+    if !decide(key, have.as_deref(), &fingerprint, m, owner, wins_ties)
+        .map_err(|e| format!("{}: {e}", dest.display()))?
+    {
         return Ok(false);
     }
     if let Some(parent) = dest.parent() {
@@ -152,7 +157,13 @@ fn walk(dir: &Path) -> Result<Vec<PathBuf>, String> {
 }
 
 /// Installs the bundle at `root` into `tree`, under the ledger's lock; what changed, for the log.
-pub(crate) fn install(tree: &Tree, root: &Path, m: &Manifest) -> Result<Vec<String>, String> {
+/// `wins_ties`: a file of the same extension and version but other content is replaced (a rebuilt `source` bundle).
+pub(crate) fn install(
+    tree: &Tree,
+    root: &Path,
+    m: &Manifest,
+    wins_ties: bool,
+) -> Result<Vec<String>, String> {
     let ext_dir = tree.share.join("extension");
     std::fs::create_dir_all(&ext_dir).map_err(io("creating", &ext_dir))?;
     let _held = doze_os::fs::lock(&ext_dir.join(LOCK)).map_err(io("locking", &ext_dir))?;
@@ -162,7 +173,8 @@ pub(crate) fn install(tree: &Tree, root: &Path, m: &Manifest) -> Result<Vec<Stri
         Err(_) => Ledger::default(),
     };
     let root_key = root.to_string_lossy().into_owned();
-    if ledger.bundles.get(&root_key) == Some(&true) {
+    // A folder already installed is skipped, unless ties win: a `source` folder can come back after a rebuild replaced it.
+    if !wins_ties && ledger.bundles.get(&root_key) == Some(&true) {
         return Ok(vec![]);
     }
     let mut placed = Vec::new();
@@ -178,7 +190,14 @@ pub(crate) fn install(tree: &Tree, root: &Path, m: &Manifest) -> Result<Vec<Stri
     'all: for (from, to, prefix) in parts {
         for rel in walk(&from)? {
             let key = format!("{prefix}{}", rel.to_string_lossy().replace('\\', "/"));
-            match place(&from.join(&rel), &to.join(&rel), &key, m, &mut ledger) {
+            match place(
+                &from.join(&rel),
+                &to.join(&rel),
+                &key,
+                m,
+                &mut ledger,
+                wins_ties,
+            ) {
                 Ok(true) => placed.push(key),
                 Ok(false) => {}
                 Err(e) => {
@@ -191,7 +210,11 @@ pub(crate) fn install(tree: &Tree, root: &Path, m: &Manifest) -> Result<Vec<Stri
     if result.is_ok() {
         ledger.bundles.insert(root_key, true);
     }
-    std::fs::write(&path, ledger.encode()).map_err(io("writing", &path))?;
+    // Written aside and renamed in: a crash mid-write leaves the old ledger, never half of one.
+    let tmp = ext_dir.join(format!("{LEDGER}.doze-tmp"));
+    std::fs::write(&tmp, ledger.encode())
+        .and_then(|()| std::fs::rename(&tmp, &path))
+        .map_err(io("writing", &path))?;
     result.map_err(|e| format!("installing extension {} {}: {e}", m.name, m.version))?;
     Ok(placed)
 }
@@ -234,8 +257,8 @@ mod tests {
         let (old, new) = (d.join("b1"), d.join("b2"));
         let m1 = bundle(&old, "1.0", "one");
         let m2 = bundle(&new, "1.1", "two");
-        install(&tree, &new, &m2).unwrap();
-        install(&tree, &old, &m1).unwrap();
+        install(&tree, &new, &m2, false).unwrap();
+        install(&tree, &old, &m1, false).unwrap();
         let read = |p: &str| std::fs::read_to_string(d.join("tc").join(p)).unwrap();
         // The newer bundle's unversioned files stay; the older one's versioned script is added beside.
         assert_eq!(read("lib/x.so"), "two");
@@ -247,15 +270,46 @@ mod tests {
         let mut m3 = bundle(&other, "2.0", "three");
         std::fs::write(other.join("lib/y.so"), "mine").unwrap();
         m3.name = "x".into();
-        let e = install(&tree, &other, &m3).unwrap_err();
+        let e = install(&tree, &other, &m3, false).unwrap_err();
         assert!(e.contains("did not put it there"), "{e}");
         assert_eq!(read("lib/y.so"), "theirs");
         // Another extension's file is never taken over.
         let z = d.join("b4");
         let mut mz = bundle(&z, "9.0", "zz");
         mz.name = "z".into();
-        let e = install(&tree, &z, &mz).unwrap_err();
+        let e = install(&tree, &z, &mz, false).unwrap_err();
         assert!(e.contains("belongs to extension x"), "{e}");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_rebuilt_source_at_the_same_version_replaces_its_files() {
+        let d = tmp("ties");
+        let tree = Tree {
+            share: d.join("tc/share"),
+            pkglib: d.join("tc/lib"),
+        };
+        let (a, b) = (d.join("a"), d.join("b"));
+        let ma = bundle(&a, "1.0", "old");
+        let mb = bundle(&b, "1.0", "new");
+        install(&tree, &a, &ma, true).unwrap();
+        // A catalog bundle at the same version does not replace (Go's rule); a source one does.
+        install(&tree, &b, &mb, false).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(tree.pkglib.join("x.so")).unwrap(),
+            "old"
+        );
+        install(&tree, &b, &mb, true).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(tree.pkglib.join("x.so")).unwrap(),
+            "new"
+        );
+        // And back again: an installed folder is not skipped when ties win.
+        install(&tree, &a, &ma, true).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(tree.pkglib.join("x.so")).unwrap(),
+            "old"
+        );
         let _ = std::fs::remove_dir_all(&d);
     }
 

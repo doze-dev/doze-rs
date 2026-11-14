@@ -3,6 +3,7 @@
 //! toolchain, with no checksum, pin or record: modules plan bug 4).
 
 use crate::bundle::{control_version, failed};
+use crate::bundle_read::Manifest;
 use crate::spec::{Ext, PostgresSpec};
 use crate::{ext, tarball};
 use doze_module::proto::msg::run::Pin;
@@ -23,9 +24,17 @@ pub(crate) fn source_bundle(
     e: &Ext,
     pins: &[Pin],
     target: &str,
-) -> Result<(PathBuf, Pin)> {
+) -> Result<(PathBuf, Pin, Manifest)> {
     let src = e.source.clone().unwrap_or_default();
     let path = ext::source_path(&cx.instance.dir, &src);
+    let size = std::fs::metadata(&path).map_or(0, |m| m.len());
+    if size > tarball::MAX_BYTES {
+        return Err(failed(format!(
+            "{} is larger than a bundle may be ({} MiB)",
+            path.display(),
+            tarball::MAX_BYTES >> 20
+        )));
+    }
     let bytes =
         std::fs::read(&path).map_err(|err| failed(format!("reading {}: {err}", path.display())))?;
     let hex = hex::encode(Sha256::digest(&bytes));
@@ -62,7 +71,29 @@ pub(crate) fn source_bundle(
         resolved: digest.clone(),
         hashes: BTreeMap::from([(target.to_owned(), digest)]),
     };
-    Ok((root, pin))
+    let m = crate::bundle::manifest(&root, &e.name);
+    prune_others(&root, &e.name);
+    Ok((root, pin, m))
+}
+
+/// The instance's earlier unpackings of `name` (other hashes) are removed once the declared one is in place: the
+/// server is stopped while doze resolves, and 14 to 17 copied what they need into the toolchain.
+fn prune_others(root: &Path, name: &str) {
+    let (Some(base), Some(keep)) = (root.parent(), root.file_name()) else {
+        return;
+    };
+    let Ok(list) = std::fs::read_dir(base) else {
+        return;
+    };
+    let prefix = format!("{name}-");
+    for e in list.filter_map(std::result::Result::ok) {
+        let n = e.file_name();
+        let hash = n.to_str().and_then(|s| s.strip_prefix(&prefix));
+        let ours = hash.is_some_and(|h| h.len() == 16 && h.bytes().all(|b| b.is_ascii_hexdigit()));
+        if ours && n != keep {
+            let _ = std::fs::remove_dir_all(e.path());
+        }
+    }
 }
 
 /// Unpacks an archive once into `<data>.ext/<name>-<hash>` beside the data directory: made aside and renamed in, so a
