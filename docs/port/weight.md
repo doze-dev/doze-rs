@@ -539,3 +539,9 @@ next core crates that join the CLI (the daemon, the engine, config) will not fit
 (one HTTP and TLS stack for the registry client and the front door; ureq + rustls-native-certs is the obvious
 duplicate) or a size profile change; this has to be decided before D1 joins the CLI. CI now holds `doze` to 9 MB and
 200 packages (the `weight` job).
+
+## Core M1: the mariadb module, measured 2026-11-14, release, darwin/arm64
+
+`doze-module-mariadb` 905,968 B, beside `doze-module-valkey` 888,128 B and `doze-module-temporal` 903,824 B built the
+same way: no new dependency (the module runs the engine's own `mariadb` client, D6). The line for a module of this
+kind is 1 MB until the modules plan sets per-module lines.

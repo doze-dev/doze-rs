@@ -104,5 +104,5 @@ performance. A field that fits one tool belongs in that module (its console, its
 
 Declared today: valkey and kvrocks (`client`, `detect`), temporal (`detect`; it has no shell, its CLI is not a
 session). kafka and aws declare theirs when their module faces are built (core plan M3); postgres, mariadb and ferret
-when they are ported (M1). The app's empty-folder table (`doze-desk` `act/detect`) takes the union of the modules'
+when they are ported (M1); mariadb declares both (`client`: the engine's `mariadb` client, the password in `MYSQL_PWD`; `detect`: the MySQL and MariaDB drivers for Go, npm and PyPI, the `mariadb` and `mysql` images, `MYSQL_URL`, `MARIADB_URL`, `MYSQL_HOST`). The app's empty-folder table (`doze-desk` `act/detect`) takes the union of the modules'
 `detect`, with nothing built in.
