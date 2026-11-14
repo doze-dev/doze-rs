@@ -6,6 +6,8 @@ mod descriptors;
 mod duration;
 #[cfg(feature = "console")]
 mod facts;
+#[cfg(feature = "module")]
+mod module;
 mod run;
 #[cfg(feature = "console")]
 mod web;
@@ -26,7 +28,23 @@ fn parse() -> (cli::Args, run::Flags) {
     (args, flags)
 }
 
-fn main() -> Result<()> {
+fn main() -> std::process::ExitCode {
+    // Started by doze as its kafka module (`kafka-plugin`), or as `doze-kafka module`: docs/port/phase11.md.
+    #[cfg(feature = "module")]
+    if module::invoked() {
+        return module::run();
+    }
+    match broker() {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        // What returning the error from `main` prints, and its exit code.
+        Err(e) => {
+            eprintln!("Error: {e:?}");
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+fn broker() -> Result<()> {
     let (args, flags) = parse();
     run::logging(&args);
     // A configuration that cannot start exits 2, as a bad flag does (clap's own code), before anything is opened.
