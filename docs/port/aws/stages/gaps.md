@@ -163,3 +163,13 @@ and `weight.md`; none of those was touched here. Each behaviour carries one call
   (bettered):** the refusal now tells a developer what to do next.
 - Tests: `aws-sqs` `tests/waits.rs`; `selftest/test_harness.py`
   `test_a_doze_hint_after_aws_words_is_set_aside_and_aws_words_still_compared`.
+
+## Checks (2026-11-14)
+
+- `cargo xtask gates`: exit 0 (fmt, clippy, codegen, lint-size, fuzz-check, test). `aws-sqs/src/tests.rs` would have passed the hard
+  size limit, so the new SQS test lives in `tests/waits.rs`; CloudWatch's CBOR wire test named `PutMetricStream` as a refused
+  operation and now names `GetMetricWidgetImage` (item 4 built the former).
+- Conformance (release binary, `--account 111122223333`), exact counts unchanged: sqs 177 of 181, secretsmanager 27 of 65, sns 38 of
+  104, logs 28 of 51 (the new regex scenario's labels unverified), cloudwatch 28 of 36, lambda 52 of 58, dynamodb 53 of 116.
+- Weight (`cargo xtask weight doze-aws`, macOS): 7,494,304 B, 258 packages, 5,312 KB idle: ok. No new package (`aws-cron` and
+  `regex-lite` were already linked); Linux size not measured.
