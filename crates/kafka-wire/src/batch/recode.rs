@@ -9,7 +9,7 @@ use bytes::Bytes;
 use super::inflate::{self, InflateError};
 use super::layout::{ATTRIBUTES, CRC, HEADER_LEN, LENGTH, LENGTH_OVERHEAD, MAX_TIMESTAMP, crc_of};
 use super::scan::RecordsRefused;
-use super::{Batch, Compression, Refusal};
+use super::{Batch, Compression, Refusal, varint};
 use crate::ids::TimestampMs;
 
 impl Batch {
@@ -77,47 +77,26 @@ pub(super) fn code(c: Compression) -> u16 {
     }
 }
 
-/// A zigzag varint (Kafka's `varint` and `varlong`) off the front of `bytes`: its value and its length.
-pub(super) fn read_varint(bytes: &[u8]) -> Option<(i64, usize)> {
-    let mut value = 0u64;
-    for (i, shift) in (0..70).step_by(7).enumerate() {
-        let byte = *bytes.get(i)?;
-        value |= u64::from(byte & 0x7f).checked_shl(shift)?;
-        if byte & 0x80 == 0 {
-            return Some((((value >> 1) as i64) ^ -((value & 1) as i64), i + 1));
-        }
-    }
-    None
-}
-
-pub(super) fn write_varint(out: &mut Vec<u8>, v: i64) {
-    let mut u = ((v << 1) ^ (v >> 63)) as u64;
-    while u >= 0x80 {
-        out.push((u as u8 & 0x7f) | 0x80);
-        u >>= 7;
-    }
-    out.push(u as u8);
-}
-
 /// The records of `count` records, each with its offset delta replaced by its place.
 fn renumber(records: &[u8], count: u32) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(records.len());
     let mut rest = records;
     for index in 0..i64::from(count) {
-        let (length, used) = read_varint(rest)?;
-        let record = rest.get(used..used + usize::try_from(length).ok()?)?;
-        rest = rest.get(used + usize::try_from(length).ok()?..)?;
+        let length = usize::try_from(varint::read(&mut rest)?).ok()?;
+        let (record, after) = (rest.get(..length)?, rest.get(length..)?);
+        rest = after;
         // attributes (one byte), timestamp delta, offset delta, then the rest as it is.
         let (attributes, after_attributes) = record.split_first()?;
-        let (_, ts_len) = read_varint(after_attributes)?;
-        let (ts_delta, after_ts) = after_attributes.split_at(ts_len);
-        let (_, offset_len) = read_varint(after_ts)?;
-        let tail = after_ts.get(offset_len..)?;
+        let mut after_ts = after_attributes;
+        varint::read(&mut after_ts)?;
+        let ts_delta = after_attributes.get(..after_attributes.len() - after_ts.len())?;
+        let mut tail = after_ts;
+        varint::read(&mut tail)?; // the offset delta, replaced
         let mut body = vec![*attributes];
         body.extend_from_slice(ts_delta);
-        write_varint(&mut body, index);
+        varint::write(&mut body, index);
         body.extend_from_slice(tail);
-        write_varint(&mut out, i64::try_from(body.len()).ok()?);
+        varint::write(&mut out, i64::try_from(body.len()).ok()?);
         out.extend_from_slice(&body);
     }
     Some(out)

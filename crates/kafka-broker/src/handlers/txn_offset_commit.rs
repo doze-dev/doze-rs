@@ -100,6 +100,17 @@ impl<F: Fs> Broker<F> {
                 .map(|i| InstanceId::new(i.as_str())),
             generation: req.generation_id,
             transactional: true,
+            // Those that exist and may be read: `KafkaApis` answers the others before the coordinator is asked.
+            partitions: self
+                .offsets_of(guard, req, group.as_str())
+                .iter()
+                .filter_map(|o| {
+                    let topic = TopicName::parse(&o.topic)
+                        .ok()
+                        .and_then(|n| self.meta.topic(&n))?;
+                    Some((topic.id.to_uuid(), o.partition))
+                })
+                .collect(),
         };
         if let Some(code) = self.ask_group_to_commit(&group, committer).await {
             return Some(code);

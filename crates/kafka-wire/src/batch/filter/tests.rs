@@ -39,8 +39,7 @@ const RULES: Rules = Rules {
 };
 
 fn offsets(b: &Batch) -> Vec<(i64, i64)> {
-    b.record_times()
-        .unwrap()
+    b.record_times(1 << 20)
         .map(|r| r.unwrap())
         .map(|r| (100 + i64::from(r.offset_delta), r.timestamp.get()))
         .collect()

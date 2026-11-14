@@ -89,6 +89,7 @@ impl ConsumerGroup {
             // What it held was the classic leader's to say; a topic its principal may not DESCRIBE is not held (SEC-234).
             m.rights = seat.rights;
             m.forget_hidden(topics);
+            m.note_given(epoch);
             m.classic = Some(ClassicSeat {
                 protocols: seat.protocols,
                 protocol,

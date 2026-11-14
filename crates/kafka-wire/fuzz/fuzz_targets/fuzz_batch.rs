@@ -24,7 +24,7 @@ fuzz_target!(|data: &[u8]| {
     );
     let _ = Batches::new(bytes.clone()).count();
     if let Ok(batch) = Batch::parse(bytes) {
-        let _ = batch.record_times().map(Iterator::count);
+        let _ = batch.record_times(1 << 20).count();
         let rules = kafka_wire::batch::ScanRules {
             require_keys: true,
             log_append_time: false,

@@ -7,6 +7,7 @@
 use bytes::{BufMut, Bytes, BytesMut};
 
 use super::layout::{ATTRIBUTES, CRC, LENGTH, crc_of};
+use super::varint;
 
 /// The record to write.
 #[derive(Debug, Clone, Copy)]
@@ -21,23 +22,13 @@ pub struct OneRecord<'a> {
     pub headers: &'a [(&'a str, &'a [u8])],
 }
 
-/// A variable-length, zig-zag encoded integer, as the record format writes them.
-fn varint(v: i64, out: &mut Vec<u8>) {
-    let mut u = ((v << 1) ^ (v >> 63)) as u64;
-    while u >= 0x80 {
-        out.push((u as u8 & 0x7f) | 0x80);
-        u >>= 7;
-    }
-    out.push(u as u8);
-}
-
 fn sized(field: Option<&[u8]>, out: &mut Vec<u8>) {
     match field {
         Some(bytes) => {
-            varint(i64::try_from(bytes.len()).unwrap_or(i64::MAX), out);
+            varint::write(out, i64::try_from(bytes.len()).unwrap_or(i64::MAX));
             out.extend_from_slice(bytes);
         }
-        None => varint(-1, out),
+        None => varint::write(out, -1),
     }
 }
 
@@ -46,13 +37,13 @@ fn record(r: &OneRecord<'_>) -> Vec<u8> {
     let mut body = vec![0_u8, 0, 0];
     sized(r.key, &mut body);
     sized(r.value, &mut body);
-    varint(i64::try_from(r.headers.len()).unwrap_or(0), &mut body);
+    varint::write(&mut body, i64::try_from(r.headers.len()).unwrap_or(0));
     for (name, value) in r.headers {
         sized(Some(name.as_bytes()), &mut body);
         sized(Some(value), &mut body);
     }
     let mut out = Vec::with_capacity(body.len() + 5);
-    varint(i64::try_from(body.len()).unwrap_or(i64::MAX), &mut out);
+    varint::write(&mut out, i64::try_from(body.len()).unwrap_or(i64::MAX));
     out.extend_from_slice(&body);
     out
 }
