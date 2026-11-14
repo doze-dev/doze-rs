@@ -3,7 +3,7 @@
 
 use crate::deps::{depends_on_gone, parse_after, portless_url, resolve, self_reference};
 use crate::error::{Result, diag_error, pos_err};
-use crate::load::{Declared, Loader, Pending};
+use crate::load::{Declared, Loader, Pending, Probes};
 use crate::model::{Condition, Config, Dependency, Kind, Spec};
 use crate::refs::referenced;
 use doze_hcl::Value;
@@ -219,7 +219,7 @@ impl<'a> Loader<'a> {
         let (title, port, kind) = (inst.title(), inst.port, inst.kind());
         let spec = if kind == Kind::App {
             let mut c = self
-                .in_ctx(p.stamp.as_ref(), true, |ctx| {
+                .in_ctx(p.stamp.as_ref(), Probes::Inner, |ctx| {
                     crate::command::decode_app(&p.remain, ctx, &p.base_dir)
                 })
                 .map_err(|e| crate::command::decode_error(files, e, &p.def, &title))?;
@@ -228,7 +228,7 @@ impl<'a> Loader<'a> {
             crate::command::apply_defaults(&mut c, &cfg.defaults.commands, &p.body);
             Spec::Command(Box::new(c))
         } else {
-            let (b, ds) = self.in_ctx(p.stamp.as_ref(), false, |ctx| {
+            let (b, ds) = self.in_ctx(p.stamp.as_ref(), Probes::No, |ctx| {
                 crate::module_body::decode(&p.remain, ctx)
             });
             if ds.has_errors() {

@@ -10,7 +10,7 @@ use crate::error::{At, Error, Result, diag_error, pos_err};
 use crate::eval::decode_int;
 use crate::foreach::stamps;
 use crate::gohcl::{Decoded, Spec, Ty, decode_body, opt, req};
-use crate::load::{Declared, Loader, Runnable};
+use crate::load::{Declared, Loader, Probes, Runnable};
 use crate::model::{
     Command, Condition, Config, Instance, Kind, Ref, ServiceDecl, Spec as RunSpec, TaskDecl, title,
 };
@@ -90,7 +90,7 @@ impl<'a> Loader<'a> {
             ));
         }
         let enabled = self.enabled(m.attr("enabled"), &what)?;
-        let stamps = self.in_ctx(None, false, |ctx| {
+        let stamps = self.in_ctx(None, Probes::No, |ctx| {
             stamps(files, m.attr("count"), m.attr("for_each"), ctx)
         })?;
         for st in stamps {
@@ -129,7 +129,7 @@ impl<'a> Loader<'a> {
             return Ok(0);
         };
         let p = self
-            .in_ctx(run.stamp.as_ref(), false, |ctx| decode_int(a, ctx))
+            .in_ctx(run.stamp.as_ref(), Probes::No, |ctx| decode_int(a, ctx))
             .map_err(|ds| diag_error(self.files, ds))?;
         u16::try_from(p).ok().filter(|p| *p >= 1).ok_or_else(|| {
             pos_err(
@@ -252,7 +252,9 @@ impl<'a> Loader<'a> {
         } else {
             &TASK
         };
-        let (raw, ds) = self.in_ctx(r.stamp.as_ref(), true, |ctx| decode_body(&rest, ctx, spec));
+        let (raw, ds) = self.in_ctx(r.stamp.as_ref(), Probes::Outer, |ctx| {
+            decode_body(&rest, ctx, spec)
+        });
         if ds.has_errors() {
             return Err(diag_error(self.files, ds));
         }

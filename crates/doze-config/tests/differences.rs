@@ -3,8 +3,9 @@
 //!
 //! 1. `count` is capped at [`doze_config::MAX_COUNT`]; Go has no cap, and a typo of a few digits
 //!    builds blocks until memory runs out.
-//! 2. Where Go's choice follows a map's order (which reference, which argument is reported first
-//!    when several are wrong), doze-config takes source order, so a load always says the same.
+//! 2. Where Go's choice follows a map's order (which reference, which argument is reported first,
+//!    which "did you mean" when two names are as near), doze-config takes source (or name) order,
+//!    so a load always says the same.
 //! 3. A block's fingerprint hashes the spec's own canonical text, not Go's JSON (fingerprints are
 //!    only compared within one build).
 //! 4. Route names: Go refuses a module listener whose route name is another block's doze name.

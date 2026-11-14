@@ -15,6 +15,18 @@ use doze_hcl::function::Functions;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+/// Where a context sees the probe functions (`tcp()`, `http(…)`…), as Go nests its scopes: a
+/// function name is suggested from the innermost scope's functions only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Probes {
+    /// None: the stack's own context, or a `count`/`for_each` stamp of it.
+    No,
+    /// Outside the stamp (a service's or task's body: Go's `decodeRunnables` scope).
+    Outer,
+    /// Inside the stamp (an app's body: the command engine's `DecodeConfig` scope).
+    Inner,
+}
+
 /// What a load is given besides the path.
 pub struct Options<'a> {
     pub host: &'a dyn Host,
@@ -107,18 +119,33 @@ impl<'a> Loader<'a> {
     pub(crate) fn in_ctx<R>(
         &self,
         stamp: Option<&BTreeMap<String, Value>>,
-        probes: bool,
+        probes: Probes,
         f: impl FnOnce(&Context<'_>) -> R,
     ) -> R {
         let base = Context::new(self.vars.clone(), Some(&self.funcs));
-        let mut mid = base.child(BTreeMap::new());
-        if probes {
-            mid.functions = Some(&self.probes);
+        match (probes, stamp) {
+            (Probes::No, None) => f(&base),
+            (Probes::No, Some(s)) => f(&base.child(s.clone())),
+            (Probes::Outer, s) => {
+                let p = self.probe_scope(&base);
+                match s {
+                    Some(s) => f(&p.child(s.clone())),
+                    None => f(&p),
+                }
+            }
+            (Probes::Inner, None) => f(&self.probe_scope(&base)),
+            (Probes::Inner, Some(s)) => {
+                let st = base.child(s.clone());
+                f(&self.probe_scope(&st))
+            }
         }
-        match stamp {
-            Some(s) => f(&mid.child(s.clone())),
-            None => f(&mid),
-        }
+    }
+
+    /// A scope inside `c` whose own functions are the probes.
+    fn probe_scope<'c>(&'c self, c: &'c Context<'c>) -> Context<'c> {
+        let mut p = c.child(BTreeMap::new());
+        p.functions = Some(&self.probes);
+        p
     }
 
     pub(crate) fn base_dir(&self, def: &At) -> String {
@@ -302,7 +329,7 @@ impl<'a> Loader<'a> {
             auto,
             host: Some(self.opts.host),
         };
-        let vs = self.in_ctx(None, false, |ctx| {
+        let vs = self.in_ctx(None, Probes::No, |ctx| {
             vars::resolve_variables(files, &c.variables, &inputs, ctx)
         })?;
         self.vars.insert("var".into(), Value::Object(vs));
@@ -313,12 +340,14 @@ impl<'a> Loader<'a> {
         self.root_attributes(cfg, &content.attributes)?;
         paths::resolve_home(cfg, self.opts.host).map_err(Error::msg)?;
         if let Some(b) = &c.defaults {
-            self.in_ctx(None, false, |ctx| {
+            self.in_ctx(None, Probes::No, |ctx| {
                 defaults::decode_defaults(cfg, files, self.opts.host, b, ctx)
             })?;
         }
         if let Some(b) = &c.tls {
-            self.in_ctx(None, false, |ctx| defaults::decode_tls(cfg, files, b, ctx))?;
+            self.in_ctx(None, Probes::No, |ctx| {
+                defaults::decode_tls(cfg, files, b, ctx)
+            })?;
         }
         let mut pending = Vec::new();
         for b in &c.instances {
@@ -343,7 +372,7 @@ impl<'a> Loader<'a> {
                     .map_err(|e| pos_err(files, &p.def, e, ""))?;
             }
         }
-        let (outs, order) = self.in_ctx(None, false, |ctx| {
+        let (outs, order) = self.in_ctx(None, Probes::No, |ctx| {
             vars::evaluate_outputs(files, &c.outputs, ctx)
         })?;
         (cfg.outputs, cfg.output_order) = (outs, order);
@@ -360,7 +389,7 @@ impl<'a> Loader<'a> {
                 _ => continue,
             };
             *dst = self
-                .in_ctx(None, false, |ctx| decode_string(attr, ctx))
+                .in_ctx(None, Probes::No, |ctx| decode_string(attr, ctx))
                 .map_err(|ds| diag_error(self.files, ds))?;
         }
         Ok(())
