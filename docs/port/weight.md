@@ -479,3 +479,68 @@ broker core needs none of them. CI: the `weight-tls` size job is gone; its size 
 certificate loaded (10,610 KB). The single build, with the module face and the registry's Avro and JSON Schema, is 7,669,200 B on darwin
 arm64, 183 packages, 7,472 KB idle; about 10.43 MB on ubuntu x86_64 at CI's 1.36. Limit 10,951,617 B, 186 packages, 9,996 KB, estimates
 until CI measures them. Building from source needs a C compiler and an assembler (ring); release binaries are unaffected.
+
+## Idle (2026-11-15, branch `fix-idle`), release, darwin/arm64 and the Linux aarch64 VM
+
+What an idle broker does, before (main at 33ed4871) and after this pass, by the method of the idle audit of 2026-11-14 (its
+`idle.sh`): the release binary on a fresh data directory, the console and the schema registry on, sampled at the start, half way
+and the end. "Filled": a franz-go client made a compacted topic and a plain one (3 partitions each, `segment.bytes` 64 KiB) and wrote
+30,000 records of 200 B to each, the broker was stopped and started again (so every partition is closed, as after a restart), and
+it runs with `--retention-ms 86400000` (every topic has retention, as when `doze.hcl` sets `retention`) and
+`--log-retention-check-interval 30s` (so the retention sweep runs inside the window; the default is 5 minutes). Context switches are
+`top`'s CSW on macOS and the sum of the threads' `voluntary_ctxt_switches` on Linux (live threads only, so the "before" figures
+with threads that came and went are low).
+
+| | macOS before | macOS after | Linux before | Linux after |
+|---|---|---|---|---|
+| Empty, 120 s: context switches | 537 (4.5/s) | 28 (0.23/s) | 510 (4.3/s) | 26 (0.22/s) |
+| Empty: CPU time over 120 s | 0 | 0 | 30 ms | 0 |
+| Empty: threads, descriptors, RSS | 3, 18, 7.6 MB | 3, 18, 7.7 MB | 3, 14, 8.1 MB | 3, 14, 8.6 MB |
+| Filled, 180 s: threads at 90 s and 180 s | 6, 6 | 3, 3 | 10, 6 | 3, 3 |
+| Filled: descriptors at the end | 38 | 18 | 36 | 14 |
+| Filled: RSS at 90 s, at the end | 10.9, 10.9 MB | 11.4, 7.3 MB | 10.0, 10.3 MB | 10.2, 10.2 MB |
+| Filled: CPU time, first half and second half | 30 ms, 20 ms | 30 ms, 0 | 50 ms, 40 ms | 20 ms, 0 |
+| Filled: context switches in the second half | 722 (8/s) | 23 (0.26/s) | not comparable (threads died) | 23 (0.26/s) |
+
+What made the difference, item by item:
+- **The transaction coordinator** looked every 500 ms whatever there was: those were nearly all of an idle broker's wake-ups. It now
+  sleeps until the first timeout, idle-id expiry or retry, is woken when a change makes that sooner, and parks with no
+  transactional id (`txn/alarm.rs`). The remaining 0.22 wake-ups a second are the cleaner's pass every 15 s (it reads the topic
+  list; with no compacted topic it touches nothing) and the runtime's own timer wheel.
+- **The cleaner** reopened every non-empty compacted partition every 15 s (replaying up to 16 MiB of producer history, planning,
+  closing), which was the 3 to 5 to 3 thread churn and about 2 MB a topic. It now keeps each partition's verdict (not due, and the
+  first time it could be: `compact::plan::next_due`) with the count of changes the partition's writer had made, and does not open
+  or list a partition whose verdict still holds. After the first pass of a run nothing is opened until a write or that time.
+- **The retention sweep** opened closed partitions and left them open until the 512 limit (the "before" descriptors and RSS). It
+  now closes what it opened and keeps the same kind of verdict: an age bound takes the oldest segment first, so nothing can go
+  before that segment outlives `retention.ms` (`PartitionLog::retention_due`); a size bound moves only with writes.
+- **Sweeps and the blocking pool.** A sweep's directory listings and store reads went through `block_in_place`, which hands the
+  worker's core to a thread started for it; the thread left behind lingers for the pool's 10 s keep-alive. They now go to
+  `spawn_blocking` (`blocking::in_background`), which uses one pool thread for the whole pass and never swaps a worker. With the
+  verdicts, an idle pass does no blocking work at all, so the pool stays empty: 3 threads throughout the filled run.
+- **Partitions opened by traffic** are closed after five quiet minutes (`Config::partition_idle_close`; a fetch or request holding
+  one keeps it), by a task that sleeps until the next is due and parks with none open; **the frame shelf** (up to 64 MiB of request
+  buffers) is freed after a quiet minute by a server task parked on a bell while the shelf is empty.
+- The RSS that stays after the first pass on Linux (10.2 MB against 8.6 MB empty) is glibc keeping the arena the first pass's history
+  replay used; macOS gave it back within the window (7.3 MB). Nothing holds it: a `malloc_trim` after a pass would return it, and was
+  not added (a glibc-only call, for 1.6 MB after a restart with compacted data; the CI idle limit is measured on an empty broker and
+  is unchanged).
+
+**Not changed, measured: the produce path's `block_in_place`.** Under a franz-go client writing 60,000 records to six partitions
+(acks=all) the macOS broker ran 14 threads; twelve seconds after the load it was back to 4 (the keep-alive). That is the partition
+writers' flushes handing their worker over; whether a dedicated flush thread or `spawn_blocking` does better under load is a
+benchmark for the hot path, not this pass.
+
+**Not changed: the committed-offset expiry sweep** (every 600 s by default: a hundredth of the 7-day retention, capped). Sleeping
+to the earliest expiry would mean knowing, for every group, when its offsets begin to expire, which depends on whether the group has
+members, when it emptied and its members' sessions, all of which change outside the store; one wake every ten minutes is 0.0017 a
+second. It now reads the store on the blocking pool like the other sweeps.
+
+**Not changed: the schema registry loads every schema at start.** Measured (release, in memory): 5,000 Avro schemas of 21 fields,
+4.1 MB of records, open in 6.4 ms. Loading on first use would save that at start and the memory of the schemas for a registry never
+used, at the cost of a corrupt record failing the first request instead of the start; at a local developer's scale (tens of
+schemas) the start cost is under a millisecond, so it stays eager.
+
+**The console recorder's ring** (2,000 rows, 1 MiB at most) keeps its rows however long the broker is idle: they are the history
+the Live page shows. The comment that said "an idle ring holds nothing" now says it holds nothing only until the first request
+(CON-307).
