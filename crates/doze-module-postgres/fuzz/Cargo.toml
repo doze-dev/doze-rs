@@ -9,6 +9,8 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+serde_json = "1"
 
 # Not part of the main workspace: fuzzing needs a nightly toolchain. The module is a binary crate, so the parsers are
 # included by path.
@@ -29,5 +31,11 @@ doc = false
 [[bin]]
 name = "fuzz_rows"
 path = "fuzz_targets/fuzz_rows.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_bundle"
+path = "fuzz_targets/fuzz_bundle.rs"
 test = false
 doc = false

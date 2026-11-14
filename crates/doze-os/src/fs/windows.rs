@@ -84,6 +84,13 @@ pub(super) fn clone_dir(src: &Path, dst: &Path) -> io::Result<()> {
     Ok(())
 }
 
+pub(super) fn symlink(_: &Path, link: &Path) -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        format!("{}: links are not made on Windows", link.display()),
+    ))
+}
+
 pub(super) fn make_executable(_: &Path) -> io::Result<()> {
     Ok(())
 }

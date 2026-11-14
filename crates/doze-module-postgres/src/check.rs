@@ -3,7 +3,7 @@
 
 use crate::names::On;
 use crate::spec::{PostgresSpec, some};
-use crate::{conf, ext, sql};
+use crate::{catalog, conf, ext, sql};
 use doze_module::help;
 use doze_module::proto::msg::error::Diagnostic;
 use doze_module::proto::msg::instance::Instance;
@@ -214,11 +214,11 @@ const RESERVED_DATABASES: [&str; 3] = ["postgres", "template0", "template1"];
 /// Names as their extension (an alias is its extension), each once across the list and the blocks, and each one this
 /// major can have ([`ext::refused`]).
 fn extensions(s: &PostgresSpec, inst: &Instance, major: u32, out: &mut Vec<Diagnostic>) {
-    let listed: Vec<String> = s.extensions.iter().map(|n| ext::canonical(n)).collect();
+    let listed: Vec<String> = s.extensions.iter().map(|n| catalog::canonical(n)).collect();
     let mut blocks: Vec<String> = Vec::new();
     for (i, e) in s.extension.iter().enumerate() {
         let here = vec![key("extension"), index(i)];
-        let name = ext::canonical(&e.name);
+        let name = catalog::canonical(&e.name);
         if e.name.is_empty() {
             out.push(at(
                 here.clone(),
@@ -238,7 +238,7 @@ fn extensions(s: &PostgresSpec, inst: &Instance, major: u32, out: &mut Vec<Diagn
         let path = match s
             .extension
             .iter()
-            .position(|b| ext::canonical(&b.name) == e.name)
+            .position(|b| catalog::canonical(&b.name) == e.name)
         {
             Some(b) => vec![key("extension"), index(b)],
             None => vec![
@@ -246,7 +246,7 @@ fn extensions(s: &PostgresSpec, inst: &Instance, major: u32, out: &mut Vec<Diagn
                 index(
                     s.extensions
                         .iter()
-                        .position(|n| ext::canonical(n) == e.name)
+                        .position(|n| catalog::canonical(n) == e.name)
                         .unwrap_or(i),
                 ),
             ],

@@ -182,3 +182,13 @@
 {"id":"valkey/018-pair-save-settings","engine":"valkey","version":"9","hcl":"valkey \"t\" {\n  version = \"9\"\n  save = \"value-3\"\n  settings = { tuning = \"on\" }\n}\n"}
 {"id":"valkey/019-unknown-arg","engine":"valkey","version":"9","hcl":"valkey \"t\" {\n  version = \"9\"\n  bogus_setting = 1\n}\n"}
 {"id":"valkey/020-wrong-type-maxmemory","engine":"valkey","version":"9","hcl":"valkey \"t\" {\n  version = \"9\"\n  maxmemory = [\"not\", \"a\", \"string\"]\n}\n"}
+{"id":"postgres/071-catalog","engine":"postgres","version":"18","hcl":"postgres \"t\" {\n  version = \"18\"\n  extensions = [\"vector\"]\n}\n"}
+{"id":"postgres/072-catalog-alias-line","engine":"postgres","version":"17","hcl":"postgres \"t\" {\n  version = \"17\"\n  extension \"pgvector\" {\n    version = \"0.8\"\n  }\n}\n"}
+{"id":"postgres/073-catalog-release","engine":"postgres","version":"17","hcl":"postgres \"t\" {\n  version = \"17\"\n  extension \"vector\" {\n    version = \"0.8.1\"\n  }\n}\n"}
+{"id":"postgres/074-catalog-provided","engine":"postgres","version":"18","hcl":"postgres \"t\" {\n  version = \"18\"\n  extensions = [\"postgis_raster\"]\n}\n"}
+{"id":"postgres/075-catalog-requires","engine":"postgres","version":"18","hcl":"postgres \"t\" {\n  version = \"18\"\n  extensions = [\"vectorscale\"]\n}\n"}
+{"id":"postgres/076-catalog-major","engine":"postgres","version":"17","hcl":"postgres \"t\" {\n  version = \"17\"\n  extensions = [\"vectorscale\"]\n}\n"}
+{"id":"postgres/077-catalog-major-old","engine":"postgres","version":"14","hcl":"postgres \"t\" {\n  version = \"14\"\n  extensions = [\"timescaledb\"]\n}\n"}
+{"id":"postgres/078-catalog-bad-pin","engine":"postgres","version":"18","hcl":"postgres \"t\" {\n  version = \"18\"\n  extension \"vector\" {\n    version = \"latest\"\n  }\n}\n"}
+{"id":"postgres/079-catalog-bad-pin-optional","engine":"postgres","version":"18","hcl":"postgres \"t\" {\n  version = \"18\"\n  extension \"vector\" {\n    version = \"v1\"\n    optional = true\n  }\n}\n"}
+{"id":"postgres/080-catalog-typo","engine":"postgres","version":"18","hcl":"postgres \"t\" {\n  version = \"18\"\n  extensions = [\"vectr\"]\n}\n"}

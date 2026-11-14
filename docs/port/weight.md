@@ -835,3 +835,20 @@ behaviour the module uses.
 `doze-module-ferret` **1,006,976 B**, 49 packages (mariadb 922,288 B and 44 on the same build): +85 KB over mariadb for
 the BSON, the OP_MSG client and serde_json, which reads the seed files. Under the 1 MiB (1,048,576 B) line a module of
 this kind has until the modules plan sets per-module lines.
+
+## Core M2: postgres extensions (pgext), measured 2026-11-15, release, darwin/arm64
+
+`doze-module-postgres` goes from **1,796,912 B to 2,045,600 B** (+248,688 B, +13.8%), and from 49 to 59 packages.
+The ten new packages are `flate2` and `miniz_oxide`, which inflate a `source` bundle's `.tar.gz` (the tar reader is the
+module's own, fuzzed as `fuzz_bundle`), and `serde_json` with its small dependencies, which read bundle.json and
+read and write the toolchain's ledger in Go's JSON shape. In `cargo bloat` those crates are about 39 KiB of text
+(serde_json 20, miniz_oxide 12, flate2 7). The rest of the rise is the module's own code:
+- the catalog;
+- fetching, checking and pinning catalog bundles;
+- hashing, pinning and unpacking `source` bundles;
+- the ledgered install;
+- preload and the PostgreSQL 18 paths;
+- create-or-update at a bundle's version.
+
+This is a small, justified rise for the feature the plan called for (modules plan step 13), so it was my call. The
+module has no CI weight line. Its idle memory is unchanged: nothing new runs until `resolve` or `converge`.

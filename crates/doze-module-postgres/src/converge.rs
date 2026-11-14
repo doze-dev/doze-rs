@@ -8,10 +8,10 @@
 //! moved. Two converges racing on one server (a boot and a first connection) both succeed, as in Go.
 
 use crate::psql::{Psql, wrap};
-use crate::spec::{Ext, PostgresSpec, some};
-use crate::{Postgres, ext, sql};
+use crate::spec::{PostgresSpec, some};
+use crate::{Postgres, sql};
 use doze_module::caps::{Converge, Objects};
-use doze_module::proto::msg::error::{Error, ErrorKind};
+use doze_module::proto::msg::error::Error;
 use doze_module::proto::msg::instance::{Object, Toolchain};
 use doze_module::{Cx, Result, help};
 
@@ -80,55 +80,6 @@ async fn database(p: &Psql, name: &str, s: &PostgresSpec) -> Result<()> {
         .map_err(at())
 }
 
-/// One extension: created or updated, and moved if its declared schema is another.
-async fn extension(p: &Psql, db: &str, e: &Ext) -> Result<()> {
-    let q = format!(
-        "SELECT EXISTS(SELECT 1 FROM pg_available_extensions WHERE name = {})",
-        sql::lit(&e.name)
-    );
-    if !p.yes(db, &q).await? {
-        return Err(Error::new(
-            ErrorKind::Unavailable,
-            "this PostgreSQL build does not ship it (bundles from `source` and doze's catalog are installed by a later \
-             release of the module)",
-        ));
-    }
-    p.exec(db, &ext::statements(e)).await?;
-    let Some(want) = &e.schema else { return Ok(()) };
-    let q = format!(
-        "SELECT n.nspname FROM pg_extension x JOIN pg_namespace n ON n.oid = x.extnamespace WHERE x.extname = {}",
-        sql::lit(&e.name)
-    );
-    if p.column(db, &q)
-        .await?
-        .first()
-        .is_some_and(|now| now != want)
-    {
-        let moved = format!(
-            "ALTER EXTENSION {} SET SCHEMA {}",
-            sql::ident(&e.name),
-            sql::ident(want)
-        );
-        p.exec(db, &[moved]).await?;
-    }
-    Ok(())
-}
-
-async fn extensions(cx: &Cx<PostgresSpec>, p: &Psql) -> Result<()> {
-    let db = &cx.instance.name;
-    for e in cx.spec.exts() {
-        match extension(p, db, &e).await {
-            Ok(()) => {}
-            Err(why) if e.optional => cx.log(
-                2,
-                format!("extension {:?} skipped: {}", e.name, why.message),
-            ),
-            Err(why) => return Err(wrap(format!("extension {:?}", e.name))(why)),
-        }
-    }
-    Ok(())
-}
-
 /// What `role` holds on `on` that a grant or its removal takes back: every privilege, except an owner's on what it
 /// owns.
 pub(crate) async fn revocations(
@@ -153,7 +104,7 @@ impl Converge for Postgres {
                 .await
                 .map_err(wrap("schemas".into()))?;
         }
-        extensions(cx, &p).await?;
+        crate::create::extensions(cx, &p, tc).await?;
         for g in &s.grant {
             let Some(on) = sql::target(g) else { continue };
             let db = on.runs_in(name);
@@ -214,6 +165,7 @@ impl Objects for Postgres {
                 o(&e.version),
                 o(&e.schema),
                 o(&e.source),
+                o(&e.sha256),
                 e.optional.to_string(),
                 e.cascade.to_string(),
             ];

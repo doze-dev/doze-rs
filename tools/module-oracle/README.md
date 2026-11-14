@@ -10,8 +10,11 @@ the Rust ports are checked against, case by case.
 - `corpus.ts`: generates the cases from the descriptions: the example, every version, every argument alone (two values)
   and together, pairs, each nested block (two, a duplicated label, labelled and unlabelled, with every argument), version
   gates, an unknown argument, a type mismatch.
-- `corpus.jsonl`, `golden.jsonl`: 184 cases (postgres 71, ferret 32, mariadb 24, valkey 21, temporal 19, kvrocks 17);
-  126 decode and plan, 58 are refused. Committed, so the Rust comparison runs anywhere without Go.
+- `corpus.jsonl`, `golden.jsonl`: 194 cases (postgres 81, ferret 32, mariadb 24, valkey 21, temporal 19, kvrocks 17);
+  131 decode and plan, 63 are refused. Committed, so the Rust comparison runs anywhere without Go. The last ten are
+  postgres extensions from doze's catalog (core plan M2), recorded from doze-modules main at a8500e0, where `pgext` is
+  merged; they were appended rather than the file regenerated, because main's ferret now answers 11 of its cases
+  differently from the `pgext` branch the rest was recorded from.
 - The comparison itself is `doze_module_test::oracle::compare`: refusals must agree (not their wording), and so must the
   connection variable and URL, objects (kind and name), and each planned process's program, arguments, added
   environment, order, readiness check and hooks. A module lists deliberate departures (a Go bug it fixes) with reasons.

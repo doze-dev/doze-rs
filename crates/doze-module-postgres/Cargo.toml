@@ -14,10 +14,16 @@ workspace = true
 [dependencies]
 doze-module = { path = "../doze-module" }
 doze-os = { path = "../doze-os" }
+# Source extension bundles are .tar.gz: flate2 inflates (the tar reader is the module's own, fuzzed as fuzz_bundle).
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 getrandom = "0.4"
+hex = "0.4"
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
 tokio = { version = "1.54", features = ["process", "io-util", "time", "net", "macros"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["tls12"] }
+# A bundle's bundle.json and the toolchain's ledger (Go's JSON shape).
+serde_json = "1"
+sha2 = "0.11"
 
 [dev-dependencies]
 doze-module-test = { path = "../doze-module-test" }
