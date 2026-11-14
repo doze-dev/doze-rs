@@ -112,8 +112,7 @@ fn change(path: &Path, cwd: &Path) -> Result<Option<Change>, Diagnostic> {
 
 /// A path relative to where the person is, when it is under there (Go's `displayPath`).
 fn shown(path: &Path, cwd: &Path) -> String {
-    path.strip_prefix(cwd)
-        .map_or_else(|_| path.display().to_string(), |r| r.display().to_string())
+    crate::project::shown(path, cwd)
 }
 
 fn count(n: usize) -> String {

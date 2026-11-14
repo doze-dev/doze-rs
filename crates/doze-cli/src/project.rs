@@ -61,3 +61,20 @@ fn has_hcl(dir: &Path) -> bool {
             .any(|e| e.path().extension().is_some_and(|x| x == "hcl") && e.path().is_file())
     })
 }
+
+/// A path as the CLI prints it: relative to `cwd` when it is under it, with `/` between folders on every system (one
+/// text for scripts and transcripts; Windows tools take `/` too). The folder itself is `.`.
+pub fn shown(path: &Path, cwd: &Path) -> String {
+    let Ok(rel) = path.strip_prefix(cwd) else {
+        return path.display().to_string();
+    };
+    let parts: Vec<String> = rel
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect();
+    if parts.is_empty() {
+        ".".to_owned()
+    } else {
+        parts.join("/")
+    }
+}

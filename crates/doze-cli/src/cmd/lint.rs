@@ -60,19 +60,15 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Lint) -> Outcome {
             why = "this doze reads a certificate when it serves it".to_owned();
         }
     }
-    let shown = loaded
-        .project
-        .source
-        .as_ref()
-        .unwrap_or(&loaded.project.config)
-        .strip_prefix(&ctx.cwd)
-        .map_or_else(|_| cfg.path.clone(), |p| p.display().to_string());
-    // The folder doze runs in is `.`, as Go prints `-c .`.
-    let shown = if shown.is_empty() {
-        ".".to_owned()
-    } else {
-        shown
-    };
+    // As typed, relative to here (`-c .` is `.`, as Go prints it).
+    let shown = crate::project::shown(
+        loaded
+            .project
+            .source
+            .as_ref()
+            .unwrap_or(&loaded.project.config),
+        &ctx.cwd,
+    );
     let problem = (!a.offline && !unchecked.is_empty()).then(|| {
         Diagnostic::new(
             ids::NOT_ALL_CHECKED,

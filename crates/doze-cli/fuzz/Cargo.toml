@@ -57,3 +57,7 @@ name = "fuzz_env"
 path = "fuzz_targets/fuzz_env.rs"
 test = false
 doc = false
+
+# The workspace's vendored, patched hcl-edit (vendor/hcl-edit/PATCHES.md), which doze-hcl needs.
+[patch.crates-io]
+hcl-edit = { path = "../../../vendor/hcl-edit" }

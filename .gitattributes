@@ -4,3 +4,6 @@ crates/doze-hcl/testdata/** -text
 crates/doze-config/testdata/** -text
 # The embedded public suffix list: the same bytes on every checkout.
 crates/doze-config/data/*.fc -text
+# doze-cli: Go goldens and transcripts are compared byte for byte.
+crates/doze-cli/tests/fixtures/** -text
+crates/doze-cli/tests/transcripts/** -text

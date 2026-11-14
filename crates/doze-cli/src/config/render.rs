@@ -131,9 +131,8 @@ fn line_offset(source: &str, line: usize) -> usize {
 
 /// A path as the person would type it: relative to where they are when it is under there.
 fn shown(file: &str, cwd: &Path) -> String {
-    let p = Path::new(file);
-    p.strip_prefix(cwd)
-        .map_or_else(|_| file.to_owned(), |r| r.display().to_string())
+    // doze-config names a file relative to where doze runs, or absolutely: both print the same way.
+    crate::project::shown(&cwd.join(file), cwd)
 }
 
 #[cfg(test)]

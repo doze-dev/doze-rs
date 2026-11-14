@@ -4,6 +4,8 @@
 use std::path::{Path, PathBuf};
 
 const FORBIDDEN: [&str; 3] = ["/Users/", "/private/tmp", "/var/folders"];
+/// A home no machine has: allowed.
+const PLACEHOLDER: &str = "/Users/dev/";
 
 fn files(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -37,7 +39,11 @@ fn no_testdata_holds_a_local_path() {
         };
         let text = String::from_utf8_lossy(&bytes);
         for needle in FORBIDDEN {
-            if text.contains(needle) {
+            // `/Users/dev/` is a made-up home in hand-written fixtures (a stack trace in doze-control's scripts).
+            let real = text
+                .match_indices(needle)
+                .any(|(at, _)| !text[at..].starts_with(PLACEHOLDER));
+            if real {
                 bad.push(format!("{} holds {needle}", f.display()));
             }
         }
