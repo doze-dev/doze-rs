@@ -227,7 +227,12 @@ async fn send(post: Post) {
                 format!("{} answered {}", post.url, a.status)
             }
             Ok(a) => {
-                tracing::warn!("SNS {}: {} answered {}; not retried", post.what, post.url, a.status);
+                tracing::warn!(
+                    "SNS {}: {} answered {}; not retried",
+                    post.what,
+                    post.url,
+                    a.status
+                );
                 break;
             }
             Err(Failure::Unsupported(why)) => {

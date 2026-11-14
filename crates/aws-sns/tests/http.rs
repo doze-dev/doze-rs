@@ -270,7 +270,11 @@ async fn an_https_endpoint_is_confirmed_and_sent_notifications_and_a_self_signed
     let path = url.strip_prefix(&format!("http://{addr}")).unwrap();
     let (status, confirmed) = http(addr, "GET", path, "", "").await;
     assert_eq!(status, 200, "{confirmed}");
-    query(addr, &format!("Action=Publish&TopicArn={topic}&Message=sealed")).await;
+    query(
+        addr,
+        &format!("Action=Publish&TopicArn={topic}&Message=sealed"),
+    )
+    .await;
     let got = server.seen(2).await;
     assert_eq!(body(&got[1])["Message"], "sealed");
     assert!(got[1].starts_with("POST /secure HTTP/1.1\r\n"));

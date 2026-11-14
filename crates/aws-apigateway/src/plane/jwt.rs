@@ -1,17 +1,24 @@
-//! JSON Web Tokens: an HTTP API's `JWT` authorizer and a REST API's `COGNITO_USER_POOLS` authorizer. A token is read, its issuer,
-//! audience (or `client_id`), expiry and not-before are checked, and the route's scopes against its `scope`/`scp`. The signature is
-//! verified (RS256) against the issuer's JWKS when the issuer can be reached over `http://` (a local identity provider); an `https://`
-//! issuer cannot be fetched without a TLS client, and Cognito is not served here, so for those the claims are checked and the
-//! signature is not (said in doze-aws's log, once per issuer).
-
-use std::time::Duration;
+//! JSON Web Tokens: an HTTP API's `JWT` authorizer and a REST API's `COGNITO_USER_POOLS` authorizer.
+//!
+//! **JWT** (HTTP APIs), in AWS's order: the token is read; it must be signed with an RSA algorithm ("Currently, only RSA-based
+//! algorithms are supported": RS256, RS384, RS512; an ES256 or HS256 token is refused); the signature is verified against the issuer's
+//! JWKS (`jwks.rs`: fetched over `https://` or `http://`, kept two hours); then `iss`, `exp`, `nbf`, the audience (`aud`, else
+//! `client_id`) and the route's scopes (`scope`/`scp`). A refusal is 401 `{"message":"Unauthorized"}` with a
+//! `www-authenticate: Bearer scope="" error="invalid_token" error_description="…"` header, a missing scope 403 `Forbidden` with
+//! `error="insufficient_scope"` (the header and its descriptions are (memory)). When the keys cannot be fetched (the issuer is down,
+//! or its certificate is refused), the token is refused, as AWS refuses it, and doze-aws's log says why (with the flag that fixes a
+//! refused certificate).
+//!
+//! **COGNITO_USER_POOLS** (REST APIs): the claims are checked; the signature is not, because Cognito is not served here and a token
+//! from a local test cannot be signed by a real pool.
 
 use aws_wire::service::WebReply;
 use serde_json::{Value, json};
 
 use super::event::Context;
+use super::jwks::{Jwks, rsa_verifies};
 use super::mapping::{plain, v2_source};
-use super::{Found, Incoming, Route, client, reply};
+use super::{Found, Incoming, Route, reply};
 use crate::doc::text;
 
 /// A token taken apart.
@@ -23,7 +30,7 @@ pub(crate) struct Token {
     signature: Vec<u8>,
 }
 
-fn b64url(s: &str) -> Option<Vec<u8>> {
+pub(crate) fn b64url(s: &str) -> Option<Vec<u8>> {
     let mut t = s.replace('-', "+").replace('_', "/");
     while !t.len().is_multiple_of(4) {
         t.push('=');
@@ -48,69 +55,74 @@ pub(crate) fn decode(token: &str) -> Option<Token> {
     })
 }
 
-/// Whether an RS256 signature verifies under the JWK `{kty: RSA, n, e}`.
-pub(crate) fn rs256(jwk: &Value, t: &Token) -> bool {
-    let (Some(n), Some(e)) = (
-        text(jwk, "n").and_then(b64url),
-        text(jwk, "e").and_then(b64url),
-    ) else {
-        return false;
-    };
-    let bits = |b: &[u8]| u32::try_from(b.len() * 8).unwrap_or(0);
-    let (Ok(n), Ok(e)) = (
-        rsa::BoxedUint::from_be_slice(&n, bits(&n)),
-        rsa::BoxedUint::from_be_slice(&e, bits(&e).max(64)),
-    ) else {
-        return false;
-    };
-    rsa::PublicKey::new(n, e).is_ok_and(|key| {
-        key.pkcs1v15_verify::<rsa::sha2::Sha256>(t.signed.as_bytes(), &t.signature)
-            .is_ok()
-    })
-}
+/// Why a token is refused: the `error_description` of the `www-authenticate` header (memory).
+type Refusal = String;
 
-/// The issuer's keys, from `<issuer>/.well-known/openid-configuration` and its `jwks_uri`; `None` when they cannot be fetched.
-async fn jwks(issuer: &str) -> Option<Vec<Value>> {
-    let get = |url: String| client::Out {
-        method: "GET".into(),
-        url,
-        headers: Vec::new(),
-        body: bytes::Bytes::new(),
-        timeout: Duration::from_secs(5),
-    };
-    let config = client::call(&get(format!(
-        "{}/.well-known/openid-configuration",
-        issuer.trim_end_matches('/')
-    )))
-    .await
-    .ok()?;
-    let config: Value = serde_json::from_slice(&config.body).ok()?;
-    let keys = client::call(&get(text(&config, "jwks_uri")?.to_owned()))
-        .await
-        .ok()?;
-    let keys: Value = serde_json::from_slice(&keys.body).ok()?;
-    keys.get("keys").and_then(Value::as_array).cloned()
-}
-
-/// Whether the signature verifies: `Some(false)` when it does not, `None` when the issuer's keys cannot be had.
-async fn signature_ok(issuer: &str, t: &Token) -> Option<bool> {
-    if !issuer.starts_with("http://") {
-        tracing::info!(
-            "JWT from {issuer}: claims checked, signature not verified (no TLS client to fetch its keys)"
-        );
-        return None;
-    }
-    let keys = jwks(issuer).await?;
-    let kid = text(&t.header, "kid");
+/// Whether the signature verifies under one of the issuer's keys.
+async fn signature_ok(jwks: &Jwks, issuer: &str, t: &Token, now_ms: i64) -> Result<(), Refusal> {
     let alg = text(&t.header, "alg").unwrap_or_default();
-    if alg != "RS256" {
-        return Some(false);
+    if !matches!(alg, "RS256" | "RS384" | "RS512") {
+        return Err(format!("signing method {alg} is invalid"));
     }
-    Some(
-        keys.iter()
-            .filter(|k| kid.is_none() || text(k, "kid") == kid)
-            .any(|k| rs256(k, t)),
-    )
+    let kid = text(&t.header, "kid");
+    let keys = jwks.keys(issuer, kid, now_ms).await.map_err(|why| {
+        tracing::warn!("JWT authorizer: the keys of {issuer} could not be fetched, so the token is refused: {why}");
+        "unable to fetch the issuer's public keys".to_owned()
+    })?;
+    let mut candidates = keys
+        .iter()
+        .filter(|k| kid.is_none() || text(k, "kid") == kid)
+        .peekable();
+    if candidates.peek().is_none() {
+        return Err(format!(
+            "the key id {} is not in the issuer's JWKS",
+            kid.unwrap_or_default()
+        ));
+    }
+    if candidates.any(|k| rsa_verifies(k, alg, t.signed.as_bytes(), &t.signature)) {
+        Ok(())
+    } else {
+        Err("the token's signature is invalid".to_owned())
+    }
+}
+
+/// The JWT authorizer's refusal: 401, and why in `www-authenticate` (memory).
+fn refused(why: &str) -> WebReply {
+    tracing::debug!("JWT authorizer: {why}");
+    let mut r = reply::message(401, "Unauthorized");
+    r.headers.push((
+        "www-authenticate".into(),
+        format!(
+            "Bearer scope=\"\" error=\"invalid_token\" error_description=\"{}\"",
+            why.replace('"', "'")
+        ),
+    ));
+    r
+}
+
+/// Why the claims refuse the token, if they do.
+fn claims_refuse(claims: &Value, config: &Value, now_secs: i64) -> Option<Refusal> {
+    let at = |k: &str| claims.get(k).and_then(Value::as_i64);
+    if at("exp").is_some_and(|e| e <= now_secs) {
+        return Some("the token has expired".into());
+    }
+    if at("nbf").is_some_and(|n| n > now_secs) {
+        return Some("the token is not valid yet".into());
+    }
+    let audience: Vec<String> = config
+        .get("audience")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().map(plain).collect())
+        .unwrap_or_default();
+    let aud: Vec<String> = match claims.get("aud") {
+        Some(Value::String(s)) => vec![s.clone()],
+        Some(Value::Array(a)) => a.iter().map(plain).collect(),
+        _ => text(claims, "client_id")
+            .map(|c| vec![c.to_owned()])
+            .unwrap_or_default(),
+    };
+    (!audience.is_empty() && !aud.iter().any(|a| audience.contains(a)))
+        .then(|| "the token does not have a valid audience".into())
 }
 
 fn times_ok(claims: &Value, now_secs: i64) -> bool {
@@ -137,13 +149,16 @@ fn wanted_scopes(route: &Route) -> Vec<String> {
 
 /// An HTTP API's `JWT` authorizer.
 pub(crate) async fn v2(
+    jwks: &Jwks,
     found: &Found,
     route: &Route,
     req: &Incoming,
     extra: &mut Context,
 ) -> Result<(), WebReply> {
-    let unauthorized = || reply::message(401, "Unauthorized");
-    let auth = route.authorizer.as_ref().ok_or_else(unauthorized)?;
+    let auth = route
+        .authorizer
+        .as_ref()
+        .ok_or_else(|| reply::message(401, "Unauthorized"))?;
     let source = auth
         .get("identitySource")
         .and_then(Value::as_array)
@@ -158,34 +173,30 @@ pub(crate) async fn v2(
         &Value::Null,
         &Value::Null,
     );
-    let token = decode(&raw).ok_or_else(unauthorized)?;
+    if raw.is_empty() {
+        return Err(reply::message(401, "Unauthorized"));
+    }
+    let token = decode(&raw).ok_or_else(|| refused("token is malformed"))?;
     let config = auth.get("jwtConfiguration").cloned().unwrap_or(Value::Null);
     let issuer = text(&config, "issuer").unwrap_or_default();
-    if text(&token.claims, "iss") != Some(issuer) || !times_ok(&token.claims, req.now_ms / 1000) {
-        return Err(unauthorized());
+    if text(&token.claims, "iss") != Some(issuer) {
+        return Err(refused("the token has an invalid issuer"));
     }
-    let audience: Vec<String> = config
-        .get("audience")
-        .and_then(Value::as_array)
-        .map(|a| a.iter().map(plain).collect())
-        .unwrap_or_default();
-    let aud: Vec<String> = match token.claims.get("aud") {
-        Some(Value::String(s)) => vec![s.clone()],
-        Some(Value::Array(a)) => a.iter().map(plain).collect(),
-        _ => text(&token.claims, "client_id")
-            .map(|c| vec![c.to_owned()])
-            .unwrap_or_default(),
-    };
-    if !audience.is_empty() && !aud.iter().any(|a| audience.contains(a)) {
-        return Err(unauthorized());
-    }
-    if signature_ok(issuer, &token).await == Some(false) {
-        return Err(unauthorized());
+    signature_ok(jwks, issuer, &token, req.now_ms)
+        .await
+        .map_err(|why| refused(&why))?;
+    if let Some(why) = claims_refuse(&token.claims, &config, req.now_ms / 1000) {
+        return Err(refused(&why));
     }
     let have = scopes_of(&token.claims);
     let want = wanted_scopes(route);
     if !want.is_empty() && !want.iter().any(|w| have.contains(w)) {
-        return Err(reply::message(403, "Forbidden"));
+        let mut r = reply::message(403, "Forbidden");
+        r.headers.push((
+            "www-authenticate".into(),
+            format!("Bearer scope=\"{}\" error=\"insufficient_scope\" error_description=\"the token does not have the required scope\"", want.join(" ")),
+        ));
+        return Err(r);
     }
     let claims: serde_json::Map<String, Value> = token
         .claims

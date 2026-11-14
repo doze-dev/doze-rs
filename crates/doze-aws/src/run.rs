@@ -15,6 +15,7 @@ use crate::cli::{Args, AuthMode};
 
 pub(crate) async fn run(args: Args) -> Result<()> {
     let _lock = DataDirLock::take(&args.data_dir, "doze-aws")?;
+    outbound_tls(&args)?;
     let tasks = Tasks::new();
     // The bus the services call each other over; each is registered on it as well as on the gateway.
     let peers = Peers::new();
@@ -82,6 +83,26 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     tracing::info!("stopping");
     running.shutdown().await;
     tasks.shutdown().await;
+    Ok(())
+}
+
+/// Whom outbound https calls trust: the OS store, `--ca-file`, or (said loudly) nothing is verified.
+fn outbound_tls(args: &Args) -> Result<()> {
+    let trust = aws_webhook::Trust::new(args.ca_file.as_deref(), args.insecure_outbound_tls)
+        .map_err(anyhow::Error::msg)?;
+    if trust.insecure {
+        tracing::warn!(
+            "--insecure-outbound-tls: the certificates of outbound https calls (SNS https subscriptions, API destinations, API Gateway HTTP integrations, JWT issuers) are NOT verified. Use this only with local servers; --ca-file <PEM> trusts a self-signed certificate without turning verification off"
+        );
+    }
+    if let Some(file) = &args.ca_file {
+        tracing::info!(
+            "outbound https trusts the OS trust store and {} certificate(s) of {}",
+            trust.extra.len(),
+            file.display()
+        );
+    }
+    aws_webhook::configure(trust);
     Ok(())
 }
 

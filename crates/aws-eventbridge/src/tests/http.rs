@@ -284,6 +284,9 @@ fn an_https_destination_is_called_over_tls_and_an_untrusted_certificate_is_a_fai
     w.put("default", "x", &json!({}));
     w.rt.block_on(async { tokio::time::sleep(std::time::Duration::from_millis(200)).await });
     let last = w.core.calls.attempts().pop().unwrap();
-    assert_eq!((last.result.as_str(), last.retrying), ("ConnectionFailed", true));
+    assert_eq!(
+        (last.result.as_str(), last.retrying),
+        ("ConnectionFailed", true)
+    );
     assert!(w.rt.block_on(untrusted.seen(0)).is_empty());
 }

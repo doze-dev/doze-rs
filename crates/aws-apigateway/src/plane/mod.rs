@@ -17,6 +17,7 @@ mod custom;
 mod event;
 mod find;
 mod httpapi;
+mod jwks;
 mod jwt;
 mod lambda;
 mod mapping;
@@ -38,7 +39,7 @@ use crate::core::{Answer, Api, Ask};
 
 /// An HTTP answer read from bytes (for the fuzz target).
 pub(crate) fn client_parse(raw: &[u8]) -> bool {
-    client::parse(raw).is_ok()
+    aws_webhook::fuzz::http_answer(raw)
 }
 
 /// A JSON Web Token read (for the fuzz target).
@@ -46,11 +47,13 @@ pub(crate) fn jwt_decode(text: &str) -> bool {
     jwt::decode(text).is_some()
 }
 
-/// What the plane keeps beside the actors: the authorizer cache and the open WebSocket connections.
+/// What the plane keeps beside the actors: the authorizer cache, the open WebSocket connections, the issuers' keys.
 #[derive(Debug, Default)]
 pub(crate) struct State {
     pub(crate) cache: auth::Cache,
     pub(crate) ws: ws::Connections,
+    /// The JWT authorizers' issuers' keys.
+    pub(crate) jwks: jwks::Jwks,
 }
 
 impl State {

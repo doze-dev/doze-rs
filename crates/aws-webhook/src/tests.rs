@@ -36,12 +36,23 @@ async fn a_server_the_ca_signed_is_called_and_answers() {
     assert_eq!((a.status, &a.body[..]), (201, &b"hello"[..]));
     assert!(a.headers.contains(&("X-Seen".to_owned(), "yes".to_owned())));
     let seen = server.seen(1).await;
-    assert!(seen[0].starts_with("POST /hook?x=1 HTTP/1.1\r\n"), "{}", seen[0]);
+    assert!(
+        seen[0].starts_with("POST /hook?x=1 HTTP/1.1\r\n"),
+        "{}",
+        seen[0]
+    );
     assert!(seen[0].contains(&format!("Host: 127.0.0.1:{}\r\n", server.port)));
     assert!(seen[0].ends_with("\r\n\r\n{}"));
     // By name too: the certificate is for localhost.
     let url = format!("https://localhost:{}/", server.port);
-    assert_eq!(ca_only().fetch(&Request::new("GET", &url)).await.unwrap().status, 201);
+    assert_eq!(
+        ca_only()
+            .fetch(&Request::new("GET", &url))
+            .await
+            .unwrap()
+            .status,
+        201
+    );
 }
 
 #[tokio::test]
@@ -51,8 +62,14 @@ async fn a_self_signed_server_is_refused_and_the_error_names_both_flags() {
     let Err(Failure::Tls(why)) = ca_only().fetch(&Request::new("GET", &url)).await else {
         panic!("a self-signed certificate was accepted");
     };
-    assert!(why.contains("not signed by an authority this machine trusts"), "{why}");
-    assert!(why.contains("--ca-file") && why.contains("--insecure-outbound-tls"), "{why}");
+    assert!(
+        why.contains("not signed by an authority this machine trusts"),
+        "{why}"
+    );
+    assert!(
+        why.contains("--ca-file") && why.contains("--insecure-outbound-tls"),
+        "{why}"
+    );
     assert!(why.contains(&format!("127.0.0.1:{}", server.port)), "{why}");
     assert!(server.seen(0).await.is_empty());
 }
@@ -67,7 +84,9 @@ async fn a_ca_file_holding_the_servers_own_certificate_lets_it_through() {
     let server = serve(identity, ok()).await;
     let mut trust = Trust::new(Some(&file), false).unwrap();
     trust.os_store = false;
-    let a = Client::new(trust).fetch(&Request::new("GET", &server.url())).await;
+    let a = Client::new(trust)
+        .fetch(&Request::new("GET", &server.url()))
+        .await;
     assert_eq!(a.unwrap().status, 200);
     std::fs::remove_dir_all(&dir).ok();
 }
@@ -120,7 +139,9 @@ async fn plain_http_still_works_and_a_silent_server_times_out() {
                 held.push(s);
                 continue;
             }
-            s.write_all(b"HTTP/1.1 204 No Content\r\n\r\n").await.unwrap();
+            s.write_all(b"HTTP/1.1 204 No Content\r\n\r\n")
+                .await
+                .unwrap();
         }
     });
     let url = format!("http://127.0.0.1:{port}/fast");

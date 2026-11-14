@@ -24,7 +24,11 @@ pub(crate) fn wire(r: &Request<'_>, authority: &str, path: &str) -> Vec<u8> {
 }
 
 /// Sends the request on `stream` and reads the answer.
-pub(crate) async fn exchange<S>(stream: &mut S, r: &Request<'_>, bytes: &[u8]) -> Result<Answer, Failure>
+pub(crate) async fn exchange<S>(
+    stream: &mut S,
+    r: &Request<'_>,
+    bytes: &[u8],
+) -> Result<Answer, Failure>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -118,7 +122,7 @@ pub(crate) fn parse(raw: &[u8]) -> Result<Answer, Failure> {
         k.eq_ignore_ascii_case("transfer-encoding") && v.to_ascii_lowercase().contains("chunked")
     });
     let body = if chunked {
-        dechunk(body).map_err(|w| bad(w))?
+        dechunk(body).map_err(bad)?
     } else {
         body.to_vec()
     };
@@ -172,9 +176,18 @@ mod tests {
 
     #[test]
     fn an_answer_is_complete_by_its_framing() {
-        assert!(complete(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nhi", false));
-        assert!(!complete(b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nhi", false));
-        assert!(complete(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n", false));
+        assert!(complete(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nhi",
+            false
+        ));
+        assert!(!complete(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nhi",
+            false
+        ));
+        assert!(complete(
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n",
+            false
+        ));
         assert!(!complete(b"HTTP/1.1 200 OK\r\n\r\nstreaming", false));
         assert!(complete(b"HTTP/1.1 204 No\r\n", true));
     }
@@ -187,6 +200,9 @@ mod tests {
         };
         let w = String::from_utf8(wire(&r, "h:81", "/p")).unwrap();
         assert!(w.starts_with("POST /p HTTP/1.1\r\nHost: h:81\r\n"), "{w}");
-        assert!(w.ends_with("Content-Length: 1\r\nConnection: close\r\n\r\nx"), "{w}");
+        assert!(
+            w.ends_with("Content-Length: 1\r\nConnection: close\r\n\r\nx"),
+            "{w}"
+        );
     }
 }

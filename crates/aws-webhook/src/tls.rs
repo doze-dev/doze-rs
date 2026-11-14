@@ -18,7 +18,9 @@ use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, Server
 use rustls::crypto::{CryptoProvider, WebPkiSupportedAlgorithms};
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::{CertificateError, ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme};
+use rustls::{
+    CertificateError, ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme,
+};
 use tokio_rustls::TlsConnector;
 
 /// Whom the client trusts.
@@ -125,7 +127,9 @@ fn roots(trust: &Trust) -> Result<RootCertStore, String> {
     }
     let (extra, refused) = roots.add_parsable_certificates(trust.extra.iter().cloned());
     if refused > 0 {
-        tracing::warn!("outbound TLS: {refused} certificate(s) of --ca-file are not usable as roots");
+        tracing::warn!(
+            "outbound TLS: {refused} certificate(s) of --ca-file are not usable as roots"
+        );
     }
     tracing::info!("outbound TLS: {from_os} roots from the OS trust store, {extra} from --ca-file");
     if roots.is_empty() {
@@ -152,9 +156,11 @@ pub(crate) fn explain(host: &str, port: u16, e: &std::io::Error) -> String {
         CertificateError::NotValidYet | CertificateError::NotValidYetContext { .. } => format!(
             "the certificate {at} presented is not valid yet (is the clock right?); or start doze-aws with --insecure-outbound-tls"
         ),
-        CertificateError::NotValidForName | CertificateError::NotValidForNameContext { .. } => format!(
-            "the certificate {at} presented is not for the name {host}: call the server by a name its certificate lists, or start doze-aws with --insecure-outbound-tls"
-        ),
+        CertificateError::NotValidForName | CertificateError::NotValidForNameContext { .. } => {
+            format!(
+                "the certificate {at} presented is not for the name {host}: call the server by a name its certificate lists, or start doze-aws with --insecure-outbound-tls"
+            )
+        }
         other => format!("the certificate {at} presented was refused ({other:?}); {flags}"),
     }
 }

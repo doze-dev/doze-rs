@@ -94,6 +94,15 @@ pub(crate) struct Args {
     /// Name resources a template leaves unnamed after their logical id, instead of AWS's `<stack>-<logical>-<random>`.
     #[arg(long)]
     pub(crate) cfn_logical_names: bool,
+    /// Certificate authorities (a PEM file of one or more certificates) trusted for outbound https calls, beside the operating
+    /// system's trust store: SNS https subscriptions, EventBridge API destinations, API Gateway HTTP integrations, JWT issuers. A
+    /// local server's self-signed certificate is its own authority.
+    #[arg(long, value_name = "PEM")]
+    pub(crate) ca_file: Option<PathBuf>,
+    /// Do not verify the certificates of outbound https calls (local servers with self-signed certificates). Local development
+    /// only: anyone on the network path could answer in the server's place.
+    #[arg(long)]
+    pub(crate) insecure_outbound_tls: bool,
 }
 
 /// What CloudFormation does with types it does not make.

@@ -33,6 +33,7 @@ aws-sfn = { path = "../aws-sfn" }
 aws-cloudformation = { path = "../aws-cloudformation" }
 aws-peers = { path = "../aws-peers" }
 aws-wire = { path = "../aws-wire" }
+aws-webhook = { path = "../aws-webhook" }
 doze-runtime = { path = "../doze-runtime" }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
