@@ -41,3 +41,21 @@ fn unclosed_and_deep_nesting_parse_quickly() {
         );
     }
 }
+
+#[test]
+fn a_huge_object_literal_is_refused_quickly() {
+    let text = format!(
+        "x = {{{}}}\n",
+        (0..30_000)
+            .map(|i| format!("a{i} = 1"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    let start = Instant::now();
+    let r = parse_body(&Source::new(&text));
+    assert!(
+        r.is_err(),
+        "more than 10,000 attributes are refused (catalogue K4)"
+    );
+    assert!(start.elapsed() < Duration::from_millis(500));
+}

@@ -5,11 +5,23 @@ use super::{Ds, Parser, between, err};
 use crate::diag::Range;
 use crate::lex::{Kind, Token};
 
+/// More than any configuration writes; Go has no limit (catalogue K4).
+const MAX_OBJECT_ITEMS: usize = 10_000;
+
 const UNTERMINATED_OBJECT: &str = "There is no corresponding closing brace before the end of the file. This may be caused by incorrect brace nesting elsewhere in this file.";
 
 impl Parser<'_> {
     pub(crate) fn object_items(&mut self, open: Token, ds: &mut Ds) -> Token {
+        let mut items = 0usize;
         loop {
+            // hcl-edit inserts object keys in quadratic time; bound it (catalogue K4).
+            items += 1;
+            if items > MAX_OBJECT_ITEMS {
+                if !self.recovery {
+                    ds.push(err("Object too large", format!("An object constructor may hold at most {MAX_OBJECT_ITEMS} attributes here."), open.range));
+                }
+                return self.recover(Kind::CBrace);
+            }
             let next = self.peek();
             match next.kind {
                 Kind::Newline => {

@@ -292,9 +292,17 @@ fn merge_type(args: &[Value]) -> Result<Type, FuncError> {
 
 fn merge(args: &[Value], ret: &Type) -> Out {
     let mut out: BTreeMap<String, Value> = BTreeMap::new();
+    // After an untyped null the type was not checked: Go iterates whatever comes, and panics on
+    // what it cannot iterate or name.
     for a in args.iter().filter(|a| !a.is_null()) {
+        if !a.can_iterate() {
+            return Err(panic_error("attempt to iterate on non-collection"));
+        }
         for (k, v) in a.elements() {
-            out.insert(k.as_str().unwrap_or("").to_owned(), v);
+            let Some(key) = k.as_str() else {
+                return Err(panic_error("not a string"));
+            };
+            out.insert(key.to_owned(), v);
         }
     }
     match ret {

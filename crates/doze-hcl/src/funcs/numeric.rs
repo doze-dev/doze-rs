@@ -152,7 +152,7 @@ fn parseint(args: &[Value], _: &Type) -> Out {
     if digits.is_empty() {
         return Err(bad());
     }
-    let mut mag = BigUint::default();
+    let mut values = Vec::with_capacity(digits.len());
     for c in digits.chars() {
         let d = match c {
             '0'..='9' => u32::from(c) - u32::from('0'),
@@ -164,6 +164,18 @@ fn parseint(args: &[Value], _: &Type) -> Out {
         if d >= base {
             return Err(bad());
         }
+        values.push(d);
+    }
+    // Past the exponent limit (catalogue N9) the result is infinite anyway; stopping here keeps a
+    // huge literal linear instead of quadratic.
+    let significant = values.iter().skip_while(|d| **d == 0).count();
+    if significant as f64 * f64::from(base).log2() > 131_200.0 {
+        return Ok(Value::Number(
+            Number::parse(if neg { "-Inf" } else { "+Inf" }).unwrap_or_else(|| Number::from_i64(0)),
+        ));
+    }
+    let mut mag = BigUint::default();
+    for d in values {
         mag = mag * base + d;
     }
     Ok(Value::Number(Number::from_bigint(neg, mag)))

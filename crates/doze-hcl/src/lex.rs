@@ -6,12 +6,12 @@
 //! `scan_tokens.rl`, longest match first, checked against Go's own tokens (`oracle-dump lex`).
 
 mod chars;
+mod ident_tables;
 mod scan;
 
 pub(crate) use chars::utf8_len as scan_utf8_len;
 
 use crate::diag::{Pos, Range};
-use unicode_segmentation::UnicodeSegmentation;
 
 /// Go's `TokenType`, named as Go names them without the `Token` prefix.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -184,16 +184,12 @@ impl Accum {
 
 /// Moves `p` over `bytes` by grapheme clusters (each invalid byte is a cluster of its own).
 pub(crate) fn advance(p: &mut Pos, bytes: &[u8]) {
-    for chunk in bytes.utf8_chunks() {
-        for g in chunk.valid().graphemes(true) {
-            if g == "\n" || g == "\r\n" {
-                p.line += 1;
-                p.column = 1;
-            } else {
-                p.column += 1;
-            }
+    crate::funcs::graphemes::each(bytes, |g| {
+        if g == b"\n" || g == b"\r\n" {
+            p.line += 1;
+            p.column = 1;
+        } else {
+            p.column += 1;
         }
-        let bad = u32::try_from(chunk.invalid().len()).unwrap_or(u32::MAX);
-        p.column = p.column.saturating_add(bad);
-    }
+    });
 }

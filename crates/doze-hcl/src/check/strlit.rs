@@ -5,7 +5,6 @@ use super::{Ds, err};
 use crate::diag::{Pos, Range};
 use crate::lex::scan_utf8_len;
 use crate::lex::{Kind, Token};
-use unicode_segmentation::UnicodeSegmentation;
 
 /// `checkInvalidTokens`, with Go's limits on how often each kind is told.
 pub(crate) fn invalid_tokens(src: &[u8], toks: &[Token]) -> Ds {
@@ -162,18 +161,13 @@ fn slices(b: &[u8]) -> Vec<(usize, usize)> {
 /// `ParseStringLiteralToken`'s position walk: grapheme clusters, and a cluster that starts with a
 /// line break starts a new line.
 fn advance(p: &mut Pos, slice: &[u8]) {
-    for chunk in slice.utf8_chunks() {
-        for g in chunk.valid().graphemes(true) {
-            p.byte += u32::try_from(g.len()).unwrap_or(u32::MAX);
-            if g.starts_with(['\r', '\n']) {
-                p.line += 1;
-                p.column = 1;
-            } else {
-                p.column += 1;
-            }
+    crate::funcs::graphemes::each(slice, |g| {
+        p.byte += u32::try_from(g.len()).unwrap_or(u32::MAX);
+        if g.starts_with(b"\r") || g.starts_with(b"\n") {
+            p.line += 1;
+            p.column = 1;
+        } else {
+            p.column += 1;
         }
-        let bad = u32::try_from(chunk.invalid().len()).unwrap_or(u32::MAX);
-        p.byte = p.byte.saturating_add(bad);
-        p.column = p.column.saturating_add(bad);
-    }
+    });
 }

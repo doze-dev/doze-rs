@@ -27,13 +27,13 @@ use support::{canon, variables};
 fn rust_result(expr: &str, ctx: &Context<'_>) -> Json {
     match eval_attribute(&format!("x = {expr}\n"), "x", ctx) {
         Err(d) => {
-            json!({"ok": false, "stage": "parse", "at": d.subject.map(|r| [r.start.line, r.start.column])})
+            json!({"ok": false, "stage": "parse", "at": d.subject.map(|r| [r.start.line, r.start.column, r.end.line, r.end.column])})
         }
         Ok((_, diags)) if diags.has_errors() => {
             let first = diags
                 .iter()
                 .find_map(|d| d.subject)
-                .map(|r| [r.start.line, r.start.column]);
+                .map(|r| [r.start.line, r.start.column, r.end.line, r.end.column]);
             json!({"ok": false, "stage": "eval", "at": first})
         }
         Ok((v, _)) => {
@@ -55,7 +55,14 @@ fn go_result(line: &Json) -> Json {
     let at = line["diags"]
         .as_array()
         .and_then(|ds| ds.iter().find_map(|d| d.get("at")))
-        .map(|a| json!([a["start"]["line"], a["start"]["col"]]));
+        .map(|a| {
+            json!([
+                a["start"]["line"],
+                a["start"]["col"],
+                a["end"]["line"],
+                a["end"]["col"]
+            ])
+        });
     json!({"ok": false, "stage": stage, "at": at.unwrap_or(Json::Null)})
 }
 

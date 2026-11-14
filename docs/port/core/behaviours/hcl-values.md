@@ -135,11 +135,13 @@ PATH=/usr/bin:/bin`). Corpus ids are `fn.*` (`exprs-funcs.json`), `fn2.*` (`expr
 | # | Behaviour | Held by |
 |---|---|---|
 | L1 | Go's scanner by hand: the same tokens with the same byte ranges, lines and columns (columns from the gap in bytes before a token and grapheme clusters inside it), including Ragel's longest-match fallbacks (`/*` unterminated is `/` `*`; `<<EOT` without a newline is `<` `<` `EOT`) and its held character in heredocs (`$x` then a line break is one token, `$xy` is two) | `tests/oracle_syntax.rs` `tokens_match_go`: 5,827 sources (2,500 random fragment sequences, 1,500 mutants of the real sources, the sources, every eval expression) |
-| L2 | Identifiers are Unicode ID_Start/ID_Continue as Go's tables have them; U+200C/U+200D are not identifier characters (Go's tables predate Unicode 15.1) | same |
+| L2 | Identifiers are Go's: `_`, `-` and Unicode **9.0** `ID_Start`/`ID_Continue`, as a table swept from hclsyntax over every code point (`src/lex/ident_tables.rs`). Known difference: about 20 characters that are ID but not XID (U+037A, U+309B, U+FDFA, …) pass the check and are then refused by hcl-edit, whose identifiers are XID | `identifiers_are_unicode_9_as_in_go`; the H2 audit's sweep of 257,792 code points, identical |
+| L4 | Columns count Go's grapheme clusters (go-textseg v15, Unicode 15.0: no GB9c conjuncts; a malformed UTF-8 sequence Ragel reads as one character is one) in token positions, escape ranges and `Source::pos`. A leading BOM is skipped as Go skips it | corpus `h2audit3` (Indic text), H3 fmt corpora |
 | L3 | Deliberate difference: Ragel accepts overlong and surrogate UTF-8 sequences as characters; doze-hcl reads them the same way when lexing, but counts each invalid byte as one column | fuzz only |
 | K1 | Every diagnostic Go's parser gives, in Go's order (token checks first, then the parser's, with Go's recovery and its "recovery mode" that silences later ones), with Go's range and summary; details follow Go's words (re-baselining is the CLI's, O6) | `tests/oracle_syntax.rs` `diagnostics_match_go`: 5,827 sources, 2,554 refused, about 8,300 diagnostics, all identical |
 | K2 | Go's aliasing kept: "Missing close bracket on index" (and on a splat) points where recovery stopped, because Go's diagnostic holds a pointer to the variable recovery overwrites | `mut.0510` |
 | K3 | Deliberate difference: nesting deeper than 128 levels is refused ("Nesting too deep") to bound the stack; Go has no limit, and hcl-edit already refuses beyond 64 (S5) | `tests/hostile.rs` |
+| K4 | Deliberate difference: an object constructor holds at most 10,000 attributes ("Object too large"); hcl-edit inserts keys in quadratic time (25,000 took 1.4 s). Go has no limit | `tests/hostile.rs` |
 
 ## Type expressions (H2: `src/typeexpr.rs`)
 

@@ -23,13 +23,20 @@ pub(super) fn char_at(b: &[u8]) -> Option<(char, usize)> {
     Some((c, n))
 }
 
+/// Go's identifier start: `_` or Unicode 9.0 `ID_Start`.
 pub(super) fn is_id_start(c: char) -> bool {
-    c == '_' || unicode_ident::is_xid_start(c)
+    c == '_' || in_ranges(super::ident_tables::ID_START, c)
 }
 
-/// Go's tables predate Unicode 15.1, which made the zero-width joiners identifier characters.
+/// Go's identifier continuation: `_`, `-` or Unicode 9.0 `ID_Continue`.
 fn is_id_continue(c: char) -> bool {
-    c == '-' || unicode_ident::is_xid_continue(c) && c != '\u{200c}' && c != '\u{200d}'
+    c == '-' || c == '_' || in_ranges(super::ident_tables::ID_CONTINUE, c)
+}
+
+fn in_ranges(ranges: &[(u32, u32)], c: char) -> bool {
+    let c = u32::from(c);
+    let i = ranges.partition_point(|(_, hi)| *hi < c);
+    ranges.get(i).is_some_and(|(lo, _)| *lo <= c)
 }
 
 pub(super) fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
