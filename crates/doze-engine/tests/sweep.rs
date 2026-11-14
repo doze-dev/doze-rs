@@ -72,3 +72,44 @@ async fn the_sweep_refuses_once_something_runs() {
     e.shutdown().await;
     assert!(all_gone(&[pid]).await);
 }
+
+/// Audit 4, N4: Go writes its record once the start is ready, which can be well after the spawn (the longest readiness
+/// budget, with hooks). A record written a minute after its leader started is swept; one written 20 minutes after is
+/// not (the pid was more likely reused).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_go_record_is_swept_up_to_15_minutes_after_the_spawn() {
+    if !doze_os::process::sweep_needed() {
+        return;
+    }
+    let d = Dir::new("gosweepwin");
+    let run_dir = d.path().join("run");
+    std::fs::create_dir_all(&run_dir).unwrap();
+    let record = |pid: u32, ahead: Duration| {
+        let path = run_dir.join("backend-go.pid");
+        std::fs::write(&path, format!("{pid}\n")).unwrap();
+        let f = std::fs::File::options().write(true).open(&path).unwrap();
+        f.set_modified(std::time::SystemTime::now() + ahead)
+            .unwrap();
+    };
+    let spawn = || {
+        let mut cmd = tokio::process::Command::new(HELPER);
+        cmd.arg("ignore").stdin(std::process::Stdio::null());
+        Tree::spawn(cmd).unwrap()
+    };
+    let late = spawn();
+    let late_pid = late.pid().unwrap();
+    record(late_pid, Duration::from_secs(20 * 60));
+    let killed = doze_engine::pidfile::sweep(&run_dir);
+    let stayed = doze_os::process::alive(late_pid);
+    // Dropping the tree kills it (its own pid, exactly).
+    drop(late);
+    assert!(killed.is_empty(), "{killed:?}");
+    assert!(stayed, "a record 20 minutes after the spawn is not swept");
+    let mut soon = spawn();
+    let pid = soon.pid().unwrap();
+    record(pid, Duration::from_secs(60));
+    let killed = doze_engine::pidfile::sweep(&run_dir);
+    assert_eq!(killed, [pid], "a record a minute after the spawn is swept");
+    let ended = tokio::time::timeout(Duration::from_secs(5), soon.wait()).await;
+    assert!(matches!(ended, Ok(Ok(st)) if !st.success()), "{ended:?}");
+}

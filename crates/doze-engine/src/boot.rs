@@ -7,7 +7,7 @@ use crate::error::Error;
 use crate::events::{Cause, Event, Kind};
 use crate::lifecycle::Now;
 use crate::logs::RunLog;
-use crate::machine::Unit;
+use crate::machine::{Cancel, Unit};
 use crate::process::idle_policy;
 use crate::stack::{Endpoint, Kind as SvcKind, PlanCtx, Planned, Service, When};
 use crate::steps::{self, Moment, StepEnv};
@@ -23,7 +23,7 @@ pub(crate) struct Start {
     pub(crate) boot: u64,
     pub(crate) rerun: bool,
     pub(crate) tx: watch::Sender<Phase>,
-    pub(crate) cancel: watch::Receiver<bool>,
+    pub(crate) cancel: watch::Receiver<Option<Cancel>>,
 }
 
 pub(crate) fn spawn(e: &Engine, name: &str, when: When, s: Start) {
@@ -46,12 +46,18 @@ pub(crate) fn spawn(e: &Engine, name: &str, when: When, s: Start) {
         // with its guard. Then the machine hears it, and the instance is asleep.
         let res = tokio::select! {
             biased;
-            _ = cancel.wait_for(|c| *c) => {
+            _ = cancel.wait_for(Option::is_some) => {
                 let fx = e.update(|c| c.m.boot_cancelled(&name, boot, Now::current()));
                 e.run(fx);
-                Err(Error::Failed(format!("{name} was stopped while it was starting")))
+                Err(Error::Failed(String::new()))
             }
             r = run => r,
+        };
+        // A cancelled start's waiters hear why, whichever side won the race (audit 4, N1 and N2).
+        let why = *cancel.borrow();
+        let res = match (res, why) {
+            (Err(_), Some(why)) => Err(cancelled(&name, why)),
+            (res, _) => res,
         };
         e.update(|c| {
             c.boots.remove(&boot);
@@ -62,6 +68,14 @@ pub(crate) fn spawn(e: &Engine, name: &str, when: When, s: Start) {
             Err(err) => Phase::Failed(err),
         });
     });
+}
+
+/// What the waiters of a cancelled start of `name` hear.
+fn cancelled(name: &str, why: Cancel) -> Error {
+    Error::Failed(match why {
+        Cancel::Stopped => format!("{name} was stopped while it was starting"),
+        Cancel::Exited => format!("{name} exited while it was getting ready"),
+    })
 }
 
 async fn start(e: &Engine, name: &str, boot: u64, when: When) -> Result<Endpoint, Error> {
@@ -361,7 +375,9 @@ async fn on_ready(
     let Err(msg) = ran else {
         return Ok(());
     };
-    let fx = e.update(|c| c.m.on_ready_failed(name, boot, &msg, started.elapsed()));
+    let fx = e.update(|c| {
+        c.m.on_ready_failed(name, boot, &msg, started.elapsed(), Now::current())
+    });
     e.run(fx);
     Err(Error::Failed(format!("on_ready for \"{name}\": {msg}")))
 }
@@ -371,9 +387,13 @@ async fn rerun_on_ready(e: &Engine, name: &str, boot: u64) -> Result<Endpoint, E
     let started = Instant::now();
     let log = e.update(|c| c.live.get(name).and_then(|l| l.log.clone()));
     let Some(log) = log else {
-        return Err(Error::Failed(format!(
-            "{name} has no log to run on_ready against"
-        )));
+        // The machine hears it, so the start does not stay in flight (audit 4, N6).
+        let msg = "it has no log to run on_ready against";
+        let fx = e.update(|c| {
+            c.m.on_ready_failed(name, boot, msg, started.elapsed(), Now::current())
+        });
+        e.run(fx);
+        return Err(Error::Failed(format!("on_ready for \"{name}\": {msg}")));
     };
     on_ready(e, name, boot, &log, started).await?;
     let ep = e.update(|c| {

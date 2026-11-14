@@ -5,7 +5,7 @@ use crate::error::{BuildError, Error};
 use crate::events::{Cause, Event};
 use crate::lifecycle::Now;
 use crate::logs::RunLog;
-use crate::machine::{Decision, Effect, Machine};
+use crate::machine::{Cancel, Decision, Effect, Machine};
 use crate::process::Step;
 use crate::stack::{Endpoint, Service, Stack, When};
 use crate::state::{Holder, Instance};
@@ -45,7 +45,7 @@ pub(crate) struct Core {
     /// Starts in flight by id.
     pub(crate) boots: BTreeMap<u64, watch::Receiver<Phase>>,
     /// What cancels each start in flight.
-    pub(crate) cancels: BTreeMap<u64, watch::Sender<bool>>,
+    pub(crate) cancels: BTreeMap<u64, watch::Sender<Option<Cancel>>>,
     pub(crate) live: BTreeMap<String, Live>,
 }
 
@@ -231,7 +231,7 @@ impl Engine {
                 }
                 // Starts are spawned by the wake that decided them (it knows how far to wake).
                 Effect::StartBoot { .. } => {}
-                Effect::CancelBoot { boot, .. } => waits.push(self.cancel_boot(boot)),
+                Effect::CancelBoot { boot, why, .. } => waits.push(self.cancel_boot(boot, why)),
             }
         }
         waits
@@ -243,11 +243,11 @@ impl Engine {
     }
 
     /// Cancels start `boot`; the task ends once the start has dropped what it was doing.
-    fn cancel_boot(&self, boot: u64) -> JoinHandle<()> {
+    fn cancel_boot(&self, boot: u64, why: Cancel) -> JoinHandle<()> {
         let rx = {
             let c = self.lock();
             if let Some(tx) = c.cancels.get(&boot) {
-                let _ = tx.send(true);
+                let _ = tx.send(Some(why));
             }
             c.boots.get(&boot).cloned()
         };
@@ -366,7 +366,7 @@ impl Engine {
                     }),
                     Decision::Start(b) => {
                         let (tx, rx) = watch::channel(Phase::Booting);
-                        let (cancel_tx, cancel) = watch::channel(false);
+                        let (cancel_tx, cancel) = watch::channel(None);
                         c.boots.insert(b, rx.clone());
                         c.cancels.insert(b, cancel_tx);
                         let s = crate::boot::Start {

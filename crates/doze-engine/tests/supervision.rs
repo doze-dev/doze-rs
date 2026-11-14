@@ -186,3 +186,26 @@ async fn a_log_check_waits_for_this_runs_line() {
     e.shutdown().await;
     assert!(all_gone(&[first, second]).await);
 }
+
+/// Audit 4, N1: the process crashes while the first start's `on_ready` runs. The waiter hears the crash, not a stop
+/// nobody asked for, at once rather than when the step ends; with a policy the restart still comes.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_crash_during_the_first_on_ready_is_reported_as_the_crash() {
+    let d = Dir::new("firstready");
+    let mut spec = ProcessSpec::new(run(&["exit", "3", "800"]), d.path()).restart(quick_restart(1));
+    spec.on_ready = vec![Step::argv(["sleep", "5"])];
+    let e = Engine::builder("t", d.path())
+        .service(svc("w", spec))
+        .build()
+        .unwrap();
+    let t = std::time::Instant::now();
+    let err = e.wake("w", Cause::Command).await.unwrap_err().to_string();
+    assert_eq!(err, "w exited while it was getting ready");
+    assert!(t.elapsed() < Duration::from_secs(4), "{:?}", t.elapsed());
+    let restarted = eventually(Duration::from_secs(20), || {
+        e.get("w").is_some_and(|i| i.restart_count >= 1)
+    })
+    .await;
+    assert!(restarted, "{:?}", e.get("w"));
+    e.shutdown().await;
+}

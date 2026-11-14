@@ -25,8 +25,12 @@ pub enum Effect {
         rerun: bool,
     },
     /// Cancel start `boot` of `name` now (drop what it is doing: its processes go with it), then report
-    /// [`Machine::boot_cancelled`].
-    CancelBoot { name: String, boot: u64 },
+    /// [`Machine::boot_cancelled`]. `why` is what its waiters hear.
+    CancelBoot {
+        name: String,
+        boot: u64,
+        why: Cancel,
+    },
     /// Stop unit `generation` of `name`, then report [`Machine::unit_gone`].
     StopUnit { name: String, generation: u64 },
     /// Record these pids for `name`.
@@ -43,6 +47,15 @@ pub enum Effect {
     RestartNow { name: String },
     /// Publish a journal event.
     Journal(Event),
+}
+
+/// Why a start in flight is cancelled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Cancel {
+    /// A stop, `off` or the shutdown.
+    Stopped,
+    /// Its processes exited while `on_ready` ran (audit 4, N1): the crash, not a stop, is what the waiter hears.
+    Exited,
 }
 
 /// What a wake comes to.
@@ -358,16 +371,22 @@ impl Machine {
         )
     }
 
-    /// `on_ready` of `boot` failed: the processes keep running, the instance is failed, the next wake reruns it.
+    /// `on_ready` of `boot` failed: the processes keep running, the instance is failed, the next wake reruns it. A start
+    /// already cancelled (its step lost the race with the cancel) is cancelled, not failed: a crash's restart stays
+    /// pending and its state is kept (audit 4, N2).
     pub fn on_ready_failed(
         &mut self,
         name: &str,
         boot: u64,
         msg: &str,
         took: Duration,
+        now: Now,
     ) -> Vec<Effect> {
         if !self.current_boot(name, boot) {
             return Vec::new();
+        }
+        if self.ctl(name).cancel_boot {
+            return self.boot_cancelled(name, boot, now);
         }
         let c = self.ctl(name);
         c.boot = None;
@@ -388,6 +407,9 @@ impl Machine {
     ) -> (bool, Vec<Effect>) {
         if !self.current_boot(name, boot) {
             return (false, Vec::new());
+        }
+        if self.ctl(name).cancel_boot {
+            return (false, self.boot_cancelled(name, boot, now));
         }
         let c = self.ctl(name);
         c.boot = None;
