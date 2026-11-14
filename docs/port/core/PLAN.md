@@ -553,3 +553,19 @@ doze: `cmd/doze/*`, `internal/{config,runspec,runtime,registry,supervisor,health
   fixed, three reviewed differences kept and documented (`crates/doze-hcl/testdata/eval/known-differences.json`).
   Open: hcl-edit's slow path on unclosed nesting (upstream; for H2). Counted as H1's planned scope
   (21 days); next is H2 (functions, typeexpr, diagnostics, syntax-error mapping).
+- **2026-11-14, H2 (doze-hcl functions, typeexpr, diagnostics, syntax errors), done**, PR #43 (`core-h2`, on #40).
+  The 49 functions agree with Go on 2,993 new cases plus 1,879 from the audit, with 5 reviewed differences.
+  A hand port of Go's scanner, and of the parser's diagnostic control flow, gives every syntax diagnostic
+  Go gives, in Go's order and range: 5,827/5,827 sources, about 8,300 diagnostics. That closes the 27 open
+  syntax positions, and S6 (hcl-edit no longer sees broken nesting).
+  `typeexpr` matches on 112 cases. The independent audit found no blocker; its fixes are in, including
+  Go's Unicode 9.0 identifier table and full diagnostic ranges.
+- **2026-11-14, H3 (fmt, editor, decode), done**, PR #44 (`core-h3`, on #43). `fmt` is byte-identical to
+  hclwrite on 177/177 sources and on 6,239 random, broken and audit inputs, so O11 is met. The editor
+  (`doze add`/`init`) is identical on 2,273 cases, 6 of them reviewed. Content, PartialContent,
+  JustAttributes and MergeFiles match on 1,724 reads. Audited, and the fixes are in.
+- **H4 started**: `core-h4` holds the `doze-config` crate and its oracle corpus. That is 224 doze.hcl
+  sources (the Go tests' inline HCL, the docs fences and the examples), with Go's loaded config or
+  diagnostics (106 accepted, 118 refused). The schema, variables and the rest are not built yet.
+  Pace: H2 and H3 (26 planned days) were done on the critical path in one session, with the function
+  library delegated.
