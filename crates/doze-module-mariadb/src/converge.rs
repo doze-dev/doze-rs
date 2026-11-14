@@ -24,12 +24,18 @@ pub(crate) fn provisioned(data: &Path) -> bool {
 /// converge drops them ([`anonymous`]).
 pub(crate) async fn install_db(tc: &Toolchain, data: &Path) -> Result<()> {
     doze_os::fs::private_dir(data).map_err(help::io_error("creating", data))?;
+    // Its own temporary folder beside the data: bootstraps running at once must not share /tmp's temporary tables
+    // (CI's arm runners failed "Unknown table 'mysql.tmp_user_sys'" with two at once).
+    let tmp = data.with_extension("tmp");
+    doze_os::fs::private_dir(&tmp).map_err(help::io_error("creating", &tmp))?;
     let datadir = format!("--datadir={}", data.to_string_lossy());
+    let tmpdir = format!("--tmpdir={}", tmp.to_string_lossy());
     help::run_tool(
         &tool(tc, "mariadb-install-db"),
         &[
             "--no-defaults",
             &datadir,
+            &tmpdir,
             "--auth-root-authentication-method=normal",
             "--skip-test-db",
         ],

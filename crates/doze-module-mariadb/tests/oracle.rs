@@ -94,6 +94,21 @@ async fn answers_as_the_go_module_did_except_for_the_listed_improvements() {
             .unwrap()
             .replace("mariadb-admin ", "mariadb-admin --no-defaults ");
         want["plan"][0]["ready"] = json!(ready);
+        // The server's temporary tables in the instance's own folder, after --datadir.
+        let tmpdir = d.rust["plan"][0]["args"]
+            .as_array()
+            .and_then(|a| {
+                a.iter()
+                    .find(|x| x.as_str().is_some_and(|s| s.starts_with("--tmpdir=")))
+            })
+            .cloned();
+        if let (Some(t), Some(args)) = (tmpdir, want["plan"][0]["args"].as_array_mut()) {
+            let at = args
+                .iter()
+                .position(|x| x.as_str().is_some_and(|s| s.starts_with("--datadir=")))
+                .map_or(args.len(), |i| i + 1);
+            args.insert(at, t);
+        }
         want["objects"].as_array_mut().unwrap().extend(grants(&hcl));
         assert_eq!(
             want, d.rust,

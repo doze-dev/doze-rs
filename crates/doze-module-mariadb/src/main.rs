@@ -192,6 +192,8 @@ impl Module for Mariadb {
             // First: mariadbd then reads only doze's my.cnf, never the machine's.
             format!("--defaults-file={}", path(&data.join(CONF))),
             format!("--datadir={}", path(data)),
+            // Temporary tables in the instance's own private folder, never a /tmp other servers share.
+            format!("--tmpdir={}", cx.instance.socket_dir),
         ];
         args.extend(sql::listen_args(&backend, &cx.instance.socket_dir)?);
         args.push(format!("--pid-file={}", path(&pid)));
