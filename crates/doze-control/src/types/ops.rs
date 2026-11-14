@@ -60,6 +60,9 @@ names! {
         On = "on",
         Resources = "resources",
         Admin = "admin",
+        /// Rust daemon, additive: what `apply` would change, changing nothing (`Response::changes`). A Go daemon
+        /// answers "unknown op", so a client never applies by mistake when it asked for a plan.
+        Plan = "plan",
         Subscribe = "subscribe",
         Events = "events",
         Cancel = "cancel",

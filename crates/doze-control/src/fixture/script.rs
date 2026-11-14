@@ -20,6 +20,7 @@ use std::path::Path;
 use std::time::Duration;
 
 /// One line of a script.
+#[allow(clippy::large_enum_variant)] // test fixtures, read once; boxing would cost every match on them
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Entry {

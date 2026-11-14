@@ -458,6 +458,11 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_rawscan
           cargo fuzz run fuzz_rawscan corpus/fuzz_rawscan ../tests/fixtures/updates -- -max_total_time=30 -max_len=65536
+      - name: Fuzz the process-table reader for 30 seconds
+        working-directory: crates/doze-os/fuzz
+        run: |
+          mkdir -p corpus/fuzz_ps
+          cargo fuzz run fuzz_ps corpus/fuzz_ps -- -max_total_time=30 -max_len=65536
       - name: Fuzz the module protocol's frame decoder for 30 seconds
         working-directory: crates/doze-module-proto/fuzz
         run: |

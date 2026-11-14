@@ -4,9 +4,7 @@
 
 use crate::session::{Writer, reply, send};
 use crate::{Daemon, view};
-use doze_control::{
-    Frame, InstanceView, JOURNAL_FROM_START, LogFrame, Op, Response, StatView, Timestamp,
-};
+use doze_control::{Frame, InstanceView, JOURNAL_FROM_START, LogFrame, Op, Response, Timestamp};
 use std::collections::BTreeMap;
 use std::time::Duration;
 use tokio::sync::watch;
@@ -90,9 +88,10 @@ async fn subscribe(d: &Daemon, w: &Writer, req: &doze_control::Request, gap: Dur
             "stats" => set.spawn(async move { stats(&d, &w, id, gap).await }),
             "journal" => set.spawn(async move { journal(&d, &w, id, since).await }),
             "logs" => set.spawn(async move { logs_for(&d, &w, id, &names, backlog).await }),
-            "console" => set.spawn(async {
-                Err("subscribe: the console topic is not in the Rust daemon yet".into())
-            }),
+            "console" => {
+                let req = req.clone();
+                set.spawn(async move { crate::console::console(&d, &w, &req).await })
+            }
             other => {
                 return Err(format!(
                     "subscribe: no topic called {other:?} (want instances, stats, journal, logs or console)"
@@ -146,27 +145,16 @@ async fn instances(d: &Daemon, w: &Writer, id: u64) -> Done {
     }
 }
 
-/// Each running instance's pid and connections every `gap`. Its RAM and CPU are not sampled yet (D1 open item).
+/// Go's `subStats`: the kept readings, then every running instance's meters every `gap` (each kept too).
 async fn stats(d: &Daemon, w: &Writer, id: u64, gap: Duration) -> Done {
+    let ring = &d.inner.meters;
+    let _watching = ring.watch();
+    for f in ring.history() {
+        emit(w, id, f)?;
+    }
     loop {
-        let stats = d
-            .engine()
-            .snapshot()
-            .into_iter()
-            .filter(|i| i.state.running())
-            .map(|i| StatView {
-                name: i.name,
-                pid: i64::from(i.pid),
-                conns: i64::from(i.conns),
-                ..StatView::default()
-            })
-            .collect();
-        let frame = Frame {
-            topic: "stats".into(),
-            at: Timestamp::from_system_time(std::time::SystemTime::now()),
-            stats,
-            ..Frame::default()
-        };
+        let (at, frame) = crate::meters::sample(d).await;
+        ring.record(at, &frame);
         emit(w, id, frame)?;
         tokio::time::sleep(gap).await;
     }

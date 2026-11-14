@@ -16,23 +16,24 @@ use doze_module_proto::network::MAIN;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-/// The planner of module instance `i`; one that says why it cannot run when its module was not found.
+/// The planner of module instance `i`, and the instance itself for its data, console and client (`None` with a
+/// planner that says why it cannot run when its module was not found).
 pub fn module(
     cat: &Arc<Catalog>,
     i: &Instance,
     target: &str,
     run_dir: &std::path::Path,
-) -> Arc<dyn Planner> {
+) -> (Arc<dyn Planner>, Option<Arc<ModuleInstance>>) {
     let Some(m) = cat.manifest(&i.ty) else {
         let why = doze_config::modules::Modules::lookup_error(cat.as_ref(), &i.ty)
             .unwrap_or_else(|| format!("no module for {:?}", i.ty));
-        return Arc::new(NoModule { why });
+        return (Arc::new(NoModule { why }), None);
     };
     let addr = doze_config::instance_addr(i, cat.as_ref()).unwrap_or_default();
     let tcp_only = as_module_sees_it(cat, i).is_some_and(|mi| cat.main_is_tcp(&mi));
     let Some(backend) = backend(&addr, &i.name, &m, tcp_only, run_dir) else {
         let why = format!("{}: no loopback port is free for its engine", i.name);
-        return Arc::new(NoModule { why });
+        return (Arc::new(NoModule { why }), None);
     };
     let spec = match &i.spec {
         doze_config::Spec::Module(b) => crate::spec_tree::tree(b, &m.schema),
@@ -54,11 +55,12 @@ pub fn module(
     let lock = cat.lock_path().to_path_buf();
     let sink: doze_engine::modules::PinSink =
         Arc::new(move |pins| catalog::record_pins(&lock, pins));
-    Arc::new(
+    let mi = Arc::new(
         ModuleInstance::new(cat.pool.clone(), base, cat.pins(), target, structured)
             .supervised(supervised)
             .with_pin_sink(sink),
-    )
+    );
+    (mi.clone(), Some(mi))
 }
 
 /// Where the engine listens for the main listener: the declared socket itself for `listen = "unix:…"` (nothing fronts

@@ -157,19 +157,23 @@ async fn a_hanging_stop_step_is_cut_at_ten_seconds_and_the_patience_is_ten_secon
             (name, t.elapsed())
         });
     }
+    let mut took = Vec::new();
     while let Some(r) = stops.join_next().await {
-        let (name, took) = r.unwrap();
-        assert!(
-            took >= Duration::from_secs(10) && took < Duration::from_secs(16),
-            "{name}: 10 s, then a prompt exit on the signal: {took:?}"
-        );
+        took.push(r.unwrap());
     }
-    assert_eq!(lines(&d.file("asked")), 1);
+    // Each step's own time is in the failure message, so a slow stop says which part was slow.
     let steps: Vec<String> = drain(&mut rx)
         .into_iter()
         .filter(|ev| ev.kind == Kind::Step)
         .map(|ev| ev.detail)
         .collect();
+    for (name, took) in took {
+        assert!(
+            took >= Duration::from_secs(10) && took < Duration::from_secs(16),
+            "{name}: 10 s, then a prompt exit on the signal: {took:?}; steps: {steps:?}"
+        );
+    }
+    assert_eq!(lines(&d.file("asked")), 1);
     let want = format!("stop: {}", hang.line);
     assert!(
         steps

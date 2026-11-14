@@ -109,16 +109,21 @@ impl Tree {
         {
             // An exit that must not be reaped has no event of its own: SIGCHLD (any child's) is the wake-up, and each
             // one is checked with `waitid(WNOWAIT)`. The listener is made before the first check, so no exit falls in
-            // between; a long timeout is the safety net. An idle tree costs no wake-ups (audit 3, M2: polling cost
-            // 120 a second for 20 trees). Without a signal listener, it polls at 50 ms.
+            // between. Between wake-ups it also looks on a backoff (`next_look`: 50 ms doubling to the safety net,
+            // back to 50 ms after each wake-up), so a wake-up that never arrives costs a moment, not the caller's
+            // whole timeout: on macOS CI one stop waited out both its 2 s kill wait and its 8 s grace for processes
+            // already killed (E2 #46). An idle tree looks about ten times in its first minute, then twice a minute
+            // (audit 3, M2: polling at 50 ms cost 120 a second for 20 trees). Without a listener, it polls at 50 ms.
             let mut sigchld =
                 tokio::signal::unix::signal(tokio::signal::unix::SignalKind::child()).ok();
+            let mut look = FIRST_LOOK;
             while self.running()? {
                 match sigchld.as_mut() {
                     Some(s) => {
-                        let _ = tokio::time::timeout(CHILD_SAFETY_NET, s.recv()).await;
+                        let woken = tokio::time::timeout(look, s.recv()).await.is_ok();
+                        look = next_look(look, woken);
                     }
-                    None => tokio::time::sleep(Duration::from_millis(50)).await,
+                    None => tokio::time::sleep(FIRST_LOOK).await,
                 }
             }
             Ok(())
@@ -206,9 +211,23 @@ impl Drop for Tree {
     }
 }
 
-/// How long a wait for a leader's exit trusts SIGCHLD before it looks anyway.
+/// The longest a wait for a leader's exit trusts SIGCHLD before it looks anyway.
 #[cfg(unix)]
 const CHILD_SAFETY_NET: Duration = Duration::from_secs(30);
+/// The first look after a wait begins or a SIGCHLD woke it.
+#[cfg(unix)]
+const FIRST_LOOK: Duration = Duration::from_millis(50);
+
+/// When the wait for an exit looks next: soon after a wake-up (an exit may land just after its signal was handled),
+/// then twice as long each time nothing came, up to [`CHILD_SAFETY_NET`].
+#[cfg(unix)]
+fn next_look(last: Duration, woken: bool) -> Duration {
+    if woken {
+        FIRST_LOOK
+    } else {
+        last.saturating_mul(2).min(CHILD_SAFETY_NET)
+    }
+}
 
 /// How long an interrupted process gets before SIGQUIT (Go's database stop: SIGINT 5 s, SIGQUIT 3 s, SIGKILL).
 const INTERRUPT_PATIENCE: Duration = Duration::from_secs(5);
@@ -233,5 +252,24 @@ async fn run_stop_command(argv: &[OsString], grace: Duration) -> io::Result<()> 
             io::ErrorKind::TimedOut,
             "stop command did not finish in time",
         )),
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_lost_wake_up_costs_a_moment_and_an_idle_tree_looks_rarely() {
+        assert_eq!(next_look(Duration::from_secs(8), true), FIRST_LOOK);
+        let mut look = FIRST_LOOK;
+        let (mut waited, mut looks) = (Duration::ZERO, 0);
+        while waited < Duration::from_secs(60) {
+            waited += look;
+            looks += 1;
+            look = next_look(look, false);
+        }
+        assert_eq!(looks, 11, "about ten looks in the first minute");
+        assert_eq!(look, CHILD_SAFETY_NET, "then twice a minute");
     }
 }

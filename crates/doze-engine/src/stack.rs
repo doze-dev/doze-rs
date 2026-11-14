@@ -200,6 +200,11 @@ pub trait Structure: Send + Sync {
         ctx: &'a PlanCtx,
         removed: &'a [Object],
     ) -> BoxFuture<'a, Result<(), String>>;
+    /// What the declaration's structure is, as a hash: a start converges when it differs from the one the last
+    /// converge in the data folder recorded (or none was recorded).
+    fn fingerprint(&self) -> String {
+        String::new()
+    }
 }
 
 /// A whole stack.

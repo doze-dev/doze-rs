@@ -248,6 +248,15 @@ pub enum Change {
 }
 
 impl Change {
+    /// The word: `create`, `update`, `delete`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Change::Create => "create",
+            Change::Update => "update",
+            Change::Delete => "delete",
+        }
+    }
+
     /// The plan's symbol: `+`, `~`, `-`.
     pub fn symbol(self) -> &'static str {
         match self {

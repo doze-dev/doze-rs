@@ -35,7 +35,11 @@ impl Engine {
             self.wake(&n, Cause::Command).await?;
             let ctx = self.ctx_for(&n);
             let fail = |e: String| Error::Failed(format!("syncing \"{n}\": {e}"));
-            s.converge(&ctx).await.map_err(fail)?;
+            if let Err(e) = s.converge(&ctx).await {
+                crate::converge::clear(&ctx.data_dir);
+                return Err(fail(e));
+            }
+            crate::converge::mark(&ctx.data_dir, &s.fingerprint());
             let desired = s.objects(&ctx).await.map_err(fail)?;
             let removed = applied::removed(st.objects(&n), &desired);
             if !removed.is_empty() {
@@ -45,6 +49,29 @@ impl Engine {
             st.set(&n, desired);
         }
         save_keeping_tasks(&path, st)?;
+        Ok(out)
+    }
+
+    /// What `sync` would change for `name` (every instance with structure, when `None`), changing nothing and waking
+    /// nothing: each module says what its declaration wants, against what was applied before.
+    pub async fn plan(&self, name: Option<&str>) -> Result<Synced, Error> {
+        let path = self.stack().state_file.clone();
+        let st = Applied::load(&path).map_err(|e| io_err("reading", &path, &e))?;
+        let mut out = Vec::new();
+        for n in self.targets(name)? {
+            let off = self.update(|c| c.m.table().is_off(&n));
+            let Some(s) = self.structure_of(&n).filter(|_| !off) else {
+                continue;
+            };
+            let desired = s
+                .objects(&self.ctx_for(&n))
+                .await
+                .map_err(|e| Error::Failed(format!("planning \"{n}\": {e}")))?;
+            let changes = applied::diff(st.objects(&n), &desired);
+            if !changes.is_empty() {
+                out.push((n.clone(), changes));
+            }
+        }
         Ok(out)
     }
 
@@ -113,7 +140,7 @@ impl Engine {
     }
 
     /// What a module call about `name` is told: its folders and where its needs are now.
-    fn ctx_for(&self, name: &str) -> PlanCtx {
+    pub fn ctx_for(&self, name: &str) -> PlanCtx {
         let needs = self
             .service(name)
             .map(|s| s.needs.iter().map(|n| n.name.clone()).collect::<Vec<_>>())

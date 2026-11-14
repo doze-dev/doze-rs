@@ -35,8 +35,9 @@ async fn a_stop_takes_the_whole_tree() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_crash_loop_restarts_then_gives_up_and_leaves_nothing() {
     let d = Dir::new("crash");
-    // Alive past the 750 ms liveness check, then exits 3.
-    let spec = ProcessSpec::new(run(&["exit", "3", "1000"]), d.path()).restart(quick_restart(2));
+    // Alive past the 750 ms liveness check, then exits 3. At 1000 ms a start slowed 250 ms by a loaded machine saw the
+    // exit inside its liveness window, a failed start rather than a crash (2 crashes, not 3, once in a gate run).
+    let spec = ProcessSpec::new(run(&["exit", "3", "1500"]), d.path()).restart(quick_restart(2));
     let e = Engine::builder("t", d.path())
         .service(svc("worker", spec))
         .build()

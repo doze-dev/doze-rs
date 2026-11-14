@@ -56,7 +56,12 @@ pub struct Assembled {
     pub labels: BTreeMap<String, Labels>,
     /// Module instances whose module says doze does not sit in front of them.
     pub supervised: std::collections::BTreeSet<String>,
+    /// Each module instance, for its data, console and client.
+    pub modules: Modules,
 }
+
+/// Module instances by name.
+pub type Modules = BTreeMap<String, Arc<doze_engine::modules::ModuleInstance>>;
 
 impl Assembled {
     /// The instances doze sits in front of, for [`Front::open`].
@@ -74,7 +79,7 @@ pub async fn assemble(
     env: BTreeMap<String, String>,
 ) -> Result<Assembled, String> {
     let (path, version) = (config.to_string_lossy().into_owned(), version.to_owned());
-    let (cfg, labels, stack, supervised) = tokio::task::spawn_blocking(move || {
+    let (cfg, labels, (stack, modules), supervised) = tokio::task::spawn_blocking(move || {
         let cfg = load(&path, &version, catalog.as_ref(), env)?;
         let labels = labels(&cfg, catalog.as_ref());
         let stack = stack(&cfg, &catalog);
@@ -95,20 +100,33 @@ pub async fn assemble(
         engine,
         labels,
         supervised,
+        modules,
     })
 }
 
 /// The engine's stack, each module instance planned through the catalog (which asks its module: a blocking thread's).
-fn stack(cfg: &doze_config::Config, catalog: &Arc<Catalog>) -> doze_engine::stack::Stack {
+fn stack(
+    cfg: &doze_config::Config,
+    catalog: &Arc<Catalog>,
+) -> (doze_engine::stack::Stack, Modules) {
     let (target, run_dir) = (doze_fetch::triple(), Path::new(&cfg.data_dir).join("run"));
+    let modules = std::sync::Mutex::new(Modules::new());
     let planner = |i: &Instance| -> Arc<dyn Planner> {
-        crate::planners::module(catalog, i, &target, &run_dir)
+        let (p, mi) = crate::planners::module(catalog, i, &target, &run_dir);
+        if let Some(mi) = mi {
+            crate::lock(&modules).insert(i.name.clone(), mi);
+        }
+        p
     };
     let wiring = doze_config::stack::Wiring {
         planner: &planner,
         extra_env: ca_env(Path::new(&cfg.home)),
     };
-    doze_config::stack::to_stack(cfg, &wiring)
+    let stack = doze_config::stack::to_stack(cfg, &wiring);
+    let modules = modules
+        .into_inner()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    (stack, modules)
 }
 
 #[allow(clippy::print_stderr)] // the daemon's stderr is its log file
@@ -120,6 +138,7 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
         cfg,
         engine,
         labels,
+        modules: instances,
         ..
     } = assembled;
     let run = RunDir::of(Path::new(&cfg.data_dir));
@@ -139,7 +158,8 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     let background = engine.background();
     let modules = tokio::spawn(reap_modules(catalog.clone()));
     let front = Front::open(&engine, &fronts).await;
-    let daemon = Daemon::new(engine.clone(), labels, info);
+    let daemon = Daemon::new(engine.clone(), labels, info).with_modules(instances);
+    let meters = daemon.keep_meters();
     let serving = daemon
         .serve()
         .map_err(|e| format!("serving {}: {e}", run.socket().display()))?;
@@ -157,6 +177,7 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     serving.stop();
     front.close();
     modules.abort();
+    meters.abort();
     drop(background);
     engine.shutdown().await;
     let _ = std::fs::remove_file(run.pid_file());
@@ -254,6 +275,10 @@ fn labels(cfg: &doze_config::Config, cat: &Catalog) -> BTreeMap<String, Labels> 
                 && let Some(p) =
                     crate::planners::as_module_sees_it(cat, i).and_then(|mi| cat.published(&mi))
             {
+                l.connect = cat
+                    .manifest(&i.ty)
+                    .and_then(|m| m.client)
+                    .map(|c| crate::client::view(&c, &l.endpoint, &p.url));
                 (l.url, l.env_var, l.env, l.client) = (p.url, p.env_var, p.env, p.client);
             }
             (i.name.clone(), l)

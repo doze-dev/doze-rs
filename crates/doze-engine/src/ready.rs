@@ -18,8 +18,10 @@ pub const LIVENESS_GRACE: Duration = Duration::from_millis(750);
 /// One probe's own limit.
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 /// One loopback connect's limit: a listener answers in well under a millisecond, and Windows retries a refused
-/// connection for about 2 s before it says so, which would put that under every probe.
-const CONNECT_LIMIT: Duration = Duration::from_millis(250);
+/// connection for about 2 s before it says so, which would put that under every probe. At 250 ms each level of a
+/// chain still paid it once on Windows CI (web, api, db and cache woke in 1.24-1.29 s, 2.97 s on a slow ARM runner,
+/// against 51-57 ms elsewhere); a connect cut at 50 ms is just tried again on the backoff.
+const CONNECT_LIMIT: Duration = Duration::from_millis(50);
 /// How many lines of the log a `log_line` probe reads (Go: the newest run's last 200).
 const LOG_LINES: usize = 200;
 

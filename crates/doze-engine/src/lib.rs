@@ -36,6 +36,7 @@ pub mod tasks;
 pub mod watch;
 
 mod boot;
+mod converge;
 mod engine;
 mod short;
 mod stop;

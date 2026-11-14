@@ -25,6 +25,8 @@ pub struct Labels {
     pub env: std::collections::BTreeMap<String, String>,
     /// The client program its module declares (additive).
     pub client: String,
+    /// The client command, rendered for this instance (additive).
+    pub connect: Option<doze_control::ClientView>,
     /// `enabled = false` in the config.
     pub paused: bool,
     pub group: String,
@@ -72,6 +74,7 @@ pub(crate) fn view(e: &Engine, i: &Instance, l: Option<&Labels>) -> InstanceView
         env_var: l.env_var,
         env: l.env,
         client: l.client,
+        connect: l.connect,
         data_dir: e
             .stack()
             .cluster_dir(&i.name)

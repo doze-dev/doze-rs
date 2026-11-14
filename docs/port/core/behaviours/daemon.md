@@ -44,7 +44,7 @@ Every module that is not supervised and every app or service with a port it does
 
 A local registry signed with a throwaway key (a `dozetest` build reads `DOZE_TEST_REGISTRY_KEY`; release builds never do) served the Rust postgres and valkey modules (core-m1). A shop stack (web → api → postgres, valkey, a migration task) under its own DOZE_HOME, the unchanged app (app-finish `cf23b9bf`, release-app, fixtures for the driver) hands-off. Cold curl of web: 1.33 s, the whole chain woken through the fronts; everything slept after 45 s idle; env/URL/client from the modules on the tiles. kafka and aws faces were not part of it.
 
-Still open: `apply` is not run by the daemon at start (the CLI's `up` calls it; postgres creates the instance's database in `converge`); stats (RAM, CPU) read zero; a task view shows `conns=1`.
+Closed in session 9: converge on a fresh provision (below), stats (below). Still open: a task view shows `conns=1`.
 
 ## Protocol 2: additive fields (Rust daemon only)
 
@@ -68,3 +68,28 @@ Both are filled from the module's own answer (`Catalog::published`); apps, servi
 9. Pins were filtered by type, not engine: every lock pin is passed and the module takes its own. *Fixed.*
 10. A second daemon starts modules before refusing. *Open, minor.*
 11. The `dozetest` key: said on stderr when in use or not a key. *Fixed.*
+
+## Session 9: converge on start, meters, the data ops and the console
+
+| | Go | Rust | Test |
+|---|---|---|---|
+| Converge on start | the boot guard: `fresh \|\| !marked \|\| drifted` converges after the backend is ready and before `on_ready`; a failure taints, stops it and fails the start | the same (`doze-engine/src/converge.rs`), before the start registers; marker `.doze-converged` holds the fingerprint, no newline, as Go's; `sync` writes it too | `tests/sync.rs a_start_converges_a_fresh_or_changed_instance_once` |
+| Fingerprint | sha256 of the plugin's gob spec bytes | sha256 of the version and the block's value tree with every source span cleared (an edit elsewhere in doze.hcl changes nothing) | `modules::tests::where_a_value_was_written_is_not_part_of_the_structure` |
+| Meters | `ps -Ao pid=,ppid=,rss=,%cpu=` once for every root: the root's RSS, the subtree's CPU, an app's children (comm basename, depth first) | the same through `doze_os::meters` (one `ps`; Windows measures nothing, as Go got nothing); children for apps, services and tasks | `doze-os meters::tests`, `doze-daemon tests/meters.rs`, `fuzz_ps` |
+| Stats ring | 240 frames, readings closer than 800 ms are one, unwatched every 5 s while something runs; a subscriber gets the ring first | the same (`doze-daemon/src/meters.rs`) | `tests/meters.rs` |
+| `reset` | stop, remove the data and socket folders, forget a task's run | the same | `doze-module tests/daemon_admin.rs` |
+| `resources`, `admin` | the module's Admin; empty without it; "is not running — boot it first" | the same, from the module's manifest (`admin` capability) and calls | the same |
+| `console` topic | spec and actions first, the stream panel's rows, tables every 2 s, `_runtime` for undeclared rows; never wakes | the same (`doze-daemon/src/console.rs`) | the same |
+| `add`, `remove` | a block wired into the running stack | not yet: the engine has no instances added at run time (open, see below) | |
+
+Differences: an instance's engine word in "has no data actions" is the config's type (`process` for a task) where Go said `app`.
+
+### For the CLI (core-c2c)
+
+- `connect`: `InstanceView.connect` (additive, omitted when the module declares no client): `program`, `path` (the program in the engine's own build, set once a start resolved it), `args` and `env` with `{host}`, `{port}`, `{url}`, `{password}` filled from doze's address for the instance and its connection URL, `fallbacks` (tried on `PATH` when `path` is empty and `program` is not found). The CLI runs it as given. Test: `daemon_admin.rs the_client`; rendering: `client::tests`.
+- `sync --dry-run` and sync's question: the `plan` op (additive; a Go daemon answers "unknown op", so a client cannot apply by mistake) answers `Response.changes`, each `{instance, change: create|update|delete, kind, name}` in the order `apply` would make them. Each module says what its declaration wants (`objects`), against `.doze/state.json`; nothing is woken, converged or written. An empty list means sync has nothing to do (ask only when it is not empty, as Go did). Tests: `doze-engine tests/sync.rs a_plan_lists_the_changes_and_changes_nothing`, `daemon_admin.rs` (the wire).
+- `migrate` and lint's module pass: not served yet. Go's `migrate` is postgres's own major upgrade (dump with the old major, restore into a fresh cluster); a generic form needs a protocol call (a module's own migration, as `run_action` is its own data action) that the postgres module answers; lint's module pass needs an op that loads a doze.hcl through the catalog and returns each module's diagnostics. Both are planned for D1's next session; the CLI keeps its stubs until then.
+
+### Session 9 proof: a fresh home, no manual step
+
+`/private/tmp/claude-501/dzb9` (the session 8 registry and shop, a new empty DOZE_HOME, `doze` release with `dozetest`, 7,014,080 B): the daemon started, `task migrate` was asked over the socket (`proof-migrate.json`: ok in 21 s, the postgres engine downloaded first); postgres's start converged its database (the one its URL names) before the task ran, `.doze-converged` holds the fingerprint, and the migration applied (`logs/migrate`). No `apply`. A curl of web then woke api and cache through the fronts (`proof-curl.txt`, the first one waited out the valkey download) and status shows resident memory per instance (`proof-meters.txt`: db 12.2 MB, api 22.0 MB, cache 5.3 MB, web 17.0 MB). Not yet in this proof: the app's shots.

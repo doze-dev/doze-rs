@@ -20,6 +20,7 @@
 //! - [`browse`]: open a web page in the person's browser.
 //! - [`pty`]: a pseudo-terminal, for tests that must see what a person sees.
 //! - [`interrupt`]: Ctrl-C and SIGTERM as a flag a blocking command checks, so a follow ends cleanly.
+//! - [`meters`]: what a process and the ones under it cost (resident memory, CPU).
 
 pub mod autostart;
 pub mod browse;
@@ -29,6 +30,7 @@ pub mod fs;
 pub mod home;
 pub mod interrupt;
 pub mod local;
+pub mod meters;
 pub mod net;
 pub mod privilege;
 pub mod process;
