@@ -214,7 +214,7 @@ estimates, not calendar time.
 | 8 | **Security.** TLS, SASL PLAIN and SCRAM, ACL CRUD + enforcement, allowed-hosts guard. | auth/authorization conformance; secret-redaction tests | 3–4 |
 | 9 | **Console.** assets copied, maud components and typed view-models, routes (exported as JSON for the e2e route gate), htmx polling, traffic recorder + `Summarize`, telemetry. | Playwright suite (34 specs) passes unchanged in external mode | 8–12 |
 | 10 | **Schema registry.** REST routes, `SchemaFormat` for Avro/Protobuf/JSON, wire codec, storage in `kafka-meta`. Highest fidelity risk (Protobuf canonical form and compatibility). | registry conformance scenarios + compat corpora | 5–8 |
-| 11 | **Module and release.** `serve` mode (unix sockets) so doze's Go module can re-exec the Rust binary; Rust-edition docs; inherited gates; cutover decision. | doze runs the Larder example on the Rust broker | 3–5 |
+| 11 | **Module and release.** ~~`serve` mode (unix sockets) so doze's Go module can re-exec the Rust binary~~ (obsolete: "all Rust, no Go stitching", 2026-11-12). Now module plan step 14: `doze-kafka` gains its doze module face on the Rust module SDK (protocol 2); inherited gates; cutover decision (the owner's). **Built 2026-11-14 (branch `p11-module`, `phase11.md`)**: oracle against the Go kafka module, 43 cases, every difference listed; the published example and the Larder example's kafka block booted through the core's boot sequence in `doze-module-test`. | ~~doze runs the Larder example on the Rust broker~~ the Larder block boots and converges through the harness's boot sequence; the real doze run waits for the Rust core | 3–5 |
 
 About 50–75 sessions. Phases 1–3 are the checkpoint: a working broker for real
 clients with weight measured against Go.
