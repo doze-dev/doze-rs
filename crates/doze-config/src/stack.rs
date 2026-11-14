@@ -65,6 +65,14 @@ pub fn to_stack(cfg: &Config, w: &Wiring<'_>) -> Stack {
             .then_some(cfg.defaults.idle_timeout),
         services,
         extra_env: w.extra_env.clone(),
+        // Go's `.doze/state.json` beside doze.hcl (the project's, kept with it); the log limits are E2's defaults
+        // until the config's `log_size` is wired (D1 open item).
+        state_file: Path::new(&cfg.path)
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(".doze")
+            .join("state.json"),
+        log_limits: Default::default(),
     }
 }
 
