@@ -128,6 +128,19 @@ exists, and Go's tested rules become the tests the library must pass on mac and 
 Windows is where these pay most: NRPT, UAC, the Windows service, the certificate store and Wintun are exactly what
 Go never had.
 
+### Library spikes (N5, 2026-11-13): verdicts
+
+Each crate was fetched, read, built into a spike binary (macOS arm64, release, `opt-level = "s"`, stripped, beside an
+empty binary of 323,312 B) and held against Go's tested rules. Licences are all permissive (MIT, MIT/Apache-2.0,
+BSD-3-Clause); none is a licence problem.
+
+| Crate | Weight | Against Go's rules | Verdict |
+|---|---|---|---|
+| `osdns` 0.3.0 (MIT/Apache, Rust 1.95+) | +420 KB; 91 crates on macOS, 156 on Linux (zbus, notify, uuid, idna, tempfile, private-fs, system-configuration) | **Fails the first rule.** A nameserver is an `IpAddr` (`config.rs`, `DnsConfigBuilder::nameserver(ip: IpAddr)`): no port anywhere, so it cannot write `port 5323` into `/etc/resolver/doze` or give systemd-resolved `192.0.2.53:5323` (`resolved.rs` calls `SetLinkDNS`, not the port-carrying `SetLinkDNSEx`), and the resolver cannot be on 53 on macOS or Linux (measured: resolved holds 53 on the wildcard). It is a **lease** model: a change is restored when the lease drops, and resolved's per-link settings are runtime state, so a one-shot `dns-setup` would leave nothing behind at the next boot (Go's lesson: a unit re-applies it each boot). It **acts in-process** ("osdns never attempts privilege escalation"; `Error::RequiresPrivilege`), so the whole program would have to run as root and there is no script to print or to show before the password. It does not make the `doze0` interface, does not write dnsmasq's drop-in or the hosts block, and decides the manager by "live DNS ownership" probing, where Go's rule is resolv.conf's marker. | **Not adopted.** Ours: `resolvconf.rs`, `setup/linux.rs`, `setup/mac.rs`. Taken from it: the NRPT's registry home and its owner-comment idea (doze's rules carry `doze zone` / `doze route` comments and only those are ever removed). |
+| `privesc` 1.2.0 (MIT) | +38 KB; `thiserror` (+`which` on Linux, `windows` 0.62 on Windows) | The GUI half passes: one prompt with our words (osascript `do shell script … with administrator privileges with prompt`, pkexec, UAC through `ShellExecuteExW` "runas"), the one script as the command. The terminal half does not: its sudo path pipes stdout and stderr (no live progress, which Go streams), and **always** calls sudo, also as root (Go's container rule: sudo is absent from alpine and debian-slim, and root must run the script directly). Print mode and the paste-able fallback are not its business. | **Adopted for `How::Prompt` only** (feature `setup`), the program-with-no-terminal case Go left to its callers (`Options.Run`), and for Windows from a terminal (no sudo there). Root runs directly, a terminal gets our `sudo sh -c` with inherited stdio, Print and the fallback are ours (`setup/run.rs`). |
+| `fastcert` 0.3.1 (BSD-3) | +281 KB for one function; 163 crates (clap, colored, anyhow, rcgen, x509-parser, ring, security-framework, p12, regex): a CLI tool published as a library | **Fails.** macOS "installed" is "a certificate whose name contains `fastcert` is in the System keychain" (`find-certificate -c fastcert`): presence, not trust (Go's rule: `verify-cert`, since a root can be present and untrusted), and a hard-coded name. It trusts with `add-trusted-cert -d` for every policy (Go: `-r trustRoot -p ssl -p basic`, never code signing or mail), removes by file only (Go also deletes by SHA-256, for roots whose files are gone). It runs `sudo` itself, per command (several prompts, no script, no print), and prints from the library. A second X.509 stack beside RustCrypto. | **Not adopted.** Ours: `trust_store/` (questions, no privilege) and `setup/trust.rs`, `setup/trust_scripts.rs` (one script). Taken from it, for later: NSS (Firefox, Chromium's `~/.pki/nssdb`, `certutil -A -t C,,`) and Java (`keytool`) stores, which need no root and are the next step past Go. |
+| `service-manager` 0.11 (planned **use** in N4) | n/a | Writes the job and calls launchctl/systemctl in-process, so it needs the program to be root, and cannot put the job into the one printed script; Go's measured details (bootout before bootstrap, the version stamp, `User=`/`Group=`, `After=` the zone unit) are a few lines of text in the script either way. | **Not used for N5**: the jobs are text in the script (`setup/mac.rs`, `setup/linux_units.rs`). Still the candidate for a Windows service when the Windows daemon is built. |
+
 ## The crate
 
 `crates/doze-names` (library; used by the doze core, doze-aws and doze-kafka), platform code in `doze-os`:
@@ -145,8 +158,13 @@ crates/doze-names/src/
   ingress.rs    the front door: first-come :80/:443, Host and SNI routing
   ca.rs         the CA: load or create under a lock, rotate, mint leaves
   listen.rs     Lease::listen / bind_addr / forward: hides bind-vs-translate
-  setup/        steps as data: mac.rs (netd, /etc/resolver), linux.rs (resolved, dnsmasq, doze0, hosts),
-                windows.rs (NRPT), check, install, uninstall; trust.rs (keychain, ca-certificates, certutil)
+  resolvconf.rs who owns resolv.conf (the marker rule); routes.rs  which project asked for each domain
+  trust_store/  what the machine trusts and routes, asked without privilege (mac.rs, linux.rs, windows.rs)
+  bundle.rs     the CA bundle with the system roots, for SSL_CERT_FILE
+  setup/        (feature `setup`) mod.rs: Step, Status, Plan, Paths (injectable), Setup::check/install/uninstall;
+                run.rs: one script under one prompt, or printed; hosts.rs: the marked block; mac.rs (netd job,
+                /etc/resolver), linux.rs + linux_units.rs (resolved, dnsmasq, doze0, hosts, sysctl, netd unit),
+                windows.rs (NRPT); trust.rs + trust_scripts.rs (keychain, ca-certificates, certutil + Root store)
   netd/         the daemon: tunnel loop, translate (nat.rs), table cache, resolver when no program holds it
 crates/doze-os/src/tun/       utun on macOS
 ```
@@ -160,7 +178,7 @@ crates/doze-os/src/tun/       utun on macOS
 | N2 ✓ | Resolver and upstream: first-come bind and take-over between processes, zone answers, forwarding | resolver, peers, private_zone | 3 |
 | N3 ✓ | CA and front door: Host/SNI routing, leaf minting, first-come :80/:443 | ca, ingress | 3 |
 | N4 ✓ (root run pending) | Listen/forward; macOS netd: tunnel, translation, table cache (privileged parts tested on the owner's Mac) | listen, nat, netd, e2e_darwin | 5 |
-| N5 | Setup and trust per OS as data: macOS, Linux (in the Lima VM with sudo), Windows (NRPT, in CI) | setup, setup_linux, setup_netd_linux, setup_darwin, resolvconf, trust | 5 |
+| N5 ✓ (macOS root run pending) | Setup and trust per OS as data: macOS, Linux (in the Lima VM with sudo), Windows (NRPT, in CI) | setup, setup_linux, setup_netd_linux, setup_darwin, resolvconf, trust | 5 |
 | N6 ✓ (core side) | Names for modules, as doze `docs/design/next/module-names.md` (agreed 2026-11-07) has it: the core claims, modules declare listeners and routes. Not inside doze-aws/doze-kafka: the standalone binaries left the zone on 2026-11-07 (doze-aws 5c1caad) | doze-bind plan + bind | 2 |
 
 About 23 days. N0 to N3 need no privilege and run unattended; N4 and N5 need root (the owner's Mac, the Lima VM, the
@@ -185,6 +203,43 @@ elevated Windows runners). Tests never touch the real zone: a private home with 
   and by-hand runs. Better than Go: https to a routed name on macOS (the table forwards 443 to the front door too, job
   version 4); no heal thread in every program (ports.rs says why). Root end-to-end: `scripts/names-e2e-darwin.sh`
   (owner runs it once: stops Go's launchd daemon for the run, runs ours for a throwaway home, restores Go's).
+- **N5 built 2026-11-13** (branch names-n5, stacked on names-n4): machine setup and trust per system, feature
+  `setup` (implies `netd`: the program that installs the daemon is the daemon; adds `privesc`, +38 KB). Steps as
+  data: each system's module turns what it found (`Facts`) into the check's steps and the script's lines, so the
+  check, the prompt's words and the script come from one place, and every system's script is a plain function tested
+  on every system (Go's Linux script tests only ran on Linux). `Paths` holds every system file (`Paths::under(root)`
+  for tests), so no test touches /etc. One script under one prompt: printed (`How::Print`), run directly when already
+  privileged (the container rule), `sudo sh -c` on a terminal with live output and the paste-able fallback, the
+  system's own prompt through `privesc` where there is no terminal (`How::Prompt`), or the caller's runner
+  (`How::With`, Go's `Options.Run`). macOS: the launchd job (version 4, bootout before bootstrap, a copy of the program
+  run with `__doze-netd`) and /etc/resolver/doze; Linux: doze0 with 192.0.2.53, the resolved or dnsmasq route, the
+  netd unit (version 2, `User=`/`Group=` of the person under sudo), the hosts block, the sysctl; **Windows (new, Go
+  had a stub): an NRPT rule for `.doze` to 127.0.0.53, the resolver on port 53 there** (the NRPT takes addresses
+  only). Trust: routes per domain (resolver files; resolved's link list restated now and in the zone unit's drop-in;
+  an NRPT rule per domain on Windows) and the CA (System keychain checked with verify-cert; the distribution's
+  bundle; the machine's Root store via certutil), stale routes pruned in the same prompt, rotated-out roots untrusted.
+  The deferred N3 items: `Ca::bundle`/`ensure_bundle` (system roots + inherited `SSL_CERT_FILE` + the current doze
+  root, never an old one, under the CA lock) and `Ca::rotate` remembering the doze roots the store holds when the old
+  root cannot be read; `routes.rs` (Go's routes.json: record, stale, claimants) was not ported in N1 after all and is
+  now. Binary `doze-names` (check, install, uninstall, trust, untrust, claim, and the daemon under `__doze-netd`).
+  Better than Go: the hosts and unit text go through `printf '%s'` (Go used the text as printf's format, so a `%` or
+  `\` in /etc/hosts would have been mangled); `update-ca-certificates --fresh` (found in the VM: without it a rotated
+  root kept the old root's hash link, so `-CApath` clients did not find it); Linux scripts tested on every system.
+  Tests: 19 Go tests ported one for one (setup 8, setup_linux 3, setup_netd_linux 2, setup_darwin 1, resolvconf 3,
+  trust 2) plus the bundle test from ca_test; new: the Windows rule, the macOS script order, Linux and Windows trust
+  lines, sudo's user, base64. Fuzz: `fuzz_setup` (resolv.conf, hosts block idempotence, unit ExecStart, resolvectl,
+  `find-certificate -Z`, NRPT listing, PEM blocks).
+  **Root, Linux (Lima VM doze-ubuntu, 2026-11-13): passed** (`scripts/names-e2e-linux.sh`, which keeps the VM's Go
+  setup and puts it back): install as the user with sudo, all four steps ✓, `resolvectl query web.n5e2e.doze` →
+  `127.0.20.73 -- link: doze0` answered by our netd unit (the claiming process stood by: "doze-netd is serving"),
+  the declared domain routed and the CA in the bundle (`openssl verify -CApath` OK), untrust and uninstall leave
+  nothing ✓. **Windows (CI run 43326745604, windows-latest, elevated): passed**: the NRPT rule ("✓ resolver route ·
+  an NRPT rule sends .doze to 127.0.0.53"), the claiming process serving 127.0.0.53:53 and `web.n5e2e.doze` answered
+  through getaddrinfo (the DNS client following the rule to a loopback server on 53: the open question of the
+  Windows design, now settled), the domain routed by its own rule, the CA added by certutil and found in the Root
+  store by SHA-256, untrust and uninstall leaving none. Not proven there: a non-administrator's read of the rules
+  and the store (the runner is elevated), and UAC through privesc (no prompt is ever shown on a runner). **macOS**: needs the
+  owner once, `scripts/names-setup-e2e-darwin.sh` (keeps Go's job, daemon copy and resolver file and restores them).
 - **N6 built 2026-11-13** (branch names-n6, crate `doze-bind`): the core side of module names. `plan` is pure (the
   stack's declarations to names, public ports, routes and URLs, with every collision found before anything runs and
   both parties named: a sibling route that is another instance's name, two services on one port without names, the
@@ -194,4 +249,3 @@ elevated Windows runners). Tests never touch the real zone: a private home with 
   mailpit-like) are its tests. It plugs into the Rust core's daemon when that exists (the proxy accepts on the bound
   sockets). Note: the standalone doze-aws and doze-kafka binaries do not join the zone (owner, 2026-11-07); doze-aws
   and every other module reach names by declaring routes.
-- **Not started**: N5 (setup and trust).

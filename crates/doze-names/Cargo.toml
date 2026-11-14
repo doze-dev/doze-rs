@@ -29,6 +29,9 @@ rustls = { version = "0.23", default-features = false, features = ["std", "tls12
 tokio-rustls = { version = "0.26", default-features = false, features = ["tls12"] }
 tokio = { version = "1.54", features = ["net", "rt", "time", "sync", "macros", "io-util"] }
 tun-rs = { version = "2.8", default-features = false, optional = true }
+# One administrator prompt where there is no terminal (osascript, pkexec, UAC): docs/port/names/PLAN.md, "Library
+# spikes".
+privesc = { version = "1.2", optional = true }
 
 [[bin]]
 name = "doze-netd"
@@ -36,9 +39,20 @@ required-features = ["netd"]
 test = false
 doc = false
 
+[[bin]]
+# The zone's own command line (setup, check, trust, and the daemon under HELPER_ARG): for the root tests on Linux,
+# Windows and macOS and for a by-hand run; the doze core embeds the same library calls.
+name = "doze-names"
+required-features = ["setup"]
+test = false
+doc = false
+
 [features]
 # The network daemon: the tunnel and the packet loop. Only the program that runs the daemon needs it.
 netd = ["dep:tun-rs"]
+# Machine setup and trust: the privileged scripts and the prompt that runs them. Programs that only claim names
+# (doze-aws and doze-kafka run under a core) leave it out.
+setup = ["netd", "dep:privesc"]
 
 [dev-dependencies]
 tokio = { version = "1.54", features = ["net", "rt", "rt-multi-thread", "time", "sync", "macros"] }
