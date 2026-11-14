@@ -3,15 +3,51 @@
 //! A page is `fn(&Model) -> Markup`. Everything that decides what the person reads (which state of Home, whether the
 //! advertised address answers) is decided before, from real data, and arrives here as a value.
 
+mod config;
 mod connect;
+mod consumers;
+mod group_states;
+mod groups;
 mod home;
+pub mod lab;
+pub mod lab_guide;
+pub mod live;
+mod live_clients;
+mod log;
 mod messages;
+mod producers;
 mod query;
+mod story;
 mod topic;
 mod topics;
 
-pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict};
+pub use config::{
+    ConfigAsk, ConfigChange, ConfigChecked, ConfigEditView, ConfigForm, ConfigHead, ConfigInput,
+    ConfigOp, ConfigPace, ConfigPage, ConfigPass, ConfigRefusal, ConfigRefused, ConfigResetResult,
+    ConfigResetView, ConfigResult, ConfigRow, ConfigSaved, ConfigShow, ConfigSource, ConfigSynonym,
+    ConfigTeach, ConfigValue,
+};
+pub use connect::{
+    Access, Chrome, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict,
+};
+pub use consumers::{ConsumersView, TopicReader};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
+pub use live::{
+    LiveState, LiveView, WIRE_LIMIT, WIRE_MOST, WireClass, WireDetail, WirePart, WireQuery,
+    WireRefusal, WireRow, WireWindow,
+};
+pub use live_clients::{
+    ClientRow, ClientsView, Facet, Facets, FirstView, GroupWireView, SpokeView,
+};
+pub use log::{
+    LogCleaner, LogCompaction, LogDurability, LogLimit, LogMoved, LogOther, LogOtherLink, LogPass,
+    LogPlanner, LogRetentionView, LogRound, LogRules, LogSegment, LogState, LogStop, LogTombstone,
+    LogView,
+};
+pub use producers::{
+    ProdAborted, ProdBatch, ProdCell, ProdRow, ProdTail, ProdTxn, ProducersView, TxnPart, TxnRow,
+    TxnView,
+};
 
 pub(crate) mod write;
 
@@ -26,4 +62,33 @@ pub use write::{
     DeleteRecordsView, DeleteView, Deleted, Draft, Errors, InUse, Lines, ProduceErrors,
     ProduceInput, ProduceRefused, ProduceResult, ProduceView, Produced, RecordsDeleted, Refusal,
     Remaining, Step, Teach, Template, Visibility,
+};
+
+pub use story::{
+    StoryCalm, StoryCause, StoryDropped, StoryFacts, StoryFlap, StoryGen, StoryHold, StoryJoin,
+    StoryLast, StoryLeft, StoryNow, StoryParts, StoryRule, StoryTone, StoryView, StoryWho,
+};
+
+pub use group_states::GroupStates;
+pub use groups::{
+    GroupAttention, GroupDeleteView, GroupFilter, GroupHead, GroupLagView, GroupMemberRow,
+    GroupPart, GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupSpan,
+    GroupsView, LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetMode, ResetRow,
+    ResetView, RowLag,
+};
+
+mod access;
+mod settings;
+
+pub use access::{
+    AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessTls, AccessUser,
+    AccessView, AccessWarning, AclCreateResult, AclCreateView, AclDeleteResult, AclDeleteView,
+    AclEntry, AclInput, AclPattern, AclPermission,
+};
+pub use settings::{
+    SettingsApi, SettingsChecked, SettingsConfigRow, SettingsConfigs, SettingsData,
+    SettingsEditView, SettingsFlag, SettingsHead, SettingsHeard, SettingsInterval,
+    SettingsIntervals, SettingsLine, SettingsProfile, SettingsRefused, SettingsResult,
+    SettingsRound, SettingsSaved, SettingsScope, SettingsSpeaks, SettingsTeach, SettingsView,
+    SettingsWeight,
 };

@@ -1,0 +1,45 @@
+[package]
+name = "aws-apigateway-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+aws-apigateway = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "fuzz_vtl"
+path = "fuzz_targets/fuzz_vtl.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_http_answer"
+path = "fuzz_targets/fuzz_http_answer.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_jwt"
+path = "fuzz_targets/fuzz_jwt.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_ws_frame"
+path = "fuzz_targets/fuzz_ws_frame.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_openapi"
+path = "fuzz_targets/fuzz_openapi.rs"
+test = false
+doc = false

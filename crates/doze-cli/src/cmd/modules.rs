@@ -112,6 +112,11 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode) -> Outcome {
 /// The project, or "no doze.hcl" (exit 6).
 pub(crate) fn find(ctx: &Ctx<'_>, mode: &Mode) -> Result<Project, Diagnostic> {
     project::find(&ctx.cwd, mode.config.as_deref()).ok_or_else(|| match &mode.config {
+        Some(c) if ctx.cwd.join(c).is_dir() => Diagnostic::new(
+            ids::NO_CONFIG,
+            format!("there are no .hcl files in {}", c.display()),
+        )
+        .fix("check the folder given to -c"),
         Some(c) => Diagnostic::new(
             ids::NO_CONFIG,
             format!("there is no doze.hcl at {}", c.display()),

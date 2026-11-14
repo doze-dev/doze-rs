@@ -1,107 +1,47 @@
-//! `GET /events?watch=a,b`: one server-sent stream per page on screen, carrying only "these fragments changed".
+//! The rules the console's two tails share (`GET /api/v1/tail/live` and `/api/v1/tail/messages`, CON-809,
+//! `docs/port/console/live-design.md`).
 //!
-//! The first event names every watched fragment, so a page that has just loaded (or reconnected) reconciles itself; each
-//! later event is a tick of the shared signal ([`crate::tick`]) naming them again, and the page fetches them with an
-//! ETag so an unchanged one is a 304. A comment keeps the connection alive every 15 s. Every stream ends when the
-//! server's cancellation token does, so a graceful shutdown never waits on one.
+//! A person has asked for a tail (and for how fast: `pace=1|3|10` seconds, never under one, never over thirty); no other page
+//! opens a stream. The server COALESCES: it looks once a pace and sends an event only when rows were added (or a folded row
+//! grew), so the traffic rate of the cluster never becomes the update rate of the page. A comment keeps the connection alive
+//! every 15 s. Every stream ends when the server's cancellation token does, so a graceful shutdown never waits on one.
 
-use std::convert::Infallible;
 use std::time::Duration;
 
-use axum::response::sse::{Event, KeepAlive, Sse};
-use futures_util::stream::{self, Stream, StreamExt};
-use tokio_util::sync::CancellationToken;
+/// The least time between two looks: the most events a second a tail can send, whatever it asks for.
+pub const LEAST_PACE: u64 = 1;
+/// The most a person can slow a tail to, in seconds (Realtime 1, Relaxed 3, Slow 10).
+pub const MOST_PACE: u64 = 30;
 
-use crate::tick::Viewer;
-use crate::ui::client::EVENT_TICK;
-
-/// The fragments a stream may be asked to watch: a closed vocabulary.
-pub const WATCHABLE: &[&str] = &[
-    "home-sentence",
-    "home-callout",
-    "home-instance",
-    "topics-sentence",
-    "topics-table",
-    "topic-sentence",
-    "topic-messages",
-];
-
-/// What the Home page watches.
-pub const HOME_IDS: &[&str] = &["home-sentence", "home-callout", "home-instance"];
-/// What the topics list watches.
-pub const TOPICS_IDS: &[&str] = &["topics-sentence", "topics-table"];
-/// What a topic's Messages page watches.
-pub const TOPIC_IDS: &[&str] = &["topic-sentence", "topic-messages"];
-
+/// The time between looks that a request for `pace` seconds is given: never faster than once a second, never slower than 30 s.
+#[must_use]
+pub fn pace_of(pace: Option<&str>) -> Duration {
+    Duration::from_secs(
+        pace.and_then(|p| p.parse::<u64>().ok())
+            .unwrap_or(LEAST_PACE)
+            .clamp(LEAST_PACE, MOST_PACE),
+    )
+}
 /// The comment line sent every 15 s.
 pub const KEEP_ALIVE: Duration = Duration::from_secs(15);
-
-/// The ids of a `watch` value, or the first one that is not in the vocabulary. An empty value watches nothing.
-///
-/// # Errors
-/// The first id that is not watchable.
-pub fn parse_watch(value: &str) -> Result<Vec<&str>, &str> {
-    let mut out = Vec::new();
-    for id in value.split(',').filter(|s| !s.is_empty()) {
-        if !WATCHABLE.contains(&id) {
-            return Err(id);
-        }
-        if !out.contains(&id) {
-            out.push(id);
-        }
-    }
-    Ok(out)
-}
-
-fn tick(ids: &str) -> Event {
-    Event::default().event(EVENT_TICK).data(ids)
-}
-
-/// The events of one stream: the first at once, then one per tick, until `stop` is cancelled or the signal is gone.
-pub fn events(
-    viewer: Viewer,
-    ids: Vec<String>,
-    stop: CancellationToken,
-) -> impl Stream<Item = Result<Event, Infallible>> {
-    let data = ids.join(",");
-    let first = stream::once(std::future::ready(Ok(tick(&data))));
-    let rest = stream::unfold(
-        (viewer, stop, data),
-        |(mut viewer, stop, data)| async move {
-            let heard = tokio::select! {
-                () = stop.cancelled() => false,
-                heard = viewer.changed() => heard,
-            };
-            heard.then(|| (Ok(tick(&data)), (viewer, stop, data)))
-        },
-    );
-    first.chain(rest)
-}
-
-/// The response of an open stream.
-pub fn response(
-    viewer: Viewer,
-    ids: Vec<String>,
-    stop: CancellationToken,
-) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    Sse::new(events(viewer, ids, stop))
-        .keep_alive(KeepAlive::new().interval(KEEP_ALIVE).text("keep-alive"))
-}
+/// The most records a Messages tail looks at in one look.
+pub const MESSAGES_WINDOW: usize = 50;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn only_the_closed_vocabulary_may_be_watched() {
-        assert_eq!(parse_watch(""), Ok(vec![]));
-        assert_eq!(parse_watch("home-instance"), Ok(vec!["home-instance"]));
+    fn the_pace_is_what_was_asked_within_the_caps() {
+        assert_eq!(pace_of(None), Duration::from_secs(1));
+        assert_eq!(pace_of(Some("3")), Duration::from_secs(3));
         assert_eq!(
-            parse_watch("home-sentence,home-instance,home-sentence"),
-            Ok(vec!["home-sentence", "home-instance"])
+            pace_of(Some("0")),
+            Duration::from_secs(1),
+            "never faster than once a second"
         );
-        assert_eq!(parse_watch("home-instance,evil"), Err("evil"));
-        assert_eq!(parse_watch("../x"), Err("../x"));
-        assert_eq!(parse_watch("a\nb"), Err("a\nb"));
+        assert_eq!(pace_of(Some("9999")), Duration::from_secs(30));
+        assert_eq!(pace_of(Some("-4")), Duration::from_secs(1));
+        assert_eq!(pace_of(Some("fast")), Duration::from_secs(1));
     }
 }

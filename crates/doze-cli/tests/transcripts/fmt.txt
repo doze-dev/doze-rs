@@ -1,0 +1,163 @@
+# fmt --check lists the files whose layout would change and exits 1 (CI); --dry-run shows the change itself, a diff
+# per file; neither writes. The layout is hclwrite's, byte for byte (doze-hcl H3). A sibling *.doze.hcl is formatted
+# too; a file that does not parse is left alone (exit 5).
+@ project bare
+@ file project/doze.hcl stack="s"\nmodule valkey "cache" {\nversion=9\n  port = 6379\n}\n
+@ file project/extra.doze.hcl app "web" {\n  run = "serve"\n  port=8080\n}\n
+@ file project/bad/doze.hcl app "web" {\n  run = "serve\n}\n
+
+$ doze fmt --check
+exit 1
+stdout:
+| doze.hcl
+| extra.doze.hcl
+stderr:
+| error[DZ0305]: 2 files are not formatted
+|   fix: doze fmt
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze fmt",
+|   "ok": false,
+|   "data": {
+|     "files": [
+|       "doze.hcl",
+|       "extra.doze.hcl"
+|     ],
+|     "written": false
+|   },
+|   "error": {
+|     "code": "failed",
+|     "message": "2 files are not formatted",
+|     "exit": 1,
+|     "id": "DZ0305",
+|     "fix": "doze fmt"
+|   }
+| }
+
+$ doze fmt --dry-run
+exit 0
+stdout:
+| --- doze.hcl
+| +++ doze.hcl (formatted)
+| @@ -1,5 +1,5 @@
+| -stack="s"
+| +stack = "s"
+|  module valkey "cache" {
+| -version=9
+| -  port = 6379
+| +  version = 9
+| +  port    = 6379
+|  }
+| --- extra.doze.hcl
+| +++ extra.doze.hcl (formatted)
+| @@ -1,4 +1,4 @@
+|  app "web" {
+| -  run = "serve"
+| -  port=8080
+| +  run  = "serve"
+| +  port = 8080
+|  }
+|   dry run: nothing was changed · doze fmt applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze fmt",
+|   "ok": true,
+|   "data": {
+|     "files": [
+|       "doze.hcl",
+|       "extra.doze.hcl"
+|     ],
+|     "written": false,
+|     "diffs": [
+|       "--- doze.hcl\n+++ doze.hcl (formatted)\n@@ -1,5 +1,5 @@\n-stack=\"s\"\n+stack = \"s\"\n module valkey \"cache\" {\n-version=9\n-  port = 6379\n+  version = 9\n+  port    = 6379\n }\n",
+|       "--- extra.doze.hcl\n+++ extra.doze.hcl (formatted)\n@@ -1,4 +1,4 @@\n app \"web\" {\n-  run = \"serve\"\n-  port=8080\n+  run  = \"serve\"\n+  port = 8080\n }\n"
+|     ]
+|   }
+| }
+
+$ doze -c bad fmt --check
+exit 5
+stderr:
+| error[DZ0301]: bad/doze.hcl does not parse, so it was not formatted
+| error[DZ0301]: Invalid multi-line string
+|   --> bad/doze.hcl:2:15
+|    |
+|  2 |   run = "serve
+|    |               ^
+|    |
+|    = Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \n escape to represent a newline character or use the "heredoc" multi-line template syntax.
+| error[DZ0301]: Invalid multi-line string
+|   --> bad/doze.hcl:3:2
+|    |
+|  3 | }
+|    |  ^
+|    |
+|    = Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \n escape to represent a newline character or use the "heredoc" multi-line template syntax.
+| error[DZ0301]: Unterminated template string
+|   --> bad/doze.hcl:2:15
+|    |
+|  2 |   run = "serve
+|    |               ^
+|    |
+|    = No closing marker was found for the string.
+json exit 5
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze fmt",
+|   "ok": false,
+|   "error": {
+|     "code": "config_invalid",
+|     "message": "bad/doze.hcl does not parse, so it was not formatted",
+|     "exit": 5,
+|     "id": "DZ0301",
+|     "more": [
+|       {
+|         "code": "config_invalid",
+|         "message": "Invalid multi-line string",
+|         "exit": 5,
+|         "id": "DZ0301",
+|         "span": {
+|           "file": "bad/doze.hcl",
+|           "line": 2,
+|           "column": 15
+|         },
+|         "notes": [
+|           "Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax."
+|         ]
+|       },
+|       {
+|         "code": "config_invalid",
+|         "message": "Invalid multi-line string",
+|         "exit": 5,
+|         "id": "DZ0301",
+|         "span": {
+|           "file": "bad/doze.hcl",
+|           "line": 3,
+|           "column": 2
+|         },
+|         "notes": [
+|           "Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax."
+|         ]
+|       },
+|       {
+|         "code": "config_invalid",
+|         "message": "Unterminated template string",
+|         "exit": 5,
+|         "id": "DZ0301",
+|         "span": {
+|           "file": "bad/doze.hcl",
+|           "line": 2,
+|           "column": 15
+|         },
+|         "notes": [
+|           "No closing marker was found for the string."
+|         ]
+|       }
+|     ]
+|   }
+| }

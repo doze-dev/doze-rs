@@ -1,0 +1,1610 @@
+[
+ {
+  "id": "hand2.0000",
+  "expr": "format(\"%1000000d|\", 1) == \"\""
+ },
+ {
+  "id": "hand2.0003",
+  "expr": "format(\"%.1000000f\", 1) == \"\""
+ },
+ {
+  "id": "hand2.0005",
+  "expr": "format(\"%[1]1000001d\", 1)"
+ },
+ {
+  "id": "hand2.0006",
+  "expr": "format(\"%[1000001]d\", 1)"
+ },
+ {
+  "id": "hand2.0007",
+  "expr": "format(\"%1000001%\")"
+ },
+ {
+  "id": "hand2.0010",
+  "expr": "flatten({})"
+ },
+ {
+  "id": "hand2.0011",
+  "expr": "flatten(tomap({}))"
+ },
+ {
+  "id": "hand2.0012",
+  "expr": "flatten({a = var.later, b = {c = [1]}})"
+ },
+ {
+  "id": "hand2.0013",
+  "expr": "flatten({a = var.later, b = tolist([[1]])})"
+ },
+ {
+  "id": "hand2.0014",
+  "expr": "flatten({a = null, b = var.later})"
+ },
+ {
+  "id": "hand2.0015",
+  "expr": "flatten([{a = var.later}])"
+ },
+ {
+  "id": "hand2.0016",
+  "expr": "flatten(tomap({a = var.later, b = \"x\"}))"
+ },
+ {
+  "id": "hand2.0017",
+  "expr": "flatten({a = var.any})"
+ },
+ {
+  "id": "hand2.0018",
+  "expr": "flatten({a = var.later, b = toset([1])})"
+ },
+ {
+  "id": "hand2.0019",
+  "expr": "flatten({b = var.later, a = [1, 2]})"
+ },
+ {
+  "id": "hand2.0020",
+  "expr": "flatten(var.env)"
+ },
+ {
+  "id": "hand2.0021",
+  "expr": "flatten({a = [var.later]})"
+ },
+ {
+  "id": "hand2.0022",
+  "expr": "flatten(\"${var.later}\")"
+ },
+ {
+  "id": "hand2.0023",
+  "expr": "env_of({env = toset([\"a\", \"b\"])})"
+ },
+ {
+  "id": "hand2.0024",
+  "expr": "env_of({env = toset([])})"
+ },
+ {
+  "id": "hand2.0025",
+  "expr": "env_of({env = [\"a\"]})"
+ },
+ {
+  "id": "hand2.0026",
+  "expr": "env_of({env = tolist([\"a\"])})"
+ },
+ {
+  "id": "hand2.0027",
+  "expr": "env_of({env = {A = \"1\"}, name = \"x\"}, {env = toset([\"A\"])})"
+ },
+ {
+  "id": "hand2.0028",
+  "expr": "env_of({env = tolist([])})"
+ },
+ {
+  "id": "hand2.0029",
+  "expr": "env_of({env = []})"
+ },
+ {
+  "id": "hand2.0030",
+  "expr": "env_of({env = {}}, 1)"
+ },
+ {
+  "id": "hand2.0031",
+  "expr": "env_of({env = {A = \"1\"}}, {env = {A = 2}})"
+ },
+ {
+  "id": "hand2.0032",
+  "expr": "env_of({env = {A = 1}}, {env = {A = \"1\"}})"
+ },
+ {
+  "id": "hand2.0033",
+  "expr": "env_of({name = 1, env = {A = 1}})"
+ },
+ {
+  "id": "hand2.0034",
+  "expr": "env_of({name = true, env = {A = \"1\"}})"
+ },
+ {
+  "id": "hand2.0035",
+  "expr": "length(toset([var.later, var.later])) >= 1"
+ },
+ {
+  "id": "hand2.0036",
+  "expr": "length(toset([var.later, var.later])) <= 2"
+ },
+ {
+  "id": "hand2.0037",
+  "expr": "length(toset([var.later, var.later])) > 2"
+ },
+ {
+  "id": "hand2.0038",
+  "expr": "length(toset([var.later, var.later]))"
+ },
+ {
+  "id": "hand2.0039",
+  "expr": "length(tolist(toset([var.later, var.later])))"
+ },
+ {
+  "id": "hand2.0040",
+  "expr": "length(tolist(toset([var.later, var.later]))) <= 2"
+ },
+ {
+  "id": "hand2.0041",
+  "expr": "length(tolist(toset([var.later, var.later]))) > 2"
+ },
+ {
+  "id": "hand2.0042",
+  "expr": "length(tolist(toset([var.later, \"a\"]))) >= 1"
+ },
+ {
+  "id": "hand2.0043",
+  "expr": "length(tolist(toset([var.later]))) == 1"
+ },
+ {
+  "id": "hand2.0044",
+  "expr": "length(tolist(toset([var.later])))"
+ },
+ {
+  "id": "hand2.0045",
+  "expr": "tolist(toset([var.later, var.later])) == null"
+ },
+ {
+  "id": "hand2.0046",
+  "expr": "length(sort(toset([var.later, \"b\"]))) >= 1"
+ },
+ {
+  "id": "hand2.0047",
+  "expr": "length(sort(toset([var.later, \"b\"])))"
+ },
+ {
+  "id": "hand2.0048",
+  "expr": "length(reverse(toset([var.later, \"b\"])))"
+ },
+ {
+  "id": "hand2.0049",
+  "expr": "length(distinct(toset([var.later, \"b\"])))"
+ },
+ {
+  "id": "hand2.0050",
+  "expr": "length(concat(toset([var.later, \"b\"]), [\"c\"]))"
+ },
+ {
+  "id": "hand2.0051",
+  "expr": "length(concat(toset([var.later, \"b\"]), [\"c\"])) >= 2"
+ },
+ {
+  "id": "hand2.0052",
+  "expr": "length(flatten([toset([var.later, \"b\"]), [\"c\"]]))"
+ },
+ {
+  "id": "hand2.0053",
+  "expr": "length(formatlist(\"%s\", toset([var.later, \"b\"])))"
+ },
+ {
+  "id": "hand2.0054",
+  "expr": "length(formatlist(\"%s\", toset([var.later, \"b\"]))) >= 1"
+ },
+ {
+  "id": "hand2.0055",
+  "expr": "length([for x in toset([var.later, \"b\"]) : x]) >= 1"
+ },
+ {
+  "id": "hand2.0056",
+  "expr": "length(slice(tolist(toset([var.later, \"b\"])), 0, 1))"
+ },
+ {
+  "id": "hand2.0057",
+  "expr": "length(keys(tomap({a = var.later}))) == 1"
+ },
+ {
+  "id": "hand2.0058",
+  "expr": "length(values(tomap({a = var.later})))"
+ },
+ {
+  "id": "hand2.0059",
+  "expr": "length(toset(tolist([var.later, \"b\"]))) >= 1"
+ },
+ {
+  "id": "hand2.0060",
+  "expr": "length(toset(concat([var.later], [\"b\"]))) >= 1"
+ },
+ {
+  "id": "hand2.0061",
+  "expr": "length(merge(tomap({a = var.later}), tomap({b = \"x\"})))"
+ },
+ {
+  "id": "hand2.0062",
+  "expr": "element(tolist(toset([var.later, \"b\"])), 0)"
+ },
+ {
+  "id": "hand2.0063",
+  "expr": "contains(toset([var.later, \"b\"]), \"b\")"
+ },
+ {
+  "id": "hand2.0064",
+  "expr": "contains(toset([var.later, \"b\"]), \"c\")"
+ },
+ {
+  "id": "hand2.0065",
+  "expr": "distinct(toset([var.later, \"b\"]))"
+ },
+ {
+  "id": "hand2.0066",
+  "expr": "toset([var.later, \"b\"]) == toset([\"a\", \"b\"])"
+ },
+ {
+  "id": "hand2.0067",
+  "expr": "sort(toset([var.later, \"b\"]))"
+ },
+ {
+  "id": "hand2.0068",
+  "expr": "jsonencode(toset([var.later, \"b\"]))"
+ },
+ {
+  "id": "hand2.0069",
+  "expr": "join(\",\", toset([var.later, \"b\"]))"
+ },
+ {
+  "id": "hand2.0070",
+  "expr": "tolist(toset([var.later, \"b\"]))"
+ },
+ {
+  "id": "hand2.0071",
+  "expr": "length(tolist(var.set)) >= 2"
+ },
+ {
+  "id": "hand2.0072",
+  "expr": "length(toset(var.tags)) >= 1"
+ },
+ {
+  "id": "hand2.0073",
+  "expr": "length(toset(var.tags)) == 3"
+ },
+ {
+  "id": "hand2.0074",
+  "expr": "length(toset(tolist(var.any))) >= 0"
+ },
+ {
+  "id": "hand2.0075",
+  "expr": "length(tolist(toset(tolist(var.any)))) >= 0"
+ },
+ {
+  "id": "hand2.0076",
+  "expr": "length(toset([var.any, \"b\"])) >= 1"
+ },
+ {
+  "id": "hand2.0077",
+  "expr": "length(toset([var.later, \"b\", var.later])) <= 3"
+ },
+ {
+  "id": "hand2.0078",
+  "expr": "length(toset([var.later, \"b\", var.later])) > 3"
+ },
+ {
+  "id": "hand2.0079",
+  "expr": "length(tolist(toset([var.later, \"b\", var.later]))) > 3"
+ },
+ {
+  "id": "hand2.0080",
+  "expr": "length(tolist(toset([var.later, \"b\", var.later]))) <= 3"
+ },
+ {
+  "id": "hand2.0081",
+  "expr": "length(tomap({a = var.later}))"
+ },
+ {
+  "id": "hand2.0082",
+  "expr": "format(\"%d\", 9007199254740993)"
+ },
+ {
+  "id": "hand2.0083",
+  "expr": "format(\"%x\", 9007199254740993)"
+ },
+ {
+  "id": "hand2.0084",
+  "expr": "format(\"%f\", 9007199254740993)"
+ },
+ {
+  "id": "hand2.0085",
+  "expr": "format(\"%e\", 123456789012345678901234567890)"
+ },
+ {
+  "id": "hand2.0086",
+  "expr": "format(\"%.3g\", 123456789012345678901234567890)"
+ },
+ {
+  "id": "hand2.0087",
+  "expr": "format(\"%v\", 123456789012345678901234567890)"
+ },
+ {
+  "id": "hand2.0088",
+  "expr": "format(\"%s\", 123456789012345678901234567890)"
+ },
+ {
+  "id": "hand2.0089",
+  "expr": "format(\"%d\", 123456789012345678901234567890)"
+ },
+ {
+  "id": "hand2.0090",
+  "expr": "format(\"%b\", 123456789012345678901234567890)"
+ },
+ {
+  "id": "hand2.0091",
+  "expr": "format(\"%o\", 1e30)"
+ },
+ {
+  "id": "hand2.0092",
+  "expr": "format(\"%X\", 1e30)"
+ },
+ {
+  "id": "hand2.0093",
+  "expr": "format(\"%v\", 1/3)"
+ },
+ {
+  "id": "hand2.0094",
+  "expr": "format(\"%f\", 1/3)"
+ },
+ {
+  "id": "hand2.0095",
+  "expr": "format(\"%.60f\", 1/3)"
+ },
+ {
+  "id": "hand2.0096",
+  "expr": "format(\"%e\", 1/3)"
+ },
+ {
+  "id": "hand2.0097",
+  "expr": "format(\"%.40e\", 0.1)"
+ },
+ {
+  "id": "hand2.0098",
+  "expr": "format(\"%v\", 0.1 + 0.2)"
+ },
+ {
+  "id": "hand2.0099",
+  "expr": "format(\"%s\", 0.1 + 0.2)"
+ },
+ {
+  "id": "hand2.0100",
+  "expr": "format(\"%d\", 1e20)"
+ },
+ {
+  "id": "hand2.0101",
+  "expr": "format(\"%d\", -1e20)"
+ },
+ {
+  "id": "hand2.0102",
+  "expr": "format(\"%x\", -1e20)"
+ },
+ {
+  "id": "hand2.0103",
+  "expr": "format(\"%d\", 2.0)"
+ },
+ {
+  "id": "hand2.0104",
+  "expr": "format(\"%d\", 1e0)"
+ },
+ {
+  "id": "hand2.0105",
+  "expr": "format(\"%d\", 1e-400)"
+ },
+ {
+  "id": "hand2.0106",
+  "expr": "format(\"%v\", 1e-400)"
+ },
+ {
+  "id": "hand2.0107",
+  "expr": "format(\"%e\", 1e-400)"
+ },
+ {
+  "id": "hand2.0108",
+  "expr": "format(\"%e\", 1e40000)"
+ },
+ {
+  "id": "hand2.0109",
+  "expr": "format(\"%v\", 9.999999999999999e22)"
+ },
+ {
+  "id": "hand2.0110",
+  "expr": "format(\"%v\", 1e23)"
+ },
+ {
+  "id": "hand2.0111",
+  "expr": "format(\"%g\", 1e23)"
+ },
+ {
+  "id": "hand2.0112",
+  "expr": "format(\"%f\", 1e23)"
+ },
+ {
+  "id": "hand2.0113",
+  "expr": "format(\"%f\", 5e-324)"
+ },
+ {
+  "id": "hand2.0114",
+  "expr": "format(\"%v\", 5e-324)"
+ },
+ {
+  "id": "hand2.0115",
+  "expr": "format(\"%v\", 2.2250738585072014e-308)"
+ },
+ {
+  "id": "hand2.0116",
+  "expr": "format(\"%e\", 1.7976931348623157e308)"
+ },
+ {
+  "id": "hand2.0117",
+  "expr": "format(\"%v\", 1.7976931348623157e308)"
+ },
+ {
+  "id": "hand2.0118",
+  "expr": "format(\"%v\", 1.7976931348623159e308)"
+ },
+ {
+  "id": "hand2.0119",
+  "expr": "format(\"%e\", 1.7976931348623159e308)"
+ },
+ {
+  "id": "hand2.0120",
+  "expr": "jsonencode(1.7976931348623159e308)"
+ },
+ {
+  "id": "hand2.0121",
+  "expr": "jsonencode(5e-324)"
+ },
+ {
+  "id": "hand2.0122",
+  "expr": "jsonencode(2.5e-324)"
+ },
+ {
+  "id": "hand2.0123",
+  "expr": "jsonencode(1e-324)"
+ },
+ {
+  "id": "hand2.0124",
+  "expr": "jsonencode(9.999999999999999e22)"
+ },
+ {
+  "id": "hand2.0125",
+  "expr": "jsonencode(1e23)"
+ },
+ {
+  "id": "hand2.0126",
+  "expr": "jsonencode(0.1 + 0.2)"
+ },
+ {
+  "id": "hand2.0127",
+  "expr": "tostring(0.1 + 0.2)"
+ },
+ {
+  "id": "hand2.0128",
+  "expr": "tostring(1.7976931348623159e308)"
+ },
+ {
+  "id": "hand2.0129",
+  "expr": "tostring(5e-325)"
+ },
+ {
+  "id": "hand2.0130",
+  "expr": "jsonencode(-5e-325)"
+ },
+ {
+  "id": "hand2.0131",
+  "expr": "format(\"%v\", -5e-325)"
+ },
+ {
+  "id": "hand2.0132",
+  "expr": "format(\"%s\", -5e-325)"
+ },
+ {
+  "id": "hand2.0133",
+  "expr": "format(\"%d\", 0.5 + 0.5)"
+ },
+ {
+  "id": "hand2.0134",
+  "expr": "format(\"%d\", 1/3*3)"
+ },
+ {
+  "id": "hand2.0135",
+  "expr": "format(\"%d\", 10/3*3)"
+ },
+ {
+  "id": "hand2.0136",
+  "expr": "regex(\"(?i)[[:lower:]]\", \"A\")"
+ },
+ {
+  "id": "hand2.0137",
+  "expr": "regex(\"(?i)[^[:lower:]]\", \"A\")"
+ },
+ {
+  "id": "hand2.0138",
+  "expr": "regex(\"[[:^lower:]]\", \"A\")"
+ },
+ {
+  "id": "hand2.0139",
+  "expr": "regex(\"(?i)\\\\p{Ll}\", \"A\")"
+ },
+ {
+  "id": "hand2.0140",
+  "expr": "regex(\"(?i)[^\\\\p{Ll}]\", \"a\")"
+ },
+ {
+  "id": "hand2.0141",
+  "expr": "regex(\"(?i)\\\\P{Ll}\", \"a\")"
+ },
+ {
+  "id": "hand2.0142",
+  "expr": "regex(\"[[:ascii:]]+\", \"aé\")"
+ },
+ {
+  "id": "hand2.0143",
+  "expr": "regex(\"[[:blank:]]\", \"\\t\")"
+ },
+ {
+  "id": "hand2.0144",
+  "expr": "regex(\"[[:cntrl:]]\", \"\\u007f\")"
+ },
+ {
+  "id": "hand2.0145",
+  "expr": "regex(\"[[:graph:]]\", \"é\")"
+ },
+ {
+  "id": "hand2.0146",
+  "expr": "regex(\"[[:print:]]\", \" \")"
+ },
+ {
+  "id": "hand2.0147",
+  "expr": "regex(\"[[:punct:]]+\", \"!$+<=>^`|~\")"
+ },
+ {
+  "id": "hand2.0148",
+  "expr": "regex(\"[[:xdigit:]]+\", \"fG\")"
+ },
+ {
+  "id": "hand2.0149",
+  "expr": "regex(\"(?i)[[:xdigit:]]+\", \"fF\")"
+ },
+ {
+  "id": "hand2.0150",
+  "expr": "regex(\"\\\\w\", \"K\")"
+ },
+ {
+  "id": "hand2.0151",
+  "expr": "regex(\"(?i)\\\\w\", \"K\")"
+ },
+ {
+  "id": "hand2.0152",
+  "expr": "regex(\"(?i)[a-z]\", \"K\")"
+ },
+ {
+  "id": "hand2.0153",
+  "expr": "regex(\"(?i)\\\\x{212a}\", \"K\")"
+ },
+ {
+  "id": "hand2.0154",
+  "expr": "regex(\"(?i)[\\\\x{212a}]\", \"k\")"
+ },
+ {
+  "id": "hand2.0155",
+  "expr": "regex(\"[^a]\", \"́\")"
+ },
+ {
+  "id": "hand2.0156",
+  "expr": "regex(\"[^\\\\n]+\", \"a\\rb\")"
+ },
+ {
+  "id": "hand2.0157",
+  "expr": "regex(\".+\", \"a\\rb\")"
+ },
+ {
+  "id": "hand2.0158",
+  "expr": "regex(\"(?s:.)+\", \"\\n\")"
+ },
+ {
+  "id": "hand2.0159",
+  "expr": "regex(\"a$\", \"a\\n\")"
+ },
+ {
+  "id": "hand2.0160",
+  "expr": "regex(\"(?m)a$\", \"a\\r\\n\")"
+ },
+ {
+  "id": "hand2.0161",
+  "expr": "regex(\"\\\\Ba\", \"ba\")"
+ },
+ {
+  "id": "hand2.0162",
+  "expr": "regex(\"\\\\b\", \"é\")"
+ },
+ {
+  "id": "hand2.0163",
+  "expr": "regex(\"(?i)\\\\bA\", \"a\")"
+ },
+ {
+  "id": "hand2.0164",
+  "expr": "regex(\"\\\\d+\", \"١٢\")"
+ },
+ {
+  "id": "hand2.0165",
+  "expr": "regex(\"[0-9]+\", \"١٢\")"
+ },
+ {
+  "id": "hand2.0166",
+  "expr": "regex(\"(?i)[\\\\d]\", \"1\")"
+ },
+ {
+  "id": "hand2.0167",
+  "expr": "regex(\"\\\\pN+\", \"١٢\")"
+ },
+ {
+  "id": "hand2.0168",
+  "expr": "regex(\"[\\\\pL\\\\pN]+\", \"a1\")"
+ },
+ {
+  "id": "hand2.0169",
+  "expr": "regex(\"[^\\\\pL]\", \"a\")"
+ },
+ {
+  "id": "hand2.0170",
+  "expr": "regex(\"[\\\\PL]\", \"a\")"
+ },
+ {
+  "id": "hand2.0171",
+  "expr": "regex(\"[^\\\\PL]\", \"a\")"
+ },
+ {
+  "id": "hand2.0172",
+  "expr": "regex(\"(?i)[^\\\\PL]\", \"a\")"
+ },
+ {
+  "id": "hand2.0173",
+  "expr": "regex(\"(?i)[^K]\", \"K\")"
+ },
+ {
+  "id": "hand2.0174",
+  "expr": "regex(\"(?i)[^k-k]\", \"K\")"
+ },
+ {
+  "id": "hand2.0175",
+  "expr": "regex(\"[\\\\x00-\\\\x{10FFFF}]\", \"\\u0000\")"
+ },
+ {
+  "id": "hand2.0176",
+  "expr": "regex(\"(?U)(a+)(a*)\", \"aaa\")"
+ },
+ {
+  "id": "hand2.0177",
+  "expr": "regex(\"(?U)(a+?)(a*)\", \"aaa\")"
+ },
+ {
+  "id": "hand2.0178",
+  "expr": "regex(\"(?U)a{1,3}\", \"aaa\")"
+ },
+ {
+  "id": "hand2.0179",
+  "expr": "regex(\"(?U)a{1,3}?\", \"aaa\")"
+ },
+ {
+  "id": "hand2.0180",
+  "expr": "regex(\"(?iU)A+\", \"aaa\")"
+ },
+ {
+  "id": "hand2.0181",
+  "expr": "regex(\"(?sm-i:a.)\", \"a\\n\")"
+ },
+ {
+  "id": "hand2.0182",
+  "expr": "regex(\"(?i:(?-i:a))\", \"A\")"
+ },
+ {
+  "id": "hand2.0183",
+  "expr": "regex(\"(?ims)^.$\", \"\\n\")"
+ },
+ {
+  "id": "hand2.0184",
+  "expr": "regex(\"x{0,1000}\", \"xxx\")"
+ },
+ {
+  "id": "hand2.0185",
+  "expr": "regex(\"(?:x{0,1000}){0,1000}\", \"\")"
+ },
+ {
+  "id": "hand2.0186",
+  "expr": "regex(\"(?:(?:(?:a{2}){2}){2}){2}\", \"aaaaaaaaaaaaaaaa\")"
+ },
+ {
+  "id": "hand2.0187",
+  "expr": "regex(\"(((((((((((a)))))))))))\", \"a\")"
+ },
+ {
+  "id": "hand2.0188",
+  "expr": "regex(\"(?P<n_1>a)\", \"a\")"
+ },
+ {
+  "id": "hand2.0189",
+  "expr": "regex(\"(?P<n.1>a)\", \"a\")"
+ },
+ {
+  "id": "hand2.0190",
+  "expr": "regex(\"(?P<ñ>a)\", \"a\")"
+ },
+ {
+  "id": "hand2.0191",
+  "expr": "regex(\"(?P<a1>a)(?P<a2>b)?\", \"a\")"
+ },
+ {
+  "id": "hand2.0192",
+  "expr": "regex(\"(?<a>x)(?<b>y)?\", \"x\")"
+ },
+ {
+  "id": "hand2.0193",
+  "expr": "regex(\"(?P<a>x)|(?P<b>y)\", \"y\")"
+ },
+ {
+  "id": "hand2.0194",
+  "expr": "regex(\"(?P<a>)\", \"\")"
+ },
+ {
+  "id": "hand2.0195",
+  "expr": "regex(\"(?P<a>x*)\", \"\")"
+ },
+ {
+  "id": "hand2.0196",
+  "expr": "regex(\"(?P<a>x)?\", \"\")"
+ },
+ {
+  "id": "hand2.0197",
+  "expr": "regex(\"(a)?\", \"\")"
+ },
+ {
+  "id": "hand2.0198",
+  "expr": "regex(\"(a)*\", \"aa\")"
+ },
+ {
+  "id": "hand2.0199",
+  "expr": "regex(\"(a|b)*\", \"ab\")"
+ },
+ {
+  "id": "hand2.0200",
+  "expr": "regex(\"(a)(?:b)(c)\", \"abc\")"
+ },
+ {
+  "id": "hand2.0201",
+  "expr": "regex(\"\\\\(\", \"(\")"
+ },
+ {
+  "id": "hand2.0202",
+  "expr": "regex(\"[(]\", \"(\")"
+ },
+ {
+  "id": "hand2.0203",
+  "expr": "regex(\"\\\\Q(\\\\E(a)\", \"(a\")"
+ },
+ {
+  "id": "hand2.0204",
+  "expr": "regex(\"\\\\Q(a)\\\\E\", \"(a)\")"
+ },
+ {
+  "id": "hand2.0205",
+  "expr": "regex(\"(\\\\Q)\\\\E)\", \")\")"
+ },
+ {
+  "id": "hand2.0206",
+  "expr": "regex(\"[\\\\Q^\\\\E]\", \"^\")"
+ },
+ {
+  "id": "hand2.0207",
+  "expr": "regex(\"[\\\\Q\\\\E]\", \"a\")"
+ },
+ {
+  "id": "hand2.0208",
+  "expr": "regex(\"[\\\\Qa\\\\E-z]\", \"b\")"
+ },
+ {
+  "id": "hand2.0209",
+  "expr": "regex(\"\\\\Qa\\\\Eb\\\\Qc\\\\E\", \"abc\")"
+ },
+ {
+  "id": "hand2.0210",
+  "expr": "regex(\"\\\\Qab\", \"ab\")"
+ },
+ {
+  "id": "hand2.0211",
+  "expr": "regex(\"a\\\\E\", \"a\")"
+ },
+ {
+  "id": "hand2.0212",
+  "expr": "regex(\"\\\\E\", \"\")"
+ },
+ {
+  "id": "hand2.0213",
+  "expr": "regex(\"(?i)\\\\QK\\\\E\", \"k\")"
+ },
+ {
+  "id": "hand2.0214",
+  "expr": "replace(\"ABC\", \"/(?i)b/\", \"x\")"
+ },
+ {
+  "id": "hand2.0215",
+  "expr": "replace(\"a\\nb\", \"/(?m)^/\", \">\")"
+ },
+ {
+  "id": "hand2.0216",
+  "expr": "replace(\"a\\nb\", \"/^/\", \">\")"
+ },
+ {
+  "id": "hand2.0217",
+  "expr": "replace(\"a\\nb\\n\", \"/(?m)$/\", \"<\")"
+ },
+ {
+  "id": "hand2.0218",
+  "expr": "replace(\"aaa\", \"/a{2}/\", \"b\")"
+ },
+ {
+  "id": "hand2.0219",
+  "expr": "replace(\"éé\", \"/\\\\w/\", \"x\")"
+ },
+ {
+  "id": "hand2.0220",
+  "expr": "replace(\"a b\", \"/\\\\s/\", \"_\")"
+ },
+ {
+  "id": "hand2.0221",
+  "expr": "replace(\"a\\u000bb\", \"/\\\\s/\", \"_\")"
+ },
+ {
+  "id": "hand2.0222",
+  "expr": "replace(\"a\\u000bb\", \"/[[:space:]]/\", \"_\")"
+ },
+ {
+  "id": "hand2.0223",
+  "expr": "replace(\"ab\", \"/(?P<x>a)(?P<y>b)/\", \"$y$x\")"
+ },
+ {
+  "id": "hand2.0224",
+  "expr": "replace(\"ab\", \"/(?P<x>a)(?P<y>b)/\", \"${y}-${x}\")"
+ },
+ {
+  "id": "hand2.0225",
+  "expr": "replace(\"ab\", \"/(a)(b)/\", \"${2}${1}${3}\")"
+ },
+ {
+  "id": "hand2.0226",
+  "expr": "replace(\"ab\", \"/(a)(b)/\", \"$10\")"
+ },
+ {
+  "id": "hand2.0227",
+  "expr": "replace(\"ab\", \"/a/\", \"${\")"
+ },
+ {
+  "id": "hand2.0228",
+  "expr": "replace(\"ab\", \"/a/\", \"${}\")"
+ },
+ {
+  "id": "hand2.0229",
+  "expr": "replace(\"ab\", \"/a/\", \"$ \")"
+ },
+ {
+  "id": "hand2.0230",
+  "expr": "replace(\"ab\", \"/a/\", \"$é\")"
+ },
+ {
+  "id": "hand2.0231",
+  "expr": "replace(\"ab\", \"/(?P<é>a)/\", \"$é\")"
+ },
+ {
+  "id": "hand2.0232",
+  "expr": "replace(\"ab\", \"/a/\", \"$_\")"
+ },
+ {
+  "id": "hand2.0233",
+  "expr": "replace(\"ab\", \"/(?P<_>a)/\", \"[$_]\")"
+ },
+ {
+  "id": "hand2.0234",
+  "expr": "replace(\"a\", \"/a|/\", \"x\")"
+ },
+ {
+  "id": "hand2.0235",
+  "expr": "replace(\"abc\", \"/(?U)b*/\", \"x\")"
+ },
+ {
+  "id": "hand2.0236",
+  "expr": "replace(\"é\", \"/́/\", \"x\")"
+ },
+ {
+  "id": "hand2.0237",
+  "expr": "replace(\"é\", \"/./\", \"x\")"
+ },
+ {
+  "id": "hand2.0238",
+  "expr": "replace(\"é\", \"/e/\", \"x\")"
+ },
+ {
+  "id": "hand2.0239",
+  "expr": "replace(\"Σ\", \"/(?i)σ/\", \"x\")"
+ },
+ {
+  "id": "hand2.0240",
+  "expr": "replace(\"ǅ\", \"/(?i)ǆ/\", \"x\")"
+ },
+ {
+  "id": "hand2.0241",
+  "expr": "substr(\"\\r\\n\\r\\n\", 1, 1)"
+ },
+ {
+  "id": "hand2.0242",
+  "expr": "substr(\"á́b\", 1, 1)"
+ },
+ {
+  "id": "hand2.0243",
+  "expr": "substr(\"🏳️‍🌈x\", 1, 1)"
+ },
+ {
+  "id": "hand2.0244",
+  "expr": "substr(\"🇺🇸x\", 0, 1)"
+ },
+ {
+  "id": "hand2.0245",
+  "expr": "substr(\"🇺🇸🇬\", 1, 2)"
+ },
+ {
+  "id": "hand2.0246",
+  "expr": "substr(\"क्षि\", 0, 1)"
+ },
+ {
+  "id": "hand2.0247",
+  "expr": "substr(\"각x\", 0, 1)"
+ },
+ {
+  "id": "hand2.0248",
+  "expr": "substr(\"a‍‍b\", 0, 1)"
+ },
+ {
+  "id": "hand2.0249",
+  "expr": "strlen(\"เก\")"
+ },
+ {
+  "id": "hand2.0250",
+  "expr": "strlen(\"ำ\")"
+ },
+ {
+  "id": "hand2.0251",
+  "expr": "strlen(\"👩🏽‍🚀\")"
+ },
+ {
+  "id": "hand2.0252",
+  "expr": "strlen(\"🇺\")"
+ },
+ {
+  "id": "hand2.0253",
+  "expr": "strlen(\"🇺🇸🇺\")"
+ },
+ {
+  "id": "hand2.0254",
+  "expr": "strlen(\"가\")"
+ },
+ {
+  "id": "hand2.0255",
+  "expr": "strlen(\"­\")"
+ },
+ {
+  "id": "hand2.0256",
+  "expr": "strlen(\"ä̲\")"
+ },
+ {
+  "id": "hand2.0257",
+  "expr": "strlen(\"ൎക\")"
+ },
+ {
+  "id": "hand2.0258",
+  "expr": "strlen(\"؀؀a\")"
+ },
+ {
+  "id": "hand2.0259",
+  "expr": "strlen(\"앤\")"
+ },
+ {
+  "id": "hand2.0260",
+  "expr": "strlen(\"क़्ष\")"
+ },
+ {
+  "id": "hand2.0261",
+  "expr": "strlen(\"क्‍ष\")"
+ },
+ {
+  "id": "hand2.0262",
+  "expr": "strlen(\"ก่ำ\")"
+ },
+ {
+  "id": "hand2.0263",
+  "expr": "strlen(\"὆8‍\")"
+ },
+ {
+  "id": "hand2.0264",
+  "expr": "strlen(\"❤️\")"
+ },
+ {
+  "id": "hand2.0265",
+  "expr": "strlen(\" ́\")"
+ },
+ {
+  "id": "hand2.0266",
+  "expr": "strlen(\"\\t́\")"
+ },
+ {
+  "id": "hand2.0267",
+  "expr": "strlen(\"é́\")"
+ },
+ {
+  "id": "hand2.0268",
+  "expr": "upper(\"é\")"
+ },
+ {
+  "id": "hand2.0269",
+  "expr": "lower(\"É\")"
+ },
+ {
+  "id": "hand2.0270",
+  "expr": "upper(\"ǰ\")"
+ },
+ {
+  "id": "hand2.0271",
+  "expr": "upper(\"ﬀ\")"
+ },
+ {
+  "id": "hand2.0272",
+  "expr": "upper(\"ᾀ\")"
+ },
+ {
+  "id": "hand2.0273",
+  "expr": "title(\"ᾀa\")"
+ },
+ {
+  "id": "hand2.0274",
+  "expr": "title(\"ǳa\")"
+ },
+ {
+  "id": "hand2.0275",
+  "expr": "title(\"ǆ\")"
+ },
+ {
+  "id": "hand2.0276",
+  "expr": "title(\"ǅ\")"
+ },
+ {
+  "id": "hand2.0277",
+  "expr": "title(\"Ǆ\")"
+ },
+ {
+  "id": "hand2.0278",
+  "expr": "title(\"ﬀa\")"
+ },
+ {
+  "id": "hand2.0279",
+  "expr": "title(\"ŉ\")"
+ },
+ {
+  "id": "hand2.0280",
+  "expr": "title(\"ͅa\")"
+ },
+ {
+  "id": "hand2.0281",
+  "expr": "title(\"aͅ\")"
+ },
+ {
+  "id": "hand2.0282",
+  "expr": "title(\"helló world\")"
+ },
+ {
+  "id": "hand2.0283",
+  "expr": "title(\"a-b—c\")"
+ },
+ {
+  "id": "hand2.0284",
+  "expr": "title(\"a—b\")"
+ },
+ {
+  "id": "hand2.0285",
+  "expr": "title(\"(a)[b]{c}\")"
+ },
+ {
+  "id": "hand2.0286",
+  "expr": "title(\"a/b\\\\c\")"
+ },
+ {
+  "id": "hand2.0287",
+  "expr": "title(\"a1b 1a\")"
+ },
+ {
+  "id": "hand2.0288",
+  "expr": "title(\"a²b\")"
+ },
+ {
+  "id": "hand2.0289",
+  "expr": "title(\"x y\")"
+ },
+ {
+  "id": "hand2.0290",
+  "expr": "lower(\"ǅ\")"
+ },
+ {
+  "id": "hand2.0291",
+  "expr": "lower(\"ẞ\")"
+ },
+ {
+  "id": "hand2.0292",
+  "expr": "lower(\"Ω\")"
+ },
+ {
+  "id": "hand2.0293",
+  "expr": "lower(\"K\")"
+ },
+ {
+  "id": "hand2.0294",
+  "expr": "lower(\"Å\")"
+ },
+ {
+  "id": "hand2.0295",
+  "expr": "upper(\"ŉ\")"
+ },
+ {
+  "id": "hand2.0296",
+  "expr": "upper(\"ǰ\")"
+ },
+ {
+  "id": "hand2.0297",
+  "expr": "upper(\"ΐ\")"
+ },
+ {
+  "id": "hand2.0298",
+  "expr": "upper(\"ẖ\")"
+ },
+ {
+  "id": "hand2.0299",
+  "expr": "upper(\"ﬀ\")"
+ },
+ {
+  "id": "hand2.0300",
+  "expr": "upper(\"ᾀ\")"
+ },
+ {
+  "id": "hand2.0301",
+  "expr": "upper(\"ᾳ\")"
+ },
+ {
+  "id": "hand2.0302",
+  "expr": "upper(\"և\")"
+ },
+ {
+  "id": "hand2.0303",
+  "expr": "upper(\"ßß\")"
+ },
+ {
+  "id": "hand2.0304",
+  "expr": "title(\"ß\")"
+ },
+ {
+  "id": "hand2.0305",
+  "expr": "title(\"և\")"
+ },
+ {
+  "id": "hand2.0306",
+  "expr": "title(\"ᾀ\")"
+ },
+ {
+  "id": "hand2.0307",
+  "expr": "title(\"ﬁ\")"
+ },
+ {
+  "id": "hand2.0308",
+  "expr": "jsonencode(toset([tomap({b = 1}), tomap({a = 2})]))"
+ },
+ {
+  "id": "hand2.0309",
+  "expr": "jsonencode(toset([{b = 1, a = 2}, {b = 1, a = 1}]))"
+ },
+ {
+  "id": "hand2.0310",
+  "expr": "jsonencode(toset([\"10\", \"9\", \"1\"]))"
+ },
+ {
+  "id": "hand2.0311",
+  "expr": "jsonencode(toset([-1, -10, 0, 1e300, -1e300, 1e-300]))"
+ },
+ {
+  "id": "hand2.0312",
+  "expr": "jsonencode(toset([[1, 2], [1], [2]]))"
+ },
+ {
+  "id": "hand2.0313",
+  "expr": "jsonencode(toset([toset([2, 1]), toset([1])]))"
+ },
+ {
+  "id": "hand2.0314",
+  "expr": "jsonencode(toset([null]))"
+ },
+ {
+  "id": "hand2.0315",
+  "expr": "jsonencode({z = toset([3, 1]), a = tomap({y = 1, x = 2})})"
+ },
+ {
+  "id": "hand2.0316",
+  "expr": "jsonencode(toset([\"ab\", \"a\", \"b\", \"\", \"A\"]))"
+ },
+ {
+  "id": "hand2.0317",
+  "expr": "jsonencode(toset([\"é\", \"é\", \"f\"]))"
+ },
+ {
+  "id": "hand2.0318",
+  "expr": "jsonencode(toset([true, false, true]))"
+ },
+ {
+  "id": "hand2.0319",
+  "expr": "tolist(toset([[1, 2], [1], [2]]))"
+ },
+ {
+  "id": "hand2.0320",
+  "expr": "tolist(toset([toset([2, 1]), toset([1])]))"
+ },
+ {
+  "id": "hand2.0321",
+  "expr": "tolist(toset([{b = 1, a = 2}, {b = 1, a = 1}]))"
+ },
+ {
+  "id": "hand2.0322",
+  "expr": "tolist(toset([\"ab\", \"a\", \"b\", \"\", \"A\"]))"
+ },
+ {
+  "id": "hand2.0323",
+  "expr": "tolist(toset([-1, -10, 0, 1e300, -1e300, 1e-300]))"
+ },
+ {
+  "id": "hand2.0324",
+  "expr": "tolist(toset([true, false]))"
+ },
+ {
+  "id": "hand2.0325",
+  "expr": "tolist(toset([[], [\"a\"], [\"a\", \"b\"]]))"
+ },
+ {
+  "id": "hand2.0326",
+  "expr": "tolist(toset([tomap({b = \"1\"}), tomap({a = \"2\"}), tomap({})]))"
+ },
+ {
+  "id": "hand2.0327",
+  "expr": "csvdecode(\"a,b\\n1,2\\r\\n3,4\")"
+ },
+ {
+  "id": "hand2.0328",
+  "expr": "csvdecode(\"a\\n \")"
+ },
+ {
+  "id": "hand2.0329",
+  "expr": "csvdecode(\"a\\r\\n\\r\\n1\")"
+ },
+ {
+  "id": "hand2.0330",
+  "expr": "csvdecode(\"a,b\\n\\\"1\\\",\\\"2\\\"\\\"\\\"\")"
+ },
+ {
+  "id": "hand2.0331",
+  "expr": "csvdecode(\"a,b\\n\\\"1\\\" ,2\")"
+ },
+ {
+  "id": "hand2.0332",
+  "expr": "csvdecode(\"a,b\\n1,\\\"\\\"\")"
+ },
+ {
+  "id": "hand2.0333",
+  "expr": "csvdecode(\"a\\n\\\"x\\\"\\\"y\\\"\")"
+ },
+ {
+  "id": "hand2.0334",
+  "expr": "csvdecode(\"a\\n\\\"\\\"\\\"\\\"\\\"\")"
+ },
+ {
+  "id": "hand2.0335",
+  "expr": "csvdecode(\"a\\nx\\ry\")"
+ },
+ {
+  "id": "hand2.0336",
+  "expr": "csvdecode(\"\\\"a\\\"b\\n1\")"
+ },
+ {
+  "id": "hand2.0337",
+  "expr": "csvdecode(\"a\\n1,\")"
+ },
+ {
+  "id": "hand2.0338",
+  "expr": "csvdecode(\"a,b,c\\n1,2\")"
+ },
+ {
+  "id": "hand2.0339",
+  "expr": "csvdecode(\"a\\n1\\n\")"
+ },
+ {
+  "id": "hand2.0340",
+  "expr": "csvdecode(\"a\\n1\\n\\r\\n2\")"
+ },
+ {
+  "id": "hand2.0341",
+  "expr": "csvdecode(\"a\\n\\t1\\t\")"
+ },
+ {
+  "id": "hand2.0342",
+  "expr": "csvdecode(\"\\na\\n1\")"
+ },
+ {
+  "id": "hand2.0343",
+  "expr": "csvdecode(\"\\r\\na\\n1\")"
+ },
+ {
+  "id": "hand2.0344",
+  "expr": "csvdecode(\" \\na\\n1\")"
+ },
+ {
+  "id": "hand2.0345",
+  "expr": "csvdecode(\"a\\n1\\n \\n2\")"
+ },
+ {
+  "id": "hand2.0346",
+  "expr": "upper(1)"
+ },
+ {
+  "id": "hand2.0347",
+  "expr": "upper(true)"
+ },
+ {
+  "id": "hand2.0348",
+  "expr": "upper(1e300)"
+ },
+ {
+  "id": "hand2.0349",
+  "expr": "upper(-0)"
+ },
+ {
+  "id": "hand2.0350",
+  "expr": "upper(1/3)"
+ },
+ {
+  "id": "hand2.0351",
+  "expr": "upper([1])"
+ },
+ {
+  "id": "hand2.0352",
+  "expr": "join(\",\", [1.5, true, \"x\"])"
+ },
+ {
+  "id": "hand2.0353",
+  "expr": "join(\",\", tolist([1, 2]))"
+ },
+ {
+  "id": "hand2.0354",
+  "expr": "join(1, [\"a\", \"b\"])"
+ },
+ {
+  "id": "hand2.0355",
+  "expr": "split(\",\", 1.5)"
+ },
+ {
+  "id": "hand2.0356",
+  "expr": "substr(12345, 1, 2)"
+ },
+ {
+  "id": "hand2.0357",
+  "expr": "replace(12345, 3, 9)"
+ },
+ {
+  "id": "hand2.0358",
+  "expr": "replace(true, \"t\", \"f\")"
+ },
+ {
+  "id": "hand2.0359",
+  "expr": "strlen(true)"
+ },
+ {
+  "id": "hand2.0360",
+  "expr": "strlen(1/3)"
+ },
+ {
+  "id": "hand2.0361",
+  "expr": "trim(100, 1)"
+ },
+ {
+  "id": "hand2.0362",
+  "expr": "indent(2, 1)"
+ },
+ {
+  "id": "hand2.0363",
+  "expr": "regex(\"1\", 12)"
+ },
+ {
+  "id": "hand2.0364",
+  "expr": "regex(1, \"1\")"
+ },
+ {
+  "id": "hand2.0365",
+  "expr": "contains([\"1\"], 1)"
+ },
+ {
+  "id": "hand2.0366",
+  "expr": "contains([1], \"1\")"
+ },
+ {
+  "id": "hand2.0367",
+  "expr": "lookup({a = \"x\"}, \"a\", 1)"
+ },
+ {
+  "id": "hand2.0368",
+  "expr": "lookup({a = 1}, \"a\", \"1\")"
+ },
+ {
+  "id": "hand2.0369",
+  "expr": "lookup({a = true}, \"b\", \"x\")"
+ },
+ {
+  "id": "hand2.0370",
+  "expr": "element([\"a\"], \"0\")"
+ },
+ {
+  "id": "hand2.0371",
+  "expr": "element([\"a\"], true)"
+ },
+ {
+  "id": "hand2.0372",
+  "expr": "slice([\"a\"], \"0\", \"1\")"
+ },
+ {
+  "id": "hand2.0373",
+  "expr": "range(\"1\", \"3\")"
+ },
+ {
+  "id": "hand2.0374",
+  "expr": "range(\"a\")"
+ },
+ {
+  "id": "hand2.0375",
+  "expr": "parseint(1e3, 10)"
+ },
+ {
+  "id": "hand2.0376",
+  "expr": "max(\"1\", \"2\")"
+ },
+ {
+  "id": "hand2.0377",
+  "expr": "min(\"1\", 2)"
+ },
+ {
+  "id": "hand2.0378",
+  "expr": "abs(\"x\")"
+ },
+ {
+  "id": "hand2.0379",
+  "expr": "coalesce(1, \"a\", true)"
+ },
+ {
+  "id": "hand2.0380",
+  "expr": "coalesce(\"a\", 1)"
+ },
+ {
+  "id": "hand2.0381",
+  "expr": "coalesce(null, 1, \"a\")"
+ },
+ {
+  "id": "hand2.0382",
+  "expr": "concat([\"a\"], [1])"
+ },
+ {
+  "id": "hand2.0383",
+  "expr": "concat([\"a\"], tolist([1]))"
+ },
+ {
+  "id": "hand2.0384",
+  "expr": "concat(tolist([\"a\"]), tolist([1]))"
+ },
+ {
+  "id": "hand2.0385",
+  "expr": "merge({a = \"x\"}, tomap({b = 1}))"
+ },
+ {
+  "id": "hand2.0386",
+  "expr": "merge(tomap({a = \"x\"}), tomap({b = 1}))"
+ },
+ {
+  "id": "hand2.0387",
+  "expr": "merge(tomap({a = \"x\"}), {b = 1})"
+ },
+ {
+  "id": "hand2.0388",
+  "expr": "merge(tomap({a = 1}), {b = \"x\"})"
+ },
+ {
+  "id": "hand2.0389",
+  "expr": "merge(tomap({a = 1}), {b = true})"
+ },
+ {
+  "id": "hand2.0390",
+  "expr": "merge(tomap({a = 1}), {b = [1]})"
+ },
+ {
+  "id": "hand2.0391",
+  "expr": "tomap({a = 1, b = \"x\", c = true})"
+ },
+ {
+  "id": "hand2.0392",
+  "expr": "tomap({a = \"1\", b = 2})"
+ },
+ {
+  "id": "hand2.0393",
+  "expr": "tomap({a = true, b = \"x\"})"
+ },
+ {
+  "id": "hand2.0394",
+  "expr": "tolist([1, \"x\", true])"
+ },
+ {
+  "id": "hand2.0395",
+  "expr": "tolist([\"1\", 2, false])"
+ },
+ {
+  "id": "hand2.0396",
+  "expr": "tolist([true, 1])"
+ },
+ {
+  "id": "hand2.0397",
+  "expr": "toset([true, 1])"
+ },
+ {
+  "id": "hand2.0398",
+  "expr": "toset([\"a\", 1, true])"
+ },
+ {
+  "id": "hand2.0399",
+  "expr": "distinct([\"1\", 1])"
+ },
+ {
+  "id": "hand2.0400",
+  "expr": "sort([1, \"a\"])"
+ },
+ {
+  "id": "hand2.0401",
+  "expr": "sort([\"a\", 1])"
+ },
+ {
+  "id": "hand2.0402",
+  "expr": "sort([true, \"a\"])"
+ },
+ {
+  "id": "hand2.0403",
+  "expr": "reverse([\"a\", 1])"
+ },
+ {
+  "id": "hand2.0404",
+  "expr": "flatten([[\"a\"], [1]])"
+ },
+ {
+  "id": "hand2.0405",
+  "expr": "values({a = 1, b = \"x\"})"
+ },
+ {
+  "id": "hand2.0406",
+  "expr": "keys({a = 1, b = \"x\"})"
+ }
+]

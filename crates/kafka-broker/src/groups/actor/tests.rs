@@ -51,6 +51,7 @@ fn join(member: &str) -> Event {
     Event::Join(
         Token(0),
         JoinRequest {
+            reason: None,
             member_id: MemberId::new(member),
             instance: None,
             protocol_type: "consumer".into(),

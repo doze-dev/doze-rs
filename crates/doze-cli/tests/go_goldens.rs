@@ -2,9 +2,9 @@
 //! byte against what this doze prints on stdout for the same scripted daemon (core plan C1's gate). The daemon plays
 //! `tests/fixtures/daemon/*.ndjson`, which carry the Go goldens' snapshot (`shopSnapshot`) and frames.
 //!
-//! Two differences are by design and are checked as such: Go's goldens capture stdout and stderr together, and a
-//! failure here is a diagnostic on stderr (the `✗ events: …` line of `wake-failed` is `error[DZ0703]: events: …`);
-//! and `status-daemon-down` lists doze.hcl's services, which this doze cannot read until the core's `doze-config`.
+//! One difference is by design and is checked as such: Go's goldens capture stdout and stderr together, and a
+//! failure here is a diagnostic on stderr (the `✗ events: …` line of `wake-failed` is `error[DZ0703]: events: …`).
+//! `status-daemon-down` is read from the doze.hcl Go's golden test parses (`shopConfig`).
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -123,16 +123,13 @@ fn logs_are_go_s() {
     }
 }
 
-/// The one golden this doze cannot produce yet, named so it is not forgotten: it needs doze.hcl read.
+/// With the daemon down, the services doze.hcl declares, from the same stack as Go's golden, byte for byte.
 #[test]
-fn status_with_the_daemon_down_waits_for_doze_config() {
-    assert!(
-        golden("status-daemon-down").starts_with("doze is not running — showing declared services")
-    );
-    assert_eq!(stdout_of_down(), "doze is not running\n");
+fn status_with_the_daemon_down_lists_the_declared_services() {
+    assert_eq!(stdout_of_down(), golden("status-daemon-down"));
 }
 
 fn stdout_of_down() -> String {
-    let (sb, host, _d) = setup::prepare(&["project bare".to_owned()]);
+    let (sb, host, _d) = setup::prepare(&["project shop".to_owned()]);
     fixture::run(&sb, &host, Terminals::default(), false, &["status"]).stdout
 }

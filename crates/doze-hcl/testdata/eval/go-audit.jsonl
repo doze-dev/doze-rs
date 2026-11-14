@@ -1,0 +1,590 @@
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.00","ok":false,"stage":"eval"}
+{"id":"audit.num.01","ok":true,"type":"number","value":{"num":"8"}}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.02","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.03","ok":false,"stage":"eval"}
+{"id":"audit.num.04","ok":true,"type":"number","value":{"num":"+Inf"}}
+{"id":"audit.num.05","ok":true,"type":"number","value":{"num":"-Inf"}}
+{"diags":[{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Error during operation: can't subtract infinity from itself.","sev":"error","summary":"Operation failed"}],"id":"audit.num.06","ok":false,"stage":"eval"}
+{"id":"audit.num.07","ok":true,"type":"number","value":{"num":"0.5"}}
+{"id":"audit.num.08","ok":true,"type":"number","value":{"num":"5"}}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.09","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":7,"byte":6},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.10","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.11","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.12","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.13","ok":false,"stage":"eval"}
+{"id":"audit.num.14","ok":true,"type":"number","value":{"num":"1"}}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.15","ok":false,"stage":"eval"}
+{"id":"audit.num.16","ok":true,"type":"number","value":{"num":"0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"}}
+{"id":"audit.num.17","ok":true,"type":"number","value":{"num":"100"}}
+{"id":"audit.num.18","ok":true,"type":"number","value":{"num":"0.25"}}
+{"id":"audit.num.19","ok":true,"type":"number","value":{"num":"0.2"}}
+{"diags":[{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.20","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.21","ok":false,"stage":"eval"}
+{"id":"audit.num.22","ok":true,"type":"number","value":{"num":"0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"}}
+{"id":"audit.num.23","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"audit.num.24","ok":true,"type":"number","value":{"num":"121932631137021795226185032733622923332237463801111263526900"}}
+{"id":"audit.num.25","ok":true,"type":"number","value":{"num":"33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333332"}}
+{"id":"audit.num.26","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"audit.num.27","ok":true,"type":"number","value":{"num":"-1"}}
+{"id":"audit.num.28","ok":true,"type":"number","value":{"num":"1.5"}}
+{"id":"audit.num.29","ok":true,"type":"number","value":{"num":"-1.5"}}
+{"id":"audit.num.30","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.31","ok":true,"type":"number","value":{"num":"4"}}
+{"id":"audit.num.32","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.33","ok":true,"type":"number","value":{"num":"-0"}}
+{"id":"audit.num.34","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.35","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.36","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.37","ok":true,"type":"number","value":{"num":"-0"}}
+{"id":"audit.num.38","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.39","ok":true,"type":"number","value":{"num":"-0"}}
+{"id":"audit.num.40","ok":true,"type":"number","value":{"num":"-0"}}
+{"id":"audit.num.41","ok":true,"type":"number","value":{"num":"-0"}}
+{"id":"audit.num.42","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.43","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.44","ok":true,"type":"number","value":{"num":"-0"}}
+{"id":"audit.num.45","ok":true,"type":"bool","value":false}
+{"id":"audit.num.46","ok":true,"type":"bool","value":true}
+{"id":"audit.num.47","ok":true,"type":"bool","value":false}
+{"id":"audit.num.48","ok":true,"type":"bool","value":true}
+{"id":"audit.num.49","ok":true,"type":"bool","value":true}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.num.50","ok":false,"stage":"eval"}
+{"id":"audit.num.51","ok":true,"type":"bool","value":true}
+{"id":"audit.num.52","ok":true,"type":"bool","value":true}
+{"id":"audit.num.53","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.54","ok":true,"type":"bool","value":true}
+{"id":"audit.num.55","ok":true,"type":"bool","value":true}
+{"id":"audit.num.56","ok":true,"type":"bool","value":true}
+{"id":"audit.num.57","ok":true,"type":"number","value":{"num":"+Inf"}}
+{"diags":[{"at":{"end":{"line":1,"col":18,"byte":17},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Error during operation: can't divide zero by zero or infinity by infinity.","sev":"error","summary":"Operation failed"}],"id":"audit.num.58","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Error during operation: can't divide zero by zero or infinity by infinity.","sev":"error","summary":"Operation failed"}],"id":"audit.num.59","ok":false,"stage":"eval"}
+{"id":"audit.num.60","ok":true,"type":"number","value":{"num":"-Inf"}}
+{"id":"audit.num.61","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.62","ok":true,"type":"number","value":{"num":"-0"}}
+{"id":"audit.num.63","ok":true,"type":"number","value":{"num":"9007199254740993"}}
+{"id":"audit.num.64","ok":true,"type":"number","value":{"num":"0.1"}}
+{"id":"audit.num.65","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"audit.num.66","ok":true,"type":"number","value":{"num":"1.5"}}
+{"id":"audit.num.67","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"audit.num.68","ok":true,"type":"number","value":{"num":"0.0000001"}}
+{"id":"audit.num.69","ok":true,"type":"number","value":{"num":"12345678901234567890.123456789"}}
+{"id":"audit.num.70","ok":true,"type":"number","value":{"num":"10"}}
+{"id":"audit.num.71","ok":true,"type":"number","value":{"num":"0.20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006"}}
+{"id":"audit.num.72","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.73","ok":true,"type":"number","value":{"num":"-0"}}
+{"id":"audit.num.74","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.num.75","ok":true,"type":"number","value":{"num":"0.10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003"}}
+{"id":"audit.num.76","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"audit.num.77","ok":true,"type":"number","value":{"num":"0.42857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142856"}}
+{"id":"audit.num.78","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"audit.num.79","ok":true,"type":"number","value":{"num":"-5"}}
+{"id":"audit.str2num.00","ok":true,"type":"number","value":{"num":"10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}}
+{"id":"audit.str2num.01","ok":true,"type":"number","value":{"num":"0.3"}}
+{"id":"audit.str2num.02","ok":true,"type":"number","value":{"num":"-0"}}
+{"id":"audit.str2num.03","ok":true,"type":"number","value":{"num":"0.33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333335"}}
+{"id":"audit.str2num.04","ok":true,"type":"number","value":{"num":"0.0000001"}}
+{"id":"audit.str2num.05","ok":true,"type":"number","value":{"num":"100000000000000000000000"}}
+{"id":"audit.str2num.06","ok":true,"type":"number","value":{"num":"+Inf"}}
+{"id":"audit.str2num.07","ok":true,"type":"number","value":{"num":"-Inf"}}
+{"id":"audit.str2num.08","ok":true,"type":"string","value":"x1.5"}
+{"id":"audit.str2num.09","ok":true,"type":"string","value":"x100"}
+{"id":"audit.str2num.10","ok":true,"type":"string","value":"xtrue"}
+{"id":"audit.str2num.11","ok":true,"type":"string","value":"x-0"}
+{"id":"audit.set.00","ok":true,"type":["set","string"],"value":["a","b","c"]}
+{"id":"audit.set.01","ok":true,"type":["set","string"],"value":["-0","0","0.1","10","10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","9"]}
+{"id":"audit.set.02","ok":true,"type":["set","string"],"value":["false","true"]}
+{"id":"audit.set.03","ok":true,"type":["set","string"],"value":["a",{"unknown":true}]}
+{"id":"audit.set.04","ok":true,"type":["set","string"],"value":["a",null]}
+{"id":"audit.set.05","ok":true,"type":["set","string"],"value":[]}
+{"diags":[{"at":{"end":{"line":1,"col":32,"byte":31},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"context":{"end":{"line":1,"col":32,"byte":31},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The true and false result expressions must have consistent types. The 'true' value is set of string, but the 'false' value is tuple.","sev":"error","summary":"Inconsistent conditional result types"}],"id":"audit.set.06","ok":false,"stage":"eval"}
+{"id":"audit.set.07","ok":true,"type":["set","string"],"value":[""," ","10","9","B","Z","a","b","é"]}
+{"id":"audit.set.08","ok":true,"type":["set","string"],"value":["a",{"unknown":true}]}
+{"id":"audit.set.09","ok":true,"type":["set","string"],"value":["0.1","0.10","1e1"]}
+{"id":"audit.set.10","ok":true,"type":"bool","value":true}
+{"id":"audit.set.11","ok":true,"type":"bool","value":false}
+{"id":"audit.set.12","ok":true,"type":"bool","value":true}
+{"id":"audit.set.13","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.set.14","ok":true,"type":"bool","value":false}
+{"id":"audit.set.15","ok":true,"type":"bool","value":true}
+{"id":"audit.set.16","ok":true,"type":["tuple",["string","string","string"]],"value":["x","y","z"]}
+{"id":"audit.set.17","ok":true,"type":["list","string"],"value":["y","z"]}
+{"id":"audit.eq.00","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.01","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.02","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.eq.03","ok":true,"type":"bool","value":false}
+{"id":"audit.eq.04","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.05","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.06","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.eq.07","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.eq.08","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.eq.09","ok":true,"type":"bool","value":false}
+{"id":"audit.eq.10","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.eq.11","ok":true,"type":"bool","value":false}
+{"id":"audit.eq.12","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.eq.13","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.eq.14","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.eq.15","ok":true,"type":"bool","value":false}
+{"id":"audit.eq.16","ok":true,"type":"bool","value":false}
+{"id":"audit.eq.17","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.18","ok":true,"type":"bool","value":false}
+{"id":"audit.eq.19","ok":true,"type":"bool","value":false}
+{"id":"audit.eq.20","ok":true,"type":"bool","value":false}
+{"id":"audit.eq.21","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.22","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.23","ok":true,"type":"bool","value":false}
+{"id":"audit.eq.24","ok":true,"type":"bool","value":false}
+{"id":"audit.eq.25","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.eq.26","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.eq.27","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.28","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.29","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.30","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.31","ok":true,"type":"bool","value":true}
+{"id":"audit.eq.32","ok":true,"type":"bool","value":false}
+{"id":"audit.eq.33","ok":true,"type":"bool","value":false}
+{"id":"audit.conv.00","ok":true,"type":"string","value":"1"}
+{"id":"audit.conv.01","ok":true,"type":"string","value":"true"}
+{"id":"audit.conv.02","ok":true,"type":["tuple",["string"]],"value":["1"]}
+{"id":"audit.conv.03","ok":true,"type":["list","string"],"value":["1","2"]}
+{"id":"audit.conv.04","ok":true,"type":["object",{"a":"string"}],"value":{"obj":[["a","1"]]}}
+{"id":"audit.conv.05","ok":true,"type":["map","string"],"value":{"obj":[["a","1"]]}}
+{"diags":[{"at":{"end":{"line":1,"col":35,"byte":34},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"context":{"end":{"line":1,"col":35,"byte":34},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The true and false result expressions must have consistent types. The 'true' value includes object attribute \"a\", which is absent in the 'false' value.","sev":"error","summary":"Inconsistent conditional result types"}],"id":"audit.conv.06","ok":false,"stage":"eval"}
+{"id":"audit.conv.07","ok":true,"type":["tuple",[["list","string"]]],"value":[["1"]]}
+{"id":"audit.conv.08","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.conv.09","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"audit.conv.10","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"audit.conv.11","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"audit.conv.12","ok":true,"type":"number","value":{"num":"1"}}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":18,"byte":17},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The condition expression must be of type bool.","sev":"error","summary":"Incorrect condition type"}],"id":"audit.conv.13","ok":false,"stage":"eval"}
+{"id":"audit.conv.14","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"audit.conv.15","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"audit.conv.16","ok":true,"type":["map","string"],"value":{"obj":[["A","1"],["B","2"]]}}
+{"id":"audit.conv.17","ok":true,"type":["list","string"],"value":["a","b","c"]}
+{"diags":[{"at":{"end":{"line":1,"col":36,"byte":35},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"context":{"end":{"line":1,"col":36,"byte":35},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The true and false result expressions must have consistent types. The 'true' value is list of string, but the 'false' value is tuple.","sev":"error","summary":"Inconsistent conditional result types"}],"id":"audit.conv.18","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"context":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The true and false result expressions must have consistent types. The 'true' value is tuple, but the 'false' value is object.","sev":"error","summary":"Inconsistent conditional result types"}],"id":"audit.conv.19","ok":false,"stage":"eval"}
+{"id":"audit.conv.20","ok":true,"type":["tuple",["number"]],"value":[null]}
+{"id":"audit.conv.21","ok":true,"type":["object",{}],"value":{"obj":[]}}
+{"id":"audit.conv.22","ok":true,"type":"dynamic","value":null}
+{"id":"audit.conv.23","ok":true,"type":"string","value":null}
+{"id":"audit.conv.24","ok":true,"type":["tuple",["string"]],"value":[{"unknown":true}]}
+{"id":"audit.conv.25","ok":true,"type":["object",{"a":["list","string"]}],"value":{"obj":[["a",["1"]]]}}
+{"id":"audit.conv.26","ok":true,"type":["tuple",[["map","number"]]],"value":[{"obj":[["a",{"num":"1"}]]}]}
+{"id":"audit.conv.27","ok":true,"type":["list",["map","number"]],"value":[{"obj":[["a",{"num":"1"}]]},{"obj":[["b",{"num":"2"}]]}]}
+{"id":"audit.conv.28","ok":true,"type":["list",["map","string"]],"value":[{"obj":[["age","31"],["name","ann"]]},{"obj":[["age","27"],["name","bo"]]}]}
+{"id":"audit.conv.29","ok":true,"type":["list",["object",{"age":"string","name":"string"}]],"value":[{"obj":[["age","31"],["name","ann"]]},{"obj":[["age","27"],["name","bo"]]}]}
+{"id":"audit.conv.30","ok":true,"type":["list",["map","string"]],"value":[{"obj":[["age","31"],["name","ann"]]},{"obj":[["age","27"],["name","bo"]]}]}
+{"id":"audit.conv.31","ok":true,"type":["object",{"a":"string","b":"string"}],"value":{"obj":[["a","1"],["b","x"]]}}
+{"diags":[{"at":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"context":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The true and false result expressions must have consistent types. Type mismatch for tuple element 0: The 'true' value is bool, but the 'false' value is number.","sev":"error","summary":"Inconsistent conditional result types"}],"id":"audit.conv.32","ok":false,"stage":"eval"}
+{"id":"audit.conv.33","ok":true,"type":["map","string"],"value":{"obj":[["A","1"],["B","2"]]}}
+{"diags":[{"at":{"end":{"line":1,"col":35,"byte":34},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"context":{"end":{"line":1,"col":35,"byte":34},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The true and false result expressions must have consistent types. The 'true' value is map of string, but the 'false' value is object.","sev":"error","summary":"Inconsistent conditional result types"}],"id":"audit.conv.34","ok":false,"stage":"eval"}
+{"id":"audit.conv.35","ok":true,"type":["list","string"],"value":["a","b","c"]}
+{"id":"audit.conv.36","ok":true,"type":["list","string"],"value":["a","b","c"]}
+{"diags":[{"at":{"end":{"line":1,"col":36,"byte":35},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"context":{"end":{"line":1,"col":36,"byte":35},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The true and false result expressions must have consistent types. The 'true' value is list of string, but the 'false' value is string.","sev":"error","summary":"Inconsistent conditional result types"}],"id":"audit.conv.37","ok":false,"stage":"eval"}
+{"id":"audit.conv.38","ok":true,"type":["list","string"],"value":["a","b","c"]}
+{"id":"audit.conv.39","ok":true,"type":["list","string"],"value":["1","true"]}
+{"id":"audit.conv.40","ok":true,"type":["map","string"],"value":{"obj":[["X","1"],["Y","true"]]}}
+{"id":"audit.conv.41","ok":true,"type":["map","string"],"value":{"obj":[]}}
+{"id":"audit.conv.42","ok":true,"type":["list",["list","number"]],"value":[[{"num":"1"}],[{"num":"2"},{"num":"3"}]]}
+{"id":"audit.conv.43","ok":true,"type":["list",["list","string"]],"value":[["1"],["a","3"]]}
+{"id":"audit.conv.44","ok":true,"type":["list",["object",{"a":"string"}]],"value":[{"obj":[["a","1"]]},{"obj":[["a","x"]]}]}
+{"id":"audit.conv.45","ok":true,"type":["list","string"],"value":{"unknown":true}}
+{"id":"audit.conv.46","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.conv.47","ok":true,"type":"string","value":"1"}
+{"id":"audit.conv.48","ok":true,"type":"string","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The condition value is null. Conditions must either be true or false.","sev":"error","summary":"Null condition"}],"id":"audit.conv.49","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The condition value is null. Conditions must either be true or false.","sev":"error","summary":"Null condition"}],"id":"audit.conv.50","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.conv.51","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":7,"byte":6},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The condition expression must be of type bool.","sev":"error","summary":"Incorrect condition type"}],"id":"audit.conv.52","ok":false,"stage":"eval"}
+{"id":"audit.ops.00","ok":true,"type":"bool","value":true}
+{"id":"audit.ops.01","ok":true,"type":"bool","value":false}
+{"id":"audit.ops.02","ok":true,"type":"bool","value":false}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.ops.03","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"},{"at":{"end":{"line":1,"col":18,"byte":17},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"There is no variable named \"nope2\".","sev":"error","summary":"Unknown variable"}],"id":"audit.ops.04","ok":false,"stage":"eval"}
+{"id":"audit.ops.05","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.ops.06","ok":true,"type":"bool","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"context":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for right operand: bool required, but have tuple.","sev":"error","summary":"Invalid operand"}],"id":"audit.ops.07","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":18,"byte":17},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Error during operation: argument must not be null.","sev":"error","summary":"Operation failed"}],"id":"audit.ops.08","ok":false,"stage":"eval"}
+{"id":"audit.ops.09","ok":true,"type":"bool","value":true}
+{"id":"audit.ops.10","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.ops.11","ok":true,"type":"bool","value":false}
+{"id":"audit.ops.12","ok":true,"type":"bool","value":false}
+{"id":"audit.ops.13","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.ops.14","ok":true,"type":"number","value":{"num":"3"}}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.ops.15","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"context":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for right operand: number required, but have bool.","sev":"error","summary":"Invalid operand"}],"id":"audit.ops.16","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: number required, but have tuple.","sev":"error","summary":"Invalid operand"}],"id":"audit.ops.17","ok":false,"stage":"eval"}
+{"id":"audit.ops.18","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"audit.ops.19","ok":true,"type":"number","value":{"num":"10"}}
+{"id":"audit.ops.20","ok":true,"type":"number","value":{"num":"-3"}}
+{"id":"audit.ops.21","ok":true,"type":"bool","value":false}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"context":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for unary operand: a bool is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.ops.22","ok":false,"stage":"eval"}
+{"id":"audit.ops.23","ok":true,"type":"bool","value":true}
+{"id":"audit.ops.24","ok":true,"type":"bool","value":false}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Error during operation: argument must not be null.","sev":"error","summary":"Operation failed"}],"id":"audit.ops.25","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Error during operation: argument must not be null.","sev":"error","summary":"Operation failed"}],"id":"audit.ops.26","ok":false,"stage":"eval"}
+{"id":"audit.ops.27","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"audit.ops.28","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.ops.29","ok":true,"type":"number","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":7,"byte":6},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: number required, but have tuple.","sev":"error","summary":"Invalid operand"},{"at":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.ops.30","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for right operand: number required, but have tuple.","sev":"error","summary":"Invalid operand"},{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.ops.31","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"},{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"detail":"There is no variable named \"nope2\".","sev":"error","summary":"Unknown variable"}],"id":"audit.ops.32","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.ops.33","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.ops.34","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"context":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for unary operand: number required, but have tuple.","sev":"error","summary":"Invalid operand"}],"id":"audit.ops.35","ok":false,"stage":"eval"}
+{"id":"audit.ops.36","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.ops.37","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"audit.ops.38","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.ops.39","ok":true,"type":"bool","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a bool is required.","sev":"error","summary":"Invalid operand"}],"id":"audit.ops.40","ok":false,"stage":"eval"}
+{"id":"audit.ops.41","ok":true,"type":"bool","value":true}
+{"id":"audit.ops.42","ok":true,"type":"bool","value":true}
+{"id":"audit.ops.43","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"audit.ops.44","ok":true,"type":"number","value":{"num":"-2"}}
+{"id":"audit.ops.45","ok":true,"type":"number","value":{"num":"-6"}}
+{"id":"audit.ops.46","ok":true,"type":"bool","value":false}
+{"id":"audit.ops.47","ok":true,"type":"bool","value":true}
+{"id":"audit.ops.48","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"audit.ops.49","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"audit.ops.50","ok":true,"type":"bool","value":{"unknown":true}}
+{"id":"audit.ops.51","ok":true,"type":"number","value":{"unknown":true}}
+{"id":"audit.ops.52","ok":true,"type":"bool","value":true}
+{"id":"audit.ops.53","ok":true,"type":"bool","value":false}
+{"id":"audit.obj.00","ok":true,"type":["object",{"a":"number"}],"value":{"obj":[["a",{"num":"1"}]]}}
+{"id":"audit.obj.01","ok":true,"type":["object",{"a b":"number"}],"value":{"obj":[["a b",{"num":"1"}]]}}
+{"id":"audit.obj.02","ok":true,"type":["object",{"1":"number"}],"value":{"obj":[["1",{"num":"2"}]]}}
+{"id":"audit.obj.03","ok":true,"type":["object",{"true":"number"}],"value":{"obj":[["true",{"num":"1"}]]}}
+{"id":"audit.obj.04","ok":true,"type":["object",{"1.5":"number"}],"value":{"obj":[["1.5",{"num":"1"}]]}}
+{"id":"audit.obj.05","ok":true,"type":["object",{"10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000":"number"}],"value":{"obj":[["10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",{"num":"1"}]]}}
+{"id":"audit.obj.06","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.obj.07","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.obj.08","ok":true,"type":["object",{"shopx":"number"}],"value":{"obj":[["shopx",{"num":"1"}]]}}
+{"id":"audit.obj.09","ok":true,"type":["object",{"3":"number","a":"number"}],"value":{"obj":[["3",{"num":"2"}],["a",{"num":"1"}]]}}
+{"id":"audit.obj.10","ok":true,"type":["object",{"a":"number"}],"value":{"obj":[["a",{"num":"2"}]]}}
+{"id":"audit.obj.11","ok":true,"type":["object",{"shop":"number"}],"value":{"obj":[["shop",{"num":"2"}]]}}
+{"id":"audit.obj.12","ok":true,"type":["object",{"shop":"number"}],"value":{"obj":[["shop",{"num":"2"}]]}}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"Can't use this value as a key: string required, but have tuple.","sev":"error","summary":"Incorrect key type"}],"id":"audit.obj.13","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":21,"byte":20},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.obj.14","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.obj.15","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Expected a newline or comma to mark the beginning of the next attribute.","sev":"error","summary":"Missing attribute separator"}],"id":"audit.obj.16","ok":false,"stage":"parse"}
+{"id":"audit.obj.17","ok":true,"type":["object",{"a":"number"}],"value":{"obj":[["a",{"num":"1"}]]}}
+{"id":"audit.obj.18","ok":true,"type":["object",{"a":"number"}],"value":{"obj":[["a",{"num":"1"}]]}}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"context":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"For expression requires variable name after 'for'.","sev":"error","summary":"Invalid 'for' expression"}],"id":"audit.obj.19","ok":false,"stage":"parse"}
+{"id":"audit.obj.20","ok":true,"type":["object",{"if":"number"}],"value":{"obj":[["if",{"num":"1"}]]}}
+{"id":"audit.obj.21","ok":true,"type":["object",{"true":"number"}],"value":{"obj":[["true",{"num":"1"}]]}}
+{"id":"audit.obj.22","ok":true,"type":["object",{"false":"number","null":"number"}],"value":{"obj":[["false",{"num":"1"}],["null",{"num":"2"}]]}}
+{"id":"audit.obj.23","ok":true,"type":["object",{"a":"number"}],"value":{"obj":[["a",{"num":"1"}]]}}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"If this expression is intended to be a reference, wrap it in parentheses. If it's instead intended as a literal name containing periods, wrap it in quotes to create a string literal.","sev":"error","summary":"Ambiguous attribute key"}],"id":"audit.obj.24","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":7,"byte":6}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.obj.25","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":7,"byte":6}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"},{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":15,"byte":14}},"detail":"There is no variable named \"nope2\".","sev":"error","summary":"Unknown variable"}],"id":"audit.obj.26","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"},{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":20,"byte":19}},"detail":"There is no variable named \"nope2\".","sev":"error","summary":"Unknown variable"}],"id":"audit.obj.27","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.obj.28","ok":false,"stage":"eval"}
+{"id":"audit.obj.29","ok":true,"type":["object",{"1":"number","B":"number","_":"number","a":"number","b":"number"}],"value":{"obj":[["1",{"num":"5"}],["B",{"num":"3"}],["_",{"num":"4"}],["a",{"num":"2"}],["b",{"num":"1"}]]}}
+{"id":"audit.obj.30","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"audit.obj.31","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":19,"byte":18}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"},{"at":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":19,"byte":18}},"detail":"Can't use a null value as a key.","sev":"error","summary":"Null value as key"}],"id":"audit.obj.32","ok":false,"stage":"eval"}
+{"id":"audit.obj.33","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"audit.obj.34","ok":true,"type":["object",{"é":"number"}],"value":{"obj":[["é",{"num":"2"}]]}}
+{"id":"audit.obj.35","ok":true,"type":"number","value":{"num":"1"}}
+{"diags":[{"at":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"detail":"This object does not have an attribute named \"b\".","sev":"error","summary":"Unsupported attribute"}],"id":"audit.obj.36","ok":false,"stage":"eval"}
+{"id":"audit.obj.37","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.tup.00","ok":true,"type":["tuple",["number","string","dynamic","string"]],"value":[{"num":"1"},"a",null,{"unknown":true}]}
+{"id":"audit.tup.01","ok":true,"type":["tuple",["dynamic"]],"value":[{"unknown":true}]}
+{"diags":[{"at":{"end":{"line":1,"col":7,"byte":6},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"audit.tup.02","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":8,"byte":7}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"audit.tup.03","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"},{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"detail":"There is no variable named \"nope2\".","sev":"error","summary":"Unknown variable"}],"id":"audit.tup.04","ok":false,"stage":"eval"}
+{"id":"audit.tup.05","ok":true,"type":["tuple",["number",["tuple",["number",["tuple",["number",["tuple",["number"]]]]]]]],"value":[{"num":"1"},[{"num":"2"},[{"num":"3"},[{"num":"4"}]]]]}
+{"id":"audit.tup.06","ok":true,"type":["tuple",[]],"value":[]}
+{"id":"audit.tup.07","ok":true,"type":["tuple",["dynamic"]],"value":[null]}
+{"id":"audit.idx.00","ok":true,"type":"string","value":"b"}
+{"diags":[{"at":{"end":{"line":1,"col":18,"byte":17},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"The given key does not identify an element in this collection value: a number is required.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.01","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"The given key does not identify an element in this collection value: number required, but have bool.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.02","ok":false,"stage":"eval"}
+{"id":"audit.idx.03","ok":true,"type":"string","value":"1"}
+{"id":"audit.idx.04","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"audit.idx.05","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.idx.06","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.idx.07","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.idx.08","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.idx.09","ok":true,"type":"string","value":"bo"}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"detail":"Elements of a set are identified only by their value and don't have any separate index or key to select with, so it's only possible to perform operations across all elements of the set.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.10","ok":false,"stage":"eval"}
+{"id":"audit.idx.11","ok":true,"type":"string","value":"a"}
+{"id":"audit.idx.12","ok":true,"type":"string","value":"a"}
+{"diags":[{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"The given key does not identify an element in this collection value.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.13","ok":false,"stage":"eval"}
+{"id":"audit.idx.14","ok":true,"type":"number","value":{"num":"1"}}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"detail":"The given key does not identify an element in this collection value.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.15","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"detail":"The given key does not identify an element in this collection value. An object only supports looking up attributes by name, not by numeric index.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.16","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"detail":"This value does not have any indices.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.17","ok":false,"stage":"eval"}
+{"id":"audit.idx.18","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"detail":"This value is null, so it does not have any indices.","sev":"error","summary":"Attempt to index null value"}],"id":"audit.idx.19","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":14,"byte":13}},"detail":"The given key does not identify an element in this collection value: the given index is greater than or equal to the length of the collection.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.20","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"detail":"Can't access attributes on a primitive-typed value (number).","sev":"error","summary":"Unsupported attribute"}],"id":"audit.idx.21","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":14,"byte":13}},"detail":"Can't access attributes on a primitive-typed value (string).","sev":"error","summary":"Unsupported attribute"}],"id":"audit.idx.22","ok":false,"stage":"eval"}
+{"id":"audit.idx.23","ok":true,"type":"number","value":{"num":"1"}}
+{"diags":[{"at":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":14,"byte":13}},"detail":"Can't access attributes on a primitive-typed value (number).","sev":"error","summary":"Unsupported attribute"}],"id":"audit.idx.24","ok":false,"stage":"eval"}
+{"id":"audit.idx.25","ok":true,"type":"string","value":"ann"}
+{"id":"audit.idx.26","ok":true,"type":"string","value":"c"}
+{"diags":[{"at":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"The given key does not identify an element in this collection value: indexing a sequence requires a whole number, but the given index has a fractional part.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.27","ok":false,"stage":"eval"}
+{"id":"audit.idx.28","ok":true,"type":"string","value":"b"}
+{"id":"audit.idx.29","ok":true,"type":"number","value":{"num":"27"}}
+{"diags":[{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":22,"byte":21}},"detail":"When using the legacy index syntax, chaining two indexes together is not permitted. Use the proper index syntax instead, like [1][0].","sev":"error","summary":"Invalid legacy index syntax"}],"id":"audit.idx.30","ok":false,"stage":"parse"}
+{"id":"audit.idx.31","ok":true,"type":"number","value":{"num":"3"}}
+{"diags":[{"at":{"end":{"line":1,"col":18,"byte":17},"file":"x.hcl","start":{"line":1,"col":14,"byte":13}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.idx.32","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"},{"at":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"detail":"There is no variable named \"nope2\".","sev":"error","summary":"Unknown variable"}],"id":"audit.idx.33","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"Can't use a null value as an indexing key.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.34","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":22,"byte":21},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"detail":"Can't use a null value as an indexing key.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.35","ok":false,"stage":"eval"}
+{"id":"audit.idx.36","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"audit.idx.37","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"audit.idx.38","ok":true,"type":"string","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":35,"byte":34},"file":"x.hcl","start":{"line":1,"col":31,"byte":30}},"detail":"The given key does not identify an element in this collection value: a negative number is not a valid index for a sequence.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.39","ok":false,"stage":"eval"}
+{"id":"audit.idx.40","ok":true,"type":"string","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":18,"byte":17},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"detail":"Can't use a null value as an indexing key.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.41","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":11,"byte":10}},"detail":"Can't use a null value as an indexing key.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.42","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"detail":"This value does not have any indices.","sev":"error","summary":"Invalid index"}],"id":"audit.idx.43","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":24,"byte":23},"file":"x.hcl","start":{"line":1,"col":22,"byte":21}},"detail":"Can't access attributes on a primitive-typed value (string).","sev":"error","summary":"Unsupported attribute"}],"id":"audit.idx.44","ok":false,"stage":"eval"}
+{"id":"audit.idx.45","ok":true,"type":"string","value":"ann"}
+{"diags":[{"at":{"end":{"line":1,"col":40,"byte":39},"file":"x.hcl","start":{"line":1,"col":35,"byte":34}},"detail":"This object does not have an attribute named \"nope\".","sev":"error","summary":"Unsupported attribute"}],"id":"audit.idx.46","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"detail":"Can't access attributes on a primitive-typed value (string).","sev":"error","summary":"Unsupported attribute"}],"id":"audit.idx.47","ok":false,"stage":"eval"}
+{"id":"audit.idx.48","ok":true,"type":["tuple",["string"]],"value":["b"]}
+{"id":"audit.splat.00","ok":true,"type":["tuple",["string","string"]],"value":["ann","bo"]}
+{"diags":[{"at":{"end":{"line":1,"col":24,"byte":23},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"detail":"The given key does not identify an element in this collection value: a number is required.","sev":"error","summary":"Invalid index"}],"id":"audit.splat.01","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"detail":"This value does not have any indices.","sev":"error","summary":"Invalid index"},{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"detail":"This value does not have any indices.","sev":"error","summary":"Invalid index"},{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"detail":"This value does not have any indices.","sev":"error","summary":"Invalid index"}],"id":"audit.splat.02","ok":false,"stage":"eval"}
+{"id":"audit.splat.03","ok":true,"type":"string","value":"a"}
+{"id":"audit.splat.04","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.splat.05","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.splat.06","ok":true,"type":["tuple",["string"]],"value":["1"]}
+{"id":"audit.splat.07","ok":true,"type":["tuple",["number"]],"value":[{"num":"1"}]}
+{"id":"audit.splat.08","ok":true,"type":["tuple",[]],"value":[]}
+{"id":"audit.splat.09","ok":true,"type":["tuple",["string","string"]],"value":[{"unknown":true},"a"]}
+{"id":"audit.splat.10","ok":true,"type":["tuple",["dynamic"]],"value":[{"unknown":true}]}
+{"diags":[{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":23,"byte":22}},"detail":"This value is null, so it does not have any attributes.","sev":"error","summary":"Attempt to get attribute from null value"}],"id":"audit.splat.11","ok":false,"stage":"eval"}
+{"id":"audit.splat.12","ok":true,"type":["tuple",[["tuple",["number","number"]],["tuple",["number"]]]],"value":[[{"num":"1"},{"num":"2"}],[{"num":"3"}]]}
+{"id":"audit.splat.13","ok":true,"type":["tuple",[["tuple",["string"]],["tuple",["string"]]]],"value":[["ann"],["bo"]]}
+{"id":"audit.splat.14","ok":true,"type":["tuple",["number"]],"value":[{"num":"1"}]}
+{"id":"audit.splat.15","ok":true,"type":["tuple",["string","string"]],"value":["ann","bo"]}
+{"id":"audit.splat.16","ok":true,"type":["list","string"],"value":["ann","bo"]}
+{"id":"audit.splat.17","ok":true,"type":["list","string"],"value":["ann","bo"]}
+{"id":"audit.splat.18","ok":true,"type":["list","string"],"value":{"unknown":true}}
+{"id":"audit.splat.19","ok":true,"type":["list","string"],"value":{"unknown":true}}
+{"id":"audit.splat.20","ok":true,"type":["list","string"],"value":[]}
+{"diags":[{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":22,"byte":21}},"detail":"This value does not have any indices.","sev":"error","summary":"Invalid index"},{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":22,"byte":21}},"detail":"This value does not have any indices.","sev":"error","summary":"Invalid index"}],"id":"audit.splat.21","ok":false,"stage":"eval"}
+{"id":"audit.splat.22","ok":true,"type":"string","value":"bo"}
+{"diags":[{"at":{"end":{"line":1,"col":21,"byte":20},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: number required, but have tuple.","sev":"error","summary":"Invalid operand"}],"id":"audit.splat.23","ok":false,"stage":"eval"}
+{"id":"audit.splat.24","ok":true,"type":["tuple",["number"]],"value":[{"num":"1"}]}
+{"id":"audit.splat.25","ok":true,"type":["tuple",[["tuple",["number"]]]],"value":[[{"num":"1"}]]}
+{"diags":[{"at":{"end":{"line":1,"col":22,"byte":21},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"detail":"This object does not have an attribute named \"nope\".","sev":"error","summary":"Unsupported attribute"},{"at":{"end":{"line":1,"col":22,"byte":21},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"detail":"This object does not have an attribute named \"nope\".","sev":"error","summary":"Unsupported attribute"}],"id":"audit.splat.26","ok":false,"stage":"eval"}
+{"id":"audit.splat.27","ok":true,"type":["tuple",[]],"value":[]}
+{"diags":[{"at":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":14,"byte":13}},"detail":"Can't access attributes on a primitive-typed value (number).","sev":"error","summary":"Unsupported attribute"},{"at":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":14,"byte":13}},"detail":"Can't access attributes on a primitive-typed value (number).","sev":"error","summary":"Unsupported attribute"}],"id":"audit.splat.28","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":26,"byte":25}},"detail":"This object does not have an attribute named \"a\".","sev":"error","summary":"Unsupported attribute"}],"id":"audit.splat.29","ok":false,"stage":"eval"}
+{"id":"audit.splat.30","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.splat.31","ok":true,"type":["list","number"],"value":[{"num":"1"},{"num":"2"}]}
+{"id":"audit.splat.32","ok":true,"type":["tuple",["number"]],"value":[{"num":"1"}]}
+{"diags":[{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"detail":"The given key does not identify an element in this collection value. An object only supports looking up attributes by name, not by numeric index.","sev":"error","summary":"Invalid index"},{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"detail":"The given key does not identify an element in this collection value. An object only supports looking up attributes by name, not by numeric index.","sev":"error","summary":"Invalid index"}],"id":"audit.splat.33","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":24,"byte":23},"file":"x.hcl","start":{"line":1,"col":21,"byte":20}},"detail":"The given key does not identify an element in this collection value: the given index is greater than or equal to the length of the collection.","sev":"error","summary":"Invalid index"}],"id":"audit.splat.34","ok":false,"stage":"eval"}
+{"id":"audit.for.00","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.for.01","ok":true,"type":["object",{"a":["tuple",["string","string"]],"b":["tuple",["string"]]}],"value":{"obj":[["a",["a","a"]],["b",["b"]]]}}
+{"id":"audit.for.02","ok":true,"type":["object",{"1":["tuple",["number","number"]],"2":["tuple",["number"]]}],"value":{"obj":[["1",[{"num":"1"},{"num":"1"}]],["2",[{"num":"2"}]]]}}
+{"id":"audit.for.03","ok":true,"type":["object",{"A":["tuple",["string"]],"B":["tuple",["string"]]}],"value":{"obj":[["A",["1"]],["B",["2"]]]}}
+{"id":"audit.for.04","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.for.05","ok":true,"type":["tuple",["string","string"]],"value":[{"unknown":true},"a"]}
+{"id":"audit.for.06","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.for.07","ok":true,"type":["tuple",[]],"value":[]}
+{"diags":[{"at":{"end":{"line":1,"col":33,"byte":32},"file":"x.hcl","start":{"line":1,"col":29,"byte":28}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.for.08","ok":false,"stage":"eval"}
+{"id":"audit.for.09","ok":true,"type":["tuple",["string","string"]],"value":["a","b"]}
+{"diags":[{"at":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":18,"byte":17}},"context":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"A value of type string cannot be used as the collection in a 'for' expression.","sev":"error","summary":"Iteration over non-iterable value"}],"id":"audit.for.10","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":15,"byte":14}},"context":{"end":{"line":1,"col":21,"byte":20},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"A value of type number cannot be used as the collection in a 'for' expression.","sev":"error","summary":"Iteration over non-iterable value"}],"id":"audit.for.11","ok":false,"stage":"eval"}
+{"id":"audit.for.12","ok":true,"type":["tuple",["number","number"]],"value":[{"num":"0"},{"num":"1"}]}
+{"id":"audit.for.13","ok":true,"type":["object",{"a":"number","b":"number","c":"number"}],"value":{"obj":[["a",{"num":"0"}],["b",{"num":"1"}],["c",{"num":"2"}]]}}
+{"diags":[{"at":{"end":{"line":1,"col":35,"byte":34},"file":"x.hcl","start":{"line":1,"col":31,"byte":30}},"context":{"end":{"line":1,"col":36,"byte":35},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The value of the 'if' clause must not be null.","sev":"error","summary":"Condition is null"}],"id":"audit.for.14","ok":false,"stage":"eval"}
+{"id":"audit.for.15","ok":true,"type":["tuple",["string","string","string"]],"value":["a","b","c"]}
+{"diags":[{"at":{"end":{"line":1,"col":32,"byte":31},"file":"x.hcl","start":{"line":1,"col":31,"byte":30}},"context":{"end":{"line":1,"col":33,"byte":32},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The 'if' clause value is invalid: bool required, but have number.","sev":"error","summary":"Invalid 'for' condition"}],"id":"audit.for.16","ok":false,"stage":"eval"}
+{"id":"audit.for.17","ok":true,"type":["object",{"a":"string","c":"string"}],"value":{"obj":[["a","a"],["c","c"]]}}
+{"id":"audit.for.18","ok":true,"type":["tuple",[["tuple",["number","number"]],["tuple",["number"]]]],"value":[[{"num":"10"},{"num":"20"}],[{"num":"30"}]]}
+{"id":"audit.for.19","ok":true,"type":["tuple",["number"]],"value":[{"num":"1"}]}
+{"id":"audit.for.20","ok":true,"type":["tuple",["string"]],"value":["shop"]}
+{"diags":[{"at":{"end":{"line":1,"col":33,"byte":32},"file":"x.hcl","start":{"line":1,"col":28,"byte":27}},"detail":"This object does not have an attribute named \"nope\".","sev":"error","summary":"Unsupported attribute"},{"at":{"end":{"line":1,"col":33,"byte":32},"file":"x.hcl","start":{"line":1,"col":28,"byte":27}},"detail":"This object does not have an attribute named \"nope\".","sev":"error","summary":"Unsupported attribute"}],"id":"audit.for.21","ok":false,"stage":"eval"}
+{"id":"audit.for.22","ok":true,"type":["object",{"ann":["object",{"age":"number","name":"string"}],"bo":["object",{"age":"number","name":"string"}]}],"value":{"obj":[["ann",{"obj":[["age",{"num":"31"}],["name","ann"]]}],["bo",{"obj":[["age",{"num":"27"}],["name","bo"]]}]]}}
+{"id":"audit.for.23","ok":true,"type":["object",{"1":"number","2":"number"}],"value":{"obj":[["1",{"num":"1"}],["2",{"num":"2"}]]}}
+{"id":"audit.for.24","ok":true,"type":["object",{"1.5":"number","10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000":"number"}],"value":{"obj":[["1.5",{"num":"1.5"}],["10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",{"num":"10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}]]}}
+{"id":"audit.for.25","ok":true,"type":["object",{"true":"bool"}],"value":{"obj":[["true",true]]}}
+{"id":"audit.for.26","ok":true,"type":["tuple",["string","string"]],"value":["1","2"]}
+{"id":"audit.for.27","ok":true,"type":["tuple",["string","string","string","string"]],"value":["A","_","a","b"]}
+{"id":"audit.for.28","ok":true,"type":["tuple",[]],"value":[]}
+{"id":"audit.for.29","ok":true,"type":["object",{}],"value":{"obj":[]}}
+{"id":"audit.for.30","ok":true,"type":["object",{"a":["tuple",["string"]]}],"value":{"obj":[["a",["a"]]]}}
+{"id":"audit.for.31","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.for.32","ok":true,"type":["object",{"a":"string","b":"string"}],"value":{"obj":[["a",{"unknown":true}],["b",{"unknown":true}]]}}
+{"id":"audit.for.33","ok":true,"type":["tuple",["string"]],"value":[{"unknown":true}]}
+{"id":"audit.for.34","ok":true,"type":["object",{"ann":["tuple",["number"]],"bo":["tuple",["number"]]}],"value":{"obj":[["ann",[{"num":"31"}]],["bo",[{"num":"27"}]]]}}
+{"id":"audit.for.35","ok":true,"type":["object",{"k":["tuple",["number","number"]]}],"value":{"obj":[["k",[{"num":"1"},{"num":"2"}]]]}}
+{"diags":[{"at":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":25,"byte":24}},"context":{"end":{"line":1,"col":29,"byte":28},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Grouping ellipsis (...) cannot be used when building a tuple.","sev":"error","summary":"Invalid 'for' expression"}],"id":"audit.for.36","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":22,"byte":21},"file":"x.hcl","start":{"line":1,"col":21,"byte":20}},"context":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Key expression is required when building an object.","sev":"error","summary":"Invalid 'for' expression"}],"id":"audit.for.37","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":22,"byte":21},"file":"x.hcl","start":{"line":1,"col":21,"byte":20}},"context":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Key expression is not valid when building a tuple.","sev":"error","summary":"Invalid 'for' expression"}],"id":"audit.for.38","ok":false,"stage":"parse"}
+{"id":"audit.for.39","ok":true,"type":["tuple",["number"]],"value":[{"num":"1"}]}
+{"diags":[{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.for.40","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":24,"byte":23}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"},{"at":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":24,"byte":23}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.for.41","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":24,"byte":23}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"},{"at":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":24,"byte":23}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.for.42","ok":false,"stage":"eval"}
+{"id":"audit.for.43","ok":true,"type":["object",{"a":["tuple",[["tuple",["string"]]]],"b":["tuple",[["tuple",["string"]]]]}],"value":{"obj":[["a",[["a"]]],["b",[["b"]]]]}}
+{"id":"audit.for.44","ok":true,"type":["tuple",["string","string"]],"value":["age=31","name=ann"]}
+{"id":"audit.for.45","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.for.46","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.for.47","ok":true,"type":["object",{"a":"string","b":"string"}],"value":{"obj":[["a","a"],["b","b"]]}}
+{"id":"audit.for.48","ok":true,"type":["tuple",["number","number"]],"value":[{"num":"1"},{"num":"2"}]}
+{"id":"audit.for.49","ok":true,"type":["tuple",["number","string"]],"value":[{"num":"31"},"ann"]}
+{"id":"audit.for.50","ok":true,"type":["tuple",["string","string"]],"value":["age","name"]}
+{"id":"audit.for.51","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.for.52","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":29,"byte":28},"file":"x.hcl","start":{"line":1,"col":21,"byte":20}},"context":{"end":{"line":1,"col":35,"byte":34},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Key expression in 'for' expression must not produce a null value.","sev":"error","summary":"Invalid object key"}],"id":"audit.for.53","ok":false,"stage":"eval"}
+{"id":"audit.for.54","ok":true,"type":"dynamic","value":{"unknown":true}}
+{"id":"audit.for.55","ok":true,"type":["object",{}],"value":{"obj":[]}}
+{"id":"audit.for.56","ok":true,"type":["tuple",["string"]],"value":["a"]}
+{"diags":[{"at":{"end":{"line":1,"col":27,"byte":26},"file":"x.hcl","start":{"line":1,"col":24,"byte":23}},"context":{"end":{"line":1,"col":33,"byte":32},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Two different items produced the key \"k\" in this 'for' expression. If duplicates are expected, use the ellipsis (...) after the value expression to enable grouping by key.","sev":"error","summary":"Duplicate object key"}],"id":"audit.for.57","ok":false,"stage":"eval"}
+{"id":"audit.tmpl.00","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"audit.tmpl.01","ok":true,"type":["list","string"],"value":["a","b","c"]}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"context":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Cannot include the given value in a string template: string required, but have list of string.","sev":"error","summary":"Invalid template interpolation value"}],"id":"audit.tmpl.02","ok":false,"stage":"eval"}
+{"id":"audit.tmpl.03","ok":true,"type":"string","value":null}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"context":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The expression result is null. Cannot include a null value in a string template.","sev":"error","summary":"Invalid template interpolation value"}],"id":"audit.tmpl.04","ok":false,"stage":"eval"}
+{"id":"audit.tmpl.05","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"audit.tmpl.06","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"audit.tmpl.07","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"audit.tmpl.08","ok":true,"type":"string","value":"truex"}
+{"id":"audit.tmpl.09","ok":true,"type":"string","value":"a b c"}
+{"id":"audit.tmpl.10","ok":true,"type":"string","value":"b"}
+{"id":"audit.tmpl.11","ok":true,"type":"string","value":"ashopb"}
+{"id":"audit.tmpl.12","ok":true,"type":"string","value":"yes"}
+{"id":"audit.tmpl.13","ok":true,"type":"string","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":11,"byte":10}},"context":{"end":{"line":1,"col":29,"byte":28},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"The condition value is null. Conditions must either be true or false.","sev":"error","summary":"Null condition"}],"id":"audit.tmpl.14","ok":false,"stage":"eval"}
+{"id":"audit.tmpl.15","ok":true,"type":"string","value":"a"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":11,"byte":10}},"context":{"end":{"line":1,"col":22,"byte":21},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"The condition expression must be of type bool.","sev":"error","summary":"Incorrect condition type"}],"id":"audit.tmpl.16","ok":false,"stage":"eval"}
+{"id":"audit.tmpl.17","ok":true,"type":"string","value":"a,b,c,"}
+{"id":"audit.tmpl.18","ok":true,"type":"string","value":"0=a 1=b 2=c "}
+{"id":"audit.tmpl.19","ok":true,"type":"string","value":"12"}
+{"id":"audit.tmpl.20","ok":true,"type":"string","value":"A=1;B=2;"}
+{"diags":[{"at":{"end":{"line":1,"col":26,"byte":25},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"context":{"end":{"line":1,"col":37,"byte":36},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"A value of type string cannot be used as the collection in a 'for' expression.","sev":"error","summary":"Iteration over non-iterable value"}],"id":"audit.tmpl.21","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"context":{"end":{"line":1,"col":36,"byte":35},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"A null value cannot be used as the collection in a 'for' expression.","sev":"error","summary":"Iteration over null value"}],"id":"audit.tmpl.22","ok":false,"stage":"eval"}
+{"id":"audit.tmpl.23","ok":true,"type":"string","value":{"unknown":true}}
+{"id":"audit.tmpl.24","ok":true,"type":"string","value":"abc"}
+{"id":"audit.tmpl.25","ok":true,"type":"string","value":"${x}"}
+{"id":"audit.tmpl.26","ok":true,"type":"string","value":"%{x}"}
+{"id":"audit.tmpl.27","ok":true,"type":"string","value":"$$"}
+{"id":"audit.tmpl.28","ok":true,"type":"string","value":"$"}
+{"id":"audit.tmpl.29","ok":true,"type":"string","value":"%"}
+{"id":"audit.tmpl.30","ok":true,"type":"string","value":"a${"}
+{"id":"audit.tmpl.31","ok":true,"type":"string","value":"é"}
+{"id":"audit.tmpl.32","ok":true,"type":"string","value":"😀"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"The symbol \"x\" is not a valid escape sequence selector.","sev":"error","summary":"Invalid escape sequence"}],"id":"audit.tmpl.33","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"The symbol \"a\" is not a valid escape sequence selector.","sev":"error","summary":"Invalid escape sequence"}],"id":"audit.tmpl.34","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"Cannot encode character U+d800 in UTF-8.","sev":"error","summary":"Invalid escape sequence"}],"id":"audit.tmpl.35","ok":false,"stage":"parse"}
+{"id":"audit.tmpl.36","ok":true,"type":"string","value":"é"}
+{"id":"audit.tmpl.37","ok":true,"type":"bool","value":true}
+{"id":"audit.tmpl.38","ok":true,"type":"string","value":"shopshop"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":26},"file":"x.hcl","start":{"line":1,"col":26,"byte":25}},"detail":"Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax.","sev":"error","summary":"Invalid multi-line string"},{"at":{"end":{"line":3,"col":1,"byte":31},"file":"x.hcl","start":{"line":2,"col":5,"byte":30}},"detail":"Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax.","sev":"error","summary":"Invalid multi-line string"},{"at":{"end":{"line":2,"col":1,"byte":26},"file":"x.hcl","start":{"line":1,"col":26,"byte":25}},"context":{"end":{"line":2,"col":1,"byte":26},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"No closing marker was found for the string.","sev":"error","summary":"Unterminated template string"},{"at":{"end":{"line":3,"col":14,"byte":44},"file":"x.hcl","start":{"line":3,"col":13,"byte":43}},"detail":"The for directive at x.hcl:1,6-26 is missing its corresponding endfor directive.","sev":"error","summary":"Unexpected end of template"}],"id":"audit.tmpl.39","ok":false,"stage":"parse"}
+{"id":"audit.tmpl.40","ok":true,"type":"string","value":"13 14 23 24 "}
+{"diags":[{"at":{"end":{"line":1,"col":32,"byte":31},"file":"x.hcl","start":{"line":1,"col":25,"byte":24}},"detail":"Already in the else clause for the if started at x.hcl:1,6-16.","sev":"error","summary":"Unexpected else directive"},{"at":{"end":{"line":1,"col":41,"byte":40},"file":"x.hcl","start":{"line":1,"col":33,"byte":32}},"detail":"The control directives within this template are unbalanced.","sev":"error","summary":"Unexpected endif directive"}],"id":"audit.tmpl.41","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"The control directives within this template are unbalanced.","sev":"error","summary":"Unexpected endif directive"}],"id":"audit.tmpl.42","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"detail":"The if directive at x.hcl:1,6-16 is missing its corresponding endif directive.","sev":"error","summary":"Unexpected end of template"}],"id":"audit.tmpl.43","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":18,"byte":17}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"},{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":19,"byte":18}},"detail":"The for directive at x.hcl:1,6-19 is missing its corresponding endfor directive.","sev":"error","summary":"Unexpected end of template"}],"id":"audit.tmpl.44","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"audit.tmpl.45","ok":false,"stage":"parse"}
+{"id":"audit.tmpl.46","ok":true,"type":"bool","value":true}
+{"id":"audit.tmpl.47","ok":true,"type":"string","value":"é"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":8,"byte":7}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"},{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":15,"byte":14}},"detail":"There is no variable named \"nope2\".","sev":"error","summary":"Unknown variable"}],"id":"audit.tmpl.48","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":11,"byte":10}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.tmpl.49","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":27,"byte":26},"file":"x.hcl","start":{"line":1,"col":23,"byte":22}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.tmpl.50","ok":false,"stage":"eval"}
+{"id":"audit.tmpl.51","ok":true,"type":["tuple",["number"]],"value":[{"num":"1"}]}
+{"id":"audit.tmpl.52","ok":true,"type":["object",{"a":"number"}],"value":{"obj":[["a",{"num":"1"}]]}}
+{"id":"audit.tmpl.53","ok":true,"type":"number","value":{"num":"31"}}
+{"id":"audit.tmpl.54","ok":true,"type":"string","value":"a"}
+{"id":"audit.tmpl.55","ok":true,"type":"string","value":"xy"}
+{"id":"audit.tmpl.56","ok":true,"type":"string","value":"ab"}
+{"diags":[{"at":{"end":{"line":1,"col":30,"byte":29},"file":"x.hcl","start":{"line":1,"col":29,"byte":28}},"context":{"end":{"line":1,"col":30,"byte":29},"file":"x.hcl","start":{"line":1,"col":29,"byte":28}},"detail":"The expression result is null. Cannot include a null value in a string template.","sev":"error","summary":"Invalid template interpolation value"}],"id":"audit.tmpl.57","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":26,"byte":25},"file":"x.hcl","start":{"line":1,"col":25,"byte":24}},"context":{"end":{"line":1,"col":26,"byte":25},"file":"x.hcl","start":{"line":1,"col":25,"byte":24}},"detail":"Cannot include the given value in a string template: string required, but have tuple.","sev":"error","summary":"Invalid template interpolation value"}],"id":"audit.tmpl.58","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"detail":"There is no variable named \"x\".","sev":"error","summary":"Unknown variable"}],"id":"audit.tmpl.59","ok":false,"stage":"eval"}
+{"id":"audit.tmpl.60","ok":true,"type":"string","value":"\"shop\""}
+{"id":"audit.tmpl.61","ok":true,"type":"string","value":""}
+{"id":"audit.tmpl.62","ok":true,"type":"string","value":"b"}
+{"id":"audit.tmpl.63","ok":true,"type":"string","value":"x"}
+{"id":"audit.tmpl.64","ok":true,"type":"string","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":1,"col":26,"byte":25},"file":"x.hcl","start":{"line":1,"col":22,"byte":21}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.tmpl.65","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"The symbol \"$\" is not a valid escape sequence selector.","sev":"error","summary":"Invalid escape sequence"}],"id":"audit.tmpl.66","ok":false,"stage":"parse"}
+{"id":"audit.tmpl.67","ok":true,"type":"string","value":"shop"}
+{"id":"audit.tmpl.68","ok":true,"type":"string","value":"ab"}
+{"id":"audit.tmpl.69","ok":true,"type":"string","value":"annbo"}
+{"diags":[{"at":{"end":{"line":1,"col":30,"byte":29},"file":"x.hcl","start":{"line":1,"col":29,"byte":28}},"context":{"end":{"line":1,"col":30,"byte":29},"file":"x.hcl","start":{"line":1,"col":29,"byte":28}},"detail":"Cannot include the given value in a string template: string required, but have object.","sev":"error","summary":"Invalid template interpolation value"},{"at":{"end":{"line":1,"col":30,"byte":29},"file":"x.hcl","start":{"line":1,"col":29,"byte":28}},"context":{"end":{"line":1,"col":30,"byte":29},"file":"x.hcl","start":{"line":1,"col":29,"byte":28}},"detail":"Cannot include the given value in a string template: string required, but have object.","sev":"error","summary":"Invalid template interpolation value"}],"id":"audit.tmpl.70","ok":false,"stage":"eval"}
+{"id":"audit.tmpl.71","ok":true,"type":"number","value":{"num":"3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}}
+{"id":"audit.tmpl.72","ok":true,"type":"string","value":"\n\r\t"}
+{"id":"audit.tmpl.73","ok":true,"type":"string","value":"\\"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":8},"file":"x.hcl","start":{"line":1,"col":8,"byte":7}},"detail":"Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax.","sev":"error","summary":"Invalid multi-line string"},{"at":{"end":{"line":2,"col":1,"byte":8},"file":"x.hcl","start":{"line":1,"col":8,"byte":7}},"context":{"end":{"line":2,"col":1,"byte":8},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"No closing marker was found for the string.","sev":"error","summary":"Unterminated template string"}],"id":"audit.tmpl.74","ok":false,"stage":"parse"}
+{"id":"audit.tmpl.75","ok":true,"type":"string","value":"tab\tin"}
+{"id":"audit.heredoc.00","ok":true,"type":"string","value":"a\r\nb\n"}
+{"id":"audit.heredoc.01","ok":true,"type":"string","value":"a\nb\n"}
+{"id":"audit.heredoc.02","ok":true,"type":"string","value":"a\n\nb\n"}
+{"id":"audit.heredoc.03","ok":true,"type":"string","value":"a\n   \nb\n"}
+{"id":"audit.heredoc.04","ok":true,"type":"string","value":"a shop b\n  shop\n"}
+{"id":"audit.heredoc.05","ok":true,"type":"string","value":"\n  yes\n\n"}
+{"id":"audit.heredoc.06","ok":true,"type":"string","value":"  x\n"}
+{"id":"audit.heredoc.07","ok":true,"type":"string","value":"a\\nb\n"}
+{"id":"audit.heredoc.08","ok":true,"type":"string","value":"EOTX\n"}
+{"id":"audit.heredoc.09","ok":true,"type":"string","value":"x\n"}
+{"id":"audit.heredoc.10","ok":true,"type":"string","value":"a\n  b\n"}
+{"diags":[{"at":{"end":{"line":3,"col":1,"byte":32},"file":"x.hcl","start":{"line":3,"col":1,"byte":32}},"context":{"end":{"line":3,"col":1,"byte":32},"file":"x.hcl","start":{"line":2,"col":1,"byte":10}},"detail":"No closing marker was found for the string.","sev":"error","summary":"Unterminated template string"}],"id":"audit.heredoc.11","ok":false,"stage":"parse"}
+{"id":"audit.heredoc.12","ok":true,"type":"string","value":"a\n   b\n"}
+{"id":"audit.heredoc.13","ok":true,"type":"string","value":"shopx\n shop\n"}
+{"id":"audit.heredoc.14","ok":true,"type":"string","value":"a\r\n"}
+{"id":"audit.heredoc.15","ok":true,"type":"string","value":"a\r\n"}
+{"id":"audit.heredoc.16","ok":true,"type":"string","value":"a\n  b\n"}
+{"id":"audit.heredoc.17","ok":true,"type":"string","value":"\n\na\n"}
+{"id":"audit.heredoc.18","ok":true,"type":"string","value":"a\n \nb\n"}
+{"id":"audit.heredoc.19","ok":true,"type":"string","value":"\n  a\n\n  b\n\n  c\n\n"}
+{"id":"audit.heredoc.20","ok":true,"type":"string","value":"    a\n    b\n    c\n"}
+{"id":"audit.heredoc.21","ok":true,"type":"string","value":{"unknown":true}}
+{"diags":[{"at":{"end":{"line":2,"col":7,"byte":16},"file":"x.hcl","start":{"line":2,"col":3,"byte":12}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.heredoc.22","ok":false,"stage":"eval"}
+{"id":"audit.heredoc.23","ok":true,"type":"string","value":"\"quoted\" \\t\n"}
+{"id":"audit.heredoc.24","ok":true,"type":"string","value":"shop\n"}
+{"id":"audit.heredoc.25","ok":true,"type":"string","value":"  x shop\ny\n"}
+{"id":"audit.heredoc.26","ok":true,"type":"string","value":"a\nb shop\n"}
+{"id":"audit.heredoc.27","ok":true,"type":"string","value":"é\n x\n"}
+{"id":"audit.heredoc.28","ok":true,"type":"string","value":" a\nb\n"}
+{"id":"audit.heredoc.29","ok":true,"type":"string","value":"a\n"}
+{"id":"audit.heredoc.30","ok":true,"type":"string","value":""}
+{"id":"audit.heredoc.31","ok":true,"type":"string","value":"\n"}
+{"id":"audit.heredoc.32","ok":true,"type":"string","value":"a\n"}
+{"id":"audit.heredoc.33","ok":true,"type":"string","value":"a\n"}
+{"id":"audit.heredoc.34","ok":true,"type":"string","value":"ab\n"}
+{"id":"audit.heredoc.35","ok":true,"type":"string","value":"${x}\n  %{y}\n"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.00","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.01","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":22,"byte":21},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.02","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.03","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"audit.call.04","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"A comma is required to separate each function argument from the next.","sev":"error","summary":"Missing argument separator"}],"id":"audit.call.05","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There are no functions in namespace \"a::b::\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.06","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":18,"byte":17},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There are no functions in namespace \"core::\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.07","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.08","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.09","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"Nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.10","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.11","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":4,"col":2,"byte":16},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.12","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"context":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":1,"byte":0}},"detail":"An argument definition must end with a newline.","sev":"error","summary":"Missing newline after argument"}],"id":"audit.call.13","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.14","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.15","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"context":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.16","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":22,"byte":21},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.17","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"context":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"},{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":15,"byte":14}},"context":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":15,"byte":14}},"detail":"There is no function named \"nope2\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.18","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"context":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":16,"byte":15}},"detail":"There is no function named \"nope\".","sev":"error","summary":"Call to unknown function"}],"id":"audit.call.19","ok":false,"stage":"eval"}
+{"id":"audit.call.20","ok":true,"type":"number","value":{"num":"2"}}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":11,"byte":10}},"context":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Function scope resolution symbol :: must be followed by a function name in this scope.","sev":"error","summary":"Missing function name"}],"id":"audit.call.21","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":7,"byte":6},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"audit.call.22","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":15,"byte":15},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"},{"at":{"end":{"line":1,"col":15,"byte":15},"file":"x.hcl","start":{"line":1,"col":11,"byte":11}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.uni.00","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":24},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":15,"byte":31},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"},{"at":{"end":{"line":1,"col":15,"byte":31},"file":"x.hcl","start":{"line":1,"col":11,"byte":27}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.uni.01","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":15},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":17,"byte":22},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"},{"at":{"end":{"line":1,"col":17,"byte":22},"file":"x.hcl","start":{"line":1,"col":13,"byte":18}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.uni.02","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"},{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.uni.03","ok":false,"stage":"eval"}
+{"id":"audit.uni.04","ok":true,"type":"bool","value":true}
+{"id":"audit.uni.05","ok":true,"type":["object",{"é":"number"}],"value":{"obj":[["é",{"num":"1"}]]}}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":17,"byte":20},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"},{"at":{"end":{"line":1,"col":17,"byte":20},"file":"x.hcl","start":{"line":1,"col":12,"byte":15}},"detail":"There is no variable named \"nope2\".","sev":"error","summary":"Unknown variable"}],"id":"audit.uni.06","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":15,"byte":21},"file":"x.hcl","start":{"line":1,"col":11,"byte":17}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.uni.07","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":15,"byte":15},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"},{"at":{"end":{"line":1,"col":15,"byte":15},"file":"x.hcl","start":{"line":1,"col":11,"byte":11}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.uni.08","ok":false,"stage":"eval"}
+{"id":"audit.uni.09","ok":true,"type":"bool","value":false}
+{"id":"audit.uni.10","ok":true,"type":"bool","value":true}
+{"id":"audit.uni.11","ok":true,"type":"bool","value":true}
+{"id":"audit.uni.12","ok":true,"type":["object",{"Ω":"number"}],"value":{"obj":[["Ω",{"num":"2"}]]}}
+{"id":"audit.uni.13","ok":true,"type":"string","value":"é\n"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":10},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"audit.uni.14","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":9},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":15,"byte":16},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"},{"at":{"end":{"line":1,"col":15,"byte":16},"file":"x.hcl","start":{"line":1,"col":11,"byte":12}},"detail":"There is no variable named \"nope\".","sev":"error","summary":"Unknown variable"}],"id":"audit.uni.15","ok":false,"stage":"eval"}

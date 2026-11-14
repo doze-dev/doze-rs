@@ -1,0 +1,1030 @@
+[
+ {
+  "id": "7ed9b93f03",
+  "from": "config_test.go"
+ },
+ {
+  "id": "9bd8590fb8",
+  "from": "config_test.go"
+ },
+ {
+  "id": "aa28645154",
+  "from": "config_test.go"
+ },
+ {
+  "id": "7a299cce20",
+  "from": "config_test.go"
+ },
+ {
+  "id": "7becb06f2b",
+  "from": "config_test.go"
+ },
+ {
+  "id": "187403dbef",
+  "from": "config_test.go"
+ },
+ {
+  "id": "5e8b35c764",
+  "from": "config_test.go"
+ },
+ {
+  "id": "6caa6abc4f",
+  "from": "config_test.go"
+ },
+ {
+  "id": "ef9d72bd3f",
+  "from": "config_test.go"
+ },
+ {
+  "id": "ab103764c6",
+  "from": "config_test.go"
+ },
+ {
+  "id": "83e3ecfeda",
+  "from": "config_test.go"
+ },
+ {
+  "id": "08d1e00796",
+  "from": "config_test.go"
+ },
+ {
+  "id": "742475dcd7",
+  "from": "config_test.go"
+ },
+ {
+  "id": "11bc7ebfa4",
+  "from": "config_test.go"
+ },
+ {
+  "id": "beeadddfc8",
+  "from": "config_test.go"
+ },
+ {
+  "id": "5a686dba14",
+  "from": "config_test.go"
+ },
+ {
+  "id": "15b92c8155",
+  "from": "config_test.go"
+ },
+ {
+  "id": "4704bccf66",
+  "from": "config_test.go"
+ },
+ {
+  "id": "8db3b05aec",
+  "from": "config_test.go"
+ },
+ {
+  "id": "bff4dbd45f",
+  "from": "config_test.go"
+ },
+ {
+  "id": "9401d10e9b",
+  "from": "config_test.go"
+ },
+ {
+  "id": "7597f9315a",
+  "from": "config_test.go"
+ },
+ {
+  "id": "4952cea508",
+  "from": "config_test.go"
+ },
+ {
+  "id": "726594b2e5",
+  "from": "config_test.go"
+ },
+ {
+  "id": "887497f07d",
+  "from": "config_test.go"
+ },
+ {
+  "id": "56ce830fc4",
+  "from": "config_test.go"
+ },
+ {
+  "id": "218e42ae6a",
+  "from": "config_test.go"
+ },
+ {
+  "id": "ba3656ccce",
+  "from": "config_test.go"
+ },
+ {
+  "id": "724d0c93b2",
+  "from": "config_test.go"
+ },
+ {
+  "id": "187cd795f1",
+  "from": "config_test.go"
+ },
+ {
+  "id": "0ec8dc6c6e",
+  "from": "config_test.go"
+ },
+ {
+  "id": "cdd7074efc",
+  "from": "config_test.go"
+ },
+ {
+  "id": "4135033901",
+  "from": "config_test.go"
+ },
+ {
+  "id": "f6f1f527d6",
+  "from": "config_test.go"
+ },
+ {
+  "id": "0328f31592",
+  "from": "config_test.go"
+ },
+ {
+  "id": "632fd8115e",
+  "from": "config_test.go"
+ },
+ {
+  "id": "b86f96d637",
+  "from": "config_test.go"
+ },
+ {
+  "id": "aad2ce6f55",
+  "from": "config_test.go"
+ },
+ {
+  "id": "bfe1ea6b7b",
+  "from": "config_test.go"
+ },
+ {
+  "id": "bbbb47cb65",
+  "from": "config_test.go"
+ },
+ {
+  "id": "f207b473cf",
+  "from": "config_test.go"
+ },
+ {
+  "id": "39b8e88514",
+  "from": "config_test.go"
+ },
+ {
+  "id": "6cf023a990",
+  "from": "config_test.go"
+ },
+ {
+  "id": "f22027e4c4",
+  "from": "diagrender_test.go"
+ },
+ {
+  "id": "42b00c6114",
+  "from": "diagrender_test.go"
+ },
+ {
+  "id": "244cfa9801",
+  "from": "diagrender_test.go"
+ },
+ {
+  "id": "87c304a1ef",
+  "from": "diagrender_test.go"
+ },
+ {
+  "id": "c6684addea",
+  "from": "diagrender_test.go"
+ },
+ {
+  "id": "dac164eb42",
+  "from": "diagrender_test.go"
+ },
+ {
+  "id": "012efd5504",
+  "from": "diagrender_test.go"
+ },
+ {
+  "id": "45ef9a6345",
+  "from": "diagrender_test.go"
+ },
+ {
+  "id": "e08a18aa36",
+  "from": "diagrender_test.go"
+ },
+ {
+  "id": "d301c1277b",
+  "from": "docs_examples_test.go"
+ },
+ {
+  "id": "a4fd6f53ae",
+  "from": "domains_app_test.go"
+ },
+ {
+  "id": "b9b65c3a63",
+  "from": "edit_test.go"
+ },
+ {
+  "id": "747f03d1b7",
+  "from": "edit_test.go"
+ },
+ {
+  "id": "c64ec5a699",
+  "from": "edit_test.go"
+ },
+ {
+  "id": "1e1e08638e",
+  "from": "edit_test.go"
+ },
+ {
+  "id": "6ffbb3a97c",
+  "from": "edit_test.go"
+ },
+ {
+  "id": "cf4a8fba1e",
+  "from": "edit_test.go"
+ },
+ {
+  "id": "10799d3c64",
+  "from": "edit_test.go"
+ },
+ {
+  "id": "368b50848b",
+  "from": "kinds_test.go"
+ },
+ {
+  "id": "805cfb641c",
+  "from": "kinds_test.go"
+ },
+ {
+  "id": "1167f3f203",
+  "from": "kinds_test.go"
+ },
+ {
+  "id": "b82ef16d88",
+  "from": "language_test.go"
+ },
+ {
+  "id": "e19b0f0780",
+  "from": "language_test.go"
+ },
+ {
+  "id": "3367a22627",
+  "from": "language_test.go"
+ },
+ {
+  "id": "b287678508",
+  "from": "language_test.go"
+ },
+ {
+  "id": "b3e6913141",
+  "from": "language_test.go"
+ },
+ {
+  "id": "ef192a5d8c",
+  "from": "language_test.go"
+ },
+ {
+  "id": "a558a900fd",
+  "from": "language_test.go"
+ },
+ {
+  "id": "2698ba821f",
+  "from": "language_test.go"
+ },
+ {
+  "id": "4b7c8ffdbe",
+  "from": "language_test.go"
+ },
+ {
+  "id": "473936e541",
+  "from": "language_test.go"
+ },
+ {
+  "id": "ba2ed9b5de",
+  "from": "language_test.go"
+ },
+ {
+  "id": "85a9c8b322",
+  "from": "language_test.go"
+ },
+ {
+  "id": "11f2e51455",
+  "from": "language_test.go"
+ },
+ {
+  "id": "d8c0895825",
+  "from": "language_test.go"
+ },
+ {
+  "id": "ef8fba17bd",
+  "from": "language_test.go"
+ },
+ {
+  "id": "9fb8efe1ce",
+  "from": "language_test.go"
+ },
+ {
+  "id": "178bafb929",
+  "from": "language_test.go"
+ },
+ {
+  "id": "23e7a78c78",
+  "from": "language_test.go"
+ },
+ {
+  "id": "767f953afa",
+  "from": "language_test.go"
+ },
+ {
+  "id": "030ab4d204",
+  "from": "language_test.go"
+ },
+ {
+  "id": "350dc0e904",
+  "from": "language_test.go"
+ },
+ {
+  "id": "e99e78f2c8",
+  "from": "language_test.go"
+ },
+ {
+  "id": "0205fb1631",
+  "from": "language_test.go"
+ },
+ {
+  "id": "32ba8df0ab",
+  "from": "language_test.go"
+ },
+ {
+  "id": "466d550086",
+  "from": "language_test.go"
+ },
+ {
+  "id": "1c1c2133e8",
+  "from": "multifile_test.go"
+ },
+ {
+  "id": "d75e476ec7",
+  "from": "multifile_test.go"
+ },
+ {
+  "id": "c22db44fc5",
+  "from": "multifile_test.go"
+ },
+ {
+  "id": "4e65ce4cd4",
+  "from": "multifile_test.go"
+ },
+ {
+  "id": "65632e960f",
+  "from": "multifile_test.go"
+ },
+ {
+  "id": "a160ec19df",
+  "from": "multifile_test.go"
+ },
+ {
+  "id": "3fd12605f5",
+  "from": "multifile_test.go"
+ },
+ {
+  "id": "38e55e3885",
+  "from": "multifile_test.go"
+ },
+ {
+  "id": "176c98280c",
+  "from": "multifile_test.go"
+ },
+ {
+  "id": "198348e7ff",
+  "from": "multifile_test.go"
+ },
+ {
+  "id": "9ea8fc7c7d",
+  "from": "multifile_test.go"
+ },
+ {
+  "id": "7672fd107f",
+  "from": "network_test.go"
+ },
+ {
+  "id": "127e5811e2",
+  "from": "network_test.go"
+ },
+ {
+  "id": "51e111bafb",
+  "from": "network_test.go"
+ },
+ {
+  "id": "07a979f013",
+  "from": "network_test.go"
+ },
+ {
+  "id": "dbc3397786",
+  "from": "network_test.go"
+ },
+ {
+  "id": "e37e8491f1",
+  "from": "network_test.go"
+ },
+ {
+  "id": "6ee88236e1",
+  "from": "paths_test.go"
+ },
+ {
+  "id": "fec1ec6547",
+  "from": "portbinder_test.go"
+ },
+ {
+  "id": "90336eb17f",
+  "from": "portbinder_test.go"
+ },
+ {
+  "id": "a8be5074b5",
+  "from": "portbinder_test.go"
+ },
+ {
+  "id": "39c8e756a4",
+  "from": "portbinder_test.go"
+ },
+ {
+  "id": "f8654e7819",
+  "from": "portbinder_test.go"
+ },
+ {
+  "id": "a25e136357",
+  "from": "portbinder_test.go"
+ },
+ {
+  "id": "af4feb21f1",
+  "from": "portbinder_test.go"
+ },
+ {
+  "id": "4ab377751b",
+  "from": "portbinder_test.go"
+ },
+ {
+  "id": "3b28b93aef",
+  "from": "sleep_test.go"
+ },
+ {
+  "id": "a0420a8b14",
+  "from": "sleep_test.go"
+ },
+ {
+  "id": "7f23d24f9d",
+  "from": "sleep_test.go"
+ },
+ {
+  "id": "b3524b6ae1",
+  "from": "README.md"
+ },
+ {
+  "id": "17e1ec79f7",
+  "from": "docs/getting-started.md"
+ },
+ {
+  "id": "1d43d0e57b",
+  "from": "docs/getting-started.md"
+ },
+ {
+  "id": "31986bc9eb",
+  "from": "website/src/content/docs/why/hcl.md"
+ },
+ {
+  "id": "cd571986f3",
+  "from": "website/src/content/docs/why/hcl.md"
+ },
+ {
+  "id": "bbfa718a67",
+  "from": "website/src/content/docs/why/hcl.md"
+ },
+ {
+  "id": "880d852389",
+  "from": "website/src/content/docs/app/domains.mdx"
+ },
+ {
+  "id": "c8e536674f",
+  "from": "website/src/content/docs/app/domains.mdx"
+ },
+ {
+  "id": "83ab600016",
+  "from": "website/src/content/docs/app/when-something-breaks.mdx"
+ },
+ {
+  "id": "7ecc1a44ee",
+  "from": "website/src/content/docs/start/your-repo.mdx"
+ },
+ {
+  "id": "4f17042c88",
+  "from": "website/src/content/docs/start/how-doze-thinks.md"
+ },
+ {
+  "id": "a34250b50c",
+  "from": "website/src/content/docs/start/how-doze-thinks.md"
+ },
+ {
+  "id": "52e5ee2363",
+  "from": "website/src/content/docs/start/first-stack.mdx"
+ },
+ {
+  "id": "6655facf1b",
+  "from": "website/src/content/docs/hcl/your-own-services.md"
+ },
+ {
+  "id": "b7268716e2",
+  "from": "website/src/content/docs/hcl/your-own-services.md"
+ },
+ {
+  "id": "4deeed2c7a",
+  "from": "website/src/content/docs/hcl/your-own-services.md"
+ },
+ {
+  "id": "0ff2c3ec97",
+  "from": "website/src/content/docs/hcl/your-own-services.md"
+ },
+ {
+  "id": "172818b2b7",
+  "from": "website/src/content/docs/hcl/tasks.mdx"
+ },
+ {
+  "id": "d8057807e3",
+  "from": "website/src/content/docs/hcl/tasks.mdx"
+ },
+ {
+  "id": "b6eaf0675d",
+  "from": "website/src/content/docs/hcl/tasks.mdx"
+ },
+ {
+  "id": "b1defcb2e1",
+  "from": "website/src/content/docs/hcl/names.mdx"
+ },
+ {
+  "id": "8187b43049",
+  "from": "website/src/content/docs/hcl/names.mdx"
+ },
+ {
+  "id": "f330a7624a",
+  "from": "website/src/content/docs/hcl/sleep.mdx"
+ },
+ {
+  "id": "07a80f7f10",
+  "from": "website/src/content/docs/hcl/splitting-files.md"
+ },
+ {
+  "id": "3524fa5a7b",
+  "from": "website/src/content/docs/hcl/splitting-files.md"
+ },
+ {
+  "id": "265c61cabb",
+  "from": "website/src/content/docs/hcl/splitting-files.md"
+ },
+ {
+  "id": "9343460dba",
+  "from": "website/src/content/docs/hcl/splitting-files.md"
+ },
+ {
+  "id": "6a94b9efa0",
+  "from": "website/src/content/docs/hcl/references-and-env.md"
+ },
+ {
+  "id": "ac05c6d6c0",
+  "from": "website/src/content/docs/hcl/references-and-env.md"
+ },
+ {
+  "id": "94bb2d7b4d",
+  "from": "website/src/content/docs/hcl/references-and-env.md"
+ },
+ {
+  "id": "fe71ae0d51",
+  "from": "website/src/content/docs/hcl/references-and-env.md"
+ },
+ {
+  "id": "d7f5e9b3bc",
+  "from": "website/src/content/docs/hcl/references-and-env.md"
+ },
+ {
+  "id": "7e4095251f",
+  "from": "website/src/content/docs/hcl/references-and-env.md"
+ },
+ {
+  "id": "01e3cfe74f",
+  "from": "website/src/content/docs/hcl/start-order.md"
+ },
+ {
+  "id": "85fc91dd4e",
+  "from": "website/src/content/docs/hcl/start-order.md"
+ },
+ {
+  "id": "3c19277960",
+  "from": "website/src/content/docs/hcl/start-order.md"
+ },
+ {
+  "id": "370328b42f",
+  "from": "website/src/content/docs/hcl/start-order.md"
+ },
+ {
+  "id": "fe47c49325",
+  "from": "website/src/content/docs/hcl/start-order.md"
+ },
+ {
+  "id": "97ad692fc8",
+  "from": "website/src/content/docs/hcl/shared-services.md"
+ },
+ {
+  "id": "62bb90b101",
+  "from": "website/src/content/docs/hcl/shared-services.md"
+ },
+ {
+  "id": "2c03fb83c2",
+  "from": "website/src/content/docs/hcl/apps.md"
+ },
+ {
+  "id": "c252fba052",
+  "from": "website/src/content/docs/hcl/apps.md"
+ },
+ {
+  "id": "a4c821cc9c",
+  "from": "website/src/content/docs/hcl/apps.md"
+ },
+ {
+  "id": "f8272ac81d",
+  "from": "website/src/content/docs/hcl/apps.md"
+ },
+ {
+  "id": "fa811f5929",
+  "from": "website/src/content/docs/hcl/apps.md"
+ },
+ {
+  "id": "23c7dbf74b",
+  "from": "website/src/content/docs/hcl/apps.md"
+ },
+ {
+  "id": "4cb01bc8b0",
+  "from": "website/src/content/docs/hcl/apps.md"
+ },
+ {
+  "id": "85202b4f3a",
+  "from": "website/src/content/docs/guides/microservices.mdx"
+ },
+ {
+  "id": "d411e68bca",
+  "from": "website/src/content/docs/guides/microservices.mdx"
+ },
+ {
+  "id": "e090a4e669",
+  "from": "website/src/content/docs/guides/microservices.mdx"
+ },
+ {
+  "id": "cf1b383669",
+  "from": "website/src/content/docs/guides/microservices.mdx"
+ },
+ {
+  "id": "daeb0aee3e",
+  "from": "website/src/content/docs/guides/microservices.mdx"
+ },
+ {
+  "id": "732a5ab2aa",
+  "from": "website/src/content/docs/guides/microservices.mdx"
+ },
+ {
+  "id": "36eb77f49e",
+  "from": "website/src/content/docs/guides/upgrading-from-0-1.mdx"
+ },
+ {
+  "id": "3411850fcc",
+  "from": "website/src/content/docs/guides/upgrading-from-0-1.mdx"
+ },
+ {
+  "id": "e2b62bb295",
+  "from": "website/src/content/docs/guides/upgrading-from-0-1.mdx"
+ },
+ {
+  "id": "6cad69d0ee",
+  "from": "website/src/content/docs/guides/upgrading-from-0-1.mdx"
+ },
+ {
+  "id": "9d7455627d",
+  "from": "website/src/content/docs/guides/upgrading-from-0-1.mdx"
+ },
+ {
+  "id": "101b1c8424",
+  "from": "website/src/content/docs/guides/upgrading-from-0-1.mdx"
+ },
+ {
+  "id": "3a2fad9793",
+  "from": "website/src/content/docs/guides/upgrading-from-0-1.mdx"
+ },
+ {
+  "id": "8ad4cb711a",
+  "from": "website/src/content/docs/guides/upgrading-from-0-1.mdx"
+ },
+ {
+  "id": "86d5216dcb",
+  "from": "website/src/content/docs/guides/troubleshooting.mdx"
+ },
+ {
+  "id": "fa844b597e",
+  "from": "website/src/content/docs/guides/postgres-upgrades.mdx"
+ },
+ {
+  "id": "84bd569e0f",
+  "from": "website/src/content/docs/contribute/submit.md"
+ },
+ {
+  "id": "a3f20e5f43",
+  "from": "website/src/content/docs/services/kafka.md"
+ },
+ {
+  "id": "1f87300136",
+  "from": "website/src/content/docs/services/kafka.md"
+ },
+ {
+  "id": "cd90d4dbb2",
+  "from": "website/src/content/docs/services/kafka.md"
+ },
+ {
+  "id": "92d0c6f318",
+  "from": "website/src/content/docs/services/postgres.md"
+ },
+ {
+  "id": "7f7f87d045",
+  "from": "website/src/content/docs/services/postgres.md"
+ },
+ {
+  "id": "fa327accd5",
+  "from": "website/src/content/docs/services/postgres.md"
+ },
+ {
+  "id": "a4c5aab5a4",
+  "from": "website/src/content/docs/services/postgres.md"
+ },
+ {
+  "id": "c3edd8b034",
+  "from": "website/src/content/docs/services/postgres.md"
+ },
+ {
+  "id": "3fc155daea",
+  "from": "website/src/content/docs/services/postgres.md"
+ },
+ {
+  "id": "f0f3647adc",
+  "from": "website/src/content/docs/services/postgres.md"
+ },
+ {
+  "id": "e371e41c51",
+  "from": "website/src/content/docs/services/postgres.md"
+ },
+ {
+  "id": "1e4609c1ec",
+  "from": "website/src/content/docs/services/mariadb.md"
+ },
+ {
+  "id": "2fb7ccc4d4",
+  "from": "website/src/content/docs/services/mariadb.md"
+ },
+ {
+  "id": "5e31ae1384",
+  "from": "website/src/content/docs/services/mariadb.md"
+ },
+ {
+  "id": "eb1f55ee05",
+  "from": "website/src/content/docs/services/mariadb.md"
+ },
+ {
+  "id": "053d14f3c4",
+  "from": "website/src/content/docs/services/mariadb.md"
+ },
+ {
+  "id": "86e16ecedb",
+  "from": "website/src/content/docs/services/ferretdb.md"
+ },
+ {
+  "id": "bc6d6828ab",
+  "from": "website/src/content/docs/services/ferretdb.md"
+ },
+ {
+  "id": "6dd16cc752",
+  "from": "website/src/content/docs/services/ferretdb.md"
+ },
+ {
+  "id": "2e5e11398a",
+  "from": "website/src/content/docs/services/ferretdb.md"
+ },
+ {
+  "id": "b5a0f4b423",
+  "from": "website/src/content/docs/services/kvrocks.md"
+ },
+ {
+  "id": "701c873a97",
+  "from": "website/src/content/docs/services/kvrocks.md"
+ },
+ {
+  "id": "7a7e933804",
+  "from": "website/src/content/docs/services/kvrocks.md"
+ },
+ {
+  "id": "097cd3377c",
+  "from": "website/src/content/docs/services/kvrocks.md"
+ },
+ {
+  "id": "b72ceb20a6",
+  "from": "website/src/content/docs/services/temporal.md"
+ },
+ {
+  "id": "be304ec05a",
+  "from": "website/src/content/docs/services/temporal.md"
+ },
+ {
+  "id": "e6fd9d9902",
+  "from": "website/src/content/docs/services/temporal.md"
+ },
+ {
+  "id": "4ee497c58a",
+  "from": "website/src/content/docs/services/valkey.md"
+ },
+ {
+  "id": "928f5198de",
+  "from": "website/src/content/docs/services/valkey.md"
+ },
+ {
+  "id": "5e4e3cbbd0",
+  "from": "website/src/content/docs/services/valkey.md"
+ },
+ {
+  "id": "6e31c26879",
+  "from": "website/src/content/docs/services/valkey.md"
+ },
+ {
+  "id": "57916de223",
+  "from": "website/src/content/docs/services/aws.md"
+ },
+ {
+  "id": "a5a1b5c216",
+  "from": "website/src/content/docs/services/aws.md"
+ },
+ {
+  "id": "5cb3c98f21",
+  "from": "website/src/content/docs/services/aws.md"
+ },
+ {
+  "id": "4c78b82e8a",
+  "from": "website/src/content/docs/services/aws.md"
+ },
+ {
+  "id": "20a09a84a3",
+  "from": "website/src/content/docs/services/aws.md"
+ },
+ {
+  "id": "4bb65ea5f1",
+  "from": "website/src/content/docs/services/aws.md"
+ },
+ {
+  "id": "0a27333716",
+  "from": "website/src/content/docs/services/aws.md"
+ },
+ {
+  "id": "1ee10c8779",
+  "from": "website/src/content/docs/reference/extensions.md"
+ },
+ {
+  "id": "f9e146820a",
+  "from": "website/src/content/docs/reference/extensions.md"
+ },
+ {
+  "id": "15436acdac",
+  "from": "website/src/content/docs/reference/doze-hcl.md"
+ },
+ {
+  "id": "d3b0a9287a",
+  "from": "examples/shop"
+ },
+ {
+  "id": "42c216e6d7",
+  "from": "doze/cmd/doze/add_test.go"
+ },
+ {
+  "id": "dd6b6ca6b6",
+  "from": "doze/cmd/doze/add_test.go"
+ },
+ {
+  "id": "197dd6ceb6",
+  "from": "doze/cmd/doze/add_test.go"
+ },
+ {
+  "id": "cb50b4aaf0",
+  "from": "doze/cmd/doze/golden_test.go"
+ },
+ {
+  "id": "b8099b3b59",
+  "from": "doze/cmd/doze/remember_test.go"
+ },
+ {
+  "id": "4cb30c7e23",
+  "from": "doze/doze_test.go"
+ },
+ {
+  "id": "24a4283466",
+  "from": "doze/internal/daemon/ingress_probe_test.go"
+ },
+ {
+  "id": "88a155ee6c",
+  "from": "doze/internal/daemon/subscribe_test.go"
+ },
+ {
+  "id": "11a5c47af8",
+  "from": "doze/internal/desk/view/flow_test.go"
+ },
+ {
+  "id": "d5477bb574",
+  "from": "doze/internal/desk/view/flow_test.go"
+ },
+ {
+  "id": "ccdfdf48b5",
+  "from": "doze/internal/detect/detect_test.go"
+ },
+ {
+  "id": "77f1292538",
+  "from": "doze/internal/detect/detect_test.go"
+ },
+ {
+  "id": "dcebcaf71b",
+  "from": "doze/internal/runtime/runtime_test.go"
+ },
+ {
+  "id": "e21981bcbd",
+  "from": "doze/internal/runtime/runtime_test.go"
+ },
+ {
+  "id": "36314917b5",
+  "from": "doze/internal/runtime/runtime_test.go"
+ },
+ {
+  "id": "f5e5fff3d6",
+  "from": "doze/stackload_test.go"
+ },
+ {
+  "id": "b5dd7a081b",
+  "from": "doze/test/bench/bench_test.go"
+ },
+ {
+  "id": "921d2f6dc8",
+  "from": "doze/test/integration/ferret_test.go"
+ },
+ {
+  "id": "b8dd829a9b",
+  "from": "doze/test/integration/mariadb_test.go"
+ },
+ {
+  "id": "1778f215e4",
+  "from": "doze/test/integration/module_names_test.go"
+ },
+ {
+  "id": "8e45dba438",
+  "from": "doze/test/integration/names_test.go"
+ },
+ {
+  "id": "79c634e885",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "679086a4a4",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "d9471bced7",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "dde587816a",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "292e5ecf0c",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "bd1cd8b50e",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "2b202f31f8",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "a76ebca9f9",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "e78ce6e4bd",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "9721b6a23f",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "b329153032",
+  "from": "doze/test/integration/temporal_test.go"
+ },
+ {
+  "id": "875f9a5b61",
+  "from": "doze-examples/larder"
+ }
+]

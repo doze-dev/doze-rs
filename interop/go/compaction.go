@@ -151,8 +151,7 @@ func readFranz(ctx context.Context, addr, topic string, from int64, total int) (
 
 // readSarama reads the partition from `from` to its end, with sarama's partition consumer.
 func readSarama(addr, topic string, from int64, total int) ([]record, error) {
-	cfg := lib.NewConfig()
-	cfg.Version = lib.V3_6_0_0
+	cfg := saramaConfig()
 	c, err := lib.NewConsumer([]string{addr}, cfg)
 	if err != nil {
 		return nil, err

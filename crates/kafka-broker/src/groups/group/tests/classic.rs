@@ -181,10 +181,12 @@ fn a_classic_leave_removes_a_member_of_either_protocol_and_the_group_stays_a_con
             t,
             vec![
                 crate::groups::machine::LeaveTarget {
+                    reason: None,
                     member_id: Some(id("new")),
                     instance: None,
                 },
                 crate::groups::machine::LeaveTarget {
+                    reason: None,
                     member_id: Some(id("ghost")),
                     instance: None,
                 },

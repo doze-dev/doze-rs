@@ -19,3 +19,9 @@ name = "origin"
 path = "fuzz_targets/origin.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "form"
+path = "fuzz_targets/form.rs"
+test = false
+doc = false

@@ -8,8 +8,11 @@
 pub mod cli;
 pub mod clock;
 mod cmd;
+mod complete;
+mod config;
 pub mod ctx;
 pub mod diag;
+mod diff;
 pub mod exit;
 pub mod help;
 pub mod install;
@@ -42,6 +45,10 @@ use std::ffi::OsString;
 // fuzz:parser fuzz_argv
 /// Runs one command line (`argv[0]` is the program) and says how it ended.
 pub fn run(argv: Vec<OsString>, ctx: &mut Ctx<'_>) -> Exit {
+    // A shell asking for completions (`COMPLETE=<shell> doze -- …`): answer it and nothing else.
+    if let Some(shell) = ctx.var(complete::VAR).filter(|v| v != "0") {
+        return complete::run(&shell, argv, ctx);
+    }
     let asked_json = argv
         .iter()
         .take_while(|a| *a != "--")

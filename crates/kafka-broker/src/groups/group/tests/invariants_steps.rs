@@ -179,6 +179,7 @@ impl World {
             format!("k{}", self.rng.below(4))
         };
         let target = LeaveTarget {
+            reason: None,
             member_id: Some(mid(&n)),
             instance: None,
         };

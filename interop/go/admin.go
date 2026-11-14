@@ -20,8 +20,7 @@ type admin struct {
 }
 
 func newAdmin(addr string) (admin, error) {
-	cfg := lib.NewConfig()
-	cfg.Version = lib.V3_6_0_0
+	cfg := saramaConfig()
 	c, err := lib.NewClusterAdmin([]string{addr}, cfg)
 	if err != nil {
 		return admin{}, err
@@ -70,12 +69,14 @@ func (a admin) who(group string) string {
 }
 
 func (a admin) groupState(group string) (state string, members int, err error) {
-	req := kmsg.NewPtrConsumerGroupDescribeRequest()
-	req.Groups = []string{group}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if resp, err := req.RequestWith(ctx, a.k); err == nil && len(resp.Groups) == 1 && resp.Groups[0].ErrorCode == 0 {
-		return resp.Groups[0].State, len(resp.Groups[0].Members), nil
+	if offered.has(kmsg.ConsumerGroupDescribe) {
+		req := kmsg.NewPtrConsumerGroupDescribeRequest()
+		req.Groups = []string{group}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if resp, err := req.RequestWith(ctx, a.k); err == nil && len(resp.Groups) == 1 && resp.Groups[0].ErrorCode == 0 {
+			return resp.Groups[0].State, len(resp.Groups[0].Members), nil
+		}
 	}
 	ds, err := a.c.DescribeConsumerGroups([]string{group})
 	if err != nil || len(ds) != 1 {

@@ -92,7 +92,7 @@ At a served version, the list is returned (nothing is checked about the client).
 Test: `incoming::tests::api_versions_with_an_unreadable_body_is_still_answered`, `api_versions::tests::an_unreadable_body_at_a_served_version_gets_the_list`
 
 ### W12c. The two telemetry APIs are the only extension to what real brokers list
-Offered only at Kafka 4 and only when client telemetry is on; the recorded brokers have no reporter, so they
+Offered only at Kafka 4 and only when client telemetry is on (`--client-telemetry`, on by default: W35); the recorded brokers have no reporter, so they
 do not list them.
 Test: `tests/recorded_api_versions.rs::telemetry_apis_are_the_only_extension`
 
@@ -143,3 +143,79 @@ The wire layer reports the control and transactional bits; refusing a client's c
 broker's rule.
 Test: `tests/batch_agrees_with_the_crate.rs::transactional_and_control_bits_are_read`,
 `batch::marker::tests::a_marker_is_a_valid_control_batch_of_the_producer_with_no_sequence`
+
+## DescribeCluster and client telemetry (Phase 9, slice 9i)
+
+The three APIs the replay still failed on at the close of Phase 8 (the ten `telemetry-*` scenarios and `version-matrix`). The recordings are Apache
+Kafka 4.3.1's (`conformance/recordings/telemetry-*.json`, `version-matrix.json`); where this broker answers otherwise on purpose the rule says so
+(**deviation SEC-D100**, **SEC-D101**). The authorization row of all three is in `security.md` (SEC-290). The handlers are
+`crates/kafka-broker/src/handlers/{describe_cluster,get_telemetry_subscriptions,push_telemetry}.rs`, the store and the gate are
+`crates/kafka-broker/src/telemetry.rs` and `telemetry/instance.rs`.
+
+### W24. DescribeCluster v0 to v2 is the broker as Metadata says it
+The cluster id, the controller (this node), one broker with the advertised host and port the connection's listener gives, no rack, never fenced
+(`include_fenced_brokers` changes nothing), throttle 0. Offered at Kafka 3 (v0 to v1) and Kafka 4 (v0 to v2), by the profile table. Recorded: the three
+`DescribeCluster v*` steps of `version-matrix`.
+Test: `kafka-broker tests/describe_cluster.rs::the_default_request_is_answered_as_the_recorded_kafka_does_at_every_version`, `::it_names_the_cluster_and_the_broker_that_metadata_does`, `::fenced_brokers_are_never_listed_because_this_one_is_never_fenced`; `kafka-server connection::tests::served::api_versions_lists_only_what_the_broker_serves`
+
+### W25. The endpoint type is checked first (source)
+BROKER (1, the default) is answered. CONTROLLER (2) is `MISMATCHED_ENDPOINT_TYPE` (114) from v1 and `INVALID_REQUEST` (42) at v0, with the text `The request was sent to
+an endpoint of type BROKER, but we wanted an endpoint of type CONTROLLER`, and no cluster in the answer. Any other number is `UNSUPPORTED_ENDPOINT_TYPE` (115) with `Unsupported endpoint
+type N`. Not recorded (the matrix sends the default); read from `AuthHelper.computeDescribeClusterResponse` (`phase8/kafka-semantics.md` row 60).
+Test: `tests/describe_cluster.rs::a_controller_endpoint_is_asked_of_the_wrong_node`, `::an_endpoint_type_that_is_neither_is_unsupported_and_says_which`
+
+### W26. The cluster's authorized operations are the only thing an ACL changes in DescribeCluster
+Not asked for: the schema's default (`i32::MIN`). Asked for: `0` when the caller may not DESCRIBE the cluster (whatever else it may do), else the bit `1 << code` of each of the seven operations an ACL on
+the cluster can name that it may do. The answer is given to every caller (SEC-290).
+Test: `tests/describe_cluster.rs::no_acl_is_needed_to_be_answered_and_the_operations_are_what_describe_gates`, `::an_open_broker_tells_every_operation`
+
+### W27. A client with no instance id is given one; the same subscription is given to every client
+GetTelemetrySubscriptions v0 with a zero `client_instance_id` is answered with a fresh version 4 UUID; with one, the same. The subscription is the standard metric set (`org.apache.kafka.`), every
+5000 ms, cumulative (`delta_temporality` false), `telemetry_max_bytes` 1,048,576 (Kafka's default, recorded), compression types `[4, 3, 1, 2]` (recorded). Kafka with nothing configured subscribes a
+client to nothing every 300,000 ms with deltas; the replay gives Kafka the same five seconds with a CLIENT_METRICS resource and holds the rest to the recording (**deviation SEC-D100**).
+Test: `kafka-broker tests/telemetry.rs::a_client_with_no_id_is_given_one_and_the_subscription_the_recordings_show`
+
+### W28. The subscription id is a checksum of the instance, so it survives a restart
+CRC-32C over the instance id, the requested metrics and the interval, as a signed 32-bit number, as Kafka derives it. A push that holds the id a client was given before a broker restart is therefore taken
+(recorded: `telemetry-broker-restart`); one that holds another instance's is `UNKNOWN_SUBSCRIPTION_ID` (117).
+Test: `tests/telemetry.rs::a_subscription_id_is_the_same_after_a_restart_and_a_push_that_holds_it_is_taken`, `telemetry::tests::the_subscription_id_is_a_function_of_the_instance_alone`
+
+### W29. The gate: a request inside the interval of the last one taken is `THROTTLING_QUOTA_EXCEEDED`
+An instance remembers when a subscription was last given and a push last taken. A subscription request is early within an interval of the last request of either kind. A push is on time when it is the
+instance's first, or a subscription was given since the last push that set the clock, or that push is an interval old; one on time sets the clock whatever becomes of it after, one that is early (89)
+does not postpone the next, and a terminating push is taken though early without setting the clock. Recorded: `telemetry-throttle`, `-interval` (half an interval, nine tenths and a whole one, in real time), `-instance-binding-spaced`.
+The answer to an early subscription request has no other field set.
+Test: `telemetry::tests::the_first_push_is_on_time_the_next_is_early_until_an_interval_has_passed`, `::a_subscription_given_since_the_last_push_makes_the_next_push_on_time`, `::a_subscription_request_shares_the_clock_with_pushes_and_a_refused_one_postpones_nothing`, `tests/telemetry.rs::asking_again_at_once_is_throttled_with_nothing_else_in_the_answer`, `::a_push_straight_after_another_is_early_whatever_else_is_wrong_with_it`
+
+### W30. What follows a terminating push
+The instance remembers whether the last push it was sent said it was terminating, whatever became of that push (taken, or refused for another reason): a push that follows is `INVALID_REQUEST` (42) once, and its own
+word replaces the memory, so terminating pushes in a row are refused from the second on and an ordinary push after one is refused once; the next is judged by the clock again. A subscription request does not clear it.
+Recorded: `telemetry-terminating`, `-throttle`.
+Test: `telemetry::tests::a_terminating_push_is_taken_early_and_closes_the_instance_for_the_next_push_only`, `::terminating_pushes_in_a_row_are_refused_from_the_second_on`, `::a_subscription_request_does_not_clear_a_terminating_push`, `tests/telemetry.rs::a_terminating_push_is_taken_when_early_and_the_next_is_refused_once`
+
+### W31. A push refused for its subscription id or its compression type tells the client to ask again
+The next subscription request of that instance is answered though it is early, once, and sets no clock, so the push straight after it is still early. A push that is refused for anything else, or any
+push at all, cancels it. Recorded: `telemetry-ask-again`.
+Test: `telemetry::tests::the_request_after_a_refusal_that_says_to_ask_again_is_answered_once_and_sets_no_clock`, `::a_push_that_comes_next_cancels_the_ask_again`, `tests/telemetry.rs::a_refusal_that_tells_a_client_to_ask_again_lets_its_next_request_through_once`
+
+### W32. A push is judged in Kafka's order, and an instance belongs to no connection and no principal
+No instance id (42); the gate (89 and 42, above, before anything else is looked at); the subscription id (117); the compression type, which is 0 to 4 (76); the size, over `telemetry.max.bytes` (118); the payload
+inflating (87: corrupt under any codec, or inflating past 1 MiB). A payload that is not OpenTelemetry metrics, or is empty, is taken: no plugin reads it. An instance id the broker has never seen is adopted by
+the first request that names it. Any connection, of any principal, may speak for any instance id (recorded: `telemetry-instance-binding`, `-spaced`).
+Test: `tests/telemetry.rs::the_refusals_are_the_recorded_ones`, `::when_a_push_has_several_faults_the_first_in_kafkas_order_is_the_answer`, `::any_connection_may_speak_for_any_instance_and_no_acl_is_asked`
+
+### W33. A payload is read to its end through a fixed buffer, never inflated whole
+`kafka_wire::batch::inflates_within(codec, bytes, limit)` reads a compressed payload and keeps nothing; it fails the moment more than `limit` has come out, or the bytes are not what the codec says. A 64 MiB
+gzip of zeros that weighs 64 KiB costs one 8 KiB buffer and the decompressor's window. It is a parser, with a place in `fuzz_batch`.
+Test: `kafka-wire batch::inflate::tests::payload::a_payload_is_read_to_its_end_under_every_codec_and_the_limit_is_exact`, `::a_payload_that_claims_far_more_than_it_weighs_is_refused_at_the_limit_not_inflated`, `::bytes_that_are_not_a_stream_are_refused_under_every_codec`
+
+### W34. What is kept of a client is bounded, allocates nothing until a client asks, and is never read
+The last payload of each instance, as received (compressed or not, copied so that the frame it came in is not held): at most 128 instances and 4 MiB of payloads. A new instance past 128 evicts a
+terminating one first, then the one heard from longest ago; payloads past 4 MiB are let go from the instance heard from longest ago (its gate state stays). An instance quiet for ten minutes (a minute if it
+terminated) is forgotten the next time anyone calls; there is no timer. An evicted or forgotten instance is simply unknown again (W32). Nothing prints a payload or an id (SEC-292).
+Test: `telemetry::tests::an_idle_store_holds_nothing`, `::bytes_are_bounded_and_the_payloads_heard_longest_ago_go_first`, `::entries_are_bounded_and_a_terminating_client_goes_before_the_one_heard_longest_ago`, `::evicting_an_instance_frees_its_bytes`, `::a_client_that_went_quiet_is_forgotten_the_next_time_anyone_calls`
+
+### W35. `--client-telemetry` (default on) decides whether the two telemetry APIs are served and listed
+On, ApiVersions at Kafka 4 lists GetTelemetrySubscriptions and PushTelemetry (as the recorded `version-matrix` has them); `--client-telemetry=false` serves and lists neither, and a client that sends one is
+disconnected as for any API the broker does not serve (W11). DescribeCluster does not depend on it. Clients that support KIP-714 report every five seconds once it is on.
+Test: `doze-kafka cli::tests::client_telemetry_is_on_unless_told_otherwise`, `kafka-server connection::tests::served::telemetry_is_listed_unless_the_broker_is_told_not_to_serve_it`, `connection::tests::an_api_the_broker_does_not_serve_closes_the_connection_without_an_answer`, `kafka-broker tests/telemetry.rs::the_two_apis_are_served_unless_the_broker_is_told_not_to`

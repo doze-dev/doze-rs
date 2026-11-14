@@ -37,10 +37,18 @@ pub const NO_SUCH_MODULE: Id = id("DZ0203", Exit::NotFound);
 /// The registry answered with a file doze cannot read.
 pub const REGISTRY_UNREADABLE: Id = id("DZ0204", Exit::Failed);
 
+/// doze.hcl has a mistake: the diagnostic points at it (one error per diagnostic doze-config gives).
+pub const CONFIG_INVALID: Id = id("DZ0301", Exit::ConfigInvalid);
 /// No `doze.hcl` here or in any parent.
 pub const NO_CONFIG: Id = id("DZ0302", Exit::NoConfig);
 /// `doze.lock` cannot be read (a merge conflict, a hand edit).
 pub const LOCK_UNREADABLE: Id = id("DZ0303", Exit::ConfigInvalid);
+/// A config file could not be read (a permission, a folder in its place).
+pub const CONFIG_UNREADABLE: Id = id("DZ0304", Exit::Failed);
+/// `fmt --check`: a file's layout is not HCL's canonical one.
+pub const NOT_FORMATTED: Id = id("DZ0305", Exit::Failed);
+/// A config file could not be written (`fmt`): a permission, a full disk.
+pub const CONFIG_UNWRITABLE: Id = id("DZ0306", Exit::Machine);
 
 /// The doze home cannot be used.
 pub const HOME_UNUSABLE: Id = id("DZ0401", Exit::Machine);

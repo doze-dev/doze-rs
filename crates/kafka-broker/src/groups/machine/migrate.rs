@@ -12,6 +12,7 @@ use super::{
     TimerKind,
 };
 use crate::groups::consumer::protocol::decode_subscription;
+use crate::groups::note::{Cause, Why};
 use crate::groups::seat::{Handover, Seat};
 
 impl GroupMachine {
@@ -98,6 +99,7 @@ impl GroupMachine {
                     joined: None,
                     syncing: None,
                     session_gen: 0,
+                    heard: Millis(0),
                     rights: seat.rights,
                 },
             );
@@ -109,7 +111,8 @@ impl GroupMachine {
         }
         // Begun from a running state, so that it starts the wait for the members to join again.
         group.state = State::Stable;
-        group.begin_rebalance(now, false, out);
+        let why = Why::new(Cause::BecameClassic, None, group.members.len());
+        group.begin_rebalance(now, false, why, out);
         group
     }
 }

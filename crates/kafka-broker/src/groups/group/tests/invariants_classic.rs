@@ -22,6 +22,7 @@ impl World {
         let instance = (n == "k0" && self.rng.pct(50)).then(|| InstanceId::new("ci"));
         let by_instance = instance.is_some() && self.rng.pct(50);
         let req = JoinRequest {
+            reason: None,
             member_id: (!by_instance).then(|| mid(n)),
             instance,
             protocol_type: "consumer".into(),
@@ -100,6 +101,7 @@ impl World {
 
     pub(super) fn classic_leave(&mut self, n: &str) {
         let target = LeaveTarget {
+            reason: None,
             member_id: Some(mid(n)),
             instance: None,
         };

@@ -1,13 +1,21 @@
-# status with doze not running: Go lists the declared services from doze.hcl; this doze cannot read doze.hcl yet
-# (the core port's next phase), so it says doze is not running and that the list comes later. -w needs the daemon.
-@ project bare
+# status with doze not running: the declared services from doze.hcl (Go's status-daemon-down golden, read offline:
+# no module is needed for the shape), each asleep at the address it will answer on. -w needs the daemon.
+@ project shop
 
 $ doze status
 exit 0
 stdout:
-| doze is not running
-stderr:
-| ! doze up starts it; the declared services are listed here once this doze reads doze.hcl (the core port's next phase)
+| doze is not running — showing declared services
+| 
+|       NAME     ENGINE        STATE    ENDPOINT         CONNS   MEM   CPU   NOTE
+| Modules
+|   ·   cache    valkey 9      asleep   127.0.0.1:6379   -       -     -
+|   ·   db       postgres 16   asleep   127.0.0.1:5432   -       -     -
+|   ·   events   kafka 4       asleep   127.0.0.1:9092   -       -     -
+| Apps
+|   ·   api      app           asleep   127.0.0.1:8080   -       -     -
+|   ·   web      app           asleep   127.0.0.1:8090   -       -     -
+|   ·   worker   app           asleep   -                -       -     -
 json exit 0
 json:
 | {
@@ -18,11 +26,86 @@ json:
 |     "daemon": {
 |       "running": false
 |     },
-|     "services": []
-|   },
-|   "warnings": [
-|     "doze up starts it; the declared services are listed here once this doze reads doze.hcl (the core port's next phase)"
-|   ]
+|     "services": [
+|       {
+|         "name": "db",
+|         "engine": "postgres",
+|         "version": "16",
+|         "group": "module",
+|         "state": "asleep",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:5432",
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0
+|       },
+|       {
+|         "name": "cache",
+|         "engine": "valkey",
+|         "version": "9",
+|         "group": "module",
+|         "state": "asleep",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:6379",
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0
+|       },
+|       {
+|         "name": "events",
+|         "engine": "kafka",
+|         "version": "4",
+|         "group": "module",
+|         "state": "asleep",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:9092",
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0
+|       },
+|       {
+|         "name": "api",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "asleep",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:8080",
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0,
+|         "dependsOn": [
+|           "db"
+|         ]
+|       },
+|       {
+|         "name": "worker",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "asleep",
+|         "enabled": true,
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0,
+|         "dependsOn": [
+|           "events"
+|         ]
+|       },
+|       {
+|         "name": "web",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "asleep",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:8090",
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0
+|       }
+|     ]
+|   }
 | }
 
 $ doze status -w

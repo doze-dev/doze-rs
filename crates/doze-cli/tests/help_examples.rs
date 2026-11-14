@@ -26,6 +26,9 @@ const WITH_EXAMPLES: &[&str] = &[
     "doctor",
     "dns-setup",
     "trust",
+    "lint",
+    "fmt",
+    "completion",
 ];
 
 #[test]

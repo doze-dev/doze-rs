@@ -1,0 +1,62 @@
+[
+ {
+  "id": "hand3.0000",
+  "expr": "merge(null, [1])"
+ },
+ {
+  "id": "hand3.0001",
+  "expr": "merge(null, [\"a\", \"b\"])"
+ },
+ {
+  "id": "hand3.0002",
+  "expr": "merge(null, false)"
+ },
+ {
+  "id": "hand3.0003",
+  "expr": "merge(null, \"x\")"
+ },
+ {
+  "id": "hand3.0004",
+  "expr": "merge(null, toset([\"a\"]))"
+ },
+ {
+  "id": "hand3.0005",
+  "expr": "merge(var.any, [1])"
+ },
+ {
+  "id": "hand3.0006",
+  "expr": "merge(var.any, 1)"
+ },
+ {
+  "id": "hand3.0007",
+  "expr": "merge(null, {a = 1}, [2])"
+ },
+ {
+  "id": "hand3.0008",
+  "expr": "\"क्षि\" + 1"
+ },
+ {
+  "id": "hand3.0011",
+  "expr": "upper(\"क्षि\") + 1"
+ },
+ {
+  "id": "hand3.0012",
+  "expr": "local.क्षि"
+ },
+ {
+  "id": "hand3.0013",
+  "expr": "var.aࡠ"
+ },
+ {
+  "id": "hand3.0014",
+  "expr": "{aࡠ = 1}"
+ },
+ {
+  "id": "hand3.0015",
+  "expr": "[for xࡠ in [1] : xࡠ]"
+ },
+ {
+  "id": "hand3.0016",
+  "expr": "\"${aﷺ}\""
+ }
+]

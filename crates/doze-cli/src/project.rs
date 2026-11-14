@@ -1,5 +1,6 @@
 //! Finding the project: like git, from anywhere inside it. The default `-c doze.hcl` searches this directory and its
-//! parents; an explicit `-c` means exactly that path (a directory stands for the `doze.hcl` in it).
+//! parents; an explicit `-c` means exactly that path. A directory given to `-c` is a project whose `*.hcl` files are
+//! read together (Go's `-c <dir>`), with or without a `doze.hcl` among them.
 
 use std::path::{Path, PathBuf};
 
@@ -11,6 +12,8 @@ pub const CONFIG: &str = "doze.hcl";
 pub struct Project {
     pub config: PathBuf,
     pub dir: PathBuf,
+    /// The directory `-c` named, when it named one: every `*.hcl` in it is the config.
+    pub source: Option<PathBuf>,
 }
 
 impl Project {
@@ -25,20 +28,53 @@ pub fn find(cwd: &Path, flag: Option<&Path>) -> Option<Project> {
     match flag {
         Some(path) => {
             let path = cwd.join(path);
-            let config = if path.is_dir() {
-                path.join(CONFIG)
-            } else {
-                path
-            };
-            let dir = config.parent()?.to_path_buf();
-            config.is_file().then_some(Project { config, dir })
+            if path.is_dir() {
+                return has_hcl(&path).then(|| Project {
+                    config: path.join(CONFIG),
+                    dir: path.clone(),
+                    source: Some(path),
+                });
+            }
+            let dir = path.parent()?.to_path_buf();
+            path.is_file().then_some(Project {
+                config: path,
+                dir,
+                source: None,
+            })
         }
         None => cwd.ancestors().find_map(|dir| {
             let config = dir.join(CONFIG);
             config.is_file().then(|| Project {
                 config,
                 dir: dir.to_path_buf(),
+                source: None,
             })
         }),
+    }
+}
+
+/// Whether a directory holds a config file (`*.hcl`) to read.
+fn has_hcl(dir: &Path) -> bool {
+    std::fs::read_dir(dir).is_ok_and(|entries| {
+        entries
+            .flatten()
+            .any(|e| e.path().extension().is_some_and(|x| x == "hcl") && e.path().is_file())
+    })
+}
+
+/// A path as the CLI prints it: relative to `cwd` when it is under it, with `/` between folders on every system (one
+/// text for scripts and transcripts; Windows tools take `/` too). The folder itself is `.`.
+pub fn shown(path: &Path, cwd: &Path) -> String {
+    let Ok(rel) = path.strip_prefix(cwd) else {
+        return path.display().to_string();
+    };
+    let parts: Vec<String> = rel
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect();
+    if parts.is_empty() {
+        ".".to_owned()
+    } else {
+        parts.join("/")
     }
 }

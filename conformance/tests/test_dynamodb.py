@@ -367,3 +367,111 @@ def test_index_added_and_removed_later(client, names, cleanup, snapshot, eventua
     snapshot.match("red", ddb.query(**q, ExpressionAttributeValues={":c": {"S": "red"}}))
     snapshot.error("two-index-updates", lambda: ddb.update_table(
         TableName=name, GlobalSecondaryIndexUpdates=[{"Delete": {"IndexName": "by-color"}}, {"Delete": {"IndexName": "by-color"}}]))
+
+
+# Written 2026-11-13 with PartiQL, Contributor Insights and the Streams API, before AWS answered them: UNVERIFIED until recorded.
+
+
+def test_partiql_statements(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup, sort_key=True)
+    q = f'"{name}"'
+    snapshot.match("insert", ddb.execute_statement(
+        Statement=f"INSERT INTO {q} VALUE {{'pk': ?, 'sk': 1, 'title': 'Hi', 'n': 5}}", Parameters=[{"S": "a"}]))
+    ddb.execute_statement(Statement=f"INSERT INTO {q} VALUE {{'pk': 'a', 'sk': 2, 'title': 'Ho', 'n': 9}}")
+    snapshot.error("insert-duplicate", lambda: ddb.execute_statement(
+        Statement=f"INSERT INTO {q} VALUE {{'pk': 'a', 'sk': 1}}"))
+    snapshot.match("select-by-key", ddb.execute_statement(
+        Statement=f"SELECT * FROM {q} WHERE pk = ? AND sk = ?", Parameters=[{"S": "a"}, {"N": "1"}], ConsistentRead=True))
+    snapshot.match("select-filtered", ddb.execute_statement(
+        Statement=f"SELECT title FROM {q} WHERE pk = 'a' AND n > ?", Parameters=[{"N": "6"}], ConsistentRead=True))
+    snapshot.match("update", ddb.execute_statement(
+        Statement=f"UPDATE {q} SET n = n + ? REMOVE title WHERE pk = 'a' AND sk = 1 RETURNING ALL NEW *",
+        Parameters=[{"N": "1"}]))
+    snapshot.error("update-without-whole-key", lambda: ddb.execute_statement(
+        Statement=f"UPDATE {q} SET n = 1 WHERE pk = 'a'"))
+    snapshot.error("update-of-nothing", lambda: ddb.execute_statement(
+        Statement=f"UPDATE {q} SET n = 1 WHERE pk = 'zz' AND sk = 1"))
+    snapshot.match("delete", ddb.execute_statement(
+        Statement=f"DELETE FROM {q} WHERE pk = 'a' AND sk = 2 RETURNING ALL OLD *"))
+    snapshot.error("parameters-do-not-match", lambda: ddb.execute_statement(
+        Statement=f"SELECT * FROM {q} WHERE pk = ?"))
+    snapshot.error("not-a-statement", lambda: ddb.execute_statement(Statement=f"SELEKT * FROM {q}"))
+
+
+def test_partiql_batch_and_transaction(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup)
+    q = f'"{name}"'
+    ddb.put_item(TableName=name, Item={"pk": {"S": "taken"}})
+    snapshot.match("batch-write", ddb.batch_execute_statement(Statements=[
+        {"Statement": f"INSERT INTO {q} VALUE {{'pk': 'a'}}"},
+        {"Statement": f"INSERT INTO {q} VALUE {{'pk': 'taken'}}"},
+        {"Statement": f"UPDATE {q} SET x = 1 WHERE pk = 'nobody'"}]))
+    snapshot.match("batch-read", ddb.batch_execute_statement(Statements=[
+        {"Statement": f"SELECT * FROM {q} WHERE pk = ?", "Parameters": [{"S": "a"}], "ConsistentRead": True},
+        {"Statement": f"SELECT * FROM {q} WHERE pk = 'zz'", "ConsistentRead": True}]))
+    snapshot.error("transaction-cancelled", lambda: ddb.execute_transaction(TransactStatements=[
+        {"Statement": f"INSERT INTO {q} VALUE {{'pk': 'new'}}"},
+        {"Statement": f"INSERT INTO {q} VALUE {{'pk': 'taken'}}"}]))
+    snapshot.match("nothing-written", ddb.get_item(TableName=name, Key={"pk": {"S": "new"}}, ConsistentRead=True))
+    snapshot.match("transaction", ddb.execute_transaction(TransactStatements=[
+        {"Statement": f"INSERT INTO {q} VALUE {{'pk': 'new'}}"},
+        {"Statement": f"UPDATE {q} SET n = 1 WHERE pk = 'taken'"}]))
+    snapshot.match("read-transaction", ddb.execute_transaction(TransactStatements=[
+        {"Statement": f"SELECT * FROM {q} WHERE pk = 'new'"},
+        {"Statement": f"SELECT n FROM {q} WHERE pk = 'taken'"}]))
+
+
+def test_contributor_insights_settings(client, names, cleanup, snapshot, eventually):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup)
+    snapshot.match("before", ddb.describe_contributor_insights(TableName=name))
+    snapshot.match("enable", ddb.update_contributor_insights(TableName=name, ContributorInsightsAction="ENABLE"))
+
+    def enabled():
+        r = ddb.describe_contributor_insights(TableName=name)
+        assert r["ContributorInsightsStatus"] == "ENABLED", "still enabling"
+        return r
+
+    snapshot.match("enabled", eventually(enabled), drop=("LastUpdateDateTime", "ContributorInsightsRuleList"))
+    snapshot.match("listed", ddb.list_contributor_insights(TableName=name))
+    snapshot.match("disable", ddb.update_contributor_insights(TableName=name, ContributorInsightsAction="DISABLE"))
+    snapshot.error("absent-table", lambda: ddb.describe_contributor_insights(TableName=names("absent")))
+
+
+def test_streams_api(client, names, cleanup, snapshot, eventually):
+    ddb, streams = client("dynamodb"), client("dynamodbstreams")
+    name = names("table")
+    ddb.create_table(TableName=name, BillingMode="PAY_PER_REQUEST",
+                     KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}],
+                     AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"}],
+                     StreamSpecification={"StreamEnabled": True, "StreamViewType": "NEW_AND_OLD_IMAGES"})
+    cleanup(ddb.delete_table, TableName=name)
+    ddb.get_waiter("table_exists").wait(TableName=name, WaiterConfig=FAST)
+    volatile = ("StreamArn", "StreamLabel", "ShardId", "StartingSequenceNumber", "SequenceNumber",
+                "CreationRequestDateTime", "ApproximateCreationDateTime", "eventID", "NextShardIterator", "ShardIterator")
+    snapshot.match("list", streams.list_streams(TableName=name), drop=volatile)
+    arn = streams.list_streams(TableName=name)["Streams"][0]["StreamArn"]
+    described = streams.describe_stream(StreamArn=arn)
+    snapshot.match("describe", described, drop=volatile)
+    shard = described["StreamDescription"]["Shards"][0]["ShardId"]
+    ddb.put_item(TableName=name, Item={"pk": {"S": "a"}, "n": {"N": "1"}})
+    ddb.update_item(TableName=name, Key={"pk": {"S": "a"}}, UpdateExpression="SET n = :v",
+                    ExpressionAttributeValues={":v": {"N": "2"}})
+    ddb.delete_item(TableName=name, Key={"pk": {"S": "a"}})
+    it = streams.get_shard_iterator(StreamArn=arn, ShardId=shard, ShardIteratorType="TRIM_HORIZON")["ShardIterator"]
+    got = []
+
+    def all_three():
+        nonlocal it
+        r = streams.get_records(ShardIterator=it)
+        got.extend(r["Records"])
+        it = r.get("NextShardIterator", it)
+        assert len(got) >= 3, "the records are not all there yet"
+
+    eventually(all_three)
+    snapshot.match("records", {"Records": got}, drop=volatile)
+    snapshot.error("unknown-shard", lambda: streams.get_shard_iterator(
+        StreamArn=arn, ShardId="shardId-00000000000000000000-00000000", ShardIteratorType="LATEST"))
+    snapshot.error("bad-iterator", lambda: streams.get_records(ShardIterator="x" * 40))

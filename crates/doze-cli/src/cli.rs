@@ -31,7 +31,7 @@ pub struct Cli {
 #[derive(Debug, Args)]
 #[command(next_help_heading = "Flags for every command")]
 pub struct Global {
-    /// Path to doze.hcl (a directory: its doze.hcl); found here or in a parent when not given
+    /// Path to doze.hcl (a directory: all its *.hcl together); found here or in a parent when not given
     #[arg(short = 'c', long, global = true, value_name = "path")]
     pub config: Option<PathBuf>,
     /// Set a config variable (repeatable)
@@ -118,8 +118,10 @@ pub enum Cmd {
     /// Add a module or a service to doze.hcl
     Add(Add),
     /// Check doze.hcl without touching the daemon or any data
+    #[command(after_help = examples::LINT)]
     Lint(Lint),
     /// Format doze.hcl and its sibling *.doze.hcl files
+    #[command(after_help = examples::FMT)]
     Fmt(Fmt),
     /// Check this machine and project for what would stop doze, and say how to fix it
     #[command(after_help = examples::DOCTOR)]
@@ -148,6 +150,7 @@ pub enum Cmd {
     /// Write a bug report (versions, the stack's shape, recent logs) to a file
     Bug,
     /// Print the completion script for a shell
+    #[command(after_help = examples::COMPLETION)]
     Completion(Completion),
 
     /// The background refresh: the release file and module documentation, within the network budget.

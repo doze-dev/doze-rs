@@ -1,0 +1,94 @@
+# --var sets a variable (it wins over DOZE_VAR_*), and -c names a folder whose *.hcl files are read together (Go's -c
+# <dir>): status with the daemon down shows what they declare.
+@ project bare
+@ env DOZE_VAR_port=7000
+@ file project/split/a.hcl variable "port" { default = 6000 }\nstack = "split"\n
+@ file project/split/b.hcl app "web" {\n  run  = "serve"\n  port = var.port\n}\n
+
+$ doze -c split status
+exit 0
+stdout:
+| doze is not running — showing declared services
+| 
+|       NAME   ENGINE   STATE    ENDPOINT         CONNS   MEM   CPU   NOTE
+| Apps
+|   ·   web    app      asleep   127.0.0.1:7000   -       -     -
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze status",
+|   "ok": true,
+|   "data": {
+|     "daemon": {
+|       "running": false
+|     },
+|     "services": [
+|       {
+|         "name": "web",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "asleep",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:7000",
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0
+|       }
+|     ]
+|   }
+| }
+
+$ doze -c split --var port=8123 status
+exit 0
+stdout:
+| doze is not running — showing declared services
+| 
+|       NAME   ENGINE   STATE    ENDPOINT         CONNS   MEM   CPU   NOTE
+| Apps
+|   ·   web    app      asleep   127.0.0.1:8123   -       -     -
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze status",
+|   "ok": true,
+|   "data": {
+|     "daemon": {
+|       "running": false
+|     },
+|     "services": [
+|       {
+|         "name": "web",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "asleep",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:8123",
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0
+|       }
+|     ]
+|   }
+| }
+
+$ doze -c split --var nope=1 status
+exit 5
+stderr:
+| error[DZ0301]: --var nope: this stack declares no variable "nope"; did you mean port?
+json exit 5
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze status",
+|   "ok": false,
+|   "error": {
+|     "code": "config_invalid",
+|     "message": "--var nope: this stack declares no variable \"nope\"; did you mean port?",
+|     "exit": 5,
+|     "id": "DZ0301"
+|   }
+| }

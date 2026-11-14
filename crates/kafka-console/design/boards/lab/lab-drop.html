@@ -1,9 +1,0 @@
-<!--screen {"id":"lab-drop","title":"Drop a connection","kind":"dialog","from":"lab-home","via":"Card: Drop a connection","ops":["doze:DropConnection"],"refs":["grounding:K11","grounding:K1"],"data":"lab","extras":["lab-rule","api-preview"],"crumbs":[]} -->
-<h2>Drop a connection</h2>
-<div class="body"><p style="margin:0 0 18px">Close the connections of one app, as a network blip would. The broker keeps all its data; the app has to notice and come back.</p>
-<div class="form" style="gap:20px">
-<div class="field"><div class="lab">App (client.id)</div><div class="input sel mono"><span>catalog</span>[[g:chev-d 14]]</div><div class="help">2 connections from 127.0.0.1 now. It writes inventory.levels.</div></div>
-<div class="field"><div class="lab">How long</div><div class="seg" style="align-self:flex-start"><button class="on" type="button" data-ui="select">Once</button><button type="button" data-ui="select">Keep dropping 1 min</button><button type="button" data-ui="select">5 min</button></div>
-<div class="teach"><b>Once</b> closes what is open and lets it reconnect. <b>Keep dropping</b> is a rule: each new connection from catalog is closed, until it ends. <span class="dim">Once leaves no rule behind, only a line under Ended.</span></div></div>
-<div class="apicall" data-extra="api-preview" style="padding:14px 18px"><div class="hd">[[g:code 14]]What it does</div><span class="mono" style="font-size:13px">doze:DropConnection client=catalog once</span></div></div></div>
-<div class="foot"><a class="btn" href="@lab-home">Cancel</a><a class="btn pri" href="@lab-home" data-op="doze:DropConnection">Drop connection</a></div>

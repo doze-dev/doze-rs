@@ -260,6 +260,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "ar_archive_writer"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "523e5e187fff36fcb8d1d19ccf0ca4ca43ec3d158316057f66dc6f72716bc5ec"
+dependencies = [
+ "object 0.39.1",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -549,6 +558,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-apigateway"
+version = "0.0.0"
+dependencies = [
+ "aws-auth",
+ "aws-core",
+ "aws-gateway",
+ "aws-iam-policy",
+ "aws-model-api-gateway",
+ "aws-model-apigatewayv2",
+ "aws-peers",
+ "aws-schema",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-runtime",
+ "doze-store",
+ "getrandom 0.4.3",
+ "regex-lite",
+ "rsa",
+ "serde",
+ "serde_json",
+ "sha1",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "aws-asl"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "jlens-core",
+ "jlens-regress",
+ "md-5 0.11.0",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.11.1",
+]
+
+[[package]]
 name = "aws-auth"
 version = "0.0.0"
 dependencies = [
@@ -561,6 +611,38 @@ dependencies = [
  "http",
  "sha2 0.11.1",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "aws-cloudformation"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-dynamodb",
+ "aws-iam",
+ "aws-kms",
+ "aws-model-cloudformation",
+ "aws-peers",
+ "aws-s3",
+ "aws-schema",
+ "aws-seal",
+ "aws-secrets",
+ "aws-sns",
+ "aws-sqs",
+ "aws-ssm",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-runtime",
+ "doze-store",
+ "flate2",
+ "hmac 0.13.0",
+ "regex-lite",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -622,6 +704,22 @@ dependencies = [
  "postcard",
  "redb",
  "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "aws-dynamodb-streams"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-dynamodb",
+ "aws-model-dynamodb-streams",
+ "aws-peers",
+ "aws-schema",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
  "serde_json",
  "tokio",
 ]
@@ -864,6 +962,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-model-dynamodb-streams"
+version = "0.0.0"
+dependencies = [
+ "aws-schema",
+]
+
+[[package]]
 name = "aws-model-eventbridge"
 version = "0.0.0"
 dependencies = [
@@ -984,6 +1089,7 @@ dependencies = [
  "aws-schema",
  "aws-seal",
  "aws-wire",
+ "bytes",
  "doze-runtime",
  "serde_json",
  "tokio",
@@ -1046,6 +1152,33 @@ dependencies = [
  "aws-wire",
  "doze-runtime",
  "doze-store",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "aws-sfn"
+version = "0.0.0"
+dependencies = [
+ "aws-asl",
+ "aws-core",
+ "aws-dynamodb",
+ "aws-eventbridge",
+ "aws-logs",
+ "aws-model-sfn",
+ "aws-peers",
+ "aws-s3",
+ "aws-schema",
+ "aws-sns",
+ "aws-sqs",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-runtime",
+ "doze-store",
+ "getrandom 0.4.3",
  "serde",
  "serde_json",
  "tokio",
@@ -1308,7 +1441,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "miniz_oxide 0.9.1",
- "object",
+ "object 0.40.0",
  "rustc-demangle",
  "windows-link 0.2.1",
 ]
@@ -1752,6 +1885,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "037e2a1a92236d0aff7e845093f64661d6df4c02c9fcc61a60e9e1d736fa392f"
 dependencies = [
  "clap",
+ "clap_lex",
+ "is_executable",
+ "shlex",
 ]
 
 [[package]]
@@ -2468,9 +2604,12 @@ name = "doze-aws"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "aws-apigateway",
  "aws-auth",
+ "aws-cloudformation",
  "aws-cloudwatch",
  "aws-dynamodb",
+ "aws-dynamodb-streams",
  "aws-eventbridge",
  "aws-gateway",
  "aws-iam",
@@ -2481,6 +2620,7 @@ dependencies = [
  "aws-peers",
  "aws-s3",
  "aws-secrets",
+ "aws-sfn",
  "aws-sns",
  "aws-sqs",
  "aws-ssm",
@@ -2499,9 +2639,11 @@ dependencies = [
  "base64ct",
  "clap",
  "clap_complete",
+ "doze-config",
  "doze-control",
  "doze-display",
  "doze-doctor",
+ "doze-hcl",
  "doze-journal",
  "doze-logstore",
  "doze-module-proto",
@@ -2519,6 +2661,19 @@ dependencies = [
  "sha2 0.11.1",
  "ureq",
  "yaml-rust2",
+]
+
+[[package]]
+name = "doze-config"
+version = "0.0.0"
+dependencies = [
+ "doze-hcl",
+ "doze-names",
+ "hcl-edit",
+ "hex",
+ "psl",
+ "serde_json",
+ "sha2 0.11.1",
 ]
 
 [[package]]
@@ -2580,6 +2735,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-hcl"
+version = "0.0.0"
+dependencies = [
+ "hcl-edit",
+ "num-bigint",
+ "num-traits",
+ "proptest",
+ "regex",
+ "serde_json",
+ "unicode-normalization",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "doze-journal"
 version = "0.0.0"
 dependencies = [
@@ -2596,6 +2765,11 @@ dependencies = [
  "anyhow",
  "bytes",
  "clap",
+ "doze-module",
+ "doze-module-host",
+ "doze-module-proto",
+ "doze-module-test",
+ "doze-os",
  "doze-runtime",
  "kafka-auth",
  "kafka-broker",
@@ -2607,6 +2781,7 @@ dependencies = [
  "kafka-wire",
  "rlimit",
  "rustls",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -4316,8 +4491,6 @@ dependencies = [
 [[package]]
 name = "hcl-edit"
 version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b1b3e90b173143b26dbb7495ac79e25c0206389d012881cea7cda9f0f1fce8a"
 dependencies = [
  "fnv",
  "hcl-primitives",
@@ -4859,6 +5032,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "791930b43c0d5973160d90a8f3894509f2b273430f5c5c73b668636d0287c5c0"
 
 [[package]]
+name = "is_executable"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82cb6a9f675da968c63b6208c641b9dca58fc0133ae53375736b1767b0cab8bd"
+dependencies = [
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4950,6 +5132,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "jlens-core"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae4bf7da171aaaa25b888994fc49aebb775749f79accc174fe83f485841d1179"
+dependencies = [
+ "foldhash",
+ "hashbrown 0.17.1",
+ "indexmap",
+ "jlens-regress",
+ "rustix",
+ "ryu-js",
+ "serde",
+ "serde_json",
+ "stacker",
+ "thiserror 2.0.21",
+ "web-time",
+]
+
+[[package]]
+name = "jlens-regress"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af5a178d3a816cdb3f7f813b4d0eed6e260e082de4a1ad9964d0295fafdbdb1c"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "jni-sys"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5031,6 +5241,7 @@ version = "0.0.0"
 dependencies = [
  "arc-swap",
  "bytes",
+ "crc32c",
  "flate2",
  "getrandom 0.4.3",
  "kafka-auth",
@@ -5053,17 +5264,22 @@ dependencies = [
  "flate2",
  "futures-util",
  "http-body-util",
+ "hyper",
+ "hyper-util",
  "kafka-auth",
  "kafka-broker",
  "kafka-console",
+ "kafka-protocol",
  "kafka-server",
  "kafka-storage",
  "kafka-wire",
- "maud",
+ "serde",
+ "serde_json",
  "tokio",
  "tokio-util",
  "tower",
  "tracing",
+ "ts-rs",
 ]
 
 [[package]]
@@ -5096,8 +5312,22 @@ dependencies = [
 name = "kafka-registry"
 version = "0.0.0"
 dependencies = [
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "kafka-auth",
  "kafka-meta",
- "kafka-wire",
+ "kafka-storage",
+ "postcard",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-rustls",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
@@ -5512,28 +5742,6 @@ name = "matchit"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
-
-[[package]]
-name = "maud"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8156733e27020ea5c684db5beac5d1d611e1272ab17901a49466294b84fc217e"
-dependencies = [
- "itoa",
- "maud_macros",
-]
-
-[[package]]
-name = "maud_macros"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7261b00f3952f617899bc012e3dbd56e4f0110a038175929fa5d18e5a19913ca"
-dependencies = [
- "proc-macro2",
- "proc-macro2-diagnostics",
- "quote",
- "syn 2.0.119",
-]
 
 [[package]]
 name = "maybe-rayon"
@@ -6362,6 +6570,15 @@ dependencies = [
 
 [[package]]
 name = "object"
+version = "0.39.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e5a6c098c7a3b6547378093f5cc30bc54fd361ce711e05293a5cc589562739b"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "object"
 version = "0.40.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd229a0361b9d0d4396176e02d65897f487eebeab7caa6d443855ee152ca0b9c"
@@ -6990,18 +7207,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc-macro2-diagnostics"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af066a9c399a26e020ada66a034357a868728e72cd426f3adcd35f80d88d88c8"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
- "version_check",
-]
-
-[[package]]
 name = "profiling"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7051,6 +7256,31 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "psl"
+version = "2.1.254"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb958e602bc5c9e07a3bdb78ce240402a490cd08f01e51deacfe637ed903d743"
+dependencies = [
+ "psl-types",
+]
+
+[[package]]
+name = "psl-types"
+version = "2.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33cb294fe86a74cbcf50d4445b37da762029549ebeea341421c7c70370f86cac"
+
+[[package]]
+name = "psm"
+version = "0.1.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4dcd034599e63b970727f70d79e02d62390a4a84f7c6b827c27c46d5ac3fa622"
+dependencies = [
+ "ar_archive_writer",
+ "cc",
 ]
 
 [[package]]
@@ -7873,6 +8103,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
+name = "ryu-js"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04d056b875a9d2e6cb9a61d127afee9ac5999b9f87bcb32079d1318e505be714"
+
+[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8386,6 +8622,19 @@ name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
+
+[[package]]
+name = "stacker"
+version = "0.1.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "707f49d46706bacf8a2b00d51dace3f9de527c13eec3778f570c411f89e69967"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "libc",
+ "psm",
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "static_assertions"
@@ -9111,6 +9360,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "ts-rs"
+version = "12.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "756050066659291d47a554a9f558125db17428b073c5ffce1daf5dcb0f7231d8"
+dependencies = [
+ "thiserror 2.0.21",
+ "ts-rs-macros",
+]
+
+[[package]]
+name = "ts-rs-macros"
+version = "12.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38d90eea51bc7988ef9e674bf80a85ba6804739e535e9cab48e4bb34a8b652aa"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+ "termcolor",
+]
+
+[[package]]
 name = "ttf-parser"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9211,6 +9482,15 @@ name = "unicode-linebreak"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b09c83c3c29d37506a3e260c08c03743a6bb66a9cd432c6934ab501a190571f"
+
+[[package]]
+name = "unicode-normalization"
+version = "0.1.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75cd3fb03d5288b3ba9a1ee103ac7e9cbb59f0b03d64f8ddfcc04dd42758a85d"
+dependencies = [
+ "tinyvec",
+]
 
 [[package]]
 name = "unicode-properties"
