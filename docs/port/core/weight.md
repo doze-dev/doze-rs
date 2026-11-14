@@ -81,3 +81,24 @@ shrink it. That is not the "small rise" the owner left to the builder, so the nu
   roughly 0.6 MB, and is a port to own and test against `publicsuffix` on the corpus.
 
 The engine wiring (`doze-config` → `doze-engine`) adds no new third-party crate.
+
+## H4 follow-up: the public suffix list owned, psl dropped (2026-11-14, Builder A)
+
+The app binary is near its 16 MB line and links doze-config, so the list is now doze-config's own
+(`src/psl.rs`, `data/public_suffix_list.fc`): the publicsuffix.org list (VERSION
+`2026-11-13_14-44-35_UTC`, commit `71c235dd`) front-coded to 78,230 B and decoded into a table on the
+first `domains` check. Same probe as above (one argument in, one bool out; release profile, darwin/arm64):
+
+| Build | Size | Added |
+|---|---|---|
+| no lookup | 302,560 B | |
+| `psl` 2.1.254 | 1,179,088 B | +876,528 B |
+| **`doze_config::psl`** | **385,168 B** | **+82,608 B (0.08 MB)** |
+
+The first lookup costs about 0.9 MB of resident memory for the table (2.9 MB peak RSS against 2.0 MB for
+the probe without a lookup) and no measurable time at process start; a stack with no app domains never
+decodes it. Matching is Go's `x/net/publicsuffix` loop (wildcards, exceptions, ICANN and private
+sections, parent-only nodes, IP addresses). Evidence: `psl` as a dev-dependency oracle on every rule and
+300,000 random names (one reviewed difference, where psl and Go part, pinned to Go); and, built from
+Go's own list revision, 131,275/131,275 names identical to Go. Refresh: `bun
+crates/doze-config/data/refresh-psl.ts`.
