@@ -237,8 +237,9 @@ fn failed_up(
         vcx.run_until_parked();
         std::thread::sleep(Duration::from_millis(20));
     }
-    // The toast that said it was under way went when it ended; the failure is the banner's and Needs you's.
-    assert!(toasts(vcx).is_empty(), "{:?}", toasts(vcx));
+    // The toast that said it was under way stays as an ordinary toast (Go `s.Say`); the failure adds none: it is the
+    // banner's and Needs you's.
+    assert_eq!(toasts(vcx), ["bringing acme up as last time…"]);
     acme
 }
 

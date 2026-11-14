@@ -94,6 +94,22 @@ impl LibraryView {
         v
     }
 
+    /// Whether Repair has something to do here, and the app can ask for the password (Go `repairable`).
+    fn repairable_now(&mut self, live: bool, doctor: Option<doze_desk::library::Doctor>) -> bool {
+        let at = self
+            .at
+            .get_or_insert_with(|| crate::settings::doze_at(!live))
+            .clone();
+        live && doze_os::privilege::admin_supported()
+            && doctor.is_some_and(|d| {
+                doze_desk::settings::machine::fixable(&doze_desk::settings::machine::parts(
+                    &d,
+                    &at,
+                    crate::VERSION,
+                ))
+            })
+    }
+
     /// Reads every stack again; redraws only if the page changed.
     pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
         let stacks = self.hub.stacks();
@@ -128,19 +144,7 @@ impl LibraryView {
             .as_ref()
             .map(|d| machine(d, &stacks))
             .unwrap_or_default();
-        let at = self
-            .at
-            .get_or_insert_with(|| crate::settings::doze_at(!live))
-            .clone();
-        let repairable = live
-            && doze_os::privilege::admin_supported()
-            && doctor.is_some_and(|d| {
-                doze_desk::settings::machine::fixable(&doze_desk::settings::machine::parts(
-                    &d,
-                    &at,
-                    crate::VERSION,
-                ))
-            });
+        let repairable = self.repairable_now(live, doctor);
         if (left, repairable) != (self.left, self.repairable) {
             (self.left, self.repairable) = (left, repairable);
             cx.notify();

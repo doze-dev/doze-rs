@@ -97,8 +97,8 @@ struct Inner {
     wants: HashMap<StackKey, HashMap<Topic, usize>>,
     /// How many pages show each instance's console, by stack.
     consoles: HashMap<StackKey, BTreeMap<String, usize>>,
-    /// No window shows (closed, minimised, behind another, on a sleeping display): meters and logs are not
-    /// streamed, whatever pages watch (Go: a hidden page blurs, and nothing streams).
+    /// No window shows (closed, minimised, behind another, on a sleeping display): the meters are not streamed,
+    /// whatever pages watch (Go: a hidden page blurs). Logs are, into the ring the pages read.
     hidden: bool,
 }
 
