@@ -49,6 +49,11 @@ impl Tree {
         self.send(sig)
     }
 
+    /// The second stage of an interrupt: SIGQUIT (postgres: immediate shutdown).
+    pub(super) fn quit(&self) -> io::Result<()> {
+        self.send(Signal::QUIT)
+    }
+
     pub(super) fn kill(&self) -> io::Result<()> {
         self.send(Signal::KILL)
     }

@@ -145,6 +145,14 @@ pub struct Planned {
 /// Plans an instance's processes (the module pool in E2; fixed plans in tests).
 pub trait Planner: Send + Sync + Debug {
     fn plan<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<Planned, String>>;
+
+    /// Where the instance will be reached, said without starting it (its socket under `ctx.run_dir`, a declared
+    /// address): a `Lazy` need is wired with this before it ever ran (Go computed it from the config). `None`: not
+    /// known until it runs.
+    fn endpoint(&self, ctx: &PlanCtx) -> Option<Endpoint> {
+        let _ = ctx;
+        None
+    }
 }
 
 /// A whole stack.

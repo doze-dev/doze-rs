@@ -54,6 +54,21 @@ pub fn exit_text(status: &ExitStatus) -> String {
     }
 }
 
+/// How a short command (a step, a hook) failed, in the words of Go's `exec.ExitError`, which reach `last_error` and the
+/// journal: "exit status 1", or "signal: killed".
+pub fn exit_error(status: &ExitStatus) -> String {
+    match status.code() {
+        Some(code) => format!("exit status {code}"),
+        None => imp::signal_text(status),
+    }
+}
+
+/// Whether the system ends a tree's leader when doze dies, with no sweep needed for it: Linux (`PR_SET_PDEATHSIG`) and
+/// Windows (the Job object) do; macOS cannot.
+pub fn leader_dies_with_parent() -> bool {
+    cfg!(any(target_os = "linux", windows))
+}
+
 #[cfg(unix)]
 mod imp {
     use rustix::io::Errno;
@@ -156,7 +171,12 @@ mod imp {
         let err = (ok == 0).then(std::io::Error::last_os_error);
         // SAFETY: `handle` was opened above and is closed exactly once.
         unsafe { CloseHandle(handle) };
-        err.map_or(Ok(()), Err)
+        match err {
+            // An exited process whose pid some handle still reserves refuses TerminateProcess: it is gone all the same.
+            Some(_) if !alive(pid) => Ok(()),
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
     }
 
     pub(super) fn signal_text(_status: &std::process::ExitStatus) -> String {
@@ -260,6 +280,7 @@ mod tests {
             .status();
         if let Ok(st) = ok {
             assert_eq!(exit_text(&st), "exited with status 0");
+            assert_eq!(exit_error(&st), "exit status 0");
         }
     }
 }

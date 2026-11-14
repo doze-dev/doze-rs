@@ -44,6 +44,11 @@ impl Tree {
         Ok(())
     }
 
+    /// Windows has no second stage: the CTRL_BREAK already sent stands, then the kill.
+    pub(super) fn quit(&self) -> io::Result<()> {
+        Ok(())
+    }
+
     pub(super) fn kill(&self) -> io::Result<()> {
         // SAFETY: the job handle is live (owned by `self.job`); exit code 1 for every process in it.
         let ok = unsafe { TerminateJobObject(self.job.0, 1) };

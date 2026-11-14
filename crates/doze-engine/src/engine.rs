@@ -171,12 +171,8 @@ impl Engine {
         for f in fx {
             match f {
                 Effect::Journal(e) => self.event(e),
-                Effect::WritePids { name, pids } => {
-                    crate::pidfile::write(&self.stack().run_dir(), &name, &pids)
-                }
-                Effect::RemovePids { name } => {
-                    crate::pidfile::remove(&self.stack().run_dir(), &name)
-                }
+                Effect::WritePids { name, pids } => self.pids(&name).write(&pids),
+                Effect::RemovePids { name } => self.pids(&name).remove(),
                 Effect::StopUnit { name, generation } => {
                     waits.push(crate::stop::spawn_stop(self, name, generation))
                 }
@@ -196,6 +192,11 @@ impl Engine {
             }
         }
         waits
+    }
+
+    /// Where `name`'s processes are recorded.
+    pub(crate) fn pids(&self, name: &str) -> crate::pidfile::Pids {
+        crate::pidfile::Pids::new(&self.stack().run_dir(), name)
     }
 
     /// Records what the engine did.

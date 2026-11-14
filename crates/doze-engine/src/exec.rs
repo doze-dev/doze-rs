@@ -4,6 +4,7 @@
 //! `Composite`), and every process's whole tree goes with it (Go's `StartTree`).
 
 use crate::logs::RunLog;
+use crate::pidfile::Pids;
 use crate::ready::{self, NotReady};
 use doze_module_proto::msg::run::{Plan, Process, StopHow};
 use doze_os::tree::{Stop, Stopped, Tree};
@@ -54,17 +55,8 @@ fn visit<'a>(
     Ok(())
 }
 
-/// The program to run: a bare name is looked up on `PATH` (and `PATHEXT` on Windows) without a shell.
-pub(crate) fn program_of(name: &str) -> std::path::PathBuf {
-    let bare = !name.contains('/') && !name.contains('\\');
-    if bare && let Some(p) = doze_os::which::which(name) {
-        return p;
-    }
-    name.into()
-}
-
 fn spawn_one(p: &Process, log: &RunLog) -> Result<Tree, String> {
-    let mut cmd = tokio::process::Command::new(program_of(&p.program));
+    let mut cmd = tokio::process::Command::new(crate::short::program_in(&p.program, Some(&p.env)));
     cmd.args(&p.args)
         .envs(&p.env)
         .stdin(Stdio::null())
@@ -76,28 +68,31 @@ fn spawn_one(p: &Process, log: &RunLog) -> Result<Tree, String> {
     Tree::spawn(cmd).map_err(|e| format!("starting \"{}\": {e}", p.name))
 }
 
-/// Runs a hook (program and arguments) in the process's folder and environment, its output into the log.
-async fn run_hook(p: &Process, hook: &[String], log: &RunLog) -> Result<(), String> {
-    let (prog, args) = hook.split_first().ok_or("an empty hook")?;
-    let mut cmd = tokio::process::Command::new(program_of(prog));
-    cmd.args(args)
-        .envs(&p.env)
-        .stdin(Stdio::null())
-        .stdout(log.stdio().map_err(|e| e.to_string())?)
-        .stderr(log.stdio().map_err(|e| e.to_string())?)
-        .kill_on_drop(true);
-    if let Some(d) = &p.dir {
-        cmd.current_dir(d);
-    }
-    match cmd.status().await {
-        Ok(st) if st.success() => Ok(()),
-        Ok(st) => Err(format!(
-            "{} hook {hook:?}: {}",
-            p.name,
-            doze_os::process::exit_text(&st)
-        )),
-        Err(e) => Err(format!("{} hook {hook:?}: {e}", p.name)),
-    }
+/// Runs a hook (program and arguments) in the process's folder and environment, its output into the log; a failure
+/// quotes that output (Go's `<name> hook "<line>": exit status 1: <output>`).
+async fn run_hook(
+    p: &Process,
+    hook: &[String],
+    log: &RunLog,
+    pids: Option<&Pids>,
+) -> Result<(), String> {
+    let from = log.size();
+    let short = crate::short::Short {
+        argv: hook,
+        env: Some(&p.env),
+        dir: p.dir.as_deref().map(std::path::Path::new),
+        out: Some(log),
+    };
+    let ran = crate::short::run(short, crate::steps::STEP_LIMIT, pids).await;
+    ran.map_err(|e| {
+        let out = log.since(from);
+        let line = hook.join(" ");
+        let msg = format!("{} hook \"{line}\": {e}", p.name);
+        match out.trim() {
+            "" => msg,
+            out => format!("{msg}: {out}"),
+        }
+    })
 }
 
 /// Why a plan did not start.
@@ -117,15 +112,15 @@ impl From<String> for StartError {
     }
 }
 
-/// Starts every process of `plan`, each ready (within `budget`) before the next, running its hooks after it. Each
-/// time a process is spawned `spawned` hears every pid so far (the caller records them at once: a host killed during
+/// Starts every process of `plan`, each ready (within `budget`) before the next, running its hooks after it. With
+/// `pids`, each process is recorded as it is spawned and each hook or exec probe while it runs (a host killed during
 /// a slow start must leave nothing unrecorded). On any failure, what started is stopped again and the error quotes the
 /// log's last lines.
 pub async fn start(
     plan: &Plan,
     log: &RunLog,
     budget: Duration,
-    spawned: &mut (dyn FnMut(&[u32]) + Send),
+    pids: Option<&Pids>,
 ) -> Result<Unit, StartError> {
     let ordered = order(plan)?;
     if ordered.is_empty() {
@@ -141,8 +136,10 @@ pub async fn start(
             }
         };
         unit.procs.push((p.clone(), tree));
-        spawned(&unit.pids());
-        if let Err(e) = gate(&mut unit, p, log, budget).await {
+        if let Some(rec) = pids {
+            rec.write(&unit.pids());
+        }
+        if let Err(e) = gate(&mut unit, p, log, budget, pids).await {
             unit.stop(STOP_GRACE).await;
             return Err(e);
         }
@@ -155,14 +152,13 @@ async fn gate(
     p: &Process,
     log: &RunLog,
     budget: Duration,
+    pids: Option<&Pids>,
 ) -> Result<(), StartError> {
     let Some((_, tree)) = unit.procs.last_mut() else {
         return Err(StartError::from("nothing started".to_string()));
     };
-    let waited = ready::wait_ready(p.ready.as_ref(), budget, log.path(), || {
-        matches!(tree.try_wait(), Ok(None))
-    })
-    .await;
+    let alive = || matches!(tree.try_wait(), Ok(None));
+    let waited = ready::wait_ready(p.ready.as_ref(), budget, log.path(), pids, alive).await;
     if let Err(e) = waited {
         let timeout = matches!(e, NotReady::Timeout(_));
         return Err(StartError {
@@ -171,7 +167,7 @@ async fn gate(
         });
     }
     for hook in &p.hooks {
-        run_hook(p, hook, log).await?;
+        run_hook(p, hook, log, pids).await?;
     }
     Ok(())
 }

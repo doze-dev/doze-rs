@@ -45,6 +45,11 @@ impl Engine {
         }
     }
 
+    /// One pass of the health prober (it runs every [`HEALTH_EVERY`] under [`Engine::background`]).
+    pub async fn probe_health(&self) {
+        probe_once(self).await;
+    }
+
     /// One pass of the reaper: stops what has been idle for its time (decided under the lock, so a client that just
     /// connected is never cut off). Returns what it stopped.
     pub async fn reap_once(&self) -> Vec<String> {
@@ -103,12 +108,13 @@ pub(crate) async fn probe_once(e: &Engine) {
             .collect()
     });
     for (name, ready) in checks {
+        let pids = e.pids(&name);
         let healthy = match ready {
             None => true,
             Some(r) => matches!(
                 tokio::time::timeout(
                     HEALTH_TIMEOUT,
-                    crate::ready::probe(&r, std::path::Path::new(""))
+                    crate::ready::probe(&r, std::path::Path::new(""), Some(&pids))
                 )
                 .await,
                 Ok(Ok(true))

@@ -45,6 +45,18 @@ impl RunLog {
         }
     }
 
+    /// How many bytes it holds now.
+    pub fn size(&self) -> u64 {
+        std::fs::metadata(&self.path).map_or(0, |m| m.len())
+    }
+
+    /// What was written after it held `from` bytes.
+    pub fn since(&self, from: u64) -> String {
+        let bytes = std::fs::read(&self.path).unwrap_or_default();
+        let from = usize::try_from(from).unwrap_or(usize::MAX);
+        String::from_utf8_lossy(bytes.get(from..).unwrap_or_default()).into_owned()
+    }
+
     /// The last `n` lines.
     pub fn tail(&self, n: usize) -> Vec<String> {
         let text = std::fs::read_to_string(&self.path).unwrap_or_default();

@@ -187,6 +187,8 @@ impl Machine {
         c.boot = Some(boot);
         c.registered = false;
         c.cancel_boot = false;
+        // A start now supersedes a restart still waiting out its backoff (Go's `TestScheduleRestartSupersedes`).
+        c.timer = None;
         let rerun = c.ready_pending && c.unit.is_some();
         let mut ev = Event::new(Kind::Wake, name).cause(cause.clone());
         if rerun {

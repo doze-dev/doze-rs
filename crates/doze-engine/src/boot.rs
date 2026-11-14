@@ -65,13 +65,12 @@ async fn start(e: &Engine, name: &str, boot: u64, when: When) -> Result<Endpoint
         needs,
     };
     let (planned, log) = prepare(e, &svc, &ctx).await.map_err(fail)?;
-    let run_dir = e.stack().run_dir();
-    let mut record = |pids: &[u32]| crate::pidfile::write(&run_dir, name, pids);
+    let pids = e.pids(name);
     let unit =
-        match crate::exec::start(&planned.plan, &log, planned.ready_within, &mut record).await {
+        match crate::exec::start(&planned.plan, &log, planned.ready_within, Some(&pids)).await {
             Ok(u) => u,
             Err(err) => {
-                crate::pidfile::remove(&run_dir, name);
+                pids.remove();
                 let kind = if err.timeout {
                     Error::Timeout
                 } else {
@@ -156,7 +155,16 @@ fn declared_endpoint(e: &Engine, name: &str) -> Endpoint {
                 .map(|p| format!("{}:{p}", crate::process::PRIVATE_HOST))
                 .unwrap_or_default(),
         },
-        _ => Endpoint::default(),
+        Ok(SvcKind::Planned(p)) => {
+            let ctx = PlanCtx {
+                name: name.into(),
+                data_dir: e.stack().cluster_dir(name),
+                run_dir: e.stack().run_dir().join(name),
+                needs: BTreeMap::new(),
+            };
+            p.endpoint(&ctx).unwrap_or_default()
+        }
+        Err(_) => Endpoint::default(),
     }
 }
 
@@ -178,6 +186,7 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
             let at = StepEnv {
                 dir: spec.dir.clone(),
                 env: spec.env_for(ctx, private),
+                pids: Some(e.pids(&svc.name)),
             };
             if steps::setup_needed(&ctx.data_dir, &spec.setup) {
                 let ran = steps::run(Moment::Setup, &spec.setup, &at, &log, |r| {

@@ -1,16 +1,19 @@
 //! Test helper for doze-engine: one binary playing a supervised command or a host that runs an engine.
 //!
-//! - `listen [delay_ms]`: after the delay, serves HTTP 200 on `$PORT` until asked to stop, then exits 0. Each start
-//!   appends a line to `$STARTS` when set.
+//! - `listen [delay_ms]`: after the delay, serves HTTP 200 on `$PORT` until asked to stop (or `$STOP_FILE` appears),
+//!   then exits 0. Each start appends a line to `$STARTS` when set.
 //! - `exit <code> [after_ms]`: exits with the code.
 //! - `grandchild <file>`: starts a child of its own (same tree), writes the child's pid to the file, then serves.
 //! - `ignore`: ignores being asked to stop.
+//! - `slowchild <file>`: starts a child that ignores signals, writes its pid to the file, then never gets ready.
+//! - `crashchild <file> <code> <after_ms>`: starts a child that ignores signals, appends its pid to the file, then
+//!   exits with the code after the delay.
 //! - `check <file>`: exits 0 if the file exists, else 1. `append <file>`: appends a line to the file.
-//! - `host <data_dir>`: runs an engine with one service (`grandchild`), wakes it, prints `pids <a> <b>`, and waits to
-//!   be killed: the "nothing left behind after the host is killed" test.
+//! - `host <data_dir> [running|readiness|setup]`: runs an engine with one service and wakes it; once the moment is
+//!   reached (running; waiting for readiness; in a `setup` step) prints `pids <recorded> <grandchild>` and waits to be
+//!   killed: the "nothing left behind after the host is killed" tests.
 #![allow(clippy::print_stdout)]
 
-use doze_engine::{Cause, Engine, ProcessSpec, Service};
 use std::io::Write as _;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
@@ -34,9 +37,17 @@ fn main() {
         }
         "grandchild" => rt.block_on(grandchild(&arg(1))),
         "ignore" => rt.block_on(ignore()),
+        "slowchild" => rt.block_on(slowchild(&arg(1))),
+        "crashchild" => {
+            if let Err(e) = start_ignoring_child(&arg(1), true) {
+                fail(&e.to_string());
+            }
+            std::thread::sleep(ms(3));
+            std::process::exit(arg(2).parse().unwrap_or(1));
+        }
         "check" => std::process::exit(i32::from(!std::path::Path::new(&arg(1)).exists())),
         "append" => append(&arg(1)),
-        "host" => rt.block_on(host(&arg(1))),
+        "host" => rt.block_on(crate::host::host(&arg(1), &arg(2))),
         other => fail(&format!("unknown mode {other:?}")),
     };
     if let Err(e) = r {
@@ -72,23 +83,51 @@ async fn listen(delay: Duration) -> std::io::Result<()> {
             }
         }
     };
+    let stop_file = async {
+        let Ok(f) = std::env::var("STOP_FILE") else {
+            return std::future::pending().await;
+        };
+        while !std::path::Path::new(&f).exists() {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    };
     tokio::select! {
         r = doze_os::signal::stop_requested() => r?,
         () = serve => {},
+        () = stop_file => {},
     }
     println!("stopping");
     std::process::exit(0);
 }
 
-async fn grandchild(file: &str) -> std::io::Result<()> {
+/// Starts a child that ignores signals and records its pid in `file` (appended, or written whole). The child is left
+/// running on purpose: the tree must take it down.
+fn start_ignoring_child(file: &str, append: bool) -> std::io::Result<()> {
     let child = std::process::Command::new(std::env::current_exe()?)
         .arg("ignore")
         .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
         .spawn()?;
-    std::fs::write(file, child.id().to_string())?;
-    // The child is left running on purpose: the tree must take it down.
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(append)
+        .truncate(!append)
+        .open(file)?;
+    writeln!(f, "{}", child.id())?;
     std::mem::forget(child);
+    Ok(())
+}
+
+async fn grandchild(file: &str) -> std::io::Result<()> {
+    start_ignoring_child(file, false)?;
     listen(Duration::ZERO).await
+}
+
+async fn slowchild(file: &str) -> std::io::Result<()> {
+    start_ignoring_child(file, false)?;
+    tokio::time::sleep(Duration::from_secs(3600)).await;
+    Ok(())
 }
 
 fn append(file: &str) -> std::io::Result<()> {
@@ -110,27 +149,5 @@ async fn ignore() -> std::io::Result<()> {
     Ok(())
 }
 
-async fn host(data_dir: &str) -> std::io::Result<()> {
-    let exe = std::env::current_exe()?;
-    let gc = std::path::Path::new(data_dir).join("grandchild.pid");
-    let run = [
-        exe.to_string_lossy().into_owned(),
-        "grandchild".into(),
-        gc.to_string_lossy().into_owned(),
-    ];
-    let spec = ProcessSpec::new(run, data_dir).port(1);
-    let engine = Engine::builder("host", data_dir)
-        .service(Service::process("web", spec))
-        .build()
-        .map_err(std::io::Error::other)?;
-    engine
-        .wake("web", Cause::Command)
-        .await
-        .map_err(std::io::Error::other)?;
-    let pid = engine.get("web").map(|i| i.pid).unwrap_or(0);
-    let grand = std::fs::read_to_string(&gc).unwrap_or_default();
-    println!("pids {pid} {}", grand.trim());
-    std::io::stdout().flush()?;
-    tokio::time::sleep(Duration::from_secs(3600)).await;
-    Ok(())
-}
+#[path = "helper/host.rs"]
+mod host;

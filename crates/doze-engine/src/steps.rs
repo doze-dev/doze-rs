@@ -2,13 +2,12 @@
 //! once it is ready, `stop` in place of the signals. Each is argument words, no shell (PLAN.md D14); its output goes to
 //! the instance's log under a step tag, and each is a journal event with how long it took.
 
-use crate::exec::program_of;
 use crate::logs::RunLog;
+use crate::pidfile::Pids;
 use crate::process::Step;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::time::{Duration, Instant};
 
 /// The file in the data folder that says setup ran, holding a hash of the steps it ran (Go's on-disk format).
@@ -40,6 +39,8 @@ impl Moment {
 pub struct StepEnv {
     pub dir: PathBuf,
     pub env: BTreeMap<String, String>,
+    /// Where a step is recorded while it runs (so a daemon killed meanwhile leaves nothing the next one cannot find).
+    pub pids: Option<Pids>,
 }
 
 /// One step that ran: what the journal records.
@@ -85,7 +86,7 @@ pub async fn run(
             continue;
         }
         let started = Instant::now();
-        let res = run_one(step, at, log).await;
+        let res = run_one(moment, step, at, log).await;
         let mut detail = format!("{}: {}", moment.as_str(), step.line);
         if let Err(e) = &res {
             detail.push_str(" — ");
@@ -106,34 +107,21 @@ pub async fn run(
     Ok(())
 }
 
-/// The longest one step may run (a `bun install` included); a stop step is bounded by [`STOP_PATIENCE`] too.
+/// The longest one `setup` or `on_ready` step may run (a `bun install` included); a `stop` step gets [`STOP_PATIENCE`].
 pub const STEP_LIMIT: Duration = Duration::from_secs(600);
 
-async fn run_one(step: &Step, at: &StepEnv, log: &RunLog) -> Result<(), String> {
-    let (prog, args) = step.argv.split_first().ok_or("an empty step")?;
-    let run = tokio::process::Command::new(program_of(prog))
-        .args(args)
-        .envs(&at.env)
-        .current_dir(&at.dir)
-        .stdin(Stdio::null())
-        .stdout(log.stdio().map_err(|e| e.to_string())?)
-        .stderr(log.stdio().map_err(|e| e.to_string())?)
-        .kill_on_drop(true)
-        .status();
-    let st = tokio::time::timeout(STEP_LIMIT, run)
-        .await
-        .map_err(|_| {
-            format!(
-                "did not finish within {}",
-                crate::godur::go_duration(STEP_LIMIT)
-            )
-        })?
-        .map_err(|e| e.to_string())?;
-    if st.success() {
-        Ok(())
-    } else {
-        Err(doze_os::process::exit_text(&st))
-    }
+async fn run_one(moment: Moment, step: &Step, at: &StepEnv, log: &RunLog) -> Result<(), String> {
+    let limit = match moment {
+        Moment::Stop => STOP_PATIENCE,
+        Moment::Setup | Moment::OnReady => STEP_LIMIT,
+    };
+    let short = crate::short::Short {
+        argv: &step.argv,
+        env: Some(&at.env),
+        dir: Some(&at.dir),
+        out: Some(log),
+    };
+    crate::short::run(short, limit, at.pids.as_ref()).await
 }
 
 #[cfg(test)]

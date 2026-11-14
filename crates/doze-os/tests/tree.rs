@@ -47,10 +47,26 @@ async fn a_tree_that_listens_stops_gracefully() {
 async fn a_tree_that_ignores_the_stop_is_killed_after_the_grace_period() {
     let mut tree = ready_tree("ignore-stop").await;
     let r = tree
-        .stop(&Stop::Interrupt, Duration::from_millis(500))
+        .stop(&Stop::Terminate, Duration::from_millis(500))
         .await
         .unwrap();
     assert!(matches!(r, Stopped::Forced(_)), "{r:?}");
+}
+
+/// Go's database stop: an interrupt that is not heeded is followed by SIGQUIT (Unix) for 3 s, then the kill.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unheeded_interrupt_is_followed_by_quit_then_the_kill() {
+    let mut tree = ready_tree("ignore-stop").await;
+    let t = std::time::Instant::now();
+    let r = tree
+        .stop(&Stop::Interrupt, Duration::from_millis(300))
+        .await
+        .unwrap();
+    assert!(t.elapsed() < Duration::from_secs(5), "{:?}", t.elapsed());
+    let ended = match r {
+        Stopped::Graceful(st) | Stopped::Forced(st) => st,
+    };
+    assert!(!ended.success(), "{r:?}");
 }
 
 #[tokio::test(flavor = "current_thread")]

@@ -1,12 +1,11 @@
-//! Supervision with real processes: crash loops, steps, and the "nothing left behind" gate (after a stop, after the
-//! host is killed, after a crash loop).
+//! Supervision with real processes: crash loops, steps, and the "nothing left behind" gate after a stop and after a
+//! crash loop (the host killed outright is in `leftovers.rs`).
 
 mod common;
 
 use common::*;
 use doze_engine::events::Kind;
 use doze_engine::{Cause, Engine, ProcessSpec, State, Step};
-use std::io::{BufRead, BufReader};
 use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -121,6 +120,8 @@ async fn setup_runs_once_per_data_folder_and_a_failed_on_ready_runs_again_alone(
         err.starts_with("on_ready for \"api\": on_ready step"),
         "{err}"
     );
+    // Go's words for a step that failed (its `exec.ExitError`).
+    assert!(err.ends_with("failed: exit status 1"), "{err}");
     let api = e.get("api").unwrap();
     assert_eq!(api.state, State::Failed);
     std::fs::write(&flag, "").unwrap();
@@ -160,35 +161,6 @@ async fn a_start_that_fails_releases_its_needs_and_says_why() {
     let pid = pid_of(&e, "db");
     e.shutdown().await;
     assert!(all_gone(&[pid]).await);
-}
-
-/// The host (a stand-in daemon running an engine) is killed outright. Linux's PDEATHSIG and Windows's Job object take
-/// the tree down with it; on macOS, and for a Linux grandchild, the next engine's sweep of the recorded pids does.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn nothing_is_left_after_the_host_is_killed() {
-    let d = Dir::new("host");
-    let mut host = std::process::Command::new(HELPER)
-        .args(["host", &d.path().to_string_lossy()])
-        .stdout(std::process::Stdio::piped())
-        .stdin(std::process::Stdio::null())
-        .spawn()
-        .unwrap();
-    let mut out = BufReader::new(host.stdout.take().unwrap());
-    let mut line = String::new();
-    out.read_line(&mut line).unwrap();
-    let pids: Vec<u32> = line
-        .split_whitespace()
-        .skip(1)
-        .filter_map(|p| p.parse().ok())
-        .collect();
-    assert_eq!(pids.len(), 2, "{line:?}");
-    assert!(pids.iter().all(|p| doze_os::process::alive(*p)));
-    host.kill().unwrap();
-    let _ = host.wait();
-    let next = Engine::builder("host", d.path()).build().unwrap();
-    let _ = next.reconcile();
-    assert!(all_gone(&pids).await, "left behind: {pids:?}");
-    assert!(!d.path().join("run/backend-web.pid").exists());
 }
 
 /// Audit B1: a `log` check reads this start's lines only, never an earlier run's.

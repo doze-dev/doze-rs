@@ -4,8 +4,11 @@
 //! kills them by their recorded pids before it binds anything.
 //!
 //! Format: `run/backend-<name>.pid` holds the first process's pid as decimal digits (Go's), then a line with when it
-//! was spawned (Unix seconds); a plan of several processes also writes `run/backend-<name>.<n>.pid` for the others.
-//! Go's sweep does not parse a file with the second line, so it kills nothing it cannot identify.
+//! was spawned (Unix seconds). Everything else of that instance is in the folder `run/backend-<name>.pids/`: the
+//! plan's other processes as `<n>.pid`, and a short command running now (a step, a hook, an exec probe) as
+//! `run-<pid>.pid`, there while it runs. A folder cannot be mistaken for another instance's file (`backend-db.1.pid`
+//! once meant both instance `db`'s second process and an instance named `db.1`). Go's sweep does not parse a file
+//! with the second line, so it kills nothing it cannot identify.
 //!
 //! The sweep kills a recorded pid only when it is still the recorded process: its start time matches the spawn time
 //! (a pid the system gave to someone else since is left alone), or its leader is gone but the process group it led
@@ -14,12 +17,96 @@
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-fn path(run_dir: &Path, name: &str, n: usize) -> PathBuf {
-    if n == 0 {
-        run_dir.join(format!("backend-{name}.pid"))
-    } else {
-        run_dir.join(format!("backend-{name}.{n}.pid"))
+/// Where one instance's pids are recorded.
+#[derive(Debug, Clone)]
+pub struct Pids {
+    run_dir: PathBuf,
+    name: String,
+}
+
+/// A short command's record: removed when this is dropped (the command ended, or whoever ran it gave up and killed it).
+#[derive(Debug)]
+pub struct Recorded(PathBuf);
+
+impl Drop for Recorded {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
     }
+}
+
+fn now_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
+impl Pids {
+    /// The records of instance `name` in `run_dir`.
+    pub fn new(run_dir: &Path, name: &str) -> Pids {
+        Pids {
+            run_dir: run_dir.into(),
+            name: name.into(),
+        }
+    }
+
+    fn first(&self) -> PathBuf {
+        self.run_dir.join(format!("backend-{}.pid", self.name))
+    }
+
+    fn folder(&self) -> PathBuf {
+        self.run_dir.join(format!("backend-{}.pids", self.name))
+    }
+
+    /// Records the pids of the instance's processes, each with its spawn time; a pid already recorded keeps its first
+    /// record.
+    pub fn write(&self, pids: &[u32]) {
+        let now = now_secs();
+        for (n, pid) in pids.iter().enumerate() {
+            let file = if n == 0 {
+                self.first()
+            } else {
+                self.folder().join(format!("{n}.pid"))
+            };
+            if read(&file).is_some_and(|(p, _)| p == *pid) {
+                continue;
+            }
+            if let Err(e) = write_one(&file, *pid, now) {
+                tracing::warn!("could not record the pid of \"{}\": {e}", self.name);
+            }
+        }
+    }
+
+    /// Records a short command while it runs.
+    pub fn short(&self, pid: u32) -> Recorded {
+        let file = self.folder().join(format!("run-{pid}.pid"));
+        if let Err(e) = write_one(&file, pid, now_secs()) {
+            tracing::warn!("could not record a step of \"{}\": {e}", self.name);
+        }
+        Recorded(file)
+    }
+
+    /// Forgets the instance's processes (a short command still running keeps its own record).
+    pub fn remove(&self) {
+        let _ = std::fs::remove_file(self.first());
+        if let Ok(entries) = std::fs::read_dir(self.folder()) {
+            for e in entries.flatten() {
+                let file = e.file_name().to_string_lossy().into_owned();
+                let n = file.strip_suffix(".pid").unwrap_or_default();
+                if !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) {
+                    let _ = std::fs::remove_file(e.path());
+                }
+            }
+        }
+        // Only if nothing is left in it.
+        let _ = std::fs::remove_dir(self.folder());
+    }
+}
+
+fn write_one(file: &Path, pid: u32, now: u64) -> std::io::Result<()> {
+    if let Some(dir) = file.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(file, format!("{pid}\n{now}\n"))
 }
 
 fn read(file: &Path) -> Option<(u32, Option<u64>)> {
@@ -34,43 +121,8 @@ fn read(file: &Path) -> Option<(u32, Option<u64>)> {
     Some((pid, lines.next().and_then(|l| l.trim().parse().ok())))
 }
 
-/// Records the pids of `name`'s processes, each with its spawn time; a pid already recorded keeps its first record.
-pub fn write(run_dir: &Path, name: &str, pids: &[u32]) {
-    let _ = std::fs::create_dir_all(run_dir);
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
-    for (n, pid) in pids.iter().enumerate() {
-        let file = path(run_dir, name, n);
-        if read(&file).is_some_and(|(p, _)| p == *pid) {
-            continue;
-        }
-        if let Err(e) = std::fs::write(&file, format!("{pid}\n{now}\n")) {
-            tracing::warn!("could not record the pid of \"{name}\": {e}");
-        }
-    }
-}
-
-/// Forgets the pids of `name`.
-pub fn remove(run_dir: &Path, name: &str) {
-    let _ = std::fs::remove_file(path(run_dir, name, 0));
-    let prefix = format!("backend-{name}.");
-    let Ok(entries) = std::fs::read_dir(run_dir) else {
-        return;
-    };
-    for e in entries.flatten() {
-        let file = e.file_name().to_string_lossy().into_owned();
-        let rest = file
-            .strip_prefix(&prefix)
-            .and_then(|r| r.strip_suffix(".pid"));
-        if rest.is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())) {
-            let _ = std::fs::remove_file(e.path());
-        }
-    }
-}
-
 /// Kills every recorded process that is still alive, by its exact pid (and its process group), and removes the
-/// pidfiles. Returns the pids it killed.
+/// records. Returns the pids it killed.
 pub fn sweep(run_dir: &Path) -> Vec<u32> {
     let mut killed = Vec::new();
     let Ok(entries) = std::fs::read_dir(run_dir) else {
@@ -78,25 +130,41 @@ pub fn sweep(run_dir: &Path) -> Vec<u32> {
     };
     for e in entries.flatten() {
         let file = e.file_name().to_string_lossy().into_owned();
-        if !file.starts_with("backend-") || !file.ends_with(".pid") || e.path().is_dir() {
+        if !file.starts_with("backend-") {
             continue;
         }
-        let sweep = doze_os::process::sweep_needed();
-        if let Some(pid) = read(&e.path())
-            .filter(|r| sweep && still_ours(*r))
-            .map(|(p, _)| p)
-        {
-            match doze_os::process::kill_recorded(pid) {
-                Ok(()) => {
-                    tracing::info!("reclaimed an orphaned backend (pid {pid}) from a previous run");
-                    killed.push(pid);
+        if file.ends_with(".pids") && e.path().is_dir() {
+            if let Ok(inner) = std::fs::read_dir(e.path()) {
+                for i in inner.flatten() {
+                    sweep_one(&i.path(), &mut killed);
                 }
-                Err(err) => tracing::warn!("could not reclaim pid {pid}: {err}"),
             }
+            let _ = std::fs::remove_dir(e.path());
+        } else if file.ends_with(".pid") {
+            sweep_one(&e.path(), &mut killed);
         }
-        let _ = std::fs::remove_file(e.path());
     }
     killed
+}
+
+fn sweep_one(file: &Path, killed: &mut Vec<u32>) {
+    if file.is_dir() || file.extension().is_none_or(|x| x != "pid") {
+        return;
+    }
+    let sweep = doze_os::process::sweep_needed();
+    if let Some(pid) = read(file)
+        .filter(|r| sweep && still_ours(*r))
+        .map(|(p, _)| p)
+    {
+        match doze_os::process::kill_recorded(pid) {
+            Ok(()) => {
+                tracing::info!("reclaimed an orphaned backend (pid {pid}) from a previous run");
+                killed.push(pid);
+            }
+            Err(err) => tracing::warn!("could not reclaim pid {pid}: {err}"),
+        }
+    }
+    let _ = std::fs::remove_file(file);
 }
 
 /// How far a process's start may be from its recorded spawn (seconds: `ps` and `/proc` round).
@@ -126,20 +194,33 @@ mod tests {
     #[test]
     fn write_remove_and_sweep_dead_pids() {
         let d = std::env::temp_dir().join(format!("doze-engine-pid-{}", std::process::id()));
-        write(&d, "db", &[1_999_999_000, 1_999_999_001]);
-        write(&d, "db2", &[1_999_999_002]);
+        let db = Pids::new(&d, "db");
+        // An instance whose name looks like another's numbered file.
+        let dot = Pids::new(&d, "db.1");
+        db.write(&[1_999_999_000, 1_999_999_001]);
+        dot.write(&[1_999_999_002]);
         let text = std::fs::read_to_string(d.join("backend-db.pid")).unwrap();
         assert!(text.starts_with("1999999000\n"), "{text:?}");
-        assert!(d.join("backend-db.1.pid").exists());
-        remove(&d, "db");
-        assert!(!d.join("backend-db.pid").exists() && !d.join("backend-db.1.pid").exists());
+        assert!(d.join("backend-db.pids/1.pid").exists());
+        let step = db.short(1_999_999_003);
+        assert!(d.join("backend-db.pids/run-1999999003.pid").exists());
+        db.remove();
+        assert!(!d.join("backend-db.pid").exists() && !d.join("backend-db.pids/1.pid").exists());
         assert!(
-            d.join("backend-db2.pid").exists(),
+            d.join("backend-db.pids/run-1999999003.pid").exists(),
+            "a step still running keeps its record"
+        );
+        drop(step);
+        assert!(!d.join("backend-db.pids/run-1999999003.pid").exists());
+        assert!(
+            d.join("backend-db.1.pid").exists(),
             "another instance's file stays"
         );
-        // Not alive: nothing killed, the file goes.
+        let _left = db.short(1_999_999_004);
+        // Not alive: nothing killed, the files and the folder go.
         assert!(sweep(&d).is_empty());
-        assert!(!d.join("backend-db2.pid").exists());
+        assert!(!d.join("backend-db.1.pid").exists());
+        assert!(!d.join("backend-db.pids").exists());
         let _ = std::fs::remove_dir_all(&d);
     }
 

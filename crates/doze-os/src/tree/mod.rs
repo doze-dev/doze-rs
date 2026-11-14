@@ -89,16 +89,28 @@ impl Tree {
     }
 
     /// Asks the tree to stop, waits up to `grace` for the leader to exit, and kills the tree if it does not. Either
-    /// way, anything left in the tree afterwards is killed.
+    /// way, anything left in the tree afterwards is killed. [`Stop::Interrupt`] is Go's database sequence: SIGINT for up
+    /// to 5 s (or `grace` if shorter), then SIGQUIT for 3 s, then the kill.
     pub async fn stop(&mut self, how: &Stop, grace: Duration) -> io::Result<Stopped> {
-        let asked = match how {
-            Stop::Terminate | Stop::Interrupt => self.os.signal(how),
-            Stop::Command(argv) => run_stop_command(argv, grace).await,
-        };
-        let status = match asked {
-            Ok(()) => tokio::time::timeout(grace, self.child.wait()).await.ok(),
-            // Could not ask (e.g. no console to send CTRL_BREAK through): go straight to the kill.
-            Err(_) => None,
+        let status = match how {
+            Stop::Terminate => {
+                let asked = self.os.signal(how);
+                self.within(asked, grace).await
+            }
+            Stop::Interrupt => {
+                let asked = self.os.signal(how);
+                match self.within(asked, grace.min(INTERRUPT_PATIENCE)).await {
+                    Some(st) => Some(st),
+                    None => {
+                        let asked = self.os.quit();
+                        self.within(asked, QUIT_PATIENCE).await
+                    }
+                }
+            }
+            Stop::Command(argv) => {
+                let asked = run_stop_command(argv, grace).await;
+                self.within(asked, grace).await
+            }
         };
         match status {
             Some(st) => {
@@ -113,6 +125,17 @@ impl Tree {
             }
         }
     }
+
+    /// The leader's exit within `limit` once it was asked; `None` if it was not, or could not be asked (e.g. no
+    /// console to send CTRL_BREAK through: straight to the kill).
+    async fn within(
+        &mut self,
+        asked: io::Result<()>,
+        limit: Duration,
+    ) -> Option<io::Result<ExitStatus>> {
+        asked.ok()?;
+        tokio::time::timeout(limit, self.child.wait()).await.ok()
+    }
 }
 
 impl Drop for Tree {
@@ -123,8 +146,12 @@ impl Drop for Tree {
     }
 }
 
-/// Runs a module's stop command with null stdio (a tool that leaves a server behind would otherwise hold captured
-/// pipes open forever: W0), bounded by `grace`.
+/// How long an interrupted process gets before SIGQUIT (Go's database stop: SIGINT 5 s, SIGQUIT 3 s, SIGKILL).
+const INTERRUPT_PATIENCE: Duration = Duration::from_secs(5);
+const QUIT_PATIENCE: Duration = Duration::from_secs(3);
+
+/// Runs a module's stop command as a tree of its own (so nothing it starts outlives it, or doze), with null stdio (a
+/// tool that leaves a server behind would otherwise hold captured pipes open forever: W0), bounded by `grace`.
 async fn run_stop_command(argv: &[OsString], grace: Duration) -> io::Result<()> {
     let (prog, args) = argv
         .split_first()
@@ -133,9 +160,12 @@ async fn run_stop_command(argv: &[OsString], grace: Duration) -> io::Result<()> 
     cmd.args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .kill_on_drop(true);
-    match tokio::time::timeout(grace, cmd.status()).await {
+        .stderr(Stdio::null());
+    let mut tree = Tree::spawn(cmd)?;
+    let ended = tokio::time::timeout(grace, tree.wait()).await;
+    // Whatever it left running goes; on a timeout the command itself goes too.
+    let _ = tree.kill();
+    match ended {
         Ok(st) => st.map(drop),
         Err(_) => Err(io::Error::new(
             io::ErrorKind::TimedOut,

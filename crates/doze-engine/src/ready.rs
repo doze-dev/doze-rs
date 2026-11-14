@@ -4,9 +4,9 @@
 //! whole interval after the first miss put a one-second floor under every wake in Go once). A process with no check
 //! must still be running after 750 ms.
 
+use crate::pidfile::Pids;
 use doze_module_proto::msg::run::Ready;
 use std::path::Path;
-use std::process::Stdio;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -54,11 +54,12 @@ impl std::fmt::Display for NotReady {
 }
 
 /// Waits until `ready` passes, the process dies (`alive` says), or `budget` is spent. `log` is the file a `log_line`
-/// check reads.
+/// check reads; an exec probe is recorded in `pids` while it runs.
 pub async fn wait_ready(
     ready: Option<&Ready>,
     budget: Duration,
     log: &Path,
+    pids: Option<&Pids>,
     mut alive: impl FnMut() -> bool,
 ) -> Result<(), NotReady> {
     let Some(ready) = ready else {
@@ -75,7 +76,7 @@ pub async fn wait_ready(
         if !alive() {
             return Err(NotReady::ExitedDuringStartup);
         }
-        if probe(ready, log).await? {
+        if probe(ready, log, pids).await? {
             return Ok(());
         }
         if Instant::now() + wait >= deadline {
@@ -86,8 +87,9 @@ pub async fn wait_ready(
     }
 }
 
-/// One check: `Ok(true)` passed, `Ok(false)` not yet, `Err` the check cannot work.
-pub async fn probe(ready: &Ready, log: &Path) -> Result<bool, NotReady> {
+/// One check: `Ok(true)` passed, `Ok(false)` not yet, `Err` the check cannot work. An exec probe is recorded in
+/// `pids` while it runs.
+pub async fn probe(ready: &Ready, log: &Path, pids: Option<&Pids>) -> Result<bool, NotReady> {
     let once = async {
         match ready {
             Ready::Tcp(addr) => Ok(matches!(
@@ -102,7 +104,7 @@ pub async fn probe(ready: &Ready, log: &Path) -> Result<bool, NotReady> {
                 Err(_) => Ok(false),
             },
             Ready::Http(url) => Ok(http_ok(url).await),
-            Ready::Exec(argv) => Ok(exec_ok(argv).await),
+            Ready::Exec(argv) => Ok(exec_ok(argv, pids).await),
             Ready::LogLine(pattern) => log_has(pattern, log),
         }
     };
@@ -132,21 +134,15 @@ async fn http_ok(url: &str) -> bool {
         && matches!(head.get(9), Some(b'2' | b'3'))
 }
 
-/// A command (no shell, PLAN.md D14) that exits 0.
-pub(crate) async fn exec_ok(argv: &[String]) -> bool {
-    let Some((prog, args)) = argv.split_first() else {
-        return false;
+/// A command (no shell, PLAN.md D14) that exits 0, run as a tree that goes when the probe does.
+pub(crate) async fn exec_ok(argv: &[String], pids: Option<&Pids>) -> bool {
+    let short = crate::short::Short {
+        argv,
+        env: None,
+        dir: None,
+        out: None,
     };
-    let program = doze_os::which::which(prog).unwrap_or_else(|| prog.into());
-    tokio::process::Command::new(program)
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .kill_on_drop(true)
-        .status()
-        .await
-        .is_ok_and(|s| s.success())
+    crate::short::run(short, PROBE_TIMEOUT, pids).await.is_ok()
 }
 
 fn log_has(pattern: &str, log: &Path) -> Result<bool, NotReady> {
@@ -167,11 +163,11 @@ mod tests {
         let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = l.local_addr().unwrap().to_string();
         let r = Ready::Tcp(addr.clone());
-        assert_eq!(probe(&r, Path::new("")).await, Ok(true));
+        assert_eq!(probe(&r, Path::new(""), None).await, Ok(true));
         drop(l);
         // Port 1 on loopback: nothing listens (a dropped ephemeral port may be re-bound by a parallel test).
         let closed = Ready::Tcp("127.0.0.1:1".into());
-        assert_eq!(probe(&closed, Path::new("")).await, Ok(false));
+        assert_eq!(probe(&closed, Path::new(""), None).await, Ok(false));
     }
 
     #[tokio::test]
@@ -181,11 +177,14 @@ mod tests {
         let log = dir.join("x.log");
         std::fs::write(&log, "booting\nready to accept connections on 5432\n").unwrap();
         let ok = Ready::LogLine("accept.*5432".into());
-        assert_eq!(probe(&ok, &log).await, Ok(true));
+        assert_eq!(probe(&ok, &log, None).await, Ok(true));
         let no = Ready::LogLine("^listening".into());
-        assert_eq!(probe(&no, &log).await, Ok(false));
+        assert_eq!(probe(&no, &log, None).await, Ok(false));
         let bad = Ready::LogLine("(".into());
-        assert!(matches!(probe(&bad, &log).await, Err(NotReady::Broken(_))));
+        assert!(matches!(
+            probe(&bad, &log, None).await,
+            Err(NotReady::Broken(_))
+        ));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -195,14 +194,28 @@ mod tests {
         let r = Ready::Tcp(l.local_addr().unwrap().to_string());
         let t = Instant::now();
         assert_eq!(
-            wait_ready(Some(&r), Duration::from_secs(5), Path::new(""), || true).await,
+            wait_ready(
+                Some(&r),
+                Duration::from_secs(5),
+                Path::new(""),
+                None,
+                || true
+            )
+            .await,
             Ok(())
         );
         assert!(t.elapsed() < Duration::from_millis(200));
         drop(l);
         let r = Ready::Tcp("127.0.0.1:1".into());
         let t = Instant::now();
-        let got = wait_ready(Some(&r), Duration::from_millis(300), Path::new(""), || true).await;
+        let got = wait_ready(
+            Some(&r),
+            Duration::from_millis(300),
+            Path::new(""),
+            None,
+            || true,
+        )
+        .await;
         assert_eq!(got, Err(NotReady::Timeout(Duration::from_millis(300))));
         assert!(t.elapsed() < Duration::from_millis(600));
         assert_eq!(
@@ -214,22 +227,29 @@ mod tests {
     #[tokio::test]
     async fn liveness_and_death_during_startup() {
         let r = Ready::Tcp("127.0.0.1:1".into());
-        let got = wait_ready(Some(&r), Duration::from_secs(5), Path::new(""), || false).await;
+        let got = wait_ready(
+            Some(&r),
+            Duration::from_secs(5),
+            Path::new(""),
+            None,
+            || false,
+        )
+        .await;
         assert_eq!(got, Err(NotReady::ExitedDuringStartup));
         assert_eq!(
-            wait_ready(None, Duration::ZERO, Path::new(""), || false).await,
+            wait_ready(None, Duration::ZERO, Path::new(""), None, || false).await,
             Err(NotReady::ExitedImmediately)
         );
         assert_eq!(
-            wait_ready(None, Duration::ZERO, Path::new(""), || true).await,
+            wait_ready(None, Duration::ZERO, Path::new(""), None, || true).await,
             Ok(())
         );
     }
 
     #[tokio::test]
     async fn exec_and_http() {
-        assert!(!exec_ok(&[]).await);
-        assert!(!exec_ok(&["doze-no-such-program-here".into()]).await);
+        assert!(!exec_ok(&[], None).await);
+        assert!(!exec_ok(&["doze-no-such-program-here".into()], None).await);
         let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = l.local_addr().unwrap();
         tokio::spawn(async move {
