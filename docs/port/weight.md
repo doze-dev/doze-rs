@@ -510,7 +510,7 @@ Same machine and method (`release-app`; `doze-app bench --fixture larder`, `foot
 
 | | Budget | app-try (a112aa29) | app-finish |
 |---|---|---|---|
-| Binary, `release-app`, no capture | ≤ 16 MB | — | 13,430,736 B |
+| Binary, `release-app`, no capture | ≤ 16 MB | — | 13,447,312 B at the end of the branch (13,430,736 B before the audit's fixes) |
 | Binary with `fixtures` | | 13,530,368 B | 13,712,704 B (+182 KB: the run sheet, the command source and plan, the streaming hands, the parity rows) |
 | Packages (`cargo tree -p doze-app --edges normal --prefix none`, unique) | limit 560 | 407 | 407 (none added: `objc2-user-notifications` and `block2`, now named by `doze-os` for the notification question at start, were in the tree through gpui) |
 | Menu bar ready | ≤ 100 ms | 81–145 ms | 77–180 ms (interleaved runs, same spread; the machine was building in another worktree) |
