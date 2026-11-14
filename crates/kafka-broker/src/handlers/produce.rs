@@ -6,6 +6,7 @@ mod request;
 
 use std::sync::Arc;
 
+use bytes::Bytes;
 use kafka_auth::authz::{Operation, ResourceType};
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
@@ -24,6 +25,9 @@ use crate::{Broker, Caller, Outcome, blocking, clock};
 use answer::{blank, failed, finish, storage_fault};
 use check::Accepted;
 use request::{refused_everywhere, request_refusal};
+
+/// What a partition that sent null records is checked as: nothing, without a copy of anything.
+static NO_RECORDS: Bytes = Bytes::new();
 
 /// A partition's answer, or what it is waiting for.
 enum Stage<F: Fs> {
@@ -181,12 +185,12 @@ impl<F: Fs> Broker<F> {
             return unknown();
         }
         let now = clock::now();
-        let records = p.records.clone().unwrap_or_default();
+        let records = p.records.as_ref().unwrap_or(&NO_RECORDS);
         let Accepted {
             batch,
             log_append_time,
         } = match blocking::run(|| {
-            check::check(&self.defaults.get(), version, topic, id, &records, now)
+            check::check(&self.defaults.get(), version, topic, id, records, now)
         }) {
             Ok(accepted) => accepted,
             Err(refused) => return Stage::Done(self.refused(topic, id, refused).await),

@@ -5,7 +5,7 @@ use kafka_wire::batch::{Batch, ProduceError, Refusal};
 use kafka_wire::messages::produce_response::TopicProduceResponse;
 use kafka_wire::messages::{ProduceRequest, ProduceResponse};
 
-use super::{Refused, failed};
+use super::{NO_RECORDS, Refused, failed};
 
 /// What fails the whole request before any partition is looked at: a \`required acks\` that is not -1, 0 or 1; and
 /// Kafka's look at every partition's first batch, which fails a request it cannot take apart there and one that has
@@ -20,8 +20,7 @@ pub(super) fn request_refusal(
     }
     let mut transactional = false;
     for p in req.topic_data.iter().flat_map(|t| &t.partition_data) {
-        let records = p.records.clone().unwrap_or_default();
-        match Batch::first_is_transactional(&records) {
+        match Batch::first_is_transactional(p.records.as_ref().unwrap_or(&NO_RECORDS)) {
             Ok(t) => transactional |= t,
             Err(e) => return Some((code_of(&e), e.kafka_message())),
         }

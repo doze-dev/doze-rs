@@ -82,7 +82,7 @@ impl Live {
         self
     }
 
-    async fn access(&self) -> Access {
+    fn access(&self) -> Access {
         let (acls, allow) = self
             .backend
             .instance()
@@ -97,7 +97,7 @@ impl Live {
         let now = now_ms();
         let (topics, partitions) = gather::counts(&self.backend).await;
         let looked = gather::nearest(&self.backend, now).await;
-        let access = self.access().await;
+        let access = self.access();
         let instance = self
             .backend
             .instance()
@@ -169,7 +169,7 @@ impl Source {
     /// The top bar.
     pub async fn chrome(&self) -> Chrome {
         match self {
-            Self::Live(l) => facts::chrome(&l.facts, &l.access().await),
+            Self::Live(l) => facts::chrome(&l.facts, &l.access()),
             #[cfg(any(test, feature = "examples"))]
             Self::Fixture => crate::fixtures::chrome(),
         }
@@ -197,7 +197,7 @@ impl Source {
     pub async fn connect(&self) -> ConnectView {
         match self {
             Self::Live(l) => {
-                let access = l.access().await;
+                let access = l.access();
                 ConnectView {
                     listen: l.facts.bootstrap(),
                     loopback: l.facts.loopback(),

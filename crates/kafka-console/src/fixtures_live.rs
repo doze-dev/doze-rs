@@ -144,7 +144,7 @@ fn idle_poll() -> WireRow {
     r.id = 99;
     r.at_ms = at("22:14:21.000");
     r.target_sub = None;
-    r.detail = "no records".to_owned();
+    "no records".clone_into(&mut r.detail);
     r.idle = true;
     r
 }
@@ -245,7 +245,7 @@ pub fn live(q: &WireQuery, hint: Option<&str>) -> LiveView {
         _ if is_filtered(q) => {
             // The steady tape answers the filters like the real one: only the rows that pass (the polls that found nothing are
             // there too, hidden by default), and no pager unless more than a page passes.
-            let mut all = steady.clone();
+            let mut all = steady;
             all.insert(4, idle_poll());
             let kept: Vec<WireRow> = all.into_iter().filter(|r| passes(r, q)).collect();
             v.matched = kept.len();

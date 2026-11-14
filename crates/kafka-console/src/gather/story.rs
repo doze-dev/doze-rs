@@ -16,12 +16,12 @@ const MOST_OTHERS: usize = 6;
 #[must_use]
 pub fn assemble(
     lag: GroupLagView,
-    events: Option<GroupEvents>,
+    events: Option<&GroupEvents>,
     others: &[(String, GroupEvents)],
 ) -> StoryView {
-    let now_ms = events.as_ref().map_or(lag.head.now_ms, |e| e.now_ms);
+    let now_ms = events.map_or(lag.head.now_ms, |e| e.now_ms);
     let calm = calmest(others, lag.head.protocol, now_ms);
-    view_of(lag.head, events.as_ref(), calm, now_ms)
+    view_of(lag.head, events, calm, now_ms)
 }
 
 /// The group that has rebalanced least (once or twice, and not now), by name when equal.
@@ -54,5 +54,5 @@ pub async fn story(b: &Backend, id: &str) -> Option<StoryView> {
             others.push((other.clone(), e));
         }
     }
-    Some(assemble(lag, events, &others))
+    Some(assemble(lag, events.as_ref(), &others))
 }

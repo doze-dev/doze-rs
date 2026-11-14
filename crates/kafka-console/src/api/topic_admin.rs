@@ -167,13 +167,11 @@ async fn records(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes
                     "Delete records was refused. The partition was not touched: log start is still {n}."
                 )
             };
-            kafka_refused(
-                &r.refusal,
-                &RecordsRefusedAnswer {
-                    sentence,
-                    refused: *r.clone(),
-                },
-            )
+            let answer = RecordsRefusedAnswer {
+                sentence,
+                refused: *r,
+            };
+            kafka_refused(&answer.refused.refusal, &answer)
         }
         RecordsResult::Invalid(v) => {
             let first = v.error.clone().unwrap_or_default();

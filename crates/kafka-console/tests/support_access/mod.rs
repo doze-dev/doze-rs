@@ -142,7 +142,7 @@ pub fn router_with(facts: Facts, start: StartFacts, backend: Backend) -> Router 
     let live = Live::new(backend, facts).with_start(start);
     let state = State::new(
         Source::Live(Box::new(live)),
-        Base::root(),
+        &Base::root(),
         vec![],
         CancellationToken::new(),
     );

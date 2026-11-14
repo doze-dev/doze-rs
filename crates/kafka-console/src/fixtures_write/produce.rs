@@ -156,10 +156,10 @@ pub fn produce_send(name: &str, input: &ProduceInput) -> ProduceResult {
         size: u64::try_from(size).unwrap_or(0),
         committed: partition != 0 && partition != 1,
     };
-    ProduceResult::Sent(Box::new(sent(view, row, partition, acks)))
+    ProduceResult::Sent(Box::new(sent(&view, row, partition, acks)))
 }
 
-fn sent(view: ProduceView, row: RecordRow, partition: i32, acks: i16) -> Produced {
+fn sent(view: &ProduceView, row: RecordRow, partition: i32, acks: i16) -> Produced {
     let more = [
         ("log_append_time_ms", "-1".to_owned()),
         ("log_start_offset", "0".to_owned()),

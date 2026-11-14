@@ -113,6 +113,9 @@ pub(super) async fn run<F: Fs>(
         txns,
         cleaned_to: 0,
     };
+    // The commands of one wakeup, kept across wakeups so a busy partition allocates once. It starts empty and grows to
+    // the largest group seen: an idle partition holds nothing.
+    let mut group: Vec<Command<F>> = Vec::new();
     loop {
         let next = match unflushed_since {
             Some(since) => tokio::select! {
@@ -127,14 +130,14 @@ pub(super) async fn run<F: Fs>(
             None => queue.recv().await,
         };
         let Some(first) = next else { break };
-        let mut group = vec![first];
+        group.push(first);
         while group.len() < GROUP {
             match queue.try_recv() {
                 Ok(c) => group.push(c),
                 Err(_) => break,
             }
         }
-        let (closing, outcome) = blocking::run(|| work(&mut log, &mut memory, group));
+        let (closing, outcome) = blocking::run(|| work(&mut log, &mut memory, &mut group));
         match outcome {
             Flushed::Everything => unflushed_since = None,
             Flushed::NotYet => {
@@ -164,10 +167,10 @@ enum Flushed {
 fn work<F: Fs>(
     log: &mut PartitionLog<F>,
     memory: &mut Memory,
-    group: Vec<Command<F>>,
+    group: &mut Vec<Command<F>>,
 ) -> (Option<oneshot::Sender<bool>>, Flushed) {
     let (mut wrote, mut wants_flush, mut closing) = (false, false, None);
-    for command in group {
+    for command in group.drain(..) {
         match command {
             Command::Append(a) => {
                 let result = append_one(log, memory, &a);

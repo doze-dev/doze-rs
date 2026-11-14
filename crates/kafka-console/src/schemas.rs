@@ -140,7 +140,7 @@ impl Schemas {
         match self.codec(codecs, id) {
             Err(why) => {
                 out.preview = format!("schema id {id} · not decoded");
-                out.error = Some(why.to_string());
+                out.error = Some(why);
             }
             Ok(c) => {
                 out.kind = Some(c.kind().name().to_owned());

@@ -169,8 +169,8 @@ fn of(group: &str, d: Option<&Description>, life: Option<&kafka_meta::GroupLife>
         out.protocol = Some(c.assignor.to_owned());
         out.assignment_epoch = Some(c.assignment_epoch);
     } else {
-        out.state = state_word(d.state).to_owned();
-        out.protocol = d.protocol.clone();
+        state_word(d.state).clone_into(&mut out.state);
+        out.protocol.clone_from(&d.protocol);
     }
     out.members = d.inspect.members.iter().map(|m| member(d, m)).collect();
     out.rebalance = d.inspect.rebalance.as_ref().map(|r| RebalanceDetail {
