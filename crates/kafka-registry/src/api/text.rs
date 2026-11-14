@@ -77,7 +77,8 @@ pub fn basic(header: &str) -> Option<(String, String)> {
         return None;
     }
     // Padded base64; bits past the data are not checked (as Go's decoder does not).
-    let raw = String::from_utf8(kafka_auth::crypto::base64::decode_lax(rest.as_bytes()).ok()?).ok()?;
+    let raw =
+        String::from_utf8(kafka_auth::crypto::base64::decode_lax(rest.as_bytes()).ok()?).ok()?;
     let (user, pass) = raw.split_once(':')?;
     Some((user.to_owned(), pass.to_owned()))
 }

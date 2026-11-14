@@ -346,4 +346,3 @@ use super::encode::write_message;
 fn enum_number(v: u64) -> i64 {
     i64::from(v as i32)
 }
-

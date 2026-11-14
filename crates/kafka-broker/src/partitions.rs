@@ -139,8 +139,8 @@ impl<F: Fs> Partition<F> {
         let index = self.txns.read().unwrap_or_else(PoisonError::into_inner);
         // A log start moved past an open transaction's first offset (DeleteRecords) holds the last stable offset up to it.
         let start = self.reader.start_offset().get();
-        let stable = Offset::new(clamp_stable(index.last_stable(end), start, end))
-            .unwrap_or(Offset::ZERO);
+        let stable =
+            Offset::new(clamp_stable(index.last_stable(end), start, end)).unwrap_or(Offset::ZERO);
         look(&index, Seen { start, end, stable })
     }
 

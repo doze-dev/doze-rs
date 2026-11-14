@@ -159,7 +159,9 @@ impl Groups {
         };
         sender.send(command).await.ok()?;
         match answer.await.ok()? {
-            Reply::Answer(Answer::Join(j)) if j.error == Some(ResponseError::MemberIdRequired) => None,
+            Reply::Answer(Answer::Join(j)) if j.error == Some(ResponseError::MemberIdRequired) => {
+                None
+            }
             Reply::Answer(other) => Some(other),
             // Deleted before it looked: there is no group to refuse it.
             Reply::Retired(_) => None,

@@ -101,10 +101,7 @@ async fn a_join_queued_behind_the_deletion_of_its_group_is_put_again_to_a_new_on
         answer.error, None,
         "not lost with the group it was queued for"
     );
-    assert!(
-        groups.live(&g).is_some(),
-        "and it made the group again"
-    );
+    assert!(groups.live(&g).is_some(), "and it made the group again");
 }
 
 #[tokio::test]
@@ -270,7 +267,10 @@ async fn a_join_put_to_a_group_whose_task_has_already_gone_makes_the_group_again
         })
         .await
         .unwrap();
-    assert!(matches!(deleted.await, Ok(Reply::Answer(Answer::Delete(None)))));
+    assert!(matches!(
+        deleted.await,
+        Ok(Reply::Answer(Answer::Delete(None)))
+    ));
     while !sender.is_closed() {
         tokio::task::yield_now().await;
     }

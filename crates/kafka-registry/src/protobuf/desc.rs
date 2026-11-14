@@ -380,7 +380,11 @@ mod tests {
     #[test]
     fn a_descriptor_may_be_broken_into_lines_and_is_read_as_go_reads_it() {
         assert_eq!(base64("aGVs\r\nbG8=\n"), Some(b"hello".to_vec()));
-        assert_eq!(base64("aGVsbG9="), Some(b"hello".to_vec()), "bits past the data are not checked");
+        assert_eq!(
+            base64("aGVsbG9="),
+            Some(b"hello".to_vec()),
+            "bits past the data are not checked"
+        );
         for bad in ["aGVsbG8", "aG=sbG8=", "aGVs bG8="] {
             assert_eq!(base64(bad), None, "{bad}");
         }

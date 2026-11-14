@@ -328,7 +328,14 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn a_shell_reads_each_word_back_as_the_text_it_was() {
-        let more = ["=whoami", "tab\there", "\u{1b}[31mred", "back\\slash 'q'\n", "\u{85}c1", "plain-1.2:3"];
+        let more = [
+            "=whoami",
+            "tab\there",
+            "\u{1b}[31mred",
+            "back\\slash 'q'\n",
+            "\u{85}c1",
+            "plain-1.2:3",
+        ];
         for text in HOSTILE.iter().chain(&more) {
             let Ok(out) = std::process::Command::new("bash")
                 .arg("-c")
@@ -337,7 +344,12 @@ mod tests {
             else {
                 return; // no bash here
             };
-            assert_eq!(String::from_utf8_lossy(&out.stdout), *text, "{text:?} as {}", shell_word(text));
+            assert_eq!(
+                String::from_utf8_lossy(&out.stdout),
+                *text,
+                "{text:?} as {}",
+                shell_word(text)
+            );
         }
     }
 

@@ -59,7 +59,11 @@ impl Budget {
     }
 }
 
-pub(super) fn read<F: Fs>(wanted: &[Wanted<'_, F>], req: &FetchRequest, mut budget: Budget) -> Round {
+pub(super) fn read<F: Fs>(
+    wanted: &[Wanted<'_, F>],
+    req: &FetchRequest,
+    mut budget: Budget,
+) -> Round {
     let read_committed = req.isolation_level == 1;
     let mut round = Round {
         topics: Vec::new(),
