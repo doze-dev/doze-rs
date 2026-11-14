@@ -131,4 +131,7 @@ doze-kafka 10634592 183 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # model and a 597-zone time-zone rule table instead of a tz database), the command layer (subcommands, settings table, apply/export/doctor), the gaps (rotation
 # schedule, SNS dead letters, Logs regex patterns, stored metric streams and insight rules), S3 ACLs and SigV2, and the @connections model. Byte limit = the musl
 # size plus 5% = 13,922,706, rounded to 13,900,000 B (70% of the 20 MB ceiling); packages and idle unchanged.
-doze-aws 13900000 280 9413 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-14, CI on main with the server side finished (PR #45, run 43592223803): idle median 10,024 KB (samples 9,964, 10,036, 10,024) plus 5% =
+# 10,526 KB; +1.06 MB over the median of 8,964 KB before the aws-tls, aws-gaps and aws-correctness merges (issue #36). Bytes 13,128,520 B and 274
+# packages fit the lines above.
+doze-aws 13900000 280 10526 --listen 127.0.0.1:{port} --data-dir {data}
