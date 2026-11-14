@@ -75,6 +75,11 @@ impl<'p> Context<'p> {
         Err(!any)
     }
 
+    /// A variable as an expression would see it, from the innermost scope out.
+    pub fn get(&self, name: &str) -> Option<&Value> {
+        self.lookup(name).ok()
+    }
+
     fn variable_names(&self) -> Vec<String> {
         self.scopes()
             .filter_map(|c| c.variables.as_ref())

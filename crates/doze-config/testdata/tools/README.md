@@ -23,3 +23,7 @@ To regenerate, from a doze checkout on `rust-oracle` (build `tools/oracle-dump` 
     env -i PATH=/usr/bin:/bin HOME=$H <oracle-dump> config -shape $(ls *.hcl) | sed "${S[@]}" > ../go-shape.jsonl
 
 The realpath and the variant without the `/private` prefix matter on macOS, where the temporary folder is a link. Afterwards `cargo test -p doze-config --test no_local_paths` must pass: it fails on any home-folder or temporary-folder path under any `testdata` in the workspace. (`files/6ee88236e1.hcl` holds a literal `data_dir = "/tmp/ephemeral"`, which is the test source, not a leak.)
+
+## The multi-file corpus
+
+`oracle/multi/<case>/` holds 13 stacks of several files each, loaded as a folder: overrides (`*.override.doze.hcl`, and each way one is refused), siblings merged (a duplicate argument, a second `defaults`), `*.auto.doze.vars`, and a folder with no `.hcl`. `go-multi.jsonl` and `go-multi-shape.jsonl` are Go's answers, made by `bun multi.ts <oracle-dump> <fresh empty scratch home>`; the data folder's hash is masked as `multi-<slug>`. The oracle's generic module driver cannot read an overridden module body, so the module override is tested on the Rust side only (`tests/differences.rs`).

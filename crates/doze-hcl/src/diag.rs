@@ -155,17 +155,16 @@ impl Diagnostic {
             .trim_end_matches('\r');
         let last = u32::try_from(crate::funcs::graphemes::count_bytes(line.as_bytes()))
             .unwrap_or(u32::MAX)
-            + 1;
+            .saturating_add(1);
+        let after_start = r.start.column.saturating_add(1);
         let end = if r.end.line == line_no {
-            r.end.column.max(r.start.column + 1)
+            r.end.column.max(after_start)
         } else {
             last
         };
-        Some((
-            line_no,
-            line,
-            r.start.column..end.min(last.max(r.start.column + 1)),
-        ))
+        // A subject that starts past the line's end (a range across lines) still marks one column.
+        let end = end.min(last.max(after_start)).max(after_start);
+        Some((line_no, line, r.start.column..end))
     }
 
     /// Plain text in the shape of hcl's diagnostic writer: the summary, where it is with the line
@@ -180,7 +179,11 @@ impl Diagnostic {
             let width = n.to_string().len();
             out.push_str(&format!("\n  on {file} line {n}:\n  {n}: {line}\n"));
             let pad = " ".repeat(width + 1 + usize::try_from(cols.start).unwrap_or(1));
-            let marks = "^".repeat(usize::try_from(cols.end - cols.start).unwrap_or(1).max(1));
+            let marks = "^".repeat(
+                usize::try_from(cols.end.saturating_sub(cols.start))
+                    .unwrap_or(1)
+                    .max(1),
+            );
             out.push_str(&format!("  {pad}{marks}\n"));
         }
         if !self.detail.is_empty() {
