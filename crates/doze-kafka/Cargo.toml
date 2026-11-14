@@ -21,7 +21,11 @@ console = ["dep:kafka-console"]
 # The Confluent-compatible schema registry, served beside the broker (`--schema-registry`, on by default, as in the Go edition).
 # Its HTTP stack is the console's (hyper), so it adds no package to the default build (docs/port/phase10.md, "Weight").
 registry = ["dep:kafka-registry"]
-default = ["console", "registry"]
+# The doze module face (docs/port/phase11.md): run as `kafka-plugin` (the name a module release packages it under) or as
+# `doze-kafka module`, the binary speaks doze's module protocol 2 and plans itself as the engine. On in the default build,
+# like the console; `--no-default-features` leaves it out.
+module = ["dep:doze-module", "dep:doze-os", "dep:kafka-protocol", "dep:bytes"]
+default = ["console", "module", "registry"]
 
 [dependencies]
 kafka-auth = { path = "../kafka-auth" }
@@ -42,8 +46,17 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["f
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"], optional = true }
 # Two worker threads by default (weight is a feature), and the signals a stop arrives by.
 tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "signal", "net", "time", "macros"] }
+# The module face (feature `module`): the SDK, and the client side of the Kafka messages it speaks to its own broker with.
+doze-module = { path = "../doze-module", optional = true }
+doze-os = { path = "../doze-os", optional = true }
+kafka-protocol = { version = "0.18", default-features = false, features = ["client"], optional = true }
+bytes = { version = "1", optional = true }
 
 [dev-dependencies]
+doze-module-test = { path = "../doze-module-test" }
+doze-module-host = { path = "../doze-module-host" }
+doze-module-proto = { path = "../doze-module-proto" }
+serde_json = "1"
 kafka-auth = { path = "../kafka-auth", features = ["client"] }
 kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
 kafka-protocol = { version = "0.18", default-features = false, features = ["client"] }

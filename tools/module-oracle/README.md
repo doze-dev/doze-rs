@@ -34,3 +34,19 @@ bun tools/module-oracle/corpus.ts /tmp/describe.jsonl > tools/module-oracle/corp
 - **kvrocks's published example does not decode without the core**: it uses an expression only the core can evaluate,
   so a module's own `boot_example` could never test it.
 - These modules predate declarable listeners (SDK v0.12): every one has only the default `main`.
+
+## kafka (`kafka/`)
+
+The Go kafka module lives beside its broker in `doze-kafka/module` and needs SDK v0.12 (granted listeners) and the broker it embeds,
+so its oracle is a Go module of its own: `kafka/main.go`, the same answer shape plus each case's `network`, against an instance
+granted as a v0.12 doze grants it. 43 cases: 23 from `corpus.ts` and 20 from `kafka/extra.ts` (what the generated values cannot
+reach: real topic configs, names and counts Kafka refuses, versions, durations, the Larder block). Compared in
+`crates/doze-kafka/tests/module_oracle.rs` (docs/port/phase11.md). Regenerate (needs `../../../doze-kafka` and Go):
+
+```
+(cd tools/module-oracle/kafka && GOFLAGS=-mod=mod GOPROXY=off go build -o /tmp/kafka-oracle .)
+/tmp/kafka-oracle describe > /tmp/describe-kafka.jsonl
+bun tools/module-oracle/corpus.ts /tmp/describe-kafka.jsonl > tools/module-oracle/kafka/corpus.jsonl
+bun tools/module-oracle/kafka/extra.ts >> tools/module-oracle/kafka/corpus.jsonl
+/tmp/kafka-oracle run tools/module-oracle/kafka/corpus.jsonl > tools/module-oracle/kafka/golden.jsonl
+```
