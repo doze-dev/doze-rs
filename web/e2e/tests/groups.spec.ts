@@ -218,12 +218,20 @@ test("Story: a group with one rebalance and nothing since is a quiet story: no N
   await c.subscribe({ topic: TOPIC, fromBeginning: true });
   await c.run({ eachMessage: async () => undefined });
   try {
+    // Polled at the API (a reload would cut the page's own fetches short): the group is stable once its member has synced.
+    await expect
+      .poll(
+        async () => {
+          const r = await page.request.get(`/api/v1/groups/${calm}/story`, { headers: { "X-Console": "1" } });
+          if (!r.ok()) return "";
+          const v = (await r.json()) as { head: { phase: string }; generations: { forming: boolean }[] };
+          return `${v.head.phase} ${v.generations.length} ${v.generations[0]?.forming}`;
+        },
+        { timeout: 20_000 },
+      )
+      .toBe("stable 1 false");
     await page.goto(`/groups/${calm}/story`);
-    // Polled: the group is stable once its member has synced.
-    await expect(async () => {
-      await page.reload();
-      await expect(page.getByTestId("story-quiet")).toBeVisible({ timeout: 1_000 });
-    }).toPass({ timeout: 20_000 });
+    await expect(page.getByTestId("story-quiet")).toBeVisible();
     await expect(page.getByTestId("story-quiet")).toContainText("No member has come, gone or timed out since");
     await expect(page.getByTestId("generation")).toHaveCount(1);
     await expect(page.getByTestId("generation")).toContainText("Member joined");
