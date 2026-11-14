@@ -40,7 +40,7 @@ impl Engine {
             out.push((n.clone(), applied::diff(st.objects(&n), &desired)));
             st.set(&n, desired);
         }
-        st.save(&path).map_err(|e| io_err("writing", &path, &e))?;
+        save_keeping_tasks(&path, st)?;
         Ok(out)
     }
 
@@ -72,7 +72,7 @@ impl Engine {
         if name.is_none() {
             st.outputs = BTreeMap::new();
         }
-        st.save(&path).map_err(|e| io_err("writing", &path, &e))
+        save_keeping_tasks(&path, st)
     }
 
     async fn sync_lock(&self, path: &std::path::Path) -> Result<applied::Locked, Error> {
@@ -124,6 +124,16 @@ impl Engine {
             needs,
         }
     }
+}
+
+/// Saves what a sync or destroy decided (objects, outputs) over the file as it is now: the tasks the wakes ran wrote
+/// their records meanwhile, and those stay (E2 audit 2, M1; Go's `Apply` lost them).
+fn save_keeping_tasks(path: &std::path::Path, st: Applied) -> Result<(), Error> {
+    let _records = crate::tasks::run::records_lock();
+    let mut now = Applied::load(path).map_err(|e| io_err("reading", path, &e))?;
+    now.instances = st.instances;
+    now.outputs = st.outputs;
+    now.save(path).map_err(|e| io_err("writing", path, &e))
 }
 
 fn io_err(what: &str, path: &std::path::Path, e: &std::io::Error) -> Error {

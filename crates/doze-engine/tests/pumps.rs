@@ -118,3 +118,25 @@ async fn an_escaped_holder_of_the_pipe_neither_hangs_a_stop_nor_writes_after_it(
     e.shutdown().await;
     assert!(all_gone(&[leader, escaped]).await);
 }
+
+/// E2 audit 1 M1, deterministically (audit 2, M4): a process still up when its check gives up has printed its last
+/// words without a newline, so they are only in the pump; the quote is built after the stop closed the pipes, so it
+/// has them.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_quote_has_a_partial_line_still_in_the_pump() {
+    let d = Dir::new("quotepartial");
+    let mut spec = doze_engine::ProcessSpec::new(run(&["hang_partial", "LAST-WORDS"]), d.path())
+        .ready(doze_engine::Probe::Log("^never$".into()));
+    spec.ready_timeout = Duration::from_secs(1);
+    let e = doze_engine::Engine::builder("t", d.path())
+        .service(svc("w", spec))
+        .build()
+        .unwrap();
+    let err = e
+        .wake("w", doze_engine::Cause::Command)
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("LAST-WORDS"), "{err}");
+    e.shutdown().await;
+}

@@ -23,7 +23,7 @@ const QUOTE: usize = 10;
 /// One read-modify-write of the state file at a time.
 static RECORDS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-fn records_lock() -> std::sync::MutexGuard<'static, ()> {
+pub(crate) fn records_lock() -> std::sync::MutexGuard<'static, ()> {
     RECORDS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -45,9 +45,19 @@ impl Engine {
             self.service(name)?;
             return Err(Error::Failed(format!("{name} is not a task")));
         }
-        self.wake_inner(name, Cause::Command, When::Healthy, true)
-            .await
-            .map(|_| ())
+        // A start already in flight is joined; if it decided not to run (up to date), the record did not move, and the
+        // forced run comes after it (E2 audit 2, M2). Bounded: each round either runs it or joins another start.
+        for _ in 0..3 {
+            let before = self.task_record(name);
+            self.wake_inner(name, Cause::Command, When::Healthy, true)
+                .await?;
+            if self.task_record(name) != before {
+                return Ok(());
+            }
+        }
+        Err(Error::Failed(format!(
+            "{name} did not run: other starts kept deciding it was up to date"
+        )))
     }
 
     /// How task `name` last ran.
@@ -92,7 +102,17 @@ pub(crate) async fn run(
     } else {
         let (dir, globs) = (ts.dir.clone(), ts.inputs.clone());
         let hashed = tokio::task::spawn_blocking(move || super::inputs::hash(&dir, &globs).0);
-        hashed.await.unwrap_or_default()
+        match hashed.await {
+            Ok(h) => h,
+            Err(err) => {
+                // Go fails the task when its inputs cannot be read (E2 audit 2, n5).
+                let fx = e.update(|c| c.m.task_skipped(name, boot, Now::current()));
+                e.run(fx);
+                return Err(Error::Failed(format!(
+                    "task \"{name}\": reading its inputs: {err}"
+                )));
+            }
+        }
     };
     let needed_by = match cause {
         Cause::Dependency(by) => Some(by.as_str()),
@@ -107,6 +127,12 @@ pub(crate) async fn run(
         return Ok(Endpoint::default());
     };
     let fx = e.update(|c| c.m.task_runs(name, boot, cause.clone(), &why));
+    if fx.is_empty() {
+        // Cancelled before it ran (E2 audit 2, n3): nothing is dropped or started; the cancel says why.
+        return Err(Error::Failed(format!(
+            "{name} was stopped while it was starting"
+        )));
+    }
     e.run(fx);
     tracing::info!("running task \"{name}\" ({why})…");
     e.set_task_record(name, None);

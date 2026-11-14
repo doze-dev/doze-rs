@@ -167,3 +167,28 @@ async fn destroy_drops_everything_and_an_off_instance_is_not_synced() {
     let _ = e.wake("web", Cause::Command).await;
     e.shutdown().await;
 }
+
+/// E2 audit 2, M1: a task the sync's wakes ran keeps its record (the sync saves over the file as it is then).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_sync_keeps_the_records_of_the_tasks_it_ran() {
+    let d = Dir::new("synctask");
+    let m = Arc::new(Module::default());
+    let ran = d.file("ran");
+    let migrate =
+        doze_engine::tasks::TaskSpec::new(run(&["append", &ran.to_string_lossy()]), d.path());
+    let e = Engine::builder("t", d.path())
+        .service(Service::task("migrate", migrate))
+        .service(Service::planned("db", m.clone()).needs("migrate"))
+        .build()
+        .unwrap();
+    m.declare(&["a"]);
+    e.sync(None).await.unwrap();
+    assert_eq!(lines(&ran), 1);
+    assert_eq!(
+        e.task_record("migrate").map(|r| r.result),
+        Some("done".into())
+    );
+    let st = Applied::load(&d.path().join(".doze/state.json")).unwrap();
+    assert_eq!(st.objects("db"), [obj("a")]);
+    e.shutdown().await;
+}

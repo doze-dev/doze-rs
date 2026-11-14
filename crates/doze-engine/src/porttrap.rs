@@ -177,8 +177,12 @@ fn port_of(addr: &str) -> u16 {
 }
 
 fn uniq(ports: impl Iterator<Item = u16>) -> Vec<u16> {
-    let mut seen = BTreeSet::new();
-    ports.filter(|p| *p > 0 && seen.insert(*p)).collect()
+    // Sorted, as Go's `uniq` sorts: the hint names them in port order.
+    ports
+        .filter(|p| *p > 0)
+        .collect::<BTreeSet<u16>>()
+        .into_iter()
+        .collect()
 }
 
 #[cfg(test)]
@@ -256,11 +260,11 @@ mod tests {
         assert_eq!(descendants(99, ps), [99]);
         assert_eq!(
             lsof_ports("p10\nf5\nn127.0.0.1:5173\nf6\nn*:5173\nn[::1]:3000\n"),
-            [5173, 3000]
+            [3000, 5173]
         );
         let ss = "LISTEN 0 511 127.0.0.1:5173 0.0.0.0:* users:((\"node\",pid=11,fd=20))\n\
                   LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:((\"sshd\",pid=1,fd=3))\n\
                   LISTEN 0 511 [::1]:3000 [::]:* users:((\"node\",pid=13,fd=21),(\"x\",pid=2,fd=1))\n";
-        assert_eq!(ss_ports(ss, &[10, 11, 13]), [5173, 3000]);
+        assert_eq!(ss_ports(ss, &[10, 11, 13]), [3000, 5173]);
     }
 }

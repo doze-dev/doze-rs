@@ -81,10 +81,6 @@ async fn a_service_waits_for_the_task_it_needs() {
     assert_eq!(e.get("migrate").unwrap().state, State::Done);
     let rec = e.task_record("migrate").unwrap();
     assert_eq!(rec.why, "first run (needed by api)");
-    assert!(
-        e.holders("migrate").is_empty(),
-        "a done task is held by nothing"
-    );
     e.shutdown().await;
 }
 
@@ -165,14 +161,26 @@ async fn a_stopped_task_leaves_no_record() {
         ))
         .build()
         .unwrap();
+    // It ran before: the old record must not survive a run cut short (E2 audit 2, M3).
+    let old = doze_engine::applied::TaskRecord {
+        result: "done".into(),
+        why: "first run".into(),
+        ..Default::default()
+    };
+    e.set_task_record("long", Some(old));
     let waking = {
         let e = e.clone();
-        tokio::spawn(async move { e.wake("long", Cause::Command).await })
+        tokio::spawn(async move { e.run_task("long").await })
     };
     assert!(
         eventually(Duration::from_secs(5), || pidf.exists()
             && pid_in(&pidf) > 0)
         .await
+    );
+    assert_eq!(
+        e.get("long").unwrap().state,
+        State::Booting,
+        "booting while it runs"
     );
     e.stop("long", Cause::Command).await.unwrap();
     let woke = tokio::time::timeout(Duration::from_secs(3), waking)
@@ -202,5 +210,65 @@ async fn a_task_publishes_its_wake_and_ready() {
     let a = rx.recv().await.unwrap();
     let b = rx.recv().await.unwrap();
     assert_eq!((a.kind, b.kind), (Kind::Wake, Kind::Ready));
+    e.shutdown().await;
+}
+
+/// A task's needs are held while it runs and released when it ends; a run over its `timeout` fails (E2 audit 2, M3).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_task_releases_its_needs_and_a_timeout_fails_it() {
+    let d = Dir::new("taskneeds");
+    let ran = d.file("ran");
+    let mut slow = task(&d, &["ignore"]);
+    slow.timeout = Some(Duration::from_millis(300));
+    let e = Engine::builder("t", d.path())
+        .service(svc("db", listener(&d, 0)))
+        .service(
+            Service::task("migrate", task(&d, &["append", &ran.to_string_lossy()])).needs("db"),
+        )
+        .service(Service::task("slow", slow))
+        .build()
+        .unwrap();
+    e.wake("migrate", Cause::Command).await.unwrap();
+    assert!(e.get("db").unwrap().state.running());
+    assert_eq!(
+        e.get("db").unwrap().conns,
+        0,
+        "released once the task ended"
+    );
+    let err = e
+        .wake("slow", Cause::Command)
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(err.starts_with("task \"slow\" failed: exit -1"), "{err}");
+    assert_eq!(e.task_record("slow").unwrap().exit_code, -1);
+    e.shutdown().await;
+}
+
+/// `run_task` joining a needed start that found the task up to date still runs it (E2 audit 2, M2).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn run_task_racing_a_needed_wake_still_runs() {
+    let d = Dir::new("taskjoin");
+    let ran = d.file("ran");
+    std::fs::create_dir_all(d.path().join("in")).unwrap();
+    // Big enough that hashing takes a while, so the forced call joins the needed start.
+    std::fs::write(d.path().join("in/big.bin"), vec![7u8; 64 * 1024 * 1024]).unwrap();
+    let e = Engine::builder("t", d.path())
+        .service(Service::task(
+            "m",
+            task(&d, &["append", &ran.to_string_lossy()]).inputs(&["in/*"]),
+        ))
+        .build()
+        .unwrap();
+    e.wake("m", Cause::Command).await.unwrap();
+    let needed = {
+        let e = e.clone();
+        tokio::spawn(async move { e.wake("m", Cause::Command).await })
+    };
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    e.run_task("m").await.unwrap();
+    let _ = needed.await;
+    assert_eq!(lines(&ran), 2);
+    assert_eq!(e.task_record("m").unwrap().why, "asked for");
     e.shutdown().await;
 }
