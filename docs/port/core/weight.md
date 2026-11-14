@@ -59,3 +59,25 @@ formatting and parsing) and `doze-logstore` (tokio `sync` and `rt` only), and th
 Judgement call (the owner leaves small rises to the builder): accepted. 33 KB is under 0.4% of the 9 MB line, and the
 journal's Go-exact RFC 3339 with nanoseconds and offsets is what `time` buys; hand-rolling it would save little and
 risk the byte-for-byte format the app reads.
+
+## H4: doze-config links psl, the public suffix list (2026-11-14, Builder A)
+
+`doze-config` refuses an app domain that is a public suffix (`co.uk`, `github.io`), as Go's
+`golang.org/x/net/publicsuffix` does. The owner chose `psl` (the list compiled in, no runtime file). Measured
+alone, the release profile above (fat LTO, one codegen unit, strip, panic = abort), darwin/arm64: one binary that
+reads an argument and prints a bool, with and without one `psl::domain` call.
+
+| Build | Size |
+|---|---|
+| without psl | 302,576 B |
+| with `psl` 2.1.254 | 1,179,088 B (**+876,512 B**) |
+| with `psl`, `opt-level = "z"` for the psl package | 1,179,088 B (no change) |
+
+So psl costs **0.84 MB**, about 9% of the 9 MB line. The list is compiled into match code, so opt-level does not
+shrink it. That is not the "small rise" the owner left to the builder, so the number is reported for an owner call:
+
+- **Keep psl** (simplest; the list updates with the crate).
+- **Embed the list as text** (about 230 KB raw, less compressed) with a small matcher of Go's rules. This saves
+  roughly 0.6 MB, and is a port to own and test against `publicsuffix` on the corpus.
+
+The engine wiring (`doze-config` → `doze-engine`) adds no new third-party crate.

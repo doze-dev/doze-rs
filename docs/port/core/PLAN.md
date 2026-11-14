@@ -564,8 +564,26 @@ doze: `cmd/doze/*`, `internal/{config,runspec,runtime,registry,supervisor,health
   hclwrite on 177/177 sources and on 6,239 random, broken and audit inputs, so O11 is met. The editor
   (`doze add`/`init`) is identical on 2,273 cases, 6 of them reviewed. Content, PartialContent,
   JustAttributes and MergeFiles match on 1,724 reads. Audited, and the fixes are in.
-- **H4 started**: `core-h4` holds the `doze-config` crate and its oracle corpus. That is 224 doze.hcl
-  sources (the Go tests' inline HCL, the docs fences and the examples), with Go's loaded config or
-  diagnostics (106 accepted, 118 refused). The schema, variables and the rest are not built yet.
-  Pace: H2 and H3 (26 planned days) were done on the critical path in one session, with the function
-  library delegated.
+- **2026-11-14, H4 (doze-config), done**, PR #47 (`core-h4`, on #44); the engine wiring is draft PR #48
+  (`core-h4-wire`, on #47, merges #32).
+  - The loader is the whole of Go's `internal/config`, plus the command engine's decode and `runspec`.
+    That covers files, overrides, variables, locals, defaults, count and for_each, references and
+    `after`, cycles, outputs, lint, fingerprints and the shape pass.
+  - Modules come only through a `Modules` trait, so the port table and the temporal exception are now
+    test fixtures. The machine comes through `Host`.
+  - Oracle: 257/257 in both modes, with diagnostics compared as sets, contexts included. A new multi-file
+    corpus (30 stacks from the live Go oracle: overrides, siblings, auto vars, scopes, each audit
+    finding) is 30/30 in both modes, with one listed difference.
+  - Fuzzed: `fuzz_load` is in CI. It found an underflow in doze-hcl's diagnostic render, now fixed.
+  - The independent audit had 15 findings, 13 confirmed against Go. All are fixed except two, which are
+    kept and tested in `tests/differences.rs`: an overflowing `log_size` is refused, and the shape
+    pass's default port comes from the module cache only.
+  - Fixing the audit made deep chains linear: 20,000 locals load in 65 ms, where they used to overflow
+    the stack. doze-hcl now steps into a variable by reference.
+  - Wiring: `to_stack` builds `doze_engine::Stack`. `ca_env` supplies `extra_env`. The larder test runs
+    larder's doze.hcl in an engine under a temporary home and wakes a probe app through Redis.
+  - Open:
+    - Tasks and `download` wait for E2.
+    - Route names in `validateNetworks` need module listener declarations.
+    - `psl` costs 0.84 MB (weight.md); that is an owner call.
+  - Days: planned 15 (11–19); done in one session. Next on track L: C2.
