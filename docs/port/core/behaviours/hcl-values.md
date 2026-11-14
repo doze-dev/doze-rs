@@ -87,9 +87,33 @@ source, and where doze-hcl holds each behaviour. The oracle is doze's `tools/ora
 |---|---|---|
 | S1 | The 190 real sources are accepted or refused exactly as Go does | `tests/oracle_parse.rs` |
 | S2 | Positions are Go's: 1-based line, 1-based column counted in grapheme clusters segmented token by token (a punctuation character followed by a combining mark is two columns), 0-based byte | `audit2.pos.*` | every diagnostic comparison |
-| S3 | Open: where both refuse, hcl-edit places 13 of the corpus's syntax errors elsewhere than Go (an unterminated string at its start, not its end). Mapping syntax errors is H2's | counted, not hidden, by `oracle_eval.rs` |
+| S3 | Closed in H2: syntax errors come from `check` (below), so every refused case is placed where Go places it. H1 left 27 open (12 audit, 2 audit2, 4 h1, 9 spike); 0 remain | `tests/oracle_eval.rs` (no "placed differently" bucket left) |
 | S4 | Rules Go's parser has and hcl-edit lacks, checked after parsing: chained legacy index `a.1.0`, an attribute splat inside another, a number literal Go cannot read (Go's number token and `1.e5` come from vendor patch 5) | `audit.idx.30`, `audit2.trav.*`, `audit2.numlit.*` |
 | S5 | Deliberate difference: hcl-edit refuses more than 64 levels of nesting and 128 chained operators (stack safety); Go has no limit. No real configuration comes near | `audit3.05`–`.12` (known differences) |
-| S6 | Open: hcl-edit backtracks heavily on unclosed nested `[ {` (a 1.3 KB fuzz input takes 1.3 s, the same in upstream 0.10.0; `fuzz_parse` timed out on it under load). Not a crash; a slow parse of a hostile file. To fix in the parser when H2 maps syntax errors | fuzz artifact `timeout-82aa6510…` |
+| S6 | Closed in H2: hcl-edit backtracks on unclosed nested `[ {` (1.3 KB took 1.3 s, upstream too). It is not patched; `check` runs first, in linear time, and refuses every unbalanced file before hcl-edit sees it | `tests/hostile.rs` (13 hostile shapes, each under 300 ms in debug) |
 
-Not in H1 (H2): the function library, `typeexpr`, the diagnostics renderer and the syntax-error mapping.
+## Tokens and syntax errors (H2: `src/lex*`, `src/check*`)
+
+| # | Behaviour | Held by |
+|---|---|---|
+| L1 | Go's scanner by hand: the same tokens with the same byte ranges, lines and columns (columns from the gap in bytes before a token and grapheme clusters inside it), including Ragel's longest-match fallbacks (`/*` unterminated is `/` `*`; `<<EOT` without a newline is `<` `<` `EOT`) and its held character in heredocs (`$x` then a line break is one token, `$xy` is two) | `tests/oracle_syntax.rs` `tokens_match_go`: 5,827 sources (2,500 random fragment sequences, 1,500 mutants of the real sources, the sources, every eval expression) |
+| L2 | Identifiers are Unicode ID_Start/ID_Continue as Go's tables have them; U+200C/U+200D are not identifier characters (Go's tables predate Unicode 15.1) | same |
+| L3 | Deliberate difference: Ragel accepts overlong and surrogate UTF-8 sequences as characters; doze-hcl reads them the same way when lexing, but counts each invalid byte as one column | fuzz only |
+| K1 | Every diagnostic Go's parser gives, in Go's order (token checks first, then the parser's, with Go's recovery and its "recovery mode" that silences later ones), with Go's range and summary; details follow Go's words (re-baselining is the CLI's, O6) | `tests/oracle_syntax.rs` `diagnostics_match_go`: 5,827 sources, 2,554 refused, about 8,300 diagnostics, all identical |
+| K2 | Go's aliasing kept: "Missing close bracket on index" (and on a splat) points where recovery stopped, because Go's diagnostic holds a pointer to the variable recovery overwrites | `mut.0510` |
+| K3 | Deliberate difference: nesting deeper than 128 levels is refused ("Nesting too deep") to bound the stack; Go has no limit, and hcl-edit already refuses beyond 64 (S5) | `tests/hostile.rs` |
+
+## Type expressions (H2: `src/typeexpr.rs`)
+
+| # | Behaviour | Held by |
+|---|---|---|
+| T1 | `typeexpr.TypeConstraint` (what doze reads a variable's `type` with) and `typeexpr.Type`: keywords, `list/set/map/object/tuple`, `optional(type)` in constraints, every refusal with Go's detail and range | `tests/oracle_typeexpr.rs`: 112 expressions in both modes, identical |
+| T2 | A redefined attribute in `object({...})` is refused ("must be unique"), which needs the redefined item hcl-edit used to drop (vendor patch 6) | `te.039`, `te.110` |
+| T3 | Not ported: `optional(type, default)` (Terraform's defaults); doze does not use it, and Go refuses its second argument in constraint mode too | `te.036` |
+
+## Diagnostics (H2: `src/diag.rs`)
+
+| # | Behaviour | Held by |
+|---|---|---|
+| D1 | Positions are Go's (above); a diagnostic can be rendered with its line and the subject underlined, and duplicates (same summary, detail and subject) dropped, as doze's `dedupeDiags` does | `diag::tests` |
+| D2 | Did-you-mean is hcl's `nameSuggestion` (Levenshtein under 3) | `eval::suggestion`; `te.*`, `h1idx.25` |
