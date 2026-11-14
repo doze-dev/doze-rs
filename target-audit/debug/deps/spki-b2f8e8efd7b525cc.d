@@ -1,0 +1,12 @@
+/Users/srini/Code/doze-dev/doze-rs-core-c1/target-audit/debug/deps/spki-b2f8e8efd7b525cc.d: /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/lib.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/algorithm.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/error.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/spki.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/traits.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/../README.md
+
+/Users/srini/Code/doze-dev/doze-rs-core-c1/target-audit/debug/deps/libspki-b2f8e8efd7b525cc.rlib: /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/lib.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/algorithm.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/error.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/spki.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/traits.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/../README.md
+
+/Users/srini/Code/doze-dev/doze-rs-core-c1/target-audit/debug/deps/libspki-b2f8e8efd7b525cc.rmeta: /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/lib.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/algorithm.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/error.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/spki.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/traits.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/../README.md
+
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/lib.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/algorithm.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/error.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/spki.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/traits.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.8.1/src/../README.md:
