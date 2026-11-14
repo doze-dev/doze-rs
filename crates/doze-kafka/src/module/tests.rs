@@ -62,9 +62,7 @@ fn the_listeners_are_the_go_modules_with_the_registry_only_when_the_broker_has_o
     );
     assert_eq!(names(listeners(true, false)), vec![main.clone(), console]);
     assert_eq!(names(listeners(false, false)), vec![main]);
-    for l in [listeners(true, true)] {
-        assert!(doze_module::proto::network::validate(&l).is_empty());
-    }
+    assert!(doze_module::proto::network::validate(&listeners(true, true)).is_empty());
 }
 
 fn spec() -> KafkaSpec {
@@ -353,7 +351,9 @@ fn the_console_is_the_go_modules_three_panels_and_the_web_console() {
     let ids: Vec<&str> = c.panels.iter().map(|p| p.id.as_str()).collect();
     assert_eq!(ids, ["topics", "groups", "tail"]);
     assert_eq!(c.front.as_deref(), Some("console"));
-    assert_eq!(c.web_url.as_deref(), Some("http://{address:console}"));
+    // A build without the console serves none, so the app is not told of one.
+    let web = cfg!(feature = "console").then_some("http://{address:console}");
+    assert_eq!(c.web_url.as_deref(), web);
     let a = admin::actions();
     assert_eq!(a.len(), 1);
     assert_eq!((a[0].id.as_str(), a[0].kind.as_str()), ("produce", "topic"));

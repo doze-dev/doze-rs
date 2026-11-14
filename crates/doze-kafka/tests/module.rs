@@ -5,7 +5,9 @@
 //! - the published example and the Larder example's block boot on the broker and converge;
 //! - better than Go, each on the running broker: converge raises partitions and sets changed configs, and never
 //!   removes; the console's numbers, produce and tail; a sleep and a wake keep the data.
-#![cfg(feature = "module")]
+//!
+//! The default build (module and console) is the one doze ships as its kafka module, and the one these run on.
+#![cfg(all(feature = "module", feature = "console"))]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -242,6 +244,45 @@ fn declared_topics(hcl: &str) -> Vec<String> {
         .collect()
 }
 
+/// A case both editions plan: the same variable and address, the declared topics as objects (Go had none), and a
+/// broker command line that means what Go's did, less the registry until this broker has one.
+fn same_as_go(d: &oracle::Difference, registry: bool) {
+    let id = d.id.as_str();
+    assert_eq!(d.go["env_var"], json!("KAFKA_BROKERS"), "{id}");
+    assert_eq!(d.go["env_var"], d.rust["env_var"], "{id}");
+    assert_eq!(d.go["url"], d.rust["url"], "{id}");
+    assert_eq!(d.go["plan_error"], d.rust["plan_error"], "{id}");
+    assert_eq!(d.go["objects"], json!([]), "{id}");
+    let topics: Vec<Json> = declared_topics(&case_hcl(id))
+        .into_iter()
+        .map(|t| json!({"kind": "topic", "name": t}))
+        .collect();
+    assert_eq!(d.rust["objects"], Json::Array(topics), "{id}");
+    let (go, rust) = (&d.go["plan"][0], &d.rust["plan"][0]);
+    assert_eq!(d.go["plan"].as_array().unwrap().len(), 1, "{id}");
+    assert_eq!(d.rust["plan"].as_array().unwrap().len(), 1, "{id}");
+    for k in ["name", "env_added", "after", "hooks"] {
+        assert_eq!(go[k], rust[k], "{id}: {k}");
+    }
+    // The broker is this binary in both: Go re-executed itself, and so does the module.
+    assert!(
+        rust["program"].as_str().unwrap().ends_with("kafka-plugin"),
+        "{id}"
+    );
+    let mut want = go_meaning(go["args"].as_array().unwrap());
+    // The registry: Go served one on its own socket; the module plans one once the broker has it.
+    want.registry = want.registry && registry;
+    assert_eq!(want, rust_meaning(rust["args"].as_array().unwrap()), "{id}");
+    // Ready: Go's broker listened on a socket; this one listens on TCP (D13), and ready is that port answering.
+    let rust_args = flags(rust["args"].as_array().unwrap());
+    assert!(go["ready"].as_str().unwrap().starts_with("socket "), "{id}");
+    assert_eq!(
+        rust["ready"],
+        json!(format!("tcp {}", rust_args["--listen"])),
+        "{id}"
+    );
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn answers_as_the_go_module_did_except_for_the_listed_differences() {
     let m = harness().module().await.unwrap();
@@ -275,41 +316,7 @@ async fn answers_as_the_go_module_did_except_for_the_listed_differences() {
             refused_both += 1;
             continue;
         }
-        assert_eq!(d.go["env_var"], json!("KAFKA_BROKERS"), "{id}");
-        assert_eq!(d.go["env_var"], d.rust["env_var"], "{id}");
-        assert_eq!(d.go["url"], d.rust["url"], "{id}");
-        assert_eq!(d.go["plan_error"], d.rust["plan_error"], "{id}");
-        // Go had no objects; the module names the declared topics.
-        assert_eq!(d.go["objects"], json!([]), "{id}");
-        let topics: Vec<Json> = declared_topics(&case_hcl(id))
-            .into_iter()
-            .map(|t| json!({"kind": "topic", "name": t}))
-            .collect();
-        assert_eq!(d.rust["objects"], Json::Array(topics), "{id}");
-        let (go, rust) = (&d.go["plan"][0], &d.rust["plan"][0]);
-        assert_eq!(d.go["plan"].as_array().unwrap().len(), 1, "{id}");
-        assert_eq!(d.rust["plan"].as_array().unwrap().len(), 1, "{id}");
-        assert_eq!(go["name"], rust["name"], "{id}");
-        assert_eq!(go["env_added"], rust["env_added"], "{id}");
-        assert_eq!(go["after"], rust["after"], "{id}");
-        assert_eq!(go["hooks"], rust["hooks"], "{id}");
-        // The broker is this binary in both: Go re-executed itself, and so does the module.
-        assert!(
-            rust["program"].as_str().unwrap().ends_with("kafka-plugin"),
-            "{id}"
-        );
-        let mut want = go_meaning(go["args"].as_array().unwrap());
-        // The registry: Go served one on its own socket; the module plans one once the broker has it.
-        want.registry = want.registry && registry;
-        assert_eq!(want, rust_meaning(rust["args"].as_array().unwrap()), "{id}");
-        // Ready: Go's broker listened on a socket; this one listens on TCP (D13), and ready is that port answering.
-        let rust_args = flags(rust["args"].as_array().unwrap());
-        assert!(go["ready"].as_str().unwrap().starts_with("socket "), "{id}");
-        assert_eq!(
-            rust["ready"],
-            json!(format!("tcp {}", rust_args["--listen"])),
-            "{id}"
-        );
+        same_as_go(d, registry);
         same_meaning += 1;
     }
     // Every case is accounted for, and the counts are the ones the phase notes give. A case both sides refuse compares
@@ -439,6 +446,25 @@ fn topic_configs(addr: &str, topic: &str) -> BTreeMap<String, String> {
             )
         })
         .collect()
+}
+
+/// Sets a topic's own configs to `configs`, as another tool would.
+fn set_topic_configs(addr: &str, topic: &str, configs: &BTreeMap<String, String>) {
+    use kafka_protocol::messages::alter_configs_request::{AlterConfigsResource, AlterableConfig};
+    let mut r = AlterConfigsResource::default();
+    r.resource_type = 2;
+    r.resource_name = name(topic);
+    for (k, v) in configs {
+        let mut c = AlterableConfig::default();
+        c.name = name(k);
+        c.value = Some(name(v));
+        r.configs.push(c);
+    }
+    let mut q = kafka_protocol::messages::AlterConfigsRequest::default();
+    q.resources.push(r);
+    let a: kafka_protocol::messages::AlterConfigsResponse =
+        kafka_call(addr, ApiKey::AlterConfigs, 0, &q);
+    assert_eq!(a.responses[0].error_code, 0);
 }
 
 /// Asks for a topic by name, letting the broker create it if it auto-creates; the error code.
@@ -585,24 +611,7 @@ async fn converge_raises_partitions_and_sets_changed_configs_and_never_removes()
     // Someone sets a config the block does not mention: converge leaves it.
     let mut configs = topic_configs(&addr, "orders");
     configs.insert("segment.ms".into(), "600000".into());
-    {
-        use kafka_protocol::messages::alter_configs_request::{
-            AlterConfigsResource, AlterableConfig,
-        };
-        let mut r = AlterConfigsResource::default();
-        r.resource_type = 2;
-        r.resource_name = name("orders");
-        for (k, v) in &configs {
-            let mut c = AlterableConfig::default();
-            c.name = name(k);
-            c.value = Some(name(v));
-            r.configs.push(c);
-        }
-        let mut q = kafka_protocol::messages::AlterConfigsRequest::default();
-        q.resources.push(r);
-        let _: kafka_protocol::messages::AlterConfigsResponse =
-            kafka_call(&addr, ApiKey::AlterConfigs, 0, &q);
-    }
+    set_topic_configs(&addr, "orders", &configs);
     // The block changes: more partitions, a changed config and a new one. Go would have created nothing and changed
     // nothing, the topic existing.
     let changed = GROWING.replace("partitions = 2", "partitions = 5").replace(
