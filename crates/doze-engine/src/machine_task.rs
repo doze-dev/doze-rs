@@ -58,13 +58,34 @@ impl Machine {
         fx
     }
 
-    /// Task run `boot` of `name` exited 0: the needs it held are released, it is `done`.
+    /// Task run `boot` of `name` failed (its needs, its log, or its command's exit): `failed`, journalled. A stop that
+    /// came after its wake was journalled still journals the end, as Go's `fail` does, and leaves it asleep (E2 audit 3).
+    pub fn task_failed(
+        &mut self,
+        name: &str,
+        boot: u64,
+        msg: &str,
+        took: Duration,
+        now: Now,
+    ) -> Vec<Effect> {
+        if self.current_boot(name, boot) && self.ctl(name).cancel_boot {
+            return self.task_stopped(name, boot, msg, took, now);
+        }
+        self.boot_failed(name, boot, msg, took, now)
+    }
+
+    /// Task run `boot` of `name` exited 0: the needs it held are released, it is `done`. A stop that came while the run
+    /// drained its pipes does not unsay it: the end is journalled as Go's is, and the stop leaves it asleep (E2 audit 3).
     pub fn task_done(&mut self, name: &str, boot: u64, took: Duration, now: Now) -> Vec<Effect> {
         if !self.current_boot(name, boot) {
             return Vec::new();
         }
         if self.ctl(name).cancel_boot {
-            return self.boot_cancelled(name, boot, now);
+            let mut fx = vec![Effect::Journal(
+                Event::new(Kind::Ready, name).took(took).detail("exit 0"),
+            )];
+            fx.extend(self.boot_cancelled(name, boot, now));
+            return fx;
         }
         let c = self.ctl(name);
         c.boot = None;

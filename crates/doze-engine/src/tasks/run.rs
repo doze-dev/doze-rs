@@ -272,7 +272,7 @@ impl Run<'_> {
         let msg = err.to_string();
         let fx = self
             .e
-            .update(|c| c.m.boot_failed(name, boot, &msg, took, Now::current()));
+            .update(|c| c.m.task_failed(name, boot, &msg, took, Now::current()));
         self.e.run(fx);
         err
     }
