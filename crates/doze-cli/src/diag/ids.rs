@@ -46,6 +46,16 @@ pub const LOCK_UNREADABLE: Id = id("DZ0303", Exit::ConfigInvalid);
 pub const HOME_UNUSABLE: Id = id("DZ0401", Exit::Machine);
 /// The browser could not be opened.
 pub const NO_BROWSER: Id = id("DZ0402", Exit::Machine);
+/// The person closed the administrator prompt; nothing more was changed.
+pub const PROMPT_CANCELLED: Id = id("DZ0403", Exit::Failed);
+/// There is no way to ask for root here (no terminal for sudo, no system prompt).
+pub const NO_PROMPT: Id = id("DZ0404", Exit::Machine);
+/// The privileged script ran and failed.
+pub const PRIVILEGED_FAILED: Id = id("DZ0405", Exit::Machine);
+/// The machine's setup could not be made (an unsupported system, a file it could not read).
+pub const SETUP_FAILED: Id = id("DZ0406", Exit::Machine);
+/// The `.doze` zone is switched off, so there is nothing to set up.
+pub const NAMES_OFF: Id = id("DZ0407", Exit::Failed);
 
 /// `doctor` found something wrong.
 pub const CHECKS_FAILED: Id = id("DZ0501", Exit::Failed);

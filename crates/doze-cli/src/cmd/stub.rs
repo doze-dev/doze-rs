@@ -12,8 +12,6 @@ pub(crate) enum Needs {
     Daemon,
     /// It reads or writes doze.hcl, and there is no HCL crate in the workspace yet.
     Hcl,
-    /// The one-sudo machine setup.
-    Setup,
     /// The app.
     App,
     /// It reads doze.hcl and writes doze.lock.
@@ -30,9 +28,6 @@ impl Needs {
             Needs::Daemon => "it talks to the doze daemon, which comes with the Rust core",
             Needs::Hcl => {
                 "it reads doze.hcl, and the workspace has no HCL crate yet (the core port brings one)"
-            }
-            Needs::Setup => {
-                "the one-sudo machine setup for names and certificates is not ported yet"
             }
             Needs::App => "the app is not part of the Rust doze yet",
             Needs::Lock => {
@@ -58,12 +53,12 @@ pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
         | Cmd::Url(_)
         | Cmd::Connect(_) => Needs::Daemon,
         Cmd::Init(_) | Cmd::Add(_) | Cmd::Lint(_) | Cmd::Fmt(_) => Needs::Hcl,
-        Cmd::DnsSetup(_) | Cmd::Trust(_) => Needs::Setup,
-        Cmd::Doctor(d) if d.fix || d.print_fix => Needs::Setup,
         Cmd::Open(_) => Needs::App,
         Cmd::Modules(m) if matches!(m.command, Some(ModulesCmd::Upgrade(_))) => Needs::Lock,
         Cmd::Bug => Needs::Report,
         Cmd::Doctor(_)
+        | Cmd::DnsSetup(_)
+        | Cmd::Trust(_)
         | Cmd::Status(_)
         | Cmd::Wake(_)
         | Cmd::Sleep(_)

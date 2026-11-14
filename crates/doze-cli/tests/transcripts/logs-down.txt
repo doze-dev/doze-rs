@@ -148,3 +148,29 @@ json:
 |     "fix": "doze up"
 |   }
 | }
+
+$ doze logs apo
+exit 4
+stderr:
+| error[DZ0702]: nothing here knows a service called "apo"
+|   did you mean "api"?
+|   doze is not running, and no log or journal of the stack names it
+|   fix: doze status
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "nothing here knows a service called \"apo\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "did you mean \"api\"?",
+|       "doze is not running, and no log or journal of the stack names it"
+|     ],
+|     "fix": "doze status"
+|   }
+| }

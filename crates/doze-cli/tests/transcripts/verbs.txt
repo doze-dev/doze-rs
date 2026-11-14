@@ -260,6 +260,32 @@ json:
 |   }
 | }
 
+$ doze sleep wroker
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "wroker"
+|   did you mean "worker"?
+|   it has db, cache, events, api, worker, web
+|   fix: doze status
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sleep",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "the stack has no service called \"wroker\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "did you mean \"worker\"?",
+|       "it has db, cache, events, api, worker, web"
+|     ],
+|     "fix": "doze status"
+|   }
+| }
+
 $ doze restart api nope
 exit 4
 stderr:

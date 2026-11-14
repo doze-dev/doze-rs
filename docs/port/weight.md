@@ -516,3 +516,26 @@ The 94 packages are the CLI's own: clap, the registry client (ureq, rustls, ring
 YAML reader and jiff for the wall clock. The package line moves to 640 (the measured 631 plus 9) because the owner's
 decision puts them there; the byte line stays 16 MB, now with 0.86 MB of room. If that room is needed back, the
 lever is one HTTP and TLS stack shared by the app and the CLI (core plan §6.3).
+
+## Core P1 (dns-setup, trust, doctor --fix), measured 2026-11-14, release
+
+The privileged commands bring three things into the CLI: the zone's setup and trust scripts and the doze certificate
+authority (doze-names `setup`: x509 and p256 were in the tree, now linked), the network daemon the setup installs, which
+is this same program run as `__doze-netd` (doze-names `netd`: tun-rs and the crates under it), and `doze-doctor`. A
+separate netd binary would save the CLI those bytes but would be a second program to ship, install and keep in step;
+Go's model, which the plan keeps, is one binary.
+
+| | Line | Before (C1 + app, 10e18e80) | P1 |
+|---|---|---|---|
+| `doze`, darwin/arm64, `release` | 9 MB (ceiling 10) | about 3.8 MB | 4,592,176 B (+0.79 MB) |
+| `doze`, Linux aarch64 (Lima VM), `release` | 9 MB | not measured | 4,986,168 B, 185 packages |
+| `doze-app`, darwin/arm64, `release-app` | 16 MB | 15,137,792 B | 15,654,752 B (+517 KB) |
+| `doze-app` packages (CI's count) | was 640, now 650 | 631 | 640 |
+
+New packages: `doze-doctor`, `tun-rs`, `nix`, `route_manager`, `getifaddrs`, `ipnet`, `memoffset` (the network
+daemon), `privesc` (UAC on Windows; on macOS and Linux the system's prompt is `doze-os`'s). The app's package line
+moves to 650: the measured 640 plus the room the C1 line had. **The app's byte room is now 345 KB under 16 MB**: the
+next core crates that join the CLI (the daemon, the engine, config) will not fit in the app without the lever §6.3 names
+(one HTTP and TLS stack for the registry client and the front door; ureq + rustls-native-certs is the obvious
+duplicate) or a size profile change; this has to be decided before D1 joins the CLI. CI now holds `doze` to 9 MB and
+200 packages (the `weight` job).
