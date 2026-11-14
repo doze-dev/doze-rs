@@ -1197,3 +1197,18 @@ On ubuntu x86_64 (CI's measured ratio for doze-aws, 1.54) that is about +334 KB 
 13,900,000 B line and the owner's 20 MB ceiling. The package line goes from 280 to **287** (CI's 274 plus the 13), a small
 justified rise recorded here; CI's next run on this branch measures it exactly. doze-kafka gains only its `client` declaration
 (kcat), a few strings.
+
+### Core M3: CI's measurement (2026-11-15, PR #57, run 43641162106, ubuntu x86_64)
+
+CI measured `doze-aws` with the module face: **13,507,440 B** (+378,920 B over main's 13,128,520 B; the estimate was about
++334 KB), **286** packages (+12), and an idle median of **10,716 KB** (samples 10,716, 10,632 and 11,016). That is over the
+10,526 KB line. In the same week main measured 10,104 KB (samples 9,940, 10,176 and 10,104).
+
+The earlier "idle unchanged" was wrong. An A/B on darwin, with five starts each and the same tree with and without the
+feature, measured medians of 6,544 KB and 6,656 KB: the module face costs about **+112 KB** idle. Those are the pages of its
+code, because the server never calls it. The rest of CI's +612 KB is within the run-to-run spread that issue #36 records:
+several hundred KB between runs of one commit.
+
+The new lines are CI's measurement: 286 packages, and an idle of 10,716 KB plus 5%, which is **11,252 KB**. The bytes stay
+inside the 13,900,000 B line. This is a small rise and explained, so it was my call (weight rule). Issue #36 stays open for
+the growth before it.
