@@ -237,7 +237,8 @@ impl<F: Fs> Broker<F> {
     }
 
     pub(crate) fn woke(&self) {
-        self.wakes.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.wakes
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// How many partitions have their files open now (never more than `max_open_partitions` plus those a request

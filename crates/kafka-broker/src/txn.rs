@@ -13,7 +13,7 @@ mod expiry;
 mod finish;
 pub(crate) mod rules;
 
+pub(crate) use alarm::Alarm;
 #[cfg(feature = "inspect")]
 pub(crate) use coordinator::CHECK_EVERY;
-pub(crate) use alarm::Alarm;
 pub(crate) use entries::{Held, Txns};

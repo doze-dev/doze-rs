@@ -12,7 +12,9 @@ use kafka_wire::ids::Offset;
 
 use super::PartitionLog;
 use crate::compact::plan::{self, Facts, Params};
-use crate::compact::{AbortedTxn, CleanJob, Cleaned, Input, LastOf, Planned, Replacement, temporary};
+use crate::compact::{
+    AbortedTxn, CleanJob, Cleaned, Input, LastOf, Planned, Replacement, temporary,
+};
 use crate::compact::{read_checkpoint, write_checkpoint};
 use crate::error::{Doing, StorageError};
 use crate::fs::Fs;
@@ -31,10 +33,12 @@ impl<F: Fs> PartitionLog<F> {
         aborted: Vec<AbortedTxn>,
         producers: HashMap<i64, LastOf>,
     ) -> Result<Option<CleanJob<F>>, StorageError> {
-        Ok(match self.plan_clean(params, last_stable, aborted, producers)? {
-            Planned::Due(job) => Some(job),
-            Planned::NotDue { .. } => None,
-        })
+        Ok(
+            match self.plan_clean(params, last_stable, aborted, producers)? {
+                Planned::Due(job) => Some(job),
+                Planned::NotDue { .. } => None,
+            },
+        )
     }
 
     /// [`Self::clean_job`], and, when the log is not due, the first time it could be with nothing written to it

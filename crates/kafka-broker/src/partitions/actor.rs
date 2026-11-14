@@ -30,7 +30,11 @@ pub(super) enum Command<F: Fs> {
     /// Move the start of the log up; answers the start now in force.
     Trim(Trim, oneshot::Sender<Result<Offset, StorageError>>),
     /// Apply retention now; answers the start now in force and when retention could next take something.
-    Retain(Retention, TimestampMs, oneshot::Sender<Result<Retained, StorageError>>),
+    Retain(
+        Retention,
+        TimestampMs,
+        oneshot::Sender<Result<Retained, StorageError>>,
+    ),
     /// Plan a round of cleaning, if the log is due one; answers with the count of changes it was judged at.
     Clean(
         kafka_storage::compact::Params,

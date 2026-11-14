@@ -45,7 +45,10 @@ pub fn open_on_with(fs: SimFs, tweak: impl FnOnce(&mut Config)) -> Rig {
     let mut config = Config::new(DATA.into());
     tweak(&mut config);
     let broker = Broker::open(fs.clone(), config).unwrap();
-    Rig { fs, broker: broker.into() }
+    Rig {
+        fs,
+        broker: broker.into(),
+    }
 }
 
 pub fn at() -> Listener {
@@ -234,7 +237,10 @@ pub fn rig_limited(max_partitions: i32) -> Rig {
     let mut config = Config::new(DATA.into());
     config.max_partitions = max_partitions;
     let broker = Broker::open(fs.clone(), config).unwrap();
-    Rig { fs, broker: broker.into() }
+    Rig {
+        fs,
+        broker: broker.into(),
+    }
 }
 
 /// A broker with its configuration changed by `tweak`.
@@ -244,7 +250,10 @@ pub fn rig_with(tweak: impl FnOnce(&mut Config)) -> Rig {
     let mut config = Config::new(DATA.into());
     tweak(&mut config);
     let broker = Broker::open(fs.clone(), config).unwrap();
-    Rig { fs, broker: broker.into() }
+    Rig {
+        fs,
+        broker: broker.into(),
+    }
 }
 
 // (Explicit paths: this file is a test target of its own as well as a module of the others.)

@@ -29,7 +29,10 @@ fn now_keyed(key: &str, value: &str) -> bytes::Bytes {
     BatchBuilder::from_records(now, &[rec]).build()
 }
 
-fn with(name: &str, configs: &[(&str, &str)]) -> kafka_wire::messages::create_topics_request::CreatableTopic {
+fn with(
+    name: &str,
+    configs: &[(&str, &str)],
+) -> kafka_wire::messages::create_topics_request::CreatableTopic {
     let mut t = with_config(topic(name, 1), "segment.bytes", "1024");
     for (k, v) in configs {
         t = with_config(t, k, v);
@@ -95,7 +98,8 @@ async fn served(rig: &support::Rig, topic: &str) -> usize {
 }
 
 #[tokio::test]
-async fn a_partition_held_back_by_the_minimum_lag_is_left_alone_until_the_lag_has_passed_and_cleaned_then() {
+async fn a_partition_held_back_by_the_minimum_lag_is_left_alone_until_the_lag_has_passed_and_cleaned_then()
+ {
     let rig = rig();
     rig.create(
         vec![with(
@@ -112,7 +116,11 @@ async fn a_partition_held_back_by_the_minimum_lag_is_left_alone_until_the_lag_ha
     fill(&rig, "c", 60).await;
     let again = open_on(rig.fs.process_restart());
     again.broker.check_cleaner().await;
-    assert_eq!(again.broker.open_partitions(), 0, "looked at, too young, closed");
+    assert_eq!(
+        again.broker.open_partitions(),
+        0,
+        "looked at, too young, closed"
+    );
     let before = again.fs.ops();
     again.broker.check_cleaner().await;
     assert_eq!(again.fs.ops(), before, "not before the lag has passed");
@@ -124,7 +132,8 @@ async fn a_partition_held_back_by_the_minimum_lag_is_left_alone_until_the_lag_ha
 }
 
 #[tokio::test]
-async fn the_retention_sweep_closes_what_it_opened_and_leaves_a_partition_alone_until_something_in_it_can_expire() {
+async fn the_retention_sweep_closes_what_it_opened_and_leaves_a_partition_alone_until_something_in_it_can_expire()
+ {
     let rig = rig();
     rig.create(
         vec![
@@ -173,7 +182,11 @@ async fn the_retention_sweep_comes_back_when_the_oldest_segment_has_aged_out() {
     fill(&rig, "aged", 40).await;
     let again = open_on(rig.fs.process_restart());
     again.broker.check_logs().await;
-    assert_eq!(again.list_offset(7, "aged", 0, -2).await.offset, 0, "too young");
+    assert_eq!(
+        again.list_offset(7, "aged", 0, -2).await.offset,
+        0,
+        "too young"
+    );
     tokio::time::sleep(Duration::from_millis(700)).await;
     again.broker.check_logs().await;
     assert!(
@@ -183,13 +196,24 @@ async fn the_retention_sweep_comes_back_when_the_oldest_segment_has_aged_out() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_partition_nothing_asks_for_is_closed_after_five_quiet_minutes_and_opens_again_when_asked() {
+async fn a_partition_nothing_asks_for_is_closed_after_five_quiet_minutes_and_opens_again_when_asked()
+ {
     let rig = support::rig();
     let closer = rig.broker.start_partition_closer();
     rig.create(vec![topic("t", 2)], false).await;
-    assert_eq!(rig.produce(-1, "t", 0, support::records(3)).await.error_code, 0);
+    assert_eq!(
+        rig.produce(-1, "t", 0, support::records(3))
+            .await
+            .error_code,
+        0
+    );
     tokio::time::sleep(Duration::from_secs(60)).await;
-    assert_eq!(rig.produce(-1, "t", 1, support::records(2)).await.error_code, 0);
+    assert_eq!(
+        rig.produce(-1, "t", 1, support::records(2))
+            .await
+            .error_code,
+        0
+    );
     assert_eq!(rig.broker.open_partitions(), 2);
     // Partition 0 was last asked for a minute before partition 1: it goes first, five minutes after its last use.
     tokio::time::sleep(Duration::from_secs(239)).await;
@@ -197,13 +221,22 @@ async fn a_partition_nothing_asks_for_is_closed_after_five_quiet_minutes_and_ope
     tokio::time::sleep(Duration::from_secs(2)).await;
     assert_eq!(rig.broker.open_partitions(), 1, "partition 0 is closed");
     tokio::time::sleep(Duration::from_secs(60)).await;
-    assert_eq!(rig.broker.open_partitions(), 0, "and partition 1 a minute later");
+    assert_eq!(
+        rig.broker.open_partitions(),
+        0,
+        "and partition 1 a minute later"
+    );
     // With none open the closer waits for an open, not a timer: a day passes without it waking.
     let wakes = rig.broker.background_wakes();
     tokio::time::sleep(Duration::from_secs(24 * 3600)).await;
     assert_eq!(rig.broker.background_wakes(), wakes, "no wake while idle");
     // Asked for again: opened with what it held, and closed again after five more quiet minutes.
-    assert_eq!(rig.produce(-1, "t", 0, support::records(1)).await.base_offset, 3);
+    assert_eq!(
+        rig.produce(-1, "t", 0, support::records(1))
+            .await
+            .base_offset,
+        3
+    );
     assert_eq!(rig.broker.open_partitions(), 1);
     tokio::time::sleep(Duration::from_secs(301)).await;
     assert_eq!(rig.broker.open_partitions(), 0);
@@ -215,9 +248,19 @@ async fn a_partition_held_by_a_request_is_not_closed_however_quiet() {
     let rig = support::rig_with(|c| c.partition_idle_close = Duration::from_secs(10));
     let closer = rig.broker.start_partition_closer();
     rig.create(vec![topic("t", 1)], false).await;
-    assert_eq!(rig.produce(-1, "t", 0, support::records(3)).await.error_code, 0);
+    assert_eq!(
+        rig.produce(-1, "t", 0, support::records(3))
+            .await
+            .error_code,
+        0
+    );
     // A fetch that waits for data it does not have holds the partition while it waits.
-    let waiting = rig.fetch(support::fetch_request(&[("t", 0, 3, 1 << 20)], 60_000, 1, 1 << 20));
+    let waiting = rig.fetch(support::fetch_request(
+        &[("t", 0, 3, 1 << 20)],
+        60_000,
+        1,
+        1 << 20,
+    ));
     let watch = async {
         tokio::time::sleep(Duration::from_secs(30)).await;
         rig.broker.open_partitions()
@@ -225,12 +268,17 @@ async fn a_partition_held_by_a_request_is_not_closed_however_quiet() {
     let (_, open_while_held) = tokio::join!(waiting, watch);
     assert_eq!(open_while_held, 1, "held by the waiting fetch");
     tokio::time::sleep(Duration::from_secs(11)).await;
-    assert_eq!(rig.broker.open_partitions(), 0, "let go, then quiet: closed");
+    assert_eq!(
+        rig.broker.open_partitions(),
+        0,
+        "let go, then quiet: closed"
+    );
     closer.abort();
 }
 
 #[tokio::test]
-async fn the_transaction_coordinator_does_not_wake_with_nothing_to_do_and_aborts_a_timed_out_transaction_on_time() {
+async fn the_transaction_coordinator_does_not_wake_with_nothing_to_do_and_aborts_a_timed_out_transaction_on_time()
+ {
     let rig = support::rig();
     let coordinator = rig.broker.start_transactions();
     rig.create(vec![topic("t", 1)], false).await;
@@ -270,6 +318,10 @@ async fn the_transaction_coordinator_does_not_wake_with_nothing_to_do_and_aborts
         first + 1,
         "one wake: at the timeout, not every half second"
     );
-    assert_eq!(rig.end_txn("tx", t, true).await, 90, "the producer is fenced");
+    assert_eq!(
+        rig.end_txn("tx", t, true).await,
+        90,
+        "the producer is fenced"
+    );
     coordinator.abort();
 }

@@ -82,7 +82,10 @@ impl<F: Fs> Partitions<F> {
     /// Closes every open partition that nothing has asked for in `quiet` and that nothing holds (a fetch waiting on it, a
     /// request in the middle of using it), each flushed first. Says when the next of those still open will have been quiet
     /// that long, if any is open: the time to look again.
-    pub(crate) async fn close_quiet(&self, quiet: std::time::Duration) -> Option<tokio::time::Instant> {
+    pub(crate) async fn close_quiet(
+        &self,
+        quiet: std::time::Duration,
+    ) -> Option<tokio::time::Instant> {
         let now = tokio::time::Instant::now();
         let (victims, next) = {
             let mut registry = self.registry();

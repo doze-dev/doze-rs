@@ -197,7 +197,10 @@ fn the_next_step_is_the_first_moment_the_timeout_or_the_expiry_holds() {
     let open = rec(TxnState::Ongoing);
     let at = next_step_ms(&open, limit).unwrap();
     assert_eq!(at, 61_001);
-    assert!(!expired(&open, at - 1) && expired(&open, at), "exactly then");
+    assert!(
+        !expired(&open, at - 1) && expired(&open, at),
+        "exactly then"
+    );
     for state in [
         TxnState::Empty,
         TxnState::CompleteCommit,

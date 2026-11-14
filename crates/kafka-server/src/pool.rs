@@ -230,7 +230,8 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn the_shelves_are_freed_after_a_quiet_minute_and_the_trimmer_waits_for_nothing_while_they_are_empty() {
+    async fn the_shelves_are_freed_after_a_quiet_minute_and_the_trimmer_waits_for_nothing_while_they_are_empty()
+     {
         let pool = pool();
         let stop = CancellationToken::new();
         let trimmer = tokio::spawn(pool.trim_when_quiet(QUIET, stop.clone()));
@@ -240,7 +241,11 @@ mod tests {
         // Used again: the quiet minute starts over.
         drop(pool.share(pool.take(1 << 20)));
         tokio::time::sleep(QUIET - Duration::from_secs(1)).await;
-        assert_eq!(lock(&pool.shelves).kept, 1 << 20, "not quiet for a minute yet");
+        assert_eq!(
+            lock(&pool.shelves).kept,
+            1 << 20,
+            "not quiet for a minute yet"
+        );
         tokio::time::sleep(Duration::from_secs(2)).await;
         assert_eq!(lock(&pool.shelves).kept, 0, "freed");
         assert!(lock(&pool.shelves).classes.iter().all(Vec::is_empty));

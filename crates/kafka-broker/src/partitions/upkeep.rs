@@ -101,7 +101,10 @@ mod tests {
         assert!(u.skips(Chore::Clean, 1, 99));
         assert!(!u.skips(Chore::Clean, 1, 100), "its time has come");
         assert!(!u.skips(Chore::Clean, 2, 50), "other settings");
-        assert!(!u.skips(Chore::Retain, 1, 50), "another chore's verdict is its own");
+        assert!(
+            !u.skips(Chore::Retain, 1, 50),
+            "another chore's verdict is its own"
+        );
         u.changed();
         assert!(!u.skips(Chore::Clean, 1, 50), "written since");
         u.note(
@@ -112,6 +115,9 @@ mod tests {
                 at_ms: None,
             },
         );
-        assert!(u.skips(Chore::Retain, 7, i64::MAX), "never, until it changes");
+        assert!(
+            u.skips(Chore::Retain, 7, i64::MAX),
+            "never, until it changes"
+        );
     }
 }
