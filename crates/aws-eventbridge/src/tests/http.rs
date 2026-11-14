@@ -249,10 +249,41 @@ fn what_cannot_be_called_is_kept_and_skipped() {
     let put = w.put("default", "x", &json!({}));
     assert_eq!(put["FailedEntryCount"], 0);
     assert!(w.core.retries.is_empty());
-    // https needs a TLS client, which doze-aws does not carry.
-    w.ok("DeleteApiDestination", &json!({"Name": "d"}));
-    w.ok("DeleteConnection", &json!({"Name": "c"}));
-    wired(&mut w, &basic(), "https://example.test/hook", &json!({}));
+}
+
+#[test]
+fn an_https_destination_is_called_over_tls_and_an_untrusted_certificate_is_a_failed_connection() {
+    use aws_webhook::test_server::{Ca, Identity, ok, serve};
+    Ca::get().install();
+    let mut w = World::new();
+    let server = w.rt.block_on(serve(Ca::get().identity(), ok()));
+    wired(
+        &mut w,
+        &basic(),
+        &format!("https://localhost:{}/secure/*", server.port),
+        &json!({"HttpParameters": {"PathParameterValues": ["a b"]}}),
+    );
+    w.put("default", "x", &json!({"n": 2}));
+    let requests = w.rt.block_on(server.seen(1));
+    assert_eq!(requests.len(), 1);
+    assert!(
+        requests[0].starts_with("POST /secure/a%20b?q=2 HTTP/1.1\r\n"),
+        "{}",
+        requests[0]
+    );
+    assert!(requests[0].contains("Authorization: Basic YWRhOmh1bnRlcjI=\r\n"));
+    w.rt.block_on(async { tokio::time::sleep(std::time::Duration::from_millis(50)).await });
+    assert_eq!(w.core.calls.attempts().pop().unwrap().result, "200");
+
+    // A server whose certificate nothing trusts gets no request; the attempt fails as a connection does, and may pass.
+    let untrusted = w.rt.block_on(serve(Identity::self_signed(), ok()));
+    w.ok(
+        "UpdateApiDestination",
+        &json!({"Name": "d", "InvocationEndpoint": format!("https://localhost:{}/x", untrusted.port)}),
+    );
     w.put("default", "x", &json!({}));
-    assert!(w.core.retries.is_empty());
+    w.rt.block_on(async { tokio::time::sleep(std::time::Duration::from_millis(200)).await });
+    let last = w.core.calls.attempts().pop().unwrap();
+    assert_eq!((last.result.as_str(), last.retrying), ("ConnectionFailed", true));
+    assert!(w.rt.block_on(untrusted.seen(0)).is_empty());
 }

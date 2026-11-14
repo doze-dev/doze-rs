@@ -143,9 +143,9 @@ fn body(request: &str) -> Value {
     serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap()
 }
 
-#[tokio::test]
-async fn an_http_endpoint_confirms_through_its_subscribe_url_and_is_sent_notifications() {
-    let dir = std::env::temp_dir().join(format!("aws-sns-http-{}", std::process::id()));
+/// SNS behind a gateway on a free port.
+async fn sns(name: &str) -> (aws_gateway::Running, SocketAddr) {
+    let dir = std::env::temp_dir().join(format!("aws-sns-{name}-{}", std::process::id()));
     std::fs::remove_dir_all(&dir).ok();
     let ctx = Arc::new(Ctx {
         dir,
@@ -160,6 +160,12 @@ async fn an_http_endpoint_confirms_through_its_subscribe_url_and_is_sent_notific
         .await
         .unwrap();
     let addr = running.local_addr();
+    (running, addr)
+}
+
+#[tokio::test]
+async fn an_http_endpoint_confirms_through_its_subscribe_url_and_is_sent_notifications() {
+    let (_running, addr) = sns("http").await;
     let (port, seen) = endpoint().await;
 
     let created = query(addr, "Action=CreateTopic&Name=orders").await;
@@ -236,14 +242,47 @@ async fn an_http_endpoint_confirms_through_its_subscribe_url_and_is_sent_notific
         header(note, "x-amz-sns-message-id"),
         doc["MessageId"].as_str()
     );
+}
 
-    // https: kept, pending, never called.
-    let pending = query(
+#[tokio::test]
+async fn an_https_endpoint_is_confirmed_and_sent_notifications_and_a_self_signed_one_is_refused() {
+    use aws_webhook::test_server::{Ca, Identity, ok, serve};
+    Ca::get().install();
+    let (_running, addr) = sns("https").await;
+    let server = serve(Ca::get().identity(), ok()).await;
+    let created = query(addr, "Action=CreateTopic&Name=secure").await;
+    let topic = between(&created, "<TopicArn>", "</TopicArn>").to_owned();
+    let hook = format!("https://localhost:{}/secure", server.port);
+    let subscribed = query(
         addr,
-        &format!("Action=Subscribe&TopicArn={topic}&Protocol=https&Endpoint=https://127.0.0.1:{port}/secure"),
+        &format!("Action=Subscribe&TopicArn={topic}&Protocol=https&Endpoint={hook}"),
     )
     .await;
-    assert!(pending.contains("pending confirmation"));
-    tokio::time::sleep(Duration::from_millis(50)).await;
-    assert_eq!(seen.lock().unwrap().len(), 2);
+    assert!(subscribed.contains("pending confirmation"));
+    let got = server.seen(1).await;
+    assert_eq!(got.len(), 1, "the confirmation was POSTed over TLS");
+    assert_eq!(
+        header(&got[0], "x-amz-sns-message-type"),
+        Some("SubscriptionConfirmation")
+    );
+    let doc = body(&got[0]);
+    let url = doc["SubscribeURL"].as_str().unwrap();
+    let path = url.strip_prefix(&format!("http://{addr}")).unwrap();
+    let (status, confirmed) = http(addr, "GET", path, "", "").await;
+    assert_eq!(status, 200, "{confirmed}");
+    query(addr, &format!("Action=Publish&TopicArn={topic}&Message=sealed")).await;
+    let got = server.seen(2).await;
+    assert_eq!(body(&got[1])["Message"], "sealed");
+    assert!(got[1].starts_with("POST /secure HTTP/1.1\r\n"));
+
+    // A server with a self-signed certificate is never sent anything: the handshake is refused (the log names the flags).
+    let untrusted = serve(Identity::self_signed(), ok()).await;
+    let hook = format!("https://localhost:{}/x", untrusted.port);
+    query(
+        addr,
+        &format!("Action=Subscribe&TopicArn={topic}&Protocol=https&Endpoint={hook}"),
+    )
+    .await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(untrusted.seen(0).await.is_empty());
 }

@@ -1,4 +1,4 @@
-//! `http` subscriptions: the endpoint is sent a `SubscriptionConfirmation` when it subscribes, and once it has confirmed (by fetching
+//! `http` and `https` subscriptions: the endpoint is sent a `SubscriptionConfirmation` when it subscribes, and once it has confirmed (by fetching
 //! the `SubscribeURL`, or calling `ConfirmSubscription` with the token) every notification is POSTed to it, as AWS sends them: the
 //! headers `x-amz-sns-message-type`, `x-amz-sns-message-id`, `x-amz-sns-topic-arn` and (for a notification)
 //! `x-amz-sns-subscription-arn`, `Content-Type: text/plain; charset=UTF-8`, and the JSON document of the SNS Developer Guide's "HTTP/HTTPS
@@ -9,8 +9,10 @@
 //! 429 or a 5xx; AWS does not retry other client errors (memory)) is tried again under the delivery policy (the subscription's
 //! `DeliveryPolicy`, else the topic's effective one: three retries 20 s apart by default), and then dropped with a log line.
 //!
-//! **`https` endpoints are not called.** doze-aws carries no TLS client (the owner has not decided on one), so an `https` subscription
-//! is kept, stays pending confirmation, and the log says why.
+//! **`https` endpoints** are called over TLS (`aws-webhook`): the certificate must be one the machine trusts, as AWS requires a
+//! certificate from a trusted authority (memory). A local server with a self-signed certificate is refused, and the log names the
+//! flag that fixes it (`--ca-file` or `--insecure-outbound-tls`). An attempt waits at most 15 seconds for the endpoint (memory: the
+//! SNS guides do not give the figure).
 //!
 //! The `SubscribeURL` is `<endpoint>/_aws/sns/confirm?Action=ConfirmSubscription&TopicArn=…&Token=…`: AWS's query on a doze path (an
 //! unsigned request to `/` is S3's), answered by [`crate::Sns`] as a web address.
@@ -18,7 +20,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use aws_webhook::{Request, Sent};
+use aws_webhook::{Failure, Request};
 use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
 
@@ -29,6 +31,8 @@ use crate::model::Subscription;
 
 /// The path the `SubscribeURL` names.
 pub(crate) const CONFIRM_PATH: &str = "/_aws/sns/confirm";
+/// How long one attempt waits for the endpoint (memory).
+const ATTEMPT_TIMEOUT: Duration = Duration::from_secs(15);
 /// The most POSTs waiting or under way; past it a notification is dropped with a log line.
 const MAX_UNDER_WAY: usize = 10_000;
 
@@ -80,12 +84,8 @@ pub(crate) fn retry_waits(policy: &Value) -> Vec<u64> {
 }
 
 impl Core {
-    /// Sends a new `http` subscription its `SubscriptionConfirmation`; an `https` one is kept pending and the log says why.
+    /// Sends a new `http` or `https` subscription its `SubscriptionConfirmation`.
     pub(crate) fn ask_to_confirm(&self, sub: &Subscription, endpoint: &str) {
-        if sub.protocol == "https" {
-            tracing::warn!(subscription = %sub.arn, endpoint = %sub.endpoint, "SNS does not call https endpoints locally (doze-aws has no TLS client); the subscription stays pending confirmation");
-            return;
-        }
         let Some(token) = sub.token.as_deref() else {
             return;
         };
@@ -135,11 +135,8 @@ impl Core {
         );
     }
 
-    /// POSTs one notification to a confirmed `http` subscription.
+    /// POSTs one notification to a confirmed `http` or `https` subscription.
     pub(crate) fn to_endpoint(&self, p: &Published<'_>, sub: &Subscription) -> Result<(), String> {
-        if sub.protocol == "https" {
-            return Err("doze-aws has no TLS client, so https endpoints are not called".to_owned());
-        }
         let text = p.message.text_for("http");
         let mut headers = vec![
             (
@@ -216,25 +213,33 @@ impl Core {
 async fn send(post: Post) {
     let mut waits = post.retries.iter();
     loop {
-        let sent = aws_webhook::send(&Request {
-            method: "POST",
-            url: &post.url,
+        let sent = aws_webhook::fetch(&Request {
             headers: &post.headers,
-            body: &post.body,
+            body: post.body.as_bytes(),
+            timeout: ATTEMPT_TIMEOUT,
+            status_only: true,
+            ..Request::new("POST", &post.url)
         })
         .await;
         let why = match sent {
-            Sent::Status(s) if (200..300).contains(&s) => break,
-            Sent::Status(s) if s == 429 || s >= 500 => format!("{} answered {s}", post.url),
-            Sent::Status(s) => {
-                tracing::warn!("SNS {}: {} answered {s}; not retried", post.what, post.url);
+            Ok(a) if (200..300).contains(&a.status) => break,
+            Ok(a) if a.status == 429 || a.status >= 500 => {
+                format!("{} answered {}", post.url, a.status)
+            }
+            Ok(a) => {
+                tracing::warn!("SNS {}: {} answered {}; not retried", post.what, post.url, a.status);
                 break;
             }
-            Sent::Failed(why) => why,
-            Sent::Unsupported(why) => {
+            Err(Failure::Unsupported(why)) => {
                 tracing::warn!("SNS {}: {why}", post.what);
                 break;
             }
+            // A refused certificate is said at once, with its fix: it will not mend itself between retries.
+            Err(Failure::Tls(why)) => {
+                tracing::warn!("SNS {}: {why}", post.what);
+                why
+            }
+            Err(other) => other.to_string(),
         };
         let Some(wait) = waits.next() else {
             tracing::warn!(
