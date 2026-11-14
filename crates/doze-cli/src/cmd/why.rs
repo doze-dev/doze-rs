@@ -85,9 +85,7 @@ pub(crate) struct Said {
 
 impl Said {
     fn of(kind: &str, e: &Event, zone: &jiff::tz::TimeZone) -> Said {
-        let at = jiff::Timestamp::try_from(e.time)
-            .map(|t| t.to_zoned(zone.clone()).strftime("%H:%M:%S").to_string())
-            .unwrap_or_default();
+        let at = crate::clock::wall(&doze_control::Timestamp::from_system_time(e.time), zone);
         Said {
             at,
             kind: kind.to_owned(),

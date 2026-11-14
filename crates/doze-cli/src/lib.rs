@@ -6,6 +6,7 @@
 //! with buffers, a temporary doze home and a registry on disk, and `main` runs it on the real process.
 
 pub mod cli;
+pub mod clock;
 mod cmd;
 pub mod ctx;
 pub mod diag;
@@ -36,6 +37,7 @@ use notice::Notices;
 use output::Mode;
 use std::ffi::OsString;
 
+// fuzz:parser fuzz_argv
 /// Runs one command line (`argv[0]` is the program) and says how it ended.
 pub fn run(argv: Vec<OsString>, ctx: &mut Ctx<'_>) -> Exit {
     let asked_json = argv

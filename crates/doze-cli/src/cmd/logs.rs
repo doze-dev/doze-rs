@@ -217,27 +217,13 @@ impl Page {
     }
 
     fn clock(&self, t: &Timestamp) -> String {
-        t.unix_nanos()
-            .and_then(|n| jiff::Timestamp::from_nanosecond(n).ok())
-            .map(|ts| {
-                ts.to_zoned(self.zone.clone())
-                    .strftime("%H:%M:%S")
-                    .to_string()
-            })
-            .unwrap_or_else(|| "--:--:--".to_owned())
+        crate::clock::wall(t, &self.zone)
     }
 }
 
-/// This machine's time zone, as Go's `time.Local` reads it: `TZ` when set, the system's otherwise.
+/// This machine's time zone (`TZ`, read through the run's host).
 pub(crate) fn zone(ctx: &Ctx<'_>) -> jiff::tz::TimeZone {
-    use jiff::tz::TimeZone;
-    match ctx.var("TZ").as_deref().map(|z| z.trim_start_matches(':')) {
-        Some("UTC" | "UTC0" | "Etc/UTC") => TimeZone::UTC,
-        Some(name) => TimeZone::get(name)
-            .or_else(|_| TimeZone::posix(name))
-            .unwrap_or_else(|_| TimeZone::try_system().unwrap_or(TimeZone::UTC)),
-        None => TimeZone::try_system().unwrap_or(TimeZone::UTC),
-    }
+    crate::clock::zone(ctx.var("TZ").as_deref())
 }
 
 /// The lines read, and how to draw them.

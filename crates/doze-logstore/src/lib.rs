@@ -201,6 +201,7 @@ fn tail_segment(instance: &str, sg: &Segment, n: usize) -> io::Result<Vec<Line>>
     Ok(out)
 }
 
+// fuzz:parser fuzz_logline
 /// `<stamp> <stream> <text>`; a line whose stamp is not one is skipped, as Go skips it.
 pub fn parse_line(instance: &str, run: u32, raw: &[u8]) -> Option<Line> {
     let raw = String::from_utf8_lossy(raw);

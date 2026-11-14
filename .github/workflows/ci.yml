@@ -68,8 +68,8 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli --all-targets --features doze-control/test-support -- -D warnings
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli --no-fail-fast -- --nocapture
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-logstore --all-targets --features doze-control/test-support -- -D warnings
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-logstore --no-fail-fast -- --nocapture
 
   # Module acceptance (docs/port/modules/PLAN.md D12): each module boots the engine build doze-binaries publishes, on
   # every target the module declares. DOZE_ACCEPTANCE turns a missing build into a failure, so a skip cannot pass for a
@@ -382,6 +382,18 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_line
           cargo fuzz run fuzz_line corpus/fuzz_line seeds/fuzz_line -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the log store's line reader for 30 seconds
+        working-directory: crates/doze-logstore/fuzz
+        run: |
+          mkdir -p corpus/fuzz_logline
+          cargo fuzz run fuzz_logline corpus/fuzz_logline -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the CLI's command line and TZ for 30 seconds each
+        working-directory: crates/doze-cli/fuzz
+        run: |
+          for t in fuzz_argv fuzz_env; do
+            mkdir -p "corpus/$t"
+            cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=4096
+          done
       - name: Fuzz the words' parsers (cleaning, log levels, Go's float grammar) for 30 seconds each
         working-directory: crates/doze-display/fuzz
         run: |
