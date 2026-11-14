@@ -12,7 +12,7 @@ use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, Response, header};
 use http_body_util::BodyExt;
-use kafka_console::app::router;
+use kafka_console::app::console as router;
 use kafka_console::base::Base;
 use kafka_console::source::Source;
 use kafka_console::state::{Shared, State};
@@ -82,4 +82,12 @@ pub fn local_links(html: &str) -> Vec<String> {
         }
     }
     out
+}
+
+/// A GET as the React app's fetch client sends it (the API asks for `X-Console: 1`).
+pub fn api_get(path: &str) -> Request<Body> {
+    let mut req = get(path);
+    req.headers_mut()
+        .insert("x-console", header::HeaderValue::from_static("1"));
+    req
 }

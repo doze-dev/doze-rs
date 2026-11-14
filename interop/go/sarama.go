@@ -13,8 +13,7 @@ type sarama struct{ addr string }
 func (sarama) name() string { return "sarama" }
 
 func (s sarama) config(assignor string) *lib.Config {
-	cfg := lib.NewConfig()
-	cfg.Version = lib.V3_6_0_0
+	cfg := saramaConfig()
 	cfg.Producer.Return.Successes = true
 	cfg.Producer.RequiredAcks = lib.WaitForAll
 	cfg.Consumer.Offsets.Initial = lib.OffsetOldest

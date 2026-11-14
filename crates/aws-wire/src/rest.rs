@@ -79,4 +79,16 @@ pub trait RestService: Send + Sync {
         call: Call,
         upload: Option<Box<dyn Upload>>,
     ) -> BoxFuture<'_, Result<RestReply, ApiError>>;
+
+    /// The headers to add to the answer of a request a browser page made (it carries `Origin`) for `bucket`: S3's CORS headers.
+    /// Asked after the call, whether it succeeded or not; the default adds none.
+    fn cors<'a>(
+        &'a self,
+        _region: &'a str,
+        _bucket: &'a str,
+        _origin: &'a str,
+        _method: &'a str,
+    ) -> BoxFuture<'a, Vec<(String, String)>> {
+        Box::pin(async { Vec::new() })
+    }
 }

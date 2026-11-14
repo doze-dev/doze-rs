@@ -156,9 +156,13 @@ impl Lease {
         self.reg.claim_inner(name, Some(self.ip), true)
     }
 
-    /// Drops the claim.
+    /// Drops the claim, and its translated ports with it.
     pub fn release(&self) -> Result<(), Error> {
-        self.reg.release_key(&self.name.host)
+        self.reg.release_key(&self.name.host)?;
+        if self.translated() {
+            self.forget_ports()?;
+        }
+        Ok(())
     }
 
     /// The registry this lease is in.

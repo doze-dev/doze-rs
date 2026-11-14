@@ -243,3 +243,56 @@ fn mechanisms_without_a_user_are_refused_unless_a_stored_user_may_exist() {
 }
 
 mod more;
+
+#[test]
+fn the_consoles_own_name_is_refused_from_every_source_by_name_and_without_its_password() {
+    // The flag is checked in `tests.rs`; the users file and the environment variable are the other two ways in (SEC-240).
+    let dir = Scratch::new("reserved");
+    let ok = "good:fine-pw";
+    let bad = "__console:pw-planted";
+    for (what, flags, env) in [
+        (
+            "file",
+            vec![
+                "--sasl-users-file".to_owned(),
+                dir.file("u1", &format!("{ok}\n{bad}\n")),
+            ],
+            None,
+        ),
+        (
+            "file, first line",
+            vec![
+                "--sasl-users-file".to_owned(),
+                dir.file("u2", &format!("{bad}\n{ok}\n")),
+            ],
+            None,
+        ),
+        ("env", vec![], Some(format!("{ok},{bad}"))),
+        ("env, alone", vec![], Some(bad.to_owned())),
+        (
+            "file and env together, the name only in the env",
+            vec![
+                "--sasl-users-file".to_owned(),
+                dir.file("u3", &format!("{ok}\n")),
+            ],
+            Some(bad.to_owned()),
+        ),
+    ] {
+        let flags: Vec<&str> = MECHS
+            .iter()
+            .copied()
+            .chain(flags.iter().map(String::as_str))
+            .collect();
+        let said = settings(&flags, env.as_deref())
+            .err()
+            .unwrap_or_else(|| panic!("{what}: the console's own name was accepted as a login"));
+        assert!(
+            said.contains("the user name __console is reserved for the web console"),
+            "{what}: {said}"
+        );
+        assert!(!said.contains("planted"), "{what}: {said}");
+    }
+    // A name that only starts the same is an ordinary one, from either source.
+    let set = settings(&MECHS, Some("__console2:pw,__consol:pw")).unwrap();
+    assert_eq!(set.server.sasl.as_ref().unwrap().user_count(), 2);
+}

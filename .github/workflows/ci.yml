@@ -26,6 +26,11 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+      # The broker without the console (`--no-default-features`) and the console crate on its own: the two runs above build
+      # the default features only. The lean build is the Phase 8 broker with no HTTP in it (docs/port/weight.md, "lean").
+      - run: cargo clippy --no-default-features -p doze-kafka -p kafka-console --all-targets -- -D warnings
+      - run: cargo test -p kafka-console
+      - run: cargo test -p doze-kafka --no-default-features
       # The TLS feature: its unit tests, the loopback tests and the process test (a C compiler is on both runners).
       - run: cargo test -p kafka-server -p doze-kafka --features tls
       - run: cargo clippy -p kafka-server -p doze-kafka --all-targets --features tls -- -D warnings
@@ -43,6 +48,12 @@ jobs:
       # index, every test name it quotes a real `fn` (tools/check-security-catalogue.ts; bun is the only extra tool).
       - uses: oven-sh/setup-bun@v2
       - run: bun tools/check-security-catalogue.ts
+      # The same checks of the schema registry's catalogue (docs/port/behaviours/registry.md, REG-n).
+      - run: bun tools/check-registry-catalogue.ts
+      # The Phase 9 catalogue (docs/port/behaviours/console.md): each CON number defined once, none referenced without a
+      # definition, every test name it quotes a real `fn`; the lean tree has no HTTP and the default tree has the console
+      # (decision D1: `default = []` would take the console out and the size limits, being upper bounds, would not notice).
+      - run: bun tools/check-console-catalogue.ts --lean-tree --default-tree
       # Public docs build without broken links.
       - run: cargo doc --workspace --no-deps
         env:
@@ -71,6 +82,8 @@ jobs:
       - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-fetch -p doze-cli --no-fail-fast -- --nocapture
         env:
           DOZE_LIVE_REGISTRY: "1"
+      - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
+        run: cargo clippy -p doze-names --features netd --all-targets -- -D warnings && cargo test -p doze-names --features netd --no-fail-fast
 
   # Module acceptance (docs/port/modules/PLAN.md D12): each module boots the engine build doze-binaries publishes, on
   # every target the module declares. DOZE_ACCEPTANCE turns a missing build into a failure, so a skip cannot pass for a
@@ -126,13 +139,13 @@ jobs:
 
   # Weight is a feature (docs/port/weight.md): numbers may only rise with a written reason, so the limits (xtask/weight-limits.txt) sit a
   # little above the measured values and a change that crosses one has to move the limit and say why.
-  # The default build now includes the console (Phase 9, decision D1: the owner chose it). Limits are an ESTIMATE until the
-  # first CI run, derived from two measurements that agree (docs/port/weight.md, "Phase 9, slice 9a"): darwin arm64 5,521,456 B
-  # times the 1.216 ratio of Phase 7 (4,899,328 on ubuntu x86_64 over 4,029,504 on darwin), and the doze-ubuntu VM
-  # (aarch64 Linux, glibc) 5,971,376 B times about 1.12 for x86_64 code: both give about 6.7 MB. The limit is that plus
-  # about 5%. The first CI run replaces the estimate with a measurement and the reason is then rewritten.
-  # THE OWNER'S CEILING (2026-11-12): "anything less than 10 MB is fine". So the gate is 9 MB, not 7.1: the 2 MB above the
-  # estimate is room for the eight slices of pages still to come (Phase 9 b to i), and it is spent only with a reason in weight.md.
+  # The default build includes the console (Phase 9, decision D1: the owner chose it). The size limit is 7.8 MB, re-based by the
+  # weight pass of 2026-11-13 (weight.md, "Phase 9, weight pass"): fat LTO, the console and its HTTP stack at opt-level z, and the
+  # text assets embedded as gzip took the default build from 8,055,312 B to 5,797,328 B on darwin (6,626,840 B in the doze-ubuntu
+  # VM, aarch64 Linux). The ubuntu x86_64 estimate, from two measurements that agree to 5% (darwin times the 1.216 ratio of
+  # Phase 7: 7.05 MB; the VM times about 1.12: 7.42 MB), is 7.4 MB at most, and the limit is that plus about 5%. The owner's ceiling
+  # (2026-11-12, "anything less than 10 MB is fine") is 10 MB: the 2.2 MB between this limit and it is not spent. A rise needs a
+  # reason written in weight.md. The first CI run replaces the estimate with a measurement; the limit stays until a person lowers it.
   weight:
     runs-on: ubuntu-24.04
     steps:
@@ -141,10 +154,20 @@ jobs:
       # Builds release, measures size, packages and idle memory, and fails over the limits in xtask/weight-limits.txt
       # (the doze-kafka line is the console build; see the comment above).
       - run: cargo xtask weight
+      # D1: the console is in the default build. `default = []` would drop it, and every limit is only an upper bound.
+      - name: The default build contains the console
+        run: |
+          tree=$(cargo tree -p doze-kafka --prefix none --edges normal)
+          for name in axum hyper kafka-console; do
+            echo "$tree" | grep -q "^$name " || { echo "the default build lacks $name: the console is not in it"; exit 1; }
+          done
 
   # The broker without the console (`--no-default-features`): one cheap job so that the lean build, the one the Phase 8 limits
-  # described, cannot grow unnoticed. Phase 8 closed at 4,301,200 B on darwin and 4,660,632 B in the Linux VM; on ubuntu
-  # x86_64 that is about 5.23 MB (the 5.15 MB of the Phase 8 job was already under it by the darwin steps), plus 5% is 5.5 MB.
+  # described, cannot grow unnoticed. Re-based by the weight pass of 2026-11-13: 3,917,008 B on darwin and 4,398,512 B in the Linux
+  # VM (4,726,200 B there before the pass; the profile change reaches the lean build too); on ubuntu x86_64 that is 4.76 MB (darwin
+  # times 1.216) to 4.93 MB (the VM times 1.12), plus 5% is 5.2 MB. 127 packages in the VM (the 126 of this job was already one under).
+  # 2026-11-14 (owner decision): the size limit is CI's measurement on main that day, 5,263,296 B, exact; idle is the median of three
+  # starts (6,884 KB) plus 5%, 7,229 KB (weight.md).
   weight-lean:
     runs-on: ubuntu-24.04
     steps:
@@ -156,16 +179,22 @@ jobs:
           size=$(stat -c %s target/release/doze-kafka)
           crates=$(cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | sort -u | wc -l)
           dir=$(mktemp -d)
-          target/release/doze-kafka --listen 127.0.0.1:19092 --data-dir "$dir" &
-          pid=$!
-          sleep 3
-          rss=$(awk '/VmRSS/ {print $2}' /proc/$pid/status)
-          kill $pid
+          # Idle memory is the median of three fresh starts: one sample moved by hundreds of KB between runs (weight.md, 2026-11-14).
+          samples=""
+          for i in 1 2 3; do
+            target/release/doze-kafka --listen 127.0.0.1:19092 --data-dir "$dir/$i" &
+            pid=$!
+            sleep 3
+            samples="$samples $(awk '/VmRSS/ {print $2}' /proc/$pid/status)"
+            kill $pid; wait $pid || true
+          done
+          echo "idle samples:$samples KB"
+          rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "binary $size B, $crates packages, idle $rss KB"
-          [ "$size" -le 5500000 ] || { echo "lean binary over 5.5 MB"; exit 1; }
-          [ "$crates" -le 126 ] || { echo "more than 126 packages in the lean build"; exit 1; }
-          [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB in the lean build"; exit 1; }
-          ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|maud|hyper) " || { echo "the lean build contains the console"; exit 1; }
+          [ "$size" -le 5263296 ] || { echo "lean binary over 5,263,296 B"; exit 1; }
+          [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
+          [ "$rss" -le 7229 ] || { echo "idle resident memory over 7,229 KB in the lean build"; exit 1; }
+          ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }
 
   # The same measurements for the optional TLS build (docs/port/weight.md, Phase 8 slice 8e). Building it needs a C compiler
   # and an assembler (ring); ubuntu has gcc. The default build above is not affected by the feature and keeps its gates.
@@ -182,19 +211,52 @@ jobs:
           dir=$(mktemp -d)
           openssl ecparam -name prime256v1 -genkey -noout -out "$dir/key.pem"
           openssl req -x509 -new -sha256 -key "$dir/key.pem" -out "$dir/cert.pem" -days 2 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
-          target/release/doze-kafka --listen 127.0.0.1:19092 --data-dir "$dir/data" --tls-cert "$dir/cert.pem" --tls-key "$dir/key.pem" &
-          pid=$!
-          sleep 3
-          rss=$(awk '/VmRSS/ {print $2}' /proc/$pid/status)
-          kill $pid
+          # Idle memory is the median of three fresh starts (weight.md, 2026-11-14).
+          samples=""
+          for i in 1 2 3; do
+            target/release/doze-kafka --listen 127.0.0.1:19092 --data-dir "$dir/data$i" --tls-cert "$dir/cert.pem" --tls-key "$dir/key.pem" &
+            pid=$!
+            sleep 3
+            samples="$samples $(awk '/VmRSS/ {print $2}' /proc/$pid/status)"
+            kill $pid; wait $pid || true
+          done
+          echo "idle samples:$samples KB"
+          rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "binary $size B, $crates packages, idle $rss KB"
-          # The feature adds 838,928 B on macOS arm64; the default build (with the console) is estimated at 6.7 MB on ubuntu x86_64
-          # (the job above), ring's x86_64 code being larger the step is taken as 0.9 MB: 6.7 + 0.9 = 7.6 MB, and 5 percent above
-          # is 7.98, rounded up to 8,200,000 (an estimate until the first CI run, as above).
-          [ "$size" -le 10000000 ] || { echo "tls binary over 10 MB (the owner's ceiling)"; exit 1; }
-          # 150 for the default build with the console, plus the 11 lines the feature adds, plus 4.
-          [ "$crates" -le 165 ] || { echo "more than 165 packages with tls"; exit 1; }
-          [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB with tls"; exit 1; }
+          # The feature adds 794,688 B on macOS arm64 (6,592,016 B against 5,797,328 B; 838,928 B before the weight pass), taken as
+          # 0.9 MB on x86_64 (ring's code is larger there): the default build (the job above) is estimated at 7.4 MB at most, so about
+          # 8.3 MB, and the limit is that plus 5%, rounded: 8.75 MB. It was 10 MB, the owner's ceiling of 2026-11-12 ("anything less
+          # than 10 MB is fine"), while the estimate was 7.6 MB; the weight pass of 2026-11-13 (weight.md) lets the limit follow the
+          # estimate again, and the ceiling stands 1.25 MB above it.
+          # 2026-11-14 (owner decision): the size limit is CI's measurement on main that day, exact; idle is the median of three starts
+          # (10,104 KB) plus 5%, 10,610 KB
+          # (weight.md, "Limits raised to the measured values").
+          # 2026-11-14 (owner decision: "Raise the ceiling" for the TLS build, which the module face and the schema registry took over
+          # 10 MB): 7,586,144 B on darwin with both, times CI's measured 1.36, is 10,317,156 B on ubuntu x86_64; the limit is that plus 5%
+          # until the next CI run on main measures it. Packages: 183 locally, plus CI's usual 3 more lines.
+          [ "$size" -le 10833014 ] || { echo "tls binary over 10,833,014 B"; exit 1; }
+          [ "$crates" -le 186 ] || { echo "more than 186 packages with tls"; exit 1; }
+          [ "$rss" -le 10610 ] || { echo "idle resident memory over 10,610 KB with tls"; exit 1; }
+
+  # The React console (web/, docs/port/console/react-plan.md): its built bundle is committed in crates/kafka-console/web-dist
+  # so that `cargo build` needs no bun. This rebuilds it from the locked dependencies and fails if the result differs from what
+  # is committed, then runs the type check, the lint and the unit tests. The Playwright gate (web/e2e) is a local gate: it needs
+  # three browsers and the release binary (web/README.md).
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: bun install --frozen-lockfile
+        working-directory: web
+      - run: bun run build
+        working-directory: web
+      - name: The committed bundle is the one the sources build
+        run: git diff --exit-code --stat -- crates/kafka-console/web-dist web/src/api/types
+      - run: bun run typecheck && bun run lint && bun test
+        working-directory: web
 
   # deny.toml sets `all-features = true`, so this checks the `tls` feature's crates (ring, rustls) too.
   supply-chain:
@@ -262,6 +324,13 @@ jobs:
         run: |
           mkdir -p corpus/acl_filter
           cargo fuzz run acl_filter corpus/acl_filter seeds/acl_filter -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the schema registry (ordered JSON, Avro schemas, the REST API, the wire header) for 30 seconds each
+        working-directory: crates/kafka-registry/fuzz
+        run: |
+          for t in json_node avro_schema registry_api wire; do
+            mkdir -p "corpus/$t"
+            cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=65536
+          done
       - name: Fuzz the allowed-hosts guard for 30 seconds
         working-directory: crates/kafka-auth/fuzz
         run: |
@@ -273,6 +342,13 @@ jobs:
           for target in scram_first scram_final; do
             mkdir -p "corpus/$target"
             cargo fuzz run "$target" "corpus/$target" "seeds/$target" -- -max_total_time=30 -max_len=524288
+          done
+      - name: Fuzz the console's same-origin rule and form decoder for 30 seconds
+        working-directory: crates/kafka-console/fuzz
+        run: |
+          for target in origin form; do
+            mkdir -p "corpus/$target"
+            cargo fuzz run "$target" "corpus/$target" "seeds/$target" -- -max_total_time=30 -max_len=4096
           done
       - name: Fuzz recovery for 30 seconds
         working-directory: crates/kafka-storage/fuzz

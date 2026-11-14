@@ -1,5 +1,5 @@
 //! Function URLs: an HTTP request to `<id>.lambda-url.<region>.<host>` (or to `/_aws/lambda-url/<region>/<id>/` for a client that
-//! cannot set a host) becomes the payload-format-2.0 event, the function runs, and its answer is turned back into an HTTP response
+//! cannot set a host, or to the Go edition's `/_aws/lambda-url/<id>/`, whose region is found from the id) becomes the payload-format-2.0 event, the function runs, and its answer is turned back into an HTTP response
 //! by AWS's rule: an object with a `statusCode` is the response, anything else is the body of a 200.
 //!
 //! A function URL with `AuthType` `AWS_IAM` refuses a request that carries no signature when IAM is enforcing; a signed request is
@@ -54,13 +54,24 @@ async fn download(inner: &Inner, path: &str) -> WebReply {
     }
 }
 
-/// The region and URL id a request is for.
+/// Whether a path segment is a region (`us-east-1`) and not a URL id (32 letters and digits, no dash).
+fn is_region(segment: &str) -> bool {
+    segment.contains('-') && segment.ends_with(|c: char| c.is_ascii_digit())
+}
+
+/// The region and URL id a request is for. The Go edition's path form, `/_aws/lambda-url/<id>/…`, names no region (empty here): the
+/// region is the one whose functions have the id.
 fn target(host: &str, path: &str) -> Option<(String, String, String)> {
     if let Some(rest) = path.strip_prefix(PATH_PREFIX) {
         let mut parts = rest.splitn(3, '/');
-        let (region, id) = (parts.next()?, parts.next()?);
+        let first = parts.next()?;
+        if !is_region(first) {
+            let tail = rest.split_once('/').map_or("", |(_, t)| t);
+            return Some((String::new(), first.to_owned(), format!("/{tail}")));
+        }
+        let id = parts.next()?;
         return Some((
-            region.to_owned(),
+            first.to_owned(),
             id.to_owned(),
             format!("/{}", parts.next().unwrap_or_default()),
         ));
@@ -94,9 +105,8 @@ pub(crate) async fn serve(inner: Arc<Inner>, req: WebRequest) -> WebReply {
     let Some((region, id, path)) = target(&req.host, &req.path) else {
         return plain(404, "Not Found");
     };
-    let found = match inner.ask(&region, Ask::Url(id.clone())).await {
-        Ok(Answer::Value(Some(v))) => v,
-        _ => return plain(404, "Not Found"),
+    let Some((region, found)) = find_url(&inner, &region, &id).await else {
+        return plain(404, "Not Found");
     };
     let text = |k: &str| {
         found
@@ -135,6 +145,31 @@ pub(crate) async fn serve(inner: Arc<Inner>, req: WebRequest) -> WebReply {
         );
     }
     reply
+}
+
+/// The URL record of `id` in `region`, or, with no region, in the first region that has Lambda state and the id.
+async fn find_url(inner: &Inner, region: &str, id: &str) -> Option<(String, Value)> {
+    let regions = if region.is_empty() {
+        let mut all = vec![crate::HOME_REGION.to_owned()];
+        for e in std::fs::read_dir(inner.dir.join("regions"))
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            if let Some(name) = e.file_name().to_str().filter(|n| is_region(n)) {
+                all.push(name.to_owned());
+            }
+        }
+        all
+    } else {
+        vec![region.to_owned()]
+    };
+    for r in regions {
+        if let Ok(Answer::Value(Some(v))) = inner.ask(&r, Ask::Url(id.to_owned())).await {
+            return Some((r, v));
+        }
+    }
+    None
 }
 
 /// Runs the function a URL belongs to for the request, and turns its answer into the response.
@@ -373,6 +408,16 @@ mod tests {
         assert_eq!(
             target("127.0.0.1:4566", "/_aws/lambda-url/us-east-1/abc/orders"),
             Some(("us-east-1".into(), "abc".into(), "/orders".into()))
+        );
+        // The Go edition's form names no region.
+        let id = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4";
+        assert_eq!(
+            target("127.0.0.1:4566", &format!("/_aws/lambda-url/{id}/orders/7")),
+            Some((String::new(), id.into(), "/orders/7".into()))
+        );
+        assert_eq!(
+            target("127.0.0.1:4566", &format!("/_aws/lambda-url/{id}")),
+            Some((String::new(), id.into(), "/".into()))
         );
     }
 

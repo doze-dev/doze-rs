@@ -37,6 +37,9 @@ impl Server {
             broker,
             timeouts: config.timeouts,
             auth: config.sasl,
+            observer: config.observer,
+            fault: config.fault,
+            numbers: crate::connections::Numbers::default(),
         });
         #[cfg(feature = "tls")]
         let tls = config.tls.as_ref().map(crate::TlsConfig::acceptor);
@@ -63,6 +66,7 @@ fn features<F: Fs>(config: &Config, broker: &Broker<F>) -> Features {
     let served = broker.served();
     Features {
         sasl,
+        telemetry: broker.client_telemetry(),
         served: if sasl {
             served
                 .with(ApiKey::SaslHandshake)
@@ -70,7 +74,6 @@ fn features<F: Fs>(config: &Config, broker: &Broker<F>) -> Features {
         } else {
             served
         },
-        ..Features::default()
     }
 }
 

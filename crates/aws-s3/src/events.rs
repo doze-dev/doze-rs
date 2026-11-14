@@ -1,8 +1,8 @@
 //! Event notifications: what a bucket sends when objects are created, removed or tagged. A call notes its events as it changes
-//! things; once the change is on disk they are matched against the bucket's notification configuration and delivered. Queues are
-//! delivered to through the peer bus, and so is the default event bus when the configuration asks for it (`eventbridge.rs`); topics
-//! and Lambda functions are the hooks marked below, filled in when those services exist (the configuration for them is already stored
-//! and returned as sent).
+//! things; once the change is on disk they are matched against the bucket's notification configuration and delivered through the
+//! peer bus, as S3: a queue gets the event record as a message, a topic gets it published with the subject AWS uses, a Lambda
+//! function is invoked asynchronously with it (the bucket's ARN as `SourceArn`), and the default event bus gets it when the
+//! configuration asks for it (`eventbridge.rs`). A destination that is gone does not fail the request that caused the event.
 
 use aws_core::time::format_iso8601;
 use aws_wire::service::Caller;
@@ -229,10 +229,8 @@ impl Core {
                 let id = entry.get("Id").and_then(Value::as_str).unwrap_or_default();
                 match list {
                     "QueueConfigurations" => self.to_queue(event, arn, id).await,
-                    // Hook for SNS (stage A8): publish `event.body(id)` to the topic `arn`.
-                    "TopicConfigurations" => {}
-                    // Hook for Lambda (stage A13): invoke the function `arn` asynchronously with `event.body(id)`.
-                    _ => {}
+                    "TopicConfigurations" => self.to_topic(event, arn, id).await,
+                    _ => self.to_function(event, arn, id).await,
                 }
             }
         }
@@ -240,6 +238,33 @@ impl Core {
         if config.get("EventBridgeConfiguration").is_some() {
             self.to_eventbridge(event).await;
         }
+    }
+
+    /// Publishes the event record to a topic, with the subject S3 gives its notifications ((memory)).
+    async fn to_topic(&self, event: &Event, arn: &str, config_id: &str) {
+        let Some(peers) = &self.peers else { return };
+        let body = json!({"TopicArn": arn, "Subject": "Amazon S3 Notification", "Message": event.body(config_id).to_string()});
+        // WHY: the topic may have been deleted since the configuration was put; S3 does not fail the request that caused the event.
+        peers
+            .call("s3", &event.caller, "sns", "Publish", &body)
+            .await
+            .ok();
+    }
+
+    /// Invokes a function asynchronously with the event record, the bucket's ARN as the source.
+    async fn to_function(&self, event: &Event, arn: &str, config_id: &str) {
+        let Some(peers) = &self.peers else { return };
+        let body = json!({
+            "FunctionName": arn,
+            "InvocationType": "Event",
+            "Payload": aws_core::base64::encode(event.body(config_id).to_string().as_bytes()),
+            "SourceArn": format!("arn:aws:s3:::{}", event.bucket),
+        });
+        // WHY: as for a queue, a function that is gone does not fail the request that caused the event.
+        peers
+            .call_rest("s3", &event.caller, "lambda", "Invoke", &body)
+            .await
+            .ok();
     }
 
     async fn to_queue(&self, event: &Event, arn: &str, config_id: &str) {

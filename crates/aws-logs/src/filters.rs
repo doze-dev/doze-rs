@@ -1,5 +1,5 @@
-//! Metric filters (they turn matching events into CloudWatch data points) and subscription filters (stored and returned; nothing is
-//! delivered to their destinations).
+//! Metric filters (they turn matching events into CloudWatch data points) and subscription filters (they forward matching events to a
+//! Lambda function or a Kinesis stream: `forward.rs`).
 
 use aws_wire::ApiError;
 use serde_json::{Value, json};
@@ -177,6 +177,15 @@ impl Core {
         } else {
             g.subscriptions.push(filter);
         }
+        let (group, group_arn) = (g.name.clone(), g.arn(r.region(), r.account()));
+        let origin = crate::forward::Origin {
+            owner: r.account(),
+            group: &group,
+            stream: "",
+            group_arn: &group_arn,
+        };
+        let now = self.now_ms();
+        self.queue_control(&origin, r.s("destinationArn"), now);
         Ok(json!({}))
     }
 

@@ -69,6 +69,19 @@ fn wired(w: &mut World, auth: &Value, endpoint: &str, target_extra: &Value) -> S
     dest["ApiDestinationArn"].as_str().unwrap().to_owned()
 }
 
+/// Runs the runtime until no API destination call is under way and `seen` has `n` requests (the calls are made off the actor).
+fn settle(w: &World, seen: &Arc<Mutex<Vec<String>>>, n: usize) {
+    w.rt.block_on(async {
+        for _ in 0..500 {
+            if w.core.calls.under_way() == 0 && seen.lock().unwrap().len() >= n {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        panic!("the API destination calls did not settle");
+    });
+}
+
 fn basic() -> Value {
     json!({"type": "BASIC", "params": {"BasicAuthParameters": {"Username": "ada", "Password": "hunter2"},
         "InvocationHttpParameters": {"HeaderParameters": [{"Key": "X-Conn", "Value": "from-connection"}],
@@ -87,6 +100,7 @@ fn the_request_carries_the_path_the_headers_the_query_the_credentials_and_the_ev
         &extra,
     );
     w.put("default", "x", &json!({"n": 1}));
+    settle(&w, &seen, 1);
     let requests = seen.lock().unwrap().clone();
     assert_eq!(requests.len(), 1);
     let request = &requests[0];
@@ -125,6 +139,7 @@ fn an_api_key_is_a_header_and_a_get_has_no_body() {
         &json!({"Name": "d", "HttpMethod": "GET"}),
     );
     w.put("default", "x", &json!({}));
+    settle(&w, &seen, 1);
     let requests = seen.lock().unwrap().clone();
     assert!(requests[0].starts_with("GET /ping HTTP/1.1\r\n"));
     assert!(requests[0].contains("x-api-key: s3cret\r\n"));
@@ -142,24 +157,87 @@ fn a_server_error_is_retried_and_a_refusal_is_not() {
         &format!("http://127.0.0.1:{port}/x"),
         &json!({}),
     );
+    // One retry allowed: the call is made twice, a second apart, by the task and not the actor.
+    let arn = w.ok("DescribeApiDestination", &json!({"Name": "d"}))["ApiDestinationArn"].clone();
+    w.ok(
+        "PutTargets",
+        &json!({"Rule": "r", "Targets": [{"Id": "t", "Arn": arn, "RetryPolicy": {"MaximumRetryAttempts": 1}}]}),
+    );
     w.put("default", "x", &json!({}));
-    assert_eq!(seen.lock().unwrap().len(), 1);
-    assert_eq!(w.core.retries.len(), 1, "a 503 may pass");
-    let (port, _) = server(&w, 403);
+    settle(&w, &seen, 2);
+    let tries: Vec<(u32, String, bool)> = w
+        .core
+        .calls
+        .attempts()
+        .into_iter()
+        .map(|a| (a.try_number, a.result, a.retrying))
+        .collect();
+    assert_eq!(
+        tries,
+        [
+            (1, "HTTP503".to_owned(), true),
+            (2, "HTTP503".to_owned(), false)
+        ],
+        "a 503 may pass, once"
+    );
+    assert!(
+        w.core.retries.is_empty(),
+        "the actor holds no retry of its own"
+    );
+    let (port, refused) = server(&w, 403);
     w.ok(
         "UpdateApiDestination",
         &json!({"Name": "d", "InvocationEndpoint": format!("http://127.0.0.1:{port}/x")}),
     );
-    w.core.retries.clear();
     w.put("default", "x", &json!({}));
-    assert!(w.core.retries.is_empty(), "a 403 will not");
+    settle(&w, &refused, 1);
+    let last = w.core.calls.attempts().pop().unwrap();
+    assert_eq!(
+        (last.result.as_str(), last.retrying),
+        ("HTTP403", false),
+        "a 403 will not"
+    );
     // Nothing listening is a failure that may pass.
     w.ok(
         "UpdateApiDestination",
         &json!({"Name": "d", "InvocationEndpoint": "http://127.0.0.1:1/x"}),
     );
     w.put("default", "x", &json!({}));
-    assert_eq!(w.core.retries.len(), 1);
+    w.rt.block_on(async { tokio::time::sleep(std::time::Duration::from_millis(100)).await });
+    let last = w.core.calls.attempts().pop().unwrap();
+    assert_eq!(
+        (last.result.as_str(), last.retrying),
+        ("ConnectionFailed", true)
+    );
+}
+
+#[test]
+fn a_slow_endpoint_does_not_hold_the_region() {
+    let mut w = World::new();
+    // A server that takes the connection and never answers.
+    let listener = w.rt.block_on(TcpListener::bind("127.0.0.1:0")).unwrap();
+    let port = listener.local_addr().unwrap().port();
+    w.rt.spawn(async move {
+        let mut held = Vec::new();
+        while let Ok((s, _)) = listener.accept().await {
+            held.push(s);
+        }
+    });
+    wired(
+        &mut w,
+        &basic(),
+        &format!("http://127.0.0.1:{port}/slow"),
+        &json!({}),
+    );
+    let started = std::time::Instant::now();
+    let put = w.put("default", "x", &json!({}));
+    assert_eq!(put["FailedEntryCount"], 0);
+    w.ok("ListRules", &json!({}));
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(1),
+        "the actor answered while the call waits"
+    );
+    assert_eq!(w.core.calls.under_way(), 1);
 }
 
 #[test]

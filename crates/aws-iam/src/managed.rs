@@ -1,11 +1,13 @@
 //! Managed policies and their versions.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use aws_iam_policy::Kind as Doc;
 use aws_wire::ApiError;
 use serde_json::{Value, json};
 
+use crate::awsmanaged;
 use crate::core::Core;
 use crate::entity::{arn_of, new_id};
 use crate::errors::{conflict, limit, malformed, no_such_policy};
@@ -15,56 +17,90 @@ use crate::view;
 
 const MAX_VERSIONS: usize = 5;
 const AWS_PREFIX: &str = "arn:aws:iam::aws:policy/";
+/// What an AWS-managed policy held before its document was made from its name: it is filled in when the store is opened.
 const EMPTY_DOCUMENT: &str = r#"{"Version":"2012-10-17","Statement":[]}"#;
-/// The one AWS-managed policy whose document is the same everywhere and known without asking AWS.
-const ADMINISTRATOR: &str =
-    r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*"}]}"#;
+/// The create date an AWS-managed policy shows (memory: AWS's first managed policies date from 2015-02-06).
+const AWS_MANAGED_CREATED_MS: i64 = 1_423_247_986_000;
+
+/// The AWS-managed policy `arn` names, made from its name; `None` when it is not an AWS-managed ARN or the name is not one
+/// [`awsmanaged`] knows.
+fn aws_managed(arn: &str) -> Option<Managed> {
+    let rest = arn.strip_prefix(AWS_PREFIX)?;
+    let (path, name) = rest
+        .rsplit_once('/')
+        .map_or(("/".to_owned(), rest), |(p, n)| (format!("/{p}/"), n));
+    let document = awsmanaged::document(name)?;
+    Some(Managed {
+        arn: arn.to_owned(),
+        name: name.to_owned(),
+        path,
+        id: awsmanaged::stable_id(name),
+        description: None,
+        created_ms: AWS_MANAGED_CREATED_MS,
+        updated_ms: AWS_MANAGED_CREATED_MS,
+        versions: vec![Version {
+            id: "v1".into(),
+            document,
+            created_ms: AWS_MANAGED_CREATED_MS,
+        }],
+        default: "v1".into(),
+        next_version: 2,
+        tags: BTreeMap::new(),
+        aws_managed: true,
+    })
+}
 
 impl Core {
-    /// The policy `arn` names. An AWS-managed policy (`arn:aws:iam::aws:policy/...`) is made the first time it is named. Only
-    /// `AdministratorAccess` has its document; the rest are empty, since doze-aws does not carry AWS's documents yet (they are to be
-    /// recorded from the AWS account): such a policy attaches and lists but allows nothing, which enforce mode would show as a
-    /// refusal that AWS would not make.
+    /// The policy `arn` names. An AWS-managed policy (`arn:aws:iam::aws:policy/...`) is kept the first time it is attached, with
+    /// the document [`awsmanaged`] makes from its name; a name it does not know is `NoSuchEntity`, worded as for an absent
+    /// policy of the account's (memory: the AWS-managed case is not recorded).
     pub(crate) fn known_policy(&mut self, arn: &str) -> Result<(), ApiError> {
         if self.policies.get(arn).is_some() {
             return Ok(());
         }
-        let Some(rest) = arn.strip_prefix(AWS_PREFIX) else {
-            return Err(no_such_policy(arn));
-        };
-        let (path, name) = rest
-            .rsplit_once('/')
-            .map_or(("/".to_owned(), rest), |(p, n)| (format!("/{p}/"), n));
-        let now = self.now_ms();
-        let p = Managed {
-            arn: arn.to_owned(),
-            name: name.to_owned(),
-            path,
-            id: new_id("ANPA")?,
-            description: None,
-            created_ms: now,
-            updated_ms: now,
-            versions: vec![Version {
-                id: "v1".into(),
-                document: if name == "AdministratorAccess" {
-                    ADMINISTRATOR
-                } else {
-                    EMPTY_DOCUMENT
-                }
-                .into(),
-                created_ms: now,
-            }],
-            default: "v1".into(),
-            next_version: 2,
-            tags: BTreeMap::new(),
-            aws_managed: true,
-        };
+        let p = aws_managed(arn).ok_or_else(|| no_such_policy(arn))?;
         self.policies.insert(arn.to_owned(), p);
         Ok(())
     }
 
+    /// An AWS-managed policy kept before its document was made from its name holds an empty one: it is given its document here,
+    /// once, when the store is opened.
+    pub(crate) fn fill_aws_managed(&mut self) {
+        let stale: Vec<String> = self
+            .policies
+            .iter()
+            .filter(|(_, p)| {
+                p.aws_managed
+                    && p.versions.len() == 1
+                    && p.versions
+                        .first()
+                        .is_some_and(|v| v.document == EMPTY_DOCUMENT)
+            })
+            .map(|(k, _)| k.to_owned())
+            .collect();
+        for arn in stale {
+            let made = aws_managed(&arn).and_then(|m| m.versions.into_iter().next());
+            if let (Some(made), Some(p)) = (made, self.policies.get_mut(&arn))
+                && let Some(v) = p.versions.first_mut()
+            {
+                v.document = made.document;
+            }
+        }
+    }
+
     fn policy_named(&self, arn: &str) -> Result<&Managed, ApiError> {
         self.policies.get(arn).ok_or_else(|| no_such_policy(arn))
+    }
+
+    /// A policy to read: one the account holds, or an AWS-managed one named but never attached (AWS's exist whether or not this
+    /// account has used them).
+    fn policy_to_read(&self, arn: &str) -> Result<Cow<'_, Managed>, ApiError> {
+        if let Some(p) = self.policies.get(arn) {
+            return Ok(Cow::Borrowed(p));
+        }
+        aws_managed(arn)
+            .map(Cow::Owned)
+            .ok_or_else(|| no_such_policy(arn))
     }
 
     /// How many entities have the policy attached, and how many use it as a boundary.
@@ -120,9 +156,9 @@ impl Core {
     }
 
     pub(crate) fn get_policy(&self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let p = self.policy_named(r.s("PolicyArn"))?;
+        let p = self.policy_to_read(r.s("PolicyArn"))?;
         let (attached, bounded) = self.uses(&p.arn);
-        Ok(json!({"Policy": view::policy(p, attached, bounded, true)}))
+        Ok(json!({"Policy": view::policy(&p, attached, bounded, true)}))
     }
 
     pub(crate) fn delete_policy(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
@@ -196,7 +232,7 @@ impl Core {
     }
 
     pub(crate) fn get_policy_version(&self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let p = self.policy_named(r.s("PolicyArn"))?;
+        let p = self.policy_to_read(r.s("PolicyArn"))?;
         let v = p
             .versions
             .iter()
@@ -208,7 +244,7 @@ impl Core {
     }
 
     pub(crate) fn list_policy_versions(&self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let p = self.policy_named(r.s("PolicyArn"))?;
+        let p = self.policy_to_read(r.s("PolicyArn"))?;
         let items = p
             .versions
             .iter()
@@ -269,7 +305,7 @@ impl Core {
     }
 
     pub(crate) fn list_policy_tags(&self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let p = self.policy_named(r.s("PolicyArn"))?;
+        let p = self.policy_to_read(r.s("PolicyArn"))?;
         let Value::Array(items) = tag_list(p.tags.iter()) else {
             return Ok(Value::Null);
         };
@@ -278,7 +314,7 @@ impl Core {
 
     pub(crate) fn list_entities_for_policy(&self, r: &Req<'_>) -> Result<Value, ApiError> {
         let arn = r.s("PolicyArn");
-        self.policy_named(arn)?;
+        self.policy_to_read(arn)?;
         let filter = r.opt("EntityFilter");
         let mut users = Vec::new();
         let mut groups = Vec::new();

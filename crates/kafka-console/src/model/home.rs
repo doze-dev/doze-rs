@@ -3,7 +3,9 @@
 use super::{Access, ProbeView};
 
 /// Which Home the data calls for.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum HomeState {
     /// Something is running and nothing needs anyone.
     Steady,
@@ -14,7 +16,8 @@ pub enum HomeState {
 }
 
 /// The one condition Home draws as needing someone: a transaction near its timeout.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Attention {
     /// How many transactions are close (the first is described).
     pub count: usize,
@@ -33,14 +36,17 @@ pub struct Attention {
 }
 
 /// The gap between the last stable offset and the high watermark of a partition.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct HeldBack {
     pub last_stable: i64,
     pub high_watermark: i64,
 }
 
 /// What the last stop was, for the instance card.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum StopView {
     None,
     Clean,
@@ -48,7 +54,8 @@ pub enum StopView {
 }
 
 /// The "This instance" card.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct InstanceView {
     /// `Nov 6 18:02 UTC`.
     pub started: String,
@@ -58,6 +65,8 @@ pub struct InstanceView {
     /// 0: no bound.
     pub max_open_partitions: usize,
     pub open_files: Option<usize>,
+    /// Never serialised: the console shows no memory figure (owner, 2026-11-13: "don't show memory").
+    #[serde(skip)]
     pub resident_bytes: Option<u64>,
     pub threads: Option<u32>,
     pub profile: String,
@@ -66,7 +75,8 @@ pub struct InstanceView {
 }
 
 /// Home.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct HomeView {
     pub state: HomeState,
     pub listen: String,
@@ -75,4 +85,9 @@ pub struct HomeView {
     pub partitions: usize,
     pub probe: ProbeView,
     pub instance: InstanceView,
+    /// Open transactions the console did not look at (it describes at most [`crate::gather::MAX_DESCRIBED`]); 0 when it
+    /// looked at every one. Home never says "nothing needs you" about what it did not look at.
+    pub unchecked: usize,
+    /// Who has spoken to the broker, from the recorder (slice 9e); `None` when this console has no recorder.
+    pub spoke: Option<super::SpokeView>,
 }

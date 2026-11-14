@@ -1,6 +1,7 @@
 //! Sending an event through a bus: archive it, find the enabled rules whose pattern matches it, and deliver it to each of their
 //! targets. Delivery is in the call (the answer waits for it, as it did in the Go edition), except to another region, which is handed
-//! to a task so two regions never wait on each other. An event bus target of this region puts the event on that bus too, up to a
+//! to a task so two regions never wait on each other, and to an API destination, whose HTTP call is a task too (`deliver_http.rs`). An
+//! event bus target of this region puts the event on that bus too, up to a
 //! limit that stops a loop.
 
 use std::collections::VecDeque;
@@ -82,7 +83,7 @@ impl Core {
         caller: &Caller,
     ) -> Option<(String, String, Event)> {
         match self.send(&d, caller).await {
-            Outcome::Sent => None,
+            Outcome::Sent | Outcome::Handed => None,
             Outcome::Forward {
                 region,
                 account,

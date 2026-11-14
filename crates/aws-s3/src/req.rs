@@ -24,6 +24,10 @@ pub(crate) enum Ask {
     Call(Call, Option<Staged>),
     /// Apply the lifecycle rules of every bucket as of now (the janitor asks; so does a test).
     Sweep,
+    /// The bucket's CORS and website configurations (a browser's preflight, an actual request with `Origin`, a page request).
+    Configs(String),
+    /// The page a website request for a key of a bucket gets.
+    Website(String, String),
 }
 
 /// A stretch of a blob to send.

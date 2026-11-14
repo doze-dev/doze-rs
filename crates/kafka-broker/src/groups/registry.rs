@@ -16,8 +16,9 @@ mod requests;
 use super::actor::{self, Command, Req};
 use super::consumer::TopicSource;
 use super::consumer::assign::Assignor;
+use super::events::{Events, Ledger, Recorded};
 use super::group::{Group, Settings, asks_for_an_id};
-use super::machine::{Answer, Description, JoinAnswer, JoinRequest, refusal};
+use super::machine::{Answer, Description, Force, Forced, JoinAnswer, JoinRequest, refusal};
 pub(crate) use issued::member_ids;
 use issued::{Issued, MOST_ISSUED};
 use records::{MetaTopics, StoreRecords};
@@ -51,6 +52,8 @@ pub(crate) struct Groups {
     /// Ids handed to clients (JoinGroup v4 and later tells a client without one to come back with the one it is given),
     /// kept here and not in the group so that a client that never comes back leaves no group behind.
     issued: StdMutex<Issued>,
+    /// Which groups hold a ring of what they have said of themselves (feature `inspect` reads them).
+    events: Arc<Ledger>,
 }
 
 impl Groups {
@@ -66,6 +69,7 @@ impl Groups {
                 per_group: HashMap::new(),
                 purged: Instant::now(),
             }),
+            events: Arc::new(Ledger::default()),
         }
     }
 
@@ -164,6 +168,24 @@ impl Groups {
     pub(crate) async fn describe(&self, group: &GroupId) -> Option<Description> {
         match self.ask(group, Req::Describe).await {
             Some(Answer::Describe(d)) => Some(d),
+            _ => None,
+        }
+    }
+
+    /// Forces a step on the group (the console's Lab).
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+    pub(crate) async fn force(&self, group: &GroupId, f: Force) -> Option<Forced> {
+        match self.ask(group, Req::Force(f)).await {
+            Some(Answer::Forced(done)) => Some(done),
+            _ => None,
+        }
+    }
+
+    /// What the group has said of itself, oldest first, if it is in memory. Asking changes nothing.
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+    pub(crate) async fn events(&self, group: &GroupId) -> Option<Vec<Recorded>> {
+        match self.ask(group, Req::Events).await {
+            Some(Answer::Events(events)) => Some(events),
             _ => None,
         }
     }
@@ -276,6 +298,7 @@ impl Groups {
             commands,
             records,
             Arc::clone(&self.topics) as Arc<dyn TopicSource>,
+            Events::new(Arc::clone(&self.events)),
         ));
         sender
     }
