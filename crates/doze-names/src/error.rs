@@ -41,6 +41,11 @@ pub enum Error {
     NetworkDown { host: String, why: std::io::Error },
     /// An address that is none of this process's names, asked to listen on as one.
     NotMine(String),
+    /// The privileged script of a setup or trust run did not run, or failed: `what` is what it was for (the prompt's
+    /// words), `why` the runner's or the shell's error, kept as it came.
+    Privileged { what: String, why: std::io::Error },
+    /// Setup cannot be done here, or cannot start: says why and changes nothing.
+    Setup(String),
     /// Reading or writing the registry failed.
     Io(std::io::Error),
 }
@@ -86,12 +91,23 @@ impl fmt::Display for Error {
             Error::NotMine(addr) => {
                 write!(f, "listen {addr}: no name of this program has that address")
             }
+            Error::Privileged { what, why } => write!(f, "setup ({what}): {why}"),
+            Error::Setup(why) => write!(f, "setup: {why}"),
             Error::Io(e) => write!(f, "the names registry: {e}"),
         }
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::Privileged { why, .. } | Error::NetworkDown { why, .. } | Error::Io(why) => {
+                Some(why)
+            }
+            _ => None,
+        }
+    }
+}
 
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Error {
