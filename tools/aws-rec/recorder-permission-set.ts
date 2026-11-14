@@ -76,19 +76,28 @@ const policy = {
         `${A}:states:${R}:*:stateMachine:${P}*`,
         `${A}:states:${R}:*:execution:${P}*:*`,
         `${A}:states:${R}:*:activity:${P}*`,
+        // Added 2026-11-14: express executions and map runs of our state machines.
+        `${A}:states:${R}:*:express:${P}*:*`,
+        `${A}:states:${R}:*:mapRun:${P}*/*`,
         `${A}:kinesis:${R}:*:stream/${P}*`,
         `${A}:kinesis:${R}:*:stream/${P}*/consumer/*`,
         `${A}:cloudwatch:${R}:*:alarm:${P}*`,
         `${A}:cloudwatch::*:dashboard/${P}*`,
+        // Added 2026-11-14 (gaps stream): Contributor Insights rules and metric streams are stored now.
+        `${A}:cloudwatch:${R}:*:insight-rule/${P}*`,
+        `${A}:cloudwatch:${R}:*:metric-stream/${P}*`,
         `${A}:cloudformation:${R}:*:stack/${P}*/*`,
         `${A}:cloudformation:${R}:*:stackset/${P}*:*`,
+        // Added 2026-11-14: a SAM template's change set names AWS's own transform as a resource.
+        `${A}:cloudformation:${R}:aws:transform/*`,
       ],
       Condition: region,
     },
     {
       Sid: "AccountLevelCallsThatCannotBePrefixed",
       Effect: "Allow",
-      Action: ["cloudwatch:PutMetricData", "apigateway:*", "execute-api:Invoke"],
+      // execute-api:ManageConnections added 2026-11-14: the WebSocket @connections API (correctness stream).
+      Action: ["cloudwatch:PutMetricData", "apigateway:*", "execute-api:Invoke", "execute-api:ManageConnections"],
       Resource: "*",
       Condition: region,
     },
@@ -134,6 +143,20 @@ const policy = {
       Action: "iam:*",
       // IAM ARNs carry the path before the name (user/apps/doze-rec-x), so each kind is allowed with and without a path.
       Resource: ["role", "user", "group", "policy", "instance-profile", "saml-provider"].flatMap((k) => [`${A}:iam::*:${k}/${P}*`, `${A}:iam::*:${k}/*/${P}*`]),
+    },
+    {
+      // Added 2026-11-14: API Gateway execution logs land in groups named by the API's id, which cannot carry our prefix. Read only.
+      Sid: "ReadApiGatewayExecutionLogs",
+      Effect: "Allow",
+      Action: ["logs:DescribeLogStreams", "logs:GetLogEvents", "logs:FilterLogEvents"],
+      Resource: [`${A}:logs:${R}:*:log-group:API-Gateway-Execution-Logs_*`, `${A}:logs:${R}:*:log-group:API-Gateway-Execution-Logs_*:*`],
+    },
+    {
+      // Added 2026-11-14: role sessions for the scenarios that act as a role (Scheduler and IAM enforce paths). Our roles only.
+      Sid: "AssumeOurRoles",
+      Effect: "Allow",
+      Action: ["sts:AssumeRole", "sts:TagSession"],
+      Resource: [`${A}:iam::*:role/${P}*`, `${A}:iam::*:role/*/${P}*`],
     },
     {
       Sid: "NeverTheseEvenIfAnotherPolicyAllowsThem",
