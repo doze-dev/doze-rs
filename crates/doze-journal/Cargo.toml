@@ -1,0 +1,21 @@
+[package]
+name = "doze-journal"
+version = "0.0.0"
+description = "The doze daemon's journal (wakes, sleeps, crashes): the writer, and the reader the app's Activity and Away use"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = "1"
+serde_json = { version = "1", features = ["raw_value"] }
+time = { version = "0.3", features = ["parsing", "formatting"] }
+tokio = { version = "1.54", default-features = false, features = ["sync"] }
+
+[dev-dependencies]
+tempfile = "3"

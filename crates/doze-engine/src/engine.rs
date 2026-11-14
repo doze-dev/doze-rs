@@ -5,9 +5,9 @@ use crate::error::{BuildError, Error};
 use crate::events::{Cause, Event};
 use crate::lifecycle::Now;
 use crate::logs::RunLog;
-use crate::machine::{Cancel, Decision, Effect, Machine};
+use crate::machine::{Cancel, Effect, Machine};
 use crate::process::Step;
-use crate::stack::{Endpoint, Service, Stack, When};
+use crate::stack::{Endpoint, Service, Stack};
 use crate::state::{Holder, Instance};
 use crate::steps::StepEnv;
 use crate::supervise::Handle;
@@ -28,6 +28,8 @@ pub struct Engine {
 #[derive(Debug)]
 pub(crate) struct Inner {
     pub(crate) stack: Stack,
+    logs: doze_logstore::Store,
+    journal: Option<doze_journal::Journal>,
     core: Mutex<Core>,
     changed: watch::Sender<u64>,
     transitions: broadcast::Sender<Instance>,
@@ -58,6 +60,8 @@ pub(crate) struct Live {
     pub(crate) supervised: bool,
     /// Its readiness check, which the health prober repeats.
     pub(crate) health: Option<Ready>,
+    /// The poller of its `watch` files while it runs.
+    pub(crate) watcher: Option<tokio::task::AbortHandle>,
 }
 
 /// Where a start stands.
@@ -93,6 +97,18 @@ impl Builder {
         self
     }
 
+    /// What the log store keeps per instance.
+    pub fn log_limits(mut self, limits: doze_logstore::Options) -> Builder {
+        self.stack.log_limits = limits;
+        self
+    }
+
+    /// Where the applied state (task records) is kept (`<data_dir>/.doze/state.json` unless set).
+    pub fn state_file(mut self, path: impl Into<PathBuf>) -> Builder {
+        self.stack.state_file = path.into();
+        self
+    }
+
     /// Adds a service.
     pub fn service(mut self, s: Service) -> Builder {
         self.stack.services.push(s);
@@ -108,13 +124,16 @@ impl Builder {
 impl Engine {
     /// A builder for stack `name`, keeping its state under `data_dir` (`<home>/projects/<slug>`).
     pub fn builder(name: &str, data_dir: impl Into<PathBuf>) -> Builder {
+        let data_dir: PathBuf = data_dir.into();
         let stack = Stack {
             name: name.into(),
             config_name: "doze.hcl".into(),
-            data_dir: data_dir.into(),
+            state_file: data_dir.join(".doze").join("state.json"),
+            data_dir,
             idle_timeout: None,
             services: Vec::new(),
             extra_env: BTreeMap::new(),
+            log_limits: doze_logstore::Options::default(),
         };
         Builder { stack }
     }
@@ -123,7 +142,12 @@ impl Engine {
     pub fn new(stack: Stack) -> Result<Engine, BuildError> {
         crate::graph::check(&stack)?;
         let names = stack.services.iter().map(|s| s.name.clone());
-        let m = Machine::new(names, &stack.config_name, stack.idle_timeout);
+        let mut m = Machine::new(names, &stack.config_name, stack.idle_timeout);
+        for s in &stack.services {
+            if matches!(s.kind, crate::stack::Kind::Task(_)) {
+                m.declare_task(&s.name);
+            }
+        }
         let core = Core {
             m,
             handles: BTreeMap::new(),
@@ -131,7 +155,18 @@ impl Engine {
             cancels: BTreeMap::new(),
             live: BTreeMap::new(),
         };
+        let logs = doze_logstore::Store::with_options(stack.logs_dir(), stack.log_limits);
+        // The record screens read. Without it the engine still runs (Go's daemon: "nothing will be recorded").
+        let journal = match doze_journal::Journal::open(&stack.journal_path(), 0) {
+            Ok(j) => Some(j),
+            Err(err) => {
+                tracing::warn!("journal: {err} (nothing will be recorded)");
+                None
+            }
+        };
         let inner = Inner {
+            logs,
+            journal,
             stack,
             core: Mutex::new(core),
             changed: watch::channel(0).0,
@@ -146,6 +181,16 @@ impl Engine {
     /// The stack it runs.
     pub fn stack(&self) -> &Stack {
         &self.inner.stack
+    }
+
+    /// What every instance printed: runs kept on disk, readable while it runs and after.
+    pub fn logs(&self) -> &doze_logstore::Store {
+        &self.inner.logs
+    }
+
+    /// The journal the engine writes (`None` if it could not be opened); D1's `journal` topic subscribes to it.
+    pub fn journal(&self) -> Option<&doze_journal::Journal> {
+        self.inner.journal.as_ref()
     }
 
     fn lock(&self) -> MutexGuard<'_, Core> {
@@ -226,9 +271,12 @@ impl Engine {
         })
     }
 
-    /// Records what the engine did.
+    /// Records what the engine did: into the journal, then to subscribers of [`Engine::events`].
     pub(crate) fn event(&self, e: Event) {
         tracing::debug!(kind = e.kind.as_str(), instance = %e.instance, detail = %e.detail);
+        if let Some(j) = &self.inner.journal {
+            j.append(e.to_journal());
+        }
         let _ = self.inner.events.send(e);
     }
 
@@ -265,95 +313,6 @@ impl Engine {
         self.inner.events.subscribe()
     }
 
-    /// Wakes `name` (and what it needs, first) and returns where it is reached once ready. Concurrent wakes of a cold
-    /// instance share one start.
-    pub async fn wake(&self, name: &str, cause: Cause) -> Result<Endpoint, Error> {
-        self.wake_when(name, cause, When::Healthy).await
-    }
-
-    pub(crate) async fn wake_when(
-        &self,
-        name: &str,
-        cause: Cause,
-        when: When,
-    ) -> Result<Endpoint, Error> {
-        let (rx, start) = self.decide_wake(name, cause).await;
-        // The journal's `wake` goes out before the start can wake (and journal) its needs.
-        if let Some(s) = start {
-            crate::boot::spawn(self, name, when, s);
-        }
-        let Some(mut rx) = rx? else {
-            return Ok(self
-                .lock()
-                .live
-                .get(name)
-                .map(|l| l.endpoint.clone())
-                .unwrap_or_default());
-        };
-        let phase = rx.wait_for(|p| !matches!(p, Phase::Booting)).await;
-        match phase.as_deref() {
-            Ok(Phase::Ready(ep)) => Ok(ep.clone()),
-            Ok(Phase::Failed(e)) => Err(e.clone()),
-            _ => Err(Error::Failed(format!(
-                "the start of \"{name}\" was abandoned"
-            ))),
-        }
-    }
-
-    /// The machine's answer to a wake, waiting while a previous run is still being stopped or cancelled; the effects
-    /// are run here, and a new start is handed back to be spawned.
-    async fn decide_wake(
-        &self,
-        name: &str,
-        cause: Cause,
-    ) -> (
-        Result<Option<watch::Receiver<Phase>>, Error>,
-        Option<crate::boot::Start>,
-    ) {
-        let mut changes = self.changes();
-        loop {
-            // Decided and recorded under one lock: a wake that joins this start must find its receiver.
-            let (answer, fx) = self.update(|c| {
-                let (d, fx) = c.m.wake(name, cause.clone());
-                let rerun = fx
-                    .iter()
-                    .any(|f| matches!(f, Effect::StartBoot { rerun: true, .. }));
-                let answer = match d {
-                    Decision::Busy => None,
-                    Decision::Running => Some((Ok(None), None)),
-                    Decision::Refuse(e) => Some((Err(e), None)),
-                    Decision::Join(b) => Some(match c.boots.get(&b).cloned() {
-                        Some(rx) => (Ok(Some(rx)), None),
-                        None => (
-                            Err(Error::Failed(format!("the start of \"{name}\" was lost"))),
-                            None,
-                        ),
-                    }),
-                    Decision::Start(b) => {
-                        let (tx, rx) = watch::channel(Phase::Booting);
-                        let (cancel_tx, cancel) = watch::channel(None);
-                        c.boots.insert(b, rx.clone());
-                        c.cancels.insert(b, cancel_tx);
-                        let s = crate::boot::Start {
-                            boot: b,
-                            rerun,
-                            tx,
-                            cancel,
-                        };
-                        Some((Ok(Some(rx)), Some(s)))
-                    }
-                };
-                (answer, fx)
-            });
-            self.run(fx);
-            if let Some(a) = answer {
-                return a;
-            }
-            // Bounded poll as well as the change feed: a stop's end always moves the version, but never wait blind.
-            let _ = tokio::time::timeout(Duration::from_millis(50), changes.changed()).await;
-        }
-    }
-
     /// Why `name` is awake: the running services that need it, a pin, client connections. Empty when it is not running.
     pub fn holders(&self, name: &str) -> Vec<Holder> {
         self.lock().m.holders(name, Now::current())
@@ -385,3 +344,6 @@ impl Engine {
         Ok(())
     }
 }
+
+#[path = "engine_wake.rs"]
+mod wake;

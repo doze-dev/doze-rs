@@ -24,6 +24,10 @@ pub(crate) struct Start {
     pub(crate) rerun: bool,
     pub(crate) tx: watch::Sender<Phase>,
     pub(crate) cancel: watch::Receiver<Option<Cancel>>,
+    /// What asked for it (a task says who needed it).
+    pub(crate) cause: Cause,
+    /// A task runs whatever its state (`doze task`).
+    pub(crate) force: bool,
 }
 
 pub(crate) fn spawn(e: &Engine, name: &str, when: When, s: Start) {
@@ -32,9 +36,12 @@ pub(crate) fn spawn(e: &Engine, name: &str, when: When, s: Start) {
         rerun,
         tx,
         mut cancel,
+        cause,
+        force,
     } = s;
     let (e, name) = (e.clone(), name.to_string());
     tokio::spawn(async move {
+        let task = !rerun && e.is_task(&name);
         let run = async {
             if rerun {
                 rerun_on_ready(&e, &name, boot).await
@@ -43,20 +50,28 @@ pub(crate) fn spawn(e: &Engine, name: &str, when: When, s: Start) {
             }
         };
         // A cancel drops the start where it is: a process it spawned is a Tree (dropped: killed), a step's record goes
-        // with its guard. Then the machine hears it, and the instance is asleep.
-        let res = tokio::select! {
-            biased;
-            _ = cancel.wait_for(Option::is_some) => {
-                let fx = e.update(|c| c.m.boot_cancelled(&name, boot, Now::current()));
-                e.run(fx);
-                Err(Error::Failed(String::new()))
+        // with its guard. Then the machine hears it, and the instance is asleep. A task watches its cancel itself: its
+        // command is asked to stop, and its end journalled (Go's "was stopped").
+        let res = if task {
+            crate::tasks::run::run(&e, &name, boot, &cause, force, cancel.clone()).await
+        } else {
+            tokio::select! {
+                biased;
+                _ = cancel.wait_for(Option::is_some) => {
+                    let fx = e.update(|c| c.m.boot_cancelled(&name, boot, Now::current()));
+                    e.run(fx);
+                    Err(Error::Failed(String::new()))
+                }
+                r = run => r,
             }
-            r = run => r,
         };
         // A cancelled start's waiters hear why, whichever side won the race (audit 4, N1 and N2).
         let why = *cancel.borrow();
+        // A task's run that a stop cut short says so itself (Go's "was stopped"); only its empty early cancel is mapped.
         let res = match (res, why) {
-            (Err(_), Some(why)) => Err(cancelled(&name, why)),
+            (Err(err), Some(why)) if !task || err.to_string().is_empty() => {
+                Err(cancelled(&name, why))
+            }
             (res, _) => res,
         };
         e.update(|c| {
@@ -109,6 +124,7 @@ async fn start(e: &Engine, name: &str, boot: u64, when: When) -> Result<Endpoint
             Ok(u) => u,
             Err(err) => {
                 pids.remove();
+                log.close().await;
                 let kind = if err.timeout {
                     Error::Timeout
                 } else {
@@ -152,7 +168,7 @@ fn finish(
 }
 
 /// Wakes and holds every need, in order; a `Lazy` need is wired (its declared address), not woken.
-async fn wake_needs(
+pub(crate) async fn wake_needs(
     e: &Engine,
     svc: &Service,
     boot: u64,
@@ -202,7 +218,7 @@ fn declared_endpoint(e: &Engine, name: &str) -> Endpoint {
             };
             p.endpoint(&ctx).unwrap_or_default()
         }
-        Err(_) => Endpoint::default(),
+        Ok(SvcKind::Task(_)) | Err(_) => Endpoint::default(),
     }
 }
 
@@ -212,8 +228,26 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
         Error::Failed(format!("{what} for \"{}\": {err}", svc.name))
     };
     doze_os::fs::private_dir(&ctx.data_dir).map_err(|err| io("creating the data folder", err))?;
-    let log =
-        RunLog::open(&e.stack().run_dir(), &svc.name).map_err(|err| io("opening the log", err))?;
+    let log = RunLog::begin(e.logs(), &svc.name).map_err(|err| io("opening the log", err))?;
+    match plan_for(e, svc, ctx, &log).await {
+        Ok(planned) => Ok((planned, log)),
+        Err(err) => {
+            log.close().await;
+            Err(err)
+        }
+    }
+}
+
+/// `setup` when this data folder needs it, then the plan, with doze's own variables in every process.
+async fn plan_for(
+    e: &Engine,
+    svc: &Service,
+    ctx: &PlanCtx,
+    log: &RunLog,
+) -> Result<Planned, Error> {
+    let io = |what: &str, err: std::io::Error| {
+        Error::Failed(format!("{what} for \"{}\": {err}", svc.name))
+    };
     let planned = match &svc.kind {
         SvcKind::Process(spec) => {
             let private = if spec.proxied() {
@@ -231,7 +265,7 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
                 pids: Some(e.pids(&svc.name)),
             };
             if steps::setup_needed(&ctx.data_dir, &spec.setup) {
-                let ran = steps::run(Moment::Setup, &spec.setup, &at, &log, |r| {
+                let ran = steps::run(Moment::Setup, &spec.setup, &at, log, |r| {
                     step_event(e, &svc.name, r)
                 })
                 .await;
@@ -262,12 +296,15 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
                 }
             }
         }
+        SvcKind::Task(_) => {
+            return Err(Error::Failed(format!("{} is a task", svc.name)));
+        }
     };
     let mut planned = planned;
     for p in &mut planned.plan.processes {
         crate::process::with_extra(&mut p.env, &e.stack().extra_env);
     }
-    Ok((planned, log))
+    Ok(planned)
 }
 
 /// A port nothing listens on now (Go's `netutil.FreePort`).
@@ -309,6 +346,11 @@ fn register(
         live.log = Some(log);
         live.supervised = p.supervised;
         live.health = p.plan.processes.first().and_then(|q| q.ready.clone());
+        if let Some(old) = live.watcher.take() {
+            old.abort();
+        }
+        live.watcher =
+            crate::watch::restarter(e, &svc.name, &crate::tasks::watch_sets(e.stack(), svc));
         r
     });
     tokio::spawn(crate::stop::watch(

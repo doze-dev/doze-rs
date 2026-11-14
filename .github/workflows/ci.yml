@@ -270,6 +270,8 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_env
           cargo fuzz run fuzz_env corpus/fuzz_env -- -max_total_time=30 -max_len=65536
+          mkdir -p corpus/fuzz_glob
+          cargo fuzz run fuzz_glob corpus/fuzz_glob -- -max_total_time=30 -max_len=512 -timeout=2
       - name: Fuzz the module protocol's frame decoder for 30 seconds
         working-directory: crates/doze-module-proto/fuzz
         run: |
@@ -287,6 +289,16 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_duration
           cargo fuzz run fuzz_duration corpus/fuzz_duration -- -max_total_time=30
+      - name: Fuzz the journal reader for 30 seconds
+        working-directory: crates/doze-journal/fuzz
+        run: |
+          mkdir -p corpus/fuzz_line
+          cargo fuzz run fuzz_line corpus/fuzz_line seeds/fuzz_line -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the log store's line reader for 30 seconds
+        working-directory: crates/doze-logstore/fuzz
+        run: |
+          mkdir -p corpus/fuzz_logline
+          cargo fuzz run fuzz_logline corpus/fuzz_logline -- -max_total_time=30 -max_len=4096
       - name: Fuzz the .doze resolver's DNS wire and upstream parsers for 30 seconds each
         working-directory: crates/doze-names/fuzz
         run: |

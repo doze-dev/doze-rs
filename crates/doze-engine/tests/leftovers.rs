@@ -229,6 +229,8 @@ async fn hooks_run_after_readiness_and_a_failure_says_why() {
     let plan = Plan {
         processes: vec![helper_process("web", &free_addr(), vec![bad_hook.clone()])],
     };
+    // A new start is a new run: the first unit's stop closed the last one (E2 audit 1, m6).
+    let log = RunLog::open(&d.path().join("run"), "web").unwrap();
     let err = exec::start(&plan, &log, Duration::from_secs(10), None)
         .await
         .err()

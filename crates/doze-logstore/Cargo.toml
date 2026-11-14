@@ -1,0 +1,19 @@
+[package]
+name = "doze-logstore"
+version = "0.0.0"
+description = "What each instance printed, as doze keeps it on disk: runs of plain-text segments; the daemon's writer, readers, and followers woken by the writer"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tokio = { version = "1.54", default-features = false, features = ["sync", "rt"] }
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1.54", features = ["rt", "macros", "time"] }

@@ -11,9 +11,10 @@
 //! 7. a crashing instance is within its restart budget;
 //! 8. a crashing instance has its restart pending: a live timer, a restart wake the shell still owes (it plays them as
 //!    the engine does: `Busy` is retried, `Join` waits on that start), or a fresh start in flight (audit 4, N3);
-//! 9. a failed instance has no restart pending; at most an `on_ready` rerun or a cancelled start is in flight (audit
-//!    4, N2);
-//! 10. a restart whose timer went off keeps the stack from being quiet until its wake ran.
+//! 9. a failed instance has no restart pending; at most an `on_ready` rerun, a cancelled start or a task deciding
+//!    whether to run again is in flight (audit 4, N2);
+//! 10. a restart whose timer went off keeps the stack from being quiet until its wake ran;
+//! 11. a task (`seed`) is never running and only it is ever `done`; its start registers no processes (E2).
 
 use doze_engine::lifecycle::Now;
 use doze_engine::machine::{Decision, Effect, Machine, Unit};
@@ -24,6 +25,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
 const NAMES: [&str; 3] = ["web", "api", "db"];
+/// A task: woken like the others, but its start runs, ends or skips (`TaskEnd`), never registers.
+const TASK: &str = "seed";
 
 #[derive(Debug, Clone)]
 enum In {
@@ -37,6 +40,9 @@ enum In {
     Stop(usize),
     Gone(usize),
     Fire(usize),
+    WakeTask,
+    TaskRun(usize),
+    TaskEnd(usize, u8),
     RestartWake(usize),
     Cancelled(usize),
     Reap(u16),
@@ -58,6 +64,9 @@ fn input() -> impl Strategy<Value = In> {
         2 => (0usize..3).prop_map(In::Stop),
         2 => i().prop_map(In::Gone),
         2 => i().prop_map(In::Fire),
+        1 => Just(In::WakeTask),
+        1 => i().prop_map(In::TaskRun),
+        1 => (i(), 0u8..4).prop_map(|(a, b)| In::TaskEnd(a, b)),
         2 => i().prop_map(In::RestartWake),
         2 => i().prop_map(In::Cancelled),
         1 => (0u16..3000).prop_map(In::Reap),
@@ -214,7 +223,7 @@ fn step(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
             let open: BTreeMap<u64, String> = s
                 .boots
                 .iter()
-                .filter(|(b, _)| !s.registered.contains(b))
+                .filter(|(b, n)| !s.registered.contains(b) && *n != TASK)
                 .map(|(b, n)| (*b, n.clone()))
                 .collect();
             if let Some((b, name)) = pick(&open, *k) {
@@ -232,14 +241,14 @@ fn step(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
             }
         }
         In::ReadyFail(k) => {
-            if let Some((b, name)) = pick(&s.boots, *k) {
+            if let Some((b, name)) = pick(&processes(s), *k) {
                 s.boots.remove(&b);
                 let fx = m.on_ready_failed(&name, b, "x", d, *now);
                 absorb(s, m, fx);
             }
         }
         In::Done(k) => {
-            if let Some((b, name)) = pick(&s.boots, *k) {
+            if let Some((b, name)) = pick(&processes(s), *k) {
                 s.boots.remove(&b);
                 let (_, fx) = m.boot_done(&name, b, d, *now);
                 absorb(s, m, fx);
@@ -251,6 +260,7 @@ fn step(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
 
 fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
     match i {
+        In::WakeTask | In::TaskRun(_) | In::TaskEnd(..) => task_step(m, s, *now, i),
         In::Exit(k, ok) => {
             if let Some((g, name)) = pick(&s.units, *k) {
                 s.units.remove(&g);
@@ -375,6 +385,9 @@ fn fire(m: &mut Machine, s: &mut Shell, t: u64, name: &str) {
     absorb(s, m, fx);
 }
 
+#[path = "props/machine_task.rs"]
+mod machine_task;
+use machine_task::{processes, task_step};
 #[path = "props/machine_check.rs"]
 mod machine_check;
 use machine_check::{check, drain};
@@ -383,7 +396,8 @@ proptest! {
     #![proptest_config(ProptestConfig { cases: 3000, ..ProptestConfig::default() })]
     #[test]
     fn decisions_hold_their_invariants(inputs in proptest::collection::vec(input(), 1..120)) {
-        let mut m = Machine::new(NAMES.iter().map(|n| (*n).to_string()), "doze.hcl", Some(Duration::from_secs(1)));
+        let mut m = Machine::new(NAMES.iter().chain([&TASK]).map(|n| (*n).to_string()), "doze.hcl", Some(Duration::from_secs(1)));
+        m.declare_task(TASK);
         let (mut s, mut now) = (Shell::default(), Now::current());
         for i in &inputs {
             step(&mut m, &mut s, &mut now, i);

@@ -115,11 +115,13 @@ async fn run_one(moment: Moment, step: &Step, at: &StepEnv, log: &RunLog) -> Res
         Moment::Stop => STOP_PATIENCE,
         Moment::Setup | Moment::OnReady => STEP_LIMIT,
     };
+    let stream = format!("{}{}", doze_logstore::STEP_PREFIX, moment.as_str());
     let short = crate::short::Short {
         argv: &step.argv,
         env: Some(&at.env),
         dir: Some(&at.dir),
-        out: Some(log),
+        out: Some((log, &stream)),
+        capture: None,
     };
     crate::short::run(short, limit, at.pids.as_ref()).await
 }

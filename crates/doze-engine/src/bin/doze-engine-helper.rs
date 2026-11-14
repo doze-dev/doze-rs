@@ -4,6 +4,7 @@
 //!   then exits 0. Each start appends a line to `$STARTS` when set.
 //! - `exit <code> [after_ms]`: exits with the code.
 //! - `grandchild <file>`: starts a child of its own (same tree), writes the child's pid to the file, then serves.
+//! - `forklisten`: starts a child that serves (and prints its port); the parent itself listens on nothing.
 //! - `ignore`: ignores being asked to stop.
 //! - `slowchild <file>`: starts a child that ignores signals, writes its pid to the file, then never gets ready.
 //! - `crashchild <file> <code> <after_ms>`: starts a child that ignores signals, appends its pid to the file, then
@@ -53,6 +54,20 @@ fn main() {
             }
             std::process::exit(arg(2).parse().unwrap_or(1));
         }
+        "partial" => {
+            // `partial <text> <code>`: <text> to stderr with no newline, then exit with code (`hang`: stay up).
+            partial(&arg(1), arg(2) == "hang", &rt);
+            std::process::exit(arg(2).parse().unwrap_or(1));
+        }
+        "escape" => rt.block_on(escape(&arg(1))),
+        "forklisten" => fork_listen(),
+        "chatter" => {
+            for i in 0..300 {
+                println!("escaped says {i}");
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Ok(())
+        }
         "envto" => {
             // `envto <file> <KEY>`: appends the variable's value (or "unset") to the file.
             let v = std::env::var(arg(2)).unwrap_or_else(|_| "unset".into());
@@ -82,7 +97,10 @@ async fn listen(delay: Duration) -> std::io::Result<()> {
         writeln!(f, "{}", std::process::id())?;
     }
     tokio::time::sleep(delay).await;
-    let port = std::env::var("PORT").unwrap_or_else(|_| "0".into());
+    // `LISTEN_ON` overrides `$PORT`: an app that ignores the port doze gave it (the port trap).
+    let port = std::env::var("LISTEN_ON")
+        .or_else(|_| std::env::var("PORT"))
+        .unwrap_or_else(|_| "0".into());
     let l = tokio::net::TcpListener::bind(format!("127.0.0.1:{port}")).await?;
     println!("listening on {}", l.local_addr()?.port());
     let serve = async {
@@ -132,6 +150,26 @@ fn start_ignoring_child(file: &str, append: bool) -> std::io::Result<()> {
     Ok(())
 }
 
+/// `escape <pidfile>`: starts a chatter that leaves the group (a new session) holding stdout, records its pid, then
+/// listens like `listen`.
+async fn escape(pidfile: &str) -> std::io::Result<()> {
+    let mut cmd = std::process::Command::new(std::env::current_exe()?);
+    cmd.arg("chatter").stdin(std::process::Stdio::null());
+    let pid = doze_os::detach::spawn_detached(cmd)?;
+    std::fs::write(pidfile, pid.to_string())?;
+    listen(Duration::ZERO).await
+}
+
+/// `forklisten`: a parent that does not listen, with a child that does (`listen` on `$LISTEN_ON`, printing its port on
+/// the shared stdout). The parent exits when the child does (`$STOP_FILE`).
+fn fork_listen() -> std::io::Result<()> {
+    let mut child = std::process::Command::new(std::env::current_exe()?)
+        .arg("listen")
+        .stdin(std::process::Stdio::null())
+        .spawn()?;
+    child.wait().map(drop)
+}
+
 async fn grandchild(file: &str) -> std::io::Result<()> {
     start_ignoring_child(file, false)?;
     listen(Duration::ZERO).await
@@ -172,3 +210,13 @@ async fn ignore() -> std::io::Result<()> {
 
 #[path = "helper/host.rs"]
 mod host;
+
+/// `text` to stderr with no newline; with `hang`, stays up after (its last words are only in the pump until its pipe
+/// closes).
+fn partial(text: &str, hang: bool, rt: &tokio::runtime::Runtime) {
+    eprint!("{text}");
+    let _ = std::io::Write::flush(&mut std::io::stderr());
+    if hang {
+        let _ = rt.block_on(ignore());
+    }
+}

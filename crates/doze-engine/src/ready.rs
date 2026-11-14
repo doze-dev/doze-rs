@@ -4,9 +4,9 @@
 //! whole interval after the first miss put a one-second floor under every wake in Go once). A process with no check
 //! must still be running after 750 ms.
 
+use crate::logs::RunLog;
 use crate::pidfile::Pids;
 use doze_module_proto::msg::run::Ready;
-use std::path::Path;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -53,12 +53,12 @@ impl std::fmt::Display for NotReady {
     }
 }
 
-/// Waits until `ready` passes, the process dies (`alive` says), or `budget` is spent. `log` is the file a `log_line`
-/// check reads; an exec probe is recorded in `pids` while it runs.
+/// Waits until `ready` passes, the process dies (`alive` says), or `budget` is spent. `log` is the run a `log_line`
+/// check reads (none: it never passes); an exec probe is recorded in `pids` while it runs.
 pub async fn wait_ready(
     ready: Option<&Ready>,
     budget: Duration,
-    log: &Path,
+    log: Option<&RunLog>,
     pids: Option<&Pids>,
     mut alive: impl FnMut() -> bool,
 ) -> Result<(), NotReady> {
@@ -89,7 +89,11 @@ pub async fn wait_ready(
 
 /// One check: `Ok(true)` passed, `Ok(false)` not yet, `Err` the check cannot work. An exec probe is recorded in
 /// `pids` while it runs.
-pub async fn probe(ready: &Ready, log: &Path, pids: Option<&Pids>) -> Result<bool, NotReady> {
+pub async fn probe(
+    ready: &Ready,
+    log: Option<&RunLog>,
+    pids: Option<&Pids>,
+) -> Result<bool, NotReady> {
     let once = async {
         match ready {
             Ready::Tcp(addr) => Ok(matches!(
@@ -141,42 +145,18 @@ pub(crate) async fn exec_ok(argv: &[String], pids: Option<&Pids>) -> bool {
         env: None,
         dir: None,
         out: None,
+        capture: None,
     };
     crate::short::run(short, PROBE_TIMEOUT, pids).await.is_ok()
 }
 
-fn log_has(pattern: &str, log: &Path) -> Result<bool, NotReady> {
+/// Whether one of this run's last [`LOG_LINES`] lines matches (the store reads them backwards from the end, so a
+/// probe every 10-100 ms costs what it reads, not the log's size).
+fn log_has(pattern: &str, log: Option<&RunLog>) -> Result<bool, NotReady> {
     let re = regex_lite::Regex::new(pattern)
         .map_err(|e| NotReady::Broken(format!("invalid log_line regex {pattern:?}: {e}")))?;
-    let text = log_tail(log);
-    let lines: Vec<&str> = text.lines().collect();
-    let from = lines.len().saturating_sub(LOG_LINES);
-    Ok(lines.iter().skip(from).any(|l| re.is_match(l)))
+    Ok(log.is_some_and(|l| l.recent(LOG_LINES).iter().any(|t| re.is_match(t))))
 }
-
-/// The end of the log, at most [`LOG_TAIL`] bytes from its last whole line back: a probe every 10-100 ms must not read
-/// a large log whole each time (audit 2, minor 10).
-fn log_tail(log: &Path) -> String {
-    use std::io::{Read, Seek, SeekFrom};
-    let Ok(mut f) = std::fs::File::open(log) else {
-        return String::new();
-    };
-    let len = f.metadata().map_or(0, |m| m.len());
-    let from = len.saturating_sub(LOG_TAIL);
-    let mut bytes = Vec::new();
-    if f.seek(SeekFrom::Start(from)).is_err() || f.read_to_end(&mut bytes).is_err() {
-        return String::new();
-    }
-    let text = String::from_utf8_lossy(&bytes);
-    match (from > 0, text.split_once('\n')) {
-        // The first line was cut: it is not whole.
-        (true, Some((_, rest))) => rest.to_string(),
-        _ => text.into_owned(),
-    }
-}
-
-/// How much of the log's end a `log_line` probe reads: 200 lines of up to 1 KiB.
-const LOG_TAIL: u64 = 200 * 1024;
 
 #[cfg(test)]
 mod tests {
@@ -187,50 +167,54 @@ mod tests {
         let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = l.local_addr().unwrap().to_string();
         let r = Ready::Tcp(addr.clone());
-        assert_eq!(probe(&r, Path::new(""), None).await, Ok(true));
+        assert_eq!(probe(&r, None, None).await, Ok(true));
         drop(l);
         // Port 1 on loopback: nothing listens (a dropped ephemeral port may be re-bound by a parallel test).
         let closed = Ready::Tcp("127.0.0.1:1".into());
-        assert_eq!(probe(&closed, Path::new(""), None).await, Ok(false));
+        assert_eq!(probe(&closed, None, None).await, Ok(false));
+    }
+
+    fn run_log(name: &str, lines: &[&str]) -> (tempfile::TempDir, RunLog) {
+        let d = tempfile::tempdir().unwrap();
+        let store = doze_logstore::Store::open(d.path());
+        let log = RunLog::begin(&store, name).unwrap();
+        for l in lines {
+            log.line("o", l);
+        }
+        (d, log)
     }
 
     #[tokio::test]
-    async fn log_line_is_a_regular_expression_over_the_newest_lines() {
-        let dir = std::env::temp_dir().join(format!("doze-engine-ready-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let log = dir.join("x.log");
-        std::fs::write(&log, "booting\nready to accept connections on 5432\n").unwrap();
+    async fn log_line_is_a_regular_expression_over_this_runs_lines() {
+        let (_d, log) = run_log("x", &["booting", "ready to accept connections on 5432"]);
         let ok = Ready::LogLine("accept.*5432".into());
-        assert_eq!(probe(&ok, &log, None).await, Ok(true));
+        assert_eq!(probe(&ok, Some(&log), None).await, Ok(true));
         let no = Ready::LogLine("^listening".into());
-        assert_eq!(probe(&no, &log, None).await, Ok(false));
+        assert_eq!(probe(&no, Some(&log), None).await, Ok(false));
+        assert_eq!(probe(&ok, None, None).await, Ok(false));
         let bad = Ready::LogLine("(".into());
         assert!(matches!(
-            probe(&bad, &log, None).await,
+            probe(&bad, Some(&log), None).await,
             Err(NotReady::Broken(_))
         ));
-        let _ = std::fs::remove_dir_all(&dir);
+        // A new run: the last one's lines no longer count.
+        let next = RunLog::begin(log.run().store(), "x").unwrap();
+        assert_eq!(probe(&ok, Some(&next), None).await, Ok(false));
     }
 
     #[tokio::test]
-    async fn a_log_line_probe_reads_only_the_end_of_a_large_log() {
-        let dir = std::env::temp_dir().join(format!("doze-engine-tail-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let log = dir.join("x.log");
-        let filler = "x".repeat(99) + "\n";
-        let text = format!("early marker\n{}late marker\n", filler.repeat(3000));
-        std::fs::write(&log, text).unwrap();
+    async fn a_log_line_probe_reads_only_the_last_200_lines() {
+        // 200 lines are read: the marker 200 back is, the one 201 back is not (Go's `recentLogs`).
+        let mut lines = vec!["early marker", "edge marker"];
+        lines.extend(std::iter::repeat_n("filler", 198));
+        lines.push("late marker");
+        let (_d, log) = run_log("x", &lines);
         let late = Ready::LogLine("^late marker$".into());
-        assert_eq!(probe(&late, &log, None).await, Ok(true));
+        assert_eq!(probe(&late, Some(&log), None).await, Ok(true));
+        let edge = Ready::LogLine("^edge marker$".into());
+        assert_eq!(probe(&edge, Some(&log), None).await, Ok(true));
         let early = Ready::LogLine("^early marker$".into());
-        assert_eq!(
-            probe(&early, &log, None).await,
-            Ok(false),
-            "300 KB back: not read"
-        );
-        let tail = log_tail(&log);
-        assert!(tail.starts_with(&filler), "starts at a whole line");
-        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(probe(&early, Some(&log), None).await, Ok(false));
     }
 
     #[tokio::test]
@@ -239,28 +223,14 @@ mod tests {
         let r = Ready::Tcp(l.local_addr().unwrap().to_string());
         let t = Instant::now();
         assert_eq!(
-            wait_ready(
-                Some(&r),
-                Duration::from_secs(5),
-                Path::new(""),
-                None,
-                || true
-            )
-            .await,
+            wait_ready(Some(&r), Duration::from_secs(5), None, None, || true).await,
             Ok(())
         );
         assert!(t.elapsed() < Duration::from_millis(200));
         drop(l);
         let r = Ready::Tcp("127.0.0.1:1".into());
         let t = Instant::now();
-        let got = wait_ready(
-            Some(&r),
-            Duration::from_millis(300),
-            Path::new(""),
-            None,
-            || true,
-        )
-        .await;
+        let got = wait_ready(Some(&r), Duration::from_millis(300), None, None, || true).await;
         assert_eq!(got, Err(NotReady::Timeout(Duration::from_millis(300))));
         assert!(t.elapsed() < Duration::from_millis(600));
         assert_eq!(
@@ -272,21 +242,14 @@ mod tests {
     #[tokio::test]
     async fn liveness_and_death_during_startup() {
         let r = Ready::Tcp("127.0.0.1:1".into());
-        let got = wait_ready(
-            Some(&r),
-            Duration::from_secs(5),
-            Path::new(""),
-            None,
-            || false,
-        )
-        .await;
+        let got = wait_ready(Some(&r), Duration::from_secs(5), None, None, || false).await;
         assert_eq!(got, Err(NotReady::ExitedDuringStartup));
         assert_eq!(
-            wait_ready(None, Duration::ZERO, Path::new(""), None, || false).await,
+            wait_ready(None, Duration::ZERO, None, None, || false).await,
             Err(NotReady::ExitedImmediately)
         );
         assert_eq!(
-            wait_ready(None, Duration::ZERO, Path::new(""), None, || true).await,
+            wait_ready(None, Duration::ZERO, None, None, || true).await,
             Ok(())
         );
     }

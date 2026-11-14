@@ -2,6 +2,7 @@
 //! fills from doze.hcl; until then stacks are built in code with [`crate::Engine::builder`].
 
 use crate::process::ProcessSpec;
+use doze_module_proto::msg::instance::Object;
 use doze_module_proto::msg::run::Plan;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -23,6 +24,8 @@ pub struct Service {
     pub needs: Vec<Need>,
     /// The block's own `sleep`, which decides last.
     pub sleep: Sleep,
+    /// Files whose change restarts it while it runs (`watch`); none: it is never restarted for a file.
+    pub watch: Vec<crate::watch::Set>,
 }
 
 impl Service {
@@ -33,6 +36,7 @@ impl Service {
             kind: Kind::Process(Box::new(spec)),
             needs: Vec::new(),
             sleep: Sleep::Default,
+            watch: Vec::new(),
         }
     }
 
@@ -43,6 +47,18 @@ impl Service {
             kind: Kind::Planned(planner),
             needs: Vec::new(),
             sleep: Sleep::Default,
+            watch: Vec::new(),
+        }
+    }
+
+    /// A task: a command that runs to its end and records how it went (`task`).
+    pub fn task(name: &str, spec: crate::tasks::TaskSpec) -> Service {
+        Service {
+            name: name.into(),
+            kind: Kind::Task(Box::new(spec)),
+            needs: Vec::new(),
+            sleep: Sleep::Default,
+            watch: Vec::new(),
         }
     }
 
@@ -64,6 +80,15 @@ impl Service {
         self
     }
 
+    /// Restarts it (stop, then wake, cause `watch` naming the path) when a file `globs` match under `dir` changes.
+    pub fn watch(mut self, dir: impl Into<std::path::PathBuf>, globs: &[&str]) -> Service {
+        self.watch.push(crate::watch::Set {
+            dir: dir.into(),
+            globs: globs.iter().map(|g| (*g).to_string()).collect(),
+        });
+        self
+    }
+
     /// Sets the block's `sleep`.
     pub fn sleep(mut self, sleep: Sleep) -> Service {
         self.sleep = sleep;
@@ -76,6 +101,7 @@ impl Service {
 pub enum Kind {
     Process(Box<ProcessSpec>),
     Planned(Arc<dyn Planner>),
+    Task(Box<crate::tasks::TaskSpec>),
 }
 
 /// A need of a service.
@@ -153,6 +179,27 @@ pub trait Planner: Send + Sync + Debug {
         let _ = ctx;
         None
     }
+
+    /// Its structural objects (roles, databases, queues), when its module manages any: what `sync` creates, updates
+    /// and prunes (Go's `engine.Inventory` and `engine.Pruner`). `None`: it has none, and `sync` skips it.
+    fn structure(&self) -> Option<&dyn Structure> {
+        None
+    }
+}
+
+/// The structural objects of a running instance (a module's `objects`, `converge` and `prune`). Each call is made with
+/// the instance awake.
+pub trait Structure: Send + Sync {
+    /// What its declaration says it should have, in the order to create it.
+    fn objects<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<Vec<Object>, String>>;
+    /// Creates what is missing and updates what changed.
+    fn converge<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<(), String>>;
+    /// Drops `removed`, in the order given (the reverse of how they were created).
+    fn prune<'a>(
+        &'a self,
+        ctx: &'a PlanCtx,
+        removed: &'a [Object],
+    ) -> BoxFuture<'a, Result<(), String>>;
 }
 
 /// A whole stack.
@@ -170,6 +217,10 @@ pub struct Stack {
     /// doze's own variables for everything it runs (the CA bundle the daemon sets up: `DOZE_CA_FILE`,
     /// `SSL_CERT_FILE`…), added by [`crate::process::with_extra`]'s rule.
     pub extra_env: BTreeMap<String, String>,
+    /// What the log store keeps per instance (doze.hcl's `log_runs`, `log_bytes`; zero: 5 runs, 10 MiB).
+    pub log_limits: doze_logstore::Options,
+    /// The applied state, `.doze/state.json` beside the config ([`crate::applied::path_for`]): task records, objects.
+    pub state_file: PathBuf,
 }
 
 impl Stack {
@@ -178,9 +229,19 @@ impl Stack {
         self.data_dir.join("clusters").join(name)
     }
 
-    /// The stack's runtime folder (pidfiles, sockets).
+    /// The stack's runtime folder (pidfiles, sockets, the journal).
     pub fn run_dir(&self) -> PathBuf {
         self.data_dir.join("run")
+    }
+
+    /// The log store's folder: `logs/<instance>/`.
+    pub fn logs_dir(&self) -> PathBuf {
+        doze_logstore::dir_of(&self.data_dir)
+    }
+
+    /// The journal: `run/journal.jsonl` (Go's path; the app reads it there).
+    pub fn journal_path(&self) -> PathBuf {
+        self.run_dir().join("journal.jsonl")
     }
 
     /// Looks a service up by name.
