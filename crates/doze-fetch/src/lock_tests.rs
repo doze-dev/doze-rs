@@ -98,3 +98,33 @@ fn save_writes_only_a_change_and_names_the_newest_doze() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Two spellings of one file are one lock: writers through `dir/../dir/doze.lock` and `dir/doze.lock` each read the
+/// file again under the same lock, so both pins are kept.
+#[test]
+fn one_file_reached_two_ways_keeps_both_pins() {
+    let root = std::env::temp_dir().join(format!("doze-fetch-canon-{}", std::process::id()));
+    let (home, dir) = (root.join("home"), root.join("p"));
+    std::fs::create_dir_all(&dir).unwrap();
+    let direct = dir.join(FILE);
+    let around = root.join("p/../p").join(FILE);
+    assert_eq!(canonical(&direct), canonical(&around));
+    let pin = |v: &str| Pin {
+        version: v.into(),
+        protocol: 2,
+        ..Pin::default()
+    };
+    update(&home, &around, None, |l| {
+        l.record_module("doze/valkey", pin("0.3.0"));
+        Ok(())
+    })
+    .unwrap();
+    update(&home, &direct, None, |l| {
+        l.record_module("doze/postgres", pin("0.2.5"));
+        Ok(())
+    })
+    .unwrap();
+    let got = Lock::load(&direct).unwrap();
+    let _ = std::fs::remove_dir_all(&root);
+    assert_eq!(got.modules.len(), 2);
+}

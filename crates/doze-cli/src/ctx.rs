@@ -41,6 +41,11 @@ pub trait Host {
     fn ask(&self) -> Option<bool> {
         None
     }
+    /// Reads one line the person types at the terminal (the question is already written), without its newline;
+    /// `None` when there is no one to ask or the input ended (`init --wizard`).
+    fn read_line(&self) -> Option<String> {
+        None
+    }
     /// Where the machine's system files are (`/etc/resolver`, the launchd job, …): the real ones, or a test's
     /// temporary root, so nothing a test does reads or writes the machine's.
     fn setup_paths(&self) -> doze_names::setup::Paths {

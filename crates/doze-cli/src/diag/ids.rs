@@ -95,3 +95,22 @@ pub const FLAGS_DISAGREE: Id = id("DZ0104", Exit::Usage);
 pub const NO_SUCH_RUN: Id = id("DZ0708", Exit::Failed);
 /// There is nothing for the command to act on (Go exits 1 here too).
 pub const NOTHING_TO_DO: Id = id("DZ0709", Exit::Failed);
+
+/// `add`: the block's name is declared already.
+pub const NAME_TAKEN: Id = id("DZ0307", Exit::Failed);
+/// `add`/`init`: what would be written does not read as a config, so nothing was written.
+pub const WOULD_NOT_READ: Id = id("DZ0308", Exit::Failed);
+/// `init`: there is a doze.hcl already (`--force` overwrites it).
+pub const CONFIG_EXISTS: Id = id("DZ0309", Exit::Failed);
+/// `add --as`: the way asked for cannot be taken (a module, or a binary that is not on the PATH).
+pub const WAY_REFUSED: Id = id("DZ0310", Exit::Failed);
+/// `modules upgrade`: a module could not be resolved again.
+pub const UPGRADE_FAILED: Id = id("DZ0205", Exit::Failed);
+/// `modules upgrade --check`: some pins would move.
+pub const UPGRADES_WAITING: Id = id("DZ0206", Exit::Failed);
+/// `bug`: the report could not be written.
+pub const REPORT_UNWRITABLE: Id = id("DZ0003", Exit::Failed);
+/// `open`: the app is not on this machine.
+pub const NO_APP: Id = id("DZ0408", Exit::Machine);
+/// `update`: this install is updated by its own tool (brew, a package manager), which the message names.
+pub const SELF_UPDATE_UNSUPPORTED: Id = id("DZ0602", Exit::Failed);

@@ -64,6 +64,8 @@ json:
 |       }
 |     ],
 |     "blocks": [],
+|     "label": "cache",
+|     "default_version": "9",
 |     "web": "https://doze-dev.com/registry/doze/valkey/",
 |     "cached_seconds_ago": {n}
 |   }

@@ -52,6 +52,14 @@ impl Host for Process {
         Some(matches!(answer.trim().to_lowercase().as_str(), "y" | "yes"))
     }
 
+    fn read_line(&self) -> Option<String> {
+        let mut line = String::new();
+        match io::stdin().read_line(&mut line) {
+            Ok(0) | Err(_) => None,
+            Ok(_) => Some(line.trim_end_matches(['\n', '\r']).to_owned()),
+        }
+    }
+
     fn privileged(&self, plan: &Plan, prompt: bool) -> Result<(), Refused> {
         crate::machine::run_as_root(plan, prompt)
     }

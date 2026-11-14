@@ -93,6 +93,15 @@ impl Loader {
             .map_err(|e| render::diagnose(&e, &self.host.cwd))
     }
 
+    /// A config's text that is not on disk yet (what `add` or `init` would write), read as its shape at `path`
+    /// (Go's `ParseShape`); exit 5 with what is wrong in it.
+    pub(crate) fn parse_shape(&self, src: &str, path: &Path) -> Result<Config, Diagnostic> {
+        let opts = self.options();
+        let path = self.relative(path);
+        doze_config::parse(src, &path.to_string_lossy(), &opts, true)
+            .map_err(|e| render::diagnose(&e, &self.host.cwd))
+    }
+
     /// The full load (Go's `Load`) of a stack with no module blocks: everything the shape pass checks, and the rest
     /// (outputs, `doze = ">= x"`, lint warnings). Also says whether a certificate went unchecked.
     pub(crate) fn full_without_modules(

@@ -235,6 +235,43 @@ impl Lock {
     }
 }
 
+/// The file's canonical path: its folder resolved (symlinks, `..`), its own name kept, so a lock reached two ways
+/// is one file (the file itself may not exist yet).
+pub fn canonical(path: &Path) -> std::path::PathBuf {
+    let name = path.file_name().map(std::ffi::OsStr::to_os_string);
+    let dir = path
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    match (dir.canonicalize(), name) {
+        (Ok(d), Some(n)) => d.join(n),
+        _ => path.to_path_buf(),
+    }
+}
+
+/// Changes the lock at `path` with `change` and saves it, holding a lock in the doze home keyed by the file's
+/// canonical path (never a file beside the project's), so every writer (`doze modules upgrade`, each `__fetch`
+/// child) reads the file again under it and no one's pin is lost. `doze` is as for [`Lock::save`].
+pub fn update<T>(
+    home: &Path,
+    path: &Path,
+    doze: Option<&str>,
+    change: impl FnOnce(&mut Lock) -> Result<T, String>,
+) -> Result<T, String> {
+    let locks = home.join("locks");
+    std::fs::create_dir_all(&locks)
+        .map_err(|e| format!("taking the doze.lock lock in {}: {e}", locks.display()))?;
+    let key = crate::registry::signed::sha256_hex(canonical(path).to_string_lossy().as_bytes());
+    let _held =
+        doze_os::fs::lock(&locks.join(format!("lock-{}.lock", key.get(..16).unwrap_or(&key))))
+            .map_err(|e| e.to_string())?;
+    let mut now = Lock::load(path)?;
+    let out = change(&mut now)?;
+    now.save(path, doze)
+        .map_err(|e| format!("writing {}: {e}", path.display()))?;
+    Ok(out)
+}
+
 fn sorted<V>(m: &BTreeMap<String, V>) -> Vec<(&String, &V)> {
     let mut v: Vec<_> = m.iter().collect();
     v.sort_by(|a, b| key_order(a.0, b.0));

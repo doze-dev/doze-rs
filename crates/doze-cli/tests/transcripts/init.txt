@@ -1,0 +1,73 @@
+# init: what the project says, each block with why; modules are known by what they declare (here valkey and
+# postgres from the registry); --dry-run shows the file; a second init is refused without --force.
+@ registry
+@ no-json
+@ file project/go.mod module example.com/shop\n\ngo 1.22\n\nrequire github.com/redis/go-redis/v9 v9.5.1\n
+@ file project/cmd/api/main.go package main\n\nimport (\n\t"os"\n\t"github.com/jackc/pgx/v5"\n)\n\nfunc main() { _ = os.Getenv("DATABASE_URL"); _ = os.Getenv("PORT") }\n
+@ file project/Makefile migrate:\n\tgoose up\n
+
+$ doze init --dry-run
+exit 0
+stdout:
+| Found in this project:
+|   app      api            a Go main package at cmd/api
+|   module   postgres       the code imports github.com/jackc/pgx/v5
+|   module   valkey         go.mod requires github.com/redis/go-redis/v9
+|   task     migrate        Makefile has a migrate target
+| 
+| stack = "project"
+| 
+| # the code imports github.com/jackc/pgx/v5
+| module postgres "db" {
+|   version = 18
+|   port    = 5432
+| }
+| 
+| # go.mod requires github.com/redis/go-redis/v9
+| module valkey "cache" {
+|   version = 9
+|   port    = 6379
+| }
+| 
+| # Makefile has a migrate target
+| task "migrate" {
+|   run = "make migrate"
+| }
+| 
+| # a Go main package at cmd/api
+| app "api" {
+|   run = "go run ./cmd/api"
+|   # it reads $PORT, so it is given a port — change it if you like
+|   port = 8080
+| 
+|   env = {
+|     DATABASE_URL = module.db.url
+|   }
+| 
+|   after = [task.migrate]
+| }
+|   dry run: nothing was written · doze init writes this
+
+$ doze init
+exit 0
+stdout:
+| Found in this project:
+|   app      api            a Go main package at cmd/api
+|   module   postgres       the code imports github.com/jackc/pgx/v5
+|   module   valkey         go.mod requires github.com/redis/go-redis/v9
+|   task     migrate        Makefile has a migrate target
+| 
+| ✓ wrote doze.hcl
+|   next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more
+
+$ doze init
+exit 1
+stderr:
+| error[DZ0309]: doze.hcl already exists
+|   fix: doze init --force overwrites it · doze add <module> adds to it
+
+$ doze lint --offline
+exit 0
+stdout:
+| ✓ doze.hcl passes the first pass: 2 modules, 1 app, 1 task
+|   ! module blocks not checked (--offline): postgres, valkey

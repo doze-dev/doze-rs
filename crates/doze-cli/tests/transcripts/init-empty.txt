@@ -1,0 +1,44 @@
+# init in a folder with nothing doze runs: a commented starter that says how to add what is needed, never an
+# invented block (proposal F6).
+@ registry
+
+$ doze init
+exit 0
+stdout:
+| ✓ wrote doze.hcl · found nothing doze runs here, so it is a commented starter
+|   next: doze add <module> fills it
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze init",
+|   "ok": true,
+|   "data": {
+|     "file": "doze.hcl",
+|     "written": true,
+|     "found": [],
+|     "notes": [],
+|     "starter": true
+|   }
+| }
+
+$ doze lint --offline
+exit 0
+stdout:
+| ✓ doze.hcl is valid: nothing declared
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze lint",
+|   "ok": true,
+|   "data": {
+|     "config": "doze.hcl",
+|     "declared": {
+|       "service": 0,
+|       "task": 0
+|     },
+|     "disabled": 0,
+|     "unchecked": []
+|   }
+| }

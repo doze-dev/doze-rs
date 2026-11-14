@@ -1,0 +1,98 @@
+# add: a module's block from what it declares (label, port, default version), beside what is there; a second one
+# takes a free name; a taken name is refused and nothing changes; a typo is not added as a service.
+@ registry
+@ project bare
+@ no-json
+
+$ doze add valkey --dry-run
+exit 0
+stdout:
+| → module valkey "cache2"
+|   module valkey "cache2" {
+|     version = 9
+|     port    = 6379
+|   }
+| 
+|   use it from an app:  REDIS_URL = module.cache2.url
+| 
+| (dry run: nothing written)
+
+$ doze add valkey
+exit 0
+stdout:
+| → module valkey "cache2"
+|   module valkey "cache2" {
+|     version = 9
+|     port    = 6379
+|   }
+| 
+|   use it from an app:  REDIS_URL = module.cache2.url
+| 
+| ✓ added to doze.hcl — doze lint · doze up
+
+$ doze add valkey
+exit 0
+stdout:
+| → module valkey "cache3"
+|   module valkey "cache3" {
+|     version = 9
+|     port    = 6379
+|   }
+| 
+|   use it from an app:  REDIS_URL = module.cache3.url
+| 
+| ✓ added to doze.hcl — doze lint · doze up
+
+$ doze add valkey cache
+exit 1
+stderr:
+| error[DZ0307]: "cache" is already declared in doze.hcl
+|   fix: pick another name: doze add valkey <name>
+
+$ doze add mongo --as container
+exit 0
+stdout:
+| → service "mongo"
+|   service "mongo" {
+|     # a container: a container is just a command, and `run` stays in the foreground
+|     run  = "docker run --rm -p $HOST:$PORT:27017 mongo:7"
+|     port = 27017
+|   }
+| 
+|   use it from an app:  MONGO_ADDR = service.mongo.address
+| 
+| ✓ added to doze.hcl — doze lint · doze up
+
+$ doze add mongo --as download --port 27018
+exit 0
+stdout:
+| → service "mongo2"
+|   service "mongo2" {
+|     # fetched once, pinned in doze.lock by its checksum, and run from the archive
+|     download = "https://example.com/mongo-darwin-arm64.tar.gz" # fill this in
+|     run      = "./mongo --port $PORT"
+|     port     = 27018
+|   }
+| 
+|   use it from an app:  MONGO2_ADDR = service.mongo2.address
+| 
+| ✓ added to doze.hcl — doze lint · doze up
+
+$ doze add valky
+exit 4
+stderr:
+| error[DZ0203]: there is no module called valky, and doze knows no service by that name
+|   did you mean valkey?
+|   fix: doze add valkey · to add valky as a service anyway: doze add valky --as container
+
+$ doze add postgres --as installed
+exit 1
+stderr:
+| error[DZ0310]: --as is for a service, and postgres is a registry module
+|   fix: doze add postgres
+
+$ doze lint --offline
+exit 0
+stdout:
+| ✓ doze.hcl passes the first pass: 4 modules, 2 services
+|   ! module blocks not checked (--offline): postgres, valkey

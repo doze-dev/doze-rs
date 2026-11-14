@@ -53,6 +53,7 @@ pub fn go_kinds() -> Vec<Declared> {
                     .map(|(e, a)| (e.clone(), a.as_str().unwrap().to_owned()))
                     .collect(),
             },
+            about: String::new(),
         })
         .collect()
 }

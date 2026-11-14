@@ -40,6 +40,8 @@ pub struct Declared {
     pub category: String,
     /// How a project shows it uses the module.
     pub detect: Detect,
+    /// What it is, in a line (`init --wizard` offers it with this).
+    pub about: String,
 }
 
 /// What a folder suggests.

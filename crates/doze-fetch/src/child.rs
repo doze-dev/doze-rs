@@ -213,19 +213,16 @@ fn save_pin(
     let Some(pin) = pin else {
         return Ok(false);
     };
-    let locks = place.modules.home.join("locks");
-    std::fs::create_dir_all(&locks)
-        .map_err(|e| format!("taking the doze.lock lock in {}: {e}", locks.display()))?;
-    let key = crate::registry::signed::sha256_hex(path.to_string_lossy().as_bytes());
-    let _held =
-        doze_os::fs::lock(&locks.join(format!("lock-{}.lock", key.get(..16).unwrap_or(&key))))
-            .map_err(|e| e.to_string())?;
-    let mut now = Lock::load(path)?;
-    let new = !now.modules.contains_key(&src.to_string());
-    now.record_module(&src.to_string(), pin.clone());
-    now.save(path, Some(&place.modules.doze))
-        .map_err(|e| e.to_string())?;
-    Ok(new)
+    crate::lock::update(
+        &place.modules.home,
+        path,
+        Some(&place.modules.doze),
+        |now| {
+            let new = !now.modules.contains_key(&src.to_string());
+            now.record_module(&src.to_string(), pin.clone());
+            Ok(new)
+        },
+    )
 }
 
 /// Reads one request line from `input`, serves it, writes one reply line to `output` (the `__fetch` command).

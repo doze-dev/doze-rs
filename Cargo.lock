@@ -2760,6 +2760,7 @@ dependencies = [
  "clap_complete",
  "doze-config",
  "doze-control",
+ "doze-detect",
  "doze-display",
  "doze-doctor",
  "doze-fetch",

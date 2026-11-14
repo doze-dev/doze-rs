@@ -1,0 +1,40 @@
+# add with the registry out of reach and no copy here: doze can't tell a module from a service, and says so (exit
+# 10); --as says it is a service, so that works; a copy on this machine is enough for a module.
+@ project bare
+@ no-json
+@ cached postgres
+
+$ doze add valkey
+exit 10
+stderr:
+| error[DZ0201]: the module registry can't be reached, and this machine has no copy of valkey
+|   {sandbox}/unreachable: no registry in that directory
+|   doze can't tell whether valkey is a module or a service
+|   fix: check the network and run it again · doze add valkey --as container adds it as a service
+
+$ doze add mongo --as container
+exit 0
+stdout:
+| → service "mongo"
+|   service "mongo" {
+|     # a container: a container is just a command, and `run` stays in the foreground
+|     run  = "docker run --rm -p $HOST:$PORT:27017 mongo:7"
+|     port = 27017
+|   }
+| 
+|   use it from an app:  MONGO_ADDR = service.mongo.address
+| 
+| ✓ added to doze.hcl — doze lint · doze up
+
+$ doze add postgres
+exit 0
+stdout:
+| → module postgres "db2"
+|   module postgres "db2" {
+|     version = 18
+|     port    = 5432
+|   }
+| 
+|   use it from an app:  DATABASE_URL = module.db2.url
+| 
+| ✓ added to doze.hcl — doze lint · doze up

@@ -1,7 +1,9 @@
 //! One file per command that is built; the rest answer from [`stub`]. Dispatch is one exhaustive match, so a command
 //! added to the surface cannot go unanswered.
 
+pub(crate) mod add;
 mod ask;
+pub(crate) mod decl;
 pub(crate) mod declared;
 pub(crate) mod docs;
 mod docs_view;
@@ -10,6 +12,7 @@ mod dry;
 pub(crate) mod fetch;
 pub(crate) mod format;
 mod graph;
+pub(crate) mod init;
 pub(crate) mod lint;
 pub(crate) mod logs;
 pub(crate) mod modules;
@@ -80,6 +83,8 @@ pub(crate) fn dispatch(
         Cmd::Why(w) => why::run(ctx, mode, &w),
         Cmd::Lint(l) => lint::run(ctx, mode, &l),
         Cmd::Fmt(f) => format::run(ctx, mode, &f),
+        Cmd::Add(a) => add::run(ctx, mode, &a),
+        Cmd::Init(i) => init::run(ctx, mode, &i),
         Cmd::Modules(m) => match m.command {
             None => modules::run(ctx, mode),
             Some(ModulesCmd::Docs(d)) => docs::run(ctx, mode, &d, notices),

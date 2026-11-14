@@ -17,10 +17,7 @@ pub(super) fn get(url: &str, timeout: Duration, limit: u64) -> Result<Vec<u8>, F
         ])
         .args(["--max-time", &format!("{:.3}", timeout.as_secs_f64())])
         .args(["--max-filesize", &limit.to_string()])
-        .args([
-            "--user-agent",
-            concat!("doze/", env!("CARGO_PKG_VERSION")),
-        ])
+        .args(["--user-agent", concat!("doze/", env!("CARGO_PKG_VERSION"))])
         .args(["--write-out", "\n%{http_code}", "--", url])
         .stdin(Stdio::null())
         .output()
@@ -108,7 +105,10 @@ mod tests {
     #[test]
     fn curl_itself_fetches_and_reports_status() {
         let ok = super::super::tests_support::serve("200 OK", b"x: 1\n");
-        assert_eq!(get(&ok, Duration::from_secs(5), super::super::LIMIT).unwrap(), b"x: 1\n");
+        assert_eq!(
+            get(&ok, Duration::from_secs(5), super::super::LIMIT).unwrap(),
+            b"x: 1\n"
+        );
         let gone = super::super::tests_support::serve("410 Gone", b"");
         assert_eq!(
             get(&gone, Duration::from_secs(5), super::super::LIMIT),
