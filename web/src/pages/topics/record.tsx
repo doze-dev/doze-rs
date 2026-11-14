@@ -97,9 +97,9 @@ function Decoded({ s, label, testid }: { s: Shown; label: string; testid: string
         <Block s={s} testid={testid} />
       ) : (
         <>
-          <p className="text-[12.5px] text-muted-foreground">
-            {k.json ? <>Decoded with {named ?? `schema id ${k.id}`}{k.message && <> as <code className="font-mono">{k.message}</code></>}: magic byte 0, the id in four bytes, then the {k.kind === "PROTOBUF" ? "message index and the Protobuf body" : k.kind === "JSON" ? "JSON text" : "Avro binary"}.</> : <>Not decoded{named && <> (schema {named})</>}.</>}
-          </p>
+          {k.json && (<p className="text-[12.5px] text-muted-foreground">
+            {k.json ? <>Decoded with {named ?? `schema id ${k.id}`}{k.message && <> as <code className="font-mono">{k.message}</code></>}: magic byte 0, the id in four bytes, then the {k.kind === "PROTOBUF" ? "message index and the Protobuf body" : k.kind === "JSON" ? "JSON text" : "Avro binary"}.</> : null}
+          </p>)}
           {k.json && (
             <pre data-testid={testid} className="max-h-[22rem] overflow-auto rounded-lg border bg-well px-3.5 py-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap break-all text-bright">
               {k.json}
@@ -107,7 +107,7 @@ function Decoded({ s, label, testid }: { s: Shown; label: string; testid: string
           )}
           {k.error && (
             <Callout tone="warn">
-              <b className="font-semibold text-bright">{k.kind ? "The bytes do not fit their schema." : `Schema id ${k.id} is not registered here.`}</b> <span data-testid={`${testid}-why`}>{k.error}</span>
+              <b className="font-semibold text-bright">{k.kind ? "Not decoded: the bytes do not fit their schema." : "Not decoded."}</b> <span data-testid={`${testid}-why`}>{k.error}</span>{named && <> Its schema: {named}.</>}
             </Callout>
           )}
           {k.mismatch && (

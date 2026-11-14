@@ -209,8 +209,8 @@ export function ProduceBody({ topic, open }: { topic: string; open: boolean }) {
                 </pre>
               </>
             ) : (
-              <p className="text-[12.5px] text-warn" data-testid="encoded-error">
-                {encoded?.error ?? "Type the value as JSON."}
+              <p className={encoded ? "text-[12.5px] text-warn" : "text-[12.5px] text-muted-foreground"} data-testid="encoded-error">
+                {encoded?.error ?? "Type the value as JSON: it is checked and encoded as you type."}
               </p>
             )}
           </div>

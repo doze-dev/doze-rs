@@ -298,8 +298,9 @@ async fn produce_form(
         .unwrap_or_default();
     let wanted = format!("{topic}-value");
     let suggested = subjects.iter().find(|x| **x == wanted).cloned();
-    let encoded =
-        schema_choice(&fields).map(|choice| match encode_with(&s, &choice, &input.value) {
+    let encoded = schema_choice(&fields)
+        .filter(|_| !input.value.trim().is_empty())
+        .map(|choice| match encode_with(&s, &choice, &input.value) {
             Ok((e, _)) => e,
             Err(why) => Encoded {
                 ok: false,

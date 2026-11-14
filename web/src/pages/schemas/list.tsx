@@ -48,11 +48,11 @@ function columns(wide: boolean): DataColumn<SubjectRow>[] {
         );
       },
     },
-    { id: "type", header: "Type", size: 132, accessorFn: (r) => r.kind, cell: ({ row: { original: r } }) => <KindBadge kind={r.kind} /> },
+    { id: "type", header: "Type", size: 116, accessorFn: (r) => r.kind, cell: ({ row: { original: r } }) => <KindBadge kind={r.kind} /> },
     {
       id: "latest",
       header: "Latest",
-      size: 132,
+      size: 124,
       accessorFn: (r) => r.latest_version,
       meta: { mono: true },
       cell: ({ row: { original: r } }) => (
@@ -65,12 +65,12 @@ function columns(wide: boolean): DataColumn<SubjectRow>[] {
     {
       id: "level",
       header: "Compatibility",
-      size: 220,
+      size: 188,
       accessorFn: (r) => r.level,
       cell: ({ row: { original: r } }) => <LevelWord level={r.level} own={r.level_is_own} />,
     },
-    { id: "refs", header: "References", size: 128, accessorFn: (r) => r.references, meta: { numeric: true, mono: true } },
-    { id: "registered", header: "Last registered", size: 160, accessorFn: (r) => r.last_registered ?? "", meta: { mono: true }, cell: ({ row: { original: r } }) => (r.last_registered ? utcDay(r.last_registered) : <span className="text-muted-foreground">not kept</span>) },
+    { id: "refs", header: "Refs", size: 84, accessorFn: (r) => r.references, meta: { numeric: true, mono: true } },
+    { id: "registered", header: "Registered", size: 168, accessorFn: (r) => r.last_registered ?? "", meta: { mono: true }, cell: ({ row: { original: r } }) => (r.last_registered ? utcDay(r.last_registered) : <span className="text-muted-foreground">not kept</span>) },
   ];
   return wide ? all : all.filter((c) => c.id !== "refs" && c.id !== "registered");
 }

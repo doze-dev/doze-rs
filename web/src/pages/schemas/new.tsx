@@ -51,47 +51,27 @@ function asPost(v: Values): SchemaPost {
 
 function Findings({ findings, onFix }: { findings: FindingView[]; onFix: (schema: string) => void }) {
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      <table className="w-full table-fixed text-[13px]" data-testid="findings" aria-label="Why it is not compatible">
-        <colgroup>
-          <col style={{ width: "3rem" }} />
-          <col style={{ width: "30%" }} />
-          <col />
-          <col style={{ width: "11rem" }} />
-        </colgroup>
-        <thead className="bg-well text-[11.5px] tracking-[0.04em] text-muted-foreground uppercase">
-          <tr>
-            <th className="h-9 px-3 text-left font-medium">#</th>
-            <th className="h-9 px-3 text-left font-medium">Incompatibility</th>
-            <th className="h-9 px-3 text-left font-medium">Where and why</th>
-            <th className="h-9 px-3 text-left font-medium">Fix</th>
-          </tr>
-        </thead>
-        <tbody>
-          {findings.flatMap((f) =>
-            f.reasons.map((r, i) => (
-              <tr key={`${f.version}-${i}`} className="border-t align-top" data-testid="finding">
-                <td className="px-3 py-2.5 font-mono text-muted-foreground">v{f.version}</td>
-                <td className="px-3 py-2.5 font-mono text-[12px] break-words text-bright">{r.kind}</td>
-                <td className="px-3 py-2.5 break-words">
-                  {r.path && <span className="mr-1 font-mono text-[12px] text-muted-foreground">{r.path}:</span>}
-                  {r.description}
-                </td>
-                <td className="px-3 py-2.5">
-                  {r.fix ? (
-                    <Button type="button" size="sm" variant="outline" onClick={() => onFix(r.fix!.schema)} title={r.fix.label} data-testid="apply-fix" className="h-auto max-w-full py-1 text-left whitespace-normal">
-                      <WandSparklesIcon /> {r.fix.label}
-                    </Button>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </td>
-              </tr>
-            )),
-          )}
-        </tbody>
-      </table>
-    </div>
+    <ol className="flex flex-col gap-2.5" data-testid="findings" aria-label="Why it is not compatible">
+      {findings.flatMap((f) =>
+        f.reasons.map((r, i) => (
+          <li key={`${f.version}-${i}`} className="rounded-xl border bg-card p-4" data-testid="finding">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <span className="font-mono text-[12.5px] font-medium break-all text-bright">{r.kind}</span>
+              <span className="font-mono text-[12px] text-muted-foreground">
+                against v{f.version}
+                {r.path && ` · ${r.path}`}
+              </span>
+            </div>
+            <p className="mt-1.5 text-[13px] break-words text-foreground">{r.description}</p>
+            {r.fix && (
+              <Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => onFix(r.fix!.schema)} data-testid="apply-fix">
+                <WandSparklesIcon /> {r.fix.label}
+              </Button>
+            )}
+          </li>
+        )),
+      )}
+    </ol>
   );
 }
 
@@ -215,7 +195,7 @@ export function NewSchemaPage() {
                 {KIND_WORD[kind]} · {lines} {lines === 1 ? "line" : "lines"}
               </span>
             </div>
-            <Textarea id="schema" rows={18} spellCheck={false} className="max-h-[32rem] min-h-72 font-mono text-[12.5px] leading-5" {...form.register("schema", { required: "paste the schema" })} data-testid="schema" />
+            <Textarea id="schema" rows={18} spellCheck={false} wrap="off" className="max-h-[32rem] min-h-72 overflow-x-auto font-mono text-[12.5px] leading-5 whitespace-pre" {...form.register("schema", { required: "paste the schema" })} data-testid="schema" />
           </div>
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-2 text-sm font-medium">
@@ -244,7 +224,7 @@ export function NewSchemaPage() {
             </Label>
           </div>
         </div>
-        <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4 self-start xl:sticky xl:top-6">
           <h2 className="text-[15px] font-semibold text-bright">The check</h2>
           <div className="min-h-24" aria-live="polite" data-testid="check">
             {check.data ? <Verdict a={check.data} kind={kind} onFix={onFix} /> : <p className="text-[13px] text-muted-foreground">Type a subject and a schema: the registry checks it as you go.</p>}

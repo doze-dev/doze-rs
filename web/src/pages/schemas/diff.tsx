@@ -60,7 +60,7 @@ function Split({ lines }: { lines: DiffLine[] }) {
   const cell = (l: DiffLine | null, side: "old" | "new") => (
     <>
       <td className={cn("w-10 border-r px-2 text-right text-muted-foreground select-none", l && l.op !== "same" && TONE[l.op])}>{l ? l[side] : ""}</td>
-      <td className={cn("w-1/2 px-3 whitespace-pre", l ? TONE[l.op] : "bg-muted/40")}>{l?.text ?? ""}</td>
+      <td className={cn("w-1/2 px-3 break-all whitespace-pre-wrap", l ? TONE[l.op] : "bg-muted/40")}>{l?.text ?? ""}</td>
     </>
   );
   return (
