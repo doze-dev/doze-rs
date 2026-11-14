@@ -262,7 +262,7 @@ impl Peer {
         if let Ok(mut p) = self.inner.pending.lock() {
             p.remove(&id);
         }
-        self.inner.let_go(id);
+        // Our copy of a handed-over connection stays until the answer: the frame may still be on its way.
         if let Ok(b) = frame::encode(id, Kind::Cancel, 0, &[], None) {
             let _ = self.inner.queue(Out::Frame(b));
         }

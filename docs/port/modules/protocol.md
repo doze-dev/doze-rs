@@ -68,6 +68,10 @@ their call; green on five targets.
 - **A handle must not travel alone** (2026-11-15, PR #42's flaky cancel test). macOS's collector of descriptors in
   flight (`unp_gc`, run on any Unix-socket close while descriptors are in flight) can count a socket unreachable in
   the moment the receiver's `recvmsg` has taken the message off the channel but not yet installed the descriptor, and
-  `sorflush`es it (the window is read from XNU's `uipc_usrreq.c`; the rates below are measured): the module holds the right connection, but its first read returns 0 and the client's bytes are
-  gone. About 1 in 60 hand-overs under churn, none once the sender keeps a copy. The peer keeps one
-  (`Passable::hold`) until the module answers the call or makes a callback inside it; `tests/handoff.rs`.
+  `sorflush`es it (the window is read from XNU's `uipc_usrreq.c`; the rates are measured). The module holds the
+  right connection, but its first read returns 0 and the client's bytes are gone. About 1 in 60 hand-overs under
+  churn, none once the sender keeps a copy. The peer keeps one (`Passable::hold`) until the module answers the call
+  or makes a callback inside it; `tests/handoff.rs`. The cost: one descriptor in the host per handed-over connection
+  until then, and for a module that makes no callback the client sees the connection end only once the module has
+  answered (one hop after the module drops it). A cancelled call keeps the copy until its answer: the frame may
+  still be on its way.

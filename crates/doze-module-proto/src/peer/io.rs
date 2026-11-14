@@ -173,10 +173,11 @@ fn dispatch(
 }
 
 fn answer(inner: &Arc<Inner>, f: Frame) -> Result<(), Error> {
+    // Before the pending check: a call we cancelled is still answered, and only then is the handle surely home.
+    inner.let_go(f.id);
     let Some(p) = inner.pending.lock().ok().and_then(|mut p| p.remove(&f.id)) else {
         return Ok(());
     };
-    inner.let_go(f.id);
     let result = match f.kind {
         Kind::Error => Err(msg::decode::<Error>(&f.body)
             .unwrap_or_else(|e| Error::new(ErrorKind::Internal, e.to_string()))),
