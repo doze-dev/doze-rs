@@ -634,3 +634,27 @@ def test_acls_once_object_ownership_enables_them(client, names, cleanup, snapsho
     snapshot.match("delete-ownership", s3.delete_bucket_ownership_controls(Bucket=name))
     snapshot.error("ownership-gone", lambda: s3.get_bucket_ownership_controls(Bucket=name))
     snapshot.error("public-access-block-gone", lambda: s3.get_public_access_block(Bucket=name))
+
+
+# The anonymous principal (2026-11-14): UNVERIFIED until recorded. An unsigned request reads only what a bucket policy grants to
+# anyone. Run against doze-aws, the answer to "anonymous-denied" depends on --iam: enforce refuses as AWS does; soft (the default)
+# logs the refusal and serves it, so that label differs from AWS there by design.
+
+
+def test_anonymous_reads_need_a_public_grant(client, names, cleanup, snapshot):
+    import json
+
+    from botocore import UNSIGNED
+    from botocore.config import Config
+
+    s3 = client("s3")
+    anon = client("s3", config=Config(signature_version=UNSIGNED))
+    name = bucket(s3, names, cleanup)
+    s3.put_object(Bucket=name, Key="k", Body=b"for anyone")
+    snapshot.outcome("anonymous-denied", lambda: anon.get_object(Bucket=name, Key="k"))
+    s3.put_public_access_block(Bucket=name, PublicAccessBlockConfiguration={
+        "BlockPublicAcls": True, "IgnorePublicAcls": True, "BlockPublicPolicy": False, "RestrictPublicBuckets": False})
+    s3.put_bucket_policy(Bucket=name, Policy=json.dumps({"Version": "2012-10-17", "Statement": [{
+        "Effect": "Allow", "Principal": "*", "Action": "s3:GetObject", "Resource": f"arn:aws:s3:::{name}/*"}]}))
+    snapshot.match("anonymous-allowed", anon.get_object(Bucket=name, Key="k"))
+    s3.delete_bucket_policy(Bucket=name)

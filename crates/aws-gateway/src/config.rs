@@ -30,6 +30,9 @@ pub struct Config {
     pub max_body_bytes: usize,
     /// How far a client's clock may differ from ours, in seconds.
     pub max_skew_secs: i64,
+    /// Whether a verifying gateway serves an unsigned S3 request (as AWS does) as the anonymous principal, for IAM to judge. Off,
+    /// such a request is refused as unauthenticated. A trusting gateway always serves it.
+    pub anonymous: bool,
 }
 
 impl Config {
@@ -43,6 +46,7 @@ impl Config {
             account_id: "000000000000".to_owned(),
             max_body_bytes: 16 << 20,
             max_skew_secs: 300,
+            anonymous: false,
         }
     }
 }

@@ -8,6 +8,7 @@
 
 mod accesslog;
 mod account;
+mod anonymous;
 mod attached;
 mod authz;
 mod awsmanaged;
@@ -84,6 +85,12 @@ impl Shared {
     /// Whether `caller` may do `needs`. A key IAM cannot have issued is the account root's, which is allowed everything: that is
     /// answered (and logged) here, without waking the actor, so an account with no identities costs nothing.
     async fn authorize(&self, caller: &Caller, needs: Vec<Need>) -> Result<(), ApiError> {
+        // An unsigned request is nobody: only a resource policy that grants to anyone lets it in.
+        if caller.is_anonymous() {
+            let (verdict, seen) = anonymous::authorize(self.mode(), &needs, self.clock.now_ms());
+            self.record(seen);
+            return verdict;
+        }
         if !(caller.access_key_id.starts_with("AKIA") || caller.access_key_id.starts_with("ASIA")) {
             let now = self.clock.now_ms();
             let root = format!("arn:aws:iam::{}:root", caller.account_id);

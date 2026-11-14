@@ -30,6 +30,8 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     config.account_id.clone_from(&args.account);
     config.auth = auth_of(&args);
     peers.set_mode(args.iam.into());
+    // A verifying gateway serves an unsigned S3 request as the anonymous principal only when IAM is there to judge it.
+    config.anonymous = !matches!(args.iam, crate::cli::IamMode::Off);
     let (iam, sts) = aws_iam::services(Arc::new(ctx("iam")));
     let iam = Arc::new(iam);
     peers.set_authorizer(iam.clone());

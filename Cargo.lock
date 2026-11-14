@@ -701,6 +701,7 @@ dependencies = [
  "aws-core",
  "aws-eventbridge",
  "aws-gateway",
+ "aws-iam",
  "aws-model-s3",
  "aws-peers",
  "aws-schema",

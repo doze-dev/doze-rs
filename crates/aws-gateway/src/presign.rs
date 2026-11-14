@@ -33,7 +33,7 @@ pub(crate) fn sigv2_claim(parts: &Parts) -> Option<Claim> {
 }
 
 /// The claim of a request that carries no signature and is not for a JSON or Query service: an S3 request made with `curl` or a
-/// browser. Served as the local account, by a gateway that trusts.
+/// browser. Served as the anonymous principal.
 pub(crate) fn anonymous_claim(parts: &Parts) -> Option<Claim> {
     let h = &parts.headers;
     let for_another_protocol = h.contains_key("x-amz-target")

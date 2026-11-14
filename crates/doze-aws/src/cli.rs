@@ -55,7 +55,9 @@ pub(crate) struct Args {
     #[arg(long, default_value = "test")]
     pub(crate) secret_key: String,
     /// What IAM does with a request its policies do not allow. Callers using a key IAM did not issue (`test`) are the account
-    /// root and are allowed everything.
+    /// root and are allowed everything. An unsigned S3 request (curl, a browser, a website page) is the anonymous principal, which
+    /// only a bucket policy (or a public ACL) granting `Principal *` lets in: soft logs what would be refused and serves it,
+    /// enforce refuses it, off serves it unasked.
     #[arg(long, value_enum, default_value_t = IamMode::Soft)]
     pub(crate) iam: IamMode,
     /// Seconds without a request before a service lets go of its memory and its files (it starts again, with its state, on the

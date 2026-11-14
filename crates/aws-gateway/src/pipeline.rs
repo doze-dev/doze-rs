@@ -170,11 +170,10 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
         Err(AuthError::UnsupportedAlgorithm) => crate::presign::sigv2_claim(&parts),
         Err(_) => None,
     };
-    // A request with no signature at all, to a gateway that trusts, is a person with curl or a browser: S3 serves it as the local
-    // account.
+    // A request with no signature at all is a person with curl or a browser: S3 serves it as the anonymous principal, whom IAM
+    // (soft or enforce) judges by the bucket's policy and ACLs. A verifying gateway does so only when IAM is there to judge.
     let claim = claim.or_else(|| {
-        shared
-            .trusts()
+        (shared.trusts() || shared.config.anonymous)
             .then(|| crate::presign::anonymous_claim(&parts))
             .flatten()
     });

@@ -348,7 +348,7 @@ async fn a_sigv2_presigned_url_is_checked_against_the_secret() {
     assert_eq!(status, 403);
     assert!(text.contains("Request has expired"), "{text}");
     let form = [("content-type", "application/x-www-form-urlencoded")];
-    let (status, _) = send(addr, "PUT", &put, &form, "", b"x").await;
+    let (status, _) = send(addr, "PUT", &put, &form, "", b"").await;
     assert_eq!(status, 403);
     running.shutdown().await;
     tasks.shutdown().await;

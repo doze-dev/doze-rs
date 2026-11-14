@@ -144,7 +144,10 @@ impl doze_runtime::Service for Core {
             }
             // Reads that change nothing and are asked without a request of their own.
             Ask::Configs(bucket) => return self.configs(&bucket),
-            Ask::Website(bucket, key) => return self.website(&bucket, &key),
+            Ask::Website(bucket, key) => {
+                self.authorize_page(&bucket, &key).await?;
+                return self.website(&bucket, &key);
+            }
         };
         self.last_caller = Some(call.caller.clone());
         let req = Req::new(&call, staged);
@@ -247,18 +250,37 @@ impl Core {
         let Some(peers) = self.peers.as_ref().filter(|p| p.mode() != Mode::Off) else {
             return Ok(());
         };
-        // S3 calls a refusal `AccessDenied`, always with 403; the authorizer words it for the Coral services, which call it
-        // `AccessDeniedException` (400).
         peers
             .authorize(&req.call.caller, self.needs(req))
             .await
-            .map_err(|mut e| {
-                if e.code == "AccessDeniedException" {
-                    e.code = "AccessDenied".into();
-                    e.status = 403;
-                }
-                e
-            })
+            .map_err(s3_refusal)
+    }
+
+    /// A website page is asked for by anyone: AWS serves it only when the object is public (a bucket policy granting `s3:GetObject`
+    /// to `*`, or a public ACL), so the anonymous principal is asked for the page's object.
+    async fn authorize_page(&self, bucket: &str, key: &str) -> Result<(), ApiError> {
+        let Some(peers) = self.peers.as_ref().filter(|p| p.mode() != Mode::Off) else {
+            return Ok(());
+        };
+        let page = self.page_key(bucket, key);
+        let caller = aws_wire::service::Caller {
+            access_key_id: aws_wire::service::Caller::ANONYMOUS.to_owned(),
+            account_id: self
+                .last_caller
+                .as_ref()
+                .map(|c| c.account_id.clone())
+                .unwrap_or_default(),
+            region: String::new(),
+            endpoint: String::new(),
+            service: None,
+            session_token: None,
+        };
+        let need = aws_peers::Need::new("s3:GetObject", format!("arn:aws:s3:::{bucket}/{page}"))
+            .with_policy(self.resource_policy(true, bucket, Some((&page, None))));
+        peers
+            .authorize(&caller, vec![need])
+            .await
+            .map_err(s3_refusal)
     }
 
     /// Writes what the call changed and waits until it is on disk; a call that failed changes nothing.
@@ -373,9 +395,23 @@ impl Core {
         Out::empty()
     }
 
+    pub(crate) fn bucket_of(&self, name: &str) -> Option<&Bucket> {
+        self.buckets.get(name)
+    }
+
     pub(crate) fn bucket(&self, name: &str) -> Result<&Bucket, ApiError> {
         self.buckets
             .get(name)
             .ok_or_else(|| crate::errors::no_such_bucket(name))
     }
+}
+
+/// S3 calls a refusal `AccessDenied`, always with 403; the authorizer words it for the Coral services, which call it
+/// `AccessDeniedException` (400).
+fn s3_refusal(mut e: ApiError) -> ApiError {
+    if e.code == "AccessDeniedException" {
+        e.code = "AccessDenied".into();
+        e.status = 403;
+    }
+    e
 }
