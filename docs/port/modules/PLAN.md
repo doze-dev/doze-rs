@@ -277,7 +277,9 @@ portable `process` engine, the app's tray and notifications) belongs to the core
       again (`doze-module`, `a_clone_that_failed_half_way_is_cleared_and_made_again`).
     - ferret compound index keys keep the order written: the SDK's new `Ordered<T>` reads an object in its source order
       (each value's span), as a doze.hcl map travels sorted. Go sorted the keys, so `{ status = 1, at = -1 }` built an
-      index on `at, status`.
+      index on `at, status`. An object whose order cannot be read (no spans, or two files: one the core computed) is
+      refused at its line rather than guessed. Upgrading rebuilds each compound index written out of alphabetical order
+      once (new name and keys: converge makes the new one, prune drops the old), which takes a while on a large collection.
     - fuzz targets for ferret's seed reader (`fuzz_seed`), mariadb's grant-name and privilege readers (`fuzz_read`, the
       readers moved to `src/read.rs`), postgres's psql row reader (`fuzz_rows`, `src/rows.rs`); all in CI's fuzz job.
     - filter tests (`src/filter_tests.rs`): GSSENC declined with or without TLS on offer, a second encryption request

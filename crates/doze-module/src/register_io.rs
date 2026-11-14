@@ -144,7 +144,9 @@ impl<M: Module + crate::caps::Wire> Server<M> {
 /// The template cloned to `dst`, its parent made first (private, as Go's `Clone` made it). The clone is made beside
 /// `dst` and renamed into place, so one that failed half way (a full disk, a killed module) leaves no half data
 /// directory: the next attempt clears the leftover and clones again. An empty `dst` left by an earlier attempt is
-/// removed; a `dst` holding anything is refused, never overwritten.
+/// removed; a `dst` holding anything is refused, never overwritten. Not made durable: a power cut during the plain-copy
+/// fallback can leave a renamed `dst` with files short (copy-on-write clones are whole or absent); it is the
+/// host's to not start two clones of one `dst` at once (it boots an instance once).
 fn clone_into(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
     if let Some(parent) = dst.parent() {
         doze_os::fs::private_dir(parent)?;
@@ -157,7 +159,8 @@ fn clone_into(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<(
                 format!("{} already holds data", dst.display()),
             ));
         }
-        Err(_) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e),
     }
     let mut name = std::ffi::OsString::from(".");
     name.push(dst.file_name().unwrap_or_default());

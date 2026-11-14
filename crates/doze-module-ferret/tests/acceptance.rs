@@ -380,8 +380,8 @@ async fn a_compound_index_keeps_its_key_order_and_a_removed_database_keeps_an_ap
     };
     let e = b.module.prune(&prune).await.unwrap_err();
     assert!(e.message.contains("app_cache"), "{e:?}");
-    // The declared collection went; the app's stayed, and so did the database.
-    assert_eq!(collections(&mut c, "scratch").await, ["app_cache"]);
+    // Refused before anything was dropped: the declared collection is there too, ready for the next prune.
+    assert_eq!(collections(&mut c, "scratch").await, ["app_cache", "notes"]);
     // Once the person drops it, prune finishes.
     c.run("scratch", Doc::new().with("drop", "app_cache"))
         .await

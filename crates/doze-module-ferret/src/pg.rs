@@ -127,8 +127,23 @@ fn tool(tc: &Toolchain, name: &str) -> PathBuf {
 pub(crate) fn url(inst: &Instance) -> String {
     format!(
         "postgres://postgres@/postgres?host={}&port={PORT}",
-        path(&pgsock(inst))
+        query_value(&path(&pgsock(inst)))
     )
+}
+
+/// A socket directory as a URL's query value: percent-encoded but for `/` and the unreserved characters, so a home
+/// with a space, `&`, `#` or `%` in it still reads back as the one directory (libpq decodes it; postgres's module
+/// does the same).
+fn query_value(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || b"-._~/".contains(&b) {
+            out.push(char::from(b));
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
 }
 
 /// A value in postgresql.conf: in single quotes, a quote doubled and a backslash doubled (the file reads `\\` as an

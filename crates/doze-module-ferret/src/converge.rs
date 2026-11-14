@@ -269,15 +269,19 @@ impl Objects for Ferret {
 }
 
 impl Prune for Ferret {
-    /// Drops what is no longer declared: indexes, then collections, then databases. A database is dropped only once
-    /// nothing is left in it: one still holding a collection doze.hcl never declared (an app's own) is refused, naming
-    /// it, as postgres refuses a schema with tables in it (Go dropped the database and the app's data with it). What is
-    /// already gone is fine.
+    /// Drops what is no longer declared: indexes, then collections, then databases. A removed database still holding a
+    /// collection doze.hcl never declared (an app's own) is refused before anything is dropped, naming it, as postgres
+    /// refuses a schema with tables in it (Go dropped the database and the app's data with it). A collection an app makes
+    /// between that check and the drop is lost with the database: a window of milliseconds, left for a dev tool. What
+    /// is already gone is fine.
     async fn prune(&self, cx: &Cx<FerretSpec>, _tc: &Toolchain, removed: &[Object]) -> Result<()> {
         if removed.is_empty() {
             return Ok(());
         }
         let mut c = client(cx).await?;
+        for o in removed.iter().filter(|o| o.kind == DATABASE) {
+            undeclared_left(&mut c, &o.name, removed).await?;
+        }
         let mut order: Vec<&Object> = removed.iter().collect();
         order.sort_by_key(|o| match o.kind.as_str() {
             INDEX => 0,
@@ -293,9 +297,6 @@ impl Prune for Ferret {
                     format!("{} {:?} is not an object ferret makes", o.kind, o.name),
                 ));
             };
-            if o.kind == DATABASE {
-                undeclared_left(&mut c, &db).await?;
-            }
             match c.run(&db, cmd).await {
                 Err(e) if !matches!(e.code(), Some(NAMESPACE_NOT_FOUND | INDEX_NOT_FOUND)) => {
                     return Err(failed(format!("dropping {} {}", o.kind, o.name), &e));
@@ -307,8 +308,9 @@ impl Prune for Ferret {
     }
 }
 
-/// Refuses to drop `db` while it holds a collection: by now its declared ones are gone, so what is left is someone's.
-async fn undeclared_left(c: &mut Client, db: &str) -> Result<()> {
+/// Refuses to drop `db` while it holds a collection that is not itself being removed: that one is someone's. The
+/// server's own bookkeeping (`system.views`, `system.profile`) is not; an app's `system.js` is.
+async fn undeclared_left(c: &mut Client, db: &str, removed: &[Object]) -> Result<()> {
     let list = Doc::new().with("listCollections", 1).with("nameOnly", true);
     let left = c
         .all(db, list, "$cmd.listCollections")
@@ -317,7 +319,12 @@ async fn undeclared_left(c: &mut Client, db: &str) -> Result<()> {
     let names: Vec<&str> = left
         .iter()
         .filter_map(|d| d.str("name"))
-        .filter(|n| !n.starts_with("system."))
+        .filter(|n| !matches!(*n, "system.views" | "system.profile"))
+        .filter(|n| {
+            !removed
+                .iter()
+                .any(|o| o.kind == COLLECTION && o.name == format!("{db}.{n}"))
+        })
         .collect();
     if names.is_empty() {
         return Ok(());

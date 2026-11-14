@@ -86,7 +86,7 @@ fn settings(s: &MariadbSpec, out: &mut Vec<Diagnostic>) {
             out.push(at(
                 here.clone(),
                 format!(
-                    "{k} is doze's to set (MariaDB reads it as {}): it decides where the server keeps its data and listens",
+                    "{k} is doze's to set (MariaDB reads it as {}, or refuses it as ambiguous): it decides where the server keeps its data and listens",
                     owned.iter().find(|o| o.starts_with(name.as_str())).map_or("", String::as_str)
                 ),
                 Some("leave it out; doze url says where the server answers"),

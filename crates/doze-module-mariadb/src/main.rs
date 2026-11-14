@@ -238,7 +238,6 @@ fn stale_pid(pid: &Path, name: &str) -> Result<()> {
     help::clear_stale(pid)
 }
 
-/// One of the engine's programs in its toolchain.
 /// A program of the toolchain: the one it names in `tools`, else the one in `bin_dir` (as postgres and ferret find theirs).
 fn tool(tc: &Toolchain, name: &str) -> std::path::PathBuf {
     match tc.tools.get(name) {
