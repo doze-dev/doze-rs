@@ -212,7 +212,9 @@ fn delete_deployment(core: &mut Core, r: &Req) -> Res {
         .any(|s| text(s, "deploymentId") == Some(id))
     {
         // Recorded 2026-11-15.
-        return Err(bad("Active stages pointing to this deployment must be moved or deleted"));
+        return Err(bad(
+            "Active stages pointing to this deployment must be moved or deleted",
+        ));
     }
     child(doc, "deployments")
         .and_then(|m| m.remove(id))

@@ -124,7 +124,7 @@ impl Core {
             stack.resources.clone(),
         )
         .map_err(validation)?;
-        Ok((records(&w, stack, old, &changed), changed))
+        Ok((crate::changes::records(&w, stack, old, &changed), changed))
     }
 
     pub(crate) async fn create_change_set(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
@@ -398,73 +398,4 @@ fn from_request(r: &Req<'_>) -> ChangeSet {
         role_arn: r.opt("RoleARN").map(str::to_owned),
         ..ChangeSet::default()
     }
-}
-
-/// The change records: computed once, then again with what changes unknown, so what depends on it is `Dynamic`. A resource
-/// changed in place keeps its physical id, so only what reads its attributes goes dynamic (recorded 2026-11-15: a parameter
-/// holding `Q.Arn` while Q is modified).
-fn records(w: &Working, stack: &Stack, old: &Value, changed: &BTreeSet<String>) -> Vec<Value> {
-    let first = crate::changes::compute(w, &stack.resources, old, changed);
-    let id_of = |c: &Value| {
-        c.at("ResourceChange")
-            .at("LogicalResourceId")
-            .as_str()
-            .map(str::to_owned)
-    };
-    let kind = |c: &Value, in_place: bool| {
-        let rc = &c.at("ResourceChange");
-        let moves = rc.at("Action") == "Add" || rc.at("Replacement") == "True";
-        if in_place { rc.at("Action") == "Modify" && !moves } else { moves }
-    };
-    let in_place: Vec<String> = first.iter().filter(|c| kind(c, true)).filter_map(id_of).collect();
-    let mut moving: Vec<String> = first.iter().filter(|c| kind(c, false)).filter_map(id_of).collect();
-    moving.extend(in_place.iter().cloned());
-    if moving.is_empty() {
-        return first;
-    }
-    let mut w2 = w.clone();
-    for m in &moving {
-        w2.resources.remove(m);
-    }
-    let second = crate::changes::compute(&w2, &stack.resources, old, changed);
-    let second = keep_attribute_reads(second, &first, &in_place);
-    let mut second = second;
-    // The second pass sees what moves as absent; it keeps their records from the first.
-    for c in &mut second {
-        let id = c
-            .at("ResourceChange")
-            .at("LogicalResourceId")
-            .as_str()
-            .unwrap_or_default()
-            .to_owned();
-        if moving.contains(&id)
-            && let Some(f) = first
-                .iter()
-                .find(|f| f.at("ResourceChange").at("LogicalResourceId") == id.as_str())
-        {
-            *c = f.clone();
-        }
-    }
-    second
-}
-
-/// Drops what the second pass made dynamic only through a Ref to a resource changed in place: such a resource keeps its id, so the
-/// first pass's record (if any) stands.
-fn keep_attribute_reads(second: Vec<Value>, first: &[Value], in_place: &[String]) -> Vec<Value> {
-    let ref_only = |d: &Value| {
-        d.at("ChangeSource") == "ResourceReference"
-            && d.at("CausingEntity").as_str().is_some_and(|e| in_place.iter().any(|x| x == e))
-    };
-    second
-        .into_iter()
-        .filter_map(|c| {
-            let details = c.at("ResourceChange").at("Details");
-            let dropped = details.as_array().is_some_and(|ds| ds.iter().any(ref_only));
-            if !dropped {
-                return Some(c);
-            }
-            let id = c.at("ResourceChange").at("LogicalResourceId").clone();
-            first.iter().find(|f| f.at("ResourceChange").at("LogicalResourceId") == &id).cloned()
-        })
-        .collect()
 }

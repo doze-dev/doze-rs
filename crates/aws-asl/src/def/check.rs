@@ -156,7 +156,10 @@ fn needs_parameters(s: &State, at: &str, out: &mut Vec<Diagnostic>) {
     {
         out.push(Diagnostic::error(
             SCHEMA,
-            format!("Parameters field is required for resource ARN: {}", t.resource),
+            format!(
+                "Parameters field is required for resource ARN: {}",
+                t.resource
+            ),
             &format!("{at}/Resource"),
         ));
     }
