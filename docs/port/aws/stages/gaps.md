@@ -38,7 +38,7 @@ and `weight.md`; none of those was touched here. Each behaviour carries one call
 - **A subscription's `RedrivePolicy` now receives what finally failed**, over the peer bus to SQS. When: an `sqs` or `lambda`
   subscription's client-side failure (the queue or function is gone, the queue policy refuses the topic under `--iam enforce`) moves the
   message at once, because AWS does not retry client-side errors; an `http` subscription's message moves when the delivery policy's
-  retries are spent on a 5xx, a 429 or no answer, or at once on another 4xx. An `https` subscription is not called (no TLS client) and
+  retries are spent on a 5xx, a 429 or no answer, or at once on another 4xx. An `https` subscription is not called (no TLS client) and **(Since the tls merge on the same day, https subscriptions are called and dead-lettered like http ones.)**
   that is not a failed delivery: nothing is dead-lettered. **Go weak (bettered):** Go stored the policy and dropped the message.
 - **What is sent:** the body the subscription would have been given (the JSON envelope; the raw message and its attributes for a raw
   subscription), FIFO group and deduplication id for a FIFO topic, plus the string attributes `ERROR_CODE`, `ERROR_MESSAGE`, `RequestID`

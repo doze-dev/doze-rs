@@ -111,4 +111,9 @@ doze-kafka 8174048 161 9761 --listen 127.0.0.1:{port} --data-dir {data}
 # through Security.framework, so rustls-native-certs, security-framework(-sys), core-foundation(-sys) and bitflags leave the macOS build. darwin/arm64 release-aws:
 # 8,342,432 B (was 8,360,592 B on the merged line), 270 packages (was 276), idle 6,432 KB (was 9,968 KB, over the line); otool -L lists libSystem and libiconv only.
 # Linux and Windows keep rustls-native-certs; the Linux code is unchanged, so the musl size is too. Limits unchanged.
-doze-aws 13400000 280 9413 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-14, the server side finished (cli, scheduler, gaps, tls, tls2 and correctness merged on the aws line): darwin/arm64 release-aws 8,375,808 B, 271 packages,
+# idle 6,480 KB; x86_64-unknown-linux-musl 13,259,720 B, which leaves 1% under the 13,400,000 line. The new bytes since the TLS line: EventBridge Scheduler (its crate,
+# model and a 597-zone time-zone rule table instead of a tz database), the command layer (subcommands, settings table, apply/export/doctor), the gaps (rotation
+# schedule, SNS dead letters, Logs regex patterns, stored metric streams and insight rules), S3 ACLs and SigV2, and the @connections model. Byte limit = the musl
+# size plus 5% = 13,922,706, rounded to 13,900,000 B (70% of the 20 MB ceiling); packages and idle unchanged.
+doze-aws 13900000 280 9413 --listen 127.0.0.1:{port} --data-dir {data}

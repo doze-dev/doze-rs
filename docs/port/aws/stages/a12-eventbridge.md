@@ -71,7 +71,7 @@ What the operations do:
   returned. An API destination target makes one HTTP request (5 s limit, inside the actor): endpoint `*` filled from
   `PathParameterValues`, target and connection header/query parameters (connection wins), Basic and API key credentials, connection body
   parameters joined to an object body, 2xx success, 429/5xx/no answer retried, other statuses not. **OAuth connections and `https://`
-  endpoints are stored and not called** (SCOPE.md defers the OAuth token request; there is no TLS client).
+  endpoints are stored and not called** (SCOPE.md defers the OAuth token request; there is no TLS client). **(Superseded 2026-11-14: outbound https is built; see `stages/tls.md`.)**
 - **Permissions**: `PutPermission` builds the bus policy (account principal or `*`, condition, or a whole `Policy`), `RemovePermission` takes
   statements away; `DescribeEventBus` returns `Policy`; the policy goes to the authorizer as `Need.policy`.
 - **Default-bus publish hook** (`aws_eventbridge::publish::put`): one function other services call with a source, detail type, detail and
@@ -82,6 +82,8 @@ What the operations do:
   Step Functions, CloudWatch, SSM and Secrets Manager call the same function when they have events.
 
 ## EventBridge Scheduler: not built
+
+**Superseded 2026-11-14: EventBridge Scheduler is built; see `stages/scheduler.md`.**
 
 PLAN decision D2 makes Scheduler a fifth service. **`models/` has no Scheduler model** (the Scheduler API is restJson, namespace
 `com.amazonaws.scheduler`) and the REST-JSON codec is being built for Lambda, so nothing was invented or half-built. To build it: add
@@ -170,7 +172,7 @@ Marked `(memory)` in the code where they sit, or listed here:
 
 1. **Scheduler**: supply `models/scheduler.json` (see above), then it is about the work D2 estimated (M) on top of `aws-cron` and `deliver.rs`.
 2. **Bus deletion with rules**: refused (AWS documentation) where Go cascaded. Keep, or cascade for local convenience?
-3. **TLS for API destinations** (and SNS HTTP/S): `https://` is not called. A TLS client is a size decision, the same one SNS left open.
+3. **TLS for API destinations** (and SNS HTTP/S): `https://` is not called. A TLS client is a size decision, the same one SNS left open. **(Superseded 2026-11-14: outbound https is built; see `stages/tls.md`.)**
 4. **Re-record** `delete-default-bus` under a policy that allows it, then record the 31 new labels (`CONFORMANCE_TARGET=aws
    CONFORMANCE_RECORD=1`). Read each diff; where AWS contradicts the build, AWS wins.
 5. Retries wait in memory; persisting them across a restart is small but SCOPE.md called the long retry "not needed".
