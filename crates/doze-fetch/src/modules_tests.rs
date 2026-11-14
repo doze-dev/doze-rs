@@ -244,3 +244,55 @@ fn nothing_published_for_this_protocol_says_so() {
         .unwrap_err();
     assert!(err.contains("speaks module protocol 2"), "{err}");
 }
+
+/// Go's `TestRejectUnsignedIndex`, `TestRejectRegistrySignedByAnotherKey`.
+#[test]
+fn an_unsigned_index_or_one_signed_by_another_key_is_refused() {
+    let reg = registry("keys", &[("0.3.0", 2, &["9"])], "");
+    let index = reg.root.join("doze/valkey/index.yaml");
+    let signed_text = std::fs::read_to_string(&index).unwrap();
+    let mut other = modules(&reg);
+    other.registry.key = SigningKey::from_bytes(&[3u8; 32]).verifying_key();
+    let err = other.index(&valkey()).unwrap_err();
+    assert!(err.starts_with("module index for doze/valkey"), "{err}");
+    let unsigned: String = signed_text
+        .lines()
+        .filter(|l| !l.starts_with("signature:"))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    std::fs::write(&index, unsigned).unwrap();
+    let err = modules(&reg).index(&valkey()).unwrap_err();
+    assert!(err.starts_with("module index for doze/valkey"), "{err}");
+}
+
+/// Go's `TestOneRegistryOneNamespace`.
+#[test]
+fn modules_come_from_the_doze_namespace_only() {
+    let reg = registry("ns", &[("0.3.0", 2, &["9"])], "");
+    let acme = Source::parse("acme/valkey").unwrap();
+    let err = modules(&reg)
+        .resolve(&acme, &[], &mut Lock::default())
+        .unwrap_err();
+    assert!(err.contains("doze has one registry"), "{err}");
+}
+
+/// Go's `TestUpgradeMovesPin`.
+#[test]
+fn an_upgrade_moves_the_pin_to_the_newest_fit() {
+    let reg = registry("upgrade", &[("0.3.0", 2, &["9"]), ("0.3.1", 2, &["9"])], "");
+    let m = modules(&reg);
+    let mut lock = Lock::default();
+    let old = Pin {
+        version: "0.3.0".into(),
+        protocol: 2,
+        ..Pin::default()
+    };
+    lock.modules.insert("doze/valkey".into(), old);
+    let (from, r) = m.upgrade(&valkey(), &[], &mut lock).unwrap();
+    assert_eq!(
+        (from.as_deref(), r.version.as_str()),
+        (Some("0.3.0"), "0.3.1")
+    );
+    assert_eq!(lock.modules["doze/valkey"].version, "0.3.1");
+    assert!(lock.dirty);
+}

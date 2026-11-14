@@ -122,4 +122,32 @@ pub(crate) mod tests {
         );
         let _ = std::fs::remove_dir_all(&d);
     }
+
+    /// Go's `TestADownloadCannotEscapeItsDirectory`: an entry naming a path outside is not written there.
+    #[test]
+    fn an_archive_cannot_write_outside_its_folder() {
+        let d = std::env::temp_dir().join(format!("doze-fetch-escape-{}", std::process::id()));
+        let content = d.join("cache/x/1-t");
+        let gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        let mut b = tar::Builder::new(gz);
+        let mut h = tar::Header::new_gnu();
+        h.set_size(1);
+        h.set_mode(0o755);
+        // set_path refuses "..", so the name goes into the header's raw bytes as a hostile archive would have it.
+        let name = b"../../escaped";
+        if let Some(raw) = h.as_old_mut().name.get_mut(..name.len()) {
+            raw.copy_from_slice(name);
+        }
+        h.set_cksum();
+        b.append(&h, &b"x"[..]).unwrap();
+        let mut h = tar::Header::new_gnu();
+        h.set_size(1);
+        h.set_mode(0o755);
+        h.set_cksum();
+        b.append_data(&mut h, "bin/ok", &b"y"[..]).unwrap();
+        let a = b.into_inner().unwrap().finish().unwrap();
+        let _ = unpack(&a, &content, "sha256:ab");
+        assert!(!d.join("cache/escaped").exists() && !d.join("escaped").exists());
+        let _ = std::fs::remove_dir_all(&d);
+    }
 }

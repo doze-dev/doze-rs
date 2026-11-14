@@ -66,6 +66,7 @@ impl Modules {
         majors: &[String],
         lock: &mut Lock,
     ) -> Result<Resolved, String> {
+        one_namespace(src)?;
         let key = src.to_string();
         if let Some(pin) = lock.modules.get(&key).cloned() {
             if pin.protocol == 0 || pin.protocol >= self.protocol {
@@ -79,6 +80,25 @@ impl Modules {
             return Ok(r);
         }
         self.fresh(src, majors, lock)
+    }
+
+    /// `doze modules upgrade`: resolves `src` again ignoring its pin, and pins what it took. The version it was pinned
+    /// to before, if any, and the new one.
+    pub fn upgrade(
+        &self,
+        src: &Source,
+        majors: &[String],
+        lock: &mut Lock,
+    ) -> Result<(Option<String>, Resolved), String> {
+        one_namespace(src)?;
+        let key = src.to_string();
+        let old = lock.modules.get(&key).map(|p| p.version.clone());
+        let mut fresh = Lock::default();
+        let r = self.fresh(src, majors, &mut fresh)?;
+        if let Some(pin) = fresh.modules.remove(&key) {
+            lock.record_module(&key, pin);
+        }
+        Ok((old, r))
     }
 
     fn pinned(&self, src: &Source, majors: &[String], pin: &Pin) -> Result<Resolved, String> {
@@ -307,6 +327,19 @@ impl Modules {
             version: version.into(),
             notes,
         })
+    }
+}
+
+/// Modules come from one registry, all under its `doze` namespace (Go's `nsManager`).
+fn one_namespace(src: &Source) -> Result<(), String> {
+    let ns = crate::registry::source::DEFAULT_NAMESPACE;
+    if src.ns() == ns {
+        Ok(())
+    } else {
+        Err(format!(
+            "module namespace {:?}: doze has one registry, and its modules are all under {ns:?}",
+            src.ns()
+        ))
     }
 }
 
