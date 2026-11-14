@@ -156,7 +156,38 @@ as `SaslAuthenticationException` within 15 s), and `sasl-users` (a user made wit
 SCRAM mechanisms, cannot with PLAIN, and is refused once deleted). Under `-tls`: SASL_SSL with SCRAM-SHA-512 (and a wrong
 password), SSL, and SSL without the CA (`SslAuthenticationException`), the CA given as a PEM truststore (KIP-651).
 
-JAVA_MATRIX_PLACEHOLDER
+The Java client at each major, as run on 2026-11-15 (`-versions`, `-sasl -versions`, `-tls`), after the Go clients. No failure.
+`4.4` is kafka-clients 4.4.0, `2.8` is 2.8.2:
+
+| | Kafka 1 | Kafka 2 | Kafka 3 | Kafka 4 |
+|---|---|---|---|---|
+| roundtrip none, gzip, snappy, lz4; idempotent; txn-commit-abort, txn-send-offsets (a), txn-last-stable-offset | 4.4, 2.8 pass | 4.4, 2.8 pass | 4.4 pass | 4.4 pass |
+| roundtrip-zstd | skip (b) | 4.4, 2.8 pass | 4.4 pass | 4.4 pass |
+| group-classic, rebalance-commits-classic, admin-groups-classic (c) | 4.4, 2.8 pass | 4.4, 2.8 pass | 4.4 pass | 4.4 pass |
+| group-848, rebalance-commits-848, admin-groups-848, group-848-regex | skip (d) | skip (d) | skip (d) | 4.4 pass |
+| admin-topics, -create-partitions, -delete-records, -list-offsets, -cluster; offsets-for-times-log-append, -compressed; produce-fetch-limits | 4.4, 2.8 pass | 4.4, 2.8 pass | 4.4 pass | 4.4 pass |
+| admin-configs | skip (e) | 4.4, 2.8 pass | 4.4 pass | 4.4 pass |
+| admin-max-timestamp | skip (f) | skip (f) | 4.4 pass | 4.4 pass |
+| admin-acls | skip (g) | 4.4, 2.8 pass | 4.4 pass | 4.4 pass |
+| admin-scram-users, sasl-users | skip (h) | 4.4, 2.8 pass | 4.4 pass | 4.4 pass |
+| admin-transactions | skip (i) | skip (i) | 4.4 pass | 4.4 pass |
+| SASL cells: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512 | 4.4, 2.8 pass | 4.4, 2.8 pass | 4.4 pass | 4.4 pass |
+| TLS cells: SASL_SSL, SSL, SSL without the CA | | | | 4.4 pass |
+| **plain, 4.4: passed / skipped** | **19 / 10** | **23 / 6** | **25 / 4** | **29 / 0** |
+| **plain, 2.8: passed / skipped** | **19 / 10** | **23 / 6** | one skip line | one skip line |
+
+The 2.8 client is not run at Kafka 3 and 4 (one skip line each). (a) At Kafka 1, `sendOffsetsToTransaction` gets the group id alone
+(TxnOffsetCommit v0; generation fencing needs v3, KIP-447). (b) Produce up to v5; zstd needs v7 (KIP-110). (c) At Kafka 1 the member is
+dynamic (JoinGroup v2; static members need v5) and the OffsetDelete step is left out (Kafka 2.4, KIP-496). (d) No ConsumerGroupHeartbeat
+(see (a) of the Go table). (e) No IncrementalAlterConfigs (Kafka 2.3). (f) ListOffsets below v7 (KIP-734, Kafka 3.0). (g) No ACL APIs at
+Kafka 1. (h) No SCRAM credential APIs (Kafka 2.7, KIP-554). (i) No ListTransactions, DescribeTransactions, DescribeProducers (Kafka 3.0,
+KIP-664), and the 2.8 client has no such calls.
+
+**What the Java client found.** One broker defect, fixed: Metadata v12 by topic id (T9 in `docs/port/behaviours/topics.md`). The
+Java consumer asks for the topics a KIP-848 regular expression assigned it by id, with the name left at `""`; doze read `""` as a
+name and answered INVALID_TOPIC_EXCEPTION, so the member never consumed (`group-848-regex`). Kafka 4.3.1 answers by id whenever an id
+is given. One mistake was the test's: two SCRAM alterations of one user in one request are DUPLICATE_RESOURCE in KRaft (doze is
+right; `admin-scram-users` now checks that refusal at Kafka 4 and makes the two credentials one request each).
 
 ## What the clients taught
 
