@@ -601,6 +601,29 @@ doze: `cmd/doze/*`, `internal/{config,runspec,runtime,registry,supervisor,health
   Independent audit: 14 findings, all fixed or documented. `doze` 6.2 MB (weight.md). About 4 of C2's 20 days.
   Next: `init`/`add` (module declarations from the registry's cached meta), then the daemon verbs (`up`, `down`,
   `env`, `url`, `run`, `connect`) as D1 lands, `modules upgrade` with F1's lock writer, `bug`, `open`.
+- **2026-11-14, C2b, done (second slice of C2)**, draft PR #53 (`core-c2b`, on #51, merges F1 #35). Commands that
+  need no Rust daemon:
+  - `init`, through the new crate doze-detect. It is Go's detector with no engine table: modules are known only by
+    their `meta.yaml` declarations, through doze-fetch. It never invents (F6).
+  - `add`, written with doze-hcl's editor.
+  - `modules upgrade`, through doze-fetch's `lock::update`, which takes a lock keyed by doze.lock's canonical path.
+  - `bug`.
+  - `open` and bare `doze`, which hand the command to the app.
+  - `update`, up to the D1 hand-over, which says it is pending and exits 11.
+  - One HTTP stack: `doze_cli::http` is `doze_fetch::http`.
+  - Beyond Go: a fix on every error (tested over every transcript), examples in each new command's help, did-you-mean.
+  - Oracle:
+    - doze-detect against Go's `detect`: 121/121 projects.
+    - `add` against Go's binary: 6/6 scenarios.
+    - `init` against Go's binary: 101/101.
+    - The oracle found two bugs: the editor's blank line after `stack`, and the printed block.
+  - Independent audit: 12 findings, all fixed except one inherited from Go (a compose port of 0). Six suspicions are
+    noted in `docs/port/core/behaviours/cli-c2b.md`.
+  - Weight: `doze` 6,802,928 B on darwin and 8,945,752 B on x86_64 Linux, which is only 54 KB under the 9 MB CI line.
+    Of the +0.6 MB, half is merging F1 (the `__fetch` child) and half is this slice.
+  - Days: about 6 of C2's 20 (doze-detect's 4 included), 10 so far; about 10 are left for the daemon commands as D1
+    lands (#50 is on origin).
+  - Hazards: core-m1's `crates/doze-cli/src/http*` gives way to `doze_fetch::http`.
 - **2026-11-14, plan deviation (engine track; decided by the coordinator for the owner): the engine does not link
   doze-fetch.** §3 put "the module pool with the real fetch service" in E2. Instead `doze-engine` takes any
   `Downloads` and the `doze.lock` pins as values, and D1 (the daemon) wires F1's `ChildDownloads` and loads the
