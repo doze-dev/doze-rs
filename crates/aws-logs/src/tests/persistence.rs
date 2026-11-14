@@ -100,3 +100,28 @@ fn a_read_changes_nothing_on_disk() {
     assert!(w.core.streams.stage().unwrap().is_empty());
     assert!(w.core.events.stage().is_empty());
 }
+
+#[test]
+fn the_event_cap_holds_on_disk_and_across_a_restart() {
+    let dir = temp();
+    let clock = Arc::new(ManualClock::at(NOW));
+    let mut w = open(dir.path(), &clock);
+    w.core.max_events = 10;
+    w.group("/g");
+    w.stream("/g", "app");
+    for i in 0..5 {
+        w.put("/g", "app", NOW + i * 10, &["a", "b", "c"]);
+    }
+    drop(w);
+    let mut w = open(dir.path(), &clock);
+    w.core.max_events = 10;
+    w.put("/g", "app", NOW + 100, &["d"]);
+    let all = w.ok("FilterLogEvents", &json!({"logGroupName": "/g"}));
+    let n = all["events"].as_array().unwrap().len();
+    // Only what is on disk is removed, so a write leaves at most the cap plus the batch it wrote, and never less than nine.
+    assert!((9..=11).contains(&n), "{n} events held");
+    assert_eq!(
+        all["events"].as_array().unwrap().last().unwrap()["message"],
+        "d"
+    );
+}

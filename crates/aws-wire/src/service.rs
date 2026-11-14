@@ -107,13 +107,70 @@ pub struct WebReply {
     pub body: bytes::Bytes,
 }
 
+/// A connection a service has taken over after an HTTP upgrade (a WebSocket): bytes in and out.
+pub trait Socket: Send {
+    /// Reads into `buf`; 0 at the end of the connection.
+    fn read<'a>(&'a mut self, buf: &'a mut [u8]) -> BoxFuture<'a, std::io::Result<usize>>;
+
+    /// Writes all of `buf`.
+    fn write_all<'a>(&'a mut self, buf: &'a [u8]) -> BoxFuture<'a, std::io::Result<()>>;
+}
+
+/// What runs on an upgraded connection until it ends.
+pub type Session = Box<dyn FnOnce(Box<dyn Socket>) -> BoxFuture<'static, ()> + Send>;
+
+/// The answer to a request to upgrade the connection.
+pub enum Upgrade {
+    /// Not upgraded: the answer instead.
+    Refused(WebReply),
+    /// Upgraded: the `101 Switching Protocols` headers, and the session that takes the connection.
+    Accepted {
+        headers: Vec<(String, String)>,
+        session: Session,
+    },
+}
+
+impl std::fmt::Debug for Upgrade {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Refused(r) => f.debug_tuple("Refused").field(&r.status).finish(),
+            Self::Accepted { headers, .. } => f
+                .debug_struct("Accepted")
+                .field("headers", headers)
+                .finish_non_exhaustive(),
+        }
+    }
+}
+
 /// A service with addresses of its own that are not signed API calls (a Lambda function URL).
 pub trait Web: Send + Sync {
     /// Whether a request to this host and path is the service's. Cheap and pure: it runs for every request that is not signed.
     fn owns(&self, host: &str, path: &str) -> bool;
 
+    /// Whether an `OPTIONS` request to this host and path that no service [`owns`](Web::owns) is the service's: a browser's CORS
+    /// preflight, which carries no signature (S3 answers those for its buckets). Asked only after `owns` said no for every service.
+    fn owns_preflight(&self, _host: &str, _path: &str) -> bool {
+        false
+    }
+
     /// Answers the request.
     fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply>;
+
+    /// Answers a request to upgrade the connection (`Upgrade: websocket`) to an address the service owns. The default refuses: a
+    /// service that takes connections over (API Gateway's WebSocket APIs) says so.
+    fn upgrade(&self, request: WebRequest) -> BoxFuture<'_, Upgrade> {
+        Box::pin(async move { Upgrade::Refused(self.serve(request).await) })
+    }
+}
+
+/// An operation a service adds to its model: the request is read as the input of model operation `shapes`, the answer written as
+/// its output, and the call carries `op`, an index the model does not use (so the service can tell it apart).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Extension {
+    /// The index the call carries: past the model's operations.
+    pub op: u32,
+    /// The model operation whose input and output shapes it borrows.
+    pub shapes: u32,
 }
 
 /// A service the gateway can route to.
@@ -133,6 +190,12 @@ pub trait Service: Send + Sync + 'static {
     /// Whether every client error is answered 400, whatever status the model gives it (KMS does this).
     fn flat_client_errors(&self) -> bool {
         false
+    }
+
+    /// An operation this service adds to its model, by the name in `X-Amz-Target` (SQS's `DozePeek`, which the console reads a
+    /// queue with). Not an AWS operation: the default is none. Only a JSON-protocol service is asked.
+    fn extension(&self, _name: &str) -> Option<Extension> {
+        None
     }
 
     /// Handles one call. An error names a modelled shape ([`ApiError::modeled`]) or states itself.

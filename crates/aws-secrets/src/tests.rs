@@ -14,6 +14,7 @@ use crate::core::Core;
 mod kms;
 mod persistence;
 mod refusals;
+mod rotation;
 mod secrets;
 
 pub(crate) const START: i64 = 1_700_000_000_000;
@@ -127,14 +128,18 @@ impl World {
 }
 
 #[test]
-fn replication_and_rotation_are_refused_by_name() {
+fn replication_is_refused_by_name() {
     let w = World::new();
-    for op in ["CreateSecret", "GetRandomPassword", "BatchGetSecretValue"] {
+    for op in [
+        "CreateSecret",
+        "GetRandomPassword",
+        "BatchGetSecretValue",
+        "RotateSecret",
+        "CancelRotateSecret",
+    ] {
         assert!(w.h.serves(op), "{op} is built");
     }
     for op in [
-        "RotateSecret",
-        "CancelRotateSecret",
         "ReplicateSecretToRegions",
         "RemoveRegionsFromReplication",
         "StopReplicationToReplica",

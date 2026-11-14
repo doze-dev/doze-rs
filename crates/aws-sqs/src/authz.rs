@@ -12,7 +12,9 @@ use crate::url;
 impl Core {
     /// Every thing `call` asks to do. Empty for a request that is not understood (it is refused on its own terms).
     pub(crate) fn needs(&self, call: &Call) -> Vec<Need> {
-        let Some(op) = Operation::from_index(call.op) else {
+        // `DozePeek` reads messages: whoever may receive them may look at them.
+        let peek = (call.op == crate::core::PEEK_OP).then_some(Operation::ReceiveMessage);
+        let Some(op) = Operation::from_index(call.op).or(peek) else {
             return Vec::new();
         };
         let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);

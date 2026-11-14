@@ -69,6 +69,7 @@ impl Core {
             .collect();
         for (key, no) in doomed {
             self.streams.remove(&key);
+            self.held.remove(&key);
             self.events
                 .delete_range(&format!("{no:08x}"), &format!("{:08x}", no + 1));
         }

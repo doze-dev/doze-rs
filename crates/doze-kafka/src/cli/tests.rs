@@ -341,7 +341,25 @@ fn the_cleaner_looks_every_fifteen_seconds_unless_told_otherwise_and_a_zero_inte
     assert!(err.to_string().contains("--log-cleaner-interval"), "{err}");
 }
 
+#[test]
+fn client_telemetry_is_on_unless_told_otherwise() {
+    let on = |flags: &[&str]| {
+        args(flags)
+            .unwrap()
+            .settings()
+            .unwrap()
+            .broker
+            .client_telemetry
+    };
+    assert!(on(&[]));
+    assert!(on(&["--client-telemetry"]));
+    assert!(!on(&["--client-telemetry=false"]));
+    assert!(!on(&["--client-telemetry", "false"]));
+}
+
 mod console;
+mod console_door;
+mod lab;
 mod users;
 
 #[cfg(feature = "tls")]

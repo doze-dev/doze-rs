@@ -1,0 +1,314 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* The doze-kafka theme: built on the logo's two colours, Bat yellow #FFD60A and Ink #16150F, over warm neutrals.
+   Light and dark, and "System" follows the OS. Yellow is a FILL (buttons, the active item, selection, a new row, the focus
+   ring) and never text on a light ground (it fails contrast there): text that must stand out is --link, a deep amber in light
+   and the yellow itself in dark. The theme is a class on <html> (lib/theme.ts); without one, the media query decides, so
+   the first paint is already in the right theme. */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/inter-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+  /* The doze family's display face (doze-dev.com), for the wordmark and the Home hero only. OFL-1.1. */
+  font-family: "Bricolage Grotesque";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("./fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("./fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url("./fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2");
+}
+
+:root {
+  --radius: 0.625rem; /* 10 px: the kit's buttons and fields */
+
+  --background: #faf9f5;
+  --foreground: #38352b;
+  --card: #ffffff;
+  --card-foreground: #38352b;
+  --popover: #ffffff;
+  --popover-foreground: #38352b;
+  --primary: #ffd60a;
+  --primary-foreground: #16150f;
+  --secondary: #f3f1e9;
+  --secondary-foreground: #16150f;
+  --muted: #f3f1e9;
+  --muted-foreground: #6b6759;
+  --accent: #f0ede4;
+  --accent-foreground: #16150f;
+  --destructive: #c42e48;
+  --border: #e6e2d4;
+  --input: #d6d1bf;
+  --ring: #e0ad00;
+
+  --bright: #16150f;
+  --link: #8a6300;
+  --good: #17773f;
+  --warn: #b5530b;
+  --cool: #2f62d9;
+  --bad: #c42e48;
+  --refused: #a3279a;
+  --pick: #fff0a6;
+  --track: #ece9de;
+  --well: #f5f3ec;
+  --hatch: rgba(22, 21, 15, 0.28);
+
+  --tint-good: #e8f4ec;
+  --tint-good-line: #b7dbc4;
+  --tint-warn: #fdeee2;
+  --tint-warn-line: #efc9a6;
+  --tint-brand: #fff6cc;
+  --tint-brand-line: #f2d971;
+  --tint-cool: #edf2fd;
+  --tint-cool-line: #c6d6f5;
+
+  --sidebar: #f4f2ea;
+  --sidebar-foreground: #38352b;
+  --sidebar-primary: #16150f;
+  --sidebar-primary-foreground: #ffd60a;
+  --sidebar-accent: #e9e5da;
+  --sidebar-accent-foreground: #16150f;
+  --sidebar-border: #e6e2d4;
+  --sidebar-ring: #e0ad00;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #121110;
+    --foreground: #d8d4c6;
+    --card: #1a1916;
+    --card-foreground: #d8d4c6;
+    --popover: #1f1e1a;
+    --popover-foreground: #e6e2d4;
+    --primary: #ffd60a;
+    --primary-foreground: #16150f;
+    --secondary: #24221d;
+    --secondary-foreground: #f4f1e6;
+    --muted: #24221d;
+    --muted-foreground: #9d988a;
+    --accent: #2c2a22;
+    --accent-foreground: #f4f1e6;
+    --destructive: #ff6b7f;
+    --border: #2f2d26;
+    --input: #3d3a31;
+    --ring: #ffd60a;
+  
+    --bright: #f7f5ee;
+    --link: #ffd60a;
+    --good: #52c98d;
+    --warn: #f29b4f;
+    --cool: #7aa5ff;
+    --bad: #ff6b7f;
+    --refused: #e386dc;
+    --pick: #3d3514;
+    --track: #2a2823;
+    --well: #1d1c18;
+    --hatch: rgba(247, 245, 238, 0.3);
+  
+    --tint-good: #16291e;
+    --tint-good-line: #2c5a3f;
+    --tint-warn: #2f2014;
+    --tint-warn-line: #6a4422;
+    --tint-brand: #2e2810;
+    --tint-brand-line: #6b5a14;
+    --tint-cool: #172036;
+    --tint-cool-line: #2f4677;
+  
+    --sidebar: #161512;
+    --sidebar-foreground: #d8d4c6;
+    --sidebar-primary: #ffd60a;
+    --sidebar-primary-foreground: #16150f;
+    --sidebar-accent: #2a2716;
+    --sidebar-accent-foreground: #fff3b8;
+    --sidebar-border: #2a2823;
+    --sidebar-ring: #ffd60a;
+    color-scheme: dark;
+  }
+}
+:root.dark {
+  --background: #121110;
+  --foreground: #d8d4c6;
+  --card: #1a1916;
+  --card-foreground: #d8d4c6;
+  --popover: #1f1e1a;
+  --popover-foreground: #e6e2d4;
+  --primary: #ffd60a;
+  --primary-foreground: #16150f;
+  --secondary: #24221d;
+  --secondary-foreground: #f4f1e6;
+  --muted: #24221d;
+  --muted-foreground: #9d988a;
+  --accent: #2c2a22;
+  --accent-foreground: #f4f1e6;
+  --destructive: #ff6b7f;
+  --border: #2f2d26;
+  --input: #3d3a31;
+  --ring: #ffd60a;
+
+  --bright: #f7f5ee;
+  --link: #ffd60a;
+  --good: #52c98d;
+  --warn: #f29b4f;
+  --cool: #7aa5ff;
+  --bad: #ff6b7f;
+  --refused: #e386dc;
+  --pick: #3d3514;
+  --track: #2a2823;
+  --well: #1d1c18;
+  --hatch: rgba(247, 245, 238, 0.3);
+
+  --tint-good: #16291e;
+  --tint-good-line: #2c5a3f;
+  --tint-warn: #2f2014;
+  --tint-warn-line: #6a4422;
+  --tint-brand: #2e2810;
+  --tint-brand-line: #6b5a14;
+  --tint-cool: #172036;
+  --tint-cool-line: #2f4677;
+
+  --sidebar: #161512;
+  --sidebar-foreground: #d8d4c6;
+  --sidebar-primary: #ffd60a;
+  --sidebar-primary-foreground: #16150f;
+  --sidebar-accent: #2a2716;
+  --sidebar-accent-foreground: #fff3b8;
+  --sidebar-border: #2a2823;
+  --sidebar-ring: #ffd60a;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Bricolage Grotesque", "Inter", -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-bright: var(--bright);
+  --color-link: var(--link);
+  --color-tint-good: var(--tint-good);
+  --color-tint-warn: var(--tint-warn);
+  --color-tint-brand: var(--tint-brand);
+  --color-tint-cool: var(--tint-cool);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-cool: var(--cool);
+  --color-bad: var(--bad);
+  --color-refused: var(--refused);
+  --color-pick: var(--pick);
+  --color-track: var(--track);
+  --color-well: var(--well);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    /* The scrollbar's gutter is always kept, so an overlay that locks the scroll does not shift the page. */
+    scrollbar-gutter: stable;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: 14px;
+    line-height: 1.5;
+    font-optical-sizing: auto;
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  code, kbd, samp, pre {
+    @apply font-mono;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The Live tail (R3): a row that arrived in a batch gets a brief background highlight, once, on its own cells. Paint only:
+   nothing changes size, and no row that was already there is touched (live-design.md, CON-1256). */
+@keyframes tail-fresh {
+  from {
+    background-color: color-mix(in oklab, var(--primary) 14%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.tape tr:has([data-fresh]) > td {
+  animation: tail-fresh 1.5s ease-out 1;
+}
+/* R1a: a row a tail just added has a 1.5 s background highlight (live-design.md rule 6: the only motion of an update). */
+@keyframes doze-row-new {
+  from { background-color: var(--pick); }
+  to { background-color: transparent; }
+}
+.row-new > td {
+  animation: doze-row-new 1.5s ease-out;
+}
+
+/* Light: the active sidebar item is a neutral ground with a yellow marker on its left edge (a yellow ground looked washed out
+   on paper); dark keeps its tinted ground. */
+html:not(.dark) [data-sidebar="menu-button"][data-active="true"] {
+  box-shadow: inset 3px 0 0 var(--primary);
+}

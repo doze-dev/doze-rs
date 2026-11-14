@@ -1,5 +1,5 @@
 //! Sending an event to one target, through the peer bus. Local targets: SQS, SNS, Kinesis, CloudWatch Logs, another event bus in the
-//! same region, and (once those services run) Step Functions and Lambda. A target on any other service is stored and **not delivered**:
+//! same region, Step Functions, Lambda and API destinations. A target on any other service is stored and **not delivered**:
 //! the log says so, and nothing is faked.
 //!
 //! A target with a `RoleArn` is delivered as that role would be, and the role is not checked (the evaluator runs on the caller, not on
@@ -35,6 +35,8 @@ pub(crate) struct Delivery {
 #[derive(Debug)]
 pub(crate) enum Outcome {
     Sent,
+    /// Handed to a task that delivers it, and retries it, off the actor (an API destination call).
+    Handed,
     /// The target is an event bus: the event goes on to it (in this region by the next turn of the loop, in another by a task).
     Forward {
         region: String,
@@ -105,7 +107,7 @@ impl Core {
                     account: account.to_owned(),
                     bus: p.tail.to_owned(),
                 },
-                Some(p) if p.kind == "api-destination" => self.to_api_destination(d).await,
+                Some(p) if p.kind == "api-destination" => self.to_api_destination(d, caller),
                 _ => Outcome::NotLocal("this events target is not an event bus".to_owned()),
             },
             other => Outcome::NotLocal(format!(

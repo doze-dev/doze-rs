@@ -8,8 +8,10 @@
 
 mod authz;
 pub mod envelope;
+mod metrics;
 
 pub use authz::{Authorizer, Mode, Need};
+pub use metrics::{Made, Producer};
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -33,6 +35,7 @@ pub struct Peers {
     entries: RwLock<HashMap<&'static str, Entry>>,
     authorizer: RwLock<Option<Arc<dyn Authorizer>>>,
     mode: authz::ModeCell,
+    metrics: RwLock<metrics::Registry>,
 }
 
 impl std::fmt::Debug for Peers {
@@ -51,10 +54,24 @@ impl Peers {
     /// Makes `service` callable by its signing name.
     pub fn register(&self, service: Arc<dyn Service>) {
         let name = service.meta().signing_name;
+        self.register_as(name, service);
+    }
+
+    /// Makes `service` callable as `name`, for a service whose signing name another already has (API Gateway's HTTP APIs sign as
+    /// `apigateway` like its REST APIs, and are called `apigatewayv2`).
+    pub fn register_as(&self, name: &'static str, service: Arc<dyn Service>) {
         let patterns = Patterns::new(service.tables());
         if let Ok(mut entries) = self.entries.write() {
             entries.insert(name, Entry { service, patterns });
         }
+    }
+
+    /// The model tables of service `target`, when it is registered (a caller that builds bodies from loosely typed input, such as
+    /// a CloudFormation template, reads them to coerce its values).
+    #[must_use]
+    pub fn tables(&self, target: &str) -> Option<&'static aws_schema::tables::Tables> {
+        let entries = self.entries.read().ok()?;
+        entries.get(target).map(|e| e.service.tables())
     }
 
     /// Calls operation `operation` of service `target` with `body`, as service `acting` on behalf of `caller`. The answer is the
@@ -65,6 +82,34 @@ impl Peers {
     pub async fn call(
         &self,
         acting: &str,
+        caller: &Caller,
+        target: &str,
+        operation: &str,
+        body: &Value,
+    ) -> Result<Value, ApiError> {
+        self.call_inner(Some(acting), caller, target, operation, body)
+            .await
+    }
+
+    /// Like [`Peers::call`], made as `caller` itself rather than as a service acting for it: the target asks the authorizer about
+    /// `caller` as it would about a request from the wire. A service that runs work as a role (Step Functions' tasks) calls this
+    /// with the role's session.
+    ///
+    /// # Errors
+    /// As [`Peers::call`], and the authorizer's refusal.
+    pub async fn call_as(
+        &self,
+        caller: &Caller,
+        target: &str,
+        operation: &str,
+        body: &Value,
+    ) -> Result<Value, ApiError> {
+        self.call_inner(None, caller, target, operation, body).await
+    }
+
+    async fn call_inner(
+        &self,
+        acting: Option<&str>,
         caller: &Caller,
         target: &str,
         operation: &str,
@@ -100,17 +145,63 @@ impl Peers {
         operation: &str,
         body: &Value,
     ) -> Result<aws_wire::rest::RestReply, ApiError> {
-        let (service, call) = self.prepare(acting, caller, target, operation, body)?;
+        let (service, call) = self.prepare(Some(acting), caller, target, operation, body)?;
         let rest = service
             .rest()
             .ok_or_else(|| ApiError::internal(format!("{target} has no REST side")))?;
         rest.call_rest(call, None).await
     }
 
+    /// Like [`Peers::call_rest`], made as `caller` itself (see [`Peers::call_as`]), with an optional request body stream.
+    ///
+    /// # Errors
+    /// As [`Peers::call_rest`], and the authorizer's refusal.
+    pub async fn call_rest_as(
+        &self,
+        caller: &Caller,
+        target: &str,
+        operation: &str,
+        body: &Value,
+        upload: Option<Box<dyn aws_wire::rest::Upload>>,
+    ) -> Result<aws_wire::rest::RestReply, ApiError> {
+        let (service, call) = self.prepare(None, caller, target, operation, body)?;
+        let rest = service
+            .rest()
+            .ok_or_else(|| ApiError::internal(format!("{target} has no REST side")))?;
+        rest.call_rest(call, upload).await
+    }
+
+    /// The model of a service on the bus, when it runs.
+    #[must_use]
+    pub fn tables_of(&self, target: &str) -> Option<&'static aws_schema::tables::Tables> {
+        let entries = self.entries.read().ok()?;
+        entries.get(target).map(|e| e.service.tables())
+    }
+
+    /// Like [`Peers::call_rest`], with a request body held in memory (an object CloudFormation puts in S3 for a bucket deployment).
+    ///
+    /// # Errors
+    /// As [`Peers::call_rest`].
+    pub async fn call_rest_with_body(
+        &self,
+        acting: &str,
+        caller: &Caller,
+        (target, operation): (&str, &str),
+        body: &Value,
+        payload: bytes::Bytes,
+    ) -> Result<aws_wire::rest::RestReply, ApiError> {
+        let (service, call) = self.prepare(Some(acting), caller, target, operation, body)?;
+        let rest = service
+            .rest()
+            .ok_or_else(|| ApiError::internal(format!("{target} has no REST side")))?;
+        rest.call_rest(call, Some(Box::new(Whole(Some(payload)))))
+            .await
+    }
+
     /// The target service and the decoded call.
     fn prepare(
         &self,
-        acting: &str,
+        acting: Option<&str>,
         caller: &Caller,
         target: &str,
         operation: &str,
@@ -143,7 +234,9 @@ impl Peers {
             None => NIL,
         };
         let mut caller = caller.clone();
-        caller.service = Some(acting.to_owned());
+        if let Some(acting) = acting {
+            caller.service = Some(acting.to_owned());
+        }
         Ok((
             Arc::clone(&entry.service),
             Call {
@@ -155,6 +248,24 @@ impl Peers {
                 root,
             },
         ))
+    }
+}
+
+/// A request body held whole, handed to a REST service as one piece.
+struct Whole(Option<bytes::Bytes>);
+
+impl aws_wire::rest::Upload for Whole {
+    fn next(&mut self) -> aws_wire::service::BoxFuture<'_, Result<Option<bytes::Bytes>, ApiError>> {
+        let piece = self.0.take();
+        Box::pin(async move { Ok(piece) })
+    }
+
+    fn trailers(&self) -> Vec<(String, String)> {
+        Vec::new()
+    }
+
+    fn length(&self) -> Option<u64> {
+        self.0.as_ref().map(|b| b.len() as u64)
     }
 }
 

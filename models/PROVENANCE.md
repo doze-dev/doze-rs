@@ -1,6 +1,6 @@
 # The AWS service models
 
-Smithy JSON AST (`"smithy": "2.0"`) models of 18 AWS services, the input of `cargo xtask codegen`. They are AWS's published
+Smithy JSON AST (`"smithy": "2.0"`) models of 19 AWS services, the input of `cargo xtask codegen`. They are AWS's published
 API models (the `aws/api-models-aws` repository, Apache-2.0, the same models the AWS SDKs are generated from), kept verbatim:
 nothing here is edited. Constraints the models lack (the SQS model has none at all) live in `codegen/overlays/`, each with the
 evidence it comes from.
@@ -8,6 +8,10 @@ evidence it comes from.
 **Where they came from is not fully recorded.** They were fetched on 2026-10-10 for the Go edition's audit (`doze-aws/.audit-models`,
 untracked there) and the upstream revision was not written down. The checksums below pin what this repository was built from.
 If they are refreshed, re-run `cargo xtask codegen`, read the diff of the generated crates, and update this file.
+
+`dynamodb-streams.json` is the exception: it was not in the Go audit's set and was fetched on 2026-11-13 from
+`models/dynamodb-streams/service/2012-08-10/dynamodb-streams-2012-08-10.json` at upstream commit
+`f231310cc68b985a403274fb88f0f3856fe3b52f` (the `main` branch that day).
 
 `s3.reference.json` of the Go audit (a derived reference, not a model) is not carried over.
 
@@ -19,6 +23,7 @@ If they are refreshed, re-run `cargo xtask codegen`, read the diff of the genera
 | cloudwatch-logs.json | 308aa3e4d27c48f1233a6c286e970948a64a9eb157ee446b8227364eb7d8c49b |
 | cloudwatch.json | b1abe105489d574be25364ad5cc4a67f5782f4cc6bcf6439a587625bacc9c62a |
 | dynamodb.json | 889458e11643e5f4b240af1d2f1fd0271d06ebf44d88fb571853aa5c8e1ae438 |
+| dynamodb-streams.json | a5723166fba32c1a59e8de923a0919c4e959645722e4f48f728ac3fded793332 |
 | eventbridge.json | 55dc4532838b71926afff18b6ce7a11892c6f4aadc81f4036b983eea24c4a449 |
 | iam.json | c0cec5eeceeffdf03f310ae41c30d072041dbc274bc5a388cad525847de1bec2 |
 | kinesis.json | b3cd88f396f3591df7f1a809957379a9c8afba1e593e3eb38ee7d99afb689636 |

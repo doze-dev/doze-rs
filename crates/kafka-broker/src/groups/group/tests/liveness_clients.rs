@@ -82,6 +82,7 @@ impl Sim {
         let c = &self.clients[i];
         let owned = if coop { c.held.clone() } else { ByName::new() };
         let req = JoinRequest {
+            reason: None,
             member_id: Some(self.member(i)),
             instance: None,
             protocol_type: "consumer".into(),

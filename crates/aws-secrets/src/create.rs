@@ -134,7 +134,12 @@ impl Core {
             Some(t) => t.to_owned(),
             None => aws_seal::uuid_v4().ok_or_else(|| ApiError::internal("no randomness"))?,
         };
-        if let Some(same) = secret.versions.get(&id) {
+        // A rotation's pending version (no value yet) is filled by the first value put under its token.
+        if let Some(same) = secret
+            .versions
+            .get(&id)
+            .filter(|v| crate::rotate::has_value(v))
+        {
             let before = self.kms_open(call, secret, &id, &same.sealed).await?;
             if before == value.0 && same.binary == value.1 {
                 return Ok(Prepared { id, sealed: None });
