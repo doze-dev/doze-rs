@@ -15,6 +15,7 @@ pub mod diag;
 mod diff;
 pub mod exit;
 pub mod help;
+pub mod http;
 pub mod install;
 pub mod lock;
 mod machine;

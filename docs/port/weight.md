@@ -838,3 +838,39 @@ With the module face (Phase 11) and the schema registry's foundation (Phase 10a)
 TLS build, or a higher ceiling), the owner chose to raise the ceiling. The `weight-tls` job's limit is now 10,833,014 B (that estimate
 plus 5%) and 186 packages, until CI's next run on main measures it; Protobuf (10b) and JSON Schema (10c) will move it again, each with
 its numbers. The default build's limit (9,386,171 B, 174 packages) is unchanged.
+
+## One HTTP stack: the app makes its requests through the system's curl (core step 0, measured 2026-11-14)
+
+Same machine and method (darwin/arm64; `release-app` for the app, `release` for `doze`). Before, the app carried two HTTP
+paths: the CLI's registry client in the binary (ureq over rustls with ring and the system's trust store, linked when the
+CLI joined the app) and the update check's system `curl` (Settings › About, Q6). Now there is one, `doze_cli::http::get`,
+built one of two ways by the `doze-cli` feature `tls`:
+
+| Binary | Client | Before (core-m1, b2c73a09) | After |
+|---|---|---|---|
+| `doze-app` | the system's `curl` (no `tls`): the registry and the update check | 15,654,736 B, 640 packages | **14,792,432 B (−862,304 B), 634 packages** |
+| `doze` | ureq + rustls in the process (`tls`, the default) | 4,608,720 B | 4,608,720 B (unchanged) |
+
+The 0.84 MB is what the HTTPS client cost the app: ureq, its HTTP parser, rustls's client side, ring, webpki and the
+platform roots (a curl build of the same code measured 14,792,432 B too). `doze` keeps the in-process client because it
+must work where nothing is installed beside it (a container, a CI image without curl); the app runs on a desktop whose
+system ships curl (macOS /usr/bin/curl, Windows 10 and later in System32). Both clients say the same words for the same
+failure (`http.rs`; both are tested against a local server in every build). **The app's room under its 16,000,000 B
+line is now 1,207,568 B** (was 345,264 B).
+
+**What else `cargo tree -d` shows for the app**, and why it stays:
+- `objc2` 0.5 and 0.6, `png` 0.17 and 0.18, `itertools` ×3, `getrandom` ×3, `base64` 0.22 and 0.23, `dirs` 5 and 6,
+  `hashbrown` ×2, `miniz_oxide` ×2: all inside GPUI and gpui-component's own trees; none can go without patching them.
+- `image` with every format (exr, tiff, webp, jpeg, gif, …: about 0.55 MB with `image` itself): gpui-component turns on
+  gpui-pre's default features, which turn on the formats; the app's own `default-features = false` cannot undo it. The
+  lever is a patched gpui-component (vendor it, as gpui-pre-apple is), for the app's owner to weigh.
+- `syn` 2 and 3, `toml_edit`, `winnow` 0.7 and 1.0: build-time only, no bytes in the binary.
+- `jiff` (the CLI's wall clock, about 120 KB with `jiff-core`) beside `chrono` (GPUI's): the CLI could use chrono and
+  save that in the app; not done here, the CLI's clock being the CLI's choice.
+
+**The profile lever, measured, not taken:** the same app at `opt-level = "z"` (fat LTO, as `release-aws`) is
+**10,915,200 B, 30% smaller** than at `"s"`. doze-aws measured 30 to 60% more CPU per request at `"z"`; for the app that
+means frame and layout time, which this step did not measure. It is the lever that makes room for the engine, the daemon
+and the config when they join the CLI (the CLI alone is 4.6 MB at `"s"`), and it is the app owner's call, with the
+frame-time numbers of `doze-app bench` beside it.
+

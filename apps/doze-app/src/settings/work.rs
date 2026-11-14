@@ -319,33 +319,13 @@ impl doze_desk::settings::Hands for NoRoot {
     }
 }
 
-/// GitHub's latest release: the status and the body, or `None` when GitHub could not be reached. The app's one HTTP
-/// request, through the system's `curl` (Q6: no HTTPS client in the binary). When the app carries the CLI (core
-/// stack, PR #38), this becomes `doze_cli::http::get`, the CLI's client built on the same curl, so the binary keeps
-/// one HTTP path (docs/port/weight.md, "One HTTP stack").
+/// GitHub's latest release through doze's one HTTP client (the CLI's, the system's curl in the app): the status and the
+/// body, or `None` when GitHub could not be reached.
 fn latest() -> Option<(u16, String)> {
-    let out = std::process::Command::new("curl")
-        .args([
-            "--silent",
-            "--show-error",
-            "--location",
-            "--max-time",
-            "8",
-            "--proto",
-            "=https",
-        ])
-        .args([
-            "--header",
-            "Accept: application/vnd.github+json",
-            "--user-agent",
-            "doze",
-        ])
-        .args(["--write-out", "\n%{http_code}", update::LATEST_URL])
-        .stdin(std::process::Stdio::null())
-        .output()
-        .ok()?;
-    let text = String::from_utf8_lossy(&out.stdout);
-    let (body, code) = text.rsplit_once('\n')?;
-    let code: u16 = code.trim().parse().ok()?;
-    (code != 0).then(|| (code, body.to_owned()))
+    use doze_cli::http::{Failure, get};
+    match get(update::LATEST_URL, std::time::Duration::from_secs(8)) {
+        Ok(body) => Some((200, String::from_utf8_lossy(&body).into_owned())),
+        Err(Failure::Status(s)) => Some((s, String::new())),
+        Err(Failure::Unreachable(_)) => None,
+    }
 }

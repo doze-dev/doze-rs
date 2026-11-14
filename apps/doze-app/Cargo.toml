@@ -40,7 +40,9 @@ serde_json = "1"
 # GPUI's platform says why a notification did not go (not allowed, no bundle) through `log`; the app prints its
 # warnings, and the notification lines, to stderr (`stderr_log`). Already in the tree through gpui.
 log = { version = "0.4", features = ["std"] }
-doze-cli = { path = "../../crates/doze-cli" }
+# The CLI, without its in-process HTTPS client: the app's requests (the registry, the update check) go through the
+# system's curl, one HTTP path for the whole binary (docs/port/weight.md, "One HTTP stack").
+doze-cli = { path = "../../crates/doze-cli", default-features = false }
 doze-control = { path = "../../crates/doze-control" }
 doze-desk = { path = "../../crates/doze-desk" }
 doze-display = { path = "../../crates/doze-display" }

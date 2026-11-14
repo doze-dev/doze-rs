@@ -2,9 +2,8 @@
 //! It asks only when the page asks (About opens, Check now, the menu's Check for Updates…); nothing runs in the
 //! background. An answer is kept six hours, or until a check is forced.
 //!
-//! The request itself is the app's to make (`doze-app` `settings::work::latest`), through the one HTTP client the app
-//! binary has: the system's `curl` here, and `doze_cli::http` (built on that same curl) once the app carries the CLI
-//! (docs/port/weight.md, "One HTTP stack"). This module only reads the answer. No `curl`, or no network, reads as
+//! The request itself is the app's to make, through doze's one HTTP client (`doze_cli::http`, the system's `curl` in the
+//! app: docs/port/weight.md, "One HTTP stack"); this module only reads the answer. No `curl`, or no network, reads as
 //! "could not reach GitHub".
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
