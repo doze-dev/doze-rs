@@ -310,10 +310,13 @@ pub(super) fn others(t: &Tokens, others: &[Other]) -> impl IntoElement {
         }))
 }
 
-/// `.machine`: each part of the setup and whether it is in place; Machine… opens Settings › Machine.
+/// `.machine`: each part of the setup and whether it is in place; what stacks left behind (Clean up… opens Settings ›
+/// Machine); Set up (one password) when Repair has something to do and the app can ask; Machine… opens Settings ›
+/// Machine.
 pub(super) fn machine_line(
     t: &Tokens,
     checks: &[Check],
+    (left, repairable, repairing): (usize, bool, bool),
     _cx: &mut Context<LibraryView>,
 ) -> impl IntoElement {
     let mut line = div()
@@ -370,7 +373,44 @@ pub(super) fn machine_line(
         }
         line = line.child(it);
     }
-    line.child(div().flex_1()).child(
+    machine_buttons(t, line.child(div().flex_1()), (left, repairable, repairing))
+}
+
+/// The machine line's buttons: what was left behind, Set up, Machine….
+fn machine_buttons(
+    t: &Tokens,
+    mut line: gpui::Div,
+    (left, repairable, repairing): (usize, bool, bool),
+) -> gpui::Div {
+    if left > 0 {
+        line = line.child(
+            btn(
+                t,
+                "left-behind",
+                &format!("{left} left behind · Clean up…"),
+                "",
+                Btn::Plain,
+                Some(dispatch(&crate::actions::MachineSettings)),
+            )
+            .h(px(26.))
+            .child(dot(t.warn)),
+        );
+    }
+    if repairable || repairing {
+        let label = if repairing {
+            "Setting up…"
+        } else {
+            "Set up (one password)"
+        };
+        let mut b = btn(t, "set-up", label, "", Btn::Primary, None).h(px(26.));
+        b = if repairing {
+            b.opacity(0.6)
+        } else {
+            b.on_click(dispatch(&crate::actions::RepairMachine))
+        };
+        line = line.child(b);
+    }
+    line.child(
         btn(
             t,
             "machine",

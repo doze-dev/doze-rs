@@ -50,6 +50,12 @@ pub(crate) struct LibraryView {
     pub(crate) density: Density,
     hints: Hints,
     others: (Option<Instant>, Vec<Other>),
+    /// What stacks left behind, as the window's look last found it, and whether Repair has something to do here.
+    pub(crate) left: usize,
+    pub(crate) repairable: bool,
+    pub(crate) repairing: bool,
+    /// Where doze is, for the PATH part (read once).
+    at: Option<doze_desk::settings::DozeAt>,
     pub(crate) focus: FocusHandle,
 }
 
@@ -78,6 +84,10 @@ impl LibraryView {
                 connected,
             },
             others: (None, Vec::new()),
+            left: 0,
+            repairable: false,
+            repairing: false,
+            at: None,
             focus: cx.focus_handle(),
         };
         v.refresh(cx);
@@ -88,7 +98,7 @@ impl LibraryView {
     pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
         let stacks = self.hub.stacks();
         let home = self.hub.home().to_path_buf();
-        let (shapes, doctor, unset) = self.facts.update(cx, |f, cx| {
+        let (shapes, doctor, unset, left, live) = self.facts.update(cx, |f, cx| {
             let shapes: Vec<_> = stacks
                 .iter()
                 .map(|s| if s.running { None } else { f.shape(&s.dir, cx) })
@@ -99,7 +109,8 @@ impl LibraryView {
                 .filter(|s| f.setup(s, &home, cx).is_some())
                 .map(|s| s.key.dir().display().to_string())
                 .collect();
-            (shapes, f.doctor(&stacks, cx), unset)
+            let left = f.leftovers(&home, &stacks, cx).map_or(0, |l| l.len());
+            (shapes, f.doctor(&stacks, cx), unset, left, f.live())
         });
         let shape_of = |st: &StackView| {
             stacks
@@ -109,7 +120,27 @@ impl LibraryView {
         };
         let mut lib = library(&stacks, &shape_of, self.hints, self.hub.now());
         doze_desk::library::unready(&mut lib, &unset);
-        lib.machine = doctor.map(|d| machine(&d, &stacks)).unwrap_or_default();
+        lib.machine = doctor
+            .as_ref()
+            .map(|d| machine(d, &stacks))
+            .unwrap_or_default();
+        let at = self
+            .at
+            .get_or_insert_with(|| crate::settings::doze_at(!live))
+            .clone();
+        let repairable = live
+            && doze_os::privilege::admin_supported()
+            && doctor.is_some_and(|d| {
+                doze_desk::settings::machine::fixable(&doze_desk::settings::machine::parts(
+                    &d,
+                    &at,
+                    crate::VERSION,
+                ))
+            });
+        if (left, repairable) != (self.left, self.repairable) {
+            (self.left, self.repairable) = (left, repairable);
+            cx.notify();
+        }
         if self.others.0.is_none_or(|at| at.elapsed() > OTHERS_EVERY) {
             self.others = (Some(Instant::now()), others(self.hub.home()));
         }
@@ -246,7 +277,12 @@ impl Render for LibraryView {
             .on_action(cx.listener(|this, _: &RemoveStack, _, cx| this.remove_selected(cx)))
             .child(parts::head(&t, self, cx))
             .child(body)
-            .child(parts::machine_line(&t, &self.lib.machine, cx))
+            .child(parts::machine_line(
+                &t,
+                &self.lib.machine,
+                (self.left, self.repairable, self.repairing),
+                cx,
+            ))
             .child(keys_bar(
                 &t,
                 &keys,

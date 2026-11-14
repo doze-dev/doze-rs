@@ -160,8 +160,8 @@ pub(super) fn banners(
     out
 }
 
-/// The domains' setup (Go `home.setup`): what is not reachable yet and what is missing. The machine's setup takes an
-/// admin prompt, which this app does not raise: the command is offered to copy, for a terminal.
+/// The domains' setup (Go `home.setup`): what is not reachable yet and what is missing; Set up the machine (one
+/// password) where the app can ask (the run sheet, Repair), and the command to copy, for a terminal.
 fn setup(
     t: &Tokens,
     su: &doze_desk::machine_names::Setup,
@@ -188,11 +188,34 @@ fn setup(
         .on_click(cx.listener(move |this, _, _, cx| {
             this.copy_text(&command, "the command", cx);
         }));
+    let mut buttons = Vec::new();
+    if su.prompt {
+        buttons.push(
+            btn(
+                t,
+                "set-up-machine",
+                "Set up the machine",
+                "",
+                Btn::Primary,
+                Some(Box::new(|_, window, cx| {
+                    window.dispatch_action(Box::new(crate::actions::RepairMachine), cx);
+                })),
+            )
+            .child(
+                div()
+                    .font_weight(ty::REGULAR)
+                    .opacity(0.75)
+                    .child("(one password)"),
+            )
+            .into_any_element(),
+        );
+    }
+    buttons.push(copy.into_any_element());
     banner(
         t,
         "banner-setup",
         (t.cool, Mark::Dot(t.cool)),
         (&su.text, &su.detail),
-        vec![copy.into_any_element()],
+        buttons,
     )
 }

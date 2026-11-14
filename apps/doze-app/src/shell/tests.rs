@@ -59,6 +59,7 @@ fn over(root: &Entity<Root>, vcx: &mut VisualTestContext) -> &'static str {
         Some(Overlay::Preflight(_)) => "preflight",
         Some(Overlay::Start(_)) => "start",
         Some(Overlay::Bell(_)) => "bell",
+        Some(Overlay::Admin(_)) => "admin",
         None => "",
     })
 }

@@ -4,6 +4,7 @@
 //! only when what it shows changed (the views are `PartialEq`), which is what keeps an idle window at zero redraws.
 
 mod acting;
+mod admin;
 pub(crate) mod attn;
 mod clock;
 mod history;

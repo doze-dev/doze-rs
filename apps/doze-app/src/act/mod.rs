@@ -48,6 +48,8 @@ pub(crate) enum ActsEvent {
     Start(StackKey, StartSheet),
     /// A folder was set up: show its stack.
     Open(PathBuf),
+    /// The machine's setup asked for (a preflight's Set up): the run sheet.
+    Repair,
 }
 
 /// The app's acting.

@@ -63,6 +63,9 @@ impl OverviewView {
                 doze_desk::overview::fronted_down(h, front.as_deref());
             }
             h.setup = f.setup(st, &home, cx);
+            if let Some(su) = h.setup.as_mut() {
+                su.prompt = f.live() && doze_os::privilege::admin_supported();
+            }
         });
     }
 }

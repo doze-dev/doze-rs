@@ -91,3 +91,18 @@ pub(crate) fn reveal(cx: &App, path: &std::path::Path) {
     }
     cx.reveal_path(path);
 }
+
+/// A line a privileged job printed, written to a scripted run's log (`out …`) so a script can follow it.
+#[cfg_attr(not(feature = "fixtures"), allow(unused_variables))]
+pub(crate) fn note_line(said: &doze_desk::settings::Said) {
+    #[cfg(feature = "fixtures")]
+    if crate::driver::active() {
+        use doze_desk::settings::Said;
+        let (kind, text) = match said {
+            Said::Run(s) => ("run", s),
+            Said::Line(s) => ("out", s),
+            Said::Note(s) => ("note", s),
+        };
+        crate::driver::note(kind, text);
+    }
+}

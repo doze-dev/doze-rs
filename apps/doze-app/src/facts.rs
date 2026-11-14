@@ -45,6 +45,8 @@ pub(crate) struct Facts {
     mode: Mode,
     doctor: Option<(Instant, Doctor)>,
     doctor_asked: bool,
+    /// How many answers doctor has given: a repair waits for the next.
+    doctor_seen: u64,
     shapes: HashMap<PathBuf, Known>,
     asking: HashSet<PathBuf>,
     /// Each stack's domain setup, by its key and domains (`names`).
@@ -60,20 +62,25 @@ pub(crate) struct Facts {
     left_wanted: bool,
 }
 
-/// The `doze` a terminal would run. The app started from Finder has launchd's short PATH, so the places a terminal's
-/// PATH has are looked at too (Go `dozeOnPath`).
+/// The `doze` a terminal would run, from the command source (`doze_desk::settings::cli`, where `DOZE_APP_CLI` can
+/// name another). The app started from Finder has launchd's short PATH, so the places a terminal's PATH has are
+/// looked at too (Go `dozeOnPath`).
 pub(crate) fn find_doze() -> Option<PathBuf> {
-    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
-        .map(|p| std::env::split_paths(&p).collect())
-        .unwrap_or_default();
-    dirs.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
-    if let Some(h) = std::env::var_os("HOME") {
-        dirs.push(Path::new(&h).join(".local/bin"));
-        dirs.push(Path::new(&h).join("go/bin"));
-    }
-    dirs.into_iter()
-        .map(|d| d.join("doze"))
-        .find(|p| p.is_file())
+    doze_desk::settings::Cli::from_env().map(|c| c.program)
+}
+
+/// The folder doctor runs in: it reads the names setting from a stack's config, so the first stack running, else the
+/// first with a doze.hcl.
+pub(crate) fn doctor_dir(stacks: &[StackView]) -> Option<PathBuf> {
+    stacks
+        .iter()
+        .find(|s| s.running && Path::new(&s.dir).is_absolute())
+        .or_else(|| {
+            stacks
+                .iter()
+                .find(|s| Path::new(&s.dir).join("doze.hcl").is_file())
+        })
+        .map(|s| PathBuf::from(&s.dir))
 }
 
 fn stamp(dir: &Path) -> Option<SystemTime> {
@@ -100,6 +107,7 @@ impl Facts {
             mode,
             doctor: None,
             doctor_asked: false,
+            doctor_seen: 0,
             shapes: HashMap::new(),
             asking: HashSet::new(),
             trust: HashMap::new(),
@@ -187,6 +195,16 @@ impl Facts {
         cx.notify();
     }
 
+    /// Whether this is the machine (not a fixture's made-up one).
+    pub(crate) fn live(&self) -> bool {
+        matches!(self.mode, Mode::Live(_))
+    }
+
+    /// How many answers doctor has given so far.
+    pub(crate) fn doctor_seen(&self) -> u64 {
+        self.doctor_seen
+    }
+
     /// The machine's checks; asks again when the last answer is old. `None` while the first answer is coming.
     pub(crate) fn doctor(
         &mut self,
@@ -208,17 +226,7 @@ impl Facts {
             .doctor
             .as_ref()
             .is_some_and(|(at, _)| at.elapsed() < DOCTOR_AGE);
-        // doctor reads the machine's setup from inside a stack's folder (outside one it has no config to read the
-        // names setting from); the first stack running, else the first one at all.
-        let dir = stacks
-            .iter()
-            .find(|s| s.running && Path::new(&s.dir).is_absolute())
-            .or_else(|| {
-                stacks
-                    .iter()
-                    .find(|s| Path::new(&s.dir).join("doze.hcl").is_file())
-            })
-            .map(|s| PathBuf::from(&s.dir));
+        let dir = doctor_dir(stacks);
         if let (false, false, Some(doze), Some(dir)) = (fresh, self.doctor_asked, doze, dir) {
             self.doctor_asked = true;
             let job = cx
@@ -233,6 +241,7 @@ impl Facts {
                         doze_desk::library::names_off(&mut d);
                     }
                     f.doctor = Some((Instant::now(), d));
+                    f.doctor_seen += 1;
                     cx.notify();
                 });
             })

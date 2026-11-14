@@ -47,12 +47,8 @@ impl Root {
                     let v = cx.new(|cx| PreflightView::new(c.clone(), window, cx));
                     cx.subscribe_in(&v, window, |this, v, ev: &PreflightEvent, window, cx| {
                         let check = v.read(cx).check.clone();
-                        if matches!(
-                            ev,
-                            PreflightEvent::Fix(doze_desk::act::FixKind::Edit(_))
-                                | PreflightEvent::Fix(doze_desk::act::FixKind::Repair)
-                        ) {
-                            // Editing the file, or copying the command, leaves the sheet up.
+                        if matches!(ev, PreflightEvent::Fix(doze_desk::act::FixKind::Edit(_))) {
+                            // Editing the file leaves the sheet up.
                         } else {
                             this.close(window, cx);
                         }
@@ -81,12 +77,15 @@ impl Root {
                     this.show_overlay(Overlay::Start(v), cx);
                 }
                 ActsEvent::Open(dir) => this.open_dir(dir, None, window, cx),
+                ActsEvent::Repair => {
+                    window.dispatch_action(Box::new(crate::actions::RepairMachine), cx);
+                }
             },
         )
         .detach();
     }
 
-    fn show_overlay(&mut self, o: Overlay, cx: &mut Context<Self>) {
+    pub(super) fn show_overlay(&mut self, o: Overlay, cx: &mut Context<Self>) {
         self.overlay = Some(o);
         cx.notify();
     }
@@ -107,6 +106,7 @@ impl Root {
             Overlay::Dialog(v) => (v.clone().into_any_element(), "dialog"),
             Overlay::Preflight(v) => (v.clone().into_any_element(), "preflight"),
             Overlay::Start(v) => (v.clone().into_any_element(), "start"),
+            Overlay::Admin(v) => (v.clone().into_any_element(), "admin"),
             Overlay::Palette(_) | Overlay::Help | Overlay::Bell(_) => return None,
         };
         Some(scrim::center(&t, panel, motion, id, cancel))

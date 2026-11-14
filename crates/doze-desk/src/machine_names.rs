@@ -209,6 +209,9 @@ pub struct Setup {
     pub text: String,
     pub detail: String,
     pub command: String,
+    /// The app can ask for the password here, so it offers Set up the machine (Go `Prompt`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub prompt: bool,
 }
 
 /// The banner for a stack whose domains are not all set up here; `None` when it declares none or all is in place.
@@ -235,6 +238,7 @@ pub fn setup_of(domains: &[String], steps: &[Step]) -> Option<Setup> {
         text,
         detail: format!("missing: {} · one admin prompt", missing.join(", ")),
         command: "doze trust".into(),
+        prompt: false,
     })
 }
 

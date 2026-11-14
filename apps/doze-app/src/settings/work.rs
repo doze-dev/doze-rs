@@ -1,10 +1,11 @@
 //! Settings' slow parts, off the UI thread: the login item, Repair, the look for leftovers and clearing them, the
 //! update check. A fixture's source acts on nothing: its machine is made up (`Staged`), and its buttons say so.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
+use doze_desk::settings::Job;
 use doze_desk::settings::leftovers::{self, Cleared};
-use doze_desk::settings::repair::{self, Fail, Hands};
+use doze_desk::settings::repair;
 use doze_desk::settings::update::{self, Update};
 use doze_desk::settings::{DozeAt, SystemHands};
 use gpui::Context;
@@ -27,7 +28,7 @@ pub(super) fn login_item(fixture: bool) -> Option<PathBuf> {
 }
 
 /// Where the `doze` is: a fixture's is where Homebrew puts it.
-pub(super) fn doze_at(fixture: bool) -> DozeAt {
+pub(crate) fn doze_at(fixture: bool) -> DozeAt {
     if fixture {
         return DozeAt {
             on_path: Some("/opt/homebrew/bin/doze".into()),
@@ -65,53 +66,35 @@ impl SettingsView {
     }
 
     fn hands(&self) -> Option<SystemHands> {
-        Some(SystemHands {
-            doze: crate::facts::find_doze()?,
-            home: self.hub.home().to_path_buf(),
-        })
+        Some(SystemHands::new(
+            doze_desk::settings::Cli::from_env()?,
+            self.hub.home().to_path_buf(),
+        ))
     }
 
-    /// Repair: the steps the failing parts need, behind the system's prompt; doctor looks again after.
+    /// Repair: the steps the failing parts need, shown in the run sheet before anything asks for the password; the
+    /// sheet runs them, streams what they print and has doctor look again after.
     pub(crate) fn repair(&mut self, cx: &mut Context<Self>) {
-        if self.repairing {
-            return;
-        }
-        if self.fixture {
+        if self.parts.is_empty() {
             cx.emit(SettingsEvent::Say(
-                "a fixture repairs nothing on this machine".into(),
+                "doze doctor has not answered yet; Repair waits for its report".into(),
                 true,
             ));
+            self.refresh(cx);
             return;
         }
-        let Some(mut hands) = self.hands() else {
-            cx.emit(SettingsEvent::Say(
-                "this app cannot find doze to run the setup: copy the fix into a terminal".into(),
-                true,
-            ));
-            return;
-        };
         let steps = repair::steps(
             &self.hub.stacks(),
             &self.parts,
             self.at.elsewhere.as_deref(),
         );
-        let home = self.hub.home().to_path_buf();
-        self.repairing = true;
-        cx.notify();
-        let job = cx.background_executor().spawn(async move {
-            let mut prune = |h: &mut dyn Hands| prune_routes(&home, h);
-            repair::run(&steps, &mut hands, &mut prune)
-        });
-        cx.spawn(async move |this, cx| {
-            let out = job.await;
-            let _ = this.update(cx, |v, cx| {
-                v.repairing = false;
-                v.repaired = Some(out);
-                v.facts.update(cx, |f, cx| f.forget_doctor(cx));
-                v.refresh(cx);
-            });
-        })
-        .detach();
+        cx.emit(SettingsEvent::Run(Job::Repair(steps)));
+    }
+
+    /// `doze doctor` itself, its report streamed into the run sheet (no password).
+    pub(crate) fn run_doctor(&mut self, cx: &mut Context<Self>) {
+        let dir = crate::facts::doctor_dir(&self.hub.stacks());
+        cx.emit(SettingsEvent::Run(Job::Doctor(dir)));
     }
 
     /// Looks again for what stacks left behind: a fixture's made-up machine, or this one through the window's one
@@ -157,6 +140,17 @@ impl SettingsView {
                 "a fixture clears nothing on this machine".into(),
                 true,
             ));
+            cx.notify();
+            return;
+        }
+        // What needs the password shows in the run sheet first; stopping a process or deleting a folder (asked
+        // already) does not.
+        let admin = self.left.as_deref().is_some_and(|l| {
+            l.iter()
+                .any(|l| l.admin && (l.id == id || (id == "all" && !l.danger)))
+        });
+        if admin {
+            cx.emit(SettingsEvent::Run(Job::Clear(id.to_owned())));
             cx.notify();
             return;
         }
@@ -238,15 +232,4 @@ impl SettingsView {
 /// This doze's version for the update check: the release build's, or "dev".
 fn current() -> &'static str {
     option_env!("DOZE_VERSION").unwrap_or("dev")
-}
-
-/// Removes every stale route behind one prompt, then forgets them (a repair's step when no stack runs doze trust).
-fn prune_routes(home: &Path, hands: &mut dyn Hands) -> Result<(), Fail> {
-    let m = leftovers::gather(home, &[], true);
-    let script = leftovers::route_script(&m.routes);
-    if script.is_empty() {
-        return Ok(());
-    }
-    hands.admin("remove stale routes", &script)?;
-    leftovers::forget_routes(home, &m.routes).map_err(|e| Fail::Failed(e.to_string()))
 }

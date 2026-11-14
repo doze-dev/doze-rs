@@ -19,6 +19,8 @@ mod machine;
 mod side;
 mod work;
 
+pub(crate) use work::doze_at;
+
 use std::path::PathBuf;
 
 use doze_desk::Hub;
@@ -76,6 +78,8 @@ pub(crate) enum SettingsEvent {
     Density(Density),
     /// Back where the window was.
     Back,
+    /// A privileged job, for the run sheet: shown first, run on a click.
+    Run(doze_desk::settings::Job),
 }
 
 /// Made-up machine states, for fixtures and shots: a fixture's machine is not this one.
@@ -105,8 +109,6 @@ pub(crate) struct SettingsView {
     pub(crate) parts: Vec<Part>,
     pub(crate) at: DozeAt,
     pub(crate) repairing: bool,
-    /// A repair finished; what it came to is said once doctor has looked again.
-    pub(crate) repaired: Option<doze_desk::settings::Outcome>,
     pub(crate) left: Option<Vec<Leftover>>,
     pub(crate) looking: bool,
     /// What is being cleared (a leftover's id, or `all`), and which is asking before it deletes.
@@ -149,7 +151,6 @@ impl SettingsView {
             parts: Vec::new(),
             at: DozeAt::default(),
             repairing: false,
-            repaired: None,
             left: None,
             looking: false,
             busy: String::new(),
@@ -178,10 +179,6 @@ impl SettingsView {
         let next = doctor
             .map(|d| parts(&d, &at, crate::VERSION))
             .unwrap_or_default();
-        if let Some(out) = self.repaired.take() {
-            let (said, bad) = out.words(&next);
-            cx.emit(SettingsEvent::Say(said, bad));
-        }
         if next != self.parts {
             self.parts = next;
             cx.notify();

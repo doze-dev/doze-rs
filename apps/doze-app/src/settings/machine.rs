@@ -20,6 +20,17 @@ pub(super) fn page(
 ) -> impl IntoElement {
     let head = part_head(t, "Machine", "what doze set up here, part by part")
         .child(div().flex_1())
+        // The owner's ask past Go: doctor itself from the app, its report as it prints it.
+        .child(btn(
+            t,
+            "run-doctor",
+            "Run doze doctor",
+            "",
+            Btn::Quiet,
+            Some(Box::new(
+                cx.listener(|v: &mut SettingsView, _, _, cx| v.run_doctor(cx)),
+            )),
+        ))
         .child(btn(
             t,
             "copy-report",

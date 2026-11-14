@@ -156,7 +156,7 @@ fn asked(acts: gpui::Entity<Acts>, ev: &ActsEvent, cx: &mut App) {
         ActsEvent::Ask(a) => a.key.clone(),
         ActsEvent::Check(c) => Some(c.key.clone()),
         ActsEvent::Start(k, _) => Some(k.clone()),
-        ActsEvent::Open(_) => None,
+        ActsEvent::Open(_) | ActsEvent::Repair => None,
     };
     let outside = around(cx)
         .and_then(|a| a.outside_until.take())
