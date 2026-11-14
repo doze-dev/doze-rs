@@ -280,13 +280,13 @@ A group's facts are metric tiles (state, members, generation or epoch, lag, comm
 Reset offsets sends OffsetCommit with generation -1 and no member (what `kafka-consumer-groups --reset-offsets` sends); the preview is the same computation as the write (earliest, latest, an offset, a time, a shift, current; each kept within the log). On a group with a member Kafka answers UNKNOWN_MEMBER_ID (25) and the page shows that code, its words ("The coordinator is not aware of this member."), the console's reading of the rule and what would pass. Tests: live_groups::a_reset_of_an_empty_group_moves_its_offsets_and_a_group_with_a_member_is_refused_in_kafkas_words (removed in R5), `groups_words::tests::the_reading_of_a_refused_reset_counts_the_members_and_a_delete_names_the_rule`, `backend::requests::groups_read::tests::a_reset_is_a_commit_that_names_no_generation_and_no_member`.
 
 ## CON-208. Delete group is refused with NON_EMPTY_GROUP and done when empty
-DeleteGroups on a group with a member shows NON_EMPTY_GROUP (68) and "The group is not empty."; on an empty group it deletes and returns to the list. Test: live_groups::deleting_a_group_is_refused_with_members_and_done_when_empty (removed in R5). Since R5, a POST of `/api/v1/groups/{group}/delete` over a real broker: `live_api_groups::deleting_a_group_is_refused_with_members_and_done_when_empty`.
+DeleteGroups on a group with a member shows NON_EMPTY_GROUP (68) and "The group is not empty."; on an empty group it deletes and returns to the list. Test: live_groups::deleting_a_group_is_refused_with_members_and_done_when_empty (removed in R5). Since R5, a POST of `/api/v1/groups/{group}/delete` over a real broker: `live_api_group_writes::deleting_a_group_is_refused_with_members_and_done_when_empty`.
 
 ## CON-209. Delete offsets forgets them, and a subscribed topic is refused
-OffsetDelete on an empty group forgets the commits and lands on the Lag page; on a topic a member is subscribed to Kafka answers GROUP_SUBSCRIBED_TO_TOPIC (86) and the dialog shows it. Test: live_groups::deleting_offsets_forgets_them_and_a_subscribed_topic_is_refused (removed in R5). Since R5, a POST of `/api/v1/groups/{group}/offsets/delete` over a real broker: `live_api_groups::deleting_offsets_forgets_them_and_a_subscribed_topic_is_refused`.
+OffsetDelete on an empty group forgets the commits and lands on the Lag page; on a topic a member is subscribed to Kafka answers GROUP_SUBSCRIBED_TO_TOPIC (86) and the dialog shows it. Test: live_groups::deleting_offsets_forgets_them_and_a_subscribed_topic_is_refused (removed in R5). Since R5, a POST of `/api/v1/groups/{group}/offsets/delete` over a real broker: `live_api_group_writes::deleting_offsets_forgets_them_and_a_subscribed_topic_is_refused`.
 
 ## CON-210. An ACL-on broker refuses as a client would be refused
-With ACLs on, a caller that may only DESCRIBE a group is refused a reset and a delete with GROUP_AUTHORIZATION_FAILED (30), and a group it may not describe is not told apart from no group. Test: live_groups::on_a_broker_with_acls_a_caller_without_the_right_is_refused_as_a_client_would_be (removed in R5). Since R5, at the API: `live_api_groups::on_a_broker_with_acls_a_caller_without_the_right_is_refused_as_a_client_would_be`.
+With ACLs on, a caller that may only DESCRIBE a group is refused a reset and a delete with GROUP_AUTHORIZATION_FAILED (30), and a group it may not describe is not told apart from no group. Test: live_groups::on_a_broker_with_acls_a_caller_without_the_right_is_refused_as_a_client_would_be (removed in R5). Since R5, at the API: `live_api_group_writes::on_a_broker_with_acls_a_caller_without_the_right_is_refused_as_a_client_would_be`.
 
 ## CON-211. A group id is hostile input
 A group id with `/`, `?`, `%`, spaces, unicode, a `<script>`, an attribute break, or 255 bytes is escaped in every page and percent-encoded in every link. Test: live_groups::a_hostile_group_id_is_escaped_and_encoded_on_every_page (removed in R5). Since R5 the id is one percent-encoded path segment of every `/api/v1/groups/{group}` address and comes back as the same JSON text, and the pages render it as text with encoded links: `live_api_groups::a_hostile_group_id_is_one_segment_and_comes_back_as_the_same_text`, web/e2e/tests/hostile.spec.ts "a group id that is markup is text on its pages, and its links are one encoded segment".
@@ -553,13 +553,13 @@ Test: retention_is_named_before_and_after_a_pass (removed in R5). Since R5: `liv
 Test: an_empty_log_says_how_the_first_record_gets_there (removed in R5). Since R5 the API's `state: "empty"` and the page's empty state with the `kcat -P` command: `live_api_log::an_empty_log_says_how_the_first_record_gets_there`, web/e2e/tests/topic-tabs.spec.ts "Log of an empty partition: it says so, and gives the command that writes the first record (CON-533)".
 
 ## CON-534. The Producers page names the transaction that holds the stable offset
-Test: the_producers_page_names_the_transaction_that_holds_the_stable_offset (removed in R5). Since R5, at `/api/v1/topics/{topic}/producers`: `live_api_log::the_producers_answer_names_the_transaction_that_holds_the_stable_offset`.
+Test: the_producers_page_names_the_transaction_that_holds_the_stable_offset (removed in R5). Since R5, at `/api/v1/topics/{topic}/producers`: `live_api_producers::the_producers_answer_names_the_transaction_that_holds_the_stable_offset`.
 
 ## CON-535. A transaction page says what it holds back and what the timeout will do
-Test: a_transaction_page_says_what_it_holds_back_and_what_the_timeout_will_do (removed in R5). Since R5, at `/api/v1/topics/{topic}/transactions/{id}` (a transactional id the broker does not know is a `missing` answer): `live_api_log::a_transaction_answer_says_what_it_holds_back_and_what_the_timeout_will_do`.
+Test: a_transaction_page_says_what_it_holds_back_and_what_the_timeout_will_do (removed in R5). Since R5, at `/api/v1/topics/{topic}/transactions/{id}` (a transactional id the broker does not know is a `missing` answer): `live_api_producers::a_transaction_answer_says_what_it_holds_back_and_what_the_timeout_will_do`.
 
 ## CON-536. An aborted transaction is listed with its marker
-Test: an_aborted_transaction_is_listed_with_its_marker (removed in R5). Since R5: `live_api_log::an_aborted_transaction_is_listed_with_its_marker`.
+Test: an_aborted_transaction_is_listed_with_its_marker (removed in R5). Since R5: `live_api_producers::an_aborted_transaction_is_listed_with_its_marker`.
 
 ## CON-537. A caller without rights is told no such topic
 Test: a_caller_without_rights_is_told_no_such_topic (removed in R5). Since R5 the Log and Producers answers are the 404 of no topic and a transaction is a `missing` answer: `live_api_log::a_caller_without_rights_is_told_no_such_topic`.
