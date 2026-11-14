@@ -382,24 +382,32 @@ No limit moved (7,800,000 B, 161 packages): a person lowers them, with the first
 ## Limits raised to the measured values (2026-11-14, owner decision)
 
 Main's CI had been red on the weight jobs since the React console and the doze-aws A14 to A16 merges. The owner decided on 2026-11-14 to raise
-the budgets to what CI measures, with no headroom: the limits below are the numbers the ubuntu x86_64 runners measured on main that day
-(runs 43501441380 and 43570638000; the second is main plus the build fixes of PR #7). Sizes and package counts were the same in both runs;
-idle memory is one sample two or three seconds after start and moves between runs, so where the two runs differed the larger is the limit.
+the budgets to what CI measures on the ubuntu x86_64 runners. Byte and package limits are the measurement exactly (they are the same in every
+run of one commit). Idle memory is not: one sample two or three seconds after start moved by up to 870 KB between runs of the same commit
+(doze-aws: 8,612 and 9,484 KB). So the method changed with this entry:
+
+- **Idle memory is the median of three fresh starts**, each with an empty data directory, read two (`cargo xtask weight`) or three (the
+  `weight-lean` and `weight-tls` jobs) seconds after the server listens. All three samples are printed.
+- **An idle limit is that median plus 5%**, rounded up to the KB, for the noise that is left. Byte and package limits get no headroom.
+
+Measured in run 43572452563 (main plus PR #7's build fixes):
 
 | job | measured | old limit | new limit |
 |---|---|---|---|
 | `weight`, doze-kafka binary | 8,174,048 B | 7,800,000 B | **8,174,048 B** |
-| `weight`, doze-kafka idle | 9,316 / 9,228 KB | 8,192 KB | **9,316 KB** |
-| `weight`, doze-aws idle | 8,612 / 9,484 KB | 6,144 KB | **9,484 KB** |
+| `weight`, doze-kafka idle | 9,428 / 9,296 / 9,280 KB, median 9,296 | 8,192 KB | **9,761 KB** |
+| `weight`, doze-aws idle | 8,964 / 8,952 / 9,088 KB, median 8,964 | 6,144 KB | **9,413 KB** |
 | `weight-lean` binary | 5,263,296 B | 5,200,000 B | **5,263,296 B** |
+| `weight-lean` idle | 6,972 / 6,884 / 6,876 KB, median 6,884 | 8,192 KB | **7,229 KB** (lowered: same rule) |
 | `weight-tls` binary | 9,279,000 B | 8,750,000 B | **9,279,000 B** |
-| `weight-tls` idle | 10,164 / 10,196 KB | 8,192 KB | **10,196 KB** |
+| `weight-tls` idle | 10,080 / 10,104 / 10,280 KB, median 10,104 | 8,192 KB | **10,610 KB** |
 
-The other limits held and did not move: packages (doze-kafka 155 of 161, doze-aws 259 of 264, lean 127 of 130, tls 166 of 173), doze-aws
-bytes (11,641,952 of 12,400,000) and the lean build's idle (6,932 / 6,764 KB of 8,192).
+Packages did not move (doze-kafka 155 of 161, doze-aws 259 of 264, lean 127 of 130, tls 166 of 173), nor did doze-aws bytes (11,641,952 of
+12,400,000). The two byte limits the weight pass of 2026-11-13 had lowered (doze-kafka 7.8 MB, tls 8.75 MB) were crossed by later merges and
+raised under the same decision; both stay under the owner's hard ceilings (kafka 10 MB, doze-aws 20 MB).
 
-The brief for this change named the figures of PR #7's run of 2026-11-12 (kafka idle 8,780 KB, aws idle 6,676 KB, lean 5.64 MB, tls 166
-packages and 9,408 KB idle). Main moved 407 commits after that run, so these are the re-measured values: the lean binary shrank (R5 removed
-the classic console), the idle figures rose, and two byte limits that the weight pass of 2026-11-13 had lowered (doze-kafka 7.8 MB, tls
-8.75 MB) were also crossed, so they were raised to the measurement under the same decision. Both stay under the owner's ceilings (9 MB for
-the default build, 10 MB with TLS).
+**Why idle grew** (issue #36, from the `weight` job of every main push since 2026-11-12): doze-aws went from about 5.2 MB to about 9 MB in two
+steps. 128eab40 (doze-aws at `opt-level = "z"`) cost about 1.4 MB: a deliberate trade for a smaller binary, accepted. The A14 to A16 merges
+(`04c500b4..e1ab82d4`: Step Functions, API Gateway, CloudFormation) cost about 1.5 MB more with no request made, which points at something
+built at start; it stays open in #36 as a regression to fix. doze-kafka's default and TLS builds rose about 0.3 to 0.5 MB with the React
+console merge (bc4db1ac); the lean build stayed flat.
