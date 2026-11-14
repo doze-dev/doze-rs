@@ -40,13 +40,13 @@ impl Evaluator<'_> {
                 cond_at,
             );
             diags.push(d.with_context(whole));
-            return (Value::Unknown(result_ty), diags);
+            return (Value::unknown(result_ty), diags);
         }
         if !cond.is_known() {
             if t.is_null() && f.is_null() {
                 return (Value::Null(result_ty), diags);
             }
-            return (Value::Unknown(result_ty), diags);
+            return (either(&t, &f, result_ty), diags);
         }
         let Ok(Value::Bool(pick)) = convert(&cond, &Type::Bool) else {
             let d = Diagnostic::error(
@@ -55,7 +55,7 @@ impl Evaluator<'_> {
                 cond_at,
             );
             diags.push(d.with_context(whole));
-            return (Value::Unknown(result_ty), diags);
+            return (Value::unknown(result_ty), diags);
         };
         let (chosen, chosen_diags, conv, expr, which) = if pick {
             (t, t_diags, &convs[0], &c.true_expr, "true")
@@ -78,7 +78,7 @@ impl Evaluator<'_> {
                     self.range(expr),
                 );
                 diags.push(d.with_context(whole));
-                (Value::Unknown(result_ty), diags)
+                (Value::unknown(result_ty), diags)
             }
         }
     }
@@ -110,4 +110,42 @@ fn result_type(t: &Value, f: &Value) -> Option<(Type, [Conv; 2])> {
         Unified::AllDynamic => Some((Type::Dynamic, [Conv::Dynamic, Conv::Dynamic])),
         Unified::None => None,
     }
+}
+
+/// The result when the condition is unknown: what both results share is known (not null; a number
+/// range or a collection length range covering both).
+fn either(t: &Value, f: &Value, ty: Type) -> Value {
+    let (rt, rf) = (t.refinement(), f.refinement());
+    let mut r = crate::value::Refinement {
+        not_null: t.definitely_not_null() && f.definitely_not_null(),
+        ..Default::default()
+    };
+    if t.ty() == Type::Number && f.ty() == Type::Number {
+        r.lower = widest(rt.lower, rf.lower, std::cmp::Ordering::Less);
+        r.upper = widest(rt.upper, rf.upper, std::cmp::Ordering::Greater);
+    } else if t.ty().is_collection() && t.ty() == f.ty() {
+        let (tl, th) = rt.len.unwrap_or((0, None));
+        let (fl, fh) = rf.len.unwrap_or((0, None));
+        let hi = match (th, fh) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            _ => None,
+        };
+        r.len = Some((tl.min(fl), hi)).filter(|l| *l != (0, None));
+    }
+    Value::refined(ty, r)
+}
+
+/// The bound further out (`out` is the direction), inclusive if either is at that point; none if
+/// either side is unbounded.
+fn widest(
+    a: Option<(crate::Number, bool)>,
+    b: Option<(crate::Number, bool)>,
+    out: std::cmp::Ordering,
+) -> Option<(crate::Number, bool)> {
+    let ((x, xi), (y, yi)) = (a?, b?);
+    Some(match x.cmp_value(&y) {
+        std::cmp::Ordering::Equal => (x, xi || yi),
+        o if o == out => (x, xi),
+        _ => (y, yi),
+    })
 }

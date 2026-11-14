@@ -1,7 +1,8 @@
 //! Function calls (hclsyntax's `FunctionCallExpr`): look the name up, expand a final `...` argument,
 //! check the count, convert each argument to its parameter's type, then call with cty's rules.
 
-use super::{Context, Evaluator, Out, suggestion};
+use super::call_checks::{arity, lookup};
+use super::{Context, Evaluator, Out};
 use crate::convert::convert;
 use crate::diag::{Diagnostic, Diagnostics, Range};
 use crate::function::{self, Function, Param};
@@ -11,10 +12,10 @@ use crate::value::quote::go_quote;
 use hcl_edit::expr::{Expression, FuncCall};
 
 /// An argument: its value (once evaluated) and where it came from.
-struct Arg<'a> {
-    expr: Option<&'a Expression>,
-    value: Option<Value>,
-    at: Range,
+pub(super) struct Arg<'a> {
+    pub(super) expr: Option<&'a Expression>,
+    pub(super) value: Option<Value>,
+    pub(super) at: Range,
 }
 
 impl Evaluator<'_> {
@@ -144,7 +145,7 @@ impl Evaluator<'_> {
             let v = match convert(&given, &param.ty) {
                 Ok(v) => v,
                 Err(e) => {
-                    diags.push(invalid_arg(param, &e.0, start_of(arg.at), whole));
+                    diags.push(invalid_arg(param, &e.0, arg.at, whole));
                     given
                 }
             };
@@ -153,38 +154,6 @@ impl Evaluator<'_> {
         }
         vals
     }
-}
-
-type LookupError = Box<dyn Fn(Range, Range) -> Diagnostic>;
-
-fn lookup<'f>(ctx: &'f Context<'_>, name: &str) -> Result<&'f dyn Function, LookupError> {
-    let mut any = false;
-    let mut names = Vec::new();
-    for c in ctx.scopes() {
-        if let Some(fs) = c.functions {
-            any = true;
-            if let Some(f) = fs.get(name) {
-                return Ok(f.as_ref());
-            }
-            names.extend(fs.keys().cloned());
-        }
-    }
-    if !any {
-        return Err(Box::new(|at, _| {
-            Diagnostic::error(
-                "Function calls not allowed",
-                "Functions may not be called here.",
-                at,
-            )
-        }));
-    }
-    let hint = suggestion(name, &names)
-        .map(|s| format!(" Did you mean {}?", go_quote(&s)))
-        .unwrap_or_default();
-    let detail = format!("There is no function named {}.{hint}", go_quote(name));
-    Err(Box::new(move |at, whole| {
-        Diagnostic::error("Call to unknown function", detail.clone(), at).with_context(whole)
-    }))
 }
 
 fn invalid_arg(param: &Param, msg: &str, at: Range, whole: Range) -> Diagnostic {
@@ -204,12 +173,12 @@ fn call_error(
 ) -> Diagnostic {
     let failed = || {
         let detail = format!("Call to function {} failed: {}.", go_quote(name), e.msg);
-        Diagnostic::error("Error in function call", detail, start_of(whole)).with_context(whole)
+        Diagnostic::error("Error in function call", detail, whole).with_context(whole)
     };
     let Some(i) = e.arg else { return failed() };
     let param = func.params().get(i).or_else(|| func.var_param());
     match (param, args.get(i)) {
-        (Some(p), Some(a)) => invalid_arg(p, &e.msg, start_of(a.at), whole),
+        (Some(p), Some(a)) => invalid_arg(p, &e.msg, a.at, whole),
         (Some(p), None) => {
             let detail = format!(
                 "Invalid value for {} parameter: {}.",
@@ -220,60 +189,4 @@ fn call_error(
         }
         (None, _) => failed(),
     }
-}
-
-/// Go's `StartRange` for an expression: for diagnostics here, the expression's own range (Go
-/// narrows it for a few kinds; the start position is the same).
-fn start_of(r: Range) -> Range {
-    r
-}
-
-/// The `)` that ends a call: the last byte of its span.
-fn close_paren(whole: Range) -> Range {
-    let mut start = whole.end;
-    start.byte = start.byte.saturating_sub(1);
-    start.column = start.column.saturating_sub(1);
-    Range {
-        start,
-        end: whole.end,
-    }
-}
-
-/// Too few or too many arguments for the function.
-fn arity(
-    name: &str,
-    func: &dyn Function,
-    args: &[Arg<'_>],
-    whole: Range,
-) -> Result<(), Diagnostic> {
-    let params = func.params();
-    if let Some(missing) = params.get(args.len()) {
-        let qual = if func.var_param().is_some() {
-            " at least"
-        } else {
-            ""
-        };
-        let detail = format!(
-            "Function {} expects{qual} {} argument(s). Missing value for {}.",
-            go_quote(name),
-            params.len(),
-            go_quote(missing.name)
-        );
-        return Err(
-            Diagnostic::error("Not enough function arguments", detail, close_paren(whole))
-                .with_context(whole),
-        );
-    }
-    if func.var_param().is_none() && args.len() > params.len() {
-        let at = args.get(params.len()).map_or(whole, |a| start_of(a.at));
-        let detail = format!(
-            "Function {} expects only {} argument(s).",
-            go_quote(name),
-            params.len()
-        );
-        return Err(
-            Diagnostic::error("Too many function arguments", detail, at).with_context(whole)
-        );
-    }
-    Ok(())
 }

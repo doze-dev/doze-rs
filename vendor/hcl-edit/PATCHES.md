@@ -7,12 +7,11 @@ https://github.com/martinohmann/hcl-rs
 doze-hcl uses hcl-edit for syntax and spans only. It evaluates nothing with it (hcl-rs's evaluator
 uses f64 and panics on `5 % 0`; see the HCL spike report).
 
-## 1. Number literals that overflow f64 (`src/parser/number.rs`)
+## 1. Number literals that overflow f64 (superseded by patch 5)
 
-`1e400` was a parse error ("expected newline or eof"): the float parser refused any literal whose f64
-value is not finite. Go's HCL reads number literals at 512 bits and accepts it. The literal is now kept,
-with a placeholder value; doze-hcl reads every number from the literal's text (its `repr`), never from
-this value.
+`1e400` was a parse error: the float parser refused a literal whose f64 value is not finite. Patch 5
+replaces the whole number parser, which also covers integers of more than 309 digits (the first
+version of this patch missed that branch; found by the H1 audit).
 
 ## 2. A raw newline in a quoted string (`src/parser/string.rs`)
 
@@ -34,6 +33,15 @@ string: escapes stayed raw (`"%{if x}a\nb%{endif}"` kept a backslash and an `n`)
 accepted, and a `"` did not end it. The parser state now records whether it is inside a quoted string
 (set by the quoted-string parser, cleared by the heredoc parser, both restored on the way out), and a
 directive body in a quoted string uses the quoted-string literal rules, as Go's scanner does.
+
+## 5. Number literals as Go lexes them (`src/parser/number.rs`)
+
+Go's scanner reads a number token as a digit followed by any run of digits, `.` and exponents (`e`,
+an optional sign, a digit), not ending in `.`, then checks it with `big.ParseFloat`. hcl-edit required
+digits after a `.` (so `1.e5`, which Go reads as 100000, failed), read `1.5.2` as `1.5` then an index,
+and refused literals beyond f64. The parser now takes Go's token and refuses an invalid one where it
+starts, as Go does. The value it stores is a placeholder: doze-hcl reads the literal's text. Upstream's
+unit tests for the old parser are replaced by one for the new grammar.
 
 ## Tests
 

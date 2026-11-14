@@ -1,0 +1,1260 @@
+[
+ {
+  "id": "aconv.00",
+  "expr": "[0, -0]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.01",
+  "expr": "[-0, 0]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.02",
+  "expr": "[{a = 1e400}, {a = 2}]",
+  "type": [
+   "set",
+   [
+    "object",
+    {
+     "a": "number"
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aconv.03",
+  "expr": "[{a = -0}, {a = 0}]",
+  "type": [
+   "set",
+   [
+    "object",
+    {
+     "a": "number"
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aconv.04",
+  "expr": "[[1], [0.5], [10]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "number"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.05",
+  "expr": "[[\"b\"], [\"a\\\"b\"], [\"é\"], [\"\\u0001\"]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.06",
+  "expr": "[[\"a\"], [\"\\u00a0\"]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.07",
+  "expr": "[[\"a\"], [\"\\u2028\"]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.08",
+  "expr": "[[\"~\"], [\"\\u007f\"]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.09",
+  "expr": "[[\"a\"], [\"\\ufeff\"], [\"😀\"], [\"\\u200d\"]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.10",
+  "expr": "[{b = \"1\"}, {a = \"2\"}]",
+  "type": [
+   "set",
+   [
+    "map",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.11",
+  "expr": "[true, false]",
+  "type": [
+   "set",
+   "bool"
+  ]
+ },
+ {
+  "id": "aconv.12",
+  "expr": "[null, \"a\", var.later]",
+  "type": [
+   "set",
+   "string"
+  ]
+ },
+ {
+  "id": "aconv.13",
+  "expr": "[var.later, null, \"a\", var.later]",
+  "type": [
+   "set",
+   "string"
+  ]
+ },
+ {
+  "id": "aconv.14",
+  "expr": "[var.later, 1]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.15",
+  "expr": "[{a = var.later}, {a = \"x\"}]",
+  "type": [
+   "set",
+   [
+    "object",
+    {
+     "a": "string"
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aconv.16",
+  "expr": "[1/0, -1/0, 0]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.17",
+  "expr": "[1/0, 1/0]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.18",
+  "expr": "[[for i, x in [7, 7, 7, 7] : i / 3][1], 1/3]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.19",
+  "expr": "[[for i, x in [7, 7] : i][1], 1]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.20",
+  "expr": "[1, [for i, x in [7, 7] : i][1]]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.21",
+  "expr": "[\"a\", 1]",
+  "type": [
+   "set",
+   "dynamic"
+  ]
+ },
+ {
+  "id": "aconv.22",
+  "expr": "[1.00000000001, 1.00000000002]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.23",
+  "expr": "[[1.00000000002], [1.00000000001]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "number"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.24",
+  "expr": "[[2, 1], [1, 2], [1]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "number"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.25",
+  "expr": "[{a = 1, b = 2}, {a = 2, b = 1}]",
+  "type": [
+   "set",
+   [
+    "object",
+    {
+     "a": "number",
+     "b": "number"
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aconv.26",
+  "expr": "[{a = null}, {a = \"x\"}]",
+  "type": [
+   "set",
+   [
+    "object",
+    {
+     "a": "string"
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aconv.27",
+  "expr": "[[null], [\"x\"], []]",
+  "type": [
+   "set",
+   [
+    "list",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.28",
+  "expr": "[[var.later], [\"x\"]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.29",
+  "expr": "[[var.later], [var.later]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.30",
+  "expr": "[{}, {}]",
+  "type": [
+   "set",
+   [
+    "object",
+    {}
+   ]
+  ]
+ },
+ {
+  "id": "aconv.31",
+  "expr": "[[], []]",
+  "type": [
+   "set",
+   [
+    "list",
+    "number"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.32",
+  "expr": "[10, 9, 100, -1, -10, 0.5]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.33",
+  "expr": "[\"10\", \"9\", \"100\", \"-1\"]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.34",
+  "expr": "[\"B\", \"a\", \"A\", \"b\", \"\", \" \"]",
+  "type": [
+   "set",
+   "string"
+  ]
+ },
+ {
+  "id": "aconv.35",
+  "expr": "[\"é\", \"é\", \"e\"]",
+  "type": [
+   "set",
+   "string"
+  ]
+ },
+ {
+  "id": "aconv.36",
+  "expr": "[1e-400, 0]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.37",
+  "expr": "[1e400 + 1, 1e400]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.38",
+  "expr": "[[1e10], [1e9], [12345678901]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "number"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.39",
+  "expr": "[[0.1], [1e-7]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "number"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.40",
+  "expr": "[{a = [1, 2]}, {a = [3]}]",
+  "type": [
+   "set",
+   [
+    "object",
+    {
+     "a": [
+      "list",
+      "number"
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aconv.41",
+  "expr": "[[true], [false]]",
+  "type": [
+   "set",
+   [
+    "list",
+    "bool"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.42",
+  "expr": "[{\"b\" = 1, \"a\" = 2}, {\"a\" = 1, \"b\" = 2}]",
+  "type": [
+   "set",
+   [
+    "map",
+    "number"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.43",
+  "expr": "{a = null, b = 1}",
+  "type": [
+   "map",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.44",
+  "expr": "{a = var.later, b = \"x\"}",
+  "type": [
+   "map",
+   "string"
+  ]
+ },
+ {
+  "id": "aconv.45",
+  "expr": "var.env",
+  "type": [
+   "object",
+   {
+    "A": "string",
+    "B": "string",
+    "C": "string"
+   },
+   [
+    "C"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.46",
+  "expr": "{a = 1}",
+  "type": [
+   "object",
+   {
+    "a": "number",
+    "b": "string"
+   },
+   [
+    "b"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.47",
+  "expr": "[1, null, var.later]",
+  "type": [
+   "list",
+   "string"
+  ]
+ },
+ {
+  "id": "aconv.48",
+  "expr": "[1, var.any]",
+  "type": [
+   "list",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.49",
+  "expr": "[var.any, var.any]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.50",
+  "expr": "{a = var.any}",
+  "type": [
+   "object",
+   {
+    "a": [
+     "list",
+     "string"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "aconv.51",
+  "expr": "var.set",
+  "type": [
+   "list",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.52",
+  "expr": "[\"1\", \"01\", \"1.0\"]",
+  "type": [
+   "set",
+   "number"
+  ]
+ },
+ {
+  "id": "aconv.53",
+  "expr": "[\"true\", \"false\", \"1\", \"0\"]",
+  "type": [
+   "set",
+   "bool"
+  ]
+ },
+ {
+  "id": "aconv.54",
+  "expr": "[1, 2]",
+  "type": [
+   "tuple",
+   [
+    "string",
+    "number"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.55",
+  "expr": "var.users",
+  "type": [
+   "set",
+   [
+    "object",
+    {
+     "name": "string",
+     "age": "number"
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aconv.56",
+  "expr": "var.users",
+  "type": [
+   "set",
+   [
+    "map",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.57",
+  "expr": "var.users",
+  "type": [
+   "list",
+   [
+    "map",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aconv.58",
+  "expr": "var.users",
+  "type": [
+   "tuple",
+   [
+    [
+     "map",
+     "string"
+    ],
+    [
+     "object",
+     {
+      "name": "string"
+     }
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "aconv.59",
+  "expr": "{a = [1], b = [2, 3]}",
+  "type": [
+   "object",
+   {
+    "a": [
+     "set",
+     "string"
+    ],
+    "b": [
+     "list",
+     "string"
+    ]
+   }
+  ]
+ },
+ {
+  "id": "aunify.00",
+  "unify": [
+   [
+    "set",
+    "number"
+   ],
+   [
+    "list",
+    "number"
+   ],
+   [
+    "tuple",
+    [
+     "number"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.00",
+  "unify": [
+   [
+    "set",
+    "number"
+   ],
+   [
+    "list",
+    "number"
+   ],
+   [
+    "tuple",
+    [
+     "number"
+    ]
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.01",
+  "unify": [
+   [
+    "map",
+    "number"
+   ],
+   [
+    "object",
+    {
+     "a": "string"
+    }
+   ],
+   [
+    "object",
+    {
+     "b": "bool"
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.01",
+  "unify": [
+   [
+    "map",
+    "number"
+   ],
+   [
+    "object",
+    {
+     "a": "string"
+    }
+   ],
+   [
+    "object",
+    {
+     "b": "bool"
+    }
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.02",
+  "unify": [
+   [
+    "object",
+    {
+     "a": "number"
+    }
+   ],
+   [
+    "object",
+    {
+     "a": "number",
+     "b": "number"
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.02",
+  "unify": [
+   [
+    "object",
+    {
+     "a": "number"
+    }
+   ],
+   [
+    "object",
+    {
+     "a": "number",
+     "b": "number"
+    }
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.03",
+  "unify": [
+   [
+    "tuple",
+    [
+     "number"
+    ]
+   ],
+   [
+    "list",
+    "string"
+   ],
+   "dynamic"
+  ]
+ },
+ {
+  "id": "aunifys.03",
+  "unify": [
+   [
+    "tuple",
+    [
+     "number"
+    ]
+   ],
+   [
+    "list",
+    "string"
+   ],
+   "dynamic"
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.04",
+  "unify": [
+   [
+    "map",
+    "string"
+   ],
+   [
+    "object",
+    {
+     "a": "number"
+    }
+   ],
+   "dynamic"
+  ]
+ },
+ {
+  "id": "aunifys.04",
+  "unify": [
+   [
+    "map",
+    "string"
+   ],
+   [
+    "object",
+    {
+     "a": "number"
+    }
+   ],
+   "dynamic"
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.05",
+  "unify": [
+   "number",
+   "string",
+   "bool"
+  ]
+ },
+ {
+  "id": "aunifys.05",
+  "unify": [
+   "number",
+   "string",
+   "bool"
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.06",
+  "unify": [
+   "bool",
+   "number"
+  ]
+ },
+ {
+  "id": "aunifys.06",
+  "unify": [
+   "bool",
+   "number"
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.07",
+  "unify": [
+   [
+    "list",
+    "dynamic"
+   ],
+   [
+    "list",
+    "number"
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.07",
+  "unify": [
+   [
+    "list",
+    "dynamic"
+   ],
+   [
+    "list",
+    "number"
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.08",
+  "unify": [
+   [
+    "set",
+    "dynamic"
+   ],
+   [
+    "set",
+    "string"
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.08",
+  "unify": [
+   [
+    "set",
+    "dynamic"
+   ],
+   [
+    "set",
+    "string"
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.09",
+  "unify": [
+   [
+    "object",
+    {
+     "a": "dynamic"
+    }
+   ],
+   [
+    "object",
+    {
+     "a": "number"
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.09",
+  "unify": [
+   [
+    "object",
+    {
+     "a": "dynamic"
+    }
+   ],
+   [
+    "object",
+    {
+     "a": "number"
+    }
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.10",
+  "unify": [
+   [
+    "tuple",
+    [
+     "dynamic"
+    ]
+   ],
+   [
+    "tuple",
+    [
+     "number"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.10",
+  "unify": [
+   [
+    "tuple",
+    [
+     "dynamic"
+    ]
+   ],
+   [
+    "tuple",
+    [
+     "number"
+    ]
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.11",
+  "unify": [
+   [
+    "list",
+    "number"
+   ],
+   [
+    "list",
+    "string"
+   ],
+   [
+    "tuple",
+    [
+     "bool"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.11",
+  "unify": [
+   [
+    "list",
+    "number"
+   ],
+   [
+    "list",
+    "string"
+   ],
+   [
+    "tuple",
+    [
+     "bool"
+    ]
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.12",
+  "unify": [
+   [
+    "map",
+    [
+     "list",
+     "number"
+    ]
+   ],
+   [
+    "object",
+    {
+     "a": [
+      "tuple",
+      [
+       "string"
+      ]
+     ]
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.12",
+  "unify": [
+   [
+    "map",
+    [
+     "list",
+     "number"
+    ]
+   ],
+   [
+    "object",
+    {
+     "a": [
+      "tuple",
+      [
+       "string"
+      ]
+     ]
+    }
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.13",
+  "unify": [
+   [
+    "object",
+    {}
+   ],
+   [
+    "object",
+    {}
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.13",
+  "unify": [
+   [
+    "object",
+    {}
+   ],
+   [
+    "object",
+    {}
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.14",
+  "unify": [
+   [
+    "tuple",
+    []
+   ],
+   [
+    "tuple",
+    []
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.14",
+  "unify": [
+   [
+    "tuple",
+    []
+   ],
+   [
+    "tuple",
+    []
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.15",
+  "unify": [
+   [
+    "list",
+    "number"
+   ],
+   [
+    "tuple",
+    []
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.15",
+  "unify": [
+   [
+    "list",
+    "number"
+   ],
+   [
+    "tuple",
+    []
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.16",
+  "unify": [
+   [
+    "map",
+    "number"
+   ],
+   [
+    "object",
+    {}
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.16",
+  "unify": [
+   [
+    "map",
+    "number"
+   ],
+   [
+    "object",
+    {}
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.17",
+  "unify": [
+   [
+    "set",
+    "number"
+   ],
+   [
+    "tuple",
+    [
+     "number"
+    ]
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.17",
+  "unify": [
+   [
+    "set",
+    "number"
+   ],
+   [
+    "tuple",
+    [
+     "number"
+    ]
+   ]
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.18",
+  "unify": [
+   "dynamic"
+  ]
+ },
+ {
+  "id": "aunifys.18",
+  "unify": [
+   "dynamic"
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.19",
+  "unify": [
+   "number"
+  ]
+ },
+ {
+  "id": "aunifys.19",
+  "unify": [
+   "number"
+  ],
+  "safe": true
+ },
+ {
+  "id": "aunify.20",
+  "unify": [
+   [
+    "object",
+    {
+     "a": "number"
+    }
+   ],
+   [
+    "map",
+    "number"
+   ],
+   [
+    "object",
+    {
+     "a": "number",
+     "b": "string"
+    }
+   ]
+  ]
+ },
+ {
+  "id": "aunifys.20",
+  "unify": [
+   [
+    "object",
+    {
+     "a": "number"
+    }
+   ],
+   [
+    "map",
+    "number"
+   ],
+   [
+    "object",
+    {
+     "a": "number",
+     "b": "string"
+    }
+   ]
+  ],
+  "safe": true
+ }
+]

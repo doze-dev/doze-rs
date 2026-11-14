@@ -42,14 +42,22 @@ impl Evaluator<'_> {
         let (source, upgraded_unknown) = if sequence {
             (source, false)
         } else {
-            (Value::Tuple(vec![source.clone()]), !source.is_known())
+            (
+                Value::Tuple(vec![source.clone()]),
+                !source.is_known() && source.could_be_null(),
+            )
         };
         let ty = source.ty();
         if !source.is_known() {
             let (rt, d) = self.splat_type(&ty, each, ctx);
             let mut diags = diags;
             diags.extend(d);
-            return (Value::Unknown(rt), diags);
+            // Known: not null, and a list over a collection has the collection's length range.
+            let mut r = crate::value::Refinement::not_null();
+            if matches!(rt, Type::List(_)) && ty.is_collection() {
+                r.len = source.refinement().len;
+            }
+            return (Value::refined(rt, r), diags);
         }
         let mut diags = diags;
         let mut vals = Vec::new();
@@ -66,7 +74,7 @@ impl Evaluator<'_> {
             return (Value::DYNAMIC, diags);
         }
         if !known {
-            return (Value::Unknown(self.splat_type(&ty, each, ctx).0), diags);
+            return (Value::unknown(self.splat_type(&ty, each, ctx).0), diags);
         }
         if vals.is_empty() && matches!(ty, Type::List(_) | Type::Set(_)) {
             let rt = self.splat_type(&ty, each, ctx).0;
@@ -112,7 +120,7 @@ impl Evaluator<'_> {
         let mut diags = Diagnostics::default();
         let mut each_ty = |ety: &Type| {
             let (v, d) = self.walk(
-                Value::Unknown(ety.clone()),
+                Value::unknown(ety.clone()),
                 Diagnostics::default(),
                 Range::default(),
                 each,

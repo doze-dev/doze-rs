@@ -14,18 +14,26 @@ fn variables() -> BTreeMap<String, Value> {
     let mut var = BTreeMap::new();
     var.insert("name".to_owned(), s("shop"));
     var.insert("port".to_owned(), Value::Number(Number::from_i64(8080)));
-    var.insert("tags".to_owned(), Value::List(Type::String, vec![s("a"), s("b")]));
+    var.insert(
+        "tags".to_owned(),
+        Value::List(Type::String, vec![s("a"), s("b")]),
+    );
     var.insert("none".to_owned(), Value::Null(Type::String));
-    var.insert("later".to_owned(), Value::Unknown(Type::String));
+    var.insert("later".to_owned(), Value::unknown(Type::String));
     var.insert("any".to_owned(), Value::DYNAMIC);
-    var.insert("set".to_owned(), Value::Set(Type::Number, vec![Value::Number(Number::from_i64(1))]));
+    var.insert(
+        "set".to_owned(),
+        Value::Set(Type::Number, vec![Value::Number(Number::from_i64(1))]),
+    );
     let mut vars = BTreeMap::new();
     vars.insert("var".to_owned(), Value::Object(var));
     vars
 }
 
 fuzz_target!(|data: &[u8]| {
-    let Ok(text) = std::str::from_utf8(data) else { return };
+    let Ok(text) = std::str::from_utf8(data) else {
+        return;
+    };
     let src = Source::new(text);
     let Ok(body) = parse_body(&src) else { return };
     let funcs = Functions::new();

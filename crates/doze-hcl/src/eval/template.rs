@@ -102,7 +102,16 @@ impl<'s> Evaluator<'s> {
             }
         }
         if !known {
-            return (Value::Unknown(Type::String), diags);
+            // Known so far: not null, and (when nothing failed) the text before the first unknown part.
+            let mut r = crate::value::Refinement::not_null();
+            if !diags.has_errors() {
+                let mut cut = buf.len().min(128);
+                while !buf.is_char_boundary(cut) {
+                    cut -= 1;
+                }
+                r.prefix = crate::value::refine::safe_prefix(buf.get(..cut).unwrap_or(""));
+            }
+            return (Value::refined(Type::String, r), diags);
         }
         (Value::string(&buf), diags)
     }
@@ -141,10 +150,10 @@ impl<'s> Evaluator<'s> {
                 cond_at,
             );
             diags.push(d.with_context(at));
-            return (Value::Unknown(Type::String), diags);
+            return (Value::unknown(Type::String), diags);
         }
         if !c.is_known() {
-            return (Value::Unknown(Type::String), diags);
+            return (Value::unknown_not_null(Type::String), diags);
         }
         match convert(&c, &Type::Bool) {
             Ok(Value::Bool(true)) => {
@@ -162,7 +171,7 @@ impl<'s> Evaluator<'s> {
                     cond_at,
                 );
                 diags.push(d.with_context(at));
-                (Value::Unknown(Type::String), diags)
+                (Value::unknown(Type::String), diags)
             }
         }
     }
@@ -188,7 +197,7 @@ impl<'s> Evaluator<'s> {
             ctx,
         );
         let Value::Tuple(items) = tuple else {
-            return (Value::Unknown(Type::String), diags);
+            return (Value::unknown(Type::String), diags);
         };
         let mut buf = String::new();
         for v in items {
@@ -202,7 +211,7 @@ impl<'s> Evaluator<'s> {
                 continue;
             }
             if v.ty() == Type::Dynamic {
-                return (Value::Unknown(Type::String), diags);
+                return (Value::unknown(Type::String), diags);
             }
             match convert(&v, &Type::String) {
                 Err(e) => {
@@ -215,7 +224,7 @@ impl<'s> Evaluator<'s> {
                         at,
                     ));
                 }
-                Ok(_) if !v.is_known() => return (Value::Unknown(Type::String), diags),
+                Ok(_) if !v.is_known() => return (Value::unknown(Type::String), diags),
                 Ok(Value::String(s)) => buf.push_str(&s),
                 Ok(_) => {}
             }

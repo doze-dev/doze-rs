@@ -3,9 +3,12 @@
 //! Every function returns the value and the diagnostics of its own evaluation, as Go's
 //! `Expression.Value` does, because Go's rules often depend on whether one part had errors.
 
+mod arith;
 mod call;
+mod call_checks;
 mod collections;
 mod conditional;
+mod for_cond;
 mod for_expr;
 mod ops;
 mod splat;

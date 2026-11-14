@@ -121,12 +121,15 @@ impl Number {
             .map_err(|NaN| ArithError::InfinityMinusItself)
     }
 
+    /// cty's `Multiply` differs from the other operations: the product is rounded to 512 bits and keeps
+    /// every bit it needs, so the product of two 64-bit host integers stays exact.
     pub fn mul(&self, other: &Number) -> Result<Number, ArithError> {
-        let p = self.prec2(other);
-        self.0
-            .mul(&other.0, p)
-            .map(Number)
-            .map_err(|NaN| ArithError::ZeroTimesInfinity)
+        let r = self
+            .0
+            .mul(&other.0, PARSE_PREC)
+            .map_err(|NaN| ArithError::ZeroTimesInfinity)?;
+        let prec = self.prec2(other).max(r.min_prec());
+        Ok(Number(r.keep_prec(prec)))
     }
 
     pub fn div(&self, other: &Number) -> Result<Number, ArithError> {

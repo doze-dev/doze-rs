@@ -4,15 +4,15 @@ use super::Value;
 use crate::types::Type;
 
 fn unknown_bool() -> Value {
-    Value::Unknown(Type::Bool)
+    Value::unknown_not_null(Type::Bool)
 }
 
 /// No unknown of the dynamic type anywhere inside (cty's `HasWhollyKnownType`).
 fn wholly_known_type(v: &Value) -> bool {
     match v {
         Value::Null(_) => true,
-        Value::Unknown(Type::Dynamic) => false,
-        Value::Unknown(t) => {
+        Value::Unknown(Type::Dynamic, _) => false,
+        Value::Unknown(t, _) => {
             !(t.is_collection() || matches!(t, Type::Tuple(_) | Type::Object(_)))
                 || !t.has_dynamic()
         }
@@ -25,8 +25,11 @@ fn wholly_known_type(v: &Value) -> bool {
 }
 
 pub(super) fn equals(a: &Value, b: &Value) -> Value {
-    let definitely_not_null = |v: &Value| v.is_known() && !v.is_null();
-    if (a.is_null() && definitely_not_null(b)) || (b.is_null() && definitely_not_null(a)) {
+    if (a.is_null() && b.definitely_not_null()) || (b.is_null() && a.definitely_not_null()) {
+        return Value::Bool(false);
+    }
+    // What is known of an unknown can already rule the other value out.
+    if (a.is_known() && b.excludes(a)) || (b.is_known() && a.excludes(b)) {
         return Value::Bool(false);
     }
     match (a.is_known(), b.is_known()) {
@@ -112,8 +115,11 @@ pub(super) fn raw_equals(a: &Value, b: &Value) -> bool {
         return false;
     }
     match (a, b) {
-        (Value::Unknown(_), Value::Unknown(_)) | (Value::Null(_), Value::Null(_)) => true,
-        (Value::Unknown(_) | Value::Null(_), _) | (_, Value::Unknown(_) | Value::Null(_)) => false,
+        (Value::Unknown(_, a), Value::Unknown(_, b)) => a == b,
+        (Value::Null(_), Value::Null(_)) => true,
+        (Value::Unknown(..) | Value::Null(_), _) | (_, Value::Unknown(..) | Value::Null(_)) => {
+            false
+        }
         (Value::Number(x), Value::Number(y)) => x.same(y),
         (Value::List(_, xs), Value::List(_, ys))
         | (Value::Set(_, xs), Value::Set(_, ys))

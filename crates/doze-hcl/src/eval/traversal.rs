@@ -140,8 +140,8 @@ pub(crate) fn index(coll: &Value, key: &Value, at: Range) -> Out {
                 Value::Object(m) => ok(m
                     .get(&name)
                     .cloned()
-                    .unwrap_or_else(|| Value::Unknown(aty.clone()))),
-                _ => ok(Value::Unknown(aty.clone())),
+                    .unwrap_or_else(|| Value::unknown(aty.clone()))),
+                _ => ok(Value::unknown(aty.clone())),
             }
         }
         Type::Set(_) => err(
@@ -175,7 +175,7 @@ fn index_sequence_or_map(coll: &Value, ty: &Type, key: &Value, at: Range) -> Out
         if let Type::Tuple(_) = ty {
             Value::DYNAMIC
         } else {
-            Value::Unknown(ty.element().cloned().unwrap_or(Type::Dynamic))
+            Value::unknown(ty.element().cloned().unwrap_or(Type::Dynamic))
         }
     };
     if !coll.is_known() || !key.is_known() {
@@ -245,8 +245,8 @@ pub(crate) fn get_attr(obj: &Value, name: &str, at: Range) -> Out {
                 Value::Object(m) => ok(m
                     .get(name)
                     .cloned()
-                    .unwrap_or_else(|| Value::Unknown(aty.clone()))),
-                _ => ok(Value::Unknown(aty.clone())),
+                    .unwrap_or_else(|| Value::unknown(aty.clone()))),
+                _ => ok(Value::unknown(aty.clone())),
             },
         },
         Type::Map(e) => match obj {
@@ -261,7 +261,7 @@ pub(crate) fn get_attr(obj: &Value, name: &str, at: Range) -> Out {
                     at,
                 ),
             },
-            _ => ok(Value::Unknown((**e).clone())),
+            _ => ok(Value::unknown((**e).clone())),
         },
         Type::Dynamic => ok(Value::DYNAMIC),
         Type::List(e) if matches!(**e, Type::Object(_)) => {

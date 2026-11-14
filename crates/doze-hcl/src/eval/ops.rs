@@ -40,15 +40,15 @@ impl Evaluator<'_> {
             }
         };
         let Some(val) = val.filter(|_| !diags.has_errors()) else {
-            return (Value::Unknown(ret), diags);
+            return (Value::unknown(ret), diags);
         };
         // Negate and Not take no nulls, and return an unknown for an unknown.
         let out = match (&val, u.operator.value()) {
             (Value::Null(_), _) => Err("argument must not be null".to_owned()),
-            (Value::Unknown(_), _) => Ok(Value::Unknown(ret.clone())),
+            (Value::Unknown(..), _) => Ok(Value::unknown_not_null(ret.clone())),
             (Value::Number(n), UnaryOperator::Neg) => Ok(Value::Number(n.neg())),
             (Value::Bool(b), UnaryOperator::Not) => Ok(Value::Bool(!b)),
-            _ => Ok(Value::Unknown(ret.clone())),
+            _ => Ok(Value::unknown(ret.clone())),
         };
         self.finish(out, ret, self.range(u), diags)
     }
@@ -68,7 +68,7 @@ impl Evaluator<'_> {
                     format!("Error during operation: {e}."),
                     at,
                 ));
-                (Value::Unknown(ret), diags)
+                (Value::unknown(ret), diags)
             }
         }
     }
@@ -84,7 +84,7 @@ impl Evaluator<'_> {
         let (Some(lhs), Some(rhs)) = (lhs, rhs) else {
             diags.extend(lhs_diags);
             diags.extend(rhs_diags);
-            return (Value::Unknown(ret), diags);
+            return (Value::unknown(ret), diags);
         };
         if matches!(op, BinaryOperator::And | BinaryOperator::Or)
             && let Some((v, d)) = short_circuit(op, &lhs, &rhs, &lhs_diags, &rhs_diags)
@@ -94,7 +94,7 @@ impl Evaluator<'_> {
         diags.extend(lhs_diags);
         diags.extend(rhs_diags);
         if diags.has_errors() {
-            return (Value::Unknown(ret), diags);
+            return (Value::unknown(ret), diags);
         }
         let out = apply(op, &lhs, &rhs, &ret);
         self.finish(out, ret, self.range(b), diags)
@@ -137,7 +137,7 @@ fn short_circuit(
     rd: &Diagnostics,
 ) -> Option<Out> {
     let decides = op == BinaryOperator::Or;
-    let unknown = || Value::Unknown(Type::Bool);
+    let unknown = || Value::unknown_not_null(Type::Bool);
     // cty reads a null bool as not true and as false (`True()` is false, `False()` is `!True()`), so
     // `null || true` is true and `true && null` is false.
     let is = |v: &Value, b: bool| {
@@ -178,7 +178,8 @@ fn apply(op: BinaryOperator, lhs: &Value, rhs: &Value, ret: &Type) -> Result<Val
         return Ok(match (op, lhs, rhs) {
             (B::And, Value::Bool(a), Value::Bool(b)) => Value::Bool(*a && *b),
             (B::Or, Value::Bool(a), Value::Bool(b)) => Value::Bool(*a || *b),
-            _ => Value::Unknown(ret.clone()),
+            _ if !lhs.is_known() || !rhs.is_known() => super::arith::unknown_operands(op, lhs, rhs),
+            _ => Value::unknown(ret.clone()),
         });
     };
     let arith = |r: Result<Number, ArithError>| r.map(Value::Number).map_err(|e| e.to_string());
@@ -192,6 +193,6 @@ fn apply(op: BinaryOperator, lhs: &Value, rhs: &Value, ret: &Type) -> Result<Val
         B::LessEq => Ok(Value::Bool(a.cmp_value(b) != Ordering::Greater)),
         B::Greater => Ok(Value::Bool(a.cmp_value(b) == Ordering::Greater)),
         B::GreaterEq => Ok(Value::Bool(a.cmp_value(b) != Ordering::Less)),
-        _ => Ok(Value::Unknown(ret.clone())),
+        _ => Ok(Value::unknown(ret.clone())),
     }
 }

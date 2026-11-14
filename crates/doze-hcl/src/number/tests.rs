@@ -81,3 +81,16 @@ fn huge_exponents_stay_bounded() {
     assert_eq!(n("1e-40000").text(), "0");
     assert_eq!(n("-1e-40000").text(), "-0");
 }
+
+/// Found by fuzz_number. Go's `roundShortest` bounds a value by half an ulp on both sides, also for a
+/// power of two, whose lower neighbour is only a quarter ulp away; so a power of two can print as
+/// digits that read back as its neighbour. doze prints what Go prints (checked against the oracle).
+#[test]
+fn a_power_of_two_prints_as_go_prints_it() {
+    let r = n("6.1e9611").modulo(&n("6")).unwrap();
+    assert!(
+        r.text()
+            .starts_with("-5759751824018672541625578755534431369893561134488776857518249564376")
+    );
+    assert!(!n(&r.text()).same(&r));
+}

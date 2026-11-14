@@ -68,7 +68,7 @@ fn calls_a_function(expr: &str) -> bool {
 }
 
 /// (identical, deferred to H2 functions, syntax errors at another position, differences)
-fn run(set: &str) -> (usize, usize, Vec<String>, Vec<String>) {
+fn run(set: &str) -> (usize, usize, Vec<String>, Vec<String>, usize) {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/eval");
     let cases: Vec<Json> =
         serde_json::from_str(&std::fs::read_to_string(format!("{dir}/exprs-{set}.json")).unwrap())
@@ -86,12 +86,26 @@ fn run(set: &str) -> (usize, usize, Vec<String>, Vec<String>) {
     let funcs = Functions::new();
     let ctx = Context::new(variables(), Some(&funcs));
     let (mut same, mut deferred, mut syntax, mut diffs) = (0, 0, Vec::new(), Vec::new());
+    // Reviewed, documented differences (testdata/eval/known-differences.json): counted, not failed;
+    // one that starts matching Go is reported, so the list cannot go stale.
+    let known: serde_json::Map<String, Json> = serde_json::from_str(
+        &std::fs::read_to_string(format!("{dir}/known-differences.json")).unwrap(),
+    )
+    .unwrap();
+    let mut known_count = 0;
     for (case, g) in cases.iter().zip(&go) {
         let (id, expr) = (case["id"].as_str().unwrap(), case["expr"].as_str().unwrap());
         assert_eq!(g["id"], case["id"]);
         let (want, got) = (go_result(g), rust_result(expr, &ctx));
-        if want == got {
+        let is_known = known.contains_key(id);
+        if want == got && is_known {
+            diffs.push(format!(
+                "{id}: listed in known-differences.json but now matches Go"
+            ));
+        } else if want == got {
             same += 1;
+        } else if is_known {
+            known_count += 1;
         } else if want["stage"] == "parse" && got["stage"] == "parse" {
             syntax.push(format!("{id}: go {} rust {}", want["at"], got["at"]));
         } else if calls_a_function(expr) && g["ok"] == json!(true)
@@ -105,7 +119,7 @@ fn run(set: &str) -> (usize, usize, Vec<String>, Vec<String>) {
             diffs.push(format!("{id}: {expr}\n   go:   {want}\n   rust: {got}"));
         }
     }
-    (same, deferred, syntax, diffs)
+    (same, deferred, syntax, diffs, known_count)
 }
 
 /// Every `exprs-<set>.json` in `testdata/eval` with its `go-<set>.jsonl` (the spike's 653, H1's own,
@@ -126,9 +140,9 @@ fn every_corpus_matches_go() {
     assert!(sets.len() >= 2, "corpus sets: {sets:?}");
     let mut all = Vec::new();
     for set in &sets {
-        let (same, deferred, syntax, diffs) = run(set);
+        let (same, deferred, syntax, diffs, known) = run(set);
         eprintln!(
-            "{set}: {same} identical, {deferred} deferred to H2 (functions), {} syntax errors placed differently (H2), {} different",
+            "{set}: {same} identical, {known} known differences, {deferred} deferred to H2 (functions), {} syntax errors placed differently (H2), {} different",
             syntax.len(),
             diffs.len()
         );

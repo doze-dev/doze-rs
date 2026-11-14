@@ -68,6 +68,20 @@ impl Float {
         self.form == Form::Zero
     }
 
+    /// The bits the mantissa needs (Go's `MinPrec`): 0 for zero and infinities.
+    pub(crate) fn min_prec(&self) -> u32 {
+        match &self.form {
+            Form::Finite { mant, .. } => u32::try_from(mant.bits()).unwrap_or(u32::MAX),
+            _ => 0,
+        }
+    }
+
+    /// The same value with precision `prec`, which must be at least `min_prec` (no rounding).
+    pub(crate) fn keep_prec(mut self, prec: u32) -> Float {
+        self.prec = prec.max(self.min_prec());
+        self
+    }
+
     pub(crate) fn is_inf(&self) -> bool {
         self.form == Form::Inf
     }

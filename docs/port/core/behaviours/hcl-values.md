@@ -7,6 +7,8 @@ source, and where doze-hcl holds each behaviour. The oracle is doze's `tools/ora
 | Corpus | Size | Test |
 |---|---|---|
 | Spike expressions (`testdata/eval/exprs-spike.json`) | 653 | `tests/oracle_eval.rs` `spike_corpus_matches_go` |
+| Audit expressions (`testdata/eval/exprs-audit*.json`, written by the independent H1 audit) | 767 | same test; reviewed differences in `testdata/eval/known-differences.json` are counted apart and fail if they start matching |
+| Audit conversions (`testdata/convert/cases-audit.json`) | 102 | `tests/oracle_convert.rs` |
 | H1 expressions (`testdata/eval/exprs-h1.json`) | 217 | `tests/oracle_eval.rs` `h1_corpus_matches_go` |
 | Conversions and unification (`testdata/convert/cases.json`) | 100 | `tests/oracle_convert.rs` |
 | Real sources, accept or refuse (`testdata/sources/`, 190 files) | 190 | `tests/oracle_parse.rs` |
@@ -15,7 +17,7 @@ source, and where doze-hcl holds each behaviour. The oracle is doze's `tools/ora
 
 | # | Behaviour | Held by |
 |---|---|---|
-| N1 | A number is a binary float with its own precision: 512 bits when read from text, 64 for host integers, 53 for host floats; an operation's result takes the larger precision of its operands | `number/tests.rs` `host_numbers_keep_their_precision`; corpus `numr.*` (400 seeded random expressions) |
+| N1 | A number is a binary float with its own precision: 512 bits when read from text, 64 for host integers, 53 for host floats; `+`, `-`, `/` take the larger precision of their operands; `*` rounds to 512 bits and keeps every bit the product needs (so two host integers multiply exactly) | `number/tests.rs` `host_numbers_keep_their_precision`; corpus `numr.*` (400 seeded random expressions) |
 | N2 | Every result is rounded once, to nearest, ties to even | corpus `num.*`, `numr.*` |
 | N3 | Text is read by Go's `big.ParseFloat(s, 10, 512)`: sign, digits with an optional point, `e` (decimal) or `p` (binary) exponent; `Inf`/`inf` with a sign; no spaces, no `0x`, no `_`; an exponent beyond int32 is "a number is required"; exponents of 5 beyond 5^27 are raised by squaring at 576 bits | `number/tests.rs` `parses_as_go_does`; `h1num.17`–`h1num.25` |
 | N4 | Printing is `Text('f', -1)` by Go's `roundShortest` (the fewest digits that read back at the value's precision), `+Inf`, `-Inf`, `-0` | `prints_the_shortest_decimal_that_reads_back`; `num.02` (`0.1 + 0.2` → `0.3`), `num.05` (`1 / 3`: 155 digits) |
@@ -32,7 +34,7 @@ source, and where doze-hcl holds each behaviour. The oracle is doze's `tools/ora
 | V1 | Types: dynamic, string, number, bool, list, set, map, tuple, object (with optional attributes in constraints); the JSON encoding is cty's | every corpus line compares the type as JSON |
 | V2 | Strings are NFC on creation, so `"café" == "café"` | `h1str.00`, `h1str.01` |
 | V3 | Map and object keys iterate sorted by bytes; lists and tuples by index | `for_.*`, `h1for.18` |
-| V4 | A set drops an element equal (`Equals`) to one with the same serialization, and iterates knowns, then unknowns, then nulls; strings, numbers and bools by value; anything else by cty's serialization (`makeSetHashBytes`, numbers as `%g` with 10 digits, strings Go-quoted) | `coll.07`–`coll.12` (convert); `h1for.00` |
+| V4 | A set drops an element equal (`Equals`) to one with the same serialization (hash buckets, so building is linear), and iterates in bucket (CRC-32) order stably sorted: knowns, then unknowns, then nulls; strings, numbers and bools by value; anything else by cty's serialization (`makeSetHashBytes`, numbers as `%g` with 10 digits, strings Go-quoted) | `coll.07`–`coll.12` (convert); `h1for.00` |
 | V5 | `Equals`: null against a known non-null is false; unknowns make it unknown unless the types alone decide; different types are unequal; collections compare element-wise and stop at the first difference | `h1op.05`–`h1op.13` |
 | V6 | `RawEquals`: same type, same value, nulls and unknowns equal to their kind | used by conditionals and sets; `h1cond.04`–`h1cond.06` |
 
@@ -48,6 +50,17 @@ source, and where doze-hcl holds each behaviour. The oracle is doze's `tools/ora
 | C6 | Maps convert to objects only unsafely, by the object's attributes | `coll.34`–`coll.37` |
 | C7 | Unification: maps, lists, sets, objects and tuples unify by kind (objects with different names, or tuples of different lengths, fall back to a map or list); a mix with `dynamic` becomes dynamic with every value the dynamic unknown; otherwise the most general type every other converts to, by cty's preference order (string first) | `un.*` |
 | C8 | Mismatch messages follow cty's shapes ("attribute "x" is required", "incorrect list element type: …", "a number is required") | wording re-baselined later (decision O6); positions checked |
+
+## Refinements (`src/value/refine.rs`, `src/eval/arith.rs`)
+
+| # | Behaviour | Held by |
+|---|---|---|
+| R1 | An unknown can carry what is known of it: not null, a string prefix, number bounds, a collection length range; a range that is one inclusive number is that number | `audit2.refine.*` |
+| R2 | Operator, equality, template and short-circuit results that are unknown are known not null; a template keeps the text before its first unknown part (up to 128 bytes, cut where a later character could not change the last grapheme) | `audit2.refine.01`, `.12`, `.16` |
+| R3 | `==` is false when the null-ness, prefix, bounds or length of an unknown rule the other side out | `audit2.refine.*` |
+| R4 | Comparisons are decided when the operands' ranges do not overlap; `+ - *` over ranges give a range (cty's `numericRangeArithmetic`); a conditional with an unknown condition gives the union of its results' ranges | `audit2.refine.07`, `.08` |
+| R5 | A splat wraps an unknown that cannot be null in a one-element tuple, as a known value | `audit2.refine.04`–`.06` |
+| R6 | Conversions keep not-null and gain or keep a length range (cty's `prepareUnknownResult`) | convert corpus |
 
 ## Evaluation (`src/eval*`)
 
@@ -73,7 +86,9 @@ source, and where doze-hcl holds each behaviour. The oracle is doze's `tools/ora
 | # | Behaviour | Held by |
 |---|---|---|
 | S1 | The 190 real sources are accepted or refused exactly as Go does | `tests/oracle_parse.rs` |
-| S2 | Positions are Go's: 1-based line, 1-based column counted in grapheme clusters, 0-based byte | every diagnostic comparison |
+| S2 | Positions are Go's: 1-based line, 1-based column counted in grapheme clusters segmented token by token (a punctuation character followed by a combining mark is two columns), 0-based byte | `audit2.pos.*` | every diagnostic comparison |
 | S3 | Open: where both refuse, hcl-edit places 13 of the corpus's syntax errors elsewhere than Go (an unterminated string at its start, not its end). Mapping syntax errors is H2's | counted, not hidden, by `oracle_eval.rs` |
+| S4 | Rules Go's parser has and hcl-edit lacks, checked after parsing: chained legacy index `a.1.0`, an attribute splat inside another, a number literal Go cannot read (Go's number token and `1.e5` come from vendor patch 5) | `audit.idx.30`, `audit2.trav.*`, `audit2.numlit.*` |
+| S5 | Deliberate difference: hcl-edit refuses more than 64 levels of nesting and 128 chained operators (stack safety); Go has no limit. No real configuration comes near | `audit3.05`–`.12` (known differences) |
 
 Not in H1 (H2): the function library, `typeexpr`, the diagnostics renderer and the syntax-error mapping.

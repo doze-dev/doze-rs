@@ -1,6 +1,7 @@
 //! `[for k, v in coll : value if cond]` and `{for k, v in coll : key => value... if cond}` (hclsyntax's
 //! `ForExpr`). Also the engine of a template's `%{for}`.
 
+use super::for_cond::Keep;
 use super::{Context, Evaluator, Out};
 use crate::convert::convert;
 use crate::diag::{Diagnostic, Diagnostics, Range};
@@ -18,14 +19,6 @@ pub(super) struct Spec<'a> {
 }
 
 type ValueFn<'f> = dyn Fn(&Context<'_>) -> Out + 'f;
-
-/// Whether an element is kept: `Ok(true)`, `Ok(false)`, or `Err` when the condition is null, not a
-/// bool, or unknown (the result then becomes unknown; only the first such error is reported).
-enum Keep {
-    Yes,
-    No,
-    Unknown,
-}
 
 impl Evaluator<'_> {
     pub(super) fn for_expr(&self, f: &ForExpr, ctx: &Context<'_>) -> Out {
@@ -116,54 +109,6 @@ impl Evaluator<'_> {
         }
         vars.insert(spec.value_var.to_owned(), v);
         vars
-    }
-
-    /// The `if` clause for one element. `tuple_order` is Go's tuple form, which looks at unknown
-    /// before trying the conversion; the object form converts first.
-    fn keep(
-        &self,
-        spec: &Spec<'_>,
-        child: &Context<'_>,
-        first: bool,
-        tuple_order: bool,
-        diags: &mut Diagnostics,
-    ) -> Keep {
-        let Some(cond) = spec.cond else {
-            return Keep::Yes;
-        };
-        let (raw, d) = self.eval(cond, child);
-        diags.extend(d);
-        let at = self.range(cond);
-        if raw.is_null() {
-            if first {
-                let d = Diagnostic::error(
-                    "Invalid 'for' condition",
-                    "The value of the 'if' clause must not be null.",
-                    at,
-                );
-                diags.push(d.with_context(spec.whole));
-            }
-            return Keep::Unknown;
-        }
-        if tuple_order && !raw.is_known() {
-            return Keep::Unknown;
-        }
-        match convert(&raw, &Type::Bool) {
-            Err(e) => {
-                if first {
-                    let d = Diagnostic::error(
-                        "Invalid 'for' condition",
-                        format!("The 'if' clause value is invalid: {e}."),
-                        at,
-                    );
-                    diags.push(d.with_context(spec.whole));
-                }
-                Keep::Unknown
-            }
-            Ok(Value::Bool(true)) => Keep::Yes,
-            Ok(Value::Bool(false)) => Keep::No,
-            Ok(_) => Keep::Unknown,
-        }
     }
 
     pub(super) fn for_tuple(&self, spec: &Spec<'_>, value: &ValueFn<'_>, ctx: &Context<'_>) -> Out {

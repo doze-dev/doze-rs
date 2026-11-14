@@ -64,10 +64,10 @@ pub(crate) fn apply(v: &Value, to: &Type, unsafe_: bool) -> Result<Value, ConvEr
         return Ok(v.clone());
     }
     match v {
-        Value::Unknown(_) => Ok(Value::Unknown(dynamic_replace(
-            &from,
-            &to.without_optional(),
-        ))),
+        Value::Unknown(..) => Ok(unknown_result(
+            v,
+            &dynamic_replace(&from, &to.without_optional()),
+        )),
         Value::Null(_) => Ok(Value::Null(dynamic_replace(&from, &to.without_optional()))),
         _ => apply_known(v, &from, to, unsafe_),
     }
@@ -165,4 +165,28 @@ pub(crate) fn dynamic_replace(from: &Type, to: &Type) -> Type {
             )
         }
     }
+}
+
+/// cty's `prepareUnknownResult`: a converted unknown keeps "not null", and gains or keeps what is
+/// known of its length.
+fn unknown_result(v: &Value, target: &Type) -> Value {
+    let src = v.refinement();
+    let mut r = crate::value::Refinement {
+        not_null: src.not_null,
+        ..Default::default()
+    };
+    let (lo, hi) = src.len.unwrap_or((0, None));
+    r.len = match (v.ty(), target) {
+        (Type::Object(o), Type::Map(_)) => Some((o.attrs.len(), Some(o.attrs.len()))),
+        (Type::Tuple(ts), Type::List(_)) => Some((ts.len(), Some(ts.len()))),
+        (Type::Tuple(ts), Type::Set(_)) if ts.len() <= 1 => Some((ts.len(), Some(ts.len()))),
+        (Type::Tuple(ts), Type::Set(_)) => Some((1, Some(ts.len()))),
+        (s, Type::Set(_)) if s.is_collection() => Some((usize::from(lo > 0), hi)),
+        (s, t) if s.is_collection() && t.is_collection() => Some((lo, hi)),
+        _ => None,
+    };
+    if r.len == Some((0, None)) {
+        r.len = None;
+    }
+    Value::refined(target.clone(), r)
 }

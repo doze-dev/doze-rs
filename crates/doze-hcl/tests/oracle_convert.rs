@@ -87,10 +87,17 @@ fn rust_result(case: &Json, ctx: &Context<'_>) -> Json {
 #[test]
 fn conversions_and_unification_match_cty() {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/convert");
-    let cases: Vec<Json> =
-        serde_json::from_str(&std::fs::read_to_string(format!("{dir}/cases.json")).unwrap())
-            .unwrap();
-    let go: Vec<Json> = std::fs::read_to_string(format!("{dir}/go.jsonl"))
+    for (cases, go) in [
+        ("cases.json", "go.jsonl"),
+        ("cases-audit.json", "go-audit.jsonl"),
+    ] {
+        check(&format!("{dir}/{cases}"), &format!("{dir}/{go}"));
+    }
+}
+
+fn check(cases: &str, go: &str) {
+    let cases: Vec<Json> = serde_json::from_str(&std::fs::read_to_string(cases).unwrap()).unwrap();
+    let go: Vec<Json> = std::fs::read_to_string(go)
         .unwrap()
         .lines()
         .map(|l| serde_json::from_str(l).unwrap())

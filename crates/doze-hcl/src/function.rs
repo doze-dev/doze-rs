@@ -93,7 +93,7 @@ pub type Functions = BTreeMap<String, Box<dyn Function>>;
 pub fn call(f: &dyn Function, args: &[Value]) -> Result<Value, FuncError> {
     let (ret, dyn_args) = return_type_for(f, args)?;
     if dyn_args {
-        return Ok(Value::Unknown(Type::Dynamic));
+        return Ok(Value::unknown(Type::Dynamic));
     }
     let params = f.params();
     let not_ready = args.iter().enumerate().any(|(i, v)| {
@@ -101,7 +101,7 @@ pub fn call(f: &dyn Function, args: &[Value]) -> Result<Value, FuncError> {
         !v.is_known() && !p.is_some_and(|p| p.allow_unknown)
     });
     if not_ready {
-        return Ok(Value::Unknown(ret));
+        return Ok(Value::unknown(ret));
     }
     f.call(args, &ret)
 }

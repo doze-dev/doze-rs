@@ -44,7 +44,7 @@ pub(crate) fn variables() -> BTreeMap<String, Value> {
         ("none", Value::Null(Type::String)),
         ("set", set),
         ("users", users),
-        ("later", Value::Unknown(Type::String)),
+        ("later", Value::unknown(Type::String)),
         ("any", Value::DYNAMIC),
     ]);
     let local = obj(&[("base", s("/srv")), ("n", n("3"))]);
@@ -55,7 +55,7 @@ pub(crate) fn variables() -> BTreeMap<String, Value> {
 
 pub(crate) fn canon(v: &Value) -> Json {
     match v {
-        Value::Unknown(_) => json!({"unknown": true}),
+        Value::Unknown(..) => json!({"unknown": true}),
         Value::Null(_) => Json::Null,
         Value::String(s) => json!(s),
         Value::Bool(b) => json!(b),

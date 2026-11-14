@@ -3,110 +3,96 @@ use super::prelude::*;
 use crate::Number;
 
 use std::str::FromStr;
-use winnow::ascii::digit1;
-use winnow::combinator::{alt, cut_err, opt, preceded, terminated};
-use winnow::token::one_of;
+use winnow::combinator::{cut_err, fail};
 
+// PATCH (doze): number literals are lexed as Go's HCL scanner lexes them, then checked as Go's
+// `big.ParseFloat` checks them. The token is a digit followed by any run of digits, `.` and
+// exponents (`e`, an optional sign, a digit), not ending in `.` (scan_tokens.rl `NumberLit`); so
+// `1.e5` is one number, and `1.5.2` is one invalid one, reported where it starts. The value kept
+// here is a placeholder: doze-hcl reads every number from its text at 512 bits, so integers with
+// hundreds of digits and floats beyond f64 are numbers too.
 pub(super) fn number(input: &mut Input) -> ModalResult<Number> {
-    alt((
-        // PATCH (doze): a float literal that overflows f64 (`1e400`) is still a number literal; HCL
-        // numbers are 512-bit, and doze-hcl reads the literal's text, not this value.
-        float.map(|f| Number::from_f64(f).unwrap_or_else(|| Number::from(0u64))),
-        integer.map(Number::from),
-        // Integers which do not fit into a `u64` are represented as floats.
-        digit1
-            .try_map(|s: &str| f64::from_str(s))
-            .verify_map(Number::from_f64),
-    ))
-    .parse_next(input)
+    let rest = input.peek_slice(input.eof_offset());
+    let len = go_number_len(rest);
+    if len == 0 {
+        return fail.parse_next(input);
+    }
+    let checkpoint = input.checkpoint();
+    let text = input.next_slice(len);
+    if !go_number_valid(text) {
+        input.reset(&checkpoint);
+        return cut_err(fail)
+            .context(StrContext::Label("number literal"))
+            .context(StrContext::Expected(StrContextValue::Description(
+                "digits, an optional fraction and an optional exponent",
+            )))
+            .parse_next(input);
+    }
+    Ok(match u64::from_str(text) {
+        Ok(n) => Number::from(n),
+        Err(_) => f64::from_str(text)
+            .ok()
+            .and_then(Number::from_f64)
+            .unwrap_or_else(|| Number::from(0u64)),
+    })
 }
 
-fn integer(input: &mut Input) -> ModalResult<u64> {
-    digit1.try_map(|s: &str| u64::from_str(s)).parse_next(input)
+/// The length of Go's `NumberLit` token at the start of `s` (0 if `s` does not start with a digit).
+fn go_number_len(s: &str) -> usize {
+    let b = s.as_bytes();
+    if !b.first().is_some_and(u8::is_ascii_digit) {
+        return 0;
+    }
+    let mut i = 1;
+    loop {
+        match b.get(i) {
+            Some(c) if c.is_ascii_digit() || *c == b'.' => i += 1,
+            Some(b'e' | b'E') => {
+                let mut j = i + 1;
+                if matches!(b.get(j), Some(b'+' | b'-')) {
+                    j += 1;
+                }
+                if b.get(j).is_some_and(u8::is_ascii_digit) {
+                    i = j + 1;
+                } else {
+                    break;
+                }
+            }
+            _ => break,
+        }
+    }
+    while i > 1 && b.get(i - 1) == Some(&b'.') {
+        i -= 1;
+    }
+    i
 }
 
-fn float(input: &mut Input) -> ModalResult<f64> {
-    let fraction = preceded('.', digit1);
-
-    terminated(digit1, alt((terminated(fraction, opt(exponent)), exponent)))
-        .take()
-        .try_map(|s: &str| f64::from_str(s))
-        .parse_next(input)
-}
-
-fn exponent<'a>(input: &mut Input<'a>) -> ModalResult<&'a str> {
-    (
-        one_of(b"eE"),
-        opt(one_of(b"+-")),
-        cut_err(digit1).context(StrContext::Expected(StrContextValue::Description("digit"))),
-    )
-        .take()
-        .parse_next(input)
+/// Whether Go's `big.ParseFloat` reads the token: digits, at most one `.` before an optional
+/// exponent, an exponent with digits.
+fn go_number_valid(text: &str) -> bool {
+    let (mantissa, exp) = match text.find(['e', 'E']) {
+        Some(i) => (&text[..i], Some(&text[i + 1..])),
+        None => (text, None),
+    };
+    let mantissa_ok = mantissa.bytes().filter(|c| *c == b'.').count() <= 1
+        && mantissa.bytes().all(|c| c.is_ascii_digit() || c == b'.');
+    let exp_ok = exp.is_none_or(|e| {
+        let digits = e.strip_prefix(['+', '-']).unwrap_or(e);
+        !digits.is_empty() && digits.bytes().all(|c| c.is_ascii_digit())
+    });
+    mantissa_ok && exp_ok
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pretty_assertions::assert_eq;
 
     #[test]
-    fn parse_integer() {
-        let tests: &[(&str, u64)] = &[
-            ("1", 1),
-            ("99", 99),
-            ("0", 0),
-            ("18446744073709551615", u64::MAX),
-        ];
-
-        for (input, expected) in tests {
-            let parsed = integer.parse(new_input(input));
-            assert!(parsed.is_ok(), "expected `{input}` to parse correctly");
-            assert_eq!(parsed.unwrap(), *expected);
+    fn lexes_go_number_tokens() {
+        for (s, n) in [("1", 1), ("1.5", 3), ("1.e5", 4), ("1.5.2", 5), ("1.foo", 1), ("1e", 1), ("1e+5x", 4), ("12..", 2), ("x", 0)] {
+            assert_eq!(go_number_len(s), n, "{s}");
         }
-    }
-
-    #[test]
-    fn parse_number() {
-        let tests: &[(&str, Number)] = &[
-            ("42", Number::from(42u64)),
-            ("1.5", Number::from_f64(1.5).unwrap()),
-            ("18446744073709551615", Number::from(u64::MAX)),
-            (
-                "18446744073709551616",
-                Number::from_f64(18_446_744_073_709_551_616.0).unwrap(),
-            ),
-            (
-                "100000000000000000000000000000",
-                Number::from_f64(1e29).unwrap(),
-            ),
-        ];
-
-        for (input, expected) in tests {
-            let parsed = number.parse(new_input(input));
-            assert!(parsed.is_ok(), "expected `{input}` to parse correctly");
-            let parsed = parsed.unwrap();
-            assert_eq!(parsed, *expected);
-            assert_eq!(parsed.is_f64(), expected.is_f64());
-        }
-    }
-
-    #[test]
-    // Strict comparison is safe because we don't do any math with these floats
-    #[allow(clippy::float_cmp)]
-    fn parse_float() {
-        let tests: &[(&str, f64)] = &[
-            ("1.0", 1.0),
-            ("1e10", 10_000_000_000.0),
-            ("2.5E3", 2500.0),
-            ("42e-3", 0.042),
-            ("0.1E-4", 0.00001),
-            ("1.7976931348623157e308", f64::MAX),
-        ];
-
-        for (input, expected) in tests {
-            let parsed = float.parse(new_input(input));
-            assert!(parsed.is_ok(), "expected `{input}` to parse correctly");
-            assert_eq!(parsed.unwrap(), *expected);
-        }
+        assert!(go_number_valid("1.e5") && go_number_valid("10") && go_number_valid("1.5e-3"));
+        assert!(!go_number_valid("1.5.2") && !go_number_valid("1e5e5") && !go_number_valid("1e5.2"));
     }
 }

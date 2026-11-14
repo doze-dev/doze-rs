@@ -4,17 +4,20 @@
 
 mod equality;
 pub(crate) mod quote;
+pub(crate) mod refine;
 mod set;
 
 use crate::number::Number;
 use crate::types::{ObjectType, Type};
+pub use refine::Refinement;
 use std::collections::BTreeMap;
 use unicode_normalization::UnicodeNormalization;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     Null(Type),
-    Unknown(Type),
+    /// Of a type, with what is already known about it (cty's refinements).
+    Unknown(Type, Option<Box<Refinement>>),
     Bool(bool),
     Number(Number),
     /// Always NFC (cty normalizes every string it is given).
@@ -34,7 +37,7 @@ pub struct Mismatch;
 
 impl Value {
     /// The dynamic unknown (cty's `DynamicVal`).
-    pub const DYNAMIC: Value = Value::Unknown(Type::Dynamic);
+    pub const DYNAMIC: Value = Value::Unknown(Type::Dynamic, None);
 
     pub fn string(s: &str) -> Value {
         Value::String(s.nfc().collect())
@@ -80,7 +83,7 @@ impl Value {
 
     pub fn ty(&self) -> Type {
         match self {
-            Value::Null(t) | Value::Unknown(t) => t.clone(),
+            Value::Null(t) | Value::Unknown(t, _) => t.clone(),
             Value::Bool(_) => Type::Bool,
             Value::Number(_) => Type::Number,
             Value::String(_) => Type::String,
@@ -100,13 +103,13 @@ impl Value {
 
     /// Known at the top level (cty's `IsKnown`); elements may still be unknown.
     pub fn is_known(&self) -> bool {
-        !matches!(self, Value::Unknown(_))
+        !matches!(self, Value::Unknown(..))
     }
 
     /// Known all the way down.
     pub fn is_wholly_known(&self) -> bool {
         match self {
-            Value::Unknown(_) => false,
+            Value::Unknown(..) => false,
             Value::List(_, es) | Value::Set(_, es) | Value::Tuple(es) => {
                 es.iter().all(Value::is_wholly_known)
             }

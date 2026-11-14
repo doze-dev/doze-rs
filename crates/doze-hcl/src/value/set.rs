@@ -10,16 +10,25 @@ use crate::types::Type;
 use std::cmp::Ordering;
 
 pub(super) fn normalize(ety: &Type, elems: Vec<Value>) -> Vec<Value> {
+    // Buckets by serialization, as cty's are by hash: only values in one bucket are compared.
+    let mut buckets: std::collections::HashMap<Vec<u8>, Vec<usize>> =
+        std::collections::HashMap::new();
     let mut kept: Vec<(Vec<u8>, Value)> = Vec::with_capacity(elems.len());
     for v in elems {
         let h = hash_bytes(&v);
-        let dup = kept
+        let bucket = buckets.entry(h.clone()).or_default();
+        let dup = bucket
             .iter()
-            .any(|(kh, k)| *kh == h && v.equals(k) == Value::Bool(true));
+            .filter_map(|&i| kept.get(i))
+            .any(|(_, k)| v.equals(k) == Value::Bool(true));
         if !dup {
+            bucket.push(kept.len());
             kept.push((h, v));
         }
     }
+    // Go lists buckets in hash order, then sorts stably: elements cty's order ties (such as 0 and
+    // -0) keep their bucket order.
+    kept.sort_by_key(|(h, _)| crc32(h));
     kept.sort_by(|(ha, a), (hb, b)| order(ety, (ha, a), (hb, b)));
     kept.into_iter().map(|(_, v)| v).collect()
 }
@@ -31,7 +40,7 @@ fn order(ety: &Type, (ha, a): (&[u8], &Value), (hb, b): (&[u8], &Value)) -> Orde
     }
     let rank = |v: &Value| match v {
         Value::Null(_) => 2,
-        Value::Unknown(_) => 1,
+        Value::Unknown(..) => 1,
         _ => 0,
     };
     match rank(a).cmp(&rank(b)) {
@@ -56,7 +65,7 @@ pub(crate) fn hash_bytes(v: &Value) -> Vec<u8> {
 
 fn append(v: &Value, out: &mut String) {
     match v {
-        Value::Unknown(_) => out.push('?'),
+        Value::Unknown(..) => out.push('?'),
         Value::Null(_) => out.push('~'),
         Value::Number(n) => out.push_str(&n.text_g10()),
         Value::Bool(b) => out.push(if *b { 'T' } else { 'F' }),
@@ -96,4 +105,20 @@ fn append(v: &Value, out: &mut String) {
             out.push('>');
         }
     }
+}
+
+/// CRC-32 (IEEE), cty's set bucket hash.
+fn crc32(data: &[u8]) -> u32 {
+    let mut c = !0u32;
+    for &b in data {
+        c ^= u32::from(b);
+        for _ in 0..8 {
+            c = if c & 1 != 0 {
+                (c >> 1) ^ 0xEDB8_8320
+            } else {
+                c >> 1
+            };
+        }
+    }
+    !c
 }
