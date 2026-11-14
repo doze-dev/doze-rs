@@ -302,9 +302,11 @@ impl InstanceView {
         }
     }
 
-    /// Copies `what`, and has the link named `id` say so for a moment.
-    pub(crate) fn copy(&mut self, id: &str, what: &str, cx: &mut Context<Self>) {
-        crate::outward::copy(cx, what);
+    /// Copies `text`, has the link named `id` say so for a moment, and toasts what went (Go's `copy(text, what)`:
+    /// "copied the output to the clipboard").
+    pub(crate) fn copy(&mut self, id: &str, text: &str, what: &str, cx: &mut Context<Self>) {
+        crate::outward::copy(cx, text);
+        self.say(doze_desk::copied::copied(what), cx);
         self.copied = Some((id.to_owned(), Instant::now()));
         cx.notify();
         cx.spawn(async move |this, cx| {

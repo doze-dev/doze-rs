@@ -95,24 +95,7 @@ pub(super) fn row_switch(
             .into_any_element();
     }
     if r.paused && !r.down {
-        // `.lock`: the glyph in a dashed pill the size of a switch; only the file brings it back.
-        return div()
-            .id(id)
-            .tooltip(tip(titles::LOCK))
-            .flex_none()
-            .w(px(34.))
-            .h(px(18.))
-            .flex()
-            .items_center()
-            .justify_center()
-            .rounded(px(9.))
-            .border_1()
-            .border_dashed()
-            .border_color(t.line2)
-            .text_size(px(ty::BASE))
-            .text_color(t.dim)
-            .child(r.look.glyph)
-            .into_any_element();
+        return lock(t, id, r.look.glyph).into_any_element();
     }
     div()
         .id(id)
@@ -370,4 +353,29 @@ pub(super) fn view(
         .min_h_0()
         .child(filter(t, v))
         .child(body)
+}
+
+/// `.lock`: the glyph in a dashed pill the size of a switch (34×18), titled "enabled = false in doze.hcl: only the
+/// file brings it back". A tile's and the instance head's paused switch.
+pub(crate) fn lock(
+    t: &Tokens,
+    id: impl Into<gpui::ElementId>,
+    glyph: &'static str,
+) -> gpui::Stateful<gpui::Div> {
+    div()
+        .id(id)
+        .tooltip(tip(titles::LOCK))
+        .flex_none()
+        .w(px(34.))
+        .h(px(18.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(px(9.))
+        .border_1()
+        .border_dashed()
+        .border_color(t.line2)
+        .text_size(px(ty::BASE))
+        .text_color(t.dim)
+        .child(glyph)
 }

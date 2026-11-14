@@ -293,25 +293,28 @@ fn failure_words(
                 .child(s(&f.what)),
         )
         .child(div().text_size(px(ty::SM)).text_color(tone).child(line))
-        .child(
-            div()
-                .id("fail-printed")
-                .mt(px(4.))
-                .text_size(px(ty::XS_UP))
-                .text_color(t.dim)
-                .cursor_pointer()
-                .hover(|d| d.text_color(t.text))
-                .child(if open {
-                    "▾ What doze printed"
-                } else {
-                    "▸ What doze printed"
-                })
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.printed = !this.printed;
-                    cx.notify();
-                })),
-        )
-        .when(open, |d| d.child(printed(t, f)))
+        // Go folds what doze printed away only when there is something: no lines, no fold.
+        .when(!f.lines.is_empty(), |d| {
+            d.child(
+                div()
+                    .id("fail-printed")
+                    .mt(px(4.))
+                    .text_size(px(ty::XS_UP))
+                    .text_color(t.dim)
+                    .cursor_pointer()
+                    .hover(|d| d.text_color(t.text))
+                    .child(if open {
+                        "▾ What doze printed"
+                    } else {
+                        "▸ What doze printed"
+                    })
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.printed = !this.printed;
+                        cx.notify();
+                    })),
+            )
+        })
+        .when(open && !f.lines.is_empty(), |d| d.child(printed(t, f)))
 }
 
 /// Edit doze.hcl (a mistake in it), Try again (a stopped stack), Copy, Dismiss.
@@ -347,7 +350,10 @@ fn failure_acts(
     let lines = f.lines.join("\n");
     let copy = Box::new(cx.listener(move |this, _, _, cx| {
         crate::outward::copy(cx, &lines);
-        this.say("copied what doze printed", cx);
+        this.say(
+            &doze_desk::copied::copied(doze_desk::copied::WHAT_IT_SAID),
+            cx,
+        );
     }));
     let dismiss = Box::new(cx.listener(|this, _, _, cx| this.dismiss_failure(cx)));
     acts.child(btn(t, "fail-copy", "Copy", "", Btn::Quiet, Some(copy)))

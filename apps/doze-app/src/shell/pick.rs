@@ -147,7 +147,7 @@ impl Root {
             "new" => self.pick_folder(true, cx),
             "version" => {
                 crate::outward::copy(cx, crate::VERSION);
-                self.say(format!("Copied doze's version, {}", crate::VERSION), cx);
+                self.say(doze_desk::copied::copied(doze_desk::copied::VERSION), cx);
             }
             "mode" => {
                 if let Some(mode) = Mode::parse(arg) {

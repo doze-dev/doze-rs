@@ -248,8 +248,7 @@ pub(super) fn changed(
     st: &doze_desk::StackView,
     now: std::time::SystemTime,
 ) -> Option<doze_desk::overview::ConfigChanged> {
-    let mtime = std::fs::metadata(std::path::Path::new(&st.dir).join("doze.hcl"))
-        .and_then(|m| m.modified())
-        .ok()?;
+    // The newest of doze.hcl, *.doze.hcl and *.auto.doze.vars (Go's config stamp), not doze.hcl alone.
+    let mtime = crate::facts::stamp(std::path::Path::new(&st.dir))?.0;
     doze_desk::overview::config_changed(mtime, st.loaded, now)
 }

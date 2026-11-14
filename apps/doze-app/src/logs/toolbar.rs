@@ -95,6 +95,7 @@ pub(crate) fn toolbar(
                     &chip("Copy the lines"),
                     false,
                 )
+                .tooltip(crate::widgets::tip(doze_desk::titles::COPY_LINES))
                 .on_click(cx.listener(|v, _, _, cx| v.copy_shown(cx))),
             )
         })

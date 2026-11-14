@@ -24,6 +24,7 @@ mod coalesce;
 mod conn;
 mod console;
 pub mod convert;
+pub mod copied;
 mod error;
 mod events;
 mod hub;

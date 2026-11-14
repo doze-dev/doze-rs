@@ -159,8 +159,7 @@ impl LogsView {
 /// How many lines Go's logs page holds at a time (`WINDOW`), and so copies with `c`.
 pub(crate) const WINDOW: usize = 200;
 
-/// The rows `c` copies with nothing picked: Go's window, the newest [`WINDOW`] while following, else [`WINDOW`] from
-/// the first row drawn; never past the `len` rows shown.
+/// The rows `c` copies with nothing picked: Go's window, the newest [`WINDOW`] while following, X/// 40 rows above the first row drawn; never past the `len` rows shown.
 pub(crate) fn shown_window(
     len: usize,
     drawn: std::ops::Range<usize>,
@@ -169,7 +168,8 @@ pub(crate) fn shown_window(
     if follow || drawn.is_empty() {
         len.saturating_sub(WINDOW)..len
     } else {
-        let from = drawn.start.min(len);
+        // Go's list asks for its window 40 rows above the first one drawn (vlist.tsx `onNeed(first - 40)`).
+        let from = drawn.start.saturating_sub(40).min(len);
         from..(from + WINDOW).min(len)
     }
 }
@@ -183,8 +183,9 @@ mod tests {
     fn c_copies_go_s_window() {
         assert_eq!(shown_window(50, 10..30, true), 0..50);
         assert_eq!(shown_window(1000, 900..930, true), 800..1000);
-        assert_eq!(shown_window(1000, 100..130, false), 100..100 + WINDOW);
-        assert_eq!(shown_window(1000, 900..930, false), 900..1000);
+        assert_eq!(shown_window(1000, 100..130, false), 60..60 + WINDOW);
+        assert_eq!(shown_window(1000, 900..930, false), 860..1000);
+        assert_eq!(shown_window(1000, 10..30, false), 0..WINDOW);
         assert_eq!(shown_window(0, 0..0, false), 0..0);
     }
 }
