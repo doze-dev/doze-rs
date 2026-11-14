@@ -113,6 +113,14 @@ pub fn apex_addr(net: Net, service: &str) -> Option<Ipv4Addr> {
         .map(|(_, off)| net.at(*off))
 }
 
+/// The well-known services and their offsets, in address order (setup writes them into /etc/hosts).
+#[cfg(feature = "setup")]
+pub(crate) fn apex_services() -> Vec<(&'static str, u16)> {
+    let mut all = APEX_OFFSET.to_vec();
+    all.sort_by_key(|(_, off)| *off);
+    all
+}
+
 /// Whether a stack may not be called `name`: its services would sit under a machine-wide name (a stack called "aws"
 /// puts db.aws.doze under aws.doze, which belongs to whichever local AWS holds the apex).
 pub fn reserved_stack(name: &str) -> bool {
