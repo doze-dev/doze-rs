@@ -6,7 +6,7 @@
 $ doze down --dry-run
 exit 1
 stderr:
-| error[DZ0703]: a doze daemon answers for this stack, but its pid file ({sandbox}/home/projects/project-2eee06fd/run/doze.pid) names no process doze started
+| error[DZ0703]: a doze daemon answers for this stack, but its pid file (run/doze.pid in the stack's state folder) names no process doze started
 |   fix: doze bug writes a report with the daemon's log
 json exit 1
 json:
@@ -16,7 +16,7 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "failed",
-|     "message": "a doze daemon answers for this stack, but its pid file ({sandbox}/home/projects/project-1a1b23f4/run/doze.pid) names no process doze started",
+|     "message": "a doze daemon answers for this stack, but its pid file (run/doze.pid in the stack's state folder) names no process doze started",
 |     "exit": 1,
 |     "id": "DZ0703",
 |     "fix": "doze bug writes a report with the daemon's log"
@@ -26,7 +26,7 @@ json:
 $ doze down
 exit 1
 stderr:
-| error[DZ0703]: a doze daemon answers for this stack, but its pid file ({sandbox}/home/projects/project-2eee06fd/run/doze.pid) names no process doze started
+| error[DZ0703]: a doze daemon answers for this stack, but its pid file (run/doze.pid in the stack's state folder) names no process doze started
 |   fix: doze bug writes a report with the daemon's log
 json exit 1
 json:
@@ -36,7 +36,7 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "failed",
-|     "message": "a doze daemon answers for this stack, but its pid file ({sandbox}/home/projects/project-1a1b23f4/run/doze.pid) names no process doze started",
+|     "message": "a doze daemon answers for this stack, but its pid file (run/doze.pid in the stack's state folder) names no process doze started",
 |     "exit": 1,
 |     "id": "DZ0703",
 |     "fix": "doze bug writes a report with the daemon's log"

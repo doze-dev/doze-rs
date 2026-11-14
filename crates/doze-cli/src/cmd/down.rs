@@ -73,7 +73,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &DryRun) -> Outcome {
         return Ok(Done::ok(View::Plan(plan(&stack, &found)?)));
     }
     let stopped = match found {
-        Found::Unknown => return Err(unknown(&stack)),
+        Found::Unknown => return Err(unknown()),
         Found::Gone(_) => false,
         Found::Daemon(pid) => stop(pid)?,
     };
@@ -117,13 +117,10 @@ fn leftovers(stack: &Stack) -> Vec<(PathBuf, &'static str)> {
     .collect()
 }
 
-fn unknown(stack: &Stack) -> Diagnostic {
+fn unknown() -> Diagnostic {
     Diagnostic::new(
         ids::DAEMON_REFUSED,
-        format!(
-            "a doze daemon answers for this stack, but its pid file ({}) names no process doze started",
-            stack.key.pid_file().display()
-        ),
+        "a doze daemon answers for this stack, but its pid file (run/doze.pid in the stack's state folder) names no process doze started",
     )
     .fix("doze bug writes a report with the daemon's log")
 }
@@ -177,7 +174,7 @@ fn clear(files: &[(PathBuf, &'static str)]) -> Vec<String> {
 fn plan(stack: &Stack, found: &Found) -> Result<Plan, Diagnostic> {
     let mut plan = Plan::new("doze down");
     match found {
-        Found::Unknown => return Err(unknown(stack)),
+        Found::Unknown => return Err(unknown()),
         Found::Gone(files) => {
             for (path, what) in files {
                 plan.step("leftovers", Op::Remove, *what, path.display().to_string());
