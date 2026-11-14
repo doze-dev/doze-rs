@@ -12,8 +12,9 @@ publish.workspace = true
 workspace = true
 
 [features]
-# TLS on the Kafka listener: --tls-cert and --tls-key. Off by default (weight is a feature); building it needs a C
-# compiler and assembler because of ring. See docs/port/weight.md.
+# TLS on the Kafka listener (and the registry): --tls-cert and --tls-key. On in the default build since 2026-11-14 (the owner:
+# one build, not two for a few MB); building it needs a C compiler and assembler because of ring. `--no-default-features`
+# leaves it out with the console. See docs/port/weight.md.
 tls = ["kafka-server/tls", "dep:rustls", "kafka-registry?/tls"]
 # The web console, served beside the broker (`--console`, on by default). On in the default build: the owner's decision of
 # 2026-11-12 (docs/port/phase9.md, D1). `--no-default-features` is the lean broker with no HTTP in it at all.
@@ -25,7 +26,7 @@ registry = ["dep:kafka-registry"]
 # `doze-kafka module`, the binary speaks doze's module protocol 2 and plans itself as the engine. On in the default build,
 # like the console; `--no-default-features` leaves it out.
 module = ["dep:doze-module", "dep:doze-os", "dep:kafka-protocol", "dep:bytes"]
-default = ["console", "module", "registry"]
+default = ["console", "module", "registry", "tls"]
 
 [dependencies]
 kafka-auth = { path = "../kafka-auth" }
