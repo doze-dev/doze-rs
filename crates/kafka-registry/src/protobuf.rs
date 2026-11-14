@@ -1,6 +1,6 @@
-//! Protobuf: `.proto` text (proto2 and proto3) read by a parser of its own ([`ast`]), linked with its imports and
-//! checked by the language's rules ([`link`]), stored as Confluent prints it ([`print`]), compared by Confluent's rules
-//! with its sentences ([`compat`]); and schemas sent as a base64 `FileDescriptorProto` ([`desc`]), as
+//! Protobuf: `.proto` text (proto2 and proto3) read by a parser of its own (`ast`), linked with its imports and
+//! checked by the language's rules (`link`), stored as Confluent prints it (`print`), compared by Confluent's rules
+//! with its sentences (`compat`); and schemas sent as a base64 `FileDescriptorProto` (`desc`), as
 //! confluent-kafka's serializers register them. No third-party Protobuf crate: what Confluent answers is its own
 //! printing and its own rules, which a compiler library does not give, and `protox` with `prost-reflect` would weigh
 //! more than the rest of the registry (docs/port/phase10.md, "Weight first").
