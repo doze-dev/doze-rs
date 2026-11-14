@@ -1,8 +1,9 @@
 //! Outbound TLS: whom the client trusts, and what it says when a server's certificate is refused.
 //!
-//! **Trust** is the operating system's store (read once, on the first `https://` call, off the runtime's thread: the macOS
-//! keychains with their trust settings, the Windows certificate store, the Linux bundle `openssl-probe` finds or `SSL_CERT_FILE`),
-//! so a corporate proxy's CA, which is installed there, is trusted as the browser trusts it. `--ca-file` adds roots (a local CA,
+//! **Trust** is the operating system's store (`os_roots.rs`; read once, on the first `https://` call, off the runtime's thread:
+//! the macOS system-roots, system and login keychains, listed by `/usr/bin/security`, their trust settings not read; the Windows
+//! certificate store; the Linux bundle `openssl-probe` finds or `SSL_CERT_FILE`), so a corporate proxy's CA, which is installed
+//! there, is trusted. `--ca-file` adds roots (a local CA,
 //! mkcert's, a self-signed server's own certificate); `--insecure-outbound-tls` verifies nothing (local development only, said
 //! loudly at start). The OS store is read rather than handed to the platform's verifier (`rustls-platform-verifier`) because that
 //! verifier may fetch revocation data inside the handshake, which would stall doze-aws's one thread.
@@ -119,11 +120,17 @@ fn roots(trust: &Trust) -> Result<RootCertStore, String> {
     let mut roots = RootCertStore::empty();
     let mut from_os = 0;
     if trust.os_store {
-        let found = rustls_native_certs::load_native_certs();
-        for e in &found.errors {
+        let (certs, errors) = crate::os_roots::load();
+        for e in &errors {
             tracing::debug!("outbound TLS: part of the OS trust store could not be read: {e}");
         }
-        (from_os, _) = roots.add_parsable_certificates(found.certs);
+        (from_os, _) = roots.add_parsable_certificates(certs);
+        if from_os == 0 && trust.extra.is_empty() {
+            return Err(format!(
+                "the OS trust store could not be read ({}); start doze-aws with --ca-file <PEM> to name the authorities to trust",
+                errors.join("; ")
+            ));
+        }
     }
     let (extra, refused) = roots.add_parsable_certificates(trust.extra.iter().cloned());
     if refused > 0 {
