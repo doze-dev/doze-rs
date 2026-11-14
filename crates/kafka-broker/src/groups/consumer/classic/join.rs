@@ -176,6 +176,7 @@ impl ConsumerGroup {
             m.target = old.target;
             m.assigned = old.assigned;
             m.revoking = old.revoking;
+            m.given_at = old.given_at;
             m.epoch = old.epoch;
             m.prev_epoch = old.prev_epoch;
             m.subscribed = old.subscribed;

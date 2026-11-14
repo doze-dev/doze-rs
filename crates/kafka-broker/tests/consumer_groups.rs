@@ -252,3 +252,101 @@ async fn a_topic_made_after_the_member_subscribed_is_given_to_it() {
     let got = assigned_848(&next).or(assigned_848(&again));
     assert_eq!(got, Some(vec![(id, 0), (id, 1)]));
 }
+
+/// KIP-1251 (Kafka 4.3, `ConsumerGroup.validateOffsetCommit` and `createAssignmentEpochValidator`): a commit at an epoch
+/// older than the member's is taken if every partition it names is held by the member (assigned, or being revoked) and
+/// was given to it at or before that epoch; otherwise the whole request is STALE_MEMBER_EPOCH (the validator throws, so
+/// `OffsetCommitRequest.getErrorResponse` answers every partition). A newer epoch is always refused.
+#[tokio::test]
+async fn a_commit_at_an_older_epoch_is_taken_for_partitions_held_since_then_as_kafka_4_3_does() {
+    let (rig, _) = rig().await;
+    // m1 holds t-0..2 from epoch 2, and is subscribed to `later` before it exists.
+    let joined = rig
+        .heartbeat_848(1, join_848("g", "m1", &["t", "later"]))
+        .await;
+    assert_eq!(joined.member_epoch, 2);
+    // `later` is made: the group moves on, and m1 is given later-0 at the new epoch and keeps t's partitions.
+    rig.create(vec![topic("later", 1)], false).await;
+    let mut epoch = 2;
+    for _ in 0..3 {
+        epoch = rig
+            .heartbeat_848(1, beat_848("g", "m1", epoch, None))
+            .await
+            .member_epoch;
+    }
+    assert!(epoch > 2, "the member moved on to {epoch}");
+    let commit = |at: i32, partitions: &'static [(&'static str, i32)]| {
+        let rig = &rig;
+        async move {
+            let commits: Vec<_> = partitions.iter().map(|(t, p)| (*t, *p, 5, None)).collect();
+            let r = rig.commit_offsets(9, "g", "m1", at, &commits).await;
+            r.topics
+                .iter()
+                .flat_map(|t| t.partitions.iter().map(|p| p.error_code))
+                .collect::<Vec<_>>()
+        }
+    };
+    assert_eq!(
+        commit(2, &[("t", 0), ("t", 2)]).await,
+        [0, 0],
+        "held since epoch 2"
+    );
+    assert_eq!(
+        commit(2, &[("later", 0)]).await,
+        [STALE_MEMBER_EPOCH],
+        "given after epoch 2"
+    );
+    assert_eq!(
+        commit(2, &[("t", 1), ("later", 0)]).await,
+        [STALE_MEMBER_EPOCH, STALE_MEMBER_EPOCH],
+        "one partition given later refuses the whole request"
+    );
+    assert_eq!(
+        commit(1, &[("t", 0)]).await,
+        [STALE_MEMBER_EPOCH],
+        "before it was given"
+    );
+    assert_eq!(
+        commit(epoch + 1, &[("t", 0)]).await,
+        [STALE_MEMBER_EPOCH],
+        "newer"
+    );
+    assert_eq!(commit(epoch, &[("t", 0), ("later", 0)]).await, [0, 0]);
+    // What was taken at the older epoch was stored.
+    let stored = rig.fetch_offsets(false, "g", Some(&[("t", &[2])])).await;
+    assert_eq!(stored[0].2, 5);
+}
+
+/// The same rule across a revocation: while the member is giving partitions up it is still at its old epoch, and once
+/// it says it has, it moves on holding only what it kept. A commit still in flight at the old epoch is then taken for
+/// what it kept and refused for what it gave up (no longer assigned nor being revoked).
+#[tokio::test]
+async fn after_a_revocation_an_older_epoch_commits_only_what_the_member_kept() {
+    let (rig, t) = rig().await;
+    let joined = rig.heartbeat_848(1, join_848("g", "m1", &["t"])).await;
+    assert_eq!(joined.member_epoch, 2);
+    // m2 arrives: m1 is told to give some of t up, and stays at epoch 2 until it says it has.
+    rig.heartbeat_848(1, join_848("g", "m2", &["t"])).await;
+    let told = rig.heartbeat_848(1, beat_848("g", "m1", 2, None)).await;
+    assert_eq!(told.member_epoch, 2);
+    let kept = assigned_848(&told).expect("an assignment that revokes");
+    assert!(kept.len() < 3 && !kept.is_empty(), "{kept:?}");
+    let given_up: Vec<i32> = (0..3).filter(|p| !kept.contains(&(t, *p))).collect();
+    let owned = [(t, kept.iter().map(|(_, p)| *p).collect::<Vec<_>>())];
+    let moved = rig
+        .heartbeat_848(1, beat_848("g", "m1", 2, Some(&owned)))
+        .await;
+    assert!(moved.member_epoch > 2, "it moved on");
+    let commit = |p: i32| {
+        let rig = &rig;
+        async move {
+            rig.commit_offsets(9, "g", "m1", 2, &[("t", p, 5, None)])
+                .await
+                .topics[0]
+                .partitions[0]
+                .error_code
+        }
+    };
+    assert_eq!(commit(kept[0].1).await, 0, "kept since epoch 2");
+    assert_eq!(commit(given_up[0]).await, STALE_MEMBER_EPOCH, "given up");
+}
