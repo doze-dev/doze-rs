@@ -167,6 +167,74 @@ mod tests {
         assert!(c.decode(&stored).unwrap_err().contains("not JSON"));
     }
 
+    const PROTO: &str = r#"syntax = "proto3";
+package shop.v1;
+message Order {
+  int64 order_id = 1;
+  string note = 2;
+  repeated int32 qty = 3;
+  State state = 4;
+  map<string, int32> tags = 5;
+  Line line = 6;
+  bytes blob = 7;
+  sint32 delta = 8;
+  message Line { string sku = 1; double price = 2; }
+}
+enum State { NEW = 0; PAID = 1; }
+message Other { bool ok = 1; }
+"#;
+
+    #[test]
+    fn protobuf_values_read_as_protojson_by_their_message_index() {
+        let r = registry();
+        let id = reg(&r, "orders-value", SchemaType::Protobuf, PROTO);
+        let c = r.codec(id).unwrap();
+        // What a serializer writes: header, index [0] as a single 0, then order_id 150 (08 96 01) and note "hi".
+        let mut v = crate::wire::header(id).to_vec();
+        v.extend([0, 0x08, 0x96, 0x01, 0x12, 0x02, b'h', b'i', 0x98, 0x06, 0x01]);
+        let d = c.decode(&v).unwrap();
+        assert_eq!(d.json.to_text(), r#"{"orderId":"150","note":"hi"}"#);
+        assert_eq!(d.message.as_deref(), Some("shop.v1.Order"));
+        let typed = r#"{"order_id":"42","qty":[1,2,300],"state":"PAID","tags":{"a":7},"line":{"sku":"x","price":2.5},"blob":"aGk=","delta":-3}"#;
+        let bytes = c.encode(typed).unwrap();
+        assert_eq!(bytes[5], 0, "index [0] as one zero");
+        let d = c.decode(&bytes).unwrap();
+        assert_eq!(
+            d.json.to_text(),
+            r#"{"orderId":"42","qty":[1,2,300],"state":"PAID","tags":{"a":7},"line":{"sku":"x","price":2.5},"blob":"aGk=","delta":-3}"#
+        );
+        assert_eq!(c.encode(&d.json.to_text()).unwrap(), bytes);
+        // Index [1] is the second message of the file; [0, 0] the second nested in the first.
+        let mut v = crate::wire::header(id).to_vec();
+        v.extend([2, 2, 0x08, 0x01]);
+        let d = c.decode(&v).unwrap();
+        assert_eq!((d.json.to_text().as_str(), d.message.as_deref()), (r#"{"ok":true}"#, Some("shop.v1.Other")));
+        let mut v = crate::wire::header(id).to_vec();
+        // The map's entry is nested first, where protoc puts it: Line is [0, 1].
+        v.extend([4, 0, 2, 0x0a, 0x01, b'z']);
+        assert_eq!(c.decode(&v).unwrap().message.as_deref(), Some("shop.v1.Order.Line"));
+        let mut v = crate::wire::header(id).to_vec();
+        v.extend([2, 18]);
+        assert!(c.decode(&v).unwrap_err().contains("outside the schema"));
+        assert_eq!(c.encode(r#"{"nope":1}"#).unwrap_err(), "shop.v1.Order has no field \"nope\"");
+        assert!(c.encode(r#"{"state":"GONE"}"#).unwrap_err().starts_with("state: \"GONE\" is not a value"));
+    }
+
+    #[test]
+    fn hostile_protobuf_bytes_are_refused() {
+        let r = registry();
+        let id = reg(&r, "p", SchemaType::Protobuf, PROTO);
+        let c = r.codec(id).unwrap();
+        // A length far past the end; a group that never ends.
+        let mut v = crate::wire::header(id).to_vec();
+        v.extend([0, 0x12, 0xff, 0xff, 0xff, 0x0f]);
+        assert!(c.decode(&v).unwrap_err().contains("are left"));
+        let mut v = crate::wire::header(id).to_vec();
+        v.extend([0, 0x4b]);
+        v.extend(std::iter::repeat_n(0x4bu8, 300));
+        assert!(c.decode(&v).is_err());
+    }
+
     #[test]
     fn an_unknown_id_is_confluents_40403() {
         let r = registry();

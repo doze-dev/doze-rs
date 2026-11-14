@@ -2272,6 +2272,7 @@ dependencies = [
  "kafka-broker",
  "kafka-console",
  "kafka-protocol",
+ "kafka-registry",
  "kafka-server",
  "kafka-storage",
  "kafka-wire",

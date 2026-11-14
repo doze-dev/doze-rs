@@ -198,12 +198,14 @@ pub fn text_bytes(s: &str) -> Result<Vec<u8>, String> {
     {
         return Ok(b);
     }
-    base64(s).ok_or_else(|| {
+    base64_bytes(s).ok_or_else(|| {
         format!("{s:?} is not bytes: characters must be 0 to 255 (or the value base64)")
     })
 }
 
-fn base64(s: &str) -> Option<Vec<u8>> {
+/// Standard base64, padded, as bytes.
+#[must_use]
+pub fn base64_bytes(s: &str) -> Option<Vec<u8>> {
     let digit = |c: u8| -> Option<u32> {
         Some(u32::from(match c {
             b'A'..=b'Z' => c - b'A',
@@ -248,7 +250,7 @@ mod tests {
         assert_eq!(text_bytes("\u{0}\u{ff}a").unwrap(), vec![0, 255, b'a']);
         assert_eq!(text_bytes("aGk=").unwrap(), b"aGk=".to_vec());
         assert_eq!(text_bytes("€€€€").map_err(|_| ()), Err(()));
-        assert_eq!(base64("aGVsbG8="), Some(b"hello".to_vec()));
+        assert_eq!(base64_bytes("aGVsbG8="), Some(b"hello".to_vec()));
         assert_eq!(bytes_text(&[104, 0xe9]), Json::Str("hé".into()));
     }
 
