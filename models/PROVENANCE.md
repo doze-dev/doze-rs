@@ -1,6 +1,6 @@
 # The AWS service models
 
-Smithy JSON AST (`"smithy": "2.0"`) models of 19 AWS services, the input of `cargo xtask codegen`. They are AWS's published
+Smithy JSON AST (`"smithy": "2.0"`) models of 20 AWS services, the input of `cargo xtask codegen`. They are AWS's published
 API models (the `aws/api-models-aws` repository, Apache-2.0, the same models the AWS SDKs are generated from), kept verbatim:
 nothing here is edited. Constraints the models lack (the SQS model has none at all) live in `codegen/overlays/`, each with the
 evidence it comes from.
@@ -13,10 +13,15 @@ If they are refreshed, re-run `cargo xtask codegen`, read the diff of the genera
 `models/dynamodb-streams/service/2012-08-10/dynamodb-streams-2012-08-10.json` at upstream commit
 `f231310cc68b985a403274fb88f0f3856fe3b52f` (the `main` branch that day).
 
+`apigatewaymanagementapi.json` (the WebSocket `@connections` API) was fetched on 2026-11-14 from
+`models/apigatewaymanagementapi/service/2018-11-29/apigatewaymanagementapi-2018-11-29.json` at upstream commit
+`46135f8468cd5cb60d983b97290c9f6661e359c6` (the `main` branch that day).
+
 `s3.reference.json` of the Go audit (a derived reference, not a model) is not carried over.
 
 | file | sha256 |
 |---|---|
+| apigatewaymanagementapi.json | 43d92c4c358869b6422c2870f5d7e8cc7ea26c6f0c2f13c2264c6606e37d0c55 |
 | api-gateway.json | 51f7bb0a8c434669394c0887bacefaefdae66994122229fbac87e6d0f1da859a |
 | apigatewayv2.json | e10bcf53a23a41be2d4a255087e87effb1cf5c29756a54ae7b92fbee8d892f96 |
 | cloudformation.json | 3de1f8d8357291665ddbced1780998a84d15b0df2264c2aedd98fc09a9189f7d |

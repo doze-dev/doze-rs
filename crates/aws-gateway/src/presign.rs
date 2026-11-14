@@ -43,12 +43,20 @@ pub(crate) fn anonymous_claim(parts: &Parts) -> Option<Claim> {
     if h.contains_key(http::header::AUTHORIZATION) || for_another_protocol {
         return None;
     }
+    // The API Gateway management API (at an execute-api address) is the only other REST service an unsigned request may be for.
+    let path = parts.uri.path();
+    let host = h
+        .get(http::header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let management = path.contains("/@connections/")
+        && (path.starts_with("/_aws/execute-api/") || host.contains(".execute-api."));
     Some(Claim {
         placement: Placement::Header,
         access_key_id: aws_wire::service::Caller::ANONYMOUS.to_owned(),
         scope_date: String::new(),
         region: "us-east-1".to_owned(),
-        service: "s3".to_owned(),
+        service: if management { "execute-api" } else { "s3" }.to_owned(),
         signed_headers: Vec::new(),
         signature: Vec::new(),
         signature_hex: String::new(),

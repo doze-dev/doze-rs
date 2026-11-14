@@ -91,4 +91,12 @@ pub trait RestService: Send + Sync {
     ) -> BoxFuture<'a, Vec<(String, String)>> {
         Box::pin(async { Vec::new() })
     }
+
+    /// How many leading bytes of `path` are the endpoint the client was given rather than the operation's path: the API Gateway
+    /// management API is called at `<api>.execute-api.<region>.amazonaws.com/<stage>` (locally `/_aws/execute-api/<api>/<stage>`),
+    /// and its routes start after that. The gateway routes the rest, and hands the cut prefix on in the caller's `endpoint`. The
+    /// default cuts nothing.
+    fn base_path(&self, _host: &str, _path: &str) -> usize {
+        0
+    }
 }

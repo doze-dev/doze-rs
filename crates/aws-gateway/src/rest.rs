@@ -109,7 +109,16 @@ async fn handle(
         check_presigned(&claim, parts)?;
     }
     let (path, host) = if json {
-        (parts.uri.path().to_owned(), host_of(parts))
+        // A service called below a base path (the API Gateway management API at its stage) routes what follows it; the base goes on
+        // with the host, into the caller's endpoint.
+        let (host, full) = (host_of(parts), parts.uri.path());
+        let cut = entry
+            .service
+            .rest()
+            .map_or(0, |r| r.base_path(&host, full))
+            .min(full.len());
+        let (base, rest) = full.split_at(cut);
+        (rest.to_owned(), format!("{host}{base}"))
     } else {
         target(parts)
     };

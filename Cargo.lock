@@ -163,6 +163,7 @@ dependencies = [
  "aws-gateway",
  "aws-iam-policy",
  "aws-model-api-gateway",
+ "aws-model-apigatewaymanagementapi",
  "aws-model-apigatewayv2",
  "aws-peers",
  "aws-schema",
@@ -519,6 +520,13 @@ dependencies = [
 
 [[package]]
 name = "aws-model-api-gateway"
+version = "0.0.0"
+dependencies = [
+ "aws-schema",
+]
+
+[[package]]
+name = "aws-model-apigatewaymanagementapi"
 version = "0.0.0"
 dependencies = [
  "aws-schema",

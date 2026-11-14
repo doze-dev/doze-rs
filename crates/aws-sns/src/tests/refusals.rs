@@ -185,8 +185,14 @@ fn a_subscribe_url_confirms_without_asking_who_fetched_it() {
     let mut call = w.h.call(ix, &request).unwrap();
     call.caller.access_key_id = Caller::ANONYMOUS.to_owned();
     let reply = w.rt.block_on(w.core.handle(call)).reply;
-    assert!(spy.asked.lock().unwrap().is_empty(), "the unsigned confirmation is not authorized");
-    assert_ne!(reply.err().map(|e| e.code.to_string()).as_deref(), Some("AuthorizationError"));
+    assert!(
+        spy.asked.lock().unwrap().is_empty(),
+        "the unsigned confirmation is not authorized"
+    );
+    assert_ne!(
+        reply.err().map(|e| e.code.to_string()).as_deref(),
+        Some("AuthorizationError")
+    );
     // The same call signed is asked like any other.
     let signed = w.handled("ConfirmSubscription", &request);
     assert!(!spy.asked.lock().unwrap().is_empty());
