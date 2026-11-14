@@ -7,7 +7,8 @@
 //! - [`channel`]: the control channel to a module process, including handing it a client connection.
 //! - [`tree`]: a process and everything it starts, stopped gently or killed, and gone when doze is gone.
 //! - [`privilege`]: never run engines with administrator rights.
-//! - [`process`]: whether a process is still there, by pid.
+//! - [`process`]: whether a process is still there, killing a recorded one, how one ended.
+//! - [`signal`]: being asked to stop (SIGTERM, CTRL_BREAK).
 //! - [`which`]: find a program on `PATH` without a shell.
 //! - [`fs`]: locks between processes, owner-only directories, cloning a data directory.
 //! - [`home`]: where doze keeps its state.
@@ -21,6 +22,7 @@ pub mod home;
 pub mod net;
 pub mod privilege;
 pub mod process;
+pub mod signal;
 pub mod tree;
 pub mod which;
 
