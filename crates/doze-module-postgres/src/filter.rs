@@ -77,6 +77,7 @@ impl Drop for Registered {
 }
 
 /// What the client's first packets came to.
+#[derive(Debug)]
 enum Preamble {
     /// The startup message to replay, and whether the client is on TLS.
     Startup(Vec<u8>, bool),
@@ -109,6 +110,22 @@ fn acceptor(req: &WireAccept) -> Result<Option<tokio_rustls::TlsAcceptor>> {
         .and_then(|b| b.with_no_client_auth().with_single_cert(vec![cert], key))
         .map_err(|e| err(format!("the host's TLS certificate: {e}")))?;
     Ok(Some(tokio_rustls::TlsAcceptor::from(Arc::new(config))))
+}
+
+/// The client's preamble, or a time-out once `limit` passes without its startup (Go waited for ever).
+async fn opening(
+    client: &mut Stream,
+    tls: Option<&tokio_rustls::TlsAcceptor>,
+    limit: Duration,
+) -> Result<Preamble> {
+    tokio::time::timeout(limit, preamble(client, tls))
+        .await
+        .unwrap_or_else(|_| {
+            Err(Error::new(
+                ErrorKind::TimedOut,
+                "the client sent no startup message",
+            ))
+        })
 }
 
 /// Reads the client's first packets, answering encryption requests, until a startup or cancel request.
@@ -225,24 +242,18 @@ pub(crate) async fn accept(
 ) -> Result<()> {
     let tls = acceptor(req)?;
     let mut client: Stream = Box::new(conn);
-    let (raw, encrypted) =
-        match tokio::time::timeout(PREAMBLE, preamble(&mut client, tls.as_ref())).await {
-            Ok(Ok(Preamble::Startup(raw, enc))) => (raw, enc),
-            Ok(Ok(Preamble::Cancel(key))) => {
-                route_cancel(cancels, &key).await;
-                return Ok(());
-            }
-            Ok(Err(e)) => {
-                refuse(&mut client, "08P01", &e.message).await;
-                return Err(e);
-            }
-            Err(_) => {
-                return Err(Error::new(
-                    ErrorKind::TimedOut,
-                    "the client sent no startup message",
-                ));
-            }
-        };
+    let (raw, encrypted) = match opening(&mut client, tls.as_ref(), PREAMBLE).await {
+        Ok(Preamble::Startup(raw, enc)) => (raw, enc),
+        Ok(Preamble::Cancel(key)) => {
+            route_cancel(cancels, &key).await;
+            return Ok(());
+        }
+        Err(e) if e.kind == Some(ErrorKind::TimedOut) => return Err(e),
+        Err(e) => {
+            refuse(&mut client, "08P01", &e.message).await;
+            return Err(e);
+        }
+    };
     if req.require_tls && !encrypted && !req.local {
         refuse(&mut client, "28000", "SSL connection required").await;
         return Ok(());
@@ -318,3 +329,7 @@ async fn splice(
         () = &mut up => down.await,
     }
 }
+
+#[cfg(test)]
+#[path = "filter_tests.rs"]
+mod tests;

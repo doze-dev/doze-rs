@@ -264,16 +264,28 @@ portable `process` engine, the app's tray and notifications) belongs to the core
 12. ⚑ ferret auth (follow-up, coordinator 2026-11-14): `auth = true` and `user` blocks stay refused at their line.
     Real auth needs a SCRAM client in the module and a doze-owned admin user that converge authenticates as (about
     a day). Not built in M1.
-13. Open from the M1 re-audit (2026-11-14; its high and medium findings are fixed: ferret's socket cleared before
+13. ✓ Open from the M1 re-audit (2026-11-14; its high and medium findings are fixed: ferret's socket cleared before
     its running check, postgres's racing template makers, keepalive on handed-over clients, versions CI never accepted
     (mariadb 11.8, postgres 16 added); also mariadb's pid check, ferret's owned keys, the filter's 10 000-byte startup
-    limit, a reply on every refused path, direct SSL named, a bad handshake ending the session):
-    ferret prune drops collections nobody declared with a removed database (as Go; postgres refuses that);
-    mariadb owned options can be spelled as prefixes (`sock`, `datad`); a template clone that fails half way cannot be
-    retried (clone beside and rename); ferret compound index keys lose their order (BTreeMap, as Go); fuzz markers for
-    ferret's seed reader, mariadb's grant-name and SHOW GRANTS readers, postgres's psql row split; filter tests for
-    GSSENC, a second encryption request and the startup timeout; small consistency nits (unknown prune kinds,
-    `tool()` and `tc.tools`, socket paths unescaped in URLs, "already running" wording).
+    limit, a reply on every refused path, direct SSL named, a bad handshake ending the session). **Closed 2026-11-15**
+    (core-m1, each with its test):
+    - ferret prune drops indexes, then collections, then a database only once it is empty: a database still holding a
+      collection doze.hcl never declared is refused, naming it (Go dropped it with the app's data; postgres refuses a
+      schema with tables the same way). Proven on the engine (`a_compound_index_keeps_its_key_order_and_a_removed_database_keeps_an_apps_data`).
+    - mariadb refuses an owned option as any abbreviation mariadbd would take (`sock`, `datad`, `loose-bind`).
+    - a template clone is made beside the data directory and renamed in, so one that failed half way is cleared and made
+      again (`doze-module`, `a_clone_that_failed_half_way_is_cleared_and_made_again`).
+    - ferret compound index keys keep the order written: the SDK's new `Ordered<T>` reads an object in its source order
+      (each value's span), as a doze.hcl map travels sorted. Go sorted the keys, so `{ status = 1, at = -1 }` built an
+      index on `at, status`.
+    - fuzz targets for ferret's seed reader (`fuzz_seed`), mariadb's grant-name and privilege readers (`fuzz_read`, the
+      readers moved to `src/read.rs`), postgres's psql row reader (`fuzz_rows`, `src/rows.rs`); all in CI's fuzz job.
+    - filter tests (`src/filter_tests.rs`): GSSENC declined with or without TLS on offer, a second encryption request
+      inside TLS refused, a client that sends no startup timed out.
+    - nits: an unknown prune kind fails in ferret as in mariadb and postgres; every module's `tool()` takes the
+      toolchain's `tools` first; postgres's socket directory is percent-encoded in its URLs; one "already running"
+      wording; ferret's seed documents are sorted by the module, not by serde_json (a workspace build turns
+      `preserve_order` on).
 
 ## Things the core port inherits (not in this plan, recorded so they are not lost)
 

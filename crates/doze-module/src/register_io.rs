@@ -141,14 +141,57 @@ impl<M: Module + crate::caps::Wire> Server<M> {
     }
 }
 
-/// The template cloned to `dst`, its parent made first (private, as Go's `Clone` made it) and an empty `dst` left
-/// by an earlier attempt removed; a `dst` holding anything is refused, never overwritten.
+/// The template cloned to `dst`, its parent made first (private, as Go's `Clone` made it). The clone is made beside
+/// `dst` and renamed into place, so one that failed half way (a full disk, a killed module) leaves no half data
+/// directory: the next attempt clears the leftover and clones again. An empty `dst` left by an earlier attempt is
+/// removed; a `dst` holding anything is refused, never overwritten.
 fn clone_into(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
     if let Some(parent) = dst.parent() {
         doze_os::fs::private_dir(parent)?;
     }
-    if std::fs::read_dir(dst).is_ok_and(|mut d| d.next().is_none()) {
-        std::fs::remove_dir(dst)?;
+    match std::fs::read_dir(dst).map(|mut d| d.next().is_none()) {
+        Ok(true) => std::fs::remove_dir(dst)?,
+        Ok(false) => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                format!("{} already holds data", dst.display()),
+            ));
+        }
+        Err(_) => {}
     }
-    doze_os::fs::clone_dir(src, dst)
+    let mut name = std::ffi::OsString::from(".");
+    name.push(dst.file_name().unwrap_or_default());
+    name.push(".cloning");
+    let part = dst.with_file_name(name);
+    if std::fs::symlink_metadata(&part).is_ok() {
+        std::fs::remove_dir_all(&part)?;
+    }
+    doze_os::fs::clone_dir(src, &part)?;
+    std::fs::rename(&part, dst)
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::clone_into;
+
+    #[test]
+    fn a_clone_that_failed_half_way_is_cleared_and_made_again() {
+        let root = std::env::temp_dir().join(format!("doze-module-clone-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let (src, dst) = (root.join("template"), root.join("data/pg"));
+        std::fs::create_dir_all(src.join("base")).unwrap();
+        std::fs::write(src.join("base/1"), "one").unwrap();
+        // What a killed earlier attempt leaves: part of a clone beside the data directory.
+        std::fs::create_dir_all(root.join("data/.pg.cloning/base")).unwrap();
+        std::fs::write(root.join("data/.pg.cloning/half"), "x").unwrap();
+        clone_into(&src, &dst).unwrap();
+        assert_eq!(std::fs::read_to_string(dst.join("base/1")).unwrap(), "one");
+        assert!(!dst.join("half").exists());
+        assert!(!root.join("data/.pg.cloning").exists());
+        // A data directory holding anything is never overwritten.
+        let e = clone_into(&src, &dst).unwrap_err();
+        assert_eq!(e.kind(), std::io::ErrorKind::AlreadyExists);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 }

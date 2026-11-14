@@ -38,7 +38,7 @@ fn main() -> std::process::ExitCode {
 - **`#[derive(Spec)]` is the single source** of the schema (sent in the manifest, validated by the core, rendered by
   the registry) and of decoding (typed fields from the core's `Value` tree, with a diagnostic at the field's path for
   anything wrong). They cannot drift. Supported: `String`, `bool`, integers, `f64`, `Option<T>`, `Vec<T>`,
-  `BTreeMap<String, T>`, nested `#[spec(block)]` structs (repeated: `Vec<…>`, labelled: a `#[spec(label)]` field).
+  `BTreeMap<String, T>`, `Ordered<T>` (an object in the order written, from its values' spans), nested `#[spec(block)]` structs (repeated: `Vec<…>`, labelled: a `#[spec(label)]` field).
   Field attributes: `doc`, `default`, `since`, `until`, `rename`, `key` (an argument that joins the labels in a
   block's identity: two blocks with the same labels and the same key values, as written, are refused; a module whose
   key has a default, as mariadb's `host` "%", catches "left out" equal to the default in its own `check`). `Module::check` adds semantic rules a schema cannot

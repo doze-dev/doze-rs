@@ -140,33 +140,6 @@ fn split_account(s: &str) -> Option<(&str, &str)> {
     s.rsplit_once('@')
 }
 
-/// A grant's target as [`sql::target`] wrote it: `*.*`, `` `db`.* `` or `` `db`.`table` ``, backquotes doubled inside.
-/// Anything else is refused: an object's name comes back from the core's records, and only what this module made may
-/// reach SQL.
-pub(crate) fn target_ok(t: &str) -> bool {
-    fn quoted(s: &str) -> Option<&str> {
-        let inner = s.strip_prefix('`')?;
-        let mut chars = inner.char_indices().peekable();
-        while let Some((i, c)) = chars.next() {
-            if c == '`' {
-                if chars.peek().map(|(_, n)| *n) == Some('`') {
-                    chars.next();
-                } else {
-                    return inner.get(i + 1..);
-                }
-            }
-        }
-        None
-    }
-    if t == "*.*" {
-        return true;
-    }
-    let Some(rest) = quoted(t).and_then(|r| r.strip_prefix('.')) else {
-        return false;
-    };
-    rest == "*" || quoted(rest) == Some("")
-}
-
 /// The statements that take a removed object away, each run on its own; `None` for a name this module could not have
 /// made (prune then fails rather than leave it behind unsaid).
 fn drop_statements(o: &Object) -> Option<Vec<String>> {
@@ -175,7 +148,7 @@ fn drop_statements(o: &Object) -> Option<Vec<String>> {
         USER => split_account(&o.name)
             .map(|(n, h)| vec![format!("DROP USER IF EXISTS {}", account(n, h))]),
         GRANT => {
-            let (n, h, on) = grants::parse_name(&o.name, target_ok)?;
+            let (n, h, on) = crate::read::grant_name(&o.name, crate::read::target_ok)?;
             let who = account(n, h);
             // REVOKE ALL leaves GRANT OPTION behind; it is taken on its own.
             Some(vec![
@@ -280,7 +253,7 @@ mod tests {
     #[test]
     fn only_targets_this_module_writes_reach_sql() {
         for ok in ["*.*", "`app`.*", "`app`.`orders`", "`a``b`.`c`"] {
-            assert!(target_ok(ok), "{ok}");
+            assert!(crate::read::target_ok(ok), "{ok}");
         }
         for bad in [
             "app.*",
@@ -289,7 +262,7 @@ mod tests {
             "`a`b`.*",
             "*.`x`",
         ] {
-            assert!(!target_ok(bad), "{bad}");
+            assert!(!crate::read::target_ok(bad), "{bad}");
         }
     }
 }

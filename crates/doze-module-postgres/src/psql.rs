@@ -10,8 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::io::AsyncWriteExt;
 
-/// Separates fields in rows read back (psql's `-F`): the unit separator, which no catalog value holds.
-pub(crate) const SEP: char = '\x1f';
+use crate::rows::{SEP, split};
 
 /// psql for one instance.
 #[derive(Debug, Clone)]
@@ -185,15 +184,6 @@ fn clean(e: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-/// Rows of `n` fields from psql's unaligned output.
-pub(crate) fn split(out: &str, n: usize) -> Vec<Vec<String>> {
-    out.lines()
-        .filter(|l| !l.is_empty())
-        .map(|l| l.split(SEP).map(str::to_owned).collect::<Vec<_>>())
-        .filter(|f| f.len() == n)
-        .collect()
 }
 
 /// For an admin call: psql for the running instance, or why there is none.

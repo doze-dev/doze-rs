@@ -19,6 +19,7 @@
 mod check;
 mod converge;
 mod grants;
+mod read;
 mod sql;
 
 use doze_module::proto::msg::error::Diagnostic;
@@ -238,8 +239,12 @@ fn stale_pid(pid: &Path, name: &str) -> Result<()> {
 }
 
 /// One of the engine's programs in its toolchain.
+/// A program of the toolchain: the one it names in `tools`, else the one in `bin_dir` (as postgres and ferret find theirs).
 fn tool(tc: &Toolchain, name: &str) -> std::path::PathBuf {
-    Path::new(&tc.bin_dir).join(format!("{name}{}", std::env::consts::EXE_SUFFIX))
+    match tc.tools.get(name) {
+        Some(p) => std::path::PathBuf::from(p),
+        None => Path::new(&tc.bin_dir).join(format!("{name}{}", std::env::consts::EXE_SUFFIX)),
+    }
 }
 
 /// The engine's own `mariadb` client through doze's address (so it wakes the instance), as root, with no

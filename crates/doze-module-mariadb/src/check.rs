@@ -74,17 +74,20 @@ pub(crate) fn check(s: &MariadbSpec) -> Vec<Diagnostic> {
     out
 }
 
-/// A setting goes into my.cnf as `key = value`: a key doze owns (with any of mariadbd's prefixes) is refused, and so
-/// is anything that would start a line or a section of its own.
+/// A setting goes into my.cnf as `key = value`: a key doze owns is refused, with any of mariadbd's prefixes and as any
+/// abbreviation of it (mariadbd takes an option's unambiguous prefix, so `sock` is `socket` and `datad` is `datadir`),
+/// and so is anything that would start a line or a section of its own.
 fn settings(s: &MariadbSpec, out: &mut Vec<Diagnostic>) {
     let owned: Vec<String> = sql::OWNED.iter().map(|o| option(o)).collect();
     for (k, v) in &s.settings {
         let here = vec![key("settings"), key(k)];
-        if owned.contains(&option(k)) {
+        let name = option(k);
+        if !name.is_empty() && owned.iter().any(|o| o.starts_with(name.as_str())) {
             out.push(at(
                 here.clone(),
                 format!(
-                    "{k} is doze's to set: it decides where the server keeps its data and listens"
+                    "{k} is doze's to set (MariaDB reads it as {}): it decides where the server keeps its data and listens",
+                    owned.iter().find(|o| o.starts_with(name.as_str())).map_or("", String::as_str)
                 ),
                 Some("leave it out; doze url says where the server answers"),
             ));
@@ -288,6 +291,32 @@ mod tests {
         assert!(msgs.iter().any(|m| m.contains("Socket is doze's")));
         assert!(msgs.iter().any(|m| m.contains("declared more than once")));
         assert!(msgs.iter().any(|m| m.contains("needs its database")));
+    }
+
+    #[test]
+    fn an_owned_option_is_refused_as_any_abbreviation_mariadbd_would_take() {
+        for (k, owned) in [
+            ("sock", "socket"),
+            ("datad", "datadir"),
+            ("loose-bind", "bind-address"),
+            ("skip_net", "networking"),
+            ("PID", "pid-file"),
+        ] {
+            let mut s = spec();
+            s.settings.insert(k.into(), "x".into());
+            let d = check(&s);
+            assert_eq!(d.len(), 1, "{k}: {d:?}");
+            assert!(
+                d[0].message.contains(&format!("reads it as {owned}")),
+                "{k}: {}",
+                d[0].message
+            );
+        }
+        for k in ["port_open_timeout", "max_connections", "socket_timeout"] {
+            let mut s = spec();
+            s.settings.insert(k.into(), "1".into());
+            assert!(check(&s).is_empty(), "{k}");
+        }
     }
 }
 

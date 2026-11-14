@@ -102,8 +102,10 @@ struct Collection {
 struct Index {
     #[spec(doc = "The index's name; the server makes one from the keys when left out.")]
     name: Option<String>,
-    #[spec(doc = "Fields and their order, 1 ascending or -1 descending, e.g. { sku = 1 }.")]
-    keys: BTreeMap<String, i64>,
+    #[spec(
+        doc = "Fields in the order written, each 1 ascending or -1 descending, e.g. { sku = 1, at = -1 }."
+    )]
+    keys: doze_module::Ordered<i64>,
     #[spec(default = false, doc = "Refuse two documents with the same keys.")]
     unique: bool,
 }

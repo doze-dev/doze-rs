@@ -157,7 +157,7 @@ fn collection(
             ));
         }
     }
-    let mut seen: Vec<(String, Vec<(&String, &i64)>)> = Vec::new();
+    let mut seen: Vec<(String, Vec<&(String, i64)>)> = Vec::new();
     for (i, ix) in c.index.iter().enumerate() {
         let mut p = here.clone();
         p.extend([key("index"), index(i)]);
@@ -184,14 +184,14 @@ fn collection(
 fn index_rules(ix: &Index, here: Vec<PathSeg>, out: &mut Vec<Diagnostic>) {
     let mut keys = here.clone();
     keys.push(key("keys"));
-    if ix.keys.is_empty() {
+    if ix.keys.0.is_empty() {
         out.push(at(
             keys.clone(),
             "an index needs at least one key".into(),
             Some("keys = { sku = 1 }"),
         ));
     }
-    for (f, dir) in &ix.keys {
+    for (f, dir) in ix.keys.iter() {
         let mut p = keys.clone();
         p.push(key(f));
         if *dir != 1 && *dir != -1 {
@@ -323,7 +323,7 @@ mod tests {
     fn ix(name: Option<&str>, keys: &[(&str, i64)]) -> Index {
         Index {
             name: name.map(str::to_owned),
-            keys: keys.iter().map(|(k, v)| (k.to_string(), *v)).collect(),
+            keys: doze_module::Ordered(keys.iter().map(|(k, v)| (k.to_string(), *v)).collect()),
             unique: false,
         }
     }

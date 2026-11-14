@@ -320,3 +320,73 @@ async fn a_sleeping_instance_wakes_with_its_data() {
     assert_eq!(n.int("n"), Some(2));
     graceful(&b.stop(Duration::from_secs(30)).await);
 }
+
+const TWO_DATABASES: &str = r#"ferret "docs" {
+  version = "2.7"
+  database "shop" {
+    collection "orders" {
+      index {
+        keys = { status = 1, at = -1 }
+      }
+    }
+  }
+  database "scratch" {
+    collection "notes" {}
+  }
+}
+"#;
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_compound_index_keeps_its_key_order_and_a_removed_database_keeps_an_apps_data() {
+    let Some(h) = harness() else { return };
+    let b = h.boot(TWO_DATABASES).await.unwrap();
+    let mut c = client(&b).await;
+    // Built in the order written (Go sorted the keys: `at, status`, an index for other queries).
+    let ix = indexes(&mut c, "shop", "orders").await;
+    let compound = ix
+        .iter()
+        .find(|d| d.str("name") == Some("status_1_at_-1"))
+        .unwrap_or_else(|| panic!("{ix:?}"));
+    let keys: Vec<&str> = compound
+        .doc("key")
+        .unwrap()
+        .0
+        .iter()
+        .map(|(k, _)| k.as_str())
+        .collect();
+    assert_eq!(keys, ["status", "at"]);
+    // An app's own collection in a declared database, then the database leaves doze.hcl.
+    c.run("scratch", Doc::new().with("create", "app_cache"))
+        .await
+        .unwrap();
+    let before = b.module.objects(&b.instance).await.unwrap();
+    let mut inst = b.instance.clone();
+    let without = TWO_DATABASES.replace(
+        "  database \"scratch\" {\n    collection \"notes\" {}\n  }\n",
+        "",
+    );
+    inst.spec = doze_module_test::hcl::parse_block(&without, &b.module.manifest.schema)
+        .unwrap()
+        .spec;
+    let after = b.module.objects(&inst).await.unwrap();
+    let removed: Vec<_> = before
+        .into_iter()
+        .filter(|o| !after.iter().any(|a| a.kind == o.kind && a.name == o.name))
+        .collect();
+    let prune = PruneArgs {
+        instance: inst,
+        toolchain: b.toolchain.clone(),
+        removed,
+    };
+    let e = b.module.prune(&prune).await.unwrap_err();
+    assert!(e.message.contains("app_cache"), "{e:?}");
+    // The declared collection went; the app's stayed, and so did the database.
+    assert_eq!(collections(&mut c, "scratch").await, ["app_cache"]);
+    // Once the person drops it, prune finishes.
+    c.run("scratch", Doc::new().with("drop", "app_cache"))
+        .await
+        .unwrap();
+    b.module.prune(&prune).await.unwrap();
+    assert!(collections(&mut c, "scratch").await.is_empty());
+    graceful(&b.stop(Duration::from_secs(30)).await);
+}

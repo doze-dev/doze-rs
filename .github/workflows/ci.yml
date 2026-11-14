@@ -476,20 +476,25 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_duration
           cargo fuzz run fuzz_duration corpus/fuzz_duration -- -max_total_time=30
-      - name: Fuzz ferret's BSON reader and OP_MSG replies for 30 seconds each
+      - name: Fuzz ferret's BSON reader, OP_MSG replies and seed reader for 30 seconds each
         working-directory: crates/doze-module-ferret/fuzz
         run: |
-          for target in fuzz_bson fuzz_reply; do
+          for target in fuzz_bson fuzz_reply fuzz_seed; do
             mkdir -p "corpus/$target"
             cargo fuzz run "$target" "corpus/$target" -- -max_total_time=30 -max_len=65536
           done
-      - name: Fuzz postgres's wire protocol reader and object-name reader for 30 seconds each
+      - name: Fuzz postgres's wire protocol reader, object-name reader and psql row reader for 30 seconds each
         working-directory: crates/doze-module-postgres/fuzz
         run: |
-          for target in fuzz_wire fuzz_names; do
+          for target in fuzz_wire fuzz_names fuzz_rows; do
             mkdir -p "corpus/$target"
             cargo fuzz run "$target" "corpus/$target" -- -max_total_time=30 -max_len=65536
           done
+      - name: Fuzz mariadb's grant-name and privilege readers for 30 seconds
+        working-directory: crates/doze-module-mariadb/fuzz
+        run: |
+          mkdir -p corpus/fuzz_read
+          cargo fuzz run fuzz_read corpus/fuzz_read -- -max_total_time=30 -max_len=65536
       - name: Fuzz the .doze resolver's DNS wire, upstream and setup parsers for 30 seconds each
         working-directory: crates/doze-names/fuzz
         run: |

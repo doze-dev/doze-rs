@@ -3,6 +3,8 @@
 //! bug 6). Here an integer stays an integer: int32 when it fits, int64 when it needs to, a double only when the text
 //! has a fraction or an exponent, or the integer is beyond int64.
 
+// fuzz:parser fuzz_seed
+
 use crate::bson::{Bson, Doc};
 use serde_json::Value;
 
@@ -42,8 +44,12 @@ fn nul_key(v: &Value) -> Option<String> {
     }
 }
 
+/// A document with its fields sorted, as Go's map stored them. Sorted here, not left to serde_json: its map keeps the
+/// text's order when any crate of a build turns on `preserve_order` (the doze-rs workspace's test build does).
 fn object(o: serde_json::Map<String, Value>) -> Doc {
-    Doc(o.into_iter().map(|(k, v)| (k, value(v))).collect())
+    let mut fields: Vec<(String, Bson)> = o.into_iter().map(|(k, v)| (k, value(v))).collect();
+    fields.sort_by(|a, b| a.0.cmp(&b.0));
+    Doc(fields)
 }
 
 fn value(v: Value) -> Bson {
@@ -88,8 +94,7 @@ mod tests {
 
     #[test]
     fn fields_come_back_sorted_as_go_stored_them() {
-        // serde_json's preserve_order is not on (it would change every crate's JSON in a workspace build): keys come
-        // back sorted, as Go's map stored them.
+        // Sorted whatever serde_json's features are (a workspace build turns preserve_order on), as Go's map stored them.
         let d = documents(r#"[{"_id": 1, "tags": ["x", {"y": null}], "ok": true}]"#).unwrap();
         let keys: Vec<&str> = d[0].0.iter().map(|(k, _)| k.as_str()).collect();
         assert_eq!(keys, ["_id", "ok", "tags"]);

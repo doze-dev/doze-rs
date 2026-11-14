@@ -61,7 +61,8 @@ pub(crate) fn index_name(ix: &Index) -> String {
     })
 }
 
-/// The `createIndexes` entry: keys in field order (doze.hcl maps have no order; Go sorted them the same way).
+/// The `createIndexes` entry: keys in the order doze.hcl has them (Go sorted them by name, so `{ b = 1, a = 1 }` made an
+/// index on `a, b`, which serves other queries).
 fn index_spec(ix: &Index) -> Doc {
     let keys = Doc(ix
         .keys
@@ -246,13 +247,7 @@ impl Objects for Ferret {
                 let ixs: Vec<IndexFacts> = c
                     .index
                     .iter()
-                    .map(|ix| {
-                        (
-                            index_name(ix),
-                            ix.keys.clone().into_iter().collect(),
-                            ix.unique,
-                        )
-                    })
+                    .map(|ix| (index_name(ix), ix.keys.0.clone(), ix.unique))
                     .collect();
                 let hash = help::object_hash(&(&c.name, &c.seed, &ixs));
                 out.push(Object {
@@ -274,16 +269,33 @@ impl Objects for Ferret {
 }
 
 impl Prune for Ferret {
-    /// Drops what is no longer declared: an index, a collection, or a database whole. What is already gone is fine.
+    /// Drops what is no longer declared: indexes, then collections, then databases. A database is dropped only once
+    /// nothing is left in it: one still holding a collection doze.hcl never declared (an app's own) is refused, naming
+    /// it, as postgres refuses a schema with tables in it (Go dropped the database and the app's data with it). What is
+    /// already gone is fine.
     async fn prune(&self, cx: &Cx<FerretSpec>, _tc: &Toolchain, removed: &[Object]) -> Result<()> {
         if removed.is_empty() {
             return Ok(());
         }
         let mut c = client(cx).await?;
-        for o in removed {
+        let mut order: Vec<&Object> = removed.iter().collect();
+        order.sort_by_key(|o| match o.kind.as_str() {
+            INDEX => 0,
+            COLLECTION => 1,
+            _ => 2,
+        });
+        for o in order {
+            // A kind or name this module could not have made: fail rather than leave it behind unsaid (as mariadb
+            // and postgres do).
             let Some((db, cmd)) = drop_command(o) else {
-                continue;
+                return Err(Error::new(
+                    ErrorKind::Internal,
+                    format!("{} {:?} is not an object ferret makes", o.kind, o.name),
+                ));
             };
+            if o.kind == DATABASE {
+                undeclared_left(&mut c, &db).await?;
+            }
             match c.run(&db, cmd).await {
                 Err(e) if !matches!(e.code(), Some(NAMESPACE_NOT_FOUND | INDEX_NOT_FOUND)) => {
                     return Err(failed(format!("dropping {} {}", o.kind, o.name), &e));
@@ -293,6 +305,31 @@ impl Prune for Ferret {
         }
         Ok(())
     }
+}
+
+/// Refuses to drop `db` while it holds a collection: by now its declared ones are gone, so what is left is someone's.
+async fn undeclared_left(c: &mut Client, db: &str) -> Result<()> {
+    let list = Doc::new().with("listCollections", 1).with("nameOnly", true);
+    let left = c
+        .all(db, list, "$cmd.listCollections")
+        .await
+        .map_err(|e| failed(format!("listing the collections of {db}"), &e))?;
+    let names: Vec<&str> = left
+        .iter()
+        .filter_map(|d| d.str("name"))
+        .filter(|n| !n.starts_with("system."))
+        .collect();
+    if names.is_empty() {
+        return Ok(());
+    }
+    Err(Error::new(
+        ErrorKind::Invalid,
+        format!(
+            "database {db} was removed from doze.hcl but still holds collections it never declared ({}); \
+             drop them yourself or declare the database again",
+            names.join(", ")
+        ),
+    ))
 }
 
 /// The database and command that drop a removed object; `None` for a kind this module never listed.
@@ -320,15 +357,11 @@ fn drop_command(o: &Object) -> Option<(String, Doc)> {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
 
     fn ix(name: Option<&str>, keys: &[(&str, i64)]) -> Index {
         Index {
             name: name.map(str::to_owned),
-            keys: keys
-                .iter()
-                .map(|(k, v)| (k.to_string(), *v))
-                .collect::<BTreeMap<_, _>>(),
+            keys: doze_module::Ordered(keys.iter().map(|(k, v)| (k.to_string(), *v)).collect()),
             unique: false,
         }
     }
@@ -336,7 +369,12 @@ mod tests {
     #[test]
     fn an_unnamed_index_is_named_as_mongodb_names_it() {
         assert_eq!(index_name(&ix(None, &[("sku", 1)])), "sku_1");
-        assert_eq!(index_name(&ix(None, &[("b", -1), ("a", 1)])), "a_1_b_-1");
+        // In the order written, as MongoDB names (and builds) a compound index.
+        assert_eq!(
+            index_name(&ix(None, &[("sku", 1), ("at", -1)])),
+            "sku_1_at_-1"
+        );
+        assert_eq!(index_name(&ix(None, &[("b", -1), ("a", 1)])), "b_-1_a_1");
         assert_eq!(index_name(&ix(Some("by_sku"), &[("sku", 1)])), "by_sku");
     }
 

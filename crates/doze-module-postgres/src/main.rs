@@ -25,6 +25,7 @@ mod filter;
 mod names;
 mod prune;
 mod psql;
+mod rows;
 mod spec;
 mod sql;
 mod wire;
@@ -98,6 +99,20 @@ pub(crate) fn tool(tc: &Toolchain, name: &str) -> PathBuf {
     }
 }
 
+/// A socket directory as a URL's query value: percent-encoded but for `/` and the unreserved characters, so a home
+/// with a space, `&`, `#` or `%` in it still reads back as the one directory (libpq decodes it).
+fn query_value(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || b"-._~/".contains(&b) {
+            out.push(char::from(b));
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
 /// An exact version as the mirror names it: "16.14" is "16.14.0".
 fn exact(v: &str) -> String {
     if v.matches('.').count() == 1 {
@@ -159,7 +174,7 @@ impl Module for Postgres {
             Some(addr) => format!("postgres://postgres@{addr}/{name}?sslmode=disable"),
             None => format!(
                 "postgres://postgres@/{name}?host={}",
-                psql::backend(&cx.instance)?.0
+                query_value(&psql::backend(&cx.instance)?.0)
             ),
         };
         Ok(Connection {
@@ -270,8 +285,9 @@ impl BackendUrl for Postgres {
     fn backend_url(&self, cx: &Cx<PostgresSpec>) -> Result<String> {
         let (dir, port) = psql::backend(&cx.instance)?;
         Ok(format!(
-            "postgres://postgres@/{}?host={dir}&port={port}",
-            cx.instance.name
+            "postgres://postgres@/{}?host={}&port={port}",
+            cx.instance.name,
+            query_value(&dir)
         ))
     }
 }
@@ -335,4 +351,16 @@ fn main() -> std::process::ExitCode {
         .backend_url()
         .wire()
         .run()
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_socket_directory_reads_back_whole_from_a_url() {
+        assert_eq!(super::query_value("/tmp/dz/s/db"), "/tmp/dz/s/db");
+        assert_eq!(
+            super::query_value("/Users/a b/x&port=1#%"),
+            "/Users/a%20b/x%26port%3D1%23%25"
+        );
+    }
 }

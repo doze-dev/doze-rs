@@ -112,14 +112,15 @@ async fn component(
 
 /// The gateway's program: the toolchain's `ferretdb` tool, or beside the extension's programs.
 pub(crate) fn gateway(tc: &Toolchain) -> String {
-    tc.tools
-        .get("ferretdb")
-        .cloned()
-        .unwrap_or_else(|| path(&tool(tc, "ferretdb")))
+    path(&tool(tc, "ferretdb"))
 }
 
+/// A program of the toolchain: the one it names in `tools`, else the one in `bin_dir` (as postgres and mariadb find theirs).
 fn tool(tc: &Toolchain, name: &str) -> PathBuf {
-    Path::new(&tc.bin_dir).join(format!("{name}{}", std::env::consts::EXE_SUFFIX))
+    match tc.tools.get(name) {
+        Some(p) => PathBuf::from(p),
+        None => Path::new(&tc.bin_dir).join(format!("{name}{}", std::env::consts::EXE_SUFFIX)),
+    }
 }
 
 /// The libpq URL the gateway reaches the cluster with: its socket directory.
@@ -297,7 +298,7 @@ fn stale(inst: &Instance, pgdata: &Path, sock: &Path) -> Result<()> {
         .filter(|p| doze_os::process::alive_own(*p));
     if let Some(p) = live {
         let msg = format!(
-            "ferret {:?} appears to be running already (pid {p}); remove {} if you are sure it is not",
+            "instance {:?} appears to already be running (pid {p}); remove {} if you are sure it is not",
             inst.name,
             pidfile.display()
         );

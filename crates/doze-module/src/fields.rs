@@ -148,3 +148,44 @@ impl<T: Field> Field for BTreeMap<String, T> {
         Some(BTreeMap::new())
     }
 }
+
+/// An object whose entries keep the order they were written in: a doze.hcl object travels as a map (keys sorted), but
+/// each value carries its span, so the order of the source is the order of the spans. For a module to which order is
+/// meaning (a compound index's keys); a value without a span (one the core made) keeps its key order.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Ordered<T>(pub Vec<(String, T)>);
+
+impl<T> Ordered<T> {
+    /// The entries, in the order they were written.
+    pub fn iter(&self) -> impl Iterator<Item = &(String, T)> {
+        self.0.iter()
+    }
+}
+
+impl<T: Field> Field for Ordered<T> {
+    fn ty() -> Type {
+        Type::Map(Box::new(T::ty()))
+    }
+    fn read(node: &Node, cx: &mut Decoding) -> Option<Ordered<T>> {
+        let Value::Map(m) = &node.value else {
+            cx.error(
+                format!("expected an object, found {}", kind(&node.value)),
+                None,
+            );
+            return None;
+        };
+        let mut entries: Vec<(&String, &Node)> = m.iter().collect();
+        // Stable: entries without a span (all at 0) stay in key order.
+        entries.sort_by_key(|(_, v)| (v.span.file, v.span.start));
+        let mut out = Vec::with_capacity(entries.len());
+        for (k, v) in entries {
+            cx.path_push(PathSeg::Key(k.clone()));
+            out.push(T::read(v, cx).map(|v| (k.clone(), v)));
+            cx.path_pop();
+        }
+        out.into_iter().collect::<Option<Vec<_>>>().map(Ordered)
+    }
+    fn absent() -> Option<Ordered<T>> {
+        Some(Ordered(Vec::new()))
+    }
+}

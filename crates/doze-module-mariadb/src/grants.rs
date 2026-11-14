@@ -135,13 +135,8 @@ pub(crate) fn revokes(g: &Grant, now: &str) -> Vec<String> {
     let on = target(every(&g.database), every(&g.table));
     let who = account(&g.user, host(&g.host));
     let mut out = Vec::new();
-    let mut grantable = false;
-    for line in now.lines() {
-        let mut cols = line.split('\t');
-        let (Some(p), grant) = (cols.next(), cols.next()) else {
-            continue;
-        };
-        grantable |= grant == Some("YES");
+    let (privs, grantable) = crate::read::privileges(now);
+    for p in privs {
         if !all && p != "USAGE" && !want.iter().any(|w| w == p) {
             out.push(format!("REVOKE {p} ON {on} FROM {who}"));
         }
@@ -150,16 +145,6 @@ pub(crate) fn revokes(g: &Grant, now: &str) -> Vec<String> {
         out.push(format!("REVOKE GRANT OPTION ON {on} FROM {who}"));
     }
     out
-}
-
-/// A grant object's name split back into account and target (`name@host on <target>`): at the first " on " whose right
-/// side is a whole target `ok` accepts, so a target with " on " or "@" in its names still splits right.
-pub(crate) fn parse_name(name: &str, ok: fn(&str) -> bool) -> Option<(&str, &str, &str)> {
-    name.match_indices(" on ").find_map(|(i, _)| {
-        let (who, on) = (name.get(..i)?, name.get(i + 4..)?);
-        let (user, h) = who.rsplit_once('@')?;
-        ok(on).then_some((user, h, on))
-    })
 }
 
 /// Whether a client error is "no such grant" (1141, 1147): by code, so a server speaking another language is read
@@ -201,7 +186,7 @@ mod tests {
     #[test]
     fn names_split_from_the_right_parts() {
         assert_eq!(
-            parse_name("a@b@% on `my on @db`.*", crate::converge::target_ok),
+            crate::read::grant_name("a@b@% on `my on @db`.*", crate::read::target_ok),
             Some(("a@b", "%", "`my on @db`.*"))
         );
         assert!(no_such_grant("ERROR 1141 (42000) at line 1: Es gibt keine"));
