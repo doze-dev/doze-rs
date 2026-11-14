@@ -25,7 +25,7 @@ test that holds the same behaviour, or why it is elsewhere.
 |---|---|---|
 | `TestManifestParse` | the doze-binaries manifest | `mirror::tests::reads_the_manifest`, `fuzz_manifest` |
 | `TestEnsureDownloadTarGzWithOneTopLevelDirectory` | a nested `bin/` comes to the top; the archive's sha is kept | `archive::tests::a_nested_bin_comes_to_the_top_and_the_sha_is_kept` |
-| `TestAChangedDownloadIsRefused`, `TestCacheHitHonoursTheLock` | a download or a cached build that differs from the lock's pin is refused | `mirror::tests::a_build_is_fetched_verified_cached_and_held_to_its_pin` |
+| `TestAChangedDownloadIsRefused`, `TestCacheHitHonoursTheLock` | a download or a cached build that differs from the lock's pin is refused | `mirror::tests::a_build_is_fetched_verified_cached_and_held_to_its_pin`, `modules::gates_tests::a_cold_download_is_held_to_the_lock` |
 | `TestADownloadCannotEscapeItsDirectory` | an archive entry naming `../…` is not written outside | `archive::tests::an_archive_cannot_write_outside_its_folder` |
 | `TestEnsureDownloadZipAndBareBinary`, `TestTheLockPinsADownloadOnce`, `TestADownloadStopsWithItsContext` | `download(…)` inputs of tasks (any URL, zip or bare binary) | E2 (tasks and `inputs`); the lock's `downloads` record is here (`Lock::record_download`) |
 
@@ -33,7 +33,11 @@ test that holds the same behaviour, or why it is elsewhere.
 
 | Behaviour | Rust test |
 |---|---|
-| A module's `fetch.ensure` names plain folder names, and a platform doze builds for (or this machine's); anything else is refused before it becomes a cache path | `child::tests::an_ensure_for_an_unknown_platform_is_refused` |
+| A module's `fetch.ensure` names plain folder names, and a platform doze builds for (or this machine's); anything else is refused before it becomes a cache path | `child::tests::an_ensure_for_an_unknown_platform_is_refused`, `child::tests::an_ensure_whose_names_are_paths_is_refused` |
+| A build found under the lock is taken as cached, never unpacked over one that may be running; a failed or killed unpack leaves no tmp folder | `modules::gates_tests::a_build_found_under_the_lock_is_not_unpacked_again`, `archive::tests::a_failed_unpack_leaves_no_tmp` |
+| `modules upgrade` needs the registry: offline it fails with the registry's error (no cache fallback), as Go's `Upgrade` | `modules::gates_tests::an_upgrade_needs_the_registry` |
+| A pin with no `protocol:` (Go omitted it) is resolved again; an engine pin whose `resolved` is a path refuses the lock | `modules::gates_tests::a_pin_with_no_protocol_is_resolved_again`, `modules::gates_tests::an_engine_pin_that_is_a_path_refuses_the_lock` |
+| A `file://` read keeps the same size limits as a download; unpacked modes keep their permission bits only (setuid and setgid dropped, as Go masked with 0o777) | code; `registry/http.rs`, `archive.rs` |
 | Parallel children filling one build take its file lock (`<build>.lock`) in turn, and one that finds it there once it holds the lock takes it as cached | `modules::tests::parallel_fills_of_one_build_all_end_with_it` (fails without the lock) |
 | Children resolving different modules at once all save into one `doze.lock`: each re-reads it under a lock in the doze home and changes only its own pin | `child::tests::concurrent_saves_keep_every_pin` (fails without the lock) |
 | A request that persists writes the pin and says "pinned … in doze.lock — commit the lockfile …" once, after the save (Go logged it after `Save`); a read command writes nothing and says nothing | `child::tests::a_persisted_module_request_pins_it_and_says_so_once` |
@@ -64,7 +68,9 @@ test that holds the same behaviour, or why it is elsewhere.
 | A pin's version is joined into the cache path | a version that is not a plain dotted name (`/abs`, `../x`) refuses the lock | an absolute version replaced the whole path and ran a file from the repo |
 | A development build writes `doze: dev` | never: only a released version is stamped | `dev` compares above every release as text and would stick |
 
-Known limits, shared with Go: a release's `doze:` field and any release field this doze does not know are outside the
+Open, for later phases: engine pins in `doze.lock` (`Lock::record_engine`) are written by E2's module-pool host, which must also use the lock's pin over a module's own `expected_sha`. `doze.lock`'s writer lock is the child's; `modules upgrade` (C2) must take the same locked merge (to be made the one public writer), and the lock key should come from the canonical path. A pin that says protocol 2 for a release that is protocol 1 is caught by the module handshake, not here (as in Go). `Meta.client` comes from the unsigned meta.yaml and is for display: `connect` takes its client from the signed module's hello. `file:///C:/…` on Windows is not yet read as a drive path.
+
+Known limits, shared with Go (and one Go now meets): an offline Go doze, whose `newestCached` ignores protocol, may pick a protocol-2 build the Rust doze cached and fail its handshake. Also shared with Go: a release's `doze:` field and any release field this doze does not know are outside the
 signed payload (a host can strip the first and steer an older doze to a release it cannot run; a field the signer adds
 later would fail verification here until the payload learns it). Engine builds are checked against the mirror's
 unsigned manifest (`Mirror.key` is not set), as Go did.

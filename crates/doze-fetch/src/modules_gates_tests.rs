@@ -96,3 +96,80 @@ fn a_relative_artifact_comes_from_the_base_that_answered() {
     let r = m.resolve(&valkey(), &[], &mut Lock::default()).unwrap();
     assert_eq!(r.version, "0.3.0");
 }
+
+/// F1 audit 2, major 2: offline, an upgrade fails with the registry's error; it never reports a move from the cache.
+#[test]
+fn an_upgrade_needs_the_registry() {
+    let reg = registry(
+        "upgradeoff",
+        &[("0.3.0", 2, &["9"]), ("0.3.1", 2, &["9"])],
+        "",
+    );
+    let m = modules(&reg);
+    m.fetch(&valkey(), "0.3.1", None).unwrap();
+    let mut lock = Lock::default();
+    lock.modules.insert(
+        "doze/valkey".into(),
+        Pin {
+            version: "0.3.0".into(),
+            protocol: 2,
+            ..Pin::default()
+        },
+    );
+    std::fs::remove_dir_all(&reg.root).unwrap();
+    assert!(m.upgrade(&valkey(), &[], &mut lock).is_err());
+    assert_eq!(lock.modules["doze/valkey"].version, "0.3.0");
+    assert!(!lock.dirty);
+}
+
+/// F1 audit 2, major 1: a cold download that differs from the lock's pin is refused (`TestAChangedDownloadIsRefused`).
+#[test]
+fn a_cold_download_is_held_to_the_lock() {
+    let reg = registry("coldpin", &[("0.3.0", 2, &["9"])], "");
+    let err = modules(&reg)
+        .fetch(&valkey(), "0.3.0", Some("sha256:00"))
+        .unwrap_err();
+    assert!(
+        err.starts_with("checksum mismatch") && err.contains("locked sha256:00"),
+        "{err}"
+    );
+}
+
+/// F1 audit 2, major 1: a pin with no `protocol:` (Go omitted it) is a Go-era pin, resolved again and replaced.
+#[test]
+fn a_pin_with_no_protocol_is_resolved_again() {
+    let reg = registry("proto0", &[("0.2.1", 1, &["9"]), ("0.3.0", 2, &["9"])], "");
+    let mut lock = Lock::default();
+    lock.modules.insert(
+        "doze/valkey".into(),
+        Pin {
+            version: "0.2.1".into(),
+            ..Pin::default()
+        },
+    );
+    let r = modules(&reg).resolve(&valkey(), &[], &mut lock).unwrap();
+    assert_eq!(r.version, "0.3.0");
+    assert_eq!(lock.modules["doze/valkey"].protocol, 2);
+}
+
+/// F1 audit 2, major 1: a child that finds the build there once it holds the lock takes it as cached, never unpacking
+/// over a build another child may be running.
+#[test]
+fn a_build_found_under_the_lock_is_not_unpacked_again() {
+    let reg = registry("recheck", &[("0.3.0", 2, &["9"])], "");
+    let m = modules(&reg);
+    m.fetch(&valkey(), "0.3.0", None).unwrap();
+    let marker = m.content_dir(&valkey(), "0.3.0").join("running");
+    std::fs::write(&marker, b"x").unwrap();
+    m.fetch(&valkey(), "0.3.0", None).unwrap();
+    assert!(marker.exists(), "the build was replaced");
+}
+
+/// F1 audit 2, major 1: an engine pin whose `resolved` is a path refuses the lock.
+#[test]
+fn an_engine_pin_that_is_a_path_refuses_the_lock() {
+    for bad in ["../x", "/abs"] {
+        let text = format!("engines:\n  postgres:\n    \"16\":\n      resolved: {bad}\n");
+        assert!(crate::lock::parse(&text).is_err(), "{bad}");
+    }
+}

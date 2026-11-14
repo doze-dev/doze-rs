@@ -27,7 +27,38 @@ pub fn unpack(archive: &[u8], content_dir: &Path, digest: &str) -> Result<PathBu
     let mut tmp_name = content_dir.as_os_str().to_owned();
     tmp_name.push(format!(".tmp{}", std::process::id()));
     let tmp = PathBuf::from(tmp_name);
-    let _ = std::fs::remove_dir_all(&tmp);
+    // Under the build's lock: what an earlier child (killed mid-unpack) left is cleared first.
+    clear_tmps(content_dir);
+    let r = unpack_via(archive, content_dir, digest, &tmp);
+    if r.is_err() {
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+    r
+}
+
+/// Every `<build>.tmp*` beside the build.
+fn clear_tmps(content_dir: &Path) {
+    let (Some(parent), Some(name)) = (content_dir.parent(), content_dir.file_name()) else {
+        return;
+    };
+    let prefix = format!("{}.tmp", name.to_string_lossy());
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return;
+    };
+    for e in entries.flatten() {
+        if e.file_name().to_string_lossy().starts_with(&prefix) {
+            let _ = std::fs::remove_dir_all(e.path());
+        }
+    }
+}
+
+fn unpack_via(
+    archive: &[u8],
+    content_dir: &Path,
+    digest: &str,
+    tmp: &Path,
+) -> Result<PathBuf, String> {
+    let tmp = tmp.to_path_buf();
     untar(archive, &tmp, UNPACKED_LIMIT).map_err(|e| format!("extracting: {e}"))?;
     let bin = find_bin(&tmp).ok_or("the archive has no bin/ directory")?;
     if let Some(inner) = bin.parent().filter(|p| *p != tmp) {
@@ -79,7 +110,8 @@ fn untar(archive: &[u8], dest: &Path, cap: u64) -> io::Result<()> {
         left: cap,
     };
     let mut a = tar::Archive::new(gz);
-    a.set_preserve_permissions(true);
+    // Modes are kept to their permission bits (setuid and setgid dropped), as Go masked with 0o777.
+    a.set_preserve_permissions(false);
     a.set_overwrite(true);
     a.unpack(dest)
 }
@@ -177,6 +209,18 @@ pub(crate) mod tests {
         let big = targz(&[("bin/zeros", &vec![0u8; 2 << 20], true)]);
         let err = untar(&big, &d.join("big"), 1 << 20).unwrap_err();
         assert!(format!("{err:?}").contains("more than"), "{err:?}");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// F1 audit 2, minor 3: a failed unpack leaves no tmp folder, and one left by an earlier child is cleared.
+    #[test]
+    fn a_failed_unpack_leaves_no_tmp() {
+        let d = std::env::temp_dir().join(format!("doze-fetch-tmp-{}", std::process::id()));
+        let content = d.join("v/1-t");
+        std::fs::create_dir_all(d.join("v/1-t.tmp999999")).unwrap();
+        assert!(unpack(b"not an archive", &content, "sha256:1").is_err());
+        let left: Vec<_> = std::fs::read_dir(d.join("v")).unwrap().flatten().collect();
+        assert!(left.is_empty(), "{left:?}");
         let _ = std::fs::remove_dir_all(&d);
     }
 

@@ -32,10 +32,23 @@ pub(crate) const ARCHIVE_LIMIT: u64 = 1 << 30;
 /// GETs `url` (or reads a `file://` path, as Go's fetcher did), up to `limit` bytes.
 pub(crate) fn get_up_to(url: &str, timeout: Duration, limit: u64) -> Result<Vec<u8>, Failure> {
     if let Some(path) = url.strip_prefix("file://") {
-        return std::fs::read(path).map_err(|e| match e.kind() {
+        let said = |e: std::io::Error| match e.kind() {
             std::io::ErrorKind::NotFound => Failure::Status(404),
             k => Failure::Unreachable(format!("cannot read it ({k})")),
-        });
+        };
+        // The same size limit as over the network: a manifest naming `file:///dev/zero` must not fill memory.
+        let mut body = Vec::new();
+        std::io::Read::read_to_end(
+            &mut std::io::Read::take(std::fs::File::open(path).map_err(said)?, limit + 1),
+            &mut body,
+        )
+        .map_err(said)?;
+        if body.len() as u64 > limit {
+            return Err(Failure::Unreachable(format!(
+                "it is larger than {limit} bytes"
+            )));
+        }
+        return Ok(body);
     }
     let mut resp = agent()
         .get(url)

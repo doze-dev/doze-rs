@@ -103,6 +103,9 @@ impl Modules {
         one_namespace(src)?;
         let key = src.to_string();
         let old = lock.modules.get(&key).map(|p| p.version.clone());
+        // An upgrade needs the registry: no offline fallback to the cache, which would report a move it did not make
+        // (Go's `Upgrade` returns the index error).
+        self.index_from(src)?;
         let mut fresh = Lock::default();
         let r = self.fresh(src, majors, &mut fresh)?;
         if let Some(pin) = fresh.modules.remove(&key) {

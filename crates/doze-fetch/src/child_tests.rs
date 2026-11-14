@@ -124,3 +124,27 @@ fn a_lock_from_a_newer_doze_is_said() {
         "{r:?}"
     );
 }
+
+/// F1 audit 2, major 1: with a real platform, an engine or version that is a path is refused as a name.
+#[test]
+fn an_ensure_whose_names_are_paths_is_refused() {
+    let reg = registry("names", &[("0.3.0", 2, &["9"])], "");
+    let p = place(modules(&reg));
+    for (engine, full) in [("../x", "9.1.1"), ("valkey", "/abs"), ("valkey", "../../x")] {
+        let r = serve(
+            &Request::Ensure {
+                engine: engine.into(),
+                full: full.into(),
+                target: "x86_64-unknown-linux-gnu".into(),
+                expected_sha: None,
+            },
+            &p,
+        );
+        assert!(
+            r.error
+                .as_deref()
+                .is_some_and(|e| e.contains("not a plain name")),
+            "{engine} {full}: {r:?}"
+        );
+    }
+}

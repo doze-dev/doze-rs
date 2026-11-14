@@ -214,7 +214,8 @@ fn save_pin(
         return Ok(false);
     };
     let locks = place.modules.home.join("locks");
-    std::fs::create_dir_all(&locks).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&locks)
+        .map_err(|e| format!("taking the doze.lock lock in {}: {e}", locks.display()))?;
     let key = crate::registry::signed::sha256_hex(path.to_string_lossy().as_bytes());
     let _held =
         doze_os::fs::lock(&locks.join(format!("lock-{}.lock", key.get(..16).unwrap_or(&key))))
