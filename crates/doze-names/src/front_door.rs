@@ -135,7 +135,8 @@ async fn hold(
                 (cfg.log)(format!("names: fronting {SUFFIX} on {bind}"));
                 announced = false;
                 accept_until_stopped(&cfg, &listener, tls.as_ref(), &mut stop).await;
-                let _ = cfg.registry.release_key(key);
+                // Only this listener's own record, while it still holds the port (see the resolver's `run`).
+                let _ = cfg.registry.release_holder(key, &bind);
                 if *stop.borrow() {
                     return;
                 }
