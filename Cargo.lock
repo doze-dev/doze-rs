@@ -2826,6 +2826,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-detect"
+version = "0.0.0"
+dependencies = [
+ "doze-hcl",
+ "doze-module-proto",
+ "regex",
+ "serde_json",
+ "yaml-rust2",
+]
+
+[[package]]
 name = "doze-display"
 version = "0.0.0"
 dependencies = [

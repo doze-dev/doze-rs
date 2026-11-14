@@ -1,0 +1,9 @@
+services:
+  cache:
+    image: nats:2
+  app:
+    build: .
+  queue:
+    image: minio/minio
+  mail:
+    image: minio/minio

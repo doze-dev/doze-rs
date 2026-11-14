@@ -1,0 +1,5 @@
+services:
+  es:
+    image: redis:7
+  app:
+    build: .

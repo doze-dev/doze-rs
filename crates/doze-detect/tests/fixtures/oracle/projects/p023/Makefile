@@ -1,0 +1,2 @@
+migrate:
+	echo migrate

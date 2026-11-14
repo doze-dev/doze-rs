@@ -80,10 +80,10 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-fetch -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config --all-targets --features doze-control/test-support -- -D warnings
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config --all-targets --features doze-control/test-support -- -D warnings
       # doze-fetch's live test checks every module the real registry publishes (signed index, signed archive, unpacked)
       # for this runner's platform (modules ship for macOS and Linux; on Windows the indexes are checked).
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-fetch -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config --no-fail-fast -- --nocapture
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config --no-fail-fast -- --nocapture
         env:
           DOZE_LIVE_REGISTRY: "1"
       - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
@@ -451,6 +451,11 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_duration
           cargo fuzz run fuzz_duration corpus/fuzz_duration -- -max_total_time=30
+      - name: Fuzz doze-detect's readers (compose, go.mod, Makefile) and its HCL quoting for 30 seconds
+        working-directory: crates/doze-detect/fuzz
+        run: |
+          mkdir -p corpus/fuzz_project_files
+          cargo fuzz run fuzz_project_files corpus/fuzz_project_files -- -max_total_time=30 -max_len=4096
       # The seeds include an alias bomb and deep nesting (F1 audit, blocker 1): both must be refused quickly, not grown.
       - name: Fuzz doze-fetch's parsers (doze.lock, the registry's files, the mirror manifest) for 30 seconds each
         working-directory: crates/doze-fetch/fuzz

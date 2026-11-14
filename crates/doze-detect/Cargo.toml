@@ -1,0 +1,25 @@
+[package]
+name = "doze-detect"
+version = "0.0.0"
+description = "What a project needs (doze init): its apps, the modules and services they talk to, the tasks that prepare them, each with the reason it was found"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# What a module declares it is recognised by (its `detect`): the only module knowledge here.
+doze-module-proto = { path = "../doze-module-proto" }
+# The written file is laid out as hclwrite lays it out (Go formats the scaffold the same way).
+doze-hcl = { path = "../doze-hcl" }
+serde_json = "1"
+yaml-rust2 = "0.13"
+# Go's patterns (imports, getenv, a port literal, Makefile rules); regex is already in doze through doze-hcl.
+regex = "1"
+
+[dev-dependencies]
+serde_json = "1"
