@@ -356,6 +356,6 @@ impl Render for Root {
             }))
             .child(page)
             .child(self.foot_column(cx))
-            .children(self.overlay_el(cx))
+            .children(self.overlay_el(f32::from(window.viewport_size().height), cx))
     }
 }

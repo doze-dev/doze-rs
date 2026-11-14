@@ -173,7 +173,11 @@ impl Root {
         }
     }
 
-    pub(super) fn overlay_el(&self, cx: &mut Context<Self>) -> Option<gpui::AnyElement> {
+    pub(super) fn overlay_el(
+        &self,
+        height: f32,
+        cx: &mut Context<Self>,
+    ) -> Option<gpui::AnyElement> {
         let t = tokens(cx);
         let motion = Motion::of(cx);
         match &self.overlay {
@@ -186,7 +190,7 @@ impl Root {
             )),
             Some(Overlay::Help) => Some(overlays::layer(
                 &t,
-                overlays::help::sheet(&t, crate::VERSION).into_any_element(),
+                overlays::help::sheet(&t, crate::VERSION, height).into_any_element(),
                 0.,
                 motion,
                 "help",

@@ -2,7 +2,8 @@
 //! behind the system's password prompt), the table by section with each failing part's Copy fix, then what stacks
 //! left behind.
 
-use doze_desk::settings::machine::{Part, banner, fixable, sections, to_do};
+use doze_desk::settings::leftovers::counts;
+use doze_desk::settings::machine::{Part, banner_with, fixable, sections, to_do};
 use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
 use super::general::part_head;
@@ -60,8 +61,9 @@ pub(super) fn page(
 fn repair_banner(t: &Tokens, v: &SettingsView, cx: &mut Context<SettingsView>) -> AnyElement {
     let n = to_do(&v.parts);
     let can = v.can_admin() && fixable(&v.parts);
-    let (line, sub) = banner(&v.parts, can || v.repairing);
-    let tone = if n > 0 { t.warn } else { t.good };
+    let (safe, data) = v.left.as_deref().map(counts).unwrap_or_default();
+    let (line, sub, warn) = banner_with(&v.parts, can || v.repairing, safe + data, safe);
+    let tone = if warn { t.warn } else { t.good };
     let mut b = div()
         .flex()
         .flex_none()
@@ -73,12 +75,12 @@ fn repair_banner(t: &Tokens, v: &SettingsView, cx: &mut Context<SettingsView>) -
         .py(px(10.))
         .rounded(px(10.))
         .border_1()
-        .border_color(if n > 0 {
+        .border_color(if warn {
             mix(t.warn, t.panel, 50.)
         } else {
             t.line2
         })
-        .bg(if n > 0 {
+        .bg(if warn {
             mix(t.warn, t.panel, 10.)
         } else {
             t.panel

@@ -186,9 +186,8 @@ impl SettingsView {
             self.parts = next;
             cx.notify();
         }
-        if self.section == Section::Machine {
-            self.read_left(cx);
-        }
+        // Every part reads the look (the side says what was left behind), not Machine alone.
+        self.read_left(cx);
     }
 
     /// Shows a part; Machine looks for leftovers, About asks for the newest release (each when not known yet).

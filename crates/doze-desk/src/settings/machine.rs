@@ -138,8 +138,9 @@ pub fn fixable(parts: &[Part]) -> bool {
 }
 
 /// The sidebar's word for Machine: "2 to do", "all good".
-pub fn side_word(parts: &[Part]) -> String {
+pub fn side_word(parts: &[Part], left: usize) -> String {
     match to_do(parts) {
+        0 if left > 0 => format!("{left} left behind"),
         0 => "all good".into(),
         n => format!("{n} to do"),
     }
@@ -165,6 +166,34 @@ pub fn banner(parts: &[Part], can_repair: bool) -> (String, String) {
             .into(),
         ),
     }
+}
+
+/// The banner once the look for leftovers is in: with every part in place but stacks' leftovers on the machine, it
+/// does not say all is well (an owner's call past Go, whose banner looked at the parts alone). `left` is how many
+/// things were left behind, of which `safe` Clean up clears (data is never cleared that way). The third value is
+/// whether the banner warns.
+pub fn banner_with(
+    parts: &[Part],
+    can_repair: bool,
+    left: usize,
+    safe: usize,
+) -> (String, String, bool) {
+    let n = to_do(parts);
+    if n > 0 || left == 0 {
+        let (a, b) = banner(parts, can_repair);
+        return (a, b, n > 0);
+    }
+    let things = if left == 1 { "thing" } else { "things" };
+    (
+        format!("Every part is in place, but stacks left {left} {things} behind."),
+        if safe > 0 {
+            "Left behind, below, says what each is; Clean up stops the strays and removes stale routes, and data goes only one folder at a time."
+        } else {
+            "Left behind, below, says what each is; data goes only one folder at a time, after asking."
+        }
+        .into(),
+        true,
+    )
 }
 
 /// The report Copy report puts on the clipboard (Go `copyReport`).
@@ -223,7 +252,7 @@ mod tests {
         assert_eq!(p[2].fix, "doze trust");
         assert_eq!(p[3].fix, "ln -s /Users/x/go/bin/doze /usr/local/bin/doze");
         assert_eq!(to_do(&p), 3);
-        assert_eq!(side_word(&p), "3 to do");
+        assert_eq!(side_word(&p, 0), "3 to do");
         assert!(fixable(&p));
         assert_eq!(
             banner(&p, true).0,
@@ -247,7 +276,15 @@ mod tests {
         };
         let p = parts(&Doctor::default(), &at, "v0.2.0");
         assert_eq!(p[0].text, "/opt/homebrew/bin/doze · v0.2.0");
-        assert_eq!(side_word(&p), "all good");
+        assert_eq!(side_word(&p, 0), "all good");
+        assert_eq!(side_word(&p, 3), "3 left behind");
         assert_eq!(banner(&p, false).0, "Everything is in place.");
+        let (line, _, warn) = banner_with(&p, false, 2, 1);
+        assert_eq!(
+            line,
+            "Every part is in place, but stacks left 2 things behind."
+        );
+        assert!(warn);
+        assert_eq!(banner_with(&p, false, 0, 0).0, "Everything is in place.");
     }
 }

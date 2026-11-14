@@ -17,9 +17,9 @@ pub(super) fn side(
     let machine = if v.parts.is_empty() {
         "checking…".to_owned()
     } else {
-        side_word(&v.parts)
+        side_word(&v.parts, v.left.as_ref().map_or(0, Vec::len))
     };
-    let warn = to_do(&v.parts) > 0;
+    let warn = to_do(&v.parts) > 0 || v.left.as_ref().is_some_and(|l| !l.is_empty());
     let on = |s: Section| v.section == s;
     div()
         .w(px(224.))
