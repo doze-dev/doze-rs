@@ -20,9 +20,10 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Run) -> Outcome {
         ));
     }
     let stack = Stack::find(ctx, mode)?;
-    let cfg = stack.loader.shape(&stack.project)?; // Go reads doze.hcl first: a mistake in it is exit 5 before anything starts
+    stack.loader.shape(&stack.project)?; // Go reads doze.hcl first: a mistake in it is exit 5 before anything starts
     if stack.open(mode.timeout)?.is_none() {
-        up::start(ctx, mode, &stack, &cfg)?;
+        let _lock = crate::stack::lock(ctx, &stack)?; // held while it starts, not while the command runs
+        up::start(ctx, mode, &stack)?;
     }
     let Some((program, args)) = a.command.split_first() else {
         return Err(

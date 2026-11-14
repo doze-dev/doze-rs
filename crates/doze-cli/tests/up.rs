@@ -341,21 +341,39 @@ impl Drop for Reap {
     }
 }
 
-/// A doze.hcl that moves the state folder: refused before anything is asked, remembered or started (audit 2, major 1).
+/// A doze.hcl that moves the state folder (`data_dir`): `up` starts the daemon there and finds its socket there, the
+/// record is written there, and `down` stops it there (audit 2, major 1, closed).
 #[test]
-fn a_moved_state_folder_is_refused_before_anything_starts() {
-    let (sb, host, _) = setup::prepare(&["project bare".to_owned()]);
+fn a_moved_state_folder_is_followed() {
+    if !std::path::Path::new("/bin/sh").exists() || !setup::sockets() {
+        return;
+    }
+    let (sb, mut host, _) = setup::prepare(&["project bare".to_owned()]);
+    host.daemon_exe = Some(std::path::PathBuf::from(env!("CARGO_BIN_EXE_doze")));
     let elsewhere = sb.root.join("elsewhere");
     let hcl = format!(
-        "data_dir = \"{}\"\n\napp \"web\" {{\n  run = \"true\"\n}}\n",
+        "stack = \"shop\"\nhome = \"{}\"\ndata_dir = \"{}\"\n\napp \"web\" {{\n  run = \"exec sleep 600\"\n}}\n",
+        sb.home().display(),
         elsewhere.display()
     );
     std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
-    let ran = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
-    assert_eq!(ran.code, 1, "{}", ran.stderr);
-    assert!(ran.stderr.contains("keeps its state in"), "{}", ran.stderr);
+    let key = doze_projects::StackKey::new(&elsewhere);
+    let up = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
+    let pid = doze_projects::daemon_pid(&key).map(|p| p.pid);
+    let _reap = Reap(pid);
+    assert_eq!(up.code, 0, "{}\n{}", up.stdout, up.stderr);
+    assert!(up.stdout.contains("✓ web awake"), "{}", up.stdout);
     assert!(
-        !elsewhere.join("project.json").exists(),
-        "a refused up remembered"
+        pid.is_some(),
+        "the daemon's pid file is in the moved folder"
     );
+    assert!(
+        doze_projects::load(&elsewhere)
+            .unwrap()
+            .is_some_and(|r| r.last_up.is_some())
+    );
+    let down = fixture::run(&sb, &host, Terminals::default(), false, &["--json", "down"]);
+    assert_eq!(down.code, 0, "{}", down.stderr);
+    assert!(down.stdout.contains("\"stopped\": true"), "{}", down.stdout);
+    assert!(!key.socket().exists() && !key.pid_file().exists());
 }

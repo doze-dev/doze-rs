@@ -28,6 +28,8 @@ use std::time::{Duration, Instant, SystemTime};
 /// Go's budget: the daemon's shutdown reap is 15 s (a backend that ignores everything until SIGKILL), so wait past it.
 const STOP_WAIT: Duration = Duration::from_secs(20);
 const POLL: Duration = Duration::from_millis(100);
+/// The daemon writes its pid file just after its socket accepts; a `down` in that instant waits this long for it.
+const PID_WAIT: Duration = Duration::from_secs(2);
 /// A process's start time is read to the second; the pid file is written just after the start.
 const START_SLACK: Duration = Duration::from_secs(2);
 
@@ -69,12 +71,13 @@ enum Found {
 /// `doze down [--dry-run]`.
 pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &DryRun, notices: &mut Notices) -> Outcome {
     let stack = Stack::find(ctx, mode)?;
-    // Under the stack lock `up` takes to start the daemon, so a stop never races a start (D1 audit). A stack that never
-    // ran has no run folder, and none is made for the lock.
-    let run = doze_daemon::ctl::RunDir::of(stack.key.dir());
-    let _lock = (!a.dry_run && run.path().is_dir())
-        .then(|| doze_daemon::ctl::StackLock::take(&run).ok())
-        .flatten();
+    // Under the stack lock `up` and `run` take, so a stop never races a start or a boot (D1 audit). A stack that never
+    // ran gets its run folder for the lock.
+    let _lock = if a.dry_run {
+        None
+    } else {
+        Some(crate::stack::lock(ctx, &stack)?)
+    };
     let found = decide(&stack)?;
     if a.dry_run {
         return Ok(Done::ok(View::Plan(plan(&stack, &found)?)));
@@ -96,6 +99,14 @@ fn decide(stack: &Stack) -> Result<Found, Diagnostic> {
         return Ok(Found::Daemon(pid));
     }
     if stack.read()?.is_some() {
+        // A daemon that has just started answers a moment before its pid file is written.
+        let waited = Instant::now();
+        while waited.elapsed() < PID_WAIT {
+            std::thread::sleep(POLL);
+            if let Some(pid) = daemon(stack) {
+                return Ok(Found::Daemon(pid));
+            }
+        }
         return Ok(Found::Unknown);
     }
     Ok(Found::Gone(leftovers(stack)))
@@ -136,12 +147,16 @@ fn unknown() -> Diagnostic {
 }
 
 /// What was awake, remembered first so the next `up` can offer it (Go `rememberDown`). A config that does not load
-/// does not keep the stack from stopping (Go refused to stop it): it is said, and nothing is remembered.
+/// does not keep the stack from stopping (Go exited 5 and left running the stack the user asked to stop): a warning
+/// names the config's error, and nothing is remembered.
 fn remember(ctx: &Ctx<'_>, notices: &mut Notices, stack: &Stack) {
     let cfg = match stack.loader.shape(&stack.project) {
         Ok(cfg) => cfg,
         Err(d) => {
-            notices.add(format!("could not remember this run: {}", d.message));
+            notices.add(format!(
+                "doze.hcl does not load ({}); the stack is stopped anyway, and what was awake is not remembered for the next up",
+                d.message
+            ));
             return;
         }
     };

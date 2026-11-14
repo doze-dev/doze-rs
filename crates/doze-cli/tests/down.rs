@@ -212,3 +212,29 @@ fn down_with_nothing_running_still_records_the_down() {
     let r = doze_projects::load(key.dir()).unwrap().unwrap();
     assert!(r.last_down.is_some() && r.last_set.is_empty());
 }
+
+/// Better than Go (owner may veto): a doze.hcl that does not load does not keep `down` from stopping the stack (Go
+/// exited 5 and left it running); a warning names the config's error, and nothing is remembered.
+#[test]
+fn a_broken_doze_hcl_still_stops_the_stack_with_a_warning() {
+    let sb = fixture::Sandbox::new("down-broken");
+    let key = stack(&sb);
+    std::fs::write(sb.project().join("doze.hcl"), "stack = \n").unwrap();
+    let (pid, reaper) = stand_in(&key, true);
+    let ran = run(&sb, &["down"]);
+    if ran.code != 0 {
+        let _ = doze_os::process::kill(pid);
+    }
+    assert_eq!(ran.code, 0, "{}", ran.stderr);
+    assert_eq!(reaper.join().unwrap().signal(), Some(15));
+    assert!(ran.stdout.contains("doze stopped"), "{}", ran.stdout);
+    assert!(
+        ran.stderr.contains("doze.hcl does not load ("),
+        "{}",
+        ran.stderr
+    );
+    assert!(
+        doze_projects::load(key.dir()).unwrap().is_none(),
+        "remembered from a broken config"
+    );
+}

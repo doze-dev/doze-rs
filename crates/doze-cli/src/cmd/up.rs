@@ -19,7 +19,7 @@ use crate::view::View;
 use doze_config::Config;
 use doze_config::model::COMMAND_ENGINE;
 use doze_control::{Connection, Snapshot, Subscription, Topic, Verb};
-use doze_daemon::ctl::{self, RunDir, StackLock};
+use doze_daemon::ctl::{self, StackLock};
 
 pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Up, notices: &mut Notices) -> Outcome {
     if a.follow && mode.json {
@@ -33,12 +33,15 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Up, notices: &mut Notices)
     let cfg = stack.loader.shape(&stack.project)?;
     let asked = stack::unique(&a.services);
     check(&cfg, &asked, a)?;
+    // The stack lock, held while the daemon starts and the stack boots, so a `down` never stops it half-way.
+    let lock = if a.dry.dry_run {
+        None
+    } else {
+        Some(stack::lock(ctx, &stack)?)
+    };
     let conn = stack.open(mode.timeout)?;
     // A snapshot that cannot be had is no snapshot (Go's `running = nil`): it only adds to what is remembered.
     let snap = conn.as_ref().and_then(|c| stack::snapshot(c).ok());
-    if conn.is_none() && !a.dry.dry_run {
-        moved(&cfg, &stack)?; // before anything is asked or remembered
-    }
     let dir = remember::record_dir(&cfg, stack.key.dir());
     let targets = if asked.is_empty() {
         let quiet = Mode {
@@ -63,35 +66,15 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Up, notices: &mut Notices)
     remember::remember_up(ctx, notices, (&cfg, &dir), &targets, snap.as_ref());
     let conn = match conn {
         Some(c) => c,
-        None => start(ctx, mode, &stack, &cfg)?,
+        None => start(ctx, mode, &stack)?,
     };
-    boot(ctx, mode, (&stack, &cfg), conn, (&closure, a.follow))
+    boot(ctx, mode, (&stack, &cfg), conn, (&closure, a.follow), lock)
 }
 
-/// A doze.hcl that moves the state folder (`home`, `data_dir`): its daemon would listen there while this CLI looks at the
-/// default place (stack.rs), so `up` would wait on a socket that never comes and leave the daemon orphaned. Refused
-/// until the CLI follows the loaded config's folder.
-fn moved(cfg: &Config, stack: &Stack) -> Result<(), Diagnostic> {
-    let theirs = doze_config::paths::clean(std::path::Path::new(&cfg.data_dir));
-    if theirs == doze_config::paths::clean(stack.key.dir()) {
-        return Ok(());
-    }
-    Err(stub::not_built("doze up", stub::Needs::Daemon).note(format!(
-        "this doze.hcl keeps its state in {} (`home` or `data_dir`); starting a daemon there is not built yet",
-        theirs.display()
-    )))
-}
-
-/// Starts the stack's daemon (Go `startDaemon`) under the stack lock, unless another `up` started it while this one
-/// waited for the lock, and connects to it.
-pub(crate) fn start(
-    ctx: &Ctx<'_>,
-    mode: &Mode,
-    stack: &Stack,
-    cfg: &Config,
-) -> Result<Connection, Diagnostic> {
-    moved(cfg, stack)?;
-    let run = RunDir::of(stack.key.dir());
+/// Starts the stack's daemon (Go `startDaemon`), the caller holding the stack lock ([`stack::lock`]), unless another
+/// `up` started it while this one waited for the lock, and connects to it.
+pub(crate) fn start(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<Connection, Diagnostic> {
+    let run = stack.run_dir();
     // No local control socket on this system yet (Windows: the named pipe, core plan W): said, nothing started.
     if let Err(e) = doze_os::local::LocalStream::connect(&run.socket())
         && e.kind() == std::io::ErrorKind::Unsupported
@@ -103,12 +86,6 @@ pub(crate) fn start(
         Diagnostic::new(ids::DAEMON_REFUSED, what)
             .fix("doze bug writes a report with the daemon's log")
     };
-    let _lock = StackLock::take(&run).map_err(|e| {
-        refused(format!(
-            "could not take the stack's lock in {}: {e}",
-            run.path().display()
-        ))
-    })?;
     if let Some(c) = stack.open(mode.timeout)? {
         return Ok(c);
     }
@@ -139,6 +116,7 @@ fn boot(
     (stack, cfg): (&Stack, &Config),
     conn: Connection,
     (closure, follows): (&[String], bool),
+    lock: Option<StackLock>,
 ) -> Outcome {
     let ask = Asker::new(conn, ctx, mode);
     let label = |name: &str| {
@@ -162,6 +140,7 @@ fn boot(
         r.say(ctx.out, &line);
         return Ok(done);
     }
+    drop(lock); // following the logs holds nothing: a `down` from another terminal stops the stack
     follow(ctx, mode, &ask, &processes(cfg, closure));
     Ok(done)
 }
