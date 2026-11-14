@@ -141,10 +141,10 @@ fn terms(text: &str) -> Result<Vec<Term>, PatternError> {
             chars.next();
             continue;
         }
-        if c == '%' {
-            if let Some(g) = gap.take().filter(|g| !g.is_empty()) {
-                return Err(PatternError::Term(g));
-            }
+        if c == '%'
+            && let Some(g) = gap.take().filter(|g| !g.is_empty())
+        {
+            return Err(PatternError::Term(g));
         }
         gap = None;
         let kind = match c {

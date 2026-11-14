@@ -271,7 +271,9 @@ fn check_batch(entries: &[Value], max_size: u64) -> Result<(), ApiError> {
         // Recorded on AWS (2026-11-15).
         return Err(ApiError::modeled(
             "InvalidBatchEntryIdException",
-            format!("The Id of a batch entry in the batch request contains an impermissible character: {bad}"),
+            format!(
+                "The Id of a batch entry in the batch request contains an impermissible character: {bad}"
+            ),
         ));
     }
     if !ids.iter().all(|i| (1..=80).contains(&i.len())) {

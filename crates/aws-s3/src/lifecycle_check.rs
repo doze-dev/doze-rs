@@ -77,7 +77,9 @@ fn rule(r: &Value) -> Result<(), ApiError> {
         }
         if e.get("Days").and_then(Value::as_i64).is_some_and(|d| d < 1) {
             // Recorded on AWS (2026-11-15).
-            return Err(bad("'Days' for Expiration action must be a positive integer"));
+            return Err(bad(
+                "'Days' for Expiration action must be a positive integer",
+            ));
         }
     }
     Ok(())

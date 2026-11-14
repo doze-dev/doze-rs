@@ -66,11 +66,18 @@ impl Core {
         let missing = |id: &str| {
             ApiError::modeled(
                 "ResourceNotFoundException",
-                format!("Could not find shard {id} in stream {} under account {account}.", s.name),
+                format!(
+                    "Could not find shard {id} in stream {} under account {account}.",
+                    s.name
+                ),
             )
         };
-        let a = shard_number(a_id).and_then(|n| s.shard(n)).ok_or_else(|| missing(a_id))?;
-        let b = shard_number(b_id).and_then(|n| s.shard(n)).ok_or_else(|| missing(b_id))?;
+        let a = shard_number(a_id)
+            .and_then(|n| s.shard(n))
+            .ok_or_else(|| missing(a_id))?;
+        let b = shard_number(b_id)
+            .and_then(|n| s.shard(n))
+            .ok_or_else(|| missing(b_id))?;
         let (a, b) = (a.clone(), b.clone());
         // Recorded on AWS (2026-11-15): a shard and itself are "not an adjacent pair", in the same words as a gap.
         let not_adjacent = || {

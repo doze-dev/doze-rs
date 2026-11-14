@@ -130,7 +130,10 @@ async fn configuration_is_kept_as_sent_and_what_is_not_built_is_refused_by_name(
     );
 
     // RestoreObject is answered (an object outside an archive class has nothing to restore); here there is no object.
-    assert_eq!(call(&srv, "POST", "/bkt/k?restore", &[], b"").await.status, 404);
+    assert_eq!(
+        call(&srv, "POST", "/bkt/k?restore", &[], b"").await.status,
+        404
+    );
     let r = call(&srv, "GET", "/bkt/k?torrent", &[], b"").await;
     assert_eq!(r.status, 501, "GET torrent");
     assert_eq!(r.header("x-doze-not-built"), Some("1"));

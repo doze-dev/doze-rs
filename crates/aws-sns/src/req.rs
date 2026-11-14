@@ -131,7 +131,10 @@ pub(crate) fn no_resource() -> ApiError {
 /// MaximumMessageSize: ...`, `Invalid parameter: DeliveryPolicy: ...`), where `CreateTopic` and `Subscribe` say `Invalid parameter:
 /// Attributes Reason: FilterPolicy: ...` (recorded 2026-11-09).
 pub(crate) fn as_set(mut e: ApiError) -> ApiError {
-    if let Some(rest) = e.message.strip_prefix("Invalid parameter: Attributes Reason: ") {
+    if let Some(rest) = e
+        .message
+        .strip_prefix("Invalid parameter: Attributes Reason: ")
+    {
         e.message = format!("Invalid parameter: {rest}");
     }
     e

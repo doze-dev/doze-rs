@@ -104,7 +104,10 @@ fn the_shard_count_is_bounded_by_double_and_half_and_by_the_stream_mode() {
     w.stream("s", 2);
     let (code, message) = scale(&mut w, 5).unwrap_err();
     assert_eq!(code, "InvalidArgumentException");
-    assert!(message.contains("Current open shard count: 2 Target shard count: 5"), "{message}");
+    assert!(
+        message.contains("Current open shard count: 2 Target shard count: 5"),
+        "{message}"
+    );
     w.stream("big", 4);
     let (code, _) = w
         .run(

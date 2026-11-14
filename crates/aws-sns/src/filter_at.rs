@@ -73,7 +73,7 @@ fn path_to(root: &Value, addr: usize) -> Option<Vec<Step>> {
     if std::ptr::from_ref(root) as usize == addr {
         return Some(Vec::new());
     }
-    let found = match root {
+    match root {
         Value::Object(m) => m.iter().find_map(|(k, v)| {
             path_to(v, addr).map(|mut p| {
                 p.insert(0, Step::Key(k.clone()));
@@ -87,8 +87,7 @@ fn path_to(root: &Value, addr: usize) -> Option<Vec<Step>> {
             })
         }),
         _ => None,
-    };
-    found
+    }
 }
 
 /// Jackson's column once it has read the token at `path` in the compact `source`.
@@ -107,10 +106,11 @@ fn column(source: &str, path: &[Step]) -> Option<usize> {
 
 /// Where the value at `step` inside the container starting at `i` begins.
 fn child(b: &[u8], i: usize, step: &Step) -> Option<usize> {
+    let object = *b.get(i)? == b'{';
     let mut j = i + 1;
     let mut index = 0;
     while *b.get(j)? != b']' && *b.get(j)? != b'}' {
-        let here = if b[i] == b'{' {
+        let here = if object {
             let key_end = skip(b, j)?;
             let key: String = serde_json::from_slice(b.get(j..key_end)?).ok()?;
             j = key_end + 1;
@@ -154,7 +154,10 @@ fn skip(b: &[u8], i: usize) -> Option<usize> {
             Some(j + 1)
         }
         _ => {
-            let len = b.get(i..)?.iter().position(|c| matches!(c, b',' | b']' | b'}'));
+            let len = b
+                .get(i..)?
+                .iter()
+                .position(|c| matches!(c, b',' | b']' | b'}'));
             Some(i + len.unwrap_or(b.len() - i))
         }
     }
@@ -176,7 +179,10 @@ mod tests {
             "m\n at [Source: (String)\"{\"kind\":[{\"nope\":1}]}\"; line: 1, column: 19]"
         );
         assert_eq!(
-            at(r#"{"kind": [{"exists": "yes"}]}"#, |v| &v["kind"][0]["exists"]),
+            at(
+                r#"{"kind": [{"exists": "yes"}]}"#,
+                |v| &v["kind"][0]["exists"]
+            ),
             "m\n at [Source: (String)\"{\"kind\":[{\"exists\":\"yes\"}]}\"; line: 1, column: 21]"
         );
         assert_eq!(
@@ -196,7 +202,10 @@ mod tests {
     fn a_long_source_is_cut_as_jackson_cuts_it() {
         let text = format!(r#"{{"k":["{}",{{"nope":1}}]}}"#, "x".repeat(600));
         let got = at(&text, |v| &v["k"][1]["nope"]);
-        assert!(got.contains("\"[truncated 121 chars]; line: 1, column: 619]"), "{got}");
+        assert!(
+            got.contains("\"[truncated 121 chars]; line: 1, column: 619]"),
+            "{got}"
+        );
     }
 
     #[test]

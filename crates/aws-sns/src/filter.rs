@@ -147,7 +147,12 @@ fn node(key: &str, value: &Value, body: bool, depth: u32) -> Result<Node, Fault>
 }
 
 fn cond(v: &Value) -> Result<Cond, Fault> {
-    let bad = || Fault::at("Match value must be String, number, true, false, or null", v);
+    let bad = || {
+        Fault::at(
+            "Match value must be String, number, true, false, or null",
+            v,
+        )
+    };
     match v {
         Value::String(s) => Ok(Cond::Str(s.clone())),
         Value::Number(n) => n.as_f64().map(Cond::Num).ok_or_else(bad),
@@ -307,7 +312,9 @@ mod tests {
     #[test]
     fn what_is_wrong_is_said() {
         let err = |p: &str| parse(p, false).unwrap_err();
-        assert!(err("[]").starts_with("Filter is not an object\n at [Source: (String)\"[]\"; line: 1, column: 2]"));
+        assert!(err("[]").starts_with(
+            "Filter is not an object\n at [Source: (String)\"[]\"; line: 1, column: 2]"
+        ));
         assert!(err(r#"{"a":[{"foo":1}]}"#).contains("Unrecognized match type foo"));
         assert!(err(r#"{"a":[{"exists":"yes"}]}"#).contains("exists match pattern"));
         assert!(err(r#"{"a":[{"numeric":["~",1]}]}"#).contains("numeric range operator"));

@@ -139,8 +139,14 @@ fn a_group_holds_at_most_five_regular_expressions_across_its_filters() {
         json!({"logGroupName": "/g", "filterName": name, "filterPattern": pattern,
             "metricTransformations": [{"metricName": "m", "metricNamespace": "n", "metricValue": "1"}]})
     };
-    w.ok("PutMetricFilter", &metric("a", "{ $.a = %x% && $.b = %y% }"));
-    w.ok("PutMetricFilter", &metric("b", "{ $.a = %x% && $.b = %y% }"));
+    w.ok(
+        "PutMetricFilter",
+        &metric("a", "{ $.a = %x% && $.b = %y% }"),
+    );
+    w.ok(
+        "PutMetricFilter",
+        &metric("b", "{ $.a = %x% && $.b = %y% }"),
+    );
     w.ok("PutMetricFilter", &metric("c", "%x%"));
     let (code, _) = w.err("PutMetricFilter", &metric("d", "%z%"));
     assert_eq!(code, "LimitExceededException");

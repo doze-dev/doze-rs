@@ -204,7 +204,9 @@ fn a_delivery_policy_changes_the_effective_one() {
             &json!({"TopicArn": arn, "AttributeName": "DeliveryPolicy",
             "AttributeValue": r#"{"http":{"defaultHealthyRetryPolicy":{"numRetries":9}}}"#}),
         )
-        .ends_with("DeliveryPolicy: http.defaultHealthyRetryPolicy.minDelayTarget must be specified")
+        .ends_with(
+            "DeliveryPolicy: http.defaultHealthyRetryPolicy.minDelayTarget must be specified"
+        )
     );
     let got = w.ok("GetTopicAttributes", &json!({"TopicArn": arn}))["Attributes"].clone();
     let eff: Value =

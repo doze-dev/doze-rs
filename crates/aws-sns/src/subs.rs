@@ -239,7 +239,10 @@ impl Core {
         if matches!(sub.protocol.as_str(), "http" | "https")
             && let Some(topic) = self.topics.get(&sub.topic)
         {
-            attrs.insert("EffectiveDeliveryPolicy".into(), topic.subscription_delivery());
+            attrs.insert(
+                "EffectiveDeliveryPolicy".into(),
+                topic.subscription_delivery(),
+            );
         }
         Ok(json!({"Attributes": attrs}))
     }

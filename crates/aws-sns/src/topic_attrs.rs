@@ -123,13 +123,13 @@ const RETRY_FIELDS: [&str; 2] = ["minDelayTarget", "maxDelayTarget"];
 fn delivery(value: &str) -> Result<(), ApiError> {
     json_object("DeliveryPolicy", value)?;
     let doc: Value = serde_json::from_str(value).unwrap_or(Value::Null);
-    if let Some(retry) = doc.pointer("/http/defaultHealthyRetryPolicy") {
-        if let Some(missing) = RETRY_FIELDS.iter().find(|f| retry.get(**f).is_none()) {
-            return Err(invalid_because(
-                "Attributes",
-                format!("DeliveryPolicy: http.defaultHealthyRetryPolicy.{missing} must be specified"),
-            ));
-        }
+    if let Some(retry) = doc.pointer("/http/defaultHealthyRetryPolicy")
+        && let Some(missing) = RETRY_FIELDS.iter().find(|f| retry.get(**f).is_none())
+    {
+        return Err(invalid_because(
+            "Attributes",
+            format!("DeliveryPolicy: http.defaultHealthyRetryPolicy.{missing} must be specified"),
+        ));
     }
     Ok(())
 }
@@ -233,8 +233,10 @@ impl Topic {
     pub(crate) fn subscription_delivery(&self) -> String {
         let effective: Value =
             serde_json::from_str(&self.effective_delivery()).unwrap_or(Value::Null);
-        let http = &effective["http"];
-        let retry = &http["defaultHealthyRetryPolicy"];
+        let http = effective.get("http").unwrap_or(&Value::Null);
+        let retry = http
+            .get("defaultHealthyRetryPolicy")
+            .unwrap_or(&Value::Null);
         let n = |k: &str| retry.get(k).cloned().unwrap_or(Value::Null);
         let healthy = format!(
             r#"{{"minDelayTarget":{},"maxDelayTarget":{},"numRetries":{},"numMaxDelayRetries":{},"numNoDelayRetries":{},"numMinDelayRetries":{},"backoffFunction":{}}}"#,

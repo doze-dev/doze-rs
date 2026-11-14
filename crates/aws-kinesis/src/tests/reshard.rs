@@ -370,5 +370,8 @@ fn a_merge_of_shards_that_are_not_neighbours_is_refused() {
         &json!({"StreamName": "s", "ShardToMerge": shard(0), "AdjacentShardToMerge": shard(2)}),
     );
     assert_eq!(code, "InvalidArgumentException");
-    assert!(message.contains("has already been merged or split"), "{message}");
+    assert!(
+        message.contains("has already been merged or split"),
+        "{message}"
+    );
 }

@@ -160,11 +160,9 @@ fn bad_value(message: String) -> ApiError {
 fn check_attr(name: &str, a: &Attr) -> Result<(), ApiError> {
     let kind = a.data_type.split('.').next().unwrap_or_default();
     if !matches!(kind, "String" | "Number" | "Binary") {
-        return Err(bad_value(
-            format!(
-                "The message attribute '{name}' has an invalid message attribute type, the set of supported type prefixes is Binary, Number, and String."
-            ),
-        ));
+        return Err(bad_value(format!(
+            "The message attribute '{name}' has an invalid message attribute type, the set of supported type prefixes is Binary, Number, and String."
+        )));
     }
     let present = if kind == "Binary" {
         a.binary_value.as_ref().is_some_and(|v| !v.is_empty())
@@ -172,21 +170,19 @@ fn check_attr(name: &str, a: &Attr) -> Result<(), ApiError> {
         a.string_value.as_ref().is_some_and(|v| !v.is_empty())
     };
     if !present {
-        return Err(bad_value(
-            format!(
-                "The message attribute '{name}' must contain non-empty message attribute value for message attribute type '{}'.",
-                a.data_type
-            ),
-        ));
+        return Err(bad_value(format!(
+            "The message attribute '{name}' must contain non-empty message attribute value for message attribute type '{}'.",
+            a.data_type
+        )));
     }
     if kind == "Number"
         && a.string_value
             .as_deref()
             .is_some_and(|v| v.trim().parse::<f64>().is_err())
     {
-        return Err(bad_value(
-            format!("Could not cast message attribute '{name}' value to number."),
-        ));
+        return Err(bad_value(format!(
+            "Could not cast message attribute '{name}' value to number."
+        )));
     }
     Ok(())
 }
