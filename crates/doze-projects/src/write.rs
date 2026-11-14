@@ -78,27 +78,38 @@ pub fn encode(p: &Project) -> io::Result<Vec<u8>> {
         let items: Vec<String> = p.last_set.iter().map(|s| string(s)).collect();
         ours.push(("last_set", format!("[{}]", items.join(","))));
     }
-    let pairs: Vec<(String, String)> = if p.extra.is_empty() {
-        ours.into_iter().map(|(k, v)| (k.to_owned(), v)).collect()
+    let ours = ours
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v.into_bytes()));
+    let pairs: Vec<(String, Vec<u8>)> = if p.extra.is_empty() {
+        ours.collect()
     } else {
-        let mut all: BTreeMap<String, String> = p
+        // A newer doze's values are written as their bytes, compacted and escaped as Go's `json.RawMessage` is.
+        let mut all: BTreeMap<String, Vec<u8>> = p
             .extra
             .iter()
-            .map(|(k, v)| (k.clone(), go_escape(&compact(v.get()))))
+            .map(|(k, v)| (k.clone(), go_escape(&compact(v.bytes()))))
             .collect();
-        all.extend(ours.into_iter().map(|(k, v)| (k.to_owned(), v)));
+        all.extend(ours);
         all.into_iter().collect()
     };
-    let body: Vec<String> = pairs
-        .iter()
-        .map(|(k, v)| format!("{}:{v}", string(k)))
-        .collect();
-    Ok(format!("{{{}}}", body.join(",")).into_bytes())
+    let mut out = vec![b'{'];
+    for (n, (k, v)) in pairs.iter().enumerate() {
+        if n > 0 {
+            out.push(b',');
+        }
+        out.extend_from_slice(string(k).as_bytes());
+        out.push(b':');
+        out.extend_from_slice(v);
+    }
+    out.push(b'}');
+    Ok(out)
 }
 
 /// A JSON string as Go writes it.
 fn string(s: &str) -> String {
-    go_escape(&serde_json::to_string(s).unwrap_or_default())
+    let json = serde_json::to_string(s).unwrap_or_default();
+    String::from_utf8_lossy(&go_escape(json.as_bytes())).into_owned()
 }
 
 /// A Go `time.Time` in JSON: RFC 3339 with the fraction's trailing zeros dropped (Go's `RFC3339Nano`).
@@ -115,38 +126,48 @@ fn time(t: OffsetDateTime) -> io::Result<String> {
 }
 
 /// Escapes as Go's `json.Marshal` does beyond what serde_json does: `<`, `>`, `&`, U+2028 and U+2029, which in JSON
-/// can only be inside strings.
-fn go_escape(json: &str) -> String {
-    let mut out = String::with_capacity(json.len());
-    for c in json.chars() {
+/// can only be inside strings. Other bytes, UTF-8 or not, pass as they are (Go's compact of a raw value keeps them).
+fn go_escape(json: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(json.len());
+    let mut i = 0;
+    while let Some(&c) = json.get(i) {
+        let sep = match json.get(i..i + 3) {
+            Some([0xE2, 0x80, 0xA8]) => Some(&b"\\u2028"[..]),
+            Some([0xE2, 0x80, 0xA9]) => Some(&b"\\u2029"[..]),
+            _ => None,
+        };
+        if let Some(sep) = sep {
+            out.extend_from_slice(sep);
+            i += 3;
+            continue;
+        }
         match c {
-            '<' => out.push_str("\\u003c"),
-            '>' => out.push_str("\\u003e"),
-            '&' => out.push_str("\\u0026"),
-            '\u{2028}' => out.push_str("\\u2028"),
-            '\u{2029}' => out.push_str("\\u2029"),
+            b'<' => out.extend_from_slice(b"\\u003c"),
+            b'>' => out.extend_from_slice(b"\\u003e"),
+            b'&' => out.extend_from_slice(b"\\u0026"),
             c => out.push(c),
         }
+        i += 1;
     }
     out
 }
 
 /// A JSON value without the spaces between its tokens (Go compacts a raw value it writes).
-fn compact(json: &str) -> String {
-    let mut out = String::with_capacity(json.len());
+fn compact(json: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(json.len());
     let (mut in_string, mut escaped) = (false, false);
-    for c in json.chars() {
+    for &c in json {
         if in_string {
             out.push(c);
             if escaped {
                 escaped = false;
-            } else if c == '\\' {
+            } else if c == b'\\' {
                 escaped = true;
-            } else if c == '"' {
+            } else if c == b'"' {
                 in_string = false;
             }
-        } else if !matches!(c, ' ' | '\t' | '\n' | '\r') {
-            in_string = c == '"';
+        } else if !matches!(c, b' ' | b'\t' | b'\n' | b'\r') {
+            in_string = c == b'"';
             out.push(c);
         }
     }
@@ -160,8 +181,8 @@ mod tests {
     #[test]
     fn compact_keeps_what_is_inside_strings() {
         assert_eq!(
-            compact(" { \"a b\" : [ 1 , \"x\\\" y\" ] }\n"),
-            r#"{"a b":[1,"x\" y"]}"#
+            compact(b" { \"a b\" : [ 1 , \"x\\\" y\xff\" ] }\n"),
+            b"{\"a b\":[1,\"x\\\" y\xff\"]}"
         );
     }
 

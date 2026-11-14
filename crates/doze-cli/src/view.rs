@@ -46,6 +46,8 @@ pub enum View {
     Bug(bug::Report),
     Updated(update::Updated),
     Stopped(down::Stopped),
+    /// A module's web console, opened or (with no display) its address.
+    Console(crate::cmd::console::Console),
 }
 
 impl View {
@@ -55,6 +57,7 @@ impl View {
             View::Raw(s) => s.clone(),
             View::Silent | View::Streamed | View::Verbs(_) => String::new(),
             View::Opened(url) => format!("→ opened {url} in your browser\n"),
+            View::Console(c) => c.human(),
             View::Version(v) => v.human(),
             View::Plan(plan) => plan.render(p),
             View::Docs(page) => page.human(p),
@@ -102,6 +105,7 @@ impl Serialize for View {
         match self {
             View::Raw(_) | View::Silent | View::Streamed => s.serialize_none(),
             View::Opened(url) => Opened { opened: url }.serialize(s),
+            View::Console(c) => c.serialize(s),
             View::Version(v) => v.serialize(s),
             View::Plan(plan) => DryRun {
                 dry_run: true,

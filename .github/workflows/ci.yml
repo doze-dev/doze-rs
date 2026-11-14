@@ -453,6 +453,11 @@ jobs:
           cargo fuzz run fuzz_glob corpus/fuzz_glob -- -max_total_time=30 -max_len=512 -timeout=2
           mkdir -p corpus/fuzz_porttrap
           cargo fuzz run fuzz_porttrap corpus/fuzz_porttrap -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the project record's reader and writer (a newer doze's fields kept as bytes) for 30 seconds
+        working-directory: crates/doze-projects/fuzz
+        run: |
+          mkdir -p corpus/fuzz_rawscan
+          cargo fuzz run fuzz_rawscan corpus/fuzz_rawscan ../tests/fixtures/updates -- -max_total_time=30 -max_len=65536
       - name: Fuzz the module protocol's frame decoder for 30 seconds
         working-directory: crates/doze-module-proto/fuzz
         run: |

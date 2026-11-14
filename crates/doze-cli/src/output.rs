@@ -93,12 +93,14 @@ fn color(ctx: &Ctx<'_>, terminal: bool, no_color: bool) -> bool {
 }
 
 /// Commands with a result to give as JSON: all but those that hand the terminal to something else or print a script.
+/// `open --console` has one: the console's address, and whether it was opened.
 pub(crate) fn json_capable(cmd: Option<&Cmd>) -> bool {
+    if let Some(Cmd::Open(o)) = cmd {
+        return o.console.is_some();
+    }
     !matches!(
         cmd,
-        None | Some(
-            Cmd::Run(_) | Cmd::Connect(_) | Cmd::Open(_) | Cmd::Completion(_) | Cmd::Refresh(_)
-        )
+        None | Some(Cmd::Run(_) | Cmd::Connect(_) | Cmd::Completion(_) | Cmd::Refresh(_))
     )
 }
 

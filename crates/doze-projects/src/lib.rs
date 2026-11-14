@@ -10,12 +10,13 @@
 mod discover;
 mod gojson;
 mod paths;
+mod rawscan;
 mod record;
 mod write;
 
 pub use discover::{DaemonPid, Running, daemon_pid, running};
 pub use paths::{StackKey, slug};
-pub use record::{Error, FILE_NAME, Project, SCHEMA, decode, list, load};
+pub use record::{Error, FILE_NAME, Project, Raw, SCHEMA, decode, decode_bytes, list, load};
 pub use write::{encode, save, update};
 
 /// The doze home every program shares: `$DOZE_HOME`, else the platform's place (`~/.doze` on macOS and Linux).

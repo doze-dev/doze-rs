@@ -3,11 +3,12 @@
 //! The newest doze comes from the state file when it is under a day old, else the registry's signed release file,
 //! within the budget (through doze's one HTTP client, `doze_cli::http`). A doze installed by Homebrew is updated by
 //! running `brew upgrade doze`; the app and a download update themselves another way, and the message gives the
-//! exact one. Handing the running daemons over to the new doze without stopping services (compat.md rule 5) is the
-//! Rust daemon's (core plan D1): until it lands, an update with a daemon running says the hand-over is pending and
-//! exits 11 (rule 3: no tick for work not done); the daemons keep the doze they started with until they restart.
+//! exact one. Then each running stack is handed over to the new doze ([`super::handover`]: its daemon restarts on the
+//! new doze and what was awake wakes again; the services stop for that moment, as keeping them running needs the
+//! daemon to pass its listeners on, compat.md rule 5). A stack that could not be moved keeps the old doze, is named
+//! with why, and the run exits 11 (rule 3: no tick for work not done).
 //! Exits 0 updated or already the newest; 1 this install cannot update itself, or brew failed; 10 the newest is not
-//! known (the network, or no release file yet); 11 updated, hand-over pending.
+//! known (the network, or no release file yet); 11 updated, a stack not handed over.
 
 use super::fetch::{self, Prefer};
 use crate::cli::setup::Refresh;
@@ -34,12 +35,15 @@ pub struct Updated {
     /// The install tool ran and succeeded (false: this doze is the newest). Which version it installed is not read back:
     /// `doze version` says.
     pub installed: bool,
-    /// The stacks whose daemon still runs the doze it started with.
+    /// The stacks that were running when the update started.
     pub running: usize,
+    /// Each running stack's hand-over to the new doze. Not in the first `update` result; left out when empty.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub stacks: Vec<super::handover::Moved>,
 }
 
-/// What the hand-over waits for.
-const HANDOVER: &str = "handing running daemons over without stopping services waits for the Rust daemon (core plan D1)";
+/// What a hand-over does to a stack.
+const HANDOVER: &str = "each daemon restarts on the new doze and what was awake wakes again (services stop for that moment)";
 
 pub(crate) fn run(ctx: &mut Ctx<'_>, dry_run: bool) -> Outcome {
     let install = Install::of(ctx.host.exe().as_deref());
@@ -54,6 +58,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, dry_run: bool) -> Outcome {
         through: install.name(),
         installed: false,
         running,
+        stacks: Vec::new(),
     };
     if !newer(&latest.version, VERSION) {
         return Ok(Done::ok(View::Updated(done)));
@@ -71,18 +76,53 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, dry_run: bool) -> Outcome {
     }
     brew(ctx)?;
     done.installed = true;
-    let problem = (running > 0).then(|| {
-        Diagnostic::new(
-            ids::NOT_ALL_CHECKED,
-            format!(
-                "{running} running stack(s) keep doze {VERSION} until they restart: {HANDOVER}"
-            ),
-        )
-        .fix("doze down, then doze up, moves a stack to the new doze now")
-    });
+    let problem = hand_over(ctx, &mut done);
     Ok(Done {
         view: View::Updated(done),
         problem,
+    })
+}
+
+/// Hands the running stacks over to the doze brew installed (the `doze` on the PATH, else this program's path); a
+/// diagnostic (exit 11) naming those that keep the old doze.
+fn hand_over(ctx: &mut Ctx<'_>, done: &mut Updated) -> Option<Diagnostic> {
+    if done.running == 0 {
+        return None;
+    }
+    let path = ctx.var("PATH").unwrap_or_default();
+    let Some(exe) =
+        doze_os::which::which_in("doze", path.as_ref(), None).or_else(|| ctx.host.daemon_exe())
+    else {
+        return Some(
+            Diagnostic::new(
+                ids::NOT_ALL_CHECKED,
+                format!(
+                    "{} running stack(s) keep doze {VERSION}: the new doze is not on the PATH",
+                    done.running
+                ),
+            )
+            .fix("doze down, then doze up, in each one moves it to the new doze"),
+        );
+    };
+    let _ = writeln!(
+        ctx.err,
+        "handing {} running stack(s) over to the new doze…",
+        done.running
+    );
+    done.stacks = super::handover::all(&ctx.home, &exe);
+    let left: Vec<String> = done
+        .stacks
+        .iter()
+        .filter(|m| !m.moved)
+        .map(|m| format!("{}: {}", m.stack, m.detail))
+        .collect();
+    (!left.is_empty()).then(|| {
+        Diagnostic::new(
+            ids::NOT_ALL_CHECKED,
+            format!("{} stack(s) keep doze {VERSION}", left.len()),
+        )
+        .note(left.join("\n"))
+        .fix("doze down, then doze up, in each one moves it to the new doze")
     })
 }
 
@@ -129,7 +169,7 @@ fn plan(latest: &Latest, install: Install, running: usize) -> Plan {
             &title,
             Op::Do,
             format!("hand {running} running stack(s) over to it"),
-            format!("pending: {HANDOVER}"),
+            HANDOVER,
         );
     }
     for news in &latest.news {
@@ -143,11 +183,20 @@ impl Updated {
         if self.installed {
             // brew exits 0 when its formula is behind too ("already installed"): what is installed now is not
             // known here, so it is not claimed (rule 3).
-            format!(
+            let mut out = format!(
                 "{} brew upgrade doze finished · the newest is {}; doze version says which this is now\n",
                 p.ok("✓"),
                 self.to
-            )
+            );
+            for m in self.stacks.iter().filter(|m| m.moved) {
+                out.push_str(&format!(
+                    "{} {} runs on the new doze · {}\n",
+                    p.ok("✓"),
+                    m.stack,
+                    p.dim(&m.detail)
+                ));
+            }
+            out
         } else {
             format!("{} doze {} is the newest\n", p.ok("✓"), self.from)
         }

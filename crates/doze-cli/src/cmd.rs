@@ -4,6 +4,7 @@
 pub(crate) mod add;
 mod ask;
 pub(crate) mod bug;
+pub(crate) mod console;
 pub(crate) mod decl;
 pub(crate) mod declared;
 pub(crate) mod docs;
@@ -14,6 +15,7 @@ mod dry;
 pub(crate) mod fetch;
 pub(crate) mod format;
 mod graph;
+mod handover;
 pub(crate) mod init;
 pub(crate) mod lint;
 pub(crate) mod logs;

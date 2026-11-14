@@ -21,6 +21,7 @@ use crate::paint::Paint;
 use crate::plan::{Op, Plan};
 use crate::stack::Stack;
 use crate::view::View;
+use doze_projects::StackKey;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime};
@@ -90,12 +91,12 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &DryRun, notices: &mut Noti
         Found::Gone(_) => false,
         Found::Daemon(pid) => stop(pid)?,
     };
-    let cleared = clear(&leftovers(&stack));
+    let cleared = clear(&leftovers(&stack.key));
     Ok(Done::ok(View::Stopped(Stopped { stopped, cleared })))
 }
 
 fn decide(stack: &Stack) -> Result<Found, Diagnostic> {
-    if let Some(pid) = daemon(stack) {
+    if let Some(pid) = identify(&stack.key) {
         return Ok(Found::Daemon(pid));
     }
     if stack.read()?.is_some() {
@@ -103,21 +104,19 @@ fn decide(stack: &Stack) -> Result<Found, Diagnostic> {
         let waited = Instant::now();
         while waited.elapsed() < PID_WAIT {
             std::thread::sleep(POLL);
-            if let Some(pid) = daemon(stack) {
+            if let Some(pid) = identify(&stack.key) {
                 return Ok(Found::Daemon(pid));
             }
         }
         return Ok(Found::Unknown);
     }
-    Ok(Found::Gone(leftovers(stack)))
+    Ok(Found::Gone(leftovers(&stack.key)))
 }
 
 /// The pid file's pid, if it is still the daemon that wrote it.
-fn daemon(stack: &Stack) -> Option<u32> {
-    let pid = doze_projects::daemon_pid(&stack.key)
-        .filter(|p| p.alive)?
-        .pid;
-    let written = std::fs::metadata(stack.key.pid_file())
+pub(crate) fn identify(key: &StackKey) -> Option<u32> {
+    let pid = doze_projects::daemon_pid(key).filter(|p| p.alive)?.pid;
+    let written = std::fs::metadata(key.pid_file())
         .and_then(|m| m.modified())
         .ok()?;
     let started = doze_os::process::started_at(pid)?;
@@ -128,10 +127,10 @@ fn daemon(stack: &Stack) -> Option<u32> {
     (doze_os::process::leads_own_group(pid) && started_before).then_some(pid)
 }
 
-fn leftovers(stack: &Stack) -> Vec<(PathBuf, &'static str)> {
+pub(crate) fn leftovers(key: &StackKey) -> Vec<(PathBuf, &'static str)> {
     [
-        (stack.key.socket(), "control socket"),
-        (stack.key.pid_file(), "pid file"),
+        (key.socket(), "control socket"),
+        (key.pid_file(), "pid file"),
     ]
     .into_iter()
     .filter(|(p, _)| p.exists())
@@ -167,7 +166,7 @@ fn remember(ctx: &Ctx<'_>, notices: &mut Notices, stack: &Stack) {
 
 /// SIGTERM to exactly `pid`, then wait for it to go. False: the pid was not ours to signal after all (another user's,
 /// since the check), so nothing was stopped.
-fn stop(pid: u32) -> Result<bool, Diagnostic> {
+pub(crate) fn stop(pid: u32) -> Result<bool, Diagnostic> {
     if let Err(err) = doze_os::process::terminate(pid) {
         return match err.kind() {
             std::io::ErrorKind::Unsupported => Err(Diagnostic::new(
@@ -202,7 +201,7 @@ fn stop(pid: u32) -> Result<bool, Diagnostic> {
 }
 
 /// Removes the files; says what it removed.
-fn clear(files: &[(PathBuf, &'static str)]) -> Vec<String> {
+pub(crate) fn clear(files: &[(PathBuf, &'static str)]) -> Vec<String> {
     files
         .iter()
         .filter(|(path, _)| std::fs::remove_file(path).is_ok())

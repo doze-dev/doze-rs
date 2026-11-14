@@ -1,5 +1,5 @@
 # open hands the app the command, the folder made absolute; with no app here it says where it looked (exit 10);
-# over SSH it shows the status table, as Go does; --console waits for the Rust daemon.
+# over SSH it shows the status table, as Go does; --console with doze stopped names the name first, then exit 7.
 @ project bare
 @ no-json
 @ env DISPLAY=:0
@@ -30,8 +30,14 @@ stderr:
 |   fix: doze open <folder> opens a project's folder · doze open doze://<stack> opens a stack
 
 $ doze open --console flows
-exit 1
+exit 4
 stderr:
-| error[DZ0001]: `doze open --console` is not built yet: it talks to the doze daemon, which comes with the Rust core
-|   the console's address is the running module's (its web UI port), which the Rust daemon gives
-|   fix: until then: doze url <name> prints the service's address
+| error[DZ0702]: the stack has no service called "flows"
+|   it has cache, db
+|   fix: doze status
+
+$ doze open --console cache
+exit 7
+stderr:
+| error[DZ0701]: doze open --console needs the stack running, and doze is not running it
+|   fix: doze up

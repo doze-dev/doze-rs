@@ -2,7 +2,7 @@
 //! and `projects.List` read it (written by `write.rs`).
 
 use crate::gojson::{self, is};
-use serde_json::value::RawValue;
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -29,8 +29,8 @@ pub struct Project {
     pub last_down: Option<OffsetDateTime>,
     /// What was started last time, as the names asked for (their dependencies follow). Empty means everything.
     pub last_set: Vec<String>,
-    /// Fields a newer doze wrote, as written; a save keeps them.
-    pub extra: BTreeMap<String, Box<RawValue>>,
+    /// Fields a newer doze wrote, as written (their bytes, as Go's `json.RawMessage` keeps them); a save keeps them.
+    pub extra: BTreeMap<String, Raw>,
     dir: PathBuf,
 }
 
@@ -87,7 +87,7 @@ pub fn load(dir: &Path) -> Result<Option<Project>, Error> {
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(Error::Io(e)),
     };
-    let mut p = decode(&String::from_utf8_lossy(&bytes)).map_err(|e| Error::Decode(path, e))?;
+    let mut p = decode_bytes(&bytes).map_err(|e| Error::Decode(path, e))?;
     p.dir = dir.to_path_buf();
     Ok(Some(p))
 }
@@ -102,20 +102,47 @@ const KNOWN: [&str; 6] = [
     "last_set",
 ];
 
+/// A field a newer doze wrote: its value's bytes as they are in the file (invalid UTF-8 and lone surrogate escapes
+/// included, as Go keeps them).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Raw(pub(crate) Vec<u8>);
+
+impl Raw {
+    pub fn bytes(&self) -> &[u8] {
+        &self.0
+    }
+
+    /// The value as text (bytes that are not UTF-8 shown as U+FFFD).
+    pub fn get(&self) -> Cow<'_, str> {
+        String::from_utf8_lossy(&self.0)
+    }
+}
+
 /// Decodes a record's text as Go's `json.Unmarshal` does, keeping the keys it does not know.
 pub fn decode(text: &str) -> serde_json::Result<Project> {
+    decode_bytes(text.as_bytes())
+}
+
+/// [`decode`] of a file's bytes: invalid UTF-8 and lone surrogates are read as U+FFFD for the fields this doze knows,
+/// and kept byte for byte in the fields it does not.
+pub fn decode_bytes(bytes: &[u8]) -> serde_json::Result<Project> {
     let mut p = Project::default();
-    let text = gojson::mend_surrogates(text);
-    for (key, raw) in gojson::object(&text)?.unwrap_or_default() {
-        field(&key, raw, &mut p)?;
+    let lossy = String::from_utf8_lossy(bytes);
+    let text = gojson::mend_surrogates(&lossy);
+    let pairs = gojson::object(&text)?.unwrap_or_default();
+    let raw = crate::rawscan::members(bytes).filter(|m| m.len() == pairs.len());
+    for (n, (key, val)) in pairs.into_iter().enumerate() {
+        field(&key, val, &mut p)?;
         if !KNOWN.contains(&key.as_str()) {
-            p.extra.insert(key, raw.to_owned());
+            let kept = raw.as_ref().and_then(|r| r.get(n)).copied();
+            let kept = kept.unwrap_or_else(|| val.get().as_bytes());
+            p.extra.insert(key, Raw(kept.to_vec()));
         }
     }
     Ok(p)
 }
 
-fn field(key: &str, raw: &RawValue, p: &mut Project) -> serde_json::Result<()> {
+fn field(key: &str, raw: &serde_json::value::RawValue, p: &mut Project) -> serde_json::Result<()> {
     if is(key, "schema") {
         set(&mut p.schema, gojson::value(raw)?);
     } else if is(key, "config") {

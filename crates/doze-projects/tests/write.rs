@@ -33,6 +33,7 @@ fn change(case: &str) -> fn(&mut Project) {
             p.name.clear();
         },
         "null" => |p| p.name = "x".into(),
+        "rawbytes" => |p| p.name = "n".into(),
         "fraction" => |p| {
             p.config = "/c".into();
             let west = UtcOffset::from_hms(-3, -30, 0).unwrap();
@@ -45,8 +46,8 @@ fn change(case: &str) -> fn(&mut Project) {
     }
 }
 
-const CASES: [&str; 7] = [
-    "fresh", "newer", "broken", "escapes", "cleared", "null", "fraction",
+const CASES: [&str; 8] = [
+    "fresh", "newer", "broken", "escapes", "cleared", "null", "fraction", "rawbytes",
 ];
 
 /// Runs every case here, starting from Go's inputs in `go`, and compares each file with Go's.

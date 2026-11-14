@@ -9,9 +9,8 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
 - `doze __daemon` (the daemon is this binary, as Go's was) and `ctl` (start, pid, stop, the stack lock). Apps, services
   and tasks run; modules do not yet (waking one says so), and `InstanceView.env`/`client` are on the wire but empty
   until D1's module catalog lands. So `env`, `url` and `connect` still wait for those fields to be filled.
-- A config that moves the state folder (`home`, `data_dir`) is found by the CLI at the default place (stack.rs), while
-  the daemon uses the config's: `up` then waits for a socket the daemon does not open. Open: C2 reads the loaded config's
-  folder.
+- A config that moves the state folder (`home`, `data_dir`): the CLI follows the loaded config's folder, as the
+  daemon does (row 11). A doze.hcl that does not load leaves the default place.
 
 ## Built
 
@@ -24,20 +23,24 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
 | 5 | On Windows a daemon is never identified (no process groups), so `down` clears leftovers and says "not running"; stopping waits for the named-pipe daemon (core plan W). | `tests/down_windows.rs` (a live pid in the file is never signalled; the file is cleared) |
 | 6 | `down` remembers what was awake before it stops the daemon (Go `rememberDown`): the snapshot's awake services are joined to the set `up` recorded, as roots; `last_down` is stamped even with nothing running. A doze.hcl that does not load does not keep the stack from stopping (Go refused to stop it): it is a notice and nothing is remembered | `tests/down.rs` `down_remembers_what_was_awake_for_the_next_up`, `down_with_nothing_running_still_records_the_down` |
 | 7 | `up` against a running daemon (Go `up.go`, `remember.go`): names checked against doze.hcl first (exit 4), `--last`/`--all` with names refused (exit 2), `-f` with `--json` refused before anything is asked or remembered (Go remembered, then refused). A bare `up` chooses: `--all` everything; `--last` last time's set (or everything, said); nothing smaller recorded: everything; a terminal with `-y`: last time's set, said; a terminal: "Last time: …. Start the same? [Y/n, a = everything]"; otherwise everything, with how to get last time's set. Then op `up` for each target and what it needs, needs first ("✓ db awake in 38ms", a task "done"), and "› up — supervised in the background. doze for the dash · doze down to stop"; `-f` streams the process services' logs until Ctrl-C (detaches). The set is written to `project.json` before the first `up` op, as Go writes it. `--dry-run` asks nothing and remembers nothing | `tests/up.rs` (requests and the record checked), transcript `up` |
-| 8 | doze-projects writes the record (`update`, `save`) byte for byte as Go's `projects.Update`/`Save`: struct order, or all keys sorted when a newer doze's fields are kept (compacted), Go's string escapes and RFC 3339 nano times with their offset, a newline, written beside and renamed, mode 0600; an unreadable record set aside as `project.json.bad` | `doze-projects/tests/write.rs` against `tests/fixtures/updates` (Go wrote them, tools/doze-oracle `update`) and live when Go is here |
-| 9 | `up` with no daemon running starts it (D1's `ctl::start`: `doze __daemon --config <abs>`, its own session, output to `run/doze.log`, `--var`s as `DOZE_VAR_*`, 10 s for the socket, the log's end quoted on failure) under the stack lock, then boots as row 7; a second `up` that waited for the lock finds it running and starts none. `down` takes the same lock (when the run folder exists), so a stop never races a start. `up --dry-run` with no daemon says the daemon would start, then the wakes from doze.hcl | `tests/up.rs` `up_starts_the_daemon_and_down_stops_it` (the built doze as the daemon, the app ran, down leaves nothing), `with_no_daemon_up_starts_one_or_says_why_it_could_not` |
+| 8 | doze-projects writes the record (`update`, `save`) byte for byte as Go's `projects.Update`/`Save`: struct order, or all keys sorted when a newer doze's fields are kept (compacted), Go's string escapes and RFC 3339 nano times with their offset, a newline, written beside and renamed, mode 0600; an unreadable record set aside as `project.json.bad`. A newer doze's fields are kept as their bytes (`Raw`), invalid UTF-8 and lone surrogate escapes included, as Go's `json.RawMessage` keeps them: found by a byte scanner (`rawscan.rs`, fuzz target `fuzz_rawscan`, a read-write-read round trip) | `doze-projects/tests/write.rs` against `tests/fixtures/updates` (Go wrote them, tools/doze-oracle `update`, eight cases with `rawbytes`) and live when Go is here |
+| 9 | `up` with no daemon running starts it (D1's `ctl::start`: `doze __daemon --config <abs>`, its own session, output to `run/doze.log`, `--var`s as `DOZE_VAR_*`, 10 s for the socket, the log's end quoted on failure) under the stack lock, then boots as row 7; a second `up` that waited for the lock finds it running and starts none. Row 12 has the lock. `up --dry-run` with no daemon says the daemon would start, then the wakes from doze.hcl | `tests/up.rs` `up_starts_the_daemon_and_down_stops_it` (the built doze as the daemon, the app ran, down leaves nothing), `with_no_daemon_up_starts_one_or_says_why_it_could_not` |
 | 10 | `doze run -- <command>` (Go `run.go`): doze.hcl read first (exit 5), the daemon started if it is not running (as `up`, under the stack lock), then the command on this terminal; doze exits with its code (DZ0710, `Exit::Child`), and a command that cannot be started is DZ0711 (exit 1). Better than Go: a failing command's code is also said on stderr. `--env` says it waits for the modules' answers (DZ0001) | `tests/up.rs` `run_starts_the_daemon_then_the_command` |
+| 11 | The CLI's state folder is the loaded config's `data_dir` (`home`/`data_dir`; a relative one from where doze runs, as the daemon started from here reads it), so `up`, `run`, `down`, `status` and the rest find a stack that moves it. The DZ0001 refusal is gone | `tests/up.rs` `a_moved_state_folder_is_followed` (the built doze as the daemon, record, socket and pid file in the moved folder) |
+| 12 | The stack lock (`run/doze.ctl.lock`) is taken by `down` always (a stack that never ran gets its run folder for it; a lock that cannot be taken is exit 1, not ignored), by `up` against a running daemon too (held through the boots, released before `-f` follows), and by `run` while it starts the daemon. Waiting for another holder is said on stderr. A daemon that answers a moment before its pid file is written (D1 writes it just after the socket accepts) is waited for, up to 2 s, not refused | `tests/stack_lock.rs` (the test holds the lock; the pid file written 400 ms late) |
+| 13 | **Better than Go, listed (the owner may veto):** `down` with a doze.hcl that does not load stops the stack and exits 0, with a warning naming the config's error ("doze.hcl does not load (…); the stack is stopped anyway, and what was awake is not remembered for the next up"). Go exited 5 and left running the stack the user asked to stop | `tests/down.rs` `a_broken_doze_hcl_still_stops_the_stack_with_a_warning` |
+| 14 | `up`'s per-boot progress on stderr (Go `bootOne`, `relayBootProgress`): "→ name waking…", the daemon log's lines with downloading/verifying/fetching/extracting relayed as "  › …" (the daemon's own prefixes stripped), on a terminal the elapsed seconds from 3 s and the line cleared for the result. And Go's `trustHint` after the boots: "› <routes> needs a one-time setup here: doze trust (one sudo)", the authority that cannot be used, routes no stack declares, "not set up on this platform" off macOS/Linux | transcript `up`; unit tests in `cmd/progress.rs` (partial lines, invalid UTF-8, prefixes) and `cmd/trust_hint.rs`; oracle below |
+| 15 | `open --console <name>` (new; the Go dash's `o`, `display.WebURL`): the instance's `console`, else its `web_url`, from the running stack, opened in the browser; with no display (SSH, Linux with none) the address is printed (stdout) for opening elsewhere. A name not declared is exit 4 (checked offline first when doze is stopped), doze stopped is exit 7, an instance without a console exit 1 (DZ0709), a browser that fails exit 10. It has a JSON result (`{name, url, opened}`); plain `open` still has none | transcripts `open`, `open-console`, `open-console-ssh` |
+| 16 | `update`'s hand-over: after `brew upgrade doze`, each running stack, under its lock: what is awake read from its daemon, the daemon stopped as `down` stops it (identified pid only), a new one started from the `doze` on the PATH with the doze.hcl its record names, what was awake woken again. JSON adds `stacks: [{stack, moved, detail}]`; a stack not moved is named with why and the run exits 11. The services stop for that moment (passing listeners on is the daemon's, compat.md rule 5); `--var`s the stack was started with are not carried over | `tests/handover.rs` (the built doze moved to a new daemon, web woken again; a stack with no daemon pid: exit 11) |
 
 ## Pending (each says so: DZ0001, exit 1)
 
-- `up`'s trust hint (Go `trustHint`: domains not set up on this machine) is not printed yet.
 - `env`, `url`: Go reads only the config, plus each module's `ConnString` (the plugin's plan). In Rust, a module's
   `env_var` and URL come from its plan (`doze-module-proto` `instance.rs`) through doze-module-host. The CLI must plan
   modules offline (cached build, hello, plan) or ask the daemon. The `InstanceView` on the wire carries no URL today.
 - `run --env`: needs `env` (the modules' answers on the wire).
 - `connect`: the client comes from the signed module's own hello (doze-fetch `meta.rs`), so it needs the module host.
-- `sync` (`apply`), `migrate`, lint's module pass, `open --console` (the `web_url` is on the wire), `update`'s
-  hand-over (stop the old daemon, start the new one: needs `ctl`).
+- `sync` (`apply`), `migrate`, lint's module pass.
 
 ## Oracle
 
@@ -45,7 +48,13 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
   the Rust doze as `DOZE_BIN`): Go's `__daemon` started in a session of its own under a private `DOZE_HOME`, then the
   Rust `doze --json down` gave `{"stopped": true}`, the pid was gone, and neither the socket nor the pid file was left.
   The record it wrote (`last_down`, `config`, `name`) is the one Go reads.
-- The record writer against Go's `projects.Update`: seven cases byte for byte (doze-projects `tests/write.rs`).
+- `up` against Go's daemon, recorded 2026-11-15 with `tools/doze-oracle/up.sh` (same Go build, the Rust doze as
+  `DOZE_BIN`): the Rust `up web` booted the app through Go's `__daemon` (setsid, private `DOZE_HOME`); then Go's `up web`
+  and the Rust `up web` against the same daemon gave identical stdout ("✓ web awake", "› up — supervised …") and
+  stderr ("→ web waking…"); the Rust `down` stopped it and left nothing. The trust hint is not recorded there: an app
+  with `domains` needs the machine's zone, which the oracle keeps off (Go's daemon refuses it with `DOZE_ZONE=off`).
+- The record writer against Go's `projects.Update`: eight cases byte for byte (`rawbytes`: `\xff\xfe`, `\ud800`, `\udfff`
+  and `<\xc3` in a newer doze's fields, written back as Go wrote them) (doze-projects `tests/write.rs`).
 
 ## Independent audit (2026-11-15)
 
@@ -85,12 +94,8 @@ Fixed:
 
 Open, with reasons:
 
-- The stack lock is advisory and partial: `down` skips it when the run folder does not exist yet and ignores a lock
-  error; `up` against a running daemon takes none; and the daemon writes its pid file just after its socket accepts, so
-  a `down` in that instant refuses (exit 1, "no daemon pid") rather than racing. Closing that window needs D1 to write
-  the pid file before it accepts.
-- Extra fields' raw values: a lone `\ud800` escape or invalid UTF-8 inside a newer doze's field is written as U+FFFD,
-  where Go keeps the bytes. Not seen in any file a doze writes.
-- Go's per-boot progress on stderr ("→ name waking…", relayed download lines, the elapsed tick) is not printed yet.
-- `down` with a doze.hcl that does not load stops the stack (exit 0) where Go refused with exit 5: for the owner.
+- The stack lock is advisory: a Go doze (which has none) is not excluded by it. Closed for the Rust CLI: row 12.
+- `down` with a doze.hcl that does not load stops the stack (exit 0) where Go refused with exit 5: decided by the
+  coordinator as a listed improvement (row 13), for the owner to veto.
+- `doctor` and `bug` still find the state folder at the default place (they do not load the config).
 - `run/doze.ctl.lock` and `run/doze.log` stay after `down` (the socket and pid file do not).

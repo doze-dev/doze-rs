@@ -215,6 +215,9 @@ var updates = []struct {
 	{"cleared", `{"schema":1,"config":"/c","name":"n","last_set":["a"],"last_up":"2026-01-02T03:04:05Z"}`,
 		func(p *projects.Project) { p.LastSet, p.Name = nil, "" }},
 	{"null", `null`, func(p *projects.Project) { p.Name = "x" }},
+	// A newer doze's fields holding bytes that are not UTF-8 and lone surrogate escapes: kept as they were written.
+	{"rawbytes", "{\"config\":\"/c\",\"ext\":\"a\xff\xfeb\",\"sur\":\"\\ud800x\",\"both\":[ \"\\udfff\", {\"k\" : \"<\xc3\"} ]}",
+		func(p *projects.Project) { p.Name = "n" }},
 	{"fraction", "", func(p *projects.Project) {
 		p.Config, p.LastUp = "/c", time.Date(2026, 1, 1, 0, 0, 0, 500000000, time.FixedZone("", -(3*3600+30*60)))
 	}},
