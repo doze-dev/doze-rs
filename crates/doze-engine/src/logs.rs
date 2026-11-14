@@ -16,10 +16,14 @@ pub struct RunLog {
 }
 
 impl RunLog {
-    /// The log of `name` in `dir`, created if missing.
+    /// A new run of `name`'s log in `dir`: the previous run moves to `<name>.prev.log`, so a `log_line` check and a
+    /// failure's quote read only this start's lines (Go reads the newest run only).
     pub fn open(dir: &Path, name: &str) -> io::Result<RunLog> {
         std::fs::create_dir_all(dir)?;
         let path = dir.join(format!("{name}.log"));
+        if path.exists() {
+            std::fs::rename(&path, dir.join(format!("{name}.prev.log")))?;
+        }
         append(&path)?;
         Ok(RunLog { path })
     }

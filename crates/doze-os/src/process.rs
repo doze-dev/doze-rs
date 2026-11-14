@@ -18,6 +18,12 @@ pub fn tree_alive(pid: u32) -> bool {
     pid != 0 && (imp::alive(pid) || imp::group_alive(pid))
 }
 
+/// Whether recorded pids must be swept at start: not on Windows, where a dead daemon's Job objects already ended every
+/// tree it started, so a recorded pid that is alive belongs to someone else now.
+pub fn sweep_needed() -> bool {
+    cfg!(not(windows))
+}
+
 /// Kills, by its exact pid, a process tree a previous daemon recorded and could not stop (it was killed itself). On
 /// Unix the pid led its own process group ([`crate::tree::Tree`]), so the whole group goes; if the group is gone the
 /// process alone is tried. On Windows the process is terminated (its Job object died with the old daemon, which

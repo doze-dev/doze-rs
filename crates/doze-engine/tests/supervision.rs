@@ -190,3 +190,27 @@ async fn nothing_is_left_after_the_host_is_killed() {
     assert!(all_gone(&pids).await, "left behind: {pids:?}");
     assert!(!d.path().join("run/backend-web.pid").exists());
 }
+
+/// Audit B1: a `log` check reads this start's lines only, never an earlier run's.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_log_check_waits_for_this_runs_line() {
+    let d = Dir::new("logrun");
+    let spec = listener(&d, 400).ready(doze_engine::Probe::Log("listening on".into()));
+    let e = Engine::builder("t", d.path())
+        .service(svc("api", spec))
+        .build()
+        .unwrap();
+    e.wake("api", Cause::Command).await.unwrap();
+    let first = pid_of(&e, "api");
+    e.stop("api", Cause::Command).await.unwrap();
+    let t = std::time::Instant::now();
+    e.wake("api", Cause::Command).await.unwrap();
+    assert!(
+        t.elapsed() >= Duration::from_millis(400),
+        "passed on the old run's line after {:?}",
+        t.elapsed()
+    );
+    let second = pid_of(&e, "api");
+    e.shutdown().await;
+    assert!(all_gone(&[first, second]).await);
+}

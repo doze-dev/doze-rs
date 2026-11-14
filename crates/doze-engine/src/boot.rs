@@ -122,7 +122,7 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
             } else {
                 None
             };
-            let planned = spec.planned(ctx, private).map_err(Error::Failed)?;
+            // Setup runs before the plan's checks (Go): `setup = cp .env.example .env` may make the env_file.
             if steps::setup_needed(&ctx.data_dir, &spec.setup) {
                 let at = StepEnv {
                     dir: spec.dir.clone(),
@@ -140,6 +140,7 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
                     tracing::warn!("could not record setup for \"{}\": {err}", svc.name);
                 }
             }
+            let planned = spec.planned(ctx, private).map_err(Error::Failed)?;
             e.remember_steps(&svc.name, spec, ctx, private);
             planned
         }

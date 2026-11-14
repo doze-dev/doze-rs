@@ -60,7 +60,8 @@ pub fn sweep(run_dir: &Path) -> Vec<u32> {
             .ok()
             .and_then(|s| s.trim().parse::<u32>().ok())
             .filter(|p| *p > 0);
-        if let Some(pid) = pid.filter(|p| doze_os::process::tree_alive(*p)) {
+        let sweep = doze_os::process::sweep_needed();
+        if let Some(pid) = pid.filter(|p| sweep && doze_os::process::tree_alive(*p)) {
             match doze_os::process::kill_recorded(pid) {
                 Ok(()) => {
                     tracing::info!("reclaimed an orphaned backend (pid {pid}) from a previous run");

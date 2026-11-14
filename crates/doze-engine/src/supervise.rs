@@ -94,13 +94,12 @@ async fn run(
 ) {
     let req = tokio::select! {
         st = unit.wait_any() => {
-            unit.kill();
             let how = match st {
                 Ok(st) => Ended::Exited { success: st.success(), text: doze_os::process::exit_text(&st) },
                 Err(e) => Ended::Exited { success: false, text: format!("exited: {e}") },
             };
-            // Stop the rest the way they asked to be stopped; the trees are already killed, so this only reaps them.
-            unit.stop(Duration::ZERO).await;
+            // The rest are stopped the way they asked, in reverse order; the exited one's leftovers are killed.
+            unit.stop(crate::exec::STOP_GRACE).await;
             let _ = ended.send(Some(how));
             return;
         }
