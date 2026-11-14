@@ -28,6 +28,13 @@ at 2f1bb66.
 | **10a as built** (registry crate at `opt-level = "z"`) | **6,244,864** | **+233,296** | **156** | 7,184 KB |
 | 10a as built, registry at the release profile's `opt-level = 3` | 6,425,552 | +413,984 | 156 | 7,088 KB |
 | 10a with `--features tls` | 7,039,920 | | 168 lines (`cargo tree`, the CI job's count) | |
+| main with the module face (Phase 11) | 6,574,304 | | 171 | 7,152 KB |
+| **10a merged on the module face** | **6,791,104** | **+216,800** | **171** | 7,248 KB |
+| 10a on the module face, `--features tls` | 7,586,144 | | 183 lines | |
+
+After the merge with Phase 11 the default limits are 8,400,000 B, 175 packages and 8,192 KB, which 10a fits (about 8.26 MB on the
+Linux estimate, 98%). The CI TLS job's lines moved to 9,700,000 B and 187 (darwin times 1.216 plus 5%, 0.3 MB under the owner's
+10 MB ceiling; the module alone had already passed the old 8.75 MB and 173). The paragraph below is the measurement before the merge.
 
 The limits are 7,800,000 B, 161 packages and 8,192 KB (`xtask/weight-limits.txt`), and the CI TLS job's are 8,750,000 B and 173
 lines. **No limit moves.** The packages line went from 155 to 156 only by a repeated `cargo tree` line: the one new package is
