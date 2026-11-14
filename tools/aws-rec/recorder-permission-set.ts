@@ -28,6 +28,10 @@ const policy = {
         "states:ValidateStateMachineDefinition", "kinesis:DescribeAccountSettings", "scheduler:GetScheduleGroup",
         // Learned 2026-11-15: BatchGetSecretValue is authorized on "*" (each secret is then checked by GetSecretValue on its own ARN).
         "secretsmanager:BatchGetSecretValue",
+        // Checked 2026-11-15 against AWS's Service Reference (servicereference.us-east-1.amazonaws.com): these are authorized on "*",
+        // not on the resource they name, and the scenarios call them.
+        "events:PutPermission", "events:RemovePermission", "kinesis:UpdateShardCount", "lambda:CreateEventSourceMapping",
+        "states:SendTaskSuccess", "states:SendTaskFailure", "states:SendTaskHeartbeat",
         // Added 2026-11-12 for the KMS and Secrets Manager scenarios written before they were recorded: no resource, nothing stored.
         "kms:GenerateRandom", "secretsmanager:GetRandomPassword", "secretsmanager:ValidateResourcePolicy",
       ],
