@@ -16,6 +16,28 @@ pub const MAX_ITEMS: usize = 1 << 20;
 /// The deepest one value may nest.
 pub const MAX_DEPTH: usize = 64;
 
+/// Why a record value cannot be read with a schema.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum DecodeError {
+    #[error(transparent)]
+    Wire(#[from] wire::WireError),
+    #[error("the value names schema id {named}, not {ours}")]
+    OtherSchema { named: u32, ours: u32 },
+    /// The payload does not fit the schema: where and why, in the words of the language's reader.
+    #[error("the payload does not match the schema ({0})")]
+    Mismatch(String),
+}
+
+/// Why JSON text cannot be written as a value of a schema.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum EncodeError {
+    #[error("not JSON: {0}")]
+    NotJson(#[from] crate::json::JsonError),
+    /// The value does not fit the schema: where and why, in the words of the language's writer.
+    #[error("{0}")]
+    Mismatch(String),
+}
+
 /// What one decode may still spend.
 #[derive(Debug)]
 pub struct Budget {
@@ -103,14 +125,15 @@ impl Codec {
     /// # Errors
     /// Not in the wire format, another schema's id, or a payload that does not fit the schema: the reason in words.
     // fuzz:parser codec
-    pub fn decode(&self, value: &[u8]) -> Result<Decoded, String> {
-        let (id, body) = wire::split(value).map_err(|e| e.to_string())?;
+    pub fn decode(&self, value: &[u8]) -> Result<Decoded, DecodeError> {
+        let (id, body) = wire::split(value)?;
         if id != self.id {
-            return Err(format!("the value names schema id {id}, not {}", self.id));
+            return Err(DecodeError::OtherSchema {
+                named: id,
+                ours: self.id,
+            });
         }
-        self.parsed
-            .decode(body)
-            .map_err(|why| format!("the payload does not match the schema ({why})"))
+        self.parsed.decode(body).map_err(DecodeError::Mismatch)
     }
 
     /// A value of the schema's shape, every field at its zero value.
@@ -123,10 +146,10 @@ impl Codec {
     ///
     /// # Errors
     /// The text is not JSON, or does not fit the schema: the reason in words.
-    pub fn encode(&self, text: &str) -> Result<Vec<u8>, String> {
-        let value = Json::parse(text).map_err(|e| format!("not JSON: {e}"))?;
+    pub fn encode(&self, text: &str) -> Result<Vec<u8>, EncodeError> {
+        let value = Json::parse(text)?;
         let mut out = wire::header(self.id).to_vec();
-        out.extend(self.parsed.encode(&value)?);
+        out.extend(self.parsed.encode(&value).map_err(EncodeError::Mismatch)?);
         Ok(out)
     }
 }

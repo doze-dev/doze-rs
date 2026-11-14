@@ -117,7 +117,8 @@ impl<F: Fs> Broker<F> {
         }
         let partitions = self.partitions_requested(t)?;
         let config = config_map(t);
-        topic_config::validate(&config).map_err(|why| (ResponseError::InvalidConfig, why))?;
+        topic_config::validate(&config)
+            .map_err(|why| (ResponseError::InvalidConfig, why.to_string()))?;
         let limit = self.config.max_partitions;
         if partitions.get() > limit {
             let why = format!(
