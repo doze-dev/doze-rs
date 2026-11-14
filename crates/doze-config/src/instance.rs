@@ -7,7 +7,7 @@ use crate::eval::{decode_bool, decode_string, eval};
 use crate::foreach::{Stamp, parse_depends_on, stamps};
 use crate::gohcl::{Decoded, Spec, Ty, decode_body, opt};
 use crate::kinds::{Head, head_of};
-use crate::load::{Loader, Pending};
+use crate::load::{Loader, Pending, Probes};
 use crate::model::{Config, Instance, Kind, Sleep};
 use crate::modules::ModuleInfo;
 use crate::runspec::parse_sleep;
@@ -37,7 +37,7 @@ struct Core {
     no_routes: bool,
 }
 
-impl<'a> Loader<'a> {
+impl<'a> Loader<'a, '_> {
     /// Go's `expandInstanceBlock`: one pending instance per stamp.
     pub(crate) fn expand_instance(
         &mut self,
@@ -65,10 +65,10 @@ impl<'a> Loader<'a> {
         }
         let enabled = self.enabled(meta.attr("enabled"), &head.title(&head.label))?;
         let explicit = match meta.attr("depends_on") {
-            Some(a) => self.in_ctx(None, false, |ctx| parse_depends_on(files, a, ctx))?,
+            Some(a) => self.in_ctx(None, Probes::No, |ctx| parse_depends_on(files, a, ctx))?,
             None => BTreeMap::new(),
         };
-        let stamps = self.in_ctx(None, false, |ctx| stamps(files, count, for_each, ctx))?;
+        let stamps = self.in_ctx(None, Probes::No, |ctx| stamps(files, count, for_each, ctx))?;
         let mut out = Vec::with_capacity(stamps.len());
         for s in stamps {
             let mut p = self.build_pending(cfg, block, &head, &rest, &s)?;
@@ -90,7 +90,7 @@ impl<'a> Loader<'a> {
         what: &str,
     ) -> Result<bool> {
         let Some(a) = attr else { return Ok(true) };
-        let (v, ds) = self.in_ctx(None, false, |ctx| eval(a, ctx));
+        let (v, ds) = self.in_ctx(None, Probes::No, |ctx| eval(a, ctx));
         if ds.has_errors() {
             return Err(diag_error(self.files, ds));
         }
@@ -148,7 +148,7 @@ impl<'a> Loader<'a> {
             (core, rest) = self.module_core(&rest, s, &what)?;
         }
         self.check_version_literal(&rest, &what)?;
-        let (c, ds) = self.in_ctx(s.vars.as_ref(), false, |ctx| {
+        let (c, ds) = self.in_ctx(s.vars.as_ref(), Probes::No, |ctx| {
             decode_body(&rest, ctx, &COMMON)
         });
         if ds.has_errors() {
@@ -187,7 +187,7 @@ impl<'a> Loader<'a> {
         let mut core = Core::default();
         if let Some(a) = c.attr("sleep") {
             let raw = self
-                .in_ctx(s.vars.as_ref(), false, |ctx| decode_string(a, ctx))
+                .in_ctx(s.vars.as_ref(), Probes::No, |ctx| decode_string(a, ctx))
                 .map_err(|ds| diag_error(files, ds))?;
             let at = At::new(a.file, a.range);
             core.sleep =
@@ -196,7 +196,7 @@ impl<'a> Loader<'a> {
         }
         if let Some(a) = c.attr("routes") {
             let on = self
-                .in_ctx(s.vars.as_ref(), false, |ctx| decode_bool(a, ctx))
+                .in_ctx(s.vars.as_ref(), Probes::No, |ctx| decode_bool(a, ctx))
                 .map_err(|_| {
                     pos_err(
                         files,
@@ -220,7 +220,13 @@ impl<'a> Loader<'a> {
             return Ok(());
         };
         let lit = n.value();
-        if lit.is_u64() || lit.is_i64() {
+        let written = a
+            .expr
+            .span()
+            .and_then(|sp| a.src.text().get(sp))
+            .unwrap_or("");
+        // `-10.10` is a negation in Go's parser, not a literal, and is not checked.
+        if lit.is_u64() || lit.is_i64() || written.trim_start().starts_with('-') {
             return Ok(());
         }
         let text = a

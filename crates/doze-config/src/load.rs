@@ -15,6 +15,18 @@ use doze_hcl::function::Functions;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+/// Where a context sees the probe functions (`tcp()`, `http(…)`…), as Go nests its scopes: a
+/// function name is suggested from the innermost scope's functions only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Probes {
+    /// None: the stack's own context, or a `count`/`for_each` stamp of it.
+    No,
+    /// Outside the stamp (a service's or task's body: Go's `decodeRunnables` scope).
+    Outer,
+    /// Inside the stamp (an app's body: the command engine's `DecodeConfig` scope).
+    Inner,
+}
+
 /// What a load is given besides the path.
 pub struct Options<'a> {
     pub host: &'a dyn Host,
@@ -82,18 +94,19 @@ impl Declared {
     }
 }
 
-pub(crate) struct Loader<'a> {
+pub(crate) struct Loader<'a, 'f> {
     pub files: &'a Files,
     pub opts: &'a Options<'a>,
     pub shape: bool,
-    pub funcs: Functions,
-    pub probes: Functions,
-    pub vars: BTreeMap<String, Value>,
+    pub funcs: &'f Functions,
+    pub probes: &'f Functions,
+    /// The stack's context, kept and grown in place as blocks publish (never cloned per use).
+    pub base: Context<'f>,
     pub decl_ranges: BTreeMap<String, At>,
     pub runnables: Vec<Runnable<'a>>,
 }
 
-impl std::fmt::Debug for Loader<'_> {
+impl std::fmt::Debug for Loader<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Loader")
             .field("shape", &self.shape)
@@ -101,23 +114,58 @@ impl std::fmt::Debug for Loader<'_> {
     }
 }
 
-impl<'a> Loader<'a> {
+impl<'a> Loader<'a, '_> {
     /// Runs `f` in the stack's context, inside a `count`/`for_each` stamp if any, with the probe
     /// functions if `probes`.
     pub(crate) fn in_ctx<R>(
         &self,
         stamp: Option<&BTreeMap<String, Value>>,
-        probes: bool,
+        probes: Probes,
         f: impl FnOnce(&Context<'_>) -> R,
     ) -> R {
-        let base = Context::new(self.vars.clone(), Some(&self.funcs));
-        let mut mid = base.child(BTreeMap::new());
-        if probes {
-            mid.functions = Some(&self.probes);
+        let base = &self.base;
+        match (probes, stamp) {
+            (Probes::No, None) => f(base),
+            (Probes::No, Some(s)) => f(&base.child(s.clone())),
+            (Probes::Outer, s) => {
+                let p = self.probe_scope(base);
+                match s {
+                    Some(s) => f(&p.child(s.clone())),
+                    None => f(&p),
+                }
+            }
+            (Probes::Inner, None) => f(&self.probe_scope(base)),
+            (Probes::Inner, Some(s)) => {
+                let st = base.child(s.clone());
+                f(&self.probe_scope(&st))
+            }
         }
-        match stamp {
-            Some(s) => f(&mid.child(s.clone())),
-            None => f(&mid),
+    }
+
+    /// A scope inside `c` whose own functions are the probes.
+    fn probe_scope<'c>(&'c self, c: &'c Context<'c>) -> Context<'c> {
+        let mut p = c.child(BTreeMap::new());
+        p.functions = Some(self.probes);
+        p
+    }
+
+    /// Publishes a root variable (`var`, `local`, `module`, …) to everything evaluated after.
+    pub(crate) fn set_var(&mut self, name: &str, v: Value) {
+        self.base
+            .variables
+            .get_or_insert_with(BTreeMap::new)
+            .insert(name.to_owned(), v);
+    }
+
+    /// One entry of a published object (`module.<name>`).
+    pub(crate) fn publish(&mut self, root: &str, name: &str, v: Value) {
+        if let Some(Value::Object(m)) = self
+            .base
+            .variables
+            .as_mut()
+            .and_then(|vars| vars.get_mut(root))
+        {
+            m.insert(name.to_owned(), v);
         }
     }
 
@@ -232,13 +280,14 @@ fn build<'a>(
         ..Config::default()
     };
     cfg.defaults.idle_timeout = DEFAULT_IDLE;
+    let (funcs, probes) = (functions(opts.host), crate::runspec::functions());
     let mut l = Loader {
         files,
         opts,
         shape,
-        funcs: functions(opts.host),
-        probes: crate::runspec::functions(),
-        vars: BTreeMap::new(),
+        funcs: &funcs,
+        probes: &probes,
+        base: Context::new(BTreeMap::new(), Some(&funcs)),
         decl_ranges: BTreeMap::new(),
         runnables: Vec::new(),
     };
@@ -288,7 +337,7 @@ fn classify<'a>(files: &Files, blocks: Vec<Block<'a>>) -> Result<Classified<'a>>
     Ok(c)
 }
 
-impl<'a> Loader<'a> {
+impl<'a> Loader<'a, '_> {
     fn build(
         &mut self,
         cfg: &mut Config,
@@ -302,23 +351,27 @@ impl<'a> Loader<'a> {
             auto,
             host: Some(self.opts.host),
         };
-        let vs = self.in_ctx(None, false, |ctx| {
+        let vs = self.in_ctx(None, Probes::No, |ctx| {
             vars::resolve_variables(files, &c.variables, &inputs, ctx)
         })?;
-        self.vars.insert("var".into(), Value::Object(vs));
-        let locals = vars::evaluate_locals(files, &c.locals, &self.vars, &self.funcs)?;
-        if !c.locals.is_empty() {
-            self.vars.insert("local".into(), Value::Object(locals));
+        self.set_var("var", Value::Object(vs));
+        let globals = self.base.variables.clone().unwrap_or_default();
+        let locals = vars::evaluate_locals(files, &c.locals, &globals, self.funcs)?;
+        // Go sets `local` only when some locals block assigns something.
+        if !locals.is_empty() {
+            self.set_var("local", Value::Object(locals));
         }
         self.root_attributes(cfg, &content.attributes)?;
         paths::resolve_home(cfg, self.opts.host).map_err(Error::msg)?;
         if let Some(b) = &c.defaults {
-            self.in_ctx(None, false, |ctx| {
+            self.in_ctx(None, Probes::No, |ctx| {
                 defaults::decode_defaults(cfg, files, self.opts.host, b, ctx)
             })?;
         }
         if let Some(b) = &c.tls {
-            self.in_ctx(None, false, |ctx| defaults::decode_tls(cfg, files, b, ctx))?;
+            self.in_ctx(None, Probes::No, |ctx| {
+                defaults::decode_tls(cfg, files, b, ctx)
+            })?;
         }
         let mut pending = Vec::new();
         for b in &c.instances {
@@ -343,7 +396,7 @@ impl<'a> Loader<'a> {
                     .map_err(|e| pos_err(files, &p.def, e, ""))?;
             }
         }
-        let (outs, order) = self.in_ctx(None, false, |ctx| {
+        let (outs, order) = self.in_ctx(None, Probes::No, |ctx| {
             vars::evaluate_outputs(files, &c.outputs, ctx)
         })?;
         (cfg.outputs, cfg.output_order) = (outs, order);
@@ -360,7 +413,7 @@ impl<'a> Loader<'a> {
                 _ => continue,
             };
             *dst = self
-                .in_ctx(None, false, |ctx| decode_string(attr, ctx))
+                .in_ctx(None, Probes::No, |ctx| decode_string(attr, ctx))
                 .map_err(|ds| diag_error(self.files, ds))?;
         }
         Ok(())

@@ -174,7 +174,7 @@ pub fn check_domains(
     for dom in d.domains {
         host.valid_domain(dom)
             .map_err(|e| format!("{what}: domains: {e}"))?;
-        let dom = dom.to_lowercase();
+        let dom = crate::paths::go_lower(dom);
         let dom = dom.strip_suffix('.').unwrap_or(&dom).to_owned();
         if !registrable(&host.route_domain(&dom)) {
             return Err(format!(

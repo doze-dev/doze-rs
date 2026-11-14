@@ -11,7 +11,7 @@ use doze_hcl::convert::convert;
 use doze_hcl::eval::Context;
 use doze_hcl::types::Type;
 use doze_hcl::value::quote::go_quote;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const ENV_PREFIX: &str = "DOZE_VAR_";
 pub const AUTO_VARS_SUFFIX: &str = ".auto.doze.vars";
@@ -191,19 +191,19 @@ impl One<'_> {
             }
             _ => {}
         }
-        match doze_hcl::eval::eval_attribute(&format!("x = {s}\n"), "x", &Context::default()) {
-            Ok((v, ds)) if !ds.has_errors() => Ok(v),
-            Ok((_, ds)) => Err(pos_err(
+        match crate::override_expr::parse(s) {
+            Ok(v) => Ok(v),
+            Err(crate::override_expr::ExprError::Eval(e)) => Err(pos_err(
                 self.src,
                 self.at,
                 format!("variable {q} from {source}: invalid value"),
-                ds.to_string(),
+                e,
             )),
-            Err(d) => Err(pos_err(
+            Err(crate::override_expr::ExprError::Parse(e)) => Err(pos_err(
                 self.src,
                 self.at,
                 format!("variable {q} from {source}: not a valid expression"),
-                d.to_string(),
+                e,
             )),
         }
     }
@@ -238,72 +238,101 @@ pub fn evaluate_locals(
             exprs.insert(n.clone(), a);
         }
     }
+    let mut vars = vars.clone();
+    vars.insert("local".into(), Value::Object(BTreeMap::new()));
     let mut l = Locals {
         src,
         exprs,
-        vars,
-        funcs,
-        done: BTreeMap::new(),
-        visiting: Vec::new(),
+        ctx: Context::new(vars, Some(funcs)),
+        done: BTreeSet::new(),
     };
     let names: Vec<String> = l.exprs.keys().cloned().collect();
     for n in &names {
-        l.resolve(n, &mut Vec::new())?;
+        l.resolve(n)?;
     }
-    Ok(l.done)
+    match l.ctx.variables.as_mut().and_then(|v| v.remove("local")) {
+        Some(Value::Object(m)) => Ok(m),
+        _ => Ok(BTreeMap::new()),
+    }
 }
 
-struct Locals<'s, 'a> {
+/// The locals, evaluated in dependency order into one context whose `local` grows as they are.
+struct Locals<'s, 'a, 'f> {
     src: &'s dyn Sources,
     exprs: BTreeMap<String, doze_hcl::decode::Attr<'a>>,
-    vars: &'s BTreeMap<String, Value>,
-    funcs: &'s doze_hcl::function::Functions,
-    done: BTreeMap<String, Value>,
-    visiting: Vec<String>,
+    ctx: Context<'f>,
+    done: BTreeSet<String>,
 }
 
-impl Locals<'_, '_> {
-    fn resolve(&mut self, n: &str, stack: &mut Vec<String>) -> Result<()> {
-        if self.done.contains_key(n) {
-            return Ok(());
-        }
-        let Some(attr) = self.exprs.get(n).cloned() else {
-            return Ok(());
+impl Locals<'_, '_, '_> {
+    /// The locals `n` reads (itself left out), in source order.
+    fn deps(&self, n: &str) -> Vec<String> {
+        let Some(attr) = self.exprs.get(n) else {
+            return Vec::new();
         };
-        if self.visiting.iter().any(|v| v == n) {
-            let mut cycle = stack.clone();
-            cycle.push(n.to_owned());
-            return Err(pos_err(
-                self.src,
-                &At::new(attr.file, attr.name_range),
-                "cycle between locals",
-                cycle.join(" → "),
-            ));
+        crate::refs::variables(attr.expr, attr.src)
+            .into_iter()
+            .filter(|t| t.root == "local")
+            .filter_map(|t| t.name().map(str::to_owned))
+            .filter(|d| d != n && self.exprs.contains_key(d))
+            .collect()
+    }
+
+    /// Go's recursive `resolve`, walked with a stack of its own (a long chain must not overflow).
+    fn resolve(&mut self, root: &str) -> Result<()> {
+        if self.done.contains(root) {
+            return Ok(());
         }
-        self.visiting.push(n.to_owned());
-        for t in crate::refs::variables(attr.expr, attr.src) {
-            let Some(dep) = t
-                .name()
-                .filter(|d| t.root == "local" && *d != n)
-                .map(str::to_owned)
-            else {
+        let mut stack: Vec<(String, Vec<String>, usize)> =
+            vec![(root.to_owned(), self.deps(root), 0)];
+        let mut on_path: BTreeSet<String> = BTreeSet::from([root.to_owned()]);
+        while let Some((_, deps, next)) = stack.last_mut() {
+            let Some(dep) = deps.get(*next).cloned() else {
+                if let Some((n, ..)) = stack.pop() {
+                    on_path.remove(&n);
+                    self.eval_one(&n)?;
+                }
                 continue;
             };
-            if self.exprs.contains_key(&dep) {
-                stack.push(n.to_owned());
-                let r = self.resolve(&dep, stack);
-                stack.pop();
-                r?;
+            *next += 1;
+            if self.done.contains(&dep) {
+                continue;
             }
+            if on_path.contains(&dep) {
+                let mut cycle: Vec<String> = stack.iter().map(|(n, ..)| n.clone()).collect();
+                cycle.push(dep.clone());
+                let at = self
+                    .exprs
+                    .get(&dep)
+                    .map(|a| At::new(a.file, a.name_range))
+                    .unwrap_or_default();
+                return Err(pos_err(
+                    self.src,
+                    &at,
+                    "cycle between locals",
+                    cycle.join(" → "),
+                ));
+            }
+            let d = self.deps(&dep);
+            on_path.insert(dep.clone());
+            stack.push((dep, d, 0));
         }
-        let mut vars = self.vars.clone();
-        vars.insert("local".into(), Value::Object(self.done.clone()));
-        let ctx = Context::new(vars, Some(self.funcs));
-        let (v, ds) = eval(&attr, &ctx);
+        Ok(())
+    }
+
+    fn eval_one(&mut self, n: &str) -> Result<()> {
+        let Some(attr) = self.exprs.get(n) else {
+            return Ok(());
+        };
+        let (v, ds) = eval(attr, &self.ctx);
         if ds.has_errors() {
             return Err(diag_error(self.src, ds));
         }
-        self.done.insert(n.to_owned(), v);
+        if let Some(Value::Object(m)) = self.ctx.variables.as_mut().and_then(|v| v.get_mut("local"))
+        {
+            m.insert(n.to_owned(), v);
+        }
+        self.done.insert(n.to_owned());
         Ok(())
     }
 }
@@ -370,7 +399,7 @@ pub fn load_auto_vars(
     for n in names {
         let path =
             crate::files::path_string(&crate::paths::clean(&std::path::Path::new(dir).join(&n)));
-        let files = crate::files::read_all(host, std::slice::from_ref(&path), "")?;
+        let files = crate::files::read_auto(host, &path)?;
         let Some(f) = files.files.first() else {
             continue;
         };

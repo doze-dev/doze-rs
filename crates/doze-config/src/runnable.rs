@@ -10,7 +10,7 @@ use crate::error::{At, Error, Result, diag_error, pos_err};
 use crate::eval::decode_int;
 use crate::foreach::stamps;
 use crate::gohcl::{Decoded, Spec, Ty, decode_body, opt, req};
-use crate::load::{Declared, Loader, Runnable};
+use crate::load::{Declared, Loader, Probes, Runnable};
 use crate::model::{
     Command, Condition, Config, Instance, Kind, Ref, ServiceDecl, Spec as RunSpec, TaskDecl, title,
 };
@@ -57,7 +57,7 @@ static TASK: Spec = Spec {
 /// A body without `after`, what `after` names, what the body references, and `after`'s waits.
 type Split<'a> = (Body<'a>, Vec<Ref>, Vec<Ref>, BTreeMap<String, Condition>);
 
-impl<'a> Loader<'a> {
+impl<'a> Loader<'a, '_> {
     /// Go's `declareRunnable`: a service's or task's name (and a service's port), per stamp.
     pub(crate) fn declare_runnable(&mut self, cfg: &mut Config, block: &Block<'a>) -> Result<()> {
         let files = self.files;
@@ -90,7 +90,7 @@ impl<'a> Loader<'a> {
             ));
         }
         let enabled = self.enabled(m.attr("enabled"), &what)?;
-        let stamps = self.in_ctx(None, false, |ctx| {
+        let stamps = self.in_ctx(None, Probes::No, |ctx| {
             stamps(files, m.attr("count"), m.attr("for_each"), ctx)
         })?;
         for st in stamps {
@@ -129,7 +129,7 @@ impl<'a> Loader<'a> {
             return Ok(0);
         };
         let p = self
-            .in_ctx(run.stamp.as_ref(), false, |ctx| decode_int(a, ctx))
+            .in_ctx(run.stamp.as_ref(), Probes::No, |ctx| decode_int(a, ctx))
             .map_err(|ds| diag_error(self.files, ds))?;
         u16::try_from(p).ok().filter(|p| *p >= 1).ok_or_else(|| {
             pos_err(
@@ -180,8 +180,8 @@ impl<'a> Loader<'a> {
                 )
             })
             .collect();
-        self.vars.insert("service".into(), Value::Object(services));
-        self.vars.insert("task".into(), Value::Object(tasks));
+        self.set_var("service", Value::Object(services));
+        self.set_var("task", Value::Object(tasks));
     }
 
     pub(crate) fn decode_runnables(&mut self, cfg: &mut Config, known: &Declared) -> Result<()> {
@@ -252,7 +252,9 @@ impl<'a> Loader<'a> {
         } else {
             &TASK
         };
-        let (raw, ds) = self.in_ctx(r.stamp.as_ref(), true, |ctx| decode_body(&rest, ctx, spec));
+        let (raw, ds) = self.in_ctx(r.stamp.as_ref(), Probes::Outer, |ctx| {
+            decode_body(&rest, ctx, spec)
+        });
         if ds.has_errors() {
             return Err(diag_error(self.files, ds));
         }
