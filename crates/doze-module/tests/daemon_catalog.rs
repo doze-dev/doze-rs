@@ -266,3 +266,47 @@ async fn a_version_the_module_does_not_serve_is_refused_at_load() {
     assert!(err.contains("serves 1, 2"), "{err}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// The engine pin a module reports at its first start is written to doze.lock (Go's `up` wrote it), so the next start
+/// asks no mirror.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_engine_pin_a_module_reports_is_written_to_the_lock() {
+    let (dir, port) = project("pins");
+    let lock = dir.join("doze.lock");
+    std::fs::remove_file(&lock).unwrap();
+    let cat = Arc::new(Catalog::new(
+        tokio::runtime::Handle::current(),
+        Arc::new(Find::default()),
+        Arc::new(Shared(Arc::default())),
+        lock.clone(),
+        dir.join("home"),
+    ));
+    let env = BTreeMap::from([(
+        "DOZE_HOME".to_string(),
+        dir.join("home").to_string_lossy().into_owned(),
+    )]);
+    let a = doze_daemon::entry::assemble(&dir.join("doze.hcl"), "0.0.0", cat, env)
+        .await
+        .unwrap();
+    a.engine
+        .wake("e", doze_engine::Cause::Command)
+        .await
+        .unwrap();
+    let pins = doze_daemon::catalog::lock_pins(&lock);
+    let echo: Vec<_> = pins.iter().filter(|p| p.engine == "echo").collect();
+    assert_eq!(echo.len(), 1, "{pins:?}");
+    assert_eq!(
+        (echo[0].spec.as_str(), echo[0].resolved.as_str()),
+        ("2", "2.4.1")
+    );
+    assert_eq!(
+        echo[0]
+            .hashes
+            .get(&doze_fetch::triple())
+            .map(String::as_str),
+        Some("sha256:lock")
+    );
+    let _ = port;
+    a.engine.shutdown().await;
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -144,6 +144,11 @@ impl Catalog {
             .any(|l| l.name == MAIN && l.tcp)
     }
 
+    /// The project's `doze.lock`.
+    pub fn lock_path(&self) -> &Path {
+        &self.lock
+    }
+
     /// The pins `doze.lock` holds for builds of `engine`.
     pub fn pins(&self, engine: &str) -> Vec<doze_module_proto::msg::run::Pin> {
         lock_pins(&self.lock)
@@ -224,6 +229,34 @@ pub fn lock_pins(path: &Path) -> Vec<doze_module_proto::msg::run::Pin> {
                 })
         })
         .collect()
+}
+
+/// Records engine pins a module reported in the lock at `path` (Go's `up` wrote them), so the next start resolves
+/// offline. A lock that cannot be read or written is said in the log and left alone: the start goes on.
+#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
+pub fn record_pins(path: &Path, pins: &[doze_module_proto::msg::run::Pin]) {
+    let mut lock = if path.exists() {
+        match doze_fetch::lock::Lock::load(path) {
+            Ok(l) => l,
+            Err(e) => {
+                eprintln!("doze daemon: {} not updated: {e}", path.display());
+                return;
+            }
+        }
+    } else {
+        doze_fetch::lock::Lock::default()
+    };
+    for p in pins {
+        let pin = doze_fetch::lock::EnginePin {
+            resolved: p.resolved.clone(),
+            source: "mirror".into(),
+            hashes: p.hashes.clone(),
+        };
+        lock.record_engine(&p.engine, &p.spec, pin);
+    }
+    if let Err(e) = lock.save(path, None) {
+        eprintln!("doze daemon: {} not updated: {e}", path.display());
+    }
 }
 
 /// The instance a module is asked about while the config loads: reached at `endpoint`, its backend there too.

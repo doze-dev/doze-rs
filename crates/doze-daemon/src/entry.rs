@@ -103,11 +103,12 @@ fn stack(cfg: &doze_config::Config, catalog: &Arc<Catalog>) -> doze_engine::stac
 
 #[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 async fn run(config: &Path, version: &str) -> Result<(), String> {
+    let catalog = Arc::new(catalog(config)?);
     let Assembled {
         cfg,
         engine,
         labels,
-    } = assemble(config, version, Arc::new(catalog(config)?), BTreeMap::new()).await?;
+    } = assemble(config, version, catalog.clone(), BTreeMap::new()).await?;
     let run = RunDir::of(Path::new(&cfg.data_dir));
     doze_os::fs::private_dir(run.path()).map_err(|e| e.to_string())?;
     if ctl::running(&run) {
@@ -121,6 +122,9 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
         dir: cfg.dir.clone(),
         loaded: Some(std::time::SystemTime::now()),
     };
+    // The idle reaper and the health prober (Go's `RunReaper`, `RunHealthProber`), and the module pool's own.
+    let background = engine.background();
+    let modules = tokio::spawn(reap_modules(catalog.clone()));
     let front = Front::open(&engine, &fronted(&cfg, &labels)).await;
     let daemon = Daemon::new(engine.clone(), labels, info);
     let serving = daemon
@@ -139,9 +143,19 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     );
     serving.stop();
     front.close();
+    modules.abort();
+    drop(background);
     engine.shutdown().await;
     let _ = std::fs::remove_file(run.pid_file());
     Ok(())
+}
+
+/// Stops module processes nothing has called for a while, now and then.
+async fn reap_modules(catalog: Arc<Catalog>) {
+    loop {
+        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+        catalog.pool.reap_idle().await;
+    }
 }
 
 /// The stack at `path`, as the CLI loads it: this process's environment (`DOZE_VAR_*` included), doze-names' checks.

@@ -61,13 +61,13 @@ pub fn module(
         toolchain: None,
     };
     let structured = m.caps & caps::OBJECTS != 0;
-    Arc::new(ModuleInstance::new(
-        cat.pool.clone(),
-        base,
-        cat.pins(&i.ty),
-        target,
-        structured,
-    ))
+    let lock = cat.lock_path().to_path_buf();
+    let sink: doze_engine::modules::PinSink =
+        Arc::new(move |pins| catalog::record_pins(&lock, pins));
+    Arc::new(
+        ModuleInstance::new(cat.pool.clone(), base, cat.pins(&i.ty), target, structured)
+            .with_pin_sink(sink),
+    )
 }
 
 /// The instance as its module sees it once planned (for what it publishes), if it is a module instance.
