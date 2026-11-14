@@ -3,7 +3,8 @@
 //!
 //! Field attributes, all inside `#[spec(...)]`: `doc = "…"`, `default = <bool | number | "string">`, `since = N`,
 //! `until = N` (engine majors), `rename = "hcl_name"`, `block` (a `Vec<T>` of nested blocks, `T: Spec`), `label` (this
-//! nested block type's label; a `String`).
+//! nested block type's label; a `String`), `key` (an argument that is part of the block's identity with its labels: two
+//! blocks are the same only if their labels and keys are; mariadb's `user "app"` on two hosts are two accounts).
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as Tokens;
@@ -31,6 +32,7 @@ struct FieldSpec {
     until: Option<u32>,
     block: bool,
     label: bool,
+    key: bool,
 }
 
 fn int(e: &Expr) -> syn::Result<u32> {
@@ -83,12 +85,13 @@ fn parse_field(attrs: &[syn::Attribute]) -> syn::Result<FieldSpec> {
             match key.as_str() {
                 "block" => f.block = true,
                 "label" => f.label = true,
+                "key" => f.key = true,
                 "doc" => f.doc = m.value()?.parse::<syn::LitStr>()?.value(),
                 "rename" => f.name = Some(m.value()?.parse::<syn::LitStr>()?.value()),
                 "default" => f.default = Some(default_value(&m.value()?.parse::<Expr>()?)?),
                 "since" => f.since = Some(int(&m.value()?.parse::<Expr>()?)?),
                 "until" => f.until = Some(int(&m.value()?.parse::<Expr>()?)?),
-                _ => return Err(m.error("unknown spec attribute; expected doc, default, since, until, rename, block or label")),
+                _ => return Err(m.error("unknown spec attribute; expected doc, default, since, until, rename, block, label or key")),
             }
             Ok(())
         })?;
@@ -135,6 +138,7 @@ struct Parts {
     attrs: Vec<Tokens>,
     blocks: Vec<Tokens>,
     labels: Vec<Tokens>,
+    keys: Vec<Tokens>,
     reads: Vec<Tokens>,
     builds: Vec<Tokens>,
     names: Vec<String>,
@@ -187,6 +191,9 @@ fn add_field(p: &mut Parts, m: &Tokens, field: &syn::Field) -> syn::Result<()> {
     if f.label {
         p.labels.push(quote! { #name.to_string() });
     } else {
+        if f.key {
+            p.keys.push(quote! { #name.to_string() });
+        }
         p.attrs.push(attr_tokens(m, &name, ty, &f, &default));
     }
     Ok(())
@@ -211,6 +218,7 @@ fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
         attrs,
         blocks,
         labels,
+        keys,
         reads,
         builds,
         names,
@@ -223,6 +231,9 @@ fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
             }
             fn labels() -> ::std::vec::Vec<::std::string::String> {
                 vec![#(#labels),*]
+            }
+            fn identity() -> ::std::vec::Vec<::std::string::String> {
+                vec![#(#labels,)* #(#keys),*]
             }
             fn decode(node: &#m::proto::msg::value::Node, cx: &mut #m::spec::Decoding) -> ::core::option::Option<Self> {
                 let map = cx.map(node, "the block")?;

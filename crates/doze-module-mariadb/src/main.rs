@@ -71,7 +71,8 @@ struct MariadbSpec {
 struct User {
     #[spec(label)]
     name: String,
-    #[spec(doc = "The host the account is for; \"%\" (any) when left out.")]
+    // An account is a name and a host: `user "app"` for two hosts is two accounts.
+    #[spec(key, doc = "The host the account is for; \"%\" (any) when left out.")]
     host: Option<String>,
     #[spec(doc = "Its password; none, the account has no password.")]
     password: Option<String>,

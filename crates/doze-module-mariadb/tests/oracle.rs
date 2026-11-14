@@ -102,3 +102,52 @@ async fn answers_as_the_go_module_did_except_for_the_listed_improvements() {
         );
     }
 }
+
+/// An account is a name and a host (`#[spec(key)]` on `host`): `user "app"` for two hosts is two accounts, and the same
+/// one twice, a host left out being "%", is refused at the second block.
+#[tokio::test(flavor = "current_thread")]
+async fn a_user_on_two_hosts_is_two_accounts() {
+    let m = Harness {
+        program: env!("CARGO_BIN_EXE_doze-module-mariadb").into(),
+        engine: "mariadb".into(),
+        bin_dir: "/tc/bin".into(),
+        full: "9.9.9".into(),
+    }
+    .module()
+    .await
+    .unwrap();
+    let decode = |hcl: &'static str| {
+        let parsed = doze_module_test::hcl::parse_block(hcl, &m.manifest.schema).unwrap();
+        doze_module_proto::msg::instance::Instance {
+            name: "app".into(),
+            engine: "mariadb".into(),
+            version: "11.4".into(),
+            data_dir: "/tmp/dzo/d/app".into(),
+            socket_dir: "/tmp/dzo/s/app".into(),
+            spec: parsed.spec,
+            host: String::new(),
+            listeners: Default::default(),
+            deps: vec![],
+            toolchain: None,
+            dir: String::new(),
+        }
+    };
+    let two = decode(
+        "mariadb \"app\" {\n  version = \"11.4\"\n  user \"app\" {\n    host = \"localhost\"\n  }\n  user \"app\" {\n    host = \"%\"\n  }\n}\n",
+    );
+    m.decode(&two).await.unwrap();
+    let same = decode(
+        "mariadb \"app\" {\n  version = \"11.4\"\n  user \"app\" {}\n  user \"app\" {\n    host = \"%\"\n  }\n}\n",
+    );
+    let e = m.decode(&same).await.unwrap_err();
+    assert!(
+        e.diagnostics
+            .iter()
+            .any(|d| d.message.contains("\"app@%\" is declared more than once")),
+        "{e:?}"
+    );
+    let twice = decode(
+        "mariadb \"app\" {\n  version = \"11.4\"\n  user \"app\" {\n    host = \"h\"\n  }\n  user \"app\" {\n    host = \"h\"\n  }\n}\n",
+    );
+    assert!(m.decode(&twice).await.is_err());
+}

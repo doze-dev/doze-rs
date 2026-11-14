@@ -233,6 +233,10 @@ fn new_instance(parsed: crate::hcl::Parsed, sandbox: &Sandbox) -> Result<Instanc
             .to_string_lossy()
             .into_owned(),
         host: format!("{}.test.doze", parsed.name),
+        // A test's relative paths (a seed file) are relative to the crate under test, where cargo runs it.
+        dir: std::env::current_dir()
+            .map(|d| d.to_string_lossy().into_owned())
+            .unwrap_or_default(),
         name: parsed.name,
         engine: parsed.engine,
         version: parsed.version,

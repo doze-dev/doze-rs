@@ -103,6 +103,9 @@ jobs:
       TEMPORAL: "1.8.2"
       MARIADB: "11.4.13"
       MARIADB12: "12.2.2"
+      # ferret is two builds: the FerretDB gateway (the version a block names) and PostgreSQL with DocumentDB (pinned).
+      FERRETDB: "2.7.0"
+      DOCUMENTDB: "0.112-0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -113,7 +116,7 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           # <variable>:<engine>:<version> — the variable names where that build's bin/ is.
-          for e in "DOZE_VALKEY_BINDIR:valkey:$VALKEY" "VALKEY8_BINDIR:valkey:$VALKEY8" "DOZE_KVROCKS_BINDIR:kvrocks:$KVROCKS" "DOZE_TEMPORAL_BINDIR:temporal:$TEMPORAL" "DOZE_MARIADB_BINDIR:mariadb:$MARIADB" "MARIADB12_BINDIR:mariadb:$MARIADB12"; do
+          for e in "DOZE_VALKEY_BINDIR:valkey:$VALKEY" "VALKEY8_BINDIR:valkey:$VALKEY8" "DOZE_KVROCKS_BINDIR:kvrocks:$KVROCKS" "DOZE_TEMPORAL_BINDIR:temporal:$TEMPORAL" "DOZE_MARIADB_BINDIR:mariadb:$MARIADB" "MARIADB12_BINDIR:mariadb:$MARIADB12" "DOZE_FERRET_BINDIR:ferretdb:$FERRETDB" "DOZE_DOCUMENTDB_BINDIR:documentdb:$DOCUMENTDB"; do
             var=${e%%:*}; rest=${e#*:}; name=${rest%%:*}; v=${rest#*:}
             dir="$RUNNER_TEMP/engines/$name-$v"; art="$name-$v-$TARGET.tar.gz"
             mkdir -p "$dir"
@@ -122,7 +125,7 @@ jobs:
             tar -xzf "$dir/$art" -C "$dir"
             echo "$var=$dir/$name-$v-$TARGET/bin" >> "$GITHUB_ENV"
           done
-      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-names --no-fail-fast -- --nocapture
+      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-module-ferret -p doze-names --no-fail-fast -- --nocapture
       - name: valkey's acceptance on its other major (8)
         shell: bash
         run: DOZE_VALKEY_BINDIR="$VALKEY8_BINDIR" cargo test -p doze-module-valkey --test acceptance --no-fail-fast -- --nocapture
@@ -403,6 +406,13 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_duration
           cargo fuzz run fuzz_duration corpus/fuzz_duration -- -max_total_time=30
+      - name: Fuzz ferret's BSON reader and OP_MSG replies for 30 seconds each
+        working-directory: crates/doze-module-ferret/fuzz
+        run: |
+          for target in fuzz_bson fuzz_reply; do
+            mkdir -p "corpus/$target"
+            cargo fuzz run "$target" "corpus/$target" -- -max_total_time=30 -max_len=65536
+          done
       - name: Fuzz the .doze resolver's DNS wire, upstream and setup parsers for 30 seconds each
         working-directory: crates/doze-names/fuzz
         run: |

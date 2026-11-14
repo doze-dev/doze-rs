@@ -98,11 +98,14 @@ Only modules customise their page in the app, through their declared console spe
 fields above. Apps, tasks and outside services (`app`, `task`, `service` blocks) always get the fixed standard pages:
 there is no declaration mechanism for them in the protocol, the CLI or doze.hcl, and none is to be added.
 
+`Instance.dir` (protocol field 10, 2026-11-14): the folder of the file that declares the block, so a relative path in a
+block means what Go's `baseDir` made it mean. Two modules need it: ferret's `seed` and postgres's extension `source`.
+
 Keep it lean: doze is for debugging and performance. A new module-facing field is added only when several modules
 genuinely need it; the change that adds one carries one line saying which modules and why, for debugging or
 performance. A field that fits one tool belongs in that module (its console, its actions), not in the contract.
 
-Declared today: valkey and kvrocks (`client`, `detect`), temporal (`detect`; it has no shell, its CLI is not a
+Declared today: ferret (`client`: `mongosh` with the URL, `mongo` as the fallback; `detect`: the MongoDB drivers and ODMs for Go, npm and PyPI, the `mongo` and `ferretdb/ferretdb` images, `MONGODB_URI`, `MONGO_URL`, `MONGODB_URL`), valkey and kvrocks (`client`, `detect`), temporal (`detect`; it has no shell, its CLI is not a
 session). kafka and aws declare theirs when their module faces are built (core plan M3); postgres, mariadb and ferret
 when they are ported (M1); mariadb declares both (`client`: the engine's `mariadb` client, the password in `MYSQL_PWD`; `detect`: the MySQL and MariaDB drivers for Go, npm and PyPI, the `mariadb` and `mysql` images, `MYSQL_URL`, `MARIADB_URL`, `MYSQL_HOST`). The app's empty-folder table (`doze-desk` `act/detect`) takes the union of the modules'
 `detect`, with nothing built in.
