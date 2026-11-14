@@ -102,11 +102,17 @@ impl MapView {
         }
     }
 
+    /// ⏎ (Go overview.tsx, the Map's Enter): opens the selected card's page, unless its stack is down; with nothing
+    /// selected, selects the first card, so the first ⏎ selects and the second opens.
     fn confirm(&mut self, cx: &mut Context<Self>) {
         if let Some(&id) = self.hits.get(self.hit) {
             self.jump_to(id, cx);
         } else if let Some(c) = self.lit.and_then(|id| self.layout.card(id)) {
-            cx.emit(super::MapEvent::Open(c.name.clone()));
+            if self.running {
+                cx.emit(super::MapEvent::Open(c.name.clone()));
+            }
+        } else if self.lit.is_none() {
+            self.step(1.0, 0.0, cx);
         }
     }
 
@@ -420,8 +426,10 @@ impl Render for MapView {
             .on_action(cx.listener(|this, _: &MoveRight, _, cx| this.arrow(1.0, 0.0, cx)))
             .on_action(cx.listener(|this, _: &Confirm, _, cx| this.confirm(cx)));
         let large = self.large(&t, cx);
+        let window_w = f32::from(window.viewport_size().width);
         body = body
             .children(large)
+            .children(super::chrome::legend(&t, self, window_w))
             .children(minimap(&t, self))
             .children(detail(&t, self, cx));
         if let Some(s) = self.search.clone() {

@@ -364,7 +364,10 @@ fn tallest(h: &[f32], cuts: &[usize]) -> f32 {
     edges.push(h.len());
     edges
         .windows(2)
-        .map(|w| h.get(w[0]..w[1]).map_or(0., |s| s.iter().sum()))
+        .map(|w| match *w {
+            [a, b] => h.get(a..b).map_or(0., |s| s.iter().sum()),
+            _ => 0.,
+        })
         .fold(0., f32::max)
 }
 
