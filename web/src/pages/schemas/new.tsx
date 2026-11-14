@@ -79,7 +79,7 @@ function Findings({ findings, onFix }: { findings: FindingView[]; onFix: (schema
                 </td>
                 <td className="px-3 py-2.5">
                   {r.fix ? (
-                    <Button size="sm" variant="outline" onClick={() => onFix(r.fix!.schema)} title={r.fix.label} data-testid="apply-fix" className="h-auto max-w-full py-1 text-left whitespace-normal">
+                    <Button type="button" size="sm" variant="outline" onClick={() => onFix(r.fix!.schema)} title={r.fix.label} data-testid="apply-fix" className="h-auto max-w-full py-1 text-left whitespace-normal">
                       <WandSparklesIcon /> {r.fix.label}
                     </Button>
                   ) : (

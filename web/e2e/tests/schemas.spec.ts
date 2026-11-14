@@ -203,7 +203,8 @@ test("Records in the wire format are decoded with their schemas, in the table an
   const sheet = page.getByTestId("record-sheet");
   await expect(sheet.getByTestId("record-value")).toHaveText('{\n  "id": "p-9",\n  "cents": "1250"\n}');
   await expect(sheet).toContainText("as shop.Payment");
-  await expect(sheet.getByTestId("record-value-subject")).toHaveText(`${w.protoSubject} v1`);
+  // The id is held by every subject that registered the same schema: one of them is named.
+  await expect(sheet.getByTestId("record-value-subject")).toHaveText(/^e2e-pay-.* v1$/);
   await sheet.getByTestId("record-value-view").getByRole("radio", { name: "Bytes" }).click();
   await expect(sheet.getByTestId("record-value")).toContainText("00 00 00 00");
   await page.keyboard.press("Escape");
