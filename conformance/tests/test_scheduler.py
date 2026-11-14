@@ -170,3 +170,33 @@ def test_a_rate_schedule_fires_on_its_own(client, names, cleanup, service_role, 
         return got
 
     assert eventually(arrived, timeout=120 if target.name == "aws" else 10)[0]["Body"] == "tick"
+
+
+def test_a_stack_makes_a_group_and_a_schedule(client, names, cleanup, service_role):
+    """AWS::Scheduler::ScheduleGroup and AWS::Scheduler::Schedule through CloudFormation."""
+    cfn, scheduler = client("cloudformation"), client("scheduler")
+    _, arn = queue(client, names, cleanup)
+    stack = names("stack")
+    template = {
+        "Resources": {
+            "Group": {"Type": "AWS::Scheduler::ScheduleGroup", "Properties": {"Name": names("cfn-group")}},
+            "Nightly": {"Type": "AWS::Scheduler::Schedule", "Properties": {
+                "GroupName": {"Ref": "Group"},
+                "ScheduleExpression": "cron(0 3 * * ? *)",
+                "ScheduleExpressionTimezone": "Asia/Tokyo",
+                "FlexibleTimeWindow": {"Mode": "OFF"},
+                "Target": {"Arn": arn, "RoleArn": role(service_role, "sqs:SendMessage"), "Input": "nightly"},
+            }},
+        },
+        "Outputs": {"Arn": {"Value": {"Fn::GetAtt": ["Nightly", "Arn"]}}, "Name": {"Value": {"Ref": "Nightly"}}},
+    }
+    cfn.create_stack(StackName=stack, TemplateBody=json.dumps(template))
+    cleanup(cfn.delete_stack, StackName=stack)
+    cfn.get_waiter("stack_create_complete").wait(StackName=stack, WaiterConfig={"Delay": 1, "MaxAttempts": 120})
+    out = {o["OutputKey"]: o["OutputValue"] for o in cfn.describe_stacks(StackName=stack)["Stacks"][0]["Outputs"]}
+    group = scheduler.list_schedule_groups(NamePrefix=names("cfn-group"))["ScheduleGroups"][0]["Name"]
+    got = scheduler.get_schedule(Name=out["Name"], GroupName=group)
+    assert got["Arn"] == out["Arn"] and got["ScheduleExpressionTimezone"] == "Asia/Tokyo"
+    cfn.delete_stack(StackName=stack)
+    cfn.get_waiter("stack_delete_complete").wait(StackName=stack, WaiterConfig={"Delay": 1, "MaxAttempts": 120})
+    assert scheduler.list_schedule_groups(NamePrefix=group)["ScheduleGroups"] == []
