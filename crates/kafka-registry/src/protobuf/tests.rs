@@ -28,135 +28,138 @@ fn reference(name: &str, text: &str) -> ResolvedRef {
     }
 }
 
+/// Texts and the words their refusal must contain.
+const REFUSED: &[(&str, &str)] = &[
+    (
+        "syntax = \"proto3\"; message {",
+        "Syntax error in :1:28: expected a name",
+    ),
+    ("syntax = \"proto4\";", "proto2\" or \"proto3"),
+    ("edition = \"2023\";", "editions are not supported"),
+    (
+        "message M { int32 a = 1; }",
+        "a label (optional, required or repeated) is required in proto2",
+    ),
+    (
+        "syntax = \"proto3\"; message M { required int32 a = 1; }",
+        "required fields are not allowed in proto3",
+    ),
+    (
+        "syntax = \"proto3\"; message M { int32 a = 0; }",
+        "out of range",
+    ),
+    (
+        "syntax = \"proto3\"; message M { int32 a = 536870912; }",
+        "out of range",
+    ),
+    (
+        "syntax = \"proto3\"; message M { int32 a = 19000; }",
+        "reserved for the implementation",
+    ),
+    (
+        "syntax = \"proto3\"; message M { int32 a = 1; string b = 1; }",
+        "already used by a",
+    ),
+    (
+        "syntax = \"proto3\"; message M { int32 a = 1; string a = 2; }",
+        "already defined",
+    ),
+    (
+        "syntax = \"proto3\"; message M { reserved 2; int32 a = 2; }",
+        "reserved number 2",
+    ),
+    (
+        "syntax = \"proto3\"; message M { reserved \"a\"; int32 a = 2; }",
+        "reserved name",
+    ),
+    (
+        "syntax = \"proto3\"; message M { N n = 1; }",
+        "unknown type N",
+    ),
+    (
+        "syntax = \"proto3\"; message M { map<float, int32> m = 1; }",
+        "map key type float",
+    ),
+    (
+        "syntax = \"proto3\"; message M { oneof o { repeated int32 a = 1; } }",
+        "must not have labels",
+    ),
+    (
+        "syntax = \"proto3\"; message M { oneof o { } }",
+        "has no fields",
+    ),
+    (
+        "syntax = \"proto3\"; enum E { A = 1; }",
+        "first value of a proto3 enum must be zero",
+    ),
+    ("syntax = \"proto3\"; enum E { }", "at least one value"),
+    (
+        "syntax = \"proto3\"; enum E { A = 0; B = 0; }",
+        "reuses number 0",
+    ),
+    (
+        "syntax = \"proto3\"; enum E { option allow_alias = true; A = 0; B = 1; }",
+        "no two values share",
+    ),
+    (
+        "syntax = \"proto3\"; enum E { A = 0; } enum F { A = 0; }",
+        "\"A\" is already defined",
+    ),
+    (
+        "syntax = \"proto3\"; message M { int32 a = 1 [default = 1]; }",
+        "not allowed in proto3",
+    ),
+    (
+        "syntax = \"proto3\"; message M { int32 a_b = 1; int32 aB = 2; }",
+        "JSON name",
+    ),
+    (
+        "syntax = \"proto3\"; message M { extensions 100 to 199; }",
+        "not allowed in proto3",
+    ),
+    (
+        "syntax = \"proto3\"; message M { int32 a = 1 [packed = true]; }",
+        "packed",
+    ),
+    (
+        "syntax = \"proto3\"; option java_package = 1;",
+        "wrong type",
+    ),
+    (
+        "syntax = \"proto3\"; option no_such = true;",
+        "has no such option",
+    ),
+    (
+        "syntax = \"proto3\"; option (no.such) = true;",
+        "unknown extension",
+    ),
+    (
+        "syntax = \"proto3\"; import \"other.proto\";",
+        "import \"other.proto\" was not found",
+    ),
+    (
+        "message M { optional int32 a = 1 [default = \"x\"]; }",
+        "default value does not fit",
+    ),
+    ("message M { optional group g = 1 { } }", "capital letter"),
+    (
+        "syntax = \"proto3\"; service S { rpc A (B) returns (B); }",
+        "unknown type B",
+    ),
+    (
+        "syntax = \"proto3\"; message M { string s = 1 /* never closed",
+        "unterminated block comment",
+    ),
+    (
+        "syntax = \"proto3\"; message M { string s = 1 [default = \"x\n\"]; }",
+        "unterminated string",
+    ),
+    ("not a schema", "Syntax error"),
+];
+
 #[test]
 fn what_the_language_refuses_is_refused() {
-    for (bad, why) in [
-        (
-            "syntax = \"proto3\"; message {",
-            "Syntax error in :1:28: expected a name",
-        ),
-        ("syntax = \"proto4\";", "proto2\" or \"proto3"),
-        ("edition = \"2023\";", "editions are not supported"),
-        (
-            "message M { int32 a = 1; }",
-            "a label (optional, required or repeated) is required in proto2",
-        ),
-        (
-            "syntax = \"proto3\"; message M { required int32 a = 1; }",
-            "required fields are not allowed in proto3",
-        ),
-        (
-            "syntax = \"proto3\"; message M { int32 a = 0; }",
-            "out of range",
-        ),
-        (
-            "syntax = \"proto3\"; message M { int32 a = 536870912; }",
-            "out of range",
-        ),
-        (
-            "syntax = \"proto3\"; message M { int32 a = 19000; }",
-            "reserved for the implementation",
-        ),
-        (
-            "syntax = \"proto3\"; message M { int32 a = 1; string b = 1; }",
-            "already used by a",
-        ),
-        (
-            "syntax = \"proto3\"; message M { int32 a = 1; string a = 2; }",
-            "already defined",
-        ),
-        (
-            "syntax = \"proto3\"; message M { reserved 2; int32 a = 2; }",
-            "reserved number 2",
-        ),
-        (
-            "syntax = \"proto3\"; message M { reserved \"a\"; int32 a = 2; }",
-            "reserved name",
-        ),
-        (
-            "syntax = \"proto3\"; message M { N n = 1; }",
-            "unknown type N",
-        ),
-        (
-            "syntax = \"proto3\"; message M { map<float, int32> m = 1; }",
-            "map key type float",
-        ),
-        (
-            "syntax = \"proto3\"; message M { oneof o { repeated int32 a = 1; } }",
-            "must not have labels",
-        ),
-        (
-            "syntax = \"proto3\"; message M { oneof o { } }",
-            "has no fields",
-        ),
-        (
-            "syntax = \"proto3\"; enum E { A = 1; }",
-            "first value of a proto3 enum must be zero",
-        ),
-        ("syntax = \"proto3\"; enum E { }", "at least one value"),
-        (
-            "syntax = \"proto3\"; enum E { A = 0; B = 0; }",
-            "reuses number 0",
-        ),
-        (
-            "syntax = \"proto3\"; enum E { option allow_alias = true; A = 0; B = 1; }",
-            "no two values share",
-        ),
-        (
-            "syntax = \"proto3\"; enum E { A = 0; } enum F { A = 0; }",
-            "\"A\" is already defined",
-        ),
-        (
-            "syntax = \"proto3\"; message M { int32 a = 1 [default = 1]; }",
-            "not allowed in proto3",
-        ),
-        (
-            "syntax = \"proto3\"; message M { int32 a_b = 1; int32 aB = 2; }",
-            "JSON name",
-        ),
-        (
-            "syntax = \"proto3\"; message M { extensions 100 to 199; }",
-            "not allowed in proto3",
-        ),
-        (
-            "syntax = \"proto3\"; message M { int32 a = 1 [packed = true]; }",
-            "packed",
-        ),
-        (
-            "syntax = \"proto3\"; option java_package = 1;",
-            "wrong type",
-        ),
-        (
-            "syntax = \"proto3\"; option no_such = true;",
-            "has no such option",
-        ),
-        (
-            "syntax = \"proto3\"; option (no.such) = true;",
-            "unknown extension",
-        ),
-        (
-            "syntax = \"proto3\"; import \"other.proto\";",
-            "import \"other.proto\" was not found",
-        ),
-        (
-            "message M { optional int32 a = 1 [default = \"x\"]; }",
-            "default value does not fit",
-        ),
-        ("message M { optional group g = 1 { } }", "capital letter"),
-        (
-            "syntax = \"proto3\"; service S { rpc A (B) returns (B); }",
-            "unknown type B",
-        ),
-        (
-            "syntax = \"proto3\"; message M { string s = 1 /* never closed",
-            "unterminated block comment",
-        ),
-        (
-            "syntax = \"proto3\"; message M { string s = 1 [default = \"x\n\"]; }",
-            "unterminated string",
-        ),
-        ("not a schema", "Syntax error"),
-    ] {
+    for &(bad, why) in REFUSED {
         let got = refused(bad);
         assert!(
             got.contains(why),
