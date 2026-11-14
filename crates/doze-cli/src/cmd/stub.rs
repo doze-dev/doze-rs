@@ -23,7 +23,6 @@ impl Needs {
 pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
     Some(match cmd {
         Cmd::Up(_)
-        | Cmd::Down(_)
         | Cmd::Sync(_)
         | Cmd::Env(_)
         | Cmd::Run(_)
@@ -31,6 +30,7 @@ pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
         | Cmd::Url(_)
         | Cmd::Connect(_) => Needs::Daemon,
         Cmd::Doctor(_)
+        | Cmd::Down(_)
         | Cmd::DnsSetup(_)
         | Cmd::Trust(_)
         | Cmd::Status(_)

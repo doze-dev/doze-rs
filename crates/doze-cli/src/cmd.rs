@@ -9,6 +9,7 @@ pub(crate) mod declared;
 pub(crate) mod docs;
 mod docs_view;
 pub(crate) mod doctor;
+pub(crate) mod down;
 mod dry;
 pub(crate) mod fetch;
 pub(crate) mod format;
@@ -89,6 +90,7 @@ pub(crate) fn dispatch(
         Cmd::Add(a) => add::run(ctx, mode, &a),
         Cmd::Init(i) => init::run(ctx, mode, &i),
         Cmd::Bug => bug::run(ctx, mode),
+        Cmd::Down(d) => down::run(ctx, mode, &d),
         Cmd::Open(o) => open::run(ctx, mode, &o, notices),
         Cmd::Modules(m) => match m.command {
             None => modules::run(ctx, mode),
