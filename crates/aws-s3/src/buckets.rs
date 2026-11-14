@@ -3,6 +3,7 @@
 use aws_wire::ApiError;
 use serde_json::json;
 
+use crate::acl::Ownership;
 use crate::core::{Core, HOME};
 use crate::errors::{already_owned, bucket_not_empty, invalid_bucket_name, no_such_bucket};
 use crate::model::Bucket;
@@ -55,11 +56,29 @@ impl Core {
         }
         let created_ms = self.now_ms();
         let object_lock = req.flag("ObjectLockEnabledForBucket").unwrap_or(false);
+        let named = req.s("ObjectOwnership");
+        let ownership = named
+            .and_then(Ownership::parse)
+            .unwrap_or(Ownership::Enforced);
+        let acl = Self::create_bucket_acl(req, ownership)?;
+        let mut configs = std::collections::BTreeMap::new();
+        if let Some(named) = named {
+            configs.insert(
+                "ownership".to_owned(),
+                json!({"Rules": [{"ObjectOwnership": named}]}).to_string(),
+            );
+        }
+        if let Some(acl) = acl {
+            let text =
+                serde_json::to_string(&acl).map_err(|e| ApiError::internal(e.to_string()))?;
+            configs.insert("acl".to_owned(), text);
+        }
         self.buckets.insert(
             name.to_owned(),
             Bucket {
                 created_ms,
                 object_lock,
+                configs,
                 ..Bucket::default()
             },
         );

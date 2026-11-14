@@ -4,7 +4,7 @@
 
 use crate::ctx::Refused;
 use crate::diag::{Diagnostic, ids};
-use crate::registry::{self, Base, signed};
+use crate::registry::{self, signed};
 use crate::{Ctx, Host, Terminals};
 use doze_names::setup::Plan;
 use doze_os::interrupt::Interrupt;
@@ -62,6 +62,13 @@ pub fn main(argv: Vec<OsString>) -> u8 {
     // The network daemon dns-setup installs is this program: it runs before anything else (Go `names.Helper()`).
     if argv.get(1).is_some_and(|a| a == doze_names::HELPER_ARG) {
         return crate::machine::netd(argv.get(2..).unwrap_or_default());
+    }
+    // One download for the daemon, in a process of its own (core plan F1): stdin to stdout, nothing else.
+    if argv.get(1).is_some_and(|a| a == crate::fetch_child::ARG) {
+        return match surroundings() {
+            Ok((home, _, registry)) => crate::fetch_child::serve(&home, registry),
+            Err(_) => 1,
+        };
     }
     let term = Terminals {
         stdin: io::stdin().is_terminal(),
@@ -124,10 +131,7 @@ fn surroundings() -> Result<(PathBuf, PathBuf, registry::Config), Diagnostic> {
         .fix("doze bug")
     })?;
     let registry = registry::Config {
-        bases: registry::HOSTS
-            .iter()
-            .map(|h| Base::Http((*h).to_string()))
-            .collect(),
+        bases: registry::bases_from_env(),
         key,
         budget: registry::BUDGET,
     };

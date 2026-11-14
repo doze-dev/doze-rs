@@ -1,0 +1,16 @@
+schema: 1
+module: valkey
+namespace: doze
+releases:
+  0.3.0:
+    protocol: 2
+    engines:
+      - "9"
+    artifacts:
+      aarch64-apple-darwin:
+        url: valkey-0.3.0.tar.gz
+        sha256: 00
+        sig: AA==
+channels:
+  stable: 0.3.0
+signature: AA==

@@ -451,9 +451,7 @@ def test_lifecycle_rules_are_checked_when_put(client, names, cleanup, snapshot):
 def test_refused_by_name(client, names, cleanup, snapshot):
     s3 = client("s3")
     name = bucket(s3, names, cleanup)
-    snapshot.error("bucket-acl", lambda: s3.get_bucket_acl(Bucket=name))
     s3.put_object(Bucket=name, Key="k", Body=b"x")
-    snapshot.error("object-acl", lambda: s3.get_object_acl(Bucket=name, Key="k"))
     snapshot.error("restore", lambda: s3.restore_object(Bucket=name, Key="k", RestoreRequest={"Days": 1}))
 
 
@@ -583,3 +581,81 @@ def test_bucket_policy_status(client, names, cleanup, snapshot, target):
         "Effect": "Allow", "Principal": "*", "Action": "s3:GetObject", "Resource": f"arn:aws:s3:::{name}/*"}]}
     s3.put_bucket_policy(Bucket=name, Policy=json.dumps(public))
     snapshot.match("public-policy", s3.get_bucket_policy_status(Bucket=name))
+
+
+# ACLs as S3 has had them since April 2023 (2026-11-14): UNVERIFIED until recorded. The canonical user is the account's own here and
+# on AWS, so its id is opaque and its display name (which AWS is retiring) is dropped.
+ACL = {"opaque": ("ID",), "drop": ("Owner", "DisplayName")}
+
+
+def test_acls_are_disabled_on_a_new_bucket(client, names, cleanup, snapshot):
+    """Terraform reads GetBucketAcl on every plan; the CDK and old scripts send canned ACLs."""
+    s3 = client("s3")
+    name = bucket(s3, names, cleanup)
+    snapshot.match("ownership", s3.get_bucket_ownership_controls(Bucket=name))
+    snapshot.match("bucket-acl", s3.get_bucket_acl(Bucket=name), **ACL)
+    snapshot.error("put-bucket-acl", lambda: s3.put_bucket_acl(Bucket=name, ACL="public-read"))
+    snapshot.error("put-bucket-acl-private", lambda: s3.put_bucket_acl(Bucket=name, ACL="private"))
+    snapshot.error("put-object-public-read", lambda: s3.put_object(Bucket=name, Key="k", Body=b"x", ACL="public-read"))
+    snapshot.match("put-object-owner-full-control", s3.put_object(
+        Bucket=name, Key="k", Body=b"x", ACL="bucket-owner-full-control"))
+    snapshot.match("object-acl", s3.get_object_acl(Bucket=name, Key="k"), **ACL)
+    snapshot.error("put-object-acl", lambda: s3.put_object_acl(Bucket=name, Key="k", ACL="public-read"))
+    snapshot.error("object-acl-absent", lambda: s3.get_object_acl(Bucket=name, Key="absent"))
+    other = names("acl")
+    snapshot.error("create-with-public-read", lambda: s3.create_bucket(Bucket=other, ACL="public-read"))
+
+
+def test_acls_once_object_ownership_enables_them(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    name = names("writer")
+    s3.create_bucket(Bucket=name, ObjectOwnership="ObjectWriter")
+
+    def empty_and_delete():
+        for v in s3.list_object_versions(Bucket=name).get("Versions", []):
+            s3.delete_object(Bucket=name, Key=v["Key"], VersionId=v["VersionId"])
+        s3.delete_bucket(Bucket=name)
+
+    cleanup(empty_and_delete)
+    snapshot.match("ownership", s3.get_bucket_ownership_controls(Bucket=name))
+    snapshot.error("public-acl-blocked", lambda: s3.put_object(Bucket=name, Key="k", Body=b"x", ACL="public-read"))
+    s3.delete_public_access_block(Bucket=name)
+    snapshot.match("put-public-read", s3.put_object(Bucket=name, Key="k", Body=b"x", ACL="public-read"))
+    snapshot.match("object-acl", s3.get_object_acl(Bucket=name, Key="k"), **ACL)
+    snapshot.match("put-object-acl", s3.put_object_acl(Bucket=name, Key="k", ACL="private"))
+    snapshot.match("object-acl-private", s3.get_object_acl(Bucket=name, Key="k"), **ACL)
+    snapshot.match("put-bucket-acl", s3.put_bucket_acl(Bucket=name, ACL="log-delivery-write"))
+    snapshot.match("bucket-acl", s3.get_bucket_acl(Bucket=name), **ACL)
+    snapshot.error("enforce-while-shared", lambda: s3.put_bucket_ownership_controls(
+        Bucket=name, OwnershipControls={"Rules": [{"ObjectOwnership": "BucketOwnerEnforced"}]}))
+    s3.put_bucket_acl(Bucket=name, ACL="private")
+    snapshot.match("enforce", s3.put_bucket_ownership_controls(
+        Bucket=name, OwnershipControls={"Rules": [{"ObjectOwnership": "BucketOwnerEnforced"}]}))
+    snapshot.match("delete-ownership", s3.delete_bucket_ownership_controls(Bucket=name))
+    snapshot.error("ownership-gone", lambda: s3.get_bucket_ownership_controls(Bucket=name))
+    snapshot.error("public-access-block-gone", lambda: s3.get_public_access_block(Bucket=name))
+
+
+# The anonymous principal (2026-11-14): UNVERIFIED until recorded. An unsigned request reads only what a bucket policy grants to
+# anyone. Run against doze-aws, the answer to "anonymous-denied" depends on --iam: enforce refuses as AWS does; soft (the default)
+# logs the refusal and serves it, so that label differs from AWS there by design.
+
+
+def test_anonymous_reads_need_a_public_grant(client, names, cleanup, snapshot):
+    import json
+
+    from botocore.handlers import disable_signing
+
+    s3 = client("s3")
+    # A client of its own (any keyword makes one) that signs nothing.
+    anon = client("s3", use_ssl=False)
+    anon.meta.events.register("choose-signer.s3.*", disable_signing)
+    name = bucket(s3, names, cleanup)
+    s3.put_object(Bucket=name, Key="k", Body=b"for anyone")
+    snapshot.outcome("anonymous-denied", lambda: anon.get_object(Bucket=name, Key="k"))
+    s3.put_public_access_block(Bucket=name, PublicAccessBlockConfiguration={
+        "BlockPublicAcls": True, "IgnorePublicAcls": True, "BlockPublicPolicy": False, "RestrictPublicBuckets": False})
+    s3.put_bucket_policy(Bucket=name, Policy=json.dumps({"Version": "2012-10-17", "Statement": [{
+        "Effect": "Allow", "Principal": "*", "Action": "s3:GetObject", "Resource": f"arn:aws:s3:::{name}/*"}]}))
+    snapshot.match("anonymous-allowed", anon.get_object(Bucket=name, Key="k"))
+    s3.delete_bucket_policy(Bucket=name)

@@ -129,12 +129,7 @@ async fn configuration_is_kept_as_sent_and_what_is_not_built_is_refused_by_name(
             .contains("<InventoryConfiguration>")
     );
 
-    for (method, path) in [
-        ("GET", "/bkt?acl"),
-        ("PUT", "/bkt/k?acl"),
-        ("POST", "/bkt/k?restore"),
-        ("GET", "/bkt/k?torrent"),
-    ] {
+    for (method, path) in [("POST", "/bkt/k?restore"), ("GET", "/bkt/k?torrent")] {
         let r = call(&srv, method, path, &[], b"").await;
         assert_eq!(r.status, 501, "{method} {path}");
         assert_eq!(r.header("x-doze-not-built"), Some("1"));

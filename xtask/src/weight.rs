@@ -4,7 +4,9 @@
 //! a limit only moves with a written reason.
 //!
 //! The limits file has one package per line: `package max_bytes max_packages max_rss_kb args...`, where
-//! the args start the server and may use `{port}` and `{data}`. Lines starting with `#` are comments.
+//! the args start the server and may use `{port}` and `{data}`. Lines starting with `#` are comments. A line with no
+//! args is a program that serves nothing by itself (the `doze` CLI): its size and packages are weighed, its idle memory
+//! is not (write 0).
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -136,6 +138,14 @@ fn breaches(m: &Measure, limit: &Limit) -> Vec<String> {
     out
 }
 
+/// The binary a package builds, when it is not named after the package.
+fn binary_of(package: &str) -> &str {
+    match package {
+        "doze-cli" => "doze",
+        other => other,
+    }
+}
+
 /// The build profile a package is weighed in: doze-aws has its own, smaller one (see the workspace `Cargo.toml`).
 fn profile_of(package: &str) -> &'static str {
     if package == "doze-aws" {
@@ -154,14 +164,22 @@ fn measure(limit: &Limit) -> Result<Measure, String> {
     if !status.success() {
         return Err("release build failed".to_string());
     }
-    let binary = Path::new("target").join(profile).join(&limit.package);
+    let binary = Path::new("target").join(profile).join(format!(
+        "{}{}",
+        binary_of(&limit.package),
+        std::env::consts::EXE_SUFFIX
+    ));
     let bytes = fs::metadata(&binary)
         .map_err(|e| format!("{}: {e}", binary.display()))?
         .len();
     Ok(Measure {
         bytes,
         packages: count_packages(&limit.package)?,
-        rss_kb: idle_rss_kb(&binary, &limit.args)?,
+        rss_kb: if limit.args.is_empty() {
+            0
+        } else {
+            idle_rss_kb(&binary, &limit.args)?
+        },
     })
 }
 
