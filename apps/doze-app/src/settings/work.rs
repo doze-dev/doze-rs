@@ -101,11 +101,12 @@ impl SettingsView {
         cx.notify();
     }
 
-    fn hands(&self) -> Option<SystemHands> {
-        Some(SystemHands::new(
-            doze_desk::settings::Cli::from_env()?,
-            self.hub.home().to_path_buf(),
-        ))
+    /// The machine's hands for a clear that needs no root: stopping a process, deleting a folder (no CLI involved, so
+    /// a missing `doze` does not stop it), refusing anything that would ask for the password.
+    fn hands(&self) -> NoRoot {
+        let cli = doze_desk::settings::Cli::from_env()
+            .unwrap_or_else(|| doze_desk::settings::Cli::go(PathBuf::from("doze")));
+        NoRoot(SystemHands::new(cli, self.hub.home().to_path_buf()))
     }
 
     /// Repair: the steps the failing parts need, shown in the run sheet before anything asks for the password; the
@@ -179,20 +180,15 @@ impl SettingsView {
             cx.notify();
             return;
         }
-        // What needs the password shows in the run sheet first; stopping a process or deleting a folder (asked
-        // already) does not.
-        let admin = self.left.as_deref().is_some_and(|l| {
-            l.iter()
-                .any(|l| l.admin && (l.id == id || (id == "all" && !l.danger)))
-        });
-        if admin {
+        // Clean up, a route and the authority go through the run sheet, which shows what it will do from a fresh look
+        // before anything asks for the password, and acts on that alone. A single process or data folder (asked
+        // already) is cleared at once, by hands that refuse root.
+        if id == "all" || id.starts_with("route:") || id.starts_with("ca:") {
             cx.emit(SettingsEvent::Run(Job::Clear(id.to_owned())));
             cx.notify();
             return;
         }
-        let Some(mut hands) = self.hands() else {
-            return;
-        };
+        let mut hands = self.hands();
         self.busy = id.to_owned();
         cx.notify();
         let (id, home, stacks, admin) = (
@@ -203,11 +199,7 @@ impl SettingsView {
         );
         let job = cx.background_executor().spawn(async move {
             let m = leftovers::gather(&home, &stacks, admin);
-            if id == "all" {
-                leftovers::clear_all(&m, &mut hands)
-            } else {
-                leftovers::clear(&id, &m, &mut hands)
-            }
+            leftovers::clear(&id, &m, &mut hands)
         });
         cx.spawn(async move |this, cx| {
             let Cleared { said, bad } = job.await;
@@ -289,5 +281,40 @@ mod tests {
         assert_eq!(super::stable(&exe, None), exe);
         let bundled = std::path::Path::new("/Applications/Doze.app/Contents/MacOS/doze-app");
         assert_eq!(super::stable(bundled, Some(bin.as_os_str())), bundled);
+    }
+}
+
+/// Hands that never ask for the administrator's password: a clear done at once, outside the run sheet, must not raise
+/// the system's prompt for something nobody was shown.
+struct NoRoot(SystemHands);
+
+impl doze_desk::settings::Hands for NoRoot {
+    fn doze(
+        &mut self,
+        dir: Option<&std::path::Path>,
+        args: &[String],
+    ) -> Result<(), doze_desk::settings::Fail> {
+        self.0.doze(dir, args)
+    }
+    fn admin(&mut self, _: &str, _: &str) -> Result<(), doze_desk::settings::Fail> {
+        Err(doze_desk::settings::Fail::Failed(
+            "this needs the administrator's password: use Clean up, which shows what it runs first"
+                .into(),
+        ))
+    }
+    fn terminate(&mut self, pid: u32) -> Result<(), doze_desk::settings::Fail> {
+        self.0.terminate(pid)
+    }
+    fn kill(&mut self, pid: u32) -> Result<(), doze_desk::settings::Fail> {
+        self.0.kill(pid)
+    }
+    fn alive(&mut self, pid: u32) -> bool {
+        self.0.alive(pid)
+    }
+    fn pause(&mut self) {
+        self.0.pause();
+    }
+    fn remove_dir(&mut self, dir: &std::path::Path) -> Result<(), doze_desk::settings::Fail> {
+        self.0.remove_dir(dir)
     }
 }

@@ -80,7 +80,8 @@ impl SystemHands {
         let pipe = |r: Box<dyn std::io::Read + Send>| {
             let (all, out) = (all.clone(), self.out.clone());
             std::thread::spawn(move || {
-                for line in BufReader::new(r).lines().map_while(Result::ok) {
+                for line in BufReader::new(r).split(b'\n').map_while(Result::ok) {
+                    let line = text_of(&line);
                     if let Ok(mut a) = all.lock() {
                         a.push_str(&line);
                         a.push('\n');
@@ -171,6 +172,13 @@ impl SystemHands {
     }
 }
 
+/// A line's bytes as text: its end (`\n`, `\r\n`) dropped, anything not UTF-8 replaced (a tool may print Latin-1).
+fn text_of(line: &[u8]) -> String {
+    let line = line.strip_suffix(b"\n").unwrap_or(line);
+    let line = line.strip_suffix(b"\r").unwrap_or(line);
+    String::from_utf8_lossy(line).into_owned()
+}
+
 /// The last line of `text` that says something, else `none`.
 fn last_line(text: &str, none: &str) -> String {
     text.lines()
@@ -185,7 +193,8 @@ fn last_line(text: &str, none: &str) -> String {
 struct OutputFile {
     path: PathBuf,
     read: usize,
-    partial: String,
+    /// Bytes of a line not ended yet (kept as bytes: a character may be split across two reads).
+    partial: Vec<u8>,
 }
 
 impl OutputFile {
@@ -201,7 +210,7 @@ impl OutputFile {
                 return Some(OutputFile {
                     path,
                     read: 0,
-                    partial: String::new(),
+                    partial: Vec::new(),
                 });
             }
         }
@@ -215,16 +224,16 @@ impl OutputFile {
             let _ = f.read_to_end(&mut buf);
         }
         if let Some(new) = buf.get(self.read..) {
-            self.partial.push_str(&String::from_utf8_lossy(new));
+            self.partial.extend_from_slice(new);
             self.read = buf.len();
         }
         let mut out: Vec<String> = Vec::new();
-        while let Some(i) = self.partial.find('\n') {
-            out.push(self.partial[..i].to_owned());
-            self.partial.drain(..=i);
+        while let Some(i) = self.partial.iter().position(|b| *b == b'\n') {
+            let line: Vec<u8> = self.partial.drain(..=i).collect();
+            out.push(text_of(&line));
         }
         if last && !self.partial.is_empty() {
-            out.push(std::mem::take(&mut self.partial));
+            out.push(text_of(&std::mem::take(&mut self.partial)));
         }
         out
     }
@@ -390,6 +399,13 @@ mod tests {
         assert_eq!(f.read_new(false), ["a"]);
         std::fs::write(&f.path, "a\nbc\nd").unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(f.read_new(true), ["bc", "d"]);
+        // A tick split across two reads stays one character.
+        let tick = "✓ ok\n".as_bytes();
+        let mut g = super::OutputFile::new().unwrap_or_else(|| panic!("no output file"));
+        std::fs::write(&g.path, &tick[..2]).unwrap_or_else(|e| panic!("{e}"));
+        assert!(g.read_new(false).is_empty());
+        std::fs::write(&g.path, tick).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(g.read_new(false), ["✓ ok"]);
         let path = f.path.clone();
         drop(f);
         assert!(!path.exists());

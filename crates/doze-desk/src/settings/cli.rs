@@ -97,16 +97,27 @@ impl Cli {
 
     /// The arguments that print what `args` would run as root, running nothing; `None` when they print nothing of
     /// the kind (doctor needs no root).
+    ///
+    /// Only where printing changes nothing: Go's `doze trust --print` records the stack's domains and may create the
+    /// authority before it prints, so it is not run before the person presses Run.
     pub fn print_args(&self, args: &[String]) -> Option<Vec<String>> {
         let first = args.first()?.as_str();
-        let privileged = match self.flavour {
-            Flavour::Go => matches!(first, "dns-setup" | "trust"),
+        let quiet = match self.flavour {
+            Flavour::Go => first == "dns-setup",
         };
-        privileged.then(|| {
+        quiet.then(|| {
             let mut a = args.to_vec();
             a.push("--print".into());
             a
         })
+    }
+
+    /// Whether the command's privileged step asks for the password (once, with the system's prompt).
+    pub fn asks_root(&self, args: &[String]) -> bool {
+        let first = args.first().map(String::as_str).unwrap_or_default();
+        match self.flavour {
+            Flavour::Go => matches!(first, "dns-setup" | "trust"),
+        }
     }
 
     /// The environment every command the app runs gets: no colour, and the system's prompt in place of sudo.
@@ -140,9 +151,16 @@ mod tests {
         assert_eq!(c.args(Verb::Trust), ["trust"]);
         assert_eq!(c.args(Verb::Doctor), ["doctor"]);
         assert_eq!(
-            c.print_args(&c.args(Verb::Trust)).unwrap_or_default(),
-            ["trust", "--print"]
+            c.print_args(&c.args(Verb::Names)).unwrap_or_default(),
+            ["dns-setup", "--print"]
         );
+        assert_eq!(
+            c.print_args(&c.args(Verb::Trust)),
+            None,
+            "trust --print writes; never before Run"
+        );
+        assert!(c.asks_root(&c.args(Verb::Trust)));
+        assert!(!c.asks_root(&c.args(Verb::Doctor)));
         assert_eq!(c.print_args(&c.args(Verb::Doctor)), None);
         assert_eq!(c.line(&c.args(Verb::Names)), "doze dns-setup");
         assert_eq!(c.line(&["a b".into()]), "doze 'a b'");

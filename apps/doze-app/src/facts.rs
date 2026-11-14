@@ -57,6 +57,10 @@ pub(crate) struct Facts {
     doctor_asked: bool,
     /// How many answers doctor has given: a repair waits for the next.
     doctor_seen: u64,
+    /// Doctor runs started so far, and how many had started when its answer was last forgotten: an answer from a run
+    /// started before that is kept old, so the next look asks again (a repair's verdict waits for a fresh one).
+    doctor_runs: u64,
+    fresh_after: u64,
     /// The two-second look at the configs is running.
     looking_configs: bool,
     shapes: HashMap<PathBuf, Known>,
@@ -139,6 +143,8 @@ impl Facts {
             doctor: None,
             doctor_asked: false,
             doctor_seen: 0,
+            doctor_runs: 0,
+            fresh_after: 0,
             looking_configs: false,
             shapes: HashMap::new(),
             asking: HashSet::new(),
@@ -253,6 +259,7 @@ impl Facts {
     /// Makes the machine's last answer old, so the next look asks doctor again (after a repair); what it said stays
     /// on screen until the new answer comes.
     pub(crate) fn forget_doctor(&mut self, cx: &mut Context<Self>) {
+        self.fresh_after = self.doctor_runs;
         if let Some((at, _)) = &mut self.doctor {
             *at = at.checked_sub(doctor_age(false)).unwrap_or(*at);
         }
@@ -265,8 +272,14 @@ impl Facts {
     }
 
     /// How many answers doctor has given so far.
+    /// The last doctor run whose answer has come.
     pub(crate) fn doctor_seen(&self) -> u64 {
         self.doctor_seen
+    }
+
+    /// The runs started when the answer was last forgotten: an answer from a later run is fresh.
+    pub(crate) fn fresh_after(&self) -> u64 {
+        self.fresh_after
     }
 
     /// The machine's checks; asks again when the last answer is old. `None` while the first answer is coming.
@@ -293,6 +306,8 @@ impl Facts {
         let dir = doctor_dir(stacks);
         if let (false, false, Some(doze), Some(dir)) = (fresh, self.doctor_asked, doze, dir) {
             self.doctor_asked = true;
+            self.doctor_runs += 1;
+            let started = self.doctor_runs;
             let job = cx
                 .background_executor()
                 .spawn(async move { run(&doze, &dir, &["doctor"]) });
@@ -304,8 +319,16 @@ impl Facts {
                     if doze_desk::library::zone_off() {
                         doze_desk::library::names_off(&mut d);
                     }
-                    f.doctor = Some((Instant::now(), d));
-                    f.doctor_seen += 1;
+                    // Started before the last forget: shown, but old, so the next look runs doctor again.
+                    let at = if started > f.fresh_after {
+                        Instant::now()
+                    } else {
+                        Instant::now()
+                            .checked_sub(doctor_age(false))
+                            .unwrap_or_else(Instant::now)
+                    };
+                    f.doctor = Some((at, d));
+                    f.doctor_seen = started;
                     cx.notify();
                 });
             })

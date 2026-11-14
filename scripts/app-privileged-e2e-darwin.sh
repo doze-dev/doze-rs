@@ -17,8 +17,10 @@
 #   2. Cancel in the prompt is heard as a cancel, not a failure (same test file);
 #   3. the app itself (a development build, driven by its own script, no Accessibility permission needed): Settings ›
 #      Machine shows the names not in place, Repair opens the run sheet showing exactly what will run (the command, and
-#      the root script the CLI prints with --print), Run raises ONE prompt, the output streams into the sheet, the sheet
-#      says "this machine is set up" in words once doctor has looked again.
+#      the root script the CLI prints with --print), Run raises ONE prompt, the output comes into the sheet, the sheet
+#      says "this machine is set up" in words once doctor has looked again. (Here the root script's lines arrive when
+#      the prompt returns, as with Go's doze: the system's `do shell script` hands its output back at the end. Step 1
+#      is the one that proves line-by-line streaming as root, through the app's own prompt.)
 set -euo pipefail
 
 [[ "$(uname -s)" == Darwin ]] || { echo "macOS only"; exit 2; }
@@ -78,7 +80,7 @@ case "$*" in
   "dns-setup --print") echo "$script" ;;
   "dns-setup")
     echo "› setting up (e2e stand-in: one admin prompt)"
-    if [ -n "${E2E_DRY:-}" ]; then out=$(/bin/sh -c "$script" | sed 's/uid [0-9]*/uid 0 (dry run, not root)/'); else
+    if [ -n "${E2E_DRY:-}" ]; then out=$(/bin/sh -c "$script"); else
     out=$(/usr/bin/osascript -e 'on run argv' -e 'do shell script (item 1 of argv) with prompt (item 2 of argv) with administrator privileges' -e 'end run' "/bin/sh -c '$script'" "doze needs an administrator's password to check the app's run sheet (doze e2e).") || {
       echo "the administrator prompt was cancelled" >&2; exit 1; }
     fi
@@ -109,7 +111,7 @@ TXT
 
 env -u DOZE_APP_ADMIN_RUNNER E2E_DRY="${E2E_DRY:-}" DOZE_HOME="$HOME_DIR" DOZE_ZONE=on PATH="$BIN:/usr/bin:/bin" \
   DOZE_APP_CLI="$BIN/doze" DOZE_APP_SCRIPT="$WORK/drive.txt" DOZE_APP_SCRIPT_LOG="$WORK/drive.log" \
-  ./target/debug/doze-app >"$WORK/app.log" 2>&1 &
+  "${CARGO_TARGET_DIR:-target}/debug/doze-app" >"$WORK/app.log" 2>&1 &
 APP_PID=$!
 for _ in $(seq 1 240); do kill -0 "$APP_PID" 2>/dev/null || break; sleep 1; done
 APP_PID_DONE=$APP_PID
@@ -121,5 +123,10 @@ grep -E " (step|run|out|note|toast|ok|FAIL) " "$WORK/drive.log" | grep -v "^ *[0
 echo "==> what the stand-in doze was asked"
 cat "$BIN/calls.log"
 if grep -q " FAIL " "$WORK/drive.log"; then echo "==> FAILED (app $APP_PID_DONE)"; exit 1; fi
-grep -q "out running as uid 0" "$WORK/drive.log" || { echo "==> FAILED: no root output streamed into the sheet"; exit 1; }
+if [[ -n "${E2E_DRY:-}" ]]; then
+  grep -q "out running as uid" "$WORK/drive.log" || { echo "==> FAILED: the script's output did not reach the sheet"; exit 1; }
+  echo "==> dry run: the sheet, the stand-in and the words work; nothing ran as root, so this proves no prompt"
+else
+  grep -q "out running as uid 0" "$WORK/drive.log" || { echo "==> FAILED: no root output reached the sheet"; exit 1; }
+fi
 echo "==> all passed"

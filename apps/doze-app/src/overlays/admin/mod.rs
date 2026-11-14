@@ -64,6 +64,8 @@ pub(crate) struct AdminView {
     facts: Entity<Facts>,
     fixture: bool,
     pub(crate) steps: Vec<Shown>,
+    /// What the plan named (routes, leftovers): Run acts on these alone.
+    seen: plan::Seen,
     pub(crate) phase: Phase,
     pub(crate) lines: Vec<Said>,
     /// A repair's outcome, waiting for doctor's next answer (after `seen`).
@@ -134,6 +136,7 @@ impl AdminView {
             phase: Phase::Planning,
             lines: Vec::new(),
             waiting: None,
+            seen: plan::Seen::default(),
             scroll: ScrollHandle::new(),
             focus,
         };
@@ -158,8 +161,8 @@ impl AdminView {
         );
         let admin = fixture || doze_os::privilege::admin_supported();
         let work = cx.background_executor().spawn(async move {
-            let planned = job.plan(&cli, &home, &stacks, admin);
-            planned
+            let (planned, seen) = job.plan(&cli, &home, &stacks, admin);
+            let shown = planned
                 .into_iter()
                 .map(|step| {
                     let root = match &step {
@@ -174,17 +177,19 @@ impl AdminView {
                         root,
                     }
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+            (shown, seen)
         });
         cx.spawn(async move |this, cx| {
-            let steps = work.await;
+            let (steps, seen) = work.await;
             let _ = this.update(cx, |v, cx| {
                 if v.phase != Phase::Planning {
                     return;
                 }
                 v.steps = steps;
+                v.seen = seen;
                 v.phase = if v.steps.is_empty() {
-                    Phase::Done("nothing to do: every part is in place".into(), false)
+                    Phase::Done(v.job.nothing().into(), false)
                 } else {
                     Phase::Ready
                 };
@@ -225,15 +230,16 @@ impl AdminView {
             let _ = tx.send_blocking(s);
         }));
         hands.admin_runner = admin_runner();
-        let (job, home, stacks) = (
+        let (job, home, stacks, seen) = (
             self.job.clone(),
             self.hub.home().to_path_buf(),
             self.hub.stacks(),
+            self.seen.clone(),
         );
         let admin = doze_os::privilege::admin_supported() || hands.admin_runner.is_some();
-        let work = cx
-            .background_executor()
-            .spawn(async move { plan::run(&job, &cli, &mut hands, &home, &stacks, admin) });
+        let work = cx.background_executor().spawn(async move {
+            plan::run(&job, &cli, &mut hands, (&home, &stacks, admin), &seen)
+        });
         cx.spawn(async move |this, cx| {
             while let Ok(line) = rx.recv().await {
                 crate::outward::note_line(&line);
@@ -259,15 +265,17 @@ impl AdminView {
         let seen = self.facts.update(cx, |f, cx| {
             f.forget_doctor(cx);
             f.forget_leftovers();
-            let seen = f.doctor_seen();
             let _ = f.doctor(&stacks, cx);
-            seen
+            f.fresh_after()
         });
+        // With no stack folder doctor cannot run (it reads the names setting from a config): nothing to wait for.
+        let doctor_can = crate::facts::doctor_dir(&stacks).is_some();
         match ended.outcome {
-            Some(Outcome::Done) if !self.fixture => {
+            Some(Outcome::Done) if !self.fixture && doctor_can => {
                 self.waiting = Some((Outcome::Done, seen));
                 self.phase = Phase::Checking;
             }
+            Some(Outcome::Done) if !self.fixture => self.done("every step ran".into(), false, cx),
             _ => self.done(ended.said, ended.bad, cx),
         }
         cx.notify();
@@ -285,10 +293,12 @@ impl AdminView {
         let Some((out, seen)) = self.waiting.clone() else {
             return;
         };
+        let stacks = self.hub.stacks();
         if self.facts.read(cx).doctor_seen() <= seen {
+            // An answer from a run started before the repair ended: ask again (a run under way is not doubled).
+            let _ = self.facts.update(cx, |f, cx| f.doctor(&stacks, cx));
             return;
         }
-        let stacks = self.hub.stacks();
         let Some(d) = self.facts.update(cx, |f, cx| f.doctor(&stacks, cx)) else {
             return;
         };
@@ -312,6 +322,7 @@ pub(crate) fn stage(v: &mut AdminView, ran: bool, cx: &mut Context<AdminView>) {
     v.steps = v
         .job
         .plan(&cli, &home, &[], true)
+        .0
         .into_iter()
         .map(|step| Shown {
             asks: step.asks(&cli),

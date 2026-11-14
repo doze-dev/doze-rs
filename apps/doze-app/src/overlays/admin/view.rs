@@ -8,7 +8,7 @@ use super::{AdminView, Phase, Shown};
 use crate::actions::Confirm;
 use crate::kit::{Btn, btn};
 use crate::theme::{Tokens, mix, tokens, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 /// A block of monospaced text, its own scroll past `max`.
 fn mono(t: &Tokens, id: impl Into<gpui::ElementId>, text: &str, max: f32) -> AnyElement {
@@ -22,7 +22,7 @@ fn mono(t: &Tokens, id: impl Into<gpui::ElementId>, text: &str, max: f32) -> Any
         .bg(t.well)
         .border_1()
         .border_color(t.line)
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::XS_UP))
         .line_height(px(ty::LH_16))
         .text_color(t.text)
@@ -92,7 +92,7 @@ fn doze_body(
         }
         _ => body.child(dim(
             t,
-            "it asks for the password only for what is not set up yet".into(),
+            "then it asks for the password once, for what is not set up here yet: the domains' routes (/etc/resolver) and, where the stack uses doze's authority, its trust in the System keychain. It prints the script as it runs; asked before Run it would write the domains' record, so it is not.".into(),
         )),
     }
 }
@@ -179,7 +179,7 @@ fn output(t: &Tokens, v: &AdminView) -> AnyElement {
         .bg(t.well)
         .border_1()
         .border_color(t.line)
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::XS_UP))
         .line_height(px(ty::LH_16))
         .children(lines)
