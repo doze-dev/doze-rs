@@ -117,3 +117,8 @@ xtask counts these as behaviour 4 for s3 because it reads only the "answered dif
 ## Open
 - Nothing left behind in the account by the re-recordings (every scenario ran its cleanup and passed).
 - No new recorder permissions are needed from this group.
+- The S3 HTTP tests' raw client now sends `Expect: 100-continue` with a body. A refusal sent before the body was read made the
+  server's close a reset that could swallow the answer: `tests/acl.rs` failed about 1 run in 10 on base `aws` too (4 of 40),
+  and it failed every full gates run here. 40 of 40 clean after the change.
+- Policy paste of the same day (UpdateShardCount and others): no scenario in this group was refused by the recorder policy;
+  nothing to re-record.
