@@ -46,7 +46,8 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Pin) -> Outcome {
     let stack = Stack::find(ctx, mode)?;
     let Some(conn) = stack.open(mode.timeout)? else {
         if want == Want::Off {
-            // Nothing runs, so nothing is pinned.
+            // Nothing runs, so nothing is pinned, once the names are doze.hcl's (Go checks first).
+            stack::check_offline(&stack, &names)?;
             let mut r = Report::new(mode);
             for n in &names {
                 r.pin(ctx.out, n, false, false);

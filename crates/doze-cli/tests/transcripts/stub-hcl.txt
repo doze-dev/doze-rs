@@ -1,39 +1,40 @@
-# lint, fmt, init and add need doze.hcl read, and there is no HCL crate in the workspace yet.
+# init and add write doze.hcl from what each module declares; they come with the next CLI slice (lint and fmt are
+# built: lint.txt, fmt.txt).
 
-$ doze lint
+$ doze init
 exit 1
 stderr:
-| error[DZ0001]: `doze lint` is not built yet: it reads doze.hcl, and the workspace has no HCL crate yet (the core port brings one)
+| error[DZ0001]: `doze init` is not built yet: it writes doze.hcl from what each module declares (its version, port and example), which comes with the core port's next CLI slice
 |   fix: the Go doze does this today
 json exit 1
 json:
 | {
 |   "schema": "doze/v1",
-|   "command": "doze lint",
+|   "command": "doze init",
 |   "ok": false,
 |   "error": {
 |     "code": "failed",
-|     "message": "`doze lint` is not built yet: it reads doze.hcl, and the workspace has no HCL crate yet (the core port brings one)",
+|     "message": "`doze init` is not built yet: it writes doze.hcl from what each module declares (its version, port and example), which comes with the core port's next CLI slice",
 |     "exit": 1,
 |     "id": "DZ0001",
 |     "fix": "the Go doze does this today"
 |   }
 | }
 
-$ doze fmt --check
+$ doze add valkey
 exit 1
 stderr:
-| error[DZ0001]: `doze fmt` is not built yet: it reads doze.hcl, and the workspace has no HCL crate yet (the core port brings one)
+| error[DZ0001]: `doze add` is not built yet: it writes doze.hcl from what each module declares (its version, port and example), which comes with the core port's next CLI slice
 |   fix: the Go doze does this today
 json exit 1
 json:
 | {
 |   "schema": "doze/v1",
-|   "command": "doze fmt",
+|   "command": "doze add",
 |   "ok": false,
 |   "error": {
 |     "code": "failed",
-|     "message": "`doze fmt` is not built yet: it reads doze.hcl, and the workspace has no HCL crate yet (the core port brings one)",
+|     "message": "`doze add` is not built yet: it writes doze.hcl from what each module declares (its version, port and example), which comes with the core port's next CLI slice",
 |     "exit": 1,
 |     "id": "DZ0001",
 |     "fix": "the Go doze does this today"

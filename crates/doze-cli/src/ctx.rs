@@ -12,6 +12,15 @@ use std::time::SystemTime;
 pub trait Host {
     /// An environment variable (unset and empty are the same).
     fn var(&self, name: &str) -> Option<String>;
+    /// The environment as doze.hcl's `env()` reads it: the process's own, or a test's.
+    fn env_lookup(&self) -> doze_hcl::funcs::EnvLookup {
+        std::sync::Arc::new(|name: &str| {
+            if name.is_empty() || name.contains(['=', '\0']) {
+                return None;
+            }
+            std::env::var(name).ok()
+        })
+    }
     /// Opens a web page in the person's browser.
     fn open_url(&self, url: &str) -> io::Result<()>;
     /// Starts `doze <args>` detached, never waited for (the background refresh).

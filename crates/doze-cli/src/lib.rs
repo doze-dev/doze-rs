@@ -8,8 +8,10 @@
 pub mod cli;
 pub mod clock;
 mod cmd;
+mod config;
 pub mod ctx;
 pub mod diag;
+mod diff;
 pub mod exit;
 pub mod help;
 pub mod install;

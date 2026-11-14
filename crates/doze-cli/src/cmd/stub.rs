@@ -10,7 +10,7 @@ use crate::diag::{Diagnostic, ids};
 pub(crate) enum Needs {
     /// It talks to the doze daemon.
     Daemon,
-    /// It reads or writes doze.hcl, and there is no HCL crate in the workspace yet.
+    /// It writes doze.hcl from the modules' declarations (`init`, `add`).
     Hcl,
     /// The app.
     App,
@@ -27,7 +27,7 @@ impl Needs {
         match self {
             Needs::Daemon => "it talks to the doze daemon, which comes with the Rust core",
             Needs::Hcl => {
-                "it reads doze.hcl, and the workspace has no HCL crate yet (the core port brings one)"
+                "it writes doze.hcl from what each module declares (its version, port and example), which comes with the core port's next CLI slice"
             }
             Needs::App => "the app is not part of the Rust doze yet",
             Needs::Lock => {
@@ -52,7 +52,7 @@ pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
         | Cmd::Migrate(_)
         | Cmd::Url(_)
         | Cmd::Connect(_) => Needs::Daemon,
-        Cmd::Init(_) | Cmd::Add(_) | Cmd::Lint(_) | Cmd::Fmt(_) => Needs::Hcl,
+        Cmd::Init(_) | Cmd::Add(_) => Needs::Hcl,
         Cmd::Open(_) => Needs::App,
         Cmd::Modules(m) if matches!(m.command, Some(ModulesCmd::Upgrade(_))) => Needs::Lock,
         Cmd::Bug => Needs::Report,
@@ -70,6 +70,8 @@ pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
         | Cmd::On(_)
         | Cmd::Logs(_)
         | Cmd::Why(_)
+        | Cmd::Lint(_)
+        | Cmd::Fmt(_)
         | Cmd::Modules(_)
         | Cmd::Version
         | Cmd::Update(_)

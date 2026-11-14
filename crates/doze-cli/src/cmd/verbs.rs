@@ -97,7 +97,8 @@ fn timed(
 pub(crate) fn sleep(ctx: &mut Ctx<'_>, mode: &Mode, a: &Names) -> Outcome {
     let stack = Stack::find(ctx, mode)?;
     let Some(conn) = stack.open(mode.timeout)? else {
-        // Nothing runs, so nothing is awake: done, with no results.
+        // Nothing runs, so nothing is awake: done, with no results, once the names are doze.hcl's (Go checks first).
+        stack::check_offline(&stack, &stack::unique(&a.names))?;
         let r = Report::new(mode);
         r.say(
             ctx.out,

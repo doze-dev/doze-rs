@@ -243,6 +243,10 @@ impl Host for FakeHost {
     fn var(&self, name: &str) -> Option<String> {
         self.env.get(name).cloned()
     }
+    fn env_lookup(&self) -> doze_hcl::funcs::EnvLookup {
+        let env = self.env.clone();
+        std::sync::Arc::new(move |name: &str| env.get(name).cloned())
+    }
     fn open_url(&self, url: &str) -> std::io::Result<()> {
         self.opened.borrow_mut().push(url.to_string());
         if self.browser_fails {

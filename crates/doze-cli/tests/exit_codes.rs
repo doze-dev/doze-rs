@@ -22,9 +22,9 @@ fn run(setup: &[&str], args: &str) -> fixture::Ran {
 }
 
 const UP: &[&str] = &["project bare", "daemon shop"];
-const DOWN: &[&str] = &["project bare"];
+const DOWN: &[&str] = &["project shop"];
 const DOWN_LOGS: &[&str] = &[
-    "project bare",
+    "project shop",
     "logfile api r000001.s000.log 2026-10-10T09:05:00.000000Z o up",
 ];
 const EMPTY: &[&str] = &["project bare", "daemon empty"];
@@ -52,15 +52,15 @@ fn each_mistake_has_its_code() {
         ("sleep of a stopped stack", DOWN, "sleep", 0),
         ("unpinning on a stopped stack", DOWN, "pin --off api", 0),
         (
-            "logs of a name nothing on disk knows, doze stopped",
+            "logs of a name doze.hcl does not declare, doze stopped",
             DOWN,
-            "logs api",
+            "logs nosuch",
             4,
         ),
         (
-            "why of a name nothing on disk knows, doze stopped",
+            "why of a name doze.hcl does not declare, doze stopped",
             DOWN,
-            "why api",
+            "why nosuch",
             4,
         ),
         ("logs of a stopped stack", DOWN_LOGS, "logs api", 0),

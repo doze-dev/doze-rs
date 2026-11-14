@@ -2,7 +2,9 @@
 //! (colour), for a pipe (the same words without it) and as JSON (the envelope's `data`). Plain and JSON are the stable
 //! contracts the transcript tests pin. `data` is each result serialised in its own field order, as Go's structs are.
 
-use crate::cmd::{docs, doctor, logs, modules, report, setup, status, task, verify, version, why};
+use crate::cmd::{
+    docs, doctor, format, lint, logs, modules, report, setup, status, task, verify, version, why,
+};
 use crate::paint::Paint;
 use crate::plan::Plan;
 use serde::{Serialize, Serializer};
@@ -35,6 +37,8 @@ pub enum View {
     Tasks(task::Listing),
     Logs(logs::Report),
     Why(Box<why::Why>),
+    Lint(lint::Verdict),
+    Fmt(format::Formatted),
 }
 
 impl View {
@@ -57,6 +61,8 @@ impl View {
             View::Tasks(t) => t.human(p),
             View::Logs(l) => l.human(p),
             View::Why(w) => w.human(p),
+            View::Lint(v) => v.human(p),
+            View::Fmt(f) => f.human(p),
         }
     }
 
@@ -101,6 +107,8 @@ impl Serialize for View {
             View::Tasks(t) => t.serialize(s),
             View::Logs(l) => l.serialize(s),
             View::Why(w) => w.serialize(s),
+            View::Lint(v) => v.serialize(s),
+            View::Fmt(f) => f.serialize(s),
         }
     }
 }

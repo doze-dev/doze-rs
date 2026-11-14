@@ -2,12 +2,12 @@
 //! table draws it (cmd/doze/tree_render.go; `tests/transcripts/status*.txt` hold the Go goldens). One model,
 //! [`Report`], drawn as the grouped table, as the dependency tree (`--graph`) and as Go's `status --json` shape.
 //!
-//! Everything comes from the daemon's snapshot: each declared instance with its kind, needs and endpoint. With the
-//! daemon down the Go doze lists the declared services from doze.hcl; this doze says the stack is not running and
-//! lists them once it reads doze.hcl itself (the core port's `doze-config`).
+//! With the daemon up everything comes from its snapshot: each declared instance with its kind, needs and endpoint.
+//! With the daemon down, from doze.hcl's shape (read offline, [`crate::config`]): every declared service, asleep, at
+//! the address it will answer on, as Go lists them.
 
 use crate::cli::args::Status;
-use crate::cmd::watch;
+use crate::cmd::{declared, watch};
 use crate::ctx::Ctx;
 use crate::notice::Notices;
 use crate::output::{Done, Mode, Outcome};
@@ -20,7 +20,7 @@ use serde::Serialize;
 use std::time::{Duration, SystemTime};
 
 /// `doze status`.
-pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Status, notices: &mut Notices) -> Outcome {
+pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Status, _notices: &mut Notices) -> Outcome {
     let stack = Stack::find(ctx, mode)?;
     if a.watch {
         return watch::run(ctx, mode, &stack, a.graph);
@@ -28,8 +28,8 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Status, notices: &mut Noti
     let report = match stack.read()? {
         Some(c) => Report::of(&stack::snapshot(&c)?, ctx.now),
         None => {
-            notices.add("doze up starts it; the declared services are listed here once this doze reads doze.hcl (the core port's next phase)");
-            Report::down(ctx.now)
+            let cfg = crate::config::shape_of(ctx, mode, &stack.project)?;
+            Report::declared(declared::views(&cfg), ctx.now)
         }
     };
     Ok(Done::ok(if a.graph {
@@ -60,12 +60,13 @@ impl Report {
         }
     }
 
-    pub(crate) fn down(now: SystemTime) -> Report {
+    /// The stack as doze.hcl declares it, with no daemon running it.
+    pub(crate) fn declared(views: Vec<InstanceView>, now: SystemTime) -> Report {
         Report {
             running: false,
             idle: Duration::ZERO,
             now,
-            views: Vec::new(),
+            views,
         }
     }
 
@@ -155,7 +156,11 @@ impl Report {
             daemon: Daemon {
                 running: self.running,
             },
-            services: self.views.iter().map(service).collect(),
+            services: self
+                .views
+                .iter()
+                .map(|v| service(v, self.running))
+                .collect(),
         }
     }
 }
@@ -322,10 +327,12 @@ struct Service<'a> {
     cpu_percent: f64,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     depends_on: Vec<&'a str>,
-    live: &'a InstanceView,
+    /// What the daemon knows of it; absent when no daemon runs the stack.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    live: Option<&'a InstanceView>,
 }
 
-fn service(v: &InstanceView) -> Service<'_> {
+fn service(v: &InstanceView, running: bool) -> Service<'_> {
     let mut deps: Vec<&str> = v.needs.iter().map(String::as_str).collect();
     deps.sort_unstable();
     Service {
@@ -349,7 +356,7 @@ fn service(v: &InstanceView) -> Service<'_> {
         mem_bytes: v.ram,
         cpu_percent: v.cpu,
         depends_on: deps,
-        live: v,
+        live: running.then_some(v),
     }
 }
 

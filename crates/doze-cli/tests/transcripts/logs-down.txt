@@ -1,6 +1,6 @@
 # logs with doze stopped: read from the log store on disk (the Go format), newest run or the one before; -f needs
-# the daemon.
-@ project bare
+# the daemon. A name doze.hcl does not declare is refused before any log is read, with the nearest one.
+@ project shop
 @ env TZ=UTC
 @ logfile api r000001.s000.log 2026-10-10T09:05:00.000000Z o listening on :8080
 @ logfile api r000001.s000.log 2026-10-10T09:05:10.000000Z e panic: nil pointer dereference
@@ -152,9 +152,9 @@ json:
 $ doze logs apo
 exit 4
 stderr:
-| error[DZ0702]: nothing here knows a service called "apo"
+| error[DZ0702]: the stack has no service called "apo"
 |   did you mean "api"?
-|   doze is not running, and no log or journal of the stack names it
+|   it has db, cache, events, api, worker, web
 |   fix: doze status
 json exit 4
 json:
@@ -164,12 +164,12 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "not_found",
-|     "message": "nothing here knows a service called \"apo\"",
+|     "message": "the stack has no service called \"apo\"",
 |     "exit": 4,
 |     "id": "DZ0702",
 |     "notes": [
 |       "did you mean \"api\"?",
-|       "doze is not running, and no log or journal of the stack names it"
+|       "it has db, cache, events, api, worker, web"
 |     ],
 |     "fix": "doze status"
 |   }

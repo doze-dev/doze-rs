@@ -102,9 +102,7 @@ fn names(
             Ok(all)
         }
         None => {
-            for n in asked {
-                stack::known_on_disk(stack, n)?;
-            }
+            stack::check_offline(stack, asked)?;
             Ok(asked.to_vec())
         }
     }

@@ -79,6 +79,16 @@ opt-level = "z"
 opt-level = "z"
 [profile.release.package.clap]
 opt-level = "z"
+# doze.hcl is read once per command or daemon start: the HCL crates are built for size (core C2 measured doze at
+# 6,421,104 B with them at opt-level 3 and 6,157,408 B at "s", darwin/arm64; docs/port/core/weight.md).
+[profile.release.package.doze-hcl]
+opt-level = "s"
+[profile.release.package.doze-config]
+opt-level = "s"
+[profile.release.package.hcl-edit]
+opt-level = "s"
+[profile.release.package.astro-float]
+opt-level = "s"
 [profile.release.package.clap_builder]
 opt-level = "z"
 [profile.release.package.clap_lex]

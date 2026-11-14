@@ -29,6 +29,8 @@ pub struct Mode {
     pub yes: bool,
     pub timeout: Duration,
     pub config: Option<PathBuf>,
+    /// `--var name=value`, the last of a name winning (as Go's map).
+    pub vars: std::collections::BTreeMap<String, String>,
 }
 
 impl Mode {
@@ -42,6 +44,7 @@ impl Mode {
             yes: false,
             timeout: Duration::from_secs(300),
             config: None,
+            vars: std::collections::BTreeMap::new(),
         }
     }
 
@@ -56,6 +59,7 @@ impl Mode {
             yes: g.yes || ctx.var("DOZE_YES").as_deref() == Some("1"),
             timeout: g.timeout,
             config: g.config.clone(),
+            vars: g.vars.iter().cloned().collect(),
         };
         if g.json && g.quiet {
             return Err(Diagnostic::new(

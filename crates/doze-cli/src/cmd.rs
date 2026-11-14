@@ -2,12 +2,15 @@
 //! added to the surface cannot go unanswered.
 
 mod ask;
+pub(crate) mod declared;
 pub(crate) mod docs;
 mod docs_view;
 pub(crate) mod doctor;
 mod dry;
 pub(crate) mod fetch;
+pub(crate) mod format;
 mod graph;
+pub(crate) mod lint;
 pub(crate) mod logs;
 pub(crate) mod modules;
 mod pin;
@@ -76,6 +79,8 @@ pub(crate) fn dispatch(
         Cmd::Task(t) => task::run(ctx, mode, &t, notices),
         Cmd::Logs(l) => logs::run(ctx, mode, &l),
         Cmd::Why(w) => why::run(ctx, mode, &w),
+        Cmd::Lint(l) => lint::run(ctx, mode, &l),
+        Cmd::Fmt(f) => format::run(ctx, mode, &f),
         Cmd::Modules(m) => match m.command {
             None => modules::run(ctx, mode),
             Some(ModulesCmd::Docs(d)) => docs::run(ctx, mode, &d, notices),
