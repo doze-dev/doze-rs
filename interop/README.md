@@ -14,8 +14,13 @@ through `kcat` (a process of its own, which is also what lets one be killed with
     interop/run.sh -versions             every major, 1 to 4, a broker and a fresh data directory each, then a summary per major
     interop/run.sh -sasl -versions       the SASL cells at every major
 
+    interop/run.sh -java                 the official Java client (kafka-clients 4.4.0) instead of the Go clients; with -only,
+                                         -sasl, -tls, -kafka-version
+
+The Go clients alone run by default. `-sasl`, `-tls` and `-versions` run the Java client after them (see "The Java client").
+
 Against a broker already running: `cd interop/go && go run . -broker 127.0.0.1:9092` (add `-kafka-major N` if it was started
-with `--kafka-version N`).
+with `--kafka-version N`); the Java client: `cd interop && java -cp "$(bun java/fetch.ts 4)" java/Interop.java -broker 127.0.0.1:9092`.
 
 ## Kafka majors (`-kafka-version`, `-versions`)
 

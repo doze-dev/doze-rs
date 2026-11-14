@@ -125,8 +125,22 @@ impl<F: Fs> Broker<F> {
         let mut wanted = Vec::new();
         let (mut unknown_ids, mut listed) = (Vec::new(), Vec::new());
         let (mut create_denied, mut describe_denied) = (Vec::new(), Vec::new());
+        // A request in which any topic has an id that is not zero is answered by id, as Kafka 4.3.1 does
+        // (`KafkaApis.handleTopicMetadataRequest`, 895-911): the names are not read (the Java client leaves them at the
+        // schema's default, "", not null), an entry of the zero id is dropped, and an id asked twice is answered once.
+        let by_id = version >= 12 && req.topics.iter().flatten().any(|t| !t.topic_id.is_nil());
+        let mut ids_seen = Vec::new();
         for asked in req.topics.iter().flatten() {
-            match self.one_topic(caller, asked, may_create, &mut wanted) {
+            let entry = if by_id {
+                if asked.topic_id.is_nil() || ids_seen.contains(&asked.topic_id) {
+                    continue;
+                }
+                ids_seen.push(asked.topic_id);
+                self.topic_by_id(caller, asked)
+            } else {
+                self.one_topic(caller, asked, may_create, &mut wanted)
+            };
+            match entry {
                 (Place::UnknownId, t) => unknown_ids.push(t),
                 (Place::Listed, t) => listed.push(t),
                 (Place::CreateDenied, t) => create_denied.push(t),

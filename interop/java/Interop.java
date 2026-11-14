@@ -54,7 +54,9 @@ public class Interop {
         CREATE_TOPICS = 19, DELETE_TOPICS = 20, DELETE_RECORDS = 21, INIT_PRODUCER_ID = 22, ADD_PARTITIONS_TO_TXN = 24,
         ADD_OFFSETS_TO_TXN = 25, END_TXN = 26, TXN_OFFSET_COMMIT = 28, DESCRIBE_ACLS = 29, CREATE_ACLS = 30,
         DELETE_ACLS = 31, DESCRIBE_CONFIGS = 32, CREATE_PARTITIONS = 37, INCREMENTAL_ALTER_CONFIGS = 44,
-        DESCRIBE_USER_SCRAM = 50, ALTER_USER_SCRAM = 51, CONSUMER_GROUP_HEARTBEAT = 68;
+        DESCRIBE_USER_SCRAM = 50, ALTER_USER_SCRAM = 51, CONSUMER_GROUP_HEARTBEAT = 68,
+        LIST_GROUPS = 16, DELETE_GROUPS = 42, OFFSET_DELETE = 47, DESCRIBE_PRODUCERS = 61, DESCRIBE_TRANSACTIONS = 65,
+        LIST_TRANSACTIONS = 66, CONSUMER_GROUP_DESCRIBE = 69;
     static final int[] BASIC = {PRODUCE, FETCH, LIST_OFFSETS, METADATA, CREATE_TOPICS};
     static final int[] GROUP = {FIND_COORDINATOR, JOIN_GROUP, SYNC_GROUP, HEARTBEAT, LEAVE_GROUP, OFFSET_COMMIT, OFFSET_FETCH};
     static final int[] TXN = {INIT_PRODUCER_ID, ADD_PARTITIONS_TO_TXN, END_TXN, FIND_COORDINATOR};
@@ -128,6 +130,14 @@ public class Interop {
             scenarios.add(new Scenario("admin-cluster", new int[]{METADATA}, Interop::adminCluster));
             scenarios.add(new Scenario("admin-acls", concat(BASIC, CREATE_ACLS, DESCRIBE_ACLS, DELETE_ACLS), Interop::adminAcls));
             scenarios.add(new Scenario("admin-scram-users", new int[]{DESCRIBE_USER_SCRAM, ALTER_USER_SCRAM}, Interop::adminScram));
+            int[] groupAdmin = {DESCRIBE_GROUPS, LIST_GROUPS, DELETE_GROUPS, OFFSET_DELETE};
+            scenarios.add(new Scenario("admin-groups-classic", concat(concat(BASIC, GROUP), groupAdmin), () -> adminGroups(false)));
+            scenarios.add(new Scenario("admin-groups-848", concat(concat(BASIC, groupAdmin), CONSUMER_GROUP_HEARTBEAT, CONSUMER_GROUP_DESCRIBE, OFFSET_COMMIT, OFFSET_FETCH), () -> adminGroups(true)));
+            scenarios.add(new Scenario("txn-last-stable-offset", concat(BASIC, TXN), Interop::txnLastStable));
+            scenarios.add(new Scenario("produce-fetch-limits", BASIC, Interop::limits));
+            scenarios.add(new Scenario("group-848-regex", concat(BASIC, CONSUMER_GROUP_HEARTBEAT, OFFSET_COMMIT, OFFSET_FETCH), Interop::regex848)
+                .needClient(4, "SubscriptionPattern (KIP-848 regular expressions)"));
+            scenarios.add(new Scenario("admin-transactions", concat(concat(BASIC, TXN), DESCRIBE_PRODUCERS, DESCRIBE_TRANSACTIONS, LIST_TRANSACTIONS), Interop::adminTransactions).needClient(3, "Admin.listTransactions (KIP-664)"));
             scenarios.add(new Scenario("offsets-for-times-log-append", concat(BASIC, DESCRIBE_CONFIGS), Interop::offsetsForTimesLogAppend));
             scenarios.add(new Scenario("offsets-for-times-compressed", BASIC, Interop::offsetsForTimesCompressed));
         }
@@ -221,6 +231,14 @@ public class Interop {
         final int[] needs;
         final Callable<String> body;
         final List<Object[]> versions = new ArrayList<>();
+        int clientMajor;
+        String clientWhat;
+
+        Scenario needClient(int major, String what) {
+            clientMajor = major;
+            clientWhat = what;
+            return this;
+        }
 
         Scenario(String name, int[] needs, Callable<String> body) {
             this.name = name;
@@ -235,6 +253,9 @@ public class Interop {
 
         /** Why the scenario cannot run against this broker with this client (null: it can). */
         String skipReason() {
+            if (clientMajor > 0 && Integer.parseInt(clientVersion.split("\\.")[0]) < clientMajor) {
+                return String.format("kafka-clients %s has no %s", clientVersion, clientWhat);
+            }
             List<String> gone = new ArrayList<>(), old = new ArrayList<>(), unknown = new ArrayList<>();
             for (int k : needs) {
                 ApiKeys ak = apiKey(k);
@@ -655,6 +676,11 @@ public class Interop {
         final int pauseMs;
 
         Member(String name, String topic, String group, boolean kip848, boolean autoCommit, boolean asyncEachPoll, int pauseMs, Tally tally) {
+            this(name, topic, group, kip848, autoCommit, asyncEachPoll, pauseMs, tally, null);
+        }
+
+        /** instanceId: a static member (group.instance.id, KIP-345), which does not leave the group when it closes. */
+        Member(String name, String topic, String group, boolean kip848, boolean autoCommit, boolean asyncEachPoll, int pauseMs, Tally tally, String instanceId) {
             this.name = name;
             this.topic = topic;
             this.tally = tally;
@@ -670,6 +696,7 @@ public class Interop {
                 cfg.put("session.timeout.ms", "6000");
                 cfg.put("heartbeat.interval.ms", "500");
             }
+            if (instanceId != null) cfg.put("group.instance.id", instanceId);
             this.c = consumer(cfg);
             this.thread = new Thread(this, name);
         }
@@ -1173,6 +1200,279 @@ public class Interop {
             }
         }
         return dup + "upsert both mechanisms, describe, delete (then not found), too few iterations refused";
+    }
+
+    // ---- Groups and transactions, as an operator sees them (kafka-consumer-groups.sh, kafka-transactions.sh) ----
+
+    static Map<TopicPartition, OffsetAndMetadata> groupOffsets(Admin a, String group) throws Exception {
+        return a.listConsumerGroupOffsets(group).partitionsToOffsetAndMetadata().get(30, TimeUnit.SECONDS);
+    }
+
+    static ConsumerGroupDescription describeGroup(Admin a, String group) throws Exception {
+        return a.describeConsumerGroups(List.of(group)).describedGroups().get(group).get(30, TimeUnit.SECONDS);
+    }
+
+    /**
+     * One member reads and commits; the group is listed and described; a delete and an admin offset change are refused while
+     * it has a member; the member (static, where JoinGroup v5 is offered) is removed by the admin; then the offsets are
+     * changed, one partition's deleted, and the group deleted.
+     */
+    @SuppressWarnings({"deprecation", "removal"}) // state() and listConsumerGroups(), which 2.8 has and 4.x keeps beside groupState() and listGroups()
+    static String adminGroups(boolean kip848) throws Exception {
+        String topic = newTopic(kip848 ? "java-adm-g848" : "java-adm-gc"), group = topic + "-g";
+        TopicPartition p0 = new TopicPartition(topic, 0), p1 = new TopicPartition(topic, 1);
+        boolean isStatic = kip848 || max(JOIN_GROUP) >= 5;
+        String instance = isStatic ? "static-1" : null;
+        List<String> notes = new ArrayList<>();
+        try (Admin a = admin()) {
+            createTopic(a, topic, 2, null);
+            produceValues(topic, 0, 20);
+            Tally t = new Tally();
+            Member m = new Member("m", topic, group, kip848, false, false, 0, t, instance).start();
+            try {
+                waitBalanced(List.of(m), 2, 30000);
+                t.waitFor(20, List.of(m), 30000);
+                long deadline = System.currentTimeMillis() + 15000;
+                while (groupOffsets(a, group).values().stream().mapToLong(OffsetAndMetadata::offset).sum() != 20) {
+                    check(System.currentTimeMillis() < deadline, "committed %s, want 20 in all", groupOffsets(a, group));
+                    Thread.sleep(50);
+                }
+                check(a.listConsumerGroups().all().get(30, TimeUnit.SECONDS).stream().anyMatch(l -> l.groupId().equals(group)), "not listed");
+                ConsumerGroupDescription d = describeGroup(a, group);
+                check(d.state().toString().equals("Stable"), "state %s, want Stable", d.state());
+                check(d.members().size() == 1, "%d members", d.members().size());
+                MemberDescription md = d.members().iterator().next();
+                check(md.assignment().topicPartitions().equals(Set.of(p0, p1)), "assignment %s", md.assignment().topicPartitions());
+                check(md.groupInstanceId().equals(Optional.ofNullable(instance)), "instance id %s", md.groupInstanceId());
+                notes.add("described Stable with the member" + (isStatic ? " (static)" : "") + " and its assignment");
+                try {
+                    a.deleteConsumerGroups(List.of(group)).all().get(30, TimeUnit.SECONDS);
+                    throw new AssertionError("a group with a member deleted");
+                } catch (ExecutionException e) {
+                    check(e.getCause() instanceof GroupNotEmptyException, "delete with a member: %s", e.getCause());
+                }
+                try {
+                    a.alterConsumerGroupOffsets(group, Map.of(p0, new OffsetAndMetadata(5))).all().get(30, TimeUnit.SECONDS);
+                    throw new AssertionError("offsets of a group with a member altered");
+                } catch (ExecutionException e) {
+                    check(e.getCause() instanceof UnknownMemberIdException, "alter with a member: %s", e.getCause());
+                }
+                notes.add("delete and alter refused while it has a member");
+            } finally {
+                m.stop();
+            }
+            check(m.failed == null && m.commitErrors.isEmpty(), "member: %s %s", m.failed, m.commitErrors);
+            if (isStatic) {
+                // A static member does not leave when it closes; the admin takes it out (LeaveGroup by instance id).
+                check(describeGroup(a, group).members().size() == 1, "the static member left on close");
+                a.removeMembersFromConsumerGroup(group, new RemoveMembersFromConsumerGroupOptions(List.of(new MemberToRemove(instance))))
+                    .all().get(30, TimeUnit.SECONDS);
+                notes.add("the static member removed by the admin");
+            }
+            long deadline = System.currentTimeMillis() + 15000;
+            while (!describeGroup(a, group).members().isEmpty()) {
+                check(System.currentTimeMillis() < deadline, "members left: %s", describeGroup(a, group).members());
+                Thread.sleep(50);
+            }
+            check(describeGroup(a, group).state().toString().equals("Empty"), "state %s, want Empty", describeGroup(a, group).state());
+            a.alterConsumerGroupOffsets(group, Map.of(p0, new OffsetAndMetadata(5))).all().get(30, TimeUnit.SECONDS);
+            check(groupOffsets(a, group).get(p0).offset() == 5, "p0 at %s after the alter", groupOffsets(a, group).get(p0));
+            a.deleteConsumerGroupOffsets(group, Set.of(p1)).all().get(30, TimeUnit.SECONDS);
+            var left = groupOffsets(a, group);
+            check(!left.containsKey(p1) || left.get(p1) == null, "p1 still committed: %s", left);
+            notes.add("offsets altered and one deleted");
+            a.deleteConsumerGroups(List.of(group)).all().get(30, TimeUnit.SECONDS);
+            check(a.listConsumerGroups().all().get(30, TimeUnit.SECONDS).stream().noneMatch(l -> l.groupId().equals(group)), "listed after delete");
+            check(groupOffsets(a, group).isEmpty(), "offsets after delete: %s", groupOffsets(a, group));
+            notes.add("deleted");
+        }
+        return String.join("; ", notes);
+    }
+
+    static long latest(Admin a, TopicPartition tp, IsolationLevel iso) throws Exception {
+        return a.listOffsets(Map.of(tp, OffsetSpec.latest()), new ListOffsetsOptions(iso)).all().get(30, TimeUnit.SECONDS).get(tp).offset();
+    }
+
+    /** The last stable offset: the end a read_committed reader is given stops at an open transaction's first record. */
+    static String txnLastStable() throws Exception {
+        String topic = newTopic("java-lso");
+        TopicPartition tp = new TopicPartition(topic, 0);
+        try (Admin a = admin()) {
+            createTopic(a, topic, 1, null);
+            try (var p = producer(Map.of("transactional.id", topic + "-tx"))) {
+                p.initTransactions();
+                p.beginTransaction();
+                for (int i = 0; i < 3; i++) p.send(new ProducerRecord<>(topic, 0, "k" + i, "v" + i));
+                p.commitTransaction(); // offsets 0-2 and the marker at 3
+                p.beginTransaction();
+                for (int i = 3; i < 8; i++) p.send(new ProducerRecord<>(topic, 0, "k" + i, "v" + i));
+                p.flush(); // offsets 4-8, open
+                long lso = latest(a, tp, IsolationLevel.READ_COMMITTED), hw = latest(a, tp, IsolationLevel.READ_UNCOMMITTED);
+                check(lso == 4 && hw == 9, "open transaction: read_committed end %d (want 4), read_uncommitted end %d (want 9)", lso, hw);
+                try (var c = consumer(Map.of("isolation.level", "read_committed"))) {
+                    long end = c.endOffsets(List.of(tp), Duration.ofSeconds(30)).get(tp);
+                    check(end == 4, "a read_committed consumer's end offset %d, want 4", end);
+                }
+                exactlyOnce(readAll(topic, "read_committed", 3), values("v", 0, 3), "read_committed during the open transaction");
+                p.commitTransaction();
+                lso = latest(a, tp, IsolationLevel.READ_COMMITTED);
+                hw = latest(a, tp, IsolationLevel.READ_UNCOMMITTED);
+                check(lso == 10 && hw == 10, "after the commit: read_committed end %d, read_uncommitted end %d (want 10)", lso, hw);
+            }
+        }
+        return "an open transaction holds the read_committed end at 4 (listOffsets and endOffsets) while the log ends at 9; 10 and 10 after the commit";
+    }
+
+    /** A method by name and argument count, for the Admin calls kafka-clients 2.8 lacks (this file compiles against it). */
+    static Object inv(Object o, String name, Object... args) throws Exception {
+        for (Method m : o.getClass().getMethods()) {
+            if (m.getName().equals(name) && m.getParameterCount() == args.length) {
+                m.setAccessible(true);
+                return m.invoke(o, args);
+            }
+        }
+        throw new NoSuchMethodException(o.getClass().getName() + "." + name);
+    }
+
+    static Object fut(Object result, String name) throws Exception {
+        return ((KafkaFuture<?>) inv(result, name)).get(30, TimeUnit.SECONDS);
+    }
+
+    static String norm(Object state) {
+        return state.toString().replace("_", "").toLowerCase(Locale.ROOT);
+    }
+
+    /** listTransactions, describeTransactions and describeProducers (KIP-664, kafka-clients 3.0) on an open, then committed, one. */
+    static String adminTransactions() throws Exception {
+        String topic = newTopic("java-adm-tx"), txid = topic + "-tx";
+        TopicPartition tp = new TopicPartition(topic, 0);
+        try (Admin a = admin()) {
+            createTopic(a, topic, 1, null);
+            try (var p = producer(Map.of("transactional.id", txid))) {
+                p.initTransactions();
+                p.beginTransaction();
+                for (int i = 0; i < 5; i++) p.send(new ProducerRecord<>(topic, 0, "k" + i, "v" + i));
+                p.flush();
+                Object mine = null;
+                for (Object l : (Collection<?>) fut(inv(a, "listTransactions"), "all")) {
+                    if (txid.equals(inv(l, "transactionalId"))) mine = l;
+                }
+                check(mine != null, "listTransactions lacks %s", txid);
+                check(norm(inv(mine, "state")).equals("ongoing"), "listed as %s", inv(mine, "state"));
+                long pid = ((Number) inv(mine, "producerId")).longValue();
+                Object d = ((Map<?, ?>) fut(inv(a, "describeTransactions", List.of(txid)), "all")).get(txid);
+                check(norm(inv(d, "state")).equals("ongoing"), "described as %s", inv(d, "state"));
+                check(((Number) inv(d, "producerId")).longValue() == pid, "described producer %s, listed %d", inv(d, "producerId"), pid);
+                check(((Set<?>) inv(d, "topicPartitions")).equals(Set.of(tp)), "partitions %s", inv(d, "topicPartitions"));
+                Object ps = ((Map<?, ?>) fut(inv(a, "describeProducers", List.of(tp)), "all")).get(tp);
+                List<?> active = (List<?>) inv(ps, "activeProducers");
+                check(active.size() == 1, "%d active producers", active.size());
+                Object ap = active.get(0);
+                check(((Number) inv(ap, "producerId")).longValue() == pid, "active producer %s", inv(ap, "producerId"));
+                check(inv(ap, "currentTransactionStartOffset").equals(OptionalLong.of(0)), "transaction starts at %s", inv(ap, "currentTransactionStartOffset"));
+                check(((Number) inv(ap, "lastSequence")).longValue() == 4, "last sequence %s", inv(ap, "lastSequence"));
+                p.commitTransaction();
+                d = ((Map<?, ?>) fut(inv(a, "describeTransactions", List.of(txid)), "all")).get(txid);
+                check(norm(inv(d, "state")).equals("completecommit"), "after the commit: %s", inv(d, "state"));
+                ap = ((List<?>) inv(((Map<?, ?>) fut(inv(a, "describeProducers", List.of(tp)), "all")).get(tp), "activeProducers")).get(0);
+                check(inv(ap, "currentTransactionStartOffset").equals(OptionalLong.empty()), "after the commit the transaction starts at %s", inv(ap, "currentTransactionStartOffset"));
+            }
+        }
+        return "an open transaction listed and described Ongoing with its partition, its producer active from offset 0 at sequence 4; CompleteCommit after";
+    }
+
+    /**
+     * A record over the topic's max.message.bytes is refused (RecordTooLargeException); one under it is read by a consumer
+     * whose fetch limits are far smaller, as the first batch of a fetch is returned whatever its size (KIP-74).
+     */
+    static String limits() throws Exception {
+        String topic = newTopic("java-limits");
+        try (Admin a = admin()) {
+            createTopic(a, topic, 1, Map.of("max.message.bytes", "100000"));
+        }
+        String big = "x".repeat(150_000), fits = "y".repeat(90_000);
+        try (var p = producer(Map.of("max.request.size", "2000000", "compression.type", "none"))) {
+            try {
+                p.send(new ProducerRecord<>(topic, 0, "big", big)).get(30, TimeUnit.SECONDS);
+                throw new AssertionError("a 150 KB record accepted by a topic of max.message.bytes 100000");
+            } catch (ExecutionException e) {
+                check(e.getCause() instanceof RecordTooLargeException, "150 KB: %s", e.getCause());
+            }
+            RecordMetadata md = p.send(new ProducerRecord<>(topic, 0, "fits", fits)).get(30, TimeUnit.SECONDS);
+            check(md.offset() == 0, "the 90 KB record at %d", md.offset());
+        }
+        try (var c = consumer(Map.of("max.partition.fetch.bytes", "1024", "fetch.max.bytes", "1024", "enable.auto.commit", "false"))) {
+            TopicPartition tp = new TopicPartition(topic, 0);
+            c.assign(List.of(tp));
+            c.seekToBeginning(List.of(tp));
+            ConsumerRecord<String, String> got = null;
+            long deadline = System.currentTimeMillis() + 30000;
+            while (got == null && System.currentTimeMillis() < deadline) {
+                for (var r : c.poll(Duration.ofMillis(200))) got = r;
+            }
+            check(got != null && got.value().equals(fits), "the 90 KB record not read with 1 KB fetch limits");
+        }
+        return "150 KB refused by max.message.bytes 100000 (RecordTooLargeException); 90 KB read with fetch limits of 1 KB";
+    }
+
+    /** KIP-848 regular expressions, resolved by the broker: matching topics assigned, one made later picked up, others not. */
+    static String regex848() throws Exception {
+        String prefix = "java-rx-" + System.nanoTime(), other = "other-" + prefix;
+        try (Admin a = admin()) {
+            createTopic(a, prefix + "-a", 2, null);
+            createTopic(a, prefix + "-b", 2, null);
+            createTopic(a, other, 1, null);
+        }
+        Class<?> spc = Class.forName("org.apache.kafka.clients.consumer.SubscriptionPattern");
+        Object pattern = spc.getConstructor(String.class).newInstance(prefix + "-.*");
+        Set<TopicPartition> owned = ConcurrentHashMap.newKeySet();
+        Tally t = new Tally();
+        long laterMs;
+        try (var c = consumer(Map.of("group.id", prefix + "-g", "group.protocol", "consumer"))) {
+            ConsumerRebalanceListener l = new ConsumerRebalanceListener() {
+                public void onPartitionsRevoked(Collection<TopicPartition> parts) {
+                    owned.removeAll(parts);
+                }
+
+                public void onPartitionsAssigned(Collection<TopicPartition> parts) {
+                    owned.addAll(parts);
+                }
+            };
+            KafkaConsumer.class.getMethod("subscribe", spc, ConsumerRebalanceListener.class).invoke(c, pattern, l);
+            Function<Set<String>, Boolean> topicsAre = want -> {
+                Set<String> have = new HashSet<>();
+                for (TopicPartition tp : owned) have.add(tp.topic());
+                return have.equals(want);
+            };
+            long deadline = System.currentTimeMillis() + 30000;
+            while (!(topicsAre.apply(Set.of(prefix + "-a", prefix + "-b")) && owned.size() == 4)) {
+                check(System.currentTimeMillis() < deadline, "assigned %s, want the 4 partitions of -a and -b", owned);
+                for (var r : c.poll(Duration.ofMillis(100))) t.add(r.value());
+            }
+            long made = System.currentTimeMillis();
+            try (Admin a = admin()) {
+                createTopic(a, prefix + "-c", 1, null);
+            }
+            deadline = System.currentTimeMillis() + 45000;
+            while (owned.size() != 5) {
+                check(System.currentTimeMillis() < deadline, "assigned %s, want -c's partition too", owned);
+                for (var r : c.poll(Duration.ofMillis(100))) t.add(r.value());
+            }
+            laterMs = System.currentTimeMillis() - made;
+            try (var p = producer(Map.of())) {
+                for (String s : List.of("-a", "-b", "-c")) for (int i = 0; i < 10; i++) p.send(new ProducerRecord<>(prefix + s, "k" + i, s + i));
+                for (int i = 0; i < 10; i++) p.send(new ProducerRecord<>(other, "k" + i, "other" + i));
+                p.flush();
+            }
+            deadline = System.currentTimeMillis() + 30000;
+            while (t.distinct() < 30 && System.currentTimeMillis() < deadline) {
+                for (var r : c.poll(Duration.ofMillis(100))) t.add(r.value());
+            }
+            for (int i = 0; i < 20; i++) for (var r : c.poll(Duration.ofMillis(50))) t.add(r.value());
+        }
+        check(t.distinct() == 30 && t.duplicates() == 0, "read %d distinct (%d twice), want the 30 of -a, -b and -c", t.distinct(), t.duplicates());
+        for (String v : t.seen.keySet()) check(!v.startsWith("other"), "read %s from a topic the pattern does not match", v);
+        return String.format("-a and -b assigned, -c picked up %.1fs after it was made, the topic that does not match left out", laterMs / 1000.0);
     }
 
     // ---- offsetsForTimes ----
