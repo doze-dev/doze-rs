@@ -427,7 +427,7 @@ three builders, or 211 days (164–274) for one.
 | **Weight** | `doze` is the fattest binary yet (section 6.3) | C0 weight probe; CI line from C0; levers listed; decision O1 keeps the app out |
 | **Wire fidelity with the app** | the app was built against Go's frames | the frame scripts captured from Go become the server's tests; the 286-row checklist before cut-over |
 | **Config edge cases** | 107 Go config tests are strings + `strings.Contains`, no goldens | the dump oracle turns them into goldens on both sides (C0) |
-| **Owner-only steps** | root on macOS, the registry DNS (F1: `registry.doze-dev.com` still has no DNS answer, checked 2026-11-14), `pgext` unpushed, aws engine readiness | listed in section 5 and O7/O8, with dates; nothing else waits on them |
+| **Owner-only steps** | root on macOS, the registry DNS (F1: `registry.doze-dev.com` still has no DNS answer, checked 2026-11-14), aws engine readiness (`pgext` was merged and pushed 2026-11-14) | listed in section 5 and O7/O8, with dates; nothing else waits on them |
 | **Many open PRs** | 25 open PRs, stacked and conflicting (app, names, CLI) | C0 lands them in order before the core builds on them |
 | **gpui-pre churn, aws port readiness** | other plans' risks that M3 and cut-over depend on | M3 aws face waits on doze-aws being bootable; cut-over gate lists Larder |
 
