@@ -12,6 +12,16 @@ pub fn alive(pid: u32) -> bool {
     pid != 0 && imp::alive(pid)
 }
 
+/// When the process with this pid started (to the second), so a recorded pid is killed only if it is still the
+/// process that was recorded: Linux reads `/proc`, macOS asks `ps`. `None` when it is gone or this system cannot say
+/// (Windows, which needs no sweep: see [`sweep_needed`]).
+pub fn started_at(pid: u32) -> Option<std::time::SystemTime> {
+    if pid == 0 {
+        return None;
+    }
+    start::started_at(pid)
+}
+
 /// Whether anything recorded under this pid is left: the process itself, or (Unix) a member of the process group it
 /// led. On Linux a dying daemon's PDEATHSIG reaches only a tree's leader, so its children can outlive it in the group.
 pub fn tree_alive(pid: u32) -> bool {
@@ -155,6 +165,62 @@ mod imp {
     }
 }
 
+#[cfg(target_os = "linux")]
+mod start {
+    use std::time::{Duration, SystemTime};
+
+    /// Field 22 of `/proc/<pid>/stat` (clock ticks after boot) plus `btime` of `/proc/stat`.
+    pub(super) fn started_at(pid: u32) -> Option<SystemTime> {
+        let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+        let after = stat.rsplit_once(')')?.1;
+        let ticks: u64 = after.split_whitespace().nth(19)?.parse().ok()?;
+        let boot = std::fs::read_to_string("/proc/stat").ok()?;
+        let btime: u64 = boot
+            .lines()
+            .find_map(|l| l.strip_prefix("btime "))?
+            .trim()
+            .parse()
+            .ok()?;
+        let hz = rustix::param::clock_ticks_per_second().max(1);
+        Some(SystemTime::UNIX_EPOCH + Duration::from_secs(btime + ticks / hz))
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod start {
+    use std::time::{Duration, SystemTime};
+
+    /// `ps -o etime=` (`[[dd-]hh:]mm:ss` since it started) back from now.
+    pub(super) fn started_at(pid: u32) -> Option<SystemTime> {
+        let out = std::process::Command::new("/bin/ps")
+            .args(["-o", "etime=", "-p", &pid.to_string()])
+            .stderr(std::process::Stdio::null())
+            .output()
+            .ok()?;
+        let secs = elapsed(String::from_utf8_lossy(&out.stdout).trim())?;
+        SystemTime::now().checked_sub(Duration::from_secs(secs))
+    }
+
+    fn elapsed(t: &str) -> Option<u64> {
+        let (days, rest) = t
+            .split_once('-')
+            .map_or((0, t), |(d, r)| (d.parse().unwrap_or(0), r));
+        let parts: Vec<u64> = rest
+            .split(':')
+            .map(|p| p.parse().ok())
+            .collect::<Option<_>>()?;
+        let hms = parts.iter().fold(0u64, |acc, p| acc * 60 + p);
+        (!parts.is_empty()).then_some(days * 86_400 + hms)
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+mod start {
+    pub(super) fn started_at(_pid: u32) -> Option<std::time::SystemTime> {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,6 +239,17 @@ mod tests {
             assert!(!alive(pid), "a reaped child is gone");
             assert!(kill_recorded(pid).is_ok(), "a gone pid is not an error");
         }
+    }
+
+    #[test]
+    fn this_process_started_a_moment_ago() {
+        if !sweep_needed() {
+            return;
+        }
+        let t = started_at(std::process::id());
+        let age = t.and_then(|t| std::time::SystemTime::now().duration_since(t).ok());
+        assert!(age.is_some_and(|a| a.as_secs() < 600), "{age:?}");
+        assert!(started_at(0).is_none());
     }
 
     #[test]
