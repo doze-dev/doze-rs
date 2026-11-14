@@ -141,14 +141,14 @@ jobs:
       - run: cargo clippy -p doze-app --all-targets -- -D warnings
       - run: cargo clippy -p doze-os --features ui --all-targets -- -D warnings
       - run: cargo test -p doze-app --features capture
-      - name: The app's weight line (binary at most 16 MB, packages at most 560; the release-app build has no capture)
+      - name: The app's weight line (binary at most 16 MB, packages at most 640 with the CLI inside, weight.md; the release-app build has no capture)
         run: |
           cargo build --profile release-app -p doze-app
           size=$(stat -f %z target/release-app/doze-app)
           crates=$(cargo tree -p doze-app --prefix none --edges normal --target aarch64-apple-darwin | sort -u | wc -l | tr -d ' ')
           echo "doze-app: $size bytes, $crates packages"
           [ "$size" -le 16000000 ] || { echo "doze-app over 16 MB (PLAN.md §6)"; exit 1; }
-          [ "$crates" -le 560 ] || { echo "doze-app over 560 packages (docs/port/weight.md)"; exit 1; }
+          [ "$crates" -le 640 ] || { echo "doze-app over 640 packages (docs/port/weight.md)"; exit 1; }
       # Doze.app (PLAN.md step 3.5): signed ad hoc, or with a Developer ID and notarised when the secrets exist. With no
       # secrets (forks, and until the owner adds them) the import is skipped and the bundle is signed ad hoc.
       - name: Signing identity (only when the secrets exist)
