@@ -120,3 +120,19 @@ and `weight.md`; none of those was touched here. Each behaviour carries one call
 - Tests: `poll/parallel.rs` (a key keeps its lane and order), `tests/concurrency.rs` with real Python functions: six SQS batches under
   `MaximumConcurrency: 2` are seen two at a time and never more; thirty Kinesis records over five keys with factor 3 arrive each once,
   every key in order.
+
+## 7. SQS `resume()` at startup: decided against, measured
+
+- **What a resume would do.** SQS has no delay or visibility timer to re-arm: a delayed or in-flight message becomes visible by the
+  clock, computed at each read (`ReceiveMessage`, the counts, `DozePeek`); a long poll asks again every quarter second; a Lambda
+  mapping's poller (which Lambda's own `resume` restarts) reads the queue itself and looks again each second while messages are hidden.
+  The only SQS timer is retention expiry, and an expired message is already counted out by the clock at once; the timer only removes it
+  from disk. So a resume would change nothing any API caller can see; it would only free disk sooner for queues nobody touches.
+- **What it costs, measured** (release binary, macOS, RSS 3 s after start, three starts each; a data dir of 4 regions × 5 queues ×
+  200 delayed 512-byte messages, 4 MB on disk): **without resume 5,184–5,200 KB; with a resume that ticks every region 13,760–13,824
+  KB** (+8.6 MB). With `--idle-secs 3` the figure stayed at 13,936 KB after the regions were reaped: the allocator keeps the pages. An
+  empty data dir costs nothing either way.
+- **Decision: no SQS resume.** Zero idle wake-ups stays true either way (a resumed timer would sleep in one-day pieces); the deciding
+  facts are no visible benefit against +8.6 MB resident for a modest data set, growing with queued messages. **AWS-correct** as is (what
+  AWS shows is reproduced by the clock); the experiment was not committed. The fix-sqs-dynamodb note's guess ("not worth the idle
+  cost") is now a measurement.
