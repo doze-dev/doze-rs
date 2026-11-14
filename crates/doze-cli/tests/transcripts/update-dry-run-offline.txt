@@ -1,0 +1,25 @@
+# The newest doze cannot be known offline: 10.
+
+$ doze update --dry-run
+exit 10
+stderr:
+| error[DZ0601]: the newest doze is not known: the registry can't be reached
+|   {sandbox}/unreachable: no registry in that directory
+|   fix: check the network and run it again
+json exit 10
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze update",
+|   "ok": false,
+|   "error": {
+|     "code": "machine",
+|     "message": "the newest doze is not known: the registry can't be reached",
+|     "exit": 10,
+|     "id": "DZ0601",
+|     "notes": [
+|       "{sandbox}/unreachable: no registry in that directory"
+|     ],
+|     "fix": "check the network and run it again"
+|   }
+| }

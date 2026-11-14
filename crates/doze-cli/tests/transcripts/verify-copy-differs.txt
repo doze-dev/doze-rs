@@ -1,0 +1,47 @@
+# This machine's copy is not the build the lock pins.
+@ registry
+@ project pinned
+@ copy-bad valkey 0.2.1
+
+$ doze modules verify
+exit 1
+stdout:
+| registry key ed25519 642a…09 (built into this doze)
+| ✓ postgres 0.2.5  sha256 620e…b4c5 matches the signed index (not downloaded here)
+| ✗ valkey   0.2.1  this machine's copy is 1111…1111, the lock pins aec1…f903 · delete {sandbox}/home/modules/doze/valkey/0.2.1-{triple} and doze fetches it again
+|   1 of 2 verified on {triple}
+stderr:
+| error[DZ0502]: valkey: doze.lock does not match the signed registry
+|   fix: doze modules upgrade valkey pins again from the index, or restore doze.lock from git
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules verify",
+|   "ok": false,
+|   "data": {
+|     "key": "642a…09",
+|     "modules": [
+|       {
+|         "detail": "sha256 620e…b4c5 matches the signed index (not downloaded here)",
+|         "module": "postgres",
+|         "state": "verified",
+|         "version": "0.2.5"
+|       },
+|       {
+|         "detail": "this machine's copy is 1111…1111, the lock pins aec1…f903 · delete {sandbox}/home/modules/doze/valkey/0.2.1-{triple} and doze fetches it again",
+|         "module": "valkey",
+|         "state": "mismatch",
+|         "version": "0.2.1"
+|       }
+|     ],
+|     "platform": "{triple}"
+|   },
+|   "error": {
+|     "code": "failed",
+|     "message": "valkey: doze.lock does not match the signed registry",
+|     "exit": 1,
+|     "id": "DZ0502",
+|     "fix": "doze modules upgrade valkey pins again from the index, or restore doze.lock from git"
+|   }
+| }
