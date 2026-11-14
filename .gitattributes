@@ -1,0 +1,2 @@
+# doze-hcl's oracle corpus: positions are byte and column exact, so no line-ending conversion on checkout.
+crates/doze-hcl/testdata/** -text

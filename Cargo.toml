@@ -8,6 +8,7 @@ exclude = ["vendor"]
 
 [patch.crates-io]
 kafka-protocol = { path = "vendor/kafka-protocol" }
+hcl-edit = { path = "vendor/hcl-edit" }
 
 [workspace.package]
 edition = "2024"

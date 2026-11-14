@@ -1,0 +1,26 @@
+[package]
+name = "doze-hcl"
+version = "0.0.0"
+description = "HCL as a language: hcl-edit syntax, cty values and types, conversion and the evaluator, with Go's semantics"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Syntax and spans (vendored and pinned: vendor/hcl-edit/PATCHES.md).
+hcl-edit = "0.10"
+# cty's numbers are big.Float values; the arithmetic, parse and print are ours (src/number), on exact integers.
+num-bigint = { version = "0.4", default-features = false, features = ["std"] }
+num-traits = "0.2"
+# cty strings are NFC; positions and strlen count grapheme clusters, as Go's textseg does.
+unicode-normalization = "0.1"
+unicode-segmentation = "1"
+
+[dev-dependencies]
+serde_json = "1"
+proptest = "1"
