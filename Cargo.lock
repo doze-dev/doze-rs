@@ -2501,6 +2501,7 @@ dependencies = [
  "clap_complete",
  "doze-control",
  "doze-display",
+ "doze-doctor",
  "doze-journal",
  "doze-logstore",
  "doze-module-proto",
@@ -2558,6 +2559,17 @@ version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "doze-doctor"
+version = "0.0.0"
+dependencies = [
+ "doze-names",
+ "doze-os",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

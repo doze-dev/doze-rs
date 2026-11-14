@@ -11,10 +11,10 @@ stdout:
 |   ·  config     {sandbox}/project/doze.hcl found; what is in it is checked by doze lint, which needs the core
 |   ✓  doze.lock  2 modules pinned
 |   ✓  registry   {sandbox}/registry answers with the key built into this doze
-|   ✓  names      no names yet: each doze program registers its own when it starts
-|   ·  daemon     not checked: the Rust core is not built yet
+|   ✓  names      the .doze zone is switched off (DOZE_ZONE=off): nothing to set up
+|   ✓  daemon     stopped (starts automatically on first use)
 stderr:
-| ! 5 of 7 checked; 2 could not be (marked ·)
+| ! 6 of 7 checked; 1 could not be (marked ·)
 json exit 11
 json:
 | {
@@ -26,43 +26,50 @@ json:
 |       {
 |         "name": "platform",
 |         "state": "ok",
+|         "ok": true,
 |         "detail": "{triple}"
 |       },
 |       {
 |         "name": "home",
 |         "state": "ok",
+|         "ok": true,
 |         "detail": "{sandbox}/home"
 |       },
 |       {
 |         "name": "config",
 |         "state": "not_checked",
+|         "ok": true,
 |         "detail": "{sandbox}/project/doze.hcl found; what is in it is checked by doze lint, which needs the core"
 |       },
 |       {
 |         "name": "doze.lock",
 |         "state": "ok",
+|         "ok": true,
 |         "detail": "2 modules pinned"
 |       },
 |       {
 |         "name": "registry",
 |         "state": "ok",
+|         "ok": true,
 |         "detail": "{sandbox}/registry answers with the key built into this doze"
 |       },
 |       {
 |         "name": "names",
 |         "state": "ok",
-|         "detail": "no names yet: each doze program registers its own when it starts"
+|         "ok": true,
+|         "detail": "the .doze zone is switched off (DOZE_ZONE=off): nothing to set up"
 |       },
 |       {
 |         "name": "daemon",
-|         "state": "not_checked",
-|         "detail": "not checked: the Rust core is not built yet"
+|         "state": "ok",
+|         "ok": true,
+|         "detail": "stopped (starts automatically on first use)"
 |       }
 |     ]
 |   },
 |   "error": {
 |     "code": "partial",
-|     "message": "5 of 7 checked; 2 could not be (marked ·)",
+|     "message": "6 of 7 checked; 1 could not be (marked ·)",
 |     "exit": 11,
 |     "id": "DZ0503"
 |   }
@@ -74,9 +81,9 @@ tty stdout:
 |   ⟨2m·⟨0m  config     {sandbox}/project/doze.hcl found; what is in it is checked by doze lint, which needs the core
 |   ⟨32m✓⟨0m  doze.lock  2 modules pinned
 |   ⟨32m✓⟨0m  registry   {sandbox}/registry answers with the key built into this doze
-|   ⟨32m✓⟨0m  names      no names yet: each doze program registers its own when it starts
-|   ⟨2m·⟨0m  daemon     not checked: the Rust core is not built yet
+|   ⟨32m✓⟨0m  names      the .doze zone is switched off (DOZE_ZONE=off): nothing to set up
+|   ⟨32m✓⟨0m  daemon     stopped (starts automatically on first use)
 tty stderr:
-| ⟨33m!⟨0m ⟨1m5 of 7 checked; 2 could not be (marked ·)⟨0m
+| ⟨33m!⟨0m ⟨1m6 of 7 checked; 1 could not be (marked ·)⟨0m
 tty spawned:
 | __refresh --latest

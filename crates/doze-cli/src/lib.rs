@@ -14,6 +14,7 @@ pub mod exit;
 pub mod help;
 pub mod install;
 pub mod lock;
+mod machine;
 pub mod notice;
 pub mod output;
 pub(crate) mod paint;
@@ -155,5 +156,7 @@ fn clap_error(ctx: &mut Ctx<'_>, e: &clap::Error, typed: &str, json: bool) -> Ex
 /// Whether `word` names a doze command (or one of its aliases, hidden ones included): what a program that carries the
 /// CLI beside its own face (the desktop app) checks to hand a command line to [`process::main`].
 pub fn is_command(word: &str) -> bool {
-    word == "help" || Cli::command().find_subcommand(word).is_some()
+    word == "help"
+        || word == doze_names::HELPER_ARG
+        || Cli::command().find_subcommand(word).is_some()
 }

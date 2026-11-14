@@ -32,7 +32,55 @@ pub trait Host {
     fn ask(&self) -> Option<bool> {
         None
     }
+    /// Where the machine's system files are (`/etc/resolver`, the launchd job, …): the real ones, or a test's
+    /// temporary root, so nothing a test does reads or writes the machine's.
+    fn setup_paths(&self) -> doze_names::setup::Paths {
+        doze_names::setup::Paths::system()
+    }
+    /// Runs the one privileged script of a setup, trust or repair as root: under sudo on this terminal, or, with
+    /// `prompt`, behind the system's administrator prompt (the app's way). Nothing is run by default: only the real
+    /// process and a test's recorder do anything.
+    fn privileged(&self, plan: &doze_names::setup::Plan, prompt: bool) -> Result<(), Refused> {
+        let _ = (plan, prompt);
+        Err(Refused::Unsupported)
+    }
+    /// How long a repair waits for the network daemon launchd starts a beat after the script returns.
+    fn settle(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(6)
+    }
 }
+
+/// Why a privileged script did not run, or did not finish.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Refused {
+    /// The person closed the prompt (or said no to sudo).
+    Cancelled,
+    /// There is no way to ask for root here.
+    Unsupported,
+    /// It ran and failed; what it said.
+    Failed(String),
+}
+
+impl std::fmt::Display for Refused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            // The app tells a cancel from a failure by these words in the command's output (Go
+            // `adminprompt.CancelledText`).
+            Refused::Cancelled => f.write_str(CANCELLED),
+            Refused::Unsupported => f.write_str(
+                "no way to ask for an administrator's password here: run the command in a terminal",
+            ),
+            Refused::Failed(why) => f.write_str(why),
+        }
+    }
+}
+
+/// What a cancelled prompt says (Go `adminprompt.CancelledText`; the app reads it).
+pub const CANCELLED: &str = "the administrator prompt was cancelled";
+
+/// The variable the app sets on the doze commands it runs, so their privileged step asks with the system's prompt
+/// instead of sudo (Go `adminprompt.Env`).
+pub const PROMPT_ENV: &str = "DOZE_ADMIN_PROMPT";
 
 /// Which standard streams are terminals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

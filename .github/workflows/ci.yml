@@ -68,8 +68,8 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-logstore --all-targets --features doze-control/test-support -- -D warnings
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-logstore --no-fail-fast -- --nocapture
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore --all-targets --features doze-control/test-support -- -D warnings
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore --no-fail-fast -- --nocapture
       - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
         run: cargo clippy -p doze-names --features netd --all-targets -- -D warnings && cargo test -p doze-names --features netd --no-fail-fast
       - name: doze-names with machine setup and trust (every system's scripts are tested on every system)
@@ -152,14 +152,14 @@ jobs:
       - run: cargo clippy -p doze-app --all-targets -- -D warnings
       - run: cargo clippy -p doze-os --features ui --all-targets -- -D warnings
       - run: cargo test -p doze-app --features capture
-      - name: The app's weight line (binary at most 16 MB, packages at most 640 with the CLI inside, weight.md; the release-app build has no capture)
+      - name: The app's weight line (binary at most 16 MB, packages at most 650 with the CLI and its machine setup inside, weight.md; the release-app build has no capture)
         run: |
           cargo build --profile release-app -p doze-app
           size=$(stat -f %z target/release-app/doze-app)
           crates=$(cargo tree -p doze-app --prefix none --edges normal --target aarch64-apple-darwin | sort -u | wc -l | tr -d ' ')
           echo "doze-app: $size bytes, $crates packages"
           [ "$size" -le 16000000 ] || { echo "doze-app over 16 MB (PLAN.md §6)"; exit 1; }
-          [ "$crates" -le 640 ] || { echo "doze-app over 640 packages (docs/port/weight.md)"; exit 1; }
+          [ "$crates" -le 650 ] || { echo "doze-app over 650 packages (docs/port/weight.md)"; exit 1; }
       # Doze.app (PLAN.md step 3.5): signed ad hoc, or with a Developer ID and notarised when the secrets exist. With no
       # secrets (forks, and until the owner adds them) the import is skipped and the bundle is signed ad hoc.
       - name: Signing identity (only when the secrets exist)
@@ -279,6 +279,16 @@ jobs:
       # Builds release, measures size, packages and idle memory, and fails over the limits in xtask/weight-limits.txt
       # (the doze-kafka line is the console build; see the comment above).
       - run: cargo xtask weight
+      # The CLI-only doze (core plan §6.3: a 9 MB line under the 10 MB ceiling). P1 measured 4,986,168 B and 185 packages
+      # on Linux aarch64 (the Lima VM); the package line leaves room for the core's crates as they land (weight.md).
+      - name: doze (the CLI) under 9 MB
+        run: |
+          cargo build --release -p doze-cli
+          size=$(stat -c %s target/release/doze)
+          crates=$(cargo tree -p doze-cli --prefix none --edges normal | sort -u | wc -l)
+          echo "doze: $size bytes, $crates packages"
+          [ "$size" -le 9000000 ] || { echo "doze over 9 MB (core plan §6.3)"; exit 1; }
+          [ "$crates" -le 200 ] || { echo "doze over 200 packages (docs/port/weight.md)"; exit 1; }
 
   # The broker without the console (`--no-default-features`): one cheap job so that the lean build, the one the Phase 8 limits
   # described, cannot grow unnoticed. Phase 8 closed at 4,301,200 B on darwin and 4,660,632 B in the Linux VM; on ubuntu

@@ -17,7 +17,11 @@ path = "src/main.rs"
 
 [dependencies]
 doze-os = { path = "../doze-os" }
-doze-names = { path = "../doze-names" }
+# The zone: setup and trust (feature `setup`), and the network daemon dns-setup installs, which is this program run as
+# `__doze-netd` (feature `netd`, part of `setup`).
+doze-names = { path = "../doze-names", features = ["setup"] }
+# What doctor checks and the one-prompt repair, as data.
+doze-doctor = { path = "../doze-doctor" }
 doze-module-proto = { path = "../doze-module-proto" }
 # The daemon's control protocol (a client, as the app is) and the words every surface says about it.
 doze-control = { path = "../doze-control", features = ["words"] }

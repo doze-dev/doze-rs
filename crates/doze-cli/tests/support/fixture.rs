@@ -231,6 +231,12 @@ pub(crate) struct FakeHost {
     pub now: Option<SystemTime>,
     /// What `watch_interrupt` hands out, so a test can press Ctrl-C.
     pub interrupt: doze_os::interrupt::Interrupt,
+    /// Where the machine's system files are (`/etc/resolver`, the launchd job): never the real ones.
+    pub system: Option<PathBuf>,
+    /// Each privileged script handed over: what it is for, the script, whether the system's prompt was asked for.
+    pub privileged: RefCell<Vec<(String, String, bool)>>,
+    /// What the privileged runner answers (`None`: it ran).
+    pub refuse: Option<doze_cli::ctx::Refused>,
 }
 
 impl Host for FakeHost {
@@ -259,6 +265,26 @@ impl Host for FakeHost {
     }
     fn watch_interrupt(&self) -> doze_os::interrupt::Interrupt {
         self.interrupt.clone()
+    }
+    fn setup_paths(&self) -> doze_names::setup::Paths {
+        doze_names::setup::Paths::under(
+            self.system
+                .as_deref()
+                .unwrap_or(std::path::Path::new("/nonexistent/doze-test-root")),
+        )
+    }
+    fn privileged(
+        &self,
+        plan: &doze_names::setup::Plan,
+        prompt: bool,
+    ) -> Result<(), doze_cli::ctx::Refused> {
+        self.privileged
+            .borrow_mut()
+            .push((plan.what.clone(), plan.script.clone(), prompt));
+        self.refuse.clone().map_or(Ok(()), Err)
+    }
+    fn settle(&self) -> std::time::Duration {
+        std::time::Duration::ZERO
     }
 }
 

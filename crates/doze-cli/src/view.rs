@@ -2,7 +2,7 @@
 //! (colour), for a pipe (the same words without it) and as JSON (the envelope's `data`). Plain and JSON are the stable
 //! contracts the transcript tests pin. `data` is each result serialised in its own field order, as Go's structs are.
 
-use crate::cmd::{docs, doctor, logs, modules, report, status, task, verify, version, why};
+use crate::cmd::{docs, doctor, logs, modules, report, setup, status, task, verify, version, why};
 use crate::paint::Paint;
 use crate::plan::Plan;
 use serde::{Serialize, Serializer};
@@ -24,6 +24,10 @@ pub enum View {
     Modules(modules::Listing),
     Verify(verify::Report),
     Doctor(doctor::Report),
+    /// The script a privileged command would run (`--dry-run`).
+    Script(setup::Script),
+    /// What a privileged command did, and each part as it stands after.
+    Ran(setup::Ran),
     Status(Box<status::Report>),
     Graph(Box<status::Report>),
     /// What a verb did; each line was printed as it happened, so nothing is drawn after.
@@ -46,6 +50,8 @@ impl View {
             View::Modules(l) => l.human(p),
             View::Verify(r) => r.human(p),
             View::Doctor(r) => r.human(p),
+            View::Script(s) => s.human(),
+            View::Ran(r) => r.human(p),
             View::Status(r) => r.human(p),
             View::Graph(r) => r.graph(p),
             View::Tasks(t) => t.human(p),
@@ -88,6 +94,8 @@ impl Serialize for View {
             View::Modules(l) => l.serialize(s),
             View::Verify(r) => r.serialize(s),
             View::Doctor(r) => r.serialize(s),
+            View::Script(x) => x.serialize(s),
+            View::Ran(r) => r.serialize(s),
             View::Status(r) | View::Graph(r) => r.json().serialize(s),
             View::Verbs(r) => r.serialize(s),
             View::Tasks(t) => t.serialize(s),

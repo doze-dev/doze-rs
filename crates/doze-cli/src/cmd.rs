@@ -13,9 +13,11 @@ pub(crate) mod modules;
 mod pin;
 mod ready;
 pub(crate) mod report;
+pub(crate) mod setup;
 pub(crate) mod status;
 pub(crate) mod stub;
 pub(crate) mod task;
+mod trust;
 pub(crate) mod update;
 mod verbs;
 pub(crate) mod verify;
@@ -52,7 +54,10 @@ pub(crate) fn dispatch(
     match cmd {
         Cmd::Version => version::run(),
         Cmd::Completion(c) => Ok(Done::ok(View::Raw(completion(c.shell)))),
+        Cmd::Doctor(d) if d.fix || d.print_fix => setup::fix(ctx, mode, d.dry_run || d.print_fix),
         Cmd::Doctor(_) => doctor::run(ctx, mode),
+        Cmd::DnsSetup(a) => setup::dns_setup(ctx, &a),
+        Cmd::Trust(a) => trust::run_trust(ctx, mode, &a),
         Cmd::Update(u) => update::run(ctx, u.dry_run),
         Cmd::Refresh(r) => update::refresh(ctx, &r),
         Cmd::Status(s) => status::run(ctx, mode, &s, notices),

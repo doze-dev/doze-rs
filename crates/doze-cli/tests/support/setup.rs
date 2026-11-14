@@ -10,7 +10,13 @@ use std::path::Path;
 pub(crate) fn prepare(setup: &[String]) -> (Sandbox, FakeHost, Option<FixtureDaemon>) {
     let sb = Sandbox::new("t");
     fixture::write_registry(&sb.registry());
-    let mut host = FakeHost::default();
+    // The machine's files under the sandbox, and the zone off: what the machine's setup checks differs by system, so
+    // transcripts (one text for every system) leave it out; tests/privileged.rs covers it, system by system.
+    let mut host = FakeHost {
+        system: Some(sb.root.join("system")),
+        ..FakeHost::default()
+    };
+    host.env.insert("DOZE_ZONE".into(), "off".into());
     let mut daemon = None;
     for d in setup {
         let (verb, arg) = d.split_once(' ').unwrap_or((d, ""));

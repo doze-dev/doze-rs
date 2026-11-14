@@ -60,26 +60,6 @@ json:
 |   }
 | }
 
-$ doze doctor --fix --dry-run
-exit 1
-stderr:
-| error[DZ0001]: `doze doctor --fix` is not built yet: the one-sudo machine setup for names and certificates is not ported yet
-|   fix: the Go doze does this today
-json exit 1
-json:
-| {
-|   "schema": "doze/v1",
-|   "command": "doze doctor",
-|   "ok": false,
-|   "error": {
-|     "code": "failed",
-|     "message": "`doze doctor --fix` is not built yet: the one-sudo machine setup for names and certificates is not ported yet",
-|     "exit": 1,
-|     "id": "DZ0001",
-|     "fix": "the Go doze does this today"
-|   }
-| }
-
 $ doze bug
 exit 1
 stderr:

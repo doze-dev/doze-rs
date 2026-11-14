@@ -51,8 +51,9 @@ fn failed(plan: &Plan, why: io::Error) -> Error {
     }
 }
 
-/// Runs the plan's script the way `o` says.
-pub(crate) fn run(o: &mut Options<'_>, plan: &Plan) -> Result<(), Error> {
+/// Runs the plan's script the way `o` says: what a program that combines several plans under one prompt (`doze doctor
+/// --fix`) calls with the combined one.
+pub fn run(o: &mut Options<'_>, plan: &Plan) -> Result<(), Error> {
     if matches!(o.how, How::Print) {
         writeln!(o.out, "# {}", plan.what)?;
         write!(o.out, "{}", pasteable(plan))?;

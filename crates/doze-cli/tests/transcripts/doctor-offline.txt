@@ -7,8 +7,7 @@ stdout:
 |   ✓  home       {sandbox}/home
 |   ✓  config     no doze.hcl here or in any parent: checking the machine only
 |   ✗  registry   can't be reached: {sandbox}/unreachable: no registry in that directory · modules this machine has keep working
-|   ✓  names      no names yet: each doze program registers its own when it starts
-|   ·  daemon     not checked: the Rust core is not built yet
+|   ✓  names      the .doze zone is switched off (DOZE_ZONE=off): nothing to set up
 stderr:
 | error[DZ0501]: some checks need attention (marked ✗ above)
 json exit 1
@@ -22,32 +21,32 @@ json:
 |       {
 |         "name": "platform",
 |         "state": "ok",
+|         "ok": true,
 |         "detail": "{triple}"
 |       },
 |       {
 |         "name": "home",
 |         "state": "ok",
+|         "ok": true,
 |         "detail": "{sandbox}/home"
 |       },
 |       {
 |         "name": "config",
 |         "state": "ok",
+|         "ok": true,
 |         "detail": "no doze.hcl here or in any parent: checking the machine only"
 |       },
 |       {
 |         "name": "registry",
 |         "state": "fail",
+|         "ok": false,
 |         "detail": "can't be reached: {sandbox}/unreachable: no registry in that directory · modules this machine has keep working"
 |       },
 |       {
 |         "name": "names",
 |         "state": "ok",
-|         "detail": "no names yet: each doze program registers its own when it starts"
-|       },
-|       {
-|         "name": "daemon",
-|         "state": "not_checked",
-|         "detail": "not checked: the Rust core is not built yet"
+|         "ok": true,
+|         "detail": "the .doze zone is switched off (DOZE_ZONE=off): nothing to set up"
 |       }
 |     ]
 |   },

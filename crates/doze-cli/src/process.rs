@@ -2,9 +2,11 @@
 //! the doze home, the official registry) and gives the exit code. Both programs that carry the CLI call it: the `doze`
 //! binary (`src/main.rs`) and the desktop app, where `doze-app <command>` is the CLI (owner decision, 2026-11-14).
 
+use crate::ctx::Refused;
 use crate::diag::{Diagnostic, ids};
 use crate::registry::{self, Base, signed};
 use crate::{Ctx, Host, Terminals};
+use doze_names::setup::Plan;
 use doze_os::interrupt::Interrupt;
 use std::ffi::OsString;
 use std::io::{self, BufWriter, IsTerminal, Write};
@@ -49,10 +51,18 @@ impl Host for Process {
         io::stdin().read_line(&mut answer).ok()?;
         Some(matches!(answer.trim().to_lowercase().as_str(), "y" | "yes"))
     }
+
+    fn privileged(&self, plan: &Plan, prompt: bool) -> Result<(), Refused> {
+        crate::machine::run_as_root(plan, prompt)
+    }
 }
 
 /// Runs `argv` (`argv[0]` is the program) as this process and gives the exit code.
 pub fn main(argv: Vec<OsString>) -> u8 {
+    // The network daemon dns-setup installs is this program: it runs before anything else (Go `names.Helper()`).
+    if argv.get(1).is_some_and(|a| a == doze_names::HELPER_ARG) {
+        return crate::machine::netd(argv.get(2..).unwrap_or_default());
+    }
     let term = Terminals {
         stdin: io::stdin().is_terminal(),
         stdout: io::stdout().is_terminal(),

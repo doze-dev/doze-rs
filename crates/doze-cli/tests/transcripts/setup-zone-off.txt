@@ -1,0 +1,116 @@
+# With the .doze zone switched off (DOZE_ZONE=off) there is nothing to set up: dns-setup says so and fails, the repair
+# has nothing to do, --check passes, and trust needs domains the stack's daemon recorded.
+@ project pinned
+
+$ doze dns-setup
+exit 1
+stderr:
+| error[DZ0407]: names are switched off (DOZE_ZONE=off), so there is nothing to set up
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze dns-setup",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "names are switched off (DOZE_ZONE=off), so there is nothing to set up",
+|     "exit": 1,
+|     "id": "DZ0407"
+|   }
+| }
+
+$ doze dns-setup --check
+exit 0
+stdout:
+|   ✓  names      the .doze zone is switched off (DOZE_ZONE=off): nothing to set up
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze dns-setup",
+|   "ok": true,
+|   "data": {
+|     "checks": [
+|       {
+|         "name": "names",
+|         "state": "ok",
+|         "ok": true,
+|         "detail": "the .doze zone is switched off (DOZE_ZONE=off): nothing to set up"
+|       }
+|     ]
+|   }
+| }
+
+$ doze doctor --fix --dry-run
+exit 0
+stdout:
+| ✓ already set up — nothing to do
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze doctor",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze doctor --fix",
+|     "nothing_to_do": true
+|   }
+| }
+
+$ doze doctor --fix
+exit 0
+stdout:
+| ✓ already set up — nothing to do
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze doctor",
+|   "ok": true,
+|   "data": {
+|     "said": [
+|       "✓ already set up — nothing to do"
+|     ],
+|     "checks": []
+|   }
+| }
+
+$ doze trust
+exit 0
+stdout:
+| no domains recorded for this stack: its daemon records the ones doze.hcl declares when the stack comes up (doze up), then doze trust sets them up
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze trust",
+|   "ok": true,
+|   "data": {
+|     "said": [
+|       "no domains recorded for this stack: its daemon records the ones doze.hcl declares when the stack comes up (doze up), then doze trust sets them up"
+|     ],
+|     "checks": []
+|   }
+| }
+
+$ doze trust --rotate --remove
+exit 2
+stderr:
+| error[DZ0101]: --rotate and --remove do not go together
+|   fix: doze trust --help
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze trust",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "--rotate and --remove do not go together",
+|     "exit": 2,
+|     "id": "DZ0101",
+|     "fix": "doze trust --help"
+|   }
+| }
