@@ -372,10 +372,11 @@ impl Table {
     }
 }
 
+/// What describes a running process goes. Holds stay: whoever holds it (a running dependant, an open client) still
+/// does, and releases it later; Go zeroed them here, so those releases under-counted the next start.
 fn clear_runtime(s: &mut Slot) {
     s.view.backend.clear();
     s.view.pid = 0;
-    s.view.conns = 0;
     s.started = None;
     s.idle_since = None;
     s.view.healthy = None;

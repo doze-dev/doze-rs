@@ -106,9 +106,12 @@ pub async fn run(
     Ok(())
 }
 
+/// The longest one step may run (a `bun install` included); a stop step is bounded by [`STOP_PATIENCE`] too.
+pub const STEP_LIMIT: Duration = Duration::from_secs(600);
+
 async fn run_one(step: &Step, at: &StepEnv, log: &RunLog) -> Result<(), String> {
     let (prog, args) = step.argv.split_first().ok_or("an empty step")?;
-    let st = tokio::process::Command::new(program_of(prog))
+    let run = tokio::process::Command::new(program_of(prog))
         .args(args)
         .envs(&at.env)
         .current_dir(&at.dir)
@@ -116,8 +119,15 @@ async fn run_one(step: &Step, at: &StepEnv, log: &RunLog) -> Result<(), String> 
         .stdout(log.stdio().map_err(|e| e.to_string())?)
         .stderr(log.stdio().map_err(|e| e.to_string())?)
         .kill_on_drop(true)
-        .status()
+        .status();
+    let st = tokio::time::timeout(STEP_LIMIT, run)
         .await
+        .map_err(|_| {
+            format!(
+                "did not finish within {}",
+                crate::godur::go_duration(STEP_LIMIT)
+            )
+        })?
         .map_err(|e| e.to_string())?;
     if st.success() {
         Ok(())

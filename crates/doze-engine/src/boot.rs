@@ -1,102 +1,138 @@
-//! One start of one instance (Go's `bootLocked`): its needs woken and held first, then its plan, `setup`, the processes
-//! gated on readiness, supervision, `on_ready`. A failure before the processes run releases the needs and marks it
-//! failed; a failed `on_ready` leaves the processes running but the instance not ready.
+//! One start of one instance (Go's `bootLocked`), as a task: its needs woken and held first, then `setup`, the plan, the
+//! processes gated on readiness, supervision, `on_ready`. Each step reports to the [`crate::machine::Machine`], which
+//! decides what it means (a start cancelled by a stop or the shutdown is stopped as soon as it registers).
 
-use crate::engine::Engine;
+use crate::engine::{Engine, Phase};
 use crate::error::Error;
 use crate::events::{Cause, Event, Kind};
 use crate::lifecycle::Now;
 use crate::logs::RunLog;
+use crate::machine::Unit;
 use crate::process::idle_policy;
 use crate::stack::{Endpoint, Kind as SvcKind, PlanCtx, Planned, Service, When};
 use crate::steps::{self, Moment, StepEnv};
 use crate::supervise::Handle;
 use std::collections::BTreeMap;
 use std::time::Instant;
+use tokio::sync::watch;
 
-/// Starts `name` for `cause`, to `when`.
-pub(crate) async fn boot(
+/// Spawns start `boot` of `name`; `tx` hears how it ended.
+pub(crate) fn spawn(
     e: &Engine,
     name: &str,
-    cause: Cause,
+    boot: u64,
     when: When,
-) -> Result<Endpoint, Error> {
-    if let Some(r) = rerun_on_ready(e, name, cause.clone()).await {
-        return r;
-    }
+    rerun: bool,
+    tx: watch::Sender<Phase>,
+) {
+    let (e, name) = (e.clone(), name.to_string());
+    tokio::spawn(async move {
+        let res = if rerun {
+            rerun_on_ready(&e, &name, boot).await
+        } else {
+            start(&e, &name, boot, when).await
+        };
+        e.update(|c| c.boots.remove(&boot));
+        let _ = tx.send(match res {
+            Ok(ep) => Phase::Ready(ep),
+            Err(err) => Phase::Failed(err),
+        });
+    });
+}
+
+async fn start(e: &Engine, name: &str, boot: u64, when: When) -> Result<Endpoint, Error> {
     let svc = e.service(name)?.clone();
-    e.update(|c| c.table.mark_booting(name));
-    e.event(Event::new(Kind::Wake, name).cause(cause));
     tracing::info!("waking \"{name}\"…");
     let started = Instant::now();
-    let fail = |held: &[String], err: Error| {
-        for h in held {
-            e.release(h);
-        }
-        e.event(
-            Event::new(Kind::Failed, name)
-                .took(started.elapsed())
-                .detail(err.to_string()),
-        );
-        e.update(|c| c.table.mark_failed(name, &err.to_string()));
+    let fail = |err: Error| {
+        let fx = e.update(|c| {
+            c.m.boot_failed(
+                name,
+                boot,
+                &err.to_string(),
+                started.elapsed(),
+                Now::current(),
+            )
+        });
+        e.run(fx);
         err
     };
-    let (held, needs) = match wake_needs(e, &svc).await {
-        Ok(x) => x,
-        Err(err) => return Err(fail(&[], err)),
-    };
+    let needs = wake_needs(e, &svc, boot).await.map_err(fail)?;
     let ctx = PlanCtx {
         name: name.into(),
         data_dir: e.stack().cluster_dir(name),
         run_dir: e.stack().run_dir().join(name),
         needs,
     };
-    let (planned, log) = match prepare(e, &svc, &ctx).await {
-        Ok(x) => x,
-        Err(err) => return Err(fail(&held, err)),
-    };
-    let unit = match crate::exec::start(&planned.plan, &log, planned.ready_within).await {
-        Ok(u) => u,
-        Err(msg) => return Err(fail(&held, Error::Failed(msg))),
-    };
-    let handle = Handle::supervise(unit);
-    register(e, &svc, &planned, held, handle, log.clone());
-    if when != When::Started {
-        on_ready(e, &svc, &log, started).await?;
+    let (planned, log) = prepare(e, &svc, &ctx).await.map_err(fail)?;
+    let run_dir = e.stack().run_dir();
+    let mut record = |pids: &[u32]| crate::pidfile::write(&run_dir, name, pids);
+    let unit =
+        match crate::exec::start(&planned.plan, &log, planned.ready_within, &mut record).await {
+            Ok(u) => u,
+            Err(err) => {
+                crate::pidfile::remove(&run_dir, name);
+                let kind = if err.timeout {
+                    Error::Timeout
+                } else {
+                    Error::Failed
+                };
+                return Err(fail(kind(err.message)));
+            }
+        };
+    register(
+        e,
+        &svc,
+        boot,
+        &planned,
+        Handle::supervise(unit),
+        log.clone(),
+    )?;
+    if when == When::Started {
+        return finish(e, name, boot, started, planned.endpoint);
     }
-    e.event(Event::new(Kind::Ready, name).took(started.elapsed()));
-    tracing::info!("\"{name}\" ready");
-    Ok(planned.endpoint)
+    on_ready(e, name, boot, &log, started).await?;
+    finish(e, name, boot, started, planned.endpoint)
 }
 
-/// Wakes and holds every need (in order) before the start; a need woken `Lazy` is wired, not woken. On a failure the
-/// needs already held are released.
+fn finish(
+    e: &Engine,
+    name: &str,
+    boot: u64,
+    started: Instant,
+    ep: Endpoint,
+) -> Result<Endpoint, Error> {
+    let (ok, fx) = e.update(|c| c.m.boot_done(name, boot, started.elapsed(), Now::current()));
+    e.run(fx);
+    if ok {
+        tracing::info!("\"{name}\" ready");
+        Ok(ep)
+    } else {
+        Err(Error::Failed(format!(
+            "{name} exited while it was getting ready"
+        )))
+    }
+}
+
+/// Wakes and holds every need, in order; a `Lazy` need is wired (its declared address), not woken.
 async fn wake_needs(
     e: &Engine,
     svc: &Service,
-) -> Result<(Vec<String>, BTreeMap<String, Endpoint>), Error> {
-    let mut held: Vec<String> = Vec::new();
+    boot: u64,
+) -> Result<BTreeMap<String, Endpoint>, Error> {
     let mut eps = BTreeMap::new();
-    for need in &svc.needs {
-        if need.name == svc.name {
-            continue;
-        }
+    for need in svc.needs.iter().filter(|n| n.name != svc.name) {
         if need.when == When::Lazy {
-            let ep = e.live_endpoint(&need.name);
-            eps.insert(need.name.clone(), ep);
+            eps.insert(need.name.clone(), declared_endpoint(e, &need.name));
             continue;
         }
         let cause = Cause::Dependency(svc.name.clone());
         match Box::pin(e.wake_when(&need.name, cause, need.when)).await {
             Ok(ep) => {
-                e.acquire(&need.name);
-                held.push(need.name.clone());
+                e.update(|c| c.m.need_held(&svc.name, boot, &need.name));
                 eps.insert(need.name.clone(), ep);
             }
             Err(err) => {
-                for h in &held {
-                    e.release(h);
-                }
                 return Err(Error::Failed(format!(
                     "booting dependency \"{}\": {err}",
                     need.name
@@ -104,10 +140,27 @@ async fn wake_needs(
             }
         }
     }
-    Ok((held, eps))
+    Ok(eps)
 }
 
-/// The plan, the folders, the log, and `setup` when this data folder needs it.
+/// Where a need is reached before it ever ran: its last endpoint, else what its declaration says (a command's own port).
+fn declared_endpoint(e: &Engine, name: &str) -> Endpoint {
+    let last = e.update(|c| c.live.get(name).map(|l| l.endpoint.clone()));
+    if let Some(ep) = last.filter(|ep| !ep.backend.is_empty()) {
+        return ep;
+    }
+    match e.service(name).map(|s| &s.kind) {
+        Ok(SvcKind::Process(p)) => Endpoint {
+            backend: p
+                .port
+                .map(|p| format!("{}:{p}", crate::process::PRIVATE_HOST))
+                .unwrap_or_default(),
+        },
+        _ => Endpoint::default(),
+    }
+}
+
+/// The folders, the log, `setup` when this data folder needs it (before the plan's checks, as Go), then the plan.
 async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, RunLog), Error> {
     let io = |what: &str, err: std::io::Error| {
         Error::Failed(format!("{what} for \"{}\": {err}", svc.name))
@@ -122,18 +175,17 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
             } else {
                 None
             };
-            // Setup runs before the plan's checks (Go): `setup = cp .env.example .env` may make the env_file.
+            let at = StepEnv {
+                dir: spec.dir.clone(),
+                env: spec.env_for(ctx, private),
+            };
             if steps::setup_needed(&ctx.data_dir, &spec.setup) {
-                let at = StepEnv {
-                    dir: spec.dir.clone(),
-                    env: spec.env_for(ctx, private),
-                };
                 let ran = steps::run(Moment::Setup, &spec.setup, &at, &log, |r| {
                     step_event(e, &svc.name, r)
                 })
                 .await;
                 if let Err(msg) = ran {
-                    e.update(|c| c.table.set_tainted(&svc.name, true));
+                    e.update(|c| c.m.table_mut().set_tainted(&svc.name, true));
                     return Err(Error::Failed(format!("setup for \"{}\": {msg}", svc.name)));
                 }
                 if let Err(err) = steps::mark_setup_done(&ctx.data_dir, &spec.setup) {
@@ -141,7 +193,8 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
                 }
             }
             let planned = spec.planned(ctx, private).map_err(Error::Failed)?;
-            e.remember_steps(&svc.name, spec, ctx, private);
+            let steps = (spec.on_ready.clone(), spec.stop.clone(), at);
+            e.update(|c| c.live.entry(svc.name.clone()).or_default().steps = Some(steps));
             planned
         }
         SvcKind::Planned(p) => p.plan(ctx).await.map_err(Error::Failed)?,
@@ -160,97 +213,97 @@ pub(crate) fn step_event(e: &Engine, name: &str, r: steps::Ran) {
     e.event(Event::new(Kind::Step, name).took(r.took).detail(r.detail));
 }
 
-/// The unit runs: record it, mark it running, write its pidfiles, watch it.
+/// The unit runs: the machine records it (or, if the start was cancelled meanwhile, says to stop it), then it is
+/// watched.
 fn register(
     e: &Engine,
     svc: &Service,
-    planned: &Planned,
-    held: Vec<String>,
+    boot: u64,
+    p: &Planned,
     handle: Handle,
     log: RunLog,
-) {
-    let proxied = matches!(&svc.kind, SvcKind::Process(p) if p.proxied());
-    let (always_on, idle_after) = idle_policy(planned.supervised, proxied, svc.sleep);
-    let generation = e.update(|c| {
-        c.next_gen += 1;
-        let generation = c.next_gen;
-        let live = c.live.entry(svc.name.clone()).or_default();
-        live.unit = Some((generation, handle.clone()));
-        live.held = held;
-        live.endpoint = planned.endpoint.clone();
-        live.log = Some(log);
-        live.ready_pending = false;
-        live.unit_in_flight = true;
-        live.health = planned.plan.processes.first().and_then(|p| p.ready.clone());
-        c.table.set_idle_policy(&svc.name, always_on, idle_after);
-        c.table.mark_running(
-            &svc.name,
-            &planned.endpoint.backend,
-            handle.pid(),
-            Now::current(),
-        );
-        generation
-    });
-    crate::pidfile::write(&e.stack().run_dir(), &svc.name, handle.pids());
-    let watch = crate::stop::Watch {
-        name: svc.name.clone(),
-        generation,
-        restart: planned.restart,
-        supervised: planned.supervised,
+) -> Result<(), Error> {
+    let proxied = matches!(&svc.kind, SvcKind::Process(s) if s.proxied());
+    let (always_on, idle_after) = idle_policy(p.supervised, proxied, svc.sleep);
+    let unit = Unit {
+        pids: handle.pids().to_vec(),
+        backend: p.endpoint.backend.clone(),
+        restart: p.restart,
+        supervised: p.supervised,
+        always_on,
+        idle_after,
     };
-    tokio::spawn(crate::stop::watch(e.clone(), watch, handle));
+    let (generation, ok, fx) = e.update(|c| {
+        let r = c.m.register(&svc.name, boot, unit, Now::current());
+        c.handles.insert(r.0, handle.clone());
+        let live = c.live.entry(svc.name.clone()).or_default();
+        live.endpoint = p.endpoint.clone();
+        live.log = Some(log);
+        live.supervised = p.supervised;
+        live.health = p.plan.processes.first().and_then(|q| q.ready.clone());
+        r
+    });
+    tokio::spawn(crate::stop::watch(
+        e.clone(),
+        svc.name.clone(),
+        generation,
+        handle,
+    ));
+    e.run(fx);
+    if ok {
+        Ok(())
+    } else {
+        Err(Error::Failed(format!(
+            "{} was stopped while it was starting",
+            svc.name
+        )))
+    }
 }
 
 /// `on_ready`: when it fails the command keeps running (the step is what is broken), but the instance is not ready.
-async fn on_ready(e: &Engine, svc: &Service, log: &RunLog, started: Instant) -> Result<(), Error> {
-    let Some((steps, at)) = e.on_ready_steps(&svc.name) else {
+async fn on_ready(
+    e: &Engine,
+    name: &str,
+    boot: u64,
+    log: &RunLog,
+    started: Instant,
+) -> Result<(), Error> {
+    let steps = e.update(|c| {
+        c.live
+            .get(name)
+            .and_then(|l| l.steps.as_ref())
+            .map(|(r, _, at)| (r.clone(), at.clone()))
+    });
+    let Some((steps, at)) = steps.filter(|(s, _)| !s.is_empty()) else {
         return Ok(());
     };
-    if steps.is_empty() {
-        return Ok(());
-    }
     let ran = steps::run(Moment::OnReady, &steps, &at, log, |r| {
-        step_event(e, &svc.name, r)
+        step_event(e, name, r)
     })
     .await;
     let Err(msg) = ran else {
         return Ok(());
     };
-    let err = Error::Failed(format!("on_ready for \"{}\": {msg}", svc.name));
-    e.update(|c| {
-        if let Some(l) = c.live.get_mut(&svc.name) {
-            l.ready_pending = true;
-        }
-        c.table.mark_failed(&svc.name, &msg);
-    });
-    e.event(
-        Event::new(Kind::Failed, &svc.name)
-            .took(started.elapsed())
-            .detail(msg),
-    );
-    Err(err)
+    let fx = e.update(|c| c.m.on_ready_failed(name, boot, &msg, started.elapsed()));
+    e.run(fx);
+    Err(Error::Failed(format!("on_ready for \"{name}\": {msg}")))
 }
 
 /// Running but left not ready by a failed `on_ready`: run that again, and nothing else.
-async fn rerun_on_ready(e: &Engine, name: &str, cause: Cause) -> Option<Result<Endpoint, Error>> {
-    let (log, pid, backend) = e.pending_ready(name)?;
+async fn rerun_on_ready(e: &Engine, name: &str, boot: u64) -> Result<Endpoint, Error> {
     let started = Instant::now();
-    e.event(
-        Event::new(Kind::Wake, name)
-            .cause(cause)
-            .detail("on_ready again"),
-    );
-    let svc = e.service(name).ok()?.clone();
-    if let Err(err) = on_ready(e, &svc, &log, started).await {
-        return Some(Err(err));
-    }
+    let log = e.update(|c| c.live.get(name).and_then(|l| l.log.clone()));
+    let Some(log) = log else {
+        return Err(Error::Failed(format!(
+            "{name} has no log to run on_ready against"
+        )));
+    };
+    on_ready(e, name, boot, &log, started).await?;
     let ep = e.update(|c| {
-        c.table.mark_running(name, &backend, pid, Now::current());
-        c.live.get_mut(name).map_or_else(Endpoint::default, |l| {
-            l.ready_pending = false;
-            l.endpoint.clone()
-        })
+        c.live
+            .get(name)
+            .map(|l| l.endpoint.clone())
+            .unwrap_or_default()
     });
-    e.event(Event::new(Kind::Ready, name).took(started.elapsed()));
-    Some(Ok(ep))
+    finish(e, name, boot, started, ep)
 }

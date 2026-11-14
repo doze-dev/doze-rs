@@ -1,10 +1,11 @@
-//! The engine handle: a stack at run time. Wakes coalesce (every caller of a cold instance shares one start), state
-//! lives in the sans-IO [`Table`] under a short lock that is never held across an await, and every change is published.
+//! The engine handle: a stack at run time. Every decision is the [`Machine`]'s, made under one short lock that is never
+//! held across an await; this shell runs what the machine says (tasks, processes, timers, files) and reports back.
 
 use crate::error::{BuildError, Error};
-use crate::events::{Cause, Event, Kind};
-use crate::lifecycle::{Now, Table};
+use crate::events::{Cause, Event};
+use crate::lifecycle::Now;
 use crate::logs::RunLog;
+use crate::machine::{Decision, Effect, Machine};
 use crate::process::Step;
 use crate::stack::{Endpoint, Service, Stack, When};
 use crate::state::{Holder, Instance};
@@ -13,10 +14,10 @@ use crate::supervise::Handle;
 use doze_module_proto::msg::run::Ready;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 use tokio::sync::{broadcast, watch};
+use tokio::task::JoinHandle;
 
 /// A running stack. Cheap to clone; every clone is the same engine.
 #[derive(Debug, Clone)]
@@ -28,41 +29,32 @@ pub struct Engine {
 pub(crate) struct Inner {
     pub(crate) stack: Stack,
     core: Mutex<Core>,
-    pub(crate) shutting: AtomicBool,
     changed: watch::Sender<u64>,
     transitions: broadcast::Sender<Instance>,
     events: broadcast::Sender<Event>,
 }
 
-/// Everything that changes, behind one lock.
-#[derive(Debug, Default)]
+/// The machine and the I/O resources it refers to, behind one lock.
+#[derive(Debug)]
 pub(crate) struct Core {
-    pub(crate) table: Table,
+    pub(crate) m: Machine,
+    /// Running units by generation.
+    pub(crate) handles: BTreeMap<u64, Handle>,
+    /// Starts in flight by id.
+    pub(crate) boots: BTreeMap<u64, watch::Receiver<Phase>>,
     pub(crate) live: BTreeMap<String, Live>,
-    pub(crate) next_gen: u64,
 }
 
-/// What the engine holds for one instance besides its lifecycle.
+/// What the shell keeps for one instance's latest start.
 #[derive(Debug, Default)]
 pub(crate) struct Live {
-    /// The running unit and its generation (a watcher acts only on its own).
-    pub(crate) unit: Option<(u64, Handle)>,
     pub(crate) endpoint: Endpoint,
-    /// Needs it holds while it runs.
-    pub(crate) held: Vec<String>,
-    /// The start in flight, shared by every waiter.
-    pub(crate) boot: Option<watch::Receiver<Phase>>,
-    /// The running unit was registered by the start still in flight (not an earlier one).
-    pub(crate) unit_in_flight: bool,
-    /// A pending restart and its generation (a stop cancels it by moving the generation).
-    pub(crate) restart_gen: u64,
-    pub(crate) restart_pending: bool,
-    /// Running, but left not ready by a failed `on_ready`: the next wake runs that again and nothing else.
-    pub(crate) ready_pending: bool,
     pub(crate) log: Option<RunLog>,
     /// `on_ready` and `stop` steps with where they run.
     pub(crate) steps: Option<(Vec<Step>, Vec<Step>, StepEnv)>,
-    /// The check the health prober repeats.
+    /// A long-lived process the engine watches (the health prober looks at these).
+    pub(crate) supervised: bool,
+    /// Its readiness check, which the health prober repeats.
     pub(crate) health: Option<Ready>,
 }
 
@@ -108,29 +100,30 @@ impl Builder {
 impl Engine {
     /// A builder for stack `name`, keeping its state under `data_dir` (`<home>/projects/<slug>`).
     pub fn builder(name: &str, data_dir: impl Into<PathBuf>) -> Builder {
-        Builder {
-            stack: Stack {
-                name: name.into(),
-                config_name: "doze.hcl".into(),
-                data_dir: data_dir.into(),
-                idle_timeout: None,
-                services: Vec::new(),
-            },
-        }
+        let stack = Stack {
+            name: name.into(),
+            config_name: "doze.hcl".into(),
+            data_dir: data_dir.into(),
+            idle_timeout: None,
+            services: Vec::new(),
+        };
+        Builder { stack }
     }
 
     /// The engine for a whole stack.
     pub fn new(stack: Stack) -> Result<Engine, BuildError> {
         crate::graph::check(&stack)?;
-        let mut core = Core::default();
-        for s in &stack.services {
-            core.table.declare(&s.name);
-        }
-        let _ = core.table.take_transitions(Now::current());
+        let names = stack.services.iter().map(|s| s.name.clone());
+        let m = Machine::new(names, &stack.config_name, stack.idle_timeout);
+        let core = Core {
+            m,
+            handles: BTreeMap::new(),
+            boots: BTreeMap::new(),
+            live: BTreeMap::new(),
+        };
         let inner = Inner {
             stack,
             core: Mutex::new(core),
-            shutting: AtomicBool::new(false),
             changed: watch::channel(0).0,
             transitions: broadcast::channel(256).0,
             events: broadcast::channel(1024).0,
@@ -158,7 +151,8 @@ impl Engine {
         let (r, moved, version) = {
             let mut core = self.lock();
             let r = f(&mut core);
-            (r, core.table.take_transitions(now), core.table.version())
+            let t = core.m.table_mut();
+            (r, t.take_transitions(now), t.version())
         };
         for inst in moved {
             let _ = self.inner.transitions.send(inst);
@@ -171,6 +165,39 @@ impl Engine {
         r
     }
 
+    /// Runs the machine's effects; the tasks it started that a caller may wait for (stops).
+    pub(crate) fn run(&self, fx: Vec<Effect>) -> Vec<JoinHandle<()>> {
+        let mut waits = Vec::new();
+        for f in fx {
+            match f {
+                Effect::Journal(e) => self.event(e),
+                Effect::WritePids { name, pids } => {
+                    crate::pidfile::write(&self.stack().run_dir(), &name, &pids)
+                }
+                Effect::RemovePids { name } => {
+                    crate::pidfile::remove(&self.stack().run_dir(), &name)
+                }
+                Effect::StopUnit { name, generation } => {
+                    waits.push(crate::stop::spawn_stop(self, name, generation))
+                }
+                Effect::Schedule { name, timer, delay } => {
+                    crate::stop::spawn_timer(self, name, timer, delay)
+                }
+                Effect::RestartNow { name } => {
+                    let e = self.clone();
+                    tokio::spawn(async move {
+                        if let Err(err) = e.wake(&name, Cause::Restart).await {
+                            tracing::warn!("restart of \"{name}\" failed: {err}");
+                        }
+                    });
+                }
+                // Starts are spawned by the wake that decided them (it knows how far to wake).
+                Effect::StartBoot { .. } => {}
+            }
+        }
+        waits
+    }
+
     /// Records what the engine did.
     pub(crate) fn event(&self, e: Event) {
         tracing::debug!(kind = e.kind.as_str(), instance = %e.instance, detail = %e.detail);
@@ -178,27 +205,21 @@ impl Engine {
     }
 
     pub(crate) fn service(&self, name: &str) -> Result<&Service, Error> {
-        self.inner
-            .stack
-            .service(name)
-            .ok_or_else(|| Error::NotDeclared {
-                name: name.into(),
-                config: self.inner.stack.config_name.clone(),
-            })
-    }
-
-    pub(crate) fn shutting_down(&self) -> bool {
-        self.inner.shutting.load(Ordering::SeqCst)
+        let config = self.inner.stack.config_name.clone();
+        self.inner.stack.service(name).ok_or(Error::NotDeclared {
+            name: name.into(),
+            config,
+        })
     }
 
     /// Every instance, sorted by name.
     pub fn snapshot(&self) -> Vec<Instance> {
-        self.lock().table.snapshot(Now::current())
+        self.lock().m.table().snapshot(Now::current())
     }
 
     /// One instance.
     pub fn get(&self, name: &str) -> Option<Instance> {
-        self.lock().table.get(name, Now::current())
+        self.lock().m.table().get(name, Now::current())
     }
 
     /// Transitions as they happen (lossy: a slow reader misses some and should take a fresh [`Engine::snapshot`]).
@@ -228,9 +249,32 @@ impl Engine {
         cause: Cause,
         when: When,
     ) -> Result<Endpoint, Error> {
-        let mut rx = match self.join_or_start(name, cause, when)? {
-            Ok(ep) => return Ok(ep),
-            Err(rx) => rx,
+        let (rx, fx) = self.update(|c| {
+            let (d, fx) = c.m.wake(name, cause);
+            let rerun = fx
+                .iter()
+                .any(|f| matches!(f, Effect::StartBoot { rerun: true, .. }));
+            let rx = match d {
+                Decision::Running => Ok(None),
+                Decision::Refuse(e) => Err(e),
+                Decision::Join(b) => Ok(c.boots.get(&b).cloned()),
+                Decision::Start(b) => {
+                    let (tx, rx) = watch::channel(Phase::Booting);
+                    c.boots.insert(b, rx.clone());
+                    crate::boot::spawn(self, name, b, when, rerun, tx);
+                    Ok(Some(rx))
+                }
+            };
+            (rx, fx)
+        });
+        self.run(fx);
+        let Some(mut rx) = rx? else {
+            return Ok(self
+                .lock()
+                .live
+                .get(name)
+                .map(|l| l.endpoint.clone())
+                .unwrap_or_default());
         };
         let phase = rx.wait_for(|p| !matches!(p, Phase::Booting)).await;
         match phase.as_deref() {
@@ -242,110 +286,33 @@ impl Engine {
         }
     }
 
-    /// Running: its endpoint. A start in flight: join it. Else start one.
-    fn join_or_start(
-        &self,
-        name: &str,
-        cause: Cause,
-        when: When,
-    ) -> Result<Result<Endpoint, watch::Receiver<Phase>>, Error> {
-        if self.shutting_down() {
-            return Err(Error::ShuttingDown(name.into()));
-        }
-        self.service(name)?;
-        let mut core = self.lock();
-        let running = core.table.state(name).is_some_and(|s| s.running());
-        let live = core.live.entry(name.into()).or_default();
-        if running && live.unit.as_ref().is_some_and(|(_, h)| h.alive()) && !live.ready_pending {
-            return Ok(Ok(live.endpoint.clone()));
-        }
-        if let Some(rx) = &live.boot {
-            return Ok(Err(rx.clone()));
-        }
-        if core.table.is_off(name) {
-            return Err(Error::Off(name.into()));
-        }
-        let (tx, rx) = watch::channel(Phase::Booting);
-        if let Some(live) = core.live.get_mut(name) {
-            live.boot = Some(rx.clone());
-        }
-        drop(core);
-        let engine = self.clone();
-        let name = name.to_string();
-        tokio::spawn(async move {
-            let res = crate::boot::boot(&engine, &name, cause, when).await;
-            engine.update(|c| {
-                if let Some(l) = c.live.get_mut(&name) {
-                    l.boot = None;
-                    l.unit_in_flight = false;
-                }
-            });
-            let _ = tx.send(match res {
-                Ok(ep) => Phase::Ready(ep),
-                Err(e) => Phase::Failed(e),
-            });
-        });
-        Ok(Err(rx))
-    }
-
     /// Why `name` is awake: the running services that need it, a pin, client connections. Empty when it is not running.
     pub fn holders(&self, name: &str) -> Vec<Holder> {
-        let core = self.lock();
-        let Some(inst) = core
-            .table
-            .get(name, Now::current())
-            .filter(|i| i.state.running())
-        else {
-            return Vec::new();
-        };
-        let dependants: Vec<String> = core
-            .live
-            .iter()
-            .filter(|(_, l)| l.held.iter().any(|h| h == name))
-            .map(|(n, _)| n.clone())
-            .collect();
-        let clients = inst
-            .conns
-            .saturating_sub(u32::try_from(dependants.len()).unwrap_or(u32::MAX));
-        let mut out: Vec<Holder> = dependants.into_iter().map(Holder::Dependant).collect();
-        if inst.keep_awake {
-            out.push(Holder::Pin);
-        }
-        if clients > 0 {
-            out.push(Holder::Connections(clients));
-        }
-        out
+        self.lock().m.holders(name, Now::current())
     }
 
     /// One more client connection to `name` (the proxy calls this once a wake returned).
     pub fn acquire(&self, name: &str) {
-        self.update(|c| c.table.acquire(name));
+        self.update(|c| c.m.acquire(name));
     }
 
     /// One client connection fewer.
     pub fn release(&self, name: &str) {
-        self.update(|c| c.table.release(name, Now::current()));
+        self.update(|c| c.m.release(name, Now::current()));
     }
 
     /// Flips the pin; returns the new value.
     pub fn toggle_pin(&self, name: &str) -> Result<bool, Error> {
-        self.service(name)?;
-        let on = self.update(|c| c.table.toggle_pin(name));
-        let detail = if on { "on" } else { "off" };
-        self.event(
-            Event::new(Kind::Pin, name)
-                .cause(Cause::Command)
-                .detail(detail),
-        );
+        let (on, fx) = self.update(|c| c.m.toggle_pin(name))?;
+        self.run(vec![fx]);
         Ok(on)
     }
 
     /// Takes `name` out of this run (stops it; every start is refused) or puts it back (nothing starts at once).
     pub async fn set_off(&self, name: &str, off: bool) -> Result<(), Error> {
-        self.service(name)?;
-        self.update(|c| c.table.set_off(name, off));
-        if off {
-            self.stop(name, Cause::Command).await?;
+        let fx = self.update(|c| c.m.set_off(name, off))?;
+        for w in self.run(fx) {
+            let _ = w.await;
         }
         Ok(())
     }

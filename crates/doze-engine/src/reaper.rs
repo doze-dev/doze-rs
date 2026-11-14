@@ -2,7 +2,6 @@
 //! (Go's `RunHealthProber`, which records and never restarts: a blip must not cause a flap).
 
 use crate::engine::Engine;
-use crate::events::Cause;
 use crate::lifecycle::Now;
 use doze_module_proto::msg::run::Ready;
 use std::time::Duration;
@@ -46,19 +45,22 @@ impl Engine {
         }
     }
 
-    /// One pass of the reaper: stops what has been idle for its time. Returns what it stopped.
+    /// One pass of the reaper: stops what has been idle for its time (decided under the lock, so a client that just
+    /// connected is never cut off). Returns what it stopped.
     pub async fn reap_once(&self) -> Vec<String> {
-        let idle = self.stack().idle_timeout;
-        let due = self.update(|c| c.table.reapable(idle, Now::current()));
-        let mut slept = Vec::new();
-        for name in due {
-            match self.stop(&name, Cause::Idle).await {
-                Ok(()) => {
-                    tracing::info!("\"{name}\" went to sleep: nothing held it for its idle time");
-                    slept.push(name);
-                }
-                Err(e) => tracing::warn!("reaping \"{name}\" failed: {e}"),
-            }
+        let fx = self.update(|c| c.m.reap(Now::current()));
+        let slept: Vec<String> = fx
+            .iter()
+            .filter_map(|f| match f {
+                crate::machine::Effect::StopUnit { name, .. } => Some(name.clone()),
+                _ => None,
+            })
+            .collect();
+        for w in self.run(fx) {
+            let _ = w.await;
+        }
+        for name in &slept {
+            tracing::info!("\"{name}\" went to sleep: nothing held it for its idle time");
         }
         slept
     }
@@ -82,26 +84,39 @@ async fn health_loop(e: Engine) {
     }
 }
 
-/// Probes every running supervised command that has a repeatable check (a `log_line` check is one-shot).
-async fn probe_once(e: &Engine) {
-    let checks: Vec<(String, Ready, std::path::PathBuf)> = e.update(|c| {
+/// One health probe's limit (Go's).
+pub const HEALTH_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Probes every running supervised command. With no check, or a one-shot `log_line` one, a running command counts as
+/// healthy (Go's `CheckHealth` returned nil for those).
+pub(crate) async fn probe_once(e: &Engine) {
+    let checks: Vec<(String, Option<Ready>)> = e.update(|c| {
         c.live
             .iter()
-            .filter(|(n, l)| l.steps.is_some() && c.table.state(n).is_some_and(|s| s.running()))
-            .filter_map(|(n, l)| {
-                let r = l
-                    .health
-                    .clone()
-                    .filter(|r| !matches!(r, Ready::LogLine(_)))?;
-                Some((n.clone(), r, l.log.as_ref()?.path().to_path_buf()))
+            .filter(|(n, l)| l.supervised && c.m.table().state(n).is_some_and(|s| s.running()))
+            .map(|(n, l)| {
+                (
+                    n.clone(),
+                    l.health.clone().filter(|r| !matches!(r, Ready::LogLine(_))),
+                )
             })
             .collect()
     });
-    for (name, ready, log) in checks {
-        let healthy = matches!(crate::ready::probe(&ready, &log).await, Ok(true));
+    for (name, ready) in checks {
+        let healthy = match ready {
+            None => true,
+            Some(r) => matches!(
+                tokio::time::timeout(
+                    HEALTH_TIMEOUT,
+                    crate::ready::probe(&r, std::path::Path::new(""))
+                )
+                .await,
+                Ok(Ok(true))
+            ),
+        };
         e.update(|c| {
-            if c.table.state(&name).is_some_and(|s| s.running()) {
-                c.table.set_healthy(&name, healthy);
+            if c.m.table().state(&name).is_some_and(|s| s.running()) {
+                c.m.table_mut().set_healthy(&name, healthy);
             }
         });
     }

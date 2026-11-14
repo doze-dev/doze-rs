@@ -1,0 +1,321 @@
+//! The engine's decisions under arbitrary interleavings (PLAN.md 2.2). The test plays the shell: it remembers what the
+//! machine asked for (starts, units, stops, timers) and feeds back any order of outcomes, and after every input checks:
+//!
+//! 1. one start at a time per instance;
+//! 2. nothing starts, restarts or registers after the shutdown, and the shutdown ends quiet;
+//! 3. a restart fires only from a timer no stop cancelled;
+//! 4. holds add up: an instance's count is exactly its clients plus the instances holding it;
+//! 5. the reaper never stops a pinned instance;
+//! 6. a running instance has a unit; a unit is stopped at most once;
+//! 7. a crashing instance is within its restart budget.
+
+use doze_engine::lifecycle::Now;
+use doze_engine::machine::{Decision, Effect, Machine, Unit};
+use doze_engine::restart::{Policy, Restart};
+use doze_engine::{Cause, State};
+use proptest::prelude::*;
+use std::collections::{BTreeMap, BTreeSet};
+use std::time::Duration;
+
+const NAMES: [&str; 3] = ["web", "api", "db"];
+
+#[derive(Debug, Clone)]
+enum In {
+    Wake(usize),
+    Hold(usize),
+    Fail(usize),
+    Register(usize, bool),
+    ReadyFail(usize),
+    Done(usize),
+    Exit(usize, bool),
+    Stop(usize),
+    Gone(usize),
+    Fire(usize),
+    Reap(u16),
+    Client(usize, bool),
+    Pin(usize),
+    Shutdown,
+}
+
+fn input() -> impl Strategy<Value = In> {
+    let i = || 0usize..6;
+    prop_oneof![
+        3 => (0usize..3).prop_map(In::Wake),
+        2 => i().prop_map(In::Hold),
+        1 => i().prop_map(In::Fail),
+        3 => (i(), any::<bool>()).prop_map(|(a, b)| In::Register(a, b)),
+        1 => i().prop_map(In::ReadyFail),
+        2 => i().prop_map(In::Done),
+        2 => (i(), any::<bool>()).prop_map(|(a, b)| In::Exit(a, b)),
+        2 => (0usize..3).prop_map(In::Stop),
+        2 => i().prop_map(In::Gone),
+        2 => i().prop_map(In::Fire),
+        1 => (0u16..3000).prop_map(In::Reap),
+        2 => ((0usize..3), any::<bool>()).prop_map(|(a, b)| In::Client(a, b)),
+        1 => (0usize..3).prop_map(In::Pin),
+        1 => Just(In::Shutdown),
+    ]
+}
+
+#[derive(Default)]
+struct Shell {
+    boots: BTreeMap<u64, String>,
+    units: BTreeMap<u64, String>,
+    stops: BTreeMap<u64, String>,
+    stopped: BTreeSet<u64>,
+    registered: BTreeSet<u64>,
+    timers: BTreeMap<u64, String>,
+    clients: BTreeMap<String, u32>,
+    shut: bool,
+}
+
+fn pick<V: Clone>(m: &BTreeMap<u64, V>, i: usize) -> Option<(u64, V)> {
+    let n = m.len();
+    (n > 0)
+        .then(|| m.iter().nth(i % n).map(|(k, v)| (*k, v.clone())))
+        .flatten()
+}
+
+fn absorb(s: &mut Shell, m: &Machine, fx: Vec<Effect>) {
+    for f in fx {
+        match f {
+            Effect::StartBoot { name, boot, .. } => {
+                assert!(!s.shut, "a start after the shutdown");
+                assert!(
+                    !s.boots.values().any(|n| *n == name),
+                    "two starts of {name}"
+                );
+                s.boots.insert(boot, name);
+            }
+            Effect::StopUnit { name, generation } => {
+                assert!(
+                    s.stopped.insert(generation),
+                    "unit {generation} stopped twice"
+                );
+                s.units.remove(&generation);
+                s.stops.insert(generation, name);
+            }
+            Effect::Schedule { name, timer, .. } => {
+                assert!(!s.shut, "a restart scheduled after the shutdown");
+                s.timers.insert(timer, name);
+            }
+            Effect::RestartNow { name } => assert!(
+                !s.shut && !m.shutting_down(),
+                "{name} restarted after the shutdown"
+            ),
+            _ => {}
+        }
+    }
+}
+
+fn unit(policy: bool) -> Unit {
+    let restart = policy.then_some(Restart {
+        policy: Policy::OnFailure,
+        backoff: Duration::from_millis(10),
+        max_retries: 2,
+    });
+    Unit {
+        pids: vec![1],
+        backend: "x".into(),
+        restart,
+        supervised: true,
+        always_on: false,
+        idle_after: None,
+    }
+}
+
+fn step(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
+    let d = Duration::ZERO;
+    match i {
+        In::Wake(n) => {
+            let name = NAMES.get(*n).copied().unwrap_or("db");
+            let (dec, fx) = m.wake(name, Cause::Command);
+            if let Decision::Start(_) = dec {
+                assert!(fx.iter().any(|f| matches!(f, Effect::StartBoot { .. })));
+            }
+            absorb(s, m, fx);
+        }
+        In::Hold(k) => {
+            if let Some((b, name)) = pick(&s.boots, *k) {
+                let need = if name == "web" { "api" } else { "db" };
+                if need != name {
+                    m.need_held(&name, b, need);
+                }
+            }
+        }
+        In::Fail(k) => {
+            if let Some((b, name)) = pick(&s.boots, *k) {
+                s.boots.remove(&b);
+                let fx = m.boot_failed(&name, b, "boom", d, *now);
+                absorb(s, m, fx);
+            }
+        }
+        In::Register(k, policy) => {
+            let open: BTreeMap<u64, String> = s
+                .boots
+                .iter()
+                .filter(|(b, _)| !s.registered.contains(b))
+                .map(|(b, n)| (*b, n.clone()))
+                .collect();
+            if let Some((b, name)) = pick(&open, *k) {
+                s.registered.insert(b);
+                let (g, ok, fx) = m.register(&name, b, unit(*policy), *now);
+                if s.shut {
+                    assert!(!ok, "registered after the shutdown");
+                }
+                if ok {
+                    s.units.insert(g, name);
+                } else {
+                    s.boots.remove(&b);
+                }
+                absorb(s, m, fx);
+            }
+        }
+        In::ReadyFail(k) => {
+            if let Some((b, name)) = pick(&s.boots, *k) {
+                s.boots.remove(&b);
+                let fx = m.on_ready_failed(&name, b, "x", d);
+                absorb(s, m, fx);
+            }
+        }
+        In::Done(k) => {
+            if let Some((b, name)) = pick(&s.boots, *k) {
+                s.boots.remove(&b);
+                let (_, fx) = m.boot_done(&name, b, d, *now);
+                absorb(s, m, fx);
+            }
+        }
+        _ => step2(m, s, now, i),
+    }
+}
+
+fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
+    match i {
+        In::Exit(k, ok) => {
+            if let Some((g, name)) = pick(&s.units, *k) {
+                s.units.remove(&g);
+                let fx = m.exited(&name, g, *ok, "exited", *now);
+                absorb(s, m, fx);
+            }
+        }
+        In::Stop(n) => {
+            let name = NAMES.get(*n).copied().unwrap_or("db");
+            s.timers.retain(|_, t| t != name);
+            let fx = m.stop(name, Cause::Command).unwrap_or_default();
+            absorb(s, m, fx);
+        }
+        In::Gone(k) => {
+            if let Some((g, name)) = pick(&s.stops, *k) {
+                s.stops.remove(&g);
+                let fx = m.unit_gone(&name, g, *now);
+                absorb(s, m, fx);
+            }
+        }
+        In::Fire(k) => {
+            if let Some((t, name)) = pick(&s.timers, *k) {
+                s.timers.remove(&t);
+                let fx = m.restart_due(&name, t);
+                absorb(s, m, fx);
+            }
+        }
+        In::Reap(ms) => {
+            *now = now.after(Duration::from_millis(u64::from(*ms)));
+            let fx = m.reap(*now);
+            for f in &fx {
+                if let Effect::StopUnit { name, .. } = f {
+                    assert!(
+                        !m.table().get(name, *now).is_some_and(|i| i.keep_awake),
+                        "reaped a pinned {name}"
+                    );
+                }
+            }
+            absorb(s, m, fx);
+        }
+        In::Client(n, up) => {
+            let name = NAMES.get(*n).copied().unwrap_or("db").to_string();
+            let c = s.clients.entry(name.clone()).or_default();
+            if *up {
+                *c += 1;
+                m.acquire(&name);
+            } else if *c > 0 {
+                *c -= 1;
+                m.release(&name, *now);
+            }
+        }
+        In::Pin(n) => drop(m.toggle_pin(NAMES.get(*n).copied().unwrap_or("db"))),
+        In::Shutdown => {
+            s.shut = true;
+            let fx = m.shutdown();
+            absorb(s, m, fx);
+        }
+        _ => {}
+    }
+}
+
+fn check(m: &Machine, s: &Shell, now: Now) {
+    for inst in m.table().snapshot(now) {
+        let clients = s.clients.get(&inst.name).copied().unwrap_or(0);
+        if inst.state.running() {
+            let has = s
+                .units
+                .values()
+                .chain(s.stops.values())
+                .any(|n| *n == inst.name);
+            assert!(has, "{} is {:?} with no unit", inst.name, inst.state);
+            assert_eq!(
+                inst.conns,
+                clients + m.held_by_instances(&inst.name),
+                "holds of {}",
+                inst.name
+            );
+        }
+        if inst.state == State::Crashing {
+            assert!(inst.restart_count <= inst.restart_max, "{inst:?}");
+        }
+    }
+}
+
+/// Plays every outcome the shell still owes, as a shutdown does.
+fn drain(m: &mut Machine, s: &mut Shell, now: Now) {
+    let fx = m.shutdown();
+    absorb(s, m, fx);
+    for _ in 0..50 {
+        let boots: Vec<(u64, String)> = s.boots.iter().map(|(b, n)| (*b, n.clone())).collect();
+        for (b, name) in boots {
+            s.boots.remove(&b);
+            // A start that has not registered yet does so now (and is stopped: the stack is shutting down); one that
+            // has finishes.
+            let fx = if s.registered.insert(b) {
+                m.register(&name, b, unit(true), now).2
+            } else {
+                m.boot_done(&name, b, Duration::ZERO, now).1
+            };
+            absorb(s, m, fx);
+        }
+        let stops: Vec<(u64, String)> = s.stops.iter().map(|(g, n)| (*g, n.clone())).collect();
+        for (g, name) in stops {
+            s.stops.remove(&g);
+            let fx = m.unit_gone(&name, g, now);
+            absorb(s, m, fx);
+        }
+        if s.boots.is_empty() && s.stops.is_empty() {
+            break;
+        }
+    }
+    s.timers.clear();
+    assert!(m.quiet(), "not quiet after the shutdown");
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig { cases: 3000, ..ProptestConfig::default() })]
+    #[test]
+    fn decisions_hold_their_invariants(inputs in proptest::collection::vec(input(), 1..120)) {
+        let mut m = Machine::new(NAMES.iter().map(|n| (*n).to_string()), "doze.hcl", Some(Duration::from_secs(1)));
+        let (mut s, mut now) = (Shell::default(), Now::current());
+        for i in &inputs {
+            step(&mut m, &mut s, &mut now, i);
+            check(&m, &s, now);
+        }
+        drain(&mut m, &mut s, now);
+    }
+}

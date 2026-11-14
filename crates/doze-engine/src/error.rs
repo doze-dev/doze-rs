@@ -9,11 +9,31 @@ pub enum Error {
     Off(String),
     /// The stack is stopping for good.
     ShuttingDown(String),
+    /// A readiness check ran out of time (Go's `fault.Timeout`: exit class and wire fault).
+    Timeout(String),
     /// A start failed; the message says why.
     Failed(String),
 }
 
+/// The kind of a failure, as it crosses the control socket and becomes an exit class (Go's `internal/fault`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fault {
+    NotFound,
+    Timeout,
+    /// Neither: a plain failure.
+    Other,
+}
+
 impl Error {
+    /// Its kind, for the wire and the exit class.
+    pub fn fault(&self) -> Fault {
+        match self {
+            Error::NotDeclared { .. } => Fault::NotFound,
+            Error::Timeout(_) => Fault::Timeout,
+            _ => Fault::Other,
+        }
+    }
+
     /// Whether it is a "not found" (exit class 4 at the CLI, `not_found` on the wire).
     pub fn not_found(&self) -> bool {
         matches!(self, Error::NotDeclared { .. })
@@ -35,7 +55,7 @@ impl std::fmt::Display for Error {
             Error::ShuttingDown(name) => {
                 write!(f, "daemon is shutting down; not booting \"{name}\"")
             }
-            Error::Failed(msg) => f.write_str(msg),
+            Error::Timeout(msg) | Error::Failed(msg) => f.write_str(msg),
         }
     }
 }

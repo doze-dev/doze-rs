@@ -81,7 +81,8 @@ fn reaped_clears_what_describes_a_process_and_keeps_the_rest() {
     let v = t.get("db", now).unwrap_or_default();
     assert_eq!(
         (v.state, v.pid, v.conns, v.backend.as_str()),
-        (State::Reaped, 0, 0, "")
+        (State::Reaped, 0, 1, ""),
+        "holds survive: whoever holds it releases it later"
     );
     assert_eq!((v.started_at, v.idle_since, v.healthy), (None, None, None));
     assert!(v.tainted && v.keep_awake, "taint and pin survive a stop");

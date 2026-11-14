@@ -100,12 +100,36 @@ async fn run_hook(p: &Process, hook: &[String], log: &RunLog) -> Result<(), Stri
     }
 }
 
-/// Starts every process of `plan`, each ready (within `budget`) before the next, running its hooks after it. On any
-/// failure, what started is stopped again and the error quotes the log's last lines.
-pub async fn start(plan: &Plan, log: &RunLog, budget: Duration) -> Result<Unit, String> {
+/// Why a plan did not start.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StartError {
+    pub message: String,
+    /// A readiness check ran out of time (Go's `fault.Timeout`).
+    pub timeout: bool,
+}
+
+impl From<String> for StartError {
+    fn from(message: String) -> StartError {
+        StartError {
+            message,
+            timeout: false,
+        }
+    }
+}
+
+/// Starts every process of `plan`, each ready (within `budget`) before the next, running its hooks after it. Each
+/// time a process is spawned `spawned` hears every pid so far (the caller records them at once: a host killed during
+/// a slow start must leave nothing unrecorded). On any failure, what started is stopped again and the error quotes the
+/// log's last lines.
+pub async fn start(
+    plan: &Plan,
+    log: &RunLog,
+    budget: Duration,
+    spawned: &mut (dyn FnMut(&[u32]) + Send),
+) -> Result<Unit, StartError> {
     let ordered = order(plan)?;
     if ordered.is_empty() {
-        return Err("spawn plan has no specs".into());
+        return Err(StartError::from("spawn plan has no specs".to_string()));
     }
     let mut unit = Unit { procs: Vec::new() };
     for p in ordered {
@@ -113,10 +137,11 @@ pub async fn start(plan: &Plan, log: &RunLog, budget: Duration) -> Result<Unit, 
             Ok(t) => t,
             Err(e) => {
                 unit.stop(STOP_GRACE).await;
-                return Err(e);
+                return Err(e.into());
             }
         };
         unit.procs.push((p.clone(), tree));
+        spawned(&unit.pids());
         if let Err(e) = gate(&mut unit, p, log, budget).await {
             unit.stop(STOP_GRACE).await;
             return Err(e);
@@ -125,16 +150,25 @@ pub async fn start(plan: &Plan, log: &RunLog, budget: Duration) -> Result<Unit, 
     Ok(unit)
 }
 
-async fn gate(unit: &mut Unit, p: &Process, log: &RunLog, budget: Duration) -> Result<(), String> {
+async fn gate(
+    unit: &mut Unit,
+    p: &Process,
+    log: &RunLog,
+    budget: Duration,
+) -> Result<(), StartError> {
     let Some((_, tree)) = unit.procs.last_mut() else {
-        return Err("nothing started".into());
+        return Err(StartError::from("nothing started".to_string()));
     };
     let waited = ready::wait_ready(p.ready.as_ref(), budget, log.path(), || {
         matches!(tree.try_wait(), Ok(None))
     })
     .await;
     if let Err(e) = waited {
-        return Err(not_ready(&p.name, &e, log));
+        let timeout = matches!(e, NotReady::Timeout(_));
+        return Err(StartError {
+            message: not_ready(&p.name, &e, log),
+            timeout,
+        });
     }
     for hook in &p.hooks {
         run_hook(p, hook, log).await?;
@@ -143,7 +177,8 @@ async fn gate(unit: &mut Unit, p: &Process, log: &RunLog, budget: Duration) -> R
 }
 
 fn not_ready(name: &str, e: &NotReady, log: &RunLog) -> String {
-    let tail = log.tail(20).join("\n");
+    // Go quotes the newest run's last 200 lines.
+    let tail = log.tail(200).join("\n");
     let tail = tail.trim();
     if tail.is_empty() {
         format!("{name} not ready: {e}")

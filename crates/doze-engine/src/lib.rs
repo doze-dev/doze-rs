@@ -18,6 +18,7 @@ pub mod godur;
 pub mod graph;
 pub mod lifecycle;
 pub mod logs;
+pub mod machine;
 pub mod pidfile;
 pub mod process;
 pub mod ready;
@@ -30,7 +31,6 @@ pub mod supervise;
 
 mod boot;
 mod engine;
-mod live;
 mod stop;
 
 pub use engine::{Builder, Engine};

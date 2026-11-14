@@ -1,111 +1,75 @@
-//! Stopping (Go's `Stop`, `StopAll`, `BeginShutdown`), and what happens when a unit exits by itself (Go's `watch` and
-//! `scheduleRestart`): its needs released, then restarted per its policy, given up on, or left failed.
+//! Stopping, the crash watcher and restart timers: the shell side of the machine's stop, exit and restart decisions.
+//! A stop runs as its own task, so a caller that gives up waiting (a dropped future, an aborted reaper) never leaves
+//! a process running that nothing tracks: the unit stays the machine's (as stopping) until the task reports it gone.
 
 use crate::engine::Engine;
 use crate::error::Error;
-use crate::events::{Cause, Event, Kind};
+use crate::events::Cause;
 use crate::exec::STOP_GRACE;
-use crate::lifecycle::{AfterExit, Exit, Now};
-use crate::restart::Restart;
+use crate::lifecycle::Now;
 use crate::steps::{self, Moment, STOP_PATIENCE};
 use crate::supervise::{Ended, Handle};
-use std::sync::atomic::Ordering;
 use std::time::Duration;
+use tokio::task::JoinHandle;
+
+/// How long the shutdown waits for starts in flight and stops to finish.
+pub(crate) const SHUTDOWN_LIMIT: Duration = Duration::from_secs(120);
 
 impl Engine {
-    /// Stops `name` if it runs, cancels a pending restart, and releases the needs it held. An intentional stop resets
-    /// the restart budget, so nothing respawns behind it. A cancelled restart leaves it reaped (Go left it showing
-    /// "crashing … restarting in 2s" for a restart that never came).
+    /// Stops `name` if it runs, cancels a start in flight and a pending restart, and releases the needs it held once
+    /// it is gone. An intentional stop resets the restart budget, so nothing respawns behind it.
     pub async fn stop(&self, name: &str, cause: Cause) -> Result<(), Error> {
-        self.service(name)?;
-        let (unit, held) = self.update(|c| {
-            c.table.reset_restart(name);
-            let live = c.live.entry(name.into()).or_default();
-            live.restart_gen = live.restart_gen.wrapping_add(1);
-            let cancelled = std::mem::take(&mut live.restart_pending);
-            live.ready_pending = false;
-            let taken = (live.unit.take(), std::mem::take(&mut live.held));
-            if cancelled {
-                c.table.mark_reaped(name);
-            }
-            taken
-        });
-        if unit.is_none() && held.is_empty() {
-            return Ok(());
-        }
-        if let Some((_, h)) = &unit {
-            tracing::info!("reaping \"{name}\"…");
-            self.stop_unit(name, h).await;
-        }
-        for h in &held {
-            self.release(h);
-        }
-        crate::pidfile::remove(&self.stack().run_dir(), name);
-        self.update(|c| c.table.mark_reaped(name));
-        if unit.is_some() {
-            self.event(Event::new(Kind::Sleep, name).cause(cause));
+        let fx = self.update(|c| c.m.stop(name, cause))?;
+        for w in self.run(fx) {
+            let _ = w.await;
         }
         Ok(())
     }
 
-    /// A command's `stop` steps first, which should make it exit; the signals are the fallback.
-    async fn stop_unit(&self, name: &str, h: &Handle) {
-        let mut patience = Duration::ZERO;
-        if let Some((stop, at, log)) = self.stop_steps(name) {
-            let ran = steps::run(Moment::Stop, &stop, &at, &log, |r| {
-                crate::boot::step_event(self, name, r)
-            })
-            .await;
-            match ran {
-                Ok(()) => patience = STOP_PATIENCE,
-                Err(e) => tracing::warn!("stop for \"{name}\" failed, sending signals: {e}"),
-            }
+    /// Stops everything (cancelling starts and restarts) and waits until nothing runs.
+    pub async fn stop_all(&self, cause: Cause) {
+        let fx = self.update(|c| c.m.stop_all(cause.clone()));
+        for w in self.run(fx) {
+            let _ = w.await;
         }
-        h.stop(patience, STOP_GRACE).await;
+        self.wait_quiet(cause).await;
     }
 
-    /// Stops everything, in parallel, until nothing runs and no restart is pending (a process that respawned mid-sweep
-    /// is caught by the next pass).
-    pub async fn stop_all(&self, cause: Cause) {
+    /// Stops for good: no start and no restart from now on (a start in flight is stopped as soon as it registers),
+    /// then everything is stopped. One way.
+    pub async fn shutdown(&self) {
+        let fx = self.update(|c| c.m.shutdown());
+        for w in self.run(fx) {
+            let _ = w.await;
+        }
+        self.wait_quiet(Cause::Shutdown).await;
+    }
+
+    /// Waits, within [`SHUTDOWN_LIMIT`], until the machine is quiet, stopping whatever registers meanwhile.
+    async fn wait_quiet(&self, cause: Cause) {
+        let deadline = tokio::time::Instant::now() + SHUTDOWN_LIMIT;
+        let mut changes = self.changes();
         loop {
-            let names: Vec<String> = self.update(|c| {
-                c.live
-                    .iter()
-                    .filter(|(_, l)| l.unit.is_some() || l.restart_pending || !l.held.is_empty())
-                    .map(|(n, _)| n.clone())
-                    .collect()
+            let fx = self.update(|c| {
+                if c.m.quiet() {
+                    None
+                } else {
+                    Some(c.m.stop_all(cause.clone()))
+                }
             });
-            if names.is_empty() {
+            let Some(fx) = fx else { return };
+            for w in self.run(fx) {
+                let _ = w.await;
+            }
+            let tick = tokio::time::Instant::now() + Duration::from_millis(100);
+            if tokio::time::timeout_at(tick.min(deadline), changes.changed())
+                .await
+                .is_err()
+                && tokio::time::Instant::now() >= deadline
+            {
+                tracing::warn!("stopping took longer than {SHUTDOWN_LIMIT:?}; giving up waiting");
                 return;
             }
-            let mut set = tokio::task::JoinSet::new();
-            for n in names {
-                let (e, cause) = (self.clone(), cause.clone());
-                set.spawn(async move {
-                    if let Err(err) = e.stop(&n, cause).await {
-                        tracing::warn!("stopping \"{n}\": {err}");
-                    }
-                });
-            }
-            while set.join_next().await.is_some() {}
-        }
-    }
-
-    /// Stops for good: no start and no restart from now on, then everything is stopped. One way.
-    pub async fn shutdown(&self) {
-        self.inner.shutting.store(true, Ordering::SeqCst);
-        // A start in flight finishes registering before the sweep can see it; wait for those first.
-        self.wait_for_boots().await;
-        self.stop_all(Cause::Shutdown).await;
-    }
-
-    async fn wait_for_boots(&self) {
-        let boots: Vec<_> =
-            self.update(|c| c.live.values().filter_map(|l| l.boot.clone()).collect());
-        for mut rx in boots {
-            let _ = rx
-                .wait_for(|p| !matches!(p, crate::engine::Phase::Booting))
-                .await;
         }
     }
 
@@ -115,92 +79,71 @@ impl Engine {
     }
 }
 
-/// What the watcher of one unit needs to know.
-#[derive(Debug)]
-pub(crate) struct Watch {
-    pub(crate) name: String,
-    pub(crate) generation: u64,
-    pub(crate) restart: Option<Restart>,
-    pub(crate) supervised: bool,
+/// Stops unit `generation` of `name` in a task of its own: its `stop` steps (bounded), then the signals; then tells the
+/// machine it is gone.
+pub(crate) fn spawn_stop(e: &Engine, name: String, generation: u64) -> JoinHandle<()> {
+    let e = e.clone();
+    tokio::spawn(async move {
+        let handle = e.update(|c| c.handles.get(&generation).cloned());
+        if let Some(h) = handle {
+            tracing::info!("reaping \"{name}\"…");
+            let patience = stop_steps(&e, &name).await;
+            h.stop(patience, STOP_GRACE).await;
+        }
+        let fx = e.update(|c| {
+            c.handles.remove(&generation);
+            c.m.unit_gone(&name, generation, Now::current())
+        });
+        e.run(fx);
+    })
 }
 
-/// Waits for the unit to end; if it exited by itself while still the instance's current unit, decides what follows.
-pub(crate) async fn watch(e: Engine, w: Watch, handle: Handle) {
+/// A command's `stop` steps, which should make it exit (then it gets [`STOP_PATIENCE`] to do so); the signals are the
+/// fallback.
+async fn stop_steps(e: &Engine, name: &str) -> Duration {
+    let found = e.update(|c| {
+        let l = c.live.get(name)?;
+        let (_, stop, at) = l.steps.as_ref()?;
+        (!stop.is_empty()).then(|| (stop.clone(), at.clone(), l.log.clone()))
+    });
+    let Some((stop, at, Some(log))) = found else {
+        return Duration::ZERO;
+    };
+    let ran = steps::run(Moment::Stop, &stop, &at, &log, |r| {
+        crate::boot::step_event(e, name, r)
+    })
+    .await;
+    match ran {
+        Ok(()) => STOP_PATIENCE,
+        Err(err) => {
+            tracing::warn!("stop for \"{name}\" failed, sending signals: {err}");
+            Duration::ZERO
+        }
+    }
+}
+
+/// Reports restart `timer` of `name` due after `delay`.
+pub(crate) fn spawn_timer(e: &Engine, name: String, timer: u64, delay: Duration) {
+    let e = e.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(delay).await;
+        let fx = e.update(|c| c.m.restart_due(&name, timer));
+        e.run(fx);
+    });
+}
+
+/// Waits for unit `generation` to end; an exit by itself goes to the machine (a stop reports through its own task).
+pub(crate) async fn watch(e: Engine, name: String, generation: u64, handle: Handle) {
     let Ended::Exited { success, text } = handle.ended().await else {
         return;
     };
-    let shutting_down = e.shutting_down();
-    let decided = e.update(|c| {
-        let live = c.live.get_mut(&w.name)?;
-        if live.unit.as_ref().map(|(g, _)| *g) != Some(w.generation) {
-            return None; // stopped or replaced on purpose
+    let fx = e.update(|c| {
+        let fx =
+            c.m.exited(&name, generation, success, &text, Now::current());
+        if !c.m.stopping(&name, generation) {
+            c.handles.remove(&generation);
         }
-        live.unit = None;
-        live.ready_pending = false;
-        let held = std::mem::take(&mut live.held);
-        if live.boot.is_some() && !live.unit_in_flight {
-            // A new start is already in flight (a wake saw it dead first): that start owns the state now.
-            return Some((held, AfterExit::Stays));
-        }
-        let exit = Exit {
-            success,
-            text: &text,
-            restart: w.restart,
-            supervised: w.supervised,
-            shutting_down,
-        };
-        Some((held, c.table.exited(&w.name, exit, Now::current())))
+        fx
     });
-    let Some((held, after)) = decided else {
-        return;
-    };
-    for h in &held {
-        e.release(h);
-    }
-    crate::pidfile::remove(&e.stack().run_dir(), &w.name);
-    if !shutting_down {
-        e.event(Event::new(Kind::Crash, &w.name).detail(text.as_str()));
-    }
-    match after {
-        AfterExit::Restart {
-            delay,
-            attempt,
-            max,
-        } => {
-            tracing::info!(
-                "process \"{}\" exited; restarting ({attempt}/{max}) in {delay:?}",
-                w.name
-            );
-            schedule_restart(&e, &w.name, delay);
-        }
-        AfterExit::GaveUp { max } => {
-            e.event(Event::new(Kind::GiveUp, &w.name).detail(format!("after {max} restarts")));
-        }
-        AfterExit::Stays => {}
-    }
-}
-
-/// Starts `name` again after `delay`, unless a stop or the shutdown cancels it first.
-fn schedule_restart(e: &Engine, name: &str, delay: Duration) {
-    let generation = e.update(|c| {
-        let live = c.live.entry(name.into()).or_default();
-        live.restart_gen = live.restart_gen.wrapping_add(1);
-        live.restart_pending = true;
-        live.restart_gen
-    });
-    let (e, name) = (e.clone(), name.to_string());
-    tokio::spawn(async move {
-        tokio::time::sleep(delay).await;
-        let due = e.update(|c| {
-            let live = c.live.get_mut(&name)?;
-            (live.restart_pending && live.restart_gen == generation)
-                .then(|| live.restart_pending = false)
-        });
-        if due.is_none() || e.shutting_down() {
-            return;
-        }
-        if let Err(err) = e.wake(&name, Cause::Restart).await {
-            tracing::warn!("restart of \"{name}\" failed: {err}");
-        }
-    });
+    e.run(fx);
 }
