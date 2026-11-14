@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::Topic;
 use kafka_storage::StorageError;
 use kafka_storage::fs::Fs;
@@ -39,7 +39,7 @@ impl<F: Fs> Broker<F> {
     ) -> Outcome {
         let mut resp = DeleteRecordsResponse::default();
         for t in &req.topics {
-            let allowed = self.topic_allows(caller, &t.name.0, operation::DELETE);
+            let allowed = self.topic_allows(caller, &t.name.0, Operation::Delete);
             let topic = TopicName::parse(&t.name.0)
                 .ok()
                 .and_then(|n| self.meta.topic(&n));

@@ -30,7 +30,8 @@ mod model;
 use std::collections::BTreeSet;
 
 use kafka_auth::authz::{
-    Acl, AclSet, Resource, Rules, Subject, operation, pattern, permission, resource,
+    Acl, AclSet, Operation, Resource, ResourceType, Rules, Subject, operation, pattern, permission,
+    resource,
 };
 use model::Model;
 
@@ -127,15 +128,27 @@ fn check_one_set(seed: u64) {
         let name = rng.name(alphabet, 4, 0);
         let op = operation::ALL + rng.below(14) as i8;
         let who = Subject { principal, host };
+        let (asked_kind, asked) = (
+            ResourceType::try_from(kind).unwrap(),
+            Operation::try_from(op).unwrap(),
+        );
         let want = model.authorize(principal, host, kind, &name, op);
-        let got = rules.authorize(&set, who, Resource { kind, name: &name }, op);
+        let got = rules.authorize(
+            &set,
+            who,
+            Resource {
+                kind: asked_kind,
+                name: &name,
+            },
+            asked,
+        );
         assert_eq!(
             got, want,
             "seed {seed}: {principal} from {host} doing {op} on {kind}:{name:?} with default {default_allow}, \
              supers {supers:?}, acls {acls:#?}"
         );
         let want = model.authorize_by_type(principal, host, op, kind);
-        let got = rules.authorize_by_resource_type(&set, who, op, kind);
+        let got = rules.authorize_by_resource_type(&set, who, asked_kind, asked);
         assert_eq!(
             got, want,
             "seed {seed}: {principal} from {host} doing {op} on some {kind}, default {default_allow}, \
@@ -188,9 +201,13 @@ fn the_random_sets_reach_every_branch_of_the_decision() {
             let name = rng.name(alphabet, 4, 0);
             let op = operation::ALL + rng.below(14) as i8;
             let who = Subject { principal, host };
-            let res = Resource { kind, name: &name };
-            let open = rules_open.authorize(&set, who, res, op);
-            let closed = rules_closed.authorize(&set, who, res, op);
+            let res = Resource {
+                kind: ResourceType::try_from(kind).unwrap(),
+                name: &name,
+            };
+            let asked = Operation::try_from(op).unwrap();
+            let open = rules_open.authorize(&set, who, res, asked);
+            let closed = rules_closed.authorize(&set, who, res, asked);
             match (open, closed) {
                 (true, true) => allowed += 1,
                 (false, false) => denied += 1,

@@ -22,7 +22,7 @@ mod model;
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashSet};
 
-use kafka_auth::authz::{Acl, AclSet, Resource, Rules, Subject};
+use kafka_auth::authz::{Acl, AclSet, Operation, Resource, ResourceType, Rules, Subject};
 use model::{M, cmp, model_authorize, model_by_type, u};
 
 struct Rng(u64);
@@ -136,16 +136,18 @@ fn run(seed: u64, cases: usize, max_acls: usize, types: i8) -> (usize, usize, Ve
                 name(&mut r, true)
             };
             let op = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 99, 0][r.below(18)];
+            // A number that names no operation is refused at the wire's edge; the authorizer cannot be asked it.
+            let Ok(asked) = Operation::try_from(op) else {
+                continue;
+            };
+            let kind = ResourceType::try_from(rt).unwrap();
             let want =
                 model_authorize(&model, default_allow, &supers, principal, host, rt, &rn, op);
             let got = rules.authorize(
                 &set,
                 Subject { principal, host },
-                Resource {
-                    kind: rt,
-                    name: &rn,
-                },
-                op,
+                Resource { kind, name: &rn },
+                asked,
             );
             checked += 1;
             match want {
@@ -171,7 +173,12 @@ fn run(seed: u64, cases: usize, max_acls: usize, types: i8) -> (usize, usize, Ve
             // by-type
             if (2..=15).contains(&op) {
                 let w = model_by_type(&model, default_allow, &supers, principal, host, op, rt);
-                let g = rules.authorize_by_resource_type(&set, Subject { principal, host }, op, rt);
+                let g = rules.authorize_by_resource_type(
+                    &set,
+                    Subject { principal, host },
+                    kind,
+                    asked,
+                );
                 checked += 1;
                 match w {
                     Ok(w) if w != g => {
@@ -254,15 +261,15 @@ fn a_wildcard_allow_survives_a_deny_of_the_hardcoded_name() {
                 &set,
                 who,
                 Resource {
-                    kind: 2,
+                    kind: ResourceType::Topic,
                     name: "hardcode"
                 },
-                4
+                Operation::Write
             ),
             "{deny:?}"
         );
         assert!(
-            rules.authorize_by_resource_type(&set, who, 4, 2),
+            rules.authorize_by_resource_type(&set, who, ResourceType::Topic, Operation::Write),
             "{deny:?}"
         );
     }

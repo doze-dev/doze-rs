@@ -6,7 +6,7 @@ mod request;
 
 use std::sync::Arc;
 
-use kafka_auth::authz::{operation, resource};
+use kafka_auth::authz::{Operation, ResourceType};
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::Response;
@@ -62,7 +62,7 @@ impl<F: Fs> Broker<F> {
         let acks = req.acks;
         let may_write_txn = |id: &str| {
             self.authz
-                .allows(caller, resource::TRANSACTIONAL_ID, id, operation::WRITE)
+                .allows(caller, ResourceType::TransactionalId, id, Operation::Write)
         };
         let response = match request_refusal(&req, may_write_txn) {
             Some((code, message)) => refused_everywhere(&req, code, message.as_deref()),
@@ -142,7 +142,7 @@ impl<F: Fs> Broker<F> {
             None if version >= 13 => return true,
             None => t.name.0.as_str(),
         };
-        self.topic_allows(caller, name, operation::WRITE)
+        self.topic_allows(caller, name, Operation::Write)
     }
 
     /// The topic a request names: by id from v13, by name before.

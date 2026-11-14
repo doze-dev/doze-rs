@@ -6,7 +6,7 @@ mod wait;
 use std::sync::Arc;
 use std::time::Duration;
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
@@ -102,7 +102,7 @@ impl<F: Fs> Broker<F> {
     ) -> Vec<Wanted<'a, F>> {
         // A request from a follower (a broker id, not -1) is the cluster's, checked once for the whole request.
         let follower =
-            (req.replica_id.0 >= 0).then(|| self.cluster_allows(caller, operation::CLUSTER_ACTION));
+            (req.replica_id.0 >= 0).then(|| self.cluster_allows(caller, Operation::ClusterAction));
         let mut out = Vec::new();
         for t in &req.topics {
             let topic = self.fetch_topic(version, t);
@@ -135,7 +135,7 @@ impl<F: Fs> Broker<F> {
             None if version >= 13 => return true,
             None => t.topic.0.as_str(),
         };
-        self.topic_allows(caller, name, operation::READ)
+        self.topic_allows(caller, name, Operation::Read)
     }
 
     fn fetch_topic(&self, version: i16, t: &FetchTopic) -> Option<Arc<Topic>> {
