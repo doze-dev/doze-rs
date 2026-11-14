@@ -1,4 +1,5 @@
-import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, lazyRouteComponent as routerLazy, Outlet } from "@tanstack/react-router";
+import { unlessLeaving } from "@/lib/leaving";
 import { useRef, useState } from "react";
 import { basePath } from "@/api/client";
 import { useClosedToNetwork } from "@/api/closed";
@@ -50,6 +51,11 @@ function Console() {
 }
 
 const root = createRootRoute({ component: Shell, notFoundComponent: NotFoundPage });
+
+/** A page's own chunk, loaded when it is first opened; a load the page's leaving cut short is not an error (lib/leaving.ts). */
+function lazyRouteComponent<T extends Record<string, unknown>, K extends keyof T & string>(load: () => Promise<T>, name: K) {
+  return routerLazy(unlessLeaving(load), name);
+}
 
 const home = createRoute({ getParentRoute: () => root, path: "/", component: HomePage });
 const connect = createRoute({

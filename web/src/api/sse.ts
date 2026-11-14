@@ -1,5 +1,6 @@
 // Server-sent events over fetch: EventSource cannot send the `X-Console: 1` proof the API asks for, so the stream is read
 // from a fetch body. One connection; the caller reconnects (with `Last-Event-ID`) on its own schedule.
+import { untilStaying } from "../lib/leaving";
 import { basePath } from "./client";
 import { isClosed, markClosed } from "./closed";
 
@@ -34,6 +35,8 @@ export function parseEvents(buffer: string): { events: SseEvent[]; rest: string 
 export async function streamEvents(path: string, on: (e: SseEvent) => void, signal: AbortSignal, lastEventId?: string): Promise<void> {
   const headers = new Headers({ "X-Console": "1", Accept: "text/event-stream" });
   if (lastEventId) headers.set("Last-Event-ID", lastEventId);
+  // A page being left opens no stream (lib/leaving.ts, J500).
+  await untilStaying(signal);
   const res = await fetch(`${basePath}${path}`, { headers, credentials: "same-origin", signal, cache: "no-store" });
   if (!res.ok || !res.body) {
     let message = `The console answered ${res.status}.`;
