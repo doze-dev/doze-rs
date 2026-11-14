@@ -12,11 +12,15 @@
 # +765 KB on ubuntu x86_64: 8,939,211 B estimated; limit that plus 5%, 9,386,171 B, until the next CI run on main replaces it with the
 # measurement (the owner's rule). Packages 161 + 13 = 174. This leaves about 0.6 MB under the owner's 10 MB ceiling; whether the module face
 # stays in the default build is the owner's call (phase11.md).
-# 2026-11-14, CI's first runs on main with the module face and the registry (f2ad9895, e1279e35) replace the estimate: 9,258,144 B, 171 packages,
-# idle medians 9,992 and 10,164 KB; the idle limit is the larger plus 5% (10,673 KB). docs/port/weight.md, "After the registry and the module face".
-doze-kafka 9258144 171 10673 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-14, one build (owner: "Can we just have a single build"): TLS is a default feature, and the schema registry has Avro and JSON
+# Schema (Phase 10a, 10c). darwin arm64: 7,669,200 B, 183 packages, idle 7,472 KB (median of three). Bytes: times CI's 1.36 is 10,430,112 B,
+# plus 5% = 10,951,617 B; packages 183 plus CI's usual 3 = 186; idle: CI's 9,296 KB scaled by darwin's rise (7,296 to 7,472 KB) plus 5% = 9,996 KB.
+# Estimates until CI's next run on main measures them. The owner's ceiling is 15 MB (2026-11-14).
+doze-kafka 10951617 186 9996 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
+# 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
+# Times 1.36: about 9.33 MB, under this line, which this slice does not move (docs/port/phase10.md, "10b").
 # doze-aws: measured 2026-11-12 on darwin/arm64 with SQS and its database: 2,687,088 B, 118 packages (the ones that only run at build time count: serde_derive
 # and its macro crates), 3,120 KB idle. It was 1,914,240 B and 109 packages before SQS kept its state on disk: redb is 507 KiB of the difference. The
 # byte limit is the macOS size times 1.3 (the Linux build of doze-kafka is about 1.2 times its macOS one) plus 5%; it is re-based from the first Linux CI run.
