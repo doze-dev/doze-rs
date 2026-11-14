@@ -51,6 +51,14 @@ pub const VIRTUAL: Net = Net {
     virtual_: true,
 };
 
+/// A translated network whose daemon address is 127.0.0.1: what tests use to run the translating half (forwards, the
+/// ports file, the table) on any machine with no daemon, as Go's `translatedLoopback` did.
+pub const TRANSLATED_LOOPBACK: Net = Net {
+    a: 127,
+    b: 0,
+    virtual_: true,
+};
+
 impl Net {
     /// This machine's network.
     pub fn native() -> Net {
