@@ -201,7 +201,7 @@ fn group_head(t: &Tokens, title: &str, what: &str) -> impl IntoElement {
 fn tile_top(
     t: &Tokens,
     r: &Row,
-    (dim, stack): (bool, &str),
+    (dim, stack, keys): (bool, &str, (Option<&gpui::FocusHandle>, bool)),
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let name = div()
@@ -218,7 +218,7 @@ fn tile_top(
         .gap(px(8.))
         .min_w_0()
         .child(row_dot(t, r))
-        .child(name)
+        .child(super::choose::name_ring(t, name, keys))
         .when(r.pinned, |d| d.child(icon("icons/pin.svg", 13., t.accent)))
         // The lock stands where the switch would (the mark by the name already says ⊘).
         .child(div().flex_1())
@@ -239,7 +239,7 @@ fn tile_state(t: &Tokens, r: &Row) -> impl IntoElement {
 fn tile(
     t: &Tokens,
     r: &Row,
-    (selected, stack): (bool, &str),
+    (selected, stack, keys): (bool, &str, (Option<&gpui::FocusHandle>, bool)),
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let off = !r.on && r.kind != "task";
@@ -289,7 +289,7 @@ fn tile(
         .bg(bg)
         .when(off, |d| d.border_dashed())
         .child(crate::motion::tick(b_moving || g_moving))
-        .child(tile_top(t, r, (off && !selected, stack), cx))
+        .child(tile_top(t, r, (off && !selected, stack, keys), cx))
         .child(tile_state(t, r))
         .child(super::foot::tile_foot(t, r, cx))
         .probe(format!("tile-{}", r.name), r.name.clone())
@@ -343,6 +343,7 @@ pub(super) fn view(
                     (
                         v.selected.as_deref() == Some(r.name.as_str()),
                         v.home.key.as_str(),
+                        v.name_keys(&r.name),
                     ),
                     cx,
                 ));

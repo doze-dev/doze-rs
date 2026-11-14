@@ -242,3 +242,14 @@ fn setup(
         buttons,
     )
 }
+
+/// doze.hcl saved after the running stack read it (Go `ConfigChangedOf`).
+pub(super) fn changed(
+    st: &doze_desk::StackView,
+    now: std::time::SystemTime,
+) -> Option<doze_desk::overview::ConfigChanged> {
+    let mtime = std::fs::metadata(std::path::Path::new(&st.dir).join("doze.hcl"))
+        .and_then(|m| m.modified())
+        .ok()?;
+    doze_desk::overview::config_changed(mtime, st.loaded, now)
+}

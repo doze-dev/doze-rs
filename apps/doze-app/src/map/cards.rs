@@ -117,6 +117,14 @@ fn frame(t: &Tokens, z: Z, c: &Card, at: (f32, f32), radius: f32) -> gpui::Div {
         .line_height(z.p(ty::LH))
 }
 
+/// The card as a Tab stop (Go: a card is a button; `.node:focus-visible` draws no ring, the selection says it).
+fn keyed(f: gpui::Div, m: &MapView, c: &Card) -> gpui::Div {
+    match m.card_keys.0.get(&c.name) {
+        Some(h) => f.track_focus(h),
+        None => f,
+    }
+}
+
 /// The accent ring, at `a` of its strength (it fades in and out with the hover and the selection).
 fn ring(t: &Tokens, z: Z, strong: bool, a: f32) -> Vec<BoxShadow> {
     // Opaque, blended from the well: it fades in without tinting the card it rings.
@@ -241,7 +249,7 @@ fn framed_border(t: &Tokens, m: &MapView, c: &Card, border: gpui::Hsla) -> (gpui
 fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark) -> AnyElement {
     let r = m.rows.get(&c.name);
     let task = c.kind == Kind::Task;
-    let mut f = frame(t, z, c, at, if task { 8. } else { 11. })
+    let mut f = keyed(frame(t, z, c, at, if task { 8. } else { 11. }), m, c)
         .gap(z.p(7.))
         .px(z.p(13.))
         .py(z.p(11.));
@@ -269,7 +277,7 @@ fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark
 
 fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark) -> AnyElement {
     let r = m.rows.get(&c.name);
-    let mut f = frame(t, z, c, at, 11.)
+    let mut f = keyed(frame(t, z, c, at, 11.), m, c)
         .gap(z.p(3.))
         .px(z.p(13.))
         .py(z.p(10.));

@@ -104,18 +104,6 @@ impl MapView {
 
     /// ⏎ (Go overview.tsx, the Map's Enter): opens the selected card's page, unless its stack is down; with nothing
     /// selected, selects the first card, so the first ⏎ selects and the second opens.
-    fn confirm(&mut self, cx: &mut Context<Self>) {
-        if let Some(&id) = self.hits.get(self.hit) {
-            self.jump_to(id, cx);
-        } else if let Some(c) = self.lit.and_then(|id| self.layout.card(id)) {
-            if self.running {
-                cx.emit(super::MapEvent::Open(c.name.clone()));
-            }
-        } else if self.lit.is_none() {
-            self.step(1.0, 0.0, cx);
-        }
-    }
-
     /// Viewport pixels for a window position.
     fn local(&self, p: gpui::Point<gpui::Pixels>) -> (f32, f32) {
         let (x, y, _, _) = self.viewport.get();

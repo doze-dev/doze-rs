@@ -7,7 +7,7 @@ use doze_control::Verb;
 use doze_desk::act::{Busy, Failure, StackAction};
 use gpui::{AnyElement, Context, div, prelude::*, px};
 
-use super::{OverviewView, all_rows};
+use super::{OverviewView, View, all_rows};
 use crate::kit::{Btn, btn, s};
 use crate::theme::{Tokens, mix, ty};
 use crate::widgets::Mono as _;
@@ -113,7 +113,11 @@ impl OverviewView {
 
     /// Space: the selected row's switch.
     pub(super) fn toggle_selected(&mut self, cx: &mut Context<Self>) {
-        if let Some(n) = self.selected.clone() {
+        // On the Map, a card reached by Tab and not selected yet is the one space acts on (Go flow.tsx).
+        let keyed = (self.view == View::Map)
+            .then(|| self.map.read(cx).keyed_card())
+            .flatten();
+        if let Some(n) = keyed.or_else(|| self.selected.clone()) {
             self.toggle_row(&n, cx);
         }
     }

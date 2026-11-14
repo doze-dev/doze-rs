@@ -1,6 +1,6 @@
 //! The page's selection: a click or a key on a row or tile, and the Map's card (Go `select`, `pick`).
 
-use gpui::Context;
+use gpui::{App, Context, KeyDownEvent, Window};
 
 use super::{OverviewView, View};
 
@@ -46,4 +46,79 @@ impl OverviewView {
             None => {}
         }
     }
+}
+
+impl OverviewView {
+    /// Go's `Name` button on a tile or a row: each shown name is a Tab stop; the one that takes the keys selects its
+    /// service (Go `onFocus`), and ⏎ then opens it (the page's own ⏎ opens the selection). Handles are kept by name
+    /// for the services shown, made once each.
+    pub(super) fn keep_names(&mut self, window: &Window, cx: &mut Context<Self>) {
+        let shown: Vec<String> = self.shown().iter().map(|r| r.name.clone()).collect();
+        let names = &mut self.names.0;
+        names.retain(|n, _| shown.contains(n));
+        for n in &shown {
+            names
+                .entry(n.clone())
+                .or_insert_with(|| cx.focus_handle().tab_stop(true));
+        }
+        let keys = names
+            .iter()
+            .find(|(_, h)| h.is_focused(window))
+            .map(|(n, _)| n.clone());
+        let moved = keys.is_some() && keys != self.names.1;
+        self.names.1 = keys.clone();
+        if let (true, Some(n)) = (moved, keys)
+            && self.selected.as_deref() != Some(n.as_str())
+        {
+            self.select(&n, cx);
+        }
+    }
+
+    /// The name `name`'s handle, and whether it has the keys (its ring shows).
+    pub(super) fn name_keys(&self, name: &str) -> (Option<&gpui::FocusHandle>, bool) {
+        (
+            self.names.0.get(name),
+            self.names.1.as_deref() == Some(name),
+        )
+    }
+}
+
+/// Tab and ⇧Tab move the keys to the next or the last name (a browser's Tab over Go's name buttons).
+pub(super) fn tab(ev: &KeyDownEvent, window: &mut Window, cx: &mut App) {
+    let k = &ev.keystroke;
+    if k.key != "tab" || k.modifiers.control || k.modifiers.platform || k.modifiers.alt {
+        return;
+    }
+    if k.modifiers.shift {
+        window.focus_prev(cx);
+    } else {
+        window.focus_next(cx);
+    }
+    cx.stop_propagation();
+}
+
+/// Go `.nm:focus-visible`: a ring 2 px out from the name, the accent at 55%, while it has the keys.
+pub(super) fn name_ring(
+    t: &crate::theme::Tokens,
+    name: gpui::Div,
+    (handle, keys): (Option<&gpui::FocusHandle>, bool),
+) -> gpui::Div {
+    use gpui::{Styled as _, prelude::*, px};
+    let mut d = gpui::div().relative().min_w_0().flex().child(name);
+    if let Some(h) = handle {
+        d = d.track_focus(h);
+    }
+    d.when(keys, |d| {
+        d.child(
+            gpui::div()
+                .absolute()
+                .top(px(-3.))
+                .bottom(px(-3.))
+                .left(px(-3.))
+                .right(px(-3.))
+                .rounded(px(4.))
+                .border_1()
+                .border_color(crate::theme::alpha(t.accent, 0.55)),
+        )
+    })
 }
