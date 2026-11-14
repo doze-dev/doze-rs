@@ -49,6 +49,15 @@ pub struct Harness {
     pub full: String,
 }
 
+/// How [`Harness::boot_with`] boots.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Boot {
+    /// The main listener's backend on loopback TCP, not a socket (Windows, or an engine's TCP path).
+    pub tcp: bool,
+    /// The data directory cloned from the module's template.
+    pub template: bool,
+}
+
 /// A booted instance. Stop it with [`Booted::stop`].
 #[derive(Debug)]
 pub struct Booted {
@@ -122,6 +131,15 @@ impl Harness {
 
     /// Boots one block of literal HCL in a fresh sandbox.
     pub async fn boot(&self, hcl: &str) -> Result<Booted, String> {
+        self.boot_with(hcl, Boot::default()).await
+    }
+
+    /// The module, the sandbox and the decoded instance, its listeners granted (main on loopback TCP if `tcp`).
+    async fn prepare(
+        &self,
+        hcl: &str,
+        tcp: bool,
+    ) -> Result<(Arc<Running>, Sandbox, Instance), String> {
         let sandbox = Sandbox::new().map_err(|e| e.to_string())?;
         let module = Arc::new(self.module().await?);
         let parsed =
@@ -141,6 +159,18 @@ impl Harness {
             .as_ref()
             .map(|s| s.replace("{port}", &module.manifest.default_port.to_string()));
         instance.listeners = crate::grant::grant(&listeners, &sandbox, &instance, socket)?;
+        if tcp && let Some(main) = instance.listeners.get_mut(network::MAIN) {
+            let port = crate::sandbox::free_port().map_err(|e| e.to_string())?;
+            main.backend = Address::Tcp(format!("127.0.0.1:{port}"));
+        }
+        Ok((module, sandbox, instance))
+    }
+
+    /// Boots one block as `how` says: with a TCP backend, or from the module's shared template (made, then cloned
+    /// into the data directory before provision, as the core does for a first boot); converge runs on a fresh or a
+    /// cloned data directory.
+    pub async fn boot_with(&self, hcl: &str, how: Boot) -> Result<Booted, String> {
+        let (module, sandbox, mut instance) = self.prepare(hcl, how.tcp).await?;
         let args = ResolveArgs {
             instance: instance.clone(),
             target: target(),
@@ -152,6 +182,21 @@ impl Harness {
             .map_err(|e| render(&e))?
             .toolchain;
         instance.toolchain = Some(toolchain.clone());
+        if how.template {
+            let tmpl = sandbox
+                .root()
+                .join("template")
+                .to_string_lossy()
+                .into_owned();
+            module
+                .template_ensure(&toolchain, &tmpl)
+                .await
+                .map_err(|e| render(&e))?;
+            module
+                .template_clone(&tmpl, &instance.data_dir)
+                .await
+                .map_err(|e| render(&e))?;
+        }
         let with = WithToolchain {
             instance: instance.clone(),
             toolchain: toolchain.clone(),
@@ -164,7 +209,7 @@ impl Harness {
             Duration::from_secs(90),
         )
         .await?;
-        if fresh && module.manifest.caps & caps::CONVERGE != 0 {
+        if (fresh || how.template) && module.manifest.caps & caps::CONVERGE != 0 {
             module.converge(&with).await.map_err(|e| render(&e))?;
         }
         Ok(Booted {

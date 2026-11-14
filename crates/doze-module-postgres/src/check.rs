@@ -62,7 +62,23 @@ pub(crate) fn check(s: &PostgresSpec, inst: &Instance) -> Vec<Diagnostic> {
                 "schema block is missing a name label".into(),
                 None,
             ));
+        } else if sc.name.starts_with("pg_") {
+            out.push(at(
+                vec![key("schema"), index(i)],
+                format!("schema {:?}: names starting pg_ are PostgreSQL's", sc.name),
+                None,
+            ));
         }
+    }
+    if RESERVED_DATABASES.contains(&inst.name.as_str()) {
+        out.push(at(
+            vec![],
+            format!(
+                "an instance cannot be named {:?}: the server needs that database for itself",
+                inst.name
+            ),
+            Some("pick another label"),
+        ));
     }
     extensions(s, inst, major, &mut out);
     grants(s, major, &mut out);
@@ -133,11 +149,13 @@ fn roles(s: &PostgresSpec, out: &mut Vec<Diagnostic>) {
                 "role block is missing a name label".into(),
                 None,
             ));
-        } else if r.name == "postgres" || r.name.starts_with("pg_") {
+        } else if RESERVED_ROLES.contains(&r.name.to_ascii_lowercase().as_str())
+            || r.name.starts_with("pg_")
+        {
             out.push(at(
                 here.clone(),
                 format!("role {:?} is PostgreSQL's or doze's own", r.name),
-                Some("names starting pg_, and postgres (doze's admin role), are reserved"),
+                Some("names starting pg_, postgres (doze's admin role), public, none and the current_* words are reserved"),
             ));
         }
         if r.member_of.contains(&r.name) {
@@ -152,15 +170,46 @@ fn roles(s: &PostgresSpec, out: &mut Vec<Diagnostic>) {
             vec![key("role"), index(i), key("connection_limit")],
             out,
         );
-        for k in r.config.keys().filter(|k| !conf::setting_name(k)) {
+        role_config(r, i, out);
+    }
+}
+
+/// Role names PostgreSQL reserves, and doze's own admin role.
+const RESERVED_ROLES: [&str; 6] = [
+    "postgres",
+    "public",
+    "none",
+    "current_user",
+    "session_user",
+    "current_role",
+];
+
+/// A role's settings: names, one rule without case (bug 11, as for `settings`), none doze owns.
+fn role_config(r: &crate::spec::Role, i: usize, out: &mut Vec<Diagnostic>) {
+    let mut seen: Vec<String> = Vec::new();
+    for k in r.config.keys() {
+        let here = vec![key("role"), index(i), key("config"), key(k)];
+        let lower = k.to_ascii_lowercase();
+        if !conf::setting_name(k) || conf::OWNED.contains(&lower.as_str()) {
             out.push(at(
-                vec![key("role"), index(i), key("config"), key(k)],
-                format!("{k:?} is not a setting name"),
+                here.clone(),
+                format!("{k:?} is not a setting a role can have"),
                 None,
             ));
         }
+        if seen.contains(&lower) {
+            out.push(at(
+                here,
+                format!("{k} is set twice: PostgreSQL reads setting names without case"),
+                Some("keep one"),
+            ));
+        }
+        seen.push(lower);
     }
 }
+
+/// Databases the cluster needs for itself: `postgres` is where doze works from, the templates make every database.
+const RESERVED_DATABASES: [&str; 3] = ["postgres", "template0", "template1"];
 
 /// Names as their extension (an alias is its extension), each once across the list and the blocks, and each one this
 /// major can have ([`ext::refused`]).

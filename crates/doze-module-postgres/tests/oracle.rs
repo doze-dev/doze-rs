@@ -98,3 +98,71 @@ async fn answers_as_the_go_module_did_except_for_the_listed_improvements() {
         );
     }
 }
+
+/// What the engine would refuse at converge or boot (or take wrongly), refused at its line by decode.
+#[tokio::test(flavor = "current_thread")]
+async fn refused_at_their_line() {
+    let m = Harness {
+        program: env!("CARGO_BIN_EXE_doze-module-postgres").into(),
+        engine: "postgres".into(),
+        bin_dir: "/tc/bin".into(),
+        full: "9.9.9".into(),
+    }
+    .module()
+    .await
+    .unwrap();
+    let decode = |name: &str, body: &str| {
+        let hcl = format!("postgres \"{name}\" {{\n  version = 17\n{body}}}\n");
+        let parsed = doze_module_test::hcl::parse_block(&hcl, &m.manifest.schema).unwrap();
+        doze_module_proto::msg::instance::Instance {
+            name: name.into(),
+            engine: "postgres".into(),
+            version: "17".into(),
+            data_dir: "/tmp/dzo/d/x".into(),
+            socket_dir: "/tmp/dzo/s/x".into(),
+            spec: parsed.spec,
+            host: String::new(),
+            listeners: Default::default(),
+            deps: vec![],
+            toolchain: None,
+            dir: String::new(),
+        }
+    };
+    let refused = [
+        (
+            "app",
+            "  settings = { include = \"/etc/x.conf\" }\n",
+            "doze's to set",
+        ),
+        (
+            "app",
+            "  settings = { Work_Mem = \"1MB\", work_mem = \"2MB\" }\n",
+            "set twice",
+        ),
+        ("app", "  settings = { port = \"1\" }\n", "doze's to set"),
+        ("app", "  role \"public\" {}\n", "reserved"),
+        (
+            "app",
+            "  role \"a\" {\n    config = { listen_addresses = \"*\" }\n  }\n",
+            "a role can have",
+        ),
+        ("app", "  schema \"pg_x\" {}\n", "pg_"),
+        ("app", "  extensions = [\"plpgsql\"]\n", "built into"),
+        ("app", "  extensions = [\"pg_trgn\"]\n", "no extension"),
+        ("postgres", "", "for itself"),
+        ("template1", "", "for itself"),
+        (
+            "app",
+            "  grant {\n    role = \"a\"\n    privileges = [\"EXECUTE\"]\n    database = \"app\"\n  }\n",
+            "privilege",
+        ),
+    ];
+    for (name, body, why) in refused {
+        let e = m.decode(&decode(name, body)).await.unwrap_err();
+        let all = format!("{e:?}");
+        assert!(all.contains(why), "{name} {body}: {all}");
+    }
+    m.decode(&decode("app", "  settings = { work_mem = \"2MB\" }\n"))
+        .await
+        .unwrap();
+}

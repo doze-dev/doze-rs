@@ -146,7 +146,7 @@ jobs:
         run: DOZE_MARIADB_BINDIR="$MARIADB12_BINDIR" cargo test -p doze-module-mariadb --test acceptance --no-fail-fast -- --nocapture
       - name: postgres's acceptance on its other major (17)
         shell: bash
-        run: DOZE_POSTGRES_BINDIR="$POSTGRES17_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --no-fail-fast -- --nocapture
+        run: DOZE_POSTGRES_BINDIR="$POSTGRES17_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --test declared --no-fail-fast -- --nocapture
 
   # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
   # portable; a red job here is information about what is still Unix-only, not noise.

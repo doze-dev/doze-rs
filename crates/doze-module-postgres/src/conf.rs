@@ -7,12 +7,16 @@ use std::path::Path;
 
 /// Settings doze decides: where the server listens and keeps its data. A person's value for one is refused at its
 /// line (Go dropped it without a word).
-pub(crate) const OWNED: [&str; 5] = [
+pub(crate) const OWNED: [&str; 8] = [
     "listen_addresses",
     "port",
     "unix_socket_directories",
     "hba_file",
     "data_directory",
+    // Directives, not settings: another file could set any of the above after doze's checks.
+    "include",
+    "include_dir",
+    "include_if_exists",
 ];
 
 const HEADER: &str = "# Managed by doze — do not edit. Regenerated on every boot.\n";

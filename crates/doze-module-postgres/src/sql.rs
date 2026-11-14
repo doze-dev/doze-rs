@@ -56,7 +56,11 @@ pub(crate) fn role(r: &Role, exists: bool) -> Vec<String> {
     let mut q = vec![format!("{verb} ROLE {n} WITH {}", role_options(r))];
     q.push(format!("ALTER ROLE {n} RESET ALL"));
     for (k, v) in &r.config {
-        q.push(format!("ALTER ROLE {n} SET {} = {}", ident(k), lit(v)));
+        q.push(format!(
+            "ALTER ROLE {n} SET {} = {}",
+            ident(k),
+            setting_value(k, v)
+        ));
     }
     q.push(comment("ROLE", &n, some(&r.comment)));
     q
@@ -163,28 +167,70 @@ pub(crate) fn schemas(s: &PostgresSpec) -> Vec<String> {
                 ));
                 q.push(format!("ALTER SCHEMA {n} OWNER TO {}", ident(o)));
             }
-            None => q.push(format!("CREATE SCHEMA IF NOT EXISTS {n}")),
+            None => {
+                q.push(format!("CREATE SCHEMA IF NOT EXISTS {n}"));
+                q.push(format!("ALTER SCHEMA {n} OWNER TO postgres"));
+            }
         }
     }
     q
 }
 
-/// The statements that take every privilege on `on` from `role`: what a grant removed from doze.hcl, or changed,
-/// leaves behind.
-pub(crate) fn revoke(on: &On, role: &str) -> Vec<String> {
+/// The query listing what a revocation on `on` from `role` may touch, each named as SQL takes it: the target itself
+/// unless `role` owns it, or each object of the kind in the schema that `role` does not own. An owner's privileges on
+/// what it owns are never taken (REVOKE ALL on a schema's tables would take an owner's rights on its own tables).
+pub(crate) fn revocable(on: &On, role: &str) -> String {
+    let me = format!("(SELECT oid FROM pg_roles WHERE rolname = {})", lit(role));
+    match on {
+        On::Database(d) => format!(
+            "SELECT 'DATABASE ' || quote_ident(datname) FROM pg_database WHERE datname = {} AND datdba IS DISTINCT FROM {me}",
+            lit(d)
+        ),
+        On::Schema(sc) => format!(
+            "SELECT 'SCHEMA ' || quote_ident(nspname) FROM pg_namespace WHERE nspname = {} AND nspowner IS DISTINCT FROM {me}",
+            lit(sc)
+        ),
+        On::All("FUNCTIONS", sc) => format!(
+            "SELECT 'ROUTINE ' || p.oid::regprocedure::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace \
+             WHERE n.nspname = {} AND p.proowner IS DISTINCT FROM {me} ORDER BY 1",
+            lit(sc)
+        ),
+        On::All(k, sc) => {
+            let (word, kinds) = if *k == "SEQUENCES" {
+                ("SEQUENCE", "'S'")
+            } else {
+                ("TABLE", "'r', 'p', 'v', 'm', 'f'")
+            };
+            format!(
+                "SELECT '{word} ' || format('%I.%I', n.nspname, c.relname) FROM pg_class c \
+                 JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = {} AND c.relkind IN ({kinds}) \
+                 AND c.relowner IS DISTINCT FROM {me} ORDER BY 1",
+                lit(sc)
+            )
+        }
+    }
+}
+
+/// Every privilege of `role` on `targets` (rows of [`revocable`]) taken, with what it granted on from them (CASCADE:
+/// the declared state wins over a re-grant the role made with its grant option), and for a schema's objects the
+/// default privileges too.
+pub(crate) fn revoke(on: &On, role: &str, targets: &[String]) -> Vec<String> {
     let r = ident(role);
-    let mut q = vec![format!("REVOKE ALL ON {} FROM {r}", on.sql())];
+    let mut q: Vec<String> = targets
+        .iter()
+        .map(|t| format!("REVOKE ALL ON {t} FROM {r} CASCADE"))
+        .collect();
     if let On::All(k, s) = on {
         q.push(format!(
-            "ALTER DEFAULT PRIVILEGES IN SCHEMA {} REVOKE ALL ON {k} FROM {r}",
+            "ALTER DEFAULT PRIVILEGES IN SCHEMA {} REVOKE ALL ON {k} FROM {r} CASCADE",
             ident(s)
         ));
     }
     q
 }
 
-/// A grant made exactly as declared: what the role had on the target is revoked first, in the same transaction, so a
-/// privilege taken out of the list is taken away (Go only ever added).
+/// The grant as declared; run after [`revoke`] in the same transaction, so a privilege taken out of the list is taken
+/// away (Go only ever added).
 pub(crate) fn grant(g: &Grant, on: &On) -> Vec<String> {
     let privs = g
         .privileges
@@ -198,8 +244,7 @@ pub(crate) fn grant(g: &Grant, on: &On) -> Vec<String> {
         ""
     };
     let r = ident(&g.role);
-    let mut q = revoke(on, &g.role);
-    q.push(format!("GRANT {privs} ON {} TO {r}{wgo}", on.sql()));
+    let mut q = vec![format!("GRANT {privs} ON {} TO {r}{wgo}", on.sql())];
     if let On::All(k, s) = on {
         q.push(format!(
             "ALTER DEFAULT PRIVILEGES IN SCHEMA {} GRANT {privs} ON {k} TO {r}{wgo}",
@@ -207,6 +252,32 @@ pub(crate) fn grant(g: &Grant, on: &On) -> Vec<String> {
         ));
     }
     q
+}
+
+/// Settings PostgreSQL reads as a list: a role's value for one is set item by item (`'a', 'b'`), not as one quoted
+/// string naming one item (Go's `SET search_path = 'app, public'` named a schema "app, public").
+const LIST_SETTINGS: [&str; 5] = [
+    "search_path",
+    "temp_tablespaces",
+    "session_preload_libraries",
+    "local_preload_libraries",
+    "datestyle",
+];
+
+/// A role setting's value as SQL.
+pub(crate) fn setting_value(k: &str, v: &str) -> String {
+    if LIST_SETTINGS.iter().any(|l| l.eq_ignore_ascii_case(k)) {
+        let items: Vec<String> = v
+            .split(',')
+            .map(str::trim)
+            .filter(|i| !i.is_empty())
+            .map(lit)
+            .collect();
+        if !items.is_empty() {
+            return items.join(", ");
+        }
+    }
+    lit(v)
 }
 
 #[cfg(test)]
@@ -254,7 +325,7 @@ mod tests {
             [
                 "ALTER ROLE \"app\" WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION INHERIT NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD 'p''w' VALID UNTIL 'infinity'",
                 "ALTER ROLE \"app\" RESET ALL",
-                "ALTER ROLE \"app\" SET \"search_path\" = 'app, public'",
+                "ALTER ROLE \"app\" SET \"search_path\" = 'app', 'public'",
                 "COMMENT ON ROLE \"app\" IS 'c'",
             ]
         );
@@ -287,10 +358,17 @@ mod tests {
         let on = target(&g).unwrap_or(On::Schema(String::new()));
         assert_eq!(on.name("app"), "\"app\" on tables in schema \"an\"\"x\"");
         assert_eq!(
+            revoke(&on, "app", &["TABLE t".to_string()]),
+            [
+                "REVOKE ALL ON TABLE t FROM \"app\" CASCADE",
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA \"an\"\"x\" REVOKE ALL ON TABLES FROM \"app\" CASCADE",
+            ]
+        );
+        assert!(revocable(&on, "a'b").contains("rolname = 'a''b'"));
+        assert_eq!(setting_value("work_mem", "8MB"), "'8MB'");
+        assert_eq!(
             grant(&g, &on),
             [
-                "REVOKE ALL ON ALL TABLES IN SCHEMA \"an\"\"x\" FROM \"app\"",
-                "ALTER DEFAULT PRIVILEGES IN SCHEMA \"an\"\"x\" REVOKE ALL ON TABLES FROM \"app\"",
                 "GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA \"an\"\"x\" TO \"app\" WITH GRANT OPTION",
                 "ALTER DEFAULT PRIVILEGES IN SCHEMA \"an\"\"x\" GRANT SELECT, INSERT ON TABLES TO \"app\" WITH GRANT OPTION",
             ]

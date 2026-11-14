@@ -14,7 +14,7 @@ use crate::spec::Ext;
 use std::path::{Path, PathBuf};
 
 /// Contrib extensions in every major doze builds (14 to 18).
-const CONTRIB: [&str; 44] = [
+const CONTRIB: [&str; 43] = [
     "amcheck",
     "autoinc",
     "bloom",
@@ -47,7 +47,6 @@ const CONTRIB: [&str; 44] = [
     "pgcrypto",
     "pgrowlocks",
     "pgstattuple",
-    "plpgsql",
     "postgres_fdw",
     "refint",
     "seg",
@@ -160,6 +159,13 @@ pub(crate) fn refused(e: &Ext, major: u32, base: &str) -> Option<(String, String
                 "a .tar.gz file on disk, relative to this file; URLs come with doze's checksummed bundles".into(),
             )
         });
+    }
+    if e.name == "plpgsql" {
+        // Always installed; declaring it and then removing it would drop every PL/pgSQL function.
+        return Some((
+            "plpgsql is built into every database".into(),
+            "leave it out".into(),
+        ));
     }
     if is_contrib(&e.name, major) {
         return None;

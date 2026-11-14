@@ -23,6 +23,7 @@ mod converge;
 mod ext;
 mod filter;
 mod names;
+mod prune;
 mod psql;
 mod spec;
 mod sql;

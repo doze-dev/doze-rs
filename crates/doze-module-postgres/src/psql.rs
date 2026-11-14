@@ -69,7 +69,12 @@ impl Psql {
     /// Runs `script` in database `db`, stopping at the first error; one transaction when `atomic`. Its output (rows,
     /// tuples only, fields split by [`SEP`]).
     pub(crate) async fn run(&self, db: &str, script: &str, atomic: bool) -> Result<String> {
-        let conninfo = format!("dbname='{}'", db.replace('\\', "\\\\").replace('\'', "\\'"));
+        // standard_conforming_strings forced on: with it off (a person's setting), a backslash in a literal would end it,
+        // and the rest would run as SQL or as a psql command. A lock held by a client cannot stall converge for ever.
+        let conninfo = format!(
+            "dbname='{}' options='-c standard_conforming_strings=on -c lock_timeout=30s'",
+            db.replace('\\', "\\\\").replace('\'', "\\'")
+        );
         let mut c = tokio::process::Command::new(&self.bin);
         c.args([
             "-h", &self.dir, "-p", &self.port, "-U", "postgres", "-d", &conninfo,

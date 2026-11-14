@@ -1,38 +1,46 @@
 //! Keeping the instance's structure as declared: roles, the database, schemas, extensions and grants made or changed
-//! by `converge`, listed by `objects`, and taken away by `prune` when they leave doze.hcl. Every statement runs as
-//! `postgres` over the server's socket ([`Psql`]).
+//! by `converge`, and listed by `objects` (prune is in `prune`). Every statement runs as `postgres` over the server's
+//! socket ([`Psql`]).
 //!
 //! Better than Go (bug 10, "converge to the declared state"): a removed `member_of` is revoked, a removed password,
-//! expiry, role setting or comment is cleared; a privilege taken out of a grant is revoked and a removed grant is too
-//! (grants are objects); a role that owns objects can be dropped (its objects pass to `postgres`, its privileges go).
+//! expiry, role setting, comment or schema owner is cleared; a privilege taken out of a grant is revoked (never an
+//! owner's on what it owns), and a removed grant is too (grants are objects); an extension moved to another schema is
+//! moved. Two converges racing on one server (a boot and a first connection) both succeed, as in Go.
 
 use crate::psql::{Psql, wrap};
-use crate::spec::{PostgresSpec, some};
-use crate::{Postgres, ext, names, sql};
-use doze_module::caps::{Converge, Objects, Prune};
+use crate::spec::{Ext, PostgresSpec, some};
+use crate::{Postgres, ext, sql};
+use doze_module::caps::{Converge, Objects};
 use doze_module::proto::msg::error::{Error, ErrorKind};
-use doze_module::proto::msg::instance::{Instance, Object, Toolchain};
+use doze_module::proto::msg::instance::{Object, Toolchain};
 use doze_module::{Cx, Result, help};
 
-const ROLE: &str = "role";
-const DATABASE: &str = "database";
-const SCHEMA: &str = "schema";
-const EXTENSION: &str = "extension";
-const GRANT: &str = "grant";
+pub(crate) const ROLE: &str = "role";
+pub(crate) const DATABASE: &str = "database";
+pub(crate) const SCHEMA: &str = "schema";
+pub(crate) const EXTENSION: &str = "extension";
+pub(crate) const GRANT: &str = "grant";
+
+/// Whether a failure is another session having made the same thing first.
+fn raced(e: &Error) -> bool {
+    e.message.contains("already exists")
+}
 
 async fn roles(p: &Psql, s: &PostgresSpec) -> Result<()> {
     for r in &s.role {
+        let at = || wrap(format!("role {:?}", r.name));
         let q = format!(
             "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = {})",
             sql::lit(&r.name)
         );
-        let exists = p
-            .yes("postgres", &q)
-            .await
-            .map_err(wrap(format!("role {:?}", r.name)))?;
-        p.exec("postgres", &sql::role(r, exists))
-            .await
-            .map_err(wrap(format!("role {:?}", r.name)))?;
+        let exists = p.yes("postgres", &q).await.map_err(at())?;
+        match p.exec("postgres", &sql::role(r, exists)).await {
+            Err(e) if !exists && raced(&e) => p
+                .exec("postgres", &sql::role(r, true))
+                .await
+                .map_err(at())?,
+            other => other.map_err(at())?,
+        }
     }
     // Memberships once every declared role exists, so one may name a role declared after it.
     for r in &s.role {
@@ -62,31 +70,54 @@ async fn database(p: &Psql, name: &str, s: &PostgresSpec) -> Result<()> {
         sql::lit(name)
     );
     if !p.yes("postgres", &q).await.map_err(at())? {
-        p.alone("postgres", &sql::create_database(name, s))
-            .await
-            .map_err(at())?;
+        match p.alone("postgres", &sql::create_database(name, s)).await {
+            Err(e) if !raced(&e) => return Err(at()(e)),
+            _ => {}
+        }
     }
     p.exec("postgres", &sql::alter_database(name, s))
         .await
         .map_err(at())
 }
 
+/// One extension: created or updated, and moved if its declared schema is another.
+async fn extension(p: &Psql, db: &str, e: &Ext) -> Result<()> {
+    let q = format!(
+        "SELECT EXISTS(SELECT 1 FROM pg_available_extensions WHERE name = {})",
+        sql::lit(&e.name)
+    );
+    if !p.yes(db, &q).await? {
+        return Err(Error::new(
+            ErrorKind::Unavailable,
+            "this PostgreSQL build does not ship it (bundles from `source` and doze's catalog are installed by a later \
+             release of the module)",
+        ));
+    }
+    p.exec(db, &ext::statements(e)).await?;
+    let Some(want) = &e.schema else { return Ok(()) };
+    let q = format!(
+        "SELECT n.nspname FROM pg_extension x JOIN pg_namespace n ON n.oid = x.extnamespace WHERE x.extname = {}",
+        sql::lit(&e.name)
+    );
+    if p.column(db, &q)
+        .await?
+        .first()
+        .is_some_and(|now| now != want)
+    {
+        let moved = format!(
+            "ALTER EXTENSION {} SET SCHEMA {}",
+            sql::ident(&e.name),
+            sql::ident(want)
+        );
+        p.exec(db, &[moved]).await?;
+    }
+    Ok(())
+}
+
 async fn extensions(cx: &Cx<PostgresSpec>, p: &Psql) -> Result<()> {
     let db = &cx.instance.name;
     for e in cx.spec.exts() {
-        let q = format!(
-            "SELECT EXISTS(SELECT 1 FROM pg_available_extensions WHERE name = {})",
-            sql::lit(&e.name)
-        );
-        let made = match p.yes(db, &q).await {
-            Ok(true) => p.exec(db, &ext::statements(&e)).await,
-            Ok(false) => Err(Error::new(
-                ErrorKind::Unavailable,
-                "this PostgreSQL build does not ship it (bundles from `source` and doze's catalog are installed by a later release of the module)",
-            )),
-            Err(e) => Err(e),
-        };
-        match made {
+        match extension(p, db, &e).await {
             Ok(()) => {}
             Err(why) if e.optional => cx.log(
                 2,
@@ -96,6 +127,18 @@ async fn extensions(cx: &Cx<PostgresSpec>, p: &Psql) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// What `role` holds on `on` that a grant or its removal takes back: every privilege, except an owner's on what it
+/// owns.
+pub(crate) async fn revocations(
+    p: &Psql,
+    db: &str,
+    on: &sql::On,
+    role: &str,
+) -> Result<Vec<String>> {
+    let targets = p.column(db, &sql::revocable(on, role)).await?;
+    Ok(sql::revoke(on, role, &targets))
 }
 
 impl Converge for Postgres {
@@ -113,9 +156,11 @@ impl Converge for Postgres {
         extensions(cx, &p).await?;
         for g in &s.grant {
             let Some(on) = sql::target(g) else { continue };
-            p.exec(on.runs_in(name), &sql::grant(g, &on))
-                .await
-                .map_err(wrap(format!("grant to {:?}", g.role)))?;
+            let db = on.runs_in(name);
+            let at = || wrap(format!("grant to {:?}", g.role));
+            let mut q = revocations(&p, db, &on, &g.role).await.map_err(at())?;
+            q.extend(sql::grant(g, &on));
+            p.exec(db, &q).await.map_err(at())?;
         }
         // Last: a database closed to connections is closed once converge no longer needs to work in it.
         if let Some(close) = sql::close_database(name, s) {
@@ -128,6 +173,8 @@ impl Converge for Postgres {
 }
 
 impl Objects for Postgres {
+    /// Each object with a hash of what converge applies to it. The database's encoding, locale, template and tablespace
+    /// are left out: they are fixed when it is made, so a change to them is nothing converge could do.
     fn objects(&self, cx: &Cx<PostgresSpec>) -> Result<Vec<Object>> {
         let s = &cx.spec;
         let obj = |kind: &str, name: String, declared: Vec<String>| Object {
@@ -140,26 +187,17 @@ impl Objects for Postgres {
             .role
             .iter()
             .map(|r| {
-                obj(
-                    ROLE,
-                    r.name.clone(),
-                    vec![
-                        sql::role_options(r),
-                        r.member_of.join("\0"),
-                        format!("{:?}", r.config),
-                        o(&r.comment),
-                    ],
-                )
+                let declared = vec![
+                    sql::role_options(r),
+                    r.member_of.join("\0"),
+                    format!("{:?}", r.config),
+                    o(&r.comment),
+                ];
+                obj(ROLE, r.name.clone(), declared)
             })
             .collect();
-        let (collate, ctype) = s.collate_ctype();
         let db = vec![
             o(&s.owner),
-            o(&s.encoding),
-            collate.unwrap_or_default().into(),
-            ctype.unwrap_or_default().into(),
-            o(&s.template),
-            o(&s.tablespace),
             o(&s.comment),
             s.connection_limit.unwrap_or(-1).to_string(),
             s.is_template.to_string(),
@@ -187,111 +225,5 @@ impl Objects for Postgres {
             }
         }
         Ok(out)
-    }
-}
-
-/// A role's objects pass to `postgres` and its privileges go, in every database that takes connections, then the
-/// role is dropped (Go's bare DROP ROLE failed on any role that owned something).
-async fn drop_role(p: &Psql, name: &str) -> Result<()> {
-    let q = format!(
-        "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = {})",
-        sql::lit(name)
-    );
-    if !p.yes("postgres", &q).await? {
-        return Ok(());
-    }
-    let r = sql::ident(name);
-    for db in p
-        .column(
-            "postgres",
-            "SELECT datname FROM pg_database WHERE datallowconn ORDER BY 1",
-        )
-        .await?
-    {
-        p.exec(
-            &db,
-            &[
-                format!("REASSIGN OWNED BY {r} TO postgres"),
-                format!("DROP OWNED BY {r}"),
-            ],
-        )
-        .await?;
-    }
-    p.exec("postgres", &[format!("DROP ROLE IF EXISTS {r}")])
-        .await
-}
-
-/// Takes one removed object away.
-async fn drop_object(p: &Psql, inst: &Instance, o: &Object) -> Result<()> {
-    let db = &inst.name;
-    match o.kind.as_str() {
-        EXTENSION => {
-            p.exec(
-                db,
-                &[format!(
-                    "DROP EXTENSION IF EXISTS {} CASCADE",
-                    sql::ident(&o.name)
-                )],
-            )
-            .await
-        }
-        SCHEMA => {
-            p.exec(
-                db,
-                &[format!(
-                    "DROP SCHEMA IF EXISTS {} CASCADE",
-                    sql::ident(&o.name)
-                )],
-            )
-            .await
-        }
-        DATABASE => {
-            p.alone(
-                "postgres",
-                &format!(
-                    "DROP DATABASE IF EXISTS {} WITH (FORCE)",
-                    sql::ident(&o.name)
-                ),
-            )
-            .await
-        }
-        ROLE => drop_role(p, &o.name).await,
-        GRANT => {
-            let Some((role, on)) = names::grant(&o.name) else {
-                return Err(Error::new(
-                    ErrorKind::Invalid,
-                    "not a name this module makes",
-                ));
-            };
-            match p.exec(on.runs_in(db), &sql::revoke(&on, &role)).await {
-                // Its role, schema or database already gone: nothing is left to revoke.
-                Err(e) if e.message.contains("does not exist") => Ok(()),
-                other => other,
-            }
-        }
-        // Unknown kinds are skipped, as Go did.
-        _ => Ok(()),
-    }
-}
-
-impl Prune for Postgres {
-    async fn prune(&self, cx: &Cx<PostgresSpec>, tc: &Toolchain, removed: &[Object]) -> Result<()> {
-        // Grants, then what lives in the database, then the database, then roles (which may own any of it).
-        let rank = |k: &str| match k {
-            GRANT => 0,
-            EXTENSION => 1,
-            SCHEMA => 2,
-            DATABASE => 3,
-            _ => 4,
-        };
-        let mut objs: Vec<&Object> = removed.iter().collect();
-        objs.sort_by_key(|o| rank(&o.kind));
-        let p = Psql::new(tc, &cx.instance)?;
-        for o in objs {
-            drop_object(&p, &cx.instance, o)
-                .await
-                .map_err(wrap(format!("dropping {} {:?}", o.kind, o.name)))?;
-        }
-        Ok(())
     }
 }

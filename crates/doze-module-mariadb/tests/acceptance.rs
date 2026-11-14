@@ -162,3 +162,70 @@ async fn converge_keeps_the_declared_state_and_prune_takes_the_rest() {
     assert_eq!(old, "0");
     graceful(&b.stop(Duration::from_secs(20)).await);
 }
+
+/// The example's user logs in, over TCP when `tcp`, else on the socket.
+fn logs_in(b: &Booted, tcp: bool) {
+    let bin = std::path::Path::new(&b.toolchain.bin_dir).join("mariadb");
+    let mut c = std::process::Command::new(bin);
+    c.arg("--no-defaults");
+    match b.backend() {
+        Some(Address::Tcp(a)) if tcp => {
+            let (h, p) = a.rsplit_once(':').unwrap();
+            c.args([
+                format!("--host={h}"),
+                format!("--port={p}"),
+                "--protocol=TCP".into(),
+            ]);
+        }
+        Some(Address::Unix(s)) if !tcp => {
+            c.arg(format!("--socket={s}"));
+        }
+        other => panic!("{other:?}"),
+    }
+    c.args([
+        "--user=app",
+        "--batch",
+        "--skip-column-names",
+        "-e",
+        "SELECT CURRENT_USER()",
+    ]);
+    c.env("MYSQL_PWD", "secret");
+    let out = c.output().unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "app@%");
+}
+
+/// Where the host grants loopback TCP (Windows; any engine's TCP path): the server listens there, converge reaches it
+/// there, and the declared user logs in over TCP.
+#[tokio::test(flavor = "current_thread")]
+async fn the_example_runs_on_a_tcp_backend() {
+    let Some(h) = harness() else { return };
+    let example = h.module().await.unwrap().manifest.example;
+    let how = doze_module_test::Boot {
+        tcp: true,
+        template: false,
+    };
+    let b = h.boot_with(&example, how).await.unwrap();
+    logs_in(&b, true);
+    graceful(&b.stop(Duration::from_secs(20)).await);
+}
+
+/// A first boot from the shared template (made once, cloned into the data directory): provision finds the system
+/// tables there, converge makes the example's database, user and grant, and the user logs in.
+#[tokio::test(flavor = "current_thread")]
+async fn the_example_boots_from_the_template() {
+    let Some(h) = harness() else { return };
+    let example = h.module().await.unwrap().manifest.example;
+    let how = doze_module_test::Boot {
+        tcp: false,
+        template: true,
+    };
+    let b = h.boot_with(&example, how).await.unwrap();
+    assert!(!b.fresh, "the clone is the data directory provision finds");
+    logs_in(&b, false);
+    graceful(&b.stop(Duration::from_secs(20)).await);
+}
