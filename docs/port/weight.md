@@ -514,3 +514,15 @@ doze-aws, from the same PR's next run (43592223803, main with the aws-tls, aws-g
 packages, inside the 13,900,000 B / 280 lines its stage set; idle 9,964 / 10,036 / 10,024 KB, median 10,024 KB, so its idle line is
 **10,526 KB** (was 9,413). That is +1.06 MB over the median of 8,964 KB measured before those merges; added to issue #36 beside the A14 to
 A16 step. In the same run doze-kafka's idle median was 10,648 KB, inside its new 11,013 KB.
+
+## Core D1 with the module catalog (`doze` carries the daemon), measured 2026-11-15, release, darwin/arm64
+
+| | bytes | packages (normal, unique) |
+|---|---|---|
+| D1 `__daemon` and `ctl` (b51674d3) | 6,219,760 | 168 |
+| + E2's CI fixes, the module catalog, the front, pins in doze.lock, the reaper (96c9137b) | 6,832,160 | 168 |
+
++612 KB, no new package: doze-module-host and doze-module-proto were already linked through the engine; the cost is the
+catalog's and the front's code, F1's module path now reached from the daemon, and E2's merge. Under the 8.5 MB line
+(the owner's ceiling for `doze` is 9 MB). Measured with `--release`: the `release-doze` profile is on #53/#56, not on
+this branch; Linux with it is measured once D1 and C2c meet (CI's weight job measures x86_64 on each push).
