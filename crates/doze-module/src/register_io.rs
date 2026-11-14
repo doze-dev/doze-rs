@@ -185,7 +185,9 @@ mod tests {
         let (src, dst) = (root.join("template"), root.join("data/pg"));
         std::fs::create_dir_all(src.join("base")).unwrap();
         std::fs::write(src.join("base/1"), "one").unwrap();
-        // What a killed earlier attempt leaves: part of a clone beside the data directory.
+        // What a killed earlier attempt leaves: part of a clone beside the data directory, whose folder that attempt had
+        // made private first (on Windows a protected DACL; a folder made before it would be left with no access at all).
+        doze_os::fs::private_dir(&root.join("data")).unwrap();
         std::fs::create_dir_all(root.join("data/.pg.cloning/base")).unwrap();
         std::fs::write(root.join("data/.pg.cloning/half"), "x").unwrap();
         clone_into(&src, &dst).unwrap();
