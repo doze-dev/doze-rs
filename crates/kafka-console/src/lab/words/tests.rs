@@ -42,6 +42,17 @@ fn a_sentence_is_the_boards_and_holds_no_number_that_follows_the_broker() {
         "Answers 1 in 5 Fetch requests to inventory.levels with REQUEST_TIMED_OUT."
     );
     assert_eq!(default_name(&fail), "Fail inventory.levels fetches");
+    // A topic of 249 bytes is legal; a rule's name is at most LONGEST_NAME: the default is cut, and the broker takes it.
+    let mut long = fail.clone();
+    long.matcher.topics = vec![Pattern::new(&"t".repeat(249)).unwrap()];
+    let name = default_name(&long);
+    assert_eq!(name.chars().count(), kafka_server::fault::LONGEST_NAME);
+    assert!(
+        name.starts_with("Fail ttt") && name.ends_with('…'),
+        "{name}"
+    );
+    long.name = name;
+    assert_eq!(long.check(), Ok(()));
     let every = spec(
         Effect::Slow {
             delay_ms: 5,
