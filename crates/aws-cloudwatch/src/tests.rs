@@ -14,6 +14,7 @@ mod alarms;
 mod cbor;
 mod metrics;
 mod producers;
+mod stored;
 mod timer;
 
 /// 2023-11-14 22:13:20 UTC, a Tuesday, on a minute boundary.
@@ -111,15 +112,16 @@ fn what_is_not_built_is_refused_by_name() {
         "SetAlarmState",
         "PutDashboard",
         "GetMetricData",
+        "PutMetricStream",
+        "GetInsightRuleReport",
+        "PutAlarmMuteRule",
     ] {
         assert!(w.h.serves(op), "{op} is built");
     }
     for op in [
-        "PutMetricStream",
-        "GetInsightRuleReport",
         "GetMetricWidgetImage",
-        "PutAlarmMuteRule",
         "StartOTelEnrichment",
+        "PutManagedInsightRules",
     ] {
         assert!(!w.h.serves(op), "{op} is refused");
     }

@@ -24,10 +24,6 @@ async fn what_has_no_local_meaning_is_refused_by_name() {
     let s3 = service();
     let serves = |name: &str| s3.serves(TABLES.find_op(name).unwrap());
     for refused in [
-        "GetBucketAcl",
-        "PutBucketAcl",
-        "GetObjectAcl",
-        "PutObjectAcl",
         "RestoreObject",
         "SelectObjectContent",
         "GetObjectTorrent",
@@ -64,6 +60,10 @@ async fn what_has_no_local_meaning_is_refused_by_name() {
         "GetObjectLegalHold",
         "PutObjectLegalHold",
         "GetBucketPolicyStatus",
+        "GetBucketAcl",
+        "PutBucketAcl",
+        "GetObjectAcl",
+        "PutObjectAcl",
     ] {
         assert!(serves(built), "{built} must be served");
     }

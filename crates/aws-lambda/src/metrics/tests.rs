@@ -68,6 +68,35 @@ fn counts_are_held_by_minute_and_taken_by_region() {
     assert!(m.take("us-east-1").is_empty(), "taken once");
 }
 
+#[test]
+fn concurrent_executions_are_the_most_in_flight_each_minute_by_function_and_region() {
+    let m = Meter::default();
+    let t = target(false);
+    m.concurrent(&t, 60_000, 1, 1);
+    m.concurrent(&t, 61_000, 3, 5);
+    m.concurrent(&t, 62_000, 2, 2);
+    m.concurrent(&t, 120_000, 1, 1);
+    let made = m.take("us-east-1");
+    let data = made[0].body["MetricData"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let most = |minute: f64, dims: Value| {
+        data.iter()
+            .find(|d| {
+                d["MetricName"] == "ConcurrentExecutions"
+                    && d["Timestamp"] == minute
+                    && d.get("Dimensions").cloned().unwrap_or(json!([])) == dims
+            })
+            .map(|d| d["Values"].clone())
+    };
+    let f = json!([{"Name": "FunctionName", "Value": "f"}]);
+    assert_eq!(most(60.0, f.clone()), Some(json!([3.0])));
+    assert_eq!(most(60.0, json!([])), Some(json!([5.0])));
+    assert_eq!(most(120.0, f), Some(json!([1.0])));
+    assert_eq!(data.len(), 4, "nothing but concurrency was counted");
+}
+
 /// A `provided` function that fails when its event says so.
 const BOOTSTRAP: &[u8] = br#"#!/bin/sh
 while true; do
@@ -155,6 +184,14 @@ async fn invocations_reach_cloudwatch_when_it_reads_and_at_once_while_an_alarm_w
         .await;
     assert_eq!(dur["Datapoints"][0]["SampleCount"], 2.0);
     assert_eq!(dur["Datapoints"][0]["Unit"], "Milliseconds");
+    let most = w
+        .peer(
+            "monitoring",
+            "GetMetricStatistics",
+            stat("ConcurrentExecutions", "Maximum"),
+        )
+        .await;
+    assert_eq!(most["Datapoints"][0]["Maximum"], 1.0, "one at a time");
     let listed = w
         .peer(
             "monitoring",

@@ -14,12 +14,14 @@ workspace = true
 [dependencies]
 aws-model-api-gateway = { path = "../aws-model-api-gateway" }
 aws-model-apigatewayv2 = { path = "../aws-model-apigatewayv2" }
+aws-model-apigatewaymanagementapi = { path = "../aws-model-apigatewaymanagementapi" }
 aws-schema = { path = "../aws-schema" }
 aws-wire = { path = "../aws-wire" }
 aws-core = { path = "../aws-core" }
 aws-auth = { path = "../aws-auth" }
 aws-peers = { path = "../aws-peers" }
 aws-iam-policy = { path = "../aws-iam-policy" }
+aws-webhook = { path = "../aws-webhook" }
 doze-runtime = { path = "../doze-runtime" }
 doze-store = { path = "../doze-store" }
 serde = { version = "1", features = ["derive"] }
@@ -38,6 +40,8 @@ tracing = "0.1"
 
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }
+aws-webhook = { path = "../aws-webhook", features = ["test-server"] }
+aws-logs = { path = "../aws-logs" }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync", "net", "io-util"] }
 
 [dev-dependencies.aws-gateway]

@@ -1,6 +1,6 @@
 //! A small XML reader for request bodies: elements, text, entities and CDATA into a tree. It reads what S3 clients send and refuses
 //! the rest: a document type declaration (the door to entity attacks) is an error, namespaces are dropped (`xsi:type` is `type`),
-//! attributes are skipped, and depth and size are capped so a hostile body cannot overflow the stack or the heap.
+//! attributes are kept by their local name (namespace declarations are not), and depth and size are capped so a hostile body cannot overflow the stack or the heap.
 
 /// The deepest nesting read: S3 bodies nest about eight levels.
 const MAX_DEPTH: usize = 40;
@@ -16,6 +16,8 @@ pub struct Elem {
     pub text: String,
     /// The child elements.
     pub children: Vec<Elem>,
+    /// The attributes, by local name (`xsi:type` is `type`), entities resolved; `xmlns` declarations are left out.
+    pub attrs: Vec<(String, String)>,
 }
 
 /// Why a body is not XML this reader accepts.
@@ -118,15 +120,15 @@ impl Reader<'_> {
             name: self.name()?.to_owned(),
             ..Elem::default()
         };
-        if self.attributes()? {
+        if self.attributes(&mut elem.attrs)? {
             return Ok(elem);
         }
         self.content(&mut elem, depth)?;
         Ok(elem)
     }
 
-    /// Skips the attributes; true when the tag closes itself (`<a/>`).
-    fn attributes(&mut self) -> Result<bool, XmlError> {
+    /// Reads the attributes; true when the tag closes itself (`<a/>`).
+    fn attributes(&mut self, attrs: &mut Vec<(String, String)>) -> Result<bool, XmlError> {
         loop {
             self.skip_space();
             match self.peek().ok_or(XmlError)? {
@@ -142,13 +144,18 @@ impl Reader<'_> {
                     self.at += 1;
                     return Ok(true);
                 }
-                _ => self.attribute()?,
+                _ => self.attribute(attrs)?,
             }
         }
     }
 
-    fn attribute(&mut self) -> Result<(), XmlError> {
-        self.name()?;
+    fn attribute(&mut self, attrs: &mut Vec<(String, String)>) -> Result<(), XmlError> {
+        let start = self.at;
+        let local = self.name()?.to_owned();
+        let declares = self
+            .s
+            .get(start..self.at)
+            .is_some_and(|raw| raw == b"xmlns" || raw.starts_with(b"xmlns:"));
         self.skip_space();
         if self.peek() != Some(b'=') {
             return Err(XmlError);
@@ -160,7 +167,15 @@ impl Reader<'_> {
             .filter(|q| matches!(q, b'"' | b'\''))
             .ok_or(XmlError)?;
         self.at += 1;
-        self.skip_past(&[quote])
+        let from = self.at;
+        self.skip_past(&[quote])?;
+        let raw = self.s.get(from..self.at - 1).ok_or(XmlError)?;
+        let mut value = String::new();
+        unescape(std::str::from_utf8(raw).map_err(|_| XmlError)?, &mut value)?;
+        if !declares && attrs.len() < 16 {
+            attrs.push((local, value));
+        }
+        Ok(())
     }
 
     fn content(&mut self, elem: &mut Elem, depth: usize) -> Result<(), XmlError> {
@@ -257,6 +272,21 @@ mod tests {
         assert_eq!(e.name, "A");
         let texts: Vec<&str> = e.children.iter().map(|c| c.text.as_str()).collect();
         assert_eq!(texts, ["1 < 2", "", "<z>"]);
+    }
+
+    #[test]
+    fn attributes_are_kept_by_local_name_without_namespace_declarations() {
+        let e = parse(
+            b"<Grantee xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"Group\" a='&amp;'><URI>u</URI></Grantee>",
+        )
+        .unwrap();
+        assert_eq!(
+            e.attrs,
+            [
+                ("type".to_owned(), "Group".to_owned()),
+                ("a".to_owned(), "&".to_owned())
+            ]
+        );
     }
 
     #[test]

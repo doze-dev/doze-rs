@@ -2,15 +2,18 @@
 //!
 //! Three forms, told apart by the first character: terms (`ERROR -debug ?WARN "disk full"`), a JSON expression
 //! (`{ $.code = 507 && $.level = "error" }`) and a space-delimited expression (`[ip, user, ..., status = 4*, size]`).
-//! The empty pattern matches every event. A pattern with a regular expression (`%...%`) is not built: it is reported, not
-//! guessed at.
+//! The empty pattern matches every event. Each form takes regular expressions (`%...%`, `regex.rs`), within AWS's limits.
 //!
 //! What the recordings pinned (conformance/snapshots/test_logs.json, 2026-11-09): a term, two terms, a quoted phrase, an excluded
 //! term, a JSON number comparison and a JSON string comparison select what they should, and `{ $.code = }` is an invalid pattern.
 //! How a term is bounded in the message (a whole word, not a part of one) is from memory.
 
 mod json;
+mod regex;
 mod space;
+
+pub(crate) use regex::MAX_PER_GROUP as MAX_REGEXES_PER_GROUP;
+use regex::Re;
 
 use serde_json::Value;
 
@@ -19,8 +22,8 @@ use serde_json::Value;
 pub(crate) enum PatternError {
     /// AWS answers `Invalid filter pattern`.
     Invalid,
-    /// A regular expression: not built.
-    Regex,
+    /// More regular expressions than one filter pattern may hold.
+    TooManyRegexes,
 }
 
 /// A parsed pattern.
@@ -37,6 +40,8 @@ pub(crate) enum Pattern {
 pub(crate) struct Term {
     text: String,
     kind: Kind,
+    /// A `%...%` term searches the message with its expression.
+    re: Option<Re>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,23 +54,41 @@ enum Kind {
 /// Parses `text`.
 ///
 /// # Errors
-/// [`PatternError::Invalid`] for a pattern that is not one, [`PatternError::Regex`] for a regular expression.
+/// [`PatternError::Invalid`] for a pattern that is not one, [`PatternError::TooManyRegexes`] past two regular expressions.
 // fuzz:parser fuzz_filter_pattern
 pub(crate) fn parse(text: &str) -> Result<Pattern, PatternError> {
     let text = text.trim();
-    if text.is_empty() {
-        return Ok(Pattern::Any);
+    let pattern = if text.is_empty() {
+        Pattern::Any
+    } else if text.starts_with('{') {
+        json::parse(text).map(Pattern::Json)?
+    } else if text.starts_with('[') {
+        space::parse(text).map(Pattern::Space)?
+    } else {
+        terms(text).map(Pattern::Terms)?
+    };
+    if pattern.regexes() > regex::MAX_PER_PATTERN {
+        return Err(PatternError::TooManyRegexes);
     }
-    if text.starts_with('{') {
-        return json::parse(text).map(Pattern::Json);
-    }
-    if text.starts_with('[') {
-        return space::parse(text).map(Pattern::Space);
-    }
-    terms(text).map(Pattern::Terms)
+    Ok(pattern)
+}
+
+/// How many regular expressions `text` holds (0 for a pattern that does not parse), for the quota per log group.
+pub(crate) fn regexes_in(text: &str) -> usize {
+    parse(text).map_or(0, |p| p.regexes())
 }
 
 impl Pattern {
+    /// How many `%...%` the pattern holds.
+    pub(crate) fn regexes(&self) -> usize {
+        match self {
+            Self::Any => 0,
+            Self::Terms(terms) => terms.iter().filter(|t| t.re.is_some()).count(),
+            Self::Json(expr) => expr.regexes(),
+            Self::Space(fields) => fields.regexes(),
+        }
+    }
+
     /// Whether the message is selected.
     pub(crate) fn matches(&self, message: &str) -> bool {
         match self {
@@ -119,6 +142,16 @@ fn terms(text: &str) -> Result<Vec<Term>, PatternError> {
             chars.next();
         }
         let mut word = String::new();
+        if chars.peek() == Some(&'%') {
+            chars.next();
+            let re = regex::read(&mut chars)?;
+            out.push(Term {
+                text: String::new(),
+                kind,
+                re: Some(re),
+            });
+            continue;
+        }
         if chars.peek() == Some(&'"') {
             chars.next();
             loop {
@@ -141,10 +174,11 @@ fn terms(text: &str) -> Result<Vec<Term>, PatternError> {
         if word.is_empty() {
             return Err(PatternError::Invalid);
         }
-        if word.contains('%') {
-            return Err(PatternError::Regex);
-        }
-        out.push(Term { text: word, kind });
+        out.push(Term {
+            text: word,
+            kind,
+            re: None,
+        });
     }
     Ok(out)
 }
@@ -152,7 +186,10 @@ fn terms(text: &str) -> Result<Vec<Term>, PatternError> {
 fn terms_match(terms: &[Term], message: &str) -> bool {
     let mut either = None;
     for t in terms {
-        let found = contains_term(message, &t.text);
+        let found = match &t.re {
+            Some(re) => re.found(message),
+            None => contains_term(message, &t.text),
+        };
         match t.kind {
             Kind::Must if !found => return false,
             Kind::Not if found => return false,
