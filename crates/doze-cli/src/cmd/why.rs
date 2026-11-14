@@ -28,6 +28,9 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Service) -> Outcome {
         }
         None => None,
     };
+    if live.is_none() {
+        stack::known_on_disk(&stack, &a.name)?;
+    }
     let events = history(&stack, &a.name);
     let zone = crate::cmd::logs::zone(ctx);
     Ok(Done::ok(View::Why(Box::new(

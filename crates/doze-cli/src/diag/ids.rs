@@ -73,7 +73,7 @@ pub const DAEMON_UNREADABLE: Id = id("DZ0706", Exit::Failed);
 pub const INTERRUPTED: Id = id("DZ0707", Exit::Interrupted);
 /// Two flags that ask for different things.
 pub const FLAGS_DISAGREE: Id = id("DZ0104", Exit::Usage);
-/// A flag value doze cannot use (`--since 0s`).
-pub const BAD_FLAG: Id = id("DZ0105", Exit::Usage);
 /// `--run` names a run that is not kept.
 pub const NO_SUCH_RUN: Id = id("DZ0708", Exit::Failed);
+/// There is nothing for the command to act on (Go exits 1 here too).
+pub const NOTHING_TO_DO: Id = id("DZ0709", Exit::Failed);

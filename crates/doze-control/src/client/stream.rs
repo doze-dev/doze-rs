@@ -35,6 +35,12 @@ impl Pending {
         }
     }
 
+    /// Waits at most `timeout` without giving the request up: `None` when no answer came yet, so a caller can look at
+    /// something else (a Ctrl-C) between waits.
+    pub fn poll(&self, timeout: Duration) -> Option<Result<Response, Error>> {
+        block_on(self.rx.recv(), Some(Instant::now() + timeout)).map(|r| self.finish(r))
+    }
+
     /// Waits for the response from async code.
     pub async fn response(self) -> Result<Response, Error> {
         let r = self.rx.recv().await;

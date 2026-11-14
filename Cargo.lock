@@ -2490,6 +2490,7 @@ dependencies = [
  "doze-journal",
  "doze-logstore",
  "doze-module-proto",
+ "doze-module-release",
  "doze-names",
  "doze-os",
  "doze-projects",

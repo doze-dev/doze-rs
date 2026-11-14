@@ -1,0 +1,12 @@
+/Users/srini/Code/doze-dev/doze-rs-core-c1/target-audit/debug/deps/signature-4016db14f3c39e11.d: /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/lib.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/hazmat.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/encoding.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/error.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/keypair.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/signer.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/verifier.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/../README.md
+
+/Users/srini/Code/doze-dev/doze-rs-core-c1/target-audit/debug/deps/libsignature-4016db14f3c39e11.rmeta: /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/lib.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/hazmat.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/encoding.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/error.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/keypair.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/signer.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/verifier.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/../README.md
+
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/lib.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/hazmat.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/encoding.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/error.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/keypair.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/signer.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/verifier.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-3.0.0/src/../README.md:

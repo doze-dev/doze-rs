@@ -59,6 +59,17 @@ impl Stack {
     }
 }
 
+/// The names in the order given, each once: a name typed twice is acted on once.
+pub(crate) fn unique(names: &[String]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::with_capacity(names.len());
+    for n in names {
+        if !out.contains(n) {
+            out.push(n.clone());
+        }
+    }
+    out
+}
+
 /// "doze is not running", for a command that needs it to be (exit 7).
 pub(crate) fn down(what: &str) -> Diagnostic {
     Diagnostic::new(
@@ -70,6 +81,7 @@ pub(crate) fn down(what: &str) -> Diagnostic {
 
 /// What the daemon said, as a diagnostic: its words, its kind as the exit class.
 pub(crate) fn daemon_error(e: &Error, subject: Option<&str>) -> Diagnostic {
+    let what = subject.map_or_else(|| "this".to_owned(), str::to_owned);
     let words = match subject {
         Some(s) => format!("{s}: {e}"),
         None => e.to_string(),
@@ -78,7 +90,7 @@ pub(crate) fn daemon_error(e: &Error, subject: Option<&str>) -> Diagnostic {
         Some(fault::NOT_FOUND) => Diagnostic::new(ids::NO_SUCH_SERVICE, words).fix("doze status"),
         Some(fault::TIMEOUT) => Diagnostic::new(ids::TOO_SLOW, words)
             .fix("doze logs <name> says why · --timeout gives it longer"),
-        Some(fault::DAEMON_DOWN) => down("this"),
+        Some(fault::DAEMON_DOWN) => down(&what),
         Some(fault::NEEDS_CONFIRMATION) => Diagnostic::new(ids::NEEDS_YES, words).fix("-y"),
         _ => match e {
             Error::Timeout(_) => Diagnostic::new(ids::TOO_SLOW, words)
@@ -127,14 +139,38 @@ pub(crate) fn not_declared(snap: &Snapshot, name: &str) -> Diagnostic {
     }
 }
 
-/// The named ones, or with no names every one that is not turned off in doze.hcl (Go's `targetsOrAll`).
+/// The named ones, or with no names every one doze.hcl does not turn off, tasks too, in Go's order (Go's
+/// `targetsOrAll`).
 pub(crate) fn targets(snap: &Snapshot, names: &[String]) -> Result<Vec<String>, Diagnostic> {
     if names.is_empty() {
-        return Ok(declared(snap)
-            .filter(|v| !v.paused && v.kind != "task")
-            .map(|v| v.name.clone())
+        let all = crate::cmd::status::go_order(declared(snap).cloned().collect());
+        return Ok(all
+            .into_iter()
+            .filter(|v| !v.paused)
+            .map(|v| v.name)
             .collect());
     }
     check_names(snap, names)?;
     Ok(names.to_vec())
+}
+
+/// With doze stopped, whether anything on disk knows `name`: its log folder, or an event of it in the journal. Until
+/// this doze reads doze.hcl (C2) these are the only witnesses that a name is the stack's; a name neither knows exits 4,
+/// as Go's check against doze.hcl does. (A declared service that never ran is not known this way.)
+pub(crate) fn known_on_disk(stack: &Stack, name: &str) -> Result<(), Diagnostic> {
+    let logs = doze_logstore::dir_of(stack.key.dir()).join(name).is_dir();
+    if logs
+        || doze_journal::read(&stack.key.journal())
+            .unwrap_or_default()
+            .iter()
+            .any(|e| e.instance == name)
+    {
+        return Ok(());
+    }
+    Err(Diagnostic::new(
+        ids::NO_SUCH_SERVICE,
+        format!("nothing here knows a service called {name:?}"),
+    )
+    .note("doze is not running, and no log or journal of the stack names it")
+    .fix("doze status"))
 }

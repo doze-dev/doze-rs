@@ -229,6 +229,8 @@ pub(crate) struct FakeHost {
     pub browser_fails: bool,
     /// A clock that stands still (`@ now`).
     pub now: Option<SystemTime>,
+    /// What `watch_interrupt` hands out, so a test can press Ctrl-C.
+    pub interrupt: doze_os::interrupt::Interrupt,
 }
 
 impl Host for FakeHost {
@@ -254,6 +256,9 @@ impl Host for FakeHost {
     }
     fn now(&self) -> SystemTime {
         self.now.unwrap_or_else(SystemTime::now)
+    }
+    fn watch_interrupt(&self) -> doze_os::interrupt::Interrupt {
+        self.interrupt.clone()
     }
 }
 

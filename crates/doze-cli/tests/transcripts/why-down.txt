@@ -29,20 +29,25 @@ json:
 | }
 
 $ doze why db
-exit 0
-stdout:
-| db · doze is not running; from the journal:
-|   the journal has nothing about it yet
-json exit 0
+exit 4
+stderr:
+| error[DZ0702]: nothing here knows a service called "db"
+|   doze is not running, and no log or journal of the stack names it
+|   fix: doze status
+json exit 4
 json:
 | {
 |   "schema": "doze/v1",
 |   "command": "doze why",
-|   "ok": true,
-|   "data": {
-|     "name": "db",
-|     "running": false,
-|     "restarts": 0,
-|     "events": []
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "nothing here knows a service called \"db\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "doze is not running, and no log or journal of the stack names it"
+|     ],
+|     "fix": "doze status"
 |   }
 | }

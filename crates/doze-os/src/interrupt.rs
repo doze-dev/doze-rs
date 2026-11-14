@@ -1,7 +1,8 @@
 //! Ctrl-C and SIGTERM as something a blocking program can look at: [`Interrupt::watch`] takes them over (so the
 //! process is not killed by them) and from then on [`Interrupt::raised`] says whether one came. A command that follows
 //! a stream (`doze logs -f`, `doze status -w`) watches, checks between frames, and ends the way a follow ends: with
-//! its last line written and exit 0. Unix: SIGINT and SIGTERM. Windows: Ctrl-C and Ctrl-Break.
+//! its last line written and exit 0. A second signal ends the process (exit 130). Unix: SIGINT and SIGTERM. Windows:
+//! Ctrl-C and Ctrl-Break.
 
 use std::io;
 use std::sync::Arc;
@@ -11,6 +12,12 @@ use std::thread;
 /// Whether an interrupt has come since [`Interrupt::watch`].
 #[derive(Debug, Clone)]
 pub struct Interrupt(Arc<AtomicBool>);
+
+impl Default for Interrupt {
+    fn default() -> Interrupt {
+        Interrupt::never()
+    }
+}
 
 impl Interrupt {
     /// Starts watching on a thread of its own. The signals no longer end the process: the caller checks
@@ -26,8 +33,13 @@ impl Interrupt {
         thread::Builder::new()
             .name("doze-interrupt".into())
             .spawn(move || {
+                let mut waiter = waiter;
                 rt.block_on(waiter.wait());
                 theirs.store(true, Ordering::SeqCst);
+                // A second one means it: a command stuck where it cannot look at the flag (a write to a stalled pipe)
+                // still ends, as Ctrl-C twice ends anything.
+                rt.block_on(waiter.wait());
+                std::process::exit(130);
             })?;
         Ok(Interrupt(flag))
     }
@@ -64,7 +76,7 @@ impl Waiter {
         })
     }
 
-    async fn wait(mut self) {
+    async fn wait(&mut self) {
         tokio::select! {
             _ = self.int.recv() => {}
             _ = self.term.recv() => {}
@@ -87,7 +99,7 @@ impl Waiter {
         })
     }
 
-    async fn wait(mut self) {
+    async fn wait(&mut self) {
         tokio::select! {
             _ = self.c.recv() => {}
             _ = self.brk.recv() => {}

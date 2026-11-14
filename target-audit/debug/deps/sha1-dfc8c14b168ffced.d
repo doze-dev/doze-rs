@@ -1,0 +1,11 @@
+/Users/srini/Code/doze-dev/doze-rs-core-c1/target-audit/debug/deps/sha1-dfc8c14b168ffced.d: /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/lib.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/block_api.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/compress.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/consts.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/../README.md /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/compress/soft.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/compress/aarch64_sha2.rs
+
+/Users/srini/Code/doze-dev/doze-rs-core-c1/target-audit/debug/deps/libsha1-dfc8c14b168ffced.rmeta: /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/lib.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/block_api.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/compress.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/consts.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/../README.md /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/compress/soft.rs /Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/compress/aarch64_sha2.rs
+
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/lib.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/block_api.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/compress.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/consts.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/../README.md:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/compress/soft.rs:
+/Users/srini/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha1-0.11.0/src/compress/aarch64_sha2.rs:

@@ -2,6 +2,7 @@
 //! verb's answer does not say, its `ready` event does. Best effort: a daemon that cannot be subscribed to yields no
 //! durations, and a line without one is still right.
 
+use crate::stack::Stack;
 use doze_control::types::journal::kind;
 use doze_control::{Connection, Stream, StreamEvent, Subscription, Topic};
 use std::collections::HashMap;
@@ -12,17 +13,21 @@ const GRACE: Duration = Duration::from_millis(150);
 /// A verb that answered faster than this started nothing, so there is no event to wait for.
 const INSTANT: Duration = Duration::from_millis(5);
 
-/// The journal, followed from now on.
+/// The journal, followed from now on, on its own connection: the reader of a connection hands each stream its frames
+/// in turn, so a journal nobody drains while a long verb runs must not share the verb's connection.
 pub(crate) struct Ready {
+    _conn: Option<Connection>,
     stream: Option<Stream>,
     took: HashMap<String, Duration>,
 }
 
 impl Ready {
-    pub(crate) fn watch(conn: &Connection) -> Ready {
+    pub(crate) fn watch(stack: &Stack) -> Ready {
         let sub = Subscription::to(&[Topic::Journal]);
+        let conn = stack.read().ok().flatten();
         Ready {
-            stream: conn.subscribe(&sub).ok(),
+            stream: conn.as_ref().and_then(|c| c.subscribe(&sub).ok()),
+            _conn: conn,
             took: HashMap::new(),
         }
     }

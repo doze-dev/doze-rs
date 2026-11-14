@@ -19,11 +19,8 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Logs) -> Outcome {
     let stack = Stack::find(ctx, mode)?;
     let conn = stack.read()?;
     let names = names(&stack, conn.as_ref(), &a.names)?;
+    // `--since` is positive by its parser (`values::duration`).
     let since = match a.since {
-        Some(d) if d.is_zero() => {
-            return Err(Diagnostic::new(ids::BAD_FLAG, "--since 0 keeps nothing")
-                .fix("--since 10m (how far back)"));
-        }
         Some(d) => Some(ctx.now.checked_sub(d).unwrap_or(SystemTime::UNIX_EPOCH)),
         None => None,
     };
@@ -104,7 +101,12 @@ fn names(
             all.sort();
             Ok(all)
         }
-        None => Ok(asked.to_vec()),
+        None => {
+            for n in asked {
+                stack::known_on_disk(stack, n)?;
+            }
+            Ok(asked.to_vec())
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 //! One file per command that is built; the rest answer from [`stub`]. Dispatch is one exhaustive match, so a command
 //! added to the surface cannot go unanswered.
 
+mod ask;
 pub(crate) mod docs;
 mod docs_view;
 pub(crate) mod doctor;
