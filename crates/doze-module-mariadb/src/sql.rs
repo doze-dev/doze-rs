@@ -173,12 +173,13 @@ mod tests {
     #[test]
     fn listening_on_tcp_keeps_the_socket_in_the_instance() {
         let a = listen_args(&Address::Tcp("127.0.0.1:3307".into()), "/s/app").unwrap();
+        let sock = Path::new("/s/app").join("mysqld.sock");
         assert_eq!(
             a,
             [
-                "--socket=/s/app/mysqld.sock",
-                "--port=3307",
-                "--bind-address=127.0.0.1"
+                format!("--socket={}", sock.to_string_lossy()),
+                "--port=3307".into(),
+                "--bind-address=127.0.0.1".into()
             ]
         );
         let c = client_args(&Address::Tcp("127.0.0.1:3307".into())).unwrap();
