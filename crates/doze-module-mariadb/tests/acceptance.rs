@@ -99,16 +99,21 @@ async fn the_declared_user_logs_in_with_its_password_and_works_in_its_database()
 #[tokio::test(flavor = "current_thread")]
 async fn converge_keeps_the_declared_state_and_prune_takes_the_rest() {
     let Some(h) = harness() else { return };
-    let first = "mariadb \"shop\" {\n  version = \"11.4\"\n  user \"app\" {\n    password = \"one\"\n  }\n  user \"old\" {}\n  grant {\n    user       = \"app\"\n    privileges = [\"SELECT\", \"INSERT\"]\n    database   = \"shop\"\n  }\n}\n";
+    let first = "mariadb \"shop\" {\n  version = \"11.4\"\n  user \"app\" {\n    password = \"one\"\n  }\n  user \"old\" {}\n  grant {\n    user       = \"app\"\n    privileges = [\"SELECT\", \"INSERT\", \"GRANT OPTION\"]\n    database   = \"shop\"\n  }\n  grant {\n    user       = \"app\"\n    privileges = [\"SELECT\"]\n    database   = \"archive\"\n  }\n}\n";
     let b = h.boot(first).await.unwrap();
     let before = b.module.objects(&b.instance).await.unwrap();
-    sql(
-        &b,
-        "app",
-        Some("one"),
-        "CREATE TABLE IF NOT EXISTS shop.x (i INT)",
-    )
-    .unwrap_err();
+    // The first declaration holds: app logs in with "one", may insert but not create.
+    assert_eq!(
+        sql(&b, "app", Some("one"), "SELECT CURRENT_USER()").unwrap(),
+        "app@%"
+    );
+    let create = sql(&b, "app", Some("one"), "CREATE TABLE shop.x (i INT)").unwrap_err();
+    assert!(create.contains("denied"), "{create}");
+    let first_grants = sql(&b, "root", None, "SHOW GRANTS FOR 'app'@'%'").unwrap();
+    assert!(
+        first_grants.contains("WITH GRANT OPTION") && first_grants.contains("`archive`"),
+        "{first_grants}"
+    );
     // Now: app has no password and only SELECT; `old` is gone from doze.hcl.
     let second = "mariadb \"shop\" {\n  version = \"11.4\"\n  user \"app\" {}\n  grant {\n    user       = \"app\"\n    privileges = [\"SELECT\"]\n    database   = \"shop\"\n  }\n}\n";
     let parsed = doze_module_test::hcl::parse_block(second, &b.module.manifest.schema).unwrap();
@@ -126,7 +131,7 @@ async fn converge_keeps_the_declared_state_and_prune_takes_the_rest() {
         .collect();
     assert_eq!(
         removed.iter().map(|o| o.name.as_str()).collect::<Vec<_>>(),
-        ["old@%"]
+        ["old@%", "app@% on `archive`.*"]
     );
     b.module
         .prune(&PruneArgs {
@@ -144,6 +149,9 @@ async fn converge_keeps_the_declared_state_and_prune_takes_the_rest() {
     let grants = sql(&b, "root", None, "SHOW GRANTS FOR 'app'@'%'").unwrap();
     assert!(grants.contains("GRANT SELECT ON `shop`.*"), "{grants}");
     assert!(!grants.contains("INSERT"), "{grants}");
+    // GRANT OPTION dropped from the list is gone too (REVOKE ALL alone keeps it), and the removed grant is revoked.
+    assert!(!grants.contains("GRANT OPTION"), "{grants}");
+    assert!(!grants.contains("`archive`"), "{grants}");
     let old = sql(
         &b,
         "root",

@@ -2,6 +2,7 @@
 //! differ only by the module's listed improvements:
 //! - a character set or collation that is not a MariaDB name is refused at its line (Go put it into SQL, and MariaDB
 //!   refused it at converge): the corpus's `value-0` and `value-1`;
+//! - the readiness ping reads no option file of the machine's (`--no-defaults`);
 //! - each grant is an object of its own, so one removed from doze.hcl is revoked (Go tracked databases and users only).
 #![allow(
     clippy::unwrap_used,
@@ -87,6 +88,12 @@ async fn answers_as_the_go_module_did_except_for_the_listed_improvements() {
             d.id
         );
         let mut want = d.go.clone();
+        // The readiness ping reads no option file of the machine's.
+        let ready = want["plan"][0]["ready"]
+            .as_str()
+            .unwrap()
+            .replace("mariadb-admin ", "mariadb-admin --no-defaults ");
+        want["plan"][0]["ready"] = json!(ready);
         want["objects"].as_array_mut().unwrap().extend(grants(&hcl));
         assert_eq!(
             want, d.rust,

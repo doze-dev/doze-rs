@@ -3,19 +3,22 @@
 //! MariaDB greets first, so the core's generic accept, boot, splice path serves it with no wire filter.
 //!
 //! Better than the Go module, each proven on the engine (`tests/acceptance.rs`):
-//! - a declared user can log in with its password: the install leaves no anonymous account, which in Go shadowed
-//!   every `'user'@'%'` reached through the socket (module bug 8, never tested in Go);
 //! - privileges, database, table and character set names are checked before boot, at their line, against MariaDB's
 //!   own lists (Go interpolated them into SQL unvalidated: bug 8); a setting doze owns is refused at its line instead
 //!   of silently dropped;
-//! - converge keeps the declared state: a grant removed from doze.hcl is revoked, a password removed is cleared
-//!   (Go only ever added);
+//! - converge keeps the declared state: it grants first and then revokes what is no longer declared (GRANT OPTION
+//!   included), so a refused GRANT never takes privileges away; a grant removed from doze.hcl is revoked; a password
+//!   removed is cleared; a changed character set is applied to the existing database (Go only ever added);
+//! - privileges MariaDB refuses on the grant's level, `ALL PRIVILEGES` mixed with others, two grants on one target,
+//!   and settings that would break my.cnf are refused at their line;
+//! - the readiness ping and every client the module runs read no option file of the machine's (`--no-defaults`);
 //! - the server listens where the host grants (D13): its socket on Unix, loopback TCP where the host asks;
 //! - `doze connect` opens the engine's own `mariadb` client, the password in its environment, never on its command
 //!   line; `doze init` recognises a MySQL or MariaDB project from its packages, images and variables.
 
 mod check;
 mod converge;
+mod grants;
 mod sql;
 
 use doze_module::proto::msg::error::Diagnostic;
@@ -177,8 +180,11 @@ impl Module for Mariadb {
     async fn plan(&self, cx: &Cx<MariadbSpec>, tc: &Toolchain) -> Result<Plan> {
         let data = Path::new(&cx.instance.data_dir);
         let pid = data.join("mariadbd.pid");
-        help::clear_stale(&pid)?;
+        stale_pid(&pid, &cx.instance.name)?;
         let backend = help::prepare_backend(&cx.instance, SOCKET)?;
+        // On TCP the server still makes its socket, in the instance's folder: the folder must be there.
+        let sockets = Path::new(&cx.instance.socket_dir);
+        doze_os::fs::private_dir(sockets).map_err(help::io_error("creating", sockets))?;
         let path = |p: &Path| p.to_string_lossy().into_owned();
         let mut args = vec![
             // First: mariadbd then reads only doze's my.cnf, never the machine's.
@@ -190,7 +196,8 @@ impl Module for Mariadb {
         if let Address::Unix(_) = backend {
             args.push("--skip-networking".into());
         }
-        let mut ready = vec![path(&tool(tc, "mariadb-admin"))];
+        // --no-defaults: the machine's ~/.my.cnf must not send the ping to another server.
+        let mut ready = vec![path(&tool(tc, "mariadb-admin")), "--no-defaults".into()];
         ready.extend(sql::client_args(&backend)?);
         ready.extend(["--user=root".into(), "ping".into()]);
         Ok(Plan {
@@ -209,13 +216,29 @@ impl Module for Mariadb {
     }
 }
 
+/// A pid file left by a server: refused while its process lives (Go's `ClearStaleLock`: a second server would wait on
+/// InnoDB's lock and fail, and the first could no longer be reached), removed when it is gone.
+fn stale_pid(pid: &Path, name: &str) -> Result<()> {
+    let live = std::fs::read_to_string(pid)
+        .ok()
+        .and_then(|t| t.trim().parse::<u32>().ok())
+        .filter(|p| doze_os::process::alive(*p));
+    if let Some(p) = live {
+        return Err(doze_module::proto::msg::error::Error::new(
+            doze_module::proto::msg::error::ErrorKind::Unavailable,
+            format!("instance {name:?} appears to be running already (pid {p})"),
+        ));
+    }
+    help::clear_stale(pid)
+}
+
 /// One of the engine's programs in its toolchain.
 fn tool(tc: &Toolchain, name: &str) -> std::path::PathBuf {
     Path::new(&tc.bin_dir).join(format!("{name}{}", std::env::consts::EXE_SUFFIX))
 }
 
-/// The engine's own `mariadb` client through doze's address (so it wakes the instance), as root, into the instance
-/// database; a password goes in the client's own variable, never on its command line.
+/// The engine's own `mariadb` client through doze's address (so it wakes the instance), as root, with no
+/// database chosen (`USE app` picks one); a password goes in the client's own variable, never on its command line.
 fn client() -> ClientCommand {
     ClientCommand {
         program: "mariadb".into(),
@@ -242,13 +265,9 @@ fn detect() -> Detect {
             ("pypi".into(), list(&["mysqlclient", "pymysql", "mariadb"])),
         ]),
         images: list(&["mariadb", "mysql"]),
-        env: [
-            ("MYSQL_URL", "url"),
-            ("MARIADB_URL", "url"),
-            ("MYSQL_HOST", "address"),
-        ]
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .into(),
+        env: [("MYSQL_URL", "url"), ("MARIADB_URL", "url")]
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .into(),
     }
 }
 

@@ -125,14 +125,12 @@ pub(crate) fn grant(g: &Grant) -> String {
     )
 }
 
-/// Every privilege the account has on the grant's target taken back, so the GRANT after it leaves exactly what is
-/// declared (a privilege dropped from the list is revoked; Go only ever added).
-pub(crate) fn revoke_all(g: &Grant) -> String {
-    format!(
-        "REVOKE ALL PRIVILEGES ON {} FROM {}",
-        target(every(&g.database), every(&g.table)),
-        account(&g.user, host(&g.host))
-    )
+/// The instance database's character set and collation made what is declared, for a database that already exists
+/// (`CREATE … IF NOT EXISTS` leaves an old one as it was).
+pub(crate) fn alter_database(name: &str, s: &MariadbSpec) -> Option<String> {
+    let create = create_database(name, s);
+    let rest = create.split_once(&ident(name))?.1;
+    (!rest.is_empty()).then(|| format!("ALTER DATABASE {}{rest}", ident(name)))
 }
 
 fn privileges(p: &[String]) -> String {

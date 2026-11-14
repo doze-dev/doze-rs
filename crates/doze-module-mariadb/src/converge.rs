@@ -2,13 +2,14 @@
 //! grants made or changed by `converge`, and taken away by `prune` when they leave doze.hcl. Every statement runs as
 //! root over the server's own socket (root has no password there: the install's normal auth, local trust).
 
+use crate::grants;
 use crate::sql::{self, account, ident};
 use crate::{Mariadb, MariadbSpec, every, host, tool};
 use doze_module::caps::{Converge, Objects, Prune, Template};
 use doze_module::proto::msg::error::{Error, ErrorKind};
 use doze_module::proto::msg::instance::{Address, Instance, Object, Toolchain};
 use doze_module::{Cx, Result, help};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 const DATABASE: &str = "database";
 const USER: &str = "user";
@@ -37,52 +38,34 @@ pub(crate) async fn install_db(tc: &Toolchain, data: &Path) -> Result<()> {
     .map(drop)
 }
 
-/// The server's socket: the granted one, or the one doze keeps in the instance's folder when it listens on TCP.
-fn socket(inst: &Instance) -> PathBuf {
+/// How root reaches the server: over its socket, or over TCP where the host granted TCP (the install makes
+/// `root@127.0.0.1` and `root@::1` with no password, as `root@localhost`).
+fn reach(inst: &Instance) -> Result<Vec<String>> {
     match inst.listeners.get("main").map(|l| &l.backend) {
-        Some(Address::Unix(p)) => PathBuf::from(p),
-        _ => Path::new(&inst.socket_dir).join(crate::SOCKET),
+        Some(b @ Address::Tcp(_)) => sql::client_args(b),
+        Some(Address::Unix(p)) => Ok(vec![format!("--socket={p}")]),
+        None => Ok(vec![format!(
+            "--socket={}",
+            Path::new(&inst.socket_dir)
+                .join(crate::SOCKET)
+                .to_string_lossy()
+        )]),
     }
 }
 
-/// Runs `statements` in one client session as root, stopping at the first that fails.
-async fn exec(tc: &Toolchain, inst: &Instance, statements: &[String]) -> Result<String> {
-    let sock = format!("--socket={}", socket(inst).to_string_lossy());
-    let script = statements.join(";\n");
-    help::run_tool(
-        &tool(tc, "mariadb"),
-        &[
-            "--no-defaults",
-            &sock,
-            "--user=root",
-            "--batch",
-            "--skip-column-names",
-            "-e",
-            &script,
-        ],
-    )
-    .await
-}
-
-/// Drops the anonymous accounts the install made. MariaDB matches `''@'localhost'` before `'app'@'%'` for a client on the
-/// socket, so with one a declared user could never log in with its password (module bug 8, unseen in Go because its
-/// test never logged in). Their hosts are read, not guessed (one is the machine's name).
-async fn anonymous(tc: &Toolchain, inst: &Instance) -> Result<()> {
-    let hosts = exec(
-        tc,
-        inst,
-        &["SELECT Host FROM mysql.user WHERE User = ''".into()],
-    )
-    .await?;
-    let drops: Vec<String> = hosts
-        .lines()
-        .filter(|h| !h.is_empty())
-        .map(|h| format!("DROP USER IF EXISTS {}", account("", h)))
-        .collect();
-    if drops.is_empty() {
-        return Ok(());
-    }
-    exec(tc, inst, &drops).await.map(drop)
+/// Runs `statements` in one client session as root, stopping at the first that fails. The session first drops
+/// `NO_BACKSLASH_ESCAPES` from its sql_mode, so the quoting in [`sql::lit`] means what it says whatever the person set.
+pub(crate) async fn exec(tc: &Toolchain, inst: &Instance, statements: &[String]) -> Result<String> {
+    let mut script =
+        vec!["SET SESSION sql_mode = REPLACE(@@sql_mode, 'NO_BACKSLASH_ESCAPES', '')".to_string()];
+    script.extend(statements.iter().cloned());
+    let script = script.join(";\n");
+    let mut args = vec!["--no-defaults".to_string()];
+    args.extend(reach(inst)?);
+    args.extend(["--user=root", "--batch", "--skip-column-names", "-e"].map(String::from));
+    args.push(script);
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    help::run_tool(&tool(tc, "mariadb"), &args).await
 }
 
 fn grant_name(g: &crate::Grant) -> String {
@@ -97,19 +80,20 @@ fn grant_name(g: &crate::Grant) -> String {
 impl Converge for Mariadb {
     async fn converge(&self, cx: &Cx<MariadbSpec>, tc: &Toolchain) -> Result<()> {
         let s = &cx.spec;
-        anonymous(tc, &cx.instance).await?;
         let mut q = vec![sql::create_database(&cx.instance.name, s)];
+        q.extend(sql::alter_database(&cx.instance.name, s));
         for u in &s.user {
             q.extend(sql::user(u));
         }
         exec(tc, &cx.instance, &q).await?;
         for g in &s.grant {
-            // Revoke then grant, so a privilege dropped from the list goes; "no such grant" is a first converge.
-            match exec(tc, &cx.instance, &[sql::revoke_all(g)]).await {
-                Err(e) if !e.to_string().contains("no such grant") => return Err(e),
-                _ => {}
-            }
+            // Grant first, then take back only what is no longer declared: a refused GRANT takes nothing away.
             exec(tc, &cx.instance, &[sql::grant(g)]).await?;
+            let now = exec(tc, &cx.instance, &[grants::current(g)]).await?;
+            let revokes = grants::revokes(g, &now);
+            if !revokes.is_empty() {
+                exec(tc, &cx.instance, &revokes).await?;
+            }
         }
         Ok(())
     }
@@ -159,7 +143,7 @@ fn split_account(s: &str) -> Option<(&str, &str)> {
 /// A grant's target as [`sql::target`] wrote it: `*.*`, `` `db`.* `` or `` `db`.`table` ``, backquotes doubled inside.
 /// Anything else is refused: an object's name comes back from the core's records, and only what this module made may
 /// reach SQL.
-fn target_ok(t: &str) -> bool {
+pub(crate) fn target_ok(t: &str) -> bool {
     fn quoted(s: &str) -> Option<&str> {
         let inner = s.strip_prefix('`')?;
         let mut chars = inner.char_indices().peekable();
@@ -183,17 +167,21 @@ fn target_ok(t: &str) -> bool {
     rest == "*" || quoted(rest) == Some("")
 }
 
-/// The statement that takes a removed object away; `None` for a name this module could not have made.
-fn drop_statement(o: &Object) -> Option<String> {
+/// The statements that take a removed object away, each run on its own; `None` for a name this module could not have
+/// made (prune then fails rather than leave it behind unsaid).
+fn drop_statements(o: &Object) -> Option<Vec<String>> {
     match o.kind.as_str() {
-        DATABASE => Some(format!("DROP DATABASE IF EXISTS {}", ident(&o.name))),
-        USER => {
-            split_account(&o.name).map(|(n, h)| format!("DROP USER IF EXISTS {}", account(n, h)))
-        }
+        DATABASE => Some(vec![format!("DROP DATABASE IF EXISTS {}", ident(&o.name))]),
+        USER => split_account(&o.name)
+            .map(|(n, h)| vec![format!("DROP USER IF EXISTS {}", account(n, h))]),
         GRANT => {
-            let (who, on) = o.name.rsplit_once(" on ")?;
-            let (n, h) = split_account(who)?;
-            target_ok(on).then(|| format!("REVOKE ALL PRIVILEGES ON {on} FROM {}", account(n, h)))
+            let (n, h, on) = grants::parse_name(&o.name, target_ok)?;
+            let who = account(n, h);
+            // REVOKE ALL leaves GRANT OPTION behind; it is taken on its own.
+            Some(vec![
+                format!("REVOKE ALL PRIVILEGES ON {on} FROM {who}"),
+                format!("REVOKE GRANT OPTION ON {on} FROM {who}"),
+            ])
         }
         _ => None,
     }
@@ -209,17 +197,22 @@ impl Prune for Mariadb {
         };
         let mut objs: Vec<&Object> = removed.iter().collect();
         objs.sort_by_key(|o| rank(&o.kind));
+        let failed = |o: &Object, why: String| {
+            Error::new(
+                ErrorKind::Unavailable,
+                format!("dropping {} {:?}: {why}", o.kind, o.name),
+            )
+        };
         for o in objs {
-            let Some(q) = drop_statement(o) else { continue };
-            match exec(tc, &cx.instance, &[q]).await {
-                Ok(_) => {}
-                // A grant already gone (its user dropped by hand, say) is what prune wanted.
-                Err(e) if o.kind == GRANT && e.to_string().contains("no such grant") => {}
-                Err(e) => {
-                    return Err(Error::new(
-                        ErrorKind::Unavailable,
-                        format!("dropping {} {:?}: {e}", o.kind, o.name),
-                    ));
+            let Some(qs) = drop_statements(o) else {
+                return Err(failed(o, "not a name this module makes".into()));
+            };
+            for q in qs {
+                match exec(tc, &cx.instance, &[q]).await {
+                    Ok(_) => {}
+                    // A grant already gone (its user dropped by hand, say) is what prune wanted.
+                    Err(e) if o.kind == GRANT && grants::no_such_grant(&e.to_string()) => {}
+                    Err(e) => return Err(failed(o, e.to_string())),
                 }
             }
         }
@@ -228,16 +221,27 @@ impl Prune for Mariadb {
 }
 
 impl Template for Mariadb {
-    /// The system tables made once, into a folder beside the template that is renamed into place, so a reader never
-    /// sees a half-made template.
+    /// The system tables made once, in a folder of its own beside the template that is renamed into place, so a reader
+    /// never sees a half-made template; a failed install leaves nothing behind, and losing the race to another maker
+    /// is fine.
     async fn ensure_template(&self, tc: &Toolchain, dir: &Path) -> Result<()> {
         if provisioned(dir) {
             return Ok(());
         }
-        let staging = dir.with_extension(format!("making-{}", std::process::id()));
+        let parent = dir.parent().unwrap_or(Path::new("."));
+        doze_os::fs::private_dir(parent).map_err(help::io_error("creating", parent))?;
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos());
+        let staging = parent.join(format!("_tmpl-{}-{nonce}", std::process::id()));
+        let made = install_db(tc, &staging).await;
+        let placed = made
+            .and_then(|()| std::fs::rename(&staging, dir).map_err(help::io_error("placing", dir)));
         let _ = std::fs::remove_dir_all(&staging);
-        install_db(tc, &staging).await?;
-        std::fs::rename(&staging, dir).map_err(help::io_error("placing", dir))
+        match placed {
+            Err(_) if provisioned(dir) => Ok(()),
+            other => other,
+        }
     }
 }
 
@@ -256,17 +260,21 @@ mod tests {
     #[test]
     fn removed_objects_become_their_statements() {
         assert_eq!(
-            drop_statement(&o(USER, "a@b@%")).as_deref(),
-            Some("DROP USER IF EXISTS 'a@b'@'%'")
+            drop_statements(&o(USER, "a@b@%")),
+            Some(vec!["DROP USER IF EXISTS 'a@b'@'%'".to_string()])
         );
         assert_eq!(
-            drop_statement(&o(GRANT, "app@% on `app`.`t``x`")).as_deref(),
-            Some("REVOKE ALL PRIVILEGES ON `app`.`t``x` FROM 'app'@'%'")
+            drop_statements(&o(GRANT, "app@% on `app`.`t``x`")),
+            Some(vec![
+                "REVOKE ALL PRIVILEGES ON `app`.`t``x` FROM 'app'@'%'".to_string(),
+                "REVOKE GRANT OPTION ON `app`.`t``x` FROM 'app'@'%'".to_string()
+            ])
         );
         assert_eq!(
-            drop_statement(&o(DATABASE, "a`b")).as_deref(),
-            Some("DROP DATABASE IF EXISTS `a``b`")
+            drop_statements(&o(DATABASE, "a`b")),
+            Some(vec!["DROP DATABASE IF EXISTS `a``b`".to_string()])
         );
+        assert_eq!(drop_statements(&o(GRANT, "app@% on app.*; DROP x")), None);
     }
 
     #[test]
