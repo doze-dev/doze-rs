@@ -12,7 +12,7 @@ use crate::pool::{LOOPBACK, VIRTUAL};
 use crate::{Error, Name, Tier};
 use std::process::{Child, Command, Stdio};
 
-pub(super) fn home() -> PathBuf {
+pub(crate) fn home() -> PathBuf {
     static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     let i = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let d = std::env::temp_dir().join(format!("doze-names-{}-{i}", std::process::id()));

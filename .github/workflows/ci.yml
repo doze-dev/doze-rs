@@ -48,6 +48,8 @@ jobs:
       # index, every test name it quotes a real `fn` (tools/check-security-catalogue.ts; bun is the only extra tool).
       - uses: oven-sh/setup-bun@v2
       - run: bun tools/check-security-catalogue.ts
+      # The same checks of the schema registry's catalogue (docs/port/behaviours/registry.md, REG-n).
+      - run: bun tools/check-registry-catalogue.ts
       # The Phase 9 catalogue (docs/port/behaviours/console.md): each CON number defined once, none referenced without a
       # definition, every test name it quotes a real `fn`; the lean tree has no HTTP and the default tree has the console
       # (decision D1: `default = []` would take the console out and the size limits, being upper bounds, would not notice).
@@ -76,6 +78,8 @@ jobs:
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
       - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names --all-targets -- -D warnings
       - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names --no-fail-fast -- --nocapture
+      - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
+        run: cargo clippy -p doze-names --features netd --all-targets -- -D warnings && cargo test -p doze-names --features netd --no-fail-fast
 
   # Module acceptance (docs/port/modules/PLAN.md D12): each module boots the engine build doze-binaries publishes, on
   # every target the module declares. DOZE_ACCEPTANCE turns a missing build into a failure, so a skip cannot pass for a
@@ -223,9 +227,11 @@ jobs:
           # 2026-11-14 (owner decision): the size limit is CI's measurement on main that day, exact; idle is the median of three starts
           # (10,104 KB) plus 5%, 10,610 KB
           # (weight.md, "Limits raised to the measured values").
-          [ "$size" -le 9279000 ] || { echo "tls binary over 9,279,000 B"; exit 1; }
-          # 158 for the default build in the Linux VM, plus the 11 lines the feature adds, plus 4.
-          [ "$crates" -le 173 ] || { echo "more than 173 packages with tls"; exit 1; }
+          # 2026-11-14 (owner decision: "Raise the ceiling" for the TLS build, which the module face and the schema registry took over
+          # 10 MB): 7,586,144 B on darwin with both, times CI's measured 1.36, is 10,317,156 B on ubuntu x86_64; the limit is that plus 5%
+          # until the next CI run on main measures it. Packages: 183 locally, plus CI's usual 3 more lines.
+          [ "$size" -le 10833014 ] || { echo "tls binary over 10,833,014 B"; exit 1; }
+          [ "$crates" -le 186 ] || { echo "more than 186 packages with tls"; exit 1; }
           [ "$rss" -le 10610 ] || { echo "idle resident memory over 10,610 KB with tls"; exit 1; }
 
   # The React console (web/, docs/port/console/react-plan.md): its built bundle is committed in crates/kafka-console/web-dist
@@ -306,6 +312,13 @@ jobs:
         run: |
           mkdir -p corpus/acl_filter
           cargo fuzz run acl_filter corpus/acl_filter seeds/acl_filter -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the schema registry (ordered JSON, Avro schemas, the REST API, the wire header) for 30 seconds each
+        working-directory: crates/kafka-registry/fuzz
+        run: |
+          for t in json_node avro_schema registry_api wire; do
+            mkdir -p "corpus/$t"
+            cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=65536
+          done
       - name: Fuzz the allowed-hosts guard for 30 seconds
         working-directory: crates/kafka-auth/fuzz
         run: |
