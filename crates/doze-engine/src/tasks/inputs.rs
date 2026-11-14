@@ -17,27 +17,63 @@ const SKIPPED: [&str; 3] = [".git", "node_modules", ".doze"];
 pub fn matches(pattern: &str, name: &str) -> bool {
     let pat: Vec<&str> = pattern.split('/').collect();
     let name: Vec<&str> = name.split('/').collect();
-    match_segs(&pat, &name)
+    let memo = vec![None; (pat.len() + 1) * (name.len() + 1)];
+    Segs {
+        pat: &pat,
+        name: &name,
+        memo,
+    }
+    .at(0, 0)
 }
 
-fn match_segs(pat: &[&str], name: &[&str]) -> bool {
-    let Some((first, rest)) = pat.split_first() else {
-        return name.is_empty();
-    };
-    if *first == "**" {
-        // A run of `**` is one.
-        let rest: Vec<&str> = rest.iter().copied().skip_while(|s| *s == "**").collect();
-        if rest.is_empty() {
-            return true;
+/// Segment matching, each (pattern segment, name segment) pair decided once: a pattern of many `**` against a deep
+/// path would otherwise try every split at every `**` (exponential; the fuzzer's timeout found it).
+struct Segs<'a> {
+    pat: &'a [&'a str],
+    name: &'a [&'a str],
+    memo: Vec<Option<bool>>,
+}
+
+impl Segs<'_> {
+    fn at(&mut self, pi: usize, ni: usize) -> bool {
+        let key = pi * (self.name.len() + 1) + ni;
+        if let Some(Some(v)) = self.memo.get(key) {
+            return *v;
         }
-        return (0..=name.len()).any(|i| match_segs(&rest, name.get(i..).unwrap_or_default()));
+        let v = self.decide(pi, ni);
+        if let Some(slot) = self.memo.get_mut(key) {
+            *slot = Some(v);
+        }
+        v
     }
-    let Some((seg, name_rest)) = name.split_first() else {
-        return false;
-    };
-    let p: Vec<char> = first.chars().collect();
-    let s: Vec<char> = seg.chars().collect();
-    segment(&p, &s) && match_segs(rest, name_rest)
+
+    fn decide(&mut self, pi: usize, ni: usize) -> bool {
+        let Some(first) = self.pat.get(pi) else {
+            return ni >= self.name.len();
+        };
+        if *first == "**" {
+            // A run of `**` is one.
+            let mut next = pi + 1;
+            while self.pat.get(next) == Some(&"**") {
+                next += 1;
+            }
+            if next >= self.pat.len() {
+                return true;
+            }
+            for i in ni..=self.name.len() {
+                if self.at(next, i) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        let Some(seg) = self.name.get(ni) else {
+            return false;
+        };
+        let p: Vec<char> = first.chars().collect();
+        let s: Vec<char> = seg.chars().collect();
+        segment(&p, &s) && self.at(pi + 1, ni + 1)
+    }
 }
 
 /// Go's `path.Match` within one segment, by its chunk algorithm: each run of stars is followed by a chunk of literal
@@ -210,8 +246,10 @@ fn found(dir: &Path, patterns: &[String]) -> BTreeMap<Vec<u8>, PathBuf> {
         };
         let pat = pat.strip_prefix("./").unwrap_or(&pat);
         let base = root(pat);
-        // Go's `filepath.Join`: a pattern is always under the folder, a leading `/` included (E2 audit 4).
-        let start = dir.join(base.trim_start_matches('/'));
+        // Go's `filepath.Join`: a pattern is always under the folder, a leading `/` included (E2 audit 4), and on
+        // Windows a drive letter too (`C:/x` is a name under the folder, not another drive): appended, never joined,
+        // since a joined absolute path would replace the folder.
+        let start = under(dir, base.trim_start_matches('/'));
         let Ok(meta) = std::fs::metadata(&start) else {
             continue; // nothing there yet: nothing matches
         };
@@ -226,6 +264,17 @@ fn found(dir: &Path, patterns: &[String]) -> BTreeMap<Vec<u8>, PathBuf> {
         walk(&start, base.as_bytes(), pat, &mut found);
     }
     found
+}
+
+/// `rel` (slash-separated) under `dir`, whatever it looks like.
+fn under(dir: &Path, rel: &str) -> PathBuf {
+    if rel.is_empty() {
+        return dir.to_path_buf();
+    }
+    let mut s = dir.as_os_str().to_owned();
+    s.push(std::path::MAIN_SEPARATOR_STR);
+    s.push(rel);
+    PathBuf::from(s)
 }
 
 fn walk(at: &Path, rel: &[u8], pat: &str, found: &mut BTreeMap<Vec<u8>, PathBuf>) {

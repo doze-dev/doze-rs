@@ -89,7 +89,23 @@ fn spec(channels: &[&str], calls: &Path) -> Node {
 
 fn engine(dir: &Path, pool: &Arc<Pool>, spec: Node) -> Engine {
     // The module is handed a stale pin for the same build: the lock's hash must be what the download checks.
-    let base = instance("2", spec, "");
+    let mut base = instance("2", spec, "");
+    // Windows has no Unix sockets: there the host grants a loopback port (PLAN.md D13).
+    if windows() {
+        let port = std::net::TcpListener::bind(("127.0.0.1", 0))
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let addr = format!("127.0.0.1:{port}");
+        let granted = doze_module_proto::msg::instance::Granted {
+            addr: addr.clone(),
+            url: String::new(),
+            hosts: vec![],
+            backend: doze_module_proto::msg::instance::Address::Tcp(addr),
+        };
+        base.listeners.insert("main".into(), granted);
+    }
     let m = ModuleInstance::new(pool.clone(), base, vec![pin("sha256:module")], "t1", true);
     Engine::builder("t", dir)
         .service(Service::planned("e", Arc::new(m)))
@@ -115,7 +131,10 @@ async fn the_engine_runs_a_module_instance_and_the_lock_pin_wins() {
     let pool = Arc::new(Pool::new(services, locate, Duration::from_secs(60)));
     let e = engine(&dir, &pool, spec(&["a", "b"], &calls));
     let ep = e.wake("e", Cause::Command).await.unwrap();
-    assert!(ep.backend.starts_with("unix:"), "{ep:?}");
+    assert!(
+        ep.backend.starts_with("unix:") != windows(),
+        "a socket where there are sockets: {ep:?}"
+    );
     assert_eq!(
         fetch.expected.lock().unwrap().clone(),
         [Some("sha256:lock".to_string())]
@@ -170,6 +189,10 @@ fn a_pin_is_for_one_build_on_one_target() {
     assert_eq!(p.pinned("echo", "2.4.1", "t3"), None);
     assert_eq!(p.pinned("echo", "2.5.0", "t1"), None);
     assert_eq!(p.pinned("other", "2.4.1", "t1"), None);
+}
+
+fn windows() -> bool {
+    std::env::consts::OS == "windows"
 }
 
 fn tempfile_dir() -> PathBuf {
