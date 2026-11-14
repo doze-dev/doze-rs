@@ -60,6 +60,22 @@ impl Registry {
         })
     }
 
+    /// Drops the holder record under `key` if it is still the one this handle wrote with [`Registry::claim_holder`]:
+    /// this pid, this owner, this address. A pid alone does not say whose record it is when two peers share a process
+    /// (the tests run doze-kafka and doze-aws in one; an app that hosts more than one program would too): matched by
+    /// pid only, a holder letting go could erase the record its successor had just written.
+    pub(crate) fn release_holder(&self, key: &str, addr: &str) -> Result<(), Error> {
+        let pid = i64::from(self.pid);
+        self.update(|m| {
+            if m.get(key)
+                .is_some_and(|e| e.pid == pid && e.owner == self.owner && e.target == addr)
+            {
+                m.remove(key);
+            }
+            Ok(())
+        })
+    }
+
     fn holder(&self, key: &str) -> Option<Entry> {
         self.snapshot().remove(key)
     }
