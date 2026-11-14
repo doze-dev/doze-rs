@@ -2,8 +2,12 @@
 
 use std::ffi::OsStr;
 use std::io::{self, Write};
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
+
+pub(super) fn file_id(meta: &std::fs::Metadata) -> u64 {
+    meta.ino()
+}
 
 pub(super) fn make_private(path: &Path) -> io::Result<()> {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))
