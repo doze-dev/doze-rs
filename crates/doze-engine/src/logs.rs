@@ -130,7 +130,7 @@ impl RunLog {
         out
     }
 
-    /// Ends the run once its processes are gone: the pumps get [`DRAIN`] to write what is left, then the run is
+    /// Ends the run once its processes are gone: the pumps get a second to write what is left, then the run is
     /// closed (a line without its newline recorded as it stands). Closing twice is nothing.
     pub async fn close(&self) {
         let pumps: Vec<JoinHandle<()>> =
