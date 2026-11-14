@@ -12,6 +12,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+doze-module-host = { path = "../doze-module-host" }
 doze-module-proto = { path = "../doze-module-proto" }
 doze-journal = { path = "../doze-journal" }
 doze-logstore = { path = "../doze-logstore" }

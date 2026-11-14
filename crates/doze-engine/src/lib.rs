@@ -20,6 +20,7 @@ pub mod graph;
 pub mod lifecycle;
 pub mod logs;
 pub mod machine;
+pub mod modules;
 pub mod pidfile;
 pub mod porttrap;
 pub mod process;
@@ -30,6 +31,7 @@ pub mod stack;
 pub mod state;
 pub mod steps;
 pub mod supervise;
+pub mod sync;
 pub mod tasks;
 pub mod watch;
 

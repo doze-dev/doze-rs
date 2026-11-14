@@ -1,0 +1,169 @@
+//! `sync` and `destroy` through an instance's structure (Go's `Apply`, `reconcileObjects`, `Destroy`): with the instance
+//! awake, converge, then prune what was applied before and is no longer declared, in reverse order; the state file
+//! records what is applied; an instance with no structure, or off, is skipped.
+
+mod common;
+
+use common::*;
+use doze_engine::applied::{Applied, Change};
+use doze_engine::stack::{BoxFuture, Endpoint, PlanCtx, Planned, Planner, Structure};
+use doze_engine::{Cause, Engine, Service, State};
+use doze_module_proto::msg::instance::Object;
+use doze_module_proto::msg::run::{Plan, Process, Ready};
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+/// A module stand-in: plans the helper's listener, declares `desired`, and records every structure call.
+#[derive(Debug, Default)]
+struct Module {
+    desired: Mutex<Vec<Object>>,
+    calls: Mutex<Vec<String>>,
+}
+
+fn obj(name: &str) -> Object {
+    Object {
+        kind: "database".into(),
+        name: name.into(),
+        hash: format!("h-{name}"),
+    }
+}
+
+impl Module {
+    fn declare(&self, names: &[&str]) {
+        if let Ok(mut d) = self.desired.lock() {
+            *d = names.iter().map(|n| obj(n)).collect();
+        }
+    }
+
+    fn calls(&self) -> Vec<String> {
+        self.calls.lock().map(|c| c.clone()).unwrap_or_default()
+    }
+
+    fn call(&self, c: String) {
+        if let Ok(mut v) = self.calls.lock() {
+            v.push(c);
+        }
+    }
+}
+
+impl Planner for Module {
+    fn plan<'a>(&'a self, _ctx: &'a PlanCtx) -> BoxFuture<'a, Result<Planned, String>> {
+        Box::pin(async move {
+            let port = std::net::TcpListener::bind("127.0.0.1:0")
+                .and_then(|l| l.local_addr())
+                .map(|a| a.port())
+                .map_err(|e| e.to_string())?;
+            let env = BTreeMap::from([("PORT".to_string(), port.to_string())]);
+            let p = Process {
+                name: "main".into(),
+                program: HELPER.into(),
+                args: vec!["listen".into()],
+                env,
+                dir: None,
+                after: vec![],
+                ready: Some(Ready::Tcp(format!("127.0.0.1:{port}"))),
+                hooks: vec![],
+                stop: None,
+            };
+            Ok(Planned {
+                plan: Plan { processes: vec![p] },
+                endpoint: Endpoint {
+                    backend: format!("127.0.0.1:{port}"),
+                },
+                restart: None,
+                supervised: false,
+                ready_within: Duration::from_secs(10),
+            })
+        })
+    }
+
+    fn structure(&self) -> Option<&dyn Structure> {
+        Some(self)
+    }
+}
+
+impl Structure for Module {
+    fn objects<'a>(&'a self, _ctx: &'a PlanCtx) -> BoxFuture<'a, Result<Vec<Object>, String>> {
+        Box::pin(async move { Ok(self.desired.lock().map(|d| d.clone()).unwrap_or_default()) })
+    }
+
+    fn converge<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<(), String>> {
+        self.call(format!("converge {}", ctx.name));
+        Box::pin(async { Ok(()) })
+    }
+
+    fn prune<'a>(
+        &'a self,
+        _ctx: &'a PlanCtx,
+        removed: &'a [Object],
+    ) -> BoxFuture<'a, Result<(), String>> {
+        let names: Vec<&str> = removed.iter().map(|o| o.name.as_str()).collect();
+        self.call(format!("prune {}", names.join(",")));
+        Box::pin(async { Ok(()) })
+    }
+}
+
+#[allow(clippy::unwrap_used)] // test code
+fn engine(d: &Dir, m: &Arc<Module>) -> Engine {
+    Engine::builder("t", d.path())
+        .service(Service::planned("db", m.clone()))
+        .service(svc("web", listener(d, 0)))
+        .build()
+        .unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn sync_converges_then_prunes_what_is_no_longer_declared() {
+    let d = Dir::new("sync");
+    let m = Arc::new(Module::default());
+    let e = engine(&d, &m);
+    m.declare(&["a", "b", "c"]);
+    let got = e.sync(None).await.unwrap();
+    let creates: Vec<(Change, String)> = got
+        .iter()
+        .flat_map(|(_, ch)| ch.iter().map(|(c, o)| (*c, o.name.clone())))
+        .collect();
+    assert_eq!(
+        creates,
+        [
+            (Change::Create, "a".into()),
+            (Change::Create, "b".into()),
+            (Change::Create, "c".into())
+        ]
+    );
+    assert_eq!(got.len(), 1, "web has no structure: {got:?}");
+    assert!(e.get("db").unwrap().state.running(), "left running");
+    assert_eq!(e.get("web").unwrap().state, State::Reaped, "not woken");
+    // `a` and `c` go: pruned in reverse of the order they were created.
+    m.declare(&["b"]);
+    e.sync(Some("db")).await.unwrap();
+    assert_eq!(m.calls(), ["converge db", "converge db", "prune c,a"]);
+    let st = Applied::load(&d.path().join(".doze/state.json")).unwrap();
+    assert_eq!(st.objects("db"), [obj("b")]);
+    e.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn destroy_drops_everything_and_an_off_instance_is_not_synced() {
+    let d = Dir::new("destroy");
+    let m = Arc::new(Module::default());
+    let e = engine(&d, &m);
+    m.declare(&["a", "b"]);
+    e.sync(None).await.unwrap();
+    e.destroy(None).await.unwrap();
+    assert_eq!(m.calls(), ["converge db", "prune b,a"]);
+    assert_eq!(
+        e.get("db").unwrap().state,
+        State::Reaped,
+        "stopped after the drops"
+    );
+    let st = Applied::load(&d.path().join(".doze/state.json")).unwrap();
+    assert!(st.objects("db").is_empty());
+    e.set_off("db", true).await.unwrap();
+    e.sync(None).await.unwrap();
+    assert_eq!(m.calls().len(), 2, "off: not converged");
+    assert!(e.sync(Some("nope")).await.is_err());
+    let _ = e.wake("web", Cause::Command).await;
+    e.shutdown().await;
+}

@@ -24,9 +24,10 @@ tokio = { version = "1.54", features = ["rt", "time", "process", "fs", "io-util"
 doze-module-release = { path = "../doze-module-release" }
 serde_json = "1"
 doze-module-test = { path = "../doze-module-test" }
+doze-engine = { path = "../doze-engine" }
 doze-os = { path = "../doze-os" }
 doze-module-host = { path = "../doze-module-host" }
-tokio = { version = "1.54", features = ["rt", "time", "process", "macros", "net", "io-util"] }
+tokio = { version = "1.54", features = ["rt", "rt-multi-thread", "time", "process", "macros", "net", "io-util"] }
 doze-module-proto = { path = "../doze-module-proto" }
 
 [[bin]]

@@ -13,6 +13,7 @@ fn task(d: &Dir, args: &[&str]) -> TaskSpec {
     TaskSpec::new(run(args), d.path())
 }
 
+#[allow(clippy::unwrap_used)] // test code
 fn journal(d: &Dir) -> Vec<(String, String, String)> {
     doze_journal::read(&d.path().join("run/journal.jsonl"))
         .unwrap()

@@ -1488,6 +1488,7 @@ version = "0.0.0"
 dependencies = [
  "doze-journal",
  "doze-logstore",
+ "doze-module-host",
  "doze-module-proto",
  "doze-os",
  "hex",
@@ -1561,6 +1562,7 @@ dependencies = [
 name = "doze-module"
 version = "0.0.0"
 dependencies = [
+ "doze-engine",
  "doze-module-derive",
  "doze-module-host",
  "doze-module-proto",

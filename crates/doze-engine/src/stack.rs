@@ -2,6 +2,7 @@
 //! fills from doze.hcl; until then stacks are built in code with [`crate::Engine::builder`].
 
 use crate::process::ProcessSpec;
+use doze_module_proto::msg::instance::Object;
 use doze_module_proto::msg::run::Plan;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -178,6 +179,27 @@ pub trait Planner: Send + Sync + Debug {
         let _ = ctx;
         None
     }
+
+    /// Its structural objects (roles, databases, queues), when its module manages any: what `sync` creates, updates
+    /// and prunes (Go's `engine.Inventory` and `engine.Pruner`). `None`: it has none, and `sync` skips it.
+    fn structure(&self) -> Option<&dyn Structure> {
+        None
+    }
+}
+
+/// The structural objects of a running instance (a module's `objects`, `converge` and `prune`). Each call is made with
+/// the instance awake.
+pub trait Structure: Send + Sync {
+    /// What its declaration says it should have, in the order to create it.
+    fn objects<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<Vec<Object>, String>>;
+    /// Creates what is missing and updates what changed.
+    fn converge<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<(), String>>;
+    /// Drops `removed`, in the order given (the reverse of how they were created).
+    fn prune<'a>(
+        &'a self,
+        ctx: &'a PlanCtx,
+        removed: &'a [Object],
+    ) -> BoxFuture<'a, Result<(), String>>;
 }
 
 /// A whole stack.
