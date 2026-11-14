@@ -109,6 +109,10 @@ impl LibraryView {
         };
         let mut lib = library(&stacks, &shape_of, self.hints, self.hub.now());
         doze_desk::library::unready(&mut lib, &unset);
+        // An app's or a service's pill is the registry's URL for its name: port-less behind the front door (Go).
+        self.facts.update(cx, |f, _| {
+            doze_desk::library::fronted(&mut lib, |host| f.url_for(&home, host));
+        });
         lib.machine = doctor.map(|d| machine(&d, &stacks)).unwrap_or_default();
         if self.others.0.is_none_or(|at| at.elapsed() > OTHERS_EVERY) {
             self.others = (Some(Instant::now()), others(self.hub.home()));

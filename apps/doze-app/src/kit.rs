@@ -282,3 +282,30 @@ pub(crate) fn word_line(word: &str, tone: Hsla, rest: &[&str]) -> gpui::StyledTe
     };
     gpui::StyledText::new(text).with_highlights([(0..word.len(), style)])
 }
+
+/// How long a Copy link says "Copied" (Go `card.tsx`'s `Copy`: 1200 ms).
+pub(crate) const COPIED_FOR: std::time::Duration = std::time::Duration::from_millis(1200);
+
+/// The Copy link that said "Copied" last, and when.
+#[derive(Default)]
+struct CopiedLast(Option<(SharedString, std::time::Instant)>);
+
+impl gpui::Global for CopiedLast {}
+
+/// Has the Copy link `id` say "Copied" for [`COPIED_FOR`], then redraws `cx`'s view so it says Copy again.
+pub(crate) fn flip_copied<V: 'static>(id: impl Into<SharedString>, cx: &mut gpui::Context<V>) {
+    cx.set_global(CopiedLast(Some((id.into(), std::time::Instant::now()))));
+    cx.notify();
+    cx.spawn(async move |this, cx| {
+        cx.background_executor().timer(COPIED_FOR).await;
+        let _ = this.update(cx, |_, cx| cx.notify());
+    })
+    .detach();
+}
+
+/// Whether the Copy link `id` says "Copied" now.
+pub(crate) fn says_copied(id: &str, cx: &gpui::App) -> bool {
+    cx.try_global::<CopiedLast>()
+        .and_then(|c| c.0.as_ref())
+        .is_some_and(|(at, when)| at.as_ref() == id && when.elapsed() < COPIED_FOR)
+}
