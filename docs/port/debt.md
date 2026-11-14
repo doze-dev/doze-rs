@@ -484,6 +484,7 @@ Statuses as above. Rules CON-100 and up in `behaviours/console.md`. The writing 
   unreachable console, not the browser's "Load failed". The reproducer is `web/e2e/tests/leaving.spec.ts` (CON-1514): the next document
   held 700 ms and Refresh, the Live tail, a topic's tail or a sidebar page started 20 ms into it, plus the natural race, with no error
   filtered. Before the fix WebKit failed every deterministic case (3 of 3 iterations each) and the race; after, 54 of 54 in three runs over
-  three browsers. `live.spec.ts` now filters only console network lines, never a page error, and passed 10 of 10 alone in WebKit.
+  three browsers. `live.spec.ts` now filters only console network lines, never a page error; it passed 10 of 10 alone and the whole spec 120 of 120 (×10) in
+  WebKit, and the full three-browser run 474 of 474 (158 per browser, exit 0).
   Seen on the way: Firefox drops about one Playwright `goto` in nine when it follows a page load at once (NS_BINDING_ABORTED or
   NS_ERROR_FAILURE, 14 of 120 with or without the console's `beforeunload` listener); the race case tolerates only that, in Firefox only.
