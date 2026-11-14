@@ -5,7 +5,11 @@
 //! Compared: the loaded config as Go's JSON (null, `[]` and `{}` as one; `Deps` and `Refs` sorted,
 //! Go collects them in a map's order), or the refusal's kind and its diagnostics as a set (Go
 //! reports several in a map's order), or, for a refusal without diagnostics, its text.
+//!
+//! Unix only: Go's answers were captured on Unix, so they hold Unix paths and Unix errors (`is a
+//! directory`); Windows has its own gate in phase W.
 
+#![cfg(unix)]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
