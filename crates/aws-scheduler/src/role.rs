@@ -6,7 +6,7 @@
 //! the invocation under enforce (and is dead-lettered like any failure); under soft the log says so and the invocation is made as
 //! Scheduler itself. The session is made with `AssumeRole` over the bus and kept until shortly before it ends.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, PoisonError};
 
 use aws_peers::{Mode, Peers};
@@ -23,10 +23,11 @@ struct Session {
     expires_ms: i64,
 }
 
-/// The sessions made so far, by role.
+/// The sessions made so far, by role, and the roles already warned about under soft (said once, not on every firing).
 #[derive(Debug, Default)]
 pub(crate) struct Sessions {
     made: Mutex<HashMap<String, Session>>,
+    warned: Mutex<HashSet<String>>,
 }
 
 impl Sessions {
@@ -58,9 +59,16 @@ impl Sessions {
                     return Err(Failure::fatal("AccessDeniedException", why));
                 }
                 Err(why) => {
-                    tracing::warn!(
-                        "iam soft mode: an EventBridge Scheduler invocation would fail: {why}"
-                    );
+                    let first = self
+                        .warned
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .insert(role.to_owned());
+                    if first {
+                        tracing::warn!(
+                            "iam soft mode: EventBridge Scheduler invocations as {role} would fail under --iam enforce: {why} (said once per role; invocations go on as Scheduler itself)"
+                        );
+                    }
                     return Ok(as_service);
                 }
             },
