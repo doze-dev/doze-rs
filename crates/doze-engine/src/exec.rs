@@ -159,12 +159,31 @@ pub async fn start(
         if let Some(rec) = pids {
             rec.write(&unit.pids());
         }
-        if let Err(e) = gate(&mut unit, p, log, budget, pids).await {
-            unit.stop(STOP_GRACE).await;
-            return Err(e);
+        match gate(&mut unit, p, log, budget, pids).await {
+            Ok(()) => {}
+            Err(Gate::Failed(e)) => {
+                unit.stop(STOP_GRACE).await;
+                return Err(e);
+            }
+            Err(Gate::NotReady(e)) => {
+                // Stopped first, as Go's `stopAll`: the pumps drain and the run closes, so the quote has the process's
+                // last words, a line without its newline included (E2 audit 1, M1).
+                unit.stop(STOP_GRACE).await;
+                return Err(StartError {
+                    message: not_ready(&p.name, &e, log),
+                    timeout: matches!(e, NotReady::Timeout(_)),
+                });
+            }
         }
     }
     Ok(unit)
+}
+
+/// Why a process did not pass its gate.
+enum Gate {
+    /// Its check did not pass: quoted once the unit is stopped.
+    NotReady(NotReady),
+    Failed(StartError),
 }
 
 async fn gate(
@@ -173,21 +192,20 @@ async fn gate(
     log: &RunLog,
     budget: Duration,
     pids: Option<&Pids>,
-) -> Result<(), StartError> {
+) -> Result<(), Gate> {
     let Some((_, tree)) = unit.procs.last_mut() else {
-        return Err(StartError::from("nothing started".to_string()));
+        return Err(Gate::Failed(StartError::from(
+            "nothing started".to_string(),
+        )));
     };
     let alive = || matches!(tree.running(), Ok(true));
-    let waited = ready::wait_ready(p.ready.as_ref(), budget, Some(log), pids, alive).await;
-    if let Err(e) = waited {
-        let timeout = matches!(e, NotReady::Timeout(_));
-        return Err(StartError {
-            message: not_ready(&p.name, &e, log),
-            timeout,
-        });
-    }
+    ready::wait_ready(p.ready.as_ref(), budget, Some(log), pids, alive)
+        .await
+        .map_err(Gate::NotReady)?;
     for hook in &p.hooks {
-        run_hook(p, hook, log, pids).await?;
+        run_hook(p, hook, log, pids)
+            .await
+            .map_err(|e| Gate::Failed(e.into()))?;
     }
     Ok(())
 }

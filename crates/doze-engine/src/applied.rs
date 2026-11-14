@@ -21,8 +21,9 @@ pub struct TaskRecord {
     pub exit_code: i32,
     #[serde(default)]
     pub took_ms: i64,
-    /// When it started, RFC 3339.
-    #[serde(default)]
+    /// When it started, RFC 3339; empty is written as Go's zero time, which Go reads (an empty string it refuses, and
+    /// with it the whole file: E2 audit 1, m3).
+    #[serde(default, serialize_with = "go_time")]
     pub ran_at: String,
     /// What made it run.
     #[serde(default)]
@@ -30,6 +31,14 @@ pub struct TaskRecord {
     /// The hash of its inputs when it started.
     #[serde(default)]
     pub inputs: String,
+}
+
+fn go_time<S: serde::Serializer>(t: &str, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_str(if t.is_empty() {
+        "0001-01-01T00:00:00Z"
+    } else {
+        t
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -169,8 +178,25 @@ pub fn ensure_dot_doze(dir: &Path) -> io::Result<()> {
 #[derive(Debug)]
 pub struct Locked(#[allow(dead_code)] doze_os::fs::Lock);
 
-/// Takes the lock for the state at `path`, or says another sync holds it.
+/// Takes the lock for the state at `path`, or says another sync holds it. It waits up to a second first: a process
+/// being spawned meanwhile holds a copy of the lock's descriptor until it execs, which would otherwise look like
+/// another sync (E2 audit 1, M3).
 pub fn lock(path: &Path) -> io::Result<Locked> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+    loop {
+        match try_lock_once(path) {
+            Err(e)
+                if e.kind() == io::ErrorKind::WouldBlock
+                    && std::time::Instant::now() < deadline =>
+            {
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+            other => return other,
+        }
+    }
+}
+
+fn try_lock_once(path: &Path) -> io::Result<Locked> {
     let mut name = path.as_os_str().to_owned();
     name.push(".lock");
     let lock_path = PathBuf::from(name);

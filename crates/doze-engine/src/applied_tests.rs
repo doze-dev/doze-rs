@@ -32,8 +32,16 @@ fn load_save_round_trip() {
         },
     );
     s.save(&path).unwrap();
-    assert_eq!(Applied::load(&path).unwrap(), s);
-    assert!(t.path().join(".doze/.gitignore").is_file());
+    let back = Applied::load(&path).unwrap();
+    assert_eq!(back.instances, s.instances);
+    assert_eq!(
+        back.tasks["migrate"].ran_at, "0001-01-01T00:00:00Z",
+        "Go's zero time, never \"\""
+    );
+    assert_eq!(
+        std::fs::read_to_string(t.path().join(".doze/.gitignore")).unwrap(),
+        "# Written by doze: this folder is this machine's state, so nothing in it is committed.\n*\n"
+    );
     assert_eq!(path_for(&t.path().join("doze.hcl")), path);
 }
 

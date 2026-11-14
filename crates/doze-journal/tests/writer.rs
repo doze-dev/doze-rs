@@ -72,10 +72,30 @@ fn rotation_keeps_one_old_file_and_the_sequence() {
     let all = j.since(0).unwrap();
     assert_eq!(all.last().unwrap().seq, 40);
     assert!(all.windows(2).all(|w| w[1].seq == w[0].seq + 1));
+    // Each file holds several events (a rotation starts the size over), and both are kept.
+    let live = doze_journal::read_file(&p).unwrap().len();
+    let old = doze_journal::read_file(&rotated(&p)).unwrap().len();
+    assert!(live >= 1 && old >= 3, "live {live}, rotated {old}");
     j.close();
     assert_eq!(
         Journal::open(&p, 400).unwrap().append(ev("sleep", "")).seq,
         41
+    );
+}
+
+/// Reopened right after a rotation (the live file empty), the sequence goes on from the rotated file.
+#[test]
+fn a_reopen_right_after_a_rotation_goes_on_from_the_rotated_file() {
+    let (_t, p) = path();
+    let j = Journal::open(&p, 0).unwrap();
+    j.append(ev("wake", "db"));
+    j.append(ev("ready", "db"));
+    j.close();
+    std::fs::rename(&p, rotated(&p)).unwrap();
+    std::fs::write(&p, "").unwrap();
+    assert_eq!(
+        Journal::open(&p, 0).unwrap().append(ev("sleep", "db")).seq,
+        3
     );
 }
 

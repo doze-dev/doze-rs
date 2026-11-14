@@ -53,6 +53,32 @@ fn main() {
             }
             std::process::exit(arg(2).parse().unwrap_or(1));
         }
+        "partial" => {
+            // `partial <text> <code>`: <text> to stderr with no newline, then exit with code.
+            eprint!("{}", arg(1));
+            let _ = std::io::Write::flush(&mut std::io::stderr());
+            std::process::exit(arg(2).parse().unwrap_or(1));
+        }
+        "escape" => {
+            // `escape <pidfile>`: starts a chatter that leaves the group (a new session) holding stdout, records its
+            // pid, then listens like `listen`.
+            let mut cmd = std::process::Command::new(std::env::current_exe().unwrap_or_default());
+            cmd.arg("chatter").stdin(std::process::Stdio::null());
+            match doze_os::detach::spawn_detached(cmd) {
+                Ok(pid) => {
+                    let _ = std::fs::write(arg(1), pid.to_string());
+                }
+                Err(e) => fail(&e.to_string()),
+            }
+            rt.block_on(listen(Duration::ZERO))
+        }
+        "chatter" => {
+            for i in 0..300 {
+                println!("escaped says {i}");
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Ok(())
+        }
         "envto" => {
             // `envto <file> <KEY>`: appends the variable's value (or "unset") to the file.
             let v = std::env::var(arg(2)).unwrap_or_else(|_| "unset".into());

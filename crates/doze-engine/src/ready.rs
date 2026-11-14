@@ -204,8 +204,9 @@ mod tests {
 
     #[tokio::test]
     async fn a_log_line_probe_reads_only_the_last_200_lines() {
+        // 200 lines are read: the marker 201 back is not (Go's `recentLogs`).
         let mut lines = vec!["early marker"];
-        lines.extend(std::iter::repeat_n("filler", 3000));
+        lines.extend(std::iter::repeat_n("filler", 199));
         lines.push("late marker");
         let (_d, log) = run_log("x", &lines);
         let late = Ready::LogLine("^late marker$".into());

@@ -105,3 +105,29 @@ fn heavy_folders_are_skipped_unless_named() {
     );
     assert_eq!(files(dir, &pats(&["./src/a.js"])), ["src/a.js"]);
 }
+
+/// E2 audit 1, M2: many stars against a long name answer at once (a naive backtracker took 9.4 s at 50).
+#[test]
+fn many_stars_are_linear() {
+    let t = std::time::Instant::now();
+    let name = "a".repeat(200);
+    assert!(!matches("*a*a*a*a*a*a*a*a*b", &name));
+    assert!(matches("*a*a*a*a*a*a*a*a*", &name));
+    assert!(
+        t.elapsed() < std::time::Duration::from_millis(500),
+        "{:?}",
+        t.elapsed()
+    );
+}
+
+/// E2 audit 1, m1: on Unix a backslash escapes, as in Go (`filepath.ToSlash` changes nothing there).
+#[test]
+fn a_backslash_escapes_where_it_is_not_the_separator() {
+    if std::path::MAIN_SEPARATOR == '\\' {
+        return;
+    }
+    let t = tempfile::tempdir().unwrap();
+    write(t.path(), "a*", "x");
+    write(t.path(), "ab", "y");
+    assert_eq!(files(t.path(), &pats(&["a\\*"])), ["a*"]);
+}

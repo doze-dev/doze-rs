@@ -138,6 +138,13 @@ fn a_long_run_stays_under_the_cap() {
     assert!(files.len() >= 2, "a long run is split into segments");
     let tail = s.tail("api", 0, 1).unwrap();
     assert!(tail[0].text.starts_with("04999 "), "{}", texts(&tail));
+    // The segment being written is never pruned, even when it alone is over the cap.
+    let s2 = Store::with_options(t.path().join("one"), opts(0, 100));
+    let one = s2.begin("x").unwrap();
+    for i in 0..10 {
+        one.line(STDOUT, &format!("{i:03} {}", "z".repeat(80)));
+    }
+    assert_eq!(s2.tail("x", 0, 1).unwrap()[0].text[..3], *"009");
     // A cursor into the deleted part resumes from what is left.
     let from = Cursor {
         run: 1,

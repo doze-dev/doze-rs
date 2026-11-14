@@ -260,6 +260,8 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_env
           cargo fuzz run fuzz_env corpus/fuzz_env -- -max_total_time=30 -max_len=65536
+          mkdir -p corpus/fuzz_glob
+          cargo fuzz run fuzz_glob corpus/fuzz_glob -- -max_total_time=30 -max_len=512 -timeout=2
       - name: Fuzz the module protocol's frame decoder for 30 seconds
         working-directory: crates/doze-module-proto/fuzz
         run: |

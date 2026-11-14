@@ -12,6 +12,7 @@ use std::path::Path;
 /// Folders a pattern walks into only by naming them.
 const SKIPPED: [&str; 3] = [".git", "node_modules", ".doze"];
 
+// fuzz:parser fuzz_glob
 /// Whether the slash-separated relative path `name` matches `pattern`.
 pub fn matches(pattern: &str, name: &str) -> bool {
     let pat: Vec<&str> = pattern.split('/').collect();
@@ -39,26 +40,93 @@ fn match_segs(pat: &[&str], name: &[&str]) -> bool {
     segment(&p, &s) && match_segs(rest, name_rest)
 }
 
-/// Go's `path.Match` within one segment; a malformed pattern matches nothing.
+/// Go's `path.Match` within one segment, by its chunk algorithm: each run of stars is followed by a chunk of literal
+/// characters, classes and `?`, and the first place a chunk matches is taken, trying later places only while the rest
+/// fails. That keeps it linear in the stars (a naive backtracker took seconds on `*a*a*a*a*a*a*a*a*b`, E2 audit 1, M2).
+/// A malformed pattern matches nothing.
 fn segment(p: &[char], s: &[char]) -> bool {
-    match p.split_first() {
-        None => s.is_empty(),
-        Some(('*', rest)) => (0..=s.len()).any(|i| segment(rest, s.get(i..).unwrap_or_default())),
-        Some(('?', rest)) => s
-            .split_first()
-            .is_some_and(|(_, s_rest)| segment(rest, s_rest)),
-        Some(('[', rest)) => match (class(rest), s.split_first()) {
-            (Some((set, after)), Some((c, s_rest))) => set.has(*c) && segment(after, s_rest),
-            _ => false,
-        },
-        Some(('\\', rest)) => match (rest.split_first(), s.split_first()) {
-            (Some((pc, p_rest)), Some((c, s_rest))) => pc == c && segment(p_rest, s_rest),
-            _ => false,
-        },
-        Some((pc, rest)) => s
-            .split_first()
-            .is_some_and(|(c, s_rest)| pc == c && segment(rest, s_rest)),
+    let (mut p, mut s) = (p, s);
+    'chunks: while !p.is_empty() {
+        let (star, chunk, rest) = scan_chunk(p);
+        p = rest;
+        if star && chunk.is_empty() {
+            return true; // a trailing star takes the rest of the segment
+        }
+        if let Some(t) = match_chunk(chunk, s)
+            && (t.is_empty() || !p.is_empty())
+        {
+            s = t;
+            continue;
+        }
+        if star {
+            for i in 0..s.len() {
+                if let Some(t) = match_chunk(chunk, s.get(i + 1..).unwrap_or_default()) {
+                    if p.is_empty() && !t.is_empty() {
+                        continue;
+                    }
+                    s = t;
+                    continue 'chunks;
+                }
+            }
+        }
+        return false;
     }
+    s.is_empty()
+}
+
+/// Splits off the stars at the front, then the chunk up to the next star outside a class.
+fn scan_chunk(p: &[char]) -> (bool, &[char], &[char]) {
+    let start = p.iter().take_while(|c| **c == '*').count();
+    let p = p.get(start..).unwrap_or_default();
+    let (mut i, mut in_class) = (0, false);
+    while let Some(c) = p.get(i) {
+        match c {
+            '\\' => i += 1,
+            '[' => in_class = true,
+            ']' => in_class = false,
+            '*' if !in_class => break,
+            _ => {}
+        }
+        i += 1;
+    }
+    let i = i.min(p.len());
+    (
+        start > 0,
+        p.get(..i).unwrap_or_default(),
+        p.get(i..).unwrap_or_default(),
+    )
+}
+
+/// Matches `chunk` against the front of `s`: what is left of `s`, or `None`.
+fn match_chunk<'s>(mut chunk: &[char], mut s: &'s [char]) -> Option<&'s [char]> {
+    while let Some((pc, rest)) = chunk.split_first() {
+        let (c, s_rest) = s.split_first()?;
+        chunk = match pc {
+            '[' => {
+                let (set, after) = class(rest)?;
+                if !set.has(*c) {
+                    return None;
+                }
+                after
+            }
+            '?' => rest,
+            '\\' => {
+                let (e, after) = rest.split_first()?;
+                if e != c {
+                    return None;
+                }
+                after
+            }
+            pc => {
+                if pc != c {
+                    return None;
+                }
+                rest
+            }
+        };
+        s = s_rest;
+    }
+    Some(s)
 }
 
 /// A `[…]` class: its ranges and whether it is negated.
@@ -125,7 +193,12 @@ fn root(pattern: &str) -> String {
 pub fn files(dir: &Path, patterns: &[String]) -> Vec<String> {
     let mut found = BTreeSet::new();
     for pat in patterns {
-        let pat = pat.replace('\\', "/");
+        // Go's `filepath.ToSlash`: only where a backslash is the separator; elsewhere it escapes the next character.
+        let pat = if std::path::MAIN_SEPARATOR == '\\' {
+            pat.replace('\\', "/")
+        } else {
+            pat.clone()
+        };
         let pat = pat.strip_prefix("./").unwrap_or(&pat);
         let base = root(pat);
         let start = dir.join(&base);
@@ -173,14 +246,30 @@ pub fn hash(dir: &Path, patterns: &[String]) -> (String, usize) {
     let files = files(dir, patterns);
     let mut h = Sha256::new();
     for rel in &files {
-        let Ok(body) = std::fs::read(dir.join(rel)) else {
+        // Streamed, as Go's `io.Copy`: a large input costs a buffer, not its size (E2 audit 1, M4).
+        let Some(digest) = file_digest(&dir.join(rel)) else {
             continue; // gone between the walk and the read
         };
         h.update(rel.as_bytes());
         h.update([0]);
-        h.update(Sha256::digest(&body));
+        h.update(digest);
     }
     (hex::encode(h.finalize()), files.len())
+}
+
+fn file_digest(path: &Path) -> Option<Vec<u8>> {
+    use std::io::Read;
+    let mut f = std::fs::File::open(path).ok()?;
+    let mut fh = Sha256::new();
+    let mut buf = vec![0u8; 64 * 1024];
+    loop {
+        match f.read(&mut buf) {
+            Ok(0) => return Some(fh.finalize().to_vec()),
+            Ok(n) => fh.update(buf.get(..n).unwrap_or_default()),
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(_) => return None,
+        }
+    }
 }
 
 #[cfg(test)]
