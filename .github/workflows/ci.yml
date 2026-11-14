@@ -314,14 +314,28 @@ jobs:
       # C2a adds doze.hcl (doze-config, doze-hcl, hcl-edit and winnow) and the completion engine: 210 packages on darwin,
       # 6,207,024 B; the line moves to 230 (docs/port/core/weight.md, C2a). C2b (doze-fetch merged in, doze-detect, init, add,
       # modules upgrade, bug, open, update): 6,802,928 B and 221 packages on darwin (docs/port/weight.md, "Core C2b").
+      # doze is built with its own profile, release-doze ("s"): 8,948,248 B here at release, 7.1 MB at release-doze
+      # (docs/port/weight.md, "doze's profile").
       - name: doze (the CLI) under 9 MB
         run: |
-          cargo build --release -p doze-cli
-          size=$(stat -c %s target/release/doze)
+          cargo build --profile release-doze -p doze-cli
+          size=$(stat -c %s target/release-doze/doze)
           crates=$(cargo tree -p doze-cli --prefix none --edges normal | sort -u | wc -l)
           echo "doze: $size bytes, $crates packages"
           [ "$size" -le 9000000 ] || { echo "doze over 9 MB (core plan §6.3)"; exit 1; }
           [ "$crates" -le 230 ] || { echo "doze over 230 packages (docs/port/weight.md)"; exit 1; }
+      # Reported, not gated (a shared runner's timing is too noisy for a line): a warm `doze status` with the daemon down, on
+      # the app's acme fixture (doze.hcl read, the table drawn), median of 50 after 5 warm-ups. Core plan §6.3: under 15 ms.
+      - name: doze status, warm (reported)
+        run: |
+          home=$(mktemp -d)
+          cd apps/doze-app/fixtures/acme
+          bin=$GITHUB_WORKSPACE/target/release-doze/doze
+          for i in 1 2 3 4 5; do DOZE_HOME=$home NO_COLOR=1 "$bin" status > /dev/null; done
+          for i in $(seq 50); do
+            s=$(date +%s%N); DOZE_HOME=$home NO_COLOR=1 "$bin" status > /dev/null; e=$(date +%s%N)
+            echo $(( (e - s) / 1000 ))
+          done | sort -n | sed -n '25p' | awk '{ printf "doze status warm: median %.2f ms\n", $1 / 1000 }'
 
   # The broker without the console (`--no-default-features`): one cheap job so that the lean build, the one the Phase 8 limits
   # described, cannot grow unnoticed. Re-based by the weight pass of 2026-11-13: 3,917,008 B on darwin and 4,398,512 B in the Linux

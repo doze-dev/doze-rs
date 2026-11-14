@@ -146,12 +146,13 @@ fn binary_of(package: &str) -> &str {
     }
 }
 
-/// The build profile a package is weighed in: doze-aws has its own, smaller one (see the workspace `Cargo.toml`).
+/// The build profile a package is weighed in: doze-aws and doze (doze-cli) have their own, smaller
+/// ones (see the workspace `Cargo.toml`).
 fn profile_of(package: &str) -> &'static str {
-    if package == "doze-aws" {
-        "release-aws"
-    } else {
-        "release"
+    match package {
+        "doze-aws" => "release-aws",
+        "doze-cli" => "release-doze",
+        _ => "release",
     }
 }
 

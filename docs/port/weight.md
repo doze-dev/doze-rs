@@ -791,3 +791,44 @@ broker core needs none of them. CI: the `weight-tls` size job is gone; its size 
 certificate loaded (10,610 KB). The single build, with the module face and the registry's Avro and JSON Schema, is 7,669,200 B on darwin
 arm64, 183 packages, 7,472 KB idle; about 10.43 MB on ubuntu x86_64 at CI's 1.36. Limit 10,951,617 B, 186 packages, 9,996 KB, estimates
 until CI measures them. Building from source needs a C compiler and an assembler (ring); release binaries are unaffected.
+
+## doze's profile: room for the daemon (2026-11-15, core C2b), `doze` on darwin/arm64 and x86_64 Linux
+
+At C2b `doze` was 8,948,248 B on CI's x86_64 Linux, 52 KB under its 9 MB line, with the daemon, the engine and the module host
+still to come. Each lever was measured on the C2b head (284d2ff7). Linux numbers are a cross build (`x86_64-unknown-linux-gnu`,
+zig as the linker), within 0.3% of CI's (8,924,224 B here against CI's 8,948,248 B for the same code). `doze status` is warm, with
+the daemon down, on examples/shop's doze.hcl, median of 80 after 5 warm-ups, on the reference Mac.
+
+| Option | x86_64 Linux | darwin/arm64 | `status` warm (darwin) |
+|---|---|---|---|
+| C2b as it was (`release`, the broker's profile) | 8,924,224 B | 6,802,944 B | 7.65 / 8.06 ms (two runs) |
+| doze's own crates at "s" (doze-*, yaml-rust2, ureq, x509-cert, der, tar, jiff, clap_complete, num-bigint, flate2, winnow) | 7,522,720 B (−1.40 MB) | not measured | |
+| the same at "z" | 7,257,776 B (−1.67 MB) | | |
+| the same without the crates the broker or doze-aws link (flate2, miniz_oxide, der, doze-os, doze-module-proto), "z" | 7,263,136 B (−1.66 MB) | 7,109,168 B (**+306 KB**) | |
+| the same at "s" | | 7,226,160 B (**+423 KB**) | |
+| **the whole build at "s": profile `release-doze`** | **7,123,432 B (−1.80 MB)** | **5,531,712 B (−1.27 MB)** | 8.29 / 8.20 ms |
+| the whole build at "z" | 6,901,448 B (−2.02 MB) | | |
+
+- **Chosen: `release-doze`**, `inherits = "release"`, `opt-level = "s"`, the same move as the app's `release-app`. It is the only
+  option that shrinks both platforms: per-package levels on doze's crates shrank Linux but grew darwin (fat LTO with mixed levels;
+  measured twice, the baseline rebuilt to the byte). The broker's profile and its hot path are untouched, since `release` is unchanged.
+  The workspace's per-package overrides (clap and regex at "z") are inherited: `release-doze` measures the same as `release`
+  with `opt-level` overridden.
+- **Headroom**: 1.88 MB under the 9 MB line on x86_64 Linux (target 1.5 MB), 3.47 MB on darwin.
+- **Cost**: about 0.3 ms on a warm `doze status` (7.65–8.06 to 8.20–8.29 ms), inside run-to-run noise and half the 15 ms budget.
+  CI's weight-doze job now also reports the x86_64 Linux number (not gated). "z" saves 0.22 MB more on Linux but turns off loop
+  vectorisation for the daemon to come (log store, proxy); not worth it with this headroom.
+- **Not levers**:
+  - Duplicate dependencies (`cargo tree -d`): only getrandom 0.2/0.3/0.4 (ring, doze-names, crypto-bigint), a few KB, and syn 2/3
+    (build time only).
+  - tokio: 96 KB of `.text`; the daemon needs `net`, `time`, `process`, `signal` and `io-util` anyway.
+  - jiff: 104 KB with jiff-core; `tzdb-bundle-platform` bundles only on Windows. chrono with a zone database would not be smaller.
+  - Linux carries `.eh_frame` (489 KB) and `.rela.dyn` (352 KB) that Mach-O does not; dropping them needs RUSTFLAGS
+    (`-C force-unwind-tables=no`, a static relocation model), which CI's own `RUSTFLAGS` would override, so they are left.
+  - What is heavy and linked once (cargo-bloat, Linux `.text`): yaml-rust2 236 KB (doze-fetch's meta.yaml), the regex stack
+    about 520 KB (doze-hcl's `regex`), rustls and ring about 600 KB (ureq, the front door). Each is needed; yaml-rust2 is the
+    one candidate for a small owned parser later.
+- **Builds**: CI's weight-doze job and `cargo xtask weight` build `--profile release-doze` (binary at `target/release-doze/doze`).
+  Release tooling for `doze` must use the same profile; `--release` still builds a working, bigger `doze`.
+- **The app** (`release-app`, already "s" throughout) is not changed by this: its 16 MB line has been red since C2a
+  (16,733,040 B at #51, 17,064,576 B at #53); that is the app's size profile, worked on separately.

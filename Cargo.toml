@@ -113,3 +113,11 @@ lto = "fat"
 inherits = "release"
 opt-level = "z"
 lto = "fat"
+
+# doze, the CLI-only binary (and the daemon it will carry): optimised for size, as the app is. Per-package "s"/"z" on doze's own crates
+# shrank the x86_64 Linux build by 1.66 MB but grew the darwin one by 0.3 MB; the whole build at "s" shrinks both (8,924,224 to 7,123,432 B
+# on x86_64 Linux, 6,802,944 to 5,531,712 B on darwin/arm64) for about 0.3 ms on a warm `doze status` (docs/port/weight.md, "doze's profile").
+# CI's weight-doze job and `cargo xtask weight` build it with this profile; the release (`--release`) profile stays the broker's.
+[profile.release-doze]
+inherits = "release"
+opt-level = "s"
