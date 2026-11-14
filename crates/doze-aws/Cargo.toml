@@ -27,16 +27,28 @@ aws-kinesis = { path = "../aws-kinesis" }
 aws-logs = { path = "../aws-logs" }
 aws-cloudwatch = { path = "../aws-cloudwatch" }
 aws-eventbridge = { path = "../aws-eventbridge" }
+aws-scheduler = { path = "../aws-scheduler" }
 aws-lambda = { path = "../aws-lambda" }
 aws-apigateway = { path = "../aws-apigateway" }
 aws-sfn = { path = "../aws-sfn" }
 aws-cloudformation = { path = "../aws-cloudformation" }
 aws-peers = { path = "../aws-peers" }
 aws-wire = { path = "../aws-wire" }
+aws-webhook = { path = "../aws-webhook" }
+aws-schema = { path = "../aws-schema" }
+aws-core = { path = "../aws-core" }
 doze-runtime = { path = "../doze-runtime" }
 anyhow = "1"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env", "string"] }
+# Already in the tree (clap uses it): the nearest name to a typo in --services or doze-aws.toml.
+strsim = "0.11"
+http = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi"] }
 # One thread (weight is a feature), and the signals a stop arrives by.
 tokio = { version = "1", default-features = false, features = ["rt", "signal", "net", "time", "macros"] }
+
+[dev-dependencies]
+tempfile = "3"

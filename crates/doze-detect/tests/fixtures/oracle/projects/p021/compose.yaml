@@ -1,0 +1,9 @@
+services:
+  search:
+    image: bitnami/kafka
+  queue:
+    image: bitnami/kafka
+  db:
+    build: .
+  mongo:
+    image: postgres:16

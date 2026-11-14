@@ -40,6 +40,7 @@ stderr:
 |    |           ^^^^^^
 |    |
 |    = Unsuitable value: a number is required
+|   fix: correct it in broken/doze.hcl, then: doze lint
 json exit 5
 json:
 | {
@@ -58,6 +59,7 @@ json:
 |     },
 |     "notes": [
 |       "Unsuitable value: a number is required"
-|     ]
+|     ],
+|     "fix": "correct it in broken/doze.hcl, then: doze lint"
 |   }
 | }

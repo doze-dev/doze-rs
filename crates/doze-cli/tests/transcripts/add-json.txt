@@ -1,0 +1,35 @@
+# add --json: the block, its wiring and whether it was written.
+@ registry
+@ project bare
+
+$ doze add postgres main --port 5433 --dry-run
+exit 0
+stdout:
+| → module postgres "main"
+|   module postgres "main" {
+|     version = 18
+|     port    = 5433
+|   }
+| 
+|   use it from an app:  DATABASE_URL = module.main.url
+| 
+| (dry run: nothing written)
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze add",
+|   "ok": true,
+|   "data": {
+|     "file": "doze.hcl",
+|     "kind": "module",
+|     "module": "postgres",
+|     "name": "main",
+|     "block": "module postgres \"main\" {\n  version = 18\n  port    = 5433\n}",
+|     "wiring": {
+|       "env": "DATABASE_URL",
+|       "reference": "module.main.url"
+|     },
+|     "written": false
+|   }
+| }

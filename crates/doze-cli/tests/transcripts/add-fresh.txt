@@ -1,0 +1,25 @@
+# add in a folder with no doze.hcl: a new file, named after the folder, that reads as a config.
+@ registry
+@ no-json
+
+$ doze add postgres
+exit 0
+stdout:
+| → module postgres "db"
+|   module postgres "db" {
+|     version = 18
+|     port    = 5432
+|   }
+| 
+|   use it from an app:  DATABASE_URL = module.db.url
+| 
+| ✓ added to doze.hcl — doze lint · doze up
+
+$ doze status
+exit 0
+stdout:
+| doze is not running — showing declared services
+| 
+|       NAME   ENGINE        STATE    ENDPOINT         CONNS   MEM   CPU   NOTE
+| Modules
+|   ·   db     postgres 18   asleep   127.0.0.1:5432   -       -     -

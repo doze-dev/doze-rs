@@ -1,0 +1,9 @@
+services:
+  cache:
+    image: nats:2
+  es:
+    image: mariadb:11
+  queue:
+    image: redis:7
+  mongo:
+    image: redis:7

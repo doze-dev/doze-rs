@@ -11,6 +11,13 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["tls"]
+# doze's HTTPS client in the process (doze-fetch's `http`, re-exported as `doze_cli::http`): ureq over rustls, for the
+# `doze` binary, which must work where nothing else is installed. Without it requests go through the system's curl
+# (the desktop app; docs/port/weight.md, "One HTTP stack").
+tls = ["doze-fetch/tls"]
+
 [[bin]]
 name = "doze"
 path = "src/main.rs"
@@ -38,19 +45,18 @@ jiff = { version = "0.2", default-features = false, features = ["std", "tz-syste
 clap = { version = "4", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions", "string"] }
 # Completions: the static scripts, and the dynamic engine the shell calls back into (`COMPLETE=<shell> doze`).
 clap_complete = { version = "4", features = ["unstable-dynamic"] }
+# The registry, module and engine fetch, the cache and doze.lock (core plan F1): `modules`, `init`, `add`, `update`.
+doze-fetch = { path = "../doze-fetch", default-features = false }
+# What a project needs (`init`), from what modules declare.
+doze-detect = { path = "../doze-detect" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-yaml-rust2 = "0.13"
 # The registry's signatures (the index, each artifact, the release file): verify only, with the key built in.
 ed25519-dalek = { version = "3", default-features = false, features = [] }
+tokio = { version = "1.54", features = ["rt", "macros"] }
 sha2 = "0.11"
 hex = "0.4"
 base64ct = { version = "1", features = ["alloc"] }
-# One blocking GET with a deadline: the registry, the release file. No async runtime in the CLI.
-ureq = { version = "3", default-features = false, features = ["rustls-no-provider", "gzip"] }
-# TLS for ureq: ring as the provider (as doze-names), and this machine's trust store for roots.
-rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
-rustls-native-certs = "0.8"
 
 [dev-dependencies]
 ed25519-dalek = { version = "3", default-features = false, features = [] }
@@ -59,3 +65,4 @@ doze-control = { path = "../doze-control", features = ["words", "test-support"] 
 # The writer of meta.yaml, so the module contract is tested through the real round trip.
 doze-module-release = { path = "../doze-module-release" }
 doze-module-proto = { path = "../doze-module-proto" }
+tokio = { version = "1.54", features = ["rt", "macros"] }

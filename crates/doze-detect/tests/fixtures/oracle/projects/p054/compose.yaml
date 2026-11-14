@@ -1,0 +1,9 @@
+services:
+  mongo:
+    image: redis:7
+  db:
+    build: .
+  app:
+    build: .
+  mail:
+    build: .

@@ -1,0 +1,10 @@
+# open with no app on this machine: where it looked, and what to do.
+@ project bare
+@ no-json
+
+$ doze open
+exit 10
+stderr:
+| error[DZ0408]: the doze app is not on this machine
+|   looked for $DOZE_APP_BUNDLE, Doze.app in the Applications folders, and doze-app on the PATH
+|   fix: install the app (https://doze-dev.com/download) · doze status shows the stack here

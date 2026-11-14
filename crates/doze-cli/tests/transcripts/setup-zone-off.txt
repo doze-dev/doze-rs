@@ -6,6 +6,7 @@ $ doze dns-setup
 exit 1
 stderr:
 | error[DZ0407]: names are switched off (DOZE_ZONE=off), so there is nothing to set up
+|   fix: unset DOZE_ZONE to use .doze names, then run it again
 json exit 1
 json:
 | {
@@ -16,7 +17,8 @@ json:
 |     "code": "failed",
 |     "message": "names are switched off (DOZE_ZONE=off), so there is nothing to set up",
 |     "exit": 1,
-|     "id": "DZ0407"
+|     "id": "DZ0407",
+|     "fix": "unset DOZE_ZONE to use .doze names, then run it again"
 |   }
 | }
 

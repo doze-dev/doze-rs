@@ -79,6 +79,7 @@ $ doze -c split --var nope=1 status
 exit 5
 stderr:
 | error[DZ0301]: --var nope: this stack declares no variable "nope"; did you mean port?
+|   fix: check the config's files can be read, then: doze lint
 json exit 5
 json:
 | {
@@ -89,6 +90,7 @@ json:
 |     "code": "config_invalid",
 |     "message": "--var nope: this stack declares no variable \"nope\"; did you mean port?",
 |     "exit": 5,
-|     "id": "DZ0301"
+|     "id": "DZ0301",
+|     "fix": "check the config's files can be read, then: doze lint"
 |   }
 | }

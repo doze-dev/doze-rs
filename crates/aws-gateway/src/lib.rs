@@ -12,6 +12,7 @@ mod cbor;
 mod config;
 mod cors;
 mod head;
+mod health;
 mod pipeline;
 mod presign;
 mod query;

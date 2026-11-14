@@ -1,0 +1,7 @@
+services:
+  queue:
+    image: bitnami/kafka
+  store:
+    image: postgres:16
+  cache:
+    build: .

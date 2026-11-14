@@ -2,7 +2,6 @@
 //! (`failed`, DZ0001): never a fake success, never a dry run of a plan it cannot make.
 
 use crate::cli::Cmd;
-use crate::cli::setup::ModulesCmd;
 use crate::diag::{Diagnostic, ids};
 
 /// What a command is waiting for.
@@ -10,31 +9,12 @@ use crate::diag::{Diagnostic, ids};
 pub(crate) enum Needs {
     /// It talks to the doze daemon.
     Daemon,
-    /// It writes doze.hcl from the modules' declarations (`init`, `add`).
-    Hcl,
-    /// The app.
-    App,
-    /// It reads doze.hcl and writes doze.lock.
-    Lock,
-    /// The stack's shape and logs.
-    Report,
-    /// Handing the daemon over to the new doze.
-    Handover,
 }
 
 impl Needs {
     fn why(self) -> &'static str {
         match self {
             Needs::Daemon => "it talks to the doze daemon, which comes with the Rust core",
-            Needs::Hcl => {
-                "it writes doze.hcl from what each module declares (its version, port and example), which comes with the core port's next CLI slice"
-            }
-            Needs::App => "the app is not part of the Rust doze yet",
-            Needs::Lock => {
-                "doze.lock is written by doze-fetch's lock writer (core plan F1, in progress), which it waits for"
-            }
-            Needs::Report => "it comes with a later slice of the CLI (core plan C2)",
-            Needs::Handover => "handing the running daemon over to the new doze is the core's job",
         }
     }
 }
@@ -50,10 +30,6 @@ pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
         | Cmd::Migrate(_)
         | Cmd::Url(_)
         | Cmd::Connect(_) => Needs::Daemon,
-        Cmd::Init(_) | Cmd::Add(_) => Needs::Hcl,
-        Cmd::Open(_) => Needs::App,
-        Cmd::Modules(m) if matches!(m.command, Some(ModulesCmd::Upgrade(_))) => Needs::Lock,
-        Cmd::Bug => Needs::Report,
         Cmd::Doctor(_)
         | Cmd::DnsSetup(_)
         | Cmd::Trust(_)
@@ -70,6 +46,10 @@ pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
         | Cmd::Why(_)
         | Cmd::Lint(_)
         | Cmd::Fmt(_)
+        | Cmd::Add(_)
+        | Cmd::Init(_)
+        | Cmd::Bug
+        | Cmd::Open(_)
         | Cmd::Modules(_)
         | Cmd::Version
         | Cmd::Update(_)
@@ -87,13 +67,4 @@ pub(crate) fn not_built(command: &str, needs: Needs) -> Diagnostic {
         format!("`{command}` is not built yet: {}", needs.why()),
     )
     .fix("the Go doze does this today")
-}
-
-/// Bare `doze`: the app on a terminal, the status table when piped. Neither exists yet.
-pub(crate) fn bare() -> Diagnostic {
-    Diagnostic::new(
-        ids::NOT_BUILT,
-        "`doze` alone opens the app, or prints the status table when piped: neither is built yet",
-    )
-    .fix("doze --help lists the commands")
 }

@@ -3,11 +3,12 @@
 //! What is built: `*` in the endpoint filled from the target's `HttpParameters.PathParameterValues`, the target's header and query
 //! string parameters added, the connection's invocation header, query string and body parameters laid over them (the connection wins,
 //! as documented), Basic and API key credentials, and a JSON body (the connection's body parameters join it when it is an object).
-//! **Not built:** OAuth client credentials (the token request is deferred, SCOPE.md) and `https://` endpoints (no TLS client). Both are
-//! stored, and not delivered, and the log says so.
+//! `http://` and `https://` endpoints are called (`aws-webhook`; a certificate must be one the machine trusts, and a refused one is
+//! explained with the flag that fixes it). **Not built:** OAuth client credentials (the token request is deferred, SCOPE.md): stored,
+//! not delivered, and the log says so.
 //!
 //! **The request is made off the actor**, as the Go edition made it: the actor builds it from the destination and the connection and
-//! hands it to a task, so a slow endpoint (a request waits at most five seconds) never holds the region's other calls. The task applies
+//! hands it to a task, so a slow endpoint (a request waits at most five seconds, AWS's documented client execution timeout) never holds the region's other calls. The task applies
 //! the target's retry policy itself (`retry::next`, the actor's rule) and sends what runs out to the dead-letter queue; each attempt's
 //! result is recorded in [`Calls`]. A 429 or a 5xx, or no answer, may pass and is retried; any other status is the endpoint refusing the
 //! event and is not.
@@ -18,18 +19,21 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use aws_peers::Peers;
-use aws_webhook::{Request, Sent};
+use aws_webhook::{Answer, Failure, Request};
 use aws_wire::service::Caller;
 use doze_runtime::Clock;
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
 use crate::core::Core;
-use crate::deliver::{Delivery, Failure, Outcome};
+use crate::deliver::{Delivery, Failure as DeliveryFailure, Outcome};
 use crate::model::{ApiDestination, Connection, key};
 use crate::names::Parts;
 use crate::retry::{MAX_WAITING, Next, dead_letter, next};
 
+/// How long a request may take: "EventBridge requests to an API destination endpoint must have a maximum client execution timeout
+/// of 5 seconds" (EventBridge User Guide, API destinations).
+const TIMEOUT: Duration = Duration::from_secs(5);
 /// How many attempts are remembered.
 const KEPT: usize = 100;
 
@@ -96,13 +100,13 @@ struct Job {
 impl Core {
     pub(crate) fn to_api_destination(&self, d: &Delivery, caller: &Caller) -> Outcome {
         let Some((dest, conn)) = self.destination_of(&d.target.arn) else {
-            return Failure::fatal(
+            return DeliveryFailure::fatal(
                 "ResourceNotFoundException",
                 "the API destination or its connection is gone",
             );
         };
         if conn.state != "AUTHORIZED" {
-            return Failure::fatal(
+            return DeliveryFailure::fatal(
                 "InvalidStateException",
                 "the API destination's connection is not authorized",
             );
@@ -119,13 +123,8 @@ impl Core {
             params.pointer("/InvocationHttpParameters/HeaderParameters"),
         ));
         let url = url_of(dest, &d.spec, &params);
-        if !url.starts_with("http://") {
-            return Outcome::NotLocal(format!(
-                "{url} is not an http:// URL; doze-aws carries no TLS client"
-            ));
-        }
         if self.calls.under_way() >= MAX_WAITING {
-            return Failure::fatal(
+            return DeliveryFailure::fatal(
                 "ThrottlingException",
                 "too many API destination calls are under way",
             );
@@ -165,24 +164,26 @@ impl Core {
 }
 
 /// What an answer means for the delivery.
-fn judge(endpoint: &str, sent: Sent) -> Result<String, Failure> {
+fn judge(endpoint: &str, sent: Result<Answer, Failure>) -> Result<String, DeliveryFailure> {
+    let failed = |code: &str, message: String, retryable| DeliveryFailure {
+        code: code.into(),
+        message,
+        retryable,
+    };
     match sent {
-        Sent::Status(s) if (200..300).contains(&s) => Ok(s.to_string()),
-        Sent::Status(s) => Err(Failure {
-            code: format!("HTTP{s}"),
-            message: format!("{endpoint} answered {s}"),
-            retryable: s == 429 || s >= 500,
-        }),
-        Sent::Failed(why) => Err(Failure {
-            code: "ConnectionFailed".into(),
-            message: why,
-            retryable: true,
-        }),
-        Sent::Unsupported(why) => Err(Failure {
-            code: "Unsupported".into(),
-            message: why,
-            retryable: false,
-        }),
+        Ok(a) if (200..300).contains(&a.status) => Ok(a.status.to_string()),
+        Ok(a) => Err(failed(
+            &format!("HTTP{}", a.status),
+            format!("{endpoint} answered {}", a.status),
+            a.status == 429 || a.status >= 500,
+        )),
+        Err(Failure::Unsupported(why)) => Err(failed("Unsupported", why, false)),
+        // A refused certificate is said at once, with the flag that fixes it; it is retried as AWS retries a failed connection.
+        Err(Failure::Tls(why)) => {
+            tracing::warn!("API destination {endpoint}: {why}");
+            Err(failed("ConnectionFailed", why, true))
+        }
+        Err(other) => Err(failed("ConnectionFailed", other.to_string(), true)),
     }
 }
 
@@ -191,11 +192,12 @@ async fn call(job: Job) {
     let d = &job.delivery;
     let mut try_number = 1;
     loop {
-        let sent = aws_webhook::send(&Request {
-            method: &job.method,
-            url: &job.url,
+        let sent = aws_webhook::fetch(&Request {
             headers: &job.headers,
-            body: &job.body,
+            body: job.body.as_bytes(),
+            timeout: TIMEOUT,
+            status_only: true,
+            ..Request::new(&job.method, &job.url)
         })
         .await;
         let mut attempt = Attempt {

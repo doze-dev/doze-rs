@@ -46,6 +46,7 @@ use doze_runtime::{Ctx, Deadlines, Keyed};
 
 use crate::core::{Answer, Core, Request};
 
+pub use crate::core::Windows;
 pub use crate::partiql::check as check_partiql;
 pub use crate::stream::{Batch, Event, Record, StreamInfo};
 
@@ -90,6 +91,22 @@ impl Dynamodb {
             arrived,
             expiry,
         }
+    }
+
+    /// Registers DynamoDB with the transitional windows a host chose (the `doze-aws` flags), rather than the environment's.
+    #[must_use]
+    pub fn with_windows(ctx: Arc<Ctx>, windows: Windows) -> Self {
+        let ext = core::Ext {
+            peers: core::peers_of(&ctx),
+            windows,
+        };
+        Self::new(Arc::new(Ctx {
+            dir: ctx.dir.clone(),
+            idle: ctx.idle,
+            tasks: ctx.tasks.clone(),
+            clock: Arc::clone(&ctx.clock),
+            ext: Some(Arc::new(ext)),
+        }))
     }
 
     /// Starts the time-to-live timers of the regions that have DynamoDB state on disk. Run once when the process starts: nothing else

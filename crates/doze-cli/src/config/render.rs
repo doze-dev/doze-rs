@@ -24,11 +24,23 @@ pub(crate) fn diagnose(e: &doze_config::Error, cwd: &Path) -> Diagnostic {
         } else {
             ids::CONFIG_UNREADABLE
         };
-        return Diagnostic::new(id, e.text.clone());
+        return Diagnostic::new(id, e.text.clone())
+            .fix("check the config's files can be read, then: doze lint");
     };
     let more: Vec<Diagnostic> = drawn.collect();
+    let file = e
+        .diags
+        .0
+        .iter()
+        .find(|d| d.severity == Severity::Error)
+        .and_then(|d| d.file.as_deref())
+        .map_or_else(|| "doze.hcl".to_owned(), |f| shown(f, cwd));
+    let fix = match more.len() {
+        0 => format!("correct it in {file}, then: doze lint"),
+        n => format!("correct these {} in {file}, then: doze lint", n + 1),
+    };
     first.more = (!more.is_empty()).then(|| more.into_boxed_slice());
-    first
+    first.fix(fix)
 }
 
 /// A file that does not parse (`fmt` leaves it as it is): the refusal, then each syntax error in it.
@@ -52,7 +64,10 @@ pub(crate) fn unparsable(
         .map(|d| one(d, Some(&name), cwd))
         .collect();
     out.more = (!more.is_empty()).then(|| more.into_boxed_slice());
-    out
+    out.fix(format!(
+        "correct the syntax in {}, then: doze fmt",
+        shown(&name, cwd)
+    ))
 }
 
 fn one(d: &doze_hcl::diag::Diagnostic, file: Option<&str>, cwd: &Path) -> Diagnostic {

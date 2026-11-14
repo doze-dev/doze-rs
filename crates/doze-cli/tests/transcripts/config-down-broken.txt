@@ -12,6 +12,7 @@ stderr:
 |    |           ^
 |    |
 |    = The argument "run" is required, but no definition was found.
+|   fix: correct it in doze.hcl, then: doze lint
 json exit 5
 json:
 | {
@@ -30,7 +31,8 @@ json:
 |     },
 |     "notes": [
 |       "The argument \"run\" is required, but no definition was found."
-|     ]
+|     ],
+|     "fix": "correct it in doze.hcl, then: doze lint"
 |   }
 | }
 
@@ -44,6 +46,7 @@ stderr:
 |    |           ^
 |    |
 |    = The argument "run" is required, but no definition was found.
+|   fix: correct it in doze.hcl, then: doze lint
 json exit 5
 json:
 | {
@@ -62,6 +65,7 @@ json:
 |     },
 |     "notes": [
 |       "The argument \"run\" is required, but no definition was found."
-|     ]
+|     ],
+|     "fix": "correct it in doze.hcl, then: doze lint"
 |   }
 | }

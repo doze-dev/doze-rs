@@ -66,6 +66,8 @@ json:
 |       }
 |     ],
 |     "blocks": [],
+|     "label": "cache",
+|     "default_version": "9",
 |     "web": "https://doze-dev.com/registry/doze/valkey/",
 |     "fetched_from": "{sandbox}/registry"
 |   }
@@ -150,6 +152,8 @@ json:
 |         ]
 |       }
 |     ],
+|     "label": "db",
+|     "default_version": "18",
 |     "web": "https://doze-dev.com/registry/doze/postgres/",
 |     "fetched_from": "{sandbox}/registry"
 |   }

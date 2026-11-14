@@ -1,7 +1,10 @@
 //! One file per command that is built; the rest answer from [`stub`]. Dispatch is one exhaustive match, so a command
 //! added to the surface cannot go unanswered.
 
+pub(crate) mod add;
 mod ask;
+pub(crate) mod bug;
+pub(crate) mod decl;
 pub(crate) mod declared;
 pub(crate) mod docs;
 mod docs_view;
@@ -10,9 +13,11 @@ mod dry;
 pub(crate) mod fetch;
 pub(crate) mod format;
 mod graph;
+pub(crate) mod init;
 pub(crate) mod lint;
 pub(crate) mod logs;
 pub(crate) mod modules;
+pub(crate) mod open;
 mod pin;
 mod ready;
 pub(crate) mod report;
@@ -22,6 +27,7 @@ pub(crate) mod stub;
 pub(crate) mod task;
 mod trust;
 pub(crate) mod update;
+pub(crate) mod upgrade;
 mod verbs;
 pub(crate) mod verify;
 pub(crate) mod version;
@@ -44,7 +50,7 @@ pub(crate) fn dispatch(
     notices: &mut Notices,
 ) -> Outcome {
     let Some(cmd) = cmd else {
-        return Err(stub::bare());
+        return open::bare(ctx, mode, notices);
     };
     let command = match &cmd {
         Cmd::Doctor(d) if d.fix || d.print_fix => "doze doctor --fix",
@@ -80,11 +86,15 @@ pub(crate) fn dispatch(
         Cmd::Why(w) => why::run(ctx, mode, &w),
         Cmd::Lint(l) => lint::run(ctx, mode, &l),
         Cmd::Fmt(f) => format::run(ctx, mode, &f),
+        Cmd::Add(a) => add::run(ctx, mode, &a),
+        Cmd::Init(i) => init::run(ctx, mode, &i),
+        Cmd::Bug => bug::run(ctx, mode),
+        Cmd::Open(o) => open::run(ctx, mode, &o, notices),
         Cmd::Modules(m) => match m.command {
             None => modules::run(ctx, mode),
             Some(ModulesCmd::Docs(d)) => docs::run(ctx, mode, &d, notices),
             Some(ModulesCmd::Verify) => verify::run(ctx, mode),
-            Some(ModulesCmd::Upgrade(_)) => Err(stub::not_built(command, stub::Needs::Lock)),
+            Some(ModulesCmd::Upgrade(u)) => upgrade::run(ctx, mode, &u),
         },
         other => Err(stub::not_built(
             command,

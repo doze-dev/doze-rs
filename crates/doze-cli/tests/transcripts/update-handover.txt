@@ -1,0 +1,15 @@
+# update --dry-run with a stack running: the hand-over is in the plan, and it says it is pending (it waits for the
+# Rust daemon), never that services keep running.
+@ registry
+@ project bare
+@ no-json
+@ daemon empty
+
+$ doze update --dry-run
+exit 0
+stdout:
+| doze dev → 9.9.9
+|   → install doze 9.9.9                  through Homebrew: brew upgrade doze
+|   → hand 1 running stack(s) over to it  pending: handing running daemons over without stopping services waits for the Rust daemon (core plan D1)
+|   + valkey sleeps with a snapshot
+|   dry run: nothing was changed · doze update applies this

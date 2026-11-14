@@ -24,7 +24,8 @@ pub(crate) fn prepare(setup: &[String]) -> (Sandbox, FakeHost, Option<FixtureDae
             "registry" | "tty" | "no-json" => {}
             "env" => {
                 let (k, v) = arg.split_once('=').unwrap();
-                host.env.insert(k.into(), v.into());
+                let v = v.replace("{sandbox}", &sb.root.display().to_string());
+                host.env.insert(k.into(), v);
             }
             "browser-fails" => host.browser_fails = true,
             "now" => host.now = Some(stamp(arg)),

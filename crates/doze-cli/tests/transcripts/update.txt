@@ -1,0 +1,19 @@
+# update: this doze came through Homebrew (the test host's program is under /opt/homebrew/Cellar), so it runs
+# brew upgrade doze; with no brew on the PATH it says so (exit 1). --dry-run shows the version and how. The release
+# file says 9.9.9.
+@ registry
+@ no-json
+
+$ doze update
+exit 1
+stderr:
+| error[DZ0602]: Homebrew's brew is not on the PATH
+|   fix: brew upgrade doze, wherever brew is
+
+$ doze update --dry-run
+exit 0
+stdout:
+| doze dev → 9.9.9
+|   → install doze 9.9.9  through Homebrew: brew upgrade doze
+|   + valkey sleeps with a snapshot
+|   dry run: nothing was changed · doze update applies this

@@ -1,0 +1,42 @@
+doze: 0.2.1
+engines:
+    kafka: {}
+    postgres:
+        "16":
+            resolved: 16.4.0
+            source: mirror
+            hashes:
+                aarch64-apple-darwin: sha256:ab
+                x86_64-unknown-linux-gnu: sha256:cd
+        "17":
+            resolved: 17.1.0
+            source: override
+    valkey:
+        "9":
+            resolved: 9.1.1
+            source: mirror
+            hashes:
+                aarch64-apple-darwin: sha256:9a
+modules:
+    acme/thing2:
+        version: "10"
+    acme/thing10:
+        version: 1.0.0
+    doze/postgres:
+        version: 0.3.0
+        protocol: 1
+    doze/valkey:
+        version: 0.2.1
+        protocol: 2
+        engines:
+            - "8"
+            - "9"
+        hashes:
+            aarch64-apple-darwin: sha256:4d
+            x86_64-unknown-linux-gnu: sha256:5e
+        doze: 0.2.0
+downloads:
+    https://example.com/a b#c:
+        sha256: sha256:ff
+    https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-arm64.tar.gz:
+        sha256: sha256:ee

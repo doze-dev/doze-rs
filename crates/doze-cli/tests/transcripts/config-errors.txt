@@ -28,6 +28,7 @@ stderr:
 |    |   ^^^^
 |    |
 |    = An argument named "prot" is not expected here.
+|   fix: correct these 3 in doze.hcl, then: doze lint
 json exit 5
 json:
 | {
@@ -47,6 +48,7 @@ json:
 |     "notes": [
 |       "The argument \"run\" is required, but no definition was found."
 |     ],
+|     "fix": "correct these 3 in doze.hcl, then: doze lint",
 |     "more": [
 |       {
 |         "code": "config_invalid",
@@ -105,6 +107,7 @@ stderr:
 |    |   ^^^^
 |    |
 |    = An argument named "prot" is not expected here.
+|   fix: correct these 3 in doze.hcl, then: doze lint
 json exit 5
 json:
 | {
@@ -124,6 +127,7 @@ json:
 |     "notes": [
 |       "The argument \"run\" is required, but no definition was found."
 |     ],
+|     "fix": "correct these 3 in doze.hcl, then: doze lint",
 |     "more": [
 |       {
 |         "code": "config_invalid",
@@ -182,6 +186,7 @@ stderr:
 |    |   ^^^^
 |    |
 |    = An argument named "prot" is not expected here.
+|   fix: correct these 3 in doze.hcl, then: doze lint
 json exit 5
 json:
 | {
@@ -201,6 +206,7 @@ json:
 |     "notes": [
 |       "The argument \"run\" is required, but no definition was found."
 |     ],
+|     "fix": "correct these 3 in doze.hcl, then: doze lint",
 |     "more": [
 |       {
 |         "code": "config_invalid",

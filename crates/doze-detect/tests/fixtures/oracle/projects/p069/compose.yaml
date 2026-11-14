@@ -1,0 +1,7 @@
+services:
+  mongo:
+    image: redis:7
+  mail:
+    image: mariadb:11
+  search:
+    build: .
