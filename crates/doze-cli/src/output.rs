@@ -124,7 +124,7 @@ struct Envelope<'a> {
     command: &'a str,
     ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<serde_json::Value>,
+    data: Option<&'a View>,
     #[serde(skip_serializing_if = "<[String]>::is_empty")]
     warnings: &'a [String],
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -146,15 +146,19 @@ pub(crate) fn finish(
     };
     let exit = problem.as_ref().map_or(Exit::Ok, Diagnostic::exit);
     if mode.json {
+        // A stream wrote its own lines and its end line; nothing follows it.
+        if matches!(view, Some(View::Streamed)) {
+            return exit;
+        }
         let env = Envelope {
             schema: "doze/v1",
             command,
             ok: exit == Exit::Ok,
-            data: view.as_ref().map(View::json),
+            data: view.as_ref().filter(|v| !v.is_empty()),
             warnings: notices.lines(),
             error: problem.as_ref().map(Diagnostic::json),
         };
-        let text = serde_json::to_string_pretty(&env).unwrap_or_default();
+        let text = doze_control::go_pretty(&env).unwrap_or_default();
         let _ = writeln!(ctx.out, "{text}");
         return exit;
     }

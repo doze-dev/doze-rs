@@ -52,20 +52,20 @@ tty stderr:
 | ⟨1;31merror[DZ0001]:⟨0m ⟨1m`doze up` is not built yet: it talks to the doze daemon, which comes with the Rust core⟨0m
 |   ⟨2mfix:⟨0m ⟨36mthe Go doze does this today⟨0m
 
-$ doze ls
+$ doze copy cache
 exit 1
 stderr:
-| error[DZ0001]: `doze status` is not built yet: it talks to the doze daemon, which comes with the Rust core
+| error[DZ0001]: `doze url` is not built yet: it talks to the doze daemon, which comes with the Rust core
 |   fix: the Go doze does this today
 json exit 1
 json:
 | {
 |   "schema": "doze/v1",
-|   "command": "doze status",
+|   "command": "doze url",
 |   "ok": false,
 |   "error": {
 |     "code": "failed",
-|     "message": "`doze status` is not built yet: it talks to the doze daemon, which comes with the Rust core",
+|     "message": "`doze url` is not built yet: it talks to the doze daemon, which comes with the Rust core",
 |     "exit": 1,
 |     "id": "DZ0001",
 |     "fix": "the Go doze does this today"
@@ -73,7 +73,7 @@ json:
 | }
 tty exit 1
 tty stderr:
-| ⟨1;31merror[DZ0001]:⟨0m ⟨1m`doze status` is not built yet: it talks to the doze daemon, which comes with the Rust core⟨0m
+| ⟨1;31merror[DZ0001]:⟨0m ⟨1m`doze url` is not built yet: it talks to the doze daemon, which comes with the Rust core⟨0m
 |   ⟨2mfix:⟨0m ⟨36mthe Go doze does this today⟨0m
 
 $ doze connect cache

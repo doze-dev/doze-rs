@@ -1,0 +1,247 @@
+# logs from the daemon (Go's logs-*.golden): one run, the run before, several merged by time with whose each line
+# is, a follow, a service that has printed nothing, and the mistakes.
+@ project bare
+@ daemon logs
+@ now 2026-10-10T09:15:00Z
+@ env TZ=UTC
+
+$ doze logs api --run 2
+exit 0
+stdout:
+| 09:15:00 [setup] migrated 3 files
+| 09:15:01 listening on :8080
+| 09:15:05 GET /products 200 4ms
+| 09:15:09 err slow query: 812ms
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": true,
+|   "data": {
+|     "lines": [
+|       {
+|         "instance": "api",
+|         "line": "migrated 3 files",
+|         "stream": "s:setup",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:00Z"
+|       },
+|       {
+|         "instance": "api",
+|         "line": "listening on :8080",
+|         "stream": "o",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:01Z"
+|       },
+|       {
+|         "instance": "api",
+|         "line": "GET /products 200 4ms",
+|         "stream": "o",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:05Z"
+|       },
+|       {
+|         "instance": "api",
+|         "line": "slow query: 812ms",
+|         "stream": "e",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:09Z"
+|       }
+|     ]
+|   }
+| }
+
+$ doze logs api --run 1
+exit 0
+stdout:
+| 09:05:00 listening on :8080
+| 09:05:10 err panic: nil pointer dereference
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": true,
+|   "data": {
+|     "lines": [
+|       {
+|         "instance": "api",
+|         "line": "listening on :8080",
+|         "stream": "o",
+|         "run": 1,
+|         "time": "2026-10-10T09:05:00Z"
+|       },
+|       {
+|         "instance": "api",
+|         "line": "panic: nil pointer dereference",
+|         "stream": "e",
+|         "run": 1,
+|         "time": "2026-10-10T09:05:10Z"
+|       }
+|     ]
+|   }
+| }
+
+$ doze logs api worker db --since 1s
+exit 0
+stdout:
+| 09:15:00 api    │ [setup] migrated 3 files
+| 09:15:01 api    │ listening on :8080
+| 09:15:02 db     │ postgres: database system is ready to accept connections
+| 09:15:03 worker │ consuming orders
+| 09:15:05 api    │ GET /products 200 4ms
+| 09:15:07 worker │ err kafka: connection refused
+| 09:15:09 api    │ err slow query: 812ms
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": true,
+|   "data": {
+|     "lines": [
+|       {
+|         "instance": "api",
+|         "line": "migrated 3 files",
+|         "stream": "s:setup",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:00Z"
+|       },
+|       {
+|         "instance": "api",
+|         "line": "listening on :8080",
+|         "stream": "o",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:01Z"
+|       },
+|       {
+|         "instance": "db",
+|         "line": "database system is ready to accept connections",
+|         "stream": "o:postgres",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:02Z"
+|       },
+|       {
+|         "instance": "worker",
+|         "line": "consuming orders",
+|         "stream": "o",
+|         "run": 4,
+|         "time": "2026-10-10T09:15:03Z"
+|       },
+|       {
+|         "instance": "api",
+|         "line": "GET /products 200 4ms",
+|         "stream": "o",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:05Z"
+|       },
+|       {
+|         "instance": "worker",
+|         "line": "kafka: connection refused",
+|         "stream": "e",
+|         "run": 4,
+|         "time": "2026-10-10T09:15:07Z"
+|       },
+|       {
+|         "instance": "api",
+|         "line": "slow query: 812ms",
+|         "stream": "e",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:09Z"
+|       }
+|     ]
+|   }
+| }
+
+$ doze logs -f api worker
+exit 0
+stdout:
+| 09:15:05 api    │ GET /products 200 4ms
+| 09:15:07 worker │ err kafka: connection refused
+| 09:15:09 api    │ err slow query: 812ms
+json exit 0
+json:
+| {"type":"log","instance":"api","line":"GET /products 200 4ms","stream":"o","run":2,"time":"2026-10-10T09:15:05Z"}
+| {"type":"log","instance":"worker","line":"kafka: connection refused","stream":"e","run":4,"time":"2026-10-10T09:15:07Z"}
+| {"type":"log","instance":"api","line":"slow query: 812ms","stream":"e","run":2,"time":"2026-10-10T09:15:09Z"}
+| {"type":"end","ok":true}
+
+$ doze logs web
+exit 0
+stdout:
+| web has not printed anything yet
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": true,
+|   "data": {
+|     "lines": []
+|   }
+| }
+
+$ doze logs nope
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "nope"
+|   it has db, cache, events, api, worker, web
+|   fix: doze status
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "the stack has no service called \"nope\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "it has db, cache, events, api, worker, web"
+|     ],
+|     "fix": "doze status"
+|   }
+| }
+
+$ doze logs -f --run 1 api
+exit 2
+stderr:
+| error[DZ0104]: -f follows the newest run; it cannot be combined with --run
+|   fix: doze logs --run 1 (no -f)
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "-f follows the newest run; it cannot be combined with --run",
+|     "exit": 2,
+|     "id": "DZ0104",
+|     "fix": "doze logs --run 1 (no -f)"
+|   }
+| }
+
+$ doze logs api --since 0s
+exit 2
+stderr:
+| error[DZ0101]: invalid value '0s' for '--since <duration>': `0s` is not a time doze can wait: give a positive duration under a year
+|   fix: doze logs --help
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "invalid value '0s' for '--since \u003cduration\u003e': `0s` is not a time doze can wait: give a positive duration under a year",
+|     "exit": 2,
+|     "id": "DZ0101",
+|     "fix": "doze logs --help"
+|   }
+| }

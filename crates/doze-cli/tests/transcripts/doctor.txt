@@ -24,39 +24,39 @@ json:
 |   "data": {
 |     "checks": [
 |       {
-|         "detail": "{triple}",
 |         "name": "platform",
-|         "state": "ok"
+|         "state": "ok",
+|         "detail": "{triple}"
 |       },
 |       {
-|         "detail": "{sandbox}/home",
 |         "name": "home",
-|         "state": "ok"
+|         "state": "ok",
+|         "detail": "{sandbox}/home"
 |       },
 |       {
-|         "detail": "{sandbox}/project/doze.hcl found; what is in it is checked by doze lint, which needs the core",
 |         "name": "config",
-|         "state": "not_checked"
+|         "state": "not_checked",
+|         "detail": "{sandbox}/project/doze.hcl found; what is in it is checked by doze lint, which needs the core"
 |       },
 |       {
-|         "detail": "2 modules pinned",
 |         "name": "doze.lock",
-|         "state": "ok"
+|         "state": "ok",
+|         "detail": "2 modules pinned"
 |       },
 |       {
-|         "detail": "{sandbox}/registry answers with the key built into this doze",
 |         "name": "registry",
-|         "state": "ok"
+|         "state": "ok",
+|         "detail": "{sandbox}/registry answers with the key built into this doze"
 |       },
 |       {
-|         "detail": "no names yet: each doze program registers its own when it starts",
 |         "name": "names",
-|         "state": "ok"
+|         "state": "ok",
+|         "detail": "no names yet: each doze program registers its own when it starts"
 |       },
 |       {
-|         "detail": "not checked: the Rust core is not built yet",
 |         "name": "daemon",
-|         "state": "not_checked"
+|         "state": "not_checked",
+|         "detail": "not checked: the Rust core is not built yet"
 |       }
 |     ]
 |   },

@@ -20,34 +20,34 @@ json:
 |   "data": {
 |     "checks": [
 |       {
-|         "detail": "{triple}",
 |         "name": "platform",
-|         "state": "ok"
+|         "state": "ok",
+|         "detail": "{triple}"
 |       },
 |       {
-|         "detail": "{sandbox}/home",
 |         "name": "home",
-|         "state": "ok"
+|         "state": "ok",
+|         "detail": "{sandbox}/home"
 |       },
 |       {
-|         "detail": "no doze.hcl here or in any parent: checking the machine only",
 |         "name": "config",
-|         "state": "ok"
+|         "state": "ok",
+|         "detail": "no doze.hcl here or in any parent: checking the machine only"
 |       },
 |       {
-|         "detail": "can't be reached: {sandbox}/unreachable: no registry in that directory · modules this machine has keep working",
 |         "name": "registry",
-|         "state": "fail"
+|         "state": "fail",
+|         "detail": "can't be reached: {sandbox}/unreachable: no registry in that directory · modules this machine has keep working"
 |       },
 |       {
-|         "detail": "no names yet: each doze program registers its own when it starts",
 |         "name": "names",
-|         "state": "ok"
+|         "state": "ok",
+|         "detail": "no names yet: each doze program registers its own when it starts"
 |       },
 |       {
-|         "detail": "not checked: the Rust core is not built yet",
 |         "name": "daemon",
-|         "state": "not_checked"
+|         "state": "not_checked",
+|         "detail": "not checked: the Rust core is not built yet"
 |       }
 |     ]
 |   },

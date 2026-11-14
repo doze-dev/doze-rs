@@ -1,0 +1,128 @@
+# task: the list (how each ran, from .doze/state.json), a run, its dry run, and a name that is not a task.
+@ project bare
+@ daemon tasks
+@ now 2026-10-10T09:15:00Z
+@ file project/.doze/state.json {"version":1,"instances":{},"tasks":{"migrate":{"result":"done","exit_code":0,"took_ms":1234,"ran_at":"2026-10-10T09:10:00Z","why":"api needs it","inputs":"abc"}}}
+
+$ doze task
+exit 0
+stdout:
+| migrate        done 5m ago in 1.234s — api needs it
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze task",
+|   "ok": true,
+|   "data": {
+|     "tasks": [
+|       {
+|         "name": "migrate",
+|         "last": {
+|           "result": "done",
+|           "exit_code": 0,
+|           "took_ms": 1234,
+|           "ran_at": "2026-10-10T09:10:00Z",
+|           "why": "api needs it",
+|           "inputs": "abc"
+|         }
+|       }
+|     ]
+|   }
+| }
+
+$ doze task migrate
+exit 0
+stdout:
+| ✓ migrate done
+stderr:
+| → migrate running…
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze task",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "migrate",
+|         "state": "done"
+|       }
+|     ]
+|   }
+| }
+
+$ doze task --dry-run migrate
+exit 0
+stdout:
+| migrate
+|   → run  now, whatever its state; the task does not run in a dry run
+|   dry run: nothing was changed · doze task migrate applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze task",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze task migrate",
+|     "plan": [
+|       {
+|         "title": "migrate",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "run",
+|             "detail": "now, whatever its state; the task does not run in a dry run"
+|           }
+|         ]
+|       }
+|     ]
+|   }
+| }
+
+$ doze task api
+exit 4
+stderr:
+| error[DZ0702]: api is not a task
+|   fix: doze wake api
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze task",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "api is not a task",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "fix": "doze wake api"
+|   }
+| }
+
+$ doze task nope
+exit 4
+stderr:
+| error[DZ0702]: no task called "nope"
+|   the tasks are migrate
+|   fix: doze task
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze task",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "no task called \"nope\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "the tasks are migrate"
+|     ],
+|     "fix": "doze task"
+|   }
+| }

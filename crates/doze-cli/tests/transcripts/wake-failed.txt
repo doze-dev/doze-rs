@@ -1,0 +1,38 @@
+# A wake that fails stops there, says why with the daemon's words and where to look, and exits 1 (Go's
+# wake-failed.golden on stdout; the failure is this doze's diagnostic on stderr). Nothing after it is tried.
+@ project bare
+@ daemon wake-failed
+
+$ doze wake db events api
+exit 1
+stdout:
+| ✓ db awake
+stderr:
+| error[DZ0703]: events: events not ready: did not become ready within 1m0s
+|   fix: doze logs events
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze wake",
+|   "ok": false,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "db",
+|         "state": "awake"
+|       },
+|       {
+|         "name": "events",
+|         "error": "events not ready: did not become ready within 1m0s"
+|       }
+|     ]
+|   },
+|   "error": {
+|     "code": "failed",
+|     "message": "events: events not ready: did not become ready within 1m0s",
+|     "exit": 1,
+|     "id": "DZ0703",
+|     "fix": "doze logs events"
+|   }
+| }

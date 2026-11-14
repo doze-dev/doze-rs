@@ -20,21 +20,21 @@ json:
 |   "ok": true,
 |   "data": {
 |     "key": "642a…09",
+|     "platform": "{triple}",
 |     "modules": [
 |       {
-|         "detail": "sha256 620e…b4c5 matches the signed index (not downloaded here)",
 |         "module": "postgres",
+|         "version": "0.2.5",
 |         "state": "verified",
-|         "version": "0.2.5"
+|         "detail": "sha256 620e…b4c5 matches the signed index (not downloaded here)"
 |       },
 |       {
-|         "detail": "sha256 aec1…f903 matches the signed index and this machine's copy",
 |         "module": "valkey",
+|         "version": "0.2.1",
 |         "state": "verified",
-|         "version": "0.2.1"
+|         "detail": "sha256 aec1…f903 matches the signed index and this machine's copy"
 |       }
-|     ],
-|     "platform": "{triple}"
+|     ]
 |   }
 | }
 tty exit 0

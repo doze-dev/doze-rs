@@ -57,7 +57,7 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "usage",
-|     "message": "the following required arguments were not provided: <name>...",
+|     "message": "the following required arguments were not provided: \u003cname\u003e...",
 |     "exit": 2,
 |     "id": "DZ0101",
 |     "fix": "doze restart --help"
@@ -97,7 +97,7 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "usage",
-|     "message": "invalid value '5' for '--timeout <duration>': `5` is not a duration: write it as 90s, 5m or 1h30m",
+|     "message": "invalid value '5' for '--timeout \u003cduration\u003e': `5` is not a duration: write it as 90s, 5m or 1h30m",
 |     "exit": 2,
 |     "id": "DZ0101",
 |     "fix": "doze up --help"
@@ -117,7 +117,7 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "usage",
-|     "message": "invalid value '1x=2' for '--var <name=value>': `1x` is not a variable name: letters, digits, _ and -, starting with a letter",
+|     "message": "invalid value '1x=2' for '--var \u003cname=value\u003e': `1x` is not a variable name: letters, digits, _ and -, starting with a letter",
 |     "exit": 2,
 |     "id": "DZ0101",
 |     "fix": "doze up --help"

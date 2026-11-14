@@ -56,7 +56,14 @@ impl Sandbox {
     pub(crate) fn new(tag: &str) -> Sandbox {
         static N: AtomicU32 = AtomicU32::new(0);
         let n = N.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!("doze-cli-{tag}-{}-{n}", std::process::id()));
+        // A short root: a project's control socket lies deep under it, and a Unix socket path has about 100 bytes.
+        let base = Path::new("/tmp");
+        let base = if base.is_dir() {
+            base.to_path_buf()
+        } else {
+            std::env::temp_dir()
+        };
+        let root = base.join(format!("dz-{tag}-{}-{n}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         for d in ["home", "project", "registry"] {
             std::fs::create_dir_all(root.join(d)).unwrap();
@@ -220,6 +227,8 @@ pub(crate) struct FakeHost {
     pub spawned: RefCell<Vec<Vec<String>>>,
     pub opened: RefCell<Vec<String>>,
     pub browser_fails: bool,
+    /// A clock that stands still (`@ now`).
+    pub now: Option<SystemTime>,
 }
 
 impl Host for FakeHost {
@@ -242,6 +251,9 @@ impl Host for FakeHost {
     }
     fn exe(&self) -> Option<PathBuf> {
         Some(PathBuf::from("/opt/homebrew/Cellar/doze/0.2.1/bin/doze"))
+    }
+    fn now(&self) -> SystemTime {
+        self.now.unwrap_or_else(SystemTime::now)
     }
 }
 
@@ -282,7 +294,7 @@ pub(crate) fn run(
             key,
             budget: Duration::from_secs(3),
         },
-        now: SystemTime::now(),
+        now: host.now(),
     };
     let argv = std::iter::once("doze")
         .chain(args.iter().copied())

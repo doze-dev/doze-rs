@@ -19,21 +19,21 @@ json:
 |   "ok": false,
 |   "data": {
 |     "key": "642a…09",
+|     "platform": "{triple}",
 |     "modules": [
 |       {
-|         "detail": "the module registry can't be reached, and this machine has no copy of postgres",
 |         "module": "postgres",
+|         "version": "0.2.5",
 |         "state": "not_checked",
-|         "version": "0.2.5"
+|         "detail": "the module registry can't be reached, and this machine has no copy of postgres"
 |       },
 |       {
-|         "detail": "the module registry can't be reached, and this machine has no copy of valkey",
 |         "module": "valkey",
+|         "version": "0.2.1",
 |         "state": "not_checked",
-|         "version": "0.2.1"
+|         "detail": "the module registry can't be reached, and this machine has no copy of valkey"
 |       }
-|     ],
-|     "platform": "{triple}"
+|     ]
 |   },
 |   "error": {
 |     "code": "machine",

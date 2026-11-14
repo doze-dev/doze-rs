@@ -3,6 +3,7 @@
 //! `main` fills it from the process; the tests fill it with buffers, a temporary home and a registry on disk.
 
 use crate::registry;
+use doze_os::interrupt::Interrupt;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -17,6 +18,20 @@ pub trait Host {
     fn spawn_background(&self, args: &[&str]) -> io::Result<()>;
     /// This program's own path, which says how doze was installed.
     fn exe(&self) -> Option<PathBuf>;
+    /// The time now, for what a follow redraws ("sleeps in 4m"). A test's clock stands still.
+    fn now(&self) -> SystemTime {
+        SystemTime::now()
+    }
+    /// Takes Ctrl-C and SIGTERM over for a command that follows the daemon until stopped, so it ends cleanly
+    /// (its last line written, exit 0). Only such a command asks; for the rest Ctrl-C ends the process as usual.
+    fn watch_interrupt(&self) -> Interrupt {
+        Interrupt::never()
+    }
+    /// Asks the person at the terminal a yes-or-no question (the question is already on stderr); `None` when there
+    /// is no one to ask.
+    fn ask(&self) -> Option<bool> {
+        None
+    }
 }
 
 /// Which standard streams are terminals.

@@ -1,0 +1,48 @@
+# why with doze stopped: from the journal on disk, and it says doze is not running.
+@ project bare
+@ env TZ=UTC
+@ journal {"seq":1,"time":"2026-10-10T09:02:11Z","kind":"wake","instance":"cache","cause":{"kind":"dependency","by":"api"}}
+
+$ doze why cache
+exit 0
+stdout:
+| cache · doze is not running; from the journal:
+|   09:02:11 woke (api needed it)
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze why",
+|   "ok": true,
+|   "data": {
+|     "name": "cache",
+|     "running": false,
+|     "restarts": 0,
+|     "events": [
+|       {
+|         "at": "09:02:11",
+|         "kind": "wake",
+|         "said": "woke (api needed it)"
+|       }
+|     ]
+|   }
+| }
+
+$ doze why db
+exit 0
+stdout:
+| db · doze is not running; from the journal:
+|   the journal has nothing about it yet
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze why",
+|   "ok": true,
+|   "data": {
+|     "name": "db",
+|     "running": false,
+|     "restarts": 0,
+|     "events": []
+|   }
+| }

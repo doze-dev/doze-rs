@@ -21,21 +21,21 @@ json:
 |   "ok": false,
 |   "data": {
 |     "key": "642a…09",
+|     "platform": "{triple}",
 |     "modules": [
 |       {
-|         "detail": "sha256 620e…b4c5 matches this machine's copy of the signed index (not downloaded here)",
 |         "module": "postgres",
+|         "version": "0.2.5",
 |         "state": "verified_offline",
-|         "version": "0.2.5"
+|         "detail": "sha256 620e…b4c5 matches this machine's copy of the signed index (not downloaded here)"
 |       },
 |       {
-|         "detail": "sha256 aec1…f903 matches this machine's copy of the signed index (not downloaded here)",
 |         "module": "valkey",
+|         "version": "0.2.1",
 |         "state": "verified_offline",
-|         "version": "0.2.1"
+|         "detail": "sha256 aec1…f903 matches this machine's copy of the signed index (not downloaded here)"
 |       }
-|     ],
-|     "platform": "{triple}"
+|     ]
 |   },
 |   "error": {
 |     "code": "partial",

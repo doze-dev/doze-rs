@@ -4,6 +4,7 @@
 use doze_cli::diag::{Diagnostic, ids};
 use doze_cli::registry::{self, Base, signed};
 use doze_cli::{Ctx, Exit, Host, Terminals};
+use doze_os::interrupt::Interrupt;
 use std::io::{self, BufWriter, IsTerminal, Write};
 use std::path::PathBuf;
 use std::process::{Command, ExitCode, Stdio};
@@ -35,6 +36,16 @@ impl Host for Process {
         std::env::current_exe()
             .ok()
             .and_then(|p| p.canonicalize().ok())
+    }
+
+    fn watch_interrupt(&self) -> Interrupt {
+        Interrupt::watch().unwrap_or_else(|_| Interrupt::never())
+    }
+
+    fn ask(&self) -> Option<bool> {
+        let mut answer = String::new();
+        io::stdin().read_line(&mut answer).ok()?;
+        Some(matches!(answer.trim().to_lowercase().as_str(), "y" | "yes"))
     }
 }
 
@@ -85,7 +96,7 @@ fn surroundings() -> Result<(PathBuf, PathBuf, registry::Config), Diagnostic> {
         )
         .fix("set DOZE_HOME to a directory doze can write")
     })?;
-    let cwd = std::env::current_dir().map_err(|e| {
+    let cwd = working_dir().map_err(|e| {
         Diagnostic::new(
             ids::HOME_UNUSABLE,
             format!("the current directory can't be read ({e})"),
@@ -112,3 +123,15 @@ fn surroundings() -> Result<(PathBuf, PathBuf, registry::Config), Diagnostic> {
 
 // The exit class of a run is all `main` reports; keep the type in the signature honest.
 const _: fn(Exit) -> u8 = Exit::code;
+
+/// The working directory as the shell names it: `$PWD` when it is this directory (through a symlink, `/tmp` on a
+/// Mac), as Go's `os.Getwd` gives it. A project's state folder is named from its path, so the Go doze and this one
+/// must spell the path the same way to find the same daemon.
+fn working_dir() -> io::Result<PathBuf> {
+    let real = std::env::current_dir()?;
+    let shell = std::env::var_os("PWD").map(PathBuf::from);
+    Ok(match shell {
+        Some(p) if p.is_absolute() && p.canonicalize().ok() == real.canonicalize().ok() => p,
+        _ => real,
+    })
+}

@@ -1,0 +1,150 @@
+# logs with doze stopped: read from the log store on disk (the Go format), newest run or the one before; -f needs
+# the daemon.
+@ project bare
+@ env TZ=UTC
+@ logfile api r000001.s000.log 2026-10-10T09:05:00.000000Z o listening on :8080
+@ logfile api r000001.s000.log 2026-10-10T09:05:10.000000Z e panic: nil pointer dereference
+@ logfile api r000002.s000.log 2026-10-10T09:15:00.000000Z s:setup migrated 3 files
+@ logfile api r000002.s000.log 2026-10-10T09:15:01.000000Z o listening on :8080
+@ logfile db r000002.s000.log 2026-10-10T09:15:02.000000Z o:postgres database system is ready to accept connections
+
+$ doze logs api
+exit 0
+stdout:
+| 09:15:00 [setup] migrated 3 files
+| 09:15:01 listening on :8080
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": true,
+|   "data": {
+|     "lines": [
+|       {
+|         "instance": "api",
+|         "line": "migrated 3 files",
+|         "stream": "s:setup",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:00Z"
+|       },
+|       {
+|         "instance": "api",
+|         "line": "listening on :8080",
+|         "stream": "o",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:01Z"
+|       }
+|     ]
+|   }
+| }
+
+$ doze logs api --run -1
+exit 0
+stdout:
+| 09:05:00 listening on :8080
+| 09:05:10 err panic: nil pointer dereference
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": true,
+|   "data": {
+|     "lines": [
+|       {
+|         "instance": "api",
+|         "line": "listening on :8080",
+|         "stream": "o",
+|         "run": 1,
+|         "time": "2026-10-10T09:05:00Z"
+|       },
+|       {
+|         "instance": "api",
+|         "line": "panic: nil pointer dereference",
+|         "stream": "e",
+|         "run": 1,
+|         "time": "2026-10-10T09:05:10Z"
+|       }
+|     ]
+|   }
+| }
+
+$ doze logs
+exit 0
+stdout:
+| 09:15:00 api │ [setup] migrated 3 files
+| 09:15:01 api │ listening on :8080
+| 09:15:02 db  │ postgres: database system is ready to accept connections
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": true,
+|   "data": {
+|     "lines": [
+|       {
+|         "instance": "api",
+|         "line": "migrated 3 files",
+|         "stream": "s:setup",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:00Z"
+|       },
+|       {
+|         "instance": "api",
+|         "line": "listening on :8080",
+|         "stream": "o",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:01Z"
+|       },
+|       {
+|         "instance": "db",
+|         "line": "database system is ready to accept connections",
+|         "stream": "o:postgres",
+|         "run": 2,
+|         "time": "2026-10-10T09:15:02Z"
+|       }
+|     ]
+|   }
+| }
+
+$ doze logs api --run -5
+exit 1
+stderr:
+| error[DZ0708]: api has only 2 run(s) kept
+|   fix: doze logs api
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "api has only 2 run(s) kept",
+|     "exit": 1,
+|     "id": "DZ0708",
+|     "fix": "doze logs api"
+|   }
+| }
+
+$ doze logs -f api
+exit 7
+stderr:
+| error[DZ0701]: doze logs -f needs the stack running, and doze is not running it
+|   fix: doze up
+json exit 7
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze logs",
+|   "ok": false,
+|   "error": {
+|     "code": "daemon_down",
+|     "message": "doze logs -f needs the stack running, and doze is not running it",
+|     "exit": 7,
+|     "id": "DZ0701",
+|     "fix": "doze up"
+|   }
+| }

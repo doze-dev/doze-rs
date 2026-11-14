@@ -1,0 +1,36 @@
+      NAME     ENGINE        STATE          ENDPOINT         CONNS   MEM   CPU   NOTE
+Modules
+  ○   cache    valkey 9      dozing         127.0.0.1:6379   -       5M    -     sleeps in 4m12s
+  ●   db       postgres 16   awake          127.0.0.1:5432   3c      11M   -     held by api
+  ●   events   kafka 4       awake          127.0.0.1:9092   1c      22M   1%    pinned
+Apps
+  ●   api      app           awake          127.0.0.1:8080   -       43M   2%
+  ✕   web      app           failed         127.0.0.1:8090   -       -     -     exited with status 2; gave up after 5 restarts
+  ↻   worker   app           crashing 2/5   -                -       -     -     exited with status 1; restarting (2/5) in 4s
+
+4 awake · 81M resident · connect to any endpoint to wake it
+
+      NAME     ENGINE        STATE    ENDPOINT         CONNS   MEM   CPU   NOTE
+Modules
+  ○   cache    valkey 9      dozing   127.0.0.1:6379   -       5M    -     sleeps in 4m12s
+  ●   db       postgres 16   awake    127.0.0.1:5432   3c      11M   -     held by api
+  ●   events   kafka 4       awake    127.0.0.1:9092   1c      22M   1%    pinned
+Apps
+  ●   api      app           awake    127.0.0.1:8080   -       43M   2%
+  ✕   web      app           failed   127.0.0.1:8090   -       -     -     exited with status 2; gave up after 5 restarts
+  ●   worker   app           awake    -                -       -     -
+
+5 awake · 81M resident · connect to any endpoint to wake it
+
+      NAME     ENGINE        STATE    ENDPOINT         CONNS   MEM   CPU   NOTE
+Modules
+  ○   cache    valkey 9      dozing   127.0.0.1:6379   -       5M    -     sleeps in 4m12s
+  ●   db       postgres 16   awake    127.0.0.1:5432   3c      11M   -     held by api
+  ●   events   kafka 4       awake    127.0.0.1:9092   1c      22M   1%    pinned
+Apps
+  ●   api      app           awake    127.0.0.1:8080   -       43M   2%
+  ✕   web      app           failed   127.0.0.1:8090   -       -     -     exited with status 2; gave up after 5 restarts
+  ●   worker   app           awake    -                -       46M   1%
+
+5 awake · 127M resident · connect to any endpoint to wake it
+

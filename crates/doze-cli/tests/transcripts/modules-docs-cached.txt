@@ -25,46 +25,46 @@ json:
 |   "command": "doze modules docs",
 |   "ok": true,
 |   "data": {
-|     "arguments": [
-|       {
-|         "desc": "Engine major to run, 8 or 9.",
-|         "name": "version",
-|         "required": true,
-|         "type": "number"
-|       },
-|       {
-|         "default": "noeviction",
-|         "desc": "Eviction policy.",
-|         "name": "maxmemory_policy",
-|         "required": false,
-|         "type": "string"
-|       },
-|       {
-|         "default": "false",
-|         "desc": "Save before sleeping.",
-|         "name": "snapshot_on_sleep",
-|         "required": false,
-|         "since": "0.3.0",
-|         "type": "bool"
-|       }
-|     ],
-|     "blocks": [],
-|     "cached_seconds_ago": {n},
-|     "category": "cache",
-|     "description": "A local Valkey server, the open-source Redis fork. Any redis client works.",
-|     "engine": "valkey",
+|     "module": "doze/valkey",
+|     "version": "0.3.0",
+|     "pinned": false,
 |     "engines": [
 |       "8",
 |       "9"
 |     ],
-|     "example": "valkey \"cache\" {\n  version   = 9\n  maxmemory = \"256mb\"\n}",
-|     "homepage": "",
-|     "module": "doze/valkey",
-|     "pinned": false,
-|     "port": 6379,
-|     "tagline": "In-memory cache, Redis-compatible.",
 |     "title": "Valkey",
-|     "version": "0.3.0",
-|     "web": "https://doze-dev.com/registry/doze/valkey/"
+|     "tagline": "In-memory cache, Redis-compatible.",
+|     "category": "cache",
+|     "engine": "valkey",
+|     "port": 6379,
+|     "example": "valkey \"cache\" {\n  version   = 9\n  maxmemory = \"256mb\"\n}",
+|     "description": "A local Valkey server, the open-source Redis fork. Any redis client works.",
+|     "homepage": "",
+|     "arguments": [
+|       {
+|         "name": "version",
+|         "type": "number",
+|         "required": true,
+|         "desc": "Engine major to run, 8 or 9."
+|       },
+|       {
+|         "name": "maxmemory_policy",
+|         "type": "string",
+|         "required": false,
+|         "default": "noeviction",
+|         "desc": "Eviction policy."
+|       },
+|       {
+|         "name": "snapshot_on_sleep",
+|         "type": "bool",
+|         "required": false,
+|         "default": "false",
+|         "desc": "Save before sleeping.",
+|         "since": "0.3.0"
+|       }
+|     ],
+|     "blocks": [],
+|     "web": "https://doze-dev.com/registry/doze/valkey/",
+|     "cached_seconds_ago": {n}
 |   }
 | }

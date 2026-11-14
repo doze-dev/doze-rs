@@ -1,0 +1,285 @@
+# sleep, restart, reset, pin, off and on against the daemon (Go's sleep-restart-reset-pin.golden for the first five),
+# pin saying what it wants (twice changes nothing), reset refusing to guess without -y, and names the stack lacks.
+@ project bare
+@ daemon verbs
+
+$ doze sleep cache web
+exit 0
+stdout:
+| ✓ cache asleep
+| ✓ web asleep
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sleep",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "cache",
+|         "state": "asleep"
+|       },
+|       {
+|         "name": "web",
+|         "state": "asleep"
+|       }
+|     ]
+|   }
+| }
+
+$ doze sleep
+exit 0
+stdout:
+| ✓ everything is asleep
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sleep",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "db",
+|         "state": "asleep"
+|       },
+|       {
+|         "name": "events",
+|         "state": "asleep"
+|       },
+|       {
+|         "name": "api",
+|         "state": "asleep"
+|       }
+|     ]
+|   }
+| }
+
+$ doze restart api
+exit 0
+stdout:
+| ✓ api restarted in 310ms
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze restart",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "api",
+|         "state": "restarted",
+|         "took_ms": 310
+|       }
+|     ]
+|   }
+| }
+
+$ doze reset -y db
+exit 0
+stdout:
+| ✓ db reset — its data is gone; the next wake provisions it fresh
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze reset",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "db",
+|         "state": "reset"
+|       }
+|     ]
+|   }
+| }
+
+$ doze pin events cache
+exit 0
+stdout:
+| ✓ events already pinned
+| ✓ cache pinned — it stays awake until unpinned or the daemon stops
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze pin",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "events",
+|         "state": "pinned",
+|         "changed": false
+|       },
+|       {
+|         "name": "cache",
+|         "state": "pinned",
+|         "changed": true
+|       }
+|     ]
+|   }
+| }
+
+$ doze pin events cache
+exit 0
+stdout:
+| ✓ events already pinned
+| ✓ cache already pinned
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze pin",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "events",
+|         "state": "pinned",
+|         "changed": false
+|       },
+|       {
+|         "name": "cache",
+|         "state": "pinned",
+|         "changed": false
+|       }
+|     ]
+|   }
+| }
+
+$ doze keepawake --off cache
+exit 0
+stdout:
+| ✓ cache unpinned — it sleeps again when idle
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze pin",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "cache",
+|         "state": "unpinned",
+|         "changed": true
+|       }
+|     ]
+|   }
+| }
+
+$ doze off web
+exit 0
+stdout:
+| ✓ web off
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze off",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "web",
+|         "state": "off"
+|       }
+|     ]
+|   }
+| }
+
+$ doze on web
+exit 0
+stdout:
+| ✓ web on
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze on",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "web",
+|         "state": "on"
+|       }
+|     ]
+|   }
+| }
+
+$ doze reset db
+exit 9
+stderr:
+| error[DZ0705]: reset deletes data and will not guess
+|   db loses its data; it starts fresh on its next wake
+|   fix: doze reset -y db · --dry-run shows what goes
+json exit 9
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze reset",
+|   "ok": false,
+|   "error": {
+|     "code": "needs_confirmation",
+|     "message": "reset deletes data and will not guess",
+|     "exit": 9,
+|     "id": "DZ0705",
+|     "notes": [
+|       "db loses its data; it starts fresh on its next wake"
+|     ],
+|     "fix": "doze reset -y db · --dry-run shows what goes"
+|   }
+| }
+
+$ doze wake nope
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "nope"
+|   it has db, cache, events, api, worker, web
+|   fix: doze status
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze wake",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "the stack has no service called \"nope\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "it has db, cache, events, api, worker, web"
+|     ],
+|     "fix": "doze status"
+|   }
+| }
+
+$ doze restart api nope
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "nope"
+|   it has db, cache, events, api, worker, web
+|   fix: doze status
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze restart",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "the stack has no service called \"nope\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "it has db, cache, events, api, worker, web"
+|     ],
+|     "fix": "doze status"
+|   }
+| }

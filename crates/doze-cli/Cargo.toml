@@ -19,6 +19,15 @@ path = "src/main.rs"
 doze-os = { path = "../doze-os" }
 doze-names = { path = "../doze-names" }
 doze-module-proto = { path = "../doze-module-proto" }
+# The daemon's control protocol (a client, as the app is) and the words every surface says about it.
+doze-control = { path = "../doze-control", features = ["words"] }
+doze-display = { path = "../doze-display" }
+# Where a stack's state lives (its socket, its journal), and the journal on disk for `why` with the daemon down.
+doze-projects = { path = "../doze-projects" }
+doze-journal = { path = "../doze-journal" }
+doze-logstore = { path = "../doze-logstore" }
+# Log lines are stamped with this machine's wall clock, as Go's `time.Local`: the zone from TZ or the system's.
+jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-platform"] }
 clap = { version = "4", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }
 clap_complete = "4"
 serde = { version = "1", features = ["derive"] }
@@ -37,3 +46,5 @@ rustls-native-certs = "0.8"
 
 [dev-dependencies]
 ed25519-dalek = { version = "3", default-features = false, features = [] }
+# The scripted daemon on a real socket: the commands that talk to doze are tested through the protocol they use.
+doze-control = { path = "../doze-control", features = ["words", "test-support"] }

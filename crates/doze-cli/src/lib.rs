@@ -20,7 +20,10 @@ pub mod plan;
 pub mod platform;
 pub mod project;
 pub mod registry;
+mod stack;
+mod stream;
 mod suggest;
+mod table;
 pub mod update;
 pub mod view;
 

@@ -17,27 +17,27 @@ json:
 |   "command": "doze update",
 |   "ok": true,
 |   "data": {
-|     "applies_with": "doze update",
 |     "dry_run": true,
+|     "applies_with": "doze update",
 |     "plan": [
 |       {
+|         "title": "doze dev → 9.9.9",
 |         "changes": [
 |           {
-|             "detail": "through Homebrew: brew upgrade doze",
 |             "op": "→",
-|             "subject": "install doze 9.9.9"
+|             "subject": "install doze 9.9.9",
+|             "detail": "through Homebrew: brew upgrade doze"
 |           },
 |           {
-|             "detail": "services keep running",
 |             "op": "→",
-|             "subject": "hand the running daemon over to it"
+|             "subject": "hand the running daemon over to it",
+|             "detail": "services keep running"
 |           },
 |           {
 |             "op": "+",
 |             "subject": "valkey sleeps with a snapshot"
 |           }
-|         ],
-|         "title": "doze dev → 9.9.9"
+|         ]
 |       }
 |     ]
 |   }

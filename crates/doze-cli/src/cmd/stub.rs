@@ -52,22 +52,11 @@ pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
         Cmd::Up(_)
         | Cmd::Down(_)
         | Cmd::Sync(_)
-        | Cmd::Status(_)
         | Cmd::Env(_)
         | Cmd::Run(_)
-        | Cmd::Wake(_)
-        | Cmd::Sleep(_)
-        | Cmd::Restart(_)
-        | Cmd::Reset(_)
         | Cmd::Migrate(_)
-        | Cmd::Task(_)
-        | Cmd::Pin(_)
-        | Cmd::Off(_)
-        | Cmd::On(_)
-        | Cmd::Logs(_)
         | Cmd::Url(_)
-        | Cmd::Connect(_)
-        | Cmd::Why(_) => Needs::Daemon,
+        | Cmd::Connect(_) => Needs::Daemon,
         Cmd::Init(_) | Cmd::Add(_) | Cmd::Lint(_) | Cmd::Fmt(_) => Needs::Hcl,
         Cmd::DnsSetup(_) | Cmd::Trust(_) => Needs::Setup,
         Cmd::Doctor(d) if d.fix || d.print_fix => Needs::Setup,
@@ -75,6 +64,17 @@ pub(crate) fn needs(cmd: &Cmd) -> Option<Needs> {
         Cmd::Modules(m) if matches!(m.command, Some(ModulesCmd::Upgrade(_))) => Needs::Lock,
         Cmd::Bug => Needs::Report,
         Cmd::Doctor(_)
+        | Cmd::Status(_)
+        | Cmd::Wake(_)
+        | Cmd::Sleep(_)
+        | Cmd::Restart(_)
+        | Cmd::Reset(_)
+        | Cmd::Task(_)
+        | Cmd::Pin(_)
+        | Cmd::Off(_)
+        | Cmd::On(_)
+        | Cmd::Logs(_)
+        | Cmd::Why(_)
         | Cmd::Modules(_)
         | Cmd::Version
         | Cmd::Update(_)

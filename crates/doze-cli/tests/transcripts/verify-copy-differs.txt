@@ -21,21 +21,21 @@ json:
 |   "ok": false,
 |   "data": {
 |     "key": "642a…09",
+|     "platform": "{triple}",
 |     "modules": [
 |       {
-|         "detail": "sha256 620e…b4c5 matches the signed index (not downloaded here)",
 |         "module": "postgres",
+|         "version": "0.2.5",
 |         "state": "verified",
-|         "version": "0.2.5"
+|         "detail": "sha256 620e…b4c5 matches the signed index (not downloaded here)"
 |       },
 |       {
-|         "detail": "this machine's copy is 1111…1111, the lock pins aec1…f903 · delete {sandbox}/home/modules/doze/valkey/0.2.1-{triple} and doze fetches it again",
 |         "module": "valkey",
+|         "version": "0.2.1",
 |         "state": "mismatch",
-|         "version": "0.2.1"
+|         "detail": "this machine's copy is 1111…1111, the lock pins aec1…f903 · delete {sandbox}/home/modules/doze/valkey/0.2.1-{triple} and doze fetches it again"
 |       }
-|     ],
-|     "platform": "{triple}"
+|     ]
 |   },
 |   "error": {
 |     "code": "failed",

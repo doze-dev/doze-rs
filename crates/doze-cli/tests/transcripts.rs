@@ -123,7 +123,7 @@ fn transcript(s: &Scenario) -> String {
     .collect();
     let mut results: Vec<Vec<String>> = vec![Vec::new(); s.commands.len()];
     for (label, term, json) in modes {
-        let (sb, host) = setup::prepare(&s.setup);
+        let (sb, host, _daemon) = setup::prepare(&s.setup);
         for (i, c) in s.commands.iter().enumerate() {
             let mut args: Vec<&str> = c.split_whitespace().collect();
             if json && !args.contains(&"--json") {

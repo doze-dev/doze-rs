@@ -4,12 +4,23 @@
 pub(crate) mod docs;
 mod docs_view;
 pub(crate) mod doctor;
+mod dry;
 pub(crate) mod fetch;
+mod graph;
+pub(crate) mod logs;
 pub(crate) mod modules;
+mod pin;
+mod ready;
+pub(crate) mod report;
+pub(crate) mod status;
 pub(crate) mod stub;
+pub(crate) mod task;
 pub(crate) mod update;
+mod verbs;
 pub(crate) mod verify;
 pub(crate) mod version;
+mod watch;
+pub(crate) mod why;
 
 use crate::cli::setup::ModulesCmd;
 use crate::cli::{Cli, Cmd};
@@ -43,6 +54,17 @@ pub(crate) fn dispatch(
         Cmd::Doctor(_) => doctor::run(ctx, mode),
         Cmd::Update(u) => update::run(ctx, u.dry_run),
         Cmd::Refresh(r) => update::refresh(ctx, &r),
+        Cmd::Status(s) => status::run(ctx, mode, &s, notices),
+        Cmd::Wake(n) => verbs::wake(ctx, mode, &n),
+        Cmd::Sleep(n) => verbs::sleep(ctx, mode, &n),
+        Cmd::Restart(n) => verbs::restart(ctx, mode, &n),
+        Cmd::Reset(n) => verbs::reset(ctx, mode, &n),
+        Cmd::Off(n) => verbs::on_off(ctx, mode, &n, true),
+        Cmd::On(n) => verbs::on_off(ctx, mode, &n, false),
+        Cmd::Pin(p) => pin::run(ctx, mode, &p),
+        Cmd::Task(t) => task::run(ctx, mode, &t, notices),
+        Cmd::Logs(l) => logs::run(ctx, mode, &l),
+        Cmd::Why(w) => why::run(ctx, mode, &w),
         Cmd::Modules(m) => match m.command {
             None => modules::run(ctx, mode),
             Some(ModulesCmd::Docs(d)) => docs::run(ctx, mode, &d, notices),
