@@ -23,7 +23,8 @@ pub(crate) fn send(w: &Writer, f: &Frame) -> io::Result<()> {
     w.flush()
 }
 
-/// The next request; `None` once the client has gone.
+// fuzz:parser fuzz_session
+/// The next request; `None` once the client has gone (the bytes after the hello: `fuzz_session` sends any).
 fn next(r: &mut LocalStream, dec: &mut Decoder) -> Option<Result<Request, CodecError>> {
     let mut buf = [0u8; 8192];
     loop {

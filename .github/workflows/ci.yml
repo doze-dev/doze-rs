@@ -298,6 +298,11 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_line
           cargo fuzz run fuzz_line corpus/fuzz_line seeds/fuzz_line -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the daemon's control sessions (any bytes after the hello, on a real socket) for 30 seconds
+        working-directory: crates/doze-daemon/fuzz
+        run: |
+          mkdir -p corpus/fuzz_session
+          cargo fuzz run fuzz_session corpus/fuzz_session seeds/fuzz_session -- -max_total_time=30 -max_len=4096
       - name: Fuzz the log store's line reader for 30 seconds
         working-directory: crates/doze-logstore/fuzz
         run: |
