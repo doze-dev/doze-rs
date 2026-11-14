@@ -1485,6 +1485,7 @@ dependencies = [
  "aws-logs",
  "aws-peers",
  "aws-s3",
+ "aws-scheduler",
  "aws-secrets",
  "aws-sfn",
  "aws-sns",

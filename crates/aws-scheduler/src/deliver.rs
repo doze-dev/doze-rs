@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 
 use crate::Shared;
 use crate::fire::Invocation;
+use crate::page::put;
 use crate::targets::{Kind, kind};
 
 /// What came of one attempt.
@@ -292,11 +293,4 @@ pub(crate) async fn queue_url(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_owned())
-}
-
-/// Sets a member of a JSON object (a value that is not one is left as it is).
-pub(crate) fn put(v: &mut Value, key: &str, value: Value) {
-    if let Some(o) = v.as_object_mut() {
-        o.insert(key.to_owned(), value);
-    }
 }

@@ -37,6 +37,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     config.credential_source = Some(iam.clone());
     let (cloudwatch, logs) = observability(&ctx, &args);
     let eventbridge = Arc::new(Eventbridge::new(Arc::new(ctx("eventbridge"))));
+    let scheduler = Arc::new(aws_scheduler::Scheduler::new(Arc::new(ctx("scheduler"))));
     let states = Arc::new(aws_sfn::Sfn::with_config(
         Arc::new(ctx("states")),
         states_config(),
@@ -56,6 +57,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         logs,
         cloudwatch.clone(),
         eventbridge.clone(),
+        scheduler.clone(),
         lambda.clone(),
         states.clone(),
         Arc::new(aws_cloudformation::Cloudformation::with_config(
@@ -70,6 +72,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     // Alarms that were pending when the process last stopped are judged again; nothing else would wake their region.
     cloudwatch.resume().await;
     eventbridge.resume().await;
+    scheduler.resume().await;
     dynamodb.resume().await;
     // Event source mappings that were enabled when the process last stopped poll again; functions find the other services here.
     lambda.set_endpoint(&format!("http://{}", running.local_addr()));

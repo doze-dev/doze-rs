@@ -55,3 +55,10 @@ pub(crate) fn secs(ms: i64) -> Value {
     #[allow(clippy::cast_precision_loss)] // WHY: a time in ms is far below 2^53.
     Value::from(ms as f64 / 1000.0)
 }
+
+/// Sets a member of a JSON object (a value that is not one is left as it is).
+pub(crate) fn put(v: &mut Value, key: &str, value: Value) {
+    if let Some(o) = v.as_object_mut() {
+        o.insert(key.to_owned(), value);
+    }
+}

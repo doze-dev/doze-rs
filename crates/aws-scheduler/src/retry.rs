@@ -129,7 +129,7 @@ async fn dead_letter(
         "TARGET_ARN": text(inv.target.get("Arn").and_then(Value::as_str).unwrap_or_default()),
     });
     if let Some(c) = condition {
-        crate::deliver::put(&mut attrs, "EXHAUSTED_RETRY_CONDITION", text(c));
+        crate::page::put(&mut attrs, "EXHAUSTED_RETRY_CONDITION", text(c));
     }
     let sent = async {
         let url = queue_url(&peers, &caller, queue).await?;
