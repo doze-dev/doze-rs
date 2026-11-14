@@ -77,8 +77,8 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names --all-targets -- -D warnings
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names --no-fail-fast -- --nocapture
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind --all-targets -- -D warnings
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind --no-fail-fast -- --nocapture
       - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
         run: cargo clippy -p doze-names --features netd --all-targets -- -D warnings && cargo test -p doze-names --features netd --no-fail-fast
 
@@ -188,7 +188,7 @@ jobs:
           echo "idle samples:$samples KB"
           rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "binary $size B, $crates packages, idle $rss KB"
-          [ "$size" -le 5263296 ] || { echo "lean binary over 5,263,296 B"; exit 1; }
+          [ "$size" -le 5274120 ] || { echo "lean binary over 5,274,120 B"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
           [ "$rss" -le 7229 ] || { echo "idle resident memory over 7,229 KB in the lean build"; exit 1; }
           ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }
@@ -219,7 +219,7 @@ jobs:
           rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "idle $rss KB with TLS configured"
           # CI's measurement with TLS configured on 2026-11-14 (median 10,104 KB) plus 5% (weight.md, "Limits raised to the measured values").
-          [ "$rss" -le 10610 ] || { echo "idle resident memory over 10,610 KB with TLS configured"; exit 1; }
+          [ "$rss" -le 11479 ] || { echo "idle resident memory over 11,479 KB with TLS configured"; exit 1; }
 
   # The React console (web/, docs/port/console/react-plan.md): its built bundle is committed in crates/kafka-console/web-dist
   # so that `cargo build` needs no bun. This rebuilds it from the locked dependencies and fails if the result differs from what

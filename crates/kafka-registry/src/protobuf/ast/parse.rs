@@ -204,9 +204,9 @@ impl Parser<'_> {
                     return Err(Error::syntax(at, "a file has at most one package"));
                 }
                 self.i += 1;
-                let (name, span) = self.dotted(false)?;
+                let (name, _) = self.dotted(false)?;
                 self.end_statement()?;
-                Ok(Decl::Package(name, span))
+                Ok(Decl::Package(name))
             }
             Some("import") => {
                 self.i += 1;
