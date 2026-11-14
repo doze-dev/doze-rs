@@ -39,6 +39,7 @@ tracing = "0.1"
 
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }
+aws-logs = { path = "../aws-logs" }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync", "net", "io-util"] }
 
 [dev-dependencies.aws-gateway]

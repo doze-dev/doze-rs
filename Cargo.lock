@@ -162,6 +162,7 @@ dependencies = [
  "aws-core",
  "aws-gateway",
  "aws-iam-policy",
+ "aws-logs",
  "aws-model-api-gateway",
  "aws-model-apigatewaymanagementapi",
  "aws-model-apigatewayv2",

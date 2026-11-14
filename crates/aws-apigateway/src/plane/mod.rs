@@ -15,6 +15,7 @@ mod client;
 mod cors;
 mod custom;
 mod event;
+mod execlog;
 mod find;
 mod httpapi;
 mod jwt;
