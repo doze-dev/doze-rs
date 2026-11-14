@@ -86,12 +86,9 @@ async fn run(cfg: ResolverConfig, mut stop: watch::Receiver<bool>, bound: watch:
     loop {
         match UdpSocket::bind(&cfg.addr).await {
             Ok(sock) => {
-                let who = cfg.registry.as_ref().map(|r| r.owner.clone());
-                eprintln!("DIAG {who:?} bound {}", cfg.addr);
                 // Recorded before Bound is released: whoever waited may ask the registry who has it at once.
                 if let Some(r) = &cfg.registry {
-                    let res = r.claim_holder(RESOLVER_KEY, &cfg.addr);
-                    eprintln!("DIAG {who:?} claim {res:?}");
+                    let _ = r.claim_holder(RESOLVER_KEY, &cfg.addr);
                 }
                 let _ = bound.send(true);
                 (cfg.log)(format!("names: serving {} on {}", crate::SUFFIX, cfg.addr));
@@ -102,8 +99,7 @@ async fn run(cfg: ResolverConfig, mut stop: watch::Receiver<bool>, bound: watch:
                 // and a release after that would erase the successor's record (it matches by pid, and peers in one
                 // process share one; seen on a slow Windows runner).
                 if let Some(r) = &cfg.registry {
-                    let res = r.release_key(RESOLVER_KEY);
-                    eprintln!("DIAG {who:?} released {res:?} stop={}", *stop.borrow());
+                    let _ = r.release_key(RESOLVER_KEY);
                 }
                 drop(sock);
                 if *stop.borrow() {
@@ -111,7 +107,6 @@ async fn run(cfg: ResolverConfig, mut stop: watch::Receiver<bool>, bound: watch:
                 }
             }
             Err(e) if !announced => {
-                eprintln!("DIAG bind error {e:?}");
                 announced = true;
                 (cfg.log)(why_not(&cfg, &e));
             }
@@ -153,7 +148,7 @@ async fn answer_until_stopped(
     loop {
         let (n, peer) = tokio::select! {
             _ = stop.changed() => return,
-            r = sock.recv_from(&mut buf) => match r { Ok(v) => v, Err(e) => { eprintln!("DIAG recv error {e:?}"); return } },
+            r = sock.recv_from(&mut buf) => match r { Ok(v) => v, Err(_) => return },
         };
         let Some(q) = buf.get(..n).map(<[u8]>::to_vec) else {
             continue;

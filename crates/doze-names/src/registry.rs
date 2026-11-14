@@ -138,14 +138,8 @@ impl Registry {
         let mut text = serde_json::to_string_pretty(&m).map_err(std::io::Error::other)?;
         text.push('\n');
         let tmp = self.path.with_extension("json.tmp");
-        if let Err(e) = std::fs::write(&tmp, text) {
-            eprintln!("DIAG {:?} write tmp failed: {e:?}", self.owner);
-            return Err(e.into());
-        }
-        if let Err(e) = std::fs::rename(&tmp, &self.path) {
-            eprintln!("DIAG {:?} rename failed: {e:?}", self.owner);
-            return Err(e.into());
-        }
+        std::fs::write(&tmp, text)?;
+        std::fs::rename(&tmp, &self.path)?;
         Ok(out)
     }
 
