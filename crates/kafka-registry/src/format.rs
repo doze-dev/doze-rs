@@ -153,6 +153,11 @@ pub trait ParsedSchema: Debug + Send + Sync + Any {
         Err("this build has no codec for the language".to_owned())
     }
 
+    /// A JSON value of the schema's shape, every field at its zero value: what the console's Try and Produce boxes start with.
+    fn sample(&self) -> crate::json::Json {
+        crate::json::Json::Object(Vec::new())
+    }
+
     /// Writes a JSON value as a record's payload (without the wire header).
     ///
     /// # Errors

@@ -110,6 +110,12 @@ impl Codec {
             .map_err(|why| format!("the payload does not match the schema ({why})"))
     }
 
+    /// A value of the schema's shape, every field at its zero value.
+    #[must_use]
+    pub fn sample(&self) -> Json {
+        self.parsed.sample()
+    }
+
     /// Writes JSON text as a record value: the header, then the payload.
     ///
     /// # Errors
@@ -217,7 +223,7 @@ pub fn base64_bytes(s: &str) -> Option<Vec<u8>> {
         }))
     };
     let t = s.trim_end_matches('=').as_bytes();
-    if s.len() % 4 != 0 {
+    if !s.len().is_multiple_of(4) {
         return None;
     }
     let mut out = Vec::with_capacity(t.len() * 3 / 4);

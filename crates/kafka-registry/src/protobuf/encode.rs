@@ -213,3 +213,32 @@ fn value(pool: &Pool, f: &Fld, v: &Json, out: &mut Vec<u8>) -> Res<()> {
     }
     Ok(())
 }
+
+/// A value of message `m`'s shape: each field at its zero, by its JSON name.
+pub(super) fn sample(pool: &Pool, m: &Msg, depth: usize) -> Json {
+    let raw = |s: &str| Json::Raw(s.to_owned());
+    Json::Object(
+        m.fields
+            .iter()
+            .map(|f| {
+                let v = if f.card == Card::Repeated {
+                    let map = matches!(f.ty, Ty::Message(i) if pool.msg(i).is_some_and(|e| e.map_entry));
+                    if map { Json::Object(Vec::new()) } else { Json::Array(Vec::new()) }
+                } else {
+                    match f.ty {
+                        Ty::Scalar(3 | 4 | 6 | 16 | 18) => Json::Str("0".into()),
+                        Ty::Scalar(8) => raw("false"),
+                        Ty::Scalar(9 | 12) => Json::Str(String::new()),
+                        Ty::Scalar(_) => raw("0"),
+                        Ty::Enum(e) => Json::Str(pool.enums.get(e).and_then(|x| x.values.first().cloned()).unwrap_or_default()),
+                        Ty::Message(i) | Ty::Group(i) => match pool.msg(i) {
+                            Some(n) if depth < 4 => sample(pool, n, depth + 1),
+                            _ => Json::Object(Vec::new()),
+                        },
+                    }
+                };
+                (json_name(&f.name), v)
+            })
+            .collect(),
+    )
+}

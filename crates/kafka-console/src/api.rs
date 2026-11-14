@@ -35,6 +35,7 @@ pub mod config;
 pub mod config_edit;
 pub mod lab;
 pub mod lab_routes;
+pub mod schemas;
 pub mod settings;
 pub mod topic_admin;
 pub mod topic_writes;
@@ -374,6 +375,7 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
             get(access::delete_form).post(access::delete),
         )
         .merge(lab_routes::routes(web))
+        .merge(schemas::routes(web))
         .route_layer(from_fn(guard))
 }
 
@@ -426,4 +428,7 @@ pub const GET_PATHS: &[&str] = &[
     // are in api/lab_tests.rs and the browser gate.
     "/api/v1/lab",
     "/api/v1/lab/guide",
+    // The Schemas pages (10d): the list answers why there is no registry; a subject is SCHEMAS_OFF without one, and its
+    // own tests read it over a registry (tests/live_api_schemas.rs).
+    "/api/v1/schemas",
 ];

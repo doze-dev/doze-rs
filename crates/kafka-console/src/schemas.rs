@@ -72,6 +72,9 @@ impl Default for Schemas {
 #[derive(Debug, Default)]
 pub struct Codecs(HashMap<u32, Result<Arc<Codec>, String>>);
 
+/// The User-Agent the console registers with: a version it registered says "this console".
+pub const CONSOLE_AGENT: &str = "doze-kafka-console";
+
 /// How many characters a table cell shows of a decoded value.
 const PREVIEW: usize = 120;
 

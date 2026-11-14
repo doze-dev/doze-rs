@@ -106,6 +106,10 @@ impl ParsedSchema for AvroSchema {
     fn encode(&self, value: &Json) -> Result<Vec<u8>, String> {
         codec::encode(&self.schema, value)
     }
+
+    fn sample(&self) -> Json {
+        codec::sample(&self.schema)
+    }
 }
 
 #[cfg(test)]

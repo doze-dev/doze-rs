@@ -319,33 +319,8 @@ fn write(schema: &Schema, t: &Ty, v: &Json, out: &mut Vec<u8>, depth: usize) -> 
             put_bytes(out, text(v)?.as_bytes());
             Ok(())
         }
-        Ty::Array(items) => {
-            let Json::Array(xs) = v else {
-                return Err(format!("an array needs a JSON array, not {}", v.to_text()));
-            };
-            if !xs.is_empty() {
-                put_long(out, i64::try_from(xs.len()).unwrap_or(i64::MAX));
-                for (i, x) in xs.iter().enumerate() {
-                    write(schema, items, x, out, depth + 1).map_err(|e| format!("[{i}]: {e}"))?;
-                }
-            }
-            out.push(0);
-            Ok(())
-        }
-        Ty::Map(values) => {
-            let Json::Object(m) = v else {
-                return Err(format!("a map needs a JSON object, not {}", v.to_text()));
-            };
-            if !m.is_empty() {
-                put_long(out, i64::try_from(m.len()).unwrap_or(i64::MAX));
-                for (k, x) in m {
-                    put_bytes(out, k.as_bytes());
-                    write(schema, values, x, out, depth + 1).map_err(|e| format!("{k}: {e}"))?;
-                }
-            }
-            out.push(0);
-            Ok(())
-        }
+        Ty::Array(items) => write_array(schema, items, v, out, depth),
+        Ty::Map(values) => write_map(schema, values, v, out, depth),
         Ty::Union(branches) => union(schema, branches, v, out, depth),
         Ty::Named(i) => named_out(schema, *i, v, out, depth),
     }
@@ -426,4 +401,70 @@ fn named_out(schema: &Schema, i: usize, v: &Json, out: &mut Vec<u8>, depth: usiz
             Ok(())
         }
     }
+}
+
+// ---- A sample value -------------------------------------------------------------------------------------------------
+
+/// A value of the schema's shape, every field at its zero (or its default), a union as its first branch.
+pub(crate) fn sample(schema: &Schema) -> Json {
+    schema
+        .root
+        .as_ref()
+        .map_or_else(|| Json::Raw("null".into()), |t| zero(schema, t, 0))
+}
+
+fn zero(schema: &Schema, t: &Ty, depth: usize) -> Json {
+    let raw = |s: &str| Json::Raw(s.to_owned());
+    match t {
+        Ty::Null => raw("null"),
+        Ty::Boolean => raw("false"),
+        Ty::Int | Ty::Long | Ty::Float | Ty::Double => raw("0"),
+        Ty::Bytes | Ty::String => Json::Str(String::new()),
+        Ty::Array(_) => Json::Array(Vec::new()),
+        Ty::Map(_) => Json::Object(Vec::new()),
+        Ty::Union(bs) => bs.first().map_or_else(|| raw("null"), |b| zero(schema, b, depth)),
+        Ty::Named(i) => match schema.named(*i).map(|n| &n.kind) {
+            Some(NamedKind::Record(fields)) if depth < 6 => Json::Object(
+                fields
+                    .iter()
+                    .map(|f| {
+                        let v = f.default.clone().unwrap_or_else(|| zero(schema, &f.ty, depth + 1));
+                        (f.name.clone(), v)
+                    })
+                    .collect(),
+            ),
+            Some(NamedKind::Enum { symbols, .. }) => Json::Str(symbols.first().cloned().unwrap_or_default()),
+            Some(NamedKind::Fixed(n)) => Json::Str("0".repeat(usize::try_from(*n).unwrap_or(0).min(64))),
+            _ => raw("null"),
+        },
+    }
+}
+
+fn write_array(schema: &Schema, items: &Ty, v: &Json, out: &mut Vec<u8>, depth: usize) -> Res<()> {
+    let Json::Array(xs) = v else {
+        return Err(format!("an array needs a JSON array, not {}", v.to_text()));
+    };
+    if !xs.is_empty() {
+        put_long(out, i64::try_from(xs.len()).unwrap_or(i64::MAX));
+        for (i, x) in xs.iter().enumerate() {
+            write(schema, items, x, out, depth + 1).map_err(|e| format!("[{i}]: {e}"))?;
+        }
+    }
+    out.push(0);
+    Ok(())
+}
+
+fn write_map(schema: &Schema, values: &Ty, v: &Json, out: &mut Vec<u8>, depth: usize) -> Res<()> {
+    let Json::Object(m) = v else {
+        return Err(format!("a map needs a JSON object, not {}", v.to_text()));
+    };
+    if !m.is_empty() {
+        put_long(out, i64::try_from(m.len()).unwrap_or(i64::MAX));
+        for (k, x) in m {
+            put_bytes(out, k.as_bytes());
+            write(schema, values, x, out, depth + 1).map_err(|e| format!("{k}: {e}"))?;
+        }
+    }
+    out.push(0);
+    Ok(())
 }

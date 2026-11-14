@@ -223,3 +223,29 @@ fn combined(a: &Arena, crit: Crit, ids: &[Id], v: &Json, path: &str, next: usize
         }
     }
 }
+
+/// A value of the schema's shape: an object's properties (the required ones, or all when none is), each at its zero; an
+/// enum's first value; a combination's first schema.
+pub(crate) fn sample(a: &Arena, id: Id, depth: usize) -> Json {
+    let raw = |s: &str| Json::Raw(s.to_owned());
+    if depth > 6 {
+        return raw("null");
+    }
+    match &a.node(id).kind {
+        Kind::Any | Kind::Nothing | Kind::Null | Kind::Not(_) | Kind::Cond(_) => raw("null"),
+        Kind::Str(_) => Json::Str(String::new()),
+        Kind::Num(_) => raw("0"),
+        Kind::Bool => raw("false"),
+        Kind::Arr(_) => Json::Array(Vec::new()),
+        Kind::Obj(o) => Json::Object(
+            o.props
+                .iter()
+                .filter(|(n, _)| o.required.is_empty() || o.requires(n))
+                .map(|(n, p)| (n.clone(), sample(a, *p, depth + 1)))
+                .collect(),
+        ),
+        Kind::Enum(values) => values.first().and_then(|v| Json::parse(v).ok()).unwrap_or_else(|| raw("null")),
+        Kind::Const(c) => Json::parse(c).unwrap_or_else(|_| raw("null")),
+        Kind::Combined(_, ids) => ids.first().map_or_else(|| raw("null"), |i| sample(a, *i, depth + 1)),
+    }
+}

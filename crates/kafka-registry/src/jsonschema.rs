@@ -129,6 +129,10 @@ impl ParsedSchema for ParsedJsonSchema {
         instance::check(&self.arena, value)?;
         Ok(value.to_text().into_bytes())
     }
+
+    fn sample(&self) -> Json {
+        instance::sample(&self.arena, self.arena.root(), 0)
+    }
 }
 
 #[cfg(test)]

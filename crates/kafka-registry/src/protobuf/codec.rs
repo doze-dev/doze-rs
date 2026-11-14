@@ -282,6 +282,12 @@ pub(super) fn encode(pool: &Pool, file: usize, value: &Json) -> Res<Vec<u8>> {
 
 use super::encode::write_message;
 
+/// An enum value as it is on the wire: an int32, sign-extended to ten bytes when negative.
+#[expect(clippy::cast_possible_truncation, reason = "an enum number is the low 32 bits")]
+fn enum_number(v: u64) -> i64 {
+    i64::from(v as i32)
+}
+
 #[cfg(test)]
 mod tests {
     use super::base64;
@@ -293,10 +299,4 @@ mod tests {
         assert_eq!(base64(b"hi"), "aGk=");
         assert_eq!(base64(b"hello"), "aGVsbG8=");
     }
-}
-
-/// An enum value as it is on the wire: an int32, sign-extended to ten bytes when negative.
-#[expect(clippy::cast_possible_truncation, reason = "an enum number is the low 32 bits")]
-fn enum_number(v: u64) -> i64 {
-    i64::from(v as i32)
 }
