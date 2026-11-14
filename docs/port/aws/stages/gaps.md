@@ -49,3 +49,21 @@ and `weight.md`; none of those was touched here. Each behaviour carries one call
 - Tests: `tests/delivery.rs` `a_message_that_cannot_be_delivered_goes_to_the_dead_letter_queue_with_why` (a real SQS beside it).
 - Open: AWS retries server-side errors to SQS/Lambda for up to 23 days before dead-lettering; locally a peer call has no server-side
   failure worth retrying, so none is retried.
+
+## 3. CloudWatch Logs regular-expression filter patterns (`crates/aws-logs/src/pattern/regex.rs`)
+
+- **`%...%` is built in every form**, with `regex-lite` (already in the tree; no new package): alone among the terms of an unstructured
+  pattern (`%ERROR|WARN%`, combinable with `-term` and `?term`), as the value of a JSON comparison (`{ $.path = %^/api/v[12]/% }`, `=`
+  and `!=` only; a number field is matched as written), and as the condition of a space-delimited field (`[ip, method = %GET|PUT%,
+  ...]`, `=` and `!=`; a `,` inside `{m,n}` belongs to the expression). It searches (anchored only by `^`/`$`). Used by
+  `FilterLogEvents`, `TestMetricFilter`, metric filters and subscription filters alike (one parser). A `%` inside a quoted JSON
+  string is now a plain `%` (it was refused as a regex). **Go weak (bettered):** Go refused them; AWS supports them.
+- **Limits:** two expressions in one pattern and five across a log group's metric and subscription filters (the model's documentation
+  of `PutMetricFilter`/`PutSubscriptionFilter`; replacing a filter counts what it will hold) are `LimitExceededException`, words
+  `(memory)`. **25 characters per expression** and the syntax (characters, `.`, `*`, `+`, `?`, `|`, groups, classes with ranges and
+  `^`, `{m,n}`, anchors, `\d \D \s \S \w \W`, `\` before a symbol; refused: `(?...)` lookaround/flags/named groups, back references,
+  `\b`, `\p{..}`) are **(memory)** of the Logs User Guide's regex page: the first thing to check when Logs is next recorded. Anything
+  outside is `InvalidParameterException` "Invalid filter pattern", as for any other bad pattern.
+- Tests: `pattern/regex.rs` (syntax, limits, reading to the closing `%`), `pattern/tests.rs` (each form, anchors, exclusion, limits),
+  `tests/groups.rs` (the group quota, `TestMetricFilter`, `FilterLogEvents`). Conformance: `test_regular_expressions_in_filter_patterns`
+  (UNVERIFIED until recorded).

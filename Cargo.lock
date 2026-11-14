@@ -510,6 +510,7 @@ dependencies = [
  "doze-runtime",
  "doze-store",
  "flate2",
+ "regex-lite",
  "serde",
  "serde_json",
  "tokio",
