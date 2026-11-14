@@ -5,10 +5,14 @@
 # darwin arm64 5,797,328 B, Linux aarch64 (the doze-ubuntu VM) 6,626,840 B, 158 packages, 7.1 MB idle in the VM. The ubuntu x86_64 estimate is
 # 7.05 MB (darwin times the 1.216 of Phase 7) to 7.42 MB (the VM times 1.12); the limit is the larger plus about 5%. Before the pass the same
 # estimate was 9.8 MB against a 9 MB limit. The owner's ceiling is 10 MB; the first CI run replaces the estimate with a measurement.
-# 2026-11-14, the module face in the default build (Phase 11, docs/port/weight.md): 6,574,304 B on darwin arm64 (+562,736 B over 6,011,568 B without
-# it), 171 packages (+13: the module SDK, minicbor, sha2, hex, rustix), 7,152 KB idle. Byte limit = darwin times 1.216 plus 5% = 8,394,071, rounded to
-# 8,400,000 B; packages 175. Whether the module stays in the default build is the owner's call (phase11.md).
-doze-kafka 8400000 175 8192 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-14, owner decision: bytes are CI's measurement on main that day (8,174,048 B, exact); idle is the median of three starts
+# (9,296 KB) plus 5% for noise, 9,761 KB. docs/port/weight.md, "Limits raised to the measured values".
+# 2026-11-14, then the module face (Phase 11, feature `module`, on by default): +562,736 B on darwin arm64 (6,011,568 to 6,574,304 B), +13
+# packages. CI's measurement against darwin on the same tree is 8,174,048 / 6,011,568 = 1.36 (not the 1.216 of Phase 7), so the module is about
+# +765 KB on ubuntu x86_64: 8,939,211 B estimated; limit that plus 5%, 9,386,171 B, until the next CI run on main replaces it with the
+# measurement (the owner's rule). Packages 161 + 13 = 174. This leaves about 0.6 MB under the owner's 10 MB ceiling; whether the module face
+# stays in the default build is the owner's call (phase11.md).
+doze-kafka 9386171 174 9761 --listen 127.0.0.1:{port} --data-dir {data}
 # doze-aws: measured 2026-11-12 on darwin/arm64 with SQS and its database: 2,687,088 B, 118 packages (the ones that only run at build time count: serde_derive
 # and its macro crates), 3,120 KB idle. It was 1,914,240 B and 109 packages before SQS kept its state on disk: redb is 507 KiB of the difference. The
 # byte limit is the macOS size times 1.3 (the Linux build of doze-kafka is about 1.2 times its macOS one) plus 5%; it is re-based from the first Linux CI run.
@@ -97,4 +101,6 @@ doze-kafka 8400000 175 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # and an ELF archiver for the target: CC_x86_64_unknown_linux_musl = a clang --target=x86_64-unknown-linux-musl wrapper, AR_x86_64_unknown_linux_musl = llvm-ar.
 # The owner raised doze-aws's ceiling from 10 MB to 20 MB ("Bump to 20 MB. Just use the freedom wisely", 2026-11-13); JSONata stays in. This line stays tight so that
 # every increase is still argued here: byte limit = the musl size plus 5% = 12,352,788, rounded to 12,400,000 B; packages 264 (258 plus 6).
-doze-aws 12400000 264 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-14, owner decision: idle is the median of three starts on CI that day (8,964 KB) plus 5% for noise, 9,413 KB. Growth: issue #36.
+# docs/port/weight.md, "Limits raised to the measured values".
+doze-aws 12400000 264 9413 --listen 127.0.0.1:{port} --data-dir {data}

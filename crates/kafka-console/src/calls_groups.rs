@@ -1,6 +1,6 @@
 //! The calls the Groups forms send and the answers they get, written as the boards draw them: a name, then the values. Pure
 //! functions from the values of a form to lines of tokens. What a person typed reaches these lines, so group and topic names go
-//! through [`visible`](crate::calls::visible) first.
+//! through [`visible`] first.
 
 use crate::calls::visible;
 use crate::model::{Lines, Refusal, Tok};
