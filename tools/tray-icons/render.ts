@@ -1,9 +1,9 @@
 // Draws the menu-bar template images from the brand bat (apps/doze-app/assets/brand/doze.svg, the same file as
 // doze-website/public/brand/doze.svg). Run from this directory: `bun install && bun render.ts`.
 //
-// Apple draws menu-bar glyphs about 18 pt tall inside the 22 pt bar. So the bat is cropped to its own outline (the
-// brand file pads it inside a rounded square), scaled to 18 pt tall, and as wide as its shape asks; the status item
-// is variable-length. Each picture is written at 1x (18 px tall) and 2x (36 px tall), each rendered at its own size,
+// Apple draws menu-bar glyphs about 18 pt tall inside the 22 pt bar; the bat is drawn 20 pt so it reads. So it is cropped to its own outline (the
+// brand file pads it inside a rounded square), scaled to 20 pt tall, and as wide as its shape asks; the status item
+// is variable-length. Each picture is written at 1x (20 px tall) and 2x (40 px tall), each rendered at its own size,
 // black on clear: macOS tints a template image to the bar.
 //
 // So that it reads at 1x: the outline is thickened a little; the perch is drawn as one whole pixel row (two at 2x)
@@ -30,8 +30,8 @@ const body = paths("#3A2448"); // the bat (the brand file's own coordinates, bef
 const eyes = paths("#F0A24B"); // its closed eyes, cut out of the head
 if (body.length !== 4 || eyes.length !== 2) throw new Error("the brand bat changed shape; look before redrawing");
 
-/** Points tall, as Apple asks of a menu-bar glyph. */
-const POINTS = Number(process.env.TRAY_POINTS ?? 18);
+/** Points tall: Apple suggests 18 in the 22 pt bar; 20 reads clearly (`TRAY_POINTS` overrides). */
+const POINTS = Number(process.env.TRAY_POINTS ?? 20);
 /** Extra outline, in the brand file's units (about 35 of them to a 1x pixel): a quarter pixel each side at 1x. */
 const THICKEN = Number(process.env.TRAY_THICKEN ?? 16);
 /** The eyes' cut, widened so it is a clear line at 2x. */
@@ -43,8 +43,8 @@ const BAT = { left: 363, right: 677, top: 184, bottom: 776 };
 const PERCH = { left: 416, right: 608, mid: 210 };
 const pad = THICKEN / 2;
 
-// The scale: the perch fills 1x row 1 exactly, the toes sit in row 0, the bat's foot ends row 17.
-//   u = units per 1x pixel; top = perch.mid - 1.5u; top + 18u = bottom  =>  16.5u = bottom - perch.mid
+// The scale: the perch fills 1x row 1 exactly, the toes sit in row 0, the bat's foot ends the last row.
+//   u = units per 1x pixel; top = perch.mid - 1.5u; top + POINTS*u = bottom  =>  (POINTS-1.5)u = bottom - perch.mid
 const bottom = BAT.bottom + pad;
 const u = (bottom - PERCH.mid) / (POINTS - 1.5);
 const top = PERCH.mid - 1.5 * u;

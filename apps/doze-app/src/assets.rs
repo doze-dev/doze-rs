@@ -81,8 +81,8 @@ pub(crate) const FONTS: [&[u8]; 10] = [
     include_bytes!("../assets/fonts/GeistMono-700.ttf"),
 ];
 
-/// The menu-bar item's template images: the brand bat cropped to its outline, 18 pt tall as Apple sizes menu-bar
-/// glyphs, drawn at 1x and 2x by `tools/tray-icons`.
+/// The menu-bar item's template images: the brand bat cropped to its outline, 20 pt tall in the 22 pt menu
+/// bar (Apple suggests 18; at 18 the bat read too small), drawn at 1x and 2x by `tools/tray-icons`.
 pub(crate) const TRAY: doze_os::ui::Icons = doze_os::ui::Icons {
     calm: doze_os::ui::Icon {
         x1: include_bytes!("../assets/tray/bat-1x.png"),
@@ -108,17 +108,17 @@ mod tests {
     }
 
     #[test]
-    fn the_bar_icons_are_18_points_tall_pixel_exact_at_each_scale_and_the_same_frame() {
+    fn the_bar_icons_are_20_points_tall_pixel_exact_at_each_scale_and_the_same_frame() {
         let t = super::TRAY;
         let (w, h) = size(t.calm.x1);
-        assert_eq!(h, 18, "Apple's menu-bar glyph height");
+        assert_eq!(h, 20, "the bat's height in the 22 pt bar");
         assert!(
             (8..=16).contains(&w),
             "as wide as the bat, not a padded square: {w}"
         );
-        assert_eq!(size(t.calm.x2), (2 * w, 36), "2x drawn at twice the pixels");
+        assert_eq!(size(t.calm.x2), (2 * w, 40), "2x drawn at twice the pixels");
         // The alert picture shares the frame, so the item keeps its width and the bat its place when it turns.
         assert_eq!(size(t.alert.x1), (w, h));
-        assert_eq!(size(t.alert.x2), (2 * w, 36));
+        assert_eq!(size(t.alert.x2), (2 * w, 40));
     }
 }
