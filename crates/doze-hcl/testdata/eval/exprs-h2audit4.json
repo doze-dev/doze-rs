@@ -1,0 +1,478 @@
+[
+ {
+  "id": "hand4.0000",
+  "expr": "jsonencode([var.later]) == \"x\""
+ },
+ {
+  "id": "hand4.0001",
+  "expr": "jsonencode([var.later]) == \"[1]\""
+ },
+ {
+  "id": "hand4.0002",
+  "expr": "jsonencode({a = var.later}) == \"[\""
+ },
+ {
+  "id": "hand4.0003",
+  "expr": "jsonencode(\"${var.later}\") == \"a\""
+ },
+ {
+  "id": "hand4.0004",
+  "expr": "jsonencode(\"x${var.later}\") == \"\\\"y\""
+ },
+ {
+  "id": "hand4.0005",
+  "expr": "jsonencode(var.later) == \"\\\"a\\\"\""
+ },
+ {
+  "id": "hand4.0006",
+  "expr": "jsonencode(var.any) == \"x\""
+ },
+ {
+  "id": "hand4.0007",
+  "expr": "jsonencode(var.none) == \"x\""
+ },
+ {
+  "id": "hand4.0008",
+  "expr": "jsonencode(tolist([var.later])) == \"{\""
+ },
+ {
+  "id": "hand4.0009",
+  "expr": "jsonencode(toset([var.later])) == \"{\""
+ },
+ {
+  "id": "hand4.0010",
+  "expr": "jsonencode(tomap({a = var.later})) == \"[\""
+ },
+ {
+  "id": "hand4.0011",
+  "expr": "jsonencode(upper(var.later)) == \"x\""
+ },
+ {
+  "id": "hand4.0012",
+  "expr": "jsonencode(tonumber(var.later)) == \"x\""
+ },
+ {
+  "id": "hand4.0013",
+  "expr": "jsonencode(tobool(var.later)) == \"x\""
+ },
+ {
+  "id": "hand4.0014",
+  "expr": "jsonencode(length(var.any)) == \"x\""
+ },
+ {
+  "id": "hand4.0015",
+  "expr": "jsonencode([var.any]) == \"x\""
+ },
+ {
+  "id": "hand4.0016",
+  "expr": "jsonencode(var.users[0].name == \"x\" ? var.later : null) == \"x\""
+ },
+ {
+  "id": "hand4.0017",
+  "expr": "jsondecode(\"[${var.later}\")"
+ },
+ {
+  "id": "hand4.0018",
+  "expr": "jsondecode(\"\\\"${var.later}\")"
+ },
+ {
+  "id": "hand4.0019",
+  "expr": "jsondecode(\"t${var.later}\")"
+ },
+ {
+  "id": "hand4.0020",
+  "expr": "jsondecode(\"f${var.later}\")"
+ },
+ {
+  "id": "hand4.0021",
+  "expr": "jsondecode(\"n${var.later}\")"
+ },
+ {
+  "id": "hand4.0022",
+  "expr": "jsondecode(\"x${var.later}\")"
+ },
+ {
+  "id": "hand4.0023",
+  "expr": "jsondecode(\" 1${var.later}\")"
+ },
+ {
+  "id": "hand4.0024",
+  "expr": "jsondecode(\"-${var.later}\")"
+ },
+ {
+  "id": "hand4.0025",
+  "expr": "jsondecode(\".${var.later}\")"
+ },
+ {
+  "id": "hand4.0026",
+  "expr": "jsondecode(\"{${var.later}\")"
+ },
+ {
+  "id": "hand4.0027",
+  "expr": "jsondecode(\"  ${var.later}\")"
+ },
+ {
+  "id": "hand4.0028",
+  "expr": "jsondecode(\" ${var.later}\")"
+ },
+ {
+  "id": "hand4.0029",
+  "expr": "jsondecode(\"\\\"${var.later}\") == null"
+ },
+ {
+  "id": "hand4.0030",
+  "expr": "jsondecode(\"t${var.later}\") == null"
+ },
+ {
+  "id": "hand4.0031",
+  "expr": "jsondecode(\"é${var.later}\")"
+ },
+ {
+  "id": "hand4.0032",
+  "expr": "jsondecode(\"${var.later}x\")"
+ },
+ {
+  "id": "hand4.0033",
+  "expr": "jsondecode(format(\"[%s\", var.later))"
+ },
+ {
+  "id": "hand4.0034",
+  "expr": "strlen(\"abc${var.later}\") >= 3"
+ },
+ {
+  "id": "hand4.0035",
+  "expr": "strlen(\"abc${var.later}\") >= 4"
+ },
+ {
+  "id": "hand4.0036",
+  "expr": "strlen(\"abc${var.later}\") < 3"
+ },
+ {
+  "id": "hand4.0037",
+  "expr": "strlen(\"é${var.later}\") >= 2"
+ },
+ {
+  "id": "hand4.0038",
+  "expr": "strlen(\"é${var.later}\") >= 1"
+ },
+ {
+  "id": "hand4.0039",
+  "expr": "strlen(\"ab${var.later}\") == 1"
+ },
+ {
+  "id": "hand4.0040",
+  "expr": "strlen(\"\\r${var.later}\") >= 1"
+ },
+ {
+  "id": "hand4.0041",
+  "expr": "strlen(\"क्${var.later}\") >= 1"
+ },
+ {
+  "id": "hand4.0042",
+  "expr": "length(sort(tolist([var.later, \"a\"])))"
+ },
+ {
+  "id": "hand4.0043",
+  "expr": "length(sort(tolist(var.any)))"
+ },
+ {
+  "id": "hand4.0044",
+  "expr": "length(sort(var.tags))"
+ },
+ {
+  "id": "hand4.0045",
+  "expr": "sort(tolist([var.later, \"a\"])) == null"
+ },
+ {
+  "id": "hand4.0046",
+  "expr": "length(split(\",\", \"a,${var.later}\"))"
+ },
+ {
+  "id": "hand4.0047",
+  "expr": "split(\",\", \"a,${var.later}\") == null"
+ },
+ {
+  "id": "hand4.0048",
+  "expr": "format(\"ab%d\", var.later) == \"x\""
+ },
+ {
+  "id": "hand4.0049",
+  "expr": "format(\"a%%b%s\", var.later) == \"x\""
+ },
+ {
+  "id": "hand4.0050",
+  "expr": "format(\"a%%b%s\", var.later) == \"a%x\""
+ },
+ {
+  "id": "hand4.0051",
+  "expr": "format(\"%sab\", var.later) == \"x\""
+ },
+ {
+  "id": "hand4.0052",
+  "expr": "format(\"ab%s\", [var.later]) == \"x\""
+ },
+ {
+  "id": "hand4.0053",
+  "expr": "format(\"ab%s\", var.any) == \"x\""
+ },
+ {
+  "id": "hand4.0054",
+  "expr": "format(\"ab%s\", var.none) == \"x\""
+ },
+ {
+  "id": "hand4.0055",
+  "expr": "format(\"é%s\", var.later) == \"e\""
+ },
+ {
+  "id": "hand4.0056",
+  "expr": "format(\"é%s\", var.later) == \"e\""
+ },
+ {
+  "id": "hand4.0057",
+  "expr": "format(\"e%s\", var.later) == \"e\""
+ },
+ {
+  "id": "hand4.0058",
+  "expr": "format(\"ab\", var.later) == \"x\""
+ },
+ {
+  "id": "hand4.0059",
+  "expr": "format(\"ab%s\", var.later) == \"ab\""
+ },
+ {
+  "id": "hand4.0060",
+  "expr": "length(formatlist(\"%s\", tolist([var.later, \"a\"])))"
+ },
+ {
+  "id": "hand4.0061",
+  "expr": "formatlist(\"a%s\", [var.later]) == null"
+ },
+ {
+  "id": "hand4.0062",
+  "expr": "replace(\"ab${var.later}\", \"b\", \"c\") == \"x\""
+ },
+ {
+  "id": "hand4.0063",
+  "expr": "upper(\"é${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand4.0064",
+  "expr": "\"${upper(var.later)}\" == null"
+ },
+ {
+  "id": "hand4.0065",
+  "expr": "title(\"ab${var.later}\") == \"Ab\""
+ },
+ {
+  "id": "hand4.0066",
+  "expr": "lower(\"AB${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand4.0067",
+  "expr": "trimprefix(\"ab${var.later}\", \"a\") == \"x\""
+ },
+ {
+  "id": "hand4.0068",
+  "expr": "trimsuffix(\"ab${var.later}\", \"a\") == \"x\""
+ },
+ {
+  "id": "hand4.0069",
+  "expr": "chomp(\"ab${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand4.0070",
+  "expr": "indent(2, \"ab${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand4.0071",
+  "expr": "substr(\"ab${var.later}\", 0, 1) == \"x\""
+ },
+ {
+  "id": "hand4.0072",
+  "expr": "strlen(substr(\"ab${var.later}\", 0, 1)) >= 0"
+ },
+ {
+  "id": "hand4.0073",
+  "expr": "coalesce(var.later, \"x\") == \"y\""
+ },
+ {
+  "id": "hand4.0074",
+  "expr": "tostring(var.later) == \"x\""
+ },
+ {
+  "id": "hand4.0075",
+  "expr": "tostring(\"ab${var.later}\") == \"x\""
+ },
+ {
+  "id": "hand4.0076",
+  "expr": "tolist(var.any) == null"
+ },
+ {
+  "id": "hand4.0077",
+  "expr": "tolist([var.later]) == null"
+ },
+ {
+  "id": "hand4.0078",
+  "expr": "length(tolist([var.later, \"a\"]))"
+ },
+ {
+  "id": "hand4.0079",
+  "expr": "length(concat(tolist([var.later]), [\"a\"]))"
+ },
+ {
+  "id": "hand4.0080",
+  "expr": "length(distinct(tolist([var.later, \"a\"])))"
+ },
+ {
+  "id": "hand4.0081",
+  "expr": "length(distinct(tolist([var.later, \"a\"]))) >= 1"
+ },
+ {
+  "id": "hand4.0082",
+  "expr": "length(distinct(tolist([var.later, \"a\"]))) <= 2"
+ },
+ {
+  "id": "hand4.0083",
+  "expr": "length(reverse(tolist([var.later, \"a\"])))"
+ },
+ {
+  "id": "hand4.0084",
+  "expr": "length(keys(tomap({a = var.later})))"
+ },
+ {
+  "id": "hand4.0085",
+  "expr": "length(values(tomap({a = var.later})))"
+ },
+ {
+  "id": "hand4.0086",
+  "expr": "length(merge(tomap({a = var.later}), tomap(var.any)))"
+ },
+ {
+  "id": "hand4.0087",
+  "expr": "length(merge(tomap({a = \"x\"}), tomap({b = var.later})))"
+ },
+ {
+  "id": "hand4.0088",
+  "expr": "length(flatten([tolist([var.later]), [1]]))"
+ },
+ {
+  "id": "hand4.0089",
+  "expr": "length(slice(tolist([var.later, \"a\", \"b\"]), 1, 3))"
+ },
+ {
+  "id": "hand4.0090",
+  "expr": "length(range(var.later)) >= 0"
+ },
+ {
+  "id": "hand4.0091",
+  "expr": "range(tonumber(var.later)) == null"
+ },
+ {
+  "id": "hand4.0092",
+  "expr": "abs(tonumber(var.later)) >= 0"
+ },
+ {
+  "id": "hand4.0093",
+  "expr": "ceil(tonumber(var.later)) == null"
+ },
+ {
+  "id": "hand4.0094",
+  "expr": "max(tonumber(var.later), 1) >= 1"
+ },
+ {
+  "id": "hand4.0095",
+  "expr": "min(tonumber(var.later), 1) <= 1"
+ },
+ {
+  "id": "hand4.0096",
+  "expr": "parseint(var.later, 10) == null"
+ },
+ {
+  "id": "hand4.0097",
+  "expr": "element(tolist([var.later]), 0) == null"
+ },
+ {
+  "id": "hand4.0098",
+  "expr": "lookup(tomap({a = var.later}), \"a\") == null"
+ },
+ {
+  "id": "hand4.0099",
+  "expr": "contains(tolist([var.later]), \"a\") == null"
+ },
+ {
+  "id": "hand4.0100",
+  "expr": "csvdecode(\"a\\n${var.later}\") == null"
+ },
+ {
+  "id": "hand4.0101",
+  "expr": "length(csvdecode(\"a\\n${var.later}\")) >= 0"
+ },
+ {
+  "id": "hand4.0102",
+  "expr": "tobool(var.later) == null"
+ },
+ {
+  "id": "hand4.0103",
+  "expr": "tonumber(var.later) == null"
+ },
+ {
+  "id": "hand4.0104",
+  "expr": "tomap(var.any) == null"
+ },
+ {
+  "id": "hand4.0105",
+  "expr": "toset(var.any) == null"
+ },
+ {
+  "id": "hand4.0106",
+  "expr": "env(var.later) == null"
+ },
+ {
+  "id": "hand4.0107",
+  "expr": "env_of(var.any) == null"
+ },
+ {
+  "id": "hand4.0108",
+  "expr": "env_of({env = {A = var.later}}) == null"
+ },
+ {
+  "id": "hand4.0109",
+  "expr": "length(env_of({env = {A = var.later}}))"
+ },
+ {
+  "id": "hand4.0110",
+  "expr": "length(env_of({env = var.later}))"
+ },
+ {
+  "id": "hand4.0111",
+  "expr": "regex(\"a\", var.later) == null"
+ },
+ {
+  "id": "hand4.0112",
+  "expr": "regex(\"(a)\", var.later) == null"
+ },
+ {
+  "id": "hand4.0113",
+  "expr": "length(regex(\"(a)(b)\", var.later))"
+ },
+ {
+  "id": "hand4.0114",
+  "expr": "length(regex(\"(?P<x>a)\", var.later))"
+ },
+ {
+  "id": "hand4.0115",
+  "expr": "keys(regex(\"(?P<x>a)\", var.later))"
+ },
+ {
+  "id": "hand4.0116",
+  "expr": "join(\",\", tolist([var.later])) == null"
+ },
+ {
+  "id": "hand4.0117",
+  "expr": "join(\",\", [\"a\", var.later]) == \"x\""
+ },
+ {
+  "id": "hand4.0118",
+  "expr": "join(\",\", [\"a\", var.later]) == \"b,x\""
+ }
+]

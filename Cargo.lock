@@ -1499,7 +1499,6 @@ dependencies = [
  "proptest",
  "regex",
  "serde_json",
- "unicode-ident",
  "unicode-normalization",
  "unicode-segmentation",
 ]

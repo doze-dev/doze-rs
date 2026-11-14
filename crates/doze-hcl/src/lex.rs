@@ -6,6 +6,7 @@
 //! `scan_tokens.rl`, longest match first, checked against Go's own tokens (`oracle-dump lex`).
 
 mod chars;
+mod ident_tables;
 mod scan;
 
 pub(crate) use chars::utf8_len as scan_utf8_len;

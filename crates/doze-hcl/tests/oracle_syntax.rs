@@ -135,3 +135,23 @@ fn fnv(s: &str) -> String {
     });
     format!("{h:016x}")
 }
+
+/// Identifiers are Go's Unicode 9.0 ID_Start / ID_Continue (swept from hclsyntax, every code point):
+/// newer letters are not identifiers, and a few ID-but-not-XID characters are.
+#[test]
+fn identifiers_are_unicode_9_as_in_go() {
+    let ident = |s: &str| {
+        let t = lex(s.as_bytes());
+        t.first()
+            .is_some_and(|t| t.kind == doze_hcl::lex::Kind::Ident && t.end == s.len())
+    };
+    assert!(!ident("a\u{860}"), "U+0860 is Unicode 10");
+    assert!(!ident("\u{560}"), "U+0560 is Unicode 11");
+    assert!(ident("\u{37a}"), "U+037A is ID_Start, not XID_Start");
+    assert!(ident("a\u{309b}"), "U+309B is ID_Continue");
+    assert!(
+        !ident("a\u{200d}"),
+        "ZWJ is not an identifier character in Go"
+    );
+    assert!(ident("_a-b9é"));
+}

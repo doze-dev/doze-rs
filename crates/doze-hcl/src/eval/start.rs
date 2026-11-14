@@ -38,25 +38,17 @@ impl Evaluator<'_> {
             Expression::Parenthesis(p) => self.start_range(p.inner()),
             Expression::BinaryOp(b) => self.start_range(&b.lhs_expr),
             Expression::Conditional(c) => self.start_range(&c.cond_expr),
-            Expression::Traversal(t) => {
-                let first_splat = t.operators.iter().find(|op| {
-                    matches!(
-                        op.value(),
-                        TraversalOperator::AttrSplat(_) | TraversalOperator::FullSplat(_)
-                    )
-                });
-                let dynamic_last = t.operators.last().filter(
-                    |op| matches!(op.value(), TraversalOperator::Index(k) if !is_literal(k)),
-                );
-                match (first_splat, dynamic_last) {
-                    (Some(op), _) => self.range(op),
-                    // An index expression starts at its `[`.
-                    (None, Some(op)) => {
-                        let at = op.span().map_or(0, |s| s.start);
-                        self.src.range(at..at + 1)
-                    }
-                    (None, None) => whole,
-                }
+            Expression::Traversal(t) => self.traversal_start(t, whole),
+            // A negative literal is a unary minus in Go: its `-`.
+            Expression::Number(_)
+                if self
+                    .src
+                    .text()
+                    .get(whole_span(e))
+                    .is_some_and(|t| t.starts_with('-')) =>
+            {
+                let at = e.span().map_or(0, |s| s.start);
+                self.src.range(at..at + 1)
             }
             // An opening bracket, a unary operator: the first token.
             Expression::Array(_)
@@ -81,6 +73,28 @@ impl Evaluator<'_> {
         }
     }
 
+    fn traversal_start(&self, t: &hcl_edit::expr::Traversal, whole: Range) -> Range {
+        let first_splat = t.operators.iter().find(|op| {
+            matches!(
+                op.value(),
+                TraversalOperator::AttrSplat(_) | TraversalOperator::FullSplat(_)
+            )
+        });
+        let dynamic_last = t
+            .operators
+            .last()
+            .filter(|op| matches!(op.value(), TraversalOperator::Index(k) if !is_literal(k)));
+        match (first_splat, dynamic_last) {
+            (Some(op), _) => self.range(op),
+            // An index expression starts at its `[`.
+            (None, Some(op)) => {
+                let at = op.span().map_or(0, |s| s.start);
+                self.src.range(at..at + 1)
+            }
+            (None, None) => whole,
+        }
+    }
+
     /// The start of a template's first part: a lone interpolation is the whole template (Go's
     /// `TemplateWrapExpr`); otherwise the first part's own start.
     fn template_start(&self, t: &Template, literal_at: usize) -> Option<Range> {
@@ -90,8 +104,22 @@ impl Evaluator<'_> {
             [Element::Interpolation(i), ..] => Some(self.start_range(&i.expr)),
             [Element::Directive(d), ..] => match d.as_ref() {
                 Directive::If(i) => Some(self.start_range(&i.if_expr.cond_expr)),
-                Directive::For(_) => Some(self.src.range(literal_at..literal_at)),
+                // The `%{for …}` opener.
+                Directive::For(_) => {
+                    let close = self
+                        .src
+                        .text()
+                        .get(literal_at..)
+                        .and_then(|t| t.find('}'))
+                        .map_or(literal_at, |i| literal_at + i + 1);
+                    Some(self.src.range(literal_at..close))
+                }
             },
+            // The first literal part, as Go's scanner splits it (up to a sequence or the end).
+            [Element::Literal(l), ..] => {
+                let end = l.span().map_or(literal_at, |s| s.end);
+                Some(self.src.range(literal_at..end.max(literal_at)))
+            }
             _ => Some(self.src.range(literal_at..literal_at)),
         }
     }
@@ -103,4 +131,8 @@ fn is_literal(k: &Expression) -> bool {
         k,
         Expression::Number(_) | Expression::Bool(_) | Expression::Null(_) | Expression::String(_)
     )
+}
+
+fn whole_span(e: &Expression) -> std::ops::Range<usize> {
+    e.span().unwrap_or_default()
 }

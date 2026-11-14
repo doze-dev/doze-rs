@@ -144,7 +144,9 @@ fn flatten(args: &[Value], ret: &Type) -> Out {
     if v.len() == Some(0) {
         return Ok(Value::empty_tuple());
     }
-    if !matches!(v.ty(), Type::List(_) | Type::Set(_) | Type::Tuple(_)) {
+    // Go iterates whatever it is given here (an object or map whose type was not yet known when
+    // the type was decided); only a value with no elements at all panics.
+    if !v.can_iterate() {
         return Err(panic_error("value is not a collection"));
     }
     Ok(flattener(v).map_or_else(|| Value::unknown(ret.clone()), Value::Tuple))

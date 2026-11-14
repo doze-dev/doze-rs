@@ -90,15 +90,15 @@ fn env_of_impl(args: &[Value], ret: &Type) -> Result<Value, FuncError> {
             Some(Value::String(s)) => s.clone(),
             Some(_) => return Err(panic_error("value must be a string")),
         };
-        if !matches!(env, Value::Map(..) | Value::Object(_)) {
+        // Go iterates whatever `env` is: a set's elements are their own keys; a list's keys are
+        // numbers, which panic as names.
+        if !env.can_iterate() {
             return Err(panic_error("value is not a map or object"));
         }
         for (k, v) in env.elements() {
-            if v.ty() != Type::String {
-                // Go builds a map of whatever the values are and fails on its type afterwards.
-                return Err(panic_error("env_of values must be strings"));
-            }
-            let key = k.as_str().unwrap_or("").to_owned();
+            let Some(key) = k.as_str().map(str::to_owned) else {
+                return Err(panic_error("value must be a string"));
+            };
             if let Some(prev) = from.get(&key) {
                 return Err(FuncError::arg(
                     i,
@@ -113,6 +113,10 @@ fn env_of_impl(args: &[Value], ret: &Type) -> Result<Value, FuncError> {
     }
     if out.is_empty() {
         return Ok(Value::Map(Type::String, out));
+    }
+    // Go builds a map of whatever the values are and fails on its type afterwards.
+    if out.values().any(|v| v.ty() != Type::String) {
+        return Err(panic_error("env_of values must be strings"));
     }
     map(Type::String, out)
 }
