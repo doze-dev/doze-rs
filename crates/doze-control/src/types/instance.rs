@@ -88,6 +88,13 @@ pub struct InstanceView {
     /// The conventional env var (`DATABASE_URL`, …).
     #[serde(skip_serializing_if = "String::is_empty")]
     pub env_var: String,
+    /// Rust daemon, additive (not in Go's protocol 2; Go clients ignore it): the variables a client sets to reach this
+    /// instance, as its module answers them (`DATABASE_URL` and the rest).
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub env: std::collections::BTreeMap<String, String>,
+    /// Rust daemon, additive: the client program the module declares (`psql`, `redis-cli`), for `doze connect`.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub client: String,
     /// Where this instance's data is written.
     #[serde(skip_serializing_if = "String::is_empty")]
     pub data_dir: String,

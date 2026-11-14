@@ -79,13 +79,16 @@ impl Engine {
             self.service(name)?;
             return Err(Error::Failed(format!("{name} is not a task")));
         }
-        // A start already in flight is joined; if it decided not to run (up to date), the record did not move, and the
-        // forced run comes after it (E2 audit 2, M2). Bounded: each round either runs it or joins another start.
+        // A start already in flight is joined; if it decided not to run (up to date), it did not count a run, and the
+        // forced run comes after it (E2 audit 2, M2). The count is the machine's, not the record: a state file that
+        // cannot be read or written must not run the task again (E2 audit 4). Bounded: each round either runs it or
+        // joins another start.
         for _ in 0..3 {
-            let before = self.task_record(name);
+            // A joined run that had already decided before this round shows in its record instead.
+            let before = (self.update(|c| c.m.runs(name)), self.task_record(name));
             self.wake_inner(name, Cause::Command, When::Healthy, true)
                 .await?;
-            if self.task_record(name) != before {
+            if (self.update(|c| c.m.runs(name)), self.task_record(name)) != before {
                 return Ok(());
             }
         }
@@ -272,7 +275,7 @@ impl Run<'_> {
         let msg = err.to_string();
         let fx = self
             .e
-            .update(|c| c.m.boot_failed(name, boot, &msg, took, Now::current()));
+            .update(|c| c.m.task_failed(name, boot, &msg, took, Now::current()));
         self.e.run(fx);
         err
     }
@@ -316,7 +319,17 @@ async fn exec(
     mut cancel: CancelRx,
 ) -> Result<Ended, String> {
     let (prog, args) = ts.run.split_first().ok_or("an empty run line")?;
-    let mut env = ts.env.clone();
+    let mut env = match &ts.env_file {
+        Some(f) if !f.exists() => {
+            return Err(format!(
+                "env_file {} does not exist; create it (often by copying .env.example), or remove env_file from the block",
+                f.display()
+            ));
+        }
+        Some(f) => crate::process::parse_env_file(f),
+        None => std::collections::BTreeMap::new(),
+    };
+    env.extend(ts.env.clone());
     crate::process::with_extra(&mut env, &e.stack().extra_env);
     let mut cmd = tokio::process::Command::new(crate::short::program_in(prog, Some(&env)));
     cmd.args(args)

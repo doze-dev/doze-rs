@@ -51,6 +51,8 @@ clap_complete = { version = "4", features = ["unstable-dynamic"] }
 doze-fetch = { path = "../doze-fetch", default-features = false }
 # What a project needs (`init`), from what modules declare.
 doze-detect = { path = "../doze-detect" }
+# `doze __daemon`: the daemon is this binary, as Go's was.
+doze-daemon = { path = "../doze-daemon" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # The registry's signatures (the index, each artifact, the release file): verify only, with the key built in.

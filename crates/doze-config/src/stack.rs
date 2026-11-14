@@ -1,8 +1,8 @@
-//! A loaded config as the engine runs it: every enabled module, app and service as a
-//! `doze_engine::Service`, its needs from its dependencies, its sleep, and doze's own variables.
+//! A loaded config as the engine runs it: every enabled module, app, service and task as a
+//! `doze_engine::Service`, its needs from its dependencies (an `after` on a task included), its
+//! sleep, and doze's own variables.
 //!
-//! Gaps until engine phase E2: tasks are not run (an `after` on a task is not a need yet), and a
-//! service's `download` is not fetched (its folder is its `dir`).
+//! Gap: a service's `download` is not fetched here (its folder is its `dir`); the daemon wires it.
 
 use crate::model::{Command, Condition, Config, Instance, Kind, Probe, Sleep, Spec};
 use doze_engine::stack::{Need, Planner, Service, Sleep as EngineSleep, Stack, When};
@@ -46,11 +46,7 @@ pub fn ca_env(root: &Path, bundle: &Path) -> BTreeMap<String, String> {
 
 /// The engine's stack for `cfg`.
 pub fn to_stack(cfg: &Config, w: &Wiring<'_>) -> Stack {
-    let kept: Vec<&Instance> = cfg
-        .instances
-        .iter()
-        .filter(|i| i.enabled && i.kind() != Kind::Task)
-        .collect();
+    let kept: Vec<&Instance> = cfg.instances.iter().filter(|i| i.enabled).collect();
     let names: BTreeSet<&str> = kept.iter().map(|i| i.name.as_str()).collect();
     let services = kept.iter().map(|i| service(i, w, &names)).collect();
     let config_name = Path::new(&cfg.path).file_name().map_or_else(
@@ -78,6 +74,7 @@ pub fn to_stack(cfg: &Config, w: &Wiring<'_>) -> Stack {
 
 fn service(i: &Instance, w: &Wiring<'_>, names: &BTreeSet<&str>) -> Service {
     let (mut s, sleep) = match &i.spec {
+        Spec::Command(c) if i.kind() == Kind::Task => (Service::task(&i.name, task(c)), c.sleep),
         Spec::Command(c) => (Service::process(&i.name, process(c, i.port)), c.sleep),
         _ => (Service::planned(&i.name, (w.planner)(i)), i.sleep),
     };
@@ -154,5 +151,18 @@ fn process(c: &Command, port: u16) -> ProcessSpec {
         on_ready: steps(&c.on_ready),
         stop: steps(&c.stop),
         service: c.service,
+    }
+}
+
+/// A task (Go's `runspec.TaskSpec`): its run line under `sh -c`, as Go runs it; its `env_file` read at each run.
+fn task(c: &Command) -> doze_engine::tasks::TaskSpec {
+    doze_engine::tasks::TaskSpec {
+        run: shell(&c.run),
+        dir: PathBuf::from(&c.dir),
+        env: c.env.clone(),
+        env_file: (!c.env_file.is_empty()).then(|| PathBuf::from(&c.env_file)),
+        inputs: c.inputs.clone(),
+        manual: c.manual,
+        timeout: None,
     }
 }

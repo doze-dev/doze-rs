@@ -12,13 +12,16 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+doze-config = { path = "../doze-config" }
 doze-control = { path = "../doze-control" }
 doze-engine = { path = "../doze-engine" }
 doze-journal = { path = "../doze-journal" }
 doze-logstore = { path = "../doze-logstore" }
+# The config's domain checks (`__daemon` loads doze.hcl as the CLI does).
+doze-names = { path = "../doze-names" }
 doze-os = { path = "../doze-os" }
 serde_json = "1"
-tokio = { version = "1.54", features = ["rt", "time", "sync", "macros"] }
+tokio = { version = "1.54", features = ["rt", "rt-multi-thread", "time", "sync", "macros"] }
 tracing = "0.1"
 
 [dev-dependencies]

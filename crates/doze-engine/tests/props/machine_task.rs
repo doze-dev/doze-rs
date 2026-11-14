@@ -35,6 +35,9 @@ pub(super) fn task_step(m: &mut Machine, s: &mut Shell, now: Now, i: &In) {
         In::TaskRun(k) => {
             if let Some((b, _)) = mine(s, *k) {
                 let fx = m.task_runs(TASK, b, Cause::Command, "first run");
+                if journals(&fx) > 0 {
+                    s.task_woke.insert(b);
+                }
                 absorb(s, m, fx);
             }
         }
@@ -43,13 +46,24 @@ pub(super) fn task_step(m: &mut Machine, s: &mut Shell, now: Now, i: &In) {
                 s.boots.remove(&b);
                 let fx = match how {
                     0 => m.task_done(TASK, b, Duration::ZERO, now),
-                    1 => m.boot_failed(TASK, b, "exit 1", Duration::ZERO, now),
+                    1 => m.task_failed(TASK, b, "exit 1", Duration::ZERO, now),
                     2 => m.task_skipped(TASK, b, now),
                     _ => m.task_stopped(TASK, b, "was stopped", Duration::ZERO, now),
                 };
+                // A journalled wake has its end journalled, once, even when a stop came meanwhile (E2 audit 3).
+                if s.task_woke.remove(&b) && *how != 2 {
+                    assert_eq!(journals(&fx), 1, "a task's journalled wake ends once");
+                }
                 absorb(s, m, fx);
             }
         }
         _ => {}
     }
+}
+
+/// How many journal events `fx` holds.
+fn journals(fx: &[Effect]) -> usize {
+    fx.iter()
+        .filter(|f| matches!(f, Effect::Journal(_)))
+        .count()
 }

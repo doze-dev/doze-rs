@@ -28,7 +28,7 @@ pub struct Request {
     pub user_agent: String,
     /// The client's address, without its port.
     pub peer: String,
-    /// The console's own request ([`log::OWN_HEADER`]): answered, not logged.
+    /// The console's own request (`log::OWN_HEADER`): answered, not logged.
     pub own: bool,
     pub body: Body,
 }
@@ -53,7 +53,7 @@ impl Request {
     }
 }
 
-/// An answer. Its type is always [`CONTENT_TYPE`].
+/// An answer. Its type is always `CONTENT_TYPE`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Response {
     pub status: u16,

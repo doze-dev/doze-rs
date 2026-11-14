@@ -21,6 +21,10 @@ pub struct Labels {
     pub domain: String,
     pub url: String,
     pub env_var: String,
+    /// What a client sets to reach it, as its module answers (additive to Go's view).
+    pub env: std::collections::BTreeMap<String, String>,
+    /// The client program its module declares (additive).
+    pub client: String,
     /// `enabled = false` in the config.
     pub paused: bool,
     pub group: String,
@@ -66,6 +70,8 @@ pub(crate) fn view(e: &Engine, i: &Instance, l: Option<&Labels>) -> InstanceView
         domain: l.domain,
         url: l.url,
         env_var: l.env_var,
+        env: l.env,
+        client: l.client,
         data_dir: e
             .stack()
             .cluster_dir(&i.name)

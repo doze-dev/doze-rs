@@ -131,3 +131,36 @@ fn a_backslash_escapes_where_it_is_not_the_separator() {
     write(t.path(), "ab", "y");
     assert_eq!(files(t.path(), &pats(&["a\\*"])), ["a*"]);
 }
+
+/// Go's `filepath.Join`: an absolute pattern is under the task's folder, so a file outside it is never an input
+/// (E2 audit 4).
+#[test]
+fn an_absolute_pattern_stays_under_the_folder() {
+    let (t, outside) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    write(outside.path(), "x.sql", "outside");
+    let p = vec![outside.path().join("x.sql").to_string_lossy().into_owned()];
+    assert_eq!(hash(t.path(), &p).1, 0, "{:?}", files(t.path(), &p));
+}
+
+/// Go's `WalkDir` does not walk into a root that is a link to a folder: `migrations/*.sql` matches nothing, and
+/// `migrations/**` matches the link alone, which hashes as nothing (E2 audit 4). Needs `ln`, skipped without it.
+#[test]
+fn a_linked_root_folder_is_not_walked_as_go() {
+    let (t, real) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    write(real.path(), "1.sql", "one");
+    let made = std::process::Command::new("ln")
+        .arg("-s")
+        .arg(real.path())
+        .arg(t.path().join("migrations"))
+        .status();
+    if !made.is_ok_and(|s| s.success()) {
+        return;
+    }
+    let empty = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    assert_eq!(
+        hash(t.path(), &pats(&["migrations/*.sql"])),
+        (empty.into(), 0)
+    );
+    assert_eq!(files(t.path(), &pats(&["migrations/**"])), ["migrations"]);
+    assert_eq!(hash(t.path(), &pats(&["migrations/**"])).0, empty);
+}

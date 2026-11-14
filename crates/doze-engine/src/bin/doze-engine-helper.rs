@@ -1,11 +1,12 @@
 //! Test helper for doze-engine: one binary playing a supervised command or a host that runs an engine.
 //!
 //! - `listen [delay_ms]`: after the delay, serves HTTP 200 on `$PORT` until asked to stop (or `$STOP_FILE` appears),
-//!   then exits 0. Each start appends a line to `$STARTS` when set.
+//!   then exits 0 (after `$LINGER_MS`, when asked). Each start appends a line to `$STARTS` when set.
 //! - `exit <code> [after_ms]`: exits with the code.
 //! - `grandchild <file>`: starts a child of its own (same tree), writes the child's pid to the file, then serves.
 //! - `forklisten`: starts a child that serves (and prints its port); the parent itself listens on nothing.
 //! - `ignore`: ignores being asked to stop.
+//! - `leave <file>`: leaves a child holding stdout (a new session, ignoring signals), writes its pid, exits 0.
 //! - `slowchild <file>`: starts a child that ignores signals, writes its pid to the file, then never gets ready.
 //! - `crashchild <file> <code> <after_ms>`: starts a child that ignores signals, appends its pid to the file, then
 //!   exits with the code after the delay.
@@ -60,6 +61,7 @@ fn main() {
             std::process::exit(arg(2).parse().unwrap_or(1));
         }
         "escape" => rt.block_on(escape(&arg(1))),
+        "leave" => leave(&arg(1)),
         "forklisten" => fork_listen(),
         "chatter" => {
             for i in 0..300 {
@@ -127,6 +129,9 @@ async fn listen(delay: Duration) -> std::io::Result<()> {
         () = serve => {},
         () = stop_file => {},
     }
+    // `LINGER_MS`: how long it takes to stop once asked (a stop that kills at once never hears "stopping").
+    let linger = std::env::var("LINGER_MS").ok().and_then(|v| v.parse().ok());
+    tokio::time::sleep(Duration::from_millis(linger.unwrap_or(0))).await;
     println!("stopping");
     std::process::exit(0);
 }
@@ -148,6 +153,16 @@ fn start_ignoring_child(file: &str, append: bool) -> std::io::Result<()> {
     writeln!(f, "{}", child.id())?;
     std::mem::forget(child);
     Ok(())
+}
+
+/// `leave <pidfile>`: starts a child that leaves the group (a new session) holding stdout and ignoring signals, records
+/// its pid, then exits 0 at once: a run that ended while its pipes are still held.
+fn leave(pidfile: &str) -> std::io::Result<()> {
+    let mut cmd = std::process::Command::new(std::env::current_exe()?);
+    cmd.arg("ignore").stdin(std::process::Stdio::null());
+    let pid = doze_os::detach::spawn_detached(cmd)?;
+    std::fs::write(pidfile, pid.to_string())?;
+    std::process::exit(0);
 }
 
 /// `escape <pidfile>`: starts a chatter that leaves the group (a new session) holding stdout, records its pid, then

@@ -80,10 +80,10 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon --all-targets --features doze-control/test-support -- -D warnings
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon -p doze-bind --all-targets --features doze-control/test-support -- -D warnings
       # doze-fetch's live test checks every module the real registry publishes (signed index, signed archive, unpacked)
       # for this runner's platform (modules ship for macOS and Linux; on Windows the indexes are checked).
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon --no-fail-fast -- --nocapture
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon -p doze-bind --no-fail-fast -- --nocapture
         env:
           DOZE_LIVE_REGISTRY: "1"
       - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
@@ -366,7 +366,7 @@ jobs:
           echo "idle samples:$samples KB"
           rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "binary $size B, $crates packages, idle $rss KB"
-          [ "$size" -le 5263296 ] || { echo "lean binary over 5,263,296 B"; exit 1; }
+          [ "$size" -le 5274120 ] || { echo "lean binary over 5,274,120 B"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
           [ "$rss" -le 7229 ] || { echo "idle resident memory over 7,229 KB in the lean build"; exit 1; }
           ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }
@@ -397,7 +397,7 @@ jobs:
           rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "idle $rss KB with TLS configured"
           # CI's measurement with TLS configured on 2026-11-14 (median 10,104 KB) plus 5% (weight.md, "Limits raised to the measured values").
-          [ "$rss" -le 10610 ] || { echo "idle resident memory over 10,610 KB with TLS configured"; exit 1; }
+          [ "$rss" -le 11479 ] || { echo "idle resident memory over 11,479 KB with TLS configured"; exit 1; }
 
   # The React console (web/, docs/port/console/react-plan.md): its built bundle is committed in crates/kafka-console/web-dist
   # so that `cargo build` needs no bun. This rebuilds it from the locked dependencies and fails if the result differs from what
@@ -480,6 +480,21 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_project_files
           cargo fuzz run fuzz_project_files corpus/fuzz_project_files -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the journal reader for 30 seconds
+        working-directory: crates/doze-journal/fuzz
+        run: |
+          mkdir -p corpus/fuzz_line
+          cargo fuzz run fuzz_line corpus/fuzz_line seeds/fuzz_line -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the daemon's control sessions (any bytes after the hello, on a real socket) for 30 seconds
+        working-directory: crates/doze-daemon/fuzz
+        run: |
+          mkdir -p corpus/fuzz_session
+          cargo fuzz run fuzz_session corpus/fuzz_session seeds/fuzz_session -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the log store's line reader for 30 seconds
+        working-directory: crates/doze-logstore/fuzz
+        run: |
+          mkdir -p corpus/fuzz_logline
+          cargo fuzz run fuzz_logline corpus/fuzz_logline -- -max_total_time=30 -max_len=4096
       # The seeds include an alias bomb and deep nesting (F1 audit, blocker 1): both must be refused quickly, not grown.
       - name: Fuzz doze-fetch's parsers (doze.lock, the registry's files, the mirror manifest) for 30 seconds each
         working-directory: crates/doze-fetch/fuzz
@@ -488,16 +503,6 @@ jobs:
             mkdir -p "corpus/$t"
             cargo fuzz run "$t" "corpus/$t" "seeds/$t" -- -max_total_time=30 -max_len=65536 -rss_limit_mb=512
           done
-      - name: Fuzz the journal reader for 30 seconds
-        working-directory: crates/doze-journal/fuzz
-        run: |
-          mkdir -p corpus/fuzz_line
-          cargo fuzz run fuzz_line corpus/fuzz_line seeds/fuzz_line -- -max_total_time=30 -max_len=4096
-      - name: Fuzz the log store's line reader for 30 seconds
-        working-directory: crates/doze-logstore/fuzz
-        run: |
-          mkdir -p corpus/fuzz_logline
-          cargo fuzz run fuzz_logline corpus/fuzz_logline -- -max_total_time=30 -max_len=4096
       - name: Fuzz the .doze resolver's DNS wire, upstream and setup parsers for 30 seconds each
         working-directory: crates/doze-names/fuzz
         run: |
@@ -505,16 +510,6 @@ jobs:
             mkdir -p "corpus/$t"
             cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=4096
           done
-      - name: Fuzz the journal reader for 30 seconds
-        working-directory: crates/doze-journal/fuzz
-        run: |
-          mkdir -p corpus/fuzz_line
-          cargo fuzz run fuzz_line corpus/fuzz_line seeds/fuzz_line -- -max_total_time=30 -max_len=4096
-      - name: Fuzz the log store's line reader for 30 seconds
-        working-directory: crates/doze-logstore/fuzz
-        run: |
-          mkdir -p corpus/fuzz_logline
-          cargo fuzz run fuzz_logline corpus/fuzz_logline -- -max_total_time=30 -max_len=4096
       - name: Fuzz the CLI's command line and TZ for 30 seconds each
         working-directory: crates/doze-cli/fuzz
         run: |

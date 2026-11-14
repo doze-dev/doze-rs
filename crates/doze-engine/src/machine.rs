@@ -100,6 +100,8 @@ struct Ctl {
     ready_pending: bool,
     restart: Option<Restart>,
     supervised: bool,
+    /// How many times a task's run decided to run (`run_task` waits for it to move, whatever the state file says).
+    runs: u64,
 }
 
 /// The decisions of one stack. See the module docs.

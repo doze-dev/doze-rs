@@ -10,9 +10,17 @@
 use std::io;
 use std::process::Command;
 
-/// Starts `cmd` detached and returns its pid. Nothing waits for it.
+/// Starts `cmd` detached and returns its pid. A thread of the starter's reaps it if it ends while the starter still
+/// runs, so a long-lived starter (the app) keeps no zombie; a starter that exits first leaves it to init.
 pub fn spawn_detached(cmd: Command) -> io::Result<u32> {
-    imp::spawn(cmd).map(|c| c.id())
+    let mut child = imp::spawn(cmd)?;
+    let pid = child.id();
+    let reaper = std::thread::Builder::new()
+        .name("doze-reap".into())
+        .spawn(move || child.wait().map(drop));
+    // Without the thread the pid is still right; only the reaping is lost.
+    drop(reaper);
+    Ok(pid)
 }
 
 /// Starts `cmd` detached, as [`spawn_detached`], and hands back the child, for a starter that watches it fail at once

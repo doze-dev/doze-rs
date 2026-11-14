@@ -2752,6 +2752,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-bind"
+version = "0.0.0"
+dependencies = [
+ "doze-module-proto",
+ "doze-names",
+]
+
+[[package]]
 name = "doze-cli"
 version = "0.0.0"
 dependencies = [
@@ -2760,6 +2768,7 @@ dependencies = [
  "clap_complete",
  "doze-config",
  "doze-control",
+ "doze-daemon",
  "doze-detect",
  "doze-display",
  "doze-doctor",
@@ -2815,10 +2824,12 @@ dependencies = [
 name = "doze-daemon"
 version = "0.0.0"
 dependencies = [
+ "doze-config",
  "doze-control",
  "doze-engine",
  "doze-journal",
  "doze-logstore",
+ "doze-names",
  "doze-os",
  "serde_json",
  "tokio",

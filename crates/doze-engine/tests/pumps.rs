@@ -140,3 +140,34 @@ async fn the_quote_has_a_partial_line_still_in_the_pump() {
     assert!(err.contains("LAST-WORDS"), "{err}");
     e.shutdown().await;
 }
+
+/// A pipe that closes while its process runs on: the line it left without a newline is in the log at once, not when the
+/// run closes (E2 audit 3, L4 and X4b). Needs a shell to close one stream alone, so it is skipped where there is none.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_closed_pipe_records_its_last_line_while_the_run_is_open() {
+    let sh = std::path::Path::new("/bin/sh");
+    if !sh.exists() {
+        return;
+    }
+    let d = Dir::new("closedpipe");
+    let script = "printf 'half a line' >&2; exec 2>&-; sleep 3";
+    let ts = doze_engine::tasks::TaskSpec::new(["/bin/sh", "-c", script], d.path());
+    let e = Engine::builder("t", d.path())
+        .service(doze_engine::Service::task("t", ts))
+        .build()
+        .unwrap();
+    let waking = {
+        let e = e.clone();
+        tokio::spawn(async move { e.wake("t", Cause::Command).await })
+    };
+    let seen = eventually(Duration::from_millis(1500), || {
+        e.logs()
+            .tail("t", 0, 10)
+            .is_ok_and(|ls| ls.iter().any(|l| l.text == "half a line"))
+    })
+    .await;
+    assert!(seen, "{:?}", e.logs().tail("t", 0, 10));
+    assert!(e.logs().runs("t").unwrap()[0].live, "the run is still open");
+    waking.await.unwrap().unwrap();
+    e.shutdown().await;
+}
