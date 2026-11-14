@@ -18,6 +18,8 @@ hcl-edit = "0.10"
 # The project slug and the fingerprints are sha256, as Go's.
 sha2 = "0.11"
 hex = "0.4"
+# The engine's stack, which a loaded config becomes (src/stack.rs).
+doze-engine = { path = "../doze-engine" }
 
 [dev-dependencies]
 # The oracle for src/psl.rs (tests/psl.rs): a release built from the same list revision.
@@ -25,3 +27,6 @@ psl = "=2.1.254"
 serde_json = "1"
 # The real domain checks, for the oracle's host.
 doze-names = { path = "../doze-names" }
+# The larder test runs the stack: a module stand-in's plan, and the engine on tokio.
+doze-module-proto = { path = "../doze-module-proto" }
+tokio = { version = "1.54", features = ["rt", "rt-multi-thread", "macros", "time"] }

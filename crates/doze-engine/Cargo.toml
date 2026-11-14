@@ -1,0 +1,32 @@
+[package]
+name = "doze-engine"
+version = "0.0.0"
+description = "A doze stack at run time: the instance lifecycle, wake on demand, supervision, readiness, the process engine"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-module-proto = { path = "../doze-module-proto" }
+doze-os = { path = "../doze-os" }
+hex = "0.4"
+regex-lite = "0.1"
+sha2 = "0.11"
+tokio = { version = "1.54", features = ["rt", "time", "process", "net", "io-util", "sync", "fs", "macros"] }
+tracing = "0.1"
+
+[dev-dependencies]
+proptest = "1"
+tokio = { version = "1.54", features = ["rt", "rt-multi-thread", "time", "process", "net", "io-util", "sync", "fs", "macros", "test-util"] }
+
+[[bin]]
+# Test helper only: a supervised process that listens, crashes, ignores signals, or starts a grandchild.
+name = "doze-engine-helper"
+path = "src/bin/doze-engine-helper.rs"
+test = false
+doc = false

@@ -28,6 +28,7 @@ fn main() {
         "wait-stop" => rt.block_on(wait_stop()),
         "ignore-stop" => rt.block_on(ignore_stop()),
         "host-tree" => rt.block_on(host_tree()),
+        "orphan" => orphan(),
         "privilege" => doze_os::privilege::is_privileged().map(|p| println!("privileged={p}")),
         "relaunch-privilege" => relaunch_then(|| {
             doze_os::privilege::is_privileged().map(|p| println!("privileged={p}"))
@@ -132,6 +133,19 @@ async fn ignore_stop() -> std::io::Result<()> {
     let _keep = tokio::signal::windows::ctrl_break()?;
     println!("ready");
     tokio::time::sleep(Duration::from_secs(3600)).await;
+    Ok(())
+}
+
+/// Starts a child that sleeps, prints its pid, and exits at once: a leader that leaves something behind in its tree.
+fn orphan() -> std::io::Result<()> {
+    let child = std::process::Command::new(std::env::current_exe()?)
+        .arg("sleep")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .spawn()?;
+    println!("{}", child.id());
+    std::io::stdout().flush()?;
+    std::mem::forget(child);
     Ok(())
 }
 

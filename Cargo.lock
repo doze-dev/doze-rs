@@ -1486,13 +1486,30 @@ dependencies = [
 name = "doze-config"
 version = "0.0.0"
 dependencies = [
+ "doze-engine",
  "doze-hcl",
+ "doze-module-proto",
  "doze-names",
  "hcl-edit",
  "hex",
  "psl",
  "serde_json",
  "sha2",
+ "tokio",
+]
+
+[[package]]
+name = "doze-engine"
+version = "0.0.0"
+dependencies = [
+ "doze-module-proto",
+ "doze-os",
+ "hex",
+ "proptest",
+ "regex-lite",
+ "sha2",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1631,6 +1648,7 @@ dependencies = [
 name = "doze-module-test"
 version = "0.0.0"
 dependencies = [
+ "doze-engine",
  "doze-module-host",
  "doze-module-proto",
  "doze-os",
