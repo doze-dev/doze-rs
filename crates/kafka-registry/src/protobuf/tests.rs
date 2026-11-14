@@ -412,3 +412,12 @@ fn a_schema_with_an_import_registers_and_is_compared() {
     let same = register(&r, "proto-main", main, vec![dep]).unwrap();
     assert_eq!(same, 2);
 }
+
+#[test]
+fn a_comment_inside_the_package_name_is_not_stored() {
+    // The protobuf_schema fuzz target's find: the package was printed from its source span, comment and all, and the
+    // stored text then read `package a//c . b;` with its `;` commented out.
+    let text = stored("package a//c\n . b;\nmessage M {}");
+    assert!(text.starts_with("package a.b;\n"), "{text}");
+    assert_eq!(stored(&text), text);
+}

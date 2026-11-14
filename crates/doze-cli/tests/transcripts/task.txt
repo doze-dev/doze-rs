@@ -1,4 +1,6 @@
-# task: the list (how each ran, from .doze/state.json), a run, its dry run, and a name that is not a task.
+# task: the list (how each ran, from .doze/state.json), a run, its dry run, and a name that is not a task. The run's
+# time is the CLI's own stopwatch, so it is left out (untimed).
+@ untimed
 @ project bare
 @ daemon tasks
 @ now 2026-10-10T09:15:00Z

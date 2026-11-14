@@ -43,7 +43,7 @@ pub(crate) mod wire;
 
 pub use claims::{Lease, StackLease};
 pub use error::Error;
-pub use listen::{Forwarding, Listener};
+pub use listen::{Forwarding, Listener, pool_usable};
 pub use pool::Net;
 pub use registry::{Entry, Registry};
 

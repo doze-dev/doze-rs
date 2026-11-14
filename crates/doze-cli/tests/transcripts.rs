@@ -98,6 +98,43 @@ fn normalize(text: &str, sb: &Sandbox) -> String {
     if text.ends_with('\n') { t + "\n" } else { t }
 }
 
+/// `@ untimed`: what the CLI timed with its own stopwatch (a task's run, "✓ migrate done in 1ms") said without the
+/// time, which differs run to run. The daemon's numbers (from its journal) are the fixture's and stay.
+fn untime(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut out: Vec<String> = Vec::new();
+    let field = |l: &str| l.trim_start_matches("| ").trim_start().to_owned();
+    for (i, l) in lines.iter().enumerate() {
+        // A verb's result (`"state"` then `"took_ms"`), not a recorded run read back from a file.
+        let after_state = out
+            .last()
+            .is_some_and(|p| field(p).starts_with("\"state\":"));
+        if after_state && field(l).starts_with("\"took_ms\":") {
+            let closes = lines.get(i + 1).is_some_and(|n| {
+                n.trim_start_matches("| ")
+                    .trim_start()
+                    .starts_with(['}', ']'])
+            });
+            if let (true, Some(last)) = (closes, out.last_mut()) {
+                *last = last.trim_end_matches(',').to_owned();
+            }
+            continue;
+        }
+        match l
+            .strip_prefix("| ✓ ")
+            .and_then(|rest| rest.rsplit_once(" in "))
+        {
+            Some((head, _)) => out.push(format!("| ✓ {head}")),
+            None => out.push((*l).to_owned()),
+        }
+    }
+    let mut t = out.join("\n");
+    if text.ends_with('\n') {
+        t.push('\n');
+    }
+    t
+}
+
 fn section(out: &mut String, title: &str, body: &str) {
     if body.is_empty() {
         return;
@@ -176,7 +213,8 @@ fn transcript(s: &Scenario) -> String {
     }
     for (c, r) in s.commands.iter().zip(results) {
         let _ = writeln!(out, "\n$ {}", format!("doze {c}").trim_end());
-        out.push_str(&r.concat());
+        let r = r.concat();
+        out.push_str(&if has(s, "untimed") { untime(&r) } else { r });
     }
     out
 }
