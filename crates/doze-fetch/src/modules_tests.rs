@@ -367,3 +367,15 @@ fn a_development_build_does_not_stamp_the_lock() {
     assert!(!text.contains("doze: dev"), "{text}");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// F1 audit major 5: offline, a cached build of another protocol (the Go doze's, sharing the cache) is not taken.
+#[test]
+fn offline_a_build_of_another_protocol_is_not_taken() {
+    let reg = registry("offproto", &[("0.3.0", 2, &["9"])], "");
+    let m = modules(&reg);
+    m.resolve(&valkey(), &[], &mut Lock::default()).unwrap();
+    std::fs::remove_dir_all(&reg.root).unwrap();
+    let marker = m.content_dir(&valkey(), "0.3.0").join(PROTOCOL_FILE);
+    std::fs::write(&marker, "1\n").unwrap();
+    assert!(m.resolve(&valkey(), &[], &mut Lock::default()).is_err());
+}

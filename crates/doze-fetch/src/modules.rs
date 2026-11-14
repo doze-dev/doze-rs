@@ -17,6 +17,9 @@ use crate::registry::source::Source;
 use crate::registry::{self, FetchError};
 use std::path::{Path, PathBuf};
 
+/// The file beside a cached module build that names the protocol its verified release speaks.
+pub const PROTOCOL_FILE: &str = ".doze-module-protocol";
+
 /// Where module builds come from and where they are kept.
 #[derive(Debug, Clone)]
 pub struct Modules {
@@ -292,7 +295,12 @@ impl Modules {
             key: Some(&self.registry.key),
         };
         let what = format!("module {src} {version} ({})", self.triple);
-        let (bin, _) = mirror::download(&url, &self.content_dir(src, version), &what, &want)?;
+        let content = self.content_dir(src, version);
+        let (bin, _) = mirror::download(&url, &content, &what, &want)?;
+        // The verified release's protocol, beside the build: the offline fallback takes only builds this doze speaks
+        // (the Go doze shares this cache, and its builds speak protocol 1).
+        std::fs::write(content.join(PROTOCOL_FILE), format!("{}\n", rel.protocol))
+            .map_err(|e| format!("recording {what}: {e}"))?;
         Ok(bin)
     }
 
@@ -320,7 +328,9 @@ impl Modules {
                 let name = e.file_name().into_string().ok()?;
                 let v = name.strip_suffix(&suffix)?.to_string();
                 let bin = e.path().join("bin");
-                crate::archive::has_files(&bin).then_some((v, bin))
+                let speaks = std::fs::read_to_string(e.path().join(PROTOCOL_FILE))
+                    .is_ok_and(|p| p.trim() == self.protocol.to_string());
+                (speaks && crate::archive::has_files(&bin)).then_some((v, bin))
             })
             .max_by(|a, b| select::compare_versions(&a.0, &b.0))
     }
