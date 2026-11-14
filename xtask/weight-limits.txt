@@ -135,3 +135,6 @@ doze-kafka 10634592 183 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # 10,526 KB; +1.06 MB over the median of 8,964 KB before the aws-tls, aws-gaps and aws-correctness merges (issue #36). Bytes 13,128,520 B and 274
 # packages fit the lines above.
 doze-aws 13900000 280 10526 --listen 127.0.0.1:{port} --data-dir {data}
+# doze (package doze-cli), core F1: measured 2026-11-14 on darwin/arm64, 3,148,064 B and 169 packages (docs/port/weight.md, "Core F1"). The byte limit
+# is the macOS size times 1.3 plus 5%; six packages of room. No server: idle memory is not weighed (0).
+doze-cli 4300000 175 0

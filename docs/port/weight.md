@@ -470,6 +470,20 @@ TLS build, or a higher ceiling), the owner chose to raise the ceiling. The `weig
 plus 5%) and 186 packages, until CI's next run on main measures it; Protobuf (10b) and JSON Schema (10c) will move it again, each with
 its numbers. The default build's limit (9,386,171 B, 174 packages) is unchanged.
 
+## Core F1 (`doze` with doze-fetch), measured 2026-11-14, release, darwin/arm64
+
+The `doze` CLI (package `doze-cli`) gets its first line in `xtask/weight-limits.txt`. F1 links the registry client: ureq,
+rustls with ring, rustls-native-certs, tar and flate2, ed25519-dalek and yaml-rust2. With the F1 audit fixes (cross-process
+locks from doze-os, which `doze` already linked): **3,148,064 B, 169 packages**. The F1 audit measured 3.05 MB before
+them; the fixes cost about 100 KB (the capped unpack, the lock merge, the platform list), which is the judgement call
+the owner leaves to the builder.
+
+- Limit: 4,300,000 B (the macOS size times 1.3 for an x86_64 Linux build, plus 5%, the rule of the doze-aws line) and
+  175 packages (six of room). It is re-based from the first Linux CI run.
+- Idle memory is not weighed: the CLI serves nothing by itself (the line's `0`; the daemon gets its own line when it
+  exists). Downloads run in `doze __fetch` children, so none of this is resident in a daemon.
+- The 10 MB ceiling (owner, 2026-11-12) stands far above.
+
 ## One build: TLS in the default (2026-11-14, owner decision)
 
 Asked whether to keep a separate TLS build "for a few MB", the owner chose one build, and raised the ceiling to 15 MB the same day. `tls` is

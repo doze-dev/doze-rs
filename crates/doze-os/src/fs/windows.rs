@@ -27,6 +27,15 @@ pub(super) fn file_id(path: &Path) -> Option<u64> {
     (ok != 0).then(|| (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow))
 }
 
+pub(super) fn mode(_path: &Path) -> Option<u32> {
+    None
+}
+
+pub(super) fn drop_shared_write(_path: &Path) -> io::Result<()> {
+    // Files under the user's profile inherit its ACL: other users cannot write them already.
+    Ok(())
+}
+
 pub(super) fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
     // Empty first, private second, contents last: the bytes never sit in a file others can read.
     std::fs::write(path, [])?;
