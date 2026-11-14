@@ -170,11 +170,17 @@ jobs:
           size=$(stat -c %s target/release/doze-kafka)
           crates=$(cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | sort -u | wc -l)
           dir=$(mktemp -d)
-          target/release/doze-kafka --listen 127.0.0.1:19092 --data-dir "$dir" &
-          pid=$!
-          sleep 3
-          rss=$(awk '/VmRSS/ {print $2}' /proc/$pid/status)
-          kill $pid
+          # Idle memory is the median of three fresh starts: one sample moved by hundreds of KB between runs (weight.md, 2026-11-14).
+          samples=""
+          for i in 1 2 3; do
+            target/release/doze-kafka --listen 127.0.0.1:19092 --data-dir "$dir/$i" &
+            pid=$!
+            sleep 3
+            samples="$samples $(awk '/VmRSS/ {print $2}' /proc/$pid/status)"
+            kill $pid; wait $pid || true
+          done
+          echo "idle samples:$samples KB"
+          rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "binary $size B, $crates packages, idle $rss KB"
           [ "$size" -le 5263296 ] || { echo "lean binary over 5,263,296 B"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
@@ -196,11 +202,17 @@ jobs:
           dir=$(mktemp -d)
           openssl ecparam -name prime256v1 -genkey -noout -out "$dir/key.pem"
           openssl req -x509 -new -sha256 -key "$dir/key.pem" -out "$dir/cert.pem" -days 2 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
-          target/release/doze-kafka --listen 127.0.0.1:19092 --data-dir "$dir/data" --tls-cert "$dir/cert.pem" --tls-key "$dir/key.pem" &
-          pid=$!
-          sleep 3
-          rss=$(awk '/VmRSS/ {print $2}' /proc/$pid/status)
-          kill $pid
+          # Idle memory is the median of three fresh starts (weight.md, 2026-11-14).
+          samples=""
+          for i in 1 2 3; do
+            target/release/doze-kafka --listen 127.0.0.1:19092 --data-dir "$dir/data$i" --tls-cert "$dir/cert.pem" --tls-key "$dir/key.pem" &
+            pid=$!
+            sleep 3
+            samples="$samples $(awk '/VmRSS/ {print $2}' /proc/$pid/status)"
+            kill $pid; wait $pid || true
+          done
+          echo "idle samples:$samples KB"
+          rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "binary $size B, $crates packages, idle $rss KB"
           # The feature adds 794,688 B on macOS arm64 (6,592,016 B against 5,797,328 B; 838,928 B before the weight pass), taken as
           # 0.9 MB on x86_64 (ring's code is larger there): the default build (the job above) is estimated at 7.4 MB at most, so about
