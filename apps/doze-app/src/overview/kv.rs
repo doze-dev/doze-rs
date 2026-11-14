@@ -12,7 +12,7 @@ use crate::widgets::Mono as _;
 pub(super) struct Kv<'a> {
     pub(super) k: &'a str,
     pub(super) v: &'a str,
-    pub(super) copy: Option<String>,
+    pub(super) copy: Option<(String, String)>,
     /// The value is the thing itself (`.v.b`), not a word about it.
     pub(super) bright: bool,
     /// A sentence, wrapped, in the page's face; else one mono line.
@@ -36,8 +36,8 @@ impl<'a> Kv<'a> {
         }
     }
 
-    pub(super) fn copy(mut self, c: &str) -> Kv<'a> {
-        self.copy = Some(c.to_owned());
+    pub(super) fn copy(mut self, c: &str, what: String) -> Kv<'a> {
+        self.copy = Some((c.to_owned(), what));
         self.bright = true;
         self
     }
@@ -102,10 +102,10 @@ impl<'a> Kv<'a> {
                 ))
                 .into_any_element();
         }
-        let Some(c) = self.copy else {
+        let Some((c, what)) = self.copy else {
             return row.into_any_element();
         };
-        // Go's `Copy`: "Copied" for 1200 ms, and "copied the value to the clipboard".
+        // Go's `Copy`: "Copied" for 1200 ms, and "copied the address of api to the clipboard": each Copy names its text.
         let id = gpui::SharedString::from(format!("copy-{}", self.k));
         let word = if crate::kit::says_copied(&id, cx) {
             "Copied"
@@ -125,7 +125,7 @@ impl<'a> Kv<'a> {
                 .on_click(cx.listener(move |this, _, _, cx| {
                     crate::outward::copy(cx, &c);
                     crate::kit::flip_copied(id.clone(), cx);
-                    this.say("copied the value to the clipboard", cx);
+                    this.say(&doze_desk::copied::copied(&what), cx);
                 })),
         )
         .into_any_element()

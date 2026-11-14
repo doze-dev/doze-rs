@@ -16,6 +16,12 @@ pub const MACHINE: &str = "What doze set up here, part by part";
 pub const SET_UP_MACHINE: &str = "Runs the machine's setup (doze doctor --fix), which routes and trusts the domain, behind the system's password prompt";
 /// The domain setup banner's Copy <command> (overview.tsx `home.setup`).
 pub const COPY_COMMAND: &str = "For a terminal instead";
+/// The instance head's Stop trying, on a crashing service (instance.tsx).
+pub const STOP_TRYING: &str = "Take it out of this run while you look";
+/// A task's Copy output, once it has run (instance.tsx).
+pub const COPY_OUTPUT: &str = "The last run's output, as kept here";
+/// A task's Edit doze.hcl, before it has run (instance.tsx).
+pub const EDIT_TASK: &str = "The task's block, in your editor";
 
 /// A check on the machine line: Go titles it with its text (`title={c.text}`), so a check without one has none.
 pub fn check(text: &str) -> Option<&str> {
@@ -41,6 +47,9 @@ mod tests {
         assert_eq!(MACHINE, "What doze set up here, part by part");
         assert!(SET_UP_MACHINE.starts_with("Runs the machine's setup (doze doctor --fix)"));
         assert_eq!(COPY_COMMAND, "For a terminal instead");
+        assert_eq!(STOP_TRYING, "Take it out of this run while you look");
+        assert_eq!(COPY_OUTPUT, "The last run's output, as kept here");
+        assert_eq!(EDIT_TASK, "The task's block, in your editor");
     }
 
     #[test]

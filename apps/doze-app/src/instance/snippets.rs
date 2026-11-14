@@ -17,9 +17,9 @@ pub(crate) fn snippets(
         return None;
     }
     let at = v.lang.min(all.len() - 1);
-    let (_, body) = all.get(at)?.clone();
+    let (lang, body) = all.get(at)?.clone();
     let tabs = lang_tabs(t, &all, at, cx);
-    let copy_btn = copy_button(t, v.is_copied("snippet"), &body, cx);
+    let copy_btn = copy_button(t, v.is_copied("snippet"), (lang, &body), cx);
     let lines = snippet_lines(t, &body);
     Some(
         card(t)
@@ -78,9 +78,10 @@ fn lang_tabs(
 fn copy_button(
     t: &Tokens,
     copied: bool,
-    body: &str,
+    (lang, body): (&str, &str),
     cx: &mut Context<InstanceView>,
 ) -> gpui::Stateful<gpui::Div> {
+    let what = doze_desk::copied::snippet(lang);
     div()
         .id("snippet-copy")
         .absolute()
@@ -101,7 +102,7 @@ fn copy_button(
         .child(if copied { "Copied" } else { "Copy" })
         .on_click(cx.listener({
             let body = body.to_owned();
-            move |v, _, _, cx| v.copy("snippet", &body, cx)
+            move |v, _, _, cx| v.copy("snippet", &body, &what, cx)
         }))
 }
 

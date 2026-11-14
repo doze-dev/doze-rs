@@ -155,20 +155,23 @@ fn web_bar(
         )
         .child(div().flex_1());
     if let Some(c) = copy {
-        top = top.child(
-            button(
-                t,
-                "copy-addr",
-                if v.is_copied("web") {
-                    "Copied"
-                } else {
-                    "Copy address"
-                },
-                &super::head::chip("Copy address"),
-                false,
-            )
-            .on_click(cx.listener(move |v, _, _, cx| v.copy("web", &c, cx))),
-        );
+        top =
+            top.child(
+                button(
+                    t,
+                    "copy-addr",
+                    if v.is_copied("web") {
+                        "Copied"
+                    } else {
+                        "Copy address"
+                    },
+                    &super::head::chip("Copy address"),
+                    false,
+                )
+                .on_click(cx.listener(move |v, _, _, cx| {
+                    v.copy("web", &c, doze_desk::copied::THE_ADDRESS, cx)
+                })),
+            );
     }
     let u2 = url.to_owned();
     top.child(

@@ -27,20 +27,27 @@ pub fn switch(r: &Row) -> String {
         };
     }
     if r.frozen {
-        "The stack's daemon is not answering; nothing can change until it does"
-    } else if r.off {
+        "The stack's daemon is not answering; nothing can change until it does".into()
+    } else {
+        flip(r.on, r.off).into()
+    }
+}
+
+/// What flipping a running service's switch does (the instance head's switch, and a row's): Go's `title`.
+#[must_use]
+pub fn flip(on: bool, off: bool) -> &'static str {
+    if off {
         "Turned off: switch it on to bring it back and wake it"
-    } else if r.on {
+    } else if on {
         "Switch off to put it to sleep"
     } else {
         "Switch on to wake it"
     }
-    .into()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Row, switch};
+    use super::{Row, flip, switch};
 
     #[test]
     fn a_switch_says_what_go_says() {
@@ -65,5 +72,15 @@ mod tests {
         assert_eq!(switch(&r), "paused in doze.hcl (enabled = false)");
         r.off = false;
         assert_eq!(switch(&r), "Start the stack with api and what it needs");
+    }
+
+    #[test]
+    fn the_instance_switch_says_what_go_says() {
+        assert_eq!(flip(false, false), "Switch on to wake it");
+        assert_eq!(flip(true, false), "Switch off to put it to sleep");
+        assert_eq!(
+            flip(true, true),
+            "Turned off: switch it on to bring it back and wake it"
+        );
     }
 }
