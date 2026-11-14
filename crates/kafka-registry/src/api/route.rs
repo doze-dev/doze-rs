@@ -154,6 +154,8 @@ fn matches(pattern: &str, segs: &[String]) -> Option<Captures> {
     let mut c = Captures::default();
     for (part, seg) in parts.iter().zip(segs) {
         match *part {
+            // A wildcard is one segment, and not an empty one.
+            "{subject}" | "{version}" | "{id}" if seg.is_empty() => return None,
             "{subject}" => c.subject = Some(seg.clone()),
             "{version}" => c.version = Some(seg.clone()),
             "{id}" => c.id = Some(seg.clone()),

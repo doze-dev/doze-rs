@@ -59,6 +59,7 @@ impl MetaStore {
 mod tests {
     use std::path::Path;
 
+    use kafka_storage::fs::Fs;
     use kafka_storage::sim::SimFs;
 
     use crate::MetaStore;
@@ -67,6 +68,8 @@ mod tests {
     fn records_written_together_are_read_back_after_a_reopen_and_a_delete_goes() {
         let fs = SimFs::new();
         let dir = Path::new("/data");
+        fs.create_dir(dir).unwrap();
+        fs.sync_dir(Path::new("/")).unwrap();
         let meta = MetaStore::open(&fs, dir).unwrap();
         assert!(meta.registry_records().unwrap().is_empty());
         let puts = vec![
