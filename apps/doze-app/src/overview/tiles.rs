@@ -13,7 +13,8 @@ use crate::instance::ui::state_mark;
 use crate::kit::{chip_of, s, word_line};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, dot, icon, switch, tracked};
+use crate::widgets::{MONO_FAMILY, dot, icon, switch, tip, tracked};
+use doze_desk::overview::titles;
 
 /// Tiles to a row at the window's width.
 pub(super) fn per_row(v: &OverviewView) -> usize {
@@ -93,9 +94,11 @@ pub(super) fn row_switch(
             .on_click(say)
             .into_any_element();
     }
-    if r.paused {
+    if r.paused && !r.down {
         // `.lock`: the glyph in a dashed pill the size of a switch; only the file brings it back.
         return div()
+            .id(id)
+            .tooltip(tip(titles::LOCK))
             .flex_none()
             .w(px(34.))
             .h(px(18.))
@@ -121,6 +124,7 @@ pub(super) fn row_switch(
             false,
             r.off || r.frozen,
         ))
+        .tooltip(tip(titles::switch(r)))
         .when(!r.frozen, |d| d.cursor_pointer().on_click(say))
         .probe(
             format!("sw-{}", r.name),
