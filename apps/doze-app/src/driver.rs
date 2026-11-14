@@ -21,6 +21,9 @@
 //! | `watch IDS MS` | for MS, writes each change in what the probes whose id starts with one of IDS (comma separated) say, or where they are |
 //! | `mark LABEL` | writes LABEL with the time, to line frames up with |
 //! | `probes` | writes every probe shown, with its place |
+//! | `menu TITLE > TITLE …` | chooses a line of the menu-bar item's menu as a click does (its action, sent to its target) |
+//! | `menu-dump` | writes the menu-bar item's menu as AppKit holds it, the picture it shows and the Dock badge |
+//! | `menu-open MS` | opens the menu-bar item's menu as a click on the item does, for MS, then closes it |
 //! | `quit` | quits the app |
 
 use std::cell::RefCell;
@@ -200,6 +203,36 @@ async fn play(line: &str, cx: &mut AsyncApp) -> bool {
         "assert" | "refute" => check(rest, verb == "assert"),
         "mark" => mark(rest),
         "probes" => probes(),
+        "menu" => {
+            let path: Vec<&str> = rest.split('>').map(str::trim).collect();
+            match cx.update(|cx| crate::around::with_menu(cx, |m| m.choose(&path))) {
+                Some(Ok(title)) => note("menu", &format!("chose {title:?}")),
+                Some(Err(e)) => note("FAIL", &format!("menu {rest:?}: {e}")),
+                None => note("FAIL", "no menu-bar item"),
+            }
+        }
+        "menu-dump" => {
+            let text = cx.update(|cx| crate::around::with_menu(cx, crate::tray::Menu::dump));
+            let badge = doze_os::ui::dock_badge_now().unwrap_or_default();
+            note(
+                "menu-dump",
+                &format!("badge={badge:?} {}", text.unwrap_or_default()),
+            );
+        }
+        "menu-open" => {
+            let ms = rest.parse().unwrap_or(1500);
+            // The close is set first: a status item's menu tracks in a loop of its own until it closes, and this
+            // task's timer still fires inside it.
+            cx.spawn(async move |cx: &mut AsyncApp| {
+                sleep(cx, ms).await;
+                cx.update(|cx| crate::around::with_menu(cx, crate::tray::Menu::close));
+                note("menu-closed", "");
+            })
+            .detach();
+            note("menu-open", "");
+            cx.update(|cx| crate::around::with_menu(cx, crate::tray::Menu::open));
+            sleep(cx, ms + 200).await;
+        }
         "quit" => {
             note("end", "quit");
             cx.update(|cx| cx.quit());

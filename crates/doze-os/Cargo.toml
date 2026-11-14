@@ -53,7 +53,7 @@ block2 = { version = "0.6", optional = true }
 objc2-app-kit = { version = "0.3", optional = true, default-features = false, features = [
     "std", "objc2-core-foundation", "NSApplication", "NSDockTile", "NSStatusBar", "NSStatusItem", "NSMenu", "NSMenuItem", "NSButton", "NSControl",
     "NSStatusBarButton", "NSResponder", "NSView", "NSImage", "NSCell", "NSButtonCell", "NSActionCell", "NSRunningApplication",
-    "NSWindow", "NSScreen",
+    "NSWindow", "NSScreen", "NSImageRep", "NSBitmapImageRep",
 ] }
 
 [target.'cfg(unix)'.dependencies]

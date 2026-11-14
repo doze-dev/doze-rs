@@ -378,6 +378,12 @@ fn acting(
 }
 
 /// The app's [`Around`], once [`start`] made it.
+/// Runs `f` on the menu-bar item, when there is one (the script driver's menu steps).
+#[cfg(feature = "fixtures")]
+pub(crate) fn with_menu<R>(cx: &mut App, f: impl FnOnce(&Menu) -> R) -> Option<R> {
+    around(cx).and_then(|a| a.menu.as_ref()).map(f)
+}
+
 pub(crate) fn around(cx: &mut App) -> Option<&mut Around> {
     if cx.has_global::<Around>() {
         Some(cx.global_mut::<Around>())

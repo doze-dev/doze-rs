@@ -20,8 +20,13 @@ pub(super) fn picked(cx: &mut App, id: u32) {
         .and_then(|a| a.menu.as_ref())
         .and_then(|m| m.cmd(id))
     else {
+        #[cfg(feature = "fixtures")]
+        crate::driver::note("pick", &format!("{id:x} from no menu kept"));
         return;
     };
+    // A scripted run logs what each line asked for, so a check can match a pick to its effect on the daemon.
+    #[cfg(feature = "fixtures")]
+    crate::driver::note("pick", &format!("{id:x} {cmd:?}"));
     run(cx, cmd);
 }
 

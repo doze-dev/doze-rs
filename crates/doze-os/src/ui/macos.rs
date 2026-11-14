@@ -2,20 +2,19 @@
 //! arguments objc2 types fully; the SAFETY line says why the message is sound at that point.
 #![allow(unsafe_code)]
 
-use super::{Icons, MenuEntry, OnPick, TrayIcon};
+use super::{Icon, Icons, MenuEntry, OnPick, TrayIcon};
 use objc2::rc::Retained;
 use objc2::runtime::{NSObject, NSObjectProtocol, Sel};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
-    NSApplication, NSImage, NSMenu, NSMenuItem, NSScreen, NSStatusBar, NSStatusItem,
+    NSApplication, NSBitmapImageRep, NSImage, NSMenu, NSMenuItem, NSScreen, NSStatusBar,
+    NSStatusItem,
 };
 use objc2_foundation::{NSData, NSSize, NSString};
 use std::io;
 
 /// The status item's length: as wide as its image (`NSVariableStatusItemLength`).
 const VARIABLE_LENGTH: f64 = -1.0;
-/// The bar's image size in points.
-const ICON_POINTS: f64 = 22.0;
 
 pub(super) struct Ivars {
     on_pick: OnPick,
@@ -61,17 +60,42 @@ pub(super) struct Tray {
     alert: Retained<NSImage>,
 }
 
+/// A menu line's title without the state mark in front of it ("●  shop" is "shop").
+fn bare(title: &str) -> &str {
+    title.trim_start_matches(|c: char| !c.is_alphanumeric())
+}
+
 fn other(message: &str) -> io::Error {
     io::Error::other(message.to_owned())
 }
 
-fn image(mtm: MainThreadMarker, png: &[u8]) -> io::Result<Retained<NSImage>> {
-    let data = NSData::with_bytes(png);
-    let img = NSImage::initWithData(mtm.alloc(), &data)
-        .ok_or_else(|| other("tray icon: not an image"))?;
-    img.setSize(NSSize::new(ICON_POINTS, ICON_POINTS));
+/// The template image for `icon`: one representation per scale, each drawn for its pixels, so AppKit picks the 2x
+/// one on a Retina screen and the 1x one elsewhere instead of scaling either. Its size in points is the 1x picture's
+/// pixels.
+fn image(mtm: MainThreadMarker, icon: Icon) -> io::Result<Retained<NSImage>> {
+    let one = rep(icon.x1)?;
+    let two = rep(icon.x2)?;
+    let (w, h) = (one.pixelsWide(), one.pixelsHigh());
+    if w <= 0 || h <= 0 || two.pixelsWide() != 2 * w || two.pixelsHigh() != 2 * h {
+        return Err(other("tray icon: the 2x picture is not twice the 1x one"));
+    }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "an icon is a few dozen pixels across"
+    )]
+    let size = NSSize::new(w as f64, h as f64);
+    let img = NSImage::initWithSize(mtm.alloc(), size);
+    for r in [one, two] {
+        r.setSize(size);
+        img.addRepresentation(&r);
+    }
     img.setTemplate(true);
     Ok(img)
+}
+
+fn rep(png: &[u8]) -> io::Result<Retained<NSBitmapImageRep>> {
+    NSBitmapImageRep::imageRepWithData(&NSData::with_bytes(png))
+        .ok_or_else(|| other("tray icon: not an image"))
 }
 
 impl Tray {
@@ -158,9 +182,112 @@ impl Tray {
 
     pub(super) fn open_menu(&self) {
         if let Some(button) = self.item.button(self.mtm) {
-            // SAFETY: a live status bar button on the main thread; a click with no sender opens its menu.
-            unsafe { button.performClick(None) };
+            // Sent from the run loop's next turn, not from here: the menu then tracks in a loop of its own until it
+            // closes, and the caller (the app, mid-update) must not still be on the stack inside that loop.
+            let none: Option<&NSObject> = None;
+            // SAFETY: a live status bar button on the main thread; `performClick:` takes one object (the sender, here
+            // none) and a click with no sender opens its menu. The delay is an NSTimeInterval (f64).
+            let () = unsafe {
+                msg_send![&*button, performSelector: sel!(performClick:), withObject: none, afterDelay: 0.0_f64]
+            };
         }
+    }
+
+    /// Closes the menu if it is open.
+    pub(super) fn close_menu(&self) {
+        if let Some(menu) = self.item.menu(self.mtm) {
+            menu.cancelTrackingWithoutAnimation();
+        }
+    }
+
+    /// The menu AppKit holds now, read back from its items: a line each, indented by depth.
+    pub(super) fn menu_text(&self) -> String {
+        fn walk(menu: &NSMenu, depth: usize, out: &mut String) {
+            for item in menu.itemArray().iter() {
+                let pad = "  ".repeat(depth);
+                if item.isSeparatorItem() {
+                    out.push_str(&format!("{pad}----\n"));
+                    continue;
+                }
+                let mut line = format!("{pad}{}", item.title());
+                if item.isSectionHeader() {
+                    line = format!("{pad}[{}]", item.title());
+                }
+                let key = item.keyEquivalent().to_string();
+                if !key.is_empty() {
+                    line.push_str(&format!("  ⌘{key}"));
+                }
+                if !item.isEnabled() {
+                    line.push_str("  (disabled)");
+                } else if item.hasSubmenu() {
+                    line.push_str("  >");
+                } else if item.action().is_some() {
+                    line.push_str(&format!("  #{:x}", item.tag()));
+                }
+                out.push_str(&line);
+                out.push('\n');
+                if let Some(sub) = item.submenu() {
+                    walk(&sub, depth + 1, out);
+                }
+            }
+        }
+        let mut out = String::new();
+        if let Some(menu) = self.item.menu(self.mtm) {
+            walk(&menu, 0, &mut out);
+        }
+        out
+    }
+
+    /// Chooses the line at `path` (titles from the top menu down, each the line's title, its start after any state mark, or words in it) the way a
+    /// click does: the menu sends the line's action to its target (`performActionForItemAtIndex:`). Returns the
+    /// line's title, or what was not found.
+    pub(super) fn choose(&self, path: &[&str]) -> Result<String, String> {
+        let mut menu = self
+            .item
+            .menu(self.mtm)
+            .ok_or_else(|| "the item has no menu".to_owned())?;
+        let Some((last, above)) = path.split_last() else {
+            return Err("no line named".to_owned());
+        };
+        let find = |menu: &NSMenu, want: &str| -> Option<(isize, Retained<NSMenuItem>)> {
+            let items = menu.itemArray();
+            let all: Vec<_> = items.iter().enumerate().collect();
+            all.iter()
+                .find(|(_, it)| it.title().to_string() == want)
+                .or_else(|| {
+                    all.iter()
+                        .find(|(_, it)| bare(&it.title().to_string()).starts_with(want))
+                })
+                .or_else(|| {
+                    all.iter()
+                        .find(|(_, it)| it.title().to_string().contains(want))
+                })
+                .and_then(|(i, it)| Some((isize::try_from(*i).ok()?, it.clone())))
+        };
+        for step in above {
+            let (_, item) = find(&menu, step).ok_or_else(|| format!("no line {step:?}"))?;
+            menu = item
+                .submenu()
+                .ok_or_else(|| format!("{step:?} has no submenu"))?;
+        }
+        let (at, item) = find(&menu, last).ok_or_else(|| format!("no line {last:?}"))?;
+        if !item.isEnabled() {
+            return Err(format!("{last:?} is disabled"));
+        }
+        menu.performActionForItemAtIndex(at);
+        Ok(item.title().to_string())
+    }
+
+    /// Which picture the item shows now, and its size in points.
+    pub(super) fn shown_icon(&self) -> Option<(TrayIcon, [f64; 2])> {
+        let img = self.item.button(self.mtm)?.image()?;
+        let which = if Retained::as_ptr(&img) == Retained::as_ptr(&self.alert) {
+            TrayIcon::Alert
+        } else {
+            TrayIcon::Calm
+        };
+        let s = img.size();
+        Some((which, [s.width, s.height]))
     }
 
     fn line(&self, title: &str, action: Option<Sel>, key: &str) -> Retained<NSMenuItem> {
@@ -245,4 +372,18 @@ pub(super) fn holds_input() -> (bool, usize) {
     let app = NSApplication::sharedApplication(mtm);
     let key = app.windows().iter().filter(|w| w.isKeyWindow()).count();
     (app.isActive(), key)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_line_is_found_by_its_name_whatever_state_mark_leads_it() {
+        assert_eq!(super::bare("●  shop   ·   2 awake"), "shop   ·   2 awake");
+        assert_eq!(
+            super::bare("⚠︎  shop   ·   api is failed"),
+            "shop   ·   api is failed"
+        );
+        assert_eq!(super::bare("Open doze"), "Open doze");
+        assert!(!super::bare("web stopped   ·   shop").starts_with("shop"));
+    }
 }
