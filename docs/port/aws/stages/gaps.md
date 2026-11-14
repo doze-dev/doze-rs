@@ -90,3 +90,16 @@ and `weight.md`; none of those was touched here. Each behaviour carries one call
 - Still refused by name: managed Contributor Insights rules (`PutManagedInsightRules`, `ListManagedInsightRules`: they belong to other
   services' resources), `GetMetricWidgetImage`, OTel enrichment.
 - Tests: `aws-cloudwatch/src/tests/stored.rs` (each family round-trips, states, tags, filters, refusals).
+
+## 5. CloudWatch `ConcurrentExecutions` for `AWS/Lambda` (`crates/aws-lambda/src/metrics.rs`, `rt/mod.rs`)
+
+- **Built** on the producer hook of fix-observability: as each invocation begins, the meter notes the invocations in flight for the
+  function and for the whole region (`Runtime::concurrency`, read from the in-flight counts reserved concurrency already keeps); each
+  minute keeps the most seen, published as `ConcurrentExecutions` (unit `Count`, one value per minute) by `FunctionName` and with no
+  dimensions, held until CloudWatch reads (or sent at once while an alarm watches `AWS/Lambda`), like the other four. Read it by
+  `Maximum`, as AWS documents. **Go weak (bettered):** Go had no `AWS/Lambda` metrics at all; fix-observability built four and left
+  this one.
+- **Approximation:** sampled when an invocation begins, so a minute in which none begins but one is still running has no point (AWS
+  reports it). The dimension sets (`FunctionName` and none; not `Resource`) are `(memory)`.
+- Tests: `metrics/tests.rs` (most-in-flight per minute and region, nothing else counted) and the end-to-end test with a real
+  `provided` function now reads `ConcurrentExecutions` `Maximum` 1 back from CloudWatch.
