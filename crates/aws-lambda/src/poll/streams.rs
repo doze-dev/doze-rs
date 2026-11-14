@@ -19,6 +19,8 @@ pub(super) struct Rec {
     /// The sequence number as text, and as a number to compare.
     pub(super) pos: String,
     pub(super) seq: u128,
+    /// The partition key (Kinesis) or the item's key (DynamoDB): records of one key stay in order across parallel lanes.
+    pub(super) key: String,
     pub(super) doc: Value,
     /// What filters see: the event with the record's data decoded.
     pub(super) filter: Value,
@@ -97,8 +99,15 @@ fn first_failure(payload: &[u8], batch: &[Rec]) -> Result<Option<u128>, ()> {
     Ok(lowest)
 }
 
-/// Delivers `records` of one shard until each has succeeded, been skipped, or been given up on; saves the position after each part.
-pub(super) async fn deliver(run: &Run, kind: &str, shard: &str, records: Vec<Rec>) -> Delivered {
+/// Delivers `records` of one shard until each has succeeded, been skipped, or been given up on; saves the position after each part
+/// when `save` (a parallel lane leaves that to [`super::parallel::deliver`]).
+pub(super) async fn deliver_batches(
+    run: &Run,
+    kind: &str,
+    shard: &str,
+    records: Vec<Rec>,
+    save: bool,
+) -> Delivered {
     let retries = run.int("MaximumRetryAttempts", -1);
     let max_age = run.int("MaximumRecordAgeInSeconds", -1);
     let bisect = run
@@ -162,7 +171,7 @@ pub(super) async fn deliver(run: &Run, kind: &str, shard: &str, records: Vec<Rec
             }
         }
         // The batch (or the half of it) is over: the position moves past it, so a restart does not read it again.
-        if !split {
+        if save && !split {
             run.save_position(shard, &last_pos).await;
         }
     }
@@ -172,7 +181,7 @@ pub(super) async fn deliver(run: &Run, kind: &str, shard: &str, records: Vec<Rec
 /// The poller of one DynamoDB stream mapping.
 pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
     let arn = run.source_arn().to_owned();
-    let batch = usize::try_from(run.int("BatchSize", 100))
+    let batch = usize::try_from(super::parallel::read_size(&run, run.int("BatchSize", 100)))
         .unwrap_or(100)
         .clamp(1, 10_000);
     let stream = "stream";
@@ -200,6 +209,10 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
                         Rec {
                             pos: r.seq.to_string(),
                             seq: u128::from(r.seq),
+                            key: doc
+                                .pointer("/dynamodb/Keys")
+                                .map(Value::to_string)
+                                .unwrap_or_default(),
                             filter: doc.clone(),
                             doc,
                             arrived_ms: r.time_ms,
@@ -212,7 +225,7 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
             drop(waiter);
             after = u64::try_from(last.seq).unwrap_or(after);
             if matches!(
-                deliver(&run, "DDBStreamBatchInfo", stream, records).await,
+                super::parallel::deliver(&run, "DDBStreamBatchInfo", stream, records).await,
                 Delivered::Stopped
             ) {
                 return;

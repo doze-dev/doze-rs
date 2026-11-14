@@ -217,6 +217,38 @@ pub(crate) const KEYS: &[Key] = &[
         "Name resources a template leaves unnamed after their logical id",
         SERVICES,
     ),
+    key(
+        "sqs-skip-60s-waits",
+        Kind::Switch,
+        "false",
+        "",
+        "Let a deleted SQS queue's name be reused, and a queue be purged again, at once (AWS makes both wait 60 seconds)",
+        SERVICES,
+    ),
+    key(
+        "dynamodb-create-ms",
+        Kind::Count(0),
+        "0",
+        "MS",
+        "Milliseconds a new DynamoDB table or index stays CREATING (AWS takes seconds; 0 lets a waiter pass at once)",
+        SERVICES,
+    ),
+    key(
+        "dynamodb-update-ms",
+        Kind::Count(0),
+        "0",
+        "MS",
+        "Milliseconds a DynamoDB table stays UPDATING after UpdateTable",
+        SERVICES,
+    ),
+    key(
+        "dynamodb-delete-ms",
+        Kind::Count(0),
+        "0",
+        "MS",
+        "Milliseconds a DynamoDB table stays DELETING after DeleteTable",
+        SERVICES,
+    ),
 ];
 
 /// The setting called `name`.

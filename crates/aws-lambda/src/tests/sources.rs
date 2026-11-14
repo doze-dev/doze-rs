@@ -10,7 +10,7 @@ pub(super) const PRINTER: &[u8] = b"import json\ndef handler(event, context):\n 
 
 const FAILING: &[u8] = b"def handler(event, context):\n    bad = [{'itemIdentifier': r['messageId']} for r in event['Records'] if r['body'] == 'bad']\n    print('GOT', len(event['Records']))\n    return {'batchItemFailures': bad}\n";
 
-async fn queue(w: &World, name: &str, visibility: &str) -> (String, String) {
+pub(super) async fn queue(w: &World, name: &str, visibility: &str) -> (String, String) {
     let made = w
         .peer(
             "sqs",

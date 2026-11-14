@@ -19,6 +19,7 @@ pub(crate) struct Resumable {
     cloudwatch: Option<Arc<aws_cloudwatch::Cloudwatch>>,
     eventbridge: Option<Arc<aws_eventbridge::Eventbridge>>,
     scheduler: Option<Arc<aws_scheduler::Scheduler>>,
+    secrets: Option<Arc<aws_secrets::Secrets>>,
     dynamodb: Option<Arc<aws_dynamodb::Dynamodb>>,
     lambda: Option<Arc<aws_lambda::Lambda>>,
     states: Option<Arc<aws_sfn::Sfn>>,
@@ -34,6 +35,10 @@ impl Resumable {
             s.resume().await;
         }
         if let Some(s) = &self.scheduler {
+            s.resume().await;
+        }
+        // Scheduled secret rotations: what came due while stopped starts now, and the next window is waited for.
+        if let Some(s) = &self.secrets {
             s.resume().await;
         }
         if let Some(s) = &self.dynamodb {
@@ -101,6 +106,7 @@ pub(crate) fn gateway(
     gw.credential_source = Some(iam.clone());
     let (cloudwatch, logs) = observability(&ctx, cfg);
     let eventbridge = Arc::new(aws_eventbridge::Eventbridge::new(ctx("eventbridge")));
+    let secrets = Arc::new(aws_secrets::Secrets::new(ctx("secretsmanager")));
     let scheduler = Arc::new(aws_scheduler::Scheduler::new(ctx("scheduler")));
     let states = Arc::new(aws_sfn::Sfn::with_config(ctx("states"), states_config()));
     let (sqs, dynamodb, kinesis, lambda) = compute(&ctx, cfg);
@@ -113,10 +119,7 @@ pub(crate) fn gateway(
         ("sts", Arc::new(sts)),
         ("sqs", sqs),
         ("ssm", Arc::new(aws_ssm::Ssm::new(ctx("ssm")))),
-        (
-            "secretsmanager",
-            Arc::new(aws_secrets::Secrets::new(ctx("secretsmanager"))),
-        ),
+        ("secretsmanager", secrets.clone()),
         ("kms", Arc::new(aws_kms::Kms::new(ctx("kms")))),
         ("sns", Arc::new(aws_sns::Sns::new(ctx("sns")))),
         ("dynamodb", dynamodb.clone()),
@@ -142,6 +145,7 @@ pub(crate) fn gateway(
         cloudwatch: on.keep("cloudwatch", &cloudwatch),
         eventbridge: on.keep("eventbridge", &eventbridge),
         scheduler: on.keep("scheduler", &scheduler),
+        secrets: on.keep("secretsmanager", &secrets),
         dynamodb: on.keep("dynamodb", &dynamodb),
         lambda: on.keep("lambda", &lambda),
         states: on.keep("stepfunctions", &states),
@@ -250,8 +254,14 @@ fn compute(
     Arc<aws_kinesis::Kinesis>,
     Arc<aws_lambda::Lambda>,
 ) {
-    let sqs = Arc::new(aws_sqs::Sqs::new(ctx("sqs")));
-    let dynamodb = Arc::new(aws_dynamodb::Dynamodb::new(ctx("dynamodb")));
+    let sqs = Arc::new(aws_sqs::Sqs::with_settings(
+        ctx("sqs"),
+        cfg.switch("sqs-skip-60s-waits"),
+    ));
+    let dynamodb = Arc::new(aws_dynamodb::Dynamodb::with_windows(
+        ctx("dynamodb"),
+        dynamodb_windows(cfg),
+    ));
     let kinesis = Arc::new(aws_kinesis::Kinesis::new(ctx("kinesis")));
     let lambda = Arc::new(aws_lambda::Lambda::with_config(
         ctx("lambda"),
@@ -263,6 +273,27 @@ fn compute(
         dynamodb: Arc::clone(&dynamodb),
     });
     (sqs, dynamodb, kinesis, lambda)
+}
+
+/// DynamoDB's transitional windows: each setting, else its older environment variable (`DOZE_DDB_CREATE_MS` ...), else 0.
+fn dynamodb_windows(cfg: &Config) -> aws_dynamodb::Windows {
+    let pick = |name: &str, old: &str| {
+        let set = cfg.count(name);
+        let ms = if set > 0 {
+            set
+        } else {
+            std::env::var(old)
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0)
+        };
+        i64::try_from(ms).unwrap_or(i64::MAX)
+    };
+    aws_dynamodb::Windows {
+        create_ms: pick("dynamodb-create-ms", "DOZE_DDB_CREATE_MS"),
+        update_ms: pick("dynamodb-update-ms", "DOZE_DDB_UPDATE_MS"),
+        delete_ms: pick("dynamodb-delete-ms", "DOZE_DDB_DELETE_MS"),
+    }
 }
 
 /// How Lambda runs functions: the idle time and quiet switch, and the interpreters from `DOZE_LAMBDA_PYTHON`, `_NODE`, `_RUBY`,

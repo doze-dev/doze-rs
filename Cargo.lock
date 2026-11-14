@@ -510,6 +510,7 @@ dependencies = [
  "doze-runtime",
  "doze-store",
  "flate2",
+ "regex-lite",
  "serde",
  "serde_json",
  "tokio",
@@ -769,6 +770,7 @@ name = "aws-secrets"
 version = "0.0.0"
 dependencies = [
  "aws-core",
+ "aws-cron",
  "aws-kms",
  "aws-model-secrets-manager",
  "aws-peers",
