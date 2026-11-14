@@ -17,11 +17,17 @@ pub(crate) fn key_prefix(bucket: &str, key: &str) -> String {
     format!("{bucket}\0{key}\0")
 }
 
-/// Reads a version row of either record version (1 was written before Object Lock and has no lock).
+/// Reads a version row of any record version (1 was written before Object Lock and has no lock; 2 before ACLs and has none).
 pub(crate) fn decode_version(bytes: &[u8]) -> Result<Version, doze_store::StoreError> {
     let (version, body) = record::split("version", bytes)?;
     match version {
         ROW_VERSION => record::body("version", body),
+        // WHY: version 3 only appended an `Option`, which postcard writes as one byte when it is `None`.
+        2 => {
+            let mut whole = body.to_vec();
+            whole.push(0);
+            record::body("version", &whole)
+        }
         VERSION => Ok(record::body::<VersionV1>("version", body)?.into()),
         other => Err(doze_store::StoreError::Corrupt(format!(
             "version: version {other} is not known"
@@ -148,15 +154,23 @@ mod tests {
             parts: Vec::new(),
             tags: Vec::new(),
             lock,
+            acl: None,
         }
     }
 
     #[test]
     fn a_row_written_before_object_lock_is_read_without_a_lock_and_a_new_one_keeps_its_lock() {
-        // Version 1 is version 2 without the lock at the end, which a version with no lock writes as two "none" bytes.
+        // Version 1 is version 3 without the lock and the ACL at the end, which a version with neither writes as three "none" bytes.
         let mut old = vec![VERSION];
         let new = record::encode("version", ROW_VERSION, &version(Lock::default())).unwrap();
-        old.extend_from_slice(&new[1..new.len() - 2]);
+        old.extend_from_slice(&new[1..new.len() - 3]);
+        let mut two = vec![2];
+        two.extend_from_slice(&new[1..new.len() - 1]);
+        assert_eq!(
+            decode_version(&two).unwrap().seq,
+            7,
+            "a version 2 row is read"
+        );
         let read = decode_version(&old).unwrap();
         assert_eq!((read.seq, read.size, read.lock), (7, 3, Lock::default()));
 

@@ -239,3 +239,35 @@ fn a_queue_that_does_not_let_the_topic_send_gets_nothing_when_policies_are_enfor
         (1, 1, 1)
     );
 }
+
+#[test]
+fn a_message_that_cannot_be_delivered_goes_to_the_dead_letter_queue_with_why() {
+    let mut w = World::new();
+    let topic = w.topic("t");
+    let dlq = w.queue("dlq", &topic, json!({}));
+    w.subscribe_queue(
+        &topic,
+        "arn:aws:sqs:us-east-1:000000000000:ghost",
+        &json!({"RawMessageDelivery": "true", "RedrivePolicy": json!({"deadLetterTargetArn": dlq}).to_string()}),
+    );
+    publish(
+        &mut w,
+        &topic,
+        &json!({"MessageAttributes": {"kind": {"DataType": "String", "StringValue": "order"}}}),
+    );
+    let got = w.drain("dlq");
+    assert_eq!(got.len(), 1);
+    assert_eq!(
+        got[0]["Body"], "shipped",
+        "the body the subscription would have been given"
+    );
+    let attrs = &got[0]["MessageAttributes"];
+    assert_eq!(attrs["kind"]["StringValue"], "order");
+    assert_eq!(attrs["ERROR_CODE"]["StringValue"], "QueueDoesNotExist");
+    assert!(attrs["ERROR_MESSAGE"]["StringValue"].is_string());
+    assert!(attrs["RequestID"]["StringValue"].is_string());
+    assert_eq!(attrs["TopicArn"]["StringValue"], topic);
+    // A subscription with no redrive policy loses the message, as before.
+    let bare = w.ok("ListSubscriptionsByTopic", &json!({"TopicArn": topic}));
+    assert_eq!(bare["Subscriptions"].as_array().unwrap().len(), 1);
+}

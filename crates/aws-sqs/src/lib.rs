@@ -80,6 +80,23 @@ impl Sqs {
         }
     }
 
+    /// Registers SQS with the local settings: `skip_waits` (`--sqs-skip-60s-waits`) frees a deleted queue's name at once and lets a
+    /// queue be purged again at once, where AWS makes both wait 60 seconds.
+    #[must_use]
+    pub fn with_settings(ctx: Arc<Ctx>, skip_waits: bool) -> Self {
+        let peers = ctx
+            .ext
+            .as_ref()
+            .and_then(|e| Arc::clone(e).downcast::<aws_peers::Peers>().ok());
+        Self::new(Arc::new(Ctx {
+            dir: ctx.dir.clone(),
+            idle: ctx.idle,
+            tasks: ctx.tasks.clone(),
+            clock: Arc::clone(&ctx.clock),
+            ext: Some(Arc::new(core::Ext { peers, skip_waits })),
+        }))
+    }
+
     /// Whether the region's retention timer is running (for tests).
     #[cfg(test)]
     pub(crate) fn expiry_armed(&self, region: &str) -> bool {

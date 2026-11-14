@@ -266,6 +266,9 @@ impl Core {
                 .map(|x| x.stages.clone())
                 .unwrap_or_default(),
         );
+        if shown.contains(crate::model::CURRENT) {
+            self.note_manual_rotation(&name);
+        }
         reply::<Put_>(|o| {
             o.put(Put_::ARN, &arn);
             o.put(Put_::NAME, &name);
@@ -310,6 +313,9 @@ impl Core {
         };
         let arn = draft.arn.clone();
         self.secrets.insert(name.clone(), draft);
+        if version.is_some() {
+            self.note_manual_rotation(&name);
+        }
         reply::<Updated>(|o| {
             o.put(Updated::ARN, &arn);
             o.put(Updated::NAME, &name);
