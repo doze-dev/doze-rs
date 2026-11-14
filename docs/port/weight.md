@@ -413,3 +413,9 @@ it and not taken (apache-avro, protox with prost-reflect, jsonschema, boon) are 
 No limit moved (7,800,000 B, 161 packages, 8,192 KB; TLS job 8,750,000 B and 173 lines). On the Linux estimate (darwin times 1.216)
 the default build is about 7.59 MB (97% of its limit) and the TLS build about 8.56 MB (98%): 10b and 10c are to be measured against
 that before they merge.
+
+**10a on top of the module face (merged with main at Phase 11, 2026-11-14):** the default build 6,791,104 B on darwin arm64 (+216,800 B over
+the module's 6,574,304 B), 171 packages, 7,248 KB idle: within 8,400,000 B / 175 (about 8.26 MB on the Linux estimate, 98%). With
+`--features tls`: 7,586,144 B and 183 `cargo tree` lines. The CI TLS job's lines (8.75 MB, 173) were already passed by the module alone; they
+are now 9,700,000 B (darwin times 1.216 plus 5%) and 187, 0.3 MB under the owner's 10 MB ceiling. The next lever is the owner's: the
+module and the registry are each a feature a release can leave out.
