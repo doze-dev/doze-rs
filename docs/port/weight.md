@@ -1180,3 +1180,20 @@ behaviour the module uses.
 `doze-module-ferret` **1,006,976 B**, 49 packages (mariadb 922,288 B and 44 on the same build): +85 KB over mariadb for
 the BSON, the OP_MSG client and serde_json, which reads the seed files. Under the 1 MiB (1,048,576 B) line a module of
 this kind has until the modules plan sets per-module lines.
+
+## Core M3: doze-aws's module face, measured 2026-11-15, release-aws, darwin/arm64
+
+The module face (`crates/doze-aws/src/module`, feature `module`, on by default as kafka's is) adds the module SDK to doze-aws:
+`doze-module`, its derive, `doze-module-proto`, `doze-os`, `minicbor` and its derive, `hex`, `rustix`, `errno`, `bitflags` (13
+`cargo tree` lines). The template, the checks and the CloudFormation calls are doze-aws's own code (its `cfn` client).
+
+| darwin arm64, `release-aws` | `--no-default-features` | default (module) |
+|---|---|---|
+| doze-aws binary | 8,375,808 B | **8,592,624 B** (+216,816 B, +2.6%) |
+| packages (`cargo tree`, unique lines) | 271 | **284** |
+| idle | | unchanged: the module code runs only as `aws-plugin`, never in the server |
+
+On ubuntu x86_64 (CI's measured ratio for doze-aws, 1.54) that is about +334 KB on CI's 13,128,520 B, about 13.46 MB, inside the
+13,900,000 B line and the owner's 20 MB ceiling. The package line goes from 280 to **287** (CI's 274 plus the 13), a small
+justified rise recorded here; CI's next run on this branch measures it exactly. doze-kafka gains only its `client` declaration
+(kcat), a few strings.
