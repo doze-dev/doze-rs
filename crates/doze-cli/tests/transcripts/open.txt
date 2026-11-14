@@ -3,8 +3,7 @@
 @ project bare
 @ no-json
 @ env DISPLAY=:0
-@ file app/Doze.app/Contents/MacOS/doze-app #!/bin/sh\n
-@ env DOZE_APP_BUNDLE={sandbox}/app/Doze.app
+@ app
 
 $ doze open --show cache
 exit 0

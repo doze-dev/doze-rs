@@ -35,6 +35,19 @@ pub(crate) fn read_dir_sorted(dir: &Path) -> Vec<(String, PathBuf)> {
     v
 }
 
+/// A file's text, any byte that is not UTF-8 replaced (Go reads bytes: a Latin-1 comment must not hide a Makefile).
+pub(crate) fn read_text(path: &Path) -> Option<String> {
+    std::fs::read(path)
+        .ok()
+        .map(|b| String::from_utf8_lossy(&b).into_owned())
+}
+
+/// A folder that is the project's own: a real directory, never a link to one (Go's `DirEntry.IsDir`), so a link to
+/// a home folder or a sibling project is not read.
+pub(crate) fn real_dir(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|m| m.is_dir())
+}
+
 pub(crate) fn exists(dir: &Path, name: &str) -> bool {
     dir.join(name).exists()
 }
@@ -42,7 +55,7 @@ pub(crate) fn exists(dir: &Path, name: &str) -> bool {
 fn read_small(path: &Path) -> Option<String> {
     let meta = std::fs::metadata(path).ok()?;
     (meta.is_file() && meta.len() <= MAX_FILE)
-        .then(|| std::fs::read_to_string(path).ok())
+        .then(|| read_text(path))
         .flatten()
 }
 

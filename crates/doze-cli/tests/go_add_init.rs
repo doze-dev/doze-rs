@@ -111,13 +111,15 @@ fn go() -> Value {
     .unwrap()
 }
 
-/// Stdout without the wiring line (a reviewed difference) and blank lines.
+/// Stdout without the wiring line and the blank line before it (a reviewed difference); everything else as printed.
 fn comparable(stdout: &str) -> String {
     stdout
+        .replace("\n\n", "\n\u{0}")
         .lines()
-        .filter(|l| !l.contains("use it from an app:") && !l.trim().is_empty())
+        .filter(|l| !l.contains("use it from an app:"))
         .collect::<Vec<_>>()
         .join("\n")
+        .replace("\n\u{0}\n\u{0}", "\n\u{0}")
 }
 
 #[test]
@@ -172,15 +174,20 @@ fn add_writes_what_go_writes() {
     assert!(differ.is_empty(), "{}", differ.join("\n"));
 }
 
-/// A file as its blocks (split at blank lines), sorted: module order is the modules' names, not Go's table.
+/// A file as its blocks (split at blank lines), the module blocks sorted (their order is the modules' names, not Go's
+/// table) and every other block where it is.
 fn blocks(text: &str) -> Vec<String> {
-    let mut b: Vec<String> = text
+    let all: Vec<String> = text
         .replace("# go.mod requires ", "# the code imports ")
         .split("\n\n")
         .map(|s| s.trim_end().to_owned())
         .collect();
-    b.sort();
-    b
+    let is_module = |b: &String| b.lines().any(|l| l.starts_with("module "));
+    let mut modules: Vec<String> = all.iter().filter(|b| is_module(b)).cloned().collect();
+    modules.sort();
+    let mut out: Vec<String> = all.into_iter().filter(|b| !is_module(b)).collect();
+    out.push(modules.join("\n\n"));
+    out
 }
 
 #[test]

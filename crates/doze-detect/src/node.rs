@@ -68,7 +68,7 @@ fn read_tree(dir: &Path, depth: usize, out: &mut String) {
         return;
     }
     for (name, path) in read_dir_sorted(dir) {
-        if path.is_dir() {
+        if crate::files::real_dir(&path) {
             if !matches!(name.as_str(), "node_modules" | "dist" | "build") && !name.starts_with('.')
             {
                 read_tree(&path, depth + 1, out);
@@ -76,7 +76,7 @@ fn read_tree(dir: &Path, depth: usize, out: &mut String) {
             continue;
         }
         if [".js", ".ts", ".mjs"].iter().any(|x| name.ends_with(x))
-            && let Ok(text) = std::fs::read_to_string(&path)
+            && let Some(text) = crate::files::read_text(&path)
             && text.len() < 1 << 20
         {
             out.push_str(&text);

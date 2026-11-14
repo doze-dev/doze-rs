@@ -37,3 +37,37 @@ the hand-over).
 declares (url first) rather than Go's per-engine table (kvrocks declares none, so it has none); init's module blocks
 come in the modules' name order, and a module found in go.mod says "go.mod requires"; several migration targets make one
 `after` list (Go wrote one `after` line per target, which does not read); `${` and `%{` in a written run line are escaped.
+
+## Independent audit (2026-11-14)
+
+A fresh agent audited the slice: 12 confirmed findings, 6 suspicions. Fixed, each with a test:
+
+1. `add -c <folder>` wrote a second `stack` and a duplicate name into a folder project: a folder `-c` is now refused
+   for `add` and `init` (transcript `add-refused`).
+2. `-c ../doze.hcl` named the stack and a root app `""`: the folder's name is taken after `..` and links are resolved
+   (`the_stack_is_named_after_the_real_folder`).
+3. `--json init` on a terminal printed the table and the question before the envelope: never asked under `--json`
+   (transcript `init-tty`).
+4. `init` on a terminal with nothing found wrote the starter without asking: it asks the wizard's questions, as Go
+   (transcript `init-tty-empty`).
+5. `update` claimed the registry's version after `brew upgrade doze`: it now says brew finished and that `doze version`
+   tells what is installed (brew exits 0 when its formula is behind).
+6. Detection: a non-UTF-8 byte hid a Makefile or source (now read lossily, as Go reads bytes:
+   `a_latin1_makefile_is_read`); folders that are links are not followed (Go's `DirEntry.IsDir`).
+7. A symlinked doze.lock had two lock keys and was replaced by a file: the lock is keyed by, and written through,
+   the real file.
+8. A block name that is not an identifier was written (`9lives`, `x.y`): refused with a fix.
+9. `modules upgrade` dropped a declared type it could not name silently: it is a failed row.
+10. The wizard's "validate" claimed a lint it did not run: the file is read and its blocks counted.
+12. The oracle tests compared too loosely: only module blocks may move in `init`, and only the wiring line (and its
+    blank line) is set aside in `add`.
+
+Kept as reviewed differences: a compose merge key (`<<: *base`) is not followed, since aliases are never expanded and so
+an alias bomb costs nothing; Go followed it (11, inherited from Go): a compose service with no usable port gets
+`-p $HOST:$PORT:0`. Suspicions noted, not changed:
+- `bug` copies the daemon log's tail as it is, so the report asks to be read before it is attached.
+- A `__fetch` child can write back an older pin of the same module, but only when racing an upgrade.
+- `modules upgrade` holds the lock during its download.
+- `open` passes no `--window`, because the Rust app has no such flag.
+- `file://C:/` on Windows is not decoded.
+- curl buffers a body up to the limit.

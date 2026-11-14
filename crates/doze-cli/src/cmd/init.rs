@@ -49,19 +49,37 @@ pub struct Finding {
     pub why: String,
 }
 
-pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Init) -> Outcome {
+/// The file init writes (`-c`, or doze.hcl here) and how it is shown; a folder, or a file that is there without
+/// `--force`, is refused.
+fn target(
+    ctx: &Ctx<'_>,
+    mode: &Mode,
+    force: bool,
+) -> Result<(std::path::PathBuf, String), Diagnostic> {
     let path = ctx.cwd.join(
         mode.config
             .as_deref()
             .unwrap_or(std::path::Path::new(crate::project::CONFIG)),
     );
     let shown = crate::project::shown(&path, &ctx.cwd);
-    if path.exists() && !a.force {
+    if path.is_dir() {
+        return Err(Diagnostic::new(
+            ids::WAY_REFUSED,
+            format!("-c names a folder ({shown}); init writes one file"),
+        )
+        .fix(format!("name the file to write: -c {shown}/doze.hcl")));
+    }
+    if path.exists() && !force {
         return Err(
             Diagnostic::new(ids::CONFIG_EXISTS, format!("{shown} already exists"))
                 .fix("doze init --force overwrites it · doze add <module> adds to it"),
         );
     }
+    Ok((path, shown))
+}
+
+pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Init) -> Outcome {
+    let (path, shown) = target(ctx, mode, a.force)?;
     let known = decl::all(ctx);
     let dir = path.parent().unwrap_or(&ctx.cwd).to_path_buf();
     let found = if a.wizard {
@@ -73,9 +91,12 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Init) -> Outcome {
         file: shown.clone(),
         ..Inited::default()
     };
+    // A person at a terminal is asked; never under -y, --json or a pipe (the envelope is the only stdout there).
+    let asks = !mode.yes && !mode.json && ctx.interactive();
     let text = if !found.is_empty() {
         detected(ctx, &found, &mut done)
-    } else if a.wizard && ctx.interactive() && !mode.yes {
+    } else if asks {
+        // Nothing found, or --wizard: the questions (Go's init), with no default pick.
         match wizard(ctx, &known.declared, &mut done) {
             Some(t) => t,
             None => return Ok(Done::ok(View::Inited(done))),
@@ -85,7 +106,14 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Init) -> Outcome {
         starter()
     };
     add::must_read(ctx, mode, &path, text.as_bytes(), &shown)?;
-    if !done.shown && !a.dry.dry_run && !mode.yes && ctx.interactive() && !found.is_empty() {
+    if done.checked == LINT_ASKED {
+        // What the wizard asked for: the file read as doze reads it, its blocks counted.
+        let n = crate::config::Loader::new(ctx, mode)
+            .parse_shape(&text, &path)
+            .map_or(0, |c| c.instances.len());
+        done.checked = format!("{shown} reads as a config — {n} service(s)");
+    }
+    if !done.shown && !a.dry.dry_run && asks && !found.is_empty() {
         let _ = write!(ctx.out, "{}", done.table(mode.out()));
         done.shown = true;
         if !confirm(ctx, &format!("Write {shown} with this?")) {
@@ -202,10 +230,7 @@ fn wizard(ctx: &mut Ctx<'_>, offers: &[Declared], done: &mut Inited) -> Option<S
     }
     done.shown = true;
     if lint {
-        done.checked = format!(
-            "looks good — {} service(s)",
-            picks.len() + usize::from(!app.is_empty())
-        );
+        done.checked = LINT_ASKED.into();
     }
     Some(scaffold(&picks, &app))
 }
@@ -227,6 +252,9 @@ fn picks<'a>(line: &str, offers: &'a [Declared]) -> Vec<&'a Declared> {
     }
     out
 }
+
+/// The wizard's third answer was yes: the file is read and counted once it is made.
+const LINT_ASKED: &str = "\0lint";
 
 const HEADER: &str = "# doze.hcl — declarative local services, no Docker.\n\
 # Each instance pins its own port; doze boots it on first connect, reaps when idle.\n\

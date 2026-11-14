@@ -151,3 +151,27 @@ fn an_empty_folder_suggests_nothing() {
     let _ = std::fs::remove_dir_all(&d);
     assert!(r.is_empty());
 }
+
+/// A Makefile with a byte that is not UTF-8 (a Latin-1 comment) is still read, as Go reads bytes (audit finding 6).
+#[test]
+fn a_latin1_makefile_is_read() {
+    let d = std::env::temp_dir().join(format!("doze-detect-latin1-{}", std::process::id()));
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join("Makefile"), b"# caf\xe9\nmigrate:\n\tgoose up\n").unwrap();
+    let r = scan(&d, &go_kinds());
+    let _ = std::fs::remove_dir_all(&d);
+    assert_eq!(r.tasks.len(), 1);
+}
+
+/// `..` in the folder is resolved before the stack is named after it (audit finding 2).
+#[test]
+fn the_stack_is_named_after_the_real_folder() {
+    let d = std::env::temp_dir().join(format!("doze-detect-dotdot-{}", std::process::id()));
+    std::fs::create_dir_all(d.join("myproj/sub")).unwrap();
+    std::fs::write(d.join("myproj/main.go"), "package main\n\nfunc main() {}\n").unwrap();
+    std::fs::write(d.join("myproj/go.mod"), "module x\n").unwrap();
+    let r = scan(&d.join("myproj/sub/.."), &go_kinds());
+    let _ = std::fs::remove_dir_all(&d);
+    assert_eq!(r.stack, "myproj");
+    assert_eq!(r.apps.first().unwrap().name, "myproj");
+}

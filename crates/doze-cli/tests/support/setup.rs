@@ -28,6 +28,8 @@ pub(crate) fn prepare(setup: &[String]) -> (Sandbox, FakeHost, Option<FixtureDae
                 host.env.insert(k.into(), v);
             }
             "browser-fails" => host.browser_fails = true,
+            // `@ app`: a Doze.app in an Applications folder of the sandbox, which the host reports.
+            "app" => host.apps.push(install_app(&sb)),
             "now" => host.now = Some(stamp(arg)),
             "daemon" => daemon = Some(start_daemon(&sb, arg)),
             // `@ logfile api r000001.s000.log <line>`: a line in the stack's log store.
@@ -136,6 +138,19 @@ fn stamp(s: &str) -> std::time::SystemTime {
     doze_control::Timestamp::parse(s)
         .and_then(|t| t.to_system_time())
         .unwrap()
+}
+
+/// A Doze.app (an empty program) in the sandbox's Applications folder; that folder.
+fn install_app(sb: &Sandbox) -> std::path::PathBuf {
+    let apps = sb.root.join("Applications");
+    let exe = apps
+        .join("Doze.app")
+        .join("Contents")
+        .join("MacOS")
+        .join("doze-app");
+    std::fs::create_dir_all(exe.parent().unwrap()).unwrap();
+    std::fs::write(&exe, "").unwrap();
+    apps
 }
 
 fn project(sb: &Sandbox, kind: &str) {

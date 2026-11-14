@@ -31,7 +31,8 @@ pub struct Updated {
     pub to: String,
     /// Homebrew, the app, a download.
     pub through: &'static str,
-    /// It was installed now (false: this doze is the newest).
+    /// The install tool ran and succeeded (false: this doze is the newest). Which version it installed is not read back:
+    /// `doze version` says.
     pub installed: bool,
     /// The stacks whose daemon still runs the doze it started with.
     pub running: usize,
@@ -140,12 +141,12 @@ fn plan(latest: &Latest, install: Install, running: usize) -> Plan {
 impl Updated {
     pub(crate) fn human(&self, p: Paint) -> String {
         if self.installed {
+            // brew exits 0 when its formula is behind too ("already installed"): what is installed now is not
+            // known here, so it is not claimed (rule 3).
             format!(
-                "{} doze {} → {} through {}\n",
+                "{} brew upgrade doze finished · the newest is {}; doze version says which this is now\n",
                 p.ok("✓"),
-                self.from,
-                self.to,
-                self.through
+                self.to
             )
         } else {
             format!("{} doze {} is the newest\n", p.ok("✓"), self.from)

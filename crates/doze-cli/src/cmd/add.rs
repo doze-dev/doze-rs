@@ -51,15 +51,72 @@ pub struct Wiring {
     pub reference: String,
 }
 
-/// The config `add` edits: the project's, or `doze.hcl` here when there is none (then it is new).
-pub(crate) fn target(ctx: &Ctx<'_>, mode: &Mode) -> PathBuf {
-    match crate::project::find(&ctx.cwd, mode.config.as_deref()) {
-        Some(p) => p.config,
-        None => ctx.cwd.join(
-            mode.config
-                .as_deref()
-                .unwrap_or(Path::new(crate::project::CONFIG)),
-        ),
+/// The config `add` edits: the project's, or `doze.hcl` here when there is none (then it is new). A folder given to
+/// `-c` is refused: its config is several files, and one block written into one of them is checked against the rest
+/// by nothing here (a second `stack`, a name declared twice).
+pub(crate) fn target(ctx: &Ctx<'_>, mode: &Mode) -> Result<PathBuf, Diagnostic> {
+    let folder = mode
+        .config
+        .as_deref()
+        .map(|c| ctx.cwd.join(c))
+        .filter(|c| c.is_dir());
+    if let Some(dir) = folder {
+        let shown = crate::project::shown(&dir.join(crate::project::CONFIG), &ctx.cwd);
+        return Err(Diagnostic::new(
+            ids::WAY_REFUSED,
+            format!(
+                "-c names a folder ({}); this writes one file",
+                crate::project::shown(&dir, &ctx.cwd)
+            ),
+        )
+        .fix(format!("name the file to write: -c {shown}")));
+    }
+    Ok(
+        match crate::project::find(&ctx.cwd, mode.config.as_deref()) {
+            Some(p) => p.config,
+            None => ctx.cwd.join(
+                mode.config
+                    .as_deref()
+                    .unwrap_or(Path::new(crate::project::CONFIG)),
+            ),
+        },
+    )
+}
+
+/// A block's name must be an HCL identifier (a letter or `_`, then letters, digits, `_` and `-`): it is used as
+/// `module.<name>.url` and `service.<name>.address`.
+fn check_name(name: &str, kind: &str) -> Result<(), Diagnostic> {
+    let mut chars = name.chars();
+    let ok = chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    if ok {
+        return Ok(());
+    }
+    Err(
+        Diagnostic::new(ids::WAY_REFUSED, format!("{name:?} can't name a block"))
+            .note("a name starts with a letter and has letters, digits, - and _")
+            .fix(format!("doze add {kind} <name>, with a name like my-db")),
+    )
+}
+
+/// The name of the folder a new file goes in (`..` and links resolved, as Go's `filepath.Abs`), as a stack name.
+pub(crate) fn folder_slug(dir: &Path) -> String {
+    let real = dir
+        .canonicalize()
+        .or_else(|_| std::path::absolute(dir))
+        .unwrap_or_else(|_| dir.to_path_buf());
+    let slug = doze_detect::slug(
+        &real
+            .file_name()
+            .map(|n| n.to_string_lossy())
+            .unwrap_or_default(),
+    );
+    if slug.is_empty() {
+        "stack".into()
+    } else {
+        slug
     }
 }
 
@@ -77,7 +134,7 @@ pub(crate) fn read(path: &Path, shown: &str) -> Result<Option<String>, Diagnosti
 }
 
 pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Add) -> Outcome {
-    let path = target(ctx, mode);
+    let path = target(ctx, mode)?;
     let shown = crate::project::shown(&path, &ctx.cwd);
     let existing = read(&path, &shown)?;
     let mut ed = Edit::open(existing.as_deref().unwrap_or_default())
@@ -98,6 +155,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Add) -> Outcome {
             service_block(ctx, &ed, &kind, a)?
         }
     };
+    check_name(&added.name, &kind)?;
     if declared(&ed, &added.name) {
         return Err(Diagnostic::new(
             ids::NAME_TAKEN,
@@ -106,15 +164,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Add) -> Outcome {
         .fix(format!("pick another name: doze add {kind} <name>")));
     }
     if existing.is_none() {
-        let dir = path.parent().unwrap_or(&ctx.cwd);
-        let base = std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf());
-        let slug = doze_detect::slug(
-            &base
-                .file_name()
-                .map(|n| n.to_string_lossy())
-                .unwrap_or_default(),
-        );
-        ed.set_top_attribute("stack", if slug.is_empty() { "stack" } else { &slug });
+        ed.set_top_attribute("stack", &folder_slug(path.parent().unwrap_or(&ctx.cwd)));
     }
     ed.append_block(&added.block).map_err(|e| {
         Diagnostic::new(

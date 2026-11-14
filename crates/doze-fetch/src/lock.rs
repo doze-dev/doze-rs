@@ -235,9 +235,12 @@ impl Lock {
     }
 }
 
-/// The file's canonical path: its folder resolved (symlinks, `..`), its own name kept, so a lock reached two ways
-/// is one file (the file itself may not exist yet).
+/// The file's canonical path: the file itself resolved when it exists (a symlinked doze.lock is its target), else its
+/// folder resolved and its name kept, so a lock reached two ways is one file.
 pub fn canonical(path: &Path) -> std::path::PathBuf {
+    if let Ok(p) = path.canonicalize() {
+        return p;
+    }
     let name = path.file_name().map(std::ffi::OsStr::to_os_string);
     let dir = path
         .parent()
@@ -261,7 +264,9 @@ pub fn update<T>(
     let locks = home.join("locks");
     std::fs::create_dir_all(&locks)
         .map_err(|e| format!("taking the doze.lock lock in {}: {e}", locks.display()))?;
-    let key = crate::registry::signed::sha256_hex(canonical(path).to_string_lossy().as_bytes());
+    // The real file: keyed by it, and written through a link rather than over it (Go's os.WriteFile follows links).
+    let path = &canonical(path);
+    let key = crate::registry::signed::sha256_hex(path.to_string_lossy().as_bytes());
     let _held =
         doze_os::fs::lock(&locks.join(format!("lock-{}.lock", key.get(..16).unwrap_or(&key))))
             .map_err(|e| e.to_string())?;

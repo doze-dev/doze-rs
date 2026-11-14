@@ -223,7 +223,11 @@ fn has_prefix(s: &str, prefixes: &[String]) -> bool {
 /// Reads `dir` against what the modules in `declared` say they are recognised by. Modules come out in `declared`'s
 /// order, services by name.
 pub fn scan(dir: &Path, declared: &[Declared]) -> Found {
-    let abs = std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf());
+    // The folder's own name (`..` resolved, as Go's `filepath.Abs` cleans it): the stack and a root app are named after it.
+    let abs = dir
+        .canonicalize()
+        .or_else(|_| std::path::absolute(dir))
+        .unwrap_or_else(|_| dir.to_path_buf());
     let mut found = Found {
         stack: slug(
             &abs.file_name()

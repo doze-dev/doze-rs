@@ -88,6 +88,16 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, u: &Upgrade) -> Outcome {
     let mut rows = Vec::new();
     for (ty, majors) in &wanted {
         let Some(src) = Source::parse(ty) else {
+            rows.push(Row {
+                module: ty.clone(),
+                source: "-".into(),
+                pinned: "-".into(),
+                selected: "-".into(),
+                status: "failed".into(),
+                error: format!(
+                    "{ty:?} is not a module name the registry could have (lower case, like valkey)"
+                ),
+            });
             continue;
         };
         let from = lock

@@ -1,0 +1,72 @@
+# init on a terminal: --json never asks (stdout is the envelope alone); nothing found asks the wizard's questions
+# instead of writing (Go: "Nothing found, or --wizard, asks instead"), and no answer picks nothing (audit 3, 4).
+@ registry
+@ tty
+@ file project/go.mod module example.com/x\n\ngo 1.22\n\nrequire github.com/redis/go-redis/v9 v9.5.1\n
+
+$ doze --json init --dry-run
+exit 0
+stdout:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze init",
+|   "ok": true,
+|   "data": {
+|     "file": "doze.hcl",
+|     "written": false,
+|     "found": [
+|       {
+|         "kind": "module",
+|         "name": "valkey",
+|         "why": "go.mod requires github.com/redis/go-redis/v9"
+|       }
+|     ],
+|     "notes": [],
+|     "text": "stack = \"project\"\n\n# go.mod requires github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n",
+|     "starter": false
+|   }
+| }
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze init",
+|   "ok": true,
+|   "data": {
+|     "file": "doze.hcl",
+|     "written": false,
+|     "found": [
+|       {
+|         "kind": "module",
+|         "name": "valkey",
+|         "why": "go.mod requires github.com/redis/go-redis/v9"
+|       }
+|     ],
+|     "notes": [],
+|     "text": "stack = \"project\"\n\n# go.mod requires github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n",
+|     "starter": false
+|   }
+| }
+tty exit 0
+tty stdout:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze init",
+|   "ok": true,
+|   "data": {
+|     "file": "doze.hcl",
+|     "written": false,
+|     "found": [
+|       {
+|         "kind": "module",
+|         "name": "valkey",
+|         "why": "go.mod requires github.com/redis/go-redis/v9"
+|       }
+|     ],
+|     "notes": [],
+|     "text": "stack = \"project\"\n\n# go.mod requires github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n",
+|     "starter": false
+|   }
+| }
+tty stderr:
+| fetching postgres from the registry…⟨cr⟩⟨Kfetching valkey from the registry…⟨cr⟩⟨K

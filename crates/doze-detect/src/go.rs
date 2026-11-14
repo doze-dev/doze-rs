@@ -58,7 +58,7 @@ pub(crate) fn captures(re: &LazyLock<Option<Regex>>, text: &str) -> Vec<String> 
 }
 
 pub(crate) fn scan(s: &mut Scan<'_>, dir: &Path, abs: &Path, apps: &mut Vec<App>) {
-    let Ok(gomod) = std::fs::read_to_string(dir.join("go.mod")) else {
+    let Some(gomod) = crate::files::read_text(&dir.join("go.mod")) else {
         return;
     };
     s.note_go_packages(&requires(&gomod), "go.mod requires");
@@ -101,7 +101,7 @@ fn mains(dir: &Path, abs: &Path) -> Vec<(String, String)> {
         out.push((slug(&base), ".".to_owned()));
     }
     for (name, path) in read_dir_sorted(&dir.join("cmd")) {
-        if path.is_dir() && has_main(&path) {
+        if crate::files::real_dir(&path) && has_main(&path) {
             out.push((slug(&name), format!("cmd/{name}")));
         }
     }
@@ -117,8 +117,8 @@ fn go_files(dir: &Path) -> impl Iterator<Item = std::path::PathBuf> {
 
 fn has_main(dir: &Path) -> bool {
     go_files(dir).any(|p| {
-        std::fs::read_to_string(p)
-            .is_ok_and(|src| PACKAGE_MAIN.as_ref().is_some_and(|r| r.is_match(&src)))
+        crate::files::read_text(&p)
+            .is_some_and(|src| PACKAGE_MAIN.as_ref().is_some_and(|r| r.is_match(&src)))
     })
 }
 
@@ -127,7 +127,7 @@ fn sources(dir: &Path) -> (String, Vec<String>) {
     let mut all = String::new();
     let mut imports = Vec::new();
     for p in go_files(dir) {
-        let Ok(src) = std::fs::read_to_string(p) else {
+        let Some(src) = crate::files::read_text(&p) else {
             continue;
         };
         all.push_str(&src);

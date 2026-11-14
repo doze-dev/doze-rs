@@ -237,6 +237,8 @@ pub(crate) struct FakeHost {
     pub privileged: RefCell<Vec<(String, String, bool)>>,
     /// What the privileged runner answers (`None`: it ran).
     pub refuse: Option<doze_cli::ctx::Refused>,
+    /// The Applications folders the host reports (`@ app`: a Doze.app in the sandbox).
+    pub apps: Vec<PathBuf>,
 }
 
 impl Host for FakeHost {
@@ -266,7 +268,7 @@ impl Host for FakeHost {
         Ok(0)
     }
     fn applications(&self) -> Vec<PathBuf> {
-        Vec::new()
+        self.apps.clone()
     }
     fn spawn_background(&self, args: &[&str]) -> std::io::Result<()> {
         self.spawned
