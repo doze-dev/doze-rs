@@ -163,7 +163,12 @@ fn pump(cx: &mut App, hub: Hub) {
 }
 
 /// Runs the app until it quits.
-pub(crate) fn run(a: cli::App) -> ExitCode {
+pub(crate) fn run(mut a: cli::App) -> ExitCode {
+    // A relative folder is the launching folder's, and a launch inside a project with no folder named opens it (Go
+    // `dirFrom`): resolved here, before a second launch hands them to the first, which runs elsewhere.
+    if let Ok(here) = std::env::current_dir() {
+        a.forward = crate::open::resolved(&a.forward, &here);
+    }
     let home = match doze_os::home::doze_home() {
         Ok(h) => h,
         Err(e) => {

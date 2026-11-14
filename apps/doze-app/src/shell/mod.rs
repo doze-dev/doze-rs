@@ -246,7 +246,8 @@ impl Root {
         }
     }
 
-    /// The stack doze runs from `dir`, and the card `show` on it.
+    /// The stack doze runs from `dir`, and the instance `show` on it: its page, as Go's `OpenAt` (the card selected when
+    /// the stack has no such instance).
     pub(crate) fn open_dir(
         &mut self,
         dir: &std::path::Path,
@@ -269,10 +270,29 @@ impl Root {
             Some(s) => {
                 self.go(Screen::Stack(s.key), window, cx);
                 if let Some(name) = show {
-                    self.select(name, cx);
+                    self.open_or_select(name, window, cx);
                 }
             }
             None => self.open_new(&dir, window, cx),
+        }
+    }
+
+    /// The instance `name` of the stack shown: its page when the stack has it, else the card, selected (which says it
+    /// is not there).
+    pub(crate) fn open_or_select(
+        &mut self,
+        name: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let has = self
+            .key()
+            .and_then(|k| self.hub.stack(k))
+            .is_some_and(|s| s.instance(name).is_some());
+        if has {
+            self.open_instance(name, window, cx);
+        } else {
+            self.select(name, cx);
         }
     }
 
