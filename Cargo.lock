@@ -206,6 +206,7 @@ dependencies = [
  "form_urlencoded",
  "hmac",
  "http",
+ "sha1",
  "sha2",
  "thiserror",
 ]

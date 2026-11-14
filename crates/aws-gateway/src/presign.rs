@@ -1,20 +1,22 @@
-//! Presigned URLs, as far as a gateway that holds no keys can judge them, and the query string they travel in.
+//! Presigned URLs (SigV2 ones checked by a verifying gateway; a trusting one judges what it can without keys), unsigned requests,
+//! and the query string they travel in.
 
 use aws_auth::AuthError;
 use aws_auth::claim::{Claim, Placement};
 use aws_wire::{ApiError, Family, from_auth};
 use http::request::Parts;
 
-/// The claim of a SigV2 presigned URL (`AWSAccessKeyId`, `Expires`, `Signature`), as far as it means anything without the secret:
-/// who it names, and that it expires at the absolute time it carries.
+use crate::Auth;
+use crate::pipeline::Shared;
+
+/// The claim of a SigV2 presigned URL (`AWSAccessKeyId`, `Expires`, `Signature`): who it names, and that it expires at the absolute
+/// time it carries. A verifying gateway then checks it ([`verify_sigv2`]); a trusting one holds it to its expiry.
 pub(crate) fn sigv2_claim(parts: &Parts) -> Option<Claim> {
-    let q = pairs(parts.uri.query()?);
-    let get = |name: &str| q.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone());
-    let expires: i64 = get("Expires")?.parse().ok()?;
-    let signature = get("Signature")?;
+    let v2 = aws_auth::sigv2::claim(parts)?;
+    let (expires, signature) = (v2.expires, v2.signature);
     Some(Claim {
         placement: Placement::Query,
-        access_key_id: get("AWSAccessKeyId")?,
+        access_key_id: v2.access_key_id,
         scope_date: String::new(),
         region: "us-east-1".to_owned(),
         service: "s3".to_owned(),
@@ -43,7 +45,7 @@ pub(crate) fn anonymous_claim(parts: &Parts) -> Option<Claim> {
     }
     Some(Claim {
         placement: Placement::Header,
-        access_key_id: "anonymous".to_owned(),
+        access_key_id: aws_wire::service::Caller::ANONYMOUS.to_owned(),
         scope_date: String::new(),
         region: "us-east-1".to_owned(),
         service: "s3".to_owned(),
@@ -56,6 +58,47 @@ pub(crate) fn anonymous_claim(parts: &Parts) -> Option<Claim> {
         session_token: None,
         content_sha256: None,
     })
+}
+
+/// Whether a claim is a SigV2 presigned URL's (it has a signature and no SigV4 credential scope).
+pub(crate) fn is_sigv2(claim: &Claim) -> bool {
+    claim.scope_date.is_empty() && !claim.signature_hex.is_empty()
+}
+
+/// Whether a claim is an unsigned request's.
+pub(crate) fn is_anonymous(claim: &Claim) -> bool {
+    claim.access_key_id == aws_wire::service::Caller::ANONYMOUS && claim.signature_hex.is_empty()
+}
+
+/// Checks a SigV2 presigned URL against the gateway's keys (and IAM's, through the credential source), in `Verify` mode; nothing
+/// in `Trust` mode.
+pub(crate) async fn verify_sigv2(
+    shared: &Shared,
+    parts: &Parts,
+    claim: &Claim,
+) -> Result<(), AuthError> {
+    let Auth::Verify(creds) = &shared.config.auth else {
+        return Ok(());
+    };
+    let mut extra = None;
+    if let Some(source) = &shared.config.credential_source
+        && aws_auth::Credentials::lookup(creds.as_ref(), &claim.access_key_id, |c| c.is_none())
+    {
+        let token = pairs(parts.uri.query().unwrap_or_default())
+            .into_iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case("x-amz-security-token"))
+            .map(|(_, v)| v);
+        extra = source
+            .find(&claim.access_key_id, token.as_deref())
+            .await
+            .map(|c| (claim.access_key_id.clone(), c));
+    }
+    let with = aws_auth::WithExtra {
+        fixed: creds.as_ref(),
+        extra: extra.as_ref().map(|(id, c)| (id.as_str(), c)),
+    };
+    let now = doze_runtime::Clock::now_ms(&doze_runtime::SystemClock) / 1000;
+    aws_auth::sigv2::verify(parts, &crate::s3host::target(parts).0, now, &with).map(|_| ())
 }
 
 /// In trust mode the signature is not checked, but a presigned URL that has expired, or that names a signed header the request does

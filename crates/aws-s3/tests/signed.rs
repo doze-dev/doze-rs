@@ -82,8 +82,13 @@ async fn send(
     body: &[u8],
 ) -> (u16, String) {
     let mut s = TcpStream::connect(addr).await.unwrap();
+    let auth = if auth.is_empty() {
+        String::new()
+    } else {
+        format!("Authorization: {auth}\r\n")
+    };
     let mut head = format!(
-        "{method} {path} HTTP/1.1\r\nHost: {addr}\r\nAuthorization: {auth}\r\nConnection: close\r\nContent-Length: {}\r\n",
+        "{method} {path} HTTP/1.1\r\nHost: {addr}\r\n{auth}Connection: close\r\nContent-Length: {}\r\n",
         body.len()
     );
     for (k, v) in headers {
@@ -260,4 +265,102 @@ async fn a_signed_put_and_signed_chunks_are_checked() {
     assert_eq!(read("/bkt/plain").await.1, "signed in one piece");
     running.shutdown().await;
     tasks.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_sigv2_presigned_url_is_checked_against_the_secret() {
+    let dir = std::env::temp_dir().join(format!("aws-s3-sigv2-{}", std::process::id()));
+    std::fs::remove_dir_all(&dir).ok();
+    let tasks = Tasks::new();
+    let ctx = Arc::new(Ctx {
+        dir,
+        idle: Duration::from_secs(300),
+        tasks: tasks.clone(),
+        clock: Arc::new(SystemClock),
+        ext: None,
+    });
+    let mut creds = StaticCredentials::new();
+    creds.insert(
+        "test",
+        Credential {
+            secret: Secret::new(SECRET.into()),
+            session_token: None,
+            expires_at: None,
+        },
+    );
+    let mut config = Config::new("127.0.0.1:0".parse().unwrap());
+    config.auth = Auth::Verify(Arc::new(creds));
+    config.max_skew_secs = i64::MAX / 4;
+    let running = Gateway::new(config)
+        .with(Arc::new(S3::new(ctx)))
+        .bind()
+        .await
+        .unwrap();
+    let addr = running.local_addr();
+    let hash = sha256_hex(b"");
+    let h = [
+        ("x-amz-content-sha256", hash.as_str()),
+        ("x-amz-date", AMZ_DATE),
+    ];
+    let s = sign(addr, "PUT", "/v2b", &h, &hash);
+    assert_eq!(send(addr, "PUT", "/v2b", &h, &s.auth, b"").await.0, 200);
+
+    let now = doze_runtime::Clock::now_ms(&SystemClock) / 1000;
+    let url = |method: &str, path: &str, expires: i64, secret: &str| {
+        let sts = format!("{method}\n\n\n{expires}\n{path}");
+        let sig = aws_auth::sigv2::sign(secret, &sts);
+        let sig: String = form_encode(&sig);
+        format!("{path}?AWSAccessKeyId=test&Signature={sig}&Expires={expires}")
+    };
+    let put = url("PUT", "/v2b/k", now + 300, SECRET);
+    assert_eq!(send(addr, "PUT", &put, &[], "", b"by url").await.0, 200);
+    let (status, body) = send(
+        addr,
+        "GET",
+        &url("GET", "/v2b/k", now + 300, SECRET),
+        &[],
+        "",
+        b"",
+    )
+    .await;
+    assert_eq!((status, body.as_str()), (200, "by url"));
+    // A wrong secret, an expired URL, and a Content-Type the URL did not sign are refused as S3 refuses them.
+    let (status, text) = send(
+        addr,
+        "GET",
+        &url("GET", "/v2b/k", now + 300, "nope"),
+        &[],
+        "",
+        b"",
+    )
+    .await;
+    assert_eq!(status, 403);
+    assert!(text.contains("SignatureDoesNotMatch"), "{text}");
+    let (status, text) = send(
+        addr,
+        "GET",
+        &url("GET", "/v2b/k", now - 1, SECRET),
+        &[],
+        "",
+        b"",
+    )
+    .await;
+    assert_eq!(status, 403);
+    assert!(text.contains("Request has expired"), "{text}");
+    let form = [("content-type", "application/x-www-form-urlencoded")];
+    let (status, _) = send(addr, "PUT", &put, &form, "", b"x").await;
+    assert_eq!(status, 403);
+    running.shutdown().await;
+    tasks.shutdown().await;
+}
+
+fn form_encode(s: &str) -> String {
+    s.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                char::from(b).to_string()
+            }
+            other => format!("%{other:02X}"),
+        })
+        .collect()
 }

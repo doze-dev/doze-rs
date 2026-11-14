@@ -93,9 +93,18 @@ async fn handle(
 ) -> Result<Response<RespBody>, ApiError> {
     let tables = entry.service.tables();
     let json = is_json(entry);
-    let pending = authenticate(shared, parts, &claim.service)
-        .await
-        .map_err(|e| from_auth(&e, family(json)))?;
+    let pending = if crate::presign::is_sigv2(&claim) {
+        crate::presign::verify_sigv2(shared, parts, &claim)
+            .await
+            .map_err(|e| from_auth(&e, family(json)))?;
+        None
+    } else if crate::presign::is_anonymous(&claim) {
+        None
+    } else {
+        authenticate(shared, parts, &claim.service)
+            .await
+            .map_err(|e| from_auth(&e, family(json)))?
+    };
     if pending.is_none() {
         check_presigned(&claim, parts)?;
     }

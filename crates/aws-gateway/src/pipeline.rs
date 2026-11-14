@@ -165,11 +165,9 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
     // A REST service (S3) streams its bodies and words its errors its own way, so it has its own path.
     let claim = match Claim::parse(&parts) {
         Ok(found) => found,
-        // boto3 signs an S3 presigned URL with SigV2 unless told otherwise, and S3 accepts it. With no keys to check it against, a
-        // trusting gateway takes the access key as given and holds the URL to its expiry.
-        Err(AuthError::UnsupportedAlgorithm) if shared.trusts() => {
-            crate::presign::sigv2_claim(&parts)
-        }
+        // boto3 signs an S3 presigned URL with SigV2 unless told otherwise, and S3 accepts it. A verifying gateway checks it (in
+        // `rest.rs`); a trusting one takes the access key as given and holds the URL to its expiry.
+        Err(AuthError::UnsupportedAlgorithm) => crate::presign::sigv2_claim(&parts),
         Err(_) => None,
     };
     // A request with no signature at all, to a gateway that trusts, is a person with curl or a browser: S3 serves it as the local
