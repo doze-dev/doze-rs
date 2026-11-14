@@ -1486,13 +1486,16 @@ dependencies = [
 name = "doze-config"
 version = "0.0.0"
 dependencies = [
+ "doze-engine",
  "doze-hcl",
+ "doze-module-proto",
  "doze-names",
  "hcl-edit",
  "hex",
  "psl",
  "serde_json",
  "sha2",
+ "tokio",
 ]
 
 [[package]]
