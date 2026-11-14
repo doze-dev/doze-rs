@@ -21,12 +21,15 @@ mod cluster;
 mod conf;
 mod converge;
 mod ext;
+mod filter;
 mod names;
 mod psql;
 mod spec;
 mod sql;
+mod wire;
 
-use doze_module::caps::BackendUrl;
+use doze_module::caps::{BackendUrl, Wire, WireHost};
+use doze_module::proto::msg::console::WireAccept;
 use doze_module::proto::msg::error::Diagnostic;
 use doze_module::proto::msg::hello::{ClientCommand, Detect};
 use doze_module::proto::msg::instance::{Connection, Instance, Toolchain};
@@ -80,7 +83,11 @@ const EXAMPLE: &str = r#"postgres "app" {
 }
 "#;
 
-struct Postgres;
+#[derive(Default)]
+struct Postgres {
+    /// The synthetic cancel keys of the sessions the wire filter splices.
+    cancels: std::sync::Arc<filter::Cancels>,
+}
 
 /// One of the engine's programs in its toolchain.
 pub(crate) fn tool(tc: &Toolchain, name: &str) -> PathBuf {
@@ -268,6 +275,17 @@ impl BackendUrl for Postgres {
     }
 }
 
+impl Wire for Postgres {
+    async fn accept(
+        &self,
+        conn: tokio::net::TcpStream,
+        req: &WireAccept,
+        host: &WireHost,
+    ) -> Result<()> {
+        filter::accept(&self.cancels, conn, req, host).await
+    }
+}
+
 /// The engine's own `psql` through doze's address (so it wakes the instance), on the instance's database.
 fn client() -> ClientCommand {
     ClientCommand {
@@ -306,7 +324,7 @@ fn detect() -> Detect {
 }
 
 fn main() -> std::process::ExitCode {
-    serve(Postgres)
+    serve(Postgres::default())
         .release(env!("CARGO_PKG_VERSION"))
         .converge()
         .objects()
@@ -314,5 +332,6 @@ fn main() -> std::process::ExitCode {
         .template()
         .admin()
         .backend_url()
+        .wire()
         .run()
 }

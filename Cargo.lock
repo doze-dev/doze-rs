@@ -2706,11 +2706,15 @@ name = "doze-module-postgres"
 version = "0.0.0"
 dependencies = [
  "doze-module",
+ "doze-module-host",
  "doze-module-proto",
  "doze-module-test",
  "doze-os",
+ "getrandom 0.4.3",
+ "rustls",
  "serde_json",
  "tokio",
+ "tokio-rustls",
 ]
 
 [[package]]

@@ -19,3 +19,9 @@ name = "fuzz_names"
 path = "fuzz_targets/fuzz_names.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_wire"
+path = "fuzz_targets/fuzz_wire.rs"
+test = false
+doc = false

@@ -91,13 +91,22 @@ fn render(e: &Error) -> String {
 impl Harness {
     /// Starts the module on its own.
     pub async fn module(&self) -> Result<Running, String> {
+        self.module_with(None).await
+    }
+
+    /// Starts the module with `backends` serving its `wire.accept` hand-offs (a test of a wire filter boots an
+    /// instance, then hands this module client connections for it).
+    pub async fn module_with(
+        &self,
+        backends: Option<Arc<dyn doze_module_host::Backends>>,
+    ) -> Result<Running, String> {
         let downloads = Arc::new(LocalBuild {
             bin_dir: self.bin_dir.clone(),
             full: self.full.clone(),
         });
         let services = Services {
             downloads,
-            backends: None,
+            backends,
             notices: None,
         };
         doze_module_host::launch(&self.engine, &self.program, services)
