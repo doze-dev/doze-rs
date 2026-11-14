@@ -235,21 +235,23 @@ public class Interop {
 
         /** Why the scenario cannot run against this broker with this client (null: it can). */
         String skipReason() {
-            List<String> gone = new ArrayList<>(), old = new ArrayList<>();
+            List<String> gone = new ArrayList<>(), old = new ArrayList<>(), unknown = new ArrayList<>();
             for (int k : needs) {
                 ApiKeys ak = apiKey(k);
-                String n = ak == null ? "key " + k : ak.name;
+                // An API newer than this client (2.8 knows no ConsumerGroupHeartbeat) is named from the list here.
+                String n = ak != null ? ak.name : k == CONSUMER_GROUP_HEARTBEAT ? "ConsumerGroupHeartbeat" : "key " + k;
                 short[] r = offered.get(k);
                 if (r == null) {
                     if (!gone.contains(n)) gone.add(n);
                 } else if (ak == null) {
-                    if (!gone.contains(n)) gone.add(n + " (this client does not know it)");
+                    if (!unknown.contains(n)) unknown.add(n);
                 } else if (r[1] < ak.oldestVersion()) {
                     old.add(String.format("%s v%d-%d (this client speaks v%d and up)", n, r[0], r[1], ak.oldestVersion()));
                 }
             }
             if (!gone.isEmpty()) return String.format("Kafka %d does not offer %s", kafkaMajor, String.join(", ", gone));
             if (!old.isEmpty()) return String.format("Kafka %d offers only %s", kafkaMajor, String.join(", ", old));
+            if (!unknown.isEmpty()) return String.format("kafka-clients %s has no %s", clientVersion, String.join(", ", unknown));
             for (Object[] v : versions) {
                 int key = (Integer) v[0], min = (Integer) v[1];
                 short[] r = offered.get(key);
@@ -541,6 +543,7 @@ public class Interop {
     }
 
     /** Consume-transform-produce: offsets sent to the transaction; one transaction aborted and redone. */
+    @SuppressWarnings("removal") // ConsumerGroupMetadata(String), for a broker before TxnOffsetCommit v3
     static String txnSendOffsets() throws Exception {
         String in = newTopic("java-eos-in"), out = in.replace("-in-", "-out-"), group = in + "-g";
         try (Admin a = admin()) {
@@ -745,8 +748,8 @@ public class Interop {
         }
 
         void stop() throws InterruptedException {
+            // No wakeup(): it would land in the final commit as a WakeupException. A poll waits 100 ms at most.
             stop = true;
-            c.wakeup();
             thread.join(30000);
         }
     }
@@ -837,7 +840,7 @@ public class Interop {
      */
     static String rebalanceCommits(boolean kip848) throws Exception {
         String topic = newTopic(kip848 ? "java-rc848" : "java-rcc"), group = topic + "-g";
-        int parts = 6, n = 3000;
+        int parts = 6, n = 1000; // at least n records, and as many more as the members take to come and go
         try (Admin a = admin()) {
             createTopic(a, topic, parts, null);
         }
@@ -846,12 +849,16 @@ public class Interop {
         Member a = new Member("a", topic, group, kip848, false, true, 2, t).start();
         all.add(a);
         waitBalanced(List.of(a), parts, 30000);
+        // Records flow the whole time the members come and go (20 every 10 ms), and stop once the last move is settled.
         AtomicReference<Exception> prodErr = new AtomicReference<>();
+        AtomicBoolean done = new AtomicBoolean();
+        AtomicInteger produced = new AtomicInteger();
         Thread producing = new Thread(() -> {
             try (var p = producer(Map.of("linger.ms", "5"))) {
-                for (int i = 0; i < n; i++) {
+                for (int i = 0; !done.get() || i < n; i++) {
                     p.send(new ProducerRecord<>(topic, "k" + i, "v" + i));
-                    if (i % 100 == 99) Thread.sleep(50);
+                    produced.set(i + 1);
+                    if (i % 20 == 19) Thread.sleep(10);
                 }
                 p.flush();
             } catch (Exception e) {
@@ -860,7 +867,7 @@ public class Interop {
         });
         producing.start();
         try {
-            Thread.sleep(500);
+            Thread.sleep(300);
             Member b = new Member("b", topic, group, kip848, false, true, 2, t).start();
             all.add(b);
             waitBalanced(List.of(a, b), parts, 45000);
@@ -874,13 +881,17 @@ public class Interop {
             waitBalanced(List.of(a, c, d), parts, 45000);
             a.stop();
             waitBalanced(List.of(c, d), parts, 45000);
+            Thread.sleep(300);
+            done.set(true);
             producing.join(60000);
             if (prodErr.get() != null) throw prodErr.get();
-            t.waitFor(n, List.of(c, d), 60000);
+            t.waitFor(produced.get(), List.of(c, d), 60000);
         } finally {
+            done.set(true);
             for (Member m : all) m.stop();
             producing.join(30000);
         }
+        int total = produced.get();
         List<String> errs = new ArrayList<>();
         int revoked = 0;
         StringBuilder split = new StringBuilder();
@@ -889,11 +900,12 @@ public class Interop {
             for (String e : m.commitErrors) errs.add(m.name + " " + e);
             revoked += m.revocations.get();
             split.append(m.name).append('=').append(m.reads.get()).append(' ');
+            check(m.reads.get() > 0, "%s read nothing (the churn did not overlap the records)", m.name);
         }
         check(errs.isEmpty(), "%d commits refused: %s", errs.size(), errs.subList(0, Math.min(3, errs.size())));
         check(t.duplicates() == 0, "%d records read twice (a commit was lost)", t.duplicates());
-        check(t.distinct() == n, "read %d distinct, want %d", t.distinct(), n);
-        return String.format("%d records, four members joined and two left, %d revocations, no commit refused, none read twice (%s)", n, revoked, split.toString().trim());
+        check(t.distinct() == total, "read %d distinct, want %d", t.distinct(), total);
+        return String.format("%d records, four members joined and two left, %d revocations, no commit refused, none read twice (%s)", total, revoked, split.toString().trim());
     }
 
     // ---- Admin ----
@@ -1109,20 +1121,44 @@ public class Interop {
         return "3 created (literal topic allow/deny, prefixed group), described by resource, principal and MATCH, deleted";
     }
 
+    /**
+     * Makes (or deletes) a user's two SCRAM credentials, one request each: a KRaft broker (Kafka 4, and doze at every major)
+     * keys a request's alterations by user name alone, so two for one user in a request are DUPLICATE_RESOURCE
+     * (ScramControlManager.alterCredentials; security.md).
+     */
+    static void scramBoth(Admin a, String user, String pw, boolean delete) throws Exception {
+        for (var m : List.of(ScramMechanism.SCRAM_SHA_256, ScramMechanism.SCRAM_SHA_512)) {
+            UserScramCredentialAlteration alt = delete ? new UserScramCredentialDeletion(user, m)
+                : new UserScramCredentialUpsertion(user, new ScramCredentialInfo(m, m == ScramMechanism.SCRAM_SHA_256 ? 4096 : 8192), pw);
+            a.alterUserScramCredentials(List.of(alt)).all().get(30, TimeUnit.SECONDS);
+        }
+    }
+
     static String adminScram() throws Exception {
-        String user = "java-" + System.nanoTime();
+        String user = "java-" + System.nanoTime(), dup = "";
         try (Admin a = admin()) {
-            a.alterUserScramCredentials(List.of(
-                new UserScramCredentialUpsertion(user, new ScramCredentialInfo(ScramMechanism.SCRAM_SHA_256, 4096), "pw-256"),
-                new UserScramCredentialUpsertion(user, new ScramCredentialInfo(ScramMechanism.SCRAM_SHA_512, 8192), "pw-512"))).all().get(30, TimeUnit.SECONDS);
+            dup = "";
+            if (kafkaMajor == 4) {
+                // KRaft: both mechanisms of one user in one request are refused, the user's two alterations alike.
+                var r = a.alterUserScramCredentials(List.of(
+                    new UserScramCredentialUpsertion(user, new ScramCredentialInfo(ScramMechanism.SCRAM_SHA_256, 4096), "pw"),
+                    new UserScramCredentialUpsertion(user, new ScramCredentialInfo(ScramMechanism.SCRAM_SHA_512, 8192), "pw")));
+                try {
+                    r.all().get(30, TimeUnit.SECONDS);
+                    throw new AssertionError("two alterations of one user in a request accepted");
+                } catch (ExecutionException e) {
+                    check(e.getCause() instanceof DuplicateResourceException, "two of one user: %s", e.getCause());
+                }
+                dup = "two of one user in a request refused (KRaft), ";
+            }
+            scramBoth(a, user, "pw", false);
             var d = a.describeUserScramCredentials(List.of(user)).all().get(30, TimeUnit.SECONDS).get(user);
             Set<String> got = new HashSet<>();
             for (var i : d.credentialInfos()) got.add(i.mechanism() + "/" + i.iterations());
             check(got.equals(Set.of("SCRAM_SHA_256/4096", "SCRAM_SHA_512/8192")), "described %s", got);
-            a.alterUserScramCredentials(List.of(new UserScramCredentialDeletion(user, ScramMechanism.SCRAM_SHA_256),
-                new UserScramCredentialDeletion(user, ScramMechanism.SCRAM_SHA_512))).all().get(30, TimeUnit.SECONDS);
+            scramBoth(a, user, null, true);
             try {
-                a.describeUserScramCredentials(List.of(user)).all().get(30, TimeUnit.SECONDS);
+                a.describeUserScramCredentials(List.of(user)).description(user).get(30, TimeUnit.SECONDS);
                 throw new AssertionError("deleted user still described");
             } catch (ExecutionException e) {
                 check(e.getCause() instanceof ResourceNotFoundException, "describe deleted: %s", e.getCause());
@@ -1136,7 +1172,7 @@ public class Interop {
                 check(e.getCause() instanceof UnacceptableCredentialException, "100 iterations: %s", e.getCause());
             }
         }
-        return "upsert both mechanisms, describe, delete (then not found), too few iterations refused";
+        return dup + "upsert both mechanisms, describe, delete (then not found), too few iterations refused";
     }
 
     // ---- offsetsForTimes ----
@@ -1257,9 +1293,7 @@ public class Interop {
     static String saslUsers() throws Exception {
         String user = "java-erin-" + System.nanoTime();
         try (Admin a = admin()) {
-            a.alterUserScramCredentials(List.of(
-                new UserScramCredentialUpsertion(user, new ScramCredentialInfo(ScramMechanism.SCRAM_SHA_256, 4096), "erin-pw"),
-                new UserScramCredentialUpsertion(user, new ScramCredentialInfo(ScramMechanism.SCRAM_SHA_512, 8192), "erin-pw"))).all().get(30, TimeUnit.SECONDS);
+            scramBoth(a, user, "erin-pw", false);
         }
         List<String> notes = new ArrayList<>();
         for (String mech : List.of("SCRAM-SHA-256", "SCRAM-SHA-512")) {
@@ -1269,8 +1303,7 @@ public class Interop {
         // PLAIN cannot log in a user who has only SCRAM verifiers.
         refused(broker, sec.as(user, "erin-pw", "PLAIN"));
         try (Admin a = admin()) {
-            a.alterUserScramCredentials(List.of(new UserScramCredentialDeletion(user, ScramMechanism.SCRAM_SHA_256),
-                new UserScramCredentialDeletion(user, ScramMechanism.SCRAM_SHA_512))).all().get(30, TimeUnit.SECONDS);
+            scramBoth(a, user, null, true);
         }
         refused(broker, sec.as(user, "erin-pw", "SCRAM-SHA-512"));
         return "a user made with alterUserScramCredentials logs in with " + String.join(" and ", notes) + "; PLAIN refused; deleted, refused";
