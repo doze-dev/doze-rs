@@ -132,4 +132,6 @@ doze-kafka 10951617 186 9996 --listen 127.0.0.1:{port} --data-dir {data}
 doze-aws 13900000 280 9413 --listen 127.0.0.1:{port} --data-dir {data}
 # doze (package doze-cli), core F1: measured 2026-11-14 on darwin/arm64, 3,148,064 B and 169 packages (docs/port/weight.md, "Core F1"). The byte limit
 # is the macOS size times 1.3 plus 5%; six packages of room. No server: idle memory is not weighed (0).
-doze-cli 4300000 175 0
+# Core C2b (the CLI with doze.hcl, doze-fetch and doze-detect, on the C2a stack): 6,802,928 B and 221 packages on darwin/arm64. The line is the
+# CLI's own (core plan §6.3: 9 MB under the 10 MB ceiling, 230 packages), the same as the weight-doze job's (docs/port/weight.md, "Core C2b").
+doze-cli 9000000 230 0

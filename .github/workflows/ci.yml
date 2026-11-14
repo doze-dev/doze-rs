@@ -312,7 +312,8 @@ jobs:
       # The CLI-only doze (core plan §6.3: a 9 MB line under the 10 MB ceiling). P1 measured 4,986,168 B and 185 packages
       # on Linux aarch64 (the Lima VM); the package line leaves room for the core's crates as they land (weight.md).
       # C2a adds doze.hcl (doze-config, doze-hcl, hcl-edit and winnow) and the completion engine: 210 packages on darwin,
-      # 6,207,024 B; the line moves to 230 (docs/port/core/weight.md, C2a).
+      # 6,207,024 B; the line moves to 230 (docs/port/core/weight.md, C2a). C2b (doze-fetch merged in, doze-detect, init, add,
+      # modules upgrade, bug, open, update): 6,802,928 B and 221 packages on darwin (docs/port/weight.md, "Core C2b").
       - name: doze (the CLI) under 9 MB
         run: |
           cargo build --release -p doze-cli

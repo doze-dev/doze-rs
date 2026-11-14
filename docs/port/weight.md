@@ -762,6 +762,26 @@ the owner leaves to the builder.
   exists). Downloads run in `doze __fetch` children, so none of this is resident in a daemon.
 - The 10 MB ceiling (owner, 2026-11-12) stands far above.
 
+## Core C2b (`doze`: init, add, modules upgrade, bug, open, update), measured 2026-11-14, release, darwin/arm64
+
+| | Line | C2a (#51) | C2a + F1 merged | C2b |
+|---|---|---|---|---|
+| `doze` bytes | 9,000,000 | 6,207,024 | 6,505,152 (+298,128) | 6,802,928 (+297,776) |
+| `doze` packages (CI's count) | 230 | 210 | not counted | 221 (210 without `tls`) |
+
+- **F1 merged in (+298 KB).** doze-fetch replaces doze-cli's registry code (the same bytes) and brings what `doze` did not
+  have: the `__fetch` child (module resolve, the engine mirror, archive unpacking with tar and flate2, tokio's process
+  support) and the `doze.lock` writer. These are F1's design (downloads run in `doze __fetch`, never in a daemon), and
+  `modules upgrade` needs them in `doze` itself.
+- **C2b's commands (+298 KB).** doze-detect (Go's detector without its engine table; regex and yaml-rust2 were already
+  linked), `init`, `add`, `modules upgrade` (resolving and verifying a module build), `bug`, `open`, `update`, and
+  the examples in their help.
+- **One HTTP stack.** `doze_cli::http` is doze-fetch's client: ureq over rustls in `doze` (feature `tls`), the system's
+  curl without it. The app can build doze-cli with `default-features = false` to drop ureq and rustls; that is the app
+  owner's change (its size profile is being worked on separately).
+- Over C2a in all: +595,904 B, under the 9 MB line by 2.2 MB. xtask's `doze-cli` line, which F1 had set at 4.3 MB for the
+  registry client alone, is now the CLI's: 9,000,000 B and 230 packages, as the `weight-doze` job.
+
 ## One build: TLS in the default (2026-11-14, owner decision)
 
 Asked whether to keep a separate TLS build "for a few MB", the owner chose one build, and raised the ceiling to 15 MB the same day. `tls` is
