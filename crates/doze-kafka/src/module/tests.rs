@@ -412,9 +412,13 @@ fn the_console_and_actions_match_their_snapshot() {
     if std::env::var_os("DOZE_UPDATE_SNAPSHOT").is_some() {
         std::fs::write(path, &now).unwrap();
     }
-    let pinned = std::fs::read_to_string(path).unwrap_or_default();
+    // Compared as values, not text: serde_json keeps keys in insertion order when another crate of the workspace turns
+    // on its `preserve_order`, and in name order otherwise.
+    let pinned: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap_or_default()).unwrap();
     assert_eq!(
-        pinned, now,
+        pinned,
+        console_json(),
         "the console changed: review it, then DOZE_UPDATE_SNAPSHOT=1"
     );
 }
