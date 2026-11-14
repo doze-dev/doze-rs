@@ -93,6 +93,8 @@ struct Shell {
     restarts: Vec<(String, bool)>,
     clients: BTreeMap<String, u32>,
     shut: bool,
+    /// Task starts whose wake was journalled: their end is journalled too, once (Go's `runTask`).
+    task_woke: BTreeSet<u64>,
 }
 
 fn pick<V: Clone>(m: &BTreeMap<u64, V>, i: usize) -> Option<(u64, V)> {
@@ -328,27 +330,6 @@ fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
     }
 }
 
-/// The engine's restart wake for a `RestartNow`: `Busy` is asked again later, anything else is its answer.
-fn restart_wake(m: &mut Machine, s: &mut Shell, k: usize) {
-    let n = s.restarts.len();
-    if n == 0 {
-        return;
-    }
-    let Some((name, live)) = s.restarts.get(k % n).cloned() else {
-        return;
-    };
-    let (dec, fx) = m.wake(&name, Cause::Restart);
-    // Invariant 3, for the wake: a cancelled restart starts nothing.
-    assert!(
-        live || !matches!(dec, Decision::Start(_)),
-        "{name}: a cancelled restart started it"
-    );
-    if dec != Decision::Busy {
-        s.restarts.remove(k % n);
-    }
-    absorb(s, m, fx);
-}
-
 /// Whether the shell still owes `name` its restart: a live timer, a restart wake, or a fresh start in flight.
 fn owed(s: &Shell, name: &str) -> bool {
     s.timers.values().any(|n| n == name)
@@ -385,6 +366,9 @@ fn fire(m: &mut Machine, s: &mut Shell, t: u64, name: &str) {
     absorb(s, m, fx);
 }
 
+#[path = "props/machine_restart.rs"]
+mod machine_restart;
+use machine_restart::restart_wake;
 #[path = "props/machine_task.rs"]
 mod machine_task;
 use machine_task::{processes, task_step};

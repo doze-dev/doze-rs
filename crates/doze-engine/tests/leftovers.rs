@@ -242,6 +242,22 @@ async fn hooks_run_after_readiness_and_a_failure_says_why() {
         "quotes its output: {:?}",
         err.message
     );
+
+    // A hook that says a lot and exits at once: its pipes are drained before the quote (E2 audit 3, X8).
+    let loud = run(&["say", "3000", "1", "hook line"]);
+    let plan = Plan {
+        processes: vec![helper_process("web", &free_addr(), vec![loud])],
+    };
+    let log = RunLog::open(&d.path().join("run"), "web").unwrap();
+    let err = exec::start(&plan, &log, Duration::from_secs(10), None)
+        .await
+        .err()
+        .unwrap();
+    assert!(
+        err.message.ends_with("hook line 3000"),
+        "the quote has its last line: {:?}",
+        err.message.get(err.message.len().saturating_sub(80)..)
+    );
 }
 
 /// Audit 2, B1: a stop while a start waits for readiness wins at once (not when the readiness budget runs out): the

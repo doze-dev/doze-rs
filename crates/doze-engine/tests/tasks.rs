@@ -156,11 +156,11 @@ async fn inputs_and_manual_decide_whether_it_runs() {
 async fn a_stopped_task_is_asked_to_stop_and_ends_failed() {
     let d = Dir::new("taskstop");
     let pidf = d.file("gc.pid");
+    // It takes 300 ms to stop once asked: within the grace, so it is not killed (E2 audit 3, N4).
+    let mut ts = task(&d, &["grandchild", &pidf.to_string_lossy()]);
+    ts.env.insert("LINGER_MS".into(), "300".into());
     let e = Engine::builder("t", d.path())
-        .service(Service::task(
-            "long",
-            task(&d, &["grandchild", &pidf.to_string_lossy()]),
-        ))
+        .service(Service::task("long", ts))
         .build()
         .unwrap();
     // It ran before: the old record must not survive a run cut short (E2 audit 2, M3).
@@ -203,6 +203,11 @@ async fn a_stopped_task_is_asked_to_stop_and_ends_failed() {
     );
     let runs = e.logs().runs("long").unwrap();
     assert!(runs.iter().all(|r| !r.live), "the run is closed: {runs:?}");
+    let said_by_it = e.logs().tail("long", 0, 50).unwrap();
+    assert!(
+        said_by_it.iter().any(|l| l.text == "stopping"),
+        "it was asked, and given the time to stop: {said_by_it:?}"
+    );
     assert!(
         all_gone(&[pid_in(&pidf)]).await,
         "what it started goes with it"
@@ -320,5 +325,103 @@ async fn a_task_stopped_while_its_needs_start_ends_failed() {
         seed,
         [ev("wake", "seed", "asked for"), ev("failed", "seed", said)]
     );
+    e.shutdown().await;
+}
+
+/// A task whose command already exited 0, stopped while its run drains a pipe a child that left its group still holds:
+/// the end is journalled as Go's is once the command has ended (`ready`, "exit 0"), the record says `done`, and the stop
+/// leaves it asleep (E2 audit 3).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_task_stopped_after_its_command_ended_still_journals_its_end() {
+    let d = Dir::new("taskdrain");
+    let pidf = d.file("left.pid");
+    let e = Engine::builder("t", d.path())
+        .service(Service::task(
+            "mig",
+            task(&d, &["leave", &pidf.to_string_lossy()]),
+        ))
+        .build()
+        .unwrap();
+    let waking = {
+        let e = e.clone();
+        tokio::spawn(async move { e.wake("mig", Cause::Command).await })
+    };
+    assert!(eventually(Duration::from_secs(5), || pid_in(&pidf) > 0).await);
+    // The leader is gone; the run waits up to 1 s for the pipe the child holds.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    e.stop("mig", Cause::Command).await.unwrap();
+    let woke = waking.await.unwrap();
+    let left = pid_in(&pidf);
+    let _ = doze_os::process::kill_recorded(left);
+    assert!(woke.is_ok(), "{woke:?}");
+    assert_eq!(
+        journal(&d),
+        [ev("wake", "mig", "first run"), ev("ready", "mig", "exit 0")]
+    );
+    assert_eq!(e.task_record("mig").unwrap().result, "done");
+    assert_eq!(e.get("mig").unwrap().state, State::Reaped);
+    e.shutdown().await;
+}
+
+/// A stop while a task is still deciding whether it has to run (its inputs are being read; here a FIFO no one writes
+/// holds the read) ends the start at once: nothing runs, nothing is journalled or recorded, it is asleep, and the waiter
+/// hears why (E2 audit 3, N1 and N10). Needs `mkfifo`, so it is skipped where there is none.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_task_stopped_while_it_decides_ends_at_once_and_says_why() {
+    let d = Dir::new("taskdecide");
+    let (fifo, ran) = (d.file("in.fifo"), d.file("ran"));
+    let made = std::process::Command::new("mkfifo").arg(&fifo).status();
+    if !made.is_ok_and(|s| s.success()) {
+        return;
+    }
+    let mut ts = task(&d, &["append", &ran.to_string_lossy()]);
+    ts.inputs = vec!["in.fifo".into()];
+    let e = Engine::builder("t", d.path())
+        .service(Service::task("seed", ts))
+        .build()
+        .unwrap();
+    let waking = {
+        let e = e.clone();
+        tokio::spawn(async move { e.wake("seed", Cause::Command).await })
+    };
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    let stopped =
+        tokio::time::timeout(Duration::from_secs(3), e.stop("seed", Cause::Command)).await;
+    let woke = tokio::time::timeout(Duration::from_secs(3), waking).await;
+    // Let the blocked read go, whatever happened.
+    let _ = std::fs::OpenOptions::new().write(true).open(&fifo);
+    stopped
+        .expect("the stop does not wait for the read")
+        .unwrap();
+    let woke = woke.expect("the start ends at once").unwrap();
+    assert_eq!(
+        woke.unwrap_err().to_string(),
+        "seed was stopped while it was starting"
+    );
+    assert_eq!(lines(&ran), 0, "it never ran");
+    assert!(journal(&d).is_empty(), "{:?}", journal(&d));
+    assert_eq!(e.task_record("seed"), None);
+    assert_eq!(e.get("seed").unwrap().state, State::Reaped);
+    e.shutdown().await;
+}
+
+/// `doze task` runs the command once even when the state file cannot be read or written: the run is counted by the
+/// machine, not seen in the record (E2 audit 4; Go's `setTaskRecord` logs and the call succeeds).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn run_task_runs_once_when_the_state_file_is_broken() {
+    let d = Dir::new("taskbadstate");
+    let ran = d.file("ran");
+    std::fs::create_dir_all(d.path().join(".doze")).unwrap();
+    std::fs::write(d.path().join(".doze/state.json"), "{").unwrap();
+    let e = Engine::builder("t", d.path())
+        .service(Service::task(
+            "seed",
+            task(&d, &["append", &ran.to_string_lossy()]),
+        ))
+        .build()
+        .unwrap();
+    let res = e.run_task("seed").await;
+    assert!(res.is_ok(), "{res:?}");
+    assert_eq!(lines(&ran), 1, "it ran once");
     e.shutdown().await;
 }
