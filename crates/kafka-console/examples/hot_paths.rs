@@ -430,4 +430,59 @@ async fn main() {
     if which.is_empty() || which == "groups" {
         groups().await;
     }
+    if which.is_empty() || which == "produce" {
+        produce().await;
+    }
+}
+
+/// One-record batches (acks 1) to a topic with the configs a produce reads set on it.
+async fn produce() {
+    let server = broker().await;
+    let mut c = Conn::open(&server).await;
+    let mut t = CreatableTopic::default();
+    t.name = name("configured");
+    t.num_partitions = 1;
+    t.replication_factor = 1;
+    for (k, v) in [
+        ("compression.type", "producer"),
+        ("max.message.bytes", "1048588"),
+        ("message.timestamp.type", "CreateTime"),
+        ("message.timestamp.before.max.ms", "9223372036854775807"),
+        ("message.timestamp.after.max.ms", "3600000"),
+        ("cleanup.policy", "delete"),
+        ("retention.ms", "604800000"),
+    ] {
+        let mut config = create_topics_request::CreatableTopicConfig::default();
+        config.name = StrBytes::from_static_str(k);
+        config.value = Some(StrBytes::from_static_str(v));
+        t.configs.push(config);
+    }
+    let mut create = CreateTopicsRequest::default();
+    create.topics = vec![t];
+    let r: CreateTopicsResponse = c.call(ApiKey::CreateTopics, 7, &create).await;
+    assert_eq!(r.topics[0].error_code, 0);
+    let rec = Rec {
+        key: Some(b"k".to_vec()),
+        value: Some(vec![b'v'; 100]),
+        ..Rec::default()
+    };
+    let mut p = PartitionProduceData::default();
+    p.records = Some(
+        BatchBuilder::from_records(1_700_000_000_000, &[rec])
+            .last_offset_delta(0)
+            .build(),
+    );
+    let mut td = TopicProduceData::default();
+    td.name = name("configured");
+    td.partition_data = vec![p];
+    let mut req = ProduceRequest::default();
+    req.acks = 1;
+    req.timeout_ms = 5_000;
+    req.topic_data = vec![td];
+    let m = rounds(20_000, async || {
+        let r: ProduceResponse = c.call(ApiKey::Produce, 9, &req).await;
+        assert_eq!(r.responses[0].partition_responses[0].error_code, 0);
+    })
+    .await;
+    summary("produce, a configured topic", "req", &m);
 }
