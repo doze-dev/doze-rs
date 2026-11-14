@@ -67,3 +67,26 @@ and `weight.md`; none of those was touched here. Each behaviour carries one call
 - Tests: `pattern/regex.rs` (syntax, limits, reading to the closing `%`), `pattern/tests.rs` (each form, anchors, exclusion, limits),
   `tests/groups.rs` (the group quota, `TestMetricFilter`, `FilterLogEvents`). Conformance: `test_regular_expressions_in_filter_patterns`
   (UNVERIFIED until recorded).
+
+## 4. Tier-B families stored, not refused (`crates/aws-cloudwatch/src/stored.rs`, `stored_rules.rs`)
+
+- **Metric streams** (`PutMetricStream`, `GetMetricStream`, `ListMetricStreams`, `DeleteMetricStream`, `Start`/`StopMetricStreams`),
+  **Contributor Insights rules** (`PutInsightRule`, `DescribeInsightRules`, `DeleteInsightRules`, `Enable`/`DisableInsightRules`,
+  `GetInsightRuleReport`) and **alarm mute rules** (`PutAlarmMuteRule`, `GetAlarmMuteRule`, `ListAlarmMuteRules`,
+  `DeleteAlarmMuteRule`) are stored in CloudWatch's document table, returned in their model shapes, paged, and tagged by ARN
+  (`TagResource`/`ListTagsForResource` on `metric-stream/`, `insight-rule/`, `alarm-mute-rule:`). **Stored, not active locally:** no
+  metric is streamed, no contributor counted (`GetInsightRuleReport` answers AWS's shape with the rule's `Contribution.Keys` as
+  `KeyLabels` and no contributors), no alarm action muted. **Go weak (bettered):** Go refused them by name, which fails a CDK or
+  Terraform deployment that declares one; SCOPE tier B says store and flag.
+- **The flag:** the state fields keep AWS's own values (`running`/`stopped`, `ENABLED`/`DISABLED`, mute `Status` computed from
+  `StartDate`/`ExpireDate` as `SCHEDULED`/`ACTIVE`/`EXPIRED`, `MuteType` `ONE_TIME` for `at()` else `RECURRING`): a value AWS never sends
+  would stall a tool that waits on it (Terraform waits for a metric stream to be `running`). So the flag is the log line every Put
+  writes ("stored, not active locally") and this note. This departs from the brief's "state fields" suggestion on purpose.
+- Checks: `IncludeFilters` with `ExcludeFilters` is `InvalidParameterCombinationException`; a rule definition that is not a JSON object,
+  and a mute schedule that is not `cron()`/`at()`, are `InvalidParameterValueException`; Get of an absent one is
+  `ResourceNotFoundException`; Enable/Disable/Delete of absent rules answer `Failures` entries; Delete of an absent stream or mute rule
+  succeeds (the model lists no not-found error for them). All wording `(memory)`. `Schema` of a rule is the model's documented
+  `{"Name": "CloudWatchLogRule", "Version": 1}`.
+- Still refused by name: managed Contributor Insights rules (`PutManagedInsightRules`, `ListManagedInsightRules`: they belong to other
+  services' resources), `GetMetricWidgetImage`, OTel enrichment.
+- Tests: `aws-cloudwatch/src/tests/stored.rs` (each family round-trips, states, tags, filters, refusals).
