@@ -2,7 +2,7 @@
 //! served over control protocol 2 on a local socket, so the CLI and the desktop app drive it as they drove Go's.
 //!
 //! The wire is doze-control's (NDJSON, the hello, ids, `cancel`, the frames); this crate is the server side: the
-//! connection loop ([`session`]), the unary ops ([`unary`]), the streams and topics ([`topics`]), and the instance
+//! connection loop ((`session`)), the unary ops ((`unary`)), the streams and topics ((`topics`)), and the instance
 //! view the wire carries ([`view`]). What the engine does not know about an instance (its engine name, version, kind,
 //! endpoint words) comes from the config as [`Labels`]; the daemon never reads doze.hcl itself.
 //!
