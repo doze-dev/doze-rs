@@ -9,7 +9,8 @@ use hcl_edit::expr::{Expression, TraversalOperator};
 use hcl_edit::template::{Directive, Element, Template};
 
 impl Evaluator<'_> {
-    pub(crate) fn start_range(&self, e: &Expression) -> Range {
+    /// Where a diagnostic about `e` as a whole begins (hclsyntax's `StartRange`).
+    pub fn start_range(&self, e: &Expression) -> Range {
         let whole = self.range(e);
         match e {
             Expression::String(s) => {

@@ -42,7 +42,7 @@ pub(crate) fn err(summary: &str, detail: impl Into<String>, at: Range) -> Diagno
 }
 
 /// Go's `Range.String()` with the file name, for details that point at another place.
-pub(crate) fn place(file: &str, r: Range) -> String {
+pub fn place(file: &str, r: Range) -> String {
     if r.start.line == r.end.line {
         format!(
             "{file}:{},{}-{}",

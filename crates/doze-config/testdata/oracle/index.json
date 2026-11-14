@@ -894,5 +894,137 @@
  {
   "id": "d3b0a9287a",
   "from": "examples/shop"
+ },
+ {
+  "id": "42c216e6d7",
+  "from": "doze/cmd/doze/add_test.go"
+ },
+ {
+  "id": "dd6b6ca6b6",
+  "from": "doze/cmd/doze/add_test.go"
+ },
+ {
+  "id": "197dd6ceb6",
+  "from": "doze/cmd/doze/add_test.go"
+ },
+ {
+  "id": "cb50b4aaf0",
+  "from": "doze/cmd/doze/golden_test.go"
+ },
+ {
+  "id": "b8099b3b59",
+  "from": "doze/cmd/doze/remember_test.go"
+ },
+ {
+  "id": "4cb30c7e23",
+  "from": "doze/doze_test.go"
+ },
+ {
+  "id": "24a4283466",
+  "from": "doze/internal/daemon/ingress_probe_test.go"
+ },
+ {
+  "id": "88a155ee6c",
+  "from": "doze/internal/daemon/subscribe_test.go"
+ },
+ {
+  "id": "11a5c47af8",
+  "from": "doze/internal/desk/view/flow_test.go"
+ },
+ {
+  "id": "d5477bb574",
+  "from": "doze/internal/desk/view/flow_test.go"
+ },
+ {
+  "id": "ccdfdf48b5",
+  "from": "doze/internal/detect/detect_test.go"
+ },
+ {
+  "id": "77f1292538",
+  "from": "doze/internal/detect/detect_test.go"
+ },
+ {
+  "id": "dcebcaf71b",
+  "from": "doze/internal/runtime/runtime_test.go"
+ },
+ {
+  "id": "e21981bcbd",
+  "from": "doze/internal/runtime/runtime_test.go"
+ },
+ {
+  "id": "36314917b5",
+  "from": "doze/internal/runtime/runtime_test.go"
+ },
+ {
+  "id": "f5e5fff3d6",
+  "from": "doze/stackload_test.go"
+ },
+ {
+  "id": "b5dd7a081b",
+  "from": "doze/test/bench/bench_test.go"
+ },
+ {
+  "id": "921d2f6dc8",
+  "from": "doze/test/integration/ferret_test.go"
+ },
+ {
+  "id": "b8dd829a9b",
+  "from": "doze/test/integration/mariadb_test.go"
+ },
+ {
+  "id": "1778f215e4",
+  "from": "doze/test/integration/module_names_test.go"
+ },
+ {
+  "id": "8e45dba438",
+  "from": "doze/test/integration/names_test.go"
+ },
+ {
+  "id": "79c634e885",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "679086a4a4",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "d9471bced7",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "dde587816a",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "292e5ecf0c",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "bd1cd8b50e",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "2b202f31f8",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "a76ebca9f9",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "e78ce6e4bd",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "9721b6a23f",
+  "from": "doze/test/integration/service_test.go"
+ },
+ {
+  "id": "b329153032",
+  "from": "doze/test/integration/temporal_test.go"
+ },
+ {
+  "id": "875f9a5b61",
+  "from": "doze-examples/larder"
  }
 ]
