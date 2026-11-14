@@ -644,11 +644,12 @@ def test_acls_once_object_ownership_enables_them(client, names, cleanup, snapsho
 def test_anonymous_reads_need_a_public_grant(client, names, cleanup, snapshot):
     import json
 
-    from botocore import UNSIGNED
-    from botocore.config import Config
+    from botocore.handlers import disable_signing
 
     s3 = client("s3")
-    anon = client("s3", config=Config(signature_version=UNSIGNED))
+    # A client of its own (any keyword makes one) that signs nothing.
+    anon = client("s3", use_ssl=False)
+    anon.meta.events.register("choose-signer.s3.*", disable_signing)
     name = bucket(s3, names, cleanup)
     s3.put_object(Bucket=name, Key="k", Body=b"for anyone")
     snapshot.outcome("anonymous-denied", lambda: anon.get_object(Bucket=name, Key="k"))

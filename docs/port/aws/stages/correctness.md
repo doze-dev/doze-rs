@@ -21,6 +21,8 @@ as on AWS since April 2023:
 | `AccessDenied` from the authorizer is 403 for S3 (it was the authorizer's 400) | Rust port wrong (fixed) |
 | CloudFormation `AWS::S3::Bucket.AccessControl` is applied with `PutBucketAcl` after the ownership controls and the public access block (was: stored with a note "doze-aws does not serve ACLs"), so a template that does not enable ACLs fails as on AWS | Go weak (bettered) |
 
+`log-delivery-write` is accepted on a bucket: the S3 model's `BucketCannedACL` enum omits it though the User Guide lists it for buckets (it is what a server access log bucket, and CloudFormation's `LogDeliveryWrite`, use), so `codegen/overlays/s3.json` adds it.
+
 The restXml codec now reads and writes XML attributes (`@xmlAttribute`, the grantee's `xsi:type`, with its `xmlns:xsi` declaration),
 which botocore needs to parse a grantee's `Type`. Wording from memory: `AccessControlListNotSupported` "The bucket does not allow ACLs";
 `InvalidBucketAclWithObjectOwnership`; `UnresolvableGrantByEmailAddress` (e-mail grantees cannot be resolved locally and are refused);
