@@ -22,8 +22,12 @@ tracing = "0.1"
 # on the first https call). Size: xtask/weight-limits.txt, 2026-11-14 (tls).
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["tls12"] }
-rustls-native-certs = "0.8"
 rcgen = { version = "0.14", default-features = false, features = ["crypto", "pem", "ring"], optional = true }
+
+# The OS store on Linux and Windows. Not on macOS: there the keychains are listed with /usr/bin/security (os_roots.rs), so the
+# binary does not link Security.framework and CoreFoundation (their idle cost: xtask/weight-limits.txt, tls2).
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+rustls-native-certs = "0.8"
 
 [dev-dependencies]
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "net", "io-util", "time"] }

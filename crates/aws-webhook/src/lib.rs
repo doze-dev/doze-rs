@@ -11,6 +11,7 @@
 //! [`Request::timeout`]. Callers run requests off their actor, so nothing waits on one but the delivery itself.
 
 mod answer;
+mod os_roots;
 mod tls;
 mod url;
 
