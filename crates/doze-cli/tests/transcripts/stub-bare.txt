@@ -1,0 +1,21 @@
+# Bare `doze` opens the app, or prints the status table when piped: neither is built yet.
+
+$ doze
+exit 1
+stderr:
+| error[DZ0001]: `doze` alone opens the app, or prints the status table when piped: neither is built yet
+|   fix: doze --help lists the commands
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "this command has no JSON result",
+|     "exit": 2,
+|     "id": "DZ0103",
+|     "fix": "drop --json"
+|   }
+| }

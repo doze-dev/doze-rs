@@ -1,0 +1,60 @@
+# F5: the registry down is a failed check (1), host by host.
+
+$ doze doctor
+exit 1
+stdout:
+|   ✓  platform   {triple}
+|   ✓  home       {sandbox}/home
+|   ✓  config     no doze.hcl here or in any parent: checking the machine only
+|   ✗  registry   can't be reached: {sandbox}/unreachable: no registry in that directory · modules this machine has keep working
+|   ✓  names      no names yet: each doze program registers its own when it starts
+|   ·  daemon     not checked: the Rust core is not built yet
+stderr:
+| error[DZ0501]: some checks need attention (marked ✗ above)
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze doctor",
+|   "ok": false,
+|   "data": {
+|     "checks": [
+|       {
+|         "detail": "{triple}",
+|         "name": "platform",
+|         "state": "ok"
+|       },
+|       {
+|         "detail": "{sandbox}/home",
+|         "name": "home",
+|         "state": "ok"
+|       },
+|       {
+|         "detail": "no doze.hcl here or in any parent: checking the machine only",
+|         "name": "config",
+|         "state": "ok"
+|       },
+|       {
+|         "detail": "can't be reached: {sandbox}/unreachable: no registry in that directory · modules this machine has keep working",
+|         "name": "registry",
+|         "state": "fail"
+|       },
+|       {
+|         "detail": "no names yet: each doze program registers its own when it starts",
+|         "name": "names",
+|         "state": "ok"
+|       },
+|       {
+|         "detail": "not checked: the Rust core is not built yet",
+|         "name": "daemon",
+|         "state": "not_checked"
+|       }
+|     ]
+|   },
+|   "error": {
+|     "code": "failed",
+|     "message": "some checks need attention (marked ✗ above)",
+|     "exit": 1,
+|     "id": "DZ0501"
+|   }
+| }

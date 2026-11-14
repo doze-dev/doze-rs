@@ -80,8 +80,8 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk --all-targets --features doze-control/test-support -- -D warnings
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk --no-fail-fast -- --nocapture
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli --all-targets --features doze-control/test-support -- -D warnings
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli --no-fail-fast -- --nocapture
       - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
         run: cargo clippy -p doze-names --features netd --all-targets -- -D warnings && cargo test -p doze-names --features netd --no-fail-fast
       - name: doze-names with machine setup and trust (every system's scripts are tested on every system)

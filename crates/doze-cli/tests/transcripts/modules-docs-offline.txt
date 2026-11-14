@@ -1,0 +1,25 @@
+# Offline and never seen: the machine's problem (10), each host and why.
+
+$ doze modules docs valkey
+exit 10
+stderr:
+| error[DZ0201]: the module registry can't be reached, and this machine has no copy of valkey
+|   {sandbox}/unreachable: no registry in that directory
+|   fix: check the network and run it again · doze doctor checks the registry
+json exit 10
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules docs",
+|   "ok": false,
+|   "error": {
+|     "code": "machine",
+|     "message": "the module registry can't be reached, and this machine has no copy of valkey",
+|     "exit": 10,
+|     "id": "DZ0201",
+|     "notes": [
+|       "{sandbox}/unreachable: no registry in that directory"
+|     ],
+|     "fix": "check the network and run it again · doze doctor checks the registry"
+|   }
+| }
