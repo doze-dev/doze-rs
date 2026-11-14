@@ -19,7 +19,9 @@ pub struct Started {
 /// Starts every process of `plan`, each ready (within `limit`) before the next, running hooks after each.
 pub async fn start(plan: &Plan, logs: &Path, limit: Duration) -> Result<Started, String> {
     let log = RunLog::open(logs, "plan").map_err(|e| e.to_string())?;
-    let unit = exec::start(plan, &log, limit, &mut |_| {}).await.map_err(|e| e.message)?;
+    let unit = exec::start(plan, &log, limit, &mut |_| {})
+        .await
+        .map_err(|e| e.message)?;
     Ok(Started { unit, log })
 }
 
