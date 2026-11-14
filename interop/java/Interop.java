@@ -57,6 +57,9 @@ public class Interop {
         DESCRIBE_USER_SCRAM = 50, ALTER_USER_SCRAM = 51, CONSUMER_GROUP_HEARTBEAT = 68,
         LIST_GROUPS = 16, DELETE_GROUPS = 42, OFFSET_DELETE = 47, DESCRIBE_PRODUCERS = 61, DESCRIBE_TRANSACTIONS = 65,
         LIST_TRANSACTIONS = 66, CONSUMER_GROUP_DESCRIBE = 69;
+    /** Names of APIs newer than the 2.8 client, which its ApiKeys does not know. */
+    static final Map<Integer, String> NEWER = Map.of(61, "DescribeProducers", 65, "DescribeTransactions", 66, "ListTransactions",
+        68, "ConsumerGroupHeartbeat", 69, "ConsumerGroupDescribe");
     static final int[] BASIC = {PRODUCE, FETCH, LIST_OFFSETS, METADATA, CREATE_TOPICS};
     static final int[] GROUP = {FIND_COORDINATOR, JOIN_GROUP, SYNC_GROUP, HEARTBEAT, LEAVE_GROUP, OFFSET_COMMIT, OFFSET_FETCH};
     static final int[] TXN = {INIT_PRODUCER_ID, ADD_PARTITIONS_TO_TXN, END_TXN, FIND_COORDINATOR};
@@ -130,7 +133,7 @@ public class Interop {
             scenarios.add(new Scenario("admin-cluster", new int[]{METADATA}, Interop::adminCluster));
             scenarios.add(new Scenario("admin-acls", concat(BASIC, CREATE_ACLS, DESCRIBE_ACLS, DELETE_ACLS), Interop::adminAcls));
             scenarios.add(new Scenario("admin-scram-users", new int[]{DESCRIBE_USER_SCRAM, ALTER_USER_SCRAM}, Interop::adminScram));
-            int[] groupAdmin = {DESCRIBE_GROUPS, LIST_GROUPS, DELETE_GROUPS, OFFSET_DELETE};
+            int[] groupAdmin = {DESCRIBE_GROUPS, LIST_GROUPS, DELETE_GROUPS};
             scenarios.add(new Scenario("admin-groups-classic", concat(concat(BASIC, GROUP), groupAdmin), () -> adminGroups(false)));
             scenarios.add(new Scenario("admin-groups-848", concat(concat(BASIC, groupAdmin), CONSUMER_GROUP_HEARTBEAT, CONSUMER_GROUP_DESCRIBE, OFFSET_COMMIT, OFFSET_FETCH), () -> adminGroups(true)));
             scenarios.add(new Scenario("txn-last-stable-offset", concat(BASIC, TXN), Interop::txnLastStable));
@@ -260,7 +263,7 @@ public class Interop {
             for (int k : needs) {
                 ApiKeys ak = apiKey(k);
                 // An API newer than this client (2.8 knows no ConsumerGroupHeartbeat) is named from the list here.
-                String n = ak != null ? ak.name : k == CONSUMER_GROUP_HEARTBEAT ? "ConsumerGroupHeartbeat" : "key " + k;
+                String n = ak != null ? ak.name : NEWER.getOrDefault(k, "key " + k);
                 short[] r = offered.get(k);
                 if (r == null) {
                     if (!gone.contains(n)) gone.add(n);
@@ -1277,10 +1280,15 @@ public class Interop {
             check(describeGroup(a, group).state().toString().equals("Empty"), "state %s, want Empty", describeGroup(a, group).state());
             a.alterConsumerGroupOffsets(group, Map.of(p0, new OffsetAndMetadata(5))).all().get(30, TimeUnit.SECONDS);
             check(groupOffsets(a, group).get(p0).offset() == 5, "p0 at %s after the alter", groupOffsets(a, group).get(p0));
-            a.deleteConsumerGroupOffsets(group, Set.of(p1)).all().get(30, TimeUnit.SECONDS);
-            var left = groupOffsets(a, group);
-            check(!left.containsKey(p1) || left.get(p1) == null, "p1 still committed: %s", left);
-            notes.add("offsets altered and one deleted");
+            // OffsetDelete came with Kafka 2.4 (KIP-496): at Kafka 1 that step alone is left out.
+            if (has(OFFSET_DELETE)) {
+                a.deleteConsumerGroupOffsets(group, Set.of(p1)).all().get(30, TimeUnit.SECONDS);
+                var left = groupOffsets(a, group);
+                check(!left.containsKey(p1) || left.get(p1) == null, "p1 still committed: %s", left);
+                notes.add("offsets altered and one deleted");
+            } else {
+                notes.add("offsets altered (no OffsetDelete at Kafka " + kafkaMajor + ")");
+            }
             a.deleteConsumerGroups(List.of(group)).all().get(30, TimeUnit.SECONDS);
             check(a.listConsumerGroups().all().get(30, TimeUnit.SECONDS).stream().noneMatch(l -> l.groupId().equals(group)), "listed after delete");
             check(groupOffsets(a, group).isEmpty(), "offsets after delete: %s", groupOffsets(a, group));

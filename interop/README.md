@@ -111,6 +111,53 @@ Each of sarama, franz-go, kafka-go and librdkafka (kcat) trusts that CA and noth
 refusal that listener allows: a wrong password on SASL_SSL (an authentication error, within 15 s), and on SSL a client that does not have the CA, which must fail as a
 certificate failure. Eight cells. `interop/go/tls.go` (the cells are the ones of `sasl.go`, with `secure` set).
 
+## The Java client (`-java`, and after the Go clients under `-sasl`, `-tls`, `-versions`)
+
+The official client, Apache `kafka-clients`: the reference implementation, and what most users run. `interop/java/Interop.java`
+is one file run by the JDK's source launcher (`java -cp <jars> Interop.java`, no Maven or Gradle), with the same contract as the
+Go program: one `ok`, `skip` (with the reason) or `FAIL` line per scenario, titled `java-<version>/<scenario>`, so the per-major
+summary of `-versions` counts it. `-only <scenario>` picks one.
+
+- **JDK**: Temurin 21.0.13+9 (LTS), pinned in `interop/.prototools` (`java = "temurin-21.0.13+9"`); `cd interop && proto install`.
+  `run.sh` runs `java` from `interop/`, so proto's shim picks that JDK (the macOS `/usr/bin/java` is only a stub).
+- **Jars**: `bun interop/java/fetch.ts 4` (or `2.8`) downloads them from Maven Central into `~/.cache/doze-interop/java/`
+  (`$DOZE_INTEROP_CACHE/java`), checks each against the SHA-256 pinned in the script, and prints the classpath. Two lines:
+  kafka-clients **4.4.0** (latest stable) with zstd-jni 1.5.7-17, lz4-java 1.11.2 (`at.yawk.lz4`), snappy-java 1.1.10.7; and
+  **2.8.2** (what users of Kafka 1 and 2 era brokers run) with zstd-jni 1.4.9-1 and lz4-java 1.7.1 (`org.lz4`), as its POM
+  names, but snappy-java 1.1.10.7 instead of 1.1.8.1, which has no native library for Apple Silicon and no fallback. Both
+  with slf4j-api and slf4j-simple 1.7.36 (`JAVA_LOG=debug` for the client's log; `JAVA_TRACE=1` for a failure's stack).
+- **Which client where**: `JAVA_CLIENTS` names the lines (default `4`); `-versions` runs `4 2.8`. The 4.4 client runs at every
+  major (it negotiates); 2.8 runs at Kafka 1 and 2 and prints one skip line at 3 and 4. The file compiles against both, so
+  what one lacks is reached by name (describeTopics' answer, `OffsetSpec.maxTimestamp`, `SubscriptionPattern`, the KIP-664
+  admin calls), and a scenario the 2.8 client cannot express is skipped with the client named.
+- **What runs** is decided as in the Go program: ApiVersions v0 is asked over a bare socket at the start (it is answered before
+  any login), and a scenario that needs an API the broker does not advertise, or advertises only below what the client speaks,
+  is skipped with the API named.
+
+The scenarios (plain mode):
+
+| Scenario | What it does |
+|---|---|
+| `roundtrip-{none,gzip,snappy,lz4,zstd}` | 200 keyed records with headers (one empty) and a null-key null-value record, over three partitions, read back exactly |
+| `idempotent` | 2000 records with `enable.idempotence` and five in flight: once each, in order per key |
+| `txn-commit-abort` | commit 10, abort 10, commit 5: `read_committed` sees 15, `read_uncommitted` 25 |
+| `txn-send-offsets` | consume-transform-produce with `sendOffsetsToTransaction` (group metadata; the group id alone where TxnOffsetCommit is below v3), one transaction aborted and redone: output once each, input committed to its end |
+| `txn-last-stable-offset` | an open transaction holds the `read_committed` end (listOffsets and `endOffsets`) at its first offset while the log goes on |
+| `group-classic`, `group-848` | two members split four partitions (a rebalance), read and commit; one leaves and the other takes over; a new member resumes with exactly the records after the commit |
+| `rebalance-commits-classic`, `-848` | four members join and two leave while records flow; each commits asynchronously after every poll and synchronously in `onPartitionsRevoked`; no commit may be refused and no record read twice. Under KIP-848 a commit in flight when the member's epoch moves arrives at an older epoch (KIP-1251, doze G848-10) |
+| `group-848-regex` | `subscribe(SubscriptionPattern)`: the broker resolves the expression; a matching topic made later is picked up, one that does not match is left out |
+| `admin-groups-classic`, `-848` | list and describe (Stable, the member and its assignment); delete and an offset change refused while a member is in (GroupNotEmpty, UnknownMemberId); the static member removed by the admin; offsets altered, one deleted; the group deleted |
+| `admin-topics`, `admin-configs`, `admin-create-partitions`, `admin-delete-records`, `admin-list-offsets`, `admin-max-timestamp`, `admin-cluster`, `admin-acls`, `admin-scram-users`, `admin-transactions` | the Admin client's calls of each, with their refusals (exists, unknown, a decrease, past the end, an unknown config, two SCRAM alterations of one user in a request at Kafka 4, too few iterations) |
+| `offsets-for-times-log-append`, `-compressed` | `offsetsForTimes` on a LogAppendTime topic and inside gzip batches: the first record at or after each target, record-exactly |
+| `produce-fetch-limits` | a record over `max.message.bytes` refused (RecordTooLargeException); one under it read with fetch limits of 1 KB (KIP-74) |
+
+Under `-sasl`: PLAIN, SCRAM-SHA-256 and SCRAM-SHA-512 cells (a topic made, 20 records written and read, a wrong password refused
+as `SaslAuthenticationException` within 15 s), and `sasl-users` (a user made with `alterUserScramCredentials` logs in with both
+SCRAM mechanisms, cannot with PLAIN, and is refused once deleted). Under `-tls`: SASL_SSL with SCRAM-SHA-512 (and a wrong
+password), SSL, and SSL without the CA (`SslAuthenticationException`), the CA given as a PEM truststore (KIP-651).
+
+JAVA_MATRIX_PLACEHOLDER
+
 ## What the clients taught
 
 - Records are keyed, because franz-go's producer puts a whole unkeyed batch in one partition, which leaves the other
