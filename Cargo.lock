@@ -608,6 +608,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-model-scheduler"
+version = "0.0.0"
+dependencies = [
+ "aws-schema",
+]
+
+[[package]]
 name = "aws-model-secrets-manager"
 version = "0.0.0"
 dependencies = [
