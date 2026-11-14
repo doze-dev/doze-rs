@@ -1,6 +1,6 @@
-//! Avro, the registry's default language: parsed and checked as Confluent's Avro parser does ([`schema`]), stored as
-//! Avro's own library writes a schema ([`text`]), compared by Avro's reader/writer rules with Confluent's sentences
-//! ([`compat`]), and shown with its referenced types written out ([`inline`]).
+//! Avro, the registry's default language: parsed and checked as Confluent's Avro parser does (`schema`), stored as
+//! Avro's own library writes a schema (`text`), compared by Avro's reader/writer rules with Confluent's sentences
+//! (`compat`), and shown with its referenced types written out (`inline`).
 
 mod compat;
 mod inline;
