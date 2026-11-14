@@ -210,11 +210,14 @@ fn found(dir: &Path, patterns: &[String]) -> BTreeMap<Vec<u8>, PathBuf> {
         };
         let pat = pat.strip_prefix("./").unwrap_or(&pat);
         let base = root(pat);
-        let start = dir.join(&base);
+        // Go's `filepath.Join`: a pattern is always under the folder, a leading `/` included (E2 audit 4).
+        let start = dir.join(base.trim_start_matches('/'));
         let Ok(meta) = std::fs::metadata(&start) else {
             continue; // nothing there yet: nothing matches
         };
-        if !meta.is_dir() {
+        // Go's `WalkDir` does not walk into a root that is a link: it is matched as itself (E2 audit 4).
+        let link = std::fs::symlink_metadata(&start).is_ok_and(|m| m.file_type().is_symlink());
+        if !meta.is_dir() || link {
             if matches(pat, &base) {
                 found.insert(base.clone().into_bytes(), start);
             }

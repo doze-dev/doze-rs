@@ -17,10 +17,16 @@ impl Machine {
         if !self.current_boot(name, boot) || self.ctl(name).cancel_boot {
             return Vec::new();
         }
+        self.ctl(name).runs += 1;
         self.table.mark_booting(name);
         vec![Effect::Journal(
             Event::new(Kind::Wake, name).cause(cause).detail(why),
         )]
+    }
+
+    /// How many times task `name`'s runs decided to run (0 for an undeclared name).
+    pub fn runs(&self, name: &str) -> u64 {
+        self.ctl.get(name).map_or(0, |c| c.runs)
     }
 
     /// Start `boot` of task `name` did not have to run (up to date, or manual and not asked for): nothing changes.

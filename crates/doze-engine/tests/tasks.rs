@@ -404,3 +404,24 @@ async fn a_task_stopped_while_it_decides_ends_at_once_and_says_why() {
     assert_eq!(e.get("seed").unwrap().state, State::Reaped);
     e.shutdown().await;
 }
+
+/// `doze task` runs the command once even when the state file cannot be read or written: the run is counted by the
+/// machine, not seen in the record (E2 audit 4; Go's `setTaskRecord` logs and the call succeeds).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn run_task_runs_once_when_the_state_file_is_broken() {
+    let d = Dir::new("taskbadstate");
+    let ran = d.file("ran");
+    std::fs::create_dir_all(d.path().join(".doze")).unwrap();
+    std::fs::write(d.path().join(".doze/state.json"), "{").unwrap();
+    let e = Engine::builder("t", d.path())
+        .service(Service::task(
+            "seed",
+            task(&d, &["append", &ran.to_string_lossy()]),
+        ))
+        .build()
+        .unwrap();
+    let res = e.run_task("seed").await;
+    assert!(res.is_ok(), "{res:?}");
+    assert_eq!(lines(&ran), 1, "it ran once");
+    e.shutdown().await;
+}
