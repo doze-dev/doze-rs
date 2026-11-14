@@ -13,7 +13,10 @@
 //! - [`home`]: where doze keeps its state.
 //! - [`net`]: dial an engine's backend, a Unix socket or loopback TCP, as one stream type.
 //! - [`detach`]: start the daemon so it outlives its starter (and can still stop engines gently).
+//! - [`browse`]: open a web page in the person's browser.
+//! - [`pty`]: a pseudo-terminal, for tests that must see what a person sees.
 
+pub mod browse;
 pub mod channel;
 pub mod detach;
 pub mod fs;
@@ -21,6 +24,7 @@ pub mod home;
 pub mod net;
 pub mod privilege;
 pub mod process;
+pub mod pty;
 pub mod tree;
 pub mod which;
 

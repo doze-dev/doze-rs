@@ -76,6 +76,19 @@ pub fn clone_dir(src: &Path, dst: &Path) -> io::Result<()> {
     imp::clone_dir(src, dst)
 }
 
+/// Clears the group and other write bits of `path` and, for a folder, of everything under it (links are left alone),
+/// so nobody but this user can change an unpacked binary in place. A no-op on Windows, where the profile's ACL already
+/// keeps other users out.
+pub fn drop_shared_write(path: &Path) -> io::Result<()> {
+    imp::drop_shared_write(path)
+}
+
+/// The permission bits of `path` (not following a link) on Unix, setuid, setgid and sticky included; `None` on
+/// Windows or when it cannot be read.
+pub fn mode(path: &Path) -> Option<u32> {
+    imp::mode(path)
+}
+
 /// The identity of the file at `path` on its volume: the inode on Unix, the file index on Windows. A file replaced by a
 /// rename has a new one even when its time and size are the same as the old one's. `None` when it cannot be read.
 pub fn file_id(path: &Path) -> Option<u64> {

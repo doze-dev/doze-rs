@@ -1,0 +1,8 @@
+doze: 0.3.0
+modules:
+  doze/valkey:
+    version: 0.3.0
+    protocol: 2
+    engines: ["9"]
+    hashes:
+      aarch64-apple-darwin: sha256:00
