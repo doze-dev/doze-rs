@@ -33,7 +33,7 @@ pub struct Added {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub module: String,
     pub name: String,
-    /// The block, as written.
+    /// The block, as built (the file has it in hclwrite's layout), as Go prints it.
     pub block: String,
     /// The line that wires it into an app, `ENV = reference`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -125,8 +125,6 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Add) -> Outcome {
     })?;
     let out = ed.bytes();
     must_read(ctx, mode, &path, &out, &shown)?;
-    added.block =
-        String::from_utf8_lossy(&doze_hcl::fmt::format(added.block.as_bytes())).into_owned();
     added.file = shown;
     if !a.dry.dry_run {
         write(&path, &out, &added.file)?;

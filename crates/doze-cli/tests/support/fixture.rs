@@ -36,7 +36,7 @@ pub(crate) fn test_key() -> SigningKey {
     SigningKey::from_bytes(&seed)
 }
 
-fn sign_hex(key: &SigningKey, hex: &str) -> String {
+pub(crate) fn sign_hex(key: &SigningKey, hex: &str) -> String {
     use base64ct::{Base64, Encoding};
     Base64::encode_string(&key.sign(hex.as_bytes()).to_bytes())
 }
@@ -320,6 +320,19 @@ pub(crate) fn run(
     online: bool,
     args: &[&str],
 ) -> Ran {
+    run_in(sb, host, term, online, &sb.project(), args)
+}
+
+/// [`run`], in the folder `cwd`.
+#[allow(dead_code)]
+pub(crate) fn run_in(
+    sb: &Sandbox,
+    host: &FakeHost,
+    term: Terminals,
+    online: bool,
+    cwd: &Path,
+    args: &[&str],
+) -> Ran {
     let (mut out, mut err) = (Vec::new(), Vec::new());
     let bases = if online {
         vec![Base::Dir(sb.registry())]
@@ -336,7 +349,7 @@ pub(crate) fn run(
         err: &mut err,
         term,
         home: sb.home(),
-        cwd: sb.project(),
+        cwd: cwd.to_path_buf(),
         registry: registry::Config {
             bases,
             key,

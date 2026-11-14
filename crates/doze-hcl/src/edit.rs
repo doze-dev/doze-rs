@@ -128,6 +128,13 @@ impl Edit {
             let mut toks = owned(line.as_bytes());
             toks.pop();
             self.tokens.extend(toks);
+            // The body has an item now, as hclwrite's does after `SetAttributeValue`: a block appended next comes
+            // after a blank line (Go's `doze add` in a new file writes `stack = "x"`, a blank line, the block).
+            let raw = String::from_utf8_lossy(&self.write_raw()).into_owned();
+            if let Ok(body) = parse_body(&Source::new(&raw)) {
+                self.body = body;
+                self.src = raw;
+            }
             return;
         }
         let old = String::from_utf8_lossy(&self.write_raw()).into_owned();

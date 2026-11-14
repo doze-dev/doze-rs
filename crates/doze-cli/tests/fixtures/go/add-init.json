@@ -1,0 +1,997 @@
+{
+ "add": [
+  {
+   "name": "every-module",
+   "initial": "",
+   "steps": [
+    {
+     "args": [
+      "add",
+      "postgres"
+     ],
+     "exit": 0,
+     "stdout": "→ module postgres \"db\"\n  module postgres \"db\" {\n    version = 18\n    port    = 5432\n  }\n\n  use it from an app:  DATABASE_URL = module.db.url\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "valkey"
+     ],
+     "exit": 0,
+     "stdout": "→ module valkey \"cache\"\n  module valkey \"cache\" {\n    version = 9\n    port    = 6379\n  }\n\n  use it from an app:  REDIS_URL = module.cache.url\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "kafka"
+     ],
+     "exit": 0,
+     "stdout": "→ module kafka \"events\"\n  module kafka \"events\" {\n    version = 4\n    port    = 9092\n  }\n\n  use it from an app:  KAFKA_BROKERS = module.events.address\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "aws"
+     ],
+     "exit": 0,
+     "stdout": "→ module aws \"cloud\"\n  module aws \"cloud\" {\n    port    = 4566\n  }\n\n  use it from an app:  AWS_ENDPOINT_URL = module.cloud.url\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "mariadb"
+     ],
+     "exit": 0,
+     "stdout": "→ module mariadb \"sql\"\n  module mariadb \"sql\" {\n    version = 11\n    port    = 3306\n  }\n\n  use it from an app:  MYSQL_URL = module.sql.url\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "kvrocks"
+     ],
+     "exit": 0,
+     "stdout": "→ module kvrocks \"kvrocks\"\n  module kvrocks \"kvrocks\" {\n    version = 2\n    port    = 6380\n  }\n\n  use it from an app:  REDIS_URL = module.kvrocks.url\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    }
+   ],
+   "file": "stack = \"proj\"\n\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\nmodule aws \"cloud\" {\n  port = 4566\n}\n\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\nmodule kvrocks \"kvrocks\" {\n  version = 2\n  port    = 6380\n}\n"
+  },
+  {
+   "name": "keeps-what-is-there",
+   "initial": "# mine\nstack = \"shop\"\n\nmodule postgres \"db\" {\n  version = 16 # pinned\n  port    = 5432\n}\n\n# the api\napp \"api\" {\n  run  = \"go run .\"\n  port = 8080\n}\n",
+   "steps": [
+    {
+     "args": [
+      "add",
+      "postgres"
+     ],
+     "exit": 0,
+     "stdout": "→ module postgres \"db2\"\n  module postgres \"db2\" {\n    version = 18\n    port    = 5432\n  }\n\n  use it from an app:  DATABASE_URL = module.db2.url\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "postgres",
+      "main",
+      "--port",
+      "5433"
+     ],
+     "exit": 0,
+     "stdout": "→ module postgres \"main\"\n  module postgres \"main\" {\n    version = 18\n    port    = 5433\n  }\n\n  use it from an app:  DATABASE_URL = module.main.url\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "valkey",
+      "--version",
+      "8"
+     ],
+     "exit": 0,
+     "stdout": "→ module valkey \"cache\"\n  module valkey \"cache\" {\n    version = 8\n    port    = 6379\n  }\n\n  use it from an app:  REDIS_URL = module.cache.url\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "kafka",
+      "bus",
+      "--port",
+      "9093",
+      "--version",
+      "3"
+     ],
+     "exit": 0,
+     "stdout": "→ module kafka \"bus\"\n  module kafka \"bus\" {\n    version = 3\n    port    = 9093\n  }\n\n  use it from an app:  KAFKA_BROKERS = module.bus.address\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    }
+   ],
+   "file": "# mine\nstack = \"shop\"\n\nmodule postgres \"db\" {\n  version = 16 # pinned\n  port    = 5432\n}\n\n# the api\napp \"api\" {\n  run  = \"go run .\"\n  port = 8080\n}\n\nmodule postgres \"db2\" {\n  version = 18\n  port    = 5432\n}\n\nmodule postgres \"main\" {\n  version = 18\n  port    = 5433\n}\n\nmodule valkey \"cache\" {\n  version = 8\n  port    = 6379\n}\n\nmodule kafka \"bus\" {\n  version = 3\n  port    = 9093\n}\n"
+  },
+  {
+   "name": "services",
+   "initial": "stack = \"s\"\n",
+   "steps": [
+    {
+     "args": [
+      "add",
+      "mongo",
+      "--as",
+      "container"
+     ],
+     "exit": 0,
+     "stdout": "→ service \"mongo\"\n  service \"mongo\" {\n    # a container: a container is just a command, and `run` stays in the foreground\n    run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n    port = 27017\n  }\n\n  use it from an app:  MONGO_ADDR = service.mongo.address\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "mailpit",
+      "--as",
+      "container"
+     ],
+     "exit": 0,
+     "stdout": "→ service \"mailpit\"\n  service \"mailpit\" {\n    # a container: a container is just a command, and `run` stays in the foreground\n    run  = \"docker run --rm -p $HOST:$PORT:1025 axllent/mailpit\"\n    port = 1025\n  }\n\n  use it from an app:  MAILPIT_ADDR = service.mailpit.address\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "nats",
+      "--as",
+      "download"
+     ],
+     "exit": 0,
+     "stdout": "→ service \"nats\"\n  service \"nats\" {\n    # fetched once, pinned in doze.lock by its checksum, and run from the archive\n    download = \"https://example.com/nats-darwin-arm64.tar.gz\" # fill this in\n    run      = \"./nats --port $PORT\"\n    port     = 4222\n  }\n\n  use it from an app:  NATS_ADDR = service.nats.address\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "minio",
+      "--as",
+      "download",
+      "--port",
+      "9100"
+     ],
+     "exit": 0,
+     "stdout": "→ service \"minio\"\n  service \"minio\" {\n    # fetched once, pinned in doze.lock by its checksum, and run from the archive\n    download = \"https://example.com/minio-darwin-arm64.tar.gz\" # fill this in\n    run      = \"./minio --port $PORT\"\n    port     = 9100\n  }\n\n  use it from an app:  MINIO_ADDR = service.minio.address\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "rabbitmq"
+     ],
+     "exit": 0,
+     "stdout": "→ rabbitmq is not a doze module — adding it as a service\n  rabbitmq is not installed — the block runs it as a container\n  other ways: --as installed · --as container · --as download\n\n→ service \"rabbitmq\"\n  service \"rabbitmq\" {\n    # a container: a container is just a command, and `run` stays in the foreground\n    run  = \"docker run --rm -p $HOST:$PORT:5672 rabbitmq:3\"\n    port = 5672\n  }\n\n  use it from an app:  RABBITMQ_ADDR = service.rabbitmq.address\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "clickhouse"
+     ],
+     "exit": 0,
+     "stdout": "→ clickhouse is not a doze module — adding it as a service\n  clickhouse is not installed — the block runs it as a container\n  other ways: --as installed · --as container · --as download\n\n→ service \"clickhouse\"\n  service \"clickhouse\" {\n    # a container: a container is just a command, and `run` stays in the foreground\n    run  = \"docker run --rm -p $HOST:$PORT:8123 clickhouse/clickhouse-server\"\n    port = 8123\n  }\n\n  use it from an app:  CLICKHOUSE_ADDR = service.clickhouse.address\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "my_thing"
+     ],
+     "exit": 0,
+     "stdout": "→ my_thing is not a doze module — adding it as a service\n  nothing found on this machine — the block is a download to fill in\n  other ways: --as installed · --as container · --as download\n\n→ service \"my-thing\"\n  service \"my_thing\" {\n    # fetched once, pinned in doze.lock by its checksum, and run from the archive\n    download = \"https://example.com/my_thing-darwin-arm64.tar.gz\" # fill this in\n    run      = \"./my_thing --port $PORT\"\n  }\n\n  use it from an app:  MY_THING_ADDR = service.my-thing.address\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    }
+   ],
+   "file": "stack = \"s\"\n\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n\nservice \"mailpit\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:1025 axllent/mailpit\"\n  port = 1025\n}\n\nservice \"nats\" {\n  # fetched once, pinned in doze.lock by its checksum, and run from the archive\n  download = \"https://example.com/nats-darwin-arm64.tar.gz\" # fill this in\n  run      = \"./nats --port $PORT\"\n  port     = 4222\n}\n\nservice \"minio\" {\n  # fetched once, pinned in doze.lock by its checksum, and run from the archive\n  download = \"https://example.com/minio-darwin-arm64.tar.gz\" # fill this in\n  run      = \"./minio --port $PORT\"\n  port     = 9100\n}\n\nservice \"rabbitmq\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:5672 rabbitmq:3\"\n  port = 5672\n}\n\nservice \"clickhouse\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:8123 clickhouse/clickhouse-server\"\n  port = 8123\n}\n\nservice \"my_thing\" {\n  # fetched once, pinned in doze.lock by its checksum, and run from the archive\n  download = \"https://example.com/my_thing-darwin-arm64.tar.gz\" # fill this in\n  run      = \"./my_thing --port $PORT\"\n}\n"
+  },
+  {
+   "name": "dry-run",
+   "initial": "",
+   "steps": [
+    {
+     "args": [
+      "add",
+      "valkey",
+      "--dry-run"
+     ],
+     "exit": 0,
+     "stdout": "→ module valkey \"cache\"\n  module valkey \"cache\" {\n    version = 9\n    port    = 6379\n  }\n\n  use it from an app:  REDIS_URL = module.cache.url\n\n(dry run: nothing written)\n",
+     "stderr": ""
+    },
+    {
+     "args": [
+      "add",
+      "mongo",
+      "--as",
+      "container",
+      "--dry-run"
+     ],
+     "exit": 0,
+     "stdout": "→ service \"mongo\"\n  service \"mongo\" {\n    # a container: a container is just a command, and `run` stays in the foreground\n    run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n    port = 27017\n  }\n\n  use it from an app:  MONGO_ADDR = service.mongo.address\n\n(dry run: nothing written)\n",
+     "stderr": ""
+    }
+   ],
+   "file": null
+  },
+  {
+   "name": "taken",
+   "initial": "module valkey \"cache\" {\n  version = 9\n}\n",
+   "steps": [
+    {
+     "args": [
+      "add",
+      "postgres",
+      "cache"
+     ],
+     "exit": 1,
+     "stdout": "",
+     "stderr": "error: \"cache\" is already declared in doze.hcl — pick another name: doze add postgres <name>\n"
+    },
+    {
+     "args": [
+      "add",
+      "valkey"
+     ],
+     "exit": 0,
+     "stdout": "→ module valkey \"cache2\"\n  module valkey \"cache2\" {\n    version = 9\n    port    = 6379\n  }\n\n  use it from an app:  REDIS_URL = module.cache2.url\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    }
+   ],
+   "file": "module valkey \"cache\" {\n  version = 9\n}\n\nmodule valkey \"cache2\" {\n  version = 9\n  port    = 6379\n}\n"
+  },
+  {
+   "name": "no-trailing-newline",
+   "initial": "stack = \"x\"\nmodule valkey \"cache\" { version = 9 }",
+   "steps": [
+    {
+     "args": [
+      "add",
+      "valkey"
+     ],
+     "exit": 0,
+     "stdout": "→ module valkey \"cache2\"\n  module valkey \"cache2\" {\n    version = 9\n    port    = 6379\n  }\n\n  use it from an app:  REDIS_URL = module.cache2.url\n\n✓ added to doze.hcl — doze lint · doze up\n",
+     "stderr": ""
+    }
+   ],
+   "file": "stack = \"x\"\nmodule valkey \"cache\" { version = 9 }\nmodule valkey \"cache2\" {\n  version = 9\n  port    = 6379\n}\n"
+  }
+ ],
+ "init": [
+  {
+   "name": "p000",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p001",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         package.json depends on bullmq\n  module   kafka          compose.yaml has a bitnami/kafka service\n  module   mariadb        package.json depends on mysql2\n  service  mail           compose.yaml has a mail service (nats:2)\n  service  mongo          compose.yaml has a mongo service\n  service  queue          compose.yaml has a queue service (minio/minio)\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p001\"\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# compose.yaml has a bitnami/kafka service\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# compose.yaml has a mail service (nats:2)\nservice \"mail\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run = \"docker run --rm -p $HOST:$PORT:0 nats:2\"\n}\n\n# compose.yaml has a mongo service\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n\n# compose.yaml has a queue service (minio/minio)\nservice \"queue\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run = \"docker run --rm -p $HOST:$PORT:0 minio/minio\"\n}\n"
+  },
+  {
+   "name": "p002",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       package.json depends on pg\n  module   valkey         package.json depends on bullmq\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p002\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n"
+  },
+  {
+   "name": "p003",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       package.json depends on pg\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p003\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n"
+  },
+  {
+   "name": "p004",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/lib/pq\n  module   mariadb        compose.yaml has a mariadb service\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p004\"\n\n# the code imports github.com/lib/pq\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# compose.yaml has a mariadb service\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n"
+  },
+  {
+   "name": "p005",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       compose.yaml has a postgres service\n  module   kafka          compose.yaml has a bitnami/kafka service\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p005\"\n\n# compose.yaml has a postgres service\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# compose.yaml has a bitnami/kafka service\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n"
+  },
+  {
+   "name": "p006",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   mariadb        compose.yaml has a mariadb service\n  service  search         compose.yaml has a search service (nats:2)\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p006\"\n\n# compose.yaml has a mariadb service\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# compose.yaml has a search service (nats:2)\nservice \"search\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run = \"docker run --rm -p $HOST:$PORT:0 nats:2\"\n}\n"
+  },
+  {
+   "name": "p007",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/jackc/pgx/v5\n  task     bootstrap      Makefile has a bootstrap target\n  task     codegen        Makefile has a codegen target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p007\"\n\n# the code imports github.com/jackc/pgx/v5\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n\n# Makefile has a codegen target\ntask \"codegen\" {\n  run = \"make codegen\"\n}\n"
+  },
+  {
+   "name": "p008",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  task     codegen        Makefile has a codegen target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p008\"\n\n# Makefile has a codegen target\ntask \"codegen\" {\n  run = \"make codegen\"\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p009",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/redis/go-redis/v9\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p009\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n"
+  },
+  {
+   "name": "p010",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       compose.yaml has a postgres service\n  task     db-seed        Makefile has a db-seed target\n  task     seed           Makefile has a seed target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p010\"\n\n# compose.yaml has a postgres service\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# Makefile has a db-seed target\ntask \"db-seed\" {\n  run    = \"make db-seed\"\n  manual = true\n}\n\n# Makefile has a seed target\ntask \"seed\" {\n  run    = \"make seed\"\n  manual = true\n}\n"
+  },
+  {
+   "name": "p011",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   kafka          the code imports github.com/IBM/sarama\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p011\"\n\n# the code imports github.com/IBM/sarama\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n"
+  },
+  {
+   "name": "p012",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   kafka          the code imports github.com/IBM/sarama\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p012\"\n\n# the code imports github.com/IBM/sarama\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n"
+  },
+  {
+   "name": "p013",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/lib/pq\n  module   valkey         the code imports github.com/gomodule/redigo\n  module   kafka          compose.yaml has a bitnami/kafka service\n  task     seed           Makefile has a seed target\n  task     migrate        Makefile has a migrate target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p013\"\n\n# the code imports github.com/lib/pq\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/gomodule/redigo\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# compose.yaml has a bitnami/kafka service\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# Makefile has a seed target\ntask \"seed\" {\n  run    = \"make seed\"\n  manual = true\n}\n\n# Makefile has a migrate target\ntask \"migrate\" {\n  run = \"make migrate\"\n}\n"
+  },
+  {
+   "name": "p014",
+   "exit": 0,
+   "stdout": "Found in this project:\n  service  cache          compose.yaml has a cache service (nats:2)\n  service  mail           compose.yaml has a mail service (minio/minio)\n  service  queue          compose.yaml has a queue service (minio/minio)\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p014\"\n\n# compose.yaml has a cache service (nats:2)\nservice \"cache\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run = \"docker run --rm -p $HOST:$PORT:0 nats:2\"\n}\n\n# compose.yaml has a mail service (minio/minio)\nservice \"mail\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run = \"docker run --rm -p $HOST:$PORT:0 minio/minio\"\n}\n\n# compose.yaml has a queue service (minio/minio)\nservice \"queue\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run = \"docker run --rm -p $HOST:$PORT:0 minio/minio\"\n}\n"
+  },
+  {
+   "name": "p015",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         package.json depends on bullmq\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p015\"\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p016",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p017",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         the code imports github.com/gomodule/redigo\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p017\"\n\n# the code imports github.com/gomodule/redigo\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p018",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p019",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       package.json depends on pg\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p019\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p020",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         package.json depends on bullmq\n  task     bootstrap      Makefile has a bootstrap target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p020\"\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p021",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       compose.yaml has a postgres service\n  module   kafka          compose.yaml has a bitnami/kafka service\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p021\"\n\n# compose.yaml has a postgres service\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# compose.yaml has a bitnami/kafka service\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n"
+  },
+  {
+   "name": "p022",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       package.json depends on pg\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p022\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n"
+  },
+  {
+   "name": "p023",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       package.json depends on pg\n  task     migrate        Makefile has a migrate target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p023\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# Makefile has a migrate target\ntask \"migrate\" {\n  run = \"make migrate\"\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p024",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         package.json depends on bullmq\n  task     migrate        Makefile has a migrate target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p024\"\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# Makefile has a migrate target\ntask \"migrate\" {\n  run = \"make migrate\"\n}\n"
+  },
+  {
+   "name": "p025",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/lib/pq\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p025\"\n\n# the code imports github.com/lib/pq\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n"
+  },
+  {
+   "name": "p026",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         package.json depends on bullmq\n  module   kafka          the code imports github.com/twmb/franz-go\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p026\"\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p027",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p028",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       package.json depends on pg\n  module   valkey         package.json depends on bullmq\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p028\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n"
+  },
+  {
+   "name": "p029",
+   "exit": 1,
+   "stdout": "",
+   "file": null
+  },
+  {
+   "name": "p030",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p031",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/redis/go-redis/v9\n  module   kafka          the code imports github.com/twmb/franz-go\n  task     seed           Makefile has a seed target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p031\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# Makefile has a seed target\ntask \"seed\" {\n  run    = \"make seed\"\n  manual = true\n}\n"
+  },
+  {
+   "name": "p032",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/jackc/pgx/v5\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p032\"\n\n# the code imports github.com/jackc/pgx/v5\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n"
+  },
+  {
+   "name": "p033",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         package.json depends on bullmq\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p033\"\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n"
+  },
+  {
+   "name": "p034",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         package.json depends on bullmq\n  module   kafka          the code imports github.com/twmb/franz-go\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p034\"\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p035",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p036",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       package.json depends on pg\n  module   valkey         package.json depends on bullmq\n  service  mongo          compose.yaml has a mongo service\n  task     generate       Makefile has a generate target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p036\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# compose.yaml has a mongo service\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n\n# Makefile has a generate target\ntask \"generate\" {\n  run = \"make generate\"\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p037",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/gomodule/redigo\n  task     generate       Makefile has a generate target\n  task     seed           Makefile has a seed target\n  task     db-seed        Makefile has a db-seed target\n  task     migrate        Makefile has a migrate target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p037\"\n\n# the code imports github.com/gomodule/redigo\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# Makefile has a generate target\ntask \"generate\" {\n  run = \"make generate\"\n}\n\n# Makefile has a seed target\ntask \"seed\" {\n  run    = \"make seed\"\n  manual = true\n}\n\n# Makefile has a db-seed target\ntask \"db-seed\" {\n  run    = \"make db-seed\"\n  manual = true\n}\n\n# Makefile has a migrate target\ntask \"migrate\" {\n  run = \"make migrate\"\n}\n"
+  },
+  {
+   "name": "p038",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       package.json depends on pg\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p038\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p039",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/lib/pq\n  module   valkey         the code imports github.com/redis/go-redis/v9\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p039\"\n\n# the code imports github.com/lib/pq\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n"
+  },
+  {
+   "name": "p040",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   kafka          the code imports github.com/twmb/franz-go\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p040\"\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n"
+  },
+  {
+   "name": "p041",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       package.json depends on pg\n  module   valkey         package.json depends on bullmq\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p041\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p042",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p043",
+   "exit": 0,
+   "stdout": "Found in this project:\n  task     bootstrap      Makefile has a bootstrap target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p043\"\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n"
+  },
+  {
+   "name": "p044",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/redis/go-redis/v9\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p044\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n"
+  },
+  {
+   "name": "p045",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/gomodule/redigo\n  module   mariadb        compose.yaml has a mariadb service\n  service  es             compose.yaml has a es service (nats:2)\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p045\"\n\n# the code imports github.com/gomodule/redigo\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# compose.yaml has a mariadb service\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# compose.yaml has a es service (nats:2)\nservice \"es\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run = \"docker run --rm -p $HOST:$PORT:0 nats:2\"\n}\n"
+  },
+  {
+   "name": "p046",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   kafka          the code imports github.com/twmb/franz-go\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p046\"\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n"
+  },
+  {
+   "name": "p047",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/redis/go-redis/v9\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p047\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n"
+  },
+  {
+   "name": "p048",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         package.json depends on bullmq\n  task     generate       Makefile has a generate target\n  task     setup          Makefile has a setup target\n  task     seed           Makefile has a seed target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p048\"\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# Makefile has a generate target\ntask \"generate\" {\n  run = \"make generate\"\n}\n\n# Makefile has a setup target\ntask \"setup\" {\n  run = \"make setup\"\n}\n\n# Makefile has a seed target\ntask \"seed\" {\n  run    = \"make seed\"\n  manual = true\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p049",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p050",
+   "exit": 0,
+   "stdout": "Found in this project:\n  task     generate       Makefile has a generate target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p050\"\n\n# Makefile has a generate target\ntask \"generate\" {\n  run = \"make generate\"\n}\n"
+  },
+  {
+   "name": "p051",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   mariadb        package.json depends on mysql2\n  task     seed           Makefile has a seed target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p051\"\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# Makefile has a seed target\ntask \"seed\" {\n  run    = \"make seed\"\n  manual = true\n}\n"
+  },
+  {
+   "name": "p052",
+   "exit": 0,
+   "stdout": "Found in this project:\n  task     bootstrap      Makefile has a bootstrap target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p052\"\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n"
+  },
+  {
+   "name": "p053",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/redis/go-redis/v9\n  service  mongo          the code imports go.mongodb.org/mongo-driver\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p053\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports go.mongodb.org/mongo-driver\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n"
+  },
+  {
+   "name": "p054",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         compose.yaml has a redis service\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p054\"\n\n# compose.yaml has a redis service\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n"
+  },
+  {
+   "name": "p055",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       compose.yaml has a postgres service\n  module   kafka          compose.yaml has a bitnami/kafka service\n  task     bootstrap      Makefile has a bootstrap target\n  task     setup          Makefile has a setup target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p055\"\n\n# compose.yaml has a postgres service\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# compose.yaml has a bitnami/kafka service\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n\n# Makefile has a setup target\ntask \"setup\" {\n  run = \"make setup\"\n}\n"
+  },
+  {
+   "name": "p056",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p057",
+   "exit": 0,
+   "stdout": "Found in this project:\n  service  mongo          the code imports go.mongodb.org/mongo-driver\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p057\"\n\n# the code imports go.mongodb.org/mongo-driver\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n"
+  },
+  {
+   "name": "p058",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p058\"\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p059",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p060",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       compose.yaml has a postgres service\n  service  mongo          compose.yaml has a mongo service\n  service  store          compose.yaml has a store service (nats:2)\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p060\"\n\n# compose.yaml has a postgres service\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# compose.yaml has a mongo service\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n\n# compose.yaml has a store service (nats:2)\nservice \"store\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run = \"docker run --rm -p $HOST:$PORT:0 nats:2\"\n}\n"
+  },
+  {
+   "name": "p061",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p061\"\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p062",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p063",
+   "exit": 0,
+   "stdout": "Found in this project:\n  task     db-seed        Makefile has a db-seed target\n  task     bootstrap      Makefile has a bootstrap target\n  task     codegen        Makefile has a codegen target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p063\"\n\n# Makefile has a db-seed target\ntask \"db-seed\" {\n  run    = \"make db-seed\"\n  manual = true\n}\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n\n# Makefile has a codegen target\ntask \"codegen\" {\n  run = \"make codegen\"\n}\n"
+  },
+  {
+   "name": "p064",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p065",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/jackc/pgx/v5\n  task     generate       Makefile has a generate target\n  task     migrate        Makefile has a migrate target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p065\"\n\n# the code imports github.com/jackc/pgx/v5\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# Makefile has a generate target\ntask \"generate\" {\n  run = \"make generate\"\n}\n\n# Makefile has a migrate target\ntask \"migrate\" {\n  run = \"make migrate\"\n}\n"
+  },
+  {
+   "name": "p066",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/jackc/pgx/v5\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n  service  mongo          the code imports go.mongodb.org/mongo-driver\n  task     db-seed        Makefile has a db-seed target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p066\"\n\n# the code imports github.com/jackc/pgx/v5\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# the code imports go.mongodb.org/mongo-driver\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n\n# Makefile has a db-seed target\ntask \"db-seed\" {\n  run    = \"make db-seed\"\n  manual = true\n}\n"
+  },
+  {
+   "name": "p067",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   kafka          the code imports github.com/twmb/franz-go\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p067\"\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n"
+  },
+  {
+   "name": "p068",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       package.json depends on pg\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p068\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n"
+  },
+  {
+   "name": "p069",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         compose.yaml has a redis service\n  module   mariadb        compose.yaml has a mariadb service\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p069\"\n\n# compose.yaml has a redis service\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# compose.yaml has a mariadb service\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n"
+  },
+  {
+   "name": "p070",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       package.json depends on pg\n  module   kafka          the code imports github.com/IBM/sarama\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p070\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/IBM/sarama\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n"
+  },
+  {
+   "name": "p071",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       package.json depends on pg\n  module   valkey         package.json depends on bullmq\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p071\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p072",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/jackc/pgx/v5\n  module   valkey         the code imports github.com/gomodule/redigo\n  module   kafka          compose.yaml has a bitnami/kafka service\n  task     bootstrap      Makefile has a bootstrap target\n  task     db-seed        Makefile has a db-seed target\n  task     migrate        Makefile has a migrate target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p072\"\n\n# the code imports github.com/jackc/pgx/v5\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/gomodule/redigo\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# compose.yaml has a bitnami/kafka service\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n\n# Makefile has a db-seed target\ntask \"db-seed\" {\n  run    = \"make db-seed\"\n  manual = true\n}\n\n# Makefile has a migrate target\ntask \"migrate\" {\n  run = \"make migrate\"\n}\n"
+  },
+  {
+   "name": "p073",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   kafka          the code imports github.com/IBM/sarama\n  service  mongo          the code imports go.mongodb.org/mongo-driver\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p073\"\n\n# the code imports github.com/IBM/sarama\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# the code imports go.mongodb.org/mongo-driver\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n"
+  },
+  {
+   "name": "p074",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       package.json depends on pg\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p074\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p075",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p076",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         the code imports github.com/gomodule/redigo\n  .env.example lists variables; copy it to .env and the apps will read it\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p076\"\n\n# the code imports github.com/gomodule/redigo\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run = \"npm run dev\"\n}\n"
+  },
+  {
+   "name": "p077",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/redis/go-redis/v9\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p077\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n"
+  },
+  {
+   "name": "p078",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p079",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      p079           a Go main package at the project root\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p079\"\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n\n# a Go main package at the project root\napp \"p079\" {\n  run      = \"go run .\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p080",
+   "exit": 0,
+   "stdout": "Found in this project:\n  task     bootstrap      Makefile has a bootstrap target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p080\"\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n"
+  },
+  {
+   "name": "p081",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/lib/pq\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n  service  mongo          the code imports go.mongodb.org/mongo-driver\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p081\"\n\n# the code imports github.com/lib/pq\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# the code imports go.mongodb.org/mongo-driver\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n"
+  },
+  {
+   "name": "p082",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p083",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/redis/go-redis/v9\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p083\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n"
+  },
+  {
+   "name": "p084",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   kafka          the code imports github.com/twmb/franz-go\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p084\"\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n"
+  },
+  {
+   "name": "p085",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/redis/go-redis/v9\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n  service  mongo          the code imports go.mongodb.org/mongo-driver\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p085\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n\n# the code imports go.mongodb.org/mongo-driver\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n"
+  },
+  {
+   "name": "p086",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         package.json depends on bullmq\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p086\"\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p087",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       compose.yaml has a postgres service\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p087\"\n\n# compose.yaml has a postgres service\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n"
+  },
+  {
+   "name": "p088",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/jackc/pgx/v5\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p088\"\n\n# the code imports github.com/jackc/pgx/v5\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n"
+  },
+  {
+   "name": "p089",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       compose.yaml has a postgres service\n  module   valkey         package.json depends on bullmq\n  module   kafka          compose.yaml has a bitnami/kafka service\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n  module   mariadb        package.json depends on mysql2\n  service  mongo          compose.yaml has a mongo service\n  task     setup          Makefile has a setup target\n  task     codegen        Makefile has a codegen target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p089\"\n\n# compose.yaml has a postgres service\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# compose.yaml has a bitnami/kafka service\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# compose.yaml has a mongo service\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n\n# Makefile has a setup target\ntask \"setup\" {\n  run = \"make setup\"\n}\n\n# Makefile has a codegen target\ntask \"codegen\" {\n  run = \"make codegen\"\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p090",
+   "exit": 0,
+   "stdout": "Found in this project:\n  task     generate       Makefile has a generate target\n  task     setup          Makefile has a setup target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p090\"\n\n# Makefile has a generate target\ntask \"generate\" {\n  run = \"make generate\"\n}\n\n# Makefile has a setup target\ntask \"setup\" {\n  run = \"make setup\"\n}\n"
+  },
+  {
+   "name": "p091",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         package.json depends on bullmq\n  task     generate       Makefile has a generate target\n  task     codegen        Makefile has a codegen target\n  task     seed           Makefile has a seed target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p091\"\n\n# package.json depends on bullmq\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# Makefile has a generate target\ntask \"generate\" {\n  run = \"make generate\"\n}\n\n# Makefile has a codegen target\ntask \"codegen\" {\n  run = \"make codegen\"\n}\n\n# Makefile has a seed target\ntask \"seed\" {\n  run    = \"make seed\"\n  manual = true\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p092",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p093",
+   "exit": 0,
+   "stdout": "Found in this project:\n  task     db-seed        Makefile has a db-seed target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p093\"\n\n# Makefile has a db-seed target\ntask \"db-seed\" {\n  run    = \"make db-seed\"\n  manual = true\n}\n"
+  },
+  {
+   "name": "p094",
+   "exit": 0,
+   "stdout": "Found in this project:\n  task     bootstrap      Makefile has a bootstrap target\n  task     codegen        Makefile has a codegen target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p094\"\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n\n# Makefile has a codegen target\ntask \"codegen\" {\n  run = \"make codegen\"\n}\n"
+  },
+  {
+   "name": "p095",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       package.json depends on pg\n  module   valkey         compose.yaml has a redis service\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p095\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# compose.yaml has a redis service\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p096",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p097",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/redis/go-redis/v9\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p097\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n"
+  },
+  {
+   "name": "p098",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      p098           a Go main package at the project root\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n  task     bootstrap      Makefile has a bootstrap target\n  task     codegen        Makefile has a codegen target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p098\"\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n\n# Makefile has a codegen target\ntask \"codegen\" {\n  run = \"make codegen\"\n}\n\n# a Go main package at the project root\napp \"p098\" {\n  run      = \"go run .\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p099",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p100",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/redis/go-redis/v9\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p100\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n"
+  },
+  {
+   "name": "p101",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/gomodule/redigo\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p101\"\n\n# the code imports github.com/gomodule/redigo\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n"
+  },
+  {
+   "name": "p102",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/jackc/pgx/v5\n  module   kafka          the code imports github.com/twmb/franz-go\n  service  mongo          the code imports go.mongodb.org/mongo-driver\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p102\"\n\n# the code imports github.com/jackc/pgx/v5\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# the code imports go.mongodb.org/mongo-driver\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n"
+  },
+  {
+   "name": "p103",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         the code imports github.com/redis/go-redis/v9\n  service  mongo          the code imports go.mongodb.org/mongo-driver\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p103\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports go.mongodb.org/mongo-driver\nservice \"mongo\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run  = \"docker run --rm -p $HOST:$PORT:27017 mongo:7\"\n  port = 27017\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p104",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         the code imports github.com/redis/go-redis/v9\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p104\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p105",
+   "exit": 0,
+   "stdout": "Found in this project:\n  task     setup          Makefile has a setup target\n  task     bootstrap      Makefile has a bootstrap target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p105\"\n\n# Makefile has a setup target\ntask \"setup\" {\n  run = \"make setup\"\n}\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n"
+  },
+  {
+   "name": "p106",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       the code imports github.com/lib/pq\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p106\"\n\n# the code imports github.com/lib/pq\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p107",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   valkey         the code imports github.com/gomodule/redigo\n  module   kafka          the code imports github.com/twmb/franz-go\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n  module   mariadb        package.json depends on mysql2\n  task     db-seed        Makefile has a db-seed target\n  task     codegen        Makefile has a codegen target\n  task     seed           Makefile has a seed target\n  task     migrate        Makefile has a migrate target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p107\"\n\n# the code imports github.com/gomodule/redigo\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# Makefile has a db-seed target\ntask \"db-seed\" {\n  run    = \"make db-seed\"\n  manual = true\n}\n\n# Makefile has a codegen target\ntask \"codegen\" {\n  run = \"make codegen\"\n}\n\n# Makefile has a seed target\ntask \"seed\" {\n  run    = \"make seed\"\n  manual = true\n}\n\n# Makefile has a migrate target\ntask \"migrate\" {\n  run = \"make migrate\"\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p108",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p108\"\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n"
+  },
+  {
+   "name": "p109",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/jackc/pgx/v5\n  module   kafka          the code imports github.com/twmb/franz-go\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n  task     bootstrap      Makefile has a bootstrap target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p109\"\n\n# the code imports github.com/jackc/pgx/v5\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# Makefile has a bootstrap target\ntask \"bootstrap\" {\n  run = \"make bootstrap\"\n}\n"
+  },
+  {
+   "name": "p110",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/redis/go-redis/v9\n  module   mariadb        the code imports github.com/go-sql-driver/mysql\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p110\"\n\n# the code imports github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/go-sql-driver/mysql\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n"
+  },
+  {
+   "name": "p111",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       package.json depends on pg\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p111\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p112",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       the code imports github.com/jackc/pgx/v5\n  module   kafka          the code imports github.com/twmb/franz-go\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p112\"\n\n# the code imports github.com/jackc/pgx/v5\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n"
+  },
+  {
+   "name": "p113",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      storefront     package.json has a dev script\n  module   postgres       package.json depends on pg\n  module   mariadb        package.json depends on mysql2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p113\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# package.json depends on mysql2\nmodule mariadb \"sql\" {\n  version = 11\n  port    = 3306\n}\n\n# package.json has a dev script\napp \"storefront\" {\n  run      = \"npm run dev\"\n  env_file = \".env\"\n}\n"
+  },
+  {
+   "name": "p114",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   postgres       package.json depends on pg\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p114\"\n\n# package.json depends on pg\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n"
+  },
+  {
+   "name": "p115",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/gomodule/redigo\n  module   kafka          the code imports github.com/IBM/sarama\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p115\"\n\n# the code imports github.com/gomodule/redigo\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/IBM/sarama\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n"
+  },
+  {
+   "name": "p116",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   kafka          compose.yaml has a bitnami/kafka service\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n  service  db             compose.yaml has a db service (nats:2)\n  service  store          compose.yaml has a store service (minio/minio)\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p116\"\n\n# compose.yaml has a bitnami/kafka service\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n\n# compose.yaml has a db service (nats:2)\nservice \"db\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run = \"docker run --rm -p $HOST:$PORT:0 nats:2\"\n}\n\n# compose.yaml has a store service (minio/minio)\nservice \"store\" {\n  # a container: a container is just a command, and `run` stays in the foreground\n  run = \"docker run --rm -p $HOST:$PORT:0 minio/minio\"\n}\n"
+  },
+  {
+   "name": "p117",
+   "exit": 0,
+   "stdout": "✓ wrote doze.hcl — postgres\n  next: doze lint   ·   doze up   ·   doze status\n",
+   "file": "# doze.hcl — declarative local services, no Docker.\n# Each instance pins its own port; doze boots it on first connect, reaps when idle.\n# Edit freely, then: doze lint · doze up · doze status\n\ndefaults {\n  sleep = \"2m\"\n  names = true # DNS names per service: <name>.<stack>.doze, e.g. app.myproject.doze:5432\n}\n\nmodule postgres \"app\" {\n  version = 18\n  port    = 5432\n\n  role \"app\" { password = \"app\" }\n}\n"
+  },
+  {
+   "name": "p118",
+   "exit": 0,
+   "stdout": "Found in this project:\n  module   valkey         the code imports github.com/gomodule/redigo\n  module   kafka          the code imports github.com/IBM/sarama\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p118\"\n\n# the code imports github.com/gomodule/redigo\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/IBM/sarama\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n"
+  },
+  {
+   "name": "p119",
+   "exit": 0,
+   "stdout": "Found in this project:\n  task     db-seed        Makefile has a db-seed target\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"p119\"\n\n# Makefile has a db-seed target\ntask \"db-seed\" {\n  run    = \"make db-seed\"\n  manual = true\n}\n"
+  },
+  {
+   "name": "shop",
+   "exit": 0,
+   "stdout": "Found in this project:\n  app      api            a Go main package at cmd/api\n  app      web            a Go main package at cmd/web\n  app      worker         a Go main package at cmd/worker\n  module   postgres       the code imports github.com/jackc/pgx/v5\n  module   valkey         the code reads CACHE_ADDR\n  module   kafka          the code imports github.com/twmb/franz-go\n  module   aws            the code imports github.com/aws/aws-sdk-go-v2\n\n✓ wrote doze.hcl\n  next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more\n",
+   "file": "stack = \"shop\"\n\n# the code imports github.com/jackc/pgx/v5\nmodule postgres \"db\" {\n  version = 18\n  port    = 5432\n}\n\n# the code reads CACHE_ADDR\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n\n# the code imports github.com/twmb/franz-go\nmodule kafka \"events\" {\n  version = 4\n  port    = 9092\n}\n\n# the code imports github.com/aws/aws-sdk-go-v2\nmodule aws \"cloud\" {\n  port = 4566\n}\n\n# a Go main package at cmd/api\napp \"api\" {\n  run = \"go run ./cmd/api\"\n  # it reads $PORT, so it is given a port — change it if you like\n  port = 8080\n\n  env = {\n    CACHE_ADDR    = module.cache.address\n    DATABASE_URL  = module.db.url\n    KAFKA_BROKERS = module.events.address\n  }\n}\n\n# a Go main package at cmd/web\napp \"web\" {\n  run = \"go run ./cmd/web\"\n  # it reads $PORT, so it is given a port — change it if you like\n  port = 8081\n}\n\n# a Go main package at cmd/worker\napp \"worker\" {\n  run = \"go run ./cmd/worker\"\n\n  env = {\n    AWS_ENDPOINT  = module.cloud.url\n    KAFKA_BROKERS = module.events.address\n  }\n}\n"
+  }
+ ]
+}
