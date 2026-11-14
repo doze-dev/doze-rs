@@ -35,6 +35,22 @@ pub(crate) async fn respond(
     body: Incoming,
     claim: Claim,
 ) -> Response<RespBody> {
+    let region = claim.region.clone();
+    let mut response = respond_inner(shared, entry, id, parts, body, claim).await;
+    if !is_json(entry) {
+        crate::cors::decorate(entry, parts, &region, &mut response).await;
+    }
+    response
+}
+
+async fn respond_inner(
+    shared: &Shared,
+    entry: &Entry,
+    id: &RequestId,
+    parts: &Parts,
+    body: Incoming,
+    claim: Claim,
+) -> Response<RespBody> {
     let head = parts.method == Method::HEAD;
     let json = is_json(entry);
     match handle(shared, entry, id, parts, body, claim).await {

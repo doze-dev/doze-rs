@@ -8,12 +8,12 @@
 use aws_iam_policy::{Context, Decision, Document, Layer, Policies, Request, Subject, Verdict};
 use aws_peers::{Mode, Need};
 use aws_wire::ApiError;
-use aws_wire::service::{Call, Caller};
+use aws_wire::service::Caller;
 
-use crate::core::{Core, Which};
+use crate::accesslog::Seen;
+use crate::core::Core;
 use crate::gather::Docs;
 use crate::model::{Entity, Kind};
-use crate::req::Req;
 use crate::session::{Session, SessionKind, TokenFault};
 
 /// Context keys AWS supplies on a real request and this emulator cannot: a condition that hangs on one is a guess, and the log says so.
@@ -31,6 +31,10 @@ const UNSUPPLIED: &[&str] = &[
     "aws:ResourceAccount",
 ];
 
+/// How often the last use of a credential is written: at most once a minute for each key or role. AWS itself says its last-used
+/// data may lag by hours, so a minute is closer than anyone can tell, and a busy key does not write on every request.
+const LAST_USED_EVERY_MS: i64 = 60_000;
+
 /// A caller, resolved.
 #[derive(Debug)]
 struct Principal {
@@ -41,6 +45,19 @@ struct Principal {
     boundary: Docs,
     session: Option<Docs>,
     context: Context,
+    /// The credential whose last use is noted.
+    used: Used,
+}
+
+/// What a request was made with, for `GetAccessKeyLastUsed` and `RoleLastUsed`.
+#[derive(Debug)]
+enum Used {
+    /// An access key IAM issued.
+    Key(String),
+    /// A session of a role this account has.
+    Role(String),
+    /// Anything else (a session for a role IAM does not hold, a user's own session token).
+    Nothing,
 }
 
 /// Who a request comes from.
@@ -52,21 +69,55 @@ enum Resolved {
 }
 
 impl Core {
-    /// Whether `caller` may do all of `needs`. In soft mode the answer is always yes (a refusal is logged).
-    pub(crate) fn authorize(&self, caller: &Caller, needs: &[Need]) -> Result<(), ApiError> {
+    /// Whether `caller` may do all of `needs`. In soft mode the answer is always yes (a refusal is logged). Every question is kept
+    /// in [`Core::seen`] for the access log, and the credential's last use is noted.
+    pub(crate) fn authorize(&mut self, caller: &Caller, needs: &[Need]) -> Result<(), ApiError> {
         if self.mode == Mode::Off {
             return Ok(());
         }
         let principal = match self.resolve(caller)? {
-            Resolved::Root => return Ok(()),
+            Resolved::Root => {
+                let now = self.now_ms();
+                let root = format!("arn:aws:iam::{}:root", caller.account_id);
+                self.seen.extend(needs.iter().map(|need| Seen {
+                    principal: root.clone(),
+                    role: None,
+                    action: need.action.clone(),
+                    resource: need.resource.clone(),
+                    decision: "allowed",
+                    reason: "the account root is allowed everything".into(),
+                    at_ms: now,
+                }));
+                return Ok(());
+            }
             Resolved::Principal(p) => p,
         };
+        self.note_use(&principal.used, caller, needs);
         for need in needs {
             let (decision, resource_docs) = self.decide(&principal, caller, need);
-            if decision.allowed() {
+            let why = (!decision.allowed()).then(|| why_refused(&principal, need, &decision));
+            self.seen.push(Seen {
+                principal: principal.shown.clone(),
+                role: principal.subject.arns.get(1).cloned(),
+                action: need.action.clone(),
+                resource: need.resource.clone(),
+                decision: match decision.verdict {
+                    Verdict::Allow => "allowed",
+                    Verdict::ExplicitDeny => "explicitDeny",
+                    Verdict::ImplicitDeny => "implicitDeny",
+                },
+                reason: why
+                    .clone()
+                    .unwrap_or_else(|| allowed_by(&principal, &decision)),
+                at_ms: self.now_ms(),
+            });
+            let Some(why) = why else {
                 continue;
-            }
-            let message = refusal(&principal, need, &decision);
+            };
+            let message = format!(
+                "User: {} is not authorized to perform: {} on resource: {} {why}",
+                principal.shown, need.action, need.resource
+            );
             if self.mode == Mode::Enforce {
                 return Err(ApiError::new(400, "AccessDeniedException", message));
             }
@@ -153,14 +204,10 @@ impl Core {
             .set("aws:EpochTime", now.to_string())
             .set("aws:RequestedRegion", caller.region.clone())
             .set("aws:PrincipalAccount", caller.account_id.clone())
-            .set(
-                "aws:SecureTransport",
-                if caller.endpoint.starts_with("https") {
-                    "true"
-                } else {
-                    "false"
-                },
-            )
+            // Always true. The local hop is plain HTTP, but it stands in for AWS's endpoint, which the same SDK reaches over TLS:
+            // reporting the local transport would make the usual deny-unless-TLS policy (CDK's `enforceSSL`, the standard S3 and
+            // SQS hardening) refuse every request, where on AWS it never fires. The Go edition did the same.
+            .set("aws:SecureTransport", "true")
             .set(
                 "aws:ViaAWSService",
                 if caller.service.is_some() {
@@ -194,6 +241,7 @@ impl Core {
             boundary,
             session: None,
             context: self.base_context(caller, c),
+            used: Used::Key(caller.access_key_id.clone()),
         }
     }
 
@@ -201,6 +249,10 @@ impl Core {
         let role = s.subject.rsplit('/').next().unwrap_or_default();
         let entity = self.entity(Kind::Role, role).ok();
         let (identity, boundary) = entity.map(|e| self.policies_of(e)).unwrap_or_default();
+        let used = match entity {
+            Some(e) if s.kind == SessionKind::Role => Used::Role(e.name.clone()),
+            _ => Used::Nothing,
+        };
         let arn = format!("arn:aws:sts::{}:assumed-role/{role}/{}", s.account, s.name);
         let mut c = Context::new();
         c.set("aws:userid", s.id.clone())
@@ -232,6 +284,7 @@ impl Core {
             boundary,
             session,
             context: self.base_context(caller, c),
+            used,
         }
     }
 }
@@ -242,15 +295,10 @@ fn tags<'a>(c: &mut Context, pairs: impl Iterator<Item = (&'a String, &'a String
     }
 }
 
-/// AWS's sentence for a refusal: who, what, on what, and which layer said no.
-fn refusal(p: &Principal, need: &Need, d: &Decision) -> String {
-    let who = &p.shown;
+/// The end of AWS's sentence for a refusal (after who, what and on what): which layer said no.
+fn why_refused(p: &Principal, need: &Need, d: &Decision) -> String {
     let action = &need.action;
-    let head = format!(
-        "User: {who} is not authorized to perform: {action} on resource: {} ",
-        need.resource
-    );
-    let why = if d.verdict == Verdict::ExplicitDeny {
+    if d.verdict == Verdict::ExplicitDeny {
         let layer = match d.denied_by() {
             Some(Layer::Boundary) => "a permissions boundary",
             Some(Layer::Session) => "a session policy",
@@ -274,133 +322,78 @@ fn refusal(p: &Principal, need: &Need, d: &Decision) -> String {
             "session policy"
         };
         format!("because no {missing} allows the {action} action")
+    }
+}
+
+/// For the access log: the statement that let a request through.
+fn allowed_by(p: &Principal, d: &Decision) -> String {
+    let Some(m) = d
+        .matched
+        .iter()
+        .find(|m| m.effect == aws_iam_policy::Effect::Allow)
+    else {
+        return "allowed".into();
     };
-    format!("{head}{why}")
-}
-
-impl Core {
-    /// Every thing a call to IAM or STS asks to do. `GetCallerIdentity` and `GetSessionToken` are never asked about: AWS lets any
-    /// caller see who they are, and a session token is made from what a user already has.
-    pub(crate) fn needs_of(&self, which: Which, call: &Call) -> Vec<Need> {
-        let r = Req::new(call);
-        match which {
-            Which::Sts => self.sts_needs(call, &r),
-            Which::Iam => {
-                let Some(op) = aws_model_iam::Operation::from_index(call.op) else {
-                    return Vec::new();
-                };
-                let mut need = Need::new(
-                    format!("iam:{op:?}"),
-                    self.iam_resource(op, &r, &call.caller),
-                );
-                if let Some(arn) = r.opt("PolicyArn") {
-                    need = need.with("iam:PolicyARN", vec![arn.to_owned()]);
-                }
-                if let Some(arn) = r.opt("PermissionsBoundary") {
-                    need = need.with("iam:PermissionsBoundary", vec![arn.to_owned()]);
-                }
-                vec![need]
-            }
-        }
-    }
-
-    fn sts_needs(&self, call: &Call, r: &Req<'_>) -> Vec<Need> {
-        use aws_model_sts::Operation as O;
-        let Some(op) = O::from_index(call.op) else {
-            return Vec::new();
-        };
-        match op {
-            O::GetCallerIdentity
-            | O::GetSessionToken
-            | O::AssumeRoleWithWebIdentity
-            | O::AssumeRoleWithSAML => Vec::new(),
-            O::AssumeRole => {
-                let arn = r.s("RoleArn");
-                let trust = arn
-                    .rsplit('/')
-                    .next()
-                    .and_then(|name| self.entity(Kind::Role, name).ok())
-                    .and_then(|role| role.trust.clone());
-                vec![Need::new("sts:AssumeRole", arn).with_policy(trust).gated()]
-            }
-            other => vec![Need::new(format!("sts:{other:?}"), "*")],
-        }
-    }
-
-    /// The ARN of what an IAM operation is on: the entity, policy or profile it names, else `*`.
-    fn iam_resource(&self, op: aws_model_iam::Operation, r: &Req<'_>, caller: &Caller) -> String {
-        use aws_model_iam::Operation as O;
-        let account = &caller.account_id;
-        let entity = |kind: Kind, name: &str| {
-            self.entity(kind, name).map_or_else(
-                |_| {
-                    let path = r.opt("Path").unwrap_or("/");
-                    format!("arn:aws:iam::{account}:{}{path}{name}", kind.word())
-                },
-                |e| e.arn.clone(),
-            )
-        };
-        let group_first = matches!(op, O::AddUserToGroup | O::RemoveUserFromGroup);
-        if group_first && let Some(name) = r.opt("GroupName") {
-            return entity(Kind::Group, name);
-        }
-        if let Some(name) = r.opt("UserName") {
-            return entity(Kind::User, name);
-        }
-        if let Some(name) = r.opt("GroupName") {
-            return entity(Kind::Group, name);
-        }
-        if let Some(name) = r.opt("RoleName") {
-            return entity(Kind::Role, name);
-        }
-        for member in ["PolicyArn", "OpenIDConnectProviderArn", "SAMLProviderArn"] {
-            if let Some(arn) = r.opt(member) {
-                return arn.to_owned();
-            }
-        }
-        if let Some(name) = r.opt("InstanceProfileName") {
-            let path = r.opt("Path").unwrap_or("/");
-            return self.profiles.get(name).map_or_else(
-                || format!("arn:aws:iam::{account}:instance-profile{path}{name}"),
-                |p| p.arn.clone(),
-            );
-        }
-        // A key made or listed without a user is the caller's own.
-        if matches!(op, O::CreateAccessKey | O::ListAccessKeys)
-            && let Ok(Resolved::Principal(p)) = self.resolve(caller)
-            && let Some(arn) = p.subject.arns.first()
-        {
-            return arn.clone();
-        }
-        "*".to_owned()
+    let source = match m.layer {
+        Layer::Identity => p.identity.sources.get(m.document),
+        Layer::Boundary => p.boundary.sources.get(m.document),
+        Layer::Session => p.session.as_ref().and_then(|s| s.sources.get(m.document)),
+        Layer::Resource => None,
+    };
+    let statement = m
+        .sid
+        .clone()
+        .unwrap_or_else(|| format!("statement {}", m.statement + 1));
+    match source {
+        Some(s) => format!("allowed by {statement} of {} ({})", s.id, s.kind),
+        None => format!("allowed by {statement} of the resource-based policy"),
     }
 }
 
 impl Core {
-    /// The credential behind an access key id, for checking a signature: the secret of an access key IAM issued (while it is
-    /// active), or the one a role session derives (with the token the request must carry and the time it runs out).
-    pub(crate) fn credential(
-        &self,
-        access_key_id: &str,
-        token: Option<&str>,
-    ) -> Option<aws_auth::Credential> {
-        if access_key_id.starts_with("ASIA") {
-            let key = self.account().signing_key;
-            let session = Session::read(token?, &key)?;
-            if session.access_key_id(&key) != access_key_id {
-                return None;
+    /// Notes that the credential behind a request was used: at most once a minute for each, so a busy key costs no writes.
+    fn note_use(&mut self, used: &Used, caller: &Caller, needs: &[Need]) {
+        let now = self.now_ms();
+        let fresh = |at: i64| now - at < LAST_USED_EVERY_MS;
+        // The service is the one the request was for, as the action names it (`sqs` for `sqs:SendMessage`).
+        let service = needs
+            .first()
+            .and_then(|n| n.action.split_once(':'))
+            .map_or("N/A", |(s, _)| s);
+        match used {
+            Used::Key(id) => {
+                if self
+                    .keys
+                    .get(id)
+                    .is_some_and(|k| k.last_used.as_ref().is_some_and(|(at, _, _)| fresh(*at)))
+                {
+                    return;
+                }
+                if let Some(k) = self.keys.get_mut(id) {
+                    // (memory) AWS names the service by its lower-case namespace; SNS's actions are spelled `SNS:...`.
+                    k.last_used = Some((now, service.to_ascii_lowercase(), caller.region.clone()));
+                }
             }
-            return Some(aws_auth::Credential {
-                secret: aws_auth::Secret::new(session.secret_access_key(&key)),
-                session_token: token.map(str::to_owned),
-                expires_at: Some(session.expires_ms / 1000),
-            });
+            Used::Role(name) => {
+                if self
+                    .entity(Kind::Role, name)
+                    .is_ok_and(|e| e.last_used.as_ref().is_some_and(|(at, _)| fresh(*at)))
+                {
+                    return;
+                }
+                if let Ok(e) = self.entity_mut(Kind::Role, name) {
+                    e.last_used = Some((now, caller.region.clone()));
+                }
+            }
+            Used::Nothing => {}
         }
-        let issued = self.keys.get(access_key_id).filter(|k| k.active)?;
-        Some(aws_auth::Credential {
-            secret: aws_auth::Secret::new(issued.secret.clone()),
-            session_token: None,
-            expires_at: None,
-        })
+    }
+
+    /// The ARN of the IAM identity behind `caller` (a user's, or a role session's), when it is one.
+    pub(crate) fn caller_arn(&self, caller: &Caller) -> Option<String> {
+        match self.resolve(caller) {
+            Ok(Resolved::Principal(p)) => p.subject.arns.into_iter().next(),
+            _ => None,
+        }
     }
 }

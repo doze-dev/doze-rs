@@ -406,6 +406,7 @@ fn output_json(op: Operation, out: &aws_wire::service::Output) -> Value {
 
 mod long_poll;
 mod persistence;
+mod retention;
 
 /// A directory of its own that goes away with it.
 struct TempDir(std::path::PathBuf);

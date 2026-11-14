@@ -121,6 +121,7 @@ pub fn home(state: HomeState) -> HomeView {
         }
         _ => (9, 21),
     };
+    let spoke = (state != HomeState::Quiet).then(crate::fixtures_live::spoke);
     HomeView {
         state,
         listen: ADDRESS.to_owned(),
@@ -129,6 +130,8 @@ pub fn home(state: HomeState) -> HomeView {
         partitions,
         probe: probe_ok(),
         instance,
+        unchecked: 0,
+        spoke,
     }
 }
 
@@ -146,8 +149,8 @@ pub fn connect() -> ConnectView {
 
 /// The top bar of the default world.
 #[must_use]
-pub fn chrome() -> crate::ui::shell::Chrome {
-    crate::ui::shell::Chrome {
+pub fn chrome() -> crate::model::Chrome {
+    crate::model::Chrome {
         address: ADDRESS.to_owned(),
         profile: "Kafka 4 profile".to_owned(),
         security: "Open".to_owned(),

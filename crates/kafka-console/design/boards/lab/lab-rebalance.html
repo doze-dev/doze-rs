@@ -1,9 +1,0 @@
-<!--screen {"id":"lab-rebalance","title":"Force a rebalance","kind":"dialog","from":"lab-home","via":"Card: Force a rebalance","ops":["doze:ForceRebalance"],"refs":["grounding:K3","grounding:K11"],"data":"lab","extras":["api-preview"],"crumbs":[]} -->
-<h2>Force a rebalance</h2>
-<div class="body"><p style="margin:0 0 18px">Start a rebalance of one group now, without a member joining or leaving. Use it to see how your consumers behave when partitions are taken back and handed out again.</p>
-<div class="form" style="gap:20px">
-<div class="field"><div class="lab">Group</div><div class="input sel mono"><span>payments-workers</span>[[g:chev-d 14]]</div>
-<div class="help">Consumer protocol (KIP-848), Stable, epoch 14. 3 members read orders, one partition each.</div></div>
-<div class="teach"><b>What follows.</b> The group epoch rises from 14 to 15 and each member is asked to reconcile again. <span class="dim">With the same three members the partitions will most likely land where they were. The story names the cause as forced from the Lab.</span></div>
-<div class="apicall" data-extra="api-preview" style="padding:14px 18px"><div class="hd">[[g:code 14]]What it does</div><span class="mono" style="font-size:13px">doze:ForceRebalance group=payments-workers</span></div></div></div>
-<div class="foot"><a class="btn" href="@lab-home">Cancel</a><a class="btn pri" href="@lab-home" data-op="doze:ForceRebalance">Force rebalance</a></div>

@@ -1,4 +1,4 @@
-//! The awsQuery protocol (IAM, STS, SNS, CloudFormation): a form-encoded `Action` in, XML out. [`form`] reads the request into the
+//! The awsQuery protocol (IAM, STS, SNS, CloudFormation): a form-encoded `Action` in, XML out. `form` reads the request into the
 //! JSON the model decodes; [`success`] and [`failure`] write the answers.
 
 use aws_schema::meta::ServiceMeta;

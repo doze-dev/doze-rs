@@ -1,6 +1,7 @@
 //! The consumer group, driven by a number for a clock and a map for timers: no sleeps, no tasks.
 
 mod fetch;
+mod force;
 mod ownership;
 mod protocol;
 mod rights;
@@ -128,7 +129,7 @@ impl Rig {
             Effect::Disarm(kind) => {
                 self.timers.remove(&kind);
             }
-            Effect::Reply(..) | Effect::Forget(_) => {}
+            Effect::Reply(..) | Effect::Forget(_) | Effect::Note(_) => {}
         }
     }
 

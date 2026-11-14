@@ -10,6 +10,11 @@ use libfuzzer_sys::fuzz_target;
 fuzz_target!(|data: &[u8]| {
     let bytes = Bytes::copy_from_slice(data);
     let _ = kafka_wire::batch::Peek::read(data);
+    // A client telemetry payload under every codec: read to its end or refused, never past its limit.
+    for codec in 0..=5 {
+        let codec = kafka_wire::batch::Attributes::from_bits(codec).compression();
+        let _ = kafka_wire::batch::inflates_within(codec, data, 1 << 20);
+    }
     let _ = Batch::from_produce(
         &bytes,
         kafka_wire::batch::ProduceRules {

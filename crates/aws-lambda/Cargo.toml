@@ -42,5 +42,6 @@ tracing = "0.1"
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }
 aws-logs = { path = "../aws-logs" }
+aws-cloudwatch = { path = "../aws-cloudwatch" }
 aws-iam = { path = "../aws-iam" }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync", "net", "io-util", "process"] }

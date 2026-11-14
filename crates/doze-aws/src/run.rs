@@ -35,8 +35,12 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     peers.set_authorizer(iam.clone());
     // Under `--auth verify`, a key the command line does not name may be one IAM issued (an access key or a role session).
     config.credential_source = Some(iam.clone());
-    let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::new(Arc::new(ctx("cloudwatch"))));
+    let (cloudwatch, logs) = observability(&ctx, &args);
     let eventbridge = Arc::new(Eventbridge::new(Arc::new(ctx("eventbridge"))));
+    let states = Arc::new(aws_sfn::Sfn::with_config(
+        Arc::new(ctx("states")),
+        states_config(),
+    ));
     let (sqs, dynamodb, kinesis, lambda) = compute(&ctx, &args);
     let services: Vec<Arc<dyn Service>> = vec![
         iam,
@@ -46,29 +50,32 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         Arc::new(aws_secrets::Secrets::new(Arc::new(ctx("secretsmanager")))),
         Arc::new(aws_kms::Kms::new(Arc::new(ctx("kms")))),
         Arc::new(aws_sns::Sns::new(Arc::new(ctx("sns")))),
-        dynamodb,
+        dynamodb.clone(),
         Arc::new(aws_s3::S3::new(Arc::new(ctx("s3")))),
         kinesis,
-        Arc::new(aws_logs::Logs::new(Arc::new(ctx("logs")))),
+        logs,
         cloudwatch.clone(),
         eventbridge.clone(),
         lambda.clone(),
+        states.clone(),
+        Arc::new(aws_cloudformation::Cloudformation::with_config(
+            Arc::new(ctx("cloudformation")),
+            args.cloudformation(),
+        )),
     ];
-    let mut gateway = Gateway::new(config);
-    for service in services {
-        peers.register(Arc::clone(&service));
-        gateway = gateway.with(service);
-    }
-    let running = gateway
+    let running = gateway_of(config, services, &ctx, &peers, &dynamodb)
         .bind()
         .await
         .with_context(|| format!("listening on {}", args.listen))?;
     // Alarms that were pending when the process last stopped are judged again; nothing else would wake their region.
     cloudwatch.resume().await;
     eventbridge.resume().await;
+    dynamodb.resume().await;
     // Event source mappings that were enabled when the process last stopped poll again; functions find the other services here.
     lambda.set_endpoint(&format!("http://{}", running.local_addr()));
     lambda.resume().await;
+    // Executions that were running when the process last stopped carry on: calls that were out are made again, waits re-armed.
+    states.resume().await;
     // The line a supervisor (and the conformance harness) waits for.
     tracing::info!("doze-aws listening on {}", running.local_addr());
     wait_for_stop().await;
@@ -76,6 +83,55 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     running.shutdown().await;
     tasks.shutdown().await;
     Ok(())
+}
+
+/// CloudWatch and Logs with their local storage bounds from the command line.
+fn observability(
+    ctx: &impl Fn(&str) -> Ctx,
+    args: &Args,
+) -> (Arc<aws_cloudwatch::Cloudwatch>, Arc<dyn Service>) {
+    let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::with_settings(
+        Arc::new(ctx("cloudwatch")),
+        aws_cloudwatch::Settings {
+            retention: Duration::from_secs(args.cloudwatch_retention_hours * 3600),
+        },
+    ));
+    let settings = aws_logs::Settings {
+        retention: (args.logs_retention_days > 0)
+            .then(|| Duration::from_secs(args.logs_retention_days * 86_400)),
+        max_events: args.logs_max_events,
+    };
+    let logs = Arc::new(aws_logs::Logs::with_settings(
+        Arc::new(ctx("logs")),
+        settings,
+    ));
+    (cloudwatch, logs)
+}
+
+/// The gateway with every service, each also on the bus; then the services that share a signing name with another, which the bus
+/// cannot key by it.
+fn gateway_of(
+    config: Config,
+    services: Vec<Arc<dyn Service>>,
+    ctx: &impl Fn(&str) -> Ctx,
+    peers: &Arc<Peers>,
+    dynamodb: &Arc<aws_dynamodb::Dynamodb>,
+) -> Gateway {
+    let mut gateway = Gateway::new(config);
+    for service in services {
+        peers.register(Arc::clone(&service));
+        gateway = gateway.with(service);
+    }
+    // DynamoDB Streams signs as `dynamodb` too: the gateway routes it by its target prefix, and it is not on the peer bus.
+    let streams = aws_dynamodb_streams::Streams::new(dynamodb.clone(), Some(peers.clone()));
+    gateway = gateway.with(Arc::new(streams));
+    // API Gateway's two APIs sign alike (`apigateway`); the gateway tells them apart by path, the bus by name.
+    let (rest_apis, http_apis) = aws_apigateway::services(Arc::new(ctx("apigateway")));
+    let (rest_apis, http_apis): (Arc<dyn Service>, Arc<dyn Service>) =
+        (Arc::new(rest_apis), Arc::new(http_apis));
+    peers.register_as("apigateway", Arc::clone(&rest_apis));
+    peers.register_as("apigatewayv2", Arc::clone(&http_apis));
+    gateway.with(rest_apis).with(http_apis)
 }
 
 /// Who may call: anyone (trust), or the one key from the command line (verify; IAM's own keys are added by the credential source).
@@ -140,6 +196,23 @@ fn lambda_config(args: &Args) -> aws_lambda::Config {
         },
         quiet: args.lambda_quiet,
     }
+}
+
+/// Step Functions' local-testing settings, from the environment: `DOZE_SFN_WAIT_SCALE` (every Wait and retry interval multiplied by
+/// it) and `SFN_MOCK_CONFIG` (Step Functions Local's mock configuration file; `DOZE_SFN_MOCK_CONFIG` also works).
+fn states_config() -> aws_sfn::Config {
+    let env = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
+    let mut config = aws_sfn::Config::default();
+    if let Some(scale) = env("DOZE_SFN_WAIT_SCALE").and_then(|s| s.parse::<f64>().ok()) {
+        config.wait_scale = scale.max(0.0);
+    }
+    if let Some(path) = env("DOZE_SFN_MOCK_CONFIG").or_else(|| env("SFN_MOCK_CONFIG")) {
+        match aws_sfn::Config::read_mocks(std::path::Path::new(&path)) {
+            Ok(mocks) => config.mocks = Some(mocks),
+            Err(e) => tracing::warn!("step functions: the mock configuration is not used: {e}"),
+        }
+    }
+    config
 }
 
 /// Resolves on Ctrl-C or, on Unix, SIGTERM.

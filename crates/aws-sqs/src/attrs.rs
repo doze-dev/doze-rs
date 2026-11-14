@@ -169,11 +169,13 @@ pub(crate) fn render(
     put("VisibilityTimeout", a.visibility_timeout.to_string());
     put("CreatedTimestamp", q.created_secs.to_string());
     put("LastModifiedTimestamp", q.modified_secs.to_string());
-    let inflight = q.messages.iter().filter(|m| m.in_flight(now_ms)).count();
-    let delayed = q.messages.iter().filter(|m| m.delayed(now_ms)).count();
+    // Counted against the clock: a message past its retention is gone whether or not it has been removed yet.
+    let live = || q.messages.iter().filter(|m| !q.expired(m, now_ms));
+    let inflight = live().filter(|m| m.in_flight(now_ms)).count();
+    let delayed = live().filter(|m| m.delayed(now_ms)).count();
     put(
         "ApproximateNumberOfMessages",
-        (q.messages.len() - inflight - delayed).to_string(),
+        (live().count() - inflight - delayed).to_string(),
     );
     put(
         "ApproximateNumberOfMessagesNotVisible",

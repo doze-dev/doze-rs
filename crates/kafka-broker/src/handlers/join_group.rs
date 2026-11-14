@@ -58,6 +58,11 @@ impl<F: Fs> Broker<F> {
             issued: false,
             id_first: version >= 4,
             rights: self.guard(caller).topic_rights(),
+            // What the client says, clipped as it is read and never logged: only the console's story keeps it.
+            reason: req
+                .reason
+                .as_ref()
+                .and_then(|r| crate::groups::Reason::clip(r.as_str())),
         };
         match self.groups.ask(&group, Req::Join(join)).await {
             Some(Answer::Join(answer)) => respond(version, &answer),

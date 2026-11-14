@@ -12,6 +12,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 // member is one running consumer of a group.
@@ -45,17 +47,38 @@ func main() {
 	sasl := flag.Bool("sasl", false, "run the SASL cells (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512 for each library) against a broker started with SASL, instead of the scenarios")
 	tlsCA := flag.String("tls-ca", "", "run the TLS cells over SASL_SSL at -broker and SSL at -broker-ssl, trusting this CA file (interop/run.sh -tls)")
 	sslAddr := flag.String("broker-ssl", "", "host:port of a broker with TLS and no SASL (with -tls-ca)")
+	flag.IntVar(&kafkaMajor, "kafka-major", 4, "the Kafka major the broker stands for (its --kafka-version): how the clients are configured")
 	flag.Parse()
+	if kafkaMajor < 1 || kafkaMajor > 4 {
+		fmt.Println("-kafka-major is 1 to 4")
+		os.Exit(2)
+	}
 	if *tlsCA != "" {
 		if !runTLS(*addr, *sslAddr, *tlsCA) {
 			os.Exit(1)
 		}
 		return
 	}
+	// What the broker offers decides what runs: a scenario that needs an API it does not advertise is skipped.
+	var ask []kgo.Opt
+	if *sasl {
+		ask = franzSasl{}.opts(*addr, "PLAIN", saslPassword())
+	}
+	var err error
+	if offered, err = askOffered(*addr, ask...); err != nil {
+		fmt.Println("FAIL ApiVersions:", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Kafka %d: the broker advertises %s\n", kafkaMajor, offered.summary())
 	if *sasl {
 		ok := runSasl(*addr)
-		// Then the users made over the API (AlterUserScramCredentials), by the same libraries.
-		if !runUsers(*addr) || !ok {
+		// Then the users made over the API (AlterUserScramCredentials), by the same libraries, where the major has them.
+		if gone := offered.missing(usersKeys); len(gone) > 0 {
+			fmt.Printf("skip sasl %-32s Kafka %d does not offer %s\n", "users", kafkaMajor, strings.Join(gone, ", "))
+		} else if !runUsers(*addr) {
+			ok = false
+		}
+		if !ok {
 			os.Exit(1)
 		}
 		return
@@ -108,6 +131,10 @@ func main() {
 	failed := false
 	for _, s := range scenarios {
 		if *only != "" && *only != s.title() {
+			continue
+		}
+		if why := skipReason(s); why != "" {
+			fmt.Printf("skip %-17s %s\n", s.title(), why)
 			continue
 		}
 		start := time.Now()
@@ -227,13 +254,21 @@ type scenario struct {
 
 func (s scenario) title() string { return s.name }
 
-// start joins each of the members to the group; it returns once they have all been started, not settled.
-func (s scenario) start(ctx context.Context, topic, group string, members []client, t *tally) (*running, error) {
+// start joins each of the members to the group; it returns once they have all been started, not settled. The first
+// is seated before the others start, so that it leads the group (the first to join leads, as in Kafka). Which library
+// leads matters: librdkafka gives nothing to a member whose subscription it cannot read, and kafka-go's is one.
+func (s scenario) start(ctx context.Context, adm admin, topic, group string, members []client, t *tally) (*running, error) {
 	r := &running{failed: make(chan error, 16)}
-	for _, m := range members {
+	for i, m := range members {
 		if _, err := r.add(ctx, m, topic, group, s.assignor, t); err != nil {
 			r.stop()
 			return nil, err
+		}
+		if i == 0 && len(members) > 1 {
+			if _, err := adm.waitMembers(group, 1); err != nil {
+				r.stop()
+				return nil, fmt.Errorf("the first member, %s: %w", m.name(), err)
+			}
 		}
 	}
 	return r, nil
@@ -257,7 +292,7 @@ func (s scenario) run(addr string) (string, error) {
 	// Every member joins and settles first, so that the records are read under the final split.
 	const first, second = 300, 50
 	one := newTally()
-	group1, err := s.start(ctx, topic, group, s.members, one)
+	group1, err := s.start(ctx, adm, topic, group, s.members, one)
 	if err != nil {
 		return "", err
 	}
@@ -293,7 +328,7 @@ func (s scenario) run(addr string) (string, error) {
 		return "", fmt.Errorf("produce again: %w", err)
 	}
 	two := newTally()
-	group2, err := s.start(ctx, topic, group, []client{s.members[len(s.members)-1]}, two)
+	group2, err := s.start(ctx, adm, topic, group, []client{s.members[len(s.members)-1]}, two)
 	if err != nil {
 		return "", err
 	}

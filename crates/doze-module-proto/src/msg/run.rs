@@ -15,7 +15,7 @@ pub struct Pin {
     pub spec: String,
     #[n(2)]
     pub resolved: String,
-    /// target triple -> "sha256:<hex>"
+    /// target triple -> `"sha256:<hex>"`
     #[n(3)]
     #[cbor(default)]
     pub hashes: BTreeMap<String, String>,
