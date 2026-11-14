@@ -23,7 +23,10 @@ pub fn has_files(dir: &Path) -> bool {
 
 /// Unpacks the `.tar.gz` bytes into `content_dir`, which ends up with a non-empty `bin/`; returns that `bin/`.
 pub fn unpack(archive: &[u8], content_dir: &Path, digest: &str) -> Result<PathBuf, String> {
-    let tmp = content_dir.with_extension("tmp");
+    // Appended, never `with_extension` (which would make `0.2.1-x` and `0.2.2-x` share `0.2.tmp`), and per process.
+    let mut tmp_name = content_dir.as_os_str().to_owned();
+    tmp_name.push(format!(".tmp{}", std::process::id()));
+    let tmp = PathBuf::from(tmp_name);
     let _ = std::fs::remove_dir_all(&tmp);
     untar(archive, &tmp).map_err(|e| format!("extracting: {e}"))?;
     let bin = find_bin(&tmp).ok_or("the archive has no bin/ directory")?;
@@ -113,7 +116,10 @@ pub(crate) mod tests {
         let bin = unpack(&a, &content, "sha256:ab").unwrap();
         assert!(bin.join("valkey-server").exists() && content.join("README").exists());
         assert_eq!(recorded_sha(&content).as_deref(), Some("sha256:ab"));
-        assert!(!content.with_extension("tmp").exists());
+        assert!(
+            !d.join(format!("valkey/9.1.1-x.tmp{}", std::process::id()))
+                .exists()
+        );
         let none = targz(&[("lib/x.so", b"x", false)]);
         assert!(
             unpack(&none, &d.join("other"), "sha256:1")

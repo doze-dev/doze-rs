@@ -73,6 +73,20 @@ pub struct Place {
 
 /// Does what `req` asks (blocking: this is the child's whole life).
 pub fn serve(req: &Request, place: &Place) -> Reply {
+    // What a module asks for becomes cache folder names: plain names only, never a path.
+    let names: Vec<&str> = match req {
+        Request::ResolveMajor { engine, major } => vec![engine, major],
+        Request::Ensure {
+            engine,
+            full,
+            target,
+            ..
+        } => vec![engine, full, target],
+        Request::Module { .. } => Vec::new(),
+    };
+    if let Some(bad) = names.iter().find(|n| !crate::lock::plain(n)) {
+        return Reply::failed(format!("refused: {bad:?} is not a plain name"));
+    }
     match req {
         Request::ResolveMajor { engine, major } => {
             match place.mirror.resolve_major(engine, major) {

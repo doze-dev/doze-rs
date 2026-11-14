@@ -296,3 +296,74 @@ fn an_upgrade_moves_the_pin_to_the_newest_fit() {
     assert_eq!(lock.modules["doze/valkey"].version, "0.3.1");
     assert!(lock.dirty);
 }
+
+/// F1 audit blocker 2: a pin's version is a folder name, never a path: an absolute or `../` version is refused when
+/// the lock is read, so nothing outside the cache can be run.
+#[test]
+fn a_lock_whose_version_is_a_path_is_refused() {
+    for bad in [
+        "/tmp/repo/vendor/x",
+        "../../x",
+        "..",
+        ".hidden",
+        "a/b",
+        "a\\b",
+    ] {
+        let text =
+            format!("modules:\n    doze/valkey:\n        version: {bad:?}\n        protocol: 2\n");
+        let err = crate::lock::parse(&text).unwrap_err();
+        assert!(
+            err.message.contains("not a plain version"),
+            "{bad}: {err:?}"
+        );
+    }
+    assert!(crate::lock::parse("modules:\n    doze/valkey:\n        version: 0.3.0+b1\n").is_ok());
+    let place_req = crate::child::Request::Ensure {
+        engine: "../valkey".into(),
+        full: "9.1.1".into(),
+        target: "t".into(),
+        expected_sha: None,
+    };
+    let reg = registry("plain", &[("0.3.0", 2, &["9"])], "");
+    let place = crate::child::Place {
+        mirror: crate::mirror::Mirror {
+            root: "file:///nowhere".into(),
+            home: reg.home.clone(),
+            key: None,
+        },
+        modules: modules(&reg),
+    };
+    let r = crate::child::serve(&place_req, &place);
+    assert!(r.error.unwrap_or_default().starts_with("refused"));
+}
+
+/// Go's `TestProtocolGates`, the other side: every release speaks a newer protocol, so doze is what needs updating.
+#[test]
+fn releases_for_a_newer_protocol_say_to_update_doze() {
+    let reg = registry("newproto", &[("0.4.0", 3, &["9"])], "");
+    let err = modules(&reg)
+        .resolve(&valkey(), &[], &mut Lock::default())
+        .unwrap_err();
+    assert!(err.contains("Update doze"), "{err}");
+}
+
+/// F1 audit major 4: a development build never stamps `doze: dev` into the lock (Go stamps released versions only).
+#[test]
+fn a_development_build_does_not_stamp_the_lock() {
+    let d = std::env::temp_dir().join(format!("doze-fetch-dev-{}", std::process::id()));
+    std::fs::create_dir_all(&d).unwrap();
+    let path = d.join("doze.lock");
+    let mut lock = Lock::default();
+    lock.record_module(
+        "doze/valkey",
+        Pin {
+            version: "0.3.0".into(),
+            protocol: 2,
+            ..Pin::default()
+        },
+    );
+    lock.save(&path, Some("dev")).unwrap();
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(!text.contains("doze: dev"), "{text}");
+    let _ = std::fs::remove_dir_all(&d);
+}

@@ -60,6 +60,22 @@ fn hashes(h: &yaml_rust2::yaml::Hash) -> Result<BTreeMap<String, String>, YamlEr
 
 // fuzz:parser fuzz_lock
 /// Reads a lock. Module pins without a version (written before pins had one) are left out, as Go drops them.
+/// Whether `v` is a plain version or name, safe as one path component: letters, digits, `.`, `+`, `-`, `_`; not
+/// empty, not starting with `.`, no `..`. A lock (or a module's request) that names anything else is refused: the
+/// version becomes a cache folder's name, and `/abs` or `../` would put a build outside the cache.
+pub fn plain(v: &str) -> bool {
+    !v.is_empty()
+        && v.len() <= 128
+        && !v.starts_with('.')
+        && !v.contains("..")
+        && v.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'+' | b'-' | b'_'))
+}
+
+fn refuse(what: &str, v: &str) -> YamlError {
+    YamlError::new(format!("{what} {v:?} is not a plain version"))
+}
+
 pub fn parse(src: &str) -> Result<Lock, YamlError> {
     if src.trim().is_empty() {
         return Ok(Lock::default());
@@ -82,6 +98,9 @@ pub fn parse(src: &str) -> Result<Lock, YamlError> {
             lock.dirty = true;
             continue;
         }
+        if !plain(&version) {
+            return Err(refuse(&format!("the pin of {source}:"), &version));
+        }
         let pin = Pin {
             version,
             protocol: get(p, "protocol").as_i64().unwrap_or(0),
@@ -96,8 +115,12 @@ pub fn parse(src: &str) -> Result<Lock, YamlError> {
         let mut by_spec = BTreeMap::new();
         for (spec, p) in entries(specs) {
             let Yaml::Hash(p) = p else { continue };
+            let resolved = text(p, "resolved");
+            if !resolved.is_empty() && !plain(&resolved) {
+                return Err(refuse(&format!("the {engine} pin:"), &resolved));
+            }
             let pin = EnginePin {
-                resolved: text(p, "resolved"),
+                resolved,
                 source: text(p, "source"),
                 hashes: hashes(p)?,
             };
@@ -194,7 +217,9 @@ impl Lock {
         if !self.dirty {
             return Ok(());
         }
-        if let Some(v) = doze.map(|v| v.trim_start_matches('v'))
+        if let Some(v) = doze
+            .filter(|v| crate::registry::select::is_doze_version(v))
+            .map(|v| v.trim_start_matches('v'))
             && (self.doze.is_empty() || compare_versions(&self.doze, v).is_lt())
         {
             self.doze = v.into();

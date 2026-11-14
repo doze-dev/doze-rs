@@ -49,8 +49,14 @@ impl Modules {
         }
     }
 
-    /// The cache folder of one build.
+    /// The cache folder of one build. `version` must be [`crate::lock::plain`] (checked where it comes in: the lock,
+    /// the index); a version that is not stays under the cache as one escaped component.
     pub fn content_dir(&self, src: &Source, version: &str) -> PathBuf {
+        let version = if crate::lock::plain(version) {
+            version.to_string()
+        } else {
+            version.replace(|c: char| !c.is_ascii_alphanumeric(), "_")
+        };
         self.home
             .join("modules")
             .join(src.ns())
@@ -69,7 +75,8 @@ impl Modules {
         one_namespace(src)?;
         let key = src.to_string();
         if let Some(pin) = lock.modules.get(&key).cloned() {
-            if pin.protocol == 0 || pin.protocol >= self.protocol {
+            // No protocol recorded (Go omitted it when empty) is a Go-era pin too: resolved again.
+            if pin.protocol >= self.protocol {
                 return self.pinned(src, majors, &pin);
             }
             let mut r = self.fresh(src, majors, lock)?;
@@ -165,7 +172,8 @@ impl Modules {
             }
         };
         let version = match select::newest_that_fits(&idx, self.here(), majors) {
-            Fit::Release(v) => v,
+            Fit::Release(v) if crate::lock::plain(&v) => v,
+            Fit::Release(v) => return Err(format!("module {key}: {v:?} is not a plain version")),
             other => return Err(self.no_fit(src, majors, &other)),
         };
         let rel = idx
@@ -209,6 +217,10 @@ impl Modules {
             Fit::NeedsDoze(need) => format!(
                 "{what} needs doze {need} or newer; this doze is {}. Update doze (in the app: Settings › About), then run the command again",
                 self.doze.trim_start_matches('v')
+            ),
+            Fit::Protocol { min, max } if *max > self.protocol => format!(
+                "module {src} now speaks module protocol {max}; this doze speaks {}. Update doze (in the app: Settings › About)",
+                self.protocol
             ),
             Fit::Protocol { min, max } => format!(
                 "no release of module {src} speaks module protocol {} (its releases speak {min}–{max}); it has to be published for this doze",
