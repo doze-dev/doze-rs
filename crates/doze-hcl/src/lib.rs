@@ -7,6 +7,7 @@
 pub mod convert;
 pub mod diag;
 pub mod eval;
+pub mod funcs;
 pub mod function;
 pub mod number;
 pub mod syntax;
