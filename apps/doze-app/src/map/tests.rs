@@ -303,6 +303,12 @@ fn a_card_with_the_keys_is_selected_by_enter(cx: &mut TestAppContext) {
         })
     });
     vcx.run_until_parked();
+    // The camera flies to the card over a few frames; the card is a Tab stop only where it is drawn, so let it land.
+    for _ in 0..40 {
+        vcx.update(|window, _| window.refresh());
+        vcx.run_until_parked();
+        std::thread::sleep(std::time::Duration::from_millis(15));
+    }
     let (name, handle) = vcx.update(|_, cx| {
         let m = m.read(cx);
         let c = m.layout.cards.first().unwrap();
@@ -317,6 +323,9 @@ fn a_card_with_the_keys_is_selected_by_enter(cx: &mut TestAppContext) {
         vcx.update(|_, cx| m.read(cx).keyed_card()),
         Some(name.clone())
     );
+    // A frame drawn with the card focused, so its key handler is in the dispatch path before the key.
+    vcx.update(|window, _| window.refresh());
+    vcx.run_until_parked();
     vcx.simulate_keystrokes("enter");
     vcx.run_until_parked();
     assert_eq!(name_of(&m, vcx), Some(name));
