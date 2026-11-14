@@ -203,11 +203,11 @@ pub fn bytes_text(b: &[u8]) -> Json {
     Json::Str(b.iter().map(|&c| char::from(c)).collect())
 }
 
-/// The bytes a string stands for: Avro's one character a byte (codes 0 to 255), or else base64, which is how most people
-/// write bytes.
+/// The bytes a string stands for: Avro's one character a byte (codes 0 to 255). (A base64 fallback once sat behind this;
+/// it could never be reached, as base64 is all ASCII and so always read here first.)
 ///
 /// # Errors
-/// Neither.
+/// A character past 255.
 pub fn text_bytes(s: &str) -> Result<Vec<u8>, String> {
     if let Some(b) = s
         .chars()
@@ -216,38 +216,9 @@ pub fn text_bytes(s: &str) -> Result<Vec<u8>, String> {
     {
         return Ok(b);
     }
-    base64_bytes(s).ok_or_else(|| {
-        format!("{s:?} is not bytes: characters must be 0 to 255 (or the value base64)")
-    })
-}
-
-/// Standard base64, padded, as bytes.
-#[must_use]
-pub fn base64_bytes(s: &str) -> Option<Vec<u8>> {
-    let digit = |c: u8| -> Option<u32> {
-        Some(u32::from(match c {
-            b'A'..=b'Z' => c - b'A',
-            b'a'..=b'z' => c - b'a' + 26,
-            b'0'..=b'9' => c - b'0' + 52,
-            b'+' => 62,
-            b'/' => 63,
-            _ => return None,
-        }))
-    };
-    let t = s.trim_end_matches('=').as_bytes();
-    if !s.len().is_multiple_of(4) {
-        return None;
-    }
-    let mut out = Vec::with_capacity(t.len() * 3 / 4);
-    for chunk in t.chunks(4) {
-        let mut n = 0u32;
-        for (i, &c) in chunk.iter().enumerate() {
-            n |= digit(c)? << (18 - 6 * i);
-        }
-        let [_, a, b, c] = n.to_be_bytes();
-        out.extend([a, b, c].iter().take(chunk.len().saturating_sub(1)));
-    }
-    Some(out)
+    Err(format!(
+        "{s:?} is not bytes: characters must be 0 to 255 (or the value base64)"
+    ))
 }
 
 #[cfg(test)]
@@ -268,7 +239,6 @@ mod tests {
         assert_eq!(text_bytes("\u{0}\u{ff}a").unwrap(), vec![0, 255, b'a']);
         assert_eq!(text_bytes("aGk=").unwrap(), b"aGk=".to_vec());
         assert_eq!(text_bytes("€€€€").map_err(|_| ()), Err(()));
-        assert_eq!(base64_bytes("aGVsbG8="), Some(b"hello".to_vec()));
         assert_eq!(bytes_text(&[104, 0xe9]), Json::Str("hé".into()));
     }
 

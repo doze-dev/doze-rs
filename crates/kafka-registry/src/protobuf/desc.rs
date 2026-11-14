@@ -8,6 +8,8 @@
 
 use std::fmt::Write as _;
 
+use kafka_auth::crypto::base64 as crypto_base64;
+
 /// How deeply messages may nest in a descriptor.
 const MAX_DEPTH: u32 = 100;
 
@@ -116,38 +118,16 @@ fn ints(fs: &[(u64, V<'_>)], n: u64) -> Vec<i64> {
     out
 }
 
-/// Standard base64 with padding; line breaks are skipped.
+/// Standard base64 with padding, as Go reads it (bits past the data are not checked); line breaks are skipped, as Go's
+/// decoder skips them.
 fn base64(s: &str) -> Option<Vec<u8>> {
-    let mut out = Vec::new();
-    let mut acc = 0u32;
-    let mut bits = 0;
-    let mut pad = 0;
-    let mut n = 0;
-    for c in s.bytes().filter(|c| *c != b'\n' && *c != b'\r') {
-        n += 1;
-        let v = match c {
-            b'A'..=b'Z' => c - b'A',
-            b'a'..=b'z' => c - b'a' + 26,
-            b'0'..=b'9' => c - b'0' + 52,
-            b'+' => 62,
-            b'/' => 63,
-            b'=' => {
-                pad += 1;
-                continue;
-            }
-            _ => return None,
-        };
-        if pad > 0 {
-            return None;
-        }
-        acc = (acc << 6) | u32::from(v);
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            out.push(u8::try_from((acc >> bits) & 0xff).ok()?);
-        }
-    }
-    (n % 4 == 0 && pad <= 2).then_some(out)
+    let decoded = if s.contains(['\n', '\r']) {
+        let unbroken: Vec<u8> = s.bytes().filter(|c| !matches!(c, b'\n' | b'\r')).collect();
+        crypto_base64::decode_lax(&unbroken)
+    } else {
+        crypto_base64::decode_lax(s.as_bytes())
+    };
+    decoded.ok()
 }
 
 /// Go's `strconv.Quote` for the strings a descriptor carries.
@@ -390,5 +370,19 @@ impl Printer {
         }
         let _ = writeln!(self.out, "{pad}}}");
         Some(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::base64;
+
+    #[test]
+    fn a_descriptor_may_be_broken_into_lines_and_is_read_as_go_reads_it() {
+        assert_eq!(base64("aGVs\r\nbG8=\n"), Some(b"hello".to_vec()));
+        assert_eq!(base64("aGVsbG9="), Some(b"hello".to_vec()), "bits past the data are not checked");
+        for bad in ["aGVsbG8", "aG=sbG8=", "aGVs bG8="] {
+            assert_eq!(base64(bad), None, "{bad}");
+        }
     }
 }

@@ -68,41 +68,6 @@ pub fn atoi(s: &str) -> Option<i64> {
     s.parse().ok()
 }
 
-fn base64_value(c: u8) -> Option<u32> {
-    Some(u32::from(match c {
-        b'A'..=b'Z' => c - b'A',
-        b'a'..=b'z' => c - b'a' + 26,
-        b'0'..=b'9' => c - b'0' + 52,
-        b'+' => 62,
-        b'/' => 63,
-        _ => return None,
-    }))
-}
-
-/// Standard base64 with padding, strictly.
-fn base64(s: &str) -> Option<Vec<u8>> {
-    let b = s.as_bytes();
-    if !b.len().is_multiple_of(4) {
-        return None;
-    }
-    let mut out = Vec::with_capacity(b.len() / 4 * 3);
-    for (n, chunk) in b.chunks(4).enumerate() {
-        let last = n + 1 == b.len() / 4;
-        let pad = chunk.iter().rev().take_while(|&&c| c == b'=').count();
-        if pad > 2 || (pad > 0 && !last) {
-            return None;
-        }
-        let mut v = 0_u32;
-        for (i, &c) in chunk.iter().enumerate() {
-            let d = if i >= 4 - pad { 0 } else { base64_value(c)? };
-            v = (v << 6) | d;
-        }
-        let bytes = v.to_be_bytes();
-        out.extend(bytes.get(1..4 - pad)?);
-    }
-    Some(out)
-}
-
 /// The user and password of an `Authorization: Basic` header.
 // fuzz:parser registry_api
 #[must_use]
@@ -111,7 +76,8 @@ pub fn basic(header: &str) -> Option<(String, String)> {
     if !scheme.eq_ignore_ascii_case("basic ") {
         return None;
     }
-    let raw = String::from_utf8(base64(rest)?).ok()?;
+    // Padded base64; bits past the data are not checked (as Go's decoder does not).
+    let raw = String::from_utf8(kafka_auth::crypto::base64::decode_lax(rest.as_bytes()).ok()?).ok()?;
     let (user, pass) = raw.split_once(':')?;
     Some((user.to_owned(), pass.to_owned()))
 }
@@ -188,6 +154,11 @@ mod tests {
         );
         assert_eq!(basic("basic YTpi"), Some(("a".into(), "b".into())));
         assert_eq!(basic("Basic YTo="), Some(("a".into(), String::new())));
+        assert_eq!(
+            basic("Basic YTp="),
+            Some(("a".into(), String::new())),
+            "bits past the data are not checked"
+        );
         for bad in [
             "Bearer YTpi",
             "Basic YTpi=",

@@ -11,6 +11,7 @@
 use super::link::{Card, Fld, Msg, Pool, Ty, json_name};
 use crate::codec::{Budget, float};
 use crate::json::Json;
+use kafka_auth::crypto::base64;
 
 type Res<T> = Result<T, String>;
 
@@ -210,7 +211,7 @@ fn field_values(
                             .to_owned(),
                     )
                 } else {
-                    Json::Str(base64(b))
+                    Json::Str(base64::encode(b))
                 }]);
             }
             packed_or_one(wire, natural, r, budget, |r| scalar(t, r))
@@ -325,27 +326,6 @@ fn skip(r: &mut Reader<'_>, wire: u64, number: u64, budget: &mut Budget) -> Res<
     }
 }
 
-const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-fn base64(b: &[u8]) -> String {
-    let mut out = String::with_capacity(b.len().div_ceil(3) * 4);
-    for chunk in b.chunks(3) {
-        let n = chunk
-            .iter()
-            .enumerate()
-            .fold(0u32, |n, (i, c)| n | (u32::from(*c) << (16 - 8 * i)));
-        for i in 0..4 {
-            if i <= chunk.len() {
-                let d = usize::try_from((n >> (18 - 6 * i)) & 63).unwrap_or(0);
-                out.push(B64.get(d).map_or('A', |c| char::from(*c)));
-            } else {
-                out.push('=');
-            }
-        }
-    }
-    out
-}
-
 // ---- Encoding ------------------------------------------------------------------------------------------------------
 
 /// Writes `value` as the file's first message, after its message index (a single 0).
@@ -367,15 +347,3 @@ fn enum_number(v: u64) -> i64 {
     i64::from(v as i32)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::base64;
-
-    #[test]
-    fn bytes_are_base64() {
-        assert_eq!(base64(b""), "");
-        assert_eq!(base64(b"h"), "aA==");
-        assert_eq!(base64(b"hi"), "aGk=");
-        assert_eq!(base64(b"hello"), "aGVsbG8=");
-    }
-}
