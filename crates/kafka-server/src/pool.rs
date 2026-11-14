@@ -4,10 +4,18 @@
 //! large blocks, so a burst of big requests leaves the process holding all of it. Here a freed buffer goes back
 //! on a shelf (bounded, by count and by bytes) and the next frame of that size takes it, so the process holds
 //! about what is in flight plus the shelf, and nothing is allocated per frame once it is warm.
+//!
+//! The shelf is for a burst, not for ever: once no frame has been taken from it or given back to it for [`QUIET`], what is on
+//! it is freed ([`Pool::trim_when_quiet`], a task of each server), so a broker that took a burst of big produce requests an
+//! hour ago does not still hold up to 64 MiB for them.
 
 use std::sync::{LazyLock, Mutex, PoisonError};
+use std::time::Duration;
 
 use bytes::Bytes;
+use tokio::sync::Notify;
+use tokio::time::Instant;
+use tokio_util::sync::CancellationToken;
 
 /// Frames smaller than this are not pooled: the allocator serves them well. Bigger than `MAX`, a frame is read in
 /// chunks as it arrives, so that what a peer *claims* it will send is not allocated before it sends it.
@@ -18,6 +26,8 @@ const CLASSES: usize = (MAX.trailing_zeros() - MIN.trailing_zeros() + 1) as usiz
 /// The most buffers kept per class, and the most bytes kept over all of them.
 const PER_CLASS: usize = 16;
 const KEPT_BYTES: usize = 64 << 20;
+/// How long the shelf is kept with no frame taken from it or given back to it.
+pub(crate) const QUIET: Duration = Duration::from_secs(60);
 
 /// Whether a frame of `len` bytes is read into a pooled buffer: from `MIN` to `MAX`, both included.
 pub(crate) fn pooled(len: usize) -> bool {
@@ -30,11 +40,16 @@ pub(crate) fn pooled(len: usize) -> bool {
 struct Shelves {
     classes: [Vec<Vec<u8>>; CLASSES],
     kept: usize,
+    /// When a buffer was last taken from a shelf or put on one.
+    used_at: Option<Instant>,
 }
 
 /// The pool every connection shares.
 pub(crate) struct Pool {
     shelves: Mutex<Shelves>,
+    /// Rung when the shelves go from empty to holding something: the trimmer waits for it, with no timer, while they are
+    /// empty.
+    filled: Notify,
 }
 
 /// The pool every connection shares.
@@ -54,6 +69,43 @@ impl Pool {
     fn new() -> Self {
         Self {
             shelves: Mutex::new(Shelves::default()),
+            filled: Notify::new(),
+        }
+    }
+
+    /// Frees what is on the shelves if nothing has been taken or given back for `quiet`. When the shelves hold something
+    /// still, the time they will have been quiet that long.
+    fn trim_if_quiet(&self, quiet: Duration) -> Option<Instant> {
+        let mut shelves = lock(&self.shelves);
+        if shelves.kept == 0 {
+            return None;
+        }
+        let at = shelves.used_at.map_or_else(Instant::now, |t| t + quiet);
+        if Instant::now() < at {
+            return Some(at);
+        }
+        let freed = std::mem::take(&mut shelves.classes);
+        shelves.kept = 0;
+        drop(shelves);
+        drop(freed);
+        None
+    }
+
+    /// Frees the shelves each time they have been quiet for [`QUIET`], until `stop`. Waits on nothing but the bell while they
+    /// are empty.
+    pub(crate) async fn trim_when_quiet(&'static self, quiet: Duration, stop: CancellationToken) {
+        loop {
+            let next = self.trim_if_quiet(quiet);
+            let wait = async {
+                match next {
+                    Some(at) => tokio::time::sleep_until(at).await,
+                    None => self.filled.notified().await,
+                }
+            };
+            tokio::select! {
+                () = stop.cancelled() => return,
+                () = wait => {}
+            }
         }
     }
 
@@ -64,6 +116,7 @@ impl Pool {
             let mut shelves = lock(&self.shelves);
             let buf = shelves.classes.get_mut(s)?.pop()?;
             shelves.kept -= buf.capacity();
+            shelves.used_at = Some(Instant::now());
             Some(buf)
         });
         kept.unwrap_or_else(|| Vec::with_capacity(if class <= MAX { class } else { len }))
@@ -83,7 +136,13 @@ impl Pool {
         {
             buf.clear();
             shelf.push(buf);
+            let was_empty = shelves.kept == 0;
             shelves.kept += capacity;
+            shelves.used_at = Some(Instant::now());
+            drop(shelves);
+            if was_empty {
+                self.filled.notify_one();
+            }
         }
     }
 
@@ -168,6 +227,30 @@ mod tests {
         drop(big.into_iter().map(|b| pool.share(b)).collect::<Vec<_>>());
         assert!(lock(&pool.shelves).kept <= KEPT_BYTES);
         assert!(on_shelf(pool, CLASSES - 1) <= KEPT_BYTES / MAX);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_shelves_are_freed_after_a_quiet_minute_and_the_trimmer_waits_for_nothing_while_they_are_empty() {
+        let pool = pool();
+        let stop = CancellationToken::new();
+        let trimmer = tokio::spawn(pool.trim_when_quiet(QUIET, stop.clone()));
+        drop(pool.share(pool.take(1 << 20)));
+        assert_eq!(lock(&pool.shelves).kept, 1 << 20, "kept for the next frame");
+        tokio::time::sleep(QUIET - Duration::from_secs(1)).await;
+        // Used again: the quiet minute starts over.
+        drop(pool.share(pool.take(1 << 20)));
+        tokio::time::sleep(QUIET - Duration::from_secs(1)).await;
+        assert_eq!(lock(&pool.shelves).kept, 1 << 20, "not quiet for a minute yet");
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        assert_eq!(lock(&pool.shelves).kept, 0, "freed");
+        assert!(lock(&pool.shelves).classes.iter().all(Vec::is_empty));
+        // Empty: a day goes by with the trimmer parked; a buffer given back starts it again.
+        tokio::time::sleep(Duration::from_secs(24 * 3600)).await;
+        drop(pool.share(pool.take(MIN)));
+        tokio::time::sleep(QUIET + Duration::from_secs(1)).await;
+        assert_eq!(lock(&pool.shelves).kept, 0);
+        stop.cancel();
+        trimmer.await.unwrap();
     }
 
     #[test]
