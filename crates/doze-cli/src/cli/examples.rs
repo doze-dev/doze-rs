@@ -55,3 +55,20 @@ pub(crate) const TRUST: &str = "Examples:
   doze trust                 route them here and trust https (one password)
   doze trust --remove        undo it for this stack
   doze trust --rotate        replace the certificate authority";
+
+pub(crate) const LINT: &str = "Examples:
+  doze lint                  both passes; exit 11 if a block went unchecked
+  doze lint --offline        only what needs no module (CI without a cache)
+  doze --json lint | jq '.data.unchecked'";
+
+pub(crate) const FMT: &str = "Examples:
+  doze fmt                   rewrite the files in HCL's layout
+  doze fmt --check           list what would change; exit 1 if anything would (CI)
+  doze fmt --dry-run         the change itself, as a diff";
+
+pub(crate) const COMPLETION: &str = "Examples:
+  source <(doze completion bash)                     in ~/.bashrc
+  source <(doze completion zsh)                      in ~/.zshrc
+  doze completion fish | source                      in ~/.config/fish/config.fish
+  doze completion powershell | Out-String | Invoke-Expression
+Service names complete from the stack's doze.hcl as you type.";

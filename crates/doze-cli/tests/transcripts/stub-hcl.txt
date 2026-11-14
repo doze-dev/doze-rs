@@ -44,7 +44,7 @@ json:
 $ doze modules upgrade --check
 exit 1
 stderr:
-| error[DZ0001]: `doze modules upgrade` is not built yet: choosing what fits needs the engine versions doze.hcl declares, and doze.lock is written by the core
+| error[DZ0001]: `doze modules upgrade` is not built yet: doze.lock is written by doze-fetch's lock writer (core plan F1, in progress), which it waits for
 |   fix: the Go doze does this today
 json exit 1
 json:
@@ -54,7 +54,7 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "failed",
-|     "message": "`doze modules upgrade` is not built yet: choosing what fits needs the engine versions doze.hcl declares, and doze.lock is written by the core",
+|     "message": "`doze modules upgrade` is not built yet: doze.lock is written by doze-fetch's lock writer (core plan F1, in progress), which it waits for",
 |     "exit": 1,
 |     "id": "DZ0001",
 |     "fix": "the Go doze does this today"
@@ -64,7 +64,7 @@ json:
 $ doze bug
 exit 1
 stderr:
-| error[DZ0001]: `doze bug` is not built yet: the report needs the stack's shape and its logs, which come from the core
+| error[DZ0001]: `doze bug` is not built yet: it comes with a later slice of the CLI (core plan C2)
 |   fix: the Go doze does this today
 json exit 1
 json:
@@ -74,7 +74,7 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "failed",
-|     "message": "`doze bug` is not built yet: the report needs the stack's shape and its logs, which come from the core",
+|     "message": "`doze bug` is not built yet: it comes with a later slice of the CLI (core plan C2)",
 |     "exit": 1,
 |     "id": "DZ0001",
 |     "fix": "the Go doze does this today"

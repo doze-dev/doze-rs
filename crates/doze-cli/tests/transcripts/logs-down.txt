@@ -73,9 +73,9 @@ json:
 $ doze logs
 exit 0
 stdout:
-| 09:15:00 api │ [setup] migrated 3 files
-| 09:15:01 api │ listening on :8080
-| 09:15:02 db  │ postgres: database system is ready to accept connections
+| 09:15:00 api    │ [setup] migrated 3 files
+| 09:15:01 api    │ listening on :8080
+| 09:15:02 db     │ postgres: database system is ready to accept connections
 json exit 0
 json:
 | {

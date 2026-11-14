@@ -67,14 +67,27 @@ impl Loader {
         }
     }
 
+    /// A loader on the process's own environment, for when there is no run (a shell asking for completions).
+    pub(crate) fn process(cwd: &Path) -> Loader {
+        Loader {
+            host: CliHost {
+                env: std::sync::Arc::new(|name: &str| {
+                    if name.is_empty() || name.contains(['=', '\0']) {
+                        return None;
+                    }
+                    std::env::var(name).ok()
+                }),
+                cwd: cwd.to_path_buf(),
+                home: std::env::home_dir(),
+                certs_skipped: std::cell::Cell::new(false),
+            },
+            vars: BTreeMap::new(),
+        }
+    }
+
     /// The project's shape, offline; exit 5 with what is wrong in it.
     pub(crate) fn shape(&self, project: &Project) -> Result<Config, Diagnostic> {
-        let opts = Options {
-            host: &self.host,
-            modules: &doze_config::NoModules,
-            vars: self.vars.clone(),
-            version: crate::ctx::VERSION.to_owned(),
-        };
+        let opts = self.options();
         let path = self.relative(&source(project));
         doze_config::load_shape(&path.to_string_lossy(), &opts)
             .map_err(|e| render::diagnose(&e, &self.host.cwd))
@@ -86,12 +99,7 @@ impl Loader {
         &self,
         project: &Project,
     ) -> Result<(Config, bool), Diagnostic> {
-        let opts = Options {
-            host: &self.host,
-            modules: &doze_config::NoModules,
-            vars: self.vars.clone(),
-            version: crate::ctx::VERSION.to_owned(),
-        };
+        let opts = self.options();
         self.host.certs_skipped.set(false);
         let path = self.relative(&source(project));
         let cfg = doze_config::load(&path.to_string_lossy(), &opts)
@@ -111,8 +119,22 @@ impl Loader {
     /// A path as the person would type it, relative to where they are when it is under there (Go's configPath is
     /// what was typed, so its diagnostics and warnings name `doze.hcl`, not an absolute path).
     fn relative(&self, path: &Path) -> PathBuf {
-        path.strip_prefix(&self.host.cwd)
-            .map_or_else(|_| path.to_path_buf(), Path::to_path_buf)
+        match path.strip_prefix(&self.host.cwd) {
+            // The folder doze runs in is `.` (Go keeps `-c .` as typed).
+            Ok(r) if r.as_os_str().is_empty() => PathBuf::from("."),
+            Ok(r) => r.to_path_buf(),
+            Err(_) => path.to_path_buf(),
+        }
+    }
+
+    /// How doze-config is asked: this machine, no modules (the CLI reads offline), the `--var`s.
+    fn options(&self) -> Options<'_> {
+        Options {
+            host: &self.host,
+            modules: &doze_config::NoModules,
+            vars: self.vars.clone(),
+            version: crate::ctx::VERSION.to_owned(),
+        }
     }
 
     /// Where the run is, for showing paths relative to it.

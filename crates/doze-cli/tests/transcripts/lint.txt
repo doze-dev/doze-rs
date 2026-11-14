@@ -6,11 +6,11 @@
 $ doze lint
 exit 11
 stdout:
-| ✓ doze.hcl passes the checks that need no module: 3 modules, 3 apps
-|   ! module blocks not checked (needs this doze's daemon modules, core plan D1): kafka, postgres, valkey
+| ✓ doze.hcl passes the first pass: 3 modules, 3 apps
+|   ! module blocks not checked (needs this doze's daemon modules, core plan D1; so do the port and network checks across the stack): kafka, postgres, valkey
 stderr:
 | ! lint is partial: not every block was checked
-|   fix: doze lint --offline checks the rest alone, and exits 0 when it is clean
+|   fix: --offline runs the first pass alone and accepts it (exit 0)
 json exit 11
 json:
 | {
@@ -21,7 +21,9 @@ json:
 |     "config": "doze.hcl",
 |     "declared": {
 |       "app": 3,
-|       "module": 3
+|       "module": 3,
+|       "service": 0,
+|       "task": 0
 |     },
 |     "disabled": 0,
 |     "unchecked": [
@@ -29,21 +31,21 @@ json:
 |       "postgres",
 |       "valkey"
 |     ],
-|     "why": "needs this doze's daemon modules, core plan D1"
+|     "why": "needs this doze's daemon modules, core plan D1; so do the port and network checks across the stack"
 |   },
 |   "error": {
 |     "code": "partial",
 |     "message": "lint is partial: not every block was checked",
 |     "exit": 11,
 |     "id": "DZ0503",
-|     "fix": "doze lint --offline checks the rest alone, and exits 0 when it is clean"
+|     "fix": "--offline runs the first pass alone and accepts it (exit 0)"
 |   }
 | }
 
 $ doze lint --offline
 exit 0
 stdout:
-| ✓ doze.hcl passes the checks that need no module: 3 modules, 3 apps
+| ✓ doze.hcl passes the first pass: 3 modules, 3 apps
 |   ! module blocks not checked (--offline): kafka, postgres, valkey
 json exit 0
 json:
@@ -55,7 +57,9 @@ json:
 |     "config": "doze.hcl",
 |     "declared": {
 |       "app": 3,
-|       "module": 3
+|       "module": 3,
+|       "service": 0,
+|       "task": 0
 |     },
 |     "disabled": 0,
 |     "unchecked": [

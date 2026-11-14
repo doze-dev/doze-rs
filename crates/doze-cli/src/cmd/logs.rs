@@ -88,22 +88,14 @@ fn names(
                 Ok(asked.to_vec())
             }
         }
-        // With doze down, every service that has printed anything.
-        None if asked.is_empty() => {
-            let dir = doze_logstore::dir_of(stack.key.dir());
-            let mut all: Vec<String> = std::fs::read_dir(dir)
-                .map(|e| {
-                    e.filter_map(Result::ok)
-                        .filter_map(|e| e.file_name().into_string().ok())
-                        .collect()
-                })
-                .unwrap_or_default();
-            all.sort();
-            Ok(all)
-        }
+        // With doze down, the names doze.hcl declares (Go's `cfg.Instances`), checked against it.
         None => {
-            stack::check_offline(stack, asked)?;
-            Ok(asked.to_vec())
+            let all = stack::check_offline(stack, asked)?;
+            Ok(if asked.is_empty() {
+                all
+            } else {
+                asked.to_vec()
+            })
         }
     }
 }

@@ -10,6 +10,17 @@ pub(crate) fn views(cfg: &Config) -> Vec<InstanceView> {
     cfg.instances.iter().map(|i| view(cfg, i)).collect()
 }
 
+/// The module blocks that set no `port`: they listen on their module's default, which only the module knows, and the
+/// CLI reads doze.hcl without modules. Go's full load shows that port; this says it is the module's rather than
+/// print nothing (which would read as "no port").
+pub(crate) fn module_ports(cfg: &Config) -> Vec<String> {
+    cfg.instances
+        .iter()
+        .filter(|i| i.kind() == Kind::Module && i.port == 0 && i.listen.is_empty())
+        .map(|i| i.name.clone())
+        .collect()
+}
+
 /// The names doze.hcl declares, in its order.
 pub(crate) fn names(cfg: &Config) -> Vec<String> {
     cfg.instances.iter().map(|i| i.name.clone()).collect()

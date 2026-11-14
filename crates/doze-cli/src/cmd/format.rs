@@ -51,7 +51,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Fmt) -> Outcome {
             // Writing over the file keeps its permissions, as Go keeps them.
             std::fs::write(&c.path, &c.after).map_err(|e| {
                 Diagnostic::new(
-                    ids::CONFIG_UNREADABLE,
+                    ids::CONFIG_UNWRITABLE,
                     format!("{} can't be written: {e}", c.shown),
                 )
             })?;

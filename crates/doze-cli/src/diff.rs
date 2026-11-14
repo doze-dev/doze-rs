@@ -19,8 +19,9 @@ pub(crate) fn unified(name: &str, before: &str, after: &str) -> String {
     if before == after {
         return String::new();
     }
-    let a: Vec<&str> = before.lines().collect();
-    let b: Vec<&str> = after.lines().collect();
+    // Lines keep their newline, so a missing final newline is a difference, marked as diff marks it.
+    let a: Vec<&str> = before.split_inclusive('\n').collect();
+    let b: Vec<&str> = after.split_inclusive('\n').collect();
     let ops = script(&a, &b);
     let mut out = format!("--- {name}\n+++ {name} (formatted)\n");
     for (start, end) in hunks(&ops) {
@@ -106,21 +107,29 @@ fn hunk(ops: &[Op], start: usize, end: usize, a: &[&str], b: &[&str]) -> String 
             Op::Same => {
                 i += 1;
                 j += 1;
-                format!(" {}", a.get(i - 1).unwrap_or(&""))
+                line(' ', a.get(i - 1))
             }
             Op::Del => {
                 i += 1;
-                format!("-{}", a.get(i - 1).unwrap_or(&""))
+                line('-', a.get(i - 1))
             }
             Op::Add => {
                 j += 1;
-                format!("+{}", b.get(j - 1).unwrap_or(&""))
+                line('+', b.get(j - 1))
             }
         };
         out.push_str(&line);
-        out.push('\n');
     }
     out
+}
+
+/// One line of a hunk, with its newline; a last line without one gets diff's marker.
+fn line(mark: char, text: Option<&&str>) -> String {
+    let text = text.copied().unwrap_or_default();
+    match text.strip_suffix('\n') {
+        Some(t) => format!("{mark}{t}\n"),
+        None => format!("{mark}{text}\n\\ No newline at end of file\n"),
+    }
 }
 
 /// `start,len` as diff prints it (1-based; an empty side is `start,0` at the line before).
@@ -164,5 +173,11 @@ mod tests {
         assert_eq!(d, "--- x\n+++ x (formatted)\n@@ -1 +1,2 @@\n a\n+b\n");
         let d = unified("x", "", "a\n");
         assert_eq!(d, "--- x\n+++ x (formatted)\n@@ -0,0 +1 @@\n+a\n");
+        // Only the final newline differs: diff's marker says so.
+        let d = unified("x", "a", "a\n");
+        assert_eq!(
+            d,
+            "--- x\n+++ x (formatted)\n@@ -1 +1 @@\n-a\n\\ No newline at end of file\n+a\n"
+        );
     }
 }

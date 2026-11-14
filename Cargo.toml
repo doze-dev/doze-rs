@@ -87,8 +87,6 @@ opt-level = "s"
 opt-level = "s"
 [profile.release.package.hcl-edit]
 opt-level = "s"
-[profile.release.package.astro-float]
-opt-level = "s"
 [profile.release.package.clap_builder]
 opt-level = "z"
 [profile.release.package.clap_lex]

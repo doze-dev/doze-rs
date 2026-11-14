@@ -20,7 +20,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 
 /// Why the module pass did not run, when the person did not ask to skip it.
-const NO_MODULE_PASS: &str = "needs this doze's daemon modules, core plan D1";
+const NO_MODULE_PASS: &str = "needs this doze's daemon modules, core plan D1; so do the port and network checks across the stack";
 
 /// Go's lint result; the field names are a published contract.
 #[derive(Debug, Serialize)]
@@ -33,6 +33,9 @@ pub struct Verdict {
     why: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     warnings: Vec<String>,
+    /// What `unchecked` lists, for the human line: module blocks, or certificates.
+    #[serde(skip)]
+    what: &'static str,
 }
 
 /// `doze lint [--offline]`.
@@ -40,6 +43,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Lint) -> Outcome {
     let loaded = config::shape(ctx, mode)?;
     let mut cfg = loaded.config;
     let mut unchecked = module_types(&cfg);
+    let mut what = "module blocks";
     let mut why = match (a.offline, unchecked.is_empty()) {
         (_, true) => String::new(),
         (true, false) => "--offline".to_owned(),
@@ -52,6 +56,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Lint) -> Outcome {
         cfg = full;
         if certs_skipped {
             unchecked.push("certificates".to_owned());
+            what = "certificates";
             why = "this doze reads a certificate when it serves it".to_owned();
         }
     }
@@ -62,12 +67,18 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Lint) -> Outcome {
         .unwrap_or(&loaded.project.config)
         .strip_prefix(&ctx.cwd)
         .map_or_else(|_| cfg.path.clone(), |p| p.display().to_string());
+    // The folder doze runs in is `.`, as Go prints `-c .`.
+    let shown = if shown.is_empty() {
+        ".".to_owned()
+    } else {
+        shown
+    };
     let problem = (!a.offline && !unchecked.is_empty()).then(|| {
         Diagnostic::new(
             ids::NOT_ALL_CHECKED,
             "lint is partial: not every block was checked",
         )
-        .fix("doze lint --offline checks the rest alone, and exits 0 when it is clean")
+        .fix("--offline runs the first pass alone and accepts it (exit 0)")
     });
     let verdict = Verdict {
         config: shown,
@@ -76,6 +87,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Lint) -> Outcome {
         unchecked,
         why,
         warnings: cfg.warnings.clone(),
+        what,
     };
     Ok(Done {
         view: View::Lint(verdict),
@@ -108,7 +120,7 @@ fn declared(cfg: &Config) -> BTreeMap<&'static str, usize> {
     ] {
         out.insert(kind.as_str(), n);
     }
-    out.retain(|_, n| *n > 0);
+    // Go always reports services and tasks, 0 included; the human line leaves zeros out.
     out
 }
 
@@ -117,7 +129,7 @@ impl Verdict {
     pub(crate) fn human(&self, p: Paint) -> String {
         let mut parts: Vec<String> = Vec::new();
         for kind in Kind::ALL {
-            if let Some(n) = self.declared.get(kind.as_str()) {
+            if let Some(n) = self.declared.get(kind.as_str()).filter(|n| **n > 0) {
                 parts.push(plural(*n, kind.as_str()));
             }
         }
@@ -134,10 +146,11 @@ impl Verdict {
         } else {
             // Rule 3: no tick for a check that did not run.
             format!(
-                "{} {} passes the checks that need no module: {summary}\n  {} module blocks not checked ({}): {}\n",
+                "{} {} passes the first pass: {summary}\n  {} {} not checked ({}): {}\n",
                 p.ok("✓"),
                 self.config,
                 p.warn("!"),
+                self.what,
                 self.why,
                 self.unchecked.join(", ")
             )

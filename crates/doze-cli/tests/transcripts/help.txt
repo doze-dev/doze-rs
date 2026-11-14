@@ -60,7 +60,7 @@ stdout:
 |   help                      Help for doze or one of its commands
 | 
 | Flags for every command:
-|   -c, --config <path>       Path to doze.hcl (a directory: its doze.hcl); found here or in a parent when not given
+|   -c, --config <path>       Path to doze.hcl (a directory: all its *.hcl together); found here or in a parent when not given
 |       --var <name=value>    Set a config variable (repeatable)
 |       --json                Print the result as one JSON envelope, doze/v1 (DOZE_JSON=1)
 |   -q, --quiet               Print nothing on stdout: the exit code is the answer
@@ -89,7 +89,7 @@ stdout:
 |   -h, --help  Print help
 | 
 | Flags for every command:
-|   -c, --config <path>       Path to doze.hcl (a directory: its doze.hcl); found here or in a parent when not given
+|   -c, --config <path>       Path to doze.hcl (a directory: all its *.hcl together); found here or in a parent when not given
 |       --var <name=value>    Set a config variable (repeatable)
 |       --json                Print the result as one JSON envelope, doze/v1 (DOZE_JSON=1)
 |   -q, --quiet               Print nothing on stdout: the exit code is the answer
@@ -112,7 +112,7 @@ stdout:
 |   -h, --help  Print help
 | 
 | Flags for every command:
-|   -c, --config <path>       Path to doze.hcl (a directory: its doze.hcl); found here or in a parent when not given
+|   -c, --config <path>       Path to doze.hcl (a directory: all its *.hcl together); found here or in a parent when not given
 |       --var <name=value>    Set a config variable (repeatable)
 |       --json                Print the result as one JSON envelope, doze/v1 (DOZE_JSON=1)
 |   -q, --quiet               Print nothing on stdout: the exit code is the answer

@@ -32,7 +32,12 @@ impl Stack {
     /// The stack of the project here (or at `-c`); exit 6 when there is no `doze.hcl`.
     pub(crate) fn find(ctx: &Ctx<'_>, mode: &Mode) -> Result<Stack, Diagnostic> {
         let project = modules::find(ctx, mode)?;
-        let key = StackKey::for_config(&ctx.home, &project.config);
+        // The state folder's slug comes from the config path as Go has it: the file, or the folder `-c` named (Go's
+        // `projectSlug` then takes that folder's parent, so sibling folders share a stack; kept, to find Go's daemon).
+        let key = StackKey::for_config(
+            &ctx.home,
+            project.source.as_ref().unwrap_or(&project.config),
+        );
         let loader = crate::config::Loader::new(ctx, mode);
         Ok(Stack {
             project,
@@ -178,11 +183,11 @@ pub(crate) fn targets(snap: &Snapshot, names: &[String]) -> Result<Vec<String>, 
 }
 
 /// With doze stopped, every name is one doze.hcl declares (read offline), as Go checks names before anything else;
-/// exit 4 with the nearest declared name, exit 5 when the config itself has a mistake.
-pub(crate) fn check_offline(stack: &Stack, names: &[String]) -> Result<(), Diagnostic> {
-    if names.is_empty() {
-        return Ok(());
-    }
+/// exit 4 with the nearest declared name, exit 5 when the config itself has a mistake (with no names too: Go reads
+/// doze.hcl before anything). Gives every declared name, in doze.hcl's order.
+pub(crate) fn check_offline(stack: &Stack, names: &[String]) -> Result<Vec<String>, Diagnostic> {
     let cfg = stack.loader.shape(&stack.project)?;
-    check_declared(&crate::cmd::declared::names(&cfg), names)
+    let all = crate::cmd::declared::names(&cfg);
+    check_declared(&all, names)?;
+    Ok(all)
 }

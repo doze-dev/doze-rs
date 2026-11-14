@@ -16,7 +16,7 @@ pub struct DryRun {
 #[derive(Debug, Args)]
 pub struct Up {
     /// Services to bring up (default: what you pick, or everything)
-    #[arg(value_name = "service")]
+    #[arg(value_name = "service", add = clap_complete::ArgValueCandidates::new(crate::complete::services))]
     pub services: Vec<String>,
     /// Stream logs after waking (Ctrl-C detaches; the stack keeps running)
     #[arg(short, long)]
@@ -34,7 +34,7 @@ pub struct Up {
 #[derive(Debug, Args)]
 pub struct Sync {
     /// Only this service
-    #[arg(value_name = "service")]
+    #[arg(value_name = "service", add = clap_complete::ArgValueCandidates::new(crate::complete::services))]
     pub service: Option<String>,
     #[command(flatten)]
     pub dry: DryRun,
@@ -52,7 +52,7 @@ pub struct Status {
 
 #[derive(Debug, Args)]
 pub struct Env {
-    #[arg(value_name = "service")]
+    #[arg(value_name = "service", add = clap_complete::ArgValueCandidates::new(crate::complete::services))]
     pub services: Vec<String>,
     /// KEY=value lines for a .env file
     #[arg(long)]
@@ -73,7 +73,7 @@ pub struct Run {
 #[derive(Debug, Args)]
 pub struct Names {
     /// Services to act on (none: every one)
-    #[arg(value_name = "name")]
+    #[arg(value_name = "name", add = clap_complete::ArgValueCandidates::new(crate::complete::services))]
     pub names: Vec<String>,
     #[command(flatten)]
     pub dry: DryRun,
@@ -83,7 +83,7 @@ pub struct Names {
 #[derive(Debug, Args)]
 pub struct SomeNames {
     /// Services to act on
-    #[arg(value_name = "name", required = true)]
+    #[arg(value_name = "name", required = true, add = clap_complete::ArgValueCandidates::new(crate::complete::services))]
     pub names: Vec<String>,
     #[command(flatten)]
     pub dry: DryRun,
@@ -92,7 +92,7 @@ pub struct SomeNames {
 #[derive(Debug, Args)]
 pub struct OneName {
     /// The service
-    #[arg(value_name = "name")]
+    #[arg(value_name = "name", add = clap_complete::ArgValueCandidates::new(crate::complete::services))]
     pub name: String,
     #[command(flatten)]
     pub dry: DryRun,
@@ -101,7 +101,7 @@ pub struct OneName {
 #[derive(Debug, Args)]
 pub struct Task {
     /// The task to run (none: list them)
-    #[arg(value_name = "name")]
+    #[arg(value_name = "name", add = clap_complete::ArgValueCandidates::new(crate::complete::tasks))]
     pub name: Option<String>,
     #[command(flatten)]
     pub dry: DryRun,
@@ -110,7 +110,7 @@ pub struct Task {
 #[derive(Debug, Args)]
 pub struct Pin {
     /// Services to keep awake
-    #[arg(value_name = "name", required = true)]
+    #[arg(value_name = "name", required = true, add = clap_complete::ArgValueCandidates::new(crate::complete::services))]
     pub names: Vec<String>,
     /// Unpin: let them sleep again when idle
     #[arg(long, conflicts_with = "toggle")]
@@ -125,7 +125,7 @@ pub struct Pin {
 #[derive(Debug, Args)]
 pub struct Logs {
     /// Services whose output to show (none: every one, merged by time)
-    #[arg(value_name = "name")]
+    #[arg(value_name = "name", add = clap_complete::ArgValueCandidates::new(crate::complete::services))]
     pub names: Vec<String>,
     /// Keep printing as lines are written (Ctrl-C to stop)
     #[arg(short, long)]
@@ -150,6 +150,6 @@ pub struct Logs {
 #[derive(Debug, Args)]
 pub struct Service {
     /// The service
-    #[arg(value_name = "name")]
+    #[arg(value_name = "name", add = clap_complete::ArgValueCandidates::new(crate::complete::services))]
     pub name: String,
 }

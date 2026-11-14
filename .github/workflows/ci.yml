@@ -306,6 +306,8 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       # The CLI-only doze (core plan §6.3: a 9 MB line under the 10 MB ceiling). P1 measured 4,986,168 B and 185 packages
       # on Linux aarch64 (the Lima VM); the package line leaves room for the core's crates as they land (weight.md).
+      # C2a adds doze.hcl (doze-config, doze-hcl, hcl-edit and winnow) and the completion engine: 210 packages on darwin,
+      # 6,207,024 B; the line moves to 230 (docs/port/core/weight.md, C2a).
       - name: doze (the CLI) under 9 MB
         run: |
           cargo build --release -p doze-cli
@@ -313,7 +315,7 @@ jobs:
           crates=$(cargo tree -p doze-cli --prefix none --edges normal | sort -u | wc -l)
           echo "doze: $size bytes, $crates packages"
           [ "$size" -le 9000000 ] || { echo "doze over 9 MB (core plan §6.3)"; exit 1; }
-          [ "$crates" -le 200 ] || { echo "doze over 200 packages (docs/port/weight.md)"; exit 1; }
+          [ "$crates" -le 230 ] || { echo "doze over 230 packages (docs/port/weight.md)"; exit 1; }
 
   # The broker without the console (`--no-default-features`): one cheap job so that the lean build, the one the Phase 8 limits
   # described, cannot grow unnoticed. Re-based by the weight pass of 2026-11-13: 3,917,008 B on darwin and 4,398,512 B in the Linux

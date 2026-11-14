@@ -47,6 +47,8 @@ pub const LOCK_UNREADABLE: Id = id("DZ0303", Exit::ConfigInvalid);
 pub const CONFIG_UNREADABLE: Id = id("DZ0304", Exit::Failed);
 /// `fmt --check`: a file's layout is not HCL's canonical one.
 pub const NOT_FORMATTED: Id = id("DZ0305", Exit::Failed);
+/// A config file could not be written (`fmt`): a permission, a full disk.
+pub const CONFIG_UNWRITABLE: Id = id("DZ0306", Exit::Machine);
 
 /// The doze home cannot be used.
 pub const HOME_UNUSABLE: Id = id("DZ0401", Exit::Machine);

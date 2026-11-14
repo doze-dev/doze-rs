@@ -31,11 +31,9 @@ impl Needs {
             }
             Needs::App => "the app is not part of the Rust doze yet",
             Needs::Lock => {
-                "choosing what fits needs the engine versions doze.hcl declares, and doze.lock is written by the core"
+                "doze.lock is written by doze-fetch's lock writer (core plan F1, in progress), which it waits for"
             }
-            Needs::Report => {
-                "the report needs the stack's shape and its logs, which come from the core"
-            }
+            Needs::Report => "it comes with a later slice of the CLI (core plan C2)",
             Needs::Handover => "handing the running daemon over to the new doze is the core's job",
         }
     }

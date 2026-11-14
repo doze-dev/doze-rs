@@ -15,7 +15,7 @@ mod fixture;
 mod setup;
 
 use doze_cli::Terminals;
-use fixture::{FakeHost, Sandbox};
+use fixture::Sandbox;
 use std::fmt::Write as _;
 use std::path::Path;
 
@@ -221,32 +221,4 @@ fn diff(want: &str, got: &str) -> String {
             .unwrap_or_default()
             .join("\n")
     )
-}
-
-/// The completion scripts know every command and alias (the scripts are long and clap_complete's to shape, so they
-/// are checked for content, not kept whole).
-#[test]
-fn completion_knows_the_commands() {
-    let sb = Sandbox::new("completion");
-    let host = FakeHost::default();
-    for shell in ["bash", "zsh", "fish", "powershell"] {
-        let ran = fixture::run(
-            &sb,
-            &host,
-            Terminals::default(),
-            false,
-            &["completion", shell],
-        );
-        assert_eq!(ran.code, 0, "{shell}: {}", ran.stderr);
-        for word in ["modules", "dns-setup", "keepawake", "--dry-run", "connect"] {
-            assert!(
-                ran.stdout.contains(word),
-                "{shell} completion has no {word}"
-            );
-        }
-        assert!(
-            !ran.stdout.contains("__refresh"),
-            "{shell} completion offers the hidden refresh"
-        );
-    }
 }

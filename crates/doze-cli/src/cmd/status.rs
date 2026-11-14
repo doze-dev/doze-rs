@@ -5,6 +5,11 @@
 //! With the daemon up everything comes from its snapshot: each declared instance with its kind, needs and endpoint.
 //! With the daemon down, from doze.hcl's shape (read offline, [`crate::config`]): every declared service, asleep, at
 //! the address it will answer on, as Go lists them.
+//!
+//! Two differences from Go with the daemon down, both deliberate for now: a config with a mistake gets the error alone
+//! (Go's `degradedStatus` also draws a shallow table above it), and a module block with no `port` shows "its module's
+//! port" where Go's full load knows the number (the CLI reads doze.hcl without modules). A stack that declares
+//! nothing prints "doze is not running" without an empty table.
 
 use crate::cli::args::Status;
 use crate::cmd::{declared, watch};
@@ -29,7 +34,9 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Status, _notices: &mut Not
         Some(c) => Report::of(&stack::snapshot(&c)?, ctx.now),
         None => {
             let cfg = crate::config::shape_of(ctx, mode, &stack.project)?;
-            Report::declared(declared::views(&cfg), ctx.now)
+            let mut r = Report::declared(declared::views(&cfg), ctx.now);
+            r.module_ports = declared::module_ports(&cfg);
+            r
         }
     };
     Ok(Done::ok(if a.graph {
@@ -48,6 +55,8 @@ pub struct Report {
     pub(crate) now: SystemTime,
     /// The declared instances, in the daemon's order.
     pub(crate) views: Vec<InstanceView>,
+    /// With the daemon down, the module blocks whose port is their module's default (unknown to the CLI).
+    pub(crate) module_ports: Vec<String>,
 }
 
 impl Report {
@@ -57,6 +66,7 @@ impl Report {
             idle: snap.idle_timeout.to_std(),
             now,
             views: go_order(stack::declared(snap).cloned().collect()),
+            module_ports: Vec::new(),
         }
     }
 
@@ -67,6 +77,7 @@ impl Report {
             idle: Duration::ZERO,
             now,
             views,
+            module_ports: Vec::new(),
         }
     }
 
@@ -125,7 +136,13 @@ impl Report {
             p.bold(&v.name).into_owned(),
             p.dim(&engine_cell(v)).into_owned(),
             state_cell(v, p),
-            endpoint_text(v).unwrap_or_else(dash),
+            endpoint_text(v).unwrap_or_else(|| {
+                if self.module_ports.contains(&v.name) {
+                    p.dim("its module's port").into_owned()
+                } else {
+                    dash()
+                }
+            }),
             if up && v.conns > 0 {
                 format!("{}c", v.conns)
             } else {
@@ -272,7 +289,8 @@ pub(crate) fn endpoint(v: &InstanceView) -> Option<&str> {
 /// The endpoint as the table and the tree print it (with the zone's name in place of the loopback address).
 pub(crate) fn endpoint_text(v: &InstanceView) -> Option<String> {
     let ep = endpoint(v)?;
-    Some(match ep.split_once(':') {
+    // The last colon: an IPv6 address has more (Go's declared rows use LastIndex too).
+    Some(match ep.rsplit_once(':') {
         Some((_, port)) if !v.domain.is_empty() => format!("{}:{port}", v.domain),
         _ => ep.to_owned(),
     })
@@ -372,7 +390,7 @@ fn plain_state(v: &InstanceView) -> &str {
 }
 
 /// The order Go's `status --json` lists services in: doze.hcl's modules and apps, then its services, then its tasks.
-/// Within each the daemon's order stands (the declaration order itself is doze.hcl's, read in C2).
+/// Within each the daemon's order stands (it is doze.hcl's declaration order).
 pub(crate) fn go_order(mut views: Vec<InstanceView>) -> Vec<InstanceView> {
     views.sort_by_key(|v| match v.kind.as_str() {
         "service" => 1,

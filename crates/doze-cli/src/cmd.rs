@@ -28,13 +28,12 @@ pub(crate) mod version;
 mod watch;
 pub(crate) mod why;
 
+use crate::cli::Cmd;
 use crate::cli::setup::ModulesCmd;
-use crate::cli::{Cli, Cmd};
 use crate::ctx::Ctx;
 use crate::notice::Notices;
 use crate::output::{Done, Mode, Outcome};
 use crate::view::View;
-use clap::CommandFactory;
 
 /// Runs `cmd` (`command` is its path, `doze modules docs`, for messages).
 pub(crate) fn dispatch(
@@ -56,7 +55,7 @@ pub(crate) fn dispatch(
     }
     match cmd {
         Cmd::Version => version::run(),
-        Cmd::Completion(c) => Ok(Done::ok(View::Raw(completion(c.shell)))),
+        Cmd::Completion(c) => Ok(Done::ok(View::Raw(crate::complete::registration(c.shell)))),
         Cmd::Doctor(d) if d.dry_run && !d.fix && !d.print_fix => Err(crate::diag::Diagnostic::new(
             crate::diag::ids::USAGE,
             "--dry-run goes with --fix: doctor itself changes nothing",
@@ -92,25 +91,4 @@ pub(crate) fn dispatch(
             stub::needs(&other).unwrap_or(stub::Needs::Daemon),
         )),
     }
-}
-
-/// The completion script for `shell`: commands, aliases and flags. Service and module names join when the core can
-/// list them (the proposal's dynamic completions).
-fn completion(shell: crate::cli::values::Shell) -> String {
-    use crate::cli::values::Shell as S;
-    use clap_complete::Shell as C;
-    let shell = match shell {
-        S::Bash => C::Bash,
-        S::Zsh => C::Zsh,
-        S::Fish => C::Fish,
-        S::Powershell => C::PowerShell,
-    };
-    // clap_complete offers hidden commands too (bash and zsh list `__refresh`): complete a tree without them.
-    let full = Cli::command();
-    let mut shown = clap::Command::new("doze")
-        .args(full.get_arguments().cloned())
-        .subcommands(full.get_subcommands().filter(|s| !s.is_hide_set()).cloned());
-    let mut buf = Vec::new();
-    clap_complete::generate(shell, &mut shown, "doze", &mut buf);
-    String::from_utf8_lossy(&buf).into_owned()
 }

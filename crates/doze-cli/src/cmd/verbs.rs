@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 /// `doze wake [name…]`: starts each with what it needs, needs first (Go `bootClosure`), and waits until each is
 /// ready. With no name, every service doze.hcl does not turn off.
 pub(crate) fn wake(ctx: &mut Ctx<'_>, mode: &Mode, a: &Names) -> Outcome {
-    let (stack, ask, snap) = open(ctx, mode, "doze wake")?;
+    let (stack, ask, snap) = open(ctx, mode, "doze wake", &a.names)?;
     let asked = stack::unique(&a.names);
     let targets = stack::targets(&snap, &asked)?;
     if targets.is_empty() {
@@ -54,7 +54,7 @@ pub(crate) fn wake(ctx: &mut Ctx<'_>, mode: &Mode, a: &Names) -> Outcome {
 
 /// `doze restart <name…>`.
 pub(crate) fn restart(ctx: &mut Ctx<'_>, mode: &Mode, a: &SomeNames) -> Outcome {
-    let (stack, ask, snap) = open(ctx, mode, "doze restart")?;
+    let (stack, ask, snap) = open(ctx, mode, "doze restart", &a.names)?;
     let names = stack::unique(&a.names);
     stack::check_names(&snap, &names)?;
     if a.dry.dry_run {
@@ -140,7 +140,7 @@ pub(crate) fn sleep(ctx: &mut Ctx<'_>, mode: &Mode, a: &Names) -> Outcome {
 
 /// `doze reset <name…>`: deletes the data; asks first, or needs `-y` with no terminal.
 pub(crate) fn reset(ctx: &mut Ctx<'_>, mode: &Mode, a: &SomeNames) -> Outcome {
-    let (_, ask, snap) = open(ctx, mode, "doze reset")?;
+    let (_, ask, snap) = open(ctx, mode, "doze reset", &a.names)?;
     let names = stack::unique(&a.names);
     stack::check_names(&snap, &names)?;
     if a.dry.dry_run {
@@ -192,7 +192,7 @@ fn confirm_reset(ctx: &mut Ctx<'_>, mode: &Mode, names: &[String]) -> Result<boo
 /// `doze off <name…>` and `doze on <name…>`.
 pub(crate) fn on_off(ctx: &mut Ctx<'_>, mode: &Mode, a: &SomeNames, off: bool) -> Outcome {
     let what = if off { "doze off" } else { "doze on" };
-    let (_, ask, snap) = open(ctx, mode, what)?;
+    let (_, ask, snap) = open(ctx, mode, what, &a.names)?;
     let names = stack::unique(&a.names);
     stack::check_names(&snap, &names)?;
     if a.dry.dry_run {
@@ -235,9 +235,15 @@ pub(crate) fn open(
     ctx: &Ctx<'_>,
     mode: &Mode,
     what: &str,
+    names: &[String],
 ) -> Result<(Stack, Asker, Snapshot), Diagnostic> {
     let stack = Stack::find(ctx, mode)?;
-    let conn = stack.require(mode.timeout, what)?;
+    let Some(conn) = stack.open(mode.timeout)? else {
+        // Go reads doze.hcl and checks the names before it finds the daemon down: a typo is exit 4, a broken
+        // config exit 5, and only then "not running" (exit 7).
+        stack::check_offline(&stack, &stack::unique(names))?;
+        return Err(stack::down(what));
+    };
     let snap = stack::snapshot(&conn)?;
     Ok((stack, Asker::new(conn, ctx, mode), snap))
 }

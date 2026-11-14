@@ -1,0 +1,148 @@
+# With the daemon down, doze.hcl answers first, as in Go: a name it does not declare is exit 4 before "not running"
+# (exit 7), for every verb; a module block with no port shows that its port is its module's (the CLI reads doze.hcl
+# without modules, so it does not know the number); `-c .` is shown as `.`.
+@ project bare
+@ file project/doze.hcl stack = "s"\n\nmodule valkey "cache" {\n  version = 9\n}\n\napp "api" {\n  run  = "x"\n  port = 8080\n}\n
+
+$ doze status
+exit 0
+stdout:
+| doze is not running — showing declared services
+| 
+|       NAME    ENGINE     STATE    ENDPOINT            CONNS   MEM   CPU   NOTE
+| Modules
+|   ·   cache   valkey 9   asleep   its module's port   -       -     -
+| Apps
+|   ·   api     app        asleep   127.0.0.1:8080      -       -     -
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze status",
+|   "ok": true,
+|   "data": {
+|     "daemon": {
+|       "running": false
+|     },
+|     "services": [
+|       {
+|         "name": "cache",
+|         "engine": "valkey",
+|         "version": "9",
+|         "group": "module",
+|         "state": "asleep",
+|         "enabled": true,
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0
+|       },
+|       {
+|         "name": "api",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "asleep",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:8080",
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0
+|       }
+|     ]
+|   }
+| }
+
+$ doze off nosuch
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "nosuch"
+|   it has cache, api
+|   fix: doze status
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze off",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "the stack has no service called \"nosuch\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "it has cache, api"
+|     ],
+|     "fix": "doze status"
+|   }
+| }
+
+$ doze wake api
+exit 7
+stderr:
+| error[DZ0701]: doze wake needs the stack running, and doze is not running it
+|   fix: doze up
+json exit 7
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze wake",
+|   "ok": false,
+|   "error": {
+|     "code": "daemon_down",
+|     "message": "doze wake needs the stack running, and doze is not running it",
+|     "exit": 7,
+|     "id": "DZ0701",
+|     "fix": "doze up"
+|   }
+| }
+
+$ doze restart cahce
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "cahce"
+|   it has cache, api
+|   fix: doze status
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze restart",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "the stack has no service called \"cahce\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "it has cache, api"
+|     ],
+|     "fix": "doze status"
+|   }
+| }
+
+$ doze -c . lint --offline
+exit 0
+stdout:
+| ✓ . passes the first pass: 1 module, 1 app
+|   ! module blocks not checked (--offline): valkey
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze lint",
+|   "ok": true,
+|   "data": {
+|     "config": ".",
+|     "declared": {
+|       "app": 1,
+|       "module": 1,
+|       "service": 0,
+|       "task": 0
+|     },
+|     "disabled": 0,
+|     "unchecked": [
+|       "valkey"
+|     ],
+|     "why": "--offline"
+|   }
+| }
