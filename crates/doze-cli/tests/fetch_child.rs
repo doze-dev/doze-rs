@@ -5,6 +5,16 @@ use doze_fetch::child::{ChildDownloads, Request};
 
 const DOZE: &str = env!("CARGO_BIN_EXE_doze");
 
+/// This machine's platform, as the child names it (a module may only ask for a real platform's build).
+fn triple() -> String {
+    use std::env::consts::{ARCH, OS};
+    match OS {
+        "macos" => format!("{ARCH}-apple-darwin"),
+        "windows" => format!("{ARCH}-pc-windows-msvc"),
+        _ => format!("{ARCH}-unknown-linux-gnu"),
+    }
+}
+
 struct Dir(std::path::PathBuf);
 
 impl Drop for Dir {
@@ -22,7 +32,8 @@ async fn a_child_resolves_from_the_mirror_and_says_why_it_failed() {
     let sha = doze_fetch::registry::signed::sha256_hex(junk);
     std::fs::write(mirror.join("valkey-9.1.1.tar.gz"), junk).unwrap();
     let manifest = format!(
-        "engines:\n  valkey:\n    versions:\n      \"9\": 9.1.1\n    artifacts:\n      9.1.1:\n        t:\n          url: valkey-9.1.1.tar.gz\n          sha256: {sha}\n"
+        "engines:\n  valkey:\n    versions:\n      \"9\": 9.1.1\n    artifacts:\n      9.1.1:\n        {}:\n          url: valkey-9.1.1.tar.gz\n          sha256: {sha}\n",
+        triple()
     );
     std::fs::write(mirror.join("index.yaml"), manifest).unwrap();
     let child = ChildDownloads {
@@ -52,7 +63,7 @@ async fn a_child_resolves_from_the_mirror_and_says_why_it_failed() {
         .ask(&Request::Ensure {
             engine: "valkey".into(),
             full: "9.1.1".into(),
-            target: "t".into(),
+            target: triple(),
             expected_sha: None,
         })
         .await

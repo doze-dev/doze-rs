@@ -124,6 +124,6 @@ fn tell_fit(
                 here.protocol
             ));
         }
-        Fit::Engines | Fit::Empty => {}
+        Fit::Engines { .. } | Fit::Empty => {}
     }
 }

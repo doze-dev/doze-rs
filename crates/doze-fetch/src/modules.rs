@@ -148,7 +148,7 @@ impl Modules {
             let (bin, _) = mirror::cached(&content, &what, expected)?;
             return self.ready(src, &pin.version, &bin, Vec::new());
         }
-        let idx = self.index(src)?;
+        let (idx, from) = self.index_from(src)?;
         let rel = idx.releases.get(&pin.version).ok_or_else(|| {
             format!(
                 "module {key} {} (pinned in doze.lock) is no longer published — run 'doze modules upgrade {}'",
@@ -156,14 +156,14 @@ impl Modules {
                 src.name()
             )
         })?;
-        let bin = self.download(src, &pin.version, rel, expected)?;
+        let bin = self.download(src, &pin.version, rel, expected, &from)?;
         self.ready(src, &pin.version, &bin, Vec::new())
     }
 
     fn fresh(&self, src: &Source, majors: &[String], lock: &mut Lock) -> Result<Resolved, String> {
         let key = src.to_string();
-        let idx = match self.index(src) {
-            Ok(idx) => idx,
+        let (idx, from) = match self.index_from(src) {
+            Ok(got) => got,
             Err(err) => {
                 let Some((v, bin)) = self.newest_cached(src) else {
                     return Err(err);
@@ -183,7 +183,7 @@ impl Modules {
             .releases
             .get(&version)
             .ok_or_else(|| format!("module {key} {version} is not in its index"))?;
-        let bin = self.download(src, &version, rel, None)?;
+        let bin = self.download(src, &version, rel, None, &from)?;
         let pin = Pin {
             version: version.clone(),
             protocol: rel.protocol,
@@ -200,14 +200,9 @@ impl Modules {
                 .collect(),
             doze: rel.doze.clone(),
         };
-        let mut notes = Vec::new();
-        if !lock.modules.contains_key(&key) {
-            notes.push(format!(
-                "pinned {key} {version} in doze.lock — commit the lockfile so your team and CI get this exact build"
-            ));
-        }
+        // "pinned … in doze.lock" is said by whoever saves the lock, once it is saved (Go logged it after `Save`).
         lock.record_module(&key, pin);
-        self.ready(src, &version, &bin, notes)
+        self.ready(src, &version, &bin, Vec::new())
     }
 
     fn no_fit(&self, src: &Source, majors: &[String], fit: &Fit) -> String {
@@ -229,13 +224,24 @@ impl Modules {
                 "no release of module {src} speaks module protocol {} (its releases speak {min}–{max}); it has to be published for this doze",
                 self.protocol
             ),
-            Fit::Engines => format!("no release of module {src} runs {what}"),
+            // Go's `EngineSupportError`, which names the newest release and what it supports.
+            Fit::Engines { latest, supported } => format!(
+                "no release of {name} supports {name} {}; latest ({latest}) supports {}",
+                majors.join(", "),
+                supported.join(", "),
+                name = src.name()
+            ),
             Fit::Empty | Fit::Release(_) => format!("module {src} has no releases"),
         }
     }
 
     /// The module's signed index, verified with the registry key.
     pub fn index(&self, src: &Source) -> Result<Index, String> {
+        self.index_from(src).map(|(idx, _)| idx)
+    }
+
+    /// The verified index, and the registry base that served it (a relative artifact address is resolved there).
+    fn index_from(&self, src: &Source) -> Result<(Index, String), String> {
         let path = src.file("index.yaml");
         let got = self.registry.get(&path).map_err(|e| match e {
             FetchError::Missing { from } => {
@@ -254,7 +260,7 @@ impl Modules {
         }
         index::verify(&idx, &self.registry.key)
             .map_err(|r| format!("module index for {src}: {r}"))?;
-        Ok(idx)
+        Ok((idx, got.from))
     }
 
     /// Release `version` of `src` for this platform, from the verified index, downloaded and checked (against
@@ -266,12 +272,12 @@ impl Modules {
         version: &str,
         expected: Option<&str>,
     ) -> Result<PathBuf, String> {
-        let idx = self.index(src)?;
+        let (idx, from) = self.index_from(src)?;
         let rel = idx
             .releases
             .get(version)
             .ok_or_else(|| format!("module {src} {version} is not published"))?;
-        self.download(src, version, rel, expected)
+        self.download(src, version, rel, expected, &from)
     }
 
     /// Downloads release `version`'s archive for this platform, checked against the lock's pin (else the index's
@@ -282,12 +288,13 @@ impl Modules {
         version: &str,
         rel: &Release,
         expected: Option<&str>,
+        from: &str,
     ) -> Result<PathBuf, String> {
         let art = rel
             .artifacts
             .get(&self.triple)
             .ok_or_else(|| format!("module {src} {version} has no artifact for {}", self.triple))?;
-        let url = self.artifact_url(src, &art.url);
+        let url = self.artifact_url(src, &art.url, from);
         let want = Want {
             manifest_sha: &art.sha256,
             sig: &art.sig,
@@ -304,13 +311,15 @@ impl Modules {
         Ok(bin)
     }
 
-    /// An artifact's address: absolute as published, or relative to the module's folder on the first registry base.
-    fn artifact_url(&self, src: &Source, url: &str) -> String {
+    /// An artifact's address: absolute as published, or relative to the module's folder on the registry base that
+    /// served the index (`from`; the first base if none matches).
+    fn artifact_url(&self, src: &Source, url: &str, from: &str) -> String {
         if url.contains("://") {
             return url.to_string();
         }
         let rel = src.file(url.trim_start_matches('/'));
-        match self.registry.bases.first() {
+        let served = self.registry.bases.iter().find(|b| b.name() == from);
+        match served.or(self.registry.bases.first()) {
             Some(registry::Base::Http(b)) => format!("{}/{rel}", b.trim_end_matches('/')),
             Some(registry::Base::Dir(d)) => format!("file://{}", d.join(rel).display()),
             None => rel,
@@ -385,4 +394,8 @@ pub fn plugin_exe(bin: &Path, name: &str) -> Option<PathBuf> {
 
 #[cfg(test)]
 #[path = "modules_tests.rs"]
-mod tests;
+pub(crate) mod tests;
+
+#[cfg(test)]
+#[path = "modules_gates_tests.rs"]
+mod gates_tests;

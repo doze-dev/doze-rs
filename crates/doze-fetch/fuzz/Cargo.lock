@@ -164,6 +164,7 @@ dependencies = [
  "base64ct",
  "doze-module-host",
  "doze-module-proto",
+ "doze-os",
  "ed25519-dalek",
  "flate2",
  "hex",

@@ -237,6 +237,14 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_duration
           cargo fuzz run fuzz_duration corpus/fuzz_duration -- -max_total_time=30
+      # The seeds include an alias bomb and deep nesting (F1 audit, blocker 1): both must be refused quickly, not grown.
+      - name: Fuzz doze-fetch's parsers (doze.lock, the registry's files, the mirror manifest) for 30 seconds each
+        working-directory: crates/doze-fetch/fuzz
+        run: |
+          for t in fuzz_lock fuzz_index fuzz_manifest fuzz_meta fuzz_latest; do
+            mkdir -p "corpus/$t"
+            cargo fuzz run "$t" "corpus/$t" "seeds/$t" -- -max_total_time=30 -max_len=65536 -rss_limit_mb=512
+          done
       - name: Fuzz the .doze resolver's DNS wire and upstream parsers for 30 seconds each
         working-directory: crates/doze-names/fuzz
         run: |

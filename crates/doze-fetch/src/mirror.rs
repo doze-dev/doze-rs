@@ -207,12 +207,18 @@ pub(crate) fn cached(
 }
 
 /// Downloads, verifies (lock pin first, else manifest checksum; and the signature when there is a key), unpacks.
+/// Parallel `__fetch` children may fill the same build: each takes the build's file lock (`<content>.lock`) first,
+/// and one that finds the build there once it holds the lock takes it as cached.
 pub(crate) fn download(
     url: &str,
     content: &Path,
     what: &str,
     want: &Want<'_>,
 ) -> Result<(PathBuf, String), String> {
+    let _held = lock_build(content)?;
+    if archive::has_files(&content.join("bin")) {
+        return cached(content, what, want.expected);
+    }
     let bytes = http::get_up_to(url, DOWNLOAD_BUDGET, ARCHIVE_LIMIT)
         .map_err(|f| format!("downloading {url}: {}", said(&f)))?;
     let got = signed::sha256_hex(&bytes);
@@ -241,6 +247,18 @@ pub(crate) fn download(
     }
     let bin = archive::unpack(&bytes, content, &digest)?;
     Ok((bin, digest))
+}
+
+/// The cross-process lock on one cache build, held while it is checked, downloaded and unpacked.
+pub(crate) fn lock_build(content: &Path) -> Result<doze_os::fs::Lock, String> {
+    let mut name = content.as_os_str().to_owned();
+    name.push(".lock");
+    let path = PathBuf::from(name);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("creating {}: {e}", parent.display()))?;
+    }
+    doze_os::fs::lock(&path).map_err(|e| format!("locking {}: {e}", path.display()))
 }
 
 #[cfg(test)]

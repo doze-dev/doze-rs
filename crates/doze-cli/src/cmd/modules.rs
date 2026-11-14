@@ -69,7 +69,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode) -> Outcome {
             Some(Fit::Release(v)) => (Some(v), String::new()),
             Some(Fit::NeedsDoze(need)) => (None, format!("newer ones need doze {need}")),
             Some(Fit::Protocol { .. }) => (None, "none for this doze yet (module protocol)".into()),
-            Some(Fit::Engines | Fit::Empty) => (None, "none".into()),
+            Some(Fit::Engines { .. } | Fit::Empty) => (None, "none".into()),
             None => {
                 unknown.push(short.clone());
                 (None, "not known yet".into())

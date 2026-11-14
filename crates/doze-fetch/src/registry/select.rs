@@ -22,8 +22,12 @@ pub enum Fit {
     NeedsDoze(String),
     /// No release speaks this doze's protocol (the protocols they do speak).
     Protocol { min: i64, max: i64 },
-    /// No release runs the engine majors asked for.
-    Engines,
+    /// No release runs the engine majors asked for: the newest that speaks this doze's protocol, and the majors it
+    /// runs (Go's `EngineSupportError`).
+    Engines {
+        latest: String,
+        supported: Vec<String>,
+    },
     /// The index has no releases.
     Empty,
 }
@@ -92,8 +96,16 @@ pub fn newest_that_fits(idx: &Index, here: Here<'_>, majors: &[String]) -> Fit {
     if let Some(need) = need {
         return Fit::NeedsDoze(need.to_string());
     }
-    if idx.releases.values().any(speaks) {
-        return Fit::Engines;
+    let latest = idx
+        .releases
+        .iter()
+        .filter(|(_, r)| speaks(r))
+        .max_by(|a, b| compare_versions(a.0, b.0));
+    if let Some((v, r)) = latest {
+        return Fit::Engines {
+            latest: v.clone(),
+            supported: r.engines.clone(),
+        };
     }
     let protocols = idx.releases.values().map(|r| r.protocol);
     Fit::Protocol {
@@ -157,7 +169,10 @@ mod tests {
             newest_that_fits(&idx, here, &["10".into()]),
             Fit::NeedsDoze("0.5.0".into())
         );
-        assert_eq!(newest_that_fits(&idx, here, &["7".into()]), Fit::Engines);
+        assert!(matches!(
+            newest_that_fits(&idx, here, &["7".into()]),
+            Fit::Engines { .. }
+        ));
         // A development build runs every release.
         let dev = Here {
             protocol: 2,

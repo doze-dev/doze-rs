@@ -10,7 +10,7 @@ use ed25519_dalek::{Signer, SigningKey};
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-const TRIPLE: &str = "test-triple";
+pub(crate) const TRIPLE: &str = "test-triple";
 
 fn key() -> SigningKey {
     SigningKey::from_bytes(&[9u8; 32])
@@ -20,9 +20,9 @@ fn sign_hex(hex: &str) -> String {
     Base64::encode_string(&key().sign(hex.as_bytes()).to_bytes())
 }
 
-struct Reg {
-    root: PathBuf,
-    home: PathBuf,
+pub(crate) struct Reg {
+    pub(crate) root: PathBuf,
+    pub(crate) home: PathBuf,
 }
 
 impl Drop for Reg {
@@ -33,7 +33,7 @@ impl Drop for Reg {
 
 /// A registry holding `valkey` releases `(version, protocol, engines)`, each with one archive for [`TRIPLE`];
 /// `extra` is written into the index as fields this doze does not know.
-fn registry(tag: &str, releases: &[(&str, i64, &[&str])], extra: &str) -> Reg {
+pub(crate) fn registry(tag: &str, releases: &[(&str, i64, &[&str])], extra: &str) -> Reg {
     let d = std::env::temp_dir().join(format!("doze-fetch-mod-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&d);
     let dir = d.join("registry/doze/valkey");
@@ -102,7 +102,7 @@ fn render(idx: &Index, extra: &str) -> String {
     )
 }
 
-fn modules(reg: &Reg) -> Modules {
+pub(crate) fn modules(reg: &Reg) -> Modules {
     Modules {
         registry: Config {
             bases: vec![Base::Dir(reg.root.clone())],
@@ -116,11 +116,11 @@ fn modules(reg: &Reg) -> Modules {
     }
 }
 
-fn valkey() -> Source {
+pub(crate) fn valkey() -> Source {
     Source::parse("valkey").unwrap()
 }
 
-fn majors(m: &[&str]) -> Vec<String> {
+pub(crate) fn majors(m: &[&str]) -> Vec<String> {
     m.iter().map(|s| (*s).to_string()).collect()
 }
 
@@ -137,9 +137,9 @@ fn a_fresh_resolve_pins_the_newest_fit_and_a_warm_pin_needs_no_network() {
     assert_eq!(r.version, "0.3.0");
     assert_eq!(std::fs::read(&r.exe).unwrap(), b"0.3.0");
     assert!(
+        r.notes.is_empty(),
+        "a pin is announced by whoever saves the lock, once saved: {:?}",
         r.notes
-            .iter()
-            .any(|n| n.starts_with("pinned doze/valkey 0.3.0"))
     );
     let pin = lock.modules.get("doze/valkey").cloned().unwrap();
     assert!(lock.dirty);
@@ -378,4 +378,23 @@ fn offline_a_build_of_another_protocol_is_not_taken() {
     let marker = m.content_dir(&valkey(), "0.3.0").join(PROTOCOL_FILE);
     std::fs::write(&marker, "1\n").unwrap();
     assert!(m.resolve(&valkey(), &[], &mut Lock::default()).is_err());
+}
+
+/// Audit F1, M2: parallel fills of one build (each `__fetch` child is a process of its own) take the build's lock in
+/// turn; every one ends with the whole build.
+#[test]
+fn parallel_fills_of_one_build_all_end_with_it() {
+    let reg = registry("parallel", &[("0.3.0", 2, &["9"])], "");
+    let m = modules(&reg);
+    let bins: Vec<PathBuf> = std::thread::scope(|s| {
+        let all: Vec<_> = (0..8)
+            .map(|_| s.spawn(|| m.fetch(&valkey(), "0.3.0", None)))
+            .collect();
+        all.into_iter()
+            .map(|h| h.join().unwrap().unwrap())
+            .collect()
+    });
+    for bin in bins {
+        assert_eq!(std::fs::read(bin.join("valkey-plugin")).unwrap(), b"0.3.0");
+    }
 }

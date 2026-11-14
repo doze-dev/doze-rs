@@ -23,6 +23,29 @@ fn triple() -> String {
     }
 }
 
+/// What `Modules::resolve` does for this doze (protocol 2) against the live registry: it takes a protocol-2 release,
+/// or, while none is published (every release is still protocol 1, the Go doze's), says exactly that. Either way it
+/// never takes a protocol-1 build. Protocol-2 releases come with the M track (fetch.md).
+fn resolves_for_protocol_2(m: &Modules, src: &Source) {
+    let mut lock = doze_fetch::lock::Lock::default();
+    match m.resolve(src, &[], &mut lock) {
+        Ok(r) => {
+            let protocol = lock.modules.get(&src.to_string()).map(|p| p.protocol);
+            assert_eq!(
+                protocol,
+                Some(2),
+                "{src} {}: resolved to {protocol:?}",
+                r.version
+            );
+        }
+        Err(e) => assert!(
+            e.contains("speaks module protocol 2")
+                && e.contains("it has to be published for this doze"),
+            "{src}: {e}"
+        ),
+    }
+}
+
 #[test]
 fn every_published_module_verifies_and_unpacks() {
     if std::env::var("DOZE_LIVE_REGISTRY").as_deref() != Ok("1") {
@@ -61,6 +84,7 @@ fn every_published_module_verifies_and_unpacks() {
             .unwrap_or_else(|e| panic!("{name} {v}: {e}"));
         assert!(plugin_exe(&bin, name).is_some(), "{name} {v}: no plugin");
         fetched.push(format!("{name} {v}"));
+        resolves_for_protocol_2(&m, &src);
     }
     let _ = std::fs::remove_dir_all(&home);
     eprintln!("verified and unpacked: {fetched:?}");

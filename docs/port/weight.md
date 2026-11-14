@@ -261,3 +261,17 @@ Phase 7). Under the CI limits (115, 5.15 MB, 8 MB). Kafka now links `doze-store`
 
 **doze-aws at `opt-level = "z"` (2026-11-13, release-aws): 4,867,344 B (4.64 MiB) on darwin/arm64, 233 packages, idle 4,400 KB; 7,481,552 B on x86_64 Linux (musl).** The same code at `"s"` was 6,500,256 B, 233 packages and 3,920 KB idle on macOS and 8,206,736 B on Linux. `"z"` took 25% off macOS and only 9% off Linux: of the Linux binary, `.text` is 5.1 MB, `.rodata` 1.0 MB, `.eh_frame` 0.8 MB (plus 0.1 MB of index), `.rela.dyn` 0.17 MB. The Linux limits are 7,900,000 B (the musl size plus 5%) and 240 packages. Cost of `"z"`: server CPU 30 to 60% higher per request (0.2 to 0.7 ms), idle memory +0.4 MB, wall time unchanged; see the PLAN entry for the benchmark. Linux is now 1.54 times the macOS size, which is the ratio to plan with.
 
+
+## Core F1 (`doze` with doze-fetch), measured 2026-11-14, release, darwin/arm64
+
+The `doze` CLI (package `doze-cli`) gets its first line in `xtask/weight-limits.txt`. F1 links the registry client: ureq,
+rustls with ring, rustls-native-certs, tar and flate2, ed25519-dalek and yaml-rust2. With the F1 audit fixes (cross-process
+locks from doze-os, which `doze` already linked): **3,148,064 B, 169 packages**. The F1 audit measured 3.05 MB before
+them; the fixes cost about 100 KB (the capped unpack, the lock merge, the platform list), which is the judgement call
+the owner leaves to the builder.
+
+- Limit: 4,300,000 B (the macOS size times 1.3 for an x86_64 Linux build, plus 5%, the rule of the doze-aws line) and
+  175 packages (six of room). It is re-based from the first Linux CI run.
+- Idle memory is not weighed: the CLI serves nothing by itself (the line's `0`; the daemon gets its own line when it
+  exists). Downloads run in `doze __fetch` children, so none of this is resident in a daemon.
+- The 10 MB ceiling (owner, 2026-11-12) stands far above.

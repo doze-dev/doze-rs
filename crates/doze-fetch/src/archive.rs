@@ -28,7 +28,7 @@ pub fn unpack(archive: &[u8], content_dir: &Path, digest: &str) -> Result<PathBu
     tmp_name.push(format!(".tmp{}", std::process::id()));
     let tmp = PathBuf::from(tmp_name);
     let _ = std::fs::remove_dir_all(&tmp);
-    untar(archive, &tmp).map_err(|e| format!("extracting: {e}"))?;
+    untar(archive, &tmp, UNPACKED_LIMIT).map_err(|e| format!("extracting: {e}"))?;
     let bin = find_bin(&tmp).ok_or("the archive has no bin/ directory")?;
     if let Some(inner) = bin.parent().filter(|p| *p != tmp) {
         for e in std::fs::read_dir(inner)
@@ -51,9 +51,34 @@ pub fn unpack(archive: &[u8], content_dir: &Path, digest: &str) -> Result<PathBu
     Ok(bin)
 }
 
-fn untar(archive: &[u8], dest: &Path) -> io::Result<()> {
+/// The most an archive may unpack to (the largest engine build is a few hundred MB): a small archive that inflates
+/// without end is refused instead of filling the disk.
+const UNPACKED_LIMIT: u64 = 4 << 30;
+
+/// A reader that fails once more than `left` bytes have come through.
+struct Capped<R> {
+    inner: R,
+    left: u64,
+}
+
+impl<R: io::Read> io::Read for Capped<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.left = self
+            .left
+            .checked_sub(n as u64)
+            .ok_or_else(|| io::Error::other("the archive unpacks to more than doze accepts"))?;
+        Ok(n)
+    }
+}
+
+fn untar(archive: &[u8], dest: &Path, cap: u64) -> io::Result<()> {
     std::fs::create_dir_all(dest)?;
-    let mut a = tar::Archive::new(flate2::read::GzDecoder::new(archive));
+    let gz = Capped {
+        inner: flate2::read::GzDecoder::new(archive),
+        left: cap,
+    };
+    let mut a = tar::Archive::new(gz);
     a.set_preserve_permissions(true);
     a.set_overwrite(true);
     a.unpack(dest)
@@ -71,7 +96,8 @@ fn find_bin(root: &Path) -> Option<PathBuf> {
             let mut subdirs: Vec<PathBuf> = entries
                 .flatten()
                 .map(|e| e.path())
-                .filter(|p| p.is_dir())
+                // A real folder only: a `bin` that is a link (to `/usr/bin`, say) is not the build's.
+                .filter(|p| std::fs::symlink_metadata(p).is_ok_and(|m| m.is_dir()))
                 .collect();
             subdirs.sort();
             if let Some(b) = subdirs
@@ -126,6 +152,31 @@ pub(crate) mod tests {
                 .unwrap_err()
                 .contains("no bin/")
         );
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// Audit F1, minor 7: a `bin` that is a link out of the build is not taken as its `bin/`; an archive that inflates
+    /// past the cap is refused.
+    #[test]
+    fn a_linked_bin_and_an_inflating_archive_are_refused() {
+        let d = std::env::temp_dir().join(format!("doze-fetch-link-{}", std::process::id()));
+        let outside = d.join("outside");
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(outside.join("tool"), b"x").unwrap();
+        let gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        let mut b = tar::Builder::new(gz);
+        let mut h = tar::Header::new_gnu();
+        h.set_entry_type(tar::EntryType::Symlink);
+        h.set_size(0);
+        h.set_cksum();
+        b.append_link(&mut h, "bin", &outside).unwrap();
+        let a = b.into_inner().unwrap().finish().unwrap();
+        let content = d.join("cache/x/1-t");
+        assert!(unpack(&a, &content, "sha256:ab").is_err());
+        assert!(!content.join("bin/tool").exists());
+        let big = targz(&[("bin/zeros", &vec![0u8; 2 << 20], true)]);
+        let err = untar(&big, &d.join("big"), 1 << 20).unwrap_err();
+        assert!(format!("{err:?}").contains("more than"), "{err:?}");
         let _ = std::fs::remove_dir_all(&d);
     }
 

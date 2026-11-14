@@ -246,4 +246,18 @@ mod tests {
         );
         assert!(parse_bases(" , ").is_empty());
     }
+
+    /// Audit F1, minor 9: the cache keeps a meta.yaml as published, fields this doze does not read included, so a newer
+    /// doze reading the same cache finds them.
+    #[test]
+    fn the_cache_keeps_the_published_bytes() {
+        let home = std::env::temp_dir().join(format!("doze-fetch-cache-{}", std::process::id()));
+        let c = Cache::new(&home);
+        let body = "title: Valkey\nengine: valkey\nsomethingNew: {nested: [1, 2]}\nclient:\n  program: valkey-cli\n";
+        c.write("doze/valkey/meta.yaml", body.as_bytes()).unwrap();
+        let (back, _) = c.read("doze/valkey/meta.yaml", SystemTime::now()).unwrap();
+        assert_eq!(back, body);
+        assert!(super::meta::parse(&back).is_ok());
+        let _ = fs::remove_dir_all(&home);
+    }
 }

@@ -87,6 +87,13 @@ pub fn serve(req: &Request, place: &Place) -> Reply {
     if let Some(bad) = names.iter().find(|n| !crate::lock::plain(n)) {
         return Reply::failed(format!("refused: {bad:?} is not a plain name"));
     }
+    if let Request::Ensure { target, .. } = req
+        && !known_triple(target, &place.modules.triple)
+    {
+        return Reply::failed(format!(
+            "refused: {target:?} is not a platform doze builds for"
+        ));
+    }
     match req {
         Request::ResolveMajor { engine, major } => {
             match place.mirror.resolve_major(engine, major) {
@@ -122,6 +129,23 @@ pub fn serve(req: &Request, place: &Place) -> Reply {
     }
 }
 
+/// The platforms builds are published for, and this machine's own (audit F1, M1: a module names the build it wants,
+/// and only a real platform may become a cache folder).
+const TRIPLES: [&str; 8] = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-musl",
+    "x86_64-unknown-linux-musl",
+    "aarch64-pc-windows-msvc",
+    "x86_64-pc-windows-msvc",
+];
+
+fn known_triple(t: &str, here: &str) -> bool {
+    t == here || TRIPLES.contains(&t)
+}
+
 fn module(
     place: &Place,
     source: &str,
@@ -143,11 +167,20 @@ fn module(
         Ok(r) => r,
         Err(e) => return Reply::failed(e),
     };
-    let mut notes = r.notes;
-    if let (Some(path), true, true) = (lock, persist, l.dirty)
-        && let Err(e) = l.save(path, Some(&place.modules.doze))
-    {
-        notes.push(format!("could not write {}: {e}", path.display()));
+    let mut notes: Vec<String> = lock
+        .and_then(|p| newer_lock(p, &l, &place.modules.doze))
+        .into_iter()
+        .collect();
+    notes.extend(r.notes);
+    if let (Some(path), true, true) = (lock, persist, l.dirty) {
+        match save_pin(place, path, &src, l.modules.get(&src.to_string())) {
+            Ok(true) => notes.push(format!(
+                "pinned {src} {} in doze.lock — commit the lockfile so your team and CI get this exact build",
+                r.version
+            )),
+            Ok(false) => {}
+            Err(e) => notes.push(format!("could not write {}: {e}", path.display())),
+        }
     }
     Reply {
         version: r.version,
@@ -155,6 +188,43 @@ fn module(
         notes,
         ..Reply::default()
     }
+}
+
+/// Go's `loadLock` warning: the lock was written by a newer doze (said with each resolve that reads it).
+fn newer_lock(path: &Path, l: &Lock, doze: &str) -> Option<String> {
+    use crate::registry::select::{compare_versions, is_doze_version};
+    let this = doze.trim_start_matches('v');
+    let wrote = l.doze.trim_start_matches('v');
+    (is_doze_version(this) && is_doze_version(wrote) && compare_versions(wrote, this).is_gt()).then(|| {
+        let file = path.file_name().map_or_else(|| "doze.lock".into(), |f| f.to_string_lossy());
+        format!("{file} was written by doze {wrote}, newer than this doze ({this}); if a module will not start, update doze")
+    })
+}
+
+/// Writes this module's pin into the lock at `path`. Children for other modules may be saving the same file: under a
+/// lock in the doze home (never beside the project's files), the file is read again and only this pin is changed in
+/// it, so no other child's pin is lost (audit F1, M3). Whether the module was not pinned there before.
+fn save_pin(
+    place: &Place,
+    path: &Path,
+    src: &Source,
+    pin: Option<&crate::lock::Pin>,
+) -> Result<bool, String> {
+    let Some(pin) = pin else {
+        return Ok(false);
+    };
+    let locks = place.modules.home.join("locks");
+    std::fs::create_dir_all(&locks).map_err(|e| e.to_string())?;
+    let key = crate::registry::signed::sha256_hex(path.to_string_lossy().as_bytes());
+    let _held =
+        doze_os::fs::lock(&locks.join(format!("lock-{}.lock", key.get(..16).unwrap_or(&key))))
+            .map_err(|e| e.to_string())?;
+    let mut now = Lock::load(path)?;
+    let new = !now.modules.contains_key(&src.to_string());
+    now.record_module(&src.to_string(), pin.clone());
+    now.save(path, Some(&place.modules.doze))
+        .map_err(|e| e.to_string())?;
+    Ok(new)
 }
 
 /// Reads one request line from `input`, serves it, writes one reply line to `output` (the `__fetch` command).
@@ -268,3 +338,7 @@ impl Downloads for ChildDownloads {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "child_tests.rs"]
+mod tests;
