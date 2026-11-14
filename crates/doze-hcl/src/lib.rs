@@ -6,8 +6,11 @@
 
 pub mod check;
 pub mod convert;
+pub mod decode;
 pub mod diag;
+pub mod edit;
 pub mod eval;
+pub mod fmt;
 pub mod function;
 pub mod lex;
 pub mod number;

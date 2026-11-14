@@ -42,6 +42,8 @@ pub struct Diagnostic {
     pub subject: Option<Range>,
     /// A wider span to show around it.
     pub context: Option<Range>,
+    /// The file both ranges are in, when the reader of several files knows it.
+    pub file: Option<std::sync::Arc<str>>,
 }
 
 impl Diagnostic {
@@ -56,11 +58,17 @@ impl Diagnostic {
             detail: detail.into(),
             subject: Some(subject),
             context: None,
+            file: None,
         }
     }
 
     pub fn with_context(mut self, context: Range) -> Diagnostic {
         self.context = Some(context);
+        self
+    }
+
+    pub fn in_file(mut self, file: &str) -> Diagnostic {
+        self.file = Some(std::sync::Arc::from(file));
         self
     }
 }

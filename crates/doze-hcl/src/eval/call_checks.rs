@@ -90,7 +90,7 @@ pub(super) fn arity(
     func: &dyn Function,
     args: &[Arg<'_>],
     whole: Range,
-) -> Result<(), Diagnostic> {
+) -> Result<(), Box<Diagnostic>> {
     let params = func.params();
     if let Some(missing) = params.get(args.len()) {
         let qual = if func.var_param().is_some() {
@@ -104,10 +104,10 @@ pub(super) fn arity(
             params.len(),
             go_quote(missing.name)
         );
-        return Err(
+        return Err(Box::new(
             Diagnostic::error("Not enough function arguments", detail, close_paren(whole))
                 .with_context(whole),
-        );
+        ));
     }
     if func.var_param().is_none() && args.len() > params.len() {
         let at = args.get(params.len()).map_or(whole, |a| a.at);
@@ -116,9 +116,9 @@ pub(super) fn arity(
             go_quote(name),
             params.len()
         );
-        return Err(
-            Diagnostic::error("Too many function arguments", detail, at).with_context(whole)
-        );
+        return Err(Box::new(
+            Diagnostic::error("Too many function arguments", detail, at).with_context(whole),
+        ));
     }
     Ok(())
 }
