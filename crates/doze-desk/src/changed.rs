@@ -22,7 +22,8 @@ impl Parts {
     pub const INSTANCES: Parts = Parts(1 << 3);
     /// The journal.
     pub const JOURNAL: Parts = Parts(1 << 4);
-    /// The meters.
+    /// The meters: the series, and each instance's ram, cpu and connections (a meters frame changes nothing else, so
+    /// a page can tell the meters moving from a change of state).
     pub const STATS: Parts = Parts(1 << 5);
     /// The log ring.
     pub const LOGS: Parts = Parts(1 << 6);
@@ -39,6 +40,12 @@ impl Parts {
         (Parts::LOGS, "logs"),
         (Parts::CONSOLE, "console"),
     ];
+
+    /// Both sets of flags (`|`, in a `const`).
+    #[must_use]
+    pub const fn union(self, other: Parts) -> Parts {
+        Parts(self.0 | other.0)
+    }
 
     /// Whether every flag of `other` is set.
     pub fn contains(self, other: Parts) -> bool {

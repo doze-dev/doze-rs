@@ -41,6 +41,9 @@ pub(crate) struct Fixture {
     daemon: Option<FixtureDaemon>,
     /// Milliseconds the hub's clock runs ahead of the wall clock (a test moves time on with [`Fixture::skew`]).
     skew: Arc<std::sync::atomic::AtomicU64>,
+    /// The meters frame the daemon goes on sending (none from a `-stale` daemon), for a test to send one now.
+    #[cfg_attr(not(all(test, feature = "capture")), allow(dead_code))]
+    beat: Option<doze_control::Frame>,
 }
 
 impl Fixture {
@@ -74,6 +77,7 @@ impl Fixture {
                 home,
                 daemon: None,
                 skew: Arc::default(),
+                beat: None,
             });
         }
         // `medium-150`, or `medium-150x500` for 500 calls rather than two an app.
@@ -119,15 +123,19 @@ impl Fixture {
         };
         let meters = last_meters(&script);
         let daemon = FixtureDaemon::start(&sock, script).context("fixture daemon")?;
-        if !name.ends_with("-stale") {
-            tick(daemon.pusher(), meters);
-        }
+        let beat = if name.ends_with("-stale") {
+            None
+        } else {
+            tick(daemon.pusher(), meters.clone());
+            meters
+        };
         Ok(Fixture {
             key: Some(key),
             root,
             home,
             daemon: Some(daemon),
             skew: Arc::default(),
+            beat,
         })
     }
 
@@ -163,6 +171,19 @@ impl Fixture {
     pub(crate) fn skew(&self, ms: u64) {
         self.skew
             .fetch_add(ms, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Has the daemon send its meters now, as it does every second of the wall clock (which a test's time outruns);
+    /// whether it sends any (a `-stale` daemon does not).
+    #[cfg(all(test, feature = "capture"))]
+    pub(crate) fn beat(&self) -> bool {
+        match (&self.beat, &self.daemon) {
+            (Some(f), Some(d)) => {
+                d.push(f);
+                true
+            }
+            _ => false,
+        }
     }
 
     /// What the daemon was asked, in order.

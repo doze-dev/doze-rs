@@ -21,6 +21,7 @@ mod fuzzy;
 mod gonum;
 mod goparse;
 mod gotime;
+mod grain;
 mod journal;
 mod level;
 mod look;
@@ -46,9 +47,13 @@ pub use dialog::{
     sleep_buttons,
 };
 pub use empty::{Choice, EMPTY_CHOICES, EMPTY_NOTHING_FOUND, STARTER_FILE};
-pub use format::{ago, bytes_label, clock, count, home, mb, pct, plural, thousands, tilde};
+pub use format::{
+    ago, bytes_label, clock, count, countdown, home, mb, pct, plural, seconds_to_go, thousands,
+    tilde,
+};
 pub use fuzzy::{fuzzy_match, fuzzy_score};
 pub use gonum::parse_float;
+pub use grain::{coarse, is_coarse, ring_gone};
 pub use journal::{Cause, Event, EventKind, cause_words, sentence};
 pub use level::{LogLevel, level, rank};
 pub use look::{Look, Tone, awake_now, in_use, look, state_rank, switch_on, troubled};

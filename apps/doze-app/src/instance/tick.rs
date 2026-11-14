@@ -28,7 +28,7 @@ impl InstanceView {
     /// Repaints once a second while a countdown shows and the window is in use (`shell::attention`), and only then.
     /// One loop at a time: `ticking` stays set while the loop's own read runs, so that read cannot start another.
     pub(super) fn tick(&mut self, cx: &mut Context<Self>) {
-        let used = crate::shell::attention::attended(cx.background_executor().now());
+        let used = crate::shell::attention::in_use(cx.background_executor().now());
         if !self.counting() || self.ticking || !used {
             return;
         }
@@ -37,11 +37,16 @@ impl InstanceView {
             loop {
                 cx.background_executor().timer(Duration::from_secs(1)).await;
                 let more = this.update(cx, |v, cx| {
+                    // No longer in use (left alone, or hidden): the window's clock has read the page for that
+                    // already, in its own words; a read here would put the seconds back.
+                    if !crate::shell::attention::in_use(cx.background_executor().now()) {
+                        v.ticking = false;
+                        return false;
+                    }
                     #[cfg(test)]
                     TICKS.with(|t| t.set(t.get() + 1));
                     v.refresh(cx);
-                    let used = crate::shell::attention::attended(cx.background_executor().now());
-                    let more = v.counting() && used;
+                    let more = v.counting();
                     v.ticking = more;
                     more
                 });

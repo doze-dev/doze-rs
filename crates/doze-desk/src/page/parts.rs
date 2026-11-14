@@ -343,9 +343,10 @@ pub fn countdown(v: &words::Instance, idle: Duration, now: SystemTime) -> Option
     }
     let gone = now.duration_since(v.idle_since?).unwrap_or_default();
     let left = idle.checked_sub(gone).filter(|l| !l.is_zero())?;
+    let shown = words::ring_gone(gone, left, idle);
     Some(Countdown {
-        left: words::clock(left),
-        fraction: part(gone.as_secs_f64(), idle.as_secs_f64()),
+        left: words::countdown(left),
+        fraction: part(shown.as_secs_f64(), idle.as_secs_f64()),
     })
 }
 

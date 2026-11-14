@@ -65,7 +65,7 @@ impl ConsoleTabView {
     pub(crate) fn apply(&mut self, batch: &Batch, cx: &mut Context<Self>) {
         if batch
             .parts(&self.key)
-            .intersects(Parts::CONSOLE | Parts::INSTANCES)
+            .intersects(Parts::CONSOLE | Parts::INSTANCES | Parts::STATS)
         {
             self.refresh(cx);
         }

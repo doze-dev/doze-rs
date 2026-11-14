@@ -593,3 +593,70 @@ or passed the budget (checked: an `--in-use` run with `--budget 85` exits 1 at 2
 
 Not covered: a window left alone while All logs follows still draws (that is following), and an untouched window's
 countdown and "last update Ns ago" show the figure of the last batch until a touch.
+
+### A truthful idle window (app-finish, follow-up), measured 2026-11-14
+
+**What was wrong with the fix above.** Stopping every time-driven read on an untouched window kept it at ~57 MB, but a
+window someone was *looking at* without touching froze: "sleeps in 0:48" stayed 0:48, the meters stopped, and a
+daemon that froze never got its "last update Ns ago" banner (the page asked for no meters, so it was not even
+metered). That is the "untrue dashboard" the banner exists to prevent.
+
+**The rule now** (`shell/attention.rs` `Mode`, `shell/clock.rs`):
+
+| The window is | Words that move with time | Changes of state | Meters | Frames of its own |
+|---|---|---|---|---|
+| hidden (minimised, covered, another Space, display asleep: the platform's occlusion state) | not read | kept, taken in when shown | not streamed | none |
+| on screen, not in use ("glanced at") | to the minute: "sleeps in 4m", "<1m", "up <1m", "last update <1m ago", "next in <1m" | at most once a second | streamed, taken in at most every 10 s | one when a word to the minute changes |
+| in use (key, touched in the last 30 s) | to the second, as before | as they come | as they come | as before |
+
+- The words come from doze-display (`doze_display::coarse`, `grain.rs`): fine is Go's and the default everywhere, so
+  the CLI and the oracle are unchanged; coarse uses Go's `Ago` units (`4m`, `3h`) and `<1m` for the last minute.
+  Every coarse word also notes when it will next read differently, and `coarse` returns the soonest; the window
+  schedules one wake for that moment (`arm_next`) instead of ticking. A wake whose words read the same draws nothing
+  (the views are `PartialEq`). Needs you and Activity build their words off the UI thread, so they carry the grain
+  into the job; the instance page's countdown ring moves when its words do.
+- The stale banner: one wake at the shown stack's `last_frame + STALE_AFTER`, put off by every frame; a frozen
+  daemon's banner shows in one frame. Entrances (the banner's 240 ms settle) are skipped on a window glanced at, so
+  each change is one frame.
+- doze-desk: a meters frame now reports `Parts::STATS` only (it reported `INSTANCES` too for each row's ram/cpu/
+  connections), so a window can tell the meters moving from a change of state.
+
+**Tests** (`shell/idle_tests.rs`, gpui test windows over the fixture daemon; the daemon's meters arrive every second of
+the test's time, `Source::beat`):
+
+- glanced at for 180 s on larder: 4 frames, each one a change of what the page says (at 48.0 s the dozing countdown
+  ran out; at 57.7, 117.8 and 177.5 s the rows' "up 18m" turned 19m, 20m, 21m); no frame with nothing changed;
+- hidden for 150 s: 0 frames and the page not read; shown again, it catches up at once;
+- larder-stale glanced at: the banner "last update <1m ago" in exactly 1 frame, about 3 s after the last frame, then
+  "1m ago" at the minute;
+- in use: the countdown to the second (a frame a second); left alone, it goes to the minute in one frame, then
+  nothing while the words hold;
+- `grain.rs`: the coarse words and their next change; fine words are Go's (`last update 5s ago`, `0:48`, `12s`).
+
+`bench --check` now allows a window glanced at `--per-minute N` frames a minute (default 2), and a `--hidden` one
+(the app hides once the window is open, as ⌘H) none; CI runs both on larder. `--at 12,30,60` prints the footprint at
+those seconds after the window opens.
+
+**Measured** (`release-app` with `fixtures`, `doze-app bench --fixture larder --display 1 --idle 63 --at 12,30,60`).
+This Mac's displays were asleep and the session locked while it ran (`pmset -g log`: display off since 18:38), and the
+platform reported the window `Hidden` on both displays, so every reading below is a hidden window's:
+
+| | before (1e486a31) | after |
+|---|---|---|
+| Hidden, footprint at 12 / 30 / 60 s | 60 / 57 / 57 MB | 57 / 57 / 57 MB |
+| Hidden, frames in 60 s | 0 | 0 (`--check --hidden`: ok) |
+
+**Not measured yet, for the owner, at the screen:** the visible readings. Untouched for 60 s, expect at most about two
+frames in 60 s and ~57–60 MB most of the time, with a spike towards ~200 MB for ~10 s after each frame; in use, the
+redraw floor (~225 MB) as before:
+
+```
+DOZE_HOME=$(mktemp -d) doze-app bench --fixture larder --display 1 --idle 63 --at 12,30,60 --check --budget 85
+DOZE_HOME=$(mktemp -d) doze-app bench --fixture larder --display 1 --idle 63 --at 12,30,60 --in-use
+```
+
+**Open: the meters' 10 s.** The fixture sends the same meters frame every second, so the page never changes for
+them here. A real daemon's meters do change: a glanced-at stack page then takes them in every 10 s, and if a figure
+it shows moves (a row's MB, the vitals), that is a frame every 10 s, the same span as the driver's ~10 s hold, so the
+~147 MB would stay. The `--per-minute 2` check would fail for such a page. Options: a longer cadence (30–60 s) or
+meters only in use. It needs a decision and a measurement against a live stack.

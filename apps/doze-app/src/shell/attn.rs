@@ -179,8 +179,13 @@ pub(crate) fn items_now(
 }
 
 impl Root {
-    /// Builds Needs you again (once at a time; a move during a build builds once more after it).
+    /// Builds Needs you again (once at a time; a move during a build builds once more after it), its words as the
+    /// window is looked at (`clock`).
     pub(crate) fn rebuild_attention(&mut self, cx: &mut Context<Self>) {
+        self.timed(cx, Self::build_attention);
+    }
+
+    fn build_attention(&mut self, cx: &mut Context<Self>) {
         if self.attn.building {
             self.attn.dirty = true;
             return;
@@ -242,13 +247,34 @@ impl Root {
             left,
             repairable: doze_os::privilege::admin_supported(),
         };
+        self.build_items(stacks, failed, machine, now, cx);
+    }
+
+    /// Needs you's items, off the UI thread, in the grain the window reads in (`clock`): glanced at, to the minute,
+    /// with the wake for when its first word to the minute changes.
+    fn build_items(
+        &mut self,
+        stacks: Vec<StackView>,
+        failed: HashMap<String, StackFailure>,
+        machine: Machine,
+        now: SystemTime,
+        cx: &mut Context<Self>,
+    ) {
+        let coarse = doze_display::is_coarse();
         let job = cx.background_executor().spawn(async move {
-            let items = items_now(&stacks, &failed, &machine, now);
-            (items, stacks)
+            let (items, next) = if coarse {
+                doze_display::coarse(|| items_now(&stacks, &failed, &machine, now))
+            } else {
+                (items_now(&stacks, &failed, &machine, now), None)
+            };
+            (items, next, stacks)
         });
         cx.spawn(async move |this: WeakEntity<Root>, cx: &mut AsyncApp| {
-            let (items, stacks) = job.await;
-            let _ = this.update(cx, |r, cx| r.took_attention(items, &stacks, now, cx));
+            let (items, next, stacks) = job.await;
+            let _ = this.update(cx, |r, cx| {
+                r.arm_next(next, cx);
+                r.took_attention(items, &stacks, now, cx);
+            });
         })
         .detach();
     }
