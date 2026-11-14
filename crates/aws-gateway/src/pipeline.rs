@@ -60,6 +60,8 @@ pub(crate) struct Shared {
     pub(crate) config: Config,
     /// Where sessions on upgraded connections run, so a shutdown ends them too.
     tasks: doze_runtime::Tasks,
+    /// When the gateway started (for `/_doze/health`).
+    started: std::time::Instant,
 }
 
 impl Shared {
@@ -80,7 +82,13 @@ impl Shared {
             by_target,
             config,
             tasks,
+            started: std::time::Instant::now(),
         }
+    }
+
+    /// When the gateway started.
+    pub(crate) fn started(&self) -> std::time::Instant {
+        self.started
     }
 
     /// The gateway's task set.
@@ -158,6 +166,9 @@ pub(crate) type Fail = Box<Out>;
 pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Response<RespBody> {
     let id = RequestId::new();
     let (mut parts, body) = req.into_parts();
+    if let Some(health) = crate::health::answer(shared, &parts) {
+        return health;
+    }
     let body = match crate::web::serve(shared, &id, &mut parts, body).await {
         Ok(response) => return response,
         Err(body) => body,
@@ -179,6 +190,13 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
             .trusts()
             .then(|| crate::presign::anonymous_claim(&parts))
             .flatten()
+    });
+    // Neither an unsigned request nor a SigV2 URL names a region: they are for the configured default.
+    let claim = claim.map(|mut c| {
+        if c.scope_date.is_empty() {
+            c.region.clone_from(&shared.config.default_region);
+        }
+        c
     });
     if let Some(claim) = claim
         && let Some(entry) = shared.rest_entry(&claim.service, &parts).filter(|e| {

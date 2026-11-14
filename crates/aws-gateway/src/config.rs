@@ -26,6 +26,11 @@ pub struct Config {
     pub credential_source: Option<Arc<dyn CredentialSource>>,
     /// The account every request is for until IAM says otherwise.
     pub account_id: String,
+    /// The region a request that names none is for: an unsigned S3 request (`curl`, a browser) and a SigV2 presigned URL. AWS
+    /// sends both to `us-east-1` (the global S3 endpoint), the default.
+    pub default_region: String,
+    /// The facts `GET /_doze/health` answers with (the gateway adds `uptime_secs`). `None` leaves the path to the services.
+    pub health: Option<serde_json::Map<String, serde_json::Value>>,
     /// The most request body read into memory, in bytes.
     pub max_body_bytes: usize,
     /// How far a client's clock may differ from ours, in seconds.
@@ -41,6 +46,8 @@ impl Config {
             auth: Auth::Trust,
             credential_source: None,
             account_id: "000000000000".to_owned(),
+            default_region: "us-east-1".to_owned(),
+            health: None,
             max_body_bytes: 16 << 20,
             max_skew_secs: 300,
         }
