@@ -305,37 +305,39 @@ impl Engine {
     ) {
         let mut changes = self.changes();
         loop {
-            let (d, fx) = self.update(|c| c.m.wake(name, cause.clone()));
-            let rerun = fx
-                .iter()
-                .any(|f| matches!(f, Effect::StartBoot { rerun: true, .. }));
-            let answer = match d {
-                Decision::Busy => None,
-                Decision::Running => Some((Ok(None), None)),
-                Decision::Refuse(e) => Some((Err(e), None)),
-                Decision::Join(b) => match self.lock().boots.get(&b).cloned() {
-                    Some(rx) => Some((Ok(Some(rx)), None)),
-                    None => Some((
-                        Err(Error::Failed(format!("the start of \"{name}\" was lost"))),
-                        None,
-                    )),
-                },
-                Decision::Start(b) => {
-                    let (tx, rx) = watch::channel(Phase::Booting);
-                    let (cancel_tx, cancel) = watch::channel(false);
-                    self.update(|c| {
+            // Decided and recorded under one lock: a wake that joins this start must find its receiver.
+            let (answer, fx) = self.update(|c| {
+                let (d, fx) = c.m.wake(name, cause.clone());
+                let rerun = fx
+                    .iter()
+                    .any(|f| matches!(f, Effect::StartBoot { rerun: true, .. }));
+                let answer = match d {
+                    Decision::Busy => None,
+                    Decision::Running => Some((Ok(None), None)),
+                    Decision::Refuse(e) => Some((Err(e), None)),
+                    Decision::Join(b) => Some(match c.boots.get(&b).cloned() {
+                        Some(rx) => (Ok(Some(rx)), None),
+                        None => (
+                            Err(Error::Failed(format!("the start of \"{name}\" was lost"))),
+                            None,
+                        ),
+                    }),
+                    Decision::Start(b) => {
+                        let (tx, rx) = watch::channel(Phase::Booting);
+                        let (cancel_tx, cancel) = watch::channel(false);
                         c.boots.insert(b, rx.clone());
                         c.cancels.insert(b, cancel_tx);
-                    });
-                    let s = crate::boot::Start {
-                        boot: b,
-                        rerun,
-                        tx,
-                        cancel,
-                    };
-                    Some((Ok(Some(rx)), Some(s)))
-                }
-            };
+                        let s = crate::boot::Start {
+                            boot: b,
+                            rerun,
+                            tx,
+                            cancel,
+                        };
+                        Some((Ok(Some(rx)), Some(s)))
+                    }
+                };
+                (answer, fx)
+            });
             self.run(fx);
             if let Some(a) = answer {
                 return a;
