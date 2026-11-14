@@ -4,7 +4,7 @@
 //! is one, else against the manifest.
 
 use crate::archive;
-use crate::registry::http::{self, ARCHIVE_LIMIT, Failure};
+use crate::http::{self, ARCHIVE_LIMIT, Failure};
 use crate::registry::signed;
 use crate::registry::yaml::{self, YamlError, entries, sub, text};
 use std::collections::BTreeMap;

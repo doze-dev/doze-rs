@@ -16,6 +16,7 @@ mod diff;
 pub mod exit;
 pub mod fetch_child;
 pub mod help;
+pub use doze_fetch::http;
 pub mod install;
 pub use doze_fetch::lock;
 mod machine;

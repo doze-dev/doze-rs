@@ -11,6 +11,13 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["tls"]
+# The HTTPS client in the process (src/http.rs): ureq over rustls, for the `doze` binary, which must work where nothing
+# else is installed. Without it requests go through the system's curl (the desktop app; docs/port/weight.md, "One HTTP
+# stack").
+tls = ["dep:ureq", "dep:rustls", "dep:rustls-native-certs"]
+
 [dependencies]
 doze-module-proto = { path = "../doze-module-proto" }
 doze-module-host = { path = "../doze-module-host" }
@@ -25,10 +32,10 @@ sha2 = "0.11"
 hex = "0.4"
 base64ct = { version = "1", features = ["alloc"] }
 # One blocking GET with a deadline. Downloads run in a child (`doze __fetch`), never in the daemon.
-ureq = { version = "3", default-features = false, features = ["rustls-no-provider", "gzip"] }
+ureq = { version = "3", default-features = false, features = ["rustls-no-provider", "gzip"], optional = true }
 # TLS for ureq: ring as the provider (as doze-names), and this machine's trust store for roots.
-rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
-rustls-native-certs = "0.8"
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"], optional = true }
+rustls-native-certs = { version = "0.8", optional = true }
 # Engine and module archives (.tar.gz); pure Rust.
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 tar = { version = "0.4", default-features = false }
