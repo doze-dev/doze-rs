@@ -1,0 +1,32 @@
+name: names-diag
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  loop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-11-arm, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Loop doze-names' unit tests
+        shell: bash
+        run: |
+          cargo test -p doze-names --lib --no-run
+          exe=$(ls -t target/debug/deps/doze_names-*.exe | head -1)
+          fails=0
+          for i in $(seq 1 150); do
+            if ! "$exe" --nocapture > out.txt 2>&1; then
+              fails=$((fails+1))
+              echo "=== run $i failed"
+              grep -E "DIAG|panicked|left|right|FAILED" out.txt | head -200
+            fi
+          done
+          echo "failed $fails of 150"

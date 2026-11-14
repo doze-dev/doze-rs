@@ -96,6 +96,13 @@ async fn a_peer_takes_over_when_the_holder_exits() {
         "the standby never took the socket over"
     );
     assert_eq!(ancount(&ask(addr, "aws.doze").await), 1);
+    let snap = aws.update(|m| Ok(m.clone()));
+    if !matches!(&snap, Ok(m) if m.contains_key(RESOLVER_KEY)) {
+        eprintln!(
+            "DIAG take-over: update {snap:?}\nDIAG file: {:?}",
+            std::fs::read_to_string(aws.path())
+        );
+    }
     assert_eq!(
         aws.resolver_holder().map(|e| e.owner).as_deref(),
         Some("doze-aws")
