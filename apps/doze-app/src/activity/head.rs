@@ -82,20 +82,25 @@ pub(super) fn summary(t: &Tokens, a: &Activity) -> AnyElement {
     } else {
         s.freed.replacen("about ", "~", 1)
     };
+    // The ⓘ only when there is a note to read under it (Go `s.freedNote ? " ⓘ" : ""`).
+    let freed_label = if s.freed_note.is_empty() {
+        "memory left free by sleeping".to_owned()
+    } else {
+        "memory left free by sleeping ⓘ".to_owned()
+    };
     let stats = div()
         .flex()
         .gap(px(12.))
         .child(stat(t, &s.asleep, "asleep while the stack was up", false))
-        .child(
-            stat(t, &freed, "memory left free by sleeping ⓘ", false)
-                .id("act-freed")
-                .when(!s.freed_note.is_empty(), |d| {
-                    let note = s.freed_note.clone();
-                    d.tooltip(move |window, cx| {
-                        gpui_component::tooltip::Tooltip::new(note.clone()).build(window, cx)
-                    })
-                }),
-        )
+        .child(stat(t, &freed, &freed_label, false).id("act-freed").when(
+            !s.freed_note.is_empty(),
+            |d| {
+                let note = s.freed_note.clone();
+                d.tooltip(move |window, cx| {
+                    gpui_component::tooltip::Tooltip::new(note.clone()).build(window, cx)
+                })
+            },
+        ))
         .child(stat(t, &s.wakes.to_string(), "wakes", false))
         .child(stat(
             t,

@@ -315,9 +315,20 @@ impl ActivityView {
     }
 }
 
-/// Keeps each awake service's memory, so a slept hour can be priced after the service has gone to sleep; and gives
-/// what is known for this stack.
-fn remember_ram(st: &doze_desk::StackView, cx: &mut Context<ActivityView>) -> HashMap<String, i64> {
+/// Every batch from the hub (Go `rememberRAM` on every push): each stack it touched has its services' memory kept, so a
+/// service that slept before the Activity page was first opened still has its figure.
+pub(crate) fn remember_batch(hub: &Hub, batch: &Batch, cx: &mut gpui::App) {
+    for (key, parts) in &batch.stacks {
+        if parts.intersects(Parts::INSTANCES | Parts::STATS)
+            && let Some(st) = hub.stack(key)
+        {
+            remember(&st, cx);
+        }
+    }
+}
+
+/// Keeps each awake service's memory, so a slept hour can be priced after the service has gone to sleep.
+fn remember(st: &doze_desk::StackView, cx: &mut gpui::App) -> String {
     let key = st.key.dir().to_string_lossy().into_owned();
     if !cx.has_global::<RamSeen>() {
         cx.set_global(RamSeen::default());
@@ -326,6 +337,13 @@ fn remember_ram(st: &doze_desk::StackView, cx: &mut Context<ActivityView>) -> Ha
     for v in st.instances.iter().filter(|v| v.ram > 0) {
         seen.0.insert((key.clone(), v.name.clone()), v.ram);
     }
+    key
+}
+
+/// [`remember`], then what is known for this stack.
+fn remember_ram(st: &doze_desk::StackView, cx: &mut Context<ActivityView>) -> HashMap<String, i64> {
+    let key = remember(st, cx);
+    let seen = cx.global::<RamSeen>();
     seen.0
         .iter()
         .filter(|((k, _), _)| *k == key)

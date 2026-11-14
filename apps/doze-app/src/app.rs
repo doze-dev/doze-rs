@@ -190,6 +190,7 @@ fn pump(cx: &mut App, hub: Hub) {
         while let Ok(batch) = hub.updates().recv().await {
             cx.update(|cx| {
                 crate::around::on_batch(cx);
+                crate::activity::remember_batch(&hub, &batch, cx);
                 if let Some(h) = cx.try_global::<State>().and_then(|s| s.window) {
                     let _ = h.update(cx, |root, _, cx| root.apply(&batch, cx));
                 }
