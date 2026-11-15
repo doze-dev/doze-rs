@@ -1,5 +1,6 @@
-//! Fencing as Kafka's coordinator does it: a producer the broker has aborted and fenced cannot take its id back by saying
-//! the epoch it had, and asking again after a lost answer is answered alike.
+//! Fencing as Kafka's coordinator does it, at the `transaction.version` the broker finalizes: a producer the broker aborted
+//! on its own may take its id back by saying the epoch it had at Kafka 4 and is fenced for good at Kafka 1 to 3; a new
+//! owner fences the old one at both; asking again after a lost answer is answered alike.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -11,12 +12,13 @@ mod support;
 
 use std::time::Duration;
 
+use kafka_broker::TxnVersion;
 use kafka_wire::StrBytes;
 use kafka_wire::api::{Request, Response};
 use kafka_wire::messages::{
     DescribeTransactionsRequest, InitProducerIdRequest, ProducerId, TransactionalId,
 };
-use support::{Rig, Txn, rig, topic};
+use support::{Rig, Txn, rig, rig_with, topic};
 
 const PRODUCER_FENCED: i16 = 90;
 
@@ -50,29 +52,69 @@ async fn state(rig: &Rig) -> String {
     r.transaction_states[0].transaction_state.to_string()
 }
 
-#[tokio::test]
-async fn a_producer_the_broker_timed_out_cannot_take_its_id_back_by_saying_the_epoch_it_had() {
-    let rig = rig();
-    rig.create(vec![topic("t", 1)], false).await;
-    let held = rig.init_txn("tx", 100).await.unwrap();
-    assert_eq!(rig.add_partitions("tx", held, "t", &[0]).await, [0]);
-    tokio::time::sleep(Duration::from_millis(400)).await;
-    rig.broker.check_transactions().await;
-    // The abort raised the epoch once, to fence it; the epoch before that is neither the current nor the last.
-    assert_eq!(init_as(&rig, held).await, (PRODUCER_FENCED, -1, -1));
+/// A broker standing for Kafka 1 to 3: it ends a transaction on its own the classic way.
+fn classic() -> Rig {
+    rig_with(|c| c.transaction_version = TxnVersion::Classic)
 }
 
+/// Kafka 4 (`transaction.version` 2) aborts a timed-out transaction as EndTxn v5 does and keeps the epoch the producer had as
+/// the last, so that producer may ask for its id again with it (KIP-360) and is given the raised epoch, unbumped: the
+/// oracle's `timeout` (Kafka 4.4.0: "tv1 init v4 with old epoch P1/1", and the same for a producer of the second
+/// version). At the classic level the abort forgets the epoch before (`endTransactionWithTV1` sets it to -1), so the
+/// producer is fenced for good.
 #[tokio::test]
-async fn an_owner_asking_while_its_transaction_is_open_is_fenced_after_the_broker_aborts_it() {
-    let rig = rig();
-    rig.create(vec![topic("t", 1)], false).await;
-    let held = rig.init_txn("tx", 60_000).await.unwrap();
-    assert_eq!(rig.add_partitions("tx", held, "t", &[0]).await, [0]);
-    assert_eq!(init_as(&rig, held).await.0, PRODUCER_FENCED);
-    // Kafka answers CONCURRENT_TRANSACTIONS while it aborts and then fences the retry; here the abort is done by the time
-    // the answer is given, and what is left is the same: the transaction is over, and the old epoch is not the owner's.
-    assert_eq!(state(&rig).await, "CompleteAbort");
-    assert_eq!(init_as(&rig, held).await.0, PRODUCER_FENCED);
+async fn a_producer_the_broker_timed_out_takes_its_id_back_at_kafka_4_and_is_fenced_at_the_classic_level()
+ {
+    for (rig, kafka_4) in [(rig(), true), (classic(), false)] {
+        rig.create(vec![topic("t", 1)], false).await;
+        let held = rig.init_txn("tx", 100).await.unwrap();
+        assert_eq!(rig.add_partitions("tx", held, "t", &[0]).await, [0]);
+        tokio::time::sleep(Duration::from_millis(400)).await;
+        rig.broker.check_transactions().await;
+        assert_eq!(state(&rig).await, "CompleteAbort");
+        let answer = init_as(&rig, held).await;
+        if kafka_4 {
+            assert_eq!(answer, (0, held.producer, held.epoch + 1));
+            assert_eq!(state(&rig).await, "Empty", "ready to begin again");
+        } else {
+            assert_eq!(answer, (PRODUCER_FENCED, -1, -1));
+        }
+    }
+}
+
+/// The owner asks InitProducerId with its own producer id and epoch while its transaction is open: the broker aborts the
+/// transaction, raising the epoch. Kafka 4.4.0 answers CONCURRENT_TRANSACTIONS and, asked again, the raised epoch (oracle
+/// `owninit`, for a producer of either version: the abort kept the epoch it had as the last); here the abort is done by
+/// the time the answer is given, so the first answer is that one. At the classic level the abort forgot it: fenced.
+#[tokio::test]
+async fn an_owner_asking_while_its_transaction_is_open_is_given_the_raised_epoch_at_kafka_4_and_fenced_at_the_classic_level()
+ {
+    for (rig, kafka_4) in [(rig(), true), (classic(), false)] {
+        rig.create(vec![topic("t", 1)], false).await;
+        let held = rig.init_txn("tx", 60_000).await.unwrap();
+        assert_eq!(rig.add_partitions("tx", held, "t", &[0]).await, [0]);
+        assert_eq!(
+            rig.produce_txn("tx", held, ("t", 0), 0, 1).await.error_code,
+            0
+        );
+        let answer = init_as(&rig, held).await;
+        let aborted = rig.fetch_committed("t", 0, 0).await;
+        assert_eq!(
+            aborted.aborted_transactions.as_ref().map_or(0, Vec::len),
+            1,
+            "the open transaction was aborted"
+        );
+        if kafka_4 {
+            assert_eq!(answer, (0, held.producer, held.epoch + 1));
+            assert_eq!(state(&rig).await, "Empty");
+            // Asked again (the answer was lost), alike.
+            assert_eq!(init_as(&rig, held).await, answer);
+        } else {
+            assert_eq!(answer.0, PRODUCER_FENCED);
+            assert_eq!(state(&rig).await, "CompleteAbort");
+            assert_eq!(init_as(&rig, held).await.0, PRODUCER_FENCED);
+        }
+    }
 }
 
 #[tokio::test]

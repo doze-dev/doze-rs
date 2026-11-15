@@ -190,6 +190,18 @@ impl Profile {
         self.range(ApiKey::ConsumerGroupHeartbeat).is_some()
     }
 
+    /// The `transaction.version` this profile finalizes: 2 where EndTxn v5 is offered (Kafka 4, KIP-890's second part:
+    /// a client may add partitions by writing to them and every end raises the epoch), else 0 (the classic protocol,
+    /// which Kafka 1 to 3 run). The level also decides how the broker ends a transaction on its own (a timeout, a new
+    /// owner): Kafka's coordinator uses its own level for those.
+    #[must_use]
+    pub fn transaction_version(self) -> i16 {
+        match self.range(ApiKey::EndTxn) {
+            Some((_, max)) if max >= 5 => 2,
+            _ => 0,
+        }
+    }
+
     /// Refuses a request outside what was advertised: an API not offered, or a version out of range.
     ///
     /// # Errors

@@ -93,6 +93,14 @@ pub(super) const ROWS: &[Row] = &[
         "Use letters, digits, dot, dash and underscore, at most 249 characters.",
     ),
     r(
+        19,
+        "NOT_ENOUGH_REPLICAS",
+        Warn,
+        "Messages are rejected since there are fewer in-sync replicas than required.",
+        "The broker could not confirm the write belongs to its transaction yet (it is being ended, or its record could not be stored).",
+        "",
+    ),
+    r(
         21,
         "INVALID_REQUIRED_ACKS",
         Refused,
