@@ -24,6 +24,9 @@ pub struct PartitionDir {
     /// Every file in it: segments, their indexes, and the small records beside them.
     pub bytes: u64,
     pub files: u64,
+    /// The bytes of its segments' log files alone, without their indexes and the records beside them: what Kafka calls the
+    /// partition's size (`UnifiedLog.size`, DescribeLogDirs).
+    pub log_bytes: u64,
     /// How many segments (log files) it has.
     pub segments: usize,
     /// When its newest segment was last written, in milliseconds since the epoch.
@@ -90,6 +93,7 @@ pub fn walk_data_dir<F: Fs>(fs: &F, data: &Path) -> io::Result<DirUsage> {
                     partition,
                     bytes: 0,
                     files: 0,
+                    log_bytes: 0,
                     segments: 0,
                     last_write_ms: None,
                 };
@@ -143,6 +147,7 @@ fn look_inside<F: Fs>(fs: &F, dir: &Path, seen: &mut u64, into: &mut PartitionDi
         into.bytes += stat.bytes;
         into.files += 1;
         if base_of_log(&entry.name).is_some() {
+            into.log_bytes += stat.bytes;
             into.segments += 1;
             into.last_write_ms = into.last_write_ms.max(Some(stat.modified_ms));
         }

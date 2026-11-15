@@ -149,6 +149,65 @@ pub struct AccessView {
     pub acls: AccessAcls,
     pub console: AccessConsole,
     pub warnings: Vec<AccessWarning>,
+    pub quotas: AccessQuotas,
+}
+
+/// One part of who a quota is for: `user`, `client-id` or `ip`, by name, or the default (`None`).
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct AccessQuotaPart {
+    pub kind: String,
+    pub name: Option<String>,
+}
+
+/// One quota set: one key of one entity, as DescribeClientQuotas lists it.
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct AccessQuota {
+    /// Client id first, then user, as Kafka lists an entity's parts.
+    pub parts: Vec<AccessQuotaPart>,
+    /// `producer_byte_rate`, `consumer_byte_rate`, `request_percentage`, `controller_mutation_rate`, `connection_creation_rate`.
+    pub key: String,
+    /// The value as `kafka-configs.sh` takes it: `1048576`, `12.5`.
+    pub value: String,
+    /// The limit in words: `1.0 MiB/s produced`.
+    pub limit: String,
+    /// Who it holds, in words: `every client id of user alice, together`.
+    pub applies: String,
+    /// Whether this broker holds clients to it (an address quota is kept, not enforced).
+    pub enforced: bool,
+}
+
+/// What one client has used of one quota lately, as the broker meters it.
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct AccessQuotaClient {
+    pub key: String,
+    /// The user it is metered for; empty when the meter is shared by every user of a client id.
+    pub user: String,
+    /// The client id it is metered for; empty when the meter is shared by every client id of a user.
+    pub client_id: String,
+    /// The rate over the last ten seconds or so, in words.
+    pub rate: String,
+    pub limit: Option<String>,
+    /// The rate as a percentage of the limit.
+    pub share: Option<u32>,
+    /// How much longer its connection reads nothing (0: not muted now).
+    pub muted_ms: i64,
+    /// How long it was last muted for (0: never).
+    pub last_mute_ms: i64,
+}
+
+/// The quotas, and who they hold now.
+#[derive(Debug, Clone, Default, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct AccessQuotas {
+    pub rows: Vec<AccessQuota>,
+    pub clients: Vec<AccessQuotaClient>,
+    /// DescribeClientQuotas was refused.
+    #[serde(with = "crate::api::settings::refusal_opt")]
+    #[cfg_attr(test, ts(as = "Option<crate::api::settings::KafkaRefusal>"))]
+    pub refused: Option<Refusal>,
 }
 
 /// What the Create ACL form carries, as words (anything else reads as the first of its kind).

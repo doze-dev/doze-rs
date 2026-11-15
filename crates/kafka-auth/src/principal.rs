@@ -42,6 +42,12 @@ impl Principal {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// The name alone, without its type: Kafka's `KafkaPrincipal.getName` (what a user quota is set for).
+    #[must_use]
+    pub fn name(&self) -> &str {
+        self.0.split_once(':').map_or(&self.0, |(_, name)| name)
+    }
 }
 
 impl fmt::Display for Principal {

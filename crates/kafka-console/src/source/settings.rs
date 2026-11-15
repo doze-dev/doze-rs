@@ -93,6 +93,21 @@ impl Source {
         }
     }
 
+    /// Sets or removes one client quota.
+    ///
+    /// # Errors
+    /// Kafka's refusal.
+    pub async fn quota_alter(
+        &self,
+        p: &gather::quotas::QuotaPost,
+    ) -> Result<(), crate::model::Refusal> {
+        match self {
+            Self::Live(l) => gather::quotas::alter(&l.backend, p).await,
+            #[cfg(any(test, feature = "examples"))]
+            Self::Fixture => crate::fixtures_access::quota_alter(p),
+        }
+    }
+
     /// Deletes the one ACL.
     pub async fn acl_delete(&self, target: AclEntry) -> AclDeleteResult {
         match self {

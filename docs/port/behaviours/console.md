@@ -1584,6 +1584,19 @@ the registry's global level, and the id counters. Tests: `the_all_and_everything
 `erasing_leaves_no_subject_keeps_the_global_level_and_never_gives_an_id_twice`,
 `erase_says_what_it_removed_and_the_group_it_kept`, `what_each_action_did_is_one_sentence`; file: `web/e2e/tests/data.spec.ts`.
 
+## CON-1523. Client quotas on Access: what is set, who it holds, set and remove
+The Access page lists every client quota DescribeClientQuotas returns, as the console's principal: one row per quota, who it is for
+(user, client id, both, an address; the default as a badge), the limit in words, and who it holds by Kafka's precedence
+(`quota_words::applies`), an address quota said to be kept and not enforced. Below it, the clients the broker meters
+(`Broker::client_quotas`, which no request tells): the meter's tags, the rate over the span, the limit and the share of it, and
+whether the connection is muted now and for how much longer, the muted first. `?quota=new` opens Set quota (for a client id, a
+user or both, each by name or the default; the quota; the limit) with the same change as `kafka-configs.sh` would make it;
+`?unquota=<user, client and key>` opens Remove quota. Both send AlterClientQuotas; a refusal is Kafka's words (a zero is
+"Quota K must be greater than 0"). A GET asks the broker only DescribeClientQuotas besides what it asked before. Tests:
+`a_quota_set_from_the_page_is_listed_and_one_kafka_refuses_is_refused_in_its_words`,
+`a_muted_client_comes_first_with_the_time_it_has_left`, `the_request_names_only_the_parts_given_and_an_empty_name_is_the_default`,
+`who_a_quota_holds_follows_kafkas_precedence`, `a_get_never_asks_the_broker_to_change_anything`.
+
 ## CON-1522. `doze-kafka data`: the same from a terminal
 `doze-kafka data` prints the directory by kind and the topics largest first with why; with a broker running it reads the files alone
 (no lock, `meta.redb` never opened) and refuses the actions with the way forward; with it stopped, `data empty --topic NAME`,
