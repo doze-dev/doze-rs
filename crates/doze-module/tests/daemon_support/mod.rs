@@ -22,7 +22,7 @@ impl Finder for Find {
         &'a self,
         ty: &'a str,
         majors: &'a [String],
-        _lock: &'a Path,
+        _lock: Option<&'a Path>,
     ) -> BoxFuture<'a, Result<PathBuf, String>> {
         self.asked
             .lock()

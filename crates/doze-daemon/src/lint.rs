@@ -4,8 +4,8 @@
 //!
 //! The answer: `ok` with the config's warnings as `lines` when every block passes; `unchecked` names the module types
 //! the pass could not check because the registry cannot be reached and they were not on this machine (Go's lint
-//! passed on the first pass alone then); otherwise the load's error, positions and all. Nothing starts, nothing is
-//! written but the module cache.
+//! passed on the first pass alone then); otherwise the load's error, positions and all. Nothing starts; a module type
+//! or major the stack had not used yet is fetched and pinned in doze.lock, as `up` would.
 
 use crate::Daemon;
 use crate::catalog::Catalog;
@@ -58,6 +58,7 @@ fn same_file(a: &str, b: &str) -> bool {
 
 /// Loads `config` through `cat`: the module pass.
 pub fn check(cat: &Catalog, config: &str, version: &str) -> Response {
+    cat.retry_failed();
     let loaded = crate::entry::with_options(version, cat, Default::default(), |o| {
         doze_config::load(config, o)
     });

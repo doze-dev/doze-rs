@@ -69,3 +69,11 @@ impl Catalog {
         self.manifest(&self.key(ty, version))
     }
 }
+
+impl Catalog {
+    /// Forgets the types that could not be found, so the next lookup asks again (an `add` or a `lint` after the
+    /// registry came back).
+    pub fn retry_failed(&self) {
+        crate::lock(&self.failed).clear();
+    }
+}

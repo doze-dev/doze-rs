@@ -76,6 +76,8 @@ pub(crate) struct Inner {
     pub(crate) modules: RwLock<entry::Modules>,
     /// What adds an instance at run time (`None`: this daemon cannot).
     pub(crate) live: Option<live::Live>,
+    /// Instances an add, remove or migrate is changing now: one at a time per name.
+    pub(crate) busy: Mutex<std::collections::BTreeSet<String>>,
 }
 
 /// A running server; dropping it does not stop it, [`Serving::stop`] does.
@@ -110,6 +112,7 @@ impl Daemon {
             meters: meters::Ring::default(),
             modules: RwLock::default(),
             live: None,
+            busy: Mutex::default(),
         };
         Daemon {
             inner: Arc::new(inner),
@@ -230,4 +233,31 @@ pub(crate) fn read<T>(m: &RwLock<T>) -> std::sync::RwLockReadGuard<'_, T> {
 
 pub(crate) fn write<T>(m: &RwLock<T>) -> std::sync::RwLockWriteGuard<'_, T> {
     m.write().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// An add, remove or migrate holding one instance name; dropping it lets the next one in.
+pub(crate) struct Claim<'a> {
+    d: &'a Daemon,
+    name: String,
+}
+
+impl Daemon {
+    /// Holds `name` for an add, remove or migrate; `Err` says another one is changing it.
+    pub(crate) fn claim(&self, name: &str) -> Result<Claim<'_>, String> {
+        if !lock(&self.inner.busy).insert(name.to_owned()) {
+            return Err(format!(
+                "instance {name:?} is being added, removed or migrated; try again when that ends"
+            ));
+        }
+        Ok(Claim {
+            d: self,
+            name: name.to_owned(),
+        })
+    }
+}
+
+impl Drop for Claim<'_> {
+    fn drop(&mut self) {
+        lock(&self.d.inner.busy).remove(&self.name);
+    }
 }

@@ -89,9 +89,11 @@ impl Catalog {
         } else {
             vec![major.to_string()]
         };
-        let exe = self
-            .rt
-            .block_on(self.finder.find(ty, &majors, &self.lock))?;
+        let exe = self.rt.block_on(self.finder.find(
+            ty,
+            &majors,
+            (key == ty).then_some(self.lock.as_path()),
+        ))?;
         {
             let mut exes = crate::lock(&self.exes);
             if key != ty && exes.get(ty) == Some(&exe) {
@@ -167,12 +169,14 @@ impl Catalog {
 
 /// Where a module type's build comes from.
 pub trait Finder: Send + Sync {
-    /// The executable of the build of module `ty` that serves engine `majors`, pinned in the lock at `lock`.
+    /// The executable of the build of module `ty` that serves engine `majors`, pinned in the lock at `lock`; with no
+    /// lock, resolved from the registry and recorded nowhere (a second build of a type: doze.lock keeps one pin per
+    /// module source).
     fn find<'a>(
         &'a self,
         ty: &'a str,
         majors: &'a [String],
-        lock: &'a Path,
+        lock: Option<&'a Path>,
     ) -> BoxFuture<'a, Result<PathBuf, String>>;
 }
 
@@ -186,14 +190,14 @@ impl Finder for Fetched {
         &'a self,
         ty: &'a str,
         majors: &'a [String],
-        lock: &'a Path,
+        lock: Option<&'a Path>,
     ) -> BoxFuture<'a, Result<PathBuf, String>> {
         Box::pin(async move {
             let req = Request::Module {
                 source: ty.to_string(),
                 majors: majors.to_vec(),
-                lock: Some(lock.to_path_buf()),
-                persist: true,
+                lock: lock.map(Path::to_path_buf),
+                persist: lock.is_some(),
             };
             let reply = self.0.ask(&req).await.map_err(|e| e.message)?;
             if let Some(e) = reply.error {

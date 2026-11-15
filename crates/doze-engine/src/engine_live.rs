@@ -45,8 +45,21 @@ impl Engine {
                 if needed.len() == 1 { "it" } else { "them" }
             )));
         }
+        let was_off = self.get(name).is_some_and(|i| i.off);
         self.set_off(name, true).await?;
-        self.stop(name, Cause::Command).await?;
+        let gone = match self.stop(name, Cause::Command).await {
+            Ok(()) => self.forget(name),
+            Err(e) => Err(e),
+        };
+        if gone.is_err() && !was_off {
+            // Refused after all: it goes back into the run as it was.
+            let _ = self.set_off(name, false).await;
+        }
+        gone
+    }
+
+    /// Forgets a stopped `name` under the lock, refused if something needs it now.
+    fn forget(&self, name: &str) -> Result<(), Error> {
         self.update(|core| {
             let mut slot = self
                 .inner

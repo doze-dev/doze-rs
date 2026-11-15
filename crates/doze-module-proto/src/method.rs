@@ -72,7 +72,8 @@ methods! {
     Plan = 22, HostToModule, Unary, 0, &[], 0;
     TemplateEnsure = 23, HostToModule, Unary, caps::TEMPLATE, &[], 0;
     TemplateClone = 24, HostToModule, Unary, caps::TEMPLATE, &[], 0;
-    Migrate = 25, HostToModule, Unary, caps::MIGRATE, &[], 0;
+    // Minor 1: `migrate`, with the fetch callbacks allowed during it.
+    Migrate = 25, HostToModule, Unary, caps::MIGRATE, &[], 1;
     Converge = 30, HostToModule, Unary, caps::CONVERGE, &[], 0;
     Objects = 31, HostToModule, Unary, caps::OBJECTS, &[], 0;
     Prune = 32, HostToModule, Unary, caps::PRUNE, &[], 0;

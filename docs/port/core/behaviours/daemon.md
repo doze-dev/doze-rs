@@ -106,3 +106,20 @@ Differences: an instance's engine word in "has no data actions" is the config's 
 Open for other tracks: the postgres module (core-m1) answers `migrate` with Go's dump, set-aside and restore (`cmd/doze/migrate.go`, through `cx.fetch()` for both majors); the CLI (core-c2c) sends `migrate` and `lint` and prints their answers.
 
 Tests added for the audit's untested paths: the endpoint taken from the grant (the echo with `settings.ready = "log"` has no check naming its address), `run()`'s wiring (add/remove and a second daemon on the real binary), the module idle fix (`doze-module tests/host.rs a_module_is_not_idle_while_a_call_is_in_flight`), the pin writer's lock (`catalog::tests::pins_recorded_at_once_are_all_kept`).
+
+### Session 10 audit (independent, at 4d7c98c4): 14 findings
+
+1. Per-major builds and doze.lock (one pin per module source): the second build was resolved through the first's pin and failed. *Fixed: a second build (`type@major`) is resolved from the registry with no lock and recorded nowhere; pinning it needs a lock schema with a pin per source and major (F1's).*
+2. A dropped module call (a cancelled start, a plan timeout) left the module "in flight" for good, so it was never reaped. *Fixed: the count is an RAII guard (`Busy`).*
+3. A connection that outlived a remove recreated the instance on release. *Fixed: acquire and release do nothing for a name no longer declared.* A stale release after the same name is added again still counts against the new one (rare; open).
+4. A remove that failed after taking the instance out of the run left it off. *Fixed: it goes back as it was; a failed take-back of an add is said in the log.*
+5. Two migrates (or an add/remove) of one name at once. *Fixed: one add, remove or migrate per name at a time (`Daemon::claim`).*
+6. `migrate` uses the block the running daemon loaded, not doze.hcl on disk. *By design for now: the CLI restarts the daemon after an edit before it asks (C2c), as Go's migrate needed the stack down.*
+7. Lint wrote doze.lock and was stuck behind cached lookup failures. *Lookups that failed are asked again by each lint and add (`retry_failed`); lint pinning a new type is documented (as `up` would).*
+8. Two daemons starting at once both passed the check. *Fixed: `run/doze.daemon.lock`, held for the daemon's life.*
+9. Concurrent add and remove of one name. *Fixed by 5.*
+10. A disabled block went into the run; a name disabled in doze.hcl could be added; a fronted module with no address was silently unfronted. *Fixed: a disabled block is added out of the run, names doze.hcl disables count as taken, and the portless module is refused with Go's words.*
+11. A failed `type@major` lookup reads as "not a version the module serves". *Open (low).*
+12. A new call and a widened callback scope with no protocol minor. *Fixed: minor 1; `migrate` is since 1.*
+13. A remove then an immediate add on the same address can find it still bound. *Open (low).*
+14. The per-start port is chosen by binding port 0 and letting go. *Inherent; known.*

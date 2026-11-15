@@ -87,6 +87,7 @@ fn prepare(
     run_dir: &Path,
 ) -> Result<Prepared, String> {
     let cat = &live.catalog;
+    cat.retry_failed();
     let cfg = entry::parse_block(block, &live.config, &live.version, cat.as_ref(), live.env.clone())
         .map_err(|e| {
             if unresolved_ref(&e) {
@@ -139,7 +140,11 @@ pub(crate) async fn add(d: &Daemon, block: &str) -> Response {
     }
     let e = d.engine();
     let stack = e.stack();
-    let declared: Vec<String> = stack.services.iter().map(|s| s.name.clone()).collect();
+    // The engine's instances and the config's disabled ones (a name doze.hcl uses is taken either way).
+    let mut declared: Vec<String> = stack.services.iter().map(|s| s.name.clone()).collect();
+    declared.extend(d.labels().into_keys());
+    declared.sort();
+    declared.dedup();
     let run_dir = stack.run_dir();
     let (owned, text) = (d.clone(), block.to_owned());
     let prepared = tokio::task::spawn_blocking(move || {
@@ -153,12 +158,20 @@ pub(crate) async fn add(d: &Daemon, block: &str) -> Response {
         Err(err) => return failed(err, ""),
     };
     let name = p.inst.name.clone();
+    let _held = match d.claim(&name) {
+        Ok(c) => c,
+        Err(err) => return failed(err, ""),
+    };
     if let Err(err) = e.add(p.service) {
         return failed(err.to_string(), "");
     }
     crate::write(&d.inner.labels).insert(name.clone(), p.labels.clone());
     if let Some(mi) = p.module {
         crate::write(&d.inner.modules).insert(name.clone(), mi);
+    }
+    if let Err(err) = settle(d, &p.inst, &p.labels, p.supervised).await {
+        undo(d, &name).await;
+        return failed(err, "");
     }
     if let Some(f) = entry::front_of(&p.inst, &p.labels, p.supervised) {
         if let Err(err) = live.front.add(&f).await {
@@ -191,9 +204,36 @@ fn starts_by_itself(i: &Instance, supervised: bool) -> bool {
         }
 }
 
-/// Takes back an add that could not finish.
+/// What a block in doze.hcl would be: a disabled one is out of the run (Go's config skipped it; here it is shown and
+/// woken by nothing), and a module doze must front needs an address (Go: "needs a client-facing port").
+async fn settle(
+    d: &Daemon,
+    inst: &Instance,
+    labels: &crate::Labels,
+    supervised: bool,
+) -> Result<(), String> {
+    if !inst.enabled {
+        d.engine()
+            .set_off(&inst.name, true)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    let fronted_module = inst.kind() == Kind::Module && !supervised;
+    if inst.enabled && fronted_module && labels.endpoint.is_empty() {
+        return Err(format!(
+            "engine {:?} needs a client-facing port — set one on the block",
+            inst.ty
+        ));
+    }
+    Ok(())
+}
+
+/// Takes back an add that could not finish; a remove the engine refuses is said in the daemon's log.
+#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 async fn undo(d: &Daemon, name: &str) {
-    let _ = d.engine().remove(name).await;
+    if let Err(err) = d.engine().remove(name).await {
+        eprintln!("doze daemon: taking back the add of {name:?}: {err}");
+    }
     forget(d, name);
 }
 
@@ -214,6 +254,10 @@ pub(crate) async fn remove(d: &Daemon, name: &str, wipe: bool) -> Response {
     if e.get(name).is_none() {
         return failed(format!("no instance named {name:?}"), fault::NOT_FOUND);
     }
+    let _held = match d.claim(name) {
+        Ok(c) => c,
+        Err(err) => return failed(err, ""),
+    };
     if let Err(err) = e.remove(name).await {
         return failed(err.to_string(), "");
     }

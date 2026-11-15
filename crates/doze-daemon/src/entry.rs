@@ -136,7 +136,7 @@ fn stack(
 #[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 async fn run(config: &Path, version: &str) -> Result<(), String> {
     // Before the catalog starts a single module: a second daemon for this stack says so and nothing else runs.
-    let run = no_daemon_yet(config, version)?;
+    let (run, _alone) = no_daemon_yet(config, version)?;
     let catalog = Arc::new(catalog(config)?);
     let assembled = assemble(config, version, catalog.clone(), BTreeMap::new()).await?;
     let fronts = assembled.fronted();
@@ -397,7 +397,7 @@ impl doze_config::host::DomainChecks for Domains {
 
 /// The stack's run folder, made, when no daemon serves it yet: the data folder comes from doze.hcl read without its
 /// modules (the shape pass), so nothing starts before this answers.
-pub fn no_daemon_yet(config: &Path, version: &str) -> Result<RunDir, String> {
+pub fn no_daemon_yet(config: &Path, version: &str) -> Result<(RunDir, std::fs::File), String> {
     let path = config.to_string_lossy();
     let shape = with_options(version, &doze_config::NoModules, BTreeMap::new(), |o| {
         doze_config::load_shape(&path, o)
@@ -405,7 +405,21 @@ pub fn no_daemon_yet(config: &Path, version: &str) -> Result<RunDir, String> {
     let run = RunDir::of(Path::new(&shape.data_dir));
     doze_os::fs::private_dir(run.path()).map_err(|e| e.to_string())?;
     refuse_if_running(&run)?;
-    Ok(run)
+    // Held for this daemon's life (the OS drops it with the process): two started at once cannot both get here.
+    let held = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(run.path().join("doze.daemon.lock"))
+        .map_err(|e| e.to_string())?;
+    match held.try_lock() {
+        Ok(()) => Ok((run, held)),
+        Err(std::fs::TryLockError::WouldBlock) => Err(format!(
+            "another doze daemon is starting for {}",
+            run.path().display()
+        )),
+        Err(std::fs::TryLockError::Error(e)) => Err(e.to_string()),
+    }
 }
 
 fn refuse_if_running(run: &RunDir) -> Result<(), String> {

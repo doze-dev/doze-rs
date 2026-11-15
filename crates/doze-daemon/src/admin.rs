@@ -199,12 +199,17 @@ pub(crate) async fn migrate(d: &Daemon, name: &str) -> Response {
         Ok(false) => return none(),
         Err(err) => return failed(err, ""),
     }
+    let _held = match d.claim(name) {
+        Ok(c) => c,
+        Err(err) => return failed(err, ""),
+    };
     let e = d.engine();
     let was_off = e.get(name).is_some_and(|i| i.off);
     if let Err(err) = e.set_off(name, true).await {
         return failed(format!("stopping {name:?}: {err}"), "");
     }
     let moved = mi.migrate(&e.ctx_for(name)).await;
+    // Back into the run as it was.
     if !was_off {
         let _ = e.set_off(name, false).await;
     }
