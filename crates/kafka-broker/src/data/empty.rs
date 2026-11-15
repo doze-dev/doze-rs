@@ -138,6 +138,8 @@ impl<F: Fs> Broker<F> {
         let partition = match self.partitions.get_unless_empty(topic, id).await {
             Ok(Some(p)) => p,
             Ok(None) => return Ok(None),
+            // Deleted meanwhile (Empty all topics met a DeleteTopics): there is nothing left to empty.
+            Err(_) if !self.is_current(topic) => return Ok(None),
             Err(e) => return Err(failed(e.to_string())),
         };
         let done = partition.empty().await;
@@ -157,6 +159,13 @@ impl<F: Fs> Broker<F> {
         };
         let after = blocking::run(|| dir_bytes(&self.fs, &dir));
         Ok(Some((offsets, before.saturating_sub(after))))
+    }
+
+    /// Whether `topic` is still the topic with its name.
+    fn is_current(&self, topic: &Topic) -> bool {
+        self.meta
+            .topic(&topic.name)
+            .is_some_and(|t| t.id == topic.id)
     }
 
     /// The transactional id of a transaction under way (begun, not yet finished) that writes to `topic`, or to any topic.
