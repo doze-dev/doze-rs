@@ -22,6 +22,7 @@ mod conf;
 mod converge;
 mod ext;
 mod filter;
+mod migrate;
 mod names;
 mod prune;
 mod psql;
@@ -350,6 +351,7 @@ fn main() -> std::process::ExitCode {
         .admin()
         .backend_url()
         .wire()
+        .migrate()
         .run()
 }
 

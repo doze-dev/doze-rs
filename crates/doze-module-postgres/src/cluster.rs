@@ -16,7 +16,7 @@ pub(crate) fn provisioned(dir: &Path) -> bool {
 }
 
 /// `initdb` into `dir`: `postgres` as the superuser, trusted on the socket, UTF8, no fsync while it writes.
-async fn initdb(tc: &Toolchain, dir: &Path) -> Result<()> {
+pub(crate) async fn initdb(tc: &Toolchain, dir: &Path) -> Result<()> {
     if let Some(parent) = dir.parent() {
         doze_os::fs::private_dir(parent).map_err(help::io_error("creating", parent))?;
     }
@@ -80,7 +80,7 @@ fn check_version(inst: &Instance, data: &Path) -> Result<()> {
         ErrorKind::Invalid,
         format!(
             "instance {n:?}: its data is Postgres {on_disk}'s, but doze.hcl now says version {declared}, and Postgres cannot \
-             read another major's data. Bring the stack down and run `doze migrate {n}`: it dumps the {on_disk} data, \
+             read another major's data. Run `doze migrate {n}`: it dumps the {on_disk} data, \
              keeps it aside, and restores it into {declared}. Or keep version = {on_disk} for now"
         ),
     ))

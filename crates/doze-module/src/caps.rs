@@ -159,3 +159,15 @@ impl WireHost {
             .map(drop)
     }
 }
+
+/// Moves an instance's data to the version its block now declares (postgres's dump and restore between majors). The
+/// host has stopped the instance; `cx.fetch()` gets the builds it needs, the old one included. What it returns is said
+/// to the person who asked.
+pub trait Migrate: Module {
+    fn migrate(
+        &self,
+        cx: &Cx<Self::Spec>,
+        pins: &[doze_module_proto::msg::run::Pin],
+        target: &str,
+    ) -> impl Future<Output = Result<String>> + Send;
+}

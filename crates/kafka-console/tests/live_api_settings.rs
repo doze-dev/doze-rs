@@ -98,8 +98,15 @@ async fn without_a_recorder_or_a_round_the_settings_answer_names_none() {
         "{}",
         v["intervals"]
     );
+    // The commit was just made: its expiry reads 7 d in the same second, 6 d 23 h after it.
+    let note = offsets_note(&v);
     assert!(
-        offsets_note(&v).starts_with("kept for 7 d; analytics' expire in 6 d 23 h"),
+        [
+            "kept for 7 d; analytics' expire in 6 d 23 h",
+            "kept for 7 d; analytics' expire in 7 d"
+        ]
+        .iter()
+        .any(|p| note.starts_with(p)),
         "{}",
         offsets_note(&v)
     );
