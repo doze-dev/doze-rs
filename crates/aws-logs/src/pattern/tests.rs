@@ -144,11 +144,21 @@ fn regular_expressions_search_in_every_form() {
 
 #[test]
 fn regular_expressions_keep_to_aws_limits() {
+    // Recorded on AWS (2026-11-15): the space between two expressions is a term of its own, refused before any count.
     assert_eq!(
         parse("%a% %b% %c%").unwrap_err(),
+        PatternError::Term(" ".to_string())
+    );
+    assert_eq!(
+        parse("%a%  %b%").unwrap_err(),
+        PatternError::Term("  ".to_string())
+    );
+    assert_eq!(parse("%a%%b%").unwrap().regexes(), 2);
+    assert_eq!(
+        parse("%a%%b%%c%").unwrap_err(),
         PatternError::TooManyRegexes
     );
-    assert_eq!(parse("%a% %b%").unwrap().regexes(), 2);
+    assert_eq!(parse("{ $.a = %x% && $.b = %y% }").unwrap().regexes(), 2);
     for bad in [
         "%%",
         "%(?i)x%",

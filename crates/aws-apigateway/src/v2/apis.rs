@@ -14,7 +14,7 @@ use crate::req::{Req, Res, new_id, none};
 pub(super) fn dispatch(core: &mut Core, op: Operation, r: &Req) -> Option<Res> {
     Some(match op {
         Operation::CreateApi => create(core, r),
-        Operation::GetApi => api(core, r).map(|d| view(d).into()),
+        Operation::GetApi => api(core, r).map(|d| crate::doc::with_tags(view(d)).into()),
         Operation::GetApis => {
             Ok(page(core.http.iter().map(|(_, d)| view(&d.0)).collect(), r).into())
         }
@@ -74,9 +74,8 @@ fn endpoint(r: &Req, id: &str, websocket: bool) -> String {
 pub(crate) fn new_api(r: &Req, protocol: &str) -> Result<(String, Value), ApiError> {
     let websocket = protocol == "WEBSOCKET";
     if websocket && r.opt("routeSelectionExpression").is_none_or(str::is_empty) {
-        return Err(bad(
-            "RouteSelectionExpression is required for a WEBSOCKET API",
-        ));
+        // Recorded 2026-11-15: AWS says the same of a missing expression as of a malformed one.
+        return Err(bad("Invalid routeSelectionExpression"));
     }
     let id = new_id(10);
     let mut a = members(r, &["target", "routeKey", "credentialsArn"]);
@@ -154,5 +153,5 @@ fn update(core: &mut Core, r: &Req) -> Res {
         return Err(bad("The protocol of an API cannot be changed"));
     }
     a.extend(changes);
-    Ok(Value::Object(a.clone()).into())
+    Ok(crate::doc::with_tags(Value::Object(a.clone())).into())
 }

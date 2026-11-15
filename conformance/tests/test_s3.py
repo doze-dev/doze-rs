@@ -207,7 +207,7 @@ def test_presigned_urls(client, names, cleanup, snapshot):
     snapshot.match("get-absent", fetch(absent))
 
 
-def test_bucket_configuration(client, names, cleanup, snapshot, target):
+def test_bucket_configuration(client, names, cleanup, snapshot, target, eventually):
     import json
 
     s3 = client("s3")
@@ -242,7 +242,13 @@ def test_bucket_configuration(client, names, cleanup, snapshot, target):
                             "Expiration": {"Days": 7}}]}
     snapshot.match("put-lifecycle", s3.put_bucket_lifecycle_configuration(
         Bucket=name, LifecycleConfiguration=lifecycle))
-    snapshot.match("lifecycle", s3.get_bucket_lifecycle_configuration(Bucket=name))
+    # A lifecycle just put can read as absent for a moment on AWS (recorded 2026-11-15).
+    def lifecycle_read():
+        try:
+            return s3.get_bucket_lifecycle_configuration(Bucket=name)
+        except s3.exceptions.ClientError as e:
+            raise AssertionError(str(e))
+    snapshot.match("lifecycle", eventually(lifecycle_read))
 
 
 def test_copy_replaces_or_keeps_metadata(client, names, cleanup, snapshot):
@@ -372,9 +378,14 @@ def test_multipart_parts_are_replaced_listed_and_aborted(client, names, cleanup,
     first = s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=1, Body=b"a" * (5 * MB))
     again = s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=1, Body=b"b" * (5 * MB))
     assert first["ETag"] != again["ETag"]
-    s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=3, Body=b"tail")
+    tail = s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=3, Body=b"tail")
     paged = s3.list_parts(Bucket=name, Key="m", UploadId=uid, MaxParts=1)
     assert [p["PartNumber"] for p in paged["Parts"]] == [1] and paged["IsTruncated"] is True
+    # With entity tags that do not match, AWS answers InvalidPart before it looks at the order (recorded 2026-11-15); with the
+    # real ones, the order is the question.
+    snapshot.error("bad-order-real-tags", lambda: s3.complete_multipart_upload(
+        Bucket=name, Key="m", UploadId=uid, MultipartUpload={"Parts": [
+            {"PartNumber": 3, "ETag": tail["ETag"]}, {"PartNumber": 1, "ETag": again["ETag"]}]}), drop=("UploadId",))
     snapshot.error("bad-order", lambda: s3.complete_multipart_upload(
         Bucket=name, Key="m", UploadId=uid, MultipartUpload={"Parts": [
             {"PartNumber": 3, "ETag": '"x"'}, {"PartNumber": 1, "ETag": '"y"'}]}), drop=("UploadId",))
@@ -657,5 +668,16 @@ def test_anonymous_reads_need_a_public_grant(client, names, cleanup, snapshot):
         "BlockPublicAcls": True, "IgnorePublicAcls": True, "BlockPublicPolicy": False, "RestrictPublicBuckets": False})
     s3.put_bucket_policy(Bucket=name, Policy=json.dumps({"Version": "2012-10-17", "Statement": [{
         "Effect": "Allow", "Principal": "*", "Action": "s3:GetObject", "Resource": f"arn:aws:s3:::{name}/*"}]}))
-    snapshot.match("anonymous-allowed", anon.get_object(Bucket=name, Key="k"))
+    # A policy can take a few seconds to reach every reader, so wait out a refusal briefly; then hold whatever AWS answers
+    # (recorded 2026-11-15: the read right after the policy was refused, a few seconds later it was served).
+    import time
+
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        try:
+            anon.get_object(Bucket=name, Key="k")
+            break
+        except anon.exceptions.ClientError:
+            time.sleep(1)
+    snapshot.outcome("anonymous-allowed", lambda: anon.get_object(Bucket=name, Key="k"))
     s3.delete_bucket_policy(Bucket=name)

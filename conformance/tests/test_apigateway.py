@@ -214,6 +214,7 @@ def mock_api(api, names, cleanup, part="ping", stage=None):
 def test_rest_api_update_operations(client, names, cleanup, snapshot):
     api = client("apigateway")
     rid, res = mock_api(api, names, cleanup)
+    snapshot.known(res, "resource-id")  # an integration's cacheNamespace is its resource's id
     at = dict(restApiId=rid, resourceId=res, httpMethod="GET")
     snapshot.match("update-method", api.update_method(**at, patchOperations=[
         {"op": "replace", "path": "/operationName", "value": "ping"},
@@ -230,9 +231,11 @@ def test_rest_api_update_operations(client, names, cleanup, snapshot):
     snapshot.match("get-method", api.get_method(**at), opaque=IDS)
     snapshot.error("put-the-method-twice", lambda: api.put_method(**at, authorizationType="NONE"))
     dep = api.create_deployment(restApiId=rid, stageName="dev", variables={"color": "blue"})
+    # A stage variable is set with replace, new or not: AWS refuses add on /variables/<name> (seen 2026-11-15).
+    snapshot.error("add-a-stage-variable", lambda: api.update_stage(restApiId=rid, stageName="dev", patchOperations=[
+        {"op": "add", "path": "/variables/size", "value": "large"}]))
     snapshot.match("update-stage", api.update_stage(restApiId=rid, stageName="dev", patchOperations=[
-        {"op": "replace", "path": "/tracingEnabled", "value": "true"},
-        {"op": "add", "path": "/variables/size", "value": "large"},
+        {"op": "replace", "path": "/variables/size", "value": "large"},
         {"op": "replace", "path": "/*/*/metrics/enabled", "value": "true"},
         {"op": "replace", "path": "/*/*/throttling/burstLimit", "value": "100"}]), opaque=IDS + CLOCK)
     snapshot.error("logging-without-a-role", lambda: api.update_stage(restApiId=rid, stageName="dev", patchOperations=[
@@ -242,6 +245,15 @@ def test_rest_api_update_operations(client, names, cleanup, snapshot):
     snapshot.match("update-rest-api", api.update_rest_api(restApiId=rid, patchOperations=[
         {"op": "replace", "path": "/description", "value": "changed"},
         {"op": "add", "path": "/binaryMediaTypes/image~1png"}]), opaque=IDS + CLOCK)
+
+
+def test_rest_api_stage_tracing(client, names, cleanup, snapshot):
+    """X-Ray tracing on a stage. AWS makes its service-linked role (AWSServiceRoleForAPIGateway) the first time, so the
+    recorder needs iam:CreateServiceLinkedRole for ops.apigateway.amazonaws.com, or the role made once beforehand."""
+    api = client("apigateway")
+    rid, _ = mock_api(api, names, cleanup, stage="dev")
+    snapshot.match("tracing-on", api.update_stage(restApiId=rid, stageName="dev", patchOperations=[
+        {"op": "replace", "path": "/tracingEnabled", "value": "true"}]), opaque=IDS + CLOCK)
 
 
 def test_models_validators_and_gateway_responses(client, names, cleanup, snapshot):
@@ -267,6 +279,7 @@ def test_models_validators_and_gateway_responses(client, names, cleanup, snapsho
 def test_api_keys_and_usage_plans(client, names, cleanup, snapshot, target, eventually):
     api = client("apigateway")
     rid, res = mock_api(api, names, cleanup, stage="live")
+    snapshot.known(rid, "api-id")  # a refusal below names it
     key = snapshot.match("key", api.create_api_key(name=names("key"), enabled=True,
                                                    value="doze0123456789abcdefghijk"), opaque=IDS + CLOCK)
     cleanup(api.delete_api_key, apiKey=key["id"])
@@ -355,11 +368,13 @@ def test_http_api_routes_stages_and_deployments(client, names, cleanup, snapshot
         opaque=IDS + CLOCK)
     aid = made["ApiId"]
     cleanup(v2.delete_api, ApiId=aid)
-    integ = snapshot.match("integration", v2.create_integration(
-        ApiId=aid, IntegrationType="HTTP_PROXY", IntegrationMethod="GET", IntegrationUri="https://example.com/{proxy}"),
-        opaque=IDS)
+    proxy = dict(ApiId=aid, IntegrationType="HTTP_PROXY", IntegrationMethod="GET", IntegrationUri="https://example.com/{proxy}")
+    snapshot.error("integration-without-a-payload-version", lambda: v2.create_integration(**proxy))
+    snapshot.error("http-proxy-with-payload-2", lambda: v2.create_integration(**proxy, PayloadFormatVersion="2.0"))
+    integ = snapshot.match("integration", v2.create_integration(**proxy, PayloadFormatVersion="1.0"), opaque=IDS)
     target_ = f"integrations/{integ['IntegrationId']}"
     route = snapshot.match("route", v2.create_route(ApiId=aid, RouteKey="GET /items/{proxy+}", Target=target_), opaque=IDS)
+    snapshot.known(route["RouteId"], "route-id")  # a refusal below names it
     snapshot.error("route-twice", lambda: v2.create_route(ApiId=aid, RouteKey="GET /items/{proxy+}", Target=target_))
     snapshot.match("update-route", v2.update_route(ApiId=aid, RouteId=route["RouteId"], OperationName="items"), opaque=IDS)
     snapshot.match("stage", v2.create_stage(ApiId=aid, StageName="manual", StageVariables={"a": "1"}), opaque=IDS + CLOCK)

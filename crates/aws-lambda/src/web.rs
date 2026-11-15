@@ -3,7 +3,8 @@
 //! by AWS's rule: an object with a `statusCode` is the response, anything else is the body of a 200.
 //!
 //! A function URL with `AuthType` `AWS_IAM` refuses a request that carries no signature when IAM is enforcing; a signed request is
-//! let through without its signature being checked.
+//! let through without its signature being checked. One with `NONE` answers `403 Forbidden` when IAM is enforcing and the
+//! function's resource policy does not let anyone invoke through the URL (`resolve::anyone_may`); `--iam soft` logs and runs it.
 
 use std::sync::Arc;
 
@@ -11,7 +12,7 @@ use aws_core::base64;
 use aws_peers::Mode;
 use aws_wire::service::{Caller, WebReply, WebRequest};
 use bytes::Bytes;
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 
 use crate::Inner;
 use crate::core::{Answer, Ask};
@@ -196,7 +197,7 @@ async fn run(
         service: None,
         session_token: None,
     };
-    let event = event_of(req, path, id, region);
+    let event = crate::url_event::event_of(req, path, id, region);
     let qualifier = Some(text("qualifier")).filter(|q| !q.is_empty());
     let ask = Resolving {
         caller: caller.clone(),
@@ -205,7 +206,9 @@ async fn run(
         source_arn: None,
         draw: 0.0,
         url: true,
-        internal: true,
+        // `NONE` is judged by the function's resource policy (anyone may call only when it says so); a signed `AWS_IAM` request
+        // is let through unchecked.
+        internal: text("auth") != "NONE",
     };
     let rs = match inner.ask(region, Ask::Resolve(Box::new(ask))).await {
         Ok(Answer::Resolved(Ok(rs))) => rs,
@@ -259,83 +262,6 @@ fn cors_headers(cors: &Value, req: &WebRequest) -> Vec<(String, String)> {
         ));
     }
     out
-}
-
-/// The payload-format-2.0 event for a request.
-fn event_of(req: &WebRequest, path: &str, id: &str, region: &str) -> Value {
-    let mut headers = Map::new();
-    for (k, v) in &req.headers {
-        headers
-            .entry(k.clone())
-            .and_modify(|old| {
-                if let Value::String(s) = old {
-                    s.push(',');
-                    s.push_str(v);
-                }
-            })
-            .or_insert_with(|| Value::String(v.clone()));
-    }
-    let mut query = Map::new();
-    for pair in req.query.split('&').filter(|p| !p.is_empty()) {
-        let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
-        let (k, v) = (decode(k), decode(v));
-        query
-            .entry(k)
-            .and_modify(|old| {
-                if let Value::String(s) = old {
-                    s.push(',');
-                    s.push_str(&v);
-                }
-            })
-            .or_insert(Value::String(v));
-    }
-    let cookies: Vec<&str> = req
-        .headers
-        .iter()
-        .filter(|(k, _)| k == "cookie")
-        .flat_map(|(_, v)| v.split("; "))
-        .collect();
-    let (body, encoded) = match std::str::from_utf8(&req.body) {
-        Ok(text) => (text.to_owned(), false),
-        Err(_) => (base64::encode(&req.body), true),
-    };
-    let now = aws_core::time::format_http_date(0);
-    let _ = now;
-    let ua = headers.get("user-agent").cloned().unwrap_or(Value::Null);
-    let mut event = json!({
-        "version": "2.0",
-        "routeKey": "$default",
-        "rawPath": path,
-        "rawQueryString": req.query,
-        "headers": headers,
-        "requestContext": {
-            "accountId": "anonymous",
-            "apiId": id,
-            "domainName": req.host,
-            "domainPrefix": id,
-            "http": {"method": req.method, "path": path, "protocol": "HTTP/1.1", "sourceIp": "127.0.0.1", "userAgent": ua},
-            "requestId": aws_seal::uuid_v4().unwrap_or_default(),
-            "routeKey": "$default",
-            "stage": "$default",
-            "region": region,
-        },
-        "isBase64Encoded": encoded,
-    });
-    if !query.is_empty() {
-        crate::set(&mut event, "queryStringParameters", Value::Object(query));
-    }
-    if !cookies.is_empty() {
-        crate::set(&mut event, "cookies", json!(cookies));
-    }
-    if !body.is_empty() {
-        crate::set(&mut event, "body", Value::String(body));
-    }
-    event
-}
-
-fn decode(s: &str) -> String {
-    let spaced = s.replace('+', " ");
-    aws_core::uri::decode_str(&spaced).map_or(spaced.clone(), std::borrow::Cow::into_owned)
 }
 
 /// The HTTP response for what a function returned.

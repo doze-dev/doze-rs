@@ -114,6 +114,12 @@ class Snapshot:
                 self.tally.verified += 1
         return response
 
+    def known(self, value, label):
+        """An id the service minted that its messages repeat (API Gateway names the API in a refusal): from here on it reads
+        as <name:label>, on both sides. Returns it untouched."""
+        self.norm.name(value, label)
+        return value
+
     def error(self, label, fn, **kw):
         """Call fn, which must be refused, and hold the refusal against the
         recording: the code, the message and the status."""

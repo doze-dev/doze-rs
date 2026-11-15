@@ -290,7 +290,7 @@ const STAGE_FIELDS: &[Field] = &[
     f("/canarySettings", Kind::Str),
 ];
 
-/// Execution logging needs the account's CloudWatch role first, as AWS says (`(memory)` for the words).
+/// Execution logging needs the account's CloudWatch role first, as AWS says (recorded 2026-11-15).
 fn check_logging(core: &Core, r: &Req) -> Result<(), ApiError> {
     let wants = r.patches().iter().any(|p| {
         let v = p.value.as_deref().unwrap_or_default();
@@ -312,6 +312,14 @@ fn check_logging(core: &Core, r: &Req) -> Result<(), ApiError> {
 
 fn update_stage(core: &mut Core, r: &Req) -> Res {
     check_logging(core, r)?;
+    // A stage variable is set with replace, new or not; add is refused (recorded 2026-11-15).
+    if let Some(p) = r
+        .patches()
+        .into_iter()
+        .find(|p| p.op == "add" && p.path.starts_with("/variables/"))
+    {
+        return Err(bad(format!("Invalid add operation with path: {}", p.path)));
+    }
     let doc = api_mut(core, r)?;
     let name = r.s("stageName");
     let mut s = stage(doc, name)?.clone();
@@ -368,7 +376,7 @@ const SETTINGS: &[(&str, &str, Kind)] = &[
 ];
 
 /// A `/{resource path}/{method}/{group}/{setting}` patch (`/*/*/logging/loglevel`), applied to `methodSettings` under the key
-/// `{path}/{method}` (`*/*`, `orders/GET`); a new key starts from AWS's defaults `(memory)`.
+/// `{path}/{method}` (`*/*`, `orders/GET`); a new key starts from AWS's defaults (recorded 2026-11-15: no logging level until set).
 fn method_setting(stage: &mut Value, p: &Patch) -> Result<(), ApiError> {
     let segs: Vec<&str> = p.path.trim_start_matches('/').split('/').collect();
     let invalid = || crate::patch::invalid_path(p, STAGE_FIELDS);
@@ -409,7 +417,6 @@ fn method_setting(stage: &mut Value, p: &Patch) -> Result<(), ApiError> {
 fn defaults() -> Value {
     json!({
         "metricsEnabled": false,
-        "loggingLevel": "OFF",
         "dataTraceEnabled": false,
         "throttlingBurstLimit": 5000,
         "throttlingRateLimit": 10000.0,

@@ -61,11 +61,19 @@ fn routes(m: &Machine, r: &Req<'_>) -> Result<Vec<(u64, u32)>, ApiError> {
         out.push((n, u32::try_from(w).unwrap_or(0)));
     }
     let total: u32 = out.iter().map(|(_, w)| *w).sum();
-    if out.is_empty() || out.len() > 2 || total != 100 {
+    if out.is_empty() || out.len() > 2 {
         // (memory)
         return Err(invalid(
-            "The sum of the weights in the routing configuration must be equal to 100",
+            "The routing configuration must name one or two versions",
         ));
+    }
+    if total != 100 {
+        // Recorded 2026-11-15.
+        let weights: Vec<String> = out.iter().map(|(_, w)| w.to_string()).collect();
+        return Err(invalid(format!(
+            "Sum of routing configuration weights must equal 100. Received: [{}]",
+            weights.join(", ")
+        )));
     }
     Ok(out)
 }
@@ -140,7 +148,10 @@ impl Core {
         );
         out.insert("routingConfiguration".into(), routing(m, a));
         out.insert("creationDate".into(), secs(a.created_ms));
-        out.insert("updateDate".into(), secs(a.updated_ms));
+        // AWS leaves updateDate out until the alias is first updated (recorded 2026-11-15).
+        if a.updated_ms != a.created_ms {
+            out.insert("updateDate".into(), secs(a.updated_ms));
+        }
         Ok(Value::Object(out))
     }
 
@@ -167,8 +178,9 @@ impl Core {
         if let Some(d) = r.opt("description") {
             a.description = Some(d.to_owned());
         }
-        a.updated_ms = now;
-        Ok(json!({"updateDate": secs(now)}))
+        // Never equal to the creation time, which is what "not updated yet" is read from.
+        a.updated_ms = now.max(a.created_ms + 1);
+        Ok(json!({"updateDate": secs(a.updated_ms)}))
     }
 
     pub(crate) fn delete_alias(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {

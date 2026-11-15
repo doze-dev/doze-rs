@@ -88,14 +88,15 @@ fn state(def: &Definition, s: &State, at: &str, out: &mut Vec<Diagnostic>) {
     let flows = !matches!(s.kind, Kind::Choice { .. } | Kind::Succeed | Kind::Fail(_));
     if flows {
         match (&s.next, s.end) {
+            // Both recorded 2026-11-15.
             (Some(_), true) => out.push(Diagnostic::error(
                 SCHEMA,
-                "Only one of these fields is allowed: [Next, End]", // (memory)
+                "There should only be one of the following fields: [Next, End]",
                 at,
             )),
             (None, false) => out.push(Diagnostic::error(
                 SCHEMA,
-                "Exactly one of these fields is required: [Next, End]", // (memory)
+                "This object should have only one of the following fields: [Next, End]",
                 at,
             )),
             (Some(n), false) => target(def, n, format!("{at}/Next"), out),
@@ -104,6 +105,9 @@ fn state(def: &Definition, s: &State, at: &str, out: &mut Vec<Diagnostic>) {
     }
     for (i, c) in s.catch.iter().enumerate() {
         target(def, &c.next, format!("{at}/Catch/{i}/Next"), out);
+    }
+    if s.lang == Lang::JsonPath {
+        needs_parameters(s, at, out);
     }
     errors(&s.retry, &s.catch, at, out);
     if s.lang == Lang::JsonPath {
@@ -142,6 +146,25 @@ fn state(def: &Definition, s: &State, at: &str, out: &mut Vec<Diagnostic>) {
     }
 }
 
+/// An optimized integration says what to send: without `Parameters` it is refused (recorded 2026-11-15 for `lambda:invoke`; the
+/// AWS SDK integrations, whose calls may take nothing, are left alone).
+fn needs_parameters(s: &State, at: &str, out: &mut Vec<Diagnostic>) {
+    if let Kind::Task(t) = &s.kind
+        && s.parameters.is_none()
+        && t.resource.starts_with("arn:aws:states:::")
+        && !t.resource.starts_with("arn:aws:states:::aws-sdk:")
+    {
+        out.push(Diagnostic::error(
+            SCHEMA,
+            format!(
+                "Parameters field is required for resource ARN: {}",
+                t.resource
+            ),
+            &format!("{at}/Resource"),
+        ));
+    }
+}
+
 fn errors(retry: &[Retrier], catch: &[Catcher], at: &str, out: &mut Vec<Diagnostic>) {
     let lists = retry
         .iter()
@@ -154,7 +177,7 @@ fn errors(retry: &[Retrier], catch: &[Catcher], at: &str, out: &mut Vec<Diagnost
                 .enumerate(),
         );
     for (i, (field, names, len)) in lists {
-        let here = format!("{at}/{field}/{i}/ErrorEquals");
+        let here = format!("{at}/{field}[{i}]/ErrorEquals");
         if names.is_empty() {
             out.push(Diagnostic::error(
                 SCHEMA,
@@ -162,12 +185,14 @@ fn errors(retry: &[Retrier], catch: &[Catcher], at: &str, out: &mut Vec<Diagnost
                 &here,
             )); // (memory)
         }
-        if names.iter().any(|n| n == ALL) && (names.len() > 1 || i + 1 != len) {
-            // (memory)
+        if let Some(k) = names.iter().position(|n| n == ALL)
+            && (names.len() > 1 || i + 1 != len)
+        {
+            // Recorded 2026-11-15, with the place the name stands.
             out.push(Diagnostic::error(
                 SCHEMA,
-                "States.ALL must appear alone in the last ErrorEquals of its list",
-                &here,
+                "States.ALL must appear alone and at end of list",
+                &format!("{here}[{k}]"),
             ));
         }
         for n in names
@@ -184,18 +209,26 @@ fn errors(retry: &[Retrier], catch: &[Catcher], at: &str, out: &mut Vec<Diagnost
     }
 }
 
-fn bad_path(name: &str, at: &str, reference: bool, out: &mut Vec<Diagnostic>) {
-    let kind = if reference {
-        "ReferencePath"
-    } else {
-        "JSONPath"
+fn bad_path(name: &str, at: &str, reference: Option<&str>, out: &mut Vec<Diagnostic>) {
+    let message = match reference {
+        Some(p) => reference_reason(p),
+        // (memory)
+        None => format!("The value for the field '{name}' must be a valid JSONPath"),
     };
-    // (memory)
-    out.push(Diagnostic::error(
-        SCHEMA,
-        format!("The value for the field '{name}' must be a valid {kind}"),
-        &format!("{at}/{name}"),
-    ));
+    out.push(Diagnostic::error(SCHEMA, message, &format!("{at}/{name}")));
+}
+
+/// Why `p` is not a reference path, as AWS says it: a bracket must open a quoted name or an index (recorded 2026-11-15 for
+/// `$.a[*]`); anything else in the general words (memory).
+fn reference_reason(p: &str) -> String {
+    let bracket = p
+        .match_indices('[')
+        .any(|(i, _)| !p[i + 1..].starts_with(|c: char| c == '\'' || c.is_ascii_digit()));
+    if bracket {
+        "Value is not a Reference Path: '[' must be followed by ' or '['".to_owned()
+    } else {
+        "Value is not a Reference Path".to_owned()
+    }
 }
 
 fn paths(s: &State, at: &str, out: &mut Vec<Diagnostic>) {
@@ -203,19 +236,19 @@ fn paths(s: &State, at: &str, out: &mut Vec<Diagnostic>) {
         if let Field::Text(p) = f
             && !crate::path::is_path(p)
         {
-            bad_path(name, at, false, out);
+            bad_path(name, at, None, out);
         }
     }
     if let Field::Text(p) = &s.result_path
         && !crate::path::is_reference_path(p)
     {
-        bad_path("ResultPath", at, true, out);
+        bad_path("ResultPath", at, Some(p), out);
     }
     if let Kind::Map(m) = &s.kind
         && let Field::Text(p) = &m.items_path
         && !crate::path::is_path(p)
     {
-        bad_path("ItemsPath", at, false, out);
+        bad_path("ItemsPath", at, None, out);
     }
     for (name, tpl) in [
         ("Parameters", &s.parameters),
@@ -269,7 +302,7 @@ fn test_paths(t: &Test, at: &str, out: &mut Vec<Diagnostic>) {
         Test::And(all) | Test::Or(all) => all.iter().for_each(|t| test_paths(t, at, out)),
         Test::Not(t) => test_paths(t, at, out),
         Test::Compare { variable, .. } if !crate::path::is_path(variable) => {
-            bad_path("Variable", at, false, out);
+            bad_path("Variable", at, None, out);
         }
         _ => {}
     }

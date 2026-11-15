@@ -217,15 +217,16 @@ impl Core {
             ));
         }
         match kind {
+            // AWS asks about the groups before the keys, in the words it uses for a group (recorded 2026-11-15).
             Kind::User => {
+                if !e.groups.is_empty() {
+                    return Err(conflict(
+                        "Cannot delete entity, must remove users from group first.",
+                    ));
+                }
                 if self.keys.iter().any(|(_, k)| k.user == name) {
                     return Err(conflict(
                         "Cannot delete entity, must delete access keys first.",
-                    ));
-                }
-                if !e.groups.is_empty() {
-                    return Err(conflict(
-                        "Cannot delete entity, must remove users from groups first.",
                     ));
                 }
             }

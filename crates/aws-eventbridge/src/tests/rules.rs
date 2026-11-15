@@ -212,12 +212,27 @@ fn a_rule_holds_five_targets_and_a_target_with_two_input_settings_fails_alone() 
         "LimitExceededException"
     );
     let both = json!({"Id": "t0", "Arn": "arn:aws:sqs:us-east-1:000000000000:q", "Input": "{}", "InputPath": "$.detail"});
-    let answer = w.ok(
-        "PutTargets",
-        &json!({"Rule": "r", "Targets": [both, target(1)]}),
+    assert_eq!(
+        w.err(
+            "PutTargets",
+            &json!({"Rule": "r", "Targets": [both, target(1)]})
+        ),
+        (
+            "ValidationException".into(),
+            "Only one of Input, InputPath, or InputTransformer must be provided for target t0."
+                .into()
+        )
     );
-    assert_eq!(answer["FailedEntryCount"], 1);
-    assert_eq!(answer["FailedEntries"][0]["TargetId"], "t0");
+    let text = json!({"Id": "t1", "Arn": "arn:aws:sqs:us-east-1:000000000000:q",
+        "InputTransformer": {"InputPathsMap": {"who": "$.detail.who"}, "InputTemplate": "hello <who>"}});
+    assert_eq!(
+        w.err("PutTargets", &json!({"Rule": "r", "Targets": [text]}))
+            .1,
+        "Invalid InputTemplate for target t1 : [Source: (String)\"hello null\"; line: 1, column: 1]."
+    );
+    let quoted = json!({"Id": "t1", "Arn": "arn:aws:sqs:us-east-1:000000000000:q",
+        "InputTransformer": {"InputPathsMap": {"who": "$.detail.who"}, "InputTemplate": "\"hello <who>\""}});
+    w.ok("PutTargets", &json!({"Rule": "r", "Targets": [quoted]}));
 }
 
 #[test]

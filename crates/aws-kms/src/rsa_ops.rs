@@ -16,19 +16,30 @@ use crate::model::Key;
 use crate::rsa_keys;
 use crate::spec::Usage;
 
+/// The algorithm a call names, which an RSA key must support; none named is `SYMMETRIC_DEFAULT`, which it never does (AWS's
+/// words for both, recorded 2026-11-15).
 fn algorithm_of(key: &Key, given: Option<&str>) -> Result<String, ApiError> {
-    let allowed = key.spec.encryption_algorithms(key.usage);
-    match given {
-        Some(a) if allowed.contains(&a) => Ok(a.to_owned()),
-        Some(a) => Err(ApiError::modeled(
-            "InvalidKeyUsageException",
-            format!(
-                "Algorithm {a} is incompatible with key spec {}.",
-                key.spec.name()
-            ),
-        )),
-        None => Err(validation("An RSA key needs an EncryptionAlgorithm.")),
+    let a = given.unwrap_or(crate::cipher::SYMMETRIC);
+    if key.spec.encryption_algorithms(key.usage).contains(&a) {
+        return Ok(a.to_owned());
     }
+    Err(ApiError::modeled(
+        "InvalidKeyUsageException",
+        format!(
+            "Algorithm {a} is incompatible with key spec {}.",
+            key.spec.name()
+        ),
+    ))
+}
+
+/// The most bytes OAEP seals under a key of `bits`: the modulus less two digests and two bytes.
+fn oaep_limit(bits: usize, algorithm: &str) -> usize {
+    let digest = if algorithm == "RSAES_OAEP_SHA_1" {
+        20
+    } else {
+        32
+    };
+    (bits / 8).saturating_sub(2 * digest + 2)
 }
 
 impl Core {
@@ -68,13 +79,16 @@ impl Core {
                 "An encryption context is not supported with an asymmetric key.",
             ));
         }
+        let plain = v.get(Encrypt::PLAINTEXT).unwrap_or_default();
+        let limit = oaep_limit(key.spec.rsa_bits().unwrap_or(0), &algorithm);
+        if plain.len() > limit {
+            return Err(validation(format!(
+                "Algorithm {algorithm} and key spec {} cannot encrypt data larger than {limit} bytes.",
+                key.spec.name()
+            )));
+        }
         let der = self.secret_of(key)?;
-        let blob = rsa_keys::encrypt(
-            &algorithm,
-            &der,
-            v.get(Encrypt::PLAINTEXT).unwrap_or_default(),
-        )
-        .ok_or_else(|| validation("The plaintext is too long for this key and algorithm."))?;
+        let blob = rsa_keys::encrypt(&algorithm, &der, plain).ok_or_else(no_randomness)?;
         reply::<Encrypted>(|o| {
             o.put_blob(Encrypted::CIPHERTEXT_BLOB, &blob);
             o.put(Encrypted::KEY_ID, &key.arn);

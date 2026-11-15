@@ -1,5 +1,6 @@
-//! GetObjectAttributes: the parts of an object's description a caller picks.
+//! GetObjectAttributes: the parts of an object's description a caller picks; and RestoreObject, which locally has nothing to restore.
 
+use aws_wire::ApiError;
 use serde_json::{Map, Value, json};
 
 use crate::core::Core;
@@ -54,5 +55,26 @@ impl Core {
             );
         }
         Out::json(Value::Object(out))
+    }
+}
+
+impl Core {
+    /// `RestoreObject`: only an object in an archive storage class has anything to restore, and bringing one back from the archive
+    /// is not built (there is no archive locally). Every other object is refused as AWS refuses it (recorded 2026-11-15).
+    pub(crate) fn restore_object(&self, req: &Req<'_>) -> Answer {
+        let v = self.readable(req.bucket(), req.key(), req.s("VersionId"))?;
+        let class = v.meta.storage_class.as_deref().unwrap_or("STANDARD");
+        if matches!(class, "GLACIER" | "DEEP_ARCHIVE") {
+            return Err(ApiError::new(
+                501,
+                "NotImplemented",
+                "RestoreObject from an archive storage class is not built in doze-aws.",
+            ));
+        }
+        Err(ApiError::new(
+            403,
+            "InvalidObjectState",
+            "Restore is not allowed for the object's current storage class",
+        ))
     }
 }

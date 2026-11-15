@@ -240,7 +240,11 @@ fn update_route(core: &mut Core, r: &Req) -> Res {
     if let Some(m) = child(doc, "routes") {
         m.insert(id.to_owned(), route.clone());
     }
-    Ok(route.into())
+    // AWS answers UpdateRoute with 201, as if it were made anew (recorded 2026-11-15; the model says 200).
+    Ok(crate::req::Out {
+        json: route,
+        status: Some(201),
+    })
 }
 
 fn create_integration(core: &mut Core, r: &Req) -> Res {
@@ -252,34 +256,61 @@ fn create_integration(core: &mut Core, r: &Req) -> Res {
             "Integration type {kind} is not supported for HTTP APIs"
         )));
     }
-    let mut defaults = json!({"connectionType": "INTERNET", "timeoutInMillis": if websocket { 29_000 } else { 30_000 }});
-    if kind == "AWS_PROXY" && r.opt("integrationSubtype").is_none() {
-        crate::doc::put(&mut defaults, "integrationMethod", json!("POST"));
-        if !websocket {
-            crate::doc::put(&mut defaults, "payloadFormatVersion", json!("2.0"));
-        }
+    let subtype = r.opt("integrationSubtype").is_some();
+    if !websocket && !subtype {
+        http_payload_version(kind, r.opt("payloadFormatVersion"))?;
     }
-    if kind == "HTTP_PROXY" && !websocket {
+    let mut defaults = json!({"connectionType": "INTERNET", "timeoutInMillis": if websocket { 29_000 } else { 30_000 }});
+    if kind == "AWS_PROXY" && !subtype {
+        crate::doc::put(&mut defaults, "integrationMethod", json!("POST"));
+    }
+    if subtype {
         crate::doc::put(&mut defaults, "payloadFormatVersion", json!("1.0"));
     }
-    if websocket && kind != "AWS_PROXY" && kind != "HTTP_PROXY" {
+    if websocket {
+        // Every WebSocket integration says 1.0 and WHEN_NO_MATCH, and the non-proxy ones how a response is picked (recorded
+        // 2026-11-15 for MOCK, HTTP, HTTP_PROXY and AWS_PROXY).
+        crate::doc::put(&mut defaults, "payloadFormatVersion", json!("1.0"));
         crate::doc::put(&mut defaults, "passthroughBehavior", json!("WHEN_NO_MATCH"));
+        if kind != "AWS_PROXY" && kind != "HTTP_PROXY" {
+            crate::doc::put(
+                &mut defaults,
+                "integrationResponseSelectionExpression",
+                json!("${integration.response.statuscode}"),
+            );
+        }
     }
     create(core, r, &INTEGRATION, 7, defaults)
+}
+
+/// An HTTP API's proxy integration names its payload format, and an HTTP proxy speaks only 1.0 (both recorded 2026-11-15).
+fn http_payload_version(kind: &str, given: Option<&str>) -> Result<(), ApiError> {
+    match given {
+        None => Err(bad(
+            "PayloadFormatVersion is a required parameter for integration",
+        )),
+        Some(v) if kind == "HTTP_PROXY" && v != "1.0" => Err(bad(format!(
+            "PayloadFormatVersion {v} is not supported for integration of type {kind}"
+        ))),
+        Some(_) => Ok(()),
+    }
 }
 
 fn delete_integration(core: &mut Core, r: &Req) -> Res {
     let doc = api(core, r)?;
     let id = r.s("IntegrationId");
     let target = format!("integrations/{id}");
-    if let Some(route) = obj(doc, "routes")
+    let routes: Vec<&str> = obj(doc, "routes")
         .into_iter()
         .flat_map(|m| m.values())
-        .find(|x| text(x, "target") == Some(&target))
-    {
+        .filter(|x| text(x, "target") == Some(&target))
+        .filter_map(|x| text(x, "routeId"))
+        .collect();
+    if !routes.is_empty() {
+        // Recorded 2026-11-15.
         return Err(conflict(format!(
-            "Cannot delete Integration {id}: it is the target of route {}",
-            text(route, "routeKey").unwrap_or_default()
+            "Cannot delete Integration because it is referenced by the following Routes with Ids: [{}]",
+            routes.join(", ")
         )));
     }
     delete(core, r, &INTEGRATION)?;

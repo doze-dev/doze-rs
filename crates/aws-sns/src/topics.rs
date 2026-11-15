@@ -81,8 +81,9 @@ impl Core {
         if !valid_name(name, fifo) || (!fifo && name.ends_with(".fifo")) {
             return Err(invalid("Topic Name"));
         }
-        for (k, v) in &attrs {
+        for (k, v) in &mut attrs {
             topic_attrs::check(k, v, fifo)?;
+            *v = topic_attrs::kept(k, v);
         }
         attrs.remove("FifoTopic");
         let tags = r.tags();
@@ -172,10 +173,12 @@ impl Core {
         );
         let fifo = self.topics.get(&key).is_some_and(|t| t.fifo);
         // The kind of a topic is fixed when it is made.
-        if name == "FifoTopic" {
+        // Recorded on AWS (2026-11-15): ContentBasedDeduplication is not a name a standard topic has.
+        if name == "FifoTopic" || (name == "ContentBasedDeduplication" && !fifo) {
             return Err(invalid("AttributeName"));
         }
-        topic_attrs::check(name, value, fifo)?;
+        topic_attrs::check(name, value, fifo).map_err(crate::req::as_set)?;
+        let value = &topic_attrs::kept(name, value);
         if name == "MaximumMessageSize" {
             self.check_large(&key, value)?;
         }
@@ -183,7 +186,7 @@ impl Core {
             if value.is_empty() {
                 topic.attrs.remove(name);
             } else {
-                topic.attrs.insert(name.to_owned(), value.to_owned());
+                topic.attrs.insert(name.to_owned(), value.clone());
             }
         }
         Ok(Value::Null)

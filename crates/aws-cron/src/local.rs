@@ -23,6 +23,9 @@ pub fn parse_scheduler(text: &str) -> Result<Schedule, Invalid> {
     if let Some(body) = text.strip_prefix("at(").and_then(|t| t.strip_suffix(')')) {
         return parse_at(body).map(|wall_ms| Schedule::At { wall_ms });
     }
+    if let Some(body) = text.strip_prefix("rate(").and_then(|t| t.strip_suffix(')')) {
+        return crate::parse_rate(body, crate::Plural::Either);
+    }
     crate::parse(text)
 }
 
@@ -44,9 +47,10 @@ fn parse_at(body: &str) -> Result<i64, Invalid> {
     let (hour, minute, second) = (n(11, 13), n(14, 16), n(17, 19));
     let month_u = u32::try_from(month).map_err(|_| Invalid)?;
     let day_u = u32::try_from(day).map_err(|_| Invalid)?;
+    // AWS accepted `at(2030-02-30T00:00:00)` (recorded 2026-11-15): a day is held to 1..=31, not to its month. A day past the
+    // month's end is read as that many days on from its start (the 30th of February 2030 is the 2nd of March) `(memory)`.
     let ok = (1..=12).contains(&month)
-        && day >= 1
-        && day_u <= crate::civil::days_in_month(year, month_u)
+        && (1..=31).contains(&day)
         && (0..24).contains(&hour)
         && (0..60).contains(&minute)
         && (0..60).contains(&second);
