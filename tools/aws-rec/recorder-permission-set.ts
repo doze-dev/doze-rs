@@ -34,10 +34,20 @@ const policy = {
         "states:SendTaskSuccess", "states:SendTaskFailure", "states:SendTaskHeartbeat",
         // Learned 2026-11-15 (verify-c): a missing mapping is read with GetEventSourceMapping on "*".
         "lambda:GetEventSourceMapping",
+        // Added 2026-11-15 for SSM service settings: read only (an update would change the real account's Parameter Store throughput).
+        "ssm:GetServiceSetting",
         // Added 2026-11-12 for the KMS and Secrets Manager scenarios written before they were recorded: no resource, nothing stored.
         "kms:GenerateRandom", "secretsmanager:GetRandomPassword", "secretsmanager:ValidateResourcePolicy",
       ],
       Resource: "*",
+      Condition: region,
+    },
+    {
+      // Added 2026-11-15: AWS's public parameters (latest AMI ids and the like) are read by CDK and CloudFormation. Read only.
+      Sid: "PublicParameters",
+      Effect: "Allow",
+      Action: ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"],
+      Resource: [`${A}:ssm:${R}::parameter/aws/service/*`, `${A}:ssm:${R}::parameter/aws/reference/*`],
       Condition: region,
     },
     {
