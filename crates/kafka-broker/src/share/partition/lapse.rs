@@ -10,7 +10,8 @@ impl SharePartition {
     pub(crate) fn expire(&mut self, now: i64, limits: &Limits) -> Acked {
         let start = self.start;
         let mut acked = Acked::default();
-        let due = |r: &super::Rec| r.state == RecordState::Acquired && r.until.is_some_and(|u| u <= now);
+        let due =
+            |r: &super::Rec| r.state == RecordState::Acquired && r.until.is_some_and(|u| u <= now);
         for (&key, b) in &mut self.cached {
             if let Track::Whole(r) = &b.track
                 && due(r)

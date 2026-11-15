@@ -64,7 +64,10 @@ fn states_are_written_together_and_survive_the_power_going() {
         seed: 7,
     };
     let store = MetaStore::open(&fs.power_cut(cut), Path::new("/data")).unwrap();
-    assert_eq!(store.share_state(&group("g"), &t, part(0)).unwrap(), Some(a));
+    assert_eq!(
+        store.share_state(&group("g"), &t, part(0)).unwrap(),
+        Some(a)
+    );
     let all = store.share_states(&group("g")).unwrap();
     assert_eq!(all.len(), 2);
     assert_eq!((all[1].0.as_str(), all[1].1.get(), &all[1].2), ("u", 1, &b));
@@ -80,7 +83,11 @@ fn a_state_for_a_partition_that_is_not_there_is_not_stored_and_nothing_is_writte
         .set_share_states(&group("g"), &[(&nope, part(0), &s), (&t, part(2), &s)])
         .unwrap();
     assert_eq!(done, [false, false]);
-    assert_eq!(fs.count(Op::Fsync), flushes, "nothing to store, nothing written");
+    assert_eq!(
+        fs.count(Op::Fsync),
+        flushes,
+        "nothing to store, nothing written"
+    );
     assert!(store.share_states(&group("g")).unwrap().is_empty());
 }
 
@@ -95,7 +102,9 @@ fn a_groups_states_are_its_own_and_go_by_topic_or_all_at_once() {
             .unwrap();
     }
     assert_eq!(
-        store.delete_share_states(&group("g"), Some(&[u.clone()])).unwrap(),
+        store
+            .delete_share_states(&group("g"), Some(&[u.clone()]))
+            .unwrap(),
         1
     );
     let left: Vec<String> = store

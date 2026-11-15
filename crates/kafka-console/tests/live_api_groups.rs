@@ -300,9 +300,16 @@ async fn a_share_group_is_described_by_its_own_api_with_its_share_partitions() {
     let member = "share-member-one";
     let topic = join_share(&w, "emails", member, "orders").await;
     // The first fetch makes the share-partitions, at the log's end (share.auto.offset.reset is latest): 4, 3 and 2.
-    assert!(share_fetch(&w, "emails", member, 0, topic, &[0, 1, 2]).await.is_empty());
+    assert!(
+        share_fetch(&w, "emails", member, 0, topic, &[0, 1, 2])
+            .await
+            .is_empty()
+    );
     produce(&w, "orders", 0, 6).await;
-    assert_eq!(share_fetch(&w, "emails", member, 1, topic, &[0, 1, 2]).await, vec![(0, 4, 9)]);
+    assert_eq!(
+        share_fetch(&w, "emails", member, 1, topic, &[0, 1, 2]).await,
+        vec![(0, 4, 9)]
+    );
     // 4 and 5 accepted (the start moves past them), 6 and 7 released, 8 rejected, 9 still held.
     share_acknowledge(&w, "emails", member, 2, topic, 0, 4, &[1, 1, 2, 2, 3]).await;
     let app = api(&w);
@@ -315,7 +322,10 @@ async fn a_share_group_is_described_by_its_own_api_with_its_share_partitions() {
     assert_eq!(h["assignor"], "simple", "{h}");
     assert_eq!(h["members"][0]["id"], member, "{h}");
     assert_eq!(h["members"][0]["holds"].as_array().unwrap().len(), 3, "{h}");
-    assert!(g["topics"].as_array().unwrap().is_empty(), "a share group commits no offset: {g}");
+    assert!(
+        g["topics"].as_array().unwrap().is_empty(),
+        "a share group commits no offset: {g}"
+    );
     let s = &g["share"];
     assert_eq!(s["delivery_limit"], 5, "{s}");
     assert_eq!(s["lock_ms"], 30_000, "{s}");
@@ -325,8 +335,19 @@ async fn a_share_group_is_described_by_its_own_api_with_its_share_partitions() {
     let rows = s["rows"].as_array().unwrap();
     assert_eq!(rows.len(), 3, "{s}");
     let zero = rows.iter().find(|r| r["partition"] == 0).unwrap();
-    assert_eq!((zero["start"].as_i64(), zero["end"].as_i64(), zero["log_end"].as_i64()), (Some(6), Some(9), Some(10)), "{zero}");
-    let counts: Vec<_> = ["available", "acquired", "acknowledged", "archived"].iter().map(|k| zero[k].as_u64().unwrap()).collect();
+    assert_eq!(
+        (
+            zero["start"].as_i64(),
+            zero["end"].as_i64(),
+            zero["log_end"].as_i64()
+        ),
+        (Some(6), Some(9), Some(10)),
+        "{zero}"
+    );
+    let counts: Vec<_> = ["available", "acquired", "acknowledged", "archived"]
+        .iter()
+        .map(|k| zero[k].as_u64().unwrap())
+        .collect();
     assert_eq!(counts, vec![2, 1, 0, 1], "{zero}");
     assert_eq!(zero["holders"], serde_json::json!([[member, 1]]), "{zero}");
     assert_eq!(zero["live"], true, "{zero}");

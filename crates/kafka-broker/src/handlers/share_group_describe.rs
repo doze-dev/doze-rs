@@ -82,7 +82,9 @@ impl<F: Fs> Broker<F> {
         };
         let Some(description) = self.groups.describe(&group).await else {
             // Not in memory: an empty share group the broker had before it was started again is still one.
-            let kept = crate::blocking::run(|| self.meta.group_life(&group)).ok().flatten();
+            let kept = crate::blocking::run(|| self.meta.group_life(&group))
+                .ok()
+                .flatten();
             return match kept {
                 Some(kafka_meta::GroupLife { share: Some(s), .. }) => {
                     out.group_state = StrBytes::from_static_str("Empty");
@@ -91,15 +93,33 @@ impl<F: Fs> Broker<F> {
                     out.assignor_name = StrBytes::from_static_str("simple");
                     out
                 }
-                Some(_) => refuse(out, E::GroupIdNotFound, Some(format!("Group {name} is not a share group."))),
-                None if crate::blocking::run(|| self.meta.group_offsets(&group)).is_ok_and(|o| !o.is_empty()) => {
-                    refuse(out, E::GroupIdNotFound, Some(format!("Group {name} is not a share group.")))
+                Some(_) => refuse(
+                    out,
+                    E::GroupIdNotFound,
+                    Some(format!("Group {name} is not a share group.")),
+                ),
+                None if crate::blocking::run(|| self.meta.group_offsets(&group))
+                    .is_ok_and(|o| !o.is_empty()) =>
+                {
+                    refuse(
+                        out,
+                        E::GroupIdNotFound,
+                        Some(format!("Group {name} is not a share group.")),
+                    )
                 }
-                None => refuse(out, E::GroupIdNotFound, Some(format!("Group {name} not found."))),
+                None => refuse(
+                    out,
+                    E::GroupIdNotFound,
+                    Some(format!("Group {name} not found.")),
+                ),
             };
         };
         let Some(view) = description.share else {
-            return refuse(out, E::GroupIdNotFound, Some(format!("Group {name} is not a share group.")));
+            return refuse(
+                out,
+                E::GroupIdNotFound,
+                Some(format!("Group {name} is not a share group.")),
+            );
         };
         out.group_state = StrBytes::from_static_str(view.state);
         out.group_epoch = view.epoch;
@@ -133,7 +153,9 @@ impl<F: Fs> Broker<F> {
         out.topic_partitions = by_topic(parts)
             .into_iter()
             .filter_map(|(topic_id, partitions)| {
-                let topic = self.meta.topic_by_id(TopicId::from_bytes(*topic_id.as_bytes()))?;
+                let topic = self
+                    .meta
+                    .topic_by_id(TopicId::from_bytes(*topic_id.as_bytes()))?;
                 let mut tp = TopicPartitions::default();
                 tp.topic_id = topic_id;
                 tp.topic_name = TopicName(StrBytes::from_string(topic.name.to_string()));

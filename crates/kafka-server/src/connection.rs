@@ -103,7 +103,15 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
 ) -> End {
     let watch = ctx.numbers.watch(ctx.observer.as_ref(), peer);
     let connection = NEXT_CONNECTION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let end = serve_loop(stream, ctx, (peer, connection), accepted, stop, watch.as_ref()).await;
+    let end = serve_loop(
+        stream,
+        ctx,
+        (peer, connection),
+        accepted,
+        stop,
+        watch.as_ref(),
+    )
+    .await;
     // The share sessions it opened close with it, and what their members held is let go of (Kafka's disconnect listener).
     ctx.broker.connection_closed(connection);
     if let Some(w) = &watch {

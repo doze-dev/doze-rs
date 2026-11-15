@@ -42,7 +42,10 @@ fn batches_valid(batches: &[AckBatch], version: i16, renew: bool) -> bool {
         if b.types.len() > 1 && i64::try_from(b.types.len()).ok() != Some(span) {
             return false;
         }
-        if b.types.iter().any(|t| *t < 0 || *t > most || (*t == 4 && !renew)) {
+        if b.types
+            .iter()
+            .any(|t| *t < 0 || *t > most || (*t == 4 && !renew))
+        {
             return false;
         }
         previous_last = Some(b.last);
@@ -86,7 +89,9 @@ impl<F: Fs> Broker<F> {
                 out.push(answer(Some(E::TopicAuthorizationFailed), None));
                 continue;
             }
-            let Some(partition) = PartitionId::new(a.partition).filter(|p| p.get() < topic.partitions.get()) else {
+            let Some(partition) =
+                PartitionId::new(a.partition).filter(|p| p.get() < topic.partitions.get())
+            else {
                 out.push(answer(Some(E::UnknownTopicOrPartition), None));
                 continue;
             };
@@ -105,7 +110,9 @@ impl<F: Fs> Broker<F> {
                 out.push(answer(Some(E::UnknownTopicOrPartition), None));
                 continue;
             };
-            match self.change_share(group, &held, false, |p| p.acknowledge(member, &a.batches, now, &limits)) {
+            match self.change_share(group, &held, false, |p| {
+                p.acknowledge(member, &a.batches, now, &limits)
+            }) {
                 Ok(_) => out.push(answer(None, None)),
                 Err(e) => out.push(answer(Some(e.code), Some(e.message))),
             }
@@ -132,13 +139,31 @@ mod tests {
     #[test]
     fn batches_are_held_to_kafkas_shape() {
         assert!(batches_valid(&[b(0, 4, &[1]), b(5, 6, &[1, 2])], 1, false));
-        assert!(!batches_valid(&[b(4, 0, &[1])], 1, false), "first after last");
-        assert!(!batches_valid(&[b(0, 4, &[1]), b(3, 6, &[1])], 1, false), "overlapping");
-        assert!(batches_valid(&[b(0, 4, &[1]), b(4, 6, &[1])], 1, false), "the same offset is not refused");
+        assert!(
+            !batches_valid(&[b(4, 0, &[1])], 1, false),
+            "first after last"
+        );
+        assert!(
+            !batches_valid(&[b(0, 4, &[1]), b(3, 6, &[1])], 1, false),
+            "overlapping"
+        );
+        assert!(
+            batches_valid(&[b(0, 4, &[1]), b(4, 6, &[1])], 1, false),
+            "the same offset is not refused"
+        );
         assert!(!batches_valid(&[b(0, 4, &[])], 1, false), "no type");
-        assert!(!batches_valid(&[b(0, 4, &[1, 1])], 1, false), "two types for five offsets");
-        assert!(!batches_valid(&[b(0, 0, &[4])], 1, true), "RENEW is version 2's");
-        assert!(!batches_valid(&[b(0, 0, &[4])], 2, false), "RENEW without IsRenewAck");
+        assert!(
+            !batches_valid(&[b(0, 4, &[1, 1])], 1, false),
+            "two types for five offsets"
+        );
+        assert!(
+            !batches_valid(&[b(0, 0, &[4])], 1, true),
+            "RENEW is version 2's"
+        );
+        assert!(
+            !batches_valid(&[b(0, 0, &[4])], 2, false),
+            "RENEW without IsRenewAck"
+        );
         assert!(batches_valid(&[b(0, 0, &[4])], 2, true));
         assert!(!batches_valid(&[b(0, 0, &[5])], 2, true));
         assert!(!batches_valid(&[b(0, 0, &[-1])], 2, true));

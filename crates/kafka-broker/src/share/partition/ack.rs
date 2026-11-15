@@ -58,7 +58,10 @@ fn check_types(batch: &AckBatch) -> Result<(), AckError> {
         return Ok(());
     }
     let listed: Vec<String> = batch.types.iter().map(i8::to_string).collect();
-    Err(bad_request(format!("Invalid acknowledge type: [{}]", listed.join(", "))))
+    Err(bad_request(format!(
+        "Invalid acknowledge type: [{}]",
+        listed.join(", ")
+    )))
 }
 
 /// What came of an acknowledgement.
@@ -113,7 +116,11 @@ impl SharePartition {
                 .ok_or_else(|| bad_state(NOT_FOUND))?,
             None => return Err(bad_state(NOT_FOUND)),
         };
-        let keys: Vec<i64> = self.cached.range(floor..=batch.last).map(|(k, _)| *k).collect();
+        let keys: Vec<i64> = self
+            .cached
+            .range(floor..=batch.last)
+            .map(|(k, _)| *k)
+            .collect();
         let last = keys
             .last()
             .and_then(|k| self.cached.get(k))
@@ -155,7 +162,9 @@ impl SharePartition {
                         "The batch cannot be acknowledged. The batch is not in the acquired state.",
                     ));
                 }
-                Some(h) if &**h != member => return Err(bad_state("Member is not the owner of batch record")),
+                Some(h) if &**h != member => {
+                    return Err(bad_state("Member is not the owner of batch record"));
+                }
                 Some(_) => {}
             }
         }
@@ -163,7 +172,9 @@ impl SharePartition {
         let per_offset = batch.types.len() > 1;
         let start_within = key < start && b.last >= start;
         if !full || b.is_each() || per_offset || start_within {
-            if b.whole_rec().is_some_and(|r| r.state != RecordState::Acquired) {
+            if b.whole_rec()
+                .is_some_and(|r| r.state != RecordState::Acquired)
+            {
                 return Err(bad_state(
                     "The batch cannot be acknowledged. The subset batch is not in the acquired state.",
                 ));
@@ -181,7 +192,9 @@ impl SharePartition {
                     break;
                 }
                 if r.state != RecordState::Acquired {
-                    return Err(bad_state("The offset cannot be acknowledged. The offset is not acquired."));
+                    return Err(bad_state(
+                        "The offset cannot be acknowledged. The offset is not acquired.",
+                    ));
                 }
                 if !r.held_by(member) {
                     return Err(bad_state("Member is not the owner of offset"));
@@ -222,7 +235,9 @@ impl SharePartition {
             }
             match &mut b.track {
                 Track::Whole(r) => {
-                    if r.holder.as_deref().is_some_and(|h| h != member) || r.state != RecordState::Acquired {
+                    if r.holder.as_deref().is_some_and(|h| h != member)
+                        || r.state != RecordState::Acquired
+                    {
                         continue;
                     }
                     let to = if b.last < start {
@@ -234,7 +249,9 @@ impl SharePartition {
                 }
                 Track::Each(records) => {
                     for (i, r) in records.iter_mut().enumerate() {
-                        if r.holder.as_deref().is_some_and(|h| h != member) || r.state != RecordState::Acquired {
+                        if r.holder.as_deref().is_some_and(|h| h != member)
+                            || r.state != RecordState::Acquired
+                        {
                             continue;
                         }
                         let to = if key + offset_of(i) < start {
@@ -254,21 +271,31 @@ impl SharePartition {
     }
 }
 
-const NOT_FOUND: &str = "Batch record not found. The request batch offsets are not found in the cache.";
+const NOT_FOUND: &str =
+    "Batch record not found. The request batch offsets are not found in the cache.";
 
 /// One record (or a whole batch) acknowledged with `ack`.
-fn apply(r: &mut Rec, ack: Option<i8>, now: i64, limits: &Limits, acked: &mut Acked) -> Result<(), AckError> {
+fn apply(
+    r: &mut Rec,
+    ack: Option<i8>,
+    now: i64,
+    limits: &Limits,
+    acked: &mut Acked,
+) -> Result<(), AckError> {
     let Some(ack) = ack else {
         return Err(bad_request("Invalid acknowledge type: []"));
     };
     if ack == RENEW {
         if !limits.renew {
-            return Err(bad_state("Renewing acquisition locks is not enabled for the group."));
+            return Err(bad_state(
+                "Renewing acquisition locks is not enabled for the group.",
+            ));
         }
         r.until = Some(now + limits.lock_ms);
         return Ok(());
     }
-    let to = target(ack).ok_or_else(|| bad_request(format!("Unknown acknowledge type id: {ack}")))?;
+    let to =
+        target(ack).ok_or_else(|| bad_request(format!("Unknown acknowledge type id: {ack}")))?;
     let next = r
         .moved(to, Count::Same, limits.max_delivery, None)
         .ok_or_else(|| bad_state("Unable to acknowledge records for the batch"))?;

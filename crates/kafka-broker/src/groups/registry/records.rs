@@ -6,8 +6,8 @@ use kafka_meta::{ConsumerLife, GroupLife, MetaStore, ShareLife};
 use kafka_wire::ids::GroupId;
 
 use crate::groups::actor::Records;
-use crate::groups::group::Kept;
 use crate::groups::consumer::{TopicInfo, TopicSource, Topics};
+use crate::groups::group::Kept;
 
 /// The topics there are, as the metadata store has them. The table a group is handed is built when the topics change, not
 /// for each heartbeat.

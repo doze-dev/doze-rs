@@ -69,7 +69,8 @@ fn rig() -> Rig {
 impl Rig {
     fn send(&mut self, h: &ShareHeartbeat) -> ShareAnswer {
         let mut out = Vec::new();
-        self.g.heartbeat(Token(1), h, &self.topics, Millis(self.now), &mut out);
+        self.g
+            .heartbeat(Token(1), h, &self.topics, Millis(self.now), &mut out);
         self.apply(out).expect("an answer")
     }
 
@@ -119,9 +120,16 @@ fn a_member_joins_at_the_first_epoch_with_every_partition_and_is_told_only_chang
     let a = r.send(&hb("m1", 0, Some(&["t"])));
     assert_eq!((a.error.clone(), a.epoch, a.heartbeat_ms), (None, 1, 5_000));
     assert_eq!(parts(&a), Some(vec![(T, 0), (T, 1), (T, 2)]));
-    assert_eq!(a.initialize, Some((1, ["t".to_owned()].into())), "its topics are to be initialized");
+    assert_eq!(
+        a.initialize,
+        Some((1, ["t".to_owned()].into())),
+        "its topics are to be initialized"
+    );
     let again = r.send(&hb("m1", 1, None));
-    assert_eq!((again.epoch, parts(&again), again.initialize), (1, None, None));
+    assert_eq!(
+        (again.epoch, parts(&again), again.initialize),
+        (1, None, None)
+    );
     // Saying what it subscribes to, even unchanged, is answered with the assignment.
     let told = r.send(&hb("m1", 1, Some(&["t"])));
     assert_eq!(parts(&told), Some(vec![(T, 0), (T, 1), (T, 2)]));
@@ -133,7 +141,11 @@ fn a_second_member_shares_after_the_assignment_interval_and_partitions_are_sprea
     let mut r = rig();
     r.send(&hb("a", 0, Some(&["t"])));
     let b = r.send(&hb("b", 0, Some(&["t"])));
-    assert_eq!((b.epoch, parts(&b)), (1, Some(vec![])), "within the interval: the targets of epoch 1 stand");
+    assert_eq!(
+        (b.epoch, parts(&b)),
+        (1, Some(vec![])),
+        "within the interval: the targets of epoch 1 stand"
+    );
     assert_eq!(r.g.epochs(), (2, 1));
     r.now += 1_000;
     let b = r.send(&hb("b", 1, None));
@@ -152,19 +164,31 @@ fn the_checks_of_a_known_members_epoch_are_kafkas() {
     let greater = r.send(&hb("a", 7, None));
     let (code, words) = greater.error.unwrap();
     assert_eq!(code, E::FencedMemberEpoch);
-    assert!(words.starts_with("The share group member has a greater member epoch (7) than"), "{words}");
+    assert!(
+        words.starts_with("The share group member has a greater member epoch (7) than"),
+        "{words}"
+    );
     // A subscription change moves the epoch; the epoch before stays good once (an answer lost).
     r.now += 1_000;
     let moved = r.send(&hb("a", 1, Some(&["t", "u"])));
     assert_eq!(moved.epoch, 2);
-    assert!(r.send(&hb("a", 1, None)).error.is_none(), "the previous epoch");
+    assert!(
+        r.send(&hb("a", 1, None)).error.is_none(),
+        "the previous epoch"
+    );
     let rejoined = r.send(&hb("a", 0, None));
     assert!(rejoined.error.is_none(), "0 rejoins, keeping the epoch");
-    assert_eq!((rejoined.epoch, parts(&rejoined).map(|p| p.len())), (2, Some(4)));
+    assert_eq!(
+        (rejoined.epoch, parts(&rejoined).map(|p| p.len())),
+        (2, Some(4))
+    );
     let unknown = r.send(&hb("x", 3, None));
     assert_eq!(
         unknown.error,
-        Some((E::UnknownMemberId, "Member x is not a member of group g.".into()))
+        Some((
+            E::UnknownMemberId,
+            "Member x is not a member of group g.".into()
+        ))
     );
 }
 
@@ -195,8 +219,14 @@ fn the_group_is_full_at_its_maximum_size_but_a_member_already_in_it_is_not_refus
     }
     let (code, words) = r.send(&hb("d", 0, Some(&["t"]))).error.unwrap();
     assert_eq!(code, E::GroupMaxSizeReached);
-    assert_eq!(words, "The share group has reached its maximum capacity of 3 members.");
-    assert!(r.send(&hb("a", 0, Some(&["t"]))).error.is_none(), "a rejoin");
+    assert_eq!(
+        words,
+        "The share group has reached its maximum capacity of 3 members."
+    );
+    assert!(
+        r.send(&hb("a", 0, Some(&["t"]))).error.is_none(),
+        "a rejoin"
+    );
 }
 
 #[test]
@@ -205,13 +235,24 @@ fn leaving_and_a_silent_member_move_the_epoch_and_the_last_one_leaves_the_target
     r.send(&hb("a", 0, Some(&["t"])));
     r.send(&hb("b", 0, Some(&["t"])));
     let left = r.send(&hb("a", -1, None));
-    assert_eq!((left.epoch, left.heartbeat_ms, left.assignment), (-1, 0, None));
+    assert_eq!(
+        (left.epoch, left.heartbeat_ms, left.assignment),
+        (-1, 0, None)
+    );
     assert_eq!(r.g.epochs(), (3, 1));
     let again = r.send(&hb("a", -1, None));
-    assert_eq!(again.error.unwrap().0, E::UnknownMemberId, "no epoch check, but it must be there");
+    assert_eq!(
+        again.error.unwrap().0,
+        E::UnknownMemberId,
+        "no epoch check, but it must be there"
+    );
     r.wait(45_000);
     assert_eq!(r.g.member_count(), 0, "b's session ran out");
-    assert_eq!(r.g.epochs(), (4, 4), "the last member gone: the (empty) targets are the new epoch's");
+    assert_eq!(
+        r.g.epochs(),
+        (4, 4),
+        "the last member gone: the (empty) targets are the new epoch's"
+    );
 }
 
 #[test]
@@ -223,7 +264,11 @@ fn a_topic_that_grows_moves_the_epoch_at_the_next_heartbeat_and_the_new_partitio
     let a = r.send(&hb("a", 1, None));
     assert_eq!(a.epoch, 2);
     assert_eq!(parts(&a).map(|p| p.len()), Some(4));
-    assert_eq!(a.initialize.map(|i| i.0), Some(2), "the new partition is to be initialized");
+    assert_eq!(
+        a.initialize.map(|i| i.0),
+        Some(2),
+        "the new partition is to be initialized"
+    );
 }
 
 #[test]
@@ -232,7 +277,11 @@ fn a_subscription_that_drops_a_topic_drops_its_partitions_at_once() {
     r.send(&hb("a", 0, Some(&["t", "u"])));
     r.now += 1;
     let a = r.send(&hb("a", 1, Some(&["u"])));
-    assert_eq!(parts(&a), Some(vec![(U, 0)]), "filtered before the next targets are computed");
+    assert_eq!(
+        parts(&a),
+        Some(vec![(U, 0)]),
+        "filtered before the next targets are computed"
+    );
 }
 
 #[test]

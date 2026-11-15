@@ -29,7 +29,10 @@ fn member_of(who: &Caller) -> String {
 
 async fn topic_id(rig: &Rig, name: &str) -> Uuid {
     make_topic(rig, name, 1).await;
-    rig.metadata_as(&admin(), 12, Some(&[name]), false).await.topics[0].topic_id
+    rig.metadata_as(&admin(), 12, Some(&[name]), false)
+        .await
+        .topics[0]
+        .topic_id
 }
 
 /// The first error a share answer carries: top-level, else the first partition's.
@@ -45,7 +48,10 @@ fn first_code(top: i16, parts: impl IntoIterator<Item = i16>) -> i16 {
 #[tokio::test]
 async fn the_share_heartbeat_needs_read_on_the_group_and_describe_on_each_subscribed_topic() {
     five_ways!(
-        &[need(GROUP, "grp", READ, GROUP_AUTH), need(TOPIC, "tpc", DESCRIBE, TOPIC_AUTH)],
+        &[
+            need(GROUP, "grp", READ, GROUP_AUTH),
+            need(TOPIC, "tpc", DESCRIBE, TOPIC_AUTH)
+        ],
         |rig, who| {
             make_topic(rig, "tpc", 1).await;
             let req = heartbeat_request("grp", &member_of(who), 0, Some(&["tpc"]));
@@ -81,14 +87,19 @@ async fn share_group_describe_needs_describe_on_the_group() {
 #[tokio::test]
 async fn share_fetch_needs_read_on_the_group_and_on_each_topic() {
     five_ways!(
-        &[need(GROUP, "grp", READ, GROUP_AUTH), need(TOPIC, "tpc", READ, TOPIC_AUTH)],
+        &[
+            need(GROUP, "grp", READ, GROUP_AUTH),
+            need(TOPIC, "tpc", READ, TOPIC_AUTH)
+        ],
         |rig, who| {
             let t = topic_id(rig, "tpc").await;
             let req = fetch_request("grp", &member_of(who), 0, &[(t, 0, vec![])]);
             match rig.ask_as(who, 1, Request::ShareFetch(req)).await {
                 Response::ShareFetch(r) => first_code(
                     r.error_code,
-                    r.responses.iter().flat_map(|t| t.partitions.iter().map(|p| p.error_code)),
+                    r.responses
+                        .iter()
+                        .flat_map(|t| t.partitions.iter().map(|p| p.error_code)),
                 ),
                 other => panic!("{other:?}"),
             }
@@ -101,11 +112,21 @@ async fn share_fetch_needs_read_on_the_group_and_on_each_topic() {
 #[tokio::test]
 async fn share_acknowledge_needs_read_on_the_group_and_on_each_topic() {
     five_ways!(
-        &[need(GROUP, "grp", READ, GROUP_AUTH), need(TOPIC, "tpc", READ, TOPIC_AUTH)],
+        &[
+            need(GROUP, "grp", READ, GROUP_AUTH),
+            need(TOPIC, "tpc", READ, TOPIC_AUTH)
+        ],
         |rig, who| {
             let t = topic_id(rig, "tpc").await;
             let member = member_of(who);
-            let open = match rig.ask_as(who, 1, Request::ShareFetch(fetch_request("grp", &member, 0, &[]))).await {
+            let open = match rig
+                .ask_as(
+                    who,
+                    1,
+                    Request::ShareFetch(fetch_request("grp", &member, 0, &[])),
+                )
+                .await
+            {
                 Response::ShareFetch(r) => r.error_code,
                 other => panic!("{other:?}"),
             };
@@ -116,7 +137,9 @@ async fn share_acknowledge_needs_read_on_the_group_and_on_each_topic() {
                 match rig.ask_as(who, 1, Request::ShareAcknowledge(req)).await {
                     Response::ShareAcknowledge(r) => first_code(
                         r.error_code,
-                        r.responses.iter().flat_map(|t| t.partitions.iter().map(|p| p.error_code)),
+                        r.responses
+                            .iter()
+                            .flat_map(|t| t.partitions.iter().map(|p| p.error_code)),
                     ),
                     other => panic!("{other:?}"),
                 }
@@ -130,7 +153,10 @@ async fn share_acknowledge_needs_read_on_the_group_and_on_each_topic() {
 #[tokio::test]
 async fn describe_share_group_offsets_needs_describe_on_the_group_and_on_each_topic() {
     five_ways!(
-        &[need(GROUP, "grp", DESCRIBE, GROUP_AUTH), need(TOPIC, "tpc", DESCRIBE, TOPIC_AUTH)],
+        &[
+            need(GROUP, "grp", DESCRIBE, GROUP_AUTH),
+            need(TOPIC, "tpc", DESCRIBE, TOPIC_AUTH)
+        ],
         |rig, who| {
             make_topic(rig, "tpc", 1).await;
             let mut g = kafka_wire::messages::describe_share_group_offsets_request::DescribeShareGroupOffsetsRequestGroup::default();
@@ -141,10 +167,16 @@ async fn describe_share_group_offsets_needs_describe_on_the_group_and_on_each_to
             g.topics = Some(vec![t]);
             let mut req = kafka_wire::messages::DescribeShareGroupOffsetsRequest::default();
             req.groups.push(g);
-            match rig.ask_as(who, 1, Request::DescribeShareGroupOffsets(req)).await {
+            match rig
+                .ask_as(who, 1, Request::DescribeShareGroupOffsets(req))
+                .await
+            {
                 Response::DescribeShareGroupOffsets(r) => first_code(
                     r.groups[0].error_code,
-                    r.groups[0].topics.iter().flat_map(|t| t.partitions.iter().map(|p| p.error_code)),
+                    r.groups[0]
+                        .topics
+                        .iter()
+                        .flat_map(|t| t.partitions.iter().map(|p| p.error_code)),
                 ),
                 other => panic!("{other:?}"),
             }
@@ -157,7 +189,10 @@ async fn describe_share_group_offsets_needs_describe_on_the_group_and_on_each_to
 #[tokio::test]
 async fn alter_share_group_offsets_needs_read_on_the_group_and_on_each_topic() {
     five_ways!(
-        &[need(GROUP, "grp", READ, GROUP_AUTH), need(TOPIC, "tpc", READ, TOPIC_AUTH)],
+        &[
+            need(GROUP, "grp", READ, GROUP_AUTH),
+            need(TOPIC, "tpc", READ, TOPIC_AUTH)
+        ],
         |rig, who| {
             make_topic(rig, "tpc", 1).await;
             let mut p = kafka_wire::messages::alter_share_group_offsets_request::AlterShareGroupOffsetsRequestPartition::default();
@@ -168,10 +203,15 @@ async fn alter_share_group_offsets_needs_read_on_the_group_and_on_each_topic() {
             let mut req = kafka_wire::messages::AlterShareGroupOffsetsRequest::default();
             req.group_id = gx::group_id("grp");
             req.topics.push(t);
-            match rig.ask_as(who, 0, Request::AlterShareGroupOffsets(req)).await {
+            match rig
+                .ask_as(who, 0, Request::AlterShareGroupOffsets(req))
+                .await
+            {
                 Response::AlterShareGroupOffsets(r) => first_code(
                     r.error_code,
-                    r.responses.iter().flat_map(|t| t.partitions.iter().map(|p| p.error_code)),
+                    r.responses
+                        .iter()
+                        .flat_map(|t| t.partitions.iter().map(|p| p.error_code)),
                 ),
                 other => panic!("{other:?}"),
             }
@@ -184,7 +224,10 @@ async fn alter_share_group_offsets_needs_read_on_the_group_and_on_each_topic() {
 #[tokio::test]
 async fn delete_share_group_offsets_needs_delete_on_the_group_and_read_on_each_topic() {
     five_ways!(
-        &[need(GROUP, "grp", DELETE, GROUP_AUTH), need(TOPIC, "tpc", READ, TOPIC_AUTH)],
+        &[
+            need(GROUP, "grp", DELETE, GROUP_AUTH),
+            need(TOPIC, "tpc", READ, TOPIC_AUTH)
+        ],
         |rig, who| {
             make_topic(rig, "tpc", 1).await;
             // The group is there (an empty share group the super user made), so the topics are looked at.
@@ -196,13 +239,17 @@ async fn delete_share_group_offsets_needs_delete_on_the_group_and_read_on_each_t
             let mut alter = kafka_wire::messages::AlterShareGroupOffsetsRequest::default();
             alter.group_id = gx::group_id("grp");
             alter.topics.push(at);
-            rig.ask_as(&admin(), 0, Request::AlterShareGroupOffsets(alter)).await;
+            rig.ask_as(&admin(), 0, Request::AlterShareGroupOffsets(alter))
+                .await;
             let mut t = kafka_wire::messages::delete_share_group_offsets_request::DeleteShareGroupOffsetsRequestTopic::default();
             t.topic_name = gx::topic_name("tpc");
             let mut req = kafka_wire::messages::DeleteShareGroupOffsetsRequest::default();
             req.group_id = gx::group_id("grp");
             req.topics.push(t);
-            match rig.ask_as(who, 0, Request::DeleteShareGroupOffsets(req)).await {
+            match rig
+                .ask_as(who, 0, Request::DeleteShareGroupOffsets(req))
+                .await
+            {
                 Response::DeleteShareGroupOffsets(r) => {
                     first_code(r.error_code, r.responses.iter().map(|t| t.error_code))
                 }
@@ -216,19 +263,26 @@ async fn delete_share_group_offsets_needs_delete_on_the_group_and_read_on_each_t
 
 #[tokio::test]
 async fn a_groups_configs_are_changed_with_alter_configs_on_the_group() {
-    five_ways!(&[need(GROUP, "grp", ALTER_CONFIGS, GROUP_AUTH)], |rig, who| {
-        let mut res = kafka_wire::messages::incremental_alter_configs_request::AlterConfigsResource::default();
-        res.resource_type = 32;
-        res.resource_name = gx::text("grp");
-        let mut c = kafka_wire::messages::incremental_alter_configs_request::AlterableConfig::default();
-        c.name = gx::text("share.auto.offset.reset");
-        c.value = Some(gx::text("earliest"));
-        res.configs.push(c);
-        let mut req = kafka_wire::messages::IncrementalAlterConfigsRequest::default();
-        req.resources.push(res);
-        match rig.ask_as(who, 1, Request::IncrementalAlterConfigs(req)).await {
-            Response::IncrementalAlterConfigs(r) => r.responses[0].error_code,
-            other => panic!("{other:?}"),
+    five_ways!(
+        &[need(GROUP, "grp", ALTER_CONFIGS, GROUP_AUTH)],
+        |rig, who| {
+            let mut res = kafka_wire::messages::incremental_alter_configs_request::AlterConfigsResource::default();
+            res.resource_type = 32;
+            res.resource_name = gx::text("grp");
+            let mut c =
+                kafka_wire::messages::incremental_alter_configs_request::AlterableConfig::default();
+            c.name = gx::text("share.auto.offset.reset");
+            c.value = Some(gx::text("earliest"));
+            res.configs.push(c);
+            let mut req = kafka_wire::messages::IncrementalAlterConfigsRequest::default();
+            req.resources.push(res);
+            match rig
+                .ask_as(who, 1, Request::IncrementalAlterConfigs(req))
+                .await
+            {
+                Response::IncrementalAlterConfigs(r) => r.responses[0].error_code,
+                other => panic!("{other:?}"),
+            }
         }
-    });
+    );
 }

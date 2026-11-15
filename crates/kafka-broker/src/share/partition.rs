@@ -23,7 +23,7 @@ use kafka_meta::{ShareBatch, ShareRecordState, ShareState};
 pub(crate) use ack::{AckBatch, AckError, Acked};
 #[cfg(test)]
 pub(crate) use acquire::Acquired;
-pub(crate) use acquire::{AcquireAsk, AcquiredRange, Aborted, Span};
+pub(crate) use acquire::{Aborted, AcquireAsk, AcquiredRange, Span};
 
 /// The member a record is acquired by.
 pub(crate) type Holder = Arc<str>;
@@ -97,7 +97,13 @@ impl Rec {
 
     /// Kafka's `tryUpdateState`: the record moved to `to`, or `None` if that is not a move a record makes. A record released
     /// (or whose lock ran out) that has been delivered `max_delivery` times is archived instead.
-    fn moved(&self, to: RecordState, count: Count, max_delivery: i32, holder: Option<&Holder>) -> Option<Self> {
+    fn moved(
+        &self,
+        to: RecordState,
+        count: Count,
+        max_delivery: i32,
+        holder: Option<&Holder>,
+    ) -> Option<Self> {
         let to = if to == RecordState::Available && i32::from(self.count) >= max_delivery {
             RecordState::Archived
         } else {
@@ -197,10 +203,14 @@ impl InFlight {
             Track::Whole(r) => (Some(r), None),
             Track::Each(v) => (None, Some(v)),
         };
-        let whole = whole.into_iter().flat_map(move |r| (first..=self.last).map(move |o| (o, r)));
-        let each = each
+        let whole = whole
             .into_iter()
-            .flat_map(move |v| v.iter().enumerate().map(move |(i, r)| (first + offset_of(i), r)));
+            .flat_map(move |r| (first..=self.last).map(move |o| (o, r)));
+        let each = each.into_iter().flat_map(move |v| {
+            v.iter()
+                .enumerate()
+                .map(move |(i, r)| (first + offset_of(i), r))
+        });
         whole.chain(each)
     }
 }
@@ -280,8 +290,10 @@ impl SharePartition {
                 ShareRecordState::Acknowledged => RecordState::Acknowledged,
                 ShareRecordState::Archived => RecordState::Archived,
             };
-            p.cached
-                .insert(b.first, InFlight::whole(b.last, Rec::new(state, b.delivery_count)));
+            p.cached.insert(
+                b.first,
+                InFlight::whole(b.last, Rec::new(state, b.delivery_count)),
+            );
         }
         if let Some((_, last)) = p.cached.last_key_value() {
             p.find_next = true;
@@ -307,7 +319,9 @@ impl SharePartition {
                     continue;
                 }
                 let stored = match r.state {
-                    RecordState::Available if r.count > 0 => Some((ShareRecordState::Available, r.count)),
+                    RecordState::Available if r.count > 0 => {
+                        Some((ShareRecordState::Available, r.count))
+                    }
                     RecordState::Acquired if r.count > 1 => {
                         Some((ShareRecordState::Available, r.count - 1))
                     }
@@ -402,7 +416,9 @@ impl SharePartition {
         if !self.find_next {
             return self.end + 1;
         }
-        let mut gap_start = self.gap_active().then(|| self.gap.map_or(-1, |g| g.gap_start));
+        let mut gap_start = self
+            .gap_active()
+            .then(|| self.gap.map_or(-1, |g| g.gap_start));
         let mut next = None;
         'batches: for (&first, b) in &self.cached {
             if let Some(gs) = gap_start.as_mut() {

@@ -11,20 +11,28 @@ use kafka_wire::messages::delete_share_group_offsets_request::DeleteShareGroupOf
 use kafka_wire::messages::describe_share_group_offsets_request::{
     DescribeShareGroupOffsetsRequestGroup, DescribeShareGroupOffsetsRequestTopic,
 };
-use kafka_wire::messages::incremental_alter_configs_request::{AlterConfigsResource, AlterableConfig};
+use kafka_wire::messages::incremental_alter_configs_request::{
+    AlterConfigsResource, AlterableConfig,
+};
 use kafka_wire::messages::share_acknowledge_request::{AcknowledgePartition, AcknowledgeTopic};
 use kafka_wire::messages::share_fetch_request::{AcknowledgementBatch, FetchPartition, FetchTopic};
 use kafka_wire::messages::{
     AlterShareGroupOffsetsRequest, AlterShareGroupOffsetsResponse, DeleteShareGroupOffsetsRequest,
     DeleteShareGroupOffsetsResponse, DescribeShareGroupOffsetsRequest,
-    DescribeShareGroupOffsetsResponse, GroupId, IncrementalAlterConfigsRequest, ShareAcknowledgeRequest,
-    ShareAcknowledgeResponse, ShareFetchRequest, ShareFetchResponse, ShareGroupDescribeRequest,
-    ShareGroupDescribeResponse, ShareGroupHeartbeatRequest, ShareGroupHeartbeatResponse,
+    DescribeShareGroupOffsetsResponse, GroupId, IncrementalAlterConfigsRequest,
+    ShareAcknowledgeRequest, ShareAcknowledgeResponse, ShareFetchRequest, ShareFetchResponse,
+    ShareGroupDescribeRequest, ShareGroupDescribeResponse, ShareGroupHeartbeatRequest,
+    ShareGroupHeartbeatResponse,
 };
 
 use super::{Rig, wire_name};
 
-pub fn heartbeat_request(group: &str, member: &str, epoch: i32, topics: Option<&[&str]>) -> ShareGroupHeartbeatRequest {
+pub fn heartbeat_request(
+    group: &str,
+    member: &str,
+    epoch: i32,
+    topics: Option<&[&str]>,
+) -> ShareGroupHeartbeatRequest {
     let mut r = ShareGroupHeartbeatRequest::default();
     r.group_id = GroupId(StrBytes::from_string(group.to_owned()));
     r.member_id = StrBytes::from_string(member.to_owned());
@@ -94,7 +102,9 @@ pub fn ack_request(
         p.acknowledgement_batches = acks
             .iter()
             .map(|(first, last, types)| {
-                let mut b = kafka_wire::messages::share_acknowledge_request::AcknowledgementBatch::default();
+                let mut b =
+                    kafka_wire::messages::share_acknowledge_request::AcknowledgementBatch::default(
+                    );
                 b.first_offset = *first;
                 b.last_offset = *last;
                 b.acknowledge_types = types.clone();
@@ -112,21 +122,40 @@ pub fn acquired(r: &ShareFetchResponse) -> Vec<(i32, i64, i64, i16)> {
     r.responses
         .iter()
         .flat_map(|t| &t.partitions)
-        .flat_map(|p| p.acquired_records.iter().map(move |a| (p.partition_index, a.first_offset, a.last_offset, a.delivery_count)))
+        .flat_map(|p| {
+            p.acquired_records.iter().map(move |a| {
+                (
+                    p.partition_index,
+                    a.first_offset,
+                    a.last_offset,
+                    a.delivery_count,
+                )
+            })
+        })
         .collect()
 }
 
 impl Rig {
-    pub async fn share_heartbeat(&self, req: ShareGroupHeartbeatRequest) -> ShareGroupHeartbeatResponse {
-        let Response::ShareGroupHeartbeat(r) = self.ask(1, Request::ShareGroupHeartbeat(req)).await else {
+    pub async fn share_heartbeat(
+        &self,
+        req: ShareGroupHeartbeatRequest,
+    ) -> ShareGroupHeartbeatResponse {
+        let Response::ShareGroupHeartbeat(r) = self.ask(1, Request::ShareGroupHeartbeat(req)).await
+        else {
             panic!("not ShareGroupHeartbeat")
         };
         r
     }
 
     /// Joins `member` to `group` reading `topics`; its epoch.
-    pub async fn share_join(&self, group: &str, member: &str, topics: &[&str]) -> ShareGroupHeartbeatResponse {
-        self.share_heartbeat(heartbeat_request(group, member, 0, Some(topics))).await
+    pub async fn share_join(
+        &self,
+        group: &str,
+        member: &str,
+        topics: &[&str],
+    ) -> ShareGroupHeartbeatResponse {
+        self.share_heartbeat(heartbeat_request(group, member, 0, Some(topics)))
+            .await
     }
 
     pub async fn share_fetch_at(&self, version: i16, req: ShareFetchRequest) -> ShareFetchResponse {
@@ -140,8 +169,13 @@ impl Rig {
         self.share_fetch_at(1, req).await
     }
 
-    pub async fn share_ack_at(&self, version: i16, req: ShareAcknowledgeRequest) -> ShareAcknowledgeResponse {
-        let Response::ShareAcknowledge(r) = self.ask(version, Request::ShareAcknowledge(req)).await else {
+    pub async fn share_ack_at(
+        &self,
+        version: i16,
+        req: ShareAcknowledgeRequest,
+    ) -> ShareAcknowledgeResponse {
+        let Response::ShareAcknowledge(r) = self.ask(version, Request::ShareAcknowledge(req)).await
+        else {
             panic!("not ShareAcknowledge")
         };
         r
@@ -149,8 +183,12 @@ impl Rig {
 
     pub async fn share_describe(&self, groups: &[&str]) -> ShareGroupDescribeResponse {
         let mut req = ShareGroupDescribeRequest::default();
-        req.group_ids = groups.iter().map(|g| GroupId(StrBytes::from_string((*g).to_owned()))).collect();
-        let Response::ShareGroupDescribe(r) = self.ask(1, Request::ShareGroupDescribe(req)).await else {
+        req.group_ids = groups
+            .iter()
+            .map(|g| GroupId(StrBytes::from_string((*g).to_owned())))
+            .collect();
+        let Response::ShareGroupDescribe(r) = self.ask(1, Request::ShareGroupDescribe(req)).await
+        else {
             panic!("not ShareGroupDescribe")
         };
         r
@@ -177,7 +215,10 @@ impl Rig {
         });
         let mut req = DescribeShareGroupOffsetsRequest::default();
         req.groups.push(g);
-        let Response::DescribeShareGroupOffsets(r) = self.ask(version, Request::DescribeShareGroupOffsets(req)).await else {
+        let Response::DescribeShareGroupOffsets(r) = self
+            .ask(version, Request::DescribeShareGroupOffsets(req))
+            .await
+        else {
             panic!("not DescribeShareGroupOffsets")
         };
         r
@@ -189,11 +230,25 @@ impl Rig {
         r.groups[0]
             .topics
             .iter()
-            .flat_map(|t| t.partitions.iter().map(move |p| (t.topic_name.0.to_string(), p.partition_index, p.start_offset, p.lag)))
+            .flat_map(|t| {
+                t.partitions.iter().map(move |p| {
+                    (
+                        t.topic_name.0.to_string(),
+                        p.partition_index,
+                        p.start_offset,
+                        p.lag,
+                    )
+                })
+            })
             .collect()
     }
 
-    pub async fn share_alter(&self, group: &str, topic: &str, starts: &[(i32, i64)]) -> AlterShareGroupOffsetsResponse {
+    pub async fn share_alter(
+        &self,
+        group: &str,
+        topic: &str,
+        starts: &[(i32, i64)],
+    ) -> AlterShareGroupOffsetsResponse {
         let mut t = AlterShareGroupOffsetsRequestTopic::default();
         t.topic_name = wire_name(topic);
         t.partitions = starts
@@ -208,13 +263,19 @@ impl Rig {
         let mut req = AlterShareGroupOffsetsRequest::default();
         req.group_id = GroupId(StrBytes::from_string(group.to_owned()));
         req.topics.push(t);
-        let Response::AlterShareGroupOffsets(r) = self.ask(0, Request::AlterShareGroupOffsets(req)).await else {
+        let Response::AlterShareGroupOffsets(r) =
+            self.ask(0, Request::AlterShareGroupOffsets(req)).await
+        else {
             panic!("not AlterShareGroupOffsets")
         };
         r
     }
 
-    pub async fn share_delete_offsets(&self, group: &str, topics: &[&str]) -> DeleteShareGroupOffsetsResponse {
+    pub async fn share_delete_offsets(
+        &self,
+        group: &str,
+        topics: &[&str],
+    ) -> DeleteShareGroupOffsetsResponse {
         let mut req = DeleteShareGroupOffsetsRequest::default();
         req.group_id = GroupId(StrBytes::from_string(group.to_owned()));
         req.topics = topics
@@ -225,7 +286,9 @@ impl Rig {
                 x
             })
             .collect();
-        let Response::DeleteShareGroupOffsets(r) = self.ask(0, Request::DeleteShareGroupOffsets(req)).await else {
+        let Response::DeleteShareGroupOffsets(r) =
+            self.ask(0, Request::DeleteShareGroupOffsets(req)).await
+        else {
             panic!("not DeleteShareGroupOffsets")
         };
         r
@@ -248,7 +311,9 @@ impl Rig {
             .collect();
         let mut req = IncrementalAlterConfigsRequest::default();
         req.resources.push(res);
-        let Response::IncrementalAlterConfigs(r) = self.ask(1, Request::IncrementalAlterConfigs(req)).await else {
+        let Response::IncrementalAlterConfigs(r) =
+            self.ask(1, Request::IncrementalAlterConfigs(req)).await
+        else {
             panic!("not IncrementalAlterConfigs")
         };
         r.responses[0].error_code

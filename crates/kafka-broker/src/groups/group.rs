@@ -273,11 +273,18 @@ impl Group {
 
 /// A share group's step: its own heartbeat, and Kafka's refusals of every other kind's requests
 /// (`GroupMetadataManager`'s `getOrMaybeCreate*Group`: "Group %s is not a ... group.").
-fn step_share(s: &mut ShareGroup, event: Event, now: Millis, source: &dyn TopicSource) -> Vec<Effect> {
+fn step_share(
+    s: &mut ShareGroup,
+    event: Event,
+    now: Millis,
+    source: &dyn TopicSource,
+) -> Vec<Effect> {
     use super::machine::{Description, Forced, JoinAnswer, LeaveResult, State, SyncAnswer};
     let mut out = Vec::new();
     match event {
-        Event::ShareHeartbeat(token, hb) => s.heartbeat(token, &hb, &source.topics(), now, &mut out),
+        Event::ShareHeartbeat(token, hb) => {
+            s.heartbeat(token, &hb, &source.topics(), now, &mut out)
+        }
         Event::Timer(key) => s.timer(&key, now, &mut out),
         Event::TopicsChanged => s.topics_changed(),
         Event::Describe(token) => {
@@ -315,7 +322,10 @@ fn step_share(s: &mut ShareGroup, event: Event, now: Millis, source: &dyn TopicS
             Answer::Sync(SyncAnswer::refused(E::GroupIdNotFound)),
         )),
         Event::Heartbeat(token, _) => {
-            out.push(Effect::Reply(token, Answer::Heartbeat(Some(E::GroupIdNotFound))));
+            out.push(Effect::Reply(
+                token,
+                Answer::Heartbeat(Some(E::GroupIdNotFound)),
+            ));
         }
         Event::Leave(token, targets) => out.push(Effect::Reply(
             token,
@@ -331,7 +341,10 @@ fn step_share(s: &mut ShareGroup, event: Event, now: Millis, source: &dyn TopicS
             ),
         )),
         // A share group has no committed offsets: "Group %s is not a consumer group."
-        Event::Commit(token, _) => out.push(Effect::Reply(token, Answer::Commit(Some(E::GroupIdNotFound)))),
+        Event::Commit(token, _) => out.push(Effect::Reply(
+            token,
+            Answer::Commit(Some(E::GroupIdNotFound)),
+        )),
         Event::ConsumerHeartbeat(token, hb) => out.push(Effect::Reply(
             token,
             Answer::ConsumerHeartbeat(consumer::HeartbeatAnswer::refused(

@@ -118,7 +118,10 @@ impl<F: Fs> ConsoleView<'_, F> {
     /// The share-partitions of `group`, if `caller` may DESCRIBE it; a topic the caller may not DESCRIBE is left out.
     pub fn share_group(&self, caller: &Caller, group: &str) -> Option<ShareGroupView> {
         let b = self.broker;
-        if !b.authz.allows(caller, ResourceType::Group, group, Operation::Describe) {
+        if !b
+            .authz
+            .allows(caller, ResourceType::Group, group, Operation::Describe)
+        {
             return None;
         }
         let id = GroupId::parse(group).ok()?;

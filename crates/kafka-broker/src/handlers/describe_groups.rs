@@ -63,7 +63,10 @@ impl<F: Fs> Broker<F> {
                 .as_ref()
                 .and_then(|g| blocking::run(|| self.meta.group_life(g)).ok().flatten());
             // An empty consumer group of the new protocol, or a share group, is not described by this API.
-            if life.as_ref().is_some_and(|l| l.consumer.is_some() || l.share.is_some()) {
+            if life
+                .as_ref()
+                .is_some_and(|l| l.consumer.is_some() || l.share.is_some())
+            {
                 out.group_state = StrBytes::from_static_str("Dead");
                 return out;
             }

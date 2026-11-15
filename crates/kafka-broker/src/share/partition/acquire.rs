@@ -125,7 +125,14 @@ impl SharePartition {
             .map(|(k, _)| *k)
             .collect();
         let Some(&last_key) = keys.last() else {
-            let got = self.acquire_new(ask, spans, (base, last_to_acquire), max_to_acquire, now, limits);
+            let got = self.acquire_new(
+                ask,
+                spans,
+                (base, last_to_acquire),
+                max_to_acquire,
+                now,
+                limits,
+            );
             return self.filter_aborted(ask, spans, aborted, got);
         };
         let mut result = Vec::new();
@@ -137,8 +144,14 @@ impl SharePartition {
             }
             if self.gap_active() {
                 if gap_from < key {
-                    let got =
-                        self.acquire_new(ask, spans, (gap_from, key - 1), max_to_acquire - acquired, now, limits);
+                    let got = self.acquire_new(
+                        ask,
+                        spans,
+                        (gap_from, key - 1),
+                        max_to_acquire - acquired,
+                        now,
+                        limits,
+                    );
                     result.extend(got.ranges);
                     acquired += got.count;
                 }
@@ -159,13 +172,24 @@ impl SharePartition {
                 break;
             }
             if !full || batch.is_each() || record_limit_subset || throttle {
-                if batch.whole_rec().is_some_and(|r| r.state != RecordState::Available) {
+                if batch
+                    .whole_rec()
+                    .is_some_and(|r| r.state != RecordState::Available)
+                {
                     continue;
                 }
                 if let Some(b) = self.cached.get_mut(&key) {
                     b.explode(key);
                 }
-                let n = self.acquire_subset(ask, remaining, (first_batch.base, last_to_acquire), key, &mut result, now, limits);
+                let n = self.acquire_subset(
+                    ask,
+                    remaining,
+                    (first_batch.base, last_to_acquire),
+                    key,
+                    &mut result,
+                    now,
+                    limits,
+                );
                 acquired += n;
                 if throttle && n > 0 {
                     max_to_acquire = 0;
@@ -182,8 +206,12 @@ impl SharePartition {
             if r.state != RecordState::Available {
                 continue;
             }
-            let Some(mut taken) = r.moved(RecordState::Acquired, Count::Increase, limits.max_delivery, Some(&ask.member))
-            else {
+            let Some(mut taken) = r.moved(
+                RecordState::Acquired,
+                Count::Increase,
+                limits.max_delivery,
+                Some(&ask.member),
+            ) else {
                 continue;
             };
             taken.until = Some(now + limits.lock_ms);
@@ -222,14 +250,23 @@ impl SharePartition {
     }
 
     /// Kafka's `lastOffsetAndMaxRecordsToAcquire`: how far, and how many, the in-flight limit lets this fetch acquire.
-    fn last_and_most(&self, fetch_offset: i64, max_records: i64, last: i64, limits: &Limits) -> (i64, i64) {
+    fn last_and_most(
+        &self,
+        fetch_offset: i64,
+        max_records: i64,
+        last: i64,
+        limits: &Limits,
+    ) -> (i64, i64) {
         let most = min(max_records, limits.max_in_flight - self.in_flight());
         if most > 0 {
             return (last, most);
         }
         if fetch_offset <= self.end {
             // At the limit, re-acquiring between the records in flight.
-            return (min(last, self.end), min(max_records, self.end - fetch_offset + 1));
+            return (
+                min(last, self.end),
+                min(max_records, self.end - fetch_offset + 1),
+            );
         }
         (last, most)
     }
@@ -260,7 +297,11 @@ impl SharePartition {
             return Acquired::default();
         }
         let ranges = self.create_batches(ask, spans, most, (first, last_acquired), now, limits);
-        if self.cached.first_key_value().is_some_and(|(k, _)| *k == first) {
+        if self
+            .cached
+            .first_key_value()
+            .is_some_and(|(k, _)| *k == first)
+        {
             self.start = first;
         }
         if last_acquired > self.end {
@@ -326,8 +367,10 @@ impl SharePartition {
             return vec![only];
         }
         for r in &ranges {
-            self.cached
-                .insert(r.first, InFlight::whole(r.last, Rec::acquired(&ask.member, until)));
+            self.cached.insert(
+                r.first,
+                InFlight::whole(r.last, Rec::acquired(&ask.member, until)),
+            );
         }
         ranges
     }
@@ -340,18 +383,24 @@ impl SharePartition {
         };
         match &b.track {
             Track::Whole(r) => r.state == RecordState::Available && i32::from(r.count) >= limit,
-            Track::Each(_) => b
-                .records(key)
-                .filter(|(o, r)| *o >= req_first && *o <= req_last && r.state == RecordState::Available)
-                .map(|(_, r)| i32::from(r.count))
-                .max()
-                .unwrap_or(0)
-                >= limit,
+            Track::Each(_) => {
+                b.records(key)
+                    .filter(|(o, r)| {
+                        *o >= req_first && *o <= req_last && r.state == RecordState::Available
+                    })
+                    .map(|(_, r)| i32::from(r.count))
+                    .max()
+                    .unwrap_or(0)
+                    >= limit
+            }
         }
     }
 
     /// Kafka's `acquireSubsetBatchRecords`: the available records of a batch kept per offset, from `req_first` to `req_last`.
-    #[expect(clippy::too_many_arguments, reason = "Kafka's method, with its inputs; the time and limits besides")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Kafka's method, with its inputs; the time and limits besides"
+    )]
     fn acquire_subset(
         &mut self,
         ask: &AcquireAsk,
@@ -394,7 +443,12 @@ impl SharePartition {
                 let shift = u32::try_from(count - limit + 1).unwrap_or(u32::MAX);
                 most_while_throttled = Some(max(1, size.checked_shr(shift).unwrap_or(0)));
             }
-            let Some(mut next) = r.moved(RecordState::Acquired, Count::Increase, max_delivery, Some(&ask.member)) else {
+            let Some(mut next) = r.moved(
+                RecordState::Acquired,
+                Count::Increase,
+                max_delivery,
+                Some(&ask.member),
+            ) else {
                 continue;
             };
             next.until = Some(now + limits.lock_ms);
@@ -437,7 +491,12 @@ impl SharePartition {
 
     /// Kafka's `archiveRecords`: in the batches `keys`, what is in state `from` between `first` and `end` (exclusive) is
     /// archived. `true`: something was.
-    pub(super) fn archive_records(&mut self, (first, end): (i64, i64), keys: &[i64], from: RecordState) -> bool {
+    pub(super) fn archive_records(
+        &mut self,
+        (first, end): (i64, i64),
+        keys: &[i64],
+        from: RecordState,
+    ) -> bool {
         let mut any = false;
         for &key in keys {
             if key >= end {
@@ -473,7 +532,13 @@ impl SharePartition {
 
     /// Kafka's `maybeFilterAbortedTransactionalAcquiredRecords`: under `read_committed`, what an aborted transaction wrote
     /// is archived as soon as it is acquired, and taken out of what the member is told it holds.
-    fn filter_aborted(&mut self, ask: &AcquireAsk, spans: &[Span], aborted: &[Aborted], got: Acquired) -> Acquired {
+    fn filter_aborted(
+        &mut self,
+        ask: &AcquireAsk,
+        spans: &[Span],
+        aborted: &[Aborted],
+        got: Acquired,
+    ) -> Acquired {
         if !ask.read_committed || aborted.is_empty() {
             return got;
         }

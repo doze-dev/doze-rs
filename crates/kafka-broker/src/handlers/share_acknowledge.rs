@@ -7,7 +7,9 @@ use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::StrBytes;
 use kafka_wire::ids::{GroupId, MemberId};
-use kafka_wire::messages::share_acknowledge_response::{PartitionData, ShareAcknowledgeTopicResponse};
+use kafka_wire::messages::share_acknowledge_response::{
+    PartitionData, ShareAcknowledgeTopicResponse,
+};
 use kafka_wire::messages::{ShareAcknowledgeRequest, ShareAcknowledgeResponse};
 
 use super::share_acks::Asked;
@@ -38,7 +40,10 @@ impl<F: Fs> Broker<F> {
         if !member_id_valid(member_text) {
             return top_level(E::InvalidRequest);
         }
-        let (Ok(group), Some(member)) = (GroupId::parse(group_name), member_text.and_then(MemberId::new)) else {
+        let (Ok(group), Some(member)) = (
+            GroupId::parse(group_name),
+            member_text.and_then(MemberId::new),
+        ) else {
             return top_level(E::InvalidRequest);
         };
         let closes = match self
@@ -69,7 +74,8 @@ impl<F: Fs> Broker<F> {
             })
             .collect();
         let renew = version >= 2 && req.is_renew_ack;
-        let acked = self.share_acknowledge_all(caller, (&group, member.as_str()), &asked, (version, renew));
+        let acked =
+            self.share_acknowledge_all(caller, (&group, member.as_str()), &asked, (version, renew));
         let mut resp = ShareAcknowledgeResponse::default();
         resp.acquisition_lock_timeout_ms =
             i32::try_from(self.share_settings(&group).lock_ms).unwrap_or(i32::MAX);

@@ -19,11 +19,18 @@ pub(super) enum Read {
         aborted: Vec<Aborted>,
     },
     /// The offset is before the log's start (records were deleted): it starts at `log_start` now.
-    Gone { log_start: i64 },
+    Gone {
+        log_start: i64,
+    },
     Failed,
 }
 
-pub(super) fn read<F: Fs>(p: &Partition<F>, from: i64, max_bytes: usize, read_committed: bool) -> Read {
+pub(super) fn read<F: Fs>(
+    p: &Partition<F>,
+    from: i64,
+    max_bytes: usize,
+    read_committed: bool,
+) -> Read {
     let reader = p.reader();
     let (cap, aborted) = if read_committed {
         let (stable, aborted) = p.committed(from, |a| Aborted {
@@ -45,7 +52,9 @@ pub(super) fn read<F: Fs>(p: &Partition<F>, from: i64, max_bytes: usize, read_co
             bytes,
             aborted,
         },
-        Err(StorageError::OutOfRange { start, .. }) if from < start => Read::Gone { log_start: start },
+        Err(StorageError::OutOfRange { start, .. }) if from < start => {
+            Read::Gone { log_start: start }
+        }
         Err(StorageError::OutOfRange { .. }) => Read::Data {
             bytes: Bytes::new(),
             spans: Vec::new(),

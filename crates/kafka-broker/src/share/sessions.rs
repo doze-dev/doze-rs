@@ -103,7 +103,10 @@ impl Sessions {
                 let mut parts: Vec<Cached> = Vec::new();
                 for p in asked {
                     if !parts.iter().any(|c| c.part == *p) {
-                        parts.push(Cached { part: *p, report: true });
+                        parts.push(Cached {
+                            part: *p,
+                            report: true,
+                        });
                     }
                 }
                 self.by_member.insert(
@@ -124,18 +127,26 @@ impl Sessions {
                 }
             }
             _ => {
-                let s = self.by_member.get_mut(&key).ok_or(E::ShareSessionNotFound)?;
+                let s = self
+                    .by_member
+                    .get_mut(&key)
+                    .ok_or(E::ShareSessionNotFound)?;
                 if s.epoch != epoch {
                     return Err(E::InvalidShareSessionEpoch);
                 }
                 for p in asked {
                     if !s.parts.iter().any(|c| c.part == *p) {
-                        s.parts.push(Cached { part: *p, report: true });
+                        s.parts.push(Cached {
+                            part: *p,
+                            report: true,
+                        });
                     }
                 }
                 s.parts.retain(|c| !forgotten.contains(&c.part));
                 s.epoch = next_epoch(epoch);
-                Ok(Context::Incremental(s.parts.iter().map(|c| c.part).collect()))
+                Ok(Context::Incremental(
+                    s.parts.iter().map(|c| c.part).collect(),
+                ))
             }
         }
     }
@@ -172,7 +183,11 @@ impl Sessions {
     /// Which partitions of an incremental response are reported, given what each holds (`has`: records or an error),
     /// in the session's order. A partition with records goes to the back of the order; one in error is reported again
     /// next time.
-    pub(crate) fn report(&mut self, key: &(GroupId, MemberId), results: &[(Part, bool, bool)]) -> Vec<Part> {
+    pub(crate) fn report(
+        &mut self,
+        key: &(GroupId, MemberId),
+        results: &[(Part, bool, bool)],
+    ) -> Vec<Part> {
         let Some(s) = self.by_member.get_mut(key) else {
             return Vec::new();
         };
@@ -205,7 +220,10 @@ impl Sessions {
     }
 
     /// Closes the sessions a connection made: the group and member of each, with its partitions.
-    pub(crate) fn close_connection(&mut self, connection: u64) -> Vec<((GroupId, MemberId), Vec<Part>)> {
+    pub(crate) fn close_connection(
+        &mut self,
+        connection: u64,
+    ) -> Vec<((GroupId, MemberId), Vec<Part>)> {
         let keys: Vec<(GroupId, MemberId)> = self
             .by_member
             .iter()
@@ -234,7 +252,6 @@ impl Sessions {
             .map(|s| s.parts.iter().map(|c| c.part).collect())
             .unwrap_or_default()
     }
-
 }
 
 #[cfg(test)]
@@ -259,28 +276,63 @@ mod tests {
     fn a_session_opens_at_zero_and_each_request_must_carry_the_next_epoch() {
         let mut s = Sessions::new(10);
         let parts = [(T, 0), (T, 1)];
-        assert_eq!(s.fetch(key("m"), 0, (&parts, &[]), false, 1), Ok(Context::Full(parts.to_vec())));
-        assert_eq!(s.fetch(key("m"), 2, (&[], &[]), false, 1), Err(E::InvalidShareSessionEpoch));
+        assert_eq!(
+            s.fetch(key("m"), 0, (&parts, &[]), false, 1),
+            Ok(Context::Full(parts.to_vec()))
+        );
+        assert_eq!(
+            s.fetch(key("m"), 2, (&[], &[]), false, 1),
+            Err(E::InvalidShareSessionEpoch)
+        );
         assert_eq!(
             s.fetch(key("m"), 1, (&[(T, 2)], &[(T, 0)]), true, 1),
             Ok(Context::Incremental(vec![(T, 1), (T, 2)]))
         );
-        assert_eq!(s.acknowledge(&key("m"), 2), Ok(false), "ShareAcknowledge moves the same epoch");
-        assert_eq!(s.fetch(key("m"), 3, (&[], &[]), false, 1).map(|_| ()), Ok(()));
-        assert_eq!(s.acknowledge(&key("m"), 0), Err(E::InvalidShareSessionEpoch));
+        assert_eq!(
+            s.acknowledge(&key("m"), 2),
+            Ok(false),
+            "ShareAcknowledge moves the same epoch"
+        );
+        assert_eq!(
+            s.fetch(key("m"), 3, (&[], &[]), false, 1).map(|_| ()),
+            Ok(())
+        );
+        assert_eq!(
+            s.acknowledge(&key("m"), 0),
+            Err(E::InvalidShareSessionEpoch)
+        );
         assert_eq!(s.acknowledge(&key("x"), 1), Err(E::ShareSessionNotFound));
-        assert_eq!(s.fetch(key("x"), 5, (&[], &[]), false, 1), Err(E::ShareSessionNotFound));
-        assert_eq!(s.fetch(key("m"), -1, (&[], &[]), false, 1), Ok(Context::Final));
-        assert_eq!(s.fetch(key("x"), -1, (&[], &[]), false, 1), Err(E::ShareSessionNotFound));
-        assert_eq!(s.fetch(key("m"), 0, (&[], &[]), true, 1), Err(E::InvalidRequest), "no acks at 0");
+        assert_eq!(
+            s.fetch(key("x"), 5, (&[], &[]), false, 1),
+            Err(E::ShareSessionNotFound)
+        );
+        assert_eq!(
+            s.fetch(key("m"), -1, (&[], &[]), false, 1),
+            Ok(Context::Final)
+        );
+        assert_eq!(
+            s.fetch(key("x"), -1, (&[], &[]), false, 1),
+            Err(E::ShareSessionNotFound)
+        );
+        assert_eq!(
+            s.fetch(key("m"), 0, (&[], &[]), true, 1),
+            Err(E::InvalidRequest),
+            "no acks at 0"
+        );
     }
 
     #[test]
     fn the_cache_is_full_at_its_limit_but_a_member_may_replace_its_own_session() {
         let mut s = Sessions::new(1);
         assert!(s.fetch(key("a"), 0, (&[], &[]), false, 1).is_ok());
-        assert_eq!(s.fetch(key("b"), 0, (&[], &[]), false, 1), Err(E::ShareSessionLimitReached));
-        assert!(s.fetch(key("a"), 0, (&[], &[]), false, 1).is_ok(), "a replacement");
+        assert_eq!(
+            s.fetch(key("b"), 0, (&[], &[]), false, 1),
+            Err(E::ShareSessionLimitReached)
+        );
+        assert!(
+            s.fetch(key("a"), 0, (&[], &[]), false, 1).is_ok(),
+            "a replacement"
+        );
         assert_eq!(s.close_connection(1), vec![(key("a"), vec![])]);
         assert_eq!(s.len(), 0);
     }
@@ -288,12 +340,30 @@ mod tests {
     #[test]
     fn an_incremental_response_reports_new_partitions_once_and_errors_until_they_clear() {
         let mut s = Sessions::new(10);
-        s.fetch(key("m"), 0, (&[(T, 0), (T, 1)], &[]), false, 1).unwrap();
+        s.fetch(key("m"), 0, (&[(T, 0), (T, 1)], &[]), false, 1)
+            .unwrap();
         let k = key("m");
-        assert_eq!(s.report(&k, &[((T, 0), false, false), ((T, 1), false, false)]), [(T, 0), (T, 1)]);
-        assert!(s.report(&k, &[((T, 0), false, false), ((T, 1), false, false)]).is_empty());
-        assert_eq!(s.report(&k, &[((T, 0), false, true), ((T, 1), true, false)]), [(T, 0), (T, 1)]);
-        assert_eq!(s.parts(&k), [(T, 0), (T, 1)], "the one with records went to the back");
-        assert_eq!(s.report(&k, &[((T, 0), false, false), ((T, 1), false, false)]), [(T, 0)], "reported again after its error");
+        assert_eq!(
+            s.report(&k, &[((T, 0), false, false), ((T, 1), false, false)]),
+            [(T, 0), (T, 1)]
+        );
+        assert!(
+            s.report(&k, &[((T, 0), false, false), ((T, 1), false, false)])
+                .is_empty()
+        );
+        assert_eq!(
+            s.report(&k, &[((T, 0), false, true), ((T, 1), true, false)]),
+            [(T, 0), (T, 1)]
+        );
+        assert_eq!(
+            s.parts(&k),
+            [(T, 0), (T, 1)],
+            "the one with records went to the back"
+        );
+        assert_eq!(
+            s.report(&k, &[((T, 0), false, false), ((T, 1), false, false)]),
+            [(T, 0)],
+            "reported again after its error"
+        );
     }
 }

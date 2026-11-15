@@ -10,8 +10,8 @@ use super::group_read::{self as read, Commits, Described};
 use crate::backend::Backend;
 use crate::lag::{bar_percent, lag};
 use crate::model::{
-    GroupHead, GroupLagView, GroupMemberRow, GroupPhase, GroupProtocol, GroupRebalance, GroupShareView,
-    LagRow, LagState, LagTopic, ShareRow,
+    GroupHead, GroupLagView, GroupMemberRow, GroupPhase, GroupProtocol, GroupRebalance,
+    GroupShareView, LagRow, LagState, LagTopic, ShareRow,
 };
 use crate::source::now_ms;
 
@@ -293,7 +293,10 @@ pub fn assemble(id: &str, l: &Loaded, seen: &Seen<'_>, expiring: bool) -> GroupL
 
 /// A share group's share-partitions as its page shows them, with the log's end and the lag from the start.
 #[must_use]
-pub fn share_view(v: &kafka_broker::ShareGroupView, ends: &HashMap<(String, i32), i64>) -> GroupShareView {
+pub fn share_view(
+    v: &kafka_broker::ShareGroupView,
+    ends: &HashMap<(String, i32), i64>,
+) -> GroupShareView {
     let rows = v
         .partitions
         .iter()

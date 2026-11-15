@@ -330,29 +330,52 @@ async fn the_transaction_coordinator_does_not_wake_with_nothing_to_do_and_aborts
 /// record is held, wakes once when the soonest lock runs out (the shortest a group may set, 15 s), and the records are another
 /// member's then, on their second delivery.
 #[tokio::test]
-async fn the_share_lock_task_does_not_wake_while_nothing_is_held_and_wakes_once_when_a_lock_runs_out() {
+async fn the_share_lock_task_does_not_wake_while_nothing_is_held_and_wakes_once_when_a_lock_runs_out()
+ {
     use support::share::{acquired, fetch_request};
     let rig = rig();
     let locks = rig.broker.start_share_locks();
     rig.create(vec![topic("t", 1)], false).await;
     let t = rig.metadata(12, Some(&["t"]), false).await.topics[0].topic_id;
     assert_eq!(
-        rig.group_config("g", &[("share.auto.offset.reset", "earliest"), ("share.record.lock.duration.ms", "15000")])
-            .await,
+        rig.group_config(
+            "g",
+            &[
+                ("share.auto.offset.reset", "earliest"),
+                ("share.record.lock.duration.ms", "15000")
+            ]
+        )
+        .await,
         0
     );
     rig.produce(-1, "t", 0, support::records(3)).await;
     rig.share_join("g", "a", &["t"]).await;
     tokio::time::sleep(Duration::from_millis(1_200)).await;
-    assert_eq!(rig.broker.background_wakes(), 0, "a share group with nothing held: no wake");
-    let held = rig.share_fetch(fetch_request("g", "a", 0, &[(t, 0, vec![])])).await;
+    assert_eq!(
+        rig.broker.background_wakes(),
+        0,
+        "a share group with nothing held: no wake"
+    );
+    let held = rig
+        .share_fetch(fetch_request("g", "a", 0, &[(t, 0, vec![])]))
+        .await;
     assert_eq!(acquired(&held), [(0, 0, 2, 1)]);
     tokio::time::sleep(Duration::from_millis(14_000)).await;
-    assert_eq!(rig.broker.background_wakes(), 0, "not before the lock runs out");
-    let early = rig.share_fetch(fetch_request("g", "b", 0, &[(t, 0, vec![])])).await;
+    assert_eq!(
+        rig.broker.background_wakes(),
+        0,
+        "not before the lock runs out"
+    );
+    let early = rig
+        .share_fetch(fetch_request("g", "b", 0, &[(t, 0, vec![])]))
+        .await;
     assert!(acquired(&early).is_empty());
     tokio::time::sleep(Duration::from_millis(1_500)).await;
-    assert_eq!(rig.broker.background_wakes(), 1, "one wake, at the lock's end");
+    assert_eq!(
+        rig.broker.background_wakes(),
+        1,
+        "one wake, at the lock's end"
+    );
     let again = rig.share_fetch(fetch_request("g", "b", 1, &[])).await;
     assert_eq!(acquired(&again), [(0, 0, 2, 2)]);
     locks.abort();

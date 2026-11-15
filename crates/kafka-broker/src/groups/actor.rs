@@ -12,11 +12,11 @@ use tokio::time::{Instant, sleep_until};
 use super::consumer::{Heartbeat, HeartbeatAnswer, TopicSource};
 use super::events::Events;
 use super::group::{Group, Kept};
-use super::share::{ShareAnswer, ShareHeartbeat};
 use super::machine::{
     Answer, CommitRequest, Effect, Event, Force, HeartbeatRequest, JoinAnswer, JoinRequest,
     LeaveTarget, Millis, SyncRequest, TimerKey, TimerKind, Token,
 };
+use super::share::{ShareAnswer, ShareHeartbeat};
 
 /// A request for the group.
 pub(crate) enum Req {
@@ -144,11 +144,9 @@ impl<R: Records> Keeper<R> {
             // gone) is recorded as the kind it is, or a restart would list and judge it as the other.
             let kept = machine.kept();
             if kept.tag() != self.kind
-                && self.records.live(
-                    self.session,
-                    machine.protocol_type().unwrap_or(""),
-                    &kept,
-                )
+                && self
+                    .records
+                    .live(self.session, machine.protocol_type().unwrap_or(""), &kept)
             {
                 self.kind = kept.tag();
             }

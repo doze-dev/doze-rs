@@ -86,5 +86,8 @@ fn describe_share_group_offsets_v1_carries_the_lag() {
     let read: DescribeShareGroupOffsetsResponse = back(bytes(&resp, 1), 1);
     assert_eq!(read.groups[0].topics[0].partitions[0].lag, 7);
     let read: DescribeShareGroupOffsetsResponse = back(bytes(&resp, 0), 0);
-    assert_eq!(read.groups[0].topics[0].partitions[0].lag, -1, "not on the wire at 0");
+    assert_eq!(
+        read.groups[0].topics[0].partitions[0].lag, -1,
+        "not on the wire at 0"
+    );
 }

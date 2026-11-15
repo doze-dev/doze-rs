@@ -74,7 +74,9 @@ pub(super) fn fetch_response(r: &ShareFetchResponse, f: &mut Facts) {
                 .iter()
                 .map(|a| a.last_offset - a.first_offset + 1)
                 .sum();
-            f.records = f.records.saturating_add(u32::try_from(held).unwrap_or(u32::MAX));
+            f.records = f
+                .records
+                .saturating_add(u32::try_from(held).unwrap_or(u32::MAX));
         }
     }
 }
@@ -121,7 +123,12 @@ pub(super) fn describe_offsets_response(r: &DescribeShareGroupOffsetsResponse, f
         f.say(g.error_message.as_deref());
         for t in &g.topics {
             for p in &t.partitions {
-                f.result(&t.topic_name.0, p.partition_index, p.error_code, Some(p.start_offset));
+                f.result(
+                    &t.topic_name.0,
+                    p.partition_index,
+                    p.error_code,
+                    Some(p.start_offset),
+                );
             }
         }
     }
@@ -130,7 +137,10 @@ pub(super) fn describe_offsets_response(r: &DescribeShareGroupOffsetsResponse, f
 pub(super) fn alter_offsets_request(r: &AlterShareGroupOffsetsRequest, f: &mut Facts) {
     f.group(&r.group_id.0);
     for t in &r.topics {
-        f.topic(&t.topic_name.0, t.partitions.iter().map(|p| p.partition_index));
+        f.topic(
+            &t.topic_name.0,
+            t.partitions.iter().map(|p| p.partition_index),
+        );
     }
 }
 

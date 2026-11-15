@@ -20,7 +20,9 @@ use kafka_wire::ResponseError as E;
 use kafka_wire::StrBytes;
 use kafka_wire::Uuid;
 use kafka_wire::ids::{GroupId, MemberId, Offset, PartitionId, TopicId};
-use kafka_wire::messages::share_fetch_response::{AcquiredRecords, PartitionData, ShareFetchableTopicResponse};
+use kafka_wire::messages::share_fetch_response::{
+    AcquiredRecords, PartitionData, ShareFetchableTopicResponse,
+};
 use kafka_wire::messages::{ShareFetchRequest, ShareFetchResponse};
 use tokio::time::{Instant, timeout_at};
 use tokio_stream::wrappers::WatchStream;
@@ -83,7 +85,11 @@ fn named(req: &ShareFetchRequest) -> (Vec<Part>, Vec<Part>) {
     let asked = req
         .topics
         .iter()
-        .flat_map(|t| t.partitions.iter().map(move |p| (t.topic_id, p.partition_index)))
+        .flat_map(|t| {
+            t.partitions
+                .iter()
+                .map(move |p| (t.topic_id, p.partition_index))
+        })
         .collect();
     let forgotten = req
         .forgotten_topics_data
@@ -133,7 +139,12 @@ impl<F: Fs> Broker<F> {
             return top_level(E::InvalidRequest);
         }
         let renew_only = version >= 2 && req.is_renew_ack;
-        if renew_only && (req.max_bytes != 0 || req.min_bytes != 0 || req.max_records != 0 || req.max_wait_ms != 0) {
+        if renew_only
+            && (req.max_bytes != 0
+                || req.min_bytes != 0
+                || req.max_records != 0
+                || req.max_wait_ms != 0)
+        {
             return top_level(E::InvalidRequest);
         }
         let (Ok(group), Some(member)) = (
@@ -158,14 +169,20 @@ impl<F: Fs> Broker<F> {
             Err(E::ShareSessionLimitReached) => {
                 // Kafka holds this answer for the request's wait (`IdleShareFetchTimerTask`), so a client retrying does
                 // not spin.
-                let wait = Duration::from_millis(u64::try_from(req.max_wait_ms).unwrap_or(0)).min(MAX_WAIT);
+                let wait = Duration::from_millis(u64::try_from(req.max_wait_ms).unwrap_or(0))
+                    .min(MAX_WAIT);
                 tokio::time::sleep(wait).await;
                 return top_level(E::ShareSessionLimitReached);
             }
             Err(e) => return top_level(e),
         };
         let acked = if has_acks {
-            self.share_acknowledge_all(caller, (&group, member.as_str()), &acks, (version, req.is_renew_ack))
+            self.share_acknowledge_all(
+                caller,
+                (&group, member.as_str()),
+                &acks,
+                (version, req.is_renew_ack),
+            )
         } else {
             Vec::new()
         };
@@ -174,7 +191,8 @@ impl<F: Fs> Broker<F> {
             Context::Full(parts) | Context::Incremental(parts) => parts.clone(),
             Context::Final => Vec::new(),
         };
-        let fetches = !renew_only && req.max_records > 0 && req.max_bytes > 0 && !fetching.is_empty();
+        let fetches =
+            !renew_only && req.max_records > 0 && req.max_bytes > 0 && !fetching.is_empty();
         if fetches && !(0..=1).contains(&req.share_acquire_mode) {
             return top_level(E::UnknownServerError);
         }
@@ -186,7 +204,8 @@ impl<F: Fs> Broker<F> {
                 max_records: i64::from(req.max_records),
                 read_committed: settings.read_committed,
             };
-            self.share_fetch_wait(caller, &group, &ask, &fetching, &req).await
+            self.share_fetch_wait(caller, &group, &ask, &fetching, &req)
+                .await
         } else {
             BTreeMap::new()
         };
@@ -252,7 +271,8 @@ impl<F: Fs> Broker<F> {
         parts: &[Part],
         req: &ShareFetchRequest,
     ) -> BTreeMap<Part, Found> {
-        let waits = Duration::from_millis(u64::try_from(req.max_wait_ms).unwrap_or(0)).min(MAX_WAIT);
+        let waits =
+            Duration::from_millis(u64::try_from(req.max_wait_ms).unwrap_or(0)).min(MAX_WAIT);
         let deadline = Instant::now() + waits;
         // The order is turned by the session's epoch, so a partition first in the request is not always read first.
         let mut order: Vec<Part> = parts.to_vec();
@@ -272,7 +292,8 @@ impl<F: Fs> Broker<F> {
                 .collect();
             let got = crate::blocking::run(|| self.share_round(group, ask, &places, req.max_bytes));
             let acquired = got.values().any(|f| !f.acquired.is_empty());
-            let failed = found.values().any(|f| f.error.is_some()) || got.values().any(|f| f.error.is_some());
+            let failed = found.values().any(|f| f.error.is_some())
+                || got.values().any(|f| f.error.is_some());
             found.extend(got);
             if acquired || failed || waits.is_zero() || Instant::now() >= deadline {
                 return found;
@@ -288,7 +309,8 @@ impl<F: Fs> Broker<F> {
             if timeout_at(deadline, woke).await.is_err() {
                 // One last look, as Kafka makes at the end of the wait.
                 let (mut found, places) = self.share_places(caller, group, &order).await;
-                let got = crate::blocking::run(|| self.share_round(group, ask, &places, req.max_bytes));
+                let got =
+                    crate::blocking::run(|| self.share_round(group, ask, &places, req.max_bytes));
                 found.extend(got);
                 return found;
             }
@@ -306,7 +328,8 @@ impl<F: Fs> Broker<F> {
         let mut found = BTreeMap::new();
         let mut places = Vec::new();
         for part in parts {
-            let Some(topic) = TopicId::from_uuid(part.0).and_then(|id| self.meta.topic_by_id(id)) else {
+            let Some(topic) = TopicId::from_uuid(part.0).and_then(|id| self.meta.topic_by_id(id))
+            else {
                 found.insert(*part, Found::error(E::UnknownTopicId));
                 continue;
             };
@@ -314,7 +337,9 @@ impl<F: Fs> Broker<F> {
                 found.insert(*part, Found::error(E::TopicAuthorizationFailed));
                 continue;
             }
-            let Some(partition) = PartitionId::new(part.1).filter(|p| p.get() < topic.partitions.get()) else {
+            let Some(partition) =
+                PartitionId::new(part.1).filter(|p| p.get() < topic.partitions.get())
+            else {
                 found.insert(*part, Found::error(E::UnknownTopicOrPartition));
                 continue;
             };
@@ -326,7 +351,11 @@ impl<F: Fs> Broker<F> {
                 }
             };
             match self.partitions.get(&topic, partition).await {
-                Ok(log) => places.push(Place { part: *part, held, log }),
+                Ok(log) => places.push(Place {
+                    part: *part,
+                    held,
+                    log,
+                }),
                 Err(e) => {
                     tracing::error!(error = %e, topic = %topic.name, partition = part.1, "a share fetch could not open a partition");
                     found.insert(*part, Found::error(E::KafkaStorageError));
@@ -374,7 +403,11 @@ impl<F: Fs> Broker<F> {
                     }
                     out.insert(place.part, Found::nothing());
                 }
-                read::Read::Data { bytes, spans, aborted } => {
+                read::Read::Data {
+                    bytes,
+                    spans,
+                    aborted,
+                } => {
                     let only: Vec<_> = spans.iter().map(|(s, _)| *s).collect();
                     let this = AcquireAsk {
                         max_records: records_left,
@@ -390,7 +423,8 @@ impl<F: Fs> Broker<F> {
                     }
                     records_left -= got.count;
                     let records = read::slice(&bytes, &spans, &got.ranges);
-                    budget = budget.saturating_sub(i64::try_from(records.len()).unwrap_or(i64::MAX));
+                    budget =
+                        budget.saturating_sub(i64::try_from(records.len()).unwrap_or(i64::MAX));
                     out.insert(
                         place.part,
                         Found {
@@ -417,7 +451,10 @@ impl<F: Fs> Broker<F> {
 }
 
 /// The response's entry for a topic, made if there is none.
-fn topic_entry(topics: &mut Vec<ShareFetchableTopicResponse>, topic: Uuid) -> &mut ShareFetchableTopicResponse {
+fn topic_entry(
+    topics: &mut Vec<ShareFetchableTopicResponse>,
+    topic: Uuid,
+) -> &mut ShareFetchableTopicResponse {
     let i = match topics.iter().position(|t| t.topic_id == topic) {
         Some(i) => i,
         None => {
@@ -435,7 +472,11 @@ fn topic_entry(topics: &mut Vec<ShareFetchableTopicResponse>, topic: Uuid) -> &m
 fn merge_acks(topics: &mut Vec<ShareFetchableTopicResponse>, acked: Vec<Acked>) {
     for a in acked {
         let t = topic_entry(topics, a.topic);
-        let i = match t.partitions.iter().position(|p| p.partition_index == a.partition) {
+        let i = match t
+            .partitions
+            .iter()
+            .position(|p| p.partition_index == a.partition)
+        {
             Some(i) => i,
             None => {
                 let mut d = PartitionData::default();

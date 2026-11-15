@@ -177,7 +177,8 @@ pub async fn describe(b: &Backend, ids: &[String]) -> HashMap<String, Described>
     // What neither classic nor consumer protocol describes may be a share group.
     again.retain(|id| !out.contains_key(id));
     if !again.is_empty()
-        && let Ok(Response::ShareGroupDescribe(r)) = b.call(requests::share_group_describe(&again)).await
+        && let Ok(Response::ShareGroupDescribe(r)) =
+            b.call(requests::share_group_describe(&again)).await
     {
         for g in r.groups.iter().filter(|g| g.error_code == 0) {
             out.insert(g.group_id.0.to_string(), share(g));
@@ -192,7 +193,11 @@ fn share(g: &kafka_wire::messages::share_group_describe_response::DescribedGroup
         .members
         .iter()
         .map(|m| {
-            let mut row = member_row(m.member_id.to_string(), m.client_id.to_string(), m.client_host.to_string());
+            let mut row = member_row(
+                m.member_id.to_string(),
+                m.client_id.to_string(),
+                m.client_host.to_string(),
+            );
             row.epoch = m.member_epoch;
             let mut held: Vec<GroupPart> = m
                 .assignment

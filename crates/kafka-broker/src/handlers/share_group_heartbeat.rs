@@ -60,7 +60,10 @@ impl<F: Fs> Broker<F> {
             Err(words) => return respond(&ShareAnswer::refused(E::InvalidRequest, words)),
         };
         let Ok(group) = GroupId::parse(req.group_id.0.as_str()) else {
-            return respond(&ShareAnswer::refused(E::InvalidRequest, "the group id is not usable"));
+            return respond(&ShareAnswer::refused(
+                E::InvalidRequest,
+                "the group id is not usable",
+            ));
         };
         let answer = match self.groups.ask(&group, Req::ShareHeartbeat(typed)).await {
             Some(Answer::ShareHeartbeat(a)) => a,
@@ -85,7 +88,10 @@ impl<F: Fs> Broker<F> {
         if r.group_id.0.as_str().trim().is_empty() {
             return Err("GroupId can't be empty.");
         }
-        if r.rack_id.as_ref().is_some_and(|rack| rack.as_str().trim().is_empty()) {
+        if r.rack_id
+            .as_ref()
+            .is_some_and(|rack| rack.as_str().trim().is_empty())
+        {
             return Err("RackId can't be empty.");
         }
         if r.member_epoch == 0 && r.subscribed_topic_names.as_ref().is_none_or(Vec::is_empty) {
@@ -104,13 +110,19 @@ impl<F: Fs> Broker<F> {
             return Err("a name is too long to keep");
         }
         let member_id = MemberId::new(r.member_id.as_str()).ok_or("MemberId can't be empty.")?;
-        let group = GroupId::parse(r.group_id.0.as_str()).map_err(|_| "the group id is not usable")?;
+        let group =
+            GroupId::parse(r.group_id.0.as_str()).map_err(|_| "the group id is not usable")?;
         let s = self.share_settings(&group);
         let millis = |ms: i64| u64::try_from(ms).unwrap_or(0);
         let assign_interval_ms = self
             .config
             .share_assignment_interval
-            .filter(|_| !self.group_configs.of(&group).contains_key(crate::group_configs::ASSIGN))
+            .filter(|_| {
+                !self
+                    .group_configs
+                    .of(&group)
+                    .contains_key(crate::group_configs::ASSIGN)
+            })
             .map_or(millis(s.assign_interval_ms), |d: Duration| {
                 u64::try_from(d.as_millis()).unwrap_or(u64::MAX)
             });
@@ -143,7 +155,10 @@ fn respond(a: &ShareAnswer) -> Outcome {
         resp.error_message = Some(StrBytes::from_string(words.clone()));
         return respond_raw(resp);
     }
-    resp.member_id = a.member_id.as_ref().map(|m| StrBytes::from_string(m.to_string()));
+    resp.member_id = a
+        .member_id
+        .as_ref()
+        .map(|m| StrBytes::from_string(m.to_string()));
     resp.member_epoch = a.epoch;
     resp.heartbeat_interval_ms = a.heartbeat_ms;
     resp.assignment = a.assignment.as_ref().map(|parts| {

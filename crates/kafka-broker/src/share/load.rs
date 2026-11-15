@@ -90,7 +90,12 @@ impl<F: Fs> Broker<F> {
     /// Where a share-partition with no start yet begins (Kafka's `startOffsetDuringInitialization`): the log's start, its
     /// end, or the first record no older than the duration (the end if every record is older: Kafka fails the
     /// share-partition with OFFSET_NOT_AVAILABLE until a newer record comes, SG-D4).
-    async fn reset_start(&self, topic: &Topic, partition: PartitionId, reset: Reset) -> Result<i64, Unloaded> {
+    async fn reset_start(
+        &self,
+        topic: &Topic,
+        partition: PartitionId,
+        reset: Reset,
+    ) -> Result<i64, Unloaded> {
         let p = self.partitions.get(topic, partition).await.map_err(|e| {
             tracing::error!(topic = %topic.name, error = %e, "a share fetch could not open a partition");
             Unloaded::Storage
@@ -150,7 +155,12 @@ impl<F: Fs> Broker<F> {
     }
 
     /// Writes one share-partition's state.
-    fn store_share(&self, group: &GroupId, held: &Held, state: &ShareState) -> Result<(), AckError> {
+    fn store_share(
+        &self,
+        group: &GroupId,
+        held: &Held,
+        state: &ShareState,
+    ) -> Result<(), AckError> {
         let stored = blocking::run(|| {
             self.meta
                 .set_share_states(group, &[(&held.topic, held.partition, state)])
@@ -185,7 +195,10 @@ impl<F: Fs> Broker<F> {
         }
         let mut new: Vec<(TopicName, PartitionId, ShareState)> = Vec::new();
         for name in topics {
-            let Some(topic) = TopicName::parse(name).ok().and_then(|n| self.meta.topic(&n)) else {
+            let Some(topic) = TopicName::parse(name)
+                .ok()
+                .and_then(|n| self.meta.topic(&n))
+            else {
                 continue;
             };
             let had = known.get(&topic.name);
@@ -220,7 +233,12 @@ impl<F: Fs> Broker<F> {
 
     /// Lets go of what `member` holds in the share-partitions of its session (it closed it, or its connection went: Kafka's
     /// `releaseSession`).
-    pub(crate) fn release_share_member(&self, group: &GroupId, member: &str, parts: &[(kafka_wire::Uuid, i32)]) {
+    pub(crate) fn release_share_member(
+        &self,
+        group: &GroupId,
+        member: &str,
+        parts: &[(kafka_wire::Uuid, i32)],
+    ) {
         let limits = limits_of(&self.share_settings(group));
         for (topic, partition) in parts {
             let key = Key {
@@ -231,7 +249,9 @@ impl<F: Fs> Broker<F> {
             let Some(held) = self.shares.get(&key) else {
                 continue;
             };
-            let _ = self.change_share(group, &held, false, |p| Ok(p.release_member(member, &limits)));
+            let _ = self.change_share(group, &held, false, |p| {
+                Ok(p.release_member(member, &limits))
+            });
         }
     }
 

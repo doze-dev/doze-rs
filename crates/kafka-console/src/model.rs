@@ -77,9 +77,9 @@ pub use story::{
 pub use group_states::GroupStates;
 pub use groups::{
     GroupAttention, GroupDeleteView, GroupFilter, GroupHead, GroupLagView, GroupMemberRow,
-    GroupPart, GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupSpan,
-    GroupsView, LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetMode, ResetRow,
-    ResetView, RowLag, GroupShareView, ShareRow,
+    GroupPart, GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupShareView,
+    GroupSpan, GroupsView, LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetMode,
+    ResetRow, ResetView, RowLag, ShareRow,
 };
 
 mod access;

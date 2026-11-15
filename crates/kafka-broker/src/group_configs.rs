@@ -64,15 +64,60 @@ pub(crate) struct Def {
 
 /// The group configs kept, in Kafka's order of definition.
 pub(crate) const DEFS: &[Def] = &[
-    Def { name: SESSION, kind: Kind::Int { at_least: 1 }, default: "45000", synonym: Some("group.share.session.timeout.ms") },
-    Def { name: HEARTBEAT, kind: Kind::Int { at_least: 1 }, default: "5000", synonym: Some("group.share.heartbeat.interval.ms") },
-    Def { name: LOCK, kind: Kind::Int { at_least: 1000 }, default: "30000", synonym: Some("group.share.record.lock.duration.ms") },
-    Def { name: DELIVERY, kind: Kind::Int { at_least: 2 }, default: "5", synonym: Some("group.share.delivery.count.limit") },
-    Def { name: LOCKS, kind: Kind::Int { at_least: 100 }, default: "2000", synonym: Some("group.share.partition.max.record.locks") },
-    Def { name: RESET, kind: Kind::Text, default: "latest", synonym: None },
-    Def { name: ISOLATION, kind: Kind::Text, default: "read_uncommitted", synonym: None },
-    Def { name: RENEW, kind: Kind::Bool, default: "true", synonym: None },
-    Def { name: ASSIGN, kind: Kind::Int { at_least: 0 }, default: "1000", synonym: Some("group.share.assignment.interval.ms") },
+    Def {
+        name: SESSION,
+        kind: Kind::Int { at_least: 1 },
+        default: "45000",
+        synonym: Some("group.share.session.timeout.ms"),
+    },
+    Def {
+        name: HEARTBEAT,
+        kind: Kind::Int { at_least: 1 },
+        default: "5000",
+        synonym: Some("group.share.heartbeat.interval.ms"),
+    },
+    Def {
+        name: LOCK,
+        kind: Kind::Int { at_least: 1000 },
+        default: "30000",
+        synonym: Some("group.share.record.lock.duration.ms"),
+    },
+    Def {
+        name: DELIVERY,
+        kind: Kind::Int { at_least: 2 },
+        default: "5",
+        synonym: Some("group.share.delivery.count.limit"),
+    },
+    Def {
+        name: LOCKS,
+        kind: Kind::Int { at_least: 100 },
+        default: "2000",
+        synonym: Some("group.share.partition.max.record.locks"),
+    },
+    Def {
+        name: RESET,
+        kind: Kind::Text,
+        default: "latest",
+        synonym: None,
+    },
+    Def {
+        name: ISOLATION,
+        kind: Kind::Text,
+        default: "read_uncommitted",
+        synonym: None,
+    },
+    Def {
+        name: RENEW,
+        kind: Kind::Bool,
+        default: "true",
+        synonym: None,
+    },
+    Def {
+        name: ASSIGN,
+        kind: Kind::Int { at_least: 0 },
+        default: "1000",
+        synonym: Some("group.share.assignment.interval.ms"),
+    },
 ];
 
 /// Group configs Kafka has that this broker does not keep.
@@ -152,7 +197,9 @@ impl ShareSettings {
         if let Some(r) = configs.get(RESET).and_then(|v| parse_reset(v)) {
             s.reset = r;
         }
-        s.read_committed = configs.get(ISOLATION).is_some_and(|v| v == "read_committed");
+        s.read_committed = configs
+            .get(ISOLATION)
+            .is_some_and(|v| v == "read_committed");
         if let Some(v) = configs.get(RENEW) {
             s.renew = v.trim().eq_ignore_ascii_case("true");
         }
@@ -199,7 +246,10 @@ fn iso_duration_ms(text: &str) -> Option<i64> {
                 return None;
             }
             // Whole milliseconds: a fraction of one is dropped, as Java's toMillis does.
-            #[expect(clippy::cast_possible_truncation, reason = "checked to be a non-negative finite number of ms")]
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "checked to be a non-negative finite number of ms"
+            )]
             let part = (n * scale) as i64;
             ms = ms.checked_add(part)?;
             time = time.get(i + 1..)?;
@@ -232,13 +282,21 @@ fn check_value(def: &Def, value: &str) -> Result<(), Refusal> {
                 .map(i64::from)
                 .map_err(|_| invalid(value, def.name, "Not a number of type INT"))?;
             if n < at_least {
-                return Err(invalid(value, def.name, &format!("Value must be at least {at_least}")));
+                return Err(invalid(
+                    value,
+                    def.name,
+                    &format!("Value must be at least {at_least}"),
+                ));
             }
         }
         Kind::Bool => {
             let v = value.trim();
             if !v.eq_ignore_ascii_case("true") && !v.eq_ignore_ascii_case("false") {
-                return Err(invalid(value, def.name, "Expected value to be either true or false"));
+                return Err(invalid(
+                    value,
+                    def.name,
+                    "Expected value to be either true or false",
+                ));
             }
         }
         Kind::Text if def.name == ISOLATION => {
@@ -308,7 +366,10 @@ pub(crate) fn apply(
     replace: bool,
 ) -> Result<BTreeMap<String, String>, Refusal> {
     if group.is_empty() {
-        return Err(refuse(E::InvalidRequest, "Default group resources are not allowed."));
+        return Err(refuse(
+            E::InvalidRequest,
+            "Default group resources are not allowed.",
+        ));
     }
     let nulls: Vec<&str> = changes
         .iter()
@@ -318,15 +379,25 @@ pub(crate) fn apply(
     if !nulls.is_empty() {
         return Err(refuse(
             E::InvalidRequest,
-            format!("Null value not supported for group configs: {}", nulls.join(",")),
+            format!(
+                "Null value not supported for group configs: {}",
+                nulls.join(",")
+            ),
         ));
     }
-    let mut next = if replace { BTreeMap::new() } else { current.clone() };
+    let mut next = if replace {
+        BTreeMap::new()
+    } else {
+        current.clone()
+    };
     let mut set: Vec<&str> = Vec::new();
     for c in changes {
         let Some(def) = DEFS.iter().find(|d| d.name == c.name) else {
             let message = if NOT_KEPT.contains(&c.name.as_str()) {
-                format!("Group config {} is not supported by this broker: it keeps the share.* group configs only.", c.name)
+                format!(
+                    "Group config {} is not supported by this broker: it keeps the share.* group configs only.",
+                    c.name
+                )
             } else {
                 format!("Unknown group config name: {}", c.name)
             };
@@ -344,7 +415,10 @@ pub(crate) fn apply(
             (Op::Append | Op::Subtract, _) => {
                 return Err(refuse(
                     E::InvalidConfig,
-                    format!("Config value append is not allowed for config key: {}", c.name),
+                    format!(
+                        "Config value append is not allowed for config key: {}",
+                        c.name
+                    ),
                 ));
             }
             (Op::Set, None) => {}
@@ -360,7 +434,9 @@ pub(crate) struct GroupConfigs(RwLock<HashMap<GroupId, Arc<BTreeMap<String, Stri
 
 impl GroupConfigs {
     pub(crate) fn load(all: BTreeMap<GroupId, BTreeMap<String, String>>) -> Self {
-        Self(RwLock::new(all.into_iter().map(|(g, c)| (g, Arc::new(c))).collect()))
+        Self(RwLock::new(
+            all.into_iter().map(|(g, c)| (g, Arc::new(c))).collect(),
+        ))
     }
 
     /// The configs set on `group` (none, if none is).
@@ -429,8 +505,15 @@ mod tests {
             refused(&[set(ISOLATION, "READ_COMMITTED")]).1,
             "Invalid value READ_COMMITTED for configuration share.isolation.level: String must be one of: read_committed, read_uncommitted"
         );
-        assert_eq!(refused(&[set("nope", "1")]).1, "Unknown group config name: nope");
-        assert!(refused(&[set("consumer.session.timeout.ms", "50000")]).1.contains("not supported"));
+        assert_eq!(
+            refused(&[set("nope", "1")]).1,
+            "Unknown group config name: nope"
+        );
+        assert!(
+            refused(&[set("consumer.session.timeout.ms", "50000")])
+                .1
+                .contains("not supported")
+        );
         assert_eq!(
             apply("", &BTreeMap::new(), &[], false).unwrap_err().message,
             "Default group resources are not allowed."
@@ -441,13 +524,32 @@ mod tests {
     fn the_reset_strategy_takes_kafkas_three_forms() {
         assert_eq!(parse_reset("earliest"), Some(Reset::Earliest));
         assert_eq!(parse_reset("LATEST"), Some(Reset::Latest));
-        assert_eq!(parse_reset("by_duration:PT1H"), Some(Reset::ByDuration(3_600_000)));
-        assert_eq!(parse_reset("by_duration:P1DT30M"), Some(Reset::ByDuration(86_400_000 + 1_800_000)));
-        assert_eq!(parse_reset("by_duration:PT0.5S"), Some(Reset::ByDuration(500)));
-        for bad in ["none", "by_duration:", "by_duration:PT-1H", "by_duration:1H", "by_duration:PT"] {
+        assert_eq!(
+            parse_reset("by_duration:PT1H"),
+            Some(Reset::ByDuration(3_600_000))
+        );
+        assert_eq!(
+            parse_reset("by_duration:P1DT30M"),
+            Some(Reset::ByDuration(86_400_000 + 1_800_000))
+        );
+        assert_eq!(
+            parse_reset("by_duration:PT0.5S"),
+            Some(Reset::ByDuration(500))
+        );
+        for bad in [
+            "none",
+            "by_duration:",
+            "by_duration:PT-1H",
+            "by_duration:1H",
+            "by_duration:PT",
+        ] {
             assert_eq!(parse_reset(bad), None, "{bad}");
         }
-        assert!(refused(&[set(RESET, "none")]).1.starts_with("Invalid value `none` for configuration share.auto.offset.reset."));
+        assert!(
+            refused(&[set(RESET, "none")])
+                .1
+                .starts_with("Invalid value `none` for configuration share.auto.offset.reset.")
+        );
     }
 
     #[test]
@@ -460,7 +562,13 @@ mod tests {
         );
         assert!(r.is_ok());
         let settings = ShareSettings::of(&r.unwrap());
-        assert_eq!((settings.session_ms, settings.heartbeat_ms), (45_000, 15_000));
-        assert_eq!(ShareSettings::of(&BTreeMap::new()), ShareSettings::default());
+        assert_eq!(
+            (settings.session_ms, settings.heartbeat_ms),
+            (45_000, 15_000)
+        );
+        assert_eq!(
+            ShareSettings::of(&BTreeMap::new()),
+            ShareSettings::default()
+        );
     }
 }

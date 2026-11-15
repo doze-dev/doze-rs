@@ -177,7 +177,10 @@ impl ShareGroup {
 
     /// The topics the members read.
     fn subscribed(&self) -> BTreeSet<String> {
-        self.members.values().flat_map(|m| m.subscribed.iter().cloned()).collect()
+        self.members
+            .values()
+            .flat_map(|m| m.subscribed.iter().cloned())
+            .collect()
     }
 
     /// Handles one ShareGroupHeartbeat.
@@ -199,7 +202,10 @@ impl ShareGroup {
 
     fn leave(&mut self, hb: &ShareHeartbeat, now: Millis, out: &mut Vec<Effect>) -> ShareAnswer {
         if !self.members.contains_key(&hb.member_id) {
-            return ShareAnswer::refused(E::UnknownMemberId, not_a_member(hb.member_id.as_str(), &hb.group));
+            return ShareAnswer::refused(
+                E::UnknownMemberId,
+                not_a_member(hb.member_id.as_str(), &hb.group),
+            );
         }
         self.remove(&hb.member_id, Cause::MemberLeft, now, out);
         ShareAnswer {
@@ -227,7 +233,13 @@ impl ShareGroup {
         self.note(Why::new(cause, who, was), now, out);
     }
 
-    fn beat(&mut self, hb: &ShareHeartbeat, topics: &Topics, now: Millis, out: &mut Vec<Effect>) -> ShareAnswer {
+    fn beat(
+        &mut self,
+        hb: &ShareHeartbeat,
+        topics: &Topics,
+        now: Millis,
+        out: &mut Vec<Effect>,
+    ) -> ShareAnswer {
         let id = &hb.member_id;
         let known = self.members.contains_key(id);
         if !known && self.members.len() >= hb.timing.max_size {
@@ -325,11 +337,18 @@ impl ShareGroup {
         let Some(m) = self.members.get_mut(id) else {
             return false;
         };
-        let wanted: BTreeSet<Uuid> = m.subscribed.iter().filter_map(|n| topics.id_of(n)).collect();
+        let wanted: BTreeSet<Uuid> = m
+            .subscribed
+            .iter()
+            .filter_map(|n| topics.id_of(n))
+            .collect();
         if m.epoch != target_epoch {
             m.prev_epoch = m.epoch;
             m.epoch = target_epoch;
-            let assigned: Partitions = target.into_iter().filter(|p| wanted.contains(&p.0)).collect();
+            let assigned: Partitions = target
+                .into_iter()
+                .filter(|p| wanted.contains(&p.0))
+                .collect();
             let changed = assigned != m.assigned;
             m.assigned = assigned;
             return changed;
@@ -404,7 +423,10 @@ impl ShareGroup {
     /// A timer ran out: a member's session, if it was not started again since.
     pub(crate) fn timer(&mut self, key: &TimerKey, now: Millis, out: &mut Vec<Effect>) {
         if let TimerKind::Session(id) = &key.kind
-            && self.members.get(id).is_some_and(|m| m.session_gen == key.generation)
+            && self
+                .members
+                .get(id)
+                .is_some_and(|m| m.session_gen == key.generation)
         {
             let id = id.clone();
             self.remove(&id, Cause::SessionExpired, now, out);
@@ -415,7 +437,12 @@ impl ShareGroup {
     pub(crate) fn topics_changed(&mut self) {}
 
     /// The Lab's steps: a member's session runs out, or the epoch moves (the next heartbeat computes new targets).
-    pub(crate) fn force_expire(&mut self, id: &MemberId, now: Millis, out: &mut Vec<Effect>) -> bool {
+    pub(crate) fn force_expire(
+        &mut self,
+        id: &MemberId,
+        now: Millis,
+        out: &mut Vec<Effect>,
+    ) -> bool {
         if !self.members.contains_key(id) {
             return false;
         }
@@ -435,7 +462,11 @@ impl ShareGroup {
     #[must_use]
     pub(crate) fn view(&self, topics: &Topics) -> ShareView {
         ShareView {
-            state: if self.members.is_empty() { "Empty" } else { "Stable" },
+            state: if self.members.is_empty() {
+                "Empty"
+            } else {
+                "Stable"
+            },
             epoch: self.epoch,
             assignment_epoch: self.assignment_epoch,
             members: self
@@ -449,7 +480,12 @@ impl ShareGroup {
                     client_host: m.client_host.clone(),
                     subscribed: m.subscribed.iter().cloned().collect(),
                     // A topic deleted since is not shown.
-                    assigned: m.assigned.iter().filter(|p| topics.name_of(&p.0).is_some()).copied().collect(),
+                    assigned: m
+                        .assigned
+                        .iter()
+                        .filter(|p| topics.name_of(&p.0).is_some())
+                        .copied()
+                        .collect(),
                 })
                 .collect(),
         }

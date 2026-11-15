@@ -109,7 +109,10 @@ defaults!(
         DescribeShareGroupOffsetsRequest,
         DescribeShareGroupOffsetsResponse
     ),
-    AlterShareGroupOffsets(AlterShareGroupOffsetsRequest, AlterShareGroupOffsetsResponse),
+    AlterShareGroupOffsets(
+        AlterShareGroupOffsetsRequest,
+        AlterShareGroupOffsetsResponse
+    ),
     DeleteShareGroupOffsets(
         DeleteShareGroupOffsetsRequest,
         DeleteShareGroupOffsetsResponse

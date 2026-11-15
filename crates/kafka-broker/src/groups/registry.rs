@@ -407,10 +407,7 @@ impl Groups {
     fn share_machine_for(&self, group: &GroupId) -> Group {
         let (life, has_offsets) = crate::blocking::run(|| {
             let life = self.meta.group_life(group).ok().flatten();
-            let offsets = self
-                .meta
-                .group_offsets(group)
-                .is_ok_and(|o| !o.is_empty());
+            let offsets = self.meta.group_offsets(group).is_ok_and(|o| !o.is_empty());
             (life, offsets)
         });
         match life {

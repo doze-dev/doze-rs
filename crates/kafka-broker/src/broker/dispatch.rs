@@ -73,7 +73,9 @@ impl<F: Fs> Broker<F> {
                     .await
             }
             Request::AlterShareGroupOffsets(r) => self.alter_share_group_offsets(caller, &r).await,
-            Request::DeleteShareGroupOffsets(r) => self.delete_share_group_offsets(caller, &r).await,
+            Request::DeleteShareGroupOffsets(r) => {
+                self.delete_share_group_offsets(caller, &r).await
+            }
             Request::DeleteRecords(r) => self.delete_records(caller, &r).await,
             Request::CreatePartitions(r) => self.create_partitions(caller, &r).await,
             Request::DescribeConfigs(r) => self.describe_configs(caller, &r),

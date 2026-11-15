@@ -222,7 +222,11 @@ fn topic_entry(
 
 /// One group config as DescribeConfigs shows it (Kafka's `ConfigHelper` for GROUP): the group's own value
 /// (`GROUP_CONFIG`, 8) or the broker's default (`DEFAULT_CONFIG`, 5), never read-only.
-fn group_entry(d: &crate::group_configs::Def, own: Option<&String>, req: &DescribeConfigsRequest) -> Config {
+fn group_entry(
+    d: &crate::group_configs::Def,
+    own: Option<&String>,
+    req: &DescribeConfigsRequest,
+) -> Config {
     use crate::group_configs::Kind;
     const GROUP_CONFIG: i8 = 8;
     const DEFAULT_CONFIG: i8 = 5;
@@ -245,8 +249,11 @@ fn group_entry(d: &crate::group_configs::Def, own: Option<&String>, req: &Descri
         if let Some(v) = own {
             c.synonyms.push(synonym(d.name, v, GROUP_CONFIG));
         }
-        c.synonyms
-            .push(synonym(d.synonym.unwrap_or(d.name), d.default, DEFAULT_CONFIG));
+        c.synonyms.push(synonym(
+            d.synonym.unwrap_or(d.name),
+            d.default,
+            DEFAULT_CONFIG,
+        ));
     }
     c
 }

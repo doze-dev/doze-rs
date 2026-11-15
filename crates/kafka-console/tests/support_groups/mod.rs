@@ -16,8 +16,8 @@ use kafka_wire::api::{Request, Response};
 use kafka_wire::messages::join_group_request::JoinGroupRequestProtocol;
 use kafka_wire::messages::sync_group_request::SyncGroupRequestAssignment;
 use kafka_wire::messages::{
-    ConsumerGroupHeartbeatRequest, GroupId, JoinGroupRequest, JoinGroupResponse, ShareGroupHeartbeatRequest,
-    SyncGroupRequest, TopicName,
+    ConsumerGroupHeartbeatRequest, GroupId, JoinGroupRequest, JoinGroupResponse,
+    ShareGroupHeartbeatRequest, SyncGroupRequest, TopicName,
 };
 
 use crate::support_write::World;
@@ -167,11 +167,22 @@ pub async fn join_share(w: &World, group: &str, member: &str, topic: &str) -> ka
         panic!("not ShareGroupHeartbeat")
     };
     assert_eq!(r.error_code, 0, "{r:?}");
-    r.assignment.as_ref().and_then(|a| a.topic_partitions.first()).map(|t| t.topic_id).unwrap_or_else(|| panic!("no assignment: {r:?}"))
+    r.assignment
+        .as_ref()
+        .and_then(|a| a.topic_partitions.first())
+        .map(|t| t.topic_id)
+        .unwrap_or_else(|| panic!("no assignment: {r:?}"))
 }
 
 /// One ShareFetch (v1, no wait) of `partitions` of a topic at a share session epoch; the ranges acquired, by partition.
-pub async fn share_fetch(w: &World, group: &str, member: &str, epoch: i32, topic: kafka_wire::Uuid, partitions: &[i32]) -> Vec<(i32, i64, i64)> {
+pub async fn share_fetch(
+    w: &World,
+    group: &str,
+    member: &str,
+    epoch: i32,
+    topic: kafka_wire::Uuid,
+    partitions: &[i32],
+) -> Vec<(i32, i64, i64)> {
     use kafka_wire::messages::ShareFetchRequest;
     use kafka_wire::messages::share_fetch_request::{FetchPartition, FetchTopic};
     let mut req = ShareFetchRequest::default();
@@ -184,19 +195,45 @@ pub async fn share_fetch(w: &World, group: &str, member: &str, epoch: i32, topic
     req.batch_size = 500;
     let mut t = FetchTopic::default();
     t.topic_id = topic;
-    t.partitions = partitions.iter().map(|p| { let mut x = FetchPartition::default(); x.partition_index = *p; x }).collect();
+    t.partitions = partitions
+        .iter()
+        .map(|p| {
+            let mut x = FetchPartition::default();
+            x.partition_index = *p;
+            x
+        })
+        .collect();
     req.topics = vec![t];
     let Response::ShareFetch(r) = w.ask(1, Request::ShareFetch(req)).await else {
         panic!("not ShareFetch")
     };
     assert_eq!(r.error_code, 0, "{r:?}");
-    r.responses.iter().flat_map(|t| &t.partitions).flat_map(|p| p.acquired_records.iter().map(|a| (p.partition_index, a.first_offset, a.last_offset))).collect()
+    r.responses
+        .iter()
+        .flat_map(|t| &t.partitions)
+        .flat_map(|p| {
+            p.acquired_records
+                .iter()
+                .map(|a| (p.partition_index, a.first_offset, a.last_offset))
+        })
+        .collect()
 }
 
 /// One ShareAcknowledge (v1) of a partition: `types` from `first` on, one each (1 accept, 2 release, 3 reject).
-pub async fn share_acknowledge(w: &World, group: &str, member: &str, epoch: i32, topic: kafka_wire::Uuid, partition: i32, first: i64, types: &[i8]) {
+pub async fn share_acknowledge(
+    w: &World,
+    group: &str,
+    member: &str,
+    epoch: i32,
+    topic: kafka_wire::Uuid,
+    partition: i32,
+    first: i64,
+    types: &[i8],
+) {
     use kafka_wire::messages::ShareAcknowledgeRequest;
-    use kafka_wire::messages::share_acknowledge_request::{AcknowledgePartition, AcknowledgeTopic, AcknowledgementBatch};
+    use kafka_wire::messages::share_acknowledge_request::{
+        AcknowledgePartition, AcknowledgeTopic, AcknowledgementBatch,
+    };
     let mut b = AcknowledgementBatch::default();
     b.first_offset = first;
     b.last_offset = first + i64::try_from(types.len()).unwrap() - 1;
@@ -216,7 +253,13 @@ pub async fn share_acknowledge(w: &World, group: &str, member: &str, epoch: i32,
         panic!("not ShareAcknowledge")
     };
     assert_eq!(r.error_code, 0, "{r:?}");
-    assert!(r.responses.iter().flat_map(|t| &t.partitions).all(|p| p.error_code == 0), "{r:?}");
+    assert!(
+        r.responses
+            .iter()
+            .flat_map(|t| &t.partitions)
+            .all(|p| p.error_code == 0),
+        "{r:?}"
+    );
 }
 
 /// Writes `n` small records to a partition.

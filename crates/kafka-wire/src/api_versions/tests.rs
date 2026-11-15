@@ -57,7 +57,13 @@ fn kafka_4_finalizes_transaction_version_2_and_the_older_majors_list_no_feature(
     let tv = || "transaction.version".to_owned();
     let sv = || "share.version".to_owned();
     let v4 = ask(4, 4);
-    assert_eq!(names(&v4), (vec![(tv(), 0, 2), (sv(), 0, 2)], vec![(tv(), 2, 2), (sv(), 2, 2)]));
+    assert_eq!(
+        names(&v4),
+        (
+            vec![(tv(), 0, 2), (sv(), 0, 2)],
+            vec![(tv(), 2, 2), (sv(), 2, 2)]
+        )
+    );
     assert!(v4.finalized_features_epoch >= 0);
     let v3 = ask(4, 3);
     assert_eq!(names(&v3), (vec![], vec![(tv(), 2, 2), (sv(), 2, 2)]));

@@ -29,8 +29,10 @@ pub(crate) fn assign(
     topics: &BTreeMap<String, Subscribed>,
     previous: &BTreeMap<MemberId, Partitions>,
 ) -> BTreeMap<MemberId, Partitions> {
-    let mut out: BTreeMap<MemberId, Partitions> =
-        members.iter().map(|m| (m.clone(), Partitions::new())).collect();
+    let mut out: BTreeMap<MemberId, Partitions> = members
+        .iter()
+        .map(|m| (m.clone(), Partitions::new()))
+        .collect();
     let homogeneous = topics.values().all(|t| t.subscribers == *members);
     if homogeneous {
         let ids: Vec<MemberId> = members.iter().cloned().collect();
@@ -38,11 +40,21 @@ pub(crate) fn assign(
         place(&ids, &partitions, previous, &mut out);
     } else {
         for t in topics.values() {
-            let ids: Vec<MemberId> = t.subscribers.iter().filter(|m| members.contains(*m)).cloned().collect();
+            let ids: Vec<MemberId> = t
+                .subscribers
+                .iter()
+                .filter(|m| members.contains(*m))
+                .cloned()
+                .collect();
             let partitions: Vec<Partition> = partitions_of(t).collect();
             let previous: BTreeMap<MemberId, Partitions> = previous
                 .iter()
-                .map(|(m, ps)| (m.clone(), ps.iter().filter(|p| p.0 == t.id).copied().collect()))
+                .map(|(m, ps)| {
+                    (
+                        m.clone(),
+                        ps.iter().filter(|p| p.0 == t.id).copied().collect(),
+                    )
+                })
                 .collect();
             let mut placed: BTreeMap<MemberId, Partitions> = BTreeMap::new();
             place(&ids, &partitions, &previous, &mut placed);
@@ -109,7 +121,9 @@ fn place(
         }
     }
     // The rest, cycling through the members with room, each partition up to its sharing.
-    let mut unfilled: Vec<usize> = (0..m).filter(|i| by_member[*i].len() < desired[*i]).collect();
+    let mut unfilled: Vec<usize> = (0..m)
+        .filter(|i| by_member[*i].len() < desired[*i])
+        .collect();
     let mut cursor = 0;
     for (p, holders) in &mut by_partition {
         let mut placed_this_cycle = false;
@@ -143,7 +157,9 @@ fn place(
         }
     }
     for (i, id) in members.iter().enumerate() {
-        out.entry(id.clone()).or_default().extend(by_member[i].iter().copied());
+        out.entry(id.clone())
+            .or_default()
+            .extend(by_member[i].iter().copied());
     }
 }
 
@@ -183,10 +199,17 @@ mod tests {
         let all = members(&["a", "b", "c"]);
         let topics = BTreeMap::from([("t".to_owned(), topic(T, 1, &["a", "b", "c"]))]);
         let out = assign(&all, &topics, &BTreeMap::new());
-        assert!(out.values().all(|ps| *ps == Partitions::from([(T, 0)])), "all share the one partition");
+        assert!(
+            out.values().all(|ps| *ps == Partitions::from([(T, 0)])),
+            "all share the one partition"
+        );
         let topics = BTreeMap::from([("t".to_owned(), topic(T, 2, &["a", "b", "c"]))]);
         let out = assign(&all, &topics, &BTreeMap::new());
-        assert_eq!(counts(&out), [2, 1, 1], "P=2, M=3: each partition shared by two");
+        assert_eq!(
+            counts(&out),
+            [2, 1, 1],
+            "P=2, M=3: each partition shared by two"
+        );
         let mut sharing: BTreeMap<Partition, usize> = BTreeMap::new();
         for p in out.values().flatten() {
             *sharing.entry(*p).or_default() += 1;

@@ -138,7 +138,10 @@ impl<F: Fs> Broker<F> {
             .unwrap_or_default();
         let next = crate::group_configs::apply(&r.name, &current, &r.changes, replace)?;
         let Some(group) = group else {
-            return Err(refuse(E::InvalidRequest, format!("Group {} is not valid.", r.name)));
+            return Err(refuse(
+                E::InvalidRequest,
+                format!("Group {} is not valid.", r.name),
+            ));
         };
         if validate_only {
             return Ok(());
