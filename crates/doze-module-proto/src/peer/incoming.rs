@@ -83,7 +83,7 @@ pub(super) fn incoming(
     }
     let Some(method) = method else { return Ok(()) };
     // A callback inside one of our calls: its handler is running, so the handle that came with it has arrived.
-    if method.scope().is_some()
+    if !method.scope().is_empty()
         && let Some(id) = head.for_call
     {
         inner.let_go(id);
