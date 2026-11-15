@@ -867,6 +867,32 @@ Session 10 (D1's session 9 merged: converge on start, meters, the data ops and t
 1.29; CI's weight-doze job gives the measured Linux number on this push. Under the 9 MB line, with less room than before:
 most of the rise is the daemon's (the console topic and meters), not the CLI's.
 
+Session 11 (D1's session 10 merged: add and remove at run time, `migrate` and `lint` as daemon calls, per-major builds;
+and C2c's migrate, lint's module pass, the verbs that start the daemon, sync's block drift, the fetch child's progress line).
+Measured 2026-11-15 on the C2c head, `release-doze`; x86_64 Linux is a cross build with zig as the linker (within 0.3% of
+CI's, above):
+
+| | x86_64 Linux | darwin/arm64 | packages |
+|---|---|---|---|
+| session 10 as CI measured it (5328d9e9) | 8,505,920 B | 6,725,008 B | 233 |
+| D1 session 10 merged, and this session's work | **8,994,120 B** (5,880 B under the line) | 6,940,192 B | 235 |
+| `regex` without its `perf` engines (doze-hcl, doze-detect) | **8,607,968 B** (392 KB under) | **6,723,920 B** | 233 |
+
+- **The lever: `regex` with `default-features = false, features = ["std", "unicode"]`** in doze-hcl and doze-detect, the only
+  two users in `doze`. The `perf` features (the lazy DFA, the one-pass and bounded backtracker engines, aho-corasick and
+  memchr literal search) make matching faster, never different: the same matches come out of the PikeVM. −386 KB on Linux,
+  −216 KB on darwin, two packages fewer (aho-corasick and memchr). Cost: `doze init --dry-run` over a 14,725-file Go
+  project (doze-detect's scans) is 12 ms before and 14 ms after (median of four, warm); HCL's `regex` functions run on
+  config values of a few bytes. A side effect is closer parity: without the DFA the compiled-size limit no longer refuses
+  three `\pL{0,1000}` that Go accepts (`fn2.regex3.07` matches Go now; it was a known difference, hcl-values.md F22).
+- Where the rest of the rise went (cargo-bloat, darwin `.text`): doze-daemon 373 KB, doze-engine 398 KB, doze-cli 564 KB,
+  doze-config 251 KB. D1 session 10 (add/remove, migrate, lint, per-major builds) is most of +215 KB on darwin; the CLI's
+  share this session is migrate, lint's pass and the block drift, a few tens of KB.
+- Not taken: `opt-level = "z"` for the whole build (−0.22 MB on Linux at C2b, but no loop vectorisation for the log store
+  and the front); `regex-lite` in doze-hcl (Go's `\w` is ASCII in both, but `regex-lite` has no Unicode classes, which
+  HCL's `regex` must take). doze-engine's `regex-lite` (31 KB) stays: its log patterns are Go's RE2 and need nothing more.
+- The 9 MB line is unchanged; the package line stays 240.
+
 ## Core D1 with the module catalog (`doze` carries the daemon), measured 2026-11-15, release, darwin/arm64
 
 | | bytes | packages (normal, unique) |

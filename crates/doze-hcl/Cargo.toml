@@ -21,7 +21,7 @@ num-traits = "0.2"
 unicode-normalization = "0.1"
 unicode-segmentation = "1"
 # Go's regular expressions run on the regex crate after translation (src/funcs/regex_syntax.rs).
-regex = "1"
+regex = { version = "1", default-features = false, features = ["std", "unicode"] }
 
 [dev-dependencies]
 serde_json = "1"
