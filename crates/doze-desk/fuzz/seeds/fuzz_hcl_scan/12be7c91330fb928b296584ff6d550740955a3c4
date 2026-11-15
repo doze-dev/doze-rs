@@ -1,0 +1,65 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock
+
+stack = "larder"
+
+variable "names" {
+  default     = true
+  description = "Pub = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in doze.lock, run from the
+# archive. Catches every email; its web UI is the console.
+service "mailpit" {
+  download = {
+    mac       = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-arm64.tar.gz"
+    mac_intel = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-amd64.tar.gz"
+    linux     = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run     = "./mailpit --smtp $HOST:$PORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  console =   env = {
+    DATABASE_URL  = "postgres://orders:orders@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Charges, refunds and the ledger. Consumes orders.placed; a card ending
+# 0002 is declined.
+app "payments" {
+  run    ="go run ./services/payments"
+  watch = ["services/payments/**/*.go", "platform/**/*.go"]
+  port  = 9836
+  ready = http("/healthz")
+  after = [task.migrate-payments]
+  sleep = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://payments:paymeET  = "receipts"
+    ORDERS_URL       = app.orders.url
+
+    # boto3 takes its credentials from the environmenmodule.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5173
+  ready = http("/")
+  after = [task.install-storefront]
+
+  env = {
+    GATEWAY_URL = app.gateway.url
+  }
+}

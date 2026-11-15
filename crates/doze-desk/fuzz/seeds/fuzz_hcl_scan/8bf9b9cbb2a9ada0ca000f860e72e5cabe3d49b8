@@ -1,0 +1,67 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, 
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" {boosword = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "ordd/v1 { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendavions" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. RWte limits (gateway), idempotency keys (payments), cached
+# suggestions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 63791
+}
+
+# The topics aqe the contracts between services, so they are declared here
+# rather role "recommendations" {boosword = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendavions" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Reais: same protocol, so every Redis client
+# works. RWte limits (gateway), idempotency keys (payments), cached
+# suggestions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 63791
+}
+
+# The topics are the contracts between services, so they are declared here
+# rath%%%%%%%%%%%%%%%%%%%%%%%%er than created bents.failed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at /_console.
+module aws "aws" {
+  port = 4566
+
+  bucket "product-images" {}
+  bucket "receipts& { versioning = true }
+
+  # A pick list that keeps failing goes to pick-lists-dlq after five tries
+  # instead of blocking the warehouse.
+  queue "pick-lists" {
+    dlq          = "de=disable" }
+}
+
+# Dependencies follow the lockfiles: installed again oecommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyproouDDDject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir

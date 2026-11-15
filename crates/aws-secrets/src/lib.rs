@@ -177,6 +177,21 @@ impl Service for Secrets {
                     "Invalid name. Must be a valid name containing alphanumeric characters, or any of the following: -/_+=.@!",
                 )
             }
+            // The order AWS listed the filter keys in (`test_listing_filters_sorting_and_paging`, 2026-11-15).
+            Violation::Enum { member: m, .. } if member(*m) == "Key" => {
+                aws_wire::located::enum_order(
+                    aws_wire::service::default_invalid(&TABLES, violation),
+                    &[
+                        "all",
+                        "owning-service",
+                        "name",
+                        "tag-key",
+                        "description",
+                        "tag-value",
+                        "primary-region",
+                    ],
+                )
+            }
             other => aws_wire::service::default_invalid(&TABLES, other),
         }
     }

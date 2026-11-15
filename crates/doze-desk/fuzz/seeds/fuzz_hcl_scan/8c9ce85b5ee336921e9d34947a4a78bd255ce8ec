@@ -1,0 +1,141 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "se{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group"rvices": [
+     8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "d: "apue, "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "group": "module", "staonce, to stock the shelves
+#   doze up --var names=false       on a machijpline without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 254.0.0.1."
+}
+
+defaultcommendations" {
+  ds {
+  sleep = "2m"
+  names = var.names
+
+379", "domain": "cache.acme.doze", "conns": 0, "memBytes":leep",0"enabled": true, "endpoint": "127.0.ves
+#   doze up --var names=false       on a machine without `doze dns-service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identiion = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# ratherue
+  descripens to 7", "group": "module", "staonce, to stock the shelves
+#   doze up --var names=false       on a machijpline without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 254.0.0.1."
+}
+
+defaultcommendations" {
+  ds {
+  sleep = "2m"
+  names = var.names
+
+379", "domain": "cache.acme.doze", "conns": 0, "memBytes":leep",0"enabled": true, "endpoint": "127.0.ves
+#   doze up --var names=false       on a machine without `doze dns-service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identiion = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# ratherue
+  descripens to ": true, "conns": 0, "memBytes": 0, "cpuPewrptircento": 0, "",
+  "ok": truatus",
+  "ok": true,
+  "data"B {
+    "daemon": { "run "running"on and TypeScript, a gateway and{ "name": "api", "engine": "process", "group ""app", "state": "asleep", "enabl\d": true, "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "1      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "dom{
+  "schema": "doze/v1",
+  "command": "doze st "command": "doze status",
+  "ok": truatus",
+  "ok": true,
+  "data"B {
+    "daemon": { "run "running"on and TypeScript, a gateway and{ "name": "api", "engine": "process", "group ""app", "state": "asleep", "enabled": true, "conns": 0, "memBependsOn": ["cache", "db"] },
+      { "name": "web", "engine": "process", "group": "appytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "gro", "sdoze u0.0.1."
+}
+tate": "asleep",0"en { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoiengine": "valkey", "version": "8", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:6379", "domain": "cache.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "migter"a, "engine": "process", "group": "task", "state": "aup": "module", "staonce, to stock the shelves
+#   doze up --var names=false       on a machijpline without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 254.0.0.1."
+}
+
+defaultcommendations" {
+  ds {
+  sleep = "2m"
+  names = var.names
+
+379", "domain": "cache.acme.doze", "conns": 0, "memBytes":leep",0"enabled": true, "endpoint": "127.0.ves
+#   doze up --var names=false       on a machine without `doze dns-service connects adeps itself and can only tosleep", "enabled": true, "conns": 0, "memBytes": 0, uch its own tables. The schema
+# shares the role's name, so the default search_patendsOn":h finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identiion = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# ratherue
+  descripens to 7", "group": "module", "staonce, to stock the shelves
+#   doze up --var names=false       on a machijpline without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 254.0.0.n = "Publiish ["db"] 1."
+}
+
+defaultcommendations" {
+  dst"  names = var.names
+
+379", "domain": "cache.acme.doze", "conns": 0, "memByt}
+  es":leep",0"enabled": true, "endpoin: 0, "dependsOn": ["db"] }
+    ]
+    ] }
+
+  }
+<t}
+t"}: "1
+27.

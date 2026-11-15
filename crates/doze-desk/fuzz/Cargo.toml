@@ -1,0 +1,75 @@
+[package]
+name = "doze-desk-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+doze-desk = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "fuzz_hcl_scan"
+path = "fuzz_targets/fuzz_hcl_scan.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_filter"
+path = "fuzz_targets/fuzz_filter.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_port"
+path = "fuzz_targets/fuzz_port.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_envelope"
+path = "fuzz_targets/fuzz_envelope.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_listening"
+path = "fuzz_targets/fuzz_listening.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_detect"
+path = "fuzz_targets/fuzz_detect.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_ps"
+path = "fuzz_targets/fuzz_ps.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_routes"
+path = "fuzz_targets/fuzz_routes.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_release"
+path = "fuzz_targets/fuzz_release.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_doctor"
+path = "fuzz_targets/fuzz_doctor.rs"
+test = false
+doc = false

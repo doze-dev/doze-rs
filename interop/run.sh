@@ -9,17 +9,24 @@
 #                                             the clients configured for it (-kafka-major N); combines with -only, -sasl and -tls
 #        interop/run.sh -versions             once per major, 1 to 4 (a broker and a fresh data directory each), then a summary per
 #                                             major; with -sasl, the SASL cells per major
+#        interop/run.sh -java                 the official Java client (kafka-clients 4.x, interop/java) instead of the Go clients;
+#                                             combines with -only, -sasl, -tls and -kafka-version
+# The Go clients alone run by default; -sasl, -tls and -versions run the Java client after them. JAVA_CLIENTS names the
+# kafka-clients lines to run ("4" by default, "4 2.8" under -versions; the 2.8 client skips itself above Kafka 2).
 set -euo pipefail
 sasl=""
 tls=""
 major=""
 versions=""
+java=""
 rest=()
 while [ $# -gt 0 ]; do
   case "$1" in
     -sasl) sasl=1; shift ;;
     -tls) tls=1; shift ;;
     -versions) versions=1; shift ;;
+    -java) java=only; shift ;;
+    -java-also) java=also; shift ;;
     -kafka-version)
       major="${2:-}"
       case "$major" in 1 | 2 | 3 | 4) ;; *) echo "-kafka-version takes 1, 2, 3 or 4" >&2; exit 2 ;; esac
@@ -28,6 +35,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 set -- ${rest[@]+"${rest[@]}"}
+# Under -sasl, -tls and -versions the Java client runs after the Go ones.
+if [ -z "$java" ] && { [ -n "$sasl" ] || [ -n "$tls" ] || [ -n "$versions" ]; }; then java=also; fi
 
 # -versions: this script once per major, each with a broker of its own; the per-major summary counts the lines the Go program
 # prints (ok, skip, FAIL), and the skips are listed with their reasons.
@@ -38,7 +47,7 @@ if [ -n "$versions" ]; then
   status=0
   for m in 1 2 3 4; do
     echo "=== Kafka $m ==="
-    if ! "$0" ${sasl:+-sasl} ${tls:+-tls} -kafka-version "$m" "$@" 2>&1 | tee "$out/$m.log"; then status=1; echo "Kafka $m: FAILED"; fi
+    if ! JAVA_CLIENTS="${JAVA_CLIENTS:-4 2.8}" "$0" ${sasl:+-sasl} ${tls:+-tls} "$([ "$java" = only ] && echo -java || echo -java-also)" -kafka-version "$m" "$@" 2>&1 | tee "$out/$m.log"; then status=1; echo "Kafka $m: FAILED"; fi
   done
   echo
   echo "=== per major ==="
@@ -51,16 +60,25 @@ if [ -n "$versions" ]; then
 fi
 major="${major:-4}"
 set -- -kafka-major "$major" "$@"
-command -v kcat >/dev/null || { echo "interop needs kcat (librdkafka): brew install kcat" >&2; exit 2; }
-command -v cc >/dev/null || { echo "interop needs a C compiler (it builds a librdkafka transactional producer)" >&2; exit 2; }
-command -v go >/dev/null || { echo "interop needs go" >&2; exit 2; }
 here="$(cd "$(dirname "$0")" && pwd)"
+go=1
+[ "$java" != only ] || go=""
+if [ -n "$go" ]; then
+  command -v kcat >/dev/null || { echo "interop needs kcat (librdkafka): brew install kcat" >&2; exit 2; }
+  command -v cc >/dev/null || { echo "interop needs a C compiler (it builds a librdkafka transactional producer)" >&2; exit 2; }
+  command -v go >/dev/null || { echo "interop needs go" >&2; exit 2; }
+fi
+# The Java client: the JDK interop/.prototools pins (through proto's shim, so java runs from interop/), and bun for the jars.
+if [ -n "$java" ]; then
+  command -v bun >/dev/null || { echo "interop's Java client needs bun (interop/java/fetch.ts fetches the jars)" >&2; exit 2; }
+  (cd "$here" && java -version >/dev/null 2>&1) || { echo "interop's Java client needs the JDK of interop/.prototools: cd interop && proto install" >&2; exit 2; }
+fi
 root="$(dirname "$here")"
 work="$(mktemp -d)"
 trap 'for pid in "${broker:-}" "${broker_ssl:-}"; do if [ -n "$pid" ]; then kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; fi; done; [ -z "${KEEP_LOG:-}" ] || cp "$work/broker.log" "$KEEP_LOG"; rm -rf "$work"' EXIT
 
 # librdkafka's transactional producer (kcat has none): a small C program built against the librdkafka kcat uses.
-if [ -z "$sasl" ] && [ -z "$tls" ]; then
+if [ -n "$go" ] && [ -z "$sasl" ] && [ -z "$tls" ]; then
   prefix="$(brew --prefix librdkafka 2>/dev/null || echo /usr/local)"
   cc -o "$work/txnprod" "$here/c/txnprod.c" -I"$prefix/include" -L"$prefix/lib" -lrdkafka
   export TXNPROD="$work/txnprod"
@@ -101,4 +119,19 @@ fi
   ${security[@]+"${security[@]}"} >"$work/broker.log" 2>&1 &
 broker=$!
 sleep 1
-(cd "$here/go" && go run . -broker "127.0.0.1:$port" "$@") || { cat "$work/broker.log"; [ -z "$tls" ] || cat "$work/broker-ssl.log"; exit 1; }
+status=0
+if [ -n "$go" ]; then
+  (cd "$here/go" && go run . -broker "127.0.0.1:$port" "$@") || status=1
+fi
+# The Java client, once per kafka-clients line, from interop/ so that proto picks the JDK interop/.prototools pins.
+if [ -n "$java" ]; then
+  for line in ${JAVA_CLIENTS:-4}; do
+    cp="$(bun "$here/java/fetch.ts" "$line")" || { status=1; continue; }
+    (cd "$here" && java -cp "$cp" java/Interop.java -broker "127.0.0.1:$port" "$@") || status=1
+  done
+fi
+if [ "$status" != 0 ]; then
+  cat "$work/broker.log"
+  [ -z "$tls" ] || cat "$work/broker-ssl.log"
+  exit 1
+fi

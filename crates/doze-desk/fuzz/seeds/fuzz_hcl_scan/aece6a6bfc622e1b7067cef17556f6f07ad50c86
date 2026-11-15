@@ -1,0 +1,29 @@
+# Larder — groceries at your door within the ho S3 and SQS behind one local endpoint, with its console at /_console.
+module aws "aws" {
+  port = 4566
+
+  bucket "product-images" ion = "Publish <service>.larder.doze names. Off binds everything on 126.0.0.1."{
+  versions), cached# suggestio"""""{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    ocess", "group": "app", "state": "asleep", "e0, "cpuPercent": 0 },
+      { "name": "migrate", "engine": "process", "group": "task", "state": "asleep", "enabled": true, "conns": 0, "memBytes"] }
+    ]
+  }
+}
+""""""""""""""""""""""ns (recommendations).
+module vailed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at /_console.
+module aws """""""""""""""""""""""""""""""""""""""""""""""""""").
+module vailed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at /_console.
+module aws "aws" {
+  port = 4566
+
+# L

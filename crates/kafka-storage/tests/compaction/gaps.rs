@@ -56,14 +56,10 @@ pub(crate) fn all(log: &PartitionLog<SimFs>) -> Vec<(i64, i64)> {
         for b in Batches::new(chunk) {
             let b = b.unwrap();
             let base = b.base_offset().unwrap().get();
-            b.record_times()
-                .map(|rs| {
-                    for r in rs {
-                        let r = r.unwrap();
-                        out.push((base + i64::from(r.offset_delta), r.timestamp.get()));
-                    }
-                })
-                .unwrap_or_default();
+            for r in b.record_times(1 << 20) {
+                let r = r.unwrap();
+                out.push((base + i64::from(r.offset_delta), r.timestamp.get()));
+            }
             at = b.next_offset().unwrap();
         }
     }

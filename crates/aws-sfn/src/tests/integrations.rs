@@ -64,7 +64,7 @@ async fn sqs_send_and_a_task_token_round_trip() {
         )
         .await
         .unwrap_err();
-    assert_eq!(spent.code, "TaskDoesNotExist");
+    assert_eq!(spent.code, "TaskTimedOut");
     let h = w.history(&e).await;
     for kind in [
         "TaskScheduled",

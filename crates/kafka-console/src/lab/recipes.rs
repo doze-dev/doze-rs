@@ -94,14 +94,14 @@ fn rule_recipes(topic: Option<&str>, read: Option<&str>, app: Option<&str>) -> V
     let tn = topic.unwrap_or(NO_TOPIC);
     let an = app.unwrap_or(NO_APP);
     let mut slow_fetch = rule("Fetch", r, "", "every", "5");
-    slow_fetch.delay = "2000".to_owned();
-    slow_fetch.jitter = "1000".to_owned();
+    "2000".clone_into(&mut slow_fetch.delay);
+    "1000".clone_into(&mut slow_fetch.jitter);
     let mut slow_produce = rule("Produce", t, "", "every", "10");
-    slow_produce.delay = "800".to_owned();
+    "800".clone_into(&mut slow_produce.delay);
     let mut leader = rule("Produce", t, "", "5", "5");
-    leader.code = "6".to_owned();
+    "6".clone_into(&mut leader.code);
     let mut timeout = rule("Produce", t, a, "10", "5");
-    timeout.code = "7".to_owned();
+    "7".clone_into(&mut timeout.code);
     vec![
         recipe(
             "slow-produce",

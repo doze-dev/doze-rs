@@ -4,7 +4,7 @@
 //!
 //! Lazy and read-only: the writer is asked for a copy and nothing is kept.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::{PartitionId, TopicName};
 
@@ -90,7 +90,7 @@ impl<F: Fs> ConsoleView<'_, F> {
         partition: i32,
     ) -> Option<PartitionProducers> {
         let b = self.broker;
-        if !b.topic_allows(caller, topic, operation::READ) {
+        if !b.topic_allows(caller, topic, Operation::Read) {
             return None;
         }
         let found = b.meta.topic(&TopicName::parse(topic).ok()?)?;

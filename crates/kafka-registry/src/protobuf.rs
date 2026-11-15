@@ -6,8 +6,10 @@
 //! more than the rest of the registry (docs/port/phase10.md, "Weight first").
 
 mod ast;
+mod codec;
 mod compat;
 mod desc;
+mod encode;
 mod lex;
 mod link;
 mod print;
@@ -166,6 +168,31 @@ impl ParsedSchema for ProtobufSchema {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn decode(&self, body: &[u8]) -> Result<crate::codec::Decoded, String> {
+        let (json, message) = codec::decode(&self.pool, self.file, body)?;
+        Ok(crate::codec::Decoded {
+            json,
+            message: Some(message),
+            mismatch: None,
+        })
+    }
+
+    fn encode(&self, value: &crate::json::Json) -> Result<Vec<u8>, String> {
+        codec::encode(&self.pool, self.file, value)
+    }
+
+    fn sample(&self) -> crate::json::Json {
+        self.pool
+            .files
+            .get(self.file)
+            .and_then(|f| f.msgs.first())
+            .and_then(|i| self.pool.msg(*i))
+            .map_or_else(
+                || crate::json::Json::Object(Vec::new()),
+                |m| encode::sample(&self.pool, m, 0),
+            )
     }
 }
 

@@ -1,0 +1,52 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway chive. Catches every eS = module.kafka.address
+  }
+}
+
+# Products, prices, stck and search; product images in S3.
+app "catalog" {
+  run   = "goe.kafka.address
+    REDIS_ADDR    = modune.redis.address
+  }
+}
+
+# Paid orders"pick-lists" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in doze.lock, run from the
+# archive. Catches every email; its web UI is the console.
+servic.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+  }
+}
+
+# Products, prices, stck and search; product images in S3.
+app "catalog" {
+  run   = "goe.kafka.address
+    REDIS_ADDR    = modune.redis.address
+  }
+}
+
+# Paid orders become pick lists on SQS; packed orders get a receipt in S3.
+# Python, with boto3.
+app "fulfilment" {
+  dir   = "services/fulfilment"
+  run   port  = 8006
+  ready = http("/healthz")
+  after = [task.migrate-recommendations, task.install-recommendations]
+  sleep = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://recommendations:recommendations@${module.postgres.address}/posrun   = "bun run dev"
+  port  = 5173
+  ready = htt
+# Valkey, the open-source fork oorefront]
+
+  env = {
+    GATEWAY_URL = app.gateway.url
+  }
+}

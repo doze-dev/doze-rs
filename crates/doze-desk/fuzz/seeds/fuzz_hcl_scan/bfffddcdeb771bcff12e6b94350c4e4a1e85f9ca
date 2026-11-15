@@ -1,0 +1,13 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "254.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"] },
+      { "name": "web", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "595.0.0.1:3000", "domai": true, "endpoint": "127.0.0.1:8080", "domain": "apiversion": "n": "web.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+      { "name": "worker", "engine": "process"," group": "#module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1ine": "process", "group": "task", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPeretcn": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

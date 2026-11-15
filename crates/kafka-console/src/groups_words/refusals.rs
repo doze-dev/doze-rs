@@ -41,7 +41,7 @@ pub fn description(code: i16) -> &'static str {
 pub fn kafka_refusal(code: i16) -> crate::model::Refusal {
     let mut r = refusal(code, None);
     r.name = code_name(code);
-    r.message = description(code).to_owned();
+    description(code).clone_into(&mut r.message);
     r
 }
 

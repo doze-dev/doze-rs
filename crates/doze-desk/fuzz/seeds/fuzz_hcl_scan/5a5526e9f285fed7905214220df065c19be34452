@@ -1,0 +1,10 @@
+{
+  "schemmmand": "doze status",
+  "ok": true,
+  "data": {
+    "d,aemon": { "running": false },
+    "services": [
+      { "namoup": "app", "state": "asleep", "e"] }
+    ]
+  }
+}

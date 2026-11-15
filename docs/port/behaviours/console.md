@@ -437,8 +437,11 @@ Name, code, Kafka's own words, a plain sentence, a class (`Ok`, `Warn`, `Bad`, `
 ## CON-306. The ring is bounded by rows and by bytes
 2,000 rows and 1 MiB by an estimate of what each row holds (struct, text, vectors); strings are clipped, so a 900 KiB `reason` or client id (the Go edition's TRF-1) is kept at 256 or 128 bytes and cannot exceed the budget. The fold index forgets a row that is dropped. Test: `recorder::ring::tests::the_ring_never_holds_more_than_its_rows`, `recorder::ring::tests::the_ring_never_holds_more_than_its_byte_budget`, `recorder::ring::tests::the_byte_count_is_what_the_rows_weigh`, `recorder::ring::tests::the_fold_index_forgets_a_row_that_was_dropped`, `recorder::tests::a_900_kib_reason_is_clipped_and_cannot_exceed_the_byte_budget`.
 
-## CON-307. An idle recorder holds nothing
-No ring is allocated until a request is recorded; when the last row goes the memory is given back; the connection table empties as connections close and is capped at 4,096. Test: `recorder::ring::tests::an_idle_ring_holds_nothing`, `recorder::tests::the_state_is_quiet_until_a_request_arrives`, `recorder::clients::tests::a_connection_is_a_row_until_it_closes_and_is_not_kept_past_the_cap`.
+## CON-307. A recorder that has recorded nothing holds nothing
+No ring is allocated until a request is recorded; when the last row goes the memory is given back. Once requests have been
+recorded the rows are kept, bounded by CON-306, however long the broker is then idle: they are the history the Live page shows,
+and are not aged out by time (decided 2026-11-15 in the idle pass; the alternative, dropping rows after some hours, would empty the
+page a developer comes back to); the connection table empties as connections close and is capped at 4,096. Test: `recorder::ring::tests::an_idle_ring_holds_nothing`, `recorder::tests::the_state_is_quiet_until_a_request_arrives`, `recorder::clients::tests::a_connection_is_a_row_until_it_closes_and_is_not_kept_past_the_cap`.
 
 ## CON-308. Repeats fold: heartbeats and idle polls for ten minutes, a stream of requests for two seconds, an error never
 The key is connection, API, version, target, result and the transactional flag. A refusal or a failure stays on its own row. A folded row keeps its first and last time, a count, the totals of records and bytes, and the last 64 took samples (the median is of those, and says so). Test: `recorder::ring::tests::repeats_within_the_window_fold_into_one_row_and_a_later_one_does_not`, `recorder::ring::tests::a_request_that_is_not_a_poll_folds_only_in_a_stream`, `recorder::ring::tests::rows_that_never_fold_and_rows_with_other_keys_stand_alone`, `recorder::ring::tests::the_took_samples_are_the_last_sixty_four`, `recorder::tests::heartbeats_fold_into_one_row_that_idle_hiding_hides_and_refusals_stand_alone`.
@@ -1436,3 +1439,85 @@ answers other machines`, what happened, why it stopped, the two ways forward (us
 loopback address; restart with `--console-unprotected`), the server's own words, and Try again (a reload: the console answers
 again once every ACL is deleted). No sidebar, top bar or toast behind it. Files: `web/e2e/tests/closed-to-network.spec.ts`, the
 bun test `web/src/api/closed.test.ts`.
+
+# The Schemas pages and the schema parts of the others (Phase 10, slice 10d)
+
+The console reads the schema registry in its own process (`crate::schemas::Schemas`, handed over by `doze-kafka`'s
+`registry.rs` before the console starts), never over HTTP to the address the registry serves. The codec (a record's payload
+read as JSON, JSON written as a payload) is `kafka_registry::codec`, one implementation per language behind
+`ParsedSchema::decode`/`encode` (REG-35 to REG-38).
+
+## CON-1500. Schemas says "off" with the reason when there is no registry
+The sidebar's Schemas item stays and its count says `off` when `ShellView.schemas` is null (Sc-14); `GET /api/v1/schemas` always
+answers, with `off: {title, reason, command}` (`--schema-registry=false`, the address taken, the records unreadable, a build
+without the `registry` feature) and the page shows it with the command that starts one; every other Schemas call answers 409
+`SCHEMAS_OFF`; Connect has no registry lines. Test: `without_a_registry_the_pages_say_why`.
+
+## CON-1501. The subjects list: search, type, soft-deleted, the topic a name points at
+`/schemas?q=&type=&deleted=1`: the subjects as a DataTable (type, latest version and id, versions, level with "(global)" when
+inherited, references, last registered), filters in the address; a soft-deleted subject only with the toggle. A subject's line
+names the topic its name points at (TopicNameStrategy `<topic>-value`/`-key`, TopicRecordNameStrategy `<topic>-<record>`).
+Tests: `subjects_are_registered_checked_diffed_configured_and_deleted`, `subjects_name_their_topics_by_the_strategies_clients_use`;
+file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1502. A subject's page: versions, the schema laid out, references both ways, where it is used
+`/schemas/subjects/<s>?version=&stored=1`: the versions newest first (who registered each and when; the console's own say "this
+console"), the version laid out one field or property a line (or as stored) with Copy, its references, the schemas that
+reference it, the other subjects holding its id, the Avro view with references written out, the level and mode, the topics its
+name points at. A subject that does not exist is `{missing}` in Confluent's words (40401). Test:
+`subjects_are_registered_checked_diffed_configured_and_deleted`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1503. Register checks as you type, in Confluent's words, with Go's one fix
+`/schemas/new?subject=`: `POST /api/v1/schemas/check` (stores nothing) answers `first`, `compatible`, `incompatible` (each reason
+with Confluent's type, path and sentence, against the versions the level calls for) or `invalid` (42201 and the parser's words).
+A field of a new Avro schema that old data lacks (READER_FIELD_MISSING_DEFAULT_VALUE at `/fields/N`) offers `Add "default": <zero>`,
+applied to the draft only. Registering a refused draft answers `refused` with status 409, code 409 and the same reasons; nothing is
+stored. Test: `subjects_are_registered_checked_diffed_configured_and_deleted`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1504. The diff of two versions and each level's verdict
+`/schemas/subjects/<s>/diff?from=&to=&layout=unified`: a line diff of the two schemas laid out (a changed field is one line),
+side by side or unified, the lines added and removed, and the registry's check of `to` following `from` at BACKWARD, FORWARD and
+FULL, stored nowhere. Tests: `a_changed_line_is_one_removed_and_one_added_and_the_rest_is_kept`,
+`subjects_are_registered_checked_diffed_configured_and_deleted`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1505. Levels, modes and deletes are the registry's own calls, refused in its words
+`?dialog=compatibility` sets a subject's level (or `default` to remove its own) and mode (READWRITE, READONLY; set only when it
+changes); `?dialog=delete-version` soft-deletes the version on screen, or deletes a soft-deleted one for good;
+`?dialog=delete-subject` soft-deletes, then deletes for good only with the subject's name typed (`CONFIRM` otherwise). A refusal
+(42205 read-only, 40407 permanent before soft) stays in the dialog with its status, code and sentence. The focus returns to the
+opener. Test: `subjects_are_registered_checked_diffed_configured_and_deleted`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1510. A record in the wire format is shown decoded with its schema
+A key or value that starts with byte 0 and a schema id is read with that schema (Avro binary to Avro's JSON, unions tagged;
+Protobuf by its message index to protojson; JSON Schema text, checked) in the Messages table (`AVRO · <id>` and the value on one
+line; a value the table kept only in part is named, not decoded), the tail, and the record Sheet (laid out, with the subject and
+version that hold the id, `<topic>-value` first, linked; a Bytes toggle). An id not registered says so (40403); bytes that do not
+fit say why; a JSON value that reads but does not fit its schema says why. Tests:
+`records_decode_with_their_schemas_and_produce_encodes`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1511. Try encodes a JSON value with a version, sending nothing
+`?dialog=try` on a subject: a value typed as JSON (starting from the schema's shape at zero values), checked and encoded as a
+serializer would (`POST /api/v1/schemas/try`): the size, the bytes as hex (magic byte, id, value) and the value read back; or why
+it does not fit. Tests: `records_decode_with_their_schemas_and_produce_encodes`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1512. Produce encodes with a subject, server-side, and shows what will be sent
+The Produce dialog has a Schema subject (starting on `<topic>-value` when the registry has it; "No schema" sends the bytes as
+typed): the value is typed as JSON, encoded with the subject's latest version on the server, and the preview shows the encoded
+bytes; a value that does not fit is `invalid` with the codec's words and nothing is sent. Test:
+`records_decode_with_their_schemas_and_produce_encodes`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1513. Topics, a topic's Schema tab and Connect name the registry
+The topics list has a Schema subject column while there is a registry (`TopicsResponse.subjects`: `<topic>-value`, else `-key`);
+a topic's Schema tab lists the subjects named for it and those whose ids its newest records carry, and the ids no subject holds;
+Connect has the registry's address and the serializer's `schema.registry.url` (with `basic.auth.*` under SASL), from the real
+flags. Tests: `subjects_are_registered_checked_diffed_configured_and_deleted`,
+`records_decode_with_their_schemas_and_produce_encodes`; file: `web/e2e/tests/schemas.spec.ts`.
+
+## CON-1514. A page being left starts no request and logs nothing
+Between `beforeunload` and the next document, a request the page asks for (a query, a refresh, the Live tail, a topic's tail, a
+page's or a dialog's code) waits (`web/src/lib/leaving.ts`: the fetch client, both stream readers, every lazy chunk): it is never
+sent if the page goes, and is sent if the page stays (`pageshow`, or 3 s with the page still here). A chunk load the leaving cut
+short waits the same way instead of reaching the router's error boundary. WebKit refuses a request started in that window and
+logs "Fetch API cannot load <url> due to access control checks." (Playwright: a page error) whether or not the page handles it;
+Firefox and WebKit log a cut chunk load through React. No console line and no page error, unfiltered, in all three browsers
+(J500). File: `web/e2e/tests/leaving.spec.ts`.

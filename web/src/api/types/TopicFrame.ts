@@ -25,4 +25,12 @@ held: number,
 /**
  * The partitions whose writes are refused.
  */
-offline: Array<number>, acts: TopicActs, };
+offline: Array<number>, acts: TopicActs, 
+/**
+ * The schema registry is on (the Schema tab shows).
+ */
+registry: boolean, 
+/**
+ * The subjects named for this topic.
+ */
+schemas: number, };

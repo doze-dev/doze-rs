@@ -2,7 +2,7 @@
 
 From the Go source (`internal/broker/{fetch,listoffsets}.go`, `internal/storage/log/timestamps.go` at `4081fa6`) and
 the recordings `fetch-above-the-end`, `listoffsets`. Not here: read-committed isolation beyond "the last stable
-offset is the end" (Phase 6), fetch sessions (never), compressed batches' records for timestamp lookups (3f).
+offset is the end" (Phase 6), fetch sessions (never).
 
 ### F1. A fetch returns whole batches from the one that holds the offset
 Up to the byte limit; always the first batch however large. Caught up (offset = end) is an empty answer with no error.
@@ -45,10 +45,15 @@ Test: `a_read_committed_fetch_carries_an_empty_list_of_aborted_transactions_*`
 
 ### L1. ListOffsets
 Latest (-1) is the log end, earliest (-2) the log start; max timestamp (-3, v7+) is the first record with the largest
-timestamp; a real timestamp is the first record from the log start whose timestamp is at least it, to the record (the
-batch's own records are read when it is uncompressed; a compressed batch answers at the grain of its header). Nothing
-qualifies: offset -1, timestamp -1. A partition named twice is answered twice (the console relies on it).
-Test: `tests/list_offsets::*`; `kafka-storage::log::tests::times::*` (against a list of every record)
+timestamp; a real timestamp is the first record from the log start whose timestamp is at least it, to the record. The
+candidate batch's records are read, through its codec if it is compressed (streamed, nothing inflated is held), as
+Kafka's `FileRecords.searchForTimestamp` and `RecordBatch.offsetOfMaxTimestamp` iterate them; a record's time is the
+one Kafka's `DefaultRecordBatch` gives it: first timestamp plus delta, or, in a LogAppendTime batch, the batch's newest
+timestamp (the broker's clock) for every record. Only a batch whose records cannot be read at all answers at the grain
+of its header. Nothing qualifies: offset -1, timestamp -1. A partition named twice is answered twice (the console relies on it).
+Test: `tests/list_offsets::*`; `kafka-storage::log::tests::times::*` (against a list of every record;
+`a_compressed_batch_is_inflated_to_find_the_record_as_kafka_does`, `under_log_append_time_every_record_is_at_its_batchs_append_time`);
+`kafka-wire::batch::records::tests::*`, `kafka-wire::batch::look::tests::under_log_append_time_every_record_has_the_batchs_newest_timestamp`
 
 ### L2. Refusals
 UNKNOWN_TOPIC_OR_PARTITION; an isolation level that is neither 0 nor 1 is UNKNOWN_SERVER_ERROR; a leader epoch above 0

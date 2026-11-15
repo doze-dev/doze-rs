@@ -1,6 +1,6 @@
 //! AddOffsetsToTxn: the consumer group whose offsets the transaction will commit.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::api::Response;
@@ -20,9 +20,9 @@ impl<F: Fs> Broker<F> {
     ) -> Outcome {
         let guard = self.guard(caller);
         let mut resp = AddOffsetsToTxnResponse::default();
-        let refused = if !guard.txn(operation::WRITE, req.transactional_id.0.as_str()) {
+        let refused = if !guard.txn(Operation::Write, req.transactional_id.0.as_str()) {
             Some(E::TransactionalIdAuthorizationFailed)
-        } else if !guard.group(operation::READ, req.group_id.0.as_str()) {
+        } else if !guard.group(Operation::Read, req.group_id.0.as_str()) {
             Some(E::GroupAuthorizationFailed)
         } else {
             None

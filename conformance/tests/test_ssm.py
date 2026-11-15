@@ -177,7 +177,30 @@ def test_value_limits_and_allowed_pattern(client, names, cleanup, snapshot):
     snapshot.outcome("description-after-overwrite", lambda: (
         ssm.put_parameter(Name=f"{root}/digits", Value="7", Type="String", Overwrite=True, Description="kept?"),
         ssm.put_parameter(Name=f"{root}/digits", Value="8", Type="String", Overwrite=True),
-        ssm.describe_parameters(ParameterFilters=[{"Key": "Name", "Values": [f"{root}/digits"]}])))
+        ssm.describe_parameters(ParameterFilters=[{"Key": "Name", "Values": [f"{root}/digits"]}])),
+        opaque=("LastModifiedUser",))
+
+
+def referenced(answer):
+    """A parameter read through /aws/reference/secretsmanager names the secret: its ARN ends in six random characters, and
+    SourceResult is the secret as JSON with a creation date in prose. Both are reduced to what two clouds can share."""
+    import json
+    import re
+
+    def arn(a):
+        return re.sub(r"-[A-Za-z0-9]{6}$", "-<suffix>", a)
+
+    for p in [answer.get("Parameter")] + answer.get("Parameters", []):
+        if not p:
+            continue
+        if "ARN" in p:
+            p["ARN"] = arn(p["ARN"])
+        if "SourceResult" in p:
+            source = json.loads(p["SourceResult"])
+            source["ARN"] = arn(source.get("ARN", ""))
+            source["createdDate"] = "<date>" if source.get("createdDate") else None
+            p["SourceResult"] = source
+    return answer
 
 
 def test_a_secrets_manager_secret_read_through_parameter_store(client, names, cleanup, snapshot):
@@ -187,10 +210,10 @@ def test_a_secrets_manager_secret_read_through_parameter_store(client, names, cl
     sm.create_secret(Name=secret, SecretString="s3cret")
     cleanup(sm.delete_secret, SecretId=secret, ForceDeleteWithoutRecovery=True)
     reference = f"/aws/reference/secretsmanager/{secret}"
-    snapshot.match("open", ssm.get_parameter(Name=reference, WithDecryption=True), opaque=("Version",))
+    snapshot.match("open", referenced(ssm.get_parameter(Name=reference, WithDecryption=True)), opaque=("Version",))
     snapshot.error("sealed", lambda: ssm.get_parameter(Name=reference))
-    snapshot.match("bulk", ssm.get_parameters(
-        Names=[reference, f"{reference}-absent"], WithDecryption=True), opaque=("Version",))
+    snapshot.match("bulk", referenced(ssm.get_parameters(
+        Names=[reference, f"{reference}-absent"], WithDecryption=True)), opaque=("Version",))
     snapshot.error("absent", lambda: ssm.get_parameter(
         Name=f"{reference}-absent", WithDecryption=True))
     snapshot.outcome("by-path-does-not-list-it", lambda: ssm.get_parameters_by_path(

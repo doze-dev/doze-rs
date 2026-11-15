@@ -39,7 +39,7 @@ fn empty(q: &WireQuery, now: i64) -> LiveView {
 
 impl Source {
     /// The Live page for the filters in `q`. `hint` names a state for the fixtures only (`paused`, `quiet`, `load`).
-    pub async fn live(&self, q: &WireQuery, hint: Option<&str>) -> LiveView {
+    pub fn live(&self, q: &WireQuery, hint: Option<&str>) -> LiveView {
         match self {
             Self::Live(l) => {
                 let _ = hint;
@@ -69,7 +69,7 @@ impl Source {
     }
 
     /// The clients connected now.
-    pub async fn clients(&self) -> ClientsView {
+    pub fn clients(&self) -> ClientsView {
         match self {
             Self::Live(l) => l.recorder.as_ref().map_or(
                 ClientsView {
@@ -85,7 +85,7 @@ impl Source {
     }
 
     /// The newest client the broker first heard from, with the address and profile the page says.
-    pub async fn first(&self) -> Option<FirstView> {
+    pub fn first(&self) -> Option<FirstView> {
         match self {
             Self::Live(l) => {
                 let mut v = l.recorder.as_ref()?.first()?;
@@ -100,7 +100,7 @@ impl Source {
     }
 
     /// The last requests that touched a topic, and what the tape covers.
-    pub async fn topic_wire(&self, topic: &str) -> (Vec<WireRow>, WireWindow, i64) {
+    pub fn topic_wire(&self, topic: &str) -> (Vec<WireRow>, WireWindow, i64) {
         match self {
             Self::Live(l) => {
                 let q = WireQuery {
@@ -121,7 +121,7 @@ impl Source {
     }
 
     /// Every client request that touched a group, and what the tape covers.
-    pub async fn group_wire(&self, q: &WireQuery) -> GroupWireView {
+    pub fn group_wire(&self, q: &WireQuery) -> GroupWireView {
         match self {
             Self::Live(l) => {
                 let ask = WireQuery {
@@ -152,7 +152,7 @@ impl Source {
     }
 
     /// Home's strip: how many clients the tape knows and when the last request landed; `None` with no recorder.
-    pub async fn spoke(&self) -> Option<SpokeView> {
+    pub fn spoke(&self) -> Option<SpokeView> {
         match self {
             Self::Live(l) => l.recorder.as_ref().map(|r| r.spoke()),
             #[cfg(any(test, feature = "examples"))]
@@ -164,7 +164,7 @@ impl Source {
 impl Source {
     /// The rows a tail has not sent yet: what changed on the tape after `cursor` under the filters in `q`, and the cursor to ask
     /// from next. A console with no recorder (and the fixtures, which do not change) has none.
-    pub async fn tail_since(&self, q: &WireQuery, cursor: u64) -> (u64, Vec<WireRow>) {
+    pub fn tail_since(&self, q: &WireQuery, cursor: u64) -> (u64, Vec<WireRow>) {
         match self {
             Self::Live(l) => l
                 .recorder

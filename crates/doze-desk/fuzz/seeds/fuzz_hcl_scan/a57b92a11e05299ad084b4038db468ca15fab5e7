@@ -1,0 +1,20 @@
+# Laruno Docker, no
+# compose file, no scripts.
+#
+#   doze up                        from this directory
+#   doze task seed-calves
+#   doze up --var names=falsed       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+       = module.redis.address
+  }
+}
+
+# The web shop:talog          once, to stock the shelves
+ Vite#

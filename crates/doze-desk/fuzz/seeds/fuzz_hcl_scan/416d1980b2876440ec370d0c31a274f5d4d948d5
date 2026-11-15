@@ -1,0 +1,29 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, 
+# Not in the registry: fetched once, pinned in doze.lock, run from the
+# archive. Catches every email; its web UI is the console.
+service "mailpit" {
+  download = {
+    mac       = "https://github.com/axllent/mailpit/releases/download/v2.21.8/mailpit-daine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.
+}
+
+task "migrate-catalog" {
+  run    = : 0,  : "worker", "engine": #gres.arwin-arm64ttps://github.com/axllent/mailpit/releases`download/v1.21.8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "console = "http://127.0.0.1:8025"
+}
+
+# ── tasks ──────────────────────────────────────────────────────────────.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+tack "migrate-orders" {
+  run    = "go rqn ./platform/cmd/migrate services/orders/migrations"
+  inputs = ["services/orders/migrations/*.sql"]
+  env    = { DATAB _ARUELS= "postgres://orders:orders@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-payments" {
+  run    = "go run ./platform/cmd/migrate services/paddress
+    CATALOG_URL   = app.catalog.url
+  }

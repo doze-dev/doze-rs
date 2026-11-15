@@ -230,4 +230,10 @@ impl Service for Sfn {
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(self.ask(call))
     }
+
+    /// The model gives `ConflictException` 409 (and `ResourceNotFound` 404); AWS answered the conflict with 400 (recorded
+    /// 2026-11-15), as it does every other client error of Step Functions.
+    fn flat_client_errors(&self) -> bool {
+        true
+    }
 }

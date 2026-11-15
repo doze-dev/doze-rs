@@ -11,7 +11,6 @@ use crate::describe::{Shape, Sizes, description};
 use crate::meta::{Status, Table};
 use crate::req::{array_of, bad_param, bool_of, str_of, table_not_found, validation};
 use crate::schema::{MAX_GSI, billing, definitions, index, throughput};
-use crate::stream::stream_arn;
 use crate::tables::{new_stream, on_demand_of, warm_of};
 
 /// Members of UpdateTable that name things doze-aws does not build.
@@ -52,7 +51,7 @@ impl Core {
         }
         if !CHANGES.iter().any(|m| body.get(*m).is_some()) {
             return Err(validation(
-                "At least one of ProvisionedThroughput, BillingMode, UpdateStreamEnabled, GlobalSecondaryIndexUpdates or SSESpecification or ReplicaUpdates is required",
+                "At least one of ProvisionedThroughput, BillingMode, UpdateStreamEnabled, GlobalSecondaryIndexUpdates, SSESpecification, ReplicaUpdates, MultiAccountReplicaReady, ReplicaTransitRoleArn, MultiRegionConsistency, DeletionProtectionEnabled, OnDemandThroughput, WarmThroughput or TableClass is required",
             ));
         }
         if t.status != Status::Active {
@@ -131,6 +130,19 @@ impl Core {
         let updates = array_of(&cx.body, "GlobalSecondaryIndexUpdates");
         if updates.is_empty() {
             return Ok(false);
+        }
+        // Recorded 2026-11-15: two updates naming one index are refused before either is looked at.
+        let mut named = std::collections::BTreeSet::new();
+        for u in updates {
+            let name = ["Create", "Delete", "Update"]
+                .iter()
+                .find_map(|k| u.get(*k).and_then(|b| str_of(b, "IndexName")))
+                .unwrap_or_default();
+            if !named.insert(name) {
+                return Err(bad_param(&format!(
+                    "Only one global secondary index update per index is allowed simultaneously. Index: {name}"
+                )));
+            }
         }
         let mut defs = t.attribute_definitions();
         defs.extend(definitions(&cx.body)?);
@@ -236,9 +248,10 @@ fn update_stream(t: &mut Table, body: &Json, cx: &Cx<'_>) -> Result<bool, ApiErr
     let enable = bool_of(spec, "StreamEnabled").unwrap_or(false);
     let current = t.stream.as_ref().filter(|s| s.enabled);
     match (enable, current) {
-        (true, Some(s)) => Err(validation(format!(
-            "Table already has an enabled stream: {}",
-            stream_arn(cx.region(), cx.account(), &t.name, &s.label)
+        // Recorded 2026-11-15: the table's name, not the stream's ARN.
+        (true, Some(_)) => Err(validation(format!(
+            "Table already has an enabled stream: TableName: {}",
+            t.name
         ))),
         (false, None) => Err(validation("Table does not have an enabled stream")),
         (true, None) => {

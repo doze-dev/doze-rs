@@ -5,7 +5,7 @@
 //! Lazy: every call reads the files and builds an owned answer; nothing is kept here. The partition is opened if it must be
 //! (as a Fetch would open it) and let go again if nothing else holds it, so that looking leaves the broker as it was.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::compact::{Plan, Reading, judge, reading};
 use kafka_storage::fs::Fs;
 use kafka_storage::topic_dirs::partition_dir;
@@ -123,7 +123,7 @@ impl<F: Fs> ConsoleView<'_, F> {
             .into_iter()
             .find_map(|(id, partition, round)| {
                 let topic = b.meta.topic_by_id(id)?;
-                b.topic_allows(caller, topic.name.as_str(), operation::DESCRIBE)
+                b.topic_allows(caller, topic.name.as_str(), Operation::Describe)
                     .then(|| (topic.name.as_str().to_owned(), partition, round))
             })
     }
@@ -137,7 +137,7 @@ impl<F: Fs> ConsoleView<'_, F> {
         partition: i32,
     ) -> Option<LogFacts> {
         let b = self.broker;
-        if !b.topic_allows(caller, topic, operation::DESCRIBE) {
+        if !b.topic_allows(caller, topic, Operation::Describe) {
             return None;
         }
         let found = b.meta.topic(&TopicName::parse(topic).ok()?)?;
@@ -150,7 +150,7 @@ impl<F: Fs> ConsoleView<'_, F> {
             let walk = crate::blocking::run(|| reader.survey(Budget::default()));
             facts.start = walk.start;
             facts.end = walk.end;
-            facts.last_stable = p.stability().last_stable.get();
+            facts.last_stable = p.last_stable().get();
             facts.partial = walk.partial;
             facts.tombstones = walk.tombstones.clone();
             facts.durability.offline = reader.offline_cause();

@@ -81,10 +81,10 @@ impl GroupMachine {
         }
         match who {
             Who::Known(id) => self.rejoin(token, &id, req, now, out),
-            Who::Issued(id) => self.seat(token, id, req, now, out),
+            Who::Issued(id) => self.seat(token, &id, req, now, out),
             Who::Fresh => {
                 let id = (self.new_id)(req.instance.as_ref());
-                self.seat(token, id, req, now, out);
+                self.seat(token, &id, req, now, out);
             }
             Who::Replace(old) => {
                 let new = (self.new_id)(req.instance.as_ref());
@@ -156,7 +156,7 @@ impl GroupMachine {
     fn seat(
         &mut self,
         token: Token,
-        id: MemberId,
+        id: &MemberId,
         req: &JoinRequest,
         now: Millis,
         out: &mut Vec<Effect>,
@@ -169,13 +169,13 @@ impl GroupMachine {
         if let Some(inst) = &req.instance {
             self.statics.insert(inst.clone(), id.clone());
         }
-        let mut member = new_member(&id, req);
+        let mut member = new_member(id, req);
         member.joined = Some(token);
         self.members.insert(id.clone(), member);
-        self.arm_session(&id, now, out);
+        self.arm_session(id, now, out);
         let why = Why::new(
             Cause::MemberJoined,
-            Some(Named::new(&id, &req.client_id, req.reason.clone())),
+            Some(Named::new(id, &req.client_id, req.reason.clone())),
             self.members.len() - 1,
         );
         match self.state {

@@ -1,6 +1,6 @@
 //! OffsetDelete: a group forgets its offsets for some partitions.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::ids::{GroupId, PartitionId, TopicName};
@@ -25,7 +25,7 @@ impl<F: Fs> Broker<F> {
     ) -> Outcome {
         let guard = self.guard(caller);
         let mut resp = OffsetDeleteResponse::default();
-        if !guard.group(operation::DELETE, req.group_id.as_str()) {
+        if !guard.group(Operation::Delete, req.group_id.as_str()) {
             resp.error_code = ResponseError::GroupAuthorizationFailed.code();
             return Outcome::Respond(kafka_wire::api::Response::OffsetDelete(resp));
         }
@@ -52,7 +52,7 @@ impl<F: Fs> Broker<F> {
             for (p, partition) in topic.partitions.iter().enumerate() {
                 let mut answer = OffsetDeleteResponsePartition::default();
                 answer.partition_index = partition.partition_index;
-                let barred = !guard.topic(operation::READ, topic.name.as_str());
+                let barred = !guard.topic(Operation::Read, topic.name.as_str());
                 let held = subscribed
                     .as_ref()
                     .is_some_and(|s| s.contains(topic.name.as_str()));

@@ -32,7 +32,7 @@ Deviations: where this registry answers otherwise than Confluent's, or than the 
 - **REG-D11** Avro names may use any letter, as Java's parser allows (Rust edition).
 - **REG-D12** the store is the broker's redb database; records the Go edition stored are not read (Rust edition).
 - **REG-D13** retired: every language is read since 10b and 10c (it said which one was not yet).
-- **REG-D14** the record-value codec (decode a payload to JSON, encode JSON) is not in 10a.
+- **REG-D14** the record-value codec came in 10d (REG-38 to REG-41), not 10a.
 - **REG-D15** Protobuf: the language rules checked are protoc's main ones; editions are refused (Rust edition).
 - **REG-D16** Protobuf: declarations the Go edition's printer dropped are kept in the stored text (Rust edition).
 - **REG-D17** Protobuf: a descriptor importing a file no reference gives is refused (Rust edition).
@@ -41,6 +41,9 @@ Deviations: where this registry answers otherwise than Confluent's, or than the 
 - **REG-D20** JSON Schema references, repeated keys, multiples and enum-with-type as Confluent, where Go was not (Rust edition).
 - **REG-D21** a JSON Schema comparison is bounded: reasons, subschemas, height (Rust edition).
 - **REG-D22** JSON Schema: `normalize` changes nothing, `format` is ignored, `$id` is not a reference base (as in Go).
+- **REG-D23** the codec shows an Avro logical type as its underlying type (Rust edition).
+- **REG-D24** a JSON Schema value is not checked against `pattern` or `format` (Rust edition).
+- **REG-D25** Protobuf well-known types read and write as plain messages, not protojson's special forms (Rust edition).
 
 ## The API
 
@@ -327,6 +330,41 @@ in `crates/kafka-registry/fuzz` (`json_node.rs`, `avro_schema.rs`, `protobuf_sch
 `wire.rs`), run 30 s each in CI. For each schema language a stored text reads again as itself and a schema reads its own data.
 Tests: `text_that_is_not_json_is_refused`, `hosts_lose_their_port_and_quotes`.
 
+## The record codec (slice 10d)
+
+What the console reads records with and encodes Produce values with, in the same process: `Registry::codec(id)` and
+`codec_for(subject, version)` give a `codec::Codec`; each language reads and writes its own payloads (`ParsedSchema::decode`,
+`encode`, `sample`). No codec library: the Go edition's used hamba/avro, santhosh-tekuri/jsonschema and protobuf-go.
+
+### REG-38. Avro payloads read and written as Avro's JSON
+A payload reads as Avro's JSON encoding (a union's value tagged with its branch, null as `null`; bytes and fixed one character
+a byte; NaN and the infinities as words), and a value read writes back to the same bytes. A field left out takes its default; a
+union value may be tagged or is tried branch by branch; bytes may be base64. A value that does not fit says where (`id: expected a
+number, not "x"`, `field "lines" is missing and has no default`).
+Tests: `avro_values_round_trip_with_tagged_unions_defaults_and_bytes_as_characters`, `avro_values_that_do_not_fit_say_where`,
+`bytes_are_characters_or_base64`, `floats_are_numbers_and_the_others_are_words`.
+
+### REG-39. Hostile payloads are bounded before anything is allocated
+Every length and count in a payload is checked against the bytes left; a value makes at most 1,048,576 items and nests at most 64
+deep (a block of 2^62 nulls, a string longer than the payload, a recursive record a thousand deep and a group that never ends are
+refused in words: "the payload does not match the schema (...)"). The guard of the Go edition's `avroguard.go`, for every language.
+Tests: `hostile_avro_bytes_are_refused_before_anything_is_allocated`, `a_recursive_avro_type_is_bounded_in_depth`,
+`hostile_protobuf_bytes_are_refused`, `the_budget_bounds_items_and_depth`; fuzz target `codec.rs`.
+
+### REG-40. Protobuf payloads read by their message index, as protojson
+After the header, the message index names the message (`[0]` the first of the file, `[0, 1]` the second nested in it, a map's entry
+counted where protoc puts it); the body reads as protojson writes it (JSON names, 64-bit integers as strings, bytes as base64, enums
+by name, maps as objects; unknown fields skipped; packed and unpacked alike). Encoding writes the first message with a single 0, as
+the Go edition did, from JSON names or field names.
+Tests: `protobuf_values_read_as_protojson_by_their_message_index`, `hostile_protobuf_bytes_are_refused`, `bytes_are_base64`.
+
+### REG-41. A JSON Schema payload is JSON text, checked against its schema
+A payload reads as JSON; one that does not fit its schema still reads, with why (`#/id: 0 is under its minimum`); encoding refuses
+it. Checked: type, enum, const, lengths, bounds and `multipleOf` (exact decimals), items, `additionalItems`, the item counts,
+`uniqueItems`, properties, `required`, `additionalProperties`, the property counts, array `dependencies`, `allOf`, `anyOf`, `oneOf`,
+`not`, `if`/`then`/`else`, references followed.
+Tests: `json_schema_values_are_checked_and_shown_as_they_are`, `an_unknown_id_is_confluents_40403`.
+
 ## Deviations
 
 - **REG-D1.** IMPORT is refused as an invalid mode (42204), forced or not, and READONLY_OVERRIDE likewise; the list of valid modes
@@ -391,3 +429,9 @@ Tests: `text_that_is_not_json_is_refused`, `hosts_lose_their_port_and_quotes`.
 - **REG-D22.** For JSON Schema, `?normalize=true` stores the same text, `format` is ignored by compatibility (Confluent's rule), and
   an `$id` is not a base for references: a `$ref` to an absolute URI an embedded `$id` declares is unresolved. As Go; the
   recordings have no step on any of them.
+- **REG-D23.** The codec shows an Avro logical type as its underlying type (a `timestamp-millis` is the long, a `decimal` the
+  bytes); the Go edition's hamba/avro turned them into RFC 3339 times and decimal text. Encoding takes the underlying type only.
+- **REG-D24.** A JSON Schema value is not checked against `pattern`, `patternProperties` or `format` (no regular-expression engine
+  is linked: `regex-lite` would add a package to doze-kafka for one keyword); Go's validator checked them.
+- **REG-D25.** Protobuf's well-known types (`Timestamp`, `Duration`, the wrappers, `Any`, `Struct`) read and write as the messages
+  they are, not in protojson's special forms (`"2026-11-14T00:00:00Z"`, `"3s"`).

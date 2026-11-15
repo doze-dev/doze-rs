@@ -90,13 +90,18 @@ at its epoch (UNKNOWN_MEMBER_ID; STALE_MEMBER_EPOCH, ILLEGAL_GENERATION for a cl
 classic group or one that is not there. Test: `consumer_group_words`, `offset_fetch_checks`, `consumer/tests/fetch.rs`,
 `group/tests/timers.rs`.
 
-## G848-10. A commit by a consumer-protocol member at an older epoch (a decided difference)
-Kafka accepts an OffsetCommit or TxnOffsetCommit from a member of the new protocol at an epoch older than the member's current one,
-partition by partition, for each partition that was assigned (or is pending revocation) at or before that epoch; one assigned
-later is STALE_MEMBER_EPOCH for that partition (source: `ConsumerGroup.createAssignmentEpochValidator`). Here the whole request
-is STALE_MEMBER_EPOCH (ILLEGAL_GENERATION for a transaction's offsets and for a classic member) when the epoch is not the
-member's. The cost is a commit that crosses a change of the member's epoch being refused once and retried, which clients do
-after their next heartbeat (the error is retriable); nothing is lost or committed wrongly. Doing it as Kafka does needs the
-epoch each partition was assigned at, kept for every member through every reconcile, and a per-partition verdict from the
-group, and the reconcile is the part of Phase 5 that had the most defects; it is left until a client is seen to need it.
-A commit that names no generation to an empty group is accepted whoever it names (`consumer_group_words`).
+## G848-10. A commit by a consumer-protocol member at an older epoch
+As Kafka 4.3.1 (`ConsumerGroup.validateOffsetCommit` and `createAssignmentEpochValidator`, KIP-1251; read 2026-11-15 at tag
+`4.3.1`): at the member's own epoch a commit is taken; at a newer one it is STALE_MEMBER_EPOCH; at an older one each partition
+the coordinator is asked about must be held by the member, assigned or being revoked, and have been given to it at or before
+that epoch. One partition that fails fails the whole request, its partitions answered STALE_MEMBER_EPOCH (a barred topic's still
+TOPIC_AUTHORIZATION_FAILED, as before): the validator throws
+out of `OffsetMetadataManager.commitOffset`'s loop and `KafkaApis` answers with `getErrorResponse` (ILLEGAL_GENERATION for a
+classic member, and for a transaction's offsets, which `commitTransactionalOffset` maps). The partitions asked about are those
+`KafkaApis` passes on: readable, existing, and (OffsetCommit) with metadata that is not too large. Each member keeps the epoch
+each partition was given at (`Member::given_at`): a partition added by a reconcile is given at the epoch the member moves to,
+a kept or revoking one keeps its own, one let go is forgotten; a classic member adopted by the group holds its partitions from
+the classic generation, and a static member's replacement inherits them. A commit that names no generation to an empty group is
+accepted whoever it names (`consumer_group_words`).
+Test: `consumer_groups::a_commit_at_an_older_epoch_is_taken_for_partitions_held_since_then_as_kafka_4_3_does`,
+`consumer_groups::after_a_revocation_an_older_epoch_commits_only_what_the_member_kept`.

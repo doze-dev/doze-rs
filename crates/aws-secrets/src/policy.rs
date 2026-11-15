@@ -25,7 +25,7 @@ pub(crate) fn is_policy(text: &str) -> bool {
 fn malformed() -> ApiError {
     ApiError::modeled(
         "MalformedPolicyDocumentException",
-        "This resource policy contains invalid JSON.",
+        "This resource policy contains a syntax error.",
     )
 }
 

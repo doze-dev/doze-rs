@@ -1,0 +1,7 @@
+{
+  "schema": "doze/v1",
+  "command": "doz@ status",
+  "ok": true,
+  "data":127.0.0.1:80ess", "group": "app", "state": "asleep", "379",    ]
+  }
+}

@@ -81,13 +81,13 @@ impl Core {
     pub(crate) fn delete_stream(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let stream = self.stream(r)?;
         if !stream.consumers.is_empty() && r.flag("EnforceConsumerDeletion") != Some(true) {
-            // (memory)
+            // Recorded on AWS (2026-11-15), the typographic apostrophe included.
             return Err(ApiError::modeled(
                 "ResourceInUseException",
                 format!(
-                    "Stream {} under account {} has consumers registered. Use EnforceConsumerDeletion to delete them.",
-                    stream.name,
-                    r.account()
+                    "DeleteStream can\u{2019}t delete {account}:{name} because there are consumers associated with this data stream. To delete {name} anyway, set the EnforceConsumerDeletion parameter to true to force the deletion of all the consumers that are associated with it.",
+                    account = r.account(),
+                    name = stream.name,
                 ),
             ));
         }

@@ -1,0 +1,9 @@
+{
+  "schema": "doze/v0",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "tes"															: 0, "cpuPerce , 5t:n""edpendsOn": ["54.0.0.1:5432", "domain": " "dependsOn": ["db"] }
+    ]
+  }
+}

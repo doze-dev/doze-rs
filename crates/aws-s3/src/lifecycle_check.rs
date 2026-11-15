@@ -1,4 +1,4 @@
-//! The checks AWS makes of a lifecycle configuration when it is put. (Wording is from memory: no recording reaches a bad one.)
+//! The checks AWS makes of a lifecycle configuration when it is put. (Recorded on AWS 2026-11-15 where it says so; the rest is from memory.)
 
 use aws_wire::ApiError;
 use serde_json::Value;
@@ -57,7 +57,12 @@ fn rule(r: &Value) -> Result<(), ApiError> {
     .iter()
     .any(|a| r.get(*a).is_some());
     if !has_action {
-        return Err(malformed_xml());
+        // Recorded on AWS (2026-11-15).
+        return Err(ApiError::new(
+            400,
+            "InvalidRequest",
+            "At least one action needs to be specified in a rule",
+        ));
     }
     if let Some(f) = r.get("Filter") {
         filter(f)?;
@@ -67,8 +72,14 @@ fn rule(r: &Value) -> Result<(), ApiError> {
             .iter()
             .filter(|k| e.get(**k).is_some())
             .count();
-        if fields != 1 || e.get("Days").and_then(Value::as_i64).is_some_and(|d| d < 1) {
+        if fields != 1 {
             return Err(malformed_xml());
+        }
+        if e.get("Days").and_then(Value::as_i64).is_some_and(|d| d < 1) {
+            // Recorded on AWS (2026-11-15).
+            return Err(bad(
+                "'Days' for Expiration action must be a positive integer",
+            ));
         }
     }
     Ok(())

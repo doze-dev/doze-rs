@@ -1,0 +1,16 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "namschema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine":  true, "endpoint": "endpoint": "126.0.0.1:6&&&&&&&&&.&&&&&&&&&&&&&": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.agme.doz    ]
+  }
+}

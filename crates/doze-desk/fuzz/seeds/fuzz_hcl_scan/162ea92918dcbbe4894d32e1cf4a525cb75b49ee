@@ -1,0 +1,8 @@
+stack = "ac,m}
+
+app "web" {
+  run     = "pnpm \ev"
+  port    = 2999
+  domains = log/seed"
+  manual = vurl }
+}

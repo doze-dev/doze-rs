@@ -113,6 +113,45 @@ pub fn judge(
     })
 }
 
+/// The first time after `p.now_ms` at which [`judge`] could say otherwise of a log that nothing is written to: when a dirty
+/// segment held back by `min.compaction.lag.ms` comes of age, or when the first dirty segment has waited
+/// `max.compaction.lag.ms`. `None`: never, until the log changes (an append, a marker, a trim, a round put in place, a setting).
+/// Everything else [`judge`] reads (the sizes, the checkpoint, the first unstable offset, the active segment) moves only when the
+/// log is written to, so a log judged not due may be left alone until then. Early is safe (the log is only judged again); late
+/// would not be, so each time is the first moment its condition can hold.
+#[must_use]
+pub fn next_due(
+    segments: &[Facts],
+    checkpoint: i64,
+    unstable: i64,
+    active_base: i64,
+    p: &Params,
+) -> Option<i64> {
+    let r = reading(segments, checkpoint, unstable, active_base, p);
+    let dirty = || segments.iter().filter(|s| s.base >= r.dirty_start);
+    // Held back by the minimum lag: cleanable once `newest_ms <= now - min_lag`.
+    let of_age = dirty()
+        .filter(|s| p.min_lag_ms > 0 && s.base < unstable.min(active_base))
+        .filter(|s| s.newest_ms > p.now_ms.saturating_sub(p.min_lag_ms))
+        .map(|s| s.newest_ms.saturating_add(p.min_lag_ms))
+        .min();
+    // Forced once `earliest < now - max_lag`.
+    let forced = (p.max_lag_ms != i64::MAX && !r.waited_too_long)
+        .then(|| {
+            dirty()
+                .filter(|s| s.oldest_ms > 0)
+                .map(|s| s.oldest_ms)
+                .min()
+        })
+        .flatten()
+        .map(|earliest| earliest.saturating_add(p.max_lag_ms).saturating_add(1));
+    match (of_age, forced) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (a, b) => a.or(b),
+    }
+    .map(|t| t.max(p.now_ms))
+}
+
 /// What [`judge`] reads of the log, said whether or not the log is due.
 #[must_use]
 pub fn reading(

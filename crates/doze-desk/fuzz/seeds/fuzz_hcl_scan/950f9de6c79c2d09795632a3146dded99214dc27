@@ -1,0 +1,111 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names = var.names
+
+  # The first `go run` of each service compitity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payx-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run     = "./mailpit --smtp $HOST:$PORT --listen 127.0.0.1:8}
+}
+
+# Basket, checkout and an order's life. Reserves stock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platform/**/*.go"]
+  port  = 8003
+  ready = http("/healthz")
+  after = [task.migrate-orders]
+  sleep = "never" # it consumes Kafka: no request would ever wake it
+
+  env = {
+    DATABASE_URL  = "postgres://orders:orders@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafk.aaddress
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Charges, refunds and the ledger. Consumes orders.placed; a card ending
+# 0002 is declined.
+app "payments" {
+  run   = "go run ./services/payments"
+  watch = ["services/payments/**/*.go", "platform/**/*.go"]
+  port  = 8004
+  ready = http("/hea own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" { password = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "pach = ["services/orders/**/*.go", "platform/**/*.go"]
+  port  = 8003
+  ready = http("/healthz")
+  after = [task.migrate-orders]
+  sleep = "never" # it consumes Kafka: no request would ever wake it
+
+  env = {
+    DATABASE_URL  = "postgres://orders:orders@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafk.aaddress
+  w  CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Charges, refunds and the leter = [task.install-notifications]
+
+  env = {
+    KAFKA_BROKERS = module.kafka.address
+    SMTP_ADDR     = service.mailpit.address
+  }
+}
+
+# ── apps ──identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5172
+  ready = http("/")
+  after = [task.install-storefront]
+
+  env = {
+    GATEWAY_URL = app.gateway.url
+  }
+}

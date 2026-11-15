@@ -1,0 +1,15 @@
+{
+  "schema": "doze4v2",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+   "q demon": { "running": false },
+    "services": [
+      { "namervices": [
+      { "5432a": "doze4v2",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+   "q demon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "pr",    

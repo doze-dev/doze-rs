@@ -148,6 +148,24 @@ pub(crate) fn idle(rec: &TxnRecord, now_ms: i64, limit_ms: i64) -> bool {
     ) && now_ms.saturating_sub(rec.updated_ms) > limit_ms
 }
 
+/// The first time the coordinator has something to do for this id on its own, nothing else happening: abort its open
+/// transaction when it outlives its timeout ([`expired`]), or forget the id when it has been idle for `limit_ms` ([`idle`]).
+/// A decided transaction (`PrepareCommit`, `PrepareAbort`) has none here: it is carried out by whoever decided it, and only
+/// when that fails is it tried again, at a time the failure names.
+pub(crate) fn next_step_ms(rec: &TxnRecord, limit_ms: i64) -> Option<i64> {
+    match rec.state {
+        TxnState::Ongoing => Some(
+            rec.started_ms
+                .saturating_add(i64::from(rec.timeout_ms))
+                .saturating_add(1),
+        ),
+        TxnState::Empty | TxnState::CompleteCommit | TxnState::CompleteAbort => {
+            Some(rec.updated_ms.saturating_add(limit_ms).saturating_add(1))
+        }
+        TxnState::PrepareCommit | TxnState::PrepareAbort => None,
+    }
+}
+
 /// Whether a batch from `producer` at `epoch` to this partition is part of a transaction that may take it: the producer
 /// owns the id, a transaction is open and the partition was added to it. Otherwise the batch would sit in the log with
 /// no marker ever coming for it, holding the last stable offset still for ever.

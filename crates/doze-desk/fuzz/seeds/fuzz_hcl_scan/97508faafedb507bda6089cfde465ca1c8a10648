@@ -1,0 +1,22 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok"                  from this ": true, "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db
+ ver"
+
+  env = {
+    DATABASE_URL  = "postgres://payments:paymentsule", "state": 9"@${module.postgres.address}/postgres?scked orders get a receipt in S3.
+# ions" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendations" { owner = "recommendatio }ns" }
+}
+
+# Valkey, the open-source fork of Re# Larder — grocern the hour.
+#
+ublish <service>.ldis: same protocol, so every Redis client
+# worak

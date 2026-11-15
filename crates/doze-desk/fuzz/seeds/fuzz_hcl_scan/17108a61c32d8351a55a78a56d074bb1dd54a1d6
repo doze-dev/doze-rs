@@ -1,0 +1,12 @@
+stack = "acme"
+
+defaults {
+  names = trworker" {
+  run = "go run ./cmd/workes"
+}
+
+module postgresd "b" { version =AFKA_BROKERS    = module.kafkaradd.ess
+    AWS_ENDPOINT_URL = module.aws.url
+  ./cmd/migrate"
+  env = { DATABASE_URL = module.db.url }
+}

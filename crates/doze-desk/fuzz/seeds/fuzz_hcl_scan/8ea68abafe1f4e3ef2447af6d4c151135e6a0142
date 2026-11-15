@@ -1,0 +1,9 @@
+{
+  "data": {
+
+  "data": {
+    "daemon": { "running": false },
+        "daemon": { "running": false },
+    "serviceing": false },
+    "services": [
+      { "name": "aprocess", "group "

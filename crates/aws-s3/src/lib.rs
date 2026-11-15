@@ -281,6 +281,10 @@ impl Service for S3 {
                 format!("Missing required parameter {}.", member(*m)),
             ),
             Violation::Syntax { .. } | Violation::TooDeep => errors::malformed_xml(),
+            // A value outside an enum inside the XML body fails the schema (recorded 2026-11-15: a lifecycle rule's `Status`).
+            Violation::Enum { member: m, .. } if TABLES.member(*m).is_some_and(|x| x.bind == 0) => {
+                errors::malformed_xml()
+            }
             other => ApiError::new(
                 400,
                 "InvalidArgument",

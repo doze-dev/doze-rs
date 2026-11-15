@@ -1,0 +1,271 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and Typetalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendations" { owner = "recommendations" }
+}
+
+# Valkey, the open-sourafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up               ce fork of Redis: same protocol, so every Redis           from this dclient
+# works. Rate limits (gateway), idempotency keys (pans@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Email for sign-ups, orders and declil stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-not# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all f2om this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         ,
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain"ions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# rather than created by whichever client happens to write first.
+module kafka "kafka" {
+  version            = 4
+  port               = 9092
+  auto_create_topics = false
+
+  topic "users.signed-up" { partitions = 3 }
+  topic "orders.placed" { partitions = 3 }
+  topic "payments.settled" { partitions = 3 }
+  topic "payments.failed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at same small
+# runner whatever language the service is in. A task runs before the app that
+# lists it in `after`, and again only when its .sql files change.
+
+task "migrate-identity" {
+  run    = "go run ./platform/cmd/migrate services/identity/migrations"
+  inputs = ["services/identity/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://identity:identity@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/migrations"
+  inpuoduct images in S3.
+appalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendations" { owner = "recommendations" }
+}
+
+# Valkey, the open-sourafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up               ce fork of Redis: same protocol, so every Redis           from this dclient
+# works. Rate limits (gateway), idempotency keys (pans@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Email for sign-ups, orders and declil stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-not# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all f2om this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         ,
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain"ions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# rather than created by whichever client happens to write first.
+module kafka "kafka" {
+  version            = 4
+  port               = 9092
+  auto_create_topics = false
+
+  topic "users.signed-up" { partitions = 3 }
+  topic "orders.placed" { partitions = 3 }
+  topic "payments.settled" { partitions = 3 }
+  topic "payments.failed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at same small
+# runner whatever language the service is in. A task runs before the app that
+# lists it in `after`, and again only when its .sql files change.
+
+task "migrate-identity" {
+  run    = "go run ./platform/cmd/migrate services/identity/migrations"
+  inputs = ["services/identity/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://identity:identity@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/migrations"
+  inpuoduct images in S3.
+app "catalog" {
+  run   = "go run ./services/catalog"
+  watch = ["services/catalog/**/*.go", "platform/**/*.go"]
+  port  = 8002
+  ready = http("/healthz")
+  after = [tats = ["services/catalog/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-orders" {
+  run    = "go run ./platform/cmd/migrate services/orders/migrations"
+  inputs = ["services/orders/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://orders:orders@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-payments" {
+  run    = "go run ./platform/cmd/migrate services/payments/migrations"
+  inputs = ["services/payments/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://payments:payments@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-recommendationsasked: `doze task seed-catalog`.
+task "seed-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/seed"
+  manual = true
+  after  = [task.migrate-catalog]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: instgine": "process", "groalled again only when one changes.
+task "install-notifications" {
+  dir    = "services/notifications"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+  dir    = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    =i        = app.catalog.url
+    ORDERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.r        = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun ru "apps/storefront"
+  run    = "bun install --frozen-loc "catalog" {
+  run   = "go run ./services/catalog"
+  watch = ["services/catalog/**/*.go", "platform/**/*.go"]
+  port  = 8002
+  ready = http("/healthz")
+  after = [tats = ["services/catalog/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-orders" {
+  run    = "go run ./platform/cmd/migrate services/orders/migrations"
+  inputs = ["services/orders/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://orders:orders@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-payments" {
+  run    = "go run ./platform/cmd/migrate services/payments/migrations"
+  inputs = ["services/payments/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://payments:payments@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-recommendationsasked: `doze task seed-catalog`.
+task "seed-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/seed"
+  manual = true
+  after  = [task.migrate-catalog]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: instgine": "process", "groalled again only when one changes.
+task "install-notifications" {
+  dir    = "services/notifications"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+  dir    = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    =i        = app.catalog.url
+    ORDERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.r        = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun ru "apps/storefront"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+=
+
+# ── services, by domain ───────────────────────────────────────────────────
+
+n dev"
+  # Customers, sign-in and sessions. Publishes users.signed-up.
+app "identity" {
+  run   = "go run ./serviport  = 5173
+  ready = hnts/ttp("/")
+  after = [task.iinstall-storefront]
+
+  env = {
+   due GATEWAY_URL = app.gateway.urln
+  }
+}

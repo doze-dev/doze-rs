@@ -6,6 +6,7 @@
 //! two registrations of one schema cannot both take a new id.
 
 mod check;
+mod codec;
 mod delete;
 mod doze;
 mod prepare;

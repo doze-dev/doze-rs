@@ -152,17 +152,22 @@ fn permissions_build_the_bus_policy_and_take_statements_away() {
     .unwrap();
     let statements = policy["Statement"].as_array().unwrap();
     assert_eq!(statements.len(), 2);
-    assert_eq!(
-        statements[0]["Principal"],
-        json!({"AWS": "arn:aws:iam::111122223333:root"})
-    );
+    assert_eq!(statements[0]["Principal"], json!({"AWS": "111122223333"}));
     assert_eq!(statements[0]["Resource"], format!("{BUS_ARN}/shop"));
     assert_eq!(statements[1]["Principal"], "*");
     assert_eq!(
         statements[1]["Condition"],
         json!({"StringEquals": {"aws:PrincipalOrgID": "o-abc"}})
     );
-    assert_eq!(w.err("PutPermission", &json!({"EventBusName": "shop", "StatementId": "s1", "Action": "events:PutEvents", "Principal": "111122223333"})), ("ValidationException".into(), "Statement already exists.".into()));
+    // The same id again replaces its statement (recorded 2026-11-15).
+    w.ok(
+        "PutPermission",
+        &json!({"EventBusName": "shop", "StatementId": "s1", "Action": "events:PutEvents", "Principal": "444455556666"}),
+    );
+    let again = w.ok("DescribeEventBus", &json!({"Name": "shop"}));
+    let doc: serde_json::Value = serde_json::from_str(again["Policy"].as_str().unwrap()).unwrap();
+    assert_eq!(doc["Statement"].as_array().unwrap().len(), 2);
+    assert_eq!(doc["Statement"][0]["Principal"]["AWS"], "444455556666");
     w.ok(
         "RemovePermission",
         &json!({"EventBusName": "shop", "StatementId": "s1"}),

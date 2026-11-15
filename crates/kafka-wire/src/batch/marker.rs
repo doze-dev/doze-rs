@@ -8,6 +8,7 @@
 use bytes::{BufMut, Bytes, BytesMut};
 
 use super::layout::{ATTRIBUTES, CRC, HEADER_LEN, LENGTH, crc_of};
+use super::varint;
 use crate::ids::{ProducerEpoch, ProducerId, TimestampMs};
 
 /// The attribute bits of a transactional control batch.
@@ -40,17 +41,17 @@ impl Marker {
         at: TimestampMs,
     ) -> Bytes {
         let mut record = vec![0_u8]; // attributes
-        zigzag(0, &mut record); // timestamp delta
-        zigzag(0, &mut record); // offset delta
-        zigzag(4, &mut record); // key length
+        varint::write(&mut record, 0); // timestamp delta
+        varint::write(&mut record, 0); // offset delta
+        varint::write(&mut record, 4); // key length
         record.put_i16(0);
         record.put_i16(self.code());
-        zigzag(6, &mut record); // value length
+        varint::write(&mut record, 6); // value length
         record.put_i16(0);
         record.put_i32(coordinator_epoch);
-        zigzag(0, &mut record); // no headers
+        varint::write(&mut record, 0); // no headers
         let mut body = Vec::new();
-        zigzag(i64::try_from(record.len()).unwrap_or(0), &mut body);
+        varint::write(&mut body, i64::try_from(record.len()).unwrap_or(0));
         body.extend_from_slice(&record);
 
         let mut b = BytesMut::new();
@@ -84,12 +85,12 @@ impl Marker {
     /// What the control batch `bytes` (one whole batch) says, if it is a commit or an abort marker.
     #[must_use]
     pub fn read(bytes: &[u8]) -> Option<Self> {
-        let body = bytes.get(HEADER_LEN..)?;
-        let (_length, rest) = unzigzag(body)?;
-        let (_attributes, rest) = rest.split_first()?;
-        let (_timestamp_delta, rest) = unzigzag(rest)?;
-        let (_offset_delta, rest) = unzigzag(rest)?;
-        let (key_len, rest) = unzigzag(rest)?;
+        let mut rest = bytes.get(HEADER_LEN..)?;
+        let _length = varint::read(&mut rest)?;
+        let (_attributes, mut rest) = rest.split_first()?;
+        let _timestamp_delta = varint::read(&mut rest)?;
+        let _offset_delta = varint::read(&mut rest)?;
+        let key_len = varint::read(&mut rest)?;
         let key = rest.get(..usize::try_from(key_len).ok().filter(|n| *n >= 4)?)?;
         match i16::from_be_bytes(*key.get(2..4)?.first_chunk()?) {
             0 => Some(Self::Abort),
@@ -97,30 +98,6 @@ impl Marker {
             _ => None,
         }
     }
-}
-
-fn zigzag(v: i64, out: &mut Vec<u8>) {
-    let mut u = u64::from_ne_bytes(((v << 1) ^ (v >> 63)).to_ne_bytes());
-    while u >= 0x80 {
-        out.push(u8::try_from(u & 0x7f).unwrap_or(0) | 0x80);
-        u >>= 7;
-    }
-    out.push(u8::try_from(u).unwrap_or(0));
-}
-
-/// A zigzag varint at the start of `b`, and the rest.
-fn unzigzag(b: &[u8]) -> Option<(i64, &[u8])> {
-    let (mut u, mut shift) = (0_u64, 0_u32);
-    for (i, byte) in b.iter().enumerate().take(10) {
-        u |= u64::from(byte & 0x7f).checked_shl(shift)?;
-        if byte & 0x80 == 0 {
-            let v = i64::from_ne_bytes((u >> 1).to_ne_bytes())
-                ^ -i64::from_ne_bytes((u & 1).to_ne_bytes());
-            return Some((v, b.get(i + 1..)?));
-        }
-        shift += 7;
-    }
-    None
 }
 
 #[cfg(test)]
@@ -154,30 +131,6 @@ mod tests {
                 (7, 3, None)
             );
             assert_eq!(Marker::read(&bytes), Some(kind));
-        }
-    }
-
-    #[test]
-    fn zigzag_round_trips() {
-        for v in [
-            0_i64,
-            1,
-            -1,
-            63,
-            -64,
-            64,
-            300,
-            -300,
-            i64::from(i32::MAX),
-            i64::from(i32::MIN),
-        ] {
-            let mut out = Vec::new();
-            zigzag(v, &mut out);
-            assert_eq!(
-                unzigzag(&out).map(|(x, rest)| (x, rest.len())),
-                Some((v, 0)),
-                "{v}"
-            );
         }
     }
 }

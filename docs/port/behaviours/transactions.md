@@ -138,8 +138,14 @@ out of a large buffer. Test: `transactions::a_committed_transaction_is_read_afte
 
 ## TX-11. Timeout
 A transaction open longer than its timeout, counted from when it began (adding partitions or offsets does not start it again)
-and not from its last change, is aborted by the broker (checked every 500 ms) and its producer fenced (epoch raised) (source).
-A restart does not start the clock again. Test: `transactions::a_transaction_that_outlives_its_timeout_is_aborted_and_its_producer_fenced`,
+and not from its last change, is aborted by the broker and its producer fenced (epoch raised) (source).
+A restart does not start the clock again. The coordinator sleeps until the first moment it has something to do on its own (a
+timeout, an idle id's expiry, a decision whose markers could not be written tried again after 500 ms) and is woken when a
+change makes that sooner; with no transactional id it does not wake (it used to look every 500 ms, an idle broker's only
+wake-ups). Test: `transactions::a_transaction_that_outlives_its_timeout_is_aborted_and_its_producer_fenced`,
+`idle_upkeep::the_transaction_coordinator_does_not_wake_with_nothing_to_do_and_aborts_a_timed_out_transaction_on_time`,
+`rules::the_next_step_is_the_first_moment_the_timeout_or_the_expiry_holds`,
+`txn::alarm::tests::the_alarm_only_moves_earlier_and_rings_when_it_does`,
 `transactions_codes::a_transaction_times_out_from_when_it_began_whatever_is_added_to_it_since`,
 `rules::a_transaction_outlives_its_timeout_from_when_it_began_not_from_its_last_change`.
 

@@ -184,12 +184,13 @@ impl Usage {
     }
 }
 
-/// What an RSA signing key can do: PSS and PKCS #1 v1.5, each with SHA-256, SHA-384 and SHA-512.
+/// What an RSA signing key can do: PKCS #1 v1.5 and PSS, each with SHA-256, SHA-384 and SHA-512, in the order AWS lists them
+/// (`test_rsa_signing_and_encryption`, 2026-11-15).
 const RSA_SIGNING: [&str; 6] = [
-    "RSASSA_PSS_SHA_256",
-    "RSASSA_PSS_SHA_384",
-    "RSASSA_PSS_SHA_512",
     "RSASSA_PKCS1_V1_5_SHA_256",
     "RSASSA_PKCS1_V1_5_SHA_384",
     "RSASSA_PKCS1_V1_5_SHA_512",
+    "RSASSA_PSS_SHA_256",
+    "RSASSA_PSS_SHA_384",
+    "RSASSA_PSS_SHA_512",
 ];

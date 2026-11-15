@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use kafka_auth::authz::{Acl, AclFilter, AclSet, CLUSTER_NAME, operation, resource};
+use kafka_auth::authz::{Acl, AclFilter, AclSet, CLUSTER_NAME, Operation, ResourceType};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::StrBytes;
@@ -65,18 +65,19 @@ impl<F: Fs> Broker<F> {
             return Outcome::Close;
         }
         let _one_change_at_a_time = self.acl_admin.lock().await;
-        let results =
-            if self
-                .authz
-                .allows(caller, resource::CLUSTER, CLUSTER_NAME, operation::ALTER)
-            {
-                self.remove_acls(&filters)
-            } else {
-                filters
-                    .iter()
-                    .map(|_| failed(ResponseError::ClusterAuthorizationFailed, None))
-                    .collect()
-            };
+        let results = if self.authz.allows(
+            caller,
+            ResourceType::Cluster,
+            CLUSTER_NAME,
+            Operation::Alter,
+        ) {
+            self.remove_acls(&filters)
+        } else {
+            filters
+                .iter()
+                .map(|_| failed(ResponseError::ClusterAuthorizationFailed, None))
+                .collect()
+        };
         let mut resp = DeleteAclsResponse::default();
         resp.filter_results = results;
         Outcome::Respond(Response::DeleteAcls(resp))

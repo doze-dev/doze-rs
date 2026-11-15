@@ -1,0 +1,372 @@
+//! The one action table (docs/port/app/PLAN.md §3 item 9). Every command is a gpui action, and this table generates
+//! the keymap, the app menus, the ⌘K rows, the help sheet and the key chips, so no chip can name a key nothing binds
+//! and no command lives in only one place.
+//!
+//! A row the app does not do yet (`built: false`) is still listed, so the menus and help show the whole app; its menu
+//! item is disabled and its palette row says "soon".
+
+use gpui::{Action, App, KeyBinding, KeyBindingContextPredicate, Keystroke, Menu, actions};
+use gpui_component::kbd::Kbd;
+use std::rc::Rc;
+
+actions!(
+    doze,
+    [
+        OpenPalette,
+        CloseOverlay,
+        ShowHelp,
+        GoHome,
+        OpenFolder,
+        AllLogs,
+        Activity,
+        Settings,
+        Back,
+        Forward,
+        ViewTiles,
+        ViewList,
+        ViewMap,
+        ViewGrid,
+        FindCard,
+        FitMap,
+        ZoomIn,
+        ZoomOut,
+        ActualSize,
+        ToggleMinimap,
+        ToggleLines,
+        Neighbourhood,
+        OnlyTrouble,
+        MoveUp,
+        MoveDown,
+        MoveLeft,
+        MoveRight,
+        Confirm,
+        NextPalette,
+        CycleMode,
+        CloseWindow,
+        Quit,
+        OpenStack,
+        ToggleStack,
+        RemoveStack,
+        OpenService,
+        ToggleService,
+        FilterRows,
+        CopyAddress,
+        CycleDensity,
+        UpAsLastTime,
+        ChooseStart,
+        OpenRowService,
+    ]
+);
+
+/// Where a row shows in the help sheet, and the key context it binds in (`None`: everywhere).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Scope {
+    Global,
+    Map,
+    Overlay,
+    /// The Library's table.
+    Library,
+    /// A stack's page: its tiles and its list.
+    Overview,
+    /// The Grid view.
+    Grid,
+    /// An instance's page.
+    Instance,
+    /// A logs page, or the logs tab.
+    Logs,
+    /// A module's console tab.
+    Console,
+    /// A dialog: sleep, restart, reset, an action's input.
+    Dialog,
+    /// The start sheet and the checks before Up.
+    Sheet,
+    /// A folder with no doze.hcl yet.
+    Empty,
+    /// ⌘K's box.
+    Palette,
+    /// The Needs you panel.
+    Bell,
+    /// Activity: a stack over an hour, a day, a week.
+    Activity,
+    /// Settings: General, Machine, About.
+    Settings,
+}
+
+impl Scope {
+    /// The help sheet's heading.
+    pub(crate) fn title(self) -> &'static str {
+        match self {
+            Scope::Global => "Everywhere",
+            Scope::Map => "On the Map",
+            Scope::Overlay => "In a search box",
+            Scope::Library => "In the Library",
+            Scope::Overview => "On a stack's page",
+            Scope::Grid => "In the Grid",
+            Scope::Instance => "On a service's page",
+            Scope::Logs => "In the logs",
+            Scope::Console => "In a module's console",
+            Scope::Dialog => "In a dialog",
+            Scope::Sheet => "In the start sheet and the checks",
+            Scope::Empty => "In a folder with no doze.hcl",
+            Scope::Palette => "In ⌘K",
+            Scope::Bell => "In Needs you",
+            Scope::Activity => "In Activity",
+            Scope::Settings => "In Settings",
+        }
+    }
+
+    /// The key context a key of this scope binds in. A bare key (`?`, `1`) binds only on the page, so typing it into
+    /// a search box types it; keys with a modifier, and escape, work everywhere. The map's keys bind on the map, whose
+    /// search box sits outside it; the search boxes' own keys bind in gpui-component's `Input`.
+    fn context(self, key: &str) -> Option<&'static str> {
+        let bare = !["cmd-", "ctrl-", "alt-"].iter().any(|m| key.contains(m)) && key != "escape";
+        match self {
+            Scope::Global if bare => Some("Page && !Input"),
+            Scope::Global => None,
+            Scope::Map => Some("Map"),
+            Scope::Overlay => Some("Input"),
+            Scope::Library => Some("Library"),
+            // The Map and its find box (and the List's filter) are inside a stack's page: a letter or space typed
+            // into a box there is text, not a verb (`s` would sleep the selected service).
+            Scope::Overview if typed(key) => Some("Overview && !Input"),
+            Scope::Overview => Some("Overview"),
+            Scope::Grid => Some("Grid"),
+            Scope::Instance => Some("Instance && !Input"),
+            Scope::Logs => Some("Logs && !Input"),
+            Scope::Console => Some("ConsoleTab && !Input"),
+            Scope::Dialog if key == "enter" => Some("Dialog"),
+            Scope::Dialog => Some("Dialog && !Input"),
+            Scope::Sheet => Some("Sheet"),
+            Scope::Empty => Some("Empty && !Input"),
+            // Over the box's own keys (tab, ⌫), which the handler passes back to the box when they are not its.
+            Scope::Palette => Some("Palette > Input"),
+            Scope::Bell => Some("Bell"),
+            Scope::Activity => Some("Activity && !Input"),
+            Scope::Settings => Some("Settings && !Input"),
+        }
+    }
+}
+
+/// A key a search box takes as text: a letter, shifted or not, a digit, or space.
+fn typed(key: &str) -> bool {
+    let k = key.strip_prefix("shift-").unwrap_or(key);
+    k == "space" || (k.len() == 1 && k.bytes().all(|b| b.is_ascii_alphanumeric()))
+}
+
+/// Which app menu a row is in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MenuName {
+    Doze,
+    File,
+    Go,
+    View,
+    Window,
+    Help,
+}
+
+/// One command.
+#[derive(Clone, Copy)]
+pub(crate) struct Spec {
+    pub(crate) label: &'static str,
+    /// What the help sheet and the palette say beside it.
+    pub(crate) what: &'static str,
+    pub(crate) make: fn() -> Box<dyn Action>,
+    /// Its keys, in gpui's keystroke syntax (`cmd-k`); the first is the one chips show.
+    pub(crate) keys: &'static [&'static str],
+    pub(crate) scope: Scope,
+    pub(crate) menu: Option<MenuName>,
+    /// Offered in ⌘K.
+    pub(crate) palette: bool,
+    /// The app does it today.
+    pub(crate) built: bool,
+}
+
+mod attn;
+mod inside;
+mod m3;
+mod menus;
+mod pages;
+mod table;
+mod verbs;
+
+pub(crate) use attn::*;
+pub(crate) use inside::*;
+pub(crate) use m3::*;
+pub(crate) use table::TABLE;
+pub(crate) use verbs::*;
+
+/// Every row: the shell's and the Map's ([`TABLE`]), the stack pages' ([`pages::PAGES`]), then the pages' inside a
+/// stack ([`INSIDE`]).
+pub(crate) fn all() -> impl Iterator<Item = &'static Spec> {
+    TABLE
+        .iter()
+        .chain(pages::PAGES)
+        .chain(INSIDE)
+        .chain(VERBS)
+        .chain(ATTN)
+        .chain(M3)
+}
+
+/// The keymap the table gives. A keystroke that does not parse is left out (the test below proves none does).
+pub(crate) fn keymap(cx: &App) -> Vec<KeyBinding> {
+    let mut out = Vec::new();
+    for s in all() {
+        for k in s.keys {
+            let ctx = s
+                .scope
+                .context(k)
+                .and_then(|c| KeyBindingContextPredicate::parse(c).ok())
+                .map(Rc::new);
+            if let Ok(b) = KeyBinding::load(k, (s.make)(), ctx, false, None, cx) {
+                out.push(b);
+            }
+        }
+    }
+    out
+}
+
+/// The app menus: the native menu bar, every global command with its keys.
+pub(crate) fn menus() -> Vec<Menu> {
+    menus::menus()
+}
+
+/// The first key of a row, as a chip shows it (`⌘K`), or `None` for a row with no key.
+pub(crate) fn chip(s: &Spec) -> Option<String> {
+    s.keys.first().map(|k| key_words(k))
+}
+
+/// A key as a chip writes it: the platform's symbols (⌘K, ⇧A), with the words the Go app used for the keys whose
+/// symbols read poorly at chip size (esc, space).
+pub(crate) fn key_words(k: &'static str) -> String {
+    match k {
+        "escape" => "esc".into(),
+        "space" => "space".into(),
+        "tab" => "tab".into(),
+        // A letter is the letter, as Go's chips wrote it (`y`, `o`; an `l` chip is not ⇧L); shifted, its capital (`A`).
+        k if k.len() == 1 && k.bytes().all(|b| b.is_ascii_lowercase()) => k.into(),
+        k if k
+            .strip_prefix("shift-")
+            .is_some_and(|l| l.len() == 1 && l.bytes().all(|b| b.is_ascii_lowercase())) =>
+        {
+            k.trim_start_matches("shift-").to_uppercase()
+        }
+        _ => match Keystroke::parse(k) {
+            Ok(stroke) => Kbd::format(&stroke),
+            Err(_) => k.to_owned(),
+        },
+    }
+}
+
+/// The rows ⌘K offers.
+pub(crate) fn palette() -> impl Iterator<Item = &'static Spec> {
+    all().filter(|s| s.palette)
+}
+
+/// The help sheet: each scope's rows with keys, in table order. The dialogs, the start sheet, the checks, the empty
+/// folder and a search box are left out, as Go's sheet leaves them: each shows its own keys at its foot.
+pub(crate) fn help() -> Vec<(Scope, Vec<&'static Spec>)> {
+    [
+        Scope::Global,
+        Scope::Library,
+        Scope::Overview,
+        Scope::Grid,
+        Scope::Instance,
+        Scope::Logs,
+        Scope::Map,
+        Scope::Console,
+        Scope::Activity,
+        Scope::Settings,
+        Scope::Palette,
+        Scope::Bell,
+    ]
+    .into_iter()
+    .map(|sc| {
+        (
+            sc,
+            all()
+                .filter(|s| s.scope == sc && !s.keys.is_empty() && !s.what.is_empty())
+                .collect(),
+        )
+    })
+    .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TABLE, all, chip, help, palette};
+    use gpui::Keystroke;
+
+    #[test]
+    fn every_key_parses_and_every_row_has_a_way_in() {
+        for s in all() {
+            for k in s.keys {
+                assert!(Keystroke::parse(k).is_ok(), "{}: {k}", s.label);
+            }
+            assert!(
+                s.menu.is_some() || s.palette || !s.keys.is_empty(),
+                "{} has no menu, no palette row and no key",
+                s.label
+            );
+        }
+    }
+
+    #[test]
+    fn chips_name_bound_keys() {
+        for s in palette() {
+            if let Some(c) = chip(s) {
+                assert!(!c.is_empty(), "{}", s.label);
+            }
+        }
+        let cmdk = TABLE
+            .iter()
+            .find(|s| s.label.starts_with("Search"))
+            .and_then(chip);
+        assert_eq!(cmdk.as_deref(), Some("⌘K"));
+    }
+
+    #[test]
+    fn every_key_context_parses() {
+        // A context that did not parse would bind its key everywhere, typing included.
+        for s in super::all() {
+            for k in s.keys {
+                if let Some(c) = s.scope.context(k) {
+                    assert!(
+                        gpui::KeyBindingContextPredicate::parse(c).is_ok(),
+                        "{}: {c}",
+                        s.label
+                    );
+                }
+            }
+        }
+    }
+
+    /// ⌘K lists each command once: a row of the table it offers is not one the model offers in its own words.
+    #[test]
+    fn the_palette_lists_each_command_once() {
+        let norm = |s: &str| s.trim_end_matches('…').to_lowercase();
+        let model: Vec<String> = doze_desk::palette::app_commands()
+            .iter()
+            .map(|r| norm(&r.label))
+            .collect();
+        let twice: Vec<&str> = palette()
+            .filter(|s| model.contains(&norm(s.label)))
+            .map(|s| s.label)
+            .collect();
+        assert!(
+            twice.is_empty(),
+            "in ⌘K twice (the model offers them already): {twice:?}"
+        );
+    }
+
+    #[test]
+    fn every_row_is_built() {
+        let soon: Vec<_> = all().filter(|s| !s.built).map(|s| s.label).collect();
+        assert!(soon.is_empty(), "rows not built yet: {soon:?}");
+    }
+
+    #[test]
+    fn help_and_menus_cover_the_table() {
+        let listed: usize = help().iter().map(|(_, rows)| rows.len()).sum();
+        assert!(listed > 20);
+    }
+}

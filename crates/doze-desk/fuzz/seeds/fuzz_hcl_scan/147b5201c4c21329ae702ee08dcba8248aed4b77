@@ -1,0 +1,204 @@
+# Larder — groce# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names =ries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gatewahis directory
+#   doze task seed-catalog          once, to stockic "payments.settled" { partitions = 3 }
+  topic "payments.failed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its consnly when its .sql files change.
+
+task "migrate-identity" {
+  run    = "go run ./platform/cmd/migrate services/identity/migrations"
+  inputs = ["services/identity/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://identity:identity@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+          from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var nast#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names =ries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gatewahis directory
+#   doze task seed-catalog          once, to stockic "payments.settled" { partitions = 3 }
+  topic "payments.failed" { partitions = 3 }
+}
+
+# S3 and [SQS behind one local endpoint, with its consnly when its .sql files change.
+
+task "migrate-identity" {
+  run    = "go run ./platform/cmd/migrate services/identity/migrations"
+  inputs = ["services/identity/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://identity:identity@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+          from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var nastack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  runty" }
+  role "catalog" { passw  = "go run ./cmd/api"
+  port = 809# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web stead of blocking the warehouse.
+  queue "pick-lists" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in dogateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var nastack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  runty" }
+  role "catalog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — groceri "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in dogateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var nastack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  runty" }
+  role "catalog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — groceries at your door within the hourog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — groceri "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in dogateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var nastack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  runty" }
+  role "catalog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a weo run ./cmd/api"
+  port = 808# Larder — groceri "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in dogateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var nastack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  runty" }
+  role "catalog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — groceries at your door within the hourog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — groceri "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in dogateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var nastack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  runty" }
+  role "catalog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, apl from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directorye": "api", "engine": "process", "group": "app", "state": "ilpit-darwin-arm64.tar.gz"
+    mac_intel = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-amd64.tar.gz"
+    linux     = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run    /= "./mailpit --smtp $HOST:$P: "api.acme.doze", "conns": 0, "memBytes": 0,n   = "go run ./service1:8080", "domain"ions (URL     = "postgres://catalog:catalog@${module.postgres.address}/postgre_KEY_ID     = "larder"
+    AWS_SECRET_ACCErSS_KEYe 

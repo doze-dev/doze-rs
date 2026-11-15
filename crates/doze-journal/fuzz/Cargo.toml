@@ -1,0 +1,21 @@
+[package]
+name = "doze-journal-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+doze-journal = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "fuzz_line"
+path = "fuzz_targets/fuzz_line.rs"
+test = false
+doc = false

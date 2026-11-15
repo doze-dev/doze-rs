@@ -1,0 +1,288 @@
+{
+  "key": "$WORK/.doze/projects/acme",
+  "stack": "acme",
+  "dir": "$WORK/code/acme",
+  "running": false,
+  "banner": {
+    "ok": true
+  },
+  "vitals": {
+    "mem": {
+      "total": "0",
+      "shares": null,
+      "key": ""
+    },
+    "cpu": {
+      "total": "0 cores",
+      "shares": null,
+      "key": ""
+    },
+    "state": {
+      "awake": 0,
+      "dozing": 0,
+      "waking": 0,
+      "asleep": 0,
+      "off": 0,
+      "paused": 0,
+      "crashing": 0,
+      "sleeps": ""
+    },
+    "conns": {
+      "open": 0,
+      "tasks": ""
+    }
+  },
+  "groups": [
+    {
+      "title": "APPS",
+      "what": "your code",
+      "count": 3,
+      "rows": [
+        {
+          "name": "api",
+          "kind": "app",
+          "look": {
+            "word": "stopped",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "engine": "process",
+          "because": "needs db and cache",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 1,
+          "address": "http://api.acme.doze:8080",
+          "on": false,
+          "pinned": false,
+          "down": true,
+          "last": true,
+          "needs": [
+            "db",
+            "cache"
+          ],
+          "run": "go run ./cmd/api"
+        },
+        {
+          "name": "web",
+          "kind": "app",
+          "look": {
+            "word": "stopped",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "engine": "process",
+          "because": "needs api",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 0,
+          "address": "https://dev.acme.com",
+          "on": false,
+          "pinned": false,
+          "down": true,
+          "last": true,
+          "needs": [
+            "api"
+          ],
+          "run": "pnpm dev"
+        },
+        {
+          "name": "worker",
+          "kind": "app",
+          "look": {
+            "word": "stopped",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "engine": "process",
+          "because": "needs nothing",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 0,
+          "address": "worker.acme.doze",
+          "on": false,
+          "pinned": false,
+          "down": true,
+          "run": "go run ./cmd/worker"
+        }
+      ]
+    },
+    {
+      "title": "MODULES",
+      "what": "from the doze registry",
+      "count": 2,
+      "rows": [
+        {
+          "name": "cache",
+          "kind": "module",
+          "look": {
+            "word": "stopped",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "engine": "valkey 8",
+          "because": "api uses it",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 2,
+          "address": "cache.acme.doze:6379",
+          "on": false,
+          "pinned": false,
+          "down": true,
+          "last": true
+        },
+        {
+          "name": "db",
+          "kind": "module",
+          "look": {
+            "word": "stopped",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "engine": "postgres 17",
+          "because": "api and migrate use it",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 2,
+          "address": "db.acme.doze:5432",
+          "on": false,
+          "pinned": false,
+          "down": true,
+          "last": true
+        }
+      ]
+    },
+    {
+      "title": "TASKS",
+      "what": "run once, then out of the way",
+      "count": 1,
+      "rows": [
+        {
+          "name": "migrate",
+          "kind": "task",
+          "look": {
+            "word": "stopped",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "engine": "task",
+          "because": "needs db · runs once the stack is up",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 0,
+          "on": false,
+          "pinned": false,
+          "down": true,
+          "needs": [
+            "db"
+          ],
+          "run": "go run ./cmd/migrate"
+        }
+      ]
+    }
+  ],
+  "awake": 0,
+  "total": 5,
+  "view": "tiles",
+  "grid": {
+    "heads": [
+      {
+        "text": "Other services",
+        "span": 1
+      },
+      {
+        "text": "Shared",
+        "span": 2
+      }
+    ],
+    "cols": [
+      {
+        "name": "api",
+        "kind": "app"
+      },
+      {
+        "name": "cache",
+        "kind": "shared",
+        "sep": true
+      },
+      {
+        "name": "db",
+        "kind": "shared"
+      }
+    ],
+    "rows": [
+      {
+        "name": "web",
+        "lang": "js",
+        "cells": [
+          {
+            "dot": true,
+            "tip": {
+              "head": "web needs api",
+              "ref": "env = { API_URL = app.api.url }",
+              "keys": "⏎ opens api · o opens web",
+              "open": "api"
+            }
+          },
+          {},
+          {}
+        ]
+      },
+      {
+        "name": "api",
+        "lang": "go",
+        "cells": [
+          {
+            "self": true
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "api uses cache",
+              "ref": "env = …module.cache.url…",
+              "keys": "⏎ opens cache · o opens api",
+              "open": "cache"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "api uses db",
+              "ref": "env = …module.db.url…",
+              "keys": "⏎ opens db · o opens api",
+              "open": "db"
+            }
+          }
+        ]
+      },
+      {
+        "name": "worker",
+        "lang": "go",
+        "cells": [
+          {},
+          {},
+          {}
+        ]
+      }
+    ],
+    "foot": [
+      "1",
+      "1",
+      "1"
+    ]
+  },
+  "stopped": {
+    "when": "last up 3d ago",
+    "lastLine": "Up starts api, web and db, as last time, and what they need.",
+    "lastSet": [
+      "api",
+      "web",
+      "db"
+    ]
+  }
+}

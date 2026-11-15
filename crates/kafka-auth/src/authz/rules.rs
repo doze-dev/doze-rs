@@ -3,7 +3,9 @@
 use std::collections::BTreeSet;
 
 use super::set::ByType;
-use super::{Acl, AclSet, WILDCARD, WILDCARD_PRINCIPAL, operation, permission};
+use super::{
+    Acl, AclSet, Operation, ResourceType, WILDCARD, WILDCARD_PRINCIPAL, operation, permission,
+};
 
 /// Who is asking, and from where: the principal as `Type:name`, and the textual address of the client.
 #[derive(Debug, Clone, Copy)]
@@ -17,8 +19,8 @@ pub struct Subject<'a> {
 /// What is asked about: a resource of a type, by its name (always a concrete name, never a pattern).
 #[derive(Debug, Clone, Copy)]
 pub struct Resource<'a> {
-    /// The resource type (`codes::resource`).
-    pub kind: i8,
+    /// The resource type.
+    pub kind: ResourceType,
     /// The name.
     pub name: &'a str,
 }
@@ -59,7 +61,7 @@ impl Rules {
         set: &AclSet,
         who: Subject<'_>,
         resource: Resource<'_>,
-        op: i8,
+        op: Operation,
     ) -> bool {
         if self.super_users.contains(who.principal) {
             return true;
@@ -73,7 +75,12 @@ impl Rules {
 }
 
 /// What the ACLs that cover `resource` decide for `who` doing `op`.
-pub(super) fn verdict(set: &AclSet, who: Subject<'_>, resource: Resource<'_>, op: i8) -> Verdict {
+pub(super) fn verdict(
+    set: &AclSet,
+    who: Subject<'_>,
+    resource: Resource<'_>,
+    op: Operation,
+) -> Verdict {
     let Some(by_type) = set.of_type(resource.kind) else {
         return Verdict::Uncovered;
     };
@@ -113,7 +120,7 @@ fn covering<'a>(by_type: &'a ByType, name: &'a str) -> impl Iterator<Item = &'a 
 
 /// `findResult`: `Some(true)` if the ACL allows this, `Some(false)` if it denies, `None` if it is not about
 /// this principal, host or operation.
-fn result_of(acl: &Acl, who: Subject<'_>, op: i8) -> Option<bool> {
+fn result_of(acl: &Acl, who: Subject<'_>, op: Operation) -> Option<bool> {
     if acl.principal != who.principal && acl.principal != WILDCARD_PRINCIPAL {
         return None;
     }
@@ -125,7 +132,7 @@ fn result_of(acl: &Acl, who: Subject<'_>, op: i8) -> Option<bool> {
         // Only an ALLOW implies: a DENY of Read does not deny Describe.
         let applies = if allow {
             match op {
-                operation::DESCRIBE => matches!(
+                Operation::Describe => matches!(
                     acl.operation,
                     operation::DESCRIBE
                         | operation::READ
@@ -133,14 +140,14 @@ fn result_of(acl: &Acl, who: Subject<'_>, op: i8) -> Option<bool> {
                         | operation::DELETE
                         | operation::ALTER
                 ),
-                operation::DESCRIBE_CONFIGS => matches!(
+                Operation::DescribeConfigs => matches!(
                     acl.operation,
                     operation::DESCRIBE_CONFIGS | operation::ALTER_CONFIGS
                 ),
-                _ => acl.operation == op,
+                _ => acl.operation == op.code(),
             }
         } else {
-            acl.operation == op
+            acl.operation == op.code()
         };
         if !applies {
             return None;

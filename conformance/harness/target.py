@@ -32,7 +32,9 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 DOZE_ACCOUNT = "111122223333"
 DOZE_REGION = "us-east-1"
 
-AWS_HOST = re.compile(r"https?://[a-z0-9.-]+\.amazonaws\.com")
+# Not acs.amazonaws.com: that is the namespace of S3's ACL groups (`http://acs.amazonaws.com/groups/global/AllUsers`), a fixed
+# identifier, not a host either target answers from.
+AWS_HOST = re.compile(r"https?://(?!acs\.amazonaws\.com)[a-z0-9.-]+\.amazonaws\.com")
 
 
 class Target:
@@ -115,7 +117,9 @@ class Doze(Target):
         )
 
     def normalizer(self):
-        return Normalizer(self.account, endpoints=[self.endpoint], region=self.region)
+        # Whoever the test keys are to doze-aws: a refusal names its caller, as AWS's names the recorder's session.
+        caller = self.client("sts").get_caller_identity()["Arn"]
+        return Normalizer(self.account, endpoints=[self.endpoint], region=self.region, caller=caller)
 
     def execute_api_url(self, api_id, stage, path):
         # The path form of the execute-api plane: it needs no .doze DNS.
@@ -162,7 +166,8 @@ class AWS(Target):
             )
         self.region = os.environ.get("CONFORMANCE_AWS_REGION", DOZE_REGION)
         self.session = boto3.Session(region_name=self.region)
-        self.account = self.session.client("sts").get_caller_identity()["Account"]
+        me = self.session.client("sts").get_caller_identity()
+        self.account, self.caller = me["Account"], me["Arn"]
         if self.account != want:
             raise RuntimeError(
                 f"the credentials in this environment belong to account {self.account}, "
@@ -170,13 +175,18 @@ class AWS(Target):
             )
 
     def client(self, service, **kw):
+        # A short connect timeout: where an endpoint's IPv6 addresses do not answer (seen 2026-11-15 on the recorder's network),
+        # botocore tries each one for 60 s before IPv4, and the request reaches AWS after its signature has expired.
+        if "config" not in kw:
+            from botocore.config import Config
+            kw["config"] = Config(connect_timeout=5)
         client = self.session.client(service, **kw)
         if service == "kms":
             _mark_kms_keys(client)
         return client
 
     def normalizer(self):
-        return Normalizer(self.account, endpoint_patterns=[AWS_HOST], region=self.region)
+        return Normalizer(self.account, endpoint_patterns=[AWS_HOST], region=self.region, caller=self.caller)
 
     def execute_api_url(self, api_id, stage, path):
         return f"https://{api_id}.execute-api.{self.region}.amazonaws.com/{stage}/{path.lstrip('/')}"

@@ -345,8 +345,10 @@ pub(crate) fn decode_call(
             } else {
                 body.as_str()
             };
-            decode(tables, &entry.patterns, shape, text, &mut arena)
-                .map_err(|v| entry.service.invalid_in(&v, text))?
+            decode(tables, &entry.patterns, shape, text, &mut arena).map_err(|v| {
+                let e = entry.service.invalid_in(&v, text);
+                aws_wire::located::place(e, tables, &entry.patterns, shape, text, &v)
+            })?
         }
         None => NIL,
     };

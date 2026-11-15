@@ -94,8 +94,12 @@ impl Core {
     }
 }
 
-/// A group as `GetScheduleGroup` and `ListScheduleGroups` show it.
+/// A group as `GetScheduleGroup` and `ListScheduleGroups` show it. The default group is shown by its name and state alone: no
+/// ARN and no dates (recorded 2026-11-15 for `GetScheduleGroup`; the listing is `(memory)`).
 fn summary(g: &Group) -> Value {
+    if g.name == DEFAULT_GROUP {
+        return json!({"Name": g.name, "State": "ACTIVE"});
+    }
     json!({
         "Arn": g.arn,
         "Name": g.name,

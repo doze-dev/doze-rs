@@ -347,6 +347,8 @@ async fn an_export_in_use_keeps_its_stack() {
         .await
         .unwrap();
     assert_eq!(imports["Imports"], json!(["eb"]));
-    assert_eq!(w.delete("ea").await, "DELETE_FAILED");
+    // The delete is canceled and the stack is as it was (recorded 2026-11-15).
+    assert_eq!(w.delete("ea").await, "CREATE_COMPLETE");
     assert_eq!(w.delete("eb").await, "DELETE_COMPLETE");
+    assert_eq!(w.delete("ea").await, "DELETE_COMPLETE");
 }

@@ -10,6 +10,14 @@ use super::txn::AbortedTxn;
 use crate::fs::Fs;
 use crate::segment::{SegmentView, index_path, log_path};
 
+/// What planning found: a round to run, or that the log is not due and the first time it could be with nothing written to
+/// it (`None`: not until it is written to).
+#[derive(Debug)]
+pub enum Planned<F: Fs> {
+    Due(CleanJob<F>),
+    NotDue { next_ms: Option<i64> },
+}
+
 /// A sealed segment given to a job.
 pub(crate) struct Input<F: Fs> {
     pub(crate) base: Offset,

@@ -1,0 +1,46 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the sh`elves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off b kaf{a "kafka" {
+  version            = 4
+  port               = 9092
+ ps failing goes to pick2-lists-dlq after five tries
+  # instead ://github.com/axllent/mai rate-limits in Redis and
+# forwards /api/... to the service that owns the answeril for sign-ups, orders and declined cards. TypeScript on bun, and a
+# worker: no port, so it runs until stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-notifications]
+
+  env = {
+    KAFKA_BROKELFILMENT_URL      = app.fulfilment.url    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5173
+  ready = http("/")
+  after = [task.install-storefront]
+
+  env = A{
+    GATEWAY_URL = app.gateway.url
+  }
+}

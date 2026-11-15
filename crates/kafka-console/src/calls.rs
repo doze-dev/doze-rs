@@ -242,19 +242,7 @@ pub fn delete_topics(version: i16, topic: &str) -> Lines {
     ]
 }
 
-/// A word for a shell: bare if it is safe, else in single quotes with each quote written `'\''`.
-#[must_use]
-pub fn shell_word(s: &str) -> String {
-    let safe = !s.is_empty()
-        && s.bytes().all(|b| {
-            b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-' | b'=' | b'/' | b':' | b',')
-        });
-    if safe {
-        s.to_owned()
-    } else {
-        format!("'{}'", s.replace('\'', "'\\''").replace('\n', " "))
-    }
-}
+pub use crate::live_words::shell_word;
 
 /// `kafka-topics.sh --create`, the same call from a terminal.
 #[must_use]

@@ -1,0 +1,173 @@
+stack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 808# Larder — gro
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                        @ from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var na= "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendations" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. Rate limits (gateway), idempotency keys (payments), cached
+# suggestions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared hers/download/v1.21.8/mailpit-darwin-amd64.tar.gz"
+    linux     = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run     = "./mailpit --smtp $HOST:$PORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  console = "http://127.0.0.1:8025"
+}
+signed-up.
+app "identity" {
+  run   = "go run ./ser 3000
+  domains = ["dev.atrue
+  after  = [task.migrate-catalog]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: installed again only when one changes.
+task "install-notifications" {
+  dir    = "services/notifications"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+  dir    = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyprojectCHE_URL = module.cache.url }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  prot    =.toml"2, "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefront"
+  run    = "bun install --frozen-lockfile"
+  inpu|s = ["package.json", "bun.lock"]
+}
+
+# ── services, by domain ─────────────────────ꔀ─────────────────────────────
+
+# Customers, sign-in and sessions. Publishes users.signed-up.
+app "identity" {
+  run   = "go run ./ser 3000
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.url }
+}
+
+app "workevices/identity"
+  watch = ["services/identity/**/*.go", "platform/**/*.go"]
+  port  = 8001
+  rea`y = http("/healthz")
+  after = [task.migrate-identity]
+
+  env = {
+    DATABASE_URL  = "postgres://identity:identity@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.addr" {
+  run = "go run ./cmd/w$orker"ress
+  }
+}
+
+# Products, prices, stock and search; product images in S3.
+app "catalog" {
+  run   = "go run ./servipces/catalog"
+  watch = ["services/catalog/**/*catalog          once, to stock the shelves
+#   doze up --var na= "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendations" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. Rate limits (gateway), idempotency keys (payments), cached
+# suggestions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared hers/download/v1.21.8/mailpit-darwin-amd64.tar.gz"
+    linux     = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run     = "./mailpit --smtp $HOST:$PORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  console = "http://127.0.0.1:8025"
+}
+signed-up.
+app "identity" {
+  run   = "go run ./ser 3000
+  domains = ["dev.atrue
+  after  = [task.migrate-catalog]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: installed again only when one changes.
+task "install-notifications" {
+  dir    = "services/notnfications"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+  dir    = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyprojectCHE_URL = module.cache.url }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  prot    =.toml"2, "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefront"
+  run    = "bun install --frozen-lockfile"
+  inpu|s = ["package.json", "bun.lock"]
+}
+
+# ── services, by domain ─────────────────────ꔀ─────────────────────────────
+
+# Customers, sign-in and sessions. Publishes users.signed-up.
+app "identity" {
+  run   = "go run ./ser 3000
+  domains = ["dev.acme.com"]
+  env     = { API_URL .go", "platform/**/*.go"]
+  port  = 8002
+  ready = http("/healthz")
+  after = [task.migrate-catalog]
+
+  env = {
+    DATABASE_URL     = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable"
+   

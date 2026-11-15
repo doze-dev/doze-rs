@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use kafka_auth::authz::{AclSet, Resource, Rules, operation, resource};
+use kafka_auth::authz::{AclSet, Operation, Resource, ResourceType, Rules};
 
 use crate::Caller;
 
@@ -34,11 +34,11 @@ impl TopicRights {
     #[must_use]
     pub(crate) fn may_describe(&self, name: &str) -> bool {
         let topic = Resource {
-            kind: resource::TOPIC,
+            kind: ResourceType::Topic,
             name,
         };
         self.rules
-            .authorize(&self.set, self.who.subject(), topic, operation::DESCRIBE)
+            .authorize(&self.set, self.who.subject(), topic, Operation::Describe)
     }
 }
 

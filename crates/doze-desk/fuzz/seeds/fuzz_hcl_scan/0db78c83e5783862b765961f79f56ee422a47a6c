@@ -1,0 +1,7 @@
+stack =n ./cmd/api"
+  p_URL = module.db.url, CACHE_URL = module.cac.= 8 }
+
+task "migtate" {
+  run = "go run ./cmd/migrate"
+  env = { DATABARE_URL = module.db.url }
+}
