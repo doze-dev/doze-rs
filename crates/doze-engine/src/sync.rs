@@ -8,7 +8,7 @@ use crate::applied::{self, Applied, Change};
 use crate::engine::Engine;
 use crate::error::Error;
 use crate::events::Cause;
-use crate::stack::{Kind, PlanCtx, Structure};
+use crate::stack::{Kind, PlanCtx};
 use doze_module_proto::msg::instance::Object;
 use std::collections::BTreeMap;
 
@@ -29,7 +29,10 @@ impl Engine {
         let mut out = Vec::new();
         for n in self.targets(name)? {
             let off = self.update(|c| c.m.table().is_off(&n));
-            let Some(s) = self.structure_of(&n).filter(|_| !off) else {
+            let Some(p) = self.structure_of(&n).filter(|_| !off) else {
+                continue;
+            };
+            let Some(s) = p.structure() else {
                 continue;
             };
             self.wake(&n, Cause::Command).await?;
@@ -60,7 +63,10 @@ impl Engine {
         let mut out = Vec::new();
         for n in self.targets(name)? {
             let off = self.update(|c| c.m.table().is_off(&n));
-            let Some(s) = self.structure_of(&n).filter(|_| !off) else {
+            let Some(p) = self.structure_of(&n).filter(|_| !off) else {
+                continue;
+            };
+            let Some(s) = p.structure() else {
                 continue;
             };
             let desired = s
@@ -90,7 +96,7 @@ impl Engine {
             if prior.is_empty() {
                 continue;
             }
-            if let Some(s) = self.structure_of(&n) {
+            if let Some(s) = self.structure_of(&n).as_deref().and_then(|p| p.structure()) {
                 self.wake(&n, Cause::Command).await?;
                 let ctx = self.ctx_for(&n);
                 let reverse: Vec<Object> = prior.into_iter().rev().collect();
@@ -132,9 +138,10 @@ impl Engine {
         }
     }
 
-    fn structure_of(&self, name: &str) -> Option<&dyn Structure> {
-        match &self.service(name).ok()?.kind {
-            Kind::Planned(p) => p.structure(),
+    /// The planner of `name` when it has structure to apply.
+    fn structure_of(&self, name: &str) -> Option<std::sync::Arc<dyn crate::stack::Planner>> {
+        match self.service(name).ok()?.kind {
+            Kind::Planned(p) => p.structure().is_some().then_some(p),
             _ => None,
         }
     }

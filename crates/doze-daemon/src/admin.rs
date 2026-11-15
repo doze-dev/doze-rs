@@ -70,7 +70,7 @@ fn module(d: &Daemon, name: &str) -> Result<Option<Arc<ModuleInstance>>, Box<Res
     if !declared(d, name) {
         return Err(Box::new(not_declared(name)));
     }
-    Ok(d.inner.modules.get(name).cloned())
+    Ok(d.module(name))
 }
 
 fn running(d: &Daemon, name: &str) -> bool {
@@ -152,12 +152,7 @@ pub(crate) async fn admin(d: &Daemon, req: &doze_control::Request) -> Response {
         None => false,
     };
     let Some(mi) = mi.filter(|_| has) else {
-        let engine = d
-            .inner
-            .labels
-            .get(name)
-            .map(|l| l.engine.clone())
-            .unwrap_or_default();
+        let engine = d.label(name).map(|l| l.engine).unwrap_or_default();
         return failed(
             format!("instance {name:?} ({engine}) has no data actions"),
             "",
@@ -172,6 +167,56 @@ pub(crate) async fn admin(d: &Daemon, req: &doze_control::Request) -> Response {
         Ok(result) => Response {
             ok: true,
             result,
+            ..Response::default()
+        },
+        Err(err) => failed(err, ""),
+    }
+}
+
+/// `migrate` (additive; Go's CLI did postgres's own dump and restore): the instance's module moves its data to the
+/// version its block declares. It is stopped and kept from waking while its module works; nothing here knows what
+/// the module does.
+pub(crate) async fn migrate(d: &Daemon, name: &str) -> Response {
+    if name.is_empty() {
+        return failed("migrate needs an instance name".into(), "");
+    }
+    let engine = d.label(name).map(|l| l.engine).unwrap_or_default();
+    let none = || {
+        failed(
+            format!(
+                "{name} is {engine}; its module has no migration (it keeps its data across versions, or has no such step)"
+            ),
+            "",
+        )
+    };
+    let mi = match module(d, name) {
+        Ok(Some(mi)) => mi,
+        Ok(None) => return none(),
+        Err(r) => return *r,
+    };
+    match mi.has_migrate().await {
+        Ok(true) => {}
+        Ok(false) => return none(),
+        Err(err) => return failed(err, ""),
+    }
+    let _held = match d.claim(name) {
+        Ok(c) => c,
+        Err(err) => return failed(err, ""),
+    };
+    let e = d.engine();
+    let was_off = e.get(name).is_some_and(|i| i.off);
+    if let Err(err) = e.set_off(name, true).await {
+        return failed(format!("stopping {name:?}: {err}"), "");
+    }
+    let moved = mi.migrate(&e.ctx_for(name)).await;
+    // Back into the run as it was.
+    if !was_off {
+        let _ = e.set_off(name, false).await;
+    }
+    match moved {
+        Ok(said) => Response {
+            ok: true,
+            result: said,
             ..Response::default()
         },
         Err(err) => failed(err, ""),

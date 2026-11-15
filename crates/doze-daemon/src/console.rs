@@ -165,7 +165,7 @@ pub(crate) async fn console(
             ..ConsoleFrame::default()
         });
     }
-    let mi = d.inner.modules.get(name).cloned();
+    let mi = d.module(name);
     let manifest = match &mi {
         Some(mi) => Some(mi.manifest().await?),
         None => None,

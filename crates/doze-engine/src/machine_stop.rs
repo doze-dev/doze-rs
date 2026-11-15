@@ -172,14 +172,18 @@ impl Machine {
         self.stop_all(Cause::Shutdown)
     }
 
-    /// One more client connection.
+    /// One more client connection (none for a name no longer declared: a connection that outlived a remove).
     pub fn acquire(&mut self, name: &str) {
-        self.table.acquire(name);
+        if self.declared.contains(name) {
+            self.table.acquire(name);
+        }
     }
 
-    /// One client connection fewer.
+    /// One client connection fewer (likewise).
     pub fn release(&mut self, name: &str, now: Now) {
-        self.table.release(name, now);
+        if self.declared.contains(name) {
+            self.table.release(name, now);
+        }
     }
 
     /// Flips the pin; the new value and its journal event.

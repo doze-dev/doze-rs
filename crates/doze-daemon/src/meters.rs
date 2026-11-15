@@ -78,7 +78,7 @@ impl Drop for Watching<'_> {
 /// Whether an instance shows the processes under it: what doze runs from a command (an app, service or task; a
 /// module's own processes are its business, as Go showed them only for apps).
 fn shows_children(d: &Daemon, name: &str) -> bool {
-    d.inner.labels.get(name).is_some_and(|l| !l.kind.is_empty())
+    d.label(name).is_some_and(|l| !l.kind.is_empty())
 }
 
 fn proc_view(n: &doze_os::meters::Node) -> ProcView {

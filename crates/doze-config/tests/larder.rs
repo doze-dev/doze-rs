@@ -29,6 +29,7 @@ use support::{Fixtures, OracleHost};
 
 const PROBE: &str = r#"app "probe" {
   run = "env > \"$DATA/env.txt\"; exec sleep 600"
+  watch = ["src/*.txt"]
   env = {
     REDIS = module.redis.address
   }
@@ -127,6 +128,16 @@ async fn larder_runs_in_the_engine() {
     };
     let stack = to_stack(&cfg, &w);
     every_block_runs(&cfg, &stack);
+    let probe = stack.service("probe").unwrap();
+    assert_eq!(
+        probe
+            .watch
+            .iter()
+            .map(|w| (w.dir.clone(), w.globs.clone()))
+            .collect::<Vec<_>>(),
+        [(project.clone(), vec!["src/*.txt".to_string()])],
+        "its watch reaches the engine, under its folder"
+    );
     let gateway = stack.service("gateway").unwrap();
     assert!(
         gateway.needs.iter().any(|n| n.name == "redis"),

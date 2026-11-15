@@ -40,7 +40,7 @@ impl Module for Echo {
             category: "test".into(),
             title: "Echo".into(),
             tagline: "A module for testing the SDK".into(),
-            versions: vec!["1".into(), "2".into()],
+            versions: versions(),
             exact_dots: 2,
             default_port: 7000,
             backend_socket: Some("echo.sock".into()),
@@ -147,11 +147,15 @@ impl Module for Echo {
             .join("echo.sock")
             .to_string_lossy()
             .into_owned();
-        let (listen, ready) = match backend {
+        let (listen, mut ready) = match backend {
             Some(Address::Tcp(a)) => (format!("tcp:{a}"), Ready::Tcp(a)),
             Some(Address::Unix(p)) => (format!("unix:{p}"), Ready::Socket(p)),
             None => (format!("unix:{socket}"), Ready::Socket(socket)),
         };
+        // `settings.ready = "log"`: ready when the engine says so, so where it is reached comes from the grant alone.
+        if cx.spec.settings.get("ready").is_some_and(|r| r == "log") {
+            ready = Ready::LogLine("listening".into());
+        }
         let mut args = vec![
             "--listen".to_string(),
             listen,
@@ -161,7 +165,7 @@ impl Module for Echo {
         if let Some(g) = &cx.spec.greeting {
             args.push(format!("--greeting={g}"));
         }
-        for (k, v) in help::settings(&cx.spec.settings, &["socket"]) {
+        for (k, v) in help::settings(&cx.spec.settings, &["socket", "ready"]) {
             args.push(format!("--{k}={v}"));
         }
         let program = std::path::Path::new(&tc.bin_dir)
@@ -278,6 +282,7 @@ fn main() -> std::process::ExitCode {
         .wire()
         .admin()
         .console()
+        .migrate()
         .run()
 }
 
@@ -344,5 +349,55 @@ fn console() -> doze_module::proto::msg::console::ConsoleSpec {
             after: "vitals".into(),
             node: stat,
         }],
+    }
+}
+
+impl doze_module::caps::Migrate for Echo {
+    /// Moves the data's version marker to the declared version, after asking the host for the old major's build (as
+    /// postgres reads its old data with its old server).
+    async fn migrate(&self, cx: &Cx<EchoSpec>, _pins: &[Pin], _target: &str) -> Result<String> {
+        use doze_module::proto::msg::error::{Error, ErrorKind};
+        record(&cx.spec, "migrate");
+        let marker = std::path::Path::new(&cx.instance.data_dir).join("ECHO_VERSION");
+        let from = std::fs::read_to_string(&marker).map_err(|_| {
+            Error::new(
+                ErrorKind::Invalid,
+                format!(
+                    "{} has no data yet: there is nothing to move",
+                    cx.instance.name
+                ),
+            )
+        })?;
+        let to = &cx.instance.version;
+        if from.trim() == to {
+            return Err(Error::new(
+                ErrorKind::Invalid,
+                format!(
+                    "{} is already on echo {to}; nothing to move",
+                    cx.instance.name
+                ),
+            ));
+        }
+        let old = cx.fetch().resolve_major("echo", from.trim()).await?;
+        std::fs::write(&marker, to.as_bytes())
+            .map_err(|e| Error::new(ErrorKind::Unavailable, e.to_string()))?;
+        Ok(format!(
+            "{} is on echo {to} now (its echo {old} data was read)",
+            cx.instance.name
+        ))
+    }
+}
+
+/// Engines 1 and 2; a copy of this program named `…-v1` serves engine 1 only (the daemon's test of one build per
+/// major).
+fn versions() -> Vec<String> {
+    let only1 = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.file_stem().map(|s| s.to_string_lossy().ends_with("-v1")))
+        .unwrap_or(false);
+    if only1 {
+        vec!["1".into()]
+    } else {
+        vec!["1".into(), "2".into()]
     }
 }

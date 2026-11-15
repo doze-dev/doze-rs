@@ -48,7 +48,7 @@ pub(crate) fn fill_paths(d: &Daemon, views: &mut [InstanceView]) {
         let Some(c) = v.connect.as_mut() else {
             continue;
         };
-        let Some(tc) = d.inner.modules.get(&v.name).and_then(|m| m.toolchain()) else {
+        let Some(tc) = d.module(&v.name).and_then(|m| m.toolchain()) else {
             continue;
         };
         let dir = std::path::Path::new(&tc.bin_dir);

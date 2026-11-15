@@ -80,34 +80,46 @@ impl Catalog {
         crate::lock(&self.manifests).get(ty).cloned()
     }
 
-    /// Finds `ty`'s build and starts its module for its hello; its manifest.
-    fn resolve(&self, ty: &str, version: &str) -> Result<Manifest, String> {
-        let major = version.split('.').next().unwrap_or_default();
+    /// Finds `ty`'s build for `version`'s major and starts its module (as `key`) for its hello; its manifest. A build
+    /// already running as another key is not started twice.
+    fn resolve(&self, key: &str, ty: &str, version: &str) -> Result<Manifest, String> {
+        let major = major_of(version);
         let majors = if major.is_empty() {
             Vec::new()
         } else {
             vec![major.to_string()]
         };
-        let exe = self
-            .rt
-            .block_on(self.finder.find(ty, &majors, &self.lock))?;
-        crate::lock(&self.exes).insert(ty.to_string(), exe);
+        let exe = self.rt.block_on(self.finder.find(
+            ty,
+            &majors,
+            (key == ty).then_some(self.lock.as_path()),
+        ))?;
+        {
+            let mut exes = crate::lock(&self.exes);
+            if key != ty && exes.get(ty) == Some(&exe) {
+                return Err(format!(
+                    "the {ty} module found for {major} is the one already running"
+                ));
+            }
+            exes.insert(key.to_string(), exe);
+        }
         let m = self
             .rt
-            .block_on(self.pool.get(ty))
+            .block_on(self.pool.get(key))
             .map_err(|e| format!("module {ty}: {}", e.message))?;
         Ok(m.manifest.clone())
     }
 
-    fn running(&self, ty: &str) -> Option<Arc<Running>> {
-        self.manifest(ty)?;
-        self.rt.block_on(self.pool.get(ty)).ok()
+    fn running(&self, ty: &str, version: &str) -> Option<Arc<Running>> {
+        let key = self.key(ty, version);
+        self.manifest(&key)?;
+        self.rt.block_on(self.pool.get(&key)).ok()
     }
 
     /// What one instance publishes: its connection (variable, URL, more variables) and, when the module offers them,
     /// attributes of its own.
     pub fn published(&self, i: &Instance) -> Option<Published> {
-        let m = self.running(&i.engine)?;
+        let m = self.running(&i.engine, &i.version)?;
         let conn = self.rt.block_on(m.connection(i)).ok()?;
         let extras = if m.manifest.caps & caps::ATTRIBUTES != 0 {
             self.rt.block_on(m.attributes(i)).unwrap_or_default()
@@ -134,7 +146,7 @@ impl Catalog {
 
     /// Whether the instance's engine cannot listen on a socket file (its main listener is `tcp`, PLAN.md D13).
     pub fn main_is_tcp(&self, i: &Instance) -> bool {
-        let Some(m) = self.running(&i.engine) else {
+        let Some(m) = self.running(&i.engine, &i.version) else {
             return false;
         };
         self.rt
@@ -157,12 +169,14 @@ impl Catalog {
 
 /// Where a module type's build comes from.
 pub trait Finder: Send + Sync {
-    /// The executable of the build of module `ty` that serves engine `majors`, pinned in the lock at `lock`.
+    /// The executable of the build of module `ty` that serves engine `majors`, pinned in the lock at `lock`; with no
+    /// lock, resolved from the registry and recorded nowhere (a second build of a type: doze.lock keeps one pin per
+    /// module source).
     fn find<'a>(
         &'a self,
         ty: &'a str,
         majors: &'a [String],
-        lock: &'a Path,
+        lock: Option<&'a Path>,
     ) -> BoxFuture<'a, Result<PathBuf, String>>;
 }
 
@@ -176,14 +190,14 @@ impl Finder for Fetched {
         &'a self,
         ty: &'a str,
         majors: &'a [String],
-        lock: &'a Path,
+        lock: Option<&'a Path>,
     ) -> BoxFuture<'a, Result<PathBuf, String>> {
         Box::pin(async move {
             let req = Request::Module {
                 source: ty.to_string(),
                 majors: majors.to_vec(),
-                lock: Some(lock.to_path_buf()),
-                persist: true,
+                lock: lock.map(Path::to_path_buf),
+                persist: lock.is_some(),
             };
             let reply = self.0.ask(&req).await.map_err(|e| e.message)?;
             if let Some(e) = reply.error {
@@ -297,12 +311,12 @@ pub fn granted(addr: String, backend: Address) -> Granted {
 impl Modules for Catalog {
     fn lookup(&self, ty: &str, version: &str) -> Option<ModuleInfo> {
         if let Some(m) = self.manifest(ty) {
-            return Some(info(&m));
+            return Some(info(&self.another_build(ty, version, m)));
         }
         if crate::lock(&self.failed).contains_key(ty) {
             return None;
         }
-        match self.resolve(ty, version) {
+        match self.resolve(ty, ty, version) {
             Ok(m) => {
                 let i = info(&m);
                 crate::lock(&self.manifests).insert(ty.to_string(), m);
@@ -333,14 +347,14 @@ impl Modules for Catalog {
     }
 
     fn check_support(&self, ty: &str, version: &str) -> Result<(), String> {
-        let Some(m) = self.manifest(ty) else {
+        let Some(m) = self.manifest_for(ty, version) else {
             return Ok(());
         };
         supports(ty, &m, version)
     }
 
     fn attributes(&self, call: &Call<'_>) -> Attributes {
-        let Some(m) = self.manifest(call.ty) else {
+        let Some(m) = self.manifest_for(call.ty, call.version) else {
             return Attributes::default();
         };
         let Some(p) = self.published(&instance_for(call, &m)) else {
@@ -358,10 +372,10 @@ impl Modules for Catalog {
     }
 
     fn listeners(&self, call: &Call<'_>, _port: u16) -> Vec<Listener> {
-        let Some(m) = self.manifest(call.ty) else {
+        let Some(m) = self.manifest_for(call.ty, call.version) else {
             return Vec::new();
         };
-        let Some(r) = self.running(call.ty) else {
+        let Some(r) = self.running(call.ty, call.version) else {
             return Vec::new();
         };
         let i = instance_for(call, &m);
@@ -408,3 +422,7 @@ pub fn supports(ty: &str, m: &Manifest, version: &str) -> Result<(), String> {
 #[cfg(test)]
 #[path = "catalog_tests.rs"]
 pub(crate) mod tests;
+
+#[path = "catalog_builds.rs"]
+mod builds;
+use builds::major_of;

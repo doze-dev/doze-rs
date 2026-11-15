@@ -77,9 +77,9 @@ impl Running {
         A: minicbor::Encode<()>,
         R: for<'b> minicbor::Decode<'b, ()>,
     {
-        self.in_flight.fetch_add(1, Ordering::SeqCst);
-        let r = self
-            .peer
+        // Counted while in flight, and uncounted even when the caller drops the call (a cancelled start).
+        let _busy = Busy::enter(self);
+        self.peer
             .call(
                 m,
                 args,
@@ -88,13 +88,7 @@ impl Running {
                     ..CallOpts::default()
                 },
             )
-            .await;
-        // Idle counts from when the last call ended.
-        if let Ok(mut t) = self.last_used.lock() {
-            *t = Instant::now();
-        }
-        self.in_flight.fetch_sub(1, Ordering::SeqCst);
-        r
+            .await
     }
 
     /// Whether the module's channel is still open.
@@ -182,6 +176,10 @@ impl Running {
     pub async fn run_action(&self, a: &RunAction) -> Result<String, Error> {
         self.call(Method::RunAction, a, SLOW).await
     }
+    /// Moves an instance's data to the version its block declares (it may fetch the builds it needs); what it did.
+    pub async fn migrate(&self, a: &ResolveArgs) -> Result<String, Error> {
+        self.call(Method::Migrate, a, SLOW).await
+    }
 
     /// A console stream; drop it to stop.
     pub fn tail(&self, a: &TailArgs) -> Result<Stream, Error> {
@@ -216,5 +214,24 @@ impl Running {
         {
             let _ = c.start_kill();
         }
+    }
+}
+
+/// One call in flight: idle counts from when the last one ended, whether it finished or was dropped.
+struct Busy<'a>(&'a Running);
+
+impl<'a> Busy<'a> {
+    fn enter(r: &'a Running) -> Busy<'a> {
+        r.in_flight.fetch_add(1, Ordering::SeqCst);
+        Busy(r)
+    }
+}
+
+impl Drop for Busy<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut t) = self.0.last_used.lock() {
+            *t = Instant::now();
+        }
+        self.0.in_flight.fetch_sub(1, Ordering::SeqCst);
     }
 }

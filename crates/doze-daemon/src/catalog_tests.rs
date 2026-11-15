@@ -80,3 +80,38 @@ fn the_locks_engine_pins_are_carried_as_the_protocol_carries_them() {
     assert!(lock_pins(&d.join("none")).is_empty(), "no lock, no pins");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// The D1 audit's lock writer: instances recording pins at once each keep theirs (one writer at a time).
+#[test]
+fn pins_recorded_at_once_are_all_kept() {
+    let dir = std::env::temp_dir().join(format!("doze-pins-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap_or_default();
+    let path = dir.join(doze_fetch::lock::FILE);
+    let writers: Vec<_> = (0..8)
+        .map(|n| {
+            let path = path.clone();
+            std::thread::spawn(move || {
+                let pin = doze_module_proto::msg::run::Pin {
+                    engine: format!("e{n}"),
+                    spec: "1".into(),
+                    resolved: "1.0.0".into(),
+                    hashes: std::collections::BTreeMap::from([(
+                        "t".to_string(),
+                        format!("sha256:{n}"),
+                    )]),
+                };
+                record_pins(&path, &[pin]);
+            })
+        })
+        .collect();
+    for w in writers {
+        assert!(w.join().is_ok());
+    }
+    let lock = doze_fetch::lock::Lock::load(&path).ok();
+    let engines: Vec<String> = lock
+        .map(|l| l.engines.keys().cloned().collect())
+        .unwrap_or_default();
+    assert_eq!(engines.len(), 8, "{engines:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
