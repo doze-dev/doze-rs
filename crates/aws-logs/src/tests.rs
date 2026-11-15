@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use crate::Logs;
 use crate::core::Core;
 
+mod data;
 mod events;
 mod groups;
 mod persistence;
