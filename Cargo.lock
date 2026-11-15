@@ -1446,9 +1446,15 @@ dependencies = [
 name = "aws-webhook"
 version = "0.0.0"
 dependencies = [
+ "aws-core",
+ "p256",
+ "p384",
+ "p521",
  "rcgen",
+ "rsa",
  "rustls",
  "rustls-native-certs",
+ "serde_json",
  "tokio",
  "tokio-rustls",
  "tracing",

@@ -31,10 +31,8 @@ bytes = "1"
 regex-lite = "0.1"
 # Ids are random; getrandom is already linked (request ids, KMS).
 getrandom = "0.4"
-# The WebSocket handshake hashes with SHA-1 (RFC 6455); a JWT is verified with RSA (RS256) over the SHA-256 `rsa` re-exports. Both are already
-# linked by KMS.
+# The WebSocket handshake hashes with SHA-1 (RFC 6455); already linked by KMS. A JWT is verified by aws-webhook's `jwt`.
 sha1 = "0.11"
-rsa = { version = "=0.10.0-rc.22", default-features = false, features = ["std", "encoding", "pkcs1v15"] }
 tokio = { version = "1", default-features = false, features = ["rt", "sync", "time", "net", "io-util", "macros"] }
 tracing = "0.1"
 
@@ -42,6 +40,8 @@ tracing = "0.1"
 aws-testkit = { path = "../aws-testkit" }
 aws-webhook = { path = "../aws-webhook", features = ["test-server"] }
 aws-logs = { path = "../aws-logs" }
+# The tests sign tokens with a fixed RSA key.
+rsa = { version = "=0.10.0-rc.22", default-features = false, features = ["std", "encoding", "pkcs1v15"] }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync", "net", "io-util"] }
 
 [dev-dependencies.aws-gateway]
