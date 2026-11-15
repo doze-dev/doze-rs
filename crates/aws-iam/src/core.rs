@@ -19,7 +19,7 @@ use crate::accesslog::Seen;
 use crate::model::{AccessKey, Account, Entity, Kind, Managed, Profile, Provider};
 use crate::req::Req;
 
-const FILE: &str = "iam.redb";
+pub(crate) const FILE: &str = "iam.redb";
 const ENTITIES: &str = "entities";
 const POLICIES: &str = "policies";
 const KEYS: &str = "keys";
@@ -49,6 +49,8 @@ pub(crate) enum Ask {
         access_key_id: String,
         session_token: Option<String>,
     },
+    /// From `doze-aws data`: what IAM holds, or remove it all.
+    Data(Box<crate::storage::DataCall>),
 }
 
 /// What the actor answers. A call and a question both come back with the authorization questions they raised, for the access log.
@@ -64,6 +66,8 @@ pub(crate) enum Answer {
     Authorize(Result<(), ApiError>, Vec<Seen>),
     /// The credential, if IAM issued the key.
     Credential(Option<aws_auth::Credential>),
+    /// A data question was answered on its own channel.
+    Data,
 }
 
 /// All of the account's identities. Owned by one task, so no operation needs a lock.
@@ -119,6 +123,13 @@ impl doze_runtime::Service for Core {
                     self.credential(&access_key_id, session_token.as_deref()),
                 );
             }
+            Ask::Data(asked) => {
+                let crate::storage::DataCall { ask, reply } = *asked;
+                if reply.send(self.data(ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                return Answer::Data;
+            }
             Ask::Call { which, call } => (which, call),
         };
         let mut reply = self.dispatch(which, &call);
@@ -172,6 +183,38 @@ impl Core {
         core.ensure_account();
         core.fill_aws_managed();
         Ok(core)
+    }
+
+    /// IAM as a fresh data directory has it, over `db` (whose rows are gone): the account made afresh.
+    pub(crate) fn fresh(clock: Arc<dyn Clock>, db: Option<Db>) -> Self {
+        let mut core = Self::with(clock, Tables::empty(), db);
+        core.ensure_account();
+        core.fill_aws_managed();
+        core
+    }
+
+    /// How many records there are, and the bytes of their rows (the account record is not counted: it is made again).
+    pub(crate) fn count(&self) -> (u64, u64) {
+        use crate::storage::tally;
+        [
+            tally(&self.entities),
+            tally(&self.policies),
+            tally(&self.keys),
+            tally(&self.profiles),
+            tally(&self.providers),
+        ]
+        .iter()
+        .fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1))
+    }
+
+    /// Removes every record.
+    pub(crate) fn clear_all(&mut self) {
+        crate::storage::clear(&mut self.entities);
+        crate::storage::clear(&mut self.policies);
+        crate::storage::clear(&mut self.keys);
+        crate::storage::clear(&mut self.profiles);
+        crate::storage::clear(&mut self.providers);
+        crate::storage::clear(&mut self.account);
     }
 
     fn with(clock: Arc<dyn Clock>, t: Tables, db: Option<Db>) -> Self {
@@ -278,7 +321,6 @@ struct Tables {
 }
 
 impl Tables {
-    #[cfg(test)]
     fn empty() -> Self {
         Self {
             entities: Records::new(ENTITIES, "entity", VERSION),

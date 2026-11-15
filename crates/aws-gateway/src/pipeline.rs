@@ -113,7 +113,12 @@ impl Shared {
 
     /// The services that own addresses of their own.
     pub(crate) fn webs(&self) -> impl Iterator<Item = &dyn aws_wire::service::Web> {
-        self.entries.iter().filter_map(|e| e.service.web())
+        self.config
+            .hooks
+            .0
+            .iter()
+            .map(|h| &**h)
+            .chain(self.entries.iter().filter_map(|e| e.service.web()))
     }
 
     pub(crate) fn entry(&self, signing_name: &str) -> Option<&Entry> {

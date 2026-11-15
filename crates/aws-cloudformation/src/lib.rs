@@ -33,6 +33,7 @@ mod res;
 mod rollback;
 mod stackpolicy;
 mod stacks;
+mod storage;
 mod tmpl;
 mod transform;
 mod web;
@@ -168,6 +169,10 @@ impl Cloudformation {
 }
 
 impl Service for Cloudformation {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static aws_schema::meta::ServiceMeta {
         &META
     }

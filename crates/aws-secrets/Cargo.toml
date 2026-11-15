@@ -24,6 +24,7 @@ doze-store = { path = "../doze-store" }
 serde_json = "1"
 tracing = "0.1"
 serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", default-features = false, features = ["sync"] }
 
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }

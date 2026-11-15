@@ -24,6 +24,7 @@ pub(crate) struct Lab {
     pub(crate) addr: SocketAddr,
     pub(crate) clock: Arc<ManualClock>,
     pub(crate) s3: Arc<S3>,
+    pub(crate) dir: std::path::PathBuf,
     running: Running,
     tasks: Tasks,
 }
@@ -31,10 +32,15 @@ pub(crate) struct Lab {
 pub(crate) async fn lab(name: &str) -> Lab {
     let dir = std::env::temp_dir().join(format!("aws-s3-lock-{name}-{}", std::process::id()));
     std::fs::remove_dir_all(&dir).ok();
-    let clock = Arc::new(ManualClock::at(START_MS));
+    lab_at(dir, START_MS).await
+}
+
+/// A lab over the files already in `dir` (a restart), its clock at `now_ms`.
+pub(crate) async fn lab_at(dir: std::path::PathBuf, now_ms: i64) -> Lab {
+    let clock = Arc::new(ManualClock::at(now_ms));
     let tasks = Tasks::new();
     let ctx = Arc::new(Ctx {
-        dir,
+        dir: dir.clone(),
         idle: Duration::from_secs(300),
         tasks: tasks.clone(),
         clock: clock.clone(),
@@ -50,6 +56,7 @@ pub(crate) async fn lab(name: &str) -> Lab {
         addr: running.local_addr(),
         clock,
         s3,
+        dir,
         running,
         tasks,
     }

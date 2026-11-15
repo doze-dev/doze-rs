@@ -29,6 +29,7 @@ mod req;
 mod schema;
 mod settings;
 mod stage;
+mod storage;
 mod stream;
 mod tables;
 mod tables_update;
@@ -262,6 +263,10 @@ impl Service for Dynamodb {
             ),
             other => aws_wire::service::default_invalid(&TABLES, other),
         }
+    }
+
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
     }
 }
 

@@ -96,7 +96,7 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     gw.anonymous = cfg.text("iam") != "off";
     gw.health = Some(me.health());
     let tasks = Tasks::new();
-    let (gateway, resumable) = crate::wire::gateway(cfg, gw, &on, &tasks);
+    let (gateway, resumable, _data) = crate::wire::gateway(cfg, gw, &on, &tasks);
     let running = match gateway.bind().await {
         Ok(r) => r,
         Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
@@ -119,6 +119,7 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
         );
     }
     announce(cfg, &me, &on, started);
+    mention_size(&data, cfg.count("data-warn-gb"));
     wait_for_stop().await;
     tracing::info!("stopping");
     running.shutdown().await;
@@ -164,6 +165,27 @@ fn announce(cfg: &Config, me: &Instance, on: &[&'static Svc], started: Instant) 
     if let Err(e) = spawned {
         tracing::warn!("--template was not applied: {e}");
     }
+}
+
+/// Once, after the ready block and off the serving thread: when the data directory has grown past `--data-warn-gb`, say so and say what
+/// shows where it went. A person whose disk filled should not have to know where to look.
+fn mention_size(data: &std::path::Path, warn_gb: u64) {
+    let dir = data.to_path_buf();
+    let spawned = std::thread::Builder::new()
+        .name("doze-aws-size".into())
+        .spawn(move || {
+            let kept = crate::data::dir_bytes(&dir);
+            if warn_gb > 0 && kept >= warn_gb << 30 {
+                let shown =
+                    crate::config::display_path(&dir, &std::env::current_dir().unwrap_or_default());
+                println!(
+                    "    {}  doze-aws keeps {} in {shown}: `doze-aws data` shows where it goes\n",
+                    Style::of(Stream::Out).yellow("note     "),
+                    crate::data_show::size(kept)
+                );
+            }
+        });
+    drop(spawned);
 }
 
 fn unix_secs() -> u64 {

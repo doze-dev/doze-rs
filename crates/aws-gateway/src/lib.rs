@@ -23,5 +23,5 @@ mod target;
 mod upload;
 mod web;
 
-pub use config::{Auth, Config};
+pub use config::{Auth, Config, Hooks};
 pub use server::{Gateway, Running};

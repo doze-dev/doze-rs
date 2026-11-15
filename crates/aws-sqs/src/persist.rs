@@ -36,7 +36,7 @@ const FILE: &str = "sqs.redb";
 /// redb's page cache: a dev tool's queues are small, and the idle heap is measured.
 const CACHE_BYTES: usize = 1 << 20;
 /// The version of every record here. A change of any row's shape is a new version with a branch that reads the old one.
-const VERSION: u8 = 1;
+pub(crate) const VERSION: u8 = 1;
 
 /// The bytes last written for a queue, so an unchanged header or FIFO state is not written again.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -110,9 +110,22 @@ impl Persist {
         Ok((Self { store, writer }, loaded))
     }
 
-    /// Stops the writer after it has finished what it was given, and closes the database.
-    pub(crate) fn close(self) {
+    /// How much of the file holds data.
+    pub(crate) fn space(&self) -> Result<doze_store::Space, StoreError> {
+        self.store.space()
+    }
+
+    /// Gives the space deletes freed back to the disk, after the writer has finished what it was given.
+    pub(crate) fn compact(&mut self) -> Result<doze_store::Compacted, StoreError> {
+        self.writer.paused(&mut self.store, Store::compact)?
+    }
+
+    /// Stops the writer after it has finished what it was given, gives back the space deletes left when that is worth it, and
+    /// closes the database.
+    pub(crate) fn close(mut self) {
         self.writer.shutdown();
+        // WHY: one that cannot run now runs at a later close; the data is whole either way.
+        drop(self.store.compact_if_worth());
         // WHY: every commit was flushed when it was made, so a failure to close costs only a longer start next time.
         drop(self.store.close());
     }

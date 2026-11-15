@@ -17,6 +17,7 @@ mod read;
 mod rotate;
 mod schedule;
 mod stage;
+mod storage;
 mod tags;
 mod token;
 
@@ -148,6 +149,10 @@ impl Secrets {
 }
 
 impl Service for Secrets {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static aws_schema::meta::ServiceMeta {
         &META
     }

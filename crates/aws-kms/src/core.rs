@@ -37,6 +37,15 @@ pub(crate) struct Core {
     pub(crate) peers: Option<Arc<Peers>>,
 }
 
+/// What the actor is asked.
+#[derive(Debug)]
+pub(crate) enum Ask {
+    /// A call from the wire (or the peer bus).
+    Call(Box<Call>),
+    /// From `doze-aws data`: what KMS holds, or remove it all.
+    Data(Box<crate::storage::DataCall>),
+}
+
 /// What the actor answers: the reply, and the commit it must wait for.
 #[derive(Debug)]
 pub(crate) struct Answer {
@@ -97,7 +106,7 @@ pub(crate) fn built(op: Operation) -> bool {
 }
 
 impl doze_runtime::Service for Core {
-    type Request = Call;
+    type Request = Ask;
     type Response = Answer;
     type Error = StoreError;
 
@@ -110,7 +119,20 @@ impl doze_runtime::Service for Core {
         Ok(core)
     }
 
-    async fn handle(&mut self, call: Call) -> Answer {
+    async fn handle(&mut self, ask: Ask) -> Answer {
+        let call = match ask {
+            Ask::Call(call) => *call,
+            Ask::Data(asked) => {
+                let crate::storage::DataCall { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                return Answer {
+                    reply: aws_wire::handler::empty(),
+                    durable: None,
+                };
+            }
+        };
         if let Some(peers) = self.peers.clone()
             && peers.mode() != Mode::Off
             && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
@@ -195,6 +217,30 @@ impl Core {
 
     pub(crate) fn now_ms(&self) -> i64 {
         self.clock.now_ms()
+    }
+
+    /// How many keys and aliases there are, and the bytes of their rows.
+    pub(crate) fn count(&self) -> (u64, u64) {
+        let (k, a) = (
+            crate::storage::tally(&self.keys),
+            crate::storage::tally(&self.aliases),
+        );
+        (k.0 + a.0, k.1 + a.1)
+    }
+
+    /// Removes every key, alias and the sealing key, and makes a new sealing key: KMS as a fresh data directory has it.
+    pub(crate) fn wipe(&mut self) -> Result<(), StoreError> {
+        crate::storage::clear(&mut self.keys);
+        crate::storage::clear(&mut self.aliases);
+        crate::storage::clear(&mut self.meta);
+        drop(self.flush()?);
+        let key = aws_seal::new_key().ok_or_else(|| StoreError::Corrupt("no randomness".into()))?;
+        self.sealer = Sealer::new(&key)
+            .ok_or_else(|| StoreError::Corrupt("the sealing key is unreadable".into()))?;
+        self.meta.insert(SEAL_KEY.to_owned(), key);
+        self.next_purge_ms = None;
+        drop(self.flush()?);
+        Ok(())
     }
 
     /// Notes that a key is due to be removed at `at_ms`.
