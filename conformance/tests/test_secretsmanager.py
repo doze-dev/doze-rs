@@ -229,8 +229,9 @@ def test_replica_follows_its_primary(client, names, cleanup, snapshot):
     # Asking again for a region that already holds the replica is not refused (recorded).
     snapshot.outcome("replicate-again", lambda: sm.replicate_secret_to_regions(
         SecretId=name, AddReplicaRegions=[{"Region": REPLICA_REGION}]), opaque=("ARN",))
+    # Made again in the background, as at first: it settles back in sync.
     snapshot.match("after-replicate-again", {"replicas": [
-        {k: r.get(k) for k in ("Region", "Status")} for r in sm.describe_secret(SecretId=name).get("ReplicationStatus", [])]})
+        {k: r.get(k) for k in ("Region", "Status", "StatusMessage")} for r in in_sync(sm, name)]})
     snapshot.match("remove", sm.remove_regions_from_replication(
         SecretId=name, RemoveReplicaRegions=[REPLICA_REGION]), opaque=("ARN",))
     snapshot.error("stop-on-a-primary", lambda: sm.stop_replication_to_replica(SecretId=name))
