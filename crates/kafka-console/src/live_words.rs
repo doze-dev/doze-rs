@@ -370,14 +370,15 @@ mod tests {
     }
 
     /// A real shell reads the words of the command after `kcat` back to exactly what they were: the id is one word, and
-    /// nothing in it runs.
+    /// nothing in it runs. bash, not `/bin/sh`: `$'…'` is one of the shells [`shell_word`] names, and Ubuntu's `/bin/sh` is
+    /// dash, which predates POSIX 2024 and reads `$'line\nnext'` as `$` and a quoted `line\nnext`.
     #[cfg(unix)]
     #[test]
     fn a_shell_reads_every_hostile_id_back_as_one_word_and_runs_none_of_it() {
         for id in HOSTILE {
             let c = first_produce("127.0.0.1:9092", id);
             let (_, args) = c.split_once("kcat ").unwrap();
-            let out = std::process::Command::new("/bin/sh")
+            let out = std::process::Command::new("bash")
                 .arg("-c")
                 .arg(format!("set -- {args}; printf '%s\\0' \"$@\""))
                 .output()

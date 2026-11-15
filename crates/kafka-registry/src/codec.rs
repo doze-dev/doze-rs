@@ -273,6 +273,24 @@ mod tests {
         assert_eq!(float(f64::INFINITY), Json::Str("Infinity".into()));
     }
 
+    /// The fuzzer's find (`crash-4684f40f…`, input `00 1a 00`): an empty packed run read as `"c": []`, which wrote back
+    /// as nothing and read again as `{}`.
+    #[test]
+    fn an_empty_packed_run_reads_as_the_field_left_out_and_round_trips() {
+        let text = "syntax = \"proto3\";\nmessage M { int64 a = 1; repeated sint32 c = 3; }\n";
+        let c = Codec::new(
+            3,
+            SchemaType::Protobuf,
+            Box::new(crate::protobuf::parse(text, &[]).unwrap()),
+        );
+        let mut value = wire::header(3).to_vec();
+        value.extend_from_slice(&[0, 0x1a, 0]);
+        let d = c.decode(&value).unwrap();
+        assert_eq!(d.json.to_text(), "{}");
+        let again = c.encode(&d.json.to_text()).unwrap();
+        assert_eq!(c.decode(&again).unwrap().json.to_text(), "{}");
+    }
+
     #[test]
     fn the_budget_bounds_items_and_depth() {
         let mut b = Budget::default();

@@ -56,13 +56,30 @@ fn a_failed_dial_says_why_in_a_few_words() {
     );
 }
 
+/// A loopback port that refuses a connection right now, from below every system's ephemeral range (Linux starts at 32768,
+/// macOS at 49152), so no `bind(":0")` of a test running beside this one can be given it. A port from `bind(":0")`, dropped,
+/// was free for exactly that, and one was taken (macOS check, run 43501441380: "connected, but it did not answer
+/// ApiVersions"). Refusal is checked by connecting, not by binding: std binds with `SO_REUSEADDR`, which on macOS succeeds
+/// beside a process listening on the wildcard address. A socket bound and never listened on would hold the port, but macOS
+/// drops the SYN to it (a timeout, not a refusal).
+fn closed_port() -> std::net::SocketAddr {
+    let start = std::process::id() % 10_000;
+    (0..10_000)
+        .map(|i| {
+            let port = 20_000 + u16::try_from((start + i) % 10_000).unwrap();
+            std::net::SocketAddr::from(([127, 0, 0, 1], port))
+        })
+        .find(|addr| {
+            std::net::TcpStream::connect_timeout(addr, Duration::from_millis(200))
+                .is_err_and(|e| e.kind() == std::io::ErrorKind::ConnectionRefused)
+        })
+        .expect("a loopback port that refuses, below the ephemeral range")
+}
+
 #[tokio::test]
 async fn a_closed_port_is_refused_and_a_silent_one_times_out_and_neither_waits_longer_than_its_deadline()
  {
-    let closed = {
-        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        l.local_addr().unwrap()
-    };
+    let closed = closed_port();
     let d = dial(&closed.to_string(), false, Duration::from_millis(500)).await;
     assert!(!d.answered);
     assert_eq!(d.why, "connection refused");
