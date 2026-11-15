@@ -18,9 +18,9 @@ use kafka_wire::messages::offset_for_leader_epoch_request::{
 };
 use kafka_wire::messages::offset_for_leader_epoch_response::EpochEndOffset;
 use kafka_wire::messages::{BrokerId, DeleteRecordsRequest, OffsetForLeaderEpochRequest};
-use support::acls::{CLUSTER, DESCRIBE, LITERAL, ALLOW, closed_world, creation, grant, on, user};
-use support::produce::records;
-use support::{Rig, rig, rig_with, topic, wire_name};
+use support::acls::{ALLOW, CLUSTER, DESCRIBE, LITERAL, closed_world, creation, grant, on, user};
+
+use support::{Rig, records, rig, rig_with, topic, wire_name};
 
 /// (partition, current leader epoch, epoch asked about)
 type Ask = (i32, i32, i32);
@@ -124,7 +124,10 @@ async fn the_epoch_the_client_believes_in_is_held_to_the_leaders() {
         &rig,
         &support::caller(),
         4,
-        request(&[("orders", &[(0, 0, 0), (0, 1, 0), (0, -2, 0), (0, -9, 3)])], -1),
+        request(
+            &[("orders", &[(0, 0, 0), (0, 1, 0), (0, -2, 0), (0, -9, 3)])],
+            -1,
+        ),
     )
     .await;
     assert_eq!(
@@ -146,13 +149,22 @@ async fn an_unknown_topic_or_partition_is_said_to_be_one() {
         &rig,
         &support::caller(),
         4,
-        request(&[("orders", &[(7, -1, 0), (-1, -1, 0)]), ("nothing", &[(0, 5, 0)])], -1),
+        request(
+            &[
+                ("orders", &[(7, -1, 0), (-1, -1, 0)]),
+                ("nothing", &[(0, 5, 0)]),
+            ],
+            -1,
+        ),
     )
     .await;
     assert_eq!(
         got,
         vec![
-            ("orders".to_owned(), vec![(7, UNKNOWN, -1, -1), (-1, UNKNOWN, -1, -1)]),
+            (
+                "orders".to_owned(),
+                vec![(7, UNKNOWN, -1, -1), (-1, UNKNOWN, -1, -1)]
+            ),
             ("nothing".to_owned(), vec![(0, UNKNOWN, -1, -1)])
         ]
     );
@@ -203,7 +215,12 @@ async fn describe_on_the_topic_or_cluster_action_lets_a_caller_ask_and_the_refus
     // A follower's right (CLUSTER_ACTION on the cluster) covers every topic, whatever the replica id says.
     grant(
         &rig,
-        vec![creation((CLUSTER, "kafka-cluster", LITERAL), "User:replica", 9, ALLOW)],
+        vec![creation(
+            (CLUSTER, "kafka-cluster", LITERAL),
+            "User:replica",
+            9,
+            ALLOW,
+        )],
     )
     .await;
     for replica in [-1, 1] {
@@ -211,6 +228,12 @@ async fn describe_on_the_topic_or_cluster_action_lets_a_caller_ask_and_the_refus
         assert!(got.iter().all(|(_, parts)| parts[0].1 == 0), "{got:?}");
     }
     // Nobody else is told anything, even that a topic does not exist.
-    let got = ask(&rig, &user("stranger"), 4, request(&[("ghost", &[(0, -1, 0)])], 1)).await;
+    let got = ask(
+        &rig,
+        &user("stranger"),
+        4,
+        request(&[("ghost", &[(0, -1, 0)])], 1),
+    )
+    .await;
     assert_eq!(got[0].1, vec![(0, denied, -1, -1)]);
 }

@@ -43,6 +43,19 @@ Carries an empty list of aborted transactions (null for read-uncommitted); the l
 transactions exist.
 Test: `a_read_committed_fetch_carries_an_empty_list_of_aborted_transactions_*`
 
+### F11. OffsetForLeaderEpoch v2-4: epoch 0 ends at the log end (source)
+Every partition here has had one leader epoch, 0, from its log start (Metadata says so), which is the leader-epoch cache Kafka
+holds for a single-node partition (`Partition.makeLeader` assigns epoch 0 at the start; `LeaderEpochFileCache.truncateFromStart`
+moves it up with the log start). The answer is `LeaderEpochFileCache.endOffsetFor` over that cache: epoch 0 ends at the log end
+offset; an epoch after it, or -1, is (-1, -1) with no error; an epoch below 0 other than -1 is that epoch ending at the log start.
+A partition never written to starts and ends at 0. `current_leader_epoch` -1 is not checked, 0 matches, above is
+UNKNOWN_LEADER_EPOCH (75), below -1 is FENCED_LEADER_EPOCH (74); a topic or partition the broker does not have is
+UNKNOWN_TOPIC_OR_PARTITION, checked first (`Partition.checkCurrentLeaderEpoch`, `ReplicaManager.lastOffsetForLeaderEpoch`).
+`replica_id` (v3) changes nothing. Rights: SEC-295. Offered at Kafka 2 to 4 at v2 to v4 (Kafka 1.1 has v0 only, which the wire
+crate does not read: W10). Same as real Kafka 4.4.0 at v2, v3 and v4 for every case of `kafka-wire/examples/oracle_diff.rs`
+(epochs 0, 1, -1, -2, -7; current -1, 0, 1, -2, -9; an unknown partition and topic; the follower form; after DeleteRecords).
+Test: `handlers::offset_for_leader_epoch::tests::*`, `tests/offset_for_leader_epoch.rs::*`
+
 ### L1. ListOffsets
 Latest (-1) is the log end, earliest (-2) the log start; max timestamp (-3, v7+) is the first record with the largest
 timestamp; a real timestamp is the first record from the log start whose timestamp is at least it, to the record. The
