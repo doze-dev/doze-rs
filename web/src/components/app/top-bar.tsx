@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { CopyIcon, LockIcon, SearchIcon, TriangleAlertIcon } from "lucide-react";
+import { CopyIcon, HardDriveIcon, LockIcon, SearchIcon, TriangleAlertIcon } from "lucide-react";
 import { useShell } from "@/api/queries";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +34,17 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>The console is served beyond this machine with no login (--console-unprotected).</TooltipContent>
+              </Tooltip>
+            )}
+            {s.disk && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link to="/data" className={`${chip} transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${s.disk.tone === "bad" ? "border-bad/45 text-bad hover:border-bad/70" : "border-warn/45 text-warn hover:border-warn/70"}`} data-testid="disk-chip" data-tone={s.disk.tone}>
+                    <HardDriveIcon className="size-3.5" aria-hidden />
+                    {s.disk.tone === "bad" ? "Disk nearly full" : "Disk"}
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>{s.disk.headline}: see Data</TooltipContent>
               </Tooltip>
             )}
             <Tooltip>

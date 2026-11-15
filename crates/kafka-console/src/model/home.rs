@@ -90,4 +90,6 @@ pub struct HomeView {
     pub unchecked: usize,
     /// Who has spoken to the broker, from the recorder (slice 9e); `None` when this console has no recorder.
     pub spoke: Option<super::SpokeView>,
+    /// The disk needs someone: nearly full, a large share of it is the data directory, or a large topic keeps everything.
+    pub disk: Option<super::DiskAlarm>,
 }

@@ -14,6 +14,13 @@ workspace = true
 [features]
 # A deterministic in-memory disk with crash points and injected faults, for tests.
 sim = []
+# `Fs::space` on the real disk: the size and room of a volume (statvfs, through rustix, which is safe, so no `unsafe` here). The console's
+# Data page asks it (kafka-console turns it on). Off, the room of a volume is not known (`None`): the lean broker and doze-aws leave it out,
+# since rustix is three more packages there; the default doze-kafka build has them already, through doze-os.
+space = ["dep:rustix"]
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1.1.6", default-features = false, features = ["std", "fs"], optional = true }
 
 [dev-dependencies]
-doze-fs = { path = ".", features = ["sim"] }
+doze-fs = { path = ".", features = ["sim", "space"] }

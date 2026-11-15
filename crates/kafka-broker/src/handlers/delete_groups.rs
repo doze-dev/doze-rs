@@ -48,7 +48,7 @@ impl<F: Fs> Broker<F> {
         Outcome::Respond(kafka_wire::api::Response::DeleteGroups(resp))
     }
 
-    async fn delete_group(&self, name: &str) -> Option<ResponseError> {
+    pub(crate) async fn delete_group(&self, name: &str) -> Option<ResponseError> {
         let Ok(group) = GroupId::parse(name) else {
             return Some(ResponseError::InvalidGroupId);
         };

@@ -24,7 +24,7 @@ use std::sync::Arc;
 
 use kafka_wire::ids::Offset;
 
-pub use files::{SegmentInfo, segments_on_disk};
+pub use files::{SegmentInfo, oldest_on_disk, segments_on_disk};
 pub use read::LogReader;
 pub use sync::Ticket;
 pub use times::OffsetAt;

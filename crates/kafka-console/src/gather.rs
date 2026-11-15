@@ -7,6 +7,7 @@ mod config_refuse;
 mod config_reset;
 pub mod consumers;
 mod create;
+pub mod data;
 mod delete;
 mod forms;
 pub mod group;

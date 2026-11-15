@@ -6,6 +6,7 @@
 mod config;
 mod connect;
 mod consumers;
+mod data;
 mod group_states;
 mod groups;
 mod home;
@@ -31,6 +32,9 @@ pub use connect::{
     Access, Chrome, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict,
 };
 pub use consumers::{ConsumersView, TopicReader};
+pub use data::{
+    AlarmTone, DataKind, DataKindRow, DataTopicRow, DataView, DiskAlarm, EmptyTopicView, VolumeView,
+};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
 pub use live::{
     LiveState, LiveView, WIRE_LIMIT, WIRE_MOST, WireClass, WireDetail, WirePart, WireQuery,

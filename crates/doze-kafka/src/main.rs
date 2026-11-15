@@ -2,6 +2,7 @@
 
 mod cli;
 mod control;
+mod data;
 mod descriptors;
 mod duration;
 #[cfg(feature = "console")]
@@ -35,6 +36,10 @@ fn main() -> std::process::ExitCode {
     #[cfg(feature = "module")]
     if module::invoked() {
         return module::run();
+    }
+    // `doze-kafka data`: what is using the disk, and giving it back (docs/port/data-control.md).
+    if data::invoked() {
+        return data::run();
     }
     match broker() {
         Ok(()) => std::process::ExitCode::SUCCESS,
