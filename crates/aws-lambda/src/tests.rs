@@ -24,6 +24,7 @@ use crate::{Config, Lambda};
 
 mod behaviour;
 mod concurrency;
+mod data;
 mod functions;
 mod inplace;
 mod invoking;
@@ -189,6 +190,11 @@ impl World {
             base64::decode(reply["Payload"].as_str().unwrap_or_default()).unwrap_or_default();
         reply["Payload"] = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
         reply
+    }
+
+    /// The directory the services' files are in (Lambda's is `lambda`).
+    pub(crate) fn dir(&self) -> &std::path::Path {
+        self._dir.path()
     }
 
     pub(crate) fn lambda_op(&self, name: &str) -> u32 {

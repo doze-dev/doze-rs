@@ -26,7 +26,7 @@ const MAPPINGS: &str = "mappings";
 const SIGNING: &str = "signing";
 const CHECKPOINTS: &str = "checkpoints";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
-const VERSION: u8 = 1;
+pub(crate) const VERSION: u8 = 1;
 
 /// What the actor is asked.
 pub(crate) enum Ask {
@@ -44,6 +44,8 @@ pub(crate) enum Ask {
     Position(String),
     /// Notes what a mapping's last invocation did.
     Result { uuid: String, result: String },
+    /// From `doze-aws data`: what the functions hold, or remove some of it.
+    Data(Box<crate::storage::Asked>),
 }
 
 impl std::fmt::Debug for Ask {
@@ -153,6 +155,7 @@ impl doze_runtime::Service for Core {
                 Answer::Value(self.checkpoints.get(&key).map(|s| Value::String(s.clone())))
             }
             Ask::Result { uuid, result } => self.note_result(&uuid, result),
+            Ask::Data(asked) => self.data_asked(*asked).await,
         }
     }
 
