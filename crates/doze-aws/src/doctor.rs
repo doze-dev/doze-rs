@@ -35,7 +35,7 @@ pub(crate) fn run(cfg: &Config) -> i32 {
     checks.push(port_check(cfg, running.as_ref()));
     checks.push(data_check(cfg, running.as_ref()));
     checks.extend(disk_check(&cfg.data_dir()));
-    checks.extend(kept_check(&cfg.data_dir()));
+    checks.extend(kept_check(&cfg.data_dir(), cfg.count("data-warn-gb")));
     checks.extend(shell_checks(&env, running.as_ref()));
     print(&checks, cfg, Style::of(Stream::Out));
     i32::from(checks.iter().any(|c| c.verdict == Verdict::Fail))
@@ -221,8 +221,8 @@ fn disk_check(dir: &Path) -> Option<Check> {
     })
 }
 
-/// How much doze-aws keeps, from the files alone (no service is woken): a warning past 10 GB, or past half the free space.
-fn kept_check(dir: &Path) -> Option<Check> {
+/// How much doze-aws keeps, from the files alone (no service is woken): a warning past `--data-warn-gb`, or past half the free space.
+fn kept_check(dir: &Path, warn_gb: u64) -> Option<Check> {
     let kept = crate::data::dir_bytes(dir);
     if kept == 0 {
         return None;
@@ -233,7 +233,8 @@ fn kept_check(dir: &Path) -> Option<Check> {
         crate::data_show::size(kept)
     );
     let fix = Some("doze-aws data   (where it goes, and how to remove it)".to_owned());
-    Some(if kept > 10 << 30 || kept > free / 2 {
+    let over = warn_gb > 0 && kept >= warn_gb << 30;
+    Some(if over || kept > free / 2 {
         check(Verdict::Warn, "kept", detail, fix)
     } else {
         check(Verdict::Ok, "kept", detail, None)

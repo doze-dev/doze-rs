@@ -119,7 +119,7 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
         );
     }
     announce(cfg, &me, &on, started);
-    mention_size(&data);
+    mention_size(&data, cfg.count("data-warn-gb"));
     wait_for_stop().await;
     tracing::info!("stopping");
     running.shutdown().await;
@@ -167,15 +167,15 @@ fn announce(cfg: &Config, me: &Instance, on: &[&'static Svc], started: Instant) 
     }
 }
 
-/// Once, after the ready block and off the serving thread: when the data directory has grown past a gigabyte, say so and say what
+/// Once, after the ready block and off the serving thread: when the data directory has grown past `--data-warn-gb`, say so and say what
 /// shows where it went. A person whose disk filled should not have to know where to look.
-fn mention_size(data: &std::path::Path) {
+fn mention_size(data: &std::path::Path, warn_gb: u64) {
     let dir = data.to_path_buf();
     let spawned = std::thread::Builder::new()
         .name("doze-aws-size".into())
         .spawn(move || {
             let kept = crate::data::dir_bytes(&dir);
-            if kept >= 1 << 30 {
+            if warn_gb > 0 && kept >= warn_gb << 30 {
                 let shown =
                     crate::config::display_path(&dir, &std::env::current_dir().unwrap_or_default());
                 println!(

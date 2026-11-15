@@ -74,6 +74,14 @@ pub(crate) const KEYS: &[Key] = &[
         SERVER,
     ),
     key(
+        "data-warn-gb",
+        Kind::Count(0),
+        "1",
+        "GB",
+        "Say so at start (and in doctor) when the data directory is larger than this; 0 never. `doze-aws data` shows where it goes",
+        SERVER,
+    ),
+    key(
         "region",
         Kind::Text,
         "us-east-1",
