@@ -30,7 +30,8 @@ test("the page says what is on disk, largest first, why each is that size, and w
   await expect(row.getByTestId("unbounded")).toHaveText("Keeps everything");
   // The compacted topic of the seeded world says why it is its size in its own words.
   await expect(page.locator('tr[data-row="inventory.levels"]').getByTestId("why")).toContainText("Compacted: it keeps the latest value of every key");
-  await expect(page.getByTestId("data-notes")).toContainText("A topic that sets no retention of its own keeps everything");
+  // What the broker's defaults keep (the Settings spec may have set log.retention.ms, which stays: the words follow it).
+  await expect(page.getByTestId("data-notes")).toContainText(/A topic that sets no retention of its own (keeps everything|takes the broker's: Retention)/);
   await expect(page.getByTestId("give-back")).toContainText("doze-kafka data");
   for (const w of [1024, 1440]) {
     await page.setViewportSize({ width: w, height: 900 });
