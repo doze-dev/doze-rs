@@ -103,7 +103,8 @@ pub(crate) struct Args {
     /// Threads running the broker's work (each idle one is memory).
     #[arg(long, default_value_t = 2)]
     pub(crate) worker_threads: usize,
-    /// Log verbosity: error, warn, info, debug or trace (RUST_LOG, if set, wins).
+    /// Log verbosity: error, warn, info, debug or trace (or levels per target, as in warn,kafka_broker=debug; RUST_LOG, if
+    /// set, wins, in the same form).
     #[arg(long, default_value = "info")]
     pub(crate) log_level: String,
     /// Log format.

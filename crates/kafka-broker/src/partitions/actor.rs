@@ -29,6 +29,8 @@ pub(super) enum Command<F: Fs> {
     Windows(oneshot::Sender<Result<Vec<crate::producers::Window>, StorageError>>),
     /// Move the start of the log up; answers the start now in force.
     Trim(Trim, oneshot::Sender<Result<Offset, StorageError>>),
+    /// Remove every record, unless a transaction is open in the log (the console's Empty topic).
+    Empty(oneshot::Sender<Result<Emptying, StorageError>>),
     /// Apply retention now; answers the start now in force and when retention could next take something.
     Retain(
         Retention,
@@ -60,6 +62,16 @@ pub(crate) enum Trim {
     Retention(Retention, TimestampMs),
     /// DeleteRecords: everything below the offset, or (`None`) everything.
     Before(Option<Offset>),
+}
+
+/// What became of a request to empty a partition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Emptying {
+    /// Every record is gone: the log starts where it ends, and `offsets` offsets were below that.
+    Emptied { offsets: i64 },
+    /// A transaction has records in the log and no marker yet: emptying would leave its marker with nothing to end, and its
+    /// producer's commit would commit nothing. Nothing was done.
+    TxnOpen,
 }
 
 /// What a pass of retention left.
@@ -213,6 +225,10 @@ fn work<F: Fs>(
             Command::Trim(how, reply) => {
                 memory.upkeep.changed();
                 let _ = reply.send(trim(log, memory, how));
+            }
+            Command::Empty(reply) => {
+                memory.upkeep.changed();
+                let _ = reply.send(transactions::empty(log, memory));
             }
             Command::Retain(policy, now, reply) => {
                 let _ = reply.send(retain(log, memory, policy, now));

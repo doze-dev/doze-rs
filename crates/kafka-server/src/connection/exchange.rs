@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use bytes::Bytes;
+use bytes::{Buf, Bytes};
 use kafka_broker::Outcome;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::{Request, Response};
@@ -11,7 +11,7 @@ use kafka_wire::api_versions;
 use kafka_wire::header::{self, RequestHead};
 use kafka_wire::incoming::Incoming;
 use kafka_wire::messages::ApiKey;
-use kafka_wire::response;
+use kafka_wire::response::{self, Frame};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
@@ -62,8 +62,8 @@ pub(super) async fn exchange<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
                     Ok(answer) => answer,
                     Err(end) => return Err(closed(ears.watch, pending, end)),
                 };
-                let bytes = seal(&answer, ears.watch.zip(pending))?;
-                send(stream, ctx, bytes).await?;
+                let frame = seal(&answer, ears.watch.zip(pending))?;
+                send(stream, ctx, frame).await?;
                 if stays_open {
                     return Ok(());
                 }
@@ -85,11 +85,11 @@ pub(super) async fn exchange<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     };
     let fate = answer.fate;
     // Observed (and so timed) before the failed-login delay, which is deliberate and not the broker's doing.
-    let bytes = seal(&answer, ears.watch.zip(pending))?;
+    let frame = seal(&answer, ears.watch.zip(pending))?;
     if fate == Fate::Failed {
         failed_login_delay(ctx, stop).await?;
     }
-    send(stream, ctx, bytes).await?;
+    send(stream, ctx, frame).await?;
     match fate {
         Fate::Open => Ok(()),
         Fate::Closing | Fate::Failed => {
@@ -318,14 +318,14 @@ async fn linger<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(stream: &mut S, ctx: &
 }
 
 /// Encodes an answer, telling the watch (if any) how the request ended and how big its answer is.
-fn seal(answer: &Answer, seen: Option<(&Watch, Pending)>) -> Result<Bytes, End> {
-    let encoded = response::encode(answer.id, answer.version, &answer.response);
+fn seal(answer: &Answer, seen: Option<(&Watch, Pending)>) -> Result<Frame, End> {
+    let encoded = response::frame(answer.id, answer.version, &answer.response);
     if let Some((w, p)) = seen {
         match &encoded {
-            Ok(bytes) => w.end(
+            Ok(frame) => w.end(
                 p,
                 Seen::Response(&answer.response),
-                bytes.len(),
+                frame.remaining(),
                 answer.fault.as_deref(),
             ),
             Err(e) => w.end(p, Seen::Closed(&e.to_string()), 0, answer.fault.as_deref()),
@@ -334,12 +334,21 @@ fn seal(answer: &Answer, seen: Option<(&Watch, Pending)>) -> Result<Bytes, End> 
     encoded.map_err(End::Wire)
 }
 
+/// Writes `frame` and flushes it, within the write timeout.
+///
+/// A stream that writes vectored (a TCP socket, rustls) is given the frame's pieces together, so a Fetch's records go out
+/// from the buffers the log was read into. The flush matters over TLS: rustls can still hold the end of the frame when the
+/// last write returns, and nothing else would send it before the client's next request.
 async fn send<S: AsyncWrite + Unpin, F: Fs>(
     stream: &mut S,
     ctx: &Context<F>,
-    bytes: Bytes,
+    mut frame: Frame,
 ) -> Result<(), End> {
-    match timeout(ctx.timeouts.write, stream.write_all(&bytes)).await {
+    let write = async {
+        stream.write_all_buf(&mut frame).await?;
+        stream.flush().await
+    };
+    match timeout(ctx.timeouts.write, write).await {
         Err(_) => Err(End::Slow),
         Ok(Err(e)) => Err(End::Io(e)),
         Ok(Ok(())) => Ok(()),

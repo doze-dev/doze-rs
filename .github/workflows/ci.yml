@@ -408,7 +408,10 @@ jobs:
           echo "idle samples:$samples KB"
           rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "binary $size B, $crates packages, idle $rss KB"
-          [ "$size" -le 5450504 ] || { echo "lean binary over 5,450,504 B"; exit 1; }
+          # 2026-11-15, data control (`doze-kafka data`, the broker's Empty and Erase, the usage walk): +99,392 B on darwin arm64
+          # (4,099,056 to 4,198,448 B for main at 3636c3d2 and this tree), times the 1.3747 of the console build is +136,634 B
+          # (weight.md, "Data control"), added to main's line of 5,450,504 B. An estimate until CI measures it.
+          [ "$size" -le 5587138 ] || { echo "lean binary over 5,587,138 B"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
           [ "$rss" -le 7229 ] || { echo "idle resident memory over 7,229 KB in the lean build"; exit 1; }
           ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }

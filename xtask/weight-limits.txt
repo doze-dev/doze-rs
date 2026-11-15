@@ -24,8 +24,22 @@
 # 7,735,920 B for the tree CI measured, whose ratio was 10,634,592 / 7,735,920 = 1.3747; so 10,999,559 B estimated on ubuntu x86_64, limit that
 # plus 5% = 11,549,536 B until CI's next run on main measures it. Packages 184: the one more line is `kafka-registry (*)`, a repeat entry now that
 # the console depends on the registry, not a new package. Idle unchanged (darwin fell to 6,032 KB with the idle fixes). Ceiling 15 MB.
-# 2026-11-15, core-m1: protocol 2 minor 1 (`migrate`) adds about 1 KB (CI: 10,639,904 B before the console's registry), inside this line.
-doze-kafka 11549536 184 11013 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-15, the log filter without regex (weight.md lever (1): `EnvFilter` to `filter::Targets`, no `env-filter` feature) and Fetch records
+# written without a copy (+32 B): darwin arm64 8,001,408 B (main 3636c3d2) to 7,784,992 B (-216,416 B), packages 184 to 180 (regex,
+# regex-automata, regex-syntax and matchers leave the tree). Times CI's 1.3747 is 10,702,029 B on ubuntu x86_64, limit that plus 5% =
+# 11,237,130 B until CI's next run on main measures it; packages 180, as measured. Idle unchanged. docs/port/weight.md, "The log filter without regex".
+# 2026-11-15, data control (docs/port/data-control.md: the Data page, `doze-kafka data`, Empty and Erase): darwin arm64 8,167,424 B against
+# 8,001,424 B for main at 3636c3d2 built the same day (+166,000 B, +2.1%); times 1.3747 is 11,227,858 B on ubuntu x86_64, under this line,
+# which does not move. Packages 186: no new package (the unique names are 143 before and after); the two more lines are repeat entries,
+# `doze-fs (*)` (kafka-console now asks doze-fs for its `space` feature) and `rustix (*)` (doze-fs reaches rustix, already there by doze-os).
+# The lean build is unchanged in packages (`space` is off there). Idle 7,952 KB on darwin, under the line.
+# Both together (kafka-next, measured 2026-11-15): darwin arm64 7,951,040 B, 182 packages (180 + the two repeat lines), idle 7,632 KB;
+# times 1.3747 = 10,930,393 B on ubuntu x86_64, plus 5% = 11,476,913 B until CI measures it.
+# Idle 11,013 to 11,689 KB (2026-11-15): CI measured this tree at 11,756 then 11,132 KB (samples 10,932 to 11,904) where main read
+# 10,564 to 11,048 KB on its last four runs, so main sat on the line. On Linux idle is mostly the binary's own pages: in the doze-ubuntu VM
+# (arm64, glibc) main idles at 8,360 to 8,440 KB with 780 KB anonymous, this tree at 8,492 to 8,508 KB with 776 to 792 KB anonymous, so
+# the tree costs about +80 KB, all file-backed. The line is this tree's second CI median, 11,132 KB, plus 5%.
+doze-kafka 11476913 182 11689 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
