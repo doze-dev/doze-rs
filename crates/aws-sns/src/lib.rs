@@ -25,6 +25,7 @@ mod platform;
 mod publish;
 mod req;
 mod sms;
+mod storage;
 mod sub_attrs;
 mod subs;
 mod tags;
@@ -69,7 +70,10 @@ impl Sns {
             .actors
             .actor(&call.caller.region)
             .map_err(|e| e.to_string())?;
-        actor.call(call).await.map_err(|e| e.to_string())
+        actor
+            .call(crate::core::Ask::Call(Box::new(call)))
+            .await
+            .map_err(|e| e.to_string())
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
@@ -91,6 +95,10 @@ impl Sns {
 }
 
 impl Service for Sns {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static aws_schema::meta::ServiceMeta {
         &META
     }
