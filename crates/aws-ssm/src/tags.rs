@@ -23,12 +23,10 @@ impl Core {
                 format!("The resource type {kind} is not built in doze-aws; only Parameter is."),
             ));
         }
-        self.params.get_mut(id).ok_or_else(|| {
-            ApiError::modeled(
-                "InvalidResourceId",
-                "The resource ID is not valid. Verify the ID and try again.",
-            )
-        })
+        // AWS's message is empty (recorded 2026-11-15).
+        self.params
+            .get_mut(id)
+            .ok_or_else(|| ApiError::modeled("InvalidResourceId", ""))
     }
 
     pub(crate) fn add_tags(&mut self, call: &Call) -> Reply {

@@ -73,6 +73,15 @@ fn every_field_of_every_record_is_read_with_its_offset_and_time() {
 }
 
 #[test]
+fn under_log_append_time_every_record_has_the_batchs_newest_timestamp() {
+    // Kafka's DefaultRecordBatch hands each record of a LogAppendTime batch the batch's max timestamp, whatever its
+    // delta says (the producer's times stay in the bytes; the broker's clock is in the header).
+    let seen = all(&batch(0x08, encode_records(&recs())), 1 << 20).unwrap();
+    let times: Vec<_> = seen.iter().map(|s| s.1).collect();
+    assert_eq!(times, [1_020, 1_020, 1_020]);
+}
+
+#[test]
 fn headers_come_back_in_order_with_their_bytes() {
     let b = batch(0, encode_records(&recs()));
     let mut got = Vec::new();

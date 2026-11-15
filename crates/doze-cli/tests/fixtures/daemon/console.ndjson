@@ -1,0 +1,1 @@
+{"status":{"ok":true,"idle_timeout":300000000000,"stack":"bare","instances":[{"name":"cache","kind":"module","engine":"valkey","version":"9","state":"active","declared":true,"endpoint":"127.0.0.1:6379","web_url":"http://127.0.0.1:6380/"},{"name":"db","kind":"module","engine":"postgres","version":"17","state":"idle","declared":true,"endpoint":"127.0.0.1:5432"}]}}

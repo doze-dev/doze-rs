@@ -5,6 +5,8 @@
 
 mod typed;
 
+pub(crate) use typed::canonical_value;
+
 use std::collections::HashMap;
 
 use super::doc::{Docs, field, members};

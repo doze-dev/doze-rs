@@ -127,7 +127,7 @@ fn produce(r: &kafka_wire::messages::ProduceRequest, code: i16) -> ProduceRespon
     let mut resp = ProduceResponse::default();
     for t in &r.topic_data {
         let mut topic = TopicProduceResponse::default();
-        topic.name = t.name.clone();
+        topic.name.clone_from(&t.name);
         topic.topic_id = t.topic_id;
         for p in &t.partition_data {
             let mut part = PartitionProduceResponse::default();
@@ -179,7 +179,7 @@ fn metadata(
     for t in r.topics.iter().flatten() {
         let mut topic = MetadataResponseTopic::default();
         topic.error_code = code;
-        topic.name = t.name.clone();
+        topic.name.clone_from(&t.name);
         topic.topic_id = t.topic_id;
         resp.topics.push(topic);
     }
@@ -190,7 +190,7 @@ fn list_offsets(r: &kafka_wire::messages::ListOffsetsRequest, code: i16) -> List
     let mut resp = ListOffsetsResponse::default();
     for t in &r.topics {
         let mut topic = ListOffsetsTopicResponse::default();
-        topic.name = t.name.clone();
+        topic.name.clone_from(&t.name);
         for p in &t.partitions {
             let mut part = ListOffsetsPartitionResponse::default();
             part.partition_index = p.partition_index;
@@ -232,7 +232,7 @@ fn offset_commit(r: &kafka_wire::messages::OffsetCommitRequest, code: i16) -> Of
     let mut resp = OffsetCommitResponse::default();
     for t in &r.topics {
         let mut topic = OffsetCommitResponseTopic::default();
-        topic.name = t.name.clone();
+        topic.name.clone_from(&t.name);
         topic.topic_id = t.topic_id;
         for p in &t.partitions {
             let mut part = OffsetCommitResponsePartition::default();
@@ -259,7 +259,7 @@ fn offset_fetch(
             group.error_code = code;
             for t in g.topics.iter().flatten() {
                 let mut topic = OffsetFetchResponseTopics::default();
-                topic.name = t.name.clone();
+                topic.name.clone_from(&t.name);
                 topic.topic_id = t.topic_id;
                 for p in &t.partition_indexes {
                     let mut part = OffsetFetchResponsePartitions::default();
@@ -278,7 +278,7 @@ fn offset_fetch(
     resp.error_code = code;
     for t in r.topics.iter().flatten() {
         let mut topic = OffsetFetchResponseTopic::default();
-        topic.name = t.name.clone();
+        topic.name.clone_from(&t.name);
         for p in &t.partition_indexes {
             let mut part = OffsetFetchResponsePartition::default();
             part.partition_index = *p;

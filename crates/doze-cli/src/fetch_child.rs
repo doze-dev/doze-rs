@@ -1,5 +1,6 @@
 //! `doze __fetch` (hidden): one download for the daemon, in a process of its own, so the daemon never holds an HTTPS
-//! client (`doze_fetch::child`). One request line on stdin, one reply line on stdout.
+//! client (`doze_fetch::child`). One request line on stdin, one reply line on stdout, and a download said on stderr
+//! (the daemon's log) as it starts.
 
 use crate::ctx::VERSION;
 use crate::registry;
@@ -26,7 +27,8 @@ pub fn serve(home: &Path, registry: registry::Config) -> u8 {
     let stdin = std::io::stdin();
     let mut input = stdin.lock();
     let mut out = std::io::stdout().lock();
-    match child::run(&mut input, &mut out, &place) {
+    let mut log = std::io::stderr().lock();
+    match child::run(&mut input, &mut out, &mut log, &place) {
         Ok(()) => 0,
         Err(_) => 1,
     }

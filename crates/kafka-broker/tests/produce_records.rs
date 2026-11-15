@@ -232,8 +232,7 @@ async fn a_topic_that_stores_another_codec_has_the_batch_written_again_in_it_and
         "stored as the topic says"
     );
     let deltas: Vec<_> = held
-        .record_times()
-        .unwrap()
+        .record_times(1 << 20)
         .map(|t| t.unwrap().offset_delta)
         .collect();
     assert_eq!(deltas, [0, 1, 2, 3, 4], "and numbered again");

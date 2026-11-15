@@ -261,3 +261,20 @@ async fn a_mistake_is_refused_before_boot_at_its_line() {
         .unwrap_err();
     assert!(e.contains("version = 3"), "{e}");
 }
+
+/// Run by hand, the module face says what it is and where the broker's help is, instead of the bare error of a
+/// standard input that is not doze's channel ("doze module: Invalid argument (os error 22)").
+#[test]
+fn the_module_face_run_by_hand_says_what_it_is_and_how_it_is_run() {
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_doze-kafka"))
+        .arg("module")
+        .stdin(std::process::Stdio::null())
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let said = String::from_utf8_lossy(&out.stderr);
+    for words in ["doze module", "doze starts it", "doze-kafka --help"] {
+        assert!(said.contains(words), "{words:?} not in {said:?}");
+    }
+    assert!(!said.contains("os error"), "{said:?}");
+}

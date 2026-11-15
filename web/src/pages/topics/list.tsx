@@ -41,8 +41,8 @@ export function subLine(r: TopicRow): string | null {
   return parts.length ? parts.join(" · ") : null;
 }
 
-function columns(now: number, wide: boolean): DataColumn<TopicRow>[] {
-  return [
+function columns(now: number, wide: boolean, subjects: Map<string, string> | null): DataColumn<TopicRow>[] {
+  const all: DataColumn<TopicRow>[] = [
     {
       id: "name",
       accessorKey: "name",
@@ -106,6 +106,27 @@ function columns(now: number, wide: boolean): DataColumn<TopicRow>[] {
       cell: ({ row: { original: r } }) => (r.internal ? <span className="text-muted-foreground">none</span> : r.last_write_ms !== null && !r.empty ? <span title={dateTime(r.last_write_ms)}>{stamp(r.last_write_ms, now)}</span> : "never"),
     },
   ];
+  // With a registry: the subject of each topic's values (else keys), as TopicNameStrategy names it.
+  if (subjects) {
+    all.splice(1, 0, {
+      id: "schema",
+      accessorFn: (r) => subjects.get(r.name) ?? "",
+      header: "Schema subject",
+      size: wide ? 200 : 150,
+      meta: { mono: true },
+      cell: ({ row: { original: r } }) => {
+        const s = subjects.get(r.name);
+        return s ? (
+          <Link to="/schemas/subjects/$subject" params={{ subject: s }} className="truncate text-[12.5px] text-link hover:underline" data-testid="topic-subject">
+            {s}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
+    });
+  }
+  return all;
 }
 
 function stats(r: TopicsResponse): Stat[] {
@@ -209,7 +230,10 @@ export function TopicsPage() {
   const [text, setText] = useDebouncedFilter(q, setQ);
   const now = r.data?.view.now_ms ?? 0;
   const wide = useMinWidth(1280);
-  const cols = useMemo(() => columns(now, wide), [now, wide]);
+  const registryOn = shell.data ? shell.data.schemas !== null : false;
+  const subjectRows = r.data?.subjects;
+  const subjects = useMemo(() => (registryOn ? new Map(subjectRows ?? []) : null), [registryOn, subjectRows]);
+  const cols = useMemo(() => columns(now, wide, subjects), [now, wide, subjects]);
   const refresh = useCallback(() => void qc.invalidateQueries({ queryKey: topicKeys.all }), [qc]);
   const d = r.data;
   const shownRows = d ? d.view.rows.filter((x) => !x.internal).length : 0;

@@ -3,7 +3,9 @@
 //!
 //! Pure functions with tables of cases. Nothing here asks the broker anything.
 
-use kafka_auth::authz::{Acl, AclSet, Resource, Rules, Subject, WILDCARD, operation, resource};
+use kafka_auth::authz::{
+    Acl, AclSet, Operation, Resource, ResourceType, Rules, Subject, WILDCARD, operation, resource,
+};
 use kafka_wire::ResponseError;
 
 use crate::model::{AclEntry, AclPattern, AclPermission, Span};
@@ -297,6 +299,11 @@ fn judged(op: i8) -> Vec<i8> {
 }
 
 fn decide(rules: &Rules, set: &AclSet, e: &AclEntry, op: i8) -> bool {
+    // A stored ACL names a known type and operation (CreateAcls refuses any other); a number that is neither is asked
+    // nothing, and decides nothing.
+    let (Ok(kind), Ok(op)) = (ResourceType::try_from(e.kind), Operation::try_from(op)) else {
+        return false;
+    };
     let host = if e.host == WILDCARD {
         "127.0.0.1"
     } else {
@@ -309,7 +316,7 @@ fn decide(rules: &Rules, set: &AclSet, e: &AclEntry, op: i8) -> bool {
             host,
         },
         Resource {
-            kind: e.kind,
+            kind,
             name: &e.name,
         },
         op,

@@ -39,12 +39,19 @@ fn guard(inner: &Arc<Inner>, method: Option<Method>, raw: u16, head: &CallHead) 
             "{m:?} needs a capability the module did not declare"
         ));
     }
-    if let Some(scope) = m.scope()
-        && !head.for_call.is_some_and(|id| inner.in_flight(id, scope))
+    let scope = m.scope();
+    if !scope.is_empty()
+        && !head
+            .for_call
+            .is_some_and(|id| scope.iter().any(|s| inner.in_flight(id, *s)))
     {
+        let calls: Vec<String> = scope.iter().map(|s| format!("{s:?}")).collect();
         return Some(Error::new(
             ErrorKind::Invalid,
-            format!("{m:?} is only allowed while a {scope:?} call is in flight"),
+            format!(
+                "{m:?} is only allowed while a {} call is in flight",
+                calls.join(" or ")
+            ),
         ));
     }
     None
@@ -75,6 +82,12 @@ pub(super) fn incoming(
         return refuse(inner, f.id, &e);
     }
     let Some(method) = method else { return Ok(()) };
+    // A callback inside one of our calls: its handler is running, so the handle that came with it has arrived.
+    if !method.scope().is_empty()
+        && let Some(id) = head.for_call
+    {
+        inner.let_go(id);
+    }
     let cancel = Cancel::default();
     if let Some(ms) = head.deadline_ms {
         let c = cancel.clone();

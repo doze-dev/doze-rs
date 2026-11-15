@@ -182,10 +182,8 @@ impl Streams {
         if text(body, "ShardId") != s.shard_id {
             return Err(ApiError::modeled(
                 "ResourceNotFoundException",
-                format!(
-                    "Requested resource not found: Shard does not exist: {}",
-                    text(body, "ShardId")
-                ),
+                // Recorded 2026-11-15: the shard is not named.
+                "Requested resource not found: Shard does not exist",
             ));
         }
         let sequence = || -> Result<u64, ApiError> {

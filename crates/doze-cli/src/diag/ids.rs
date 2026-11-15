@@ -116,3 +116,10 @@ pub const NO_APP: Id = id("DZ0408", Exit::Machine);
 pub const SELF_UPDATE_UNSUPPORTED: Id = id("DZ0602", Exit::Failed);
 /// `update`: the install tool (brew) failed or could not be run.
 pub const UPDATE_FAILED: Id = id("DZ0603", Exit::Failed);
+/// `run`: the command could not be started (not found, not runnable).
+pub const COMMAND_UNRUNNABLE: Id = id("DZ0711", Exit::Failed);
+
+/// `run`: the command ran and exited with `code`; doze exits with the same code (Go's `exitCodeError`).
+pub const fn command_exit(code: u8) -> Id {
+    id("DZ0710", Exit::Child(code))
+}

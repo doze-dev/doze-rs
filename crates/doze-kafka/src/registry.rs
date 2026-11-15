@@ -30,10 +30,59 @@ pub(crate) struct Bound {
 ///
 /// # Errors
 /// An address the operator chose that cannot be bound.
-pub(crate) async fn bind(r: &Registry) -> Result<Option<Bound>> {
+/// Why there is no registry.
+#[derive(Debug, Clone)]
+pub(crate) enum Off {
+    Disabled,
+    Busy(String),
+    Unreadable(String),
+}
+
+#[cfg(feature = "console")]
+impl Off {
+    fn console(&self) -> kafka_console::schemas::Off {
+        match self {
+            Self::Disabled => kafka_console::schemas::Off::Disabled,
+            Self::Busy(why) => kafka_console::schemas::Off::Busy(why.clone()),
+            Self::Unreadable(why) => kafka_console::schemas::Off::Unreadable(why.clone()),
+        }
+    }
+}
+
+/// The registry as it started: serving (the store, for the console in this process, and its address), or why not.
+#[derive(Debug)]
+pub(crate) enum Status {
+    On {
+        store: Arc<Store>,
+        url: String,
+        basic_auth: bool,
+    },
+    Off(Off),
+}
+
+#[cfg(feature = "console")]
+impl Status {
+    /// What the console is given.
+    pub(crate) fn console(&self) -> kafka_console::schemas::Schemas {
+        match self {
+            Self::On {
+                store,
+                url,
+                basic_auth,
+            } => kafka_console::schemas::Schemas::On {
+                registry: Arc::clone(store),
+                url: url.clone(),
+                basic_auth: *basic_auth,
+            },
+            Self::Off(why) => kafka_console::schemas::Schemas::Off(why.console()),
+        }
+    }
+}
+
+pub(crate) async fn bind(r: &Registry) -> Result<Result<Bound, Off>> {
     if !r.enabled {
         tracing::info!("the schema registry is off (--schema-registry=false)");
-        return Ok(None);
+        return Ok(Err(Off::Disabled));
     }
     let bound = async {
         let addr = tokio::net::lookup_host(&r.addr)
@@ -47,7 +96,7 @@ pub(crate) async fn bind(r: &Registry) -> Result<Option<Bound>> {
     }
     .await;
     match bound {
-        Ok(listener) => Ok(Some(Bound {
+        Ok(listener) => Ok(Ok(Bound {
             listener,
             registry: r.clone(),
         })),
@@ -58,7 +107,7 @@ pub(crate) async fn bind(r: &Registry) -> Result<Option<Bound>> {
             tracing::warn!(
                 "the schema registry is off: {e:#} (give --schema-registry-addr another address, or --schema-registry=false to stop saying this)"
             );
-            Ok(None)
+            Ok(Err(Off::Busy(format!("{e:#}"))))
         }
     }
 }
@@ -79,7 +128,7 @@ impl Bound {
         self,
         server: &ServerConfig,
         broker: &Arc<Broker<RealFs>>,
-    ) -> Result<Option<Running>> {
+    ) -> Result<(Option<Running>, Status)> {
         let r = &self.registry;
         let store = match Store::open(Box::new(MetaStorage(Arc::clone(broker.meta())))) {
             Ok(store) => store,
@@ -88,14 +137,16 @@ impl Bound {
                     error = %e,
                     "the schema registry is off: its records could not be read; the broker runs without it, and nothing in meta.redb was changed"
                 );
-                return Ok(None);
+                return Ok((None, Status::Off(Off::Unreadable(e))));
             }
         };
+        let store = Arc::new(store);
         let options = Options {
             auth: auth(server),
             allowed_hosts: r.allow_hosts.clone(),
         };
-        let api = Arc::new(Api::new(Arc::new(store), options));
+        let basic_auth = options.auth.is_some();
+        let api = Arc::new(Api::new(Arc::clone(&store), options));
         #[cfg(feature = "tls")]
         let tls = match (&server.tls, r.tls) {
             (Some(t), true) => kafka_registry::server::tls(t.server_config()),
@@ -106,8 +157,16 @@ impl Bound {
         let running = kafka_registry::server::start_on(self.listener, api, tls)
             .context("starting the schema registry")?;
         let scheme = if r.tls { "https" } else { "http" };
-        tracing::info!(url = %format!("{scheme}://{}", running.local_addr()), "the schema registry is listening");
-        Ok(Some(running))
+        let url = format!("{scheme}://{}", running.local_addr());
+        tracing::info!(url = %url, "the schema registry is listening");
+        Ok((
+            Some(running),
+            Status::On {
+                store,
+                url,
+                basic_auth,
+            },
+        ))
     }
 }
 
@@ -116,11 +175,14 @@ impl Bound {
 /// # Errors
 /// The listener has no address.
 pub(crate) fn start(
-    bound: Option<Bound>,
+    bound: Result<Bound, Off>,
     server: &ServerConfig,
     broker: &Arc<Broker<RealFs>>,
-) -> Result<Option<Running>> {
-    bound.map_or(Ok(None), |b| b.serve(server, broker))
+) -> Result<(Option<Running>, Status)> {
+    match bound {
+        Ok(b) => b.serve(server, broker),
+        Err(off) => Ok((None, Status::Off(off))),
+    }
 }
 
 /// Stops the registry, if one is serving.
@@ -148,19 +210,17 @@ mod tests {
     async fn a_busy_default_leaves_no_registry_and_a_busy_chosen_address_stops_the_start() {
         let taken = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let busy = taken.local_addr().unwrap().to_string();
-        assert!(bind(&registry(&busy, false)).await.unwrap().is_none());
+        assert!(matches!(
+            bind(&registry(&busy, false)).await.unwrap(),
+            Err(Off::Busy(_))
+        ));
         let e = bind(&registry(&busy, true)).await.unwrap_err();
         assert!(format!("{e:#}").contains("--schema-registry-addr"), "{e:#}");
         let off = Registry {
             enabled: false,
             ..registry("127.0.0.1:1", true)
         };
-        assert!(bind(&off).await.unwrap().is_none());
-        assert!(
-            bind(&registry("127.0.0.1:0", true))
-                .await
-                .unwrap()
-                .is_some()
-        );
+        assert!(matches!(bind(&off).await.unwrap(), Err(Off::Disabled)));
+        assert!(bind(&registry("127.0.0.1:0", true)).await.unwrap().is_ok());
     }
 }

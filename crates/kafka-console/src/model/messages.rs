@@ -42,6 +42,43 @@ pub struct Shown {
     pub clipped: bool,
     /// One line for a table cell.
     pub preview: String,
+    /// The bytes as kept, when they start with the schema registry's wire header (byte 0, then a schema id): what the
+    /// API decodes with the registry. Not sent.
+    #[serde(skip)]
+    #[cfg_attr(test, ts(skip))]
+    pub framed: Option<Framed>,
+    /// The value read with its registry schema (`crate::schemas`); `None` for bytes not in the wire format.
+    pub schema: Option<SchemaShown>,
+}
+
+/// Bytes in the registry's wire format, as far as they were kept.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Framed {
+    pub bytes: Vec<u8>,
+    /// All of them were kept (a table keeps the first 512).
+    pub whole: bool,
+}
+
+/// A key or a value read with the schema its wire header names.
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct SchemaShown {
+    pub id: u32,
+    /// `AVRO`, `JSON`, `PROTOBUF`; `None` when the id is not registered here.
+    pub kind: Option<String>,
+    /// The subject and version that hold the id (`<topic>-value` first).
+    pub subject: Option<String>,
+    pub version: Option<u32>,
+    /// The Protobuf message the value's index names.
+    pub message: Option<String>,
+    /// The value as JSON, laid out (none when it could not be read, or was not kept whole).
+    pub json: Option<String>,
+    /// One line for a table cell.
+    pub preview: String,
+    /// Why it could not be read, in words (`Schema id 9 is not registered here (40403)`).
+    pub error: Option<String>,
+    /// A JSON Schema value that reads but does not fit its schema: why.
+    pub mismatch: Option<String>,
 }
 
 /// One row of the table.

@@ -51,6 +51,15 @@ pub(crate) struct Core {
     pub(crate) webhooks: Arc<AtomicUsize>,
 }
 
+/// What the actor is asked.
+#[derive(Debug)]
+pub(crate) enum Ask {
+    /// A call from the wire (or the peer bus).
+    Call(Box<Call>),
+    /// From `doze-aws data`: what SNS holds, or remove it all.
+    Data(Box<crate::storage::DataCall>),
+}
+
 /// What the actor answers: the reply, and the commit it must wait for.
 #[derive(Debug)]
 pub(crate) struct Answer {
@@ -73,7 +82,7 @@ pub(crate) fn built(op: Operation) -> bool {
 }
 
 impl doze_runtime::Service for Core {
-    type Request = Call;
+    type Request = Ask;
     type Response = Answer;
     type Error = StoreError;
 
@@ -83,7 +92,20 @@ impl doze_runtime::Service for Core {
         Ok(core)
     }
 
-    async fn handle(&mut self, call: Call) -> Answer {
+    async fn handle(&mut self, ask: Ask) -> Answer {
+        let call = match ask {
+            Ask::Call(call) => *call,
+            Ask::Data(asked) => {
+                let crate::storage::DataCall { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                return Answer {
+                    reply: aws_wire::handler::empty(),
+                    durable: None,
+                };
+            }
+        };
         // A `SubscribeURL` is fetched unsigned, and AWS confirms through it without asking who fetched it: the token is the proof.
         let by_url =
             call.caller.is_anonymous() && call.op == Operation::ConfirmSubscription.index();
@@ -121,7 +143,33 @@ fn denied(refusal: ApiError) -> ApiError {
 }
 
 impl Core {
-    /// SNS with no disk (the rules alone are under test).
+    /// How many definitions there are, and the bytes of their rows.
+    pub(crate) fn count(&self) -> (u64, u64) {
+        use crate::storage::tally;
+        [
+            tally(&self.topics),
+            tally(&self.subs),
+            tally(&self.apps),
+            tally(&self.endpoints),
+            tally(&self.sms),
+        ]
+        .iter()
+        .fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1))
+    }
+
+    /// Removes every topic, subscription, application, endpoint and the SMS settings: SNS as a fresh data directory has it.
+    pub(crate) fn wipe(&mut self) -> Result<(), StoreError> {
+        use crate::storage::clear;
+        clear(&mut self.topics);
+        clear(&mut self.subs);
+        clear(&mut self.apps);
+        clear(&mut self.endpoints);
+        clear(&mut self.sms);
+        drop(self.flush()?);
+        Ok(())
+    }
+
+    /// SNS with no disk) (the rules alone are under test).
     #[cfg(test)]
     pub(crate) fn in_memory(clock: Arc<dyn Clock>, peers: Option<Arc<Peers>>) -> Self {
         Self::with(clock, Tables::empty(), peers, None)

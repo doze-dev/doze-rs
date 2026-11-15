@@ -29,7 +29,8 @@ pub(crate) struct Names<'a> {
     pub(crate) ingestion_time: &'a str,
 }
 
-/// Why a target is refused at `PutTargets`, in words for its `FailedEntries`.
+/// Why a target is refused at `PutTargets`: the whole call is refused with these words (recorded 2026-11-15; not a `FailedEntries`
+/// entry, as the Go edition had it).
 pub(crate) fn check_target(target: &Value) -> Result<(), String> {
     let id = target.get("Id").and_then(Value::as_str).unwrap_or_default();
     let shapes = ["Input", "InputPath", "InputTransformer"]
@@ -37,7 +38,9 @@ pub(crate) fn check_target(target: &Value) -> Result<(), String> {
         .filter(|m| target.get(**m).is_some())
         .count();
     if shapes > 1 {
-        return Err("Only one of Input, InputPath, or InputTransformer must be provided.".into());
+        return Err(format!(
+            "Only one of Input, InputPath, or InputTransformer must be provided for target {id}."
+        ));
     }
     if let Some(input) = target.get("Input").and_then(Value::as_str)
         && serde_json::from_str::<Value>(input).is_err()
@@ -74,7 +77,38 @@ fn check_transformer(id: &str, t: &Value) -> Result<(), String> {
             ));
         }
     }
-    Ok(())
+    json_once_filled(id, template)
+}
+
+/// A template must be JSON once every placeholder is `null`: a text template is a JSON string (`"hello <who>"`, quotes included).
+/// Recorded 2026-11-15 for `hello <who>`: `Invalid InputTemplate for target queue : [Source: (String)"hello null"; line: 1,
+/// column: 1].` The line and column of other faults are where the parser stopped `(memory)`.
+fn json_once_filled(id: &str, template: &str) -> Result<(), String> {
+    let mut filled = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(start) = rest.find('<') {
+        let after = rest.get(start + 1..).unwrap_or_default();
+        match after.find('>') {
+            Some(end) if is_name(after.get(..end).unwrap_or_default()) => {
+                filled.push_str(rest.get(..start).unwrap_or_default());
+                filled.push_str("null");
+                rest = after.get(end + 1..).unwrap_or_default();
+            }
+            _ => {
+                filled.push_str(rest.get(..=start).unwrap_or_default());
+                rest = after;
+            }
+        }
+    }
+    filled.push_str(rest);
+    match serde_json::from_str::<Value>(&filled) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!(
+            "Invalid InputTemplate for target {id} : [Source: (String)\"{filled}\"; line: {}, column: {}].",
+            e.line(),
+            e.column()
+        )),
+    }
 }
 
 /// The names between `<` and `>` in a template.

@@ -29,6 +29,8 @@ pub mod caps {
     pub const CONSOLE: u64 = 1 << 9;
     pub const WIRE: u64 = 1 << 10;
     pub const EVENTS: u64 = 1 << 11;
+    /// The module moves an instance's data to the version its block now declares (`migrate`).
+    pub const MIGRATE: u64 = 1 << 12;
 }
 
 /// `hello`, module to host, the first frame on the channel.

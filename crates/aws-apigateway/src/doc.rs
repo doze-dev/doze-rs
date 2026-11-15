@@ -92,3 +92,12 @@ pub(crate) fn plain(v: &Value) -> String {
         other => other.to_string(),
     }
 }
+
+/// A read or an update of an API shows its tags, an empty map when there are none; a create leaves them out unless given
+/// (recorded 2026-11-15 for REST and HTTP APIs and API keys).
+pub(crate) fn with_tags(mut v: Value) -> Value {
+    if let Some(o) = v.as_object_mut() {
+        o.entry("tags").or_insert_with(|| Value::Object(Map::new()));
+    }
+    v
+}

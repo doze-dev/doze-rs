@@ -17,11 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { number } from "@/lib/format";
+import { unlessLeaving } from "@/lib/leaving";
 import type { ConfigSearch } from "@/lib/search";
 import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
 
-const ConfigDialogs = lazy(() => import("./config-dialogs"));
+const ConfigDialogs = lazy(unlessLeaving(() => import("./config-dialogs")));
 
 type Show = ConfigSearch["show"];
 

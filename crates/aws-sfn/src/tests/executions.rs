@@ -182,7 +182,7 @@ async fn test_state_runs_one_state() {
         (t["status"].as_str(), t["nextState"].as_str()),
         (Some("SUCCEEDED"), Some("Big"))
     );
-    let task = json!({"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke", "ResultPath": "$.r",
+    let task = json!({"Type": "Task", "Resource": "arn:aws:states:::lambda:invoke", "Parameters": {"FunctionName": "f"}, "ResultPath": "$.r",
         "Retry": [{"ErrorEquals": ["Oops"], "MaxAttempts": 1}], "Next": "After"});
     let mocked = w
         .ok(

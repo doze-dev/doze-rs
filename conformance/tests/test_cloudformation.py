@@ -207,8 +207,9 @@ def test_refusals(client, names, cleanup, snapshot):
     snapshot.error("parameter-not-in-template", lambda: cfn.create_stack(
         StackName=names("unknown-param"), TemplateBody=body,
         Parameters=params(QueueName="q", TopicName="t", Nope="x")))
+    # Prefixed like every name here, so the refusal is CloudFormation's own and not the recorder policy's.
     snapshot.error("bad-stack-name", lambda: cfn.create_stack(
-        StackName="has_underscore", TemplateBody=body, Parameters=params(QueueName="q", TopicName="t")))
+        StackName=names("has_underscore"), TemplateBody=body, Parameters=params(QueueName="q", TopicName="t")))
     snapshot.error("no-template", lambda: cfn.create_stack(StackName=names("both-bodies")))
 
     name, _ = stack(cfn, names, cleanup, Parameters=params(
@@ -473,13 +474,16 @@ def handler(event, context):
 
 
 def test_a_custom_resource_backed_by_an_inline_function(client, names, cleanup, snapshot):
-    cfn = client("cloudformation")
+    cfn, logs = client("cloudformation"), client("logs")
+    fn = names("fn")
+    # The function writes its log group when it runs; the stack never owns it, so it outlives the stack unless removed.
+    cleanup(logs.delete_log_group, logGroupName=f"/aws/lambda/{fn}")
     trust = {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"},
                                                      "Action": "sts:AssumeRole"}]}
     template = {"Resources": {
         "Role": {"Type": "AWS::IAM::Role", "Properties": {"RoleName": names("role"), "AssumeRolePolicyDocument": trust,
                  "ManagedPolicyArns": ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]}},
-        "Fn": {"Type": "AWS::Lambda::Function", "Properties": {"FunctionName": names("fn"), "Runtime": "python3.12",
+        "Fn": {"Type": "AWS::Lambda::Function", "Properties": {"FunctionName": fn, "Runtime": "python3.12",
                "Handler": "index.handler", "Role": {"Fn::GetAtt": ["Role", "Arn"]}, "Code": {"ZipFile": CUSTOM}, "Timeout": 30}},
         "Custom": {"Type": "Custom::Doubler", "Properties": {"ServiceToken": {"Fn::GetAtt": ["Fn", "Arn"]}, "Number": 21}}},
         "Outputs": {"Doubled": {"Value": {"Fn::GetAtt": ["Custom", "Doubled"]}}, "Id": {"Value": {"Ref": "Custom"}}}}

@@ -2,11 +2,10 @@
 //! Windows 10 and later in System32, so the app needs nothing installed; its own failures map to the same words the
 //! in-process client says.
 
-use super::{Failure, TOO_BIG, UNTRUSTED, dns_failure, timed_out};
+use super::{Budget, Failure, TOO_BIG, UNTRUSTED, dns_failure, no_connection, timed_out};
 use std::process::{Command, Stdio};
-use std::time::Duration;
 
-pub(super) fn get(url: &str, timeout: Duration, limit: u64) -> Result<Vec<u8>, Failure> {
+pub(super) fn get(url: &str, budget: Budget, limit: u64) -> Result<Vec<u8>, Failure> {
     let out = Command::new("curl")
         .args([
             "--silent",
@@ -15,7 +14,11 @@ pub(super) fn get(url: &str, timeout: Duration, limit: u64) -> Result<Vec<u8>, F
             "--proto",
             "=http,https",
         ])
-        .args(["--max-time", &format!("{:.3}", timeout.as_secs_f64())])
+        .args(["--max-time", &format!("{:.3}", budget.whole.as_secs_f64())])
+        .args([
+            "--connect-timeout",
+            &format!("{:.3}", budget.connect.as_secs_f64()),
+        ])
         .args(["--max-filesize", &limit.to_string()])
         .args(["--user-agent", concat!("doze/", env!("CARGO_PKG_VERSION"))])
         .args(["--write-out", "\n%{http_code}", "--", url])
@@ -30,7 +33,7 @@ pub(super) fn get(url: &str, timeout: Duration, limit: u64) -> Result<Vec<u8>, F
     let code = out.status.code().unwrap_or(-1);
     if code != 0 {
         let said = String::from_utf8_lossy(&out.stderr);
-        return Err(Failure::Unreachable(words(code, said.trim(), timeout)));
+        return Err(Failure::Unreachable(words(code, said.trim(), budget)));
     }
     answer(out.stdout, limit)
 }
@@ -52,13 +55,15 @@ fn answer(mut out: Vec<u8>, limit: u64) -> Result<Vec<u8>, Failure> {
 }
 
 /// curl's exit code (`man curl`, EXIT CODES) in the words the in-process client uses.
-fn words(code: i32, said: &str, timeout: Duration) -> String {
+fn words(code: i32, said: &str, budget: Budget) -> String {
     match code {
         6 => "no DNS answer".into(),
         5 => format!("the proxy has no DNS answer ({said})"),
         7 if said.to_ascii_lowercase().contains("refused") => "the connection was refused".into(),
         7 | 52 | 55 | 56 => format!("the connection failed ({said})"),
-        28 => timed_out(timeout),
+        // "Connection timed out after …" or "Failed to connect … after …": the connect's budget, not the request's.
+        28 if said.to_ascii_lowercase().contains("connect") => no_connection(budget.connect),
+        28 => timed_out(budget.whole),
         35 | 51 | 53 | 54 | 58 | 59 | 60 | 66 | 77 | 80 | 82 | 83 | 90 | 91 => UNTRUSTED.into(),
         63 => TOO_BIG.into(),
         _ if dns_failure(said) => "no DNS answer".into(),
@@ -83,13 +88,18 @@ mod tests {
 
     #[test]
     fn exit_codes_say_what_the_in_process_client_says() {
-        let t = Duration::from_secs(3);
+        let t = Budget::of(std::time::Duration::from_secs(3));
         assert_eq!(words(6, "Could not resolve host: x", t), "no DNS answer");
         assert_eq!(
             words(7, "Failed to connect: Connection refused", t),
             "the connection was refused"
         );
         assert_eq!(words(28, "Operation timed out", t), "no answer within 3s");
+        let long = Budget::of(std::time::Duration::from_secs(600));
+        assert_eq!(
+            words(28, "Connection timed out after 10002 milliseconds", long),
+            "no connection within 10s"
+        );
         assert_eq!(words(60, "SSL certificate problem", t), UNTRUSTED);
         assert_eq!(
             words(63, "Exceeded the maximum allowed file size", t),
@@ -106,12 +116,21 @@ mod tests {
     fn curl_itself_fetches_and_reports_status() {
         let ok = super::super::tests_support::serve("200 OK", b"x: 1\n");
         assert_eq!(
-            get(&ok, Duration::from_secs(5), super::super::LIMIT).unwrap(),
+            get(
+                &ok,
+                Budget::of(std::time::Duration::from_secs(5)),
+                super::super::LIMIT
+            )
+            .unwrap(),
             b"x: 1\n"
         );
         let gone = super::super::tests_support::serve("410 Gone", b"");
         assert_eq!(
-            get(&gone, Duration::from_secs(5), super::super::LIMIT),
+            get(
+                &gone,
+                Budget::of(std::time::Duration::from_secs(5)),
+                super::super::LIMIT
+            ),
             Err(Failure::Status(410))
         );
     }

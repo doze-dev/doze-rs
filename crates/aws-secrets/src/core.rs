@@ -18,7 +18,7 @@ pub(crate) const FILE: &str = "secrets.redb";
 const SECRETS: &str = "secrets";
 const ROTATIONS: &str = "rotations";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
-const VERSION: u8 = 1;
+pub(crate) const VERSION: u8 = 1;
 
 /// All of Secrets Manager: its secrets, and the clock it reads. Owned by one task, so no operation needs a lock.
 #[derive(Debug)]
@@ -40,6 +40,8 @@ pub(crate) struct Core {
 pub(crate) enum Request {
     Call(Box<Call>),
     Tick,
+    /// From `doze-aws data`: what the secrets hold, or remove some of it.
+    Data(Box<crate::storage::DataCall>),
 }
 
 /// What the actor answers: the reply, and the commit it must wait for.
@@ -77,6 +79,18 @@ impl doze_runtime::Service for Core {
         let call = match request {
             Request::Call(call) => *call,
             Request::Tick => return self.tick(),
+            Request::Data(asked) => {
+                let crate::storage::DataCall { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                return Answer {
+                    reply: aws_wire::handler::empty(),
+                    durable: None,
+                    runs: Vec::new(),
+                    next_due: self.next_due(),
+                };
+            }
         };
         if let Some(peers) = self.peers.clone()
             && peers.mode() != Mode::Off
@@ -162,6 +176,11 @@ impl Core {
 
     pub(crate) fn now_ms(&self) -> i64 {
         self.clock.now_ms()
+    }
+
+    /// After a reset: no secret is due to be removed.
+    pub(crate) fn forget_due(&mut self) {
+        self.next_purge_ms = None;
     }
 
     /// Notes that a secret is due to be removed at `at_ms`.

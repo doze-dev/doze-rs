@@ -15,8 +15,8 @@ const NOT_SHOWN: &str = "(the value, not shown)";
 
 /// The words of a refused answer.
 #[must_use]
-pub fn said(code: i16, message: Option<String>) -> Refusal {
-    refusal(code, message.as_deref())
+pub fn said(code: i16, message: Option<&str>) -> Refusal {
+    refusal(code, message)
 }
 
 /// The three other refusals a change meets: a config that is not Kafka's, a value too small, another broker's id. Each
@@ -142,8 +142,7 @@ pub async fn refused(
         .await
         .map(|c| c.fixed)
         .unwrap_or_default();
-    let mut refusal =
-        refusal.unwrap_or_else(|| said(-1, Some("The broker did not answer.".to_owned())));
+    let mut refusal = refusal.unwrap_or_else(|| said(-1, Some("The broker did not answer.")));
     // A config that is not one of the five may be a secret (`ssl.key.password`): what was typed for it is never said back, in
     // the call or in the broker's sentence (SEC-189's planted-secret gate, `tests/redaction`).
     let value = if is_dynamic(f.key) {

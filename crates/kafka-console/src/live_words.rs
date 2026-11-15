@@ -5,6 +5,8 @@
 //! request. What the recorder kept of the request itself (never a record) is what the per-request lines come from. Pure; a name
 //! from a request is hostile text, so a command quotes it for a shell.
 
+use std::fmt::Write as _;
+
 use crate::format::{bytes, number};
 use crate::model::{WireClass, WireDetail};
 
@@ -182,17 +184,39 @@ pub fn too_large_rules(d: &WireDetail, limits: &Limits) -> Vec<Rule> {
     }
 }
 
-/// A word for a shell: plain when it is made of safe characters, otherwise in single quotes.
+/// A word for a shell, the one way the console writes any: bare when it is made only of characters no shell acts on (and
+/// does not begin with `=`, which zsh expands); in single quotes otherwise, each quote written `'\''`; and, when it holds a
+/// control character (a newline, say), in `$'…'` with that character escaped, so the word keeps its value and its line
+/// (POSIX 2024, bash, zsh and ksh read it).
 #[must_use]
 pub fn shell_word(s: &str) -> String {
-    let safe = !s.is_empty()
-        && s.chars()
-            .all(|c| c.is_ascii_alphanumeric() || "._-:/=@%+,".contains(c));
-    if safe {
-        s.to_owned()
-    } else {
-        format!("'{}'", s.replace('\'', "'\\''"))
+    let safe = |c: char| c.is_ascii_alphanumeric() || "._-:/=,@+".contains(c);
+    if !s.is_empty() && !s.starts_with('=') && s.chars().all(safe) {
+        return s.to_owned();
     }
+    if !s.chars().any(char::is_control) {
+        return format!("'{}'", s.replace('\'', "'\\''"));
+    }
+    let mut out = String::with_capacity(s.len() + 3);
+    out.push_str("$'");
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '\'' => out.push_str("\\'"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            // Any other control character as its UTF-8 bytes, so nothing reaches the terminal as it is.
+            c if c.is_control() => {
+                for b in c.encode_utf8(&mut [0; 4]).bytes() {
+                    let _ = write!(out, "\\x{b:02x}");
+                }
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('\'');
+    out
 }
 
 /// The two ways to read the one record a Fetch asked for.
@@ -280,6 +304,11 @@ mod tests {
         assert_eq!(shell_word("x'; rm -rf /; '"), "'x'\\''; rm -rf /; '\\'''");
         assert_eq!(shell_word(""), "''");
         assert_eq!(shell_word("$(id)"), "'$(id)'");
+        // zsh expands a word that begins with `=`; a control character is escaped, so the word keeps its value and its line.
+        assert_eq!(shell_word("=whoami"), "'=whoami'");
+        assert_eq!(shell_word("a\nb'c"), "$'a\\nb\\'c'");
+        assert_eq!(shell_word("\u{1b}[2J\tx\\"), "$'\\x1b[2J\\tx\\\\'");
+        assert_eq!(shell_word("\u{85}"), "$'\\xc2\\x85'");
     }
 
     /// Ids a client may send that a shell would act on if they were pasted bare.
@@ -294,6 +323,35 @@ mod tests {
         "x | sh",
         "''",
     ];
+
+    /// The oracle: a shell given the word prints back exactly the text, for every hostile one and every kind of quoting.
+    #[cfg(unix)]
+    #[test]
+    fn a_shell_reads_each_word_back_as_the_text_it_was() {
+        let more = [
+            "=whoami",
+            "tab\there",
+            "\u{1b}[31mred",
+            "back\\slash 'q'\n",
+            "\u{85}c1",
+            "plain-1.2:3",
+        ];
+        for text in HOSTILE.iter().chain(&more) {
+            let Ok(out) = std::process::Command::new("bash")
+                .arg("-c")
+                .arg(format!("printf %s {}", shell_word(text)))
+                .output()
+            else {
+                return; // no bash here
+            };
+            assert_eq!(
+                String::from_utf8_lossy(&out.stdout),
+                *text,
+                "{text:?} as {}",
+                shell_word(text)
+            );
+        }
+    }
 
     #[test]
     fn the_first_request_command_quotes_the_client_id() {
@@ -312,14 +370,15 @@ mod tests {
     }
 
     /// A real shell reads the words of the command after `kcat` back to exactly what they were: the id is one word, and
-    /// nothing in it runs.
+    /// nothing in it runs. bash, not `/bin/sh`: `$'…'` is one of the shells [`shell_word`] names, and Ubuntu's `/bin/sh` is
+    /// dash, which predates POSIX 2024 and reads `$'line\nnext'` as `$` and a quoted `line\nnext`.
     #[cfg(unix)]
     #[test]
     fn a_shell_reads_every_hostile_id_back_as_one_word_and_runs_none_of_it() {
         for id in HOSTILE {
             let c = first_produce("127.0.0.1:9092", id);
             let (_, args) = c.split_once("kcat ").unwrap();
-            let out = std::process::Command::new("/bin/sh")
+            let out = std::process::Command::new("bash")
                 .arg("-c")
                 .arg(format!("set -- {args}; printf '%s\\0' \"$@\""))
                 .output()

@@ -17,3 +17,14 @@ pub mod mirror;
 pub mod modules;
 pub mod registry;
 pub mod yaml_out;
+
+/// The registry's artifact key for this machine (`aarch64-apple-darwin`).
+pub fn triple() -> String {
+    use std::env::consts::{ARCH, OS};
+    match OS {
+        "macos" => format!("{ARCH}-apple-darwin"),
+        "windows" => format!("{ARCH}-pc-windows-msvc"),
+        "linux" => format!("{ARCH}-unknown-linux-gnu"),
+        other => format!("{ARCH}-unknown-{other}"),
+    }
+}

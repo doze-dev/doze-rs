@@ -7,7 +7,7 @@ use serde_json::{Map, Value, json};
 
 use super::{api, api_mut, page};
 use crate::core::Core;
-use crate::doc::{Doc, child, copy, obj, public, put, text};
+use crate::doc::{Doc, child, copy, obj, public, put, text, with_tags};
 use crate::errors::{bad, conflict, invalid_id};
 use crate::patch::{Kind, apply, f};
 use crate::req::{Req, Res, new_id, none};
@@ -15,7 +15,7 @@ use crate::req::{Req, Res, new_id, none};
 pub(super) fn dispatch(core: &mut Core, op: Operation, r: &Req) -> Option<Res> {
     Some(match op {
         Operation::CreateRestApi => create(core, r),
-        Operation::GetRestApi => api(core, r).map(|d| Value::from(api_view(d)).into()),
+        Operation::GetRestApi => api(core, r).map(|d| with_tags(Value::from(api_view(d))).into()),
         Operation::GetRestApis => Ok(list(core, r).into()),
         Operation::UpdateRestApi => update(core, r),
         Operation::DeleteRestApi => delete(core, r),
@@ -164,7 +164,7 @@ fn update(core: &mut Core, r: &Req) -> Res {
     let doc = api_mut(core, r)?;
     let mut view = doc.get("api").cloned().unwrap_or_else(|| json!({}));
     apply(&mut view, &r.patches(), API_FIELDS)?;
-    let shown = view.clone();
+    let shown = with_tags(view.clone());
     put(doc, "api", view);
     Ok(shown.into())
 }

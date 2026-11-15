@@ -2443,9 +2443,9 @@ dependencies = [
 
 [[package]]
 name = "ctor"
-version = "1.0.13"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "914a755b7c2d4af2bdcff7ce1739e2db9a1b81a9b07123d8015786ae03c0980d"
+checksum = "ea691ed9f36489d087419b8b2ba3ef27d89621380b4178c73e2445a379e4e0f4"
 dependencies = [
  "link-section",
  "linktime-proc-macro",
@@ -2768,6 +2768,7 @@ dependencies = [
  "clap_complete",
  "doze-config",
  "doze-control",
+ "doze-daemon",
  "doze-detect",
  "doze-display",
  "doze-doctor",
@@ -2786,6 +2787,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "time",
  "tokio",
 ]
 
@@ -2793,13 +2795,16 @@ dependencies = [
 name = "doze-config"
 version = "0.0.0"
 dependencies = [
+ "doze-engine",
  "doze-hcl",
+ "doze-module-proto",
  "doze-names",
  "hcl-edit",
  "hex",
  "psl",
  "serde_json",
  "sha2 0.11.1",
+ "tokio",
 ]
 
 [[package]]
@@ -2813,6 +2818,26 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "doze-daemon"
+version = "0.0.0"
+dependencies = [
+ "doze-config",
+ "doze-control",
+ "doze-engine",
+ "doze-fetch",
+ "doze-hcl",
+ "doze-journal",
+ "doze-logstore",
+ "doze-module-host",
+ "doze-module-proto",
+ "doze-names",
+ "doze-os",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -2862,6 +2887,27 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "doze-engine"
+version = "0.0.0"
+dependencies = [
+ "doze-journal",
+ "doze-logstore",
+ "doze-module-host",
+ "doze-module-proto",
+ "doze-os",
+ "hex",
+ "proptest",
+ "regex-lite",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "time",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -2915,6 +2961,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "time",
+ "tokio",
 ]
 
 [[package]]
@@ -2951,6 +2998,7 @@ name = "doze-logstore"
 version = "0.0.0"
 dependencies = [
  "tempfile",
+ "tokio",
 ]
 
 [[package]]
@@ -2966,12 +3014,20 @@ dependencies = [
 name = "doze-module"
 version = "0.0.0"
 dependencies = [
+ "base64ct",
+ "doze-cli",
+ "doze-config",
+ "doze-daemon",
+ "doze-engine",
+ "doze-fetch",
  "doze-module-derive",
  "doze-module-host",
  "doze-module-proto",
  "doze-module-release",
  "doze-module-test",
  "doze-os",
+ "doze-projects",
+ "ed25519-dalek",
  "hex",
  "minicbor",
  "serde_json",
@@ -3048,6 +3104,7 @@ dependencies = [
 name = "doze-module-test"
 version = "0.0.0"
 dependencies = [
+ "doze-engine",
  "doze-module-host",
  "doze-module-proto",
  "doze-os",
@@ -5250,9 +5307,9 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jiff"
-version = "0.2.43"
+version = "0.2.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26699905cc795a23e3949585cc7ba3ee8ade090872a27e4316304a777297894a"
+checksum = "ac63a5a611e9d720726d6ab6ee2ee19e6f620503554ea5d303c7cb294ff40c12"
 dependencies = [
  "jiff-core",
  "jiff-static",
@@ -5266,18 +5323,18 @@ dependencies = [
 
 [[package]]
 name = "jiff-core"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffe6854081f5ac0a3046a9b223729ccd7a20b1e0e8277e44dc0660eedf67dfe2"
+checksum = "48e9635854583b49ce3c6c43a071f70b0a49e79ad3c261c7b3aa76b2280416d2"
 dependencies = [
  "log",
 ]
 
 [[package]]
 name = "jiff-static"
-version = "0.2.43"
+version = "0.2.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b4ff49b2887190c760b86207b55cdcaabbdecaf7a0660d68aa2ed6f652abf0a"
+checksum = "9f9c27796c21cc8b33ce490f148d53fe41d679b887885bf0ef8f662cdb9b35c0"
 dependencies = [
  "jiff-core",
  "proc-macro2",
@@ -5287,9 +5344,9 @@ dependencies = [
 
 [[package]]
 name = "jiff-tzdb"
-version = "0.1.9"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa8377070c6bae868759445e5a77f66d84f0b72f3a054bfb00e6d038b8282da7"
+checksum = "0980fca2cc272465bd60e82397607ba9f33add9e48defd77923301bbd03808f2"
 
 [[package]]
 name = "jiff-tzdb-platform"
@@ -5439,6 +5496,7 @@ dependencies = [
  "kafka-broker",
  "kafka-console",
  "kafka-protocol",
+ "kafka-registry",
  "kafka-server",
  "kafka-storage",
  "kafka-wire",
@@ -5691,9 +5749,9 @@ checksum = "d4a5ff6bcca6c4867b1c4fd4ef63e4db7436ef363e0ad7531d1558856bae64f4"
 
 [[package]]
 name = "link-section"
-version = "0.19.3"
+version = "0.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39c29a617ce3df32c08497bdc1ab6e2376e0b17948ac166a2fbe5977c5954cd9"
+checksum = "4d9aae57673c1a235149777a74d152f3210ebd3e3b13346d2cdb6809e566bd3c"
 
 [[package]]
 name = "linktime-proc-macro"
@@ -6247,7 +6305,7 @@ dependencies = [
  "mac-notification-sys",
  "serde",
  "tauri-winrt-notification",
- "zbus 6.2.1",
+ "zbus 6.3.0",
 ]
 
 [[package]]
@@ -11205,9 +11263,9 @@ dependencies = [
 
 [[package]]
 name = "zbus"
-version = "6.2.1"
+version = "6.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ddb2961d9587ef9f24ad14cde1c3bc4c5edc9f1525932a8cffdd5bd98886eb9"
+checksum = "6b4aae740b23927ceabed962431abab2cdefb9f7f885e5bbab062da09bf580e4"
 dependencies = [
  "async-trait",
  "bitflags 2.13.2",
@@ -11224,7 +11282,7 @@ dependencies = [
  "uuid",
  "windows-sys 0.61.2",
  "winnow 1.0.5",
- "zbus_macros 6.2.1",
+ "zbus_macros 6.3.0",
  "zbus_utils",
  "zcheapstr",
  "zruntime",
@@ -11247,9 +11305,9 @@ dependencies = [
 
 [[package]]
 name = "zbus_macros"
-version = "6.2.1"
+version = "6.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "083b38add47c340fc12ec560124fb1d9c23acb584f7021099f85ec6587a03c54"
+checksum = "37c9dd4beaf145c16fcb2902862f50da86e54aed13dd368ddf64a1d17e6b8529"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -11453,9 +11511,9 @@ checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
 name = "zruntime"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23ef5ed7d628cdf0af82f93dfe03330a8e37383bf7422a1d3d6eb72326680be5"
+checksum = "ce6a55d4f521760475a30f7b96779508fe8c40dc834478709454dd1d5f0ebc72"
 dependencies = [
  "futures-core",
  "futures-io",

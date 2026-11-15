@@ -26,6 +26,9 @@
 //!    loads its files (Go's `Glob` read the name as a pattern).
 //! 10. Deep chains (locals, `after`, references) are walked without recursion: Go's 20,000-local
 //!     chain loads here too, in well under a second, where a recursive walk overflows the stack.
+//! 11. The shape pass's stand-in for a module has each variable something reads from its `env`
+//!     (`module.db.env.DATABASE_URL`), as "". Go's had an empty `env`, so such a read failed the
+//!     shape pass; the Rust CLI reads every doze.hcl through it while the daemon answers the values.
 
 #![allow(
     clippy::unwrap_used,
@@ -328,6 +331,15 @@ fn the_shape_pass_takes_a_default_port_from_the_cache_only() {
     assert_eq!(shape.instance("db").unwrap().port, 0);
     let cached = doze_config::load_shape("doze.hcl", &opts(&host, &Fixtures)).unwrap();
     assert_eq!(cached.instance("db").unwrap().port, 5432);
+}
+
+#[test]
+fn the_shape_pass_reads_a_modules_env_variables() {
+    let src = "module postgres \"db\" {\n  version = 16\n}\n\napp \"api\" {\n  run = \"x\"\n  env = {\n    A = module.db.env.DATABASE_URL\n    B = module.db.env[\"PGHOST\"]\n  }\n}\n";
+    let s = Stack::new("shape-env", &[("doze.hcl", src)]);
+    let host = s.host(None);
+    let shape = doze_config::load_shape("doze.hcl", &opts(&host, &Fixtures)).unwrap();
+    assert!(shape.instance("api").is_some());
 }
 
 #[test]

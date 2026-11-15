@@ -225,18 +225,33 @@ impl Core {
         Ok(out)
     }
 
-    /// The last sequence number of a stream, found on disk the first time and then kept.
-    fn last_seq(&mut self, id: &[u8; 16]) -> Result<u64, ApiError> {
+    /// Removes every record of the stream `id`, and forgets its last sequence number.
+    pub(crate) fn drop_stream_records(&mut self, id: &[u8; 16]) {
+        self.pending
+            .ranges
+            .push((Space::Stream, id.to_vec(), keys::prefix_end(id)));
+        self.seqs.remove(id);
+    }
+
+    /// The last sequence number of a stream, found on disk the first time and then kept. A stream whose records were emptied keeps
+    /// its numbering through the number its table record holds.
+    pub(crate) fn last_seq(&mut self, id: &[u8; 16]) -> Result<u64, ApiError> {
         if let Some(n) = self.seqs.get(id) {
             return Ok(*n);
         }
-        let mut last = 0;
+        let mut last = self
+            .tables
+            .iter()
+            .filter_map(|(_, t)| t.stream.as_ref())
+            .find(|s| &s.id == id)
+            .map_or(0, |s| s.last_seq);
         self.disk
             .scan(Space::Stream, id, &keys::prefix_end(id), true, |k, _| {
-                last = k
-                    .get(16..24)
-                    .and_then(|b| <[u8; 8]>::try_from(b).ok())
-                    .map_or(0, u64::from_be_bytes);
+                last = last.max(
+                    k.get(16..24)
+                        .and_then(|b| <[u8; 8]>::try_from(b).ok())
+                        .map_or(0, u64::from_be_bytes),
+                );
                 Flow::Stop
             })
             .map_err(|e| ApiError::internal(e.to_string()))?;

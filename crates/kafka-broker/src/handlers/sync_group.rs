@@ -1,6 +1,6 @@
 //! SyncGroup.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::{GroupId, InstanceId, MemberId};
 use kafka_wire::messages::{SyncGroupRequest, SyncGroupResponse};
@@ -20,7 +20,7 @@ impl<F: Fs> Broker<F> {
     ) -> Outcome {
         if !self
             .guard(caller)
-            .group(operation::READ, req.group_id.as_str())
+            .group(Operation::Read, req.group_id.as_str())
         {
             let nameless =
                 version >= 5 && (req.protocol_type.is_none() || req.protocol_name.is_none());

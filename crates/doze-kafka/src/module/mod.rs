@@ -87,6 +87,7 @@ fn is_module(args: &[OsString]) -> bool {
 pub(crate) fn run() -> std::process::ExitCode {
     serve(Kafka)
         .release(env!("CARGO_PKG_VERSION"))
+        .by_hand("Run `doze-kafka --help` for the broker, which runs by hand.")
         .converge()
         .objects()
         .health()

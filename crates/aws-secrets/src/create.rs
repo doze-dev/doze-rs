@@ -1,7 +1,5 @@
 //! Making secrets and their versions: `CreateSecret`, `PutSecretValue`, `UpdateSecret`.
 
-use std::collections::BTreeSet;
-
 use aws_model_secrets_manager::keys::{
     CreateSecretRequest as Create, CreateSecretResponse as Created, PutSecretValueRequest as Put,
     PutSecretValueResponse as Put_, Tag, UpdateSecretRequest as Update,
@@ -66,8 +64,8 @@ pub(crate) fn add_version(
     let Some(sealed) = sealed else {
         return id;
     };
-    let stages: BTreeSet<String> = stages.map_or_else(
-        || BTreeSet::from([CURRENT.to_owned()]),
+    let stages: crate::model::Stages = stages.map_or_else(
+        || crate::model::Stages::of(CURRENT),
         |s| s.into_iter().collect(),
     );
     let displaced = if stages.contains(CURRENT) {
@@ -144,10 +142,12 @@ impl Core {
             if before == value.0 && same.binary == value.1 {
                 return Ok(Prepared { id, sealed: None });
             }
-            // (memory)
             return Err(ApiError::modeled(
                 "ResourceExistsException",
-                "You can't modify an existing secret version, but you can create a new secret version with a different value.",
+                format!(
+                    "You can't use ClientRequestToken {id} because that value is already in use for a version of secret {}.",
+                    secret.arn
+                ),
             ));
         }
         let sealed = self.kms_seal(call, secret, &id, &value.0).await?;

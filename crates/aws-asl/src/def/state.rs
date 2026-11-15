@@ -243,10 +243,15 @@ fn wait(obj: &Obj<'_>, out: &mut Vec<Diagnostic>) -> Wait {
         .filter(|f| obj.get(f).is_some())
         .count();
     if given != 1 {
-        // (memory)
+        // None given: recorded 2026-11-15. More than one: worded as AWS words Next and End together (memory).
+        let lead = if given == 0 {
+            "This object should have only one of the following fields"
+        } else {
+            "There should only be one of the following fields"
+        };
         out.push(Diagnostic::error(
             SCHEMA,
-            "Exactly one of these fields is required: [Seconds, SecondsPath, Timestamp, TimestampPath]",
+            format!("{lead}: [SecondsPath, Seconds, TimestampPath, Timestamp]"),
             &obj.at,
         ));
     }

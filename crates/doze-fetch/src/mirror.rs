@@ -129,6 +129,29 @@ impl Mirror {
             .ok_or_else(|| format!("mirror has no {engine} version for major \"{major}\""))
     }
 
+    /// Where `engine`'s builds come from, as a line names it: the host, or the folder of a mirror on disk.
+    pub fn source(&self, engine: &str) -> String {
+        let base = self.base(engine);
+        match base.strip_prefix("file://") {
+            Some(dir) => dir.to_owned(),
+            // The host alone: never a path's token or a `user:secret@` the log would keep.
+            None => {
+                let host = base
+                    .split_once("://")
+                    .map_or(base.as_str(), |(_, rest)| rest)
+                    .split('/')
+                    .next()
+                    .unwrap_or_default();
+                host.rsplit_once('@').map_or(host, |(_, h)| h).to_owned()
+            }
+        }
+    }
+
+    /// Whether a build is on this machine already (nothing to download).
+    pub fn has(&self, engine: &str, full: &str, triple: &str) -> bool {
+        archive::has_files(&self.content_dir(engine, full, triple).join("bin"))
+    }
+
     /// The cache folder of one build.
     pub fn content_dir(&self, engine: &str, full: &str, triple: &str) -> PathBuf {
         self.home.join(engine).join(format!("{full}-{triple}"))

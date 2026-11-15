@@ -23,6 +23,9 @@ kafka-storage = { path = "../kafka-storage" }
 kafka-auth = { path = "../kafka-auth" }
 # The Observer trait the recorder implements: the dependency points from the console to the server, never back.
 kafka-server = { path = "../kafka-server" }
+# The schema registry the Schemas pages read and the record codec (docs/port/phase10.md, 10d): called in this process, never over
+# HTTP. First party, and already in the default doze-kafka build: no package.
+kafka-registry = { path = "../kafka-registry" }
 # The HTTP server and router: no default features (no macros, no json, no tracing, no HTTP/2, no websockets), only
 # what the console needs.
 axum = { version = "0.8", default-features = false, features = ["tokio", "http1"] }
@@ -60,3 +63,6 @@ tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-t
 
 [[example]]
 name = "produce_bench"
+
+[[example]]
+name = "hot_paths"

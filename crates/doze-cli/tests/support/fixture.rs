@@ -239,6 +239,10 @@ pub(crate) struct FakeHost {
     pub refuse: Option<doze_cli::ctx::Refused>,
     /// The Applications folders the host reports (`@ app`: a Doze.app in the sandbox).
     pub apps: Vec<PathBuf>,
+    /// What the person types, a line per question asked (`read_line`); none left: the input ended.
+    pub answers: RefCell<std::collections::VecDeque<String>>,
+    /// The program `up` starts as the daemon (`None`: nothing is started).
+    pub daemon_exe: Option<PathBuf>,
 }
 
 impl Host for FakeHost {
@@ -256,6 +260,20 @@ impl Host for FakeHost {
         } else {
             Ok(())
         }
+    }
+    /// The environment it was given is recorded first, as `env K=V…`.
+    fn run_env(
+        &self,
+        program: &std::path::Path,
+        args: &[String],
+        env: &[(String, String)],
+    ) -> std::io::Result<u8> {
+        if !env.is_empty() {
+            let mut line = vec!["env".to_owned()];
+            line.extend(env.iter().map(|(k, v)| format!("{k}={v}")));
+            self.spawned.borrow_mut().push(line);
+        }
+        self.run(program, args)
     }
     fn run(&self, program: &std::path::Path, args: &[String]) -> std::io::Result<u8> {
         let name = program
@@ -304,6 +322,12 @@ impl Host for FakeHost {
     }
     fn settle(&self) -> std::time::Duration {
         std::time::Duration::ZERO
+    }
+    fn read_line(&self) -> Option<String> {
+        self.answers.borrow_mut().pop_front()
+    }
+    fn daemon_exe(&self) -> Option<PathBuf> {
+        self.daemon_exe.clone()
     }
 }
 

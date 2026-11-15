@@ -4,28 +4,40 @@
 pub(crate) mod add;
 mod ask;
 pub(crate) mod bug;
+pub(crate) mod connect;
+pub(crate) mod console;
 pub(crate) mod decl;
 pub(crate) mod declared;
 pub(crate) mod docs;
 mod docs_view;
 pub(crate) mod doctor;
+pub(crate) mod down;
 mod dry;
+pub(crate) mod env;
 pub(crate) mod fetch;
 pub(crate) mod format;
 mod graph;
+mod handover;
 pub(crate) mod init;
 pub(crate) mod lint;
 pub(crate) mod logs;
+pub(crate) mod migrate;
 pub(crate) mod modules;
 pub(crate) mod open;
 mod pin;
+mod progress;
 mod ready;
+mod remember;
 pub(crate) mod report;
+mod run;
 pub(crate) mod setup;
 pub(crate) mod status;
 pub(crate) mod stub;
+mod sync;
 pub(crate) mod task;
 mod trust;
+mod trust_hint;
+mod up;
 pub(crate) mod update;
 pub(crate) mod upgrade;
 mod verbs;
@@ -41,10 +53,9 @@ use crate::notice::Notices;
 use crate::output::{Done, Mode, Outcome};
 use crate::view::View;
 
-/// Runs `cmd` (`command` is its path, `doze modules docs`, for messages).
+/// Runs `cmd`.
 pub(crate) fn dispatch(
     cmd: Option<Cmd>,
-    command: &str,
     ctx: &mut Ctx<'_>,
     mode: &Mode,
     notices: &mut Notices,
@@ -52,13 +63,6 @@ pub(crate) fn dispatch(
     let Some(cmd) = cmd else {
         return open::bare(ctx, mode, notices);
     };
-    let command = match &cmd {
-        Cmd::Doctor(d) if d.fix || d.print_fix => "doze doctor --fix",
-        _ => command,
-    };
-    if let Some(needs) = stub::needs(&cmd) {
-        return Err(stub::not_built(command, needs));
-    }
     match cmd {
         Cmd::Version => version::run(),
         Cmd::Completion(c) => Ok(Done::ok(View::Raw(crate::complete::registration(c.shell)))),
@@ -81,7 +85,7 @@ pub(crate) fn dispatch(
         Cmd::Off(n) => verbs::on_off(ctx, mode, &n, true),
         Cmd::On(n) => verbs::on_off(ctx, mode, &n, false),
         Cmd::Pin(p) => pin::run(ctx, mode, &p),
-        Cmd::Task(t) => task::run(ctx, mode, &t, notices),
+        Cmd::Task(t) => task::run(ctx, mode, &t),
         Cmd::Logs(l) => logs::run(ctx, mode, &l),
         Cmd::Why(w) => why::run(ctx, mode, &w),
         Cmd::Lint(l) => lint::run(ctx, mode, &l),
@@ -89,6 +93,14 @@ pub(crate) fn dispatch(
         Cmd::Add(a) => add::run(ctx, mode, &a),
         Cmd::Init(i) => init::run(ctx, mode, &i),
         Cmd::Bug => bug::run(ctx, mode),
+        Cmd::Down(d) => down::run(ctx, mode, &d, notices),
+        Cmd::Up(u) => up::run(ctx, mode, &u, notices),
+        Cmd::Run(r) => run::run(ctx, mode, &r),
+        Cmd::Env(e) => env::run(ctx, mode, &e),
+        Cmd::Url(u) => env::url(ctx, mode, &u),
+        Cmd::Sync(s) => sync::run(ctx, mode, &s),
+        Cmd::Migrate(m) => migrate::run(ctx, mode, &m),
+        Cmd::Connect(c) => connect::run(ctx, mode, &c),
         Cmd::Open(o) => open::run(ctx, mode, &o, notices),
         Cmd::Modules(m) => match m.command {
             None => modules::run(ctx, mode),
@@ -96,9 +108,5 @@ pub(crate) fn dispatch(
             Some(ModulesCmd::Verify) => verify::run(ctx, mode),
             Some(ModulesCmd::Upgrade(u)) => upgrade::run(ctx, mode, &u),
         },
-        other => Err(stub::not_built(
-            command,
-            stub::needs(&other).unwrap_or(stub::Needs::Daemon),
-        )),
     }
 }

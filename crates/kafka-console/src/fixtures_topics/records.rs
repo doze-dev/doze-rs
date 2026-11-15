@@ -258,6 +258,8 @@ fn tombstone_record() -> RecordView {
         text: "FV-BAN-X".to_owned(),
         clipped: false,
         preview: "FV-BAN-X".to_owned(),
+        framed: None,
+        schema: None,
     };
     v.value = Shown {
         kind: crate::model::Kind::Null,
@@ -265,6 +267,8 @@ fn tombstone_record() -> RecordView {
         text: String::new(),
         clipped: false,
         preview: String::new(),
+        framed: None,
+        schema: None,
     };
     v.headers.clear();
     v.producer = None;
@@ -289,7 +293,7 @@ pub fn record(name: &str, partition: i32, offset: i64) -> Option<RecordView> {
         .into_iter()
         .find(|r| r.partition == partition && r.offset == offset)?;
     let mut v = orders_record();
-    v.topic = name.to_owned();
+    name.clone_into(&mut v.topic);
     v.partition = partition;
     v.offset = offset;
     v.key = found.key;

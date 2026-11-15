@@ -19,7 +19,7 @@ doze-hcl = { path = "../doze-hcl" }
 serde_json = "1"
 yaml-rust2 = "0.13"
 # Go's patterns (imports, getenv, a port literal, Makefile rules); regex is already in doze through doze-hcl.
-regex = "1"
+regex = { version = "1", default-features = false, features = ["std", "unicode"] }
 
 [dev-dependencies]
 serde_json = "1"

@@ -83,7 +83,7 @@ pub(crate) fn parse_list(items: &[String]) -> Result<Vec<&'static Svc>, String> 
     Ok(chosen)
 }
 
-fn unknown(item: &str) -> String {
+pub(crate) fn unknown(item: &str) -> String {
     let close = ALL
         .iter()
         .flat_map(|s| std::iter::once(s.name).chain(s.aliases.iter().copied()))

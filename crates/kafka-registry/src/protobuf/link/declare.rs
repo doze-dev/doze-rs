@@ -140,14 +140,20 @@ impl Linker<'_> {
         let i = self.pool.enums.len();
         self.declare(&full, Kind::Enum, file, i, e.at)?;
         let mut values = Vec::new();
+        let mut numbers = Vec::new();
         for d in &e.body {
             if let EnumItem::Value(v) = d {
                 // Enum values are siblings of their enum, as in C++.
                 self.declare(&join(scope, &v.name), Kind::Value, file, i, v.at)?;
                 values.push(v.name.clone());
+                numbers.push(v.number);
             }
         }
-        self.pool.enums.push(EnumInfo { file, values });
+        self.pool.enums.push(EnumInfo {
+            file,
+            values,
+            numbers,
+        });
         work.push(Work::Enum(e, i));
         Ok(())
     }

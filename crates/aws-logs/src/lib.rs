@@ -27,6 +27,7 @@ mod model;
 mod pattern;
 mod reading;
 mod req;
+mod storage;
 mod streams;
 
 #[cfg(test)]
@@ -114,7 +115,7 @@ impl Logs {
             Ok(actor) => actor,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
-        let mut answer = match actor.call(call).await {
+        let mut answer = match actor.call(crate::core::Ask::Call(Box::new(call))).await {
             Ok(answer) => answer,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
@@ -150,5 +151,9 @@ impl Service for Logs {
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(self.ask(call))
+    }
+
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
     }
 }

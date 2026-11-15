@@ -84,7 +84,7 @@ pub fn run(argv: Vec<OsString>, ctx: &mut Ctx<'_>) -> Exit {
         Some(Cmd::Update(_) | Cmd::Completion(_) | Cmd::Refresh(_))
     );
     let mut notices = notices;
-    let outcome = cmd::dispatch(cli.command, &path, ctx, &mode, &mut notices);
+    let outcome = cmd::dispatch(cli.command, ctx, &mode, &mut notices);
     let exit = output::finish(ctx, &mode, &path, outcome, &notices);
     if let Some(line) = update::notice(ctx, &mode, tell) {
         let _ = writeln!(ctx.err, "{}", mode.err().dim(&line));

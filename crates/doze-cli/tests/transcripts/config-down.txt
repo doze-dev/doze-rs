@@ -1,6 +1,7 @@
 # With the daemon down, doze.hcl answers first, as in Go: a name it does not declare is exit 4 before "not running"
-# (exit 7), for every verb; a module block with no port shows that its port is its module's (the CLI reads doze.hcl
-# without modules, so it does not know the number); `-c .` is shown as `.`.
+# (exit 7), for every verb; `off` needs it running, while `wake` would start it (its dry run says so, from doze.hcl);
+# a module block with no port shows that its port is its module's (the CLI reads doze.hcl without modules, so it does
+# not know the number); `-c .` is shown as `.`.
 @ project bare
 @ file project/doze.hcl stack = "s"\n\nmodule valkey "cache" {\n  version = 9\n}\n\napp "api" {\n  run  = "x"\n  port = 8080\n}\n
 
@@ -76,23 +77,65 @@ json:
 |   }
 | }
 
-$ doze wake api
+$ doze off api
 exit 7
 stderr:
-| error[DZ0701]: doze wake needs the stack running, and doze is not running it
+| error[DZ0701]: doze off needs the stack running, and doze is not running it
 |   fix: doze up
 json exit 7
 json:
 | {
 |   "schema": "doze/v1",
-|   "command": "doze wake",
+|   "command": "doze off",
 |   "ok": false,
 |   "error": {
 |     "code": "daemon_down",
-|     "message": "doze wake needs the stack running, and doze is not running it",
+|     "message": "doze off needs the stack running, and doze is not running it",
 |     "exit": 7,
 |     "id": "DZ0701",
 |     "fix": "doze up"
+|   }
+| }
+
+$ doze wake --dry-run api
+exit 0
+stdout:
+| doze
+|   → start the daemon  it supervises the stack in the background
+| api
+|   → wake              asked for
+|   dry run: nothing was changed · doze wake api applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze wake",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze wake api",
+|     "plan": [
+|       {
+|         "title": "doze",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "start the daemon",
+|             "detail": "it supervises the stack in the background"
+|           }
+|         ]
+|       },
+|       {
+|         "title": "api",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "wake",
+|             "detail": "asked for"
+|           }
+|         ]
+|       }
+|     ]
 |   }
 | }
 

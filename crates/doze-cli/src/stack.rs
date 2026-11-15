@@ -3,9 +3,9 @@
 //! it. The CLI is a client of that daemon, as the app is (rule 7): it asks, the daemon does.
 //!
 //! With the daemon up, the daemon says what the stack declares. With it down, doze.hcl's shape does
-//! ([`check_offline`], through doze-config). The state folder is still found at the default place, so a config that
-//! moves it with `home` or `data_dir` is found there, as Go's own degraded path finds it (open: C2 reads it from the
-//! loaded config).
+//! ([`check_offline`], through doze-config). The state folder is the loaded config's (`home`, `data_dir`), where the
+//! daemon puts it; a doze.hcl that does not load leaves the default place (`<home>/projects/<slug>`), as Go's degraded
+//! path has it.
 
 use crate::cmd::modules;
 use crate::ctx::Ctx;
@@ -34,16 +34,24 @@ impl Stack {
         let project = modules::find(ctx, mode)?;
         // The state folder's slug comes from the config path as Go has it: the file, or the folder `-c` named (Go's
         // `projectSlug` then takes that folder's parent, so sibling folders share a stack; kept, to find Go's daemon).
-        let key = StackKey::for_config(
-            &ctx.home,
-            project.source.as_ref().unwrap_or(&project.config),
-        );
         let loader = crate::config::Loader::new(ctx, mode);
+        let key = match loader.shape(&project) {
+            Ok(cfg) => state_of(ctx, &cfg),
+            Err(_) => StackKey::for_config(
+                &ctx.home,
+                project.source.as_ref().unwrap_or(&project.config),
+            ),
+        };
         Ok(Stack {
             project,
             key,
             loader,
         })
+    }
+
+    /// The stack's run folder (the socket, pid file, log and lock).
+    pub(crate) fn run_dir(&self) -> doze_daemon::ctl::RunDir {
+        doze_daemon::ctl::RunDir::of(self.key.dir())
     }
 
     fn client(&self, timeout: Duration) -> Client {
@@ -71,6 +79,41 @@ impl Stack {
     pub(crate) fn require(&self, timeout: Duration, what: &str) -> Result<Connection, Diagnostic> {
         self.open(timeout)?.ok_or_else(|| down(what))
     }
+}
+
+/// The state folder a loaded config names (the daemon's `data_dir`, a relative one from where doze runs, as the daemon
+/// started from here reads it).
+fn state_of(ctx: &Ctx<'_>, cfg: &doze_config::Config) -> StackKey {
+    StackKey::new(doze_config::paths::clean(&ctx.cwd.join(&cfg.data_dir)))
+}
+
+/// The stack lock (D1's `run/doze.ctl.lock`), held while `up` starts or boots the stack, `run` starts it and `down`
+/// stops it, so none of them races another. Its folder is made when it is missing. Waiting for another holder is said
+/// on stderr.
+pub(crate) fn lock(
+    ctx: &mut Ctx<'_>,
+    stack: &Stack,
+) -> Result<doze_daemon::ctl::StackLock, Diagnostic> {
+    use doze_daemon::ctl::StackLock;
+    let run = stack.run_dir();
+    let failed = |e: std::io::Error| {
+        Diagnostic::new(
+            ids::DAEMON_REFUSED,
+            format!(
+                "could not take the stack's lock in {}: {e}",
+                run.path().display()
+            ),
+        )
+        .fix("check that the doze home is writable")
+    };
+    if let Some(held) = StackLock::try_take(&run).map_err(failed)? {
+        return Ok(held);
+    }
+    let _ = writeln!(
+        ctx.err,
+        "waiting for another doze up, run or down on this stack…"
+    );
+    StackLock::take(&run).map_err(failed)
 }
 
 /// The names in the order given, each once: a name typed twice is acted on once.

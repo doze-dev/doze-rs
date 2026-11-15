@@ -257,7 +257,8 @@ impl Core {
             return self.transact_get(&sub);
         }
         match self.transact_write(&sub) {
-            Ok(_) => Ok(json!({})),
+            // Recorded 2026-11-15: a write transaction answers an empty `Responses`, not nothing.
+            Ok(_) => Ok(json!({"Responses": []})),
             Err(e) => Err(duplicates_named(e, &inserts)),
         }
     }

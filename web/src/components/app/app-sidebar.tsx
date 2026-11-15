@@ -22,7 +22,9 @@ export function AppSidebar() {
             <SidebarMenu className="gap-0.5">
               {NAV.map((item) => {
                 const active = isActive(item, path);
-                const count = item.count && shell.data ? shell.data[item.count] : undefined;
+                const raw = item.count && shell.data ? shell.data[item.count] : undefined;
+                // The registry's count is null when there is none: the item stays, and says "off" (Sc-14); its page says why.
+                const count = raw === null ? "off" : raw === undefined ? undefined : number(raw);
                 return (
                   <SidebarMenuItem key={item.to}>
                     <SidebarMenuButton asChild isActive={active} tooltip={item.label} className="h-9 text-[14px] data-[active=true]:font-medium [&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-link">
@@ -31,7 +33,11 @@ export function AppSidebar() {
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
-                    {count !== undefined && <SidebarMenuBadge className="font-normal text-muted-foreground tabular-nums">{number(count)}</SidebarMenuBadge>}
+                    {count !== undefined && (
+                      <SidebarMenuBadge className="font-normal text-muted-foreground tabular-nums" data-testid={`count-${item.count}`}>
+                        {count}
+                      </SidebarMenuBadge>
+                    )}
                   </SidebarMenuItem>
                 );
               })}

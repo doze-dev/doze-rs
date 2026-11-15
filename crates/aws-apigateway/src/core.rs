@@ -46,6 +46,8 @@ pub(crate) enum Ask {
         api: String,
         stage: String,
     },
+    /// From `doze-aws data`: what API Gateway holds, or remove it all.
+    Data(Box<crate::storage::DataCall>),
 }
 
 impl std::fmt::Debug for Ask {
@@ -56,9 +58,14 @@ impl std::fmt::Debug for Ask {
 
 /// What the actor answers.
 pub(crate) enum Answer {
-    Reply { reply: Res, durable: Option<Ack> },
+    Reply {
+        reply: Res,
+        durable: Option<Ack>,
+    },
     Found(Result<Box<Found>, crate::plane::Miss>),
     Key(Option<String>),
+    /// A data question was answered on its own channel.
+    Data,
 }
 
 impl std::fmt::Debug for Answer {
@@ -78,7 +85,7 @@ pub(crate) struct Core {
     pub(crate) account: Records<Doc>,
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) clock: Arc<dyn Clock>,
-    db: Option<Db>,
+    pub(crate) db: Option<Db>,
 }
 
 impl doze_runtime::Service for Core {
@@ -99,6 +106,13 @@ impl doze_runtime::Service for Core {
             Ask::Call(api, call) => self.call(api, *call).await,
             Ask::Find(find) => Answer::Found(self.find(&find).map(Box::new)),
             Ask::Key { value, api, stage } => Answer::Key(self.key_opens(&value, &api, &stage)),
+            Ask::Data(asked) => {
+                let crate::storage::DataCall { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                Answer::Data
+            }
         }
     }
 
@@ -133,6 +147,34 @@ impl Core {
             db: Some(db),
             ..core
         })
+    }
+
+    /// How many definitions there are, and the bytes of their rows.
+    pub(crate) fn count(&self) -> (u64, u64) {
+        use crate::storage::tally;
+        [
+            tally(&self.rest),
+            tally(&self.http),
+            tally(&self.keys),
+            tally(&self.plans),
+            tally(&self.domains),
+            tally(&self.account),
+        ]
+        .iter()
+        .fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1))
+    }
+
+    /// Removes every API, key, usage plan, domain name and the account settings: API Gateway as a fresh data directory has it.
+    pub(crate) fn wipe(&mut self) -> Result<(), StoreError> {
+        use crate::storage::clear;
+        clear(&mut self.rest);
+        clear(&mut self.http);
+        clear(&mut self.keys);
+        clear(&mut self.plans);
+        clear(&mut self.domains);
+        clear(&mut self.account);
+        drop(self.flush()?);
+        Ok(())
     }
 
     fn flush(&mut self) -> Result<Option<Ack>, StoreError> {

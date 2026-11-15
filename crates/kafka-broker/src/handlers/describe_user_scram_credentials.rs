@@ -1,7 +1,7 @@
 //! DescribeUserScramCredentials (API 50): which users have SCRAM credentials, for which mechanisms and how many
 //! iterations. Never the salt or a key.
 
-use kafka_auth::authz::{CLUSTER_NAME, operation, resource};
+use kafka_auth::authz::{CLUSTER_NAME, Operation, ResourceType};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::StrBytes;
@@ -42,9 +42,12 @@ impl<F: Fs> Broker<F> {
         req: &DescribeUserScramCredentialsRequest,
     ) -> Outcome {
         let mut resp = DescribeUserScramCredentialsResponse::default();
-        let allowed =
-            self.authz
-                .allows(caller, resource::CLUSTER, CLUSTER_NAME, operation::DESCRIBE);
+        let allowed = self.authz.allows(
+            caller,
+            ResourceType::Cluster,
+            CLUSTER_NAME,
+            Operation::Describe,
+        );
         if !allowed {
             let code = ResponseError::ClusterAuthorizationFailed;
             resp.error_code = code.code();

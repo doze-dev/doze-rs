@@ -27,6 +27,7 @@ mod openapi;
 mod patch;
 mod plane;
 mod req;
+mod storage;
 mod tags;
 mod v1;
 mod v2;
@@ -100,6 +101,11 @@ pub fn services(ctx: Arc<Ctx>) -> (ApiGateway, ApiGatewayV2) {
 }
 
 impl ApiGateway {
+    /// Both APIs keep their data in one directory: the v1 service answers for it.
+    fn data(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     /// The `@connections` management API, over the connections of this service's WebSocket APIs.
     #[must_use]
     pub fn management(&self) -> Management {
@@ -173,6 +179,14 @@ fn invalid(tables: &Tables, violation: &Violation) -> ApiError {
     e
 }
 
+impl ApiGatewayV2 {
+    /// Both APIs keep their data in one directory: the v1 service answers for it, so this one answers nothing.
+    #[allow(clippy::unused_self)]
+    const fn data(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        None
+    }
+}
+
 macro_rules! service {
     ($ty:ident, $api:expr, $model:ident, $patterns:ident, $built:path) => {
         impl Service for $ty {
@@ -212,6 +226,10 @@ macro_rules! service {
 
             fn invalid(&self, violation: &Violation) -> ApiError {
                 invalid(&$model::tables::TABLES, violation)
+            }
+
+            fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+                self.data()
             }
         }
 

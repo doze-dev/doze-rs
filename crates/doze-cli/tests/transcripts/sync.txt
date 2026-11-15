@@ -1,0 +1,173 @@
+# sync (Go sync.go): the change list first, from the daemon's plan op (each module's objects against what was applied;
+# nothing woken or written); no changes is exit 0 with nothing asked; else it asks, and refuses with no one to answer
+# (exit 9) unless -y. --dry-run is the list. A typo is exit 4 before anything.
+@ project bare
+@ daemon sync
+
+$ doze sync
+exit 9
+stdout:
+| db (postgres)
+|   + database shop
+|   ~ role app
+|   - extension pgvector
+| cache (valkey)  nothing to change
+stderr:
+| error[DZ0705]: sync needs confirmation and no one can answer here
+|   it drops what was applied before and is no longer declared
+|   fix: doze sync -y
+json exit 9
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sync",
+|   "ok": false,
+|   "error": {
+|     "code": "needs_confirmation",
+|     "message": "sync needs confirmation and no one can answer here",
+|     "exit": 9,
+|     "id": "DZ0705",
+|     "notes": [
+|       "it drops what was applied before and is no longer declared"
+|     ],
+|     "fix": "doze sync -y"
+|   }
+| }
+
+$ doze sync -y
+exit 0
+stdout:
+| db (postgres)
+|   + database shop
+|   ~ role app
+|   - extension pgvector
+| cache (valkey)  nothing to change
+| ✓ sync complete
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sync",
+|   "ok": true
+| }
+
+$ doze sync cache
+exit 0
+stdout:
+| no changes — declared structure is up to date
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sync",
+|   "ok": true
+| }
+
+$ doze sync db -y
+exit 0
+stdout:
+| db (postgres)
+|   + database shop
+|   ~ role app
+|   - extension pgvector
+| ✓ sync complete
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sync",
+|   "ok": true
+| }
+
+$ doze sync dbb -y
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "dbb"
+|   did you mean "db"?
+|   it has cache, db
+|   fix: doze status
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sync",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "the stack has no service called \"dbb\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "did you mean \"db\"?",
+|       "it has cache, db"
+|     ],
+|     "fix": "doze status"
+|   }
+| }
+
+$ doze sync --dry-run
+exit 0
+stdout:
+| db (postgres)
+|   + database shop
+|   ~ role app
+|   - extension pgvector
+| cache (valkey)  nothing to change
+|   dry run: nothing was changed · doze sync applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sync",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze sync",
+|     "plan": [
+|       {
+|         "title": "db (postgres)",
+|         "changes": [
+|           {
+|             "op": "+",
+|             "subject": "database shop"
+|           },
+|           {
+|             "op": "~",
+|             "subject": "role app"
+|           },
+|           {
+|             "op": "-",
+|             "subject": "extension pgvector"
+|           }
+|         ]
+|       },
+|       {
+|         "title": "cache (valkey)",
+|         "changes": []
+|       }
+|     ]
+|   }
+| }
+
+$ doze sync cache --dry-run
+exit 0
+stdout:
+| cache (valkey)  nothing to change
+|   dry run: nothing was changed · doze sync cache applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sync",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze sync cache",
+|     "plan": [
+|       {
+|         "title": "cache (valkey)",
+|         "changes": []
+|       }
+|     ]
+|   }
+| }

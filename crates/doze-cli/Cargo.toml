@@ -17,6 +17,9 @@ default = ["tls"]
 # `doze` binary, which must work where nothing else is installed. Without it requests go through the system's curl
 # (the desktop app; docs/port/weight.md, "One HTTP stack").
 tls = ["doze-fetch/tls"]
+# Test builds only (Go's `dozetest` tag): the registry key may be replaced through DOZE_TEST_REGISTRY_KEY, so a
+# throwaway, locally signed registry can stand in for the real one. Release builds never have it.
+dozetest = []
 
 [[bin]]
 name = "doze"
@@ -42,6 +45,8 @@ doze-journal = { path = "../doze-journal" }
 doze-logstore = { path = "../doze-logstore" }
 # Log lines are stamped with this machine's wall clock, as Go's `time.Local`: the zone from TZ or the system's.
 jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-platform"] }
+# The project record's times (doze-projects already brings it in).
+time = "0.3"
 clap = { version = "4", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions", "string"] }
 # Completions: the static scripts, and the dynamic engine the shell calls back into (`COMPLETE=<shell> doze`).
 clap_complete = { version = "4", features = ["unstable-dynamic"] }
@@ -49,6 +54,8 @@ clap_complete = { version = "4", features = ["unstable-dynamic"] }
 doze-fetch = { path = "../doze-fetch", default-features = false }
 # What a project needs (`init`), from what modules declare.
 doze-detect = { path = "../doze-detect" }
+# `doze __daemon`: the daemon is this binary, as Go's was.
+doze-daemon = { path = "../doze-daemon" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # The registry's signatures (the index, each artifact, the release file): verify only, with the key built in.

@@ -1,4 +1,7 @@
-//! The ring: the newest rows, bounded by a count AND a byte budget, grown on demand (an idle ring holds nothing).
+//! The ring: the newest rows, bounded by a count AND a byte budget, grown on demand. A broker that has never been asked
+//! anything holds nothing here; once it has, the rows stay (up to the bounds, about 0.4 to 0.6 MB at 2,000 rows and never more
+//! than 1 MiB) however long it then sits idle, because they are the history the Live page shows ("reaches back to"), and a
+//! developer back from lunch wants to see what happened before it. Rows are not aged out by time: only newer rows push them out.
 //!
 //! Folding lives here: a row that is the same kind of request as a recent one (same connection, API, version, target and result)
 //! is added to it, so heartbeats and idle fetches do not push the interesting rows out.

@@ -104,7 +104,8 @@ impl Core {
             && !aws_cron::Zone::known(tz)
         {
             // (memory)
-            return Err(invalid(format!("Invalid time zone {tz}.")));
+            // Recorded 2026-11-15.
+            return Err(invalid(format!("Invalid timezone {tz}.")));
         }
         let (start_ms, end_ms) = (r.time_ms("StartDate"), r.time_ms("EndDate"));
         if !parsed.is_once() {

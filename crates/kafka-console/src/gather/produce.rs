@@ -163,7 +163,10 @@ pub async fn send(b: &Backend, topic: &str, input: &ProduceInput) -> ProduceResu
     let batch = single_record(&OneRecord {
         timestamp_ms: now,
         key: typed.key.as_deref().map(str::as_bytes),
-        value: typed.value.as_deref().map(str::as_bytes),
+        value: input
+            .encoded
+            .as_deref()
+            .or_else(|| typed.value.as_deref().map(str::as_bytes)),
         headers: &pairs,
     });
     let sent = topics_write::produce(topic, ctx.facts.id, partition, acks, batch);

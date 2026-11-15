@@ -16,8 +16,10 @@ use crate::req::{Req, Res, new_id, none};
 pub(super) fn dispatch(core: &mut Core, op: Operation, r: &Req) -> Option<Res> {
     Some(match op {
         Operation::CreateApiKey => create_key(core, r),
-        Operation::GetApiKey => key(core, r.s("apiKey"))
-            .map(|k| key_view(k, r.flag("includeValue") == Some(true)).into()),
+        Operation::GetApiKey => key(core, r.s("apiKey")).map(|k| {
+            // GetApiKey carries the tags, an empty map when there are none; CreateApiKey does not (recorded 2026-11-15).
+            crate::doc::with_tags(key_view(k, r.flag("includeValue") == Some(true))).into()
+        }),
         Operation::GetApiKeys => Ok(list_keys(core, r).into()),
         Operation::UpdateApiKey => update_key(core, r),
         Operation::DeleteApiKey => delete_key(core, r),
@@ -195,7 +197,7 @@ fn delete_key(core: &mut Core, r: &Req) -> Res {
     none()
 }
 
-/// The `{apiId, stage}` entries of a plan must name a stage that exists `(memory)` for the words.
+/// The `{apiId, stage}` entries of a plan must name a stage that exists.
 fn check_stages(core: &Core, stages: Option<&Value>) -> Result<(), ApiError> {
     for s in stages.and_then(Value::as_array).into_iter().flatten() {
         let (api, stage) = (
@@ -208,7 +210,8 @@ fn check_stages(core: &Core, stages: Option<&Value>) -> Result<(), ApiError> {
             .and_then(|d| d.0.pointer(&format!("/stages/{stage}")))
             .is_some();
         if !found {
-            return Err(bad(format!("API Stage not found: {api}:{stage}")));
+            // A 404, recorded 2026-11-15.
+            return Err(not_found(format!("API Stage not found: {api}:{stage}")));
         }
     }
     Ok(())
@@ -228,6 +231,10 @@ fn create_plan(core: &mut Core, r: &Req) -> Res {
         "apiStages".into(),
         r.value("apiStages").cloned().unwrap_or_else(|| json!([])),
     );
+    // A quota without an offset starts at the period's beginning: AWS says so with 0 (recorded 2026-11-15).
+    if let Some(q) = p.get_mut("quota").and_then(Value::as_object_mut) {
+        q.entry("offset").or_insert_with(|| json!(0));
+    }
     let p = Value::Object(p);
     core.plans.insert(id, Doc(p.clone()));
     Ok(p.into())

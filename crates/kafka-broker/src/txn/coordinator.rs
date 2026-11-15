@@ -24,6 +24,9 @@ impl<F: Fs> Broker<F> {
         match blocking::run(|| self.meta.put_txn(&next)) {
             Ok(()) => {
                 entry.rec = next;
+                if let Some(at) = rules::next_step_ms(&entry.rec, self.txn_id_expiry_ms()) {
+                    self.txn_alarm.set(at);
+                }
                 Ok(())
             }
             Err(e) => {
@@ -246,20 +249,67 @@ impl<F: Fs> Broker<F> {
     }
 }
 
-/// How often open transactions are looked at.
+/// How soon a decision whose markers could not be written is tried again.
 pub(crate) const CHECK_EVERY: std::time::Duration = std::time::Duration::from_millis(500);
 
+impl<F: Fs> Broker<F> {
+    /// `transactional.id.expiration.ms`, in milliseconds.
+    pub(super) fn txn_id_expiry_ms(&self) -> i64 {
+        i64::try_from(self.config.transactional_id_expiration.as_millis()).unwrap_or(i64::MAX)
+    }
+
+    /// Asks for a look again after [`CHECK_EVERY`]: a decision could not be carried out.
+    pub(super) fn retry_txns_soon(&self) {
+        let retry = i64::try_from(CHECK_EVERY.as_millis()).unwrap_or(i64::MAX);
+        self.txn_alarm.set(clock::now().get().saturating_add(retry));
+    }
+
+    /// Sets the alarm to the soonest next step of every transaction there is. A decision still not carried out (its markers
+    /// could not be written) is tried again after [`CHECK_EVERY`].
+    async fn schedule_transactions(&self) {
+        let limit = self.txn_id_expiry_ms();
+        for entry in self.txns.all() {
+            let e = entry.read().await;
+            match rules::next_step_ms(&e.rec, limit) {
+                Some(at) => self.txn_alarm.set(at),
+                None => self.retry_txns_soon(),
+            }
+        }
+    }
+}
+
 impl<F: Fs + Send + Sync + 'static> Broker<F> {
-    /// Looks at the transactions now and then as long as the broker lives.
+    /// Looks at the transactions when one of them next has a step due (see the `txn::alarm` module), as long as the broker lives.
+    /// Parked, with no timer, while there is no transactional id.
     pub fn start_transactions(self: &std::sync::Arc<Self>) -> tokio::task::JoinHandle<()> {
         let broker = std::sync::Arc::downgrade(self);
+        let bell = self.txn_alarm.bell();
         tokio::spawn(async move {
             loop {
-                tokio::time::sleep(CHECK_EVERY).await;
+                let next = match broker.upgrade() {
+                    Some(b) => b.txn_alarm.next_ms(),
+                    None => break,
+                };
+                if next == i64::MAX {
+                    bell.notified().await;
+                    continue;
+                }
+                let now = clock::now().get();
+                if now < next {
+                    let wait = u64::try_from(next.saturating_sub(now)).unwrap_or(u64::MAX);
+                    tokio::select! {
+                        () = tokio::time::sleep(std::time::Duration::from_millis(wait)) => {}
+                        () = bell.notified() => {}
+                    }
+                    continue;
+                }
                 let Some(broker) = broker.upgrade() else {
                     break;
                 };
+                broker.woke();
+                broker.txn_alarm.clear();
                 broker.check_transactions().await;
+                broker.schedule_transactions().await;
             }
         })
     }

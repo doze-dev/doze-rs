@@ -258,7 +258,7 @@ impl RequestResponse {
 pub async fn live(State(s): State<Shared>, RawQuery(query): RawQuery) -> Response {
     let f = fields(query.as_deref());
     let q = query_of(&f);
-    let view = s.source.live(&q, crate::form::get(&f, "state")).await;
+    let view = s.source.live(&q, crate::form::get(&f, "state"));
     json(StatusCode::OK, &LiveResponse::new(view))
 }
 
@@ -275,7 +275,7 @@ pub async fn request(State(s): State<Shared>, Path(id): Path<String>) -> Respons
 
 /// `GET /api/v1/live/clients`.
 pub async fn clients(State(s): State<Shared>) -> Response {
-    json::<ClientsView>(StatusCode::OK, &s.source.clients().await)
+    json::<ClientsView>(StatusCode::OK, &s.source.clients())
 }
 
 /// `GET /api/v1/live/first`.
@@ -283,7 +283,7 @@ pub async fn first(State(s): State<Shared>) -> Response {
     json(
         StatusCode::OK,
         &FirstResponse {
-            first: s.source.first().await,
+            first: s.source.first(),
         },
     )
 }
@@ -292,7 +292,7 @@ pub async fn first(State(s): State<Shared>) -> Response {
 pub async fn topic_wire(State(s): State<Shared>, RawQuery(query): RawQuery) -> Response {
     let f = fields(query.as_deref());
     let topic = crate::form::text(&f, "topic").trim().to_owned();
-    let (rows, window, now_ms) = s.source.topic_wire(&topic).await;
+    let (rows, window, now_ms) = s.source.topic_wire(&topic);
     json(
         StatusCode::OK,
         &TopicWireView {
@@ -311,7 +311,7 @@ pub async fn group_wire(State(s): State<Shared>, RawQuery(query): RawQuery) -> R
         group: crate::form::text(&f, "group").trim().to_owned(),
         ..WireQuery::parse(&f)
     };
-    json::<GroupWireView>(StatusCode::OK, &s.source.group_wire(&q).await)
+    json::<GroupWireView>(StatusCode::OK, &s.source.group_wire(&q))
 }
 
 /// What a tail follows, and where it is.
@@ -323,7 +323,7 @@ struct Tail {
 impl Tail {
     /// One look: the rows changed since the last, or `None` when nothing was.
     async fn look(&mut self, s: &Shared) -> Option<TailBatch> {
-        let (next, rows) = s.source.tail_since(&self.q, self.version).await;
+        let (next, rows) = s.source.tail_since(&self.q, self.version);
         self.version = next;
         (!rows.is_empty()).then(|| TailBatch {
             cursor: cursor(next),
@@ -394,7 +394,7 @@ pub async fn tail(
         before: None,
         ..WireQuery::parse(&f)
     };
-    let (now, _) = s.source.tail_since(&q, u64::MAX).await;
+    let (now, _) = s.source.tail_since(&q, u64::MAX);
     let (version, reset) = match asked.as_deref().map(version_of) {
         // A cursor of this life that the recorder has not passed: from there.
         Some(Some(v)) if v <= now => (v, false),

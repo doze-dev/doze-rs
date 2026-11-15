@@ -1,6 +1,6 @@
 //! ConsumerGroupDescribe (KIP-848): a consumer group's state, epochs and members with what each holds and is to hold.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::StrBytes;
@@ -28,7 +28,7 @@ fn holds_hidden_topic(guard: &Guard<'_>, group: &DescribedGroup) -> bool {
         .iter()
         .flat_map(|m| [&m.assignment, &m.target_assignment])
         .flat_map(|a| a.topic_partitions.iter())
-        .any(|tp| !guard.topic(operation::DESCRIBE, tp.topic_name.as_str()))
+        .any(|tp| !guard.topic(Operation::Describe, tp.topic_name.as_str()))
 }
 
 impl<F: Fs> Broker<F> {
@@ -46,7 +46,7 @@ impl<F: Fs> Broker<F> {
         let mut resp = ConsumerGroupDescribeResponse::default();
         let mut asked: Vec<String> = Vec::new();
         for g in &req.group_ids {
-            if guard.group(operation::DESCRIBE, g.0.as_str()) {
+            if guard.group(Operation::Describe, g.0.as_str()) {
                 asked.push(g.0.as_str().to_owned());
             } else {
                 let mut refused = DescribedGroup::default();

@@ -1,6 +1,6 @@
 //! EndTxn: commit or abort.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::Response;
 use kafka_wire::messages::{EndTxnRequest, EndTxnResponse};
@@ -17,7 +17,7 @@ impl<F: Fs> Broker<F> {
     ) -> Outcome {
         let mut resp = EndTxnResponse::default();
         let id = req.transactional_id.0.as_str();
-        resp.error_code = if !self.guard(caller).txn(operation::WRITE, id) {
+        resp.error_code = if !self.guard(caller).txn(Operation::Write, id) {
             kafka_wire::ResponseError::TransactionalIdAuthorizationFailed.code()
         } else if id.is_empty() {
             kafka_wire::ResponseError::InvalidRequest.code()

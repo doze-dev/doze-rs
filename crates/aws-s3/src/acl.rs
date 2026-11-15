@@ -25,9 +25,23 @@ fn not_supported() -> ApiError {
     )
 }
 
-/// A public ACL on a bucket whose public access block blocks them. (memory)
-fn public_blocked() -> ApiError {
-    ApiError::new(403, "AccessDenied", "Access Denied")
+/// A public ACL on a bucket whose public access block blocks them (recorded 2026-11-15 for `PutObject`, `PutObjectAcl` and
+/// `PutBucketAcl`). The caller is named as the account's root, the principal of the local keys; an IAM user's own ARN is not passed
+/// down to S3. (memory: AWS names the user)
+fn public_blocked(req: &Req<'_>, action: &str) -> ApiError {
+    let resource = if action == "PutBucketAcl" {
+        format!("arn:aws:s3:::{}", req.bucket())
+    } else {
+        format!("arn:aws:s3:::{}/{}", req.bucket(), req.key())
+    };
+    ApiError::new(
+        403,
+        "AccessDenied",
+        format!(
+            "User: arn:aws:iam::{}:root is not authorized to perform: s3:{action} on resource: \"{resource}\" because public ACLs are prevented by the BlockPublicAcls setting in S3 Block Public Access.",
+            req.account()
+        ),
+    )
 }
 
 impl Core {
@@ -73,24 +87,32 @@ impl Core {
         let Some(grants) = requested(req, &owner)? else {
             return Ok(None);
         };
-        self.check_acl_write(req.bucket(), &grants, &owner, false)
+        self.check_acl_write(req, &grants, &owner, "PutObject")
     }
 
+    /// `action` is the operation: `PutObject` (any object write) asks whether ACLs are enabled before whether a public one is
+    /// blocked; `PutObjectAcl` and `PutBucketAcl` ask the other way round (recorded 2026-11-15: a public ACL on a new bucket is
+    /// AccessDenied for those two and AccessControlListNotSupported for a `PutObject`).
     fn check_acl_write(
         &self,
-        bucket: &str,
+        req: &Req<'_>,
         grants: &[Grant],
         owner: &str,
-        on_bucket: bool,
+        action: &str,
     ) -> Result<Option<Vec<Grant>>, ApiError> {
+        let bucket = req.bucket();
+        let blocked = is_public(grants) && self.blocks(bucket, "BlockPublicAcls");
+        if blocked && action != "PutObject" {
+            return Err(public_blocked(req, action));
+        }
         if self.ownership(bucket) == Ownership::Enforced {
-            if on_bucket || !owner_only(grants, owner) {
+            if action == "PutBucketAcl" || !owner_only(grants, owner) {
                 return Err(not_supported());
             }
             return Ok(None);
         }
-        if is_public(grants) && self.blocks(bucket, "BlockPublicAcls") {
-            return Err(public_blocked());
+        if blocked {
+            return Err(public_blocked(req, action));
         }
         Ok(Some(grants.to_vec()))
     }
@@ -138,7 +160,7 @@ impl Core {
         self.require(req.bucket())?;
         let owner = owner_id(req.account());
         let grants = requested(req, &owner)?.ok_or_else(missing_acl)?;
-        let kept = self.check_acl_write(req.bucket(), &grants, &owner, true)?;
+        let kept = self.check_acl_write(req, &grants, &owner, "PutBucketAcl")?;
         let text = serde_json::to_string(&kept).map_err(|e| ApiError::internal(e.to_string()))?;
         if let Some(b) = self.buckets.get_mut(req.bucket()) {
             b.configs.insert("acl".into(), text);
@@ -157,7 +179,7 @@ impl Core {
         let mut v = self.readable(req.bucket(), req.key(), req.s("VersionId"))?;
         let owner = owner_id(req.account());
         let grants = requested(req, &owner)?.ok_or_else(missing_acl)?;
-        if let Some(kept) = self.check_acl_write(req.bucket(), &grants, &owner, false)? {
+        if let Some(kept) = self.check_acl_write(req, &grants, &owner, "PutObjectAcl")? {
             v.acl = Some(kept);
             self.put_row(req.bucket(), &v)?;
         }

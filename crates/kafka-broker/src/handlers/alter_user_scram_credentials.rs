@@ -6,7 +6,7 @@
 
 use std::collections::BTreeSet;
 
-use kafka_auth::authz::{CLUSTER_NAME, operation, resource};
+use kafka_auth::authz::{CLUSTER_NAME, Operation, ResourceType};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::StrBytes;
@@ -44,9 +44,12 @@ impl<F: Fs> Broker<F> {
         req: &AlterUserScramCredentialsRequest,
     ) -> Outcome {
         let mut resp = AlterUserScramCredentialsResponse::default();
-        let allowed = self
-            .authz
-            .allows(caller, resource::CLUSTER, CLUSTER_NAME, operation::ALTER);
+        let allowed = self.authz.allows(
+            caller,
+            ResourceType::Cluster,
+            CLUSTER_NAME,
+            Operation::Alter,
+        );
         if !allowed {
             let names: BTreeSet<&str> = (req.deletions.iter().map(|d| d.name.as_str()))
                 .chain(req.upsertions.iter().map(|u| u.name.as_str()))

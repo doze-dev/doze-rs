@@ -6,10 +6,10 @@
 //! Doze.app in the Applications folders on a Mac, then `doze-app` on the PATH.
 //!
 //! With no display here (SSH, or Linux with no display server) there is no window to open: it prints the status
-//! table instead, as Go does, and so does bare `doze` there or when piped (O2). `--console <name>` needs the module's
-//! web address from the running stack, which comes with the Rust daemon (core plan D1): it says so.
+//! table instead, as Go does, and so does bare `doze` there or when piped (O2). `--console <name>` opens the module's
+//! own web console in the browser ([`super::console`]).
 
-use super::{status, stub};
+use super::status;
 use crate::cli::args::Status;
 use crate::cli::setup::Open;
 use crate::ctx::Ctx;
@@ -20,10 +20,9 @@ use crate::view::View;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Open, notices: &mut Notices) -> Outcome {
-    if a.console.is_some() {
-        return Err(stub::not_built("doze open --console", stub::Needs::Daemon)
-            .note("the console's address is the running module's (its web UI port), which the Rust daemon gives")
-            .fix("until then: doze url <name> prints the service's address"));
+    if let Some(name) = &a.console {
+        let shown = display(ctx);
+        return super::console::open(ctx, mode, name, shown);
     }
     if !display(ctx) {
         let _ = writeln!(ctx.err, "no display here; showing the status table instead");

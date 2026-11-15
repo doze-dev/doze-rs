@@ -1,6 +1,7 @@
 //! Grants: `CreateGrant`, `ListGrants`, `ListRetirableGrants`, `RevokeGrant`, `RetireGrant`. A grant is kept and listed as made; it
-//! is not evaluated (it lets nobody do anything) until the IAM stage can read the principal of a request. The refusals' words are
-//! not recorded.
+//! is not evaluated (it lets nobody do anything) until the IAM stage can read the principal of a request. A grant made again with
+//! the same name and everything else the same is the grant already there; the same name with anything different is a new grant
+//! (recorded 2026-11-15).
 
 use std::collections::BTreeMap;
 
@@ -20,8 +21,10 @@ use crate::find::not_found_key;
 use crate::keys::{invalid_state, no_randomness, seconds};
 use crate::model::{Grant, Key, State};
 
-const OPERATIONS: [&str; 14] = [
+/// Every grant operation, in the order AWS lists them in a refusal (recorded 2026-11-15).
+pub(crate) const OPERATIONS: [&str; 17] = [
     "Decrypt",
+    "DeriveSharedSecret",
     "Encrypt",
     "GenerateDataKey",
     "GenerateDataKeyWithoutPlaintext",
@@ -35,6 +38,8 @@ const OPERATIONS: [&str; 14] = [
     "DescribeKey",
     "GenerateDataKeyPair",
     "GenerateDataKeyPairWithoutPlaintext",
+    "GenerateMac",
+    "VerifyMac",
 ];
 const LIST_PAGE: usize = 50;
 
@@ -47,7 +52,7 @@ fn map_of<'a>(pairs: Option<impl Iterator<Item = (&'a str, &'a str)>>) -> BTreeM
 }
 
 fn grant_not_found(id: &str) -> ApiError {
-    ApiError::modeled("NotFoundException", format!("Grant ID {id} was not found"))
+    ApiError::modeled("NotFoundException", format!("Grant ID {id} not found"))
 }
 
 fn show(e: &mut Object<'_, GrantListEntry>, key: &Key, g: &Grant, account: &str) {
@@ -140,6 +145,16 @@ fn grant_of(v: &aws_schema::view::View<'_, Create>, now: i64) -> Result<Grant, A
     Ok(grant)
 }
 
+/// Whether two grants ask for the same thing: everything but the id, the token and when they were made.
+fn same_grant(a: &Grant, b: &Grant) -> bool {
+    a.name == b.name
+        && a.grantee == b.grantee
+        && a.retiring == b.retiring
+        && a.operations == b.operations
+        && a.context_subset == b.context_subset
+        && a.context_equals == b.context_equals
+}
+
 impl Core {
     pub(crate) fn create_grant(&mut self, call: &Call) -> Reply {
         let v = request::<Create>(call)?;
@@ -167,9 +182,8 @@ impl Core {
             }
             State::Enabled => {}
         }
-        // A grant with the same name on the same key is the same grant.
-        if let Some(name) = &grant.name
-            && let Some(same) = key.grants.iter().find(|g| g.name.as_ref() == Some(name))
+        if grant.name.is_some()
+            && let Some(same) = key.grants.iter().find(|g| same_grant(g, &grant))
         {
             let (gid, token) = (same.id.clone(), same.token.clone());
             return reply::<Created>(|o| {

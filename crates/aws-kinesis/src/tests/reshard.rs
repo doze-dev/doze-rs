@@ -273,7 +273,7 @@ fn a_split_point_must_lie_inside_the_shard_and_an_unknown_or_closed_shard_is_ref
         &json!({"StreamName": "s", "ShardToSplit": shard(0), "NewStartingHashKey": "5"}),
     );
     assert_eq!(code, "InvalidArgumentException");
-    assert!(message.contains("is closed"));
+    assert!(message.contains("has already been merged or split"));
     // The last key of a shard is a fair split point: the upper child holds that one key.
     split(&mut w, &shard(2), u128::MAX);
     settle(&mut w);
@@ -344,7 +344,7 @@ fn a_merge_of_shards_that_are_not_neighbours_is_refused() {
     assert_eq!(code, "InvalidArgumentException");
     assert_eq!(
         message,
-        "Shards shardId-000000000000 and shardId-000000000002 in stream s under account 000000000000 are not an adjacent pair of shards eligible for merging."
+        "Shards shardId-000000000000 and shardId-000000000002 in stream s under account 000000000000 are not an adjacent pair of shards eligible for merging"
     );
     let (code, _) = w.err(
         "MergeShards",
@@ -370,5 +370,8 @@ fn a_merge_of_shards_that_are_not_neighbours_is_refused() {
         &json!({"StreamName": "s", "ShardToMerge": shard(0), "AdjacentShardToMerge": shard(2)}),
     );
     assert_eq!(code, "InvalidArgumentException");
-    assert!(message.contains("is closed"), "{message}");
+    assert!(
+        message.contains("has already been merged or split"),
+        "{message}"
+    );
 }

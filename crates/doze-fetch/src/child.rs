@@ -225,21 +225,51 @@ fn save_pin(
     )
 }
 
-/// Reads one request line from `input`, serves it, writes one reply line to `output` (the `__fetch` command).
+/// Reads one request line from `input`, serves it, writes one reply line to `output` (the `__fetch` command). The
+/// slow part is said on `log` as it starts: the child's stderr is the daemon's log, which `doze up` relays while a
+/// service wakes (Go's mirror logged "downloading `<url>`…" there). An engine build is a large download: without the
+/// line, `up` showed nothing for the minute and a half a postgres build takes.
 pub fn run(
     input: &mut dyn std::io::BufRead,
     output: &mut dyn std::io::Write,
+    log: &mut dyn std::io::Write,
     place: &Place,
 ) -> std::io::Result<()> {
     let mut line = String::new();
     input.read_line(&mut line)?;
     let reply = match serde_json::from_str::<Request>(&line) {
-        Ok(req) => serve(&req, place),
+        Ok(req) => {
+            if let Some(said) = starting(&req, place) {
+                // The log is a courtesy: a reply is owed whether or not it could be written.
+                let _ = writeln!(log, "doze: {said}");
+                let _ = log.flush();
+            }
+            serve(&req, place)
+        }
         Err(e) => Reply::failed(format!("not a fetch request: {e}")),
     };
     let text = serde_json::to_string(&reply).map_err(std::io::Error::other)?;
     writeln!(output, "{text}")?;
     output.flush()
+}
+
+/// What `req` is about to do that takes a while, in a line for the log: an engine build not yet on this machine.
+fn starting(req: &Request, place: &Place) -> Option<String> {
+    let Request::Ensure {
+        engine,
+        full,
+        target,
+        ..
+    } = req
+    else {
+        return None;
+    };
+    (!place.mirror.has(engine, full, target)).then(|| {
+        format!(
+            "downloading {engine} {full} ({target}) from {}…",
+            place.mirror.source(engine)
+        )
+    })
 }
 
 /// The longest a child may take: the download budget, and a little to start and unpack.
@@ -266,7 +296,8 @@ impl ChildDownloads {
             .envs(self.env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            // The child's progress lines go where the daemon's own go: its log.
+            .stderr(Stdio::inherit())
             .kill_on_drop(true)
             .spawn()
             .map_err(|e| Error::new(ErrorKind::Unavailable, format!("starting the fetch: {e}")))?;

@@ -52,7 +52,7 @@ fn console(w: &World, door: bool) -> Router {
     }
     let state = State::new(
         Source::Live(Box::new(live)),
-        Base::root(),
+        &Base::root(),
         vec![],
         CancellationToken::new(),
     );

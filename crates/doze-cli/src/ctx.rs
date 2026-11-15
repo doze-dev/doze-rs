@@ -27,6 +27,11 @@ pub trait Host {
     fn spawn_background(&self, args: &[&str]) -> io::Result<()>;
     /// This program's own path, which says how doze was installed.
     fn exe(&self) -> Option<PathBuf>;
+    /// The program `up` starts as the stack's daemon (`doze __daemon`): this one. A test's host names the built `doze`, or
+    /// none, so nothing is started.
+    fn daemon_exe(&self) -> Option<PathBuf> {
+        self.exe()
+    }
     /// The time now, for what a follow redraws ("sleeps in 4m"). A test's clock stands still.
     fn now(&self) -> SystemTime {
         SystemTime::now()
@@ -45,6 +50,16 @@ pub trait Host {
     /// `None` when there is no one to ask or the input ended (`init --wizard`).
     fn read_line(&self) -> Option<String> {
         None
+    }
+    /// [`Host::run`] with `env` added to the program's environment (`doze run --env`).
+    fn run_env(
+        &self,
+        program: &std::path::Path,
+        args: &[String],
+        env: &[(String, String)],
+    ) -> io::Result<u8> {
+        let _ = env;
+        self.run(program, args)
     }
     /// Runs `program` with `args`, this terminal its terminal, and gives its exit code (`doze open` hands the
     /// command to the app). Nothing is run by default: only the real process and a test's recorder do anything.

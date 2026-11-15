@@ -34,9 +34,9 @@ const MACHINES: &str = "machines";
 const ACTIVITIES: &str = "activities";
 const EXECUTIONS: &str = "executions";
 const MAP_RUNS: &str = "mapruns";
-const HISTORY: &str = "history";
+pub(crate) const HISTORY: &str = "history";
 /// The version of every record here.
-const VERSION: u8 = 1;
+pub(crate) const VERSION: u8 = 1;
 
 /// What the actor is asked.
 #[derive(Debug)]
@@ -54,6 +54,8 @@ pub(crate) enum Request {
     },
     /// After a restart: call again what was being called, and say when the next thing is due.
     Resume(Caller),
+    /// From `doze-aws data`: what the machines hold, or remove some of it.
+    Data(Box<crate::storage::DataCall>),
 }
 
 /// What the actor answers.
@@ -89,6 +91,8 @@ pub(crate) struct Core {
     pub(crate) region: String,
     /// The local-testing settings of the last request.
     pub(crate) config: Arc<crate::Config>,
+    /// Tokens already answered, newest last, with the activity ARN (empty for a callback): a second answer is `TaskTimedOut`.
+    pub(crate) spent: VecDeque<(String, String)>,
 }
 
 /// Every operation of the model is built (Go's support table marks all 37 F).
@@ -128,6 +132,13 @@ impl doze_runtime::Service for Core {
             }
             Request::Resume(caller) => {
                 self.resume(&caller);
+                aws_wire::handler::empty()
+            }
+            Request::Data(call) => {
+                let crate::storage::DataCall { region, ask, reply } = *call;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
                 aws_wire::handler::empty()
             }
         };
@@ -193,6 +204,7 @@ impl Core {
             last_caller: None,
             region: String::new(),
             config: Arc::default(),
+            spent: VecDeque::new(),
         }
     }
 

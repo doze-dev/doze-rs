@@ -56,5 +56,9 @@ pub(crate) async fn daemon(args: &[String]) -> std::io::Result<()> {
         tokio::io::AsyncBufReadExt::read_line(&mut tokio::io::BufReader::new(o), &mut line).await?;
     }
     let r = tree.stop(&Stop::Terminate, Duration::from_secs(10)).await?;
-    std::fs::write(out, format!("{r:?}"))
+    // Written whole, then renamed into place: the test polls for the file and must never read it half written (a
+    // loaded gate run read it empty once).
+    let tmp = format!("{out}.tmp");
+    std::fs::write(&tmp, format!("{r:?}"))?;
+    std::fs::rename(&tmp, out)
 }
