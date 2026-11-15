@@ -130,6 +130,11 @@ fn put(out: &mut Vec<(String, Json)>, pool: &Pool, f: &Fld, values: Vec<Json>) {
         }
         return;
     }
+    // An empty packed run adds nothing: a repeated field with no values is the same as one left out, and writing it
+    // back must read the same (`"c": []` would come back as no `c` at all).
+    if values.is_empty() && slot.is_none() {
+        return;
+    }
     let i = slot.unwrap_or_else(|| {
         out.push((
             name,
