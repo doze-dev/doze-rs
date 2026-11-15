@@ -52,9 +52,18 @@ impl Front {
 
     /// Binds one more address (an instance added at run time); the error names the instance and the address.
     pub async fn add(&self, f: &Fronted) -> Result<(), String> {
-        let l = TcpListener::bind(&f.addr)
-            .await
-            .map_err(|err| format!("{} cannot listen on {}: {err}", f.name, f.addr))?;
+        // A listener just closed by a remove is let go once its task is dropped: give it a moment.
+        let mut tries = 0;
+        let l = loop {
+            match TcpListener::bind(&f.addr).await {
+                Ok(l) => break l,
+                Err(e) if e.kind() == std::io::ErrorKind::AddrInUse && tries < 10 => {
+                    tries += 1;
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                }
+                Err(err) => return Err(format!("{} cannot listen on {}: {err}", f.name, f.addr)),
+            }
+        };
         let task = tokio::spawn(accept(self.engine.clone(), f.name.clone(), l));
         if let Some(old) = crate::lock(&self.tasks).insert(f.name.clone(), task) {
             old.abort();

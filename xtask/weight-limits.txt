@@ -18,7 +18,9 @@
 # Estimates until CI's next run on main measures them. The owner's ceiling is 15 MB (2026-11-14).
 # 2026-11-14, CI's first run of the one build (PR #45, run 43588988185) replaces the estimates: 10,634,592 B, 183 packages, idle median
 # 10,488 KB (samples 10,488, 10,048, 10,576) plus 5% = 11,013 KB. docs/port/weight.md, "One build: CI's measurements".
-doze-kafka 10634592 183 11013 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-15, D1 session 10 (CI run 43660663612): 10,635,616 B, +1,024 B over the line: protocol 2 minor 1 (the `migrate` call, callbacks
+# scoped to a list of calls, the in-flight count as a guard). A small, justified rise; the line takes it.
+doze-kafka 10635616 183 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
@@ -143,4 +145,6 @@ doze-aws 13900000 280 10526 --listen 127.0.0.1:{port} --data-dir {data}
 # "doze's profile"). Line unchanged.
 # C2c with D1 merged (`__daemon`: the daemon is in this binary): 6,211,408 B (+680 KB) and 234 packages on darwin/arm64 in
 # release-doze. Bytes stay under the 9 MB line; packages to 240 (the daemon's crates; weight.md, "C2c").
+# D1 alone (no release-doze profile there) re-based its line to 10,160,000 B from CI's 9,674,976 B in `release`; with C2c's
+# release-doze profile and regex without its perf engines doze is 8,607,968 B on x86_64 Linux (weight.md, "Session 11"): the 9 MB line holds.
 doze-cli 9000000 240 0
