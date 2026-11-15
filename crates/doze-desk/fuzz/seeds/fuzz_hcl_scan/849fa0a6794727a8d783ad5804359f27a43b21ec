@@ -1,0 +1,35 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and Typ# instead of blocking the warehouseoad = {
+    mac       = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-arm64.tar.gz"
+    mac_intel											ownload/v1.21.8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run     = "./mailpit --smtp $HOST:$P: "api.acme.doze", "conns": 0, "memsytBe": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"] },
+      { "name": "web", "engine": "proilpit.address
+  }
+}
+
+# ── apps ──────────────────────────────────────────────────────────────────
+
+# The publi   = "go run ./apps/gateway"
+  watch = ["apps/gateway/**/*.go", "platform/**/*.go"]
+  port  = 8000
+  ready = htth identity, rate-l:imits in Redis and
+# forwards /api/... to the servic athte owns the answer.
+app gateway
+  port = ATABASE_URL = module.db.url, CACHE.
+app "storefront" {
+  dir   _URL"
+  e= "apps/storefront"
+  run   = "bun run dev"
+  port  = 5174
+  ready = htt
+# Valkey, the onv = {upen-source fork oorefront]
+
+  env = {
+    GATEWAY_URL = app.gateway.rl }jpli
+url}
+  }
+
+}

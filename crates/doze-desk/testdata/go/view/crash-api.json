@@ -1,0 +1,227 @@
+{
+  "key": "crash-1",
+  "stack": "shop",
+  "name": "api",
+  "kind": "app",
+  "engine": "process",
+  "look": {
+    "word": "crashing",
+    "glyph": "✗",
+    "tone": "bad"
+  },
+  "on": true,
+  "path": "process · go run ./cmd/api · crashing",
+  "because": "try 3 of 5 · next in 4s",
+  "run": "go run ./cmd/api",
+  "connect": [
+    {
+      "k": "Address",
+      "v": "api.shop.doze:8080",
+      "copy": "api.shop.doze:8080",
+      "mono": true
+    }
+  ],
+  "sleeps": "No connection right now. It dozes, then sleeps after 5:00 if nothing connects; the next connection wakes it.",
+  "tabs": [
+    {
+      "id": "overview",
+      "title": "overview"
+    },
+    {
+      "id": "logs",
+      "title": "logs"
+    }
+  ],
+  "needs": [
+    {
+      "name": "db",
+      "known": true,
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "glyph": "✓",
+      "task": false
+    },
+    {
+      "name": "mongo",
+      "known": true,
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "glyph": "✓",
+      "task": false
+    },
+    {
+      "name": "cache",
+      "known": true,
+      "look": {
+        "word": "dozing",
+        "glyph": "◐",
+        "tone": "warn"
+      },
+      "glyph": "◐",
+      "task": false
+    },
+    {
+      "name": "migrate",
+      "known": true,
+      "look": {
+        "word": "done",
+        "glyph": "✓",
+        "tone": "good"
+      },
+      "glyph": "✓",
+      "task": true
+    }
+  ],
+  "crash": {
+    "error": "panic: STRIPE_KEY is required",
+    "where": "main.loadConfig cmd/api/config.go:41",
+    "tries": "try 3 of 5",
+    "lastTry": "fifth",
+    "fraction": 0.6,
+    "nextIn": "4 s",
+    "gaveUp": false
+  },
+  "side": [
+    {
+      "name": "api",
+      "kind": "app",
+      "look": {
+        "word": "crashing",
+        "glyph": "✗",
+        "tone": "bad"
+      },
+      "note": "!",
+      "trouble": true
+    },
+    {
+      "name": "web",
+      "kind": "app",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "213 MB",
+      "trouble": false
+    },
+    {
+      "name": "worker",
+      "kind": "app",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
+    },
+    {
+      "name": "cache",
+      "kind": "module",
+      "look": {
+        "word": "dozing",
+        "glyph": "◐",
+        "tone": "warn"
+      },
+      "note": "11 MB",
+      "trouble": false
+    },
+    {
+      "name": "cloud",
+      "kind": "module",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "db",
+      "kind": "module",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "96 MB",
+      "trouble": false
+    },
+    {
+      "name": "events",
+      "kind": "module",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
+    },
+    {
+      "name": "mailpit",
+      "kind": "service",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "mongo",
+      "kind": "service",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "148 MB",
+      "trouble": false
+    },
+    {
+      "name": "search",
+      "kind": "service",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "migrate",
+      "kind": "task",
+      "look": {
+        "word": "done",
+        "glyph": "✓",
+        "tone": "good"
+      },
+      "note": "done",
+      "trouble": false
+    },
+    {
+      "name": "seed",
+      "kind": "task",
+      "look": {
+        "word": "not run",
+        "glyph": "▸",
+        "tone": "dim"
+      },
+      "note": "not run",
+      "trouble": false
+    }
+  ],
+  "banner": {
+    "ok": true
+  }
+}

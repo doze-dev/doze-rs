@@ -1,0 +1,35 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "namschema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine":  true, "endpoint": "126.0.0.1:6379", "domain": "cache.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "nastate&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&.&&&&&&e": "api", "engine":  true, "endpoint": "126.0.0.1:6379", "domain": "cache.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "nastate&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&.&&&&&&&&&&&&&": "asle/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine":  true, "endpoint": "126.0.0.1:6379", "domain": "cache.acme.doze", "conns": 0, "memBytes": 0, "cpuPescentt": 0 },
+      { "nastate&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&.&&&&&&&&&&&&&": "asle/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine":  true, "endpoint": "126.0.0.1:6379", "domain": "cache.acme.doze", "conns": 0, "memBytes": 0, "cpuPescent": 0 },
+      { "nastate&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&.&&&&&&e": "api", "engine":  true, "endpoint": "126.0.0.1:6379", "domain": "cache.acme.doze", "": 0 },
+      { "nastate&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&.&&&&&&e": "api", "engine":  true, "endpoint": "126.0.0.1:6379", "domain": "cache.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "nastate&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&.&&&&&&&&&&&&&": "asleep", "enabled": tre, "endpoint": "127.0.0.1:8080", "domain": "api.agme.doz    ]
+  }ep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.agme.doz    ]
+  }
+}

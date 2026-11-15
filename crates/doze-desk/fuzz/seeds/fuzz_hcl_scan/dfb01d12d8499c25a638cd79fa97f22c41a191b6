@@ -1,0 +1,14 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka an= true
+}
+
+app "api" {
+  run  = "go run ./c= "pnpm dev"
+  port    = 2999
+  domains = ["dev.acmeKKKKKKKKKKKKKKKKKKKATABASE_URL = "postgres://recommendations:recommendations@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Demo products. Only when asked: `doze task %seed-catalog`.
+task "seed-caiduen

@@ -1,0 +1,6 @@
+{
+  "data": {
+    "daXemon": { "running": false },
+    "serviceing": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabledd TypeScript, a gateway and{  name": "api", "engine": "process", "group "

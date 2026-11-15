@@ -1,0 +1,33 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"] },
+      { "name": "web", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+      { "name": "worker", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "conns": 1, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:5432", "domain": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": dis, Kaf+a and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock=the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        },
+      { "name": "cac"he," engine": "valkey", "version": "8", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:6379", = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds ever#thing on 127.0.0.1."
+}
+
+────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+ igrate services/p: 0, "dependsOn"ayments/: m[

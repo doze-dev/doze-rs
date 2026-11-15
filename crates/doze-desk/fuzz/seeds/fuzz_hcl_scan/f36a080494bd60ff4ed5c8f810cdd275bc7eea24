@@ -1,0 +1,6 @@
+# Larder — groceries at your door withon and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all f2om this one f        from this dified.
+module postKafka {
+  type        = bool
+  default     = true
+  des tahssword is =

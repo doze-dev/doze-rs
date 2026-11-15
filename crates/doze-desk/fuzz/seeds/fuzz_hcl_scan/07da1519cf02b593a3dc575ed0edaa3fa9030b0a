@@ -1,0 +1,35 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "12#   doze up                         fr."
+}
+
+defaults {
+  sleep = "2m"
+  names = var# One Postas itself and can only}
+  role "recommendations" { porwssad = "recommendations" }
+
+  s without `doze dns-setup`
+
+stac    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app"k = "larder"
+
+vaoiable "namef" {
+  type        = bool
+  default     = true
+y description = >.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep$ = "2m"
+  names = var.names
+
+  # Tte": "asleep", "en  inpenv    = { DATlatform/**/*.go"]
+  port  = 8001
+  ready = http("/healthz")
+  After = [task.migrate}

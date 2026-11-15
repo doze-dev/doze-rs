@@ -1,0 +1,102 @@
+{
+  "stacks": [
+    {
+      "key": "$WORK/.doze/projects/shop-1",
+      "name": "shop",
+      "dir": "~/code/shop",
+      "running": true,
+      "live": true,
+      "dot": "g",
+      "declared": 10,
+      "fig": [
+        {
+          "text": "4 awake",
+          "tone": "ok"
+        },
+        {
+          "text": " · "
+        },
+        {
+          "text": "2 waking",
+          "tone": "cool"
+        },
+        {
+          "text": " · "
+        },
+        {
+          "text": "1 dozing",
+          "tone": "warn"
+        },
+        {
+          "text": " · "
+        },
+        {
+          "text": "3 asleep"
+        }
+      ],
+      "sub": "551 MB · 4 connections",
+      "addresses": [
+        {
+          "text": "https://dev.shop.example",
+          "up": false,
+          "unready": true
+        },
+        {
+          "text": "http://api.shop.doze:8080",
+          "url": "http://api.shop.doze:8080",
+          "up": true
+        },
+        {
+          "text": "http://web.shop.doze:3000",
+          "url": "http://web.shop.doze:3000",
+          "up": true
+        }
+      ],
+      "more": 2,
+      "when": "up 0s"
+    },
+    {
+      "key": "$WORK/.doze/projects/acme",
+      "name": "acme",
+      "dir": "$WORK/code/acme",
+      "running": false,
+      "live": false,
+      "dot": "",
+      "declared": 5,
+      "fig": [
+        {
+          "text": "stopped",
+          "tone": "dim"
+        }
+      ],
+      "sub": "last time: api, web, db",
+      "addresses": [],
+      "when": "up 3d ago",
+      "lastSet": [
+        "api",
+        "web",
+        "db"
+      ]
+    }
+  ],
+  "counts": "2 stacks · 1 up",
+  "machine": [
+    {
+      "name": "network",
+      "ok": true,
+      "text": "198.19.0.0/17 served by the doze network daemon",
+      "section": "names"
+    },
+    {
+      "name": "resolver route",
+      "ok": true,
+      "text": "/etc/resolver/doze → 127.0.0.1:5323",
+      "section": "names"
+    },
+    {
+      "name": "domains",
+      "ok": true,
+      "text": "dev.shop.example"
+    }
+  ]
+}

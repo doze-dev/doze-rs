@@ -1,0 +1,10 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "serviemByt[es": 0, "cpuPercent": 0 },
+     "name": "cache", "engine": ": "api", "
+
+  # The first `go run` ofends"

@@ -1,0 +1,19 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+   "go ssn            = 8
+  port               = 9092
+  auto_create_topics = false
+
+  topic "users.signed-up" { partit": 0, "cpuPercent": 0 },
+      { "name": "db", "engin=e": "postgres", "version": "17",staonce, to stock the shelves
+#   doze up --var njpliames=false       on a machijpline without `doze dns-setup`
+
+stack = "larder"
+
+variable "names]
+  }
+<t}

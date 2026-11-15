@@ -1,0 +1,26 @@
+[package]
+name = "doze-control"
+version = "0.0.0"
+description = "Control protocol 2 of the doze daemon: the wire types, a sans-IO NDJSON codec, a blocking client, and a scripted fixture daemon"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# The fixture daemon: scripted frames served on a real socket, for the app's and the CLI's tests.
+test-support = []
+
+[dependencies]
+async-channel = "2"
+doze-os = { path = "../doze-os" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+thiserror = "2"
+
+[dev-dependencies]
+doze-control = { path = ".", features = ["test-support"] }

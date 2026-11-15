@@ -1,0 +1,8 @@
+{
+  "schema": "doze/v1",
+  "command": "doze 80", 
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+       }
+}

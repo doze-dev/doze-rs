@@ -1,0 +1,10 @@
+{
+  "schema": "d#oze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "servicesvices/catalog/seed"
+  manual = true
+  after  = [task.migrate-catalo]g
+  env    = { DATABASE_URL = "postgres://cata,og:catalog@$ient happens to write firss", "group "

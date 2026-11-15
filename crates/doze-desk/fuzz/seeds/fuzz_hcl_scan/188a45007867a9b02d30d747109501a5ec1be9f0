@@ -1,0 +1,17 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine"}  
+rocess", "group": "app", "state": "asleep", "eaemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": tr2m"
+  names = var.names
+
+  # The first `go run` ofendsOn": ["db"] }
+    ]
+  }
+}

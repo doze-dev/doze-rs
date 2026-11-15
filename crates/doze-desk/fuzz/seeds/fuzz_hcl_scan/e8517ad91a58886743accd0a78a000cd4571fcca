@@ -1,0 +1,82 @@
+# Larder — groce# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compo                                                                se file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "lardate services/catalog/migrations"
+  inputs = ["services/catalog/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-orders" {
+  run   og" { passw  = "go run ./cmd/api"
+  port = 808# Larder — groceri "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in dogateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var nastack = "acme"
+
+tausldfe {
+  names          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in dogateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var nastack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+   passw  = "go run ./cmd/api"
+  port = 808# Larder — groceri "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in dogateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var nastack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  runty" }
+  role "catalog" { passw  = "go run ./cmd/api"
+  port = 808# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, apl from this one file: no Docker, no
+# compy" }
+  role "catalog" { password = "catalog" on = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# rather than created by whichever client happens to write emBytes": 0,n   = "go run ./service1:8080", "domain"ions (URL     = "postgres://catalog:catalog@${module.postgres.address}/postgre_KEY_ID     = "larder"
+    AWS_SECRET_ACCErSS_KEYe 

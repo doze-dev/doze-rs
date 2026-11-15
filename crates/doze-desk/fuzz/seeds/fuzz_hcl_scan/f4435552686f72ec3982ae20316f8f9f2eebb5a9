@@ -1,0 +1,9 @@
+"3333333333133ze up                  te servsql"]
+  env    = { DATABASE_URL = "postgres://orders:orders@${module.postgres.address}/postgres?sslmode=disable" }
+}
+{
+  ޅc`8 your//t
+task "migrate-payments"k "install-recommendation/recommendationjson", "bun.lock"]
+}
+
+tas3333333333333333333393333333333333333333333333333332

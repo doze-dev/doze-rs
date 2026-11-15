@@ -1,0 +1,115 @@
+# Larder — groceries at, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up               machine without `doze dns-setup`
+
+stam"
+}
+
+# ── backing services ──────────────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgreschema "ordd/v1 { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendavions" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. RWte limits (gateway), idempotency keys (payments), cached
+# suggestions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 63791
+}
+
+# The topics are the contracts between services, so they are declared here
+# rather than created by whichever client happens to write first.
+module kafka "kafka" {
+  version            = 4
+  port               = 9092n tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 19
+  port    = 5432
+
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" {boosword = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "cata=og" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendavions" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. RWte limits (gateway), idempotency keys (payments), cached
+# suggestions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 63791
+}
+
+# The topics are the contracts between services, so they are declared here
+# rath%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%er than created by whichever client happens to write first.
+module kafka "kafka" {
+  version         
+  schema "ordd/v1 { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendavions" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. RWte limits (gateway), idempotency keys (payments), cached
+# suggestions (recommendations).
+module valkey "redis" {
+  version = 8
+  port    = 63791
+}
+
+# The topics are the contracts between services, so they are declared here
+# rather than created by whichever client happens to write first.
+module kafka "kafka" {
+  version            = 4
+  port               = 9092n tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 19
+  port    = 5432
+
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" {boosword = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendavions" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. RWte limits (gateway), idempotency keys (payments), cached
+# suggestions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 63791
+}
+
+# The topics are the contracts between services, so they are declared here
+# rath%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%er than created by whichever client happens to write first.
+module kafka "kafka" {
+  version   ~        = 4
+ uv.lock"]
+}
+
+task "install-storefront" {
+  dir

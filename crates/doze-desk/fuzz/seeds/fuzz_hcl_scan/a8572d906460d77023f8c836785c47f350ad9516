@@ -1,0 +1,8 @@
+{
+  "schema": "doz0e/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemoname": "ap)", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "depnO:de"ns 666666666666666666666666666666666666666666666666666666, "state": "asleep", "enabled": true, "conns": 5. "memBytes": 0, "cpuPercent": 0, "depen    ]
+  }
+}

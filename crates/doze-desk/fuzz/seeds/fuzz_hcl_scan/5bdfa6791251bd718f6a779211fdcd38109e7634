@@ -1,0 +1,35 @@
+# Larder — groce#$Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=fa?sslmode=disable"
+    KAFKA_BROKERS =ations/*.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-orders" {
+  run    = "go run ./platform/cmd/migrate services/orders/migrations"
+  inputs = ["services/orders/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://orders:orders@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-payments" {
+  run    = "go run ./platform/cmd/migrate services/payments/migrations"
+  inputs = ["services/payments/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://payments:payments@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-recommendations" {
+  run    = "go run ./platform/cmd/migrate services/recommendations/migrations"
+  inputs = ["services/recommendations/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://recommendations:recommendations@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Demo products. Only when asked: `doze task seed-catalog`.
+task "seed-catalog" {
+  rder"
+    AWS_SECRET_ACCErSS_KEYe 

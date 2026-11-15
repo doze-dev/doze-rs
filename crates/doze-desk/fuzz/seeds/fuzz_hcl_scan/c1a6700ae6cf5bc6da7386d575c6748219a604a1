@@ -1,0 +1,17 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+
+ai.url }
+}
+
+app "worker" {
+  run = "go rqn ./cm  runpi" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { ]ATABASE_URL = module.db.url, CACHE_URL = module.cach = "go run ./cmd/api"
+  port = 8080
+  env  = {_URL = module.db.url }
+}

@@ -1,0 +1,15 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": tr1m"
+  names = var.namos
+
+  # The first `go run` of each service ult search_path finds it unqualified.
+module postgres "postgres" {
+  versio ]
+  }
+}
