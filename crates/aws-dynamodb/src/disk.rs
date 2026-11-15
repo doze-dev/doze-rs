@@ -162,6 +162,32 @@ impl Disk {
         Some(self.writer.submit(op))
     }
 
+    /// The entries from `lo` up to (not including) `hi`, and the bytes their keys and values hold.
+    pub(crate) fn measure(
+        &self,
+        space: Space,
+        lo: &[u8],
+        hi: &[u8],
+    ) -> Result<(u64, u64), StoreError> {
+        let (mut rows, mut bytes) = (0, 0);
+        self.scan(space, lo, hi, false, |k, v| {
+            rows += 1;
+            bytes += (k.len() + v.len()) as u64;
+            Flow::Continue
+        })?;
+        Ok((rows, bytes))
+    }
+
+    /// How much of the file holds data.
+    pub(crate) fn space(&self) -> Result<doze_store::Space, StoreError> {
+        self.store.space()
+    }
+
+    /// Gives the space deletes freed back to the disk, after the writer has finished what it was given.
+    pub(crate) fn compact(&mut self) -> Result<doze_store::Compacted, StoreError> {
+        self.writer.paused(&mut self.store, Store::compact)?
+    }
+
     pub(crate) fn close(self) {
         self.writer.shutdown();
         // WHY: every commit was flushed when it was made, so a failure to close costs only a longer start next time.

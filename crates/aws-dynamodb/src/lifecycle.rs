@@ -125,10 +125,7 @@ impl Core {
                 .push((space, t.id.to_vec(), keys::prefix_end(&t.id)));
         }
         if let Some(s) = &t.stream {
-            self.pending
-                .ranges
-                .push((Space::Stream, s.id.to_vec(), keys::prefix_end(&s.id)));
-            self.seqs.remove(&s.id);
+            self.drop_stream_records(&s.id);
         }
     }
 
