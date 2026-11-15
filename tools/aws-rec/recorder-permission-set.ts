@@ -7,6 +7,8 @@ const R = "*";
 const P = "doze-rec-";
 const A = "arn:aws";
 // The services the recorder may use on resources that carry the prefix.
+// IAM ARNs must start with a resource kind (IAM refuses `iam::*:*doze-rec-*`, 2026-11-15); `*` before the prefix allows a path.
+const IAM_KINDS = ["role", "user", "group", "policy", "instance-profile", "saml-provider", "oidc-provider", "server-certificate", "mfa"];
 const PREFIXED = ["sqs", "sns", "ssm", "secretsmanager", "dynamodb", "logs", "events", "scheduler", "lambda", "states", "kinesis",
   "cloudwatch", "cloudformation", "s3", "iam"];
 
@@ -81,7 +83,7 @@ const policy = {
         // region nor account, and `*` matches those empty). IAM refuses a wildcard in the service part, so each is named.
         ...PREFIXED.filter((s) => s !== "s3" && s !== "iam").map((s) => `${A}:${s}:*:*:*${P}*`),
         // Buckets have neither region nor account, IAM has no region, dashboards have no region: written out, not left to `*`.
-        `${A}:s3:::${P}*`, `${A}:iam::*:*${P}*`, `${A}:cloudwatch::*:dashboard/${P}*`,
+        `${A}:s3:::${P}*`, ...IAM_KINDS.map((k) => `${A}:iam::*:${k}/*${P}*`), `${A}:cloudwatch::*:dashboard/${P}*`,
         // Names the scenarios use to see what AWS refuses (and accepts): reserved words, a path with no slash, and the Secrets
         // Manager reference path. AWS refuses the first four before it makes anything; `/awsome-dzc/*` it may accept, and cleanup deletes it.
         `${A}:ssm:*:*:parameter/aws/not-yours`, `${A}:ssm:*:*:parameter/ssm-not-yours`, `${A}:ssm:*:*:parameter/awsome-dzc/*`,
@@ -196,6 +198,7 @@ const problems: string[] = [];
 for (const s of policy.Statement as any[]) {
   for (const r of [].concat(s.Resource ?? [])) {
     const parts = String(r).split(":");
+    if (parts[2] === "iam" && !/^(\*|root|(user|federated-user|role|group|instance-profile|mfa|server-certificate|policy|sms-mfa|saml-provider|oidc-provider|report|access-report|role-template)\/)/.test(parts.slice(5).join(":"))) problems.push(`${s.Sid}: IAM resource ${r}`);
     if (r !== "*" && (parts.length < 6 || parts[0] !== "arn" || !/^[a-z0-9-]+$/.test(parts[2]))) problems.push(`${s.Sid}: resource ${r}`);
   }
   for (const a of [].concat(s.Action ?? [])) if (!/^[a-z0-9-]+:/.test(String(a))) problems.push(`${s.Sid}: action ${a}`);
