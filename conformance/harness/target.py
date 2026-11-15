@@ -152,6 +152,8 @@ def _mark_kms_keys(client):
             parsed["Tags"] = [t for t in parsed["Tags"] if t.get("TagKey") != _MARK["TagKey"]]
 
     client.meta.events.register("provide-client-params.kms.CreateKey", add)
+    # A replica is a key made in another region: it carries the mark too, or the recorder may not make it.
+    client.meta.events.register("provide-client-params.kms.ReplicateKey", add)
     client.meta.events.register("after-call.kms.ListResourceTags", hide)
 
 

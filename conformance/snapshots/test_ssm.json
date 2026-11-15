@@ -86,6 +86,349 @@
       }
     }
   },
+  "test_document_content_is_checked": {
+    "bad-schema": {
+      "Error": {
+        "Code": "InvalidDocumentContent",
+        "Message": "Document schema version is invalid. Value: 9.9 at Line: 1, Column: 24"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-steps": {
+      "Error": {
+        "Code": "InvalidDocumentContent",
+        "Message": "Missing \"mainSteps\" in the document."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-json": {
+      "Error": {
+        "Code": "InvalidDocumentContent",
+        "Message": "JSON not well-formed. at Line: 1, Column: 2"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "reserved-prefix": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "User: <caller> is not authorized to perform: ssm:CreateDocument on resource: arn:aws:ssm:us-east-1::document/AWS-ConformanceNotYours because no identity-based policy allows the ssm:CreateDocument action"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "yaml-automation": {
+      "DocumentDescription": {
+        "CreatedDate": "<CreatedDate:1>",
+        "DefaultVersion": "1",
+        "DocumentFormat": "YAML",
+        "DocumentType": "Automation",
+        "DocumentVersion": "1",
+        "Hash": "<Hash:1>",
+        "HashType": "Sha256",
+        "LatestVersion": "1",
+        "Name": "<name:auto>",
+        "Owner": "<Owner:1>",
+        "PlatformTypes": [
+          "Windows",
+          "Linux",
+          "MacOS"
+        ],
+        "SchemaVersion": "0.3",
+        "Status": "Creating",
+        "Tags": []
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_document_lifecycle": {
+    "create": {
+      "DocumentDescription": {
+        "CreatedDate": "<CreatedDate:1>",
+        "DefaultVersion": "1",
+        "Description": "Say something",
+        "DocumentFormat": "JSON",
+        "DocumentType": "Command",
+        "DocumentVersion": "1",
+        "Hash": "<Hash:1>",
+        "HashType": "Sha256",
+        "LatestVersion": "1",
+        "Name": "<name:doc>",
+        "Owner": "<Owner:1>",
+        "Parameters": [
+          {
+            "DefaultValue": "hello",
+            "Name": "Message",
+            "Type": "String"
+          }
+        ],
+        "PlatformTypes": [
+          "Linux",
+          "MacOS"
+        ],
+        "SchemaVersion": "2.2",
+        "Status": "Creating",
+        "Tags": [
+          {
+            "Key": "team",
+            "Value": "a"
+          }
+        ]
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create-again": {
+      "Error": {
+        "Code": "DocumentAlreadyExists",
+        "Message": "Document with same name <name:doc> already exists"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "default": {
+      "Description": {
+        "DefaultVersion": "2",
+        "Name": "<name:doc>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-default-version": {
+      "Error": {
+        "Code": "InvalidDocumentOperation",
+        "Message": "Default version of the document can't be deleted."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delete-version": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe": {
+      "Document": {
+        "Category": [],
+        "CategoryEnum": [],
+        "CreatedDate": "<CreatedDate:1>",
+        "DefaultVersion": "1",
+        "Description": "Say something",
+        "DocumentFormat": "JSON",
+        "DocumentType": "Command",
+        "DocumentVersion": "1",
+        "Hash": "<Hash:1>",
+        "HashType": "Sha256",
+        "LatestVersion": "1",
+        "Name": "<name:doc>",
+        "Owner": "<Owner:1>",
+        "Parameters": [
+          {
+            "DefaultValue": "hello",
+            "Name": "Message",
+            "Type": "String"
+          }
+        ],
+        "PlatformTypes": [
+          "Linux",
+          "MacOS"
+        ],
+        "SchemaVersion": "2.2",
+        "Status": "Active",
+        "Tags": [
+          {
+            "Key": "team",
+            "Value": "a"
+          }
+        ]
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe-deleted": {
+      "Error": {
+        "Code": "InvalidDocument",
+        "Message": "Document with name <name:doc> does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "get": {
+      "Content": "{\"schemaVersion\":\"2.2\",\"description\":\"Say something\",\"parameters\":{\"Message\":{\"type\":\"String\",\"default\":\"hello\"}},\"mainSteps\":[{\"action\":\"aws:runShellScript\",\"name\":\"say\",\"inputs\":{\"runCommand\":[\"echo {{Message}}\"]}}]}",
+      "CreatedDate": "<CreatedDate:1>",
+      "DocumentFormat": "JSON",
+      "DocumentType": "Command",
+      "DocumentVersion": "1",
+      "Name": "<name:doc>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Status": "Active"
+    },
+    "get-as-yaml": {
+      "Content": "<Content:1>",
+      "CreatedDate": "<CreatedDate:1>",
+      "DocumentFormat": "YAML",
+      "DocumentType": "Command",
+      "DocumentVersion": "1",
+      "Name": "<name:doc>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Status": "Active"
+    },
+    "listed": {
+      "DocumentIdentifiers": [
+        {
+          "CreatedDate": "<CreatedDate:1>",
+          "DocumentFormat": "JSON",
+          "DocumentType": "Command",
+          "DocumentVersion": "2",
+          "Name": "<name:doc>",
+          "Owner": "<Owner:1>",
+          "PlatformTypes": [
+            "Linux",
+            "MacOS"
+          ],
+          "SchemaVersion": "2.2",
+          "Tags": [
+            {
+              "Key": "team",
+              "Value": "a"
+            }
+          ]
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "share": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "shared": {
+      "AccountIds": [
+        "111122223333"
+      ],
+      "AccountSharingInfoList": [
+        {
+          "AccountId": "111122223333",
+          "SharedDocumentVersion": "$DEFAULT"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TagList": [
+        {
+          "Key": "team",
+          "Value": "a"
+        }
+      ]
+    },
+    "unshare": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "update": {
+      "DocumentDescription": {
+        "CreatedDate": "<CreatedDate:2>",
+        "DefaultVersion": "1",
+        "Description": "Say something",
+        "DocumentFormat": "JSON",
+        "DocumentType": "Command",
+        "DocumentVersion": "2",
+        "Hash": "<Hash:2>",
+        "HashType": "Sha256",
+        "LatestVersion": "2",
+        "Name": "<name:doc>",
+        "Owner": "<Owner:1>",
+        "Parameters": [
+          {
+            "DefaultValue": "hi",
+            "Name": "Message",
+            "Type": "String"
+          }
+        ],
+        "PlatformTypes": [
+          "Linux",
+          "MacOS"
+        ],
+        "SchemaVersion": "2.2",
+        "Status": "Updating",
+        "Tags": [
+          {
+            "Key": "team",
+            "Value": "a"
+          }
+        ],
+        "VersionName": "two"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "update-same-content": {
+      "Error": {
+        "Code": "DuplicateDocumentContent",
+        "Message": "Document to be updated with name <name:doc> has the same metadata and content as document version provided in request"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "versions": {
+      "DocumentVersions": [
+        {
+          "CreatedDate": "<CreatedDate:2>",
+          "DocumentFormat": "JSON",
+          "DocumentVersion": "2",
+          "IsDefaultVersion": false,
+          "Name": "<name:doc>",
+          "Status": "Active",
+          "VersionName": "two"
+        },
+        {
+          "CreatedDate": "<CreatedDate:1>",
+          "DocumentFormat": "JSON",
+          "DocumentVersion": "1",
+          "IsDefaultVersion": true,
+          "Name": "<name:doc>",
+          "Status": "Active"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
   "test_parameter_lifecycle_and_versions": {
     "delete": {
       "ResponseMetadata": {

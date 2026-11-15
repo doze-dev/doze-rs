@@ -311,6 +311,100 @@
       }
     }
   },
+  "test_derive_shared_secret": {
+    "create": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+        "CreationDate": "<datetime>",
+        "CustomerMasterKeySpec": "ECC_NIST_P256",
+        "Description": "",
+        "Enabled": true,
+        "KeyAgreementAlgorithms": [
+          "ECDH"
+        ],
+        "KeyId": "<uuid:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "ECC_NIST_P256",
+        "KeyState": "Enabled",
+        "KeyUsage": "KEY_AGREEMENT",
+        "MultiRegion": false,
+        "Origin": "AWS_KMS"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "derive": {
+      "KeyAgreementAlgorithm": "ECDH",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeyOrigin": "AWS_KMS",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SharedSecret": "<SharedSecret:1>"
+    },
+    "dry-run": {
+      "Error": {
+        "Code": "DryRunOperationException",
+        "Message": "The request would have succeeded, but the DryRun option is set."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "other-curve": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "public-key": {
+      "CustomerMasterKeySpec": "ECC_NIST_P256",
+      "KeyAgreementAlgorithms": [
+        "ECDH"
+      ],
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeySpec": "ECC_NIST_P256",
+      "KeyUsage": "KEY_AGREEMENT",
+      "PublicKey": "<PublicKey:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "sign-key": {
+      "Error": {
+        "Code": "InvalidKeyUsageException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:2> key usage is SIGN_VERIFY which is not valid for DeriveSharedSecret."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_key_last_usage": {
+    "after-encrypt": {
+      "KeyCreationDate": "<KeyCreationDate:1>",
+      "KeyId": "<uuid:1>",
+      "KeyLastUsage": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TrackingStartDate": "<TrackingStartDate:1>"
+    },
+    "unused": {
+      "KeyCreationDate": "<KeyCreationDate:1>",
+      "KeyId": "<uuid:1>",
+      "KeyLastUsage": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TrackingStartDate": "<TrackingStartDate:1>"
+    }
+  },
   "test_key_states": {
     "after-cancel": {
       "KeyMetadata": {
