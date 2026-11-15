@@ -29,6 +29,7 @@ mod req;
 mod saml;
 mod session;
 mod simulate;
+mod storage;
 mod sts;
 mod view;
 
@@ -48,6 +49,8 @@ use crate::core::{Answer, Ask, Core, Which};
 #[derive(Debug)]
 struct Shared {
     actor: Lazy<Core>,
+    /// Where IAM keeps its file.
+    dir: std::path::PathBuf,
     /// Kept outside the actor so it outlives the actor's idle sleeps. `None` until the first question.
     log: Mutex<Option<AccessLog>>,
     clock: Arc<dyn Clock>,
@@ -121,6 +124,13 @@ impl Shared {
                 "IAM answered a question with something else",
             )),
             Err(e) => Err(ApiError::internal(e.to_string())),
+        }
+    }
+
+    /// After a reset: the access log speaks of identities that are gone.
+    fn forget_log(&self) {
+        if let Ok(mut log) = self.log.lock() {
+            *log = None;
         }
     }
 
@@ -291,6 +301,7 @@ pub fn services(ctx: Arc<Ctx>) -> (Iam, Sts) {
         .and_then(|e| Arc::clone(e).downcast::<Peers>().ok());
     let shared = Arc::new(Shared {
         clock: Arc::clone(&ctx.clock),
+        dir: ctx.dir.clone(),
         actor: Lazy::new("iam", ctx),
         log: Mutex::new(None),
         peers,
@@ -328,6 +339,10 @@ fn invalid(tables: &'static aws_schema::tables::Tables, violation: &Violation) -
 }
 
 impl Service for Iam {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static aws_schema::meta::ServiceMeta {
         &aws_model_iam::meta::META
     }

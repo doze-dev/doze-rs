@@ -22,6 +22,7 @@ mod rsa_keys;
 mod rsa_ops;
 mod sign;
 mod spec;
+mod storage;
 mod tags;
 
 use std::sync::Arc;
@@ -60,7 +61,10 @@ impl Kms {
             .actors
             .actor(&call.caller.region)
             .map_err(|e| e.to_string())?;
-        actor.call(call).await.map_err(|e| e.to_string())
+        actor
+            .call(crate::core::Ask::Call(Box::new(call)))
+            .await
+            .map_err(|e| e.to_string())
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
@@ -82,6 +86,10 @@ impl Kms {
 }
 
 impl Service for Kms {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static aws_schema::meta::ServiceMeta {
         &META
     }

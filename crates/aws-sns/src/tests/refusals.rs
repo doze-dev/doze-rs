@@ -184,7 +184,9 @@ fn a_subscribe_url_confirms_without_asking_who_fetched_it() {
     let ix = w.h.op("ConfirmSubscription");
     let mut call = w.h.call(ix, &request).unwrap();
     call.caller.access_key_id = Caller::ANONYMOUS.to_owned();
-    let reply = w.rt.block_on(w.core.handle(call)).reply;
+    let reply =
+        w.rt.block_on(w.core.handle(crate::core::Ask::Call(Box::new(call))))
+            .reply;
     assert!(
         spy.asked.lock().unwrap().is_empty(),
         "the unsigned confirmation is not authorized"

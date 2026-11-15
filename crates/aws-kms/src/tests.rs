@@ -11,6 +11,7 @@ use crate::Kms;
 use crate::core::Core;
 
 mod crosscheck;
+mod data;
 mod grants;
 mod import;
 mod keys;

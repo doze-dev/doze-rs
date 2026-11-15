@@ -39,6 +39,7 @@ mod retry;
 mod route;
 mod rules;
 mod schedule;
+mod storage;
 mod tags;
 mod targets;
 mod timers;
@@ -157,6 +158,10 @@ impl Eventbridge {
 }
 
 impl Service for Eventbridge {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static ServiceMeta {
         &META
     }

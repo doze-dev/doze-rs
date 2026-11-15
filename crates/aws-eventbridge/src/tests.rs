@@ -16,6 +16,7 @@ use crate::core::{Core, Request};
 mod archives;
 mod buses;
 mod connections;
+mod data;
 mod delivery;
 mod http;
 mod persistence;

@@ -145,6 +145,7 @@ impl doze_runtime::Service for Core {
             }
             // Reads that change nothing and are asked without a request of their own.
             Ask::Configs(bucket) => return self.configs(&bucket),
+            Ask::Data(asked) => return self.data_asked(*asked).await,
             Ask::Website(bucket, key) => {
                 self.authorize_page(&bucket, &key).await?;
                 return self.website(&bucket, &key);
@@ -320,7 +321,7 @@ impl Core {
         self.upload_acls.stage().ok();
     }
 
-    fn flush(&mut self) -> Result<Option<doze_store::Ack>, StoreError> {
+    pub(crate) fn flush(&mut self) -> Result<Option<doze_store::Ack>, StoreError> {
         let batch = std::mem::take(&mut self.batch);
         let changes = vec![
             self.buckets.stage()?,

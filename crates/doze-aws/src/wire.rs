@@ -75,13 +75,13 @@ impl On<'_> {
     }
 }
 
-/// The gateway with every service on it, and the services to resume once it listens.
+/// The gateway with every service on it, the services to resume once it listens, and the data engine over all of them.
 pub(crate) fn gateway(
     cfg: &Config,
     gw: GatewayConfig,
     on: &[&'static Svc],
     tasks: &Tasks,
-) -> (Gateway, Resumable) {
+) -> (Gateway, Resumable, Arc<crate::data::Data>) {
     let on = On(on);
     let peers = Peers::new();
     let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
@@ -97,6 +97,7 @@ pub(crate) fn gateway(
         })
     };
     let mut gw = gw;
+    let hook = data_hook(cfg, &mut gw);
     peers.set_mode(iam_mode(cfg));
     let (iam, sts) = aws_iam::services(ctx("iam"));
     let iam = Arc::new(iam);
@@ -133,6 +134,8 @@ pub(crate) fn gateway(
         ("stepfunctions", states.clone()),
         ("cloudformation", Arc::new(cloudformation)),
     ];
+    // The data engine sees every service, served or not: what one keeps on disk is the person's whatever `--services` says today.
+    let mut kept = catalogued(&services);
     let mut gateway = Gateway::new(gw);
     for (name, service) in services {
         // The bus carries the service itself: one that is served leans on the others (Lambda writes to CloudWatch Logs) whether or
@@ -140,7 +143,10 @@ pub(crate) fn gateway(
         peers.register(Arc::clone(&service));
         gateway = gateway.with(on.wrap(name, service));
     }
-    let gateway = paired(gateway, &on, &peers, &dynamodb, ctx("apigateway"));
+    let (gateway, apis) = paired(gateway, &on, &peers, &dynamodb, ctx("apigateway"));
+    kept.extend(catalogued(&[("apigateway", apis)]));
+    let data = Arc::new(crate::data::Data::new(data.clone(), kept));
+    hook.set(Arc::clone(&data));
     let resumable = Resumable {
         cloudwatch: on.keep("cloudwatch", &cloudwatch),
         eventbridge: on.keep("eventbridge", &eventbridge),
@@ -150,7 +156,7 @@ pub(crate) fn gateway(
         lambda: on.keep("lambda", &lambda),
         states: on.keep("stepfunctions", &states),
     };
-    (gateway, resumable)
+    (gateway, resumable, data)
 }
 
 /// The services that share a signing name with another, which the bus cannot key by it.
@@ -160,7 +166,7 @@ fn paired(
     peers: &Arc<Peers>,
     dynamodb: &Arc<aws_dynamodb::Dynamodb>,
     apigateway: Arc<Ctx>,
-) -> Gateway {
+) -> (Gateway, Arc<dyn Service>) {
     // DynamoDB Streams signs as `dynamodb` too: the gateway routes it by its target prefix, and it is not on the peer bus.
     let streams = aws_dynamodb_streams::Streams::new(dynamodb.clone(), Some(peers.clone()));
     let gateway = gateway.with(on.wrap("dynamodb", Arc::new(streams)));
@@ -174,9 +180,16 @@ fn paired(
         (Arc::new(rest_apis), Arc::new(http_apis));
     peers.register_as("apigateway", Arc::clone(&rest_apis));
     peers.register_as("apigatewayv2", Arc::clone(&http_apis));
-    gateway
+    // Both APIs keep their files in one directory; whichever answers for its data answers for both.
+    let data = if http_apis.storage().is_some() {
+        Arc::clone(&http_apis)
+    } else {
+        Arc::clone(&rest_apis)
+    };
+    let gateway = gateway
         .with(on.wrap("apigateway", rest_apis))
-        .with(on.wrap("apigateway", http_apis))
+        .with(on.wrap("apigateway", http_apis));
+    (gateway, data)
 }
 
 fn iam_mode(cfg: &Config) -> aws_peers::Mode {
@@ -334,4 +347,20 @@ fn states_config() -> aws_sfn::Config {
         }
     }
     config
+}
+
+/// The `/_doze/data` hook, on the gateway's settings; under `--auth verify` it answers only a request carrying the secret key.
+fn data_hook(cfg: &Config, gw: &mut GatewayConfig) -> Arc<crate::data_web::DataHook> {
+    let key = (cfg.text("auth") == "verify").then(|| cfg.text("secret-key"));
+    let hook = Arc::new(crate::data_web::DataHook::new(key));
+    gw.hooks.0.push(hook.clone());
+    hook
+}
+
+/// Each service with its catalogue entry.
+fn catalogued(services: &[(&str, Arc<dyn Service>)]) -> Vec<(&'static Svc, Arc<dyn Service>)> {
+    services
+        .iter()
+        .filter_map(|(name, s)| Some((crate::services::find(name)?, Arc::clone(s))))
+        .collect()
 }

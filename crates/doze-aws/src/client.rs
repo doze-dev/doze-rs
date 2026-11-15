@@ -62,6 +62,34 @@ impl Client {
         self.exchange(head.as_bytes(), timeout)
     }
 
+    /// An unsigned request to one of doze-aws's own `/_doze/` paths: a `GET`, or a `POST` of `json`, with `extra` headers.
+    pub(crate) fn hook(
+        &self,
+        path: &str,
+        json: Option<&[u8]>,
+        extra: &[(&str, &str)],
+        timeout: Duration,
+    ) -> Result<Reply, String> {
+        let method = if json.is_some() { "POST" } else { "GET" };
+        let mut head = format!(
+            "{method} {path} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n",
+            self.host
+        );
+        for (name, value) in extra {
+            head.push_str(&format!("{name}: {value}\r\n"));
+        }
+        if let Some(body) = json {
+            head.push_str(&format!(
+                "Content-Type: application/json\r\nContent-Length: {}\r\n",
+                body.len()
+            ));
+        }
+        head.push_str("\r\n");
+        let mut request = head.into_bytes();
+        request.extend_from_slice(json.unwrap_or_default());
+        self.exchange(&request, timeout)
+    }
+
     /// A signed form post to an awsQuery service (`service` is its signing name).
     pub(crate) fn query(&self, service: &str, form: &[(String, String)]) -> Result<Reply, String> {
         let body = form

@@ -7,7 +7,7 @@ use redb::{ReadTransaction, ReadableDatabase, TableDefinition};
 
 use crate::records::Changes;
 use crate::rows::Rows;
-use crate::{Ack, GroupCommit, Op, Store, StoreError};
+use crate::{Ack, Compacted, GroupCommit, Op, Space, Store, StoreError};
 
 /// redb's page cache: a dev tool's records are few, and the idle heap is measured.
 const CACHE_BYTES: usize = 1 << 20;
@@ -111,9 +111,28 @@ impl Db {
         Some(self.writer.submit(op))
     }
 
-    /// Stops the writer after it has finished what it was given, and closes the database.
-    pub fn close(self) {
+    /// How much of the file holds data, and how much a [`Db::compact`] would give back.
+    ///
+    /// # Errors
+    /// The database refused to start a write.
+    pub fn space(&self) -> Result<Space, StoreError> {
+        self.store.space()
+    }
+
+    /// Gives the space that deletes freed back to the disk. Waits for queued writes first.
+    ///
+    /// # Errors
+    /// A read still open, a failed write, or a writer that could not be started again.
+    pub fn compact(&mut self) -> Result<Compacted, StoreError> {
+        self.writer.paused(&mut self.store, Store::compact)?
+    }
+
+    /// Stops the writer after it has finished what it was given, gives back the space deletes left when that is worth it
+    /// ([`Store::compact_if_worth`]), and closes the database.
+    pub fn close(mut self) {
         self.writer.shutdown();
+        // WHY: a compaction that cannot run now (a read still open) runs at a later close; the data is whole either way.
+        drop(self.store.compact_if_worth());
         // WHY: every commit was flushed when it was made, so a failure to close costs only a longer start next time.
         drop(self.store.close());
     }

@@ -17,6 +17,12 @@ impl Inner {
         self.closed.load(Ordering::SeqCst)
     }
 
+    /// Closes our copy of the connection handed over with call `id`: the other side has it, or the call is over.
+    pub(crate) fn let_go(&self, id: u32) {
+        let copy = self.held.lock().ok().and_then(|mut h| h.remove(&id));
+        drop(copy);
+    }
+
     pub(crate) fn finish_serving(&self, id: u32) {
         if let Ok(mut s) = self.serving.lock() {
             s.remove(&id);
@@ -34,6 +40,12 @@ impl Inner {
             .lock()
             .map(|mut p| std::mem::take(&mut *p))
             .unwrap_or_default();
+        let held = self
+            .held
+            .lock()
+            .map(|mut h| std::mem::take(&mut *h))
+            .unwrap_or_default();
+        drop(held);
         for (_, p) in pending {
             let e = Error::new(ErrorKind::Unavailable, why);
             match p {

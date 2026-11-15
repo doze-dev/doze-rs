@@ -13,6 +13,7 @@ use serde_json::{Value, json};
 use crate::Sns;
 use crate::core::Core;
 
+mod data;
 mod delivery;
 mod filters;
 mod persistence;
@@ -116,7 +117,10 @@ impl World {
         use doze_runtime::Service;
         let ix = self.h.op(op);
         let call = self.h.call(ix, request)?;
-        self.rt.block_on(self.core.handle(call)).reply.map(|_| ())
+        self.rt
+            .block_on(self.core.handle(crate::core::Ask::Call(Box::new(call))))
+            .reply
+            .map(|_| ())
     }
 
     pub(crate) fn ok(&mut self, op: &str, request: &Value) -> Value {

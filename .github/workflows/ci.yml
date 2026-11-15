@@ -1,12 +1,18 @@
 name: ci
 
+# Manual only, by the owner's call (2026-11-15): CI runs when someone starts it on purpose and reads the result.
+# Start it with `gh workflow run ci --ref <branch>`. Automatic runs on push and pull_request come back once main
+# stays green and every job has an owner (docs/port/ci-health.md).
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+# A new run on the same branch replaces its older one, so runners (macOS above all) go to the newest code.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -305,6 +311,10 @@ jobs:
   # times 1.216) to 4.93 MB (the VM times 1.12), plus 5% is 5.2 MB. 127 packages in the VM (the 126 of this job was already one under).
   # 2026-11-14 (owner decision): the size limit is CI's measurement on main that day, 5,263,296 B, exact; idle is the median of three
   # starts (6,884 KB) plus 5%, 7,229 KB (weight.md).
+  # 2026-11-15: 5,450,072 B, CI's measurement on main (runs 43665814939 and 43696911937), exact; +175,952 B (+3.3%) from the kafka
+  # efficiency pass (fix-correct, fix-idle, fix-idiom), bisected and explained in weight.md, "The lean line after the efficiency pass".
+  # Then 5,450,504 B (+432 B, run 43703449990): doze-store's `Store` keeps its file's path (aws data control, d39dd0cd); kafka-meta
+  # opens a `Store`, so the field and its `Arc` reach the lean build. Kafka's behaviour is unchanged (it never calls `Db::close`).
   weight-lean:
     runs-on: ubuntu-24.04
     steps:
@@ -330,8 +340,8 @@ jobs:
           echo "binary $size B, $crates packages, idle $rss KB"
           # 2026-11-15, data control (`doze-kafka data`, the broker's Empty and Erase, the usage walk): +99,392 B on darwin arm64
           # (4,099,056 to 4,198,448 B for main at 3636c3d2 and this tree), times the 1.3747 of the console build is +136,634 B
-          # (weight.md, "Data control"). An estimate until CI measures it on main.
-          [ "$size" -le 5410754 ] || { echo "lean binary over 5,410,754 B"; exit 1; }
+          # (weight.md, "Data control"), added to main's line of 5,450,504 B. An estimate until CI measures it.
+          [ "$size" -le 5587138 ] || { echo "lean binary over 5,587,138 B"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
           [ "$rss" -le 7229 ] || { echo "idle resident memory over 7,229 KB in the lean build"; exit 1; }
           ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }

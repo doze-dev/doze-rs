@@ -235,6 +235,12 @@ pub trait Service: Send + Sync + 'static {
         None
     }
 
+    /// What the service keeps on disk, for `doze-aws data` and the console to show and remove. `None` for a service that keeps
+    /// nothing (STS) or is a second face of another (DynamoDB Streams answers through DynamoDB).
+    fn storage(&self) -> Option<&dyn crate::storage::Storage> {
+        None
+    }
+
     /// How a request that fails its model's checks is answered. The default is the Coral front end's
     /// `ValidationException`; a service whose real answer differs (SQS says `InvalidParameterValue` or `MissingParameter`)
     /// overrides it.

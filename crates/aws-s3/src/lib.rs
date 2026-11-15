@@ -23,6 +23,7 @@ mod config;
 mod copy;
 mod core;
 mod cors;
+mod data;
 mod delete;
 mod download;
 mod errors;
@@ -45,9 +46,11 @@ mod public;
 mod put;
 mod receive;
 mod req;
+mod storage;
 mod store;
 mod tagging;
 mod timeutil;
+mod usage;
 mod validate;
 mod versioning;
 mod web;
@@ -268,6 +271,10 @@ impl Service for S3 {
     }
 
     fn web(&self) -> Option<&dyn Web> {
+        Some(self)
+    }
+
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
         Some(self)
     }
 

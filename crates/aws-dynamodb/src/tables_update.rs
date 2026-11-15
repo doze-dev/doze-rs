@@ -69,7 +69,12 @@ impl Core {
         }
         let mut changing = self.update_billing(&mut t, cx)?;
         changing |= self.update_indexes(&mut t, cx)?;
+        let was = t.stream.as_ref().map(|s| s.id);
         changing |= update_stream(&mut t, body, cx)?;
+        if let Some(old) = was.filter(|id| t.stream.as_ref().map(|s| s.id) != Some(*id)) {
+            // A stream switched off is unreadable here, so its records go with it rather than stay on disk with no owner.
+            self.drop_stream_records(&old);
+        }
         update_settings(&mut t, body);
         if changing {
             t.status = Status::Updating;

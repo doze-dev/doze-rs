@@ -29,7 +29,7 @@ const ARCHIVES: &str = "archives";
 const REPLAYS: &str = "replays";
 const CONNECTIONS: &str = "connections";
 const DESTINATIONS: &str = "destinations";
-const EVENTS: &str = "events";
+pub(crate) const EVENTS: &str = "events";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 const VERSION: u8 = 1;
 
@@ -40,6 +40,8 @@ pub(crate) enum Request {
     /// Fire what is due. The caller is whoever armed the timer: it says the region and the endpoint. The time is the deadline the
     /// timer slept to, which a service that was reaped meanwhile has forgotten.
     Tick(Caller, i64),
+    /// From `doze-aws data`: what the archives hold, or remove some of it.
+    Data(Box<crate::storage::DataCall>),
 }
 
 /// What the actor answers.
@@ -126,6 +128,13 @@ impl doze_runtime::Service for Core {
             Request::Call(call) => self.serve(call).await,
             Request::Tick(caller, at) => {
                 self.tick(&caller, at).await;
+                empty()
+            }
+            Request::Data(call) => {
+                let crate::storage::DataCall { region, ask, reply } = *call;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
                 empty()
             }
         };
