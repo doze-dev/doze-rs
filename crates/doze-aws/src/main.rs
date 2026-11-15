@@ -8,6 +8,10 @@ mod cfn;
 mod cli;
 mod client;
 mod config;
+mod data;
+mod data_cmd;
+mod data_show;
+mod data_web;
 mod doctor;
 mod env;
 mod events;
@@ -73,6 +77,7 @@ fn main() -> ExitCode {
         Some(Command::Apply(args)) => apply::run(args, &cfg),
         Some(Command::Export(args)) => export::run(&args, &cfg),
         Some(Command::Doctor) => doctor::run(&cfg),
+        Some(Command::Data(args)) => data_cmd::run(args, &cfg),
         Some(Command::Version) => 0,
     };
     ExitCode::from(u8::try_from(code).unwrap_or(1))

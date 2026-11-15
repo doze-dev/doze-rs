@@ -47,6 +47,93 @@ pub(crate) enum Command {
     Export(ExportArgs),
     /// Check what could get in the way, and say what fixes it.
     Doctor,
+    /// What doze-aws keeps on disk, and removing it: one resource, one service, or everything.
+    #[command(args_conflicts_with_subcommands = true, after_help = DATA_EXAMPLES)]
+    Data(DataArgs),
+}
+
+const DATA_EXAMPLES: &str = "\
+Examples:
+  doze-aws data                              where the space goes, service by service
+  doze-aws data s3                           every bucket, largest first
+  doze-aws data s3 uploads                   one bucket, and what is in it that you may not know about
+  doze-aws data empty sqs orders-dlq         remove a queue's messages, keep the queue
+  doze-aws data empty s3 uploads --prefix tmp/ --older-than 7d
+  doze-aws data empty s3 uploads --old-versions
+  doze-aws data empty logs /aws/lambda/ingest --older-than 3d
+  doze-aws data empty lambda --unused        code no function uses any more
+  doze-aws data reset s3                     every bucket gone, as if S3 had never run
+  doze-aws data reset                        everything: a fresh start
+  doze-aws data compact                      give back the space earlier deletes left
+
+A resource name found in one region is emptied there; when it is in several, say which with --region.
+
+Every removal says what will go and asks first (--yes for scripts, --dry-run to only look), and ends by giving the space back to
+the disk. It works with doze-aws running or not.";
+
+/// `doze-aws data ...`.
+#[derive(Debug, Args)]
+pub(crate) struct DataArgs {
+    #[command(subcommand)]
+    pub(crate) action: Option<DataAction>,
+    /// A service (s3, sqs, logs...): its resources.
+    pub(crate) service: Option<String>,
+    /// One of its resources: what is in it.
+    pub(crate) resource: Option<String>,
+    /// The report as JSON (what `GET /_doze/data` answers).
+    #[arg(long)]
+    pub(crate) json: bool,
+}
+
+/// `doze-aws data <action>`.
+#[derive(Debug, Subcommand)]
+pub(crate) enum DataAction {
+    /// Remove a resource's data and keep the resource (its settings, policies and triggers stay).
+    Empty(EmptyArgs),
+    /// Remove everything doze-aws keeps, or one service's: resources too, as if it had never run.
+    Reset(ResetArgs),
+    /// Give back to the disk the space that deletes left inside doze-aws's files.
+    Compact,
+}
+
+/// `doze-aws data empty`.
+#[derive(Debug, Args)]
+pub(crate) struct EmptyArgs {
+    /// The service: sqs, s3, dynamodb, kinesis, logs, lambda, stepfunctions, cloudwatch, eventbridge...
+    pub(crate) service: String,
+    /// The resource: a queue, bucket, table, stream, log group... (not needed with --unused).
+    pub(crate) name: Option<String>,
+    /// Only what is older than this: 90s, 30m, 12h, 7d, 2w.
+    #[arg(long, value_name = "AGE")]
+    pub(crate) older_than: Option<String>,
+    /// Only keys under this prefix (S3).
+    #[arg(long)]
+    pub(crate) prefix: Option<String>,
+    /// Only old object versions and delete markers; current objects stay (S3).
+    #[arg(long)]
+    pub(crate) old_versions: bool,
+    /// Only what nothing uses (Lambda code no function or version points at).
+    #[arg(long)]
+    pub(crate) unused: bool,
+    /// Say what would go, and remove nothing.
+    #[arg(long)]
+    pub(crate) dry_run: bool,
+    /// Do not ask.
+    #[arg(long, short = 'y')]
+    pub(crate) yes: bool,
+}
+
+/// `doze-aws data reset`.
+#[derive(Debug, Args)]
+pub(crate) struct ResetArgs {
+    /// Only this service. Default: every service.
+    pub(crate) service: Option<String>,
+    /// Say what would go, and remove nothing.
+    #[arg(long)]
+    pub(crate) dry_run: bool,
+    /// Do not ask.
+    #[arg(long, short = 'y')]
+    pub(crate) yes: bool,
 }
 
 /// `doze-aws config ...`.
@@ -101,6 +188,12 @@ pub(crate) fn command() -> clap::Command {
         .mut_subcommand("apply", |c| c.args(setting_args(&shown_on_commands)))
         .mut_subcommand("export", |c| c.args(setting_args(&shown_on_commands)))
         .mut_subcommand("doctor", |c| c.args(setting_args(&shown_on_commands)))
+        .mut_subcommand("data", |c| {
+            c.args(setting_args(&shown_on_commands))
+                .mut_subcommand("empty", |e| e.args(setting_args(&shown_on_commands)))
+                .mut_subcommand("reset", |e| e.args(setting_args(&shown_on_commands)))
+                .mut_subcommand("compact", |e| e.args(setting_args(&shown_on_commands)))
+        })
         .mut_subcommand("config", |c| {
             c.mut_subcommand("print", |p| p.args(setting_args(&[])))
         })
@@ -155,7 +248,14 @@ fn with_default(help: &str, default: &str) -> String {
 pub(crate) fn given(top: &ArgMatches, sub: Option<&ArgMatches>) -> (Given, Option<PathBuf>) {
     let mut given = Given::new();
     let mut file = None;
-    for m in std::iter::once(top).chain(sub) {
+    // The command, and the commands under it (`data empty`): a setting may be given on any of them, the innermost winning.
+    let mut chain = vec![top];
+    let mut next = sub;
+    while let Some(m) = next {
+        chain.push(m);
+        next = m.subcommand().map(|(_, s)| s);
+    }
+    for m in chain {
         if let Some(p) = m.try_get_one::<PathBuf>("config").ok().flatten() {
             file = Some(p.clone());
         }

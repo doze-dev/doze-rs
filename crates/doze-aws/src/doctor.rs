@@ -35,6 +35,7 @@ pub(crate) fn run(cfg: &Config) -> i32 {
     checks.push(port_check(cfg, running.as_ref()));
     checks.push(data_check(cfg, running.as_ref()));
     checks.extend(disk_check(&cfg.data_dir()));
+    checks.extend(kept_check(&cfg.data_dir()));
     checks.extend(shell_checks(&env, running.as_ref()));
     print(&checks, cfg, Style::of(Stream::Out));
     i32::from(checks.iter().any(|c| c.verdict == Verdict::Fail))
@@ -213,10 +214,29 @@ fn disk_check(dir: &Path) -> Option<Check> {
             Verdict::Fail,
             "disk",
             detail,
-            Some("free some space; S3 objects and logs live in the data directory".into()),
+            Some("doze-aws data   (what doze-aws keeps, and how to remove it)".into()),
         ),
         f if f < 2 << 30 => check(Verdict::Warn, "disk", detail, None),
         _ => check(Verdict::Ok, "disk", detail, None),
+    })
+}
+
+/// How much doze-aws keeps, from the files alone (no service is woken): a warning past 10 GB, or past half the free space.
+fn kept_check(dir: &Path) -> Option<Check> {
+    let kept = crate::data::dir_bytes(dir);
+    if kept == 0 {
+        return None;
+    }
+    let free = crate::probe::free_bytes(dir).unwrap_or(u64::MAX);
+    let detail = format!(
+        "{} kept in the data directory",
+        crate::data_show::size(kept)
+    );
+    let fix = Some("doze-aws data   (where it goes, and how to remove it)".to_owned());
+    Some(if kept > 10 << 30 || kept > free / 2 {
+        check(Verdict::Warn, "kept", detail, fix)
+    } else {
+        check(Verdict::Ok, "kept", detail, None)
     })
 }
 
