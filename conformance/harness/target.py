@@ -148,13 +148,16 @@ def _mark_kms_keys(client):
         params["Tags"] = [*params.get("Tags", []), _MARK]
 
     def hide(parsed, **_):
-        if "Tags" in parsed:
-            parsed["Tags"] = [t for t in parsed["Tags"] if t.get("TagKey") != _MARK["TagKey"]]
+        for field in ("Tags", "ReplicaTags"):
+            if field in parsed:
+                parsed[field] = [t for t in parsed[field] if t.get("TagKey") != _MARK["TagKey"]]
 
     client.meta.events.register("provide-client-params.kms.CreateKey", add)
     # A replica is a key made in another region: it carries the mark too, or the recorder may not make it.
     client.meta.events.register("provide-client-params.kms.ReplicateKey", add)
     client.meta.events.register("after-call.kms.ListResourceTags", hide)
+    # ReplicateKey answers with the replica's tags, the mark among them.
+    client.meta.events.register("after-call.kms.ReplicateKey", hide)
 
 
 class AWS(Target):

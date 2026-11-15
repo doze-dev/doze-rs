@@ -523,6 +523,163 @@
       }
     }
   },
+  "test_multi_region_replica": {
+    "create": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/mrk-<mrk:1>",
+        "CreationDate": "<datetime>",
+        "CurrentKeyMaterialId": "<CurrentKeyMaterialId:1>",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "Description": "primary",
+        "Enabled": true,
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "KeyId": "mrk-<mrk:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyState": "Enabled",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "MultiRegion": true,
+        "MultiRegionConfiguration": {
+          "MultiRegionKeyType": "PRIMARY",
+          "PrimaryKey": {
+            "Arn": "arn:aws:kms:us-east-1:<account>:key/mrk-<mrk:1>",
+            "Region": "us-east-1"
+          },
+          "ReplicaKeys": []
+        },
+        "Origin": "AWS_KMS"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "primary-describe": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/mrk-<mrk:1>",
+        "CreationDate": "<datetime>",
+        "CurrentKeyMaterialId": "<CurrentKeyMaterialId:1>",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "Description": "primary",
+        "Enabled": true,
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "KeyId": "mrk-<mrk:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyState": "Enabled",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "MultiRegion": true,
+        "MultiRegionConfiguration": {
+          "MultiRegionKeyType": "PRIMARY",
+          "PrimaryKey": {
+            "Arn": "arn:aws:kms:us-east-1:<account>:key/mrk-<mrk:1>",
+            "Region": "us-east-1"
+          },
+          "ReplicaKeys": [
+            {
+              "Arn": "arn:aws:kms:us-west-2:<account>:key/mrk-<mrk:1>",
+              "Region": "us-west-2"
+            }
+          ]
+        },
+        "Origin": "AWS_KMS"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "replica-decrypts": {
+      "EncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+      "KeyId": "arn:aws:kms:us-west-2:<account>:key/mrk-<mrk:1>",
+      "KeyMaterialId": "<KeyMaterialId:1>",
+      "Plaintext": "<Plaintext:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "replica-enabled": {
+      "state": "Enabled"
+    },
+    "replicate": {
+      "ReplicaKeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-west-2:<account>:key/mrk-<mrk:1>",
+        "CreationDate": "<datetime>",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "Description": "replica",
+        "Enabled": false,
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "KeyId": "mrk-<mrk:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyState": "Creating",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "MultiRegion": true,
+        "MultiRegionConfiguration": {
+          "MultiRegionKeyType": "REPLICA",
+          "PrimaryKey": {
+            "Arn": "arn:aws:kms:us-east-1:<account>:key/mrk-<mrk:1>",
+            "Region": "us-east-1"
+          },
+          "ReplicaKeys": [
+            {
+              "Arn": "arn:aws:kms:us-west-2:<account>:key/mrk-<mrk:1>",
+              "Region": "us-west-2"
+            }
+          ]
+        },
+        "Origin": "AWS_KMS"
+      },
+      "ReplicaPolicy": "<ReplicaPolicy:1>",
+      "ReplicaTags": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "replicate-a-replica": {
+      "Error": {
+        "Code": "UnsupportedOperationException",
+        "Message": "arn:aws:kms:us-west-2:<account>:key/mrk-<mrk:1> is not a multi-region primary key."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "replicate-again": {
+      "Error": {
+        "Code": "AlreadyExistsException",
+        "Message": "You can create only one replica of each primary key in each AWS Region."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "replicate-single-region": {
+      "Error": {
+        "Code": "UnsupportedOperationException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:1> is not a multi-region key."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "rotate-a-replica": {
+      "Error": {
+        "Code": "UnsupportedOperationException",
+        "Message": "arn:aws:kms:us-west-2:<account>:key/mrk-<mrk:1> is a multi-region replica key which is not valid for RotateKeyOnDemand."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
   "test_policy_tags_rotation_and_grants": {
     "bad-operation": {
       "Error": {
@@ -1223,6 +1380,35 @@
         "HTTPStatusCode": 200
       },
       "RotationPeriodInDays": 365
+    }
+  },
+  "test_update_primary_region": {
+    "to-a-region-without-replica": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "mrk-<mrk:1> does not have a replica key in the specified Region."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "update": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "west-is-primary": {
+      "MultiRegionKeyType": "PRIMARY",
+      "PrimaryKey": {
+        "Arn": "arn:aws:kms:us-west-2:<account>:key/mrk-<mrk:1>",
+        "Region": "us-west-2"
+      },
+      "ReplicaKeys": [
+        {
+          "Arn": "arn:aws:kms:us-east-1:<account>:key/mrk-<mrk:1>",
+          "Region": "us-east-1"
+        }
+      ]
     }
   }
 }
