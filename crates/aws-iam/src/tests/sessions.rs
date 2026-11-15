@@ -147,7 +147,18 @@ fn session_tokens_federation_and_web_identity() {
         "arn:aws:sts::000000000000:federated-user/bob"
     );
     w.sts.session_token = None;
-    // A web identity token is read for its claims and its signature is not checked.
+    // A web identity token needs a provider for its issuer and an audience among its client ids. Its signature is verified before
+    // the call reaches the core (`oidc::verify`; tests/webidentity.rs), so here it is not.
+    let (code, message) = w.sts_err("AssumeRoleWithWebIdentity", &json!({"RoleArn": "arn:aws:iam::000000000000:role/web", "RoleSessionName": "web", "WebIdentityToken": "e30.e30.sig"}));
+    assert_eq!(code, "InvalidIdentityTokenException");
+    assert!(
+        message.starts_with("No OpenIDConnect provider found"),
+        "{message}"
+    );
+    w.ok(
+        "CreateOpenIDConnectProvider",
+        &json!({"Url": "https://idp.example", "ClientIDList": ["app"]}),
+    );
     let claims =
         aws_core::base64::encode(br#"{"sub":"alice","iss":"https://idp.example","aud":"app"}"#);
     let jwt = format!(

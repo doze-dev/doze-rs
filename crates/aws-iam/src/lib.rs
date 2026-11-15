@@ -22,6 +22,7 @@ mod keys;
 mod managed;
 mod model;
 mod needs;
+mod oidc;
 mod ops;
 mod profiles;
 mod providers;
@@ -55,11 +56,16 @@ struct Shared {
     log: Mutex<Option<AccessLog>>,
     clock: Arc<dyn Clock>,
     peers: Option<Arc<Peers>>,
+    /// The web identity providers' keys, for `AssumeRoleWithWebIdentity` (`oidc`).
+    jwks: aws_webhook::jwks::Jwks,
 }
 
 impl Shared {
     /// Asks the actor, and holds the answer until what it changed is on disk.
     async fn ask(&self, which: Which, call: Call) -> Reply {
+        if which == Which::Sts {
+            oidc::verify(self, &call).await?;
+        }
         let (mut reply, durable) = match self.actor.call(Ask::Call { which, call }).await {
             Ok(Answer::Call {
                 reply,
@@ -314,6 +320,7 @@ pub fn services(ctx: Arc<Ctx>) -> (Iam, Sts) {
         actor: Lazy::new("iam", ctx),
         log: Mutex::new(None),
         peers,
+        jwks: oidc::keys(),
     });
     (Iam(Arc::clone(&shared)), Sts(shared))
 }

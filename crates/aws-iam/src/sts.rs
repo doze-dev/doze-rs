@@ -232,8 +232,8 @@ impl Core {
         }))
     }
 
-    /// `AssumeRoleWithWebIdentity`: the token is not checked (signatures are not validated); the subject, issuer and audience are
-    /// read from it when it is a JWT.
+    /// `AssumeRoleWithWebIdentity`: the token's signature was verified on the way in (`oidc::verify`); its provider, audience and
+    /// expiry are checked here (`Core::claims`), and its subject, issuer and audience echoed.
     fn assume_with_token(&self, r: &Req<'_>, member: &str) -> Result<Value, ApiError> {
         let arn = r.s("RoleArn");
         let name = role_name_of(arn)?;
@@ -242,7 +242,7 @@ impl Core {
         if duration < MIN_SECS || duration > known.map_or(MAX_ROLE_SECS, |e| e.max_session_secs) {
             return Err(validation("DurationSeconds is out of range for this role."));
         }
-        let claims = claims_of(r.s(member));
+        let claims = self.claims(r.s(member))?;
         let session_name = r.s("RoleSessionName");
         let role_id = known.map_or_else(|| new_id("AROA"), |e| Ok(e.id.clone()))?;
         let s = self.session(
@@ -345,14 +345,4 @@ fn role_name_of(arn: &str) -> Result<&str, ApiError> {
         .and_then(|(_, rest)| rest.rsplit('/').next())
         .filter(|n| !n.is_empty())
         .ok_or_else(|| validation(format!("Invalid role ARN: {arn}")))
-}
-
-/// The claims of a JWT, or an empty object for anything else.
-fn claims_of(token: &str) -> Value {
-    token
-        .split('.')
-        .nth(1)
-        .and_then(|p| aws_core::base64::decode(&p.replace('-', "+").replace('_', "/")))
-        .and_then(|b| serde_json::from_slice(&b).ok())
-        .unwrap_or(Value::Null)
 }
