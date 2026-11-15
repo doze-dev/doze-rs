@@ -130,7 +130,11 @@ async fn larder_runs_in_the_engine() {
     every_block_runs(&cfg, &stack);
     let probe = stack.service("probe").unwrap();
     assert_eq!(
-        probe.watch.iter().map(|w| (w.dir.clone(), w.globs.clone())).collect::<Vec<_>>(),
+        probe
+            .watch
+            .iter()
+            .map(|w| (w.dir.clone(), w.globs.clone()))
+            .collect::<Vec<_>>(),
         [(project.clone(), vec!["src/*.txt".to_string()])],
         "its watch reaches the engine, under its folder"
     );
