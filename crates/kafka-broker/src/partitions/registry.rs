@@ -129,6 +129,15 @@ impl<F: Fs> Partitions<F> {
         )
     }
 
+    /// When retention could next take something from the partition, as its last pass judged, if nothing has changed it since.
+    /// Asks nothing of the partition and makes no entry for it.
+    pub(crate) fn retention_due(&self, topic: TopicId, partition: PartitionId) -> Option<i64> {
+        self.registry()
+            .upkeep
+            .get(&(topic, partition))
+            .and_then(|u| u.due(super::Chore::Retain))
+    }
+
     /// Whether the partition has its files open now.
     pub(crate) fn is_open(&self, topic: TopicId, partition: PartitionId) -> bool {
         self.registry()

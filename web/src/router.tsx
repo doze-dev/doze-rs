@@ -9,7 +9,7 @@ import { CommandPalette } from "@/components/app/command-palette";
 import { TopBar } from "@/components/app/top-bar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ConnectPage } from "@/pages/connect";
-import { accessSearch, configSearch, connectSearch, createSearch, gallerySearch, labSearch, settingsSearch } from "@/lib/search";
+import { accessSearch, configSearch, connectSearch, createSearch, dataSearch, gallerySearch, labSearch, settingsSearch } from "@/lib/search";
 import { useSidebarOpen } from "@/lib/sidebar-state";
 import { parseSearch, stringifySearch } from "@/lib/search-params";
 import { messagesSearch, partitionSearch, topicSearch, topicsSearch } from "@/lib/topic-search";
@@ -110,6 +110,8 @@ const schemaDiff = createRoute({ getParentRoute: () => root, path: "/schemas/sub
 const settings = createRoute({ getParentRoute: () => root, path: "/settings", validateSearch: settingsSearch, component: lazyRouteComponent(() => import("@/pages/settings"), "SettingsPage") });
 const access = createRoute({ getParentRoute: () => root, path: "/access", validateSearch: accessSearch, component: lazyRouteComponent(() => import("@/pages/access"), "AccessPage") });
 const lab = createRoute({ getParentRoute: () => root, path: "/lab", validateSearch: labSearch, component: lazyRouteComponent(() => import("@/pages/lab"), "LabPage") });
+// Data (docs/port/data-control.md): what is using the disk, and giving it back. Its own chunk.
+const data = createRoute({ getParentRoute: () => root, path: "/data", validateSearch: dataSearch, component: lazyRouteComponent(() => import("@/pages/data"), "DataPage") });
 
 const tree = root.addChildren([
   home,
@@ -129,6 +131,7 @@ const tree = root.addChildren([
   access,
   lab,
   settings,
+  data,
 ]);
 
 export const router = createRouter({

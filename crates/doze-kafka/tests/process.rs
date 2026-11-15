@@ -349,6 +349,8 @@ mod console;
 mod console_door;
 #[path = "process/console_start.rs"]
 mod console_start;
+#[path = "process/data.rs"]
+mod data;
 #[path = "process/logging.rs"]
 mod logging;
 #[path = "process/sasl.rs"]

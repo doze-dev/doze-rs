@@ -26,7 +26,7 @@ use actor::{Append, Command};
 /// How many of a round's segments the writer puts in place in one go: each takes three directory flushes (about 13 ms
 /// measured under load), so this keeps an append from waiting more than a fifth of a second for a round.
 const INSTALL_AT_A_TIME: usize = 16;
-pub(crate) use actor::{Retained, Trim, TxnView, Written};
+pub(crate) use actor::{Emptying, Retained, Trim, TxnView, Written};
 pub(crate) use registry::Partitions;
 pub(crate) use upkeep::{Chore, Upkeep, Verdict, settings_print};
 
@@ -182,6 +182,19 @@ impl<F: Fs> Partition<F> {
         let (reply, answer) = oneshot::channel();
         self.commands
             .send(Command::Trim(how, reply))
+            .await
+            .map_err(|_| gone())?;
+        answer.await.map_err(|_| gone())?
+    }
+
+    /// Removes every record, through the writer, between two appends, unless a transaction is open in the log.
+    ///
+    /// # Errors
+    /// The partition is offline, a write failed, or the writer has gone.
+    pub(crate) async fn empty(&self) -> Result<Emptying, StorageError> {
+        let (reply, answer) = oneshot::channel();
+        self.commands
+            .send(Command::Empty(reply))
             .await
             .map_err(|_| gone())?;
         answer.await.map_err(|_| gone())?

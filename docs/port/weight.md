@@ -799,6 +799,14 @@ plus 5%. Small, justified rises under the owner's delegation of 2026-11-14.
 | `weight-lean` binary | 5,274,120 B | 5,263,296 B | **5,274,120 B** (+10,824 B: the module face's and registry's shared code reached the lean build) |
 | `weight-tls-idle` | 10,932 / 10,916 / 10,936 KB, median 10,932 | 10,610 KB | **11,479 KB** |
 
+**Data control (2026-11-15, `docs/port/data-control.md`).** Measured on darwin arm64 against main at 3636c3d2 built the same day: the
+default build 8,001,424 to 8,167,424 B (+166,000 B), times 1.3747 is 11,227,858 B on ubuntu x86_64, under its 11,549,536 B line; the lean
+build 4,099,056 to 4,198,448 B (+99,392 B), so its CI line rises by that times 1.3747, 5,274,120 to **5,410,754 B**, an estimate until CI
+measures it. No new package in either build (143 unique names before and after in the default, 125 in the lean on Linux): the default
+tree's package line goes 184 to 186 for two repeat entries (`doze-fs (*)`, `rustix (*)`), as in the registry's `kafka-registry (*)`
+before. statvfs (rustix) is behind doze-fs's `space` feature, which only kafka-console turns on, so the lean build and doze-aws do not
+carry it. Idle 7,952 KB on darwin (nothing new runs: the usage is walked when a page asks).
+
 doze-aws held (median 8,728 KB of 9,413) and the lean build's idle held (6,920 KB of 7,229). doze-kafka's idle has risen about 1.2 MB since
 2026-11-12 (the console, then the registry on by default); that is in issue #36.
 
