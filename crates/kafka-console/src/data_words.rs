@@ -44,7 +44,10 @@ pub fn retention_short(k: &Keeps) -> String {
         return "latest per key".to_owned();
     }
     let time = k.max_age_ms.map(kafka_broker::duration_words);
-    let size = k.max_bytes.map(|b| format!("{} per partition", bytes(b)));
+    // A configured size is usually a round one: `256 MiB`, not `256.0 MiB`.
+    let size = k
+        .max_bytes
+        .map(|b| format!("{} per partition", kafka_broker::bytes_words(b)));
     match (time, size) {
         (Some(t), Some(s)) => format!("{t} or {s}"),
         (Some(t), None) => t,
@@ -70,8 +73,8 @@ pub fn kinds(u: &DataUsage, subjects: Option<usize>) -> Vec<DataKindRow> {
     let partitions: i64 = u.topics.iter().map(|t| i64::from(t.partitions)).sum();
     let mut held = vec![
         format!(
-            "{} groups' committed offsets",
-            number(i64::try_from(u.groups).unwrap_or(i64::MAX))
+            "the committed offsets of {}",
+            count(u.groups, "group", "groups")
         ),
         count(u.transactional_ids, "transactional id", "transactional ids"),
         "ACLs and users".to_owned(),
@@ -259,6 +262,17 @@ pub fn erase_keeps() -> Vec<String> {
         "ACLs, and the users made over the API: who may use the broker is not data. Delete them on the Access page if you want them gone.".to_owned(),
         "The broker's dynamic configs, the flags it runs with, and the registry's global compatibility level.".to_owned(),
         "The producer id counter and the next schema id: an id is never given out twice, so a client that remembers one is not confused.".to_owned(),
+    ]
+}
+
+/// What Empty all topics leaves as it was, line by line.
+#[must_use]
+pub fn empty_all_keeps() -> Vec<String> {
+    vec![
+        "Every topic stays, with its partitions and its configs.".to_owned(),
+        "Each partition carries on from its end: the next record gets the next offset, never one given before.".to_owned(),
+        "Committed offsets stay as they are. A consumer at one is told OFFSET_OUT_OF_RANGE and starts again by its auto.offset.reset.".to_owned(),
+        "Groups, transactional ids, schemas, ACLs, users and the broker's settings are not touched.".to_owned(),
     ]
 }
 

@@ -208,10 +208,15 @@ async fn act(broker: &Broker, action: Option<&Action>, out: &mut dyn std::io::Wr
 
 /// `1 record`, `12 records`.
 fn count<N: std::fmt::Display + PartialEq + From<u8>>(n: N, one: &str) -> String {
+    counted(n, one, &format!("{one}s"))
+}
+
+/// `1 directory`, `3 directories`.
+fn counted<N: std::fmt::Display + PartialEq + From<u8>>(n: N, one: &str, many: &str) -> String {
     if n == N::from(1) {
         format!("1 {one}")
     } else {
-        format!("{n} {one}s")
+        format!("{n} {many}")
     }
 }
 

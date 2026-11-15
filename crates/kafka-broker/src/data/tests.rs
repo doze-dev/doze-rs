@@ -72,7 +72,9 @@ fn what_a_topic_keeps_comes_from_its_own_configs_then_the_brokers() {
 
 #[test]
 fn why_says_what_is_kept_and_when_the_oldest_goes() {
-    let cases: [(&[(&str, &str)], Option<i64>, &str); 7] = [
+    /// A topic's own configs, the wait until the oldest goes, and the sentence.
+    type Case<'a> = (&'a [(&'a str, &'a str)], Option<i64>, &'a str);
+    let cases: [Case<'_>; 7] = [
         (
             &[],
             None,

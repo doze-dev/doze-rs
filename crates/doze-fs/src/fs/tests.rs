@@ -239,7 +239,7 @@ fn open_or_create_private_makes_owner_only_and_leaves_an_existing_file_alone() {
 }
 
 /// The volume's size and room are what `statvfs` says: room no more than the size; a path that is not there is an error.
-#[cfg(unix)]
+#[cfg(all(unix, feature = "space"))]
 #[test]
 fn space_is_the_volume_of_the_path_and_a_missing_path_is_an_error() {
     let scratch = Scratch::new();

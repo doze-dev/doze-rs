@@ -103,8 +103,8 @@ impl Fs for RealFs {
         })
     }
 
-    /// `statvfs`: the volume's blocks times its fragment size, and the blocks free to an unprivileged process.
-    #[cfg(unix)]
+    /// `statvfs`: the volume's blocks times its fragment size, and the blocks free to an unprivileged process. (Feature `space`.)
+    #[cfg(all(unix, feature = "space"))]
     fn space(&self, path: &Path) -> io::Result<Option<super::Space>> {
         let v = rustix::fs::statvfs(path)?;
         let unit = v.f_frsize;

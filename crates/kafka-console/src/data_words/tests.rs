@@ -139,7 +139,7 @@ fn the_kinds_are_largest_first_and_say_what_is_in_them() {
     );
     assert_eq!(
         rows[0].note,
-        "meta.redb: the topics, 2 groups' committed offsets, 1 transactional id, ACLs and users, 4 schema subjects."
+        "meta.redb: the topics, the committed offsets of 2 groups, 1 transactional id, ACLs and users, 4 schema subjects."
     );
     assert_eq!(
         rows[1].note,

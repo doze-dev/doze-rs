@@ -88,7 +88,7 @@ fn words() -> DataWords {
     DataWords {
         empty_all_phrase: EMPTY_ALL_PHRASE.to_owned(),
         erase_phrase: ERASE_PHRASE.to_owned(),
-        empty_all_keeps: data_words::empty_keeps(false),
+        empty_all_keeps: data_words::empty_all_keeps(),
         erase_removes: data_words::erase_removes(),
         erase_keeps: data_words::erase_keeps(),
     }
