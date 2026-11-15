@@ -190,7 +190,9 @@ async fn a_hanging_stop_step_is_cut_at_ten_seconds_and_the_patience_is_ten_secon
 async fn a_failed_start_quotes_this_runs_last_200_lines() {
     let d = Dir::new("quote");
     let engine = |prefix: &str| {
-        let spec = ProcessSpec::new(run(&["say", "250", "1", prefix]), d.path());
+        // A port it never opens: the start waits for it, so the exit is what ends it (with no port a start is ready after a
+        // short settle, which a loaded machine can outlast before the helper has printed and exited).
+        let spec = ProcessSpec::new(run(&["say", "250", "1", prefix]), d.path()).port(1);
         Engine::builder("t", d.path())
             .service(svc("w", spec))
             .build()
