@@ -12,6 +12,15 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
 - A config that moves the state folder (`home`, `data_dir`): the CLI follows the loaded config's folder, as the
   daemon does (row 11). A doze.hcl that does not load leaves the default place.
 
+## What D1 gave in session 9 (merged at ad060c37, core-d1 3e5ca62c)
+
+- `InstanceView.connect`: the module's client command for the instance (`program`, `path` in the engine's own build once a
+  start resolved it, `args` and `env` with `{host}`, `{port}`, `{url}`, `{password}` filled in, `fallbacks`). Row 19.
+- The `plan` op: `Response.changes`, each `{instance, change, kind, name}`, nothing woken or written; a Go daemon answers
+  "unknown op". Row 18.
+- Converge on start, meters, `reset`/`resources`/`admin` and the console topic (the CLI's verbs and status already ask for
+  them).
+
 ## Built
 
 | # | Behaviour | Held by |
@@ -34,17 +43,26 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
 | 16 | `update`'s hand-over: after `brew upgrade doze`, each running stack, under its lock: what is awake read from its daemon, the daemon stopped as `down` stops it (identified pid only), a new one started from the `doze` on the PATH with the doze.hcl its record names, what was awake woken again. JSON adds `stacks: [{stack, moved, detail}]`; a stack not moved is named with why and the run exits 11. The services stop for that moment (passing listeners on is the daemon's, compat.md rule 5); `--var`s the stack was started with are not carried over | `tests/handover.rs` (the built doze moved to a new daemon, web woken again; a stack with no daemon pid: exit 11) |
 
 | 17 | `env [service…] [--dotenv]`, `url <name>` and `run --env` (Go env.go, `urlCmd`): each module's own answer from the running stack (`InstanceView.env`, `https`/`url`/`endpoint`; D1's catalog at 872e3f18), nothing module-specific in the CLI. Names checked against doze.hcl first (exit 4, 5). With doze stopped the daemon is started for it (as `run` starts it; said on stderr; nothing wakes). Go's output kept: `export VAR='value'  # engine service`, `KEY=value` for `--dotenv`, a JSON list of `{service, engine, var, value}`, url's `{name, url}`; an instance's own variable (`env_var`) that two services answer keeps the first bare and suffixes the next (`_NAME`), any other variable keeps the first answer only (Go added AWS_REGION and the like once), an empty value is skipped; the doze authority's four variables for a stack that serves a domain from it. An instance's own variable comes first, then the rest in name order | transcript `env`; `tests/env.rs` (the built doze started, the app not woken) |
-| 18 | `sync [service] [-y]` (Go sync.go) through the daemon's `apply`: names first (exit 4), a question on a terminal, exit 9 with no one to answer and no `-y`, "✓ sync complete". With doze stopped the daemon is started for it and stopped after (as Go's own runtime was). **Listed difference:** Go asked only when its change list was not empty, so a sync with nothing to do was exit 0 without a terminal; with no list on the wire this asks every time (exit 9 without `-y`) | transcript `sync` |
+| 18 | `sync [service] [-y] [--dry-run]` (Go sync.go) through the daemon's `plan` then `apply`: names first (exit 4); the change list first, as Go's `renderPlan` (a group per instance, `+`/`~`/`-` per object, the shared `--dry-run` drawing); no changes: "no changes — declared structure is up to date", exit 0, nothing asked (as Go); else "Apply these changes? [y/N]" on a terminal, exit 9 with no one to answer and no `-y`, "✓ sync complete". `--dry-run` is the list (`{dry_run, applies_with, plan}`, the other dry runs' JSON). With doze stopped the daemon is started for it and stopped after (as Go's own runtime was). Against a Go daemon (no `plan` op, "unknown op") it asks every time and `--dry-run` is refused (exit 1) with how to run the stack on this doze | transcripts `sync`, `sync-go` |
+| 19 | `connect <name>` (new, proposal B6): the module's own client from `InstanceView.connect`, nothing module-specific in the CLI. The daemon is started when doze is stopped (as `env`); the instance is woken first, its progress on stderr as `up` shows it; then the client: the engine build's own program (`path`), else `program` on `PATH`, else each fallback on `PATH` (a name with a separator is never taken), said as "→ redis-cli on cache (127.0.0.1:6379) · valkey-cli is not installed here". Its secrets in its variables (`env`), never argv. doze exits with the client's code (DZ0710), as `run`. No client declared (or an app): exit 1 (DZ0709) pointing at `doze url`; none of its programs here: exit 1 (DZ0711); a name not declared: exit 4; `--json` refused (exit 2) | transcript `connect` (the fixture daemon, the host records the run); `doze-module tests/cli_connect.rs` (end to end: the CLI against an in-process daemon with the echo module, no `PATH`, the echo engine's own client run, a line comes back through doze's front) |
+| 20 | **Better than Go:** while `run` and `connect` wait for their command, Ctrl-C is the command's (`doze_os::interrupt::pass_to_child`: a handler, not "ignore", so the command starts with the default). A database shell cancels its query and stays, and doze reports how it ended. Go's `doze run` died on Ctrl-C, leaving a command that stays without doze | `doze-os interrupt::tests::ctrl_c_passed_to_a_child_does_not_end_this_process` |
+| 21 | doze-config's shape pass (what the CLI reads every doze.hcl with) has each `module.<name>.env.<VAR>` something reads, as "" (difference 11). Go's stand-in had an empty `env`, so such a read failed the shape pass: every CLI command on such a stack was exit 5 | `doze-config tests/differences.rs the_shape_pass_reads_a_modules_env_variables` |
 
 ## Pending (each says so: DZ0001, exit 1)
 
-- `connect`: the view carries only the client's program name (`client`); the module's whole `ClientCommand` (its
-  arguments and variables with `{host}`, `{port}`, `{password}`, the engine build it is looked for in, the fallbacks)
-  is not on the wire. The CLI cannot run it without knowing the module, so it waits for D1 to publish the resolved
-  command (argv and env) on the view.
-- `sync --dry-run`: the change list is each module's plan, which the daemon does not give.
-- `migrate` and lint's module pass: they need the modules' own answers (a task run through the module host, the
-  modules' lint), which the daemon does not serve yet.
+- `migrate` (DZ0001: "the module's own work (a major-version upgrade of its data), through a daemon call that is not
+  built yet") and lint's module pass (module blocks listed as not checked, exit 11: "each module checks its own block
+  through the daemon, a call that is not built yet"). D1 plans both for its next session (daemon.md, "For the CLI"):
+  a generic migrate call the postgres module answers, and a lint op that returns each module's diagnostics. Not on
+  core-d1 at 3e5ca62c.
+
+## Open (session 10)
+
+- `sync --dry-run` with doze stopped starts the daemon to ask for the plan (and stops it after). Starting it loads the
+  modules, which can pin them in doze.lock; Go's offline dry run disarmed lock writes. A plan with no daemon needs the
+  modules in the CLI's own process, which the owner's rule (the CLI is a client) argues against; listed.
+- `connect` wakes the instance before it looks for the client: an instance whose client is nowhere is woken for
+  nothing. Its engine build is only known after a start, so looking first would miss the build's own client.
 - Go's AWS stand-in credentials in `env` (`AWS_ACCESS_KEY_ID` and the rest when an `AWS_ENDPOINT_URL*` is present) are
   the aws module's to answer in its `env`; the CLI does not add them.
 
