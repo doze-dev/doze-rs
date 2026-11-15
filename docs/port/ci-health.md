@@ -74,6 +74,10 @@ the post-step main median (about 11,300 KB) sits 1.5% under it and runner noise 
 take it back; until then the job will fail now and then. (The comment in ci.yml says the line is "median 10,104 KB plus 5%"; the
 weight.md table it cites has 10,932, which is what 11,479 is.)
 
+**`weight` (doze-aws idle) on this PR:** run 43744892056 measured 11,424 / 11,156 / 11,292 KB, over the 11,075 KB line, with no aws change.
+Medians over the 20 runs above: 10,404 to 11,068 KB, main's latest (450d228e) 11,068, 7 KB under the line. Same shape as the TLS line: set
+from a measurement with no room for runner spread. Not moved here; for the aws session.
+
 ## Open items
 
 | item | owner | evidence |
