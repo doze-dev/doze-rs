@@ -33,6 +33,7 @@ mod simulate;
 mod storage;
 mod sts;
 mod view;
+mod xmldsig;
 
 use std::sync::{Arc, Mutex};
 

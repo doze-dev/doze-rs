@@ -843,6 +843,7 @@ dependencies = [
  "doze-store",
  "hmac 0.13.0",
  "p256",
+ "rsa",
  "serde",
  "serde_json",
  "sha1",
