@@ -201,6 +201,115 @@ pub fn page(secured: bool) -> AccessView {
         },
         console: console("127.0.0.1:9093"),
         warnings: warnings(&sw),
+        quotas: quotas(secured),
+    }
+}
+
+fn part(kind: &str, name: Option<&str>) -> crate::model::AccessQuotaPart {
+    crate::model::AccessQuotaPart {
+        kind: kind.to_owned(),
+        name: name.map(str::to_owned),
+    }
+}
+
+fn quota(
+    parts: Vec<crate::model::AccessQuotaPart>,
+    key: &str,
+    value: f64,
+) -> crate::model::AccessQuota {
+    let named = |kind: &str| {
+        parts
+            .iter()
+            .find(|p| p.kind == kind)
+            .map(|p| p.name.as_deref())
+    };
+    crate::model::AccessQuota {
+        applies: crate::quota_words::applies(named("user"), named("client-id"), named("ip")),
+        enforced: named("ip").is_none(),
+        key: key.to_owned(),
+        value: crate::quota_words::value_text(value),
+        limit: crate::quota_words::limit(key, value),
+        parts,
+    }
+}
+
+/// The larder's quotas: on the secured broker the payments service is held to 1 MiB/s and has just been muted, and every
+/// other client id to 5 MiB/s of fetches; the open broker has none.
+fn quotas(secured: bool) -> crate::model::AccessQuotas {
+    if !secured {
+        return crate::model::AccessQuotas::default();
+    }
+    let client = |key: &str, user: &str, id: &str, rate: f64, limit: f64, muted: i64| {
+        crate::model::AccessQuotaClient {
+            key: key.to_owned(),
+            user: user.to_owned(),
+            client_id: id.to_owned(),
+            rate: crate::quota_words::rate(key, rate),
+            limit: Some(crate::quota_words::limit(key, limit)),
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "a small percentage"
+            )]
+            share: Some((rate / limit * 100.0).round() as u32),
+            muted_ms: muted,
+            last_mute_ms: if muted > 0 { 840 } else { 0 },
+        }
+    };
+    crate::model::AccessQuotas {
+        rows: vec![
+            quota(
+                vec![part("client-id", None)],
+                "consumer_byte_rate",
+                5_242_880.0,
+            ),
+            quota(
+                vec![part("user", Some("payments"))],
+                "producer_byte_rate",
+                1_048_576.0,
+            ),
+            quota(
+                vec![
+                    part("client-id", Some("reports")),
+                    part("user", Some("orders")),
+                ],
+                "request_percentage",
+                25.0,
+            ),
+        ],
+        clients: vec![
+            client(
+                "producer_byte_rate",
+                "payments",
+                "",
+                1_131_520.0,
+                1_048_576.0,
+                612,
+            ),
+            client(
+                "consumer_byte_rate",
+                "",
+                "ledger",
+                412_000.0,
+                5_242_880.0,
+                0,
+            ),
+        ],
+        refused: None,
+    }
+}
+
+/// What a submit of the larder's Set quota or Remove quota comes to: Kafka's own refusal for a value it would refuse, else done.
+///
+/// # Errors
+/// The refusal of a value of zero or less, in Kafka's words.
+pub fn quota_alter(p: &crate::gather::quotas::QuotaPost) -> Result<(), crate::model::Refusal> {
+    match p.value {
+        Some(v) if v <= 0.0 => Err(crate::refusal::refusal(
+            42,
+            Some(&format!("Quota {} must be greater than 0", p.key)),
+        )),
+        _ => Ok(()),
     }
 }
 

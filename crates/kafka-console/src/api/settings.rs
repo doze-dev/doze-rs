@@ -71,6 +71,17 @@ pub mod refusal_opt {
     }
 }
 
+/// Serialises a refusal as the console's refusal panel reads it.
+pub mod refusal_one {
+    use super::{KafkaRefusal, Refusal, Serialize, Serializer};
+
+    /// # Errors
+    /// The serialiser's.
+    pub fn serialize<S: Serializer>(r: &Refusal, s: S) -> Result<S::Ok, S::Error> {
+        KafkaRefusal::from(r).serialize(s)
+    }
+}
+
 /// Serialises a config's source as the Settings table words it (`Static broker`).
 pub mod source_word {
     use super::{ConfigSource, Serializer};

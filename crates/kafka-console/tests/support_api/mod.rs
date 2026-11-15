@@ -46,6 +46,24 @@ pub async fn get(app: &Router, path: &str) -> (StatusCode, Value) {
     )
 }
 
+/// A POST of a JSON body, as the React pages send their writes.
+pub async fn post_json(app: &Router, path: &str, body: &Value) -> (StatusCode, Value) {
+    let req = Request::builder()
+        .method("POST")
+        .uri(path)
+        .header(header::HOST, HOST)
+        .header(header::ORIGIN, format!("http://{HOST}"))
+        .header("x-console", "1")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap();
+    let (res, text) = send(app, req).await;
+    (
+        res.status(),
+        serde_json::from_str(&text).unwrap_or(Value::Null),
+    )
+}
+
 pub async fn post(app: &Router, path: &str, fields: &[(&str, &str)]) -> (StatusCode, Value) {
     let req = Request::builder()
         .method("POST")

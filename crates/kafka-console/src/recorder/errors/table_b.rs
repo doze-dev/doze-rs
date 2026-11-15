@@ -28,6 +28,14 @@ pub(super) const ROWS: &[Row] = &[
         "",
     ),
     r(
+        74,
+        "FENCED_LEADER_EPOCH",
+        Warn,
+        "The leader epoch in the request is older than the epoch on the broker.",
+        "The client believes in a leader epoch this broker has moved past. It refreshes its metadata.",
+        "",
+    ),
+    r(
         75,
         "UNKNOWN_LEADER_EPOCH",
         Warn,

@@ -22,6 +22,7 @@ import type { AccessSearch } from "@/lib/search";
 import { PageError } from "../page-error";
 import { Fact, narrowed, SectionHead, useMinWidth, useRoutedOverlay, useStable } from "../r4/bits";
 import { CreateAclDialog, DeleteAclDialog } from "./acl-dialogs";
+import { Quotas, RemoveQuotaDialog, SetQuotaDialog } from "./quotas";
 
 /** The form words of an ACL, as a query string: its stable id, and the address of its Delete dialog. */
 export function aclQuery(e: AclEntry, kinds: AclChoice[], ops: AclChoice[]): string {
@@ -347,11 +348,14 @@ export function AccessPage() {
           <Switches r={r} />
           <Users r={r} />
           <Acls r={r} search={search} set={setFilter} onCreate={(from) => overlay.open({ acl: "new" }, from)} onDelete={(dq, from) => overlay.open({ delete: dq }, from)} />
+          <Quotas quotas={r.access.quotas} onSet={(from) => overlay.open({ quota: "new" }, from)} onRemove={(rq, from) => overlay.open({ unquota: rq }, from)} />
           <ConsoleCards r={r} />
         </>
       )}
       {r && <CreateAclDialog open={search.acl === "new"} kinds={r.kinds} operations={r.operations} onClose={() => overlay.close({ acl: undefined })} />}
       {r && <DeleteAclDialog query={search.delete} kinds={r.kinds} operations={r.operations} onClose={() => overlay.close({ delete: undefined })} />}
+      <SetQuotaDialog open={search.quota === "new"} onClose={() => overlay.close({ quota: undefined })} />
+      <RemoveQuotaDialog query={search.unquota} onClose={() => overlay.close({ unquota: undefined })} />
     </>
   );
 }

@@ -6,6 +6,7 @@ mod credentials;
 mod lives;
 mod offsets;
 mod producer_ids;
+mod quotas;
 mod registry;
 mod schemas;
 mod topics;
@@ -48,6 +49,10 @@ pub(super) const CREDENTIALS: TableDefinition<'static, &[u8], &[u8]> =
 
 /// The schema registry's records, opaque here (`store/schemas.rs`). Absent from a database made before the registry kept anything, which
 /// the reads take as none and the first write makes.
+/// The client quotas: the entity (the key) to the values set for it. Absent from a database made before quotas could be kept,
+/// which the reads take as none and the first write makes.
+pub(super) const QUOTAS: TableDefinition<'static, &[u8], &[u8]> = TableDefinition::new("quotas");
+
 pub(super) const SCHEMAS: TableDefinition<'static, &[u8], &[u8]> = TableDefinition::new("schemas");
 
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
@@ -102,6 +107,7 @@ impl MetaStore {
             txn.open_table(BROKER_CONFIGS)?;
             txn.open_table(ACLS)?;
             txn.open_table(CREDENTIALS)?;
+            txn.open_table(QUOTAS)?;
             Ok(())
         })?;
         // A database an earlier build made open to others is closed to them now; one that cannot be is reported.
