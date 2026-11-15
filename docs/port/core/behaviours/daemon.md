@@ -123,3 +123,27 @@ Tests added for the audit's untested paths: the endpoint taken from the grant (t
 12. A new call and a widened callback scope with no protocol minor. *Fixed: minor 1; `migrate` is since 1.*
 13. A remove then an immediate add on the same address can find it still bound. *Open (low).*
 14. The per-start port is chosen by binding port 0 and letting go. *Inherent; known.*
+
+### Session 10: Go's integration suites through `DOZE_BIN` (doze rust-oracle, 57aef16)
+
+The Rust `doze` was D1 (91ec2495, then with the watch fix) merged locally with #56 (core-c2c 5328d9e9) on a scratch branch, never pushed; `release-doze` with `dozetest`, 6,791,232 B. Logs: `/private/tmp/claude-501/dzb10/go/`.
+
+| Suite | Result | Why |
+|---|---|---|
+| `TestAServiceWakesOnConnectAndSleepsWhenIdle`, `TestAFailedOnReadyKeepsTheCommandAndRerunsOnlyTheStep`, `TestStopStepsAndSIGTERM`, `TestATaskRerunsOnlyWhenItsInputsChange` | pass | |
+| `TestWatchRestartsAnAppAndRerunsItsTasks` | fail, then pass | doze-config never carried `watch` to the engine; fixed (4d7c98c4) |
+| `TestPostgresConverge`, `TestPostgresReconvergeAddsRole` | fail, then pass with `DOZE_REGISTRY` at the local signed registry (the Rust postgres module) | the harness hands doze Go plugins (`DOZE_TEST_*_PLUGIN`), which the Rust doze does not run; the first run, without the variable, asked the real registry's index once (it timed out after 3 s) |
+| `TestMariaDBConverge` | fail | as postgres, and no Rust mariadb build in the local registry |
+| `TestSetupRunsOncePerDataFolder` | fail | C2c: `reset` with the stack down says the daemon is needed (Go removed the folder itself) |
+| `TestAFailedTaskStopsWhatIsAfterIt` | fail | C2c: `doze task` does not say `manual` (Go read it from the config) |
+| `TestADownloadedServiceIsPinnedAndAChangeIsRefused` | fail | a service's `download` is not fetched (doze-config's open gap) |
+| `TestSyncNamesTheBlocksThatDifferFromTheRunningDaemon` | fail | C2c: `sync --dry-run` still DZ0001; the daemon's `plan` op is there |
+| `TestDozeAndAStandaloneToolShareTheZone` | fail; the other names suites and ferret, temporal skip | names are D2 |
+
+Found on the scratch merge, for C2c: its `__fetch` child ignores a `file://` mirror and went to GitHub for the postgres engine (the D1 child alone fetches it from the local mirror in seconds), so `up` on the merge hangs on a fresh home.
+
+### Session 10 proof: the app, a fresh home, no manual step
+
+`/private/tmp/claude-501/dzb10/tools/proof.sh` (the D1 `doze` at cabe4ad6, `dozetest`, 7,146,368 B; the unchanged app at app-finish a7af57a4, `release-app` with `fixtures`, driven by `app/proof.txt`). Evidence: `app/driver.log`, `app/proof.log`, `shots/01…09`, the first attempt in `run1/`. The stack is started as `up` starts it (the `__daemon`, then the `up` op: the CLI's `up` is C2c's); then: up in 87 s with the postgres engine downloaded and the migration run as api's need; everything asleep; a curl of web woke it in 37 ms through its front (`03`); the map, all logs, db's page with its real memory and CPU graphs, "api needs it" and its 10 connections (`06`); the daemon stopped with nothing left behind.
+
+Not shown: a module console tab (neither registry build, postgres or valkey 0.9.0, declares a console; the daemon's console topic is tested with the echo); admin/reset through the app (the script's ⌘K typing did not open the palette; reset is tested over the wire). Seen and open: the tiles and the sidebar show 0 for memory while the page's graph shows 12 MB (the `instances` topic carries no meters; status does); an earlier run's sidebar showed them.
