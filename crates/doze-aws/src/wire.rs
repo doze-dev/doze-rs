@@ -352,6 +352,8 @@ fn states_config() -> aws_sfn::Config {
 /// The `/_doze/data` hook, on the gateway's settings; under `--auth verify` it answers only a request carrying the secret key.
 fn data_hook(cfg: &Config, gw: &mut GatewayConfig) -> Arc<crate::data_web::DataHook> {
     let key = (cfg.text("auth") == "verify").then(|| cfg.text("secret-key"));
+    // The services' own local addresses (`/_doze/iam/...`, `/_doze/sqs/...`) ask for the same key.
+    gw.local_key.clone_from(&key);
     let hook = Arc::new(crate::data_web::DataHook::new(key));
     gw.hooks.0.push(hook.clone());
     hook

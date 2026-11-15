@@ -51,6 +51,8 @@ pub(crate) enum Ask {
     },
     /// From `doze-aws data`: what IAM holds, or remove it all.
     Data(Box<crate::storage::DataCall>),
+    /// Before a web identity token's keys are fetched: whether a provider is registered for its issuer (`crate::oidc`).
+    Issuer(String),
 }
 
 /// What the actor answers. A call and a question both come back with the authorization questions they raised, for the access log.
@@ -68,6 +70,8 @@ pub(crate) enum Answer {
     Credential(Option<aws_auth::Credential>),
     /// A data question was answered on its own channel.
     Data,
+    /// Whether the issuer has a provider.
+    Issuer(bool),
 }
 
 /// All of the account's identities. Owned by one task, so no operation needs a lock.
@@ -130,6 +134,7 @@ impl doze_runtime::Service for Core {
                 }
                 return Answer::Data;
             }
+            Ask::Issuer(url) => return Answer::Issuer(self.has_issuer(&url)),
             Ask::Call { which, call } => (which, call),
         };
         let mut reply = self.dispatch(which, &call);

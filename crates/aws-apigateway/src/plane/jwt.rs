@@ -2,7 +2,7 @@
 //!
 //! **JWT** (HTTP APIs), in AWS's order: the token is read; it must be signed with an RSA algorithm ("Currently, only RSA-based
 //! algorithms are supported": RS256, RS384, RS512; an ES256 or HS256 token is refused); the signature is verified against the issuer's
-//! JWKS (`jwks.rs`: fetched over `https://` or `http://`, kept two hours); then `iss`, `exp`, `nbf`, the audience (`aud`, else
+//! JWKS (`aws_webhook::jwks`: fetched over `https://` or `http://`, kept two hours); then `iss`, `exp`, `nbf`, the audience (`aud`, else
 //! `client_id`) and the route's scopes (`scope`/`scp`). A refusal is 401 `{"message":"Unauthorized"}` with a
 //! `www-authenticate: Bearer scope="" error="invalid_token" error_description="…"` header, a missing scope 403 `Forbidden` with
 //! `error="insufficient_scope"` (the header and its descriptions are (memory)). When the keys cannot be fetched (the issuer is down,
@@ -12,78 +12,42 @@
 //! **COGNITO_USER_POOLS** (REST APIs): the claims are checked; the signature is not, because Cognito is not served here and a token
 //! from a local test cannot be signed by a real pool.
 
+use std::time::Duration;
+
+use aws_webhook::jwks::Jwks;
+use aws_webhook::jwt::{Refusal, Token, decode};
 use aws_wire::service::WebReply;
 use serde_json::{Value, json};
 
 use super::event::Context;
-use super::jwks::{Jwks, rsa_verifies};
 use super::mapping::{plain, v2_source};
 use super::{Found, Incoming, Route, reply};
 use crate::doc::text;
 
-/// A token taken apart.
-#[derive(Debug)]
-pub(crate) struct Token {
-    pub(crate) header: Value,
-    pub(crate) claims: Value,
-    signed: String,
-    signature: Vec<u8>,
+/// "Timeout for JSON Web Key Set endpoint: 1500 ms".
+#[cfg(not(test))]
+const FETCH_TIMEOUT: Duration = Duration::from_millis(1500);
+/// The unit tests' debug-built TLS handshakes, under a whole workspace's test load, can take longer than AWS's 1,500 ms.
+#[cfg(test)]
+const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
+/// "Response size from JSON Web Key Set endpoint: 150000 bytes".
+const MAX_ANSWER: usize = 150_000;
+
+/// The issuers' keys, fetched within the HTTP API quotas above.
+pub(crate) fn keys() -> Jwks {
+    Jwks::new(FETCH_TIMEOUT, MAX_ANSWER)
 }
 
-pub(crate) fn b64url(s: &str) -> Option<Vec<u8>> {
-    let mut t = s.replace('-', "+").replace('_', "/");
-    while !t.len().is_multiple_of(4) {
-        t.push('=');
-    }
-    aws_core::base64::decode(&t)
-}
-
-// fuzz:parser fuzz_jwt
-/// Reads a token (`header.claims.signature`, base64url).
-pub(crate) fn decode(token: &str) -> Option<Token> {
-    let token = token.strip_prefix("Bearer ").unwrap_or(token).trim();
-    let mut parts = token.split('.');
-    let (h, c, s) = (parts.next()?, parts.next()?, parts.next()?);
-    if parts.next().is_some() || token.len() > 16 * 1024 {
-        return None;
-    }
-    Some(Token {
-        header: serde_json::from_slice(&b64url(h)?).ok()?,
-        claims: serde_json::from_slice(&b64url(c)?).ok()?,
-        signed: format!("{h}.{c}"),
-        signature: b64url(s)?,
-    })
-}
-
-/// Why a token is refused: the `error_description` of the `www-authenticate` header (memory).
-type Refusal = String;
-
-/// Whether the signature verifies under one of the issuer's keys.
-async fn signature_ok(jwks: &Jwks, issuer: &str, t: &Token, now_ms: i64) -> Result<(), Refusal> {
-    let alg = text(&t.header, "alg").unwrap_or_default();
-    if !matches!(alg, "RS256" | "RS384" | "RS512") {
-        return Err(format!("signing method {alg} is invalid"));
-    }
-    let kid = text(&t.header, "kid");
-    let keys = jwks.keys(issuer, kid, now_ms).await.map_err(|why| {
-        tracing::warn!("JWT authorizer: the keys of {issuer} could not be fetched, so the token is refused: {why}");
-        "unable to fetch the issuer's public keys".to_owned()
-    })?;
-    let mut candidates = keys
-        .iter()
-        .filter(|k| kid.is_none() || text(k, "kid") == kid)
-        .peekable();
-    if candidates.peek().is_none() {
-        return Err(format!(
-            "the key id {} is not in the issuer's JWKS",
-            kid.unwrap_or_default()
-        ));
-    }
-    if candidates.any(|k| rsa_verifies(k, alg, t.signed.as_bytes(), &t.signature)) {
-        Ok(())
-    } else {
-        Err("the token's signature is invalid".to_owned())
-    }
+/// Whether the signature verifies under one of the issuer's keys ("Currently, only RSA-based algorithms are supported").
+async fn signature_ok(jwks: &Jwks, issuer: &str, t: &Token, now_ms: i64) -> Result<(), String> {
+    t.verify(jwks, issuer, aws_webhook::jwt::RSA, now_ms)
+        .await
+        .map_err(|r| {
+            if let Refusal::Unfetchable(why) = &r {
+                tracing::warn!("JWT authorizer: the keys of {issuer} could not be fetched, so the token is refused: {why}");
+            }
+            r.to_string()
+        })
 }
 
 /// The JWT authorizer's refusal: 401, and why in `www-authenticate` (memory).
@@ -101,7 +65,7 @@ fn refused(why: &str) -> WebReply {
 }
 
 /// Why the claims refuse the token, if they do.
-fn claims_refuse(claims: &Value, config: &Value, now_secs: i64) -> Option<Refusal> {
+fn claims_refuse(claims: &Value, config: &Value, now_secs: i64) -> Option<String> {
     let at = |k: &str| claims.get(k).and_then(Value::as_i64);
     if at("exp").is_some_and(|e| e <= now_secs) {
         return Some("the token has expired".into());
@@ -277,18 +241,15 @@ mod tests {
     }
 
     #[test]
-    fn tokens_are_taken_apart_and_their_times_checked() {
+    fn times_are_checked_and_scopes_read() {
         let t = format!(
             "Bearer {}.{}.c2ln",
             enc(&json!({"alg": "RS256"})),
             enc(&json!({"iss": "i", "exp": 100}))
         );
         let token = decode(&t).unwrap();
-        assert_eq!(token.claims["iss"], "i");
         assert!(times_ok(&token.claims, 99));
         assert!(!times_ok(&token.claims, 100));
-        assert!(decode("a.b").is_none());
-        assert!(decode("!!.!!.!!").is_none());
         assert_eq!(scopes_of(&json!({"scope": "a b"})), vec!["a", "b"]);
     }
 }

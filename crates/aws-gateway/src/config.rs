@@ -41,6 +41,9 @@ pub struct Config {
     /// Local hooks of the host's own (`/_doze/data`), asked before any service's addresses. Not AWS addresses: each owns a path
     /// under `/_doze/`, which no bucket name can start with.
     pub hooks: Hooks,
+    /// The secret key a request to a service's local address (`/_doze/iam/...`, [`aws_wire::service::Web::local`]) must carry in
+    /// `X-Doze-Key`: set under `--auth verify`, `None` when signatures are taken on trust.
+    pub local_key: Option<String>,
 }
 
 impl Config {
@@ -58,6 +61,7 @@ impl Config {
             max_skew_secs: 300,
             anonymous: false,
             hooks: Hooks::default(),
+            local_key: None,
         }
     }
 }

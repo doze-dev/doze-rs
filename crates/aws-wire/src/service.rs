@@ -165,6 +165,12 @@ pub trait Web: Send + Sync {
         false
     }
 
+    /// Whether the addresses are doze's own local helpers (`/_doze/...`), not AWS's: the gateway then answers a request only if it
+    /// passes [`crate::local::guard`] (no page from another origin, a `POST` only as JSON, and under `--auth verify` the secret key).
+    fn local(&self) -> bool {
+        false
+    }
+
     /// Answers the request.
     fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply>;
 
@@ -173,16 +179,6 @@ pub trait Web: Send + Sync {
     fn upgrade(&self, request: WebRequest) -> BoxFuture<'_, Upgrade> {
         Box::pin(async move { Upgrade::Refused(self.serve(request).await) })
     }
-}
-
-/// An operation a service adds to its model: the request is read as the input of model operation `shapes`, the answer written as
-/// its output, and the call carries `op`, an index the model does not use (so the service can tell it apart).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Extension {
-    /// The index the call carries: past the model's operations.
-    pub op: u32,
-    /// The model operation whose input and output shapes it borrows.
-    pub shapes: u32,
 }
 
 /// A service the gateway can route to.
@@ -199,25 +195,16 @@ pub trait Service: Send + Sync + 'static {
         true
     }
 
-    /// Whether every client error is answered 400, whatever status the model gives it (KMS does this).
-    fn flat_client_errors(&self) -> bool {
+    /// Whether operation `op` is called without a signature: its model gives it no auth scheme (`smithy.api#auth: []`, STS's
+    /// `AssumeRoleWithWebIdentity` and `AssumeRoleWithSAML`). The gateway answers such a request when it carries no signature at all,
+    /// as AWS does; the default is none.
+    fn unsigned(&self, _op: u32) -> bool {
         false
     }
 
-    /// An operation this service adds to its model, by the name in `X-Amz-Target` (SQS's `DozePeek`, which the console reads a
-    /// queue with). Not an AWS operation: the default is none. Only a JSON-protocol service is asked.
-    fn extension(&self, _name: &str) -> Option<Extension> {
-        None
-    }
-
-    /// A doze-only `Action` on this service's Query endpoint (IAM's `DozeAccessLog`, as the Go edition served it), answered as JSON
-    /// from the request's form. Asked only for an action the model does not have; the default is none.
-    fn query_extension<'a>(
-        &'a self,
-        _action: &'a str,
-        _form: &'a std::collections::BTreeMap<String, String>,
-    ) -> Option<BoxFuture<'a, WebReply>> {
-        None
+    /// Whether every client error is answered 400, whatever status the model gives it (KMS does this).
+    fn flat_client_errors(&self) -> bool {
+        false
     }
 
     /// Handles one call. An error names a modelled shape ([`ApiError::modeled`]) or states itself.

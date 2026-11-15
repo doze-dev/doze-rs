@@ -21,6 +21,12 @@ test = false
 doc = false
 
 [[bin]]
+name = "fuzz_jwt"
+path = "fuzz_targets/fuzz_jwt.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "fuzz_webhook_url"
 path = "fuzz_targets/fuzz_webhook_url.rs"
 test = false

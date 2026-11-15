@@ -51,12 +51,20 @@ pub(crate) fn anonymous_claim(parts: &Parts) -> Option<Claim> {
         .unwrap_or_default();
     let management = path.contains("/@connections/")
         && (path.starts_with("/_aws/execute-api/") || host.contains(".execute-api."));
-    Some(Claim {
+    Some(unsigned_claim(
+        if management { "execute-api" } else { "s3" },
+        "us-east-1",
+    ))
+}
+
+/// The claim of a request with no signature, for `service` in `region`: the anonymous principal.
+pub(crate) fn unsigned_claim(service: &str, region: &str) -> Claim {
+    Claim {
         placement: Placement::Header,
         access_key_id: aws_wire::service::Caller::ANONYMOUS.to_owned(),
         scope_date: String::new(),
-        region: "us-east-1".to_owned(),
-        service: if management { "execute-api" } else { "s3" }.to_owned(),
+        region: region.to_owned(),
+        service: service.to_owned(),
         signed_headers: Vec::new(),
         signature: Vec::new(),
         signature_hex: String::new(),
@@ -65,7 +73,7 @@ pub(crate) fn anonymous_claim(parts: &Parts) -> Option<Claim> {
         expires_in: None,
         session_token: None,
         content_sha256: None,
-    })
+    }
 }
 
 /// Whether a claim is a SigV2 presigned URL's (it has a signature and no SigV4 credential scope).
