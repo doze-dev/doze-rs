@@ -33,10 +33,21 @@ impl Boot {
     pub(crate) fn begin(
         err: &mut dyn Write,
         paint: Paint,
-        (log, tty): (PathBuf, bool),
+        log: (PathBuf, bool),
         name: &str,
     ) -> Boot {
-        let status = format!("{} {name} waking…", paint.dim("→"));
+        Boot::begin_as(err, paint, log, name, "waking")
+    }
+
+    /// [`Boot::begin`] for another slow call: "→ name <doing>…" (`migrating`).
+    pub(crate) fn begin_as(
+        err: &mut dyn Write,
+        paint: Paint,
+        (log, tty): (PathBuf, bool),
+        name: &str,
+        doing: &str,
+    ) -> Boot {
+        let status = format!("{} {name} {doing}…", paint.dim("→"));
         let _ = if tty {
             write!(err, "{status}")
         } else {

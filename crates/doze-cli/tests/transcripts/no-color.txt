@@ -2,28 +2,28 @@
 @ tty
 @ env NO_COLOR=1
 
-$ doze migrate db
-exit 1
+$ doze status
+exit 6
 stderr:
-| error[DZ0001]: `doze migrate` is not built yet: it is the module's own work (a major-version upgrade of its data), through a daemon call that is not built yet
-|   fix: the Go doze does this today
-json exit 1
+| error[DZ0302]: there is no doze.hcl here or in any parent directory
+|   fix: doze init writes one · -c <path> points at one elsewhere
+json exit 6
 json:
 | {
 |   "schema": "doze/v1",
-|   "command": "doze migrate",
+|   "command": "doze status",
 |   "ok": false,
 |   "error": {
-|     "code": "failed",
-|     "message": "`doze migrate` is not built yet: it is the module's own work (a major-version upgrade of its data), through a daemon call that is not built yet",
-|     "exit": 1,
-|     "id": "DZ0001",
-|     "fix": "the Go doze does this today"
+|     "code": "no_config",
+|     "message": "there is no doze.hcl here or in any parent directory",
+|     "exit": 6,
+|     "id": "DZ0302",
+|     "fix": "doze init writes one · -c \u003cpath\u003e points at one elsewhere"
 |   }
 | }
-tty exit 1
+tty exit 6
 tty stderr:
-| error[DZ0001]: `doze migrate` is not built yet: it is the module's own work (a major-version upgrade of its data), through a daemon call that is not built yet
-|   fix: the Go doze does this today
+| error[DZ0302]: there is no doze.hcl here or in any parent directory
+|   fix: doze init writes one · -c <path> points at one elsewhere
 tty spawned:
 | __refresh --latest

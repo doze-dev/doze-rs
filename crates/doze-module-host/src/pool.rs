@@ -75,6 +75,15 @@ impl Pool {
         idle.into_iter().map(|(k, _)| k).collect()
     }
 
+    /// Stops every module process (a one-shot run is done with them); returns their engines.
+    pub async fn stop_all(&self) -> Vec<String> {
+        let all: Vec<(String, Arc<Running>)> = self.modules.lock().await.drain().collect();
+        for (_, m) in &all {
+            m.shutdown(Duration::from_secs(2)).await;
+        }
+        all.into_iter().map(|(k, _)| k).collect()
+    }
+
     /// Engines with a module process right now.
     pub async fn running(&self) -> Vec<String> {
         self.modules

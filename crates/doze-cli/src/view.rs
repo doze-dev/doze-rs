@@ -50,6 +50,7 @@ pub enum View {
     Console(crate::cmd::console::Console),
     Env(crate::cmd::env::Vars),
     Url(crate::cmd::env::Line),
+    Migrated(crate::cmd::migrate::Migrated),
 }
 
 impl View {
@@ -62,6 +63,7 @@ impl View {
             View::Console(c) => c.human(),
             View::Env(e) => e.human(p),
             View::Url(u) => format!("{}\n", u.url),
+            View::Migrated(m) => m.human(p),
             View::Version(v) => v.human(),
             View::Plan(plan) => plan.render(p),
             View::Docs(page) => page.human(p),
@@ -112,6 +114,7 @@ impl Serialize for View {
             View::Console(c) => c.serialize(s),
             View::Env(e) => e.serialize(s),
             View::Url(u) => u.serialize(s),
+            View::Migrated(m) => m.serialize(s),
             View::Version(v) => v.serialize(s),
             View::Plan(plan) => DryRun {
                 dry_run: true,

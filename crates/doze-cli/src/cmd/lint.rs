@@ -2,9 +2,11 @@
 //!
 //! The first needs nothing but the files (doze-config's shape pass): block kinds and names, the arguments of app,
 //! service and task blocks, variables, references, the dependency graph. The second hands each module its own block,
-//! which needs the module itself; this doze runs modules with its daemon (core plan D1), so until then every module
-//! block is reported as not checked. Never a tick for work not done (rule 3, F4): with module blocks unchecked, lint
-//! exits 11 (partial), not 0. `--offline` asks for the first pass alone, and gets it with exit 0.
+//! which needs the module itself, so it runs where modules run: the stack's daemon when it is up (its `lint` op, on
+//! doze.hcl as it is on disk now), else the same check once in `doze __daemon --lint`, a child that serves nothing
+//! and takes its module processes with it. A module type the registry cannot be reached for (and that is not on this
+//! machine) is listed as not checked: never a tick for work not done (rule 3, F4), so lint exits 11 (partial), not 0.
+//! `--offline` asks for the first pass alone, and gets it with exit 0.
 //!
 //! The JSON result is Go's (`config`, `declared` by kind, `disabled`, `unchecked`, `why`, `warnings`).
 
@@ -18,9 +20,6 @@ use crate::view::View;
 use doze_config::{Config, Kind};
 use serde::Serialize;
 use std::collections::BTreeMap;
-
-/// Why the module pass did not run, when the person did not ask to skip it.
-const NO_MODULE_PASS: &str = "each module checks its own block through the daemon, a call that is not built yet; so do the port and network checks across the stack";
 
 /// Go's lint result; the field names are a published contract.
 #[derive(Debug, Serialize)]
@@ -43,14 +42,26 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Lint) -> Outcome {
     let loaded = config::shape(ctx, mode)?;
     let mut cfg = loaded.config;
     let mut unchecked = module_types(&cfg);
+    let modules = !unchecked.is_empty();
     let mut what = "module blocks";
     let mut why = match (a.offline, unchecked.is_empty()) {
-        (_, true) => String::new(),
         (true, false) => "--offline".to_owned(),
-        (false, false) => NO_MODULE_PASS.to_owned(),
+        _ => String::new(),
     };
+    if !unchecked.is_empty() && !a.offline {
+        // The module pass: each module's own check of its block, and the full load's warnings.
+        match module_pass(ctx, mode, &loaded.project) {
+            Ok(r) if !r.ok => return Err(failed(&r.error)),
+            Ok(r) => {
+                cfg.warnings = r.lines;
+                unchecked = r.unchecked;
+                why = r.result;
+            }
+            Err(could_not) => why = could_not,
+        }
+    }
     // With no module block the second pass needs nothing either: Go's full load, warnings and all.
-    if unchecked.is_empty() && !a.offline {
+    if !modules && !a.offline {
         let (full, certs_skipped) =
             config::Loader::new(ctx, mode).full_without_modules(&loaded.project)?;
         cfg = full;
@@ -89,6 +100,71 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Lint) -> Outcome {
         view: View::Lint(verdict),
         problem,
     })
+}
+
+/// The module pass's answer: from the stack's daemon when it runs (a Go daemon has no `lint` op), else from a one-shot
+/// `doze __daemon --lint`. `Err` says why it could not run at all (then every module block is unchecked).
+fn module_pass(
+    ctx: &Ctx<'_>,
+    mode: &Mode,
+    project: &crate::project::Project,
+) -> Result<doze_control::Response, String> {
+    use doze_control::{Error, Op, Request};
+    if let Ok(stack) = crate::stack::Stack::find(ctx, mode)
+        && let Ok(Some(conn)) = stack.open(mode.timeout)
+    {
+        match conn.call(Request::op(Op::Lint)) {
+            Ok(r) => return Ok(r),
+            Err(Error::Daemon { message, .. })
+                if !message.starts_with("unknown op") && !message.starts_with("this daemon") =>
+            {
+                return Ok(doze_control::Response {
+                    ok: false,
+                    error: message,
+                    ..doze_control::Response::default()
+                });
+            }
+            // A Go daemon, one that cannot lint, or one that did not answer: the check runs on its own.
+            Err(_) => {}
+        }
+    }
+    let exe = ctx
+        .host
+        .daemon_exe()
+        .ok_or("this doze could not find its own program to run the modules with")?;
+    let config = ctx
+        .cwd
+        .join(project.source.as_ref().unwrap_or(&project.config));
+    let out = std::process::Command::new(&exe)
+        .args([
+            doze_daemon::ctl::ARG,
+            doze_daemon::entry::LINT_ARG,
+            "--config",
+        ])
+        .arg(&config)
+        .current_dir(&ctx.cwd)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .map_err(|e| format!("the module pass could not be run ({e})"))?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    serde_json::from_str(text.trim()).map_err(|_| {
+        let said = String::from_utf8_lossy(&out.stderr);
+        let last = said.lines().last().unwrap_or("it said nothing");
+        format!("the module pass did not answer ({last})")
+    })
+}
+
+/// A module pass that found a mistake: exit 5, the load's own words (positions and all) as its lines.
+fn failed(error: &str) -> Diagnostic {
+    let mut lines = error.lines().filter(|l| !l.trim().is_empty());
+    let first = lines
+        .next()
+        .unwrap_or("doze.hcl does not load with its modules");
+    let mut d = Diagnostic::new(ids::CONFIG_INVALID, first.trim().to_owned());
+    for l in lines {
+        d = d.note(l.trim_end().to_owned());
+    }
+    d.fix("correct doze.hcl, then doze lint again")
 }
 
 /// The module types doze.hcl declares, each once, sorted (Go `moduleTypes`).

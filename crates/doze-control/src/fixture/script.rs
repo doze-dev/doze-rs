@@ -6,7 +6,7 @@
 //! {"frame":{"topic":"instances","snapshot":true,…}}          a frame played to each subscriber that asked for its topic
 //! {"wait_ms":50}                                             a pause between frames
 //! {"log":{"instance":"api","line":"listening",…}}            a line an instance printed, for the `logs` op
-//! {"admin_result":"purged 3 messages"}                       what `admin` answers
+//! {"admin_result":"purged 3 messages"}                       what `admin` (and `migrate`) answers
 //! {"plan":[{"instance":"db","change":"create","kind":"database","name":"shop"}]}  what `plan` answers
 //! {"fail":{"key":"wake api","error":"boom","code":"timeout"}} an op ("op" or "op target") that fails
 //! {"verb_delay_ms":800}                                     how long each verb and data action takes to answer

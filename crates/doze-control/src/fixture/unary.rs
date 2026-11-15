@@ -47,6 +47,18 @@ pub(crate) fn answer(state: &State, req: &Request) -> Response {
                 },
             )
         }
+        // The Rust daemon's migrate: what the module said of its move (the script's `admin_result`).
+        Op::Migrate => {
+            pause(state);
+            let s = lock(&state.script);
+            outcome(
+                s.failure("migrate", &req.db),
+                Response {
+                    result: s.admin_result.clone(),
+                    ..Response::default()
+                },
+            )
+        }
         _ => {
             pause(state);
             let fail = lock(&state.script).failure(&req.op, &req.db).cloned();

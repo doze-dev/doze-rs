@@ -21,6 +21,7 @@ mod handover;
 pub(crate) mod init;
 pub(crate) mod lint;
 pub(crate) mod logs;
+pub(crate) mod migrate;
 pub(crate) mod modules;
 pub(crate) mod open;
 mod pin;
@@ -52,10 +53,9 @@ use crate::notice::Notices;
 use crate::output::{Done, Mode, Outcome};
 use crate::view::View;
 
-/// Runs `cmd` (`command` is its path, `doze modules docs`, for messages).
+/// Runs `cmd`.
 pub(crate) fn dispatch(
     cmd: Option<Cmd>,
-    command: &str,
     ctx: &mut Ctx<'_>,
     mode: &Mode,
     notices: &mut Notices,
@@ -63,13 +63,6 @@ pub(crate) fn dispatch(
     let Some(cmd) = cmd else {
         return open::bare(ctx, mode, notices);
     };
-    let command = match &cmd {
-        Cmd::Doctor(d) if d.fix || d.print_fix => "doze doctor --fix",
-        _ => command,
-    };
-    if let Some(needs) = stub::needs(&cmd) {
-        return Err(stub::not_built(command, needs));
-    }
     match cmd {
         Cmd::Version => version::run(),
         Cmd::Completion(c) => Ok(Done::ok(View::Raw(crate::complete::registration(c.shell)))),
@@ -106,6 +99,7 @@ pub(crate) fn dispatch(
         Cmd::Env(e) => env::run(ctx, mode, &e),
         Cmd::Url(u) => env::url(ctx, mode, &u),
         Cmd::Sync(s) => sync::run(ctx, mode, &s),
+        Cmd::Migrate(m) => migrate::run(ctx, mode, &m),
         Cmd::Connect(c) => connect::run(ctx, mode, &c),
         Cmd::Open(o) => open::run(ctx, mode, &o, notices),
         Cmd::Modules(m) => match m.command {
@@ -114,9 +108,5 @@ pub(crate) fn dispatch(
             Some(ModulesCmd::Verify) => verify::run(ctx, mode),
             Some(ModulesCmd::Upgrade(u)) => upgrade::run(ctx, mode, &u),
         },
-        other => Err(stub::not_built(
-            command,
-            stub::needs(&other).unwrap_or(stub::Needs::Daemon),
-        )),
     }
 }

@@ -150,6 +150,19 @@ pub async fn serve(
     PathBuf,
     Arc<doze_daemon::front::Front>,
 )> {
+    serve_at(dir, dir.join("ctl.sock")).await
+}
+
+/// [`serve`], its control socket at `sock` (where the CLI looks for the stack's daemon).
+pub async fn serve_at(
+    dir: &Path,
+    sock: PathBuf,
+) -> Option<(
+    doze_daemon::Daemon,
+    doze_daemon::Serving,
+    PathBuf,
+    Arc<doze_daemon::front::Front>,
+)> {
     use doze_daemon::catalog::Catalog;
     let lock = dir.join("doze.lock");
     let downloads = Arc::new(doze_engine::modules::Pinned {
@@ -173,7 +186,6 @@ pub async fn serve(
         .unwrap();
     let front = Arc::new(doze_daemon::front::Front::open(&a.engine, &a.fronted()).await);
     let live = doze_daemon::live::Live::new(cat, &config, "0.0.0", env, front.clone());
-    let sock = dir.join("ctl.sock");
     let d = doze_daemon::Daemon::at(
         a.engine,
         a.labels,

@@ -20,6 +20,10 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 
+/// The argument that makes `__daemon` check doze.hcl through its modules once (the `lint` op's pass) and print the
+/// answer as one JSON line, serving nothing: `doze lint` with no daemon running.
+pub const LINT_ARG: &str = "--lint";
+
 /// Runs the daemon for `args` (what follows `__daemon`); its exit code.
 #[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 pub fn main(args: &[String], version: &str) -> ExitCode {
@@ -38,6 +42,15 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if args.iter().any(|a| a == LINT_ARG) {
+        let answer = rt.block_on(lint_once(&config, version));
+        // One line on stdout, the whole answer; the CLI reads it.
+        #[allow(clippy::print_stdout)]
+        {
+            println!("{}", serde_json::to_string(&answer).unwrap_or_default());
+        }
+        return ExitCode::SUCCESS;
+    }
     match rt.block_on(run(&config, version)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
@@ -191,6 +204,30 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     engine.shutdown().await;
     let _ = std::fs::remove_file(run.pid_file());
     Ok(())
+}
+
+/// The `lint` op's module pass on `config`, with no daemon: the catalog it needs (builds through `__fetch`, the lock
+/// beside doze.hcl), the check, then the catalog's module processes stopped before the answer is given.
+async fn lint_once(config: &Path, version: &str) -> doze_control::Response {
+    let failed = |error: String| doze_control::Response {
+        ok: false,
+        error,
+        ..doze_control::Response::default()
+    };
+    let catalog = match catalog(config) {
+        Ok(c) => Arc::new(c),
+        Err(e) => return failed(e),
+    };
+    let (cat, path, version) = (
+        catalog.clone(),
+        config.to_string_lossy().into_owned(),
+        version.to_owned(),
+    );
+    let answer = tokio::task::spawn_blocking(move || crate::lint::check(&cat, &path, &version))
+        .await
+        .unwrap_or_else(|e| failed(e.to_string()));
+    catalog.pool.stop_all().await;
+    answer
 }
 
 /// Stops module processes nothing has called for a while, now and then.
