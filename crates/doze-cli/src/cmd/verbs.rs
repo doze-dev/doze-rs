@@ -4,8 +4,9 @@
 //! acted on once. Every one takes `--dry-run`: the plan, from the daemon's snapshot, and nothing asked
 //! ([`crate::cmd::dry`]).
 //!
-//! The Go doze starts the daemon for `wake`, `restart`, `reset` and `pin` when it is not running; starting it is the
-//! core's (`up`), so here those say the stack is not running (exit 7) until the Rust daemon lands.
+//! `wake`, `restart` and `reset` (and `pin`, `task <name>`) start the daemon when it is not running, as Go's did
+//! (`startDaemon`), under the stack lock and said on stderr ([`Looked`]); a dry run with doze stopped plans from
+//! doze.hcl, the daemon's start first, and starts nothing. `sleep`, `off` and `on` do not start it (Go's did not).
 
 use crate::cli::args::{Names, SomeNames};
 use crate::cmd::ask::Asker;
@@ -18,14 +19,15 @@ use crate::diag::{Diagnostic, ids};
 use crate::output::{Done, Mode, Outcome};
 use crate::stack::{self, Stack};
 use crate::view::View;
-use doze_control::{Snapshot, Verb};
+use doze_control::{Connection, Snapshot, Verb};
 use std::time::{Duration, Instant};
 
 /// `doze wake [name…]`: starts each with what it needs, needs first (Go `bootClosure`), and waits until each is
 /// ready. With no name, every service doze.hcl does not turn off.
 pub(crate) fn wake(ctx: &mut Ctx<'_>, mode: &Mode, a: &Names) -> Outcome {
-    let (stack, ask, snap) = open(ctx, mode, "doze wake", &a.names)?;
     let asked = stack::unique(&a.names);
+    let looked = Looked::new(ctx, mode, &asked)?;
+    let snap = looked.snap.clone();
     let targets = stack::targets(&snap, &asked)?;
     if targets.is_empty() {
         return Err(Diagnostic::new(
@@ -39,10 +41,16 @@ pub(crate) fn wake(ctx: &mut Ctx<'_>, mode: &Mode, a: &Names) -> Outcome {
         .map(str::to_owned)
         .collect();
     if a.dry.dry_run {
-        return Ok(Done::ok(View::Plan(dry::wake(
-            &snap, &closure, &targets, &asked,
-        ))));
+        let plan = dry::wake_as(
+            "doze wake",
+            &snap,
+            &closure,
+            (&targets, &asked),
+            looked.starts(),
+        );
+        return Ok(Done::ok(View::Plan(plan)));
     }
+    let (stack, ask) = looked.connect(ctx, mode, "doze wake")?;
     timed(ctx, mode, (&stack, &ask), Verb::Wake, &closure, &|_| {
         ("awake", "awake")
     })
@@ -50,12 +58,13 @@ pub(crate) fn wake(ctx: &mut Ctx<'_>, mode: &Mode, a: &Names) -> Outcome {
 
 /// `doze restart <name…>`.
 pub(crate) fn restart(ctx: &mut Ctx<'_>, mode: &Mode, a: &SomeNames) -> Outcome {
-    let (stack, ask, snap) = open(ctx, mode, "doze restart", &a.names)?;
     let names = stack::unique(&a.names);
-    stack::check_names(&snap, &names)?;
+    let looked = Looked::new(ctx, mode, &names)?;
     if a.dry.dry_run {
-        return Ok(Done::ok(View::Plan(dry::restart(&snap, &names))));
+        let plan = dry::restart(&looked.snap, &names);
+        return Ok(Done::ok(View::Plan(looked.planned(plan))));
     }
+    let (stack, ask) = looked.connect(ctx, mode, "doze restart")?;
     let what = |_: &str| ("restarted", "restarted");
     timed(ctx, mode, (&stack, &ask), Verb::Restart, &names, &what)
 }
@@ -149,11 +158,11 @@ pub(crate) fn sleep(ctx: &mut Ctx<'_>, mode: &Mode, a: &Names) -> Outcome {
 
 /// `doze reset <name…>`: deletes the data; asks first, or needs `-y` with no terminal.
 pub(crate) fn reset(ctx: &mut Ctx<'_>, mode: &Mode, a: &SomeNames) -> Outcome {
-    let (_, ask, snap) = open(ctx, mode, "doze reset", &a.names)?;
     let names = stack::unique(&a.names);
-    stack::check_names(&snap, &names)?;
+    let looked = Looked::new(ctx, mode, &names)?;
     if a.dry.dry_run {
-        return Ok(Done::ok(View::Plan(dry::reset(&snap, &names))));
+        let plan = dry::reset(&looked.snap, &names);
+        return Ok(Done::ok(View::Plan(looked.planned(plan))));
     }
     let r = Report::new(mode);
     if !mode.yes {
@@ -166,6 +175,8 @@ pub(crate) fn reset(ctx: &mut Ctx<'_>, mode: &Mode, a: &SomeNames) -> Outcome {
             Err(d) => return Err(d),
         }
     }
+    // Asked first, as Go asks: nothing is started for a reset the user declines.
+    let (_, ask) = looked.connect(ctx, mode, "doze reset")?;
     let line = "reset — its data is gone; the next wake provisions it fresh";
     each(ctx, &ask, r, Verb::Reset, &names, ("reset", line))
 }
@@ -236,6 +247,67 @@ fn each(
         r.ok(ctx.out, name, state, line, Duration::ZERO);
     }
     Ok(Done::ok(View::Verbs(r)))
+}
+
+/// A stack looked at for a verb that starts its daemon when it is down (Go `startDaemon`): the names checked against
+/// the running stack, or with doze stopped against doze.hcl (exit 4, a broken config exit 5), and the snapshot, which
+/// with doze stopped is doze.hcl's instances, all asleep. Nothing is started until [`Looked::connect`], so a dry run
+/// and a declined question start nothing.
+pub(crate) struct Looked {
+    stack: Stack,
+    conn: Option<Connection>,
+    pub(crate) snap: Snapshot,
+}
+
+impl Looked {
+    pub(crate) fn new(ctx: &Ctx<'_>, mode: &Mode, names: &[String]) -> Result<Looked, Diagnostic> {
+        let stack = Stack::find(ctx, mode)?;
+        let conn = stack.open(mode.timeout)?;
+        let snap = match &conn {
+            Some(c) => {
+                let snap = stack::snapshot(c)?;
+                stack::check_names(&snap, names)?;
+                snap
+            }
+            None => {
+                stack::check_offline(&stack, names)?;
+                let cfg = stack.loader.shape(&stack.project)?;
+                Snapshot {
+                    instances: crate::cmd::declared::views(&cfg),
+                    ..Snapshot::default()
+                }
+            }
+        };
+        Ok(Looked { stack, conn, snap })
+    }
+
+    /// Whether running the verb would start the daemon first.
+    pub(crate) fn starts(&self) -> bool {
+        self.conn.is_none()
+    }
+
+    /// `plan`, with the daemon's start in front when the run would start it.
+    pub(crate) fn planned(&self, plan: crate::plan::Plan) -> crate::plan::Plan {
+        if self.starts() {
+            dry::after_start(plan)
+        } else {
+            plan
+        }
+    }
+
+    /// The stack and a connection to its daemon that watches for Ctrl-C, the daemon started when it is down.
+    pub(crate) fn connect(
+        self,
+        ctx: &mut Ctx<'_>,
+        mode: &Mode,
+        what: &str,
+    ) -> Result<(Stack, Asker), Diagnostic> {
+        let conn = match self.conn {
+            Some(c) => c,
+            None => crate::cmd::up::start_for(ctx, mode, &self.stack, what)?,
+        };
+        Ok((self.stack, Asker::new(conn, ctx, mode)))
+    }
 }
 
 /// The stack, a connection to its daemon that watches for Ctrl-C, and the snapshot, for a verb that needs it

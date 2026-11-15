@@ -132,18 +132,7 @@ pub(crate) fn opened(
     let stack = Stack::find(ctx, mode)?;
     stack::check_offline(&stack, names)?;
     let cfg = stack.loader.shape(&stack.project)?;
-    let conn = match stack.open(mode.timeout)? {
-        Some(c) => c,
-        None => {
-            let _lock = stack::lock(ctx, &stack)?;
-            let c = crate::cmd::up::start(ctx, mode, &stack)?;
-            let line = format!(
-                "started the doze daemon for {what}; services wake on their first connection"
-            );
-            let _ = writeln!(ctx.err, "{}", mode.err().dim(&line));
-            c
-        }
-    };
+    let conn = crate::cmd::up::start_for(ctx, mode, &stack, what)?;
     Ok((stack, cfg, conn))
 }
 

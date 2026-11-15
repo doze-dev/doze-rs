@@ -4,7 +4,7 @@
 //! values and errors.
 //!
 //! The layout is Go's, under a stack's run folder (`<home>/projects/<slug>/run`): `doze.admin.sock`, `doze.pid` (the
-//! pid on line one) and `doze.log`. The lock is the Rust doze's own (`doze.ctl.lock`, an advisory lock the OS drops
+//! pid on line one), `doze.log` and `blocks.json` (the blocks the daemon started with, for `doze sync`). The lock is the Rust doze's own (`doze.ctl.lock`, an advisory lock the OS drops
 //! when its holder dies); Go had none.
 
 use std::io::{self, Write as _};
@@ -52,6 +52,51 @@ impl RunDir {
     fn lock_file(&self) -> PathBuf {
         self.0.join("doze.ctl.lock")
     }
+
+    /// The blocks the daemon started with (Go's `daemon.BlocksFile`).
+    pub fn blocks_file(&self) -> PathBuf {
+        self.0.join("blocks.json")
+    }
+}
+
+/// Records the blocks `cfg` declares as the daemon starts with them (Go's `recordBlocks`): each block's kind, type and
+/// fingerprint, in Go's shape (`{"<name>": {"kind", "type", "fp"}}`). The daemon reads doze.hcl once, when it starts,
+/// so `doze sync` compares the file as it is now with this and says which blocks differ and what applying them
+/// restarts; `doze migrate` restarts the daemon first when its block differs. Written from doze.hcl's shape (read
+/// without modules), the way the CLI reads it, so the two prints are made the same way.
+pub fn write_blocks(run: &RunDir, cfg: &doze_config::Config) -> io::Result<()> {
+    let map: serde_json::Map<String, serde_json::Value> = cfg
+        .block_fingerprints()
+        .into_iter()
+        .map(|(name, p)| {
+            let entry =
+                serde_json::json!({ "kind": p.kind.as_str(), "type": p.ty, "fp": p.fingerprint });
+            (name, entry)
+        })
+        .collect();
+    let text =
+        serde_json::to_string_pretty(&serde_json::Value::Object(map)).map_err(io::Error::other)?;
+    std::fs::write(run.blocks_file(), text)
+}
+
+/// The blocks the running daemon started with, by name; `None` when there is no record, or it is not one (a Go
+/// daemon's prints are made another way, so a caller that knows the daemon is Go's does not compare them).
+pub fn blocks(run: &RunDir) -> Option<std::collections::BTreeMap<String, doze_config::BlockPrint>> {
+    let text = std::fs::read_to_string(run.blocks_file()).ok()?;
+    let serde_json::Value::Object(map) = serde_json::from_str(&text).ok()? else {
+        return None;
+    };
+    map.into_iter()
+        .map(|(name, v)| {
+            let field = |k: &str| v.get(k).and_then(serde_json::Value::as_str);
+            let print = doze_config::BlockPrint {
+                kind: doze_config::Kind::parse(field("kind")?)?,
+                ty: field("type").unwrap_or_default().to_owned(),
+                fingerprint: field("fp")?.to_owned(),
+            };
+            Some((name, print))
+        })
+        .collect()
 }
 
 /// Whether a daemon accepts control connections here (Go's `Running`).

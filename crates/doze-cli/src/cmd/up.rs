@@ -107,6 +107,27 @@ pub(crate) fn start(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<Connect
     stack.require(mode.timeout, "doze up")
 }
 
+/// The stack's daemon for a command that needs it running (`env`, `wake`, `reset`…): connected to, or started when
+/// it is down (under the stack lock, as `up` starts it), which is said on stderr. Nothing wakes.
+pub(crate) fn start_for(
+    ctx: &mut Ctx<'_>,
+    mode: &Mode,
+    stack: &Stack,
+    what: &str,
+) -> Result<Connection, Diagnostic> {
+    if let Some(c) = stack.open(mode.timeout)? {
+        return Ok(c);
+    }
+    let _lock = stack::lock(ctx, stack)?;
+    let c = start(ctx, mode, stack)?;
+    if !mode.quiet {
+        let line =
+            format!("started the doze daemon for {what}; services wake on their first connection");
+        let _ = writeln!(ctx.err, "{}", mode.err().dim(&line));
+    }
+    Ok(c)
+}
+
 /// Asks for each of `closure` in turn, a line for each, then the background line, or the logs with `-f`.
 fn boot(
     ctx: &mut Ctx<'_>,

@@ -92,7 +92,7 @@ pub(crate) fn dispatch(
         Cmd::Off(n) => verbs::on_off(ctx, mode, &n, true),
         Cmd::On(n) => verbs::on_off(ctx, mode, &n, false),
         Cmd::Pin(p) => pin::run(ctx, mode, &p),
-        Cmd::Task(t) => task::run(ctx, mode, &t, notices),
+        Cmd::Task(t) => task::run(ctx, mode, &t),
         Cmd::Logs(l) => logs::run(ctx, mode, &l),
         Cmd::Why(w) => why::run(ctx, mode, &w),
         Cmd::Lint(l) => lint::run(ctx, mode, &l),

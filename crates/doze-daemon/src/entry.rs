@@ -413,7 +413,13 @@ pub fn no_daemon_yet(config: &Path, version: &str) -> Result<(RunDir, std::fs::F
         .open(run.path().join("doze.daemon.lock"))
         .map_err(|e| e.to_string())?;
     match held.try_lock() {
-        Ok(()) => Ok((run, held)),
+        Ok(()) => {
+            // This daemon's alone now: what it starts with is recorded for `doze sync` (a failure only loses that).
+            if let Err(e) = ctl::write_blocks(&run, &shape) {
+                eprintln!("doze daemon: could not record the blocks it starts with: {e}");
+            }
+            Ok((run, held))
+        }
         Err(std::fs::TryLockError::WouldBlock) => Err(format!(
             "another doze daemon is starting for {}",
             run.path().display()

@@ -45,7 +45,14 @@ fn each_mistake_has_its_code() {
         ("no config anywhere", NOTHING, "status", 6),
         ("following a stack that isn't running", DOWN, "logs -f", 7),
         ("watching a stack that isn't running", DOWN, "status -w", 7),
-        ("waking a stack that isn't running", DOWN, "wake", 7),
+        // wake starts the daemon when doze is stopped (Go `startDaemon`); a plan starts nothing.
+        (
+            "planning a wake of a stopped stack",
+            DOWN,
+            "wake --dry-run",
+            0,
+        ),
+        ("a daemon that cannot be started", DOWN, "wake", 1),
         ("off on a stack that isn't running", DOWN, "off api", 7),
         ("reset with no terminal to ask", UP, "reset api", 9),
         ("status of a stopped stack", DOWN, "status", 0),
