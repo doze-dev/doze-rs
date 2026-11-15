@@ -143,6 +143,9 @@ The scenarios (plain mode):
 | `txn-commit-abort` | commit 10, abort 10, commit 5: `read_committed` sees 15, `read_uncommitted` 25 |
 | `txn-send-offsets` | consume-transform-produce with `sendOffsetsToTransaction` (group metadata; the group id alone where TxnOffsetCommit is below v3), one transaction aborted and redone: output once each, input committed to its end |
 | `txn-last-stable-offset` | an open transaction holds the `read_committed` end (listOffsets and `endOffsets`) at its first offset while the log goes on |
+| `txn-v2-epochs` | `transaction.version` finalized at 2 (`describeFeatures`); commit, abort, commit raise the producer epoch by one each (`describeTransactions`); the partition's producer at the last end's epoch (`describeProducers`); `read_committed` 12 of 18 |
+| `txn-v2-fence` | a second producer of the transactional id takes it over while the first has a transaction open: the first's commit is refused (InvalidProducerEpochException), the new owner's commits |
+| `txn-v2-timeout` | a transaction that outlives its 1 s timeout is aborted by the broker (epoch raised); the next write is refused, the producer's abort is accepted (a retry of the broker's own) and it commits again at the new epoch |
 | `group-classic`, `group-848` | two members split four partitions (a rebalance), read and commit; one leaves and the other takes over; a new member resumes with exactly the records after the commit |
 | `rebalance-commits-classic`, `-848` | four members join and two leave while records flow; each commits asynchronously after every poll and synchronously in `onPartitionsRevoked`; no commit may be refused and no record read twice. Under KIP-848 a commit in flight when the member's epoch moves arrives at an older epoch (KIP-1251, doze G848-10) |
 | `group-848-regex` | `subscribe(SubscriptionPattern)`: the broker resolves the expression; a matching topic made later is picked up, one that does not match is left out |
@@ -236,4 +239,11 @@ every input offset must be committed.
 
 kafka-go is left out of the readers: its `ReadCommitted` ignores the aborted list and hands the control batches
 (markers) up as messages, so it cannot tell a transaction from its markers. sarama has no new-protocol consumer, and
-its transactional producer is the classic protocol, which is all this broker serves.
+its transactional producer is the classic protocol.
+
+**Which transaction protocol each speaks (KIP-890).** At Kafka 4 the broker finalizes `transaction.version` 2 and offers Produce v12,
+EndTxn v5 and TxnOffsetCommit v5 (`docs/port/behaviours/transactions.md` TX-16). franz-go (1.22) and the Java client (4.4) then
+speak the second version: no AddPartitionsToTxn or AddOffsetsToTxn, the writes add their partitions, every end raises the
+epoch. sarama and librdkafka stay on the classic protocol, so `txn-*`, `eos-franz-go` and `fence-franz-go` run both at once
+at Kafka 4 and the classic one alone at Kafka 1 to 3. The Java client's `txn-v2-*` (in its table above) check that the second version is the one in use; all three passed against a real Apache
+Kafka 4.4.0 as well (2026-11-15), and skip below Kafka 4 (no EndTxn v5) and with the 2.8 client.

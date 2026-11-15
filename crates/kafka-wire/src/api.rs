@@ -135,7 +135,7 @@ macro_rules! served_apis {
 }
 
 served_apis! {
-    Produce(ProduceRequest, ProduceResponse) [v(3, 5), v(3, 7), v(3, 9), v(3, 9)];
+    Produce(ProduceRequest, ProduceResponse) [v(3, 5), v(3, 7), v(3, 11), v(3, 12)];
     Fetch(FetchRequest, FetchResponse) [v(4, 6), v(4, 10), v(4, 13), v(4, 13)];
     ListOffsets(ListOffsetsRequest, ListOffsetsResponse) [v(0, 2), v(0, 5), v(0, 7), v(1, 7)];
     Metadata(MetadataRequest, MetadataResponse) [v(0, 5), v(0, 8), v(0, 12), v(0, 12)];
@@ -153,11 +153,11 @@ served_apis! {
     CreateTopics(CreateTopicsRequest, CreateTopicsResponse) [v(0, 2), v(0, 3), v(0, 7), v(2, 7)];
     DeleteTopics(DeleteTopicsRequest, DeleteTopicsResponse) [v(0, 1), v(0, 3), v(0, 5), v(1, 6)];
     DeleteRecords(DeleteRecordsRequest, DeleteRecordsResponse) [v(0, 0), v(0, 1), v(0, 2), v(0, 2)];
-    InitProducerId(InitProducerIdRequest, InitProducerIdResponse) [v(0, 0), v(0, 1), v(0, 4), v(0, 4)];
-    AddPartitionsToTxn(AddPartitionsToTxnRequest, AddPartitionsToTxnResponse) [v(0, 0), v(0, 1), v(0, 3), v(0, 3)];
-    AddOffsetsToTxn(AddOffsetsToTxnRequest, AddOffsetsToTxnResponse) [v(0, 0), v(0, 1), v(0, 3), v(0, 3)];
-    EndTxn(EndTxnRequest, EndTxnResponse) [v(0, 0), v(0, 1), v(0, 3), v(0, 3)];
-    TxnOffsetCommit(TxnOffsetCommitRequest, TxnOffsetCommitResponse) [v(0, 0), v(0, 2), v(0, 3), v(0, 3)];
+    InitProducerId(InitProducerIdRequest, InitProducerIdResponse) [v(0, 0), v(0, 1), v(0, 5), v(0, 5)];
+    AddPartitionsToTxn(AddPartitionsToTxnRequest, AddPartitionsToTxnResponse) [v(0, 0), v(0, 1), v(0, 5), v(0, 5)];
+    AddOffsetsToTxn(AddOffsetsToTxnRequest, AddOffsetsToTxnResponse) [v(0, 0), v(0, 1), v(0, 4), v(0, 4)];
+    EndTxn(EndTxnRequest, EndTxnResponse) [v(0, 0), v(0, 1), v(0, 4), v(0, 5)];
+    TxnOffsetCommit(TxnOffsetCommitRequest, TxnOffsetCommitResponse) [v(0, 0), v(0, 2), v(0, 4), v(0, 5)];
     DescribeAcls(DescribeAclsRequest, DescribeAclsResponse) [v(0, 0), v(0, 1), v(0, 3), v(1, 3)];
     CreateAcls(CreateAclsRequest, CreateAclsResponse) [v(0, 0), v(0, 1), v(0, 3), v(1, 3)];
     DeleteAcls(DeleteAclsRequest, DeleteAclsResponse) [v(0, 0), v(0, 1), v(0, 3), v(1, 3)];
