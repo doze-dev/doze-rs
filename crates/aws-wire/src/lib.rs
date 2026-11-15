@@ -13,6 +13,7 @@ pub mod cbor;
 mod error;
 pub mod handler;
 pub mod json;
+pub mod local;
 pub mod located;
 pub mod query;
 mod request_id;

@@ -1,5 +1,5 @@
 //! Retention without a receive: an expired message is counted out at once, removed by the next call to the service, and removed with
-//! no call at all by a timer that runs only while some queue holds a message. And `DozePeek`, which reads without receiving.
+//! no call at all by a timer that runs only while some queue holds a message.
 
 use std::time::Duration;
 
@@ -8,7 +8,7 @@ use doze_runtime::{Ctx, Service as _, Tasks};
 
 use super::*;
 use crate::Sqs;
-use crate::core::{Ask, PEEK_OP};
+use crate::core::Ask;
 
 fn depth(w: &mut World, url: &str) -> (String, String) {
     let a = w.ok(
@@ -110,100 +110,6 @@ async fn a_tick_removes_every_expired_message_and_says_nothing_is_due() {
     assert!(answer.reply.is_ok());
     assert_eq!(answer.next_due, None);
     assert!(w.core.queues["brief"].messages.is_empty());
-}
-
-fn peek(w: &mut World, request: &Value) -> Result<Value, ApiError> {
-    let mut call = call_of(&w.patterns, Operation::ReceiveMessage, request)?;
-    call.op = PEEK_OP;
-    let out = w.core.dispatch(&call)?;
-    Ok(output_json(Operation::ReceiveMessage, &out))
-}
-
-#[test]
-fn a_peek_reads_every_visible_message_and_changes_nothing() {
-    let mut w = World::new();
-    let url = w.queue("jobs");
-    for body in ["a", "b", "c"] {
-        w.ok(
-            Operation::SendMessage,
-            &json!({"QueueUrl": url, "MessageBody": body, "MessageAttributes": {"k": {"DataType": "String", "StringValue": body}}}),
-        );
-    }
-    w.ok(
-        Operation::SendMessage,
-        &json!({"QueueUrl": url, "MessageBody": "later", "DelaySeconds": 60}),
-    );
-    let got = w.ok(Operation::ReceiveMessage, &json!({"QueueUrl": url}));
-    assert_eq!(got["Messages"][0]["Body"], "a");
-
-    let ask = json!({"QueueUrl": url, "MaxNumberOfMessages": 50, "AttributeNames": ["All"], "MessageAttributeNames": ["All"]});
-    let first = peek(&mut w, &ask).unwrap();
-    let bodies: Vec<&str> = first["Messages"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|m| m["Body"].as_str().unwrap())
-        .collect();
-    assert_eq!(
-        bodies,
-        ["b", "c"],
-        "not the one in flight, not the delayed one"
-    );
-    let m = &first["Messages"][0];
-    assert_eq!(m["Attributes"]["ApproximateReceiveCount"], "0");
-    assert_eq!(m["MessageAttributes"]["k"]["StringValue"], "b");
-    assert!(
-        m.get("ReceiptHandle").is_none(),
-        "never received: no handle"
-    );
-    assert_eq!(
-        peek(&mut w, &ask).unwrap(),
-        first,
-        "a second look sees the same"
-    );
-    assert_eq!(depth(&mut w, &url), ("2".into(), "1".into()));
-    assert_eq!(
-        w.ok(
-            Operation::ReceiveMessage,
-            &json!({"QueueUrl": url, "AttributeNames": ["ApproximateReceiveCount"]})
-        )["Messages"][0]["Attributes"]["ApproximateReceiveCount"],
-        "1",
-        "the peeks were not receives"
-    );
-}
-
-#[test]
-fn a_peek_shows_every_group_of_a_fifo_queue_and_is_bounded() {
-    let mut w = World::new();
-    let url = w.ok(
-        Operation::CreateQueue,
-        &json!({"QueueName": "jobs.fifo", "Attributes": {"FifoQueue": "true", "ContentBasedDeduplication": "true"}}),
-    )["QueueUrl"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    for (i, body) in ["a", "b", "c"].iter().enumerate() {
-        w.ok(
-            Operation::SendMessage,
-            &json!({"QueueUrl": url, "MessageBody": body, "MessageGroupId": format!("g{}", i % 2)}),
-        );
-    }
-    let got = peek(&mut w, &json!({"QueueUrl": url})).unwrap();
-    assert_eq!(got["Messages"].as_array().unwrap().len(), 3);
-    let one = peek(&mut w, &json!({"QueueUrl": url, "MaxNumberOfMessages": 1})).unwrap();
-    assert_eq!(one["Messages"].as_array().unwrap().len(), 1);
-    let e = peek(
-        &mut w,
-        &json!({"QueueUrl": url, "MaxNumberOfMessages": 101}),
-    )
-    .unwrap_err();
-    assert_eq!(e.code, "InvalidParameterValue");
-    let e = peek(
-        &mut w,
-        &json!({"QueueUrl": "http://localhost:4566/000000000000/none"}),
-    )
-    .unwrap_err();
-    assert_eq!(e.shape.as_deref(), Some("QueueDoesNotExist"));
 }
 
 /// The timer runs while a queue holds a message, removes it when its retention passes with no call at all, and then stops.

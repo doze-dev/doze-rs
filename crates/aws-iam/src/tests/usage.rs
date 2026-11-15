@@ -372,7 +372,7 @@ async fn the_root_is_answered_without_waking_iam_and_the_log_and_generator_are_s
 }
 
 #[tokio::test]
-async fn the_doze_actions_are_also_query_actions_as_in_the_go_edition() {
+async fn a_post_carries_its_parameters_as_json() {
     use aws_peers::Authorizer;
     use aws_wire::service::Service;
     let dir = temp();
@@ -390,16 +390,11 @@ async fn the_doze_actions_are_also_query_actions_as_in_the_go_edition() {
     )
     .await
     .unwrap();
-    let form: std::collections::BTreeMap<String, String> =
-        [("Action".to_owned(), "DozeAccessLog".to_owned())].into();
-    let by_action = iam.query_extension("DozeAccessLog", &form).unwrap().await;
-    assert_eq!(by_action.status, 200);
-    assert_eq!(
-        body(&by_action)["Entries"].as_array().map(Vec::len),
-        Some(1)
-    );
-    assert!(
-        iam.query_extension("ListUsers", &form).is_none(),
-        "only doze's own actions are taken"
-    );
+    let web_side = iam.web().unwrap();
+    assert!(web_side.local(), "the gateway guards IAM's local addresses");
+    let mut post = web("/_doze/iam/DozeAccessLog", "");
+    post.method = "POST".into();
+    post.body = br#"{"Reset": true}"#.to_vec().into();
+    let reset = body(&web_side.serve(post).await);
+    assert_eq!(reset["Entries"], json!([]));
 }

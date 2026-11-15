@@ -151,17 +151,21 @@ impl Shared {
         self.peers.as_ref().map_or(Mode::default(), |p| p.mode())
     }
 
-    /// `/_doze/iam/DozeAccessLog` and `/_doze/iam/DozeGeneratePolicy`, with their parameters in the query string or a form body.
+    /// `/_doze/iam/DozeAccessLog` and `/_doze/iam/DozeGeneratePolicy`, with their parameters in the query string or, for a `POST`,
+    /// a JSON object (`{"Principal": "...", "ScopeToResources": true}`). The gateway has already applied the local guard.
     fn doze(&self, request: &WebRequest) -> WebReply {
         let mut form = aws_wire::query::parse_form(&request.query);
-        if let Ok(body) = std::str::from_utf8(&request.body) {
-            form.extend(aws_wire::query::parse_form(body));
+        if let Ok(Value::Object(body)) = serde_json::from_slice::<Value>(&request.body) {
+            form.extend(body.into_iter().map(|(k, v)| {
+                let text = v.as_str().map_or_else(|| v.to_string(), str::to_owned);
+                (k, text)
+            }));
         }
         self.doze_action(request.path.trim_start_matches(DOZE_PATH), &form)
     }
 
-    /// A doze-only action (`DozeAccessLog`, `DozeGeneratePolicy`), by its name and parameters: from its own address, or as a Query
-    /// `Action` on the IAM endpoint (as the Go edition served them).
+    /// A doze-only action (`DozeAccessLog`, `DozeGeneratePolicy`), by its name and parameters. Served only at `/_doze/iam/<name>`:
+    /// IAM's own endpoint answers AWS's actions alone.
     fn doze_action(
         &self,
         action: &str,
@@ -229,6 +233,11 @@ fn web_reply(status: u16, body: &Value) -> WebReply {
 impl Web for Iam {
     fn owns(&self, _host: &str, path: &str) -> bool {
         path.starts_with(DOZE_PATH)
+    }
+
+    /// The access log names every principal and action seen: guarded as `/_doze/data` is.
+    fn local(&self) -> bool {
+        true
     }
 
     fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply> {
@@ -353,20 +362,6 @@ impl Service for Iam {
 
     fn serves(&self, op: u32) -> bool {
         aws_model_iam::Operation::from_index(op).is_some_and(|o| ops::BUILT.contains(&o))
-    }
-
-    /// `Action=DozeAccessLog` and `Action=DozeGeneratePolicy` on the Query endpoint, as the Go edition served them (also at
-    /// `/_doze/iam/<name>`). Signed like any IAM call.
-    fn query_extension<'a>(
-        &'a self,
-        action: &'a str,
-        form: &'a std::collections::BTreeMap<String, String>,
-    ) -> Option<BoxFuture<'a, WebReply>> {
-        action
-            .starts_with("Doze")
-            .then(|| -> BoxFuture<'a, WebReply> {
-                Box::pin(async move { self.0.doze_action(action, form) })
-            })
     }
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
