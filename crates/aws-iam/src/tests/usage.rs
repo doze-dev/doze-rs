@@ -285,6 +285,7 @@ fn web(path: &str, query: &str) -> WebRequest {
         headers: Vec::new(),
         body: Default::default(),
         endpoint: "http://localhost:4566".into(),
+        signature: aws_wire::service::WebSignature::Unsigned,
     }
 }
 

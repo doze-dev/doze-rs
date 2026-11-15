@@ -24,6 +24,10 @@ pub struct Config {
     pub auth: Auth,
     /// Where to look for a key the fixed credentials of [`Auth::Verify`] do not hold (IAM's access keys and role sessions).
     pub credential_source: Option<Arc<dyn CredentialSource>>,
+    /// Under [`Auth::Trust`], the keys whose secret is known anyway (the configured key). A signature on an address a service owns
+    /// (a function URL with `AWS_IAM`) made with one of them, or with a key the credential source issued, is checked; one made with
+    /// any other key is taken on trust once its scope and time are checked.
+    pub known_keys: Arc<StaticCredentials>,
     /// The account every request is for until IAM says otherwise.
     pub account_id: String,
     /// The region a request that names none is for: an unsigned S3 request (`curl`, a browser) and a SigV2 presigned URL. AWS
@@ -51,6 +55,7 @@ impl Config {
             listen,
             auth: Auth::Trust,
             credential_source: None,
+            known_keys: Arc::default(),
             account_id: "000000000000".to_owned(),
             default_region: "us-east-1".to_owned(),
             health: None,

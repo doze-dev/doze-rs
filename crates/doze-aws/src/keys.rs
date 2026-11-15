@@ -126,7 +126,7 @@ pub(crate) const KEYS: &[Key] = &[
         Kind::Text,
         "test",
         "KEY",
-        "The access key `--auth verify` accepts",
+        "The access key `--auth verify` accepts (and function URLs with AWS_IAM check under trust)",
         ACCESS,
     ),
     key(
