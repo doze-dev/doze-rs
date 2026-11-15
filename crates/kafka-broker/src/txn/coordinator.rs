@@ -1,7 +1,7 @@
 //! What the coordinator does with a transactional id, under its lock: take it over, end its transaction (markers on
 //! disk, then the offsets), finish what a stop left half done, and abort what outlives its timeout.
 
-use kafka_meta::{TxnRecord, TxnState};
+use kafka_meta::{TxnRecord, TxnState, TxnVersion};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 
@@ -59,6 +59,11 @@ impl<F: Fs> Broker<F> {
                 self.update_txn(&mut e, |rec| rec.producer_id = producer)
                     .await?;
             }
+            // An abort that raised the epoch already fences whoever had it: carried out as it was decided (Kafka answers
+            // CONCURRENT_TRANSACTIONS until its markers are written, and then bumps).
+            TxnState::PrepareAbort if e.rec.client_version == TxnVersion::EpochBump => {
+                self.finish_txn(&mut e, false).await?;
+            }
             TxnState::Ongoing | TxnState::PrepareAbort => {
                 // The previous owner's transaction is aborted; its markers carry the new epoch.
                 self.abort_fencing(&mut e).await?;
@@ -88,6 +93,7 @@ impl<F: Fs> Broker<F> {
             }
             rec.state = TxnState::Empty;
             rec.timeout_ms = timeout_ms;
+            rec.next_producer_id = -1;
             rec.partitions.clear();
             rec.groups.clear();
             rec.offsets.clear();
@@ -104,52 +110,68 @@ impl<F: Fs> Broker<F> {
     }
 
     /// Aborts an open transaction and fences its producer by raising the epoch first, so the markers (and whatever the
-    /// old producer tries next) carry the new one.
+    /// old producer tries next) carry the new one: at the `transaction.version` the broker finalizes ([`rules::fence`]).
     pub(crate) async fn abort_fencing(&self, e: &mut Entry) -> Result<(), E> {
-        self.update_txn(e, |rec| {
-            rec.epoch = rec.epoch.saturating_add(1);
-            rec.state = TxnState::PrepareAbort;
-        })
-        .await?;
+        let level = self.config.transaction_version;
+        let next = self.next_if_exhausted(&e.rec, level)?;
+        let now = clock::now().get();
+        self.update_txn(e, |rec| rules::fence(rec, level, next, now))
+            .await?;
         self.finish_txn(e, false).await
     }
 
-    /// EndTxn: the producer's decision to commit or abort. A decision, once stored, is never changed and never answered
-    /// as its opposite.
+    /// The producer id a decision that raises the epoch hands over to, if the epoch it raises is the last of its producer
+    /// id. Chosen before the decision is stored, and stored with it.
+    fn next_if_exhausted(&self, rec: &TxnRecord, level: TxnVersion) -> Result<Option<i64>, E> {
+        if level == TxnVersion::EpochBump && rules::exhausted(rec.epoch) {
+            self.next_txn_producer_id().map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// EndTxn: the producer's decision to commit or abort, at the transaction version of the request (EndTxn v5 raises the
+    /// epoch, [`rules::end_bumping`]; v0 to v4 keep it, [`rules::end`]). A decision, once stored, is never changed and never
+    /// answered as its opposite. On success, the producer id and epoch the producer is to go on with.
     pub(crate) async fn end_txn(
         &self,
         id: &str,
-        producer: i64,
-        epoch: i16,
+        (producer, epoch): (i64, i16),
         commit: bool,
-    ) -> Option<E> {
+        version: TxnVersion,
+    ) -> Result<(i64, i16), E> {
         let Some(mut e) = self.txns.lock(id).await else {
-            return Some(E::InvalidProducerIdMapping);
+            return Err(E::InvalidProducerIdMapping);
         };
-        if let Some(refused) = rules::owns(&e.rec, producer, epoch) {
-            return Some(refused);
-        }
-        match rules::end(&e.rec, commit) {
-            End::Answer(answer) => answer,
+        let step = match version {
+            TxnVersion::EpochBump => rules::end_bumping(&e.rec, producer, epoch, commit),
+            TxnVersion::Classic => match rules::owns(&e.rec, producer, epoch) {
+                Some(refused) => End::Answer(Some(refused)),
+                None => rules::end(&e.rec, commit),
+            },
+        };
+        match step {
+            End::Answer(Some(refused)) => return Err(refused),
+            End::Answer(None) => {}
             End::Decide { commit } => {
-                let state = if commit {
-                    TxnState::PrepareCommit
-                } else {
-                    TxnState::PrepareAbort
-                };
-                if let Err(refused) = self.update_txn(&mut e, |rec| rec.state = state).await {
-                    return Some(refused);
-                }
-                self.finish_txn(&mut e, commit).await.err()
+                let next = self.next_if_exhausted(&e.rec, version)?;
+                let now = clock::now().get();
+                self.update_txn(&mut e, |rec| match version {
+                    TxnVersion::EpochBump => rules::decide_bumping(rec, commit, next, now),
+                    TxnVersion::Classic => rules::decide_classic(rec, commit),
+                })
+                .await?;
+                self.finish_txn(&mut e, commit).await?;
             }
             End::Finish { decided, asked } => {
-                if let Err(refused) = self.finish_txn(&mut e, decided).await {
-                    return Some(refused);
-                }
+                self.finish_txn(&mut e, decided).await?;
                 // The other decision was made, and has been carried out.
-                (asked != decided).then_some(E::InvalidTxnState)
+                if asked != decided {
+                    return Err(E::InvalidTxnState);
+                }
             }
         }
+        Ok((e.rec.producer_id, e.rec.epoch))
     }
 
     /// Finishes what a stop left half done: a transaction whose decision was stored is carried out. One still open is
@@ -219,13 +241,49 @@ impl<F: Fs> Broker<F> {
         Some(std::sync::Arc::new(entry.read_owned().await))
     }
 
+    /// [`Self::hold_txn`] for a Produce of KIP-890's second part (v12 on), which adds its partitions to the transaction by
+    /// writing to them: the partitions of `adding` (each with a transactional batch from `who`) that the open transaction
+    /// does not have are added and stored first, as Kafka's broker asks its coordinator to (`AddPartitionsToTxnManager`,
+    /// `ADD_PARTITION`; a transaction that is not open is begun), and the transaction is then held for reading as for any
+    /// Produce, in the same hold. The second value is the coordinator's refusal, which each of those partitions is to be
+    /// answered with. An id nobody owns is left to [`Self::check_txn_batch`].
+    pub(crate) async fn hold_txn_adding(
+        &self,
+        id: Option<&str>,
+        who: (i64, i16),
+        adding: Vec<(String, i32)>,
+    ) -> (Option<Held>, Option<E>) {
+        let Some(id) = id.filter(|id| !id.is_empty()) else {
+            return (None, None);
+        };
+        let Some(mut e) = self.txns.lock(id).await else {
+            return (None, None);
+        };
+        let there = adding.iter().all(|(t, p)| rules::holds(&e.rec, (t, *p)));
+        let refused = match rules::may_add(&e.rec, who.0, who.1, there) {
+            rules::Adding::Refused(code) => Some(code),
+            rules::Adding::There => None,
+            rules::Adding::Store => {
+                let now = clock::now().get();
+                self.update_txn(&mut e, |rec| {
+                    rules::add(rec, adding, TxnVersion::EpochBump, now);
+                })
+                .await
+                .err()
+            }
+        };
+        (Some(std::sync::Arc::new(e.downgrade())), refused)
+    }
+
     /// The check a transactional batch has to pass: the request must name the transactional id, the producer must own it,
-    /// a transaction must be open, and the partition must have been added to it. `held` is [`Self::hold_txn`] of the id.
+    /// a transaction must be open, and the partition must have been added to it. `held` is [`Self::hold_txn`] of the id;
+    /// `version` the Produce's, which decides the codes ([`rules::may_write`]).
     pub(crate) fn check_txn_batch(
         id: Option<&str>,
         held: Option<&Held>,
         who: (i64, i16),
         at: (&str, i32),
+        version: i16,
     ) -> Result<(), (E, &'static str)> {
         if id.is_none_or(str::is_empty) {
             return Err((
@@ -239,13 +297,20 @@ impl<F: Fs> Broker<F> {
                 "no producer owns that transactional id",
             ));
         };
-        rules::may_write(&held.rec, who.0, who.1, at.0, at.1).map_err(|code| {
-            let why = match code {
-                E::InvalidTxnState => "the partition was not added to an open transaction",
-                _ => "the producer id and epoch are not the ones that own the transactional id",
-            };
-            (code, why)
-        })
+        rules::may_write(&held.rec, who.0, who.1, at, version).map_err(|code| (code, why(code)))
+    }
+}
+
+/// The message a refused transactional batch is answered with.
+pub(crate) fn why(code: E) -> &'static str {
+    match code {
+        E::InvalidTxnState | E::TransactionAbortable => {
+            "the partition was not added to an open transaction"
+        }
+        E::ConcurrentTransactions | E::NotEnoughReplicas => {
+            "the transaction is being ended; try again"
+        }
+        _ => "the producer id and epoch are not the ones that own the transactional id",
     }
 }
 

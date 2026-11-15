@@ -39,7 +39,9 @@
 # 10,564 to 11,048 KB on its last four runs, so main sat on the line. On Linux idle is mostly the binary's own pages: in the doze-ubuntu VM
 # (arm64, glibc) main idles at 8,360 to 8,440 KB with 780 KB anonymous, this tree at 8,492 to 8,508 KB with 776 to 792 KB anonymous, so
 # the tree costs about +80 KB, all file-backed. The line is this tree's second CI median, 11,132 KB, plus 5%.
-doze-kafka 11476913 182 11689 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-15, KIP-890 (transaction protocol v2, docs/port/behaviours/transactions.md TX-16 to TX-25): darwin arm64 7,967,600 B (+16,560 B),
+# 182 packages (none added), idle 7,584 KB; times 1.3747 = 10,953,060 B, plus 5% = 11,500,713 B until CI measures it.
+doze-kafka 11500713 182 11689 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.

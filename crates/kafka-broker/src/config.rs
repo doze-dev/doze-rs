@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kafka_auth::Users;
+pub use kafka_meta::TxnVersion;
 
 /// The broker-wide values that a topic's own config overrides. Retention uses Kafka's way of saying "no limit":
 /// -1.
@@ -100,6 +101,11 @@ pub struct Config {
     /// ApiVersions. On by default, as the recordings have it; off, a client that sends either is disconnected as for any
     /// API the broker does not serve.
     pub client_telemetry: bool,
+    /// The `transaction.version` the broker finalizes (`Profile::transaction_version`): how it ends a transaction on its
+    /// own, when the transaction outlives its timeout or a new owner takes its id. At KIP-890's second part (Kafka 4) the
+    /// epoch is raised as EndTxn v5 raises it, and the epoch before is kept, so the producer that timed out may take the
+    /// id back by saying it (KIP-360); at the classic protocol (Kafka 1 to 3) it is not.
+    pub transaction_version: TxnVersion,
 }
 
 impl Config {
@@ -132,6 +138,7 @@ impl Config {
             super_users: BTreeSet::new(),
             users: Arc::new(Users::none()),
             client_telemetry: true,
+            transaction_version: TxnVersion::EpochBump,
         }
     }
 }

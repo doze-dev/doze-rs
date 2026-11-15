@@ -54,6 +54,7 @@ async fn a_produce_that_looked_its_topic_up_before_a_delete_is_told_the_topic_is
         let txn = Txn {
             id: None,
             held: None,
+            refused: None,
         };
         if opened_first {
             // The partition open and written to, so that the delete has a writer to close.
