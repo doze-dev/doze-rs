@@ -188,8 +188,12 @@ impl Disk {
         self.writer.paused(&mut self.store, Store::compact)?
     }
 
-    pub(crate) fn close(self) {
+    /// Stops the writer after it has finished what it was given, gives back the space deletes left when that is worth it, and
+    /// closes the database.
+    pub(crate) fn close(mut self) {
         self.writer.shutdown();
+        // WHY: one that cannot run now runs at a later close; the data is whole either way.
+        drop(self.store.compact_if_worth());
         // WHY: every commit was flushed when it was made, so a failure to close costs only a longer start next time.
         drop(self.store.close());
     }

@@ -221,3 +221,32 @@ fn a_stream_switched_off_takes_its_records_with_it() {
     );
     assert_eq!(count(&mut w), 5);
 }
+
+#[test]
+fn a_close_after_deleting_most_items_shrinks_the_file() {
+    let mut w = World::new();
+    w.table("big", false);
+    let body = "x".repeat(8 << 10);
+    for n in 0..1100 {
+        w.put(
+            "big",
+            json!({"pk": {"S": format!("k{n}")}, "body": {"S": body}}),
+        );
+    }
+    for n in 0..1000 {
+        w.ok(
+            "DeleteItem",
+            json!({"TableName": "big", "Key": {"pk": {"S": format!("k{n}")}}}),
+        );
+    }
+    let file = w.dir.path().join(crate::disk::FILE);
+    let before = std::fs::metadata(&file).unwrap().len();
+    w.restart();
+    let after = std::fs::metadata(&file).unwrap().len();
+    assert!(
+        after < before / 2,
+        "the close gave the space back: {before} -> {after}"
+    );
+    let left = w.ok("Scan", json!({"TableName": "big", "Select": "COUNT"}));
+    assert_eq!(left["Count"], 100);
+}
