@@ -39,6 +39,16 @@ pub(crate) fn count(n: u64) -> String {
     out
 }
 
+/// A count and its unit, singular for one: `1 message`, `212,418 messages`.
+pub(crate) fn count_of(n: u64, units: &str) -> String {
+    let unit = if n == 1 {
+        units.strip_suffix('s').unwrap_or(units)
+    } else {
+        units
+    };
+    format!("{} {unit}", count(n))
+}
+
 fn u(v: &Value, k: &str) -> u64 {
     v.get(k).and_then(Value::as_u64).unwrap_or(0)
 }
@@ -174,8 +184,13 @@ fn worth_a_look(services: &[&Value], st: Style) -> String {
 pub(crate) fn suggestion(service: &str, resource: &Value, prune: Option<&Value>) -> Option<String> {
     let p = prune.filter(|p| !p.is_null())?;
     let mut cmd = format!("doze-aws data empty {service}");
-    if p.get("unused").and_then(Value::as_bool) == Some(true) {
+    let name = s(resource, "name");
+    // A name in parentheses is a service-wide group (Lambda's unused code), not a resource to name.
+    if p.get("unused").and_then(Value::as_bool) == Some(true) && name.starts_with('(') {
         return Some(format!("{cmd} --unused"));
+    }
+    if p.get("unused").and_then(Value::as_bool) == Some(true) {
+        return Some(format!("{cmd} {} --unused", quoted(name)));
     }
     cmd.push(' ');
     cmd.push_str(&quoted(s(resource, "name")));
@@ -268,11 +283,10 @@ pub(crate) fn service(svc: &Value, st: Style) -> String {
             format!("  {}", st.yellow("!"))
         };
         out.push_str(&format!(
-            "  {}  {:>7}  {} {}{region}{marks}\n",
+            "  {}  {:>7}  {}{region}{marks}\n",
             crate::style::pad(s(r, "name"), width),
             size(u(r, "bytes")),
-            count(u(r, "items")),
-            s(svc, "units"),
+            count_of(u(r, "items"), s(svc, "units")),
         ));
     }
     out.push_str(&st.dim(&format!(
@@ -288,14 +302,13 @@ pub(crate) fn service(svc: &Value, st: Style) -> String {
 pub(crate) fn resource(svc: &Value, r: &Value, st: Style) -> String {
     let service = s(svc, "name");
     let mut out = format!(
-        "{} {} {}  ({})\n  {} in {} {}\n",
+        "{} {} {}  ({})\n  {} in {}\n",
         s(svc, "title"),
         s(svc, "one"),
         st.bold(s(r, "name")),
         s(r, "region"),
         size(u(r, "bytes")),
-        count(u(r, "items")),
-        s(svc, "units"),
+        count_of(u(r, "items"), s(svc, "units")),
     );
     for n in list(r, "notes") {
         out.push_str(&format!("  {} {}", st.yellow("!"), s(n, "text")));

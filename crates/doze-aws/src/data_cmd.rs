@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use crate::cli::{DataAction, DataArgs, EmptyArgs, ResetArgs};
 use crate::config::{Config, Source, display_path};
 use crate::data;
-use crate::data_show::{count, size};
+use crate::data_show::{count, count_of, size};
 use crate::data_via::Via;
 use crate::style::{Stream, Style};
 
@@ -156,7 +156,7 @@ fn empty(via: &Via, e: &EmptyArgs, cfg: &Config, st: Style) -> Result<(), String
         println!("{what}: nothing to remove.");
         return Ok(());
     }
-    println!("{what}: {} {units}, {}.", count(items), size(bytes));
+    println!("{what}: {}, {}.", count_of(items, &units), size(bytes));
     if e.dry_run {
         println!("{}", st.dim("Dry run: nothing was removed."));
         return Ok(());
@@ -182,9 +182,9 @@ fn empty(via: &Via, e: &EmptyArgs, cfg: &Config, st: Style) -> Result<(), String
         ),
     )?;
     println!(
-        "{} Removed {} {units} ({}); the disk got back {}.",
+        "{} Removed {} ({}); the disk got back {}.",
         st.green("✓"),
-        count(data::num(&done, "items")),
+        count_of(data::num(&done, "items"), &units),
         size(data::num(&done, "bytes")),
         size(data::num(&done, "freed")),
     );

@@ -112,7 +112,7 @@ pub(crate) struct EmptyArgs {
     /// Only old object versions and delete markers; current objects stay (S3).
     #[arg(long)]
     pub(crate) old_versions: bool,
-    /// Only what nothing uses (Lambda code no function or version points at).
+    /// Only what nothing uses: Lambda code no function or version points at; an S3 bucket's unfinished multipart uploads.
     #[arg(long)]
     pub(crate) unused: bool,
     /// Say what would go, and remove nothing.

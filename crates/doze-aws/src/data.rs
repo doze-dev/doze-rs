@@ -118,11 +118,11 @@ impl Data {
         let names = storage.names();
         let regions = match (&target.region, target.prune.unused) {
             (Some(r), _) => vec![r.clone()],
-            (None, true) => {
+            (None, true) if target.name.is_empty() => {
                 let usage = storage.usage().await.map_err(|e| refuse(500, e))?;
                 usage.files.into_iter().map(|f| f.region).collect()
             }
-            (None, false) => vec![self.region_of(svc, &target.name, storage).await?],
+            (None, _) => vec![self.region_of(svc, &target.name, storage).await?],
         };
         let mut done = Emptied::default();
         for region in &regions {
