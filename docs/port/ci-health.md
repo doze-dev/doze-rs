@@ -38,6 +38,8 @@ hand: `gh workflow run ci --ref <branch>` (PR #62).
 Run 43703449990 on dae5512c failed `weight` (doze-aws idle 10,548 KB over 10,526) and `weight-lean` (5,450,504 B, +432 B). Both are measured and
 explained in weight.md ("Data control reaches main"); the lines moved to 11,075 KB and 5,450,504 B.
 
+`modules (x86_64)` once (run 43720667194, PR #65): temporal `a_restart_keeps_its_data_and_the_app_sees_the_namespaces` got a retryable "Namespace orders is not found" from `workflow count` just after the restart. Ready is honest (temporal writes declared namespaces to SQLite before it serves and its frontend loads them before SERVING; a probe found the namespace countable at the moment of ready in 30 of 30 restarts), and temporal's registry reports any persistence error on a lookup miss as "not found"; the test now asks again on a retryable error for up to 15 s (branch `temporal-restart-flake`). Not reproduced on arm64 Linux: 0 of 208 suite runs before the fix, 0 of 120 after.
+
 ## Open items
 
 | item | owner | evidence |
