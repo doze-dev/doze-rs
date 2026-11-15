@@ -186,7 +186,15 @@ fn fork_listen() -> std::io::Result<()> {
 }
 
 async fn grandchild(file: &str) -> std::io::Result<()> {
-    start_ignoring_child(file, false)?;
+    // The child (and its pid file, which tests wait for) comes once `listen` has set up its stop handler: a stop sent
+    // as soon as the file appears must be heard, not kill it by the signal's default (a flake on loaded runners).
+    let file = file.to_owned();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        if let Err(e) = start_ignoring_child(&file, false) {
+            fail(&e.to_string());
+        }
+    });
     listen(Duration::ZERO).await
 }
 
