@@ -25,6 +25,16 @@ fn fill(w: &mut World, url: &str, count: usize) {
     }
 }
 
+fn empty_q(w: &mut World, name: &str, prune: Prune) -> Result<Emptied, StorageError> {
+    emptied(w.core.data(
+        "us-east-1",
+        DataAsk::Empty {
+            name: name.into(),
+            prune,
+        },
+    ))
+}
+
 fn emptied(reply: DataReply) -> Result<Emptied, StorageError> {
     match reply {
         DataReply::Emptied(done) => done,
@@ -64,14 +74,7 @@ fn a_queue_is_measured_emptied_and_its_space_given_back() {
         dry_run: true,
         ..Prune::default()
     };
-    let would = emptied(w.core.data(
-        "us-east-1",
-        DataAsk::Empty {
-            name: "jobs".into(),
-            prune: dry,
-        },
-    ))
-    .unwrap();
+    let would = empty_q(&mut w, "jobs", dry).unwrap();
     assert_eq!((would.items, would.freed), (300, 0));
     assert_eq!(w.core.queues["jobs"].messages.len(), 300);
 
@@ -83,14 +86,7 @@ fn a_queue_is_measured_emptied_and_its_space_given_back() {
         before_ms: Some(cut),
         ..Prune::default()
     };
-    let done = emptied(w.core.data(
-        "us-east-1",
-        DataAsk::Empty {
-            name: "jobs".into(),
-            prune: older,
-        },
-    ))
-    .unwrap();
+    let done = empty_q(&mut w, "jobs", older).unwrap();
     assert_eq!(done.items, 300);
     assert!(done.freed > 1 << 20, "the file shrank: {done:?}");
     assert_eq!(w.core.queues["jobs"].messages.len(), 5);
@@ -108,23 +104,11 @@ fn a_queue_is_measured_emptied_and_its_space_given_back() {
         ..Prune::default()
     };
     assert!(matches!(
-        emptied(w.core.data(
-            "us-east-1",
-            DataAsk::Empty {
-                name: "jobs".into(),
-                prune: prefix
-            }
-        )),
+        empty_q(&mut w, "jobs", prefix),
         Err(StorageError::Unsupported(_))
     ));
     assert_eq!(
-        emptied(w.core.data(
-            "us-east-1",
-            DataAsk::Empty {
-                name: "nope".into(),
-                prune: Prune::default()
-            }
-        )),
+        empty_q(&mut w, "nope", Prune::default()),
         Err(StorageError::NotFound)
     );
 }
