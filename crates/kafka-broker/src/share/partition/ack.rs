@@ -73,6 +73,13 @@ pub(crate) struct Acked {
     pub(crate) released: bool,
 }
 
+/// Who acknowledges, and when, under which limits.
+struct Acking<'a> {
+    member: &'a str,
+    now: i64,
+    limits: &'a Limits,
+}
+
 impl SharePartition {
     /// Acknowledges `batches` for `member` at `now`. On an error the share-partition may be half changed: the caller puts
     /// back the one it had. The start does not move here: the caller writes the change first, then calls
@@ -87,6 +94,11 @@ impl SharePartition {
         now: i64,
         limits: &Limits,
     ) -> Result<Acked, AckError> {
+        let who = Acking {
+            member,
+            now,
+            limits,
+        };
         let mut acked = Acked::default();
         for batch in batches {
             check_types(batch)?;
@@ -95,7 +107,7 @@ impl SharePartition {
             }
             let keys = self.ack_keys(batch)?;
             for key in keys {
-                self.ack_in_batch(member, batch, key, now, limits, &mut acked)?;
+                self.ack_in_batch(&who, batch, key, &mut acked)?;
             }
         }
         if acked.released {
@@ -141,13 +153,12 @@ impl SharePartition {
     /// Kafka's `acknowledgeBatchRecords`, for one batch in flight.
     fn ack_in_batch(
         &mut self,
-        member: &str,
+        who: &Acking<'_>,
         batch: &AckBatch,
         key: i64,
-        now: i64,
-        limits: &Limits,
         acked: &mut Acked,
     ) -> Result<(), AckError> {
+        let (member, now, limits) = (who.member, who.now, who.limits);
         let start = self.start;
         let Some(b) = self.cached.get_mut(&key) else {
             return Ok(());

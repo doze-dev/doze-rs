@@ -233,34 +233,29 @@ impl ShareGroup {
         self.note(Why::new(cause, who, was), now, out);
     }
 
-    fn beat(
-        &mut self,
-        hb: &ShareHeartbeat,
-        topics: &Topics,
-        now: Millis,
-        out: &mut Vec<Effect>,
-    ) -> ShareAnswer {
+    /// Kafka's checks of a heartbeat before it changes anything: the group's size, and a known member's epoch.
+    fn refusal(&self, hb: &ShareHeartbeat) -> Option<ShareAnswer> {
         let id = &hb.member_id;
-        let known = self.members.contains_key(id);
-        if !known && self.members.len() >= hb.timing.max_size {
-            return ShareAnswer::refused(
-                E::GroupMaxSizeReached,
-                format!(
-                    "The share group has reached its maximum capacity of {} members.",
-                    hb.timing.max_size
-                ),
-            );
-        }
-        if !known && hb.epoch != 0 {
-            return ShareAnswer::refused(E::UnknownMemberId, not_a_member(id.as_str(), &hb.group));
-        }
-        if let Some(m) = self.members.get(id)
-            && let Some(refused) = epoch_refusal(hb.epoch, m)
-        {
-            return refused;
-        }
-        let was = self.members.len();
-        let joined = !known;
+        let Some(m) = self.members.get(id) else {
+            if self.members.len() >= hb.timing.max_size {
+                return Some(ShareAnswer::refused(
+                    E::GroupMaxSizeReached,
+                    format!(
+                        "The share group has reached its maximum capacity of {} members.",
+                        hb.timing.max_size
+                    ),
+                ));
+            }
+            return (hb.epoch != 0).then(|| {
+                ShareAnswer::refused(E::UnknownMemberId, not_a_member(id.as_str(), &hb.group))
+            });
+        };
+        epoch_refusal(hb.epoch, m)
+    }
+
+    /// The member as the heartbeat describes it, seated if it is new. `true`: its subscription changed.
+    fn seat(&mut self, hb: &ShareHeartbeat, now: Millis) -> bool {
+        let id = &hb.member_id;
         let m = self.members.entry(id.clone()).or_insert_with(|| Member {
             id: id.clone(),
             epoch: 0,
@@ -280,14 +275,31 @@ impl ShareGroup {
         m.client_id.clone_from(&hb.client_id);
         m.client_host.clone_from(&hb.client_host);
         m.session_ms = hb.timing.session_ms;
-        let mut subscription_changed = false;
-        if let Some(names) = &hb.subscribed {
-            let names: BTreeSet<String> = names.iter().cloned().collect();
-            if m.subscribed != names {
-                m.subscribed = names;
-                subscription_changed = true;
-            }
+        let Some(names) = &hb.subscribed else {
+            return false;
+        };
+        let names: BTreeSet<String> = names.iter().cloned().collect();
+        if m.subscribed == names {
+            return false;
         }
+        m.subscribed = names;
+        true
+    }
+
+    fn beat(
+        &mut self,
+        hb: &ShareHeartbeat,
+        topics: &Topics,
+        now: Millis,
+        out: &mut Vec<Effect>,
+    ) -> ShareAnswer {
+        if let Some(refused) = self.refusal(hb) {
+            return refused;
+        }
+        let id = &hb.member_id;
+        let was = self.members.len();
+        let joined = !self.members.contains_key(id);
+        let subscription_changed = self.seat(hb, now);
         let before = self.epoch;
         let cause = if joined {
             Some(Cause::MemberJoined)

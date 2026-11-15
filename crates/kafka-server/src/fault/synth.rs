@@ -54,27 +54,12 @@ pub fn fail_response(request: &Request, version: i16, code: i16) -> Option<Respo
         Request::Metadata(r) => Response::Metadata(metadata(r, version, code)),
         Request::ListOffsets(r) => Response::ListOffsets(list_offsets(r, code)),
         Request::FindCoordinator(r) => Response::FindCoordinator(coordinator(r, version, code)),
-        Request::JoinGroup(_) => Response::JoinGroup(only::<JoinGroupResponse>(code, |r, c| {
-            r.error_code = c;
-            r.generation_id = -1;
-        })),
-        Request::SyncGroup(_) => Response::SyncGroup(only::<SyncGroupResponse>(code, |r, c| {
-            r.error_code = c;
-        })),
-        Request::Heartbeat(_) => Response::Heartbeat(only::<HeartbeatResponse>(code, |r, c| {
-            r.error_code = c;
-        })),
+        Request::JoinGroup(_)
+        | Request::SyncGroup(_)
+        | Request::Heartbeat(_)
+        | Request::ConsumerGroupHeartbeat(_) => return group_member(request, code),
         Request::OffsetCommit(r) => Response::OffsetCommit(offset_commit(r, code)),
         Request::OffsetFetch(r) => Response::OffsetFetch(offset_fetch(r, version, code)),
-        Request::ConsumerGroupHeartbeat(_) => {
-            Response::ConsumerGroupHeartbeat(only::<ConsumerGroupHeartbeatResponse>(
-                code,
-                |r, c| {
-                    r.error_code = c;
-                    r.member_epoch = -1;
-                },
-            ))
-        }
         Request::InitProducerId(_) => {
             Response::InitProducerId(only::<InitProducerIdResponse>(code, |r, c| {
                 r.error_code = c;
@@ -120,6 +105,32 @@ pub fn fail_response(request: &Request, version: i16, code: i16) -> Option<Respo
         | Request::DescribeShareGroupOffsets(_)
         | Request::AlterShareGroupOffsets(_)
         | Request::DeleteShareGroupOffsets(_) => return None,
+    })
+}
+
+/// A group member's request (join, sync, heartbeat) refused with `code`.
+fn group_member(request: &Request, code: i16) -> Option<Response> {
+    Some(match request {
+        Request::JoinGroup(_) => Response::JoinGroup(only::<JoinGroupResponse>(code, |r, c| {
+            r.error_code = c;
+            r.generation_id = -1;
+        })),
+        Request::SyncGroup(_) => Response::SyncGroup(only::<SyncGroupResponse>(code, |r, c| {
+            r.error_code = c;
+        })),
+        Request::Heartbeat(_) => Response::Heartbeat(only::<HeartbeatResponse>(code, |r, c| {
+            r.error_code = c;
+        })),
+        Request::ConsumerGroupHeartbeat(_) => {
+            Response::ConsumerGroupHeartbeat(only::<ConsumerGroupHeartbeatResponse>(
+                code,
+                |r, c| {
+                    r.error_code = c;
+                    r.member_epoch = -1;
+                },
+            ))
+        }
+        _ => return None,
     })
 }
 

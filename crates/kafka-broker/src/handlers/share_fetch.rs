@@ -31,7 +31,7 @@ use tokio_stream::{StreamExt, StreamMap};
 use super::share_acks::{Acked, Asked};
 use super::share_group_heartbeat::member_id_valid;
 use crate::partitions::Partition;
-use crate::share::partition::{AckBatch, AcquireAsk};
+use crate::share::partition::{AckBatch, AcquireAsk, AcquiredRange, Fetched};
 use crate::share::sessions::{Context, Part};
 use crate::share::{Held, limits_of};
 use crate::{Broker, Caller, Listener, Outcome, clock};
@@ -55,6 +55,23 @@ impl Found {
             error: Some(e),
             records: Bytes::new(),
             acquired: Vec::new(),
+        }
+    }
+
+    fn acquired(records: Bytes, ranges: &[AcquiredRange]) -> Self {
+        Self {
+            error: None,
+            records,
+            acquired: ranges
+                .iter()
+                .map(|r| {
+                    let mut a = AcquiredRecords::default();
+                    a.first_offset = r.first;
+                    a.last_offset = r.last;
+                    a.delivery_count = r.delivery_count;
+                    a
+                })
+                .collect(),
         }
     }
 
@@ -128,30 +145,10 @@ impl<F: Fs> Broker<F> {
         caller: &Caller,
         req: ShareFetchRequest,
     ) -> Outcome {
-        let Some(group_name) = req.group_id.as_ref().map(|g| g.0.as_str().to_owned()) else {
-            return top_level(E::InvalidRequest);
-        };
-        if !self.guard(caller).group(Operation::Read, &group_name) {
-            return top_level(E::GroupAuthorizationFailed);
-        }
-        let member_text = req.member_id.as_ref().map(|m| m.as_str().to_owned());
-        if !member_id_valid(member_text.as_deref()) {
-            return top_level(E::InvalidRequest);
-        }
         let renew_only = version >= 2 && req.is_renew_ack;
-        if renew_only
-            && (req.max_bytes != 0
-                || req.min_bytes != 0
-                || req.max_records != 0
-                || req.max_wait_ms != 0)
-        {
-            return top_level(E::InvalidRequest);
-        }
-        let (Ok(group), Some(member)) = (
-            GroupId::parse(&group_name),
-            member_text.as_deref().and_then(MemberId::new),
-        ) else {
-            return top_level(E::InvalidRequest);
+        let (group, member) = match self.share_fetch_who(caller, &req, renew_only) {
+            Ok(who) => who,
+            Err(e) => return top_level(e),
         };
         let acks = acks_of(&req);
         let has_acks = acks.iter().any(|a| !a.batches.is_empty());
@@ -211,43 +208,94 @@ impl<F: Fs> Broker<F> {
         };
         let mut resp = ShareFetchResponse::default();
         resp.acquisition_lock_timeout_ms = i32::try_from(settings.lock_ms).unwrap_or(i32::MAX);
-        let reported: Vec<Part> = match &context {
+        (resp.responses, resp.error_code) =
+            self.share_fetch_report(&session, &req, &context, found, acked);
+        if matches!(context, Context::Final) {
+            self.close_share_session(&group, &member);
+        }
+        Outcome::Respond(kafka_wire::api::Response::ShareFetch(resp))
+    }
+
+    /// Who fetches, after Kafka's request-wide checks: the group named and readable, a valid member id, and a renewal
+    /// with nothing to fetch.
+    fn share_fetch_who(
+        &self,
+        caller: &Caller,
+        req: &ShareFetchRequest,
+        renew_only: bool,
+    ) -> Result<(GroupId, MemberId), E> {
+        let group_name = req
+            .group_id
+            .as_ref()
+            .map(|g| g.0.as_str())
+            .ok_or(E::InvalidRequest)?;
+        if !self.guard(caller).group(Operation::Read, group_name) {
+            return Err(E::GroupAuthorizationFailed);
+        }
+        let member_text = req.member_id.as_ref().map(StrBytes::as_str);
+        if !member_id_valid(member_text) {
+            return Err(E::InvalidRequest);
+        }
+        if renew_only
+            && (req.max_bytes != 0
+                || req.min_bytes != 0
+                || req.max_records != 0
+                || req.max_wait_ms != 0)
+        {
+            return Err(E::InvalidRequest);
+        }
+        match (
+            GroupId::parse(group_name),
+            member_text.and_then(MemberId::new),
+        ) {
+            (Ok(group), Some(member)) => Ok((group, member)),
+            _ => Err(E::InvalidRequest),
+        }
+    }
+
+    /// What the response tells of each partition: all that was looked at, or (an incremental fetch) what the session says
+    /// is worth telling; then each acknowledgement's result. With the top-level error: an incremental fetch whose session
+    /// another request moved meanwhile is not reported (Kafka's check).
+    fn share_fetch_report(
+        &self,
+        session: &(GroupId, MemberId),
+        req: &ShareFetchRequest,
+        context: &Context,
+        mut found: BTreeMap<Part, Found>,
+        acked: Vec<Acked>,
+    ) -> (Vec<ShareFetchableTopicResponse>, i16) {
+        let mut error_code = 0;
+        let reported: Vec<Part> = match context {
             Context::Incremental(_) => {
                 let mut sessions = self.shares.sessions();
-                if sessions.still_at(&session, req.share_session_epoch) {
+                if sessions.still_at(session, req.share_session_epoch) {
                     let results: Vec<(Part, bool, bool)> = found
                         .iter()
                         .map(|(p, f)| (*p, !f.acquired.is_empty(), f.error.is_some()))
                         .collect();
-                    sessions.report(&session, &results)
+                    sessions.report(session, &results)
                 } else {
                     // Another request moved the session meanwhile (Kafka's check): the fetch is not reported.
-                    resp.error_code = E::InvalidShareSessionEpoch.code();
+                    error_code = E::InvalidShareSessionEpoch.code();
                     Vec::new()
                 }
             }
             Context::Full(_) | Context::Final => found.keys().copied().collect(),
         };
-        let mut found = found;
         let mut topics: Vec<ShareFetchableTopicResponse> = Vec::new();
         for part in reported {
             let Some(f) = found.remove(&part) else {
                 continue;
             };
-            let data = topic_entry(&mut topics, part.0);
             let mut d = PartitionData::default();
             d.partition_index = part.1;
             d.error_code = f.error.map_or(0, |e| e.code());
             d.records = Some(f.records);
             d.acquired_records = f.acquired;
-            data.partitions.push(d);
+            push_partition(&mut topics, part.0, d);
         }
         merge_acks(&mut topics, acked);
-        resp.responses = topics;
-        if matches!(context, Context::Final) {
-            self.close_share_session(&group, &member);
-        }
-        Outcome::Respond(kafka_wire::api::Response::ShareFetch(resp))
+        (topics, error_code)
     }
 
     /// Closes a member's share session and lets go of what it held there (Kafka's `releaseSession`).
@@ -413,7 +461,12 @@ impl<F: Fs> Broker<F> {
                         max_records: records_left,
                         ..ask.clone()
                     };
-                    let got = part.acquire(&this, from, &only, &aborted, now, &limits);
+                    let read = Fetched {
+                        from,
+                        spans: &only,
+                        aborted: &aborted,
+                    };
+                    let got = part.acquire(&this, &read, now, &limits);
                     if got.ranges.is_empty() {
                         out.insert(place.part, Found::nothing());
                         continue;
@@ -425,24 +478,7 @@ impl<F: Fs> Broker<F> {
                     let records = read::slice(&bytes, &spans, &got.ranges);
                     budget =
                         budget.saturating_sub(i64::try_from(records.len()).unwrap_or(i64::MAX));
-                    out.insert(
-                        place.part,
-                        Found {
-                            error: None,
-                            records,
-                            acquired: got
-                                .ranges
-                                .iter()
-                                .map(|r| {
-                                    let mut a = AcquiredRecords::default();
-                                    a.first_offset = r.first;
-                                    a.last_offset = r.last;
-                                    a.delivery_count = r.delivery_count;
-                                    a
-                                })
-                                .collect(),
-                        },
-                    );
+                    out.insert(place.part, Found::acquired(records, &got.ranges));
                 }
             }
         }
@@ -450,44 +486,43 @@ impl<F: Fs> Broker<F> {
     }
 }
 
-/// The response's entry for a topic, made if there is none.
-fn topic_entry(
-    topics: &mut Vec<ShareFetchableTopicResponse>,
-    topic: Uuid,
-) -> &mut ShareFetchableTopicResponse {
-    let i = match topics.iter().position(|t| t.topic_id == topic) {
-        Some(i) => i,
+/// A partition's answer, on its topic's entry (made the first time the topic is answered).
+fn push_partition(topics: &mut Vec<ShareFetchableTopicResponse>, topic: Uuid, d: PartitionData) {
+    match topics.iter_mut().find(|t| t.topic_id == topic) {
+        Some(t) => t.partitions.push(d),
         None => {
             let mut t = ShareFetchableTopicResponse::default();
             t.topic_id = topic;
+            t.partitions.push(d);
             topics.push(t);
-            topics.len() - 1
         }
-    };
-    &mut topics[i]
+    }
 }
 
 /// Each acknowledged partition's result: on its entry if the fetch reported it, else on an entry of its own with no
 /// records (Kafka adds them after the session pruned the fetch).
 fn merge_acks(topics: &mut Vec<ShareFetchableTopicResponse>, acked: Vec<Acked>) {
     for a in acked {
-        let t = topic_entry(topics, a.topic);
-        let i = match t
-            .partitions
-            .iter()
-            .position(|p| p.partition_index == a.partition)
-        {
-            Some(i) => i,
-            None => {
-                let mut d = PartitionData::default();
-                d.partition_index = a.partition;
-                d.records = Some(Bytes::new());
-                t.partitions.push(d);
-                t.partitions.len() - 1
-            }
-        };
-        let d = &mut t.partitions[i];
-        d.acknowledge_error_code = a.error.map_or(0, |e| e.code());
-        d.acknowledge_error_message = a.message.map(StrBytes::from_string);
+        let code = a.error.map_or(0, |e| e.code());
+        let message = a.message.map(StrBytes::from_string);
+        let reported = topics
+            .iter_mut()
+            .find(|t| t.topic_id == a.topic)
+            .and_then(|t| {
+                t.partitions
+                    .iter_mut()
+                    .find(|p| p.partition_index == a.partition)
+            });
+        if let Some(d) = reported {
+            d.acknowledge_error_code = code;
+            d.acknowledge_error_message = message;
+            continue;
+        }
+        let mut d = PartitionData::default();
+        d.partition_index = a.partition;
+        d.records = Some(Bytes::new());
+        d.acknowledge_error_code = code;
+        d.acknowledge_error_message = message;
+        push_partition(topics, a.topic, d);
     }
 }

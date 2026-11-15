@@ -78,88 +78,143 @@ fn place(
     previous: &BTreeMap<MemberId, Partitions>,
     out: &mut BTreeMap<MemberId, Partitions>,
 ) {
-    let (m, p) = (members.len(), partitions.len());
     for id in members {
         out.entry(id.clone()).or_default();
     }
-    if m == 0 || p == 0 {
+    let Some(mut seats) = Seats::new(members.len(), partitions) else {
         return;
+    };
+    seats.keep(members, previous);
+    seats.trim();
+    seats.fill();
+    for (id, seat) in members.iter().zip(seats.members) {
+        out.entry(id.clone()).or_default().extend(seat.held);
     }
-    let sharing = m.div_ceil(p);
-    // ceil(sharing * p * i / m), in integers.
-    let edge = |i: usize| (sharing * p * i).div_ceil(m);
-    let desired: Vec<usize> = (0..m).map(|i| edge(i + 1) - edge(i)).collect();
-    let target: BTreeSet<Partition> = partitions.iter().copied().collect();
-    let mut by_partition: BTreeMap<Partition, BTreeSet<usize>> =
-        partitions.iter().map(|p| (*p, BTreeSet::new())).collect();
-    let mut by_member: Vec<Vec<Partition>> = vec![Vec::new(); m];
-    // What each still holds of what it had, as long as the partition is still to be assigned.
-    for (i, id) in members.iter().enumerate() {
-        for p in previous.get(id).into_iter().flatten() {
-            if target.contains(p) {
-                by_member[i].push(*p);
-                by_partition.entry(*p).or_default().insert(i);
-            }
+}
+
+/// One member's place: how many partitions it is to hold, and what it holds.
+struct Seat {
+    desired: usize,
+    held: Vec<Partition>,
+}
+
+/// The places `place` fills: each member's (by its index among the members) and who holds each partition.
+struct Seats {
+    /// How many members each partition is shared by.
+    sharing: usize,
+    members: Vec<Seat>,
+    by_partition: BTreeMap<Partition, BTreeSet<usize>>,
+}
+
+impl Seats {
+    /// `None` when there is nobody or nothing to assign.
+    fn new(m: usize, partitions: &[Partition]) -> Option<Self> {
+        let p = partitions.len();
+        if m == 0 || p == 0 {
+            return None;
         }
+        let sharing = m.div_ceil(p);
+        // ceil(sharing * p * i / m), in integers.
+        let edge = |i: usize| (sharing * p * i).div_ceil(m);
+        Some(Self {
+            sharing,
+            members: (0..m)
+                .map(|i| Seat {
+                    desired: edge(i + 1) - edge(i),
+                    held: Vec::new(),
+                })
+                .collect(),
+            by_partition: partitions.iter().map(|p| (*p, BTreeSet::new())).collect(),
+        })
     }
-    // An over-filled member gives up the excess.
-    for (i, held) in by_member.iter_mut().enumerate() {
-        while held.len() > desired[i] {
-            if let Some(p) = held.pop() {
-                by_partition.entry(p).or_default().remove(&i);
-            }
-        }
-    }
-    // A partition held by more members than it is to be shared by loses the excess.
-    for (p, holders) in &mut by_partition {
-        while holders.len() > sharing {
-            let Some(i) = holders.iter().next_back().copied() else {
-                break;
-            };
-            holders.remove(&i);
-            by_member[i].retain(|q| q != p);
-        }
-    }
-    // The rest, cycling through the members with room, each partition up to its sharing.
-    let mut unfilled: Vec<usize> = (0..m)
-        .filter(|i| by_member[*i].len() < desired[*i])
-        .collect();
-    let mut cursor = 0;
-    for (p, holders) in &mut by_partition {
-        let mut placed_this_cycle = false;
-        let mut tried = 0;
-        while holders.len() < sharing && !unfilled.is_empty() {
-            if cursor >= unfilled.len() {
-                if !placed_this_cycle && tried > 0 {
-                    break;
+
+    /// What each still holds of what it had, as long as the partition is still to be assigned.
+    fn keep(&mut self, ids: &[MemberId], previous: &BTreeMap<MemberId, Partitions>) {
+        for (i, (id, seat)) in ids.iter().zip(&mut self.members).enumerate() {
+            for p in previous.get(id).into_iter().flatten() {
+                if let Some(holders) = self.by_partition.get_mut(p) {
+                    seat.held.push(*p);
+                    holders.insert(i);
                 }
-                cursor = 0;
-                placed_this_cycle = false;
-                tried = 0;
             }
-            let i = unfilled[cursor];
-            tried += 1;
-            if holders.contains(&i) {
-                cursor += 1;
-                continue;
-            }
-            holders.insert(i);
-            by_member[i].push(*p);
-            placed_this_cycle = true;
-            if by_member[i].len() >= desired[i] {
-                unfilled.remove(cursor);
-            } else {
-                cursor += 1;
-            }
-        }
-        if unfilled.is_empty() {
-            break;
         }
     }
-    for (i, id) in members.iter().enumerate() {
-        out.entry(id.clone())
-            .or_default()
-            .extend(by_member[i].iter().copied());
+
+    /// An over-filled member gives up the excess; then a partition held by more members than it is shared by.
+    fn trim(&mut self) {
+        let Self {
+            sharing,
+            members,
+            by_partition,
+        } = self;
+        for (i, seat) in members.iter_mut().enumerate() {
+            while seat.held.len() > seat.desired {
+                if let Some(p) = seat.held.pop()
+                    && let Some(holders) = by_partition.get_mut(&p)
+                {
+                    holders.remove(&i);
+                }
+            }
+        }
+        for (p, holders) in by_partition.iter_mut() {
+            while holders.len() > *sharing {
+                let Some(i) = holders.pop_last() else {
+                    break;
+                };
+                if let Some(seat) = members.get_mut(i) {
+                    seat.held.retain(|q| q != p);
+                }
+            }
+        }
+    }
+
+    /// The rest, cycling through the members with room, each partition up to its sharing.
+    fn fill(&mut self) {
+        let Self {
+            sharing,
+            members,
+            by_partition,
+        } = self;
+        let mut unfilled: Vec<usize> = (0..members.len())
+            .filter(|i| members.get(*i).is_some_and(|s| s.held.len() < s.desired))
+            .collect();
+        let mut cursor = 0;
+        for (p, holders) in by_partition.iter_mut() {
+            let mut placed_this_cycle = false;
+            let mut tried = 0;
+            while holders.len() < *sharing && !unfilled.is_empty() {
+                if cursor >= unfilled.len() {
+                    if !placed_this_cycle && tried > 0 {
+                        break;
+                    }
+                    cursor = 0;
+                    placed_this_cycle = false;
+                    tried = 0;
+                }
+                let Some((&i, seat)) = unfilled
+                    .get(cursor)
+                    .and_then(|i| Some((i, members.get_mut(*i)?)))
+                else {
+                    break;
+                };
+                tried += 1;
+                if holders.contains(&i) {
+                    cursor += 1;
+                    continue;
+                }
+                holders.insert(i);
+                seat.held.push(*p);
+                placed_this_cycle = true;
+                if seat.held.len() >= seat.desired {
+                    unfilled.remove(cursor);
+                } else {
+                    cursor += 1;
+                }
+            }
+            if unfilled.is_empty() {
+                break;
+            }
+        }
     }
 }
 

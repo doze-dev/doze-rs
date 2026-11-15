@@ -311,7 +311,7 @@ async fn a_share_group_is_described_by_its_own_api_with_its_share_partitions() {
         vec![(0, 4, 9)]
     );
     // 4 and 5 accepted (the start moves past them), 6 and 7 released, 8 rejected, 9 still held.
-    share_acknowledge(&w, "emails", member, 2, topic, 0, 4, &[1, 1, 2, 2, 3]).await;
+    share_acknowledge(&w, ("emails", member, 2), topic, 0, 4, &[1, 1, 2, 2, 3]).await;
     let app = api(&w);
     let list = ok(&app, "/api/v1/groups").await;
     assert_eq!(list_row(&list, "emails")["protocol"], "share", "{list}");

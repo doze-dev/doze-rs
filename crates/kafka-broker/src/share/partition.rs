@@ -23,7 +23,7 @@ use kafka_meta::{ShareBatch, ShareRecordState, ShareState};
 pub(crate) use ack::{AckBatch, AckError, Acked};
 #[cfg(test)]
 pub(crate) use acquire::Acquired;
-pub(crate) use acquire::{Aborted, AcquireAsk, AcquiredRange, Span};
+pub(crate) use acquire::{Aborted, AcquireAsk, AcquiredRange, Fetched, Span};
 
 /// The member a record is acquired by.
 pub(crate) type Holder = Arc<str>;

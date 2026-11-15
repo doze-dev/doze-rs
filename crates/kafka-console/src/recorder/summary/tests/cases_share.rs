@@ -1,5 +1,6 @@
 //! The share group APIs' cases (KIP-932): a member's heartbeat, a fetch that acquired records and carried acknowledgements, an
 //! acknowledgement, and the admin calls.
+#![allow(clippy::too_many_lines)] // a table of cases: one entry per API
 
 use kafka_wire::api::{Request, Response};
 use kafka_wire::messages::*;

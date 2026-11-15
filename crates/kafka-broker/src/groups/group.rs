@@ -5,7 +5,7 @@
 //! is refused, and a share heartbeat to another kind of group is.
 
 use super::consumer::{self, ConsumerGroup, TopicSource};
-use super::machine::{Answer, Effect, Event, GroupMachine, IdSource, JoinRequest, Millis};
+use super::machine::{Answer, Effect, Event, GroupMachine, IdSource, JoinRequest, Millis, Token};
 use super::share::{ShareAnswer, ShareGroup};
 use kafka_meta::{ConsumerLife, ShareLife};
 use kafka_wire::ResponseError as E;
@@ -279,7 +279,6 @@ fn step_share(
     now: Millis,
     source: &dyn TopicSource,
 ) -> Vec<Effect> {
-    use super::machine::{Description, Forced, JoinAnswer, LeaveResult, State, SyncAnswer};
     let mut out = Vec::new();
     match event {
         Event::ShareHeartbeat(token, hb) => {
@@ -287,47 +286,74 @@ fn step_share(
         }
         Event::Timer(key) => s.timer(&key, now, &mut out),
         Event::TopicsChanged => s.topics_changed(),
-        Event::Describe(token) => {
-            let view = s.view(&source.topics());
-            out.push(Effect::Reply(
-                token,
-                Answer::Describe(Description {
-                    state: if view.members.is_empty() {
-                        State::Empty
-                    } else {
-                        State::Stable
-                    },
-                    protocol_type: Some("share".to_owned()),
-                    protocol: None,
-                    members: Vec::new(),
-                    subscribed: None,
-                    consumer: None,
-                    share: Some(view),
-                    #[cfg(feature = "inspect")]
-                    inspect: Box::new(s.inspect(now)),
-                }),
-            ));
-        }
+        Event::Describe(token) => out.push(describe_share(s, token, now, source)),
         Event::Delete(token) => {
             let refused = (s.member_count() > 0).then_some(E::NonEmptyGroup);
             out.push(Effect::Reply(token, Answer::Delete(refused)));
         }
-        // A classic JoinGroup on a share group is told its protocol is not the group's.
-        Event::Join(token, _) => out.push(Effect::Reply(
+        Event::Force(token, force) => {
+            let done = force_share(s, force, now, &mut out);
+            out.push(Effect::Reply(token, Answer::Forced(done)));
+        }
+        other => out.extend(refuse_in_share(other)),
+    }
+    out
+}
+
+/// A share group as DescribeGroups and the console see it.
+fn describe_share(s: &ShareGroup, token: Token, now: Millis, source: &dyn TopicSource) -> Effect {
+    use super::machine::{Description, State};
+    #[cfg(not(feature = "inspect"))]
+    let _ = now;
+    let view = s.view(&source.topics());
+    Effect::Reply(
+        token,
+        Answer::Describe(Description {
+            state: if view.members.is_empty() {
+                State::Empty
+            } else {
+                State::Stable
+            },
+            protocol_type: Some("share".to_owned()),
+            protocol: None,
+            members: Vec::new(),
+            subscribed: None,
+            consumer: None,
+            share: Some(view),
+            #[cfg(feature = "inspect")]
+            inspect: Box::new(s.inspect(now)),
+        }),
+    )
+}
+
+/// The Lab's forcing of a share group: a member's session run out, or the group epoch moved.
+fn force_share(
+    s: &mut ShareGroup,
+    force: super::machine::Force,
+    now: Millis,
+    out: &mut Vec<Effect>,
+) -> super::machine::Forced {
+    use super::machine::{Force, Forced};
+    match force {
+        Force::Expire(id) if s.force_expire(&id, now, out) => Forced::Done,
+        Force::Expire(_) => Forced::NoSuchMember,
+        Force::Rebalance if s.force_bump(now, out) => Forced::Done,
+        Force::Rebalance => Forced::Empty,
+    }
+}
+
+/// What a share group answers the other kinds' requests: a classic JoinGroup is told its protocol is not the group's;
+/// the rest that the group is not theirs (a share group has no committed offsets: "Group %s is not a consumer group.").
+fn refuse_in_share(event: Event) -> Option<Effect> {
+    use super::machine::{JoinAnswer, LeaveResult, SyncAnswer};
+    let (token, answer) = match event {
+        Event::Join(token, _) => (
             token,
             Answer::Join(JoinAnswer::refused(E::InconsistentGroupProtocol, None)),
-        )),
-        Event::Sync(token, _) => out.push(Effect::Reply(
-            token,
-            Answer::Sync(SyncAnswer::refused(E::GroupIdNotFound)),
-        )),
-        Event::Heartbeat(token, _) => {
-            out.push(Effect::Reply(
-                token,
-                Answer::Heartbeat(Some(E::GroupIdNotFound)),
-            ));
-        }
-        Event::Leave(token, targets) => out.push(Effect::Reply(
+        ),
+        Event::Sync(token, _) => (token, Answer::Sync(SyncAnswer::refused(E::GroupIdNotFound))),
+        Event::Heartbeat(token, _) => (token, Answer::Heartbeat(Some(E::GroupIdNotFound))),
+        Event::Leave(token, targets) => (
             token,
             Answer::Leave(
                 targets
@@ -339,40 +365,24 @@ fn step_share(
                     })
                     .collect(),
             ),
-        )),
-        // A share group has no committed offsets: "Group %s is not a consumer group."
-        Event::Commit(token, _) => out.push(Effect::Reply(
-            token,
-            Answer::Commit(Some(E::GroupIdNotFound)),
-        )),
-        Event::ConsumerHeartbeat(token, hb) => out.push(Effect::Reply(
+        ),
+        Event::Commit(token, _) => (token, Answer::Commit(Some(E::GroupIdNotFound))),
+        Event::ConsumerHeartbeat(token, hb) => (
             token,
             Answer::ConsumerHeartbeat(consumer::HeartbeatAnswer::refused(
                 E::GroupIdNotFound,
                 format!("Group {} is not a consumer group.", hb.group),
             )),
-        )),
-        Event::Force(token, force) => {
-            let done = match force {
-                super::machine::Force::Expire(id) => {
-                    if s.force_expire(&id, now, &mut out) {
-                        Forced::Done
-                    } else {
-                        Forced::NoSuchMember
-                    }
-                }
-                super::machine::Force::Rebalance => {
-                    if s.force_bump(now, &mut out) {
-                        Forced::Done
-                    } else {
-                        Forced::Empty
-                    }
-                }
-            };
-            out.push(Effect::Reply(token, Answer::Forced(done)));
-        }
-    }
-    out
+        ),
+        // A share group's own: answered by `step_share`.
+        Event::ShareHeartbeat(..)
+        | Event::Timer(_)
+        | Event::TopicsChanged
+        | Event::Describe(_)
+        | Event::Delete(_)
+        | Event::Force(..) => return None,
+    };
+    Some(Effect::Reply(token, answer))
 }
 
 mod convert;

@@ -63,7 +63,16 @@ fn fetch(p: &mut SharePartition, member: &str, log: &[(i64, i64)], max: i64, now
         .copied()
         .filter(|(_, last)| *last >= from)
         .collect();
-    p.acquire(&ask(member, max), from, &spans(&read), &[], now, &LIMITS)
+    p.acquire(
+        &ask(member, max),
+        &Fetched {
+            from,
+            spans: &spans(&read),
+            aborted: &[],
+        },
+        now,
+        &LIMITS,
+    )
 }
 
 /// Acknowledges and moves the start on, as the broker does after the write.
@@ -79,7 +88,16 @@ fn new_records_are_acquired_whole_batch_by_batch_and_cut_at_the_batch_size() {
     let log = [(0, 2), (3, 5), (6, 9)];
     let mut a = ask("m", 500);
     a.batch_size = 4;
-    let got = p.acquire(&a, 0, &spans(&log), &[], 0, &LIMITS);
+    let got = p.acquire(
+        &a,
+        &Fetched {
+            from: 0,
+            spans: &spans(&log),
+            aborted: &[],
+        },
+        0,
+        &LIMITS,
+    );
     assert_eq!(
         ranges(&got),
         [(0, 5, 1), (6, 9, 1)],
@@ -95,7 +113,16 @@ fn new_records_are_acquired_whole_batch_by_batch_and_cut_at_the_batch_size() {
 fn the_record_limit_is_soft_in_batches_and_exact_in_record_limit_mode() {
     let log = [(0, 4), (5, 9)];
     let mut p = SharePartition::new(0, 0);
-    let got = p.acquire(&ask("m", 3), 0, &spans(&log), &[], 0, &LIMITS);
+    let got = p.acquire(
+        &ask("m", 3),
+        &Fetched {
+            from: 0,
+            spans: &spans(&log),
+            aborted: &[],
+        },
+        0,
+        &LIMITS,
+    );
     assert_eq!(
         ranges(&got),
         [(0, 4, 1)],
@@ -104,11 +131,29 @@ fn the_record_limit_is_soft_in_batches_and_exact_in_record_limit_mode() {
     let mut p = SharePartition::new(0, 0);
     let mut exact = ask("m", 3);
     exact.record_limit = true;
-    let got = p.acquire(&exact, 0, &spans(&log), &[], 0, &LIMITS);
+    let got = p.acquire(
+        &exact,
+        &Fetched {
+            from: 0,
+            spans: &spans(&log),
+            aborted: &[],
+        },
+        0,
+        &LIMITS,
+    );
     assert_eq!(ranges(&got), [(0, 2, 1)], "exactly three");
     assert_eq!(p.end, 4, "the batch is in flight to its end");
     assert_eq!(p.next_fetch_offset(), 3, "the rest of it is fetched next");
-    let rest = p.acquire(&ask("n", 10), 3, &spans(&log), &[], 0, &LIMITS);
+    let rest = p.acquire(
+        &ask("n", 10),
+        &Fetched {
+            from: 3,
+            spans: &spans(&log),
+            aborted: &[],
+        },
+        0,
+        &LIMITS,
+    );
     assert_eq!(ranges(&rest), [(3, 4, 1), (5, 9, 1)]);
 }
 
@@ -118,7 +163,16 @@ fn an_accepted_run_moves_the_start_and_lets_go_of_whole_batches() {
     let log = [(0, 4), (5, 9)];
     let mut a = ask("m", 500);
     a.batch_size = 5;
-    p.acquire(&a, 0, &spans(&log), &[], 0, &LIMITS);
+    p.acquire(
+        &a,
+        &Fetched {
+            from: 0,
+            spans: &spans(&log),
+            aborted: &[],
+        },
+        0,
+        &LIMITS,
+    );
     acked(&mut p, "m", &[ack(0, 2, &[ACCEPT])]).unwrap();
     assert_eq!(p.start, 3, "within the first batch");
     assert_eq!(p.cached.len(), 2, "a batch only part done is kept");
@@ -157,7 +211,16 @@ fn a_record_released_after_its_last_delivery_is_archived() {
     let mut p = SharePartition::new(0, 0);
     for round in 1..=2 {
         let from = p.next_fetch_offset();
-        let got = p.acquire(&ask("m", 500), from, &spans(&[(0, 0)]), &[], 0, &limits);
+        let got = p.acquire(
+            &ask("m", 500),
+            &Fetched {
+                from,
+                spans: &spans(&[(0, 0)]),
+                aborted: &[],
+            },
+            0,
+            &limits,
+        );
         assert_eq!(ranges(&got), [(0, 0, round)]);
         p.acknowledge("m", &[ack(0, 0, &[RELEASE])], 0, &limits)
             .unwrap();
@@ -198,7 +261,16 @@ fn a_lock_that_runs_out_after_the_last_delivery_archives() {
     let mut p = SharePartition::new(0, 0);
     for now in [0, 40_000] {
         let from = p.next_fetch_offset();
-        p.acquire(&ask("m", 500), from, &spans(&[(0, 0)]), &[], now, &limits);
+        p.acquire(
+            &ask("m", 500),
+            &Fetched {
+                from,
+                spans: &spans(&[(0, 0)]),
+                aborted: &[],
+            },
+            now,
+            &limits,
+        );
         p.expire(now + 30_000, &limits);
         p.advance();
     }
@@ -322,7 +394,16 @@ fn acquisition_stops_at_the_in_flight_limit_but_released_records_inside_it_are_t
     let mut p = SharePartition::new(0, 0);
     let log = [(0, 3), (4, 7)];
     let from = p.next_fetch_offset();
-    let got = p.acquire(&ask("m", 500), from, &spans(&log), &[], 0, &limits);
+    let got = p.acquire(
+        &ask("m", 500),
+        &Fetched {
+            from,
+            spans: &spans(&log),
+            aborted: &[],
+        },
+        0,
+        &limits,
+    );
     assert_eq!(ranges(&got), [(0, 3, 1)], "four in flight");
     assert!(!p.can_acquire(&limits));
     p.acknowledge("m", &[ack(1, 1, &[RELEASE])], 0, &limits)
@@ -332,7 +413,16 @@ fn acquisition_stops_at_the_in_flight_limit_but_released_records_inside_it_are_t
         "one available inside the in-flight span"
     );
     let from = p.next_fetch_offset();
-    let again = p.acquire(&ask("n", 500), from, &spans(&log), &[], 0, &limits);
+    let again = p.acquire(
+        &ask("n", 500),
+        &Fetched {
+            from,
+            spans: &spans(&log),
+            aborted: &[],
+        },
+        0,
+        &limits,
+    );
     assert_eq!(
         ranges(&again),
         [(1, 1, 2)],
@@ -351,7 +441,16 @@ fn a_record_delivered_often_is_delivered_with_fewer_others_and_on_its_last_deliv
     let mut counts = Vec::new();
     for _ in 0..6 {
         let from = p.next_fetch_offset();
-        let got = p.acquire(&ask("m", 500), from, &spans(&log), &[], 0, &limits);
+        let got = p.acquire(
+            &ask("m", 500),
+            &Fetched {
+                from,
+                spans: &spans(&log),
+                aborted: &[],
+            },
+            0,
+            &limits,
+        );
         counts.push(ranges(&got));
         let (first, last) = (got.ranges[0].first, got.ranges.last().unwrap().last);
         p.acknowledge("m", &[ack(first, last, &[RELEASE])], 0, &limits)
@@ -386,7 +485,16 @@ fn under_read_committed_an_aborted_transactions_records_are_archived_not_deliver
         producer: 7,
         first: 2,
     }];
-    let got = p.acquire(&a, 0, &log, &aborted, 0, &LIMITS);
+    let got = p.acquire(
+        &a,
+        &Fetched {
+            from: 0,
+            spans: &log,
+            aborted: &aborted,
+        },
+        0,
+        &LIMITS,
+    );
     assert_eq!(
         ranges(&got),
         [(0, 1, 1), (4, 6, 1)],

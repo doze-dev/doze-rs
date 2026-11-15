@@ -103,7 +103,7 @@ fn a_groups_states_are_its_own_and_go_by_topic_or_all_at_once() {
     }
     assert_eq!(
         store
-            .delete_share_states(&group("g"), Some(&[u.clone()]))
+            .delete_share_states(&group("g"), Some(std::slice::from_ref(&u)))
             .unwrap(),
         1
     );

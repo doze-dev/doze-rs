@@ -10,10 +10,13 @@ use kafka_wire::ResponseError as E;
 use kafka_wire::StrBytes;
 use kafka_wire::Uuid;
 use kafka_wire::ids::{GroupId, PartitionId, TopicName};
+use kafka_wire::messages::alter_share_group_offsets_request::AlterShareGroupOffsetsRequestTopic;
 use kafka_wire::messages::alter_share_group_offsets_response::{
     AlterShareGroupOffsetsResponsePartition, AlterShareGroupOffsetsResponseTopic,
 };
+use kafka_wire::messages::delete_share_group_offsets_request::DeleteShareGroupOffsetsRequestTopic;
 use kafka_wire::messages::delete_share_group_offsets_response::DeleteShareGroupOffsetsResponseTopic;
+use kafka_wire::messages::describe_share_group_offsets_request::DescribeShareGroupOffsetsRequestTopic;
 use kafka_wire::messages::describe_share_group_offsets_response::{
     DescribeShareGroupOffsetsResponseGroup, DescribeShareGroupOffsetsResponsePartition,
     DescribeShareGroupOffsetsResponseTopic,
@@ -107,112 +110,99 @@ impl<F: Fs> Broker<F> {
             if !guard.group(Operation::Describe, name) {
                 out.error_code = E::GroupAuthorizationFailed.code();
             } else if let Ok(group) = GroupId::parse(name) {
-                out.topics = self
-                    .describe_share_topics(version, &group, g.topics.as_deref(), |t| {
-                        guard.topic(Operation::Describe, t)
-                    })
-                    .await;
+                let may = |t: &str| guard.topic(Operation::Describe, t);
+                let states = blocking::run(|| self.meta.share_states(&group)).unwrap_or_default();
+                out.topics = match g.topics.as_deref() {
+                    None => self.describe_every_share_topic(version, &states, may).await,
+                    Some(asked) => {
+                        self.describe_asked_share_topics(version, &states, asked, may)
+                            .await
+                    }
+                };
             }
             resp.groups.push(out);
         }
         Outcome::Respond(kafka_wire::api::Response::DescribeShareGroupOffsets(resp))
     }
 
-    /// One group's partitions: all it has initialized (`asked` null), or those asked.
-    async fn describe_share_topics(
+    /// Every partition the group has initialized, of the topics the caller may describe.
+    async fn describe_every_share_topic(
         &self,
         version: i16,
-        group: &GroupId,
-        asked: Option<&[kafka_wire::messages::describe_share_group_offsets_request::DescribeShareGroupOffsetsRequestTopic]>,
+        states: &[(TopicName, PartitionId, ShareState)],
         may: impl Fn(&str) -> bool,
     ) -> Vec<DescribeShareGroupOffsetsResponseTopic> {
-        let states = blocking::run(|| self.meta.share_states(group)).unwrap_or_default();
         let mut out: Vec<DescribeShareGroupOffsetsResponseTopic> = Vec::new();
-        match asked {
-            None => {
-                for (name, p, s) in &states {
-                    if !may(name.as_str()) {
-                        continue;
-                    }
-                    let Some(topic) = self.meta.topic(name) else {
-                        continue;
-                    };
-                    let i = match out
-                        .iter()
-                        .position(|t| t.topic_name.0.as_str() == name.as_str())
-                    {
-                        Some(i) => i,
-                        None => {
-                            let mut t = DescribeShareGroupOffsetsResponseTopic::default();
-                            t.topic_name = WireTopic(text(name.as_str()));
-                            t.topic_id = topic.id.to_uuid();
-                            out.push(t);
-                            out.len() - 1
-                        }
-                    };
-                    let d = self
-                        .share_offset_entry(version, &topic, p.get(), Some(s))
-                        .await;
-                    out[i].partitions.push(d);
-                }
+        for (name, p, s) in states {
+            if !may(name.as_str()) {
+                continue;
             }
-            Some(asked) => {
-                let mut refused = Vec::new();
-                for t in asked {
-                    let name = t.topic_name.0.as_str();
-                    let mut topic_out = DescribeShareGroupOffsetsResponseTopic::default();
-                    topic_out.topic_name = t.topic_name.clone();
-                    if !may(name) {
-                        topic_out.topic_id = Uuid::nil();
-                        topic_out.partitions = t
-                            .partitions
-                            .iter()
-                            .map(|p| {
-                                let mut d = DescribeShareGroupOffsetsResponsePartition::default();
-                                d.partition_index = *p;
-                                d.start_offset = -1;
-                                d.lag = -1;
-                                d.error_code = E::TopicAuthorizationFailed.code();
-                                d.error_message = Some(text(TOPIC_DENIED));
-                                d
-                            })
-                            .collect();
-                        refused.push(topic_out);
-                        continue;
-                    }
-                    let Some(topic) = TopicName::parse(name)
-                        .ok()
-                        .and_then(|n| self.meta.topic(&n))
-                    else {
-                        topic_out.topic_id = Uuid::nil();
-                        topic_out.partitions = t
-                            .partitions
-                            .iter()
-                            .map(|p| {
-                                let mut d = DescribeShareGroupOffsetsResponsePartition::default();
-                                d.partition_index = *p;
-                                d.start_offset = -1;
-                                d.lag = -1;
-                                d
-                            })
-                            .collect();
-                        out.push(topic_out);
-                        continue;
-                    };
-                    topic_out.topic_id = topic.id.to_uuid();
-                    for p in &t.partitions {
-                        let s = states
-                            .iter()
-                            .find(|(n, q, _)| *n == topic.name && q.get() == *p)
-                            .map(|(_, _, s)| s);
-                        let d = self.share_offset_entry(version, &topic, *p, s).await;
-                        topic_out.partitions.push(d);
-                    }
-                    out.push(topic_out);
+            let Some(topic) = self.meta.topic(name) else {
+                continue;
+            };
+            let d = self
+                .share_offset_entry(version, &topic, p.get(), Some(s))
+                .await;
+            match out
+                .iter_mut()
+                .find(|t| t.topic_name.0.as_str() == name.as_str())
+            {
+                Some(t) => t.partitions.push(d),
+                None => {
+                    let mut t = DescribeShareGroupOffsetsResponseTopic::default();
+                    t.topic_name = WireTopic(text(name.as_str()));
+                    t.topic_id = topic.id.to_uuid();
+                    t.partitions.push(d);
+                    out.push(t);
                 }
-                out.extend(refused);
             }
         }
+        out
+    }
+
+    /// The partitions asked for: a topic the caller may not describe is refused on each partition, after the rest; one
+    /// that does not exist has no start; a partition never initialized has none either.
+    async fn describe_asked_share_topics(
+        &self,
+        version: i16,
+        states: &[(TopicName, PartitionId, ShareState)],
+        asked: &[DescribeShareGroupOffsetsRequestTopic],
+        may: impl Fn(&str) -> bool,
+    ) -> Vec<DescribeShareGroupOffsetsResponseTopic> {
+        let mut out = Vec::new();
+        let mut refused = Vec::new();
+        for t in asked {
+            let name = t.topic_name.0.as_str();
+            let mut topic_out = DescribeShareGroupOffsetsResponseTopic::default();
+            topic_out.topic_name = t.topic_name.clone();
+            if !may(name) {
+                topic_out.partitions = no_offsets(
+                    &t.partitions,
+                    Some((E::TopicAuthorizationFailed, TOPIC_DENIED)),
+                );
+                refused.push(topic_out);
+                continue;
+            }
+            let Some(topic) = TopicName::parse(name)
+                .ok()
+                .and_then(|n| self.meta.topic(&n))
+            else {
+                topic_out.partitions = no_offsets(&t.partitions, None);
+                out.push(topic_out);
+                continue;
+            };
+            topic_out.topic_id = topic.id.to_uuid();
+            for p in &t.partitions {
+                let s = states
+                    .iter()
+                    .find(|(n, q, _)| *n == topic.name && q.get() == *p)
+                    .map(|(_, _, s)| s);
+                let d = self.share_offset_entry(version, &topic, *p, s).await;
+                topic_out.partitions.push(d);
+            }
+            out.push(topic_out);
+        }
+        out.extend(refused);
         out
     }
 
@@ -252,123 +242,150 @@ impl<F: Fs> Broker<F> {
         d
     }
 
+    /// The group an admin write names, if the caller may do `op` on it and the id is valid; with what it is.
+    async fn share_admin_group(
+        &self,
+        caller: &Caller,
+        op: Operation,
+        name: &str,
+    ) -> Result<(GroupId, ShareGroupIs), (E, String)> {
+        if !self.guard(caller).group(op, name) {
+            return Err((
+                E::GroupAuthorizationFailed,
+                "Group authorization failed.".into(),
+            ));
+        }
+        let Ok(group) = GroupId::parse(name) else {
+            return Err((
+                E::InvalidGroupId,
+                "The configured groupId is invalid.".into(),
+            ));
+        };
+        let is = self.share_group_is(&group).await;
+        if let ShareGroupIs::Share { members, .. } = is
+            && members > 0
+        {
+            return Err((E::NonEmptyGroup, "The group is not empty.".into()));
+        }
+        Ok((group, is))
+    }
+
     pub(crate) async fn alter_share_group_offsets(
         &self,
         caller: &Caller,
         req: &AlterShareGroupOffsetsRequest,
     ) -> Outcome {
-        let refuse = |error: E, message: String| {
+        let refuse = |(error, message): (E, String)| {
             let mut resp = AlterShareGroupOffsetsResponse::default();
             resp.error_code = error.code();
             resp.error_message = Some(StrBytes::from_string(message));
             Outcome::Respond(kafka_wire::api::Response::AlterShareGroupOffsets(resp))
         };
-        let guard = self.guard(caller);
         let name = req.group_id.0.as_str();
-        if !guard.group(Operation::Read, name) {
-            return refuse(
-                E::GroupAuthorizationFailed,
-                "Group authorization failed.".into(),
-            );
-        }
-        let Ok(group) = GroupId::parse(name) else {
-            return refuse(
-                E::InvalidGroupId,
-                "The configured groupId is invalid.".into(),
-            );
-        };
-        let epoch = match self.share_group_is(&group).await {
-            ShareGroupIs::OtherKind => {
-                return refuse(
+        let (group, epoch) = match self.share_admin_group(caller, Operation::Read, name).await {
+            Err(refused) => return refuse(refused),
+            Ok((_, ShareGroupIs::OtherKind)) => {
+                return refuse((
                     E::GroupIdNotFound,
                     format!("Group {name} is not a share group."),
-                );
+                ));
             }
-            ShareGroupIs::Share { members, .. } if members > 0 => {
-                return refuse(E::NonEmptyGroup, "The group is not empty.".into());
-            }
-            ShareGroupIs::Share { epoch, .. } => epoch,
-            ShareGroupIs::Missing => 0,
+            Ok((group, ShareGroupIs::Share { epoch, .. })) => (group, epoch),
+            Ok((group, ShareGroupIs::Missing)) => (group, 0),
         };
-        let partition_entry = |p: i32, error: Option<(E, &str)>| {
-            let mut d = AlterShareGroupOffsetsResponsePartition::default();
-            d.partition_index = p;
-            if let Some((e, words)) = error {
-                d.error_code = e.code();
-                d.error_message = Some(text(words));
-            }
-            d
-        };
+        let guard = self.guard(caller);
         let mut resp = AlterShareGroupOffsetsResponse::default();
         let mut writes: Vec<(TopicName, PartitionId, ShareState)> = Vec::new();
         let mut touched: Vec<Uuid> = Vec::new();
         for t in &req.topics {
-            let tname = t.topic_name.0.as_str();
-            let mut out = AlterShareGroupOffsetsResponseTopic::default();
-            out.topic_name = t.topic_name.clone();
-            if !guard.topic(Operation::Read, tname) {
+            let out = if guard.topic(Operation::Read, t.topic_name.0.as_str()) {
+                self.alter_share_topic(t, epoch, &mut writes, &mut touched)
+            } else {
+                let mut out = AlterShareGroupOffsetsResponseTopic::default();
+                out.topic_name = t.topic_name.clone();
                 out.partitions = t
                     .partitions
                     .iter()
                     .map(|p| {
-                        partition_entry(
+                        altered(
                             p.partition_index,
                             Some((E::TopicAuthorizationFailed, TOPIC_DENIED)),
                         )
                     })
                     .collect();
-                resp.responses.push(out);
-                continue;
-            }
-            let Some(topic) = TopicName::parse(tname)
-                .ok()
-                .and_then(|n| self.meta.topic(&n))
-            else {
-                out.partitions = t
-                    .partitions
-                    .iter()
-                    .map(|p| {
-                        partition_entry(
-                            p.partition_index,
-                            Some((E::UnknownTopicOrPartition, UNKNOWN_PARTITION)),
-                        )
-                    })
-                    .collect();
-                resp.responses.push(out);
-                continue;
+                out
             };
-            out.topic_id = topic.id.to_uuid();
-            touched.push(topic.id.to_uuid());
-            for p in &t.partitions {
-                match PartitionId::new(p.partition_index)
-                    .filter(|q| q.get() < topic.partitions.get())
-                {
-                    Some(partition) => {
-                        writes.push((
-                            topic.name.clone(),
-                            partition,
-                            ShareState {
-                                state_epoch: epoch,
-                                start_offset: p.start_offset,
-                                batches: Vec::new(),
-                            },
-                        ));
-                        out.partitions
-                            .push(partition_entry(p.partition_index, None));
-                    }
-                    None => out.partitions.push(partition_entry(
-                        p.partition_index,
-                        Some((E::UnknownTopicOrPartition, UNKNOWN_PARTITION)),
-                    )),
-                }
-            }
             resp.responses.push(out);
         }
-        let stored = blocking::run(|| {
-            // A group that was not there is made, empty (Kafka's `getOrMaybeCreateShareGroup`).
-            if self.meta.group_life(&group)?.is_none() {
+        if let Err(e) = self.store_share_offsets(&group, epoch, &writes) {
+            tracing::error!(%group, error = %e, "a share group's offsets could not be stored");
+            return refuse((
+                E::KafkaStorageError,
+                "The share group's offsets could not be stored.".into(),
+            ));
+        }
+        // What is in memory is read again from the store at the next fetch.
+        self.shares.forget(&group, Some(&touched));
+        Outcome::Respond(kafka_wire::api::Response::AlterShareGroupOffsets(resp))
+    }
+
+    /// One topic of an AlterShareGroupOffsets the caller may make: each partition that exists gets its new start (and
+    /// nothing in flight), one that does not is refused.
+    fn alter_share_topic(
+        &self,
+        t: &AlterShareGroupOffsetsRequestTopic,
+        epoch: i32,
+        writes: &mut Vec<(TopicName, PartitionId, ShareState)>,
+        touched: &mut Vec<Uuid>,
+    ) -> AlterShareGroupOffsetsResponseTopic {
+        let mut out = AlterShareGroupOffsetsResponseTopic::default();
+        out.topic_name = t.topic_name.clone();
+        let unknown = Some((E::UnknownTopicOrPartition, UNKNOWN_PARTITION));
+        let Some(topic) = TopicName::parse(t.topic_name.0.as_str())
+            .ok()
+            .and_then(|n| self.meta.topic(&n))
+        else {
+            out.partitions = t
+                .partitions
+                .iter()
+                .map(|p| altered(p.partition_index, unknown))
+                .collect();
+            return out;
+        };
+        out.topic_id = topic.id.to_uuid();
+        touched.push(topic.id.to_uuid());
+        for p in &t.partitions {
+            let Some(partition) =
+                PartitionId::new(p.partition_index).filter(|q| q.get() < topic.partitions.get())
+            else {
+                out.partitions.push(altered(p.partition_index, unknown));
+                continue;
+            };
+            writes.push((
+                topic.name.clone(),
+                partition,
+                ShareState {
+                    state_epoch: epoch,
+                    start_offset: p.start_offset,
+                    batches: Vec::new(),
+                },
+            ));
+            out.partitions.push(altered(p.partition_index, None));
+        }
+        out
+    }
+
+    /// The new starts, stored; a group that was not there is made, empty (Kafka's `getOrMaybeCreateShareGroup`).
+    fn store_share_offsets(
+        &self,
+        group: &GroupId,
+        epoch: i32,
+        writes: &[(TopicName, PartitionId, ShareState)],
+    ) -> Result<(), kafka_meta::MetaError> {
+        blocking::run(|| {
+            if self.meta.group_life(group)?.is_none() {
                 self.meta.set_group_life(
-                    &group,
+                    group,
                     &GroupLife {
                         live: false,
                         session_ms: 0,
@@ -384,18 +401,8 @@ impl<F: Fs> Broker<F> {
             }
             let list: Vec<kafka_meta::ShareStateWrite<'_>> =
                 writes.iter().map(|(t, p, s)| (t, *p, s)).collect();
-            self.meta.set_share_states(&group, &list)
-        });
-        if let Err(e) = stored {
-            tracing::error!(%group, error = %e, "a share group's offsets could not be stored");
-            return refuse(
-                E::KafkaStorageError,
-                "The share group's offsets could not be stored.".into(),
-            );
-        }
-        // What is in memory is read again from the store at the next fetch.
-        self.shares.forget(&group, Some(&touched));
-        Outcome::Respond(kafka_wire::api::Response::AlterShareGroupOffsets(resp))
+            self.meta.set_share_states(group, &list).map(drop)
+        })
     }
 
     pub(crate) async fn delete_share_group_offsets(
@@ -403,86 +410,116 @@ impl<F: Fs> Broker<F> {
         caller: &Caller,
         req: &DeleteShareGroupOffsetsRequest,
     ) -> Outcome {
-        let refuse = |error: E, message: String| {
+        let refuse = |(error, message): (E, String)| {
             let mut resp = DeleteShareGroupOffsetsResponse::default();
             resp.error_code = error.code();
             resp.error_message = Some(StrBytes::from_string(message));
             Outcome::Respond(kafka_wire::api::Response::DeleteShareGroupOffsets(resp))
         };
-        let guard = self.guard(caller);
         let name = req.group_id.0.as_str();
-        if !guard.group(Operation::Delete, name) {
-            return refuse(
-                E::GroupAuthorizationFailed,
-                "Group authorization failed.".into(),
-            );
-        }
-        let Ok(group) = GroupId::parse(name) else {
-            return refuse(
-                E::InvalidGroupId,
-                "The configured groupId is invalid.".into(),
-            );
-        };
-        match self.share_group_is(&group).await {
-            ShareGroupIs::Missing => {
-                return refuse(E::GroupIdNotFound, format!("Group {name} not found."));
+        let group = match self
+            .share_admin_group(caller, Operation::Delete, name)
+            .await
+        {
+            Err(refused) => return refuse(refused),
+            Ok((_, ShareGroupIs::Missing)) => {
+                return refuse((E::GroupIdNotFound, format!("Group {name} not found.")));
             }
-            ShareGroupIs::OtherKind => {
-                return refuse(
+            Ok((_, ShareGroupIs::OtherKind)) => {
+                return refuse((
                     E::GroupIdNotFound,
                     format!("Group {name} is not a share group."),
-                );
+                ));
             }
-            ShareGroupIs::Share { members, .. } if members > 0 => {
-                return refuse(E::NonEmptyGroup, "The group is not empty.".into());
-            }
-            ShareGroupIs::Share { .. } => {}
-        }
+            Ok((group, ShareGroupIs::Share { .. })) => group,
+        };
+        let guard = self.guard(caller);
         let have = blocking::run(|| self.meta.share_states(&group)).unwrap_or_default();
         let mut resp = DeleteShareGroupOffsetsResponse::default();
         let mut done = Vec::new();
         for t in &req.topics {
-            let tname = t.topic_name.0.as_str();
-            let mut out = DeleteShareGroupOffsetsResponseTopic::default();
-            out.topic_name = t.topic_name.clone();
-            if !guard.topic(Operation::Read, tname) {
+            if guard.topic(Operation::Read, t.topic_name.0.as_str()) {
+                done.push(self.delete_share_topic(&group, &have, t));
+            } else {
+                let mut out = DeleteShareGroupOffsetsResponseTopic::default();
+                out.topic_name = t.topic_name.clone();
                 out.error_code = E::TopicAuthorizationFailed.code();
                 out.error_message = Some(text(TOPIC_DENIED));
                 resp.responses.push(out);
-                continue;
             }
-            let Some(topic) = TopicName::parse(tname)
-                .ok()
-                .and_then(|n| self.meta.topic(&n))
-            else {
-                out.error_code = E::UnknownTopicOrPartition.code();
-                out.error_message = Some(text(UNKNOWN_PARTITION));
-                done.push(out);
-                continue;
-            };
-            out.topic_id = topic.id.to_uuid();
-            if !have.iter().any(|(n, _, _)| *n == topic.name) {
-                out.error_code = E::UnknownTopicOrPartition.code();
-                out.error_message = Some(text("There is no offset information to delete."));
-                done.push(out);
-                continue;
-            }
-            let deleted = blocking::run(|| {
-                self.meta
-                    .delete_share_states(&group, Some(std::slice::from_ref(&topic.name)))
-            });
-            if let Err(e) = deleted {
-                tracing::error!(%group, error = %e, "a share group's offsets could not be deleted");
-                out.error_code = E::KafkaStorageError.code();
-                out.error_message = Some(text("The share group's offsets could not be deleted."));
-            } else {
-                self.shares.forget(&group, Some(&[topic.id.to_uuid()]));
-            }
-            done.push(out);
         }
         resp.responses.extend(done);
         Outcome::Respond(kafka_wire::api::Response::DeleteShareGroupOffsets(resp))
     }
+
+    /// One topic of a DeleteShareGroupOffsets the caller may make: its stored states deleted, if the group has any.
+    fn delete_share_topic(
+        &self,
+        group: &GroupId,
+        have: &[(TopicName, PartitionId, ShareState)],
+        t: &DeleteShareGroupOffsetsRequestTopic,
+    ) -> DeleteShareGroupOffsetsResponseTopic {
+        let mut out = DeleteShareGroupOffsetsResponseTopic::default();
+        out.topic_name = t.topic_name.clone();
+        let Some(topic) = TopicName::parse(t.topic_name.0.as_str())
+            .ok()
+            .and_then(|n| self.meta.topic(&n))
+        else {
+            out.error_code = E::UnknownTopicOrPartition.code();
+            out.error_message = Some(text(UNKNOWN_PARTITION));
+            return out;
+        };
+        out.topic_id = topic.id.to_uuid();
+        if !have.iter().any(|(n, _, _)| *n == topic.name) {
+            out.error_code = E::UnknownTopicOrPartition.code();
+            out.error_message = Some(text("There is no offset information to delete."));
+            return out;
+        }
+        let deleted = blocking::run(|| {
+            self.meta
+                .delete_share_states(group, Some(std::slice::from_ref(&topic.name)))
+        });
+        if let Err(e) = deleted {
+            tracing::error!(%group, error = %e, "a share group's offsets could not be deleted");
+            out.error_code = E::KafkaStorageError.code();
+            out.error_message = Some(text("The share group's offsets could not be deleted."));
+        } else {
+            self.shares.forget(group, Some(&[topic.id.to_uuid()]));
+        }
+        out
+    }
+}
+
+/// Partitions with no start to tell: -1 and -1, with an error or none.
+fn no_offsets(
+    partitions: &[i32],
+    error: Option<(E, &str)>,
+) -> Vec<DescribeShareGroupOffsetsResponsePartition> {
+    partitions
+        .iter()
+        .map(|p| {
+            let mut d = DescribeShareGroupOffsetsResponsePartition::default();
+            d.partition_index = *p;
+            d.start_offset = -1;
+            d.lag = -1;
+            if let Some((e, words)) = error {
+                d.error_code = e.code();
+                d.error_message = Some(text(words));
+            }
+            d
+        })
+        .collect()
+}
+
+/// One partition of an AlterShareGroupOffsets answer.
+fn altered(p: i32, error: Option<(E, &str)>) -> AlterShareGroupOffsetsResponsePartition {
+    let mut d = AlterShareGroupOffsetsResponsePartition::default();
+    d.partition_index = p;
+    if let Some((e, words)) = error {
+        d.error_code = e.code();
+        d.error_message = Some(text(words));
+    }
+    d
 }
 
 #[cfg(test)]

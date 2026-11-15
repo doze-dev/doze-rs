@@ -81,37 +81,15 @@ impl<F: Fs> Broker<F> {
             return refuse(out, E::InvalidGroupId, None);
         };
         let Some(description) = self.groups.describe(&group).await else {
-            // Not in memory: an empty share group the broker had before it was started again is still one.
-            let kept = crate::blocking::run(|| self.meta.group_life(&group))
-                .ok()
-                .flatten();
-            return match kept {
-                Some(kafka_meta::GroupLife { share: Some(s), .. }) => {
+            return match self.kept_share_group(&group) {
+                Ok((epoch, assignment_epoch)) => {
                     out.group_state = StrBytes::from_static_str("Empty");
-                    out.group_epoch = s.epoch;
-                    out.assignment_epoch = s.assignment_epoch;
+                    out.group_epoch = epoch;
+                    out.assignment_epoch = assignment_epoch;
                     out.assignor_name = StrBytes::from_static_str("simple");
                     out
                 }
-                Some(_) => refuse(
-                    out,
-                    E::GroupIdNotFound,
-                    Some(format!("Group {name} is not a share group.")),
-                ),
-                None if crate::blocking::run(|| self.meta.group_offsets(&group))
-                    .is_ok_and(|o| !o.is_empty()) =>
-                {
-                    refuse(
-                        out,
-                        E::GroupIdNotFound,
-                        Some(format!("Group {name} is not a share group.")),
-                    )
-                }
-                None => refuse(
-                    out,
-                    E::GroupIdNotFound,
-                    Some(format!("Group {name} not found.")),
-                ),
+                Err(words) => refuse(out, E::GroupIdNotFound, Some(words)),
             };
         };
         let Some(view) = description.share else {
@@ -145,6 +123,24 @@ impl<F: Fs> Broker<F> {
             })
             .collect();
         out
+    }
+
+    /// A group not in memory: an empty share group the broker had before it was started again is still one (its epochs);
+    /// else Kafka's words for a group of another kind, or none.
+    fn kept_share_group(&self, group: &GroupId) -> Result<(i32, i32), String> {
+        let kept = crate::blocking::run(|| self.meta.group_life(group))
+            .ok()
+            .flatten();
+        match kept {
+            Some(kafka_meta::GroupLife { share: Some(s), .. }) => Ok((s.epoch, s.assignment_epoch)),
+            Some(_) => Err(format!("Group {group} is not a share group.")),
+            None if crate::blocking::run(|| self.meta.group_offsets(group))
+                .is_ok_and(|o| !o.is_empty()) =>
+            {
+                Err(format!("Group {group} is not a share group."))
+            }
+            None => Err(format!("Group {group} not found.")),
+        }
     }
 
     /// Partitions as ShareGroupDescribe shows them: by topic, with its name; a topic gone is left out.

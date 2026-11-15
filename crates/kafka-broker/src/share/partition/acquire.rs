@@ -90,30 +90,59 @@ fn accumulate(result: &mut Vec<AcquiredRange>, each: Vec<AcquiredRange>) {
     result.push(run);
 }
 
+/// What a fetch read, as acquisition needs it: the offset it read from, its batches, and (`read_committed`) the aborted
+/// transactions among them.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Fetched<'a> {
+    pub(crate) from: i64,
+    pub(crate) spans: &'a [Span],
+    pub(crate) aborted: &'a [Aborted],
+}
+
+/// Who acquires, until when, under which limits: what every step of one acquisition shares.
+struct Taker<'a> {
+    ask: &'a AcquireAsk,
+    spans: &'a [Span],
+    /// When the locks taken now run out.
+    until: i64,
+    limits: &'a Limits,
+}
+
+/// What one acquisition may take: from the first batch read to the last offset it may acquire, and how many.
+#[derive(Debug, Clone, Copy)]
+struct Window {
+    first: i64,
+    last: i64,
+    most: i64,
+}
+
+/// What one batch in flight gave: records, or records and a stop (Kafka's throttling ends the acquisition).
+enum Took {
+    Records(i64),
+    Throttled(i64),
+}
+
 impl SharePartition {
-    /// Acquires for `ask.member` what can be acquired of `spans`, read from `fetch_offset`, at `now`.
+    /// Acquires for `ask.member` what can be acquired of what a fetch read, at `now`.
     pub(crate) fn acquire(
         &mut self,
         ask: &AcquireAsk,
-        fetch_offset: i64,
-        spans: &[Span],
-        aborted: &[Aborted],
+        read: &Fetched<'_>,
         now: i64,
         limits: &Limits,
     ) -> Acquired {
-        let (Some(first_batch), Some(last_batch)) = (spans.first(), spans.last()) else {
+        let (Some(first_batch), Some(last_batch)) = (read.spans.first(), read.spans.last()) else {
             return Acquired::default();
         };
         if ask.max_records <= 0 || last_batch.last < self.start {
             return Acquired::default();
         }
-        let (last_to_acquire, mut max_to_acquire) =
-            self.last_and_most(fetch_offset, ask.max_records, last_batch.last, limits);
-        if max_to_acquire <= 0 {
+        let (last, most) = self.last_and_most(read.from, ask.max_records, last_batch.last, limits);
+        if most <= 0 {
             return Acquired::default();
         }
         let mut base = first_batch.base;
-        self.archive_stale(fetch_offset, base);
+        self.archive_stale(read.from, base);
         match self.cached.range(..=base).next_back() {
             None if base < self.start => base = self.start,
             Some((&key, b)) if b.last >= base => base = key,
@@ -121,132 +150,147 @@ impl SharePartition {
         }
         let keys: Vec<i64> = self
             .cached
-            .range(min(first_batch.base, base)..=last_to_acquire)
+            .range(min(first_batch.base, base)..=last)
             .map(|(k, _)| *k)
             .collect();
-        let Some(&last_key) = keys.last() else {
-            let got = self.acquire_new(
-                ask,
-                spans,
-                (base, last_to_acquire),
-                max_to_acquire,
-                now,
-                limits,
-            );
-            return self.filter_aborted(ask, spans, aborted, got);
+        let t = Taker {
+            ask,
+            spans: read.spans,
+            until: now + limits.lock_ms,
+            limits,
         };
+        if keys.is_empty() {
+            let got = self.acquire_new(&t, (base, last), most);
+            return self.filter_aborted(ask, read, got);
+        }
+        let window = Window {
+            first: first_batch.base,
+            last,
+            most,
+        };
+        let got = self.acquire_cached(&t, &keys, base, window);
+        match got.ranges.last() {
+            Some(r) => {
+                self.update_gap_start(r.last + 1);
+                self.filter_aborted(ask, read, got)
+            }
+            None => got,
+        }
+    }
+
+    /// The batches in flight from `base` (the keys of `cached` in the window), with what is new between them where the
+    /// start had gaps, and after them what is new up to the window's end.
+    fn acquire_cached(&mut self, t: &Taker<'_>, keys: &[i64], base: i64, w: Window) -> Acquired {
         let mut result = Vec::new();
         let mut acquired = 0;
+        let mut most = w.most;
         let mut gap_from = base;
-        for key in keys {
-            if acquired >= max_to_acquire {
+        for &key in keys {
+            if acquired >= most {
                 break;
             }
             if self.gap_active() {
                 if gap_from < key {
-                    let got = self.acquire_new(
-                        ask,
-                        spans,
-                        (gap_from, key - 1),
-                        max_to_acquire - acquired,
-                        now,
-                        limits,
-                    );
+                    let got = self.acquire_new(t, (gap_from, key - 1), most - acquired);
                     result.extend(got.ranges);
                     acquired += got.count;
                 }
                 gap_from = self.cached.get(&key).map_or(gap_from, |b| b.last + 1);
-                if acquired >= max_to_acquire {
+                if acquired >= most {
                     break;
                 }
             }
-            let Some(batch) = self.cached.get(&key) else {
-                continue;
-            };
-            let full = key >= first_batch.base && batch.last <= last_to_acquire;
-            let remaining = max_to_acquire - acquired;
-            let record_limit_subset = ask.record_limit && batch.last - key + 1 > remaining;
-            let throttle = self.should_throttle(key, first_batch.base, last_to_acquire, limits);
-            if throttle && acquired > 0 {
-                max_to_acquire = 0;
-                break;
-            }
-            if !full || batch.is_each() || record_limit_subset || throttle {
-                if batch
-                    .whole_rec()
-                    .is_some_and(|r| r.state != RecordState::Available)
-                {
-                    continue;
-                }
-                if let Some(b) = self.cached.get_mut(&key) {
-                    b.explode(key);
-                }
-                let n = self.acquire_subset(
-                    ask,
-                    remaining,
-                    (first_batch.base, last_to_acquire),
-                    key,
-                    &mut result,
-                    now,
-                    limits,
-                );
-                acquired += n;
-                if throttle && n > 0 {
-                    max_to_acquire = 0;
+            match self.take_batch(t, key, w, acquired, &mut result) {
+                Took::Records(n) => acquired += n,
+                Took::Throttled(n) => {
+                    acquired += n;
+                    most = 0;
                     break;
                 }
-                continue;
             }
-            let Some(b) = self.cached.get_mut(&key) else {
-                continue;
-            };
-            let Track::Whole(r) = &mut b.track else {
-                continue;
-            };
-            if r.state != RecordState::Available {
-                continue;
-            }
-            let Some(mut taken) = r.moved(
-                RecordState::Acquired,
-                Count::Increase,
-                limits.max_delivery,
-                Some(&ask.member),
-            ) else {
-                continue;
-            };
-            taken.until = Some(now + limits.lock_ms);
-            *r = taken;
-            result.push(AcquiredRange {
-                first: key,
-                last: b.last,
-                delivery_count: r.count,
-            });
-            acquired += b.last - key + 1;
         }
-        let last_cached = self.cached.get(&last_key).map_or(i64::MAX, |b| b.last);
-        if acquired < max_to_acquire && last_cached < last_to_acquire {
-            let got = self.acquire_new(
-                ask,
-                spans,
-                (last_cached + 1, last_to_acquire),
-                max_to_acquire - acquired,
-                now,
-                limits,
-            );
+        let last_cached = keys
+            .last()
+            .and_then(|k| self.cached.get(k))
+            .map_or(i64::MAX, |b| b.last);
+        if acquired < most && last_cached < w.last {
+            let got = self.acquire_new(t, (last_cached + 1, w.last), most - acquired);
             result.extend(got.ranges);
             acquired += got.count;
         }
-        let got = Acquired {
+        Acquired {
             ranges: result,
             count: acquired,
-        };
-        match got.ranges.last() {
-            Some(last) => {
-                self.update_gap_start(last.last + 1);
-                self.filter_aborted(ask, spans, aborted, got)
-            }
-            None => got,
         }
+    }
+
+    /// What of the batch at `key` is acquired: all of it when it is wholly in the window, available, kept whole and not
+    /// to be throttled; else what of it is available, record by record. `acquired`: what this acquisition took before it.
+    fn take_batch(
+        &mut self,
+        t: &Taker<'_>,
+        key: i64,
+        w: Window,
+        acquired: i64,
+        result: &mut Vec<AcquiredRange>,
+    ) -> Took {
+        let remaining = w.most - acquired;
+        let Some(batch) = self.cached.get(&key) else {
+            return Took::Records(0);
+        };
+        let full = key >= w.first && batch.last <= w.last;
+        let record_limit_subset = t.ask.record_limit && batch.last - key + 1 > remaining;
+        let throttle = self.should_throttle(key, w.first, w.last, t.limits);
+        if throttle && acquired > 0 {
+            return Took::Throttled(0);
+        }
+        if full && !batch.is_each() && !record_limit_subset && !throttle {
+            return Took::Records(self.take_whole(t, key, result));
+        }
+        if batch
+            .whole_rec()
+            .is_some_and(|r| r.state != RecordState::Available)
+        {
+            return Took::Records(0);
+        }
+        if let Some(b) = self.cached.get_mut(&key) {
+            b.explode(key);
+        }
+        let n = self.acquire_subset(t, remaining, (w.first, w.last), key, result);
+        if throttle && n > 0 {
+            Took::Throttled(n)
+        } else {
+            Took::Records(n)
+        }
+    }
+
+    /// The batch at `key`, kept whole, acquired whole if it is available.
+    fn take_whole(&mut self, t: &Taker<'_>, key: i64, result: &mut Vec<AcquiredRange>) -> i64 {
+        let Some(b) = self.cached.get_mut(&key) else {
+            return 0;
+        };
+        let Track::Whole(r) = &mut b.track else {
+            return 0;
+        };
+        if r.state != RecordState::Available {
+            return 0;
+        }
+        let Some(mut taken) = r.moved(
+            RecordState::Acquired,
+            Count::Increase,
+            t.limits.max_delivery,
+            Some(&t.ask.member),
+        ) else {
+            return 0;
+        };
+        taken.until = Some(t.until);
+        *r = taken;
+        result.push(AcquiredRange {
+            first: key,
+            last: b.last,
+            delivery_count: r.count,
+        });
+        b.last - key + 1
     }
 
     /// Kafka's `lastOffsetAndMaxRecordsToAcquire`: how far, and how many, the in-flight limit lets this fetch acquire.
@@ -272,15 +316,7 @@ impl SharePartition {
     }
 
     /// Kafka's `acquireNewBatchRecords`: records not yet in flight, from `first` to `last`.
-    fn acquire_new(
-        &mut self,
-        ask: &AcquireAsk,
-        spans: &[Span],
-        (first, last): (i64, i64),
-        most: i64,
-        now: i64,
-        limits: &Limits,
-    ) -> Acquired {
+    fn acquire_new(&mut self, t: &Taker<'_>, (first, last): (i64, i64), most: i64) -> Acquired {
         let first = if self.cached.is_empty() && self.end > first {
             self.end
         } else {
@@ -288,7 +324,7 @@ impl SharePartition {
         };
         let mut last_acquired = last;
         if most < last_acquired - first + 1 {
-            last_acquired = last_of_batch_holding(spans, first + most - 1);
+            last_acquired = last_of_batch_holding(t.spans, first + most - 1);
             if self.gap_active() && last_acquired > last {
                 last_acquired = last;
             }
@@ -296,7 +332,7 @@ impl SharePartition {
         if last_acquired < first {
             return Acquired::default();
         }
-        let ranges = self.create_batches(ask, spans, most, (first, last_acquired), now, limits);
+        let ranges = self.create_batches(t, most, (first, last_acquired));
         if self
             .cached
             .first_key_value()
@@ -307,7 +343,7 @@ impl SharePartition {
         if last_acquired > self.end {
             self.end = last_acquired;
         }
-        if ask.record_limit
+        if t.ask.record_limit
             && let Some(r) = ranges.first()
         {
             last_acquired = r.last;
@@ -323,19 +359,16 @@ impl SharePartition {
     /// record-limit mode one range, the batch split if it holds more than may be taken.
     fn create_batches(
         &mut self,
-        ask: &AcquireAsk,
-        spans: &[Span],
+        t: &Taker<'_>,
         most: i64,
         (first, last): (i64, i64),
-        now: i64,
-        limits: &Limits,
     ) -> Vec<AcquiredRange> {
-        let until = now + limits.lock_ms;
+        let (ask, until) = (t.ask, t.until);
         let batch_size = i64::from(ask.batch_size);
         let mut ranges = Vec::new();
         let mut current = first;
         if !ask.record_limit && batch_size > 0 && last - first + 1 > batch_size {
-            for s in spans {
+            for s in t.spans {
                 if s.base > last {
                     break;
                 }
@@ -397,21 +430,15 @@ impl SharePartition {
     }
 
     /// Kafka's `acquireSubsetBatchRecords`: the available records of a batch kept per offset, from `req_first` to `req_last`.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "Kafka's method, with its inputs; the time and limits besides"
-    )]
     fn acquire_subset(
         &mut self,
-        ask: &AcquireAsk,
+        t: &Taker<'_>,
         most: i64,
         (req_first, req_last): (i64, i64),
         key: i64,
         result: &mut Vec<AcquiredRange>,
-        now: i64,
-        limits: &Limits,
     ) -> i64 {
-        let max_delivery = limits.max_delivery;
+        let (ask, max_delivery) = (t.ask, t.limits.max_delivery);
         let limit = throttle_limit(max_delivery);
         let Some(b) = self.cached.get_mut(&key) else {
             return 0;
@@ -451,7 +478,7 @@ impl SharePartition {
             ) else {
                 continue;
             };
-            next.until = Some(now + limits.lock_ms);
+            next.until = Some(t.until);
             *r = next;
             taken.push(AcquiredRange {
                 first: offset,
@@ -505,7 +532,7 @@ impl SharePartition {
             let Some(b) = self.cached.get_mut(&key) else {
                 continue;
             };
-            let full = key >= first && b.last <= end - 1;
+            let full = key >= first && b.last < end;
             if full && let Track::Whole(r) = &mut b.track {
                 if r.state == from {
                     r.archive();
@@ -532,17 +559,11 @@ impl SharePartition {
 
     /// Kafka's `maybeFilterAbortedTransactionalAcquiredRecords`: under `read_committed`, what an aborted transaction wrote
     /// is archived as soon as it is acquired, and taken out of what the member is told it holds.
-    fn filter_aborted(
-        &mut self,
-        ask: &AcquireAsk,
-        spans: &[Span],
-        aborted: &[Aborted],
-        got: Acquired,
-    ) -> Acquired {
-        if !ask.read_committed || aborted.is_empty() {
+    fn filter_aborted(&mut self, ask: &AcquireAsk, read: &Fetched<'_>, got: Acquired) -> Acquired {
+        if !ask.read_committed || read.aborted.is_empty() {
             return got;
         }
-        let doomed = aborted_batches(spans, aborted);
+        let doomed = aborted_batches(read.spans, read.aborted);
         for s in &doomed {
             let Some((&floor, _)) = self.cached.range(..=s.base).next_back() else {
                 continue;

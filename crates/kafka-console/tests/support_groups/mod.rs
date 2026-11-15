@@ -219,12 +219,11 @@ pub async fn share_fetch(
         .collect()
 }
 
-/// One ShareAcknowledge (v1) of a partition: `types` from `first` on, one each (1 accept, 2 release, 3 reject).
+/// One ShareAcknowledge (v1) of a partition, as `member` of `group` at a share session epoch: `types` from `first` on, one
+/// each (1 accept, 2 release, 3 reject).
 pub async fn share_acknowledge(
     w: &World,
-    group: &str,
-    member: &str,
-    epoch: i32,
+    (group, member, epoch): (&str, &str, i32),
     topic: kafka_wire::Uuid,
     partition: i32,
     first: i64,

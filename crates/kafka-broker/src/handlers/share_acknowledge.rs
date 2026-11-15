@@ -17,6 +17,28 @@ use super::share_group_heartbeat::member_id_valid;
 use crate::share::partition::AckBatch;
 use crate::{Broker, Caller, Outcome};
 
+/// The acknowledgements of each partition the request names.
+fn asked(req: &ShareAcknowledgeRequest) -> Vec<Asked> {
+    req.topics
+        .iter()
+        .flat_map(|t| {
+            t.partitions.iter().map(move |p| Asked {
+                topic: t.topic_id,
+                partition: p.partition_index,
+                batches: p
+                    .acknowledgement_batches
+                    .iter()
+                    .map(|b| AckBatch {
+                        first: b.first_offset,
+                        last: b.last_offset,
+                        types: b.acknowledge_types.clone(),
+                    })
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
 fn top_level(error: E) -> Outcome {
     let mut resp = ShareAcknowledgeResponse::default();
     resp.error_code = error.code();
@@ -54,25 +76,7 @@ impl<F: Fs> Broker<F> {
             Ok(closes) => closes,
             Err(e) => return top_level(e),
         };
-        let asked: Vec<Asked> = req
-            .topics
-            .iter()
-            .flat_map(|t| {
-                t.partitions.iter().map(move |p| Asked {
-                    topic: t.topic_id,
-                    partition: p.partition_index,
-                    batches: p
-                        .acknowledgement_batches
-                        .iter()
-                        .map(|b| AckBatch {
-                            first: b.first_offset,
-                            last: b.last_offset,
-                            types: b.acknowledge_types.clone(),
-                        })
-                        .collect(),
-                })
-            })
-            .collect();
+        let asked = asked(req);
         let renew = version >= 2 && req.is_renew_ack;
         let acked =
             self.share_acknowledge_all(caller, (&group, member.as_str()), &asked, (version, renew));
@@ -80,20 +84,19 @@ impl<F: Fs> Broker<F> {
         resp.acquisition_lock_timeout_ms =
             i32::try_from(self.share_settings(&group).lock_ms).unwrap_or(i32::MAX);
         for a in acked {
-            let i = match resp.responses.iter().position(|t| t.topic_id == a.topic) {
-                Some(i) => i,
-                None => {
-                    let mut t = ShareAcknowledgeTopicResponse::default();
-                    t.topic_id = a.topic;
-                    resp.responses.push(t);
-                    resp.responses.len() - 1
-                }
-            };
             let mut d = PartitionData::default();
             d.partition_index = a.partition;
             d.error_code = a.error.map_or(0, |e| e.code());
             d.error_message = a.message.map(StrBytes::from_string);
-            resp.responses[i].partitions.push(d);
+            match resp.responses.iter_mut().find(|t| t.topic_id == a.topic) {
+                Some(t) => t.partitions.push(d),
+                None => {
+                    let mut t = ShareAcknowledgeTopicResponse::default();
+                    t.topic_id = a.topic;
+                    t.partitions.push(d);
+                    resp.responses.push(t);
+                }
+            }
         }
         if closes {
             self.close_share_session(&group, &member);

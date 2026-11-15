@@ -1,5 +1,11 @@
 //! Requests of the share group APIs (KIP-932), as a share consumer and Kafka's admin tools send them.
-#![allow(unreachable_pub, dead_code, clippy::unwrap_used, clippy::panic)]
+#![allow(
+    unreachable_pub,
+    dead_code,
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use kafka_wire::StrBytes;
 use kafka_wire::Uuid;
@@ -27,6 +33,9 @@ use kafka_wire::messages::{
 
 use super::{Rig, wire_name};
 
+/// Acknowledgement batches of one partition: (first, last, types).
+pub type Acks = Vec<(i64, i64, Vec<i8>)>;
+
 pub fn heartbeat_request(
     group: &str,
     member: &str,
@@ -46,7 +55,7 @@ pub fn fetch_request(
     group: &str,
     member: &str,
     epoch: i32,
-    parts: &[(Uuid, i32, Vec<(i64, i64, Vec<i8>)>)],
+    parts: &[(Uuid, i32, Acks)],
 ) -> ShareFetchRequest {
     let mut r = ShareFetchRequest::default();
     r.group_id = Some(GroupId(StrBytes::from_string(group.to_owned())));
@@ -88,7 +97,7 @@ pub fn ack_request(
     group: &str,
     member: &str,
     epoch: i32,
-    parts: &[(Uuid, i32, Vec<(i64, i64, Vec<i8>)>)],
+    parts: &[(Uuid, i32, Acks)],
 ) -> ShareAcknowledgeRequest {
     let mut r = ShareAcknowledgeRequest::default();
     r.group_id = Some(GroupId(StrBytes::from_string(group.to_owned())));
