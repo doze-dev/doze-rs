@@ -1,0 +1,8 @@
+stack_URLurl }
+}
+
+app "worker" {
+  run = "go run
+  port    = 3001
+  domains =# ["dev.acmt =b.url }
+}

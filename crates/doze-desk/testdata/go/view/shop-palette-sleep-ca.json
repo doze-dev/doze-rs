@@ -1,0 +1,75 @@
+{
+  "query": "sleep ca",
+  "sections": [
+    {
+      "title": "Sleep",
+      "rows": [
+        {
+          "glyph": "dot",
+          "tone": "y",
+          "label": "cache",
+          "at": [
+            0,
+            1
+          ],
+          "note": "in shop · dozing, 11 MB · quiet; sleeps soon",
+          "key": "⏎ sleep now",
+          "cli": "doze sleep cache",
+          "do": {
+            "kind": "verb",
+            "stackKey": "shop-1",
+            "verb": "sleep",
+            "target": "cache"
+          },
+          "acts": [
+            {
+              "label": "sleep",
+              "do": {
+                "kind": "verb",
+                "stackKey": "shop-1",
+                "verb": "sleep",
+                "target": "cache"
+              }
+            },
+            {
+              "label": "restart",
+              "do": {
+                "kind": "verb",
+                "stackKey": "shop-1",
+                "verb": "restart",
+                "target": "cache"
+              }
+            },
+            {
+              "label": "logs",
+              "do": {
+                "kind": "page",
+                "stackKey": "shop-1",
+                "target": "cache",
+                "page": "logs"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Did you mean",
+      "rows": [
+        {
+          "glyph": "↓",
+          "tone": "dim",
+          "label": "Sleep everything in shop",
+          "note": "5 awake",
+          "key": "sleep all",
+          "cli": "doze sleep",
+          "do": {
+            "kind": "verb",
+            "stackKey": "shop-1",
+            "verb": "sleep"
+          }
+        }
+      ]
+    }
+  ]
+}

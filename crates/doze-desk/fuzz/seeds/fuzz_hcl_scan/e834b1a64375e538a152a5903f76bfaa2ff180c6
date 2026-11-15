@@ -1,0 +1,10 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": faceue, "endpoint": "127.0.0.1:6379", "ercent": 0 },
+s": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

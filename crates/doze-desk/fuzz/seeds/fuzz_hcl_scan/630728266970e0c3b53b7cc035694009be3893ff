@@ -1,0 +1,10 @@
+{
+  "scheWa": "doze/v1",
+  "command": "de },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.dozen," oc"ns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": [ cache", "db"] },
+      { "name"': "web", "engine": "process", "group": "app", "state": "asleep", "enabled": true, ", "engine": "valkey", "version": "8", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:6379", "domain": "cache.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "migrate", "engine": "process",on": "8", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:6379", "domain": "cache.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "migrate", "engine": "process", "up": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:6379",    ]
+  }
+}

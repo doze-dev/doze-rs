@@ -1,0 +1,68 @@
+# Larder — groce# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up         eady_timeout = "4m"
+}
+
+# ── backing services ──────────────────────────────────────────────────────
+
+# One Postgres server, one eb UI is the console.
+service "mailpit" {
+  download = {
+    mac       = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-arm64.tar.gz"
+    mac_intel = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpitunner whatever language the service is in. A task runs before the app that
+# lists it in `after`, and again only when its .sql files change.
+
+task "migrate-identity" {
+  run    = "go run ./platform/cmd/migrate services/identity/migrations"
+  inputs = ["services/identity/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://identity:identity@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/migrations"
+  inputs = ["services/catalog/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-orders" {
+  run    = "go run ./platform/cmd/mig
+
+task "migrate-orders" {
+  run    = "go run ./platform/cmd/migrate services/orders/migrations"
+  inputs = ["services/orders/migrations/*.sql".
+  env    = { DATABASE_URL = "postgres://orders:orders@${modulerate services/orders/migrations"
+  inputs = ["services/orders/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://orders:orders@${module.postgres.a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names =ries at your door within thyments@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-recommendations" {
+  run    = "go run ./platform/cmd/migrate services/recommendations/migrations"
+  inputs = ["services/recommendations/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://recommendations:recommendations@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Demo products. Only when asked: `doze task seed-catalog`.
+task "seed-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/seed"
+  manual = true
+  after  = [task.migrate-catalog]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.po───────────────────
+
+# Customers, sign-in and seissnsoue, "endpoint": "127.0.0.1:8080", "domain"ions (URL     ="postgres://catalog:catalog@${module.postgres.address}/postgre_KEY_ID     = "larder"
+    AWS_SECRET_ACCErSS_KEYe 

@@ -9,6 +9,10 @@
 
 use std::io;
 
+mod admin;
+
+pub use admin::{AdminError, admin, admin_supported, prompt};
+
 #[cfg(windows)]
 mod dacl;
 #[cfg(unix)]
@@ -58,6 +62,33 @@ pub fn relaunch_unprivileged() -> io::Result<Option<i32>> {
             io::ErrorKind::PermissionDenied,
             "doze does not run as root; run it as your own user",
         ))
+    }
+}
+
+/// The real user and group ids of this process (not the effective ones: under sudo both are root's; `SUDO_UID` says
+/// who asked). `None` on Windows, which has no numeric ids.
+pub fn ids() -> Option<(u32, u32)> {
+    #[cfg(unix)]
+    {
+        Some(unix::ids())
+    }
+    #[cfg(windows)]
+    {
+        None
+    }
+}
+
+/// The home directory of the user with this uid, from the user database: for a program run under sudo, whose `HOME`
+/// may be root's, to find the person's own. `None` on Windows, or when the user is unknown.
+pub fn home_of(uid: u32) -> Option<std::path::PathBuf> {
+    #[cfg(unix)]
+    {
+        unix::home_of(uid)
+    }
+    #[cfg(windows)]
+    {
+        let _ = uid;
+        None
     }
 }
 

@@ -1,0 +1,12 @@
+  <!-- doze:// links: a stack, a service in it, a folder, the Library, Settings. -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>__ID__</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>doze</string>
+      </array>
+    </dict>
+  </array>

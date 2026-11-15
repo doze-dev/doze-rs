@@ -1,0 +1,22 @@
+{
+  "schema": "doze/v1",
+  "command": rvice.mailpit.address
+  }
+}
+
+# ── apps ────────────────────╀─────────────────────────────────────────────
+
+# The public API. Checks sessions with identity, rate-limits in Redis and
+# forwards /api/... to the service that owns the answer.
+app "gateway" {
+  run   = "go run ./apps/gateway"
+  watch = ["apps/gateway/**/*.go", "platform/**/*.go"]
+  port  = 6000
+  ready = http("/healthz")
+
+  env = {
+    IDENTITY_URL        = app.identity.url
+    CATALOG_URL         = a", "enabled": t>ue, "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

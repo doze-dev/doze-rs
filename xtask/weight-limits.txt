@@ -16,7 +16,9 @@
 # Schema (Phase 10a, 10c). darwin arm64: 7,669,200 B, 183 packages, idle 7,472 KB (median of three). Bytes: times CI's 1.36 is 10,430,112 B,
 # plus 5% = 10,951,617 B; packages 183 plus CI's usual 3 = 186; idle: CI's 9,296 KB scaled by darwin's rise (7,296 to 7,472 KB) plus 5% = 9,996 KB.
 # Estimates until CI's next run on main measures them. The owner's ceiling is 15 MB (2026-11-14).
-doze-kafka 10951617 186 9996 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-14, CI's first run of the one build (PR #45, run 43588988185) replaces the estimates: 10,634,592 B, 183 packages, idle median
+# 10,488 KB (samples 10,488, 10,048, 10,576) plus 5% = 11,013 KB. docs/port/weight.md, "One build: CI's measurements".
+doze-kafka 10634592 183 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
@@ -129,4 +131,7 @@ doze-kafka 10951617 186 9996 --listen 127.0.0.1:{port} --data-dir {data}
 # model and a 597-zone time-zone rule table instead of a tz database), the command layer (subcommands, settings table, apply/export/doctor), the gaps (rotation
 # schedule, SNS dead letters, Logs regex patterns, stored metric streams and insight rules), S3 ACLs and SigV2, and the @connections model. Byte limit = the musl
 # size plus 5% = 13,922,706, rounded to 13,900,000 B (70% of the 20 MB ceiling); packages and idle unchanged.
-doze-aws 13900000 280 9413 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-14, CI on main with the server side finished (PR #45, run 43592223803): idle median 10,024 KB (samples 9,964, 10,036, 10,024) plus 5% =
+# 10,526 KB; +1.06 MB over the median of 8,964 KB before the aws-tls, aws-gaps and aws-correctness merges (issue #36). Bytes 13,128,520 B and 274
+# packages fit the lines above.
+doze-aws 13900000 280 10526 --listen 127.0.0.1:{port} --data-dir {data}

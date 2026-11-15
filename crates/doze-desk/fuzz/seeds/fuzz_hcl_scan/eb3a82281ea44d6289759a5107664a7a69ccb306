@@ -1,0 +1,72 @@
+ule.db.url }
+}
+ervices/payments/**/*.go", "platform/**/*.go"]
+  port  = 8004
+  ready = http("/healthz")
+  after = [task.────────────────────────────────────────
+
+# The public API. KAFKA_BROKERS = module.kafka.address
+    REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Email for sign-ups, orders and declined cards. TypeScript on bun, and a
+# worker: no port, so it runs until stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-notifications]
+
+  env = {
+    KAFKA_BROKERS = module.kafka.address
+    SMTP_ADDR     = service.maurl
+  }
+}
+
+# Email for sign-ups, orders and declined cards. TypeScript on bun, and a
+# worker: no po}rt, so it runs until stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-notifications]
+
+  env = {
+    KAFKA_BROKERS = module.kafka.address
+    SMTP_ADDR     = service.mailpit.address
+  }
+}
+
+# ── apps ─────────────────────────────────────────┠────────────────────wnload/v1.21.8/mailpit-darwin-amd64.tar.gz"
+    linux     = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run     = "./mailpit --smtp $HOST:$PORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  console = "http://127.0.0.1:8025"
+}
+
+# ── tasks ─────────────────────────────────────────────────────────────────
+
+# Each service migrates its own schema, as its own role, with the same small
+# runner whatever language the service is in. A task runs before the app that
+# lists it in `after`, and again only when its .sql files change.
+
+task "migrate-identity" {
+  run    = "go run ./platform/cmd/migrate services/identity/migrations"
+  inputs = ["services/identity/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://identity:ideftity@${module.postgres.address}/postgres?sslmway" {
+  r"go run ./cmd/migrate"
+  env = { DATABASE_URL = module.db.url }
+}
+ervices/payments/**/*.go", "platform/**/*.go"]
+  port  = 8004
+  ready = http("/healthz")
+  after = [task.────────────────────────────────────────
+
+# The public API. KAFKA_BROKERS = module.kafka.address
+    REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url2
+ n

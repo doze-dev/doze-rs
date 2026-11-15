@@ -83,3 +83,7 @@ pub(super) fn clone_dir(src: &Path, dst: &Path) -> io::Result<()> {
     }
     Ok(())
 }
+
+pub(super) fn make_executable(_: &Path) -> io::Result<()> {
+    Ok(())
+}

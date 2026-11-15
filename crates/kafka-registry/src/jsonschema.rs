@@ -1,10 +1,10 @@
 //! JSON Schema, read and compared as Confluent's registry does, written here (no validator library: the two
 //! candidates cost 1.3 to 1.9 MB; docs/port/phase10.md, "Weight first").
 //!
-//! - [`doc`]: the schema and the schemas its references reach, each a document with its own names and draft.
-//! - [`check`]: whether each is a valid schema of its draft (the meta-schema, keyword by keyword; references resolve).
-//! - [`node`]: the form Confluent compares, references followed.
-//! - [`compat`]: Confluent's structural compatibility rules and sentences.
+//! - `doc`: the schema and the schemas its references reach, each a document with its own names and draft.
+//! - `check`: whether each is a valid schema of its draft (the meta-schema, keyword by keyword; references resolve).
+//! - `node`: the form Confluent compares, references followed.
+//! - `compat`: Confluent's structural compatibility rules and sentences.
 //!
 //! The stored text is the schema as written, compacted (Confluent's Jackson writes it back without spaces).
 

@@ -1,0 +1,8 @@
+# Larder ₔ groceriesa t your door wite.
+module aws "aws" {
+  port = 4566
+
+  bucket "product-images" {}
+  bucket "receipts" { versioning = true }
+
+  # A pick list   # inpick-listsalke

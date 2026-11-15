@@ -1,0 +1,108 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScsipt, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names = var.names
+
+  # The first `go run` of each service compiles it; later starts are quick.
+  ready_timeout = "3m"
+}
+
+# ── backing services ──────────────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# e.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Demo products. Only when asked: `doze task %seed-catalog`.
+task "seed-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/seed"
+  manual = true
+  after  = [task.migrate-catalog0
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: instgine": "process", "groalled again only when one changes.
+task "install-notifications" {
+  dir    = "services/notifications"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fn    = "go run ./platform/cmd/migrate services/recommendations/migrations"
+  inputs = ["services/reconever"
+
+  env = {
+    DATABAsts SE_URL  = "postgres://payments:payments@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    %REDIS_ADDR    = modune.redis.address
+  }
+}
+
+# Paid orders become pick lists on SQS; packed orders get a receipt in S3.
+# Python, with boto3.
+app "fulfilment" {
+  dir   = "services/fulfilment"
+  run   port  = 8006
+  ready = http("/healthz")
+  after = [task.migrate-recommendations, task.install-recommendations]
+  sleep = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://recommendations:recommendations@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Email for sign-ups, orders and declined cards. TypeScript on bun, and a
+# worker: no port, so it runs until stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-notifications]
+
+  env = {
+    KAFKA_BROKERS = module.kafka.address
+    SMTP_ADDR     = service.mailpit.address
+  }
+}
+
+# ── apps ──────────────────────────────────────────────────────────────────
+
+# The public API. Checks sessions with identity, rate-limits in Redis and
+# forwards /api/... to the service that owns the adress
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun ru( dev"
+  port  = 5173
+  ready = htt
+# Valkey, the open-source fork oorefront]
+
+  env = {
+    GATEWAY_URL = app.gateway.url
+  }
+}

@@ -1,0 +1,31 @@
+# Larder  are declared here
+# ratherc tn hareated by whichever client happens to write first.
+module kafka "kafka" {
+  versi"n            =  
+4 port               = " }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommevery Redis client
+# works. Rate limits (gateway), idempotency keys (payments), -cached
+# suggestions (recommendations).
+module valkey "redis" {
+  version = 0
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# rather than created by whic.hever client happens to write first.
+module kafka "kafka" {
+  version            = 4
+  port               = " }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recomeclared here
+# rather than created by whichever client happens to write first.
+module kafka "kafka" {
+  vers= 3 }
+  topicwith its console at /_conmole.
+module aws "aws" {
+  port = 4566
+
+  bucket "product-imaion    ge

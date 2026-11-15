@@ -1,0 +1,11 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services"z [
+    tes": 0, "cpuPercent": 0 },
+      { "name": "cac   ]
+  }
+}

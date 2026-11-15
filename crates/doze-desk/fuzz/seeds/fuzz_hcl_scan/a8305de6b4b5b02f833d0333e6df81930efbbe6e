@@ -1,0 +1,7 @@
+# Larder — groduleb" {
+  run  
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3

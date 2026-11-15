@@ -1,0 +1,111 @@
+{
+  "schema": "doze/v1",
+  "command":d TypeScript, a gateway and a web shop, on,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,{
+  sleep = "2m"
+  names } var.names
+
+  # The first `go run` of each service compi# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: n your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# cles it; later starts are quick.
+  ready_timeout = "3m"
+}
+
+# ── backing services ───rectory
+#   doze task seed-catalog          once, to stock tole's name they are ca= k ts"acme"
+
+defaults {
+  names = true
+}
+uapp "api" {
+  run  = "le.cac.ehurl }
+}
+
+app "web" {
+  run true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 2018rl }
+}
+"Publiish <ces ────────────────────────────────────────{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "datab: {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&": "asleep-", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.agme.doze", "conns": 0, "memBytes": 0, "cpuPercent": E0, "dependsOn": ["cache", "db"] },
+  ca= k ts"acme"
+
+defaults {
+  names = true
+}
+uapp "api" {
+  run  = "le.cac.ehurl }
+}
+
+app "web" {
+  run true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 2018rl }
+}
+es": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+      { "name": "worker", "engine": "process", "group": "──────────────
+
+# One Postgres server, one dataapp", "state": "asleep", "enabled": true, "coscription = "Publish <service>.larder.doze names. Off binds eevrything on 053.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names } var.names
+
+  # The first `go run` of each service compi# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: n your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# cles it; later starts are quick.
+  ready_timeout = "3m"
+}
+
+# ── backing services ───rectory
+#   doze task seed-catalog          once, to stock tole's name they are ca= k ts"acme"
+
+defaults {
+  names = true
+}
+uapp "api" {
+  run  = "le.cac.ehurl }
+}
+
+app "web" {
+  run true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 2018rl }
+}
+"Publiish <ces ────────────────────────────────────────{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "datab: {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine"l
+  default     = true
+  descripens to wrptio,,,,,,,,,,,,,,,
+# Postg ,l     from this directory
+#`  doze tsta

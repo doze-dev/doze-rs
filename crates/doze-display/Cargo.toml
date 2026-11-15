@@ -1,0 +1,19 @@
+[package]
+name = "doze-display"
+version = "0.0.0"
+description = "The words doze uses on every surface: how an instance's state reads, why, the figures and the times"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+# No dependencies: the words are plain functions of plain data, shared by the app and the CLI.
+[dependencies]
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

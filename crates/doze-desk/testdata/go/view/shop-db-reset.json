@@ -1,0 +1,74 @@
+{
+  "kind": "reset",
+  "needed": true,
+  "title": "reset db · this deletes data",
+  "danger": true,
+  "facts": [
+    {
+      "k": "deletes",
+      "spans": [
+        {
+          "text": "everything in "
+        },
+        {
+          "text": "~/.doze/shop/db",
+          "strong": true,
+          "mono": true
+        }
+      ],
+      "tone": "text"
+    },
+    {
+      "k": "stops",
+      "spans": [
+        {
+          "text": "db if it is awake"
+        }
+      ],
+      "tone": "text"
+    },
+    {
+      "k": "then",
+      "spans": [
+        {
+          "text": "db starts empty on its next wake, and its setup runs again"
+        }
+      ],
+      "tone": "text"
+    },
+    {
+      "k": "way back",
+      "spans": [
+        {
+          "text": "none.",
+          "strong": true
+        },
+        {
+          "text": " There is no snapshot."
+        }
+      ],
+      "tone": "text"
+    }
+  ],
+  "typeName": "db",
+  "command": "doze reset db --yes",
+  "buttons": [
+    {
+      "label": "Reset db",
+      "verb": "reset",
+      "targets": [
+        "db"
+      ],
+      "danger": true
+    },
+    {
+      "label": "Cancel",
+      "cancel": true
+    }
+  ],
+  "default": 1,
+  "foot": [
+    "Typing the name is only asked when data is deleted. Cancel is the default button.",
+    "From a script: doze reset db --yes"
+  ]
+}

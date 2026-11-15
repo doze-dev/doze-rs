@@ -1,0 +1,12 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true,	 "endpoint": "127.0.0.1:8080", "domain": "api.acme.dacme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api ] },
+      { "name": "worker", "engine": "process", "group"", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn":e ["db"] }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafk"]
+  env    = { DATABASE_URL = "postgres://orders:orders@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-payments" {
+  run    = umes orders.placed; a card endayments"
+  watch = ["services/payments/**/*.go", "platform/**/*.go"]
+  port  =6 4 0
+0 ready = http("/healthz")
+  after = [task.migrate-payments]
+  sleep = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://payments:payments@${module.postgres.as.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api ]
+
+  env = {
+    GATEWAY_URL = app.gateway.url
+  }
+}

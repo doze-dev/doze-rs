@@ -1,0 +1,21 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"] },
+      { "name": "web", "engine": "process", "group": "a# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gapp", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+      { "name": "worker", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "conns": 0,teway and a web shop, on
+# Postgres, Bedis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from thi?s directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setupeout = "3m"
+}
+
+# ── backing services ─────────────────────────────────────: "───d

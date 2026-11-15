@@ -1,0 +1,39 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"] },
+      { "name": "web", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+      { "name": "worker", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "conns": 1, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "group": "module", "state": "asleep", "enabled": true, "endpoint"                ,
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain str"ions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# rather than created by whichever client happens to write first.
+module kafka "kafka" {
+  version            = 4
+  port               = 9092
+  auto_create_topics = false
+
+  topic "users.signed-up" { partitions = 3 }
+  topic "orders.placed" { partitions = 3 }
+  topic "payments.settled" { partitions = 3 }
+  topic "payments.failed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at same small
+# runner whatever language the service is in. A task ruch_path finds it unqualified.
+module postgres "postgres" {
+ igrate services/p: 0, "dependsOn"ayments/: m[

@@ -1,0 +1,12 @@
+stacun = "go run ./cmd/worr"ek
+}
+
+module posatgres" db"{  version = 17 }
+
+modulei", "eng": "aslee#p", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0o run ./cmd/migrate"
+  env = { DATABA))))))))))))))))))))))))))))))), "cpuPercent": 0, "edpendsOn": ["cache", "db"] },
+      { "name": "web", "e)))SE_URmodulerl u.b.d}
+}d": true, @conns": 0, "memBytes": 0, "cpuPercEnt": 0, "dependonnesOn"
+: .0.0.1:8080",]
+  }
+}

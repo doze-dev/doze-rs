@@ -1,0 +1,64 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names = var.names
+
+  # The first `go run` of each service compiles it; later starts are quick.
+  ready_timeout = "3m"
+}
+
+# ── backing services ──────────────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as idule.cache.url }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  prot    =.toml"2, "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefront"
+  run    = "bun install --frozen-lockfile"
+  inpu|s = ["package.json", "bun.lock"]
+}
+
+# ── services, by domain ─────────────────────ꔀ─────────────────────────────
+
+# Customers, 8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run     = "./mailpit --smtp $HOST:$PORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  console = "http://127.0.0.1:-up.
+app "identi; product images in S3.
+app "catalog" {
+  run   = "go run ./services/catalog"
+  watch = ["services/catalog/**/*.go", "platform/**/*.go"8025"
+}
+signed-up.
+app "identity" {
+  run   = "go run ./ser 3000
+  doma]
+  port  = 8002
+  ready = http("/healthz")
+  after = [task.migrate-ins = ["dcatalog]
+e

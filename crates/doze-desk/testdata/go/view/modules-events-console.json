@@ -1,0 +1,277 @@
+{
+  "key": "data-1",
+  "name": "events",
+  "tab": "console:_",
+  "body": {
+    "kind": "col",
+    "id": "col:",
+    "weight": 1,
+    "flexible": true,
+    "children": [
+      {
+        "kind": "row",
+        "id": "row:",
+        "weight": 1,
+        "flexible": true,
+        "children": [
+          {
+            "kind": "table",
+            "id": "table:topics",
+            "title": "topics",
+            "weight": 1,
+            "flexible": true,
+            "cols": [
+              {
+                "key": "name",
+                "title": "name"
+              },
+              {
+                "key": "partitions",
+                "title": "parts",
+                "align": "right",
+                "role": "count"
+              },
+              {
+                "key": "high",
+                "title": "messages",
+                "align": "right",
+                "role": "count"
+              },
+              {
+                "key": "high",
+                "title": "rate",
+                "align": "right",
+                "role": "rate"
+              },
+              {
+                "key": "from",
+                "title": "from"
+              }
+            ],
+            "rows": [
+              {
+                "key": "orders",
+                "cells": [
+                  {
+                    "text": "orders",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "3",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "1,043",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "—",
+                    "tone": "dim"
+                  },
+                  {
+                    "text": "doze.hcl",
+                    "tone": "dim"
+                  }
+                ]
+              },
+              {
+                "key": "emails",
+                "cells": [
+                  {
+                    "text": "emails",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "1",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "87",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "—",
+                    "tone": "dim"
+                  },
+                  {
+                    "text": "doze.hcl",
+                    "tone": "dim"
+                  }
+                ]
+              },
+              {
+                "key": "orders.dlq",
+                "cells": [
+                  {
+                    "text": "orders.dlq",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "1",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "0",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "—",
+                    "tone": "dim"
+                  },
+                  {
+                    "text": "runtime",
+                    "tone": "warn"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "table",
+            "id": "table:groups",
+            "title": "consumer groups",
+            "weight": 1,
+            "flexible": true,
+            "cols": [
+              {
+                "key": "name",
+                "title": "group"
+              },
+              {
+                "key": "topic",
+                "title": "topic"
+              },
+              {
+                "key": "lag",
+                "title": "lag",
+                "align": "right",
+                "role": "lag"
+              },
+              {
+                "key": "members",
+                "title": "members"
+              }
+            ],
+            "rows": [
+              {
+                "key": "worker",
+                "cells": [
+                  {
+                    "text": "worker",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "orders",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "0",
+                    "tone": "good"
+                  },
+                  {
+                    "text": "1",
+                    "tone": "text"
+                  }
+                ]
+              },
+              {
+                "key": "mailer",
+                "cells": [
+                  {
+                    "text": "mailer",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "emails",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "12",
+                    "tone": "bad"
+                  },
+                  {
+                    "text": "0",
+                    "tone": "text"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "stream",
+        "id": "stream:tail",
+        "title": "tail",
+        "weight": 1,
+        "flexible": true,
+        "cols": [
+          {
+            "key": "time",
+            "title": "time",
+            "role": "time"
+          },
+          {
+            "key": "partition",
+            "title": "p"
+          },
+          {
+            "key": "offset",
+            "title": "offset",
+            "align": "right"
+          },
+          {
+            "key": "key",
+            "title": "key"
+          },
+          {
+            "key": "value",
+            "title": "value"
+          }
+        ]
+      },
+      {
+        "kind": "actions",
+        "id": "actions:",
+        "title": "actions",
+        "weight": 1,
+        "actions": [
+          {
+            "id": "produce",
+            "label": "Produce a message",
+            "key": "P",
+            "hint": "message value",
+            "resource": "orders"
+          },
+          {
+            "id": "keep",
+            "label": "Keep topic in doze.hcl",
+            "key": "K",
+            "resource": "orders"
+          }
+        ]
+      }
+    ]
+  },
+  "state": "active",
+  "awake": true,
+  "note": "the module's console · re-read every 2s while awake; it never wakes events",
+  "keys": [
+    [
+      "↑↓",
+      "select"
+    ],
+    [
+      "P",
+      "produce a message"
+    ],
+    [
+      "K",
+      "keep topic in doze.hcl"
+    ],
+    [
+      "tab",
+      "next tab"
+    ]
+  ]
+}

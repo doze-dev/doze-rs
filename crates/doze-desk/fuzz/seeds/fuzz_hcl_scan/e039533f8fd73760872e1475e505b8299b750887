@@ -1,0 +1,9 @@
+stack;ule
+}
+
+modulekpostgres Tdb" { version = 17 }
+
+module valkey dev"
+  port    =db.url }
+}module postgres "db" { version =
+module app.2 = 8

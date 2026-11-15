@@ -1,0 +1,297 @@
+{
+  "key": "/k",
+  "stack": "shop",
+  "span": "7d",
+  "inst": "svc-3",
+  "ticks": [
+    {
+      "at": 0,
+      "label": "Fri"
+    },
+    {
+      "at": 0.14285714285714285,
+      "label": "Sat"
+    },
+    {
+      "at": 0.2857142857142857,
+      "label": "Sun"
+    },
+    {
+      "at": 0.42857142857142855,
+      "label": "Mon"
+    },
+    {
+      "at": 0.5714285714285714,
+      "label": "Tue"
+    },
+    {
+      "at": 0.7142857142857143,
+      "label": "Wed"
+    },
+    {
+      "at": 0.8571428571428571,
+      "label": "Thu"
+    },
+    {
+      "at": 1,
+      "label": "now"
+    }
+  ],
+  "summary": {
+    "up": "6d 4h of 7d 0h",
+    "asleep": "96%",
+    "wakes": 6,
+    "crashes": 1
+  },
+  "rows": [
+    {
+      "name": "svc-3",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9616467652553996,
+      "asleep": "5d 23h asleep · 96%",
+      "wakes": 6,
+      "wokenBy": "3 by a connection · 3 when asked",
+      "crashes": 1,
+      "spans": [
+        {
+          "from": 0.1599691865079365,
+          "to": 0.1660644923941799,
+          "ready": 0.1599751388888889,
+          "title": "awake 1h · woke when asked · slept (idle)"
+        },
+        {
+          "from": 0.2822663673941799,
+          "to": 0.2835622751322751,
+          "ready": 0.2822723197751323,
+          "title": "awake 13m · woke when asked · slept (idle)"
+        },
+        {
+          "from": 0.45425972056878305,
+          "to": 0.45545019675925924,
+          "ready": 0.45426567294973547,
+          "title": "awake 12m · woke by a connection · crash"
+        },
+        {
+          "from": 0.5312216137566138,
+          "to": 0.537378404431217,
+          "ready": 0.5312275661375662,
+          "title": "awake 1h · woke by a connection · slept (idle)"
+        },
+        {
+          "from": 0.5690732423941799,
+          "to": 0.5762974206349206,
+          "ready": 0.5690791947751322,
+          "title": "awake 1h · woke by a connection · slept (idle)"
+        },
+        {
+          "from": 0.621716326058201,
+          "to": 0.6337245419973545,
+          "ready": 0.6217222784391534,
+          "title": "awake 2h · woke when asked · slept (idle)"
+        }
+      ],
+      "marks": [
+        {
+          "at": 0.45545019675925924,
+          "kind": "crash",
+          "title": "Tue 00:30 crash · exit status 1"
+        }
+      ]
+    }
+  ],
+  "trouble": [
+    {
+      "at": "Fri 16:22",
+      "kind": "crashed:",
+      "text": "svc-6 exit status 1",
+      "tone": "bad"
+    },
+    {
+      "at": "Fri 08:12",
+      "kind": "crashed:",
+      "text": "svc-2 exit status 1",
+      "tone": "bad"
+    },
+    {
+      "at": "Wed 11:29",
+      "kind": "crashed:",
+      "text": "svc-5 exit status 1",
+      "tone": "bad"
+    },
+    {
+      "at": "Wed 08:09",
+      "kind": "crashed:",
+      "text": "svc-10 exit status 1",
+      "tone": "bad"
+    },
+    {
+      "at": "Tue 09:47",
+      "kind": "crashed:",
+      "text": "svc-0 exit status 1",
+      "tone": "bad"
+    },
+    {
+      "at": "Tue 00:30",
+      "kind": "crashed:",
+      "text": "svc-3 exit status 1",
+      "tone": "bad"
+    },
+    {
+      "at": "Sun 06:49",
+      "kind": "crashed:",
+      "text": "svc-6 exit status 1",
+      "tone": "bad"
+    },
+    {
+      "at": "Sun 04:20",
+      "kind": "crashed:",
+      "text": "svc-7 exit status 1",
+      "tone": "bad"
+    },
+    {
+      "at": "Sat 11:14",
+      "kind": "crashed:",
+      "text": "svc-5 exit status 1",
+      "tone": "bad"
+    },
+    {
+      "at": "Sat 07:46",
+      "kind": "crashed:",
+      "text": "svc-11 exit status 1",
+      "tone": "bad"
+    }
+  ],
+  "events": [
+    {
+      "at": "Fri 13:22",
+      "kind": "went",
+      "text": "svc-3 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "Wed 06:27",
+      "kind": "went",
+      "text": "svc-3 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "Wed 04:26",
+      "kind": "ready",
+      "text": "svc-3 in 1.497s",
+      "tone": "good"
+    },
+    {
+      "at": "Wed 04:26",
+      "kind": "woke",
+      "text": "svc-3 (asked for)",
+      "tone": "accent"
+    },
+    {
+      "at": "Tue 20:49",
+      "kind": "went",
+      "text": "svc-3 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "Tue 19:36",
+      "kind": "ready",
+      "text": "svc-3 in 781ms",
+      "tone": "good"
+    },
+    {
+      "at": "Tue 19:36",
+      "kind": "woke",
+      "text": "svc-3 (a connection)",
+      "tone": "accent"
+    },
+    {
+      "at": "Tue 14:16",
+      "kind": "went",
+      "text": "svc-3 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "Tue 13:14",
+      "kind": "ready",
+      "text": "svc-3 in 638ms",
+      "tone": "good"
+    },
+    {
+      "at": "Tue 13:14",
+      "kind": "woke",
+      "text": "svc-3 (a connection)",
+      "tone": "accent"
+    },
+    {
+      "at": "Tue 00:30",
+      "kind": "crashed:",
+      "text": "svc-3 exit status 1",
+      "tone": "dim"
+    },
+    {
+      "at": "Tue 00:18",
+      "kind": "ready",
+      "text": "svc-3 in 657ms",
+      "tone": "good"
+    },
+    {
+      "at": "Tue 00:18",
+      "kind": "woke",
+      "text": "svc-3 (a connection)",
+      "tone": "accent"
+    },
+    {
+      "at": "Sun 19:38",
+      "kind": "went",
+      "text": "svc-3 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "Sun 19:25",
+      "kind": "ready",
+      "text": "svc-3 in 848ms",
+      "tone": "good"
+    },
+    {
+      "at": "Sun 19:25",
+      "kind": "woke",
+      "text": "svc-3 (asked for)",
+      "tone": "accent"
+    },
+    {
+      "at": "Sun 14:24",
+      "kind": "went",
+      "text": "svc-3 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "Sat 23:53",
+      "kind": "went",
+      "text": "svc-3 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "Sat 22:52",
+      "kind": "ready",
+      "text": "svc-3 in 1.674s",
+      "tone": "good"
+    },
+    {
+      "at": "Sat 22:52",
+      "kind": "woke",
+      "text": "svc-3 (asked for)",
+      "tone": "accent"
+    },
+    {
+      "at": "Sat 14:08",
+      "kind": "went",
+      "text": "svc-3 to sleep (shutting down)",
+      "tone": "dim"
+    }
+  ],
+  "short": "the journal goes back 6d; the figures cover that"
+}

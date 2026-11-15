@@ -1,0 +1,11 @@
+stack = "acme"
+
+defaults ames = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8
+  run = "go run ./cmd/wo ./cmd/migrate"
+  env = { DATABASE_URL = moduld.db.url }
+}
