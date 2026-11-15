@@ -6,13 +6,13 @@ use serde_json::{Value, json};
 use super::{World, temp};
 use crate::core::Core;
 
-struct Run<'a> {
-    w: World,
+pub(super) struct Run<'a> {
+    pub(super) w: World,
     dir: &'a std::path::Path,
 }
 
 impl<'a> Run<'a> {
-    fn new(dir: &'a std::path::Path) -> Self {
+    pub(super) fn new(dir: &'a std::path::Path) -> Self {
         let clock = std::sync::Arc::new(doze_runtime::ManualClock::at(1_700_000_000_000));
         let bus = super::Bus::new();
         let core = Core::open_in(dir, clock.clone(), Some(bus.peers.clone())).unwrap();
@@ -23,11 +23,14 @@ impl<'a> Run<'a> {
     }
 
     fn state(&self) -> String {
-        format!("{:?}", self.w.core.params)
+        format!(
+            "{:?} {:?} {:?}",
+            self.w.core.params, self.w.core.documents, self.w.core.settings
+        )
     }
 
     /// Runs `op`, then proves a restart changes nothing.
-    fn step(&mut self, op: &str, request: &Value) -> Value {
+    pub(super) fn step(&mut self, op: &str, request: &Value) -> Value {
         let answer = self.w.ok(op, request);
         let before = self.state();
         if let Some(db) = self.w.core.db.take() {

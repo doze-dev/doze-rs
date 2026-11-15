@@ -12,6 +12,7 @@ use crate::Ssm;
 use crate::core::Core;
 
 mod data;
+mod documents;
 mod parameters;
 mod peers;
 mod persistence;
@@ -136,7 +137,7 @@ fn the_fleet_half_of_ssm_is_refused_by_name() {
         "SendCommand",
         "StartSession",
         "CreateMaintenanceWindow",
-        "CreateDocument",
+        "CreateAssociation",
         "PutInventory",
     ] {
         assert!(!w.h.serves(op), "{op} is refused");

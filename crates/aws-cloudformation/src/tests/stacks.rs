@@ -352,3 +352,29 @@ async fn an_export_in_use_keeps_its_stack() {
     assert_eq!(w.delete("eb").await, "DELETE_COMPLETE");
     assert_eq!(w.delete("ea").await, "DELETE_COMPLETE");
 }
+
+#[tokio::test]
+async fn a_document_and_a_public_image_parameter_deploy() {
+    let w = World::new();
+    let t = json!({"Parameters": {"Image": {"Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+            "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"}},
+        "Resources": {"Doc": {"Type": "AWS::SSM::Document", "Properties": {"Name": "cfn-doc", "DocumentType": "Command",
+            "Content": {"schemaVersion": "2.2", "mainSteps": [{"action": "aws:runShellScript", "name": "run",
+                "inputs": {"runCommand": ["echo hi"]}}]}}}},
+        "Outputs": {"Image": {"Value": {"Ref": "Image"}}, "Doc": {"Value": {"Ref": "Doc"}}}});
+    assert_eq!(w.create("docs", t, &[]).await, "CREATE_COMPLETE");
+    let outputs = w.outputs("docs").await;
+    assert!(outputs["Image"].as_str().unwrap().starts_with("ami-0"));
+    assert_eq!(outputs["Doc"], "cfn-doc");
+    let got = w
+        .call("ssm", "GetDocument", json!({"Name": "cfn-doc"}))
+        .await
+        .unwrap();
+    assert!(got["Content"].as_str().unwrap().contains("echo hi"));
+    assert_eq!(w.delete("docs").await, "DELETE_COMPLETE");
+    assert!(
+        w.call("ssm", "GetDocument", json!({"Name": "cfn-doc"}))
+            .await
+            .is_err()
+    );
+}
