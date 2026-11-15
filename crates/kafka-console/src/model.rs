@@ -7,6 +7,7 @@ mod config;
 mod connect;
 mod consumers;
 mod data;
+mod group_share;
 mod group_states;
 mod groups;
 mod home;
@@ -74,12 +75,13 @@ pub use story::{
     StoryLast, StoryLeft, StoryNow, StoryParts, StoryRule, StoryTone, StoryView, StoryWho,
 };
 
+pub use group_share::{GroupShareView, ShareRow};
 pub use group_states::GroupStates;
 pub use groups::{
     GroupAttention, GroupDeleteView, GroupFilter, GroupHead, GroupLagView, GroupMemberRow,
-    GroupPart, GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupShareView,
-    GroupSpan, GroupsView, LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetMode,
-    ResetRow, ResetView, RowLag, ShareRow,
+    GroupPart, GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupSpan,
+    GroupsView, LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetMode, ResetRow,
+    ResetView, RowLag,
 };
 
 mod access;

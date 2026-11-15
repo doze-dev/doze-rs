@@ -9,8 +9,10 @@
 //! its assignment. Pure, like the consumer group: the actor hands in the time and the topics.
 
 pub(crate) mod assign;
+mod seat;
 #[cfg(test)]
 mod tests;
+mod view;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -233,59 +235,6 @@ impl ShareGroup {
         self.note(Why::new(cause, who, was), now, out);
     }
 
-    /// Kafka's checks of a heartbeat before it changes anything: the group's size, and a known member's epoch.
-    fn refusal(&self, hb: &ShareHeartbeat) -> Option<ShareAnswer> {
-        let id = &hb.member_id;
-        let Some(m) = self.members.get(id) else {
-            if self.members.len() >= hb.timing.max_size {
-                return Some(ShareAnswer::refused(
-                    E::GroupMaxSizeReached,
-                    format!(
-                        "The share group has reached its maximum capacity of {} members.",
-                        hb.timing.max_size
-                    ),
-                ));
-            }
-            return (hb.epoch != 0).then(|| {
-                ShareAnswer::refused(E::UnknownMemberId, not_a_member(id.as_str(), &hb.group))
-            });
-        };
-        epoch_refusal(hb.epoch, m)
-    }
-
-    /// The member as the heartbeat describes it, seated if it is new. `true`: its subscription changed.
-    fn seat(&mut self, hb: &ShareHeartbeat, now: Millis) -> bool {
-        let id = &hb.member_id;
-        let m = self.members.entry(id.clone()).or_insert_with(|| Member {
-            id: id.clone(),
-            epoch: 0,
-            prev_epoch: -1,
-            rack: None,
-            client_id: String::new(),
-            client_host: String::new(),
-            subscribed: BTreeSet::new(),
-            assigned: Partitions::new(),
-            session_gen: 0,
-            session_ms: hb.timing.session_ms,
-            heard: now,
-        });
-        if let Some(rack) = &hb.rack {
-            m.rack = Some(rack.clone());
-        }
-        m.client_id.clone_from(&hb.client_id);
-        m.client_host.clone_from(&hb.client_host);
-        m.session_ms = hb.timing.session_ms;
-        let Some(names) = &hb.subscribed else {
-            return false;
-        };
-        let names: BTreeSet<String> = names.iter().cloned().collect();
-        if m.subscribed == names {
-            return false;
-        }
-        m.subscribed = names;
-        true
-    }
-
     fn beat(
         &mut self,
         hb: &ShareHeartbeat,
@@ -471,38 +420,6 @@ impl ShareGroup {
         true
     }
 
-    #[must_use]
-    pub(crate) fn view(&self, topics: &Topics) -> ShareView {
-        ShareView {
-            state: if self.members.is_empty() {
-                "Empty"
-            } else {
-                "Stable"
-            },
-            epoch: self.epoch,
-            assignment_epoch: self.assignment_epoch,
-            members: self
-                .members
-                .values()
-                .map(|m| ShareMemberView {
-                    id: m.id.clone(),
-                    rack: m.rack.clone(),
-                    epoch: m.epoch,
-                    client_id: m.client_id.clone(),
-                    client_host: m.client_host.clone(),
-                    subscribed: m.subscribed.iter().cloned().collect(),
-                    // A topic deleted since is not shown.
-                    assigned: m
-                        .assigned
-                        .iter()
-                        .filter(|p| topics.name_of(&p.0).is_some())
-                        .copied()
-                        .collect(),
-                })
-                .collect(),
-        }
-    }
-
     fn who_is(&self, id: &MemberId) -> Option<Named> {
         if !CAPTURE {
             return None;
@@ -519,47 +436,4 @@ impl ShareGroup {
             after: count(self.members.len()),
         });
     }
-
-    /// What the console is told of the group besides what ShareGroupDescribe says.
-    #[cfg(feature = "inspect")]
-    pub(crate) fn inspect(&self, now: Millis) -> crate::groups::Inspect {
-        crate::groups::Inspect {
-            generation: self.epoch,
-            leader: None,
-            rebalance: None,
-            members: self
-                .members
-                .values()
-                .map(|m| crate::groups::MemberInspect {
-                    id: m.id.clone(),
-                    session_ms: m.session_ms,
-                    rebalance_ms: None,
-                    heard_ago_ms: now.0.saturating_sub(m.heard.0),
-                    rejoined: true,
-                })
-                .collect(),
-        }
-    }
-}
-
-/// Kafka's epoch check of a known member: 0 rejoins, the epoch it is at or the one before (an answer lost) go on.
-fn epoch_refusal(sent: i32, m: &Member) -> Option<ShareAnswer> {
-    if sent == 0 || sent == m.epoch || sent == m.prev_epoch {
-        return None;
-    }
-    let words = if sent > m.epoch {
-        format!(
-            "The share group member has a greater member epoch ({sent}) than the one known by the group coordinator \
-             ({}). The member must abandon all its partitions and rejoin.",
-            m.epoch
-        )
-    } else {
-        format!(
-            "The share group member has a smaller member epoch ({sent}) than the one known by the group coordinator \
-             ({}), and it does not match the previous member epoch ({}). The member must abandon all its partitions \
-             and rejoin.",
-            m.epoch, m.prev_epoch
-        )
-    };
-    Some(ShareAnswer::refused(E::FencedMemberEpoch, words))
 }

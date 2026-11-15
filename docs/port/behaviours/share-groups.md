@@ -38,7 +38,7 @@ In order: READ on GROUP (30); a member id present, not empty and at most 36 char
 topic (29). These are code only, no message (Kafka's `getErrorResponse`). Then the group coordinator's checks, with words:
 "MemberId can't be empty." (blank), "GroupId can't be empty.", "RackId can't be empty.", "SubscribedTopicNames must be set
 in first request." (epoch 0), "MemberEpoch is invalid." (below -1).
-Test: `tests/share_groups.rs::the_heartbeats_own_checks_are_kafkas_in_its_order_and_words`,
+Test: `tests/share_group_admin.rs::the_heartbeats_own_checks_are_kafkas_in_its_order_and_words`,
 `a_request_without_a_usable_member_id_is_refused_whole`.
 
 ### SG-4. ShareFetch and ShareAcknowledge: the request-wide checks
@@ -124,7 +124,7 @@ answer lost), go on. A greater one, or a smaller one that is not the one before,
 words. An unknown member at another epoch is UNKNOWN_MEMBER_ID "Member <m> is not a member of group <g>.". A group that is
 not there: GROUP_ID_NOT_FOUND "Share group <g> not found." (a leave: "Group <g> not found.").
 Test: `groups::share::tests::the_checks_of_a_known_members_epoch_are_kafkas`,
-`a_smaller_epoch_that_is_not_the_previous_one_is_fenced`, `tests/share_groups.rs::the_heartbeats_own_checks_are_kafkas_in_its_order_and_words`.
+`a_smaller_epoch_that_is_not_the_previous_one_is_fenced`, `tests/share_group_admin.rs::the_heartbeats_own_checks_are_kafkas_in_its_order_and_words`.
 
 ### SG-24. A share group holds 200 members
 `group.share.max.size`: a new member past it is GROUP_MAX_SIZE_REACHED (81) "The share group has reached its maximum
@@ -144,7 +144,7 @@ A share heartbeat to a classic or consumer group (one with committed offsets, or
 GROUP_ID_NOT_FOUND "Group <g> is not a consumer group."; an OffsetCommit GROUP_ID_NOT_FOUND. ListGroups lists it with type
 and protocol type `share`, state Empty or Stable (the type filter matches without regard to case: the Java Admin sends
 "Share"). DescribeGroups (to v5) shows it Dead. Nothing converts a share group.
-Test: `tests/share_groups.rs::a_share_group_and_the_other_kinds_refuse_each_others_requests`.
+Test: `tests/share_group_admin.rs::a_share_group_and_the_other_kinds_refuse_each_others_requests`.
 
 ### SG-27. ShareGroupDescribe
 Per group: DESCRIBE on it or 30 (no words, ahead of the rest); "Group <g> not found."; "Group <g> is not a share group.";
@@ -155,7 +155,7 @@ Test: `tests/share_crash.rs::a_share_groups_epochs_and_configs_outlive_a_restart
 
 ### SG-28. DeleteGroups of a share group
 With members: NON_EMPTY_GROUP. Empty: gone, with every share-partition state it had.
-Test: `tests/share_groups.rs::deleting_a_share_group_needs_it_empty_and_takes_its_share_partitions_with_it`.
+Test: `tests/share_group_admin.rs::deleting_a_share_group_needs_it_empty_and_takes_its_share_partitions_with_it`.
 
 ### SG-29. The share-partitions of what the group reads are initialized
 When a member joins or the epoch moves, every partition of the subscribed topics that has no stored state gets one: a topic
@@ -189,7 +189,7 @@ Test: `share::partition::tests::an_accepted_run_moves_the_start_and_lets_go_of_w
 Accept: acknowledged. Release: available again (the delivery count is kept; it rises on the next acquisition). Reject and
 gap: archived. Renew (4, KIP-1222): the lock starts again, nothing is stored, unless the group's
 `share.renew.acknowledge.enable` is false ("Renewing acquisition locks is not enabled for the group.").
-Test: `share::partition::tests::a_release_redelivers_with_one_more_delivery_and_a_reject_never_again`,
+Test: `share::partition::tests::acks::a_release_redelivers_with_one_more_delivery_and_a_reject_never_again`,
 `per_offset_types_and_gaps_split_a_batch`, `renewing_restarts_the_lock_and_moves_nothing_else`.
 
 ### SG-34. What is not held is not acknowledged, in Kafka's words, and nothing of the request is taken
@@ -198,11 +198,11 @@ record", "...of offset", "The offset cannot be acknowledged. The offset is not a
 request batch offsets are not found in the cache."); INVALID_REQUEST for offsets past what was acquired ("Batch record not
 found. The first offset in request is past acquired records." / "...last offset...") or an unknown type ("Invalid acknowledge
 type: [9]"). One failing batch fails the partition's whole acknowledgement. Batches behind the start are skipped.
-Test: `share::partition::tests::acknowledging_what_is_not_held_is_refused_in_kafkas_words_and_changes_nothing`.
+Test: `share::partition::tests::acks::acknowledging_what_is_not_held_is_refused_in_kafkas_words_and_changes_nothing`.
 
 ### SG-35. The delivery count limit
 `share.delivery.count.limit` (5, 2 to 10): a record released, or whose lock runs out, after that many deliveries is archived.
-Test: `share::partition::tests::a_record_released_after_its_last_delivery_is_archived`,
+Test: `share::partition::tests::acks::a_record_released_after_its_last_delivery_is_archived`,
 `a_lock_that_runs_out_after_the_last_delivery_archives`, interop `share-delivery-limit`.
 
 ### SG-36. A record delivered often is delivered with fewer others, and on its last delivery alone
@@ -238,7 +238,7 @@ Test: `share::partition::tests::a_log_start_past_the_start_archives_what_is_avai
 records available again (archived at the limit or behind the start), the count unchanged, and the change is stored. One task
 for the broker sleeps until the soonest lock is due (the alarm every acquisition and renewal sets); with nothing held it has
 no timer at all.
-Test: `share::partition::tests::a_lock_that_runs_out_makes_the_records_available_again_at_the_same_delivery_count`,
+Test: `share::partition::tests::acks::a_lock_that_runs_out_makes_the_records_available_again_at_the_same_delivery_count`,
 `tests/idle_upkeep.rs::the_share_lock_task_does_not_wake_while_nothing_is_held_and_wakes_once_when_a_lock_runs_out`,
 interop `share-lock-timeout`.
 
@@ -255,7 +255,7 @@ was before the write's own move (Kafka's lag of one write), and every record fro
 first delivery. A record acquired is stored as it was before its acquisition: Kafka writes no acquisition, so a lock does
 not outlive the broker and a delivery never acknowledged is not counted after a restart. One write per partition, flushed
 before the request is answered.
-Test: `share::partition::tests::what_is_stored_is_the_start_and_every_record_not_simply_waiting_with_a_held_one_as_before_its_acquisition`,
+Test: `share::partition::tests::stored::what_is_stored_is_the_start_and_every_record_not_simply_waiting_with_a_held_one_as_before_its_acquisition`,
 `kafka-meta store::shares::tests::*`.
 
 ### SG-51. A restart keeps what was acknowledged and archived, and lets go of every lock
@@ -290,13 +290,13 @@ Test: `tests/share_groups.rs::acknowledgements_ride_on_the_next_fetch_and_the_st
 READ on the group (30, "Group authorization failed."). Another kind of group: GROUP_ID_NOT_FOUND "Group <g> is not a share
 group."; members: NON_EMPTY_GROUP "The group is not empty." with no partitions. Per topic: READ (29), not there (3), a
 partition past its count (3); the rest stored with the start given and nothing in flight. A group not there is made, empty.
-Test: `tests/share_groups.rs::offsets_are_reset_only_while_the_group_is_empty_and_a_group_not_there_is_made`, interop `share-admin`.
+Test: `tests/share_group_admin.rs::offsets_are_reset_only_while_the_group_is_empty_and_a_group_not_there_is_made`, interop `share-admin`.
 
 ### SG-62. DeleteShareGroupOffsets
 DELETE on the group (30). Not there: GROUP_ID_NOT_FOUND "Group <g> not found."; another kind or members as SG-61. Per topic:
 READ (29, first in the answer), not there (3), no state "There is no offset information to delete." (3), else its states
 deleted; the next heartbeat initializes it again with no start.
-Test: `tests/share_groups.rs::deleting_offsets_is_kafkas_per_topic_and_the_next_member_starts_by_the_reset_strategy`.
+Test: `tests/share_group_admin.rs::deleting_offsets_is_kafkas_per_topic_and_the_next_member_starts_by_the_reset_strategy`.
 
 ## Group configs (E7-E11)
 
@@ -310,7 +310,7 @@ be one of: read_committed, read_uncommitted"), against the broker's bounds ("<ke
 inclusive."), "Unknown group config name: <name>", "share.session.timeout.ms must be greater than
 share.heartbeat.interval.ms"; an empty name INVALID_REQUEST "Default group resources are not allowed." / "Group name must not
 be empty".
-Test: `group_configs::tests::*`, `tests/share_groups.rs::group_configs_are_described_with_their_source_and_refused_in_kafkas_words`.
+Test: `group_configs::tests::*`, `tests/share_group_admin.rs::group_configs_are_described_with_their_source_and_refused_in_kafkas_words`.
 
 ## Idle cost
 

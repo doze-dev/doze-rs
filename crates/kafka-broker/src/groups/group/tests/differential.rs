@@ -6,7 +6,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-use super::sim::{Fixed, Rng, made_ids, subscription_of};
+use super::sim::{Fixed, Rng, hashed, made_ids, subscription_of};
 use super::*;
 use crate::groups::consumer::protocol::{ByName, encode_assignment};
 use crate::groups::consumer::{Heartbeat, TopicInfo, Topics};
@@ -146,11 +146,7 @@ impl Run {
                 self.notes += 1;
                 continue;
             }
-            // A description has said whether the group is a share group since share groups came; these runs make none, so
-            // that field is left out of what is hashed, and the constant is still the one from before notes.
-            format!("{effect:?}")
-                .replace(", share: None", "")
-                .hash(&mut self.hash);
+            hashed(&effect).hash(&mut self.hash);
             if let Effect::Reply(token, Answer::Join(j)) = &effect
                 && j.error.is_none()
                 && let Some(i) = self.joining.remove(&token.0)

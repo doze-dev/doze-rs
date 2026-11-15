@@ -5,9 +5,12 @@
 //! delivered with fewer others, and one on its last delivery alone, so that one bad record does not use up the deliveries
 //! of a whole batch.
 
-use std::cmp::{max, min};
+mod archive;
+mod subset;
 
-use super::{Count, Holder, InFlight, Limits, Rec, RecordState, SharePartition, Track, offset_of};
+use std::cmp::min;
+
+use super::{Count, Holder, InFlight, Limits, Rec, RecordState, SharePartition, Track};
 
 /// One batch a fetch read, as acquisition needs it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,11 +61,6 @@ pub(crate) struct Acquired {
     pub(crate) count: i64,
 }
 
-/// Kafka's `throttleRecordsDeliveryLimit`: half the delivery limit, rounded up, and at least 2.
-fn throttle_limit(max_delivery: i32) -> i32 {
-    max(2, (max_delivery + 1) / 2)
-}
-
 /// Kafka's `lastOffsetFromBatchWithRequestOffset`: the last offset of the batch holding `offset`, else `offset`.
 fn last_of_batch_holding(spans: &[Span], offset: i64) -> i64 {
     spans
@@ -71,23 +69,6 @@ fn last_of_batch_holding(spans: &[Span], offset: i64) -> i64 {
         .last()
         .filter(|s| offset <= s.last)
         .map_or(offset, |s| s.last)
-}
-
-/// Kafka's `accumulateAcquiredRecords`: neighbouring offsets with the same delivery count, as one range.
-fn accumulate(result: &mut Vec<AcquiredRange>, each: Vec<AcquiredRange>) {
-    let mut each = each.into_iter();
-    let Some(mut run) = each.next() else {
-        return;
-    };
-    for r in each {
-        if r.first == run.last + 1 && r.delivery_count == run.delivery_count {
-            run.last = r.last;
-        } else {
-            result.push(run);
-            run = r;
-        }
-    }
-    result.push(run);
 }
 
 /// What a fetch read, as acquisition needs it: the offset it read from, its batches, and (`read_committed`) the aborted
@@ -407,226 +388,4 @@ impl SharePartition {
         }
         ranges
     }
-
-    /// Kafka's `shouldThrottleRecordsDelivery`: the batch has an available record delivered at least half the limit.
-    fn should_throttle(&self, key: i64, req_first: i64, req_last: i64, limits: &Limits) -> bool {
-        let limit = throttle_limit(limits.max_delivery);
-        let Some(b) = self.cached.get(&key) else {
-            return false;
-        };
-        match &b.track {
-            Track::Whole(r) => r.state == RecordState::Available && i32::from(r.count) >= limit,
-            Track::Each(_) => {
-                b.records(key)
-                    .filter(|(o, r)| {
-                        *o >= req_first && *o <= req_last && r.state == RecordState::Available
-                    })
-                    .map(|(_, r)| i32::from(r.count))
-                    .max()
-                    .unwrap_or(0)
-                    >= limit
-            }
-        }
-    }
-
-    /// Kafka's `acquireSubsetBatchRecords`: the available records of a batch kept per offset, from `req_first` to `req_last`.
-    fn acquire_subset(
-        &mut self,
-        t: &Taker<'_>,
-        most: i64,
-        (req_first, req_last): (i64, i64),
-        key: i64,
-        result: &mut Vec<AcquiredRange>,
-    ) -> i64 {
-        let (ask, max_delivery) = (t.ask, t.limits.max_delivery);
-        let limit = throttle_limit(max_delivery);
-        let Some(b) = self.cached.get_mut(&key) else {
-            return 0;
-        };
-        let Track::Each(records) = &mut b.track else {
-            return 0;
-        };
-        let size = offset_of(records.len());
-        let mut acquired = 0;
-        let mut most_while_throttled: Option<i64> = None;
-        let mut taken = Vec::new();
-        for (i, r) in records.iter_mut().enumerate() {
-            let offset = key + offset_of(i);
-            if offset < req_first {
-                continue;
-            }
-            if offset > req_last {
-                break;
-            }
-            if r.state != RecordState::Available {
-                continue;
-            }
-            let count = i32::from(r.count);
-            // On its last delivery a record goes alone: one more with others would spend theirs if it is the bad one.
-            if max_delivery > 2 && count == max_delivery - 1 && acquired > 0 {
-                break;
-            }
-            if count >= limit && most_while_throttled.is_none() {
-                let shift = u32::try_from(count - limit + 1).unwrap_or(u32::MAX);
-                most_while_throttled = Some(max(1, size.checked_shr(shift).unwrap_or(0)));
-            }
-            let Some(mut next) = r.moved(
-                RecordState::Acquired,
-                Count::Increase,
-                max_delivery,
-                Some(&ask.member),
-            ) else {
-                continue;
-            };
-            next.until = Some(t.until);
-            *r = next;
-            taken.push(AcquiredRange {
-                first: offset,
-                last: offset,
-                delivery_count: r.count,
-            });
-            acquired += 1;
-            if i32::from(r.count) == max_delivery && max_delivery > 2 {
-                break;
-            }
-            if ask.record_limit && acquired == most {
-                break;
-            }
-            if most_while_throttled == Some(acquired) {
-                break;
-            }
-        }
-        accumulate(result, taken);
-        acquired
-    }
-
-    /// Kafka's `maybeArchiveStaleBatches`: batches from the fetch offset to the first batch read are gone from the log
-    /// (compacted away), so what of them is available is archived, or the start could never pass them.
-    fn archive_stale(&mut self, fetch_offset: i64, base: i64) {
-        if self.cached.is_empty() || fetch_offset >= base {
-            return;
-        }
-        let floor = match self.cached.range(..=fetch_offset).next_back() {
-            Some((&k, b)) if b.last >= fetch_offset => k,
-            _ => fetch_offset,
-        };
-        let keys: Vec<i64> = self.cached.range(floor..base).map(|(k, _)| *k).collect();
-        if self.archive_records((fetch_offset, base), &keys, RecordState::Available) {
-            self.find_next = true;
-        }
-    }
-
-    /// Kafka's `archiveRecords`: in the batches `keys`, what is in state `from` between `first` and `end` (exclusive) is
-    /// archived. `true`: something was.
-    pub(super) fn archive_records(
-        &mut self,
-        (first, end): (i64, i64),
-        keys: &[i64],
-        from: RecordState,
-    ) -> bool {
-        let mut any = false;
-        for &key in keys {
-            if key >= end {
-                break;
-            }
-            let Some(b) = self.cached.get_mut(&key) else {
-                continue;
-            };
-            let full = key >= first && b.last < end;
-            if full && let Track::Whole(r) = &mut b.track {
-                if r.state == from {
-                    r.archive();
-                    any = true;
-                }
-                continue;
-            }
-            if b.whole_rec().is_some_and(|r| r.state != from) {
-                continue;
-            }
-            b.explode(key);
-            if let Track::Each(records) = &mut b.track {
-                for (i, r) in records.iter_mut().enumerate() {
-                    let offset = key + offset_of(i);
-                    if offset >= first && offset < end && r.state == from {
-                        r.archive();
-                        any = true;
-                    }
-                }
-            }
-        }
-        any
-    }
-
-    /// Kafka's `maybeFilterAbortedTransactionalAcquiredRecords`: under `read_committed`, what an aborted transaction wrote
-    /// is archived as soon as it is acquired, and taken out of what the member is told it holds.
-    fn filter_aborted(&mut self, ask: &AcquireAsk, read: &Fetched<'_>, got: Acquired) -> Acquired {
-        if !ask.read_committed || read.aborted.is_empty() {
-            return got;
-        }
-        let doomed = aborted_batches(read.spans, read.aborted);
-        for s in &doomed {
-            let Some((&floor, _)) = self.cached.range(..=s.base).next_back() else {
-                continue;
-            };
-            let keys: Vec<i64> = self.cached.range(floor..=s.last).map(|(k, _)| *k).collect();
-            self.archive_records((s.base, s.last + 1), &keys, RecordState::Acquired);
-        }
-        let ranges = without(got.ranges, &doomed);
-        let count = ranges.iter().map(|r| r.last - r.first + 1).sum();
-        Acquired { ranges, count }
-    }
-}
-
-/// Kafka's `fetchAbortedTransactionRecordBatches`: the transactional batches of a producer whose transaction was aborted,
-/// up to its abort marker.
-fn aborted_batches(spans: &[Span], aborted: &[Aborted]) -> Vec<Span> {
-    let mut pending: Vec<Aborted> = aborted.to_vec();
-    pending.sort_by_key(|a| std::cmp::Reverse(a.first));
-    let mut producers = std::collections::HashSet::new();
-    let mut out = Vec::new();
-    for s in spans {
-        let Some(producer) = s.producer else {
-            continue;
-        };
-        while pending.last().is_some_and(|a| a.first <= s.last) {
-            if let Some(a) = pending.pop() {
-                producers.insert(a.producer);
-            }
-        }
-        if s.abort_marker {
-            producers.remove(&producer);
-        } else if s.transactional && producers.contains(&producer) {
-            out.push(*s);
-        }
-    }
-    out
-}
-
-/// Kafka's `filterRecordBatchesFromAcquiredRecords`: the acquired ranges less the batches to archive.
-fn without(ranges: Vec<AcquiredRange>, doomed: &[Span]) -> Vec<AcquiredRange> {
-    let mut out = Vec::new();
-    for mut r in ranges {
-        let mut whole = true;
-        for d in doomed {
-            if r.last < d.base || r.first > d.last {
-                continue;
-            }
-            if r.first < d.base {
-                out.push(AcquiredRange {
-                    last: d.base - 1,
-                    ..r
-                });
-            }
-            if r.last > d.last {
-                r.first = d.last + 1;
-            } else {
-                whole = false;
-                break;
-            }
-        }
-        if whole {
-            out.push(r);
-        }
-    }
-    out
 }
