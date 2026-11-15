@@ -830,3 +830,18 @@ the offsets sweep on the blocking pool, the frame shelf's trim: about +35 KB of 
 the group registry as a plain table (0d432949: `Groups::put` +12 KB against `Groups::ask` -15 KB). Every item is a deliberate change
 with its reason in the kafka docs; no new package and nothing unexpected, so this is a small, explained rise and the line follows it:
 **5,450,072 B**, exact, as before.
+
+## Data control reaches main (2026-11-15)
+
+The aws session's data-control merge (78ba6190, pushed to main) moved two lines in run 43703449990:
+
+- **doze-aws idle: 10,548 KB** (samples 10,492, 10,692, 10,548) over the 10,526 KB line; the six runs before had medians of 9,820 to 10,140 KB.
+  Bytes rose 511,112 B to 13,669,488 B (inside 13,900,000), packages 274. An A/B on aarch64 Linux (binaries cross-built on darwin with zig,
+  run in the Lima VM, 7 interleaved samples each): 8,184 KB before (727d8c3f), 8,596 KB after (dae5512c), 8,384 KB after with the start-time
+  size check left out. So about 210 KB is `mention_size` (run.rs, 9346ebbc), which walks the data directory on a one-shot OS thread: glibc keeps
+  the thread's arena and cached stack after it ends. The other 200 KB comes with the new code (the binary is 346 KB larger on aarch64). The line
+  is the median plus 5%, **11,075 KB**. The thread's share is avoidable (the walk could run before the runtime's threads start, or on a thread
+  that already exists) and is listed for the aws session in ci-health.md.
+- **weight-lean: 5,450,504 B** (+432 B; +368 B on the x86_64 cross-build). The only lean-tree crates the merge touched are doze-store and
+  doze-runtime; `Store` now keeps its file's path (d39dd0cd), and kafka-meta opens a `Store`. Kafka never calls `Db::close`, so the closing
+  compaction (58834909) does not run in the broker. The line follows: **5,450,504 B**.

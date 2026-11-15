@@ -32,3 +32,15 @@ hand: `gh workflow run ci --ref <branch>` (PR #62).
 | `fuzz`: `kafka-registry` `codec.rs:40` | the Protobuf decoder made an empty packed run (`1a 00`) an empty array; protobuf's JSON mapping has an empty repeated field the same as an absent one, and the encoder writes nothing for it | an empty run adds nothing; `an_empty_packed_run_reads_as_the_field_left_out_and_round_trips` | kafka session (registry Phase 10b; found now by the fuzzer) |
 | `weight-lean`: over 5,274,120 B | the efficiency pass's code (response sizing, idle chores' tasks, the group table), +3.3%, line not moved | line to 5,450,072 B, CI's measurement, with the bisection in weight.md | kafka session, merges 086e4b28, 0ee5cf74, 07c07a88 |
 | `check (macOS)` once: `probe::tests::a_closed_port_is_refused…` | the "closed" port was a listener bound then dropped; a parallel test could take it | a port below the ephemeral range, checked by a refused connect. Under 32 test threads on macOS the old test failed 4 of 30 runs, the new one 0 of 40 | kafka session (console probe) |
+
+## After merging the aws session's data control (78ba6190, 2026-11-15)
+
+Run 43703449990 on dae5512c failed `weight` (doze-aws idle 10,548 KB over 10,526) and `weight-lean` (5,450,504 B, +432 B). Both are measured and
+explained in weight.md ("Data control reaches main"); the lines moved to 11,075 KB and 5,450,504 B.
+
+## Open items
+
+| item | owner | evidence |
+|---|---|---|
+| doze-aws's start-time size check (`mention_size`, 9346ebbc) costs about 210 KB idle on Linux: a one-shot OS thread whose arena and stack glibc keeps | aws session | aarch64 Linux A/B: 8,596 KB with it, 8,384 KB without (7 samples each); weight.md |
+| The kafka and aws sessions pushed straight to main (3636c3d2, 78ba6190), so their CI ran after the fact and main went red both times | the sessions; main is now protected (PR and 18 checks) | this file's history |
