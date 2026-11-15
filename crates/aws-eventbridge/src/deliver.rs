@@ -10,6 +10,7 @@
 use aws_peers::Mode;
 use aws_wire::ApiError;
 use aws_wire::service::Caller;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::core::Core;
@@ -18,13 +19,14 @@ use crate::model::StoredTarget;
 use crate::names::{region_and_account, service_of};
 use crate::policy::allows;
 
-/// An event matched to one target of one rule, with what the target is to be sent.
-#[derive(Clone, Debug)]
+/// An event matched to one target of one rule, with what the target is to be sent. A delivery waiting for another try is kept on disk.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Delivery {
     pub(crate) rule_arn: String,
     pub(crate) rule_name: String,
     pub(crate) target: StoredTarget,
     /// The target as the caller sent it.
+    #[serde(with = "crate::util::json_text")]
     pub(crate) spec: Value,
     /// What the target is sent: the event, or what its input settings made of it.
     pub(crate) payload: String,

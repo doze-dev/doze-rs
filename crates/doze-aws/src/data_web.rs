@@ -5,10 +5,8 @@
 //! - `POST /_doze/data/reset`   `{service?, dry_run}`              everything (or one service), as if it never ran
 //! - `POST /_doze/data/compact` `{}`                               the space deletes left, back to the disk
 //!
-//! These remove data without a signature, so they are guarded against the two ways a stranger could reach them. A web page the
-//! person has open could post to `127.0.0.1`: a removal must be `application/json` (which a page cannot send across origins without
-//! a preflight, and nothing here answers one) and an `Origin`, when sent, must be this server. And under `--auth verify` the server
-//! may be reachable from elsewhere: every request must then carry the configured secret key in `X-Doze-Key`.
+//! These remove data without a signature, so they are guarded as every `/_doze/` address is (`aws_wire::local::guard`): no page
+//! from another origin, a removal only as `application/json`, and under `--auth verify` the configured secret key in `X-Doze-Key`.
 
 use std::sync::{Arc, OnceLock};
 
@@ -39,13 +37,6 @@ impl DataHook {
     }
 }
 
-fn header<'a>(req: &'a WebRequest, name: &str) -> Option<&'a str> {
-    req.headers
-        .iter()
-        .find(|(n, _)| n == name)
-        .map(|(_, v)| v.as_str())
-}
-
 fn reply(status: u16, body: &Value) -> WebReply {
     WebReply {
         status,
@@ -61,29 +52,6 @@ fn error(status: u16, message: &str) -> WebReply {
     reply(status, &json!({"error": message}))
 }
 
-/// Why a request may not be answered, if it may not.
-fn guard(req: &WebRequest, key: Option<&str>) -> Option<WebReply> {
-    if let Some(key) = key
-        && header(req, "x-doze-key") != Some(key)
-    {
-        return Some(error(
-            403,
-            "this doze-aws verifies signatures: send the configured secret key in X-Doze-Key",
-        ));
-    }
-    if let Some(origin) = header(req, "origin") {
-        let host = origin.split("://").nth(1).unwrap_or(origin);
-        if host != req.host {
-            return Some(error(
-                403,
-                "a page from another origin may not use /_doze/data",
-            ));
-        }
-    }
-    let json_body = header(req, "content-type").is_some_and(|t| t.starts_with("application/json"));
-    (req.method == "POST" && !json_body).then(|| error(415, "send the request as application/json"))
-}
-
 impl Web for DataHook {
     fn owns(&self, _host: &str, path: &str) -> bool {
         path == PATH
@@ -94,7 +62,7 @@ impl Web for DataHook {
 
     fn serve(&self, req: WebRequest) -> BoxFuture<'_, WebReply> {
         Box::pin(async move {
-            if let Some(refused) = guard(&req, self.key.as_deref()) {
+            if let Some(refused) = aws_wire::local::guard(&req, self.key.as_deref()) {
                 return refused;
             }
             let Some(data) = self.data.get() else {

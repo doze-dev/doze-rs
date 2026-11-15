@@ -2,7 +2,7 @@
 //! what grows is its history: every `PutParameter --overwrite` keeps the version before (AWS keeps 100). A parameter with old
 //! versions is listed with its bytes and a note, and emptying it with `--old-versions` removes the old versions no label points at
 //! (a labelled version is a name someone resolves, so it stays). Its value, its newest version and its tags always stay. A reset
-//! removes every parameter.
+//! removes every parameter, document and changed service setting (`doc_storage.rs` holds the documents' part).
 
 use aws_wire::service::BoxFuture;
 use aws_wire::storage::{
@@ -57,7 +57,11 @@ impl Core {
     /// Answers a data question. Deletes are written and on disk before the file is compacted.
     pub(crate) fn data(&mut self, region: &str, ask: DataAsk) -> DataReply {
         match ask {
-            DataAsk::Usage => DataReply::Usage(self.usage(region), self.file(region)),
+            DataAsk::Usage => {
+                let mut all = self.usage(region);
+                all.extend(self.document_usage(region));
+                DataReply::Usage(all, self.file(region))
+            }
             DataAsk::Empty { name, prune } => DataReply::Emptied(self.empty(&name, &prune)),
             DataAsk::Reset { dry_run } => DataReply::Emptied(Ok(self.reset(dry_run))),
             DataAsk::Compact => DataReply::Compacted(self.compact()),
@@ -119,6 +123,15 @@ impl Core {
                     .to_owned(),
             ));
         }
+        if let Some(doc) = name.strip_prefix(crate::doc_storage::PREFIX)
+            && self.params.get(name).is_none()
+        {
+            let mut done = self.empty_document(doc, prune)?;
+            if !prune.dry_run && done.items > 0 {
+                done.freed = self.settle_data().map_err(StorageError::Failed)?;
+            }
+            return Ok(done);
+        }
         let p = self.params.get(name).ok_or(StorageError::NotFound)?;
         let mut done = Emptied::default();
         for v in removable(p) {
@@ -141,6 +154,7 @@ impl Core {
             done.items += p.older.len() as u64 + 1;
             done.bytes += row_bytes(name, p);
         }
+        self.reset_documents(dry_run, &mut done);
         if dry_run {
             return done;
         }

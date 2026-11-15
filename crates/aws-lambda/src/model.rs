@@ -8,11 +8,12 @@ use serde::{Deserialize, Serialize};
 /// Where a function's code is.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Code {
-    /// The directory under `code/` holding `code.zip` and the unpacked `root/`; empty for code run in place or an image.
+    /// The directory under `code/` holding `code.zip` and the unpacked `root/`; empty for an image.
     pub(crate) id: String,
-    /// An absolute path code runs from in place (`S3Bucket: _local_`), instead of an unpacked archive.
+    /// Never set now. Before 2026-11-15 a directory could be named as code and was run from where it was; the member stays so a record
+    /// written then still reads, and such a function still runs from that path.
     pub(crate) local: Option<String>,
-    /// The base64 SHA-256 of the archive (a fingerprint of the tree for code in place).
+    /// The base64 SHA-256 of the archive.
     pub(crate) sha256: String,
     pub(crate) size: u64,
     /// The image URI of a container-image function: stored, never run.

@@ -3,12 +3,13 @@
 //! The delivered document is recorded (2026-11-09): `version` `"0"`, `id`, `detail-type`, `source`, `account`, `time`, `region`,
 //! `resources`, `detail`. AWS writes them in that order; the members of `detail` itself come out in sorted order here.
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::util::iso;
 
-/// One event on its way through a bus.
-#[derive(Clone, Debug)]
+/// One event on its way through a bus. It is kept on disk between `PutEvents` accepting it and its delivery.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Event {
     pub(crate) id: String,
     pub(crate) source: String,
@@ -17,6 +18,7 @@ pub(crate) struct Event {
     pub(crate) region: String,
     pub(crate) time_ms: i64,
     pub(crate) resources: Vec<String>,
+    #[serde(with = "crate::util::json_text")]
     pub(crate) detail: Value,
     /// Set on an event a replay puts back: such an event is not archived again.
     pub(crate) replay_name: Option<String>,

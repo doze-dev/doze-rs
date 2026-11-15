@@ -5,7 +5,7 @@ use serde_json::{Map, Value};
 use super::{P, R, blank};
 
 impl P<'_> {
-    pub(super) fn block_seq(&mut self, indent: usize) -> R<Value> {
+    pub(crate) fn block_seq(&mut self, indent: usize) -> R<Value> {
         let mut items = Vec::new();
         loop {
             self.i += 1;
@@ -32,7 +32,7 @@ impl P<'_> {
         Ok(Value::Array(items))
     }
 
-    pub(super) fn block_map(&mut self, indent: usize) -> R<Value> {
+    pub(crate) fn block_map(&mut self, indent: usize) -> R<Value> {
         let mut map = Map::new();
         loop {
             let key_at = self.i;
@@ -89,7 +89,7 @@ impl P<'_> {
     }
 
     /// A value after `key: ` on the same line.
-    pub(super) fn inline_value(&mut self, indent: usize) -> R<Value> {
+    pub(crate) fn inline_value(&mut self, indent: usize) -> R<Value> {
         self.enter()?;
         let (tag, anchor) = self.properties()?;
         self.skip_space();

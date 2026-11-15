@@ -65,10 +65,12 @@ pub(crate) enum Ask {
     Tick,
     /// From `doze-aws data`: what the queues hold, or remove some of it.
     Data(Box<crate::storage::Asked>),
+    /// From the local look (`/_doze/sqs/<region>/<queue>/peek`): a queue's visible messages, read without receiving them.
+    Peek {
+        name: String,
+        max: usize,
+    },
 }
-
-/// The index a `DozePeek` call carries: past the model's operations.
-pub(crate) const PEEK_OP: u32 = 1 << 16;
 
 impl doze_runtime::Service for Core {
     type Request = Ask;
@@ -103,6 +105,10 @@ impl doze_runtime::Service for Core {
                     // WHY: the person stopped waiting; what was asked was done all the same.
                 }
                 return self.answer(empty());
+            }
+            Ask::Peek { name, max } => {
+                let reply = self.peek(&name, max);
+                return self.answer(reply);
             }
         };
         if let Some(peers) = self.peers.clone()
@@ -193,9 +199,6 @@ impl Core {
     pub(crate) fn dispatch(&mut self, call: &Call) -> Reply {
         let now = self.now_ms();
         self.expire(now, false);
-        if call.op == PEEK_OP {
-            return self.peek(call);
-        }
         let Some(op) = Operation::from_index(call.op) else {
             return Err(ApiError::internal("unknown operation index"));
         };

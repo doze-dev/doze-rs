@@ -234,14 +234,7 @@ impl Inner {
             spec.json_logs,
         );
         let ask = RunAsk {
-            key: format!(
-                "{}/{}/{}/{}/{}",
-                rs.region,
-                rs.name,
-                rs.version,
-                rs.revision,
-                self.local_stamp(rs)
-            ),
+            key: format!("{}/{}/{}/{}", rs.region, rs.name, rs.version, rs.revision),
             function: format!("{}/{}", rs.region, rs.name),
             reserved: rs.reserved,
             spec,

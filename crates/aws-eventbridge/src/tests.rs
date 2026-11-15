@@ -133,6 +133,32 @@ impl World {
         Ok(self.h.json(ix, &answer.reply?))
     }
 
+    /// Runs the events `PutEvents` accepted through their buses, as the timer does right after the answer.
+    pub(crate) fn deliver(&mut self) {
+        self.rt.block_on(self.core.deliver_pending());
+        if let Some(saved) = self.core.flush().unwrap() {
+            saved.wait().unwrap();
+        }
+    }
+
+    /// When the first delivery waiting for another try is due.
+    pub(crate) fn first_retry_ms(&self) -> i64 {
+        self.core.retries.iter().next().unwrap().1.due_ms
+    }
+
+    /// Drops every delivery waiting for another try.
+    pub(crate) fn forget_retries(&mut self) {
+        let keys: Vec<String> = self
+            .core
+            .retries
+            .iter()
+            .map(|(k, _)| k.to_owned())
+            .collect();
+        for k in keys {
+            self.core.retries.remove(&k);
+        }
+    }
+
     /// The actor's wake-up at `deadline`, and the next deadline it asks for.
     pub(crate) fn tick(&mut self, deadline: i64) -> Option<i64> {
         let answer = self
@@ -226,12 +252,14 @@ impl World {
             .to_owned()
     }
 
-    /// Puts one event on a bus; returns the answer.
+    /// Puts one event on a bus and lets it be delivered; returns the answer.
     pub(crate) fn put(&mut self, bus: &str, source: &str, detail: &Value) -> Value {
-        self.ok(
+        let answer = self.ok(
             "PutEvents",
             &json!({"Entries": [{"EventBusName": bus, "Source": source, "DetailType": "x", "Detail": detail.to_string()}]}),
-        )
+        );
+        self.deliver();
+        answer
     }
 }
 

@@ -1,4 +1,4 @@
-//! A bounded YAML reader for templates: the subset CloudFormation reads (YAML 1.1 as SnakeYAML resolves it), into JSON.
+//! A bounded YAML reader: the subset CloudFormation reads of a template, and Systems Manager of a document (YAML 1.1 as SnakeYAML resolves it), into JSON.
 //!
 //! Block and flow collections, plain, quoted and block scalars, comments, anchors and aliases (expansion is counted against a
 //! budget, so a "billion laughs" document is refused), and tags. A tag `!Ref`, `!GetAtt`, `!Condition` or `!<Name>` is the short
@@ -12,12 +12,15 @@
 // fuzz:parser fuzz_yaml
 
 mod block;
+mod emit;
 mod flow;
 mod scalar;
 #[cfg(test)]
 mod tests;
 
 use std::collections::HashMap;
+
+pub use emit::emit;
 
 use serde_json::{Map, Value};
 
@@ -28,9 +31,9 @@ const MAX_NODES: usize = 2_000_000;
 
 /// Where the reader stopped understanding the text, 1-based.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct YamlError {
-    pub(crate) line: usize,
-    pub(crate) column: usize,
+pub struct YamlError {
+    pub line: usize,
+    pub column: usize,
 }
 
 type R<T> = Result<T, YamlError>;
@@ -39,7 +42,7 @@ type R<T> = Result<T, YamlError>;
 ///
 /// # Errors
 /// Where the text stops being YAML this reader understands.
-pub(crate) fn parse(text: &str) -> R<Value> {
+pub fn parse(text: &str) -> R<Value> {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let owned;
     let text = if text.contains('\r') {
@@ -60,26 +63,26 @@ pub(crate) fn parse(text: &str) -> R<Value> {
 }
 
 /// The reader: the text, where it is, and what it has counted.
-pub(super) struct P<'a> {
-    pub(super) s: &'a str,
-    pub(super) b: &'a [u8],
-    pub(super) i: usize,
+pub(crate) struct P<'a> {
+    pub(crate) s: &'a str,
+    pub(crate) b: &'a [u8],
+    pub(crate) i: usize,
     depth: usize,
     nodes: usize,
     anchors: HashMap<String, Value>,
 }
 
 /// Whether `c` ends a token: a space, a tab, a line break or the end.
-pub(super) fn blank(c: Option<u8>) -> bool {
+pub(crate) fn blank(c: Option<u8>) -> bool {
     matches!(c, None | Some(b' ' | b'\t' | b'\n'))
 }
 
 impl P<'_> {
-    pub(super) fn fail<T>(&self) -> R<T> {
+    pub(crate) fn fail<T>(&self) -> R<T> {
         Err(self.error_at(self.i))
     }
 
-    pub(super) fn error_at(&self, at: usize) -> YamlError {
+    pub(crate) fn error_at(&self, at: usize) -> YamlError {
         let at = at.min(self.s.len());
         let before = self.s.get(..at).unwrap_or_default();
         let line = before.matches('\n').count() + 1;
@@ -88,16 +91,16 @@ impl P<'_> {
         YamlError { line, column }
     }
 
-    pub(super) fn peek(&self) -> Option<u8> {
+    pub(crate) fn peek(&self) -> Option<u8> {
         self.b.get(self.i).copied()
     }
 
-    pub(super) fn peek_at(&self, k: usize) -> Option<u8> {
+    pub(crate) fn peek_at(&self, k: usize) -> Option<u8> {
         self.b.get(self.i + k).copied()
     }
 
     /// The column of the reader, 0-based, in bytes (indentation is spaces).
-    pub(super) fn col(&self) -> usize {
+    pub(crate) fn col(&self) -> usize {
         let before = self.b.get(..self.i).unwrap_or_default();
         let start = before
             .iter()
@@ -106,14 +109,14 @@ impl P<'_> {
         self.i - start
     }
 
-    pub(super) fn skip_space(&mut self) {
+    pub(crate) fn skip_space(&mut self) {
         while matches!(self.peek(), Some(b' ' | b'\t')) {
             self.i += 1;
         }
     }
 
     /// Skips a comment if one starts here.
-    pub(super) fn skip_comment(&mut self) {
+    pub(crate) fn skip_comment(&mut self) {
         if self.peek() == Some(b'#') {
             while !matches!(self.peek(), None | Some(b'\n')) {
                 self.i += 1;
@@ -121,12 +124,12 @@ impl P<'_> {
         }
     }
 
-    pub(super) fn at_eol(&self) -> bool {
+    pub(crate) fn at_eol(&self) -> bool {
         matches!(self.peek(), None | Some(b'\n'))
     }
 
     /// After a node on one line: only spaces and a comment may follow.
-    pub(super) fn end_of_line(&mut self) -> R<()> {
+    pub(crate) fn end_of_line(&mut self) -> R<()> {
         self.skip_space();
         if self.peek() == Some(b'#')
             && matches!(self.b.get(self.i.wrapping_sub(1)), Some(b' ' | b'\t'))
@@ -138,7 +141,7 @@ impl P<'_> {
 
     /// Skips spaces, comments and line breaks. `true` when something else follows; the reader is on it. A tab in the
     /// indentation is refused.
-    pub(super) fn skip_to_content(&mut self) -> R<bool> {
+    pub(crate) fn skip_to_content(&mut self) -> R<bool> {
         loop {
             match self.peek() {
                 None => return Ok(false),
@@ -173,7 +176,7 @@ impl P<'_> {
     }
 
     /// Whether the reader is at a `---` or `...` line.
-    pub(super) fn at_document_marker(&self) -> bool {
+    pub(crate) fn at_document_marker(&self) -> bool {
         self.col() == 0
             && (self.s.get(self.i..).is_some_and(|t| t.starts_with("---"))
                 || self.s.get(self.i..).is_some_and(|t| t.starts_with("...")))
@@ -204,7 +207,7 @@ impl P<'_> {
         Ok(value)
     }
 
-    pub(super) fn enter(&mut self) -> R<()> {
+    pub(crate) fn enter(&mut self) -> R<()> {
         self.depth += 1;
         self.count(1)?;
         if self.depth > MAX_DEPTH {
@@ -213,11 +216,11 @@ impl P<'_> {
         Ok(())
     }
 
-    pub(super) fn leave(&mut self) {
+    pub(crate) fn leave(&mut self) {
         self.depth -= 1;
     }
 
-    pub(super) fn count(&mut self, n: usize) -> R<()> {
+    pub(crate) fn count(&mut self, n: usize) -> R<()> {
         self.nodes += n;
         if self.nodes > MAX_NODES {
             return self.fail();
@@ -227,7 +230,7 @@ impl P<'_> {
 
     /// A node in block context, starting where the reader is (perhaps mid-line, after `- `), more indented than `parent`. `seq_ok`
     /// lets a block sequence sit at the parent's own indentation (a mapping value may be written that way).
-    pub(super) fn block_node(&mut self, parent: isize, seq_ok: bool) -> R<Value> {
+    pub(crate) fn block_node(&mut self, parent: isize, seq_ok: bool) -> R<Value> {
         self.enter()?;
         let (tag, anchor) = self.properties()?;
         let save = self.i;
@@ -246,7 +249,7 @@ impl P<'_> {
     }
 
     /// The node on the lines below, or null if nothing below is indented enough.
-    pub(super) fn node_below(&mut self, parent: isize, seq_ok: bool) -> R<Value> {
+    pub(crate) fn node_below(&mut self, parent: isize, seq_ok: bool) -> R<Value> {
         if !self.skip_to_content()? || self.at_document_marker() {
             return Ok(Value::Null);
         }
@@ -297,7 +300,7 @@ impl P<'_> {
     }
 
     /// A tag and an anchor before a node, in either order.
-    pub(super) fn properties(&mut self) -> R<(Option<String>, Option<String>)> {
+    pub(crate) fn properties(&mut self) -> R<(Option<String>, Option<String>)> {
         let (mut tag, mut anchor) = (None, None);
         loop {
             match self.peek() {
@@ -331,7 +334,7 @@ impl P<'_> {
         Ok(self.s.get(start..self.i).unwrap_or_default().to_owned())
     }
 
-    pub(super) fn alias(&mut self) -> R<Value> {
+    pub(crate) fn alias(&mut self) -> R<Value> {
         let at = self.i;
         self.i += 1;
         let name = self.anchor_name()?;
@@ -343,7 +346,7 @@ impl P<'_> {
     }
 
     /// Applies a node's tag and remembers its anchor.
-    pub(super) fn finish(
+    pub(crate) fn finish(
         &mut self,
         v: Value,
         tag: Option<String>,

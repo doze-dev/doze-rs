@@ -516,11 +516,11 @@
   "test_refusals": {
     "absent-mapping": {
       "Error": {
-        "Code": "AccessDeniedException",
-        "Message": "User: <caller> is not authorized to perform: lambda:GetEventSourceMapping on resource: * because no identity-based policy allows the lambda:GetEventSourceMapping action"
+        "Code": "ResourceNotFoundException",
+        "Message": "The resource you requested does not exist."
       },
       "ResponseMetadata": {
-        "HTTPStatusCode": 403
+        "HTTPStatusCode": 404
       }
     },
     "absent-qualifier": {

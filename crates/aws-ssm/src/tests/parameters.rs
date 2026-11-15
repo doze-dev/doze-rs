@@ -265,7 +265,7 @@ fn tags_are_added_listed_and_removed() {
     assert_eq!(
         w.err(
             "ListTagsForResource",
-            &json!({"ResourceType": "Document", "ResourceId": "d"})
+            &json!({"ResourceType": "MaintenanceWindow", "ResourceId": "d"})
         )
         .0,
         "InvalidResourceType"

@@ -138,7 +138,9 @@ impl Core {
             .get(&id)
             .filter(|v| crate::rotate::has_value(v))
         {
-            let before = self.kms_open(call, secret, &id, &same.sealed).await?;
+            let before = self
+                .kms_open(&call.caller, secret, &id, &same.sealed)
+                .await?;
             if before == value.0 && same.binary == value.1 {
                 return Ok(Prepared { id, sealed: None });
             }
@@ -150,7 +152,7 @@ impl Core {
                 ),
             ));
         }
-        let sealed = self.kms_seal(call, secret, &id, &value.0).await?;
+        let sealed = self.kms_seal(&call.caller, secret, &id, &value.0).await?;
         Ok(Prepared {
             id,
             sealed: Some(sealed),
@@ -226,6 +228,12 @@ impl Core {
             }
             None => None,
         };
+        let replicas = self.created_replicas(
+            call,
+            name,
+            v.get(Create::ADD_REPLICA_REGIONS),
+            v.get(Create::FORCE_OVERWRITE_REPLICA_SECRET),
+        )?;
         let arn = secret.arn.clone();
         self.secrets.insert(name.to_owned(), secret);
         reply::<Created>(|o| {
@@ -234,6 +242,7 @@ impl Core {
             if let Some(id) = &version {
                 o.put(Created::VERSION_ID, id);
             }
+            crate::replication::put_statuses(o, Created::REPLICATION_STATUS, &replicas);
         })
     }
 
