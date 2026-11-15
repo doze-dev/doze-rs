@@ -102,9 +102,9 @@ pub struct Response {
     /// The `plan` op's answer, in the order `apply` would make them (Rust daemon, additive).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub changes: Vec<ChangeView>,
-    /// The `lint` op: module types whose blocks went unchecked (Rust daemon, additive).
+    /// The `lint` op: module types whose blocks could not be checked, and why (Rust daemon, additive).
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub unchecked: Vec<String>,
+    pub unchecked: Vec<UncheckedView>,
 }
 
 /// One instance-tagged log line (Go `LogFrame`).
@@ -127,6 +127,18 @@ pub struct LogFrame {
 #[serde(default)]
 pub struct EventFrame {
     pub instance: InstanceView,
+}
+
+/// A module type the `lint` op could not check: its build could not be had (the registry unreachable, a download or
+/// signature that failed), so its blocks were not read by it. Not a mistake in doze.hcl.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UncheckedView {
+    /// The module type (`postgres`).
+    #[serde(rename = "type")]
+    pub ty: String,
+    /// Why its build could not be had.
+    pub why: String,
 }
 
 /// One change `apply` would make (Rust daemon, additive: the `plan` op).

@@ -140,7 +140,7 @@ async fn the_engine_runs_a_module_instance_and_the_lock_pin_wins() {
         [Some("sha256:lock".to_string())]
     );
     // Each call checks the spec first; `decode` is the call that does nothing after its check. So: decode, resolve,
-    // provision, plan.
+    // provision, plan, then `objects` (it records nothing but its check), as the start records what it converged.
     let order = std::fs::read_to_string(&calls).unwrap();
     let order: Vec<&str> = order.lines().collect();
     assert_eq!(
@@ -152,7 +152,8 @@ async fn the_engine_runs_a_module_instance_and_the_lock_pin_wins() {
             "check",
             "provision",
             "check",
-            "plan"
+            "plan",
+            "check"
         ]
     );
     let synced = e.sync(None).await.unwrap();
@@ -160,7 +161,10 @@ async fn the_engine_runs_a_module_instance_and_the_lock_pin_wins() {
         .iter()
         .flat_map(|(_, ch)| ch.iter().map(|(_, o)| o.name.clone()))
         .collect();
-    assert_eq!(names, ["a", "b"]);
+    assert!(
+        names.is_empty(),
+        "the start converged a and b and recorded them: the sync has nothing to make: {names:?}"
+    );
     e.shutdown().await;
     // `b` is no longer declared. The echo module does not offer `prune` (tests/echo.rs pins its capabilities), so the
     // sync drops `b` from the record without calling it; calling it would fail the sync.

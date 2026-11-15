@@ -66,7 +66,10 @@ async fn meters_of_a_running_service() {
     )]);
     let sock = dir.join("run/doze.admin.sock");
     let d = Daemon::at(e.clone(), labels, StackInfo::default(), sock.clone());
-    let s = d.serve().unwrap();
+    let Some(s) = served(&d) else {
+        e.shutdown().await;
+        return;
+    };
     e.wake("svc", Cause::Command).await.unwrap();
     // The leaf takes a moment to start.
     let mut got = None;
@@ -122,4 +125,15 @@ fn first_stats_frame(sock: &std::path::Path) -> serde_json::Value {
         r.read_line(&mut line).unwrap();
     }
     serde_json::from_str(&line).unwrap()
+}
+
+/// The daemon serving, or `None` where the system has no local control socket yet (Windows; the daemon there is W's).
+fn served(d: &Daemon) -> Option<doze_daemon::Serving> {
+    match d.serve() {
+        Err(err) if err.kind() == std::io::ErrorKind::Unsupported => {
+            eprintln!("skipped: {err}");
+            None
+        }
+        s => Some(s.unwrap()),
+    }
 }

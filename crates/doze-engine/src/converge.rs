@@ -28,9 +28,18 @@ pub(crate) async fn after_ready(
     let Some(s) = p.structure() else {
         return Ok(unit);
     };
-    let Err(msg) = crate::converge::on_start(s, ctx).await else {
-        e.update(|c| c.m.table_mut().set_tainted(&svc.name, false));
-        return Ok(unit);
+    let msg = match crate::converge::on_start(s, ctx).await {
+        Ok(ran) => {
+            e.update(|c| c.m.table_mut().set_tainted(&svc.name, false));
+            if ran {
+                // What it made is what `apply` would have recorded: a plan after it lists nothing to create.
+                if let Err(err) = e.record_applied(&svc.name, s, ctx).await {
+                    tracing::warn!("{err}");
+                }
+            }
+            return Ok(unit);
+        }
+        Err(msg) => msg,
     };
     let mut unit = unit;
     unit.stop(crate::exec::STOP_GRACE).await;
@@ -41,17 +50,17 @@ pub(crate) async fn after_ready(
     )))
 }
 
-/// Converges `s` in `ctx` when its marker is missing or names another fingerprint, then writes the marker. `Err` is
-/// the module's reason; the marker is then removed, so the next start tries again.
-pub(crate) async fn on_start(s: &dyn Structure, ctx: &PlanCtx) -> Result<(), String> {
+/// Converges `s` in `ctx` when its marker is missing or names another fingerprint, then writes the marker; whether it
+/// converged. `Err` is the module's reason; the marker is then removed, so the next start tries again.
+pub(crate) async fn on_start(s: &dyn Structure, ctx: &PlanCtx) -> Result<bool, String> {
     let fp = s.fingerprint();
     if converged(&ctx.data_dir).as_deref() == Some(fp.as_str()) {
-        return Ok(());
+        return Ok(false);
     }
     match s.converge(ctx).await {
         Ok(()) => {
             mark(&ctx.data_dir, &fp);
-            Ok(())
+            Ok(true)
         }
         Err(e) => {
             clear(&ctx.data_dir);

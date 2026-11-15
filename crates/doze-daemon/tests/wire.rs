@@ -55,20 +55,18 @@ impl Raw {
     }
 }
 
-/// A daemon on a socket of its own; `None` (the test skips) where this system has no local control socket yet
-/// (Windows, until the named pipe: core plan W).
+/// `None` where the system has no local control socket yet (Windows).
 fn daemon(tag: &str) -> Option<(Daemon, doze_daemon::Serving, PathBuf)> {
     let dir = temp(tag);
     let e = Engine::builder("t", &dir).build().unwrap();
     let sock = dir.join("run/doze.admin.sock");
     let d = Daemon::at(e, BTreeMap::new(), StackInfo::default(), sock.clone());
     match d.serve() {
-        Ok(s) => Some((d, s, sock)),
-        Err(e) if e.kind() == std::io::ErrorKind::Unsupported => {
-            eprintln!("skipped: {e}");
+        Err(err) if err.kind() == std::io::ErrorKind::Unsupported => {
+            eprintln!("skipped: {err}");
             None
         }
-        Err(e) => panic!("{e}"),
+        s => Some((d, s.unwrap(), sock)),
     }
 }
 

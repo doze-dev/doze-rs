@@ -118,7 +118,12 @@ async fn wake_through_the_front(
         .iter()
         .flat_map(|(_, ch)| ch.iter().map(|(_, o)| o.name.clone()))
         .collect();
-    assert_eq!(objects, ["a"]);
+    assert!(
+        objects.is_empty(),
+        "the start converged the channel and recorded it: a sync has nothing to make: {objects:?}"
+    );
+    let state = std::fs::read_to_string(dir.join(".doze/state.json")).unwrap_or_default();
+    assert!(state.contains("\"a\""), "{state}");
     drop(w);
     drop(lines);
     tokio::time::sleep(Duration::from_millis(200)).await;

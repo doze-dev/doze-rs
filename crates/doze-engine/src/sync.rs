@@ -180,3 +180,24 @@ fn save_keeping_tasks(path: &std::path::Path, st: Applied) -> Result<(), Error> 
 fn io_err(what: &str, path: &std::path::Path, e: &std::io::Error) -> Error {
     Error::Failed(format!("{what} {}: {e}", path.display()))
 }
+
+impl Engine {
+    /// Records what a converge on start made for `name` in the applied state, as `apply` does, so a plan after it
+    /// lists nothing to create (Go wrote nothing here; its plan then listed objects that existed).
+    pub(crate) async fn record_applied(
+        &self,
+        name: &str,
+        s: &dyn crate::stack::Structure,
+        ctx: &PlanCtx,
+    ) -> Result<(), Error> {
+        let path = self.stack().state_file.clone();
+        let _held = self.sync_lock(&path).await?;
+        let mut st = Applied::load(&path).map_err(|e| io_err("reading", &path, &e))?;
+        let desired = s
+            .objects(ctx)
+            .await
+            .map_err(|e| Error::Failed(format!("recording \"{name}\": {e}")))?;
+        st.set(name, desired);
+        save_keeping_tasks(&path, st)
+    }
+}

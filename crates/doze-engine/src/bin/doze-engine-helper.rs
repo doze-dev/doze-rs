@@ -91,6 +91,16 @@ fn fail(msg: &str) -> ! {
 }
 
 async fn listen(delay: Duration) -> std::io::Result<()> {
+    let stop = doze_os::signal::stop_requested();
+    tokio::pin!(stop);
+    listen_with(delay, stop).await
+}
+
+/// `listen`, stopped by `stop` (a stop handler set up already: the grandchild sets it before its pid file exists).
+async fn listen_with(
+    delay: Duration,
+    mut stop: std::pin::Pin<&mut impl std::future::Future<Output = std::io::Result<()>>>,
+) -> std::io::Result<()> {
     if let Ok(f) = std::env::var("STARTS") {
         let mut f = std::fs::OpenOptions::new()
             .create(true)
@@ -125,7 +135,7 @@ async fn listen(delay: Duration) -> std::io::Result<()> {
         }
     };
     tokio::select! {
-        r = doze_os::signal::stop_requested() => r?,
+        r = &mut stop => r?,
         () = serve => {},
         () = stop_file => {},
     }
@@ -186,8 +196,18 @@ fn fork_listen() -> std::io::Result<()> {
 }
 
 async fn grandchild(file: &str) -> std::io::Result<()> {
+    // The stop handler is set before the child (and its pid file, which tests wait for) exists: a stop sent as soon as
+    // the file appears must be heard, not kill this process by the signal's default (a flake on loaded runners). Once
+    // polled, the handler stays for the life of the process.
+    let stop = doze_os::signal::stop_requested();
+    tokio::pin!(stop);
+    tokio::select! {
+        biased;
+        r = &mut stop => return r,
+        () = std::future::ready(()) => {}
+    }
     start_ignoring_child(file, false)?;
-    listen(Duration::ZERO).await
+    listen_with(Duration::ZERO, stop).await
 }
 
 async fn slowchild(file: &str) -> std::io::Result<()> {

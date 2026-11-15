@@ -156,3 +156,14 @@ Not shown: a module console tab (neither registry build, postgres or valkey 0.9.
 - `doze __daemon --lint --config <path>` (`entry::LINT_ARG`): the `lint` op's module pass once, with no daemon serving, its
   answer as one JSON line; the catalog's module processes are stopped before it answers (`Pool::stop_all`, doze-module-host).
 - The `__fetch` child's stderr is inherited (the daemon's log), and the child says an engine download as it starts.
+
+### Session 11: from the C2c builder
+
+- **Windows:** `doze-daemon tests/meters.rs` and `tests/wire.rs` skip where the system has no local control socket, as the doze-module daemon tests do.
+- **Converge on start records what it made:** `.doze/state.json` takes the module's objects after a converge on start, as `apply` would, so `plan` (and `sync --dry-run`) lists nothing to create afterwards. Go wrote nothing there, and its plan then listed objects that existed. A start inside a running `sync` finds the state locked for more than a second and leaves the recording to the sync.
+- **`lint` answers `unchecked` with reasons** (additive, Rust daemon only): `"unchecked": [{"type": "postgres", "why": "fetching module index doze/postgres/index.yaml: …"}]`, with `ok: true`.
+  - A type is unchecked when its build could not be had: the registry unreachable, or a download or signature that failed.
+  - A type that is not published at all is the load's error, as before.
+  - The types come from the catalog's failed lookups in this load, not from a second read of doze.hcl: that read stops at the knock-on unknown references.
+- **Flaky `a_stopped_task_is_asked_to_stop_and_ends_failed`:** its waits are 20 s under load, and its journal check waits for the events.
+- **Not done, for doze-config (H4):** in the shape pass, a reference into a module's attributes (`module.e.env.X`) is an "Unsupported attribute" error, not an unknown value. A lint whose module could not be had then reports that knock-on error. The daemon's lint no longer depends on it.

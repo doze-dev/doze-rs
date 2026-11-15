@@ -98,7 +98,7 @@ impl Catalog {
             let mut exes = crate::lock(&self.exes);
             if key != ty && exes.get(ty) == Some(&exe) {
                 return Err(format!(
-                    "the {ty} module found for {major} is the one already running"
+                    "no {ty} build serves {major} (the one found is the one already running)"
                 ));
             }
             exes.insert(key.to_string(), exe);

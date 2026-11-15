@@ -31,7 +31,13 @@ impl Finder for Find {
         let only1 = self.only1.clone().filter(|_| majors == ["1"]);
         let found = (ty == "echo")
             .then(|| only1.unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_doze-module-echo"))))
-            .ok_or_else(|| format!("module doze/{ty} is not published in the registry"));
+            .ok_or_else(|| {
+                if ty == "offline" {
+                    format!("fetching module index doze/{ty}/index.yaml: registry.test: no answer within 3s")
+                } else {
+                    format!("module doze/{ty} is not published in the registry")
+                }
+            });
         Box::pin(async move { found })
     }
 }

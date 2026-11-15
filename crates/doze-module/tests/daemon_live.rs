@@ -234,6 +234,15 @@ async fn lint_loads_the_file_on_disk_through_the_modules() {
                 .is_some_and(|e| e.contains("is not a version the echo module serves")),
         "{r}"
     );
+    // A type whose build cannot be had (the registry unreachable): unchecked, with why, and not a mistake.
+    std::fs::write(&hcl, format!("{text}\nmodule offline \"o\" {{\n}}\n")).unwrap();
+    let r = ask(&sock, r#"{"id":4,"op":"lint"}"#.into()).await;
+    assert_eq!(r["ok"], true, "{r}");
+    assert_eq!(
+        r["unchecked"],
+        serde_json::json!([{"type": "offline", "why": "fetching module index doze/offline/index.yaml: registry.test: no answer within 3s"}]),
+        "{r}"
+    );
     s.stop();
     front.close();
     d.engine().shutdown().await;
