@@ -114,7 +114,8 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &OneName) -> Outcome {
         Stop::Failed(Error::Daemon { message, .. }) if message.starts_with("unknown op") => {
             go_daemon(&name)
         }
-        Stop::Failed(e) => stack::daemon_error(&e, Some(&name)),
+        // The module and the daemon name the instance in their words already.
+        Stop::Failed(e) => stack::daemon_error(&e, None),
     })?;
     Ok(Done::ok(View::Migrated(Migrated {
         name,
