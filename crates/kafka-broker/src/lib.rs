@@ -23,6 +23,7 @@ mod logs;
 mod outcome;
 mod partitions;
 mod producers;
+mod quotas;
 mod retention;
 mod telemetry;
 mod topic_config;
@@ -33,7 +34,7 @@ mod users;
 #[cfg(feature = "inspect")]
 mod view;
 
-pub use broker::Broker;
+pub use broker::{Broker, Served};
 pub use caller::Caller;
 pub use config::{Config, Defaults, TxnVersion};
 pub(crate) use configs::Live;
@@ -43,10 +44,12 @@ pub use data::{
 };
 pub use error::BrokerError;
 pub use groups::Cause;
+pub use kafka_meta::{QuotaEntity, QuotaName};
 #[cfg(feature = "inspect")]
 pub use lab::{CleanOutcome, ConsoleLab, LabOutcome};
 pub use listener::Listener;
 pub use outcome::Outcome;
+pub use quotas::{ClientQuotas, QuotaKind, Usage as QuotaUsage};
 pub use topic_config::{ConfigRefused, ValueRefused, check_topic_configs, topic_config_names};
 #[cfg(feature = "inspect")]
 pub use view::{

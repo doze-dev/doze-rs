@@ -3,6 +3,8 @@
 
 pub(super) const BASE_OFFSET: usize = 0;
 pub(super) const LENGTH: usize = 8;
+/// `partitionLeaderEpoch`: before the CRC's span, so the leader can set it without the checksum changing.
+pub(super) const LEADER_EPOCH: usize = 12;
 pub(super) const CRC: usize = 17;
 pub(super) const ATTRIBUTES: usize = 21;
 /// Through `lastOffsetDelta`: the fields every batch has, whatever its format.

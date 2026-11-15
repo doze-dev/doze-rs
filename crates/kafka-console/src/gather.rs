@@ -73,6 +73,7 @@ pub use groups::{MOST_ROWS as GROUPS_MOST_ROWS, groups};
 
 pub mod access;
 pub mod access_dialogs;
+pub mod quotas;
 pub mod settings;
 pub mod settings_configs;
 pub mod settings_edit;

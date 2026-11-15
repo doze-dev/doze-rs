@@ -111,6 +111,10 @@ pub fn fail_response(request: &Request, version: i16, code: i16) -> Option<Respo
         | Request::ConsumerGroupDescribe(_)
         | Request::DescribeUserScramCredentials(_)
         | Request::AlterUserScramCredentials(_)
+        | Request::OffsetForLeaderEpoch(_)
+        | Request::DescribeLogDirs(_)
+        | Request::DescribeClientQuotas(_)
+        | Request::AlterClientQuotas(_)
         | Request::GetTelemetrySubscriptions(_)
         | Request::PushTelemetry(_) => return None,
     })
