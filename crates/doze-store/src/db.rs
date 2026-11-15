@@ -127,9 +127,12 @@ impl Db {
         self.writer.paused(&mut self.store, Store::compact)?
     }
 
-    /// Stops the writer after it has finished what it was given, and closes the database.
-    pub fn close(self) {
+    /// Stops the writer after it has finished what it was given, gives back the space deletes left when that is worth it
+    /// ([`Store::compact_if_worth`]), and closes the database.
+    pub fn close(mut self) {
         self.writer.shutdown();
+        // WHY: a compaction that cannot run now (a read still open) runs at a later close; the data is whole either way.
+        drop(self.store.compact_if_worth());
         // WHY: every commit was flushed when it was made, so a failure to close costs only a longer start next time.
         drop(self.store.close());
     }

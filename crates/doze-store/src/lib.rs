@@ -22,4 +22,4 @@ pub use backend::FileBackend;
 pub use db::Db;
 pub use error::StoreError;
 pub use group::{Ack, GroupCommit, Op};
-pub use store::{Compacted, Space, Store};
+pub use store::{Compacted, Space, Store, WORTH_BYTES};
