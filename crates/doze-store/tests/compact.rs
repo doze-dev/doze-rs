@@ -77,3 +77,46 @@ fn a_read_left_open_is_reported_not_waited_on() {
     db.close();
     drop(std::fs::remove_dir_all(&dir));
 }
+
+#[test]
+fn a_close_gives_back_what_is_worth_it_and_leaves_a_small_gain_alone() {
+    let dir = scratch("close");
+    let db = Db::open(&dir, "t.redb", &["rows"]).unwrap();
+    let mut rows: Records<Blob> = Records::new("rows", "row", 1);
+    for i in 0..1600 {
+        rows.insert(format!("k{i:05}"), Blob(vec![3; 64 << 10]));
+    }
+    db.submit(vec![rows.stage().unwrap()])
+        .unwrap()
+        .wait()
+        .unwrap();
+    for i in 0..1500 {
+        rows.remove(&format!("k{i:05}"));
+    }
+    db.submit(vec![rows.stage().unwrap()])
+        .unwrap()
+        .wait()
+        .unwrap();
+    let before = db.space().unwrap();
+    let started = std::time::Instant::now();
+    db.close();
+    println!(
+        "closing compaction of {} MB took {:?}",
+        before.file >> 20,
+        started.elapsed()
+    );
+    let after = std::fs::metadata(dir.join("t.redb")).unwrap().len();
+    assert!(after < before.file / 4, "{} -> {after}", before.file);
+
+    // A few deletes: not worth a compaction.
+    let db = Db::open(&dir, "t.redb", &["rows"]).unwrap();
+    rows.remove("k01599");
+    db.submit(vec![rows.stage().unwrap()])
+        .unwrap()
+        .wait()
+        .unwrap();
+    let size = std::fs::metadata(dir.join("t.redb")).unwrap().len();
+    db.close();
+    assert_eq!(std::fs::metadata(dir.join("t.redb")).unwrap().len(), size);
+    drop(std::fs::remove_dir_all(&dir));
+}
