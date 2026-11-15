@@ -161,9 +161,9 @@ fn check_set(set: &str, go_set: &str) {
             BodyRef::merge(refs)
         };
         let got = read(&body, c["mode"].as_str().unwrap(), &schema(c), true);
-        // Ranges outside diagnostics (the missing-item range) carry no file here.
-        let strip = |j: &Json| serde_json::to_string(j).unwrap();
-        if strip(&got) != strip(&g["top"]) {
+        // Compared as values: a map's key order is serde_json's, which another crate's `preserve_order` changes in a
+        // workspace build.
+        if got != g["top"] {
             diffs.push(format!(
                 "{} {}: {:?}\n   go:   {}\n   rust: {}",
                 c["id"], c["mode"], texts, g["top"], got

@@ -121,7 +121,7 @@ Tests added for the audit's untested paths: the endpoint taken from the grant (t
 10. A disabled block went into the run; a name disabled in doze.hcl could be added; a fronted module with no address was silently unfronted. *Fixed: a disabled block is added out of the run, names doze.hcl disables count as taken, and the portless module is refused with Go's words.*
 11. A failed `type@major` lookup reads as "not a version the module serves". *Open (low).*
 12. A new call and a widened callback scope with no protocol minor. *Fixed: minor 1; `migrate` is since 1.*
-13. A remove then an immediate add on the same address can find it still bound. *Open (low).*
+13. A remove then an immediate add on the same address can find it still bound. *Fixed: the bind is tried again for half a second while the address is in use (the busy-port refusal waits that long too).*
 14. The per-start port is chosen by binding port 0 and letting go. *Inherent; known.*
 
 ### Session 10: Go's integration suites through `DOZE_BIN` (doze rust-oracle, 57aef16)
@@ -140,7 +140,7 @@ The Rust `doze` was D1 (91ec2495, then with the watch fix) merged locally with #
 | `TestSyncNamesTheBlocksThatDifferFromTheRunningDaemon` | fail | C2c: `sync --dry-run` still DZ0001; the daemon's `plan` op is there |
 | `TestDozeAndAStandaloneToolShareTheZone` | fail; the other names suites and ferret, temporal skip | names are D2 |
 
-Found on the scratch merge, for C2c: its `__fetch` child ignores a `file://` mirror and went to GitHub for the postgres engine (the D1 child alone fetches it from the local mirror in seconds), so `up` on the merge hangs on a fresh home.
+Found on the scratch merge, for C2c: its `__fetch` child hung on the postgres engine download from the public mirror (GitHub doze-binaries, where the D1 child also fetches engines; the local registry holds modules only), so `up` on the merge hangs on a fresh home.
 
 ### Session 10 proof: the app, a fresh home, no manual step
 

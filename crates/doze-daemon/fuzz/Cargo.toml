@@ -17,6 +17,10 @@ tokio = { version = "1.54", features = ["rt-multi-thread"] }
 # Not part of the main workspace: fuzzing needs a nightly toolchain.
 [workspace]
 
+# The workspace's vendored, patched hcl-edit (vendor/hcl-edit/PATCHES.md): the daemon reads doze.hcl.
+[patch.crates-io]
+hcl-edit = { path = "../../../vendor/hcl-edit" }
+
 [[bin]]
 name = "fuzz_session"
 path = "fuzz_targets/fuzz_session.rs"

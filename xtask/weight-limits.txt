@@ -18,7 +18,9 @@
 # Estimates until CI's next run on main measures them. The owner's ceiling is 15 MB (2026-11-14).
 # 2026-11-14, CI's first run of the one build (PR #45, run 43588988185) replaces the estimates: 10,634,592 B, 183 packages, idle median
 # 10,488 KB (samples 10,488, 10,048, 10,576) plus 5% = 11,013 KB. docs/port/weight.md, "One build: CI's measurements".
-doze-kafka 10634592 183 11013 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-15, D1 session 10 (CI run 43660663612): 10,635,616 B, +1,024 B over the line: protocol 2 minor 1 (the `migrate` call, callbacks
+# scoped to a list of calls, the in-flight count as a guard). A small, justified rise; the line takes it.
+doze-kafka 10635616 183 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
@@ -141,4 +143,8 @@ doze-aws 13900000 280 10526 --listen 127.0.0.1:{port} --data-dir {data}
 # doze-hcl, doze-control's server side, multi-thread tokio). darwin/arm64 release 6,219,760 B (+3.07 MB over F1), 168 packages. Byte limit
 # = macOS size times 1.3 plus 5% = 8,490,000, rounded to 8,500,000; packages 180. A big rise, flagged to the owner; the trim pass
 # comes at the end (docs/port/weight.md).
-doze-cli 8500000 180 0
+# D1 session 10, CI run 43660663612 (x86_64 Linux, the only build CI weighs): 9,674,976 B and 216 packages. The 8,500,000 line was the
+# macOS size times 1.3; Linux links more (216 against 168 packages on macOS: the platform crates), and CI failed it from the first D1 run
+# (9,515,888 B on 3e5ca62c). Re-based from CI's measurement plus 5%: 10,158,725 rounded to 10,160,000 B, packages 216 plus 5% = 227. The
+# session added 159,088 B (add and remove, migrate, lint, per-major builds). macOS release: 7,146,368 B, under the 10 MB ceiling.
+doze-cli 10160000 227 0
