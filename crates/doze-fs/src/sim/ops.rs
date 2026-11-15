@@ -118,6 +118,18 @@ impl Fs for SimFs {
         g.state.sync_dir(&path);
         Ok(())
     }
+
+    /// The capacity set on the disk and what its files leave of it; no capacity, no size.
+    fn space(&self, path: &Path) -> io::Result<Option<crate::fs::Space>> {
+        let path = absolute(path)?;
+        let mut g = self.lock();
+        g.gate(Op::Read, &path).map_err(io_err)?;
+        let used = g.state.total_bytes();
+        Ok(g.control.capacity.map(|total| crate::fs::Space {
+            total,
+            free: total.saturating_sub(used),
+        }))
+    }
 }
 
 impl SimFs {

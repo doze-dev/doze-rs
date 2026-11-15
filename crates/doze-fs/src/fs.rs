@@ -115,6 +115,46 @@ pub trait Fs: Clone + Send + Sync + 'static {
         }
         Ok(made)
     }
+
+    /// How big the volume that holds `path` is and how much of it this process may still write: one look, nothing kept.
+    /// `None` where the platform cannot say (or the disk has no size, as a simulated one without a capacity).
+    ///
+    /// # Errors
+    /// Anything the system refuses (the path is not there, say).
+    fn space(&self, path: &Path) -> io::Result<Option<Space>> {
+        let _ = path;
+        Ok(None)
+    }
+
+    /// A file's size and last write, looked at without being opened where the platform allows (the default opens it).
+    ///
+    /// # Errors
+    /// `NotFound` if it is not there; anything else the system refuses.
+    fn stat(&self, path: &Path) -> io::Result<FileStat> {
+        let file = self.open_existing(path)?;
+        Ok(FileStat {
+            bytes: file.size()?,
+            modified_ms: file.modified_ms()?,
+        })
+    }
+}
+
+/// What a look at a file says.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FileStat {
+    /// Its size.
+    pub bytes: u64,
+    /// When it was last written, in milliseconds since the Unix epoch.
+    pub modified_ms: i64,
+}
+
+/// The size of a volume and its room.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Space {
+    /// Every byte of the volume.
+    pub total: u64,
+    /// The bytes this process may still write (what `df` calls available: the root's reserve is not counted).
+    pub free: u64,
 }
 
 /// An open file. Reads and writes are positioned and take `&self`, so a reader and the writer can use one

@@ -1373,6 +1373,10 @@ Any connection may name any instance id (W32), so the store takes ids from stran
 allocated until the first client asks. A flood of fresh ids evicts the real clients' gate state (their next request is adopted, as after a restart, and costs them one throttle they would have had) but never grows the store or refuses anyone (**deviation SEC-D101**).
 Test: `kafka-broker telemetry::tests::bytes_are_bounded_and_the_payloads_heard_longest_ago_go_first`, `telemetry::tests::entries_are_bounded_and_a_terminating_client_goes_before_the_one_heard_longest_ago`, `telemetry::tests::an_idle_store_holds_nothing`
 
+## SEC-294. The data actions ask the right Kafka would ask, and the usage asks DESCRIBE on the cluster
+Empty topic needs DELETE on the topic (what DeleteRecords asks) and is refused before the topic is looked for, so a topic the caller may not see is not given away; Empty all topics and Erase everything need ALTER on the cluster; the usage of the data directory needs DESCRIBE on the cluster, and a topic the caller may not DESCRIBE is counted, not named (`docs/port/data-control.md`). The console acts as its own principal, a super user (SEC-241), and is a write behind the same-origin proof and the door (SEC-243, SEC-250); `doze-kafka data` acts as the operator on a stopped broker's directory, which it holds the lock of. A refusal is TOPIC_AUTHORIZATION_FAILED or CLUSTER_AUTHORIZATION_FAILED with the right named, and nothing is changed.
+Test: `kafka-broker tests/data_empty.rs::emptying_asks_delete_on_the_topic_and_every_topic_asks_alter_on_the_cluster`, `kafka-console tests/live_api_data.rs::a_caller_without_the_rights_is_refused_in_kafkas_words_and_nothing_changes`
+
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
