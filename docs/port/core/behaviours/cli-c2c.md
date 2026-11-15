@@ -83,22 +83,30 @@ Fixed:
 
 Open, with reasons:
 
-- No end-to-end test of the restart path: it needs a real daemon process (`down::identify` checks the pid file) with a
-  module that serves `migrate`, which only the in-process echo test has. The decision (`Drift::differs`) and its parts
-  are tested; the restart itself was run by hand only for the Go refusal.
+- ~~No end-to-end test of the restart path.~~ Closed in session 12: `doze-module tests/migrate_restart.rs` (below).
 - Block drift fingerprints doze.hcl's shape, where a module block's body is not evaluated: an edit inside a module block
   (a database, a role) is not "changed" in `sync`'s section, and `migrate` does not see it (its version is in the header,
   so a major change is seen). Go's daemon fingerprinted the full load. The fingerprint hashes `Debug` text, stable
   while those types hold no hash maps.
 - Lint maps every `ok:false` from the module pass to exit 5, also a registry error the daemon does not class as
   unreachable (a `DOZE_REGISTRY` folder that is missing): the lint answer needs a field for "could not check" (D1).
-- The one-shot shows no progress while modules download (its stderr is captured), and a lint op that times out against a
-  running daemon falls back to the one-shot while the daemon may still be writing doze.lock.
+- A lint op that times out against a running daemon falls back to the one-shot while the daemon may still be writing
+  doze.lock. (The one-shot's progress: closed in session 12.)
 - Found while gating, for D1/E2: `doze-engine tests/tasks.rs a_stopped_task_is_asked_to_stop_and_ends_failed` failed
   once under a parallel load ("exited: signal: terminated"), then passed three times alone.
 - Found in the real-daemon proof, for D1: the daemon's converge on start writes no `.doze/state.json` (Go's `up` saved
   it), so after `up` the `plan` op lists the module's objects as to be created though they exist (the proof's
   `sync --dry-run`: "+ role app, + database db" with the role there).
+
+## Session 12
+
+| # | Behaviour | Held by |
+|---|---|---|
+| 29 | `migrate`'s restart path with real processes: the stack runs echo engine 1 with `api` reading it; doze.hcl is edited to engine 2; `migrate --dry-run` plans the restart; `migrate` restarts the daemon (a new pid, the old one gone), the module moves the data (marker 1 to 2, the old major's build fetched for it), `api` is awake again; `down` leaves no process. The test runs itself as `doze __daemon` and `doze __fetch` (`harness = false`), with the echo module from a registry it signs and its engines from a `file://` mirror; nothing reaches the network. It asserts `api` awake after, not the order of its wake against the move (that is the code path's: `migrate::moved`) | `doze-module tests/migrate_restart.rs` |
+| 30 | lint's one-shot passes its stderr to a person's terminal (not under `--json` or `-q`), so a download its `__fetch` children make is seen | by hand (`/private/tmp/claude-501/c2c/lintp`) |
+
+Not done (not cheap): drift that sees inside a module block's body needs the shape pass to keep a canonical encoding of
+the block's evaluated attributes (doze-config), with references still unresolved there; listed as before.
 
 ## Open (session 11)
 
