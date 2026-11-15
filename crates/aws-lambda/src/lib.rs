@@ -39,6 +39,7 @@ mod settings;
 mod signing;
 mod stream;
 mod updates;
+mod url_event;
 mod urls;
 mod web;
 mod zipread;

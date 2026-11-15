@@ -63,7 +63,7 @@ pub struct Cron {
 pub fn parse(text: &str) -> Result<Schedule, Invalid> {
     let inner = |prefix: &str| text.strip_prefix(prefix)?.strip_suffix(')');
     if let Some(body) = inner("rate(") {
-        return parse_rate(body);
+        return parse_rate(body, Plural::Strict);
     }
     if let Some(body) = inner("cron(") {
         return parse_cron(body).map(Schedule::Cron);
@@ -71,8 +71,17 @@ pub fn parse(text: &str) -> Result<Schedule, Invalid> {
     Err(Invalid)
 }
 
-/// `5 minutes`, `1 hour`: a positive whole number and a unit that is singular exactly when the number is 1.
-fn parse_rate(body: &str) -> Result<Schedule, Invalid> {
+/// Whether a rate's unit must agree with its number.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Plural {
+    /// EventBridge rules: `rate(5 minute)` and `rate(1 minutes)` are refused (recorded 2026-11-09).
+    Strict,
+    /// EventBridge Scheduler: `rate(5 minute)` is accepted (recorded 2026-11-15); `rate(1 minutes)` too `(memory)`.
+    Either,
+}
+
+/// `5 minutes`, `1 hour`: a positive whole number and a unit that, when `plural` is strict, is singular exactly when the number is 1.
+pub(crate) fn parse_rate(body: &str, plural: Plural) -> Result<Schedule, Invalid> {
     let (n, unit) = body.split_once(' ').ok_or(Invalid)?;
     if n.is_empty() || !n.bytes().all(|b| b.is_ascii_digit()) || n.len() > 9 {
         return Err(Invalid);
@@ -81,19 +90,20 @@ fn parse_rate(body: &str) -> Result<Schedule, Invalid> {
     if n == 0 {
         return Err(Invalid);
     }
-    let (unit_ms, name) = match unit.trim_end_matches('s') {
+    let (unit_ms, name) = match unit.strip_suffix('s').unwrap_or(unit) {
         "minute" => (60_000, "minute"),
         "hour" => (3_600_000, "hour"),
         "day" => (86_400_000, "day"),
         _ => return Err(Invalid),
     };
-    let plural = n != 1;
-    if unit
-        != if plural {
-            format!("{name}s")
-        } else {
-            name.to_owned()
-        }
+    let many = n != 1;
+    if plural == Plural::Strict
+        && unit
+            != if many {
+                format!("{name}s")
+            } else {
+                name.to_owned()
+            }
     {
         return Err(Invalid);
     }

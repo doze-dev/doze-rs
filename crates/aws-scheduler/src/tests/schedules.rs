@@ -117,7 +117,7 @@ fn what_aws_refuses_is_refused() {
     let mut w = World::new();
     let refused = |w: &mut World, req: serde_json::Value| w.err("CreateSchedule", &req).0;
     assert_eq!(
-        refused(&mut w, schedule("x", "rate(5 minute)", QUEUE)),
+        refused(&mut w, schedule("x", "rate(5 weeks)", QUEUE)),
         "ValidationException"
     );
     assert_eq!(

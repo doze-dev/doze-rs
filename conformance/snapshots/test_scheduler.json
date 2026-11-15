@@ -6,6 +6,179 @@
     "region": "us-east-1",
     "target": "aws"
   },
+  "test_groups_and_tags": {
+    "create-group": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScheduleGroupArn": "arn:aws:scheduler:us-east-1:<account>:schedule-group/<name:group>"
+    },
+    "create-group-again": {
+      "Error": {
+        "Code": "ConflictException",
+        "Message": "Schedule group <name:group> already exists."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "default-cannot-go": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: scheduler:DeleteScheduleGroup on resource: arn:aws:scheduler:us-east-1:<account>:schedule-group/default because no identity-based policy allows the scheduler:DeleteScheduleGroup action"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    },
+    "delete-group": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get-default": {
+      "Name": "default",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "State": "ACTIVE"
+    },
+    "get-group": {
+      "Arn": "arn:aws:scheduler:us-east-1:<account>:schedule-group/<name:group>",
+      "CreationDate": "<CreationDate:1>",
+      "LastModificationDate": "<LastModificationDate:1>",
+      "Name": "<name:group>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "State": "ACTIVE"
+    },
+    "list-in-group": [
+      "<name:in-group>"
+    ],
+    "tag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        }
+      ]
+    },
+    "untag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_refusals": {
+    "bad-at": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid Schedule Expression at(2030-13-01T00:00:00)."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-expression": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid Schedule Expression rate(5 weeks)."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-timezone": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid timezone Mars/Olympus."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-twice": {
+      "Error": {
+        "Code": "ConflictException",
+        "Message": "Schedule <name:twice> already exists."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "end-in-past": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "The StartDate you specify must come before the EndDate."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "flexible-without-window": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "MaximumWindowInMinutes must be provided when FlexibleTimeWindowMode is set to FLEXIBLE."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-such-group": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Schedule group <name:missing> does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "plural-unit-for-one": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScheduleArn": "arn:aws:scheduler:us-east-1:<account>:schedule/default/<name:plural-unit-for-one>"
+    },
+    "read-only-universal": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid RequestJson provided. Reason You must provide an input to set this target for your schedule."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "read-only-universal-with-input": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid RequestJson provided. Reason getQueueUrl API is not supported."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "singular-unit-for-many": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScheduleArn": "arn:aws:scheduler:us-east-1:<account>:schedule/default/<name:singular-unit-for-many>"
+    },
+    "thirtieth-of-february": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScheduleArn": "arn:aws:scheduler:us-east-1:<account>:schedule/default/<name:thirtieth-of-february>"
+    }
+  },
   "test_schedule_lifecycle": {
     "create": {
       "ResponseMetadata": {

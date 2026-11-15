@@ -92,13 +92,26 @@ def test_refusals(client, names, cleanup, snapshot, service_role):
                 "Target": target, **kw}
         return lambda: scheduler.create_schedule(**args)
 
-    snapshot.error("bad-expression", create(ScheduleExpression="rate(5 minute)"))
-    snapshot.error("bad-at", create(ScheduleExpression="at(2030-02-30T00:00:00)"))
+    # Unlike an EventBridge rule, Scheduler does not hold a rate's unit to its number: `rate(5 minute)` is accepted (recorded
+    # 2026-11-15). What it does with `rate(1 minutes)` is recorded beside it.
+    # Nor does it check that a date exists: `at(2030-02-30T00:00:00)` was accepted too (2026-11-15).
+    for label, expression in (("singular-unit-for-many", "rate(5 minute)"), ("plural-unit-for-one", "rate(1 minutes)"),
+                              ("thirtieth-of-february", "at(2030-02-30T00:00:00)")):
+        accepted = names(label)
+        made = snapshot.outcome(label, lambda: scheduler.create_schedule(
+            Name=accepted, ScheduleExpression=expression, FlexibleTimeWindow=off, Target=target))
+        if isinstance(made, dict):
+            cleanup(scheduler.delete_schedule, Name=accepted)
+    snapshot.error("bad-expression", create(ScheduleExpression="rate(5 weeks)"))
+    snapshot.error("bad-at", create(ScheduleExpression="at(2030-13-01T00:00:00)"))
     snapshot.error("bad-timezone", create(ScheduleExpression="cron(0 9 * * ? *)", ScheduleExpressionTimezone="Mars/Olympus"))
     snapshot.error("end-in-past", create(EndDate=time.time() - 3600))
     snapshot.error("flexible-without-window", create(FlexibleTimeWindow={"Mode": "FLEXIBLE"}))
     snapshot.error("no-such-group", create(GroupName=names("missing")))
+    # A universal target needs an Input first (AWS asks for it before anything else, 2026-11-15); with one, the read-only action.
     snapshot.error("read-only-universal", create(Target={**target, "Arn": "arn:aws:scheduler:::aws-sdk:sqs:getQueueUrl"}))
+    snapshot.error("read-only-universal-with-input", create(Target={
+        **target, "Arn": "arn:aws:scheduler:::aws-sdk:sqs:getQueueUrl", "Input": json.dumps({"QueueName": "x"})}))
     name = names("twice")
     scheduler.create_schedule(Name=name, ScheduleExpression="rate(1 hour)", FlexibleTimeWindow=off, Target=target)
     cleanup(scheduler.delete_schedule, Name=name)
@@ -188,7 +201,9 @@ def test_a_stack_makes_a_group_and_a_schedule(client, names, cleanup, service_ro
                 "Target": {"Arn": arn, "RoleArn": role(service_role, "sqs:SendMessage"), "Input": "nightly"},
             }},
         },
-        "Outputs": {"Arn": {"Value": {"Fn::GetAtt": ["Nightly", "Arn"]}}, "Name": {"Value": {"Ref": "Nightly"}}},
+        # Not Fn::GetAtt Nightly.Arn: on AWS it fails for a schedule outside the default group ("Unable to retrieve Arn attribute
+        # for AWS::Scheduler::Schedule ... was not found", 2026-11-15), and the stack rolls back.
+        "Outputs": {"Name": {"Value": {"Ref": "Nightly"}}},
     }
     cfn.create_stack(StackName=stack, TemplateBody=json.dumps(template))
     cleanup(cfn.delete_stack, StackName=stack)
@@ -196,7 +211,7 @@ def test_a_stack_makes_a_group_and_a_schedule(client, names, cleanup, service_ro
     out = {o["OutputKey"]: o["OutputValue"] for o in cfn.describe_stacks(StackName=stack)["Stacks"][0]["Outputs"]}
     group = scheduler.list_schedule_groups(NamePrefix=names("cfn-group"))["ScheduleGroups"][0]["Name"]
     got = scheduler.get_schedule(Name=out["Name"], GroupName=group)
-    assert got["Arn"] == out["Arn"] and got["ScheduleExpressionTimezone"] == "Asia/Tokyo"
+    assert got["Arn"].endswith(f":schedule/{group}/{out['Name']}") and got["ScheduleExpressionTimezone"] == "Asia/Tokyo"
     cfn.delete_stack(StackName=stack)
     cfn.get_waiter("stack_delete_complete").wait(StackName=stack, WaiterConfig={"Delay": 1, "MaxAttempts": 120})
     assert scheduler.list_schedule_groups(NamePrefix=group)["ScheduleGroups"] == []

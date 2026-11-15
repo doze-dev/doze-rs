@@ -138,7 +138,8 @@ impl Parser {
         if self.is_word("UPSERT") || self.is_word("REPLACE") {
             return Err(Error::NotBuilt("UPSERT and REPLACE"));
         }
-        self.expected("SELECT, INSERT, UPDATE or DELETE")
+        // Recorded 2026-11-15 for `SELEKT * FROM ...`: AWS names no token here.
+        syntax("Expected data manipulation")
     }
 
     /// A table or attribute name: a bare word, or a double-quoted one.
