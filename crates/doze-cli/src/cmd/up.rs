@@ -121,8 +121,7 @@ pub(crate) fn start_for(
     let _lock = stack::lock(ctx, stack)?;
     let c = start(ctx, mode, stack)?;
     if !mode.quiet {
-        let line =
-            format!("started the doze daemon for {what}; services wake on their first connection");
+        let line = format!("started the doze daemon for {what}");
         let _ = writeln!(ctx.err, "{}", mode.err().dim(&line));
     }
     Ok(c)

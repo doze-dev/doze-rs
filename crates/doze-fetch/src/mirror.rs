@@ -134,13 +134,16 @@ impl Mirror {
         let base = self.base(engine);
         match base.strip_prefix("file://") {
             Some(dir) => dir.to_owned(),
-            None => base
-                .split_once("://")
-                .map_or(base.as_str(), |(_, rest)| rest)
-                .split('/')
-                .next()
-                .unwrap_or_default()
-                .to_owned(),
+            // The host alone: never a path's token or a `user:secret@` the log would keep.
+            None => {
+                let host = base
+                    .split_once("://")
+                    .map_or(base.as_str(), |(_, rest)| rest)
+                    .split('/')
+                    .next()
+                    .unwrap_or_default();
+                host.rsplit_once('@').map_or(host, |(_, h)| h).to_owned()
+            }
         }
     }
 

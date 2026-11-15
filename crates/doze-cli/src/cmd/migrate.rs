@@ -34,6 +34,9 @@ pub struct Migrated {
     /// The daemon was restarted first, to read doze.hcl as it is now.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub restarted: bool,
+    /// doze was stopped: the daemon was started for the move and stopped after it.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub started: bool,
 }
 
 impl Migrated {
@@ -65,42 +68,53 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &OneName) -> Outcome {
         &crate::cmd::declared::names(&cfg),
         std::slice::from_ref(&name),
     )?;
-    let instance = cfg
-        .instance(&name)
-        .map(|i| (i.kind(), i.ty.clone(), i.version.clone()));
-    let Some((Kind::Module, ty, version)) = instance else {
-        let kind = instance.map_or("", |(k, _, _)| k.as_str());
-        return Err(Diagnostic::new(
-            ids::NOTHING_TO_DO,
-            format!(
-                "{name} is {} {kind}; doze migrate moves a module's data between majors",
-                article(kind)
-            ),
-        )
-        .fix(format!("doze reset {name} starts it fresh instead")));
+    let (ty, version) = match cfg.instance(&name) {
+        Some(i) if i.kind() == Kind::Module => (i.ty.clone(), i.version.clone()),
+        Some(i) => {
+            let kind = i.kind().as_str();
+            return Err(Diagnostic::new(
+                ids::NOTHING_TO_DO,
+                format!(
+                    "{name} is {} {kind}; doze migrate moves a module's data between majors",
+                    crate::cmd::connect::article(kind)
+                ),
+            )
+            .fix(format!("doze reset {name} starts it fresh instead")));
+        }
+        None => return Err(stack::not_in(&crate::cmd::declared::names(&cfg), &name)),
     };
     let conn = stack.open(mode.timeout)?;
+    // A Go daemon (no `plan` op) has no migrate call: refused before anything, its blocks record (Go's prints are made
+    // another way) never read as a reason to stop it.
+    if let Some(c) = &conn
+        && crate::cmd::sync::planned(c, &name)
+            .map_err(|e| stack::daemon_error(&e, None))?
+            .is_none()
+    {
+        return Err(go_daemon(&name));
+    }
     let before = match &conn {
         None => Before::Start,
-        // Only a daemon that recorded what it started with (every Rust one) is compared; one without the record (Go's)
-        // has no migrate call either, and says so.
         Some(_) if Drift::of(&stack, &cfg).differs(&name) => Before::Restart,
         Some(_) => Before::Nothing,
     };
     if a.dry.dry_run {
         return Ok(Done::ok(View::Plan(plan(&name, (&ty, &version), before))));
     }
-    let (conn, restarted) = match (conn, before) {
-        (Some(c), Before::Nothing) => (c, false),
-        (Some(c), _) => (restart(ctx, mode, &stack, c, &name)?, true),
-        (None, _) => (up::start_for(ctx, mode, &stack, "doze migrate")?, false),
+    let (conn, again) = match (conn, before) {
+        (Some(c), Before::Nothing) => (c, Vec::new()),
+        (Some(c), _) => restart(ctx, mode, &stack, c, &name)?,
+        (None, _) => (
+            up::start_for(ctx, mode, &stack, "doze migrate")?,
+            Vec::new(),
+        ),
     };
     let ask = Asker::new(conn, ctx, mode);
     let log = (stack.run_dir().log_file(), ctx.term.stderr && !mode.json);
     let mut boot = Boot::begin_as(ctx.err, mode.err(), log, &name, "migrating");
     let asked = ask.call_while(
         Request::on(Op::Migrate, &name),
-        MIGRATE_TIMEOUT,
+        mode.timeout.max(MIGRATE_TIMEOUT),
         &mut || boot.poll(ctx.err),
     );
     boot.end(ctx.err);
@@ -116,20 +130,35 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &OneName) -> Outcome {
         }
         // The module and the daemon name the instance in their words already.
         Stop::Failed(e) => stack::daemon_error(&e, None),
-    })?;
+    });
+    // What was awake before a restart wakes again once the move is over (before it, a dependant would wake the
+    // instance on the new major with the old data).
+    for n in &again {
+        if let Err(stop) = ask.verb(Verb::Wake, n) {
+            let why = match stop {
+                Stop::Interrupted => "interrupted".to_owned(),
+                Stop::Failed(e) => stack::daemon_error(&e, Some(n)).message,
+            };
+            let _ = writeln!(
+                ctx.err,
+                "{}",
+                mode.err().warn(&format!("{n} did not wake again: {why}"))
+            );
+        }
+    }
+    let started = before == Before::Start;
+    if started {
+        // Started for the move only: stopped again, as `sync` stops what it starts (Go's migrate ran with doze down).
+        drop(ask);
+        crate::cmd::sync::stop(ctx, &stack)?;
+    }
+    let answer = answer?;
     Ok(Done::ok(View::Migrated(Migrated {
         name,
         result: answer.result,
-        restarted,
+        restarted: before == Before::Restart,
+        started,
     })))
-}
-
-fn article(kind: &str) -> &'static str {
-    if kind.starts_with(['a', 'e', 'i', 'o', 'u']) {
-        "an"
-    } else {
-        "a"
-    }
 }
 
 /// `--dry-run`: the daemon's start or restart, then the move.
@@ -141,7 +170,7 @@ fn plan(name: &str, (ty, version): (&str, &str), before: Before) -> Plan {
             "doze",
             Step::Do,
             "start the daemon",
-            "it supervises the stack in the background",
+            "for the move, and stopped again after it",
         ),
         Before::Restart => plan.step(
             "doze",
@@ -166,21 +195,32 @@ fn plan(name: &str, (ty, version): (&str, &str), before: Before) -> Plan {
     plan
 }
 
-/// Stops the stack's daemon and starts it again from doze.hcl as it is now, under the stack lock, and wakes what was
-/// awake again (but `name`, which the move stops anyway); the new connection.
+/// Stops the stack's daemon and starts it again from doze.hcl as it is now, under the stack lock; the new connection
+/// and what was awake (but `name`), for waking again after the move. What a restart does not carry over is said.
 fn restart(
     ctx: &mut Ctx<'_>,
     mode: &Mode,
     stack: &Stack,
     conn: Connection,
     name: &str,
-) -> Result<Connection, Diagnostic> {
+) -> Result<(Connection, Vec<String>), Diagnostic> {
     let _lock = stack::lock(ctx, stack)?;
-    let awake: Vec<String> = stack::snapshot(&conn)?
+    let snap = stack::snapshot(&conn)?;
+    let awake: Vec<String> = snap
         .instances
         .iter()
         .filter(|v| v.declared && v.name != name && crate::cmd::status::awake(&v.state))
         .map(|v| v.name.clone())
+        .collect();
+    let lost: Vec<String> = snap
+        .instances
+        .iter()
+        .filter_map(|v| match () {
+            () if !v.declared => Some(format!("{} (added with doze add)", v.name)),
+            () if v.keep_awake => Some(format!("{}'s pin", v.name)),
+            () if v.state == "off" => Some(format!("{} being off", v.name)),
+            () => None,
+        })
         .collect();
     drop(conn);
     let pid = down::identify(&stack.key).ok_or_else(|| {
@@ -199,21 +239,19 @@ fn restart(
         .fix("doze down && doze up, then doze migrate again"));
     }
     down::clear(&down::leftovers(&stack.key));
-    let conn = up::start(ctx, mode, stack)?;
-    if !mode.quiet && !mode.json {
-        let line = format!("restarted the doze daemon: {name}'s block changed since it started");
+    let conn = up::start(ctx, mode, stack).map_err(|d| {
+        d.note("the old daemon was stopped: the stack is down now")
+            .fix("doze up")
+    })?;
+    if !mode.quiet {
+        let mut line =
+            format!("restarted the doze daemon: {name}'s block changed since it started");
+        if !lost.is_empty() {
+            line.push_str(&format!("; not carried over: {}", lost.join(", ")));
+        }
         let _ = writeln!(ctx.err, "{}", mode.err().dim(&line));
     }
-    for n in &awake {
-        if let Err(e) = conn.run_verb(Verb::Wake, n) {
-            let line = format!(
-                "{n} did not wake again: {}",
-                stack::daemon_error(&e, Some(n)).message
-            );
-            let _ = writeln!(ctx.err, "{}", mode.err().warn(&line));
-        }
-    }
-    Ok(conn)
+    Ok((conn, awake))
 }
 
 /// A daemon without the `migrate` call (Go's: its migrate was the CLI's own, with the stack down).

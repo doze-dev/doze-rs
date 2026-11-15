@@ -232,14 +232,16 @@ fn with_no_daemon_up_starts_one_or_says_why_it_could_not() {
     );
     assert_eq!(plan.code, 0, "{}", plan.stderr);
     assert!(plan.stdout.contains("start the daemon"), "{}", plan.stdout);
-    // A host that names no program to start: said, exit 1.
+    // A host that names no program to start: said, exit 1. Windows has no control socket for the daemon yet (core plan
+    // W): that is said instead, exit 1 too.
     let ran = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
     assert_eq!(ran.code, 1, "{}", ran.stderr);
-    assert!(
-        ran.stderr.contains("could not find this doze program"),
-        "{}",
-        ran.stderr
-    );
+    let why = if cfg!(windows) {
+        "no local control socket"
+    } else {
+        "could not find this doze program"
+    };
+    assert!(ran.stderr.contains(why), "{}", ran.stderr);
 }
 
 /// The real thing: `up` starts the built `doze` as the stack's daemon (D1's `__daemon`), wakes the app, and `down`
@@ -376,76 +378,4 @@ fn a_moved_state_folder_is_followed() {
     assert_eq!(down.code, 0, "{}", down.stderr);
     assert!(down.stdout.contains("\"stopped\": true"), "{}", down.stdout);
     assert!(!key.socket().exists() && !key.pid_file().exists());
-}
-
-/// `wake` and `reset` with doze stopped start the daemon first, as Go's did (`startDaemon`), and say so on stderr; a
-/// reset then removes the data folder, so the next wake starts fresh (Go's suite: `TestSetupRunsOncePerDataFolder`).
-#[test]
-fn a_verb_starts_the_daemon_when_doze_is_stopped() {
-    if !std::path::Path::new("/bin/sh").exists() || !setup::sockets() {
-        return;
-    }
-    let (sb, mut host, _) = setup::prepare(&["project bare".to_owned()]);
-    host.daemon_exe = Some(std::path::PathBuf::from(env!("CARGO_BIN_EXE_doze")));
-    let hcl = format!(
-        "stack = \"shop\"\nhome = \"{}\"\n\nservice \"mail\" {{\n  run = \"echo up >> $DATA/ran && exec sleep 600\"\n}}\n",
-        sb.home().display()
-    );
-    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
-    let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
-    let doze = |args: &[&str]| fixture::run(&sb, &host, Terminals::default(), false, args);
-    let ran = || {
-        let data = sb.home().join("projects");
-        let mut lines = 0;
-        for e in walk(&data) {
-            if e.file_name().is_some_and(|n| n == "ran") {
-                lines += std::fs::read_to_string(&e)
-                    .unwrap_or_default()
-                    .lines()
-                    .count();
-            }
-        }
-        lines
-    };
-    let wake = doze(&["wake", "mail"]);
-    let _reap = Reap(doze_projects::daemon_pid(&key).map(|p| p.pid));
-    assert_eq!(wake.code, 0, "{}\n{}", wake.stdout, wake.stderr);
-    assert!(
-        wake.stderr
-            .contains("started the doze daemon for doze wake"),
-        "{}",
-        wake.stderr
-    );
-    assert_eq!(ran(), 1, "mail ran once");
-    let down = doze(&["down"]);
-    assert_eq!(down.code, 0, "{}", down.stderr);
-    // Stopped again: the reset starts the daemon, which deletes the data folder.
-    let reset = doze(&["reset", "-y", "mail"]);
-    let _reap2 = Reap(doze_projects::daemon_pid(&key).map(|p| p.pid));
-    assert_eq!(reset.code, 0, "{}\n{}", reset.stdout, reset.stderr);
-    assert!(
-        reset
-            .stderr
-            .contains("started the doze daemon for doze reset"),
-        "{}",
-        reset.stderr
-    );
-    assert_eq!(ran(), 0, "the data folder is gone");
-    let down = doze(&["down"]);
-    assert_eq!(down.code, 0, "{}", down.stderr);
-    assert!(!key.socket().exists() && !key.pid_file().exists());
-}
-
-/// Every file under `dir`.
-fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
-    let mut out = Vec::new();
-    for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-        let p = e.path();
-        if p.is_dir() {
-            out.extend(walk(&p));
-        } else {
-            out.push(p);
-        }
-    }
-    out
 }

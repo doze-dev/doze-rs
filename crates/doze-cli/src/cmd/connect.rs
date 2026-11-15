@@ -137,7 +137,7 @@ fn no_client(v: &InstanceView) -> Diagnostic {
     .fix(format!("doze url {} gives its address", v.name))
 }
 
-fn article(kind: &str) -> &'static str {
+pub(crate) fn article(kind: &str) -> &'static str {
     if kind.starts_with(['a', 'e', 'i', 'o', 'u']) {
         "an"
     } else {
@@ -170,8 +170,8 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("dz-connect-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).ok();
-        // A runnable file stands for the engine build's client.
-        let own = PathBuf::from("/bin/sh");
+        // A runnable file stands for the engine build's client: this test's own program, on every system.
+        let own = std::env::current_exe().unwrap_or_default();
         let c = ClientView {
             program: "dz-no-such-client".into(),
             path: own.display().to_string(),

@@ -56,6 +56,44 @@ fn same_file(a: &str, b: &str) -> bool {
     }
 }
 
+/// `doze __daemon --lint`: [`once`], its answer as one line on stdout (the whole answer; the CLI reads it).
+pub(crate) fn main(
+    rt: &tokio::runtime::Runtime,
+    config: &std::path::Path,
+    version: &str,
+) -> std::process::ExitCode {
+    let answer = rt.block_on(once(config, version));
+    #[allow(clippy::print_stdout)]
+    {
+        println!("{}", serde_json::to_string(&answer).unwrap_or_default());
+    }
+    std::process::ExitCode::SUCCESS
+}
+
+/// The `lint` op's module pass on `config`, with no daemon: the catalog it needs (builds through `__fetch`, the lock
+/// beside doze.hcl), the check, then the catalog's module processes stopped before the answer is given.
+pub(crate) async fn once(config: &std::path::Path, version: &str) -> doze_control::Response {
+    let failed = |error: String| doze_control::Response {
+        ok: false,
+        error,
+        ..doze_control::Response::default()
+    };
+    let catalog = match crate::entry::catalog(config) {
+        Ok(c) => std::sync::Arc::new(c),
+        Err(e) => return failed(e),
+    };
+    let (cat, path, version) = (
+        catalog.clone(),
+        config.to_string_lossy().into_owned(),
+        version.to_owned(),
+    );
+    let answer = tokio::task::spawn_blocking(move || check(&cat, &path, &version))
+        .await
+        .unwrap_or_else(|e| failed(e.to_string()));
+    catalog.pool.stop_all().await;
+    answer
+}
+
 /// Loads `config` through `cat`: the module pass.
 pub fn check(cat: &Catalog, config: &str, version: &str) -> Response {
     cat.retry_failed();

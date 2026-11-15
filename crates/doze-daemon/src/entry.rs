@@ -43,13 +43,7 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
         }
     };
     if args.iter().any(|a| a == LINT_ARG) {
-        let answer = rt.block_on(lint_once(&config, version));
-        // One line on stdout, the whole answer; the CLI reads it.
-        #[allow(clippy::print_stdout)]
-        {
-            println!("{}", serde_json::to_string(&answer).unwrap_or_default());
-        }
-        return ExitCode::SUCCESS;
+        return crate::lint::main(&rt, &config, version);
     }
     match rt.block_on(run(&config, version)) {
         Ok(()) => ExitCode::SUCCESS,
@@ -206,30 +200,6 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// The `lint` op's module pass on `config`, with no daemon: the catalog it needs (builds through `__fetch`, the lock
-/// beside doze.hcl), the check, then the catalog's module processes stopped before the answer is given.
-async fn lint_once(config: &Path, version: &str) -> doze_control::Response {
-    let failed = |error: String| doze_control::Response {
-        ok: false,
-        error,
-        ..doze_control::Response::default()
-    };
-    let catalog = match catalog(config) {
-        Ok(c) => Arc::new(c),
-        Err(e) => return failed(e),
-    };
-    let (cat, path, version) = (
-        catalog.clone(),
-        config.to_string_lossy().into_owned(),
-        version.to_owned(),
-    );
-    let answer = tokio::task::spawn_blocking(move || crate::lint::check(&cat, &path, &version))
-        .await
-        .unwrap_or_else(|e| failed(e.to_string()));
-    catalog.pool.stop_all().await;
-    answer
-}
-
 /// Stops module processes nothing has called for a while, now and then.
 async fn reap_modules(catalog: Arc<Catalog>) {
     loop {
@@ -293,7 +263,7 @@ fn ca_env(home: &Path) -> BTreeMap<String, String> {
 
 /// The catalog for the stack at `config`: module builds through a `__fetch` child of this very program, the lock
 /// beside doze.hcl, and the lock's engine pins in front of the downloads modules ask for.
-fn catalog(config: &Path) -> Result<Catalog, String> {
+pub(crate) fn catalog(config: &Path) -> Result<Catalog, String> {
     let program = std::env::current_exe().map_err(|e| format!("this program's path: {e}"))?;
     let fetch = ChildDownloads {
         program,

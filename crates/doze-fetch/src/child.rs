@@ -227,7 +227,7 @@ fn save_pin(
 
 /// Reads one request line from `input`, serves it, writes one reply line to `output` (the `__fetch` command). The
 /// slow part is said on `log` as it starts: the child's stderr is the daemon's log, which `doze up` relays while a
-/// service wakes (Go's mirror logged "downloading <url>…" there). An engine build is a large download: without the
+/// service wakes (Go's mirror logged "downloading `<url>`…" there). An engine build is a large download: without the
 /// line, `up` showed nothing for the minute and a half a postgres build takes.
 pub fn run(
     input: &mut dyn std::io::BufRead,

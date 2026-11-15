@@ -6,7 +6,7 @@ $ doze migrate --dry-run db
 exit 0
 stdout:
 | doze
-|   → start the daemon  it supervises the stack in the background
+|   → start the daemon  for the move, and stopped again after it
 | db
 |   → migrate           its module moves the data to postgres 16, as doze.hcl declares; db is stopped meanwhile
 |   dry run: nothing was changed · doze migrate db applies this
@@ -26,7 +26,7 @@ json:
 |           {
 |             "op": "→",
 |             "subject": "start the daemon",
-|             "detail": "it supervises the stack in the background"
+|             "detail": "for the move, and stopped again after it"
 |           }
 |         ]
 |       },

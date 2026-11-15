@@ -110,7 +110,10 @@ fn module_pass(
     project: &crate::project::Project,
 ) -> Result<doze_control::Response, String> {
     use doze_control::{Error, Op, Request};
-    if let Ok(stack) = crate::stack::Stack::find(ctx, mode)
+    // The daemon checks with the `--var`s it was started with; this command's own (Go's lint read them) go to the
+    // one-shot instead.
+    if mode.vars.is_empty()
+        && let Ok(stack) = crate::stack::Stack::find(ctx, mode)
         && let Ok(Some(conn)) = stack.open(mode.timeout)
     {
         match conn.call(Request::op(Op::Lint)) {
@@ -143,11 +146,19 @@ fn module_pass(
         ])
         .arg(&config)
         .current_dir(&ctx.cwd)
+        // As `up` hands them to the daemon (`ctl::start`): never on a command line, where `ps` shows them.
+        .envs(mode.vars.iter().map(|(k, v)| (format!("DOZE_VAR_{k}"), v)))
         .stdin(std::process::Stdio::null())
         .output()
         .map_err(|e| format!("the module pass could not be run ({e})"))?;
+    // The answer is the last line; anything printed before it is not the answer.
     let text = String::from_utf8_lossy(&out.stdout);
-    serde_json::from_str(text.trim()).map_err(|_| {
+    let last = text
+        .lines()
+        .rev()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or("");
+    serde_json::from_str(last).map_err(|_| {
         let said = String::from_utf8_lossy(&out.stderr);
         let last = said.lines().last().unwrap_or("it said nothing");
         format!("the module pass did not answer ({last})")

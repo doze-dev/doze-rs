@@ -241,3 +241,37 @@ impl StackLock {
         Ok(f)
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod blocks_tests {
+    use super::*;
+
+    /// The record reads back as written, and Go's file (the same shape, Go's prints) reads too.
+    #[test]
+    fn the_blocks_record_reads_back_and_reads_gos() {
+        let dir = std::env::temp_dir().join(format!("doze-blocks-{}", std::process::id()));
+        let run = RunDir::of(&dir);
+        std::fs::create_dir_all(run.path()).unwrap();
+        let src = "app \"api\" {\n  run = \"sleep 600\"\n}\n";
+        std::fs::write(dir.join("doze.hcl"), src).unwrap();
+        let path = dir.join("doze.hcl").to_string_lossy().into_owned();
+        let cfg =
+            crate::entry::with_options("0.0.0", &doze_config::NoModules, Default::default(), |o| {
+                doze_config::load_shape(&path, o)
+            })
+            .unwrap();
+        write_blocks(&run, &cfg).unwrap();
+        assert_eq!(blocks(&run).unwrap(), cfg.block_fingerprints());
+        std::fs::write(
+            run.blocks_file(),
+            r#"{"db": {"kind": "module", "type": "postgres", "fp": "ab12"}}"#,
+        )
+        .unwrap();
+        let go = blocks(&run).unwrap();
+        assert_eq!(go["db"].fingerprint, "ab12");
+        std::fs::write(run.blocks_file(), "[]").unwrap();
+        assert_eq!(blocks(&run), None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

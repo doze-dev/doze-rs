@@ -56,9 +56,49 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
 | 23 | `wake`, `restart`, `reset`, `pin` and `task <name>` start the daemon when doze is stopped, as Go's did (`startDaemon`), under the stack lock and said on stderr ("started the doze daemon for doze reset…"). `reset` asks first (nothing is started for a declined reset). A dry run with doze stopped plans from doze.hcl, the daemon's start first, and starts nothing. `sleep`, `off`, `on` and `pin --off` do not start it (Go's did not) | `tests/up.rs a_verb_starts_the_daemon_when_doze_is_stopped` (the built doze: wake starts it, reset deletes the data folder; Go's `TestSetupRunsOncePerDataFolder`), transcript `config-down` (`wake --dry-run`), `exit_codes` |
 | 24 | `doze task` lists doze.hcl's tasks (Go's `listTasks`): a manual one that never ran is "manual — never run", JSON `manual: true`; it no longer needs the daemon to know the names, and a doze.hcl that does not load is exit 5. A task name is checked against doze.hcl before anything starts (Go `taskNotFound`) | transcript `task` (Go's `TestAFailedTaskStopsWhatIsAfterIt`) |
 | 25 | `sync` names the blocks of doze.hcl that differ from what the running daemon started with, and what applying them does (Go `renderBlocks`: "~ api app changed restarts", "+ mail service new starts when something uses it", "- old app removed stops; its data is kept", "1 block unchanged", "doze down && doze up applies this"). The daemon records `run/blocks.json` (Go's shape, `{name: {kind, type, fp}}`) from doze.hcl's shape once its lock is held; the CLI compares the shape now. Not against a Go daemon (its prints are made another way). Human output only, as Go's | `cmd::sync::tests::the_blocks_that_differ_are_named_with_what_applying_them_does`; Go's `TestSyncNamesTheBlocksThatDifferFromTheRunningDaemon` |
-| 26 | `migrate <name>`: the module's own move of its data to the major doze.hcl declares, through the daemon's `migrate` call; the module's words printed ("✓ db migrated", then what it said), JSON `{name, result, restarted}`. Checked against doze.hcl first (exit 4; an app, service or task is exit 1). **Better than Go:** the stack may be up. When the block changed since the daemon started (`run/blocks.json`), the daemon is restarted first under the stack lock (what was awake wakes again, the instance being moved aside), as daemon.md's audit item 6 asks; with doze stopped it is started. Progress on stderr ("→ db migrating…" and the daemon log's download lines). `--dry-run` says the start or restart, then the move. A Go daemon: refused with how to move the stack to this doze | `doze-module tests/cli_migrate_lint.rs` (end to end with the echo module: its refusal, a task refused, a move with its words), transcripts `migrate`, `migrate-down` |
+| 26 | `migrate <name>`: the module's own move of its data to the major doze.hcl declares, through the daemon's `migrate` call; the module's words printed ("✓ db migrated", then what it said), JSON `{name, result, restarted}`. Checked against doze.hcl first (exit 4; an app, service or task is exit 1). **Better than Go:** the stack may be up. When the block changed since the daemon started (`run/blocks.json`), the daemon is restarted first under the stack lock (what was awake wakes again, the instance being moved aside), as daemon.md's audit item 6 asks; with doze stopped it is started for the move and stopped after it (JSON `started`), as `sync` stops what it starts. What was awake before a restart wakes again *after* the move (before it, a dependant would wake the instance on the new major with the old data), and what a restart does not carry over (pins, `doze add` instances, off states) is said. Progress on stderr ("→ db migrating…" and the daemon log's download lines). `--dry-run` says the start or restart, then the move. A Go daemon (no `plan` op) is refused before anything is stopped: its `blocks.json` has Go's prints, never read as a reason to restart it | `doze-module tests/cli_migrate_lint.rs` (end to end with the echo module: its refusal, a task refused, a move with its words), transcripts `migrate`, `migrate-down`, `migrate-go` |
 | 27 | `lint`'s module pass: the stack's daemon when it runs (the `lint` op on doze.hcl as on disk now), else the same check once in `doze __daemon --lint` (a child that serves nothing; its module processes are stopped before it answers: `Pool::stop_all`). Its warnings are lint's; a type the registry cannot be reached for and that is not on this machine is listed unchecked with why (exit 11); a mistake the modules find is exit 5 in the load's words | `cli_migrate_lint.rs` (passes; an edit to e's block after the daemon started; a bad reference is exit 5), transcript `lint` |
 | 28 | Weight: `regex` without its `perf` engines (weight.md, "Session 11"): `doze` 8,607,968 B on x86_64 Linux (8,994,120 B before), 233 packages | weight.md |
+
+## Independent audit (2026-11-15, fifth, session 11 at 4f951d14)
+
+Fixed:
+
+1. **Major:** the regex change made `fn2.regex3.07`'s verdict depend on the build set: Cargo turns `perf` back on when
+   doze-desk (or another workspace crate) shares the build, so CI's workspace tests disagreed with `-p doze-hcl`. The
+   known difference is back, doze-hcl's tests take `perf` as a dev-dependency (stable in every build), and hcl-values.md
+   F22 says the shipped `doze` (no `perf`) matches Go there.
+2. **Major:** lint's module pass ignored `--var`. The one-shot gets them as `DOZE_VAR_*`, and with `--var` given the
+   running daemon (which has its own) is not asked.
+3. **Major:** `migrate` against a Go daemon read Go's `blocks.json` (other prints), took every module block as changed,
+   stopped the Go daemon and started a Rust one. Now a daemon without the `plan` op is refused first (transcript
+   `migrate-go`).
+4. **Major:** the restart woke dependants before the move. Now they wake after it, through the Asker (Ctrl-C works); what
+   a restart drops is said; a start that fails after the stop says the stack is down.
+5. `migrate`'s timeout is the longer of `--timeout` and 30 minutes; a daemon started for the move is stopped after it.
+6. The one-shot's answer is its last stdout line. `ctl::blocks` has a round-trip test that also reads Go's shape.
+   `Mirror::source` drops a `user:secret@`. `start_for`'s line no longer says "services wake on their first
+   connection" (wrong for `wake` and `task`). Windows: the connect unit test and `up.rs` no longer assume `/bin/sh`
+   or a control socket.
+
+Open, with reasons:
+
+- No end-to-end test of the restart path: it needs a real daemon process (`down::identify` checks the pid file) with a
+  module that serves `migrate`, which only the in-process echo test has. The decision (`Drift::differs`) and its parts
+  are tested; the restart itself was run by hand only for the Go refusal.
+- Block drift fingerprints doze.hcl's shape, where a module block's body is not evaluated: an edit inside a module block
+  (a database, a role) is not "changed" in `sync`'s section, and `migrate` does not see it (its version is in the header,
+  so a major change is seen). Go's daemon fingerprinted the full load. The fingerprint hashes `Debug` text, stable
+  while those types hold no hash maps.
+- Lint maps every `ok:false` from the module pass to exit 5, also a registry error the daemon does not class as
+  unreachable (a `DOZE_REGISTRY` folder that is missing): the lint answer needs a field for "could not check" (D1).
+- The one-shot shows no progress while modules download (its stderr is captured), and a lint op that times out against a
+  running daemon falls back to the one-shot while the daemon may still be writing doze.lock.
+- Found while gating, for D1/E2: `doze-engine tests/tasks.rs a_stopped_task_is_asked_to_stop_and_ends_failed` failed
+  once under a parallel load ("exited: signal: terminated"), then passed three times alone.
+- Found in the real-daemon proof, for D1: the daemon's converge on start writes no `.doze/state.json` (Go's `up` saved
+  it), so after `up` the `plan` op lists the module's objects as to be created though they exist (the proof's
+  `sync --dry-run`: "+ role app, + database db" with the role there).
 
 ## Open (session 11)
 

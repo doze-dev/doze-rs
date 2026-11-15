@@ -168,7 +168,7 @@ impl Drift {
 }
 
 /// The daemon's change list for `target` (empty: the stack), or `None` from a daemon without the `plan` op (Go's).
-fn planned(conn: &Connection, target: &str) -> Result<Option<Vec<ChangeView>>, Error> {
+pub(crate) fn planned(conn: &Connection, target: &str) -> Result<Option<Vec<ChangeView>>, Error> {
     match conn.call(Request::on(Op::Plan, target)) {
         Ok(r) => Ok(Some(r.changes)),
         Err(Error::Daemon { message, .. }) if message.starts_with("unknown op") => Ok(None),
@@ -251,7 +251,7 @@ fn go_daemon() -> Diagnostic {
 }
 
 /// Stops the daemon this sync started, and clears what it left.
-fn stop(ctx: &mut Ctx<'_>, stack: &Stack) -> Result<(), Diagnostic> {
+pub(crate) fn stop(ctx: &mut Ctx<'_>, stack: &Stack) -> Result<(), Diagnostic> {
     let _lock = stack::lock(ctx, stack)?;
     // Its files are cleared only once it is known stopped: a daemon that is not identified (or not ours to signal) keeps
     // them, and is named, rather than being orphaned by a cleared socket.
