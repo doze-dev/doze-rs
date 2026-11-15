@@ -53,12 +53,19 @@ fn r4(cfg: &Config, out: &mut BTreeMap<String, String>) {
 }
 
 fn r4_access(cfg: &Config, out: &mut BTreeMap<String, String>) {
-    use super::access::{AccessResponse, AclChoice, AclCreateOutcome, AclDeleteOutcome};
-    use crate::model::{
-        AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessTls, AccessUser,
-        AccessView, AccessWarning, AclCreateView, AclDeleteView, AclEntry, AclInput, AclPattern,
-        AclPermission,
+    use super::access::{
+        AccessResponse, AclChoice, AclCreateOutcome, AclDeleteOutcome, QuotaOutcome,
     };
+    use crate::model::{
+        AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessQuota,
+        AccessQuotaClient, AccessQuotaPart, AccessQuotas, AccessTls, AccessUser, AccessView,
+        AccessWarning, AclCreateView, AclDeleteView, AclEntry, AclInput, AclPattern, AclPermission,
+    };
+    one::<AccessQuotas>(cfg, out);
+    one::<AccessQuota>(cfg, out);
+    one::<AccessQuotaPart>(cfg, out);
+    one::<AccessQuotaClient>(cfg, out);
+    one::<QuotaOutcome>(cfg, out);
     one::<AccessResponse>(cfg, out);
     one::<AclChoice>(cfg, out);
     one::<AccessView>(cfg, out);

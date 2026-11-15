@@ -107,6 +107,36 @@ pub enum AclCreateOutcome {
     },
 }
 
+/// What a Set quota or Remove quota submit came to.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+pub enum QuotaOutcome {
+    Done,
+    /// Kafka said no, in its words.
+    Refused {
+        #[serde(with = "crate::api::settings::refusal_one")]
+        #[cfg_attr(test, ts(as = "crate::api::settings::KafkaRefusal"))]
+        refused: crate::model::Refusal,
+    },
+}
+
+/// `POST /api/v1/access/quotas`: one quota set or removed, as AlterClientQuotas from the console.
+pub(super) async fn quota(State(s): State<Shared>, body: Bytes) -> Response {
+    let Ok(p) = serde_json::from_slice::<crate::gather::quotas::QuotaPost>(&body) else {
+        return error(
+            StatusCode::BAD_REQUEST,
+            "BAD_REQUEST",
+            "The quota was not in the form the console sends.",
+        );
+    };
+    let outcome = match s.source.quota_alter(&p).await {
+        Ok(()) => QuotaOutcome::Done,
+        Err(refused) => QuotaOutcome::Refused { refused },
+    };
+    json(StatusCode::OK, &outcome)
+}
+
 /// What a Delete ACL submit came to.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]

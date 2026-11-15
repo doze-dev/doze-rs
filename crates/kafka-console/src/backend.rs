@@ -21,6 +21,7 @@ mod data;
 mod forms;
 mod lab;
 mod log_views;
+mod quotas;
 pub mod requests;
 mod settings;
 
