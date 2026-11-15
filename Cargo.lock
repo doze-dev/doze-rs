@@ -3014,6 +3014,7 @@ dependencies = [
 name = "doze-module"
 version = "0.0.0"
 dependencies = [
+ "base64ct",
  "doze-cli",
  "doze-config",
  "doze-daemon",
@@ -3026,6 +3027,7 @@ dependencies = [
  "doze-module-test",
  "doze-os",
  "doze-projects",
+ "ed25519-dalek",
  "hex",
  "minicbor",
  "serde_json",

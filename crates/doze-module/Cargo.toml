@@ -35,6 +35,9 @@ doze-fetch = { path = "../doze-fetch" }
 # doze connect end to end (tests/cli_connect.rs): the CLI against this module's client.
 doze-cli = { path = "../doze-cli" }
 doze-projects = { path = "../doze-projects" }
+# migrate's restart path end to end (tests/migrate_restart.rs): a registry signed in the test.
+ed25519-dalek = { version = "3", default-features = false }
+base64ct = { version = "1", features = ["alloc"] }
 
 [[bin]]
 # Test module only: the echo module tests/echo.rs drives through a real host peer.
@@ -49,3 +52,8 @@ name = "doze-module-echo-engine"
 path = "src/bin/echo_engine.rs"
 test = false
 doc = false
+
+[[test]]
+# Runs itself as `doze __daemon` and `doze __fetch` (real processes), so it has its own main.
+name = "migrate_restart"
+harness = false
