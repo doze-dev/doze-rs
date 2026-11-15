@@ -92,6 +92,60 @@ async fn a_name_that_can_never_be_a_topic_is_invalid_and_not_merely_unknown() {
     );
 }
 
+/// The Java consumer (kafka-clients 4.x) asks Metadata v12 by topic id for the topics a KIP-848 regular expression gave
+/// it, with the name left at the schema's default, the empty string, not null (`MetadataRequest.Builder` sets only the
+/// id). Kafka 4.3.1 (`KafkaApis.handleTopicMetadataRequest`, 895-911) answers such a request by id whenever any entry
+/// has an id that is not zero: the names are not read, an entry of the zero id is dropped, and an id asked twice is
+/// answered once. Found by `interop/run.sh -java` (`group-848-regex`): the client was answered "invalid topic name"
+/// and never consumed its assignment.
+#[tokio::test]
+async fn a_request_with_topic_ids_is_answered_by_id_whatever_the_names_say() {
+    use kafka_wire::Uuid;
+    use kafka_wire::api::Request;
+    use kafka_wire::api::Response;
+    use kafka_wire::messages::MetadataRequest;
+    use kafka_wire::messages::metadata_request::MetadataRequestTopic;
+    let rig = rig();
+    rig.create(vec![topic("a", 2), topic("b", 1)], false).await;
+    let ids = rig.metadata(12, Some(&["a", "b"]), false).await;
+    let (a, b) = (ids.topics[0].topic_id, ids.topics[1].topic_id);
+    let ghost = Uuid::from_u128(0x5eed);
+    let entry = |id: Uuid, name: &str| {
+        let mut t = MetadataRequestTopic::default();
+        t.topic_id = id;
+        t.name = Some(support::wire_name(name));
+        t
+    };
+    let mut req = MetadataRequest::default();
+    // As the Java client sends them: "" beside each id; then a zero id with a name, an id twice, and one nobody knows.
+    req.topics = Some(vec![
+        entry(a, ""),
+        entry(b, ""),
+        entry(Uuid::nil(), "b"),
+        entry(a, ""),
+        entry(ghost, ""),
+    ]);
+    let Response::Metadata(m) = rig.ask(12, Request::Metadata(req)).await else {
+        panic!("not Metadata")
+    };
+    let seen: Vec<(i16, Option<String>, Uuid, usize)> = m
+        .topics
+        .iter()
+        .map(|t| {
+            let name = t.name.as_ref().map(|n| n.0.to_string());
+            (t.error_code, name, t.topic_id, t.partitions.len())
+        })
+        .collect();
+    assert_eq!(
+        seen,
+        [
+            (100, None, ghost, 0),
+            (0, Some("a".to_owned()), a, 2),
+            (0, Some("b".to_owned()), b, 1),
+        ]
+    );
+}
+
 #[tokio::test]
 async fn deleting_a_topic_takes_its_registration_and_directories_and_frees_the_name_for_a_new_topic()
  {
