@@ -67,6 +67,8 @@ fn reclaimable(service: &Value) -> u64 {
     list(service, "files")
         .iter()
         .map(|f| u(f, "reclaimable"))
+        // A new file keeps about a megabyte in reserve; only what a compaction is worth running for is said.
+        .filter(|r| *r >= doze_store_worth())
         .sum()
 }
 
@@ -103,9 +105,9 @@ pub(crate) fn overview(report: &Value, shown_dir: &str, st: Style) -> String {
     }
     let free: u64 = services.iter().map(|svc| reclaimable(svc)).sum();
     let mut out = format!("doze-aws keeps {} in {shown_dir}\n", st.bold(&size(total)));
-    if free >= 1 << 20 {
+    if free > 0 {
         out.push_str(&format!(
-            "  {} of it is space earlier deletes left behind: {} gives it back\n",
+            "  {} of it is free space inside doze-aws's files: {} gives it back\n",
             size(free),
             st.cyan("doze-aws data compact")
         ));
@@ -242,7 +244,7 @@ pub(crate) fn service(svc: &Value, st: Style) -> String {
         size(u(svc, "bytes"))
     );
     let free = reclaimable(svc);
-    if free >= 64 << 10 {
+    if free > 0 {
         out.push_str(&format!(
             " ({} of it reclaimable: doze-aws data compact)",
             size(free)
@@ -352,3 +354,8 @@ pub(crate) fn resource(svc: &Value, r: &Value, st: Style) -> String {
 #[cfg(test)]
 #[path = "data_show_tests.rs"]
 mod tests;
+
+/// The least free space in one file worth a compaction (doze-store's own threshold for compacting on close).
+const fn doze_store_worth() -> u64 {
+    4 << 20
+}

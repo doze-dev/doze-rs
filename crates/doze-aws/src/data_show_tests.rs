@@ -50,10 +50,7 @@ fn the_overview_puts_the_largest_first_and_says_what_removes_the_hidden_parts() 
     assert!(s3 < sqs, "{text}");
     assert!(text.contains("2 queues"), "{text}");
     assert!(text.contains("largest: orders-dlq 86 MB"), "{text}");
-    assert!(
-        text.contains("2.0 MB of it is space earlier deletes left behind"),
-        "{text}"
-    );
+    assert!(!text.contains("of it is free space"), "{text}");
     assert!(text.contains("Worth a look"), "{text}");
     assert!(
         text.contains("doze-aws data empty s3 uploads --old-versions"),

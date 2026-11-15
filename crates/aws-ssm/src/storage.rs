@@ -74,7 +74,10 @@ impl Core {
                 if !old.is_empty() {
                     notes.push(Note {
                         bytes: old.iter().map(|v| version_bytes(v)).sum(),
-                        text: format!("in {} old versions no label points at", old.len()),
+                        text: format!(
+                            "in {} no label points at",
+                            crate::storage::plural(old.len(), "old version")
+                        ),
                         prune: Some(Prune {
                             old_versions: true,
                             ..Prune::default()
@@ -258,5 +261,14 @@ impl Storage for Ssm {
             }
             Ok(freed)
         })
+    }
+}
+
+/// `1 old version`, `3 old versions`.
+pub(crate) fn plural(n: usize, one: &str) -> String {
+    if n == 1 {
+        format!("1 {one}")
+    } else {
+        format!("{n} {one}s")
     }
 }
