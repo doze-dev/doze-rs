@@ -6,6 +6,9 @@ const REGIONS = ["us-east-1", "us-west-2"];
 const R = "*";
 const P = "doze-rec-";
 const A = "arn:aws";
+// The services the recorder may use on resources that carry the prefix.
+const PREFIXED = ["sqs", "sns", "ssm", "secretsmanager", "dynamodb", "logs", "events", "scheduler", "lambda", "states", "kinesis",
+  "cloudwatch", "cloudformation", "s3", "iam"];
 
 const region = { StringEquals: { "aws:RequestedRegion": REGIONS } };
 
@@ -54,6 +57,8 @@ const policy = {
         "sns:GetPlatformApplicationAttributes", "sns:SetPlatformApplicationAttributes", "sns:CreatePlatformEndpoint", "sns:DeleteEndpoint",
         "sns:GetEndpointAttributes", "sns:SetEndpointAttributes", "ssm:ListDocuments", "states:RevealSecrets",
         "sts:DecodeAuthorizationMessage", "sts:GetSessionToken",
+        // So a new version of this policy is checked by AWS itself before anyone pastes it. Stateless.
+        "access-analyzer:ValidatePolicy",
       ],
       Resource: "*",
       Condition: region,
@@ -70,14 +75,13 @@ const policy = {
       // Everything else is limited to resources whose name starts with the doze-rec- prefix.
       Sid: "PrefixedResources",
       Effect: "Allow",
-      Action: [
-        "sqs:*", "sns:*", "ssm:*", "secretsmanager:*", "dynamodb:*", "logs:*", "events:*", "scheduler:*",
-        "lambda:*", "states:*", "kinesis:*", "cloudwatch:*", "cloudformation:*", "s3:*", "iam:*",
-      ],
+      Action: PREFIXED.map((s) => `${s}:*`),
       Resource: [
-        // Any resource of these services whose name has our prefix, in any of the two regions (ARN segments: service, region,
-        // account, resource; a dashboard has no region, a bucket neither region nor account, and `*` matches those empty).
-        `${A}:*:*:*:*${P}*`,
+        // Any resource of these services whose name has our prefix, in either region (a dashboard has no region, a bucket neither
+        // region nor account, and `*` matches those empty). IAM refuses a wildcard in the service part, so each is named.
+        ...PREFIXED.filter((s) => s !== "s3" && s !== "iam").map((s) => `${A}:${s}:*:*:*${P}*`),
+        // Buckets have neither region nor account, IAM has no region, dashboards have no region: written out, not left to `*`.
+        `${A}:s3:::${P}*`, `${A}:iam::*:*${P}*`, `${A}:cloudwatch::*:dashboard/${P}*`,
         // Names the scenarios use to see what AWS refuses (and accepts): reserved words, a path with no slash, and the Secrets
         // Manager reference path. AWS refuses the first four before it makes anything; `/awsome-dzc/*` it may accept, and cleanup deletes it.
         `${A}:ssm:*:*:parameter/aws/not-yours`, `${A}:ssm:*:*:parameter/ssm-not-yours`, `${A}:ssm:*:*:parameter/awsome-dzc/*`,
@@ -185,6 +189,23 @@ const policy = {
     },
   ],
 };
+
+// What IAM refuses when the permission set is provisioned, checked here first: a wildcard or an empty service in an ARN or an
+// action ("Resource vendor must be fully qualified and cannot contain regexes", 2026-11-15), and the inline-policy size.
+const problems: string[] = [];
+for (const s of policy.Statement as any[]) {
+  for (const r of [].concat(s.Resource ?? [])) {
+    const parts = String(r).split(":");
+    if (r !== "*" && (parts.length < 6 || parts[0] !== "arn" || !/^[a-z0-9-]+$/.test(parts[2]))) problems.push(`${s.Sid}: resource ${r}`);
+  }
+  for (const a of [].concat(s.Action ?? [])) if (!/^[a-z0-9-]+:/.test(String(a))) problems.push(`${s.Sid}: action ${a}`);
+}
+const size = JSON.stringify(policy).replace(/\s/g, "").length;
+if (size > 10240) problems.push(`${size} non-whitespace characters: Identity Center allows 10,240`);
+if (problems.length) {
+  console.error(problems.join("\n"));
+  process.exit(1);
+}
 
 const pretty = JSON.stringify(policy, null, 2);
 const min = JSON.stringify(policy);
