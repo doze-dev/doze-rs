@@ -300,7 +300,9 @@ fn described_public(call: &Call, prefix: &str, limit: usize, after: Option<&str>
                     m.put_int(Meta::VERSION, crate::public::VERSION);
                     m.put(Meta::TIER, "Standard");
                     m.put_list(Meta::POLICIES, |_| {});
-                    m.put(Meta::DATA_TYPE, "text");
+                    if !p.name.starts_with(crate::public::INFRA) {
+                        m.put(Meta::DATA_TYPE, "text");
+                    }
                 });
             }
         });

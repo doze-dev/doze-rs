@@ -329,11 +329,11 @@
     },
     "shared": {
       "AccountIds": [
-        "111122223333"
+        "444455556666"
       ],
       "AccountSharingInfoList": [
         {
-          "AccountId": "111122223333",
+          "AccountId": "444455556666",
           "SharedDocumentVersion": "$DEFAULT"
         }
       ],
@@ -788,11 +788,9 @@
     "region-long-name": {
       "Parameter": {
         "ARN": "arn:aws:ssm:us-east-1::parameter/aws/service/global-infrastructure/regions/us-east-1/longName",
-        "LastModifiedDate": "<LastModifiedDate:2>",
         "Name": "/aws/service/global-infrastructure/regions/us-east-1/longName",
         "Type": "String",
-        "Value": "US East (N. Virginia)",
-        "Version": "<Version:2>"
+        "Value": "US East (N. Virginia)"
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 200
@@ -1252,7 +1250,7 @@
     "bad-data-type": {
       "Error": {
         "Code": "ValidationException",
-        "Message": "You can’t change a parameter’s data type."
+        "Message": "You can\u2019t change a parameter\u2019s data type."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400

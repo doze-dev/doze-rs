@@ -99,7 +99,7 @@ const WINDOWS: &[&str] = &[
     "Windows_Server-2025-English-Full-Base",
 ];
 
-const INFRA: &str = "/aws/service/global-infrastructure/";
+pub(crate) const INFRA: &str = "/aws/service/global-infrastructure/";
 /// Region codes and their long names (memory).
 const REGIONS: &[(&str, &str)] = &[
     ("af-south-1", "Africa (Cape Town)"),

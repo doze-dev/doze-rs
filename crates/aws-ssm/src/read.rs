@@ -251,7 +251,11 @@ pub(crate) fn shown_public(
     }
     s.put_time(Shown::LAST_MODIFIED_DATE, seconds(public::MODIFIED_MS));
     s.put(Shown::ARN, &public::arn(region, &p.name));
-    s.put(Shown::DATA_TYPE, "text");
+    // The image ids say `text`; the global-infrastructure names say no data type at all (recorded: test_ssm.py::
+    // test_public_parameters_are_read_only, .../regions/us-east-1/longName).
+    if !p.name.starts_with(public::INFRA) {
+        s.put(Shown::DATA_TYPE, "text");
+    }
 }
 
 /// A Secrets Manager secret read through Parameter Store: its ARN is the secret's, and it has no data type.

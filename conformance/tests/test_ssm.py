@@ -245,7 +245,8 @@ def test_public_parameters_are_read_only(client, snapshot):
     snapshot.outcome("get-made-up-namespace-deeper", lambda: ssm.get_parameter(Name="/aws/service/not-a-namespace/image"))
     snapshot.outcome("by-path-made-up-namespace", lambda: ssm.get_parameters_by_path(Path="/aws/service/not-a-namespace"))
     region =ssm.get_parameter(Name="/aws/service/global-infrastructure/regions/us-east-1/longName")
-    snapshot.match("region-long-name", region, opaque=("Version", "LastModifiedDate"))
+    # Its version and date are its own, not the image's: what is held is that it is there and what it says.
+    snapshot.match("region-long-name", region, drop=("Version", "LastModifiedDate"))
     page = ssm.get_parameters_by_path(Path="/aws/service/ami-amazon-linux-latest", MaxResults=3)
     snapshot.match("by-path", {"count": len(page["Parameters"]), "more": "NextToken" in page,
                                "all-images": all(p["Value"].startswith("ami-") for p in page["Parameters"])})
@@ -276,6 +277,11 @@ SHELL_DOC = ('{"schemaVersion":"2.2","description":"Say something","parameters":
              '"inputs":{"runCommand":["echo {{Message}}"]}}]}')
 
 
+# An account to share with that is neither the recorder's nor doze-aws's own (111122223333 is doze-aws's account in the suite, so
+# it would read as <account> there and not on AWS).
+OTHER_ACCOUNT = "444455556666"
+
+
 def test_document_lifecycle(client, names, cleanup, snapshot):
     ssm = client("ssm")
     name = names("doc")
@@ -301,10 +307,10 @@ def test_document_lifecycle(client, names, cleanup, snapshot):
     snapshot.error("delete-default-version", lambda: ssm.delete_document(Name=name, DocumentVersion="2"))
     snapshot.match("delete-version", ssm.delete_document(Name=name, DocumentVersion="1"))
     snapshot.match("share", ssm.modify_document_permission(
-        Name=name, PermissionType="Share", AccountIdsToAdd=["111122223333"]))
+        Name=name, PermissionType="Share", AccountIdsToAdd=[OTHER_ACCOUNT]))
     snapshot.match("shared", ssm.describe_document_permission(Name=name, PermissionType="Share"))
     snapshot.match("unshare", ssm.modify_document_permission(
-        Name=name, PermissionType="Share", AccountIdsToRemove=["111122223333"]))
+        Name=name, PermissionType="Share", AccountIdsToRemove=[OTHER_ACCOUNT]))
     snapshot.match("tags", ssm.list_tags_for_resource(ResourceType="Document", ResourceId=name))
     listed = ssm.list_documents(Filters=[{"Key": "Owner", "Values": ["Self"]}, {"Key": "Name", "Values": [name]}])
     snapshot.match("listed", listed, opaque=varying)
