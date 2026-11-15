@@ -24,6 +24,7 @@ mod req;
 mod retry;
 mod role;
 mod schedules;
+mod storage;
 mod tags;
 mod targets;
 mod universal;
@@ -198,6 +199,10 @@ pub(crate) fn region_of(dir: &Path) -> String {
 }
 
 impl Service for Scheduler {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static ServiceMeta {
         &META
     }
