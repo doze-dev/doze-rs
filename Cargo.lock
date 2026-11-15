@@ -2819,6 +2819,7 @@ name = "doze-fs"
 version = "0.0.0"
 dependencies = [
  "doze-fs",
+ "rustix",
 ]
 
 [[package]]

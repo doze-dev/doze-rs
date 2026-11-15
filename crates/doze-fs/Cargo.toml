@@ -15,5 +15,9 @@ workspace = true
 # A deterministic in-memory disk with crash points and injected faults, for tests.
 sim = []
 
+# The size and room of a volume (`Fs::space`, statvfs). Already in the tree with `fs` (doze-os); safe, so no `unsafe` here.
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1.1.6", default-features = false, features = ["std", "fs"] }
+
 [dev-dependencies]
 doze-fs = { path = ".", features = ["sim"] }

@@ -92,6 +92,27 @@ impl Fs for RealFs {
         // Windows cannot flush a directory handle; its renames and creates are flushed with the file.
         Ok(())
     }
+
+    /// The file's metadata, without opening it (a symbolic link is looked at, not followed).
+    fn stat(&self, path: &Path) -> io::Result<super::FileStat> {
+        let meta = std::fs::symlink_metadata(path)?;
+        let since = meta.modified()?.duration_since(UNIX_EPOCH);
+        Ok(super::FileStat {
+            bytes: meta.len(),
+            modified_ms: since.map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX)),
+        })
+    }
+
+    /// `statvfs`: the volume's blocks times its fragment size, and the blocks free to an unprivileged process.
+    #[cfg(unix)]
+    fn space(&self, path: &Path) -> io::Result<Option<super::Space>> {
+        let v = rustix::fs::statvfs(path)?;
+        let unit = v.f_frsize;
+        Ok(Some(super::Space {
+            total: v.f_blocks.saturating_mul(unit),
+            free: v.f_bavail.saturating_mul(unit),
+        }))
+    }
 }
 
 impl RealFs {

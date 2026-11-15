@@ -237,3 +237,13 @@ fn open_or_create_private_makes_owner_only_and_leaves_an_existing_file_alone() {
         assert_eq!(mode(&old), found, "{found:o}");
     }
 }
+
+/// The volume's size and room are what `statvfs` says: room no more than the size; a path that is not there is an error.
+#[cfg(unix)]
+#[test]
+fn space_is_the_volume_of_the_path_and_a_missing_path_is_an_error() {
+    let scratch = Scratch::new();
+    let space = RealFs.space(&scratch.0).unwrap().unwrap();
+    assert!(space.total > 0 && space.free <= space.total, "{space:?}");
+    assert!(RealFs.space(&scratch.0.join("not-there")).is_err());
+}

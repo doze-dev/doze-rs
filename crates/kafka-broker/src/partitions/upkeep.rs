@@ -64,6 +64,15 @@ impl Upkeep {
         *self.slot(chore) = Some(verdict);
     }
 
+    /// When the chore's last verdict said it could next find something to do, if that verdict was made on the partition as it
+    /// is now (the Data page's "the oldest segment goes in ..."). Nothing is judged here.
+    pub(crate) fn due(&self, chore: Chore) -> Option<i64> {
+        let changes = self.changes();
+        (*self.slot(chore))
+            .filter(|v| v.changes == changes)
+            .and_then(|v| v.at_ms)
+    }
+
     /// Whether the chore may leave the partition alone at `now_ms`: its last verdict was made on the partition as it is, by the
     /// settings in force, and named a time still to come (or none).
     pub(crate) fn skips(&self, chore: Chore, settings: u64, now_ms: i64) -> bool {
