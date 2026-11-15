@@ -33,6 +33,7 @@ fn emptied(reply: DataReply) -> Result<Emptied, StorageError> {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn a_queue_is_measured_emptied_and_its_space_given_back() {
     let dir = TempDir::new();
     let mut w = on_disk(&dir.0);
