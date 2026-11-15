@@ -11,6 +11,7 @@ mod config;
 mod data;
 mod data_cmd;
 mod data_show;
+mod data_via;
 mod data_web;
 mod doctor;
 mod env;
