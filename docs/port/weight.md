@@ -878,3 +878,16 @@ most of the rise is the daemon's (the console topic and meters), not the CLI's.
 catalog's and the front's code, F1's module path now reached from the daemon, and E2's merge. Under the 8.5 MB line
 (the owner's ceiling for `doze` is 9 MB). Measured with `--release`: the `release-doze` profile is on #53/#56, not on
 this branch; Linux with it is measured once D1 and C2c meet (CI's weight job measures x86_64 on each push).
+## The app's ceiling raised to 20 MB (2026-11-15, branches `core-c2b`, `core-c2c`)
+
+The owner set the doze app's hard ceiling to **20 MB** on 2026-11-15: `doze-app` carries the GUI, the full CLI and the
+daemon, so the old 16 MB line (set when the app was the GUI alone) no longer fits what it is. CI measured doze-app at
+17,064,576 B and 662 packages at #53, which failed the 16 MB / 650 line. The CI lines are now:
+
+| | Ceiling | CI line | Measured (#53) |
+|---|---|---|---|
+| `doze-app`, darwin/arm64, `release-app` | 20 MB | 17,918,000 B (measured + 5%) | 17,064,576 B |
+| `doze-app` packages (CI's count) | | 700 | 662 |
+
+Branch `app-size-profile` (#55, merged into `app-finish`) separately brings the app down to about 14.5 MB with a size
+profile; when that meets these branches the byte line tightens again to its measured + 5%.
