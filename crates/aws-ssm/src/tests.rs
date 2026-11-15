@@ -17,6 +17,7 @@ mod parameters;
 mod peers;
 mod persistence;
 mod refusals;
+mod settings;
 
 /// The services SSM calls, running for real beside it: KMS (and Secrets Manager, for a reference), on a runtime the test drives.
 pub(crate) struct Bus {
