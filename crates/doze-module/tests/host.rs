@@ -204,7 +204,13 @@ async fn a_dead_module_is_started_again_and_an_idle_one_stopped() {
     let p = pool(None, Arc::default(), Duration::from_millis(200));
     let first = p.get("echo").await.unwrap();
     first.shutdown(Duration::from_secs(2)).await;
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    // The channel is seen closed once the process is gone; a loaded runner takes longer than a moment.
+    for _ in 0..100 {
+        if !first.is_alive() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
     assert!(!first.is_alive());
     let second = p.get("echo").await.unwrap();
     assert!(
