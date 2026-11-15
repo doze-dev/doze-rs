@@ -195,6 +195,13 @@ pub trait Service: Send + Sync + 'static {
         true
     }
 
+    /// Whether operation `op` is called without a signature: its model gives it no auth scheme (`smithy.api#auth: []`, STS's
+    /// `AssumeRoleWithWebIdentity` and `AssumeRoleWithSAML`). The gateway answers such a request when it carries no signature at all,
+    /// as AWS does; the default is none.
+    fn unsigned(&self, _op: u32) -> bool {
+        false
+    }
+
     /// Whether every client error is answered 400, whatever status the model gives it (KMS does this).
     fn flat_client_errors(&self) -> bool {
         false

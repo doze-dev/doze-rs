@@ -86,6 +86,11 @@ impl Shared {
         }
     }
 
+    /// Every service.
+    pub(crate) fn entries(&self) -> &[Entry] {
+        &self.entries
+    }
+
     /// When the gateway started.
     pub(crate) fn started(&self) -> std::time::Instant {
         self.started
@@ -226,9 +231,11 @@ async fn handle(
     parts: &Parts,
     body: Incoming,
 ) -> Result<Out, Fail> {
-    let claim = Claim::parse(parts)
-        .map_err(|e| early(id, &from_auth(&e, Family::Coral)))?
-        .ok_or_else(|| early(id, &from_auth(&AuthError::Missing, Family::Coral)))?;
+    let Some(claim) = Claim::parse(parts).map_err(|e| early(id, &from_auth(&e, Family::Coral)))?
+    else {
+        // No signature: only an operation its model marks as taking none (STS's web identity and SAML) is answered.
+        return crate::query::unsigned(shared, id, parts, body).await;
+    };
     let entry = shared.entry_for(&claim.service, parts).ok_or_else(|| {
         early(
             id,
@@ -319,7 +326,7 @@ fn unserved_protocol(meta: &aws_schema::meta::ServiceMeta) -> ApiError {
 }
 
 /// An error raised before a service is known.
-fn early(id: &RequestId, err: &ApiError) -> Fail {
+pub(crate) fn early(id: &RequestId, err: &ApiError) -> Fail {
     Box::new(json::generic_failure(json::Version::V10, id, err))
 }
 
