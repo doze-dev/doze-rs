@@ -137,6 +137,14 @@ async fn psql_connects_through_the_filter_and_sessions_are_counted() {
             move || run(c)
         });
         assert_eq!(got.await.unwrap().unwrap(), "wire 2");
+        // psql has exited; the module's release of its session follows over the channel. The next session starts once
+        // it has (else two overlap here, and the peak says 2 though each was acquired once).
+        for _ in 0..100 {
+            if f.boots.in_use.load(Ordering::SeqCst) == 0 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
     }
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert_eq!(
