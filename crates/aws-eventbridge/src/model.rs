@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 
+use aws_wire::service::Caller;
 use serde::{Deserialize, Serialize};
 
 /// An event bus. Keyed `<account>/<name>`.
@@ -129,4 +130,58 @@ pub(crate) fn key(account: &str, parts: &[&str]) -> String {
         k.push_str(p);
     }
     k
+}
+
+/// The caller a delivery is made as, kept on disk with work that waits: the region, account and endpoint it was accepted for.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct Who {
+    pub(crate) access_key_id: String,
+    pub(crate) account_id: String,
+    pub(crate) region: String,
+    pub(crate) endpoint: String,
+    pub(crate) service: Option<String>,
+    pub(crate) session_token: Option<String>,
+}
+
+impl From<&Caller> for Who {
+    fn from(c: &Caller) -> Self {
+        Self {
+            access_key_id: c.access_key_id.clone(),
+            account_id: c.account_id.clone(),
+            region: c.region.clone(),
+            endpoint: c.endpoint.clone(),
+            service: c.service.clone(),
+            session_token: c.session_token.clone(),
+        }
+    }
+}
+
+impl From<Who> for Caller {
+    fn from(w: Who) -> Self {
+        Self {
+            access_key_id: w.access_key_id,
+            account_id: w.account_id,
+            region: w.region,
+            endpoint: w.endpoint,
+            service: w.service,
+            session_token: w.session_token,
+        }
+    }
+}
+
+/// An event `PutEvents` accepted and has not yet run through its bus. Keyed by the order it was accepted in (`sequence_key`).
+///
+/// AWS answers `PutEvents` once the events are accepted and invokes the targets afterwards; the event is on disk before the answer,
+/// so a stop or a crash between the two delivers it when the service is next started.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct Pending {
+    pub(crate) account: String,
+    pub(crate) bus: String,
+    pub(crate) event: crate::event::Event,
+    pub(crate) caller: Who,
+}
+
+/// The key of the `n`-th piece of waiting work: zero-padded so the keys sort in the order the work arrived.
+pub(crate) fn sequence_key(n: u64) -> String {
+    format!("{n:020}")
 }

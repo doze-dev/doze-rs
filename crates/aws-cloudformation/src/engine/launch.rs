@@ -44,7 +44,7 @@ pub(super) async fn perform(rc: Rc, l: Launch) -> Result<(Made, Option<String>),
             (Some(old), Step::Update) => old.physical.clone().unwrap_or_default(),
             _ => res::skip::physical(&rc, &l.props),
         };
-        return Ok((Made::new(physical), Some(why.clone())));
+        return Ok((Made::new(physical), Some(res::policy::reason(why))));
     }
     let mut props = l.props.clone();
     crate::dynref::resolve(&mut props, rc.peers.as_deref(), &rc.caller).await?;

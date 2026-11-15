@@ -106,6 +106,31 @@ pub struct WebRequest {
     pub body: bytes::Bytes,
     /// The scheme and host the client used (`http://127.0.0.1:4566`).
     pub endpoint: String,
+    /// What the gateway made of a SigV4 signature on the request, for a service that asks ([`Web::signing_name`]).
+    pub signature: WebSignature,
+}
+
+/// What the gateway made of the signature on a request to an address a service owns (a function URL with `AuthType` `AWS_IAM`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum WebSignature {
+    /// No signature at all, or the service did not ask.
+    #[default]
+    Unsigned,
+    /// Signed for the service's signing name, in time. `verified` says the signature itself was checked with the secret; it is
+    /// false only for a key the gateway does not know under `--auth trust`, whose signature is taken on trust like any API call's.
+    Signed {
+        /// The access key that signed.
+        access_key_id: String,
+        /// The session token the request carried.
+        session_token: Option<String>,
+        /// The region of the credential scope.
+        region: String,
+        /// Whether the signature was checked with the secret.
+        verified: bool,
+    },
+    /// Signed, and wrongly (another service's scope, out of time, a key nobody issued, a signature that does not match): AWS's
+    /// words for why.
+    Refused(String),
 }
 
 /// The answer to a [`WebRequest`].
@@ -169,6 +194,12 @@ pub trait Web: Send + Sync {
     /// passes [`crate::local::guard`] (no page from another origin, a `POST` only as JSON, and under `--auth verify` the secret key).
     fn local(&self) -> bool {
         false
+    }
+
+    /// The SigV4 signing name a signature on the service's addresses is checked for (`lambda` for function URLs). `None`, the
+    /// default, leaves every request [`WebSignature::Unsigned`].
+    fn signing_name(&self, _host: &str, _path: &str) -> Option<&'static str> {
+        None
     }
 
     /// Answers the request.

@@ -103,7 +103,8 @@ pub(crate) fn gateway(
     let iam = Arc::new(iam);
     // IAM decides for every service whether or not IAM's own API is served.
     peers.set_authorizer(iam.clone());
-    // Under `--auth verify`, a key the command line does not name may be one IAM issued (an access key or a role session).
+    // A key the command line does not name may be one IAM issued (an access key or a role session): under `--auth verify` for every
+    // call, and under trust for a function URL with AWS_IAM.
     gw.credential_source = Some(iam.clone());
     let (cloudwatch, logs) = observability(&ctx, cfg);
     let eventbridge = Arc::new(aws_eventbridge::Eventbridge::new(ctx("eventbridge")));
@@ -205,6 +206,11 @@ pub(crate) fn auth_of(cfg: &Config) -> Auth {
     if cfg.text("auth") != "verify" {
         return Auth::Trust;
     }
+    Auth::Verify(configured_keys(cfg))
+}
+
+/// The key the configuration names. Under trust it is still known: a function URL with `AWS_IAM` signed with it is checked.
+pub(crate) fn configured_keys(cfg: &Config) -> Arc<StaticCredentials> {
     let mut creds = StaticCredentials::new();
     creds.insert(
         cfg.text("access-key"),
@@ -214,7 +220,7 @@ pub(crate) fn auth_of(cfg: &Config) -> Auth {
             expires_at: None,
         },
     );
-    Auth::Verify(Arc::new(creds))
+    Arc::new(creds)
 }
 
 fn cloudformation_config(cfg: &Config) -> aws_cloudformation::Config {
@@ -230,10 +236,10 @@ fn cloudformation_config(cfg: &Config) -> aws_cloudformation::Config {
             .map(|t| (t, Unsupported::Fail)),
     );
     aws_cloudformation::Config {
-        unsupported: match cfg.text("cfn-unsupported").as_str() {
-            "skip" => Unsupported::Skip,
-            "fail" => Unsupported::Fail,
-            _ => Unsupported::Default,
+        unsupported: if cfg.text("cfn-unsupported") == "fail" {
+            Unsupported::Fail
+        } else {
+            Unsupported::Skip
         },
         overrides,
         logical_names: cfg.switch("cfn-logical-names"),
