@@ -20,6 +20,7 @@ pub mod config_pass;
 pub mod config_source;
 pub mod config_teach;
 pub mod config_words;
+pub mod data_words;
 pub mod door;
 pub mod facts;
 pub mod facts_start;
@@ -30,6 +31,8 @@ pub mod fixtures;
 pub mod fixtures_access;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_config;
+#[cfg(any(test, feature = "examples"))]
+pub mod fixtures_data;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_groups;
 #[cfg(any(test, feature = "examples"))]
@@ -48,6 +51,7 @@ pub mod form;
 pub mod format;
 pub mod gather;
 pub mod groups_words;
+pub mod growth;
 pub mod guard;
 pub mod headers;
 pub mod lab;

@@ -2819,6 +2819,7 @@ name = "doze-fs"
 version = "0.0.0"
 dependencies = [
  "doze-fs",
+ "rustix",
 ]
 
 [[package]]
@@ -5268,6 +5269,7 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "bytes",
+ "doze-fs",
  "flate2",
  "futures-util",
  "http-body-util",

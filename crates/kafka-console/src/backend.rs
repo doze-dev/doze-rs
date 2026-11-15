@@ -17,6 +17,7 @@ use kafka_wire::header::RequestHead;
 use kafka_wire::profile::Profile;
 
 mod config;
+mod data;
 mod forms;
 mod lab;
 mod log_views;

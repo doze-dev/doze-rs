@@ -42,7 +42,8 @@ anyhow = "1"
 rlimit = "0.11"
 clap = { version = "4", features = ["derive"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "json", "ansi"] }
+# No `env-filter`: the log filter is `filter::Targets` (src/logging.rs), so no regex engine is linked (docs/port/weight.md).
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "ansi"] }
 # Only for the tests of a build with `tls` (a client to the TLS port); the binary reaches rustls through kafka-server.
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"], optional = true }
 # Two worker threads by default (weight is a feature), and the signals a stop arrives by.
