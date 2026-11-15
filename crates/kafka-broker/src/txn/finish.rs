@@ -1,6 +1,6 @@
 //! Carrying out a transaction whose decision is stored: the markers on disk, then a commit's offsets, then the record.
 
-use kafka_meta::{OffsetCommit, StoredOffset, TxnState};
+use kafka_meta::{OffsetCommit, StoredOffset};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::batch::{Batch, Marker, TimestampType};
@@ -71,24 +71,14 @@ impl<F: Fs> Broker<F> {
         if commit {
             self.apply_offsets(e)?;
         }
-        let complete = if commit {
-            TxnState::CompleteCommit
-        } else {
-            TxnState::CompleteAbort
-        };
-        self.update_txn(e, |rec| {
-            rec.state = complete;
-            rec.partitions.clear();
-            rec.groups.clear();
-            rec.offsets.clear();
-        })
-        .await
-        .map_err(|code| {
-            failure(
-                "could not record that the transaction is complete",
-                format!("{code:?}"),
-            )
-        })
+        self.update_txn(e, |rec| super::rules::complete(rec, commit))
+            .await
+            .map_err(|code| {
+                failure(
+                    "could not record that the transaction is complete",
+                    format!("{code:?}"),
+                )
+            })
     }
 
     /// Appends a marker and waits until it is on disk: it is the decision readers act on.

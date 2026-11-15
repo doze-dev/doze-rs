@@ -1521,3 +1521,73 @@ short waits the same way instead of reaching the router's error boundary. WebKit
 logs "Fetch API cannot load <url> due to access control checks." (Playwright: a page error) whether or not the page handles it;
 Firefox and WebKit log a cut chunk load through React. No console line and no page error, unfiltered, in all three browsers
 (J500). File: `web/e2e/tests/leaving.spec.ts`.
+
+# Data: what is using the disk, and giving it back (2026-11-15)
+
+The design is `docs/port/data-control.md`. The page is `/data`; its API is `GET /api/v1/data`, `GET /api/v1/data/empty?topic=`,
+`POST /api/v1/data/empty`, `/empty-all`, `/erase` (`api/data.rs`); the broker's side is `kafka-broker/src/data.rs`.
+
+## CON-1515. The data directory by kind, and the volume it is on
+Every byte of the data directory is counted once under its kind: the topics' partition directories (segments, indexes and the
+records beside them), the metadata store (`meta.redb*`), partition directories no topic owns, and everything else; the walk is
+bounded and opens nothing for writing. The volume's size and room come from `statvfs` (none where the platform does not say).
+Tests: `every_byte_is_counted_once_under_the_kind_it_belongs_to`, `space_is_the_volume_of_the_path_and_a_missing_path_is_an_error`,
+`a_disk_with_a_capacity_says_its_room_and_one_without_says_nothing`, `the_usage_says_each_kind_each_topic_largest_first_and_what_it_keeps`,
+`the_page_says_each_kind_and_each_topic_largest_first_with_why`; file: `web/e2e/tests/data.spec.ts`.
+
+## CON-1516. Each topic, largest first, with what it keeps and why
+A row per topic the console may describe (the others are counted, not named): its bytes and share, partitions, oldest data (the
+first batch of the first segment), the retention in force (its own or the broker's, `default`), **Keeps everything** when it
+deletes with no time or size bound, and a sentence of why it holds what it holds, with when retention's next pass can take its
+oldest segment where the last pass worked that out. Tests: `what_a_topic_keeps_comes_from_its_own_configs_then_the_brokers`,
+`why_says_what_is_kept_and_when_the_oldest_goes`, `retention_is_said_short_as_the_table_shows_it`,
+`the_oldest_data_is_the_first_batch_of_the_first_segment_open_or_closed`,
+`the_larder_page_is_largest_first_and_names_the_topic_that_keeps_everything`; file: `web/e2e/tests/data.spec.ts`.
+
+## CON-1517. Growth is measured from the pages' own looks, never on a timer
+Each look a page asks for notes the topics' sizes; at most one a minute is kept, sixteen of them, the 500 largest topics each; a
+topic's growth is its size now against the oldest look kept that is at least a minute old, in bytes an hour. Empty all topics and
+Erase everything forget the looks. Tests: `growth_is_measured_from_the_oldest_look_a_minute_old_and_said_per_hour`,
+`at_most_sixteen_looks_are_kept_a_minute_apart`.
+
+## CON-1518. The heads-up: nearly full, a large share, a large topic that keeps everything
+Home, the Data page, the sidebar's Data (a dot) and the top bar (a Disk chip) say it when the volume has under 5% or 2 GiB free
+(the louder tone), when the data directory is a tenth of the volume and at least 1 GiB, or when a topic that keeps everything passes
+1 GiB, in that order. Home does not say "Nothing needs you" beside it. The shell reads the last look and never walks. Tests:
+`a_nearly_full_disk_is_said_first_then_a_large_share_then_a_large_topic_that_keeps_everything`,
+`the_kinds_are_largest_first_and_say_what_is_in_them`.
+
+## CON-1519. Empty topic: every record goes and the disk is freed now; the topic carries on
+The dialog (`?dialog=empty&topic=`) says the records, bytes and partitions that go, who reads the topic, and what stays; Empty
+removes every segment, the active one too, of every partition that holds anything, compacted topics included (the broker's own
+action, not DeleteRecords). Offsets carry on from the end; commits stay; a reader below the start is told OFFSET_OUT_OF_RANGE. The
+done state says what went and what was freed, then Done. Tests:
+`emptying_frees_the_disk_keeps_the_topic_and_the_commits_and_carries_on_from_the_end`,
+`a_topic_that_only_compacts_is_emptied_too_and_its_configs_stay`,
+`producers_writing_while_the_topic_is_emptied_never_get_an_offset_twice`,
+`emptying_stopped_at_any_point_leaves_the_log_whole_or_empty_and_never_reuses_an_offset`,
+`empty_topic_says_what_goes_then_frees_it_and_the_topic_carries_on`; file: `web/e2e/tests/data.spec.ts`.
+
+## CON-1520. A transaction under way refuses, before the button
+Empty topic is refused while a transaction is under way on the topic, Empty all topics and Erase everything while any is
+(CONCURRENT_TRANSACTIONS, with what to do); the coordinator is asked first and the partition's writer checks its own index again
+between appends. The dialog says it before the button, which stays shut. Tests:
+`a_transaction_under_way_refuses_and_touches_nothing_until_it_ends`, `erase_is_refused_while_a_transaction_is_under_way`,
+`empty_topic_is_refused_while_a_transaction_is_under_way_and_done_otherwise`; file: `web/e2e/tests/data.spec.ts`.
+
+## CON-1521. Empty all topics and Erase everything wait for their phrase
+Each dialog says what goes and what stays and is sent only with its phrase typed (`empty all topics`, `erase everything`); a POST
+with another is `invalid` and changes nothing. Erase removes every topic, group without members and its commits, finished
+transactional id, registry subject and schema, and partition directories no topic owns; it keeps ACLs, users, the broker's configs,
+the registry's global level, and the id counters. Tests: `the_all_and_everything_actions_ask_for_their_phrase_and_then_do_it`,
+`erase_everything_leaves_an_empty_broker_with_its_acls_and_the_groups_still_connected`,
+`erasing_leaves_no_subject_keeps_the_global_level_and_never_gives_an_id_twice`,
+`erase_says_what_it_removed_and_the_group_it_kept`, `what_each_action_did_is_one_sentence`; file: `web/e2e/tests/data.spec.ts`.
+
+## CON-1522. `doze-kafka data`: the same from a terminal
+`doze-kafka data` prints the directory by kind and the topics largest first with why; with a broker running it reads the files alone
+(no lock, `meta.redb` never opened) and refuses the actions with the way forward; with it stopped, `data empty --topic NAME`,
+`data empty --all-topics --yes` and `data erase --everything --yes` do what the console does, and the two wide ones say what they
+would do and stop without `--yes`. Tests: `with_the_broker_running_it_reads_the_files_alone_and_the_actions_are_refused`,
+`with_the_broker_stopped_it_says_everything_and_the_wide_actions_wait_for_yes`,
+`data_reads_a_running_broker_and_empties_and_erases_a_stopped_one`, `the_command_line_asks_for_what_each_action_needs`.

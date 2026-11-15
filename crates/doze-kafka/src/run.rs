@@ -6,23 +6,8 @@ use anyhow::{Context, Result};
 use kafka_broker::Broker;
 use kafka_server::Server;
 use kafka_storage::fs::RealFs;
-use tracing_subscriber::EnvFilter;
 
-use crate::cli::{Args, LogFormat, Settings};
-
-/// Sets up logging to stderr.
-pub(crate) fn logging(args: &Args) {
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&args.log_level));
-    let builder = tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr()))
-        .with_writer(std::io::stderr);
-    match args.log_format {
-        LogFormat::Text => builder.init(),
-        LogFormat::Json => builder.json().init(),
-    }
-}
+use crate::cli::Settings;
 
 /// The console's listener as `main` had it bound before anything was created.
 #[cfg(feature = "console")]

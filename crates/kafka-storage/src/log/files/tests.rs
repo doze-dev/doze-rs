@@ -61,6 +61,25 @@ fn a_directory_that_is_not_there_has_no_segments_and_foreign_files_are_not_segme
 }
 
 #[test]
+fn the_oldest_data_is_the_first_batch_of_the_first_segment_open_or_closed() {
+    let (fs, dir, mut log) = fresh(one() * 2);
+    assert_eq!(log.reader().oldest_ms(), None, "an empty log has none");
+    assert_eq!(oldest_on_disk(&fs, &dir), None);
+    for ts in [5_000, 6_000, 7_000] {
+        log.append(&ones(1, ts), NOW, TimestampType::Create)
+            .unwrap();
+    }
+    log.sync().unwrap();
+    assert_eq!(log.reader().oldest_ms(), Some(5_000));
+    assert_eq!(oldest_on_disk(&fs, &dir), Some(5_000));
+    // Retention took the first segment: the oldest is the next one's first batch.
+    log.delete_before(Some(crate::testutil::offset(2))).unwrap();
+    assert_eq!(log.reader().oldest_ms(), Some(7_000));
+    assert_eq!(oldest_on_disk(&fs, &dir), Some(7_000));
+    assert_eq!(oldest_on_disk(&fs, &dir.join("nowhere")), None);
+}
+
+#[test]
 fn a_failed_flush_is_the_offline_cause_a_reader_can_read() {
     let (fs, _dir, mut log) = fresh(NEVER);
     log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();

@@ -38,13 +38,19 @@ pub(crate) enum Init {
     Again,
 }
 
+/// Whether the epochs of a producer id are used up (Kafka's `TransactionMetadata.isEpochExhausted`): the last,
+/// `i16::MAX`, is never handed out, so that the coordinator can always fence whoever holds the one before.
+pub(crate) fn exhausted(epoch: i16) -> bool {
+    epoch >= i16::MAX - 1
+}
+
 /// Whether the producer id and epoch an InitProducerId says it holds (KIP-360; `None` if it says none) can be those of
 /// the record. Another producer's are fenced, unless the id is new, or the producer id is the one before a rotation.
 pub(crate) fn expected_is_current(rec: &TxnRecord, expected: Option<(i64, i16)>) -> Result<(), E> {
     let Some((producer, epoch)) = expected else {
         return Ok(());
     };
-    let after_rotation = producer == rec.prev_producer_id && epoch >= i16::MAX - 1;
+    let after_rotation = producer == rec.prev_producer_id && exhausted(epoch);
     if rec.epoch == -1 || producer == rec.producer_id || after_rotation {
         Ok(())
     } else {
@@ -55,7 +61,7 @@ pub(crate) fn expected_is_current(rec: &TxnRecord, expected: Option<(i64, i16)>)
 /// What InitProducerId is to do, given the producer id and epoch the caller says it holds. The epoch it says must be the
 /// record's (a new owner of the id says none), or the one before the last bump.
 pub(crate) fn init(rec: &TxnRecord, expected: Option<(i64, i16)>) -> Result<Init, E> {
-    let used_up = rec.epoch >= i16::MAX - 1;
+    let used_up = exhausted(rec.epoch);
     let Some((_, epoch)) = expected else {
         return Ok(if used_up {
             Init::Rotate { last: -1 }
@@ -166,33 +172,13 @@ pub(crate) fn next_step_ms(rec: &TxnRecord, limit_ms: i64) -> Option<i64> {
     }
 }
 
-/// Whether a batch from `producer` at `epoch` to this partition is part of a transaction that may take it: the producer
-/// owns the id, a transaction is open and the partition was added to it. Otherwise the batch would sit in the log with
-/// no marker ever coming for it, holding the last stable offset still for ever.
-pub(crate) fn may_write(
-    rec: &TxnRecord,
-    producer: i64,
-    epoch: i16,
-    topic: &str,
-    partition: i32,
-) -> Result<(), E> {
-    match owns(rec, producer, epoch) {
-        // What a partition reports; the client treats both as fenced.
-        Some(E::ProducerFenced) => return Err(E::InvalidProducerEpoch),
-        Some(e) => return Err(e),
-        None => {}
-    }
-    if rec.state == TxnState::Ongoing
-        && rec
-            .partitions
-            .iter()
-            .any(|(t, p)| t == topic && *p == partition)
-    {
-        Ok(())
-    } else {
-        Err(E::InvalidTxnState)
-    }
-}
+mod adding;
+mod ending;
+
+pub(crate) use adding::{
+    Adding, add, add_group, has_group, holds, may_add, may_write, not_added, on_partition,
+};
+pub(crate) use ending::{complete, decide_bumping, decide_classic, end_bumping, fence};
 
 #[cfg(test)]
 mod tests;

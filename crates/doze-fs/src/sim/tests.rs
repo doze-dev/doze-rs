@@ -70,4 +70,19 @@ fn a_failed_fsync_with_lost_pages_makes_a_retry_succeed_without_making_anything_
     );
 }
 
+#[test]
+fn a_disk_with_a_capacity_says_its_room_and_one_without_says_nothing() {
+    let fs = disk();
+    assert_eq!(fs.space(Path::new(DIR)).unwrap(), None);
+    fs.set_capacity(Some(100));
+    let _file = file_with(&fs, "a", b"0123456789", b"");
+    assert_eq!(
+        fs.space(Path::new(DIR)).unwrap(),
+        Some(crate::fs::Space {
+            total: 100,
+            free: 90
+        })
+    );
+}
+
 mod cuts;

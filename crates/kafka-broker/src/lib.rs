@@ -9,6 +9,7 @@ mod cleaner;
 mod clock;
 mod config;
 mod configs;
+mod data;
 mod error;
 mod groups;
 mod guard;
@@ -34,8 +35,12 @@ mod view;
 
 pub use broker::Broker;
 pub use caller::Caller;
-pub use config::{Config, Defaults};
+pub use config::{Config, Defaults, TxnVersion};
 pub(crate) use configs::Live;
+pub use data::{
+    DataRefusal, DataUsage, Emptied, EmptiedAll, Erased, Keeps, Stray, TopicUsage, bytes_words,
+    duration_words,
+};
 pub use error::BrokerError;
 pub use groups::Cause;
 #[cfg(feature = "inspect")]

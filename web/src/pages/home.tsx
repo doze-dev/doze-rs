@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
-import { ActivityIcon, ArrowRightIcon, CircleCheckIcon, CodeIcon, InfoIcon, PlusIcon, SettingsIcon, TriangleAlertIcon } from "lucide-react";
+import { ActivityIcon, ArrowRightIcon, CircleCheckIcon, CodeIcon, HardDriveIcon, InfoIcon, PlusIcon, SettingsIcon, TriangleAlertIcon } from "lucide-react";
 import { useHome } from "@/api/queries";
 import type { HomeResponse } from "@/api/types/HomeResponse";
 import { CodeValue } from "@/components/app/code-value";
+import { DiskAlarmBanner } from "@/components/app/disk-alarm";
 import { Logo, Wordmark } from "@/components/app/brand";
 import { RefreshControl } from "@/components/app/refresh-control";
 import { Spans } from "@/components/app/spans";
@@ -164,7 +165,12 @@ function InstanceCard({ r }: { r: HomeResponse }) {
             <CodeValue value={i.data_dir} label="Data directory" />
           </div>
         )}
-        <div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild className="bg-card">
+            <Link to="/data">
+              <HardDriveIcon /> What is on disk
+            </Link>
+          </Button>
           <Button variant="outline" asChild className="bg-card">
             <Link to="/settings">
               <SettingsIcon /> Weight and data in Settings
@@ -312,7 +318,20 @@ export function HomePage() {
       ) : (
         <div className="flex flex-col gap-6" data-testid="home">
           <StatStrip stats={stats(r, q.dataUpdatedAt)} />
-          <Callout r={r} />
+          {/* "Nothing needs you" is not said while the disk does. */}
+          {!(r.home.disk && r.home.state.kind === "steady") && <Callout r={r} />}
+          {r.home.disk && (
+            <DiskAlarmBanner
+              alarm={r.home.disk}
+              action={
+                <Button variant="outline" asChild className="bg-card" data-testid="disk-open">
+                  <Link to="/data">
+                    <HardDriveIcon /> See what holds it
+                  </Link>
+                </Button>
+              }
+            />
+          )}
           <div className={cn("grid gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(380px,5fr)] xl:items-start")}>
             <AddressCard r={r} />
             <InstanceCard r={r} />
