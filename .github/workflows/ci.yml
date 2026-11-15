@@ -1,17 +1,25 @@
 name: ci
 
 # Manual only, by the owner's call (2026-11-15): CI runs when someone starts it on purpose and reads the result.
-# Start it with `gh workflow run ci --ref <branch>`. Automatic runs on push and pull_request come back once main
-# stays green and every job has an owner (docs/port/ci-health.md).
+# - A pull request: add the `ci` label (`gh pr edit <n> --add-label ci`). After a new push, take the label off and put
+#   it back to run again; pushes alone start nothing. Any other label runs nothing and leaves a red `all-green`
+#   behind; put `ci` back to run for real.
+# - A branch, main included: `gh workflow run ci --ref <branch>`.
+# GitHub links only label-started runs to a pull request, so only they can satisfy main's protection, which requires
+# the one `all-green` check below. Automatic runs on push come back once main stays green and every job has an owner
+# (docs/port/ci-health.md).
 on:
   workflow_dispatch:
+  pull_request:
+    types: [labeled]
 
 permissions:
   contents: read
 
-# A new run on the same branch replaces its older one, so runners (macOS above all) go to the newest code.
+# A new run on the same branch or pull request replaces its older one, so runners (macOS above all) go to the newest
+# code. A label other than `ci` gets a group of its own, so it never cancels a real run.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name || 'run' }}
   cancel-in-progress: true
 
 env:
@@ -19,7 +27,15 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
+  # Runs only for a manual start or the `ci` label; every job needs it, so any other label runs nothing.
+  gate:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'ci'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "CI started by ${{ github.event_name }} on ${{ github.ref }}"
+
   check:
+    needs: gate
     strategy:
       fail-fast: false
       matrix:
@@ -73,6 +89,7 @@ jobs:
   # the only `unsafe` in the workspace, and the protocol that runs over it. The Windows runners run elevated, so the postgres test there proves engines start under doze's restricted
   # token (postgres refuses an elevated one: spikes/w0-windows/REPORT.md).
   os:
+    needs: gate
     strategy:
       fail-fast: false
       matrix:
@@ -104,6 +121,7 @@ jobs:
   # every target the module declares. DOZE_ACCEPTANCE turns a missing build into a failure, so a skip cannot pass for a
   # pass; a release's `--accepted` may only come from this job.
   modules:
+    needs: gate
     strategy:
       fail-fast: false
       matrix:
@@ -146,6 +164,7 @@ jobs:
   # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
   # portable; a red job here is information about what is still Unix-only, not noise.
   windows:
+    needs: gate
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -157,6 +176,7 @@ jobs:
   # without offscreen capture) and doze-os's `ui` feature, holds the app to its own weight line (docs/port/weight.md, "The desktop
   # app"), and renders the screens offscreen through a fixture daemon: the PNGs are this run's artifacts, to look at.
   app:
+    needs: gate
     runs-on: macos-latest
     env:
       # Whether the signing secrets exist (a step cannot test a secret directly).
@@ -290,6 +310,7 @@ jobs:
   # (2026-11-12, "anything less than 10 MB is fine") is 10 MB: the 2.2 MB between this limit and it is not spent. A rise needs a
   # reason written in weight.md. The first CI run replaces the estimate with a measurement; the limit stays until a person lowers it.
   weight:
+    needs: gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -316,6 +337,7 @@ jobs:
   # Then 5,450,504 B (+432 B, run 43703449990): doze-store's `Store` keeps its file's path (aws data control, d39dd0cd); kafka-meta
   # opens a `Store`, so the field and its `Arc` reach the lean build. Kafka's behaviour is unchanged (it never calls `Db::close`).
   weight-lean:
+    needs: gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -346,6 +368,7 @@ jobs:
   # TLS is in the default build since 2026-11-14 (the owner: one build), so its size and packages are the `weight` job's (xtask/weight-limits.txt).
   # This job keeps one thing the default job does not: idle memory with TLS configured (a certificate loaded), from the same default binary.
   weight-tls-idle:
+    needs: gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -376,6 +399,7 @@ jobs:
   # is committed, then runs the type check, the lint and the unit tests. The Playwright gate (web/e2e) is a local gate: it needs
   # three browsers and the release binary (web/README.md).
   web:
+    needs: gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -393,6 +417,7 @@ jobs:
 
   # deny.toml sets `all-features = true`, so this checks the `tls` feature's crates (ring, rustls) too.
   supply-chain:
+    needs: gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -400,6 +425,7 @@ jobs:
 
   # A short fuzz run of each parser on nightly; longer runs are for a person at a terminal.
   fuzz:
+    needs: gate
     runs-on: ubuntu-24.04
     env:
       # rust-toolchain.toml pins stable and would override the nightly action; cargo-fuzz needs nightly.
@@ -506,3 +532,17 @@ jobs:
             mkdir -p "corpus/$target"
             cargo fuzz run "$target" "corpus/$target" "seeds/$target" -- -max_total_time=30 -max_len=65536
           done
+
+  # The one check main's protection requires: every job above passed. It fails when any job failed, was cancelled or
+  # was skipped (a label other than `ci` skips them all), so a skipped run never counts as green.
+  all-green:
+    if: always()
+    needs: [gate, check, os, modules, windows, app, weight, weight-lean, weight-tls-idle, web, supply-chain, fuzz]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$RESULTS" | jq -e 'all(.[]; .result == "success")' > /dev/null
