@@ -149,6 +149,84 @@ pub(super) fn more(out: &mut Vec<(ApiKey, Request, Response)>) {
         AlterUserScramCredentialsResponse::default()
     );
     case!(
+        OffsetForLeaderEpoch,
+        named(|r: &mut OffsetForLeaderEpochRequest| {
+            r.topics = vec![named(
+                |t: &mut offset_for_leader_epoch_request::OffsetForLeaderTopic| {
+                    t.topic = topic("orders");
+                    t.partitions = vec![named(
+                        |p: &mut offset_for_leader_epoch_request::OffsetForLeaderPartition| {
+                            p.partition = 1;
+                            p.leader_epoch = 0;
+                        },
+                    )];
+                },
+            )];
+        }),
+        named(|r: &mut OffsetForLeaderEpochResponse| {
+            r.topics = vec![named(
+                |t: &mut offset_for_leader_epoch_response::OffsetForLeaderTopicResult| {
+                    t.topic = topic("orders");
+                    t.partitions = vec![named(
+                        |p: &mut offset_for_leader_epoch_response::EpochEndOffset| {
+                            p.partition = 1;
+                            p.leader_epoch = 0;
+                            p.end_offset = 42;
+                        },
+                    )];
+                },
+            )];
+        })
+    );
+    case!(
+        DescribeLogDirs,
+        DescribeLogDirsRequest::default(),
+        named(|r: &mut DescribeLogDirsResponse| {
+            r.results = vec![named(
+                |d: &mut describe_log_dirs_response::DescribeLogDirsResult| {
+                    d.log_dir = s("/PLANTED-PATH");
+                    d.topics = vec![named(
+                        |t: &mut describe_log_dirs_response::DescribeLogDirsTopic| {
+                            t.name = topic("orders");
+                            t.partitions = vec![
+                                describe_log_dirs_response::DescribeLogDirsPartition::default(),
+                            ];
+                        },
+                    )];
+                },
+            )];
+        })
+    );
+    case!(
+        DescribeClientQuotas,
+        named(|r: &mut DescribeClientQuotasRequest| {
+            r.components = vec![named(
+                |c: &mut describe_client_quotas_request::ComponentData| {
+                    c.entity_type = s("user");
+                    c._match = Some(s("PLANTED-USER"));
+                },
+            )];
+        }),
+        DescribeClientQuotasResponse::default()
+    );
+    case!(
+        AlterClientQuotas,
+        named(|r: &mut AlterClientQuotasRequest| {
+            r.entries = vec![named(|e: &mut alter_client_quotas_request::EntryData| {
+                e.entity = vec![named(|p: &mut alter_client_quotas_request::EntityData| {
+                    p.entity_type = s("user");
+                    p.entity_name = Some(s("PLANTED-USER"));
+                })];
+            })];
+        }),
+        named(|r: &mut AlterClientQuotasResponse| {
+            r.entries = vec![named(|e: &mut alter_client_quotas_response::EntryData| {
+                e.error_code = 42;
+                e.error_message = Some(s("Quota producer_byte_rate must be greater than 0"));
+            })];
+        })
+    );
+    case!(
         GetTelemetrySubscriptions,
         GetTelemetrySubscriptionsRequest::default(),
         GetTelemetrySubscriptionsResponse::default()
