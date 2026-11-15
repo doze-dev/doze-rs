@@ -1,0 +1,254 @@
+//! `add` and `remove` (Go's `daemon/dynamic.go`): an instance block wired into the running stack, and one taken out.
+//!
+//! A block is read alone through doze-config, as Go read it (references to other instances do not resolve, and the
+//! error says to pass the value instead), and becomes what a block in doze.hcl becomes: the engine's service (module
+//! instances planned through the catalog), its labels, its front. Something doze does not front and that runs by
+//! itself (an app without a port, a supervised module) is started at once; a refused start undoes the add. A remove
+//! is refused while another instance needs it (Go left the need dangling); `wipe` also deletes its data, sockets and
+//! logs. Nothing here names a module.
+
+use crate::catalog::Catalog;
+use crate::front::Front;
+use crate::{Daemon, entry};
+use doze_config::{Instance, Kind, Spec};
+use doze_control::{Response, fault};
+use doze_engine::Cause;
+use doze_engine::modules::ModuleInstance;
+use doze_engine::stack::Service;
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
+use std::sync::Arc;
+
+/// What a daemon needs to add instances: the catalog that loaded its stack, where doze.hcl is, and its front.
+#[derive(Debug)]
+pub struct Live {
+    catalog: Arc<Catalog>,
+    config: String,
+    version: String,
+    env: BTreeMap<String, String>,
+    front: Arc<Front>,
+}
+
+impl Live {
+    /// `env` is read before this process's environment, as [`entry::assemble`]'s.
+    pub fn new(
+        catalog: Arc<Catalog>,
+        config: &Path,
+        version: &str,
+        env: BTreeMap<String, String>,
+        front: Arc<Front>,
+    ) -> Live {
+        Live {
+            catalog,
+            config: config.to_string_lossy().into_owned(),
+            version: version.into(),
+            env,
+            front,
+        }
+    }
+}
+
+/// A block made ready to add.
+struct Prepared {
+    inst: Instance,
+    service: Service,
+    labels: crate::Labels,
+    module: Option<Arc<ModuleInstance>>,
+    supervised: bool,
+}
+
+fn failed(error: String, code: &str) -> Response {
+    Response {
+        ok: false,
+        error,
+        code: code.into(),
+        ..Response::default()
+    }
+}
+
+/// Go's `looksLikeUnresolvedRef`: a block read alone names an instance that is not in it.
+fn unresolved_ref(err: &str) -> bool {
+    [
+        "Unknown variable",
+        "Variables not allowed",
+        "no such variable",
+        "There is no variable named",
+        "reference to undeclared",
+    ]
+    .iter()
+    .any(|s| err.contains(s))
+}
+
+/// Reads `block` and builds what the engine and the views need (on a blocking thread: the catalog asks modules).
+fn prepare(
+    live: &Live,
+    block: &str,
+    declared: &[String],
+    run_dir: &Path,
+) -> Result<Prepared, String> {
+    let cat = &live.catalog;
+    let cfg = entry::parse_block(block, &live.config, &live.version, cat.as_ref(), live.env.clone())
+        .map_err(|e| {
+            if unresolved_ref(&e) {
+                format!("a live-added service can't reference other services yet — pass the literal value instead (look it up with the client's Instance/Status): {e}")
+            } else {
+                format!("decoding block: {e}")
+            }
+        })?;
+    let [inst] = <[Instance; 1]>::try_from(cfg.instances).map_err(|all| {
+        format!(
+            "expected exactly one module or app block, got {}",
+            all.len()
+        )
+    })?;
+    if declared.contains(&inst.name) {
+        return Err(format!("an instance named {:?} already exists", inst.name));
+    }
+    let module = std::cell::RefCell::new(None);
+    let planner = |i: &Instance| {
+        let (p, mi) = crate::planners::module(cat, i, &doze_fetch::triple(), run_dir);
+        *module.borrow_mut() = mi;
+        p
+    };
+    let wiring = doze_config::stack::Wiring {
+        planner: &planner,
+        extra_env: BTreeMap::new(),
+    };
+    let names: BTreeSet<&str> = declared.iter().map(String::as_str).collect();
+    let service = doze_config::stack::service(&inst, &wiring, &names);
+    let supervised = inst.kind() == Kind::Module
+        && cat
+            .manifest_for(&inst.ty, &inst.version)
+            .is_some_and(|m| m.supervised);
+    Ok(Prepared {
+        labels: entry::label(&inst, cat),
+        inst,
+        service,
+        module: module.into_inner(),
+        supervised,
+    })
+}
+
+/// The `add` op: the new instance's view, or why it was not added.
+pub(crate) async fn add(d: &Daemon, block: &str) -> Response {
+    let Some(live) = d.inner.live.as_ref() else {
+        return failed("this daemon cannot add instances".into(), "");
+    };
+    if block.trim().is_empty() {
+        return failed("add needs a block".into(), "");
+    }
+    let e = d.engine();
+    let stack = e.stack();
+    let declared: Vec<String> = stack.services.iter().map(|s| s.name.clone()).collect();
+    let run_dir = stack.run_dir();
+    let (owned, text) = (d.clone(), block.to_owned());
+    let prepared = tokio::task::spawn_blocking(move || {
+        let live = owned.inner.live.as_ref().ok_or_else(String::new)?;
+        prepare(live, &text, &declared, &run_dir)
+    })
+    .await
+    .map_err(|e| e.to_string());
+    let p = match prepared.and_then(|r| r) {
+        Ok(p) => p,
+        Err(err) => return failed(err, ""),
+    };
+    let name = p.inst.name.clone();
+    if let Err(err) = e.add(p.service) {
+        return failed(err.to_string(), "");
+    }
+    crate::write(&d.inner.labels).insert(name.clone(), p.labels.clone());
+    if let Some(mi) = p.module {
+        crate::write(&d.inner.modules).insert(name.clone(), mi);
+    }
+    if let Some(f) = entry::front_of(&p.inst, &p.labels, p.supervised) {
+        if let Err(err) = live.front.add(&f).await {
+            undo(d, &name).await;
+            return failed(err, "");
+        }
+    } else if starts_by_itself(&p.inst, p.supervised)
+        && let Err(err) = e.wake(&name, Cause::Command).await
+    {
+        undo(d, &name).await;
+        return failed(format!("booting {name:?}: {err}"), "");
+    }
+    let view = e
+        .get(&name)
+        .map(|i| crate::view::view(e, &i, Some(&p.labels)));
+    Response {
+        ok: true,
+        instances: view.into_iter().collect(),
+        ..Response::default()
+    }
+}
+
+/// What runs once added: enabled, not a task, not fronted (that is the caller's), and an app or service, or a module
+/// its module supervises (Go's `Supervised`).
+fn starts_by_itself(i: &Instance, supervised: bool) -> bool {
+    i.enabled
+        && match &i.spec {
+            Spec::Command(_) => i.kind() != Kind::Task,
+            _ => supervised,
+        }
+}
+
+/// Takes back an add that could not finish.
+async fn undo(d: &Daemon, name: &str) {
+    let _ = d.engine().remove(name).await;
+    forget(d, name);
+}
+
+fn forget(d: &Daemon, name: &str) {
+    if let Some(live) = d.inner.live.as_ref() {
+        live.front.remove(name);
+    }
+    crate::write(&d.inner.labels).remove(name);
+    crate::write(&d.inner.modules).remove(name);
+}
+
+/// The `remove` op: stops `name`, closes its front, forgets it; with `wipe`, deletes its data, sockets and logs.
+pub(crate) async fn remove(d: &Daemon, name: &str, wipe: bool) -> Response {
+    if name.is_empty() {
+        return failed("remove needs an instance name".into(), "");
+    }
+    let e = d.engine();
+    if e.get(name).is_none() {
+        return failed(format!("no instance named {name:?}"), fault::NOT_FOUND);
+    }
+    if let Err(err) = e.remove(name).await {
+        return failed(err.to_string(), "");
+    }
+    forget(d, name);
+    if wipe {
+        let stack = e.stack();
+        for dir in [stack.cluster_dir(name), stack.run_dir().join(name)] {
+            match std::fs::remove_dir_all(&dir) {
+                Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
+                    return failed(format!("removing {}: {err}", dir.display()), "");
+                }
+                _ => {}
+            }
+        }
+        if let Err(err) = e.logs().remove(name) {
+            return failed(format!("removing the logs of {name:?}: {err}"), "");
+        }
+    }
+    Response {
+        ok: true,
+        ..Response::default()
+    }
+}
+
+impl Live {
+    pub(crate) fn catalog(&self) -> &Catalog {
+        &self.catalog
+    }
+
+    /// The stack's doze.hcl.
+    pub(crate) fn config(&self) -> &str {
+        &self.config
+    }
+
+    pub(crate) fn version(&self) -> &str {
+        &self.version
+    }
+}

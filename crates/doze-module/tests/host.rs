@@ -30,6 +30,10 @@ impl Downloads for Mirror {
     }
     fn ensure<'a>(&'a self, r: &'a Ensure) -> BoxFuture<'a, Result<Ensured, Error>> {
         Box::pin(async move {
+            // A download that takes a while, for the idle test.
+            if r.target == "slow" {
+                tokio::time::sleep(Duration::from_millis(700)).await;
+            }
             Ok(Ensured {
                 bin_dir: format!("/cache/{}/bin", r.full),
                 digest: "sha256:abc".into(),
@@ -211,4 +215,34 @@ async fn a_dead_module_is_started_again_and_an_idle_one_stopped() {
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(p.reap_idle().await, vec!["echo".to_string()]);
     assert!(p.running().await.is_empty());
+}
+
+/// The D1 audit's idle fix: a module is never idle while a call is in flight (a download in `resolve` takes minutes),
+/// and its idle time counts from the call's end.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_module_is_not_idle_while_a_call_is_in_flight() {
+    let p = Arc::new(pool(None, Arc::default(), Duration::from_millis(200)));
+    let m = p.get("echo").await.unwrap();
+    let call = {
+        let m = m.clone();
+        tokio::spawn(async move {
+            m.resolve(&ResolveArgs {
+                instance: instance(),
+                target: "slow".into(),
+                pins: vec![],
+            })
+            .await
+        })
+    };
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    assert_eq!(m.idle_for(), Duration::ZERO, "a call is in flight");
+    assert!(p.reap_idle().await.is_empty(), "longer than idle, but busy");
+    call.await.unwrap().unwrap();
+    assert!(
+        m.idle_for() < Duration::from_millis(200),
+        "counted from the end"
+    );
+    assert!(p.reap_idle().await.is_empty());
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(p.reap_idle().await, vec!["echo".to_string()]);
 }

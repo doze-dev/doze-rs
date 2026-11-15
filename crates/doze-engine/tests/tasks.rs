@@ -189,8 +189,14 @@ async fn a_stopped_task_is_asked_to_stop_and_ends_failed() {
         .await
         .unwrap()
         .unwrap();
-    let said = "task \"long\" was stopped (exited with status 0)";
-    assert_eq!(woke.unwrap_err().to_string(), said);
+    // Windows: a console process ended by the stop's CTRL_BREAK may exit STATUS_CONTROL_C_EXIT (0xC000013A) instead.
+    let said = woke.unwrap_err().to_string();
+    assert!(
+        [0, -1_073_741_510]
+            .iter()
+            .any(|s| said == format!("task \"long\" was stopped (exited with status {s})")),
+        "{said}"
+    );
     assert_eq!(e.get("long").unwrap().state, State::Reaped);
     let rec = e.task_record("long").unwrap();
     assert_eq!(
@@ -199,7 +205,7 @@ async fn a_stopped_task_is_asked_to_stop_and_ends_failed() {
     );
     assert_eq!(
         journal(&d),
-        [ev("wake", "long", "asked for"), ev("failed", "long", said)]
+        [ev("wake", "long", "asked for"), ev("failed", "long", &said)]
     );
     let runs = e.logs().runs("long").unwrap();
     assert!(runs.iter().all(|r| !r.live), "the run is closed: {runs:?}");

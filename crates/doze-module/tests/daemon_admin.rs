@@ -5,76 +5,13 @@
 mod daemon_support;
 
 use daemon_support::*;
-use doze_daemon::catalog::Catalog;
-use doze_daemon::{Daemon, StackInfo};
-use doze_engine::modules::Pinned;
-use serde_json::Value;
-use std::collections::BTreeMap;
-use std::io::{BufRead, BufReader, Write};
-use std::sync::Arc;
-use std::time::Duration;
-
-struct Raw {
-    w: doze_os::local::LocalStream,
-    r: BufReader<doze_os::local::LocalStream>,
-}
-
-impl Raw {
-    fn open(sock: &std::path::Path) -> Raw {
-        let w = doze_os::local::LocalStream::connect(sock).unwrap();
-        w.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
-        let r = BufReader::new(w.try_clone().unwrap());
-        let mut c = Raw { w, r };
-        c.say(r#"{"hello":{"proto":2}}"#);
-        c.hear();
-        c
-    }
-    fn say(&mut self, line: &str) {
-        self.w.write_all(format!("{line}\n").as_bytes()).unwrap();
-    }
-    fn hear(&mut self) -> Value {
-        let mut s = String::new();
-        self.r.read_line(&mut s).unwrap();
-        serde_json::from_str(&s).unwrap()
-    }
-    /// A unary answer (the frame's `response`).
-    fn ask(&mut self, line: &str) -> Value {
-        self.say(line);
-        self.hear()["response"].clone()
-    }
-}
-
-async fn serve(dir: &std::path::Path) -> (Daemon, doze_daemon::Serving, std::path::PathBuf) {
-    let lock = dir.join("doze.lock");
-    let downloads = Arc::new(Pinned {
-        inner: Shared(Arc::new(Fetch::default())),
-        pins: doze_daemon::catalog::lock_pins(&lock),
-    });
-    let cat = Arc::new(Catalog::new(
-        tokio::runtime::Handle::current(),
-        Arc::new(Find::default()),
-        downloads,
-        lock,
-        dir.join("home"),
-    ));
-    let env = BTreeMap::from([(
-        "DOZE_HOME".to_string(),
-        dir.join("home").to_string_lossy().into_owned(),
-    )]);
-    let a = doze_daemon::entry::assemble(&dir.join("doze.hcl"), "0.0.0", cat, env)
-        .await
-        .unwrap();
-    let sock = dir.join("ctl.sock");
-    let d =
-        Daemon::at(a.engine, a.labels, StackInfo::default(), sock.clone()).with_modules(a.modules);
-    let s = d.serve().unwrap();
-    (d, s, sock)
-}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn resources_actions_the_console_and_a_reset_come_from_the_module() {
     let (dir, _port) = project("admin");
-    let (d, s, sock) = serve(&dir).await;
+    let Some((d, s, sock, _front)) = serve(&dir).await else {
+        return;
+    };
     let mut c = tokio::task::spawn_blocking({
         let sock = sock.clone();
         move || Raw::open(&sock)

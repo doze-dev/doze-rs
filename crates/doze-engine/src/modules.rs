@@ -79,7 +79,15 @@ pub struct ModuleInstance {
     supervised: bool,
     /// The toolchain the last start resolved, for `converge` and `prune`.
     toolchain: Mutex<Option<Toolchain>>,
+    /// Its module in the pool: the engine, or `engine@major` for a second build of one type.
+    key: String,
+    /// The loopback ports chosen at the last start for listeners granted [`ANY_LOOPBACK`], by listener.
+    ports: Mutex<std::collections::BTreeMap<String, Address>>,
 }
+
+/// A listener backend granted as this: a loopback port is chosen at each start (one chosen once could be taken by the
+/// next start).
+pub const ANY_LOOPBACK: &str = "127.0.0.1:0";
 
 impl std::fmt::Debug for ModuleInstance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -101,6 +109,7 @@ impl ModuleInstance {
     ) -> Self {
         ModuleInstance {
             pool,
+            key: base.engine.clone(),
             base,
             pins: Mutex::new(pins),
             sink: None,
@@ -108,7 +117,15 @@ impl ModuleInstance {
             target: target.into(),
             structured,
             toolchain: Mutex::new(None),
+            ports: Mutex::default(),
         }
+    }
+
+    /// Its module is the pool's `key` (a build of its type for its major; the engine name unless set).
+    #[must_use]
+    pub fn pool_key(mut self, key: &str) -> Self {
+        self.key = key.into();
+        self
     }
 
     /// The module is supervised: always on, never reaped when idle.
@@ -144,6 +161,13 @@ impl ModuleInstance {
 
     fn instance(&self, ctx: &PlanCtx) -> Instance {
         let mut i = self.base.clone();
+        let ports = self.ports.lock().unwrap_or_else(PoisonError::into_inner);
+        for (name, l) in &mut i.listeners {
+            if let Some(a) = ports.get(name) {
+                l.backend = a.clone();
+            }
+        }
+        drop(ports);
         i.data_dir = ctx.data_dir.to_string_lossy().into_owned();
         i.socket_dir = ctx.run_dir.to_string_lossy().into_owned();
         i.toolchain = self
@@ -155,12 +179,9 @@ impl ModuleInstance {
     }
 
     async fn plan_inner(&self, ctx: &PlanCtx) -> Result<Planned, String> {
-        let m = self
-            .pool
-            .get(&self.base.engine)
-            .await
-            .map_err(|e| e.message)?;
+        let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
         let mut i = self.instance(ctx);
+        self.choose_ports(&mut i)?;
         doze_os::fs::private_dir(&ctx.run_dir).map_err(|e| e.to_string())?;
         m.decode(&i).await.map_err(|e| e.message)?;
         let args = ResolveArgs {
@@ -188,8 +209,8 @@ impl ModuleInstance {
         let plan = m.plan(&with).await.map_err(|e| e.message)?;
         // Where it is reached: the backend the host granted its main listener, else what its first process's check
         // waits on (a module whose check is a command or a log line still has its grant).
-        let granted = self
-            .base
+        let granted = with
+            .instance
             .listeners
             .get(doze_module_proto::network::MAIN)
             .map(|g| match &g.backend {
@@ -240,22 +261,14 @@ impl Planner for ModuleInstance {
 impl Structure for ModuleInstance {
     fn objects<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<Vec<Object>, String>> {
         Box::pin(async move {
-            let m = self
-                .pool
-                .get(&self.base.engine)
-                .await
-                .map_err(|e| e.message)?;
+            let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
             m.objects(&self.instance(ctx)).await.map_err(|e| e.message)
         })
     }
 
     fn converge<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let m = self
-                .pool
-                .get(&self.base.engine)
-                .await
-                .map_err(|e| e.message)?;
+            let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
             let caps = m.manifest.caps;
             if caps & doze_module_proto::msg::hello::caps::CONVERGE == 0 {
                 return Ok(());
@@ -271,11 +284,7 @@ impl Structure for ModuleInstance {
         removed: &'a [Object],
     ) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let m = self
-                .pool
-                .get(&self.base.engine)
-                .await
-                .map_err(|e| e.message)?;
+            let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
             if m.manifest.caps & doze_module_proto::msg::hello::caps::PRUNE == 0 {
                 return Ok(());
             }
@@ -311,6 +320,30 @@ fn without_spans(n: &Node) -> Node {
         v => v.clone(),
     };
     Node::bare(value)
+}
+
+impl ModuleInstance {
+    /// For each listener granted [`ANY_LOOPBACK`], a loopback port free now, kept for this start's later calls.
+    fn choose_ports(&self, i: &mut Instance) -> Result<(), String> {
+        let mut ports = self.ports.lock().unwrap_or_else(PoisonError::into_inner);
+        for (name, l) in &mut i.listeners {
+            let any = self
+                .base
+                .listeners
+                .get(name)
+                .is_some_and(|b| b.backend == Address::Tcp(ANY_LOOPBACK.into()));
+            if !any {
+                continue;
+            }
+            let port = std::net::TcpListener::bind(("127.0.0.1", 0))
+                .and_then(|s| s.local_addr())
+                .map_err(|e| format!("{}: no loopback port is free for its engine: {e}", i.name))?
+                .port();
+            l.backend = Address::Tcp(format!("127.0.0.1:{port}"));
+            ports.insert(name.clone(), l.backend.clone());
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

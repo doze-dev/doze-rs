@@ -160,6 +160,14 @@ impl Table {
         self.slot(name);
     }
 
+    /// Forgets `name` (removed from the stack at run time); watchers see the version move.
+    pub fn forget(&mut self, name: &str) {
+        self.version = self.version.wrapping_add(1);
+        self.slots.remove(name);
+        self.touched.remove(name);
+        self.last_sig.remove(name);
+    }
+
     /// A start began; it clears the previous failure and what described an earlier process. Holds and the restart
     /// budget stay (Go: a restart that is booting still shows "try n of m").
     pub fn mark_booting(&mut self, name: &str) {

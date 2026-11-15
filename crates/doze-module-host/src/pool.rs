@@ -41,15 +41,17 @@ impl Pool {
     }
 
     /// The running module for `engine`, starting it (again) if needed.
-    pub async fn get(&self, engine: &str) -> Result<Arc<Running>, Error> {
+    /// `key` is the engine, or `engine@major` for another build of the same module (one process per build).
+    pub async fn get(&self, key: &str) -> Result<Arc<Running>, Error> {
         let mut modules = self.modules.lock().await;
-        if let Some(m) = modules.get(engine).filter(|m| m.is_alive()) {
+        if let Some(m) = modules.get(key).filter(|m| m.is_alive()) {
             return Ok(m.clone());
         }
-        let program = (self.locate)(engine)
-            .ok_or_else(|| Error::new(ErrorKind::NotFound, format!("no module for {engine}")))?;
+        let program = (self.locate)(key)
+            .ok_or_else(|| Error::new(ErrorKind::NotFound, format!("no module for {key}")))?;
+        let engine = key.split_once('@').map_or(key, |(e, _)| e);
         let m = Arc::new(running::launch(engine, &program, self.services.clone()).await?);
-        modules.insert(engine.to_string(), m.clone());
+        modules.insert(key.to_string(), m.clone());
         Ok(m)
     }
 

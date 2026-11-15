@@ -72,7 +72,8 @@ pub fn to_stack(cfg: &Config, w: &Wiring<'_>) -> Stack {
     }
 }
 
-fn service(i: &Instance, w: &Wiring<'_>, names: &BTreeSet<&str>) -> Service {
+/// One instance as the engine runs it (an instance added at run time); `names` are the instances its needs may name.
+pub fn service(i: &Instance, w: &Wiring<'_>, names: &BTreeSet<&str>) -> Service {
     let (mut s, sleep) = match &i.spec {
         Spec::Command(c) if i.kind() == Kind::Task => (Service::task(&i.name, task(c)), c.sleep),
         Spec::Command(c) => (Service::process(&i.name, process(c, i.port)), c.sleep),

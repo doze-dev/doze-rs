@@ -31,10 +31,10 @@ pub(crate) fn answer(d: &Daemon, req: &doze_control::Request) -> Response {
         Op::Resources => return rt.block_on(crate::admin::resources(d, &req.db)),
         Op::Admin => return rt.block_on(crate::admin::admin(d, req)),
         Op::Plan => return rt.block_on(plan(d, &req.db)),
-        Op::Add | Op::Remove => Err(Error::Failed(format!(
-            "{} is not in the Rust daemon yet",
-            op.as_str()
-        ))),
+        Op::Migrate => return rt.block_on(crate::admin::migrate(d, &req.db)),
+        Op::Lint => return rt.block_on(crate::lint::lint(d, &req.input)),
+        Op::Add => return rt.block_on(crate::live::add(d, &req.block)),
+        Op::Remove => return rt.block_on(crate::live::remove(d, &req.db, req.wipe)),
         // Streams and cancel are the session's.
         Op::Subscribe | Op::Events | Op::Cancel => {
             return failed(&format!("unknown op: {}", req.op), "");
@@ -88,7 +88,7 @@ fn status(d: &Daemon) -> Response {
             .loaded
             .map_or_else(Timestamp::zero, Timestamp::from_system_time),
         instances: {
-            let mut views = view::snapshot(e, &d.inner.labels);
+            let mut views = view::snapshot(e, &d.labels());
             d.inner.rt.block_on(crate::meters::fill(d, &mut views));
             crate::client::fill_paths(d, &mut views);
             views
@@ -122,7 +122,7 @@ async fn plan(d: &Daemon, db: &str) -> Response {
 }
 
 fn paused(d: &Daemon, name: &str) -> bool {
-    d.inner.labels.get(name).is_some_and(|l| l.paused)
+    d.label(name).is_some_and(|l| l.paused)
 }
 
 async fn wake(d: &Daemon, name: &str) -> Result<(), Error> {

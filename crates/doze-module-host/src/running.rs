@@ -182,6 +182,10 @@ impl Running {
     pub async fn run_action(&self, a: &RunAction) -> Result<String, Error> {
         self.call(Method::RunAction, a, SLOW).await
     }
+    /// Moves an instance's data to the version its block declares (it may fetch the builds it needs); what it did.
+    pub async fn migrate(&self, a: &ResolveArgs) -> Result<String, Error> {
+        self.call(Method::Migrate, a, SLOW).await
+    }
 
     /// A console stream; drop it to stop.
     pub fn tail(&self, a: &TailArgs) -> Result<Stream, Error> {

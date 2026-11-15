@@ -209,7 +209,7 @@ fn declared_endpoint(e: &Engine, name: &str) -> Endpoint {
     if let Some(ep) = last.filter(|ep| !ep.backend.is_empty()) {
         return ep;
     }
-    match e.service(name).map(|s| &s.kind) {
+    match e.service(name).map(|s| s.kind) {
         Ok(SvcKind::Process(p)) => Endpoint {
             backend: p
                 .port
@@ -357,7 +357,7 @@ fn register(
             old.abort();
         }
         live.watcher =
-            crate::watch::restarter(e, &svc.name, &crate::tasks::watch_sets(e.stack(), svc));
+            crate::watch::restarter(e, &svc.name, &crate::tasks::watch_sets(&e.stack(), svc));
         r
     });
     tokio::spawn(crate::stop::watch(

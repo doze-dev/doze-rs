@@ -2,7 +2,7 @@
 //! through what the module declares, its block reaches the module as the protocol's value tree, what it publishes is
 //! what the config's references and the views read, the lock's engine pin wins over the module's hash, and a
 //! connection to its declared port wakes it through the daemon's front.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use doze_daemon::catalog::Catalog;
 use doze_daemon::front::Front;
@@ -235,4 +235,62 @@ async fn the_engine_pin_a_module_reports_is_written_to_the_lock() {
     let _ = port;
     a.engine.shutdown().await;
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The D1 audit's per-major builds: two instances of one type, on majors no single build serves, each run on a build
+/// of their own (`echo` and `echo@2` in the pool), and both wake.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn two_majors_no_build_serves_both_run_on_two_builds() {
+    let d = std::env::temp_dir().join(format!("doze-daemon-majors-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&d);
+    std::fs::create_dir_all(d.join("home")).unwrap();
+    let v1 = d.join(format!(
+        "doze-module-echo-v1{}",
+        std::env::consts::EXE_SUFFIX
+    ));
+    std::fs::copy(env!("CARGO_BIN_EXE_doze-module-echo"), &v1).unwrap();
+    let (p1, p2) = (free_port(), free_port());
+    let hcl = format!(
+        "module echo \"old\" {{\n  version = \"1\"\n  port = {p1}\n}}\n\nmodule echo \"new\" {{\n  version = \"2\"\n  port = {p2}\n}}\n"
+    );
+    std::fs::write(d.join("doze.hcl"), hcl).unwrap();
+    let lock = d.join("doze.lock");
+    let find = Arc::new(Find {
+        only1: Some(v1),
+        ..Find::default()
+    });
+    let downloads = Arc::new(Pinned {
+        inner: Shared(Arc::new(Fetch::default())),
+        pins: doze_daemon::catalog::lock_pins(&lock),
+    });
+    let cat = Arc::new(Catalog::new(
+        tokio::runtime::Handle::current(),
+        find.clone(),
+        downloads,
+        lock,
+        d.join("home"),
+    ));
+    let env = BTreeMap::from([(
+        "DOZE_HOME".to_string(),
+        d.join("home").to_string_lossy().into_owned(),
+    )]);
+    let a = doze_daemon::entry::assemble(&d.join("doze.hcl"), "0.0.0", cat.clone(), env)
+        .await
+        .unwrap();
+    assert_eq!(
+        (cat.key("echo", "1"), cat.key("echo", "2")),
+        ("echo".to_string(), "echo@2".to_string())
+    );
+    assert_eq!(
+        cat.manifest_for("echo", "1").map(|m| m.versions),
+        Some(vec!["1".to_string()])
+    );
+    for n in ["old", "new"] {
+        a.engine
+            .wake(n, doze_engine::Cause::Command)
+            .await
+            .unwrap_or_else(|e| panic!("{n}: {e}"));
+    }
+    a.engine.shutdown().await;
+    let _ = std::fs::remove_dir_all(&d);
 }

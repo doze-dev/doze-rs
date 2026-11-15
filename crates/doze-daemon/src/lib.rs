@@ -17,6 +17,8 @@ mod console;
 pub mod ctl;
 pub mod entry;
 pub mod front;
+pub mod lint;
+pub mod live;
 mod meters;
 pub mod planners;
 mod session;
@@ -33,7 +35,7 @@ use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
 use std::time::Duration;
 
 /// Where a stack's daemon listens (Go's `ControlSocketPath`): `<data_dir>/run/doze.admin.sock`.
@@ -61,7 +63,8 @@ pub struct Daemon {
 #[derive(Debug)]
 pub(crate) struct Inner {
     pub(crate) engine: Engine,
-    pub(crate) labels: BTreeMap<String, Labels>,
+    /// What the config says of each instance (instances added or removed at run time change it).
+    pub(crate) labels: RwLock<BTreeMap<String, Labels>>,
     pub(crate) info: StackInfo,
     pub(crate) rt: tokio::runtime::Handle,
     pub(crate) socket: PathBuf,
@@ -70,7 +73,9 @@ pub(crate) struct Inner {
     /// Recent meter readings.
     pub(crate) meters: meters::Ring,
     /// Each module instance, for its data, console and client.
-    pub(crate) modules: entry::Modules,
+    pub(crate) modules: RwLock<entry::Modules>,
+    /// What adds an instance at run time (`None`: this daemon cannot).
+    pub(crate) live: Option<live::Live>,
 }
 
 /// A running server; dropping it does not stop it, [`Serving::stop`] does.
@@ -96,14 +101,15 @@ impl Daemon {
     ) -> Daemon {
         let inner = Inner {
             engine,
-            labels,
+            labels: RwLock::new(labels),
             info,
             rt: tokio::runtime::Handle::current(),
             socket,
             stopping: AtomicBool::new(false),
             conns: AtomicUsize::new(0),
             meters: meters::Ring::default(),
-            modules: entry::Modules::new(),
+            modules: RwLock::default(),
+            live: None,
         };
         Daemon {
             inner: Arc::new(inner),
@@ -114,9 +120,33 @@ impl Daemon {
     #[must_use]
     pub fn with_modules(mut self, modules: entry::Modules) -> Daemon {
         if let Some(inner) = Arc::get_mut(&mut self.inner) {
-            inner.modules = modules;
+            inner.modules = RwLock::new(modules);
         }
         self
+    }
+
+    /// What adds instances at run time (the `add` and `remove` ops). Before [`Daemon::serve`] and before it is cloned.
+    #[must_use]
+    pub fn with_live(mut self, live: live::Live) -> Daemon {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.live = Some(live);
+        }
+        self
+    }
+
+    /// What the config says of `name`.
+    pub(crate) fn label(&self, name: &str) -> Option<Labels> {
+        read(&self.inner.labels).get(name).cloned()
+    }
+
+    /// Every instance's labels, as they are now.
+    pub(crate) fn labels(&self) -> BTreeMap<String, Labels> {
+        read(&self.inner.labels).clone()
+    }
+
+    /// Module instance `name`, if it is one.
+    pub(crate) fn module(&self, name: &str) -> Option<Arc<doze_engine::modules::ModuleInstance>> {
+        read(&self.inner.modules).get(name).cloned()
     }
 
     /// The engine it serves.
@@ -192,4 +222,12 @@ impl Serving {
 
 pub(crate) fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+pub(crate) fn read<T>(m: &RwLock<T>) -> std::sync::RwLockReadGuard<'_, T> {
+    m.read().unwrap_or_else(PoisonError::into_inner)
+}
+
+pub(crate) fn write<T>(m: &RwLock<T>) -> std::sync::RwLockWriteGuard<'_, T> {
+    m.write().unwrap_or_else(PoisonError::into_inner)
 }

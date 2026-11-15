@@ -44,6 +44,7 @@ async fn echo<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(s: S) {
 async fn serve(listen: &str) -> std::io::Result<()> {
     if let Some(addr) = listen.strip_prefix("tcp:") {
         let l = tokio::net::TcpListener::bind(addr).await?;
+        eprintln!("echo-engine: listening");
         loop {
             let (s, _) = l.accept().await?;
             tokio::spawn(echo(s));
@@ -53,6 +54,7 @@ async fn serve(listen: &str) -> std::io::Result<()> {
     if let Some(path) = listen.strip_prefix("unix:") {
         let _ = std::fs::remove_file(path);
         let l = tokio::net::UnixListener::bind(path)?;
+        eprintln!("echo-engine: listening");
         loop {
             let (s, _) = l.accept().await?;
             tokio::spawn(echo(s));

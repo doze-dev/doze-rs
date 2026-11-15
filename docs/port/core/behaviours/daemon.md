@@ -60,13 +60,13 @@ Both are filled from the module's own answer (`Catalog::published`); apps, servi
 1. Two instances recording pins at once lost pins and failed the save (shared temporary name): `record_pins` takes a process-wide lock. *Fixed; no concurrent test.*
 2. The module reaper could stop a module mid-call (idle counted from a call's start; a download in `resolve` takes minutes): a module is idle only with no call in flight, counted from the last call's end (`Running::idle_for`). *Fixed; no test yet.*
 3. Supervised modules slept and got a front: `ModuleInstance::supervised` from the manifest; no front for them. *Fixed.*
-4. The backend port is chosen at daemon start and could be taken later (still so, until D2 grants per start); when no port could be had the backend fell back to the declared address, so the front dialled itself: now the instance cannot start and says why. *Self-loop fixed; the race stays for D2.*
+4. The backend port is chosen at daemon start and could be taken later; when no port could be had the backend fell back to the declared address, so the front dialled itself. *Fixed (session 10): a loopback backend is granted as `127.0.0.1:0` and the engine chooses the port at each start (`ModuleInstance::choose_ports`), kept for that start's later calls; no free port fails the start with why.*
 5. Front errors went to `tracing`, which `doze` does not install: they go to the daemon's log. *Fixed.*
-6. Mutations that survived: pins kept for a later start (now `the_engine_pin_a_module_reports…`: the mirror is asked once over two starts), the enabled filter (a disabled module in the test gets no front), the socket branch and its fallbacks (`planners::tests`). Still untested: the endpoint taken from the grant (the echo's check names the same place), `run()`'s wiring.
+6. Mutations that survived: pins kept for a later start (now `the_engine_pin_a_module_reports…`: the mirror is asked once over two starts), the enabled filter (a disabled module in the test gets no front), the socket branch and its fallbacks (`planners::tests`). The endpoint taken from the grant and `run()`'s wiring: tested in session 10 (below).
 7. `listen = "unix:/x"`: the declared socket is the engine's backend; a port that is not a number takes the manifest's default. *Fixed.*
-8. A second instance of a type with another major uses the first's build (one build per type). *Open, minor.*
+8. A second instance of a type with another major uses the first's build (one build per type). *Fixed (session 10): when the first build does not serve a major, the build found for it runs as `type@major` in the pool (`catalog_builds.rs`); test `two_majors_no_build_serves_both_run_on_two_builds`.*
 9. Pins were filtered by type, not engine: every lock pin is passed and the module takes its own. *Fixed.*
-10. A second daemon starts modules before refusing. *Open, minor.*
+10. A second daemon starts modules before refusing. *Fixed (session 10): `entry::no_daemon_yet` reads the data folder from the shape pass (no modules) and refuses before the catalog exists; test in `doze-cli tests/daemon.rs`.*
 11. The `dozetest` key: said on stderr when in use or not a key. *Fixed.*
 
 ## Session 9: converge on start, meters, the data ops and the console
@@ -80,7 +80,7 @@ Both are filled from the module's own answer (`Catalog::published`); apps, servi
 | `reset` | stop, remove the data and socket folders, forget a task's run | the same | `doze-module tests/daemon_admin.rs` |
 | `resources`, `admin` | the module's Admin; empty without it; "is not running — boot it first" | the same, from the module's manifest (`admin` capability) and calls | the same |
 | `console` topic | spec and actions first, the stream panel's rows, tables every 2 s, `_runtime` for undeclared rows; never wakes | the same (`doze-daemon/src/console.rs`) | the same |
-| `add`, `remove` | a block wired into the running stack | not yet: the engine has no instances added at run time (open, see below) | |
+| `add`, `remove` | a block wired into the running stack | done in session 10 (below) | |
 
 Differences: an instance's engine word in "has no data actions" is the config's type (`process` for a task) where Go said `app`.
 
@@ -88,8 +88,21 @@ Differences: an instance's engine word in "has no data actions" is the config's 
 
 - `connect`: `InstanceView.connect` (additive, omitted when the module declares no client): `program`, `path` (the program in the engine's own build, set once a start resolved it), `args` and `env` with `{host}`, `{port}`, `{url}`, `{password}` filled from doze's address for the instance and its connection URL, `fallbacks` (tried on `PATH` when `path` is empty and `program` is not found). The CLI runs it as given. Test: `daemon_admin.rs the_client`; rendering: `client::tests`.
 - `sync --dry-run` and sync's question: the `plan` op (additive; a Go daemon answers "unknown op", so a client cannot apply by mistake) answers `Response.changes`, each `{instance, change: create|update|delete, kind, name}` in the order `apply` would make them. Each module says what its declaration wants (`objects`), against `.doze/state.json`; nothing is woken, converged or written. An empty list means sync has nothing to do (ask only when it is not empty, as Go did). Tests: `doze-engine tests/sync.rs a_plan_lists_the_changes_and_changes_nothing`, `daemon_admin.rs` (the wire).
-- `migrate` and lint's module pass: not served yet. Go's `migrate` is postgres's own major upgrade (dump with the old major, restore into a fresh cluster); a generic form needs a protocol call (a module's own migration, as `run_action` is its own data action) that the postgres module answers; lint's module pass needs an op that loads a doze.hcl through the catalog and returns each module's diagnostics. Both are planned for D1's next session; the CLI keeps its stubs until then.
+- `migrate` and `lint`: served from session 10 (below).
 
 ### Session 9 proof: a fresh home, no manual step
 
 `/private/tmp/claude-501/dzb9` (the session 8 registry and shop, a new empty DOZE_HOME, `doze` release with `dozetest`, 7,014,080 B): the daemon started, `task migrate` was asked over the socket (`proof-migrate.json`: ok in 21 s, the postgres engine downloaded first); postgres's start converged its database (the one its URL names) before the task ran, `.doze-converged` holds the fingerprint, and the migration applied (`logs/migrate`). No `apply`. A curl of web then woke api and cache through the fronts (`proof-curl.txt`, the first one waited out the valkey download) and status shows resident memory per instance (`proof-meters.txt`: db 12.2 MB, api 22.0 MB, cache 5.3 MB, web 17.0 MB). Not yet in this proof: the app's shots.
+
+## Session 10: add and remove, migrate, lint's module pass, the audit's open items
+
+| | Go | Rust | Test |
+|---|---|---|---|
+| `add` | the block parsed alone (`config.Parse`), its engine looked up, a listener and a name, a supervised process booted; references to other instances refused with "pass the literal value instead" | the same through doze-config's `parse` and the catalog (`live.rs`): the engine's service (`Engine::add`: name new, needs declared, no cycle, checked as at build), labels, a front for what doze fronts; an app without a port or a supervised module starts at once, and a refused start or a port someone holds takes the add back. Answers the new instance's view | `doze-engine tests/live.rs`, `doze-module tests/daemon_live.rs`, the real `__daemon` in `doze-cli tests/daemon.rs` |
+| `remove` | stops it, closes its listener and name, drops it from the config; `wipe` deletes its data, logs and sockets; a need on it was left dangling | the same; refused while another instance needs it ("is needed by \"api\"; remove it first"); it is taken out of the run before it is stopped, so nothing wakes it meanwhile, then the machine forgets it | the same |
+| `migrate` (additive op) | the CLI's own postgres dump and restore, stack down | protocol call `migrate` (method 25, capability `MIGRATE`), the instance's module does its own move; `fetch.*` callbacks are allowed during it (a callback's scope is now a list: `resolve` or `migrate`) so a module fetches the old major. The daemon takes the instance out of the run, asks, puts it back; `Response.result` is what the module said. A module without the capability: "db is valkey; its module has no migration (…)" | `daemon_live.rs migrate_is_the_module_s_own_with_the_instance_stopped` (echo) |
+| `lint` (additive op) | the CLI loaded doze.hcl with its modules | the stack's doze.hcl, as on disk now, loaded through the daemon's catalog; `ok` with warnings in `lines`, `unchecked` for types the registry could not be reached for; the load's error otherwise; another stack's file is refused | `daemon_live.rs lint_loads_the_file_on_disk_through_the_modules` |
+
+Open for other tracks: the postgres module (core-m1) answers `migrate` with Go's dump, set-aside and restore (`cmd/doze/migrate.go`, through `cx.fetch()` for both majors); the CLI (core-c2c) sends `migrate` and `lint` and prints their answers.
+
+Tests added for the audit's untested paths: the endpoint taken from the grant (the echo with `settings.ready = "log"` has no check naming its address), `run()`'s wiring (add/remove and a second daemon on the real binary), the module idle fix (`doze-module tests/host.rs a_module_is_not_idle_while_a_call_is_in_flight`), the pin writer's lock (`catalog::tests::pins_recorded_at_once_are_all_kept`).

@@ -13,6 +13,8 @@ use std::sync::{Arc, Mutex};
 #[derive(Default)]
 pub struct Find {
     pub asked: Mutex<Vec<(String, Vec<String>)>>,
+    /// A build that serves engine 1 only, found for major 1 (else the echo serves 1 and 2).
+    pub only1: Option<PathBuf>,
 }
 
 impl Finder for Find {
@@ -26,8 +28,9 @@ impl Finder for Find {
             .lock()
             .unwrap()
             .push((ty.to_string(), majors.to_vec()));
+        let only1 = self.only1.clone().filter(|_| majors == ["1"]);
         let found = (ty == "echo")
-            .then(|| PathBuf::from(env!("CARGO_BIN_EXE_doze-module-echo")))
+            .then(|| only1.unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_doze-module-echo"))))
             .ok_or_else(|| format!("module doze/{ty} is not published in the registry"));
         Box::pin(async move { found })
     }
@@ -100,4 +103,94 @@ pub fn project(tag: &str) -> (PathBuf, u16) {
     );
     std::fs::write(d.join("doze.lock"), lock).unwrap();
     (d, port)
+}
+
+/// A raw protocol-2 client: lines out, frames in.
+pub struct Raw {
+    w: doze_os::local::LocalStream,
+    r: std::io::BufReader<doze_os::local::LocalStream>,
+}
+
+impl Raw {
+    pub fn open(sock: &Path) -> Raw {
+        let w = doze_os::local::LocalStream::connect(sock).unwrap();
+        w.set_read_timeout(Some(std::time::Duration::from_secs(30)))
+            .unwrap();
+        let r = std::io::BufReader::new(w.try_clone().unwrap());
+        let mut c = Raw { w, r };
+        c.say(r#"{"hello":{"proto":2}}"#);
+        c.hear();
+        c
+    }
+    pub fn say(&mut self, line: &str) {
+        use std::io::Write;
+        self.w.write_all(format!("{line}\n").as_bytes()).unwrap();
+    }
+    pub fn hear(&mut self) -> serde_json::Value {
+        use std::io::BufRead;
+        let mut s = String::new();
+        self.r.read_line(&mut s).unwrap();
+        serde_json::from_str(&s).unwrap()
+    }
+    /// A unary answer (the frame's `response`).
+    pub fn ask(&mut self, line: &str) -> serde_json::Value {
+        self.say(line);
+        self.hear().get("response").cloned().unwrap_or_default()
+    }
+}
+
+/// The project in `dir` served as `doze __daemon` serves it (the catalog with the echo stand-ins, its fronts, and
+/// what adds instances at run time), on a socket in `dir`.
+/// `None` where the system has no local control socket yet (Windows).
+pub async fn serve(
+    dir: &Path,
+) -> Option<(
+    doze_daemon::Daemon,
+    doze_daemon::Serving,
+    PathBuf,
+    Arc<doze_daemon::front::Front>,
+)> {
+    use doze_daemon::catalog::Catalog;
+    let lock = dir.join("doze.lock");
+    let downloads = Arc::new(doze_engine::modules::Pinned {
+        inner: Shared(Arc::new(Fetch::default())),
+        pins: doze_daemon::catalog::lock_pins(&lock),
+    });
+    let cat = Arc::new(Catalog::new(
+        tokio::runtime::Handle::current(),
+        Arc::new(Find::default()),
+        downloads,
+        lock,
+        dir.join("home"),
+    ));
+    let env = std::collections::BTreeMap::from([(
+        "DOZE_HOME".to_string(),
+        dir.join("home").to_string_lossy().into_owned(),
+    )]);
+    let config = dir.join("doze.hcl");
+    let a = doze_daemon::entry::assemble(&config, "0.0.0", cat.clone(), env.clone())
+        .await
+        .unwrap();
+    let front = Arc::new(doze_daemon::front::Front::open(&a.engine, &a.fronted()).await);
+    let live = doze_daemon::live::Live::new(cat, &config, "0.0.0", env, front.clone());
+    let sock = dir.join("ctl.sock");
+    let d = doze_daemon::Daemon::at(
+        a.engine,
+        a.labels,
+        doze_daemon::StackInfo::default(),
+        sock.clone(),
+    )
+    .with_modules(a.modules)
+    .with_live(live);
+    let s = d.serve();
+    if let Err(e) = &s
+        && e.kind() == std::io::ErrorKind::Unsupported
+    {
+        eprintln!("skipped: {e}");
+        front.close();
+        d.engine().shutdown().await;
+        return None;
+    }
+    let s = s.expect("serving");
+    Some((d, s, sock, front))
 }

@@ -257,6 +257,8 @@ impl Machine {
 
 #[path = "machine_boot.rs"]
 mod boot;
+#[path = "machine_live.rs"]
+mod live;
 #[path = "machine_stop.rs"]
 mod stop;
 #[path = "machine_task.rs"]

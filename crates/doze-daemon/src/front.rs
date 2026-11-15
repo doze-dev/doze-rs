@@ -19,10 +19,12 @@ use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::task::JoinHandle;
 
-/// The listeners, open; dropping them does not close them, [`Front::close`] does.
-#[derive(Debug, Default)]
+/// The listeners, open; dropping them does not close them, [`Front::close`] does. Instances added at run time get
+/// theirs with [`Front::add`]; a removed one's closes with [`Front::remove`].
+#[derive(Debug)]
 pub struct Front {
-    tasks: Vec<JoinHandle<()>>,
+    engine: Engine,
+    tasks: std::sync::Mutex<std::collections::BTreeMap<String, JoinHandle<()>>>,
 }
 
 /// One instance doze fronts: its name and the address clients use.
@@ -35,24 +37,41 @@ pub struct Fronted {
 impl Front {
     /// Binds every address; one that cannot be bound is said in the log and the rest still open (Go refused to
     /// start; the app shows the instance failing to wake instead, which names the port's holder).
-    #[allow(clippy::print_stderr)] // the daemon's stderr is its log file
     pub async fn open(engine: &Engine, fronted: &[Fronted]) -> Front {
-        let mut tasks = Vec::new();
+        let front = Front {
+            engine: engine.clone(),
+            tasks: std::sync::Mutex::default(),
+        };
         for f in fronted {
-            match TcpListener::bind(&f.addr).await {
-                Ok(l) => {
-                    let (e, name) = (engine.clone(), f.name.clone());
-                    tasks.push(tokio::spawn(accept(e, name, l)));
-                }
-                Err(err) => eprintln!("doze daemon: {} cannot listen on {}: {err}", f.name, f.addr),
+            if let Err(err) = front.add(f).await {
+                say!("{err}");
             }
         }
-        Front { tasks }
+        front
+    }
+
+    /// Binds one more address (an instance added at run time); the error names the instance and the address.
+    pub async fn add(&self, f: &Fronted) -> Result<(), String> {
+        let l = TcpListener::bind(&f.addr)
+            .await
+            .map_err(|err| format!("{} cannot listen on {}: {err}", f.name, f.addr))?;
+        let task = tokio::spawn(accept(self.engine.clone(), f.name.clone(), l));
+        if let Some(old) = crate::lock(&self.tasks).insert(f.name.clone(), task) {
+            old.abort();
+        }
+        Ok(())
+    }
+
+    /// Closes one instance's listener (it was removed); its open connections end on their own.
+    pub fn remove(&self, name: &str) {
+        if let Some(t) = crate::lock(&self.tasks).remove(name) {
+            t.abort();
+        }
     }
 
     /// Closes every listener (open connections end with the runtime).
     pub fn close(&self) {
-        for t in &self.tasks {
+        for t in crate::lock(&self.tasks).values() {
             t.abort();
         }
     }

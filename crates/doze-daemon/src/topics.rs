@@ -116,7 +116,7 @@ async fn instances(d: &Daemon, w: &Writer, id: u64) -> Done {
     let mut last: BTreeMap<String, InstanceView> = BTreeMap::new();
     let mut first = true;
     loop {
-        let now = view::snapshot(d.engine(), &d.inner.labels);
+        let now = view::snapshot(d.engine(), &d.labels());
         let mut frame = Frame {
             topic: "instances".into(),
             snapshot: first,
@@ -228,7 +228,7 @@ async fn events(d: &Daemon, w: &Writer, id: u64) -> Done {
             Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
             Err(err) => return Err(err.to_string()),
         };
-        let v = view::view(d.engine(), &inst, d.inner.labels.get(&inst.name));
+        let v = view::view(d.engine(), &inst, d.label(&inst.name).as_ref());
         let frame = Frame {
             topic: "instances".into(),
             instances: vec![v],

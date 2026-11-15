@@ -27,7 +27,8 @@ pub struct Engine {
 
 #[derive(Debug)]
 pub(crate) struct Inner {
-    pub(crate) stack: Stack,
+    /// Swapped whole when an instance is added or removed at run time; readers take the current one.
+    stack: std::sync::RwLock<Arc<Stack>>,
     logs: doze_logstore::Store,
     journal: Option<doze_journal::Journal>,
     core: Mutex<Core>,
@@ -167,7 +168,7 @@ impl Engine {
         let inner = Inner {
             logs,
             journal,
-            stack,
+            stack: std::sync::RwLock::new(Arc::new(stack)),
             core: Mutex::new(core),
             changed: watch::channel(0).0,
             transitions: broadcast::channel(256).0,
@@ -179,8 +180,12 @@ impl Engine {
     }
 
     /// The stack it runs.
-    pub fn stack(&self) -> &Stack {
-        &self.inner.stack
+    pub fn stack(&self) -> Arc<Stack> {
+        self.inner
+            .stack
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// What every instance printed: runs kept on disk, readable while it runs and after.
@@ -280,9 +285,10 @@ impl Engine {
         let _ = self.inner.events.send(e);
     }
 
-    pub(crate) fn service(&self, name: &str) -> Result<&Service, Error> {
-        let config = self.inner.stack.config_name.clone();
-        self.inner.stack.service(name).ok_or(Error::NotDeclared {
+    pub(crate) fn service(&self, name: &str) -> Result<Service, Error> {
+        let stack = self.stack();
+        let config = stack.config_name.clone();
+        stack.service(name).cloned().ok_or(Error::NotDeclared {
             name: name.into(),
             config,
         })
@@ -345,5 +351,7 @@ impl Engine {
     }
 }
 
+#[path = "engine_live.rs"]
+mod live;
 #[path = "engine_wake.rs"]
 mod wake;

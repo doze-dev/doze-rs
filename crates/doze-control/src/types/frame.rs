@@ -102,6 +102,9 @@ pub struct Response {
     /// The `plan` op's answer, in the order `apply` would make them (Rust daemon, additive).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub changes: Vec<ChangeView>,
+    /// The `lint` op: module types whose blocks went unchecked (Rust daemon, additive).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub unchecked: Vec<String>,
 }
 
 /// One instance-tagged log line (Go `LogFrame`).
