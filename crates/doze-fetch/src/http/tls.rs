@@ -2,19 +2,21 @@
 //! own trust store (the keychain, /etc/ssl, the Windows store), so a proxy a company trusts is trusted here too. Not a
 //! bundled root list: `webpki-roots` is CDLA-Permissive-2.0, outside the licences deny.toml allows.
 
-use super::{Failure, TOO_BIG, UNTRUSTED, dns_failure, timed_out};
+use super::{Budget, Failure, TOO_BIG, UNTRUSTED, dns_failure, no_connection, timed_out};
 use std::sync::{Arc, OnceLock};
-use std::time::Duration;
 use ureq::tls::{Certificate, RootCerts, TlsConfig};
 
-pub(super) fn get(url: &str, timeout: Duration, limit: u64) -> Result<Vec<u8>, Failure> {
+pub(super) fn get(url: &str, budget: Budget, limit: u64) -> Result<Vec<u8>, Failure> {
+    let timeout = budget.whole;
     let mut resp = agent()
         .get(url)
         .config()
         .timeout_global(Some(timeout))
+        // Shared by the host's addresses (ureq gives the first about half): one that drops packets is passed over.
+        .timeout_connect(Some(budget.connect))
         .build()
         .call()
-        .map_err(|e| Failure::Unreachable(words(&e, timeout)))?;
+        .map_err(|e| Failure::Unreachable(words(&e, budget)))?;
     let status = resp.status().as_u16();
     if status != 200 {
         return Err(Failure::Status(status));
@@ -23,12 +25,14 @@ pub(super) fn get(url: &str, timeout: Duration, limit: u64) -> Result<Vec<u8>, F
         .with_config()
         .limit(limit)
         .read_to_vec()
-        .map_err(|e| Failure::Unreachable(words(&e, timeout)))
+        .map_err(|e| Failure::Unreachable(words(&e, budget)))
 }
 
-fn words(e: &ureq::Error, timeout: Duration) -> String {
+fn words(e: &ureq::Error, budget: Budget) -> String {
+    let timeout = budget.whole;
     match e {
         ureq::Error::HostNotFound => "no DNS answer".into(),
+        ureq::Error::Timeout(ureq::Timeout::Connect) => no_connection(budget.connect),
         ureq::Error::Timeout(_) => timed_out(timeout),
         ureq::Error::ConnectionFailed => "the connection was refused".into(),
         ureq::Error::Io(io) if io.kind() == std::io::ErrorKind::TimedOut => timed_out(timeout),

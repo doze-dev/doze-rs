@@ -45,9 +45,35 @@ pub fn get(url: &str, timeout: Duration) -> Result<Vec<u8>, Failure> {
 
 /// GETs `url` (or reads a `file://` path), up to `limit` bytes.
 pub fn get_up_to(url: &str, timeout: Duration, limit: u64) -> Result<Vec<u8>, Failure> {
+    get_within(url, Budget::of(timeout), limit)
+}
+
+/// The longest a connection may take to open, across all of a host's addresses. Without it the whole request's
+/// budget was the connect's too: one address that drops packets (a CDN node, 2026-11-15) held an engine download in
+/// SYN_SENT for most of its 600 s, and `doze up` looked hung. Go's dialer gives up after 30 s and tries the next
+/// address sooner (happy eyeballs); this gives the first address about half of it, the next a quarter, and so on.
+pub const CONNECT: Duration = Duration::from_secs(10);
+
+/// How long a request may take in all, and how long of that its connection may take to open.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Budget {
+    whole: Duration,
+    connect: Duration,
+}
+
+impl Budget {
+    fn of(whole: Duration) -> Budget {
+        Budget {
+            whole,
+            connect: whole.min(CONNECT),
+        }
+    }
+}
+
+fn get_within(url: &str, budget: Budget, limit: u64) -> Result<Vec<u8>, Failure> {
     match url.strip_prefix("file://") {
         Some(path) => read_file(path, limit),
-        None => client::get(url, timeout, limit),
+        None => client::get(url, budget, limit),
     }
 }
 
@@ -74,6 +100,11 @@ fn read_file(path: &str, limit: u64) -> Result<Vec<u8>, Failure> {
 /// The words for a request that timed out.
 fn timed_out(timeout: Duration) -> String {
     format!("no answer within {}s", timeout.as_secs_f32())
+}
+
+/// The words for a connection that did not open in time.
+fn no_connection(connect: Duration) -> String {
+    format!("no connection within {}s", connect.as_secs_f32())
 }
 
 /// Whether an error's text is a resolver's "no such name" (macOS, glibc, Windows and curl spell it differently).
@@ -165,6 +196,40 @@ mod tests {
             "failed to lookup address information: nodename nor servname provided"
         ));
         assert!(!dns_failure("connection reset by peer"));
+    }
+
+    /// An address that never answers (TEST-NET-1, RFC 5737: routed nowhere, so the packets are dropped) costs the
+    /// connect's budget, not the whole request's (a 600 s download stood in SYN_SENT to one CDN address). Where the
+    /// network says at once that it has no route, the answer is quicker still.
+    #[test]
+    fn a_host_that_never_answers_costs_the_connect_budget_not_the_downloads() {
+        let budget = Budget {
+            whole: Duration::from_secs(600),
+            connect: Duration::from_millis(300),
+        };
+        let start = std::time::Instant::now();
+        let got = get_within("http://192.0.2.1:9/index.yaml", budget, LIMIT);
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "{:?}",
+            start.elapsed()
+        );
+        let Err(Failure::Unreachable(why)) = got else {
+            panic!("{got:?}")
+        };
+        assert!(
+            why == "no connection within 0.3s" || why.contains("connection failed"),
+            "{why}"
+        );
+    }
+
+    #[test]
+    fn the_connect_budget_is_the_requests_when_that_is_shorter() {
+        assert_eq!(
+            Budget::of(Duration::from_secs(3)).connect,
+            Duration::from_secs(3)
+        );
+        assert_eq!(Budget::of(Duration::from_secs(600)).connect, CONNECT);
     }
 
     /// F1 audit 3, minor 1: a `file://` body is held to the same limit as a download; a missing file is a 404.
