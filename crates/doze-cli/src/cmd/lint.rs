@@ -32,6 +32,9 @@ pub struct Verdict {
     why: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     warnings: Vec<String>,
+    /// Each module type not checked and why its build could not be had (additive to Go's `unchecked` and `why`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    reasons: Vec<doze_control::UncheckedView>,
     /// What `unchecked` lists, for the human line: module blocks, or certificates.
     #[serde(skip)]
     what: &'static str,
@@ -44,6 +47,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Lint) -> Outcome {
     let mut unchecked = module_types(&cfg);
     let modules = !unchecked.is_empty();
     let mut what = "module blocks";
+    let mut reasons: Vec<doze_control::UncheckedView> = Vec::new();
     let mut why = match (a.offline, unchecked.is_empty()) {
         (true, false) => "--offline".to_owned(),
         _ => String::new(),
@@ -54,8 +58,16 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Lint) -> Outcome {
             Ok(r) if !r.ok => return Err(failed(&r.error)),
             Ok(r) => {
                 cfg.warnings = r.lines;
-                unchecked = r.unchecked;
-                why = r.result;
+                unchecked = r.unchecked.iter().map(|u| u.ty.clone()).collect();
+                // One reason said once; different reasons each with its type.
+                why = match r.unchecked.as_slice() {
+                    [] => String::new(),
+                    [first, rest @ ..] if rest.iter().all(|u| u.why == first.why) => {
+                        first.why.clone()
+                    }
+                    _ => "each type's build could not be had; the reasons follow".to_owned(),
+                };
+                reasons = r.unchecked;
             }
             Err(could_not) => why = could_not,
         }
@@ -94,6 +106,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Lint) -> Outcome {
         unchecked,
         why,
         warnings: cfg.warnings.clone(),
+        reasons,
         what,
     };
     Ok(Done {
@@ -244,6 +257,12 @@ impl Verdict {
                 self.unchecked.join(", ")
             )
         };
+        // Reasons that differ are said per type.
+        if self.reasons.iter().any(|r| r.why != self.why) {
+            for r in &self.reasons {
+                out.push_str(&format!("    {}: {}\n", r.ty, p.dim(&r.why)));
+            }
+        }
         for w in &self.warnings {
             out.push_str(&format!("  {} {w}\n", p.warn("!")));
         }
@@ -256,5 +275,52 @@ fn plural(n: usize, noun: &str) -> String {
         format!("1 {noun}")
     } else {
         format!("{n} {noun}s")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn verdict(reasons: &[(&str, &str)], why: &str) -> Verdict {
+        Verdict {
+            config: "doze.hcl".into(),
+            declared: BTreeMap::from([("module", 2)]),
+            disabled: 0,
+            unchecked: reasons.iter().map(|(t, _)| (*t).to_owned()).collect(),
+            why: why.into(),
+            warnings: Vec::new(),
+            reasons: reasons
+                .iter()
+                .map(|(t, w)| doze_control::UncheckedView {
+                    ty: (*t).into(),
+                    why: (*w).into(),
+                })
+                .collect(),
+            what: "module blocks",
+        }
+    }
+
+    /// The daemon's reasons: one said once when they agree, each with its type when they differ; the JSON keeps Go's
+    /// `unchecked` (the types) and `why`, and adds `reasons`.
+    #[test]
+    fn each_unchecked_type_is_said_with_its_reason() {
+        let p = Paint::new(false);
+        let same = verdict(&[("postgres", "no answer"), ("valkey", "no answer")], "no answer");
+        assert_eq!(
+            same.human(p),
+            "✓ doze.hcl passes the first pass: 2 modules\n  ! module blocks not checked (no answer): postgres, valkey\n"
+        );
+        let differ = verdict(
+            &[("postgres", "no answer within 3s"), ("valkey", "signature check failed")],
+            "each type's build could not be had; the reasons follow",
+        );
+        assert_eq!(
+            differ.human(p),
+            "✓ doze.hcl passes the first pass: 2 modules\n  ! module blocks not checked (each type's build could not be had; the reasons follow): postgres, valkey\n    postgres: no answer within 3s\n    valkey: signature check failed\n"
+        );
+        let json = serde_json::to_value(&differ).unwrap_or_default();
+        assert_eq!(json["unchecked"], serde_json::json!(["postgres", "valkey"]));
+        assert_eq!(json["reasons"][1]["type"], "valkey");
     }
 }
