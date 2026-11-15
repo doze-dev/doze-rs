@@ -57,5 +57,5 @@ pub use view::{
     DataSize, Durability, EventKind, GroupDetail, GroupEvent, GroupEvents, GroupKind, Instance,
     Intervals, LastStop, Limits, LogFacts, LogPolicy, LogRetention, MOST_ENTRIES, MemberDetail,
     MemberHold, OffsetExpiry, Pace, PartitionFiles, PartitionProducers, Process, ProducerBatch,
-    ProducerWindow, RebalanceDetail,
+    ProducerWindow, RebalanceDetail, ShareGroupView, SharePartitionView,
 };

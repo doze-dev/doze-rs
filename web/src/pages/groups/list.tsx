@@ -29,6 +29,7 @@ const route = getRouteApi("/groups");
 
 function protocolWord(r: GroupRow): string {
   if (r.protocol === "consumer") return "consumer (KIP-848)";
+  if (r.protocol === "share") return "share (KIP-932)";
   return r.assignor && r.phase !== "empty" ? `classic, ${r.assignor}` : "classic";
 }
 
@@ -42,7 +43,7 @@ function nameSub(r: GroupRow, now: number): string {
 }
 
 function stateSub(r: GroupRow): string {
-  if (r.protocol === "consumer") return `epoch ${r.generation}`;
+  if (r.protocol === "consumer" || r.protocol === "share") return `epoch ${r.generation}`;
   return r.phase === "stable" ? `generation ${r.generation}` : "";
 }
 

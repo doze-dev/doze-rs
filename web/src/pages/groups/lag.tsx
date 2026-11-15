@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { number } from "@/lib/format";
 import { Callout, LagBar, Panel } from "./parts";
+import { ShareLag } from "./share";
 import { dateTime, span, stamp } from "./words";
 
 const route = getRouteApi("/groups/$group/lag");
@@ -191,7 +192,7 @@ export function GroupLagPage() {
   const v = res.data;
   return (
     <div data-testid="group-lag">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className={v?.share ? "hidden" : "mb-5 flex flex-wrap items-center justify-between gap-3"}>
         <ToggleGroup
           type="single"
           variant="outline"
@@ -211,6 +212,8 @@ export function GroupLagPage() {
       </div>
       {!v ? (
         <Skeleton className="h-80 rounded-xl" />
+      ) : v.share ? (
+        <ShareLag v={v} />
       ) : (
         <>
           {expiring && <RetentionWindow v={v} />}

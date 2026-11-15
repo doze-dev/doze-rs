@@ -70,13 +70,13 @@ async fn describe_configs_answers_the_refused_resources_after_the_others_with_no
             .iter()
             .map(|x| (x.resource_type, x.resource_name.to_string(), x.error_code))
             .collect();
-        // Authorized first, in the order asked: only the topic (the group is a resource type this broker does not
-        // take, and is answered as such, not refused); then those refused.
+        // Authorized first, in the order asked: the topic and the group (whose share configs are described, SEC-327); then
+        // those refused.
         assert_eq!(
             shape,
             [
                 (TOPIC_RESOURCE, "t".into(), 0),
-                (GROUP_RESOURCE, "g".into(), 42),
+                (GROUP_RESOURCE, "g".into(), 0),
                 (BROKER, "".into(), 31),
                 (TOPIC_RESOURCE, "other".into(), 29),
                 (GROUP_RESOURCE, "h".into(), 30),

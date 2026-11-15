@@ -16,10 +16,12 @@ mod config_help;
 mod events;
 mod group_detail;
 mod process;
+mod share;
 
 pub use config_help::{ConfigHelp, Limits};
 pub use events::{EventKind, GroupEvent, GroupEvents, MemberHold};
 pub use group_detail::{GroupDetail, GroupKind, MemberDetail, OffsetExpiry, RebalanceDetail};
+pub use share::{ShareGroupView, SharePartitionView};
 mod config_rules;
 mod pace;
 

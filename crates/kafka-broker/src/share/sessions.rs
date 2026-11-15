@@ -235,18 +235,6 @@ impl Sessions {
             .unwrap_or_default()
     }
 
-    /// Every session, for the console: group, member and its partitions' count and epoch.
-    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
-    pub(crate) fn of_group_members(&self, group: &GroupId) -> Vec<(MemberId, usize, i32)> {
-        let mut out: Vec<(MemberId, usize, i32)> = self
-            .by_member
-            .iter()
-            .filter(|((g, _), _)| g == group)
-            .map(|((_, m), s)| (m.clone(), s.parts.len(), s.epoch))
-            .collect();
-        out.sort_by(|a, b| a.0.cmp(&b.0));
-        out
-    }
 }
 
 #[cfg(test)]

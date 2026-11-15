@@ -352,17 +352,6 @@ impl SharePartition {
         }
     }
 
-    /// How many in-flight records are done with (acknowledged or archived): Kafka's `deliveryCompleteCount`.
-    #[must_use]
-    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
-    pub(crate) fn delivery_complete(&self) -> i64 {
-        self.records_from_start()
-            .filter(|(_, r)| r.state.terminal())
-            .count()
-            .try_into()
-            .unwrap_or(i64::MAX)
-    }
-
     /// Every record from the start on, with its offset.
     #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
     pub(crate) fn records_from_start(&self) -> impl Iterator<Item = (i64, &Rec)> {

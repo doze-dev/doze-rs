@@ -10,8 +10,8 @@ use super::group_read::{self as read, Commits, Described};
 use crate::backend::Backend;
 use crate::lag::{bar_percent, lag};
 use crate::model::{
-    GroupHead, GroupLagView, GroupMemberRow, GroupPhase, GroupProtocol, GroupRebalance, LagRow,
-    LagState, LagTopic,
+    GroupHead, GroupLagView, GroupMemberRow, GroupPhase, GroupProtocol, GroupRebalance, GroupShareView,
+    LagRow, LagState, LagTopic, ShareRow,
 };
 use crate::source::now_ms;
 
@@ -55,6 +55,7 @@ fn phase_and_protocol(l: &Loaded) -> (GroupPhase, GroupProtocol) {
         .unwrap_or("Empty");
     let protocol = match (&l.detail, &l.described) {
         (Some(d), _) if d.kind == GroupKind::Consumer => GroupProtocol::Consumer,
+        (Some(d), _) if d.kind == GroupKind::Share => GroupProtocol::Share,
         (_, Some(d)) => d.protocol,
         _ => GroupProtocol::Classic,
     };
@@ -286,6 +287,48 @@ pub fn assemble(id: &str, l: &Loaded, seen: &Seen<'_>, expiring: bool) -> GroupL
         head,
         topics,
         flash: None,
+        share: None,
+    }
+}
+
+/// A share group's share-partitions as its page shows them, with the log's end and the lag from the start.
+#[must_use]
+pub fn share_view(v: &kafka_broker::ShareGroupView, ends: &HashMap<(String, i32), i64>) -> GroupShareView {
+    let rows = v
+        .partitions
+        .iter()
+        .map(|p| {
+            let log_end = ends.get(&(p.topic.clone(), p.partition)).copied();
+            let done = i64::try_from(p.acknowledged + p.archived).unwrap_or(i64::MAX);
+            let lag = match (p.start, log_end) {
+                (Some(start), Some(end)) => Some((end - start - done).max(0)),
+                _ => None,
+            };
+            ShareRow {
+                topic: p.topic.clone(),
+                partition: p.partition,
+                start: p.start,
+                end: p.end,
+                log_end,
+                lag,
+                live: p.live,
+                available: p.available,
+                acquired: p.acquired,
+                acknowledged: p.acknowledged,
+                archived: p.archived,
+                deliveries: p.deliveries.iter().map(|(c, n)| (*c, *n)).collect(),
+                holders: p.holders.iter().map(|(m, n)| (m.clone(), *n)).collect(),
+                next_lock_ms: p.next_lock_ms,
+            }
+        })
+        .collect();
+    GroupShareView {
+        rows,
+        delivery_limit: v.delivery_limit,
+        lock_ms: v.lock_ms,
+        record_locks: v.record_locks,
+        reset: v.reset.clone(),
+        read_committed: v.read_committed,
     }
 }
 
@@ -315,7 +358,7 @@ pub async fn group(b: &Backend, id: &str, expiring: bool) -> Option<GroupLagView
         })
         .collect();
     let all = read::listed(b).await;
-    Some(assemble(
+    let mut view = assemble(
         id,
         &l,
         &Seen {
@@ -325,5 +368,16 @@ pub async fn group(b: &Backend, id: &str, expiring: bool) -> Option<GroupLagView
             cfgs: &cfgs,
         },
         expiring,
-    ))
+    );
+    // A share group commits nothing: its share-partitions take the place of the lag table.
+    if view.head.protocol == GroupProtocol::Share {
+        view.share = b.share_group(id).map(|s| share_view(&s, &ends));
+        view.head.lag_total = view
+            .share
+            .as_ref()
+            .map_or(0, |s| s.rows.iter().filter_map(|r| r.lag).sum());
+        view.topics.clear();
+        view.state = LagState::Normal;
+    }
+    Some(view)
 }

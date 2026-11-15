@@ -39,7 +39,7 @@ function genTitle(g: StoryGen): string {
 
 function What({ g }: { g: StoryGen }) {
   const w = g.who;
-  const consumer = g.protocol === "consumer";
+  const consumer = g.protocol !== "classic";
   const members = ` Members ${g.before} to ${g.after}.`;
   let body: React.ReactNode;
   switch (g.cause) {
@@ -370,6 +370,7 @@ function Calm({ v, fetchedAt }: { v: StoryView; fetchedAt: number }) {
 
 function api(g: StoryGen): string {
   if (g.protocol === "consumer") return "ConsumerGroupHeartbeat";
+  if (g.protocol === "share") return "ShareGroupHeartbeat";
   return g.cause === "member_left" ? "LeaveGroup" : g.cause === "session_expired" ? "Heartbeat" : "JoinGroup";
 }
 

@@ -101,6 +101,13 @@ async fn a_client_on_a_socket_gets_its_answer() {
         ApiKey::ConsumerGroupDescribe,
         ApiKey::GetTelemetrySubscriptions,
         ApiKey::PushTelemetry,
+        ApiKey::ShareGroupHeartbeat,
+        ApiKey::ShareGroupDescribe,
+        ApiKey::ShareFetch,
+        ApiKey::ShareAcknowledge,
+        ApiKey::DescribeShareGroupOffsets,
+        ApiKey::AlterShareGroupOffsets,
+        ApiKey::DeleteShareGroupOffsets,
     ];
     assert_eq!(
         ask(&mut socket).await,

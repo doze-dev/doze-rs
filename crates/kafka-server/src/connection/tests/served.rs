@@ -51,6 +51,13 @@ async fn api_versions_lists_only_what_the_broker_serves() {
         ApiKey::ConsumerGroupDescribe,
         ApiKey::GetTelemetrySubscriptions,
         ApiKey::PushTelemetry,
+        ApiKey::ShareGroupHeartbeat,
+        ApiKey::ShareGroupDescribe,
+        ApiKey::ShareFetch,
+        ApiKey::ShareAcknowledge,
+        ApiKey::DescribeShareGroupOffsets,
+        ApiKey::AlterShareGroupOffsets,
+        ApiKey::DeleteShareGroupOffsets,
     ];
     assert_eq!(keys, served.map(|k| k as i16));
 }

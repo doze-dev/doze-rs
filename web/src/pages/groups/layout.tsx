@@ -27,6 +27,7 @@ const route = getRouteApi("/groups/$group");
 
 function pills(h: GroupHead): string[] {
   if (h.protocol === "consumer") return ["consumer protocol (KIP-848)", `epoch ${h.generation}`];
+  if (h.protocol === "share") return ["share group (KIP-932)", `epoch ${h.generation}`];
   const out = ["classic"];
   if (h.assignor && h.phase !== "empty") out.push(h.assignor);
   out.push(h.phase === "empty" ? "no members" : h.phase === "rebalancing" ? `generation ${h.generation + 1} forming` : `generation ${h.generation}`);
@@ -37,7 +38,9 @@ function stats(h: GroupHead): Stat[] {
   // State and generation are the pills under the h1: said once.
   return [
     { label: "Members", value: number(h.members.length), ch: 4 },
-    { label: "Lag", value: number(h.lag_total), unit: "records behind", ch: 9 },
+    h.protocol === "share"
+      ? { label: "Not done with", value: number(h.lag_total), unit: "records", ch: 9 }
+      : { label: "Lag", value: number(h.lag_total), unit: "records behind", ch: 9 },
     { label: "Committed", value: number(h.commits), unit: h.commits === 1 ? "partition" : "partitions", ch: 4 },
     h.last_commit_ms !== null ? { label: "Last commit", value: stamp(h.last_commit_ms, h.now_ms), unit: "UTC", mono: true, ch: 11 } : { label: "Last commit", value: "never", mono: true, ch: 11 },
   ];
