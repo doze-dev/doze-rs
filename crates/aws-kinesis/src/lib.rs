@@ -17,6 +17,7 @@ mod records;
 mod req;
 mod reshard;
 mod settings;
+mod storage;
 mod streams;
 mod tags;
 
@@ -74,7 +75,7 @@ impl Kinesis {
             Ok(actor) => actor,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
-        let mut answer = match actor.call(call).await {
+        let mut answer = match actor.call(crate::core::Ask::Call(Box::new(call))).await {
             Ok(answer) => answer,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
@@ -122,5 +123,9 @@ impl Service for Kinesis {
             e.message.push_str(pattern);
         }
         e
+    }
+
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
     }
 }
