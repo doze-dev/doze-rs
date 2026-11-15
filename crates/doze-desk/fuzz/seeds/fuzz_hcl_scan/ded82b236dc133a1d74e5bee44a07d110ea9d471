@@ -1,0 +1,33 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Psthon and TypeScript, a gateway and a web svices/catalog/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/poslmode=disable" }
+}
+
+# DSECRET_ACCESS_KEY = "larder"
+    AWS_DEFAULT_REGION    = "eu-west-2"
+  }
+}
+
+#h "Goes wath finds it unquali = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names = var.names
+
+  # The first `go run` of each service compiles it; later starts are quick.
+  ready_timeout = "3m"
+}
+
+# ── backing services ────────────────────erver, one datun   =`"bun run dev"
+  port  = 5173
+  ready = http("/")
+  after = [task.install-storefront]
+
+  env = {
+    GATEWAY_URL = app.gateway.url
+  }
+}

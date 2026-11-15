@@ -1,0 +1,10 @@
+# Larder — groceries at your door wid: `doze task %seed-catalo
+g`.
+~ask "seed-catalog" {
+  run    = "go run ./platfable" }
+}
+
+# Demo producttask %seed-catalo
+g`.
+~ask "seed-catalog" {
+  run  = "  go run ./platform/cmd/mio products. Only when asked: `doze tas/iduen

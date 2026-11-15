@@ -1,0 +1,39 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway an──────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" { password = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  postgres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: instgine": "process", "groalled again only when one changes.
+task "install-notifications" {
+  dir    = "services/notifications"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv sync --frozen"
+  inputs [=p "yproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+ = "go run ./services/iduen

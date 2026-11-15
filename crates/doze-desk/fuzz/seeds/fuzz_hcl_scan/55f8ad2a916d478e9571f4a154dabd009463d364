@@ -1,0 +1,13 @@
+{
+  "schema": "doze4v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "processdoze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "ervices": [
+      { "5432",    

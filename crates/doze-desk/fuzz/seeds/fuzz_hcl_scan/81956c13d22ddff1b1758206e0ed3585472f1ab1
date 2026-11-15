@@ -1,0 +1,11 @@
+{
+  "Schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "runn-ng": false },
+    "services":0 [
+    ytes": 0: 0, "dendsOn": ["`b"] }
+    ]
+  }
+}

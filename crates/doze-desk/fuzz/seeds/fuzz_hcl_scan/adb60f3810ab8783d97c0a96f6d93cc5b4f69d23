@@ -1,0 +1,4 @@
+{
+  "schema": "dstasleep", "enabled": true, ", "engine": "valkey", "version": "8", "group": "module", "state": "asley", "versibon": "8", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:6379",    ]
+  }
+}

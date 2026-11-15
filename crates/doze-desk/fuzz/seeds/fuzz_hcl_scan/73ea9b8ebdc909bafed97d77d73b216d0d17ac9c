@@ -1,0 +1,9 @@
+{}
+  bucket "recem/]xllent/mailpit/releases/download/v1.21.8/mailpit-lable" }
+}
+
+task "migrate-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/migrations"
+  inputs =ons/*.sql"]
+  env   ders/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://orders:orders@${modul[[[`

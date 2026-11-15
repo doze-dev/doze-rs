@@ -1,0 +1,12 @@
+stack = "acme"
+
+tausldfe {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = x08# Larder — groceries at your door within the hour.
+#
+#s in Go,# Larder — grocerrole "orders" { password = "orderon = 4
+  poro 

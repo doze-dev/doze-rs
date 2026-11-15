@@ -1,0 +1,38 @@
+{
+  "kind": "action",
+  "needed": true,
+  "title": "Produce a message",
+  "danger": false,
+  "sentence": [
+    {
+      "text": "for "
+    },
+    {
+      "text": "orders",
+      "strong": true,
+      "mono": true
+    },
+    {
+      "text": " · events"
+    }
+  ],
+  "input": true,
+  "hint": "message value",
+  "action": true,
+  "instance": "events",
+  "buttons": [
+    {
+      "label": "Do it",
+      "verb": "produce",
+      "targets": [
+        "orders"
+      ],
+      "primary": true
+    },
+    {
+      "label": "Cancel",
+      "cancel": true
+    }
+  ],
+  "default": 0
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "doze/v1",
+  "NT_URL = module.aws.url
+    IMAGES_BUCKET    = "product-images"
+  }
+}
+
+# Basket, checkout and an order's life. Reserves stock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platfstack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+ayments@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafk*/*.gons"
+  run   = "bun ( src/index.ts"
+  ready = log("consuming")
+  after = [task.instalrlec-notificato 

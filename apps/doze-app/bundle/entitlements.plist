@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The hardened runtime with nothing opened up: the app needs no JIT, no unsigned memory and no library validation
+     exceptions. It talks to local daemons over unix sockets and to localhost; it asks for nothing else. -->
+<plist version="1.0">
+<dict>
+</dict>
+</plist>

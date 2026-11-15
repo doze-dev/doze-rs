@@ -13,6 +13,17 @@ ignore = [
     # their own machine, with keys that protect nothing (docs/port/aws/PLAN.md, A6). No fixed release exists. Revisit 2027-02-13, or
     # when a fixed `rsa` is released, whichever is first.
     "RUSTSEC-2023-0071",
+    # The desktop app (apps/doze-app) only, through GPUI (gpui-pre 0.3.12) and gpui-component 0.9.1, which pin these;
+    # nothing else in the workspace links them. Each is "unmaintained", none a vulnerability. They go when gpui-pre
+    # replaces them; revisit at every gpui-pre upgrade (docs/port/app/PLAN.md §8), and no later than 2027-02-13.
+    "RUSTSEC-2024-0384", # instant (gpui-base)
+    "RUSTSEC-2024-0436", # paste (gpui-component, a proc macro)
+    "RUSTSEC-2025-0134", # rustls-pemfile (gpui-pre-reqwest, under gpui-kit-assets)
+    "RUSTSEC-2026-0192", # ttf-parser (gpui text shaping, usvg)
+    "RUSTSEC-2026-0206", # rustybuzz (usvg, for SVG icons)
+    "RUSTSEC-2026-0370", # zvariant (zbus: the Linux backend's D-Bus)
+    "RUSTSEC-2026-0371", # zbus_names
+    "RUSTSEC-2026-0372", # zvariant_derive
 ]
 
 [licenses]
@@ -31,6 +42,28 @@ allow = [
     "BlueOak-1.0.0",
 ]
 confidence-threshold = 0.9
+
+# The desktop app's licences outside the list above, each allowed for the one crate that needs it (all reach the app
+# alone, through GPUI and gpui-component). MPL-2.0 is file-level copyleft: used unmodified as a library, nothing of
+# ours is affected. 0BSD and CC0-1.0 are public-domain-like.
+[[licenses.exceptions]]
+crate = "cbindgen" # build time only: gpui-pre-apple's build script
+allow = ["MPL-2.0"]
+[[licenses.exceptions]]
+crate = "dwrote" # zed-font-kit
+allow = ["MPL-2.0"]
+[[licenses.exceptions]]
+crate = "option-ext" # dirs-sys
+allow = ["MPL-2.0"]
+[[licenses.exceptions]]
+crate = "enum-iterator"
+allow = ["0BSD"]
+[[licenses.exceptions]]
+crate = "enum-iterator-derive"
+allow = ["0BSD"]
+[[licenses.exceptions]]
+crate = "notify" # gpui-component's theme hot reload
+allow = ["CC0-1.0"]
 
 [bans]
 # Duplicate versions cost binary size; they are reviewed, not forbidden.

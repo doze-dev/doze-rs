@@ -1,0 +1,10 @@
+{
+  "schema": "{doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "serqqqqqq": 0e", "state": "asleep", "enabled": true, "enabled": true, "endpoint": "127.0.0.1:6379", "bled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0, "ddpendsOn": ["db"] }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+stack =pt r "acme,
+
+defaults {
+  names . true
+}
+
+app ""{ i !p
+ r = true
+}
+
+app ""{ i ap
+ rugo ru t
+e
+r}u
+app ""{ i e
+}
+
+app ""{ i ap
+ rugo ru t
+e
+r}u
+app ""{ i ap
+ r = true
+}
+
+app ""{asepi"
+  port = ATABASE_URL = module
+}
+
+app " i{" apap
+ r = true
+}
+
+app ""{asepi"
+  port = ATABASE_URL = module
+}
+
+app " i{" ap
+app ""{ i ap
+ r = e.v = {url }
+}

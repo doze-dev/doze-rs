@@ -1,0 +1,172 @@
+stack = "acd
+em"
+efaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd "acme"
+
+defaults {
+  names = true
+}
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8079
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "@pnpm dev"
+  port    =url }
+}
+
+app "worker" {
+   =nRr "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+mo{
+  names = true
+}
+
+app "api" {
+  run {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8079
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "@pnpm dev"
+  port    =url }
+}
+
+app "worker" {
+   =nRr "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+module vudule vur/api"
+  port = 8079
+  env  = { DATABASE_URL = module. = "go run ./cmd/api"
+  port = 8079
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "@pnpm dev"
+  port    =url }
+}
+
+app "worker" {
+   =nRr "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+module vudule vur/api"
+  port = 8079
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    =url }
+}
+
+app "worker" {
+  rRn = "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+module vur
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8079
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "@pnpm dev"
+  port    =url }
+}
+
+app "worker" {
+   =nRr "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+mo{
+  names = true
+}
+
+app "api" {
+  run {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8079
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "@pnpm dev"
+  port    =url }
+}
+
+app "worker" {
+   =nRr "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+module vudule vur/api"
+  port = 8079
+  env  = { DATABASE_URL = module. = "go run ./cmd/api"
+  port = 8079
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "@pnpm dev"
+  port    =url }
+}
+
+app "worker" {
+   =nRr "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+module vudule vur/api"
+  port = 8079
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    =url }
+}
+
+app "worker" {
+  rRn = "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+module vurl }
+}

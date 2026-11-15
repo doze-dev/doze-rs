@@ -1,0 +1,14 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASenv  = { DATABASE_URLstgres "db" { version = 17 }
+
+module valkey "cace"
+  env = { DATABASE_URL = module.db.url }
+}

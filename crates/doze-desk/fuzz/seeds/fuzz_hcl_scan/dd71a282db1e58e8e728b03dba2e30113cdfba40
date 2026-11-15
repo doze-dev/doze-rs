@@ -1,0 +1,17 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+  																																																																																																																															    { "name": "api", "engin0.1:8080", "domain": "api.ac{
+ #"schema": "doze/v1",
+  "command": "doze status",
+  "ok"                  from this directory
+#   doze task see orders get a receipt in S2.
+# ions" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  s

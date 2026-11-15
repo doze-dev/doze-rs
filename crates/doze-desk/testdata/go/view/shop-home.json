@@ -1,0 +1,910 @@
+{
+  "key": "shop-1",
+  "stack": "shop",
+  "dir": "~/code/shop",
+  "running": true,
+  "banner": {
+    "ok": true
+  },
+  "vitals": {
+    "mem": {
+      "total": "552 MB",
+      "shares": [
+        {
+          "name": "web",
+          "part": 0.386,
+          "label": "213"
+        },
+        {
+          "name": "mongo",
+          "part": 0.268,
+          "label": "148"
+        },
+        {
+          "name": "db",
+          "part": 0.174,
+          "label": "96"
+        },
+        {
+          "name": "api",
+          "part": 0.152,
+          "label": "84"
+        },
+        {
+          "name": "cache",
+          "part": 0.02,
+          "label": "11"
+        }
+      ],
+      "key": "web 213 · mongo 148 · db 96 · +2 more"
+    },
+    "cpu": {
+      "total": "0.03 cores",
+      "shares": [
+        {
+          "name": "api",
+          "part": 0.623,
+          "label": "1.6%"
+        },
+        {
+          "name": "db",
+          "part": 0.247,
+          "label": "0.7%"
+        },
+        {
+          "name": "web",
+          "part": 0.13,
+          "label": "0.3%"
+        }
+      ],
+      "key": "api 1.6% · db 0.7% · the rest quiet"
+    },
+    "state": {
+      "awake": 4,
+      "dozing": 1,
+      "waking": 2,
+      "asleep": 3,
+      "off": 0,
+      "paused": 0,
+      "crashing": 0,
+      "sleeps": "sleeps after 5:00 with nothing holding it"
+    },
+    "conns": {
+      "open": 4,
+      "tasks": "tasks ✓ 1 done · ▸ 1 not run"
+    }
+  },
+  "groups": [
+    {
+      "title": "APPS",
+      "what": "your code",
+      "count": 3,
+      "rows": [
+        {
+          "name": "api",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "84 MB",
+          "cpu": "1.6",
+          "conns": "0",
+          "up": "14m",
+          "because": "no connection right now",
+          "becauseTone": "dim",
+          "addr": "http://api.shop.doze",
+          "port": ":8080",
+          "awake": true,
+          "trouble": false,
+          "depth": 0,
+          "address": "http://api.shop.doze:8080",
+          "url": "http://api.shop.doze:8080",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "web",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "213 MB",
+          "cpu": "0.3",
+          "conns": "0",
+          "up": "14m",
+          "because": "no connection right now",
+          "becauseTone": "dim",
+          "addr": "http://web.shop.doze:3000",
+          "awake": true,
+          "trouble": false,
+          "depth": 0,
+          "address": "https://dev.shop.example",
+          "url": "https://dev.shop.example",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "worker",
+          "kind": "app",
+          "look": {
+            "word": "waking",
+            "glyph": "◌",
+            "tone": "cool"
+          },
+          "engine": "process",
+          "because": "waiting on events",
+          "becauseTone": "warn",
+          "awake": false,
+          "trouble": false,
+          "depth": 0,
+          "on": true,
+          "pinned": false
+        }
+      ]
+    },
+    {
+      "title": "MODULES",
+      "what": "from the doze registry",
+      "count": 4,
+      "rows": [
+        {
+          "name": "cache",
+          "kind": "module",
+          "look": {
+            "word": "dozing",
+            "glyph": "◐",
+            "tone": "warn"
+          },
+          "engine": "valkey 9",
+          "mem": "11 MB",
+          "cpu": "0.0",
+          "conns": "0",
+          "because": "quiet; sleeps soon",
+          "becauseTone": "warn",
+          "awake": true,
+          "trouble": false,
+          "depth": 1,
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "cloud",
+          "kind": "module",
+          "look": {
+            "word": "asleep",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "engine": "aws",
+          "because": "wakes on a connection",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 0,
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "db",
+          "kind": "module",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "postgres 17",
+          "mem": "96 MB",
+          "cpu": "0.7",
+          "conns": "4",
+          "up": "14m",
+          "because": "api needs it · 4 connections",
+          "becauseTone": "dim",
+          "addr": "postgres://shop@db.shop.doze:5432/shop",
+          "awake": true,
+          "trouble": false,
+          "depth": 1,
+          "address": "postgres://shop@db.shop.doze:5432/shop",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "events",
+          "kind": "module",
+          "look": {
+            "word": "waking",
+            "glyph": "◌",
+            "tone": "cool"
+          },
+          "engine": "kafka",
+          "because": "woken by worker",
+          "becauseTone": "warn",
+          "awake": false,
+          "trouble": false,
+          "depth": 1,
+          "on": true,
+          "pinned": false
+        }
+      ]
+    },
+    {
+      "title": "OUTSIDE",
+      "what": "brought in by you",
+      "count": 3,
+      "rows": [
+        {
+          "name": "mailpit",
+          "kind": "service",
+          "look": {
+            "word": "asleep",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "engine": "process",
+          "because": "starts when needed",
+          "becauseTone": "dim",
+          "addr": "http://mailpit.shop.doze",
+          "awake": false,
+          "trouble": false,
+          "depth": 0,
+          "address": "http://mailpit.shop.doze",
+          "url": "http://mailpit.shop.doze",
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "mongo",
+          "kind": "service",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "148 MB",
+          "cpu": "0.0",
+          "conns": "0",
+          "because": "api needs it",
+          "becauseTone": "dim",
+          "awake": true,
+          "trouble": false,
+          "depth": 1,
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "search",
+          "kind": "service",
+          "look": {
+            "word": "asleep",
+            "glyph": "·",
+            "tone": "dim"
+          },
+          "engine": "process",
+          "because": "starts when needed",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 0,
+          "on": false,
+          "pinned": false
+        }
+      ]
+    },
+    {
+      "title": "TASKS",
+      "what": "run once, then out of the way",
+      "count": 2,
+      "rows": [
+        {
+          "name": "migrate",
+          "kind": "task",
+          "look": {
+            "word": "done",
+            "glyph": "✓",
+            "tone": "good"
+          },
+          "engine": "task",
+          "because": "ran 2m ago in 1.2s",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 1,
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "seed",
+          "kind": "task",
+          "look": {
+            "word": "not run",
+            "glyph": "▸",
+            "tone": "dim"
+          },
+          "engine": "task",
+          "because": "runs when you say",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 0,
+          "on": false,
+          "pinned": false
+        }
+      ]
+    }
+  ],
+  "side": [
+    {
+      "name": "api",
+      "kind": "app",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "84 MB",
+      "trouble": false
+    },
+    {
+      "name": "web",
+      "kind": "app",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "213 MB",
+      "trouble": false
+    },
+    {
+      "name": "worker",
+      "kind": "app",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
+    },
+    {
+      "name": "cache",
+      "kind": "module",
+      "look": {
+        "word": "dozing",
+        "glyph": "◐",
+        "tone": "warn"
+      },
+      "note": "11 MB",
+      "trouble": false
+    },
+    {
+      "name": "cloud",
+      "kind": "module",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "db",
+      "kind": "module",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "96 MB",
+      "trouble": false
+    },
+    {
+      "name": "events",
+      "kind": "module",
+      "look": {
+        "word": "waking",
+        "glyph": "◌",
+        "tone": "cool"
+      },
+      "note": "waking",
+      "trouble": false
+    },
+    {
+      "name": "mailpit",
+      "kind": "service",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "mongo",
+      "kind": "service",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "note": "148 MB",
+      "trouble": false
+    },
+    {
+      "name": "search",
+      "kind": "service",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "note": "asleep",
+      "trouble": false
+    },
+    {
+      "name": "migrate",
+      "kind": "task",
+      "look": {
+        "word": "done",
+        "glyph": "✓",
+        "tone": "good"
+      },
+      "note": "done",
+      "trouble": false
+    },
+    {
+      "name": "seed",
+      "kind": "task",
+      "look": {
+        "word": "not run",
+        "glyph": "▸",
+        "tone": "dim"
+      },
+      "note": "not run",
+      "trouble": false
+    }
+  ],
+  "awake": 5,
+  "total": 10,
+  "view": "",
+  "map": {
+    "w": 1394,
+    "h": 386,
+    "caps": [
+      {
+        "text": "No callers",
+        "sub": "nothing in doze.hcl refers to these",
+        "x": 24,
+        "y": 16
+      },
+      {
+        "text": "Shared by the stack",
+        "sub": "one line each would be 4 lines; the chips on each card say who uses what",
+        "x": 24,
+        "y": 152
+      }
+    ],
+    "band": 142,
+    "nodes": [
+      {
+        "name": "api",
+        "x": 24,
+        "y": 52,
+        "w": 214,
+        "h": 74,
+        "lane": true,
+        "lang": "go",
+        "chips": [
+          "db",
+          "mongo",
+          "cache"
+        ],
+        "fold": {
+          "glyph": "✓",
+          "tone": "good",
+          "title": "before it: migrate ✓ 2m ago"
+        },
+        "calls": [],
+        "callers": [],
+        "uses": [
+          "db",
+          "mongo",
+          "cache"
+        ],
+        "detail": {
+          "head": "Go · 84 MB · awake",
+          "rows": [
+            {
+              "k": "needs",
+              "v": "db, mongo, cache below"
+            },
+            {
+              "k": "needed by",
+              "v": "nobody calls it"
+            },
+            {
+              "k": "before it",
+              "v": "migrate ✓",
+              "tone": "ok",
+              "dim": "2m ago"
+            }
+          ]
+        }
+      },
+      {
+        "name": "worker",
+        "x": 310,
+        "y": 52,
+        "w": 214,
+        "h": 74,
+        "lane": true,
+        "lang": "go",
+        "chips": [
+          "events"
+        ],
+        "calls": [],
+        "callers": [],
+        "uses": [
+          "events"
+        ],
+        "detail": {
+          "head": "Go · waking",
+          "rows": [
+            {
+              "k": "needs",
+              "v": "events below"
+            },
+            {
+              "k": "needed by",
+              "v": "nobody calls it"
+            },
+            {
+              "k": "before it",
+              "v": "nothing",
+              "tone": "dim"
+            }
+          ]
+        }
+      },
+      {
+        "name": "web",
+        "x": 596,
+        "y": 52,
+        "w": 214,
+        "h": 74,
+        "lane": true,
+        "lang": "js",
+        "chips": [],
+        "quiet": "no shared services",
+        "calls": [],
+        "callers": [],
+        "uses": [],
+        "detail": {
+          "head": "JavaScript · 213 MB · awake",
+          "rows": [
+            {
+              "k": "needs",
+              "v": "nothing"
+            },
+            {
+              "k": "needed by",
+              "v": "nobody calls it"
+            },
+            {
+              "k": "before it",
+              "v": "nothing",
+              "tone": "dim"
+            }
+          ]
+        }
+      }
+    ],
+    "shared": [
+      {
+        "name": "cache",
+        "x": 24,
+        "y": 178,
+        "w": 214,
+        "h": 88,
+        "what": "valkey 9",
+        "used": "used by 1",
+        "only": "api",
+        "users": [
+          "api"
+        ],
+        "detail": {
+          "head": "valkey 9 · 11 MB · dozing",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "api"
+            }
+          ]
+        }
+      },
+      {
+        "name": "db",
+        "x": 310,
+        "y": 178,
+        "w": 214,
+        "h": 88,
+        "what": "postgres 17",
+        "used": "used by 1",
+        "only": "api",
+        "users": [
+          "api"
+        ],
+        "detail": {
+          "head": "postgres 17 · 96 MB · awake",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "api"
+            }
+          ]
+        }
+      },
+      {
+        "name": "mongo",
+        "x": 596,
+        "y": 178,
+        "w": 214,
+        "h": 88,
+        "what": "brought in by you",
+        "used": "used by 1",
+        "only": "api",
+        "users": [
+          "api"
+        ],
+        "detail": {
+          "head": "brought in by you · 148 MB · awake",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "api"
+            }
+          ]
+        }
+      },
+      {
+        "name": "events",
+        "x": 882,
+        "y": 178,
+        "w": 214,
+        "h": 88,
+        "what": "kafka",
+        "used": "used by 1",
+        "only": "worker",
+        "users": [
+          "worker"
+        ],
+        "detail": {
+          "head": "kafka · waking",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "worker"
+            }
+          ]
+        }
+      },
+      {
+        "name": "cloud",
+        "x": 1168,
+        "y": 178,
+        "w": 214,
+        "h": 88,
+        "what": "aws",
+        "used": "nothing uses it",
+        "users": [],
+        "detail": {
+          "head": "aws · asleep",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "no app"
+            }
+          ]
+        }
+      },
+      {
+        "name": "mailpit",
+        "x": 24,
+        "y": 282,
+        "w": 214,
+        "h": 88,
+        "what": "brought in by you",
+        "used": "nothing uses it",
+        "users": [],
+        "detail": {
+          "head": "brought in by you · asleep",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "no app"
+            }
+          ]
+        }
+      },
+      {
+        "name": "search",
+        "x": 310,
+        "y": 282,
+        "w": 214,
+        "h": 88,
+        "what": "brought in by you",
+        "used": "nothing uses it",
+        "users": [],
+        "detail": {
+          "head": "brought in by you · asleep",
+          "rows": [
+            {
+              "k": "used by",
+              "v": "no app"
+            }
+          ]
+        }
+      }
+    ],
+    "edges": [],
+    "lines": [
+      {
+        "from": "api",
+        "to": "db",
+        "d": "M131 126 C 131 152, 417 144, 417 170 L 417 178"
+      },
+      {
+        "from": "api",
+        "to": "mongo",
+        "d": "M131 126 C 131 152, 703 144, 703 170 L 703 178"
+      },
+      {
+        "from": "api",
+        "to": "cache",
+        "d": "M131 126 C 131 152, 131 144, 131 170 L 131 178"
+      },
+      {
+        "from": "worker",
+        "to": "events",
+        "d": "M417 126 C 417 152, 989 144, 989 170 L 989 178"
+      }
+    ],
+    "detail": {
+      "x": 934,
+      "y": 14
+    }
+  },
+  "grid": {
+    "heads": [
+      {
+        "text": "Shared",
+        "span": 4
+      },
+      {
+        "text": "Before it",
+        "span": 1
+      }
+    ],
+    "cols": [
+      {
+        "name": "cache",
+        "kind": "shared"
+      },
+      {
+        "name": "db",
+        "kind": "shared"
+      },
+      {
+        "name": "events",
+        "kind": "shared"
+      },
+      {
+        "name": "mongo",
+        "kind": "shared"
+      },
+      {
+        "name": "tasks",
+        "kind": "tasks",
+        "sep": true,
+        "sub": "1 ✓"
+      }
+    ],
+    "rows": [
+      {
+        "name": "api",
+        "lang": "go",
+        "cells": [
+          {
+            "dot": true,
+            "tip": {
+              "head": "api uses cache",
+              "why": "keeps it awake",
+              "ref": "module.cache",
+              "keys": "⏎ opens cache · o opens api",
+              "open": "cache"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "api uses db",
+              "why": "keeps it awake",
+              "ref": "module.db",
+              "keys": "⏎ opens db · o opens api",
+              "open": "db"
+            }
+          },
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "api uses mongo",
+              "why": "keeps it awake",
+              "ref": "service.mongo",
+              "keys": "⏎ opens mongo · o opens api",
+              "open": "mongo"
+            }
+          },
+          {
+            "text": "migrate ✓",
+            "tone": "ok",
+            "tip": {
+              "head": "migrate run before api",
+              "why": "migrate ✓ 2m ago",
+              "ref": "after = [task.migrate]",
+              "keys": "⏎ opens migrate · o opens api",
+              "open": "migrate"
+            }
+          }
+        ]
+      },
+      {
+        "name": "worker",
+        "lang": "go",
+        "cells": [
+          {},
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "worker uses events",
+              "ref": "module.events",
+              "keys": "⏎ opens events · o opens worker",
+              "open": "events"
+            }
+          },
+          {},
+          {}
+        ]
+      },
+      {
+        "name": "web",
+        "lang": "js",
+        "cells": [
+          {},
+          {},
+          {},
+          {},
+          {}
+        ]
+      }
+    ],
+    "foot": [
+      "1",
+      "1",
+      "1",
+      "1",
+      ""
+    ],
+    "later": "Not drawn yet: which kafka topics each service writes and reads. doze sees that a service connects to events, not what it publishes; that needs the module to tell doze which connection is which service."
+  },
+  "up": "0s"
+}

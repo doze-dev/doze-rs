@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Doze.app's Info.plist (`cargo xtask app-bundle` fills in the names). The Go app's build/darwin/Info.plist, with
+     the Rust app's binary. -->
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>__NAME__</string>
+  <key>CFBundleDisplayName</key>
+  <string>__NAME__</string>
+  <key>CFBundleIdentifier</key>
+  <string>__ID__</string>
+  <key>CFBundleExecutable</key>
+  <string>doze-app</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleIconFile</key>
+  <string>doze</string>
+  <key>CFBundleVersion</key>
+  <string>__VERSION__</string>
+  <key>CFBundleShortVersionString</key>
+  <string>__VERSION__</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>14.0</string>
+  <!-- A menu bar app: no Dock icon until a window is open (the app switches its activation policy itself). -->
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSSupportsAutomaticGraphicsSwitching</key>
+  <true/>
+__SCHEME__  <key>NSHumanReadableCopyright</key>
+  <string>Apache-2.0</string>
+</dict>
+</plist>

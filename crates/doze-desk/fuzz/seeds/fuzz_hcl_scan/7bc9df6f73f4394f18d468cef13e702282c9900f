@@ -1,0 +1,14 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enablede,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      # Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and{ "name": "api", "engine": "process", "group "

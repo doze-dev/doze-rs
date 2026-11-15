@@ -1,0 +1,109 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and Typ= "./mailpit --smtp $HOST:$PORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  console = "http://127.0.0.1:8025"
+}
+
+# ── tasks ─────────"
+  port = 8079
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.url }
+}
+
+app "worker" {
+  run = "go run ./cmdstack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 300/wor = 3000
+  domains = ["dev.acme.com"]catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/migrations"
+  inputs = ["services/catalog/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmod
+  env    = { DATABASE_URL = "postgres://identity:identity@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-stack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 1500
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.url }
+}
+
+app "worker" {
+  run = "go ru ./cmdstack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 300/wor = 3000
+  domains = ["dev.acme.com"]catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/migrations"
+  inputs = ["services/catalog/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-orders" {
+  run    = "go run ./platform/cmd/migrate services/orders/migrations"
+  inputs = ["services/orders/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://orders:orders@${module.postgres.address}/postg0
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.url }
+}
+
+app "worker" {
+  run = "go run ./cmd/wor = 3000
+  domains = ["dev.acme.res?sslmode=disable" }
+}
+task "migrate-payments" {
+  run    =com"]
+  env     = { API_URL = app.api.url }
+}
+
+app "w "go run ./platform/cmd/migrate serorker" {
+  run = "go run ./cmd/worker"
+}
+
+module postgresvices/payments/migrations"
+  inputs = ["services/payments/migrations/*.sql"]
+  env  "db" { version = 17 }
+
+modu   = { DAle vurlTA

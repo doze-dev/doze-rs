@@ -1,0 +1,8 @@
+starl }
+}
+
+app "worker" {
+  run = "go run
+  port    = 3000
+  domains = ["dev.acmt =b.url }
+}

@@ -23,7 +23,7 @@ pub(crate) fn run(args: Vec<String>) -> ExitCode {
     };
     let root = Path::new(".");
     let mut files = Vec::new();
-    for dir in ["crates", "xtask", "codegen"] {
+    for dir in ["crates", "apps", "xtask", "codegen"] {
         if let Err(e) = collect(&root.join(dir), &mut files) {
             eprintln!("xtask lint-size: reading {dir}: {e}");
             return ExitCode::FAILURE;

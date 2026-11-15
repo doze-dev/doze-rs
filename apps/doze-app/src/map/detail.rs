@@ -1,0 +1,309 @@
+//! The find box and the selected card's detail: the two overlays that hold words about cards.
+
+use doze_map::{Card, CardId, Mode, Role};
+use gpui::{
+    AnyElement, BoxShadow, Context, Entity, MouseButton, SharedString, div, point, prelude::*, px,
+};
+use gpui_component::input::{Input, InputState};
+
+use super::MapView;
+use super::cards::state_dot;
+use super::chrome::{corner, enter};
+use crate::outward::Probe as _;
+use crate::theme::{Motion, Tokens, alpha, ty};
+use crate::widgets::icon;
+
+/// The find box and its hits, at the drawing's top left.
+pub(crate) fn search_box(
+    t: &Tokens,
+    m: &MapView,
+    input: &Entity<InputState>,
+    cx: &mut Context<MapView>,
+) -> AnyElement {
+    let mut list = div().flex().flex_col().mt(px(4.));
+    for (k, &id) in m.hits.iter().enumerate() {
+        let Some(c) = m.layout.card(id) else { continue };
+        let what = match (c.role, c.members) {
+            (_, n) if n > 1 => format!("{n} instances"),
+            (Role::Shared, _) => "shared".to_string(),
+            (Role::Lane, _) => "lane".to_string(),
+            _ => "calls".to_string(),
+        };
+        list = list.child(
+            div()
+                .id(("hit", k))
+                .flex()
+                .gap(px(8.))
+                .px(px(8.))
+                .h(px(26.))
+                .items_center()
+                .rounded(px(6.))
+                .when(k == m.hit, |d| d.bg(t.sel))
+                .hover(|s| s.bg(t.sel))
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, _, cx| this.jump_to(id, cx)))
+                .child(state_dot(t, px(7.), m.rows.get(&c.name)))
+                .child(
+                    div()
+                        .text_color(t.bright)
+                        .child(SharedString::from(c.name.clone())),
+                )
+                .child(
+                    div()
+                        .ml_auto()
+                        .text_color(t.dim)
+                        .child(SharedString::from(what)),
+                ),
+        );
+    }
+    let q = input.read(cx).value().to_string();
+    if m.hits.is_empty() && !q.is_empty() {
+        list = list.child(
+            div()
+                .px(px(8.))
+                .h(px(26.))
+                .flex()
+                .items_center()
+                .text_color(t.dim)
+                .child("no card by that name"),
+        );
+    }
+    let panel = div()
+        .id("map-find")
+        .occlude()
+        .absolute()
+        .left(px(12.))
+        .top(px(12.))
+        .w(px(320.))
+        .p(px(6.))
+        .rounded(px(10.))
+        .border_1()
+        .border_color(t.line2)
+        .bg(t.panel)
+        .text_size(px(ty::SM_UP))
+        .shadow(vec![shadow(t)])
+        .child(Input::new(input))
+        .child(list);
+    enter(panel, "map-find-in", Motion::of(cx), 0.0, -1.0)
+}
+
+fn shadow(t: &Tokens) -> BoxShadow {
+    BoxShadow {
+        color: alpha(gpui::black(), if t.dark { 0.35 } else { 0.12 }),
+        offset: point(px(0.), px(10.)),
+        blur_radius: px(30.),
+        spread_radius: px(0.),
+        inset: false,
+    }
+}
+
+/// What the layout knows about a card, as rows of the detail card.
+fn detail_rows(m: &MapView, c: &Card) -> Vec<(&'static str, String)> {
+    let names = |ids: &[CardId]| {
+        let mut v: Vec<String> = ids
+            .iter()
+            .take(6)
+            .filter_map(|i| m.layout.card(*i).map(|c| c.name.clone()))
+            .collect();
+        if ids.len() > 6 {
+            v.push(format!("+{} more", ids.len() - 6));
+        }
+        if v.is_empty() {
+            "nothing".to_string()
+        } else {
+            v.join(", ")
+        }
+    };
+    if c.role == Role::Shared {
+        return vec![("used by", names(&c.uses))];
+    }
+    let mut rows = Vec::new();
+    if let Some(r) = m
+        .layout
+        .card_named(&c.name)
+        .and_then(|id| m.layout.region(id))
+    {
+        rows.push(("region", r.name.clone()));
+    }
+    rows.extend([
+        ("calls", names(&c.calls)),
+        ("needed by", names(&c.callers)),
+        ("uses", names(&c.uses)),
+    ]);
+    if let Some(r) = m.rows.get(&c.name).filter(|r| !r.because.is_empty()) {
+        rows.push(("now", r.because.clone()));
+    }
+    rows
+}
+
+/// The detail card's first line: the dot, the name, what it is, and the close button.
+fn detail_head(
+    t: &Tokens,
+    m: &MapView,
+    c: &Card,
+    said: Option<&super::said::Said>,
+    cx: &mut Context<MapView>,
+) -> impl IntoElement {
+    let r = m.rows.get(&c.name);
+    let mut head = Vec::new();
+    if let Some(s) = said {
+        head.push(s.head.clone());
+    } else {
+        head.extend(c.lang.map(|l| l.badge().to_string()));
+        if c.members > 1 {
+            head.push(format!("{} instances, collapsed", c.members));
+        }
+        head.extend(r.map(|r| r.look.word().to_string()));
+    }
+    div()
+        .flex()
+        .items_center()
+        .gap(px(8.))
+        .min_w_0()
+        .child(state_dot(t, px(8.), r))
+        .child(
+            div()
+                .text_size(px(ty::MD))
+                .font_weight(ty::SEMIBOLD)
+                .text_color(t.bright)
+                .child(SharedString::from(c.name.clone())),
+        )
+        .child(
+            div()
+                .text_color(t.dim)
+                .child(SharedString::from(head.join(" · "))),
+        )
+        .child(div().flex_1())
+        .when(said.is_some() && m.running, |d| {
+            let name = c.name.clone();
+            d.child(
+                crate::kit::btn(
+                    t,
+                    "detail-open",
+                    "Open",
+                    "⏎",
+                    crate::kit::Btn::Quiet,
+                    Some(Box::new(cx.listener(move |_, _, _, cx| {
+                        cx.emit(super::MapEvent::Open(name.clone()));
+                    }))),
+                )
+                .probe("detail-open", format!("Open {}", c.name)),
+            )
+        })
+        .when(said.is_none(), |d| {
+            d.child(
+                div()
+                    .id("detail-close")
+                    .size(px(22.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(6.))
+                    .hover(|s| s.bg(t.sel))
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| this.select(None, cx)))
+                    .child(icon("icons/close.svg", 12., t.dim)),
+            )
+        })
+}
+
+/// Where the detail card goes: on a small map, Go's place, fixed in the box while the drawing scrolls under it (`right:
+/// 12px; top: m.detail.y`, the first height where it clears the cards); on a large one, the corner the card is not in.
+fn detail_at(m: &MapView, width: f32, height: f32) -> (f32, f32) {
+    if m.small() {
+        return (
+            (m.cam.size.0 - width - 12.).max(0.),
+            m.layout.detail.y as f32,
+        );
+    }
+    corner(m, (width, height), true, 12.)
+}
+
+/// One row of the detail card: its key, its words in their tone, and a dim tail.
+fn detail_row(t: &Tokens, (k, v, tone, tail): super::said::Line) -> gpui::Div {
+    let ink = match tone {
+        "ok" => t.good,
+        "cool" => t.cool,
+        "dim" => t.dim,
+        "bad" => t.bad,
+        _ => t.text,
+    };
+    div()
+        .flex()
+        .gap(px(8.))
+        .line_height(px(ty::LH_21))
+        .child(div().w(px(76.)).flex_none().text_color(t.dim).child(k))
+        .child(
+            div()
+                .flex()
+                .gap(px(4.))
+                .min_w_0()
+                .overflow_hidden()
+                .whitespace_nowrap()
+                .text_ellipsis()
+                .text_color(ink)
+                .child(SharedString::from(v))
+                .when(!tail.is_empty(), |d| {
+                    d.child(div().text_color(t.dim).child(SharedString::from(tail)))
+                }),
+        )
+}
+
+/// The detail card's width.
+pub(crate) const WIDTH: f32 = 420.;
+/// A small map's detail card, as wide as Go's (`.detail`).
+pub(crate) const GO_WIDTH: f32 = 448.;
+
+/// The selected card's detail.
+pub(crate) fn detail(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option<AnyElement> {
+    let id = m.lit?;
+    let c = m.layout.card(id)?;
+    // A neighbourhood's centre is named on the toolbar; its detail would cover the columns.
+    if matches!(&m.lens, Some(super::Lens::Hood { centre, .. }) if *centre == c.name) {
+        return None;
+    }
+    // A small map says what Go's did (needs, needed by, before it) and offers Open; a large one, what the layout knows.
+    let small = m.layout.mode == Mode::Classic && m.lens.is_none();
+    let said = m.said.get(&c.name).filter(|_| small);
+    let top = detail_head(t, m, c, said, cx);
+    let width = if small { GO_WIDTH } else { WIDTH };
+    let rows: Vec<super::said::Line> = match said {
+        Some(s) => super::said::lines(&m.layout, c, s, std::time::SystemTime::now()),
+        None => detail_rows(m, c)
+            .into_iter()
+            .map(|(k, v)| (k, v, "", String::new()))
+            .collect(),
+    };
+    let height = 44. + 21. * rows.len() as f32;
+    let (x, y) = detail_at(m, width, height);
+    let mut card = div()
+        .id("map-detail")
+        .occlude()
+        .absolute()
+        .left(px(x))
+        .top(px(y))
+        .w(px(width))
+        .flex()
+        .flex_col()
+        .gap(px(2.))
+        .px(px(14.))
+        .py(px(9.))
+        .rounded(px(11.))
+        .border_1()
+        .border_color(t.line2)
+        .bg(t.panel)
+        .text_size(px(ty::SM_UP))
+        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .shadow(vec![shadow(t)])
+        .child(top);
+    for line in rows {
+        card = card.child(detail_row(t, line));
+    }
+    Some(enter(
+        card,
+        SharedString::from(format!("detail-{}", c.name)),
+        Motion::of(cx),
+        1.0,
+        0.0,
+    ))
+}

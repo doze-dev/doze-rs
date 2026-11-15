@@ -1,0 +1,60 @@
+0e11110111111111out = "3m"
+}
+
+# ── backing services ──────────────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" { password = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendations" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. Rate limits (gateway), idempotency keys (payments), cached
+# suggest{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain"ions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 6379
+}
+
+# The topics are there quick.
+  ready_timeout = "3m"
+}
+
+# ── backing services ──────────────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendammendations" { password = "recommendations" }
+
+  schema "identity" { owner = "identity" 11111111111111111111111111111111111

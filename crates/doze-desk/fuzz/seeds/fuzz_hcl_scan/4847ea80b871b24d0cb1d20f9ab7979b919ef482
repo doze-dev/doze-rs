@@ -1,0 +1,7 @@
+{
+  "schema": "doze/v0",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": falze },
+    "serviemByt[es": 0, "cpuPercache", "engine": ay and{ "name": "api", "engine": "process", "group "

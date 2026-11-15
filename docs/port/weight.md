@@ -376,6 +376,247 @@ No limit moved (7,800,000 B, 161 packages): a person lowers them, with the first
 
 **doze-aws at `opt-level = "z"` (2026-11-13, release-aws): 4,867,344 B (4.64 MiB) on darwin/arm64, 233 packages, idle 4,400 KB; 7,481,552 B on x86_64 Linux (musl).** The same code at `"s"` was 6,500,256 B, 233 packages and 3,920 KB idle on macOS and 8,206,736 B on Linux. `"z"` took 25% off macOS and only 9% off Linux: of the Linux binary, `.text` is 5.1 MB, `.rodata` 1.0 MB, `.eh_frame` 0.8 MB (plus 0.1 MB of index), `.rela.dyn` 0.17 MB. The Linux limits are 7,900,000 B (the musl size plus 5%) and 240 packages. Cost of `"z"`: server CPU 30 to 60% higher per request (0.2 to 0.7 ms), idle memory +0.4 MB, wall time unchanged; see the PLAN entry for the benchmark. Linux is now 1.54 times the macOS size, which is the ratio to plan with.
 
+
+## The desktop app (`apps/doze-app`), measured 2026-11-13, darwin/arm64
+
+The app has a weight line of its own, apart from the engines' (docs/port/app/PLAN.md §6): GPUI is a few hundred crates
+and a 15 MB binary, and none of it reaches doze-kafka or doze-aws (the app is not a default workspace member, and the
+`weight` jobs build only the engines). CI's `app` job (macOS) enforces the line.
+
+| | Budget (PLAN.md §6) | Measured |
+|---|---|---|
+| Binary, release, stripped, fonts included, no capture | ≤ 16 MB | **12,484,800 B with M2 (verbs, dialogs, toasts, preflight, empty folder), `release-app` profile**; 15,575,872 B with the instance, logs and console pages (M1 steps 1.5–1.7; 14,871,584 B before them) |
+| Packages (`cargo tree -p doze-app --edges normal`, unique lines) | limit 560 | 535 with M2 (534 before) |
+| Menu bar ready after launch | ≤ 100 ms | 71–84 ms |
+| Menu bar only, footprint | ≤ 18 MB | 18 MB on an empty doze home; 22 MB with the fixture daemon running in the process |
+| First frame of the stack page after a tray click | ≤ 100 ms | 38–47 ms with M2 (`release-app`, shop and larder); 35–66 ms |
+| Window open and idle, footprint | ≤ 85 MB | 55 MB at 14 s and 26 s with M2 (larder, `release-app`); 82 MB at 10 s, 74 MB at 25 s (larder) |
+| After the window closes, footprint | ≤ 35 MB | 35 MB at 8 s (larder), 28 MB on an empty home |
+| CPU, window open and static; menu bar only | ≤ 0.3 %; ≤ 0.05 % | 0.0 % (ps, sampled) |
+| Frames over 16 ms while scrolling 100k log lines | 0 | 0 of 300: a full offscreen draw per worst-case scroll step (about a thousand rows a jump, the whole list) is median 4.4 ms, p99 8.8 ms, max 13.7 ms, including the GPU readback a screen frame does not do |
+| 100k log lines held | ≤ 25 MB | 6.5 MB (the ring's heap: 100,000 lines of 40–70 bytes) |
+| Window while logs follow at 200 lines/s | ≤ 160 MB sustained; under 100 MB within 10 s of stopping | **not met**: 235–250 MB while following; 88–103 MB 10 s after the lines stop |
+
+Measured with `doze-app bench` (it opens the window two seconds after launch as a tray click would, prints its
+timings, idles 30 s, closes the window) and macOS `footprint` (Activity Monitor's Memory figure), on a quiet machine
+(HID idle time over an hour). The memory budgets hold only with two choices made here:
+
+- **The component library loads after the menu-bar item is up.** `gpui_component::init` takes about 140 ms (most of
+  it resolving the system's fonts); done first, menu-bar ready was 233–263 ms. It now runs on the next turn of the
+  loop, before any click can open the window.
+- **No MSAA for paths** (vendor/gpui-pre-apple/PATCHES.md): upstream's 4 samples measured 87 MB / 79 MB at 10 s / 25 s,
+  over the 85 MB budget.
+
+The binary is 3 MB over the spike's 12 MB: doze-desk's hub and the control client, doze-display's words, doze-map's
+layout, the ten themes, the tray icons, and the release profile's `opt-level = 3` (the spike used `"s"`). A
+size-optimised profile for the app is the first lever if the line is approached.
+
+### After M1 steps 1.1, 1.2 and 1.4 (the Library, a stack's page, the Grid), measured 2026-11-13
+
+Same machine and method; the window now opens on a stack's page in its remembered view (Tiles when none is), or on the
+Library when no stack is named.
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, release, no capture | ≤ 16 MB | 15,707,840 B (+836 KB; 15,992,144 B with `fixtures`): **292 KB under the line** |
+| Packages | limit 560 | 535 |
+| Menu bar ready after launch | ≤ 100 ms | 70–78 ms |
+| First frame after the tray click | ≤ 100 ms | 59–71 ms (larder's page; the empty Library) |
+| Window open and idle | ≤ 85 MB | larder's page (Tiles): 59 MB at 10 s, 55 MB at 25 s; the empty Library: 76 MB, 72 MB |
+| After the window closes | ≤ 35 MB | 35 MB 3 s after (larder) |
+| CPU, window open and static | ≤ 0.3 % | 0.0 % (ps, sampled at 10 s and 25 s) |
+
+The page watches its stack's meters while it shows (one frame a second from a real daemon) and redraws only when what
+it shows changed; the fixture daemon sends no meters after its script, so the static readings above are the floor.
+The binary is close to its line: the size-optimised profile above is the next step if M1's remaining pages need room.
+### After M1 combined (the Library, a stack's page, the Grid, the instance page, logs and consoles), measured 2026-11-13
+
+Same machine and method (`doze-app bench --fixture larder --idle 30`, footprint sampled at 10 s and 25 s after the
+first frame, two runs each). With the instance page, the logs and the consoles in, the release build passed the line,
+so the app now has its own profile, `release-app` (`opt-level = "s"`, fat LTO, on top of the release profile's
+codegen-units 1, strip and panic = abort), and CI's weight line builds that.
+
+| | Budget | release (opt-level 3, thin LTO) | release-app ("s", fat LTO) |
+|---|---|---|---|
+| Binary, no capture | ≤ 16 MB | 16,378,592 B: **379 KB over** | 12,136,112 B: 3.9 MB under |
+| Binary with `fixtures` (what bench runs) | | 16,728,992 B | 12,385,072 B |
+| Packages | limit 560 | 535 | 535 |
+| Menu bar ready | ≤ 100 ms | 62–80 ms | 58–75 ms |
+| First frame after the tray click | ≤ 100 ms | 66–70 ms | 67–73 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | 59 MB at 10 s, 55 MB at 25 s | 59 MB, 55 MB |
+
+The size-optimised build costs nothing measurable in the first frame or in idle memory here; what it costs while
+drawing hard (the Map at 2,000 cards, the logs following) is not measured yet.
+
+**The logs viewer** (`doze-app bench --fixture shop --logs`, release, `capture` for the draw timing): All logs on a fixture
+stack, 100,000 lines printed through the fixture daemon (the same socket, hub and fold a daemon's lines take; filled in
+0.4 s), then five seconds of scrolling and thirty of following at 200 lines a second. The page draws only the rows in
+view, read from the ring as they are drawn; a new filter is one pass over the ring on a background thread (18.5 ms for
+100k lines and a pattern).
+
+The follow budget is not met, and the measurements say why: a window that redraws at all sits at about 220–250 MB here,
+whatever is drawn. The stack page idles at 56 MB; four seconds of redrawing the *Map* (no logs open) took it to 220 MB;
+following at four redraws a second (the logs take streaming lines in every 250 ms, as Go paced its pushes) peaked at
+250 MB, and at one redraw a second still 236 MB. The plan's own spike found the same floor (216 MB at ten redraws a
+second, 168 MB for a bare Metal view). Ten seconds after the lines stop the window is back at 88–103 MB. Meeting 160 MB
+while following needs the redraw floor itself lowered (the drawable's size and count, gpui's surfaces), not the logs
+view; that is open.
+
+On this machine the window's frames were paced at 33 ms even with nothing to draw, so frame intervals cannot show a
+16 ms overrun; the draw timing above measures a frame's work directly instead.
+
+### After M2 steps 2.3, 2.4, 2.7 (⌘K, Needs you, keys and menus), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder --idle 30`, footprint at 12 s and 27 s, two
+runs).
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 12,451,376 B (+315 KB for the palette and attention models, the bell, the alerts, the help sheet and the menus) |
+| Binary with `fixtures` | | 12,700,304 B |
+| Menu bar ready | ≤ 100 ms | 60–65 ms |
+| First frame after the tray click | ≤ 100 ms | 47–48 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | 61 / 57 MB and 67 / 63 MB |
+
+Needs you is built off the UI thread on each hub batch (a crash's port is looked up with `lsof`, cached three seconds)
+and draws nothing while nothing changes; an item waiting out its grace or its "fixed" asks for one more build three
+seconds on, then stops.
+
+**Why a redrawing window sits at 220–260 MB (the follow budget).** Investigated with `footprint -v` while `doze-app bench
+--fixture shop --logs --follow` ran, and with the vendored renderer temporarily instrumented (every Metal texture and
+buffer gpui allocates logged; knobs for the drawable count, the frame source and the command queue). Findings:
+
+- **What gpui allocates is small.** For the whole run: one path intermediate texture (2560 × 1602, 16 MB, private), two
+  1024² atlas textures (shared), one 2 MB instance buffer. The instance buffer never grew; the atlas never passed two
+  textures. The drawables are three IOSurfaces of 16 MB (48 MB, mapped).
+- **The jump is the GPU driver's.** While frames are being drawn, `footprint` shows about 147 MB of *Owned physical
+  footprint (unmapped) (graphics)*: eighteen regions of exactly 8 MB plus a few small ones. None of them is a texture or
+  buffer gpui made. They appear within a frame or two of drawing (the window's first frames show 220 MB, then 74 MB once
+  idle) and go about ten seconds after the last frame (88–113 MB), which is the "back under 100 MB" figure.
+- **Nothing in the app moves it.** Measured follow peaks (MB): window 800 × 500 / 1280 × 800 / 1600 × 1000 → 258 / 259 /
+  258 (it does not scale with pixels, so it is not render targets); 3 vs 2 drawables → 259 / 260; command queue capped at
+  2 or 4 command buffers → 260 / 258; `CAMetalDisplayLink` vs the CVDisplayLink fallback → 259 / 241 (one run each; the
+  fallback's 18 MB is within run-to-run spread and not adopted). The Map redrawing with no logs reaches the same 220 MB, and
+  one redraw a second still holds it, because the driver keeps its working set while frames keep coming at all.
+- **So it is a fixed per-process cost of an active Metal context on this Mac** (the plan's spike: 168 MB for a bare Metal
+  view), not text layout, the atlas or the logs view. Getting under 160 MB while following would need not drawing with
+  the GPU at all for a while: frames spaced further apart than the driver's ~10 s idle window, which is not "following".
+
+Recommendation for the owner (§6 budget row): measure the follow line as *growth over the redraw floor* (the logs view
+adds 20–40 MB over a window that redraws anything: 221 MB with All logs open, 241–260 MB following 200 lines a second)
+and keep "back under 100–115 MB within 10 s of stopping", or accept ~260 MB while a window streams. The knobs used for
+the measurements were not kept.
+
+### M2 combined (act + ⌘K + Needs you, wired), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder --idle 30`, footprint at 12 s and 27 s, two
+runs).
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 12,833,104 B (+382 KB over the ⌘K/Needs you build: the verbs, dialogs, toasts, the checks before Up, the empty folder) |
+| Binary with `fixtures` | | 13,065,600 B |
+| Menu bar ready | ≤ 100 ms | 71 / 82 ms |
+| First frame after the tray click | ≤ 100 ms | 72 / 42 ms (the first run cold) |
+| Window open and idle (larder's page) | ≤ 85 MB | 59 / 55 MB and 59 / 55 MB |
+
+Acting adds nothing at rest: Needs you is built again from acting only when a stack begins or ends an action or a
+failure comes or goes (a toast alone does not), and the toasts' expiry timer runs only while a toast shows.
+
+### The Map for 20–150 services (branch `app-map-150`), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder --idle 30`, footprint at 12 s and 27 s, two
+runs; and the same on `medium-150`, a 142-card stack drawn by region). Frame times: `doze-app bench --fixture
+medium-150x500 --map` (a `release` build with `capture`): each frame drawn in full offscreen (layout, paint, the GPU's
+render and the readback a screen frame does not do), 120 frames a phase.
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 12,949,072 B (+116 KB over M2: regions, the tile and its list, the focus views, the fades, the camera's flights) |
+| Binary with `fixtures` | | 13,214,624 B |
+| Menu bar ready | ≤ 100 ms | 90 / 76 ms (larder), 90 / 83 ms (medium-150) |
+| First frame after the tray click | ≤ 100 ms | 64 / 41 ms (larder), 56 / 58 ms (medium-150) |
+| Window open and idle | ≤ 85 MB | larder 65 / 61 and 77 / 72 MB; medium-150 74 / 70 and 74 / 70 MB |
+| Layout, 150 services and 500 calls | ≤ 20 ms | 0.63 ms (best of five in the app; `cargo bench -p doze-map`: 0.57 ms median) |
+| Frames over 16 ms at 150 / 500 | 0 | 0 of 720: pan max 5.4 ms, zoom 5.7, hover 6.0, every line 6.4, a selection mid-fade 6.2, a camera flight 6.8 (medians 4.8–5.3 ms) |
+| Frames over 16 ms at 2,000 (synthetic, by region) | — | 0 of 480 before the fades (max 5.9 ms) |
+
+Before the fades and eased zoom (the same bench, same build otherwise): pan max 5.7 ms, zoom 6.3, hover 5.2, every line
+5.3. The fades cost about half a millisecond a frame while they run and nothing at rest.
+
+**After the region links and the states (same branch, 2026-11-13).** One link per pair of regions under opaque frames
+(the grid routing removed), and the state marks, words and module versions every screen draws. `release-app`:
+12,965,680 B (13,231,248 B with `fixtures`); menu bar ready 71–90 ms; first frame 47 / 55 ms (larder), 73 / 74 ms
+(medium-150); idle 59 / 55 MB (larder), 73 / 69 MB (medium-150). Frames at 150 / 500 (same bench): 0 of 720 over 16 ms;
+max pan 9.0 ms, zoom 4.8, hover 5.3, every line 5.3, a selection mid-fade 5.2, a flight 4.5 (medians 3.8–4.0 ms).
+Layout 1.4 ms; the overview with its links under a millisecond.
+### M3 steps 3.1, 3.2, 3.5 (the menu bar complete, notifications, Doze.app), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder`, footprint sampled with `footprint`; menu
+bar only is `doze-app --menu-bar` under a throwaway `DOZE_HOME`). The bench now starts the app's round-the-clock part
+as a launch does (`crate::around`: the menu, Needs you while no window is open, the notification rules).
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 12,899,472 B (+66 KB over M2 combined: the tray model, the notification rules, `open`) |
+| Packages | limit 560 | 535 (no new crate: notifications are gpui's own `UNUserNotificationCenter` path) |
+| Menu bar ready | ≤ 100 ms | 75 ms; 135 ms in a second run while another worktree was building (machine busy) |
+| First frame after the tray click | ≤ 100 ms | 47 / 54 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | 60 MB at 12 s, 56 MB at 27 s; 57 MB |
+| Menu bar only, footprint | ≤ 18 MB (PLAN §6); ≤ 35 MB (M3 brief) | 18 MB on an empty home; 20 MB with one live stack (fixture in its own process; M2: 21 MB); 22 MB with the fixture in the process |
+| After the window closes, footprint | ≤ 35 MB | 37 MB with the fixture daemon in the process; **35–36 MB with it in its own process** (below) |
+| CPU, menu bar only | ≤ 0.05 % | 0.0 % (ps, sampled at 25 s) |
+
+The menu is rebuilt only when its signature changes: Needs you's detail (its "next in 4s") is left out of the
+signature, and the stack line no longer carries the countdown (Go's line did, so Go rebuilt its menu every second
+through a crash loop).
+
+**After the window closes, the fixture out of the process.** `doze-app fixture-serve larder ROOT` (feature `fixtures`)
+runs the fixture daemon alone, on its stack's own socket; the app (`release-app`, no fixtures) is benched against
+`DOZE_HOME=ROOT/home` like a real home, so the reading is the app alone. Three runs each, interleaved, M2's binary
+(`origin/app-m2`) against M3's, `--idle 15`, footprint 3 s and 8 s after the close:
+
+| | Window open | 3 s after close | 8 s after close |
+|---|---|---|---|
+| M2 | 59 / 63 / 59 MB | 36 / 36 / 35 MB | 35 / 35 / 35 MB |
+| M3 | 60 / 59 / 60 MB | 36 / 36 / 36 MB | 36 / 35 / 36 MB |
+
+M3 costs at most 1 MB over M2 after the close (the menu bar's own Needs you list and notification rules). The 37 MB
+was the in-process fixture plus noise. A 60 s reading after the close stays at 36 MB; `footprint -v` puts 20 MB of
+it in Malloc Small: what the window's libraries (gpui-component, the fonts and their caches) leave in the heap after
+the window is dropped. That is M2's floor too, sitting on the 35 MB line; bringing it under is a 3.6 (`app-bench`)
+item, not this step's.
+
+**Menu bar only, the fixture out of the process** (larder served by `doze-app fixture-serve`, the app `--menu-bar` on
+that home, `release-app`): M3 20 MB at 10 s and 25 s (two runs); M2's binary 21 MB the same way. So with one live stack
+the menu-bar-only app sits 2 MB over PLAN §6's 18 MB (18 MB on an empty home), as M2 did; under the M3 brief's 35 MB.
+The menu bar's own Needs you list, notification rules and service submenus cost nothing measurable here.
+
+### M3 Activity and Settings (steps 3.3, 3.4), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder --idle 30`, footprint of that pid at 12 s and
+27 s, two runs).
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 13,131,648 B (+298 KB over M2 combined: Activity, Settings, the leftovers look, the admin prompt, the login item) |
+| Binary with `fixtures` | | 13,363,952 B |
+| Packages (`cargo tree -p doze-app --edges normal`, unique lines) | limit 560 | 540 (no new outside crate: `doze-journal` and `doze-os` were in the tree) |
+| Menu bar ready | ≤ 100 ms | 71 / 90 ms |
+| First frame after the tray click | ≤ 100 ms | 44 / 48 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | 60 / 56 MB and 60 / 56 MB |
+
+**The update check's HTTPS client (PLAN.md Q6).** Measured on a small program that fetches GitHub's latest release and
+reads its JSON (opt "s", fat LTO, stripped, darwin/arm64): 337,296 B with the system's `curl` as a subprocess;
+933,856 B with `minreq` 2 and rustls (+0.58 MB, +13 crates); 1,284,080 B with `ureq` 3, rustls and the platform
+verifier (+0.93 MB, +32 crates). rustls is in the workspace's lock for other crates but not in the app's tree. The app
+uses `curl` (`doze_desk::settings::update::fetch`): no bytes, no crates, and the check runs only when About opens or is
+asked (never in the background), so a subprocess per check costs nothing at rest. With no `curl`, About says it could not
+reach GitHub. When the Rust CLI has `doze version --check`, the app asks it instead.
+
+Activity at rest: it reads the journal again every ten seconds while shown (as Go's page did), off the UI thread, and
+redraws only when a figure changed; the strips are painted, so a 2,000-service stack builds only the rows in view
+(`doze-desk` lays out 2,000 services over 10,000 events in a few milliseconds, `tests/activity.rs`).
 **doze-aws with every Go service (2026-11-13, release-aws): 7,444,224 B (7.10 MiB) on darwin/arm64, 258 packages, idle 5,344 KB; 11,764,560 B on x86_64 Linux (musl), 10,561,264 B with JSONata off.** Over the "z" base (4,867,344 B / 233 on macOS, 7,481,552 B on Linux): Step Functions, API Gateway and CloudFormation together add 2.58 MB on macOS and 4.28 MB on Linux (1.66 times). The owner raised doze-aws's ceiling to 20 MB the same day; the CI line is 12,400,000 B (musl plus 5%) and 264 packages. Cross-building now needs a C compiler and an ELF archiver for the target (JSONata's `psm`): a `clang --target=x86_64-unknown-linux-musl` wrapper as `CC_x86_64_unknown_linux_musl` and `llvm-ar` as `AR_x86_64_unknown_linux_musl`.
 
 

@@ -1,0 +1,14 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "dom{
+  "schema": "doze/v1",
+  "command": Late" {
+ derapp.c Typeent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

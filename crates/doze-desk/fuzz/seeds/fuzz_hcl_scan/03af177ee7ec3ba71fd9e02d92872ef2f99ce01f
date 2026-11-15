@@ -1,0 +1,18 @@
+# Larder — groceries at your door within the hour.
+#
+# Se "schema": "doze/v1"         from this directory
+#   doze task seed-catalog          once, to stock the ner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendations" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so "127.0.ves
+#   doze up --var names=false       on a machine without `dozders" }
+  role "payments" { password = "payments" }
+  role "recommendations" { password = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "o  }
+}
