@@ -149,6 +149,12 @@ fn module_pass(
         // As `up` hands them to the daemon (`ctl::start`): never on a command line, where `ps` shows them.
         .envs(mode.vars.iter().map(|(k, v)| (format!("DOZE_VAR_{k}"), v)))
         .stdin(std::process::Stdio::null())
+        // A person watching sees what takes long (its `__fetch` children say each download); a script gets the answer.
+        .stderr(if mode.json || mode.quiet {
+            std::process::Stdio::piped()
+        } else {
+            std::process::Stdio::inherit()
+        })
         .output()
         .map_err(|e| format!("the module pass could not be run ({e})"))?;
     // The answer is the last line; anything printed before it is not the answer.
