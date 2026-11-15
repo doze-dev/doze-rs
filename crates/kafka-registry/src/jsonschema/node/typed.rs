@@ -4,7 +4,7 @@
 use super::*;
 
 /// A value's canonical JSON for an `enum` or `const`: object keys sorted, numbers as written.
-fn canonical_value(v: &Json) -> String {
+pub(crate) fn canonical_value(v: &Json) -> String {
     match v {
         Json::Object(_) => {
             let mut m = members(v);

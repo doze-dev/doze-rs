@@ -89,8 +89,6 @@ fn class_word(c: WireClass) -> &'static str {
         WireClass::Refused => "refused",
         WireClass::Denied => "denied",
         WireClass::Closed => "closed",
-        #[allow(unreachable_patterns)]
-        _ => "other",
     }
 }
 
@@ -216,7 +214,7 @@ fn cut(s: &str) -> String {
     s.trim().chars().take(MOST_TEXT).collect()
 }
 
-fn cut_fields(f: LabFields) -> LabFields {
+fn cut_fields(f: &LabFields) -> LabFields {
     LabFields {
         api: cut(&f.api),
         topic: cut(&f.topic),
@@ -291,7 +289,7 @@ pub(super) async fn make(State(s): State<Shared>, body: Bytes) -> Response {
     let Some(kind) = kind_of(&post.kind) else {
         return bad("A rule slows or fails requests: the kind is slow or fail.");
     };
-    let fields = cut_fields(post.fields);
+    let fields = cut_fields(&post.fields);
     if post.check {
         let form = g::rule_form(p.backend, p.recorder, kind, fields, true).await;
         return json(StatusCode::OK, &LabMadeOutcome::Checked { form });

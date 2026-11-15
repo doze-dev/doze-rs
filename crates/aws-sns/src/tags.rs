@@ -24,9 +24,10 @@ pub(crate) fn check_new(tags: &[(String, String)]) -> Result<(), ApiError> {
     let mut seen = BTreeMap::new();
     for (k, v) in tags {
         if k.to_ascii_lowercase().starts_with("aws:") {
+            // Recorded on AWS (2026-11-15, TagResource).
             return Err(invalid_because(
                 "Tags",
-                "AWS internal tags cannot be modified or created",
+                "Caller is an end user and not allowed to mutate system tags",
             ));
         }
         if seen.insert(k.as_str(), v.as_str()).is_some() {

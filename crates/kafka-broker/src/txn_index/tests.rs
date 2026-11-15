@@ -24,7 +24,7 @@ fn an_abort_is_remembered_until_the_log_start_passes_it_and_a_commit_is_not() {
     t.write(9, 0, 7);
     t.marker(9, 9, Marker::Abort);
     assert_eq!(
-        t.aborted_between(0, 100),
+        between(&t, 0, 100),
         [
             Aborted {
                 producer: 7,
@@ -39,27 +39,27 @@ fn an_abort_is_remembered_until_the_log_start_passes_it_and_a_commit_is_not() {
         ]
     );
     // Only those that touch the range: ended at or after it starts, begun before it ends.
-    assert_eq!(t.aborted_between(6, 7), []);
-    assert_eq!(t.aborted_between(6, 8).len(), 1);
+    assert_eq!(between(&t, 6, 7), []);
+    assert_eq!(t.aborted_between(6, 8).count(), 1);
     assert_eq!(
-        t.aborted_between(5, 6)[0].producer,
+        between(&t, 5, 6)[0].producer,
         7,
         "the marker itself is in the range"
     );
     t.forget_before(6);
-    assert_eq!(t.aborted_between(0, 100).len(), 1);
+    assert_eq!(t.aborted_between(0, 100).count(), 1);
 }
 
 #[test]
 fn a_marker_with_no_open_transaction_changes_nothing() {
     let mut t = TxnIndex::default();
     t.marker(7, 3, Marker::Abort);
-    assert!(t.aborted_between(0, 10).is_empty());
+    assert!(t.aborted_between(0, 10).next().is_none());
     // Written again after a crash: the first closed it.
     t.write(7, 0, 4);
     t.marker(7, 5, Marker::Abort);
     t.marker(7, 6, Marker::Abort);
-    assert_eq!(t.aborted_between(0, 10).len(), 1);
+    assert_eq!(t.aborted_between(0, 10).count(), 1);
 }
 
 /// Whatever order the batches come in, a rebuild from the same batches is the same index.
@@ -100,10 +100,22 @@ fn an_index_fed_batch_by_batch_is_the_index_rebuilt_from_them() {
         }
         assert_eq!(live.open(), rebuilt.open(), "seed {seed}");
         assert_eq!(
-            live.aborted_between(0, 100),
-            rebuilt.aborted_between(0, 100),
+            between(&live, 0, 100),
+            between(&rebuilt, 0, 100),
             "seed {seed}"
         );
+        // Stopping at the first transaction begun at or after `to` misses none that touch the range.
+        for (from, to) in [(0, 60), (10, 30), (25, 26), (59, 60), (30, 10)] {
+            let every: Vec<Aborted> = between(&live, i64::MIN, i64::MAX)
+                .into_iter()
+                .filter(|a| a.last >= from && a.first < to)
+                .collect();
+            assert_eq!(between(&live, from, to), every, "seed {seed} {from}..{to}");
+        }
         assert_eq!(live.last_stable(60), rebuilt.last_stable(60));
     }
+}
+
+fn between(t: &TxnIndex, from: i64, to: i64) -> Vec<Aborted> {
+    t.aborted_between(from, to).copied().collect()
 }

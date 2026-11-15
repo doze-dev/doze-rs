@@ -1,7 +1,7 @@
 //! ConsumerGroupHeartbeat (KIP-848): one request that joins, keeps on and leaves a consumer group, answered with
 //! what the member is to own now. The checks of the request itself are Kafka's, in its order and with its words.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::StrBytes;
@@ -65,13 +65,13 @@ impl<F: Fs> Broker<F> {
     /// Why the caller may not heartbeat to this group with this subscription, if it may not.
     fn heartbeat_refusal(&self, caller: &Caller, req: &ConsumerGroupHeartbeatRequest) -> Option<E> {
         let guard = self.guard(caller);
-        if !guard.group(operation::READ, req.group_id.0.as_str()) {
+        if !guard.group(Operation::Read, req.group_id.0.as_str()) {
             return Some(E::GroupAuthorizationFailed);
         }
         let names = req.subscribed_topic_names.as_deref().unwrap_or_default();
         names
             .iter()
-            .any(|t| !guard.topic(operation::DESCRIBE, t.0.as_str()))
+            .any(|t| !guard.topic(Operation::Describe, t.0.as_str()))
             .then_some(E::TopicAuthorizationFailed)
     }
 }

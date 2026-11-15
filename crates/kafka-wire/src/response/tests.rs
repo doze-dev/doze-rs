@@ -42,3 +42,27 @@ fn api_versions_uses_the_v0_response_header_at_every_version() {
         );
     }
 }
+
+#[test]
+fn a_fetch_with_records_is_written_into_a_buffer_of_exactly_its_size() {
+    use kafka_protocol::messages::FetchResponse;
+    use kafka_protocol::messages::fetch_response::{FetchableTopicResponse, PartitionData};
+    let mut p = PartitionData::default();
+    p.records = Some(Bytes::from(vec![7_u8; 1 << 20]));
+    let mut t = FetchableTopicResponse::default();
+    t.partitions.push(p);
+    let mut r = FetchResponse::default();
+    r.responses.push(t);
+    let response = Response::Fetch(r);
+    for version in [4, 12, 13] {
+        let frame = encode(1, version, &response).unwrap();
+        let header = ResponseHeader::default()
+            .compute_size(ApiKey::Fetch.response_header_version(version))
+            .unwrap();
+        assert_eq!(
+            frame.len(),
+            4 + header + response.compute_size(version).unwrap()
+        );
+        assert_eq!(payload(&frame).len(), frame.len() - 4);
+    }
+}

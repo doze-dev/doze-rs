@@ -1,6 +1,6 @@
 //! Heartbeat.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::ids::{GroupId, InstanceId, MemberId};
@@ -14,7 +14,7 @@ impl<F: Fs> Broker<F> {
         // The caller must be allowed to READ the group, once, here and not in the group.
         let allowed = self
             .guard(caller)
-            .group(operation::READ, req.group_id.as_str());
+            .group(Operation::Read, req.group_id.as_str());
         let error = match (
             GroupId::parse(req.group_id.as_str()),
             MemberId::new(req.member_id.as_str()),

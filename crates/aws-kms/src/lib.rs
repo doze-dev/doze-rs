@@ -22,6 +22,7 @@ mod rsa_keys;
 mod rsa_ops;
 mod sign;
 mod spec;
+mod storage;
 mod tags;
 
 use std::sync::Arc;
@@ -60,7 +61,10 @@ impl Kms {
             .actors
             .actor(&call.caller.region)
             .map_err(|e| e.to_string())?;
-        actor.call(call).await.map_err(|e| e.to_string())
+        actor
+            .call(crate::core::Ask::Call(Box::new(call)))
+            .await
+            .map_err(|e| e.to_string())
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
@@ -82,6 +86,10 @@ impl Kms {
 }
 
 impl Service for Kms {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static aws_schema::meta::ServiceMeta {
         &META
     }
@@ -101,6 +109,29 @@ impl Service for Kms {
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(self.ask(call))
     }
+
+    /// The Coral front end's wording, with the grant operations listed in AWS's order rather than the reverse of the model's.
+    fn invalid(&self, violation: &aws_schema::json::Violation) -> aws_wire::ApiError {
+        let error = aws_wire::service::default_invalid(&TABLES, violation);
+        match violation {
+            aws_schema::json::Violation::Enum { member, .. } if is_grant_operation(*member) => {
+                aws_wire::located::enum_order(error, &grants::OPERATIONS)
+            }
+            _ => error,
+        }
+    }
+}
+
+/// Whether the model member `ix` holds a grant operation: its enum set is exactly those.
+fn is_grant_operation(ix: u32) -> bool {
+    TABLES
+        .member(ix)
+        .and_then(|m| TABLES.cons(m.cons))
+        .map(|c| TABLES.enum_values(c.enum_set))
+        .is_some_and(|set| {
+            set.len() == grants::OPERATIONS.len()
+                && set.iter().all(|v| grants::OPERATIONS.contains(v))
+        })
 }
 
 /// Whether `text` is a key policy this service accepts. Exists so the check can be fuzzed.

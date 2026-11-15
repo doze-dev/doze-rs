@@ -38,6 +38,9 @@ pub struct Config {
     /// Whether a verifying gateway serves an unsigned S3 request (as AWS does) as the anonymous principal, for IAM to judge. Off,
     /// such a request is refused as unauthenticated. A trusting gateway always serves it.
     pub anonymous: bool,
+    /// Local hooks of the host's own (`/_doze/data`), asked before any service's addresses. Not AWS addresses: each owns a path
+    /// under `/_doze/`, which no bucket name can start with.
+    pub hooks: Hooks,
 }
 
 impl Config {
@@ -54,6 +57,17 @@ impl Config {
             max_body_bytes: 16 << 20,
             max_skew_secs: 300,
             anonymous: false,
+            hooks: Hooks::default(),
         }
+    }
+}
+
+/// The host's local hooks ([`Config::hooks`]).
+#[derive(Clone, Default)]
+pub struct Hooks(pub Vec<Arc<dyn aws_wire::service::Web>>);
+
+impl std::fmt::Debug for Hooks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Hooks({})", self.0.len())
     }
 }

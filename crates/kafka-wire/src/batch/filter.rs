@@ -12,9 +12,9 @@ use super::layout::{
     ATTRIBUTES, CRC, FIRST_TIMESTAMP, HEADER_LEN, LENGTH, LENGTH_OVERHEAD, MAX_TIMESTAMP,
     RECORD_COUNT, crc_of,
 };
-use super::recode::{pack, put, read_varint, write_varint};
+use super::recode::{pack, put};
 use super::scan::RecordsRefused;
-use super::{Batch, Compression, Refusal};
+use super::{Batch, Compression, Refusal, varint};
 use crate::ids::Offset;
 
 /// A record as compaction judges it.
@@ -114,7 +114,7 @@ impl Batch {
                 retimed(&mut records, record, timestamp - new_base_timestamp)
                     .ok_or_else(|| unreadable("a record cannot be written again"))?;
             } else {
-                write_varint(&mut records, i64::try_from(record.len()).unwrap_or(0));
+                varint::write(&mut records, i64::try_from(record.len()).unwrap_or(0));
                 records.extend_from_slice(record);
             }
         }
@@ -238,27 +238,23 @@ struct Parsed<'a> {
 }
 
 /// The first record of `bytes` (without its length prefix) and what follows it.
-fn split_record(bytes: &[u8]) -> Option<(&[u8], &[u8])> {
-    let (length, used) = read_varint(bytes)?;
-    let end = used.checked_add(usize::try_from(length).ok()?)?;
-    Some((bytes.get(used..end)?, bytes.get(end..)?))
+fn split_record(mut bytes: &[u8]) -> Option<(&[u8], &[u8])> {
+    let length = usize::try_from(varint::read(&mut bytes)?).ok()?;
+    Some((bytes.get(..length)?, bytes.get(length..)?))
 }
 
 fn parse(record: &[u8]) -> Option<Parsed<'_>> {
-    let rest = record.get(1..)?; // the record's attribute byte
-    let (timestamp_delta, n) = read_varint(rest)?;
-    let rest = rest.get(n..)?;
-    let (offset_delta, n) = read_varint(rest)?;
-    let rest = rest.get(n..)?;
-    let (key_len, n) = read_varint(rest)?;
-    let rest = rest.get(n..)?;
-    let (key, rest) = if key_len < 0 {
+    let mut rest = record.get(1..)?; // the record's attribute byte
+    let timestamp_delta = varint::read(&mut rest)?;
+    let offset_delta = varint::read(&mut rest)?;
+    let key_len = varint::read(&mut rest)?;
+    let (key, mut rest) = if key_len < 0 {
         (None, rest)
     } else {
         let len = usize::try_from(key_len).ok()?;
         (Some(rest.get(..len)?), rest.get(len..)?)
     };
-    let (value_len, _) = read_varint(rest)?;
+    let value_len = varint::read(&mut rest)?;
     Some(Parsed {
         timestamp_delta,
         offset_delta,
@@ -269,12 +265,12 @@ fn parse(record: &[u8]) -> Option<Parsed<'_>> {
 
 /// `record` written to `out` with its timestamp delta replaced.
 fn retimed(out: &mut Vec<u8>, record: &[u8], delta: i64) -> Option<()> {
-    let (attributes, rest) = record.split_first()?;
-    let (_, n) = read_varint(rest)?;
+    let (attributes, mut rest) = record.split_first()?;
+    varint::read(&mut rest)?; // the old delta
     let mut body = vec![*attributes];
-    write_varint(&mut body, delta);
-    body.extend_from_slice(rest.get(n..)?);
-    write_varint(out, i64::try_from(body.len()).ok()?);
+    varint::write(&mut body, delta);
+    body.extend_from_slice(rest);
+    varint::write(out, i64::try_from(body.len()).ok()?);
     out.extend_from_slice(&body);
     Some(())
 }

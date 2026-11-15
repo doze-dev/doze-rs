@@ -139,15 +139,21 @@ fn a_group_holds_at_most_five_regular_expressions_across_its_filters() {
         json!({"logGroupName": "/g", "filterName": name, "filterPattern": pattern,
             "metricTransformations": [{"metricName": "m", "metricNamespace": "n", "metricValue": "1"}]})
     };
-    w.ok("PutMetricFilter", &metric("a", "%x% %y%"));
-    w.ok("PutMetricFilter", &metric("b", "%x% %y%"));
+    w.ok(
+        "PutMetricFilter",
+        &metric("a", "{ $.a = %x% && $.b = %y% }"),
+    );
+    w.ok(
+        "PutMetricFilter",
+        &metric("b", "{ $.a = %x% && $.b = %y% }"),
+    );
     w.ok("PutMetricFilter", &metric("c", "%x%"));
     let (code, _) = w.err("PutMetricFilter", &metric("d", "%z%"));
     assert_eq!(code, "LimitExceededException");
     // Replacing a filter counts what it will hold, not what it held.
     w.ok("PutMetricFilter", &metric("c", "%z%"));
     w.ok("PutMetricFilter", &metric("d", "no regex here"));
-    let (code, _) = w.err("PutMetricFilter", &metric("e", "%a% %b% %c%"));
+    let (code, _) = w.err("PutMetricFilter", &metric("e", "%a%%b%%c%"));
     assert_eq!(code, "LimitExceededException");
     let tested = w.ok(
         "TestMetricFilter",

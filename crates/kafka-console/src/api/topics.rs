@@ -37,6 +37,8 @@ pub fn policy_word(c: Cleanup) -> &'static str {
 pub struct TopicsResponse {
     pub view: TopicsView,
     pub state: TopicsState,
+    /// Each topic's schema subject (`<topic>-value`, else `<topic>-key`) where the registry has one.
+    pub subjects: Vec<(String, String)>,
 }
 
 /// Which buttons a topic's head carries: a function of the topic alone, so the same on every tab.
@@ -71,6 +73,10 @@ pub struct TopicFrame {
     /// The partitions whose writes are refused.
     pub offline: Vec<i32>,
     pub acts: TopicActs,
+    /// The schema registry is on (the Schema tab shows).
+    pub registry: bool,
+    /// The subjects named for this topic.
+    pub schemas: usize,
 }
 
 impl TopicFrame {
@@ -100,6 +106,8 @@ impl TopicFrame {
             offline,
             acts,
             head,
+            registry: false,
+            schemas: 0,
         }
     }
 }
@@ -277,7 +285,16 @@ async fn topics(State(s): State<Shared>, RawQuery(q): RawQuery) -> Response {
     let internal = field(&f, "internal") == Some("1");
     let view = s.source.topics(&filter, internal, None).await;
     let state = view.state();
-    json(StatusCode::OK, &TopicsResponse { view, state })
+    let names: Vec<String> = view.rows.iter().map(|r| r.name.clone()).collect();
+    let subjects = schema::list_subjects(s.source.schemas(), &names);
+    json(
+        StatusCode::OK,
+        &TopicsResponse {
+            view,
+            state,
+            subjects,
+        },
+    )
 }
 
 async fn frame(State(s): State<Shared>, Path(name): Path<String>) -> Response {
@@ -285,7 +302,19 @@ async fn frame(State(s): State<Shared>, Path(name): Path<String>) -> Response {
         return no_such_topic(&name);
     }
     match s.source.topic_head(&name).await {
-        Some(h) => json(StatusCode::OK, &TopicFrame::new(h)),
+        Some(h) => {
+            let mut f = TopicFrame::new(h);
+            if let Some(r) = s.source.schemas().registry() {
+                f.registry = true;
+                let topic = [name.clone()];
+                f.schemas = r
+                    .subjects("", false, false)
+                    .iter()
+                    .filter(|x| !crate::schemas::named_topics(x, &topic).is_empty())
+                    .count();
+            }
+            json(StatusCode::OK, &f)
+        }
         None => no_such_topic(&name),
     }
 }
@@ -299,9 +328,10 @@ async fn messages(
         return no_topic(&name);
     }
     let (query, notes) = MessageQuery::parse(&fields(q.as_deref()));
-    let Some(view) = s.source.messages(&name, query, notes).await else {
+    let Some(mut view) = s.source.messages(&name, query, notes).await else {
         return no_topic(&name);
     };
+    s.source.schemas().decorate_rows(&mut view.rows, &name);
     let tailable =
         view.query.key.is_none() && view.query.offset.is_none() && view.query.time.is_none();
     let reach = if view.query.filtered() {
@@ -341,7 +371,10 @@ async fn record(
         );
     };
     match s.source.record(&name, p, o).await {
-        Some(r) => json::<RecordView>(StatusCode::OK, &r),
+        Some(mut r) => {
+            s.source.schemas().decorate_record(&mut r);
+            json::<RecordView>(StatusCode::OK, &r)
+        }
         None => missing(
             "NO_SUCH_RECORD",
             &format!(
@@ -364,6 +397,7 @@ async fn consumers(State(s): State<Shared>, Path(name): Path<String>) -> Respons
 
 /// Whether the Lab is on: a live broker started with it.
 mod log;
+pub mod schema;
 mod tail;
 #[cfg(test)]
 pub(super) mod types;
@@ -385,6 +419,10 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
             get(record),
         )
         .route(&web.url("/api/v1/topics/{topic}/consumers"), get(consumers))
+        .route(
+            &web.url("/api/v1/topics/{topic}/schemas"),
+            get(schema::schemas),
+        )
         .route(&web.url("/api/v1/topics/{topic}/log"), get(log::log))
         .route(
             &web.url("/api/v1/topics/{topic}/log/compact"),

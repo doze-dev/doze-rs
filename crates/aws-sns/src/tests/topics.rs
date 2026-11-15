@@ -195,7 +195,18 @@ fn a_delivery_policy_changes_the_effective_one() {
     w.ok(
         "SetTopicAttributes",
         &json!({"TopicArn": arn, "AttributeName": "DeliveryPolicy",
-        "AttributeValue": r#"{"http":{"defaultHealthyRetryPolicy":{"numRetries":9}}}"#}),
+        "AttributeValue": r#"{"http":{"defaultHealthyRetryPolicy":{"minDelayTarget":20,"maxDelayTarget":20,"numRetries":9}}}"#}),
+    );
+    // Recorded on AWS (2026-11-15): a retry policy names its delays.
+    assert!(
+        w.refused(
+            "SetTopicAttributes",
+            &json!({"TopicArn": arn, "AttributeName": "DeliveryPolicy",
+            "AttributeValue": r#"{"http":{"defaultHealthyRetryPolicy":{"numRetries":9}}}"#}),
+        )
+        .ends_with(
+            "DeliveryPolicy: http.defaultHealthyRetryPolicy.minDelayTarget must be specified"
+        )
     );
     let got = w.ok("GetTopicAttributes", &json!({"TopicArn": arn}))["Attributes"].clone();
     let eff: Value =
@@ -272,12 +283,10 @@ fn permissions_add_and_remove_statements_of_the_policy() {
         &json!({"TopicArn": arn, "Label": "friends"}),
     );
     assert_eq!(policy(&mut w)["Statement"].as_array().unwrap().len(), 1);
-    assert!(
-        w.refused(
-            "RemovePermission",
-            &json!({"TopicArn": arn, "Label": "friends"})
-        )
-        .contains("does not exist")
+    // Recorded on AWS (2026-11-15): removing it again is fine.
+    w.ok(
+        "RemovePermission",
+        &json!({"TopicArn": arn, "Label": "friends"}),
     );
 }
 

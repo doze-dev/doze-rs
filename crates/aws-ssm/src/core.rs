@@ -16,7 +16,7 @@ use aws_peers::{Mode, Peers};
 const FILE: &str = "ssm.redb";
 const PARAMS: &str = "params";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
-const VERSION: u8 = 1;
+pub(crate) const VERSION: u8 = 1;
 
 /// All of Parameter Store: its parameters, and the clock it reads. Owned by one task, so no operation needs a lock.
 #[derive(Debug)]
@@ -28,6 +28,15 @@ pub(crate) struct Core {
     pub(crate) db: Option<Db>,
     /// When the first `Expiration` policy runs out, so a call before then need not look.
     next_expiry_ms: Option<i64>,
+}
+
+/// What the actor is asked.
+#[derive(Debug)]
+pub(crate) enum Ask {
+    /// A call from the wire (or the peer bus).
+    Call(Box<Call>),
+    /// From `doze-aws data`: what the parameters hold, or remove some of it.
+    Data(Box<crate::storage::DataCall>),
 }
 
 /// What the actor answers: the reply, and the commit it must wait for.
@@ -58,7 +67,7 @@ pub(crate) fn built(op: Operation) -> bool {
 }
 
 impl doze_runtime::Service for Core {
-    type Request = Call;
+    type Request = Ask;
     type Response = Answer;
     type Error = StoreError;
 
@@ -66,7 +75,20 @@ impl doze_runtime::Service for Core {
         Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
     }
 
-    async fn handle(&mut self, call: Call) -> Answer {
+    async fn handle(&mut self, ask: Ask) -> Answer {
+        let call = match ask {
+            Ask::Call(call) => *call,
+            Ask::Data(asked) => {
+                let crate::storage::DataCall { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                return Answer {
+                    reply: aws_wire::handler::empty(),
+                    durable: None,
+                };
+            }
+        };
         if let Some(peers) = self.peers.clone()
             && peers.mode() != Mode::Off
             && let Err(refusal) = peers
@@ -143,6 +165,11 @@ impl Core {
     /// Notes that a parameter now expires at `at_ms`.
     pub(crate) fn expires_at(&mut self, at_ms: i64) {
         self.next_expiry_ms = Some(self.next_expiry_ms.map_or(at_ms, |n| n.min(at_ms)));
+    }
+
+    /// After a reset: nothing is due to expire.
+    pub(crate) fn forget_expiry(&mut self) {
+        self.next_expiry_ms = None;
     }
 
     /// Removes the parameters whose `Expiration` policy has run out.

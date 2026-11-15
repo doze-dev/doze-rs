@@ -14,20 +14,24 @@ fn grants_are_kept_listed_and_retired() {
         made["GrantId"].as_str().unwrap().to_owned(),
         made["GrantToken"].as_str().unwrap().to_owned(),
     );
-    // The same name on the same key is the same grant.
-    let again = w.ok(
+    // The same name and everything else the same is the same grant; the same name asking for something else is a new one.
+    let again = w.ok("CreateGrant", &json!({"KeyId": id, "GranteePrincipal": who, "RetiringPrincipal": who, "Operations": ["Decrypt", "Encrypt"], "Name": "g1", "Constraints": {"EncryptionContextSubset": {"a": "b"}}}));
+    assert_eq!(again["GrantId"], gid.as_str());
+    let other = w.ok(
         "CreateGrant",
         &json!({"KeyId": id, "GranteePrincipal": who, "Operations": ["Decrypt"], "Name": "g1"}),
     );
-    assert_eq!(again["GrantId"], gid.as_str());
+    assert_ne!(other["GrantId"], gid.as_str());
     let listed = w.ok("ListGrants", &json!({"KeyId": id}));
-    assert_eq!(listed["Grants"].as_array().unwrap().len(), 1);
+    let grants = listed["Grants"].as_array().unwrap();
+    assert_eq!(grants.len(), 2);
+    let first = grants
+        .iter()
+        .find(|g| g["GrantId"] == gid.as_str())
+        .unwrap();
+    assert_eq!(first["Operations"], json!(["Decrypt", "Encrypt"]));
     assert_eq!(
-        listed["Grants"][0]["Operations"],
-        json!(["Decrypt", "Encrypt"])
-    );
-    assert_eq!(
-        listed["Grants"][0]["Constraints"]["EncryptionContextSubset"],
+        first["Constraints"]["EncryptionContextSubset"],
         json!({"a": "b"})
     );
     assert_eq!(
@@ -47,8 +51,8 @@ fn grants_are_kept_listed_and_retired() {
     );
     w.ok("RetireGrant", &json!({"GrantToken": token}));
     assert_eq!(
-        w.ok("ListGrants", &json!({"KeyId": id}))["Grants"],
-        json!([])
+        w.ok("ListGrants", &json!({"KeyId": id}))["Grants"][0]["GrantId"],
+        other["GrantId"]
     );
     let second = w.ok(
         "CreateGrant",

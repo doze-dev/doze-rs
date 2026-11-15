@@ -50,6 +50,13 @@ fn statement(r: &Req, resource: &str) -> Value {
     if !equals.is_empty() {
         condition.insert("StringEquals".into(), Value::Object(equals));
     }
+    // `InvokedViaFunctionUrl`: the grant holds only for a call through the function's URL (`--invoked-via-function-url`).
+    if r.body.get("InvokedViaFunctionUrl").and_then(Value::as_bool) == Some(true) {
+        condition.insert(
+            "Bool".into(),
+            json!({"lambda:InvokedViaFunctionUrl": "true"}),
+        );
+    }
     if !condition.is_empty() {
         s.insert("Condition".into(), Value::Object(condition));
     }

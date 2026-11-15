@@ -55,6 +55,7 @@ impl Server {
             tasks.clone(),
             tls,
         ));
+        tasks.spawn(crate::pool::POOL.trim_when_quiet(crate::pool::QUIET, stop.clone()));
         Ok(Running { addr, stop, tasks })
     }
 }

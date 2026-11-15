@@ -25,10 +25,14 @@ pub(crate) fn locked() -> ApiError {
     )
 }
 
-/// Retention or a legal hold on a bucket that was never given Object Lock.
+/// Retention or a legal hold asked of a bucket that was never given Object Lock (recorded, Get/PutObjectRetention).
 fn missing_configuration() -> ApiError {
-    // (memory) AWS's wording.
     invalid_request("Bucket is missing Object Lock Configuration")
+}
+
+/// Lock headers on an object write to such a bucket: AWS words it with the element's name (recorded 2026-11-15).
+fn missing_configuration_on_write() -> ApiError {
+    invalid_request("Bucket is missing ObjectLockConfiguration")
 }
 
 /// An object that was never given retention (or a legal hold).
@@ -135,7 +139,7 @@ impl Core {
             if asked == Lock::default() {
                 return Ok(asked);
             }
-            return Err(missing_configuration());
+            return Err(missing_configuration_on_write());
         }
         let mut lock = asked;
         if lock.retention.is_none() {

@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 
 use super::ConsoleView;
@@ -35,7 +35,7 @@ impl<F: Fs> ConsoleView<'_, F> {
     #[must_use]
     pub fn limits(&self, caller: &Caller) -> Option<Limits> {
         let b = self.broker;
-        b.cluster_allows(caller, operation::CREATE)
+        b.cluster_allows(caller, Operation::Create)
             .then_some(Limits {
                 max_partitions: b.config.max_partitions,
                 default_partitions: b.config.default_partitions,
@@ -47,7 +47,7 @@ impl<F: Fs> ConsoleView<'_, F> {
     #[must_use]
     pub fn topic_config_defaults(&self, caller: &Caller) -> Option<Vec<ConfigHelp>> {
         let b = self.broker;
-        if !b.cluster_allows(caller, operation::CREATE) {
+        if !b.cluster_allows(caller, Operation::Create) {
             return None;
         }
         let entries = topic_config::effective(&b.defaults.get(), &BTreeMap::new());

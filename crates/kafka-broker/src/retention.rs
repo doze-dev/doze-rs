@@ -63,14 +63,19 @@ impl<F: Fs> Broker<F> {
         // Which groups to look at is taken once; each is then looked at as it is when its turn comes, so that a member
         // that has joined and committed since is seen and not judged by what the group was.
         let in_memory = self.groups.list().await.into_iter().map(|(id, _)| id);
-        let lives = match blocking::run(|| self.meta.group_lives()) {
+        // The store is read on the blocking pool: a sweep does not swap the runtime's workers (see `blocking`).
+        let meta = Arc::clone(&self.meta);
+        let lives = match blocking::in_background(move || meta.group_lives()).await {
             Ok(lives) => lives,
             Err(e) => {
                 tracing::warn!(error = %e, "offsets retention: the groups' records could not be read");
                 return;
             }
         };
-        let with_offsets = blocking::run(|| self.meta.groups_with_offsets()).unwrap_or_default();
+        let meta = Arc::clone(&self.meta);
+        let with_offsets = blocking::in_background(move || meta.groups_with_offsets())
+            .await
+            .unwrap_or_default();
         let ids: BTreeSet<GroupId> = with_offsets
             .into_iter()
             .chain(lives.into_iter().map(|(id, _)| id))
@@ -85,10 +90,15 @@ impl<F: Fs> Broker<F> {
         // In this order: what a group has committed is read first, its record next and its members last, so that a member
         // that joins and commits while this is going on has its commit left out of `offsets` (and so never expired),
         // never judged by a record read before it came.
-        let Ok(offsets) = blocking::run(|| self.meta.group_offsets(id)) else {
+        let (meta, group) = (Arc::clone(&self.meta), id.clone());
+        let Ok(offsets) = blocking::in_background(move || meta.group_offsets(&group)).await else {
             return;
         };
-        let life = blocking::run(|| self.meta.group_life(id)).ok().flatten();
+        let (meta, group) = (Arc::clone(&self.meta), id.clone());
+        let life = blocking::in_background(move || meta.group_life(&group))
+            .await
+            .ok()
+            .flatten();
         let described = self.groups.describe(id).await;
         let members = members_of(described.as_ref());
         let running = matches!(members, Members::Running { .. });

@@ -174,6 +174,42 @@ function Loaded({ r, as, setAs }: { r: ConnectResponse; as: CopyAs; setAs: (a: C
           </CardContent>
         </Card>
       </section>
+      {r.registry && (
+        <section className="flex flex-col gap-4" aria-labelledby="registry-h" data-testid="connect-registry">
+          <div>
+            <h2 id="registry-h" className="text-[18px] font-semibold text-bright">
+              Schema registry
+            </h2>
+            <p className="text-[13px] text-muted-foreground">The built-in schema registry answers on its own port, no second container. Serializers find it by <code className="font-mono">schema.registry.url</code>.</p>
+          </div>
+          <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
+            <Card className="min-w-0">
+              <CardHeader>
+                <CardTitle className="text-[17px]">Address</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <CodeValue value={r.registry.url} label="Registry address" className="h-11" />
+                <p className="text-[12.5px] text-muted-foreground">{r.registry.basic_auth ? "It asks for the broker's SASL users and passwords, as HTTP basic authentication." : "No authentication is needed."}</p>
+              </CardContent>
+            </Card>
+            <Card className="min-w-0">
+              <CardHeader>
+                <CardTitle className="text-[17px]">For a serializer</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <div className="relative">
+                  <Pre className="pr-28">{r.registry.properties}</Pre>
+                  <CopyButton text={r.registry.properties} className="absolute top-2.5 right-2.5" what="Properties copied" />
+                </div>
+                <div className="relative">
+                  <Pre className="pr-28">{`export ${r.registry.environment}`}</Pre>
+                  <CopyButton text={`export ${r.registry.environment}`} className="absolute top-2.5 right-2.5" what="Command copied" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

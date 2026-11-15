@@ -7,7 +7,7 @@
 //! fact is no more visible here than it would be over Kafka's own API. Nothing is kept between calls: an idle
 //! broker pays nothing for the console's existence.
 
-use kafka_auth::authz::{CLUSTER_NAME, operation, resource};
+use kafka_auth::authz::{CLUSTER_NAME, Operation, ResourceType};
 use kafka_storage::fs::Fs;
 
 use crate::{Broker, Caller};
@@ -91,10 +91,12 @@ impl<F: Fs> ConsoleView<'_, F> {
     #[must_use]
     pub fn instance(&self, caller: &Caller) -> Option<Instance> {
         let b = self.broker;
-        if !b
-            .authz
-            .allows(caller, resource::CLUSTER, CLUSTER_NAME, operation::DESCRIBE)
-        {
+        if !b.authz.allows(
+            caller,
+            ResourceType::Cluster,
+            CLUSTER_NAME,
+            Operation::Describe,
+        ) {
             return None;
         }
         let last_stop = if b.first_start {

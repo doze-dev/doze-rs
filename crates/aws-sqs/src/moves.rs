@@ -4,9 +4,9 @@
 //! it advances when the next call arrives, by the time that has passed, which is all a task nobody is watching needs.
 //!
 //! Modelled from the recordings, not documented: the first message moves at once and then the rate applies; a moved message's
-//! receive count is reset (else the source's redrive policy would send it straight back); and AWS reports
-//! `ApproximateNumberOfMessagesMoved` as 0 for a task that finished moments ago (it did, for a one-message task), so a
-//! finished task's count is held back [`COUNTER_LAG_MS`] unless the task was cancelled.
+//! receive count is reset (else the source's redrive policy would send it straight back). A finished task reports what it
+//! moved: the 2026-11-09 recording showed 0 moved for a completed one-message task, the 2026-11-15 one showed 1, so the 0 was
+//! AWS's counter catching up, not a rule, and copying it only misled a developer watching a redrive.
 
 use aws_model_sqs::keys::{
     CancelMessageMoveTaskRequest as Cancel, CancelMessageMoveTaskResult as Cancelled,
@@ -23,8 +23,6 @@ use crate::model::Message;
 
 /// How fast a task moves when the caller names no rate.
 const DEFAULT_PER_SECOND: i64 = 500;
-/// How long a finished task's moved count stays at 0.
-const COUNTER_LAG_MS: i64 = 5_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum Status {
@@ -236,7 +234,6 @@ impl Core {
                 ));
             }
         };
-        let now = self.now_ms();
         let shown: Vec<&Task> = self
             .tasks
             .iter()
@@ -250,7 +247,7 @@ impl Core {
             }
             o.put_list(Listed::RESULTS, |l| {
                 for t in &shown {
-                    l.push(|e| write_entry(e, t, now));
+                    l.push(|e| write_entry(e, t));
                 }
             });
         })
@@ -279,7 +276,7 @@ impl Core {
     }
 }
 
-fn write_entry(e: &mut aws_schema::build::Object<'_, Entry>, t: &Task, now_ms: i64) {
+fn write_entry(e: &mut aws_schema::build::Object<'_, Entry>, t: &Task) {
     // The handle is shown while the task runs.
     if t.status == Status::Running {
         e.put(Entry::TASK_HANDLE, &t.handle);
@@ -292,13 +289,9 @@ fn write_entry(e: &mut aws_schema::build::Object<'_, Entry>, t: &Task, now_ms: i
     if let Some(n) = t.per_second {
         e.put_int(Entry::MAX_NUMBER_OF_MESSAGES_PER_SECOND, n);
     }
-    let settled = t.status == Status::Cancelled
-        || t.finished_ms
-            .is_some_and(|at| now_ms - at >= COUNTER_LAG_MS);
-    let moved = if settled { t.moved } else { 0 };
     e.put_int(
         Entry::APPROXIMATE_NUMBER_OF_MESSAGES_MOVED,
-        i64::try_from(moved).unwrap_or(i64::MAX),
+        i64::try_from(t.moved).unwrap_or(i64::MAX),
     );
     e.put_int(
         Entry::APPROXIMATE_NUMBER_OF_MESSAGES_TO_MOVE,

@@ -43,8 +43,12 @@ Test: `tests/produce_checks::a_topic_that_stamps_with_the_brokers_clock_says_whe
 
 ### P8. Storage failures
 A write or flush that fails is KAFKA_STORAGE_ERROR with no offsets and no message; a failed flush takes the partition
-offline until restart (never retried).
-Test: `a_write_that_fails_is_a_storage_error_*`
+offline until restart (never retried). Not a storage failure: a Produce that looked its topic up before a DeleteTopics
+and reached the partition after it (its directory gone, its writer closed) is UNKNOWN_TOPIC_OR_PARTITION, logged at debug,
+as Kafka answers a partition it no longer hosts (`ReplicaManager.getPartitionOrException`); told apart by the topic's id
+no longer being in the metadata, which a delete changes first.
+Test: `a_write_that_fails_is_a_storage_error_*`,
+`handlers::produce::tests::a_produce_that_looked_its_topic_up_before_a_delete_is_told_the_topic_is_unknown`
 
 ### P9. A topic's partitions follow its life
 A partition is opened when first used (its directory made if a cut lost it), and closed, after flushing, before a

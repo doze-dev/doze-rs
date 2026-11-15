@@ -145,6 +145,14 @@ fn door(console: &Console, addr: &SocketAddr) -> Option<kafka_console::door::Doo
     Some(kafka_console::door::Door { local })
 }
 
+/// What the console is given beside the broker: the recorder, the flags, the Lab's fault table and the registry.
+pub(crate) type Extras = (
+    Option<Arc<kafka_console::Recorder>>,
+    Vec<kafka_console::model::SettingsFlag>,
+    Option<Arc<kafka_server::fault::FaultTable>>,
+    kafka_console::schemas::Schemas,
+);
+
 impl Bound {
     /// Starts serving: from here the console reads and acts on `broker` as `User:__console`.
     pub(crate) fn serve(
@@ -153,18 +161,16 @@ impl Bound {
         server: &ServerConfig,
         kafka: &Kafka,
         broker: &Arc<Broker<RealFs>>,
-        (recorder, flags, lab): (
-            Option<Arc<kafka_console::Recorder>>,
-            Vec<kafka_console::model::SettingsFlag>,
-            Option<Arc<kafka_server::fault::FaultTable>>,
-        ),
+        (recorder, flags, lab, schemas): Extras,
     ) -> Result<Serving> {
         let addr = self.listener.local_addr()?;
         let listener = server.advertise(kafka.local_addr());
         let facts = facts(server, kafka, &listener, &addr, &console.allow_hosts);
         let start = start_facts(server, console, &addr, flags);
         let backend = kafka_console::Backend::new(Arc::clone(broker), listener, server.profile);
-        let mut live = kafka_console::Live::new(backend, facts).with_start(start);
+        let mut live = kafka_console::Live::new(backend, facts)
+            .with_start(start)
+            .with_schemas(schemas);
         if let Some(r) = recorder {
             live = live.with_recorder(r);
         }

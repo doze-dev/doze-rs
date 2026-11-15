@@ -223,7 +223,8 @@ impl Core {
             Some((seen, _)) if *seen == print => Ok(true),
             Some(_) => Err(ApiError::modeled(
                 "IdempotentParameterMismatchException",
-                "The request uses the same client token as a previous, but non-identical request.",
+                // Recorded 2026-11-15.
+                "Specified idempotent token was used with different request parameters within the idempotency window",
             )),
             None => Ok(false),
         }

@@ -2,13 +2,13 @@
 //! `ListTargetsByRule` as it went in, whether or not anything here acts on it.
 
 use aws_wire::ApiError;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::core::Core;
 use crate::input;
 use crate::model::{StoredTarget, key};
 use crate::page::{page, with_token};
-use crate::req::{Req, limit, no_rule};
+use crate::req::{Req, invalid, limit, no_rule};
 use crate::util::Out;
 
 /// The most targets a rule has (AWS's default quota).
@@ -21,16 +21,12 @@ impl Core {
             (rule.bus.clone(), rule.name.clone())
         };
         let k = key(r.account(), &[&bus, &name]);
-        let mut failed = Vec::new();
+        let failed: Vec<Value> = Vec::new();
         let mut accepted = Vec::new();
         for t in r.list("Targets") {
             let id = t.get("Id").and_then(Value::as_str).unwrap_or_default();
-            match input::check_target(t) {
-                Ok(()) => accepted.push(stored(id, t)),
-                Err(why) => failed.push(json!({
-                    "TargetId": id, "ErrorCode": "ValidationException", "ErrorMessage": why,
-                })),
-            }
+            input::check_target(t).map_err(invalid)?;
+            accepted.push(stored(id, t));
         }
         let rule = self.rules.get_mut(&k).ok_or_else(|| no_rule(&bus, &name))?;
         let mut targets = rule.targets.clone();

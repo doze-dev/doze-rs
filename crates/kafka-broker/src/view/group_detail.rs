@@ -4,7 +4,7 @@
 //! The group's own task answers (the same turn DescribeGroups is answered in), so the facts are one consistent look.
 //! Nothing here changes a group: asking is a Describe, which no transition depends on.
 
-use kafka_auth::authz::{operation, resource};
+use kafka_auth::authz::{Operation, ResourceType};
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::GroupId;
 
@@ -90,7 +90,7 @@ impl<F: Fs> ConsoleView<'_, F> {
         let b = self.broker;
         if !b
             .authz
-            .allows(caller, resource::GROUP, group, operation::DESCRIBE)
+            .allows(caller, ResourceType::Group, group, Operation::Describe)
         {
             return None;
         }
@@ -115,7 +115,7 @@ impl<F: Fs> ConsoleView<'_, F> {
         let offsets = offsets
             .iter()
             .zip(firsts)
-            .filter(|(o, _)| b.topic_allows(caller, o.topic.as_str(), operation::DESCRIBE))
+            .filter(|(o, _)| b.topic_allows(caller, o.topic.as_str(), Operation::Describe))
             .map(|(o, expires_ms)| OffsetExpiry {
                 topic: o.topic.as_str().to_owned(),
                 partition: o.partition.get(),
@@ -169,8 +169,8 @@ fn of(group: &str, d: Option<&Description>, life: Option<&kafka_meta::GroupLife>
         out.protocol = Some(c.assignor.to_owned());
         out.assignment_epoch = Some(c.assignment_epoch);
     } else {
-        out.state = state_word(d.state).to_owned();
-        out.protocol = d.protocol.clone();
+        state_word(d.state).clone_into(&mut out.state);
+        out.protocol.clone_from(&d.protocol);
     }
     out.members = d.inspect.members.iter().map(|m| member(d, m)).collect();
     out.rebalance = d.inspect.rebalance.as_ref().map(|r| RebalanceDetail {

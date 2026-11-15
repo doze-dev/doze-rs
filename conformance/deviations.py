@@ -12,6 +12,21 @@ to go with it.
 Key: "<module>::<test>::<label>".
 """
 
-# Empty, and meant to stay that way: doze-aws is not more forgiving than AWS.
-# What belongs here is only what cannot exist on a laptop at all.
-DEVIATIONS = {}
+# Meant to stay nearly empty: doze-aws is not more forgiving than AWS.
+# What belongs here is only what cannot exist on a laptop at all, or what an
+# owner-chosen default trades for local ease while a flag gives AWS's answer.
+DEVIATIONS = {
+    # AWS answers a virtual-hosted URL on its own host (https://<bucket>.s3.amazonaws.com/<key>); that host cannot exist locally,
+    # so doze-aws answers the URL that fetches the object from itself (<endpoint>/<bucket>/<key>, path style).
+    "test_s3::test_multipart_upload::complete":
+        "Location names doze-aws's own address: AWS's S3 host does not exist on a laptop",
+    # The default gateway trusts signatures (it has no secret keys to check them with), so a SigV2 presigned PUT whose signature
+    # does not cover the Content-Type urllib adds is served. `--auth verify` refuses it with 403 as AWS does (aws-auth sigv2 tests).
+    "test_s3::test_presigned_urls::put":
+        "signatures are trusted by default; --auth verify refuses this PUT as AWS does",
+    "test_s3::test_presigned_urls::what-the-put-wrote":
+        "follows from the trusted PUT above: the object exists locally, not on AWS",
+    # `--iam soft` (the default) logs a refusal and serves the request; `--iam enforce` refuses the anonymous read as AWS does.
+    "test_s3::test_anonymous_reads_need_a_public_grant::anonymous-denied":
+        "--iam soft (the default) logs the refusal and serves; --iam enforce refuses as AWS does",
+}

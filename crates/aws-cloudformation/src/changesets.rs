@@ -124,7 +124,7 @@ impl Core {
             stack.resources.clone(),
         )
         .map_err(validation)?;
-        Ok((records(&w, stack, old, &changed), changed))
+        Ok((crate::changes::records(&w, stack, old, &changed), changed))
     }
 
     pub(crate) async fn create_change_set(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
@@ -398,47 +398,4 @@ fn from_request(r: &Req<'_>) -> ChangeSet {
         role_arn: r.opt("RoleARN").map(str::to_owned),
         ..ChangeSet::default()
     }
-}
-
-/// The change records: computed once, then again with what is added or replaced unknown, so what depends on it is `Dynamic`.
-fn records(w: &Working, stack: &Stack, old: &Value, changed: &BTreeSet<String>) -> Vec<Value> {
-    let first = crate::changes::compute(w, &stack.resources, old, changed);
-    let moving: Vec<String> = first
-        .iter()
-        .filter(|c| {
-            let rc = &c.at("ResourceChange");
-            rc.at("Action") == "Add" || rc.at("Replacement") == "True"
-        })
-        .filter_map(|c| {
-            c.at("ResourceChange")
-                .at("LogicalResourceId")
-                .as_str()
-                .map(str::to_owned)
-        })
-        .collect();
-    if moving.is_empty() {
-        return first;
-    }
-    let mut w2 = w.clone();
-    for m in &moving {
-        w2.resources.remove(m);
-    }
-    let mut second = crate::changes::compute(&w2, &stack.resources, old, changed);
-    // The second pass sees what moves as absent; it keeps their records from the first.
-    for c in &mut second {
-        let id = c
-            .at("ResourceChange")
-            .at("LogicalResourceId")
-            .as_str()
-            .unwrap_or_default()
-            .to_owned();
-        if moving.contains(&id)
-            && let Some(f) = first
-                .iter()
-                .find(|f| f.at("ResourceChange").at("LogicalResourceId") == id.as_str())
-        {
-            *c = f.clone();
-        }
-    }
-    second
 }

@@ -55,20 +55,24 @@ async fn handles_arrive_with_the_frames_that_carry_them() {
         let client = std::net::TcpStream::connect(front.local_addr().unwrap()).unwrap();
         let (accepted, _) = front.accept().unwrap();
         let token = format!("token-{i}");
-        let exported = w.export(Passable::from(accepted)).unwrap();
+        let passable = Passable::from(accepted);
+        // Kept until the module answers: a handle must not travel alone (doze_os::channel).
+        let held = passable.hold().unwrap();
+        let exported = w.export(passable).unwrap();
         let mut payload = token.clone().into_bytes();
         payload.extend_from_slice(exported.trailer());
         w.write_exported(&frame(1, &payload), exported)
             .await
             .unwrap();
-        clients.push((client, token));
+        clients.push((client, token, held));
     }
     let mut buf = Vec::new();
-    for (mut client, token) in clients {
+    for (mut client, token, held) in clients {
         assert_eq!(
             next_frame(&mut r, &mut buf).await,
             format!("ok:{token}").into_bytes()
         );
+        drop(held);
         let mut got = String::new();
         client.read_to_string(&mut got).unwrap();
         assert_eq!(got, token, "a handle crossed frames");

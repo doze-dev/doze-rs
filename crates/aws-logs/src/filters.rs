@@ -19,6 +19,7 @@ const MAX_SUBSCRIPTIONS: usize = 2;
 pub(crate) fn refused(e: PatternError) -> ApiError {
     match e {
         PatternError::Invalid => invalid("Invalid filter pattern"),
+        PatternError::Term(text) => invalid(format!("Invalid character(s) in term '{text}'")),
         // (memory)
         PatternError::TooManyRegexes => ApiError::modeled(
             "LimitExceededException",

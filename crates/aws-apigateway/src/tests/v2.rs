@@ -20,7 +20,7 @@ async fn an_http_api_routes_answers_cors_and_checks_tokens() {
         "$request.method $request.path"
     );
     let integ = w
-        .http("CreateIntegration", json!({"ApiId": id, "integrationType": "HTTP_PROXY", "integrationMethod": "GET", "integrationUri": format!("{url}/svc/{{id}}")}))
+        .http("CreateIntegration", json!({"ApiId": id, "integrationType": "HTTP_PROXY", "integrationMethod": "GET", "integrationUri": format!("{url}/svc/{{id}}"), "payloadFormatVersion": "1.0"}))
         .await
         .unwrap();
     assert_eq!(integ["payloadFormatVersion"], "1.0");

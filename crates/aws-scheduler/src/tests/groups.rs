@@ -8,11 +8,8 @@ const QUEUE: &str = "arn:aws:sqs:us-east-1:000000000000:q";
 fn every_account_has_a_default_group_it_cannot_delete() {
     let mut w = World::new();
     let g = w.ok("GetScheduleGroup", &json!({"Name": "default"}));
-    assert_eq!(
-        g["Arn"],
-        "arn:aws:scheduler:us-east-1:000000000000:schedule-group/default"
-    );
-    assert_eq!(g["State"], "ACTIVE");
+    // AWS shows the default group by name and state alone (recorded 2026-11-15).
+    assert_eq!(g, json!({"Name": "default", "State": "ACTIVE"}));
     let (code, _) = w.err("DeleteScheduleGroup", &json!({"Name": "default"}));
     assert_eq!(code, "ValidationException");
 }

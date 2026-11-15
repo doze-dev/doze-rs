@@ -88,7 +88,7 @@ fn create_stage(core: &mut Core, r: &Req) -> Res {
         json!({"detailedMetricsEnabled": false})
     };
     let mut s = json!({
-        "autoDeploy": false, "createdDate": r.now_iso(), "lastUpdatedDate": r.now_iso(),
+        "createdDate": r.now_iso(), "lastUpdatedDate": r.now_iso(),
         "defaultRouteSettings": route_defaults, "routeSettings": {}, "stageVariables": {}, "tags": {},
     })
     .as_object()
@@ -211,7 +211,10 @@ fn delete_deployment(core: &mut Core, r: &Req) -> Res {
         .flat_map(|m| m.values())
         .any(|s| text(s, "deploymentId") == Some(id))
     {
-        return Err(bad(format!("Deployment {id} is in use by a stage")));
+        // Recorded 2026-11-15.
+        return Err(bad(
+            "Active stages pointing to this deployment must be moved or deleted",
+        ));
     }
     child(doc, "deployments")
         .and_then(|m| m.remove(id))

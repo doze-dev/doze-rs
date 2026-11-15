@@ -35,6 +35,7 @@ pub mod config;
 pub mod config_edit;
 pub mod lab;
 pub mod lab_routes;
+pub mod schemas;
 pub mod settings;
 pub mod topic_admin;
 pub mod topic_writes;
@@ -209,6 +210,8 @@ pub struct ConnectWords {
 pub struct ConnectResponse {
     pub connect: ConnectView,
     pub words: ConnectWords,
+    /// The schema registry beside the broker, for clients' `schema.registry.url`; none when it is off.
+    pub registry: Option<crate::schemas::RegistryConnect>,
 }
 
 impl ConnectResponse {
@@ -227,7 +230,11 @@ impl ConnectResponse {
                 "doze-kafka --listen 0.0.0.0:{port} \\\n  --advertised-host 192.168.1.20 \\\n  --advertised-port {port}"
             ),
         };
-        Self { connect, words }
+        Self {
+            connect,
+            words,
+            registry: None,
+        }
     }
 }
 
@@ -248,6 +255,8 @@ pub struct ShellView {
     /// The sidebar's counts.
     pub topics: usize,
     pub groups: usize,
+    /// The subjects the registry lists; none when there is no registry (the sidebar says "off").
+    pub schemas: Option<usize>,
 }
 
 /// `GET /api/v1/jump?q=`: the palette's data. Pages are the client's own list.
@@ -272,10 +281,14 @@ async fn home(State(s): State<Shared>) -> Response {
 }
 
 async fn connect(State(s): State<Shared>) -> Response {
-    json(
-        StatusCode::OK,
-        &ConnectResponse::new(s.source.connect().await),
-    )
+    let mut answer = ConnectResponse::new(s.source.connect().await);
+    if let crate::schemas::Schemas::On {
+        url, basic_auth, ..
+    } = s.source.schemas()
+    {
+        answer.registry = Some(crate::schemas::RegistryConnect::new(url, *basic_auth));
+    }
+    json(StatusCode::OK, &answer)
 }
 
 /// `POST /api/v1/probe`: run the advertised-listener check now.
@@ -297,6 +310,11 @@ async fn shell(State(s): State<Shared>) -> Response {
             unprotected: chrome.unprotected,
             topics,
             groups,
+            schemas: s
+                .source
+                .schemas()
+                .registry()
+                .map(|r| r.subjects("", false, false).len()),
         },
     )
 }
@@ -374,6 +392,7 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
             get(access::delete_form).post(access::delete),
         )
         .merge(lab_routes::routes(web))
+        .merge(schemas::routes(web))
         .route_layer(from_fn(guard))
 }
 
@@ -426,4 +445,6 @@ pub const GET_PATHS: &[&str] = &[
     // are in api/lab_tests.rs and the browser gate.
     "/api/v1/lab",
     "/api/v1/lab/guide",
+    // 10d: the list says why there is no registry; the rest are read over one in tests/live_api_schemas*.rs.
+    "/api/v1/schemas",
 ];

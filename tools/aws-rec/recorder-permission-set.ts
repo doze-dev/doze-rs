@@ -24,6 +24,16 @@ const policy = {
         "budgets:ViewBudget", "ce:GetCostAndUsage", "tag:GetResources",
         // Stateless checks: they evaluate what is sent and store nothing.
         "events:TestEventPattern", "logs:TestMetricFilter", "states:TestState", "iam:SimulateCustomPolicy",
+        // Learned 2026-11-15: validation with no resource, an account read, and the default schedule group (it cannot carry our prefix).
+        "states:ValidateStateMachineDefinition", "kinesis:DescribeAccountSettings", "scheduler:GetScheduleGroup",
+        // Learned 2026-11-15: BatchGetSecretValue is authorized on "*" (each secret is then checked by GetSecretValue on its own ARN).
+        "secretsmanager:BatchGetSecretValue",
+        // Checked 2026-11-15 against AWS's Service Reference (servicereference.us-east-1.amazonaws.com): these are authorized on "*",
+        // not on the resource they name, and the scenarios call them.
+        "events:PutPermission", "events:RemovePermission", "kinesis:UpdateShardCount", "lambda:CreateEventSourceMapping",
+        "states:SendTaskSuccess", "states:SendTaskFailure", "states:SendTaskHeartbeat",
+        // Learned 2026-11-15 (verify-c): a missing mapping is read with GetEventSourceMapping on "*".
+        "lambda:GetEventSourceMapping",
         // Added 2026-11-12 for the KMS and Secrets Manager scenarios written before they were recorded: no resource, nothing stored.
         "kms:GenerateRandom", "secretsmanager:GetRandomPassword", "secretsmanager:ValidateResourcePolicy",
       ],
@@ -68,6 +78,12 @@ const policy = {
         `${A}:events:${R}:*:api-destination/${P}*`,
         `${A}:scheduler:${R}:*:schedule/*/${P}*`,
         `${A}:scheduler:${R}:*:schedule-group/${P}*`,
+        // Learned 2026-11-15: DeleteScheduleGroup asks for scheduler:DeleteSchedule on every schedule of the group (schedule/<group>/*).
+        `${A}:scheduler:${R}:*:schedule/${P}*/*`,
+        // Learned 2026-11-15 (verify-c): the refusals scenarios ask to delete the default bus and the default schedule group, which AWS
+        // refuses itself; without these the recorder's policy refuses first and the label records AccessDenied instead of AWS's answer.
+        `${A}:events:${R}:*:event-bus/default`,
+        `${A}:scheduler:${R}:*:schedule-group/default`,
         `${A}:lambda:${R}:*:function:${P}*`,
         `${A}:lambda:${R}:*:function:${P}*:*`,
         `${A}:lambda:${R}:*:layer:${P}*`,
@@ -76,19 +92,29 @@ const policy = {
         `${A}:states:${R}:*:stateMachine:${P}*`,
         `${A}:states:${R}:*:execution:${P}*:*`,
         `${A}:states:${R}:*:activity:${P}*`,
+        // Added 2026-11-14: express executions and map runs of our state machines.
+        `${A}:states:${R}:*:express:${P}*:*`,
+        `${A}:states:${R}:*:mapRun:${P}*/*`,
         `${A}:kinesis:${R}:*:stream/${P}*`,
         `${A}:kinesis:${R}:*:stream/${P}*/consumer/*`,
         `${A}:cloudwatch:${R}:*:alarm:${P}*`,
         `${A}:cloudwatch::*:dashboard/${P}*`,
+        // Added 2026-11-14 (gaps stream): Contributor Insights rules and metric streams are stored now.
+        `${A}:cloudwatch:${R}:*:insight-rule/${P}*`,
+        `${A}:cloudwatch:${R}:*:metric-stream/${P}*`,
         `${A}:cloudformation:${R}:*:stack/${P}*/*`,
         `${A}:cloudformation:${R}:*:stackset/${P}*:*`,
+        // Added 2026-11-14: a SAM template's change set names AWS's own transform as a resource.
+        `${A}:cloudformation:${R}:aws:transform/*`,
       ],
       Condition: region,
     },
     {
       Sid: "AccountLevelCallsThatCannotBePrefixed",
       Effect: "Allow",
-      Action: ["cloudwatch:PutMetricData", "apigateway:*", "execute-api:Invoke"],
+      // execute-api:ManageConnections added 2026-11-14: the WebSocket @connections API (correctness stream).
+      // cloudwatch:PutCompositeAlarm added 2026-11-15: AWS authorizes it against alarm:*, not the alarm's own name.
+      Action: ["cloudwatch:PutMetricData", "cloudwatch:PutCompositeAlarm", "apigateway:*", "execute-api:Invoke", "execute-api:ManageConnections"],
       Resource: "*",
       Condition: region,
     },
@@ -134,6 +160,20 @@ const policy = {
       Action: "iam:*",
       // IAM ARNs carry the path before the name (user/apps/doze-rec-x), so each kind is allowed with and without a path.
       Resource: ["role", "user", "group", "policy", "instance-profile", "saml-provider"].flatMap((k) => [`${A}:iam::*:${k}/${P}*`, `${A}:iam::*:${k}/*/${P}*`]),
+    },
+    {
+      // Added 2026-11-14: API Gateway execution logs land in groups named by the API's id, which cannot carry our prefix. Read only.
+      Sid: "ReadApiGatewayExecutionLogs",
+      Effect: "Allow",
+      Action: ["logs:DescribeLogStreams", "logs:GetLogEvents", "logs:FilterLogEvents"],
+      Resource: [`${A}:logs:${R}:*:log-group:API-Gateway-Execution-Logs_*`, `${A}:logs:${R}:*:log-group:API-Gateway-Execution-Logs_*:*`],
+    },
+    {
+      // Added 2026-11-14: role sessions for the scenarios that act as a role (Scheduler and IAM enforce paths). Our roles only.
+      Sid: "AssumeOurRoles",
+      Effect: "Allow",
+      Action: ["sts:AssumeRole", "sts:TagSession"],
+      Resource: [`${A}:iam::*:role/${P}*`, `${A}:iam::*:role/*/${P}*`],
     },
     {
       Sid: "NeverTheseEvenIfAnotherPolicyAllowsThem",

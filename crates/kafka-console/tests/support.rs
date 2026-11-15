@@ -23,7 +23,7 @@ use tower::ServiceExt;
 pub fn app(prefix: &str, allow: &[&str]) -> (Router, Shared) {
     let state = State::new(
         Source::Fixture,
-        Base::new(prefix),
+        &Base::new(prefix),
         allow.iter().map(|s| (*s).to_owned()).collect(),
         CancellationToken::new(),
     );

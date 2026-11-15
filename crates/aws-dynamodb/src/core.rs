@@ -73,6 +73,8 @@ pub(crate) enum Request {
         table: Option<String>,
     },
     Tick,
+    /// From `doze-aws data`: what the tables hold, or remove some of it.
+    Data(Box<crate::storage::Asked>),
 }
 
 /// What the actor answers.
@@ -188,6 +190,15 @@ impl doze_runtime::Service for Core {
                 streams: Some(self.list_streams(&region, &account, table.as_deref())),
                 ..Answer::of(Err(ApiError::internal("not a call")), false)
             },
+            Request::Data(asked) => {
+                let crate::storage::Asked { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                // What was emptied may have held the item the timer sleeps to.
+                self.ttl_stale = true;
+                Answer::of(Err(ApiError::internal("not a call")), false)
+            }
             Request::Tick => {
                 // The timer's own sweep is not held back by the once-a-second limit a burst of calls is.
                 self.next_sweep_ms = 0;

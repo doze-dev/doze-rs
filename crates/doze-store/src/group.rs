@@ -114,6 +114,22 @@ impl GroupCommit {
         self.commits.load(Ordering::Relaxed)
     }
 
+    /// Finishes what is queued, stops the writer, runs `f` with `store` as the only handle (so it may [`Store::compact`]), and starts a
+    /// new writer on it. Nothing can be submitted meanwhile: the caller holds `&mut self`.
+    ///
+    /// # Errors
+    /// The new writer's thread could not be started; `f`'s own result is returned inside.
+    pub fn paused<T>(
+        &mut self,
+        store: &mut Store,
+        f: impl FnOnce(&mut Store) -> T,
+    ) -> Result<T, StoreError> {
+        self.stop();
+        let out = f(store);
+        *self = Self::start(store.clone())?;
+        Ok(out)
+    }
+
     /// Stops accepting operations, finishes the queued ones, and waits for the thread.
     pub fn shutdown(mut self) {
         self.stop();

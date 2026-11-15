@@ -1,4 +1,5 @@
-import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, lazyRouteComponent as routerLazy, Outlet } from "@tanstack/react-router";
+import { unlessLeaving } from "@/lib/leaving";
 import { useRef, useState } from "react";
 import { basePath } from "@/api/client";
 import { useClosedToNetwork } from "@/api/closed";
@@ -16,6 +17,7 @@ import { HomePage } from "@/pages/home";
 import { liveSearch } from "@/pages/live/search";
 import { NotFoundPage } from "@/pages/not-found";
 import { groupSearch, groupsSearch, lagSearch, membersSearch, storySearch } from "@/pages/groups/search";
+import { diffSearch, newSchemaSearch, schemasSearch, subjectSearch } from "@/pages/schemas/search";
 
 function Shell() {
   const closed = useClosedToNetwork();
@@ -50,6 +52,11 @@ function Console() {
 
 const root = createRootRoute({ component: Shell, notFoundComponent: NotFoundPage });
 
+/** A page's own chunk, loaded when it is first opened; a load the page's leaving cut short is not an error (lib/leaving.ts). */
+function lazyRouteComponent<T extends Record<string, unknown>, K extends keyof T & string>(load: () => Promise<T>, name: K) {
+  return routerLazy(unlessLeaving(load), name);
+}
+
 const home = createRoute({ getParentRoute: () => root, path: "/", component: HomePage });
 const connect = createRoute({
   getParentRoute: () => root,
@@ -75,11 +82,12 @@ const topicLog = createRoute({ getParentRoute: () => topic, path: "/log", valida
 const topicConfig = createRoute({ getParentRoute: () => topic, path: "/config", validateSearch: configSearch, component: topicsPage("TopicConfigPage") });
 // R1b: Create topic is a page of three steps (its own chunk, with zod).
 const topicsNew = createRoute({ getParentRoute: () => root, path: "/topics/new", validateSearch: createSearch, component: lazyRouteComponent(() => import("@/pages/topics/create"), "CreateTopicPage") });
+const topicSchema = createRoute({ getParentRoute: () => topic, path: "/schema", component: topicsPage("TopicSchemaPage") });
 const topicConsumers = createRoute({ getParentRoute: () => topic, path: "/consumers", component: topicsPage("ConsumersPage") });
 const topicProducers = createRoute({ getParentRoute: () => topic, path: "/producers", validateSearch: partitionSearch, component: topicsPage("ProducersPage") });
 const topicTxn = createRoute({ getParentRoute: () => topic, path: "/transactions/$txn", component: topicsPage("TxnPage") });
 const topicTxnHeld = createRoute({ getParentRoute: () => topic, path: "/transactions/$txn/held", component: topicsPage("TxnHeldPage") });
-const topicTree = topic.addChildren([topicIndex, topicMessages, topicPartitions, topicLog, topicConfig, topicConsumers, topicProducers, topicTxn, topicTxnHeld]);
+const topicTree = topic.addChildren([topicIndex, topicMessages, topicPartitions, topicLog, topicConfig, topicConsumers, topicProducers, topicSchema, topicTxn, topicTxnHeld]);
 // Groups (R2): the list, and a group whose tabs are routes under it. Each page is its own chunk.
 const groups = createRoute({ getParentRoute: () => root, path: "/groups", validateSearch: groupsSearch, component: lazyRouteComponent(() => import("@/pages/groups/list"), "GroupsPage") });
 const group = createRoute({ getParentRoute: () => root, path: "/groups/$group", validateSearch: groupSearch, component: lazyRouteComponent(() => import("@/pages/groups/layout"), "GroupLayout") });
@@ -89,6 +97,14 @@ const groupTabs = [
   createRoute({ getParentRoute: () => group, path: "story", validateSearch: storySearch, component: lazyRouteComponent(() => import("@/pages/groups/story"), "GroupStoryPage") }),
   createRoute({ getParentRoute: () => group, path: "wire", component: lazyRouteComponent(() => import("@/pages/groups/wire"), "GroupWirePage") }),
 ] as const;
+
+// 10d: the Schemas pages, one lazily loaded chunk (pages/schemas/pages.ts). A subject is under `subjects/` so no subject name can
+// take the address of a page (`/schemas/new`).
+const schemasPage = (name: keyof typeof import("@/pages/schemas/pages")) => lazyRouteComponent(() => import("@/pages/schemas/pages"), name);
+const schemas = createRoute({ getParentRoute: () => root, path: "/schemas", validateSearch: schemasSearch, component: schemasPage("SchemasPage") });
+const schemasNew = createRoute({ getParentRoute: () => root, path: "/schemas/new", validateSearch: newSchemaSearch, component: schemasPage("NewSchemaPage") });
+const schemaSubject = createRoute({ getParentRoute: () => root, path: "/schemas/subjects/$subject", validateSearch: subjectSearch, component: schemasPage("SubjectPage") });
+const schemaDiff = createRoute({ getParentRoute: () => root, path: "/schemas/subjects/$subject/diff", validateSearch: diffSearch, component: schemasPage("SchemaDiffPage") });
 
 // Slice R4: Settings, Access, the Lab: each its own chunk, fetched when first opened.
 const settings = createRoute({ getParentRoute: () => root, path: "/settings", validateSearch: settingsSearch, component: lazyRouteComponent(() => import("@/pages/settings"), "SettingsPage") });
@@ -106,6 +122,10 @@ const tree = root.addChildren([
   topicTree,
   groups,
   group.addChildren(groupTabs),
+  schemas,
+  schemasNew,
+  schemaSubject,
+  schemaDiff,
   access,
   lab,
   settings,

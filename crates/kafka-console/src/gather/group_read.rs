@@ -74,7 +74,7 @@ fn member_row(id: String, client_id: String, host: String) -> GroupMemberRow {
         id,
         instance: None,
         client_id,
-        host: host.strip_prefix('/').map_or(host.clone(), str::to_owned),
+        host: host.strip_prefix('/').map(str::to_owned).unwrap_or(host),
         leader: false,
         epoch: 0,
         session_ms: 0,

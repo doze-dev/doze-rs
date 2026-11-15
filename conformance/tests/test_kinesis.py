@@ -166,11 +166,18 @@ def test_every_iterator_type(client, names, cleanup, snapshot, eventually):
                                         Timestamp=datetime.datetime.fromtimestamp(before + 1, datetime.timezone.utc)))
 
 
-def test_consumers_policy_and_tags_by_arn(client, names, cleanup, snapshot):
+def test_consumers_policy_and_tags_by_arn(client, names, cleanup, snapshot, eventually):
     kinesis = client("kinesis")
     name = stream(kinesis, names, cleanup)
     arn = kinesis.describe_stream_summary(StreamName=name)["StreamDescriptionSummary"]["StreamARN"]
-    made = kinesis.register_stream_consumer(StreamARN=arn, ConsumerName="c1")
+
+    # Like ListShards, RegisterStreamConsumer can answer "not found" for a moment after the stream is ACTIVE (recorded 2026-11-15).
+    def register():
+        try:
+            return kinesis.register_stream_consumer(StreamARN=arn, ConsumerName="c1")
+        except kinesis.exceptions.ResourceNotFoundException as e:
+            raise AssertionError(str(e))
+    made = eventually(register)
     snapshot.match("register", made, opaque=("ConsumerARN", "ConsumerCreationTimestamp"), drop=("ConsumerStatus",))
     snapshot.match("list-consumers", kinesis.list_stream_consumers(StreamARN=arn),
                    opaque=("ConsumerARN", "ConsumerCreationTimestamp"), drop=("ConsumerStatus",))
@@ -178,7 +185,8 @@ def test_consumers_policy_and_tags_by_arn(client, names, cleanup, snapshot):
     kinesis.deregister_stream_consumer(StreamARN=arn, ConsumerName="c1")
     snapshot.match("tag-by-arn", kinesis.tag_resource(ResourceARN=arn, Tags={"env": "dev"}))
     snapshot.match("tags-by-arn", kinesis.list_tags_for_resource(ResourceARN=arn))
-    snapshot.error("no-policy", lambda: kinesis.get_resource_policy(ResourceARN=arn))
+    # AWS answers a stream without a policy with an empty one, not a refusal (recorded 2026-11-15).
+    snapshot.outcome("no-policy", lambda: kinesis.get_resource_policy(ResourceARN=arn))
 
 
 # Written ahead of a recording (2026-11-13): UNVERIFIED until recorded against AWS.

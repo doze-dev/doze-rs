@@ -60,7 +60,7 @@ impl Source {
     }
 
     /// The Create ACL dialog for what was typed.
-    pub async fn acl_create_form(&self, f: &AclFields<'_>) -> AclCreateView {
+    pub fn acl_create_form(&self, f: &AclFields<'_>) -> AclCreateView {
         match self {
             Self::Live(l) => {
                 let version = l.backend.version(kafka_wire::messages::ApiKey::CreateAcls);

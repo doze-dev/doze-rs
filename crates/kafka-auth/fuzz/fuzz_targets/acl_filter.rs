@@ -3,7 +3,8 @@
 //! (a client may send any), the strings are anything.
 
 use kafka_auth::authz::{
-    Acl, AclFilter, AclSet, Resource, Rules, Subject, operation, pattern, permission, resource,
+    Acl, AclFilter, AclSet, Operation, Resource, ResourceType, Rules, Subject, operation, pattern,
+    permission, resource,
 };
 use libfuzzer_sys::arbitrary::{Result, Unstructured};
 use libfuzzer_sys::fuzz_target;
@@ -104,8 +105,12 @@ fn check(u: &mut Unstructured<'_>) -> Result<()> {
     let subject = Subject { principal: &who, host: &host };
     let (kind, op): (i8, i8) = (u.arbitrary()?, u.arbitrary()?);
     let name = text(u)?;
+    // A number that names no type or operation is refused at the wire's edge, before any decision.
+    let (Ok(kind), Ok(op)) = (ResourceType::try_from(kind), Operation::try_from(op)) else {
+        return Ok(());
+    };
     let _ = rules.authorize(&set, subject, Resource { kind, name: &name }, op);
-    let _ = rules.authorize_by_resource_type(&set, subject, op, kind);
+    let _ = rules.authorize_by_resource_type(&set, subject, kind, op);
     Ok(())
 }
 

@@ -113,7 +113,7 @@ pub fn home(state: HomeState) -> HomeView {
         HomeState::Quiet => {
             instance.up_secs = 120;
             instance.last_stop = StopView::None;
-            instance.started = "Nov 9 22:12 UTC".to_owned();
+            "Nov 9 22:12 UTC".clone_into(&mut instance.started);
             instance.open_partitions = 0;
             instance.open_files = None;
             instance.resident_bytes = Some(3_250_000);

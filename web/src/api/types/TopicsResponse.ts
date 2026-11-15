@@ -5,4 +5,8 @@ import type { TopicsView } from "./TopicsView";
 /**
  * `GET /api/v1/topics?q=&internal=1`.
  */
-export type TopicsResponse = { view: TopicsView, state: TopicsState, };
+export type TopicsResponse = { view: TopicsView, state: TopicsState, 
+/**
+ * Each topic's schema subject (`<topic>-value`, else `<topic>-key`) where the registry has one.
+ */
+subjects: Array<[string, string]>, };

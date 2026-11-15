@@ -44,7 +44,7 @@ impl Follow {
             .await?;
         let keys: HashSet<(i32, i64)> = view.rows.iter().map(|r| (r.partition, r.offset)).collect();
         let since = self.since_ms;
-        let fresh: Vec<RecordRow> = view
+        let mut fresh: Vec<RecordRow> = view
             .rows
             .into_iter()
             .filter(|r| match &self.last {
@@ -53,6 +53,7 @@ impl Follow {
             })
             .collect();
         self.last = Some(keys);
+        s.source.schemas().decorate_rows(&mut fresh, &self.topic);
         let newest = fresh.iter().map(|r| r.timestamp_ms).max()?;
         self.since_ms = self.since_ms.max(newest);
         Some((self.since_ms, fresh))

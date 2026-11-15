@@ -1,6 +1,6 @@
 //! LeaveGroup.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::{GroupId, InstanceId, MemberId};
 use kafka_wire::messages::leave_group_response::MemberResponse;
@@ -21,7 +21,7 @@ impl<F: Fs> Broker<F> {
         // The caller must be allowed to READ the group; a refusal is at the top, in every version.
         if !self
             .guard(caller)
-            .group(operation::READ, req.group_id.as_str())
+            .group(Operation::Read, req.group_id.as_str())
         {
             resp.error_code = ResponseError::GroupAuthorizationFailed.code();
             return Outcome::Respond(kafka_wire::api::Response::LeaveGroup(resp));

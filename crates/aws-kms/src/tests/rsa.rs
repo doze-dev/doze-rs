@@ -105,8 +105,8 @@ fn an_rsa_encryption_key_does_oaep() {
     assert_eq!(
         w.err("Encrypt", &json!({"KeyId": id, "Plaintext": "eA=="}))
             .0,
-        "ValidationException",
-        "an algorithm is required"
+        "InvalidKeyUsageException",
+        "no algorithm is SYMMETRIC_DEFAULT, which an RSA key cannot use"
     );
     assert_eq!(w.err("Decrypt", &json!({"CiphertextBlob": "Z2FyYmFnZQ==", "KeyId": id, "EncryptionAlgorithm": "RSAES_OAEP_SHA_256"})).0, "InvalidCiphertextException");
     let long = "eA".repeat(200) + "==";

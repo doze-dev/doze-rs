@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
@@ -35,7 +35,7 @@ impl<F: Fs> Broker<F> {
         // Until its partitions are cleared the name is not to be made again: the new topic's would be named the same.
         let _one_change_at_a_time = self.topic_admin.lock().await;
         // DELETE on the cluster covers every topic, for describing and for deleting (`ControllerApis.deleteTopics`).
-        let cluster = self.cluster_allows(caller, operation::DELETE);
+        let cluster = self.cluster_allows(caller, Operation::Delete);
         let by_name = req.topic_names.iter().map(|n| Target {
             name: Some(&n.0),
             id: kafka_wire::Uuid::nil(),
@@ -113,7 +113,7 @@ impl<F: Fs> Broker<F> {
     ) -> Option<DeletableTopicResult> {
         let name = target.name.or_else(|| found.map(|t| t.name.as_ref()))?;
         let allows = |op| cluster || self.topic_allows(caller, name, op);
-        let (describable, deletable) = (allows(operation::DESCRIBE), allows(operation::DELETE));
+        let (describable, deletable) = (allows(Operation::Describe), allows(Operation::Delete));
         let denied = |shown: Option<&str>, id| {
             let mut r = DeletableTopicResult::default();
             r.name = shown.map(|n| WireName(StrBytes::from_string(n.to_owned())));

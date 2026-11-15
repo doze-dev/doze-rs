@@ -23,7 +23,7 @@ use crate::req::Req;
 
 const FILE: &str = "kinesis.redb";
 const STREAMS: &str = "streams";
-const RECORDS: &str = "records";
+pub(crate) const RECORDS: &str = "records";
 const ACCOUNT: &str = "account";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 const VERSION: u8 = 1;
@@ -99,8 +99,15 @@ pub(crate) fn built(op: Operation) -> bool {
     )
 }
 
+/// What the actor is asked: a call from the wire, or a data question from `doze-aws data`.
+#[derive(Debug)]
+pub(crate) enum Ask {
+    Call(Box<Call>),
+    Data(Box<crate::storage::Asked>),
+}
+
 impl doze_runtime::Service for Core {
-    type Request = Call;
+    type Request = Ask;
     type Response = Answer;
     type Error = StoreError;
 
@@ -108,7 +115,21 @@ impl doze_runtime::Service for Core {
         Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
     }
 
-    async fn handle(&mut self, call: Call) -> Answer {
+    async fn handle(&mut self, ask: Ask) -> Answer {
+        let call = match ask {
+            Ask::Call(call) => *call,
+            Ask::Data(asked) => {
+                let crate::storage::Asked { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                return Answer {
+                    reply: Err(ApiError::internal("not a call")),
+                    durable: None,
+                    appended: false,
+                };
+            }
+        };
         if let Some(peers) = self.peers.clone()
             && peers.mode() != Mode::Off
             && let Err(refusal) = peers

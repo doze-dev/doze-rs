@@ -6,6 +6,7 @@ import { basePath } from "../../api/client";
 import type { TailBatch } from "@/api/types/TailBatch";
 import type { TailReady } from "@/api/types/TailReady";
 import type { WireRow } from "@/api/types/WireRow";
+import { untilStaying } from "../../lib/leaving";
 import { SseParser } from "../../lib/sse";
 
 // ---- the speed: one preference, remembered per browser ----
@@ -181,6 +182,8 @@ export class TailStream {
       silent = setTimeout(() => abort.abort(), SILENT_MS);
     };
     try {
+      // A page being left opens no stream (lib/leaving.ts, J500); stop() aborts the wait.
+      await untilStaying(abort.signal);
       const res = await fetch(this.url(), {
         headers: { "X-Console": "1", Accept: "text/event-stream", "Last-Event-ID": this.cursor },
         credentials: "same-origin",

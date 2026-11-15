@@ -33,6 +33,8 @@ pub struct Live {
     /// The door that closes to other machines while the broker has ACLs (SEC-250); None: nothing to close (a loopback console,
     /// or `--console-unprotected`).
     pub door: Option<crate::door::Door>,
+    /// The schema registry beside the broker, or why there is none.
+    pub schemas: crate::schemas::Schemas,
 }
 
 impl Live {
@@ -47,6 +49,7 @@ impl Live {
             start: crate::facts_start::StartFacts::default(),
             lab: None,
             door: None,
+            schemas: crate::schemas::Schemas::default(),
         }
     }
 
@@ -65,6 +68,13 @@ impl Live {
         self
     }
 
+    /// The same, with the schema registry (or why there is none).
+    #[must_use]
+    pub fn with_schemas(mut self, schemas: crate::schemas::Schemas) -> Self {
+        self.schemas = schemas;
+        self
+    }
+
     /// The same, told how the binary started the broker: the Settings and Access pages say it.
     #[must_use]
     pub fn with_start(mut self, start: crate::facts_start::StartFacts) -> Self {
@@ -72,7 +82,7 @@ impl Live {
         self
     }
 
-    async fn access(&self) -> Access {
+    fn access(&self) -> Access {
         let (acls, allow) = self
             .backend
             .instance()
@@ -87,7 +97,7 @@ impl Live {
         let now = now_ms();
         let (topics, partitions) = gather::counts(&self.backend).await;
         let looked = gather::nearest(&self.backend, now).await;
-        let access = self.access().await;
+        let access = self.access();
         let instance = self
             .backend
             .instance()
@@ -142,10 +152,24 @@ pub enum Source {
 }
 
 impl Source {
+    /// The schema registry, or why there is none (the fixtures have none).
+    #[must_use]
+    pub fn schemas(&self) -> &crate::schemas::Schemas {
+        match self {
+            Self::Live(l) => &l.schemas,
+            #[cfg(any(test, feature = "examples"))]
+            Self::Fixture => {
+                static NONE: crate::schemas::Schemas =
+                    crate::schemas::Schemas::Off(crate::schemas::Off::Absent);
+                &NONE
+            }
+        }
+    }
+
     /// The top bar.
     pub async fn chrome(&self) -> Chrome {
         match self {
-            Self::Live(l) => facts::chrome(&l.facts, &l.access().await),
+            Self::Live(l) => facts::chrome(&l.facts, &l.access()),
             #[cfg(any(test, feature = "examples"))]
             Self::Fixture => crate::fixtures::chrome(),
         }
@@ -173,7 +197,7 @@ impl Source {
     pub async fn connect(&self) -> ConnectView {
         match self {
             Self::Live(l) => {
-                let access = l.access().await;
+                let access = l.access();
                 ConnectView {
                     listen: l.facts.bootstrap(),
                     loopback: l.facts.loopback(),

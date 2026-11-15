@@ -31,8 +31,9 @@ impl<F: Fs> Broker<F> {
                 Ok(())
             }
             Err((what, why)) => {
-                // Once per failure, not once per attempt: the coordinator tries again twice a second.
+                // Once per failure, not once per attempt: the coordinator tries again twice a second until it works.
                 let text = format!("{what}: {why}");
+                self.retry_txns_soon();
                 if e.failure.as_deref() != Some(text.as_str()) {
                     tracing::error!(transactional_id = %e.rec.id, commit, "transactions: {text}; the decision stands and will be carried out when it can be");
                     e.failure = Some(text);

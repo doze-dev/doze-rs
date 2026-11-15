@@ -33,6 +33,7 @@ mod put;
 mod read;
 mod req;
 mod stats;
+mod storage;
 mod stored;
 mod stored_rules;
 mod timers;
@@ -234,6 +235,10 @@ impl Cloudwatch {
 }
 
 impl Service for Cloudwatch {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static ServiceMeta {
         &META
     }

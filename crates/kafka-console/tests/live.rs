@@ -83,7 +83,7 @@ impl World {
         let live = Live::new(self.backend.clone(), self.facts.clone());
         let state = State::new(
             Source::Live(Box::new(live)),
-            Base::root(),
+            &Base::root(),
             vec![],
             CancellationToken::new(),
         );

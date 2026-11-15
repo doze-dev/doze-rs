@@ -4,8 +4,7 @@
 
 use std::collections::HashMap;
 
-use kafka_auth::authz::{operation, resource};
-use kafka_meta::Topic;
+use kafka_auth::authz::{Operation, ResourceType};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::ids::TopicName;
@@ -129,21 +128,21 @@ impl<F: Fs> Broker<F> {
     /// metrics (and, in IncrementalAlterConfigs only, its loggers); on the group. Any other type is nobody's to
     /// refuse here.
     fn alter_access(&self, caller: &Caller, r: &Resource, replace: bool) -> Result<(), Refusal> {
-        let ask = |kind: i8| {
+        let ask = |kind: ResourceType| {
             self.authz
-                .allows(caller, kind, &r.name, operation::ALTER_CONFIGS)
+                .allows(caller, kind, &r.name, Operation::AlterConfigs)
         };
-        let cluster = || self.cluster_allows(caller, operation::ALTER_CONFIGS);
+        let cluster = || self.cluster_allows(caller, Operation::AlterConfigs);
         let (allowed, error, message) = match r.kind {
             TOPIC => (
-                ask(resource::TOPIC),
+                ask(ResourceType::Topic),
                 E::TopicAuthorizationFailed,
                 TOPIC_DENIED,
             ),
             BROKER | CLIENT_METRICS => (cluster(), E::ClusterAuthorizationFailed, CLUSTER_DENIED),
             BROKER_LOGGER if !replace => (cluster(), E::ClusterAuthorizationFailed, CLUSTER_DENIED),
             GROUP => (
-                ask(resource::GROUP),
+                ask(ResourceType::Group),
                 E::GroupAuthorizationFailed,
                 GROUP_DENIED,
             ),
@@ -188,10 +187,7 @@ impl<F: Fs> Broker<F> {
         }
         let changed = blocking::run(|| {
             self.meta
-                .update_topic(&name, |t| Topic {
-                    config: next.clone(),
-                    ..t.clone()
-                })
+                .update_topic(&name, |t| t.with_config(next))
         })
         .map_err(|e| {
             tracing::error!(topic = %r.name, error = %e, "configs: could not store a topic's configs");

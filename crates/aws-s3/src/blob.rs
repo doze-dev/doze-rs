@@ -120,18 +120,37 @@ impl<F: Fs> Blobs<F> {
         self.fs.remove_file(&self.dir.join(id)).ok();
     }
 
-    /// Removes staging files that belong to no running process and, when `live` is given, blobs nothing refers to.
-    pub(crate) fn sweep(&self, live: Option<&HashSet<String>>) {
+    /// Removes a blob and answers the bytes the disk got back (0 for one already gone or that could not be removed).
+    pub(crate) fn remove_counted(&self, id: &str) -> u64 {
+        let path = self.dir.join(id);
+        let size = self
+            .fs
+            .open_existing(&path)
+            .and_then(|f| f.size())
+            .unwrap_or(0);
+        // WHY: a blob that cannot be removed now is unreferenced and is swept at the next unclean start; it gave nothing back yet.
+        if self.fs.remove_file(&path).unwrap_or(false) {
+            size
+        } else {
+            0
+        }
+    }
+
+    /// Removes staging files that belong to no running process and, when `live` is given, blobs nothing refers to. Answers the
+    /// bytes removed.
+    pub(crate) fn sweep(&self, live: Option<&HashSet<String>>) -> u64 {
         let Ok(entries) = self.fs.list_dir(&self.dir) else {
-            return;
+            return 0;
         };
+        let mut freed = 0;
         for e in entries.iter().filter(|e| !e.is_dir) {
             let stale_part = e.name.ends_with(PART) && !e.name.starts_with(&self.run);
             let orphan = !e.name.ends_with(PART) && live.is_some_and(|l| !l.contains(&e.name));
             if stale_part || orphan {
-                self.remove(&e.name);
+                freed += self.remove_counted(&e.name);
             }
         }
+        freed
     }
 
     /// The file system.

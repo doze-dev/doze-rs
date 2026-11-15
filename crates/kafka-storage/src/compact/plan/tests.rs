@@ -258,3 +258,90 @@ fn a_transaction_open_exactly_at_the_active_segment_is_the_active_segment_that_s
     let r = reading(&s, 100, 299, 300, &P);
     assert_eq!((r.limit, r.upto), (Limit::Transaction, 299));
 }
+
+#[test]
+fn a_log_judged_not_due_stays_not_due_until_the_time_next_due_names_and_is_due_then_if_ever() {
+    // Random logs, settings and moments: whatever `next_due` says, `judge` says nothing is due at any moment before it; and
+    // when it says never, nothing is due however long the log waits. A log that becomes due becomes due at that time or
+    // later, never earlier than said.
+    let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+    let mut next = |below: i64| {
+        seed = seed
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        i64::try_from(seed >> 33).unwrap() % below.max(1)
+    };
+    for _ in 0..4_000 {
+        let n = next(5) + 1;
+        let mut base = 0;
+        let mut segments = Vec::new();
+        for _ in 0..n {
+            let len = next(50) + 1;
+            let newest_ms = next(20_000);
+            segments.push(Facts {
+                base,
+                next: base + len,
+                size: u64::try_from(next(200) + 1).unwrap(),
+                newest_ms,
+                oldest_ms: newest_ms - next(3_000),
+            });
+            base += len;
+        }
+        let active = base;
+        let checkpoint = next(active + 1);
+        let unstable = next(active + 20);
+        let p = Params {
+            min_dirty_ratio: [0.1, 0.5, 0.9][usize::try_from(next(3)).unwrap()],
+            min_lag_ms: [0, 1_000, 8_000][usize::try_from(next(3)).unwrap()],
+            max_lag_ms: [i64::MAX, 2_000, 15_000][usize::try_from(next(3)).unwrap()],
+            now_ms: 10_000,
+            ..P
+        };
+        if judge(&segments, checkpoint, unstable, active, &p).is_some() {
+            continue;
+        }
+        let due = next_due(&segments, checkpoint, unstable, active, &p);
+        let horizon = due.unwrap_or(60_000);
+        for at in (p.now_ms..horizon).step_by(97) {
+            let later = Params { now_ms: at, ..p };
+            assert!(
+                judge(&segments, checkpoint, unstable, active, &later).is_none(),
+                "due at {at}, before the {due:?} said: {segments:?} cp {checkpoint} unstable {unstable} {p:?}"
+            );
+        }
+        if let Some(due) = due {
+            assert!(due >= p.now_ms, "never in the past");
+        }
+    }
+}
+
+#[test]
+fn next_due_names_the_moment_the_minimum_lag_lets_a_segment_go_and_the_maximum_forces_one() {
+    let lag = Params {
+        min_lag_ms: 5_000,
+        ..P
+    };
+    // The second segment is newer than the lag (9,000 > 10,000 - 5,000) and is dirty: it comes of age at 14,000.
+    let s = segs(&[(0, 50, 1_000), (100, 100, 9_000), (200, 100, 9_500)]);
+    assert_eq!(next_due(&s, 100, 1_000, 300, &lag), Some(14_000));
+    let at = Params {
+        now_ms: 14_000,
+        ..lag
+    };
+    assert!(judge(&s, 100, 1_000, 300, &at).is_some(), "due then");
+    // The maximum lag: the first dirty segment first written at 1,000 is forced once older than 1,000 + 9,000.
+    let s = segs(&[(0, 1_000, 1_000), (1_000, 10, 1_000)]);
+    let forced = Params {
+        max_lag_ms: 9_000,
+        ..P
+    };
+    assert_eq!(judge(&s, 1_000, 2_000, 1_010, &forced), None);
+    assert_eq!(next_due(&s, 1_000, 2_000, 1_010, &forced), Some(10_001));
+    let then = Params {
+        now_ms: 10_001,
+        ..forced
+    };
+    assert!(judge(&s, 1_000, 2_000, 1_010, &then).is_some());
+    // No lag set: only a write changes the verdict.
+    assert_eq!(next_due(&s, 1_000, 2_000, 1_010, &P), None);
+}

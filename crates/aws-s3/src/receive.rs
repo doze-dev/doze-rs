@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use crate::blob::{Blobs, Staging};
 use crate::checksum::{Algo, Done, Sums, b64};
-use crate::errors::{bad_digest, invalid_request};
+use crate::errors::{bad_digest, invalid_request, md5_mismatch};
 use crate::req::Staged;
 
 /// What the request declared about its body.
@@ -127,7 +127,7 @@ fn verify(done: &Done, d: &Declared, trailers: &[(String, String)]) -> Result<()
     if let Some(want) = &d.md5
         && b64(&done.md5) != *want
     {
-        return Err(bad_digest("Content-MD5"));
+        return Err(md5_mismatch());
     }
     if let Some(want) = &d.sha256_hex {
         let got = done

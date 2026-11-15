@@ -84,7 +84,7 @@ pub fn rows(topic: &str) -> Vec<ConfigRow> {
                 "retention.ms" => ("604800000", Dflt),
                 _ => continue,
             };
-            r.value = value.to_owned();
+            value.clone_into(&mut r.value);
             r.source = source;
             r.synonyms = synonyms(&r.name, value, source);
         }

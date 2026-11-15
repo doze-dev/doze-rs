@@ -2,8 +2,7 @@
 //! batch uses, held to a limit on what may be inflated. For display only: nothing here is written back, and a record
 //! that cannot be read ends the walk with an error rather than a guess.
 
-use super::recode::read_varint;
-use super::{Batch, RecordsRefused, Refusal};
+use super::{Batch, RecordsRefused, Refusal, TimestampType, varint};
 use crate::ids::Offset;
 
 /// The most headers one record is read with; a record that claims more is unreadable (it cannot hold them).
@@ -17,7 +16,8 @@ pub type LookedHeader<'a> = (&'a [u8], Option<&'a [u8]>);
 pub struct Looked<'a> {
     /// Its offset in the log.
     pub offset: i64,
-    /// Its timestamp (the batch's first timestamp plus the record's delta).
+    /// Its timestamp: the batch's first timestamp plus the record's delta, or, in a batch the broker stamped
+    /// (LogAppendTime), the batch's newest timestamp.
     pub timestamp: i64,
     /// Its key, if it has one.
     pub key: Option<&'a [u8]>,
@@ -29,8 +29,7 @@ pub struct Looked<'a> {
 
 /// A field of `len` bytes (a negative length is none) off the front of `rest`.
 fn field<'a>(rest: &mut &'a [u8]) -> Option<Option<&'a [u8]>> {
-    let (len, used) = read_varint(rest)?;
-    *rest = rest.get(used..)?;
+    let len = varint::read(rest)?;
     if len < 0 {
         return Some(None);
     }
@@ -41,8 +40,7 @@ fn field<'a>(rest: &mut &'a [u8]) -> Option<Option<&'a [u8]>> {
 }
 
 fn headers<'a>(rest: &mut &'a [u8]) -> Option<Vec<LookedHeader<'a>>> {
-    let (count, used) = read_varint(rest)?;
-    *rest = rest.get(used..)?;
+    let count = varint::read(rest)?;
     let count = usize::try_from(count).ok().filter(|c| *c <= MOST_HEADERS)?;
     // A header is at least two length bytes, so a count the rest cannot hold is no count.
     if count > rest.len() / 2 {
@@ -59,10 +57,8 @@ fn headers<'a>(rest: &mut &'a [u8]) -> Option<Vec<LookedHeader<'a>>> {
 /// One record (without its length prefix) read in full, its offset worked out from `base`.
 fn parse<'a>(record: &'a [u8], base: i64, first_timestamp: i64) -> Option<Looked<'a>> {
     let mut rest = record.get(1..)?; // the record's attribute byte
-    let (timestamp_delta, n) = read_varint(rest)?;
-    rest = rest.get(n..)?;
-    let (offset_delta, n) = read_varint(rest)?;
-    rest = rest.get(n..)?;
+    let timestamp_delta = varint::read(&mut rest)?;
+    let offset_delta = varint::read(&mut rest)?;
     let key = field(&mut rest)?;
     let value = field(&mut rest)?;
     let headers = headers(&mut rest)?;
@@ -92,20 +88,23 @@ impl Batch {
         let inflated = self.inflated(max_inflated)?;
         let base = self.base_offset().map_or(0, Offset::get);
         let first = self.first_timestamp().get();
+        // A batch the broker stamped gives every record its newest timestamp, as Kafka's DefaultRecordBatch does.
+        let stamped = (self.attributes().timestamp_type() == TimestampType::LogAppend)
+            .then(|| self.max_timestamp().get());
         let mut rest = inflated.as_slice();
         for _ in 0..self.record_count() {
-            let (length, used) =
-                read_varint(rest).ok_or_else(|| unreadable("a record is cut short"))?;
-            let end = usize::try_from(length)
-                .ok()
-                .and_then(|l| used.checked_add(l))
+            let length = varint::read(&mut rest)
+                .and_then(|l| usize::try_from(l).ok())
                 .ok_or_else(|| unreadable("a record is cut short"))?;
             let record = rest
-                .get(used..end)
+                .get(..length)
                 .ok_or_else(|| unreadable("a record is cut short"))?;
-            rest = rest.get(end..).unwrap_or_default();
-            let looked =
+            rest = rest.get(length..).unwrap_or_default();
+            let mut looked =
                 parse(record, base, first).ok_or_else(|| unreadable("a record cannot be read"))?;
+            if let Some(at) = stamped {
+                looked.timestamp = at;
+            }
             if !look(&looked) {
                 break;
             }

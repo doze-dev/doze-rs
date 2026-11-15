@@ -65,6 +65,7 @@ pub mod probe;
 pub mod producers_words;
 pub mod recorder;
 pub mod refusal;
+pub mod schemas;
 pub mod serve;
 pub mod settings_words;
 pub mod snippets;
