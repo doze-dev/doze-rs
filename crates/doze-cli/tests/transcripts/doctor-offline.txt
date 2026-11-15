@@ -17,39 +17,39 @@ json:
 |   "command": "doze doctor",
 |   "ok": false,
 |   "data": {
-|     "ok": false,
 |     "checks": [
 |       {
+|         "detail": "{triple}",
 |         "name": "platform",
-|         "state": "ok",
 |         "ok": true,
-|         "detail": "{triple}"
+|         "state": "ok"
 |       },
 |       {
+|         "detail": "{sandbox}/home",
 |         "name": "home",
-|         "state": "ok",
 |         "ok": true,
-|         "detail": "{sandbox}/home"
+|         "state": "ok"
 |       },
 |       {
+|         "detail": "no doze.hcl here or in any parent: checking the machine only",
 |         "name": "config",
-|         "state": "ok",
 |         "ok": true,
-|         "detail": "no doze.hcl here or in any parent: checking the machine only"
+|         "state": "ok"
 |       },
 |       {
+|         "detail": "can't be reached: {sandbox}/unreachable: no registry in that directory · modules this machine has keep working",
 |         "name": "registry",
-|         "state": "fail",
 |         "ok": false,
-|         "detail": "can't be reached: {sandbox}/unreachable: no registry in that directory · modules this machine has keep working"
+|         "state": "fail"
 |       },
 |       {
+|         "detail": "the .doze zone is switched off (DOZE_ZONE=off): nothing to set up",
 |         "name": "names",
-|         "state": "ok",
 |         "ok": true,
-|         "detail": "the .doze zone is switched off (DOZE_ZONE=off): nothing to set up"
+|         "state": "ok"
 |       }
-|     ]
+|     ],
+|     "ok": false
 |   },
 |   "error": {
 |     "code": "failed",

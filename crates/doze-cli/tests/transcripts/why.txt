@@ -25,11 +25,7 @@ json:
 |   "command": "doze why",
 |   "ok": true,
 |   "data": {
-|     "name": "cache",
-|     "running": true,
-|     "state": "dozing",
 |     "because": "sleeps in 4:12",
-|     "restarts": 0,
 |     "events": [
 |       {
 |         "at": "09:02:11",
@@ -48,20 +44,24 @@ json:
 |       }
 |     ],
 |     "live": {
-|       "name": "cache",
-|       "kind": "module",
-|       "engine": "valkey",
-|       "state": "idle",
-|       "version": "9",
-|       "pid": 4102,
 |       "conns": 0,
-|       "started_at": "0001-01-01T00:00:00Z",
-|       "idle_since": "2026-10-10T09:14:12Z",
-|       "ram": 5242880,
-|       "endpoint": "127.0.0.1:6379",
 |       "declared": true,
-|       "next_restart": "0001-01-01T00:00:00Z"
-|     }
+|       "endpoint": "127.0.0.1:6379",
+|       "engine": "valkey",
+|       "idle_since": "2026-10-10T09:14:12Z",
+|       "kind": "module",
+|       "name": "cache",
+|       "next_restart": "0001-01-01T00:00:00Z",
+|       "pid": 4102,
+|       "ram": 5242880,
+|       "started_at": "0001-01-01T00:00:00Z",
+|       "state": "idle",
+|       "version": "9"
+|     },
+|     "name": "cache",
+|     "restarts": 0,
+|     "running": true,
+|     "state": "dozing"
 |   }
 | }
 
@@ -79,11 +79,7 @@ json:
 |   "command": "doze why",
 |   "ok": true,
 |   "data": {
-|     "name": "worker",
-|     "running": true,
-|     "state": "crashing",
 |     "because": "try 2 of 5 · next in 4s",
-|     "restarts": 2,
 |     "events": [
 |       {
 |         "at": "09:14:00",
@@ -92,24 +88,28 @@ json:
 |       }
 |     ],
 |     "live": {
-|       "name": "worker",
+|       "conns": 0,
+|       "declared": true,
+|       "engine": "process",
+|       "idle_since": "0001-01-01T00:00:00Z",
 |       "kind": "app",
+|       "last_error": "exited with status 1; restarting (2/5) in 4s",
+|       "name": "worker",
 |       "needs": [
 |         "events"
 |       ],
-|       "engine": "process",
-|       "state": "crashing",
-|       "version": "builtin",
+|       "next_restart": "2026-10-10T09:15:04Z",
 |       "pid": 0,
-|       "conns": 0,
-|       "started_at": "0001-01-01T00:00:00Z",
-|       "idle_since": "0001-01-01T00:00:00Z",
-|       "last_error": "exited with status 1; restarting (2/5) in 4s",
-|       "declared": true,
 |       "restart_count": 2,
 |       "restart_max": 5,
-|       "next_restart": "2026-10-10T09:15:04Z"
-|     }
+|       "started_at": "0001-01-01T00:00:00Z",
+|       "state": "crashing",
+|       "version": "builtin"
+|     },
+|     "name": "worker",
+|     "restarts": 2,
+|     "running": true,
+|     "state": "crashing"
 |   }
 | }
 

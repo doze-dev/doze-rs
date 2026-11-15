@@ -14,10 +14,10 @@ json:
 |   "command": "doze version",
 |   "ok": true,
 |   "data": {
-|     "version": "dev",
-|     "os": "{os}",
 |     "arch": "{arch}",
-|     "protocol": 2
+|     "os": "{os}",
+|     "protocol": 2,
+|     "version": "dev"
 |   }
 | }
 tty exit 0
