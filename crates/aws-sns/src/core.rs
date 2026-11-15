@@ -84,7 +84,11 @@ impl doze_runtime::Service for Core {
     }
 
     async fn handle(&mut self, call: Call) -> Answer {
+        // A `SubscribeURL` is fetched unsigned, and AWS confirms through it without asking who fetched it: the token is the proof.
+        let by_url =
+            call.caller.is_anonymous() && call.op == Operation::ConfirmSubscription.index();
         if let Some(peers) = self.peers.clone()
+            && !by_url
             && peers.mode() != Mode::Off
             && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
         {

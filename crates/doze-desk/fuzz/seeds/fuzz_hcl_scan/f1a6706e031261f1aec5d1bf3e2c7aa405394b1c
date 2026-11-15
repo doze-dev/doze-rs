@@ -1,0 +1,8 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+   
+    "services": [
+    ": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": tarder —, "depends grOn"oc

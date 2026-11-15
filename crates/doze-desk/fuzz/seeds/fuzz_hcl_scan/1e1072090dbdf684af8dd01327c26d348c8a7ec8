@@ -1,0 +1,28 @@
+# Larder — gropostgres "postgres" {
+  version = 18
+  port    = 5432
+
+  roa "catalog" { owner = "catalog" }
+  sc# Larder — groceries at your door within the hour.
+#
+# Seven services inidentity:identity@${modulehema "orders" { owner = "orders" }
+  schame p: 0, "dependsOn": ["api"] },
+      { "name": "worker", "engine": "process", "group": "app", "state": "asleep", "enabled": true, " "stamigrate-catalog" {
+  run    = "go run ./platforate-payments" {
+  run    = "go run ./platform  port = 4566
+
+  bucket # Larder — groceries at your door within the hour.
+#
+# Seven services inidentity:identity@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "mig/cmd/migrate services/payments/migrations"
+  inputs = ["services/payments/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://payments:payments@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-recommendrate-catalog" {
+  run    = "go run ./platforate-payments" {
+  run    = "go run ./platform/cmd/migrate services/payments/migrations"
+  inputs = ["services/paymenations" {
+  run    = "go run ./platfo"333333333333333ts/migrat33333rions/*

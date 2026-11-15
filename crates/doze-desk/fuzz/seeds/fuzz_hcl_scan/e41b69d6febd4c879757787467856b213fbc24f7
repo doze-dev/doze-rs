@@ -1,0 +1,6 @@
+{
+  "schema": "doze/v1",
+  "command": "doz", "group:8080", "dom%%%%%%%%%%%%%%%%%%%%%%%%%uP: 0, "dependsOn": ["db"] }
+    ]
+mem
+}

@@ -1,0 +1,35 @@
+ {
+  run  = "go run ./cmd/api"
+  port = 8
+  run = "go run ./cmd/wo ./cmd/migratecme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8
+  run = "go run .moduld.db.url }
+@"stack = "acme"
+
+de
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8
+  run = "go run ./cmd/wo ./cmd/migratecme"
+
+defaults {
+  namtrue
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8
+  run = "go run ./cmd/wo ./cmd/= { DATABASE_URL
+  moduld.db.url }
+@"
+  env = { DATAB "doze/v1",
+ uld.db.url }
+}

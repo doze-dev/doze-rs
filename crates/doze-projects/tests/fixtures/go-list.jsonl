@@ -1,0 +1,3 @@
+{"dir":"/projects/shop-1a2b3c4d","schema":1,"config":"/code/shop/doze.hcl","name":"shop","last_up":"2026-11-13T09:30:00.123456789Z","last_set":["api","worker"]}
+{"dir":"/projects/blog-00ff00ff","schema":1,"config":"/code/blog/doze.hcl","last_up":"2026-11-13T13:00:00.123456789+05:30","last_down":"2026-11-13T14:59:00.123456789+05:30"}
+{"dir":"/projects/harbour-12345678","schema":2,"config":"/code/harbour/doze.hcl","name":"harbour","last_up":"2026-11-12T08:00:00Z"}

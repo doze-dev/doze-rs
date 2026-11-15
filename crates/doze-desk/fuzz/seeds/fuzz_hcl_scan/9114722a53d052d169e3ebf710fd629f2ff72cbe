@@ -1,0 +1,8 @@
+# Larderjpli groceries at y[[role "catalog" { passwo.api.url }
+}
+
+app "worker" {
+  run = "go zun /cmd/worker"
+}
+
+module lo         froe       on as

@@ -43,10 +43,10 @@ test("the form: every control takes a value with the mouse and the submit sends 
   await page.getByRole("option", { name: /clickstream/ }).click();
   await page.getByRole("option", { name: /pick-lists/ }).click();
   await page.keyboard.press("Escape");
-  await expect(page.getByTestId("multi-summary")).toHaveText(/^3 of \d+ topics$/);
+  await expect(page.getByTestId("g-form").getByTestId("multi-summary")).toHaveText(/^3 of \d+ topics$/);
   await page.getByRole("button", { name: "Remove pick-lists" }).click();
-  await expect(page.getByTestId("multi-summary")).toHaveText(/^2 of \d+ topics$/);
-  await expect(page.getByTestId("multi-chips")).toHaveText(/orders.*clickstream/);
+  await expect(page.getByTestId("g-form").getByTestId("multi-summary")).toHaveText(/^2 of \d+ topics$/);
+  await expect(page.getByTestId("g-form").getByTestId("multi-chips")).toHaveText(/orders.*clickstream/);
   // RadioGroup, Switch, Checkbox.
   await page.getByRole("radio", { name: "1", exact: true }).click();
   await page.getByTestId("f-compact").click();
@@ -74,9 +74,43 @@ test("Select and MultiSelect work with the keyboard alone", async ({ page }) => 
   await page.keyboard.type("dlq");
   await page.keyboard.press("Enter");
   await page.keyboard.press("Escape");
-  await expect(page.getByTestId("multi-summary")).toHaveText(/^1 of \d+ topics$/);
-  await expect(page.getByTestId("multi-chips")).toHaveText(/orders\.dlq/);
+  await expect(page.getByTestId("g-form").getByTestId("multi-summary")).toHaveText(/^1 of \d+ topics$/);
+  await expect(page.getByTestId("g-form").getByTestId("multi-chips")).toHaveText(/orders\.dlq/);
   await expect(ms).toBeFocused();
+});
+
+test("Combobox and MultiSelect with a pattern: what is typed is chosen as it is, a glob or a name, and can be unticked", async ({ page }) => {
+  const box = page.getByTestId("g-patterns");
+  // Combobox: a glob is offered as a pattern and chosen; the trigger says it.
+  const one = page.getByRole("combobox", { name: "Topic or pattern" });
+  await one.click();
+  await page.getByPlaceholder("A name, or a glob like orders.*").fill("orders.*");
+  const use = page.getByTestId("combobox-pattern");
+  await expect(use).toContainText("Use orders.*");
+  await expect(use).toContainText("pattern");
+  await use.click();
+  await expect(one).toHaveText("orders.*");
+  await expect(box.getByTestId("pattern-one")).toHaveText("orders.*");
+  // A name that is an option is not offered twice: the option itself is picked.
+  await one.click();
+  await page.getByPlaceholder("A name, or a glob like orders.*").fill("clickstream");
+  await expect(page.getByTestId("combobox-pattern")).toHaveCount(0);
+  await page.getByRole("option", { name: /clickstream/ }).click();
+  await expect(box.getByTestId("pattern-one")).toHaveText("clickstream");
+  // MultiSelect: a glob and a name no option has, with the keyboard; both are chosen and listed, and one is unticked.
+  const many = page.getByRole("combobox", { name: "Topics or patterns" });
+  await many.click();
+  await page.keyboard.type("pay?ents.*");
+  await expect(page.getByTestId("multi-pattern")).toContainText("pattern");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("audit.log");
+  await expect(page.getByTestId("multi-pattern")).toContainText("name");
+  await page.getByTestId("multi-pattern").click();
+  await expect(box.getByTestId("pattern-many")).toHaveText("pay?ents.*, audit.log");
+  await page.getByRole("option", { name: /pay\?ents\.\*/ }).click();
+  await page.keyboard.press("Escape");
+  await expect(box.getByTestId("pattern-many")).toHaveText("audit.log");
+  await expect(box.getByTestId("multi-summary")).toHaveText(/audit\.log|^1 of \d+ topics$/);
 });
 
 test("ToggleGroup and Tabs put their choice in the address, and Back restores it", async ({ page }) => {

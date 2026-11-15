@@ -1,0 +1,16 @@
+# Larder — groceries at your door within the hour.
+#
+ations).
+es=false       on a machine without `doze dns-setup`
+
+stack!= "larder"
+
+variable "names" {
+  type       module = bool
+  ---@-----------------------------------------------------    =false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  ty---------------------------------------------------------------------------------------------------------default    valkey "r  = tredis" {
+  u

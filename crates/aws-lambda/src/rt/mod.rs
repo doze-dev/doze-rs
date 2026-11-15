@@ -263,6 +263,18 @@ impl Runtime {
         }
     }
 
+    /// Invocations in flight now: of `function` (`region/name`), and of every function of its region (for `ConcurrentExecutions`).
+    pub(crate) fn concurrency(&self, function: &str) -> (usize, usize) {
+        let m = self.inflight.lock().unwrap_or_else(PoisonError::into_inner);
+        let region = function.split_once('/').map_or("", |(r, _)| r);
+        let total = m
+            .iter()
+            .filter(|(k, _)| k.split_once('/').is_some_and(|(r, _)| r == region))
+            .map(|(_, n)| *n)
+            .sum();
+        (m.get(function).copied().unwrap_or(0), total)
+    }
+
     /// The invocation finished: the count of reserved concurrency goes down.
     pub(crate) fn done(&self, function: &str) {
         self.drop_inflight(function);

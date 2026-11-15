@@ -210,7 +210,7 @@ async fn cbor_errors_are_cbor_maps_with_the_query_code_beside_them() {
         answer["__type"],
         "com.amazonaws.cloudwatch#ValidationException"
     );
-    let (status, head, _) = cbor(addr, "PutMetricStream", &[0xff]).await;
+    let (status, head, _) = cbor(addr, "GetMetricWidgetImage", &[0xff]).await;
     assert_eq!(status, 501);
     assert!(head.contains("x-doze-not-built: 1"), "{head}");
     let (status, _, _) = cbor(addr, "NoSuchOperation", &map(&[])).await;

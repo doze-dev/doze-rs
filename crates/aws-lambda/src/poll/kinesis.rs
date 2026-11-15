@@ -8,7 +8,8 @@ use std::sync::Arc;
 use serde_json::{Value, json};
 
 use super::Run;
-use super::streams::{Delivered, Rec, deliver};
+use super::parallel::deliver;
+use super::streams::{Delivered, Rec};
 
 /// A Kinesis record as Lambda delivers it.
 fn kinesis_record(r: &Value, shard: &str, arn: &str, region: &str, role: &str) -> Rec {
@@ -60,6 +61,7 @@ fn kinesis_record(r: &Value, shard: &str, arn: &str, region: &str, role: &str) -
         }
     }
     Rec {
+        key: text("PartitionKey"),
         seq: seq.parse().unwrap_or(0),
         pos: seq,
         doc,
@@ -83,7 +85,7 @@ pub(super) async fn kinesis(run: Run, kinesis: Arc<aws_kinesis::Kinesis>) {
     let mut poll = Poll {
         arn: run.source_arn().to_owned(),
         role: run.text("FunctionArn").to_owned(),
-        batch: run.int("BatchSize", 100).clamp(1, 10_000),
+        batch: super::parallel::read_size(&run, run.int("BatchSize", 100)),
         iterators: run.seed.clone(),
         lineage: Lineage::default(),
         peers,

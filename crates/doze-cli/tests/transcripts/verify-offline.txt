@@ -1,0 +1,45 @@
+# The registry unreachable and no copies: nothing verified, the machine's problem (10).
+@ project pinned
+
+$ doze modules verify
+exit 10
+stdout:
+| registry key ed25519 642a…09 (built into this doze)
+| ! postgres 0.2.5  the module registry can't be reached, and this machine has no copy of postgres
+| ! valkey   0.2.1  the module registry can't be reached, and this machine has no copy of valkey
+|   0 of 2 verified on {triple}
+stderr:
+| error[DZ0201]: nothing could be verified: the module registry can't be reached
+|   fix: check the network and run it again · doze doctor checks the registry
+json exit 10
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules verify",
+|   "ok": false,
+|   "data": {
+|     "key": "642a…09",
+|     "modules": [
+|       {
+|         "detail": "the module registry can't be reached, and this machine has no copy of postgres",
+|         "module": "postgres",
+|         "state": "not_checked",
+|         "version": "0.2.5"
+|       },
+|       {
+|         "detail": "the module registry can't be reached, and this machine has no copy of valkey",
+|         "module": "valkey",
+|         "state": "not_checked",
+|         "version": "0.2.1"
+|       }
+|     ],
+|     "platform": "{triple}"
+|   },
+|   "error": {
+|     "code": "machine",
+|     "message": "nothing could be verified: the module registry can't be reached",
+|     "exit": 10,
+|     "id": "DZ0201",
+|     "fix": "check the network and run it again · doze doctor checks the registry"
+|   }
+| }

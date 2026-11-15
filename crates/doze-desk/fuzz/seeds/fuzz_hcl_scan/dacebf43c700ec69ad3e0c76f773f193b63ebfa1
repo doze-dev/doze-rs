@@ -1,0 +1,18 @@
+2.2env     = { API_URL = apt.apdule.db.url, CACHEL = apt.api.url }
+}
+
+app "woURL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run i.url }
+}
+
+app "worker" {
+  run = "go run ./cmd/worke7 }
+
+module valkey "cache" { verison = 8 }
+
+task "migrate" {
+  run = "go run ./cmd/migrate" ne 
+v ='{ DATABASE_URL = m

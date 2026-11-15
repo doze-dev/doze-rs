@@ -1,0 +1,8 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "dat\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\1:8",,t": 0 },
+   [  { "name": "migrate", "engine": "process", "group": "ta$$$$$$$$$$$$sk", "state": "asleep", "en", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:5432", "domain": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "cache", "engidb.url }
+}

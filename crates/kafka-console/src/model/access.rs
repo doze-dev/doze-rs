@@ -131,7 +131,7 @@ pub struct AccessAcls {
     /// ACLs the broker has beyond what the table lists.
     pub more: usize,
     /// DescribeAcls was refused (a caller that is not the console, on a broker with ACLs).
-    #[serde(serialize_with = "crate::api::settings::refusal_opt")]
+    #[serde(with = "crate::api::settings::refusal_opt")]
     #[cfg_attr(test, ts(as = "Option<crate::api::settings::KafkaRefusal>"))]
     pub refused: Option<Refusal>,
 }
@@ -171,7 +171,7 @@ pub struct AclCreateView {
     pub input: AclInput,
     /// A field that is missing, by name and in words.
     pub error: Option<(String, String)>,
-    #[serde(serialize_with = "crate::api::settings::refusal_opt")]
+    #[serde(with = "crate::api::settings::refusal_opt")]
     #[cfg_attr(test, ts(as = "Option<crate::api::settings::KafkaRefusal>"))]
     pub refused: Option<Refusal>,
     pub call: Lines,
@@ -189,7 +189,7 @@ pub struct AclDeleteView {
     pub call: Lines,
     /// The ACL is no longer there (a second tab, a tool): nothing to delete.
     pub gone: bool,
-    #[serde(serialize_with = "crate::api::settings::refusal_opt")]
+    #[serde(with = "crate::api::settings::refusal_opt")]
     #[cfg_attr(test, ts(as = "Option<crate::api::settings::KafkaRefusal>"))]
     pub refused: Option<Refusal>,
 }

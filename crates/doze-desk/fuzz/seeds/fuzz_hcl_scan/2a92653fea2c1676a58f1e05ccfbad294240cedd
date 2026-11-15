@@ -1,0 +1,30 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Dockerle "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" { password = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  sle aws "aws" {
+  port = 4566
+
+  bucket "pr%duct-images" {}
+ le.postgres.address}/postgres?sslmode=disable" }
+}
+
+ta that keeps failing goes to pick-lists-dlq after five tries
+  # instead of blocking the warehouse.
+  queue "pick-lists" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in doze.lock, run from the
+# archive. CatchesABASE_URL = "postgres://catalog:catalog@${module.postgres.ad every email; its web UI is IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIthe console.
+service "mailpit" {
+  download = {
+dress}/  po

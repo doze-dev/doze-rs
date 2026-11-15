@@ -1,0 +1,23 @@
+# Larder — groceries http://127.0.0.1:8025"
+}
+rvice is in. A task runs before the app that
+# lists it in `after`, and again only when its .sql files change.
+
+task "migrate-identity" {
+  run    = "go run ./platform/cmd/migrate services/identity/migrations"
+  ly when its .sql files change.
+
+task "migrate-identity" {
+  run    = "go run ./platform/cmdntity/migrations"
+  inputs = ["services/identity/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://identity:identity@${module.postgres.address}/le = "http://127.0.0.1:8025"
+}
+
+# ── tasks ────────┐────────────────────────────────────────────────────────
+
+# Each service migrates its own schema, as its own role, with the same small
+# r services, by domain ───────────────────────────────────────────────────
+
+# Customers, sign-in and sessions. Publishes users.signed-up.
+app "identity" {
+  run   = "go run ./services/iduen

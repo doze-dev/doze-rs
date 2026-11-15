@@ -1,0 +1,28 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module&db.url, CACHE_URL = modulec.ache.url }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port  osatgres "db" { version = 17 }
+
+module valkey "cache" { version = 8 }
+
+task "migrate" {
+  run = "./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module&db.url, CACHE_URL = modulec.achlllllllllllllE_URL = modulec.ache.url }
+}
+
+app "web" {
+  run"    = "pnpm dev"
+  port L = module.db.url }
+}

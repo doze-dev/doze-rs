@@ -1,14 +1,14 @@
-//! HTTP integrations: one HTTP/1.1 request over a plain TCP connection (`Connection: close`), the answer read whole up to 10 MB with
-//! `Content-Length`, chunked framing, or to the end of the connection. There is no TLS client in doze-aws (a size decision, as for SNS
-//! and EventBridge), so an `https://` backend is refused with that reason rather than called.
+//! HTTP integrations: one HTTP/1.1 request through `aws-webhook` (plain TCP for `http://`, TLS for `https://`), the answer read whole
+//! up to 10 MB. A backend's certificate must be one the machine trusts, unless the integration's `tlsConfig.insecureSkipVerification`
+//! is set (REST APIs): then a certificate no trusted authority signed is accepted if it is for the name called, as AWS accepts a
+//! self-signed or private-CA certificate there. A refused certificate is logged with the flag that fixes it.
 
 use std::time::Duration;
 
+use aws_webhook::{Failure, Request};
 use aws_wire::service::WebReply;
 use bytes::Bytes;
 use serde_json::Value;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
 
 use super::custom::{Backend, Mapped};
 use super::mapping::rest_source;
@@ -25,6 +25,25 @@ pub(crate) struct Out {
     pub(crate) headers: Vec<(String, String)>,
     pub(crate) body: Bytes,
     pub(crate) timeout: Duration,
+    /// `tlsConfig.insecureSkipVerification`.
+    pub(crate) skip_verification: bool,
+    /// The most bytes of the answer read.
+    pub(crate) limit: usize,
+}
+
+impl Out {
+    /// A request with API Gateway's defaults: verified TLS, a 10 MB answer.
+    pub(crate) fn new(method: String, url: String, timeout: Duration) -> Self {
+        Self {
+            method,
+            url,
+            headers: Vec::new(),
+            body: Bytes::new(),
+            timeout,
+            skip_verification: false,
+            limit: MAX_ANSWER,
+        }
+    }
 }
 
 /// What came back.
@@ -36,123 +55,28 @@ pub(crate) struct In {
 }
 
 /// Sends a request.
-pub(crate) async fn call(out: &Out) -> Result<In, String> {
-    let rest = out.url.strip_prefix("http://").ok_or_else(|| {
-        format!(
-            "{} is not an http:// URL; doze-aws has no TLS client",
-            out.url
-        )
-    })?;
-    let (authority, path) = rest
-        .find(['/', '?'])
-        .map_or((rest, "/"), |i| rest.split_at(i));
-    let path = if path.starts_with('?') {
-        format!("/{path}")
-    } else {
-        path.to_owned()
+pub(crate) async fn call(out: &Out) -> Result<In, Failure> {
+    let r = Request {
+        headers: &out.headers,
+        body: &out.body,
+        timeout: out.timeout,
+        limit: out.limit,
+        skip_verification: out.skip_verification,
+        ..Request::new(&out.method, &out.url)
     };
-    let (host, port) = match authority.rsplit_once(':') {
-        Some((h, p)) => (
-            h,
-            p.parse::<u16>()
-                .map_err(|_| format!("bad port in {}", out.url))?,
-        ),
-        None => (authority, 80),
-    };
-    let exchange = async {
-        let mut stream = TcpStream::connect((host, port))
-            .await
-            .map_err(|e| format!("could not connect to {authority}: {e}"))?;
-        let mut head = format!("{} {path} HTTP/1.1\r\nHost: {authority}\r\n", out.method);
-        for (k, v) in &out.headers {
-            let v = v.split(['\r', '\n']).next().unwrap_or_default();
-            head.push_str(&format!("{k}: {v}\r\n"));
-        }
-        head.push_str(&format!(
-            "Content-Length: {}\r\nConnection: close\r\n\r\n",
-            out.body.len()
-        ));
-        // One write for the head and the body: a server that reads the request in one go gets all of it.
-        let mut wire = head.into_bytes();
-        wire.extend_from_slice(&out.body);
-        stream.write_all(&wire).await.map_err(|e| e.to_string())?;
-        let mut raw = Vec::new();
-        let mut buf = [0u8; 8192];
-        loop {
-            let n = stream.read(&mut buf).await.map_err(|e| e.to_string())?;
-            if n == 0 || raw.len() > MAX_ANSWER {
-                break;
-            }
-            raw.extend_from_slice(buf.get(..n).unwrap_or_default());
-        }
-        parse(&raw)
-    };
-    tokio::time::timeout(out.timeout, exchange)
-        .await
-        .map_err(|_| "Endpoint request timed out".to_owned())?
-}
-
-// fuzz:parser fuzz_http_answer
-/// An HTTP/1.1 answer read from its bytes.
-pub(crate) fn parse(raw: &[u8]) -> Result<In, String> {
-    let split = raw
-        .windows(4)
-        .position(|w| w == b"\r\n\r\n")
-        .ok_or("the answer has no end of headers")?;
-    let head = String::from_utf8_lossy(raw.get(..split).unwrap_or_default());
-    let body = raw.get(split + 4..).unwrap_or_default();
-    let mut lines = head.split("\r\n");
-    let status = lines
-        .next()
-        .and_then(|l| l.split(' ').nth(1))
-        .and_then(|s| s.parse().ok())
-        .ok_or("the answer is not HTTP")?;
-    let headers: Vec<(String, String)> = lines
-        .filter_map(|l| l.split_once(':'))
-        .map(|(k, v)| (k.trim().to_owned(), v.trim().to_owned()))
-        .collect();
-    let chunked = headers.iter().any(|(k, v)| {
-        k.eq_ignore_ascii_case("transfer-encoding") && v.to_ascii_lowercase().contains("chunked")
-    });
-    let body = if chunked {
-        dechunk(body)?
-    } else {
-        body.to_vec()
-    };
-    let headers = headers
-        .into_iter()
-        .filter(|(k, _)| {
-            !k.eq_ignore_ascii_case("transfer-encoding") && !k.eq_ignore_ascii_case("connection")
-        })
-        .collect();
-    Ok(In {
-        status,
-        headers,
-        body: Bytes::from(body),
+    aws_webhook::fetch(&r).await.map(|a| In {
+        status: a.status,
+        headers: a.headers,
+        body: Bytes::from(a.body),
     })
 }
 
-fn dechunk(mut b: &[u8]) -> Result<Vec<u8>, String> {
-    let mut out = Vec::new();
-    loop {
-        let line_end = b
-            .windows(2)
-            .position(|w| w == b"\r\n")
-            .ok_or("a chunk is not framed")?;
-        let size_text = String::from_utf8_lossy(b.get(..line_end).unwrap_or_default());
-        let size =
-            usize::from_str_radix(size_text.split(';').next().unwrap_or_default().trim(), 16)
-                .map_err(|_| "a chunk size is not hex")?;
-        b = b.get(line_end + 2..).unwrap_or_default();
-        if size == 0 {
-            return Ok(out);
-        }
-        out.extend_from_slice(b.get(..size).ok_or("a chunk is cut short")?);
-        if out.len() > MAX_ANSWER {
-            return Err("the answer is larger than 10 MB".into());
-        }
-        b = b.get(size + 2..).unwrap_or_default();
-    }
+/// `tlsConfig.insecureSkipVerification` of an integration.
+pub(crate) fn skips_verification(integration: &Value) -> bool {
+    integration
+        .pointer("/tlsConfig/insecureSkipVerification")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
 }
 
 /// The integration URI with `{name}` filled from the request's path variables and `integration.request.path` mappings, then the
@@ -247,15 +171,22 @@ pub(crate) async fn proxy(found: &Found, route: &Route, req: &Incoming) -> WebRe
         .collect();
     headers.extend(mapped_headers(route, req, &Value::Null, found));
     let out = Out {
-        method,
-        url: url_of(found, route, req, &Value::Null, true),
         headers,
         body: req.body.clone(),
-        timeout: timeout(route),
+        skip_verification: skips_verification(&route.integration),
+        ..Out::new(
+            method,
+            url_of(found, route, req, &Value::Null, true),
+            timeout(route),
+        )
     };
     match call(&out).await {
         Ok(a) => reply::of(a.status, a.headers, a.body),
-        Err(why) if why.contains("timed out") => reply::gateway(
+        // A refused certificate is a configuration error, as AWS's "General SSLEngine problem" is (memory).
+        Err(Failure::Tls(why)) => {
+            super::custom::config_error(found, req, &serde_json::json!({}), &why)
+        }
+        Err(Failure::Timeout(_)) => reply::gateway(
             found,
             "INTEGRATION_TIMEOUT",
             504,
@@ -300,33 +231,24 @@ pub(crate) async fn send(
         ));
     }
     let out = Out {
-        method: text(&route.integration, "httpMethod")
-            .unwrap_or("POST")
-            .to_owned(),
-        url: url_of(found, route, req, &mapped.context, false),
         headers,
         body: Bytes::from(mapped.body.clone()),
-        timeout: timeout(route),
+        skip_verification: skips_verification(&route.integration),
+        ..Out::new(
+            text(&route.integration, "httpMethod")
+                .unwrap_or("POST")
+                .to_owned(),
+            url_of(found, route, req, &mapped.context, false),
+            timeout(route),
+        )
     };
-    let a = call(&out).await?;
+    let a = call(&out).await.map_err(|e| match e {
+        Failure::Timeout(_) => "Endpoint request timed out".to_owned(),
+        other => other.to_string(),
+    })?;
     Ok(Backend {
         selector: a.status.to_string(),
         headers: a.headers,
         body: String::from_utf8_lossy(&a.body).into_owned(),
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn answers_are_read_plain_and_chunked() {
-        let a = parse(b"HTTP/1.1 201 Created\r\nX-A: 1\r\nContent-Length: 2\r\n\r\nhi").unwrap();
-        assert_eq!((a.status, &a.body[..]), (201, &b"hi"[..]));
-        let b = parse(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nhe\r\n3\r\nllo\r\n0\r\n\r\n").unwrap();
-        assert_eq!(&b.body[..], b"hello");
-        assert!(parse(b"garbage").is_err());
-        assert!(parse(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nzz\r\n").is_err());
-    }
 }

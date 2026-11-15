@@ -58,6 +58,13 @@ pub fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
     imp::write_private(path, bytes)
 }
 
+/// Writes `bytes` to `path` as a program this user can run (mode 0755 on Unix; Windows has no such bit, so it is a plain
+/// write): a script that stands in for a program, as the desktop app's fixtures put a stand-in `doze` in place.
+pub fn write_executable(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    std::fs::write(path, bytes)?;
+    imp::make_executable(path)
+}
+
 /// Makes `dst` a copy of the directory `src`: copy-on-write where the filesystem supports it (APFS clonefile, btrfs
 /// and XFS reflinks), a plain copy otherwise. `dst` must not exist; its parent must.
 pub fn clone_dir(src: &Path, dst: &Path) -> io::Result<()> {
@@ -74,6 +81,12 @@ pub fn clone_dir(src: &Path, dst: &Path) -> io::Result<()> {
         ));
     }
     imp::clone_dir(src, dst)
+}
+
+/// The identity of the file at `path` on its volume: the inode on Unix, the file index on Windows. A file replaced by a
+/// rename has a new one even when its time and size are the same as the old one's. `None` when it cannot be read.
+pub fn file_id(path: &Path) -> Option<u64> {
+    imp::file_id(path)
 }
 
 /// Runs `cp` (no shell) and turns a failure into an error carrying its message.

@@ -31,6 +31,31 @@ pub(crate) type ConsoleBound = Option<crate::web::Bound>;
 #[cfg(not(feature = "console"))]
 pub(crate) type ConsoleBound = ();
 
+/// The schema registry's listener as `main` had it bound before anything was created.
+#[cfg(feature = "registry")]
+pub(crate) type RegistryBound = Option<crate::registry::Bound>;
+/// A build without the registry has none to bind.
+#[cfg(not(feature = "registry"))]
+pub(crate) type RegistryBound = ();
+
+#[cfg(feature = "registry")]
+use crate::registry::{start as start_registry, stop as stop_registry};
+
+/// A build without the registry starts none.
+#[cfg(not(feature = "registry"))]
+#[allow(clippy::unnecessary_wraps)]
+fn start_registry(
+    (): RegistryBound,
+    _: &kafka_server::Config,
+    _: &Arc<Broker<RealFs>>,
+) -> Result<Option<()>> {
+    Ok(None)
+}
+
+/// A build without the registry has none to stop.
+#[cfg(not(feature = "registry"))]
+async fn stop_registry(_: Option<()>) {}
+
 /// The table of flags the console shows (Settings), made from the command line before anything else is done with it.
 #[cfg(feature = "console")]
 pub(crate) type Flags = Vec<kafka_console::model::SettingsFlag>;
@@ -42,7 +67,7 @@ pub(crate) type Flags = ();
 /// the broker, which flushes every partition and records that it did.
 pub(crate) async fn serve(
     settings: Settings,
-    console_listener: ConsoleBound,
+    (console_listener, registry_listener): (ConsoleBound, RegistryBound),
     flags: Flags,
 ) -> Result<()> {
     #[cfg(not(feature = "console"))]
@@ -108,8 +133,10 @@ pub(crate) async fn serve(
         .map(|bound| bound.serve(&console, &server, &running, &broker, (recorder, flags, lab)))
         .transpose()
         .context("starting the console")?;
+    let schemas = start_registry(registry_listener, &server, &broker)?;
     stop.await;
     tracing::info!("stopping");
+    stop_registry(schemas).await;
     // The console first: nothing it shows or does outlives the broker it reads.
     #[cfg(feature = "console")]
     if let Some(web) = web {

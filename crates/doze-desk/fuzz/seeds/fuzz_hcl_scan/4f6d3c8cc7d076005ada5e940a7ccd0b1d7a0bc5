@@ -1,0 +1,20 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Poproduct-images" {}
+  bucket "receipts" { versioning = true }
+
+  # A pick list that keeps failing goes to pick-listehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 299=wor = 3000
+  domains = ["dev.acme.com"]catalog" {
+  run    = "go run ./pllocking the warehouse.
+  queue "pick-lists" {
+    dlq          = "auto"
+    ma8_receives = 0
+thub.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-amd64.tar17 }
+
+modu   = { DAle vurlTA

@@ -15,16 +15,45 @@ const MAX_METRIC_FILTERS: usize = 100;
 /// Subscription filters one group may have (AWS: 2).
 const MAX_SUBSCRIPTIONS: usize = 2;
 
-/// A pattern that parses, in the words AWS uses for one that does not.
-fn checked(text: &str) -> Result<(), ApiError> {
-    pattern::parse(text).map(drop).map_err(|e| match e {
+/// A pattern that does not parse, in the words AWS uses.
+pub(crate) fn refused(e: PatternError) -> ApiError {
+    match e {
         PatternError::Invalid => invalid("Invalid filter pattern"),
-        PatternError::Regex => ApiError::new(
-            501,
-            "NotImplemented",
-            "Regular expressions in filter patterns are not built in doze-aws.",
+        // (memory)
+        PatternError::TooManyRegexes => ApiError::modeled(
+            "LimitExceededException",
+            "A filter pattern can contain at most two regular expressions.",
         ),
-    })
+    }
+}
+
+/// A pattern that parses, and keeps the log group within five regular expressions across its metric and subscription filters
+/// (`other` is how many the group's other filters hold).
+fn checked(text: &str, other: usize) -> Result<(), ApiError> {
+    let p = pattern::parse(text).map_err(refused)?;
+    if p.regexes() > 0 && other + p.regexes() > pattern::MAX_REGEXES_PER_GROUP {
+        // (memory)
+        return Err(ApiError::modeled(
+            "LimitExceededException",
+            "A log group can have at most five regular expressions across its metric and subscription filters.",
+        ));
+    }
+    Ok(())
+}
+
+/// How many regular expressions the group's filters hold, leaving out the metric or subscription filter named `except`.
+fn regexes_besides(g: &crate::model::Group, except: (&str, &str)) -> usize {
+    let metric = g
+        .metric_filters
+        .iter()
+        .filter(|f| !(except.0 == "metric" && f.name == except.1))
+        .map(|f| pattern::regexes_in(&f.pattern));
+    let subs = g
+        .subscriptions
+        .iter()
+        .filter(|f| !(except.0 == "subscription" && f.name == except.1))
+        .map(|f| pattern::regexes_in(&f.pattern));
+    metric.chain(subs).sum()
 }
 
 fn limit_exceeded() -> ApiError {
@@ -34,7 +63,10 @@ fn limit_exceeded() -> ApiError {
 
 impl Core {
     pub(crate) fn put_metric_filter(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        checked(r.s("filterPattern"))?;
+        let other = self
+            .group(r)
+            .map_or(0, |g| regexes_besides(g, ("metric", r.s("filterName"))));
+        checked(r.s("filterPattern"), other)?;
         let t =
             r.v.get("metricTransformations")
                 .and_then(Value::as_array)
@@ -127,14 +159,7 @@ impl Core {
 
     /// `TestMetricFilter` needs no group: it runs a pattern over some messages.
     pub(crate) fn test_metric_filter(r: &Req<'_>) -> Result<Value, ApiError> {
-        let p = pattern::parse(r.s("filterPattern")).map_err(|e| match e {
-            PatternError::Invalid => invalid("Invalid filter pattern"),
-            PatternError::Regex => ApiError::new(
-                501,
-                "NotImplemented",
-                "Regular expressions in filter patterns are not built in doze-aws.",
-            ),
-        })?;
+        let p = pattern::parse(r.s("filterPattern")).map_err(refused)?;
         let matches: Vec<Value> = r
             .strings("logEventMessages")
             .iter()
@@ -153,7 +178,10 @@ impl Core {
     }
 
     pub(crate) fn put_subscription(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        checked(r.s("filterPattern"))?;
+        let other = self.group(r).map_or(0, |g| {
+            regexes_besides(g, ("subscription", r.s("filterName")))
+        });
+        checked(r.s("filterPattern"), other)?;
         let filter = Subscription {
             name: r.s("filterName").to_owned(),
             pattern: r.s("filterPattern").to_owned(),

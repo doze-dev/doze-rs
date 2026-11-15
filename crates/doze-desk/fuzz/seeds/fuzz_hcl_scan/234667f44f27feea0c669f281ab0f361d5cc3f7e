@@ -1,0 +1,9 @@
+{
+  "schema": "doze4v1",
+  "command": "doze sttus",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process"   "services": [
+      { "5432",    

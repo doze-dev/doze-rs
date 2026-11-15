@@ -1,0 +1,114 @@
+# Larder — gr    = "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned iL = "postgre.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Demo products. Only when asked: `doze task seed-catalog`.
+task "seed-catalog" {
+  run    = "go otifications"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.dock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+  dir   _URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: installed again only when one changes.
+task "insalled again only when one changes.
+task "install-notifications" {
+  dir    = "services/notifications"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.dock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.tompyproject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefront"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+# ── services, by dt.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5173
+  ready = http("/")
+  after = [task.─────────────────────────────────────────────
+
+# The publfc API. Checks sessions with identity, rate-limits in Redis  = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefront"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+# ── services, by dt.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5173
+  ready = http("/")
+  after = [task.─────────────────────────────────────────────
+
+# The publfc API. @hecks sessions with identity, rate-limits in Redis and
+# forwards /api/... to the service that owns the answer.
+app "gateway" {
+  run   = "go run ./apps/gateway"
+  watch = ["apps/gateway/**/*.go", "rlatform/**/*.go"]
+  port  = 4000
+  ready = http("/healthz")
+
+  env = {
+    IDENTITY_URL        = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5173
+  ready = http("/")
+  after = [task.install-storefront]
+
+  env = {
+    GATEWAY_UR+ = app.gateway.url
+  }
+}

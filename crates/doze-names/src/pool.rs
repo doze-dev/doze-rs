@@ -32,8 +32,8 @@ const APEX_OFFSET: &[(&str, u16)] = &[("aws", 2), ("kafka", 3)];
 /// How this machine gives a name an address.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Net {
-    a: u8,
-    b: u8,
+    pub(crate) a: u8,
+    pub(crate) b: u8,
     /// No service can bind its address: the block is routed to the daemon's interface.
     pub virtual_: bool,
 }
@@ -48,6 +48,14 @@ pub const LOOPBACK: Net = Net {
 pub const VIRTUAL: Net = Net {
     a: 198,
     b: 19,
+    virtual_: true,
+};
+
+/// A translated network whose daemon address is 127.0.0.1: what tests use to run the translating half (forwards, the
+/// ports file, the table) on any machine with no daemon, as Go's `translatedLoopback` did.
+pub const TRANSLATED_LOOPBACK: Net = Net {
+    a: 127,
+    b: 0,
     virtual_: true,
 };
 
@@ -103,6 +111,14 @@ pub fn apex_addr(net: Net, service: &str) -> Option<Ipv4Addr> {
         .iter()
         .find(|(s, _)| *s == service)
         .map(|(_, off)| net.at(*off))
+}
+
+/// The well-known services and their offsets, in address order (setup writes them into /etc/hosts).
+#[cfg(feature = "setup")]
+pub(crate) fn apex_services() -> Vec<(&'static str, u16)> {
+    let mut all = APEX_OFFSET.to_vec();
+    all.sort_by_key(|(_, off)| *off);
+    all
 }
 
 /// Whether a stack may not be called `name`: its services would sit under a machine-wide name (a stack called "aws"

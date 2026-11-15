@@ -1,0 +1,67 @@
+{
+  "kind": "sleep",
+  "needed": true,
+  "title": "Sleep db?",
+  "danger": false,
+  "sentence": [
+    {
+      "text": "api",
+      "strong": true
+    },
+    {
+      "text": " is running and needs it, and "
+    },
+    {
+      "text": "4 connections",
+      "strong": true
+    },
+    {
+      "text": " are open to it right now."
+    }
+  ],
+  "rows": [
+    {
+      "k": "What happens",
+      "v": "Connections drop. The next connection wakes it again, so it is back within seconds unless what uses it sleeps too.",
+      "mono": false
+    },
+    {
+      "k": "Data",
+      "v": "Kept. Nothing is deleted.",
+      "mono": false
+    }
+  ],
+  "buttons": [
+    {
+      "label": "Sleep db and api",
+      "verb": "sleep",
+      "targets": [
+        "api",
+        "db"
+      ],
+      "primary": true
+    },
+    {
+      "label": "Sleep db only",
+      "verb": "sleep",
+      "targets": [
+        "db"
+      ]
+    },
+    {
+      "label": "Turn db off",
+      "verb": "off",
+      "targets": [
+        "db"
+      ]
+    },
+    {
+      "label": "Cancel",
+      "cancel": true
+    }
+  ],
+  "default": 0,
+  "foot": [
+    "doze only asks when something else is affected. Sleeping an idle service never asks."
+  ]
+}

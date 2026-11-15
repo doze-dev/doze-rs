@@ -1,0 +1,31 @@
+     from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names =ries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this on% fil%: no Docker, no
+# compose file, no scripts.
+#
+#   doze utitions = 6 }
+  topic "payments.settled" { partitions = 3 }
+  topic "payments.failed" { partitions = 3 }
+}
+
+# S3 an= "https://github.com/axll ready = http("/healthz")
+  afte=r = [task.migrate-catalog]
+
+  env = {
+    DATABASE_mpotency keys (payments), cached
+# suggestin"ions (URL     = "postgres://cat

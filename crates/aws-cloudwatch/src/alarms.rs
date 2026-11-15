@@ -266,6 +266,13 @@ impl Core {
                 .map(|d| &mut d.tags)
                 .ok_or_else(not_found);
         }
+        if let Some(key) = crate::stored::key_of_arn(arn) {
+            return self
+                .docs
+                .get_mut(&key)
+                .map(|d| &mut d.tags)
+                .ok_or_else(not_found);
+        }
         Err(not_found())
     }
 

@@ -47,5 +47,9 @@ describe("the Groups addresses keep only what they know", () => {
     expect(lagSearch({ expiring: "yes" })).toEqual({ expiring: undefined });
     expect(storySearch({ generation: "31", rule: 1 })).toEqual({ generation: 31, rule: 1 });
     expect(storySearch({ generation: "x" })).toEqual({ generation: undefined, rule: undefined });
+    // CON-615: a generation is a number or nothing; markup in the address is dropped, never echoed.
+    expect(storySearch({ generation: "<script>alert(1)</script>" })).toEqual({ generation: undefined, rule: undefined });
+    expect(storySearch({ generation: "12345678901" })).toEqual({ generation: undefined, rule: undefined });
+    expect(storySearch({ generation: 7.5 })).toEqual({ generation: undefined, rule: undefined });
   });
 });

@@ -29,7 +29,7 @@ pub struct SettingsConfigRow {
     pub value: String,
     /// The value in words (`128 MiB`, `no limit`), where there is one.
     pub gloss: Option<String>,
-    #[serde(serialize_with = "crate::api::settings::source_word")]
+    #[serde(with = "crate::api::settings::source_word")]
     #[cfg_attr(test, ts(type = "string"))]
     pub source: ConfigSource,
     /// Where the source comes from: the flag, Kafka's default, or the scope a dynamic value was set for.
@@ -308,7 +308,7 @@ pub struct SettingsSaved {
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsRefused {
     pub key: String,
-    #[serde(serialize_with = "crate::api::settings::refusal")]
+    #[serde(with = "crate::api::settings::refusal")]
     #[cfg_attr(test, ts(as = "crate::api::settings::KafkaRefusal"))]
     pub refusal: Refusal,
     /// The rule that was broken, in the console's words.

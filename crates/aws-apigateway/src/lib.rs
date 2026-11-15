@@ -2,15 +2,15 @@
 //! that serves what was deployed. Both APIs sign as `apigateway` and are two [`Service`]s over one actor per region, because a deployed
 //! API is found by its id whichever API made it, and custom domain names are shared by both, as on AWS.
 //!
-//! **Control plane** ([`v1`], [`v2`]): each API is one JSON document in redb (`apigateway.redb`, one per region). A REST deployment is
+//! **Control plane** (`v1`, `v2`): each API is one JSON document in redb (`apigateway.redb`, one per region). A REST deployment is
 //! a snapshot of the API, served by the stages that point at it; an HTTP API's auto-deploying stage serves the live API.
 //!
-//! **Execute-api plane** ([`plane`]): `/_aws/execute-api/<id>/<stage>/<path>` and `<id>.execute-api.<region>.<host>/<stage>/<path>`
+//! **Execute-api plane** (`plane`): `/_aws/execute-api/<id>/<stage>/<path>` and `<id>.execute-api.<region>.<host>/<stage>/<path>`
 //! (an HTTP API's `$default` stage at the root), unsigned, through [`aws_wire::service::Web`]: routing by AWS's precedence, Lambda
 //! proxy (payload 1.0 and 2.0), Lambda and AWS service integrations with mapping templates (a VTL subset; what it cannot run is
 //! refused by name), HTTP and HTTP proxy, MOCK, Lambda authorizers with their policy evaluated, JWT authorizers, IAM authorization,
-//! API keys, request validation, CORS, stage variables, gateway responses, binary media types, access logs, and WebSocket APIs with
-//! the `@connections` management API.
+//! API keys, request validation, CORS, stage variables, gateway responses, binary media types, access logs, and WebSocket APIs. Their
+//! `@connections` management API is a third [`Service`] (`apigatewaymanagementapi`, signed as `execute-api`): [`Management`].
 //!
 //! **Stored, not active locally:** custom domain names and their mappings, usage plan throttles and quotas, stage caches, canary
 //! settings, method throttling. **Refused by name** (501): client certificates, VPC links, SDK generation, documentation parts and
@@ -22,6 +22,7 @@ mod doc;
 mod domains;
 mod errors;
 mod gwresp;
+mod management;
 mod openapi;
 mod patch;
 mod plane;
@@ -45,6 +46,7 @@ use aws_wire::service::{BoxFuture, Call, Reply, Service, Web, WebReply, WebReque
 use doze_runtime::{Clock, Ctx, Keyed};
 
 use crate::core::{Answer, Api, Ask, Core};
+pub use crate::management::Management;
 
 /// The region whose files are kept in the service's directory itself.
 const HOME_REGION: &str = "us-east-1";
@@ -95,6 +97,16 @@ pub fn services(ctx: Arc<Ctx>) -> (ApiGateway, ApiGatewayV2) {
         },
         ApiGatewayV2 { inner },
     )
+}
+
+impl ApiGateway {
+    /// The `@connections` management API, over the connections of this service's WebSocket APIs.
+    #[must_use]
+    pub fn management(&self) -> Management {
+        Management {
+            inner: Arc::clone(&self.inner),
+        }
+    }
 }
 
 impl Inner {

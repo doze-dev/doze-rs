@@ -1,0 +1,5 @@
+{
+  "schema": "d8080", "domain": "api.acme.doze", "conns": 0, "memBytes/														: 0, "cpuPerce , 0t:n""edpendsOn": ["cache", "state": "asleep", "enabled": true, "endpoint": "254.0.1:5432", "domain": " "dependsOn": ["db"]   
+} ] 
+  }
+}

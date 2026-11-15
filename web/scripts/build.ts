@@ -13,9 +13,12 @@ const web = join(import.meta.dir, "..");
 const dist = join(web, "../crates/kafka-console/web-dist");
 
 /** The compression every embedded text file gets: level 9 and the largest memory level, the best zlib offers; the header carries
- * no time, so the file is reproducible. */
+ * no time, and its operating-system byte is set to 3 (Unix) because zlib writes the build machine's (19 on macOS, 3 on Linux),
+ * so the file is the same wherever it is built and CI's check of the committed bundle holds. */
 function pack(bytes: Uint8Array): Uint8Array {
-  return gzipSync(bytes, { level: 9, memLevel: 9 });
+  const out = gzipSync(bytes, { level: 9, memLevel: 9 });
+  out[9] = 3;
+  return out;
 }
 
 const vite = Bun.spawnSync(["bunx", "--bun", "vite", "build", "--logLevel", "warn"], { cwd: web, stdout: "inherit", stderr: "inherit" });

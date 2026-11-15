@@ -1,0 +1,16 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./p.aworker" {
+  run = "go run ./cmd/worker"
+}
+
+modu"
+  port    = 3000
+  domains = [rate"
+  env = { hct DATABASE_URL = module%.db.url }
+}

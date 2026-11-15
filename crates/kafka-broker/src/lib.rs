@@ -42,6 +42,7 @@ pub use groups::Cause;
 pub use lab::{CleanOutcome, ConsoleLab, LabOutcome};
 pub use listener::Listener;
 pub use outcome::Outcome;
+pub use topic_config::{check_topic_configs, topic_config_names};
 #[cfg(feature = "inspect")]
 pub use view::{
     AbortedRange, AccessFacts, CleanerState, Compaction, ConfigHelp, ConfigRule, ConsoleView,

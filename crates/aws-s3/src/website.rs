@@ -90,6 +90,24 @@ impl Core {
         }
     }
 
+    /// The key of the object a website request for `key` serves: the folder's index document for a folder.
+    pub(crate) fn page_key(&self, bucket: &str, key: &str) -> String {
+        if !key.is_empty() && !key.ends_with('/') {
+            return key.to_owned();
+        }
+        let suffix = self
+            .bucket_of(bucket)
+            .and_then(|b| b.configs.get("website"))
+            .and_then(|c| serde_json::from_str::<Value>(c).ok())
+            .and_then(|c| {
+                c.pointer("/IndexDocument/Suffix")?
+                    .as_str()
+                    .map(str::to_owned)
+            })
+            .unwrap_or_else(|| "index.html".to_owned());
+        format!("{key}{suffix}")
+    }
+
     /// The newest version of `key` that is an object, if there is one.
     fn live(&self, bucket: &str, key: &str) -> Result<Option<crate::model::Version>, ApiError> {
         Ok(self.latest(bucket, key)?.filter(|v| !v.delete_marker))

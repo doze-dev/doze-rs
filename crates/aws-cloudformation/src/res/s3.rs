@@ -139,14 +139,30 @@ pub(super) async fn create(rc: &Rc, p: &Value) -> Done {
         }
     }
     retag(rc, &name, &[], &tag_list(rc, p)).await?;
-    let mut made = described(rc, &name);
+    // After the ownership controls and the public access block, as AWS applies them: a bucket whose ACLs are disabled (the default
+    // since April 2023) refuses any but `Private`, so a template has to enable them (`OwnershipControls`) first.
     if let Some(acl) = text(p, "AccessControl").filter(|a| a != "Private") {
-        // ACLs are refused by doze-aws (AWS turned them off for new buckets in 2023); the canned ACL is not applied.
-        made.note = Some(format!(
-            "AccessControl {acl} is stored and not applied locally: doze-aws does not serve ACLs"
-        ));
+        rc.rest(
+            SVC,
+            "PutBucketAcl",
+            json!({"Bucket": name, "ACL": canned_acl(&acl)}),
+        )
+        .await
+        .map_err(|e| rc.fail(SVC, &e))?;
     }
-    Ok(made)
+    Ok(described(rc, &name))
+}
+
+/// CloudFormation's `AccessControl` value as S3's canned ACL (`PublicRead` is `public-read`).
+fn canned_acl(cfn: &str) -> String {
+    let mut out = String::new();
+    for (i, c) in cfn.chars().enumerate() {
+        if c.is_ascii_uppercase() && i > 0 {
+            out.push('-');
+        }
+        out.push(c.to_ascii_lowercase());
+    }
+    out
 }
 
 fn described(rc: &Rc, name: &str) -> Made {

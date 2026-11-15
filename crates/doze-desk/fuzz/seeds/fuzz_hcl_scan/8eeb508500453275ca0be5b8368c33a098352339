@@ -1,0 +1,10 @@
+{
+  "schema": "doze/v2",
+  "command": "dozetatus",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+ =    { "name: "apiweb.ac]
+  }
+}

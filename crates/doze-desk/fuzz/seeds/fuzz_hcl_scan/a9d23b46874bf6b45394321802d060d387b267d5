@@ -1,0 +1,10 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+       n"   a{me": "worker",on": "08", "group": "module", "state": "asleep", "enabled": true, "endpoint": 02.17".0.1:5432", "dom
+  }
+}

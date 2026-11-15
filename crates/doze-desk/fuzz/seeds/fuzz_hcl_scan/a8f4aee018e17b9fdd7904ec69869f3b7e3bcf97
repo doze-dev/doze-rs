@@ -1,0 +1,57 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from th instead of blocking the warehouse.
+  queue "pick-lists" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in doze.lock, run from the
+# archive. Catches every email; its web UI is the console.
+service "mailpit" {
+  download = {
+    mac       = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-arm64.tar.gz"
+    mac_intel = "https://github.com/axllent/mailpit/releases/download/v1.2se       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names = var.names
+
+  #1.8/mailpit-darwin-amd64.tar.gz"
+    linux    t = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run     = "./mailpit --smtp $HOST:$P: "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsO"cn:[" ache", "db"] },
+      { "name": "web", "engine": "process", "group": "app}
+
+defaults {
+  sleep = "2m"
+  name=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names = var.names
+
+  # The first `go run` of each service compiles it; later starts are quick { password = ".
+  ready_timeout = "3m"
+}
+
+# ── backingidentity" } se

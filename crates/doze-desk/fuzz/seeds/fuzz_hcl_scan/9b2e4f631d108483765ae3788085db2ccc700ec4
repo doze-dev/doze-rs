@@ -1,0 +1,10 @@
+{
+  "scema": "doze/v1status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engstack = "acme"
+
+defaults {
+  naine": "process", "group": "app", "ss", "group": "app", "state":27.0.0.1:8080mes

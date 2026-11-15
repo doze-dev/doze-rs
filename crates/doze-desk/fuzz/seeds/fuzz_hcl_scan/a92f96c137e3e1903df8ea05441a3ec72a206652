@@ -1,0 +1,9 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": 127.0.0.1:8080", 
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+       }
+}

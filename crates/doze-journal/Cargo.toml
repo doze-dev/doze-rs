@@ -1,0 +1,20 @@
+[package]
+name = "doze-journal"
+version = "0.0.0"
+description = "Read-only reader of the Go doze daemon's journal on disk (wakes, sleeps, crashes), for the app's Activity and Away"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = "1"
+serde_json = { version = "1", features = ["raw_value"] }
+time = { version = "0.3", features = ["parsing", "formatting"] }
+
+[dev-dependencies]
+tempfile = "3"

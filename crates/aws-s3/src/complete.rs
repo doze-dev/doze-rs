@@ -101,6 +101,10 @@ impl Core {
         let size: u64 = chosen.iter().map(|(_, p)| p.size).sum();
         let lock = self.new_lock(&bucket, self.upload_lock(&upload_row(&bucket, &key, &id)))?;
         self.guard_replace(&bucket, &key)?;
+        let acl = self
+            .upload_acls
+            .get(&upload_row(&bucket, &key, &id))
+            .cloned();
         let v = Version {
             key: key.clone(),
             version_id: String::new(),
@@ -132,6 +136,7 @@ impl Core {
                 .collect(),
             tags: upload.tags.clone(),
             lock,
+            acl,
         };
         let used: Vec<String> = chosen.iter().map(|(_, p)| p.blob.clone()).collect();
         let stored = self.install(&bucket, v)?;

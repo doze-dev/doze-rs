@@ -155,6 +155,7 @@ impl Core {
         let current = self.latest(&bucket, &key)?;
         self.check_write_conditions(&req, current.as_ref())?;
         let lock = self.new_lock(&bucket, crate::lock::requested(&req, self.now_ms())?)?;
+        let acl = self.object_write_acl(&req)?;
         self.guard_replace(&bucket, &key)?;
         let staged = req
             .staged
@@ -187,6 +188,7 @@ impl Core {
             parts: Vec::new(),
             tags: req.s("Tagging").map(tags_of).unwrap_or_default(),
             lock,
+            acl,
         };
         let stored = self.install(&bucket, v)?;
         self.note(&req, Kind::Object("ObjectCreated:Put"), &stored);

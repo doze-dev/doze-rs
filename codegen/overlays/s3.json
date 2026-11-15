@@ -1,0 +1,17 @@
+{
+  "shapes": {
+    "com.amazonaws.s3#BucketCannedACL": {
+      "type": "enum",
+      "traits": {
+        "smithy.api#documentation": "<p>The model's four bucket canned ACLs and <code>log-delivery-write</code>, which the S3 User Guide's canned ACL table lists as applying to buckets (the ACL a server access log target bucket is given; CloudFormation's <code>LogDeliveryWrite</code>). S3 accepts it in <code>x-amz-acl</code> on a bucket; the model's enum omits it.</p>"
+      },
+      "members": {
+        "private": {"target": "smithy.api#Unit", "traits": {"smithy.api#enumValue": "private"}},
+        "public_read": {"target": "smithy.api#Unit", "traits": {"smithy.api#enumValue": "public-read"}},
+        "public_read_write": {"target": "smithy.api#Unit", "traits": {"smithy.api#enumValue": "public-read-write"}},
+        "authenticated_read": {"target": "smithy.api#Unit", "traits": {"smithy.api#enumValue": "authenticated-read"}},
+        "log_delivery_write": {"target": "smithy.api#Unit", "traits": {"smithy.api#enumValue": "log-delivery-write"}}
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafkcommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5173
+  ready = http("/")
+  after = [task.─────────────────────────────────────────────
+
+# The publfc API. Checks sessions with identity, rate-limits in Redis  = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefront"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+# ── services, by dt.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5173
+  ready = http("/")
+  after = [task.─────────────────────────────────────────────
+
+# The publfc API. Checks sessions with identity, rate-limits in Redis and
+# forwards /api/... to the service that owns the answer.
+app "gateway" {
+  run   = "go run ./apps/gateway"
+  watch = ["apps/gateway/**/*.go", "rlatform/**/*.go"]
+  port  = 4000
+  ready = http("/healthz")
+
+  env = {
+    IDENTITY_URL        = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR         l-recommendations" {
+  dir   _URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslducts. Only when asked: `doze task seed-catalog`.
+task "seed-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/seed"
+  manual = true
+  after  = [task.migrate-catalog]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/post-smtp $HOST:$P: "api.acmegres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: installed again only.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["cache",  w

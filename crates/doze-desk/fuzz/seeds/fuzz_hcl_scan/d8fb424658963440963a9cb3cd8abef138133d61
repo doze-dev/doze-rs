@@ -1,0 +1,17 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "deps at your door within the hour.
+#
+# Seven services inidentity:identity@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-catalog" {
+  run    = : 0,  : "worker", "engine": "gres.address}/postgres?process"c  ", "ssl mode=disable  }
+}
+
+tagrs

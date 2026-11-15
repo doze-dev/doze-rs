@@ -45,29 +45,41 @@ impl From<&Refusal> for KafkaRefusal {
     }
 }
 
-/// Serialises a [`Refusal`] as a [`KafkaRefusal`].
-///
-/// # Errors
-/// The serialiser's.
-pub fn refusal<S: Serializer>(r: &Refusal, s: S) -> Result<S::Ok, S::Error> {
-    KafkaRefusal::from(r).serialize(s)
+// The three are modules for `#[serde(with = "..")]` (serde calls `serialize` in them), which ts-rs reads together with the
+// field's `#[ts(as = "..")]` or `#[ts(type = "..")]`; a `serialize_with` it cannot read, and warns on every build.
+
+/// Serialises a [`Refusal`] as a [`KafkaRefusal`] (`#[serde(with = "crate::api::settings::refusal")]`).
+pub mod refusal {
+    use super::{KafkaRefusal, Refusal, Serialize, Serializer};
+
+    /// # Errors
+    /// The serialiser's.
+    pub fn serialize<S: Serializer>(r: &Refusal, s: S) -> Result<S::Ok, S::Error> {
+        KafkaRefusal::from(r).serialize(s)
+    }
 }
 
-/// Serialises an optional [`Refusal`].
-///
-/// # Errors
-/// The serialiser's.
-#[allow(clippy::ref_option)]
-pub fn refusal_opt<S: Serializer>(r: &Option<Refusal>, s: S) -> Result<S::Ok, S::Error> {
-    r.as_ref().map(KafkaRefusal::from).serialize(s)
+/// Serialises an optional [`Refusal`] as a [`KafkaRefusal`] or `null`.
+pub mod refusal_opt {
+    use super::{KafkaRefusal, Refusal, Serialize, Serializer};
+
+    /// # Errors
+    /// The serialiser's.
+    #[allow(clippy::ref_option)]
+    pub fn serialize<S: Serializer>(r: &Option<Refusal>, s: S) -> Result<S::Ok, S::Error> {
+        r.as_ref().map(KafkaRefusal::from).serialize(s)
+    }
 }
 
 /// Serialises a config's source as the Settings table words it (`Static broker`).
-///
-/// # Errors
-/// The serialiser's.
-pub fn source_word<S: Serializer>(c: &ConfigSource, s: S) -> Result<S::Ok, S::Error> {
-    s.serialize_str(crate::gather::settings_configs::source_label(*c))
+pub mod source_word {
+    use super::{ConfigSource, Serializer};
+
+    /// # Errors
+    /// The serialiser's.
+    pub fn serialize<S: Serializer>(c: &ConfigSource, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(crate::gather::settings_configs::source_label(*c))
+    }
 }
 
 /// `GET /api/v1/settings`.
