@@ -36,7 +36,7 @@ const FILE: &str = "sqs.redb";
 /// redb's page cache: a dev tool's queues are small, and the idle heap is measured.
 const CACHE_BYTES: usize = 1 << 20;
 /// The version of every record here. A change of any row's shape is a new version with a branch that reads the old one.
-const VERSION: u8 = 1;
+pub(crate) const VERSION: u8 = 1;
 
 /// The bytes last written for a queue, so an unchanged header or FIFO state is not written again.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -108,6 +108,16 @@ impl Persist {
         let loaded = load(&store)?;
         let writer = GroupCommit::start(store.clone())?;
         Ok((Self { store, writer }, loaded))
+    }
+
+    /// How much of the file holds data.
+    pub(crate) fn space(&self) -> Result<doze_store::Space, StoreError> {
+        self.store.space()
+    }
+
+    /// Gives the space deletes freed back to the disk, after the writer has finished what it was given.
+    pub(crate) fn compact(&mut self) -> Result<doze_store::Compacted, StoreError> {
+        self.writer.paused(&mut self.store, Store::compact)?
     }
 
     /// Stops the writer after it has finished what it was given, and closes the database.

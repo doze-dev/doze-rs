@@ -18,6 +18,7 @@ pub mod query;
 mod request_id;
 pub mod rest;
 pub mod service;
+pub mod storage;
 
 pub use auth_error::{Family, from_auth};
 pub use error::{ApiError, BodyFields, Fault};

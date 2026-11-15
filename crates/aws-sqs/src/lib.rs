@@ -17,6 +17,7 @@ mod policy;
 mod queues;
 mod redrive;
 mod send;
+mod storage;
 mod tags;
 mod url;
 
@@ -215,6 +216,10 @@ impl Service for Sqs {
     /// front end's `ValidationException`.
     fn invalid(&self, violation: &Violation) -> ApiError {
         invalid(violation)
+    }
+
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
     }
 }
 

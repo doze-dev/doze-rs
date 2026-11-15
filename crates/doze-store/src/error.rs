@@ -22,6 +22,9 @@ pub enum StoreError {
     /// The writer has been shut down.
     #[error("the writer has been shut down")]
     Stopped,
+    /// Compaction needs the only handle to the database, and another is alive.
+    #[error("the database is in use elsewhere and cannot be compacted now")]
+    Shared,
 }
 
 /// Every error type redb has becomes the one variant, through redb's own unifying `Error`.
@@ -42,4 +45,5 @@ from_redb!(
     redb::StorageError,
     redb::CommitError,
     redb::SetDurabilityError,
+    redb::CompactionError,
 );
