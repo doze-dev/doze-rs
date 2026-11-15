@@ -153,6 +153,14 @@ impl Core {
                     l.push(a);
                 }
             });
+            let agreement = key.spec.key_agreement_algorithms(key.usage);
+            if !agreement.is_empty() {
+                o.put_list(PublicKey::KEY_AGREEMENT_ALGORITHMS, |l| {
+                    for a in agreement {
+                        l.push(a);
+                    }
+                });
+            }
         })
     }
 
