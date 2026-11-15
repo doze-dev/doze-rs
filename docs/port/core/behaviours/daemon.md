@@ -147,3 +147,12 @@ Found on the scratch merge, for C2c: its `__fetch` child ignores a `file://` mir
 `/private/tmp/claude-501/dzb10/tools/proof.sh` (the D1 `doze` at cabe4ad6, `dozetest`, 7,146,368 B; the unchanged app at app-finish a7af57a4, `release-app` with `fixtures`, driven by `app/proof.txt`). Evidence: `app/driver.log`, `app/proof.log`, `shots/01…09`, the first attempt in `run1/`. The stack is started as `up` starts it (the `__daemon`, then the `up` op: the CLI's `up` is C2c's); then: up in 87 s with the postgres engine downloaded and the migration run as api's need; everything asleep; a curl of web woke it in 37 ms through its front (`03`); the map, all logs, db's page with its real memory and CPU graphs, "api needs it" and its 10 connections (`06`); the daemon stopped with nothing left behind.
 
 Not shown: a module console tab (neither registry build, postgres or valkey 0.9.0, declares a console; the daemon's console topic is tested with the echo); admin/reset through the app (the script's ⌘K typing did not open the palette; reset is tested over the wire). Seen, for the app track: the tiles and the sidebar show 0 for memory while the page's graph shows 12 MB. The `instances` topic carries no meters, as Go's did not (`handler.go`: "without meters"); status and the `stats` topic do. An earlier run's sidebar showed them, so the app reads them from one of those only at times.
+
+### From C2c (session 11): what the CLI's track added to the daemon
+
+- `run/blocks.json` (Go's `recordBlocks`): written by `entry::no_daemon_yet` once the daemon's lock is held, from doze.hcl's
+  shape, through `ctl::write_blocks`; read by `ctl::blocks`. `doze sync` names the blocks that differ, and `doze migrate`
+  restarts the daemon first when the instance's block differs (audit item 6 above).
+- `doze __daemon --lint --config <path>` (`entry::LINT_ARG`): the `lint` op's module pass once, with no daemon serving, its
+  answer as one JSON line; the catalog's module processes are stopped before it answers (`Pool::stop_all`, doze-module-host).
+- The `__fetch` child's stderr is inherited (the daemon's log), and the child says an engine download as it starts.
