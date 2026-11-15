@@ -67,10 +67,6 @@ const SKIPPED: &[(&str, &str)] = &[
     ("AWS::SSM::MaintenanceWindowTask", "SSM maintenance windows"),
     ("AWS::SSM::PatchBaseline", "SSM patch baselines"),
     ("AWS::SSM::ResourceDataSync", "SSM resource data syncs"),
-    (
-        "AWS::SSM::Document",
-        "SSM documents (Parameter Store is what doze-aws serves of SSM)",
-    ),
     ("AWS::ApiGateway::DomainName", "custom domain names"),
     ("AWS::ApiGateway::DomainNameV2", "custom domain names"),
     ("AWS::ApiGateway::BasePathMapping", "custom domain names"),

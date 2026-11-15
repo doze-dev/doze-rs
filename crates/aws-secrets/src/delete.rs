@@ -37,6 +37,16 @@ impl Core {
             ));
         }
         let name = self.locate(v.get(Delete::SECRET_ID).unwrap_or_default())?;
+        if self
+            .replication
+            .get(&name)
+            .is_some_and(|r| !r.replicas.is_empty())
+        {
+            // The model's documentation; (memory) the words.
+            return Err(crate::core::invalid_request(
+                "You can't delete secret because it's replicated to other Regions. Remove the replicas first with RemoveRegionsFromReplication.",
+            ));
+        }
         let now = self.now_ms();
         let secret = self.secrets.get(&name).ok_or_else(not_found)?;
         let (arn, existing) = (secret.arn.clone(), secret.purge_ms);

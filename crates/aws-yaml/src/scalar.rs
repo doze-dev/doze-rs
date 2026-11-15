@@ -6,7 +6,7 @@ use super::{P, R, blank};
 
 impl P<'_> {
     /// When a plain mapping key starts here and ends on this line with `: `, where it ends.
-    pub(super) fn plain_key_ahead(&self) -> Option<usize> {
+    pub(crate) fn plain_key_ahead(&self) -> Option<usize> {
         let mut j = self.i;
         if matches!(self.b.get(j), Some(b'#' | b'-' | b'?' | b':'))
             && !blank(self.b.get(j + 1).copied())
@@ -48,7 +48,7 @@ impl P<'_> {
     }
 
     /// A plain scalar in block context, with its continuation lines (more indented than `parent`), resolved to its type.
-    pub(super) fn plain_block(&mut self, parent: isize) -> R<Value> {
+    pub(crate) fn plain_block(&mut self, parent: isize) -> R<Value> {
         if matches!(self.peek(), Some(b'@' | b'`' | b'%' | b',' | b']' | b'}')) {
             return self.fail();
         }
@@ -88,7 +88,7 @@ impl P<'_> {
     }
 
     /// One line of a plain scalar, up to a comment, the line end, or (in flow) an indicator.
-    pub(super) fn plain_line(&mut self, flow: bool) -> R<String> {
+    pub(crate) fn plain_line(&mut self, flow: bool) -> R<String> {
         let start = self.i;
         loop {
             match self.peek() {
@@ -115,7 +115,7 @@ impl P<'_> {
     }
 
     /// A single- or double-quoted scalar.
-    pub(super) fn quoted(&mut self) -> R<String> {
+    pub(crate) fn quoted(&mut self) -> R<String> {
         let double = self.peek() == Some(b'"');
         self.i += 1;
         let mut out = String::new();
@@ -224,7 +224,7 @@ impl P<'_> {
     }
 
     /// A literal (`|`) or folded (`>`) block scalar, with its chomping and indentation indicators.
-    pub(super) fn block_scalar(&mut self, parent: isize) -> R<Value> {
+    pub(crate) fn block_scalar(&mut self, parent: isize) -> R<Value> {
         let folded = self.peek() == Some(b'>');
         self.i += 1;
         let (mut chomp, mut given) = (b' ', None);
@@ -327,7 +327,7 @@ fn fold(lines: &[&str]) -> String {
 
 /// A plain scalar's type, as YAML 1.1 resolves it (SnakeYAML): null, booleans (with `yes`, `no`, `on`, `off`), decimal integers
 /// and floats. Anything else (octal-looking `0123`, an account id with a leading zero, a date) stays text.
-pub(super) fn resolve(text: &str) -> Value {
+pub(crate) fn resolve(text: &str) -> Value {
     match text {
         "" | "~" | "null" | "Null" | "NULL" => return Value::Null,
         "true" | "True" | "TRUE" | "yes" | "Yes" | "YES" | "on" | "On" | "ON" => {

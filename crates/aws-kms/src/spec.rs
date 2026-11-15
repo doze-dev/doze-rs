@@ -26,6 +26,8 @@ pub(crate) enum Usage {
     EncryptDecrypt,
     SignVerify,
     GenerateVerifyMac,
+    /// ECDH with `DeriveSharedSecret` (last, so the records written before it read the same).
+    KeyAgreement,
 }
 
 impl Spec {
@@ -88,6 +90,10 @@ impl Spec {
                     Usage::SignVerify
                 )
                 | (
+                    Self::EccP256 | Self::EccP384 | Self::EccP521,
+                    Usage::KeyAgreement
+                )
+                | (
                     Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096,
                     Usage::EncryptDecrypt | Usage::SignVerify
                 )
@@ -144,12 +150,24 @@ impl Spec {
                 &[]
             };
         }
+        if usage != Usage::SignVerify {
+            return &[];
+        }
         match self {
             Self::EccP256 | Self::EccK1 => &["ECDSA_SHA_256"],
             Self::EccP384 => &["ECDSA_SHA_384"],
             Self::EccP521 => &["ECDSA_SHA_512"],
             Self::Ed25519 => &["ED25519_SHA_512"],
             _ => &[],
+        }
+    }
+
+    /// What a key agreement key can derive with: ECDH.
+    pub(crate) fn key_agreement_algorithms(self, usage: Usage) -> &'static [&'static str] {
+        if usage == Usage::KeyAgreement && self.allows(usage) {
+            &["ECDH"]
+        } else {
+            &[]
         }
     }
 
@@ -170,6 +188,7 @@ impl Usage {
             Self::EncryptDecrypt => "ENCRYPT_DECRYPT",
             Self::SignVerify => "SIGN_VERIFY",
             Self::GenerateVerifyMac => "GENERATE_VERIFY_MAC",
+            Self::KeyAgreement => "KEY_AGREEMENT",
         }
     }
 
@@ -178,6 +197,7 @@ impl Usage {
             Self::EncryptDecrypt,
             Self::SignVerify,
             Self::GenerateVerifyMac,
+            Self::KeyAgreement,
         ]
         .into_iter()
         .find(|u| u.name() == name)

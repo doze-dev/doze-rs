@@ -16,6 +16,7 @@ const MAPPED: &[&str] = &[
     "AWS::SNS::TopicPolicy",
     "AWS::SNS::TopicInlinePolicy",
     "AWS::SSM::Parameter",
+    "AWS::SSM::Document",
     "AWS::S3::Bucket",
     "AWS::S3::BucketPolicy",
     "AWS::DynamoDB::Table",

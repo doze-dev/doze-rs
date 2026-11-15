@@ -27,6 +27,7 @@ pub(crate) mod skip;
 mod sns;
 mod sqs;
 mod ssm;
+mod ssm_doc;
 mod table;
 
 use std::sync::Arc;

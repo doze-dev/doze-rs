@@ -24,7 +24,7 @@ impl<'a> Run<'a> {
 
     fn step(&mut self, op: &str, request: &Value) -> Value {
         let answer = self.w.ok(op, request);
-        let before = format!("{:?}", self.w.core.secrets);
+        let before = format!("{:?} {:?}", self.w.core.secrets, self.w.core.replication);
         if let Some(db) = self.w.core.db.take() {
             db.close();
         }
@@ -36,7 +36,7 @@ impl<'a> Run<'a> {
         .unwrap();
         assert_eq!(
             before,
-            format!("{:?}", self.w.core.secrets),
+            format!("{:?} {:?}", self.w.core.secrets, self.w.core.replication),
             "after {op} {request}"
         );
         answer
@@ -76,6 +76,18 @@ fn a_restart_changes_nothing_whatever_was_done_before_it() {
         &json!({"SecretId": "b", "RecoveryWindowInDays": 7}),
     );
     r.step("RestoreSecret", &json!({"SecretId": "b"}));
+    r.step(
+        "ReplicateSecretToRegions",
+        &json!({"SecretId": "b", "AddReplicaRegions": [{"Region": "eu-west-1"}]}),
+    );
+    r.step(
+        "RemoveRegionsFromReplication",
+        &json!({"SecretId": "b", "RemoveReplicaRegions": ["eu-west-1"]}),
+    );
+    r.step(
+        "ReplicateSecretToRegions",
+        &json!({"SecretId": "a", "AddReplicaRegions": [{"Region": "eu-west-1"}]}),
+    );
     r.step(
         "DeleteSecret",
         &json!({"SecretId": "b", "ForceDeleteWithoutRecovery": true}),
