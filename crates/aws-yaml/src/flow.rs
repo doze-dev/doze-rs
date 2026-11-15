@@ -7,7 +7,7 @@ use super::{P, R};
 
 impl P<'_> {
     /// A flow collection or scalar (inside `[ ]` or `{ }`, or one starting with them).
-    pub(super) fn flow_node(&mut self) -> R<Value> {
+    pub(crate) fn flow_node(&mut self) -> R<Value> {
         self.enter()?;
         let (tag, anchor) = self.properties()?;
         self.skip_flow_space()?;

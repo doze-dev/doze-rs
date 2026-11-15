@@ -675,6 +675,7 @@ dependencies = [
  "aws-ssm",
  "aws-testkit",
  "aws-wire",
+ "aws-yaml",
  "bytes",
  "doze-runtime",
  "doze-store",
@@ -1470,6 +1471,13 @@ dependencies = [
  "http",
  "serde_json",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "aws-yaml"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]

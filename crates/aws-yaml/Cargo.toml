@@ -1,0 +1,15 @@
+[package]
+name = "aws-yaml"
+version = "0.0.0"
+description = "A bounded YAML reader (CloudFormation templates, SSM documents) into JSON, and a writer back"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json = "1"

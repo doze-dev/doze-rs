@@ -37,7 +37,7 @@ mod storage;
 mod tmpl;
 mod transform;
 mod web;
-mod yaml;
+use aws_yaml as yaml;
 mod zip;
 
 #[cfg(test)]
@@ -207,13 +207,6 @@ impl Service for Cloudformation {
 #[must_use]
 pub fn check_zip(bytes: &[u8]) -> bool {
     custom::check_zip(bytes)
-}
-
-/// Whether `text` is YAML the template reader accepts. Exists so the reader can be fuzzed.
-#[doc(hidden)]
-#[must_use]
-pub fn check_yaml(text: &str) -> bool {
-    yaml::parse(text).is_ok()
 }
 
 impl Web for Cloudformation {
