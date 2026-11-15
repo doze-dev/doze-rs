@@ -258,7 +258,7 @@ async fn types_of_services_doze_aws_does_not_run_are_skipped_and_the_deploy_goes
         "I": {"Type": "AWS::EC2::Instance", "Properties": {"ImageId": "ami-1", "SubnetId": {"Ref": "S"}}},
         "Db": {"Type": "AWS::RDS::DBInstance", "Properties": {"DBInstanceClass": "db.t3.micro"}},
         "Pool": {"Type": "AWS::Cognito::UserPool"},
-        "Doc": {"Type": "AWS::SSM::Document", "Properties": {"Content": {}}},
+        "Win": {"Type": "AWS::SSM::MaintenanceWindow", "Properties": {"Name": "w", "Schedule": "rate(1 day)", "Duration": 2, "Cutoff": 1, "AllowUnassociatedTargets": true}},
         "P": {"Type": "AWS::SSM::Parameter", "Properties": {"Type": "String", "Value": {"Ref": "S"}}}},
         "Outputs": {"Host": {"Value": {"Fn::GetAtt": ["Db", "Endpoint.Address"]}},
             "PoolArn": {"Value": {"Fn::GetAtt": ["Pool", "Arn"]}}}});
@@ -268,7 +268,7 @@ async fn types_of_services_doze_aws_does_not_run_are_skipped_and_the_deploy_goes
         ("I", "doze-aws does not run EC2"),
         ("Db", "doze-aws does not run RDS"),
         ("Pool", "doze-aws does not run Cognito"),
-        ("Doc", "doze-aws runs SSM but not SSM documents"),
+        ("Win", "doze-aws runs SSM but not SSM maintenance windows"),
     ] {
         let why = w.reason("s6", logical, "CREATE_COMPLETE").await;
         assert!(

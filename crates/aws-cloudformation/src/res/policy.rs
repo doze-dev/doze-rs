@@ -12,7 +12,7 @@
 //! (`AWS::Lambda::Funtion`, `AWS::Lamda::Function`); and a `AWS::Serverless::*` type without the transform. A near miss is refused
 //! rather than skipped because skipping it would deploy a stack without the function or queue the developer meant, and the failure
 //! would show later, far from its cause; the refusal names the type it is probably meant to be. A type of a family doze-aws runs that
-//! is not near one it makes is a real type not built yet (`AWS::SSM::Document`): it is skipped like any other.
+//! is not near one it makes is a real type not built yet (`AWS::SSM::MaintenanceWindow`): it is skipped like any other.
 
 use serde_json::Value;
 
