@@ -679,6 +679,126 @@
       }
     }
   },
+  "test_public_parameters_are_read_only": {
+    "by-path": {
+      "all-images": true,
+      "count": 3,
+      "more": true
+    },
+    "by-path-made-up-namespace": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "No access to \"/aws/\" namespace: aws/service/not-a-namespace is not a valid namespace"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "described-in-a-namespace": {
+      "count": 10,
+      "more": true,
+      "shapes": [
+        [
+          "String",
+          "Standard",
+          "text",
+          0,
+          ""
+        ]
+      ]
+    },
+    "get": {
+      "Parameter": {
+        "ARN": "arn:aws:ssm:us-east-1::parameter/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64",
+        "DataType": "text",
+        "LastModifiedDate": "<LastModifiedDate:1>",
+        "Name": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64",
+        "Type": "String",
+        "Value": "<Value:1>",
+        "Version": "<Version:1>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get-absent": {
+      "Error": {
+        "Code": "ParameterNotFound",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "get-made-up-namespace": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "No access to \"/aws/\" namespace: aws/service/not-a-parameter is not a valid namespace"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "get-made-up-namespace-deeper": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "No access to \"/aws/\" namespace: aws/service/not-a-namespace is not a valid namespace"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "get-many": {
+      "InvalidParameters": [
+        "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64-not-an-image"
+      ],
+      "Parameters": [
+        {
+          "ARN": "arn:aws:ssm:us-east-1::parameter/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64",
+          "DataType": "text",
+          "LastModifiedDate": "<LastModifiedDate:1>",
+          "Name": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64",
+          "Type": "String",
+          "Value": "<Value:1>",
+          "Version": "<Version:1>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get-many-made-up-namespace": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "No access to \"/aws/\" namespace: aws/service/not-a-parameter is not a valid namespace"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-described": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "No access to \"/aws/\" namespace: aws/service/ is not a valid namespace"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "region-long-name": {
+      "Parameter": {
+        "ARN": "arn:aws:ssm:us-east-1::parameter/aws/service/global-infrastructure/regions/us-east-1/longName",
+        "LastModifiedDate": "<LastModifiedDate:2>",
+        "Name": "/aws/service/global-infrastructure/regions/us-east-1/longName",
+        "Type": "String",
+        "Value": "US East (N. Virginia)",
+        "Version": "<Version:2>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
   "test_refusals": {
     "absent-version": {
       "Error": {
@@ -958,6 +1078,30 @@
       "Version": 2
     }
   },
+  "test_service_settings": {
+    "get-default": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServiceSetting": {
+        "ARN": "arn:aws:ssm:us-east-1:<account>:servicesetting/ssm/parameter-store/default-parameter-tier",
+        "LastModifiedDate": "<LastModifiedDate:1>",
+        "LastModifiedUser": "<LastModifiedUser:1>",
+        "SettingId": "/ssm/parameter-store/default-parameter-tier",
+        "SettingValue": "Standard",
+        "Status": "Default"
+      }
+    },
+    "unknown-setting": {
+      "Error": {
+        "Code": "ServiceSettingNotFound",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
   "test_tags_filters_and_unlabel": {
     "add-tags": {
       "ResponseMetadata": {
@@ -1108,7 +1252,7 @@
     "bad-data-type": {
       "Error": {
         "Code": "ValidationException",
-        "Message": "You can\u2019t change a parameter\u2019s data type."
+        "Message": "You can’t change a parameter’s data type."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400

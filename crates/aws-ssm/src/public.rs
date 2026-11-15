@@ -9,8 +9,9 @@
 //! when it is asked for, and the table costs no memory while no one asks.
 //!
 //! As on AWS: a public parameter's ARN has no account (`arn:aws:ssm:<region>::parameter/aws/service/...`), `GetParametersByPath`
-//! lists them (one level or recursively), `DescribeParameters` does not (it lists the account's own, the model's documentation
-//! says), and a write under `/aws/` is refused (`name::check_write`).
+//! lists them (one level or recursively), `DescribeParameters` lists them when a `Name` `BeginsWith` filter asks for a prefix
+//! inside one of AWS's namespaces (recorded; see `namespace.rs` for the names outside every namespace, which every read refuses),
+//! and a write under `/aws/` is refused (`name::check_write`).
 
 /// Where public parameters live.
 pub(crate) const ROOT: &str = "/aws/service/";
