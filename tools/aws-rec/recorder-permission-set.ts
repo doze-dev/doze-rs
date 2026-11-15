@@ -1,10 +1,13 @@
 // Generates the inline policy for the Identity Center permission set `doze-recorder-limited` (main account).
 // bun recorder-permission-set.ts  -> writes recorder-permission-set.json (pretty) and prints the minified size.
-const R = "us-east-1";
+// Two regions: us-east-1 for everything, us-west-2 for what is about a second region (Secrets Manager replicas, multi-Region KMS
+// keys). ARNs take any region; the condition holds every call to these two.
+const REGIONS = ["us-east-1", "us-west-2"];
+const R = "*";
 const P = "doze-rec-";
 const A = "arn:aws";
 
-const region = { StringEquals: { "aws:RequestedRegion": R } };
+const region = { StringEquals: { "aws:RequestedRegion": REGIONS } };
 
 const policy = {
   Version: "2012-10-17",
@@ -38,6 +41,19 @@ const policy = {
         "ssm:GetServiceSetting",
         // Added 2026-11-12 for the KMS and Secrets Manager scenarios written before they were recorded: no resource, nothing stored.
         "kms:GenerateRandom", "secretsmanager:GetRandomPassword", "secretsmanager:ValidateResourcePolicy",
+        // Added 2026-11-15 from the roadmap audit (every operation built or planned, checked against the Service Reference): these
+        // are authorized on "*" and change nothing outside what the scenarios make and delete.
+        "cloudformation:EstimateTemplateCost", "cloudformation:GetHookResult", "cloudformation:ListHookResults",
+        "cloudwatch:PutAnomalyDetector", "cloudwatch:DeleteAnomalyDetector", "iam:GenerateCredentialReport",
+        "kinesis:EnableEnhancedMonitoring", "kinesis:DisableEnhancedMonitoring", "kinesis:UpdateStreamMode",
+        "lambda:CreateCodeSigningConfig", "logs:CancelExportTask", "logs:PutIndexPolicy", "logs:DeleteIndexPolicy",
+        "logs:PutQueryDefinition", "logs:DeleteQueryDefinition", "logs:PutResourcePolicy", "logs:DeleteResourcePolicy",
+        "logs:GetLogFields", "logs:ListLogGroups", "logs:ListLogGroupsForQuery", "logs:ListScheduledQueries", "logs:StopQuery",
+        "logs:TestTransformer", "logs:StartQuery", "logs:GetQueryResults", "logs:StartLiveTail", "logs:CreateExportTask",
+        "sns:CheckIfPhoneNumberIsOptedOut", "sns:GetSMSAttributes", "sns:CreatePlatformApplication", "sns:DeletePlatformApplication",
+        "sns:GetPlatformApplicationAttributes", "sns:SetPlatformApplicationAttributes", "sns:CreatePlatformEndpoint", "sns:DeleteEndpoint",
+        "sns:GetEndpointAttributes", "sns:SetEndpointAttributes", "ssm:ListDocuments", "states:RevealSecrets",
+        "sts:DecodeAuthorizationMessage", "sts:GetSessionToken",
       ],
       Resource: "*",
       Condition: region,
@@ -86,6 +102,12 @@ const policy = {
         `${A}:events:${R}:*:archive/${P}*`,
         `${A}:events:${R}:*:connection/${P}*`,
         `${A}:events:${R}:*:api-destination/${P}*`,
+        `${A}:events:${R}:*:replay/${P}*`,
+        `${A}:logs:${R}:*:destination:${P}*`,
+        // Scheduled queries and code signing configs are named by AWS (an id), not by us.
+        `${A}:logs:${R}:*:scheduled-query:*`,
+        `${A}:lambda:${R}:*:code-signing-config:*`,
+        `${A}:cloudwatch:${R}:*:alarm-mute-rule:${P}*`,
         `${A}:scheduler:${R}:*:schedule/*/${P}*`,
         `${A}:scheduler:${R}:*:schedule-group/${P}*`,
         // Learned 2026-11-15: DeleteScheduleGroup asks for scheduler:DeleteSchedule on every schedule of the group (schedule/<group>/*).
@@ -134,7 +156,7 @@ const policy = {
       Effect: "Allow",
       Action: ["kms:CreateKey", "kms:TagResource"],
       Resource: "*",
-      Condition: { StringEquals: { "aws:RequestTag/doze-rec": "true", "aws:RequestedRegion": R } },
+      Condition: { StringEquals: { "aws:RequestTag/doze-rec": "true", "aws:RequestedRegion": REGIONS } },
     },
     {
       Sid: "KmsOnlyOurKeys",
@@ -149,7 +171,7 @@ const policy = {
       Effect: "Allow",
       Action: ["kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:DescribeKey", "kms:CreateGrant"],
       Resource: `${A}:kms:${R}:*:key/*`,
-      Condition: { StringEquals: { "kms:ViaService": ["ssm", "secretsmanager", "s3", "dynamodb", "sqs", "sns", "logs", "lambda", "kinesis", "events", "states"].map((x) => `${x}.${R}.amazonaws.com`) } },
+      Condition: { StringEquals: { "kms:ViaService": ["ssm", "secretsmanager", "s3", "dynamodb", "sqs", "sns", "logs", "lambda", "kinesis", "events", "states"].flatMap((x) => REGIONS.map((r) => `${x}.${r}.amazonaws.com`)) } },
     },
     {
       Sid: "KmsOurAliases",
@@ -169,7 +191,7 @@ const policy = {
       Effect: "Allow",
       Action: "iam:*",
       // IAM ARNs carry the path before the name (user/apps/doze-rec-x), so each kind is allowed with and without a path.
-      Resource: ["role", "user", "group", "policy", "instance-profile", "saml-provider"].flatMap((k) => [`${A}:iam::*:${k}/${P}*`, `${A}:iam::*:${k}/*/${P}*`]),
+      Resource: ["role", "user", "group", "policy", "instance-profile", "saml-provider", "oidc-provider", "server-certificate", "mfa"].flatMap((k) => [`${A}:iam::*:${k}/${P}*`, `${A}:iam::*:${k}/*/${P}*`]),
     },
     {
       // Added 2026-11-14: API Gateway execution logs land in groups named by the API's id, which cannot carry our prefix. Read only.
@@ -182,8 +204,17 @@ const policy = {
       // Added 2026-11-14: role sessions for the scenarios that act as a role (Scheduler and IAM enforce paths). Our roles only.
       Sid: "AssumeOurRoles",
       Effect: "Allow",
-      Action: ["sts:AssumeRole", "sts:TagSession"],
-      Resource: [`${A}:iam::*:role/${P}*`, `${A}:iam::*:role/*/${P}*`],
+      Action: ["sts:AssumeRole", "sts:TagSession", "sts:SetSourceIdentity", "sts:SetContext", "sts:GetFederationToken"],
+      Resource: [`${A}:iam::*:role/${P}*`, `${A}:iam::*:role/*/${P}*`, `${A}:sts::*:federated-user/${P}*`],
+    },
+    {
+      // Added 2026-11-15: two scenarios need a service-linked role AWS makes on first use (DynamoDB Contributor Insights, API Gateway
+      // tracing). Only these two services, so the recorder never makes another.
+      Sid: "TheServiceLinkedRolesTheScenariosNeed",
+      Effect: "Allow",
+      Action: "iam:CreateServiceLinkedRole",
+      Resource: "*",
+      Condition: { StringEquals: { "iam:AWSServiceName": ["contributorinsights.dynamodb.amazonaws.com", "ops.apigateway.amazonaws.com"] } },
     },
     {
       Sid: "NeverTheseEvenIfAnotherPolicyAllowsThem",
@@ -192,6 +223,10 @@ const policy = {
         "organizations:*", "account:*", "billing:*", "aws-portal:*", "payments:*", "sso:*", "sso-directory:*", "identitystore:*",
         "iam:CreateAccountAlias", "iam:DeleteAccountAlias", "iam:UpdateAccountPasswordPolicy", "iam:DeleteAccountPasswordPolicy",
         "iam:CreateLoginProfile", "iam:UpdateLoginProfile",
+        // Added 2026-11-15: account-wide settings of the real account, never changed by a recording.
+        "iam:SetSecurityTokenServicePreferences", "sts:AssumeRoot", "sns:SetSMSAttributes", "sns:OptInPhoneNumber",
+        "logs:PutAccountPolicy", "logs:DeleteAccountPolicy", "kinesis:UpdateAccountSettings", "ssm:UpdateServiceSetting",
+        "ssm:ResetServiceSetting",
         "ec2:RunInstances", "ec2:CreateNatGateway", "ec2:AllocateAddress", "rds:Create*", "redshift:Create*",
         "elasticache:Create*", "es:CreateDomain", "eks:CreateCluster", "ecs:CreateService",
         "kafka:CreateCluster*", "elasticmapreduce:RunJobFlow", "sagemaker:Create*", "bedrock:*",

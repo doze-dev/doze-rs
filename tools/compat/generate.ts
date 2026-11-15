@@ -139,6 +139,18 @@ for (const api of apis) {
   for (const [why, ops] of byWhy) md += `\nNot planned: ${why} (${ops.sort().map((n) => `\`${n}\``).join(", ")})\n`;
 }
 
+// `--wanted FILE`: every operation built or planned, by API, for the recorder's permission audit (`tools/aws-rec/permission-audit.ts
+// --wanted FILE`), so the recording policy covers the roadmap and not only today's scenarios.
+const wantedFile = flag("--wanted");
+if (wantedFile) {
+  const wanted: Record<string, string[]> = {};
+  for (const api of apis) {
+    const skip = notPlanned(api);
+    wanted[api.sdk_id] = api.ops.filter((o) => o.built || !skip.has(o.name)).map((o) => o.name);
+  }
+  writeFileSync(wantedFile, JSON.stringify(wanted, null, 1));
+}
+
 if (problems.length) {
   console.error(problems.join("\n"));
   process.exit(1);
