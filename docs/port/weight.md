@@ -311,6 +311,7 @@ The owner's ceiling of 10 MB stands: the default estimate is 2.6 MB under it, th
 
 **Levers not pulled, and what each costs.** (1) `EnvFilter` to `tracing_subscriber::filter::Targets` (no `env-filter` feature, so no regex): -233,008 B on darwin (5,797,328 to 5,564,320 B) and several packages
 (`matchers`, `regex-automata`, `regex-syntax`), at the price of the span and field directives of `RUST_LOG` (`target[span{field=value}]=level`, regexes on values); plain `target=level,...` lists and `--log-level` keep working. Not applied: it narrows a documented input.
+**Applied 2026-11-15** (owner's approval): -216,448 B on darwin (8,001,440 to 7,784,992 B on the one build) and 184 to 180 packages; span and field directives are refused at start with exit 2. See "The log filter without regex" below.
 (2) `kafka-broker` at "z": -180,288 B (5,617,040 B), but it is the request handlers of the hot path. Not applied. (3) Brotli for the assets: about -11 KB, and only over https. (4) Dropping the two JetBrains Mono weights (-43 KB) or all three fonts for a system stack (-91 KB): a visible change (D12). None is needed to meet 9.0 MB.
 
 **A side effect in the same profile.** `[profile.release]` is the workspace's, so `doze-aws` is also built with fat LTO: 3,897,792 B (4,447,712 B when last recorded), 194 packages, 3,232 KB idle. Its limit (6,100,000 B) is not touched here; it can be lowered by whoever owns that job.
@@ -805,3 +806,38 @@ doze-aws, from the same PR's next run (43592223803, main with the aws-tls, aws-g
 packages, inside the 13,900,000 B / 280 lines its stage set; idle 9,964 / 10,036 / 10,024 KB, median 10,024 KB, so its idle line is
 **10,526 KB** (was 9,413). That is +1.06 MB over the median of 8,964 KB measured before those merges; added to issue #36 beside the A14 to
 A16 step. In the same run doze-kafka's idle median was 10,648 KB, inside its new 11,013 KB.
+
+## The log filter without regex, and Fetch records written without a copy (2026-11-15), release, darwin/arm64
+
+Two efficiency changes the owner approved. Each measured on its own tree, `cargo build --release -p doze-kafka`, packages counted as `cargo xtask weight` counts them:
+
+| tree | binary | packages |
+|---|---|---|
+| main (3636c3d2) | 8,001,408 B | 184 |
+| Fetch records written without a copy | 8,001,440 B (+32) | 184 |
+| and the log filter without regex | **7,784,992 B** (-216,448) | **180** |
+
+`cargo xtask weight doze-kafka` on the last: 7,784,992 B, 180 packages, idle 7,584 KB (samples 7,584, 7,552, 7,664). The limit moves down
+(`xtask/weight-limits.txt`): times CI's 1.3747 is 10,702,029 B, plus 5% = 11,237,130 B; packages 180.
+
+**The log filter** (`crates/doze-kafka/src/logging.rs`). `tracing_subscriber::filter::Targets` instead of `EnvFilter`, so the `env-filter`
+feature is off and `regex`, `regex-automata`, `regex-syntax` and `matchers` leave doze-kafka's tree (`cargo tree -p doze-kafka -e normal -i regex`
+finds no such package). `RUST_LOG` and `--log-level` take what they took before in practice: a level, or a comma-separated list of levels and
+`target=level` pairs (a bare target is every level of it). Span and field directives (`target[span{field=value}]=level`) are refused at start,
+exit 2, with one line naming the source and what is supported; a misspelt level is refused too (`EnvFilter` dropped it silently), and an empty
+`RUST_LOG` counts as unset. `regex-lite` stays (kafka-broker's own use). doze-aws keeps `EnvFilter` in its own `run.rs`: its setup is not shared.
+
+**Fetch records** (`crates/kafka-wire/src/response/fetch.rs`, `frame.rs`). A Fetch reply was encoded into one buffer, so every record byte read
+from the log was copied into it before the write. Now the envelope is written into one buffer and each partition's records (4 KiB and up) stay
+in the `Bytes` the log read them into; the server writes the pieces with one vectored write (TCP and rustls both gather) and flushes. Size:
++32 B. Memory: `examples/fetch_frame` (Fetch v12, median of 9, loopback socket drained by a thread):
+
+| response | allocated by the encode, before | after | encode + write, before | after |
+|---|---|---|---|---|
+| 1 MiB, 1 partition | 1,048,642 B | 234 B | 0.292 ms | 0.269 ms |
+| 50 MiB, 1 partition | 52,428,867 B | 235 B | 5.849 ms | 4.932 ms |
+| 50 MiB, 16 partitions | 52,429,467 B | 2,627 B | 5.705 ms | 4.906 ms |
+
+End to end (the release binaries of main and of the Fetch change, `/usr/bin/time -l`, kcat producing one or fifty 1 MB messages to one
+partition and consuming them with the fetch limits at 64 MiB, three runs each): one message, peak RSS 10.6 MB to 9.5 MB; fifty, peak RSS
+108.6 MB to 58.6 MB (peak footprint 104.2 to 54.1 MB) and the consume 184.8 to 188.3 ms to 169.5 to 175.6 ms (kcat's start included).

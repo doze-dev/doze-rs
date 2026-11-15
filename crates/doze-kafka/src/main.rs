@@ -6,6 +6,7 @@ mod descriptors;
 mod duration;
 #[cfg(feature = "console")]
 mod facts;
+mod logging;
 #[cfg(feature = "module")]
 mod module;
 #[cfg(feature = "registry")]
@@ -48,8 +49,11 @@ fn main() -> std::process::ExitCode {
 
 fn broker() -> Result<()> {
     let (args, flags) = parse();
-    run::logging(&args);
     // A configuration that cannot start exits 2, as a bad flag does (clap's own code), before anything is opened.
+    if let Err(e) = logging::init(&args) {
+        eprintln!("Error: {e}");
+        std::process::exit(2);
+    }
     let mut settings = match args.settings() {
         Ok(settings) => settings,
         Err(e) => {
