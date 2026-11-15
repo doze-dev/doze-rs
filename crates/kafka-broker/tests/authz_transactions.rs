@@ -92,6 +92,97 @@ async fn add_partitions_needs_write_on_the_id_and_on_the_topic() {
     );
 }
 
+/// SEC-124. From v4 AddPartitionsToTxn is a broker's request (KIP-890): CLUSTER_ACTION on the cluster, or the whole answer is
+/// CLUSTER_AUTHORIZATION_FAILED at the top with no transaction in it (KA `authorizeClusterOperation(request,
+/// CLUSTER_ACTION)`, thrown, and `getErrorResponse` of v4 sets the top-level code alone).
+#[tokio::test]
+async fn add_partitions_of_v4_and_later_needs_cluster_action() {
+    const CLUSTER_ACTION: i8 = 9;
+    const CLUSTER_AUTH: i16 = 31;
+    let rig = world();
+    make_topic(&rig, "tpc", 1).await;
+    grant(
+        &rig,
+        vec![
+            allow(gx::CLUSTER, "kafka-cluster", "User:broker", CLUSTER_ACTION),
+            allow(gx::CLUSTER, "kafka-cluster", "User:*", CLUSTER_ACTION),
+            deny(gx::CLUSTER, "kafka-cluster", "User:mallory", CLUSTER_ACTION),
+            deny(gx::CLUSTER, "kafka-cluster", "User:admin", CLUSTER_ACTION),
+            // Rights on the id and the topic are not what it asks for.
+            allow(TXN_ID, "tid", "User:client", WRITE),
+            allow(TOPIC, "tpc", "User:client", WRITE),
+            allow(gx::CLUSTER, "kafka-cluster", "User:client", gx::ALTER),
+        ],
+    )
+    .await;
+    let asked = [("tid", STRANGER, true, "tpc", &[0][..])];
+    for (who, allowed) in [
+        ("broker", true),
+        ("anyone", true),
+        ("admin", true),
+        ("mallory", false),
+    ] {
+        let (top, each) = rig.add_partitions_batched_as(&user(who), 5, &asked).await;
+        if allowed {
+            assert_eq!((top, each.len()), (0, 1), "{who}");
+        } else {
+            assert_eq!(
+                (top, each.len()),
+                (CLUSTER_AUTH, 0),
+                "{who}: refused, no transaction answered"
+            );
+        }
+    }
+    // With ALLOW for every user removed, one with only rights on the id and topic is refused.
+    let closed = world();
+    make_topic(&closed, "tpc", 1).await;
+    grant(
+        &closed,
+        vec![
+            allow(TXN_ID, "tid", "User:client", WRITE),
+            allow(TOPIC, "tpc", "User:client", WRITE),
+        ],
+    )
+    .await;
+    let (top, each) = closed
+        .add_partitions_batched_as(&user("client"), 4, &asked)
+        .await;
+    assert_eq!((top, each.len()), (CLUSTER_AUTH, 0));
+    let (top, _) = closed.add_partitions_batched_as(&admin(), 4, &asked).await;
+    assert_eq!(top, 0, "a super user");
+}
+
+/// SEC-124. And nothing else: a broker may verify and add for any transactional id and topic, with no WRITE on either; the
+/// same caller at v3 (a client's request) is refused for the id.
+#[tokio::test]
+async fn add_partitions_of_v4_and_later_asks_for_no_right_on_the_id_or_the_topic() {
+    const CLUSTER_ACTION: i8 = 9;
+    const INVALID_PRODUCER_ID_MAPPING: i16 = 49;
+    let rig = world();
+    make_topic(&rig, "t", 1).await;
+    grant(
+        &rig,
+        vec![allow(
+            gx::CLUSTER,
+            "kafka-cluster",
+            "User:broker",
+            CLUSTER_ACTION,
+        )],
+    )
+    .await;
+    let broker = user("broker");
+    for verify in [true, false] {
+        let asked = [("tid", STRANGER, verify, "t", &[0][..])];
+        assert_eq!(
+            rig.add_partitions_batched_as(&broker, 4, &asked).await,
+            (0, vec![vec![INVALID_PRODUCER_ID_MAPPING]]),
+            "verify only: {verify}"
+        );
+    }
+    let r = tx::add_partitions(&rig, &broker, "tid", STRANGER, &[("t", &[0])]).await;
+    assert_eq!(tx::partition_codes(&r)[0].2, TXN_AUTH);
+}
+
 #[tokio::test]
 async fn a_refused_id_fails_every_partition_of_every_topic_even_one_that_is_not_there() {
     // errorResponseForTransaction (KA:1900-1901): the id's code on every partition asked.

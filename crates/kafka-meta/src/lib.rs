@@ -24,4 +24,4 @@ pub use offsets::{Committed, GroupOffset, OffsetCommit, StoredOffset};
 pub use record::Topic;
 pub use settings::{CleanupPolicy, TopicSettings};
 pub use store::{FileMode, MetaStore, Records, random_topic_id};
-pub use txn::{TxnOffset, TxnRecord, TxnState};
+pub use txn::{TxnOffset, TxnRecord, TxnState, TxnVersion};

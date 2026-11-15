@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use kafka_meta::{MetaStore, TxnOffset, TxnRecord, TxnState};
+use kafka_meta::{MetaStore, TxnOffset, TxnRecord, TxnState, TxnVersion};
 
 use super::{Model, World};
 
@@ -68,6 +68,13 @@ impl World {
             TxnState::CompleteAbort,
         ][self.rng.below(6) as usize];
         rec.updated_ms = self.rng.below(1_000_000) as i64;
+        if self.rng.below(2) == 0 {
+            // A decision of KIP-890's second part, handing over to a new producer id half the time.
+            rec.client_version = TxnVersion::EpochBump;
+            if self.rng.below(2) == 0 {
+                rec.next_producer_id = 2_000 + self.rng.below(50) as i64;
+            }
+        }
         rec.partitions = (0..self.rng.below(3))
             .map(|i| ("t".to_owned(), i as i32))
             .collect();

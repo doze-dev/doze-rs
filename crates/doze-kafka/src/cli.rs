@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
-use kafka_broker::{Config as BrokerConfig, Defaults};
+use kafka_broker::{Config as BrokerConfig, Defaults, TxnVersion};
 use kafka_server::{Config as ServerConfig, Timeouts};
 use kafka_wire::profile::{KafkaMajor, Profile};
 
@@ -213,6 +213,15 @@ pub(crate) struct Settings {
     pub(crate) warnings: Vec<String>,
 }
 
+/// How the broker ends a transaction on its own at a Kafka major: the `transaction.version` its profile finalizes.
+fn transaction_version(major: KafkaMajor) -> TxnVersion {
+    if Profile::new(major).transaction_version() >= 2 {
+        TxnVersion::EpochBump
+    } else {
+        TxnVersion::Classic
+    }
+}
+
 impl Args {
     /// Checks the arguments and turns them into the configuration of the broker and the server.
     pub(crate) fn settings(&self) -> Result<Settings> {
@@ -254,6 +263,7 @@ impl Args {
         broker.log_cleaner_every = self.log_cleaner_interval;
         broker.log_cleaner_enable = self.log_cleaner_enable;
         broker.client_telemetry = self.client_telemetry;
+        broker.transaction_version = transaction_version(major);
         broker.max_open_partitions = self.max_open_partitions;
         broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
         broker.super_users = acl::super_users(&self.acl_super_user)?;

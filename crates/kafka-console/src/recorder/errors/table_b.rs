@@ -204,6 +204,14 @@ pub(super) const ROWS: &[Row] = &[
         "Send fewer metrics, or push more often.",
     ),
     r(
+        120,
+        "TRANSACTION_ABORTABLE",
+        Refused,
+        "The server encountered an error with the transaction. The client can abort the transaction to continue using this transactional ID.",
+        "The write or offset commit is not part of the open transaction (its partition or group was never added to it).",
+        "Abort the transaction and begin again; clients do this on their own.",
+    ),
+    r(
         128,
         "INVALID_REGULAR_EXPRESSION",
         Refused,

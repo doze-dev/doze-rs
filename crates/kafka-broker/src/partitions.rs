@@ -19,6 +19,7 @@ use kafka_wire::batch::{Batch, TimestampType};
 use kafka_wire::ids::{Offset, TimestampMs};
 use tokio::sync::{mpsc, oneshot};
 
+use crate::producers::FirstSequence;
 use crate::txn_index::{Aborted, TxnIndex};
 
 use actor::{Append, Command};
@@ -87,12 +88,29 @@ impl<F: Fs> Partition<F> {
         clock: TimestampType,
         durable: bool,
     ) -> Result<Pending, StorageError> {
+        self.submit_with(batch, now, clock, durable, FirstSequence::Any)
+            .await
+    }
+
+    /// [`Self::submit`], saying where a producer the partition knows no batch of may start its sequences.
+    ///
+    /// # Errors
+    /// The partition's writer has gone.
+    pub(crate) async fn submit_with(
+        &self,
+        batch: Batch,
+        now: TimestampMs,
+        clock: TimestampType,
+        durable: bool,
+        first: FirstSequence,
+    ) -> Result<Pending, StorageError> {
         let (reply, answer) = oneshot::channel();
         let append = Append {
             batch,
             now,
             clock,
             durable,
+            first,
             reply,
         };
         self.commands

@@ -1,0 +1,187 @@
+features: supported group.version 0..1
+features: supported kraft.version 0..1
+features: supported metadata.version 7..33
+features: supported share.version 0..2
+features: supported streams.version 0..1
+features: supported transaction.version 0..2
+features: supported eligible.leader.replicas.version 0..1
+features: finalized group.version 1..1
+features: finalized streams.version 1..1
+features: finalized transaction.version 2..2
+features: finalized eligible.leader.replicas.version 1..1
+features: finalized share.version 2..2
+features: finalized metadata.version 33..33
+features: epoch>=0 true zkMigrationReady false
+features: api 0 0..13
+features: api 22 0..5
+features: api 24 0..5
+features: api 25 0..4
+features: api 26 0..5
+features: api 28 0..6
+features: v3 finalized 6 supported 1
+basic: init P0/0
+basic: produce v12 p0 ok@0
+basic: describe Ongoing P0/0 [kip890-R-basic-0]
+basic: producers p0 [P0 epoch 0 seq 0 txnStart 0]
+basic: lso hw 1 lso 0 aborted 0
+basic: produce v12 p0 seq1 ok@1
+basic: produce v12 p1 ok@0
+basic: end v5 commit ok P0/1
+basic: describe CompleteCommit P0/1 []
+basic: producers p0 [P0 epoch 1 seq -1 txnStart -1]
+basic: lso hw 3 lso 3 aborted 0
+basic: produce v12 old epoch p0 error 47
+basic: produce v12 new epoch seq 0 p0 ok@3
+basic: end v5 abort ok P0/2
+basic: lso hw 5 lso 5 aborted 1
+basic: producers p0 [P0 epoch 2 seq -1 txnStart -1]
+basic: producers p1 [P0 epoch 1 seq -1 txnStart -1]
+table: Empty commit current error 48 -1/-1
+table: Empty commit retry error 90 -1/-1
+table: Empty abort retry error 90 -1/-1
+table: Empty abort current ok P0/1
+table: describe CompleteAbort P0/1 []
+table: CompleteAbort commit retry error 48 -1/-1
+table: CompleteAbort abort retry ok P0/1
+table: CompleteAbort commit current error 48 -1/-1
+table: CompleteAbort higher error 90 -1/-1
+table: CompleteAbort other pid error 49 -1/-1
+table: CompleteAbort two back error 90 -1/-1
+table: produce v12 ok@0
+table: Ongoing abort retry error 90 -1/-1
+table: Ongoing commit current ok P0/2
+table: CompleteCommit commit retry ok P0/2
+table: CompleteCommit abort retry error 48 -1/-1
+table: CompleteCommit commit current error 48 -1/-1
+table: CompleteCommit abort current ok P0/3
+table: describe CompleteAbort P0/3 []
+table: v4 CompleteAbort abort current ok
+table: v4 CompleteAbort abort retry error 90
+table: produce v12 ok@2
+table: v4 Ongoing commit ok
+table: describe CompleteCommit P0/3 []
+table: producers [P0 epoch 3 seq 0 txnStart -1]
+table: v5 CompleteCommit after v4 commit current error 48 -1/-1
+table: v5 CompleteCommit after v4 abort current ok P0/4
+unadded: produce v3 not added error 48
+unadded: produce v9 not added error 48
+unadded: produce v10 not added error 48
+unadded: produce v11 not added error 120
+unadded: describe Empty P0/0 []
+unadded: add v3 kip890-R-unadded-1=0
+unadded: produce v9 p0 still not added error 48
+unadded: produce v11 p0 still not added error 120
+unadded: produce v9 p1 added ok@0
+unadded: produce v12 p2 ok@0
+unadded: describe Ongoing P0/0 [kip890-R-unadded-1, kip890-R-unadded-2]
+unadded: end v3 commit ok
+unadded: describe CompleteCommit P0/0 []
+unadded: producers p1 [P0 epoch 0 seq 0 txnStart -1]
+unadded: produce v11 after end error 120
+unadded: produce v12 after classic end ok@2
+unadded: end v5 commit ok P0/1
+refusals: produce v12 first at seq 5 error 45
+refusals: describe Ongoing P0/1 [kip890-R-refusals-0]
+refusals: produce v12 seq 0 after ok@0
+refusals: produce v12 old epoch error 47
+refusals: produce v12 higher epoch error 47
+refusals: produce v12 other pid error 49
+refusals: produce v12 unknown tx error 49
+refusals: produce v11 unknown tx error 49
+refusals: describe Ongoing P0/1 [kip890-R-refusals-0]
+refusals: produce v12 idempotent (not transactional) ok@0
+refusals: end v5 abort ok P0/2
+refusals: lso p0 hw 2 lso 2 aborted 1
+refusals: producers p0 [P0 epoch 2 seq -1 txnStart -1]
+refusals: producers p1 []
+offsets: txnoffset v3 not added error 48
+offsets: txnoffset v4 not added error 120
+offsets: describe Empty P0/0 []
+offsets: txnoffset v5 implicit ok
+offsets: describe Ongoing P0/0 [OFFSETS-0]
+offsets: committed error 88 offset -1
+offsets: txnoffset v3 after v5 added ok
+offsets: end v5 commit ok P0/1
+offsets: committed offset 6
+offsets: txnoffset v5 old epoch error 47
+offsets: addoffsets v4 ok
+offsets: txnoffset v4 after add ok
+offsets: end v5 abort ok P0/2
+offsets: committed offset 6
+offsets: txnoffset v5 other group ok
+offsets: end v5 commit ok P0/3
+offsets: committed other offset 3
+offsets: addoffsets v4 old epoch error 90
+offsets: addoffsets v3 old epoch error 90
+offsets: addoffsets v1 old epoch error 47
+batched: add v3 a p0 kip890-R-batched-0=0
+batched: v4 verify a p0,p1 + b p0 top=0 [kip890-R-batched-a: kip890-R-batched-0=0 kip890-R-batched-1=120] [kip890-R-batched-b: kip890-R-batched-0=120]
+batched: v5 verify a p0,p1 + b p0 top=0 [kip890-R-batched-a: kip890-R-batched-0=0 kip890-R-batched-1=120] [kip890-R-batched-b: kip890-R-batched-0=120]
+batched: v5 verify unknown tx top=0 [kip890-R-batched-a-nobody: kip890-R-batched-0=49]
+batched: v5 verify stale epoch top=0 [kip890-R-batched-a: kip890-R-batched-0=90]
+batched: v5 verify other pid top=0 [kip890-R-batched-a: kip890-R-batched-0=49]
+batched: v5 verify unknown partition top=0 [kip890-R-batched-a: kip890-R-batched-0=55 kip890-R-batched-9=3]
+batched: v5 verify unknown topic top=0 [kip890-R-batched-a: kip890-R-batched-none-0=3]
+batched: v5 add b p1,p2 top=0 [kip890-R-batched-b: kip890-R-batched-1=0 kip890-R-batched-2=0]
+batched: describe b Ongoing P0/0 [kip890-R-batched-1, kip890-R-batched-2]
+batched: v5 verify b p1 top=0 [kip890-R-batched-b: kip890-R-batched-1=0]
+batched: produce v11 b p1 ok@0
+batched: v4 add stale top=0 [kip890-R-batched-b: kip890-R-batched-0=90]
+batched: v5 add empty id top=0 [: kip890-R-batched-0=42]
+batched: v5 verify empty id top=0 [: kip890-R-batched-0=42]
+batched: end v5 b commit ok P0/1
+batched: v5 verify b after end top=0 [kip890-R-batched-b: kip890-R-batched-1=120]
+batched: end v3 a abort ok
+timeout: tv2 produce v12 ok@0
+timeout: tv1 add v3 kip890-R-timeout-0=0
+timeout: tv1 produce v9 ok@1
+timeout: describe tv2 CompleteAbort P0/1 []
+timeout: describe tv1 CompleteAbort P1/1 []
+timeout: producers [P0 epoch 1 seq -1 txnStart -1, P1 epoch 1 seq -1 txnStart -1]
+timeout: tv2 produce v12 after timeout error 47
+timeout: tv2 end v5 abort old epoch ok P0/1
+timeout: tv2 end v5 commit old epoch error 48 -1/-1
+timeout: tv1 end v3 abort old epoch error 90
+timeout: tv1 init v4 with old epoch P1/1
+timeout: describe tv1 Empty P1/1 []
+timeout: tv2 init v4 with old epoch P0/1
+timeout: describe tv2 Empty P0/1 []
+zombie: a produce v12 ok@0
+zombie: b init P0/2 (a was P0/0)
+zombie: describe Empty P0/2 []
+zombie: producers [P0 epoch 1 seq -1 txnStart -1]
+zombie: a produce v12 error 47
+zombie: a end v5 abort error 90 -1/-1
+zombie: a end v5 commit error 90 -1/-1
+zombie: a init v4 own epoch error 90
+zombie: b produce v12 ok@2
+zombie: b end v5 commit ok P0/3
+zombie: lso hw 4 lso 4 aborted 1
+reinit: init v4 with handed epoch P0/2
+reinit: init v4 with epoch before error 90
+reinit: describe Empty P0/2 []
+owninit: tv2 produce v12 ok@0
+owninit: tv1 add v3 kip890-R-owninit-0=0
+owninit: tv1 produce v9 ok@1
+owninit: tv2 init v4 own epoch while open -> P0/1 (after CONCURRENT_TRANSACTIONS)
+owninit: tv2 describe Empty P0/1 []
+owninit: tv1 init v4 own epoch while open -> P1/1 (after CONCURRENT_TRANSACTIONS)
+owninit: tv1 describe Empty P1/1 []
+owninit: lso hw 4 lso 4 aborted 2
+exhaust: aborted empty up to 32764
+exhaust: produce v12 at 32764 ok@0
+exhaust: commit -> P0/32765
+exhaust: produce v12 at 32765 ok@2
+exhaust: commit -> P0/32766
+exhaust: describe CompleteCommit P0/32766 []
+exhaust: producers [P0 epoch 32766 seq -1 txnStart -1]
+exhaust: produce v12 at 32766 ok@4
+exhaust: commit at 32766 -> ok P1/0
+exhaust: describe CompleteCommit P1/0 []
+exhaust: producers [P0 epoch 32767 seq -1 txnStart -1]
+exhaust: retry commit at 32766 -> ok P1/0
+exhaust: retry abort at 32766 -> error 48 -1/-1
+exhaust: old pid at 32765 -> error 49 -1/-1
+exhaust: init v4 old pid at 32766 -> P1/0
+exhaust: describe Empty P1/0 []
+exhaust: lso hw 6 lso 6 aborted 0
