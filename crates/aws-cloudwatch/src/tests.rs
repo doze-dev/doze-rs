@@ -12,6 +12,7 @@ use crate::core::Core;
 
 mod alarms;
 mod cbor;
+mod data;
 mod metrics;
 mod producers;
 mod stored;
