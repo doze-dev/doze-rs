@@ -1,19 +1,19 @@
 # module	labels	exact	wording	behaviour	unverified	scored
 apigateway	92	92	0	0	0	2026-11-15
 cloudformation	88	88	0	0	0	2026-11-15
-cloudwatch	40	37	3	0	0	2026-11-15
+cloudwatch	40	40	0	0	0	2026-11-15
 dynamodb	116	115	0	1	0	2026-11-15
 eventbridge	90	90	0	0	0	2026-11-15
 iam	48	48	0	0	0	2026-11-15
 kinesis	58	58	0	0	0	2026-11-15
-kms	132	123	5	4	0	2026-11-15
-lambda	70	69	0	1	0	2026-11-15
+kms	132	130	1	1	0	2026-11-15
+lambda	70	70	0	0	0	2026-11-15
 logs	51	51	0	0	0	2026-11-15
 s3	172	168	0	4	0	2026-11-15
 scheduler	31	30	0	0	1	2026-11-15
-secretsmanager	78	67	0	11	0	2026-11-15
+secretsmanager	78	78	0	0	0	2026-11-15
 sns	106	106	0	0	0	2026-11-15
 sqs	181	180	0	1	0	2026-11-15
-ssm	108	86	7	10	5	2026-11-15
+ssm	108	101	1	0	6	2026-11-15
 stepfunctions	75	75	0	0	0	2026-11-15
 sts	2	2	0	0	0	2026-11-15
