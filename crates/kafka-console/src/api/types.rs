@@ -165,6 +165,7 @@ fn all() -> BTreeMap<String, String> {
     super::topics::types::all(&cfg, &mut out);
     r4(&cfg, &mut out);
     schemas(&cfg, &mut out);
+    super::data::types(&cfg, &mut out);
     out
 }
 

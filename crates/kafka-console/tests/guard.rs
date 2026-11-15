@@ -36,6 +36,9 @@ const POST_PATHS: &[&str] = &[
     "/api/v1/lab/history/clear",
     "/api/v1/lab/once/drop",
     "/api/v1/lab/compact",
+    "/api/v1/data/empty",
+    "/api/v1/data/empty-all",
+    "/api/v1/data/erase",
 ];
 
 /// What the React app's fetch client sends with a read.
