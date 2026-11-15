@@ -175,6 +175,11 @@ class AWS(Target):
             )
 
     def client(self, service, **kw):
+        # A short connect timeout: where an endpoint's IPv6 addresses do not answer (seen 2026-11-15 on the recorder's network),
+        # botocore tries each one for 60 s before IPv4, and the request reaches AWS after its signature has expired.
+        if "config" not in kw:
+            from botocore.config import Config
+            kw["config"] = Config(connect_timeout=5)
         client = self.session.client(service, **kw)
         if service == "kms":
             _mark_kms_keys(client)
