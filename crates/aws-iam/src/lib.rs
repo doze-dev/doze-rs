@@ -28,6 +28,7 @@ mod profiles;
 mod providers;
 mod req;
 mod saml;
+mod samltrust;
 mod session;
 mod simulate;
 mod storage;

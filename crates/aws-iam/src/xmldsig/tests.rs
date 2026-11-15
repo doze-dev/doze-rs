@@ -77,7 +77,7 @@ fn both_signatures_are_checked_when_both_are_there() {
 #[test]
 fn the_assertion_given_back_reads_as_saml() {
     let assertion = verify(RESPONSE_SIGNED, &certs()).unwrap();
-    let read = crate::saml::read(&aws_core::base64::encode(assertion.as_bytes())).unwrap();
+    let read = crate::saml::read(&assertion).unwrap();
     assert_eq!(read.name_id, "alice&co <a>");
     assert_eq!(read.role_session_name.as_deref(), Some("alice@example.com"));
 }

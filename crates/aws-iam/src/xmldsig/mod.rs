@@ -96,13 +96,6 @@ pub(crate) struct Metadata {
 
 /// Reads an identity provider's metadata (an `EntityDescriptor`, or an `EntitiesDescriptor` holding one): its entity ID, and
 /// every certificate of an `IDPSSODescriptor` key whose `use` is `signing` or not given.
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "STS reads metadata through this once it checks signatures"
-    )
-)]
 pub(crate) fn signing_certs(metadata: &str) -> Result<Metadata, Refusal> {
     let root = reader::parse(metadata, METADATA_LIMITS).map_err(Refusal::Unreadable)?;
     let entity = if root.is(METADATA, "EntitiesDescriptor") {
@@ -150,13 +143,6 @@ pub(crate) fn signing_certs(metadata: &str) -> Result<Metadata, Refusal> {
 /// The signed assertion's XML, when `response` (decoded XML text: a `Response`, or a bare `Assertion`) carries a signature
 /// one of `certs` (DER certificates) made. The XML given back is the exclusive canonical form of the assertion without its
 /// signature: a standalone document, every namespace it uses declared, holding only what was signed.
-#[cfg_attr(
-    not(test),
-    allow(
-        dead_code,
-        reason = "STS checks assertions through this once it checks signatures"
-    )
-)]
 pub(crate) fn verify(response: &str, certs: &[Vec<u8>]) -> Result<String, Refusal> {
     let root = reader::parse(response, RESPONSE_LIMITS).map_err(Refusal::Unreadable)?;
     unique_ids(&root)?;

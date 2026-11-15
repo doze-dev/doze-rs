@@ -13,7 +13,6 @@ use crate::core::Core;
 use crate::entity::new_id;
 use crate::model::Kind;
 use crate::req::{Req, secs};
-use crate::saml;
 use crate::session::{Session, SessionKind};
 
 const MIN_SECS: i64 = 900;
@@ -175,8 +174,8 @@ impl Core {
         Ok(json!({"Credentials": self.credentials(&s), "SourceIdentity": s.source_identity}))
     }
 
-    /// `AssumeRoleWithSAML`: the assertion is read for its subject, issuer, recipient and AWS attributes, and echoed as AWS echoes
-    /// them; its signature is not checked (see [`crate::saml`]).
+    /// `AssumeRoleWithSAML`: the response's signature is verified against the provider's metadata (`samltrust`), and the signed
+    /// assertion is read for its subject, issuer, recipient and AWS attributes, and echoed as AWS echoes them.
     fn assume_with_saml(&self, r: &Req<'_>) -> Result<Value, ApiError> {
         let arn = r.s("RoleArn");
         let name = role_name_of(arn)?;
@@ -185,13 +184,7 @@ impl Core {
         if duration < MIN_SECS || duration > known.map_or(MAX_ROLE_SECS, |e| e.max_session_secs) {
             return Err(validation("DurationSeconds is out of range for this role."));
         }
-        let assertion = saml::read(r.s("SAMLAssertion")).ok_or_else(|| {
-            // (memory) The error is the modelled one; the sentence is doze's.
-            ApiError::modeled(
-                "InvalidIdentityTokenException",
-                "The SAML assertion could not be read: it must be base64 of a SAML response.",
-            )
-        })?;
+        let assertion = self.signed_assertion(r.s("PrincipalArn"), r.s("SAMLAssertion"))?;
         // AWS takes the session name from the assertion's RoleSessionName attribute. (memory) An assertion without one is
         // given a fixed name here.
         let session_name = assertion
