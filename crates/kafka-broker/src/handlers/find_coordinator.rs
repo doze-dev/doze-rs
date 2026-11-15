@@ -1,6 +1,6 @@
 //! FindCoordinator: this broker, for every group and every transaction.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::StrBytes;
@@ -35,10 +35,10 @@ impl<F: Fs> Broker<F> {
     ) -> FindCoordinatorResponse {
         let guard = self.guard(caller);
         let refused = |key: &str| match req.key_type {
-            GROUP if !guard.group(operation::DESCRIBE, key) => {
+            GROUP if !guard.group(Operation::Describe, key) => {
                 Some(ResponseError::GroupAuthorizationFailed)
             }
-            TRANSACTION if !guard.txn(operation::DESCRIBE, key) => {
+            TRANSACTION if !guard.txn(Operation::Describe, key) => {
                 Some(ResponseError::TransactionalIdAuthorizationFailed)
             }
             _ => None,

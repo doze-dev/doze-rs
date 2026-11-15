@@ -300,7 +300,11 @@ pub(crate) fn summary_answer(original: &Value, t: &Value) -> Value {
     if let Some(m) = t.get("Metadata") {
         out.insert("Metadata".into(), m.to_string().into());
     }
-    out.insert("DeclaredTransforms".into(), json!(transforms(original)));
+    // Left out when the template declares none (recorded 2026-11-15).
+    let declared = transforms(original);
+    if !declared.is_empty() {
+        out.insert("DeclaredTransforms".into(), json!(declared));
+    }
     let mut ids: Vec<Value> = Vec::new();
     for ty in &types {
         let logical: Vec<&String> = resources(t)

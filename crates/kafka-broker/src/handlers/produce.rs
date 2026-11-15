@@ -6,7 +6,8 @@ mod request;
 
 use std::sync::Arc;
 
-use kafka_auth::authz::{operation, resource};
+use bytes::Bytes;
+use kafka_auth::authz::{Operation, ResourceType};
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::Response;
@@ -25,11 +26,16 @@ use answer::{blank, failed, finish, storage_fault};
 use check::Accepted;
 use request::{refused_everywhere, request_refusal};
 
+/// What a partition that sent null records is checked as: nothing, without a copy of anything.
+static NO_RECORDS: Bytes = Bytes::new();
+
 /// A partition's answer, or what it is waiting for.
 enum Stage<F: Fs> {
     Done(PartitionProduceResponse),
     Waiting {
         answer: PartitionProduceResponse,
+        /// The topic the request looked up, to tell a write its delete took away from a failed one.
+        topic: TopicId,
         partition: Arc<Partition<F>>,
         pending: Pending,
         appended_at: Option<TimestampMs>,
@@ -62,7 +68,7 @@ impl<F: Fs> Broker<F> {
         let acks = req.acks;
         let may_write_txn = |id: &str| {
             self.authz
-                .allows(caller, resource::TRANSACTIONAL_ID, id, operation::WRITE)
+                .allows(caller, ResourceType::TransactionalId, id, Operation::Write)
         };
         let response = match request_refusal(&req, may_write_txn) {
             Some((code, message)) => refused_everywhere(&req, code, message.as_deref()),
@@ -120,7 +126,8 @@ impl<F: Fs> Broker<F> {
             r.name = t.name.clone();
             r.topic_id = t.topic_id;
             for stage in stages {
-                r.partition_responses.push(finish(stage, durable).await);
+                r.partition_responses
+                    .push(finish(stage, durable, |id| self.deleted(id)).await);
             }
             resp.responses.push(r);
         }
@@ -142,7 +149,14 @@ impl<F: Fs> Broker<F> {
             None if version >= 13 => return true,
             None => t.name.0.as_str(),
         };
-        self.topic_allows(caller, name, operation::WRITE)
+        self.topic_allows(caller, name, Operation::Write)
+    }
+
+    /// Whether the topic a request looked up has been deleted since (its id is no longer in the metadata; a topic made
+    /// again with its name has another id). DeleteTopics changes the metadata before it closes the partitions and
+    /// removes their files, so a write those take away from under a Produce sees the topic gone here.
+    fn deleted(&self, topic: TopicId) -> bool {
+        self.meta.topic_by_id(topic).is_none()
     }
 
     /// The topic a request names: by id from v13, by name before.
@@ -181,12 +195,12 @@ impl<F: Fs> Broker<F> {
             return unknown();
         }
         let now = clock::now();
-        let records = p.records.clone().unwrap_or_default();
+        let records = p.records.as_ref().unwrap_or(&NO_RECORDS);
         let Accepted {
             batch,
             log_append_time,
         } = match blocking::run(|| {
-            check::check(&self.defaults.get(), version, topic, id, &records, now)
+            check::check(&self.defaults.get(), version, topic, id, records, now)
         }) {
             Ok(accepted) => accepted,
             Err(refused) => return Stage::Done(self.refused(topic, id, refused).await),
@@ -210,7 +224,7 @@ impl<F: Fs> Broker<F> {
         }
         let partition = match self.partitions.get(topic, id).await {
             Ok(partition) => partition,
-            Err(e) => return Stage::Done(storage_fault(p.index, &e)),
+            Err(e) => return Stage::Done(storage_fault(p.index, &e, self.deleted(topic.id))),
         };
         let clock_kind = if log_append_time {
             TimestampType::LogAppend
@@ -220,11 +234,12 @@ impl<F: Fs> Broker<F> {
         match partition.submit(batch, now, clock_kind, durable).await {
             Ok(pending) => Stage::Waiting {
                 answer: blank(p.index),
+                topic: topic.id,
                 partition,
                 pending,
                 appended_at: log_append_time.then_some(now),
             },
-            Err(e) => Stage::Done(storage_fault(p.index, &e)),
+            Err(e) => Stage::Done(storage_fault(p.index, &e, self.deleted(topic.id))),
         }
     }
 
@@ -255,3 +270,6 @@ impl<F: Fs> Broker<F> {
         r
     }
 }
+
+#[cfg(test)]
+mod tests;

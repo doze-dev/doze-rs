@@ -98,17 +98,14 @@ async fn without_a_recorder_or_a_round_the_settings_answer_names_none() {
         "{}",
         v["intervals"]
     );
-    // The commit was just made: its expiry reads 7 d in the same second, 6 d 23 h after it.
+    // Read in the same millisecond as the commit (or with the commit's clock a hair ahead), the whole 7 d is left; any
+    // later it is 6 d 23 h. A fast runner answered "7 d" once (app-land, run 43622272665): both are right.
     let note = offsets_note(&v);
     assert!(
-        [
-            "kept for 7 d; analytics' expire in 6 d 23 h",
-            "kept for 7 d; analytics' expire in 7 d"
-        ]
-        .iter()
-        .any(|p| note.starts_with(p)),
+        note == "kept for 7 d; analytics' expire in 7 d"
+            || note.starts_with("kept for 7 d; analytics' expire in 6 d 23 h"),
         "{}",
-        offsets_note(&v)
+        note
     );
     w.stop().await;
 }

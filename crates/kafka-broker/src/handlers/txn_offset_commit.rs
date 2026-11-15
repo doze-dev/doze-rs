@@ -1,6 +1,6 @@
 //! TxnOffsetCommit: consumer offsets staged with a transaction, applied if it commits.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::TxnOffset;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
@@ -26,9 +26,9 @@ impl<F: Fs> Broker<F> {
         req: &TxnOffsetCommitRequest,
     ) -> Outcome {
         let guard = self.guard(caller);
-        let whole = if !guard.txn(operation::WRITE, req.transactional_id.0.as_str()) {
+        let whole = if !guard.txn(Operation::Write, req.transactional_id.0.as_str()) {
             Some(E::TransactionalIdAuthorizationFailed)
-        } else if !guard.group(operation::READ, req.group_id.0.as_str()) {
+        } else if !guard.group(Operation::Read, req.group_id.0.as_str()) {
             Some(E::GroupAuthorizationFailed)
         } else {
             None
@@ -41,7 +41,7 @@ impl<F: Fs> Broker<F> {
         for t in &req.topics {
             let mut rt = TxnOffsetCommitResponseTopic::default();
             rt.name = t.name.clone();
-            let barred = !guard.topic(operation::READ, t.name.0.as_str());
+            let barred = !guard.topic(Operation::Read, t.name.0.as_str());
             for p in &t.partitions {
                 let mut rp = TxnOffsetCommitResponsePartition::default();
                 rp.partition_index = p.partition_index;
@@ -100,6 +100,17 @@ impl<F: Fs> Broker<F> {
                 .map(|i| InstanceId::new(i.as_str())),
             generation: req.generation_id,
             transactional: true,
+            // Those that exist and may be read: `KafkaApis` answers the others before the coordinator is asked.
+            partitions: self
+                .offsets_of(guard, req, group.as_str())
+                .iter()
+                .filter_map(|o| {
+                    let topic = TopicName::parse(&o.topic)
+                        .ok()
+                        .and_then(|n| self.meta.topic(&n))?;
+                    Some((topic.id.to_uuid(), o.partition))
+                })
+                .collect(),
         };
         if let Some(code) = self.ask_group_to_commit(&group, committer).await {
             return Some(code);
@@ -130,7 +141,7 @@ impl<F: Fs> Broker<F> {
         let group_name = group.to_owned();
         req.topics
             .iter()
-            .filter(|t| guard.topic(operation::READ, t.name.0.as_str()))
+            .filter(|t| guard.topic(Operation::Read, t.name.0.as_str()))
             .flat_map(|t| {
                 let size = TopicName::parse(&t.name.0)
                     .ok()

@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use crate::Kinesis;
 use crate::core::Core;
 
+mod data;
 mod persistence;
 mod refusals;
 mod reshard;

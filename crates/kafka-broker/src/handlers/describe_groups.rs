@@ -1,6 +1,6 @@
 //! DescribeGroups.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::StrBytes;
 use kafka_wire::ids::GroupId;
@@ -26,7 +26,7 @@ impl<F: Fs> Broker<F> {
         let mut resp = DescribeGroupsResponse::default();
         let mut asked: Vec<String> = Vec::new();
         for g in &req.groups {
-            if guard.group(operation::DESCRIBE, g.0.as_str()) {
+            if guard.group(Operation::Describe, g.0.as_str()) {
                 asked.push(g.0.as_str().to_owned());
             } else {
                 let mut refused = DescribedGroup::default();

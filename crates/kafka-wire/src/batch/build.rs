@@ -4,6 +4,7 @@
 use bytes::{BufMut, Bytes, BytesMut};
 
 use super::layout::{CRC, LENGTH, crc_of};
+use super::varint;
 
 /// A record batch under construction. Defaults: one uncompressed record, producer -1, timestamps 0.
 #[derive(Debug, Clone)]
@@ -133,23 +134,14 @@ pub fn reseal(batch: &mut [u8]) {
     }
 }
 
-fn zigzag(v: i64, out: &mut Vec<u8>) {
-    let mut u = ((v << 1) ^ (v >> 63)) as u64;
-    while u >= 0x80 {
-        out.push((u as u8 & 0x7f) | 0x80);
-        u >>= 7;
-    }
-    out.push(u as u8);
-}
-
 /// `n` records, each: attributes, timestamp delta 0, offset delta i, null key, empty value, no headers.
 fn minimal_records(n: u32) -> Vec<u8> {
     let mut out = Vec::new();
     for i in 0..n {
         let mut rec = vec![0u8, 0];
-        zigzag(i64::from(i), &mut rec);
+        varint::write(&mut rec, i64::from(i));
         rec.extend_from_slice(&[1, 0, 0]); // key length -1, value length 0, headers 0
-        zigzag(rec.len() as i64, &mut out);
+        varint::write(&mut out, rec.len() as i64);
         out.extend_from_slice(&rec);
     }
     out
@@ -176,25 +168,25 @@ pub fn encode_records(recs: &[Rec]) -> Vec<u8> {
     let mut out = Vec::new();
     for (i, r) in recs.iter().enumerate() {
         let mut rec = vec![0u8];
-        zigzag(r.timestamp_delta, &mut rec);
-        zigzag(r.offset_delta.unwrap_or(i as i64), &mut rec);
+        varint::write(&mut rec, r.timestamp_delta);
+        varint::write(&mut rec, r.offset_delta.unwrap_or(i as i64));
         for field in [&r.key, &r.value] {
             match field {
                 Some(bytes) => {
-                    zigzag(bytes.len() as i64, &mut rec);
+                    varint::write(&mut rec, bytes.len() as i64);
                     rec.extend_from_slice(bytes);
                 }
-                None => zigzag(-1, &mut rec),
+                None => varint::write(&mut rec, -1),
             }
         }
-        zigzag(r.headers.len() as i64, &mut rec);
+        varint::write(&mut rec, r.headers.len() as i64);
         for (k, v) in &r.headers {
-            zigzag(k.len() as i64, &mut rec);
+            varint::write(&mut rec, k.len() as i64);
             rec.extend_from_slice(k);
-            zigzag(v.len() as i64, &mut rec);
+            varint::write(&mut rec, v.len() as i64);
             rec.extend_from_slice(v);
         }
-        zigzag(rec.len() as i64, &mut out);
+        varint::write(&mut out, rec.len() as i64);
         out.extend_from_slice(&rec);
     }
     out

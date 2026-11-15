@@ -742,6 +742,7 @@ reach GitHub. When the Rust CLI has `doze version --check`, the app asks it inst
 Activity at rest: it reads the journal again every ten seconds while shown (as Go's page did), off the UI thread, and
 redraws only when a figure changed; the strips are painted, so a 2,000-service stack builds only the rows in view
 (`doze-desk` lays out 2,000 services over 10,000 events in a few milliseconds, `tests/activity.rs`).
+**doze-aws with every Go service (2026-11-13, release-aws): 7,444,224 B (7.10 MiB) on darwin/arm64, 258 packages, idle 5,344 KB; 11,764,560 B on x86_64 Linux (musl), 10,561,264 B with JSONata off.** Over the "z" base (4,867,344 B / 233 on macOS, 7,481,552 B on Linux): Step Functions, API Gateway and CloudFormation together add 2.58 MB on macOS and 4.28 MB on Linux (1.66 times). The owner raised doze-aws's ceiling to 20 MB the same day; the CI line is 12,400,000 B (musl plus 5%) and 264 packages. Cross-building now needs a C compiler and an ELF archiver for the target (JSONata's `psm`): a `clang --target=x86_64-unknown-linux-musl` wrapper as `CC_x86_64_unknown_linux_musl` and `llvm-ar` as `AR_x86_64_unknown_linux_musl`.
 
 **The app carries the CLI (core C1, 2026-11-14).** Owner decision: Doze.app holds the GUI and the full CLI in one
 binary, `doze-app <command>` being the doze CLI (`doze` alone stays CLI-only, under 10 MB). Linking `doze-cli` into
@@ -766,6 +767,120 @@ separate netd binary would save the CLI those bytes but would be a second progra
 Go's model, which the plan keeps, is one binary.
 
 | | Line | Before (C1 + app, 10e18e80) | P1 |
+The registry (Avro, every REST route, storage in `meta.redb`) on by default behind the `registry` feature. The libraries weighed for
+it and not taken (apache-avro, protox with prost-reflect, jsonschema, boon) are in `phase10.md`, "Weight first".
+
+| | main (2f1bb66) | 10a |
+|---|---|---|
+| doze-kafka binary | 6,011,568 B | **6,244,864 B** (+233,296 B; +413,984 B before the crate was built at `opt-level = "z"`) |
+| packages (`cargo xtask weight`) | 155 | **156** (a repeated `cargo tree` line; no third-party package added) |
+| idle | 6,960 KB | 7,184 KB (the registry listens on 127.0.0.1:8081) |
+| with `--features tls` | | 7,039,920 B, 168 `cargo tree` lines |
+
+No limit moved (7,800,000 B, 161 packages, 8,192 KB; TLS job 8,750,000 B and 173 lines). On the Linux estimate (darwin times 1.216)
+the default build is about 7.59 MB (97% of its limit) and the TLS build about 8.56 MB (98%): 10b and 10c are to be measured against
+that before they merge.
+
+**10a on top of the module face (merged with main at Phase 11, 2026-11-14):** the default build 6,791,104 B on darwin arm64 (+216,800 B over
+the module's 6,574,304 B), 171 packages, 7,248 KB idle. With `--features tls`: 7,586,144 B and 183 `cargo tree` lines.
+
+**The ceiling, with CI's measured ratio (2026-11-14).** CI measured ubuntu x86_64 at 1.36 times darwin (8,174,048 B against
+6,011,568 B), not the 1.216 used above. On that scale: the default build with the module face and 10a is about 9.24 MB, under main's
+line of 9,386,171 B (which does not move) and 0.76 MB under the owner's 10 MB ceiling; 10a itself is about 0.29 MB of it. **The TLS
+build does not fit:** 7,586,144 B times 1.36 is about 10.32 MB, over the 10 MB ceiling, and the module face alone already puts it at
+about 10.0 MB (main's TLS line, 9,279,000 B and 173, was measured before the module; the module adds 13 packages). No limit was raised;
+the CI TLS job will fail on main with or without the registry until the owner decides (leave the module or the registry out of the
+`tls` release, or take a size lever such as `opt-level = "z"` on more of the tree).
+
+## The TLS build over 10 MB: the owner raised its ceiling (2026-11-14)
+
+With the module face (Phase 11) and the schema registry's foundation (Phase 10a), `--features tls` is 7,586,144 B on darwin arm64, about
+10.32 MB on ubuntu x86_64 at CI's measured ratio of 1.36. Asked whether to make room (module face opt-in, no module or no registry in the
+TLS build, or a higher ceiling), the owner chose to raise the ceiling. The `weight-tls` job's limit is now 10,833,014 B (that estimate
+plus 5%) and 186 packages, until CI's next run on main measures it; Protobuf (10b) and JSON Schema (10c) will move it again, each with
+its numbers. The default build's limit (9,386,171 B, 174 packages) is unchanged.
+
+## One build: TLS in the default (2026-11-14, owner decision)
+
+Asked whether to keep a separate TLS build "for a few MB", the owner chose one build, and raised the ceiling to 15 MB the same day. `tls` is
+now a default feature of `doze-kafka`; `--no-default-features` (no console, registry, module or TLS) stays only as an internal check that the
+broker core needs none of them. CI: the `weight-tls` size job is gone; its size and packages are the `weight` job's single line
+(`xtask/weight-limits.txt`), and a `weight-tls-idle` job keeps the one thing it measured that the default job does not: idle memory with a
+certificate loaded (10,610 KB). The single build, with the module face and the registry's Avro and JSON Schema, is 7,669,200 B on darwin
+arm64, 183 packages, 7,472 KB idle; about 10.43 MB on ubuntu x86_64 at CI's 1.36. Limit 10,951,617 B, 186 packages, 9,996 KB, estimates
+until CI measures them. Building from source needs a C compiler and an assembler (ring); release binaries are unaffected.
+
+## Idle (2026-11-15, branch `fix-idle`), release, darwin/arm64 and the Linux aarch64 VM
+
+What an idle broker does, before (main at 33ed4871) and after this pass, by the method of the idle audit of 2026-11-14 (its
+`idle.sh`): the release binary on a fresh data directory, the console and the schema registry on, sampled at the start, half way
+and the end. "Filled": a franz-go client made a compacted topic and a plain one (3 partitions each, `segment.bytes` 64 KiB) and wrote
+30,000 records of 200 B to each, the broker was stopped and started again (so every partition is closed, as after a restart), and
+it runs with `--retention-ms 86400000` (every topic has retention, as when `doze.hcl` sets `retention`) and
+`--log-retention-check-interval 30s` (so the retention sweep runs inside the window; the default is 5 minutes). Context switches are
+`top`'s CSW on macOS and the sum of the threads' `voluntary_ctxt_switches` on Linux (live threads only, so the "before" figures
+with threads that came and went are low).
+
+| | macOS before | macOS after | Linux before | Linux after |
+|---|---|---|---|---|
+| Empty, 120 s: context switches | 537 (4.5/s) | 28 (0.23/s) | 510 (4.3/s) | 26 (0.22/s) |
+| Empty: CPU time over 120 s | 0 | 0 | 30 ms | 0 |
+| Empty: threads, descriptors, RSS | 3, 18, 7.6 MB | 3, 18, 7.7 MB | 3, 14, 8.1 MB | 3, 14, 8.6 MB |
+| Filled, 180 s: threads at 90 s and 180 s | 6, 6 | 3, 3 | 10, 6 | 3, 3 |
+| Filled: descriptors at the end | 38 | 18 | 36 | 14 |
+| Filled: RSS at 90 s, at the end | 10.9, 10.9 MB | 11.4, 7.3 MB | 10.0, 10.3 MB | 10.2, 10.2 MB |
+| Filled: CPU time, first half and second half | 30 ms, 20 ms | 30 ms, 0 | 50 ms, 40 ms | 20 ms, 0 |
+| Filled: context switches in the second half | 722 (8/s) | 23 (0.26/s) | not comparable (threads died) | 23 (0.26/s) |
+
+What made the difference, item by item:
+- **The transaction coordinator** looked every 500 ms whatever there was: those were nearly all of an idle broker's wake-ups. It now
+  sleeps until the first timeout, idle-id expiry or retry, is woken when a change makes that sooner, and parks with no
+  transactional id (`txn/alarm.rs`). The remaining 0.22 wake-ups a second are the cleaner's pass every 15 s (it reads the topic
+  list; with no compacted topic it touches nothing) and the runtime's own timer wheel.
+- **The cleaner** reopened every non-empty compacted partition every 15 s (replaying up to 16 MiB of producer history, planning,
+  closing), which was the 3 to 5 to 3 thread churn and about 2 MB a topic. It now keeps each partition's verdict (not due, and the
+  first time it could be: `compact::plan::next_due`) with the count of changes the partition's writer had made, and does not open
+  or list a partition whose verdict still holds. After the first pass of a run nothing is opened until a write or that time.
+- **The retention sweep** opened closed partitions and left them open until the 512 limit (the "before" descriptors and RSS). It
+  now closes what it opened and keeps the same kind of verdict: an age bound takes the oldest segment first, so nothing can go
+  before that segment outlives `retention.ms` (`PartitionLog::retention_due`); a size bound moves only with writes.
+- **Sweeps and the blocking pool.** A sweep's directory listings and store reads went through `block_in_place`, which hands the
+  worker's core to a thread started for it; the thread left behind lingers for the pool's 10 s keep-alive. They now go to
+  `spawn_blocking` (`blocking::in_background`), which uses one pool thread for the whole pass and never swaps a worker. With the
+  verdicts, an idle pass does no blocking work at all, so the pool stays empty: 3 threads throughout the filled run.
+- **Partitions opened by traffic** are closed after five quiet minutes (`Config::partition_idle_close`; a fetch or request holding
+  one keeps it), by a task that sleeps until the next is due and parks with none open; **the frame shelf** (up to 64 MiB of request
+  buffers) is freed after a quiet minute by a server task parked on a bell while the shelf is empty.
+- The RSS that stays after the first pass on Linux (10.2 MB against 8.6 MB empty) is glibc keeping the arena the first pass's history
+  replay used; macOS gave it back within the window (7.3 MB). Nothing holds it: a `malloc_trim` after a pass would return it, and was
+  not added (a glibc-only call, for 1.6 MB after a restart with compacted data; the CI idle limit is measured on an empty broker and
+  is unchanged).
+
+**Not changed, measured: the produce path's `block_in_place`.** Under a franz-go client writing 60,000 records to six partitions
+(acks=all) the macOS broker ran 14 threads; twelve seconds after the load it was back to 4 (the keep-alive). That is the partition
+writers' flushes handing their worker over; whether a dedicated flush thread or `spawn_blocking` does better under load is a
+benchmark for the hot path, not this pass.
+
+**Not changed: the committed-offset expiry sweep** (every 600 s by default: a hundredth of the 7-day retention, capped). Sleeping
+to the earliest expiry would mean knowing, for every group, when its offsets begin to expire, which depends on whether the group has
+members, when it emptied and its members' sessions, all of which change outside the store; one wake every ten minutes is 0.0017 a
+second. It now reads the store on the blocking pool like the other sweeps.
+
+**Not changed: the schema registry loads every schema at start.** Measured (release, in memory): 5,000 Avro schemas of 21 fields,
+4.1 MB of records, open in 6.4 ms. Loading on first use would save that at start and the memory of the schemas for a registry never
+used, at the cost of a corrupt record failing the first request instead of the start; at a local developer's scale (tens of
+schemas) the start cost is under a millisecond, so it stays eager.
+
+**The console recorder's ring** (2,000 rows, 1 MiB at most) keeps its rows however long the broker is idle: they are the history
+the Live page shows. The comment that said "an idle ring holds nothing" now says it holds nothing only until the first request
+(CON-307).
+## One build: CI's measurements (2026-11-14)
+
+Main's first CI run with the one build (TLS in the default, the registry with Avro, JSON Schema and Protobuf), run 43588988185 on PR #45,
+replaces the estimates above, by the rule of "Limits raised to the measured values": bytes and packages exact, idle the median of three
+plus 5%. Small, justified rises under the owner's delegation of 2026-11-14.
+
+| job | measured | old limit | new limit |
 |---|---|---|---|
 | `doze`, darwin/arm64, `release` | 9 MB (ceiling 10) | about 3.8 MB | 4,592,176 B (+0.79 MB) |
 | `doze`, Linux aarch64 (Lima VM), `release` | 9 MB | not measured | 4,986,168 B, 185 packages |
@@ -835,3 +950,47 @@ behaviour the module uses.
 `doze-module-ferret` **1,006,976 B**, 49 packages (mariadb 922,288 B and 44 on the same build): +85 KB over mariadb for
 the BSON, the OP_MSG client and serde_json, which reads the seed files. Under the 1 MiB (1,048,576 B) line a module of
 this kind has until the modules plan sets per-module lines.
+doze-aws, from the same PR's next run (43592223803, main with the aws-tls, aws-gaps and aws-correctness merges): 13,128,520 B and 274
+packages, inside the 13,900,000 B / 280 lines its stage set; idle 9,964 / 10,036 / 10,024 KB, median 10,024 KB, so its idle line is
+**10,526 KB** (was 9,413). That is +1.06 MB over the median of 8,964 KB measured before those merges; added to issue #36 beside the A14 to
+A16 step. In the same run doze-kafka's idle median was 10,648 KB, inside its new 11,013 KB.
+
+## The lean line after the efficiency pass (2026-11-15)
+
+Main's runs on 3636c3d2 (43665814939) and 1f182947 (43696911937) measured the lean build (`weight-lean`) at **5,450,072 B**, over the exact
+5,274,120 B line: +175,952 B (+3.3%), packages unchanged (125), idle 6,904 and 7,008 KB (inside 7,229). The kafka session's 6985735d moved
+the default build's line for the same work and left the lean line where it was.
+
+Bisected by cross-building the lean binary for x86_64 Linux on darwin (zig as the linker; 5,300,368 B where CI has 5,274,120, so the
+steps, not the absolute number, are what count) over the first-parent merges of the kafka session:
+
+| commit | what | x86_64 lean | step |
+|---|---|---|---|
+| 33ed4871 | before the pass (same as 987233f8, the aws side CI measured at 5,274,120) | 5,300,368 B | |
+| 086e4b28 | `fix-correct` merged | 5,326,856 B | +26,488 |
+| 0ee5cf74 | `fix-idle` merged | 5,407,360 B | +80,504 |
+| 07c07a88 | `fix-idiom` merged | 5,476,976 B | +69,616 |
+| 3636c3d2 | the rest (interop docs, Metadata v12 by id) | 5,477,440 B | +464 |
+
+Darwin arm64 shows the same rise (3,950,064 to 4,082,544 B, +3.4%). By symbol (unstripped x86_64 builds, `llvm-nm --size-sort`), +156,842 B
+of code: `Response::compute_size` and the per-message `compute_size` methods (+37 KB and about +10 KB more; 445920b2 sizes a response's
+buffer up front instead of growing it by doubling), the idle chores' own tasks (the partition closer, the log sweeper, the transaction alarm,
+the offsets sweep on the blocking pool, the frame shelf's trim: about +35 KB of task and future code, fb8791ad, fea62b9f, 8fbc537c) and
+the group registry as a plain table (0d432949: `Groups::put` +12 KB against `Groups::ask` -15 KB). Every item is a deliberate change
+with its reason in the kafka docs; no new package and nothing unexpected, so this is a small, explained rise and the line follows it:
+**5,450,072 B**, exact, as before.
+
+## Data control reaches main (2026-11-15)
+
+The aws session's data-control merge (78ba6190, pushed to main) moved two lines in run 43703449990:
+
+- **doze-aws idle: 10,548 KB** (samples 10,492, 10,692, 10,548) over the 10,526 KB line; the six runs before had medians of 9,820 to 10,140 KB.
+  Bytes rose 511,112 B to 13,669,488 B (inside 13,900,000), packages 274. An A/B on aarch64 Linux (binaries cross-built on darwin with zig,
+  run in the Lima VM, 7 interleaved samples each): 8,184 KB before (727d8c3f), 8,596 KB after (dae5512c), 8,384 KB after with the start-time
+  size check left out. So about 210 KB is `mention_size` (run.rs, 9346ebbc), which walks the data directory on a one-shot OS thread: glibc keeps
+  the thread's arena and cached stack after it ends. The other 200 KB comes with the new code (the binary is 346 KB larger on aarch64). The line
+  is the median plus 5%, **11,075 KB**. The thread's share is avoidable (the walk could run before the runtime's threads start, or on a thread
+  that already exists) and is listed for the aws session in ci-health.md.
+- **weight-lean: 5,450,504 B** (+432 B; +368 B on the x86_64 cross-build). The only lean-tree crates the merge touched are doze-store and
+  doze-runtime; `Store` now keeps its file's path (d39dd0cd), and kafka-meta opens a `Store`. Kafka never calls `Db::close`, so the closing
+  compaction (58834909) does not run in the broker. The line follows: **5,450,504 B**.

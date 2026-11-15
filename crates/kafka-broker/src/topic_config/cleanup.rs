@@ -2,26 +2,24 @@
 
 use std::collections::BTreeMap;
 
+use kafka_meta::CleanupPolicy;
+
 use super::{Defaults, effective};
 
 /// Whether the topic only compacts: its policy names `compact` and not `delete`. Deleting records from such a topic is
 /// refused, and retention does not touch it.
 pub(crate) fn compacts_only(own: &BTreeMap<String, String>) -> bool {
-    own.get("cleanup.policy").is_some_and(|p| {
-        let kinds: Vec<_> = p
-            .split(',')
-            .map(|k| k.trim().to_ascii_lowercase())
-            .collect();
-        kinds.iter().any(|k| k == "compact") && !kinds.iter().any(|k| k == "delete")
-    })
+    policy(own).compacts_only()
 }
 
 /// Whether the topic's policy names `compact` (alone or with `delete`): its log is cleaned.
 pub(crate) fn compacts(own: &BTreeMap<String, String>) -> bool {
-    own.get("cleanup.policy").is_some_and(|p| {
-        p.split(',')
-            .any(|k| k.trim().eq_ignore_ascii_case("compact"))
-    })
+    policy(own).compact
+}
+
+/// The one reading of `cleanup.policy`, the one produce acts on too (`Topic::settings`).
+fn policy(own: &BTreeMap<String, String>) -> CleanupPolicy {
+    CleanupPolicy::parse(own.get("cleanup.policy").map(String::as_str))
 }
 
 /// What compaction is asked of for this topic: its ratio, lags and how long a deletion is kept, as it is configured, and the time.

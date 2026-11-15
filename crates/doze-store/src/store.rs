@@ -2,7 +2,7 @@
 
 use std::io;
 use std::ops::Deref;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use doze_fs::fs::Fs;
@@ -16,6 +16,45 @@ use crate::{FileBackend, StoreError};
 #[derive(Debug, Clone)]
 pub struct Store {
     db: Arc<Database>,
+    /// Where the file is, so its size can be read without asking the database.
+    path: Arc<PathBuf>,
+}
+
+/// The least a closing compaction gives back ([`Store::compact_if_worth`]): below it the file is left as it is.
+pub const WORTH_BYTES: u64 = 4 << 20;
+
+/// How much of a database file holds data, and how much is space a [`Store::compact`] would give back.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Space {
+    /// The file's size on disk.
+    pub file: u64,
+    /// The bytes in pages that hold data.
+    pub used: u64,
+}
+
+impl Space {
+    /// What compaction could give back: the file less the pages in use.
+    #[must_use]
+    pub fn reclaimable(&self) -> u64 {
+        self.file.saturating_sub(self.used)
+    }
+}
+
+/// What a compaction did: the file's size before and after.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Compacted {
+    /// The file's size before.
+    pub before: u64,
+    /// The file's size after.
+    pub after: u64,
+}
+
+impl Compacted {
+    /// The bytes given back to the disk.
+    #[must_use]
+    pub fn freed(&self) -> u64 {
+        self.before.saturating_sub(self.after)
+    }
 }
 
 impl Deref for Store {
@@ -53,7 +92,68 @@ impl Store {
             Err(e) => return Err(e.into()),
         };
         let db = builder(cache_bytes).create_with_backend(FileBackend(opened))?;
-        Ok(Self { db: Arc::new(db) })
+        Ok(Self {
+            db: Arc::new(db),
+            path: Arc::new(path),
+        })
+    }
+
+    /// The database file.
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// The file's size on disk (0 when it cannot be read: a simulated disk).
+    #[must_use]
+    pub fn file_bytes(&self) -> u64 {
+        std::fs::metadata(&*self.path).map_or(0, |m| m.len())
+    }
+
+    /// How much of the file holds data. Starts (and abandons) a write to read the allocator's count, so it waits for a commit that
+    /// is under way; it changes nothing.
+    ///
+    /// # Errors
+    /// The database refused to start a write.
+    pub fn space(&self) -> Result<Space, StoreError> {
+        let txn = self.db.begin_write()?;
+        let stats = txn.stats()?;
+        txn.abort()?;
+        Ok(Space {
+            file: self.file_bytes(),
+            used: stats.allocated_pages() * stats.page_size() as u64,
+        })
+    }
+
+    /// Compacts when it is worth it: at least [`WORTH_BYTES`] and a quarter of the file would come back. What a service does as it
+    /// closes after sitting idle, so space freed by deletes through the API reaches the disk without anyone asking.
+    ///
+    /// # Errors
+    /// As [`Store::compact`].
+    pub fn compact_if_worth(&mut self) -> Result<Option<Compacted>, StoreError> {
+        let space = self.space()?;
+        let free = space.reclaimable();
+        if free < WORTH_BYTES || free < space.file / 4 {
+            return Ok(None);
+        }
+        self.compact().map(Some)
+    }
+
+    /// Moves the data to the front of the file and cuts the file after it, so space freed by deletes goes back to the disk (redb
+    /// reuses a freed page but never shrinks the file by itself). The caller must hold the only handle: a writer sharing it is
+    /// stopped first ([`GroupCommit::paused`](crate::GroupCommit::paused) does that).
+    ///
+    /// # Errors
+    /// [`StoreError::Shared`] while another handle is alive; a read still open; a failed write.
+    pub fn compact(&mut self) -> Result<Compacted, StoreError> {
+        let before = self.file_bytes();
+        let db = Arc::get_mut(&mut self.db).ok_or(StoreError::Shared)?;
+        // WHY: one pass moves what it can; redb says when a further pass would move nothing.
+        while db.compact()? {}
+        Ok(Compacted {
+            before,
+            after: self.file_bytes(),
+        })
     }
 
     /// Starts a write whose commit flushes, whatever the library's default says.

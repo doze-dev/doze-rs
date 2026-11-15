@@ -1,17 +1,17 @@
 //! One pass over the partitions of a Fetch.
 
-use crate::partitions::Stability;
 use bytes::Bytes;
 use kafka_storage::StorageError;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::ids::Offset;
-use kafka_wire::messages::fetch_response::{FetchableTopicResponse, PartitionData};
-use kafka_wire::messages::{FetchRequest, FetchResponse};
+use kafka_wire::messages::fetch_response::{
+    AbortedTransaction, FetchableTopicResponse, PartitionData,
+};
+use kafka_wire::messages::{FetchRequest, FetchResponse, ProducerId};
 
-use kafka_wire::messages::fetch_response::AbortedTransaction;
-
-use super::{Place, Stable, Wanted};
+use super::{Place, Wanted};
+use crate::txn_index::Aborted;
 
 /// The size of a read when neither the partition nor the request names one.
 const DEFAULT_MAX_BYTES: i64 = 1 << 20;
@@ -61,57 +61,56 @@ impl Budget {
 
 pub(super) fn read<F: Fs>(
     wanted: &[Wanted<'_, F>],
-    stable: &[Vec<Stable>],
     req: &FetchRequest,
     mut budget: Budget,
 ) -> Round {
+    let read_committed = req.isolation_level == 1;
     let mut round = Round {
         topics: Vec::new(),
         bytes: 0,
         failed: false,
     };
-    for (w, stable) in wanted.iter().zip(stable) {
+    for w in wanted {
         let mut topic = FetchableTopicResponse::default();
         topic.topic = w.request.topic.clone();
         topic.topic_id = w.request.topic_id;
-        for ((asked, place), stable) in w.request.partitions.iter().zip(&w.places).zip(stable) {
+        for (asked, place) in w.request.partitions.iter().zip(&w.places) {
             let mut data = PartitionData::default();
             data.partition_index = asked.partition;
             data.error_code = 0;
+            // Null unless a `read_committed` read succeeds below (the default is an empty list, not null).
+            data.aborted_transactions = None;
             match place {
                 Place::Error(code) => {
                     data.error_code = code.code();
                     round.failed = true;
                 }
                 Place::Open(partition) => {
+                    // Asked of what the writer keeps for readers (not waiting for an append), before the read: what is
+                    // read is at or past it. A `read_committed` read stops there, and is told the aborted transactions
+                    // from where it reads.
+                    let (last_stable, aborted) = if read_committed {
+                        let (stable, aborted) =
+                            partition.committed(asked.fetch_offset, wire_aborted);
+                        (stable, Some(aborted))
+                    } else {
+                        (partition.last_stable(), None)
+                    };
                     let limit =
                         limit_for(asked.partition_max_bytes, req.max_bytes, budget.remaining);
-                    let cap = match stable {
-                        Stable::Of(view) if req.isolation_level == 1 => Some(view.last_stable),
-                        _ => None,
-                    };
                     round.bytes += fill(
                         &mut data,
                         partition.reader(),
                         asked.fetch_offset,
-                        (limit, cap),
+                        (limit, aborted.is_some().then_some(last_stable)),
                         &mut budget,
                     );
-                    if let Stable::Of(view) = stable
-                        && data.error_code == 0
-                    {
-                        data.last_stable_offset = view.last_stable.get();
-                        if req.isolation_level == 1 {
-                            data.aborted_transactions = Some(aborted(view, asked.fetch_offset));
-                        }
+                    if data.error_code == 0 {
+                        data.last_stable_offset = last_stable.get();
+                        data.aborted_transactions = aborted;
                     }
                     round.failed |= data.error_code != 0;
                 }
-            }
-            if req.isolation_level != 1 || data.error_code != 0 {
-                data.aborted_transactions = None;
-            } else if data.aborted_transactions.is_none() {
-                data.aborted_transactions = Some(Vec::new());
             }
             topic.partitions.push(data);
         }
@@ -120,18 +119,11 @@ pub(super) fn read<F: Fs>(
     round
 }
 
-/// The aborted transactions that touch what a `read_committed` fetch from `from` is given.
-fn aborted(view: &Stability, from: i64) -> Vec<AbortedTransaction> {
-    view.aborted
-        .iter()
-        .filter(|a| a.last >= from && a.first < view.last_stable.get())
-        .map(|a| {
-            let mut t = AbortedTransaction::default();
-            t.producer_id = kafka_wire::messages::ProducerId(a.producer);
-            t.first_offset = a.first;
-            t
-        })
-        .collect()
+fn wire_aborted(a: &Aborted) -> AbortedTransaction {
+    let mut t = AbortedTransaction::default();
+    t.producer_id = ProducerId(a.producer);
+    t.first_offset = a.first;
+    t
 }
 
 /// How much one partition may read: its own limit, else the request's, else a default; no more than the request has

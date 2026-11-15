@@ -129,12 +129,33 @@ pub(crate) async fn request(
     body: &[u8],
 ) -> Reply {
     let mut s = TcpStream::connect(addr).await.unwrap();
-    // Head and body in one write: a request refused before its body is read (403 on a blocked public ACL) is closed
-    // by the server, and a body still arriving after that close made macOS answer with a reset instead of the reply.
-    let mut request = head(method, host, path, extra, body.len()).into_bytes();
-    request.extend_from_slice(body);
-    s.write_all(&request).await.unwrap();
+    if body.is_empty() {
+        s.write_all(head(method, host, path, extra, 0).as_bytes())
+            .await
+            .unwrap();
+        let mut raw = Vec::new();
+        s.read_to_end(&mut raw).await.unwrap();
+        return parse(&raw);
+    }
+    // A body waits for `100 Continue`, as the SDKs' does: a request refused before its body is read is answered and closed, and a
+    // body already sent and never read would make the close a reset that can swallow the answer.
+    let mut extra = extra.to_vec();
+    extra.push(("Expect", "100-continue"));
+    s.write_all(head(method, host, path, &extra, body.len()).as_bytes())
+        .await
+        .unwrap();
     let mut raw = Vec::new();
+    let mut buf = [0u8; 4096];
+    while !raw.windows(4).any(|w| w == b"\r\n\r\n") {
+        let n = s.read(&mut buf).await.unwrap();
+        assert!(n > 0, "closed before a response head");
+        raw.extend_from_slice(&buf[..n]);
+    }
+    if raw.starts_with(b"HTTP/1.1 100") {
+        let end = raw.windows(4).position(|w| w == b"\r\n\r\n").unwrap() + 4;
+        raw.drain(..end);
+        s.write_all(body).await.unwrap();
+    }
     s.read_to_end(&mut raw).await.unwrap();
     parse(&raw)
 }

@@ -1,6 +1,6 @@
 //! JoinGroup.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::{GroupId, InstanceId, MemberId};
 use kafka_wire::messages::join_group_response::JoinGroupResponseMember;
@@ -22,7 +22,7 @@ impl<F: Fs> Broker<F> {
     ) -> Outcome {
         if !self
             .guard(caller)
-            .group(operation::READ, req.group_id.as_str())
+            .group(Operation::Read, req.group_id.as_str())
         {
             return respond(
                 version,

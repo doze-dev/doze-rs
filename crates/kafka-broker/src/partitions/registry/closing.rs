@@ -79,6 +79,63 @@ impl<F: Fs> Partitions<F> {
         drop(done);
     }
 
+    /// Closes every open partition that nothing has asked for in `quiet` and that nothing holds (a fetch waiting on it, a
+    /// request in the middle of using it), each flushed first. Says when the next of those still open will have been quiet
+    /// that long, if any is open: the time to look again.
+    pub(crate) async fn close_quiet(
+        &self,
+        quiet: std::time::Duration,
+    ) -> Option<tokio::time::Instant> {
+        let now = tokio::time::Instant::now();
+        let (victims, next) = {
+            let mut registry = self.registry();
+            let mut next: Option<tokio::time::Instant> = None;
+            let mut take = Vec::new();
+            for (k, e) in &registry.open {
+                let Some(p) = e.slot.get() else { continue };
+                let due = e.used_at + quiet;
+                if due <= now && Arc::strong_count(p) == 1 && !registry.closing.contains(k) {
+                    take.push(*k);
+                } else {
+                    // Held now: looked at again a quiet period from now, when it may have been let go.
+                    let at = if due <= now { now + quiet } else { due };
+                    next = Some(next.map_or(at, |n| n.min(at)));
+                }
+            }
+            let mut victims = Vec::new();
+            for k in take {
+                if let Some(e) = registry.open.remove(&k)
+                    && let Some(p) = e.slot.get()
+                {
+                    registry.closed.insert(e.name.clone(), Trust::Unvouched);
+                    registry.closing.insert(k);
+                    victims.push((k, e.name, Arc::clone(p)));
+                }
+            }
+            (victims, next)
+        };
+        let work: Vec<_> = victims
+            .into_iter()
+            .map(|(key, name, partition)| {
+                (
+                    Closing {
+                        partitions: self,
+                        key,
+                    },
+                    name,
+                    partition,
+                )
+            })
+            .collect();
+        for (done, name, partition) in work {
+            if partition.close().await {
+                self.registry().closed.insert(name, Trust::Vouched);
+            }
+            drop(done);
+        }
+        next
+    }
+
     /// Closes the partitions over the limits (how many are open, and how many files they hold open between them), least
     /// recently used first, except `keep` and any that something holds.
     pub(super) async fn evict(&self, keep: Key) {
@@ -185,6 +242,7 @@ impl<F: Fs> Partitions<F> {
             for e in &entries {
                 registry.closed.remove(&e.name);
             }
+            registry.upkeep.retain(|(t, _), _| *t != topic);
             entries
         };
         for e in entries {

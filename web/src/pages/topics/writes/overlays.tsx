@@ -3,11 +3,12 @@
 // dialogs' code (react-hook-form, the previews) is its own chunk, fetched the first time one opens; once fetched it stays
 // mounted, so a dialog animates out when it closes.
 import { lazy, Suspense, useState } from "react";
+import { unlessLeaving } from "@/lib/leaving";
 
 export type TopicDialog = "produce" | "delete" | "add-partitions" | "delete-records";
 export const TOPIC_DIALOGS = ["produce", "delete", "add-partitions", "delete-records"] as const;
 
-const Dialogs = lazy(() => import("./dialogs"));
+const Dialogs = lazy(unlessLeaving(() => import("./dialogs")));
 
 /** The overlay `dialog` names over the topic `topic`; `partition` is Delete records' partition. `onClose` removes the param
  * (Back when the page pushed it). */

@@ -57,7 +57,7 @@ async fn respond_inner(
         Ok(response) => response,
         Err(e) => {
             let rendered = if json {
-                jsonout::error(&e)
+                jsonout::error(&e, entry.service.tables())
             } else {
                 error(&e, id, head)
             };

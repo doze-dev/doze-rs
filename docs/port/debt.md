@@ -29,7 +29,7 @@ a named scenario, or is a decision that is written down with its reason, or is t
 | B8 | Unrecorded words: "RackId can't be empty.", "MemberId can't be empty." and the order of the request checks; a consumer heartbeat to a classic group (not a consumer group; the upgrade refusals incl. the size) | done from the source (`consumer_group_words`, `group/tests/timers.rs`) |
 | B9 | The topic table rebuilt for each heartbeat | done: built when the topics change, shared by the groups (`topics_version`, `a_topic_made_after_the_member_subscribed_is_given_to_it`) |
 | B10 | A member cap checked after a conversion; the group record rewritten on each classic join into a consumer group | done: the size refusal comes before the upgrade; a keeper test counts the writes |
-| B12 | OffsetCommit by a consumer-protocol member at an epoch older than its current one (found by the Phase 6 re-audit) | decided: `groups848.md` G848-10 (the empty-group half is fixed) |
+| B12 | OffsetCommit by a consumer-protocol member at an epoch older than its current one (found by the Phase 6 re-audit) | done: `groups848.md` G848-10, as Kafka 4.3.1 does it (assignment epochs, KIP-1251; 2026-11-15); the empty-group half fixed before |
 | B11 | Rack-aware assignment; the heartbeat and assignment intervals only a test knob | decided: a one-broker cluster has no racks to place by, so the rack ids are kept and shown and change nothing, as in Kafka for a broker with no `broker.rack`; the intervals stay at Kafka's defaults, the assignment one a test knob |
 
 ## C. Phase 4 (groups, classic)
@@ -451,3 +451,40 @@ Statuses as above. Rules CON-100 and up in `behaviours/console.md`. The writing 
 | J497 | The Lab forms add fields the boards do not draw (client pattern, jitter, stop after hits, a random share, one hour): improvements, to be recorded as `improvement:` allow-list entries when the pages are built. | open: React rebuild |
 | J498 | `offsets-retention-restart` failed in the replay on main (and at `f14d65ac`) after 58 of 58 at `2b553b3f`. Not a regression of the broker: `2b553b3f` itself fails the same way (the same 17 differences) against the harness copy in use, and main passes it, and the full replay is 58 of 58, against a copy whose `Env.Quiet` is the Go repository's. The copy had three lines in `Env.Quiet` (`conformance/harness.go`) that return early for a ConsumerGroupHeartbeat, so the script's keep-alive never reaches the broker: the two KIP-848 members (`gc-gone`, `gc-back`) run out of their 1.5 s session, the groups go empty, and their offsets expire before the restart (`before-fetch-gc-*` answer -1, `before-describe-gc-gone` answers 69). The Go repository's `harness.go` (last changed 2026-10-30) has no such lines. Bisecting a broker change was moot. | done (harness copy; no broker change) |
 | J499 | Clippy on the lean build (`-p doze-kafka --no-default-features`) failed on main after the Lab merge: `groups::Force`, `groups::Forced` and `Reason::as_str` are used only with `inspect`. The two re-exports are under `cfg(feature = "inspect")`; `Force` and `as_str` are allowed dead without it, as `Groups::force` already was. | done |
+
+## J (continued). 2026-11-14, found while pushing Phase 10
+
+- **J500 (closed 2026-11-14): a WebKit flake in `live.spec.ts` "a broker that goes away and comes back".** It failed once in a full three-browser run on
+  main 124a254e (437 passed, 1 failed, 411 ms into the test) and was pushed, because the push script read the runner's exit code with bash's
+  `${PIPESTATUS[0]}` in zsh, where it does not exist, so the check could not fail (the earlier pushes that day had clean runs: 420/420,
+  438/438). It then passed 5 of 5 alone and 4 × 12 of 12 as the whole spec in WebKit; the failure's own output was lost (the script kept
+  only summary lines). Seen twice before in full WebKit runs (the console-acl-live slice, which closed the page before the broker is killed
+  for it). Also worth knowing: both e2e brokers (the harness's and this test's second one) take the registry's default 127.0.0.1:8081, so
+  the second runs without a registry; harmless today, but e2e brokers should name their own registry ports. Next: keep each full run's
+  complete output, and fix at the cause when it shows again.
+
+  **Cause.** It showed again (p10d) with its output: two page errors, `/127.0.0.1:39194/api/v1/shell due to access control checks.` and
+  the same for `/api/v1/live`. Not the broker going away, and not an unhandled rejection. They are WebKit's own log line "Fetch API
+  cannot load <url> due to access control checks.", which WebKit writes for a request a page *starts* after `beforeunload` (the next
+  document asked for, not yet in), handled or not; Playwright's WebKit backend reports every JavaScript-sourced console error as a page
+  error (`splitErrorMessage` cuts "…http:" off the front, hence the leading `/`). The test went to `/live`, then at once to `/live?tail=1`,
+  and lost the race when the first page's shell and live queries started in that window. Measured in WebKit: going to a second address
+  while the first page boots logged it 23 times in 60 round trips, each fetch traced as started after `beforeunload` and before `pagehide`;
+  a handled fetch started there is logged, one in flight when the page is left is cancelled quietly, and a genuinely unhandled one reads
+  "Unhandled Promise Rejection: TypeError: Load failed" instead. Killing the broker under Home, Topics and the Live tail (refresh 5 s) gave
+  only console "Failed to load resource" lines and no `unhandledrejection` in the page: no fetch path in `web/src` leaves a rejection
+  unhandled (react-query owns every query's, `refetch`/`invalidateQueries` do not reject, the tails catch theirs). The same window also
+  cut a lazy route chunk's load, which the router's boundary caught and React logged (Firefox: "error loading dynamically imported
+  module"; WebKit: "Importing a module script failed.").
+
+  **Fix.** `web/src/lib/leaving.ts`: from `beforeunload` until the page stays (`pageshow`, or 3 s still here), every request waits: the
+  fetch client (`api`), the topic tail (`streamEvents`), the Live tail (`TailStream`), and every lazy chunk (`unlessLeaving` around the
+  router's `lazyRouteComponent` and the two `React.lazy` dialogs; a chunk load the leaving cut short waits and loads again if the page
+  stays). A held request is never sent if the page goes. The fetch client also maps a body cut mid-read to `UNREACHABLE`, its words for an
+  unreachable console, not the browser's "Load failed". The reproducer is `web/e2e/tests/leaving.spec.ts` (CON-1514): the next document
+  held 700 ms and Refresh, the Live tail, a topic's tail or a sidebar page started 20 ms into it, plus the natural race, with no error
+  filtered. Before the fix WebKit failed every deterministic case (3 of 3 iterations each) and the race; after, 54 of 54 in three runs over
+  three browsers. `live.spec.ts` now filters only console network lines, never a page error; it passed 10 of 10 alone and the whole spec 120 of 120 (×10) in
+  WebKit, and the full three-browser run 474 of 474 (158 per browser, exit 0).
+  Seen on the way: Firefox drops about one Playwright `goto` in nine when it follows a page load at once (NS_BINDING_ABORTED or
+  NS_ERROR_FAILURE, 14 of 120 with or without the console's `beforeunload` listener); the race case tolerates only that, in Firefox only.

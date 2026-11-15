@@ -56,7 +56,14 @@ This broker is the only broker, the controller, and every partition's leader and
 means all topics, by name; an empty list means none from v1 and all in v0. An unknown topic is UNKNOWN_TOPIC_OR_PARTITION;
 a name that can never be a topic is INVALID_TOPIC_EXCEPTION; an unknown id is UNKNOWN_TOPIC_ID. A topic a client asks to
 have created (always before v4) is created after the answer, which says it does not exist; the next request finds it.
-Test: `tests/topics::metadata_describes_*`, `naming_no_topics_*`, `an_unknown_topic_is_unknown_*`, `a_name_that_can_never_be_a_topic_is_invalid_*`
+From v12, a request in which any topic has an id that is not zero is answered by id (Kafka 4.3.1
+`KafkaApis.handleTopicMetadataRequest`, 895-911): the names are not read, an entry of the zero id is dropped, an id asked
+twice is answered once, and nothing is created. The Java consumer (kafka-clients 4.x) asks so, with the name left at the
+schema's default `""` and not null, for the topics a KIP-848 regular expression assigned it; doze used to read that `""`
+as a name and answer INVALID_TOPIC_EXCEPTION, so the member never consumed (found 2026-11-15 by `interop/run.sh -java`,
+`group-848-regex`).
+Test: `tests/topics::metadata_describes_*`, `naming_no_topics_*`, `an_unknown_topic_is_unknown_*`, `a_name_that_can_never_be_a_topic_is_invalid_*`,
+`a_request_with_topic_ids_is_answered_by_id_whatever_the_names_say`
 
 ### Not yet
 Authorisation (Phase 8); `CreatePartitions`, `DescribeConfigs`, `AlterConfigs` and acting on the configs (Phase 7; the

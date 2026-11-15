@@ -239,7 +239,7 @@ function IntervalsSection({ r }: { r: SettingsResponse }) {
         stats={[
           { label: "Retention check", value: i.retention_every || "–", unit: "every", ch: 6 },
           { label: "Cleaner", value: i.cleaner_on ? i.cleaner_every || "–" : "off", unit: i.cleaner_on ? "looks every" : "--log-cleaner-enable false", ch: 6 },
-          { label: "Transactions", value: i.transactions || "–", unit: "checked every; no flag sets it", ch: 6 },
+          { label: "Transactions", value: i.transactions || "–", unit: "a failed end retried after; timeouts on time", ch: 6 },
           i.round
             ? { label: "Last cleaner round", value: i.round.at, unit: `${i.round.topic}-${i.round.partition}${i.round.due === true ? ", due again" : ""}`, mono: true, ch: 6 }
             : { label: "Last cleaner round", value: "none yet", unit: "since the broker began", ch: 6 },

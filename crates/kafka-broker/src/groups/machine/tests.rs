@@ -192,6 +192,7 @@ impl Group {
             instance: None,
             generation,
             transactional: false,
+            partitions: Vec::new(),
         };
         let t = self.send(|t| Event::Commit(t, req));
         match self.answer(t) {

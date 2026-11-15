@@ -1,7 +1,7 @@
 //! Moving a staging label between versions: `UpdateSecretVersionStage`.
 //!
 //! A label names one version. `AWSCURRENT` cannot be dropped, only moved; when it moves, the version that held it takes
-//! `AWSPREVIOUS` from whichever had it. The words of the refusals are not recorded.
+//! `AWSPREVIOUS` from whichever had it. The refusals' words are AWS's (`test_staging_labels_tokens_and_deletion`, 2026-11-15).
 
 use aws_model_secrets_manager::keys::{
     UpdateSecretVersionStageRequest as Stage, UpdateSecretVersionStageResponse as Staged,
@@ -49,13 +49,13 @@ fn move_stage(
     to: Option<&str>,
 ) -> Result<(), ApiError> {
     if from.is_none() && to.is_none() {
-        return Err(invalid_parameter(
-            "You must specify MoveToVersionId, RemoveFromVersionId, or both.",
-        ));
+        return Err(crate::core::invalid_request(format!(
+            "To update staging label {stage}, you must specify RemoveFromVersionId and/or MoveToVersionId."
+        )));
     }
     if stage == CURRENT && to.is_none() {
         return Err(invalid_parameter(
-            "You can't remove AWSCURRENT from a version without moving it to another one.",
+            "You can only move staging label AWSCURRENT to a different secret version. It can't be completely removed.",
         ));
     }
     if let Some(id) = from {

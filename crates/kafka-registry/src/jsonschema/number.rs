@@ -53,6 +53,21 @@ impl Dec {
         Some(Self { neg, digits, exp })
     }
 
+    /// A count (a string's length, an array's items) as a decimal.
+    pub(crate) fn from_count(n: usize) -> Self {
+        let mut digits: Vec<u8> = n.to_string().bytes().map(|b| b - b'0').collect();
+        let mut exp = 0;
+        while digits.last() == Some(&0) {
+            digits.pop();
+            exp += 1;
+        }
+        Self {
+            neg: false,
+            digits,
+            exp: if n == 0 { 0 } else { exp },
+        }
+    }
+
     pub(crate) fn is_zero(&self) -> bool {
         self.digits.is_empty()
     }

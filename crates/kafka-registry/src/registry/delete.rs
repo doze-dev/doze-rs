@@ -128,7 +128,7 @@ impl Registry {
         if permanent {
             b.delete(&key);
         } else {
-            let mut rec = v.rec.clone();
+            let mut rec = v.rec;
             rec.deleted = true;
             b.put(&key, &rec);
         }

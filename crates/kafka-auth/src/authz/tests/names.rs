@@ -80,7 +80,9 @@ fn the_cluster_resource_has_its_own_namespace() {
 #[test]
 fn a_type_that_cannot_be_stored_is_uncovered() {
     let r = rules(true, &[]);
-    assert!(can(&r, &[], ("User:a", "h"), (0, "x"), READ));
-    assert!(can(&r, &[], ("User:a", "h"), (99, "x"), READ));
-    assert!(can(&r, &[], ("User:a", "h"), (-3, "x"), READ));
+    // ANY may be asked about but never stored; any other number is not a type at all.
+    assert!(can(&r, &[], ("User:a", "h"), (resource::ANY, "x"), READ));
+    for code in [0, 8, 99, -3] {
+        assert_eq!(ResourceType::try_from(code), Err(UnknownCode(code)));
+    }
 }

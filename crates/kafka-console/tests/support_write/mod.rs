@@ -79,7 +79,7 @@ pub fn router_of(w: &World, backend: Backend) -> Router {
     let live = Live::new(backend, w.facts.clone());
     let state = State::new(
         Source::Live(Box::new(live)),
-        Base::root(),
+        &Base::root(),
         vec![],
         CancellationToken::new(),
     );

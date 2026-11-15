@@ -155,6 +155,33 @@ fn a_secrets_manager_secret_is_read_through_its_reference_name() {
             "GetParameter",
             &json!({"Name": "/aws/reference/secretsmanager/absent", "WithDecryption": true})
         ),
-        ("ParameterNotFound".into(), String::new())
+        (
+            "ParameterNotFound".into(),
+            "An error occurred (ParameterNotFound) when referencing Secrets Manager: Secret aws/reference/secretsmanager/absent not found. Secrets Manager can't find the specified secret.".into()
+        )
+    );
+    // The ARN is the secret's, and SourceResult is the secret as JSON.
+    assert!(
+        p["ARN"]
+            .as_str()
+            .unwrap()
+            .starts_with("arn:aws:secretsmanager:"),
+        "{p}"
+    );
+    assert!(p.get("DataType").is_none(), "{p}");
+    let source: serde_json::Value =
+        serde_json::from_str(p["SourceResult"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        (source["name"].as_str(), source["secretString"].as_str()),
+        (Some("app/db"), Some("s3cret"))
+    );
+    assert_eq!(
+        w.err(
+            "GetParametersByPath",
+            &json!({"Path": "/aws/reference/secretsmanager"})
+        )
+        .0,
+        "ValidationException",
+        "the reference path is not listed"
     );
 }

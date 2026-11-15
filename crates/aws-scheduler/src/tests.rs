@@ -15,6 +15,7 @@ use serde_json::{Value, json};
 use crate::core::{Core, Request};
 use crate::{Scheduler, Shared};
 
+mod data;
 mod delivery;
 mod firing;
 mod groups;

@@ -2,9 +2,104 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-12",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
+  },
+  "test_a_change_set_records_what_it_would_change": {
+    "changes": [
+      {
+        "ResourceChange": {
+          "Action": "Modify",
+          "Details": [
+            {
+              "CausingEntity": "Q.Arn",
+              "ChangeSource": "ResourceAttribute",
+              "Evaluation": "Dynamic",
+              "Target": {
+                "Attribute": "Properties",
+                "Name": "Value",
+                "RequiresRecreation": "Never"
+              }
+            }
+          ],
+          "LogicalResourceId": "P",
+          "PhysicalResourceId": "/<name:queue>/p",
+          "Replacement": "False",
+          "ResourceType": "AWS::SSM::Parameter",
+          "Scope": [
+            "Properties"
+          ]
+        },
+        "Type": "Resource"
+      },
+      {
+        "ResourceChange": {
+          "Action": "Modify",
+          "Details": [
+            {
+              "CausingEntity": "V",
+              "ChangeSource": "ParameterReference",
+              "Evaluation": "Static",
+              "Target": {
+                "Attribute": "Properties",
+                "Name": "VisibilityTimeout",
+                "RequiresRecreation": "Never"
+              }
+            },
+            {
+              "ChangeSource": "DirectModification",
+              "Evaluation": "Dynamic",
+              "Target": {
+                "Attribute": "Properties",
+                "Name": "VisibilityTimeout",
+                "RequiresRecreation": "Never"
+              }
+            }
+          ],
+          "LogicalResourceId": "Q",
+          "PhysicalResourceId": "<endpoint>/<account>/<name:queue>",
+          "Replacement": "False",
+          "ResourceType": "AWS::SQS::Queue",
+          "Scope": [
+            "Properties"
+          ]
+        },
+        "Type": "Resource"
+      },
+      {
+        "ResourceChange": {
+          "Action": "Add",
+          "Details": [],
+          "LogicalResourceId": "T",
+          "ResourceType": "AWS::SNS::Topic",
+          "Scope": []
+        },
+        "Type": "Resource"
+      }
+    ],
+    "deleted": {
+      "Error": {
+        "Code": "ChangeSetNotFound",
+        "Message": "ChangeSet [<name:change>] does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "listed": [
+      [
+        "<name:change>",
+        "CREATE_COMPLETE",
+        "AVAILABLE"
+      ]
+    ]
+  },
+  "test_a_custom_resource_backed_by_an_inline_function": {
+    "outputs": {
+      "Doubled": "42",
+      "Id": "custom-Custom"
+    }
   },
   "test_a_failed_create_can_be_left_or_deleted": {
     "a-failed-create-cannot-be-updated": {
@@ -90,6 +185,16 @@
       }
     }
   },
+  "test_a_nested_stack_from_s3": {
+    "child": {
+      "ParentId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:1>",
+      "RootId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:1>",
+      "StackStatus": "CREATE_COMPLETE"
+    },
+    "outputs": {
+      "FromChild": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+    }
+  },
   "test_a_resource_that_fails_rolls_the_stack_back": {
     "a-rolled-back-stack-cannot-be-updated": {
       "Error": {
@@ -133,6 +238,27 @@
       ]
     ]
   },
+  "test_a_sam_template": {
+    "processed-types": [
+      "AWS::DynamoDB::Table",
+      "AWS::IAM::Role",
+      "AWS::Lambda::Function"
+    ],
+    "resources": [
+      [
+        "Fn",
+        "AWS::Lambda::Function"
+      ],
+      [
+        "FnRole",
+        "AWS::IAM::Role"
+      ],
+      [
+        "Table",
+        "AWS::DynamoDB::Table"
+      ]
+    ]
+  },
   "test_a_taken_name_fails_the_create": {
     "status": "ROLLBACK_COMPLETE",
     "their-queue-is-unchanged": {
@@ -152,6 +278,75 @@
     "why": [
       "Resource handler returned message: \"Queue creation failed because the queue already exists\" (RequestToken: <uuid:1>, HandlerErrorCode: AlreadyExists)"
     ]
+  },
+  "test_a_yaml_template_with_conditions_and_mappings": {
+    "outputs": {
+      "B64": "aGk=",
+      "Cidr": "10.0.1.0/24",
+      "Joined": "x-y-z",
+      "Literal": "${NotAVar}",
+      "Mem": "128",
+      "Name": "<name:queue>",
+      "Second": "b"
+    },
+    "resources": [
+      [
+        "Q",
+        "AWS::SQS::Queue"
+      ]
+    ],
+    "summary": {
+      "Parameters": [
+        {
+          "DefaultValue": "a,b,c",
+          "NoEcho": false,
+          "ParameterConstraints": {},
+          "ParameterKey": "Names",
+          "ParameterType": "CommaDelimitedList"
+        },
+        {
+          "DefaultValue": "dev",
+          "NoEcho": false,
+          "ParameterConstraints": {
+            "AllowedValues": [
+              "dev",
+              "prod"
+            ]
+          },
+          "ParameterKey": "Env",
+          "ParameterType": "String"
+        },
+        {
+          "NoEcho": false,
+          "ParameterConstraints": {},
+          "ParameterKey": "QueueName",
+          "ParameterType": "String"
+        }
+      ],
+      "ResourceIdentifierSummaries": [
+        {
+          "LogicalResourceIds": [
+            "Q",
+            "OnlyProd"
+          ],
+          "ResourceIdentifiers": [
+            "QueueUrl"
+          ],
+          "ResourceType": "AWS::SQS::Queue"
+        }
+      ],
+      "ResourceTypes": [
+        "AWS::SQS::Queue"
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Version": "2010-09-09"
+    }
+  },
+  "test_an_export_in_use_keeps_its_stack": {
+    "exporter-status": "CREATE_COMPLETE",
+    "imports": true
   },
   "test_an_update_deletes_what_its_template_drops": {
     "resources": [
@@ -283,6 +478,17 @@
       "REVIEW_IN_PROGRESS"
     ]
   },
+  "test_dynamic_references_resolve_at_create": {
+    "resolved": "x-from-ssm"
+  },
+  "test_iam_resources_land_in_iam": {
+    "inline": [
+      "inline"
+    ],
+    "outputs": {
+      "Arn": "arn:aws:iam::<account>:role/<name:role>"
+    }
+  },
   "test_refusals": {
     "absent-change-set": {
       "Error": {
@@ -304,11 +510,11 @@
     },
     "bad-stack-name": {
       "Error": {
-        "Code": "AccessDenied",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: cloudformation:CreateStack on resource: arn:aws:cloudformation:us-east-1:<account>:stack/has_underscore/* because no identity-based policy allows the cloudformation:CreateStack action"
+        "Code": "ValidationError",
+        "Message": "1 validation error detected: Value '<name:has_underscore>' at 'stackName' failed to satisfy constraint: Member must satisfy regular expression pattern: [a-zA-Z][-a-zA-Z0-9]*"
       },
       "ResponseMetadata": {
-        "HTTPStatusCode": 403
+        "HTTPStatusCode": 400
       }
     },
     "create-twice": {
@@ -680,6 +886,18 @@
         "HTTPStatusCode": 400
       }
     }
+  },
+  "test_termination_protection_keeps_a_stack": {
+    "protected": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Stack [<name:stack>] cannot be deleted while TerminationProtection is enabled"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unprotected": false
   },
   "test_validate_template": {
     "getatt-of-nothing": {

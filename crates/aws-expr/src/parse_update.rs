@@ -125,15 +125,14 @@ fn overlaps(u: &Update, kind: Kind) -> Result<(), Invalid> {
     first_overlap(&update_paths(u), kind)
 }
 
-/// Two paths that are the same, or one inside the other, may not both appear. `(memory)` for both texts: AWS says "overlap" for
-/// the same path and "conflict" for one inside the other.
+/// Two paths that are the same, or one inside the other, may not both appear. Recorded 2026-11-15: AWS says "overlap" for one
+/// inside the other (`SET m.k = :v, m = :w`), and so for the same path; the Go edition's "conflict" for the nested case was wrong.
 fn first_overlap(paths: &[&Path], kind: Kind) -> Result<(), Invalid> {
     for (i, a) in paths.iter().enumerate() {
         for b in paths.iter().skip(i + 1) {
             if a.overlaps(b) {
-                let word = if a == b { "overlap" } else { "conflict" };
                 return Err(kind.invalid(&format!(
-                    "Two document paths {word} with each other; must remove or rewrite one of these paths; path one: {}, path two: {}",
+                    "Two document paths overlap with each other; must remove or rewrite one of these paths; path one: {}, path two: {}",
                     a.shown(),
                     b.shown()
                 )));
@@ -202,7 +201,7 @@ mod tests {
             err("SET a = :one SET b = :one").contains("The \"SET\" section can only be used once")
         );
         assert!(err("SET a = :one REMOVE a").contains("Two document paths overlap"));
-        assert!(err("SET a.b = :one, a = :one").contains("Two document paths conflict"));
+        assert!(err("SET a.b = :one, a = :one").contains("Two document paths overlap"));
         assert!(err("").contains("can not be empty"));
         assert!(err("GET a").contains("Syntax error"));
     }
@@ -213,6 +212,6 @@ mod tests {
         let ok = parse_projection("a, b.c, d[0]", &mut Scope::new(&names, &values)).unwrap();
         assert_eq!(ok.len(), 3);
         let e = parse_projection("a, a.b", &mut Scope::new(&names, &values)).unwrap_err();
-        assert!(e.0.contains("Invalid ProjectionExpression: Two document paths conflict"));
+        assert!(e.0.contains("Invalid ProjectionExpression: Two document paths overlap"));
     }
 }

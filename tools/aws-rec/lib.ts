@@ -9,7 +9,7 @@ export const PREFIX = "doze-rec-";
 
 /** Runs one CLI call and returns parsed JSON (null for an empty reply). Throws with the CLI's last stderr line. */
 export async function aws(args: string[]): Promise<any> {
-  const p = Bun.spawn([BIN, ...args, "--profile", PROFILE, "--region", REGION, "--output", "json", "--no-cli-pager"], {
+  const p = Bun.spawn([BIN, ...args, "--profile", PROFILE, "--region", REGION, "--output", "json", "--no-cli-pager", "--cli-connect-timeout", "5"], {
     stdout: "pipe",
     stderr: "pipe",
     env: { ...process.env, AWS_PAGER: "" },

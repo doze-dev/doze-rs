@@ -60,6 +60,26 @@ fn rate_units_agree_with_their_number() {
 }
 
 #[test]
+fn the_scheduler_does_not_mind_the_plural() {
+    use crate::local::parse_scheduler;
+    // Recorded 2026-11-15: Scheduler accepted `rate(5 minute)`.
+    for good in ["rate(5 minute)", "rate(1 minutes)", "rate(2 hour)"] {
+        assert!(parse_scheduler(good).is_ok(), "{good}");
+    }
+    let feb30 = parse_scheduler("at(2030-02-30T00:00:00)").unwrap();
+    assert_eq!(feb30, parse_scheduler("at(2030-03-02T00:00:00)").unwrap());
+    for bad in [
+        "rate(5 minutess)",
+        "rate(0 minute)",
+        "rate(5 weeks)",
+        "at(2030-13-01T00:00:00)",
+        "at(2030-01-32T00:00:00)",
+    ] {
+        assert_eq!(parse_scheduler(bad), Err(Invalid), "{bad}");
+    }
+}
+
+#[test]
 fn cron_fires_at_the_minute_and_not_before() {
     let from = at(2026, 11, 13, 10, 15);
     let e = "cron(15 10 * * ? *)";

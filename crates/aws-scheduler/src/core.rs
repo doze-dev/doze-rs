@@ -37,6 +37,8 @@ pub(crate) enum Request {
         group: String,
         name: String,
     },
+    /// From `doze-aws data`: what Scheduler holds, or remove it all.
+    Data(Box<crate::storage::DataCall>),
 }
 
 /// What the actor answers.
@@ -94,6 +96,13 @@ impl doze_runtime::Service for Core {
                 group,
                 name,
             } => self.fire_now(account.as_deref(), &group, &name),
+            Request::Data(asked) => {
+                let crate::storage::DataCall { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                Ok(Value::Null)
+            }
         };
         let durable = match self.flush() {
             Ok(ack) => ack,
@@ -168,6 +177,24 @@ impl Core {
             region,
             fired: Vec::new(),
         }
+    }
+
+    /// How many groups and schedules there are, and the bytes of their rows.
+    pub(crate) fn count(&self) -> (u64, u64) {
+        let (g, s) = (
+            crate::storage::tally(&self.groups),
+            crate::storage::tally(&self.schedules),
+        );
+        (g.0 + s.0, g.1 + s.1)
+    }
+
+    /// Removes every group and schedule: Scheduler as a fresh data directory has it.
+    pub(crate) fn wipe(&mut self) -> Result<(), StoreError> {
+        crate::storage::clear(&mut self.groups);
+        crate::storage::clear(&mut self.schedules);
+        self.fired.clear();
+        drop(self.flush()?);
+        Ok(())
     }
 
     pub(crate) fn now_ms(&self) -> i64 {

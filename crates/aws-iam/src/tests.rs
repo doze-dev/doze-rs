@@ -11,6 +11,7 @@ use crate::core::{Core, Which};
 use crate::{Iam, Sts, services};
 
 mod authz;
+mod data;
 mod details;
 mod entities;
 mod persistence;

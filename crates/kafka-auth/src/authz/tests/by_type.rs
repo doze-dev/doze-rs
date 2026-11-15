@@ -10,8 +10,8 @@ fn may(r: &Rules, set: &[Acl], who: &str, op: i8) -> bool {
             principal: who,
             host: "10.0.0.1",
         },
-        op,
-        TOPIC,
+        ResourceType::Topic,
+        Operation::try_from(op).expect("a known operation"),
     )
 }
 

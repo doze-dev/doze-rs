@@ -37,7 +37,7 @@ impl Core {
         json!({})
     }
 
-    /// Why a stack cannot be deleted while another imports one of its exports. (memory) for the words.
+    /// Why a stack cannot be deleted while another imports one of its exports (recorded 2026-11-15, after "Delete canceled. ").
     pub(crate) fn importer_of(&self, stack: &Stack) -> Option<String> {
         for o in &stack.outputs {
             let Some(e) = &o.export else { continue };
@@ -45,7 +45,7 @@ impl Core {
                 s.id != stack.id && s.status != "DELETE_COMPLETE" && s.imports.contains(e)
             }) {
                 return Some(format!(
-                    "Export {e} cannot be deleted as it is in use by {}",
+                    "Cannot delete export {e} as it is in use by {}.",
                     user.name
                 ));
             }

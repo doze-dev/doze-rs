@@ -404,7 +404,9 @@ fn output_json(op: Operation, out: &aws_wire::service::Output) -> Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
+mod data;
 mod long_poll;
+mod moves;
 mod persistence;
 mod retention;
 mod waits;

@@ -19,6 +19,7 @@ mod authz;
 mod code;
 mod config;
 mod core;
+mod data;
 mod dispatch;
 mod errors;
 mod eventstream;
@@ -37,9 +38,12 @@ mod role;
 mod rt;
 mod settings;
 mod signing;
+mod storage;
 mod stream;
 mod updates;
+mod url_event;
 mod urls;
+mod usage;
 mod web;
 mod zipread;
 
@@ -117,6 +121,8 @@ pub(crate) struct Inner {
     locals: Mutex<std::collections::HashMap<String, (std::time::Instant, String)>>,
     pub(crate) pollers: poll::Pollers,
     patterns: Patterns,
+    /// How long code just unpacked is left alone by `doze-aws data`'s `unused` (milliseconds).
+    pub(crate) code_grace_ms: std::sync::atomic::AtomicU64,
 }
 
 impl Lambda {
@@ -155,6 +161,7 @@ impl Lambda {
             locals: Mutex::new(std::collections::HashMap::new()),
             pollers: poll::Pollers::default(),
             patterns: Patterns::new(&TABLES),
+            code_grace_ms: std::sync::atomic::AtomicU64::new(storage::GRACE_MS),
         });
         Self { inner }
     }
@@ -362,6 +369,10 @@ impl Service for Lambda {
     }
 
     fn web(&self) -> Option<&dyn Web> {
+        Some(self)
+    }
+
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
         Some(self)
     }
 

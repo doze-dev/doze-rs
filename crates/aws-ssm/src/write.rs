@@ -156,6 +156,12 @@ impl Core {
             .or_else(|| prev.and_then(|p| p.allowed_pattern.clone()));
         check_value(a.value, advanced, pattern.as_deref())?;
         let data_type = match a.data_type {
+            // AWS refuses any change of an existing parameter's data type in these words (recorded 2026-11-15).
+            Some(t) if prev.is_some_and(|p| p.data_type != t) => {
+                return Err(validation(
+                    "You can\u{2019}t change a parameter\u{2019}s data type.",
+                ));
+            }
             Some(t @ ("text" | "aws:ec2:image")) => t.to_owned(),
             // (memory)
             Some(other) => {
@@ -295,7 +301,7 @@ fn resolve_tier(
         Some("Standard") | None if policies && !was_advanced => {
             // The model's documentation: standard parameters can't use policies.
             Err(validation(
-                "Parameter policies can only be used with advanced-tier parameters. Set the Tier to Advanced.",
+                "You can't assign parameter policies to a standard-parameter tier. You must upgrade the parameter to use the advanced-parameter tier. For more information, see https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-advanced-parameters.html",
             ))
         }
         Some("Standard") => Ok(false),
@@ -313,11 +319,11 @@ fn check_value(value: &str, advanced: bool, pattern: Option<&str>) -> Result<(),
         STANDARD_BYTES
     };
     if value.len() > limit {
-        // (memory)
         return Err(validation(if advanced {
+            // (memory)
             "Advanced tier parameters support a maximum parameter value of 8192 characters."
         } else {
-            "Standard tier parameters support a maximum parameter value of 4096 characters. To create a larger parameter value, upgrade the parameter to use the advanced-parameter tier."
+            "Standard tier parameters support a maximum parameter value of 4096 characters. To create a larger parameter value, upgrade the parameter to use the advanced-parameter tier. For more information, see https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-advanced-parameters.html"
         }));
     }
     pattern.map_or(Ok(()), |p| check_pattern(p, value))
@@ -327,16 +333,15 @@ fn check_pattern(pattern: &str, value: &str) -> Result<(), ApiError> {
     let re = regex_lite::Regex::new(pattern).map_err(|_| {
         ApiError::modeled(
             "InvalidAllowedPatternException",
-            format!("The request AllowedPattern isn't a valid regular expression: {pattern}"),
+            "The syntax of the allowedPattern parameter is invalid.",
         )
     })?;
     if re.is_match(value) {
         Ok(())
     } else {
-        // (memory)
         Err(ApiError::modeled(
             "ParameterPatternMismatchException",
-            format!("Parameter value doesn't match the allowed pattern {pattern}."),
+            format!("Parameter value, cannot be validated against allowedPattern: {pattern}"),
         ))
     }
 }

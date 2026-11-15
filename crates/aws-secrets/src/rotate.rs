@@ -14,7 +14,6 @@
 //! `AWSPENDING` version that is then removed. The pending version holds a copy of the current value (what AWS puts in it is not
 //! documented: (memory)), so a `testSecret` that logs in with it succeeds.
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use aws_model_secrets_manager::keys::{
@@ -141,7 +140,7 @@ impl Core {
             Version {
                 sealed,
                 binary,
-                stages: BTreeSet::from([PENDING.to_owned()]),
+                stages: crate::model::Stages::of(PENDING),
                 created_ms: now,
                 accessed_day_ms: None,
             },
@@ -278,7 +277,7 @@ pub(crate) fn open_pending(secret: &mut crate::model::Secret, token: &str, now: 
         .or_insert_with(|| Version {
             sealed: Vec::new(),
             binary: false,
-            stages: BTreeSet::new(),
+            stages: crate::model::Stages::default(),
             created_ms: now,
             accessed_day_ms: None,
         });

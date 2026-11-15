@@ -235,7 +235,8 @@ fn create_model(core: &mut Core, r: &Req) -> Res {
     let doc = api_mut(core, r)?;
     let name = r.s("name");
     if name.is_empty() || !name.bytes().all(|b| b.is_ascii_alphanumeric()) {
-        return Err(bad("Model name must be alphanumeric"));
+        // Recorded 2026-11-15.
+        return Err(bad(format!("Model name must be alphanumeric: {name}")));
     }
     if obj(doc, "models").is_some_and(|m| m.contains_key(name)) {
         return Err(conflict("Model name already exists for this REST API"));
@@ -292,9 +293,13 @@ fn put_response(core: &mut Core, r: &Req) -> Res {
     );
     v.insert(
         "responseTemplates".into(),
-        r.value("responseTemplates")
-            .cloned()
-            .unwrap_or_else(|| json!({})),
+        // Without templates of its own, a response keeps the default's (recorded 2026-11-15).
+        r.value("responseTemplates").cloned().unwrap_or_else(|| {
+            gwresp::default_of(kind)
+                .get("responseTemplates")
+                .cloned()
+                .unwrap_or_else(|| json!({}))
+        }),
     );
     v.insert("responseType".into(), json!(kind));
     let status = r.opt("statusCode").map(str::to_owned).or_else(|| {

@@ -27,7 +27,7 @@ pub(crate) const FILE: &str = "cloudformation.redb";
 const STACKS: &str = "stacks";
 const EVENTS: &str = "events";
 const CHANGE_SETS: &str = "change_sets";
-const VERSION: u8 = 1;
+pub(crate) const VERSION: u8 = 1;
 
 /// What the actor is asked.
 #[derive(Debug)]
@@ -38,6 +38,8 @@ pub(crate) enum Request {
     Progress(Progress),
     /// A job asks for a nested stack.
     Child(Box<crate::nested::Ask>),
+    /// From `doze-aws data`: what the stacks hold, or remove some of it.
+    Data(Box<crate::storage::DataCall>),
 }
 
 /// One region of CloudFormation.
@@ -49,7 +51,7 @@ pub(crate) struct Core {
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) config: Arc<Config>,
-    db: Option<Db>,
+    pub(crate) db: Option<Db>,
     patterns: Patterns,
     /// The last time handed out by `tick`.
     pub(crate) last_ms: i64,
@@ -134,6 +136,13 @@ impl doze_runtime::Service for Core {
                 child = Some(self.child(*ask).await);
                 empty()
             }
+            Request::Data(asked) => {
+                let crate::storage::DataCall { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                empty()
+            }
         };
         self.notify().await;
         let durable = match self.flush() {
@@ -190,7 +199,7 @@ impl Core {
         self.clock.now_ms()
     }
 
-    fn flush(&mut self) -> Result<Option<Ack>, StoreError> {
+    pub(crate) fn flush(&mut self) -> Result<Option<Ack>, StoreError> {
         let changes = vec![
             self.stacks.stage()?,
             self.events.stage()?,

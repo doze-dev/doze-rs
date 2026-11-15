@@ -19,10 +19,13 @@
 # 2026-11-14, CI's first run of the one build (PR #45, run 43588988185) replaces the estimates: 10,634,592 B, 183 packages, idle median
 # 10,488 KB (samples 10,488, 10,048, 10,576) plus 5% = 11,013 KB. docs/port/weight.md, "One build: CI's measurements".
 # 2026-11-15, the hand-off fix (PR #60): the protocol peer keeps its copy of a handed-over connection until the module has it (a map of held
-# copies and `Passable::hold`). CI measured 10,638,816 B (+4,288 B); the line is that measurement. Ceiling 15 MB.
-# 2026-11-15, protocol 2 minor 1 (the `migrate` call, callbacks scoped to a list of calls, the in-flight count as a guard): D1's CI
-# measured +1,024 B on doze-kafka; with this branch's hand-off fix CI measured 10,639,904 B (run of 9e6e6d36); the line takes it.
-doze-kafka 10639904 183 11013 --listen 127.0.0.1:{port} --data-dir {data}
+# copies and `Passable::hold`). CI measured +4,288 B on its own; that fits inside the estimate below, so the line below stands.
+# 2026-11-15, the registry in the console (Phase 10d) and the efficiency pass (correctness, idle, idioms): darwin arm64 8,001,408 B against
+# 7,735,920 B for the tree CI measured, whose ratio was 10,634,592 / 7,735,920 = 1.3747; so 10,999,559 B estimated on ubuntu x86_64, limit that
+# plus 5% = 11,549,536 B until CI's next run on main measures it. Packages 184: the one more line is `kafka-registry (*)`, a repeat entry now that
+# the console depends on the registry, not a new package. Idle unchanged (darwin fell to 6,032 KB with the idle fixes). Ceiling 15 MB.
+# 2026-11-15, core-m1: protocol 2 minor 1 (`migrate`) adds about 1 KB (CI: 10,639,904 B before the console's registry), inside this line.
+doze-kafka 11549536 184 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
@@ -138,4 +141,9 @@ doze-kafka 10639904 183 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, CI on main with the server side finished (PR #45, run 43592223803): idle median 10,024 KB (samples 9,964, 10,036, 10,024) plus 5% =
 # 10,526 KB; +1.06 MB over the median of 8,964 KB before the aws-tls, aws-gaps and aws-correctness merges (issue #36). Bytes 13,128,520 B and 274
 # packages fit the lines above.
-doze-aws 13900000 280 10526 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-15, data control (78ba6190, run 43703449990): idle median 10,548 KB (samples 10,492, 10,692, 10,548) against medians of 9,820 to 10,140 KB
+# in the six runs before; bytes 13,669,488 B (+511,112), packages 274. Measured A/B on aarch64 Linux (7 samples each): 8,184 KB before, 8,596 KB
+# after, 8,384 KB with the start-time size check (`mention_size`, a one-shot OS thread) left out: about 210 KB is that thread (glibc keeps its
+# arena and stack cache), about 200 KB the new code. Line = median plus 5% = 11,075 KB. The thread's share is avoidable and is with the aws
+# session (docs/port/ci-health.md, open items).
+doze-aws 13900000 280 11075 --listen 127.0.0.1:{port} --data-dir {data}

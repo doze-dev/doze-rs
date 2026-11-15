@@ -12,8 +12,7 @@ impl<F: Fs> Broker<F> {
     /// transaction is never forgotten: the timeout deals with it first.
     pub(super) async fn expire_txn_ids(&self) {
         let now = clock::now().get();
-        let limit =
-            i64::try_from(self.config.transactional_id_expiration.as_millis()).unwrap_or(i64::MAX);
+        let limit = self.txn_id_expiry_ms();
         for entry in self.txns.all() {
             if !rules::idle(&entry.read().await.rec, now, limit) {
                 continue;

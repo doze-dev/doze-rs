@@ -27,7 +27,7 @@ async function waitFor(url: string, ms: number) {
 export default async function setup() {
   const bin = process.env.DOZE_KAFKA_BIN ?? resolve(import.meta.dir, "../../target/release/doze-kafka");
   const data = mkdtempSync(join(tmpdir(), "doze-e2e-"));
-  const child = spawn(bin, ["--listen", SEEDED.kafka, "--data-dir", data, "--console-addr", SEEDED.console.replace("http://", "")], { stdio: "ignore" });
+  const child = spawn(bin, ["--listen", SEEDED.kafka, "--data-dir", data, "--console-addr", SEEDED.console.replace("http://", ""), "--schema-registry-addr", SEEDED.registry], { stdio: "ignore" });
   await waitFor(`${SEEDED.console}/healthz`, 15_000);
 
   const kafka = new Kafka({ clientId: "e2e-seed", brokers: [SEEDED.kafka], logLevel: logLevel.NOTHING });

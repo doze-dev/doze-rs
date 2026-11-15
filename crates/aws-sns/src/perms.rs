@@ -92,11 +92,8 @@ impl Core {
         let Some(statements) = statements_of(&mut policy) else {
             return Err(invalid("Policy"));
         };
-        let before = statements.len();
+        // Recorded on AWS (2026-11-15): removing a label that is not there succeeds and changes nothing.
         statements.retain(|s| s["Sid"] != label);
-        if statements.len() == before {
-            return Err(invalid("Statement does not exist"));
-        }
         topic.attrs.insert("Policy".into(), policy.to_string());
         Ok(Value::Null)
     }

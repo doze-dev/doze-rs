@@ -1,6 +1,6 @@
 //! OffsetCommit: a group's progress, stored in the metadata database.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::{Committed, MetaError, OffsetCommit, StoredOffset};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
@@ -28,10 +28,10 @@ impl<F: Fs> Broker<F> {
         req: &OffsetCommitRequest,
     ) -> Outcome {
         let guard = self.guard(caller);
-        if !guard.group(operation::READ, req.group_id.as_str()) {
+        if !guard.group(Operation::Read, req.group_id.as_str()) {
             return blanket(req, ResponseError::GroupAuthorizationFailed);
         }
-        let barred = |name: &str| !guard.topic(operation::READ, name);
+        let barred = |name: &str| !guard.topic(Operation::Read, name);
         let fence = self.fence_unless_barred(version, req, &barred).await;
         let mut resp = OffsetCommitResponse::default();
         // Each partition is judged; those that pass are stored together in one write.
@@ -106,12 +106,17 @@ impl<F: Fs> Broker<F> {
         if none_left {
             None
         } else {
-            self.commit_fence(version, req).await
+            self.commit_fence(version, req, barred).await
         }
     }
 
     /// May this group's offsets be written by this committer? `None`: yes.
-    async fn commit_fence(&self, version: i16, req: &OffsetCommitRequest) -> Option<ResponseError> {
+    async fn commit_fence(
+        &self,
+        version: i16,
+        req: &OffsetCommitRequest,
+        barred: &impl Fn(&str) -> bool,
+    ) -> Option<ResponseError> {
         let Ok(group) = GroupId::parse(req.group_id.as_str()) else {
             return Some(ResponseError::InvalidGroupId);
         };
@@ -124,8 +129,42 @@ impl<F: Fs> Broker<F> {
                 .map(|i| InstanceId::new(i.as_str())),
             generation: req.generation_id_or_member_epoch,
             transactional: false,
+            partitions: self.asked_of_the_group(req, barred),
         };
         self.ask_group_to_commit(&group, check).await
+    }
+
+    /// The partitions Kafka's group coordinator would be asked to validate, by topic id: `KafkaApis` answers a barred
+    /// topic, a topic or partition that does not exist, itself, and the coordinator skips one whose metadata is too
+    /// large before it validates the rest.
+    fn asked_of_the_group(
+        &self,
+        req: &OffsetCommitRequest,
+        barred: &impl Fn(&str) -> bool,
+    ) -> Vec<(kafka_wire::Uuid, i32)> {
+        let mut asked = Vec::new();
+        for t in req.topics.iter().filter(|t| !barred(t.name.as_str())) {
+            let Some(topic) = TopicName::parse(t.name.as_str())
+                .ok()
+                .and_then(|n| self.meta.topic(&n))
+            else {
+                continue;
+            };
+            asked.extend(
+                t.partitions
+                    .iter()
+                    .filter(|p| {
+                        p.partition_index >= 0 && p.partition_index < topic.partitions.get()
+                    })
+                    .filter(|p| {
+                        p.committed_metadata
+                            .as_ref()
+                            .is_none_or(|m| m.len() <= MAX_METADATA)
+                    })
+                    .map(|p| (topic.id.to_uuid(), p.partition_index)),
+            );
+        }
+        asked
     }
 
     /// What the group says to a committer: `None`, or why its offsets may not be written.

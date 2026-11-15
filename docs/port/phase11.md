@@ -19,6 +19,8 @@ readiness, converge when fresh, stop), run on the published example and on the L
 
 **One binary, two faces.** `doze-kafka` is the module when it runs under the name a module release packages it as (`bin/kafka-plugin`,
 which doze starts with no arguments; `kafka-plugin --describe` prints the manifest for the release tool) or as `doze-kafka module`.
+Run by hand (standard input not a socket from doze), the module face says it is doze's kafka module, that doze starts it, and
+to run `doze-kafka --help` for the broker (the SDK's `Server::by_hand`; test `module_boot::the_module_face_run_by_hand_*`).
 Anything else is the broker, as before. The plan starts the same binary with the broker's own flags (`--listen`, `--data-dir`,
 `--kafka-version`, ...), so a `kafka-plugin` with arguments is the broker: no hidden `__serve` mode as Go had, and no second set of
 flags to keep in step. The face is the cargo feature `module`, on by default like the console; `--no-default-features` leaves it out.

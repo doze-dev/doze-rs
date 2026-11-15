@@ -2,7 +2,9 @@
 //! Avro's own library writes a schema (`text`), compared by Avro's reader/writer rules with Confluent's sentences
 //! (`compat`), and shown with its referenced types written out (`inline`).
 
+mod codec;
 mod compat;
+mod encode;
 mod inline;
 mod schema;
 mod text;
@@ -92,6 +94,22 @@ impl ParsedSchema for AvroSchema {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn decode(&self, body: &[u8]) -> Result<crate::codec::Decoded, String> {
+        Ok(crate::codec::Decoded {
+            json: codec::decode(&self.schema, body)?,
+            message: None,
+            mismatch: None,
+        })
+    }
+
+    fn encode(&self, value: &Json) -> Result<Vec<u8>, String> {
+        encode::encode(&self.schema, value)
+    }
+
+    fn sample(&self) -> Json {
+        codec::sample(&self.schema)
     }
 }
 

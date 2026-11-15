@@ -35,7 +35,7 @@ pub(crate) fn check(name: &str, value: &str, fifo: bool) -> Result<(), ApiError>
             "Attributes",
             "DisplayName must be less than 100 characters",
         )),
-        "DeliveryPolicy" if !value.is_empty() => json_object(name, value),
+        "DeliveryPolicy" if !value.is_empty() => delivery(value),
         "Policy" => policy(value),
         "ContentBasedDeduplication" | "FifoTopic" => fifo_only(name, value, fifo),
         "FifoThroughputScope" | "ArchivePolicy" => only_fifo(name, fifo),
@@ -105,14 +105,49 @@ fn policy(value: &str) -> Result<(), ApiError> {
         .map_err(|e| invalid(format!("Policy Error: {}", e.0)))
 }
 
+/// Recorded on AWS (2026-11-15, `SetTopicAttributes`).
 fn max_size(value: &str) -> Result<(), ApiError> {
     match value.parse::<u64>() {
         Ok(n) if (1024..=MAX_SIZE_CEILING).contains(&n) => Ok(()),
         _ => Err(invalid_because(
             "Attributes",
-            "MaximumMessageSize must be between 1024 and 1048576",
+            format!("MaximumMessageSize: {value} is not an integer between 1024 and 1048576 bytes"),
         )),
     }
+}
+
+/// The fields a retry policy must name. Recorded on AWS (2026-11-15) for `minDelayTarget` missing from a policy that named only
+/// `numRetries`; that the others are required too is (memory), in the order the documentation lists them.
+const RETRY_FIELDS: [&str; 2] = ["minDelayTarget", "maxDelayTarget"];
+
+fn delivery(value: &str) -> Result<(), ApiError> {
+    json_object("DeliveryPolicy", value)?;
+    let doc: Value = serde_json::from_str(value).unwrap_or(Value::Null);
+    if let Some(retry) = doc.pointer("/http/defaultHealthyRetryPolicy")
+        && let Some(missing) = RETRY_FIELDS.iter().find(|f| retry.get(**f).is_none())
+    {
+        return Err(invalid_because(
+            "Attributes",
+            format!("DeliveryPolicy: http.defaultHealthyRetryPolicy.{missing} must be specified"),
+        ));
+    }
+    Ok(())
+}
+
+/// The value kept for attribute `name`: a delivery policy gains the switch AWS fills in (recorded 2026-11-15:
+/// `disableSubscriptionOverrides: false` appeared in the `DeliveryPolicy` read back); the rest are kept as given.
+pub(crate) fn kept(name: &str, value: &str) -> String {
+    if name != "DeliveryPolicy" {
+        return value.to_owned();
+    }
+    let Ok(mut doc) = serde_json::from_str::<Value>(value) else {
+        return value.to_owned();
+    };
+    if let Some(Value::Object(http)) = doc.get_mut("http") {
+        http.entry("disableSubscriptionOverrides")
+            .or_insert(Value::Bool(false));
+    }
+    doc.to_string()
 }
 
 fn sample_rate(name: &str, value: &str) -> Result<(), ApiError> {
@@ -191,6 +226,35 @@ impl Topic {
         self.attrs
             .get("ContentBasedDeduplication")
             .is_some_and(|v| v == "true")
+    }
+
+    /// The `EffectiveDeliveryPolicy` of an HTTP or HTTPS subscription to the topic: the topic's HTTP policy, in the shape and key order
+    /// AWS writes it (recorded 2026-11-15, the defaults). A subscription's own `DeliveryPolicy` is not laid over it. (memory)
+    pub(crate) fn subscription_delivery(&self) -> String {
+        let effective: Value =
+            serde_json::from_str(&self.effective_delivery()).unwrap_or(Value::Null);
+        let http = effective.get("http").unwrap_or(&Value::Null);
+        let retry = http
+            .get("defaultHealthyRetryPolicy")
+            .unwrap_or(&Value::Null);
+        let n = |k: &str| retry.get(k).cloned().unwrap_or(Value::Null);
+        let healthy = format!(
+            r#"{{"minDelayTarget":{},"maxDelayTarget":{},"numRetries":{},"numMaxDelayRetries":{},"numNoDelayRetries":{},"numMinDelayRetries":{},"backoffFunction":{}}}"#,
+            n("minDelayTarget"),
+            n("maxDelayTarget"),
+            n("numRetries"),
+            n("numMaxDelayRetries"),
+            n("numNoDelayRetries"),
+            n("numMinDelayRetries"),
+            n("backoffFunction"),
+        );
+        let or_null = |k: &str| http.get(k).cloned().unwrap_or(Value::Null);
+        format!(
+            r#"{{"healthyRetryPolicy":{healthy},"sicklyRetryPolicy":{},"throttlePolicy":{},"requestPolicy":{},"guaranteed":false}}"#,
+            or_null("defaultSicklyRetryPolicy"),
+            or_null("defaultThrottlePolicy"),
+            or_null("defaultRequestPolicy"),
+        )
     }
 
     /// `EffectiveDeliveryPolicy`: the defaults with the topic's own `DeliveryPolicy` laid over them (the merge is from memory).

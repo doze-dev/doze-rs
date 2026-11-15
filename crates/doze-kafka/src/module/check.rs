@@ -124,7 +124,7 @@ fn configs(i: u32, configs: &BTreeMap<String, String>, out: &mut Vec<Diagnostic>
                     }
                 })
             };
-            out.push(at(path(k), why, hint));
+            out.push(at(path(k), why.to_string(), hint));
         }
     }
     // What only a pair of configs can break (min.compaction.lag.ms above max.compaction.lag.ms).
@@ -133,7 +133,7 @@ fn configs(i: u32, configs: &BTreeMap<String, String>, out: &mut Vec<Diagnostic>
     {
         out.push(at(
             vec![key("topic"), PathSeg::Index(i), key("config")],
-            why,
+            why.to_string(),
             None,
         ));
     }

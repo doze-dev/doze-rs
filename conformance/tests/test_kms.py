@@ -161,7 +161,8 @@ def test_re_encrypt_data_keys_and_random(client, cleanup, snapshot):
     sealed = kms.encrypt(KeyId=a, Plaintext=b"move me", EncryptionContext={"k": "v"})
     moved = kms.re_encrypt(CiphertextBlob=sealed["CiphertextBlob"], SourceEncryptionContext={"k": "v"},
                            DestinationKeyId=b, DestinationEncryptionContext={"k2": "v2"})
-    snapshot.match("re-encrypt", moved, opaque=SECRET)
+    # Key material ids are a hash of random material: present and consistent is all there is to compare.
+    snapshot.match("re-encrypt", moved, opaque=SECRET + ("SourceKeyMaterialId", "DestinationKeyMaterialId"))
     snapshot.match("opens-under-b", kms.decrypt(
         CiphertextBlob=moved["CiphertextBlob"], EncryptionContext={"k2": "v2"}), opaque=SECRET)
     snapshot.error("re-encrypt-wrong-context", lambda: kms.re_encrypt(
@@ -182,7 +183,7 @@ def test_re_encrypt_data_keys_and_random(client, cleanup, snapshot):
         CiphertextBlob=pair["PrivateKeyCiphertextBlob"])["Plaintext"] == pair["PrivateKeyPlaintext"]})
 
 
-def test_policy_tags_rotation_and_grants(client, cleanup, snapshot, target):
+def test_policy_tags_rotation_and_grants(client, cleanup, snapshot, target, eventually, normalizer):
     kms = client("kms")
     kid, _ = key(kms, cleanup)
     policy = kms.get_key_policy(KeyId=kid, PolicyName="default")
@@ -200,20 +201,34 @@ def test_policy_tags_rotation_and_grants(client, cleanup, snapshot, target):
     snapshot.match("enable-rotation-90", kms.enable_key_rotation(KeyId=kid, RotationPeriodInDays=90))
     snapshot.match("rotation-status", kms.get_key_rotation_status(KeyId=kid))
     snapshot.match("rotate-now", kms.rotate_key_on_demand(KeyId=kid))
-    snapshot.match("material-changed", {"changed": kms.describe_key(KeyId=kid)["KeyMetadata"]["CurrentKeyMaterialId"] != before})
-    snapshot.match("rotations", kms.list_key_rotations(KeyId=kid), opaque=("KeyMaterialId",))
+
+    # AWS rotates on demand in the background: straight after the call the material had not changed and no rotation was
+    # listed (2026-11-15), and the rotation was listed before DescribeKey showed the new material. What is asserted is where
+    # it ends up.
+    def rotated():
+        r = kms.list_key_rotations(KeyId=kid)
+        assert r.get("Rotations"), "not rotated yet"
+        assert kms.describe_key(KeyId=kid)["KeyMetadata"]["CurrentKeyMaterialId"] != before, "material not changed yet"
+        return r
+
+    rotations = eventually(rotated, timeout=300, every=5)
+    snapshot.match("material-changed", {"changed": True})
+    snapshot.match("rotations", rotations, opaque=("KeyMaterialId",))
     snapshot.match("disable-rotation", kms.disable_key_rotation(KeyId=kid))
     grantee = f"arn:aws:iam::{target.account}:root"
     grant = kms.create_grant(KeyId=kid, GranteePrincipal=grantee, RetiringPrincipal=grantee,
                              Operations=["Decrypt", "Encrypt"], Name="g1")
     snapshot.match("create-grant", grant, opaque=("GrantToken", "GrantId"))
+    normalizer.name(grant["GrantId"], "grant-id")  # a refusal below quotes it back
     snapshot.match("same-name-same-grant", {"same": kms.create_grant(
         KeyId=kid, GranteePrincipal=grantee, Operations=["Decrypt"], Name="g1")["GrantId"] == grant["GrantId"]})
-    snapshot.match("grants", kms.list_grants(KeyId=kid), opaque=("GrantId", "KeyId", "IssuingAccount"))
+    # The order of a listing of grants changed between two recordings: not promised.
+    snapshot.match("grants", kms.list_grants(KeyId=kid), opaque=("GrantId", "KeyId", "IssuingAccount"),
+                   unordered=("Grants",))
     snapshot.error("bad-operation", lambda: kms.create_grant(
         KeyId=kid, GranteePrincipal=grantee, Operations=["Nonsense"]))
     snapshot.match("retire", kms.retire_grant(GrantToken=grant["GrantToken"]))
-    snapshot.match("no-grants", kms.list_grants(KeyId=kid))
+    snapshot.match("no-grants", kms.list_grants(KeyId=kid), opaque=("GrantId", "KeyId", "IssuingAccount"))
     snapshot.error("revoke-absent", lambda: kms.revoke_grant(KeyId=kid, GrantId=grant["GrantId"]))
 
 

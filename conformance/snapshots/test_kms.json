@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -93,11 +93,133 @@
     },
     "reserved-prefix": {
       "Error": {
-        "Code": "AccessDeniedException",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: kms:CreateAlias on resource: arn:aws:kms:us-east-1:<account>:alias/aws/mine because no identity-based policy allows the kms:CreateAlias action. Go to https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/authorization-details/a8vw6ig59scsjgq23tgjhiv6u for complete details, or call the GetRequestAuthorizationDetails API with the following authorization id: a8vw6ig59scsjgq23tgjhiv6u"
+        "Code": "NotAuthorizedException",
+        "Message": "The alias name for a customer managed CMK cannot begin with alias/aws/."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_aliases_that_move_and_states": {
+    "alias-to-pending": {
+      "Error": {
+        "Code": "KMSInvalidStateException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:2> is pending deletion."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "cancel-when-not-pending": {
+      "Error": {
+        "Code": "KMSInvalidStateException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:1> is not pending deletion."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe-description-while-pending": {
+      "Error": {
+        "Code": "KMSInvalidStateException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:2> is pending deletion."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "disable-while-pending": {
+      "Error": {
+        "Code": "KMSInvalidStateException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:2> is pending deletion."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "enable-while-pending": {
+      "Error": {
+        "Code": "KMSInvalidStateException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:2> is pending deletion."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "list-keys-has-them": {
+      "both": true
+    },
+    "moved": {
+      "Aliases": [
+        {
+          "AliasArn": "arn:aws:kms:us-east-1:<account>:alias/<name:alias>",
+          "AliasName": "alias/<name:alias>",
+          "CreationDate": "<datetime>",
+          "LastUpdatedDate": "<datetime>",
+          "TargetKeyId": "<uuid:1>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Truncated": false
+    },
+    "old-key-has-none": {
+      "Aliases": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Truncated": false
+    },
+    "rotate-a-signing-key": {
+      "Error": {
+        "Code": "UnsupportedOperationException",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "schedule": {
+      "DeletionDate": "<datetime>",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:2>",
+      "KeyState": "PendingDeletion",
+      "PendingWindowInDays": 7,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "schedule-twice": {
+      "Error": {
+        "Code": "KMSInvalidStateException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:2> is pending deletion."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "signing-key-without-usage": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "You must specify a KeyUsage value for all KMS keys except for symmetric encryption keys."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "update-absent": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Alias arn:aws:kms:us-east-1:<account>:alias/dzc-never is not found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "update-alias": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
       }
     }
   },
@@ -307,6 +429,326 @@
       }
     }
   },
+  "test_policy_tags_rotation_and_grants": {
+    "bad-operation": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Value '[Nonsense]' at 'operations' failed to satisfy constraint: Member must satisfy constraint: [Member must satisfy enum value set: [Decrypt, DeriveSharedSecret, Encrypt, GenerateDataKey, GenerateDataKeyWithoutPlaintext, ReEncryptFrom, ReEncryptTo, Sign, Verify, GetPublicKey, CreateGrant, RetireGrant, DescribeKey, GenerateDataKeyPair, GenerateDataKeyPairWithoutPlaintext, GenerateMac, VerifyMac]]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-grant": {
+      "GrantId": "<GrantId:1>",
+      "GrantToken": "<GrantToken:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "default-policy-shape": {
+      "has-root": true,
+      "name": "default"
+    },
+    "describe-key": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "described": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+        "CreationDate": "<datetime>",
+        "CurrentKeyMaterialId": "<CurrentKeyMaterialId:1>",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "Description": "renamed",
+        "Enabled": true,
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "KeyId": "<uuid:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyState": "Enabled",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "MultiRegion": false,
+        "Origin": "AWS_KMS"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "disable-rotation": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "enable-rotation-90": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "grants": {
+      "Grants": [
+        {
+          "CreationDate": "<datetime>",
+          "GrantId": "<GrantId:1>",
+          "GranteePrincipal": "arn:aws:iam::<account>:root",
+          "IssuingAccount": "<IssuingAccount:1>",
+          "KeyId": "<KeyId:1>",
+          "Name": "g1",
+          "Operations": [
+            "Decrypt",
+            "Encrypt"
+          ],
+          "RetiringPrincipal": "arn:aws:iam::<account>:root"
+        },
+        {
+          "CreationDate": "<datetime>",
+          "GrantId": "<GrantId:2>",
+          "GranteePrincipal": "arn:aws:iam::<account>:root",
+          "IssuingAccount": "<IssuingAccount:1>",
+          "KeyId": "<KeyId:1>",
+          "Name": "g1",
+          "Operations": [
+            "Decrypt"
+          ]
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Truncated": false
+    },
+    "material-changed": {
+      "changed": true
+    },
+    "no-grants": {
+      "Grants": [
+        {
+          "CreationDate": "<datetime>",
+          "GrantId": "<GrantId:2>",
+          "GranteePrincipal": "arn:aws:iam::<account>:root",
+          "IssuingAccount": "<IssuingAccount:1>",
+          "KeyId": "<KeyId:1>",
+          "Name": "g1",
+          "Operations": [
+            "Decrypt"
+          ]
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Truncated": false
+    },
+    "policy-bad-name": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid policy name"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "policy-names": {
+      "PolicyNames": [
+        "default"
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Truncated": false
+    },
+    "put-bad-policy": {
+      "Error": {
+        "Code": "MalformedPolicyDocumentException",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "reserved-tag": {
+      "Error": {
+        "Code": "TagException",
+        "Message": "Tags beginning with aws: are reserved"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "retire": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "revoke-absent": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Grant ID <name:grant-id> not found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "rotate-now": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "rotation-status": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeyRotationEnabled": true,
+      "NextRotationDate": "<datetime>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RotationPeriodInDays": 90
+    },
+    "rotations": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Rotations": [
+        {
+          "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+          "KeyMaterialId": "<KeyMaterialId:1>",
+          "KeyMaterialState": "CURRENT",
+          "RotationDate": "<datetime>",
+          "RotationType": "ON_DEMAND"
+        }
+      ],
+      "Truncated": false
+    },
+    "same-name-same-grant": {
+      "same": false
+    },
+    "tag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "TagKey": "a",
+          "TagValue": "1"
+        }
+      ],
+      "Truncated": false
+    },
+    "untag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_re_encrypt_data_keys_and_random": {
+    "both-spec-and-bytes": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Please specify either number of bytes or key spec."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "by-bytes": {
+      "len": 40
+    },
+    "neither": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Please specify either number of bytes or key spec."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "opens-under-b": {
+      "EncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeyMaterialId": "<KeyMaterialId:1>",
+      "Plaintext": "<Plaintext:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "pair": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:2>",
+      "KeyMaterialId": "<KeyMaterialId:2>",
+      "KeyPairSpec": "ECC_NIST_P256",
+      "PrivateKeyCiphertextBlob": "<PrivateKeyCiphertextBlob:1>",
+      "PrivateKeyPlaintext": "<PrivateKeyPlaintext:1>",
+      "PublicKey": "<PublicKey:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "pair-private-key-opens": {
+      "same": true
+    },
+    "pair-without-plaintext": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:2>",
+      "KeyMaterialId": "<KeyMaterialId:2>",
+      "KeyPairSpec": "RSA_2048",
+      "PrivateKeyCiphertextBlob": "<PrivateKeyCiphertextBlob:2>",
+      "PublicKey": "<PublicKey:2>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "random": {
+      "len": 64
+    },
+    "random-too-many": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Value '2000' at 'numberOfBytes' failed to satisfy constraint: Member must have value less than or equal to 1024"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "re-encrypt": {
+      "CiphertextBlob": "<CiphertextBlob:1>",
+      "DestinationEncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+      "DestinationKeyMaterialId": "<DestinationKeyMaterialId:1>",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SourceEncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+      "SourceKeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:2>",
+      "SourceKeyMaterialId": "<SourceKeyMaterialId:1>"
+    },
+    "re-encrypt-wrong-context": {
+      "Error": {
+        "Code": "InvalidCiphertextException",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "sealed-opens": {
+      "len": 16
+    },
+    "without-plaintext": {
+      "CiphertextBlob": "<CiphertextBlob:2>",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:2>",
+      "KeyMaterialId": "<KeyMaterialId:2>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
   "test_refusals": {
     "absent-alias": {
       "Error": {
@@ -366,6 +808,186 @@
       "Error": {
         "Code": "ValidationException",
         "Message": "PendingWindowInDays must be between 7 and 30"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_rsa_signing_and_encryption": {
+    "create-signer": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+        "CreationDate": "<datetime>",
+        "CustomerMasterKeySpec": "RSA_2048",
+        "Description": "",
+        "Enabled": true,
+        "KeyId": "<uuid:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "RSA_2048",
+        "KeyState": "Enabled",
+        "KeyUsage": "SIGN_VERIFY",
+        "MultiRegion": false,
+        "Origin": "AWS_KMS",
+        "SigningAlgorithms": [
+          "RSASSA_PKCS1_V1_5_SHA_256",
+          "RSASSA_PKCS1_V1_5_SHA_384",
+          "RSASSA_PKCS1_V1_5_SHA_512",
+          "RSASSA_PSS_SHA_256",
+          "RSASSA_PSS_SHA_384",
+          "RSASSA_PSS_SHA_512"
+        ]
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create-vault": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:2>",
+        "CreationDate": "<datetime>",
+        "CustomerMasterKeySpec": "RSA_2048",
+        "Description": "",
+        "Enabled": true,
+        "EncryptionAlgorithms": [
+          "RSAES_OAEP_SHA_1",
+          "RSAES_OAEP_SHA_256"
+        ],
+        "KeyId": "<uuid:2>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "RSA_2048",
+        "KeyState": "Enabled",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "MultiRegion": false,
+        "Origin": "AWS_KMS"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "decrypt": {
+      "EncryptionAlgorithm": "RSAES_OAEP_SHA_256",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:2>",
+      "Plaintext": {
+        "<bytes>": "attack at dawn"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "decrypt-without-key": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "KeyId must not be null"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "digest-sign": {
+      "len": 256
+    },
+    "digest-wrong-length": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Digest is invalid length for algorithm RSASSA_PSS_SHA_256."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "encrypt": {
+      "CiphertextBlob": "<CiphertextBlob:1>",
+      "EncryptionAlgorithm": "RSAES_OAEP_SHA_256",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:2>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "encrypt-without-algorithm": {
+      "Error": {
+        "Code": "InvalidKeyUsageException",
+        "Message": "Algorithm SYMMETRIC_DEFAULT is incompatible with key spec RSA_2048."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "public-key": {
+      "CustomerMasterKeySpec": "RSA_2048",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeySpec": "RSA_2048",
+      "KeyUsage": "SIGN_VERIFY",
+      "PublicKey": "<PublicKey:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SigningAlgorithms": [
+        "RSASSA_PKCS1_V1_5_SHA_256",
+        "RSASSA_PKCS1_V1_5_SHA_384",
+        "RSASSA_PKCS1_V1_5_SHA_512",
+        "RSASSA_PSS_SHA_256",
+        "RSASSA_PSS_SHA_384",
+        "RSASSA_PSS_SHA_512"
+      ]
+    },
+    "sign-RSASSA_PKCS1_V1_5_SHA_384": {
+      "alg": "RSASSA_PKCS1_V1_5_SHA_384",
+      "len": 256
+    },
+    "sign-RSASSA_PSS_SHA_256": {
+      "alg": "RSASSA_PSS_SHA_256",
+      "len": 256
+    },
+    "tampered-RSASSA_PKCS1_V1_5_SHA_384": {
+      "Error": {
+        "Code": "KMSInvalidSignatureException",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "tampered-RSASSA_PSS_SHA_256": {
+      "Error": {
+        "Code": "KMSInvalidSignatureException",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "too-long": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Algorithm RSAES_OAEP_SHA_256 and key spec RSA_2048 cannot encrypt data larger than 190 bytes."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "verify-RSASSA_PKCS1_V1_5_SHA_384": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SignatureValid": true,
+      "SigningAlgorithm": "RSASSA_PKCS1_V1_5_SHA_384"
+    },
+    "verify-RSASSA_PSS_SHA_256": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SignatureValid": true,
+      "SigningAlgorithm": "RSASSA_PSS_SHA_256"
+    },
+    "wrong-algorithm": {
+      "Error": {
+        "Code": "InvalidKeyUsageException",
+        "Message": "Algorithm ECDSA_SHA_256 is incompatible with key spec RSA_2048."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400

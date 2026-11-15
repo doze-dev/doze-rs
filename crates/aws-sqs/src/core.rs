@@ -63,6 +63,8 @@ pub(crate) struct Answer {
 pub(crate) enum Ask {
     Call(Box<Call>),
     Tick,
+    /// From `doze-aws data`: what the queues hold, or remove some of it.
+    Data(Box<crate::storage::Asked>),
 }
 
 /// The index a `DozePeek` call carries: past the model's operations.
@@ -93,6 +95,13 @@ impl doze_runtime::Service for Core {
             Ask::Tick => {
                 let now = self.now_ms();
                 self.expire(now, true);
+                return self.answer(empty());
+            }
+            Ask::Data(asked) => {
+                let crate::storage::Asked { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
                 return self.answer(empty());
             }
         };

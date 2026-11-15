@@ -1,6 +1,6 @@
 //! InitProducerId.
 
-use kafka_auth::authz::{CLUSTER_NAME, operation, resource};
+use kafka_auth::authz::{CLUSTER_NAME, Operation, ResourceType};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::messages::{InitProducerIdRequest, InitProducerIdResponse, ProducerId};
@@ -78,19 +78,19 @@ impl<F: Fs> Broker<F> {
             Some(id) => {
                 let may = |op| {
                     self.authz
-                        .allows(caller, resource::TRANSACTIONAL_ID, id.0.as_str(), op)
+                        .allows(caller, ResourceType::TransactionalId, id.0.as_str(), op)
                 };
-                (!may(operation::WRITE) || (req.enable_2_pc && !may(operation::TWO_PHASE_COMMIT)))
+                (!may(Operation::Write) || (req.enable_2_pc && !may(Operation::TwoPhaseCommit)))
                     .then_some(ResponseError::TransactionalIdAuthorizationFailed)
             }
             None => (!self.authz.allows(
                 caller,
-                resource::CLUSTER,
+                ResourceType::Cluster,
                 CLUSTER_NAME,
-                operation::IDEMPOTENT_WRITE,
+                Operation::IdempotentWrite,
             ) && !self
                 .authz
-                .allows_some(caller, operation::WRITE, resource::TOPIC))
+                .allows_some(caller, ResourceType::Topic, Operation::Write))
             .then_some(ResponseError::ClusterAuthorizationFailed),
         }
     }

@@ -435,8 +435,8 @@ impl WireQuery {
             "client" => q.client = one(value),
             "api" => q.api = one(value),
             "topic" => q.topic = one(value),
-            "group" => q.group = value.to_owned(),
-            "kind" => q.kind = value.to_owned(),
+            "group" => value.clone_into(&mut q.group),
+            "kind" => value.clone_into(&mut q.kind),
             _ => {}
         }
         q

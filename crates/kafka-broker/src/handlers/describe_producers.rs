@@ -1,6 +1,6 @@
 //! DescribeProducers: the producers a partition remembers, and the transaction each has open there.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::Response;
@@ -53,7 +53,7 @@ impl<F: Fs> Broker<F> {
         if let Err(e) = TopicName::parse(raw) {
             return Some((ResponseError::InvalidTopicException, name_message(e, raw)));
         }
-        (!self.topic_allows(caller, raw, operation::READ)).then(|| {
+        (!self.topic_allows(caller, raw, Operation::Read)).then(|| {
             (
                 ResponseError::TopicAuthorizationFailed,
                 TOPIC_DENIED.to_owned(),

@@ -73,24 +73,19 @@ impl TxnIndex {
             .map_or(end, |first| first.min(end))
     }
 
-    /// The aborted transactions that touch `from..to`: ended at or after `from` and begun before `to`.
-    pub(crate) fn aborted_between(&self, from: i64, to: i64) -> Vec<Aborted> {
+    /// The aborted transactions that touch `from..to`: ended at or after `from` and begun before `to`, by first offset.
+    /// Those begun at or after `to` are not looked at.
+    pub(crate) fn aborted_between(&self, from: i64, to: i64) -> impl Iterator<Item = &Aborted> {
+        let begun_before = self.aborted.partition_point(|a| a.first < to);
         self.aborted
             .iter()
-            .filter(|a| a.last >= from && a.first < to)
-            .copied()
-            .collect()
+            .take(begun_before)
+            .filter(move |a| a.last >= from)
     }
 
     /// The open transactions.
     pub(crate) fn open(&self) -> Vec<Open> {
         self.open.values().copied().collect()
-    }
-
-    /// The transaction `producer` has open here, if any.
-    #[expect(dead_code, reason = "the coordinator, in slice 6d")]
-    pub(crate) fn open_of(&self, producer: i64) -> Option<Open> {
-        self.open.get(&producer).copied()
     }
 
     /// The log's start moved up: aborted transactions that ended before it are not needed.

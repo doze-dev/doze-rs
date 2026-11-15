@@ -72,7 +72,7 @@ fn a_bad_config_is_refused_in_the_words_apache_kafka_uses() {
     ];
     for (name, value, message) in cases {
         assert_eq!(
-            validate(&one(name, value)),
+            validate(&one(name, value)).map_err(|e| e.to_string()),
             Err(message.to_owned()),
             "{name}={value}"
         );
@@ -96,7 +96,12 @@ fn good_values_pass_and_the_first_bad_key_in_name_order_is_the_one_reported() {
         ("segment.bytes".to_owned(), "1".to_owned()),
         ("retention.ms".to_owned(), "x".to_owned()),
     ]);
-    assert!(validate(&two).unwrap_err().contains("retention.ms"));
+    assert!(
+        validate(&two)
+            .unwrap_err()
+            .to_string()
+            .contains("retention.ms")
+    );
 }
 
 #[test]
@@ -160,7 +165,7 @@ fn equal_compaction_lags_are_not_a_conflict_but_a_minimum_above_the_maximum_is()
     assert_eq!(validate(&lags("100", "100")), Ok(()), "equal: no conflict");
     assert_eq!(validate(&lags("99", "100")), Ok(()));
     assert_eq!(
-        validate(&lags("101", "100")).unwrap_err(),
+        validate(&lags("101", "100")).unwrap_err().to_string(),
         "conflict topic config setting min.compaction.lag.ms (101) > max.compaction.lag.ms (100)"
     );
 }

@@ -66,15 +66,10 @@ pub(crate) fn unescape(seg: &str) -> String {
     seg.replace("~1", "/").replace("~0", "~")
 }
 
-/// The refusal for a path the record does not take `(memory)`.
-pub(crate) fn invalid_path(p: &Patch, fields: &[Field]) -> ApiError {
-    let paths: Vec<&str> = fields.iter().map(|f| f.path).collect();
-    bad(format!(
-        "Invalid patch path '{}' specified for op '{}'. Must be one of: [{}]",
-        p.path,
-        p.op,
-        paths.join(", ")
-    ))
+/// The refusal for a path the record does not take (recorded 2026-11-15 for UpdateMethod; AWS names neither the op nor the paths
+/// it would take).
+pub(crate) fn invalid_path(p: &Patch, _fields: &[Field]) -> ApiError {
+    bad(format!("Invalid patch path {}", p.path))
 }
 
 /// Applies every patch to `doc`, in order. Nothing is applied when one fails: the caller works on a copy.

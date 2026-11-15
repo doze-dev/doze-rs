@@ -109,15 +109,19 @@ pub(crate) fn check(target: &Value) -> Result<(), ApiError> {
     match kind(arn) {
         // (memory)
         None => Err(invalid(format!("Invalid target ARN {arn}."))),
+        // Recorded 2026-11-15: a universal target with no Input is refused before its action is looked at.
+        Some(Kind::Universal { .. }) if target.get("Input").is_none() => Err(invalid(
+            "Invalid RequestJson provided. Reason You must provide an input to set this target for your schedule.",
+        )),
         Some(Kind::Universal { sdk, action }) => {
             let lower = action.to_ascii_lowercase();
             if READ_ONLY
                 .iter()
                 .any(|p| lower.starts_with(&p.to_ascii_lowercase()))
             {
-                // (memory) AWS refuses read-only actions for universal targets.
+                // AWS refuses read-only actions for universal targets (recorded 2026-11-15 for `sqs:getQueueUrl`).
                 return Err(invalid(format!(
-                    "Unsupported action {action} for service {sdk}: EventBridge Scheduler does not invoke read-only API actions."
+                    "Invalid RequestJson provided. Reason {action} API is not supported."
                 )));
             }
             if bus_name(sdk).is_none() {

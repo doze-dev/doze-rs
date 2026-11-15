@@ -164,7 +164,52 @@ fn all() -> BTreeMap<String, String> {
     live_types(&cfg, &mut out);
     super::topics::types::all(&cfg, &mut out);
     r4(&cfg, &mut out);
+    schemas(&cfg, &mut out);
     out
+}
+
+/// The Schemas pages and the schema parts of the others (10d).
+fn schemas(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    use super::schemas::diff::{DiffLine, DiffResponse, LevelCheck};
+    use super::schemas::try_it::{Encoded, TryPost};
+    use super::schemas::write::{
+        CheckAnswer, ConfigPost, DeletePost, FindingView, FixView, ReasonView, RefPost, SchemaPost,
+        SchemaWrite,
+    };
+    use super::schemas::{
+        Holder, LevelWord, RefRow, SchemasOff, SchemasResponse, SubjectResponse, SubjectRow,
+        VersionRow, VersionShown,
+    };
+    use super::topics::schema::{TopicSchemas, TopicSubject};
+    use crate::model::SchemaShown;
+    use crate::schemas::RegistryConnect;
+    one::<SchemasResponse>(cfg, out);
+    one::<SchemasOff>(cfg, out);
+    one::<SubjectRow>(cfg, out);
+    one::<SubjectResponse>(cfg, out);
+    one::<VersionRow>(cfg, out);
+    one::<VersionShown>(cfg, out);
+    one::<RefRow>(cfg, out);
+    one::<Holder>(cfg, out);
+    one::<LevelWord>(cfg, out);
+    one::<DiffResponse>(cfg, out);
+    one::<DiffLine>(cfg, out);
+    one::<LevelCheck>(cfg, out);
+    one::<SchemaPost>(cfg, out);
+    one::<RefPost>(cfg, out);
+    one::<CheckAnswer>(cfg, out);
+    one::<FindingView>(cfg, out);
+    one::<ReasonView>(cfg, out);
+    one::<FixView>(cfg, out);
+    one::<SchemaWrite>(cfg, out);
+    one::<ConfigPost>(cfg, out);
+    one::<DeletePost>(cfg, out);
+    one::<TryPost>(cfg, out);
+    one::<Encoded>(cfg, out);
+    one::<TopicSchemas>(cfg, out);
+    one::<TopicSubject>(cfg, out);
+    one::<SchemaShown>(cfg, out);
+    one::<RegistryConnect>(cfg, out);
 }
 
 /// Slice R1b: the topic writes and the Config tab.

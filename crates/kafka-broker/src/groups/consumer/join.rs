@@ -117,6 +117,7 @@ impl ConsumerGroup {
                 taken.target = old.target;
                 taken.assigned = old.assigned;
                 taken.revoking = old.revoking;
+                taken.given_at = old.given_at;
                 taken.epoch = old.epoch;
                 taken.prev_epoch = old.prev_epoch;
                 taken.subscribed = old.subscribed;

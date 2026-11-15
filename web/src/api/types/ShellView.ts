@@ -27,4 +27,8 @@ unprotected: boolean,
 /**
  * The sidebar's counts.
  */
-topics: number, groups: number, };
+topics: number, groups: number, 
+/**
+ * The subjects the registry lists; none when there is no registry (the sidebar says "off").
+ */
+schemas: number | null, };
