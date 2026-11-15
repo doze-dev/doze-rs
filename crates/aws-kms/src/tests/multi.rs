@@ -171,7 +171,7 @@ fn the_primary_moves_and_every_region_sees_the_new_shape() {
             "UpdatePrimaryRegion",
             &json!({"KeyId": id, "PrimaryRegion": "ap-south-1"})
         ),
-        "UnsupportedOperationException"
+        "ValidationException"
     );
     r.ok(
         EAST,
