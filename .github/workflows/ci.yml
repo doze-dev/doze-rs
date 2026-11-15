@@ -1,18 +1,18 @@
 name: ci
 
+# Manual only, by the owner's call (2026-11-15): CI runs when someone starts it on purpose and reads the result.
+# Start it with `gh workflow run ci --ref <branch>`. Automatic runs on push and pull_request come back once main
+# stays green and every job has an owner (docs/port/ci-health.md).
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-# A new push to a pull request replaces its older run, so runners (macOS above all) go to the newest code.
-# Pushes to main are never cancelled: every merge keeps its own complete run.
+# A new run on the same branch replaces its older one, so runners (macOS above all) go to the newest code.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
