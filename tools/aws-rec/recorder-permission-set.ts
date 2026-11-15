@@ -72,72 +72,22 @@ const policy = {
       Effect: "Allow",
       Action: [
         "sqs:*", "sns:*", "ssm:*", "secretsmanager:*", "dynamodb:*", "logs:*", "events:*", "scheduler:*",
-        "lambda:*", "states:*", "kinesis:*", "cloudwatch:*", "cloudformation:*",
+        "lambda:*", "states:*", "kinesis:*", "cloudwatch:*", "cloudformation:*", "s3:*", "iam:*",
       ],
       Resource: [
-        `${A}:sqs:${R}:*:${P}*`,
-        `${A}:sns:${R}:*:${P}*`,
-        `${A}:ssm:${R}:*:parameter/${P}*`,
+        // Any resource of these services whose name has our prefix, in any of the two regions (ARN segments: service, region,
+        // account, resource; a dashboard has no region, a bucket neither region nor account, and `*` matches those empty).
+        `${A}:*:*:*:*${P}*`,
         // Names the scenarios use to see what AWS refuses (and accepts): reserved words, a path with no slash, and the Secrets
         // Manager reference path. AWS refuses the first four before it makes anything; `/awsome-dzc/*` it may accept, and cleanup deletes it.
-        `${A}:ssm:${R}:*:parameter/aws/not-yours`,
-        `${A}:ssm:${R}:*:parameter/ssm-not-yours`,
-        `${A}:ssm:${R}:*:parameter/awsome-dzc/*`,
-        `${A}:ssm:${R}:*:parameter/no-leading-slash`,
-        `${A}:ssm:${R}:*:parameter/aws/reference/secretsmanager`,
-        `${A}:ssm:${R}:*:parameter/aws/reference/secretsmanager/${P}*`,
-        `${A}:ssm:${R}:*:document/${P}*`,
-        `${A}:secretsmanager:${R}:*:secret:${P}*`,
-        `${A}:dynamodb:${R}:*:table/${P}*`,
-        `${A}:dynamodb:${R}:*:table/${P}*/*`,
-        `${A}:logs:${R}:*:log-group:${P}*`,
-        `${A}:logs:${R}:*:log-group:${P}*:*`,
-        `${A}:logs:${R}:*:log-group:/${P}*`,
-        `${A}:logs:${R}:*:log-group:/${P}*:*`,
-        `${A}:logs:${R}:*:log-group:/aws/lambda/${P}*`,
-        `${A}:logs:${R}:*:log-group:/aws/lambda/${P}*:*`,
-        `${A}:events:${R}:*:rule/${P}*`,
-        `${A}:events:${R}:*:rule/${P}*/*`,
-        `${A}:events:${R}:*:event-bus/${P}*`,
-        `${A}:events:${R}:*:archive/${P}*`,
-        `${A}:events:${R}:*:connection/${P}*`,
-        `${A}:events:${R}:*:api-destination/${P}*`,
-        `${A}:events:${R}:*:replay/${P}*`,
-        `${A}:logs:${R}:*:destination:${P}*`,
-        // Scheduled queries and code signing configs are named by AWS (an id), not by us.
-        `${A}:logs:${R}:*:scheduled-query:*`,
-        `${A}:lambda:${R}:*:code-signing-config:*`,
-        `${A}:cloudwatch:${R}:*:alarm-mute-rule:${P}*`,
-        `${A}:scheduler:${R}:*:schedule/*/${P}*`,
-        `${A}:scheduler:${R}:*:schedule-group/${P}*`,
-        // Learned 2026-11-15: DeleteScheduleGroup asks for scheduler:DeleteSchedule on every schedule of the group (schedule/<group>/*).
-        `${A}:scheduler:${R}:*:schedule/${P}*/*`,
-        // Learned 2026-11-15 (verify-c): the refusals scenarios ask to delete the default bus and the default schedule group, which AWS
-        // refuses itself; without these the recorder's policy refuses first and the label records AccessDenied instead of AWS's answer.
-        `${A}:events:${R}:*:event-bus/default`,
-        `${A}:scheduler:${R}:*:schedule-group/default`,
-        `${A}:lambda:${R}:*:function:${P}*`,
-        `${A}:lambda:${R}:*:function:${P}*:*`,
-        `${A}:lambda:${R}:*:layer:${P}*`,
-        `${A}:lambda:${R}:*:layer:${P}*:*`,
-        `${A}:lambda:${R}:*:event-source-mapping:*`,
-        `${A}:states:${R}:*:stateMachine:${P}*`,
-        `${A}:states:${R}:*:execution:${P}*:*`,
-        `${A}:states:${R}:*:activity:${P}*`,
-        // Added 2026-11-14: express executions and map runs of our state machines.
-        `${A}:states:${R}:*:express:${P}*:*`,
-        `${A}:states:${R}:*:mapRun:${P}*/*`,
-        `${A}:kinesis:${R}:*:stream/${P}*`,
-        `${A}:kinesis:${R}:*:stream/${P}*/consumer/*`,
-        `${A}:cloudwatch:${R}:*:alarm:${P}*`,
-        `${A}:cloudwatch::*:dashboard/${P}*`,
-        // Added 2026-11-14 (gaps stream): Contributor Insights rules and metric streams are stored now.
-        `${A}:cloudwatch:${R}:*:insight-rule/${P}*`,
-        `${A}:cloudwatch:${R}:*:metric-stream/${P}*`,
-        `${A}:cloudformation:${R}:*:stack/${P}*/*`,
-        `${A}:cloudformation:${R}:*:stackset/${P}*:*`,
-        // Added 2026-11-14: a SAM template's change set names AWS's own transform as a resource.
-        `${A}:cloudformation:${R}:aws:transform/*`,
+        `${A}:ssm:*:*:parameter/aws/not-yours`, `${A}:ssm:*:*:parameter/ssm-not-yours`, `${A}:ssm:*:*:parameter/awsome-dzc/*`,
+        `${A}:ssm:*:*:parameter/no-leading-slash`, `${A}:ssm:*:*:parameter/aws/reference/secretsmanager`,
+        // The refusals scenarios ask to delete the default bus and the default schedule group, which AWS refuses itself.
+        `${A}:events:*:*:event-bus/default`, `${A}:scheduler:*:*:schedule-group/default`,
+        // Named by AWS (an id), not by us.
+        `${A}:logs:*:*:scheduled-query:*`, `${A}:lambda:*:*:code-signing-config:*`, `${A}:lambda:*:*:event-source-mapping:*`,
+        // A SAM template's change set names AWS's own transform as a resource.
+        `${A}:cloudformation:*:aws:transform/*`,
       ],
       Condition: region,
     },
@@ -171,7 +121,7 @@ const policy = {
       Effect: "Allow",
       Action: ["kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:DescribeKey", "kms:CreateGrant"],
       Resource: `${A}:kms:${R}:*:key/*`,
-      Condition: { StringEquals: { "kms:ViaService": ["ssm", "secretsmanager", "s3", "dynamodb", "sqs", "sns", "logs", "lambda", "kinesis", "events", "states"].flatMap((x) => REGIONS.map((r) => `${x}.${r}.amazonaws.com`)) } },
+      Condition: { StringLike: { "kms:ViaService": ["ssm", "secretsmanager", "s3", "dynamodb", "sqs", "sns", "logs", "lambda", "kinesis", "events", "states"].map((x) => `${x}.*.amazonaws.com`) }, StringEquals: { "aws:RequestedRegion": REGIONS } },
     },
     {
       Sid: "KmsOurAliases",
@@ -179,19 +129,6 @@ const policy = {
       Action: ["kms:CreateAlias", "kms:DeleteAlias", "kms:UpdateAlias"],
       // `alias/aws/mine` is a name AWS reserves: the scenario shows that it refuses it, and nothing is made.
       Resource: [`${A}:kms:${R}:*:alias/${P}*`, `${A}:kms:${R}:*:alias/aws/mine`],
-    },
-    {
-      Sid: "S3PrefixedBuckets",
-      Effect: "Allow",
-      Action: "s3:*",
-      Resource: [`${A}:s3:::${P}*`, `${A}:s3:::${P}*/*`],
-    },
-    {
-      Sid: "IamPrefixedPrincipals",
-      Effect: "Allow",
-      Action: "iam:*",
-      // IAM ARNs carry the path before the name (user/apps/doze-rec-x), so each kind is allowed with and without a path.
-      Resource: ["role", "user", "group", "policy", "instance-profile", "saml-provider", "oidc-provider", "server-certificate", "mfa"].flatMap((k) => [`${A}:iam::*:${k}/${P}*`, `${A}:iam::*:${k}/*/${P}*`]),
     },
     {
       // Added 2026-11-14: API Gateway execution logs land in groups named by the API's id, which cannot carry our prefix. Read only.
