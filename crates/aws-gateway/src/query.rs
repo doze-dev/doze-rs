@@ -119,11 +119,11 @@ async fn answer(
             "Request is missing Action or Operation parameter",
         ))
     })?;
-    // An action outside the model is AWS's `InvalidAction` (memory: the sentence as AWS's Query front end words it), whatever its
-    // name: doze's own helpers live under `/_doze/`, never on an AWS endpoint.
+    // An action outside the model is AWS's `InvalidAction`, status 404 (recorded on IAM 2026-11-15; the sentence is memory), whatever
+    // its name: doze's own helpers live under `/_doze/`, never on an AWS endpoint.
     let op = tables.find_op(name).ok_or_else(|| {
         fail(&ApiError::new(
-            400,
+            404,
             "InvalidAction",
             format!(
                 "Could not find operation {name} for version {}",
