@@ -20,7 +20,7 @@ const AT_ONCE: usize = 16;
 enum Plan {
     Nothing,
     Fail(String),
-    Go(Box<Launch>),
+    Start(Box<Launch>),
 }
 
 type Result3 = (Launch, Result<(Made, Option<String>), String>);
@@ -56,7 +56,7 @@ impl Op {
                             self.fail_early(&name, why).await;
                             stop = true;
                         }
-                        Plan::Go(l) => self.launch(&mut running, *l).await,
+                        Plan::Start(l) => self.launch(&mut running, *l).await,
                     }
                 }
             }
@@ -124,7 +124,7 @@ impl Op {
             .get(name)
             .filter(|r| r.physical.is_some() && !r.status.starts_with("DELETE"));
         let Some(old) = current else {
-            return Plan::Go(Box::new(Launch {
+            return Plan::Start(Box::new(Launch {
                 logical: name.to_owned(),
                 ty,
                 step: Step::Create,
@@ -169,7 +169,7 @@ impl Op {
                 return Plan::Fail(why);
             }
         }
-        Plan::Go(Box::new(Launch {
+        Plan::Start(Box::new(Launch {
             logical: name.to_owned(),
             ty,
             step,

@@ -78,8 +78,8 @@ pub struct Config {
     pub unsupported: Unsupported,
     /// Per-type overrides (`AWS::RDS::DBInstance` = skip), taking precedence over `unsupported`.
     pub overrides: Vec<(String, Unsupported)>,
-    /// Name resources that have no name in the template after their logical id (as the Go edition did) instead of AWS's
-    /// `<stack>-<logical>-<random>`.
+    /// Name resources that have no name in the template after their logical id instead of AWS's `<stack>-<logical>-<random>` (the
+    /// default): a doze-aws convenience, off unless asked for.
     pub logical_names: bool,
 }
 
