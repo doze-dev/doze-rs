@@ -52,9 +52,14 @@ A partition never written to starts and ends at 0. `current_leader_epoch` -1 is 
 UNKNOWN_LEADER_EPOCH (75), below -1 is FENCED_LEADER_EPOCH (74); a topic or partition the broker does not have is
 UNKNOWN_TOPIC_OR_PARTITION, checked first (`Partition.checkCurrentLeaderEpoch`, `ReplicaManager.lastOffsetForLeaderEpoch`).
 `replica_id` (v3) changes nothing. Rights: SEC-295. Offered at Kafka 2 to 4 at v2 to v4 (Kafka 1.1 has v0 only, which the wire
-crate does not read: W10). Same as real Kafka 4.4.0 at v2, v3 and v4 for every case of `kafka-wire/examples/oracle_diff.rs`
+crate does not read: W10). Same as real Kafka 4.4.0 at v2, v3 and v4 for every case of `kafka-wire/examples/oracle_diff`
 (epochs 0, 1, -1, -2, -7; current -1, 0, 1, -2, -9; an unknown partition and topic; the follower form; after DeleteRecords).
-Test: `handlers::offset_for_leader_epoch::tests::*`, `tests/offset_for_leader_epoch.rs::*`
+Decided difference: a batch keeps the partition leader epoch its producer wrote (-1 from every client), where Kafka stamps the leader's
+(0) into each batch it appends. So a consumer reading from this broker learns no epoch from the records and validates a position
+(KIP-320) only when it is given one with an epoch (a seek with one, or a commit made against real Kafka); every such epoch, 0, is
+answered as Kafka answers it. Stamping is one write into the header copy `Batch::stamped` already makes (the field is outside the
+CRC); it was left out of this change because it rewrites what every Produce stores, and is a decision of its own.
+Test: `handlers::offset_for_leader_epoch::tests::*`, `tests/offset_for_leader_epoch.rs::*`; interop `consumer-validates-position`
 
 ### L1. ListOffsets
 Latest (-1) is the log end, earliest (-2) the log start; max timestamp (-3, v7+) is the first record with the largest

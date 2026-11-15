@@ -1,5 +1,5 @@
 //! DescribeLogDirs (API 35): the one log directory, each partition's size (its log files), lag 0, never a future log, and the
-//! volume's size and room (behaviours T-DLD-*). Checked against real Kafka 4.4.0 by `crates/kafka-wire/examples/oracle_diff.rs`
+//! volume's size and room (behaviours T-DLD-*). Checked against real Kafka 4.4.0 by `crates/kafka-wire/examples/oracle_diff`
 //! and `kafka-log-dirs.sh`.
 #![allow(
     clippy::unwrap_used,

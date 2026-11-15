@@ -12,20 +12,24 @@
 
 pub(crate) mod entity;
 mod facts;
+mod kind;
 mod meter;
+mod mutations;
 
 pub use facts::ClientQuotas;
+pub(crate) use mutations::Mutations;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use kafka_meta::{QuotaEntity, QuotaName, QuotaValues};
+use kafka_meta::{QuotaEntity, QuotaValues};
 
-use meter::{Rate, TokenBucket, throttle_ms, token_throttle_ms};
+use kind::{Kind, Level};
+use meter::throttle_ms;
 
 /// A meter that has recorded nothing for this long is dropped (`INACTIVE_SENSOR_EXPIRATION_TIME_SECONDS`).
-const IDLE_MS: i64 = 3_600_000;
+pub(super) const IDLE_MS: i64 = 3_600_000;
 
 /// One of the four quotas a user or client id can be held to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -79,171 +83,12 @@ pub(crate) struct Client<'a> {
     pub(crate) id: &'a str,
 }
 
-/// A level of the precedence: the user and client id parts of an entity (Kafka's `KafkaQuotaEntity`).
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Level {
-    user: Option<QuotaName>,
-    client: Option<QuotaName>,
-}
-
-impl Level {
-    fn is(&self, user: Option<Part<'_>>, client: Option<Part<'_>>) -> bool {
-        Part::matches(self.user.as_ref(), user) && Part::matches(self.client.as_ref(), client)
-    }
-}
-
-/// One part of a level being looked for: a name, or the default.
-#[derive(Debug, Clone, Copy)]
-enum Part<'a> {
-    Default,
-    Named(&'a str),
-}
-
-impl Part<'_> {
-    fn matches(have: Option<&QuotaName>, want: Option<Part<'_>>) -> bool {
-        match (have, want) {
-            (None, None) | (Some(QuotaName::Default), Some(Part::Default)) => true,
-            (Some(QuotaName::Named(a)), Some(Part::Named(b))) => a == b,
-            _ => false,
-        }
-    }
-}
-
-const CLIENT_LEVEL: u8 = 1;
-const USER_LEVEL: u8 = 2;
-const USER_CLIENT_LEVEL: u8 = 4;
-
-/// What one client has used of one quota.
-#[derive(Debug, Clone, Default)]
-struct Meter {
-    rate: Rate,
-    tokens: TokenBucket,
-    last_record_ms: i64,
-    /// Until when its connection was last muted for this quota, and for how long.
-    throttled_until_ms: i64,
-    throttled_for_ms: i64,
-}
-
-/// The limits set for one quota, by level.
-#[derive(Debug, Default)]
-struct Limits(Vec<(Level, f64)>);
-
-impl Limits {
-    fn find(&self, user: Option<Part<'_>>, client: Option<Part<'_>>) -> Option<f64> {
-        (self.0.iter())
-            .find(|(level, _)| level.is(user, client))
-            .map(|(_, v)| *v)
-    }
-
-    fn has(&self, user: Option<Part<'_>>, client: Option<Part<'_>>) -> bool {
-        self.find(user, client).is_some()
-    }
-
-    /// The limit for the meter with these tags: `DefaultQuotaCallback.quotaLimit`. Tags with both parts look at the levels
-    /// with both parts; a user alone at the user levels; a client id alone at the client id levels.
-    fn limit(&self, user: &str, client: &str) -> Option<f64> {
-        let (u, c) = (Part::Named(user), Part::Named(client));
-        let d = Part::Default;
-        match (user.is_empty(), client.is_empty()) {
-            (false, false) => self
-                .find(Some(u), Some(c))
-                .or_else(|| self.find(Some(u), Some(d)))
-                .or_else(|| self.find(Some(d), Some(c)))
-                .or_else(|| self.find(Some(d), Some(d))),
-            (false, true) => self
-                .find(Some(u), None)
-                .or_else(|| self.find(Some(d), None)),
-            (true, false) => self
-                .find(None, Some(c))
-                .or_else(|| self.find(None, Some(d))),
-            (true, true) => None,
-        }
-    }
-}
-
-/// One quota: the limits set for it, and the meters of the clients it has seen.
-#[derive(Debug, Default)]
-struct Kind {
-    limits: Limits,
-    /// Which levels have a limit (Kafka's `quotaTypesEnabled`): with one level only, every client is metered at that level
-    /// without a search.
-    levels: u8,
-    /// By the meter's tags: the user and client id it is kept for (either may be empty: shared by every client id of a
-    /// user, or by every user of a client id).
-    meters: HashMap<(String, String), Meter>,
-}
-
-impl Kind {
-    fn enabled(&self) -> bool {
-        !self.limits.0.is_empty()
-    }
-
-    /// The tags a client's usage is kept under: `DefaultQuotaCallback.quotaMetricTags`. The tags are those of the most
-    /// specific level with a limit that matches the client, in Kafka's order: user and client id, user and default client
-    /// id, user, default user and client id, default user and default client id, default user, client id, default client
-    /// id. A level of user alone is kept under the user (every client id of it shares the meter), a level of client id
-    /// alone under the client id; any level with both parts, under both.
-    fn tags<'a>(&self, who: Client<'a>) -> (&'a str, &'a str) {
-        let (u, c) = (Part::Named(who.user), Part::Named(who.id));
-        match self.levels {
-            0 | CLIENT_LEVEL => ("", who.id),
-            USER_LEVEL => (who.user, ""),
-            USER_CLIENT_LEVEL => (who.user, who.id),
-            _ => {
-                let both = (who.user, who.id);
-                let user_only = (who.user, "");
-                let search = [
-                    (Some(u), Some(c), both),
-                    (Some(u), Some(Part::Default), both),
-                    (Some(u), None, user_only),
-                    (Some(Part::Default), Some(c), both),
-                    (Some(Part::Default), Some(Part::Default), both),
-                    (Some(Part::Default), None, user_only),
-                ];
-                search
-                    .into_iter()
-                    .find(|(user, client, _)| self.limits.has(*user, *client))
-                    .map_or(("", who.id), |(_, _, tags)| tags)
-            }
-        }
-    }
-
-    /// The meter for `who`, made if it is new (and meters idle for an hour dropped then), and its limit.
-    fn meter(&mut self, who: Client<'_>, now: i64) -> (&mut Meter, Option<f64>) {
-        let (user, client) = self.tags(who);
-        let limit = self.limits.limit(user, client);
-        let key = (user.to_owned(), client.to_owned());
-        if !self.meters.contains_key(&key) {
-            self.meters.retain(|_, m| now - m.last_record_ms < IDLE_MS);
-        }
-        let meter = self.meters.entry(key).or_insert_with(|| Meter {
-            last_record_ms: now,
-            ..Meter::default()
-        });
-        (meter, limit)
-    }
-
-    fn set_limits(&mut self, limits: Vec<(Level, f64)>) {
-        self.levels = limits.iter().fold(0, |acc, (level, _)| {
-            acc | match (&level.user, &level.client) {
-                (Some(_), Some(_)) => USER_CLIENT_LEVEL,
-                (Some(_), None) => USER_LEVEL,
-                _ => CLIENT_LEVEL,
-            }
-        });
-        self.limits = Limits(limits);
-        if !self.enabled() {
-            self.meters = HashMap::new();
-        }
-    }
-}
-
 /// Kafka's quota bound when none applies (`ClientQuotaManager.quotaLimit`: `Long.MAX_VALUE`).
 #[expect(
     clippy::cast_precision_loss,
     reason = "Kafka's own conversion of Long.MAX_VALUE to a double"
 )]
-const UNBOUNDED: f64 = i64::MAX as f64;
+pub(super) const UNBOUNDED: f64 = i64::MAX as f64;
 
 #[derive(Debug, Default)]
 struct State {
@@ -380,13 +225,7 @@ impl Quotas {
                 .kinds
                 .get(QuotaKind::Mutation.index())
                 .is_some_and(Kind::enabled);
-        Mutations {
-            quotas: enabled.then_some(self),
-            who,
-            strict,
-            last_throttle_ms: 0,
-            last_recorded_ms: 0,
-        }
+        Mutations::new(enabled.then_some(self), who, strict)
     }
 
     /// What each client has used of each quota, its limit, and whether it is muted now, for the console.
@@ -434,82 +273,6 @@ pub struct Usage {
     pub throttled_until_ms: i64,
     pub throttled_for_ms: i64,
     pub last_record_ms: i64,
-}
-
-/// The controller mutation quota of one CreateTopics, CreatePartitions or DeleteTopics request
-/// (`StrictControllerMutationQuota`, `PermissiveControllerMutationQuota`).
-#[derive(Debug)]
-pub(crate) struct Mutations<'a> {
-    /// `None`: no client has a mutation quota, and every mutation is taken (`UNBOUNDED_CONTROLLER_MUTATION_QUOTA`).
-    quotas: Option<&'a Quotas>,
-    who: Client<'a>,
-    strict: bool,
-    last_throttle_ms: i64,
-    last_recorded_ms: i64,
-}
-
-/// A mutation refused because the quota is exhausted (THROTTLING_QUOTA_EXCEEDED).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Exhausted;
-
-impl Mutations<'_> {
-    /// A request no quota applies to: the console's, and every request when none is set.
-    pub(crate) const fn unbounded() -> Mutations<'static> {
-        Mutations {
-            quotas: None,
-            who: Client { user: "", id: "" },
-            strict: false,
-            last_throttle_ms: 0,
-            last_recorded_ms: 0,
-        }
-    }
-
-    /// Records `partitions` mutations at `now`. Strict: refused while the bucket is below zero (checked before the
-    /// mutation is counted, so the one that empties it is taken); permissive: always taken, the client throttled.
-    pub(crate) fn record(&mut self, partitions: i32, now: i64) -> Result<(), Exhausted> {
-        let Some(quotas) = self.quotas else {
-            return Ok(());
-        };
-        let mut state = quotas.lock();
-        let Some(k) = state.kinds.get_mut(QuotaKind::Mutation.index()) else {
-            return Ok(());
-        };
-        let (meter, limit) = k.meter(self.who, now);
-        let bound = limit.unwrap_or(UNBOUNDED);
-        let permits = f64::from(partitions);
-        if self.strict {
-            let tokens = meter.tokens.measure(bound, now);
-            if tokens < 0.0 {
-                self.note(tokens, bound, now);
-                return Err(Exhausted);
-            }
-        }
-        meter.rate.record(permits, now);
-        meter.tokens.record(permits, bound, now);
-        meter.last_record_ms = now;
-        if !self.strict {
-            let tokens = meter.tokens.measure(bound, now);
-            if tokens < 0.0 {
-                self.note(tokens, bound, now);
-            }
-        }
-        Ok(())
-    }
-
-    fn note(&mut self, tokens: f64, bound: f64, now: i64) {
-        self.last_throttle_ms = token_throttle_ms(tokens, bound);
-        self.last_recorded_ms = now;
-    }
-
-    /// How long the client is to be throttled for its mutations, counted down from when it was worked out:
-    /// `AbstractControllerMutationQuota.throttleTime`.
-    pub(crate) fn throttle_time(&self, now: i64) -> i32 {
-        if self.last_throttle_ms == 0 {
-            return 0;
-        }
-        let left = (self.last_throttle_ms - (now - self.last_recorded_ms)).max(0);
-        i32::try_from(left).unwrap_or(i32::MAX)
-    }
 }
 
 #[cfg(test)]

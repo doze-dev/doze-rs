@@ -1,5 +1,5 @@
 //! OffsetForLeaderEpoch (API 23): each partition has had one leader epoch, 0, from its log start (behaviours T-OFLE-*). The
-//! answers are those real Kafka 4.4.0 gives for the same requests (`crates/kafka-wire/examples/oracle_diff.rs`).
+//! answers are those real Kafka 4.4.0 gives for the same requests (`crates/kafka-wire/examples/oracle_diff`).
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,

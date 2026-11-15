@@ -1,7 +1,6 @@
-//! DescribeClientQuotas and AlterClientQuotas (APIs 48 and 49), and the quotas held to as Kafka holds them (behaviours T-Q*):
-//! set and described, kept across a restart, refused without the cluster's rights, and enforced on the requests that come in
-//! through `Broker::serve` (a client's) and not on those through `Broker::handle` (the console's). The quota arithmetic is
-//! held to Kafka's own in `quotas::meter::tests`; the answers to real Kafka 4.4.0's by `kafka-wire/examples/oracle_diff.rs`.
+//! DescribeClientQuotas and AlterClientQuotas (APIs 48 and 49), behaviours QT-1 to QT-5: set and described, kept across a
+//! restart, refused without the cluster's rights. Enforcement is `client_quotas_enforced.rs`; the answers are held to real
+//! Kafka 4.4.0's by `kafka-wire/examples/oracle_diff`.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -11,67 +10,22 @@
 
 mod support;
 
-use kafka_broker::{Caller, Outcome, QuotaKind, Served};
+use kafka_broker::Caller;
 use kafka_storage::fs::Fs;
 use kafka_storage::sim::SimFs;
 use kafka_wire::ResponseError;
 use kafka_wire::StrBytes;
 use kafka_wire::api::{Request, Response};
-use kafka_wire::header::RequestHead;
-use kafka_wire::messages::alter_client_quotas_request::{EntityData, EntryData, OpData};
 use kafka_wire::messages::describe_client_quotas_request::ComponentData;
-use kafka_wire::messages::fetch_request::{FetchPartition, FetchTopic};
 use kafka_wire::messages::{
-    AlterClientQuotasRequest, AlterClientQuotasResponse, ApiKey, CreateTopicsRequest,
-    DescribeClientQuotasRequest, DescribeClientQuotasResponse, FetchRequest,
+    AlterClientQuotasResponse, DescribeClientQuotasRequest, DescribeClientQuotasResponse,
 };
 use support::acls::{ALLOW, CLUSTER, LITERAL, closed_world, creation, grant, user};
-use support::{Rig, at, open_on, produce_request, records, rig, rig_with, topic, wire_name};
+use support::quotas::{Change, DEFAULT_CLIENT, Entity, alter, alter_as};
+use support::{Rig, open_on, rig, rig_with};
 
-type Entity<'a> = &'a [(&'a str, Option<&'a str>)];
-/// One entity's alteration: each key set to a value or removed (`None`).
-type Change<'a> = (Entity<'a>, &'a [(&'a str, Option<f64>)]);
 /// An entity as `type=name` pairs, and its values.
 type Listed = (Vec<String>, Vec<(String, f64)>);
-
-fn alter(entries: &[Change<'_>], validate_only: bool) -> AlterClientQuotasRequest {
-    let mut req = AlterClientQuotasRequest::default();
-    req.validate_only = validate_only;
-    for (entity, ops) in entries {
-        let mut e = EntryData::default();
-        e.entity = (entity.iter())
-            .map(|(t, n)| {
-                let mut part = EntityData::default();
-                part.entity_type = StrBytes::from_string((*t).to_owned());
-                part.entity_name = n.map(|n| StrBytes::from_string(n.to_owned()));
-                part
-            })
-            .collect();
-        e.ops = (ops.iter())
-            .map(|(k, v)| {
-                let mut op = OpData::default();
-                op.key = StrBytes::from_string((*k).to_owned());
-                op.value = v.unwrap_or(0.0);
-                op.remove = v.is_none();
-                op
-            })
-            .collect();
-        req.entries.push(e);
-    }
-    req
-}
-
-async fn alter_as(
-    rig: &Rig,
-    who: &Caller,
-    req: AlterClientQuotasRequest,
-) -> AlterClientQuotasResponse {
-    let Response::AlterClientQuotas(r) = rig.ask_as(who, 1, Request::AlterClientQuotas(req)).await
-    else {
-        panic!("not AlterClientQuotas")
-    };
-    r
-}
 
 async fn describe_as(
     rig: &Rig,
@@ -126,7 +80,6 @@ fn codes(r: &AlterClientQuotasResponse) -> Vec<i16> {
 }
 
 const ALICE: Entity<'static> = &[("user", Some("alice"))];
-const DEFAULT_CLIENT: Entity<'static> = &[("client-id", None)];
 
 #[tokio::test]
 async fn quotas_set_are_described_and_kept_across_a_restart() {
@@ -267,201 +220,4 @@ async fn altering_needs_alter_configs_and_describing_describe_configs_on_the_clu
             .error_code,
         0
     );
-}
-
-fn head(key: ApiKey, version: i16, client: &str) -> RequestHead {
-    RequestHead {
-        key,
-        version,
-        correlation_id: 1,
-        client_id: Some(StrBytes::from_string(client.to_owned())),
-    }
-}
-
-async fn serve(
-    rig: &Rig,
-    who: &Caller,
-    head: RequestHead,
-    request: Request,
-    size: usize,
-) -> Served {
-    rig.broker.serve(&at(), who, &head, request, size).await
-}
-
-fn throttle_of(outcome: &Outcome) -> i32 {
-    match outcome {
-        Outcome::Respond(Response::Produce(r)) => r.throttle_time_ms,
-        Outcome::Respond(Response::Fetch(r)) => r.throttle_time_ms,
-        Outcome::Respond(Response::CreateTopics(r)) => r.throttle_time_ms,
-        Outcome::Respond(Response::Metadata(r)) => r.throttle_time_ms,
-        other => panic!("unexpected {other:?}"),
-    }
-}
-
-#[tokio::test]
-async fn with_no_quota_a_clients_request_is_served_as_the_consoles_and_never_muted() {
-    let rig = rig();
-    rig.create(vec![topic("orders", 1)], false).await;
-    let req = produce_request(-1, "orders", &[(0, records(10))]);
-    let served = serve(
-        &rig,
-        &support::caller(),
-        head(ApiKey::Produce, 9, "p"),
-        Request::Produce(req),
-        10_000_000,
-    )
-    .await;
-    assert!(served.mute.is_none());
-    assert_eq!(throttle_of(&served.outcome), 0);
-}
-
-#[tokio::test]
-async fn a_producer_over_its_byte_rate_is_answered_with_the_throttle_and_muted_for_it() {
-    let rig = rig();
-    rig.create(vec![topic("orders", 1)], false).await;
-    let set: &[Change<'_>] = &[(
-        &[("client-id", Some("p"))],
-        &[("producer_byte_rate", Some(1000.0))],
-    )];
-    alter_as(&rig, &support::caller(), alter(set, false)).await;
-    let anyone = support::caller();
-    let produce = || Request::Produce(produce_request(-1, "orders", &[(0, records(1))]));
-    // 50 000 bytes over a span of ten seconds is 5 000/s: four times over, for about 40 s.
-    let served = serve(
-        &rig,
-        &anyone,
-        head(ApiKey::Produce, 9, "p"),
-        produce(),
-        50_000,
-    )
-    .await;
-    let throttle = throttle_of(&served.outcome);
-    assert!((39_000..=40_001).contains(&throttle), "{throttle}");
-    assert_eq!(
-        served.mute.map(|d| d.as_millis()),
-        Some(u128::try_from(throttle).unwrap())
-    );
-    // The records were taken all the same.
-    let Outcome::Respond(Response::Produce(r)) = served.outcome else {
-        panic!()
-    };
-    assert_eq!(r.responses[0].partition_responses[0].error_code, 0);
-    // Another client id is not held to it, and the console never is.
-    let other = serve(
-        &rig,
-        &anyone,
-        head(ApiKey::Produce, 9, "q"),
-        produce(),
-        50_000,
-    )
-    .await;
-    assert!(other.mute.is_none());
-    assert!(matches!(
-        rig.broker
-            .handle(&at(), &anyone, &head(ApiKey::Produce, 9, "p"), produce())
-            .await,
-        Outcome::Respond(_)
-    ));
-    // The console sees who is muted.
-    let quotas = rig.broker.client_quotas(&anyone).unwrap();
-    let p = quotas
-        .usage
-        .iter()
-        .find(|u| u.kind == QuotaKind::Produce && u.client_id == "p")
-        .unwrap();
-    assert_eq!(p.limit, Some(1000.0));
-    assert!(p.throttled_until_ms > quotas.now_ms);
-}
-
-#[tokio::test]
-async fn a_fetch_over_its_byte_rate_is_answered_empty_and_its_bytes_are_given_back() {
-    let rig = rig();
-    rig.create(vec![topic("orders", 1)], false).await;
-    for _ in 0..20 {
-        assert_eq!(
-            rig.produce(-1, "orders", 0, records(50)).await.error_code,
-            0
-        );
-    }
-    let set: &[Change<'_>] = &[(
-        &[("client-id", Some("c"))],
-        &[("consumer_byte_rate", Some(10.0))],
-    )];
-    alter_as(&rig, &support::caller(), alter(set, false)).await;
-    let fetch = || {
-        let mut p = FetchPartition::default();
-        p.partition = 0;
-        p.partition_max_bytes = 1 << 20;
-        let mut t = FetchTopic::default();
-        t.topic = wire_name("orders");
-        t.partitions.push(p);
-        let mut req = FetchRequest::default();
-        req.max_bytes = 50 << 20;
-        req.topics.push(t);
-        Request::Fetch(req)
-    };
-    let first = serve(
-        &rig,
-        &support::caller(),
-        head(ApiKey::Fetch, 12, "c"),
-        fetch(),
-        100,
-    )
-    .await;
-    // The answer is cut to what may be sent in one go (10 B/s for ten windows less one: 100 bytes), but a first batch is
-    // always sent whole, and a batch of 50 records over the span is past the rate: throttled, and sent nothing.
-    assert!(first.mute.is_some());
-    let Outcome::Respond(Response::Fetch(r)) = &first.outcome else {
-        panic!()
-    };
-    assert!(r.responses.is_empty() && r.throttle_time_ms > 0, "{r:?}");
-}
-
-#[tokio::test]
-async fn the_mutation_quota_refuses_the_topic_after_the_one_that_empties_it_from_v6_and_throttles_below()
- {
-    let rig = rig();
-    let set: &[Change<'_>] = &[(DEFAULT_CLIENT, &[("controller_mutation_rate", Some(1.0))])];
-    alter_as(&rig, &support::caller(), alter(set, false)).await;
-    let create = |names: &[&str]| {
-        let mut req = CreateTopicsRequest::default();
-        req.topics = names.iter().map(|n| topic(n, 5)).collect();
-        Request::CreateTopics(req)
-    };
-    let served = serve(
-        &rig,
-        &support::caller(),
-        head(ApiKey::CreateTopics, 7, "admin"),
-        create(&["a", "b", "c", "d"]),
-        100,
-    )
-    .await;
-    let Outcome::Respond(Response::CreateTopics(r)) = &served.outcome else {
-        panic!()
-    };
-    let errors: Vec<i16> = r.topics.iter().map(|t| t.error_code).collect();
-    assert_eq!(
-        errors,
-        [0, 0, 0, ResponseError::ThrottlingQuotaExceeded.code()]
-    );
-    assert_eq!(r.topics[3].error_message, None);
-    assert!(
-        (3_900..=4_000).contains(&r.throttle_time_ms),
-        "{}",
-        r.throttle_time_ms
-    );
-    // Below v6 the topic is made and the client throttled instead.
-    let old = serve(
-        &rig,
-        &support::caller(),
-        head(ApiKey::CreateTopics, 5, "admin"),
-        create(&["e"]),
-        100,
-    )
-    .await;
-    let Outcome::Respond(Response::CreateTopics(r)) = &old.outcome else {
-        panic!()
-    };
-    assert_eq!(r.topics[0].error_code, 0);
-    assert!(r.throttle_time_ms > 4_000 && old.mute.is_some());
 }

@@ -2,7 +2,7 @@
 
 DescribeClientQuotas (48), AlterClientQuotas (49), and the four quotas a client is held to: `producer_byte_rate`,
 `consumer_byte_rate`, `request_percentage` and `controller_mutation_rate`. What Apache Kafka 4.4.0 does, read from its source
-(**(source)**, the file named) and held to the running broker: `crates/kafka-wire/examples/oracle_diff.rs` sends the same
+(**(source)**, the file named) and held to the running broker: `crates/kafka-wire/examples/oracle_diff` sends the same
 requests to real Kafka 4.4.0 (KRaft, combined mode) and to doze-kafka and compares the answers (75 steps, 0 differences,
 2026-11-15); the arithmetic is held to Kafka's own classes run on the same inputs (`quotas::meter::tests`, from
 `Sensor`/`Rate`/`TokenBucket`/`QuotaUtils` in the 4.4.0 jars); `kafka-configs.sh`, `kafka-producer-perf-test.sh` and
@@ -85,7 +85,7 @@ throttle. `handleFetchRequest`: a consumer's `max_bytes` is first cut to what it
 (`maxValueInQuotaWindow`: the limit times 10 s), its time counted, then the answer's size (body and four bytes); throttled for
 either, the size is taken back and the answer is empty (no error, session 0, no partition). A follower's Fetch (a replica id) is
 exempt from both, as Kafka's is.
-Test: `tests/client_quotas.rs::a_producer_over_its_byte_rate_is_answered_with_the_throttle_and_muted_for_it`,
+Test: `tests/client_quotas_enforced.rs::a_producer_over_its_byte_rate_is_answered_with_the_throttle_and_muted_for_it`,
 `::a_fetch_over_its_byte_rate_is_answered_empty_and_its_bytes_are_given_back`, `quotas::tests::a_fetch_is_capped_at_what_the_span_less_one_window_allows`,
 `::a_throttled_fetch_gives_its_bytes_back`
 
@@ -104,7 +104,7 @@ is taken and the client throttled. The answer carries the longer of the mutation
 out) and the request throttle. This is a different gate from telemetry's THROTTLING_QUOTA_EXCEEDED (W29), which is per client
 instance and has no quota behind it.
 Test: `quotas::tests::strict_mutations_take_the_one_that_empties_the_bucket_and_refuse_the_next`, `::permissive_mutations_are_taken_and_throttle_the_client`,
-`::with_no_mutation_quota_every_mutation_is_taken`, `tests/client_quotas.rs::the_mutation_quota_refuses_the_topic_after_the_one_that_empties_it_from_v6_and_throttles_below`;
+`::with_no_mutation_quota_every_mutation_is_taken`, `tests/client_quotas_enforced.rs::the_mutation_quota_refuses_the_topic_after_the_one_that_empties_it_from_v6_and_throttles_below`;
 oracle steps `mutations: *`
 
 ## QT-11. The connection is muted for the throttle time (KIP-219)
@@ -115,7 +115,7 @@ Test: `kafka-server connection::tests::a_throttled_client_is_not_read_from_until
 ## QT-12. Nothing is metered while no quota is set
 With no quota of the four set anywhere a request pays one atomic load; no meter, no clock, no allocation. The console's requests
 (`Broker::handle`) are never metered; a client's come through `Broker::serve`.
-Test: `tests/client_quotas.rs::with_no_quota_a_clients_request_is_served_as_the_consoles_and_never_muted`, `quotas::tests::each_quota_is_its_own_and_an_address_quota_switches_nothing_on`
+Test: `tests/client_quotas_enforced.rs::with_no_quota_a_clients_request_is_served_as_the_consoles_and_never_muted`, `quotas::tests::each_quota_is_its_own_and_an_address_quota_switches_nothing_on`
 
 Seen with Kafka's own tools (2026-11-15, the same machine, 100 000 B/s for client ids `perf-p` and `perf-c`, 2000 records of
 1000 bytes): `kafka-producer-perf-test.sh` 0.15 MB/s, produce-throttle-time max 2162 ms, avg 95.6 ms against Kafka; 0.14 MB/s,
