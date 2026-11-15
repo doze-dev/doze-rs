@@ -33,9 +33,9 @@
 # which does not move. Packages 186: no new package (the unique names are 143 before and after); the two more lines are repeat entries,
 # `doze-fs (*)` (kafka-console now asks doze-fs for its `space` feature) and `rustix (*)` (doze-fs reaches rustix, already there by doze-os).
 # The lean build is unchanged in packages (`space` is off there). Idle 7,952 KB on darwin, under the line.
-# Both together (kafka-next): darwin 7,784,992 + 166,000 = about 7,951,000 B; times 1.3747 = 10,930,000 B, plus 5% = 11,476,951 B until measured;
-# packages 180 + the two repeat lines = 182.
-doze-kafka 11476951 182 11013 --listen 127.0.0.1:{port} --data-dir {data}
+# Both together (kafka-next, measured 2026-11-15): darwin arm64 7,951,040 B, 182 packages (180 + the two repeat lines), idle 7,632 KB;
+# times 1.3747 = 10,930,393 B on ubuntu x86_64, plus 5% = 11,476,913 B until CI measures it.
+doze-kafka 11476913 182 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
