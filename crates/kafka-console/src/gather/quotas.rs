@@ -87,7 +87,9 @@ fn rows_of(e: &Described) -> Vec<AccessQuota> {
 /// The metered clients, the muted first, then by quota, user and client id.
 #[must_use]
 pub fn clients_of(q: &ClientQuotas) -> Vec<AccessQuotaClient> {
+    // A meter with no limit is one Kafka keeps for every client once any quota of its kind is set: not one a quota holds.
     let mut out: Vec<AccessQuotaClient> = (q.usage.iter())
+        .filter(|u| u.limit.is_some())
         .map(|u| {
             let key = u.kind.key();
             AccessQuotaClient {

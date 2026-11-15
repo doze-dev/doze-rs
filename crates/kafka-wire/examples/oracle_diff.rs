@@ -6,7 +6,8 @@
 //! cargo run -p kafka-wire --example oracle_diff -- <kafka host:port> <doze host:port>
 //! ```
 //!
-//! Both brokers should be fresh (the run makes topics named `oracle-*` and sets quotas, and removes the quotas at the end).
+//! Both brokers should be fresh (the run makes topics named `oracle-*` and sets quotas, and removes the quotas at the end);
+//! `tools/kafka-oracle/start.sh` starts the real one.
 //! What must differ is normalised before the comparison: the log directory's path and the volume's sizes, throttle times
 //! (compared as zero or not), and the order of entries Kafka keeps in hash maps. Topics other than `oracle-*` (Kafka's
 //! internal ones) are left out of DescribeLogDirs. Exits 1 if any step differs.

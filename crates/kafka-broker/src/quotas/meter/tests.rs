@@ -1,6 +1,6 @@
 //! The vectors are Kafka 4.4.0's own arithmetic: `Sensor`, `Rate`, `TokenBucket` and `QuotaUtils.throttleTime` from its jars,
-//! driven with these times and values (the program is `QuotaMath.java` in the change that added this file; its output is
-//! quoted in each test).
+//! driven with these times and values (`tools/kafka-oracle/QuotaMath.java`; its output is quoted in each
+//! test).
 
 use super::*;
 

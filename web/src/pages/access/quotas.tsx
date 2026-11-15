@@ -14,6 +14,7 @@ import { StatusDot } from "@/components/app/status-dot";
 import { Done, DoneFooter } from "@/components/app/write-done";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -79,7 +80,7 @@ export function Quotas({ quotas, onSet, onRemove }: { quotas: AccessQuotas; onSe
       { id: "who", header: "For", accessorFn: (q) => entityWords(q), cell: (c) => <Who q={c.row.original} /> },
       { id: "key", header: "Quota", size: 150, accessorFn: (q) => keyLabel(q.key) },
       { id: "limit", header: "Limit", size: 230, accessorFn: (q) => q.limit, cell: (c) => <span title={`${c.row.original.key}=${c.row.original.value}`}>{c.row.original.limit}</span> },
-      { accessorKey: "applies", header: "Holds", cell: (c) => <span className={c.row.original.enforced ? "" : "text-muted-foreground"}>{c.row.original.applies}</span> },
+      { accessorKey: "applies", header: "Holds", cell: (c) => <span className={`whitespace-normal ${c.row.original.enforced ? "" : "text-muted-foreground"}`}>{c.row.original.applies}</span> },
       {
         id: "remove",
         header: () => <span className="sr-only">Remove</span>,
@@ -200,7 +201,7 @@ function SetBody({ onDone }: { onDone: () => void }) {
             <Input {...field} disabled={v[deflt]} placeholder={v[deflt] ? "<default>" : placeholder} autoComplete="off" className="bg-card font-mono" data-testid={`quota-${name}`} />
           </FormControl>
           <label className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
-            <input type="checkbox" checked={v[deflt]} onChange={(e) => form.setValue(deflt, e.target.checked)} data-testid={`quota-${name}-default`} /> The default: every {label} without a quota of its own
+            <Checkbox checked={v[deflt]} onCheckedChange={(c) => form.setValue(deflt, c === true)} data-testid={`quota-${name}-default`} /> The default: every {label} without a quota of its own
           </label>
           <FormMessage />
         </FormItem>
