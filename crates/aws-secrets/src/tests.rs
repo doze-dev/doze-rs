@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 use crate::Secrets;
 use crate::core::Core;
 
+mod data;
 mod kms;
 mod persistence;
 mod refusals;

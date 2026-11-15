@@ -97,7 +97,13 @@ fn a_queue_is_measured_emptied_and_its_space_given_back() {
     old.persist.unwrap().close();
     w.core = Core::restore(w.clock.clone(), Some(Persist::open(&dir.0).unwrap()));
     assert_eq!(w.core.queues["jobs"].messages.len(), 6);
+}
 
+#[test]
+fn other_prunes_and_unknown_queues_are_refused() {
+    let dir = TempDir::new();
+    let mut w = on_disk(&dir.0);
+    w.queue("jobs");
     // Ways a queue cannot be pruned, and a queue that is not there.
     let prefix = Prune {
         prefix: Some("a".into()),

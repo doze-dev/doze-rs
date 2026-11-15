@@ -34,9 +34,9 @@ const MACHINES: &str = "machines";
 const ACTIVITIES: &str = "activities";
 const EXECUTIONS: &str = "executions";
 const MAP_RUNS: &str = "mapruns";
-const HISTORY: &str = "history";
+pub(crate) const HISTORY: &str = "history";
 /// The version of every record here.
-const VERSION: u8 = 1;
+pub(crate) const VERSION: u8 = 1;
 
 /// What the actor is asked.
 #[derive(Debug)]
@@ -54,6 +54,8 @@ pub(crate) enum Request {
     },
     /// After a restart: call again what was being called, and say when the next thing is due.
     Resume(Caller),
+    /// From `doze-aws data`: what the machines hold, or remove some of it.
+    Data(Box<crate::storage::DataCall>),
 }
 
 /// What the actor answers.
@@ -130,6 +132,13 @@ impl doze_runtime::Service for Core {
             }
             Request::Resume(caller) => {
                 self.resume(&caller);
+                aws_wire::handler::empty()
+            }
+            Request::Data(call) => {
+                let crate::storage::DataCall { region, ask, reply } = *call;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
                 aws_wire::handler::empty()
             }
         };

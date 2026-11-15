@@ -132,6 +132,12 @@ impl Shared {
         }
     }
 
+    /// After a reset: the Express answers nobody claimed belong to executions that are gone.
+    pub(crate) fn forget_waiters(&self) {
+        let mut sync = self.sync.lock().unwrap_or_else(PoisonError::into_inner);
+        sync.retain(|_, s| matches!(s, Slot::Waiting(_)));
+    }
+
     /// Waits for an Express execution to end (or takes the answer that already came).
     pub(crate) fn wait_for(&self, arn: &str) -> oneshot::Receiver<Value> {
         let (tx, rx) = oneshot::channel();

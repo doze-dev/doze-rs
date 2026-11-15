@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 use crate::Ssm;
 use crate::core::Core;
 
+mod data;
 mod parameters;
 mod peers;
 mod persistence;

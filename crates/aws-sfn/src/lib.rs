@@ -33,6 +33,7 @@ mod redrive;
 mod req;
 mod role;
 mod shared;
+mod storage;
 mod tags;
 mod teststate;
 mod timers;
@@ -235,5 +236,9 @@ impl Service for Sfn {
     /// 2026-11-15), as it does every other client error of Step Functions.
     fn flat_client_errors(&self) -> bool {
         true
+    }
+
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
     }
 }
