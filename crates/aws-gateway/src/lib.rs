@@ -22,6 +22,7 @@ mod server;
 mod target;
 mod upload;
 mod web;
+mod websig;
 
 pub use config::{Auth, Config, Hooks};
 pub use server::{Gateway, Running};

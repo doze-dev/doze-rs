@@ -6,8 +6,8 @@
 //! calls back into this service like any client, so the run never holds the actor. A rotation is complete when `AWSCURRENT` is
 //! moved to the token's version (what `finishSecret` does): that is when `LastRotatedDate` is set and `AWSPENDING` removed. A
 //! step that fails stops the run and leaves the pending version, so the next `RotateSecret` is refused until it is cancelled, as on
-//! AWS. Better than the Go edition, which ran the steps inside the request: here a slow or failing function cannot hold the caller,
-//! and a function that reads the secret back is not deadlocked against the request that started it.
+//! AWS. The steps never run inside the request, so a slow or failing function cannot hold the caller, and a function that reads
+//! the secret back is not deadlocked against the request that started it.
 //!
 //! `RotateImmediately: false` does what the model documents: the configuration is stored, the next rotation waits for the schedule's
 //! window (`schedule.rs` starts it), and the configuration is tested by running the function's `testSecret` step alone against an
@@ -123,10 +123,10 @@ impl Core {
             return Ok(());
         };
         let plain = self
-            .kms_open(call, secret, current, &version.sealed)
+            .kms_open(&call.caller, secret, current, &version.sealed)
             .await?;
         let binary = version.binary;
-        let sealed = self.kms_seal(call, secret, token, &plain).await?;
+        let sealed = self.kms_seal(&call.caller, secret, token, &plain).await?;
         let now = self.now_ms();
         let secret = self
             .secrets

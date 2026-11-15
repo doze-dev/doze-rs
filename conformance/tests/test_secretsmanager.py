@@ -187,3 +187,62 @@ def test_staging_labels_tokens_and_deletion(client, names, cleanup, snapshot, no
     snapshot.match("create-with-no-value", sm.create_secret(Name=empty), opaque=("ARN",))
     cleanup(sm.delete_secret, SecretId=empty, ForceDeleteWithoutRecovery=True)
     snapshot.error("get-with-no-value", lambda: sm.get_secret_value(SecretId=empty))
+
+
+# Added 2026-11-15 (stream ops1), before it was recorded: UNVERIFIED until recorded against AWS. Replicas in another region.
+
+REPLICA_REGION = "us-west-2"
+
+
+def in_sync(sm, name, tries=60):
+    """AWS replicates in the background: wait until every replica says InSync (doze-aws is in sync when the call answers)."""
+    import time
+    for _ in range(tries):
+        status = sm.describe_secret(SecretId=name).get("ReplicationStatus", [])
+        if status and all(s["Status"] != "InProgress" for s in status):
+            return status
+        time.sleep(1)
+    return sm.describe_secret(SecretId=name).get("ReplicationStatus", [])
+
+
+def test_replica_follows_its_primary(client, names, cleanup, snapshot):
+    sm = client("secretsmanager")
+    west = client("secretsmanager", region_name=REPLICA_REGION)
+    name = names("replicated")
+    made = sm.create_secret(Name=name, SecretString="one", AddReplicaRegions=[{"Region": REPLICA_REGION}])
+    cleanup(sm.delete_secret, SecretId=name, ForceDeleteWithoutRecovery=True)
+    cleanup(sm.remove_regions_from_replication, SecretId=name, RemoveReplicaRegions=[REPLICA_REGION])
+    snapshot.match("create", made, opaque=("ARN", "VersionId"))
+    snapshot.match("in-sync", in_sync(sm, name))
+    snapshot.match("describe-primary", sm.describe_secret(SecretId=name),
+                   opaque=("ARN", "LastChangedDate", "CreatedDate", "VersionIdsToStages", "LastAccessedDate"))
+    assert west.get_secret_value(SecretId=name)["SecretString"] == "one"
+    snapshot.match("describe-replica", west.describe_secret(SecretId=name),
+                   opaque=("ARN", "LastChangedDate", "CreatedDate", "VersionIdsToStages", "LastAccessedDate"))
+    sm.put_secret_value(SecretId=name, SecretString="two")
+    in_sync(sm, name)
+    assert west.get_secret_value(SecretId=name)["SecretString"] == "two"
+    snapshot.error("put-on-replica", lambda: west.put_secret_value(SecretId=name, SecretString="x"))
+    snapshot.error("delete-primary-with-replicas", lambda: sm.delete_secret(SecretId=name))
+    snapshot.error("replicate-again", lambda: sm.replicate_secret_to_regions(
+        SecretId=name, AddReplicaRegions=[{"Region": REPLICA_REGION}]))
+    snapshot.match("remove", sm.remove_regions_from_replication(
+        SecretId=name, RemoveReplicaRegions=[REPLICA_REGION]), opaque=("ARN",))
+    snapshot.error("stop-on-a-primary", lambda: sm.stop_replication_to_replica(SecretId=name))
+
+
+def test_replica_promoted_with_stop_replication(client, names, cleanup, snapshot):
+    sm = client("secretsmanager")
+    west = client("secretsmanager", region_name=REPLICA_REGION)
+    name = names("promoted")
+    sm.create_secret(Name=name, SecretString="v")
+    cleanup(sm.delete_secret, SecretId=name, ForceDeleteWithoutRecovery=True)
+    cleanup(west.delete_secret, SecretId=name, ForceDeleteWithoutRecovery=True)
+    snapshot.match("replicate", sm.replicate_secret_to_regions(
+        SecretId=name, AddReplicaRegions=[{"Region": REPLICA_REGION}]), opaque=("ARN",))
+    in_sync(sm, name)
+    snapshot.match("stop", west.stop_replication_to_replica(SecretId=name), opaque=("ARN",))
+    snapshot.match("put-on-promoted", west.put_secret_value(SecretId=name, SecretString="own"),
+                   opaque=("ARN", "VersionId"))
+    described = sm.describe_secret(SecretId=name)
+    snapshot.match("primary-after", {"replicas": described.get("ReplicationStatus", [])})

@@ -7,8 +7,9 @@
 //! explained with the flag that fixes it). **Not built:** OAuth client credentials (the token request is deferred, SCOPE.md): stored,
 //! not delivered, and the log says so.
 //!
-//! **The request is made off the actor**, as the Go edition made it: the actor builds it from the destination and the connection and
-//! hands it to a task, so a slow endpoint (a request waits at most five seconds, AWS's documented client execution timeout) never holds the region's other calls. The task applies
+//! **The request is made off the actor**: the actor builds it from the destination and the connection and hands it to a task, so a
+//! slow endpoint (a request waits at most five seconds, AWS's documented client execution timeout) never holds the region's other
+//! calls. The task applies
 //! the target's retry policy itself (`retry::next`, the actor's rule) and sends what runs out to the dead-letter queue; each attempt's
 //! result is recorded in [`Calls`]. A 429 or a 5xx, or no answer, may pass and is retried; any other status is the endpoint refusing the
 //! event and is not.

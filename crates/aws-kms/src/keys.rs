@@ -7,9 +7,9 @@ use aws_model_kms::keys::{
     CancelKeyDeletionRequest as Cancel, CancelKeyDeletionResponse as Cancelled,
     CreateKeyRequest as Create, CreateKeyResponse as Created, DescribeKeyRequest as Describe,
     DescribeKeyResponse as Described, DisableKeyRequest as Disable, EnableKeyRequest as Enable,
-    KeyListEntry, KeyMetadata as Meta, ListKeysRequest as List, ListKeysResponse as Listed,
-    MultiRegionConfiguration as Multi, MultiRegionKey, ScheduleKeyDeletionRequest as Schedule,
-    ScheduleKeyDeletionResponse as Scheduled, Tag, UpdateKeyDescriptionRequest as Describe_,
+    KeyListEntry, ListKeysRequest as List, ListKeysResponse as Listed,
+    ScheduleKeyDeletionRequest as Schedule, ScheduleKeyDeletionResponse as Scheduled, Tag,
+    UpdateKeyDescriptionRequest as Describe_,
 };
 use aws_schema::build::Object;
 use aws_wire::ApiError;
@@ -20,6 +20,7 @@ use crate::core::{Core, validation};
 use crate::crypto::material_id;
 use crate::find::key_arn;
 use crate::model::{DAY_MS, Key, Material, State};
+use crate::shown::metadata;
 use crate::spec::{Spec, Usage};
 
 const DEFAULT_WINDOW_DAYS: i64 = 30;
@@ -39,75 +40,6 @@ pub(crate) fn default_policy(account: &str) -> String {
     format!(
         r#"{{"Version":"2012-10-17","Id":"key-default-1","Statement":[{{"Sid":"Enable IAM User Permissions","Effect":"Allow","Principal":{{"AWS":"arn:aws:iam::{account}:root"}},"Action":"kms:*","Resource":"*"}}]}}"#
     )
-}
-
-/// A key as `DescribeKey` and `CreateKey` show it.
-pub(crate) fn metadata(m: &mut Object<'_, Meta>, key: &Key, account: &str, region: &str) {
-    m.put(Meta::AWS_ACCOUNT_ID, account);
-    m.put(Meta::KEY_ID, &key.id);
-    m.put(Meta::ARN, &key.arn);
-    m.put_time(Meta::CREATION_DATE, seconds(key.created_ms));
-    m.put_bool(Meta::ENABLED, key.state == State::Enabled);
-    m.put(Meta::DESCRIPTION, &key.description);
-    m.put(Meta::KEY_USAGE, key.usage.name());
-    m.put(Meta::KEY_STATE, key.state.name());
-    if let Some(at) = key.purge_ms {
-        m.put_time(Meta::DELETION_DATE, seconds(at));
-    }
-    m.put(
-        Meta::ORIGIN,
-        if key.external { "EXTERNAL" } else { "AWS_KMS" },
-    );
-    if let Some(model) = &key.expiration_model {
-        m.put(Meta::EXPIRATION_MODEL, model);
-    }
-    if let Some(at) = key.valid_to_ms {
-        m.put_time(Meta::VALID_TO, seconds(at));
-    }
-    m.put(
-        Meta::KEY_MANAGER,
-        if key.aws_managed { "AWS" } else { "CUSTOMER" },
-    );
-    m.put(Meta::CUSTOMER_MASTER_KEY_SPEC, key.spec.name());
-    m.put(Meta::KEY_SPEC, key.spec.name());
-    for (member, values) in [
-        (
-            Meta::ENCRYPTION_ALGORITHMS,
-            key.spec.encryption_algorithms(key.usage),
-        ),
-        (
-            Meta::SIGNING_ALGORITHMS,
-            key.spec.signing_algorithms(key.usage),
-        ),
-        (Meta::MAC_ALGORITHMS, key.spec.mac_algorithms()),
-    ] {
-        if !values.is_empty() {
-            m.put_list(member, |l| {
-                for v in values {
-                    l.push(v);
-                }
-            });
-        }
-    }
-    m.put_bool(Meta::MULTI_REGION, key.multi_region);
-    if key.multi_region {
-        m.put_object(
-            Meta::MULTI_REGION_CONFIGURATION,
-            |c: &mut Object<'_, Multi>| {
-                c.put(Multi::MULTI_REGION_KEY_TYPE, "PRIMARY");
-                c.put_object(Multi::PRIMARY_KEY, |p: &mut Object<'_, MultiRegionKey>| {
-                    p.put(MultiRegionKey::ARN, &key.arn);
-                    p.put(MultiRegionKey::REGION, region);
-                });
-                c.put_list(Multi::REPLICA_KEYS, |_| {});
-            },
-        );
-    }
-    if key.spec == Spec::Symmetric
-        && let Some(current) = key.current()
-    {
-        m.put(Meta::CURRENT_KEY_MATERIAL_ID, &current.id);
-    }
 }
 
 /// The spec and the usage a `CreateKey` asks for, held to each other.
@@ -215,7 +147,13 @@ impl Core {
         self.keys.insert(id, key);
         reply::<Created>(|o| {
             o.put_object(Created::KEY_METADATA, |m| {
-                metadata(m, &shown, &call.caller.account_id, &call.caller.region)
+                metadata(
+                    m,
+                    &shown,
+                    &call.caller.account_id,
+                    &call.caller.region,
+                    None,
+                )
             });
         })
     }
@@ -247,9 +185,16 @@ impl Core {
     pub(crate) fn describe_key(&mut self, call: &Call) -> Reply {
         let v = request::<Describe>(call)?;
         let key = self.key(call, v.get(Describe::KEY_ID).unwrap_or_default())?;
+        let set = self.set_of(key);
         reply::<Described>(|o| {
             o.put_object(Described::KEY_METADATA, |m| {
-                metadata(m, key, &call.caller.account_id, &call.caller.region)
+                metadata(
+                    m,
+                    key,
+                    &call.caller.account_id,
+                    &call.caller.region,
+                    set.as_ref(),
+                )
             });
         })
     }
@@ -329,6 +274,7 @@ impl Core {
             return Err(validation("PendingWindowInDays must be between 7 and 30"));
         }
         let id = self.locate(call, v.get(Schedule::KEY_ID).unwrap_or_default())?;
+        self.before_deletion(call, &id)?;
         let at = self.now_ms() + days * DAY_MS;
         let key = self
             .keys
@@ -342,6 +288,7 @@ impl Core {
         key.window_days = Some(days);
         let arn = key.arn.clone();
         self.purge_at(at);
+        self.replica_membership(&id, &call.caller.region, false);
         reply::<Scheduled>(|o| {
             o.put(Scheduled::KEY_ID, &arn);
             o.put_time(Scheduled::DELETION_DATE, seconds(at));
@@ -373,6 +320,7 @@ impl Core {
         key.purge_ms = None;
         key.window_days = None;
         let arn = key.arn.clone();
+        self.replica_membership(&id, &call.caller.region, true);
         reply::<Cancelled>(|o| {
             o.put(Cancelled::KEY_ID, &arn);
         })

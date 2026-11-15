@@ -20,7 +20,7 @@ use hyper::body::Incoming;
 pub(crate) use crate::head::{
     authenticate, caller_of, endpoint_of, inflate, read_body, session_token,
 };
-use crate::target::{extension, target_prefix};
+use crate::target::target_prefix;
 use crate::{Auth, Config};
 
 /// A registered service and the pattern cache for its model.
@@ -86,6 +86,11 @@ impl Shared {
         }
     }
 
+    /// Every service.
+    pub(crate) fn entries(&self) -> &[Entry] {
+        &self.entries
+    }
+
     /// When the gateway started.
     pub(crate) fn started(&self) -> std::time::Instant {
         self.started
@@ -104,6 +109,11 @@ impl Shared {
     /// Whether signatures are taken on trust.
     pub(crate) fn trusts(&self) -> bool {
         matches!(self.config.auth, Auth::Trust)
+    }
+
+    /// The secret key doze's local addresses ask for, under `--auth verify`.
+    pub(crate) fn local_key(&self) -> Option<&str> {
+        self.config.local_key.as_deref()
     }
 
     /// The account every request is for.
@@ -221,9 +231,11 @@ async fn handle(
     parts: &Parts,
     body: Incoming,
 ) -> Result<Out, Fail> {
-    let claim = Claim::parse(parts)
-        .map_err(|e| early(id, &from_auth(&e, Family::Coral)))?
-        .ok_or_else(|| early(id, &from_auth(&AuthError::Missing, Family::Coral)))?;
+    let Some(claim) = Claim::parse(parts).map_err(|e| early(id, &from_auth(&e, Family::Coral)))?
+    else {
+        // No signature: only an operation its model marks as taking none (STS's web identity and SAML) is answered.
+        return crate::query::unsigned(shared, id, parts, body).await;
+    };
     let entry = shared.entry_for(&claim.service, parts).ok_or_else(|| {
         early(
             id,
@@ -271,22 +283,15 @@ async fn handle(
     if json::is_query_request(parts) {
         return Err(Box::new(json::query_refusal(meta, id)));
     }
-    // An operation the service adds to its model (SQS's `DozePeek`) borrows a model operation's shapes.
-    let (op, shapes) = match json::route(meta, tables, parts) {
-        Ok(op) => (op, op),
-        Err(e) => extension(entry, parts).ok_or_else(|| fail(&e))?,
-    };
-    if op == shapes
-        && let Some(refusal) = unbuilt(entry, op)
-    {
+    let op = json::route(meta, tables, parts).map_err(|e| fail(&e))?;
+    if let Some(refusal) = unbuilt(entry, op) {
         return Err(fail(&refusal));
     }
     let bytes = inflate(parts, bytes, shared.max_body_bytes()).map_err(|e| fail(&e))?;
     let caller = caller_of(shared, parts, claim);
-    let mut call = decode_call(entry, shapes, id, caller, bytes).map_err(|e| fail(&e))?;
-    call.op = op;
+    let call = decode_call(entry, op, id, caller, bytes).map_err(|e| fail(&e))?;
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
-    let encoded = encode_output(entry, shapes, &output.arena, output.root).map_err(|e| fail(&e))?;
+    let encoded = encode_output(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
     Ok(json::success(version, id, encoded))
 }
 
@@ -321,7 +326,7 @@ fn unserved_protocol(meta: &aws_schema::meta::ServiceMeta) -> ApiError {
 }
 
 /// An error raised before a service is known.
-fn early(id: &RequestId, err: &ApiError) -> Fail {
+pub(crate) fn early(id: &RequestId, err: &ApiError) -> Fail {
     Box::new(json::generic_failure(json::Version::V10, id, err))
 }
 

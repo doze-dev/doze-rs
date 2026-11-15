@@ -627,6 +627,21 @@
       "x-handled-by": "lambda"
     }
   },
+  "test_rest_api_stage_tracing": {
+    "tracing-on": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "cacheClusterEnabled": false,
+      "cacheClusterStatus": "NOT_AVAILABLE",
+      "createdDate": "<createdDate:1>",
+      "deploymentId": "<deploymentId:1>",
+      "lastUpdatedDate": "<lastUpdatedDate:1>",
+      "methodSettings": {},
+      "stageName": "dev",
+      "tracingEnabled": true
+    }
+  },
   "test_rest_api_update_operations": {
     "add-a-stage-variable": {
       "Error": {

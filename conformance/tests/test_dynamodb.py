@@ -457,7 +457,8 @@ def test_contributor_insights_settings(client, names, cleanup, snapshot, eventua
         assert r["ContributorInsightsStatus"] == "ENABLED", "still enabling"
         return r
 
-    snapshot.match("enabled", eventually(enabled), drop=("LastUpdateDateTime", "ContributorInsightsRuleList"))
+    # AWS takes minutes to turn Contributor Insights on (it makes a service-linked role the first time).
+    snapshot.match("enabled", eventually(enabled, timeout=300, every=5), drop=("LastUpdateDateTime", "ContributorInsightsRuleList"))
     snapshot.match("listed", ddb.list_contributor_insights(TableName=name))
     snapshot.match("disable", ddb.update_contributor_insights(TableName=name, ContributorInsightsAction="DISABLE"))
     snapshot.error("absent-table", lambda: ddb.describe_contributor_insights(TableName=names("absent")))

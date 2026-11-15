@@ -3,7 +3,7 @@
 //! deprecated version (up to 100 versions a secret). A secret with more than one version is listed with its bytes; its versions
 //! with no staging label are noted, and emptying it with `--old-versions` removes them. The versions that carry a label
 //! (`AWSCURRENT`, `AWSPREVIOUS`, `AWSPENDING` or one of the person's) always stay. A secret scheduled for deletion is noted: it is
-//! kept until its recovery window ends. A reset removes every secret and its rotation settings.
+//! kept until its recovery window ends. A reset removes every secret and its rotation settings and replication (a replica is a secret of its own region: it is listed and emptied as one).
 
 use aws_wire::service::BoxFuture;
 use aws_wire::storage::{
@@ -165,6 +165,10 @@ impl Core {
         let rotations: Vec<String> = self.rotations.iter().map(|(k, _)| k.to_owned()).collect();
         for key in rotations {
             self.rotations.remove(&key);
+        }
+        let replicated: Vec<String> = self.replication.iter().map(|(k, _)| k.to_owned()).collect();
+        for key in replicated {
+            self.replication.remove(&key);
         }
         self.forget_due();
         // WHY: a failed write is the writer's to report on the next call; the counts say what was asked.

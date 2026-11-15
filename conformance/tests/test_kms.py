@@ -254,3 +254,93 @@ def test_aliases_that_move_and_states(client, names, cleanup, snapshot):
     snapshot.error("rotate-a-signing-key", lambda: kms.enable_key_rotation(
         KeyId=key(kms, cleanup, KeySpec="ECC_NIST_P256", KeyUsage="SIGN_VERIFY")[0]))
     snapshot.error("signing-key-without-usage", lambda: kms.create_key(KeySpec="ECC_NIST_P256"))
+
+
+# Added 2026-11-15 (stream ops1), before they were recorded: UNVERIFIED until recorded against AWS. Key agreement, multi-Region
+# keys, and the last use of a key.
+
+REPLICA_REGION = "us-west-2"
+
+
+def test_derive_shared_secret(client, cleanup, snapshot):
+    kms = client("kms")
+    ours, made = key(kms, cleanup, KeySpec="ECC_NIST_P256", KeyUsage="KEY_AGREEMENT")
+    theirs, _ = key(kms, cleanup, KeySpec="ECC_NIST_P256", KeyUsage="KEY_AGREEMENT")
+    snapshot.match("create", made)
+    our_public = kms.get_public_key(KeyId=ours)
+    snapshot.match("public-key", our_public, opaque=("PublicKey",))
+    their_public = kms.get_public_key(KeyId=theirs)["PublicKey"]
+    a = kms.derive_shared_secret(KeyId=ours, KeyAgreementAlgorithm="ECDH", PublicKey=their_public)
+    b = kms.derive_shared_secret(KeyId=theirs, KeyAgreementAlgorithm="ECDH", PublicKey=our_public["PublicKey"])
+    assert a["SharedSecret"] == b["SharedSecret"], "the two sides derived different secrets"
+    snapshot.match("derive", a, opaque=("SharedSecret",))
+    other, _ = key(kms, cleanup, KeySpec="ECC_NIST_P384", KeyUsage="KEY_AGREEMENT")
+    p384 = kms.get_public_key(KeyId=other)["PublicKey"]
+    snapshot.error("other-curve", lambda: kms.derive_shared_secret(
+        KeyId=ours, KeyAgreementAlgorithm="ECDH", PublicKey=p384))
+    signer, _ = key(kms, cleanup, KeySpec="ECC_NIST_P256", KeyUsage="SIGN_VERIFY")
+    snapshot.error("sign-key", lambda: kms.derive_shared_secret(
+        KeyId=signer, KeyAgreementAlgorithm="ECDH", PublicKey=their_public))
+    snapshot.error("dry-run", lambda: kms.derive_shared_secret(
+        KeyId=ours, KeyAgreementAlgorithm="ECDH", PublicKey=their_public, DryRun=True))
+
+
+def enabled(kms, kid, tries=60):
+    """AWS makes a replica in the background (Creating, then Enabled): wait for it."""
+    import time
+    for _ in range(tries):
+        meta = kms.describe_key(KeyId=kid)["KeyMetadata"]
+        if meta["KeyState"] != "Creating":
+            return meta
+        time.sleep(1)
+    return kms.describe_key(KeyId=kid)["KeyMetadata"]
+
+
+def test_multi_region_replica(client, cleanup, snapshot):
+    kms = client("kms")
+    west = client("kms", region_name=REPLICA_REGION)
+    kid, made = key(kms, cleanup, MultiRegion=True, Description="primary")
+    assert kid.startswith("mrk-")
+    snapshot.match("create", made)
+    replica = kms.replicate_key(KeyId=kid, ReplicaRegion=REPLICA_REGION, Description="replica")
+    cleanup(west.schedule_key_deletion, KeyId=kid, PendingWindowInDays=7)
+    snapshot.match("replicate", replica, opaque=("ReplicaPolicy",))
+    snapshot.match("replica-enabled", {"state": enabled(west, kid)["KeyState"]})
+    snapshot.match("primary-describe", kms.describe_key(KeyId=kid))
+    sealed = kms.encrypt(KeyId=kid, Plaintext=b"across regions")["CiphertextBlob"]
+    snapshot.match("replica-decrypts", west.decrypt(CiphertextBlob=sealed), opaque=SECRET)
+    snapshot.error("replicate-again", lambda: kms.replicate_key(KeyId=kid, ReplicaRegion=REPLICA_REGION))
+    snapshot.error("replicate-a-replica", lambda: west.replicate_key(KeyId=kid, ReplicaRegion="eu-west-1"))
+    snapshot.error("rotate-a-replica", lambda: west.rotate_key_on_demand(KeyId=kid))
+    single, _ = key(kms, cleanup)
+    snapshot.error("replicate-single-region", lambda: kms.replicate_key(KeyId=single, ReplicaRegion=REPLICA_REGION))
+
+
+def test_update_primary_region(client, cleanup, snapshot):
+    kms = client("kms")
+    west = client("kms", region_name=REPLICA_REGION)
+    kid, _ = key(kms, cleanup, MultiRegion=True)
+    kms.replicate_key(KeyId=kid, ReplicaRegion=REPLICA_REGION)
+    cleanup(west.schedule_key_deletion, KeyId=kid, PendingWindowInDays=7)
+    enabled(west, kid)
+    snapshot.error("to-a-region-without-replica", lambda: kms.update_primary_region(
+        KeyId=kid, PrimaryRegion="eu-west-1"))
+    snapshot.match("update", kms.update_primary_region(KeyId=kid, PrimaryRegion=REPLICA_REGION))
+    import time
+    for _ in range(60):
+        config = west.describe_key(KeyId=kid)["KeyMetadata"]["MultiRegionConfiguration"]
+        if config["MultiRegionKeyType"] == "PRIMARY":
+            break
+        time.sleep(1)
+    snapshot.match("west-is-primary", west.describe_key(KeyId=kid)["KeyMetadata"]["MultiRegionConfiguration"])
+
+
+def test_key_last_usage(client, cleanup, snapshot):
+    kms = client("kms")
+    kid, _ = key(kms, cleanup)
+    snapshot.match("unused", kms.get_key_last_usage(KeyId=kid),
+                   opaque=("TrackingStartDate", "KeyCreationDate"))
+    kms.encrypt(KeyId=kid, Plaintext=b"x")
+    used = kms.get_key_last_usage(KeyId=kid)
+    snapshot.match("after-encrypt", used,
+                   opaque=("TrackingStartDate", "KeyCreationDate", "Timestamp", "KmsRequestId", "CloudTrailEventId"))

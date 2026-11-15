@@ -92,3 +92,65 @@ fn a_reopened_database_answers_as_the_one_that_was_closed() {
     assert_eq!(rows.unwrap().len(), 1);
     w.ok("StartReplay", &json!({"ReplayName": "again", "EventSourceArn": archive, "EventStartTime": s - 60, "EventEndTime": s + 60, "Destination": {"Arn": bus}}));
 }
+
+#[test]
+fn an_accepted_event_and_a_waiting_retry_outlive_a_stop_and_are_delivered_after_it() {
+    let dir = TempDir::new("eventbridge-pending");
+    let mut w = World::new();
+    let open = |dir: &TempDir, w: &World| {
+        Core::open_in(
+            dir.path(),
+            w.clock.clone(),
+            Some(w.peers.clone()),
+            Tasks::new(),
+        )
+        .unwrap()
+    };
+    w.core = open(&dir, &w);
+    w.bus("shop");
+    let rule = w.rule("shop", "r", &json!({"source": ["x"]}));
+    let q = w.queue("q", &rule);
+    w.ok(
+        "PutTargets",
+        &json!({"Rule": "r", "EventBusName": "shop", "Targets": [{"Id": "t", "Arn": q}]}),
+    );
+    w.ok("PutEvents", &json!({"Entries": [{"EventBusName": "shop", "Source": "x", "DetailType": "x", "Detail": "{\"n\":1}"}]}));
+    // A retry waiting a second, as a throttled delivery leaves one.
+    let event = crate::event::Event {
+        id: "e2".into(),
+        source: "x".into(),
+        detail_type: "x".into(),
+        account: super::ACCOUNT.into(),
+        region: "us-east-1".into(),
+        time_ms: START,
+        resources: vec![],
+        detail: json!({"n": 2}),
+        replay_name: None,
+    };
+    let d = w
+        .core
+        .deliveries_for("000000000000/shop/r", &event, &event.doc(), &event.text());
+    let throttled = crate::deliver::Failure {
+        code: "ThrottlingException".into(),
+        message: "slow down".into(),
+        retryable: true,
+    };
+    for one in d {
+        w.rt.block_on(w.core.failed(one, throttled.clone(), 1, &super::caller()));
+    }
+    w.core.flush().unwrap().unwrap().wait().unwrap();
+    assert!(
+        w.drain("q").is_empty(),
+        "nothing is delivered before the timer runs"
+    );
+    w.core.db.take().unwrap().close();
+
+    w.core = open(&dir, &w);
+    assert_eq!((w.core.pending.len(), w.core.retries.len()), (1, 1));
+    // The wake-up a start makes runs the accepted event at once and the retry when it is due.
+    let next = w.tick(i64::MAX);
+    assert_eq!(w.bodies("q")[0]["detail"], json!({"n": 1}));
+    assert_eq!(next, Some(START + 1000));
+    assert_eq!(w.wake_at(START + 1000), None);
+    assert_eq!(w.drain("q").len(), 1, "the retry is delivered");
+}

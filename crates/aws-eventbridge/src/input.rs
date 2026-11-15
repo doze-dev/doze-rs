@@ -30,7 +30,7 @@ pub(crate) struct Names<'a> {
 }
 
 /// Why a target is refused at `PutTargets`: the whole call is refused with these words (recorded 2026-11-15; not a `FailedEntries`
-/// entry, as the Go edition had it).
+/// entry).
 pub(crate) fn check_target(target: &Value) -> Result<(), String> {
     let id = target.get("Id").and_then(Value::as_str).unwrap_or_default();
     let shapes = ["Input", "InputPath", "InputTransformer"]
