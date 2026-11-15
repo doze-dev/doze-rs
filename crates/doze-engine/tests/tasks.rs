@@ -175,7 +175,8 @@ async fn a_stopped_task_is_asked_to_stop_and_ends_failed() {
         tokio::spawn(async move { e.run_task("long").await })
     };
     assert!(
-        eventually(Duration::from_secs(5), || pidf.exists()
+        // Generous under a loaded machine (it once lost the race running beside every other test).
+        eventually(Duration::from_secs(20), || pidf.exists()
             && pid_in(&pidf) > 0)
         .await
     );
@@ -185,7 +186,7 @@ async fn a_stopped_task_is_asked_to_stop_and_ends_failed() {
         "booting while it runs"
     );
     e.stop("long", Cause::Command).await.unwrap();
-    let woke = tokio::time::timeout(Duration::from_secs(3), waking)
+    let woke = tokio::time::timeout(Duration::from_secs(20), waking)
         .await
         .unwrap()
         .unwrap();
@@ -203,9 +204,11 @@ async fn a_stopped_task_is_asked_to_stop_and_ends_failed() {
         (rec.result.as_str(), rec.why.as_str()),
         ("failed", "asked for")
     );
-    assert_eq!(
-        journal(&d),
-        [ev("wake", "long", "asked for"), ev("failed", "long", &said)]
+    let want = [ev("wake", "long", "asked for"), ev("failed", "long", &said)];
+    assert!(
+        eventually(Duration::from_secs(5), || journal(&d) == want).await,
+        "{:?}",
+        journal(&d)
     );
     let runs = e.logs().runs("long").unwrap();
     assert!(runs.iter().all(|r| !r.live), "the run is closed: {runs:?}");

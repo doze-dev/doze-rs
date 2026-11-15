@@ -42,6 +42,7 @@ pub use types::console::{
 };
 pub use types::frame::{
     ActionView, ChangeView, EventFrame, Frame, Hello, LogFrame, ResourceView, Response,
+    UncheckedView,
 };
 pub use types::instance::{ClientView, HolderView, InstanceView, ProcView, StatView, TaskView};
 pub use types::journal::{Cause, Event};

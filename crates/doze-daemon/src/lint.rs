@@ -2,16 +2,15 @@
 //! doze.hcl, as it is on disk now, loaded through this daemon's module catalog, so each module checks its own block.
 //! The CLI does the first pass (the shape) itself and asks for this one.
 //!
-//! The answer: `ok` with the config's warnings as `lines` when every block passes; `unchecked` names the module types
-//! the pass could not check because the registry cannot be reached and they were not on this machine (Go's lint
-//! passed on the first pass alone then); otherwise the load's error, positions and all. Nothing starts; a module type
-//! or major the stack had not used yet is fetched and pinned in doze.lock, as `up` would.
+//! The answer: `ok` with the config's warnings as `lines` when every block passes; `unchecked` lists the module types
+//! whose build could not be had (`{"type", "why"}`: the registry unreachable, a download or signature that failed),
+//! still `ok` (Go's lint passed on the first pass alone then); otherwise the load's error, positions and all. Nothing
+//! starts; a module type or major the stack had not used yet is fetched and pinned in doze.lock, as `up` would.
 
 use crate::Daemon;
 use crate::catalog::Catalog;
-use doze_config::modules::Modules;
 use doze_control::Response;
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 fn failed(error: String) -> Response {
     Response {
@@ -69,41 +68,30 @@ pub fn check(cat: &Catalog, config: &str, version: &str) -> Response {
             ..Response::default()
         },
         Err(err) => {
-            let unchecked = unreachable_types(cat, config, version);
+            let unchecked = unreachable_types(cat);
             if unchecked.is_empty() {
                 return failed(err);
             }
             Response {
                 ok: true,
-                unchecked: unchecked.into_iter().collect(),
-                result: "not cached, and the registry cannot be reached".into(),
+                unchecked: unchecked
+                    .into_iter()
+                    .map(|(ty, why)| doze_control::UncheckedView { ty, why })
+                    .collect(),
                 ..Response::default()
             }
         }
     }
 }
 
-/// The module types of `config` (read without modules) whose build could not be found because the registry cannot be
-/// reached; empty when any type failed for another reason (a type that does not exist is an error, not unchecked).
-fn unreachable_types(cat: &Catalog, config: &str, version: &str) -> BTreeSet<String> {
-    let Ok(shape) = crate::entry::with_options(version, cat, Default::default(), |o| {
-        doze_config::load_shape(config, o)
-    }) else {
-        return BTreeSet::new();
-    };
-    let mut out = BTreeSet::new();
-    for i in shape
-        .instances
-        .iter()
-        .filter(|i| i.kind() == doze_config::Kind::Module)
-    {
-        match cat.lookup_error(&i.ty) {
-            Some(why) if why.contains("can't be reached") || why.contains("cannot be reached") => {
-                out.insert(i.ty.clone());
-            }
-            Some(_) => return BTreeSet::new(),
-            None => {}
-        }
+/// The module types whose build could not be had in this load, with why: the registry unreachable, a download or a
+/// signature that failed. Empty when a type is not published at all (a mistake in doze.hcl, said as the load's error)
+/// or when every build was found (the error is then the config's). Read from the catalog, not from doze.hcl: a block
+/// whose module is missing leaves its references unknown, and a second read would stop at those.
+fn unreachable_types(cat: &Catalog) -> BTreeMap<String, String> {
+    let failed = cat.failures();
+    if failed.values().any(|why| why.contains("is not published")) {
+        return BTreeMap::new();
     }
-    out
+    failed
 }

@@ -263,10 +263,15 @@ async fn a_start_converges_a_fresh_or_changed_instance_once() {
     let d = Dir::new("bootconverge");
     let m = Arc::new(Module::default());
     *m.fp.lock().unwrap() = "one".into();
+    m.declare(&["app"]);
     let e = engine(&d, &m);
     let marker = d.path().join("clusters/db/.doze-converged");
     e.wake("db", Cause::Command).await.unwrap();
     assert_eq!(m.calls(), ["converge db"], "fresh: converged as it started");
+    assert!(
+        e.plan(None).await.unwrap().is_empty(),
+        "what it made is recorded: a plan lists nothing to create"
+    );
     assert_eq!(
         std::fs::read_to_string(&marker).unwrap(),
         "one",

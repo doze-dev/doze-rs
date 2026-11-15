@@ -147,3 +147,14 @@ Found on the scratch merge, for C2c: its `__fetch` child hung on the postgres en
 `/private/tmp/claude-501/dzb10/tools/proof.sh` (the D1 `doze` at cabe4ad6, `dozetest`, 7,146,368 B; the unchanged app at app-finish a7af57a4, `release-app` with `fixtures`, driven by `app/proof.txt`). Evidence: `app/driver.log`, `app/proof.log`, `shots/01…09`, the first attempt in `run1/`. The stack is started as `up` starts it (the `__daemon`, then the `up` op: the CLI's `up` is C2c's); then: up in 87 s with the postgres engine downloaded and the migration run as api's need; everything asleep; a curl of web woke it in 37 ms through its front (`03`); the map, all logs, db's page with its real memory and CPU graphs, "api needs it" and its 10 connections (`06`); the daemon stopped with nothing left behind.
 
 Not shown: a module console tab (neither registry build, postgres or valkey 0.9.0, declares a console; the daemon's console topic is tested with the echo); admin/reset through the app (the script's ⌘K typing did not open the palette; reset is tested over the wire). Seen, for the app track: the tiles and the sidebar show 0 for memory while the page's graph shows 12 MB. The `instances` topic carries no meters, as Go's did not (`handler.go`: "without meters"); status and the `stats` topic do. An earlier run's sidebar showed them, so the app reads them from one of those only at times.
+
+### Session 11: from the C2c builder
+
+- **Windows:** `doze-daemon tests/meters.rs` and `tests/wire.rs` skip where the system has no local control socket, as the doze-module daemon tests do.
+- **Converge on start records what it made:** `.doze/state.json` takes the module's objects after a converge on start, as `apply` would, so `plan` (and `sync --dry-run`) lists nothing to create afterwards. Go wrote nothing there, and its plan then listed objects that existed. A start inside a running `sync` finds the state locked for more than a second and leaves the recording to the sync.
+- **`lint` answers `unchecked` with reasons** (additive, Rust daemon only): `"unchecked": [{"type": "postgres", "why": "fetching module index doze/postgres/index.yaml: …"}]`, with `ok: true`.
+  - A type is unchecked when its build could not be had: the registry unreachable, or a download or signature that failed.
+  - A type that is not published at all is the load's error, as before.
+  - The types come from the catalog's failed lookups in this load, not from a second read of doze.hcl: that read stops at the knock-on unknown references.
+- **Flaky `a_stopped_task_is_asked_to_stop_and_ends_failed`:** its waits are 20 s under load, and its journal check waits for the events.
+- **Not done, for doze-config (H4):** in the shape pass, a reference into a module's attributes (`module.e.env.X`) is an "Unsupported attribute" error, not an unknown value. A lint whose module could not be had then reports that knock-on error. The daemon's lint no longer depends on it.

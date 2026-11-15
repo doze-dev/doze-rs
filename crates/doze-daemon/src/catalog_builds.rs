@@ -77,3 +77,19 @@ impl Catalog {
         crate::lock(&self.failed).clear();
     }
 }
+
+impl Catalog {
+    /// The lookups that failed since [`Catalog::retry_failed`], by type (a second build's `type@major` under its type),
+    /// with why.
+    pub fn failures(&self) -> std::collections::BTreeMap<String, String> {
+        crate::lock(&self.failed)
+            .iter()
+            // A major no build serves is not a lookup that failed: doze-config refuses the version with what the first
+            // build serves.
+            .filter(|(k, why)| {
+                !(k.contains('@') && why.starts_with("no ") && why.contains(" build serves "))
+            })
+            .map(|(k, why)| (k.split('@').next().unwrap_or(k).to_string(), why.clone()))
+            .collect()
+    }
+}

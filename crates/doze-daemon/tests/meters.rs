@@ -66,7 +66,15 @@ async fn meters_of_a_running_service() {
     )]);
     let sock = dir.join("run/doze.admin.sock");
     let d = Daemon::at(e.clone(), labels, StackInfo::default(), sock.clone());
-    let s = d.serve().unwrap();
+    // Windows has no local control socket yet (the daemon there is W's).
+    let s = match d.serve() {
+        Err(err) if err.kind() == std::io::ErrorKind::Unsupported => {
+            eprintln!("skipped: {err}");
+            e.shutdown().await;
+            return;
+        }
+        s => s.unwrap(),
+    };
     e.wake("svc", Cause::Command).await.unwrap();
     // The leaf takes a moment to start.
     let mut got = None;
