@@ -28,8 +28,8 @@ const UNDEFINED_EPOCH: i32 = -1;
 const UNDEFINED_EPOCH_OFFSET: i64 = -1;
 /// `RecordBatch.NO_PARTITION_LEADER_EPOCH`: a request that does not say which epoch it thinks the leader is at.
 const NO_CURRENT_EPOCH: i32 = -1;
-/// The one leader epoch every partition here has had.
-const EPOCH: i32 = 0;
+/// The one leader epoch every partition here has had, the one each batch is written under.
+const EPOCH: i32 = kafka_storage::LEADER_EPOCH;
 
 /// The end of the epoch `requested`, from a partition's leader-epoch cache (`epochs`: each epoch and the offset it began
 /// at, ascending) and its log end offset: `LeaderEpochFileCache.endOffsetFor`. The epoch it answers with is the one that

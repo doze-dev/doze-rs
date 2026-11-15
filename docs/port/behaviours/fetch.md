@@ -54,12 +54,14 @@ UNKNOWN_TOPIC_OR_PARTITION, checked first (`Partition.checkCurrentLeaderEpoch`, 
 `replica_id` (v3) changes nothing. Rights: SEC-295. Offered at Kafka 2 to 4 at v2 to v4 (Kafka 1.1 has v0 only, which the wire
 crate does not read: W10). Same as real Kafka 4.4.0 at v2, v3 and v4 for every case of `kafka-wire/examples/oracle_diff`
 (epochs 0, 1, -1, -2, -7; current -1, 0, 1, -2, -9; an unknown partition and topic; the follower form; after DeleteRecords).
-Decided difference: a batch keeps the partition leader epoch its producer wrote (-1 from every client), where Kafka stamps the leader's
-(0) into each batch it appends. So a consumer reading from this broker learns no epoch from the records and validates a position
-(KIP-320) only when it is given one with an epoch (a seek with one, or a commit made against real Kafka); every such epoch, 0, is
-answered as Kafka answers it. Stamping is one write into the header copy `Batch::stamped` already makes (the field is outside the
-CRC); it was left out of this change because it rewrites what every Produce stores, and is a decision of its own.
-Test: `handlers::offset_for_leader_epoch::tests::*`, `tests/offset_for_leader_epoch.rs::*`; interop `consumer-validates-position`
+Every batch is stored under epoch 0, as Kafka's leader stamps its epoch into each batch it appends (`LogValidator`): a client's
+(written with -1), a transaction marker, one the topic's `compression.type` re-encodes; the field is outside the CRC (W21). A
+consumer learns epoch 0 from the records and, as Kafka's does (KIP-320), validates its position with this API after a leader change
+or when it restores a committed offset; the cleaner keeps a batch's epoch, as Kafka's does. A log an older build wrote holds batches
+with -1: they are served as stored (a consumer that read them has no epoch to validate) and the broker reads the whole log as epoch 0
+from its start, so the answers above are the same for it.
+Test: `handlers::offset_for_leader_epoch::tests::*`, `tests/offset_for_leader_epoch.rs::*`, `tests/leader_epoch_stamp.rs::*`;
+interop `consumer-validates-position` (against doze-kafka and Kafka 4.4.0)
 
 ### L1. ListOffsets
 Latest (-1) is the log end, earliest (-2) the log start; max timestamp (-3, v7+) is the first record with the largest

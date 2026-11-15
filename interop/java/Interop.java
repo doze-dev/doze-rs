@@ -1219,9 +1219,10 @@ public class Interop {
             long end = System.currentTimeMillis() + 30_000;
             while (got.size() < 4 && System.currentTimeMillis() < end) c.poll(Duration.ofMillis(200)).forEach(got::add);
             check(got.size() == 4 && got.get(0).offset() == 6, "read %d from %s", got.size(), got.isEmpty() ? "nothing" : got.get(0).offset());
-            check(got.get(0).leaderEpoch().orElse(-1) <= 0, "leader epoch %s", got.get(0).leaderEpoch());
+            // The leader stamps its epoch into each batch it appends, so a record says the epoch it was written under.
+            check(got.get(0).leaderEpoch().equals(Optional.of(0)), "leader epoch %s", got.get(0).leaderEpoch());
         }
-        return "sought to offset 6 under epoch 0, validated, read 6 to 9";
+        return "sought to offset 6 under epoch 0, validated, read 6 to 9, each under epoch 0";
     }
 
     static String adminAcls() throws Exception {

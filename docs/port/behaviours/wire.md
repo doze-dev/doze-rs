@@ -130,9 +130,11 @@ Batches written by the `kafka-protocol` crate's encoder parse here, with the sam
 Test: `tests/batch_agrees_with_the_crate.rs`
 
 ### W21. Stamping changes only what it must
-The base offset is assigned at append time and is not covered by the CRC. LogAppendTime stamping sets the
-timestamp-type bit and the maximum timestamp and recomputes the CRC. Nothing else in a batch is touched.
-Test: `batch::tests::stamping_the_base_offset_changes_only_the_base_offset`, `batch::tests::log_append_time_changes_only_the_clock_bit_the_max_timestamp_and_the_crc` (byte for byte)
+The base offset is assigned at append time and is not covered by the CRC. The partition leader epoch is set to the leader's
+(0, `kafka_storage::LEADER_EPOCH`) on every batch appended, as Kafka's `LogValidator` does; it is not covered by the CRC either.
+LogAppendTime stamping sets the timestamp-type bit and the maximum timestamp and recomputes the CRC. Nothing else in a batch is
+touched.
+Test: `batch::tests::stamping_the_base_offset_changes_only_the_base_offset`, `batch::tests::the_leader_epoch_is_written_outside_the_crc_and_nothing_else_moves`, `batch::tests::log_append_time_changes_only_the_clock_bit_the_max_timestamp_and_the_crc` (byte for byte)
 
 ### W22. A Produce partition carries exactly one batch
 Kafka takes the first batch of a partition's records, refuses a second whole batch (`INVALID_RECORD`), and drops bytes
