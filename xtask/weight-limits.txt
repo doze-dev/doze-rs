@@ -145,4 +145,11 @@ doze-kafka 11549536 184 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # after, 8,384 KB with the start-time size check (`mention_size`, a one-shot OS thread) left out: about 210 KB is that thread (glibc keeps its
 # arena and stack cache), about 200 KB the new code. Line = median plus 5% = 11,075 KB. The thread's share is avoidable and is with the aws
 # session (docs/port/ci-health.md, open items).
-doze-aws 13900000 280 11075 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-15, AWS as the only reference (PR #65, run 43716027103): bytes 14,035,048 B (+365,560 over 13,669,488), 280 packages, idle median 10,852 KB
+# (samples 10,692, 10,852, 10,952). The new bytes: XML-DSig for AssumeRoleWithSAML (exclusive c14n, RSA-SHA1/256/512 against the metadata certificate),
+# JWT and JWKS verification shared by STS web identity and API Gateway (ES256/384/512 added), SSM public parameters, Documents (with the YAML reader
+# moved into aws-yaml and given a writer) and service settings, Secrets Manager replicas, KMS ECDH key agreement and multi-Region keys, the /_doze/ guard,
+# and the compatibility listing. Byte limit = 14,035,048 plus 5% = 14,736,800, rounded to 14,740,000 B (74% of the 20 MB ceiling); packages unchanged.
+# Idle: the start-time size check no longer starts an OS thread (it walks on the serving thread), which removes the ~210 KB arena measured above, but
+# the median moved up by 304 KB with the new code, and median plus 5% (11,395) is above the current line: the line is kept at 11,075 KB, not lowered.
+doze-aws 14740000 280 11075 --listen 127.0.0.1:{port} --data-dir {data}
