@@ -100,6 +100,32 @@ def test_a_matching_event_reaches_the_queue(client, names, cleanup, snapshot, ev
         Rule=rule, EventBusName=name, Ids=["queue", "absent"]))
 
 
+def test_put_events_answers_before_the_target_is_invoked(client, names, cleanup, snapshot, eventually):
+    """PutEvents answers once its events are accepted; the target is invoked afterwards. The message that reaches the queue later
+    carries an EventId one of the answers gave (an event is sent again on each poll, as a new rule takes a while to apply on AWS)."""
+    events, sqs = client("events"), client("sqs")
+    name, _ = bus(events, names, cleanup)
+    rule = names("rule")
+    rule_arn = events.put_rule(Name=rule, EventBusName=name, EventPattern=json.dumps({"source": ["shop.async"]}))["RuleArn"]
+    cleanup(events.delete_rule, Name=rule, EventBusName=name)
+    url, arn = target_queue(client, names, cleanup, rule_arn)
+    events.put_targets(Rule=rule, EventBusName=name, Targets=[{"Id": "queue", "Arn": arn}])
+    cleanup(events.remove_targets, Rule=rule, EventBusName=name, Ids=["queue"])
+    answered = []
+
+    def delivered():
+        answer = events.put_events(Entries=[{"EventBusName": name, "Source": "shop.async", "DetailType": "x", "Detail": "{}"}])
+        answered.append(answer)
+        r = sqs.receive_message(QueueUrl=url, WaitTimeSeconds=2)
+        assert r.get("Messages"), "nothing delivered yet"
+        return json.loads(r["Messages"][0]["Body"])
+
+    event = eventually(delivered, timeout=90)
+    assert event["id"] in [a["Entries"][0]["EventId"] for a in answered]
+    snapshot.match("put-events", answered[0], opaque=("EventId",))
+    snapshot.match("delivered-after", event, opaque=("id", "time"))
+
+
 def test_a_rule_with_targets_cannot_be_deleted(client, names, cleanup, snapshot, target):
     events = client("events")
     name, _ = bus(events, names, cleanup)

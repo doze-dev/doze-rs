@@ -4,18 +4,21 @@
 //! The retry policy is the target's `RetryPolicy`: `MaximumRetryAttempts` (default 185) and `MaximumEventAgeInSeconds` (default
 //! 86,400), both documented. A failure that cannot pass (the target refused it as wrong: a queue that is not there, a policy that does
 //! not allow it) is not retried. The backoff, doubling from one second to a minute, is ours; AWS says only "exponential backoff with
-//! jitter" (memory). The retries wait in memory and a restart loses them (SCOPE.md: the 24-hour retry is not needed, the difference is
-//! flagged). The same rule runs in the actor (`Core::failed`) and in the task an API destination is called from (`deliver_http.rs`).
+//! jitter" (memory). A delivery waiting for its next try is on disk, so a stop or a restart does not lose it; one whose time passed
+//! while the service was stopped is tried when it starts. The same rule runs in the actor (`Core::failed`) and in the task an API
+//! destination is called from (`deliver_http.rs`).
 //!
 //! The dead-letter message is the original event with the attributes AWS documents: `RULE_ARN`, `TARGET_ARN`, `ERROR_CODE`,
 //! `ERROR_MESSAGE`, `EXHAUSTED_RETRY_CONDITION` and `RETRY_ATTEMPTS`.
 
 use aws_peers::Peers;
 use aws_wire::service::Caller;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::core::Core;
 use crate::deliver::{Delivery, Failure};
+use crate::model::Who;
 use crate::names::region_and_account;
 
 const DEFAULT_ATTEMPTS: i64 = 185;
@@ -23,14 +26,14 @@ const DEFAULT_AGE_SECONDS: i64 = 86_400;
 /// The most deliveries waiting for another try; past it a failure goes straight to the dead-letter queue.
 pub(crate) const MAX_WAITING: usize = 10_000;
 
-/// A failed delivery waiting for its next try.
-#[derive(Debug)]
+/// A failed delivery waiting for its next try. Keyed by the order it failed in (`sequence_key`).
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Retry {
     pub(crate) delivery: Delivery,
     /// How many times it has been tried.
     pub(crate) tries: u32,
     pub(crate) due_ms: i64,
-    pub(crate) caller: Caller,
+    pub(crate) caller: Who,
 }
 
 /// Seconds to wait after the `tries`-th failure.
@@ -75,12 +78,16 @@ impl Core {
         match next(&d, &why, tries, now, self.retries.len() < MAX_WAITING) {
             Next::Retry(wait_ms) => {
                 tracing::debug!(rule = %d.rule_arn, target = %d.target.id, "delivery failed, will retry: {}", why.message);
-                self.retries.push(Retry {
-                    due_ms: now + wait_ms,
-                    delivery: d,
-                    tries,
-                    caller: caller.clone(),
-                });
+                let key = self.next_key();
+                self.retries.insert(
+                    key,
+                    Retry {
+                        due_ms: now + wait_ms,
+                        delivery: d,
+                        tries,
+                        caller: Who::from(caller),
+                    },
+                );
             }
             Next::GiveUp(condition) => {
                 dead_letter(self.peers.as_deref(), &d, &why, tries, condition, caller).await;
@@ -90,7 +97,7 @@ impl Core {
 
     /// The earliest time a waiting retry is due.
     pub(crate) fn next_retry(&self) -> Option<i64> {
-        self.retries.iter().map(|r| r.due_ms).min()
+        self.retries.iter().map(|(_, r)| r.due_ms).min()
     }
 }
 
