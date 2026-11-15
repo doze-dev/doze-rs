@@ -1,0 +1,156 @@
+// Writes docs/aws/COMPATIBILITY.md: what doze-aws does of each AWS API, from three sources that cannot drift apart:
+//   - the binary itself (`doze-aws compat`): every operation in AWS's model, and whether this build serves it;
+//   - the last conformance scores (`conformance/results.tsv`): how many recorded checks match real AWS exactly;
+//   - docs/aws/compatibility-notes.toml: deliberate differences, and why an operation is not planned.
+//
+//   bun tools/compat/generate.ts [--bin target/release-aws/doze-aws] [--check]
+//
+// --check exits 1 when the page on disk differs from what would be written.
+
+import { $ } from "bun";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+
+const root = join(import.meta.dir, "..", "..");
+const args = process.argv.slice(2);
+const flag = (name: string) => {
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : undefined;
+};
+const bin = flag("--bin") ?? join(root, "target/debug/doze-aws");
+const check = args.includes("--check");
+
+type Op = { name: string; built: boolean };
+type Api = { sdk_id: string; signing_name: string; ops: Op[] };
+type NotPlanned = { why: string; ops?: string[]; families?: string[] };
+type Notes = {
+  global: { differences: string[] };
+  api: Record<string, { differences?: string[]; not_planned?: NotPlanned[] }>;
+};
+
+if (!existsSync(bin)) {
+  console.error(`no binary at ${bin}: build it (cargo build -p doze-aws) or pass --bin`);
+  process.exit(2);
+}
+const compat = JSON.parse(await $`${bin} compat`.quiet().text()) as { version: string; apis: Api[] };
+const notes = Bun.TOML.parse(readFileSync(join(root, "docs/aws/compatibility-notes.toml"), "utf8")) as Notes;
+
+// Conformance modules by the API they score.
+const MODULE: Record<string, string> = {
+  IAM: "iam", STS: "sts", SQS: "sqs", SSM: "ssm", "Secrets Manager": "secretsmanager", KMS: "kms", SNS: "sns",
+  DynamoDB: "dynamodb", S3: "s3", Kinesis: "kinesis", "CloudWatch Logs": "logs", CloudWatch: "cloudwatch",
+  EventBridge: "eventbridge", Scheduler: "scheduler", Lambda: "lambda", SFN: "stepfunctions",
+  CloudFormation: "cloudformation", "API Gateway": "apigateway",
+};
+// Names a person knows the APIs by.
+const TITLE: Record<string, string> = {
+  SFN: "Step Functions", SSM: "SSM (Parameter Store and Documents)", Scheduler: "EventBridge Scheduler",
+  ApiGatewayV2: "API Gateway v2 (HTTP and WebSocket APIs)", "API Gateway": "API Gateway (REST APIs)",
+  ApiGatewayManagementApi: "API Gateway Management API (@connections)",
+};
+
+type Score = { labels: number; exact: number; wording: number; behaviour: number; unverified: number; scored: string };
+const scores = new Map<string, Score>();
+const tsv = join(root, "conformance/results.tsv");
+if (existsSync(tsv)) {
+  for (const line of readFileSync(tsv, "utf8").split("\n")) {
+    if (!line || line.startsWith("#")) continue;
+    const [m, labels, exact, wording, behaviour, unverified, scored] = line.split("\t");
+    scores.set(m, { labels: +labels, exact: +exact, wording: +wording, behaviour: +behaviour, unverified: +unverified, scored });
+  }
+}
+
+const problems: string[] = [];
+
+function notPlanned(api: Api): Map<string, string> {
+  const out = new Map<string, string>();
+  const names = new Set(api.ops.map((o) => o.name));
+  for (const group of notes.api[api.sdk_id]?.not_planned ?? []) {
+    for (const op of group.ops ?? []) {
+      if (!names.has(op)) problems.push(`${api.sdk_id}: ${op} is not an operation of this API`);
+      out.set(op, group.why);
+    }
+    for (const fam of group.families ?? []) {
+      const hits = api.ops.filter((o) => o.name.includes(fam));
+      if (hits.length === 0) problems.push(`${api.sdk_id}: no operation name contains "${fam}"`);
+      for (const o of hits) out.set(o.name, group.why);
+    }
+  }
+  for (const [op] of out) {
+    if (api.ops.find((o) => o.name === op)?.built) out.delete(op);
+  }
+  return out;
+}
+
+const title = (id: string) => TITLE[id] ?? id;
+const pct = (n: number, d: number) => (d === 0 ? "—" : `${Math.floor((n * 100) / d)}%`);
+for (const id of Object.keys(notes.api)) {
+  if (!compat.apis.some((a) => a.sdk_id === id)) problems.push(`notes name an API this build does not have: ${id}`);
+}
+
+let md = `# doze-aws compatibility
+
+What doze-aws does of each AWS API it answers, measured, not claimed:
+
+- **Built** counts the operations in AWS's own model of the API that this build serves. The rest are refused by name (HTTP 501, header \`X-Doze-Not-Built\`), never answered wrongly.
+- **Matches AWS** is how many recorded checks give exactly the answer real AWS gave when the same calls were made against an AWS account (status, error code, message and response shape, after removing ids and times). *Not yet recorded* checks exist in the test suite but have not been run against AWS yet.
+- Every operation not built is listed below as *planned* or *not planned*, with the reason.
+
+This page is generated by \`bun tools/compat/generate.ts\` from doze-aws ${compat.version}. Do not edit it by hand: change \`docs/aws/compatibility-notes.toml\` or the code.
+
+## Summary
+
+| API | Built | Recorded checks | Matches AWS | Not yet recorded |
+|---|---|---|---|---|
+`;
+
+const apis = [...compat.apis].sort((a, b) => title(a.sdk_id).localeCompare(title(b.sdk_id)));
+for (const api of apis) {
+  const built = api.ops.filter((o) => o.built).length;
+  const s = scores.get(MODULE[api.sdk_id] ?? "");
+  const recorded = s ? s.labels - s.unverified : 0;
+  md += `| ${title(api.sdk_id)} | ${built} of ${api.ops.length} | ${s ? recorded : "—"} | ${s ? `${s.exact} (${pct(s.exact, recorded)})` : "—"} | ${s ? s.unverified : "—"} |\n`;
+}
+
+md += `\n## Everywhere\n\n${notes.global.differences.map((d) => `- ${d}`).join("\n")}\n`;
+
+for (const api of apis) {
+  const built = api.ops.filter((o) => o.built);
+  const skip = notPlanned(api);
+  const planned = api.ops.filter((o) => !o.built && !skip.has(o.name)).map((o) => o.name);
+  const s = scores.get(MODULE[api.sdk_id] ?? "");
+  md += `\n## ${title(api.sdk_id)}\n\n`;
+  md += `**${built.length} of ${api.ops.length} operations built.**`;
+  if (s) {
+    const recorded = s.labels - s.unverified;
+    md += ` ${s.exact} of ${recorded} recorded checks match AWS exactly`;
+    const off = [s.wording ? `${s.wording} differ in message wording only` : "", s.behaviour ? `${s.behaviour} differ in behaviour` : ""].filter(Boolean);
+    md += off.length ? ` (${off.join(", ")})` : "";
+    md += `; ${s.unverified} not yet recorded. Scored ${s.scored}.`;
+  } else {
+    md += " No recorded checks yet.";
+  }
+  md += "\n";
+  const diffs = notes.api[api.sdk_id]?.differences ?? [];
+  if (diffs.length) md += `\nDifferences from AWS, on purpose:\n\n${diffs.map((d) => `- ${d}`).join("\n")}\n`;
+  if (planned.length) md += `\nNot built yet, planned: ${planned.map((n) => `\`${n}\``).join(", ")}.\n`;
+  const byWhy = new Map<string, string[]>();
+  for (const [op, why] of skip) byWhy.set(why, [...(byWhy.get(why) ?? []), op]);
+  for (const [why, ops] of byWhy) md += `\nNot planned: ${why} (${ops.sort().map((n) => `\`${n}\``).join(", ")})\n`;
+}
+
+if (problems.length) {
+  console.error(problems.join("\n"));
+  process.exit(1);
+}
+const out = join(root, "docs/aws/COMPATIBILITY.md");
+if (check) {
+  const now = existsSync(out) ? readFileSync(out, "utf8") : "";
+  if (now !== md) {
+    console.error("docs/aws/COMPATIBILITY.md is out of date: run bun tools/compat/generate.ts");
+    process.exit(1);
+  }
+} else {
+  writeFileSync(out, md);
+  console.log(`wrote ${out}`);
+}

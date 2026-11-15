@@ -1,0 +1,123 @@
+# What the compatibility page says that the code cannot: deliberate differences from AWS, and why an operation is not planned.
+# `tools/compat/generate.ts` combines this with the operations the binary serves (`doze-aws compat`) and the last conformance scores
+# (`conformance/results.tsv`) into `docs/aws/COMPATIBILITY.md`. An operation not built and not listed under `not_planned` is shown
+# as planned. Operation names must match AWS's model exactly; the generator refuses one that does not.
+
+[global]
+differences = [
+  "Requests are not signature-checked by default (`--auth trust`): any access key works, as with most local AWS tools. `--auth verify` checks every SigV4 signature against the configured key and the keys IAM issues.",
+  "IAM refusals are logged and let through by default (`--iam soft`), so a missing permission is a warning in development rather than a failure. `--iam enforce` refuses as AWS does; `--iam off` skips evaluation.",
+  "One account (`--account`, default 000000000000) and every region, each region kept apart on disk.",
+  "Nothing leaves the machine unless a target says so: SMS, email and mobile push are accepted and sent nowhere; HTTP(S) subscriptions, API destinations and webhooks are really called.",
+  "CloudFormation makes the resources of the services doze-aws runs. A resource of a service it does not run (Cognito, ECS, AppSync, load balancers...) is not created: the stack carries on, the resource reports CREATE_COMPLETE with a status reason saying so, and a warning is logged.",
+]
+
+[api."CloudWatch Logs"]
+differences = [
+  "Events older than 7 days are removed (`--logs-retention-days`, 0 to keep them as AWS does), and a log group keeps at most 100,000 events (`--logs-max-events`). Local logs grow fast; this keeps the disk in check.",
+]
+not_planned = [
+  { why = "Vended logs: delivery of logs AWS services emit about themselves, which do not exist locally.", ops = ["PutDeliverySource", "GetDeliverySource", "DescribeDeliverySources", "DeleteDeliverySource", "PutDeliveryDestination", "GetDeliveryDestination", "DescribeDeliveryDestinations", "DeleteDeliveryDestination", "PutDeliveryDestinationPolicy", "GetDeliveryDestinationPolicy", "DeleteDeliveryDestinationPolicy", "CreateDelivery", "GetDelivery", "DescribeDeliveries", "DeleteDelivery", "UpdateDeliveryConfiguration", "DescribeConfigurationTemplates"] },
+  { why = "Machine-learning anomaly detection over log patterns: no meaningful local equivalent.", ops = ["CreateLogAnomalyDetector", "GetLogAnomalyDetector", "ListLogAnomalyDetectors", "UpdateLogAnomalyDetector", "DeleteLogAnomalyDetector", "ListAnomalies", "UpdateAnomaly"] },
+  { why = "Integrations with OpenSearch Service and S3 Tables, which doze-aws does not run.", ops = ["PutIntegration", "GetIntegration", "ListIntegrations", "DeleteIntegration", "AssociateSourceToS3TableIntegration", "DisassociateSourceFromS3TableIntegration", "ListSourcesForS3TableIntegration"] },
+  { why = "Newer features with no local use yet: lookup tables, syslog intake, storage tiers, bearer-token ingestion, import tasks, aggregate summaries.", families = ["LookupTable", "Syslog", "StorageTierPolicy", "BearerToken", "ImportTask", "AggregateLogGroupSummaries"] },
+]
+
+[api."DynamoDB"]
+differences = [
+  "Tables, indexes and streams become ACTIVE at once (AWS takes seconds); `--dynamodb-create-ms` and friends add AWS-like delays.",
+  "A table's stream has one shard.",
+  "Point-in-time recovery is always on.",
+]
+not_planned = [
+  { why = "Global tables version 2017.11.29, superseded by replicas on the table itself; one machine has no second region to replicate to.", ops = ["CreateGlobalTable", "DescribeGlobalTable", "UpdateGlobalTable", "ListGlobalTables", "DescribeGlobalTableSettings", "UpdateGlobalTableSettings", "DescribeTableReplicaAutoScaling", "UpdateTableReplicaAutoScaling"] },
+  { why = "Vector search over a table is new and not yet in use by the local-development tools doze-aws serves.", ops = ["SearchVectors"] },
+]
+
+[api."S3"]
+differences = [
+  "Lifecycle transitions are kept and not acted on: there is one storage class on disk.",
+]
+not_planned = [
+  { why = "S3 Express One Zone directory buckets.", ops = ["CreateSession", "ListDirectoryBuckets", "RenameObject"] },
+  { why = "S3 Object Lambda, BitTorrent and S3 Metadata tables, which need services doze-aws does not run.", ops = ["WriteGetObjectResponse", "GetObjectTorrent", "CreateBucketMetadataConfiguration", "GetBucketMetadataConfiguration", "DeleteBucketMetadataConfiguration", "CreateBucketMetadataTableConfiguration", "GetBucketMetadataTableConfiguration", "DeleteBucketMetadataTableConfiguration", "UpdateBucketMetadataInventoryTableConfiguration", "UpdateBucketMetadataJournalTableConfiguration"] },
+  { why = "S3 Select is closed to new AWS customers; object annotations, ABAC and in-place encryption changes are new features with no local use yet.", ops = ["SelectObjectContent", "PutObjectAnnotation", "GetObjectAnnotation", "ListObjectAnnotations", "DeleteObjectAnnotation", "UpdateBucketMetadataAnnotationTableConfiguration", "GetBucketAbac", "PutBucketAbac", "UpdateObjectEncryption"] },
+]
+
+[api."SNS"]
+differences = [
+  "SMS, email and mobile push are accepted and sent nowhere.",
+]
+not_planned = [
+  { why = "The SMS sandbox and origination numbers: no SMS is sent locally.", ops = ["CreateSMSSandboxPhoneNumber", "DeleteSMSSandboxPhoneNumber", "GetSMSSandboxAccountStatus", "ListSMSSandboxPhoneNumbers", "VerifySMSSandboxPhoneNumber", "ListOriginationNumbers"] },
+]
+
+[api."IAM"]
+not_planned = [
+  { why = "Partner delegation, role templates, outbound web-identity federation and account properties: new account-administration features with no local use yet.", families = ["Delegation", "AcquireRole", "RoleTemplate", "HumanReadableSummary", "OutboundWebIdentityFederation", "AccountProperties"] },
+  { why = "AWS Organizations administration: one account locally.", ops = ["GenerateOrganizationsAccessReport", "GetOrganizationsAccessReport", "ListOrganizationsFeatures", "EnableOrganizationsRootCredentialsManagement", "DisableOrganizationsRootCredentialsManagement", "EnableOrganizationsRootSessions", "DisableOrganizationsRootSessions"] },
+]
+
+[api."KMS"]
+not_planned = [
+  { why = "Custom key stores are backed by CloudHSM or an external key manager; doze-aws keys are software keys.", ops = ["CreateCustomKeyStore", "DescribeCustomKeyStores", "UpdateCustomKeyStore", "DeleteCustomKeyStore", "ConnectCustomKeyStore", "DisconnectCustomKeyStore"] },
+]
+
+[api."SSM"]
+not_planned = [
+  { why = "Fleet management needs managed EC2 instances or on-premises nodes: Run Command, Session Manager, patching, inventory, compliance, maintenance windows, State Manager associations, hybrid activations.", families = ["Command", "Session", "Patch", "Inventory", "Compliance", "MaintenanceWindow", "Association", "Activation", "ManagedInstance", "InstanceInformation", "InstanceProperties", "Nodes", "CloudConnector", "ResourceDataSync", "OpsItem", "OpsMetadata", "OpsSummary", "Automation", "ChangeRequest", "ExecutionPreview", "CalendarState", "AccessRequest", "AccessToken", "ConnectionStatus", "DeployablePatch", "InstancePatch", "EffectiveInstanceAssociations", "EffectivePatches", "AvailablePatches"] },
+]
+
+[api."CloudFormation"]
+differences = [
+  "Resources of services doze-aws does not run are not created and do not fail the stack (see the note at the top).",
+  "Macros are refused; AWS::Serverless (SAM), AWS::LanguageExtensions and AWS::Include are applied.",
+]
+not_planned = [
+  { why = "The IaC generator, resource scans and stack refactoring read or reshape resources across a real account; they are large, and the local tools rarely need them.", families = ["GeneratedTemplate", "ResourceScan", "StackRefactor"] },
+  { why = "StackSets deploy across accounts and regions of an organization.", families = ["StackSet", "StackInstance", "OrganizationsAccess"] },
+  { why = "The extension registry runs third-party resource handlers, which doze-aws does not host.", ops = ["RegisterType", "DeregisterType", "DescribeType", "DescribeTypeRegistration", "ListTypes", "ListTypeVersions", "ListTypeRegistrations", "ActivateType", "DeactivateType", "SetTypeDefaultVersion", "SetTypeConfiguration", "BatchDescribeTypeConfigurations", "PublishType", "TestType", "RegisterPublisher", "DescribePublisher", "RecordHandlerProgress"] },
+]
+
+[api."API Gateway"]
+not_planned = [
+  { why = "Private custom domains need VPC endpoints.", families = ["DomainNameAccessAssociation"] },
+  { why = "Generated client SDKs.", ops = ["GetSdk", "GetSdkType", "GetSdkTypes"] },
+]
+
+[api."ApiGatewayV2"]
+not_planned = [
+  { why = "Routing rules act on custom domains, which are kept but not served locally.", families = ["RoutingRule"] },
+  { why = "Developer portals (hosted documentation sites).", families = ["Portal", "ProductPage", "ProductRestEndpointPage"] },
+]
+
+[api."EventBridge"]
+not_planned = [
+  { why = "SaaS partner event sources: events from third-party partners' accounts.", families = ["EventSource", "PartnerEvent"] },
+  { why = "Global endpoints fail over between two regions' event buses with Route 53 health checks.", ops = ["CreateEndpoint", "DescribeEndpoint", "ListEndpoints", "UpdateEndpoint", "DeleteEndpoint"] },
+]
+
+[api."Lambda"]
+differences = [
+  "Functions run as processes on this machine with the runtime's own interpreter (python3, node, ruby...), not in containers. Container-image functions are stored and cannot be invoked.",
+  "Event source mappings poll SQS, Kinesis and DynamoDB Streams.",
+]
+not_planned = [
+  { why = "Lambda Managed Instances run functions on EC2 capacity providers.", families = ["CapacityProvider", "FunctionScalingConfig"] },
+  { why = "Deprecated by AWS; `Invoke` with `InvocationType=Event` does the same.", ops = ["InvokeAsync"] },
+]
+
+[api."STS"]
+not_planned = [
+  { why = "Tokens for outbound web-identity federation and partner delegation, which pair with IAM features not planned.", ops = ["GetWebIdentityToken", "GetDelegatedAccessToken"] },
+]
+
+[api."Kinesis"]
+not_planned = [
+  { why = "Kinesis channels and record distribution strategies are new features with no local use yet.", ops = ["CreateChannel", "DeleteChannel", "DescribeChannel", "ListChannels", "UpdateChannel", "UpdateStreamRecordDistributionStrategy"] },
+]
+
+[api."CloudWatch"]
+not_planned = [
+  { why = "Datasets, vended-metric configuration, OpenTelemetry enrichment, managed Contributor Insights rules, alarm contributors and rendered graph images: features of AWS's own console and services, with no local use yet.", families = ["Dataset", "ResourceMetricsConfiguration", "OTelEnrichment", "ManagedInsightRules", "AlarmContributors", "MetricWidgetImage"] },
+]
