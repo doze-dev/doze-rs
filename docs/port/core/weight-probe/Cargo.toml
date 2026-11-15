@@ -1,0 +1,38 @@
+[package]
+name = "weightprobe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+doze-os = { path = "/Users/srini/Code/doze-dev/doze-rs-core-a1/crates/doze-os" }
+doze-names = { path = "/Users/srini/Code/doze-dev/doze-rs-core-a1/crates/doze-names" }
+doze-module-host = { path = "/Users/srini/Code/doze-dev/doze-rs-core-a1/crates/doze-module-host" }
+doze-module-proto = { path = "/Users/srini/Code/doze-dev/doze-rs-core-a1/crates/doze-module-proto" }
+tokio = { version = "1.54", features = ["net", "rt", "time", "sync", "macros", "io-util", "process", "signal", "fs"] }
+clap = { version = "4", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }
+clap_complete = "4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+yaml-rust2 = "0.13"
+ed25519-dalek = { version = "3", default-features = false }
+sha2 = "0.11"
+ureq = { version = "3", default-features = false, features = ["rustls-no-provider", "gzip"] }
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
+rustls-native-certs = "0.8"
+hcl-edit = "0.10"
+astro-float = "0.9"
+regex = "1"
+tun-rs = { version = "2.8", default-features = false }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.release-s]
+inherits = "release"
+opt-level = "s"
