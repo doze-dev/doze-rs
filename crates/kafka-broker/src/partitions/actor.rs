@@ -13,7 +13,7 @@ use tokio::time::{Instant, sleep_until};
 
 use super::upkeep::Upkeep;
 use crate::blocking;
-use crate::producers::{Producers, Stored, Verdict, last_of};
+use crate::producers::{FirstSequence, Producers, Stored, Verdict, last_of};
 use crate::txn_index::{Open, TxnIndex};
 
 /// The most appends taken in one go, so that a partition under load still hears a Close.
@@ -110,6 +110,8 @@ pub(super) struct Append {
     pub(super) clock: TimestampType,
     /// The next flush must cover this append (acks=all).
     pub(super) durable: bool,
+    /// Where a producer the partition knows no batch of may start.
+    pub(super) first: FirstSequence,
     pub(super) reply: oneshot::Sender<Result<Written, StorageError>>,
 }
 
@@ -314,7 +316,7 @@ fn append_one<F: Fs>(
     }
     let (id, epoch) = (producer.id.get(), producer.epoch.get());
     let last = last_of(first, a.batch.record_count());
-    match memory.producers.check(id, epoch, first, last) {
+    match memory.producers.check_from(id, epoch, first, last, a.first) {
         Verdict::Accept => {
             let appended = write(log, memory, a)?;
             // The newest timestamp as stored: the batch's own, or the time of the append if the topic says so.

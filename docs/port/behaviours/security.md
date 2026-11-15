@@ -28,7 +28,7 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-16 to SEC-30 | the authorizer, the three ACL APIs, Metadata and InitProducerId checks, the model test | 8b | "The oracle, slice 8b" |
 | SEC-40 to SEC-51 | SCRAM-SHA-256 and SCRAM-SHA-512 | 8c | after SEC-15 |
 | SEC-60 to SEC-72 | ACL enforcement on the topic APIs | 8d-1 | "The topic APIs" |
-| SEC-100 to SEC-123 | ACL enforcement on the group and transaction APIs | 8d-2 | "Slice 8d-2" |
+| SEC-100 to SEC-124 | ACL enforcement on the group and transaction APIs (SEC-124: AddPartitionsToTxn v4+, KIP-890) | 8d-2 | "Slice 8d-2" |
 | SEC-140 to SEC-154 | TLS behind the `tls` feature | 8e | "TLS, slice 8e" |
 | SEC-160 to SEC-179 | the SCRAM credential APIs (50, 51), the stored table, the users file and variable | 8f | after SEC-154 |
 | SEC-180 to SEC-189 | the allowed-hosts guard, `--console-allow-host`, `--console-unprotected`, the start-up rule and notes | 8g | "The allowed-hosts guard" |
@@ -68,7 +68,7 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D34** unsure: a DescribeTransactions entry refused with 53 carries schema defaults
 - **SEC-D35** unsure: ConsumerGroupDescribe and a deleted topic's empty name
 - **SEC-D36** unsure: FindCoordinator before v4 puts the error's own message in the answer
-- **SEC-D37** share groups, streams groups and AddPartitionsToTxn v4+ are not served
+- **SEC-D37** share groups and streams groups are not served
 - **SEC-D40** client certificates and mutual TLS are out of scope
 - **SEC-D41** `ssl.principal.mapping.rules` has nothing to map
 - **SEC-D42** protocol versions and cipher suites are rustls's with ring
@@ -861,6 +861,13 @@ a test was added for each, and `five_ways!` gained the "only DESCRIBE" caller fo
 item was the first partition of a refused topic, which a single-partition test cannot tell from the right one); a test was added. Final: 40 of 40.
 (The mutation copy builds in a target directory of its own: sharing one with the worktree let the last mutant's build be taken for the worktree's.)
 
+## SEC-124. AddPartitionsToTxn v4 and later (KIP-890; Kafka 4.4.0 `KafkaApis.handleAddPartitionsToTxnRequest`) (source)
+From v4 the request is a broker's (batched transactions, `verify_only`): CLUSTER_ACTION on the cluster, asked once, before anything else, or the whole answer is
+CLUSTER_AUTHORIZATION_FAILED (31) at the top with no transaction in it (`authorizeClusterOperation` throws; `getErrorResponse` of v4 sets the top-level code alone). Nothing
+else is asked: no WRITE on the transactional ids, none on the topics (`version < 4` guards both in Kafka). A DENY wins over an ALLOW for every user; a super user passes.
+A client's request (v0 to v3) is SEC-114, unchanged. Test: `add_partitions_of_v4_and_later_needs_cluster_action`,
+`add_partitions_of_v4_and_later_asks_for_no_right_on_the_id_or_the_topic`.
+
 ## SEC-160. DescribeUserScramCredentials (50) and AlterUserScramCredentials (51): versions and profile
 Both exist at v0 only (`msg/DescribeUserScramCredentials*.json`, `AlterUserScramCredentials*.json`: `validVersions 0`, flexible). The profile offers them at 0 to 0 for
 `--kafka-version` 2, 3 and 4 and not at 1, as the recorded brokers do (`crates/kafka-wire/tests/data/api-versions.json`: cp-kafka 6.2, 3.9.1 and 4.3.1 list both at 0..0, the 1.x broker neither).
@@ -1450,7 +1457,7 @@ Test: `kafka-broker tests/data_empty.rs::emptying_asks_delete_on_the_topic_and_e
 - **SEC-D31.** A SyncGroup of v5 or later with no protocol type or name is 23 up front (KA:1406-1411) only for a caller that is also refused; an allowed caller's goes to the group
   as before, which judges only the names it is given. Kafka answers 23 to everyone.
 - **SEC-D32.** AddPartitionsToTxn: Kafka removes the internal topics (`__consumer_offsets`, `__transaction_state`) from the topics it authorizes, so they are 29 even with no
-  authorizer (KA:1912). Here those topics do not exist as topics: they are 3 (or 29, if the caller may not WRITE them). v4 and later (a broker's, CLUSTER_ACTION) is not served.
+  authorizer (KA:1912). Here those topics do not exist as topics: they are 3 (or 29, if the caller may not WRITE them). v4 and later is a broker's request and asks no right on a topic (SEC-124).
 - **SEC-D33.** InitProducerId's `Enable2Pc` and `KeepPreparedTxn` are version 6 fields; version 6 is not served, so the TWO_PHASE_COMMIT check (SEC-120) cannot be reached by a client.
 - **SEC-D34.** Unsure, from the source alone: a DescribeTransactions entry refused with 53 carries the schema defaults for the rest (producer id 0, start time 0), as Kafka's
   `new TransactionState().setTransactionalId().setErrorCode()` does; the entry for an id that is not found keeps the -1 and -1 this broker already gave it.
@@ -1459,7 +1466,7 @@ Test: `kafka-broker tests/data_empty.rs::emptying_asks_delete_on_the_topic_and_e
   image; whether it too gives `""` was not confirmed.
 - **SEC-D36.** Unsure: FindCoordinator before v4 puts the error's own message in the answer (`Errors.message()` is the exception's, `Group authorization failed.`; the `NONE` of a success
   is its `toString`), read from `FindCoordinatorResponse.prepareOldResponse`. Not recorded.
-- **SEC-D37.** Not served, so not checked: share groups (key type 2), the share and streams group APIs, AddPartitionsToTxn v4 and later.
+- **SEC-D37.** Not served, so not checked: share groups (key type 2), the share and streams group APIs. (AddPartitionsToTxn v4 and later is served since KIP-890: SEC-124.)
 
 - **SEC-D50.** Two layers of users (SEC-172). Kafka has one store, the cluster metadata, and its PLAIN users live in a JAAS file outside it; here the users of the flags, the file and the variable are derived at every start and never stored. If a name is in both layers the bootstrap user wins for every
   mechanism and the stored entries under the name are shadowed, not deleted. An Alter or Delete aimed at a bootstrap user is refused with `UNACCEPTABLE_CREDENTIAL` (93) and a message that names the three sources: Kafka has no such case, and 93 (a credential it will not accept) is the closest of its codes; the check sits after the

@@ -84,13 +84,44 @@ pub(crate) fn last_of(first: i32, count: u32) -> i32 {
     i32::try_from(last & i64::from(i32::MAX)).unwrap_or(0)
 }
 
+/// Where a producer the partition knows no batch of (none at all, or only a marker) may start its sequences.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum FirstSequence {
+    /// Anywhere: that batch is its baseline (an idempotent producer, or a transaction of the classic protocol).
+    #[default]
+    Any,
+    /// At 0: a transactional batch of KIP-890's second part (Produce v12 on), whose epoch began with its transaction.
+    /// Kafka's `ProducerAppendInfo.checkSequence` for a write verified at `TV_2`: anything else is
+    /// OUT_OF_ORDER_SEQUENCE_NUMBER.
+    Zero,
+}
+
 impl Producers {
     /// How a batch from `id` at `epoch`, whose records are numbered `first..=last`, is to be treated. Changes nothing.
+    #[cfg(test)]
     #[must_use]
     pub(crate) fn check(&self, id: i64, epoch: i16, first: i32, last: i32) -> Verdict {
+        self.check_from(id, epoch, first, last, FirstSequence::Any)
+    }
+
+    /// [`Producers::check`], with where a producer with no batch known here may start.
+    #[must_use]
+    pub(crate) fn check_from(
+        &self,
+        id: i64,
+        epoch: i16,
+        first: i32,
+        last: i32,
+        start: FirstSequence,
+    ) -> Verdict {
+        let anywhere = start == FirstSequence::Any;
         let Some(p) = self.by_id.get(&id) else {
             // A producer this partition has no memory of (new, or from before a restart): this batch is its baseline.
-            return Verdict::Accept;
+            return if first == 0 || anywhere {
+                Verdict::Accept
+            } else {
+                Verdict::OutOfOrder
+            };
         };
         if epoch < p.epoch {
             return Verdict::Fenced;
@@ -107,7 +138,7 @@ impl Producers {
             // Only a marker is known at this epoch. If it raised the epoch, the sequences start at 0; if it was found in a
             // log whose batches are gone, they are not known, as for a producer never seen (Kafka's `checkSequence`: "accept
             // writes with any sequence number" of a producer whose records retention or DeleteRecords deleted).
-            return if first == 0 || p.sequences_lost {
+            return if first == 0 || (p.sequences_lost && anywhere) {
                 Verdict::Accept
             } else {
                 Verdict::OutOfOrder
