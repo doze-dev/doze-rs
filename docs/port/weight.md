@@ -852,3 +852,17 @@ the daemon down, on examples/shop's doze.hcl, median of 80 after 5 warm-ups, on 
   Release tooling for `doze` must use the same profile; `--release` still builds a working, bigger `doze`.
 - **The app** (`release-app`, already "s" throughout) is not changed by this: its 16 MB line has been red since C2a
   (16,733,040 B at #51, 17,064,576 B at #53); that is the app's size profile, worked on separately.
+
+## The app's ceiling raised to 20 MB (2026-11-15, branches `core-c2b`, `core-c2c`)
+
+The owner set the doze app's hard ceiling to **20 MB** on 2026-11-15: `doze-app` carries the GUI, the full CLI and the
+daemon, so the old 16 MB line (set when the app was the GUI alone) no longer fits what it is. CI measured doze-app at
+17,064,576 B and 662 packages at #53, which failed the 16 MB / 650 line. The CI lines are now:
+
+| | Ceiling | CI line | Measured (#53) |
+|---|---|---|---|
+| `doze-app`, darwin/arm64, `release-app` | 20 MB | 17,918,000 B (measured + 5%) | 17,064,576 B |
+| `doze-app` packages (CI's count) | | 700 | 662 |
+
+Branch `app-size-profile` (#55, merged into `app-finish`) separately brings the app down to about 14.5 MB with a size
+profile; when that meets these branches the byte line tightens again to its measured + 5%.
