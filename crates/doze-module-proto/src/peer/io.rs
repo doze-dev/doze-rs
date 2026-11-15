@@ -24,6 +24,7 @@ pub(crate) fn start(
         side,
         out,
         pending: Mutex::new(HashMap::new()),
+        held: Mutex::new(HashMap::new()),
         serving: Mutex::new(HashMap::new()),
         credits: Mutex::new(HashMap::new()),
         next: AtomicU32::new(1),
@@ -172,6 +173,8 @@ fn dispatch(
 }
 
 fn answer(inner: &Arc<Inner>, f: Frame) -> Result<(), Error> {
+    // Before the pending check: a call we cancelled is still answered, and only then is the handle surely home.
+    inner.let_go(f.id);
     let Some(p) = inner.pending.lock().ok().and_then(|mut p| p.remove(&f.id)) else {
         return Ok(());
     };

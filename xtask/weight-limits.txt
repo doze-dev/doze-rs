@@ -18,6 +18,8 @@
 # Estimates until CI's next run on main measures them. The owner's ceiling is 15 MB (2026-11-14).
 # 2026-11-14, CI's first run of the one build (PR #45, run 43588988185) replaces the estimates: 10,634,592 B, 183 packages, idle median
 # 10,488 KB (samples 10,488, 10,048, 10,576) plus 5% = 11,013 KB. docs/port/weight.md, "One build: CI's measurements".
+# 2026-11-15, the hand-off fix (PR #60): the protocol peer keeps its copy of a handed-over connection until the module has it (a map of held
+# copies and `Passable::hold`). CI measured +4,288 B on its own; that fits inside the estimate below, so the line below stands.
 # 2026-11-15, the registry in the console (Phase 10d) and the efficiency pass (correctness, idle, idioms): darwin arm64 8,001,408 B against
 # 7,735,920 B for the tree CI measured, whose ratio was 10,634,592 / 7,735,920 = 1.3747; so 10,999,559 B estimated on ubuntu x86_64, limit that
 # plus 5% = 11,549,536 B until CI's next run on main measures it. Packages 184: the one more line is `kafka-registry (*)`, a repeat entry now that
