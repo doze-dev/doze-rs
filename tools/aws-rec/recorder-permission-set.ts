@@ -32,6 +32,8 @@ const policy = {
         // not on the resource they name, and the scenarios call them.
         "events:PutPermission", "events:RemovePermission", "kinesis:UpdateShardCount", "lambda:CreateEventSourceMapping",
         "states:SendTaskSuccess", "states:SendTaskFailure", "states:SendTaskHeartbeat",
+        // Learned 2026-11-15 (verify-c): a missing mapping is read with GetEventSourceMapping on "*".
+        "lambda:GetEventSourceMapping",
         // Added 2026-11-12 for the KMS and Secrets Manager scenarios written before they were recorded: no resource, nothing stored.
         "kms:GenerateRandom", "secretsmanager:GetRandomPassword", "secretsmanager:ValidateResourcePolicy",
       ],
@@ -78,6 +80,10 @@ const policy = {
         `${A}:scheduler:${R}:*:schedule-group/${P}*`,
         // Learned 2026-11-15: DeleteScheduleGroup asks for scheduler:DeleteSchedule on every schedule of the group (schedule/<group>/*).
         `${A}:scheduler:${R}:*:schedule/${P}*/*`,
+        // Learned 2026-11-15 (verify-c): the refusals scenarios ask to delete the default bus and the default schedule group, which AWS
+        // refuses itself; without these the recorder's policy refuses first and the label records AccessDenied instead of AWS's answer.
+        `${A}:events:${R}:*:event-bus/default`,
+        `${A}:scheduler:${R}:*:schedule-group/default`,
         `${A}:lambda:${R}:*:function:${P}*`,
         `${A}:lambda:${R}:*:function:${P}*:*`,
         `${A}:lambda:${R}:*:layer:${P}*`,

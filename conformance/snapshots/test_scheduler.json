@@ -25,7 +25,7 @@
     "default-cannot-go": {
       "Error": {
         "Code": "AccessDeniedException",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: scheduler:DeleteScheduleGroup on resource: arn:aws:scheduler:us-east-1:<account>:schedule-group/default because no identity-based policy allows the scheduler:DeleteScheduleGroup action"
+        "Message": "User: <caller> is not authorized to perform: scheduler:DeleteScheduleGroup on resource: arn:aws:scheduler:us-east-1:<account>:schedule-group/default because no identity-based policy allows the scheduler:DeleteScheduleGroup action"
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 403
