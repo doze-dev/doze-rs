@@ -115,6 +115,7 @@ fn get(path: &str, query: &str) -> WebRequest {
         headers: Vec::new(),
         body: Vec::new().into(),
         endpoint: "http://localhost:4566".into(),
+        signature: aws_wire::service::WebSignature::Unsigned,
     }
 }
 

@@ -78,6 +78,7 @@ mod tests {
                 .collect(),
             body: bytes::Bytes::new(),
             endpoint: "http://127.0.0.1:4566".to_owned(),
+            signature: crate::service::WebSignature::Unsigned,
         }
     }
 
