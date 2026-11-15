@@ -96,7 +96,10 @@ mod tests {
         });
         let text = emit(&doc);
         assert_eq!(parse(&text).unwrap(), doc, "{text}");
-        assert!(text.lines().any(|l| l == "\"schemaVersion\": \"2.2\""), "{text}");
+        assert!(
+            text.lines().any(|l| l == "\"schemaVersion\": \"2.2\""),
+            "{text}"
+        );
     }
 
     #[test]
