@@ -306,13 +306,19 @@ mod tests {
     #[test]
     fn each_unchecked_type_is_said_with_its_reason() {
         let p = Paint::new(false);
-        let same = verdict(&[("postgres", "no answer"), ("valkey", "no answer")], "no answer");
+        let same = verdict(
+            &[("postgres", "no answer"), ("valkey", "no answer")],
+            "no answer",
+        );
         assert_eq!(
             same.human(p),
             "✓ doze.hcl passes the first pass: 2 modules\n  ! module blocks not checked (no answer): postgres, valkey\n"
         );
         let differ = verdict(
-            &[("postgres", "no answer within 3s"), ("valkey", "signature check failed")],
+            &[
+                ("postgres", "no answer within 3s"),
+                ("valkey", "signature check failed"),
+            ],
             "each type's build could not be had; the reasons follow",
         );
         assert_eq!(
