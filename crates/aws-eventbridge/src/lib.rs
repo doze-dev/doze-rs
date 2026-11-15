@@ -2,8 +2,9 @@
 //! retry policy and a dead-letter queue), archives and replay, connections and API destinations, tags and bus permissions, as a state
 //! machine behind a lazy actor per region. State is on disk and survives an idle reap and a restart.
 //!
-//! **Events** are delivered in the call that puts them, through the peer bus, to SQS queues, SNS topics, Kinesis streams, CloudWatch
-//! Logs groups and event buses of the region; to Step Functions state machines and Lambda functions. A target on any other service is
+//! **Events** are accepted by the call that puts them (written to disk first) and delivered after its answer, as on AWS, through the
+//! peer bus, to SQS queues, SNS topics, Kinesis streams, CloudWatch Logs groups and event buses of the region; to Step Functions state
+//! machines and Lambda functions. A target on any other service is
 //! stored and returned as sent, and **not delivered**: the log says so. An API destination is called with one HTTP request when its
 //! connection is Basic or API key (its endpoint `http://` or `https://`), from a task off the region's actor; OAuth connections
 //! are stored and not called.
@@ -123,7 +124,12 @@ impl Eventbridge {
                     // WHY: a failed save is the writer's to report; the next call finds the same state and says so.
                     drop(saved.await);
                 }
-                self.timers.arm(&region, &caller, &actor, answer.next_due);
+                self.timers.arm(
+                    &region,
+                    &caller,
+                    &actor,
+                    (answer.next_due, answer.generation),
+                );
             }
         }
     }
@@ -146,7 +152,12 @@ impl Eventbridge {
         {
             return Err(ApiError::internal(format!("could not save: {e}")));
         }
-        self.timers.arm(&region, &caller, &actor, answer.next_due);
+        self.timers.arm(
+            &region,
+            &caller,
+            &actor,
+            (answer.next_due, answer.generation),
+        );
         answer.reply
     }
 

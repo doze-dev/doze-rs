@@ -192,7 +192,8 @@ impl Core {
         self.archived.delete_range("", "\u{10ffff}");
         self.compiled.clear();
         self.due.clear();
-        self.retries.clear();
+        clear(&mut self.pending);
+        clear(&mut self.retries);
         self.purged.clear();
         self.last_caller = None;
         // WHY: a failed write is the writer's to report on the next call; the counts say what was asked.

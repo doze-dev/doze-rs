@@ -22,15 +22,6 @@
         "HTTPStatusCode": 409
       }
     },
-    "default-cannot-go": {
-      "Error": {
-        "Code": "AccessDeniedException",
-        "Message": "User: <caller> is not authorized to perform: scheduler:DeleteScheduleGroup on resource: arn:aws:scheduler:us-east-1:<account>:schedule-group/default because no identity-based policy allows the scheduler:DeleteScheduleGroup action"
-      },
-      "ResponseMetadata": {
-        "HTTPStatusCode": 403
-      }
-    },
     "delete-group": {
       "ResponseMetadata": {
         "HTTPStatusCode": 200

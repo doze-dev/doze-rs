@@ -1,9 +1,15 @@
-//! SSM Parameter Store: parameters with versions, labels, tags and paths, as a state machine behind a lazy actor. State is
-//! on disk, and survives an idle reap and a restart. The other half of SSM (Run Command, Automation, Session Manager,
-//! associations, inventory, patching, maintenance windows) is refused by name before its request is read.
+//! SSM: Parameter Store (parameters with versions, labels, tags and paths, and AWS's read-only public parameters under
+//! `/aws/service/`), documents (kept, versioned and shared, never run) and the service settings, as a state machine behind a lazy
+//! actor. State is on disk, and survives an idle reap and a restart. The other half of SSM (Run Command, Automation executions,
+//! Session Manager, associations, inventory, patching, maintenance windows) is refused by name before its request is read.
 
 mod authz;
 mod core;
+mod doc_share;
+mod doc_shown;
+mod doc_storage;
+mod document;
+mod documents;
 mod kms;
 mod label;
 mod list;
@@ -11,8 +17,10 @@ mod model;
 mod name;
 mod page;
 mod policy;
+mod public;
 mod read;
 mod reference;
+mod settings;
 mod storage;
 mod tags;
 mod write;

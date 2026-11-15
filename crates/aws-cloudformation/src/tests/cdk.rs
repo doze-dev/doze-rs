@@ -194,7 +194,10 @@ async fn the_bootstrap_stack_deploys_and_skips_only_the_registry() {
     let why = w
         .reason("CDKToolkit", "ContainerAssetsRepository", "CREATE_COMPLETE")
         .await;
-    assert!(why.starts_with("Not created locally"), "{why}");
+    assert!(
+        why.starts_with("Not created: doze-aws does not run ECR."),
+        "{why}"
+    );
 }
 
 #[tokio::test]

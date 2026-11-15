@@ -172,7 +172,8 @@ impl Sqs {
         answer.await.ok()
     }
 
-    fn regions(&self) -> Vec<String> {
+    /// The regions that hold something on disk.
+    pub(crate) fn regions(&self) -> Vec<String> {
         self.actors.keys_on_disk()
     }
 }

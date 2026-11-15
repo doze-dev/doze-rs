@@ -47,10 +47,14 @@ fn caller() -> Caller {
     }
 }
 
-/// The bodies of every message in the queue, parsed.
-async fn drain(peers: &Peers, url: &str) -> Vec<Value> {
+/// The bodies of the messages in the queue, parsed, once at least `want` have arrived (EventBridge delivers after it answers, so an
+/// event on the bus reaches the queue a moment after the request that made it), or after two seconds.
+async fn drain(peers: &Peers, url: &str, want: usize) -> Vec<Value> {
     let mut out = Vec::new();
-    for _ in 0..3 {
+    for _ in 0..100 {
+        if out.len() >= want {
+            break;
+        }
         let got = peers
             .call(
                 "test",
@@ -130,7 +134,7 @@ async fn events_reach_the_queue_that_the_configuration_names() {
         s3(addr, "PUT", "/watched?notification", &config(arn)).await,
         200
     );
-    let test = drain(&peers, &url).await;
+    let test = drain(&peers, &url, 1).await;
     assert_eq!(test.len(), 1, "{test:?}");
     assert_eq!(test[0]["Event"], "s3:TestEvent");
 
@@ -140,7 +144,7 @@ async fn events_reach_the_queue_that_the_configuration_names() {
         200
     );
     assert_eq!(s3(addr, "DELETE", "/watched/in/a.txt", "").await, 204);
-    let events = drain(&peers, &url).await;
+    let events = drain(&peers, &url, 2).await;
     let names: Vec<&str> = events
         .iter()
         .map(|e| e["Records"][0]["eventName"].as_str().unwrap())
@@ -219,7 +223,7 @@ async fn a_bucket_that_asks_for_it_puts_its_events_on_the_default_bus() {
     assert_eq!(s3(addr, "PUT", "/watched/in/a.txt", "hello").await, 200);
     assert_eq!(s3(addr, "DELETE", "/watched/in/a.txt", "").await, 204);
 
-    let events = drain(&peers, &url).await;
+    let events = drain(&peers, &url, 2).await;
     let kinds: Vec<(&str, &str)> = events
         .iter()
         .map(|e| {

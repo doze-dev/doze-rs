@@ -75,6 +75,7 @@ fn an_entry_for_a_bus_that_is_not_there_fails_the_call_and_the_time_may_be_given
         &json!({"Rule": "r", "Targets": [{"Id": "t", "Arn": q}]}),
     );
     w.ok("PutEvents", &json!({"Entries": [entry(&json!({"Time": 1_600_000_000, "Resources": ["arn:aws:x:::a", "arn:aws:x:::b"]}))]}));
+    w.deliver();
     let got = w.bodies("q");
     assert_eq!(got[0]["time"], "2020-09-13T12:26:40Z");
     assert_eq!(

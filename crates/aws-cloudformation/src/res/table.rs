@@ -10,6 +10,7 @@ pub(crate) fn create_only(ty: &str) -> &'static [&'static str] {
         "AWS::SNS::Subscription" => &["Endpoint", "Protocol", "TopicArn", "Region"],
         "AWS::SNS::TopicInlinePolicy" => &["TopicArn"],
         "AWS::SSM::Parameter" => &["Name"],
+        "AWS::SSM::Document" => &["Name", "DocumentType"],
         "AWS::S3::Bucket" => &["BucketName", "ObjectLockEnabled"],
         "AWS::S3::BucketPolicy" => &["Bucket"],
         "AWS::DynamoDB::Table" | "AWS::DynamoDB::GlobalTable" => {
@@ -133,6 +134,7 @@ pub(crate) fn name_property(ty: &str) -> Option<&'static str> {
         "AWS::SQS::Queue" => "QueueName",
         "AWS::SNS::Topic" => "TopicName",
         "AWS::SSM::Parameter"
+        | "AWS::SSM::Document"
         | "AWS::SecretsManager::Secret"
         | "AWS::Kinesis::Stream"
         | "AWS::Events::Rule"
@@ -160,7 +162,7 @@ pub(crate) fn identifiers(ty: &str) -> Option<Vec<&'static str>> {
     Some(vec![match ty {
         "AWS::SQS::Queue" => "QueueUrl",
         "AWS::SNS::Topic" => "TopicArn",
-        "AWS::SSM::Parameter" => "Name",
+        "AWS::SSM::Parameter" | "AWS::SSM::Document" => "Name",
         "AWS::S3::Bucket" | "AWS::S3::BucketPolicy" => "BucketName",
         "AWS::DynamoDB::Table" | "AWS::DynamoDB::GlobalTable" => "TableName",
         "AWS::IAM::Role" => "RoleName",

@@ -404,6 +404,7 @@ fn check_metric_alarm(r: &Req<'_>, math: bool) -> Result<Spec, ApiError> {
             "The value {treat} is not supported for TreatMissingData parameter. Supported values are [breaching, notBreaching, ignore, missing]."
         )));
     }
+    crate::period::check(r, math)?;
     if math {
         return Ok(Spec::default());
     }

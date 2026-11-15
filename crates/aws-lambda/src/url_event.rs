@@ -91,7 +91,7 @@ fn decode(s: &str) -> String {
 
 /// Whether a body of this type reaches the function as text. Recorded 2026-11-15: `text/plain`, `text/csv`, `application/json`
 /// and `application/xml` as text; `application/octet-stream`, `application/x-www-form-urlencoded`, `image/png` and a body with no
-/// type as base64 (the Go edition encoded only bodies that were not UTF-8). The `+json`/`+xml` suffixes and JavaScript are `(memory)`.
+/// type as base64. The `+json`/`+xml` suffixes and JavaScript are `(memory)`.
 fn is_text(content_type: Option<&str>) -> bool {
     let Some(t) = content_type else {
         return false;

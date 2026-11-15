@@ -1,5 +1,5 @@
-//! Tags on a parameter: `AddTagsToResource`, `RemoveTagsFromResource`, `ListTagsForResource`. Only the `Parameter` resource
-//! type is built; the others (managed instances, documents, maintenance windows) belong to the refused half of SSM.
+//! Tags on a parameter or a document: `AddTagsToResource`, `RemoveTagsFromResource`, `ListTagsForResource`. The other resource
+//! types (managed instances, maintenance windows) belong to the refused half of SSM.
 
 use aws_model_ssm::keys::{
     AddTagsToResourceRequest as Add, ListTagsForResourceRequest as List,
@@ -9,24 +9,34 @@ use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
 
 use crate::core::Core;
-use crate::model::Parameter;
 use aws_wire::handler::{empty, reply, request};
+use std::collections::BTreeMap;
 
 const MAX_TAGS: usize = 50;
 
 impl Core {
-    /// The parameter a tag call names. `kind` is the `ResourceType`.
-    fn tagged(&mut self, kind: &str, id: &str) -> Result<&mut Parameter, ApiError> {
-        if kind != "Parameter" {
-            return Err(ApiError::modeled(
-                "InvalidResourceType",
-                format!("The resource type {kind} is not built in doze-aws; only Parameter is."),
-            ));
-        }
+    /// The tags of the parameter or document a tag call names. `kind` is the `ResourceType`.
+    fn tagged(&mut self, kind: &str, id: &str) -> Result<&mut BTreeMap<String, String>, ApiError> {
         // AWS's message is empty (recorded 2026-11-15).
-        self.params
-            .get_mut(id)
-            .ok_or_else(|| ApiError::modeled("InvalidResourceId", ""))
+        let missing = || ApiError::modeled("InvalidResourceId", "");
+        match kind {
+            "Parameter" => self
+                .params
+                .get_mut(id)
+                .map(|p| &mut p.tags)
+                .ok_or_else(missing),
+            "Document" => self
+                .documents
+                .get_mut(id)
+                .map(|d| &mut d.tags)
+                .ok_or_else(missing),
+            _ => Err(ApiError::modeled(
+                "InvalidResourceType",
+                format!(
+                    "The resource type {kind} is not built in doze-aws; Parameter and Document are."
+                ),
+            )),
+        }
     }
 
     pub(crate) fn add_tags(&mut self, call: &Call) -> Reply {
@@ -43,18 +53,18 @@ impl Core {
                 .collect()
             })
             .unwrap_or_default();
-        let p = self.tagged(
+        let tags = self.tagged(
             v.get(Add::RESOURCE_TYPE).unwrap_or_default(),
             v.get(Add::RESOURCE_ID).unwrap_or_default(),
         )?;
-        let added = new.iter().filter(|(k, _)| !p.tags.contains_key(k)).count();
-        if p.tags.len() + added > MAX_TAGS {
+        let added = new.iter().filter(|(k, _)| !tags.contains_key(k)).count();
+        if tags.len() + added > MAX_TAGS {
             return Err(ApiError::modeled(
                 "TooManyUpdates",
                 "The number of tags on a parameter can't be more than 50.",
             ));
         }
-        p.tags.extend(new);
+        tags.extend(new);
         empty()
     }
 
@@ -64,24 +74,24 @@ impl Core {
             .get(Remove::TAG_KEYS)
             .map(Iterator::collect)
             .unwrap_or_default();
-        let p = self.tagged(
+        let tags = self.tagged(
             v.get(Remove::RESOURCE_TYPE).unwrap_or_default(),
             v.get(Remove::RESOURCE_ID).unwrap_or_default(),
         )?;
         for key in keys {
-            p.tags.remove(key);
+            tags.remove(key);
         }
         empty()
     }
 
     pub(crate) fn list_tags(&mut self, call: &Call) -> Reply {
         let v = request::<List>(call)?;
-        let p = self.tagged(
+        let tags = self.tagged(
             v.get(List::RESOURCE_TYPE).unwrap_or_default(),
             v.get(List::RESOURCE_ID).unwrap_or_default(),
         )?;
         let tags: Vec<(String, String)> =
-            p.tags.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+            tags.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
         reply::<Listed>(|o| {
             o.put_list(Listed::TAG_LIST, |l| {
                 for (k, v) in &tags {

@@ -419,3 +419,50 @@ def test_function_url(client, names, cleanup, snapshot, service_role, target, ev
                  "application/xml", "text/csv", None):
         status, seen, body = call(kind)
         snapshot.match(f"body-as-{kind or 'nothing'}", {"status": status, "event": json.loads(body)})
+
+
+def test_function_url_with_iam_auth_refuses_a_bad_signature(client, names, cleanup, snapshot, service_role, target,
+                                                            eventually):
+    """A function URL with AuthType AWS_IAM answers only a request signed with SigV4 for lambda: an unsigned one and one signed with
+    the wrong secret are refused with 403, one signed with the client's own credentials runs the function."""
+    import http.client
+    import urllib.parse
+
+    from botocore.auth import SigV4Auth
+    from botocore.awsrequest import AWSRequest
+    from botocore.credentials import Credentials
+
+    lam = client("lambda")
+    source = 'def handler(event, context):\n    return {"statusCode": 200, "body": "ran"}\n'
+    name, _ = function(lam, names, cleanup, service_role("lambda", BASIC), source)
+    made = lam.create_function_url_config(FunctionName=name, AuthType="AWS_IAM")
+    cleanup(lam.delete_function_url_config, FunctionName=name)
+    parts = urllib.parse.urlsplit(made["FunctionUrl"])
+    own = lam._request_signer._credentials.get_frozen_credentials()  # noqa: SLF001 - the client's own
+
+    def call(secret=None, sign=True):
+        request = AWSRequest(method="GET", url=f"{parts.scheme}://{parts.netloc}/", headers={"Host": parts.netloc})
+        if sign:
+            signer = Credentials(own.access_key, secret or own.secret_key, own.token)
+            SigV4Auth(signer, "lambda", lam.meta.region_name).add_auth(request)
+        if target.name == "aws":
+            conn = http.client.HTTPSConnection(parts.netloc, timeout=30)
+        else:
+            # doze serves the URL on its own address; the name only has to reach it.
+            conn = http.client.HTTPConnection(urllib.parse.urlsplit(target.endpoint).netloc, timeout=30)
+        conn.request("GET", "/", headers=dict(request.headers.items()))
+        resp = conn.getresponse()
+        return {"status": resp.status, "body": resp.read().decode()}
+
+    def ran():
+        got = call()
+        assert got["status"] == 200, got
+        return got
+
+    snapshot.match("signed", eventually(ran, timeout=60))
+    unsigned = call(sign=False)
+    assert unsigned["status"] == 403
+    snapshot.match("unsigned", {"status": unsigned["status"], "body": json.loads(unsigned["body"])})
+    bad = call(secret="not-the-secret-key")
+    assert bad["status"] == 403, bad
+    snapshot.match("bad-signature", {"status": bad["status"], "body": json.loads(bad["body"])})

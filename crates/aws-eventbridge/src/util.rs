@@ -58,3 +58,18 @@ pub(crate) fn tag_list(tags: &std::collections::BTreeMap<String, String>) -> Val
             .collect(),
     )
 }
+
+/// A JSON value kept on disk as its text (the record format cannot carry a self-describing value).
+pub(crate) mod json_text {
+    use serde::{Deserialize, Deserializer, Serializer};
+    use serde_json::Value;
+
+    pub(crate) fn serialize<S: Serializer>(v: &Value, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&v.to_string())
+    }
+
+    pub(crate) fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Value, D::Error> {
+        let text = String::deserialize(d)?;
+        serde_json::from_str(&text).map_err(serde::de::Error::custom)
+    }
+}
