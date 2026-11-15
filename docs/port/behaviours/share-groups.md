@@ -319,6 +319,30 @@ No share-partition, no session, no timer until one is used: the map and the cach
 alarm nothing has set (SG-41). A share group with nothing held costs no wake-up.
 Test: `tests/idle_upkeep.rs::the_share_lock_task_does_not_wake_while_nothing_is_held_and_wakes_once_when_a_lock_runs_out`.
 
+## How the rules are held
+
+Rule by rule: the share-partition, the session cache, the assignor and the group configs are pure code with a clock passed in,
+tested with a fake clock in `share/partition/tests.rs`, `share/sessions.rs`, `groups/share/tests.rs`,
+`groups/share/assign.rs` and `group_configs.rs`; the handlers end to end in `tests/share_groups.rs`; ACLs in
+`tests/authz_share.rs`; every offered version in `kafka-wire/tests/every_offered_version.rs` and `share_versions.rs`.
+Crashes: `tests/share_crash.rs` stops the simulated disk after each operation of an acknowledgement in turn, then kills the
+process (the disk keeps what was written) or cuts the power (it keeps what was flushed), and checks after each restart that the
+acknowledgement is done or not, done if it was answered, and that nothing is held; a failed write answers with an error and
+changes nothing; a share group's epochs and configs outlive a restart.
+
+A hand mutation check (2026-11-15): each change made alone, the unit tests of its part run, the file put back. All seven were
+caught.
+
+| Mutation | Caught by |
+|---|---|
+| the delivery limit off by one (`>=` to `>`, SG-35) | `a_record_released_after_its_last_delivery_is_archived` and two more |
+| a lock runs out after its deadline, not at it (SG-41) | `a_lock_that_runs_out_makes_the_records_available_again_at_the_same_delivery_count` |
+| the throttle limit rounded down (SG-36) | `a_stored_state_comes_back_with_nothing_held_and_its_gaps_fetched_first` |
+| RENEW (4) not an acknowledge type (SG-33) | `renewing_restarts_the_lock_and_moves_nothing_else` |
+| the session cache takes one more than its limit (SG-11) | `the_cache_is_full_at_its_limit_but_a_member_may_replace_its_own_session` |
+| a group config's upper bound left out of its range (SG-70) | `a_session_must_be_longer_than_the_heartbeat` |
+| the assignor's sharing factor rounded down (SG-22) | `partitions_are_spread_and_shared_when_there_are_more_members` |
+
 ## The oracle
 
 Kafka 4.4.0 (`kafka_2.13-4.4.0.tgz`, SHA-512 checked) on 127.0.0.1:39500, KRaft combined mode, `share.coordinator.state.topic.*`

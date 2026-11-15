@@ -16,8 +16,8 @@ use kafka_wire::api::{Request, Response};
 use kafka_wire::messages::join_group_request::JoinGroupRequestProtocol;
 use kafka_wire::messages::sync_group_request::SyncGroupRequestAssignment;
 use kafka_wire::messages::{
-    ConsumerGroupHeartbeatRequest, GroupId, JoinGroupRequest, JoinGroupResponse, SyncGroupRequest,
-    TopicName,
+    ConsumerGroupHeartbeatRequest, GroupId, JoinGroupRequest, JoinGroupResponse, ShareGroupHeartbeatRequest,
+    SyncGroupRequest, TopicName,
 };
 
 use crate::support_write::World;
@@ -155,6 +155,68 @@ pub async fn join_848(w: &World, group: &str, member: &str, topics: &[&str]) {
         panic!("not ConsumerGroupHeartbeat")
     };
     assert_eq!(r.error_code, 0, "{r:?}");
+}
+
+/// A share consumer (KIP-932) joins `group` as `member` reading `topic`; the topic's id, from its assignment.
+pub async fn join_share(w: &World, group: &str, member: &str, topic: &str) -> kafka_wire::Uuid {
+    let mut req = ShareGroupHeartbeatRequest::default();
+    req.group_id = GroupId(text(group));
+    req.member_id = text(member);
+    req.subscribed_topic_names = Some(vec![TopicName(text(topic))]);
+    let Response::ShareGroupHeartbeat(r) = w.ask(1, Request::ShareGroupHeartbeat(req)).await else {
+        panic!("not ShareGroupHeartbeat")
+    };
+    assert_eq!(r.error_code, 0, "{r:?}");
+    r.assignment.as_ref().and_then(|a| a.topic_partitions.first()).map(|t| t.topic_id).unwrap_or_else(|| panic!("no assignment: {r:?}"))
+}
+
+/// One ShareFetch (v1, no wait) of `partitions` of a topic at a share session epoch; the ranges acquired, by partition.
+pub async fn share_fetch(w: &World, group: &str, member: &str, epoch: i32, topic: kafka_wire::Uuid, partitions: &[i32]) -> Vec<(i32, i64, i64)> {
+    use kafka_wire::messages::ShareFetchRequest;
+    use kafka_wire::messages::share_fetch_request::{FetchPartition, FetchTopic};
+    let mut req = ShareFetchRequest::default();
+    req.group_id = Some(GroupId(text(group)));
+    req.member_id = Some(text(member));
+    req.share_session_epoch = epoch;
+    req.min_bytes = 1;
+    req.max_bytes = 1 << 20;
+    req.max_records = 500;
+    req.batch_size = 500;
+    let mut t = FetchTopic::default();
+    t.topic_id = topic;
+    t.partitions = partitions.iter().map(|p| { let mut x = FetchPartition::default(); x.partition_index = *p; x }).collect();
+    req.topics = vec![t];
+    let Response::ShareFetch(r) = w.ask(1, Request::ShareFetch(req)).await else {
+        panic!("not ShareFetch")
+    };
+    assert_eq!(r.error_code, 0, "{r:?}");
+    r.responses.iter().flat_map(|t| &t.partitions).flat_map(|p| p.acquired_records.iter().map(|a| (p.partition_index, a.first_offset, a.last_offset))).collect()
+}
+
+/// One ShareAcknowledge (v1) of a partition: `types` from `first` on, one each (1 accept, 2 release, 3 reject).
+pub async fn share_acknowledge(w: &World, group: &str, member: &str, epoch: i32, topic: kafka_wire::Uuid, partition: i32, first: i64, types: &[i8]) {
+    use kafka_wire::messages::ShareAcknowledgeRequest;
+    use kafka_wire::messages::share_acknowledge_request::{AcknowledgePartition, AcknowledgeTopic, AcknowledgementBatch};
+    let mut b = AcknowledgementBatch::default();
+    b.first_offset = first;
+    b.last_offset = first + i64::try_from(types.len()).unwrap() - 1;
+    b.acknowledge_types = types.to_vec();
+    let mut p = AcknowledgePartition::default();
+    p.partition_index = partition;
+    p.acknowledgement_batches = vec![b];
+    let mut t = AcknowledgeTopic::default();
+    t.topic_id = topic;
+    t.partitions = vec![p];
+    let mut req = ShareAcknowledgeRequest::default();
+    req.group_id = Some(GroupId(text(group)));
+    req.member_id = Some(text(member));
+    req.share_session_epoch = epoch;
+    req.topics = vec![t];
+    let Response::ShareAcknowledge(r) = w.ask(1, Request::ShareAcknowledge(req)).await else {
+        panic!("not ShareAcknowledge")
+    };
+    assert_eq!(r.error_code, 0, "{r:?}");
+    assert!(r.responses.iter().flat_map(|t| &t.partitions).all(|p| p.error_code == 0), "{r:?}");
 }
 
 /// Writes `n` small records to a partition.

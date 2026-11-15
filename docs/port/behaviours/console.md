@@ -1591,3 +1591,35 @@ the registry's global level, and the id counters. Tests: `the_all_and_everything
 would do and stop without `--yes`. Tests: `with_the_broker_running_it_reads_the_files_alone_and_the_actions_are_refused`,
 `with_the_broker_stopped_it_says_everything_and_the_wide_actions_wait_for_yes`,
 `data_reads_a_running_broker_and_empties_and_erases_a_stopped_one`, `the_command_line_asks_for_what_each_action_needs`.
+
+# Share groups on the Groups pages (KIP-932, 2026-11-15)
+
+A share group is a group kind of its own (`docs/port/behaviours/share-groups.md`): its members read the same partitions together
+and the broker hands each record to one of them at a time, under a lock. It commits no offset, so the pages show what it does
+have: the members and their epochs, and each share-partition's start, end and records in flight.
+
+## CON-1540. A share group is listed with its type and described by ShareGroupDescribe
+ListGroups names its type `share`; the list says "share (KIP-932)" and its epoch. DescribeGroups and ConsumerGroupDescribe
+answer a share group as not theirs, so the page asks ShareGroupDescribe: group epoch, assignment epoch, the assignor
+(`simple`) and each member with what it reads. Members shows four tiles (group epoch, assignment epoch, assignor, how many
+partitions are read by more than one member) and "Where a share group can be" (Empty or Stable: a share group revokes nothing).
+Tests: `live_api_groups::a_share_group_is_described_by_its_own_api_with_its_share_partitions`; file:
+`web/e2e/tests/share-groups.spec.ts`.
+
+## CON-1541. In place of lag, the share-partitions
+Each partition the group reads is a row: the start (SPSO, "not yet" before the first fetch), the end (SPEO), the log end, the
+records not yet done with, the records in flight as one bar by state (available, held, acknowledged, archived), the delivery
+counts, and who holds what. No request says this (DescribeShareGroupOffsets tells the start and the lag only), so it comes from
+`ConsoleView::share_group`: a share-partition in memory as it is now, under its lock; one not fetched since the broker started as it
+was stored, with nothing held. The log end is ListOffsets's; "not done with" is the log end less the start less what is acknowledged
+or archived past it. Nothing is kept between requests.
+Tests: `live_api_groups::a_share_group_is_described_by_its_own_api_with_its_share_partitions`; file:
+`web/e2e/tests/share-groups.spec.ts`.
+
+## CON-1542. The group's limits are said beside the table, from its configs
+The lock duration, the delivery limit (a record past it is archived, with how many are archived now), the records in flight per
+partition, where a partition starts when first read and the isolation are the group's own configs (`share.*`) or the broker's
+defaults, and the panel names the commands that change them (`kafka-configs --entity-type groups`,
+`kafka-share-groups --reset-offsets` while the group is empty). Tests:
+`live_api_groups::a_share_group_is_described_by_its_own_api_with_its_share_partitions`; file:
+`web/e2e/tests/share-groups.spec.ts`.

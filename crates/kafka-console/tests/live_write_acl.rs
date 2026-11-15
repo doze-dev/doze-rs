@@ -89,6 +89,8 @@ async fn a_get_never_asks_the_broker_to_change_anything() {
         ApiKey::ListGroups,
         ApiKey::DescribeGroups,
         ApiKey::ConsumerGroupDescribe,
+        // A share group (KIP-932) is described by its own API.
+        ApiKey::ShareGroupDescribe,
         ApiKey::OffsetFetch,
         ApiKey::ListTransactions,
         ApiKey::DescribeTransactions,
