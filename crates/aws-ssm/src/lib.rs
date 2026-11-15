@@ -13,6 +13,7 @@ mod page;
 mod policy;
 mod read;
 mod reference;
+mod storage;
 mod tags;
 mod write;
 
@@ -53,7 +54,10 @@ impl Ssm {
             .actors
             .actor(&call.caller.region)
             .map_err(|e| e.to_string())?;
-        actor.call(call).await.map_err(|e| e.to_string())
+        actor
+            .call(crate::core::Ask::Call(Box::new(call)))
+            .await
+            .map_err(|e| e.to_string())
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
@@ -75,6 +79,10 @@ impl Ssm {
 }
 
 impl Service for Ssm {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static aws_schema::meta::ServiceMeta {
         &META
     }
