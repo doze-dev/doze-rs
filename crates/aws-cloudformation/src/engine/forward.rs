@@ -188,6 +188,16 @@ impl Op {
     }
 
     async fn launch(&mut self, running: &mut JoinSet<Result3>, l: Launch) {
+        if let Class::Skip(cause) = &l.class
+            && self.warned.insert(l.ty.clone())
+        {
+            tracing::warn!(
+                "cloudformation: stack {}: {} ({}) not created: {cause}; the deploy goes on",
+                self.job.stack_name,
+                l.ty,
+                l.logical
+            );
+        }
         let verb = self.verb(&l);
         let physical = l
             .old

@@ -230,10 +230,10 @@ fn cloudformation_config(cfg: &Config) -> aws_cloudformation::Config {
             .map(|t| (t, Unsupported::Fail)),
     );
     aws_cloudformation::Config {
-        unsupported: match cfg.text("cfn-unsupported").as_str() {
-            "skip" => Unsupported::Skip,
-            "fail" => Unsupported::Fail,
-            _ => Unsupported::Default,
+        unsupported: if cfg.text("cfn-unsupported") == "fail" {
+            Unsupported::Fail
+        } else {
+            Unsupported::Skip
         },
         overrides,
         logical_names: cfg.switch("cfn-logical-names"),

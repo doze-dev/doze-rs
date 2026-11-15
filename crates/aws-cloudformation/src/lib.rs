@@ -61,22 +61,20 @@ use crate::web::Responses;
 /// The region whose files are kept in the service's directory itself.
 const HOME_REGION: &str = "us-east-1";
 
-/// What happens to a resource type that is not mapped.
+/// What happens to a resource type doze-aws does not make.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Unsupported {
-    /// Each type's own class: opaque infrastructure is skipped with a warning, behaviour-bearing types are refused (decision D5).
+    /// Accepted without being made: the resource completes with a status reason saying so, and the deploy logs a warning per type.
     #[default]
-    Default,
-    /// Every unmapped type is skipped with a warning on the resource.
     Skip,
-    /// Every unmapped type is refused.
+    /// Strict: refused before anything is made.
     Fail,
 }
 
 /// How CloudFormation behaves where a choice is the developer's.
 #[derive(Clone, Debug, Default)]
 pub struct Config {
-    /// The default for unmapped types.
+    /// What happens to types doze-aws does not make (skip by default; fail is strict mode).
     pub unsupported: Unsupported,
     /// Per-type overrides (`AWS::RDS::DBInstance` = skip), taking precedence over `unsupported`.
     pub overrides: Vec<(String, Unsupported)>,

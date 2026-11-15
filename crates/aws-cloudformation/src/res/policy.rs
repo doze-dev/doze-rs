@@ -1,7 +1,18 @@
-//! The class of every resource type (decision D5): **mapped** (made locally), **skipped** (opaque infrastructure with no behaviour an
-//! application can observe: accepted, given an identity, reported as not made), or **refused** (something an application would
-//! connect to, refused before anything is made, naming the resource and why). `Config` turns the default either way, for all types
-//! or one.
+//! The class of every resource type: **mapped** (made locally), **skipped** (accepted without being made: the resource reaches
+//! `CREATE_COMPLETE` with a status reason that says so, `Ref` and `Fn::GetAtt` give stable placeholders, and the deploy logs one
+//! warning per type), or **refused** before anything is made.
+//!
+//! A deploy never fails for a type of a service doze-aws does not run: an EC2 instance, an RDS database, a Cognito pool, an ECS
+//! service are skipped, whatever they are, because some of those services will never run here and a template that has them must
+//! still deploy what doze-aws does run. Strict mode (`--cfn-unsupported fail`) refuses every type that would be skipped, for
+//! people who want to know a template is not wholly local.
+//!
+//! Refused whatever the mode, as AWS refuses them: a type CloudFormation does not have (`Unrecognized resource types`, recorded as
+//! a `ValidationError` of template format), which here includes a type that is one or two letters from a type doze-aws makes
+//! (`AWS::Lambda::Funtion`, `AWS::Lamda::Function`); and a `AWS::Serverless::*` type without the transform. A near miss is refused
+//! rather than skipped because skipping it would deploy a stack without the function or queue the developer meant, and the failure
+//! would show later, far from its cause; the refusal names the type it is probably meant to be. A type of a family doze-aws runs that
+//! is not near one it makes is a real type not built yet (`AWS::SSM::Document`): it is skipped like any other.
 
 use serde_json::Value;
 
@@ -15,12 +26,12 @@ use crate::{Config, Unsupported};
 pub(crate) enum Class {
     /// Made locally through its service.
     Map,
-    /// Accepted unmade; the reason goes on the resource.
+    /// Accepted unmade, for this cause (`doze-aws does not run EC2`); [`reason`] is what goes on the resource.
     Skip(String),
     /// Refused before anything is made.
     Fail(String),
-    /// Not a type CloudFormation has.
-    Unknown,
+    /// Not a type CloudFormation has; the type it is probably meant to be, when one is near.
+    Unknown(Option<&'static str>),
 }
 
 /// The families whose types are made (some types of a family are skipped below).
@@ -45,7 +56,7 @@ const SERVED: &[&str] = &[
     "Scheduler",
 ];
 
-/// Types of a served family that are skipped (stored nowhere, reported on the resource), with why.
+/// Types of a served family that are skipped (stored nowhere, reported on the resource), with what doze-aws does not run of it.
 const SKIPPED: &[(&str, &str)] = &[
     ("AWS::SSM::Association", "SSM associations"),
     ("AWS::SSM::MaintenanceWindow", "SSM maintenance windows"),
@@ -122,130 +133,64 @@ const SKIPPED: &[(&str, &str)] = &[
     ),
 ];
 
-/// Families skipped whole: opaque infrastructure and governance (SCOPE.md section 3.1).
-const SKIPPED_FAMILIES: &[&str] = &[
-    "ApplicationAutoScaling",
-    "CloudFront",
-    "Route53",
-    "Route53Resolver",
-    "CertificateManager",
-    "WAF",
-    "WAFv2",
-    "WAFRegional",
-    "XRay",
-    "Config",
-    "CloudTrail",
-    "GuardDuty",
-    "Backup",
-    "SecurityHub",
-    "AccessAnalyzer",
-    "Inspector",
-    "InspectorV2",
-    "Macie",
-    "Detective",
-    "Budgets",
-    "CE",
-    "ResourceGroups",
-    "ServiceCatalog",
-    "SSO",
-    "Signer",
-    "ECR",
-    "Shield",
-    "FMS",
-    "NetworkFirewall",
-    "Organizations",
-    "ResourceExplorer2",
-    "Notifications",
-    "CodeStarNotifications",
-    "Synthetics",
-    "RUM",
-    "Evidently",
-    "ApplicationInsights",
-];
+/// The status reason of a resource skipped for `cause`: plainly, that it was not made and why.
+pub(crate) fn reason(cause: &str) -> String {
+    format!(
+        "Not created: {cause}. CloudFormation accepted the resource without making it; Ref and Fn::GetAtt give placeholders."
+    )
+}
 
-/// Types refused within a family that is otherwise skipped (EC2 compute, RDS databases).
-fn refused_within(ty: &str) -> bool {
-    matches!(
-        ty,
-        "AWS::EC2::Instance"
-            | "AWS::EC2::SpotFleet"
-            | "AWS::EC2::EC2Fleet"
-            | "AWS::EC2::Host"
-            | "AWS::EC2::CapacityReservation"
-            | "AWS::EC2::Volume"
-            | "AWS::EC2::VolumeAttachment"
-    ) || ty.starts_with("AWS::RDS::DB")
-        && !ty.ends_with("SubnetGroup")
-        && !ty.ends_with("ParameterGroup")
-        && !ty.ends_with("SecurityGroup")
-        || ty == "AWS::RDS::GlobalCluster"
-        || ty == "AWS::RDS::Integration"
+fn skipped(cause: &str) -> Class {
+    Class::Skip(cause.to_owned())
 }
 
 /// The class of `ty` before configuration.
 fn default_class(ty: &str) -> Class {
-    let skip = |what: &str| {
-        Class::Skip(format!(
-            "Not created locally by doze-aws: stored, not active ({what} have no local counterpart)"
-        ))
-    };
-    if ty.starts_with("Custom::") || crate::res::more::natively_made(ty) {
+    if ty.starts_with("Custom::") || crate::res::more::mapped(ty) {
         return Class::Map;
     }
     let mut parts = ty.split("::");
     let (Some(ns), Some(family), Some(_), None) =
         (parts.next(), parts.next(), parts.next(), parts.next())
     else {
-        return Class::Unknown;
+        return Class::Unknown(None);
     };
     if ns != "AWS" && ns != "Alexa" {
-        return Class::Unknown;
+        return Class::Unknown(None);
     }
     if let Some((_, what)) = SKIPPED.iter().find(|(t, _)| *t == ty) {
-        return skip(what);
+        return skipped(&format!("doze-aws runs {family} but not {what}"));
     }
     if family == "Serverless" {
         return Class::Fail(format!(
             "{ty} must be expanded by the AWS::Serverless-2016-10-31 transform; the template does not declare it"
         ));
     }
-    if SERVED.contains(&family) {
-        return if crate::res::more::mapped(ty) {
-            Class::Map
-        } else {
-            Class::Fail(format!(
-                "{ty} is unknown to this version of doze-aws ({family} itself is served)"
-            ))
-        };
+    if let Some(near) = crate::res::more::near_miss(ty) {
+        return Class::Unknown(Some(near));
     }
-    if refused_within(ty) {
-        return Class::Fail(format!(
-            "doze-aws does not serve {ty}: application code would connect to it"
+    if SERVED.contains(&family) {
+        return skipped(&format!(
+            "doze-aws runs {family} but does not make {ty} yet"
         ));
     }
-    if family == "EC2" || family == "RDS" || SKIPPED_FAMILIES.contains(&family) {
-        return skip(&format!("{family} resources"));
-    }
-    Class::Fail(format!("doze-aws does not serve {family}"))
+    skipped(&format!("doze-aws does not run {family}"))
 }
 
-/// The class of `ty` under `config`.
+/// The class of `ty` under `config`: a per-type setting first, then the mode.
 pub(crate) fn class(ty: &str, config: &Config) -> Class {
     let base = default_class(ty);
     let chosen = config
         .overrides
         .iter()
         .find(|(t, _)| t == ty)
-        .map_or(config.unsupported, |(_, u)| *u);
-    match (base, chosen) {
-        (Class::Fail(why), Unsupported::Skip) | (Class::Skip(why), Unsupported::Skip) => {
-            Class::Skip(format!(
-                "Not created locally by doze-aws: stored, not active ({why}; skipped by configuration)"
-            ))
+        .map(|(_, u)| *u);
+    match (base, chosen.unwrap_or(config.unsupported)) {
+        // A near miss is skipped only when the type is named on its own (`--cfn-skip`), never by the mode.
+        (Class::Unknown(Some(_)) | Class::Fail(_), Unsupported::Skip) if chosen.is_some() => {
+            skipped(&format!("{ty} is skipped by --cfn-skip"))
         }
-        (Class::Skip(why), Unsupported::Fail) => {
-            Class::Fail(format!("{why}; refused by configuration"))
-        }
+        (Class::Skip(cause), Unsupported::Fail) => Class::Fail(cause),
         (other, _) => other,
     }
 }
@@ -259,11 +204,17 @@ pub(crate) fn check(t: &Value, config: &Config) -> Result<(), ApiError> {
         return Ok(());
     };
     let mut unknown = Vec::new();
+    let mut hints = Vec::new();
     let mut refused = Vec::new();
     for (logical, r) in res {
         let ty = crate::tmpl::type_of(r);
         match class(ty, config) {
-            Class::Unknown => unknown.push(ty.to_owned()),
+            Class::Unknown(near) => {
+                unknown.push(ty.to_owned());
+                if let Some(near) = near {
+                    hints.push(format!("{ty} is probably {near}"));
+                }
+            }
             Class::Fail(why) => refused.push(format!("{logical} ({ty}): {why}")),
             Class::Map | Class::Skip(_) => {}
         }
@@ -271,16 +222,25 @@ pub(crate) fn check(t: &Value, config: &Config) -> Result<(), ApiError> {
     if !unknown.is_empty() {
         unknown.sort();
         unknown.dedup();
-        // (memory)
-        return Err(format(format!(
-            "Unrecognized resource types: [{}]",
-            unknown.join(", ")
-        )));
+        hints.sort();
+        hints.dedup();
+        // (memory) AWS's words; what follows them is doze-aws's.
+        let mut message = format!("Unrecognized resource types: [{}]", unknown.join(", "));
+        if !hints.is_empty() {
+            message.push_str(&format!(" ({})", hints.join("; ")));
+        }
+        return Err(format(message));
     }
     if !refused.is_empty() {
+        let strict = config.unsupported == Unsupported::Fail;
         return Err(template(format!(
-            "doze-aws refuses {}. Start doze-aws with --cfn-unsupported skip (or --cfn-skip <type>) to accept them unmade",
-            refused.join("; ")
+            "doze-aws refuses {}.{}",
+            refused.join("; "),
+            if strict {
+                " Strict mode (--cfn-unsupported fail) is on: start doze-aws without it, or with --cfn-skip <type>, to accept them unmade"
+            } else {
+                ""
+            }
         )));
     }
     Ok(())

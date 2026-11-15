@@ -195,10 +195,10 @@ pub(crate) const KEYS: &[Key] = &[
     ),
     key(
         "cfn-unsupported",
-        Kind::Choice(&["default", "skip", "fail"]),
-        "default",
+        Kind::Choice(&["skip", "fail"]),
+        "skip",
         "MODE",
-        "What CloudFormation does with resource types doze-aws does not make",
+        "Resource types doze-aws does not make: skip (created unmade, logged) or fail (strict: refuse the template)",
         SERVICES,
     ),
     key(
@@ -206,7 +206,7 @@ pub(crate) const KEYS: &[Key] = &[
         Kind::List,
         "",
         "TYPE",
-        "Resource types CloudFormation accepts unmade whatever their class",
+        "Resource types CloudFormation accepts unmade even in strict mode",
         SERVICES,
     ),
     key(
@@ -214,7 +214,7 @@ pub(crate) const KEYS: &[Key] = &[
         Kind::List,
         "",
         "TYPE",
-        "Resource types CloudFormation refuses whatever their class",
+        "Resource types CloudFormation refuses instead of skipping them",
         SERVICES,
     ),
     key(

@@ -251,52 +251,96 @@ async fn roles_and_policies_land_in_iam() {
 }
 
 #[tokio::test]
-async fn opaque_types_are_skipped_and_said_so_and_behaviour_bearing_ones_are_refused() {
+async fn types_of_services_doze_aws_does_not_run_are_skipped_and_the_deploy_goes_on() {
     let w = World::new();
     let t = json!({"Resources": {"V": {"Type": "AWS::EC2::VPC", "Properties": {"CidrBlock": "10.0.0.0/16"}},
         "S": {"Type": "AWS::EC2::Subnet", "Properties": {"VpcId": {"Ref": "V"}, "CidrBlock": "10.0.1.0/24"}},
-        "P": {"Type": "AWS::SSM::Parameter", "Properties": {"Type": "String", "Value": {"Ref": "S"}}}}});
+        "I": {"Type": "AWS::EC2::Instance", "Properties": {"ImageId": "ami-1", "SubnetId": {"Ref": "S"}}},
+        "Db": {"Type": "AWS::RDS::DBInstance", "Properties": {"DBInstanceClass": "db.t3.micro"}},
+        "Pool": {"Type": "AWS::Cognito::UserPool"},
+        "Doc": {"Type": "AWS::SSM::Document", "Properties": {"Content": {}}},
+        "P": {"Type": "AWS::SSM::Parameter", "Properties": {"Type": "String", "Value": {"Ref": "S"}}}},
+        "Outputs": {"Host": {"Value": {"Fn::GetAtt": ["Db", "Endpoint.Address"]}},
+            "PoolArn": {"Value": {"Fn::GetAtt": ["Pool", "Arn"]}}}});
     assert_eq!(w.create("s6", t, &[]).await, "CREATE_COMPLETE");
-    let why = w.reason("s6", "V", "CREATE_COMPLETE").await;
+    for (logical, cause) in [
+        ("V", "doze-aws does not run EC2"),
+        ("I", "doze-aws does not run EC2"),
+        ("Db", "doze-aws does not run RDS"),
+        ("Pool", "doze-aws does not run Cognito"),
+        ("Doc", "doze-aws runs SSM but not SSM documents"),
+    ] {
+        let why = w.reason("s6", logical, "CREATE_COMPLETE").await;
+        assert!(
+            why.starts_with(&format!("Not created: {cause}")),
+            "{logical}: {why}"
+        );
+    }
+    let out = w.outputs("s6").await;
     assert!(
-        why.starts_with("Not created locally by doze-aws: stored, not active"),
-        "{why}"
+        out["Host"].as_str().unwrap().ends_with(".invalid"),
+        "{out:?}"
     );
-    let refused = w
-        .cfn("CreateStack", json!({"StackName": "s7", "TemplateBody": json!({"Resources": {"Db": {"Type": "AWS::RDS::DBInstance"}}}).to_string()}))
-        .await
-        .unwrap_err();
     assert!(
-        refused.message.contains("Db (AWS::RDS::DBInstance)"),
-        "{}",
-        refused.message
+        out["PoolArn"]
+            .as_str()
+            .unwrap()
+            .starts_with("arn:aws:cognito:"),
+        "{out:?}"
     );
+    // A family nobody has heard of is a service doze-aws does not run, too; a type with no family is not a type.
+    let t = json!({"Resources": {"X": {"Type": "AWS::Nope::Thing"}}});
+    assert_eq!(w.create("s7", t, &[]).await, "CREATE_COMPLETE");
     let unknown = w
-        .cfn("CreateStack", json!({"StackName": "s8", "TemplateBody": json!({"Resources": {"X": {"Type": "AWS::Nope::Thing"}}}).to_string()}))
+        .cfn("CreateStack", json!({"StackName": "s8", "TemplateBody": json!({"Resources": {"X": {"Type": "AWS::Nope"}}}).to_string()}))
         .await
         .unwrap_err();
-    assert!(
-        unknown.message.contains("doze-aws does not serve Nope"),
-        "{}",
-        unknown.message
+    assert_eq!(
+        unknown.message,
+        "Template format error: Unrecognized resource types: [AWS::Nope]"
     );
 }
 
 #[tokio::test]
-async fn a_switch_skips_what_is_refused_by_default() {
+async fn a_near_miss_of_a_type_doze_aws_makes_is_refused_as_aws_refuses_it_with_the_type_it_is_probably()
+ {
+    let w = World::new();
+    for (ty, meant) in [
+        ("AWS::Lambda::Funtion", "AWS::Lambda::Function"),
+        ("AWS::Lamda::Function", "AWS::Lambda::Function"),
+        ("AWS::SQS::queue", "AWS::SQS::Queue"),
+    ] {
+        let refused = w
+            .cfn("CreateStack", json!({"StackName": "n1", "TemplateBody": json!({"Resources": {"F": {"Type": ty}}}).to_string()}))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            refused.message,
+            format!(
+                "Template format error: Unrecognized resource types: [{ty}] ({ty} is probably {meant})"
+            )
+        );
+    }
+}
+
+#[tokio::test]
+async fn strict_mode_refuses_what_would_be_skipped_and_a_type_named_alone_is_skipped() {
     let w = World::with(crate::Config {
-        unsupported: crate::Unsupported::Skip,
+        unsupported: crate::Unsupported::Fail,
+        overrides: vec![("AWS::EC2::VPC".into(), crate::Unsupported::Skip)],
         ..crate::Config::default()
     });
-    let t = json!({"Resources": {"Db": {"Type": "AWS::RDS::DBInstance", "Properties": {"DBInstanceClass": "db.t3.micro"}}},
-        "Outputs": {"Host": {"Value": {"Fn::GetAtt": ["Db", "Endpoint.Address"]}}}});
-    assert_eq!(w.create("s9", t, &[]).await, "CREATE_COMPLETE");
+    let refused = w
+        .cfn("CreateStack", json!({"StackName": "s9", "TemplateBody": json!({"Resources": {"Db": {"Type": "AWS::RDS::DBInstance"}}}).to_string()}))
+        .await
+        .unwrap_err();
     assert!(
-        w.outputs("s9").await["Host"]
-            .as_str()
-            .unwrap()
-            .ends_with(".invalid")
+        refused.message.starts_with("Template error: doze-aws refuses Db (AWS::RDS::DBInstance): doze-aws does not run RDS. Strict mode"),
+        "{}",
+        refused.message
     );
+    let t = json!({"Resources": {"V": {"Type": "AWS::EC2::VPC", "Properties": {"CidrBlock": "10.0.0.0/16"}}}});
+    assert_eq!(w.create("s10", t, &[]).await, "CREATE_COMPLETE");
 }
 
 #[tokio::test]
