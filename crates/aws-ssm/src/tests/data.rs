@@ -95,7 +95,16 @@ fn a_parameter_with_history_is_listed_and_its_old_versions_removed() {
     assert_eq!(golden["Parameter"]["Version"], 3);
     let history = w.ok("GetParameterHistory", &json!({"Name": "/app/config"}));
     assert_eq!(history["Parameters"].as_array().unwrap().len(), 2);
+}
 
+#[test]
+fn other_prunes_and_unknown_parameters_are_refused() {
+    let dir = temp();
+    let mut w = on_disk(dir.path());
+    w.ok(
+        "PutParameter",
+        &json!({"Name": "/app/config", "Value": "x", "Type": "String"}),
+    );
     for prune in [
         Prune::default(),
         Prune {

@@ -94,7 +94,14 @@ async fn a_machine_is_measured_emptied_of_ended_executions_and_its_space_given_b
     let w = World::at(dir);
     let listed = w.ok("ListExecutions", json!({"stateMachineArn": m})).await;
     assert_eq!(listed["executions"].as_array().unwrap().len(), 1);
+    w.stop().await;
+}
 
+#[tokio::test]
+async fn other_prunes_and_unknown_machines_are_refused() {
+    let w = World::new();
+    let m = w.machine("busy", pass(1)).await;
+    w.run(&m, json!({})).await;
     let prefix = Prune {
         prefix: Some("a".into()),
         ..Prune::default()
