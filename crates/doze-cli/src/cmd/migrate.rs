@@ -68,21 +68,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &OneName) -> Outcome {
         &crate::cmd::declared::names(&cfg),
         std::slice::from_ref(&name),
     )?;
-    let (ty, version) = match cfg.instance(&name) {
-        Some(i) if i.kind() == Kind::Module => (i.ty.clone(), i.version.clone()),
-        Some(i) => {
-            let kind = i.kind().as_str();
-            return Err(Diagnostic::new(
-                ids::NOTHING_TO_DO,
-                format!(
-                    "{name} is {} {kind}; doze migrate moves a module's data between majors",
-                    crate::cmd::connect::article(kind)
-                ),
-            )
-            .fix(format!("doze reset {name} starts it fresh instead")));
-        }
-        None => return Err(stack::not_in(&crate::cmd::declared::names(&cfg), &name)),
-    };
+    let (ty, version) = module_of(&cfg, &name)?;
     let conn = stack.open(mode.timeout)?;
     // A Go daemon (no `plan` op) has no migrate call: refused before anything, its blocks record (Go's prints are made
     // another way) never read as a reason to stop it.
@@ -109,11 +95,54 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &OneName) -> Outcome {
             Vec::new(),
         ),
     };
+    let answer = moved(ctx, mode, (&stack, conn), &name, &again);
+    let started = before == Before::Start;
+    if started {
+        // Started for the move only: stopped again, as `sync` stops what it starts (Go's migrate ran with doze down).
+        crate::cmd::sync::stop(ctx, &stack)?;
+    }
+    let answer = answer?;
+    Ok(Done::ok(View::Migrated(Migrated {
+        name,
+        result: answer.result,
+        restarted: before == Before::Restart,
+        started,
+    })))
+}
+
+/// `name`'s module type and declared version; refused for what is not a module instance.
+fn module_of(cfg: &doze_config::Config, name: &str) -> Result<(String, String), Diagnostic> {
+    match cfg.instance(name) {
+        Some(i) if i.kind() == Kind::Module => Ok((i.ty.clone(), i.version.clone())),
+        Some(i) => {
+            let kind = i.kind().as_str();
+            Err(Diagnostic::new(
+                ids::NOTHING_TO_DO,
+                format!(
+                    "{name} is {} {kind}; doze migrate moves a module's data between majors",
+                    crate::cmd::connect::article(kind)
+                ),
+            )
+            .fix(format!("doze reset {name} starts it fresh instead")))
+        }
+        None => Err(stack::not_in(&crate::cmd::declared::names(cfg), name)),
+    }
+}
+
+/// Asks for the move and waits for it (Ctrl-C ends the wait), with its progress; then wakes `again` (what a restart
+/// stopped). The module's answer, or why there is none. The connection is closed on return.
+fn moved(
+    ctx: &mut Ctx<'_>,
+    mode: &Mode,
+    (stack, conn): (&Stack, Connection),
+    name: &str,
+    again: &[String],
+) -> Result<doze_control::Response, Diagnostic> {
     let ask = Asker::new(conn, ctx, mode);
     let log = (stack.run_dir().log_file(), ctx.term.stderr && !mode.json);
-    let mut boot = Boot::begin_as(ctx.err, mode.err(), log, &name, "migrating");
+    let mut boot = Boot::begin_as(ctx.err, mode.err(), log, name, "migrating");
     let asked = ask.call_while(
-        Request::on(Op::Migrate, &name),
+        Request::on(Op::Migrate, name),
         mode.timeout.max(MIGRATE_TIMEOUT),
         &mut || boot.poll(ctx.err),
     );
@@ -126,14 +155,14 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &OneName) -> Outcome {
         .note("the daemon finishes the move; doze logs shows how it went")
         .fix(format!("doze logs {name}")),
         Stop::Failed(Error::Daemon { message, .. }) if message.starts_with("unknown op") => {
-            go_daemon(&name)
+            go_daemon(name)
         }
         // The module and the daemon name the instance in their words already.
         Stop::Failed(e) => stack::daemon_error(&e, None),
     });
     // What was awake before a restart wakes again once the move is over (before it, a dependant would wake the
     // instance on the new major with the old data).
-    for n in &again {
+    for n in again {
         if let Err(stop) = ask.verb(Verb::Wake, n) {
             let why = match stop {
                 Stop::Interrupted => "interrupted".to_owned(),
@@ -146,19 +175,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &OneName) -> Outcome {
             );
         }
     }
-    let started = before == Before::Start;
-    if started {
-        // Started for the move only: stopped again, as `sync` stops what it starts (Go's migrate ran with doze down).
-        drop(ask);
-        crate::cmd::sync::stop(ctx, &stack)?;
-    }
-    let answer = answer?;
-    Ok(Done::ok(View::Migrated(Migrated {
-        name,
-        result: answer.result,
-        restarted: before == Before::Restart,
-        started,
-    })))
+    answer
 }
 
 /// `--dry-run`: the daemon's start or restart, then the move.
