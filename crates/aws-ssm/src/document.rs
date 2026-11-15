@@ -259,9 +259,9 @@ pub(crate) fn read(content: &str, format: &str, kind: &str) -> Result<Read, ApiE
             "mainSteps"
         });
         if kind != "Policy" && kind != "Package" && !map.contains_key(needs) {
-            // (memory)
+            // Recorded for mainSteps (test_ssm.py::test_document_content_is_checked); the same form for the others (memory).
             return Err(invalid_content(format!(
-                "{needs} is missing from the document."
+                "Missing \"{needs}\" in the document."
             )));
         }
     }

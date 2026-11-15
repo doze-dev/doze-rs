@@ -320,7 +320,7 @@ def test_document_lifecycle(client, names, cleanup, snapshot):
 
 def test_document_content_is_checked(client, names, cleanup, snapshot):
     ssm = client("ssm")
-    for label in ("not-json", "bad-schema", "no-steps", "reserved"):
+    for label in ("not-json", "bad-schema", "no-steps"):
         cleanup(ssm.delete_document, Name=names(label))
     snapshot.error("not-json", lambda: ssm.create_document(Name=names("not-json"), Content="{nope",
                                                           DocumentType="Command"))
@@ -328,13 +328,21 @@ def test_document_content_is_checked(client, names, cleanup, snapshot):
         Name=names("bad-schema"), Content='{"schemaVersion":"9.9","mainSteps":[]}', DocumentType="Command"))
     snapshot.error("no-steps", lambda: ssm.create_document(
         Name=names("no-steps"), Content='{"schemaVersion":"2.2"}', DocumentType="Command"))
-    snapshot.error("reserved-prefix", lambda: ssm.create_document(Name="AWS-ConformanceNotYours", Content=SHELL_DOC))
     yaml = "schemaVersion: '0.3'\nmainSteps:\n  - name: wait\n    action: aws:sleep\n    inputs:\n      Duration: PT1S\n"
     auto = names("auto")
     cleanup(ssm.delete_document, Name=auto)
     snapshot.match("yaml-automation", ssm.create_document(
         Name=auto, Content=yaml, DocumentType="Automation", DocumentFormat="YAML"),
         opaque=("CreatedDate", "Hash", "Owner"))
+
+
+def test_document_names_aws_reserves(client, snapshot, target):
+    # Not recorded on purpose: the recorder may make only its own conformance names, so on AWS its own policy refuses an AWS-
+    # name first ("no identity-based policy allows the ssm:CreateDocument action") and SSM's answer is never reached.
+    if target.name == "aws":
+        pytest.skip("the recorder's policy refuses ssm:CreateDocument outside its own names before SSM's own check")
+    ssm = client("ssm")
+    snapshot.error("reserved-prefix", lambda: ssm.create_document(Name="AWS-ConformanceNotYours", Content=SHELL_DOC))
 
 
 TIER = "/ssm/parameter-store/default-parameter-tier"

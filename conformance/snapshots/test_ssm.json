@@ -114,15 +114,6 @@
         "HTTPStatusCode": 400
       }
     },
-    "reserved-prefix": {
-      "Error": {
-        "Code": "AccessDeniedException",
-        "Message": "User: <caller> is not authorized to perform: ssm:CreateDocument on resource: arn:aws:ssm:us-east-1::document/AWS-ConformanceNotYours because no identity-based policy allows the ssm:CreateDocument action"
-      },
-      "ResponseMetadata": {
-        "HTTPStatusCode": 400
-      }
-    },
     "yaml-automation": {
       "DocumentDescription": {
         "CreatedDate": "<CreatedDate:1>",
