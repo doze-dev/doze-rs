@@ -7,6 +7,7 @@ import { RotateCcwIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { ApiFailure } from "@/api/client";
 import { groupKeys, useGroup } from "@/api/groups";
 import type { GroupHead } from "@/api/types/GroupHead";
+import type { GroupShareView } from "@/api/types/GroupShareView";
 import { Combobox } from "@/components/app/combobox";
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
@@ -34,13 +35,22 @@ function pills(h: GroupHead): string[] {
   return out;
 }
 
-function stats(h: GroupHead): Stat[] {
+function stats(h: GroupHead, share: GroupShareView | null): Stat[] {
   // State and generation are the pills under the h1: said once.
+  if (share) {
+    // A share group commits nothing: what it holds and what it gave up on take the commits' places.
+    const held = share.rows.reduce((n, r) => n + r.acquired, 0);
+    const archived = share.rows.reduce((n, r) => n + r.archived, 0);
+    return [
+      { label: "Members", value: number(h.members.length), ch: 4 },
+      { label: "Not done with", value: number(h.lag_total), unit: "records", ch: 9 },
+      { label: "Held", value: number(held), unit: "records under a lock", ch: 9 },
+      { label: "Archived", value: number(archived), unit: "never delivered again", ch: 9 },
+    ];
+  }
   return [
     { label: "Members", value: number(h.members.length), ch: 4 },
-    h.protocol === "share"
-      ? { label: "Not done with", value: number(h.lag_total), unit: "records", ch: 9 }
-      : { label: "Lag", value: number(h.lag_total), unit: "records behind", ch: 9 },
+    { label: "Lag", value: number(h.lag_total), unit: "records behind", ch: 9 },
     { label: "Committed", value: number(h.commits), unit: h.commits === 1 ? "partition" : "partitions", ch: 4 },
     h.last_commit_ms !== null ? { label: "Last commit", value: stamp(h.last_commit_ms, h.now_ms), unit: "UTC", mono: true, ch: 11 } : { label: "Last commit", value: "never", mono: true, ch: 11 },
   ];
@@ -179,12 +189,17 @@ export function GroupLayout() {
         }
         actions={
           <>
-            <Button variant="outline" className="bg-card" onClick={(e) => openDialog("reset", e.currentTarget)} data-testid="open-reset">
-              <RotateCcwIcon /> Reset offsets
-            </Button>
-            <Button variant="outline" className="bg-card" onClick={(e) => openDialog("delete-offsets", e.currentTarget)} data-testid="open-delete-offsets">
-              <Trash2Icon /> Delete offsets
-            </Button>
+            {/* A share group commits no offset: its starts are moved with kafka-share-groups (the Lag tab says how). */}
+            {h?.protocol !== "share" && (
+              <>
+                <Button variant="outline" className="bg-card" onClick={(e) => openDialog("reset", e.currentTarget)} data-testid="open-reset">
+                  <RotateCcwIcon /> Reset offsets
+                </Button>
+                <Button variant="outline" className="bg-card" onClick={(e) => openDialog("delete-offsets", e.currentTarget)} data-testid="open-delete-offsets">
+                  <Trash2Icon /> Delete offsets
+                </Button>
+              </>
+            )}
             <Button variant="outline" className="border-bad/40 bg-card text-bad hover:bg-bad/5 hover:text-bad" onClick={(e) => openDialog("delete", e.currentTarget)} data-testid="open-delete">
               <Trash2Icon /> Delete group
             </Button>
@@ -193,7 +208,7 @@ export function GroupLayout() {
       />
       {h ? (
         <>
-          <StatStrip stats={stats(h)} className="mb-6" />
+          <StatStrip stats={stats(h, res.data?.share ?? null)} className="mb-6" />
           <Switch h={h} tail={tab.tail} />
           <Tabs h={h} />
           <Outlet />

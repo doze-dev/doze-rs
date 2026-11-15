@@ -25,7 +25,7 @@ function inFlight(r: ShareRow): number {
 /** The records in flight as one bar of four parts, and the counts under it. */
 function FlightCell({ r }: { r: ShareRow }) {
   const all = inFlight(r);
-  if (all === 0) return <span className="text-muted-foreground">nothing in flight</span>;
+  if (all === 0) return <span className="text-muted-foreground">none</span>;
   return (
     <div className="flex min-w-0 flex-col gap-1" data-testid="share-flight">
       <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-track" aria-hidden>
@@ -46,28 +46,28 @@ function deliveries(r: ShareRow, limit: number): string {
 }
 
 function holders(r: ShareRow): string {
-  if (r.holders.length === 0) return r.live ? "nobody" : "nobody (read again at the next fetch)";
+  if (r.holders.length === 0) return "nobody";
   if (r.holders.length === 1) return `${r.holders[0][0]} (${number(r.holders[0][1])})`;
   return `${r.holders.length} members`;
 }
 
 function columns(v: GroupShareView): DataColumn<ShareRow>[] {
   return [
-    { id: "partition", header: "Partition", size: 170, accessorFn: (r) => `${r.topic}-${r.partition}`, meta: { mono: true } },
-    { id: "start", header: "Start (SPSO)", size: 120, accessorFn: (r) => (r.start === null ? "not yet" : number(r.start)), meta: { numeric: true, mono: true } },
-    { id: "end", header: "End (SPEO)", size: 110, accessorFn: (r) => (r.end === null ? "—" : number(r.end)), meta: { numeric: true, mono: true } },
-    { id: "log", header: "Log end", size: 100, accessorFn: (r) => (r.log_end === null ? "—" : number(r.log_end)), meta: { numeric: true, mono: true } },
+    { id: "partition", header: "Partition", size: 140, accessorFn: (r) => `${r.topic}-${r.partition}`, meta: { mono: true } },
+    { id: "start", header: "Start", size: 90, accessorFn: (r) => (r.start === null ? "not yet" : number(r.start)), meta: { numeric: true, mono: true } },
+    { id: "end", header: "End", size: 90, accessorFn: (r) => (r.end === null ? "—" : number(r.end)), meta: { numeric: true, mono: true } },
+    { id: "log", header: "Log end", size: 90, accessorFn: (r) => (r.log_end === null ? "—" : number(r.log_end)), meta: { numeric: true, mono: true } },
     {
       id: "lag",
       header: "Not done with",
-      size: 170,
+      size: 150,
       accessorFn: (r) => r.lag ?? -1,
       cell: ({ row: { original: r } }) =>
-        r.lag === null ? <StatusDot tone="idle">starts at its first fetch</StatusDot> : <LagBar pct={r.log_end ? (r.lag * 100) / Math.max(1, r.log_end) : 0} n={r.lag} />,
+        r.lag === null ? <StatusDot tone="idle">at its first fetch</StatusDot> : <LagBar pct={r.log_end ? (r.lag * 100) / Math.max(1, r.log_end) : 0} n={r.lag} />,
     },
     { id: "flight", header: "In flight", accessorFn: inFlight, cell: ({ row: { original: r } }) => <FlightCell r={r} /> },
-    { id: "deliveries", header: "Deliveries", size: 170, accessorFn: (r) => deliveries(r, v.delivery_limit), meta: { mono: true } },
-    { id: "held", header: "Held by", size: 190, accessorFn: holders, meta: { mono: true } },
+    { id: "deliveries", header: "Deliveries", size: 110, accessorFn: (r) => deliveries(r, v.delivery_limit), meta: { mono: true } },
+    { id: "held", header: "Held by", size: 150, accessorFn: holders, meta: { mono: true } },
   ];
 }
 
@@ -86,10 +86,10 @@ export function ShareLag({ v }: { v: GroupLagView }) {
       ) : (
         <DataTable data={s.rows} columns={columns(s)} rowId={(r) => `${r.topic}-${r.partition}`} aria-label={`Share-partitions of ${v.head.id}`} maxHeight={520} />
       )}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <Callout data-testid="share-explain">
           <b className="font-semibold text-bright">A share group commits no offset.</b> Its members read the same partitions together, and each record goes to one of them at a time: acquired under a lock of {span(s.lock_ms)}, then accepted,
-          released (to be delivered again) or rejected. The start moves past every record that is done with; the records between the start and the end are in flight.
+          released (to be delivered again) or rejected. The start (SPSO) moves past every record that is done with; the records from the start to the end (SPEO) are in flight.
           {soonest !== null && ` The soonest lock runs out in ${span(Math.max(0, soonest))}.`}
         </Callout>
         <Panel title="What the group is held to">

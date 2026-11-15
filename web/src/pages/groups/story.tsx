@@ -47,7 +47,7 @@ function What({ g }: { g: StoryGen }) {
       body = (
         <>
           <Who w={w} />
-          {g.before === 0 ? " joined an empty group and led it." : " joined."}
+          {g.before === 0 ? (g.protocol === "classic" ? " joined an empty group and led it." : " joined an empty group.") : " joined."}
           {members}
         </>
       );
