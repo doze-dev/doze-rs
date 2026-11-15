@@ -15,6 +15,7 @@ mod data;
 mod kms;
 mod persistence;
 mod refusals;
+mod replicas;
 mod rotation;
 mod secrets;
 
@@ -137,15 +138,11 @@ fn replication_is_refused_by_name() {
         "BatchGetSecretValue",
         "RotateSecret",
         "CancelRotateSecret",
-    ] {
-        assert!(w.h.serves(op), "{op} is built");
-    }
-    for op in [
         "ReplicateSecretToRegions",
         "RemoveRegionsFromReplication",
         "StopReplicationToReplica",
     ] {
-        assert!(!w.h.serves(op), "{op} is refused");
+        assert!(w.h.serves(op), "{op} is built");
     }
 }
 

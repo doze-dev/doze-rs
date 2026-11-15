@@ -4,7 +4,7 @@
 
 use aws_peers::envelope;
 use aws_wire::ApiError;
-use aws_wire::service::Call;
+use aws_wire::service::Caller;
 use serde_json::{Value, json};
 
 use crate::core::Core;
@@ -33,7 +33,7 @@ impl Core {
     /// Seals `plain` as version `version` of `secret`.
     pub(crate) async fn kms_seal(
         &self,
-        call: &Call,
+        caller: &Caller,
         secret: &Secret,
         version: &str,
         plain: &[u8],
@@ -43,7 +43,7 @@ impl Core {
         envelope::seal(
             peers,
             "secretsmanager",
-            &call.caller,
+            caller,
             key,
             &context(&secret.arn, version),
             plain,
@@ -55,7 +55,7 @@ impl Core {
     /// Opens what [`Core::kms_seal`] made.
     pub(crate) async fn kms_open(
         &self,
-        call: &Call,
+        caller: &Caller,
         secret: &Secret,
         version: &str,
         stored: &[u8],
@@ -64,7 +64,7 @@ impl Core {
         envelope::open(
             peers,
             "secretsmanager",
-            &call.caller,
+            caller,
             &context(&secret.arn, version),
             stored,
         )
