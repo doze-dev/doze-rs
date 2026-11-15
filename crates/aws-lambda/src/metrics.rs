@@ -10,7 +10,12 @@
 //!
 //! From AWS's documentation and memory, not a recording: the dimension sets, `Errors` as a 0 or 1 per invocation (so its average is
 //! the error rate), `Throttles` counted apart from `Invocations`, `Resource` naming an unqualified or `$LATEST` invocation by the
-//! function's name alone. Not built: `ConcurrentExecutions`, `IteratorAge`, the async and event source mapping metrics.
+//! function's name alone.
+//!
+//! `ConcurrentExecutions` (AWS: "the number of function instances that are processing events"; read it by `Maximum`) is the most
+//! invocations in flight in each minute, by `FunctionName` and across the region's functions (no dimensions), sampled as each
+//! invocation begins: a minute in which none begins but one is still running has no point (memory: the dimension sets). Not built:
+//! `IteratorAge`, the async and event source mapping metrics.
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -79,6 +84,8 @@ struct Slot {
     errors: u64,
     throttles: u64,
     durations: Vec<f64>,
+    /// The most invocations in flight seen this minute.
+    concurrent: u64,
 }
 
 /// Minute, region, account, dimensions: the oldest minute sorts first.
@@ -152,6 +159,24 @@ impl Meter {
         }
     }
 
+    /// Notes the invocations in flight as one begins: `this` of the function, `all` of the region.
+    pub(crate) fn concurrent(&self, t: &Target, at_ms: i64, this: usize, all: usize) {
+        let minute = at_ms - at_ms.rem_euclid(60_000);
+        let mut slots = self.slots.lock().unwrap_or_else(PoisonError::into_inner);
+        let f = vec![("FunctionName".to_owned(), t.function.clone())];
+        for (dims, n) in [(Vec::new(), all), (f, this)] {
+            let s = slots
+                .entry((minute, t.region.clone(), t.account.clone(), dims))
+                .or_default();
+            s.concurrent = s.concurrent.max(u64::try_from(n).unwrap_or(u64::MAX));
+        }
+        while slots.len() > MAX_SLOTS {
+            if slots.pop_first().is_none() {
+                break;
+            }
+        }
+    }
+
     /// Hands over, and forgets, what is held for `region`: one `PutMetricData` request per account, of at most 1,000 data points.
     pub(crate) fn take(&self, region: &str) -> Vec<Made> {
         let mut slots = self.slots.lock().unwrap_or_else(PoisonError::into_inner);
@@ -216,6 +241,11 @@ fn points(minute: i64, dims: &[(String, String)], s: &Slot) -> Vec<Value> {
     if s.throttles > 0 {
         out.push(point("Throttles", "Count", &[(1.0, s.throttles)]));
     }
+    if s.concurrent > 0 {
+        #[allow(clippy::cast_precision_loss)]
+        let most = s.concurrent as f64;
+        out.push(point("ConcurrentExecutions", "Count", &[(most, 1)]));
+    }
     let mut durations: BTreeMap<u64, u64> = BTreeMap::new();
     for d in &s.durations {
         *durations.entry(d.to_bits()).or_default() += 1;
@@ -231,6 +261,13 @@ fn points(minute: i64, dims: &[(String, String)], s: &Slot) -> Vec<Value> {
 }
 
 impl Inner {
+    /// An invocation began: `ConcurrentExecutions` notes how many are in flight now.
+    pub(crate) fn began<T>(&self, t: &Target, function: &str, at_ms: i64, running: T) -> T {
+        let (this, all) = self.rt.concurrency(function);
+        self.meter.concurrent(t, at_ms, this, all);
+        running
+    }
+
     /// Counts an invocation, and sends what is held at once when an alarm in the region watches `AWS/Lambda`.
     pub(crate) async fn count_invocation(&self, t: &Target, outcome: Outcome) {
         self.meter.add(t, self.clock.now_ms(), &outcome);

@@ -1,6 +1,6 @@
 //! What Secrets Manager holds: a secret, and each version of its value.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -19,10 +19,62 @@ pub(crate) struct Version {
     pub(crate) sealed: Vec<u8>,
     /// Whether it was given as `SecretBinary`.
     pub(crate) binary: bool,
-    pub(crate) stages: BTreeSet<String>,
+    pub(crate) stages: Stages,
     pub(crate) created_ms: i64,
     /// The start of the day (UTC) the version was last read: AWS keeps the date and not the time.
     pub(crate) accessed_day_ms: Option<i64>,
+}
+
+/// A version's staging labels, in the order they were attached: AWS lists them so, a label moved onto a version after the ones
+/// it had (`["PENDING", "AWSCURRENT"]`, recorded 2026-11-15). Stored as a sequence, as the sorted set before it was, so what is
+/// on disk reads back unchanged.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub(crate) struct Stages(Vec<String>);
+
+impl Stages {
+    pub(crate) fn of(stage: &str) -> Self {
+        Self(vec![stage.to_owned()])
+    }
+    pub(crate) fn contains(&self, stage: &str) -> bool {
+        self.0.iter().any(|s| s == stage)
+    }
+    /// Attaches `stage` last, unless it is already there.
+    pub(crate) fn insert(&mut self, stage: String) {
+        if !self.contains(&stage) {
+            self.0.push(stage);
+        }
+    }
+    pub(crate) fn remove(&mut self, stage: &str) {
+        self.0.retain(|s| s != stage);
+    }
+    pub(crate) fn retain(&mut self, keep: impl FnMut(&String) -> bool) {
+        self.0.retain(keep);
+    }
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    pub(crate) fn iter(&self) -> std::slice::Iter<'_, String> {
+        self.0.iter()
+    }
+}
+
+impl FromIterator<String> for Stages {
+    fn from_iter<I: IntoIterator<Item = String>>(items: I) -> Self {
+        let mut out = Self::default();
+        for s in items {
+            out.insert(s);
+        }
+        out
+    }
+}
+
+impl<'a> IntoIterator for &'a Stages {
+    type Item = &'a String;
+    type IntoIter = std::slice::Iter<'a, String>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

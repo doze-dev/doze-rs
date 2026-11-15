@@ -2,7 +2,7 @@
 //! machine's copies of them. Hosts are interchangeable: what is trusted is the signature, checked with the key built
 //! into doze, so a second host is a mirror and never a risk.
 
-mod http;
+use crate::http;
 pub mod index;
 pub mod latest;
 pub mod meta;

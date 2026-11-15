@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use crate::body::RespBody;
+use aws_auth::AuthError;
 use aws_auth::claim::Claim;
-use aws_auth::{AuthError, Endpoint, begin};
 use aws_schema::arena::{Arena, NIL};
 use aws_schema::enc::encode;
 use aws_schema::json::decode;
@@ -13,12 +13,14 @@ use aws_schema::patterns::Patterns;
 use aws_wire::service::{Call, Caller, Service};
 use aws_wire::{ApiError, Family, RequestId, from_auth, json};
 use bytes::Bytes;
-use doze_runtime::{Clock, SystemClock};
 use http::Response;
 use http::request::Parts;
-use http_body_util::{BodyExt, Limited};
 use hyper::body::Incoming;
 
+pub(crate) use crate::head::{
+    authenticate, caller_of, endpoint_of, inflate, read_body, session_token,
+};
+use crate::target::target_prefix;
 use crate::{Auth, Config};
 
 /// A registered service and the pattern cache for its model.
@@ -52,21 +54,51 @@ impl Entry {
 pub(crate) struct Shared {
     entries: Vec<Entry>,
     by_signing_name: HashMap<&'static str, usize>,
-    config: Config,
+    /// Every service by the name of its service shape (the `X-Amz-Target` prefix of the JSON protocols): two services that share a
+    /// signing name (DynamoDB and DynamoDB Streams both sign as `dynamodb`) are told apart by it.
+    by_target: HashMap<&'static str, usize>,
+    pub(crate) config: Config,
+    /// Where sessions on upgraded connections run, so a shutdown ends them too.
+    tasks: doze_runtime::Tasks,
+    /// When the gateway started (for `/_doze/health`).
+    started: std::time::Instant,
 }
 
 impl Shared {
-    pub(crate) fn new(entries: Vec<Entry>, config: Config) -> Self {
+    pub(crate) fn new(entries: Vec<Entry>, config: Config, tasks: doze_runtime::Tasks) -> Self {
         let by_signing_name = entries
             .iter()
             .enumerate()
             .map(|(i, e)| (e.service.meta().signing_name, i))
             .collect();
+        let by_target = entries
+            .iter()
+            .enumerate()
+            .map(|(i, e)| (e.service.meta().shape_name, i))
+            .collect();
         Self {
             entries,
             by_signing_name,
+            by_target,
             config,
+            tasks,
+            started: std::time::Instant::now(),
         }
+    }
+
+    /// Every service.
+    pub(crate) fn entries(&self) -> &[Entry] {
+        &self.entries
+    }
+
+    /// When the gateway started.
+    pub(crate) fn started(&self) -> std::time::Instant {
+        self.started
+    }
+
+    /// The gateway's task set.
+    pub(crate) fn tasks(&self) -> &doze_runtime::Tasks {
+        &self.tasks
     }
 
     /// The largest request body read.
@@ -79,6 +111,11 @@ impl Shared {
         matches!(self.config.auth, Auth::Trust)
     }
 
+    /// The secret key doze's local addresses ask for, under `--auth verify`.
+    pub(crate) fn local_key(&self) -> Option<&str> {
+        self.config.local_key.as_deref()
+    }
+
     /// The account every request is for.
     pub(crate) fn account_id(&self) -> &str {
         &self.config.account_id
@@ -86,13 +123,53 @@ impl Shared {
 
     /// The services that own addresses of their own.
     pub(crate) fn webs(&self) -> impl Iterator<Item = &dyn aws_wire::service::Web> {
-        self.entries.iter().filter_map(|e| e.service.web())
+        self.config
+            .hooks
+            .0
+            .iter()
+            .map(|h| &**h)
+            .chain(self.entries.iter().filter_map(|e| e.service.web()))
     }
 
     pub(crate) fn entry(&self, signing_name: &str) -> Option<&Entry> {
         self.by_signing_name
             .get(signing_name)
             .and_then(|&i| self.entries.get(i))
+    }
+
+    /// The service a JSON request is for: the one whose service shape its `X-Amz-Target` names, when that service signs as
+    /// `signing_name`; otherwise the one registered under the signing name.
+    pub(crate) fn entry_for(&self, signing_name: &str, parts: &Parts) -> Option<&Entry> {
+        let by_target = target_prefix(parts)
+            .and_then(|prefix| self.by_target.get(prefix))
+            .and_then(|&i| self.entries.get(i))
+            .filter(|e| e.service.meta().signing_name == signing_name);
+        by_target.or_else(|| self.entry(signing_name))
+    }
+
+    /// The REST service a request signed as `signing_name` is for. Two models can share a signing name (API Gateway's REST and
+    /// HTTP APIs both sign as `apigateway`): the one whose routes take the method and path is the one; otherwise the last registered.
+    pub(crate) fn rest_entry(&self, signing_name: &str, parts: &Parts) -> Option<&Entry> {
+        let mut same = self
+            .entries
+            .iter()
+            .filter(|e| e.service.meta().signing_name == signing_name);
+        let first = same.next()?;
+        let Some(second) = same.next() else {
+            return Some(first);
+        };
+        let query = crate::presign::pairs(parts.uri.query().unwrap_or_default());
+        [first, second]
+            .into_iter()
+            .chain(same)
+            .find(|e| {
+                e.router(e.service.tables())
+                    .find(parts.method.as_str(), parts.uri.path(), &query, |h| {
+                        parts.headers.contains_key(h)
+                    })
+                    .is_some()
+            })
+            .or_else(|| self.entry(signing_name))
     }
 }
 
@@ -103,31 +180,38 @@ pub(crate) type Fail = Box<Out>;
 /// Answers a request. Never fails: a failure is an error answer.
 pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Response<RespBody> {
     let id = RequestId::new();
-    let (parts, body) = req.into_parts();
-    let body = match crate::web::serve(shared, &id, &parts, body).await {
+    let (mut parts, body) = req.into_parts();
+    if let Some(health) = crate::health::answer(shared, &parts) {
+        return health;
+    }
+    let body = match crate::web::serve(shared, &id, &mut parts, body).await {
         Ok(response) => return response,
         Err(body) => body,
     };
     // A REST service (S3) streams its bodies and words its errors its own way, so it has its own path.
     let claim = match Claim::parse(&parts) {
         Ok(found) => found,
-        // boto3 signs an S3 presigned URL with SigV2 unless told otherwise, and S3 accepts it. With no keys to check it against, a
-        // trusting gateway takes the access key as given and holds the URL to its expiry.
-        Err(AuthError::UnsupportedAlgorithm) if shared.trusts() => {
-            crate::presign::sigv2_claim(&parts)
-        }
+        // boto3 signs an S3 presigned URL with SigV2 unless told otherwise, and S3 accepts it. A verifying gateway checks it (in
+        // `rest.rs`); a trusting one takes the access key as given and holds the URL to its expiry.
+        Err(AuthError::UnsupportedAlgorithm) => crate::presign::sigv2_claim(&parts),
         Err(_) => None,
     };
-    // A request with no signature at all, to a gateway that trusts, is a person with curl or a browser: S3 serves it as the local
-    // account.
+    // A request with no signature at all is a person with curl or a browser: S3 serves it as the anonymous principal, whom IAM
+    // (soft or enforce) judges by the bucket's policy and ACLs. A verifying gateway does so only when IAM is there to judge.
     let claim = claim.or_else(|| {
-        shared
-            .trusts()
+        (shared.trusts() || shared.config.anonymous)
             .then(|| crate::presign::anonymous_claim(&parts))
             .flatten()
     });
+    // Neither an unsigned request nor a SigV2 URL names a region: they are for the configured default.
+    let claim = claim.map(|mut c| {
+        if c.scope_date.is_empty() {
+            c.region.clone_from(&shared.config.default_region);
+        }
+        c
+    });
     if let Some(claim) = claim
-        && let Some(entry) = shared.entry(&claim.service).filter(|e| {
+        && let Some(entry) = shared.rest_entry(&claim.service, &parts).filter(|e| {
             let meta = e.service.meta();
             meta.speaks(Protocol::RestXml) || meta.speaks(Protocol::RestJson1)
         })
@@ -147,10 +231,12 @@ async fn handle(
     parts: &Parts,
     body: Incoming,
 ) -> Result<Out, Fail> {
-    let claim = Claim::parse(parts)
-        .map_err(|e| early(id, &from_auth(&e, Family::Coral)))?
-        .ok_or_else(|| early(id, &from_auth(&AuthError::Missing, Family::Coral)))?;
-    let entry = shared.entry(&claim.service).ok_or_else(|| {
+    let Some(claim) = Claim::parse(parts).map_err(|e| early(id, &from_auth(&e, Family::Coral)))?
+    else {
+        // No signature: only an operation its model marks as taking none (STS's web identity and SAML) is answered.
+        return crate::query::unsigned(shared, id, parts, body).await;
+    };
+    let entry = shared.entry_for(&claim.service, parts).ok_or_else(|| {
         early(
             id,
             &ApiError::new(
@@ -209,52 +295,6 @@ async fn handle(
     Ok(json::success(version, id, encoded))
 }
 
-/// Who is calling, from the credential scope and the request head.
-pub(crate) fn caller_of(shared: &Shared, parts: &Parts, claim: Claim) -> Caller {
-    Caller {
-        access_key_id: claim.access_key_id,
-        account_id: shared.config.account_id.clone(),
-        region: claim.region,
-        endpoint: endpoint_of(parts),
-        service: None,
-        session_token: session_token(parts),
-    }
-}
-
-/// A body sent with `Content-Encoding: gzip` (botocore compresses `PutMetricData` past 10 KB, as the CloudWatch model says it may),
-/// inflated. The signature covers the bytes as sent, so this comes after the check. What it inflates to is held to the same limit
-/// as any body, so a small request cannot become a large one.
-pub(crate) fn inflate(parts: &Parts, bytes: Bytes, limit: usize) -> Result<Bytes, ApiError> {
-    use std::io::Read;
-    let gzip = parts
-        .headers
-        .get(http::header::CONTENT_ENCODING)
-        .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| v.trim().eq_ignore_ascii_case("gzip"));
-    if !gzip {
-        return Ok(bytes);
-    }
-    let mut out = Vec::new();
-    let read = flate2::read::GzDecoder::new(&bytes[..])
-        .take(limit as u64 + 1)
-        .read_to_end(&mut out);
-    if read.is_err() {
-        return Err(ApiError::new(
-            400,
-            "SerializationException",
-            "The request body is not valid gzip.",
-        ));
-    }
-    if out.len() > limit {
-        return Err(ApiError::new(
-            413,
-            "RequestEntityTooLarge",
-            format!("The request body exceeds {limit} bytes once inflated."),
-        ));
-    }
-    Ok(Bytes::from(out))
-}
-
 /// The refusal for an operation the service does not build (501, by name), before its body is read.
 pub(crate) fn unbuilt(entry: &Entry, op: u32) -> Option<ApiError> {
     if entry.service.serves(op) {
@@ -285,80 +325,9 @@ fn unserved_protocol(meta: &aws_schema::meta::ServiceMeta) -> ApiError {
     )
 }
 
-/// The session token the request carried.
-pub(crate) fn session_token(parts: &Parts) -> Option<String> {
-    parts
-        .headers
-        .get("x-amz-security-token")
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_owned)
-}
-
-/// The scheme and host the caller used, for URLs in answers.
-pub(crate) fn endpoint_of(parts: &Parts) -> String {
-    let host = parts
-        .headers
-        .get(http::header::HOST)
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("localhost");
-    format!("http://{host}")
-}
-
 /// An error raised before a service is known.
-fn early(id: &RequestId, err: &ApiError) -> Fail {
+pub(crate) fn early(id: &RequestId, err: &ApiError) -> Fail {
     Box::new(json::generic_failure(json::Version::V10, id, err))
-}
-
-/// Checks the head of the request in `Verify` mode; `None` in `Trust` mode.
-pub(crate) async fn authenticate(
-    shared: &Shared,
-    parts: &Parts,
-    signing_name: &str,
-) -> Result<Option<aws_auth::Pending>, AuthError> {
-    let Auth::Verify(creds) = &shared.config.auth else {
-        return Ok(None);
-    };
-    let Some(entry) = shared.entry(signing_name) else {
-        return Err(AuthError::Missing);
-    };
-    let endpoint = Endpoint {
-        signing_name: entry.service.meta().signing_name,
-        s3: signing_name == "s3",
-        max_skew_secs: shared.config.max_skew_secs,
-    };
-    let now = SystemClock.now_ms() / 1000;
-    // A key the fixed credentials do not hold may be one IAM issued: ask its source, which is only woken for keys that look issued.
-    let claim = aws_auth::claim::Claim::parse(parts)?;
-    let mut extra = None;
-    if let (Some(claim), Some(source)) = (&claim, &shared.config.credential_source)
-        && aws_auth::Credentials::lookup(creds.as_ref(), &claim.access_key_id, |c| c.is_none())
-    {
-        extra = source
-            .find(&claim.access_key_id, claim.session_token.as_deref())
-            .await
-            .map(|c| (claim.access_key_id.clone(), c));
-    }
-    let with = aws_auth::WithExtra {
-        fixed: creds.as_ref(),
-        extra: extra.as_ref().map(|(id, c)| (id.as_str(), c)),
-    };
-    begin(parts, now, endpoint, &with).map(Some)
-}
-
-pub(crate) async fn read_body(body: Incoming, limit: usize) -> Result<Bytes, ApiError> {
-    match Limited::new(body, limit).collect().await {
-        Ok(collected) => Ok(collected.to_bytes()),
-        Err(e) if e.is::<http_body_util::LengthLimitError>() => Err(ApiError::new(
-            413,
-            "RequestEntityTooLarge",
-            format!("The request body exceeds {limit} bytes."),
-        )),
-        Err(e) => Err(ApiError::new(
-            400,
-            "IncompleteBody",
-            format!("The request body could not be read: {e}"),
-        )),
-    }
 }
 
 /// Decodes and validates the body against the operation's input shape.
@@ -386,8 +355,10 @@ pub(crate) fn decode_call(
             } else {
                 body.as_str()
             };
-            decode(tables, &entry.patterns, shape, text, &mut arena)
-                .map_err(|v| entry.service.invalid_in(&v, text))?
+            decode(tables, &entry.patterns, shape, text, &mut arena).map_err(|v| {
+                let e = entry.service.invalid_in(&v, text);
+                aws_wire::located::place(e, tables, &entry.patterns, shape, text, &v)
+            })?
         }
         None => NIL,
     };

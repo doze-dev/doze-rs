@@ -9,16 +9,22 @@ mod cleaner;
 mod clock;
 mod config;
 mod configs;
+mod data;
 mod error;
 mod groups;
 mod guard;
 mod handlers;
+mod lab;
 mod listener;
+mod log_notes;
+#[cfg(feature = "inspect")]
+pub use log_notes::{DeletedNote, PassNote, RoundNote};
 mod logs;
 mod outcome;
 mod partitions;
 mod producers;
 mod retention;
+mod telemetry;
 mod topic_config;
 mod topics;
 mod txn;
@@ -29,10 +35,24 @@ mod view;
 
 pub use broker::Broker;
 pub use caller::Caller;
-pub use config::{Config, Defaults};
+pub use config::{Config, Defaults, TxnVersion};
 pub(crate) use configs::Live;
+pub use data::{
+    DataRefusal, DataUsage, Emptied, EmptiedAll, Erased, Keeps, Stray, TopicUsage, bytes_words,
+    duration_words,
+};
 pub use error::BrokerError;
+pub use groups::Cause;
+#[cfg(feature = "inspect")]
+pub use lab::{CleanOutcome, ConsoleLab, LabOutcome};
 pub use listener::Listener;
 pub use outcome::Outcome;
+pub use topic_config::{ConfigRefused, ValueRefused, check_topic_configs, topic_config_names};
 #[cfg(feature = "inspect")]
-pub use view::{ConfigHelp, ConsoleView, Instance, LastStop, Limits, PartitionFiles, Process};
+pub use view::{
+    AbortedRange, AccessFacts, CleanerState, Compaction, ConfigHelp, ConfigRule, ConsoleView,
+    DataSize, Durability, EventKind, GroupDetail, GroupEvent, GroupEvents, GroupKind, Instance,
+    Intervals, LastStop, Limits, LogFacts, LogPolicy, LogRetention, MOST_ENTRIES, MemberDetail,
+    MemberHold, OffsetExpiry, Pace, PartitionFiles, PartitionProducers, Process, ProducerBatch,
+    ProducerWindow, RebalanceDetail,
+};

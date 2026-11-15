@@ -1,4 +1,5 @@
-//! The file: one redb database per region with four tables (the table records, the items, the index entries, the stream records),
+//! The file: one redb database per region with five tables (the table records, the Contributor Insights settings, the items, the
+//! index entries, the stream records),
 //! written through the group-commit writer. Items are read from the file when a request needs them; nothing but the table
 //! records is kept in memory.
 
@@ -13,8 +14,10 @@ use crate::keys::Space;
 
 /// redb's page cache: items are read when needed, and the idle heap is measured.
 const CACHE_BYTES: usize = 1 << 20;
-const FILE: &str = "dynamodb.redb";
+pub(crate) const FILE: &str = "dynamodb.redb";
 pub(crate) const TABLES: &str = "tables";
+/// The Contributor Insights settings, by table (and `table/index`).
+pub(crate) const INSIGHTS: &str = "insights";
 
 type Def = TableDefinition<'static, &'static [u8], &'static [u8]>;
 
@@ -69,11 +72,22 @@ impl Disk {
         fs.create_dir_all(dir)?;
         let store = Store::open(&fs, dir, FILE, CACHE_BYTES, |txn| {
             txn.open_table(TableDefinition::<&str, &[u8]>::new(TABLES))?;
+            txn.open_table(TableDefinition::<&str, &[u8]>::new(INSIGHTS))?;
             for space in [Space::Items, Space::Index, Space::Stream] {
                 txn.open_table(def(space))?;
             }
             Ok(())
         })?;
+        // A file made before Contributor Insights were kept has no table for them.
+        let missing = store
+            .begin_read()?
+            .open_table(TableDefinition::<&str, &[u8]>::new(INSIGHTS))
+            .is_err();
+        if missing {
+            let txn = store.begin()?;
+            txn.open_table(TableDefinition::<&str, &[u8]>::new(INSIGHTS))?;
+            txn.commit()?;
+        }
         let writer = GroupCommit::start(store.clone())?;
         Ok(Self { store, writer })
     }
@@ -148,8 +162,38 @@ impl Disk {
         Some(self.writer.submit(op))
     }
 
-    pub(crate) fn close(self) {
+    /// The entries from `lo` up to (not including) `hi`, and the bytes their keys and values hold.
+    pub(crate) fn measure(
+        &self,
+        space: Space,
+        lo: &[u8],
+        hi: &[u8],
+    ) -> Result<(u64, u64), StoreError> {
+        let (mut rows, mut bytes) = (0, 0);
+        self.scan(space, lo, hi, false, |k, v| {
+            rows += 1;
+            bytes += (k.len() + v.len()) as u64;
+            Flow::Continue
+        })?;
+        Ok((rows, bytes))
+    }
+
+    /// How much of the file holds data.
+    pub(crate) fn space(&self) -> Result<doze_store::Space, StoreError> {
+        self.store.space()
+    }
+
+    /// Gives the space deletes freed back to the disk, after the writer has finished what it was given.
+    pub(crate) fn compact(&mut self) -> Result<doze_store::Compacted, StoreError> {
+        self.writer.paused(&mut self.store, Store::compact)?
+    }
+
+    /// Stops the writer after it has finished what it was given, gives back the space deletes left when that is worth it, and
+    /// closes the database.
+    pub(crate) fn close(mut self) {
         self.writer.shutdown();
+        // WHY: one that cannot run now runs at a later close; the data is whole either way.
+        drop(self.store.compact_if_worth());
         // WHY: every commit was flushed when it was made, so a failure to close costs only a longer start next time.
         drop(self.store.close());
     }

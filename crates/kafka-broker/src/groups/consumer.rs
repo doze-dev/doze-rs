@@ -18,9 +18,11 @@
 pub(crate) mod assign;
 mod classic;
 mod fetch;
+mod force;
 mod heartbeat;
 mod join;
 mod member;
+mod notes;
 mod pattern;
 pub(crate) mod protocol;
 mod reconcile;
@@ -40,8 +42,6 @@ use kafka_wire::ids::MemberId;
 use self::assign::Assignor;
 pub(crate) use self::fetch::fetch_refusal;
 pub(crate) use self::join::{MOST_MEMBERS, can_join, join_refusal};
-#[allow(unused_imports)]
-pub(crate) use self::member::ClassicSeat;
 use self::member::Member;
 pub(crate) use self::types::{
     ConsumerView, Heartbeat, HeartbeatAnswer, MemberView, TopicInfo, TopicSource, Topics,

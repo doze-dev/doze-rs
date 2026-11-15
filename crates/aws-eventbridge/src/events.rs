@@ -1,5 +1,5 @@
 //! `PutEvents`: each entry is checked on its own (a bad one fails and the call still succeeds, recorded 2026-11-09), made into an
-//! event, and sent through its bus (`route.rs`).
+//! event, and accepted for its bus; it runs through the bus after the answer (`route.rs`).
 
 use aws_wire::ApiError;
 use aws_wire::RequestId;
@@ -43,7 +43,7 @@ fn size_of(entry: &Value) -> usize {
 }
 
 impl Core {
-    pub(crate) async fn put_events(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
+    pub(crate) fn put_events(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let entries = r.list("Entries");
         if entries.iter().map(size_of).sum::<usize>() > MAX_REQUEST_BYTES {
             return Err(invalid(
@@ -53,7 +53,7 @@ impl Core {
         let mut lines = Vec::with_capacity(entries.len());
         let mut failed = 0;
         for entry in entries {
-            match self.put_one(r, entry).await? {
+            match self.put_one(r, entry)? {
                 Ok(id) => lines.push(json!({"EventId": id})),
                 Err(rejected) => {
                     failed += 1;
@@ -70,7 +70,7 @@ impl Core {
     }
 
     /// One entry. The outer error fails the whole call (a bus that is not there); the inner one fails the entry.
-    async fn put_one(
+    fn put_one(
         &mut self,
         r: &Req<'_>,
         entry: &Value,
@@ -128,8 +128,7 @@ impl Core {
             replay_name: None,
         };
         let id = event.id.clone();
-        self.send_to_bus(&r.call.caller, &region, &account, &bus, event)
-            .await?;
+        self.send_to_bus(&r.call.caller, &region, &account, &bus, event)?;
         Ok(Ok(id))
     }
 

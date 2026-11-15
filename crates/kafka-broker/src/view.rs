@@ -7,19 +7,34 @@
 //! fact is no more visible here than it would be over Kafka's own API. Nothing is kept between calls: an idle
 //! broker pays nothing for the console's existence.
 
-use kafka_auth::authz::{CLUSTER_NAME, operation, resource};
+use kafka_auth::authz::{CLUSTER_NAME, Operation, ResourceType};
 use kafka_storage::fs::Fs;
 
 use crate::{Broker, Caller};
 
 mod config_help;
+mod events;
+mod group_detail;
 mod process;
 
 pub use config_help::{ConfigHelp, Limits};
-mod partition_files;
+pub use events::{EventKind, GroupEvent, GroupEvents, MemberHold};
+pub use group_detail::{GroupDetail, GroupKind, MemberDetail, OffsetExpiry, RebalanceDetail};
+mod config_rules;
+mod pace;
 
+pub use config_rules::ConfigRule;
+pub use pace::Pace;
+mod log_facts;
+mod partition_files;
+mod producers;
+mod settings;
+
+pub use log_facts::{CleanerState, Compaction, Durability, LogFacts, LogPolicy, LogRetention};
 pub use partition_files::PartitionFiles;
 pub use process::Process;
+pub use producers::{AbortedRange, PartitionProducers, ProducerBatch, ProducerWindow};
+pub use settings::{AccessFacts, DataSize, Intervals, MOST_ENTRIES};
 
 /// What the last stop left.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,10 +91,12 @@ impl<F: Fs> ConsoleView<'_, F> {
     #[must_use]
     pub fn instance(&self, caller: &Caller) -> Option<Instance> {
         let b = self.broker;
-        if !b
-            .authz
-            .allows(caller, resource::CLUSTER, CLUSTER_NAME, operation::DESCRIBE)
-        {
+        if !b.authz.allows(
+            caller,
+            ResourceType::Cluster,
+            CLUSTER_NAME,
+            Operation::Describe,
+        ) {
             return None;
         }
         let last_stop = if b.first_start {

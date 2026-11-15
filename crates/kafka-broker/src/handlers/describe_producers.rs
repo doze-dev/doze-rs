@@ -1,6 +1,6 @@
 //! DescribeProducers: the producers a partition remembers, and the transaction each has open there.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::Response;
@@ -53,7 +53,7 @@ impl<F: Fs> Broker<F> {
         if let Err(e) = TopicName::parse(raw) {
             return Some((ResponseError::InvalidTopicException, name_message(e, raw)));
         }
-        (!self.topic_allows(caller, raw, operation::READ)).then(|| {
+        (!self.topic_allows(caller, raw, Operation::Read)).then(|| {
             (
                 ResponseError::TopicAuthorizationFailed,
                 TOPIC_DENIED.to_owned(),
@@ -70,8 +70,11 @@ impl<F: Fs> Broker<F> {
             p.error_code = ResponseError::UnknownTopicOrPartition.code();
             return;
         };
-        match self.partitions.get(topic, id).await {
-            Ok(partition) => match partition.txns().await {
+        // A partition never written has no producers: it is not opened for this (opening makes its first segment, so a read
+        // would write files).
+        match self.partitions.get_unless_empty(topic, id).await {
+            Ok(None) => {}
+            Ok(Some(partition)) => match partition.txns().await {
                 Ok(view) => {
                     p.active_producers = view
                         .producers

@@ -16,20 +16,16 @@ use crate::model::{Alias, State};
 
 const LIST_PAGE: usize = 100;
 
-fn check_name(call: &Call, name: &str) -> Result<(), ApiError> {
+fn check_name(name: &str) -> Result<(), ApiError> {
     if !name.starts_with("alias/") {
         return Err(validation(
             "Alias must start with the prefix \"alias/\". Please see https://docs.aws.amazon.com/kms/latest/developerguide/kms-alias.html",
         ));
     }
     if name.starts_with("alias/aws/") {
-        // (memory)
         return Err(ApiError::modeled(
             "NotAuthorizedException",
-            format!(
-                "Alias {} is reserved: names that start with alias/aws/ belong to AWS.",
-                alias_arn(call, name)
-            ),
+            "The alias name for a customer managed CMK cannot begin with alias/aws/.",
         ));
     }
     if !name
@@ -57,7 +53,7 @@ impl Core {
     pub(crate) fn create_alias(&mut self, call: &Call) -> Reply {
         let v = request::<Create>(call)?;
         let name = v.get(Create::ALIAS_NAME).unwrap_or_default();
-        check_name(call, name)?;
+        check_name(name)?;
         if self.aliases.get(name).is_some() {
             return Err(ApiError::modeled(
                 "AlreadyExistsException",

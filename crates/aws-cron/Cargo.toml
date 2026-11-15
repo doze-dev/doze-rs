@@ -1,7 +1,7 @@
 [package]
 name = "aws-cron"
 version = "0.0.0"
-description = "EventBridge schedule expressions: rate() and the six-field cron(), with the next time each fires"
+description = "EventBridge and EventBridge Scheduler schedule expressions: rate(), the six-field cron() and at(), in UTC or an IANA time zone, with the next time each fires"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

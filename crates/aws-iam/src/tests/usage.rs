@@ -285,6 +285,7 @@ fn web(path: &str, query: &str) -> WebRequest {
         headers: Vec::new(),
         body: Default::default(),
         endpoint: "http://localhost:4566".into(),
+        signature: aws_wire::service::WebSignature::Unsigned,
     }
 }
 
@@ -369,4 +370,32 @@ async fn the_root_is_answered_without_waking_iam_and_the_log_and_generator_are_s
     let unknown = web_side.serve(web("/_doze/iam/Other", "")).await;
     assert_eq!(unknown.status, 404);
     let _ = iam.meta();
+}
+
+#[tokio::test]
+async fn a_post_carries_its_parameters_as_json() {
+    use aws_peers::Authorizer;
+    use aws_wire::service::Service;
+    let dir = temp();
+    let ctx = Ctx {
+        dir: dir.path().to_owned(),
+        idle: std::time::Duration::from_secs(300),
+        tasks: Tasks::new(),
+        clock: Arc::new(SystemClock),
+        ext: None,
+    };
+    let (iam, _sts) = crate::services(Arc::new(ctx));
+    iam.authorize(
+        &caller("test", None),
+        vec![Need::new("sqs:SendMessage", QUEUE)],
+    )
+    .await
+    .unwrap();
+    let web_side = iam.web().unwrap();
+    assert!(web_side.local(), "the gateway guards IAM's local addresses");
+    let mut post = web("/_doze/iam/DozeAccessLog", "");
+    post.method = "POST".into();
+    post.body = br#"{"Reset": true}"#.to_vec().into();
+    let reset = body(&web_side.serve(post).await);
+    assert_eq!(reset["Entries"], json!([]));
 }

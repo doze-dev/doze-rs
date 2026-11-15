@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use aws_model_eventbridge::Operation;
 use aws_model_eventbridge::tables::TABLES;
@@ -17,7 +18,7 @@ use doze_store::rows::RowTable;
 use doze_store::{Ack, Db, StoreError};
 use serde_json::Value;
 
-use crate::model::{ApiDestination, Archive, Bus, Connection, Replay, Rule};
+use crate::model::{ApiDestination, Archive, Bus, Connection, Pending, Replay, Rule, sequence_key};
 use crate::pattern::Pattern;
 use crate::req::{Req, not_built};
 use crate::retry::Retry;
@@ -29,7 +30,9 @@ const ARCHIVES: &str = "archives";
 const REPLAYS: &str = "replays";
 const CONNECTIONS: &str = "connections";
 const DESTINATIONS: &str = "destinations";
-const EVENTS: &str = "events";
+pub(crate) const EVENTS: &str = "events";
+const PENDING: &str = "pending";
+const RETRIES: &str = "retries";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 const VERSION: u8 = 1;
 
@@ -40,6 +43,8 @@ pub(crate) enum Request {
     /// Fire what is due. The caller is whoever armed the timer: it says the region and the endpoint. The time is the deadline the
     /// timer slept to, which a service that was reaped meanwhile has forgotten.
     Tick(Caller, i64),
+    /// From `doze-aws data`: what the archives hold, or remove some of it.
+    Data(Box<crate::storage::DataCall>),
 }
 
 /// What the actor answers.
@@ -49,7 +54,12 @@ pub(crate) struct Answer {
     pub(crate) durable: Option<Ack>,
     /// The earliest time anything is due, if anything is.
     pub(crate) next_due: Option<i64>,
+    /// The order the actors answered in: a timer told two deadlines keeps the one from the later answer, not the later arrival.
+    pub(crate) generation: u64,
 }
+
+/// Counts answers across every region's actor; each answer takes the next number.
+static GENERATION: AtomicU64 = AtomicU64::new(1);
 
 /// All of EventBridge in one region.
 #[derive(Debug)]
@@ -70,8 +80,12 @@ pub(crate) struct Core {
     pub(crate) compiled: HashMap<String, Pattern>,
     /// When each scheduled rule next fires, by rule key.
     pub(crate) due: HashMap<String, i64>,
+    /// Events `PutEvents` accepted and has not yet run through their bus; the timer runs them once the answer is out.
+    pub(crate) pending: Records<Pending>,
     /// Deliveries that failed and will be tried again.
-    pub(crate) retries: Vec<Retry>,
+    pub(crate) retries: Records<Retry>,
+    /// The number the next piece of waiting work is keyed by.
+    pub(crate) sequence: u64,
     /// The last caller seen, whose endpoint and region a wake-up delivers as.
     pub(crate) last_caller: Option<Caller>,
     /// When each archive's old events were last removed, by archive key.
@@ -128,6 +142,13 @@ impl doze_runtime::Service for Core {
                 self.tick(&caller, at).await;
                 empty()
             }
+            Request::Data(call) => {
+                let crate::storage::DataCall { region, ask, reply } = *call;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                empty()
+            }
         };
         let durable = match self.flush() {
             Ok(ack) => ack,
@@ -141,6 +162,7 @@ impl doze_runtime::Service for Core {
             reply,
             durable,
             next_due,
+            generation: GENERATION.fetch_add(1, Ordering::Relaxed),
         }
     }
 
@@ -175,6 +197,8 @@ impl Core {
                 CONNECTIONS,
                 DESTINATIONS,
                 EVENTS,
+                PENDING,
+                RETRIES,
             ],
         )?;
         let read = db.read()?;
@@ -186,6 +210,8 @@ impl Core {
             connections: Records::load(CONNECTIONS, "connection", VERSION, &read)?,
             destinations: Records::load(DESTINATIONS, "API destination", VERSION, &read)?,
             archived: RowTable::new(EVENTS, false),
+            pending: Records::load(PENDING, "pending event", VERSION, &read)?,
+            retries: Records::load(RETRIES, "retry", VERSION, &read)?,
         };
         drop(read);
         Ok(Self::with(clock, tables, peers, Some(db), tasks))
@@ -198,6 +224,14 @@ impl Core {
         db: Option<Db>,
         tasks: Tasks,
     ) -> Self {
+        let sequence = t
+            .pending
+            .iter()
+            .map(|(k, _)| k)
+            .chain(t.retries.iter().map(|(k, _)| k))
+            .filter_map(|k| k.parse::<u64>().ok())
+            .max()
+            .map_or(0, |n| n + 1);
         Self {
             buses: t.buses,
             rules: t.rules,
@@ -212,7 +246,9 @@ impl Core {
             patterns: Patterns::new(&TABLES),
             compiled: HashMap::new(),
             due: HashMap::new(),
-            retries: Vec::new(),
+            pending: t.pending,
+            retries: t.retries,
+            sequence,
             last_caller: None,
             purged: HashMap::new(),
             tasks,
@@ -222,6 +258,13 @@ impl Core {
 
     pub(crate) fn now_ms(&self) -> i64 {
         self.clock.now_ms()
+    }
+
+    /// The key of the next piece of waiting work (a pending event, a retry).
+    pub(crate) fn next_key(&mut self) -> String {
+        let key = sequence_key(self.sequence);
+        self.sequence += 1;
+        key
     }
 
     /// Asks the authorizer, runs the call, and writes the answer as the operation's output.
@@ -245,6 +288,8 @@ impl Core {
             self.replays.stage()?,
             self.connections.stage()?,
             self.destinations.stage()?,
+            self.pending.stage()?,
+            self.retries.stage()?,
         ];
         let rows = vec![self.archived.stage()];
         Ok(self
@@ -261,7 +306,7 @@ impl Core {
         self.ensure_default(&call.caller.account_id, &call.caller.region);
         let r = Req::new(call);
         let value = match op {
-            Operation::PutEvents => self.put_events(&r).await?,
+            Operation::PutEvents => self.put_events(&r)?,
             Operation::StartReplay => self.start_replay(&r).await?,
             other => self.run(other, &r)?,
         };
@@ -332,6 +377,8 @@ struct Tables {
     connections: Records<Connection>,
     destinations: Records<ApiDestination>,
     archived: RowTable,
+    pending: Records<Pending>,
+    retries: Records<Retry>,
 }
 
 impl Tables {
@@ -345,6 +392,8 @@ impl Tables {
             connections: Records::new(CONNECTIONS, "connection", VERSION),
             destinations: Records::new(DESTINATIONS, "API destination", VERSION),
             archived: RowTable::new(EVENTS, true),
+            pending: Records::new(PENDING, "pending event", VERSION),
+            retries: Records::new(RETRIES, "retry", VERSION),
         }
     }
 }

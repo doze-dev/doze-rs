@@ -404,8 +404,13 @@ fn output_json(op: Operation, out: &aws_wire::service::Output) -> Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
+mod data;
 mod long_poll;
+mod moves;
+mod peek;
 mod persistence;
+mod retention;
+mod waits;
 
 /// A directory of its own that goes away with it.
 struct TempDir(std::path::PathBuf);

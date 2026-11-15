@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -136,7 +136,7 @@
     "change-visibility-with-the-old-handle": {
       "Error": {
         "Code": "InvalidParameterValue",
-        "Message": "Value AQEBAV31oiU4uCv5RyidSi+7Ab7c2PmRvSpDhwDS4pC9PD5ae77WIFU7M2LcR9Xykd9he1IoUkjpYE4brVQ0Wpv9b9ozGVhtYrOcYaXXDedgR0YY9MiMb0qb1IycMdrifif9i98VtFa9Iod73eC/bnMq/tv1/JzPkZKXMLD+y1SQnNFZLMCYRVfjDtlLkKPdEmIx8xbFokr1wFhenx2RK2WYZRdg3wsmW3dFyeQN/C2YTFpxdKzHl8qvKzqYmYXbBm7EpVkPCP2TUHlljtPUAahdnxpF+PcNyrMJYwzSuW/9z7FpE+B6mh3bQY4y/SM7ERilKWGlw+dW9dDFh5nenpldIadsOSJnJe6R6z5vtNvnkfH0ZseWYUlWkwJyNUWC3CQ2YyOq44iiQJPSYEAKQl3dMQ== for parameter ReceiptHandle is invalid. Reason: Message does not exist or is not available for visibility timeout change."
+        "Message": "Value <name:old-receipt-handle> for parameter ReceiptHandle is invalid. Reason: Message does not exist or is not available for visibility timeout change."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
@@ -914,7 +914,7 @@
       },
       "Results": [
         {
-          "ApproximateNumberOfMessagesMoved": 0,
+          "ApproximateNumberOfMessagesMoved": 1,
           "ApproximateNumberOfMessagesToMove": 1,
           "SourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue-dlq>",
           "StartedTimestamp": "<StartedTimestamp:1>",
@@ -1198,78 +1198,14 @@
     }
   },
   "test_redrive_receive_count": {
-    "in-the-dlq": [
-      {
-        "Attributes": {
-          "ApproximateReceiveCount": "2",
-          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
-        },
-        "Body": "poison"
+    "in-the-dlq": {
+      "Attributes": {
+        "ApproximateReceiveCount": "2",
+        "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
       },
-      {
-        "Attributes": {
-          "ApproximateReceiveCount": "3",
-          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
-        },
-        "Body": "poison"
-      },
-      {
-        "Attributes": {
-          "ApproximateReceiveCount": "4",
-          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
-        },
-        "Body": "poison"
-      },
-      {
-        "Attributes": {
-          "ApproximateReceiveCount": "5",
-          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
-        },
-        "Body": "poison"
-      },
-      {
-        "Attributes": {
-          "ApproximateReceiveCount": "6",
-          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
-        },
-        "Body": "poison"
-      },
-      {
-        "Attributes": {
-          "ApproximateReceiveCount": "7",
-          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
-        },
-        "Body": "poison"
-      },
-      {
-        "Attributes": {
-          "ApproximateReceiveCount": "8",
-          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
-        },
-        "Body": "poison"
-      },
-      {
-        "Attributes": {
-          "ApproximateReceiveCount": "9",
-          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
-        },
-        "Body": "poison"
-      },
-      {
-        "Attributes": {
-          "ApproximateReceiveCount": "10",
-          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
-        },
-        "Body": "poison"
-      },
-      {
-        "Attributes": {
-          "ApproximateReceiveCount": "11",
-          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
-        },
-        "Body": "poison"
-      }
-    ]
+      "Body": "poison",
+      "distinct": 1
+    }
   },
   "test_refusals": {
     "bad-name": {
@@ -1602,7 +1538,7 @@
     "not-in-flight": {
       "Error": {
         "Code": "InvalidParameterValue",
-        "Message": "Value AQEB9Jd2OJNsAgehAyWPNcn8RY53YQJlDtIQCNeTnV6HAiZlyvCMlu00nIkTKV5RoafC/I0YGs+WyqJvC43xqpb6SjluujSRtcPy+NRAhwYRh80i1c1kmcAvtFc7WiiEwUyZCBV+EiZ/uet0g/lh3jBUOmM69525HdgrUjjErAcDaIC9y3EWqmohaWvqttACX7yxv+DTeULIrE4Le8xQajyVzrks8y5TYtxctKvwYwMFlulEhvwNDJfq1PZtzOaz8mMrMcj4sAJ06hp5LS1sXAkknoEiuIkBF84nSzKjOpHzGTkl/WnPnD4uh7pkkGAttYxBCBPsKwWQSxDSH7YWBPuKow8Fn8mWtoOqLvdKqxsp70DkTlqhtui6rJb8VwYnAbENTqK+aBzvLqTXKaI+FQv4Pg== for parameter ReceiptHandle is invalid. Reason: Message does not exist or is not available for visibility timeout change."
+        "Message": "Value <name:receipt-handle> for parameter ReceiptHandle is invalid. Reason: Message does not exist or is not available for visibility timeout change."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400

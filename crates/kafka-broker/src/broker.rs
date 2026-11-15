@@ -47,6 +47,7 @@ const SERVED: &[ApiKey] = &[
     ApiKey::DescribeConfigs,
     ApiKey::AlterConfigs,
     ApiKey::IncrementalAlterConfigs,
+    ApiKey::DescribeCluster,
     ApiKey::DescribeProducers,
     ApiKey::AddPartitionsToTxn,
     ApiKey::AddOffsetsToTxn,
@@ -61,6 +62,9 @@ const SERVED: &[ApiKey] = &[
     ApiKey::AlterUserScramCredentials,
 ];
 
+/// The APIs of client telemetry (KIP-714), served only when `Config::client_telemetry` is on.
+const TELEMETRY: &[ApiKey] = &[ApiKey::GetTelemetrySubscriptions, ApiKey::PushTelemetry];
+
 /// The broker, over a file system (the real one, or a simulated disk in tests).
 #[derive(Debug)]
 pub struct Broker<F: Fs = RealFs> {
@@ -73,6 +77,8 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) groups: Groups,
     /// The transactional ids.
     pub(crate) txns: crate::txn::Txns,
+    /// When the coordinator next has a step to take on its own.
+    pub(crate) txn_alarm: crate::txn::Alarm,
     /// When this run began, in milliseconds since the epoch.
     pub(crate) started_ms: i64,
     /// Whether the data directory was new when this run opened it (there was no metadata database).
@@ -100,6 +106,27 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) user_admin: tokio::sync::Mutex<()>,
     /// Set when the broker is stopping: a round of cleaning that is running gives up (it is looked at between batches).
     pub(crate) stop_cleaning: Arc<std::sync::atomic::AtomicBool>,
+    /// The clients that have reported on themselves, and the gate that keeps them to their interval. Empty, and
+    /// allocating nothing, until a client first asks.
+    pub(crate) telemetry: crate::telemetry::Telemetry,
+    /// What the cleaner and the log sweeper last did, for the console to say; empty until one has.
+    pub(crate) log_notes: crate::log_notes::LogNotes,
+    /// How many times a background task that sleeps until it has something to do (the transaction coordinator, the closer
+    /// of quiet partitions) has woken to do it: what the tests of an idle broker count.
+    pub(crate) wakes: std::sync::atomic::AtomicU64,
+}
+
+/// Says what was found of the metadata database's permissions, if anything needs saying.
+fn say_file_mode(mode: FileMode) {
+    match mode {
+        FileMode::Private => {}
+        FileMode::Narrowed => tracing::info!(
+            "the metadata database (it holds SCRAM keys) was readable by group or others and is now readable by its owner only"
+        ),
+        FileMode::Wide => tracing::warn!(
+            "the metadata database (it holds SCRAM keys) is readable by group or others and could not be narrowed: run chmod 600 on meta.redb"
+        ),
+    }
 }
 
 impl<F: Fs> Broker<F> {
@@ -119,15 +146,7 @@ impl<F: Fs> Broker<F> {
             .iter()
             .any(|e| e.name.starts_with("meta.redb"));
         let meta = Arc::new(MetaStore::open(&fs, &config.data_dir)?);
-        match meta.file_mode() {
-            FileMode::Private => {}
-            FileMode::Narrowed => tracing::info!(
-                "the metadata database (it holds SCRAM keys) was readable by group or others and is now readable by its owner only"
-            ),
-            FileMode::Wide => tracing::warn!(
-                "the metadata database (it holds SCRAM keys) is readable by group or others and could not be narrowed: run chmod 600 on meta.redb"
-            ),
-        }
+        say_file_mode(meta.file_mode());
         // Read, and removed before anything is written: a marker that came back after a power cut would vouch for a
         // log this run was in the middle of writing.
         let stop = StopState::begin(&fs, &config.data_dir)?;
@@ -167,6 +186,7 @@ impl<F: Fs> Broker<F> {
             partitions,
             groups,
             txns: crate::txn::Txns::load(meta_txns),
+            txn_alarm: crate::txn::Alarm::default(),
             started_ms: crate::clock::now().get(),
             first_start,
             topics_changed: tokio::sync::watch::channel(0).0,
@@ -178,6 +198,9 @@ impl<F: Fs> Broker<F> {
             users,
             user_admin: tokio::sync::Mutex::new(()),
             stop_cleaning: Arc::default(),
+            telemetry: crate::telemetry::Telemetry::default(),
+            log_notes: crate::log_notes::LogNotes::default(),
+            wakes: std::sync::atomic::AtomicU64::new(0),
         })
     }
 
@@ -206,6 +229,18 @@ impl<F: Fs> Broker<F> {
         Ok(())
     }
 
+    /// How many times the background tasks that sleep until they have something to do have woken to do it (the transaction
+    /// coordinator's looks, the closer's passes over the open partitions). An idle broker adds none.
+    #[must_use]
+    pub fn background_wakes(&self) -> u64 {
+        self.wakes.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub(crate) fn woke(&self) {
+        self.wakes
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
     /// How many partitions have their files open now (never more than `max_open_partitions` plus those a request
     /// is holding).
     #[must_use]
@@ -222,7 +257,37 @@ impl<F: Fs> Broker<F> {
     /// The APIs this broker serves.
     #[must_use]
     pub fn served(&self) -> ApiSet {
-        ApiSet::of(SERVED)
+        let served = ApiSet::of(SERVED);
+        if self.config.client_telemetry {
+            TELEMETRY.iter().fold(served, |set, key| set.with(*key))
+        } else {
+            served
+        }
+    }
+
+    /// Whether client telemetry is on: the two APIs are served and the version profile may list them.
+    #[must_use]
+    pub fn client_telemetry(&self) -> bool {
+        self.config.client_telemetry
+    }
+
+    /// The metadata database, for what keeps its records beside the broker's: the schema registry (`kafka-registry`).
+    #[must_use]
+    pub fn meta(&self) -> &Arc<MetaStore> {
+        &self.meta
+    }
+
+    /// How many ACLs are in force now: one atomic load, cheap enough for every console request (SEC-188, SEC-250). A change is
+    /// counted before its CreateAcls or DeleteAcls is answered.
+    #[must_use]
+    pub fn acl_count(&self) -> usize {
+        self.authz.len()
+    }
+
+    /// The count of ACLs in force, told after each change (the console logs when its door closes or opens, SEC-250).
+    #[must_use]
+    pub fn acl_changes(&self) -> tokio::sync::watch::Receiver<usize> {
+        self.authz.watch()
     }
 }
 

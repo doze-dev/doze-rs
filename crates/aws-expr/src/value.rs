@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value as Json};
 
 use crate::Invalid;
-use crate::number::Number;
+use crate::number::{Number, NumberError};
 
 /// Deepest nesting of lists and maps in an item. `(memory)`: the developer guide says 32 levels.
 pub const MAX_DEPTH: usize = 32;
@@ -47,6 +47,17 @@ fn invalid(text: impl Into<String>) -> Invalid {
 
 fn bad_param(text: &str) -> Invalid {
     invalid(format!("One or more parameter values were invalid: {text}"))
+}
+
+/// A number in an attribute value that is not one. Recorded 2026-11-15 for the not-a-number case, which AWS counts like a model
+/// constraint (`1 validation error detected: ...`); the range and precision texts carry no count `(memory)`.
+fn bad_number(e: NumberError, text: &str) -> Invalid {
+    match e {
+        NumberError::NotNumeric => {
+            invalid(format!("1 validation error detected: {}", e.message(text)))
+        }
+        _ => invalid(e.message(text)),
+    }
 }
 
 impl Value {
@@ -94,21 +105,15 @@ impl Value {
         };
         match (tag.as_str(), body) {
             ("S", Json::String(s)) => Ok(Self::S(s.clone())),
-            ("N", Json::String(s)) => Number::parse(s)
-                .map(Self::N)
-                .map_err(|e| invalid(e.message(s))),
+            ("N", Json::String(s)) => Number::parse(s).map(Self::N).map_err(|e| bad_number(e, s)),
             ("B", Json::String(s)) => aws_core::base64::decode(s)
                 .map(Self::B)
                 .ok_or_else(|| invalid("The provided value is not valid base64")),
             ("BOOL", Json::Bool(b)) => Ok(Self::Bool(*b)),
             ("NULL", Json::Bool(_)) => Ok(Self::Null),
-            ("SS", Json::Array(a)) => strings(a)
-                .and_then(|v| set(v, "string", "SS"))
-                .map(Self::Ss),
-            ("NS", Json::Array(a)) => numbers(a)
-                .and_then(|v| set(v, "number", "NS"))
-                .map(Self::Ns),
-            ("BS", Json::Array(a)) => blobs(a).and_then(|v| set(v, "binary", "BS")).map(Self::Bs),
+            ("SS", Json::Array(a)) => strings(a).and_then(|v| set(v, "string")).map(Self::Ss),
+            ("NS", Json::Array(a)) => numbers(a).and_then(|v| set(v, "number")).map(Self::Ns),
+            ("BS", Json::Array(a)) => blobs(a).and_then(|v| set(v, "binary")).map(Self::Bs),
             ("L", Json::Array(a)) => a
                 .iter()
                 .map(|e| Self::read(e, depth + 1))
@@ -236,7 +241,7 @@ fn strings(a: &[Json]) -> Result<Vec<String>, Invalid> {
 fn numbers(a: &[Json]) -> Result<Vec<Number>, Invalid> {
     strings(a)?
         .iter()
-        .map(|s| Number::parse(s).map_err(|e| invalid(e.message(s))))
+        .map(|s| Number::parse(s).map_err(|e| bad_number(e, s)))
         .collect()
 }
 
@@ -251,8 +256,9 @@ fn blobs(a: &[Json]) -> Result<Vec<Vec<u8>>, Invalid> {
 }
 
 /// A set from its elements, refusing an empty one or one with a repeat. The empty-set text is recorded for string sets (with its
-/// double space and its count prefix); the other kinds and the repeat text are `(memory)`.
-fn set<T: Ord + Shown>(items: Vec<T>, noun: &str, kind: &str) -> Result<BTreeSet<T>, Invalid> {
+/// double space and its count prefix); the other kinds are `(memory)`. The repeat text is recorded for a string set (2026-11-15:
+/// `Input collection ["a", "a"] contains duplicates.`, each member quoted); numbers and binaries are quoted the same way `(memory)`.
+fn set<T: Ord + Shown>(items: Vec<T>, noun: &str) -> Result<BTreeSet<T>, Invalid> {
     if items.is_empty() {
         return Err(invalid(format!(
             "1 validation error detected: One or more parameter values were invalid: An {noun} set  may not be empty"
@@ -261,13 +267,13 @@ fn set<T: Ord + Shown>(items: Vec<T>, noun: &str, kind: &str) -> Result<BTreeSet
     let count = items.len();
     let shown = items
         .iter()
-        .map(Shown::shown)
+        .map(|i| Json::String(i.shown()).to_string())
         .collect::<Vec<_>>()
         .join(", ");
     let set: BTreeSet<T> = items.into_iter().collect();
     if set.len() != count {
-        return Err(bad_param(&format!(
-            "Input collection [{shown}] of type {kind} contains duplicates."
+        return Err(invalid(format!(
+            "1 validation error detected: One or more parameter values were invalid: Input collection [{shown}] contains duplicates."
         )));
     }
     Ok(set)

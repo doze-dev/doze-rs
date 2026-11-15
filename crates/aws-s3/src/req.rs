@@ -28,6 +28,8 @@ pub(crate) enum Ask {
     Configs(String),
     /// The page a website request for a key of a bucket gets.
     Website(String, String),
+    /// From `doze-aws data`: what the buckets hold, or remove some of it.
+    Data(Box<crate::storage::Asked>),
 }
 
 /// A stretch of a blob to send.

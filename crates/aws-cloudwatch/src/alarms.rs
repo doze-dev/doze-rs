@@ -266,6 +266,13 @@ impl Core {
                 .map(|d| &mut d.tags)
                 .ok_or_else(not_found);
         }
+        if let Some(key) = crate::stored::key_of_arn(arn) {
+            return self
+                .docs
+                .get_mut(&key)
+                .map(|d| &mut d.tags)
+                .ok_or_else(not_found);
+        }
         Err(not_found())
     }
 
@@ -397,6 +404,7 @@ fn check_metric_alarm(r: &Req<'_>, math: bool) -> Result<Spec, ApiError> {
             "The value {treat} is not supported for TreatMissingData parameter. Supported values are [breaching, notBreaching, ignore, missing]."
         )));
     }
+    crate::period::check(r, math)?;
     if math {
         return Ok(Spec::default());
     }

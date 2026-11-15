@@ -30,7 +30,7 @@ json:
 |   "ok": true,
 |   "data": {
 |     "key": "642a…09",
-|     "platform": "{triple}",
-|     "modules": []
+|     "modules": [],
+|     "platform": "{triple}"
 |   }
 | }

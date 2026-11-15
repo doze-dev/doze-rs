@@ -23,8 +23,8 @@ json:
 |         "state": "awake"
 |       },
 |       {
-|         "name": "events",
-|         "error": "events not ready: did not become ready within 1m0s"
+|         "error": "events not ready: did not become ready within 1m0s",
+|         "name": "events"
 |       }
 |     ]
 |   },

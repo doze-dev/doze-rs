@@ -55,26 +55,61 @@ pub(crate) struct Entry {
     pub doc: &'static str,
 }
 
+/// Why a topic's configs are refused. Shown in Kafka's words (recorded from 4.3.1), which clients and tests compare.
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+pub enum ConfigRefused {
+    #[error("Unknown topic config name: {0}")]
+    UnknownName(String),
+    #[error("Invalid value {value} for configuration {name}: {why}")]
+    InvalidValue {
+        name: String,
+        value: String,
+        why: ValueRefused,
+    },
+    #[error(
+        "conflict topic config setting min.compaction.lag.ms ({min}) > max.compaction.lag.ms ({max})"
+    )]
+    LagConflict { min: i64, max: i64 },
+}
+
+/// Why one value is not one its config takes.
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+pub enum ValueRefused {
+    /// Not a number of the config's type (`INT`, `LONG`, `DOUBLE`).
+    #[error("Not a number of type {0}")]
+    NotANumber(&'static str),
+    #[error("Value must be at least {0}")]
+    Below(i64),
+    #[error("Value must be at least {0}")]
+    BelowReal(f64),
+    #[error("Value must be no more than {0}")]
+    AboveReal(f64),
+    #[error("String must be one of: {}", .0.join(", "))]
+    NotOneOf(&'static [&'static str]),
+}
+
 /// The first config of `configs` (in name order, so the answer is stable) that is not a topic config or whose value
 /// Kafka would refuse, as the message Kafka gives.
 ///
 /// # Errors
 /// The refusal's message.
-pub(crate) fn validate(configs: &BTreeMap<String, String>) -> Result<(), String> {
+pub(crate) fn validate(configs: &BTreeMap<String, String>) -> Result<(), ConfigRefused> {
     for (name, value) in configs {
-        let setting = lookup(name).ok_or_else(|| format!("Unknown topic config name: {name}"))?;
+        let setting = lookup(name).ok_or_else(|| ConfigRefused::UnknownName(name.clone()))?;
         setting
             .kind
             .check(value)
-            .map_err(|why| format!("Invalid value {value} for configuration {name}: {why}"))?;
+            .map_err(|why| ConfigRefused::InvalidValue {
+                name: name.clone(),
+                value: value.clone(),
+                why,
+            })?;
     }
     let lag = |name: &str| configs.get(name).and_then(|v| v.trim().parse::<i64>().ok());
     if let (Some(min), Some(max)) = (lag("min.compaction.lag.ms"), lag("max.compaction.lag.ms"))
         && min > max
     {
-        return Err(format!(
-            "conflict topic config setting min.compaction.lag.ms ({min}) > max.compaction.lag.ms ({max})"
-        ));
+        return Err(ConfigRefused::LagConflict { min, max });
     }
     Ok(())
 }
@@ -203,18 +238,16 @@ impl Kind {
         }
     }
 
-    fn check(&self, v: &str) -> Result<(), String> {
+    fn check(&self, v: &str) -> Result<(), ValueRefused> {
         match self {
             Self::Int { min } => number::<i32>(v, "INT", *min),
             Self::Long { min } => number::<i64>(v, "LONG", *min),
             Self::Double { min, max } => {
-                let f: f64 = v
-                    .parse()
-                    .map_err(|_| "Not a number of type DOUBLE".to_owned())?;
+                let f: f64 = v.parse().map_err(|_| ValueRefused::NotANumber("DOUBLE"))?;
                 if f < *min {
-                    Err(format!("Value must be at least {min}"))
+                    Err(ValueRefused::BelowReal(*min))
                 } else if f > *max {
-                    Err(format!("Value must be no more than {max}"))
+                    Err(ValueRefused::AboveReal(*max))
                 } else {
                     Ok(())
                 }
@@ -230,27 +263,45 @@ impl Kind {
     }
 }
 
-fn number<T: std::str::FromStr + Into<i64>>(v: &str, ty: &str, min: i64) -> Result<(), String> {
+fn number<T: std::str::FromStr + Into<i64>>(
+    v: &str,
+    ty: &'static str,
+    min: i64,
+) -> Result<(), ValueRefused> {
     let n: i64 = v
         .parse::<T>()
-        .map_err(|_| format!("Not a number of type {ty}"))?
+        .map_err(|_| ValueRefused::NotANumber(ty))?
         .into();
     if n < min {
-        return Err(format!("Value must be at least {min}"));
+        return Err(ValueRefused::Below(min));
     }
     Ok(())
 }
 
-fn one_of(v: &str, allowed: &[&str]) -> Result<(), String> {
+fn one_of(v: &str, allowed: &'static [&'static str]) -> Result<(), ValueRefused> {
     if allowed.contains(&v) {
         Ok(())
     } else {
-        Err(format!("String must be one of: {}", allowed.join(", ")))
+        Err(ValueRefused::NotOneOf(allowed))
     }
 }
 
 #[cfg(test)]
 mod tests;
+
+/// Checks topic configs as CreateTopics does, before there is a broker: the doze module face refuses at its line in
+/// doze.hcl what the broker would refuse only once it runs. The first refusal, in Kafka's words.
+///
+/// # Errors
+/// The refusal's message.
+pub fn check_topic_configs(configs: &BTreeMap<String, String>) -> Result<(), ConfigRefused> {
+    validate(configs)
+}
+
+/// The name of every topic config, as Kafka spells it (for a "did you mean").
+pub fn topic_config_names() -> impl Iterator<Item = &'static str> {
+    SETTINGS.iter().map(|s| s.name)
+}
 
 /// The name of a topic config as this table spells it, if it is one.
 #[must_use]
@@ -265,4 +316,11 @@ pub(crate) fn kafka_default_of(name: &str) -> Option<String> {
         Fallback::None => None,
         Fallback::Fixed(v) | Fallback::Broker(_, v) => Some(v.to_owned()),
     }
+}
+
+/// What a value of the topic config may be, in words, if it is one.
+#[must_use]
+#[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+pub(crate) fn allowed_of(name: &str) -> Option<String> {
+    lookup(name).map(|s| s.kind.allowed())
 }

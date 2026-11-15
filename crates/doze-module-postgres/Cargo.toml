@@ -1,0 +1,32 @@
+[package]
+name = "doze-module-postgres"
+version = "0.0.0"
+description = "The postgres module: a local PostgreSQL server, booted on first connect, with its roles, database, schemas, extensions and grants kept as declared"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-module = { path = "../doze-module" }
+doze-os = { path = "../doze-os" }
+getrandom = "0.4"
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
+tokio = { version = "1.54", features = ["process", "io-util", "time", "net", "macros"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["tls12"] }
+
+[dev-dependencies]
+doze-module-test = { path = "../doze-module-test" }
+doze-module-host = { path = "../doze-module-host" }
+doze-module-proto = { path = "../doze-module-proto" }
+serde_json = "1"
+tokio = { version = "1.54", features = ["rt", "rt-multi-thread", "macros", "net", "io-util", "time", "process"] }
+
+[[bin]]
+name = "doze-module-postgres"
+path = "src/main.rs"
+doc = false

@@ -334,9 +334,13 @@ def test_redrive_receive_count(client, names, cleanup, snapshot, eventually):
     sqs = client("sqs")
     src, dlq, _ = dlq_pair(sqs, names, cleanup)
     msgs = dead_letter(sqs, eventually, src, dlq, "poison")
-    snapshot.match("in-the-dlq", [{"Body": m["Body"], "Attributes": {
-        k: v for k, v in m["Attributes"].items()
-        if k in ("ApproximateReceiveCount", "DeadLetterQueueSourceArn")}} for m in msgs])
+    # With VisibilityTimeout=0 AWS once handed back the one dead-lettered message ten times in a single receive (counts 2
+    # to 11, recorded 2026-11-09 and again 2026-11-15) and once only on a similar call: sampling, not a rule. What is
+    # asserted is that it is one message, and what its first copy says.
+    first = msgs[0]
+    snapshot.match("in-the-dlq", {"distinct": len({m["MessageId"] for m in msgs}), "Body": first["Body"], "Attributes": {
+        k: v for k, v in first["Attributes"].items()
+        if k in ("ApproximateReceiveCount", "DeadLetterQueueSourceArn")}})
 
 
 def test_visibility_change_in_flight(client, names, cleanup, snapshot, eventually):
@@ -367,11 +371,13 @@ def test_twelve_hours_from_the_receive(client, names, cleanup, snapshot, eventua
         QueueUrl=url, ReceiptHandle=msg["ReceiptHandle"], VisibilityTimeout=600))
 
 
-def test_visibility_of_a_message_not_in_flight(client, names, cleanup, snapshot, eventually):
+def test_visibility_of_a_message_not_in_flight(client, names, cleanup, snapshot, eventually, normalizer):
     sqs = client("sqs")
     url = make_queue(sqs, names, cleanup)
     sqs.send_message(QueueUrl=url, MessageBody="x")
     msg = receive(sqs, eventually, url, VisibilityTimeout=0)[0]
+    # The refusal quotes the handle back; the handle itself is the service's own business.
+    normalizer.name(msg["ReceiptHandle"], "receipt-handle")
     snapshot.error("not-in-flight", lambda: sqs.change_message_visibility(
         QueueUrl=url, ReceiptHandle=msg["ReceiptHandle"], VisibilityTimeout=30))
 
@@ -612,7 +618,7 @@ def test_setting_an_attribute_back_to_its_default(client, names, cleanup, snapsh
     snapshot.match("after", sqs.get_queue_attributes(QueueUrl=url, AttributeNames=["DelaySeconds"]))
 
 
-def test_an_old_receipt_handle(client, names, cleanup, snapshot, eventually):
+def test_an_old_receipt_handle(client, names, cleanup, snapshot, eventually, normalizer):
     """"If you use an old ReceiptHandle, the request will succeed, but the
     message might not be deleted." Here a handle is the receive's: a delete with
     an earlier receive's handle succeeds and leaves the message (SQS-27)."""
@@ -621,6 +627,7 @@ def test_an_old_receipt_handle(client, names, cleanup, snapshot, eventually):
     url = make_queue(sqs, names, cleanup, Attributes={"VisibilityTimeout": "1"})
     sqs.send_message(QueueUrl=url, MessageBody="x")
     old = receive(sqs, eventually, url)[0]["ReceiptHandle"]
+    normalizer.name(old, "old-receipt-handle")  # a refusal quotes it back
     time.sleep(2)
     new = receive(sqs, eventually, url)[0]["ReceiptHandle"]
     snapshot.match("handles-differ", {"differ": old != new})

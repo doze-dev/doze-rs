@@ -6,6 +6,9 @@ past the standard library.
 """
 
 import json
+import re
+
+from botocore.exceptions import ClientError
 
 from harness.helpers import zip_bytes
 
@@ -23,6 +26,9 @@ def handler(event, context):
 '''
 
 FAST = {"Delay": 1, "MaxAttempts": 120}
+
+URL_NEEDS_BOTH = ("Forbidden. Invoking a Function URL requires both the lambda:InvokeFunctionUrl and lambda:InvokeFunction "
+                  "permissions. For troubleshooting, see: https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html")
 
 # Clock readings and where AWS keeps the code: not ours to match.
 MINTED = ("LastModified", "Location", "RepositoryType")
@@ -77,7 +83,7 @@ def test_function_lifecycle_and_invoke(client, names, cleanup, snapshot, service
     snapshot.error("get-deleted", lambda: lam.get_function(FunctionName=name))
 
 
-def test_versions_and_aliases(client, names, cleanup, snapshot, service_role):
+def test_versions_and_aliases(client, names, cleanup, snapshot, service_role, eventually):
     lam = client("lambda")
     name, _ = function(lam, names, cleanup, service_role("lambda", BASIC),
                        Environment={"Variables": {"GREETING": "one"}})
@@ -102,7 +108,14 @@ def test_versions_and_aliases(client, names, cleanup, snapshot, service_role):
     snapshot.match("invoke-alias", invoke(lam, name, {}, Qualifier="live"))
     snapshot.match("repoint-alias", lam.update_alias(
         FunctionName=name, Name="live", FunctionVersion="2"))
-    snapshot.match("invoke-alias-repointed", invoke(lam, name, {}, Qualifier="live"))
+    # An alias moved is eventually consistent on AWS: the 2026-11-15 recording ran version 1 straight after the move. What it
+    # settles into is compared.
+    def repointed():
+        r = invoke(lam, name, {}, Qualifier="live")
+        assert r["ExecutedVersion"] == "2", "the alias still runs the old version"
+        return r
+
+    snapshot.match("invoke-alias-repointed", eventually(repointed))
     snapshot.match("versions", [v["Version"] for v in lam.list_versions_by_function(
         FunctionName=name)["Versions"]])
     snapshot.match("aliases", lam.list_aliases(FunctionName=name))
@@ -225,7 +238,7 @@ def queue_arn(sqs, url):
 
 
 def test_a_trigger_whose_queue_hides_for_less_than_the_function_runs(
-        client, names, cleanup, snapshot, service_role):
+        client, names, cleanup, snapshot, service_role, eventually):
     """LAM-5 / SQS plan section 9. "Your function's timeout must be less than or
     equal to the queue's visibility timeout. Lambda validates this requirement
     when you create or update an event source mapping and returns an error if the
@@ -246,6 +259,14 @@ def test_a_trigger_whose_queue_hides_for_less_than_the_function_runs(
         opaque=MINTED, drop=("State", "StateTransitionReason"))
     if isinstance(made, dict):
         cleanup(lam.delete_event_source_mapping, UUID=made["UUID"])
+
+        # A mapping is changed only once it has settled: AWS refuses an update while it is still being made
+        # (ResourceInUseException, recorded 2026-11-15).
+        def settled():
+            listed = lam.list_event_source_mappings(FunctionName=name)["EventSourceMappings"]
+            assert [m["State"] for m in listed if m["UUID"] == made["UUID"]] == ["Enabled"], "the mapping is still being made"
+
+        eventually(settled, timeout=120, every=2)
         # Raised past the queue's after the mapping was made: the next update.
         lam.update_function_configuration(FunctionName=name, Timeout=60)
         lam.get_waiter("function_updated_v2").wait(FunctionName=name, WaiterConfig=FAST)
@@ -302,9 +323,22 @@ def test_layers_tags_and_settings(client, names, cleanup, snapshot, service_role
 
     lam.tag_resource(Resource=made["FunctionArn"], Tags={"team": "a"})
     assert lam.list_tags(Resource=made["FunctionArn"])["Tags"] == {"team": "a"}
-    lam.put_function_concurrency(FunctionName=name, ReservedConcurrentExecutions=1)
-    assert lam.get_function_concurrency(FunctionName=name)["ReservedConcurrentExecutions"] == 1
-    lam.delete_function_concurrency(FunctionName=name)
+    # Reserving concurrency must leave the account its minimum unreserved. The recording account's limit is 10 (a new account's),
+    # so AWS refused even 1 there (2026-11-15); doze-aws's account has AWS's usual 1000. Reserving the whole limit is refused on
+    # both, and the minimum in the words is the account's own.
+    limit = lam.get_account_settings()["AccountLimit"]["ConcurrentExecutions"]
+    try:
+        lam.put_function_concurrency(FunctionName=name, ReservedConcurrentExecutions=limit)
+        refused = None
+    except ClientError as e:
+        refused = {"Code": e.response["Error"]["Code"],
+                   "Message": re.sub(r"\[\d+\]", "[<minimum>]", e.response["Error"]["Message"]),
+                   "Status": e.response["ResponseMetadata"]["HTTPStatusCode"]}
+    snapshot.match("reserve-the-whole-limit", {"Error": refused})
+    if limit >= 1000:
+        lam.put_function_concurrency(FunctionName=name, ReservedConcurrentExecutions=1)
+        assert lam.get_function_concurrency(FunctionName=name)["ReservedConcurrentExecutions"] == 1
+        lam.delete_function_concurrency(FunctionName=name)
     lam.put_function_event_invoke_config(FunctionName=name, MaximumRetryAttempts=0)
     assert lam.get_function_event_invoke_config(FunctionName=name)["MaximumRetryAttempts"] == 0
     snapshot.match("account", {"count": lam.get_account_settings()["AccountUsage"]["FunctionCount"] >= 1})
@@ -330,13 +364,13 @@ def test_function_url(client, names, cleanup, snapshot, service_role, target, ev
     """A function URL answers an HTTP request with what the function returned."""
     import http.client
     import urllib.parse
-    import urllib.request
 
     lam = client("lambda")
     source = ('import json\n'
               'def handler(event, context):\n'
               '    return {"statusCode": 201, "headers": {"x-seen": event["rawPath"]},\n'
-              '            "body": json.dumps({"method": event["requestContext"]["http"]["method"], "body": event.get("body")})}\n')
+              '            "body": json.dumps({"method": event["requestContext"]["http"]["method"], "body": event.get("body"),\n'
+              '                                "base64": event["isBase64Encoded"]})}\n')
     name, _ = function(lam, names, cleanup, service_role("lambda", BASIC), source)
     made = lam.create_function_url_config(FunctionName=name, AuthType="NONE")
     cleanup(lam.delete_function_url_config, FunctionName=name)
@@ -345,16 +379,32 @@ def test_function_url(client, names, cleanup, snapshot, service_role, target, ev
     url = made["FunctionUrl"]
     parts = urllib.parse.urlsplit(url)
 
-    def call():
+    def call(content_type="text/plain"):
+        headers = {"Host": parts.netloc, **({"Content-Type": content_type} if content_type else {})}
         if target.name == "aws":
-            req = urllib.request.Request(url.rstrip("/") + "/orders/7", data=b"hello", method="POST")
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                return resp.status, resp.headers.get("x-seen"), resp.read()
-        # doze serves the URL on its own address; the name only has to reach it.
-        conn = http.client.HTTPConnection(urllib.parse.urlsplit(target.endpoint).netloc, timeout=30)
-        conn.request("POST", "/orders/7", body=b"hello", headers={"Host": parts.netloc})
+            conn = http.client.HTTPSConnection(parts.netloc, timeout=30)
+        else:
+            # doze serves the URL on its own address; the name only has to reach it.
+            conn = http.client.HTTPConnection(urllib.parse.urlsplit(target.endpoint).netloc, timeout=30)
+        conn.request("POST", "/orders/7", body=b"hello", headers=headers)
         resp = conn.getresponse()
         return resp.status, resp.getheader("x-seen"), resp.read()
+
+    if target.name == "aws":
+        # Since October 2025 lambda:InvokeFunctionUrl alone does not open a NONE URL: AWS answers 403 (in these words, seen
+        # 2026-11-15) until lambda:InvokeFunction is granted too, for calls through the URL. doze-aws answers the same with
+        # --iam enforce (its hint after the words); this suite runs it with --iam soft, where it logs and runs the function, so this
+        # part is asserted against AWS only.
+        import time
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            status, _, body = call()
+            assert (status, json.loads(body)) == (403, {"Message": URL_NEEDS_BOTH}), (status, body)
+            time.sleep(2)
+    lam.add_permission(FunctionName=name, StatementId="url-invoke", Action="lambda:InvokeFunction",
+                       Principal="*", InvokedViaFunctionUrl=True)
+    policy = json.loads(lam.get_policy(FunctionName=name)["Policy"])
+    snapshot.match("policy", {"Statement": policy["Statement"]})
 
     def answered():
         status, seen, body = call()
@@ -362,5 +412,57 @@ def test_function_url(client, names, cleanup, snapshot, service_role, target, ev
         return status, seen, json.loads(body)
 
     status, seen, body = eventually(answered, timeout=60)
-    assert (seen, body) == ("/orders/7", {"method": "POST", "body": "hello"})
-    snapshot.match("url-config", {"AuthType": made["AuthType"], "InvokeMode": made["InvokeMode"]})
+    assert (seen, body) == ("/orders/7", {"method": "POST", "body": "hello", "base64": False})
+    snapshot.match("url-config", {"AuthType": made["AuthType"], "InvokeMode": made.get("InvokeMode")})
+    # Which bodies the function is given as base64: the 2026-11-15 recording found a form body (urllib's default type) encoded.
+    for kind in ("application/json", "application/x-www-form-urlencoded", "application/octet-stream", "image/png",
+                 "application/xml", "text/csv", None):
+        status, seen, body = call(kind)
+        snapshot.match(f"body-as-{kind or 'nothing'}", {"status": status, "event": json.loads(body)})
+
+
+def test_function_url_with_iam_auth_refuses_a_bad_signature(client, names, cleanup, snapshot, service_role, target,
+                                                            eventually):
+    """A function URL with AuthType AWS_IAM answers only a request signed with SigV4 for lambda: an unsigned one and one signed with
+    the wrong secret are refused with 403, one signed with the client's own credentials runs the function."""
+    import http.client
+    import urllib.parse
+
+    from botocore.auth import SigV4Auth
+    from botocore.awsrequest import AWSRequest
+    from botocore.credentials import Credentials
+
+    lam = client("lambda")
+    source = 'def handler(event, context):\n    return {"statusCode": 200, "body": "ran"}\n'
+    name, _ = function(lam, names, cleanup, service_role("lambda", BASIC), source)
+    made = lam.create_function_url_config(FunctionName=name, AuthType="AWS_IAM")
+    cleanup(lam.delete_function_url_config, FunctionName=name)
+    parts = urllib.parse.urlsplit(made["FunctionUrl"])
+    own = lam._request_signer._credentials.get_frozen_credentials()  # noqa: SLF001 - the client's own
+
+    def call(secret=None, sign=True):
+        request = AWSRequest(method="GET", url=f"{parts.scheme}://{parts.netloc}/", headers={"Host": parts.netloc})
+        if sign:
+            signer = Credentials(own.access_key, secret or own.secret_key, own.token)
+            SigV4Auth(signer, "lambda", lam.meta.region_name).add_auth(request)
+        if target.name == "aws":
+            conn = http.client.HTTPSConnection(parts.netloc, timeout=30)
+        else:
+            # doze serves the URL on its own address; the name only has to reach it.
+            conn = http.client.HTTPConnection(urllib.parse.urlsplit(target.endpoint).netloc, timeout=30)
+        conn.request("GET", "/", headers=dict(request.headers.items()))
+        resp = conn.getresponse()
+        return {"status": resp.status, "body": resp.read().decode()}
+
+    def ran():
+        got = call()
+        assert got["status"] == 200, got
+        return got
+
+    snapshot.match("signed", eventually(ran, timeout=60))
+    unsigned = call(sign=False)
+    assert unsigned["status"] == 403
+    snapshot.match("unsigned", {"status": unsigned["status"], "body": json.loads(unsigned["body"])})
+    bad = call(secret="not-the-secret-key")
+    assert bad["status"] == 403, bad
+    snapshot.match("bad-signature", {"status": bad["status"], "body": json.loads(bad["body"])})

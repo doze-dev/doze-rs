@@ -29,6 +29,18 @@ pub struct Caller {
     pub session_token: Option<String>,
 }
 
+impl Caller {
+    /// The access key id of a request that carried no signature at all (S3 with `curl` or a browser, a website page, an SNS
+    /// `SubscribeURL`): AWS's anonymous principal, which only a resource policy that grants `"Principal": "*"` lets in.
+    pub const ANONYMOUS: &'static str = "anonymous";
+
+    /// Whether the request carried no signature.
+    #[must_use]
+    pub fn is_anonymous(&self) -> bool {
+        self.access_key_id == Self::ANONYMOUS
+    }
+}
+
 /// One decoded request, owned, so it can cross to the task that owns the service.
 #[derive(Debug)]
 pub struct Call {
@@ -94,6 +106,31 @@ pub struct WebRequest {
     pub body: bytes::Bytes,
     /// The scheme and host the client used (`http://127.0.0.1:4566`).
     pub endpoint: String,
+    /// What the gateway made of a SigV4 signature on the request, for a service that asks ([`Web::signing_name`]).
+    pub signature: WebSignature,
+}
+
+/// What the gateway made of the signature on a request to an address a service owns (a function URL with `AuthType` `AWS_IAM`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum WebSignature {
+    /// No signature at all, or the service did not ask.
+    #[default]
+    Unsigned,
+    /// Signed for the service's signing name, in time. `verified` says the signature itself was checked with the secret; it is
+    /// false only for a key the gateway does not know under `--auth trust`, whose signature is taken on trust like any API call's.
+    Signed {
+        /// The access key that signed.
+        access_key_id: String,
+        /// The session token the request carried.
+        session_token: Option<String>,
+        /// The region of the credential scope.
+        region: String,
+        /// Whether the signature was checked with the secret.
+        verified: bool,
+    },
+    /// Signed, and wrongly (another service's scope, out of time, a key nobody issued, a signature that does not match): AWS's
+    /// words for why.
+    Refused(String),
 }
 
 /// The answer to a [`WebRequest`].
@@ -107,6 +144,41 @@ pub struct WebReply {
     pub body: bytes::Bytes,
 }
 
+/// A connection a service has taken over after an HTTP upgrade (a WebSocket): bytes in and out.
+pub trait Socket: Send {
+    /// Reads into `buf`; 0 at the end of the connection.
+    fn read<'a>(&'a mut self, buf: &'a mut [u8]) -> BoxFuture<'a, std::io::Result<usize>>;
+
+    /// Writes all of `buf`.
+    fn write_all<'a>(&'a mut self, buf: &'a [u8]) -> BoxFuture<'a, std::io::Result<()>>;
+}
+
+/// What runs on an upgraded connection until it ends.
+pub type Session = Box<dyn FnOnce(Box<dyn Socket>) -> BoxFuture<'static, ()> + Send>;
+
+/// The answer to a request to upgrade the connection.
+pub enum Upgrade {
+    /// Not upgraded: the answer instead.
+    Refused(WebReply),
+    /// Upgraded: the `101 Switching Protocols` headers, and the session that takes the connection.
+    Accepted {
+        headers: Vec<(String, String)>,
+        session: Session,
+    },
+}
+
+impl std::fmt::Debug for Upgrade {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Refused(r) => f.debug_tuple("Refused").field(&r.status).finish(),
+            Self::Accepted { headers, .. } => f
+                .debug_struct("Accepted")
+                .field("headers", headers)
+                .finish_non_exhaustive(),
+        }
+    }
+}
+
 /// A service with addresses of its own that are not signed API calls (a Lambda function URL).
 pub trait Web: Send + Sync {
     /// Whether a request to this host and path is the service's. Cheap and pure: it runs for every request that is not signed.
@@ -118,8 +190,26 @@ pub trait Web: Send + Sync {
         false
     }
 
+    /// Whether the addresses are doze's own local helpers (`/_doze/...`), not AWS's: the gateway then answers a request only if it
+    /// passes [`crate::local::guard`] (no page from another origin, a `POST` only as JSON, and under `--auth verify` the secret key).
+    fn local(&self) -> bool {
+        false
+    }
+
+    /// The SigV4 signing name a signature on the service's addresses is checked for (`lambda` for function URLs). `None`, the
+    /// default, leaves every request [`WebSignature::Unsigned`].
+    fn signing_name(&self, _host: &str, _path: &str) -> Option<&'static str> {
+        None
+    }
+
     /// Answers the request.
     fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply>;
+
+    /// Answers a request to upgrade the connection (`Upgrade: websocket`) to an address the service owns. The default refuses: a
+    /// service that takes connections over (API Gateway's WebSocket APIs) says so.
+    fn upgrade(&self, request: WebRequest) -> BoxFuture<'_, Upgrade> {
+        Box::pin(async move { Upgrade::Refused(self.serve(request).await) })
+    }
 }
 
 /// A service the gateway can route to.
@@ -134,6 +224,13 @@ pub trait Service: Send + Sync + 'static {
     /// before its body is read, so a service need not carry validation tables for operations it will never run.
     fn serves(&self, _op: u32) -> bool {
         true
+    }
+
+    /// Whether operation `op` is called without a signature: its model gives it no auth scheme (`smithy.api#auth: []`, STS's
+    /// `AssumeRoleWithWebIdentity` and `AssumeRoleWithSAML`). The gateway answers such a request when it carries no signature at all,
+    /// as AWS does; the default is none.
+    fn unsigned(&self, _op: u32) -> bool {
+        false
     }
 
     /// Whether every client error is answered 400, whatever status the model gives it (KMS does this).
@@ -153,6 +250,12 @@ pub trait Service: Send + Sync + 'static {
     /// The service's own unsigned web addresses (a Lambda function URL), for a service that has some: the gateway asks it before it
     /// looks for a signature, and hands it the request whole. `None` for every service that has none.
     fn web(&self) -> Option<&dyn Web> {
+        None
+    }
+
+    /// What the service keeps on disk, for `doze-aws data` and the console to show and remove. `None` for a service that keeps
+    /// nothing (STS) or is a second face of another (DynamoDB Streams answers through DynamoDB).
+    fn storage(&self) -> Option<&dyn crate::storage::Storage> {
         None
     }
 

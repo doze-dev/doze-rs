@@ -10,10 +10,10 @@ def bus(events, names, cleanup, label="bus"):
     return name, made
 
 
-def target_queue(client, names, cleanup, rule_arn):
+def target_queue(client, names, cleanup, rule_arn, label="queue"):
     """A queue the rule is allowed to deliver to."""
     sqs = client("sqs")
-    url = sqs.create_queue(QueueName=names("queue"))["QueueUrl"]
+    url = sqs.create_queue(QueueName=names(label))["QueueUrl"]
     cleanup(sqs.delete_queue, QueueUrl=url)
     arn = sqs.get_queue_attributes(QueueUrl=url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
     sqs.set_queue_attributes(QueueUrl=url, Attributes={"Policy": json.dumps({
@@ -98,6 +98,32 @@ def test_a_matching_event_reaches_the_queue(client, names, cleanup, snapshot, ev
 
     snapshot.match("remove-targets", events.remove_targets(
         Rule=rule, EventBusName=name, Ids=["queue", "absent"]))
+
+
+def test_put_events_answers_before_the_target_is_invoked(client, names, cleanup, snapshot, eventually):
+    """PutEvents answers once its events are accepted; the target is invoked afterwards. The message that reaches the queue later
+    carries an EventId one of the answers gave (an event is sent again on each poll, as a new rule takes a while to apply on AWS)."""
+    events, sqs = client("events"), client("sqs")
+    name, _ = bus(events, names, cleanup)
+    rule = names("rule")
+    rule_arn = events.put_rule(Name=rule, EventBusName=name, EventPattern=json.dumps({"source": ["shop.async"]}))["RuleArn"]
+    cleanup(events.delete_rule, Name=rule, EventBusName=name)
+    url, arn = target_queue(client, names, cleanup, rule_arn)
+    events.put_targets(Rule=rule, EventBusName=name, Targets=[{"Id": "queue", "Arn": arn}])
+    cleanup(events.remove_targets, Rule=rule, EventBusName=name, Ids=["queue"])
+    answered = []
+
+    def delivered():
+        answer = events.put_events(Entries=[{"EventBusName": name, "Source": "shop.async", "DetailType": "x", "Detail": "{}"}])
+        answered.append(answer)
+        r = sqs.receive_message(QueueUrl=url, WaitTimeSeconds=2)
+        assert r.get("Messages"), "nothing delivered yet"
+        return json.loads(r["Messages"][0]["Body"])
+
+    event = eventually(delivered, timeout=90)
+    assert event["id"] in [a["Entries"][0]["EventId"] for a in answered]
+    snapshot.match("put-events", answered[0], opaque=("EventId",))
+    snapshot.match("delivered-after", event, opaque=("id", "time"))
 
 
 def test_a_rule_with_targets_cannot_be_deleted(client, names, cleanup, snapshot, target):
@@ -231,7 +257,8 @@ def test_a_bus_policy(client, names, cleanup, snapshot):
         EventBusName=name, StatementId="peer", Action="events:PutEvents", Principal="444455556666"))
     policy = json.loads(events.describe_event_bus(Name=name)["Policy"])
     snapshot.match("policy", {"Statement": policy["Statement"], "Version": policy["Version"]})
-    snapshot.error("statement-again", lambda: events.put_permission(
+    # The same statement id again is accepted (recorded 2026-11-15), not refused.
+    snapshot.match("statement-again", events.put_permission(
         EventBusName=name, StatementId="peer", Action="events:PutEvents", Principal="444455556666"))
     snapshot.match("remove-permission", events.remove_permission(EventBusName=name, StatementId="peer"))
     snapshot.error("remove-again", lambda: events.remove_permission(EventBusName=name, StatementId="peer"))
@@ -241,20 +268,11 @@ def test_a_bus_policy(client, names, cleanup, snapshot):
 def test_input_settings_reach_the_queue(client, names, cleanup, snapshot, eventually):
     events, sqs = client("events"), client("sqs")
     name, _ = bus(events, names, cleanup)
-    rule = names("rule")
-    rule_arn = events.put_rule(Name=rule, EventBusName=name, EventPattern=json.dumps({"source": ["shop.orders"]}))["RuleArn"]
-    cleanup(events.delete_rule, Name=rule, EventBusName=name)
-    url, arn = target_queue(client, names, cleanup, rule_arn)
-    cleanup(events.remove_targets, Rule=rule, EventBusName=name, Ids=["queue"])
-    entry = {"EventBusName": name, "Source": "shop.orders", "DetailType": "placed",
-             "Detail": json.dumps({"customer": "ada", "total": 250, "items": ["book", "pen"]})}
-
-    def delivered():
-        r = sqs.receive_message(QueueUrl=url, WaitTimeSeconds=1)
-        assert r.get("Messages"), "nothing delivered yet"
-        sqs.delete_message(QueueUrl=url, ReceiptHandle=r["Messages"][0]["ReceiptHandle"])
-        return r["Messages"][0]["Body"]
-
+    detail = json.dumps({"customer": "ada", "total": 250, "items": ["book", "pen"]})
+    rule = None
+    # A rule, a queue and a detail type for each setting. On AWS a target's settings take a while to reach delivery: the 2026-11-15 recording,
+    # which changed one target's settings between events, saw the old setting applied to the next three events. A rule is new
+    # each time here, and an event is sent again until one arrives.
     for label, settings in [
         ("constant", {"Input": '{"fixed":  true}'}),
         ("path", {"InputPath": "$.detail.items"}),
@@ -262,13 +280,30 @@ def test_input_settings_reach_the_queue(client, names, cleanup, snapshot, eventu
         ("transformer-json", {"InputTransformer": {
             "InputPathsMap": {"who": "$.detail.customer", "n": "$.detail.total", "all": "$.detail.items"},
             "InputTemplate": '{"who": "<who>", "n": <n>, "items": <all>, "rule": "<aws.events.rule-name>"}'}}),
+        # A text template is a JSON string, quotes included: AWS refuses `hello <who>` (below).
         ("transformer-text", {"InputTransformer": {
-            "InputPathsMap": {"who": "$.detail.customer"}, "InputTemplate": "hello <who>"}}),
+            "InputPathsMap": {"who": "$.detail.customer"}, "InputTemplate": '"hello <who>"'}}),
     ]:
+        rule = names(f"rule-{label}")
+        rule_arn = events.put_rule(Name=rule, EventBusName=name, EventPattern=json.dumps(
+            {"source": ["shop.orders"], "detail-type": [label]}))["RuleArn"]
+        cleanup(events.delete_rule, Name=rule, EventBusName=name)
+        url, arn = target_queue(client, names, cleanup, rule_arn, label=f"queue-{label}")
+        entry = {"EventBusName": name, "Source": "shop.orders", "DetailType": label, "Detail": detail}
         events.put_targets(Rule=rule, EventBusName=name, Targets=[{"Id": "queue", "Arn": arn, **settings}])
-        events.put_events(Entries=[entry])
-        body = eventually(delivered, timeout=60)
+        cleanup(events.remove_targets, Rule=rule, EventBusName=name, Ids=["queue"])
+
+        def delivered(url=url, entry=entry):
+            events.put_events(Entries=[entry])
+            r = sqs.receive_message(QueueUrl=url, WaitTimeSeconds=2)
+            assert r.get("Messages"), "nothing delivered yet"
+            return r["Messages"][0]["Body"]
+
+        body = eventually(delivered, timeout=90)
         snapshot.match(label, {"Body": body.replace(rule, "<rule>")})
+    snapshot.error("transformer-text-unquoted", lambda: events.put_targets(Rule=rule, EventBusName=name, Targets=[{
+        "Id": "queue", "Arn": arn,
+        "InputTransformer": {"InputPathsMap": {"who": "$.detail.customer"}, "InputTemplate": "hello <who>"}}]))
 
 
 def test_refusals(client, names, cleanup, snapshot):

@@ -15,6 +15,7 @@ use libfuzzer_sys::fuzz_target;
 const CONFIG: LogConfig = LogConfig {
     segment_bytes: 1 << 20,
     index_interval_bytes: 256,
+    segment_ms: None,
 };
 
 fn disk(log: &[u8], index: &[u8]) -> (SimFs, PathBuf) {
@@ -37,7 +38,9 @@ fn served(log: &PartitionLog<SimFs>) -> Vec<u8> {
         let mut any = false;
         for batch in Batches::new(got.clone()) {
             let batch = batch.expect("a recovered log serves only whole, valid batches");
-            from = batch.base_offset().unwrap().checked_add(batch.record_count()).unwrap();
+            // The span the header declares, not the record count: a compacted batch holds fewer records than its offsets
+            // span, and reading on from base plus count asked for the same batch forever (a CI run timed out on one).
+            from = batch.next_offset().unwrap();
             any = true;
         }
         assert!(any, "a hole before the end");
@@ -59,7 +62,12 @@ fuzz_target!(|data: &[u8]| {
         while from < reader.end_offset() {
             let Ok(got) = reader.read(from, usize::MAX, None) else { break };
             let Some(last) = Batches::new(got).map_while(Result::ok).last() else { break };
-            let Some(next) = last.base_offset().and_then(|b| b.checked_add(last.record_count())) else { break };
+            let Some(next) = last.next_offset() else { break };
+            // Damage the log was trusted not to have may serve, at `from`, a batch that ends before it: stop rather than ask for
+            // the same offset again (only "no panic" is asked of this path).
+            if next <= from {
+                break;
+            }
             from = next;
         }
     }

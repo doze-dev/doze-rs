@@ -1,6 +1,6 @@
 //! JoinGroup.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::{GroupId, InstanceId, MemberId};
 use kafka_wire::messages::join_group_response::JoinGroupResponseMember;
@@ -22,7 +22,7 @@ impl<F: Fs> Broker<F> {
     ) -> Outcome {
         if !self
             .guard(caller)
-            .group(operation::READ, req.group_id.as_str())
+            .group(Operation::Read, req.group_id.as_str())
         {
             return respond(
                 version,
@@ -58,6 +58,11 @@ impl<F: Fs> Broker<F> {
             issued: false,
             id_first: version >= 4,
             rights: self.guard(caller).topic_rights(),
+            // What the client says, clipped as it is read and never logged: only the console's story keeps it.
+            reason: req
+                .reason
+                .as_ref()
+                .and_then(|r| crate::groups::Reason::clip(r.as_str())),
         };
         match self.groups.ask(&group, Req::Join(join)).await {
             Some(Answer::Join(answer)) => respond(version, &answer),

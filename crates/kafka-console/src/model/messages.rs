@@ -3,7 +3,9 @@
 use super::{MessageQuery, TopicHead};
 
 /// Where a record stands for a `read_committed` consumer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum Standing {
     /// Below the last stable offset and not aborted: both isolation levels see it.
     Committed,
@@ -14,7 +16,9 @@ pub enum Standing {
 }
 
 /// What a key or a value is, as far as the bytes say.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ShownKind"))]
+#[serde(rename_all = "snake_case")]
 pub enum Kind {
     /// Not there (a null key, a deletion's value).
     Null,
@@ -27,7 +31,8 @@ pub enum Kind {
 }
 
 /// A key, a value or a header's value, ready to show.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Shown {
     pub kind: Kind,
     /// The true size in bytes.
@@ -37,10 +42,48 @@ pub struct Shown {
     pub clipped: bool,
     /// One line for a table cell.
     pub preview: String,
+    /// The bytes as kept, when they start with the schema registry's wire header (byte 0, then a schema id): what the
+    /// API decodes with the registry. Not sent.
+    #[serde(skip)]
+    #[cfg_attr(test, ts(skip))]
+    pub framed: Option<Framed>,
+    /// The value read with its registry schema (`crate::schemas`); `None` for bytes not in the wire format.
+    pub schema: Option<SchemaShown>,
+}
+
+/// Bytes in the registry's wire format, as far as they were kept.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Framed {
+    pub bytes: Vec<u8>,
+    /// All of them were kept (a table keeps the first 512).
+    pub whole: bool,
+}
+
+/// A key or a value read with the schema its wire header names.
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct SchemaShown {
+    pub id: u32,
+    /// `AVRO`, `JSON`, `PROTOBUF`; `None` when the id is not registered here.
+    pub kind: Option<String>,
+    /// The subject and version that hold the id (`<topic>-value` first).
+    pub subject: Option<String>,
+    pub version: Option<u32>,
+    /// The Protobuf message the value's index names.
+    pub message: Option<String>,
+    /// The value as JSON, laid out (none when it could not be read, or was not kept whole).
+    pub json: Option<String>,
+    /// One line for a table cell.
+    pub preview: String,
+    /// Why it could not be read, in words (`Schema id 9 is not registered here (40403)`).
+    pub error: Option<String>,
+    /// A JSON Schema value that reads but does not fit its schema: why.
+    pub mismatch: Option<String>,
 }
 
 /// One row of the table.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct RecordRow {
     pub partition: i32,
     pub offset: i64,
@@ -51,7 +94,8 @@ pub struct RecordRow {
 }
 
 /// A partition's place in the `read_committed` explanation.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Hold {
     pub partition: i32,
     pub high_watermark: i64,
@@ -61,7 +105,8 @@ pub struct Hold {
 }
 
 /// What the read did, in numbers a sentence can use.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Reach {
     /// Records returned.
     pub returned: usize,
@@ -78,7 +123,8 @@ pub struct Reach {
 }
 
 /// The Messages page.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct MessagesView {
     pub head: TopicHead,
     pub query: MessageQuery,
@@ -91,14 +137,16 @@ pub struct MessagesView {
 }
 
 /// A header of a record.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct HeaderRow {
     pub key: String,
     pub value: Shown,
 }
 
 /// The transaction a record belongs to, as far as the broker says.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct RecordTxn {
     pub id: Option<String>,
     /// `Ongoing`, `PrepareCommit`, ... where the coordinator still has it.
@@ -108,7 +156,8 @@ pub struct RecordTxn {
 }
 
 /// One record, completely.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct RecordView {
     pub topic: String,
     pub partition: i32,

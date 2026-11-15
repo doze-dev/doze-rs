@@ -1,6 +1,6 @@
 //! ListOffsets.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_meta::Topic;
 use kafka_storage::StorageError;
 use kafka_storage::fs::Fs;
@@ -35,7 +35,7 @@ impl<F: Fs> Broker<F> {
         let mut resp = ListOffsetsResponse::default();
         let mut refused = Vec::new();
         for t in &req.topics {
-            if !self.topic_allows(caller, &t.name.0, operation::DESCRIBE) {
+            if !self.topic_allows(caller, &t.name.0, Operation::Describe) {
                 refused.push(not_described(t));
                 continue;
             }

@@ -11,8 +11,9 @@ use kafka_wire::ids::{Offset, TimestampMs};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{Instant, sleep_until};
 
+use super::upkeep::Upkeep;
 use crate::blocking;
-use crate::producers::{Producers, Stored, Verdict, last_of};
+use crate::producers::{FirstSequence, Producers, Stored, Verdict, last_of};
 use crate::txn_index::{Open, TxnIndex};
 
 /// The most appends taken in one go, so that a partition under load still hears a Close.
@@ -24,12 +25,22 @@ pub(super) enum Command<F: Fs> {
     Append(Append),
     /// What the partition knows of its transactions and producers.
     Txns(oneshot::Sender<Result<TxnView, StorageError>>),
+    /// Each producer's window of recent batches, for the console.
+    Windows(oneshot::Sender<Result<Vec<crate::producers::Window>, StorageError>>),
     /// Move the start of the log up; answers the start now in force.
     Trim(Trim, oneshot::Sender<Result<Offset, StorageError>>),
-    /// Plan a round of cleaning, if the log is due one.
+    /// Remove every record, unless a transaction is open in the log (the console's Empty topic).
+    Empty(oneshot::Sender<Result<Emptying, StorageError>>),
+    /// Apply retention now; answers the start now in force and when retention could next take something.
+    Retain(
+        Retention,
+        TimestampMs,
+        oneshot::Sender<Result<Retained, StorageError>>,
+    ),
+    /// Plan a round of cleaning, if the log is due one; answers with the count of changes it was judged at.
     Clean(
         kafka_storage::compact::Params,
-        oneshot::Sender<Result<Option<kafka_storage::compact::CleanJob<F>>, StorageError>>,
+        oneshot::Sender<Result<(kafka_storage::compact::Planned<F>, u64), StorageError>>,
     ),
     /// Put a round of cleaning in place; answers how many segments it replaced.
     Install(
@@ -51,6 +62,27 @@ pub(crate) enum Trim {
     Retention(Retention, TimestampMs),
     /// DeleteRecords: everything below the offset, or (`None`) everything.
     Before(Option<Offset>),
+}
+
+/// What became of a request to empty a partition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Emptying {
+    /// Every record is gone: the log starts where it ends, and `offsets` offsets were below that.
+    Emptied { offsets: i64 },
+    /// A transaction has records in the log and no marker yet: emptying would leave its marker with nothing to end, and its
+    /// producer's commit would commit nothing. Nothing was done.
+    TxnOpen,
+}
+
+/// What a pass of retention left.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Retained {
+    /// The log start now in force.
+    pub(crate) start: Offset,
+    /// When retention could next take something, if nothing is written (`PartitionLog::retention_due`).
+    pub(crate) due_ms: Option<i64>,
+    /// The writer's count of changes when that was judged.
+    pub(crate) changes: u64,
 }
 
 /// What became of an append.
@@ -78,6 +110,8 @@ pub(super) struct Append {
     pub(super) clock: TimestampType,
     /// The next flush must cover this append (acks=all).
     pub(super) durable: bool,
+    /// Where a producer the partition knows no batch of may start.
+    pub(super) first: FirstSequence,
     pub(super) reply: oneshot::Sender<Result<Written, StorageError>>,
 }
 
@@ -92,6 +126,8 @@ struct Memory {
     /// record left; they are let go one round later, so that a reader that began on the old segments is not told less than
     /// what it reads.
     cleaned_to: i64,
+    /// Counts the changes this writer makes, for the chores that leave an unchanged partition alone.
+    upkeep: Arc<Upkeep>,
 }
 
 /// Takes commands until the queue closes or a Close arrives: appends are written in the order they came, then one
@@ -103,6 +139,7 @@ pub(super) async fn run<F: Fs>(
     mut queue: mpsc::Receiver<Command<F>>,
     fsync_interval: Duration,
     txns: Arc<RwLock<TxnIndex>>,
+    upkeep: Arc<Upkeep>,
 ) {
     let mut unflushed_since: Option<Instant> = None;
     let mut memory = Memory {
@@ -110,7 +147,11 @@ pub(super) async fn run<F: Fs>(
         loaded: false,
         txns,
         cleaned_to: 0,
+        upkeep,
     };
+    // The commands of one wakeup, kept across wakeups so a busy partition allocates once. It starts empty and grows to
+    // the largest group seen: an idle partition holds nothing.
+    let mut group: Vec<Command<F>> = Vec::new();
     loop {
         let next = match unflushed_since {
             Some(since) => tokio::select! {
@@ -125,14 +166,14 @@ pub(super) async fn run<F: Fs>(
             None => queue.recv().await,
         };
         let Some(first) = next else { break };
-        let mut group = vec![first];
+        group.push(first);
         while group.len() < GROUP {
             match queue.try_recv() {
                 Ok(c) => group.push(c),
                 Err(_) => break,
             }
         }
-        let (closing, outcome) = blocking::run(|| work(&mut log, &mut memory, group));
+        let (closing, outcome) = blocking::run(|| work(&mut log, &mut memory, &mut group));
         match outcome {
             Flushed::Everything => unflushed_since = None,
             Flushed::NotYet => {
@@ -162,32 +203,46 @@ enum Flushed {
 fn work<F: Fs>(
     log: &mut PartitionLog<F>,
     memory: &mut Memory,
-    group: Vec<Command<F>>,
+    group: &mut Vec<Command<F>>,
 ) -> (Option<oneshot::Sender<bool>>, Flushed) {
     let (mut wrote, mut wants_flush, mut closing) = (false, false, None);
-    for command in group {
+    for command in group.drain(..) {
         match command {
             Command::Append(a) => {
                 let result = append_one(log, memory, &a);
                 if matches!(result, Ok(Written::Appended(_))) {
+                    memory.upkeep.changed();
                     wrote = true;
                     wants_flush |= a.durable;
                 }
                 // The producer waiting on this learns of the append now and of its flush by the ticket.
                 let _ = a.reply.send(result);
             }
+            Command::Windows(reply) => {
+                let _ = reply.send(transactions::windows(log, memory));
+            }
             Command::Txns(reply) => {
                 let _ = reply.send(view(log, memory));
             }
             Command::Trim(how, reply) => {
+                memory.upkeep.changed();
                 let _ = reply.send(trim(log, memory, how));
             }
+            Command::Empty(reply) => {
+                memory.upkeep.changed();
+                let _ = reply.send(transactions::empty(log, memory));
+            }
+            Command::Retain(policy, now, reply) => {
+                let _ = reply.send(retain(log, memory, policy, now));
+            }
             Command::Clean(params, reply) => {
-                let _ = reply.send(cleaning::plan(log, memory, &params));
+                let planned = cleaning::plan(log, memory, &params);
+                let _ = reply.send(planned.map(|p| (p, memory.upkeep.changes())));
             }
             Command::Install(cleaned, reply) => {
                 let installed = log.install_cleaned(&cleaned);
                 if installed.is_ok() {
+                    memory.upkeep.changed();
                     memory
                         .txns
                         .write()
@@ -198,7 +253,10 @@ fn work<F: Fs>(
                 let _ = reply.send(installed);
             }
             Command::Discard(cleaned) => log.discard_cleaned(&cleaned),
-            Command::Configure(config) => log.set_config(config),
+            Command::Configure(config) => {
+                memory.upkeep.changed();
+                log.set_config(config);
+            }
             Command::Close(done) => closing = Some(done),
         }
     }
@@ -212,6 +270,25 @@ fn work<F: Fs>(
         Flushed::NothingWritten
     };
     (closing, flushed)
+}
+
+/// Applies retention, and says when it could next take something. A pass that took something is a change.
+fn retain<F: Fs>(
+    log: &mut PartitionLog<F>,
+    memory: &mut Memory,
+    policy: Retention,
+    now: TimestampMs,
+) -> Result<Retained, StorageError> {
+    let before = log.start_offset();
+    let start = trim(log, memory, Trim::Retention(policy, now))?;
+    if start != before {
+        memory.upkeep.changed();
+    }
+    Ok(Retained {
+        start,
+        due_ms: log.retention_due(policy)?,
+        changes: memory.upkeep.changes(),
+    })
 }
 
 /// Judges the batch by what is known of its producer, if it has one, writes it if it is to be, and remembers it.
@@ -239,7 +316,7 @@ fn append_one<F: Fs>(
     }
     let (id, epoch) = (producer.id.get(), producer.epoch.get());
     let last = last_of(first, a.batch.record_count());
-    match memory.producers.check(id, epoch, first, last) {
+    match memory.producers.check_from(id, epoch, first, last, a.first) {
         Verdict::Accept => {
             let appended = write(log, memory, a)?;
             // The newest timestamp as stored: the batch's own, or the time of the append if the topic says so.

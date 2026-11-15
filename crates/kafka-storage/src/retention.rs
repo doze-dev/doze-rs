@@ -27,7 +27,7 @@ use crate::segment::{base_of_log, index_path, log_path};
 ///
 /// # Errors
 /// A failure of `age_of`.
-pub(crate) fn count_to_drop(
+pub fn count_to_drop(
     sizes: &[u64],
     mut age_of: impl FnMut(usize) -> io::Result<i64>,
     policy: Retention,

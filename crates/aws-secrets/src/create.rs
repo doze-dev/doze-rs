@@ -1,7 +1,5 @@
 //! Making secrets and their versions: `CreateSecret`, `PutSecretValue`, `UpdateSecret`.
 
-use std::collections::BTreeSet;
-
 use aws_model_secrets_manager::keys::{
     CreateSecretRequest as Create, CreateSecretResponse as Created, PutSecretValueRequest as Put,
     PutSecretValueResponse as Put_, Tag, UpdateSecretRequest as Update,
@@ -66,8 +64,8 @@ pub(crate) fn add_version(
     let Some(sealed) = sealed else {
         return id;
     };
-    let stages: BTreeSet<String> = stages.map_or_else(
-        || BTreeSet::from([CURRENT.to_owned()]),
+    let stages: crate::model::Stages = stages.map_or_else(
+        || crate::model::Stages::of(CURRENT),
         |s| s.into_iter().collect(),
     );
     let displaced = if stages.contains(CURRENT) {
@@ -140,17 +138,21 @@ impl Core {
             .get(&id)
             .filter(|v| crate::rotate::has_value(v))
         {
-            let before = self.kms_open(call, secret, &id, &same.sealed).await?;
+            let before = self
+                .kms_open(&call.caller, secret, &id, &same.sealed)
+                .await?;
             if before == value.0 && same.binary == value.1 {
                 return Ok(Prepared { id, sealed: None });
             }
-            // (memory)
             return Err(ApiError::modeled(
                 "ResourceExistsException",
-                "You can't modify an existing secret version, but you can create a new secret version with a different value.",
+                format!(
+                    "You can't use ClientRequestToken {id} because that value is already in use for a version of secret {}.",
+                    secret.arn
+                ),
             ));
         }
-        let sealed = self.kms_seal(call, secret, &id, &value.0).await?;
+        let sealed = self.kms_seal(&call.caller, secret, &id, &value.0).await?;
         Ok(Prepared {
             id,
             sealed: Some(sealed),
@@ -226,6 +228,12 @@ impl Core {
             }
             None => None,
         };
+        let replicas = self.created_replicas(
+            call,
+            name,
+            v.get(Create::ADD_REPLICA_REGIONS),
+            v.get(Create::FORCE_OVERWRITE_REPLICA_SECRET),
+        )?;
         let arn = secret.arn.clone();
         self.secrets.insert(name.to_owned(), secret);
         reply::<Created>(|o| {
@@ -234,6 +242,7 @@ impl Core {
             if let Some(id) = &version {
                 o.put(Created::VERSION_ID, id);
             }
+            crate::replication::put_statuses(o, Created::REPLICATION_STATUS, &replicas);
         })
     }
 
@@ -266,6 +275,9 @@ impl Core {
                 .map(|x| x.stages.clone())
                 .unwrap_or_default(),
         );
+        if shown.contains(crate::model::CURRENT) {
+            self.note_manual_rotation(&name);
+        }
         reply::<Put_>(|o| {
             o.put(Put_::ARN, &arn);
             o.put(Put_::NAME, &name);
@@ -310,6 +322,9 @@ impl Core {
         };
         let arn = draft.arn.clone();
         self.secrets.insert(name.clone(), draft);
+        if version.is_some() {
+            self.note_manual_rotation(&name);
+        }
         reply::<Updated>(|o| {
             o.put(Updated::ARN, &arn);
             o.put(Updated::NAME, &name);

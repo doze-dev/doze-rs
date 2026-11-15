@@ -122,6 +122,7 @@ fn a_static_member_can_leave_by_instance_alone_and_the_instance_is_then_free() {
         Event::Leave(
             t,
             vec![LeaveTarget {
+                reason: None,
                 member_id: None,
                 instance: Some(instance("j")),
             }],
@@ -173,6 +174,7 @@ fn a_restarted_static_member_fences_the_sync_its_old_incarnation_was_waiting_wit
 fn leaving_names_the_instance_as_well_as_the_id() {
     let (mut g, lead, _) = with_statics();
     let wrong = |instance: &str| LeaveTarget {
+        reason: None,
         member_id: Some(lead.clone()),
         instance: Some(self::instance(instance)),
     };

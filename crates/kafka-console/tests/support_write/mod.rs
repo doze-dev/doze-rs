@@ -79,11 +79,11 @@ pub fn router_of(w: &World, backend: Backend) -> Router {
     let live = Live::new(backend, w.facts.clone());
     let state = State::new(
         Source::Live(Box::new(live)),
-        Base::root(),
+        &Base::root(),
         vec![],
         CancellationToken::new(),
     );
-    kafka_console::app::router(state)
+    kafka_console::app::console(state)
 }
 
 impl World {

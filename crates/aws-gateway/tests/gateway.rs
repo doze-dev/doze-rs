@@ -44,8 +44,7 @@ impl Service for FakeSqs {
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(async move {
-            let name = TABLES.op(call.op).unwrap().name;
-            match name {
+            match TABLES.op(call.op).unwrap().name {
                 "ListQueues" => {
                     let view = View::<LQRq>::root(&call.arena, &call.body, call.root).unwrap();
                     let prefix = view
@@ -132,6 +131,20 @@ async fn a_trusted_request_is_routed_decoded_called_and_encoded() {
     );
     assert!(head.contains("x-amzn-requestid: "), "{head}");
     assert_eq!(body, r#"{"QueueUrls":["http://sqs/000000000000/jobs"]}"#);
+    running.shutdown().await;
+}
+
+#[tokio::test]
+async fn an_operation_outside_the_model_is_unknown() {
+    let (running, addr) = start(Auth::Trust).await;
+    let auth = format!("AWS4-HMAC-SHA256 {SCOPE}");
+    for target in ["AmazonSQS.DozePeek", "AmazonSQS.Nothing"] {
+        let (status, _, _) = send(addr, &trusting_headers(target, &auth), "{}").await;
+        assert_eq!(
+            status, 404,
+            "{target}: AWS's endpoints answer only the model's operations"
+        );
+    }
     running.shutdown().await;
 }
 

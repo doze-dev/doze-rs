@@ -288,3 +288,34 @@ async fn the_timer_sleeps_to_the_next_slot_and_is_gone_when_nothing_is_scheduled
         .await;
     assert!(rig.timer_gone().await, "nothing scheduled, no timer");
 }
+
+#[tokio::test(start_paused = true)]
+async fn put_events_answers_first_and_the_timer_delivers_then_ends() {
+    let rig = Rig::new().await;
+    rig.ask(
+        "PutRule",
+        json!({"Name": "r", "EventPattern": "{\"source\":[\"x\"]}"}),
+    )
+    .await;
+    let target = json!({"Id": "t", "Arn": rig.queue_arn().await});
+    rig.ask("PutTargets", json!({"Rule": "r", "Targets": [target]}))
+        .await;
+    assert!(
+        !rig.svc.timer_armed("us-east-1"),
+        "nothing pending, no timer"
+    );
+    let entry = json!({"Source": "x", "DetailType": "x", "Detail": "{}"});
+    let put = rig.ask("PutEvents", json!({"Entries": [entry]})).await;
+    assert_eq!(put["FailedEntryCount"], 0);
+    assert!(
+        rig.svc.timer_armed("us-east-1"),
+        "the accepted event woke the timer"
+    );
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    assert_eq!(
+        rig.received().await,
+        1,
+        "delivered after the answer, with no other call"
+    );
+    assert!(rig.timer_gone().await, "nothing left, no timer");
+}

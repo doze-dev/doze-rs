@@ -36,6 +36,7 @@ fn group(name: &str) -> GroupId {
 /// A JoinGroup for a consumer.
 fn join(member: Option<&MemberId>, instance: Option<&str>) -> Req {
     Req::Join(JoinRequest {
+        reason: None,
         member_id: member.cloned(),
         instance: instance.map(InstanceId::new),
         protocol_type: "consumer".into(),
@@ -69,6 +70,7 @@ async fn emptied(groups: &Groups, name: &GroupId) {
     }
     let id = joined(groups.ask(name, req).await).member_id.unwrap();
     let leave = Req::Leave(vec![LeaveTarget {
+        reason: None,
         member_id: Some(id),
         instance: None,
     }]);
@@ -80,7 +82,7 @@ async fn a_join_queued_behind_the_deletion_of_its_group_is_put_again_to_a_new_on
     let groups = groups();
     let g = group("g");
     emptied(&groups, &g).await;
-    let sender = groups.open.lock().await.get(&g).unwrap().clone();
+    let sender = groups.live(&g).unwrap();
     // The Delete is in the group's queue and has not run when the join is put behind it.
     let (reply, _deleted) = oneshot::channel();
     sender
@@ -99,10 +101,7 @@ async fn a_join_queued_behind_the_deletion_of_its_group_is_put_again_to_a_new_on
         answer.error, None,
         "not lost with the group it was queued for"
     );
-    assert!(
-        groups.open.lock().await.contains_key(&g),
-        "and it made the group again"
-    );
+    assert!(groups.live(&g).is_some(), "and it made the group again");
 }
 
 #[tokio::test]
@@ -114,7 +113,7 @@ async fn a_group_with_a_full_queue_is_busy_and_is_not_waited_for_when_deleting()
         j.id_first = false;
     }
     joined(groups.ask(&g, req).await);
-    let sender = groups.open.lock().await.get(&g).unwrap().clone();
+    let sender = groups.live(&g).unwrap();
     // Fill the queue without letting the group's task run.
     let mut replies = Vec::new();
     while let Ok(permit) = sender.try_reserve() {
@@ -149,6 +148,56 @@ async fn deleting_cleans_up_only_when_the_group_is_gone_or_was_never_there() {
     assert_eq!((outcome, cleaned), (Deleted::Gone, Some("cleaned")));
     let (outcome, cleaned) = groups.delete_with(&never, || "cleaned").await;
     assert_eq!((outcome, cleaned), (Deleted::NoSuchGroup, Some("cleaned")));
+}
+
+/// While a group is deleted (here, while what is stored of it is forgotten, held until the test lets go), another group is
+/// answered, and a join to the one going waits for the deletion and then makes the group afresh.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_deletion_holds_up_only_its_own_group() {
+    let groups = Arc::new(groups());
+    let (going, other) = (group("going"), group("other"));
+    emptied(&groups, &going).await;
+    let (entered, in_cleanup) = std::sync::mpsc::channel();
+    let (release, released) = std::sync::mpsc::channel::<()>();
+    let deleting = {
+        let (groups, going) = (Arc::clone(&groups), going.clone());
+        tokio::spawn(async move {
+            groups
+                .delete_with(&going, move || {
+                    entered.send(()).unwrap();
+                    released.recv().unwrap();
+                })
+                .await
+                .0
+        })
+    };
+    tokio::task::spawn_blocking(move || in_cleanup.recv().unwrap())
+        .await
+        .unwrap();
+    let first = |r: &mut Req| {
+        if let Req::Join(j) = r {
+            j.id_first = false;
+        }
+    };
+    let mut req = join(None, None);
+    first(&mut req);
+    let answered = tokio::time::timeout(Duration::from_secs(5), groups.ask(&other, req)).await;
+    assert_eq!(
+        joined(answered.expect("another group is not held up by the deletion")).error,
+        None
+    );
+    let mut req = join(None, None);
+    first(&mut req);
+    let rejoin = {
+        let (groups, going) = (Arc::clone(&groups), going.clone());
+        tokio::spawn(async move { groups.ask(&going, req).await })
+    };
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert!(!rejoin.is_finished(), "a join to the group going waits");
+    release.send(()).unwrap();
+    assert_eq!(deleting.await.unwrap(), Deleted::Gone);
+    assert_eq!(joined(rejoin.await.unwrap()).error, None);
+    assert!(groups.live(&going).is_some(), "made afresh");
 }
 
 #[tokio::test(start_paused = true)]
@@ -208,7 +257,7 @@ async fn a_join_put_to_a_group_whose_task_has_already_gone_makes_the_group_again
     let groups = groups();
     let g = group("g");
     emptied(&groups, &g).await;
-    let sender = groups.open.lock().await.get(&g).unwrap().clone();
+    let sender = groups.live(&g).unwrap();
     // The group is deleted behind the registry's back, so that its table still holds a sender nobody listens to.
     let (reply, deleted) = oneshot::channel();
     sender
@@ -218,7 +267,10 @@ async fn a_join_put_to_a_group_whose_task_has_already_gone_makes_the_group_again
         })
         .await
         .unwrap();
-    assert!(matches!(deleted.await, Ok(Answer::Delete(None))));
+    assert!(matches!(
+        deleted.await,
+        Ok(Reply::Answer(Answer::Delete(None)))
+    ));
     while !sender.is_closed() {
         tokio::task::yield_now().await;
     }

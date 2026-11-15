@@ -25,12 +25,9 @@ pub(crate) fn is_policy(text: &str) -> bool {
     )
 }
 
-fn bad_name(name: &str) -> ApiError {
-    // (memory)
-    ApiError::modeled(
-        "NotFoundException",
-        format!("No such policy exists: {name}"),
-    )
+/// Only `default` is a policy name (AWS's words, recorded 2026-11-15).
+fn bad_name() -> ApiError {
+    crate::core::validation("Invalid policy name")
 }
 
 impl Core {
@@ -39,7 +36,7 @@ impl Core {
         let name = v.get(Get::POLICY_NAME).unwrap_or(NAME);
         let key = self.key(call, v.get(Get::KEY_ID).unwrap_or_default())?;
         if name != NAME {
-            return Err(bad_name(name));
+            return Err(bad_name());
         }
         reply::<Got>(|o| {
             o.put(Got::POLICY, key.policy.as_deref().unwrap_or_default());
@@ -53,13 +50,11 @@ impl Core {
         let text = v.get(Put::POLICY).unwrap_or_default();
         let id = self.locate(call, v.get(Put::KEY_ID).unwrap_or_default())?;
         if name != NAME {
-            return Err(bad_name(name));
+            return Err(bad_name());
         }
         if !is_policy(text) {
-            return Err(ApiError::modeled(
-                "MalformedPolicyDocumentException",
-                "The new key policy is not valid JSON.",
-            ));
+            // AWS's message is empty (recorded 2026-11-15).
+            return Err(ApiError::modeled("MalformedPolicyDocumentException", ""));
         }
         let key = self
             .keys

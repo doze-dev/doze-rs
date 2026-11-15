@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -30,6 +30,46 @@
       ]
     },
     "untag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_a_bus_policy": {
+    "policy": {
+      "Statement": [
+        {
+          "Action": "events:PutEvents",
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "444455556666"
+          },
+          "Resource": "arn:aws:events:us-east-1:<account>:event-bus/<name:bus>",
+          "Sid": "peer"
+        }
+      ],
+      "Version": "2012-10-17"
+    },
+    "put-permission": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "remove-again": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Statement with the provided id does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "remove-permission": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "statement-again": {
       "ResponseMetadata": {
         "HTTPStatusCode": 200
       }
@@ -216,6 +256,32 @@
       }
     }
   },
+  "test_input_settings_reach_the_queue": {
+    "constant": {
+      "Body": "{\"fixed\":  true}"
+    },
+    "path": {
+      "Body": "[\"book\",\"pen\"]"
+    },
+    "path-scalar": {
+      "Body": "\"ada\""
+    },
+    "transformer-json": {
+      "Body": "{\"who\": \"ada\", \"n\": 250, \"items\": [\"book\",\"pen\"], \"rule\": \"<rule>\"}"
+    },
+    "transformer-text": {
+      "Body": "\"hello ada\""
+    },
+    "transformer-text-unquoted": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid InputTemplate for target queue : [Source: (String)\"hello null\"; line: 1, column: 1]."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
   "test_input_transformer": {
     "transformed": "{\"message\": \"ada did placed\"}"
   },
@@ -335,8 +401,8 @@
     },
     "delete-default-bus": {
       "Error": {
-        "Code": "AccessDeniedException",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: events:DeleteEventBus on resource: arn:aws:events:us-east-1:<account>:event-bus/default because no identity-based policy allows the events:DeleteEventBus action"
+        "Code": "ValidationException",
+        "Message": "Cannot delete event bus default."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
@@ -454,6 +520,197 @@
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_schedule_expressions": {
+    "both-days": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter ScheduleExpression is not valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "cron": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RuleArn": "arn:aws:events:us-east-1:<account>:rule/<name:rule>"
+    },
+    "cron-last": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RuleArn": "arn:aws:events:us-east-1:<account>:rule/<name:rule>"
+    },
+    "cron-nth": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RuleArn": "arn:aws:events:us-east-1:<account>:rule/<name:rule>"
+    },
+    "cron-steps": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RuleArn": "arn:aws:events:us-east-1:<account>:rule/<name:rule>"
+    },
+    "described": {
+      "Arn": "arn:aws:events:us-east-1:<account>:rule/<name:rule>",
+      "CreatedBy": "<account>",
+      "EventBusName": "default",
+      "Name": "<name:rule>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScheduleExpression": "cron(0 18 ? * 6#3 *)",
+      "State": "DISABLED"
+    },
+    "five-fields": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter ScheduleExpression is not valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "minute-out-of-range": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter ScheduleExpression is not valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "neither-day": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter ScheduleExpression is not valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-unit": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter ScheduleExpression is not valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-an-expression": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter ScheduleExpression is not valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "rate-day": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RuleArn": "arn:aws:events:us-east-1:<account>:rule/<name:rule>"
+    },
+    "rate-hours": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RuleArn": "arn:aws:events:us-east-1:<account>:rule/<name:rule>"
+    },
+    "rate-minute": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RuleArn": "arn:aws:events:us-east-1:<account>:rule/<name:rule>"
+    },
+    "rate-minutes": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RuleArn": "arn:aws:events:us-east-1:<account>:rule/<name:rule>"
+    },
+    "weeks": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter ScheduleExpression is not valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "zero": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter ScheduleExpression is not valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_target_parameters_come_back_as_sent": {
+    "by-target": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RuleNames": [
+        "<name:rule>"
+      ]
+    },
+    "input-and-path": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Only one of Input, InputPath, or InputTransformer must be provided for target both."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "listed": {
+      "Targets": [
+        {
+          "Arn": "arn:aws:sqs:us-east-1:<account>:<name:q>",
+          "Id": "constant",
+          "Input": "{\"fixed\": true}"
+        },
+        {
+          "Arn": "arn:aws:sqs:us-east-1:<account>:<name:q>.fifo",
+          "Id": "fifo",
+          "SqsParameters": {
+            "MessageGroupId": "group"
+          }
+        },
+        {
+          "Arn": "arn:aws:sqs:us-east-1:<account>:<name:q>",
+          "Id": "path",
+          "InputPath": "$.detail"
+        },
+        {
+          "Arn": "arn:aws:sqs:us-east-1:<account>:<name:q>",
+          "DeadLetterConfig": {
+            "Arn": "arn:aws:sqs:us-east-1:<account>:<name:q>-dlq"
+          },
+          "Id": "retry",
+          "RetryPolicy": {
+            "MaximumEventAgeInSeconds": 120,
+            "MaximumRetryAttempts": 3
+          }
+        }
+      ]
+    },
+    "put": {
+      "FailedEntries": [],
+      "FailedEntryCount": 0,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
       }
     }
   }

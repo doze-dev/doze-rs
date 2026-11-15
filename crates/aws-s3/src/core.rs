@@ -24,10 +24,13 @@ pub(crate) const PARTS: &str = "parts";
 pub(crate) const VERSIONS: &str = "versions";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 pub(crate) const VERSION: u8 = 1;
-/// The record version of a row of the versions table: 2 added the Object Lock state; 1 is still read.
-pub(crate) const ROW_VERSION: u8 = 2;
+/// The record version of a row of the versions table: 2 added the Object Lock state, 3 the access control list; 1 and 2 are still
+/// read.
+pub(crate) const ROW_VERSION: u8 = 3;
 /// The Object Lock settings an upload in progress was started with (only uploads that named some have a row).
 pub(crate) const UPLOAD_LOCKS: &str = "upload_locks";
+/// The access control list an upload in progress was started with (only uploads that named one, on a bucket with ACLs enabled).
+pub(crate) const UPLOAD_ACLS: &str = "upload_acls";
 /// The region whose files are kept in the service's directory itself.
 pub(crate) const HOME: &str = "us-east-1";
 /// Present while the service is open: finding it at start means the last run did not close.
@@ -48,6 +51,8 @@ pub(crate) struct Core {
     pub(crate) parts: Records<PartRec>,
     /// By upload row: the Object Lock settings the upload was started with.
     pub(crate) upload_locks: Records<Lock>,
+    /// By upload row: the access control list the upload was started with.
+    pub(crate) upload_acls: Records<Vec<crate::acl::Grant>>,
     pub(crate) batch: Batch,
     pub(crate) db: Db,
     pub(crate) blobs: Blobs<RealFs>,
@@ -62,8 +67,7 @@ pub(crate) struct Core {
     pub(crate) last_caller: Option<aws_wire::service::Caller>,
 }
 
-/// The operations this service runs. The others are refused by name (501, `X-Doze-Not-Built`) before their request is read: ACLs
-/// (a local account has one owner), archive storage classes and restores, S3 Select, torrents, directory buckets and Express,
+/// The operations this service runs. The others are refused by name (501, `X-Doze-Not-Built`) before their request is read: archive storage classes and restores, S3 Select, torrents, directory buckets and Express,
 /// metadata tables and annotations, access points and the rest of what has no local meaning.
 pub(crate) fn built(op: Operation) -> bool {
     use Operation as O;
@@ -84,6 +88,7 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::ListObjectsV2
             | O::ListObjectVersions
             | O::GetObjectAttributes
+            | O::RestoreObject
             | O::GetObjectTagging
             | O::PutObjectTagging
             | O::DeleteObjectTagging
@@ -104,6 +109,10 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::GetObjectLegalHold
             | O::PutObjectLegalHold
             | O::GetBucketPolicyStatus
+            | O::GetBucketAcl
+            | O::PutBucketAcl
+            | O::GetObjectAcl
+            | O::PutObjectAcl
     ) || crate::config::kind_of(op).is_some()
         || crate::idconfig::is_id_config(op)
 }
@@ -136,7 +145,11 @@ impl doze_runtime::Service for Core {
             }
             // Reads that change nothing and are asked without a request of their own.
             Ask::Configs(bucket) => return self.configs(&bucket),
-            Ask::Website(bucket, key) => return self.website(&bucket, &key),
+            Ask::Data(asked) => return self.data_asked(*asked).await,
+            Ask::Website(bucket, key) => {
+                self.authorize_page(&bucket, &key).await?;
+                return self.website(&bucket, &key);
+            }
         };
         self.last_caller = Some(call.caller.clone());
         let req = Req::new(&call, staged);
@@ -163,13 +176,14 @@ impl Core {
         let db = Db::open(
             dir,
             FILE,
-            &[BUCKETS, UPLOADS, PARTS, VERSIONS, UPLOAD_LOCKS],
+            &[BUCKETS, UPLOADS, PARTS, VERSIONS, UPLOAD_LOCKS, UPLOAD_ACLS],
         )?;
         let read = db.read()?;
         let buckets = Records::load(BUCKETS, "bucket", VERSION, &read)?;
         let uploads = Records::load(UPLOADS, "upload", VERSION, &read)?;
         let parts = Records::load(PARTS, "part", VERSION, &read)?;
         let upload_locks = Records::load(UPLOAD_LOCKS, "upload lock", VERSION, &read)?;
+        let upload_acls = Records::load(UPLOAD_ACLS, "upload acl", VERSION, &read)?;
         drop(read);
         let blobs = Blobs::new(RealFs, dir);
         let core = Self {
@@ -177,6 +191,7 @@ impl Core {
             uploads,
             parts,
             upload_locks,
+            upload_acls,
             batch: Batch::default(),
             db,
             blobs,
@@ -237,16 +252,37 @@ impl Core {
         let Some(peers) = self.peers.as_ref().filter(|p| p.mode() != Mode::Off) else {
             return Ok(());
         };
-        // S3 calls a refusal `AccessDenied`; the authorizer words it for the Coral services, which call it `AccessDeniedException`.
         peers
             .authorize(&req.call.caller, self.needs(req))
             .await
-            .map_err(|mut e| {
-                if e.code == "AccessDeniedException" {
-                    e.code = "AccessDenied".into();
-                }
-                e
-            })
+            .map_err(s3_refusal)
+    }
+
+    /// A website page is asked for by anyone: AWS serves it only when the object is public (a bucket policy granting `s3:GetObject`
+    /// to `*`, or a public ACL), so the anonymous principal is asked for the page's object.
+    async fn authorize_page(&self, bucket: &str, key: &str) -> Result<(), ApiError> {
+        let Some(peers) = self.peers.as_ref().filter(|p| p.mode() != Mode::Off) else {
+            return Ok(());
+        };
+        let page = self.page_key(bucket, key);
+        let caller = aws_wire::service::Caller {
+            access_key_id: aws_wire::service::Caller::ANONYMOUS.to_owned(),
+            account_id: self
+                .last_caller
+                .as_ref()
+                .map(|c| c.account_id.clone())
+                .unwrap_or_default(),
+            region: String::new(),
+            endpoint: String::new(),
+            service: None,
+            session_token: None,
+        };
+        let need = aws_peers::Need::new("s3:GetObject", format!("arn:aws:s3:::{bucket}/{page}"))
+            .with_policy(self.resource_policy(true, bucket, Some((&page, None))));
+        peers
+            .authorize(&caller, vec![need])
+            .await
+            .map_err(s3_refusal)
     }
 
     /// Writes what the call changed and waits until it is on disk; a call that failed changes nothing.
@@ -282,15 +318,17 @@ impl Core {
         self.uploads.stage().ok();
         self.parts.stage().ok();
         self.upload_locks.stage().ok();
+        self.upload_acls.stage().ok();
     }
 
-    fn flush(&mut self) -> Result<Option<doze_store::Ack>, StoreError> {
+    pub(crate) fn flush(&mut self) -> Result<Option<doze_store::Ack>, StoreError> {
         let batch = std::mem::take(&mut self.batch);
         let changes = vec![
             self.buckets.stage()?,
             self.uploads.stage()?,
             self.parts.stage()?,
             self.upload_locks.stage()?,
+            self.upload_acls.stage()?,
             Changes::of_rows(VERSIONS, batch.puts, batch.deletes),
         ];
         Ok(self.db.submit(changes))
@@ -320,6 +358,7 @@ impl Core {
             O::ListObjects | O::ListObjectsV2 => self.list_objects(&req, op == O::ListObjectsV2),
             O::ListObjectVersions => self.list_object_versions(&req),
             O::GetObjectAttributes => self.get_object_attributes(&req),
+            O::RestoreObject => self.restore_object(&req),
             O::GetObjectTagging | O::GetBucketTagging => {
                 self.get_tagging(&req, op == O::GetBucketTagging)
             }
@@ -336,6 +375,10 @@ impl Core {
             O::GetObjectLegalHold => self.get_legal_hold(&req),
             O::PutObjectLegalHold => self.put_legal_hold(&req),
             O::GetBucketPolicyStatus => self.get_policy_status(&req),
+            O::GetBucketAcl => self.get_bucket_acl(&req),
+            O::PutBucketAcl => self.put_bucket_acl(&req),
+            O::GetObjectAcl => self.get_object_acl(&req),
+            O::PutObjectAcl => self.put_object_acl(&req),
             O::CreateMultipartUpload => self.create_upload(&req),
             O::UploadPart => self.upload_part(req),
             O::UploadPartCopy => self.upload_part_copy(&req).await,
@@ -348,10 +391,15 @@ impl Core {
         }
     }
 
-    /// The checks that come before a body is read: the bucket is there.
+    /// The checks that come before a body is read: the bucket is there, and the ACL the upload asks for is one it may have.
     fn gate(&self, req: &Req<'_>) -> Answer {
         self.bucket(req.bucket())?;
+        self.object_write_acl(req)?;
         Out::empty()
+    }
+
+    pub(crate) fn bucket_of(&self, name: &str) -> Option<&Bucket> {
+        self.buckets.get(name)
     }
 
     pub(crate) fn bucket(&self, name: &str) -> Result<&Bucket, ApiError> {
@@ -359,4 +407,14 @@ impl Core {
             .get(name)
             .ok_or_else(|| crate::errors::no_such_bucket(name))
     }
+}
+
+/// S3 calls a refusal `AccessDenied`, always with 403; the authorizer words it for the Coral services, which call it
+/// `AccessDeniedException` (400).
+fn s3_refusal(mut e: ApiError) -> ApiError {
+    if e.code == "AccessDeniedException" {
+        e.code = "AccessDenied".into();
+        e.status = 403;
+    }
+    e
 }

@@ -35,6 +35,7 @@ impl MetaStore {
     ///
     /// # Errors
     /// A failed write; none of them is then stored.
+    #[cfg(test)]
     pub fn put_credentials(
         &self,
         credentials: &[(CredentialId, CredentialRecord)],
@@ -46,6 +47,7 @@ impl MetaStore {
     ///
     /// # Errors
     /// A failed write; none of them is then removed.
+    #[cfg(test)]
     pub fn remove_credentials(&self, ids: &[CredentialId]) -> Result<(), MetaError> {
         self.alter_credentials(&[], ids)
     }

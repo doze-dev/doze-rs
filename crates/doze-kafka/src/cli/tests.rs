@@ -51,6 +51,33 @@ fn the_flags_the_conformance_harness_passes_are_all_accepted() {
     );
 }
 
+/// The broker ends a transaction on its own (a timeout, a new owner) as the Kafka major it stands for does: with KIP-890's
+/// epoch bump at Kafka 4, the classic way before.
+#[test]
+fn the_transaction_version_follows_the_kafka_major() {
+    let tv = |major: &str| {
+        args(&["--kafka-version", major])
+            .unwrap()
+            .settings()
+            .unwrap()
+            .broker
+            .transaction_version
+    };
+    assert_eq!(tv("4"), TxnVersion::EpochBump);
+    for major in ["1", "2", "3"] {
+        assert_eq!(tv(major), TxnVersion::Classic, "Kafka {major}");
+    }
+    assert_eq!(
+        args(&[])
+            .unwrap()
+            .settings()
+            .unwrap()
+            .broker
+            .transaction_version,
+        TxnVersion::EpochBump
+    );
+}
+
 #[test]
 fn the_defaults_are_a_local_broker_with_no_retention_limit() {
     let settings = args(&[]).unwrap().settings().unwrap();
@@ -341,7 +368,25 @@ fn the_cleaner_looks_every_fifteen_seconds_unless_told_otherwise_and_a_zero_inte
     assert!(err.to_string().contains("--log-cleaner-interval"), "{err}");
 }
 
+#[test]
+fn client_telemetry_is_on_unless_told_otherwise() {
+    let on = |flags: &[&str]| {
+        args(flags)
+            .unwrap()
+            .settings()
+            .unwrap()
+            .broker
+            .client_telemetry
+    };
+    assert!(on(&[]));
+    assert!(on(&["--client-telemetry"]));
+    assert!(!on(&["--client-telemetry=false"]));
+    assert!(!on(&["--client-telemetry", "false"]));
+}
+
 mod console;
+mod console_door;
+mod lab;
 mod users;
 
 #[cfg(feature = "tls")]

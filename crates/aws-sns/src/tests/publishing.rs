@@ -65,12 +65,13 @@ fn what_a_publish_checks_that_aws_was_not_asked_about() {
         })
         .collect::<serde_json::Map<_, _>>()
         .into();
+    // Recorded on AWS (2026-11-15): eleven attributes are taken.
     assert!(
-        w.refused(
+        w.run(
             "Publish",
             &json!({"TopicArn": topic, "Message": "x", "MessageAttributes": eleven})
         )
-        .contains("exceeds the allowed maximum [10]")
+        .is_ok()
     );
     assert!(
         w.refused(

@@ -209,7 +209,7 @@ impl<'a> ReceiveAsk<'a> {
 }
 
 /// A message as it was handed to a receiver.
-struct Taken {
+pub(crate) struct Taken {
     id: String,
     handle: String,
     md5_of_body: String,
@@ -264,7 +264,12 @@ fn take(
     taken_from(m, handle, want, account)
 }
 
-fn taken_from(m: &Message, handle: String, want: (&[&str], &[&str]), account: &str) -> Taken {
+pub(crate) fn taken_from(
+    m: &Message,
+    handle: String,
+    want: (&[&str], &[&str]),
+    account: &str,
+) -> Taken {
     Taken {
         id: m.id.clone(),
         handle,
@@ -278,7 +283,7 @@ fn taken_from(m: &Message, handle: String, want: (&[&str], &[&str]), account: &s
     }
 }
 
-fn write_received(taken: &[Taken]) -> Reply {
+pub(crate) fn write_received(taken: &[Taken]) -> Reply {
     reply::<Result_>(|o| {
         if taken.is_empty() {
             return;
@@ -292,9 +297,12 @@ fn write_received(taken: &[Taken]) -> Reply {
 }
 
 fn write_message(m: &mut Object<'_, Received>, t: &Taken) {
-    m.put(Received::MESSAGE_ID, &t.id)
-        .put(Received::RECEIPT_HANDLE, &t.handle)
-        .put(Received::MD5_OF_BODY, &t.md5_of_body)
+    m.put(Received::MESSAGE_ID, &t.id);
+    // Empty only for a peeked message that was never received.
+    if !t.handle.is_empty() {
+        m.put(Received::RECEIPT_HANDLE, &t.handle);
+    }
+    m.put(Received::MD5_OF_BODY, &t.md5_of_body)
         .put(Received::BODY, &t.body);
     if !t.system.is_empty() {
         m.put_map(Received::ATTRIBUTES, |a| {
@@ -320,7 +328,7 @@ fn write_message(m: &mut Object<'_, Received>, t: &Taken) {
 }
 
 /// `value` if it is in `lo..=hi`, `default` if absent, else the error AWS gives.
-fn ranged(
+pub(crate) fn ranged(
     value: Option<i64>,
     lo: i64,
     hi: i64,

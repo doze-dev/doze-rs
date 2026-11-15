@@ -1,6 +1,7 @@
 //! The resource policy of a bus: `PutPermission` adds a statement (or replaces the whole policy), `RemovePermission` takes one away.
 //! The policy is returned by `DescribeEventBus` and is what a cross-account `PutEvents` is judged by. The statement a `Principal`
-//! account id and an `Action` make is the one AWS documents; the wording of the refusals is from memory.
+//! account id and an `Action` make is the one AWS documents; a statement id given again replaces its statement (recorded
+//! 2026-11-15); the wording of the refusals is from memory.
 
 use aws_wire::ApiError;
 use serde_json::{Value, json};
@@ -26,16 +27,14 @@ impl Core {
                     .as_deref()
                     .and_then(|p| serde_json::from_str::<Value>(p).ok())
                     .unwrap_or_else(|| json!({"Version": "2012-10-17", "Statement": []}));
-                let list = doc.get_mut("Statement").and_then(Value::as_array_mut);
+                // Recorded 2026-11-15: the same `StatementId` again is accepted, not refused. The statement takes the place of the
+                // one with its id.
                 let sid = statement.get("Sid").cloned();
-                if list
-                    .as_ref()
-                    .is_some_and(|l| l.iter().any(|s| s.get("Sid") == sid.as_ref()))
-                {
-                    return Err(invalid("Statement already exists."));
-                }
-                if let Some(list) = list {
-                    list.push(statement);
+                if let Some(list) = doc.get_mut("Statement").and_then(Value::as_array_mut) {
+                    match list.iter_mut().find(|s| s.get("Sid") == sid.as_ref()) {
+                        Some(old) => *old = statement,
+                        None => list.push(statement),
+                    }
                 }
                 doc.to_string()
             }
@@ -94,7 +93,8 @@ fn statement(r: &Req<'_>, bus_arn: &str) -> Result<Value, ApiError> {
     let who = if principal == "*" {
         json!("*")
     } else {
-        json!({"AWS": format!("arn:aws:iam::{principal}:root")})
+        // Recorded 2026-11-15: the account id is kept as given, not made into its root ARN.
+        json!({"AWS": principal})
     };
     let mut s = serde_json::Map::new();
     s.insert("Sid".into(), json!(sid));

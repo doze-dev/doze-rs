@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -11,6 +11,134 @@
       "Error": {
         "Code": "InvalidParameter",
         "Message": "Invalid parameter: Invalid parameter: Endpoint Reason: FIFO SQS Queues can not be subscribed to standard SNS topics"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_batch_reports_each_message": {
+    "all-fine": {
+      "Failed": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Successful": [
+        {
+          "Id": "ok",
+          "MessageId": "<MessageId:1>"
+        },
+        {
+          "Id": "also-ok",
+          "MessageId": "<MessageId:2>"
+        }
+      ]
+    },
+    "bad-id": {
+      "Error": {
+        "Code": "InvalidBatchEntryId",
+        "Message": "The Id of a batch entry in the batch request contains an impermissible character: has a space"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "mixed": {
+      "Error": {
+        "Code": "ParameterValueInvalid",
+        "Message": "The message attribute 'a' has an invalid message attribute type, the set of supported type prefixes is Binary, Number, and String."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "too-long": {
+      "Error": {
+        "Code": "BatchRequestTooLong",
+        "Message": "The length of all the messages put together is more than the limit."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_confirmation_is_awaited_by_https_and_not_by_a_queue": {
+    "counts": {
+      "SubscriptionsConfirmed": "0",
+      "SubscriptionsPending": "2"
+    },
+    "https": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SubscriptionArn": "pending confirmation"
+    },
+    "https-with-arn": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>"
+    },
+    "listed": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Subscriptions": [
+        {
+          "Endpoint": "https://example.com/dzc",
+          "Owner": "<account>",
+          "Protocol": "https",
+          "SubscriptionArn": "PendingConfirmation",
+          "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+        },
+        {
+          "Endpoint": "https://example.com/dzc-two",
+          "Owner": "<account>",
+          "Protocol": "https",
+          "SubscriptionArn": "PendingConfirmation",
+          "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+        }
+      ]
+    },
+    "pending-attributes": {
+      "Attributes": {
+        "ConfirmationWasAuthenticated": "false",
+        "EffectiveDeliveryPolicy": "{\"healthyRetryPolicy\":{\"minDelayTarget\":20,\"maxDelayTarget\":20,\"numRetries\":3,\"numMaxDelayRetries\":0,\"numNoDelayRetries\":0,\"numMinDelayRetries\":0,\"backoffFunction\":\"linear\"},\"sicklyRetryPolicy\":null,\"throttlePolicy\":null,\"requestPolicy\":{\"headerContentType\":\"text/plain; charset=UTF-8\"},\"guaranteed\":false}",
+        "Endpoint": "https://example.com/dzc-two",
+        "Owner": "<account>",
+        "PendingConfirmation": "true",
+        "Protocol": "https",
+        "RawMessageDelivery": "false",
+        "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>",
+        "SubscriptionPrincipal": "<SubscriptionPrincipal:1>",
+        "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "unsubscribe-again": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: SubscriptionArn Reason: Cannot unsubscribe a subscription that is pending confirmation"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unsubscribe-pending": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: SubscriptionArn Reason: Cannot unsubscribe a subscription that is pending confirmation"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "wrong-token": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Token"
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
@@ -48,6 +176,32 @@
         "HTTPStatusCode": 200
       },
       "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+    }
+  },
+  "test_fifo_deduplication": {
+    "attributes": {
+      "ContentBasedDeduplication": "true",
+      "FifoTopic": "true"
+    },
+    "delivered": [
+      "other",
+      "same"
+    ],
+    "no-dedup-id": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: The topic should either have ContentBasedDeduplication enabled or MessageDeduplicationId provided explicitly"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "same-message-id-for-a-duplicate": true,
+    "same-sequence-for-a-duplicate": true,
+    "turn-content-based-off": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
     }
   },
   "test_fifo_topic_delivers_to_a_fifo_queue": {
@@ -100,6 +254,30 @@
       }
     }
   },
+  "test_filter_policy_on_attributes": {
+    "delivered": [
+      "passes",
+      "sentinel"
+    ]
+  },
+  "test_filter_policy_on_the_message_body": {
+    "delivered": [
+      "{\"order\": [{\"kind\": \"slow\"}, {\"kind\": \"rush\", \"qty\": 9}], \"paid\": true}",
+      "{\"order\": {\"kind\": \"rush\", \"qty\": 2}, \"paid\": true, \"tag\": \"sentinel\"}",
+      "{\"order\": {\"kind\": \"rush\", \"qty\": 3}, \"paid\": true}"
+    ]
+  },
+  "test_filter_policy_with_or_exists_and_arrays": {
+    "delivered": [
+      "an array",
+      "red",
+      "round no size",
+      "sentinel"
+    ]
+  },
+  "test_json_structure_picks_the_member_for_the_protocol": {
+    "delivered": "for the queue"
+  },
   "test_publish_batch": {
     "delivered": [
       "one",
@@ -143,6 +321,110 @@
       "Error": {
         "Code": "BatchEntryIdsNotDistinct",
         "Message": "Two or more batch entries in the request have the same Id."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_publish_checks": {
+    "at-the-limit": {
+      "MessageId": "<MessageId:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "bad-attribute-type": {
+      "Error": {
+        "Code": "ParameterValueInvalid",
+        "Message": "The message attribute 'a' has an invalid message attribute type, the set of supported type prefixes is Binary, Number, and String."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "dedup-id-on-a-standard-topic": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: MessageDeduplicationId Reason: The request includes MessageDeduplicationId parameter that is not valid for this topic type"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "eleven-attributes": {
+      "MessageId": "<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "empty-attribute-value": {
+      "Error": {
+        "Code": "ParameterValueInvalid",
+        "Message": "The message attribute 'a' must contain non-empty message attribute value for message attribute type 'String'."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "json-that-is-not-json": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Message Structure - JSON message body failed to parse"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "json-without-default": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Message Structure - No default entry in JSON message body"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-target": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: TopicArn or TargetArn Reason: no value for required parameter"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-a-number": {
+      "Error": {
+        "Code": "ParameterValueInvalid",
+        "Message": "Could not cast message attribute 'a' value to number."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "subject-too-long": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Subject"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "subject-with-a-newline": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Subject"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "too-long": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Message too long"
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
@@ -271,11 +553,11 @@
     },
     "bad-topic-name": {
       "Error": {
-        "Code": "AuthorizationError",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: SNS:CreateTopic on resource: arn:aws:sns:us-east-1:<account>:not a topic name! because no identity-based policy allows the SNS:CreateTopic action"
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Topic Name"
       },
       "ResponseMetadata": {
-        "HTTPStatusCode": 403
+        "HTTPStatusCode": 400
       }
     },
     "empty-message": {
@@ -303,6 +585,135 @@
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 404
+      }
+    }
+  },
+  "test_subscribe_twice_and_set_subscription_attributes": {
+    "after-clear": {
+      "Attributes": {
+        "ConfirmationWasAuthenticated": "true",
+        "Endpoint": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+        "Owner": "<account>",
+        "PendingConfirmation": "false",
+        "Protocol": "sqs",
+        "RawMessageDelivery": "false",
+        "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>",
+        "SubscriptionPrincipal": "<SubscriptionPrincipal:1>",
+        "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "after-filter": {
+      "Attributes": {
+        "ConfirmationWasAuthenticated": "true",
+        "Endpoint": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+        "FilterPolicy": "{\"kind\":[\"order\"],\"n\":[{\"numeric\":[\">\",1]}]}",
+        "FilterPolicyScope": "MessageAttributes",
+        "Owner": "<account>",
+        "PendingConfirmation": "false",
+        "Protocol": "sqs",
+        "RawMessageDelivery": "false",
+        "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>",
+        "SubscriptionPrincipal": "<SubscriptionPrincipal:1>",
+        "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "again": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>"
+    },
+    "again-with-attributes": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Attributes Reason: Subscription already exists with different attributes"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-raw": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: RawMessageDelivery: Invalid value [sometimes]. Must be true or false."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-scope": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: FilterPolicyScope: Invalid value [Everything]. Please use either MessageBody or MessageAttributes"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "body-scope-over-a-flat-policy": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "clear-filter": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "exists-not-a-bool": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: FilterPolicy: exists match pattern must be either true or false.\n at [Source: (String)\"{\"kind\":[{\"exists\":\"yes\"}]}\"; line: 1, column: 21]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-an-object": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: FilterPolicy: Filter is not an object\n at [Source: (String)\"[1]\"; line: 1, column: 2]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-filter": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "too-complex": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: FilterPolicy: Filter policy is too complex"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unknown": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: AttributeName"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unknown-operator": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: FilterPolicy: Unrecognized match type nope\n at [Source: (String)\"{\"kind\":[{\"nope\":1}]}\"; line: 1, column: 19]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
       }
     }
   },
@@ -408,6 +819,267 @@
           "Value": "dev"
         }
       ]
+    }
+  },
+  "test_topic_permissions_attributes_and_tags": {
+    "add-permission": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "add-permission-again": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Statement already exists"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "add-permission-bad-action": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Policy statement action out of service scope!"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "attributes-after": {
+      "Attributes": {
+        "DeliveryPolicy": {
+          "http": {
+            "defaultHealthyRetryPolicy": {
+              "backoffFunction": "linear",
+              "maxDelayTarget": 20,
+              "minDelayTarget": 20,
+              "numMaxDelayRetries": 0,
+              "numMinDelayRetries": 0,
+              "numNoDelayRetries": 0,
+              "numRetries": 3
+            },
+            "disableSubscriptionOverrides": false
+          }
+        },
+        "DisplayName": "",
+        "EffectiveDeliveryPolicy": {
+          "http": {
+            "defaultHealthyRetryPolicy": {
+              "backoffFunction": "linear",
+              "maxDelayTarget": 20,
+              "minDelayTarget": 20,
+              "numMaxDelayRetries": 0,
+              "numMinDelayRetries": 0,
+              "numNoDelayRetries": 0,
+              "numRetries": 3
+            },
+            "defaultRequestPolicy": {
+              "headerContentType": "text/plain; charset=UTF-8"
+            },
+            "disableSubscriptionOverrides": false
+          }
+        },
+        "MaximumMessageSize": "2048",
+        "Owner": "<account>",
+        "Policy": {
+          "Id": "__default_policy_ID",
+          "Statement": [
+            {
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:SetTopicAttributes",
+                "SNS:AddPermission",
+                "SNS:RemovePermission",
+                "SNS:DeleteTopic",
+                "SNS:Subscribe",
+                "SNS:ListSubscriptionsByTopic",
+                "SNS:Publish"
+              ],
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "<account>"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Resource": "arn:aws:sns:us-east-1:<account>:<name:topic>",
+              "Sid": "__default_statement_ID"
+            }
+          ],
+          "Version": "2008-10-17"
+        },
+        "SubscriptionsConfirmed": "0",
+        "SubscriptionsDeleted": "0",
+        "SubscriptionsPending": "0",
+        "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      }
+    },
+    "listed": [
+      "arn:aws:sns:us-east-1:<account>:<name:topic>"
+    ],
+    "policy-after-add": {
+      "Id": "__default_policy_ID",
+      "Statement": [
+        {
+          "Action": [
+            "SNS:GetTopicAttributes",
+            "SNS:SetTopicAttributes",
+            "SNS:AddPermission",
+            "SNS:RemovePermission",
+            "SNS:DeleteTopic",
+            "SNS:Subscribe",
+            "SNS:ListSubscriptionsByTopic",
+            "SNS:Publish"
+          ],
+          "Condition": {
+            "StringEquals": {
+              "AWS:SourceOwner": "<account>"
+            }
+          },
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "*"
+          },
+          "Resource": "arn:aws:sns:us-east-1:<account>:<name:topic>",
+          "Sid": "__default_statement_ID"
+        },
+        {
+          "Action": [
+            "SNS:Publish",
+            "SNS:Subscribe"
+          ],
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "arn:aws:iam::<account>:root"
+          },
+          "Resource": "arn:aws:sns:us-east-1:<account>:<name:topic>",
+          "Sid": "friends"
+        }
+      ],
+      "Version": "2008-10-17"
+    },
+    "policy-after-remove": {
+      "Id": "__default_policy_ID",
+      "Statement": [
+        {
+          "Action": [
+            "SNS:GetTopicAttributes",
+            "SNS:SetTopicAttributes",
+            "SNS:AddPermission",
+            "SNS:RemovePermission",
+            "SNS:DeleteTopic",
+            "SNS:Subscribe",
+            "SNS:ListSubscriptionsByTopic",
+            "SNS:Publish"
+          ],
+          "Condition": {
+            "StringEquals": {
+              "AWS:SourceOwner": "<account>"
+            }
+          },
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "*"
+          },
+          "Resource": "arn:aws:sns:us-east-1:<account>:<name:topic>",
+          "Sid": "__default_statement_ID"
+        }
+      ],
+      "Version": "2008-10-17"
+    },
+    "remove-permission": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "remove-permission-again": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "reserved-tag": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Tags Reason: Caller is an end user and not allowed to mutate system tags"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "retag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "set-content-based-on-a-standard-topic": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: AttributeName"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-delivery-policy": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "set-delivery-policy-partial": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: DeliveryPolicy: http.defaultHealthyRetryPolicy.minDelayTarget must be specified"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-size": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "set-size-too-small": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: MaximumMessageSize: 100 is not an integer between 1024 and 1048576 bytes"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "tags-after": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "Key": "team",
+          "Value": "b"
+        }
+      ]
+    },
+    "tags-at-creation": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        },
+        {
+          "Key": "team",
+          "Value": "a"
+        }
+      ]
+    },
+    "untag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
     }
   }
 }

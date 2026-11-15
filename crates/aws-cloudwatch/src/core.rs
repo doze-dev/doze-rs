@@ -25,7 +25,7 @@ const SERIES: &str = "series";
 const ALARMS: &str = "alarms";
 const HISTORY: &str = "history";
 const DOCS: &str = "docs";
-const SAMPLES: &str = "samples";
+pub(crate) const SAMPLES: &str = "samples";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 pub(crate) const VERSION: u8 = 1;
 
@@ -35,6 +35,8 @@ pub(crate) enum Request {
     Call(Call),
     /// Evaluate the alarms that are due. The caller is whoever armed the timer: it says the account and region the alarms are in.
     Tick(Caller),
+    /// From `doze-aws data`: what the namespaces hold, or remove some of it.
+    Data(Box<crate::storage::DataCall>),
 }
 
 /// An alarm action to carry out once the call that caused it has been answered.
@@ -114,6 +116,22 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::PutAnomalyDetector
             | O::DescribeAnomalyDetectors
             | O::DeleteAnomalyDetector
+            | O::PutMetricStream
+            | O::GetMetricStream
+            | O::ListMetricStreams
+            | O::DeleteMetricStream
+            | O::StartMetricStreams
+            | O::StopMetricStreams
+            | O::PutInsightRule
+            | O::DescribeInsightRules
+            | O::DeleteInsightRules
+            | O::EnableInsightRules
+            | O::DisableInsightRules
+            | O::GetInsightRuleReport
+            | O::PutAlarmMuteRule
+            | O::GetAlarmMuteRule
+            | O::ListAlarmMuteRules
+            | O::DeleteAlarmMuteRule
     )
 }
 
@@ -149,6 +167,17 @@ impl doze_runtime::Service for Core {
             Request::Tick(caller) => {
                 self.tick();
                 (self.identified(caller), empty())
+            }
+            Request::Data(call) => {
+                let crate::storage::DataCall { region, ask, reply } = *call;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                return Answer {
+                    reply: empty(),
+                    durable: None,
+                    next_due: self.earliest_due(),
+                };
             }
         };
         self.tell_watched(&caller.region);
@@ -245,6 +274,12 @@ impl Core {
             keep_ms: ms(crate::Settings::default().retention),
             told_watched: None,
         }
+    }
+
+    /// After a reset: tells the bus again, from nothing, which namespaces an alarm watches.
+    pub(crate) fn forget_watched(&mut self, region: &str) {
+        self.told_watched = None;
+        self.tell_watched(region);
     }
 
     /// Tells the bus which namespaces this region's metric alarms watch, when that changed, so a producer that holds its data

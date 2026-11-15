@@ -1,10 +1,10 @@
 //! SNS: topics (standard and FIFO), subscriptions with their confirmation rules, Publish and PublishBatch, filter policies on message
-//! attributes or the message body, and fan-out to SQS and Lambda through the peer bus and to `http` endpoints, as a state machine
+//! attributes or the message body, and fan-out to SQS and Lambda through the peer bus and to `http` and `https` endpoints, as a state machine
 //! behind a lazy actor per region. State is on disk, and survives an idle reap and a restart.
 //!
-//! **What is stored and not delivered:** SQS, Lambda and `http` endpoints are delivered to (an `http` endpoint is sent its
-//! `SubscriptionConfirmation` and confirms through the `SubscribeURL`, `webhook.rs`). Subscriptions for `https` (no TLS client),
-//! `email`, `email-json` and `firehose` are kept (the first three wait for a confirmation no one is sent), and SMS and mobile-push
+//! **What is stored and not delivered:** SQS, Lambda, `http` and `https` endpoints are delivered to (an endpoint is sent its
+//! `SubscriptionConfirmation` and confirms through the `SubscribeURL`, `webhook.rs`). Subscriptions for
+//! `email`, `email-json` and `firehose` are kept (the first two wait for a confirmation no one is sent), and SMS and mobile-push
 //! messages are accepted (decision D1) and sent nowhere; the log says so for each. The SMS sandbox and origination numbers are refused
 //! by name.
 
@@ -12,9 +12,11 @@ mod arn;
 mod authz;
 mod confirm;
 mod core;
+mod dead_letter;
 mod deliver;
 mod envelope;
 mod filter;
+mod filter_at;
 mod filter_match;
 mod message;
 mod model;
@@ -23,6 +25,7 @@ mod platform;
 mod publish;
 mod req;
 mod sms;
+mod storage;
 mod sub_attrs;
 mod subs;
 mod tags;
@@ -67,7 +70,10 @@ impl Sns {
             .actors
             .actor(&call.caller.region)
             .map_err(|e| e.to_string())?;
-        actor.call(call).await.map_err(|e| e.to_string())
+        actor
+            .call(crate::core::Ask::Call(Box::new(call)))
+            .await
+            .map_err(|e| e.to_string())
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
@@ -89,6 +95,10 @@ impl Sns {
 }
 
 impl Service for Sns {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static aws_schema::meta::ServiceMeta {
         &META
     }

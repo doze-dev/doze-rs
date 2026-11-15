@@ -17,22 +17,22 @@ json:
 |   "command": "doze wake",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze wake worker",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "events",
-|         "changes": []
+|         "changes": [],
+|         "title": "events"
 |       },
 |       {
-|         "title": "worker",
 |         "changes": [
 |           {
+|             "detail": "asked for",
 |             "op": "→",
-|             "subject": "wake",
-|             "detail": "asked for"
+|             "subject": "wake"
 |           }
-|         ]
+|         ],
+|         "title": "worker"
 |       }
 |     ]
 |   }
@@ -57,44 +57,44 @@ json:
 |   "command": "doze wake",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze wake",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "db",
-|         "changes": []
+|         "changes": [],
+|         "title": "db"
 |       },
 |       {
-|         "title": "cache",
-|         "changes": []
+|         "changes": [],
+|         "title": "cache"
 |       },
 |       {
-|         "title": "events",
-|         "changes": []
+|         "changes": [],
+|         "title": "events"
 |       },
 |       {
-|         "title": "api",
-|         "changes": []
+|         "changes": [],
+|         "title": "api"
 |       },
 |       {
-|         "title": "worker",
 |         "changes": [
 |           {
+|             "detail": "asked for",
 |             "op": "→",
-|             "subject": "wake",
-|             "detail": "asked for"
+|             "subject": "wake"
 |           }
-|         ]
+|         ],
+|         "title": "worker"
 |       },
 |       {
-|         "title": "web",
 |         "changes": [
 |           {
+|             "detail": "asked for",
 |             "op": "→",
-|             "subject": "wake",
-|             "detail": "asked for"
+|             "subject": "wake"
 |           }
-|         ]
+|         ],
+|         "title": "web"
 |       }
 |     ]
 |   }
@@ -115,28 +115,28 @@ json:
 |   "command": "doze restart",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze restart api worker",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "api",
 |         "changes": [
 |           {
+|             "detail": "stop it, then start it",
 |             "op": "→",
-|             "subject": "restart",
-|             "detail": "stop it, then start it"
+|             "subject": "restart"
 |           }
-|         ]
+|         ],
+|         "title": "api"
 |       },
 |       {
-|         "title": "worker",
 |         "changes": [
 |           {
+|             "detail": "start it (it is crashing)",
 |             "op": "→",
-|             "subject": "restart",
-|             "detail": "start it (it is crashing)"
+|             "subject": "restart"
 |           }
-|         ]
+|         ],
+|         "title": "worker"
 |       }
 |     ]
 |   }
@@ -161,48 +161,48 @@ json:
 |   "command": "doze sleep",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze sleep",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "db",
 |         "changes": [
 |           {
+|             "detail": "its data stays; it wakes on its next connection",
 |             "op": "→",
-|             "subject": "sleep",
-|             "detail": "its data stays; it wakes on its next connection"
+|             "subject": "sleep"
 |           }
-|         ]
+|         ],
+|         "title": "db"
 |       },
 |       {
-|         "title": "cache",
 |         "changes": [
 |           {
+|             "detail": "its data stays; it wakes on its next connection",
 |             "op": "→",
-|             "subject": "sleep",
-|             "detail": "its data stays; it wakes on its next connection"
+|             "subject": "sleep"
 |           }
-|         ]
+|         ],
+|         "title": "cache"
 |       },
 |       {
-|         "title": "events",
 |         "changes": [
 |           {
+|             "detail": "its data stays; it wakes on its next connection",
 |             "op": "→",
-|             "subject": "sleep",
-|             "detail": "its data stays; it wakes on its next connection"
+|             "subject": "sleep"
 |           }
-|         ]
+|         ],
+|         "title": "events"
 |       },
 |       {
-|         "title": "api",
 |         "changes": [
 |           {
+|             "detail": "its data stays; it wakes on its next connection",
 |             "op": "→",
-|             "subject": "sleep",
-|             "detail": "its data stays; it wakes on its next connection"
+|             "subject": "sleep"
 |           }
-|         ]
+|         ],
+|         "title": "api"
 |       }
 |     ]
 |   }
@@ -223,28 +223,28 @@ json:
 |   "command": "doze pin",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze pin --toggle events cache",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "events",
 |         "changes": [
 |           {
+|             "detail": "pinned → sleeps again when idle",
 |             "op": "~",
-|             "subject": "unpin",
-|             "detail": "pinned → sleeps again when idle"
+|             "subject": "unpin"
 |           }
-|         ]
+|         ],
+|         "title": "events"
 |       },
 |       {
-|         "title": "cache",
 |         "changes": [
 |           {
+|             "detail": "stays awake until unpinned or the daemon stops",
 |             "op": "~",
-|             "subject": "pin",
-|             "detail": "stays awake until unpinned or the daemon stops"
+|             "subject": "pin"
 |           }
-|         ]
+|         ],
+|         "title": "cache"
 |       }
 |     ]
 |   }
@@ -263,18 +263,18 @@ json:
 |   "command": "doze off",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze off web",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "web",
 |         "changes": [
 |           {
+|             "detail": "stop it; nothing wakes it until doze on",
 |             "op": "→",
-|             "subject": "off",
-|             "detail": "stop it; nothing wakes it until doze on"
+|             "subject": "off"
 |           }
-|         ]
+|         ],
+|         "title": "web"
 |       }
 |     ]
 |   }
@@ -293,18 +293,18 @@ json:
 |   "command": "doze reset",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze reset -y db",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "db",
 |         "changes": [
 |           {
+|             "detail": "empty; provisioned fresh on its next wake",
 |             "op": "-",
-|             "subject": "/nowhere/clusters/db",
-|             "detail": "empty; provisioned fresh on its next wake"
+|             "subject": "/nowhere/clusters/db"
 |           }
-|         ]
+|         ],
+|         "title": "db"
 |       }
 |     ]
 |   }

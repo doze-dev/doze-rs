@@ -129,21 +129,19 @@ async fn configuration_is_kept_as_sent_and_what_is_not_built_is_refused_by_name(
             .contains("<InventoryConfiguration>")
     );
 
-    for (method, path) in [
-        ("GET", "/bkt?acl"),
-        ("PUT", "/bkt/k?acl"),
-        ("POST", "/bkt/k?restore"),
-        ("GET", "/bkt/k?torrent"),
-    ] {
-        let r = call(&srv, method, path, &[], b"").await;
-        assert_eq!(r.status, 501, "{method} {path}");
-        assert_eq!(r.header("x-doze-not-built"), Some("1"));
-        assert!(
-            r.text().contains("<Code>NotImplemented</Code>"),
-            "{}",
-            r.text()
-        );
-    }
+    // RestoreObject is answered (an object outside an archive class has nothing to restore); here there is no object.
+    assert_eq!(
+        call(&srv, "POST", "/bkt/k?restore", &[], b"").await.status,
+        404
+    );
+    let r = call(&srv, "GET", "/bkt/k?torrent", &[], b"").await;
+    assert_eq!(r.status, 501, "GET torrent");
+    assert_eq!(r.header("x-doze-not-built"), Some("1"));
+    assert!(
+        r.text().contains("<Code>NotImplemented</Code>"),
+        "{}",
+        r.text()
+    );
     srv.stop().await;
 }
 

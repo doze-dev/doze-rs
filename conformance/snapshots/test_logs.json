@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -60,6 +60,52 @@
       },
       "nextSequenceToken": "<nextSequenceToken:1>"
     }
+  },
+  "test_filter_patterns_of_each_form": {
+    "either-term": [
+      "plain ERROR text",
+      "plain WARN text"
+    ],
+    "json-and": [
+      "{\"level\":\"warn\",\"ms\":250,\"route\":\"/slow\"}"
+    ],
+    "json-or": [
+      "{\"level\":\"warn\",\"ms\":250,\"route\":\"/slow\"}",
+      "{\"level\":\"info\",\"ms\":5,\"route\":\"/fast\"}"
+    ],
+    "space-delimited": [
+      "127.0.0.1 - frank [10/Oct/2000:13:55:36] \"GET /a.gif HTTP/1.0\" 404 2326"
+    ],
+    "space-delimited-number": [
+      "127.0.0.1 - frank [10/Oct/2000:13:55:36] \"GET /a.gif HTTP/1.0\" 404 2326"
+    ],
+    "wildcard-json-string": [
+      "{\"level\":\"warn\",\"ms\":250,\"route\":\"/slow\"}"
+    ]
+  },
+  "test_get_log_events_pages_in_both_directions": {
+    "first-three": [
+      "m0",
+      "m1",
+      "m2"
+    ],
+    "newest-two": [
+      "m4",
+      "m5"
+    ],
+    "next-three": [
+      "m3",
+      "m4",
+      "m5"
+    ],
+    "two-before": [
+      "m2",
+      "m3"
+    ],
+    "window": [
+      "m1",
+      "m2"
+    ]
   },
   "test_group_and_stream_lifecycle": {
     "create-group": {
@@ -148,6 +194,72 @@
       ]
     }
   },
+  "test_metric_filters_subscription_filters_and_tags_by_arn": {
+    "delete-metric-filter": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe-metric-filters": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "metricFilters": [
+        {
+          "applyOnTransformedLogs": false,
+          "creationTime": "<creationTime:1>",
+          "filterName": "errors",
+          "filterPattern": "ERROR",
+          "logGroupName": "/<name:group>",
+          "metricTransformations": [
+            {
+              "metricName": "Errors",
+              "metricNamespace": "dzc/<name:ns>",
+              "metricValue": "1"
+            }
+          ]
+        }
+      ]
+    },
+    "put-metric-filter": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tag-by-arn": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tags-by-arn": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "tags": {
+        "team": "a"
+      }
+    },
+    "test-metric-filter": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "matches": [
+        {
+          "eventMessage": "1.2.3.4 404",
+          "eventNumber": 1,
+          "extractedValues": {
+            "$ip": "1.2.3.4",
+            "$status": "404"
+          }
+        }
+      ]
+    },
+    "untag-by-arn": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
   "test_refusals": {
     "bad-filter-pattern": {
       "Error": {
@@ -234,6 +346,38 @@
       "Error": {
         "Code": "ResourceNotFoundException",
         "Message": "The specified log group does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_regular_expressions_in_filter_patterns": {
+    "regex-json": [
+      "{\"path\":\"/api/v2/users\",\"code\":503}"
+    ],
+    "regex-space": [
+      "10.0.0.2 GET /items 503"
+    ],
+    "regex-term": [
+      "timeout talking to db"
+    ],
+    "regex-test-metric-filter": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "matches": [
+        {
+          "eventMessage": "status 503",
+          "eventNumber": 1,
+          "extractedValues": {}
+        }
+      ]
+    },
+    "regex-three-in-one": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "Invalid character(s) in term ' '"
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400

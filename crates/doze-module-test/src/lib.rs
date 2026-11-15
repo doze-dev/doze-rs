@@ -10,4 +10,4 @@ pub mod run;
 pub mod sandbox;
 
 pub use accept::acceptance;
-pub use boot::{Booted, Harness, Stops, target};
+pub use boot::{Boot, Booted, Harness, Stops, target};

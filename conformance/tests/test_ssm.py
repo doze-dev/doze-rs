@@ -177,7 +177,30 @@ def test_value_limits_and_allowed_pattern(client, names, cleanup, snapshot):
     snapshot.outcome("description-after-overwrite", lambda: (
         ssm.put_parameter(Name=f"{root}/digits", Value="7", Type="String", Overwrite=True, Description="kept?"),
         ssm.put_parameter(Name=f"{root}/digits", Value="8", Type="String", Overwrite=True),
-        ssm.describe_parameters(ParameterFilters=[{"Key": "Name", "Values": [f"{root}/digits"]}])))
+        ssm.describe_parameters(ParameterFilters=[{"Key": "Name", "Values": [f"{root}/digits"]}])),
+        opaque=("LastModifiedUser",))
+
+
+def referenced(answer):
+    """A parameter read through /aws/reference/secretsmanager names the secret: its ARN ends in six random characters, and
+    SourceResult is the secret as JSON with a creation date in prose. Both are reduced to what two clouds can share."""
+    import json
+    import re
+
+    def arn(a):
+        return re.sub(r"-[A-Za-z0-9]{6}$", "-<suffix>", a)
+
+    for p in [answer.get("Parameter")] + answer.get("Parameters", []):
+        if not p:
+            continue
+        if "ARN" in p:
+            p["ARN"] = arn(p["ARN"])
+        if "SourceResult" in p:
+            source = json.loads(p["SourceResult"])
+            source["ARN"] = arn(source.get("ARN", ""))
+            source["createdDate"] = "<date>" if source.get("createdDate") else None
+            p["SourceResult"] = source
+    return answer
 
 
 def test_a_secrets_manager_secret_read_through_parameter_store(client, names, cleanup, snapshot):
@@ -187,11 +210,112 @@ def test_a_secrets_manager_secret_read_through_parameter_store(client, names, cl
     sm.create_secret(Name=secret, SecretString="s3cret")
     cleanup(sm.delete_secret, SecretId=secret, ForceDeleteWithoutRecovery=True)
     reference = f"/aws/reference/secretsmanager/{secret}"
-    snapshot.match("open", ssm.get_parameter(Name=reference, WithDecryption=True), opaque=("Version",))
+    snapshot.match("open", referenced(ssm.get_parameter(Name=reference, WithDecryption=True)), opaque=("Version",))
     snapshot.error("sealed", lambda: ssm.get_parameter(Name=reference))
-    snapshot.match("bulk", ssm.get_parameters(
-        Names=[reference, f"{reference}-absent"], WithDecryption=True), opaque=("Version",))
+    snapshot.match("bulk", referenced(ssm.get_parameters(
+        Names=[reference, f"{reference}-absent"], WithDecryption=True)), opaque=("Version",))
     snapshot.error("absent", lambda: ssm.get_parameter(
         Name=f"{reference}-absent", WithDecryption=True))
     snapshot.outcome("by-path-does-not-list-it", lambda: ssm.get_parameters_by_path(
         Path="/aws/reference/secretsmanager", WithDecryption=True))
+
+
+# Added 2026-11-15 (stream ops1), before they were recorded: UNVERIFIED until recorded against AWS. Public parameters, documents
+# and service settings.
+
+AL2023 = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+
+
+def test_public_parameters_are_read_only(client, snapshot):
+    ssm = client("ssm")
+    # The image id, its version and its date are AWS's to change; doze-aws serves a placeholder id.
+    shown = ("Value", "Version", "LastModifiedDate")
+    one = ssm.get_parameter(Name=AL2023)
+    assert one["Parameter"]["Value"].startswith("ami-")
+    snapshot.match("get", one, opaque=shown)
+    snapshot.match("get-many", ssm.get_parameters(Names=[AL2023, "/aws/service/not-a-parameter"]),
+                   opaque=shown)
+    snapshot.error("get-absent", lambda: ssm.get_parameter(Name="/aws/service/not-a-parameter"))
+    region = ssm.get_parameter(Name="/aws/service/global-infrastructure/regions/us-east-1/longName")
+    snapshot.match("region-long-name", region, opaque=("Version", "LastModifiedDate"))
+    page = ssm.get_parameters_by_path(Path="/aws/service/ami-amazon-linux-latest", MaxResults=3)
+    snapshot.match("by-path", {"count": len(page["Parameters"]), "more": "NextToken" in page,
+                               "all-images": all(p["Value"].startswith("ami-") for p in page["Parameters"])})
+    snapshot.match("not-described", ssm.describe_parameters(
+        ParameterFilters=[{"Key": "Name", "Option": "BeginsWith", "Values": ["/aws/service/"]}]))
+    snapshot.error("write-refused", lambda: ssm.put_parameter(
+        Name=AL2023, Value="ami-0123456789abcdef0", Type="String", Overwrite=True))
+
+
+SHELL_DOC = ('{"schemaVersion":"2.2","description":"Say something","parameters":{"Message":{"type":"String",'
+             '"default":"hello"}},"mainSteps":[{"action":"aws:runShellScript","name":"say",'
+             '"inputs":{"runCommand":["echo {{Message}}"]}}]}')
+
+
+def test_document_lifecycle(client, names, cleanup, snapshot):
+    ssm = client("ssm")
+    name = names("doc")
+    made = ssm.create_document(Name=name, Content=SHELL_DOC, DocumentType="Command", DocumentFormat="JSON",
+                               Tags=[{"Key": "team", "Value": "a"}])
+    cleanup(ssm.delete_document, Name=name)
+    # Dates and hashes differ from run to run; the owner is the account.
+    varying = ("CreatedDate", "Hash", "Owner")
+    snapshot.match("create", made, opaque=varying)
+    snapshot.match("describe", ssm.describe_document(Name=name), opaque=varying)
+    snapshot.match("get", ssm.get_document(Name=name), opaque=varying)
+    yaml = ssm.get_document(Name=name, DocumentFormat="YAML")
+    assert "schemaVersion" in yaml["Content"]
+    snapshot.match("get-as-yaml", yaml, opaque=varying + ("Content",))
+    snapshot.error("create-again", lambda: ssm.create_document(Name=name, Content=SHELL_DOC))
+    updated = ssm.update_document(Name=name, Content=SHELL_DOC.replace("hello", "hi"), DocumentVersion="$LATEST",
+                                  VersionName="two")
+    snapshot.match("update", updated, opaque=varying)
+    snapshot.error("update-same-content", lambda: ssm.update_document(
+        Name=name, Content=SHELL_DOC.replace("hello", "hi"), DocumentVersion="$LATEST"))
+    snapshot.match("versions", ssm.list_document_versions(Name=name), opaque=varying)
+    snapshot.match("default", ssm.update_document_default_version(Name=name, DocumentVersion="2"))
+    snapshot.error("delete-default-version", lambda: ssm.delete_document(Name=name, DocumentVersion="2"))
+    snapshot.match("delete-version", ssm.delete_document(Name=name, DocumentVersion="1"))
+    snapshot.match("share", ssm.modify_document_permission(
+        Name=name, PermissionType="Share", AccountIdsToAdd=["111122223333"]))
+    snapshot.match("shared", ssm.describe_document_permission(Name=name, PermissionType="Share"))
+    snapshot.match("unshare", ssm.modify_document_permission(
+        Name=name, PermissionType="Share", AccountIdsToRemove=["111122223333"]))
+    snapshot.match("tags", ssm.list_tags_for_resource(ResourceType="Document", ResourceId=name))
+    listed = ssm.list_documents(Filters=[{"Key": "Owner", "Values": ["Self"]}, {"Key": "Name", "Values": [name]}])
+    snapshot.match("listed", listed, opaque=varying)
+    snapshot.match("delete", ssm.delete_document(Name=name))
+    snapshot.error("describe-deleted", lambda: ssm.describe_document(Name=name))
+
+
+def test_document_content_is_checked(client, names, cleanup, snapshot):
+    ssm = client("ssm")
+    for label in ("not-json", "bad-schema", "no-steps", "reserved"):
+        cleanup(ssm.delete_document, Name=names(label))
+    snapshot.error("not-json", lambda: ssm.create_document(Name=names("not-json"), Content="{nope",
+                                                          DocumentType="Command"))
+    snapshot.error("bad-schema", lambda: ssm.create_document(
+        Name=names("bad-schema"), Content='{"schemaVersion":"9.9","mainSteps":[]}', DocumentType="Command"))
+    snapshot.error("no-steps", lambda: ssm.create_document(
+        Name=names("no-steps"), Content='{"schemaVersion":"2.2"}', DocumentType="Command"))
+    snapshot.error("reserved-prefix", lambda: ssm.create_document(Name="AWS-ConformanceNotYours", Content=SHELL_DOC))
+    yaml = "schemaVersion: '0.3'\nmainSteps:\n  - name: wait\n    action: aws:sleep\n    inputs:\n      Duration: PT1S\n"
+    auto = names("auto")
+    cleanup(ssm.delete_document, Name=auto)
+    snapshot.match("yaml-automation", ssm.create_document(
+        Name=auto, Content=yaml, DocumentType="Automation", DocumentFormat="YAML"),
+        opaque=("CreatedDate", "Hash", "Owner"))
+
+
+def test_service_settings(client, cleanup, snapshot):
+    ssm = client("ssm")
+    tier = "/ssm/parameter-store/default-parameter-tier"
+    cleanup(ssm.reset_service_setting, SettingId=tier)
+    # Who changed a setting, and when, differ from run to run.
+    varying = ("LastModifiedDate", "LastModifiedUser")
+    snapshot.match("get-default", ssm.get_service_setting(SettingId=tier), opaque=varying)
+    snapshot.match("update", ssm.update_service_setting(SettingId=tier, SettingValue="Intelligent-Tiering"))
+    snapshot.match("get-updated", ssm.get_service_setting(SettingId=tier), opaque=varying)
+    snapshot.error("bad-value", lambda: ssm.update_service_setting(SettingId=tier, SettingValue="Gold"))
+    snapshot.match("reset", ssm.reset_service_setting(SettingId=tier), opaque=varying)
+    snapshot.error("unknown-setting", lambda: ssm.get_service_setting(SettingId="/ssm/not/a/setting"))

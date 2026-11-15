@@ -53,7 +53,7 @@ impl Core {
         {
             return Err(ApiError::modeled(
                 "TagException",
-                "Tag keys that start with aws: are reserved.",
+                "Tags beginning with aws: are reserved",
             ));
         }
         key.tags.extend(new);

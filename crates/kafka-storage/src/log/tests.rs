@@ -15,6 +15,7 @@ mod producer_last;
 mod read;
 mod recovery;
 mod retention;
+mod survey;
 mod thinned;
 mod tickets;
 mod times;

@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kafka_auth::Users;
+pub use kafka_meta::TxnVersion;
 
 /// The broker-wide values that a topic's own config overrides. Retention uses Kafka's way of saying "no limit":
 /// -1.
@@ -53,6 +54,10 @@ pub struct Config {
     /// How many partitions stay open at once (each holds files open): past it the least recently used are closed,
     /// and open again when asked for. Zero keeps every partition open once opened.
     pub max_open_partitions: usize,
+    /// A partition nothing has asked for in this long, and that nothing holds, is closed (flushed, its files let go) and
+    /// opens again when it is next asked for: an idle broker holds no partition's files. Five minutes; zero keeps an opened
+    /// partition open until `max_open_partitions` closes it.
+    pub partition_idle_close: Duration,
     /// How often every topic's retention is applied to its partitions (`log.retention.check.interval.ms`).
     pub log_retention_check_every: Duration,
     /// How often compacted topics are looked at to be cleaned (`log.cleaner.backoff.ms`).
@@ -92,6 +97,15 @@ pub struct Config {
     /// The users that can log in. The broker loads the credentials stored over the API into it when it opens and keeps
     /// it up to date; the server's authenticator shares it, so a change applies to the next login.
     pub users: Arc<Users>,
+    /// Whether the broker serves client telemetry (KIP-714: GetTelemetrySubscriptions and PushTelemetry) and says so in
+    /// ApiVersions. On by default, as the recordings have it; off, a client that sends either is disconnected as for any
+    /// API the broker does not serve.
+    pub client_telemetry: bool,
+    /// The `transaction.version` the broker finalizes (`Profile::transaction_version`): how it ends a transaction on its
+    /// own, when the transaction outlives its timeout or a new owner takes its id. At KIP-890's second part (Kafka 4) the
+    /// epoch is raised as EndTxn v5 raises it, and the epoch before is kept, so the producer that timed out may take the
+    /// id back by saying it (KIP-360); at the classic protocol (Kafka 1 to 3) it is not.
+    pub transaction_version: TxnVersion,
 }
 
 impl Config {
@@ -106,6 +120,7 @@ impl Config {
             default_partitions: 1,
             max_partitions: 1000,
             max_open_partitions: 512,
+            partition_idle_close: Duration::from_secs(300),
             log_retention_check_every: Duration::from_secs(300),
             log_cleaner_every: Duration::from_secs(15),
             log_cleaner_enable: true,
@@ -122,6 +137,8 @@ impl Config {
             acl_default_allow: true,
             super_users: BTreeSet::new(),
             users: Arc::new(Users::none()),
+            client_telemetry: true,
+            transaction_version: TxnVersion::EpochBump,
         }
     }
 }

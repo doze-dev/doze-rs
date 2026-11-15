@@ -3,8 +3,8 @@
 //! streams, asynchronous invocation with destinations, response streaming, and logs written to CloudWatch Logs in the shape AWS
 //! writes them. A function runs as its execution role: its process holds an STS session that IAM resolves.
 //!
-//! Management operations run in a state machine behind a lazy actor per region ([`core`]); running a function does not (it takes
-//! seconds) and happens beside the actor ([`invoke`], [`rt`]). Event source pollers wait for the source to say it has something
+//! Management operations run in a state machine behind a lazy actor per region (`core`); running a function does not (it takes
+//! seconds) and happens beside the actor (`invoke`, `rt`). Event source pollers wait for the source to say it has something
 //! (`poll`) and cost nothing when no mapping is enabled.
 //!
 //! **Stored and flagged, not acted on:** provisioned concurrency, code signing, runtime management, recursion detection, SnapStart,
@@ -19,6 +19,7 @@ mod authz;
 mod code;
 mod config;
 mod core;
+mod data;
 mod dispatch;
 mod errors;
 mod eventstream;
@@ -37,9 +38,12 @@ mod role;
 mod rt;
 mod settings;
 mod signing;
+mod storage;
 mod stream;
 mod updates;
+mod url_event;
 mod urls;
+mod usage;
 mod web;
 mod zipread;
 
@@ -114,9 +118,10 @@ pub(crate) struct Inner {
     endpoint: Mutex<String>,
     account: Mutex<String>,
     /// What code run in place looked like when last looked at, and when: it is looked at again after a second.
-    locals: Mutex<std::collections::HashMap<String, (std::time::Instant, String)>>,
     pub(crate) pollers: poll::Pollers,
     patterns: Patterns,
+    /// How long code just unpacked is left alone by `doze-aws data`'s `unused` (milliseconds).
+    pub(crate) code_grace_ms: std::sync::atomic::AtomicU64,
 }
 
 impl Lambda {
@@ -152,9 +157,9 @@ impl Lambda {
             sources: OnceLock::new(),
             endpoint: Mutex::new("http://127.0.0.1:4566".to_owned()),
             account: Mutex::new("000000000000".to_owned()),
-            locals: Mutex::new(std::collections::HashMap::new()),
             pollers: poll::Pollers::default(),
             patterns: Patterns::new(&TABLES),
+            code_grace_ms: std::sync::atomic::AtomicU64::new(storage::GRACE_MS),
         });
         Self { inner }
     }
@@ -226,28 +231,6 @@ impl Inner {
         } else {
             self.dir.join("regions").join(region)
         }
-    }
-
-    /// A stamp of the tree code runs from in place, so a change to the directory starts new processes (empty for archived code).
-    pub(crate) fn local_stamp(&self, rs: &resolve::Resolved) -> String {
-        let Some(path) = rs.code.local.as_deref() else {
-            return String::new();
-        };
-        let mut seen = self.locals.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some((at, stamp)) = seen
-            .get(path)
-            .filter(|(at, _)| at.elapsed() < std::time::Duration::from_secs(1))
-        {
-            let _ = at;
-            return stamp.clone();
-        }
-        let stamp = code::fingerprint(Path::new(path));
-        let changed = seen.get(path).is_some_and(|(_, old)| *old != stamp);
-        seen.insert(path.to_owned(), (std::time::Instant::now(), stamp.clone()));
-        if changed {
-            self.rt.retire(&format!("{}/{}", rs.region, rs.name));
-        }
-        stamp
     }
 
     /// Learns where the gateway is from a request that reached it (a client's `Host` is the address functions can use too).
@@ -365,6 +348,10 @@ impl Service for Lambda {
         Some(self)
     }
 
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     /// Lambda's front end words a request that breaks the model's rules as a `ValidationException`; a runtime that is not in the
     /// model's list also says it may be an ARN (recorded 2026-11-09).
     fn invalid(&self, violation: &Violation) -> ApiError {
@@ -398,6 +385,10 @@ impl RestService for Lambda {
 impl Web for Lambda {
     fn owns(&self, host: &str, path: &str) -> bool {
         web::owns(host, path)
+    }
+
+    fn signing_name(&self, host: &str, path: &str) -> Option<&'static str> {
+        web::is_url(host, path).then_some("lambda")
     }
 
     fn serve(

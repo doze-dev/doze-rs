@@ -1,6 +1,6 @@
 //! The command line.
 //!
-//! The flags that matter are here. The ones of parts that come in later phases (the schema registry's) are
+//! The flags that matter are here. The ones of parts that come in later phases are
 //! accepted and ignored, hidden from the help, so that the conformance harness, which passes them all, can run the
 //! scenarios of the parts that exist. A flag that would make the broker safer or different in a way a user would
 //! rely on is refused instead when it cannot be honoured: a broker that ignored `--tls-cert` would send in the
@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
-use kafka_broker::{Config as BrokerConfig, Defaults};
+use kafka_broker::{Config as BrokerConfig, Defaults, TxnVersion};
 use kafka_server::{Config as ServerConfig, Timeouts};
 use kafka_wire::profile::{KafkaMajor, Profile};
 
@@ -75,6 +75,12 @@ pub(crate) struct Args {
     /// How long a member of a consumer group of the new protocol (KIP-848) may be silent before it is removed.
     #[arg(long, default_value = "45s", value_parser = duration::parse)]
     consumer_session_timeout: Duration,
+    /// Accept the metrics clients push about themselves (KIP-714: GetTelemetrySubscriptions and PushTelemetry) and say so in
+    /// ApiVersions. Clients that support it then report every five seconds; the last report of each is kept in memory,
+    /// bounded (128 clients, 4 MiB), and is never read, shown or logged. `--client-telemetry=false` stops advertising the
+    /// two APIs (Kafka 4 only: older versions have none).
+    #[arg(long, default_value_t = true, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
+    client_telemetry: bool,
     /// Kafka major version to stand for (1-4).
     #[arg(long, default_value_t = 4)]
     kafka_version: u8,
@@ -97,7 +103,8 @@ pub(crate) struct Args {
     /// Threads running the broker's work (each idle one is memory).
     #[arg(long, default_value_t = 2)]
     pub(crate) worker_threads: usize,
-    /// Log verbosity: error, warn, info, debug or trace (RUST_LOG, if set, wins).
+    /// Log verbosity: error, warn, info, debug or trace (or levels per target, as in warn,kafka_broker=debug; RUST_LOG, if
+    /// set, wins, in the same form).
     #[arg(long, default_value = "info")]
     pub(crate) log_level: String,
     /// Log format.
@@ -141,7 +148,9 @@ pub(crate) struct Args {
     #[arg(long, hide = true)]
     meta_db: Option<String>,
     /// The web console: on unless `--console=false`. It listens beside the broker, in the same process, and shows what the
-    /// broker holds. A build without the `console` feature accepts the flag and serves none.
+    /// broker holds. It has no login and acts as a super user: on a shared machine any local process can use it without the
+    /// broker's password or past its ACLs (it is a tool for one developer), so turn it off there with `--console=false`. A
+    /// build without the `console` feature accepts the flag and serves none.
     #[arg(long, num_args = 0..=1, default_missing_value = "true", value_name = "BOOL")]
     console: Option<String>,
     /// Where the console listens (default 127.0.0.1:9093: the Kafka port plus one, on this machine only). If the default
@@ -155,10 +164,18 @@ pub(crate) struct Args {
     /// turns the check off). It guards against DNS rebinding: a request for any other `Host` is refused with 403.
     #[arg(long, value_name = "HOST", value_delimiter = ',')]
     console_allow_host: Vec<String>,
-    /// Accept serving the console beyond loopback although SASL or TLS is on (it has no login and is plain HTTP, so
-    /// without this that start is refused). Every page then says it is served beyond loopback with no login.
+    /// Accept serving the console beyond loopback although that makes it a wider door than the broker: SASL or TLS is on, ACLs
+    /// are in force (--acl-default deny, or ACLs stored), or --listen keeps Kafka on loopback. The console has no login, is plain
+    /// HTTP and acts as a super user, so without this that start is refused. Every page then says it is served beyond loopback.
+    /// Without it, a console beyond loopback in front of an open broker stops answering other machines while the broker has
+    /// any ACL (made after the start, over Kafka or from the console), and answers them again once none is left.
     #[arg(long)]
     console_unprotected: bool,
+    /// The Lab of the console: rules that delay, fail or drop requests on purpose, made from the console only and kept in memory.
+    /// On unless `--lab=false`; off when the console is off, and off by default when the console is served beyond loopback
+    /// (`--lab=true` switches it on there). Anyone who can reach the console can inject faults.
+    #[arg(long, num_args = 0..=1, default_missing_value = "true", value_name = "BOOL")]
+    lab: Option<String>,
 
     /// PEM certificate chain (leaf first) to serve TLS with. Needs --tls-key.
     #[cfg(feature = "tls")]
@@ -169,12 +186,18 @@ pub(crate) struct Args {
     #[arg(long, value_name = "FILE")]
     tls_key: Option<PathBuf>,
     // Without the feature the two flags are accepted, hidden, to be refused with a message that names the feature.
+    /// PEM certificate chain (leaf first) to serve TLS with. This build has no TLS and refuses the flag.
     #[cfg(not(feature = "tls"))]
     #[arg(long, hide = true)]
     tls_cert: Option<String>,
+    /// PEM private key of the certificate. This build has no TLS and refuses the flag.
     #[cfg(not(feature = "tls"))]
     #[arg(long, hide = true)]
     tls_key: Option<String>,
+
+    /// The schema registry's flags (`cli/registry.rs`).
+    #[command(flatten)]
+    pub(crate) registry: registry::RegistryArgs,
 }
 
 /// What the command line comes to once it has been checked.
@@ -184,8 +207,20 @@ pub(crate) struct Settings {
     pub(crate) server: ServerConfig,
     /// The console flags (`web.rs` serves the console they describe).
     pub(crate) console: Console,
+    /// The schema registry's flags (`registry.rs` serves the registry they describe).
+    #[cfg_attr(not(feature = "registry"), allow(dead_code))]
+    pub(crate) registry: Registry,
     /// What the operator chose that leaves something open, to be said once at start.
     pub(crate) warnings: Vec<String>,
+}
+
+/// How the broker ends a transaction on its own at a Kafka major: the `transaction.version` its profile finalizes.
+fn transaction_version(major: KafkaMajor) -> TxnVersion {
+    if Profile::new(major).transaction_version() >= 2 {
+        TxnVersion::EpochBump
+    } else {
+        TxnVersion::Classic
+    }
 }
 
 impl Args {
@@ -228,6 +263,8 @@ impl Args {
         broker.log_retention_check_every = self.log_retention_check_interval;
         broker.log_cleaner_every = self.log_cleaner_interval;
         broker.log_cleaner_enable = self.log_cleaner_enable;
+        broker.client_telemetry = self.client_telemetry;
+        broker.transaction_version = transaction_version(major);
         broker.max_open_partitions = self.max_open_partitions;
         broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
         broker.super_users = acl::super_users(&self.acl_super_user)?;
@@ -246,7 +283,8 @@ impl Args {
             data_dir: &self.data_dir,
         })?;
         broker.users = sasl.users;
-        let (console, mut warnings) = self.console_rule(sasl.authenticator.is_some(), tls_on)?;
+        let (console, registry, mut warnings) =
+            self.web_rules(sasl.authenticator.is_some(), tls_on)?;
         warnings.extend(tls::key_warning(self.tls_key.as_ref()));
         let server = ServerConfig {
             sasl: sasl.authenticator,
@@ -266,8 +304,23 @@ impl Args {
             broker,
             server,
             console,
+            registry,
             warnings,
         })
+    }
+
+    /// The console's and the schema registry's flags, and what they leave open.
+    fn web_rules(&self, sasl: bool, tls: bool) -> Result<(Console, Registry, Vec<String>)> {
+        let (console, mut warnings) = self.console_rule(sasl, tls)?;
+        let names: Vec<String> = self
+            .console_allow_host
+            .iter()
+            .chain(&self.advertised_host)
+            .cloned()
+            .collect();
+        let (registry, notes) = registry::setup(&self.registry, self.listen, tls, sasl, &names)?;
+        warnings.extend(notes);
+        Ok((console, registry, warnings))
     }
 
     /// The console flags, and the start-up rule between them and what protects the broker.
@@ -278,6 +331,7 @@ impl Args {
             prefix: &self.console_prefix,
             allow_hosts: &self.console_allow_host,
             unprotected: self.console_unprotected,
+            lab: self.lab.as_deref(),
             sasl,
             tls,
             listen: self.listen,
@@ -327,24 +381,46 @@ impl Args {
     /// The flags of later parts that were given a value and are being ignored, for a warning. A build without the
     /// `console` feature has no console, so it names the console flags that were given.
     pub(crate) fn ignored(&self) -> Vec<&'static str> {
+        let mut out = self.registry_ignored();
         if cfg!(feature = "console") {
-            return Vec::new();
+            return out;
         }
         let given = [
             (
-                self.console.as_deref().is_some_and(|v| v != "false"),
+                self.console
+                    .as_deref()
+                    .is_some_and(|v| console::switch(v) != Some(false)),
                 "--console",
             ),
             (self.console_addr.is_some(), "--console-addr"),
             (self.console_prefix != "/", "--console-prefix"),
             (!self.console_allow_host.is_empty(), "--console-allow-host"),
             (self.console_unprotected, "--console-unprotected"),
+            (self.lab.is_some(), "--lab"),
         ];
-        given
-            .into_iter()
-            .filter(|(on, _)| *on)
-            .map(|(_, name)| name)
-            .collect()
+        out.extend(
+            given
+                .into_iter()
+                .filter(|(on, _)| *on)
+                .map(|(_, name)| name),
+        );
+        out
+    }
+
+    /// The registry flags that were given, in a build without the `registry` feature.
+    fn registry_ignored(&self) -> Vec<&'static str> {
+        if cfg!(feature = "registry") {
+            return Vec::new();
+        }
+        let r = &self.registry;
+        [
+            (r.schema_registry_addr.is_some(), "--schema-registry-addr"),
+            (!r.schema_registry_tls, "--schema-registry-tls"),
+        ]
+        .into_iter()
+        .filter(|(on, _)| *on)
+        .map(|(_, name)| name)
+        .collect()
     }
 }
 
@@ -353,8 +429,12 @@ mod console;
 pub(crate) use console::Console;
 #[cfg(feature = "console")]
 pub(crate) use console::DEFAULT_ADDR as DEFAULT_CONSOLE_ADDR;
+#[cfg(feature = "console")]
+pub(crate) use console::stored_acls;
 mod sasl;
 pub(crate) use sasl::NO_USERS;
+mod registry;
+pub(crate) use registry::Registry;
 mod tls;
 
 #[cfg(test)]

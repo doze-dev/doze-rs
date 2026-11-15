@@ -2,9 +2,23 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
+  },
+  "test_an_action_outside_the_model_is_invalid": {
+    "unknown-action-DozeAccessLog": {
+      "ErrorType": "InvalidAction",
+      "Status": 404
+    },
+    "unknown-action-DozeGeneratePolicy": {
+      "ErrorType": "InvalidAction",
+      "Status": 404
+    },
+    "unknown-action-NoSuchAction": {
+      "ErrorType": "InvalidAction",
+      "Status": 404
+    }
   },
   "test_instance_profile": {
     "add-role": {
@@ -427,6 +441,106 @@
       }
     },
     "update-trust": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_user_group_and_access_key": {
+    "add-to-group": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create-group": {
+      "Group": {
+        "Arn": "arn:aws:iam::<account>:group/<name:group>",
+        "CreateDate": "<datetime>",
+        "GroupId": "<GroupId:1>",
+        "GroupName": "<name:group>",
+        "Path": "/"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create-key": {
+      "AccessKey": {
+        "AccessKeyId": "<AccessKeyId:1>",
+        "CreateDate": "<datetime>",
+        "SecretAccessKey": "<SecretAccessKey:1>",
+        "Status": "Active",
+        "UserName": "<name:user>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create-user": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "User": {
+        "Arn": "arn:aws:iam::<account>:user/apps/<name:user>",
+        "CreateDate": "<datetime>",
+        "Path": "/apps/",
+        "UserId": "<UserId:1>",
+        "UserName": "<name:user>"
+      }
+    },
+    "deactivate": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-user-with-a-key": {
+      "Error": {
+        "Code": "DeleteConflict",
+        "Message": "Cannot delete entity, must remove users from group first."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "groups-for-user": {
+      "Groups": [
+        {
+          "Arn": "arn:aws:iam::<account>:group/<name:group>",
+          "CreateDate": "<datetime>",
+          "GroupId": "<GroupId:1>",
+          "GroupName": "<name:group>",
+          "Path": "/"
+        }
+      ],
+      "IsTruncated": false,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "list-keys": {
+      "AccessKeyMetadata": [
+        {
+          "AccessKeyId": "<AccessKeyId:1>",
+          "CreateDate": "<datetime>",
+          "Status": "Active",
+          "UserName": "<name:user>"
+        }
+      ],
+      "IsTruncated": false,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "listed-inactive": {
+      "AccessKeyMetadata": [
+        {
+          "AccessKeyId": "<AccessKeyId:1>",
+          "CreateDate": "<datetime>",
+          "Status": "Inactive",
+          "UserName": "<name:user>"
+        }
+      ],
+      "IsTruncated": false,
       "ResponseMetadata": {
         "HTTPStatusCode": 200
       }

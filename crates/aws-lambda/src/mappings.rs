@@ -280,9 +280,15 @@ impl Core {
             .ok()
             .and_then(|c| c.get("Role").and_then(Value::as_str).map(str::to_owned))
             .unwrap_or_default();
+        // The queue's visibility timeout is held against the function's when the mapping is made, or pointed at another function.
+        // An update that leaves the function alone is not checked again: AWS accepted `BatchSize` on a mapping whose function had
+        // since been given a longer timeout than the queue's (recorded 2026-11-15).
+        let same_function = update && r.opt("FunctionName").is_none();
         match source {
             Source::Sqs => {
-                crate::poll::sqs::check(&peers, acting, &source_arn, timeout).await?;
+                if !same_function {
+                    crate::poll::sqs::check(&peers, acting, &source_arn, timeout).await?;
+                }
                 role_may(&peers, acting, &role, source, &source_arn).await
             }
             Source::Kinesis => {

@@ -26,7 +26,8 @@ pub const DATA: &str = "/data";
 
 pub struct Rig {
     pub fs: SimFs,
-    pub broker: Broker<SimFs>,
+    /// Shared, so that a test can start the broker's background tasks (they hold it weakly).
+    pub broker: std::sync::Arc<Broker<SimFs>>,
 }
 
 pub fn rig() -> Rig {
@@ -44,7 +45,10 @@ pub fn open_on_with(fs: SimFs, tweak: impl FnOnce(&mut Config)) -> Rig {
     let mut config = Config::new(DATA.into());
     tweak(&mut config);
     let broker = Broker::open(fs.clone(), config).unwrap();
-    Rig { fs, broker }
+    Rig {
+        fs,
+        broker: broker.into(),
+    }
 }
 
 pub fn at() -> Listener {
@@ -233,7 +237,10 @@ pub fn rig_limited(max_partitions: i32) -> Rig {
     let mut config = Config::new(DATA.into());
     config.max_partitions = max_partitions;
     let broker = Broker::open(fs.clone(), config).unwrap();
-    Rig { fs, broker }
+    Rig {
+        fs,
+        broker: broker.into(),
+    }
 }
 
 /// A broker with its configuration changed by `tweak`.
@@ -243,7 +250,10 @@ pub fn rig_with(tweak: impl FnOnce(&mut Config)) -> Rig {
     let mut config = Config::new(DATA.into());
     tweak(&mut config);
     let broker = Broker::open(fs.clone(), config).unwrap();
-    Rig { fs, broker }
+    Rig {
+        fs,
+        broker: broker.into(),
+    }
 }
 
 // (Explicit paths: this file is a test target of its own as well as a module of the others.)
@@ -271,10 +281,13 @@ mod produce;
 mod txn;
 #[path = "support/users.rs"]
 pub mod users;
+#[path = "support/v2.rs"]
+mod v2;
 
 pub use compact::{clean_rounds, compacted, consume, delete_records, from, txn_produce};
 pub use configs::{BROKER, Op, TOPIC as TOPIC_RESOURCE};
 pub use consumer::{assigned as assigned_848, beat_848, join_848};
 pub use fetch::*;
 pub use produce::*;
-pub use txn::Txn;
+pub use txn::{Txn, owned_at, rig_holding};
+pub use v2::{later, parts};

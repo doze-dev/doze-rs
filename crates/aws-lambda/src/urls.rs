@@ -91,8 +91,15 @@ impl Core {
             ));
         }
         function.urls.push(url.clone());
+        let mut json = self.url_view(r, &f.name, &url);
+        // Recorded 2026-11-15: the answer to a create that did not name an invoke mode does not name one either.
+        if r.opt("InvokeMode").is_none()
+            && let Some(o) = json.as_object_mut()
+        {
+            o.remove("InvokeMode");
+        }
         Ok(Out {
-            json: self.url_view(r, &f.name, &url),
+            json,
             status: Some(201),
         })
     }

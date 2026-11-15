@@ -2,6 +2,8 @@
 
 import json
 
+from harness.wire import send
+
 TRUST = json.dumps({
     "Version": "2012-10-17",
     "Statement": [{"Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"},
@@ -140,3 +142,13 @@ def test_refusals(client, names, cleanup, snapshot, target):
         RoleName=role, PolicyName="absent"))
     snapshot.error("inline-with-a-principal", lambda: iam.put_role_policy(
         RoleName=role, PolicyName="p", PolicyDocument=TRUST))
+
+
+def test_an_action_outside_the_model_is_invalid(client, snapshot):
+    # A Query action IAM does not have, sent as a tool that bypasses the SDK would: AWS's Query front end refuses it by name.
+    # doze's own helpers (the access log, the policy generator) are at /_doze/iam/..., never on IAM's endpoint.
+    iam = client("iam")
+    form = {"Content-Type": "application/x-www-form-urlencoded; charset=utf-8"}
+    for action in ("DozeAccessLog", "DozeGeneratePolicy", "NoSuchAction"):
+        snapshot.match(f"unknown-action-{action}", send(
+            iam, "POST", "/", body=f"Action={action}&Version=2010-05-08".encode(), headers=form))

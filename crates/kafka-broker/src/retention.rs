@@ -8,7 +8,7 @@ use kafka_meta::GroupLife;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::GroupId;
 
-use crate::groups::{Deleted, Members, State, View, expired};
+use crate::groups::{Deleted, Members, View, expired, members_of};
 use crate::{Broker, blocking, clock};
 
 /// The shortest and longest time between looks when it is not set.
@@ -63,14 +63,19 @@ impl<F: Fs> Broker<F> {
         // Which groups to look at is taken once; each is then looked at as it is when its turn comes, so that a member
         // that has joined and committed since is seen and not judged by what the group was.
         let in_memory = self.groups.list().await.into_iter().map(|(id, _)| id);
-        let lives = match blocking::run(|| self.meta.group_lives()) {
+        // The store is read on the blocking pool: a sweep does not swap the runtime's workers (see `blocking`).
+        let meta = Arc::clone(&self.meta);
+        let lives = match blocking::in_background(move || meta.group_lives()).await {
             Ok(lives) => lives,
             Err(e) => {
                 tracing::warn!(error = %e, "offsets retention: the groups' records could not be read");
                 return;
             }
         };
-        let with_offsets = blocking::run(|| self.meta.groups_with_offsets()).unwrap_or_default();
+        let meta = Arc::clone(&self.meta);
+        let with_offsets = blocking::in_background(move || meta.groups_with_offsets())
+            .await
+            .unwrap_or_default();
         let ids: BTreeSet<GroupId> = with_offsets
             .into_iter()
             .chain(lives.into_iter().map(|(id, _)| id))
@@ -85,31 +90,17 @@ impl<F: Fs> Broker<F> {
         // In this order: what a group has committed is read first, its record next and its members last, so that a member
         // that joins and commits while this is going on has its commit left out of `offsets` (and so never expired),
         // never judged by a record read before it came.
-        let Ok(offsets) = blocking::run(|| self.meta.group_offsets(id)) else {
+        let (meta, group) = (Arc::clone(&self.meta), id.clone());
+        let Ok(offsets) = blocking::in_background(move || meta.group_offsets(&group)).await else {
             return;
         };
-        let life = blocking::run(|| self.meta.group_life(id)).ok().flatten();
+        let (meta, group) = (Arc::clone(&self.meta), id.clone());
+        let life = blocking::in_background(move || meta.group_life(&group))
+            .await
+            .ok()
+            .flatten();
         let described = self.groups.describe(id).await;
-        let members = match &described {
-            // A consumer group of the new protocol with members: not in a rebalance as far as its offsets go.
-            Some(d) if d.consumer.as_ref().is_some_and(|c| !c.members.is_empty()) => {
-                Members::Running {
-                    rebalancing: false,
-                    consumer: true,
-                    subscribed: d.subscribed.as_ref(),
-                }
-            }
-            Some(d) if !d.members.is_empty() => Members::Running {
-                rebalancing: matches!(
-                    d.state,
-                    State::PreparingRebalance | State::CompletingRebalance
-                ),
-                consumer: d.protocol_type.as_deref() == Some("consumer"),
-                subscribed: d.subscribed.as_ref(),
-            },
-            Some(_) => Members::Empty,
-            None => Members::NotInMemory,
-        };
+        let members = members_of(described.as_ref());
         let running = matches!(members, Members::Running { .. });
         let waiting = may_have_members(&members, life.as_ref(), now_ms, self.started_ms);
         let view = View {

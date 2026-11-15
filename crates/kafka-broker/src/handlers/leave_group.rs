@@ -1,6 +1,6 @@
 //! LeaveGroup.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::{GroupId, InstanceId, MemberId};
 use kafka_wire::messages::leave_group_response::MemberResponse;
@@ -21,7 +21,7 @@ impl<F: Fs> Broker<F> {
         // The caller must be allowed to READ the group; a refusal is at the top, in every version.
         if !self
             .guard(caller)
-            .group(operation::READ, req.group_id.as_str())
+            .group(Operation::Read, req.group_id.as_str())
         {
             resp.error_code = ResponseError::GroupAuthorizationFailed.code();
             return Outcome::Respond(kafka_wire::api::Response::LeaveGroup(resp));
@@ -40,12 +40,18 @@ impl<F: Fs> Broker<F> {
                         .group_instance_id
                         .as_ref()
                         .map(|i| InstanceId::new(i.as_str())),
+                    // What the client says (v5 and later), clipped as it is read and never logged.
+                    reason: m
+                        .reason
+                        .as_ref()
+                        .and_then(|r| crate::groups::Reason::clip(r.as_str())),
                 })
                 .collect()
         } else {
             vec![LeaveTarget {
                 member_id: MemberId::new(req.member_id.as_str()),
                 instance: None,
+                reason: None,
             }]
         };
         let Some(Answer::Leave(results)) = self.groups.ask(&group, Req::Leave(targets)).await

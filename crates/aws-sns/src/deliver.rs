@@ -1,9 +1,9 @@
 //! Delivery: what happens to a published message at each subscription. **SQS and Lambda are delivered to** through the peer bus, as
 //! SNS: a queue gets the envelope or the raw message, a function is invoked asynchronously with AWS's `Records[].Sns` event and the
-//! topic as its `SourceArn`; an `http` endpoint is POSTed the notification off the actor (`webhook.rs`). Every other protocol is **not
+//! topic as its `SourceArn`; an `http` or `https` endpoint is POSTed the notification off the actor (`webhook.rs`). Every other protocol is **not
 //! delivered, and not pretended to be**: the subscription is kept, the message is not sent anywhere, and the log says so. That is
 //! `sms`, `application` (decision D1: stored, nothing sent), `email`, `email-json` (their subscriptions wait for a confirmation token
-//! that no one is sent), `https` (no TLS client: kept pending, and the log says why) and `firehose`.
+//! that no one is sent) and `firehose`.
 
 use aws_iam_policy::{Context, Policies, Request, Subject};
 use aws_peers::Mode;
@@ -12,6 +12,7 @@ use serde_json::{Map, Value, json};
 
 use crate::arn;
 use crate::core::Core;
+use crate::dead_letter::Failure;
 use crate::envelope::{self, Context as Envelope};
 use crate::message::{Attr, Message};
 use crate::model::{Subscription, Topic};
@@ -28,7 +29,8 @@ pub(crate) struct Published<'a> {
 }
 
 impl Core {
-    /// Delivers to each subscription, in turn. A delivery that fails is logged and does not stop the others.
+    /// Delivers to each subscription, in turn. A delivery that fails is logged, goes to the subscription's dead-letter queue if it has
+    /// one, and does not stop the others.
     pub(crate) async fn fan_out(&self, p: &Published<'_>, subs: &[Subscription]) {
         for sub in subs {
             let delivered = match sub.protocol.as_str() {
@@ -41,9 +43,18 @@ impl Core {
                 tracing::warn!(
                     subscription = %sub.arn,
                     endpoint = %sub.endpoint,
-                    "SNS could not deliver to the {}: {why}",
-                    sub.protocol
+                    "SNS could not deliver to the {}: {}",
+                    sub.protocol,
+                    why.message
                 );
+                // A client-side error is not retried by AWS: the message goes to the dead-letter queue at once. What doze-aws does
+                // not build (https) is not a failed delivery.
+                let (body, attrs) = self.delivered_body(p, sub);
+                if why.code != "NotBuilt"
+                    && let Some(dead) = self.dead_letter_of(p, sub, body, attrs)
+                {
+                    dead.send(&why).await;
+                }
             } else if delivered.is_none() {
                 tracing::debug!(
                     subscription = %sub.arn,
@@ -54,19 +65,50 @@ impl Core {
         }
     }
 
-    async fn to_queue(&self, p: &Published<'_>, sub: &Subscription) -> Result<(), String> {
-        let peers = self.peers.clone().ok_or("no queue service is running")?;
-        let queue = arn::split(&sub.endpoint, "Endpoint").map_err(|e| e.message)?;
+    /// What a subscription is given: the JSON envelope, or for a raw subscription the message and its attributes in SQS's shape.
+    pub(crate) fn delivered_body(
+        &self,
+        p: &Published<'_>,
+        sub: &Subscription,
+    ) -> (String, Option<Value>) {
+        let text = p.message.text_for(&sub.protocol);
+        if sub.raw() {
+            let attrs = (!p.message.attrs.is_empty()).then(|| queue_attributes(&p.message.attrs));
+            return (text, attrs);
+        }
+        let ctx = Envelope {
+            message_id: p.message_id,
+            topic_arn: &p.topic.arn,
+            subscription_arn: &sub.arn,
+            timestamp: p.timestamp,
+            endpoint: &p.caller.endpoint,
+        };
+        (envelope::notification(&ctx, p.message, &text), None)
+    }
+
+    async fn to_queue(&self, p: &Published<'_>, sub: &Subscription) -> Result<(), Failure> {
+        let peers = self
+            .peers
+            .clone()
+            .ok_or_else(|| Failure::new("InternalFailure", "no queue service is running"))?;
+        let queue =
+            arn::split(&sub.endpoint, "Endpoint").map_err(|e| Failure::new(e.code, e.message))?;
         let mut caller = p.caller.clone();
         caller.region = queue.region.to_owned();
         caller.account_id = queue.account.to_owned();
         let url = format!("{}/{}/{}", p.caller.endpoint, queue.account, queue.resource);
         if peers.mode() != Mode::Off {
             let policy = queue_policy(&peers, &caller, &url).await;
-            if !queue_accepts(policy.as_deref(), &sub.endpoint, p.topic) {
+            if !queue_accepts(
+                policy.as_deref(),
+                &sub.endpoint,
+                &p.topic.arn,
+                &p.topic.account,
+            ) {
                 let why = format!("the queue's policy does not let {} send to it", p.topic.arn);
                 if peers.mode() == Mode::Enforce {
-                    return Err(why);
+                    // (memory)
+                    return Err(Failure::new("AccessDenied", why));
                 }
                 tracing::warn!("iam soft mode: SNS delivery would be refused: {why}");
             }
@@ -76,13 +118,17 @@ impl Core {
             .call("sns", &caller, "sqs", "SendMessage", &body)
             .await
             .map(|_| ())
-            .map_err(|e| e.message)
+            .map_err(|e| Failure::new(e.code, e.message))
     }
 
     /// Invokes the subscribed function asynchronously with the notification event, in the function's own region and account.
-    async fn to_function(&self, p: &Published<'_>, sub: &Subscription) -> Result<(), String> {
-        let peers = self.peers.clone().ok_or("no function service is running")?;
-        let function = arn::split(&sub.endpoint, "Endpoint").map_err(|e| e.message)?;
+    async fn to_function(&self, p: &Published<'_>, sub: &Subscription) -> Result<(), Failure> {
+        let peers = self
+            .peers
+            .clone()
+            .ok_or_else(|| Failure::new("InternalFailure", "no function service is running"))?;
+        let function =
+            arn::split(&sub.endpoint, "Endpoint").map_err(|e| Failure::new(e.code, e.message))?;
         let mut caller = p.caller.clone();
         caller.region = function.region.to_owned();
         caller.account_id = function.account.to_owned();
@@ -104,7 +150,7 @@ impl Core {
             .call_rest("sns", &caller, "lambda", "Invoke", &body)
             .await
             .map(|_| ())
-            .map_err(|e| e.message)
+            .map_err(|e| Failure::new(e.code, e.message))
     }
 
     /// The `SendMessage` request for a subscription: the envelope, or for a raw subscription the message and its attributes.
@@ -161,7 +207,11 @@ fn queue_attributes(attrs: &std::collections::BTreeMap<String, Attr>) -> Value {
 }
 
 /// The `Policy` attribute of the queue at `url`, if it has one and can be read.
-async fn queue_policy(peers: &aws_peers::Peers, caller: &Caller, url: &str) -> Option<String> {
+pub(crate) async fn queue_policy(
+    peers: &aws_peers::Peers,
+    caller: &Caller,
+    url: &str,
+) -> Option<String> {
     let asked = json!({"QueueUrl": url, "AttributeNames": ["Policy"]});
     let answer = peers
         .call("sns", caller, "sqs", "GetQueueAttributes", &asked)
@@ -175,19 +225,24 @@ async fn queue_policy(peers: &aws_peers::Peers, caller: &Caller, url: &str) -> O
 }
 
 /// Whether the queue's policy lets SNS, for this topic, send to it. SNS has no right of its own: a queue with no policy takes nothing.
-fn queue_accepts(policy: Option<&str>, queue_arn: &str, topic: &Topic) -> bool {
+pub(crate) fn queue_accepts(
+    policy: Option<&str>,
+    queue_arn: &str,
+    topic_arn: &str,
+    topic_account: &str,
+) -> bool {
     let Some(Ok(doc)) = policy.and_then(aws_iam_policy::parse) else {
         return false;
     };
     let mut context = Context::new();
     context
-        .set("aws:SourceArn", topic.arn.clone())
-        .set("aws:SourceAccount", topic.account.clone())
-        .set("aws:SourceOwner", topic.account.clone())
+        .set("aws:SourceArn", topic_arn.to_owned())
+        .set("aws:SourceAccount", topic_account.to_owned())
+        .set("aws:SourceOwner", topic_account.to_owned())
         .set("aws:PrincipalServiceName", "sns.amazonaws.com");
     let subject = Subject {
         arns: Vec::new(),
-        account: topic.account.clone(),
+        account: topic_account.to_owned(),
         service: Some("sns.amazonaws.com".to_owned()),
     };
     let resource = [&doc];
@@ -237,19 +292,29 @@ mod tests {
     #[test]
     fn a_queue_takes_what_its_policy_lets_the_topic_send() {
         let t = topic();
-        assert!(!queue_accepts(None, QUEUE, &t));
-        assert!(queue_accepts(Some(&allow_sns("")), QUEUE, &t));
+        assert!(!queue_accepts(None, QUEUE, &t.arn, &t.account));
+        assert!(queue_accepts(
+            Some(&allow_sns("")),
+            QUEUE,
+            &t.arn,
+            &t.account
+        ));
         let by_arn = allow_sns(
             r#","Condition":{"ArnEquals":{"aws:SourceArn":"arn:aws:sns:us-east-1:111122223333:t"}}"#,
         );
-        assert!(queue_accepts(Some(&by_arn), QUEUE, &t));
+        assert!(queue_accepts(Some(&by_arn), QUEUE, &t.arn, &t.account));
         let other = allow_sns(
             r#","Condition":{"ArnEquals":{"aws:SourceArn":"arn:aws:sns:us-east-1:111122223333:other"}}"#,
         );
-        assert!(!queue_accepts(Some(&other), QUEUE, &t));
+        assert!(!queue_accepts(Some(&other), QUEUE, &t.arn, &t.account));
         let anyone = r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"sqs:*","Resource":"*"}]}"#;
-        assert!(queue_accepts(Some(anyone), QUEUE, &t));
+        assert!(queue_accepts(Some(anyone), QUEUE, &t.arn, &t.account));
         let account_only = r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"111122223333"},"Action":"sqs:SendMessage","Resource":"*"}]}"#;
-        assert!(!queue_accepts(Some(account_only), QUEUE, &t));
+        assert!(!queue_accepts(
+            Some(account_only),
+            QUEUE,
+            &t.arn,
+            &t.account
+        ));
     }
 }

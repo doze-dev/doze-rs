@@ -10,24 +10,41 @@ use doze_runtime::{Clock, Ctx};
 use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
 
+use crate::document::Document;
 use crate::model::Parameter;
+use crate::settings::Setting;
 use aws_peers::{Mode, Peers};
 
 const FILE: &str = "ssm.redb";
 const PARAMS: &str = "params";
+const DOCUMENTS: &str = "documents";
+const SETTINGS: &str = "settings";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
-const VERSION: u8 = 1;
+pub(crate) const VERSION: u8 = 1;
 
 /// All of Parameter Store: its parameters, and the clock it reads. Owned by one task, so no operation needs a lock.
 #[derive(Debug)]
 pub(crate) struct Core {
     pub(crate) params: Records<Parameter>,
+    /// SSM documents, by name.
+    pub(crate) documents: Records<Document>,
+    /// The service settings changed from their defaults, by id.
+    pub(crate) settings: Records<Setting>,
     /// The other services (KMS seals a `SecureString`; Secrets Manager answers a reference), when there are any.
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) db: Option<Db>,
     /// When the first `Expiration` policy runs out, so a call before then need not look.
     next_expiry_ms: Option<i64>,
+}
+
+/// What the actor is asked.
+#[derive(Debug)]
+pub(crate) enum Ask {
+    /// A call from the wire (or the peer bus).
+    Call(Box<Call>),
+    /// From `doze-aws data`: what the parameters hold, or remove some of it.
+    Data(Box<crate::storage::DataCall>),
 }
 
 /// What the actor answers: the reply, and the commit it must wait for.
@@ -54,11 +71,25 @@ pub(crate) fn built(op: Operation) -> bool {
             | Operation::AddTagsToResource
             | Operation::RemoveTagsFromResource
             | Operation::ListTagsForResource
+            | Operation::CreateDocument
+            | Operation::GetDocument
+            | Operation::DescribeDocument
+            | Operation::UpdateDocument
+            | Operation::DeleteDocument
+            | Operation::ListDocuments
+            | Operation::ListDocumentVersions
+            | Operation::UpdateDocumentDefaultVersion
+            | Operation::DescribeDocumentPermission
+            | Operation::ModifyDocumentPermission
+            | Operation::UpdateDocumentMetadata
+            | Operation::GetServiceSetting
+            | Operation::UpdateServiceSetting
+            | Operation::ResetServiceSetting
     )
 }
 
 impl doze_runtime::Service for Core {
-    type Request = Call;
+    type Request = Ask;
     type Response = Answer;
     type Error = StoreError;
 
@@ -66,7 +97,20 @@ impl doze_runtime::Service for Core {
         Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
     }
 
-    async fn handle(&mut self, call: Call) -> Answer {
+    async fn handle(&mut self, ask: Ask) -> Answer {
+        let call = match ask {
+            Ask::Call(call) => *call,
+            Ask::Data(asked) => {
+                let crate::storage::DataCall { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                return Answer {
+                    reply: aws_wire::handler::empty(),
+                    durable: None,
+                };
+            }
+        };
         if let Some(peers) = self.peers.clone()
             && peers.mode() != Mode::Off
             && let Err(refusal) = peers
@@ -102,7 +146,11 @@ impl Core {
     pub(crate) fn in_memory(clock: Arc<dyn Clock>, peers: Option<Arc<Peers>>) -> Self {
         Self::with(
             clock,
-            Records::new(PARAMS, "parameter", VERSION),
+            (
+                Records::new(PARAMS, "parameter", VERSION),
+                Records::new(DOCUMENTS, "document", VERSION),
+                Records::new(SETTINGS, "setting", VERSION),
+            ),
             peers,
             None,
         )
@@ -113,22 +161,31 @@ impl Core {
         clock: Arc<dyn Clock>,
         peers: Option<Arc<Peers>>,
     ) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[PARAMS])?;
+        let db = Db::open(dir, FILE, &[PARAMS, DOCUMENTS, SETTINGS])?;
         let read = db.read()?;
         let params = Records::load(PARAMS, "parameter", VERSION, &read)?;
+        let documents = Records::load(DOCUMENTS, "document", VERSION, &read)?;
+        let settings = Records::load(SETTINGS, "setting", VERSION, &read)?;
         drop(read);
-        Ok(Self::with(clock, params, peers, Some(db)))
+        Ok(Self::with(
+            clock,
+            (params, documents, settings),
+            peers,
+            Some(db),
+        ))
     }
 
     fn with(
         clock: Arc<dyn Clock>,
-        params: Records<Parameter>,
+        (params, documents, settings): Tables,
         peers: Option<Arc<Peers>>,
         db: Option<Db>,
     ) -> Self {
         let next_expiry_ms = params.iter().filter_map(|(_, p)| p.expires_ms).min();
         Self {
             params,
+            documents,
+            settings,
             peers,
             clock,
             db,
@@ -143,6 +200,11 @@ impl Core {
     /// Notes that a parameter now expires at `at_ms`.
     pub(crate) fn expires_at(&mut self, at_ms: i64) {
         self.next_expiry_ms = Some(self.next_expiry_ms.map_or(at_ms, |n| n.min(at_ms)));
+    }
+
+    /// After a reset: nothing is due to expire.
+    pub(crate) fn forget_expiry(&mut self) {
+        self.next_expiry_ms = None;
     }
 
     /// Removes the parameters whose `Expiration` policy has run out.
@@ -165,7 +227,11 @@ impl Core {
 
     /// Sends what the last call changed to the writer; the [`Ack`] resolves when it is on disk.
     pub(crate) fn flush(&mut self) -> Result<Option<Ack>, StoreError> {
-        let changes = vec![self.params.stage()?];
+        let changes = vec![
+            self.params.stage()?,
+            self.documents.stage()?,
+            self.settings.stage()?,
+        ];
         Ok(self.db.as_ref().and_then(|db| db.submit(changes)))
     }
 
@@ -193,6 +259,27 @@ impl Core {
             Operation::AddTagsToResource => self.add_tags(call),
             Operation::RemoveTagsFromResource => self.remove_tags(call),
             Operation::ListTagsForResource => self.list_tags(call),
+            _ => self.dispatch_more(op, call),
+        }
+    }
+
+    /// The documents and the service settings.
+    fn dispatch_more(&mut self, op: Operation, call: &Call) -> Reply {
+        match op {
+            Operation::CreateDocument => self.create_document(call),
+            Operation::GetDocument => self.get_document(call),
+            Operation::DescribeDocument => self.describe_document(call),
+            Operation::UpdateDocument => self.update_document(call),
+            Operation::DeleteDocument => self.delete_document(call),
+            Operation::ListDocuments => self.list_documents(call),
+            Operation::ListDocumentVersions => self.list_document_versions(call),
+            Operation::UpdateDocumentDefaultVersion => self.update_document_default_version(call),
+            Operation::DescribeDocumentPermission => self.describe_document_permission(call),
+            Operation::ModifyDocumentPermission => self.modify_document_permission(call),
+            Operation::UpdateDocumentMetadata => self.update_document_metadata(call),
+            Operation::GetServiceSetting => self.get_service_setting(call),
+            Operation::UpdateServiceSetting => self.update_service_setting(call),
+            Operation::ResetServiceSetting => self.reset_service_setting(call),
             _ => Err(ApiError::new(
                 501,
                 "NotImplemented",
@@ -201,6 +288,9 @@ impl Core {
         }
     }
 }
+
+/// The tables the service keeps: parameters, documents, changed settings.
+type Tables = (Records<Parameter>, Records<Document>, Records<Setting>);
 
 /// A refusal that names the rule.
 pub(crate) fn validation(message: impl Into<String>) -> ApiError {

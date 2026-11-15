@@ -61,6 +61,7 @@ fn a_static_members_instance_is_checked_as_well() {
         instance: Some(instance("i")),
         generation: 1,
         transactional: false,
+        partitions: Vec::new(),
     };
     let sync = g.sync(member.as_str(), 1, &[]);
     g.synced(sync);

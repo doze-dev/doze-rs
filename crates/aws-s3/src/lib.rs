@@ -7,9 +7,12 @@
 //! A browser is served too: CORS preflights and response headers from the bucket's CORS rules, and a bucket's website (index and
 //! error documents) at its website host or `/_aws/s3-website/<bucket>/` (`web.rs`).
 //!
-//! Operations that have no meaning on one machine (ACLs, archive storage classes and restores, S3 Select, directory buckets, metadata
+//! ACLs follow Object Ownership as AWS has since April 2023 (`acl.rs`): disabled on a new bucket, kept and weighed once enabled.
+//!
+//! Operations that have no meaning on one machine (archive storage classes and restores, S3 Select, directory buckets, metadata
 //! tables, access points) are refused by name.
 
+mod acl;
 mod attrs;
 mod authz;
 mod blob;
@@ -20,12 +23,14 @@ mod config;
 mod copy;
 mod core;
 mod cors;
+mod data;
 mod delete;
 mod download;
 mod errors;
 mod eventbridge;
 mod events;
 mod get;
+mod grants;
 mod idconfig;
 mod janitor;
 mod lifecycle;
@@ -41,9 +46,11 @@ mod public;
 mod put;
 mod receive;
 mod req;
+mod storage;
 mod store;
 mod tagging;
 mod timeutil;
+mod usage;
 mod validate;
 mod versioning;
 mod web;
@@ -267,6 +274,10 @@ impl Service for S3 {
         Some(self)
     }
 
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     /// S3 words a request that breaks the model's rules as `InvalidArgument`.
     fn invalid(&self, violation: &Violation) -> ApiError {
         let member = |ix: u32| TABLES.member(ix).map_or("", |m| m.name);
@@ -277,6 +288,10 @@ impl Service for S3 {
                 format!("Missing required parameter {}.", member(*m)),
             ),
             Violation::Syntax { .. } | Violation::TooDeep => errors::malformed_xml(),
+            // A value outside an enum inside the XML body fails the schema (recorded 2026-11-15: a lifecycle rule's `Status`).
+            Violation::Enum { member: m, .. } if TABLES.member(*m).is_some_and(|x| x.bind == 0) => {
+                errors::malformed_xml()
+            }
             other => ApiError::new(
                 400,
                 "InvalidArgument",

@@ -1,4 +1,5 @@
 use super::*;
+use kafka_meta::TxnVersion;
 
 fn rec(state: TxnState) -> TxnRecord {
     let mut r = TxnRecord::new("tx");
@@ -116,25 +117,107 @@ fn a_transaction_outlives_its_timeout_from_when_it_began_not_from_its_last_chang
 #[test]
 fn a_batch_may_be_written_only_by_the_owner_to_a_partition_of_the_open_transaction() {
     let r = rec(TxnState::Ongoing);
-    assert_eq!(may_write(&r, 1000, 2, "t", 0), Ok(()));
+    assert_eq!(may_write(&r, 1000, 2, ("t", 0), 9), Ok(()));
     assert_eq!(
-        may_write(&r, 1000, 2, "t", 1),
+        may_write(&r, 1000, 2, ("t", 1), 9),
         Err(E::InvalidTxnState),
         "the partition was not added"
     );
     assert_eq!(
-        may_write(&r, 1000, 1, "t", 0),
+        may_write(&r, 1000, 1, ("t", 0), 9),
         Err(E::InvalidProducerEpoch),
         "fenced is reported as the epoch"
     );
     assert_eq!(
-        may_write(&r, 7, 2, "t", 0),
+        may_write(&r, 7, 2, ("t", 0), 9),
         Err(E::InvalidProducerIdMapping)
     );
     assert_eq!(
-        may_write(&rec(TxnState::Empty), 1000, 2, "t", 0),
+        may_write(&rec(TxnState::Empty), 1000, 2, ("t", 0), 9),
         Err(E::InvalidTxnState),
         "no transaction is open"
+    );
+}
+
+/// KIP-890's first part, as Kafka 4.4.0 answered the oracle (`unadded`): a write to a partition the transaction does not
+/// have is INVALID_TXN_STATE up to Produce v10 and TRANSACTION_ABORTABLE from v11; a transaction being ended is
+/// NOT_ENOUGH_REPLICAS (retriable for every client) before v12 and CONCURRENT_TRANSACTIONS from it.
+#[test]
+fn an_unverified_write_is_refused_with_the_code_its_version_knows() {
+    let r = rec(TxnState::Ongoing);
+    for (version, code) in [
+        (3, E::InvalidTxnState),
+        (10, E::InvalidTxnState),
+        (11, E::TransactionAbortable),
+        (12, E::TransactionAbortable),
+    ] {
+        assert_eq!(
+            may_write(&r, 1000, 2, ("t", 1), version),
+            Err(code),
+            "v{version}"
+        );
+        assert_eq!(
+            may_write(&rec(TxnState::CompleteCommit), 1000, 2, ("t", 0), version),
+            Err(code),
+            "v{version}: nothing open"
+        );
+    }
+    for state in [TxnState::PrepareCommit, TxnState::PrepareAbort] {
+        assert_eq!(
+            may_write(&rec(state), 1000, 2, ("t", 0), 11),
+            Err(E::NotEnoughReplicas)
+        );
+        assert_eq!(
+            may_write(&rec(state), 1000, 2, ("t", 0), 12),
+            Err(E::ConcurrentTransactions)
+        );
+    }
+    assert_eq!(not_added(3, 4), E::InvalidTxnState);
+    assert_eq!(not_added(4, 4), E::TransactionAbortable);
+}
+
+/// What a request to add is told before anything is stored (`handleAddPartitionsToTransaction`).
+#[test]
+fn an_add_is_refused_for_another_owner_or_an_ending_and_is_nothing_when_all_is_there() {
+    let r = rec(TxnState::Ongoing);
+    assert_eq!(may_add(&r, 1000, 2, true), Adding::There);
+    assert_eq!(may_add(&r, 1000, 2, false), Adding::Store);
+    assert_eq!(
+        may_add(&rec(TxnState::CompleteAbort), 1000, 2, true),
+        Adding::Store
+    );
+    assert_eq!(
+        may_add(&r, 1000, 3, true),
+        Adding::Refused(E::ProducerFenced)
+    );
+    assert_eq!(
+        may_add(&r, 7, 2, true),
+        Adding::Refused(E::InvalidProducerIdMapping)
+    );
+    assert_eq!(
+        may_add(&rec(TxnState::PrepareCommit), 1000, 2, true),
+        Adding::Refused(E::ConcurrentTransactions)
+    );
+    let mut begun = rec(TxnState::CompleteCommit);
+    add(
+        &mut begun,
+        [("u".to_owned(), 3)],
+        TxnVersion::EpochBump,
+        8_000,
+    );
+    assert_eq!(
+        (
+            begun.state,
+            begun.started_ms,
+            begun.partitions.clone(),
+            begun.client_version
+        ),
+        (
+            TxnState::Ongoing,
+            8_000,
+            vec![("u".to_owned(), 3)],
+            TxnVersion::EpochBump
+        )
     );
 }
 
@@ -189,4 +272,27 @@ fn when_the_epochs_are_used_up_the_producer_id_is_replaced_and_the_old_one_is_st
         expected_is_current(&r, Some((1000, 3))),
         Err(E::ProducerFenced)
     );
+}
+
+#[test]
+fn the_next_step_is_the_first_moment_the_timeout_or_the_expiry_holds() {
+    let limit = 7_000;
+    let open = rec(TxnState::Ongoing);
+    let at = next_step_ms(&open, limit).unwrap();
+    assert_eq!(at, 61_001);
+    assert!(
+        !expired(&open, at - 1) && expired(&open, at),
+        "exactly then"
+    );
+    for state in [
+        TxnState::Empty,
+        TxnState::CompleteCommit,
+        TxnState::CompleteAbort,
+    ] {
+        let r = rec(state);
+        let at = next_step_ms(&r, limit).unwrap();
+        assert!(!idle(&r, at - 1, limit) && idle(&r, at, limit), "{state:?}");
+    }
+    assert_eq!(next_step_ms(&rec(TxnState::PrepareCommit), limit), None);
+    assert_eq!(next_step_ms(&rec(TxnState::PrepareAbort), limit), None);
 }

@@ -157,8 +157,7 @@ type saramaTxn struct{}
 func (saramaTxn) name() string { return "sarama" }
 
 func (saramaTxn) run(_ context.Context, addr, topic, id string) error {
-	cfg := lib.NewConfig()
-	cfg.Version = lib.V3_6_0_0
+	cfg := saramaConfig()
 	cfg.Producer.Idempotent = true
 	cfg.Producer.Transaction.ID = id
 	cfg.Producer.RequiredAcks = lib.WaitForAll
@@ -236,8 +235,7 @@ type saramaReader struct{}
 func (saramaReader) name() string { return "sarama" }
 
 func (saramaReader) read(addr, topic string, committed bool) ([]string, error) {
-	cfg := lib.NewConfig()
-	cfg.Version = lib.V3_6_0_0
+	cfg := saramaConfig()
 	cfg.Consumer.IsolationLevel = lib.ReadUncommitted
 	if committed {
 		cfg.Consumer.IsolationLevel = lib.ReadCommitted

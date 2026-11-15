@@ -141,6 +141,8 @@ pub(crate) struct Version {
     pub(crate) parts: Vec<PartInfo>,
     pub(crate) tags: Vec<(String, String)>,
     pub(crate) lock: Lock,
+    /// The access control list, when one was set and the bucket's Object Ownership let it be; `None` is the owner's full control.
+    pub(crate) acl: Option<Vec<crate::acl::Grant>>,
 }
 
 /// A version row as record version 1 wrote it, before Object Lock: read, and given no lock.
@@ -176,6 +178,7 @@ impl From<VersionV1> for Version {
             parts: v.parts,
             tags: v.tags,
             lock: Lock::default(),
+            acl: None,
         }
     }
 }

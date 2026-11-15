@@ -11,7 +11,7 @@ fuzz_target!(|data: &[u8]| {
     for major in KafkaMajor::RANGE {
         let Some(major) = KafkaMajor::new(major) else { continue };
         for (sasl, telemetry) in [(false, false), (true, true)] {
-            let _ = incoming::read(frame.clone(), Profile::new(major), Features { sasl, telemetry });
+            let _ = incoming::read(frame.clone(), Profile::new(major), Features { sasl, telemetry, ..Features::default() });
         }
     }
 });

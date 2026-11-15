@@ -11,6 +11,7 @@ mod life;
 mod names;
 mod offsets;
 mod record;
+mod settings;
 mod store;
 mod txn;
 
@@ -21,5 +22,6 @@ pub use life::{ConsumerLife, GroupLife};
 pub use names::Collision;
 pub use offsets::{Committed, GroupOffset, OffsetCommit, StoredOffset};
 pub use record::Topic;
-pub use store::{FileMode, MetaStore, random_topic_id};
-pub use txn::{TxnOffset, TxnRecord, TxnState};
+pub use settings::{CleanupPolicy, TopicSettings};
+pub use store::{FileMode, MetaStore, Records, random_topic_id};
+pub use txn::{TxnOffset, TxnRecord, TxnState, TxnVersion};

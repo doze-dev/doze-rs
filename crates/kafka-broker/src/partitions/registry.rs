@@ -14,7 +14,7 @@ use tokio::sync::{OnceCell, mpsc};
 mod closing;
 mod reconfigure;
 
-use super::{Partition, QUEUE, actor};
+use super::{Partition, QUEUE, Upkeep, actor};
 use crate::txn_index::TxnIndex;
 use crate::{Config, blocking, topic_config};
 
@@ -29,6 +29,8 @@ struct Entry<F: Fs> {
     slot: Slot<F>,
     /// When it was last asked for: a count that goes up with every request, so that the least recent is the least.
     used: u64,
+    /// And when that was, for closing it once it has been quiet for `Config::partition_idle_close`.
+    used_at: tokio::time::Instant,
 }
 
 /// What `Partitions::find` found.
@@ -49,6 +51,8 @@ struct Registry<F: Fs> {
     closed: HashMap<String, Trust>,
     /// Partitions being closed now. Not opened again until the close is over, or two logs would be on the same files.
     closing: HashSet<Key>,
+    /// What the background chores last learnt of each partition they have looked at, open or not (see [`Upkeep`]).
+    upkeep: HashMap<Key, Arc<Upkeep>>,
 }
 
 /// Every partition that has been opened, by topic id (so a topic deleted and made again is not the old one) and
@@ -67,6 +71,15 @@ pub(crate) struct Partitions<F: Fs> {
     closing_done: tokio::sync::Notify,
     /// Which topics there are now: a partition is opened only for the topic that has its name at the time.
     meta: Arc<MetaStore>,
+    /// Rung when a partition is opened, for the task that closes quiet ones (which waits on nothing while none is open).
+    opened: Arc<tokio::sync::Notify>,
+}
+
+impl<F: Fs> Drop for Partitions<F> {
+    /// The broker is going: the task that closes quiet partitions, if it is waiting with none open, wakes and ends.
+    fn drop(&mut self) {
+        self.opened.notify_one();
+    }
 }
 
 impl<F: Fs> Partitions<F> {
@@ -83,11 +96,13 @@ impl<F: Fs> Partitions<F> {
             defaults,
             meta,
             closing_done: tokio::sync::Notify::new(),
+            opened: Arc::default(),
             registry: Mutex::new(Registry {
                 open: HashMap::new(),
                 clock: 0,
                 closed: HashMap::new(),
                 closing: HashSet::new(),
+                upkeep: HashMap::new(),
             }),
             stop,
         }
@@ -99,7 +114,30 @@ impl<F: Fs> Partitions<F> {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    /// How many partitions are open now.
+    /// The bell rung when a partition is opened.
+    pub(crate) fn opened_bell(&self) -> Arc<tokio::sync::Notify> {
+        Arc::clone(&self.opened)
+    }
+
+    /// The partition's count of changes and the chores' verdicts on it, made if there are none yet.
+    pub(crate) fn upkeep(&self, topic: TopicId, partition: PartitionId) -> Arc<Upkeep> {
+        Arc::clone(
+            self.registry()
+                .upkeep
+                .entry((topic, partition))
+                .or_default(),
+        )
+    }
+
+    /// When retention could next take something from the partition, as its last pass judged, if nothing has changed it since.
+    /// Asks nothing of the partition and makes no entry for it.
+    pub(crate) fn retention_due(&self, topic: TopicId, partition: PartitionId) -> Option<i64> {
+        self.registry()
+            .upkeep
+            .get(&(topic, partition))
+            .and_then(|u| u.due(super::Chore::Retain))
+    }
+
     /// Whether the partition has its files open now.
     pub(crate) fn is_open(&self, topic: TopicId, partition: PartitionId) -> bool {
         self.registry()
@@ -118,6 +156,7 @@ impl<F: Fs> Partitions<F> {
             .and_then(|e| e.slot.get().cloned())
     }
 
+    /// How many partitions are open now.
     pub(crate) fn open_count(&self) -> usize {
         self.registry()
             .open
@@ -176,8 +215,10 @@ impl<F: Fs> Partitions<F> {
             name: format!("{}-{partition}", topic.name),
             slot: Slot::default(),
             used: 0,
+            used_at: tokio::time::Instant::now(),
         });
         entry.used = tick;
+        entry.used_at = tokio::time::Instant::now();
         match entry.slot.get() {
             Some(open) => Found::Open(Arc::clone(open)),
             None => Found::Unopened(Arc::clone(&entry.slot)),
@@ -202,27 +243,31 @@ impl<F: Fs> Partitions<F> {
         topic: &Topic,
         partition: PartitionId,
     ) -> Result<Option<Arc<Partition<F>>>, StorageError> {
-        let open = self
-            .registry()
-            .open
-            .get(&(topic.id, partition))
-            .is_some_and(|e| e.slot.get().is_some());
-        if !open {
+        if !self.is_open(topic.id, partition) {
             let dir = partition_dir(&self.config.data_dir, &topic.name, partition);
-            let empty = blocking::run(|| self.fs.list_dir(&dir)).map(|entries| entries.is_empty());
-            if empty
-                .or_else(|e| {
-                    if e.kind() == std::io::ErrorKind::NotFound {
-                        Ok(true)
-                    } else {
-                        Err(e)
-                    }
-                })
-                .map_err(|source| StorageError::Io {
-                    doing: "listing a partition directory",
-                    source,
-                })?
-            {
+            if empty_dir(blocking::run(|| self.fs.list_dir(&dir)))? {
+                return Ok(None);
+            }
+        }
+        self.get(topic, partition).await.map(Some)
+    }
+
+    /// [`Self::get_unless_empty`] for a background chore: the directory is listed on the blocking pool, so that a sweep does
+    /// not take a worker away from the connections (`blocking::run` would hand the worker's tasks to a thread started for
+    /// the purpose, which then lingers).
+    ///
+    /// # Errors
+    /// As [`Self::get_unless_empty`].
+    pub(crate) async fn get_unless_empty_in_background(
+        &self,
+        topic: &Topic,
+        partition: PartitionId,
+    ) -> Result<Option<Arc<Partition<F>>>, StorageError> {
+        if !self.is_open(topic.id, partition) {
+            let dir = partition_dir(&self.config.data_dir, &topic.name, partition);
+            let fs = self.fs.clone();
+            let listed = blocking::in_background(move || fs.list_dir(&dir)).await;
+            if empty_dir(listed)? {
                 return Ok(None);
             }
         }
@@ -253,18 +298,32 @@ impl<F: Fs> Partitions<F> {
             TxnIndex::default()
         };
         let txns = actor::shared(index);
+        self.opened.notify_one();
         let (commands, queue) = mpsc::channel(QUEUE);
         tokio::spawn(actor::run(
             log,
             queue,
             self.config.fsync_interval,
             Arc::clone(&txns),
+            self.upkeep(topic.id, partition),
         ));
         Ok(Arc::new(Partition {
             reader,
             commands,
             txns,
         }))
+    }
+}
+
+/// Whether a listing found the directory empty (or not there).
+fn empty_dir<T>(listed: std::io::Result<Vec<T>>) -> Result<bool, StorageError> {
+    match listed {
+        Ok(entries) => Ok(entries.is_empty()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(true),
+        Err(source) => Err(StorageError::Io {
+            doing: "listing a partition directory",
+            source,
+        }),
     }
 }
 

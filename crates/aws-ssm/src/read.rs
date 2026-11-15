@@ -73,14 +73,20 @@ impl Core {
         let text = v.get(One::NAME).unwrap_or_default();
         let decrypt = v.get(One::WITH_DECRYPTION).unwrap_or(false);
         if let Some(secret) = text.strip_prefix(REFERENCE) {
-            let (version, value) = self.reference(call, secret, decrypt).await?;
+            let r = self.reference(call, secret, decrypt).await?;
             return reply::<OneResult>(|o| {
-                o.put_object(OneResult::PARAMETER, |p| {
-                    shown(p, call, text, &version, None, &value)
-                });
+                o.put_object(OneResult::PARAMETER, |p| shown_reference(p, text, &r));
             });
         }
         let selector = name::selector(text);
+        if public::is_public(selector.name) {
+            let p = pick_public(&call.caller.region, &selector)?;
+            return reply::<OneResult>(|o| {
+                o.put_object(OneResult::PARAMETER, |s| {
+                    shown_public(s, &call.caller.region, &p, selector.qualifier);
+                });
+            });
+        }
         let (_, version) = self.pick(&selector)?;
         let value = self.reveal(call, selector.name, version, decrypt).await?;
         reply::<OneResult>(|o| {
@@ -99,11 +105,20 @@ impl Core {
             .unwrap_or_default();
         let mut found = Vec::new();
         let mut referenced = Vec::new();
+        let mut public = Vec::new();
         let mut missing = Vec::new();
         for text in names {
+            let selector = name::selector(text);
+            if public::is_public(selector.name) {
+                match pick_public(&call.caller.region, &selector) {
+                    Ok(p) => public.push((p, selector.qualifier)),
+                    Err(_) => missing.push(text),
+                }
+                continue;
+            }
             if let Some(secret) = text.strip_prefix(REFERENCE) {
                 match self.reference(call, secret, decrypt).await {
-                    Ok((version, value)) => referenced.push((text, version, value)),
+                    Ok(r) => referenced.push((text, r)),
                     Err(_) => missing.push(text),
                 }
                 continue;
@@ -127,8 +142,11 @@ impl Core {
                 for (selector, version, value) in &found {
                     l.push(|p| shown(p, call, selector.name, version, selector.qualifier, value));
                 }
-                for (name, version, value) in &referenced {
-                    l.push(|p| shown(p, call, name, version, None, value));
+                for (name, r) in &referenced {
+                    l.push(|p| shown_reference(p, name, r));
+                }
+                for (p, qualifier) in &public {
+                    l.push(|s| shown_public(s, &call.caller.region, p, *qualifier));
                 }
             });
             o.put_list(ManyResult::INVALID_PARAMETERS, |l| {
@@ -199,6 +217,45 @@ pub(crate) fn shown(
     p.put(Shown::DATA_TYPE, &v.data_type);
 }
 
+/// The public parameter a selector names: its version is the only one it has, and it has no labels.
+fn pick_public(region: &str, selector: &name::Selector<'_>) -> Result<public::Public, ApiError> {
+    let p = public::find(region, selector.name).ok_or_else(not_found)?;
+    match selector.qualifier {
+        Some(q) if q != public::VERSION.to_string() => Err(version_not_found(selector.name, q)),
+        _ => Ok(p),
+    }
+}
+
+/// A public parameter as `GetParameter` shows it: a `String` whose ARN names no account.
+pub(crate) fn shown_public(
+    s: &mut Object<'_, Shown>,
+    region: &str,
+    p: &public::Public,
+    qualifier: Option<&str>,
+) {
+    s.put(Shown::NAME, &p.name);
+    s.put(Shown::TYPE, "String");
+    s.put(Shown::VALUE, &p.value);
+    s.put_int(Shown::VERSION, public::VERSION);
+    if let Some(q) = qualifier {
+        s.put(Shown::SELECTOR, &format!(":{q}"));
+    }
+    s.put_time(Shown::LAST_MODIFIED_DATE, seconds(public::MODIFIED_MS));
+    s.put(Shown::ARN, &public::arn(region, &p.name));
+    s.put(Shown::DATA_TYPE, "text");
+}
+
+/// A Secrets Manager secret read through Parameter Store: its ARN is the secret's, and it has no data type.
+fn shown_reference(p: &mut Object<'_, Shown>, name: &str, r: &crate::reference::Referenced) {
+    p.put(Shown::NAME, name);
+    p.put(Shown::TYPE, r.version.kind.as_str());
+    p.put(Shown::VALUE, &r.value);
+    p.put_int(Shown::VERSION, r.version.number);
+    p.put_time(Shown::LAST_MODIFIED_DATE, seconds(r.version.modified_ms));
+    p.put(Shown::SOURCE_RESULT, &r.source);
+    p.put(Shown::ARN, &r.arn);
+}
+
 fn past(h: &mut Object<'_, Past>, name: &str, v: &Version, value: &str) {
     h.put(Past::NAME, name);
     h.put(Past::TYPE, v.kind.as_str());
@@ -240,4 +297,4 @@ pub(crate) fn seconds(ms: i64) -> f64 {
     ms as f64 / 1000.0
 }
 
-use crate::name;
+use crate::{name, public};

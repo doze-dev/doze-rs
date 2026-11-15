@@ -39,12 +39,6 @@ fn what_is_not_built_is_refused_by_name_before_it_is_read() {
         "RestoreTableToPointInTime",
         "ExportTableToPointInTime",
         "ImportTable",
-        "ExecuteStatement",
-        "BatchExecuteStatement",
-        "ExecuteTransaction",
-        "DescribeContributorInsights",
-        "UpdateContributorInsights",
-        "ListContributorInsights",
         "EnableKinesisStreamingDestination",
         "DisableKinesisStreamingDestination",
         "DescribeKinesisStreamingDestination",
@@ -67,6 +61,12 @@ fn what_is_not_built_is_refused_by_name_before_it_is_read() {
         "TransactWriteItems",
         "UpdateContinuousBackups",
         "DescribeLimits",
+        "ExecuteStatement",
+        "BatchExecuteStatement",
+        "ExecuteTransaction",
+        "DescribeContributorInsights",
+        "UpdateContributorInsights",
+        "ListContributorInsights",
     ] {
         assert!(h.serves(name), "{name} must be served");
     }

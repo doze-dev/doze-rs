@@ -17,17 +17,19 @@ mod skip;
 mod sync;
 mod times;
 mod trim;
+mod walk;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use kafka_wire::ids::Offset;
 
-pub use files::{SegmentInfo, segments_on_disk};
+pub use files::{SegmentInfo, oldest_on_disk, segments_on_disk};
 pub use read::LogReader;
 pub use sync::Ticket;
 pub use times::OffsetAt;
 pub use trim::Retention;
+pub use walk::{Budget, MarkerNote, SegmentWalk, Tombstone, Walk};
 
 use crate::fs::Fs;
 use crate::segment::{ActiveSegment, SealedSegment};

@@ -2,10 +2,12 @@
 
 use kafka_wire::ids::{InstanceId, MemberId};
 
-use super::assign::{Assignor, Partitions};
+use std::collections::BTreeMap;
+
+use super::assign::{Assignor, Partition, Partitions};
 use super::pattern::Pattern;
 use crate::authorizer::{TopicRights, permits};
-use crate::groups::machine::Protocol;
+use crate::groups::machine::{Millis, Protocol};
 
 /// What a member that arrived by the classic JoinGroup keeps of it: it is still told what to do by the classic APIs.
 #[derive(Debug, Clone)]
@@ -42,6 +44,10 @@ pub(super) struct Member {
     pub(super) assigned: Partitions,
     /// What it has been told to give up and has not said it has.
     pub(super) revoking: Partitions,
+    /// The epoch each partition it holds (assigned or being revoked) was given to it at: Kafka's assignment epochs
+    /// (KIP-1251), which let a commit at an older epoch through for partitions held since then. Kept in step by
+    /// [`Member::note_given`].
+    pub(super) given_at: BTreeMap<Partition, i32>,
     /// The assignment last sent to it; `None` until one has been.
     pub(super) sent: Option<Partitions>,
     pub(super) rebalance_ms: i32,
@@ -50,6 +56,9 @@ pub(super) struct Member {
     pub(super) classic: Option<ClassicSeat>,
     /// The arming of its session timer that counts.
     pub(super) session_gen: u64,
+    /// When its session timer was last started, on the group's clock; only the console reads it.
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+    pub(super) heard: Millis,
     /// The arming of its revocation timer that counts (0: none).
     pub(super) revoke_gen: u64,
 }
@@ -71,13 +80,36 @@ impl Member {
             target: Partitions::new(),
             assigned: Partitions::new(),
             revoking: Partitions::new(),
+            given_at: BTreeMap::new(),
             sent: None,
             rebalance_ms: -1,
             left: false,
             classic: None,
             session_gen: 0,
+            heard: Millis(0),
             revoke_gen: 0,
         }
+    }
+
+    /// Brings [`Member::given_at`] in step with what the member holds: a partition it no longer holds is forgotten, and
+    /// one it has just been given was given at `epoch`, the epoch it moves to with it (Kafka's
+    /// `CurrentAssignmentBuilder` puts the target assignment epoch on each partition it adds, and a partition kept, or
+    /// moved to those being revoked, keeps its own).
+    pub(super) fn note_given(&mut self, epoch: i32) {
+        let (assigned, revoking) = (&self.assigned, &self.revoking);
+        self.given_at
+            .retain(|p, _| assigned.contains(p) || revoking.contains(p));
+        for p in assigned {
+            self.given_at.entry(*p).or_insert(epoch);
+        }
+    }
+
+    /// Whether a commit at `epoch` may name `partition` (Kafka's `createAssignmentEpochValidator`): the member holds it,
+    /// assigned or being revoked, and was given it at or before `epoch`.
+    pub(super) fn held_since(&self, partition: &Partition, epoch: i32) -> bool {
+        self.given_at
+            .get(partition)
+            .is_some_and(|given| *given <= epoch)
     }
 
     /// Whether the member's pattern matches the topic and the member may DESCRIBE it (Kafka's

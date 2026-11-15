@@ -10,15 +10,15 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::{Instant, sleep_until};
 
 use super::consumer::{Heartbeat, HeartbeatAnswer, TopicSource};
+use super::events::Events;
 use super::group::Group;
 use super::machine::{
-    Answer, CommitRequest, Effect, Event, HeartbeatRequest, JoinAnswer, JoinRequest, LeaveTarget,
-    Millis, SyncRequest, TimerKey, TimerKind, Token,
+    Answer, CommitRequest, Effect, Event, Force, HeartbeatRequest, JoinAnswer, JoinRequest,
+    LeaveTarget, Millis, SyncRequest, TimerKey, TimerKind, Token,
 };
 use kafka_meta::ConsumerLife;
 
 /// A request for the group.
-#[derive(Clone)]
 pub(crate) enum Req {
     Join(JoinRequest),
     Sync(SyncRequest),
@@ -29,13 +29,25 @@ pub(crate) enum Req {
     Delete,
     ConsumerHeartbeat(Heartbeat),
     TopicsChanged,
+    /// A step the Lab forces.
+    Force(Force),
+    /// What the group has said of itself (answered by the task, not the machine).
+    Events,
+}
+
+/// What a group's task says to a request.
+pub(super) enum Reply {
+    Answer(Answer),
+    /// The group was deleted with this request queued behind the deletion: it is handed back whole, to be put to whatever
+    /// group there is now.
+    Retired(Req),
 }
 
 /// A request and where its answer goes. If the sender is dropped without an answer the request was replaced by a
 /// later one and will never be answered.
 pub(super) struct Command {
     pub(super) req: Req,
-    pub(super) reply: oneshot::Sender<Answer>,
+    pub(super) reply: oneshot::Sender<Reply>,
 }
 
 /// The timers the machine has asked for, in the order they run out.
@@ -161,10 +173,11 @@ pub(super) async fn run(
     mut commands: mpsc::Receiver<Command>,
     records: impl Records,
     topics: Arc<dyn TopicSource>,
+    mut events: Events,
 ) {
     let start = Instant::now();
     let now = || Millis(u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX));
-    let mut waiting: HashMap<Token, oneshot::Sender<Answer>> = HashMap::new();
+    let mut waiting: HashMap<Token, oneshot::Sender<Reply>> = HashMap::new();
     let mut timers = Timers::default();
     let mut tokens = 0_u64;
     let mut keeper = Keeper {
@@ -178,6 +191,11 @@ pub(super) async fn run(
         let event = tokio::select! {
             command = commands.recv() => {
                 let Some(Command { req, reply }) = command else { break };
+                // What the group has said of itself is the task's to answer: no machine is asked, nothing changes.
+                if matches!(req, Req::Events) {
+                    let _ = reply.send(Reply::Answer(Answer::Events(events.look(now()))));
+                    continue;
+                }
                 tokens += 1;
                 let token = Token(tokens);
                 // Nobody waits for the answer to "the topics changed".
@@ -199,15 +217,20 @@ pub(super) async fn run(
             if let Some((token, refused)) = unavailable(&event)
                 && let Some(reply) = waiting.remove(&token)
             {
-                let _ = reply.send(refused);
+                let _ = reply.send(Reply::Answer(refused));
             }
             continue;
         }
         let had_members = machine.member_count() > 0;
         let effects = machine.step(event, now(), topics.as_ref());
         keeper.after(&machine, had_members);
-        // A group deleted while empty is gone: the registry has taken it out, and nothing is left to run.
-        if apply(effects, &mut waiting, &mut timers) {
+        // A group deleted while empty is gone: the registry takes it out, and nothing is left to run. What was queued
+        // behind the deletion is handed back, to be put again.
+        if apply(effects, &mut waiting, &mut timers, &mut events) {
+            commands.close();
+            while let Some(Command { req, reply }) = commands.recv().await {
+                let _ = reply.send(Reply::Retired(req));
+            }
             break;
         }
     }
@@ -216,8 +239,9 @@ pub(super) async fn run(
 /// Does what the machine asked. `true`: the group has been deleted.
 fn apply(
     effects: Vec<Effect>,
-    waiting: &mut HashMap<Token, oneshot::Sender<Answer>>,
+    waiting: &mut HashMap<Token, oneshot::Sender<Reply>>,
     timers: &mut Timers,
+    events: &mut Events,
 ) -> bool {
     let mut deleted = false;
     for effect in effects {
@@ -226,7 +250,7 @@ fn apply(
                 deleted |= matches!(answer, Answer::Delete(None));
                 if let Some(reply) = waiting.remove(&token) {
                     // A client that went away is not told, and the group does not mind.
-                    let _ = reply.send(answer);
+                    let _ = reply.send(Reply::Answer(answer));
                 }
             }
             Effect::Forget(token) => {
@@ -234,6 +258,8 @@ fn apply(
             }
             Effect::Arm { key, at } => timers.arm(key, at),
             Effect::Disarm(kind) => timers.disarm(&kind),
+            // Kept for the console. Nothing the group does depends on it.
+            Effect::Note(note) => events.push(note),
         }
     }
     deleted
@@ -262,6 +288,9 @@ fn event_of(token: Token, req: Req) -> Event {
         Req::Delete => Event::Delete(token),
         Req::ConsumerHeartbeat(r) => Event::ConsumerHeartbeat(token, r),
         Req::TopicsChanged => Event::TopicsChanged,
+        Req::Force(f) => Event::Force(token, f),
+        // Answered before it gets here.
+        Req::Events => Event::TopicsChanged,
     }
 }
 

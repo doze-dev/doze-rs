@@ -27,14 +27,8 @@ fn only_symmetric(key: &Key) -> Result<(), ApiError> {
         return Err(invalid_state(format!("{} is pending deletion.", key.arn)));
     }
     if key.spec != Spec::Symmetric {
-        // (memory)
-        return Err(ApiError::modeled(
-            "UnsupportedOperationException",
-            format!(
-                "{} is not a symmetric encryption key: only those rotate.",
-                key.arn
-            ),
-        ));
+        // AWS's message is empty (recorded 2026-11-15).
+        return Err(ApiError::modeled("UnsupportedOperationException", ""));
     }
     Ok(())
 }
@@ -52,6 +46,7 @@ impl Core {
         }
         let now = self.now_ms();
         let id = self.locate(call, v.get(Enable::KEY_ID).unwrap_or_default())?;
+        self.not_on_replica(&id)?;
         let key = self
             .keys
             .get_mut(&id)
@@ -66,6 +61,7 @@ impl Core {
     pub(crate) fn disable_key_rotation(&mut self, call: &Call) -> Reply {
         let v = request::<Disable>(call)?;
         let id = self.locate(call, v.get(Disable::KEY_ID).unwrap_or_default())?;
+        self.not_on_replica(&id)?;
         let key = self
             .keys
             .get_mut(&id)
@@ -95,6 +91,7 @@ impl Core {
         let v = request::<Rotate>(call)?;
         let id = self.locate(call, v.get(Rotate::KEY_ID).unwrap_or_default())?;
         let now = self.now_ms();
+        self.not_on_replica(&id)?;
         let key = self.keys.get(&id).ok_or_else(|| not_found_key(call, &id))?;
         only_symmetric(key)?;
         let fresh = self.new_material(key.spec, now)?;
@@ -111,12 +108,14 @@ impl Core {
             key.next_rotation_ms = Some(now + key.rotation_days * DAY_MS);
         }
         let arn = key.arn.clone();
+        self.spread_materials(&id)?;
         reply::<Rotated>(|o| {
             o.put(Rotated::KEY_ID, &arn);
         })
     }
 
-    /// The rotations a key has had: for each generation that was replaced, the one that replaced it (not recorded).
+    /// The rotations a key has had: for each generation that was replaced, the one that replaced it, and whether that one is the
+    /// key's material now (`CURRENT`, recorded 2026-11-15) or was replaced in turn (`NON_CURRENT`).
     pub(crate) fn list_key_rotations(&mut self, call: &Call) -> Reply {
         let v = request::<List>(call)?;
         let limit = v
@@ -134,12 +133,21 @@ impl Core {
             .collect();
         let more = rows.len() > skip + limit;
         let page: Vec<_> = rows.into_iter().skip(skip).take(limit).collect();
+        let current = key.current().map(|m| m.id.as_str());
         reply::<Listed>(|o| {
             o.put_list(Listed::ROTATIONS, |l| {
                 for (old, new) in &page {
                     l.push(|e: &mut Object<'_, RotationsListEntry>| {
                         e.put(RotationsListEntry::KEY_ID, &key.arn);
                         e.put(RotationsListEntry::KEY_MATERIAL_ID, &new.id);
+                        e.put(
+                            RotationsListEntry::KEY_MATERIAL_STATE,
+                            if current == Some(new.id.as_str()) {
+                                "CURRENT"
+                            } else {
+                                "NON_CURRENT"
+                            },
+                        );
                         e.put_time(
                             RotationsListEntry::ROTATION_DATE,
                             seconds(old.retired_ms.unwrap_or(new.created_ms)),

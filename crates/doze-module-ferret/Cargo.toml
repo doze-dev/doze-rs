@@ -1,0 +1,28 @@
+[package]
+name = "doze-module-ferret"
+version = "0.0.0"
+description = "The ferret module: a MongoDB-wire database (FerretDB v2 over a private PostgreSQL), booted on first connect, with its databases, collections, indexes and seed data kept as declared"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-module = { path = "../doze-module" }
+doze-os = { path = "../doze-os" }
+serde_json = "1"
+tokio = { version = "1.54", features = ["io-util", "time"] }
+
+[dev-dependencies]
+doze-module-test = { path = "../doze-module-test" }
+doze-module-proto = { path = "../doze-module-proto" }
+tokio = { version = "1.54", features = ["rt", "macros", "net", "io-util", "time"] }
+
+[[bin]]
+name = "doze-module-ferret"
+path = "src/main.rs"
+doc = false

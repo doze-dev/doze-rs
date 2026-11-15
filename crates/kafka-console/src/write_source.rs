@@ -10,7 +10,7 @@ use crate::source::Source;
 
 impl Source {
     /// A form nobody has touched: the broker's default partition count, the event log's values.
-    pub async fn fresh_draft(&self) -> Draft {
+    pub fn fresh_draft(&self) -> Draft {
         match self {
             Self::Live(l) => Draft::fresh(l.backend.limits().map_or(1, |x| x.default_partitions)),
             #[cfg(any(test, feature = "examples"))]

@@ -11,7 +11,7 @@ use http::request::Parts;
 use hyper::body::Incoming;
 use serde_json::Value;
 
-use crate::pipeline::{Entry, Fail, Out, Shared, authenticate, endpoint_of, read_body};
+use crate::pipeline::{Entry, Fail, Out, Shared, authenticate, early, endpoint_of, read_body};
 
 /// Answers a Query request to `entry`.
 pub(crate) async fn handle(
@@ -38,25 +38,92 @@ pub(crate) async fn handle(
             .finish(parts, hash.as_deref())
             .map_err(|e| fail(&from_auth(&e, Family::Query)))?;
     }
-    let text = String::from_utf8(bytes.to_vec()).map_err(|_| {
-        fail(&ApiError::new(
+    let form = form_of(parts, &bytes).map_err(|e| fail(&e))?;
+    answer(shared, entry, id, parts, claim, &form).await
+}
+
+/// The request's form: its query string and its body.
+fn form_of(
+    parts: &Parts,
+    bytes: &[u8],
+) -> Result<std::collections::BTreeMap<String, String>, ApiError> {
+    let text = std::str::from_utf8(bytes).map_err(|_| {
+        ApiError::new(
             400,
             "MalformedInput",
             "The request body is not valid UTF-8.",
-        ))
+        )
     })?;
     let mut form = query::parse_form(parts.uri.query().unwrap_or_default());
-    form.extend(query::parse_form(&text));
-    let name = query::action(&form).ok_or_else(|| {
+    form.extend(query::parse_form(text));
+    Ok(form)
+}
+
+/// A request with no signature: answered when it is a Query `Action` whose model marks it as taking none ([`Service::unsigned`]),
+/// for the service that has it; anything else is refused as AWS refuses a request with no authentication.
+pub(crate) async fn unsigned(
+    shared: &Shared,
+    id: &RequestId,
+    parts: &Parts,
+    body: Incoming,
+) -> Result<Out, Fail> {
+    let missing = || early(id, &from_auth(&aws_auth::AuthError::Missing, Family::Coral));
+    let form_post = parts
+        .headers
+        .get(http::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.starts_with("application/x-www-form-urlencoded"));
+    if !form_post {
+        return Err(missing());
+    }
+    let bytes = read_body(body, shared.max_body_bytes())
+        .await
+        .map_err(|e| early(id, &e))?;
+    let form = form_of(parts, &bytes).map_err(|e| early(id, &e))?;
+    let action = query::action(&form).unwrap_or_default();
+    let entry = shared
+        .entries()
+        .iter()
+        .find(|e| {
+            e.service
+                .meta()
+                .speaks(aws_schema::meta::Protocol::AwsQuery)
+                && e.service
+                    .tables()
+                    .find_op(action)
+                    .is_some_and(|op| e.service.unsigned(op))
+        })
+        .ok_or_else(missing)?;
+    let claim = crate::presign::unsigned_claim(
+        entry.service.meta().signing_name,
+        &shared.config.default_region,
+    );
+    answer(shared, entry, id, parts, claim, &form).await
+}
+
+/// Answers a Query request whose signature (if it needed one) has been checked, from its form.
+async fn answer(
+    shared: &Shared,
+    entry: &Entry,
+    id: &RequestId,
+    parts: &Parts,
+    claim: Claim,
+    form: &std::collections::BTreeMap<String, String>,
+) -> Result<Out, Fail> {
+    let (meta, tables) = (entry.service.meta(), entry.service.tables());
+    let fail = |e: &ApiError| -> Fail { Box::new(query::failure(meta, tables, id, e)) };
+    let name = query::action(form).ok_or_else(|| {
         fail(&ApiError::new(
             400,
             "MissingAction",
             "Request is missing Action or Operation parameter",
         ))
     })?;
+    // An action outside the model is AWS's `InvalidAction`, status 404 (recorded on IAM 2026-11-15; the sentence is memory), whatever
+    // its name: doze's own helpers live under `/_doze/`, never on an AWS endpoint.
     let op = tables.find_op(name).ok_or_else(|| {
         fail(&ApiError::new(
-            400,
+            404,
             "InvalidAction",
             format!(
                 "Could not find operation {name} for version {}",
@@ -72,7 +139,7 @@ pub(crate) async fn handle(
         )));
     }
     let call =
-        decode_call(entry, op, id, caller(shared, parts, claim), &form).map_err(|e| fail(&e))?;
+        decode_call(entry, op, id, caller(shared, parts, claim), form).map_err(|e| fail(&e))?;
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     let json = output_json(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
     Ok(query::success(meta, tables, op, &json, id))

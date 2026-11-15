@@ -99,7 +99,7 @@ pub(crate) fn apply(
             ),
         ));
     }
-    topic_config::validate(&next).map_err(|m| refuse(E::InvalidConfig, m))?;
+    topic_config::validate(&next).map_err(|why| refuse(E::InvalidConfig, why.to_string()))?;
     Ok(next)
 }
 

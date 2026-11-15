@@ -62,12 +62,7 @@ impl<S: Service> Keyed<S> {
     /// # Errors
     /// [`KeyError`] for a key that is not safe to use as a directory name, or when too many keys are in use.
     pub fn actor(&self, key: &str) -> Result<Arc<Lazy<S>>, KeyError> {
-        if key.is_empty()
-            || key.len() > 32
-            || !key
-                .bytes()
-                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
-        {
+        if !safe(key) {
             return Err(KeyError::Unsafe);
         }
         let mut actors = self.actors.lock().unwrap_or_else(PoisonError::into_inner);
@@ -93,6 +88,45 @@ impl<S: Service> Keyed<S> {
         actors.insert(key.to_owned(), Arc::clone(&actor));
         Ok(actor)
     }
+
+    /// The keys that have files on disk, the home key first: the home key when its directory holds anything besides `regions`, and
+    /// every safe directory name under `regions`. What `doze-aws data` reports on, so it wakes only the regions that hold data.
+    #[must_use]
+    pub fn keys_on_disk(&self) -> Vec<String> {
+        let names = |dir: &std::path::Path| -> Vec<(String, bool)> {
+            std::fs::read_dir(dir)
+                .map(|read| {
+                    read.flatten()
+                        .map(|e| {
+                            let is_dir = e.file_type().is_ok_and(|t| t.is_dir());
+                            (e.file_name().to_string_lossy().into_owned(), is_dir)
+                        })
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let mut keys = Vec::new();
+        if names(&self.ctx.dir).iter().any(|(n, _)| n != "regions") {
+            keys.push(self.home.to_owned());
+        }
+        let mut others: Vec<String> = names(&self.ctx.dir.join("regions"))
+            .into_iter()
+            .filter(|(n, is_dir)| *is_dir && n != self.home && safe(n))
+            .map(|(n, _)| n)
+            .collect();
+        others.sort();
+        keys.extend(others);
+        keys
+    }
+}
+
+/// Whether `key` may name a directory: lower-case letters, digits and dashes, 1 to 32 of them.
+fn safe(key: &str) -> bool {
+    !key.is_empty()
+        && key.len() <= 32
+        && key
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
 }
 
 #[cfg(test)]

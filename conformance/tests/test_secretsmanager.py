@@ -81,7 +81,7 @@ def test_refusals(client, names, cleanup, snapshot):
 # reads, random passwords, resource policies, moving a staging label, client request tokens, and deleting without recovery.
 
 
-def test_listing_filters_sorting_and_paging(client, names, cleanup, snapshot):
+def test_listing_filters_sorting_and_paging(client, names, cleanup, snapshot, eventually):
     sm = client("secretsmanager")
     stem = names("list")
     made = {}
@@ -91,8 +91,14 @@ def test_listing_filters_sorting_and_paging(client, names, cleanup, snapshot):
                          Tags=[{"Key": "env", "Value": leaf}])
         cleanup(sm.delete_secret, SecretId=made[leaf], ForceDeleteWithoutRecovery=True)
     names_of = lambda r: [s["Name"] for s in r["SecretList"]]  # noqa: E731
-    snapshot.match("by-name", {"names": names_of(sm.list_secrets(
-        Filters=[{"Key": "name", "Values": [stem]}]))})
+
+    # A listing straight after a create may not show it yet on AWS (two of three, 2026-11-15).
+    def all_three():
+        listed = names_of(sm.list_secrets(Filters=[{"Key": "name", "Values": [stem]}]))
+        assert len(listed) == 3, listed
+        return listed
+
+    snapshot.match("by-name", {"names": eventually(all_three)})
     snapshot.match("by-description", {"names": names_of(sm.list_secrets(
         Filters=[{"Key": "name", "Values": [stem]}, {"Key": "description", "Values": ["blue"]}]))})
     snapshot.match("not-name", {"names": names_of(sm.list_secrets(
@@ -108,13 +114,22 @@ def test_listing_filters_sorting_and_paging(client, names, cleanup, snapshot):
     snapshot.error("bad-filter", lambda: sm.list_secrets(Filters=[{"Key": "nonsense", "Values": ["x"]}]))
 
 
-def test_batch_get_random_password_and_policies(client, names, cleanup, snapshot):
+def test_batch_get_secret_value(client, names, cleanup, snapshot):
+    # Kept apart: the recorder's role was refused secretsmanager:BatchGetSecretValue on 2026-11-15, and one
+    # refusal should not keep the password and policy labels below from being recorded.
     sm = client("secretsmanager")
     name = names("batch")
     sm.create_secret(Name=name, SecretString="one")
     cleanup(sm.delete_secret, SecretId=name, ForceDeleteWithoutRecovery=True)
     snapshot.match("batch", sm.batch_get_secret_value(SecretIdList=[name, f"{name}-absent"]),
                    opaque=("ARN",))
+
+
+def test_random_password_and_policies(client, names, cleanup, snapshot):
+    sm = client("secretsmanager")
+    name = names("policy")
+    sm.create_secret(Name=name, SecretString="one")
+    cleanup(sm.delete_secret, SecretId=name, ForceDeleteWithoutRecovery=True)
     password = sm.get_random_password(PasswordLength=24, ExcludePunctuation=True)["RandomPassword"]
     snapshot.match("password-shape", {
         "length": len(password), "alnum": password.isalnum(),
@@ -134,12 +149,13 @@ def test_batch_get_random_password_and_policies(client, names, cleanup, snapshot
     snapshot.match("delete-policy", sm.delete_resource_policy(SecretId=name), opaque=("ARN",))
 
 
-def test_staging_labels_tokens_and_deletion(client, names, cleanup, snapshot):
+def test_staging_labels_tokens_and_deletion(client, names, cleanup, snapshot, normalizer):
     sm = client("secretsmanager")
     name = names("stages")
     one = sm.create_secret(Name=name, SecretString="1", ClientRequestToken="11111111-2222-4333-8444-555555555555")
     cleanup(sm.delete_secret, SecretId=name, ForceDeleteWithoutRecovery=True)
     snapshot.match("create-with-token", one, opaque=("ARN",))
+    normalizer.name(one["ARN"], "secret-arn")  # a refusal below quotes it; it ends in six random characters
     snapshot.match("same-token-same-value", sm.put_secret_value(
         SecretId=name, SecretString="1", ClientRequestToken="11111111-2222-4333-8444-555555555555"), opaque=("ARN",))
     snapshot.error("same-token-other-value", lambda: sm.put_secret_value(
@@ -165,6 +181,68 @@ def test_staging_labels_tokens_and_deletion(client, names, cleanup, snapshot):
     snapshot.match("tags-now", sm.describe_secret(SecretId=name), opaque=("ARN",))
     snapshot.match("restore-when-not-deleted", sm.restore_secret(SecretId=name), opaque=("ARN",))
     snapshot.match("delete-now", sm.delete_secret(SecretId=name, ForceDeleteWithoutRecovery=True), opaque=("ARN",))
-    snapshot.error("gone", lambda: sm.describe_secret(SecretId=name))
-    snapshot.match("create-with-no-value", sm.create_secret(Name=name), opaque=("ARN",))
-    snapshot.error("get-with-no-value", lambda: sm.get_secret_value(SecretId=name))
+    # AWS deletes without recovery asynchronously: a describe straight after still answered (2026-11-15), and a
+    # create under the same name races the deletion. Neither is asserted; the empty secret gets a fresh name.
+    empty = names("empty")
+    snapshot.match("create-with-no-value", sm.create_secret(Name=empty), opaque=("ARN",))
+    cleanup(sm.delete_secret, SecretId=empty, ForceDeleteWithoutRecovery=True)
+    snapshot.error("get-with-no-value", lambda: sm.get_secret_value(SecretId=empty))
+
+
+# Added 2026-11-15 (stream ops1), before it was recorded: UNVERIFIED until recorded against AWS. Replicas in another region.
+
+REPLICA_REGION = "us-west-2"
+
+
+def in_sync(sm, name, tries=60):
+    """AWS replicates in the background: wait until every replica says InSync (doze-aws is in sync when the call answers)."""
+    import time
+    for _ in range(tries):
+        status = sm.describe_secret(SecretId=name).get("ReplicationStatus", [])
+        if status and all(s["Status"] != "InProgress" for s in status):
+            return status
+        time.sleep(1)
+    return sm.describe_secret(SecretId=name).get("ReplicationStatus", [])
+
+
+def test_replica_follows_its_primary(client, names, cleanup, snapshot):
+    sm = client("secretsmanager")
+    west = client("secretsmanager", region_name=REPLICA_REGION)
+    name = names("replicated")
+    made = sm.create_secret(Name=name, SecretString="one", AddReplicaRegions=[{"Region": REPLICA_REGION}])
+    cleanup(sm.delete_secret, SecretId=name, ForceDeleteWithoutRecovery=True)
+    cleanup(sm.remove_regions_from_replication, SecretId=name, RemoveReplicaRegions=[REPLICA_REGION])
+    snapshot.match("create", made, opaque=("ARN", "VersionId"))
+    snapshot.match("in-sync", in_sync(sm, name))
+    snapshot.match("describe-primary", sm.describe_secret(SecretId=name),
+                   opaque=("ARN", "LastChangedDate", "CreatedDate", "VersionIdsToStages", "LastAccessedDate"))
+    assert west.get_secret_value(SecretId=name)["SecretString"] == "one"
+    snapshot.match("describe-replica", west.describe_secret(SecretId=name),
+                   opaque=("ARN", "LastChangedDate", "CreatedDate", "VersionIdsToStages", "LastAccessedDate"))
+    sm.put_secret_value(SecretId=name, SecretString="two")
+    in_sync(sm, name)
+    assert west.get_secret_value(SecretId=name)["SecretString"] == "two"
+    snapshot.error("put-on-replica", lambda: west.put_secret_value(SecretId=name, SecretString="x"))
+    snapshot.error("delete-primary-with-replicas", lambda: sm.delete_secret(SecretId=name))
+    snapshot.error("replicate-again", lambda: sm.replicate_secret_to_regions(
+        SecretId=name, AddReplicaRegions=[{"Region": REPLICA_REGION}]))
+    snapshot.match("remove", sm.remove_regions_from_replication(
+        SecretId=name, RemoveReplicaRegions=[REPLICA_REGION]), opaque=("ARN",))
+    snapshot.error("stop-on-a-primary", lambda: sm.stop_replication_to_replica(SecretId=name))
+
+
+def test_replica_promoted_with_stop_replication(client, names, cleanup, snapshot):
+    sm = client("secretsmanager")
+    west = client("secretsmanager", region_name=REPLICA_REGION)
+    name = names("promoted")
+    sm.create_secret(Name=name, SecretString="v")
+    cleanup(sm.delete_secret, SecretId=name, ForceDeleteWithoutRecovery=True)
+    cleanup(west.delete_secret, SecretId=name, ForceDeleteWithoutRecovery=True)
+    snapshot.match("replicate", sm.replicate_secret_to_regions(
+        SecretId=name, AddReplicaRegions=[{"Region": REPLICA_REGION}]), opaque=("ARN",))
+    in_sync(sm, name)
+    snapshot.match("stop", west.stop_replication_to_replica(SecretId=name), opaque=("ARN",))
+    snapshot.match("put-on-promoted", west.put_secret_value(SecretId=name, SecretString="own"),
+                   opaque=("ARN", "VersionId"))
+    described = sm.describe_secret(SecretId=name)
+    snapshot.match("primary-after", {"replicas": described.get("ReplicationStatus", [])})

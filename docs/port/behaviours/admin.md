@@ -14,8 +14,17 @@ policy contains `delete` is trimmed by the topic's `retention.bytes` and `retent
 segments first. As in Kafka (`UnifiedLog.deletableSegments`), a non-empty active segment that is past a bound is rolled first
 and then deleted with the rest, an empty active segment is never deleted, and a segment goes by size only while what remains
 is still at least `retention.bytes`. A topic that only compacts is not trimmed. A closed partition
-is opened for it, and closed again when the limit on open partitions says. Test: `log_retention::*`,
-`compaction::a_topic_that_does_not_compact_is_left_as_it_is_and_one_that_only_compacts_is_not_trimmed`.
+is opened for it, and closed again right after if the sweep is what opened it (it used to stay open until the limit on open
+partitions closed it: the idle audit of 2026-11-14 measured +6 descriptors and +2.5 MB for three partitions). Each pass notes when
+retention could next take something from the partition with nothing written to it: an age bound takes the oldest segment first, so
+that is when the oldest segment outlives `retention.ms` (`PartitionLog::retention_due`); a size bound changes only with writes, and
+an empty partition has nothing. Until then, and until the partition changes (an append, a trim, a new config; its writer counts
+them), the sweep does not open it or list its directory. Test: `log_retention::*`,
+`compaction::a_topic_that_does_not_compact_is_left_as_it_is_and_one_that_only_compacts_is_not_trimmed`,
+`idle_upkeep::the_retention_sweep_closes_what_it_opened_and_leaves_a_partition_alone_until_something_in_it_can_expire`,
+`idle_upkeep::the_retention_sweep_comes_back_when_the_oldest_segment_has_aged_out`,
+`kafka-storage log::tests::retention::retention_due_is_when_the_oldest_segment_outlives_the_age_bound_and_never_without_one`,
+`partitions::upkeep::tests::a_verdict_holds_until_its_time_a_change_or_other_settings`.
 
 ## ADM-2. DeleteRecords v0-2 (source)
 Per partition, in order: unknown topic or partition (3, low watermark -1); a topic that only compacts (POLICY_VIOLATION 44);

@@ -14,6 +14,7 @@ mod scan;
 mod segment;
 pub mod topic_dirs;
 mod transactional;
+pub mod usage;
 
 // The file seam moved to `doze-fs` (A1); these keep every `kafka_storage::fs` path working.
 pub use doze_fs::fs;
@@ -22,10 +23,10 @@ pub use doze_fs::sim;
 
 pub use error::StorageError;
 pub use log::{
-    Appended, LogConfig, LogReader, PartitionLog, Retention, SegmentInfo, Ticket, Trust,
-    segments_on_disk,
+    Appended, Budget, LogConfig, LogReader, MarkerNote, PartitionLog, Retention, SegmentInfo,
+    SegmentWalk, Ticket, Tombstone, Trust, Walk, oldest_on_disk, segments_on_disk,
 };
-pub use retention::enforce_closed;
+pub use retention::{count_to_drop, enforce_closed};
 
 #[cfg(test)]
 mod testutil;

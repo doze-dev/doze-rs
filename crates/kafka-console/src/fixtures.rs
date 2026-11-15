@@ -113,7 +113,7 @@ pub fn home(state: HomeState) -> HomeView {
         HomeState::Quiet => {
             instance.up_secs = 120;
             instance.last_stop = StopView::None;
-            instance.started = "Nov 9 22:12 UTC".to_owned();
+            "Nov 9 22:12 UTC".clone_into(&mut instance.started);
             instance.open_partitions = 0;
             instance.open_files = None;
             instance.resident_bytes = Some(3_250_000);
@@ -121,6 +121,7 @@ pub fn home(state: HomeState) -> HomeView {
         }
         _ => (9, 21),
     };
+    let spoke = (state != HomeState::Quiet).then(crate::fixtures_live::spoke);
     HomeView {
         state,
         listen: ADDRESS.to_owned(),
@@ -129,6 +130,9 @@ pub fn home(state: HomeState) -> HomeView {
         partitions,
         probe: probe_ok(),
         instance,
+        unchecked: 0,
+        spoke,
+        disk: None,
     }
 }
 
@@ -146,8 +150,8 @@ pub fn connect() -> ConnectView {
 
 /// The top bar of the default world.
 #[must_use]
-pub fn chrome() -> crate::ui::shell::Chrome {
-    crate::ui::shell::Chrome {
+pub fn chrome() -> crate::model::Chrome {
+    crate::model::Chrome {
         address: ADDRESS.to_owned(),
         profile: "Kafka 4 profile".to_owned(),
         security: "Open".to_owned(),

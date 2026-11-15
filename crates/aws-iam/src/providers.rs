@@ -1,5 +1,6 @@
-//! OpenID Connect and SAML identity providers: kept as given and returned. Nothing is fetched from them and no token of theirs is
-//! validated (signatures and thumbprints are not checked: SCOPE.md, "STAY CUT").
+//! OpenID Connect and SAML identity providers: kept as given and returned. STS trusts a token or an assertion only through them:
+//! a web identity token's keys are fetched from its provider's issuer (`oidc`), a SAML response is verified against the certificate
+//! in its provider's metadata (`samltrust`). Thumbprints are stored and returned, not used (see `oidc`).
 
 use std::collections::BTreeMap;
 

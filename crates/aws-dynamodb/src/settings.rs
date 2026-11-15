@@ -27,9 +27,10 @@ pub(crate) fn check_tags(tags: &BTreeMap<String, String>) -> Result<(), ApiError
     }
     for (k, v) in tags {
         if k.starts_with("aws:") {
-            return Err(validation(
-                "Tag keys starting with 'aws:' are reserved for internal use",
-            ));
+            // Recorded 2026-11-15.
+            return Err(validation(format!(
+                "Tag Key cannot be prefixed with aws:, Key: {k}"
+            )));
         }
         if k.is_empty() || k.chars().count() > 128 {
             return Err(validation("Tag keys must be between 1 and 128 characters"));

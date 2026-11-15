@@ -20,6 +20,10 @@ pub(crate) struct CommitRequest {
     /// A transaction's offsets (TxnOffsetCommit): the producer need not be a member at all, and a group waiting for its
     /// leader's assignment does not refuse them.
     pub(crate) transactional: bool,
+    /// The partitions it commits that Kafka's group coordinator would be asked about, by topic id: those the committer
+    /// may read that exist (`KafkaApis` answers the rest itself), and for OffsetCommit only those whose metadata is not
+    /// too large. A consumer group holds a commit at an older member epoch to them.
+    pub(crate) partitions: Vec<(kafka_wire::Uuid, i32)>,
 }
 
 impl CommitRequest {

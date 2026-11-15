@@ -23,29 +23,29 @@ json:
 |       {
 |         "instance": "api",
 |         "line": "migrated 3 files",
-|         "stream": "s:setup",
 |         "run": 2,
+|         "stream": "s:setup",
 |         "time": "2026-10-10T09:15:00Z"
 |       },
 |       {
 |         "instance": "api",
 |         "line": "listening on :8080",
-|         "stream": "o",
 |         "run": 2,
+|         "stream": "o",
 |         "time": "2026-10-10T09:15:01Z"
 |       },
 |       {
 |         "instance": "api",
 |         "line": "GET /products 200 4ms",
-|         "stream": "o",
 |         "run": 2,
+|         "stream": "o",
 |         "time": "2026-10-10T09:15:05Z"
 |       },
 |       {
 |         "instance": "api",
 |         "line": "slow query: 812ms",
-|         "stream": "e",
 |         "run": 2,
+|         "stream": "e",
 |         "time": "2026-10-10T09:15:09Z"
 |       }
 |     ]
@@ -68,15 +68,15 @@ json:
 |       {
 |         "instance": "api",
 |         "line": "listening on :8080",
-|         "stream": "o",
 |         "run": 1,
+|         "stream": "o",
 |         "time": "2026-10-10T09:05:00Z"
 |       },
 |       {
 |         "instance": "api",
 |         "line": "panic: nil pointer dereference",
-|         "stream": "e",
 |         "run": 1,
+|         "stream": "e",
 |         "time": "2026-10-10T09:05:10Z"
 |       }
 |     ]
@@ -104,50 +104,50 @@ json:
 |       {
 |         "instance": "api",
 |         "line": "migrated 3 files",
-|         "stream": "s:setup",
 |         "run": 2,
+|         "stream": "s:setup",
 |         "time": "2026-10-10T09:15:00Z"
 |       },
 |       {
 |         "instance": "api",
 |         "line": "listening on :8080",
-|         "stream": "o",
 |         "run": 2,
+|         "stream": "o",
 |         "time": "2026-10-10T09:15:01Z"
 |       },
 |       {
 |         "instance": "db",
 |         "line": "database system is ready to accept connections",
-|         "stream": "o:postgres",
 |         "run": 2,
+|         "stream": "o:postgres",
 |         "time": "2026-10-10T09:15:02Z"
 |       },
 |       {
 |         "instance": "worker",
 |         "line": "consuming orders",
-|         "stream": "o",
 |         "run": 4,
+|         "stream": "o",
 |         "time": "2026-10-10T09:15:03Z"
 |       },
 |       {
 |         "instance": "api",
 |         "line": "GET /products 200 4ms",
-|         "stream": "o",
 |         "run": 2,
+|         "stream": "o",
 |         "time": "2026-10-10T09:15:05Z"
 |       },
 |       {
 |         "instance": "worker",
 |         "line": "kafka: connection refused",
-|         "stream": "e",
 |         "run": 4,
+|         "stream": "e",
 |         "time": "2026-10-10T09:15:07Z"
 |       },
 |       {
 |         "instance": "api",
 |         "line": "slow query: 812ms",
-|         "stream": "e",
 |         "run": 2,
+|         "stream": "e",
 |         "time": "2026-10-10T09:15:09Z"
 |       }
 |     ]

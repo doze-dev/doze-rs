@@ -22,7 +22,7 @@ use crate::keys::no_randomness;
 use crate::model::Key;
 use crate::spec::Usage;
 
-const SYMMETRIC: &str = "SYMMETRIC_DEFAULT";
+pub(crate) const SYMMETRIC: &str = "SYMMETRIC_DEFAULT";
 const MAX_RANDOM: usize = 1024;
 
 /// The encryption context of a request.
@@ -144,6 +144,13 @@ impl Core {
 
     pub(crate) fn decrypt(&mut self, call: &Call) -> Reply {
         let v = request::<Decrypt>(call)?;
+        // An asymmetric ciphertext names no key inside it: AWS asks for the key (recorded 2026-11-15).
+        if v.get(Decrypt::KEY_ID).is_none()
+            && v.get(Decrypt::ENCRYPTION_ALGORITHM)
+                .is_some_and(|a| a != SYMMETRIC)
+        {
+            return Err(crate::core::validation("KeyId must not be null"));
+        }
         if let Some(given) = v.get(Decrypt::KEY_ID) {
             self.ensure_material(call, given)?;
             if self.is_rsa(call, given)? {

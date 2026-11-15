@@ -129,6 +129,32 @@ impl<F: Fs> PartitionLog<F> {
         Ok(drop)
     }
 
+    /// The first time at which retention could take something from this log if nothing is written to it: when its oldest
+    /// segment (the one an age bound takes first, and the one before which none is taken) has outlived `policy`'s age.
+    /// `None` when no age bound is set or the log holds nothing: then only a write (or a change of the policy) can change
+    /// what retention takes, since a size bound is judged from sizes alone.
+    ///
+    /// # Errors
+    /// The oldest segment's timestamps cannot be read.
+    pub fn retention_due(&self, policy: Retention) -> Result<Option<i64>, StorageError> {
+        let Some(max_age) = policy.max_age_ms else {
+            return Ok(None);
+        };
+        let oldest = match self.sealed.first() {
+            Some(s) => s
+                .max_timestamp()
+                .doing("judging the age of a segment")?
+                .map_or(s.modified_ms(), TimestampMs::get),
+            None if self.active.size() > 0 => self
+                .active
+                .newest_ms()
+                .doing("judging the age of a segment")?,
+            None => return Ok(None),
+        };
+        // Taken once older than the bound: `age < now - max_age`.
+        Ok(Some(oldest.saturating_add(max_age).saturating_add(1)))
+    }
+
     /// The base of the segment after the oldest.
     pub(super) fn second_base(&self) -> Offset {
         match self.sealed.get(1) {

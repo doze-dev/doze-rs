@@ -234,14 +234,7 @@ impl Inner {
             spec.json_logs,
         );
         let ask = RunAsk {
-            key: format!(
-                "{}/{}/{}/{}/{}",
-                rs.region,
-                rs.name,
-                rs.version,
-                rs.revision,
-                self.local_stamp(rs)
-            ),
+            key: format!("{}/{}/{}/{}", rs.region, rs.name, rs.version, rs.revision),
             function: format!("{}/{}", rs.region, rs.name),
             reserved: rs.reserved,
             spec,
@@ -253,8 +246,9 @@ impl Inner {
         };
         let (timeout, start_ms) = (ask.timeout, self.clock.now_ms());
         let metric = crate::metrics::Target::of(rs, caller);
+        let function = ask.function.clone();
         let running = match self.rt.begin(ask).await {
-            Ok(r) => r,
+            Ok(r) => self.began(&metric, &function, start_ms, r),
             Err(why) => {
                 self.count_invocation(&metric, crate::metrics::Outcome::not_started(why.is_none()))
                     .await;

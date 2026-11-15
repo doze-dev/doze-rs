@@ -26,6 +26,8 @@ pub struct Server<M: Module> {
     pub(crate) caps: u64,
     pub(crate) routes: HashMap<Method, Route<M>>,
     release: String,
+    /// What else a person who ran the binary by hand is told (see [`Server::by_hand`]).
+    by_hand: String,
 }
 
 impl<M: Module> std::fmt::Debug for Server<M> {
@@ -43,6 +45,7 @@ pub fn serve<M: Module>(module: M) -> Server<M> {
         caps: 0,
         routes: HashMap::new(),
         release: String::from("0.0.0"),
+        by_hand: String::new(),
     }
 }
 
@@ -190,6 +193,27 @@ impl<M: Module> Server<M> {
         self
     }
 
+    /// A sentence for a person who runs the module by hand, after the SDK's own (that doze starts it): where to go
+    /// instead, as a binary that is also something else says ("Run `doze-kafka --help` for the broker.").
+    pub fn by_hand(mut self, hint: &str) -> Self {
+        self.by_hand = hint.to_string();
+        self
+    }
+
+    /// What a module run by hand (no channel from doze) prints.
+    fn not_started_by_doze(&self) -> String {
+        let engine = self.module.about().engine;
+        let mut said = format!(
+            "this is doze's {engine} module: doze starts it when a doze.hcl names a {engine} block, and speaks to it \
+             over its standard input. It does not run by hand."
+        );
+        if !self.by_hand.is_empty() {
+            said.push(' ');
+            said.push_str(&self.by_hand);
+        }
+        said
+    }
+
     /// The manifest this server will send.
     pub fn manifest(&self) -> Manifest {
         let a = self.module.about();
@@ -277,9 +301,14 @@ impl<M: Module> Server<M> {
             Ok(rt) => rt,
             Err(e) => return crate::exit_with(&format!("cannot start: {e}")),
         };
+        let by_hand = self.not_started_by_doze();
         let r = rt.block_on(async {
-            let ch = doze_os::channel::module_channel()
-                .map_err(|e| Error::new(ErrorKind::Unavailable, e.to_string()))?;
+            let ch = doze_os::channel::module_channel().map_err(|e| match e.kind() {
+                std::io::ErrorKind::NotConnected | std::io::ErrorKind::NotFound => {
+                    Error::new(ErrorKind::Unavailable, by_hand)
+                }
+                _ => Error::new(ErrorKind::Unavailable, e.to_string()),
+            })?;
             self.serve_on(ch).await
         });
         match r {

@@ -83,12 +83,13 @@ impl ConsumerGroup {
             m.subscribed = sub.topics;
             m.epoch = epoch;
             m.prev_epoch = epoch;
-            m.target = held.clone();
+            m.target.clone_from(&held);
             m.assigned = held;
             m.rebalance_ms = i32::try_from(seat.rebalance_ms).unwrap_or(i32::MAX);
             // What it held was the classic leader's to say; a topic its principal may not DESCRIBE is not held (SEC-234).
             m.rights = seat.rights;
             m.forget_hidden(topics);
+            m.note_given(epoch);
             m.classic = Some(ClassicSeat {
                 protocols: seat.protocols,
                 protocol,
@@ -98,6 +99,7 @@ impl ConsumerGroup {
             group.members.insert(id.clone(), m);
             group.reset_session(&id, now, out);
         }
+        group.note_adopted(group.members.len(), now, out);
         group
     }
 

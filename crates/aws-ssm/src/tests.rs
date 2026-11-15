@@ -11,10 +11,13 @@ use serde_json::{Value, json};
 use crate::Ssm;
 use crate::core::Core;
 
+mod data;
+mod documents;
 mod parameters;
 mod peers;
 mod persistence;
 mod refusals;
+mod settings;
 
 /// The services SSM calls, running for real beside it: KMS (and Secrets Manager, for a reference), on a runtime the test drives.
 pub(crate) struct Bus {
@@ -135,7 +138,7 @@ fn the_fleet_half_of_ssm_is_refused_by_name() {
         "SendCommand",
         "StartSession",
         "CreateMaintenanceWindow",
-        "CreateDocument",
+        "CreateAssociation",
         "PutInventory",
     ] {
         assert!(!w.h.serves(op), "{op} is refused");

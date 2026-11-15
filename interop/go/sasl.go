@@ -182,8 +182,7 @@ func (x *xdgSCRAM) Step(challenge string) (string, error) {
 func (x *xdgSCRAM) Done() bool { return x.ClientConversation.Done() }
 
 func (saramaSasl) config(mech, pass string) *lib.Config {
-	cfg := lib.NewConfig()
-	cfg.Version = lib.V3_6_0_0
+	cfg := saramaConfig()
 	cfg.Producer.Return.Successes = true
 	cfg.Producer.RequiredAcks = lib.WaitForAll
 	if secure.cfg != nil {

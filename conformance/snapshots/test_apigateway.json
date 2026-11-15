@@ -2,9 +2,87 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
+  },
+  "test_api_keys_and_usage_plans": {
+    "absent-stage-in-a-plan": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "API Stage not found: <name:api-id>:nope"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "key": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "createdDate": "<createdDate:1>",
+      "enabled": true,
+      "id": "<id:1>",
+      "lastUpdatedDate": "<lastUpdatedDate:1>",
+      "name": "<name:key>",
+      "stageKeys": [],
+      "value": "doze0123456789abcdefghijk"
+    },
+    "key-hidden": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "createdDate": "<createdDate:1>",
+      "enabled": true,
+      "id": "<id:1>",
+      "lastUpdatedDate": "<lastUpdatedDate:1>",
+      "name": "<name:key>",
+      "stageKeys": [],
+      "tags": {}
+    },
+    "plan": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "apiStages": [
+        {
+          "apiId": "<apiId:1>",
+          "stage": "live"
+        }
+      ],
+      "id": "<id:2>",
+      "name": "<name:plan>",
+      "quota": {
+        "limit": 100,
+        "offset": 0,
+        "period": "DAY"
+      }
+    },
+    "plan-key": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "id": "<id:1>",
+      "name": "<name:key>",
+      "type": "API_KEY",
+      "value": "doze0123456789abcdefghijk"
+    },
+    "with-the-key": {
+      "body": {
+        "ok": true
+      },
+      "content-type": "application/json",
+      "status": 200,
+      "x-handled-by": null
+    },
+    "without-a-key": {
+      "body": {
+        "message": "Forbidden"
+      },
+      "content-type": "application/json",
+      "status": 403,
+      "x-handled-by": null
+    }
   },
   "test_http_api_proxies_to_lambda": {
     "create": {
@@ -77,6 +155,325 @@
       "StageName": "$default",
       "StageVariables": {},
       "Tags": {}
+    }
+  },
+  "test_http_api_routes_stages_and_deployments": {
+    "after-cors": {
+      "ApiEndpoint": "<ApiEndpoint:1>",
+      "ApiId": "<ApiId:1>",
+      "ApiKeySelectionExpression": "$request.header.x-api-key",
+      "CreatedDate": "<CreatedDate:1>",
+      "DisableExecuteApiEndpoint": false,
+      "IpAddressType": "ipv4",
+      "Name": "<name:api>",
+      "ProtocolType": "HTTP",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RouteSelectionExpression": "$request.method $request.path",
+      "Tags": {}
+    },
+    "create": {
+      "ApiEndpoint": "<ApiEndpoint:1>",
+      "ApiId": "<ApiId:1>",
+      "ApiKeySelectionExpression": "$request.header.x-api-key",
+      "CorsConfiguration": {
+        "AllowMethods": [
+          "GET"
+        ],
+        "AllowOrigins": [
+          "https://example.com"
+        ],
+        "MaxAge": 60
+      },
+      "CreatedDate": "<CreatedDate:1>",
+      "DisableExecuteApiEndpoint": false,
+      "IpAddressType": "ipv4",
+      "Name": "<name:api>",
+      "ProtocolType": "HTTP",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RouteSelectionExpression": "$request.method $request.path"
+    },
+    "delete-a-served-deployment": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Active stages pointing to this deployment must be moved or deleted"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delete-a-used-integration": {
+      "Error": {
+        "Code": "ConflictException",
+        "Message": "Cannot delete Integration because it is referenced by the following Routes with Ids: [<name:route-id>]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "deployment": {
+      "AutoDeployed": false,
+      "CreatedDate": "<CreatedDate:3>",
+      "DeploymentId": "<DeploymentId:1>",
+      "DeploymentStatus": "DEPLOYED",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      }
+    },
+    "http-proxy-with-payload-2": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "PayloadFormatVersion 2.0 is not supported for integration of type HTTP_PROXY"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "integration": {
+      "ConnectionType": "INTERNET",
+      "IntegrationId": "<IntegrationId:1>",
+      "IntegrationMethod": "GET",
+      "IntegrationType": "HTTP_PROXY",
+      "IntegrationUri": "<IntegrationUri:1>",
+      "PayloadFormatVersion": "1.0",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "TimeoutInMillis": 30000
+    },
+    "integration-without-a-payload-version": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "PayloadFormatVersion is a required parameter for integration"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "route": {
+      "ApiKeyRequired": false,
+      "AuthorizationType": "NONE",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RouteId": "<RouteId:1>",
+      "RouteKey": "GET /items/{proxy+}",
+      "Target": "<Target:1>"
+    },
+    "route-twice": {
+      "Error": {
+        "Code": "ConflictException",
+        "Message": "Route with key GET /items/{proxy+} already exists for this API"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "stage": {
+      "CreatedDate": "<CreatedDate:2>",
+      "DefaultRouteSettings": {
+        "DetailedMetricsEnabled": false
+      },
+      "LastUpdatedDate": "<LastUpdatedDate:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RouteSettings": {},
+      "StageName": "manual",
+      "StageVariables": {
+        "a": "1"
+      },
+      "Tags": {}
+    },
+    "stage-after": {
+      "CreatedDate": "<CreatedDate:2>",
+      "DefaultRouteSettings": {
+        "DetailedMetricsEnabled": false
+      },
+      "DeploymentId": "<DeploymentId:1>",
+      "LastUpdatedDate": "<LastUpdatedDate:2>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RouteSettings": {},
+      "StageName": "manual",
+      "StageVariables": {
+        "a": "1"
+      },
+      "Tags": {}
+    },
+    "update-route": {
+      "ApiKeyRequired": false,
+      "AuthorizationType": "NONE",
+      "OperationName": "items",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RouteId": "<RouteId:1>",
+      "RouteKey": "GET /items/{proxy+}",
+      "Target": "<Target:1>"
+    },
+    "update-stage": {
+      "CreatedDate": "<CreatedDate:2>",
+      "DefaultRouteSettings": {
+        "DetailedMetricsEnabled": false
+      },
+      "DeploymentId": "<DeploymentId:1>",
+      "LastUpdatedDate": "<LastUpdatedDate:3>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RouteSettings": {},
+      "StageName": "manual",
+      "StageVariables": {
+        "a": "1",
+        "b": "2"
+      },
+      "Tags": {}
+    }
+  },
+  "test_import_and_export_a_rest_api": {
+    "call": {
+      "body": {
+        "id": "7"
+      },
+      "content-type": "application/json",
+      "status": 200,
+      "x-handled-by": null
+    },
+    "export-methods": [
+      "get"
+    ],
+    "export-paths": [
+      "/pets/{id}"
+    ],
+    "import": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "apiKeySource": "HEADER",
+      "apiStatus": "AVAILABLE",
+      "createdDate": "<createdDate:1>",
+      "disableExecuteApiEndpoint": false,
+      "endpointConfiguration": {
+        "ipAddressType": "ipv4",
+        "types": [
+          "EDGE"
+        ]
+      },
+      "id": "<id:1>",
+      "name": "imported",
+      "rootResourceId": "<rootResourceId:1>",
+      "securityPolicy": "TLS_1_0",
+      "version": "1"
+    },
+    "not-openapi": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Unable to determine OAS/Swagger version"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "paths": [
+      "/",
+      "/pets",
+      "/pets/{id}"
+    ]
+  },
+  "test_models_validators_and_gateway_responses": {
+    "default-models": [
+      "Empty",
+      "Error"
+    ],
+    "default-response": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "defaultResponse": true,
+      "responseParameters": {},
+      "responseTemplates": {
+        "application/json": "{\"message\":$context.error.messageString}"
+      },
+      "responseType": "MISSING_AUTHENTICATION_TOKEN",
+      "statusCode": "403"
+    },
+    "model": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "contentType": "application/json",
+      "id": "<id:1>",
+      "name": "Pet",
+      "schema": "{\"type\": \"object\"}"
+    },
+    "model-bad-name": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Model name must be alphanumeric: no-dash"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "model-twice": {
+      "Error": {
+        "Code": "ConflictException",
+        "Message": "Model name already exists for this REST API"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "put-response": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "defaultResponse": false,
+      "responseParameters": {
+        "gatewayresponse.header.X-Teapot": "'yes'"
+      },
+      "responseTemplates": {
+        "application/json": "{\"message\":$context.error.messageString}"
+      },
+      "responseType": "DEFAULT_4XX",
+      "statusCode": "418"
+    },
+    "response-types": [
+      "ACCESS_DENIED",
+      "API_CONFIGURATION_ERROR",
+      "AUTHORIZER_CONFIGURATION_ERROR",
+      "AUTHORIZER_FAILURE",
+      "BAD_REQUEST_BODY",
+      "BAD_REQUEST_PARAMETERS",
+      "DEFAULT_4XX",
+      "DEFAULT_5XX",
+      "EXPIRED_TOKEN",
+      "INTEGRATION_FAILURE",
+      "INTEGRATION_TIMEOUT",
+      "INVALID_API_KEY",
+      "INVALID_SIGNATURE",
+      "MISSING_AUTHENTICATION_TOKEN",
+      "QUOTA_EXCEEDED",
+      "REQUEST_TOO_LARGE",
+      "RESOURCE_NOT_FOUND",
+      "THROTTLED",
+      "UNAUTHORIZED",
+      "UNSUPPORTED_MEDIA_TYPE",
+      "WAF_FILTERED"
+    ],
+    "validator": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "id": "<id:2>",
+      "name": "body",
+      "validateRequestBody": true,
+      "validateRequestParameters": false
     }
   },
   "test_refusals": {
@@ -230,6 +627,241 @@
       "x-handled-by": "lambda"
     }
   },
+  "test_rest_api_stage_tracing": {
+    "tracing-on": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "cacheClusterEnabled": false,
+      "cacheClusterStatus": "NOT_AVAILABLE",
+      "createdDate": "<createdDate:1>",
+      "deploymentId": "<deploymentId:1>",
+      "lastUpdatedDate": "<lastUpdatedDate:1>",
+      "methodSettings": {},
+      "stageName": "dev",
+      "tracingEnabled": true
+    }
+  },
+  "test_rest_api_update_operations": {
+    "add-a-stage-variable": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Invalid add operation with path: /variables/size"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "get-method": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "apiKeyRequired": false,
+      "authorizationType": "NONE",
+      "httpMethod": "GET",
+      "methodIntegration": {
+        "cacheKeyParameters": [],
+        "cacheNamespace": "<cacheNamespace:1>",
+        "integrationResponses": {
+          "200": {
+            "responseParameters": {
+              "method.response.header.X-Ping": "'pong'"
+            },
+            "responseTemplates": {
+              "application/json": "{\"ok\": true}"
+            },
+            "statusCode": "200"
+          }
+        },
+        "passthroughBehavior": "NEVER",
+        "requestTemplates": {
+          "application/json": "{\"statusCode\": 200}"
+        },
+        "responseTransferMode": "BUFFERED",
+        "timeoutInMillis": 1000,
+        "type": "MOCK"
+      },
+      "methodResponses": {
+        "200": {
+          "responseParameters": {
+            "method.response.header.X-Ping": false
+          },
+          "statusCode": "200"
+        }
+      },
+      "operationName": "ping",
+      "requestParameters": {
+        "method.request.querystring.q": false
+      }
+    },
+    "logging-without-a-role": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "CloudWatch Logs role ARN must be set in account settings to enable logging"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put-the-method-twice": {
+      "Error": {
+        "Code": "ConflictException",
+        "Message": "Method already exists for this resource"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "update-an-unknown-path": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Invalid patch path /nonsense"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "update-deployment": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "createdDate": "<createdDate:1>",
+      "description": "first",
+      "id": "<id:1>"
+    },
+    "update-integration": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "cacheKeyParameters": [],
+      "cacheNamespace": "<cacheNamespace:1>",
+      "integrationResponses": {
+        "200": {
+          "responseTemplates": {
+            "application/json": "{\"ok\": true}"
+          },
+          "statusCode": "200"
+        }
+      },
+      "passthroughBehavior": "NEVER",
+      "requestTemplates": {
+        "application/json": "{\"statusCode\": 200}"
+      },
+      "responseTransferMode": "BUFFERED",
+      "timeoutInMillis": 1000,
+      "type": "MOCK"
+    },
+    "update-integration-response": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "responseParameters": {
+        "method.response.header.X-Ping": "'pong'"
+      },
+      "responseTemplates": {
+        "application/json": "{\"ok\": true}"
+      },
+      "statusCode": "200"
+    },
+    "update-method": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "apiKeyRequired": false,
+      "authorizationType": "NONE",
+      "httpMethod": "GET",
+      "methodIntegration": {
+        "cacheKeyParameters": [],
+        "cacheNamespace": "<name:resource-id>",
+        "integrationResponses": {
+          "200": {
+            "responseTemplates": {
+              "application/json": "{\"ok\": true}"
+            },
+            "statusCode": "200"
+          }
+        },
+        "passthroughBehavior": "WHEN_NO_MATCH",
+        "requestTemplates": {
+          "application/json": "{\"statusCode\": 200}"
+        },
+        "responseTransferMode": "BUFFERED",
+        "timeoutInMillis": 29000,
+        "type": "MOCK"
+      },
+      "methodResponses": {
+        "200": {
+          "statusCode": "200"
+        }
+      },
+      "operationName": "ping",
+      "requestParameters": {
+        "method.request.querystring.q": false
+      }
+    },
+    "update-method-response": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "responseParameters": {
+        "method.response.header.X-Ping": false
+      },
+      "statusCode": "200"
+    },
+    "update-rest-api": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "apiKeySource": "HEADER",
+      "apiStatus": "AVAILABLE",
+      "binaryMediaTypes": [
+        "image/png"
+      ],
+      "createdDate": "<createdDate:2>",
+      "description": "changed",
+      "disableExecuteApiEndpoint": false,
+      "endpointConfiguration": {
+        "ipAddressType": "ipv4",
+        "types": [
+          "EDGE"
+        ]
+      },
+      "id": "<id:2>",
+      "name": "<name:api>",
+      "rootResourceId": "<rootResourceId:1>",
+      "securityPolicy": "TLS_1_0",
+      "tags": {}
+    },
+    "update-stage": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "cacheClusterEnabled": false,
+      "cacheClusterStatus": "NOT_AVAILABLE",
+      "createdDate": "<createdDate:1>",
+      "deploymentId": "<deploymentId:1>",
+      "lastUpdatedDate": "<lastUpdatedDate:1>",
+      "methodSettings": {
+        "*/*": {
+          "cacheDataEncrypted": false,
+          "cacheTtlInSeconds": 300,
+          "cachingEnabled": false,
+          "dataTraceEnabled": false,
+          "metricsEnabled": true,
+          "requireAuthorizationForCacheControl": true,
+          "throttlingBurstLimit": 100,
+          "throttlingRateLimit": 10000.0,
+          "unauthorizedCacheControlHeaderStrategy": "SUCCEED_WITH_RESPONSE_HEADER"
+        }
+      },
+      "stageName": "dev",
+      "tracingEnabled": false,
+      "variables": {
+        "color": "blue",
+        "size": "large"
+      }
+    }
+  },
   "test_rest_api_with_a_mock_integration": {
     "create": {
       "ResponseMetadata": {
@@ -366,6 +998,94 @@
       "methodSettings": {},
       "stageName": "dev",
       "tracingEnabled": false
+    }
+  },
+  "test_websocket_api_control_plane": {
+    "create": {
+      "ApiEndpoint": "<ApiEndpoint:1>",
+      "ApiId": "<ApiId:1>",
+      "ApiKeySelectionExpression": "$request.header.x-api-key",
+      "CreatedDate": "<CreatedDate:1>",
+      "DisableExecuteApiEndpoint": false,
+      "IpAddressType": "ipv4",
+      "Name": "<name:ws>",
+      "ProtocolType": "WEBSOCKET",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RouteSelectionExpression": "$request.body.action"
+    },
+    "integration": {
+      "ConnectionType": "INTERNET",
+      "IntegrationId": "<IntegrationId:1>",
+      "IntegrationResponseSelectionExpression": "${integration.response.statuscode}",
+      "IntegrationType": "MOCK",
+      "PassthroughBehavior": "WHEN_NO_MATCH",
+      "PayloadFormatVersion": "1.0",
+      "RequestTemplates": {
+        "$default": "{\"statusCode\": 200}"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "TimeoutInMillis": 29000
+    },
+    "integration-response": {
+      "IntegrationResponseId": "<IntegrationResponseId:1>",
+      "IntegrationResponseKey": "$default",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "ResponseTemplates": {
+        "$default": "{\"echo\": true}"
+      }
+    },
+    "no-selection-expression": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Invalid routeSelectionExpression"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "route": {
+      "ApiKeyRequired": false,
+      "AuthorizationType": "NONE",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RouteId": "<RouteId:1>",
+      "RouteKey": "$default",
+      "RouteResponseSelectionExpression": "$default",
+      "Target": "<Target:1>"
+    },
+    "route-response": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RouteResponseId": "<RouteResponseId:1>",
+      "RouteResponseKey": "$default"
+    },
+    "routes": [
+      "$default"
+    ],
+    "stage": {
+      "AutoDeploy": true,
+      "CreatedDate": "<CreatedDate:2>",
+      "DefaultRouteSettings": {
+        "DataTraceEnabled": false,
+        "DetailedMetricsEnabled": false,
+        "LoggingLevel": "OFF"
+      },
+      "LastUpdatedDate": "<LastUpdatedDate:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RouteSettings": {},
+      "StageName": "prod",
+      "StageVariables": {},
+      "Tags": {}
     }
   }
 }

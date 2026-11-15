@@ -10,7 +10,7 @@
 
 use bytes::Bytes;
 use kafka_protocol::messages::*;
-use kafka_protocol::protocol::Decodable;
+use kafka_protocol::protocol::{Decodable, Encodable};
 use kafka_wire::api::Response;
 use kafka_wire::incoming::{self, Incoming};
 use kafka_wire::profile::{ApiSet, Features, KafkaMajor, Profile};
@@ -159,6 +159,15 @@ fn every_offered_response_is_written_and_read_back() {
         );
         read_back(&mut rest, version);
         assert!(rest.is_empty(), "{what}: {} bytes left", rest.len());
+        // The frame is written into a buffer sized from the computed size: exact, or the write grows and copies it.
+        let header = ResponseHeader::default()
+            .compute_size(header_version)
+            .unwrap();
+        assert_eq!(
+            frame.len(),
+            4 + header + resp.compute_size(version).unwrap(),
+            "{what}"
+        );
     }
 }
 

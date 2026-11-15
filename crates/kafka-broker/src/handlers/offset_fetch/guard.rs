@@ -6,7 +6,7 @@
 
 use std::collections::HashSet;
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::messages::{OffsetFetchResponse, TopicName as WireName};
@@ -31,7 +31,7 @@ impl<F: Fs> Broker<F> {
         let (allowed, barred) = split(guard, asked);
         let mut out = self.answer(group, allowed, pending);
         if every {
-            out.retain(|(name, _)| guard.topic(operation::DESCRIBE, name.as_str()));
+            out.retain(|(name, _)| guard.topic(Operation::Describe, name.as_str()));
         }
         out.extend(barred.into_iter().map(|(name, partitions)| {
             let refused = partitions
@@ -54,7 +54,7 @@ fn split<'a>(guard: &Guard<'_>, asked: Asked<'a>) -> (Asked<'a>, Barred<'a>) {
     };
     let (allowed, barred) = topics
         .into_iter()
-        .partition(|(name, _)| guard.topic(operation::DESCRIBE, name.as_str()));
+        .partition(|(name, _)| guard.topic(Operation::Describe, name.as_str()));
     (Some(allowed), barred)
 }
 

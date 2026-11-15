@@ -1,9 +1,51 @@
 # Weight limits (docs/port/weight.md). A limit moves only with a written reason in that file.
 # package   max_bytes  max_packages  max_rss_kb  server args ({port} and {data} are filled in)
 #
-# doze-kafka: measured on ubuntu x86_64: 4,899,328 B (the macOS arm64 build is 3.4 MB); the limit is that plus about 5%.
-# These are the limits CI has enforced; the macOS idle figure is lower than Linux's 8 MB limit.
-doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
+# doze-kafka (the default build, with the console). Re-based 2026-11-13 by the weight pass (docs/port/weight.md, "Phase 9, weight pass"):
+# darwin arm64 5,797,328 B, Linux aarch64 (the doze-ubuntu VM) 6,626,840 B, 158 packages, 7.1 MB idle in the VM. The ubuntu x86_64 estimate is
+# 7.05 MB (darwin times the 1.216 of Phase 7) to 7.42 MB (the VM times 1.12); the limit is the larger plus about 5%. Before the pass the same
+# estimate was 9.8 MB against a 9 MB limit. The owner's ceiling is 10 MB; the first CI run replaces the estimate with a measurement.
+# 2026-11-14, owner decision: bytes are CI's measurement on main that day (8,174,048 B, exact); idle is the median of three starts
+# (9,296 KB) plus 5% for noise, 9,761 KB. docs/port/weight.md, "Limits raised to the measured values".
+# 2026-11-14, then the module face (Phase 11, feature `module`, on by default): +562,736 B on darwin arm64 (6,011,568 to 6,574,304 B), +13
+# packages. CI's measurement against darwin on the same tree is 8,174,048 / 6,011,568 = 1.36 (not the 1.216 of Phase 7), so the module is about
+# +765 KB on ubuntu x86_64: 8,939,211 B estimated; limit that plus 5%, 9,386,171 B, until the next CI run on main replaces it with the
+# measurement (the owner's rule). Packages 161 + 13 = 174. This leaves about 0.6 MB under the owner's 10 MB ceiling; whether the module face
+# stays in the default build is the owner's call (phase11.md).
+# 2026-11-14, one build (owner: "Can we just have a single build"): TLS is a default feature, and the schema registry has Avro and JSON
+# Schema (Phase 10a, 10c). darwin arm64: 7,669,200 B, 183 packages, idle 7,472 KB (median of three). Bytes: times CI's 1.36 is 10,430,112 B,
+# plus 5% = 10,951,617 B; packages 183 plus CI's usual 3 = 186; idle: CI's 9,296 KB scaled by darwin's rise (7,296 to 7,472 KB) plus 5% = 9,996 KB.
+# Estimates until CI's next run on main measures them. The owner's ceiling is 15 MB (2026-11-14).
+# 2026-11-14, CI's first run of the one build (PR #45, run 43588988185) replaces the estimates: 10,634,592 B, 183 packages, idle median
+# 10,488 KB (samples 10,488, 10,048, 10,576) plus 5% = 11,013 KB. docs/port/weight.md, "One build: CI's measurements".
+# 2026-11-15, the hand-off fix (PR #60): the protocol peer keeps its copy of a handed-over connection until the module has it (a map of held
+# copies and `Passable::hold`). CI measured +4,288 B on its own; that fits inside the estimate below, so the line below stands.
+# 2026-11-15, the registry in the console (Phase 10d) and the efficiency pass (correctness, idle, idioms): darwin arm64 8,001,408 B against
+# 7,735,920 B for the tree CI measured, whose ratio was 10,634,592 / 7,735,920 = 1.3747; so 10,999,559 B estimated on ubuntu x86_64, limit that
+# plus 5% = 11,549,536 B until CI's next run on main measures it. Packages 184: the one more line is `kafka-registry (*)`, a repeat entry now that
+# the console depends on the registry, not a new package. Idle unchanged (darwin fell to 6,032 KB with the idle fixes). Ceiling 15 MB.
+# 2026-11-15, the log filter without regex (weight.md lever (1): `EnvFilter` to `filter::Targets`, no `env-filter` feature) and Fetch records
+# written without a copy (+32 B): darwin arm64 8,001,408 B (main 3636c3d2) to 7,784,992 B (-216,416 B), packages 184 to 180 (regex,
+# regex-automata, regex-syntax and matchers leave the tree). Times CI's 1.3747 is 10,702,029 B on ubuntu x86_64, limit that plus 5% =
+# 11,237,130 B until CI's next run on main measures it; packages 180, as measured. Idle unchanged. docs/port/weight.md, "The log filter without regex".
+# 2026-11-15, data control (docs/port/data-control.md: the Data page, `doze-kafka data`, Empty and Erase): darwin arm64 8,167,424 B against
+# 8,001,424 B for main at 3636c3d2 built the same day (+166,000 B, +2.1%); times 1.3747 is 11,227,858 B on ubuntu x86_64, under this line,
+# which does not move. Packages 186: no new package (the unique names are 143 before and after); the two more lines are repeat entries,
+# `doze-fs (*)` (kafka-console now asks doze-fs for its `space` feature) and `rustix (*)` (doze-fs reaches rustix, already there by doze-os).
+# The lean build is unchanged in packages (`space` is off there). Idle 7,952 KB on darwin, under the line.
+# Both together (kafka-next, measured 2026-11-15): darwin arm64 7,951,040 B, 182 packages (180 + the two repeat lines), idle 7,632 KB;
+# times 1.3747 = 10,930,393 B on ubuntu x86_64, plus 5% = 11,476,913 B until CI measures it.
+# Idle 11,013 to 11,689 KB (2026-11-15): CI measured this tree at 11,756 then 11,132 KB (samples 10,932 to 11,904) where main read
+# 10,564 to 11,048 KB on its last four runs, so main sat on the line. On Linux idle is mostly the binary's own pages: in the doze-ubuntu VM
+# (arm64, glibc) main idles at 8,360 to 8,440 KB with 780 KB anonymous, this tree at 8,492 to 8,508 KB with 776 to 792 KB anonymous, so
+# the tree costs about +80 KB, all file-backed. The line is this tree's second CI median, 11,132 KB, plus 5%.
+# 2026-11-15, KIP-890 (transaction protocol v2, docs/port/behaviours/transactions.md TX-16 to TX-25): darwin arm64 7,967,600 B (+16,560 B),
+# 182 packages (none added), idle 7,584 KB; times 1.3747 = 10,953,060 B, plus 5% = 11,500,713 B until CI measures it.
+doze-kafka 11500713 182 11689 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
+# 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
+# 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
+# Times 1.36: about 9.33 MB, under this line, which this slice does not move (docs/port/phase10.md, "10b").
 # doze-aws: measured 2026-11-12 on darwin/arm64 with SQS and its database: 2,687,088 B, 118 packages (the ones that only run at build time count: serde_derive
 # and its macro crates), 3,120 KB idle. It was 1,914,240 B and 109 packages before SQS kept its state on disk: redb is 507 KiB of the difference. The
 # byte limit is the macOS size times 1.3 (the Linux build of doze-kafka is about 1.2 times its macOS one) plus 5%; it is re-based from the first Linux CI run.
@@ -67,4 +109,64 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # commit cross-built for x86_64-unknown-linux-musl is 7,481,552 B (was 8,206,736 B): only 9% smaller, because 1.0 MB of an x86_64 Linux binary is unwind tables and relocations that
 # "z" does not touch (-Cforce-unwind-tables=no changes nothing on this target, which requires them). Byte limit = the musl size plus 5% = 7,855,000, rounded to 7,900,000 B.
 # Linux is 1.54 times the macOS size at "z"; Step Functions, API Gateway and CloudFormation will cost about 1.5 times what they cost on macOS. Packages unchanged at 240.
-doze-aws 7900000 240 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-13, A15 API Gateway (branch aws-a15-apigateway, alone on the 4,867,344 B / 233 base): 5,349,616 B on darwin/arm64 (+482 KB), 237 packages (+4), 4,576 KB idle (+176 KB).
+# Cross-built for x86_64-unknown-linux-musl: 8,261,008 B (+779 KB over 7,481,552 B; 1.62 times the macOS delta), which breaks the 7,900,000 B line, so the line moves (the owner
+# allows it now that every service is to be finished). NO new third-party package: Cargo.lock gains aws-apigateway, aws-model-api-gateway and aws-model-apigatewayv2 (linked for the
+# first time); the fourth counted line is a repeat line from a new edge. The bytes: both models' tables (124 + 103 operations), both control planes, the execute-api plane (VTL subset,
+# OpenAPI/YAML reader, JWT, WebSocket framing, HTTP client). Byte limit = the musl size plus 5% = 8,674,000, rounded to 8,700,000 B (87% of the 10 MB ceiling; Step Functions and
+# CloudFormation are still to come, about 1.7 MB of room); packages 240 unchanged (237 measured).
+# 2026-11-13, A14 Step Functions (branch aws-a14-stepfunctions, alone on the 4,867,344 B / 233 package base): 6,046,432 B on darwin/arm64, 248 packages, 4,832 KB idle
+# (+1,179 KB, +15 packages). Cross-built for x86_64-unknown-linux-musl: 9,388,976 B (+1.91 MB over 7,481,552). Of that, JSONata (jlens-core, its regex engine jlens-regress,
+# stacker and psm, and serde_json's preserve_order which jlens-core turns on for every crate) is 1.26 MB: the same tree with JSONata stubbed out is 8,100,144 B on Linux.
+# New third-party packages, all from jlens-core: jlens-core, jlens-regress, stacker, psm (with ar_archive_writer and object at build time: psm assembles a file, so a C
+# compiler for the target is needed to build), ryu-js, web-time; and, new to doze-aws though already in the lock, indexmap, equivalent, hashbrown, foldhash. JSONata is the default
+# "jsonata" feature of aws-asl and aws-sfn, so it can be left out of a build. Byte limit = the musl size plus 5% = 9,858,000, rounded to 9,900,000 B; packages 252
+# (248 plus 4). THIS IS OVER the owner's 9 MB CI default and leaves 0.1 MB of the 10 MB ceiling for API Gateway and CloudFormation: a decision for the owner (stage note).
+# 2026-11-13, A16 CloudFormation (branch aws-a16-cloudformation, alone on the 4,867,344 B / 233 package base): 5,549,504 B on darwin/arm64, 235 packages,
+# 4,688 KB idle (+682 KB, +2 packages: aws-cloudformation and the CloudFormation model tables; no new third-party package: regex-lite, flate2, sha2,
+# hmac and bytes were already linked). The same code cross-built for x86_64-unknown-linux-musl is 8,665,744 B (+1,184,192 B over 7,481,552 B; 1.56 times
+# the macOS size). What the bytes are: the template engine (the YAML reader, intrinsics, the SAM, include and language-extensions transforms), the
+# provisioning engine and rollback, about 130 resource types written against the other services' operations, and the CloudFormation model (90
+# operations). The limit had to move or CI fails: the musl size plus 5% = 9,098,031, rounded to 9,100,000 B; packages unchanged at 240. This is past the
+# owner's 9 MB CI default and leaves 0.9 MB of the 10 MB ceiling for Step Functions and API Gateway: the size decision PLAN records as pending is now due.
+# 2026-11-13, every service the Go edition served, merged (A14 + A15 + A16 together on the main line): 7,444,224 B on darwin/arm64, 258 packages, 5,344 KB idle.
+# Cross-built for x86_64-unknown-linux-musl: 11,764,560 B (10,561,264 B with aws-sfn's "jsonata" feature off, so JSONata is 1.20 MB of it). JSONata's psm needs a C compiler
+# and an ELF archiver for the target: CC_x86_64_unknown_linux_musl = a clang --target=x86_64-unknown-linux-musl wrapper, AR_x86_64_unknown_linux_musl = llvm-ar.
+# The owner raised doze-aws's ceiling from 10 MB to 20 MB ("Bump to 20 MB. Just use the freedom wisely", 2026-11-13); JSONata stays in. This line stays tight so that
+# every increase is still argued here: byte limit = the musl size plus 5% = 12,352,788, rounded to 12,400,000 B; packages 264 (258 plus 6).
+# 2026-11-14, owner decision: idle is the median of three starts on CI that day (8,964 KB) plus 5% for noise, 9,413 KB. Growth: issue #36.
+# docs/port/weight.md, "Limits raised to the measured values".
+# 2026-11-14, outbound TLS (branch aws-tls, alone on 70ce8e3d; docs/port/aws/stages/tls.md): SNS https subscriptions, API destinations, API Gateway https integrations and
+# JWKS fetches call https:// through aws-webhook (rustls 0.23 with ring, tokio-rustls, rustls-native-certs; the same rustls and ring doze-kafka and doze-names link).
+# darwin/arm64 release-aws: 8,077,296 B (+633,072 B over the base's 7,444,224 B measured the same day), 274 packages (+16). x86_64-unknown-linux-musl: 12,733,856 B
+# (+968,816 B over the base's 11,765,040 B). New third-party packages: rustls, rustls-webpki, rustls-pki-types, ring, untrusted, tokio-rustls, rustls-native-certs, and per
+# platform openssl-probe (Linux), security-framework(-sys), core-foundation(-sys), bitflags (macOS), schannel (Windows). ring's C needs a C compiler for the target: clang 21's
+# <stddef.h> sends a musl triple to a musl sysroot, so the cross-build compiles ring for the gnu triple with -ffreestanding and stub <assert.h>/<string.h> (stage note).
+# Idle: the trust store is read on the first https call, so nothing is read at start, and Linux idle is unchanged. On macOS the binary now links Security.framework and
+# CoreFoundation: the local idle RSS went from 5,280 KB to 9,104 KB, of which phys_footprint is +576 KB (2,400 to 2,976 KB) and the rest shared framework pages. The CI
+# idle line (Linux) is not moved. Byte limit = the musl size plus 5% = 13,370,549, rounded to 13,400,000 B (67% of the 20 MB ceiling); packages 280 (274 plus 6).
+# 2026-11-14, tls2 (branch aws-tls2 on the merged aws line be553d87): on macOS the keychains are listed with /usr/bin/security on the first https call instead of
+# through Security.framework, so rustls-native-certs, security-framework(-sys), core-foundation(-sys) and bitflags leave the macOS build. darwin/arm64 release-aws:
+# 8,342,432 B (was 8,360,592 B on the merged line), 270 packages (was 276), idle 6,432 KB (was 9,968 KB, over the line); otool -L lists libSystem and libiconv only.
+# Linux and Windows keep rustls-native-certs; the Linux code is unchanged, so the musl size is too. Limits unchanged.
+# 2026-11-14, the server side finished (cli, scheduler, gaps, tls, tls2 and correctness merged on the aws line): darwin/arm64 release-aws 8,375,808 B, 271 packages,
+# idle 6,480 KB; x86_64-unknown-linux-musl 13,259,720 B, which leaves 1% under the 13,400,000 line. The new bytes since the TLS line: EventBridge Scheduler (its crate,
+# model and a 597-zone time-zone rule table instead of a tz database), the command layer (subcommands, settings table, apply/export/doctor), the gaps (rotation
+# schedule, SNS dead letters, Logs regex patterns, stored metric streams and insight rules), S3 ACLs and SigV2, and the @connections model. Byte limit = the musl
+# size plus 5% = 13,922,706, rounded to 13,900,000 B (70% of the 20 MB ceiling); packages and idle unchanged.
+# 2026-11-14, CI on main with the server side finished (PR #45, run 43592223803): idle median 10,024 KB (samples 9,964, 10,036, 10,024) plus 5% =
+# 10,526 KB; +1.06 MB over the median of 8,964 KB before the aws-tls, aws-gaps and aws-correctness merges (issue #36). Bytes 13,128,520 B and 274
+# packages fit the lines above.
+# 2026-11-15, data control (78ba6190, run 43703449990): idle median 10,548 KB (samples 10,492, 10,692, 10,548) against medians of 9,820 to 10,140 KB
+# in the six runs before; bytes 13,669,488 B (+511,112), packages 274. Measured A/B on aarch64 Linux (7 samples each): 8,184 KB before, 8,596 KB
+# after, 8,384 KB with the start-time size check (`mention_size`, a one-shot OS thread) left out: about 210 KB is that thread (glibc keeps its
+# arena and stack cache), about 200 KB the new code. Line = median plus 5% = 11,075 KB. The thread's share is avoidable and is with the aws
+# session (docs/port/ci-health.md, open items).
+# 2026-11-15, AWS as the only reference (PR #65, run 43716027103): bytes 14,035,048 B (+365,560 over 13,669,488), 280 packages, idle median 10,852 KB
+# (samples 10,692, 10,852, 10,952). The new bytes: XML-DSig for AssumeRoleWithSAML (exclusive c14n, RSA-SHA1/256/512 against the metadata certificate),
+# JWT and JWKS verification shared by STS web identity and API Gateway (ES256/384/512 added), SSM public parameters, Documents (with the YAML reader
+# moved into aws-yaml and given a writer) and service settings, Secrets Manager replicas, KMS ECDH key agreement and multi-Region keys, the /_doze/ guard,
+# and the compatibility listing. Byte limit = 14,035,048 plus 5% = 14,736,800, rounded to 14,740,000 B (74% of the 20 MB ceiling); packages unchanged.
+# Idle: the start-time size check no longer starts an OS thread (it walks on the serving thread), which removes the ~210 KB arena measured above, but
+# the median moved up by 304 KB with the new code, and median plus 5% (11,395) is above the current line: the line is kept at 11,075 KB, not lowered.
+doze-aws 14740000 280 11075 --listen 127.0.0.1:{port} --data-dir {data}

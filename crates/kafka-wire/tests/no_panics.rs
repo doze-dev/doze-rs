@@ -73,7 +73,7 @@ proptest! {
                 renumbering: false,
             };
             let _ = batch.scan(&rules, &"t-0");
-            let _ = batch.record_times().map(Iterator::count);
+            let _ = batch.record_times(1 << 16).count();
         }
     }
 

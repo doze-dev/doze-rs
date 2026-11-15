@@ -1,0 +1,8 @@
+Resources:
+  Q:
+    Type: AWS::SQS::Queue
+    Properties:
+      Name: !Sub "${A}-x"
+      L: [a, {b: c}]
+      T: |
+        text

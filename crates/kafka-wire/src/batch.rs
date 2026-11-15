@@ -8,6 +8,7 @@ mod attributes;
 #[cfg(any(test, feature = "test-support"))]
 pub mod build;
 mod compose;
+mod cursor;
 mod error;
 mod filter;
 mod header;
@@ -22,6 +23,7 @@ mod recode;
 mod records;
 mod scan;
 mod stamp;
+mod varint;
 
 use bytes::Bytes;
 
@@ -30,6 +32,7 @@ pub use compose::{OneRecord, single_record};
 pub use error::{BatchError, Refusal};
 pub use filter::{Filtered, Rules, Seen};
 use header::Header;
+pub use inflate::inflates_within;
 pub use iter::Batches;
 pub use layout::HEADER_LEN;
 use layout::{LENGTH_OVERHEAD, MAGIC_V2};

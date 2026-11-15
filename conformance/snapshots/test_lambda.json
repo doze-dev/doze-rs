@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-15",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -63,13 +63,17 @@
   },
   "test_a_trigger_whose_queue_hides_for_less_than_the_function_runs": {
     "update-after-the-timeout-was-raised": {
-      "Error": {
-        "Code": "ResourceInUseException",
-        "Message": "Cannot update the event source mapping because it is in use."
-      },
+      "BatchSize": 5,
+      "EventSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:equal>",
+      "EventSourceMappingArn": "arn:aws:lambda:us-east-1:<account>:event-source-mapping:<uuid:1>",
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+      "FunctionResponseTypes": [],
+      "LastModified": "<LastModified:2>",
+      "MaximumBatchingWindowInSeconds": 0,
       "ResponseMetadata": {
-        "HTTPStatusCode": 400
-      }
+        "HTTPStatusCode": 202
+      },
+      "UUID": "<uuid:1>"
     },
     "visibility-10-timeout-10": {
       "BatchSize": 1,
@@ -339,6 +343,108 @@
       "Version": "$LATEST"
     }
   },
+  "test_function_url": {
+    "body-as-application/json": {
+      "event": {
+        "base64": false,
+        "body": "hello",
+        "method": "POST"
+      },
+      "status": 201
+    },
+    "body-as-application/octet-stream": {
+      "event": {
+        "base64": true,
+        "body": "aGVsbG8=",
+        "method": "POST"
+      },
+      "status": 201
+    },
+    "body-as-application/x-www-form-urlencoded": {
+      "event": {
+        "base64": true,
+        "body": "aGVsbG8=",
+        "method": "POST"
+      },
+      "status": 201
+    },
+    "body-as-application/xml": {
+      "event": {
+        "base64": false,
+        "body": "hello",
+        "method": "POST"
+      },
+      "status": 201
+    },
+    "body-as-image/png": {
+      "event": {
+        "base64": true,
+        "body": "aGVsbG8=",
+        "method": "POST"
+      },
+      "status": 201
+    },
+    "body-as-nothing": {
+      "event": {
+        "base64": true,
+        "body": "aGVsbG8=",
+        "method": "POST"
+      },
+      "status": 201
+    },
+    "body-as-text/csv": {
+      "event": {
+        "base64": false,
+        "body": "hello",
+        "method": "POST"
+      },
+      "status": 201
+    },
+    "policy": {
+      "Statement": [
+        {
+          "Action": "lambda:InvokeFunctionUrl",
+          "Condition": {
+            "StringEquals": {
+              "lambda:FunctionUrlAuthType": "NONE"
+            }
+          },
+          "Effect": "Allow",
+          "Principal": "*",
+          "Resource": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+          "Sid": "url"
+        },
+        {
+          "Action": "lambda:InvokeFunction",
+          "Condition": {
+            "Bool": {
+              "lambda:InvokedViaFunctionUrl": "true"
+            }
+          },
+          "Effect": "Allow",
+          "Principal": "*",
+          "Resource": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+          "Sid": "url-invoke"
+        }
+      ]
+    },
+    "url-config": {
+      "AuthType": "NONE",
+      "InvokeMode": null
+    }
+  },
+  "test_layers_tags_and_settings": {
+    "account": {
+      "count": true
+    },
+    "reserve-the-whole-limit": {
+      "Error": {
+        "Code": "InvalidParameterValueException",
+        "Message": "Specified ReservedConcurrentExecutions for function decreases account's UnreservedConcurrentExecution below its minimum value of [<minimum>].",
+        "Status": 400
+      }
+    }
+  },
   "test_permissions": {
     "add": {
       "Action": "lambda:InvokeFunction",
@@ -410,11 +516,11 @@
   "test_refusals": {
     "absent-mapping": {
       "Error": {
-        "Code": "AccessDeniedException",
-        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: lambda:GetEventSourceMapping on resource: * because no identity-based policy allows the lambda:GetEventSourceMapping action"
+        "Code": "ResourceNotFoundException",
+        "Message": "The resource you requested does not exist."
       },
       "ResponseMetadata": {
-        "HTTPStatusCode": 403
+        "HTTPStatusCode": 404
       }
     },
     "absent-qualifier": {
@@ -553,6 +659,12 @@
       "Version": "$LATEST"
     }
   },
+  "test_response_streaming": {
+    "status": {
+      "ExecutedVersion": "$LATEST",
+      "StatusCode": 200
+    }
+  },
   "test_versions_and_aliases": {
     "alias-to-absent-version": {
       "Error": {
@@ -630,12 +742,12 @@
       "StatusCode": 200
     },
     "invoke-alias-repointed": {
-      "ExecutedVersion": "1",
+      "ExecutedVersion": "2",
       "Payload": {
         "echo": {},
         "function": "<name:fn>",
-        "greeting": "one",
-        "version": "1"
+        "greeting": "two",
+        "version": "2"
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 200

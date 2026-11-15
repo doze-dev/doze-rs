@@ -71,6 +71,14 @@ the partition offline. One request that needs more partitions than the limit all
 Test: `descriptors::tests::*`, `kafka-storage log::tests::append::a_directory_flush_that_finds_no_free_descriptor_*`;
 by hand: 400 acks=all produces at a hard limit of 256 all succeed, 32 descriptors held at the end.
 
+A partition nothing has asked for in five minutes (`Config::partition_idle_close`), and that nothing holds (a waiting fetch, a
+request using it), is closed, flushed first, and opens again when next asked for; the task that does it sleeps until the next open
+partition's five minutes are up and, with none open, until one is opened. The server's shelf of request buffers (up to 64 MiB) is
+freed after a minute with no frame taken from it or given back. Test:
+`idle_upkeep::a_partition_nothing_asks_for_is_closed_after_five_quiet_minutes_and_opens_again_when_asked`,
+`idle_upkeep::a_partition_held_by_a_request_is_not_closed_however_quiet`,
+`kafka-server pool::tests::the_shelves_are_freed_after_a_quiet_minute_and_the_trimmer_waits_for_nothing_while_they_are_empty`.
+
 ### B6. The clean-stop marker names what the stop cannot vouch for
 For every partition this run opened, the verdict is its last close: flushed whole (vouched) or not. A partition this run
 never opened keeps what the last stop said of it. A partition that was closed well to make room, reopened, written to,

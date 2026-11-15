@@ -44,7 +44,8 @@ pub fn render(tables: &Tables, op: u32, out: &Value, status: Option<u16>) -> Ren
                 has_payload = true;
                 payload(&mut r, m, value);
             }
-            0 => {
+            // An output member the model binds to the query (API Gateway's `position`) can only travel in the body, where SDKs read it.
+            0 | 2 => {
                 has_body = true;
                 if let Some(v) = value.filter(|v| !v.is_null()) {
                     object.insert(m.wire.to_owned(), v.clone());
@@ -98,9 +99,15 @@ fn front_end(code: &str) -> bool {
     )
 }
 
-/// The error answer: the code in `x-amzn-ErrorType`, the words in the body.
+/// The error answer: the code in `x-amzn-ErrorType`, the words in the body. A modelled error answers with the status the model
+/// gives it (Scheduler's `ResourceNotFoundException` is a 404: recorded 2026-11-15); any other states its own.
 #[must_use]
-pub fn error(err: &ApiError) -> Rendered {
+pub fn error(err: &ApiError, tables: &Tables) -> Rendered {
+    let status = err
+        .shape
+        .as_deref()
+        .and_then(|name| crate::json::modeled(tables, name))
+        .map_or(err.status, |m| m.status);
     let mut body = Map::new();
     if front_end(&err.code) {
         body.insert("message".to_owned(), Value::String(err.message.clone()));
@@ -113,7 +120,7 @@ pub fn error(err: &ApiError) -> Rendered {
         body.insert(k.clone(), Value::String(v.clone()));
     }
     Rendered {
-        status: err.status,
+        status,
         headers: vec![
             ("content-type".to_owned(), "application/json".to_owned()),
             ("x-amzn-ErrorType".to_owned(), err.code.to_string()),
@@ -172,7 +179,7 @@ mod tests {
     #[test]
     fn an_error_names_its_code_in_a_header() {
         let e = ApiError::new(404, "ResourceNotFoundException", "Function not found: x");
-        let r = error(&e);
+        let r = error(&e, &TABLES);
         assert_eq!(
             header_of(&r, "x-amzn-ErrorType"),
             Some("ResourceNotFoundException")
@@ -182,7 +189,7 @@ mod tests {
             body,
             json!({"Type": "User", "Message": "Function not found: x"})
         );
-        let v = error(&ApiError::new(400, "ValidationException", "bad"));
+        let v = error(&ApiError::new(400, "ValidationException", "bad"), &TABLES);
         assert_eq!(
             serde_json::from_slice::<Value>(&v.body).unwrap(),
             json!({"message": "bad"})

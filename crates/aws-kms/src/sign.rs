@@ -153,6 +153,14 @@ impl Core {
                     l.push(a);
                 }
             });
+            let agreement = key.spec.key_agreement_algorithms(key.usage);
+            if !agreement.is_empty() {
+                o.put_list(PublicKey::KEY_AGREEMENT_ALGORITHMS, |l| {
+                    for a in agreement {
+                        l.push(a);
+                    }
+                });
+            }
         })
     }
 
@@ -229,9 +237,9 @@ impl Core {
 /// A digest must be as long as the digest the key's algorithm makes.
 fn check_digest(key: &Key, algorithm: &str, message: &[u8], digest: bool) -> Result<(), ApiError> {
     if digest && asym::digest_len(key.spec, algorithm) != Some(message.len()) {
-        return Err(validation(
-            "The message is not the length of a digest for this algorithm.",
-        ));
+        return Err(validation(format!(
+            "Digest is invalid length for algorithm {algorithm}."
+        )));
     }
     Ok(())
 }

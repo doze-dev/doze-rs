@@ -64,14 +64,20 @@ fn a_name_with_a_character_it_may_not_have_is_refused() {
         message.starts_with("Parameter name: can't be prefixed with \"ssm\" (case-insensitive)."),
         "{message}"
     );
-    for reserved in ["/aws/not-yours", "ssm-not-yours"] {
+    // Recorded 2026-11-15: a first part that begins with aws is AWS's own; one that begins with ssm is refused as a name.
+    for (reserved, code) in [
+        ("/aws/not-yours", "AccessDeniedException"),
+        ("/awsome/x", "AccessDeniedException"),
+        ("ssm-not-yours", "ValidationException"),
+    ] {
         assert_eq!(
             w.err(
                 "PutParameter",
                 &json!({"Name": reserved, "Value": "v", "Type": "String"})
             )
             .0,
-            "ValidationException"
+            code,
+            "{reserved}"
         );
     }
     // Recorded: deeper in the path the word is only a word.

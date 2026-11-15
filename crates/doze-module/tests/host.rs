@@ -112,6 +112,7 @@ fn instance() -> Instance {
         listeners: BTreeMap::new(),
         deps: vec![],
         toolchain: None,
+        dir: String::new(),
     }
 }
 

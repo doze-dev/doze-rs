@@ -21,10 +21,13 @@ impl ConsumerGroup {
                 self.heartbeat(token, &hb, &source.topics(), now, &mut out);
             }
             Event::Timer(key) => self.timer(&key, now, &mut out),
+            Event::Force(token, force) => {
+                self.force(token, &force, &source.topics(), now, &mut out);
+            }
             Event::TopicsChanged => self.topics_changed(&source.topics(), now, &mut out),
             Event::Describe(token) => out.push(Effect::Reply(
                 token,
-                Answer::Describe(self.description(&source.topics())),
+                Answer::Describe(self.description(&source.topics(), now)),
             )),
             Event::Delete(token) => {
                 let refused = (!self.members.is_empty()).then_some(E::NonEmptyGroup);
@@ -44,14 +47,20 @@ impl ConsumerGroup {
             Event::Heartbeat(token, req) => {
                 self.classic_heartbeat(token, &req, &source.topics(), now, &mut out)
             }
-            Event::Leave(token, targets) => self.classic_leave(token, &targets, &mut out),
+            Event::Leave(token, targets) => self.classic_leave(token, &targets, now, &mut out),
+        }
+        // Whatever the event moved, each member's assignment epochs follow what it holds now.
+        for m in self.members.values_mut() {
+            m.note_given(m.epoch);
         }
         out
     }
 
-    /// Kafka's rules for a commit to a consumer group: a consumer-protocol member names its epoch (OffsetCommit v9
-    /// and later, the first to carry it as such); with nobody in the group only a commit that names no member may go
-    /// ahead; otherwise the member must be there, at its own epoch.
+    /// Kafka's rules for a commit to a consumer group (`ConsumerGroup.validateOffsetCommit`, Kafka 4.3): a
+    /// consumer-protocol member names its epoch (OffsetCommit v9 and later, the first to carry it as such); with nobody
+    /// in the group only a commit that names no member may go ahead; otherwise the member must be there, at its own
+    /// epoch, or at an older one under which it already held every partition the commit names (KIP-1251's assignment
+    /// epochs, `createAssignmentEpochValidator`). One partition that fails fails the request: Kafka's validator throws.
     fn commit_fence(&self, req: &CommitRequest) -> Option<E> {
         if req.transactional && req.names_nobody() {
             return None;
@@ -72,15 +81,22 @@ impl ConsumerGroup {
             return None;
         }
         // A classic member's epoch is its generation; a transaction's offsets are refused as a wrong generation by either.
-        Some(if member.classic.is_some() || req.transactional {
+        let refused = if member.classic.is_some() || req.transactional {
             E::IllegalGeneration
         } else {
             E::StaleMemberEpoch
-        })
+        };
+        let held = req.generation < member.epoch
+            && req
+                .partitions
+                .iter()
+                .all(|p| member.held_since(p, req.generation));
+        (!held).then_some(refused)
     }
 
     /// The group as the classic APIs and ListGroups see it: not described by the classic APIs, but listed.
-    fn description(&self, topics: &Topics) -> Description {
+    #[cfg_attr(not(feature = "inspect"), allow(unused_variables))]
+    fn description(&self, topics: &Topics, now: Millis) -> Description {
         // The names members subscribe to, and the topics that exist which a member's pattern matches.
         let mut subscribed: BTreeSet<String> = self
             .members
@@ -106,6 +122,8 @@ impl ConsumerGroup {
             members: Vec::new(),
             subscribed: Some(subscribed),
             consumer: Some(self.view()),
+            #[cfg(feature = "inspect")]
+            inspect: Box::new(self.inspect(now)),
         }
     }
 }

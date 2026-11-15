@@ -87,9 +87,41 @@ pub(super) fn view<F: Fs>(
     })
 }
 
+/// Each producer's window of recent batches (reads the log's history the first time, like [`view`]).
+pub(super) fn windows<F: Fs>(
+    log: &PartitionLog<F>,
+    memory: &mut Memory,
+) -> Result<Vec<crate::producers::Window>, StorageError> {
+    if !memory.loaded {
+        relearn(log, memory)?;
+    }
+    Ok(memory.producers.windows())
+}
+
 /// A new, shared index.
 pub(crate) fn shared(index: TxnIndex) -> Arc<RwLock<TxnIndex>> {
     Arc::new(RwLock::new(index))
+}
+
+/// Removes every record of the log, unless a transaction has records in it and no marker yet. Checked here, between two
+/// appends, so no transactional batch can come between the look and the removal. The log carries on from its end: offsets
+/// are never handed out twice.
+pub(super) fn empty<F: Fs>(
+    log: &mut PartitionLog<F>,
+    memory: &mut Memory,
+) -> Result<super::Emptying, StorageError> {
+    let open = !memory
+        .txns
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .open()
+        .is_empty();
+    if open {
+        return Ok(super::Emptying::TxnOpen);
+    }
+    let offsets = log.end_offset().get() - log.start_offset().get();
+    trim(log, memory, super::Trim::Before(None))?;
+    Ok(super::Emptying::Emptied { offsets })
 }
 
 /// Moves the start of the log up, and lets go of what the transaction index and the producers remembered below it.
@@ -134,12 +166,13 @@ mod tests {
             loaded: true,
             txns: shared(index),
             cleaned_to: 0,
+            upkeep: std::sync::Arc::default(),
         }
     }
 
     fn aborted_held(memory: &Memory) -> usize {
         let index = memory.txns.read().unwrap();
-        index.aborted_between(0, i64::MAX).len()
+        index.aborted_between(0, i64::MAX).count()
     }
 
     #[test]

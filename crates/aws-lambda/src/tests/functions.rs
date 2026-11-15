@@ -324,16 +324,24 @@ async fn a_function_this_host_cannot_launch_is_created_and_fails_when_invoked() 
 }
 
 #[tokio::test]
-async fn a_layer_named_in_place_by_its_zip_is_unpacked_like_an_upload() {
+async fn a_bucket_named_local_is_an_s3_bucket_like_any_other_and_a_zip_layer_is_kept() {
     use sha2::Digest;
     let w = World::new();
     let zip = crate::zipread::build(&[("python/helper.py", b"X = 1", 0o644)]);
     let path = std::env::temp_dir().join(format!("doze-lambda-layer-{}.zip", std::process::id()));
     std::fs::write(&path, &zip).unwrap();
+    // A path on this machine is not code: the bucket is looked for in S3, as on AWS (no S3 runs here).
+    let refused = w
+        .err(
+            "PublishLayerVersion",
+            json!({"LayerName": "zipped", "Content": {"S3Bucket": "_local_", "S3Key": path.to_string_lossy()}}),
+        )
+        .await;
+    assert!(refused.message.contains("s3"), "{}", refused.message);
     let layer = w
         .ok(
             "PublishLayerVersion",
-            json!({"LayerName": "zipped", "Content": {"S3Bucket": "_local_", "S3Key": path.to_string_lossy()}}),
+            json!({"LayerName": "zipped", "Content": {"ZipFile": aws_core::base64::encode(&zip)}}),
         )
         .await;
     assert_eq!(layer["Content"]["CodeSize"], zip.len());

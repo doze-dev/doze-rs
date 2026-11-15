@@ -44,6 +44,7 @@ Flag bit 0: a handle rides with the frame. The decoder is sans-IO (bytes in, fra
 | `restart_policy`, `health` | host → module | supervised modules |
 | `resources`, `run_action` | host → module | admin |
 | `tail` | host → module, stream | credit-based |
+| `migrate` (minor 1, capability `MIGRATE`) | host → module | the instance's data moved to the version its block declares, with the instance stopped by the host; may call `fetch.resolve_major` and `fetch.ensure` while it runs (the old major's build). Postgres: Go's dump with the old server, the set-aside, and the restore into a fresh cluster (`doze-module-postgres/src/migrate.rs`), proven 16 → 17 on 2026-11-15 under a private DOZE_HOME with a local signed registry and the D1 daemon |
 | `wire.accept` | host → module, with a handle | the module may call `wire.boot`, `wire.acquire`, `wire.release` while it runs |
 | `shutdown` | host → module | |
 | `event`, `log` | module → host, one-way | |
@@ -65,3 +66,13 @@ their call; green on five targets.
   point, but the SDK should hand handlers a context that keeps the call alive.
 - An unknown capability bit from a newer module is kept, not refused; an unknown callback is refused with a structured
   `Unsupported` and the channel stays usable (`tests/compat.rs`).
+- **A handle must not travel alone** (2026-11-15, PR #42's flaky cancel test). macOS's collector of descriptors in
+  flight (`unp_gc`, run on any Unix-socket close while descriptors are in flight) can count a socket unreachable in
+  the moment the receiver's `recvmsg` has taken the message off the channel but not yet installed the descriptor, and
+  `sorflush`es it (the window is read from XNU's `uipc_usrreq.c`; the rates are measured). The module holds the
+  right connection, but its first read returns 0 and the client's bytes are gone. About 1 in 60 hand-overs under
+  churn, none once the sender keeps a copy. The peer keeps one (`Passable::hold`) until the module answers the call
+  or makes a callback inside it; `tests/handoff.rs`. The cost: one descriptor in the host per handed-over connection
+  until then, and for a module that makes no callback the client sees the connection end only once the module has
+  answered (one hop after the module drops it). A cancelled call keeps the copy until its answer: the frame may
+  still be on its way.

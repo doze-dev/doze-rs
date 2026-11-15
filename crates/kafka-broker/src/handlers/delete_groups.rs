@@ -1,6 +1,6 @@
 //! DeleteGroups.
 
-use kafka_auth::authz::operation;
+use kafka_auth::authz::Operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::StrBytes;
@@ -27,7 +27,7 @@ impl<F: Fs> Broker<F> {
         let mut refused: Vec<String> = Vec::new();
         for g in &req.groups_names {
             let name = g.0.as_str();
-            if guard.group(operation::DELETE, name) {
+            if guard.group(Operation::Delete, name) {
                 asked.push(name.to_owned());
             } else if !refused.iter().any(|r| r == name) {
                 refused.push(name.to_owned());
@@ -48,7 +48,7 @@ impl<F: Fs> Broker<F> {
         Outcome::Respond(kafka_wire::api::Response::DeleteGroups(resp))
     }
 
-    async fn delete_group(&self, name: &str) -> Option<ResponseError> {
+    pub(crate) async fn delete_group(&self, name: &str) -> Option<ResponseError> {
         let Ok(group) = GroupId::parse(name) else {
             return Some(ResponseError::InvalidGroupId);
         };

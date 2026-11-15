@@ -1,9 +1,15 @@
-//! SSM Parameter Store: parameters with versions, labels, tags and paths, as a state machine behind a lazy actor. State is
-//! on disk, and survives an idle reap and a restart. The other half of SSM (Run Command, Automation, Session Manager,
-//! associations, inventory, patching, maintenance windows) is refused by name before its request is read.
+//! SSM: Parameter Store (parameters with versions, labels, tags and paths, and AWS's read-only public parameters under
+//! `/aws/service/`), documents (kept, versioned and shared, never run) and the service settings, as a state machine behind a lazy
+//! actor. State is on disk, and survives an idle reap and a restart. The other half of SSM (Run Command, Automation executions,
+//! Session Manager, associations, inventory, patching, maintenance windows) is refused by name before its request is read.
 
 mod authz;
 mod core;
+mod doc_share;
+mod doc_shown;
+mod doc_storage;
+mod document;
+mod documents;
 mod kms;
 mod label;
 mod list;
@@ -11,8 +17,11 @@ mod model;
 mod name;
 mod page;
 mod policy;
+mod public;
 mod read;
 mod reference;
+mod settings;
+mod storage;
 mod tags;
 mod write;
 
@@ -21,6 +30,7 @@ use std::sync::Arc;
 use aws_model_ssm::Operation;
 use aws_model_ssm::meta::META;
 use aws_model_ssm::tables::TABLES;
+use aws_schema::json::Violation;
 use aws_wire::ApiError;
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
 use doze_runtime::{Ctx, Keyed};
@@ -52,7 +62,10 @@ impl Ssm {
             .actors
             .actor(&call.caller.region)
             .map_err(|e| e.to_string())?;
-        actor.call(call).await.map_err(|e| e.to_string())
+        actor
+            .call(crate::core::Ask::Call(Box::new(call)))
+            .await
+            .map_err(|e| e.to_string())
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
@@ -74,6 +87,10 @@ impl Ssm {
 }
 
 impl Service for Ssm {
+    fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
     fn meta(&self) -> &'static aws_schema::meta::ServiceMeta {
         &META
     }
@@ -88,6 +105,30 @@ impl Service for Ssm {
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(self.ask(call))
+    }
+
+    /// The Coral front end's wording, with SSM's two departures (recorded 2026-11-15): a resource type that is not one is named
+    /// without its value, and a pattern of the form `^(...)$` is printed without its anchors and its group.
+    fn invalid(&self, violation: &Violation) -> ApiError {
+        let mut error = aws_wire::service::default_invalid(&TABLES, violation);
+        match violation {
+            Violation::Enum { member, .. }
+                if TABLES
+                    .member(*member)
+                    .is_some_and(|m| m.name == "ResourceType") =>
+            {
+                error.message = "1 validation error detected: Value at 'resourceType' failed to satisfy constraint: Member is not a valid resourceType".to_owned();
+            }
+            Violation::Pattern { .. } => {
+                if let Some((head, tail)) = error.message.split_once("pattern: (")
+                    && let Some(inner) = tail.strip_suffix(')')
+                {
+                    error.message = format!("{head}pattern: {inner}");
+                }
+            }
+            _ => {}
+        }
+        error
     }
 }
 

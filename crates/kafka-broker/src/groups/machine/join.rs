@@ -9,6 +9,7 @@ use kafka_wire::ids::MemberId;
 use super::{
     Answer, Effect, GroupMachine, JoinAnswer, JoinRequest, Member, Millis, SESSION_MS, State, Token,
 };
+use crate::groups::note::{Cause, Named, Why};
 
 /// Who a JoinGroup comes from, once the id and instance it carries are understood.
 enum Who {
@@ -80,10 +81,10 @@ impl GroupMachine {
         }
         match who {
             Who::Known(id) => self.rejoin(token, &id, req, now, out),
-            Who::Issued(id) => self.seat(token, id, req, now, out),
+            Who::Issued(id) => self.seat(token, &id, req, now, out),
             Who::Fresh => {
                 let id = (self.new_id)(req.instance.as_ref());
-                self.seat(token, id, req, now, out);
+                self.seat(token, &id, req, now, out);
             }
             Who::Replace(old) => {
                 let new = (self.new_id)(req.instance.as_ref());
@@ -155,7 +156,7 @@ impl GroupMachine {
     fn seat(
         &mut self,
         token: Token,
-        id: MemberId,
+        id: &MemberId,
         req: &JoinRequest,
         now: Millis,
         out: &mut Vec<Effect>,
@@ -168,13 +169,20 @@ impl GroupMachine {
         if let Some(inst) = &req.instance {
             self.statics.insert(inst.clone(), id.clone());
         }
-        let mut member = new_member(&id, req);
+        let mut member = new_member(id, req);
         member.joined = Some(token);
         self.members.insert(id.clone(), member);
-        self.arm_session(&id, now, out);
+        self.arm_session(id, now, out);
+        let why = Why::new(
+            Cause::MemberJoined,
+            Some(Named::new(id, &req.client_id, req.reason.clone())),
+            self.members.len() - 1,
+        );
         match self.state {
-            State::Empty => self.begin_rebalance(now, true, out),
-            State::CompletingRebalance | State::Stable => self.begin_rebalance(now, false, out),
+            State::Empty => self.begin_rebalance(now, true, why, out),
+            State::CompletingRebalance | State::Stable => {
+                self.begin_rebalance(now, false, why, out);
+            }
             State::PreparingRebalance => {
                 // A member that was not in the group arrived while it was holding for latecomers.
                 if let Some(hold) = self.rebalance.as_mut().and_then(|r| r.hold.as_mut()) {
@@ -221,7 +229,16 @@ impl GroupMachine {
                     out.push(Effect::Forget(old));
                 }
             }
-            self.begin_rebalance(now, false, out);
+            // The member is in the group already: it asks to join again with other protocols than before, or it is the
+            // leader of a running group, which Kafka rebalances for.
+            let cause = if same {
+                Cause::LeaderRejoined
+            } else {
+                Cause::ProtocolsChanged
+            };
+            let who = Named::new(id, &req.client_id, req.reason.clone());
+            let why = Why::new(cause, Some(who), self.members.len());
+            self.begin_rebalance(now, false, why, out);
         }
         self.arm_session(id, now, out);
         self.maybe_complete(now, out);
@@ -275,6 +292,7 @@ fn new_member(id: &MemberId, req: &JoinRequest) -> Member {
         joined: None,
         syncing: None,
         session_gen: 0,
+        heard: Millis(0),
         rights: req.rights.clone(),
     }
 }

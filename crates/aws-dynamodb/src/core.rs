@@ -16,18 +16,29 @@ use serde_json::Value as Json;
 use crate::disk::{Disk, TABLES, Writes};
 use crate::meta::Table;
 use crate::req::{body, not_found, refuse_legacy, table_name};
-use crate::stream::Batch;
+use crate::stream::{Batch, StreamInfo};
 
 const VERSION: u8 = 1;
 
-/// How long a table or index stays in a transitional state (`CREATING`, `UPDATING`, `DELETING`). AWS takes seconds to minutes; the
-/// default here is none, so a waiter passes on its first probe, and a test that wants to see the state turns them up with
-/// `DOZE_DDB_CREATE_MS`, `DOZE_DDB_UPDATE_MS` and `DOZE_DDB_DELETE_MS`.
+/// How long a table or index stays in a transitional state (`CREATING`, `UPDATING`, `DELETING`), in milliseconds. AWS takes seconds
+/// to minutes; the default here is none, so a waiter passes on its first probe, and a test that wants to see the state turns them up
+/// (`doze-aws --dynamodb-create-ms` and its siblings; a host that passes none falls back to `DOZE_DDB_CREATE_MS`, `DOZE_DDB_UPDATE_MS`
+/// and `DOZE_DDB_DELETE_MS`).
 #[derive(Clone, Copy, Debug, Default)]
-pub(crate) struct Windows {
-    pub(crate) create_ms: i64,
-    pub(crate) update_ms: i64,
-    pub(crate) delete_ms: i64,
+pub struct Windows {
+    /// `CREATING`, after `CreateTable` (and an index added by `UpdateTable`: `CREATING` on the index).
+    pub create_ms: i64,
+    /// `UPDATING`, after `UpdateTable`.
+    pub update_ms: i64,
+    /// `DELETING`, after `DeleteTable`.
+    pub delete_ms: i64,
+}
+
+/// What the host hands each region's actor: the bus, and the transitional windows.
+#[derive(Debug)]
+pub(crate) struct Ext {
+    pub(crate) peers: Option<Arc<Peers>>,
+    pub(crate) windows: Windows,
 }
 
 impl Windows {
@@ -46,7 +57,8 @@ impl Windows {
     }
 }
 
-/// What the actor is asked: a call from the wire, or a read of a stream by whoever consumes it.
+/// What the actor is asked: a call from the wire, a read of a stream by whoever consumes it, what streams there are (the Streams
+/// API), or (from the timer) to delete the items whose time to live has passed.
 #[derive(Debug)]
 pub(crate) enum Request {
     Call(Box<Call>),
@@ -55,6 +67,14 @@ pub(crate) enum Request {
         after: u64,
         limit: usize,
     },
+    Streams {
+        account: String,
+        region: String,
+        table: Option<String>,
+    },
+    Tick,
+    /// From `doze-aws data`: what the tables hold, or remove some of it.
+    Data(Box<crate::storage::Asked>),
 }
 
 /// What the actor answers.
@@ -64,6 +84,9 @@ pub(crate) struct Answer {
     /// Whether the call appended to a stream, so waiting consumers should look.
     pub(crate) appended: bool,
     pub(crate) stream: Option<Result<Batch, String>>,
+    pub(crate) streams: Option<Result<Vec<StreamInfo>, String>>,
+    /// When the first item with a time to live expires: the deadline the service's timer sleeps to.
+    pub(crate) next_due: Option<i64>,
 }
 
 impl Answer {
@@ -72,6 +95,8 @@ impl Answer {
             reply,
             appended,
             stream: None,
+            streams: None,
+            next_due: None,
         }
     }
 }
@@ -122,6 +147,11 @@ pub(crate) struct Core {
     pub(crate) tokens: HashMap<String, (u64, i64)>,
     /// The time-to-live sweep runs at most once a second.
     pub(crate) next_sweep_ms: i64,
+    /// When the first item with a time to live expires, as last read; `ttl_stale` says it must be read again (something was written).
+    pub(crate) ttl_due: Option<i64>,
+    pub(crate) ttl_stale: bool,
+    /// Contributor Insights settings, by table (and `table/index`): stored, nothing computed.
+    pub(crate) insights: Records<crate::insights::Insight>,
 }
 
 impl doze_runtime::Service for Core {
@@ -130,22 +160,56 @@ impl doze_runtime::Service for Core {
     type Error = StoreError;
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
-        Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
+        let mut core = Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))?;
+        if let Some(ext) = ctx
+            .ext
+            .as_ref()
+            .and_then(|e| Arc::clone(e).downcast::<Ext>().ok())
+        {
+            core.windows = ext.windows;
+        }
+        Ok(core)
     }
 
     async fn handle(&mut self, req: Request) -> Answer {
-        match req {
+        let mut answer = match req {
             Request::Call(call) => self.handle_call(*call).await,
             Request::Stream {
                 stream_arn,
                 after,
                 limit,
             } => Answer {
-                reply: Err(ApiError::internal("not a call")),
-                appended: false,
                 stream: Some(self.read_stream(&stream_arn, after, limit)),
+                ..Answer::of(Err(ApiError::internal("not a call")), false)
             },
-        }
+            Request::Streams {
+                account,
+                region,
+                table,
+            } => Answer {
+                streams: Some(self.list_streams(&region, &account, table.as_deref())),
+                ..Answer::of(Err(ApiError::internal("not a call")), false)
+            },
+            Request::Data(asked) => {
+                let crate::storage::Asked { region, ask, reply } = *asked;
+                if reply.send(self.data(&region, ask)).is_err() {
+                    // WHY: the person stopped waiting; what was asked was done all the same.
+                }
+                // What was emptied may have held the item the timer sleeps to.
+                self.ttl_stale = true;
+                Answer::of(Err(ApiError::internal("not a call")), false)
+            }
+            Request::Tick => {
+                // The timer's own sweep is not held back by the once-a-second limit a burst of calls is.
+                self.next_sweep_ms = 0;
+                match self.housekeeping().await {
+                    Ok(appended) => Answer::of(Err(ApiError::internal("not a call")), appended),
+                    Err(e) => Answer::of(Err(e), false),
+                }
+            }
+        };
+        answer.next_due = self.ttl_due();
+        answer
     }
 
     async fn close(self) {
@@ -162,6 +226,12 @@ impl Core {
         let disk = Disk::open(dir)?;
         let read = disk.read()?;
         let tables = Records::load(TABLES, "table", VERSION, &read)?;
+        let insights = Records::load(
+            crate::disk::INSIGHTS,
+            "contributor insights",
+            crate::insights::VERSION,
+            &read,
+        )?;
         drop(read);
         Ok(Self {
             disk,
@@ -174,6 +244,10 @@ impl Core {
             seqs: HashMap::new(),
             tokens: HashMap::new(),
             next_sweep_ms: 0,
+            ttl_due: None,
+            // Read on the first answer, so a service opened by its timer or a restart finds what is due.
+            ttl_stale: true,
+            insights,
         })
     }
 
@@ -186,9 +260,16 @@ impl Core {
         {
             return Answer::of(Err(refusal), false);
         }
-        if let Err(e) = self.housekeeping(&call).await {
-            return Answer::of(Err(e), false);
-        }
+        let swept = match self.housekeeping().await {
+            Ok(appended) => appended,
+            Err(e) => return Answer::of(Err(e), false),
+        };
+        let mut answer = self.handle_checked(call).await;
+        answer.appended |= swept;
+        answer
+    }
+
+    async fn handle_checked(&mut self, call: Call) -> Answer {
         let json = match body(&call.body) {
             Ok(j) => j,
             Err(e) => return Answer::of(Err(e), false),
@@ -212,9 +293,9 @@ impl Core {
                 return Answer::of(Err(e), false);
             }
             Ok((op, json)) => {
-                match self.tables.stage() {
-                    Ok(changes) => writes.meta.push(changes),
-                    Err(e) => {
+                match (self.tables.stage(), self.insights.stage()) {
+                    (Ok(tables), Ok(insights)) => writes.meta.extend([tables, insights]),
+                    (Err(e), _) | (_, Err(e)) => {
                         return Answer::of(
                             Err(ApiError::internal(format!("could not save: {e}"))),
                             false,
@@ -224,6 +305,9 @@ impl Core {
                 crate::answer::reply(op, &json)
             }
         };
+        if !writes.is_empty() {
+            self.ttl_stale = true;
+        }
         if let Some(saved) = self.disk.submit(writes)
             && let Err(e) = saved.await
         {
@@ -256,6 +340,9 @@ impl Core {
             Operation::ListTagsOfResource => self.list_tags(cx),
             Operation::DescribeLimits => Ok(limits()),
             Operation::DescribeEndpoints => Ok(endpoints(cx)),
+            Operation::DescribeContributorInsights => self.describe_insights(cx),
+            Operation::UpdateContributorInsights => self.update_insights(cx),
+            Operation::ListContributorInsights => self.list_insights(cx),
             _ => self.dispatch_items(op, cx),
         }?;
         Ok((op, json))
@@ -273,6 +360,9 @@ impl Core {
             Operation::BatchWriteItem => self.batch_write(cx),
             Operation::TransactGetItems => self.transact_get(cx),
             Operation::TransactWriteItems => self.transact_write(cx),
+            Operation::ExecuteStatement => self.execute_statement(cx),
+            Operation::BatchExecuteStatement => self.batch_execute_statement(cx),
+            Operation::ExecuteTransaction => self.execute_transaction(cx),
             _ => Err(not_built()),
         }
     }
@@ -311,6 +401,12 @@ pub(crate) fn built(op: Operation) -> bool {
             | Operation::BatchWriteItem
             | Operation::TransactGetItems
             | Operation::TransactWriteItems
+            | Operation::DescribeContributorInsights
+            | Operation::UpdateContributorInsights
+            | Operation::ListContributorInsights
+            | Operation::ExecuteStatement
+            | Operation::BatchExecuteStatement
+            | Operation::ExecuteTransaction
     )
 }
 
@@ -341,9 +437,11 @@ fn endpoints(cx: &Cx<'_>) -> Json {
     serde_json::json!({"Endpoints": [{"Address": host, "CachePeriodInMinutes": 1440}]})
 }
 
-/// The bus the host handed this service, if it did.
-fn peers_of(ctx: &Ctx) -> Option<Arc<Peers>> {
-    ctx.ext
-        .as_ref()
-        .and_then(|e| Arc::clone(e).downcast::<Peers>().ok())
+/// The bus the host handed this service, if it did (directly, or inside the [`Ext`] that also carries the windows).
+pub(crate) fn peers_of(ctx: &Ctx) -> Option<Arc<Peers>> {
+    let ext = ctx.ext.as_ref()?;
+    if let Ok(ours) = Arc::clone(ext).downcast::<Ext>() {
+        return ours.peers.clone();
+    }
+    Arc::clone(ext).downcast::<Peers>().ok()
 }
