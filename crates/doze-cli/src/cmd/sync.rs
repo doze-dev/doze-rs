@@ -165,8 +165,18 @@ fn go_daemon() -> Diagnostic {
 /// Stops the daemon this sync started, and clears what it left.
 fn stop(ctx: &mut Ctx<'_>, stack: &Stack) -> Result<(), Diagnostic> {
     let _lock = stack::lock(ctx, stack)?;
-    if let Some(pid) = crate::cmd::down::identify(&stack.key) {
-        crate::cmd::down::stop(pid)?;
+    // Its files are cleared only once it is known stopped: a daemon that is not identified (or not ours to signal) keeps
+    // them, and is named, rather than being orphaned by a cleared socket.
+    let stopped = match crate::cmd::down::identify(&stack.key) {
+        Some(pid) => crate::cmd::down::stop(pid)?,
+        None => stack.open(std::time::Duration::from_secs(1))?.is_none(),
+    };
+    if !stopped {
+        return Err(Diagnostic::new(
+            ids::DAEMON_REFUSED,
+            "the daemon started for this sync could not be stopped",
+        )
+        .fix("doze down"));
     }
     crate::cmd::down::clear(&crate::cmd::down::leftovers(&stack.key));
     Ok(())

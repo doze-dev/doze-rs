@@ -20,7 +20,34 @@ use std::sync::Arc;
 /// Runs the client for real, with a line on its stdin, and keeps what it printed.
 #[derive(Default)]
 struct Real {
-    ran: RefCell<Vec<(PathBuf, Vec<String>, Vec<(String, String)>, String)>>,
+    ran: RefCell<Vec<Ran>>,
+}
+
+/// A command run: the program, its arguments, its variables, what it printed.
+type Ran = (PathBuf, Vec<String>, Vec<(String, String)>, String);
+
+/// `doze connect e` in-process, from the project at `dir` with the doze home `home`: its code, stderr and the runs.
+fn connect(dir: PathBuf, home: PathBuf) -> (u8, String, Vec<Ran>) {
+    let host = Real::default();
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    let mut ctx = doze_cli::Ctx {
+        host: &host,
+        out: &mut out,
+        err: &mut err,
+        term: doze_cli::Terminals::default(),
+        home,
+        cwd: dir,
+        registry: doze_cli::registry::Config {
+            bases: Vec::new(),
+            key: doze_cli::registry::signed::builtin_key().unwrap(),
+            budget: std::time::Duration::from_secs(1),
+        },
+        now: std::time::SystemTime::now(),
+    };
+    let argv = ["doze", "connect", "e"].map(Into::into).to_vec();
+    let code = doze_cli::run(argv, &mut ctx).code();
+    let said = String::from_utf8_lossy(&err).into_owned();
+    (code, said, host.ran.into_inner())
 }
 
 impl doze_cli::Host for Real {
@@ -57,7 +84,11 @@ impl doze_cli::Host for Real {
             env.to_vec(),
             String::from_utf8_lossy(&out.stdout).into_owned(),
         ));
-        Ok(out.status.code().and_then(|c| u8::try_from(c).ok()).unwrap_or(1))
+        Ok(out
+            .status
+            .code()
+            .and_then(|c| u8::try_from(c).ok())
+            .unwrap_or(1))
     }
 }
 
@@ -94,28 +125,7 @@ async fn connect_wakes_the_instance_and_runs_the_modules_own_client() {
 
     let ran = tokio::task::spawn_blocking({
         let (dir, home) = (dir.clone(), home.clone());
-        move || {
-            let host = Real::default();
-            let (mut out, mut err) = (Vec::new(), Vec::new());
-            let mut ctx = doze_cli::Ctx {
-                host: &host,
-                out: &mut out,
-                err: &mut err,
-                term: doze_cli::Terminals::default(),
-                home,
-                cwd: dir,
-                registry: doze_cli::registry::Config {
-                    bases: Vec::new(),
-                    key: doze_cli::registry::signed::builtin_key().unwrap(),
-                    budget: std::time::Duration::from_secs(1),
-                },
-                now: std::time::SystemTime::now(),
-            };
-            let argv = ["doze", "connect", "e"].map(Into::into).to_vec();
-            let code = doze_cli::run(argv, &mut ctx).code();
-            let said = String::from_utf8_lossy(&err).into_owned();
-            (code, said, host.ran.into_inner())
-        }
+        move || connect(dir, home)
     })
     .await
     .unwrap();
@@ -139,5 +149,8 @@ async fn connect_wakes_the_instance_and_runs_the_modules_own_client() {
     );
     assert_eq!(args, &["client", "127.0.0.1", &port.to_string()]);
     assert!(env.is_empty(), "no password, no variable: {env:?}");
-    assert_eq!(printed, "hello\n", "the line came back through doze's front");
+    assert_eq!(
+        printed, "hello\n",
+        "the line came back through doze's front"
+    );
 }

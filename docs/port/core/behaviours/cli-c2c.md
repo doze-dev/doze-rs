@@ -63,6 +63,24 @@ Branch `core-c2c`, stacked on `core-c2b` (#53), with `core-d1` (#50, draft, stil
   modules in the CLI's own process, which the owner's rule (the CLI is a client) argues against; listed.
 - `connect` wakes the instance before it looks for the client: an instance whose client is nowhere is woken for
   nothing. Its engine build is only known after a start, so looking first would miss the build's own client.
+
+## Independent audit (2026-11-15, fourth, at f25850db)
+
+Fixed:
+
+1. A command ended by a signal gave exit 1 and "exited with status 1"; now 128 + the signal (Ctrl-C: 130), as a shell
+   says it (`doze_os::process::exit_code`).
+2. `sync` cleared the socket and pid file of a daemon it could not identify or signal, orphaning it. Now it clears them
+   only once the daemon is stopped, and otherwise says so (exit 1, `doze down`).
+3. `connect` took the daemon's `path` if it was any file: now only an absolute, runnable one (else PATH and fallbacks).
+
+Open, with reasons:
+
+- A SIGINT sent to doze alone (not the terminal's group: an IDE's stop, `kill -INT`) is taken by `run`/`connect` and not
+  passed on; the command does not hear it. Forwarding needs the child's pid, which `Host::run_env` does not expose yet.
+- Ctrl-C at `sync`'s question with a daemon started for it ends doze before it stops that daemon (left running, as
+  `env` leaves it). The `started` check is taken before the start, so a `doze up` in another terminal while the question
+  waits would be stopped with it. Both want the start to say whether it spawned, and an answer read with Ctrl-C as "no".
 - Go's AWS stand-in credentials in `env` (`AWS_ACCESS_KEY_ID` and the rest when an `AWS_ENDPOINT_URL*` is present) are
   the aws module's to answer in its `env`; the CLI does not add them.
 

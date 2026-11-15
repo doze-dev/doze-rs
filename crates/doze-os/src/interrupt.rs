@@ -167,11 +167,23 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn ctrl_c_passed_to_a_child_does_not_end_this_process() {
-        pass_to_child().unwrap();
-        rustix::process::kill_process(rustix::process::getpid(), rustix::process::Signal::INT)
+        // In a process of its own (this test binary again): other tests here watch for signals too.
+        if std::env::var_os("DOZE_OS_PASS_TO_CHILD").is_some() {
+            pass_to_child().unwrap();
+            rustix::process::kill_process(rustix::process::getpid(), rustix::process::Signal::INT)
+                .unwrap();
+            thread::sleep(std::time::Duration::from_millis(200));
+            return; // still here: the signal was taken, not fatal
+        }
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "interrupt::tests::ctrl_c_passed_to_a_child_does_not_end_this_process",
+            ])
+            .env("DOZE_OS_PASS_TO_CHILD", "1")
+            .output()
             .unwrap();
-        thread::sleep(std::time::Duration::from_millis(100));
-        // Still here: the signal was taken, not fatal.
+        assert!(out.status.success(), "{out:?}");
     }
 
     #[cfg(unix)]

@@ -94,6 +94,16 @@ pub fn exit_text(status: &ExitStatus) -> String {
     }
 }
 
+/// The code a shell gives for how a command ended: its own code, or 128 plus the signal that ended it (Ctrl-C: 130), so a
+/// command that `doze run` or `doze connect` waited for ends doze the way it ended itself. 1 when neither is known.
+pub fn exit_code(status: &ExitStatus) -> u8 {
+    status
+        .code()
+        .or_else(|| imp::signal(status).map(|s| 128 + s))
+        .and_then(|c| u8::try_from(c).ok())
+        .unwrap_or(1)
+}
+
 /// How a short command (a step, a hook) failed, in the words of Go's `exec.ExitError`, which reach `last_error` and the
 /// journal: "exit status 1", or "signal: killed".
 pub fn exit_error(status: &ExitStatus) -> String {
@@ -186,6 +196,10 @@ mod imp {
         }
     }
 
+    pub(super) fn signal(status: &std::process::ExitStatus) -> Option<i32> {
+        status.signal()
+    }
+
     /// Go's `syscall.Signal.String()` for the signals a supervised process meets; others by number.
     pub(super) fn signal_text(status: &std::process::ExitStatus) -> String {
         let Some(sig) = status.signal() else {
@@ -274,6 +288,10 @@ mod imp {
             Some(e) => Err(e),
             None => Ok(()),
         }
+    }
+
+    pub(super) fn signal(_status: &std::process::ExitStatus) -> Option<i32> {
+        None
     }
 
     pub(super) fn signal_text(_status: &std::process::ExitStatus) -> String {

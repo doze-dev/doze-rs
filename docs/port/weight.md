@@ -862,6 +862,11 @@ CLI's binary, as Go's were), `doze` in `release-doze` on darwin/arm64 is 6,211,4
 job reports it). The package line moves from 230 to 240: the daemon's own crates, a small rise with its reason, under the owner's
 delegation of 2026-11-14.
 
+Session 10 (D1's session 9 merged: converge on start, meters, the data ops and the console topic, the plan op; and `connect`):
+`doze` in `release-doze` on darwin/arm64 is 6,725,008 B (+514 KB over the line above), about 8.7 MB on x86_64 Linux at CI's
+1.29; CI's weight-doze job gives the measured Linux number on this push. Under the 9 MB line, with less room than before:
+most of the rise is the daemon's (the console topic and meters), not the CLI's.
+
 ## Core D1 with the module catalog (`doze` carries the daemon), measured 2026-11-15, release, darwin/arm64
 
 | | bytes | packages (normal, unique) |

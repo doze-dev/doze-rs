@@ -83,7 +83,10 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Service) -> Outcome {
 /// The client to run: the engine's own build's, else `program`, else a fallback, on `path`. A name the module gives
 /// is a program's name, never a path of its own.
 pub(crate) fn find(c: &ClientView, path: &OsStr, pathext: Option<&OsStr>) -> Option<PathBuf> {
-    let own = Some(PathBuf::from(&c.path)).filter(|p| !c.path.is_empty() && p.is_file());
+    // The daemon's own answer: an absolute path that can be run, else nothing of it.
+    let own = Some(Path::new(&c.path))
+        .filter(|p| p.is_absolute())
+        .and_then(|p| doze_os::which::which_in(&c.path, OsStr::new(""), None).filter(|f| f == p));
     own.or_else(|| {
         std::iter::once(&c.program)
             .chain(&c.fallbacks)
@@ -167,8 +170,8 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("dz-connect-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).ok();
-        let own = dir.join("own-cli");
-        std::fs::write(&own, "").ok();
+        // A runnable file stands for the engine build's client.
+        let own = PathBuf::from("/bin/sh");
         let c = ClientView {
             program: "dz-no-such-client".into(),
             path: own.display().to_string(),
@@ -176,7 +179,14 @@ mod tests {
             ..ClientView::default()
         };
         assert_eq!(find(&c, OsStr::new(""), None), Some(own.clone()));
-        // Its build not there: the PATH, where neither is; a fallback given as a path is not taken.
+        // Its build not there, or not runnable, or relative: the PATH, where neither is; a fallback given as a path is not
+        // taken.
+        let plain = dir.join("plain");
+        std::fs::write(&plain, "").ok();
+        for path in [plain.display().to_string(), "sh".into()] {
+            let c = ClientView { path, ..c.clone() };
+            assert_eq!(find(&c, dir.as_os_str(), None), None);
+        }
         let gone = ClientView {
             path: dir.join("gone").display().to_string(),
             ..c.clone()

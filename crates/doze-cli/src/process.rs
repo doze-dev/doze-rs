@@ -63,16 +63,13 @@ impl Host for Process {
         env: &[(String, String)],
     ) -> io::Result<u8> {
         // Ctrl-C is the command's (a shell cancels its query and stays): doze waits for it and gives its code. Go's
-        // `doze run` died on it and left the command holding the terminal.
+        // `doze run` died on it, leaving a command that stays without doze. One ended by a signal gives 128 + it (130).
         let _ = doze_os::interrupt::pass_to_child();
         let status = Command::new(program)
             .args(args)
             .envs(env.iter().map(|(k, v)| (k, v)))
             .status()?;
-        Ok(status
-            .code()
-            .and_then(|c| u8::try_from(c).ok())
-            .unwrap_or(1))
+        Ok(doze_os::process::exit_code(&status))
     }
 
     fn read_line(&self) -> Option<String> {
