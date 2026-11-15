@@ -112,7 +112,14 @@ pub fn fail_response(request: &Request, version: i16, code: i16) -> Option<Respo
         | Request::DescribeUserScramCredentials(_)
         | Request::AlterUserScramCredentials(_)
         | Request::GetTelemetrySubscriptions(_)
-        | Request::PushTelemetry(_) => return None,
+        | Request::PushTelemetry(_)
+        | Request::ShareGroupHeartbeat(_)
+        | Request::ShareGroupDescribe(_)
+        | Request::ShareFetch(_)
+        | Request::ShareAcknowledge(_)
+        | Request::DescribeShareGroupOffsets(_)
+        | Request::AlterShareGroupOffsets(_)
+        | Request::DeleteShareGroupOffsets(_) => return None,
     })
 }
 

@@ -56,6 +56,7 @@ pub fn at() -> Listener {
         advertised_host: "127.0.0.1".into(),
         advertised_port: 4242,
         client_host: "/127.0.0.1".into(),
+        connection: 0,
     }
 }
 

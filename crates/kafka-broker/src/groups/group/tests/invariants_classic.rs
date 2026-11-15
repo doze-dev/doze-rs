@@ -84,7 +84,10 @@ impl World {
             generation,
             rights: rights.clone(),
         };
-        let consumer_kind = self.pump.group.consumer_life().is_some();
+        let consumer_kind = matches!(
+            self.pump.group.kept(),
+            crate::groups::group::Kept::Consumer(_)
+        );
         self.trace.push(format!(
             "classic BEAT {n} as {} gen {generation} (consumer kind {consumer_kind})",
             P[who]

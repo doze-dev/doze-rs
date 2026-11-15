@@ -1,10 +1,14 @@
-//! When the coordinator next has something to do on its own: abort a transaction that outlives its timeout, try again a
-//! decision whose markers could not be written, forget an id that has been idle for the expiry. The coordinator's task
-//! sleeps until then and no longer: it used to look every half second whatever there was, which was all of an idle
-//! broker's wake-ups (about four a second, measured). With no transactional id at all it does not wake.
+//! When a background task next has something to do on its own, so that it sleeps until then and no longer.
 //!
-//! Every change to a transaction ([`Broker::update_txn`](crate::Broker)) sets the alarm to that transaction's next step if
-//! that is sooner than the time set; a look over every transaction, when the alarm goes, sets it to the soonest of them.
+//! The transaction coordinator's: abort a transaction that outlives its timeout, try again a decision whose markers could
+//! not be written, forget an id that has been idle for the expiry. It used to look every half second whatever there was,
+//! which was all of an idle broker's wake-ups (about four a second, measured); with no transactional id at all it does not
+//! wake. Every change to a transaction ([`Broker::update_txn`](crate::Broker)) sets the alarm to that transaction's next
+//! step if that is sooner than the time set; a look over every transaction, when the alarm goes, sets it to the soonest.
+//!
+//! The share groups' (`crate::share`): the soonest an acquisition lock runs out. Set by every acquisition and renewal; with
+//! no record acquired it does not wake.
+//!
 //! Early is harmless (a look finds nothing to do and sets it again); late is what this exists to prevent, so a time is only
 //! ever moved earlier between looks.
 
@@ -31,6 +35,14 @@ impl Default for Alarm {
 }
 
 impl Alarm {
+    /// An alarm with nothing set: its task waits for the first time to be set (no look at the start).
+    #[must_use]
+    pub(crate) fn unset() -> Self {
+        let alarm = Self::default();
+        alarm.clear();
+        alarm
+    }
+
     /// Asks for a look at `at_ms`, or sooner if one is set sooner.
     pub(crate) fn set(&self, at_ms: i64) {
         if at_ms < self.next_ms.fetch_min(at_ms, Ordering::AcqRel) {

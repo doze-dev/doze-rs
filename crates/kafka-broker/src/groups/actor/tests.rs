@@ -4,12 +4,11 @@
 use std::sync::Mutex;
 
 use bytes::Bytes;
-use kafka_meta::ConsumerLife;
 use kafka_wire::Uuid;
 use kafka_wire::ids::MemberId;
 
 use super::super::consumer::{self, Heartbeat, TopicInfo, TopicSource, Topics};
-use super::super::group::{Group, Settings};
+use super::super::group::{Group, Kept, Settings};
 use super::super::machine::{Event, IdSource, JoinRequest, Millis, Protocol, Token};
 use super::{Keeper, Records};
 
@@ -17,11 +16,11 @@ use super::{Keeper, Records};
 struct Counting(Mutex<(u32, u32)>);
 
 impl Records for Counting {
-    fn live(&self, _: u32, _: &str, _: Option<ConsumerLife>) -> bool {
+    fn live(&self, _: u32, _: &str, _: &Kept) -> bool {
         self.0.lock().unwrap().0 += 1;
         true
     }
-    fn empty(&self, _: &str, _: Option<ConsumerLife>, _: i64) -> bool {
+    fn empty(&self, _: &str, _: &Kept, _: i64) -> bool {
         self.0.lock().unwrap().1 += 1;
         true
     }
@@ -85,7 +84,7 @@ fn a_record_is_written_for_a_groups_first_member_and_not_for_each_classic_member
         records: Counting::default(),
         session: 0,
         unwritten_empty: None,
-        consumer: false,
+        kind: 0,
     };
     let step = |keeper: &mut Keeper<Counting>, group: &mut Group, event: Event| {
         let had = group.member_count() > 0;

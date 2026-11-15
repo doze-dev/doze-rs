@@ -3,6 +3,7 @@
 mod acls;
 mod broker_configs;
 mod credentials;
+mod group_configs;
 mod lives;
 mod offsets;
 mod producer_ids;
@@ -56,6 +57,10 @@ pub(super) const SCHEMAS: TableDefinition<'static, &[u8], &[u8]> = TableDefiniti
 /// which the reads take as none and the first write makes.
 pub(super) const SHARE_STATES: TableDefinition<'static, &[u8], &[u8]> =
     TableDefinition::new("share_states");
+
+/// The configs set on groups (`store/group_configs.rs`). Absent from a database made before group configs.
+pub(super) const GROUP_CONFIGS: TableDefinition<'static, &[u8], &[u8]> =
+    TableDefinition::new("group_configs");
 
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
 

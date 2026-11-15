@@ -57,7 +57,10 @@ impl<F: Fs> Broker<F> {
             .groups
             .delete_with(&group, || {
                 blocking::run(|| {
-                    let removed = self.meta.delete_group_offsets(&group)?;
+                    // A share group's share-partition states go with it (Kafka's DeleteShareGroupState).
+                    let removed = self.meta.delete_group_offsets(&group)?
+                        + self.meta.delete_share_states(&group, None)?;
+                    self.shares.forget(&group, None);
                     let had_record = self.meta.group_life(&group)?.is_some();
                     self.meta.forget_group_life(&group)?;
                     Ok::<_, kafka_meta::MetaError>((removed, had_record))

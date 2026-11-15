@@ -25,6 +25,7 @@ fn context_of(timeouts: Timeouts, config: BrokerConfig) -> Context<SimFs> {
             advertised_host: "localhost".into(),
             advertised_port: 9092,
             client_host: "/127.0.0.1".into(),
+            connection: 0,
         },
         profile: Profile::new(kafka_wire::profile::KafkaMajor::DEFAULT),
         features: Features {

@@ -117,6 +117,8 @@ pub(crate) struct Description {
     pub(crate) subscribed: Option<std::collections::BTreeSet<String>>,
     /// Set if this is a consumer group, which the classic APIs do not describe.
     pub(crate) consumer: Option<crate::groups::consumer::ConsumerView>,
+    /// Set if this is a share group, which the classic APIs do not describe either.
+    pub(crate) share: Option<crate::groups::share::ShareView>,
     /// What the console is told besides (feature `inspect`).
     #[cfg(feature = "inspect")]
     pub(crate) inspect: Box<crate::groups::Inspect>,
@@ -231,6 +233,8 @@ pub(crate) enum Answer {
     Delete(Option<ResponseError>),
     /// To a ConsumerGroupHeartbeat.
     ConsumerHeartbeat(crate::groups::consumer::HeartbeatAnswer),
+    /// To a ShareGroupHeartbeat.
+    ShareHeartbeat(crate::groups::share::ShareAnswer),
     /// To a request for what the group has said of itself (the actor answers; no machine does).
     Events(Vec<crate::groups::events::Recorded>),
     /// To a forced step.
@@ -278,6 +282,8 @@ pub(crate) enum Event {
     Delete(Token),
     /// A ConsumerGroupHeartbeat arrived.
     ConsumerHeartbeat(Token, crate::groups::consumer::Heartbeat),
+    /// A ShareGroupHeartbeat arrived.
+    ShareHeartbeat(Token, crate::groups::share::ShareHeartbeat),
     /// A topic was made, grown or deleted.
     TopicsChanged,
     /// A timer ran out.

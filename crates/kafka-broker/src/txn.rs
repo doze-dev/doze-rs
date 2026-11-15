@@ -8,14 +8,13 @@
 //! on the next start. The rules (who owns the id, what may be added when, what each EndTxn is answered) are pure
 //! ([`rules`]); the coordinator ([`coordinator`]) does the writing under a lock per transactional id.
 
-mod alarm;
 mod coordinator;
 mod entries;
 mod expiry;
 mod finish;
 pub(crate) mod rules;
 
-pub(crate) use alarm::Alarm;
+pub(crate) use crate::alarm::Alarm;
 #[cfg(feature = "inspect")]
 pub(crate) use coordinator::CHECK_EVERY;
 pub(crate) use coordinator::why;

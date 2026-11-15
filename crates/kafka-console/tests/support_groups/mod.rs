@@ -257,6 +257,7 @@ pub async fn join_in_background(
         advertised_host: "127.0.0.1".into(),
         advertised_port: 1,
         client_host: "/127.0.0.1".into(),
+        connection: 0,
     };
     let request = Request::JoinGroup(join_request(group, "", assignor, topics));
     let head = kafka_wire::header::RequestHead {

@@ -97,6 +97,7 @@ impl<F: Fs> Broker<F> {
                     }
                 }
                 self.partitions.close_topic(topic.id).await;
+                self.shares.forget_topic(topic.id.to_uuid());
                 blocking::run(|| self.clear_topic_data(&topic));
                 out.topics += 1;
                 out.freed_bytes += held;

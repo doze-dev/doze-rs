@@ -102,24 +102,32 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     stop: &CancellationToken,
 ) -> End {
     let watch = ctx.numbers.watch(ctx.observer.as_ref(), peer);
-    let end = serve_loop(stream, ctx, peer, accepted, stop, watch.as_ref()).await;
+    let connection = NEXT_CONNECTION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let end = serve_loop(stream, ctx, (peer, connection), accepted, stop, watch.as_ref()).await;
+    // The share sessions it opened close with it, and what their members held is let go of (Kafka's disconnect listener).
+    ctx.broker.connection_closed(connection);
     if let Some(w) = &watch {
         w.observer.closed(w.conn, &end.to_string());
     }
     end
 }
 
+/// The number the next connection is given (0 is no connection's).
+static NEXT_CONNECTION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
 async fn serve_loop<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     stream: &mut S,
     ctx: &Context<F>,
-    peer: Option<std::net::SocketAddr>,
+    (peer, connection): (Option<std::net::SocketAddr>, u64),
     accepted: Instant,
     stop: &CancellationToken,
     watch: Option<&Watch>,
 ) -> End {
     let ip = peer.map(|p| p.ip());
     // What the broker is told of this connection: where it is from, for the group APIs that show members.
-    let listener = peer.map_or_else(|| ctx.listener.clone(), |p| ctx.listener.seen_from(p.ip()));
+    let listener = peer
+        .map_or_else(|| ctx.listener.clone(), |p| ctx.listener.seen_from(p.ip()))
+        .on_connection(connection);
     // And who it is: nobody in particular until a login says otherwise (and for good, if the server asks for none).
     let mut caller = Caller::anonymous(ip);
     let mut buf = BytesMut::with_capacity(BUFFER);

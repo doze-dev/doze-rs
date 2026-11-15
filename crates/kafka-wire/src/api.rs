@@ -41,6 +41,13 @@ use kafka_protocol::messages::{
     SaslAuthenticateRequest, SaslAuthenticateResponse, SaslHandshakeRequest, SaslHandshakeResponse,
     SyncGroupRequest, SyncGroupResponse, TxnOffsetCommitRequest, TxnOffsetCommitResponse,
 };
+use kafka_protocol::messages::{
+    AlterShareGroupOffsetsRequest, AlterShareGroupOffsetsResponse, DeleteShareGroupOffsetsRequest,
+    DeleteShareGroupOffsetsResponse, DescribeShareGroupOffsetsRequest,
+    DescribeShareGroupOffsetsResponse, ShareAcknowledgeRequest, ShareAcknowledgeResponse,
+    ShareFetchRequest, ShareFetchResponse, ShareGroupDescribeRequest, ShareGroupDescribeResponse,
+    ShareGroupHeartbeatRequest, ShareGroupHeartbeatResponse,
+};
 use kafka_protocol::protocol::{Decodable, Encodable};
 
 use crate::error::WireError;
@@ -178,4 +185,12 @@ served_apis! {
     AlterUserScramCredentials(AlterUserScramCredentialsRequest, AlterUserScramCredentialsResponse) [NONE, v(0, 0), v(0, 0), v(0, 0)];
     GetTelemetrySubscriptions(GetTelemetrySubscriptionsRequest, GetTelemetrySubscriptionsResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
     PushTelemetry(PushTelemetryRequest, PushTelemetryResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
+    // Share groups (KIP-932): Kafka 4.1 made them generally available, at the versions 4.4.0 serves.
+    ShareGroupHeartbeat(ShareGroupHeartbeatRequest, ShareGroupHeartbeatResponse) [NONE, NONE, NONE, v(1, 1)];
+    ShareGroupDescribe(ShareGroupDescribeRequest, ShareGroupDescribeResponse) [NONE, NONE, NONE, v(1, 1)];
+    ShareFetch(ShareFetchRequest, ShareFetchResponse) [NONE, NONE, NONE, v(1, 2)];
+    ShareAcknowledge(ShareAcknowledgeRequest, ShareAcknowledgeResponse) [NONE, NONE, NONE, v(1, 2)];
+    DescribeShareGroupOffsets(DescribeShareGroupOffsetsRequest, DescribeShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 1)];
+    AlterShareGroupOffsets(AlterShareGroupOffsetsRequest, AlterShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 0)];
+    DeleteShareGroupOffsets(DeleteShareGroupOffsetsRequest, DeleteShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 0)];
 }

@@ -161,6 +161,22 @@ impl<F: Fs> Broker<F> {
                     .map(|v| broker_entry(v, name.is_empty(), req))
                     .collect())
             }
+            GROUP => {
+                if name.is_empty() {
+                    return Err(Refused(
+                        E::InvalidRequest,
+                        Some("Group name must not be empty".to_owned()),
+                    ));
+                }
+                let own = kafka_wire::ids::GroupId::parse(name)
+                    .map(|g| self.group_configs.of(&g))
+                    .unwrap_or_default();
+                Ok(crate::group_configs::DEFS
+                    .iter()
+                    .filter(|d| wanted(d.name))
+                    .map(|d| group_entry(d, own.get(d.name), req))
+                    .collect())
+            }
             other => {
                 let u = unsupported(other);
                 Err(Refused(u.code, Some(u.message)))
@@ -200,6 +216,37 @@ fn topic_entry(
     c.documentation = None;
     if req.include_documentation {
         c.documentation = Some(text(e.doc));
+    }
+    c
+}
+
+/// One group config as DescribeConfigs shows it (Kafka's `ConfigHelper` for GROUP): the group's own value
+/// (`GROUP_CONFIG`, 8) or the broker's default (`DEFAULT_CONFIG`, 5), never read-only.
+fn group_entry(d: &crate::group_configs::Def, own: Option<&String>, req: &DescribeConfigsRequest) -> Config {
+    use crate::group_configs::Kind;
+    const GROUP_CONFIG: i8 = 8;
+    const DEFAULT_CONFIG: i8 = 5;
+    let mut c = Config::default();
+    c.name = text(d.name);
+    c.value = Some(text(own.map_or(d.default, String::as_str)));
+    c.read_only = false;
+    c.config_source = if own.is_some() {
+        GROUP_CONFIG
+    } else {
+        DEFAULT_CONFIG
+    };
+    c.config_type = match d.kind {
+        Kind::Bool => 1,
+        Kind::Text => 2,
+        Kind::Int { .. } => 3,
+    };
+    c.documentation = None;
+    if req.include_synonyms {
+        if let Some(v) = own {
+            c.synonyms.push(synonym(d.name, v, GROUP_CONFIG));
+        }
+        c.synonyms
+            .push(synonym(d.synonym.unwrap_or(d.name), d.default, DEFAULT_CONFIG));
     }
     c
 }
