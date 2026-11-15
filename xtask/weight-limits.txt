@@ -46,7 +46,9 @@
 # engine and its two APIs, the console's section and its words, four more APIs in the wire table and the recorder); times 1.3747 is
 # 11,500,982 B on ubuntu x86_64, under this line by 48,554 B, so the line does not move. Packages 186, no new package. Idle 7,904 KB on darwin
 # (median of three): nothing is metered or allocated while no quota is set. The margin is thin: the next growth moves the line or trims.
-doze-kafka 11500713 182 11689 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-15, OffsetForLeaderEpoch, DescribeLogDirs and client quotas with leader epoch 0 (docs/port/behaviours/quotas.md): darwin arm64
+# 8,166,320 B (+198,720 B), 182 packages (none added), idle 7,776 KB; times 1.3747 = 11,226,240 B, plus 5% = 11,787,552 B until CI measures it.
+doze-kafka 11787552 182 11689 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
