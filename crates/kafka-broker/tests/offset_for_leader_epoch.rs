@@ -24,6 +24,8 @@ use support::{Rig, records, rig, rig_with, topic, wire_name};
 
 /// (partition, current leader epoch, epoch asked about)
 type Ask = (i32, i32, i32);
+/// A topic of the answer with its partitions as (partition, code, epoch, end offset).
+type Answered = (String, Vec<(i32, i16, i32, i64)>);
 
 fn request(asks: &[(&str, &[Ask])], replica: i32) -> OffsetForLeaderEpochRequest {
     let mut req = OffsetForLeaderEpochRequest::default();
@@ -49,7 +51,7 @@ async fn ask(
     who: &Caller,
     version: i16,
     req: OffsetForLeaderEpochRequest,
-) -> Vec<(String, Vec<(i32, i16, i32, i64)>)> {
+) -> Vec<Answered> {
     let Response::OffsetForLeaderEpoch(r) = rig
         .ask_as(who, version, Request::OffsetForLeaderEpoch(req))
         .await

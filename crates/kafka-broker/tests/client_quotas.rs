@@ -29,11 +29,12 @@ use support::acls::{ALLOW, CLUSTER, LITERAL, closed_world, creation, grant, user
 use support::{Rig, at, open_on, produce_request, records, rig, rig_with, topic, wire_name};
 
 type Entity<'a> = &'a [(&'a str, Option<&'a str>)];
+/// One entity's alteration: each key set to a value or removed (`None`).
+type Change<'a> = (Entity<'a>, &'a [(&'a str, Option<f64>)]);
+/// An entity as `type=name` pairs, and its values.
+type Listed = (Vec<String>, Vec<(String, f64)>);
 
-fn alter(
-    entries: &[(Entity<'_>, &[(&str, Option<f64>)])],
-    validate_only: bool,
-) -> AlterClientQuotasRequest {
+fn alter(entries: &[Change<'_>], validate_only: bool) -> AlterClientQuotasRequest {
     let mut req = AlterClientQuotasRequest::default();
     req.validate_only = validate_only;
     for (entity, ops) in entries {
@@ -98,7 +99,7 @@ async fn describe_as(
 }
 
 /// Every entity described, as `type=name` pairs, with its values.
-fn listed(r: &DescribeClientQuotasResponse) -> Vec<(Vec<String>, Vec<(String, f64)>)> {
+fn listed(r: &DescribeClientQuotasResponse) -> Vec<Listed> {
     (r.entries.iter().flatten())
         .map(|e| {
             let entity = (e.entity.iter())
@@ -133,7 +134,7 @@ async fn quotas_set_are_described_and_kept_across_a_restart() {
     fs.create_dir(std::path::Path::new("/")).ok();
     let rig = open_on(fs.clone());
     let me = support::caller();
-    let set: &[(Entity<'_>, &[(&str, Option<f64>)])] = &[
+    let set: &[Change<'_>] = &[
         (
             ALICE,
             &[
@@ -167,8 +168,7 @@ async fn quotas_set_are_described_and_kept_across_a_restart() {
     let again = open_on(fs);
     assert_eq!(listed(&describe_as(&again, &me, &[], false).await), want);
     // Removing every key of an entity removes it, durably too.
-    let clear: &[(Entity<'_>, &[(&str, Option<f64>)])] =
-        &[(DEFAULT_CLIENT, &[("request_percentage", None)])];
+    let clear: &[Change<'_>] = &[(DEFAULT_CLIENT, &[("request_percentage", None)])];
     assert_eq!(
         codes(&alter_as(&again, &me, alter(clear, false)).await),
         [0]
@@ -183,7 +183,7 @@ async fn quotas_set_are_described_and_kept_across_a_restart() {
 async fn a_refused_entry_is_invalid_request_with_kafkas_words_and_the_others_stand() {
     let rig = rig();
     let me = support::caller();
-    let req: &[(Entity<'_>, &[(&str, Option<f64>)])] = &[
+    let req: &[Change<'_>] = &[
         (
             &[("user", Some("bob"))],
             &[("producer_byte_rate", Some(1.5))],
@@ -281,15 +281,11 @@ fn head(key: ApiKey, version: i16, client: &str) -> RequestHead {
 async fn serve(
     rig: &Rig,
     who: &Caller,
-    key: ApiKey,
-    version: i16,
-    client: &str,
+    head: RequestHead,
     request: Request,
     size: usize,
 ) -> Served {
-    rig.broker
-        .serve(&at(), who, &head(key, version, client), request, size)
-        .await
+    rig.broker.serve(&at(), who, &head, request, size).await
 }
 
 fn throttle_of(outcome: &Outcome) -> i32 {
@@ -310,9 +306,7 @@ async fn with_no_quota_a_clients_request_is_served_as_the_consoles_and_never_mut
     let served = serve(
         &rig,
         &support::caller(),
-        ApiKey::Produce,
-        9,
-        "p",
+        head(ApiKey::Produce, 9, "p"),
         Request::Produce(req),
         10_000_000,
     )
@@ -325,7 +319,7 @@ async fn with_no_quota_a_clients_request_is_served_as_the_consoles_and_never_mut
 async fn a_producer_over_its_byte_rate_is_answered_with_the_throttle_and_muted_for_it() {
     let rig = rig();
     rig.create(vec![topic("orders", 1)], false).await;
-    let set: &[(Entity<'_>, &[(&str, Option<f64>)])] = &[(
+    let set: &[Change<'_>] = &[(
         &[("client-id", Some("p"))],
         &[("producer_byte_rate", Some(1000.0))],
     )];
@@ -333,7 +327,14 @@ async fn a_producer_over_its_byte_rate_is_answered_with_the_throttle_and_muted_f
     let anyone = support::caller();
     let produce = || Request::Produce(produce_request(-1, "orders", &[(0, records(1))]));
     // 50 000 bytes over a span of ten seconds is 5 000/s: four times over, for about 40 s.
-    let served = serve(&rig, &anyone, ApiKey::Produce, 9, "p", produce(), 50_000).await;
+    let served = serve(
+        &rig,
+        &anyone,
+        head(ApiKey::Produce, 9, "p"),
+        produce(),
+        50_000,
+    )
+    .await;
     let throttle = throttle_of(&served.outcome);
     assert!((39_000..=40_001).contains(&throttle), "{throttle}");
     assert_eq!(
@@ -346,7 +347,14 @@ async fn a_producer_over_its_byte_rate_is_answered_with_the_throttle_and_muted_f
     };
     assert_eq!(r.responses[0].partition_responses[0].error_code, 0);
     // Another client id is not held to it, and the console never is.
-    let other = serve(&rig, &anyone, ApiKey::Produce, 9, "q", produce(), 50_000).await;
+    let other = serve(
+        &rig,
+        &anyone,
+        head(ApiKey::Produce, 9, "q"),
+        produce(),
+        50_000,
+    )
+    .await;
     assert!(other.mute.is_none());
     assert!(matches!(
         rig.broker
@@ -375,7 +383,7 @@ async fn a_fetch_over_its_byte_rate_is_answered_empty_and_its_bytes_are_given_ba
             0
         );
     }
-    let set: &[(Entity<'_>, &[(&str, Option<f64>)])] = &[(
+    let set: &[Change<'_>] = &[(
         &[("client-id", Some("c"))],
         &[("consumer_byte_rate", Some(10.0))],
     )];
@@ -395,9 +403,7 @@ async fn a_fetch_over_its_byte_rate_is_answered_empty_and_its_bytes_are_given_ba
     let first = serve(
         &rig,
         &support::caller(),
-        ApiKey::Fetch,
-        12,
-        "c",
+        head(ApiKey::Fetch, 12, "c"),
         fetch(),
         100,
     )
@@ -415,8 +421,7 @@ async fn a_fetch_over_its_byte_rate_is_answered_empty_and_its_bytes_are_given_ba
 async fn the_mutation_quota_refuses_the_topic_after_the_one_that_empties_it_from_v6_and_throttles_below()
  {
     let rig = rig();
-    let set: &[(Entity<'_>, &[(&str, Option<f64>)])] =
-        &[(DEFAULT_CLIENT, &[("controller_mutation_rate", Some(1.0))])];
+    let set: &[Change<'_>] = &[(DEFAULT_CLIENT, &[("controller_mutation_rate", Some(1.0))])];
     alter_as(&rig, &support::caller(), alter(set, false)).await;
     let create = |names: &[&str]| {
         let mut req = CreateTopicsRequest::default();
@@ -426,9 +431,7 @@ async fn the_mutation_quota_refuses_the_topic_after_the_one_that_empties_it_from
     let served = serve(
         &rig,
         &support::caller(),
-        ApiKey::CreateTopics,
-        7,
-        "admin",
+        head(ApiKey::CreateTopics, 7, "admin"),
         create(&["a", "b", "c", "d"]),
         100,
     )
@@ -451,9 +454,7 @@ async fn the_mutation_quota_refuses_the_topic_after_the_one_that_empties_it_from
     let old = serve(
         &rig,
         &support::caller(),
-        ApiKey::CreateTopics,
-        5,
-        "admin",
+        head(ApiKey::CreateTopics, 5, "admin"),
         create(&["e"]),
         100,
     )

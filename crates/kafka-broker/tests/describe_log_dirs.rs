@@ -50,7 +50,10 @@ async fn ask(
 }
 
 /// Each topic listed, with (partition, size, lag, future).
-fn listed(r: &DescribeLogDirsResponse) -> Vec<(String, Vec<(i32, i64, i64, bool)>)> {
+/// A topic and its partitions as (partition, size, lag, future).
+type Listed = (String, Vec<(i32, i64, i64, bool)>);
+
+fn listed(r: &DescribeLogDirsResponse) -> Vec<Listed> {
     r.results[0]
         .topics
         .iter()

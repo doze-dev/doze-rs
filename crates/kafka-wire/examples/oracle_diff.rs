@@ -200,7 +200,7 @@ fn produce(name: &str, partition: i32, value: &str) -> ProduceRequest {
     req
 }
 
-fn epochs(asks: &[(&str, &[(i32, i32, i32)])], replica: i32) -> OffsetForLeaderEpochRequest {
+fn epochs(asks: &[(&str, &[Ask])], replica: i32) -> OffsetForLeaderEpochRequest {
     let mut req = OffsetForLeaderEpochRequest::default();
     req.replica_id = BrokerId(replica);
     for (name, parts) in asks {
@@ -248,11 +248,16 @@ fn norm_log_dirs(r: &mut DescribeLogDirsResponse) {
 }
 
 type Entity<'a> = &'a [(&'a str, Option<&'a str>)];
+/// One quota key set to a value or removed (`None`).
+type Op<'a> = (&'a str, Option<f64>);
+/// One entity's alteration.
+type Change<'a> = (Entity<'a>, &'a [Op<'a>]);
+/// (partition, current leader epoch, epoch asked about)
+type Ask = (i32, i32, i32);
+/// A DescribeClientQuotas filter: its name, its components (type, match type, name) and whether it is strict.
+type FilterCase<'a> = (&'a str, &'a [(&'a str, i8, Option<&'a str>)], bool);
 
-fn alter(
-    entries: &[(Entity<'_>, &[(&str, Option<f64>)])],
-    validate: bool,
-) -> AlterClientQuotasRequest {
+fn alter(entries: &[Change<'_>], validate: bool) -> AlterClientQuotasRequest {
     let mut req = AlterClientQuotasRequest::default();
     req.validate_only = validate;
     for (entity, ops) in entries {
@@ -341,7 +346,7 @@ fn leader_epochs(pair: &mut Pair) {
     for value in ["a", "bb", "ccc", "dddd"] {
         pair.produce("oracle-epochs", 0, value);
     }
-    let cases: &[(i32, i32, i32)] = &[
+    let cases: &[Ask] = &[
         (0, -1, 0),
         (1, -1, 0),
         (0, -1, 1),
@@ -444,7 +449,7 @@ fn client_quotas(pair: &mut Pair) {
     let default_user_c1: Entity<'_> = &[("user", None), ("client-id", Some("c1"))];
     let default_client: Entity<'_> = &[("client-id", None)];
     let ip: Entity<'_> = &[("ip", Some("127.0.0.1"))];
-    let set: &[(Entity<'_>, &[(&str, Option<f64>)])] = &[
+    let set: &[Change<'_>] = &[
         (
             alice,
             &[
@@ -482,7 +487,7 @@ fn client_quotas(pair: &mut Pair) {
         norm_alter,
     );
     pair.settle_quotas();
-    let refused: &[(Entity<'_>, &[(&str, Option<f64>)])] = &[
+    let refused: &[Change<'_>] = &[
         (&[], &[("producer_byte_rate", Some(1.0))]),
         (
             &[("group", Some("g"))],
@@ -558,7 +563,7 @@ fn client_quotas(pair: &mut Pair) {
         norm_alter,
     );
     pair.settle_quotas();
-    let filters: &[(&str, &[(&str, i8, Option<&str>)], bool)] = &[
+    let filters: &[FilterCase<'_>] = &[
         ("everything", &[], false),
         ("strict nothing", &[], true),
         ("alice", &[("user", 0, Some("alice"))], false),
@@ -597,12 +602,11 @@ fn client_quotas(pair: &mut Pair) {
         }
     }
     // Everything removed again: removing the last key of an entity removes the entity.
-    let clear: Vec<(Entity<'_>, Vec<(&str, Option<f64>)>)> = set
+    let clear: Vec<(Entity<'_>, Vec<Op<'_>>)> = set
         .iter()
         .map(|(e, ops)| (*e, ops.iter().map(|(k, _)| (*k, None)).collect()))
         .collect();
-    let clear: Vec<(Entity<'_>, &[(&str, Option<f64>)])> =
-        clear.iter().map(|(e, ops)| (*e, ops.as_slice())).collect();
+    let clear: Vec<Change<'_>> = clear.iter().map(|(e, ops)| (*e, ops.as_slice())).collect();
     pair.same::<_, AlterClientQuotasResponse>(
         "clear",
         ApiKey::AlterClientQuotas,
@@ -610,7 +614,7 @@ fn client_quotas(pair: &mut Pair) {
         &alter(&clear, false),
         norm_alter,
     );
-    let b8: &[(Entity<'_>, &[(&str, Option<f64>)])] = &[(
+    let b8: &[Change<'_>] = &[(
         &[("user", Some("b8"))],
         &[("producer_byte_rate", None), ("consumer_byte_rate", None)],
     )];
@@ -633,7 +637,7 @@ fn client_quotas(pair: &mut Pair) {
 
 /// `controller_mutation_rate`: a bucket of 11 seconds' worth; the topic that empties it is made, the next refused.
 fn mutation_quota(pair: &mut Pair, kafka: &str, doze: &str) {
-    let rate: &[(Entity<'_>, &[(&str, Option<f64>)])] = &[(
+    let rate: &[Change<'_>] = &[(
         &[("client-id", Some("oracle-diff"))],
         &[("controller_mutation_rate", Some(1.0))],
     )];
@@ -726,7 +730,7 @@ fn mutation_quota(pair: &mut Pair, kafka: &str, doze: &str) {
         norm,
     );
     pair.reconnect(kafka, doze);
-    let unset: &[(Entity<'_>, &[(&str, Option<f64>)])] = &[(
+    let unset: &[Change<'_>] = &[(
         &[("client-id", Some("oracle-diff"))],
         &[("controller_mutation_rate", None)],
     )];

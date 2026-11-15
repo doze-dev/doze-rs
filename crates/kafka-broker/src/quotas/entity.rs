@@ -244,12 +244,15 @@ const MATCH_EXACT: i8 = 0;
 const MATCH_DEFAULT: i8 = 1;
 const MATCH_SPECIFIED: i8 = 2;
 
+/// The entities a filter matched, with their values.
+pub(crate) type Matched<'a> = Vec<(&'a QuotaEntity, &'a BTreeMap<String, f64>)>;
+
 /// The entities a DescribeClientQuotas filter matches (`ClientQuotasImage.describe`), or why the filter is refused.
 pub(crate) fn describe<'a>(
     set: &'a BTreeMap<QuotaEntity, BTreeMap<String, f64>>,
     components: &[Component],
     strict: bool,
-) -> Result<Vec<(&'a QuotaEntity, &'a BTreeMap<String, f64>)>, (ResponseError, String)> {
+) -> Result<Matched<'a>, (ResponseError, String)> {
     let (exact, typed) = read_filter(components)?;
     let invalid = |m: &str| (ResponseError::InvalidRequest, m.to_owned());
     let named = |t: &str| exact.iter().any(|(k, _)| *k == t) || typed.contains(&t);

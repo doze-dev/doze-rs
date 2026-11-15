@@ -69,18 +69,7 @@ impl<F: Fs> Broker<F> {
             id: head.client_id.as_deref().unwrap_or(""),
         };
         let unacknowledged = matches!(&request, Request::Produce(r) if r.acks == 0);
-        if let Request::Fetch(r) = &mut request
-            && let Some(most) = self.quotas.most_in_window(QuotaKind::Fetch, who)
-        {
-            // Java's `(int)` of the double: saturating, as `as` is.
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "saturates, as Java's cast does"
-            )]
-            let most = most as i32;
-            r.max_bytes = r.max_bytes.min(most);
-            r.min_bytes = r.min_bytes.min(r.max_bytes);
-        }
+        self.cap_fetch(&mut request, who);
         let mut mutations = match strict_since(head.key) {
             Some(v) => self.quotas.mutations(who, head.version >= v),
             None => Mutations::unbounded(),
@@ -94,7 +83,7 @@ impl<F: Fs> Broker<F> {
             self.quotas
                 .record(QuotaKind::Request, who, percent_of_a_second(busy), now)
         };
-        let (other, other_ms) = match head.key {
+        let other = match head.key {
             ApiKey::Produce => {
                 #[expect(
                     clippy::cast_precision_loss,
@@ -113,6 +102,36 @@ impl<F: Fs> Broker<F> {
             }
             _ => (QuotaKind::Request, 0),
         };
+        self.throttled(outcome, who, request_ms, other, now)
+    }
+
+    /// A consumer's Fetch asks for no more than it may be sent in one go (`KafkaApis.handleFetchRequest`: `fetchMaxBytes` is cut
+    /// to `maxValueInQuotaWindow`, and `fetchMinBytes` to that).
+    fn cap_fetch(&self, request: &mut Request, who: Client<'_>) {
+        if let Request::Fetch(r) = request
+            && let Some(most) = self.quotas.most_in_window(QuotaKind::Fetch, who)
+        {
+            // Java's `(int)` of the double: saturating, as `as` is.
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "saturates, as Java's cast does"
+            )]
+            let most = most as i32;
+            r.max_bytes = r.max_bytes.min(most);
+            r.min_bytes = r.min_bytes.min(r.max_bytes);
+        }
+    }
+
+    /// The outcome with the longer of the request quota's throttle and the other quota's (`other`), noted for the console and
+    /// written into the answer, and the mute it comes to. On a tie the request quota is the one blamed, as in Kafka.
+    fn throttled(
+        &self,
+        mut outcome: Outcome,
+        who: Client<'_>,
+        request_ms: i32,
+        (other, other_ms): (QuotaKind, i32),
+        now: i64,
+    ) -> Served {
         let throttle = request_ms.max(other_ms);
         if throttle == 0 {
             return Served {

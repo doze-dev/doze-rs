@@ -18,7 +18,7 @@ no part "Invalid empty client quota entity"; a type other than `user`, `client-i
 an empty name "Empty T not supported"; an address with a user or client id "Invalid quota entity combination, IP entity
 shouldnot be combined with User or ClientId" (Kafka's missing space kept); an address that is neither an address nor a name
 that resolves "A is not a valid IP or resolvable host.". A type named twice keeps the last name (the request is read into a map).
-Test: `quotas::entity::tests::each_refusal_is_kafkas_message`, `::an_address_must_be_one_or_resolve`; oracle steps `refusals`
+Test: `quotas::entity::tests::each_refusal_of_an_entity_is_kafkas_message`, `::an_address_must_be_one_or_resolve`; oracle steps `refusals`
 
 ## QT-2. Each key belongs to its entity, is finite, above zero and whole where Kafka's type is (source)
 `validateQuotaKeyValue`: a user or client id takes `producer_byte_rate` and `consumer_byte_rate` (LONG) and
@@ -26,7 +26,7 @@ Test: `quotas::entity::tests::each_refusal_is_kafkas_message`, `::an_address_mus
 "Invalid configuration key K"; not finite "Quota K must be a finite number"; zero or less "Quota K must be greater than 0";
 past the type "Proposed value for K is too large for a LONG." / "an INT."; a remainder over 1e-6 "K cannot be a fractional
 value.". One bad value refuses the whole entity; the other entities of the request stand.
-Test: `quotas::entity::tests::each_refusal_is_kafkas_message`, `::doubles_take_fractions_and_a_tiny_remainder_is_a_whole_number`,
+Test: `quotas::entity::tests::each_refusal_of_a_value_is_kafkas_message`, `::doubles_take_fractions_and_a_tiny_remainder_is_a_whole_number`,
 `tests/client_quotas.rs::a_refused_entry_is_invalid_request_with_kafkas_words_and_the_others_stand`
 
 ## QT-3. Duplicates (source)

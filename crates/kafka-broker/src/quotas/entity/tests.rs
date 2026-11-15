@@ -25,10 +25,19 @@ fn err_of(altered: &Altered, at: usize) -> Option<&str> {
         .and_then(|(_, r)| r.as_ref().err().map(String::as_str))
 }
 
-#[test]
-fn each_refusal_is_kafkas_message() {
+/// Each alteration is refused alone, with the message, and changes nothing.
+fn refused_as(cases: &[(Alteration, &str)]) {
     let none = BTreeMap::new();
-    let cases: Vec<(Alteration, &str)> = vec![
+    for (a, want) in cases {
+        let got = alter(&none, std::slice::from_ref(a));
+        assert_eq!(err_of(&got, 0), Some(*want), "{a:?}");
+        assert!(!got.changed && got.set.is_empty());
+    }
+}
+
+#[test]
+fn each_refusal_of_an_entity_is_kafkas_message() {
+    refused_as(&[
         (alteration(&[], vec![]), "Invalid empty client quota entity"),
         (
             alteration(&[("group", Some("g"))], vec![]),
@@ -43,45 +52,6 @@ fn each_refusal_is_kafkas_message() {
             "Invalid quota entity combination, IP entity shouldnot be combined with User or ClientId",
         ),
         (
-            alteration(&[("user", Some("a"))], vec![set_op("bogus", 1.0)]),
-            "Invalid configuration key bogus",
-        ),
-        (
-            alteration(
-                &[("user", Some("a"))],
-                vec![set_op("producer_byte_rate", 0.0)],
-            ),
-            "Quota producer_byte_rate must be greater than 0",
-        ),
-        (
-            alteration(
-                &[("user", Some("a"))],
-                vec![set_op("producer_byte_rate", f64::NAN)],
-            ),
-            "Quota producer_byte_rate must be a finite number",
-        ),
-        (
-            alteration(
-                &[("user", Some("a"))],
-                vec![set_op("producer_byte_rate", 1.5)],
-            ),
-            "producer_byte_rate cannot be a fractional value.",
-        ),
-        (
-            alteration(
-                &[("user", Some("a"))],
-                vec![set_op("consumer_byte_rate", 1e19)],
-            ),
-            "Proposed value for consumer_byte_rate is too large for a LONG.",
-        ),
-        (
-            alteration(
-                &[("ip", None)],
-                vec![set_op("connection_creation_rate", 3e9)],
-            ),
-            "Proposed value for connection_creation_rate is too large for an INT.",
-        ),
-        (
             alteration(&[("ip", None)], vec![set_op("producer_byte_rate", 1.0)]),
             "Invalid configuration key producer_byte_rate",
         ),
@@ -92,12 +62,38 @@ fn each_refusal_is_kafkas_message() {
             ),
             "Invalid configuration key connection_creation_rate",
         ),
-    ];
-    for (a, want) in cases {
-        let got = alter(&none, std::slice::from_ref(&a));
-        assert_eq!(err_of(&got, 0), Some(want), "{a:?}");
-        assert!(!got.changed && got.set.is_empty());
-    }
+    ]);
+}
+
+#[test]
+fn each_refusal_of_a_value_is_kafkas_message() {
+    let a = |key: &str, v: f64| alteration(&[("user", Some("a"))], vec![set_op(key, v)]);
+    refused_as(&[
+        (a("bogus", 1.0), "Invalid configuration key bogus"),
+        (
+            a("producer_byte_rate", 0.0),
+            "Quota producer_byte_rate must be greater than 0",
+        ),
+        (
+            a("producer_byte_rate", f64::NAN),
+            "Quota producer_byte_rate must be a finite number",
+        ),
+        (
+            a("producer_byte_rate", 1.5),
+            "producer_byte_rate cannot be a fractional value.",
+        ),
+        (
+            a("consumer_byte_rate", 1e19),
+            "Proposed value for consumer_byte_rate is too large for a LONG.",
+        ),
+        (
+            alteration(
+                &[("ip", None)],
+                vec![set_op("connection_creation_rate", 3e9)],
+            ),
+            "Proposed value for connection_creation_rate is too large for an INT.",
+        ),
+    ]);
 }
 
 #[test]
@@ -110,7 +106,7 @@ fn doubles_take_fractions_and_a_tiny_remainder_is_a_whole_number() {
             vec![
                 set_op("request_percentage", 12.5),
                 set_op("controller_mutation_rate", 0.5),
-                set_op("producer_byte_rate", 1024.000_000_1),
+                set_op("producer_byte_rate", 1_024.000_000_1),
             ],
         )],
     );
