@@ -810,6 +810,10 @@ carry it. Idle 7,952 KB on darwin (nothing new runs: the usage is walked when a 
 doze-aws held (median 8,728 KB of 9,413) and the lean build's idle held (6,920 KB of 7,229). doze-kafka's idle has risen about 1.2 MB since
 2026-11-12 (the console, then the registry on by default); that is in issue #36.
 
+**`weight-tls-idle` after the efficiency pass (2026-11-15).** Line not moved: main's idle with TLS rose from about 10,820 KB to about
+11,300 KB at 3636c3d2, and the 11,479 KB line was measured before that. Bisected on aarch64 Linux: +268 KB, mostly 086e4b28 (`fix-correct`,
++132) and 0ee5cf74 (`fix-idle`, +68). Numbers and runs are in ci-health.md ("ci-flakes-2"); for the kafka session to explain or take back.
+
 doze-aws, from the same PR's next run (43592223803, main with the aws-tls, aws-gaps and aws-correctness merges): 13,128,520 B and 274
 packages, inside the 13,900,000 B / 280 lines its stage set; idle 9,964 / 10,036 / 10,024 KB, median 10,024 KB, so its idle line is
 **10,526 KB** (was 9,413). That is +1.06 MB over the median of 8,964 KB measured before those merges; added to issue #36 beside the A14 to
