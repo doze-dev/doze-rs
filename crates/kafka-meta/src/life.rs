@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::MetaError;
 
-const VERSION: u8 = 2;
+const VERSION: u8 = 3;
 
 /// A group's membership, as last recorded.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -22,6 +22,18 @@ pub struct GroupLife {
     pub protocol_type: String,
     /// Set for a group of the new protocol (KIP-848): what is needed to list and describe it again after a restart.
     pub consumer: Option<ConsumerLife>,
+    /// Set for a share group (KIP-932): what is needed to list and describe it again after a restart.
+    pub share: Option<ShareLife>,
+}
+
+/// What a share group keeps across a restart: its epochs (Kafka's `ShareGroupMetadataValue` and target assignment
+/// metadata).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ShareLife {
+    /// The group epoch.
+    pub epoch: i32,
+    /// The epoch the members' assignments were last computed for.
+    pub assignment_epoch: i32,
 }
 
 /// What a consumer group of the new protocol keeps across a restart: its epochs and its assignor.
@@ -44,6 +56,16 @@ struct V1 {
     protocol_type: String,
 }
 
+/// A record as the second version wrote it, before share groups.
+#[derive(Deserialize)]
+struct V2 {
+    live: bool,
+    session_ms: u32,
+    empty_since_ms: Option<i64>,
+    protocol_type: String,
+    consumer: Option<ConsumerLife>,
+}
+
 impl GroupLife {
     pub(crate) fn encode(&self) -> Result<Vec<u8>, MetaError> {
         postcard::to_extend(self, vec![VERSION])
@@ -55,6 +77,17 @@ impl GroupLife {
         let (version, body) = bytes.split_first().ok_or_else(|| corrupt("empty"))?;
         match *version {
             VERSION => postcard::from_bytes(body).map_err(|e| corrupt(&e.to_string())),
+            2 => {
+                let old: V2 = postcard::from_bytes(body).map_err(|e| corrupt(&e.to_string()))?;
+                Ok(Self {
+                    live: old.live,
+                    session_ms: old.session_ms,
+                    empty_since_ms: old.empty_since_ms,
+                    protocol_type: old.protocol_type,
+                    consumer: old.consumer,
+                    share: None,
+                })
+            }
             1 => {
                 let old: V1 = postcard::from_bytes(body).map_err(|e| corrupt(&e.to_string()))?;
                 Ok(Self {
@@ -63,6 +96,7 @@ impl GroupLife {
                     empty_since_ms: old.empty_since_ms,
                     protocol_type: old.protocol_type,
                     consumer: None,
+                    share: None,
                 })
             }
             _ => Err(corrupt(&format!("version {version} is not known"))),
@@ -86,6 +120,7 @@ mod tests {
                 assignment_epoch: 2,
                 assignor: "uniform".into(),
             }),
+            share: None,
         };
         let mut bytes = life.encode().unwrap();
         assert_eq!(GroupLife::decode(&bytes).unwrap(), life);
@@ -119,5 +154,34 @@ mod compatibility {
         let life = GroupLife::decode(&bytes).unwrap();
         assert_eq!((life.empty_since_ms, life.consumer), (Some(42), None));
         assert_eq!(life.protocol_type, "consumer");
+    }
+
+    #[test]
+    fn a_record_the_second_version_wrote_keeps_its_consumer_group_and_is_no_share_group() {
+        // Version byte 2: the first version's fields and the consumer group's, as that version had them.
+        #[derive(Serialize)]
+        struct Second {
+            live: bool,
+            session_ms: u32,
+            empty_since_ms: Option<i64>,
+            protocol_type: String,
+            consumer: Option<ConsumerLife>,
+        }
+        let kept = ConsumerLife {
+            epoch: 7,
+            assignment_epoch: 6,
+            assignor: "range".into(),
+        };
+        let second = Second {
+            live: true,
+            session_ms: 45_000,
+            empty_since_ms: None,
+            protocol_type: "consumer".into(),
+            consumer: Some(kept.clone()),
+        };
+        let bytes = postcard::to_extend(&second, vec![2]).unwrap();
+        let life = GroupLife::decode(&bytes).unwrap();
+        assert_eq!((life.consumer, life.share), (Some(kept), None));
+        assert_eq!((life.live, life.session_ms), (true, 45_000));
     }
 }

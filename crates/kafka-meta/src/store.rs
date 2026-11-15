@@ -8,10 +8,12 @@ mod offsets;
 mod producer_ids;
 mod registry;
 mod schemas;
+mod shares;
 mod topics;
 mod txns;
 
 pub use schemas::Records;
+pub use shares::ShareStateWrite;
 pub use topics::random_topic_id;
 
 use std::path::Path;
@@ -49,6 +51,11 @@ pub(super) const CREDENTIALS: TableDefinition<'static, &[u8], &[u8]> =
 /// The schema registry's records, opaque here (`store/schemas.rs`). Absent from a database made before the registry kept anything, which
 /// the reads take as none and the first write makes.
 pub(super) const SCHEMAS: TableDefinition<'static, &[u8], &[u8]> = TableDefinition::new("schemas");
+
+/// The share groups' partition states (`store/shares.rs` for the key). Absent from a database made before share groups,
+/// which the reads take as none and the first write makes.
+pub(super) const SHARE_STATES: TableDefinition<'static, &[u8], &[u8]> =
+    TableDefinition::new("share_states");
 
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
 

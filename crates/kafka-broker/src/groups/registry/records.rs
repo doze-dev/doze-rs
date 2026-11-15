@@ -70,6 +70,7 @@ impl Records for StoreRecords {
             empty_since_ms: None,
             protocol_type: protocol_type.to_owned(),
             consumer,
+            share: None,
         })
     }
 
@@ -81,6 +82,7 @@ impl Records for StoreRecords {
             empty_since_ms: consumer.is_none().then_some(now_ms),
             protocol_type: protocol_type.to_owned(),
             consumer,
+            share: None,
         })
     }
 }

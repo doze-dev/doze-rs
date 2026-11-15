@@ -94,6 +94,7 @@ impl MetaStore {
         }
         // Its offsets go with it, in the same commit.
         super::offsets::remove_topic(&txn, name)?;
+        super::shares::remove_topic(&txn, name)?;
         txn.commit()?;
         self.shared.write().remove(name);
         Ok(Some(topic))
