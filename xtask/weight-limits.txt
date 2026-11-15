@@ -29,6 +29,11 @@
 # which does not move. Packages 186: no new package (the unique names are 143 before and after); the two more lines are repeat entries,
 # `doze-fs (*)` (kafka-console now asks doze-fs for its `space` feature) and `rustix (*)` (doze-fs reaches rustix, already there by doze-os).
 # The lean build is unchanged in packages (`space` is off there). Idle 7,952 KB on darwin, under the line.
+# 2026-11-15, OffsetForLeaderEpoch, DescribeLogDirs and client quotas (docs/port/behaviours/quotas.md: the four quotas measured and enforced as
+# Kafka does, the Access page's quota section): darwin arm64 8,366,176 B against data control's 8,167,424 B (+198,752 B, +2.4%: the quota
+# engine and its two APIs, the console's section and its words, four more APIs in the wire table and the recorder); times 1.3747 is
+# 11,500,982 B on ubuntu x86_64, under this line by 48,554 B, so the line does not move. Packages 186, no new package. Idle 7,904 KB on darwin
+# (median of three): nothing is metered or allocated while no quota is set. The margin is thin: the next growth moves the line or trims.
 doze-kafka 11549536 186 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
