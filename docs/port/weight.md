@@ -805,3 +805,43 @@ doze-aws, from the same PR's next run (43592223803, main with the aws-tls, aws-g
 packages, inside the 13,900,000 B / 280 lines its stage set; idle 9,964 / 10,036 / 10,024 KB, median 10,024 KB, so its idle line is
 **10,526 KB** (was 9,413). That is +1.06 MB over the median of 8,964 KB measured before those merges; added to issue #36 beside the A14 to
 A16 step. In the same run doze-kafka's idle median was 10,648 KB, inside its new 11,013 KB.
+
+## The lean line after the efficiency pass (2026-11-15)
+
+Main's runs on 3636c3d2 (43665814939) and 1f182947 (43696911937) measured the lean build (`weight-lean`) at **5,450,072 B**, over the exact
+5,274,120 B line: +175,952 B (+3.3%), packages unchanged (125), idle 6,904 and 7,008 KB (inside 7,229). The kafka session's 6985735d moved
+the default build's line for the same work and left the lean line where it was.
+
+Bisected by cross-building the lean binary for x86_64 Linux on darwin (zig as the linker; 5,300,368 B where CI has 5,274,120, so the
+steps, not the absolute number, are what count) over the first-parent merges of the kafka session:
+
+| commit | what | x86_64 lean | step |
+|---|---|---|---|
+| 33ed4871 | before the pass (same as 987233f8, the aws side CI measured at 5,274,120) | 5,300,368 B | |
+| 086e4b28 | `fix-correct` merged | 5,326,856 B | +26,488 |
+| 0ee5cf74 | `fix-idle` merged | 5,407,360 B | +80,504 |
+| 07c07a88 | `fix-idiom` merged | 5,476,976 B | +69,616 |
+| 3636c3d2 | the rest (interop docs, Metadata v12 by id) | 5,477,440 B | +464 |
+
+Darwin arm64 shows the same rise (3,950,064 to 4,082,544 B, +3.4%). By symbol (unstripped x86_64 builds, `llvm-nm --size-sort`), +156,842 B
+of code: `Response::compute_size` and the per-message `compute_size` methods (+37 KB and about +10 KB more; 445920b2 sizes a response's
+buffer up front instead of growing it by doubling), the idle chores' own tasks (the partition closer, the log sweeper, the transaction alarm,
+the offsets sweep on the blocking pool, the frame shelf's trim: about +35 KB of task and future code, fb8791ad, fea62b9f, 8fbc537c) and
+the group registry as a plain table (0d432949: `Groups::put` +12 KB against `Groups::ask` -15 KB). Every item is a deliberate change
+with its reason in the kafka docs; no new package and nothing unexpected, so this is a small, explained rise and the line follows it:
+**5,450,072 B**, exact, as before.
+
+## Data control reaches main (2026-11-15)
+
+The aws session's data-control merge (78ba6190, pushed to main) moved two lines in run 43703449990:
+
+- **doze-aws idle: 10,548 KB** (samples 10,492, 10,692, 10,548) over the 10,526 KB line; the six runs before had medians of 9,820 to 10,140 KB.
+  Bytes rose 511,112 B to 13,669,488 B (inside 13,900,000), packages 274. An A/B on aarch64 Linux (binaries cross-built on darwin with zig,
+  run in the Lima VM, 7 interleaved samples each): 8,184 KB before (727d8c3f), 8,596 KB after (dae5512c), 8,384 KB after with the start-time
+  size check left out. So about 210 KB is `mention_size` (run.rs, 9346ebbc), which walks the data directory on a one-shot OS thread: glibc keeps
+  the thread's arena and cached stack after it ends. The other 200 KB comes with the new code (the binary is 346 KB larger on aarch64). The line
+  is the median plus 5%, **11,075 KB**. The thread's share is avoidable (the walk could run before the runtime's threads start, or on a thread
+  that already exists) and is listed for the aws session in ci-health.md.
+- **weight-lean: 5,450,504 B** (+432 B; +368 B on the x86_64 cross-build). The only lean-tree crates the merge touched are doze-store and
+  doze-runtime; `Store` now keeps its file's path (d39dd0cd), and kafka-meta opens a `Store`. Kafka never calls `Db::close`, so the closing
+  compaction (58834909) does not run in the broker. The line follows: **5,450,504 B**.
