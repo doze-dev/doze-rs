@@ -8,6 +8,7 @@
 
 mod cdk;
 mod changes;
+mod data;
 mod stacks;
 mod templates;
 
@@ -27,6 +28,8 @@ use crate::{Cloudformation, Config};
 pub(super) struct World {
     pub(super) peers: Arc<Peers>,
     pub(super) caller: Caller,
+    /// The service itself, for what is asked of it beside the wire (`doze-aws data`).
+    pub(super) service: Arc<Cloudformation>,
     _dir: TempDir,
 }
 
@@ -50,6 +53,7 @@ impl World {
             })
         };
         let (iam, sts) = aws_iam::services(ctx("iam"));
+        let service = Arc::new(Cloudformation::with_config(ctx("cloudformation"), config));
         let services: Vec<Arc<dyn Service>> = vec![
             Arc::new(iam),
             Arc::new(sts),
@@ -60,7 +64,7 @@ impl World {
             Arc::new(aws_secrets::Secrets::new(ctx("secretsmanager"))),
             Arc::new(aws_s3::S3::new(ctx("s3"))),
             Arc::new(aws_dynamodb::Dynamodb::new(ctx("dynamodb"))),
-            Arc::new(Cloudformation::with_config(ctx("cloudformation"), config)),
+            Arc::clone(&service) as Arc<dyn Service>,
         ];
         for s in services {
             peers.register(s);
@@ -75,6 +79,7 @@ impl World {
                 service: None,
                 session_token: None,
             },
+            service,
             _dir: dir,
         }
     }
