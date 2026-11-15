@@ -1,7 +1,7 @@
 //! Secrets Manager: secrets with versions and staging labels, tags, deletion with a recovery window, resource policies and random
 //! passwords, as a state machine behind a lazy actor. State is on disk, values are sealed, and it survives an idle reap and a
-//! restart. Rotation drives the secret's Lambda function through its four steps after `RotateSecret` answers (`rotate.rs`);
-//! replication to other regions is refused by name.
+//! restart. Rotation drives the secret's Lambda function through its four steps after `RotateSecret` answers (`rotate.rs`); a
+//! secret replicated to other regions has a read-only replica in each, kept by that region's actor (`replication.rs`).
 
 mod authz;
 mod core;
@@ -14,6 +14,7 @@ mod model;
 mod password;
 mod policy;
 mod read;
+mod replication;
 mod rotate;
 mod schedule;
 mod stage;
@@ -135,6 +136,7 @@ impl Secrets {
                 durable: None,
                 runs: Vec::new(),
                 next_due: None,
+                pushes: Vec::new(),
             },
         };
         if let Some(saved) = answer.durable.take()
@@ -142,9 +144,66 @@ impl Secrets {
         {
             answer.reply = Err(ApiError::internal(format!("could not save: {e}")));
             answer.runs.clear();
+            answer.pushes.clear();
         }
         start(&self.ctx, std::mem::take(&mut answer.runs));
+        for push in std::mem::take(&mut answer.pushes) {
+            self.push(push).await;
+        }
         answer.reply
+    }
+
+    /// Sends one region's actor work from another, and waits for it to be on disk.
+    async fn send(&self, region: &str, request: Request) -> Reply {
+        let actor = self
+            .actors
+            .actor(region)
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+        let mut answer = actor
+            .call(request)
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+        if let Some(saved) = answer.durable.take() {
+            saved
+                .await
+                .map_err(|e| ApiError::internal(format!("could not save: {e}")))?;
+        }
+        self.due.arm(region, &actor, answer.next_due);
+        answer.reply
+    }
+
+    /// Does what a change leaves for another region, outside every actor (no actor waits on another), before the call is
+    /// answered: a replica takes the secret and its primary hears how that went; a replica is removed; a primary forgets a
+    /// replica that left.
+    async fn push(&self, push: replication::Push) {
+        use replication::Push;
+        let status = |name: String, region: String, outcome, detached| Request::Status {
+            name,
+            region,
+            outcome,
+            detached,
+        };
+        let back = match push {
+            Push::Mirror(region, mirror) => {
+                let (name, primary) = (mirror.secret.name.clone(), mirror.primary.clone());
+                let outcome = self
+                    .send(&region, Request::Mirror(mirror))
+                    .await
+                    .map(drop)
+                    .map_err(|e| e.message);
+                Some((primary, status(name, region, outcome, false)))
+            }
+            Push::Drop(region, name) => {
+                // WHY: a replica that cannot be removed is left; its primary no longer lists it, as asked.
+                drop(self.send(&region, Request::Drop(name)).await);
+                None
+            }
+            Push::Detach(primary, name, from) => Some((primary, status(name, from, Ok(()), true))),
+        };
+        if let Some((region, request)) = back {
+            // WHY: the status is the primary's own note; a failure to write it shows as InProgress, which is the truth.
+            drop(self.send(&region, request).await);
+        }
     }
 }
 

@@ -12,11 +12,13 @@ use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
 
 use crate::model::{Rotation, Secret};
+use crate::replication::{Mirror, Push, Replication, read_only};
 use crate::rotate::Run;
 
 pub(crate) const FILE: &str = "secrets.redb";
 const SECRETS: &str = "secrets";
 const ROTATIONS: &str = "rotations";
+const REPLICATION: &str = "replication";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 pub(crate) const VERSION: u8 = 1;
 
@@ -25,6 +27,12 @@ pub(crate) const VERSION: u8 = 1;
 pub(crate) struct Core {
     pub(crate) secrets: Records<Secret>,
     pub(crate) rotations: Records<Rotation>,
+    /// Each replicated secret's place in replication: its replicas, or its primary.
+    pub(crate) replication: Records<Replication>,
+    /// What the call leaves for other regions, done once it is saved.
+    pub(crate) pushes: Vec<Push>,
+    /// Whether the call asked to overwrite a secret of the same name in a replica's region.
+    pub(crate) force_overwrite: bool,
     /// The rotations the call (or the timer's tick) just started, run after the answer is saved.
     pub(crate) runs: Vec<Run>,
     /// The other services (KMS keeps every secret's value), when there are any.
@@ -42,6 +50,17 @@ pub(crate) enum Request {
     Tick,
     /// From `doze-aws data`: what the secrets hold, or remove some of it.
     Data(Box<crate::storage::DataCall>),
+    /// From a primary's region: take this secret as its replica.
+    Mirror(Box<Mirror>),
+    /// From a primary's region: remove this replica.
+    Drop(String),
+    /// To a primary's region: how replicating a secret to a region went, or that the replica there left.
+    Status {
+        name: String,
+        region: String,
+        outcome: Result<(), String>,
+        detached: bool,
+    },
 }
 
 /// What the actor answers: the reply, and the commit it must wait for.
@@ -53,16 +72,33 @@ pub(crate) struct Answer {
     pub(crate) runs: Vec<Run>,
     /// When the next scheduled rotation of the region is due, for the region's timer.
     pub(crate) next_due: Option<i64>,
+    /// What other regions are to do once the answer is saved.
+    pub(crate) pushes: Vec<Push>,
 }
 
-/// The operations this service runs. The others are refused by name before their request is read: replication to other
-/// regions is not built (one account, one region each).
-pub(crate) fn built(op: Operation) -> bool {
-    !matches!(
+/// The operations this service runs: every one of the model.
+pub(crate) const fn built(_op: Operation) -> bool {
+    true
+}
+
+/// The operations that change a secret: refused on a replica, and followed by the replicas of a primary.
+fn changes(op: Operation) -> bool {
+    use Operation as O;
+    matches!(
         op,
-        Operation::ReplicateSecretToRegions
-            | Operation::RemoveRegionsFromReplication
-            | Operation::StopReplicationToReplica
+        O::PutSecretValue
+            | O::UpdateSecret
+            | O::UpdateSecretVersionStage
+            | O::TagResource
+            | O::UntagResource
+            | O::DeleteSecret
+            | O::RestoreSecret
+            | O::RotateSecret
+            | O::CancelRotateSecret
+            | O::PutResourcePolicy
+            | O::DeleteResourcePolicy
+            | O::ReplicateSecretToRegions
+            | O::RemoveRegionsFromReplication
     )
 }
 
@@ -79,6 +115,9 @@ impl doze_runtime::Service for Core {
         let call = match request {
             Request::Call(call) => *call,
             Request::Tick => return self.tick(),
+            Request::Mirror(_) | Request::Drop(_) | Request::Status { .. } => {
+                return self.region_work(request).await;
+            }
             Request::Data(asked) => {
                 let crate::storage::DataCall { region, ask, reply } = *asked;
                 if reply.send(self.data(&region, ask)).is_err() {
@@ -89,6 +128,7 @@ impl doze_runtime::Service for Core {
                     durable: None,
                     runs: Vec::new(),
                     next_due: self.next_due(),
+                    pushes: Vec::new(),
                 };
             }
         };
@@ -101,9 +141,10 @@ impl doze_runtime::Service for Core {
                 durable: None,
                 runs: Vec::new(),
                 next_due: self.next_due(),
+                pushes: Vec::new(),
             };
         }
-        let mut reply = self.dispatch(&call).await;
+        let mut reply = self.guarded(&call).await;
         let durable = match self.flush() {
             Ok(ack) => ack,
             Err(e) => {
@@ -113,11 +154,14 @@ impl doze_runtime::Service for Core {
         };
         let runs = std::mem::take(&mut self.runs);
         let runs = if reply.is_ok() { runs } else { Vec::new() };
+        let pushes = std::mem::take(&mut self.pushes);
+        let pushes = if reply.is_ok() { pushes } else { Vec::new() };
         Answer {
             reply,
             durable,
             runs,
             next_due: self.next_due(),
+            pushes,
         }
     }
 
@@ -137,6 +181,7 @@ impl Core {
             (
                 Records::new(SECRETS, "secret", VERSION),
                 Records::new(ROTATIONS, "rotation", VERSION),
+                Records::new(REPLICATION, "replication", VERSION),
             ),
             peers,
             None,
@@ -148,17 +193,27 @@ impl Core {
         clock: Arc<dyn Clock>,
         peers: Option<Arc<Peers>>,
     ) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[SECRETS, ROTATIONS])?;
+        let db = Db::open(dir, FILE, &[SECRETS, ROTATIONS, REPLICATION])?;
         let read = db.read()?;
         let secrets = Records::load(SECRETS, "secret", VERSION, &read)?;
         let rotations = Records::load(ROTATIONS, "rotation", VERSION, &read)?;
+        let replication = Records::load(REPLICATION, "replication", VERSION, &read)?;
         drop(read);
-        Ok(Self::with(clock, (secrets, rotations), peers, Some(db)))
+        Ok(Self::with(
+            clock,
+            (secrets, rotations, replication),
+            peers,
+            Some(db),
+        ))
     }
 
     fn with(
         clock: Arc<dyn Clock>,
-        (secrets, rotations): (Records<Secret>, Records<Rotation>),
+        (secrets, rotations, replication): (
+            Records<Secret>,
+            Records<Rotation>,
+            Records<Replication>,
+        ),
         peers: Option<Arc<Peers>>,
         db: Option<Db>,
     ) -> Self {
@@ -166,6 +221,9 @@ impl Core {
         Self {
             secrets,
             rotations,
+            replication,
+            pushes: Vec::new(),
+            force_overwrite: false,
             runs: Vec::new(),
             peers,
             clock,
@@ -202,13 +260,18 @@ impl Core {
             .collect();
         for name in gone {
             self.secrets.remove(&name);
+            self.replication.remove(&name);
         }
         self.next_purge_ms = self.secrets.iter().filter_map(|(_, s)| s.purge_ms).min();
     }
 
     /// Sends what the last call changed to the writer; the [`Ack`] resolves when it is on disk.
     pub(crate) fn flush(&mut self) -> Result<Option<Ack>, StoreError> {
-        let changes = vec![self.secrets.stage()?, self.rotations.stage()?];
+        let changes = vec![
+            self.secrets.stage()?,
+            self.rotations.stage()?,
+            self.replication.stage()?,
+        ];
         Ok(self.db.as_ref().and_then(|db| db.submit(changes)))
     }
 
@@ -243,13 +306,75 @@ impl Core {
             Operation::ValidateResourcePolicy => self.validate_resource_policy(call),
             Operation::RotateSecret => self.rotate_secret(call).await,
             Operation::CancelRotateSecret => self.cancel_rotate_secret(call),
-            _ => Err(ApiError::new(
-                501,
-                "NotImplemented",
-                "This operation is not built in doze-aws.",
-            )),
+            Operation::ReplicateSecretToRegions => self.replicate_secret_to_regions(call),
+            Operation::RemoveRegionsFromReplication => self.remove_regions_from_replication(call),
+            Operation::StopReplicationToReplica => self.stop_replication_to_replica(call),
         }
     }
+}
+
+impl Core {
+    /// Runs a call: a change to a replica is refused, and a change to a primary goes to its replicas.
+    async fn guarded(&mut self, call: &Call) -> Reply {
+        let op = Operation::from_index(call.op);
+        let target = target_of(call).and_then(|id| self.locate(&id).ok());
+        if op.is_some_and(changes) && target.as_deref().is_some_and(|n| self.is_replica(n)) {
+            return Err(read_only());
+        }
+        let reply = self.dispatch(call).await;
+        let follows = op.is_some_and(|o| changes(o) || o == Operation::CreateSecret);
+        if reply.is_ok()
+            && follows
+            && let Some(name) = target.or_else(|| target_of(call))
+            && let Err(e) = self.mirror(&call.caller, &name).await
+        {
+            // WHY: the change is made; a replica that cannot follow it says so in its status.
+            self.mark_failed(&name, &e.message);
+        }
+        reply
+    }
+
+    /// Work a primary or a replica in another region hands this one.
+    async fn region_work(&mut self, request: Request) -> Answer {
+        let reply = match request {
+            Request::Mirror(m) => self
+                .take_mirror(*m)
+                .await
+                .map_err(invalid_request)
+                .and_then(|()| aws_wire::handler::empty()),
+            Request::Drop(name) => {
+                self.drop_replica(&name);
+                aws_wire::handler::empty()
+            }
+            Request::Status {
+                name,
+                region,
+                outcome,
+                detached,
+            } => {
+                self.replica_status(&name, &region, outcome, detached);
+                aws_wire::handler::empty()
+            }
+            _ => aws_wire::handler::empty(),
+        };
+        let durable = self.flush().ok().flatten();
+        Answer {
+            reply,
+            durable,
+            runs: Vec::new(),
+            next_due: self.next_due(),
+            pushes: Vec::new(),
+        }
+    }
+}
+
+/// The secret a request names (`SecretId`, or `Name` for `CreateSecret`).
+fn target_of(call: &Call) -> Option<String> {
+    let body: serde_json::Value = serde_json::from_str(&call.body).ok()?;
+    body.get("SecretId")
+        .or_else(|| body.get("Name"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
 }
 
 pub(crate) fn not_found() -> ApiError {

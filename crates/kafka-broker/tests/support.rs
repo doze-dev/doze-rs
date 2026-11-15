@@ -281,10 +281,13 @@ mod produce;
 mod txn;
 #[path = "support/users.rs"]
 pub mod users;
+#[path = "support/v2.rs"]
+mod v2;
 
 pub use compact::{clean_rounds, compacted, consume, delete_records, from, txn_produce};
 pub use configs::{BROKER, Op, TOPIC as TOPIC_RESOURCE};
 pub use consumer::{assigned as assigned_848, beat_848, join_848};
 pub use fetch::*;
 pub use produce::*;
-pub use txn::Txn;
+pub use txn::{Txn, owned_at, rig_holding};
+pub use v2::{later, parts};

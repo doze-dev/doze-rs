@@ -401,8 +401,8 @@
     },
     "delete-default-bus": {
       "Error": {
-        "Code": "AccessDeniedException",
-        "Message": "User: <caller> is not authorized to perform: events:DeleteEventBus on resource: arn:aws:events:us-east-1:<account>:event-bus/default because no identity-based policy allows the events:DeleteEventBus action"
+        "Code": "ValidationException",
+        "Message": "Cannot delete event bus default."
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400

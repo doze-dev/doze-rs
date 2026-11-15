@@ -58,7 +58,7 @@ impl Core {
                 |id| format!("VersionId: {id}"),
             )));
         }
-        let value = self.kms_open(call, secret, vid, &v.sealed).await?;
+        let value = self.kms_open(&call.caller, secret, vid, &v.sealed).await?;
         let read = Read {
             arn: secret.arn.clone(),
             name: secret.name.clone(),

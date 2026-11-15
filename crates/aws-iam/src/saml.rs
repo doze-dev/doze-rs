@@ -1,6 +1,6 @@
 //! What `AssumeRoleWithSAML` reads from an assertion: the subject (`NameID` and its format), the issuer, the recipient and audience,
-//! and the AWS attributes (`RoleSessionName`, `SourceIdentity`). **The signature is not checked**: the assertion is read, not
-//! trusted, as the Go edition did; a local account has no identity provider whose key it could check against.
+//! and the AWS attributes (`RoleSessionName`, `SourceIdentity`). It reads only what [`crate::xmldsig::verify`] gives back: the
+//! assertion whose signature verified under a certificate of the provider's metadata, so nothing unsigned is read.
 //!
 //! The reader is small and bounded, for this one job: it walks tags and text, keeps attributes (which `aws-wire`'s XML reader
 //! drops), refuses a document type declaration, and stops at [`MAX_BYTES`], [`MAX_DEPTH`] and [`MAX_ELEMENTS`].
@@ -41,9 +41,8 @@ impl Assertion {
     }
 }
 
-/// Reads a base64 assertion (line breaks allowed). `None` for anything that is not base64 of a well-formed XML document within the
-/// bounds.
-pub(crate) fn read(base64: &str) -> Option<Assertion> {
+/// The XML text of a base64 SAML response (line breaks allowed). `None` for anything that is not base64 of UTF-8 within the bound.
+pub(crate) fn decode(base64: &str) -> Option<String> {
     let compact: String = base64
         .chars()
         .filter(|c| !c.is_ascii_whitespace())
@@ -52,9 +51,13 @@ pub(crate) fn read(base64: &str) -> Option<Assertion> {
     if bytes.len() > MAX_BYTES {
         return None;
     }
-    let text = String::from_utf8(bytes).ok()?;
+    String::from_utf8(bytes).ok()
+}
+
+/// Reads an assertion's XML. `None` for anything that is not a well-formed XML document within the bounds.
+pub(crate) fn read(text: &str) -> Option<Assertion> {
     let mut walk = Walk::default();
-    let mut rest = text.as_str();
+    let mut rest = text;
     while let Some(lt) = rest.find('<') {
         walk.text(&unescape(rest.get(..lt)?)?);
         rest = walk.markup(rest.get(lt..)?)?;
@@ -246,7 +249,7 @@ pub(crate) mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
 
-    /// An assertion as an identity provider sends one (signature elided: it is not read).
+    /// An assertion as an identity provider sends one (signature elided: the reader is under test, not the signature).
     pub(crate) const ASSERTION: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="_r1" Version="2.0">
   <saml:Issuer xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion">https://idp.example.com/response</saml:Issuer>
@@ -275,7 +278,7 @@ pub(crate) mod tests {
 
     #[test]
     fn an_assertion_gives_its_subject_issuer_recipient_and_session_name() {
-        let a = read(&aws_core::base64::encode(ASSERTION.as_bytes())).unwrap();
+        let a = read(ASSERTION).unwrap();
         assert_eq!(a.issuer, "https://idp.example.com/saml");
         assert_eq!(a.name_id, "alice&co");
         assert_eq!(a.subject_type(), "persistent");
@@ -293,7 +296,7 @@ pub(crate) mod tests {
             .chunks(76)
             .map(|c| format!("{}\r\n", std::str::from_utf8(c).unwrap()))
             .collect();
-        assert!(read(&wrapped).is_some());
+        assert!(decode(&wrapped).is_some_and(|x| read(&x).is_some()));
     }
 
     #[test]
@@ -307,7 +310,7 @@ pub(crate) mod tests {
             b64("<Response><Issuer>i</Issuer>"),
             b64(&"<a>".repeat(MAX_DEPTH + 1)),
         ] {
-            assert!(read(&bad).is_none(), "{bad}");
+            assert!(decode(&bad).and_then(|x| read(&x)).is_none(), "{bad}");
         }
     }
 }

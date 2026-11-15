@@ -75,7 +75,7 @@ impl<F: Fs> Broker<F> {
             }
             Request::AddOffsetsToTxn(r) => self.add_offsets_to_txn(head.version, caller, &r).await,
             Request::EndTxn(r) => self.end_txn_request(head.version, caller, &r).await,
-            Request::TxnOffsetCommit(r) => self.txn_offset_commit(caller, &r).await,
+            Request::TxnOffsetCommit(r) => self.txn_offset_commit(head.version, caller, &r).await,
             Request::DescribeTransactions(r) => self.describe_transactions(caller, &r).await,
             Request::ListTransactions(r) => self.list_transactions(caller, &r).await,
             Request::DescribeAcls(r) => self.describe_acls(caller, &r),

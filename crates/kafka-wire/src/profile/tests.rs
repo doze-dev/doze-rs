@@ -6,6 +6,28 @@ fn profile(major: u8) -> Profile {
     Profile::new(KafkaMajor::new(major).unwrap())
 }
 
+/// KIP-890 by major, as each real broker offered it (`tests/data/api-versions.json`): Kafka 3.9 has the first part
+/// (Produce v11, EndTxn v4, TxnOffsetCommit v4, AddPartitionsToTxn v5: the abortable error and the broker's verifying
+/// request) and stays on the classic protocol; Kafka 4 adds the second (Produce v12, EndTxn v5, TxnOffsetCommit v5) and
+/// finalizes `transaction.version` 2. Kafka 1 and 2 have neither.
+#[test]
+fn only_kafka_4_offers_the_second_part_of_kip_890() {
+    let max = |major: u8, key: ApiKey| profile(major).range(key).map(|(_, max)| max);
+    assert_eq!(max(4, ApiKey::Produce), Some(12));
+    assert_eq!(max(4, ApiKey::EndTxn), Some(5));
+    assert_eq!(max(4, ApiKey::TxnOffsetCommit), Some(5));
+    assert_eq!(max(4, ApiKey::AddPartitionsToTxn), Some(5));
+    assert_eq!(max(3, ApiKey::Produce), Some(11));
+    assert_eq!(max(3, ApiKey::EndTxn), Some(4));
+    assert_eq!(max(3, ApiKey::TxnOffsetCommit), Some(4));
+    assert_eq!(max(3, ApiKey::AddPartitionsToTxn), Some(5));
+    assert_eq!(max(2, ApiKey::EndTxn), Some(1));
+    assert_eq!(profile(4).transaction_version(), 2);
+    for major in 1..=3 {
+        assert_eq!(profile(major).transaction_version(), 0, "Kafka {major}");
+    }
+}
+
 const ALL: Features = Features {
     sasl: true,
     telemetry: true,

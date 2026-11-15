@@ -1,6 +1,5 @@
-//! Getting a function's (or a layer's) code in: an inline archive, an object in the local S3 (read over the peer bus as the caller),
-//! a directory run in place (`S3Bucket: _local_`; for a layer, a zip it names is unpacked like an upload), or an image URI (stored,
-//! never run). An archive is written whole as `code.zip` and unpacked beside it, in a directory named by a fresh id; the directory is
+//! Getting a function's (or a layer's) code in, as AWS takes it: an inline archive, an object in the local S3 (read over the peer bus
+//! as the caller), or an image URI (stored, never run). An archive is written whole as `code.zip` and unpacked beside it, in a directory named by a fresh id; the directory is
 //! never changed afterwards, so a published version can share it with `$LATEST`.
 
 use std::path::{Path, PathBuf};
@@ -18,12 +17,11 @@ use crate::zipread::{self, MAX_UNPACKED, ZipError};
 
 /// The most a zipped package may be (Lambda: 50 MB direct, up to the unzipped limit through S3).
 const MAX_ZIPPED: usize = 262_144_000;
-/// The bucket name that means "run this directory in place".
-pub(crate) const LOCAL_BUCKET: &str = "_local_";
 
 /// The unpacked tree of `code`, which a process runs from.
 pub(crate) fn root(base: &Path, code: &Code) -> PathBuf {
     match &code.local {
+        // A record from before 2026-11-15, when a directory could be named as code: it still runs from there.
         Some(path) => PathBuf::from(path),
         None => base.join("code").join(&code.id).join("root"),
     }
@@ -41,7 +39,7 @@ fn unzip_error(e: ZipError) -> ApiError {
     }
 }
 
-/// Reads the `Code` (or, with `layer`, a layer's `Content`) member into a stored [`Code`], writing and unpacking an archive.
+/// Reads the `Code` (or a layer's `Content`) member into a stored [`Code`], writing and unpacking an archive.
 ///
 /// # Errors
 /// A package that is not a zip, is too big, names an object that is not there, or names no source.
@@ -50,7 +48,6 @@ pub(crate) async fn stage(
     peers: Option<&Peers>,
     caller: &Caller,
     spec: &Value,
-    layer: bool,
 ) -> Result<Code, ApiError> {
     let text = |k: &str| {
         spec.get(k)
@@ -69,19 +66,6 @@ pub(crate) async fn stage(
     let bytes = if let Some(zip) = text("ZipFile") {
         base64::decode(zip).ok_or_else(|| invalid("Could not decode the ZipFile."))?
     } else if let (Some(bucket), Some(key)) = (text("S3Bucket"), text("S3Key")) {
-        if bucket == LOCAL_BUCKET {
-            // A layer named by its zip is unpacked as an uploaded one is (the Go edition's rule); a function's single file is a bootstrap
-            // run in place.
-            if layer && Path::new(key).is_file() {
-                let bytes = tokio::fs::read(key).await.map_err(|e| {
-                    invalid(format!(
-                        "The local layer archive {key} could not be read: {e}"
-                    ))
-                })?;
-                return unpack(base, bytes).await;
-            }
-            return in_place(key);
-        }
         fetch(peers, caller, bucket, key, text("S3ObjectVersion")).await?
     } else {
         return Err(invalid(
@@ -118,53 +102,6 @@ async fn unpack(base: &Path, bytes: Vec<u8>) -> Result<Code, ApiError> {
         size,
         image: None,
     })
-}
-
-/// A directory (or a single file, for a compiled bootstrap) run where it is.
-fn in_place(path: &str) -> Result<Code, ApiError> {
-    let p = Path::new(path);
-    if !p.is_absolute() || !p.exists() {
-        return Err(invalid(format!(
-            "The local code path {path} must be an absolute path that exists."
-        )));
-    }
-    Ok(Code {
-        id: String::new(),
-        local: Some(path.to_owned()),
-        sha256: fingerprint(p),
-        size: 0,
-        image: None,
-    })
-}
-
-/// A hash of the names, sizes and times of the files of a tree (bounded), so a change to code run in place is a change of `CodeSha256`.
-pub(crate) fn fingerprint(root: &Path) -> String {
-    let mut hash = Sha256::new();
-    let mut todo = vec![root.to_path_buf()];
-    let mut seen = 0_usize;
-    while let Some(path) = todo.pop() {
-        seen += 1;
-        if seen > 20_000 {
-            break;
-        }
-        let Ok(meta) = std::fs::metadata(&path) else {
-            continue;
-        };
-        let modified = meta
-            .modified()
-            .ok()
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map_or(0, |d| d.as_nanos());
-        hash.update(path.to_string_lossy().as_bytes());
-        hash.update(meta.len().to_le_bytes());
-        hash.update(modified.to_le_bytes());
-        if meta.is_dir()
-            && let Ok(read) = std::fs::read_dir(&path)
-        {
-            todo.extend(read.filter_map(Result::ok).map(|e| e.path()));
-        }
-    }
-    base64::encode(&hash.finalize())
 }
 
 /// The object from the local S3, read as the caller (their `s3:GetObject` is asked for first).
@@ -230,38 +167,6 @@ pub(crate) fn sweep(base: &Path, keep: &std::collections::BTreeSet<String>) {
     }
 }
 
-/// A copy of code run in place, as an archive-less tree under a fresh id, so a published version does not change when the directory does.
-pub(crate) fn freeze(base: &Path, code: &Code) -> Result<Code, ApiError> {
-    let Some(local) = &code.local else {
-        return Ok(code.clone());
-    };
-    let id = aws_seal::uuid_v4().ok_or_else(|| ApiError::internal("no randomness"))?;
-    let dest = base.join("code").join(&id).join("root");
-    copy_tree(Path::new(local), &dest)
-        .map_err(|e| ApiError::internal(format!("could not copy the code in place: {e}")))?;
-    Ok(Code {
-        id,
-        local: None,
-        ..code.clone()
-    })
-}
-
-fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
-    if from.is_dir() {
-        std::fs::create_dir_all(to)?;
-        for entry in std::fs::read_dir(from)? {
-            let entry = entry?;
-            copy_tree(&entry.path(), &to.join(entry.file_name()))?;
-        }
-    } else {
-        if let Some(parent) = to.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::copy(from, to)?;
-    }
-    Ok(())
-}
-
 impl crate::Inner {
     /// What an operation needs read before its state is touched: the code it brings, and the role it names.
     pub(crate) async fn stage(
@@ -279,8 +184,7 @@ impl crate::Inner {
             _ => None,
         };
         if let Some(spec) = spec {
-            let layer = op == Operation::PublishLayerVersion;
-            staged.code = Some(stage(&base, self.peers.as_deref(), &r.caller, spec, layer).await?);
+            staged.code = Some(stage(&base, self.peers.as_deref(), &r.caller, spec).await?);
         }
         if matches!(
             op,

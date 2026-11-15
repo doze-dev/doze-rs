@@ -35,7 +35,7 @@ mod view;
 
 pub use broker::Broker;
 pub use caller::Caller;
-pub use config::{Config, Defaults};
+pub use config::{Config, Defaults, TxnVersion};
 pub(crate) use configs::Live;
 pub use data::{
     DataRefusal, DataUsage, Emptied, EmptiedAll, Erased, Keeps, Stray, TopicUsage, bytes_words,

@@ -135,7 +135,10 @@ fn rules_into(r: &Rotation, o: &mut Object<'_, Rules>) {
     }
 }
 
-fn list_entry(s: &Secret, r: Option<&Rotation>, d: &mut Object<'_, Entry>) {
+fn list_entry(s: &Secret, r: Option<&Rotation>, primary: Option<&str>, d: &mut Object<'_, Entry>) {
+    if let Some(p) = primary {
+        d.put(Entry::PRIMARY_REGION, p);
+    }
     d.put(Entry::ARN, &s.arn);
     d.put(Entry::NAME, &s.name);
     if let Some(t) = &s.kind {
@@ -198,7 +201,19 @@ impl Core {
         let v = request::<Describe>(call)?;
         let s = self.secret(v.get(Describe::SECRET_ID).unwrap_or_default())?;
         let r = self.rotations.get(&s.name);
-        reply::<Described>(|d| describe_into(s, r, d))
+        let primary = self.primary_region(&s.name, &call.caller.region);
+        let replicas = self
+            .replication
+            .get(&s.name)
+            .map(|x| x.replicas.clone())
+            .unwrap_or_default();
+        reply::<Described>(|d| {
+            describe_into(s, r, d);
+            if let Some(p) = &primary {
+                d.put(Described::PRIMARY_REGION, p);
+            }
+            crate::replication::put_statuses(d, Described::REPLICATION_STATUS, &replicas);
+        })
     }
 
     pub(crate) fn list_secrets(&mut self, call: &Call) -> Reply {
@@ -245,7 +260,7 @@ impl Core {
             .iter()
             .map(|(_, s)| s)
             .filter(|s| include_deleted || s.deleted_ms.is_none())
-            .filter(|s| conds.iter().all(|c| c.holds(s)))
+            .filter(|s| conds.iter().all(|c| self.passes(c, s, &call.caller.region)))
             .collect();
         match v.get(List::SORT_BY).unwrap_or("name") {
             "created-date" => rows.sort_by_key(|s| s.created_ms),
@@ -262,7 +277,8 @@ impl Core {
         reply::<Secrets>(|o| {
             o.put_list(Secrets::SECRET_LIST, |l| {
                 for s in &page {
-                    l.push(|d| list_entry(s, self.rotations.get(&s.name), d));
+                    let primary = self.primary_region(&s.name, &call.caller.region);
+                    l.push(|d| list_entry(s, self.rotations.get(&s.name), primary.as_deref(), d));
                 }
             });
             if let Some(t) = &token {
@@ -318,5 +334,16 @@ impl Core {
             o.put(Listed::ARN, &s.arn);
             o.put(Listed::NAME, &s.name);
         })
+    }
+}
+
+impl Core {
+    /// Whether `s` passes the filter `c`; `primary-region` is the region of the primary of a replicated secret.
+    fn passes(&self, c: &Cond, s: &Secret, own: &str) -> bool {
+        if c.key == "primary-region" {
+            let p = self.primary_region(&s.name, own);
+            return c.values.iter().any(|v| p.as_deref() == Some(v.as_str()));
+        }
+        c.holds(s)
     }
 }

@@ -1,7 +1,7 @@
 //! Whether a function can be launched on this host, asked when it is created or its runtime or code changes. The answer is a warning
 //! in the log and nothing more: AWS accepts the function (whether the host has a `python3` is not a fact AWS knows), so the call
-//! succeeds, and the first invocation fails with `Runtime.LaunchError` naming the same reason. This is the Go edition's `CheckRuntime`:
-//! the interpreter of the runtime family (the configured one, or the one on `PATH`), the AWS Java runtime interface client in a Java
+//! succeeds, and the first invocation fails with `Runtime.LaunchError` naming the same reason. What is looked for: the interpreter of
+//! the runtime family (the configured one, or the one on `PATH`), the AWS Java runtime interface client in a Java
 //! package, and the self-hosting assembly of a .NET one (a class library cannot speak the Runtime API).
 
 use std::path::{Path, PathBuf};

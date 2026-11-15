@@ -1,16 +1,21 @@
-//! Function URLs: an HTTP request to `<id>.lambda-url.<region>.<host>` (or to `/_aws/lambda-url/<region>/<id>/` for a client that
-//! cannot set a host, or to the Go edition's `/_aws/lambda-url/<id>/`, whose region is found from the id) becomes the payload-format-2.0 event, the function runs, and its answer is turned back into an HTTP response
-//! by AWS's rule: an object with a `statusCode` is the response, anything else is the body of a 200.
+//! Function URLs: an HTTP request to `<id>.lambda-url.<region>.<host>`, AWS's address with the gateway's host in place of
+//! `on.aws`, becomes the payload-format-2.0 event, the function runs, and its answer is turned back into an HTTP response by AWS's
+//! rule: an object with a `statusCode` is the response, anything else is the body of a 200. **doze's local address**
+//! `/_aws/lambda-url/<region>/<id>/<path>` on the gateway's own host serves the same URL to a client that cannot set a host or
+//! resolve `*.localhost`; it is not an AWS address.
 //!
-//! A function URL with `AuthType` `AWS_IAM` refuses a request that carries no signature when IAM is enforcing; a signed request is
-//! let through without its signature being checked. One with `NONE` answers `403 Forbidden` when IAM is enforcing and the
-//! function's resource policy does not let anyone invoke through the URL (`resolve::anyone_may`); `--iam soft` logs and runs it.
+//! **`AuthType` `AWS_IAM`**: the request must be signed with SigV4 for `lambda` in the URL's region, as on AWS. The gateway checks
+//! the signature before the request gets here (`aws-gateway`'s `websig.rs`): under `--auth verify` always, under `--auth trust`
+//! whenever the key's secret is known (the configured key, a key IAM issued), so a wrong signature is refused in AWS's words; a key
+//! nothing here knows is taken on trust, as every API call is under trust, once its scope and time are right. An unsigned request
+//! is `403 Forbidden` whatever the IAM mode. The signer is then asked for `lambda:InvokeFunctionUrl` by IAM (enforced, or logged under
+//! `--iam soft`). **`NONE`** answers `403 Forbidden` when IAM is enforcing and the function's resource policy does not let anyone
+//! invoke through the URL (`resolve::anyone_may`); `--iam soft` logs and runs it.
 
 use std::sync::Arc;
 
 use aws_core::base64;
-use aws_peers::Mode;
-use aws_wire::service::{Caller, WebReply, WebRequest};
+use aws_wire::service::{Caller, WebReply, WebRequest, WebSignature};
 use bytes::Bytes;
 use serde_json::{Value, json};
 
@@ -60,15 +65,18 @@ fn is_region(segment: &str) -> bool {
     segment.contains('-') && segment.ends_with(|c: char| c.is_ascii_digit())
 }
 
-/// The region and URL id a request is for. The Go edition's path form, `/_aws/lambda-url/<id>/…`, names no region (empty here): the
-/// region is the one whose functions have the id.
+/// Whether the request is for a function URL (not a package download): one whose signature the gateway checks for `lambda`.
+pub(crate) fn is_url(host: &str, path: &str) -> bool {
+    owns(host, path) && !path.starts_with(CODE_PREFIX)
+}
+
+/// The region and URL id a request is for, and the path the function is given.
 fn target(host: &str, path: &str) -> Option<(String, String, String)> {
     if let Some(rest) = path.strip_prefix(PATH_PREFIX) {
         let mut parts = rest.splitn(3, '/');
         let first = parts.next()?;
         if !is_region(first) {
-            let tail = rest.split_once('/').map_or("", |(_, t)| t);
-            return Some((String::new(), first.to_owned(), format!("/{tail}")));
+            return None;
         }
         let id = parts.next()?;
         return Some((
@@ -116,13 +124,10 @@ pub(crate) async fn serve(inner: Arc<Inner>, req: WebRequest) -> WebReply {
             .unwrap_or_default()
             .to_owned()
     };
-    let signed = req.headers.iter().any(|(k, _)| k == "authorization");
-    let enforcing = inner
-        .peers
-        .as_ref()
-        .is_some_and(|p| p.mode() == Mode::Enforce);
-    if text("auth") == "AWS_IAM" && enforcing && !signed {
-        return plain(403, "Forbidden");
+    if text("auth") == "AWS_IAM"
+        && let Some(refusal) = signature_refusal(&req.signature, &region)
+    {
+        return refusal;
     }
     let cors = found
         .get("cors")
@@ -148,29 +153,31 @@ pub(crate) async fn serve(inner: Arc<Inner>, req: WebRequest) -> WebReply {
     reply
 }
 
-/// The URL record of `id` in `region`, or, with no region, in the first region that has Lambda state and the id.
+/// The URL record of `id` in `region`.
 async fn find_url(inner: &Inner, region: &str, id: &str) -> Option<(String, Value)> {
-    let regions = if region.is_empty() {
-        let mut all = vec![crate::HOME_REGION.to_owned()];
-        for e in std::fs::read_dir(inner.dir.join("regions"))
-            .into_iter()
-            .flatten()
-            .flatten()
-        {
-            if let Some(name) = e.file_name().to_str().filter(|n| is_region(n)) {
-                all.push(name.to_owned());
-            }
-        }
-        all
-    } else {
-        vec![region.to_owned()]
-    };
-    for r in regions {
-        if let Ok(Answer::Value(Some(v))) = inner.ask(&r, Ask::Url(id.to_owned())).await {
-            return Some((r, v));
-        }
+    match inner.ask(region, Ask::Url(id.to_owned())).await {
+        Ok(Answer::Value(Some(v))) => Some((region.to_owned(), v)),
+        _ => None,
     }
-    None
+}
+
+/// Why an `AWS_IAM` URL refuses the request, if it does: no signature (`Forbidden`, recorded), a signature the gateway refused
+/// (its words, AWS's for the JSON services), or one scoped to another region (memory).
+fn signature_refusal(signature: &WebSignature, region: &str) -> Option<WebReply> {
+    match signature {
+        WebSignature::Unsigned => Some(plain(403, "Forbidden")),
+        WebSignature::Refused(why) => Some(plain(403, why)),
+        WebSignature::Signed { region: scoped, .. } if scoped != region => {
+            // (memory)
+            Some(plain(
+                403,
+                &format!(
+                    "Credential should be scoped to a valid region. (doze-aws: the URL is in {region}, the signature is scoped to {scoped})"
+                ),
+            ))
+        }
+        WebSignature::Signed { .. } => None,
+    }
 }
 
 /// Runs the function a URL belongs to for the request, and turns its answer into the response.
@@ -189,13 +196,25 @@ async fn run(
             .to_owned()
     };
     let account = inner.account_of(region);
+    // An `AWS_IAM` URL is called by whoever signed; a `NONE` one by anyone.
+    let (access_key_id, session_token) = match (&req.signature, text("auth").as_str()) {
+        (
+            WebSignature::Signed {
+                access_key_id,
+                session_token,
+                ..
+            },
+            "AWS_IAM",
+        ) => (access_key_id.clone(), session_token.clone()),
+        _ => (Caller::ANONYMOUS.to_owned(), None),
+    };
     let caller = Caller {
-        access_key_id: Caller::ANONYMOUS.to_owned(),
+        access_key_id,
         account_id: account,
         region: region.to_owned(),
         endpoint: req.endpoint.clone(),
         service: None,
-        session_token: None,
+        session_token,
     };
     let event = crate::url_event::event_of(req, path, id, region);
     let qualifier = Some(text("qualifier")).filter(|q| !q.is_empty());
@@ -206,9 +225,9 @@ async fn run(
         source_arn: None,
         draw: 0.0,
         url: true,
-        // `NONE` is judged by the function's resource policy (anyone may call only when it says so); a signed `AWS_IAM` request
-        // is let through unchecked.
-        internal: text("auth") != "NONE",
+        // `NONE` is judged by the function's resource policy (anyone may call only when it says so); `AWS_IAM` by the signer's
+        // policies and the function's, for `lambda:InvokeFunctionUrl`.
+        internal: false,
     };
     let rs = match inner.ask(region, Ask::Resolve(Box::new(ask))).await {
         Ok(Answer::Resolved(Ok(rs))) => rs,
@@ -335,16 +354,14 @@ mod tests {
             target("127.0.0.1:4566", "/_aws/lambda-url/us-east-1/abc/orders"),
             Some(("us-east-1".into(), "abc".into(), "/orders".into()))
         );
-        // The Go edition's form names no region.
+        // A path with no region is not an address.
         let id = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4";
         assert_eq!(
             target("127.0.0.1:4566", &format!("/_aws/lambda-url/{id}/orders/7")),
-            Some((String::new(), id.into(), "/orders/7".into()))
+            None
         );
-        assert_eq!(
-            target("127.0.0.1:4566", &format!("/_aws/lambda-url/{id}")),
-            Some((String::new(), id.into(), "/".into()))
-        );
+        assert!(is_url("127.0.0.1:4566", "/_aws/lambda-url/us-east-1/abc/x"));
+        assert!(!is_url("127.0.0.1:4566", "/_aws/lambda/code/us-east-1/abc"));
     }
 
     #[test]

@@ -7,6 +7,7 @@ mod apply;
 mod cfn;
 mod cli;
 mod client;
+mod compat;
 mod config;
 mod data;
 mod data_cmd;
@@ -79,6 +80,7 @@ fn main() -> ExitCode {
         Some(Command::Export(args)) => export::run(&args, &cfg),
         Some(Command::Doctor) => doctor::run(&cfg),
         Some(Command::Data(args)) => data_cmd::run(args, &cfg),
+        Some(Command::Compat) => compat::run(&cfg),
         Some(Command::Version) => 0,
     };
     ExitCode::from(u8::try_from(code).unwrap_or(1))

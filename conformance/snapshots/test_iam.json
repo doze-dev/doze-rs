@@ -6,6 +6,20 @@
     "region": "us-east-1",
     "target": "aws"
   },
+  "test_an_action_outside_the_model_is_invalid": {
+    "unknown-action-DozeAccessLog": {
+      "ErrorType": "InvalidAction",
+      "Status": 404
+    },
+    "unknown-action-DozeGeneratePolicy": {
+      "ErrorType": "InvalidAction",
+      "Status": 404
+    },
+    "unknown-action-NoSuchAction": {
+      "ErrorType": "InvalidAction",
+      "Status": 404
+    }
+  },
   "test_instance_profile": {
     "add-role": {
       "ResponseMetadata": {

@@ -125,6 +125,60 @@
       }
     }
   },
+  "test_contributor_insights_settings": {
+    "absent-table": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Requested resource not found: Table: <name:absent> not found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "before": {
+      "ContributorInsightsStatus": "DISABLED",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TableName": "<name:table>"
+    },
+    "disable": {
+      "ContributorInsightsMode": "ACCESSED_AND_THROTTLED_KEYS",
+      "ContributorInsightsStatus": "DISABLING",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TableName": "<name:table>"
+    },
+    "enable": {
+      "ContributorInsightsMode": "ACCESSED_AND_THROTTLED_KEYS",
+      "ContributorInsightsStatus": "ENABLING",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TableName": "<name:table>"
+    },
+    "enabled": {
+      "ContributorInsightsMode": "ACCESSED_AND_THROTTLED_KEYS",
+      "ContributorInsightsStatus": "ENABLED",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TableName": "<name:table>"
+    },
+    "listed": {
+      "ContributorInsightsSummaries": [
+        {
+          "ContributorInsightsMode": "ACCESSED_AND_THROTTLED_KEYS",
+          "ContributorInsightsStatus": "ENABLED",
+          "TableName": "<name:table>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
   "test_global_secondary_index": {
     "absent-index": {
       "Error": {

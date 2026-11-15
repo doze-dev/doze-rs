@@ -107,7 +107,8 @@ class Doze(Target):
         return boto3.client(
             service,
             endpoint_url=self.endpoint,
-            region_name=self.region,
+            # A scenario may ask for another region (a replica's).
+            region_name=kw.pop("region_name", self.region),
             aws_access_key_id="test",
             aws_secret_access_key="test",
             # One attempt. A retry turns a 500 that happens once into a pass,

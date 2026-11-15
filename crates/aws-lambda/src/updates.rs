@@ -70,14 +70,8 @@ impl Core {
             ));
         }
         let now = self.now_ms();
-        let local = function.latest.code.local.is_some();
-        let dir = self.dir.clone();
         let function = self.find_mut(r, &f)?;
         let number = Self::publish(function, r.opt("Description"), now)?;
-        if local && let Some(v) = function.versions.iter_mut().find(|v| v.number == number) {
-            // A version freezes code run in place: a copy, so the directory can go on changing under `$LATEST`.
-            v.snap.code = crate::code::freeze(&dir, &v.snap.code)?;
-        }
         let function = self.find(r, &f)?;
         let snap = function
             .versions

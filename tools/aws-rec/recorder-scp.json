@@ -2,7 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "DenyOutsideUsEast1",
+      "Sid": "DenyOutsideTheTwoRecordingRegions",
       "Effect": "Deny",
       "NotAction": [
         "iam:*", "sts:*", "organizations:*", "account:*", "sso:*", "identitystore:*",
@@ -11,7 +11,7 @@
         "globalaccelerator:*", "trustedadvisor:*"
       ],
       "Resource": "*",
-      "Condition": { "StringNotEquals": { "aws:RequestedRegion": "us-east-1" } }
+      "Condition": { "StringNotEquals": { "aws:RequestedRegion": ["us-east-1", "us-west-2"] } }
     },
     {
       "Sid": "DenyServicesWeNeverRecord",

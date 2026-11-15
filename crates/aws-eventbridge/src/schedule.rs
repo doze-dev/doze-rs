@@ -1,6 +1,6 @@
 //! Schedules and retries, driven by deadlines. After every call the actor works out the earliest time anything needs doing (a
-//! scheduled rule's next fire, a failed delivery's next try); the timer task sleeps to it, asks the actor to do what is due, and is
-//! told the next deadline. With nothing scheduled there is no deadline, no timer and no task.
+//! scheduled rule's next fire, a failed delivery's next try, an accepted event, which is due at once); the timer task sleeps to it, asks
+//! the actor to do what is due, and is told the next deadline. With nothing scheduled there is no deadline, no timer and no task.
 //!
 //! A schedule fires at the first slot after the moment it was first seen. What a restart or a long pause missed is not replayed
 //! (AWS does not either). A rate counts from the rule's creation, so its slots do not move when the process restarts.
@@ -35,11 +35,16 @@ impl Core {
     pub(crate) fn next_due(&mut self) -> Option<i64> {
         self.refresh_due(self.now_ms());
         let schedules = self.due.values().min().copied();
-        [schedules, self.next_retry()].into_iter().flatten().min()
+        [schedules, self.next_retry(), self.next_pending()]
+            .into_iter()
+            .flatten()
+            .min()
     }
 
-    /// Does what is due: fires the rules whose time has come, and tries again the deliveries whose wait is over.
+    /// Does what is due: runs the events `PutEvents` accepted, fires the rules whose time has come, and tries again the deliveries whose
+    /// wait is over.
     pub(crate) async fn tick(&mut self, armed_by: &Caller, deadline: i64) {
+        self.deliver_pending().await;
         let caller = self.last_caller.clone().unwrap_or_else(|| armed_by.clone());
         // A service that was reaped and opened again for this wake-up has no memory of what was due: the slot it was woken for is the
         // first one after just before the deadline.
@@ -91,13 +96,18 @@ impl Core {
 
     async fn retry_due(&mut self, caller: &Caller) {
         let now = self.now_ms();
-        let (due, waiting): (Vec<_>, Vec<_>) = std::mem::take(&mut self.retries)
-            .into_iter()
-            .partition(|r| r.due_ms <= now);
-        self.retries = waiting;
-        for r in due {
+        let due: Vec<String> = self
+            .retries
+            .iter()
+            .filter(|(_, r)| r.due_ms <= now)
+            .map(|(k, _)| k.to_owned())
+            .collect();
+        for k in due {
+            let Some(r) = self.retries.remove(&k) else {
+                continue;
+            };
             let tries = r.tries + 1;
-            let who = r.caller;
+            let who = Caller::from(r.caller);
             if let Some((account, bus, e)) = self.attempt(r.delivery, tries, &who).await {
                 self.publish(caller, &account, &bus, e, None).await;
             }
