@@ -107,6 +107,16 @@ fn plain(status: u16, message: &str) -> WebReply {
     }
 }
 
+/// A refusal of a signature that is there but wrong: AWS words it as the JSON services do, under a lower-case `message`
+/// (recorded: test_lambda.py::test_function_url_with_iam_auth_refuses_a_bad_signature), where an unsigned request gets `Message`.
+fn refused(status: u16, message: &str) -> WebReply {
+    WebReply {
+        status,
+        headers: vec![("content-type".to_owned(), "application/json".to_owned())],
+        body: Bytes::from(json!({ "message": message }).to_string()),
+    }
+}
+
 pub(crate) async fn serve(inner: Arc<Inner>, req: WebRequest) -> WebReply {
     if req.path.starts_with(CODE_PREFIX) {
         return download(&inner, &req.path).await;
@@ -162,14 +172,14 @@ async fn find_url(inner: &Inner, region: &str, id: &str) -> Option<(String, Valu
 }
 
 /// Why an `AWS_IAM` URL refuses the request, if it does: no signature (`Forbidden`, recorded), a signature the gateway refused
-/// (its words, AWS's for the JSON services), or one scoped to another region (memory).
+/// (its words, AWS's for the JSON services, recorded), or one scoped to another region (memory).
 fn signature_refusal(signature: &WebSignature, region: &str) -> Option<WebReply> {
     match signature {
         WebSignature::Unsigned => Some(plain(403, "Forbidden")),
-        WebSignature::Refused(why) => Some(plain(403, why)),
+        WebSignature::Refused(why) => Some(refused(403, why)),
         WebSignature::Signed { region: scoped, .. } if scoped != region => {
             // (memory)
-            Some(plain(
+            Some(refused(
                 403,
                 &format!(
                     "Credential should be scoped to a valid region. (doze-aws: the URL is in {region}, the signature is scoped to {scoped})"
