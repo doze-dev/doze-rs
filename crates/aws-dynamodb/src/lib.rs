@@ -38,6 +38,7 @@ mod policy;
 mod query;
 mod req;
 mod restore;
+mod route;
 mod schema;
 mod settings;
 mod stage;

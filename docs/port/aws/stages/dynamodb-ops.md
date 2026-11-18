@@ -126,8 +126,8 @@ placeholders of their own (`#l0`, `:l0`), and then run by the same code as an ex
 ## 7. Tests and scenarios
 
 - Crate tests: `tests/legacy.rs`, `tests/backups.rs` (backup round trip, overrides, point-in-time restore and its window, `SYSTEM`
-  backups expiring, a restart), `tests/policies.rs` (revisions; IAM in force), `tests/s3_kinesis.rs` (S3, Kinesis and IAM on one bus:
-  export layout and manifests, Ion export, CSV import, failures, Kinesis records); `ion.rs` and `import.rs` unit tests.
+  backups expiring, a restart), `tests/policies.rs` (revisions; IAM in force), `tests/exports.rs` and `tests/streaming.rs` over `tests/bus.rs`
+  (S3, Kinesis and IAM on one bus: export layout and manifests, Ion export, CSV import, failures, Kinesis records); `ion.rs` and `import.rs` unit tests.
   `refusals.rs` no longer lists the built operations; the old "legacy parameters are refused" test is gone (they run now).
 - boto3 (`conformance/tests/test_dynamodb.py`), **all UNVERIFIED** (67 labels, every one passes against doze-aws):
   `test_legacy_reads`, `test_legacy_writes`, `test_legacy_refusals`, `test_backup_lifecycle`, `test_backup_refusals`,

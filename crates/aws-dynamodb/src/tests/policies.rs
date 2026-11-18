@@ -2,7 +2,7 @@
 
 use serde_json::json;
 
-use super::s3_kinesis::Bus;
+use super::bus::Bus;
 
 const TABLE: &str = "arn:aws:dynamodb:us-east-1:000000000000:table/tab";
 

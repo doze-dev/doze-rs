@@ -12,8 +12,10 @@ use crate::Dynamodb;
 use crate::core::{Core, Request};
 
 mod backups;
+mod bus;
 mod data;
 mod expiry;
+mod exports;
 mod items;
 mod legacy;
 mod partiql;
@@ -21,8 +23,8 @@ mod persistence;
 mod policies;
 mod queries;
 mod refusals;
-mod s3_kinesis;
 mod service;
+mod streaming;
 mod tables;
 mod txn;
 
