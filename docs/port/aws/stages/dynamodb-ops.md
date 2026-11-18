@@ -3,8 +3,8 @@
 Branch `aws-dynamodb-ops`, on `main` at `f864c8dd9`. The integrator folds this note into `PLAN.md`, `STATUS.md` and `scoreboard.md`;
 none of those was touched here. AWS is the only reference: each behaviour cites the model (`models/dynamodb.json`) or the developer
 guide, and every wording not seen recorded is marked `(memory)` in the code beside it. **Nothing here is recorded**: the
-`doze-rec-main` SSO session had expired (`Token has expired and refresh failed`), so every new scenario is UNVERIFIED until the
-integrator records it.
+`doze-rec-main` SSO session had expired (`Token has expired and refresh failed`, checked again 2026-11-19), so every new scenario is
+UNVERIFIED until the integrator records it. Nothing was made on AWS, so nothing is left there.
 
 ## 0. Plumbing (`core.rs`, `work.rs`, `extras.rs`, `disk.rs`)
 
@@ -127,7 +127,10 @@ placeholders of their own (`#l0`, `:l0`), and then run by the same code as an ex
 
 - Crate tests: `tests/legacy.rs`, `tests/backups.rs` (backup round trip, overrides, point-in-time restore and its window, `SYSTEM`
   backups expiring, a restart), `tests/policies.rs` (revisions; IAM in force), `tests/exports.rs` and `tests/streaming.rs` over `tests/bus.rs`
-  (S3, Kinesis and IAM on one bus: export layout and manifests, Ion export, CSV import, failures, Kinesis records); `ion.rs` and `import.rs` unit tests.
+  (S3, Kinesis and IAM on one bus: export layout and manifests, Ion export, CSV import, failures, Kinesis records); `ion.rs` and `import.rs` unit tests;
+  `tests/data.rs` (`doze-aws data` lists a backup as its own resource with its items and bytes, empties it by name, a reset takes
+  every backup); `aws-dynamodb-streams` `tests/policy.rs` (IAM in force: a deny in the stream's own policy refuses `DescribeStream`
+  to a user its own policy allows, and lifts when the policy is deleted).
   `refusals.rs` no longer lists the built operations; the old "legacy parameters are refused" test is gone (they run now).
 - boto3 (`conformance/tests/test_dynamodb.py`), **all UNVERIFIED** (67 labels, every one passes against doze-aws):
   `test_legacy_reads`, `test_legacy_writes`, `test_legacy_refusals`, `test_backup_lifecycle`, `test_backup_refusals`,
