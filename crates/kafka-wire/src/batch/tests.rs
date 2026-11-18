@@ -127,6 +127,20 @@ fn stamping_the_base_offset_changes_only_the_base_offset() {
 }
 
 #[test]
+fn the_leader_epoch_is_written_outside_the_crc_and_nothing_else_moves() {
+    let before = parse(&ok()).unwrap();
+    assert_eq!(before.partition_leader_epoch(), Some(0));
+    let stamped = before.stamped(Offset::ZERO, None).under_leader_epoch(7);
+    let after = Batch::parse(stamped.to_bytes()).expect("the CRC still holds");
+    assert_eq!(after.partition_leader_epoch(), Some(7));
+    let changed = differing(before.as_bytes(), after.as_bytes());
+    assert!(
+        changed.iter().all(|i| (12..16).contains(i)),
+        "bytes changed at {changed:?}"
+    );
+}
+
+#[test]
 fn stamping_does_not_copy_the_body() {
     let before = parse(&ok()).unwrap();
     let stamped = before.stamped(Offset::ZERO, Some(TimestampMs::from_wire(1)));

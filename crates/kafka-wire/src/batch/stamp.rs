@@ -1,5 +1,6 @@
-//! What a broker changes in a batch as it takes it: the base offset, and under LogAppendTime the timestamp type,
-//! the maximum timestamp and (because they are covered by it) the checksum. Nothing else is ever touched.
+//! What a broker changes in a batch as it takes it: the base offset, the partition leader epoch (the leader's, as Kafka's
+//! `LogValidator` sets it on every batch it appends), and under LogAppendTime the timestamp type, the maximum timestamp and
+//! (because they are covered by it) the checksum. Nothing else is ever touched.
 //!
 //! Nothing is changed in place and the batch is not copied. The changes are made to a copy of the 61-byte
 //! header, on the stack, and the body is borrowed from the batch as it arrived; a writer puts the two down one
@@ -7,7 +8,7 @@
 //! so the body is read once and not written to memory a second time.
 
 use super::Batch;
-use super::layout::{ATTRIBUTES, BASE_OFFSET, CRC, HEADER_LEN, MAX_TIMESTAMP};
+use super::layout::{ATTRIBUTES, BASE_OFFSET, CRC, HEADER_LEN, LEADER_EPOCH, MAX_TIMESTAMP};
 use crate::ids::{Offset, TimestampMs};
 
 /// A batch as the log will hold it: the header with the broker's changes, and the body as it arrived.
@@ -80,6 +81,14 @@ fn put(header: &mut [u8; HEADER_LEN], at: usize, value: &[u8]) {
 }
 
 impl Stamped<'_> {
+    /// The batch as written under the leader epoch `epoch`. The field is before the span the CRC covers, so the checksum
+    /// stays what it was.
+    #[must_use]
+    pub fn under_leader_epoch(mut self, epoch: i32) -> Self {
+        put(&mut self.header, LEADER_EPOCH, &epoch.to_be_bytes());
+        self
+    }
+
     /// The header with the changes applied.
     #[must_use]
     pub fn header(&self) -> &[u8] {

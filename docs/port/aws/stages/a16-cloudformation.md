@@ -112,6 +112,12 @@ sentence the AWS CLI looks for. Executing moves the other change sets to `OBSOLE
 
 ### Resource types (decision D5)
 
+> **Superseded 2026-11-15 (stage `fix1`, `docs/port/aws/stages/fix1.md`).** Nothing is refused any more for being of a service doze-aws
+> does not run: every type doze-aws does not make is skipped by default (`CREATE_COMPLETE`, status reason "Not created: doze-aws does
+> not run <Family>. ...", one warning per type per deploy). `--cfn-unsupported skip|fail` (default `skip`; `fail` is strict mode);
+> `--cfn-skip TYPE` skips a type even in strict mode. A near miss of a mapped type (`AWS::Lambda::Funtion`) is refused as
+> "Unrecognized resource types" with the type it is probably. The FAIL list below is history.
+
 **MAP (made through the service's own operations over the peer bus, as `cloudformation` acting for the caller):**
 
 | Family | Types |

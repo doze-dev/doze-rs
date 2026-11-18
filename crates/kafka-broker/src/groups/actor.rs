@@ -11,12 +11,13 @@ use tokio::time::{Instant, sleep_until};
 
 use super::consumer::{Heartbeat, HeartbeatAnswer, TopicSource};
 use super::events::Events;
-use super::group::Group;
+use super::group::{Group, Kept};
 use super::machine::{
     Answer, CommitRequest, Effect, Event, Force, HeartbeatRequest, JoinAnswer, JoinRequest,
     LeaveTarget, Millis, SyncRequest, TimerKey, TimerKind, Token,
 };
-use kafka_meta::ConsumerLife;
+use super::share::{ShareAnswer, ShareHeartbeat};
+use super::streams::{StreamsAnswer, StreamsHeartbeat};
 
 /// A request for the group.
 pub(crate) enum Req {
@@ -28,6 +29,8 @@ pub(crate) enum Req {
     Describe,
     Delete,
     ConsumerHeartbeat(Heartbeat),
+    ShareHeartbeat(ShareHeartbeat),
+    StreamsHeartbeat(Box<StreamsHeartbeat>),
     TopicsChanged,
     /// A step the Lab forces.
     Force(Force),
@@ -89,9 +92,9 @@ impl Timers {
 /// Writes down what the offsets retention needs to know of a group's members.
 pub(super) trait Records: Send + Sync + 'static {
     /// The group is about to have members, the longest session being `session_ms`.
-    fn live(&self, session_ms: u32, protocol_type: &str, consumer: Option<ConsumerLife>) -> bool;
+    fn live(&self, session_ms: u32, protocol_type: &str, kept: &Kept) -> bool;
     /// The group has lost its last member, at `now_ms`.
-    fn empty(&self, protocol_type: &str, consumer: Option<ConsumerLife>, now_ms: i64) -> bool;
+    fn empty(&self, protocol_type: &str, kept: &Kept, now_ms: i64) -> bool;
 }
 
 /// How long after a failed write of the group's emptiness it is tried again.
@@ -104,8 +107,10 @@ struct Keeper<R: Records> {
     session: u32,
     /// The group has lost its last member and the record of that is not yet written; when to try again.
     unwritten_empty: Option<Instant>,
-    /// The record says the group is a consumer group of the new protocol.
-    consumer: bool,
+    /// The kind of group the record says it is ([`Kept::tag`]).
+    kind: u8,
+    /// The epochs the record has, for a group that keeps them up to date ([`Group::kept_epochs`]).
+    epochs: Option<(i32, i32)>,
 }
 
 impl<R: Records> Keeper<R> {
@@ -121,13 +126,13 @@ impl<R: Records> Keeper<R> {
             && !self.records.live(
                 session.max(self.session),
                 &seating.protocol_type,
-                seating.consumer.clone(),
+                &seating.kept,
             )
         {
             return false;
         }
         self.session = self.session.max(session);
-        self.consumer = seating.consumer.is_some();
+        self.kind = seating.kept.tag();
         true
     }
 
@@ -140,16 +145,19 @@ impl<R: Records> Keeper<R> {
         } else if machine.member_count() > 0 {
             self.unwritten_empty = None;
             // A group that has changed kind with its members in it (an upgrade, or the last member of the new protocol
-            // gone) is recorded as the kind it is, or a restart would list and judge it as the other.
-            let life = machine.consumer_life();
-            if life.is_some() != self.consumer
-                && self.records.live(
-                    self.session,
-                    machine.protocol_type().unwrap_or(""),
-                    life.clone(),
-                )
-            {
-                self.consumer = life.is_some();
+            // gone) is recorded as the kind it is, or a restart would list and judge it as the other; a streams group's
+            // record follows its epochs.
+            let epochs = machine.kept_epochs();
+            let moved = epochs.is_some() && epochs != self.epochs;
+            if machine.kind_tag() != self.kind || moved {
+                let kept = machine.kept();
+                if self
+                    .records
+                    .live(self.session, machine.protocol_type().unwrap_or(""), &kept)
+                {
+                    self.kind = kept.tag();
+                    self.epochs = epochs;
+                }
             }
         }
     }
@@ -157,7 +165,7 @@ impl<R: Records> Keeper<R> {
     fn write_empty(&mut self, machine: &Group) {
         let written = self.records.empty(
             machine.protocol_type().unwrap_or(""),
-            machine.consumer_life(),
+            &machine.kept(),
             wall_ms(),
         );
         self.unwritten_empty = (!written).then(|| Instant::now() + RETRY);
@@ -184,7 +192,8 @@ pub(super) async fn run(
         records,
         session: 0,
         unwritten_empty: None,
-        consumer: false,
+        kind: 0,
+        epochs: None,
     };
     loop {
         let wake = timers.next().map(|at| start + Duration::from_millis(at.0));
@@ -287,6 +296,8 @@ fn event_of(token: Token, req: Req) -> Event {
         Req::Describe => Event::Describe(token),
         Req::Delete => Event::Delete(token),
         Req::ConsumerHeartbeat(r) => Event::ConsumerHeartbeat(token, r),
+        Req::ShareHeartbeat(r) => Event::ShareHeartbeat(token, r),
+        Req::StreamsHeartbeat(r) => Event::StreamsHeartbeat(token, r),
         Req::TopicsChanged => Event::TopicsChanged,
         Req::Force(f) => Event::Force(token, f),
         // Answered before it gets here.
@@ -310,6 +321,20 @@ fn unavailable(event: &Event) -> Option<(Token, Answer)> {
                 ResponseError::CoordinatorNotAvailable,
                 "the group's members could not be recorded; try again",
             )),
+        )),
+        Event::ShareHeartbeat(token, _) => Some((
+            *token,
+            Answer::ShareHeartbeat(ShareAnswer::refused(
+                ResponseError::CoordinatorNotAvailable,
+                "the group's members could not be recorded; try again",
+            )),
+        )),
+        Event::StreamsHeartbeat(token, _) => Some((
+            *token,
+            Answer::StreamsHeartbeat(Box::new(StreamsAnswer::refused(
+                ResponseError::CoordinatorNotAvailable,
+                "the group's members could not be recorded; try again",
+            ))),
         )),
         _ => None,
     }

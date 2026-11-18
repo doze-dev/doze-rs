@@ -24,9 +24,9 @@ export type Fit = "wide" | "mid" | "narrow";
 const WIDTHS: Record<Fit, { time: number; client: number; api: number; result: number; took: number }> = {
   wide: { time: 128, client: 168, api: 196, result: 292, took: 96 },
   mid: { time: 120, client: 150, api: 184, result: 186, took: 92 },
-  // The narrowest keeps an API name whole (OffsetCommit, FindCoordinator, with its version) and the result word whole: the
-  // result's detail is in its tooltip there, and the target takes what is left.
-  narrow: { time: 116, client: 112, api: 172, result: 104, took: 76 },
+  // The narrowest keeps an API name whole (a group heartbeat: ConsumerGroupHeartbeat, StreamsGroupHeartbeat) and the result word
+  // whole: the version and the result's detail are in tooltips there, and the target takes what is left.
+  narrow: { time: 116, client: 100, api: 192, result: 100, took: 72 },
 };
 
 function FilterButton({ onClick, title, className, children }: { onClick?: () => void; title: string; className?: string; children: React.ReactNode }) {

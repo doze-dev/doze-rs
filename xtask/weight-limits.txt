@@ -26,7 +26,47 @@
 # 7,735,920 B for the tree CI measured, whose ratio was 10,634,592 / 7,735,920 = 1.3747; so 10,999,559 B estimated on ubuntu x86_64, limit that
 # plus 5% = 11,549,536 B until CI's next run on main measures it. Packages 184: the one more line is `kafka-registry (*)`, a repeat entry now that
 # the console depends on the registry, not a new package. Idle unchanged (darwin fell to 6,032 KB with the idle fixes). Ceiling 15 MB.
-doze-kafka 11549536 184 11013 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-15, the log filter without regex (weight.md lever (1): `EnvFilter` to `filter::Targets`, no `env-filter` feature) and Fetch records
+# written without a copy (+32 B): darwin arm64 8,001,408 B (main 3636c3d2) to 7,784,992 B (-216,416 B), packages 184 to 180 (regex,
+# regex-automata, regex-syntax and matchers leave the tree). Times CI's 1.3747 is 10,702,029 B on ubuntu x86_64, limit that plus 5% =
+# 11,237,130 B until CI's next run on main measures it; packages 180, as measured. Idle unchanged. docs/port/weight.md, "The log filter without regex".
+# 2026-11-15, data control (docs/port/data-control.md: the Data page, `doze-kafka data`, Empty and Erase): darwin arm64 8,167,424 B against
+# 8,001,424 B for main at 3636c3d2 built the same day (+166,000 B, +2.1%); times 1.3747 is 11,227,858 B on ubuntu x86_64, under this line,
+# which does not move. Packages 186: no new package (the unique names are 143 before and after); the two more lines are repeat entries,
+# `doze-fs (*)` (kafka-console now asks doze-fs for its `space` feature) and `rustix (*)` (doze-fs reaches rustix, already there by doze-os).
+# The lean build is unchanged in packages (`space` is off there). Idle 7,952 KB on darwin, under the line.
+# Both together (kafka-next, measured 2026-11-15): darwin arm64 7,951,040 B, 182 packages (180 + the two repeat lines), idle 7,632 KB;
+# times 1.3747 = 10,930,393 B on ubuntu x86_64, plus 5% = 11,476,913 B until CI measures it.
+# Idle 11,013 to 11,689 KB (2026-11-15): CI measured this tree at 11,756 then 11,132 KB (samples 10,932 to 11,904) where main read
+# 10,564 to 11,048 KB on its last four runs, so main sat on the line. On Linux idle is mostly the binary's own pages: in the doze-ubuntu VM
+# (arm64, glibc) main idles at 8,360 to 8,440 KB with 780 KB anonymous, this tree at 8,492 to 8,508 KB with 776 to 792 KB anonymous, so
+# the tree costs about +80 KB, all file-backed. The line is this tree's second CI median, 11,132 KB, plus 5%.
+# 2026-11-15, KIP-890 (transaction protocol v2, docs/port/behaviours/transactions.md TX-16 to TX-25): darwin arm64 7,967,600 B (+16,560 B),
+# 182 packages (none added), idle 7,584 KB; times 1.3747 = 10,953,060 B, plus 5% = 11,500,713 B until CI measures it.
+# 2026-11-15, OffsetForLeaderEpoch, DescribeLogDirs and client quotas (docs/port/behaviours/quotas.md: the four quotas measured and enforced as
+# Kafka does, the Access page's quota section): darwin arm64 8,366,176 B against data control's 8,167,424 B (+198,752 B, +2.4%: the quota
+# engine and its two APIs, the console's section and its words, four more APIs in the wire table and the recorder); times 1.3747 is
+# 11,500,982 B on ubuntu x86_64, under this line by 48,554 B, so the line does not move. Packages 186, no new package. Idle 7,904 KB on darwin
+# (median of three): nothing is metered or allocated while no quota is set. The margin is thin: the next growth moves the line or trims.
+# 2026-11-15, OffsetForLeaderEpoch, DescribeLogDirs and client quotas with leader epoch 0 (docs/port/behaviours/quotas.md): darwin arm64
+# 8,166,320 B (+198,720 B), 182 packages (none added), idle 7,776 KB; times 1.3747 = 11,226,240 B, plus 5% = 11,787,552 B until CI measures it.
+# 2026-11-15, share groups (KIP-932, docs/port/behaviours/share-groups.md), on kafka-next with KIP-890 (transactions v2). Measured back to
+# back with `cargo xtask weight doze-kafka` on darwin arm64: the tree before share groups (c64f4b76e) 7,984,176 B, idle 7,840 KB (samples
+# 7,856, 7,824, 7,840); with them 8,431,392 B (+447,216 B, +5.6%), idle 7,968 KB (+128 KB, +1.6%); 182 packages both (no new package).
+# The bytes are Rust code: seven APIs' messages (their codecs are linked now that they are used), their handlers, the share-partitions,
+# sessions and lock task, group configs, the recorder's summaries and the console's share views; the embedded console assets grew 10 KB.
+# Nothing wakes while no lock is held (tests/idle_upkeep.rs). Bytes: times CI's 1.3747 is 11,590,634 B on ubuntu x86_64, plus 5% =
+# 12,170,166 B until CI measures it (ceiling 15 MB). Idle: CI's 11,132 KB times the measured rise (7,968 / 7,840) is 11,314 KB, plus 5% =
+# 11,880 KB.
+# 2026-11-18, share groups on main with quotas, measured: darwin arm64 8,646,672 B, 182 packages, idle 7,952 KB; times 1.3747 plus 5% =
+# 12,481,014 B until CI measures it. Idle: share groups' 11,880 KB (above main's 11,689 KB).
+# 2026-11-18, streams groups (KIP-1071, docs/port/behaviours/streams-groups.md) on kafka-streams, measured with `cargo xtask weight
+# doze-kafka` on darwin arm64: 9,093,488 B (+446,816 B, +5.2%, over the 8,646,672 B just above), 182 packages (no new package), idle
+# 7,872 KB (samples 7,856, 7,952, 7,872: within the share line's noise). The bytes are Rust code: three APIs' messages (the vendored
+# codecs, patch 4), the group (topology configuration, the sticky assignor, reconciliation), its handlers, the group configs, the
+# recorder's summaries and the console's streams page. No streams group, no task and no timer (STR-82). Bytes: times CI's 1.3747 is
+# 12,500,818 B on ubuntu x86_64, plus 5% = 13,125,859 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+doze-kafka 13125859 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
@@ -147,7 +187,16 @@ doze-kafka 11549536 184 11013 --listen 127.0.0.1:{port} --data-dir {data}
 # after, 8,384 KB with the start-time size check (`mention_size`, a one-shot OS thread) left out: about 210 KB is that thread (glibc keeps its
 # arena and stack cache), about 200 KB the new code. Line = median plus 5% = 11,075 KB. The thread's share is avoidable and is with the aws
 # session (docs/port/ci-health.md, open items).
-doze-aws 13900000 280 11075 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-15, AWS as the only reference (PR #65, run 43716027103): bytes 14,035,048 B (+365,560 over 13,669,488), 280 packages, idle median 10,852 KB
+# (samples 10,692, 10,852, 10,952). The new bytes: XML-DSig for AssumeRoleWithSAML (exclusive c14n, RSA-SHA1/256/512 against the metadata certificate),
+# JWT and JWKS verification shared by STS web identity and API Gateway (ES256/384/512 added), SSM public parameters, Documents (with the YAML reader
+# moved into aws-yaml and given a writer) and service settings, Secrets Manager replicas, KMS ECDH key agreement and multi-Region keys, the /_doze/ guard,
+# and the compatibility listing. Byte limit = 14,035,048 plus 5% = 14,736,800, rounded to 14,740,000 B (74% of the 20 MB ceiling); packages unchanged.
+# Idle: the start-time size check no longer starts an OS thread (it walks on the serving thread), which removes the ~210 KB arena measured above, but
+# the median moved up by 304 KB with the new code, and median plus 5% (11,395) is above the current line: the line is kept at 11,075 KB, not lowered.
+# 2026-11-16: main went red on this line with no aws change (run 43754143517: 11,116 KB). Over the last 19 runs the idle values were 10,404 to 11,292 KB, and
+# identical code differs by about 350 KB between CI runners (docs/port/ci-health.md, "ci-flakes-2"). The line moves to median plus 5% = 11,395 KB, as worked out above.
+doze-aws 14740000 280 11395 --listen 127.0.0.1:{port} --data-dir {data}
 # doze (package doze-cli), core F1: measured 2026-11-14 on darwin/arm64, 3,148,064 B and 169 packages (docs/port/weight.md, "Core F1"). The byte limit
 # is the macOS size times 1.3 plus 5%; six packages of room. No server: idle memory is not weighed (0).
 # Core C2b (the CLI with doze.hcl, doze-fetch and doze-detect, on the C2a stack): 6,802,928 B and 221 packages on darwin/arm64. The line is the

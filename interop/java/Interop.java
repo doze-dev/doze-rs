@@ -56,7 +56,8 @@ public class Interop {
         DELETE_ACLS = 31, DESCRIBE_CONFIGS = 32, CREATE_PARTITIONS = 37, INCREMENTAL_ALTER_CONFIGS = 44,
         DESCRIBE_USER_SCRAM = 50, ALTER_USER_SCRAM = 51, CONSUMER_GROUP_HEARTBEAT = 68,
         LIST_GROUPS = 16, DELETE_GROUPS = 42, OFFSET_DELETE = 47, DESCRIBE_PRODUCERS = 61, DESCRIBE_TRANSACTIONS = 65,
-        LIST_TRANSACTIONS = 66, CONSUMER_GROUP_DESCRIBE = 69;
+        LIST_TRANSACTIONS = 66, CONSUMER_GROUP_DESCRIBE = 69, OFFSET_FOR_LEADER_EPOCH = 23, DESCRIBE_LOG_DIRS = 35,
+        DESCRIBE_CLIENT_QUOTAS = 48, ALTER_CLIENT_QUOTAS = 49;
     /** Names of APIs newer than the 2.8 client, which its ApiKeys does not know. */
     static final Map<Integer, String> NEWER = Map.of(61, "DescribeProducers", 65, "DescribeTransactions", 66, "ListTransactions",
         68, "ConsumerGroupHeartbeat", 69, "ConsumerGroupDescribe");
@@ -120,6 +121,13 @@ public class Interop {
             scenarios.add(new Scenario("idempotent", concat(BASIC, INIT_PRODUCER_ID), Interop::idempotent));
             scenarios.add(new Scenario("txn-commit-abort", concat(BASIC, TXN), Interop::txnCommitAbort));
             scenarios.add(new Scenario("txn-send-offsets", concat(concat(BASIC, TXN), concat(GROUP, ADD_OFFSETS_TO_TXN, TXN_OFFSET_COMMIT)), Interop::txnSendOffsets));
+            // KIP-890's second part: the client turns it on when the broker finalizes transaction.version 2 (Kafka 4).
+            for (var v2 : List.of(
+                    new Scenario("txn-v2-epochs", concat(concat(BASIC, TXN), DESCRIBE_TRANSACTIONS, DESCRIBE_PRODUCERS), Interop::txnV2Epochs),
+                    new Scenario("txn-v2-fence", concat(BASIC, TXN), Interop::txnV2Fence),
+                    new Scenario("txn-v2-timeout", concat(concat(BASIC, TXN), DESCRIBE_TRANSACTIONS), Interop::txnV2Timeout))) {
+                scenarios.add(v2.needClient(4, "transaction v2 (KIP-890)").needVersion(END_TXN, 5, "transaction v2 (KIP-890)"));
+            }
             scenarios.add(new Scenario("group-classic", concat(BASIC, GROUP), () -> group(false)));
             scenarios.add(new Scenario("group-848", concat(BASIC, CONSUMER_GROUP_HEARTBEAT, OFFSET_COMMIT, OFFSET_FETCH), () -> group(true)));
             scenarios.add(new Scenario("rebalance-commits-classic", concat(BASIC, GROUP), () -> rebalanceCommits(false)));
@@ -143,6 +151,9 @@ public class Interop {
             scenarios.add(new Scenario("admin-transactions", concat(concat(BASIC, TXN), DESCRIBE_PRODUCERS, DESCRIBE_TRANSACTIONS, LIST_TRANSACTIONS), Interop::adminTransactions).needClient(3, "Admin.listTransactions (KIP-664)"));
             scenarios.add(new Scenario("offsets-for-times-log-append", concat(BASIC, DESCRIBE_CONFIGS), Interop::offsetsForTimesLogAppend));
             scenarios.add(new Scenario("offsets-for-times-compressed", BASIC, Interop::offsetsForTimesCompressed));
+            scenarios.add(new Scenario("admin-log-dirs", concat(BASIC, DESCRIBE_LOG_DIRS), Interop::adminLogDirs));
+            scenarios.add(new Scenario("admin-client-quotas", concat(BASIC, DESCRIBE_CLIENT_QUOTAS, ALTER_CLIENT_QUOTAS), Interop::adminClientQuotas));
+            scenarios.add(new Scenario("consumer-validates-position", concat(BASIC, OFFSET_FOR_LEADER_EPOCH), Interop::consumerValidates));
         }
         // zstd came with Produce v7 and Fetch v10 (KIP-110, Kafka 2.1).
         for (Scenario s : scenarios) {
@@ -627,6 +638,122 @@ public class Interop {
         }
         return String.format("%d records in %d transactions (one of %d aborted and redone), output once each, input committed to its end%s",
             n, txns, aborted, v3 ? "" : " (group id only: TxnOffsetCommit < v3)");
+    }
+
+    // ---- Transactions, KIP-890's second part (transaction.version 2) ----
+
+    /** The producer epoch the coordinator holds for txid (describeTransactions, kafka-clients 3.0 on: reflection for 2.8). */
+    static int txnEpoch(Admin a, String txid) throws Exception {
+        Object d = ((Map<?, ?>) fut(inv(a, "describeTransactions", List.of(txid)), "all")).get(txid);
+        return ((Number) inv(d, "producerEpoch")).intValue();
+    }
+
+    static List<String> plus(List<String> a, List<String> b) {
+        List<String> out = new ArrayList<>(a);
+        out.addAll(b);
+        return out;
+    }
+
+    /**
+     * The broker finalizes transaction.version 2, so the client speaks it: every commit and abort raises the producer epoch by
+     * one (EndTxn v5), the partitions are added by the writes themselves, and the partition's producer is at the last marker's epoch.
+     */
+    static String txnV2Epochs() throws Exception {
+        String topic = newTopic("java-txn-v2"), txid = topic + "-tx";
+        List<Integer> epochs = new ArrayList<>();
+        try (Admin a = admin()) {
+            createTopic(a, topic, 2, null);
+            Object features = fut(inv(a, "describeFeatures"), "featureMetadata");
+            Object tv = ((Map<?, ?>) inv(features, "finalizedFeatures")).get("transaction.version");
+            check(tv != null && ((Number) inv(tv, "maxVersionLevel")).intValue() == 2, "transaction.version finalized at %s", tv);
+            try (var p = producer(Map.of("transactional.id", txid))) {
+                p.initTransactions();
+                epochs.add(txnEpoch(a, txid));
+                for (int t = 0; t < 3; t++) {
+                    p.beginTransaction();
+                    for (int i = 0; i < 6; i++) p.send(new ProducerRecord<>(topic, i % 2, "k" + i, "e" + t + "-" + i));
+                    p.flush();
+                    if (t == 1) p.abortTransaction();
+                    else p.commitTransaction();
+                    epochs.add(txnEpoch(a, txid));
+                }
+            }
+            for (int i = 1; i < epochs.size(); i++) {
+                check(epochs.get(i) == epochs.get(i - 1) + 1, "epochs %s: each end raises the epoch by one", epochs);
+            }
+            TopicPartition tp = new TopicPartition(topic, 0);
+            Object ap = ((List<?>) inv(((Map<?, ?>) fut(inv(a, "describeProducers", List.of(tp)), "all")).get(tp), "activeProducers")).get(0);
+            check(((Number) inv(ap, "producerEpoch")).intValue() == epochs.get(epochs.size() - 1), "the partition's producer is at epoch %s, the last end's %s",
+                inv(ap, "producerEpoch"), epochs.get(epochs.size() - 1));
+        }
+        exactlyOnce(readAll(topic, "read_committed", 12), plus(values("e0-", 0, 6), values("e2-", 0, 6)), "read_committed");
+        exactlyOnce(readAll(topic, "read_uncommitted", 18), plus(plus(values("e0-", 0, 6), values("e1-", 0, 6)), values("e2-", 0, 6)), "read_uncommitted");
+        return "transaction.version 2 finalized; commit, abort, commit raised the epoch " + epochs + "; read_committed 12 of 18";
+    }
+
+    /** A second producer of the same transactional id takes it over while the first has a transaction open: the first is fenced for good. */
+    static String txnV2Fence() throws Exception {
+        String topic = newTopic("java-txn-v2-fence"), txid = topic + "-tx";
+        try (Admin a = admin()) {
+            createTopic(a, topic, 1, null);
+        }
+        String fenced;
+        try (var first = producer(Map.of("transactional.id", txid)); var second = producer(Map.of("transactional.id", txid))) {
+            first.initTransactions();
+            first.beginTransaction();
+            first.send(new ProducerRecord<>(topic, "k", "zombie-0"));
+            first.flush();
+            second.initTransactions();
+            try {
+                first.send(new ProducerRecord<>(topic, "k", "zombie-1"));
+                first.commitTransaction();
+                throw new AssertionError("the fenced producer committed");
+            } catch (KafkaException e) {
+                fenced = e.getClass().getSimpleName();
+                check(e instanceof ProducerFencedException || e instanceof InvalidProducerEpochException, "the fenced producer was told %s", e);
+            }
+            second.beginTransaction();
+            second.send(new ProducerRecord<>(topic, "k", "owner-0"));
+            second.commitTransaction();
+        }
+        exactlyOnce(readAll(topic, "read_committed", 1), List.of("owner-0"), "read_committed");
+        return "the first producer's open transaction was aborted and its commit refused (" + fenced + "); the new owner's committed";
+    }
+
+    /**
+     * A transaction that outlives its timeout is aborted by the broker, which raises the epoch. Under transaction.version 2 the
+     * producer recovers: its next write is refused with an abortable error, its abort is the retry of the broker's own, and it
+     * goes on at the new epoch (the classic protocol fences it for good).
+     */
+    static String txnV2Timeout() throws Exception {
+        String topic = newTopic("java-txn-v2-timeout"), txid = topic + "-tx";
+        String refused;
+        int before, after;
+        try (Admin a = admin()) {
+            createTopic(a, topic, 1, null);
+            try (var p = producer(Map.of("transactional.id", txid, "transaction.timeout.ms", "1000"))) {
+                p.initTransactions();
+                before = txnEpoch(a, txid);
+                p.beginTransaction();
+                p.send(new ProducerRecord<>(topic, "k", "timed-out")).get(30, TimeUnit.SECONDS);
+                long deadline = System.currentTimeMillis() + 30000;
+                while (txnEpoch(a, txid) == before && System.currentTimeMillis() < deadline) Thread.sleep(200);
+                check(txnEpoch(a, txid) == before + 1, "the broker's abort raised the epoch from %d to %d", before, txnEpoch(a, txid));
+                try {
+                    p.send(new ProducerRecord<>(topic, "k", "late")).get(30, TimeUnit.SECONDS);
+                    throw new AssertionError("a write to the timed-out transaction was taken");
+                } catch (ExecutionException e) {
+                    refused = e.getCause().getClass().getSimpleName();
+                }
+                p.abortTransaction();
+                p.beginTransaction();
+                p.send(new ProducerRecord<>(topic, "k", "recovered"));
+                p.commitTransaction();
+                after = txnEpoch(a, txid);
+            }
+        }
+        exactlyOnce(readAll(topic, "read_committed", 1), List.of("recovered"), "read_committed");
+        return String.format("timed out at epoch %d (the next write: %s), aborted, and committed again at %d", before, refused, after - 1);
     }
 
     // ---- Consumer groups ----
@@ -1121,6 +1248,104 @@ public class Interop {
             check(ctl != null && ctl.id() >= 0, "controller %s", ctl);
             return String.format("cluster %s, node %d at %s:%d, controller %d", id, n.id(), n.host(), n.port(), ctl.id());
         }
+    }
+
+    /** DescribeLogDirs: the one directory, every partition of a new topic, and the one written to with its bytes (KIP-113). */
+    static String adminLogDirs() throws Exception {
+        String topic = newTopic("java-logdirs");
+        try (Admin a = admin()) {
+            createTopic(a, topic, 2, null);
+            produceValues(topic, 0, 20);
+            int node = a.describeCluster().nodes().get(30, TimeUnit.SECONDS).iterator().next().id();
+            var dirs = a.describeLogDirs(List.of(node)).allDescriptions().get(30, TimeUnit.SECONDS).get(node);
+            check(dirs != null && dirs.size() == 1, "log dirs %s", dirs);
+            var dir = dirs.values().iterator().next();
+            check(dir.error() == null, "dir error %s", dir.error());
+            long bytes = 0;
+            int partitions = 0;
+            for (var e : dir.replicaInfos().entrySet()) {
+                if (!e.getKey().topic().equals(topic)) continue;
+                partitions++;
+                bytes += e.getValue().size();
+                check(e.getValue().offsetLag() == 0 && !e.getValue().isFuture(), "replica %s", e.getValue());
+            }
+            check(partitions == 2 && bytes > 0, "%d partitions, %d bytes", partitions, bytes);
+            return String.format("%d partitions, %d bytes", partitions, bytes);
+        }
+    }
+
+    /**
+     * Client quotas (KIP-546 for the APIs, KIP-13 and KIP-219 for the throttling): a producer_byte_rate set for a client id is
+     * described back, a producer of that id is throttled (the client's own produce-throttle-time metric says so), and the quota
+     * removed is gone.
+     */
+    static String adminClientQuotas() throws Exception {
+        String id = "java-quota-" + System.nanoTime(), topic = newTopic("java-quota");
+        var entity = new org.apache.kafka.common.quota.ClientQuotaEntity(Map.of(org.apache.kafka.common.quota.ClientQuotaEntity.CLIENT_ID, id));
+        var filter = org.apache.kafka.common.quota.ClientQuotaFilter.containsOnly(
+            List.of(org.apache.kafka.common.quota.ClientQuotaFilterComponent.ofEntity(org.apache.kafka.common.quota.ClientQuotaEntity.CLIENT_ID, id)));
+        double throttled;
+        try (Admin a = admin()) {
+            createTopic(a, topic, 1, null);
+            a.alterClientQuotas(List.of(new org.apache.kafka.common.quota.ClientQuotaAlteration(entity,
+                List.of(new org.apache.kafka.common.quota.ClientQuotaAlteration.Op("producer_byte_rate", 20480.0))))).all().get(30, TimeUnit.SECONDS);
+            // Kafka answers DescribeClientQuotas from the broker's copy of the metadata, a moment behind the controller.
+            var got = settledQuotas(a, filter, g -> g.containsKey(entity));
+            check(Map.of("producer_byte_rate", 20480.0).equals(got.get(entity)), "described %s", got);
+            Properties p = base(broker, sec);
+            p.put("client.id", id);
+            p.put("key.serializer", StringSerializer.class.getName());
+            p.put("value.serializer", StringSerializer.class.getName());
+            p.put("linger.ms", "0");
+            String blob = "x".repeat(20_000);
+            try (var producer = new KafkaProducer<String, String>(p)) {
+                for (int i = 0; i < 20; i++) producer.send(new ProducerRecord<>(topic, "k", blob)).get(60, TimeUnit.SECONDS);
+                throttled = (double) producer.metrics().entrySet().stream()
+                    .filter(e -> e.getKey().name().equals("produce-throttle-time-max") && e.getKey().group().equals("producer-metrics"))
+                    .findFirst().orElseThrow().getValue().metricValue();
+            }
+            check(throttled > 0, "400 KB at 20 KiB/s was never throttled");
+            a.alterClientQuotas(List.of(new org.apache.kafka.common.quota.ClientQuotaAlteration(entity,
+                List.of(new org.apache.kafka.common.quota.ClientQuotaAlteration.Op("producer_byte_rate", null))))).all().get(30, TimeUnit.SECONDS);
+            check(settledQuotas(a, filter, Map::isEmpty).isEmpty(), "quota left after removal");
+        }
+        return String.format("set, described, a producer throttled up to %.0f ms, removed", throttled);
+    }
+
+    /** DescribeClientQuotas until `done` holds of the answer, for up to ten seconds. */
+    static Map<org.apache.kafka.common.quota.ClientQuotaEntity, Map<String, Double>> settledQuotas(Admin a,
+            org.apache.kafka.common.quota.ClientQuotaFilter filter,
+            Predicate<Map<org.apache.kafka.common.quota.ClientQuotaEntity, Map<String, Double>>> done) throws Exception {
+        var got = a.describeClientQuotas(filter).entities().get(30, TimeUnit.SECONDS);
+        for (long end = System.currentTimeMillis() + 10_000; !done.test(got) && System.currentTimeMillis() < end; ) {
+            Thread.sleep(100);
+            got = a.describeClientQuotas(filter).entities().get(30, TimeUnit.SECONDS);
+        }
+        return got;
+    }
+
+    /**
+     * KIP-320: a consumer that seeks to an offset with the leader epoch it was read under validates it with OffsetForLeaderEpoch
+     * before it fetches, and goes on from there when the log was not truncated under it.
+     */
+    static String consumerValidates() throws Exception {
+        String topic = newTopic("java-validate");
+        try (Admin a = admin()) {
+            createTopic(a, topic, 1, null);
+        }
+        produceValues(topic, 0, 10);
+        TopicPartition tp = new TopicPartition(topic, 0);
+        try (var c = consumer(Map.of("enable.auto.commit", "false", "auto.offset.reset", "none"))) {
+            c.assign(List.of(tp));
+            c.seek(tp, new OffsetAndMetadata(6, Optional.of(0), ""));
+            List<ConsumerRecord<String, String>> got = new ArrayList<>();
+            long end = System.currentTimeMillis() + 30_000;
+            while (got.size() < 4 && System.currentTimeMillis() < end) c.poll(Duration.ofMillis(200)).forEach(got::add);
+            check(got.size() == 4 && got.get(0).offset() == 6, "read %d from %s", got.size(), got.isEmpty() ? "nothing" : got.get(0).offset());
+            // The leader stamps its epoch into each batch it appends, so a record says the epoch it was written under.
+            check(got.get(0).leaderEpoch().equals(Optional.of(0)), "leader epoch %s", got.get(0).leaderEpoch());
+        }
+        return "sought to offset 6 under epoch 0, validated, read 6 to 9, each under epoch 0";
     }
 
     static String adminAcls() throws Exception {

@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Kafka, logLevel, type Producer } from "kafkajs";
 import type { Page } from "@playwright/test";
-import { SEEDED } from "../playwright.config";
+import { SECOND, SEEDED } from "../playwright.config";
 import { boxes, choose, cutHeaders, expect, overflowX, test } from "./fixtures";
 
 const KAFKA = process.env.E2E_KAFKA ?? SEEDED.kafka;
@@ -397,7 +397,7 @@ test("no page scrolls sideways at 1024 to 1920, in a snapshot, in the tail and u
 });
 
 test.describe("a broker that goes away and comes back", () => {
-  const ports = { kafka: "127.0.0.1:39192", console: "127.0.0.1:39194", registry: "127.0.0.1:39193" };
+  const ports = SECOND;
   let child: ChildProcess | undefined;
   let data = "";
   const bin = process.env.DOZE_KAFKA_BIN ?? resolve(import.meta.dir, "../../../target/release/doze-kafka");

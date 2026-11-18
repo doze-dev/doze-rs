@@ -34,11 +34,12 @@ def queue_for(client, names, cleanup, rule_arn):
 
 
 def bodies(client, url):
-    got = client("sqs").receive_message(QueueUrl=url, MaxNumberOfMessages=10)
+    # Delivery is after PutEvents answers, as on AWS: wait for the first message.
+    got = client("sqs").receive_message(QueueUrl=url, MaxNumberOfMessages=10, WaitTimeSeconds=5)
     return [json.loads(m["Body"]) for m in got.get("Messages", [])]
 
 
-def test_an_archive_keeps_events_and_a_replay_puts_them_back(client, names, cleanup, local_only):
+def test_an_archive_keeps_events_and_a_replay_puts_them_back(client, names, cleanup, local_only, eventually):
     events = client("events")
     bus = names("bus")
     bus_arn = events.create_event_bus(Name=bus)["EventBusArn"]
@@ -50,7 +51,11 @@ def test_an_archive_keeps_events_and_a_replay_puts_them_back(client, names, clea
     start = time.time() - 60
     for source in ("keep", "drop", "keep"):
         events.put_events(Entries=[{"EventBusName": bus, "Source": source, "DetailType": "x", "Detail": "{}"}])
-    assert events.describe_archive(ArchiveName=archive)["EventCount"] == 2
+
+    def archived():
+        assert events.describe_archive(ArchiveName=archive)["EventCount"] == 2
+
+    eventually(archived)
     rule = names("rule")
     rule_arn = events.put_rule(Name=rule, EventBusName=bus, EventPattern=json.dumps({"source": ["keep"]}))["RuleArn"]
     cleanup(events.delete_rule, Name=rule, EventBusName=bus)
@@ -102,7 +107,7 @@ def test_what_cannot_be_delivered_lands_in_the_dead_letter_queue(client, names, 
     events.put_targets(Rule=rule, EventBusName=bus, Targets=[{"Id": "t", "Arn": gone, "DeadLetterConfig": {"Arn": dlq_arn}}])
     cleanup(events.remove_targets, Rule=rule, EventBusName=bus, Ids=["t"])
     events.put_events(Entries=[{"EventBusName": bus, "Source": "x", "DetailType": "x", "Detail": "{}"}])
-    got = sqs.receive_message(QueueUrl=dlq_url, MessageAttributeNames=["All"])["Messages"][0]
+    got = sqs.receive_message(QueueUrl=dlq_url, MessageAttributeNames=["All"], WaitTimeSeconds=5)["Messages"][0]
     assert json.loads(got["Body"])["source"] == "x"
     attrs = {k: v["StringValue"] for k, v in got["MessageAttributes"].items()}
     assert attrs["RULE_ARN"] == rule_arn and attrs["TARGET_ARN"] == gone

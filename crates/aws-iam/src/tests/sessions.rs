@@ -147,7 +147,18 @@ fn session_tokens_federation_and_web_identity() {
         "arn:aws:sts::000000000000:federated-user/bob"
     );
     w.sts.session_token = None;
-    // A web identity token is read for its claims and its signature is not checked.
+    // A web identity token needs a provider for its issuer and an audience among its client ids. Its signature is verified before
+    // the call reaches the core (`oidc::verify`; tests/webidentity.rs), so here it is not.
+    let (code, message) = w.sts_err("AssumeRoleWithWebIdentity", &json!({"RoleArn": "arn:aws:iam::000000000000:role/web", "RoleSessionName": "web", "WebIdentityToken": "e30.e30.sig"}));
+    assert_eq!(code, "InvalidIdentityTokenException");
+    assert!(
+        message.starts_with("No OpenIDConnect provider found"),
+        "{message}"
+    );
+    w.ok(
+        "CreateOpenIDConnectProvider",
+        &json!({"Url": "https://idp.example", "ClientIDList": ["app"]}),
+    );
     let claims =
         aws_core::base64::encode(br#"{"sub":"alice","iss":"https://idp.example","aud":"app"}"#);
     let jwt = format!(
@@ -175,9 +186,32 @@ fn session_tokens_federation_and_web_identity() {
 }
 
 #[test]
-fn a_saml_assertion_is_read_for_its_subject_issuer_and_session_name_and_echoed() {
+fn a_signed_saml_assertion_is_read_for_its_subject_issuer_and_session_name_and_echoed() {
     let mut w = World::new();
-    let assertion = aws_core::base64::encode(crate::saml::tests::ASSERTION.as_bytes());
+    let saml = |w: &mut World, assertion: &str| {
+        w.sts_err(
+            "AssumeRoleWithSAML",
+            &json!({
+                "RoleArn": "arn:aws:iam::000000000000:role/r",
+                "PrincipalArn": "arn:aws:iam::000000000000:saml-provider/idp",
+                "SAMLAssertion": aws_core::base64::encode(assertion.as_bytes()),
+            }),
+        )
+    };
+    // No provider yet: refused.
+    let signed = include_str!("../xmldsig/testdata/response-signed.xml");
+    assert_eq!(saml(&mut w, signed).0, "InvalidIdentityTokenException");
+    w.ok(
+        "CreateSAMLProvider",
+        &json!({"Name": "idp", "SAMLMetadataDocument": include_str!("../xmldsig/testdata/metadata.xml")}),
+    );
+    // An assertion with no signature, and a signed one changed after signing, are refused.
+    let (code, message) = saml(&mut w, crate::saml::tests::ASSERTION);
+    assert_eq!(code, "InvalidIdentityTokenException");
+    assert!(message.contains("signature"), "{message}");
+    let tampered = signed.replacen("alice&amp;co", "mallory", 1);
+    assert_eq!(saml(&mut w, &tampered).0, "InvalidIdentityTokenException");
+    let assertion = aws_core::base64::encode(signed.as_bytes());
     let out = w.sts_ok(
         "AssumeRoleWithSAML",
         &json!({
@@ -186,7 +220,7 @@ fn a_saml_assertion_is_read_for_its_subject_issuer_and_session_name_and_echoed()
             "SAMLAssertion": assertion,
         }),
     );
-    assert_eq!(out["Subject"], "alice&co");
+    assert_eq!(out["Subject"], "alice&co <a>");
     assert_eq!(out["SubjectType"], "persistent");
     assert_eq!(out["Issuer"], "https://idp.example.com/saml");
     assert_eq!(out["Audience"], "https://signin.aws.amazon.com/saml");

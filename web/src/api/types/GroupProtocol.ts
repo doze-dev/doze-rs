@@ -3,4 +3,4 @@
 /**
  * Which protocol the group speaks.
  */
-export type GroupProtocol = "classic" | "consumer";
+export type GroupProtocol = "classic" | "consumer" | "share" | "streams";

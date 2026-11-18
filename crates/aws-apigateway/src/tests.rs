@@ -119,6 +119,7 @@ impl World {
                 .collect(),
             body: bytes::Bytes::copy_from_slice(body.as_bytes()),
             endpoint: "http://localhost:4566".into(),
+            signature: aws_wire::service::WebSignature::Unsigned,
         };
         self.v1.serve(request).await
     }

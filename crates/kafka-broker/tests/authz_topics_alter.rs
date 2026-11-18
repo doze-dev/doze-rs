@@ -116,8 +116,8 @@ async fn a_resource_the_caller_may_not_alter_is_refused_with_that_resources_erro
     .await
     {
         assert_eq!(
-            answers[0].0, 42,
-            "the group is allowed through and is a type this broker does not take"
+            answers[0].0, 40,
+            "the group is allowed through, and a topic's config is no group's (INVALID_CONFIG)"
         );
         assert_eq!(answers[1].0, GROUP_AUTHORIZATION_FAILED);
     }

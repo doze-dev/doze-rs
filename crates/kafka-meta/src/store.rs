@@ -3,15 +3,19 @@
 mod acls;
 mod broker_configs;
 mod credentials;
+mod group_configs;
 mod lives;
 mod offsets;
 mod producer_ids;
+mod quotas;
 mod registry;
 mod schemas;
+mod shares;
 mod topics;
 mod txns;
 
 pub use schemas::Records;
+pub use shares::ShareStateWrite;
 pub use topics::random_topic_id;
 
 use std::path::Path;
@@ -48,7 +52,20 @@ pub(super) const CREDENTIALS: TableDefinition<'static, &[u8], &[u8]> =
 
 /// The schema registry's records, opaque here (`store/schemas.rs`). Absent from a database made before the registry kept anything, which
 /// the reads take as none and the first write makes.
+/// The client quotas: the entity (the key) to the values set for it. Absent from a database made before quotas could be kept,
+/// which the reads take as none and the first write makes.
+pub(super) const QUOTAS: TableDefinition<'static, &[u8], &[u8]> = TableDefinition::new("quotas");
+
 pub(super) const SCHEMAS: TableDefinition<'static, &[u8], &[u8]> = TableDefinition::new("schemas");
+
+/// The share groups' partition states (`store/shares.rs` for the key). Absent from a database made before share groups,
+/// which the reads take as none and the first write makes.
+pub(super) const SHARE_STATES: TableDefinition<'static, &[u8], &[u8]> =
+    TableDefinition::new("share_states");
+
+/// The configs set on groups (`store/group_configs.rs`). Absent from a database made before group configs.
+pub(super) const GROUP_CONFIGS: TableDefinition<'static, &[u8], &[u8]> =
+    TableDefinition::new("group_configs");
 
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
 
@@ -102,6 +119,7 @@ impl MetaStore {
             txn.open_table(BROKER_CONFIGS)?;
             txn.open_table(ACLS)?;
             txn.open_table(CREDENTIALS)?;
+            txn.open_table(QUOTAS)?;
             Ok(())
         })?;
         // A database an earlier build made open to others is closed to them now; one that cannot be is reported.

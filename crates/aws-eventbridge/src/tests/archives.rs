@@ -17,6 +17,7 @@ fn archive(w: &mut World, name: &str, extra: &Value) -> Value {
 fn put_at(w: &mut World, source: &str, detail: &Value, seconds_ago: i64) {
     w.ok("PutEvents", &json!({"Entries": [{"EventBusName": "shop", "Source": source, "DetailType": "x", "Detail": detail.to_string(),
         "Time": START / 1000 - seconds_ago}]}));
+    w.deliver();
 }
 
 #[test]
@@ -228,6 +229,7 @@ fn old_events_leave_an_archive_when_its_retention_has_passed() {
     w.clock.advance(2 * 86_400_000);
     // The event after the retention is the occasion to look for old ones.
     w.ok("PutEvents", &json!({"Entries": [{"EventBusName": "shop", "Source": "s", "DetailType": "x", "Detail": "{}", "Time": (START + 2 * 86_400_000) / 1000}]}));
+    w.deliver();
     assert_eq!(
         w.ok("DescribeArchive", &json!({"ArchiveName": "a"}))["EventCount"],
         1

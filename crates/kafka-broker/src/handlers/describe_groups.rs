@@ -62,8 +62,11 @@ impl<F: Fs> Broker<F> {
             let life = group
                 .as_ref()
                 .and_then(|g| blocking::run(|| self.meta.group_life(g)).ok().flatten());
-            // An empty consumer group of the new protocol is not described by this API.
-            if life.as_ref().is_some_and(|l| l.consumer.is_some()) {
+            // An empty consumer group of the new protocol, a share group or a streams group is not described by this API.
+            if life
+                .as_ref()
+                .is_some_and(|l| l.consumer.is_some() || l.share.is_some() || l.streams.is_some())
+            {
                 out.group_state = StrBytes::from_static_str("Dead");
                 return out;
             }
@@ -76,7 +79,7 @@ impl<F: Fs> Broker<F> {
         };
         // A consumer group is not described by the classic API: it is Dead here, as on Kafka, and ConsumerGroupDescribe
         // has it.
-        if d.consumer.is_some() {
+        if d.consumer.is_some() || d.share.is_some() || d.streams.is_some() {
             out.group_state = StrBytes::from_static_str("Dead");
             return out;
         }

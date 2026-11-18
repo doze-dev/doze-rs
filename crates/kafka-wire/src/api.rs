@@ -41,10 +41,27 @@ use kafka_protocol::messages::{
     SaslAuthenticateRequest, SaslAuthenticateResponse, SaslHandshakeRequest, SaslHandshakeResponse,
     SyncGroupRequest, SyncGroupResponse, TxnOffsetCommitRequest, TxnOffsetCommitResponse,
 };
+use kafka_protocol::messages::{
+    AlterClientQuotasRequest, AlterClientQuotasResponse, AlterShareGroupOffsetsRequest,
+    AlterShareGroupOffsetsResponse, DeleteShareGroupOffsetsRequest,
+    DeleteShareGroupOffsetsResponse, DescribeClientQuotasRequest, DescribeClientQuotasResponse,
+    DescribeLogDirsRequest, DescribeLogDirsResponse, DescribeShareGroupOffsetsRequest,
+    DescribeShareGroupOffsetsResponse, OffsetForLeaderEpochRequest, OffsetForLeaderEpochResponse,
+    ShareAcknowledgeRequest, ShareAcknowledgeResponse, ShareFetchRequest, ShareFetchResponse,
+    ShareGroupDescribeRequest, ShareGroupDescribeResponse, ShareGroupHeartbeatRequest,
+    ShareGroupHeartbeatResponse,
+};
+use kafka_protocol::messages::{
+    StreamsGroupDescribeRequest, StreamsGroupDescribeResponse, StreamsGroupHeartbeatRequest,
+    StreamsGroupHeartbeatResponse, StreamsGroupTopologyDescriptionUpdateRequest,
+    StreamsGroupTopologyDescriptionUpdateResponse,
+};
 use kafka_protocol::protocol::{Decodable, Encodable};
 
 use crate::error::WireError;
 use crate::profile::{Condition, NONE, Offered, v};
+
+mod throttle;
 
 /// One row of [`API_TABLE`].
 #[derive(Debug, Clone, Copy)]
@@ -66,15 +83,26 @@ macro_rules! when {
     };
 }
 
+/// The type a request or response is held as: itself, or in a `Box` for one much larger than the rest (`in Box` on its
+/// line), so that [`Request`] and [`Response`], which every request in flight is, stay the size of the common ones.
+macro_rules! held {
+    ($req:ident) => {
+        $req
+    };
+    ($req:ident, $wrap:ident) => {
+        $wrap<$req>
+    };
+}
+
 macro_rules! served_apis {
-    ($( $key:ident($req:ident, $resp:ident) $offered:expr $(, when $when:ident)? ;)*) => {
+    ($( $key:ident($req:ident $(in $wrap:ident)?, $resp:ident $(in $rwrap:ident)?) $offered:expr $(, when $when:ident)? ;)*) => {
         /// A request to one of the served APIs, decoded.
         #[derive(Debug)]
-        pub enum Request { $( #[doc = concat!("`", stringify!($key), "`")] $key($req), )* }
+        pub enum Request { $( #[doc = concat!("`", stringify!($key), "`")] $key(held!($req $(, $wrap)?)), )* }
 
         /// A response from one of the served APIs, ready to encode.
         #[derive(Debug)]
-        pub enum Response { $( #[doc = concat!("`", stringify!($key), "`")] $key($resp), )* }
+        pub enum Response { $( #[doc = concat!("`", stringify!($key), "`")] $key(held!($resp $(, $rwrap)?)), )* }
 
         /// Every served API, with the versions each Kafka major offers.
         pub const API_TABLE: &[ApiRow] = &[
@@ -95,7 +123,7 @@ macro_rules! served_apis {
             pub fn decode(key: ApiKey, version: i16, body: &mut Bytes) -> Result<Self, WireError> {
                 match key {
                     $( ApiKey::$key => <$req as Decodable>::decode(body, version)
-                        .map(Self::$key)
+                        .map(|r| Self::$key(r.into()))
                         .map_err(|e| WireError::decode(stringify!($req), e)), )*
                     other => Err(WireError::NotServed(other)),
                 }
@@ -115,7 +143,7 @@ macro_rules! served_apis {
             /// A response that cannot be written at that version.
             pub fn encode(&self, version: i16, out: &mut BytesMut) -> Result<(), WireError> {
                 match self {
-                    $( Self::$key(r) => Encodable::encode(r, out, version)
+                    $( Self::$key(r) => Encodable::encode(std::borrow::Borrow::<$resp>::borrow(r), out, version)
                         .map_err(|e| WireError::encode(stringify!($resp), e)), )*
                 }
             }
@@ -126,7 +154,7 @@ macro_rules! served_apis {
             /// A response that cannot be written at that version.
             pub fn compute_size(&self, version: i16) -> Result<usize, WireError> {
                 match self {
-                    $( Self::$key(r) => Encodable::compute_size(r, version)
+                    $( Self::$key(r) => Encodable::compute_size(std::borrow::Borrow::<$resp>::borrow(r), version)
                         .map_err(|e| WireError::encode(stringify!($resp), e)), )*
                 }
             }
@@ -135,7 +163,7 @@ macro_rules! served_apis {
 }
 
 served_apis! {
-    Produce(ProduceRequest, ProduceResponse) [v(3, 5), v(3, 7), v(3, 9), v(3, 9)];
+    Produce(ProduceRequest, ProduceResponse) [v(3, 5), v(3, 7), v(3, 11), v(3, 12)];
     Fetch(FetchRequest, FetchResponse) [v(4, 6), v(4, 10), v(4, 13), v(4, 13)];
     ListOffsets(ListOffsetsRequest, ListOffsetsResponse) [v(0, 2), v(0, 5), v(0, 7), v(1, 7)];
     Metadata(MetadataRequest, MetadataResponse) [v(0, 5), v(0, 8), v(0, 12), v(0, 12)];
@@ -153,11 +181,11 @@ served_apis! {
     CreateTopics(CreateTopicsRequest, CreateTopicsResponse) [v(0, 2), v(0, 3), v(0, 7), v(2, 7)];
     DeleteTopics(DeleteTopicsRequest, DeleteTopicsResponse) [v(0, 1), v(0, 3), v(0, 5), v(1, 6)];
     DeleteRecords(DeleteRecordsRequest, DeleteRecordsResponse) [v(0, 0), v(0, 1), v(0, 2), v(0, 2)];
-    InitProducerId(InitProducerIdRequest, InitProducerIdResponse) [v(0, 0), v(0, 1), v(0, 4), v(0, 4)];
-    AddPartitionsToTxn(AddPartitionsToTxnRequest, AddPartitionsToTxnResponse) [v(0, 0), v(0, 1), v(0, 3), v(0, 3)];
-    AddOffsetsToTxn(AddOffsetsToTxnRequest, AddOffsetsToTxnResponse) [v(0, 0), v(0, 1), v(0, 3), v(0, 3)];
-    EndTxn(EndTxnRequest, EndTxnResponse) [v(0, 0), v(0, 1), v(0, 3), v(0, 3)];
-    TxnOffsetCommit(TxnOffsetCommitRequest, TxnOffsetCommitResponse) [v(0, 0), v(0, 2), v(0, 3), v(0, 3)];
+    InitProducerId(InitProducerIdRequest, InitProducerIdResponse) [v(0, 0), v(0, 1), v(0, 5), v(0, 5)];
+    AddPartitionsToTxn(AddPartitionsToTxnRequest, AddPartitionsToTxnResponse) [v(0, 0), v(0, 1), v(0, 5), v(0, 5)];
+    AddOffsetsToTxn(AddOffsetsToTxnRequest, AddOffsetsToTxnResponse) [v(0, 0), v(0, 1), v(0, 4), v(0, 4)];
+    EndTxn(EndTxnRequest, EndTxnResponse) [v(0, 0), v(0, 1), v(0, 4), v(0, 5)];
+    TxnOffsetCommit(TxnOffsetCommitRequest, TxnOffsetCommitResponse) [v(0, 0), v(0, 2), v(0, 4), v(0, 5)];
     DescribeAcls(DescribeAclsRequest, DescribeAclsResponse) [v(0, 0), v(0, 1), v(0, 3), v(1, 3)];
     CreateAcls(CreateAclsRequest, CreateAclsResponse) [v(0, 0), v(0, 1), v(0, 3), v(1, 3)];
     DeleteAcls(DeleteAclsRequest, DeleteAclsResponse) [v(0, 0), v(0, 1), v(0, 3), v(1, 3)];
@@ -176,6 +204,23 @@ served_apis! {
     ConsumerGroupDescribe(ConsumerGroupDescribeRequest, ConsumerGroupDescribeResponse) [NONE, NONE, NONE, v(0, 1)];
     DescribeUserScramCredentials(DescribeUserScramCredentialsRequest, DescribeUserScramCredentialsResponse) [NONE, v(0, 0), v(0, 0), v(0, 0)];
     AlterUserScramCredentials(AlterUserScramCredentialsRequest, AlterUserScramCredentialsResponse) [NONE, v(0, 0), v(0, 0), v(0, 0)];
+    OffsetForLeaderEpoch(OffsetForLeaderEpochRequest, OffsetForLeaderEpochResponse) [v(0, 0), v(0, 4), v(0, 4), v(2, 4)];
+    DescribeLogDirs(DescribeLogDirsRequest, DescribeLogDirsResponse) [v(0, 0), v(0, 2), v(0, 4), v(1, 5)];
+    DescribeClientQuotas(DescribeClientQuotasRequest, DescribeClientQuotasResponse) [NONE, v(0, 1), v(0, 1), v(0, 1)];
+    AlterClientQuotas(AlterClientQuotasRequest, AlterClientQuotasResponse) [NONE, v(0, 1), v(0, 1), v(0, 1)];
     GetTelemetrySubscriptions(GetTelemetrySubscriptionsRequest, GetTelemetrySubscriptionsResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
     PushTelemetry(PushTelemetryRequest, PushTelemetryResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
+    // Share groups (KIP-932): Kafka 4.1 made them generally available, at the versions 4.4.0 serves.
+    ShareGroupHeartbeat(ShareGroupHeartbeatRequest, ShareGroupHeartbeatResponse) [NONE, NONE, NONE, v(1, 1)];
+    ShareGroupDescribe(ShareGroupDescribeRequest, ShareGroupDescribeResponse) [NONE, NONE, NONE, v(1, 1)];
+    ShareFetch(ShareFetchRequest, ShareFetchResponse) [NONE, NONE, NONE, v(1, 2)];
+    ShareAcknowledge(ShareAcknowledgeRequest, ShareAcknowledgeResponse) [NONE, NONE, NONE, v(1, 2)];
+    DescribeShareGroupOffsets(DescribeShareGroupOffsetsRequest, DescribeShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 1)];
+    AlterShareGroupOffsets(AlterShareGroupOffsetsRequest, AlterShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 0)];
+    DeleteShareGroupOffsets(DeleteShareGroupOffsetsRequest, DeleteShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 0)];
+    // Streams groups (KIP-1071), at the versions 4.4.0 serves; 93 is answered as a 4.4.0 broker with no topology
+    // description plugin answers it (KIP-1331).
+    StreamsGroupHeartbeat(StreamsGroupHeartbeatRequest in Box, StreamsGroupHeartbeatResponse in Box) [NONE, NONE, NONE, v(0, 1)];
+    StreamsGroupDescribe(StreamsGroupDescribeRequest, StreamsGroupDescribeResponse) [NONE, NONE, NONE, v(0, 1)];
+    StreamsGroupTopologyDescriptionUpdate(StreamsGroupTopologyDescriptionUpdateRequest, StreamsGroupTopologyDescriptionUpdateResponse) [NONE, NONE, NONE, v(0, 0)];
 }

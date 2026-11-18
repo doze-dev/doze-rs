@@ -35,7 +35,7 @@ macro_rules! defaults {
         /// The default response of `key`, and a function that reads it back at a version.
         fn response_of(key: ApiKey) -> (Response, fn(&mut Bytes, i16)) {
             match key {
-                $(ApiKey::$api => (Response::$api($resp::default()), |b, v| { $resp::decode(b, v).unwrap(); }),)*
+                $(ApiKey::$api => (Response::$api($resp::default().into()), |b, v| { $resp::decode(b, v).unwrap(); }),)*
                 other => panic!("{other:?} is not a served API"),
             }
         }
@@ -96,11 +96,37 @@ defaults!(
         ConsumerGroupHeartbeatResponse
     ),
     ConsumerGroupDescribe(ConsumerGroupDescribeRequest, ConsumerGroupDescribeResponse),
+    OffsetForLeaderEpoch(OffsetForLeaderEpochRequest, OffsetForLeaderEpochResponse),
+    DescribeLogDirs(DescribeLogDirsRequest, DescribeLogDirsResponse),
+    DescribeClientQuotas(DescribeClientQuotasRequest, DescribeClientQuotasResponse),
+    AlterClientQuotas(AlterClientQuotasRequest, AlterClientQuotasResponse),
     GetTelemetrySubscriptions(
         GetTelemetrySubscriptionsRequest,
         GetTelemetrySubscriptionsResponse
     ),
     PushTelemetry(PushTelemetryRequest, PushTelemetryResponse),
+    ShareGroupHeartbeat(ShareGroupHeartbeatRequest, ShareGroupHeartbeatResponse),
+    ShareGroupDescribe(ShareGroupDescribeRequest, ShareGroupDescribeResponse),
+    ShareFetch(ShareFetchRequest, ShareFetchResponse),
+    ShareAcknowledge(ShareAcknowledgeRequest, ShareAcknowledgeResponse),
+    DescribeShareGroupOffsets(
+        DescribeShareGroupOffsetsRequest,
+        DescribeShareGroupOffsetsResponse
+    ),
+    AlterShareGroupOffsets(
+        AlterShareGroupOffsetsRequest,
+        AlterShareGroupOffsetsResponse
+    ),
+    DeleteShareGroupOffsets(
+        DeleteShareGroupOffsetsRequest,
+        DeleteShareGroupOffsetsResponse
+    ),
+    StreamsGroupHeartbeat(StreamsGroupHeartbeatRequest, StreamsGroupHeartbeatResponse),
+    StreamsGroupDescribe(StreamsGroupDescribeRequest, StreamsGroupDescribeResponse),
+    StreamsGroupTopologyDescriptionUpdate(
+        StreamsGroupTopologyDescriptionUpdateRequest,
+        StreamsGroupTopologyDescriptionUpdateResponse
+    ),
 );
 
 /// Every (profile, API, version) the broker offers.

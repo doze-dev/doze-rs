@@ -319,3 +319,23 @@ pub const GROUP_GET_PATHS: &[&str] = &[
     "/api/v1/groups/search-indexer/delete",
     "/api/v1/groups/analytics/offsets/delete",
 ];
+
+/// The types of a streams group's page (KIP-1071).
+#[cfg(test)]
+pub(super) fn streams_types(
+    cfg: &ts_rs::Config,
+    out: &mut std::collections::BTreeMap<String, String>,
+) {
+    use super::types::one;
+    use crate::model::{
+        GroupStreamsView, StreamsInternalTopic, StreamsMemberRow, StreamsNotReady, StreamsRoles,
+        StreamsSubtopologyRow, StreamsTopicKind,
+    };
+    one::<GroupStreamsView>(cfg, out);
+    one::<StreamsNotReady>(cfg, out);
+    one::<StreamsSubtopologyRow>(cfg, out);
+    one::<StreamsTopicKind>(cfg, out);
+    one::<StreamsInternalTopic>(cfg, out);
+    one::<StreamsRoles>(cfg, out);
+    one::<StreamsMemberRow>(cfg, out);
+}

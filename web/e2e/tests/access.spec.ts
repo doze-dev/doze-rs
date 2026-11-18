@@ -81,6 +81,37 @@ test("Access: Create ACL by mouse and keyboard, it shows in the table, the filte
   expect(after.access.acls.rows.some((e: { principal: string }) => e.principal === who)).toBe(false);
 });
 
+test("Access: Set quota by mouse and keyboard, it is listed with who it holds, Kafka refuses zero, Remove takes it away", async ({ page, browserName }) => {
+  const client = `e2e-quota-${browserName}`;
+  await page.goto("/access");
+  await page.getByTestId("quota-set").click();
+  await expect(page).toHaveURL(/quota=new/);
+  const dialog = page.getByTestId("quota-dialog");
+  await dialog.getByTestId("quota-client").fill(client);
+  await choose(page, dialog.getByTestId("quota-key"), "Fetch consumer_byte_rate");
+  await dialog.getByTestId("quota-value").fill("0");
+  await expect(dialog.getByTestId("call-box")).toContainText("consumer_byte_rate=0");
+  await noNativeSelect(page);
+  await dialog.getByTestId("quota-submit").click();
+  await expect(dialog.getByTestId("refusal-message")).toHaveText("Quota consumer_byte_rate must be greater than 0");
+  await dialog.getByTestId("quota-value").fill("2097152");
+  await dialog.getByTestId("quota-submit").click();
+  await expect(dialog.getByTestId("quota-made")).toBeVisible();
+  await dialog.getByTestId("write-done").click();
+  await expect(dialog).toBeHidden();
+  const row = page.getByRole("table", { name: "Client quotas" }).locator("tbody tr", { hasText: client });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText("2.0 MiB/s fetched");
+  await expect(row).toContainText(`every client with client id ${client}`);
+  await row.getByTestId("quota-remove").click();
+  const remove = page.getByTestId("quota-remove-dialog");
+  await expect(remove.getByTestId("call-box")).toContainText("--delete-config consumer_byte_rate");
+  await remove.getByTestId("quota-remove-confirm").click();
+  await expect(remove.getByTestId("quota-removed")).toBeVisible();
+  await remove.getByTestId("write-done").click();
+  await expect(row).toHaveCount(0);
+});
+
 test("Access: a missing field is said under it; Kafka's refusal is in Kafka's words; Esc and Back close the dialog", async ({ page }) => {
   await page.goto("/access");
   const open = page.getByTestId("acl-create");

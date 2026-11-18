@@ -1521,3 +1521,161 @@ short waits the same way instead of reaching the router's error boundary. WebKit
 logs "Fetch API cannot load <url> due to access control checks." (Playwright: a page error) whether or not the page handles it;
 Firefox and WebKit log a cut chunk load through React. No console line and no page error, unfiltered, in all three browsers
 (J500). File: `web/e2e/tests/leaving.spec.ts`.
+
+# Data: what is using the disk, and giving it back (2026-11-15)
+
+The design is `docs/port/data-control.md`. The page is `/data`; its API is `GET /api/v1/data`, `GET /api/v1/data/empty?topic=`,
+`POST /api/v1/data/empty`, `/empty-all`, `/erase` (`api/data.rs`); the broker's side is `kafka-broker/src/data.rs`.
+
+## CON-1515. The data directory by kind, and the volume it is on
+Every byte of the data directory is counted once under its kind: the topics' partition directories (segments, indexes and the
+records beside them), the metadata store (`meta.redb*`), partition directories no topic owns, and everything else; the walk is
+bounded and opens nothing for writing. The volume's size and room come from `statvfs` (none where the platform does not say).
+Tests: `every_byte_is_counted_once_under_the_kind_it_belongs_to`, `space_is_the_volume_of_the_path_and_a_missing_path_is_an_error`,
+`a_disk_with_a_capacity_says_its_room_and_one_without_says_nothing`, `the_usage_says_each_kind_each_topic_largest_first_and_what_it_keeps`,
+`the_page_says_each_kind_and_each_topic_largest_first_with_why`; file: `web/e2e/tests/data.spec.ts`.
+
+## CON-1516. Each topic, largest first, with what it keeps and why
+A row per topic the console may describe (the others are counted, not named): its bytes and share, partitions, oldest data (the
+first batch of the first segment), the retention in force (its own or the broker's, `default`), **Keeps everything** when it
+deletes with no time or size bound, and a sentence of why it holds what it holds, with when retention's next pass can take its
+oldest segment where the last pass worked that out. Tests: `what_a_topic_keeps_comes_from_its_own_configs_then_the_brokers`,
+`why_says_what_is_kept_and_when_the_oldest_goes`, `retention_is_said_short_as_the_table_shows_it`,
+`the_oldest_data_is_the_first_batch_of_the_first_segment_open_or_closed`,
+`the_larder_page_is_largest_first_and_names_the_topic_that_keeps_everything`; file: `web/e2e/tests/data.spec.ts`.
+
+## CON-1517. Growth is measured from the pages' own looks, never on a timer
+Each look a page asks for notes the topics' sizes; at most one a minute is kept, sixteen of them, the 500 largest topics each; a
+topic's growth is its size now against the oldest look kept that is at least a minute old, in bytes an hour. Empty all topics and
+Erase everything forget the looks. Tests: `growth_is_measured_from_the_oldest_look_a_minute_old_and_said_per_hour`,
+`at_most_sixteen_looks_are_kept_a_minute_apart`.
+
+## CON-1518. The heads-up: nearly full, a large share, a large topic that keeps everything
+Home, the Data page, the sidebar's Data (a dot) and the top bar (a Disk chip) say it when the volume has under 5% or 2 GiB free
+(the louder tone), when the data directory is a tenth of the volume and at least 1 GiB, or when a topic that keeps everything passes
+1 GiB, in that order. Home does not say "Nothing needs you" beside it. The shell reads the last look and never walks. Tests:
+`a_nearly_full_disk_is_said_first_then_a_large_share_then_a_large_topic_that_keeps_everything`,
+`the_kinds_are_largest_first_and_say_what_is_in_them`.
+
+## CON-1519. Empty topic: every record goes and the disk is freed now; the topic carries on
+The dialog (`?dialog=empty&topic=`) says the records, bytes and partitions that go, who reads the topic, and what stays; Empty
+removes every segment, the active one too, of every partition that holds anything, compacted topics included (the broker's own
+action, not DeleteRecords). Offsets carry on from the end; commits stay; a reader below the start is told OFFSET_OUT_OF_RANGE. The
+done state says what went and what was freed, then Done. Tests:
+`emptying_frees_the_disk_keeps_the_topic_and_the_commits_and_carries_on_from_the_end`,
+`a_topic_that_only_compacts_is_emptied_too_and_its_configs_stay`,
+`producers_writing_while_the_topic_is_emptied_never_get_an_offset_twice`,
+`emptying_stopped_at_any_point_leaves_the_log_whole_or_empty_and_never_reuses_an_offset`,
+`empty_topic_says_what_goes_then_frees_it_and_the_topic_carries_on`; file: `web/e2e/tests/data.spec.ts`.
+
+## CON-1520. A transaction under way refuses, before the button
+Empty topic is refused while a transaction is under way on the topic, Empty all topics and Erase everything while any is
+(CONCURRENT_TRANSACTIONS, with what to do); the coordinator is asked first and the partition's writer checks its own index again
+between appends. The dialog says it before the button, which stays shut. Tests:
+`a_transaction_under_way_refuses_and_touches_nothing_until_it_ends`, `erase_is_refused_while_a_transaction_is_under_way`,
+`empty_topic_is_refused_while_a_transaction_is_under_way_and_done_otherwise`; file: `web/e2e/tests/data.spec.ts`.
+
+## CON-1521. Empty all topics and Erase everything wait for their phrase
+Each dialog says what goes and what stays and is sent only with its phrase typed (`empty all topics`, `erase everything`); a POST
+with another is `invalid` and changes nothing. Erase removes every topic, group without members and its commits, finished
+transactional id, registry subject and schema, and partition directories no topic owns; it keeps ACLs, users, the broker's configs,
+the registry's global level, and the id counters. Tests: `the_all_and_everything_actions_ask_for_their_phrase_and_then_do_it`,
+`erase_everything_leaves_an_empty_broker_with_its_acls_and_the_groups_still_connected`,
+`erasing_leaves_no_subject_keeps_the_global_level_and_never_gives_an_id_twice`,
+`erase_says_what_it_removed_and_the_group_it_kept`, `what_each_action_did_is_one_sentence`; file: `web/e2e/tests/data.spec.ts`.
+
+## CON-1523. Client quotas on Access: what is set, who it holds, set and remove
+The Access page lists every client quota DescribeClientQuotas returns, as the console's principal: one row per quota, who it is for
+(user, client id, both, an address; the default as a badge), the limit in words, and who it holds by Kafka's precedence
+(`quota_words::applies`), an address quota said to be kept and not enforced. Below it, the clients the broker meters
+(`Broker::client_quotas`, which no request tells): the meter's tags, the rate over the span, the limit and the share of it, and
+whether the connection is muted now and for how much longer, the muted first. `?quota=new` opens Set quota (for a client id, a
+user or both, each by name or the default; the quota; the limit) with the same change as `kafka-configs.sh` would make it;
+`?unquota=<user, client and key>` opens Remove quota. Both send AlterClientQuotas; a refusal is Kafka's words (a zero is
+"Quota K must be greater than 0"). A GET asks the broker only DescribeClientQuotas besides what it asked before. Tests:
+`a_quota_set_from_the_page_is_listed_and_one_kafka_refuses_is_refused_in_its_words`,
+`a_muted_client_comes_first_with_the_time_it_has_left`, `the_request_names_only_the_parts_given_and_an_empty_name_is_the_default`,
+`who_a_quota_holds_follows_kafkas_precedence`, `a_get_never_asks_the_broker_to_change_anything`.
+
+## CON-1522. `doze-kafka data`: the same from a terminal
+`doze-kafka data` prints the directory by kind and the topics largest first with why; with a broker running it reads the files alone
+(no lock, `meta.redb` never opened) and refuses the actions with the way forward; with it stopped, `data empty --topic NAME`,
+`data empty --all-topics --yes` and `data erase --everything --yes` do what the console does, and the two wide ones say what they
+would do and stop without `--yes`. Tests: `with_the_broker_running_it_reads_the_files_alone_and_the_actions_are_refused`,
+`with_the_broker_stopped_it_says_everything_and_the_wide_actions_wait_for_yes`,
+`data_reads_a_running_broker_and_empties_and_erases_a_stopped_one`, `the_command_line_asks_for_what_each_action_needs`.
+
+# Share groups on the Groups pages (KIP-932, 2026-11-15)
+
+A share group is a group kind of its own (`docs/port/behaviours/share-groups.md`): its members read the same partitions together
+and the broker hands each record to one of them at a time, under a lock. It commits no offset, so the pages show what it does
+have: the members and their epochs, and each share-partition's start, end and records in flight.
+
+## CON-1540. A share group is listed with its type and described by ShareGroupDescribe
+ListGroups names its type `share`; the list says "share (KIP-932)" and its epoch. DescribeGroups and ConsumerGroupDescribe
+answer a share group as not theirs, so the page asks ShareGroupDescribe: group epoch, assignment epoch, the assignor
+(`simple`) and each member with what it reads. Members shows four tiles (group epoch, assignment epoch, assignor, how many
+partitions are read by more than one member) and "Where a share group can be" (Empty or Stable: a share group revokes nothing).
+Tests: `live_api_groups::a_share_group_is_described_by_its_own_api_with_its_share_partitions`; file:
+`web/e2e/tests/share-groups.spec.ts`.
+
+## CON-1541. In place of lag, the share-partitions
+Each partition the group reads is a row: the start (SPSO, "not yet" before the first fetch), the end (SPEO), the log end, the
+records not yet done with, the records in flight as one bar by state (available, held, acknowledged, archived), the delivery
+counts, and who holds what. No request says this (DescribeShareGroupOffsets tells the start and the lag only), so it comes from
+`ConsoleView::share_group`: a share-partition in memory as it is now, under its lock; one not fetched since the broker started as it
+was stored, with nothing held. The log end is ListOffsets's; "not done with" is the log end less the start less what is acknowledged
+or archived past it. Nothing is kept between requests.
+Tests: `live_api_groups::a_share_group_is_described_by_its_own_api_with_its_share_partitions`; file:
+`web/e2e/tests/share-groups.spec.ts`.
+
+## CON-1542. The group's limits are said beside the table, from its configs
+The lock duration, the delivery limit (a record past it is archived, with how many are archived now), the records in flight per
+partition, where a partition starts when first read and the isolation are the group's own configs (`share.*`) or the broker's
+defaults, and the panel names the commands that change them (`kafka-configs --entity-type groups`,
+`kafka-share-groups --reset-offsets` while the group is empty). Tests:
+`live_api_groups::a_share_group_is_described_by_its_own_api_with_its_share_partitions`; file:
+`web/e2e/tests/share-groups.spec.ts`.
+
+# Streams groups on the Groups pages (KIP-1071, 2026-11-18)
+
+A streams group is a group kind of its own (`docs/port/behaviours/streams-groups.md`): its members are the stream threads of a
+Kafka Streams application, and the broker hands them tasks of the application's topology, not partitions. Task p of a
+subtopology reads partition p of each topic the subtopology reads. The group commits offsets as a consumer group does, so the
+pages show its lag as well as its topology and tasks.
+
+## CON-1550. A streams group is listed with its type and described by StreamsGroupDescribe
+ListGroups names its type `streams`; the list says "streams (KIP-1071)" and its epoch, and its state (`NotReady` is its own state,
+"Not ready", counted with the groups that are not settled). DescribeGroups answers a streams group as Dead, ConsumerGroupDescribe
+and ShareGroupDescribe as not theirs, so the page asks StreamsGroupDescribe: group epoch, assignment epoch, assignor (`sticky`) and
+each member. A member's row reads, at each partition p, the topics of the subtopologies whose active task p it runs, so "Reads" and
+the lag table's holders work as for a consumer group. The pills say "streams group (KIP-1071)". Members shows four tiles (group
+epoch, assignment epoch, topology epoch, how many tasks) and "Where a streams group can be" (Empty, Not ready, Assigning,
+Reconciling, Stable). Tests: `live_api_streams::a_streams_group_is_described_with_its_topology_tasks_and_lag`; file:
+`web/e2e/tests/streams-groups.spec.ts`.
+
+## CON-1551. Why the topology is not ready, in the words the members are told
+When the topology cannot run (a source topic is missing, internal topics are not made yet, joined topics are partitioned unlike
+each other), each heartbeat answers a status; the page shows its name (`MISSING_SOURCE_TOPICS`, `MISSING_INTERNAL_TOPICS`,
+`INCORRECTLY_PARTITIONED_TOPICS`) and Kafka's words in a callout, with what to do. No request says the status to anyone but the
+members, so it comes from `ConsoleView::streams_group`. Nothing is kept between requests. Tests:
+`live_api_streams::a_streams_group_whose_source_topic_is_missing_says_why_it_is_not_ready`; file:
+`web/e2e/tests/streams-groups.spec.ts`.
+
+## CON-1552. The topology and its internal topics
+Each subtopology is a card: the topics it reads, the repartition topics it writes into, the repartition topics it reads and the
+changelogs of its state stores, and its task count once the topology is ready. The internal topics (repartition and changelog)
+are a table: the partitions the topology works out for each, whether the topic is on the broker (and with as many partitions),
+and the configs the application asked for. A group not in memory (after a restart, with no member) is described from its kept
+record. Tests: `live_api_streams::a_streams_group_is_described_with_its_topology_tasks_and_lag`; file:
+`web/e2e/tests/streams-groups.spec.ts`.
+
+## CON-1553. Each member's tasks by role, its stage, and the group's lag
+A member's row is its process id, client id, endpoint (`host:port` for interactive queries), member epoch, its active, standby
+and warm-up tasks as task ids in runs (`0_0–0_2`), the target where it differs ("to run …"), the tasks it was told to give up
+("giving up …"), and its reconciliation stage (STABLE "In step", UNREVOKED_TASKS "Giving up tasks", UNRELEASED_TASKS "Waiting
+for tasks"). The Lag tab and the Reads panel are the consumer group's: what the group committed on the topics its tasks read
+(source and repartition topics) against the log ends. Offsets may be reset or deleted with the consumer pages' dialogs; Kafka
+takes an admin commit only while the group is empty, and refuses it otherwise with its own words. Tests:
+`live_api_streams::a_streams_group_is_described_with_its_topology_tasks_and_lag`; file:
+`web/e2e/tests/streams-groups.spec.ts`.

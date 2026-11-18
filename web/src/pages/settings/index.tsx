@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ChevronDownIcon, ChevronUpIcon, InfoIcon, PencilIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { r4keys, useSettings } from "@/api/r4";
@@ -283,7 +283,17 @@ function DataSection({ r }: { r: SettingsResponse }) {
               <Fact label="Set by" sub={d.flag_set ? "given at start" : "the default"}>
                 <code className="font-mono">--data-dir</code>
               </Fact>
-              <Fact label="Size" sub={`${number(d.files)} files`}>
+              <Fact
+                label="Size"
+                sub={
+                  <>
+                    {number(d.files)} files ·{" "}
+                    <Link to="/data" className="font-medium text-link hover:underline" data-testid="settings-data-link">
+                      what holds it, and giving it back
+                    </Link>
+                  </>
+                }
+              >
                 <span className="tabular-nums">{size}</span>
               </Fact>
               <Fact label="Partitions on disk" sub={`in ${d.topics === 1 ? "1 topic" : `${number(d.topics)} topics`}`}>

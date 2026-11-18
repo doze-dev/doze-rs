@@ -39,7 +39,8 @@ pub(crate) fn launch_daemon(args: &[String]) -> std::io::Result<()> {
 }
 
 /// `daemon <outfile>`: what a detached daemon must still manage: start an engine tree and stop it gently. Writes how
-/// the stop ended to `outfile` (written last, so its presence means the daemon outlived its launcher).
+/// the stop ended to `outfile` (written last and renamed into place, so its presence means the daemon outlived its launcher
+/// and the report is whole).
 pub(crate) async fn daemon(args: &[String]) -> std::io::Result<()> {
     let [out] = args else {
         return Err(std::io::Error::other("daemon <outfile>"));
@@ -56,8 +57,8 @@ pub(crate) async fn daemon(args: &[String]) -> std::io::Result<()> {
         tokio::io::AsyncBufReadExt::read_line(&mut tokio::io::BufReader::new(o), &mut line).await?;
     }
     let r = tree.stop(&Stop::Terminate, Duration::from_secs(10)).await?;
-    // Written whole, then renamed into place: the test polls for the file and must never read it half written (a
-    // loaded gate run read it empty once).
+    // Write beside the report and rename it into place: the test polls for the file, and `fs::write` creates it
+    // empty before it writes, so a poll in between read "" (ci-health.md, 2026-11-15).
     let tmp = format!("{out}.tmp");
     std::fs::write(&tmp, format!("{r:?}"))?;
     std::fs::rename(&tmp, out)

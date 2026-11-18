@@ -26,10 +26,11 @@ pub async fn listed(b: &Backend) -> Vec<Listed> {
         .iter()
         .map(|g| Listed {
             id: g.group_id.0.to_string(),
-            protocol: if g.group_type.as_str() == "consumer" {
-                GroupProtocol::Consumer
-            } else {
-                GroupProtocol::Classic
+            protocol: match g.group_type.as_str() {
+                "consumer" => GroupProtocol::Consumer,
+                "share" => GroupProtocol::Share,
+                "streams" => GroupProtocol::Streams,
+                _ => GroupProtocol::Classic,
             },
         })
         .collect();
@@ -69,7 +70,7 @@ fn parts_of(
     out
 }
 
-fn member_row(id: String, client_id: String, host: String) -> GroupMemberRow {
+pub(super) fn member_row(id: String, client_id: String, host: String) -> GroupMemberRow {
     GroupMemberRow {
         id,
         instance: None,
@@ -174,7 +175,69 @@ pub async fn describe(b: &Backend, ids: &[String]) -> HashMap<String, Described>
             out.insert(g.group_id.0.to_string(), consumer(g));
         }
     }
+    // What neither classic nor consumer protocol describes may be a share group.
+    again.retain(|id| !out.contains_key(id));
+    if !again.is_empty()
+        && let Ok(Response::ShareGroupDescribe(r)) =
+            b.call(requests::share_group_describe(&again)).await
+    {
+        for g in r.groups.iter().filter(|g| g.error_code == 0) {
+            out.insert(g.group_id.0.to_string(), share(g));
+        }
+    }
+    // And what is no share group either may be a streams group.
+    again.retain(|id| !out.contains_key(id));
+    if !again.is_empty()
+        && let Ok(Response::StreamsGroupDescribe(r)) =
+            b.call(requests::streams_group_describe(&again)).await
+    {
+        for g in r.groups.iter().filter(|g| g.error_code == 0) {
+            out.insert(g.group_id.0.to_string(), super::group_streams::described(g));
+        }
+    }
     out
+}
+
+fn share(g: &kafka_wire::messages::share_group_describe_response::DescribedGroup) -> Described {
+    let mut subscribed = BTreeSet::new();
+    let members = g
+        .members
+        .iter()
+        .map(|m| {
+            let mut row = member_row(
+                m.member_id.to_string(),
+                m.client_id.to_string(),
+                m.client_host.to_string(),
+            );
+            row.epoch = m.member_epoch;
+            let mut held: Vec<GroupPart> = m
+                .assignment
+                .topic_partitions
+                .iter()
+                .flat_map(|t| {
+                    t.partitions.iter().map(|p| GroupPart {
+                        topic: t.topic_name.0.to_string(),
+                        partition: *p,
+                    })
+                })
+                .collect();
+            held.sort();
+            row.holds.clone_from(&held);
+            row.target = held;
+            subscribed.extend(m.subscribed_topic_names.iter().map(|t| t.0.to_string()));
+            row
+        })
+        .collect();
+    Described {
+        protocol: GroupProtocol::Share,
+        state: g.group_state.to_string(),
+        protocol_type: Some("share".to_owned()),
+        assignor: Some(g.assignor_name.to_string()).filter(|p| !p.is_empty()),
+        generation: g.group_epoch,
+        target_epoch: Some(g.assignment_epoch),
+        members,
+        subscribed,
+    }
 }
 
 /// What a group committed: `(topic, partition)` to the committed offset (never negative).

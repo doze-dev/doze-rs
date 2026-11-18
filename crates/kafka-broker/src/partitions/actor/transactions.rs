@@ -103,6 +103,27 @@ pub(crate) fn shared(index: TxnIndex) -> Arc<RwLock<TxnIndex>> {
     Arc::new(RwLock::new(index))
 }
 
+/// Removes every record of the log, unless a transaction has records in it and no marker yet. Checked here, between two
+/// appends, so no transactional batch can come between the look and the removal. The log carries on from its end: offsets
+/// are never handed out twice.
+pub(super) fn empty<F: Fs>(
+    log: &mut PartitionLog<F>,
+    memory: &mut Memory,
+) -> Result<super::Emptying, StorageError> {
+    let open = !memory
+        .txns
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .open()
+        .is_empty();
+    if open {
+        return Ok(super::Emptying::TxnOpen);
+    }
+    let offsets = log.end_offset().get() - log.start_offset().get();
+    trim(log, memory, super::Trim::Before(None))?;
+    Ok(super::Emptying::Emptied { offsets })
+}
+
 /// Moves the start of the log up, and lets go of what the transaction index and the producers remembered below it.
 pub(super) fn trim<F: Fs>(
     log: &mut PartitionLog<F>,

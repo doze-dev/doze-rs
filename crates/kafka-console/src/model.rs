@@ -6,7 +6,11 @@
 mod config;
 mod connect;
 mod consumers;
+mod data;
+mod group_share;
+mod group_span;
 mod group_states;
+mod group_streams;
 mod groups;
 mod home;
 pub mod lab;
@@ -31,6 +35,9 @@ pub use connect::{
     Access, Chrome, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict,
 };
 pub use consumers::{ConsumersView, TopicReader};
+pub use data::{
+    AlarmTone, DataKind, DataKindRow, DataTopicRow, DataView, DiskAlarm, EmptyTopicView, VolumeView,
+};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
 pub use live::{
     LiveState, LiveView, WIRE_LIMIT, WIRE_MOST, WireClass, WireDetail, WirePart, WireQuery,
@@ -70,7 +77,12 @@ pub use story::{
     StoryLast, StoryLeft, StoryNow, StoryParts, StoryRule, StoryTone, StoryView, StoryWho,
 };
 
+pub use group_share::{GroupShareView, ShareRow};
 pub use group_states::GroupStates;
+pub use group_streams::{
+    GroupStreamsView, StreamsInternalTopic, StreamsMemberRow, StreamsNotReady, StreamsRoles,
+    StreamsSubtopologyRow, StreamsTopicKind,
+};
 pub use groups::{
     GroupAttention, GroupDeleteView, GroupFilter, GroupHead, GroupLagView, GroupMemberRow,
     GroupPart, GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupSpan,
@@ -82,9 +94,10 @@ mod access;
 mod settings;
 
 pub use access::{
-    AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessTls, AccessUser,
-    AccessView, AccessWarning, AclCreateResult, AclCreateView, AclDeleteResult, AclDeleteView,
-    AclEntry, AclInput, AclPattern, AclPermission,
+    AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessQuota, AccessQuotaClient,
+    AccessQuotaPart, AccessQuotas, AccessTls, AccessUser, AccessView, AccessWarning,
+    AclCreateResult, AclCreateView, AclDeleteResult, AclDeleteView, AclEntry, AclInput, AclPattern,
+    AclPermission,
 };
 pub use settings::{
     SettingsApi, SettingsChecked, SettingsConfigRow, SettingsConfigs, SettingsData,

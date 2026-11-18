@@ -92,6 +92,7 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     gw.account_id = cfg.text("account");
     gw.default_region = cfg.text("region");
     gw.auth = crate::wire::auth_of(cfg);
+    gw.known_keys = crate::wire::configured_keys(cfg);
     // A verifying gateway serves an unsigned S3 request as the anonymous principal only when IAM is there to judge it.
     gw.anonymous = cfg.text("iam") != "off";
     gw.health = Some(me.health());
@@ -119,7 +120,7 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
         );
     }
     announce(cfg, &me, &on, started);
-    mention_size(&data, cfg.count("data-warn-gb"));
+    mention_size(&data, cfg.count("data-warn-gb"), &tasks);
     wait_for_stop().await;
     tracing::info!("stopping");
     running.shutdown().await;
@@ -167,25 +168,27 @@ fn announce(cfg: &Config, me: &Instance, on: &[&'static Svc], started: Instant) 
     }
 }
 
-/// Once, after the ready block and off the serving thread: when the data directory has grown past `--data-warn-gb`, say so and say what
+/// Once, after the ready block, a little at a time on the serving thread: when the data directory has grown past `--data-warn-gb`, say so and say what
 /// shows where it went. A person whose disk filled should not have to know where to look.
-fn mention_size(data: &std::path::Path, warn_gb: u64) {
+fn mention_size(data: &std::path::Path, warn_gb: u64, tasks: &Tasks) {
+    if warn_gb == 0 {
+        return;
+    }
     let dir = data.to_path_buf();
-    let spawned = std::thread::Builder::new()
-        .name("doze-aws-size".into())
-        .spawn(move || {
-            let kept = crate::data::dir_bytes(&dir);
-            if warn_gb > 0 && kept >= warn_gb << 30 {
-                let shown =
-                    crate::config::display_path(&dir, &std::env::current_dir().unwrap_or_default());
-                println!(
-                    "    {}  doze-aws keeps {} in {shown}: `doze-aws data` shows where it goes\n",
-                    Style::of(Stream::Out).yellow("note     "),
-                    crate::data_show::size(kept)
-                );
-            }
-        });
-    drop(spawned);
+    // WHY: on the serving thread, a directory at a time with a yield between, not on a thread of its own: glibc keeps a
+    // finished thread's malloc arena, which cost 210 KB of idle memory for the rest of the process (CI weight, 2026-11-15).
+    tasks.spawn(async move {
+        let kept = crate::data::dir_bytes_yielding(&dir).await;
+        if warn_gb > 0 && kept >= warn_gb << 30 {
+            let shown =
+                crate::config::display_path(&dir, &std::env::current_dir().unwrap_or_default());
+            println!(
+                "    {}  doze-aws keeps {} in {shown}: `doze-aws data` shows where it goes\n",
+                Style::of(Stream::Out).yellow("note     "),
+                crate::data_show::size(kept)
+            );
+        }
+    });
 }
 
 fn unix_secs() -> u64 {

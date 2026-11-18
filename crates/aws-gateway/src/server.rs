@@ -47,6 +47,12 @@ impl Gateway {
         self
     }
 
+    /// The services added, in order (what `doze-aws compat` lists).
+    #[must_use]
+    pub fn services(&self) -> &[Arc<dyn Service>] {
+        &self.services
+    }
+
     /// Binds the socket and starts accepting.
     ///
     /// # Errors

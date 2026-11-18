@@ -24,6 +24,7 @@ ignore = [
     "RUSTSEC-2026-0370", # zvariant (zbus: the Linux backend's D-Bus)
     "RUSTSEC-2026-0371", # zbus_names
     "RUSTSEC-2026-0372", # zvariant_derive
+    "RUSTSEC-2026-0543", # chrono (gpui-pre, gpui-base, gpui-component; doze-app's own clock text too)
 ]
 
 [licenses]

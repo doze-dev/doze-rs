@@ -55,11 +55,19 @@ export function settingsSearch(s: Record<string, unknown>): SettingsSearch {
   return { edit: oneOf(DYNAMIC_KEYS, s.edit), scope: oneOf(["this"] as const, s.scope) };
 }
 
-export type AccessSearch = { acl?: "new"; delete?: string; q?: string; kind?: string; perm?: "allow" | "deny"; state?: "secured" };
+/** The Data page's dialogs: Empty a topic (`topic`), Empty all topics, Erase everything. */
+export type DataSearch = { dialog?: "empty" | "empty-all" | "erase"; topic?: string };
+export function dataSearch(s: Record<string, unknown>): DataSearch {
+  return { dialog: oneOf(["empty", "empty-all", "erase"] as const, s.dialog), topic: shortText(s.topic, 249) };
+}
+
+export type AccessSearch = { acl?: "new"; delete?: string; quota?: "new"; unquota?: string; q?: string; kind?: string; perm?: "allow" | "deny"; state?: "secured" };
 export function accessSearch(s: Record<string, unknown>): AccessSearch {
   return {
     acl: oneOf(["new"] as const, s.acl),
     delete: shortText(s.delete, 1200),
+    quota: oneOf(["new"] as const, s.quota),
+    unquota: shortText(s.unquota, 1200),
     q: shortText(s.q, 249),
     kind: oneOf(["topic", "group", "cluster", "transactional-id", "delegation-token", "user"] as const, s.kind),
     perm: oneOf(["allow", "deny"] as const, s.perm),

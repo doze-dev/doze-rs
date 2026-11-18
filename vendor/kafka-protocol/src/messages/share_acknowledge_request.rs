@@ -17,7 +17,7 @@ use crate::protocol::{
     Encodable, Encoder, HeaderVersion, Message, StrBytes, VersionRange,
 };
 
-/// Valid versions: 1
+/// Valid versions: 1-2
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct AcknowledgePartition {
@@ -69,7 +69,7 @@ impl AcknowledgePartition {
 #[cfg(feature = "client")]
 impl Encodable for AcknowledgePartition {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.partition_index)?;
@@ -109,7 +109,7 @@ impl Encodable for AcknowledgePartition {
 #[cfg(feature = "broker")]
 impl Decodable for AcknowledgePartition {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let partition_index = types::Int32.decode(buf)?;
@@ -141,11 +141,11 @@ impl Default for AcknowledgePartition {
 }
 
 impl Message for AcknowledgePartition {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 1 };
+    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 1
+/// Valid versions: 1-2
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct AcknowledgeTopic {
@@ -197,7 +197,7 @@ impl AcknowledgeTopic {
 #[cfg(feature = "client")]
 impl Encodable for AcknowledgeTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::Uuid.encode(buf, &self.topic_id)?;
@@ -236,7 +236,7 @@ impl Encodable for AcknowledgeTopic {
 #[cfg(feature = "broker")]
 impl Decodable for AcknowledgeTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let topic_id = types::Uuid.decode(buf)?;
@@ -268,11 +268,11 @@ impl Default for AcknowledgeTopic {
 }
 
 impl Message for AcknowledgeTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 1 };
+    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 1
+/// Valid versions: 1-2
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct AcknowledgementBatch {
@@ -338,7 +338,7 @@ impl AcknowledgementBatch {
 #[cfg(feature = "client")]
 impl Encodable for AcknowledgementBatch {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::Int64.encode(buf, &self.first_offset)?;
@@ -378,7 +378,7 @@ impl Encodable for AcknowledgementBatch {
 #[cfg(feature = "broker")]
 impl Decodable for AcknowledgementBatch {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let first_offset = types::Int64.decode(buf)?;
@@ -413,11 +413,11 @@ impl Default for AcknowledgementBatch {
 }
 
 impl Message for AcknowledgementBatch {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 1 };
+    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 1
+/// Valid versions: 1-2
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ShareAcknowledgeRequest {
@@ -435,6 +435,11 @@ pub struct ShareAcknowledgeRequest {
     ///
     /// Supported API versions: 1
     pub share_session_epoch: i32,
+
+    /// PATCH: whether Renew type acknowledgements are present in AcknowledgementBatches.
+    ///
+    /// Supported API versions: 2
+    pub is_renew_ack: bool,
 
     /// The topics containing records to acknowledge.
     ///
@@ -497,12 +502,18 @@ impl ShareAcknowledgeRequest {
 #[cfg(feature = "client")]
 impl Encodable for ShareAcknowledgeRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::CompactString.encode(buf, &self.group_id)?;
         types::CompactString.encode(buf, &self.member_id)?;
         types::Int32.encode(buf, &self.share_session_epoch)?;
+        // PATCH: version 2's IsRenewAck (not ignorable).
+        if version >= 2 {
+            types::Boolean.encode(buf, &self.is_renew_ack)?;
+        } else if self.is_renew_ack {
+            bail!("A field is set that is not available on the selected protocol version");
+        }
         types::CompactArray(types::Struct { version }).encode(buf, &self.topics)?;
         let num_tagged_fields = self.unknown_tagged_fields.len();
         if num_tagged_fields > std::u32::MAX as usize {
@@ -521,6 +532,9 @@ impl Encodable for ShareAcknowledgeRequest {
         total_size += types::CompactString.compute_size(&self.group_id)?;
         total_size += types::CompactString.compute_size(&self.member_id)?;
         total_size += types::Int32.compute_size(&self.share_session_epoch)?;
+        if version >= 2 {
+            total_size += types::Boolean.compute_size(&self.is_renew_ack)?;
+        }
         total_size += types::CompactArray(types::Struct { version }).compute_size(&self.topics)?;
         let num_tagged_fields = self.unknown_tagged_fields.len();
         if num_tagged_fields > std::u32::MAX as usize {
@@ -539,12 +553,17 @@ impl Encodable for ShareAcknowledgeRequest {
 #[cfg(feature = "broker")]
 impl Decodable for ShareAcknowledgeRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let group_id = types::CompactString.decode(buf)?;
         let member_id = types::CompactString.decode(buf)?;
         let share_session_epoch = types::Int32.decode(buf)?;
+        let is_renew_ack = if version >= 2 {
+            types::Boolean.decode(buf)?
+        } else {
+            false
+        };
         let topics = types::CompactArray(types::Struct { version }).decode(buf)?;
         let mut unknown_tagged_fields = BTreeMap::new();
         let num_tagged_fields = types::UnsignedVarInt.decode(buf)?;
@@ -558,6 +577,7 @@ impl Decodable for ShareAcknowledgeRequest {
             group_id,
             member_id,
             share_session_epoch,
+            is_renew_ack,
             topics,
             unknown_tagged_fields,
         })
@@ -570,6 +590,7 @@ impl Default for ShareAcknowledgeRequest {
             group_id: None,
             member_id: Some(Default::default()),
             share_session_epoch: 0,
+            is_renew_ack: false,
             topics: Default::default(),
             unknown_tagged_fields: BTreeMap::new(),
         }
@@ -577,7 +598,7 @@ impl Default for ShareAcknowledgeRequest {
 }
 
 impl Message for ShareAcknowledgeRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 1 };
+    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

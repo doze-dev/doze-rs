@@ -31,17 +31,22 @@ impl Score {
     }
 }
 
+/// Where `--save` keeps each module's last score, one tab-separated line per module (the compatibility page reads it).
+const RESULTS: &str = "conformance/results.tsv";
+
 enum Target {
     Command(String),
     Endpoint(String),
 }
 
 pub(crate) fn run(args: Vec<String>) -> ExitCode {
+    let save = args.iter().any(|a| a == "--save");
+    let args: Vec<String> = args.into_iter().filter(|a| a != "--save").collect();
     let (target, modules) = match parse_args(args) {
         Ok(p) => p,
         Err(e) => {
             eprintln!(
-                "xtask conformance: {e}\nusage: conformance [--cmd TEMPLATE | --endpoint URL] [module ...]"
+                "xtask conformance: {e}\nusage: conformance [--save] [--cmd TEMPLATE | --endpoint URL] [module ...]"
             );
             return ExitCode::from(2);
         }
@@ -56,9 +61,11 @@ pub(crate) fn run(args: Vec<String>) -> ExitCode {
         "module", "labels", "exact", "wording", "behaviour", "unverified"
     );
     let mut all = Score::default();
+    let mut saved = Vec::new();
     for module in &modules {
         match score_module(&target, module) {
             Ok(s) => {
+                saved.push((module.clone(), line_of(module, &s)));
                 let behaviour = s.differ.saturating_sub(s.wording_only);
                 println!(
                     "{module:<16} {:>6} {:>6} {:>8} {behaviour:>10} {:>11}",
@@ -76,7 +83,47 @@ pub(crate) fn run(args: Vec<String>) -> ExitCode {
         }
     }
     println!("total: {} labels, {}", all.total(), percent(&all));
+    if save && let Err(e) = save_results(&saved) {
+        eprintln!("xtask conformance: {RESULTS}: {e}");
+        return ExitCode::FAILURE;
+    }
     ExitCode::SUCCESS
+}
+
+/// A module's saved line: module, labels, exact, wording, behaviour, unverified, the date it was scored.
+fn line_of(module: &str, s: &Score) -> String {
+    let date = Command::new("date")
+        .arg("+%Y-%m-%d")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned())
+        .unwrap_or_default();
+    format!(
+        "{module}\t{}\t{}\t{}\t{}\t{}\t{date}",
+        s.total(),
+        s.exact,
+        s.wording_only,
+        s.differ.saturating_sub(s.wording_only),
+        s.unverified
+    )
+}
+
+/// Replaces the lines of the modules just scored, keeps the others, and writes the file sorted by module.
+fn save_results(scored: &[(String, String)]) -> std::io::Result<()> {
+    let mut lines: BTreeMap<String, String> = fs::read_to_string(RESULTS)
+        .unwrap_or_default()
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.is_empty())
+        .filter_map(|l| Some((l.split('\t').next()?.to_owned(), l.to_owned())))
+        .collect();
+    for (module, line) in scored {
+        lines.insert(module.clone(), line.clone());
+    }
+    let mut out = String::from("# module\tlabels\texact\twording\tbehaviour\tunverified\tscored\n");
+    for line in lines.values() {
+        out.push_str(line);
+        out.push('\n');
+    }
+    fs::write(RESULTS, out)
 }
 
 fn percent(s: &Score) -> String {

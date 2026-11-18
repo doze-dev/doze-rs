@@ -22,6 +22,9 @@ impl<F: Fs> Broker<F> {
             return None;
         }
         let described = self.groups.describe(&GroupId::parse(group).ok()?).await?;
+        if let Some(streams) = &described.streams {
+            return crate::groups::streams::fetch_refusal(streams, member, epoch);
+        }
         fetch_refusal(&described.consumer?, member, epoch)
     }
 

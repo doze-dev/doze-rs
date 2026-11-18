@@ -63,7 +63,7 @@ export function afterWrite(qc: QueryClient) {
 }
 
 /** A form GET: `{missing}` (no such topic or config, a 200 as R1a's lookups) is thrown as an ApiFailure with its words. */
-async function lookup<T>(path: string, signal: AbortSignal): Promise<T> {
+export async function lookup<T>(path: string, signal: AbortSignal): Promise<T> {
   const body = await api<T | { missing: { code: string; message: string } }>(path, {}, signal);
   if (body && typeof body === "object" && "missing" in body) throw new ApiFailure(404, body.missing);
   return body as T;

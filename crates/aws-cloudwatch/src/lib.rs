@@ -29,6 +29,7 @@ mod core;
 mod docs;
 mod eval;
 mod model;
+mod period;
 mod put;
 mod read;
 mod req;

@@ -8,10 +8,14 @@ name: ci
 # GitHub links only label-started runs to a pull request, so only they can satisfy main's protection, which requires
 # the one `all-green` check below. Automatic runs on push come back once main stays green and every job has an owner
 # (docs/port/ci-health.md).
+# - The merge queue (since 2026-11-18): once a pull request's `all-green` has passed, `gh pr merge <n> --merge` puts
+#   it in main's queue. GitHub runs CI once more on main plus the queued changes ahead of it, and merges only if that
+#   run is green too, so nobody brings a branch up to date with main by hand.
 on:
   workflow_dispatch:
   pull_request:
     types: [labeled]
+  merge_group:
 
 permissions:
   contents: read
@@ -27,9 +31,9 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
-  # Runs only for a manual start or the `ci` label; every job needs it, so any other label runs nothing.
+  # Runs only for a manual start, the merge queue or the `ci` label; every job needs it, so any other label runs nothing.
   gate:
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'ci'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'merge_group' || github.event.label.name == 'ci'
     runs-on: ubuntu-24.04
     steps:
       - run: echo "CI started by ${{ github.event_name }} on ${{ github.ref }}"
@@ -103,10 +107,10 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon -p doze-bind --all-targets --features doze-control/test-support -- -D warnings
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon --all-targets --features doze-control/test-support -- -D warnings
       # doze-fetch's live test checks every module the real registry publishes (signed index, signed archive, unpacked)
       # for this runner's platform (modules ship for macOS and Linux; on Windows the indexes are checked).
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon -p doze-bind --no-fail-fast -- --nocapture
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon --no-fail-fast -- --nocapture
         env:
           DOZE_LIVE_REGISTRY: "1"
       - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
@@ -331,7 +335,10 @@ jobs:
           done
 
   # The CLI-only doze, in a job of its own so its line is judged whatever the other binaries do.
+  # 2026-11-19 core-land: behind the gate like every job, and listed in all-green, so main's protection judges it (core-c2b
+  # predates the gate and ran it on every event).
   weight-doze:
+    needs: gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -400,9 +407,22 @@ jobs:
           echo "idle samples:$samples KB"
           rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "binary $size B, $crates packages, idle $rss KB"
-          [ "$size" -le 5450504 ] || { echo "lean binary over 5,450,504 B"; exit 1; }
+          # 2026-11-15, data control (`doze-kafka data`, the broker's Empty and Erase, the usage walk): +99,392 B on darwin arm64
+          # (4,099,056 to 4,198,448 B for main at 3636c3d2 and this tree), times the 1.3747 of the console build is +136,634 B
+          # (weight.md, "Data control"), added to main's line of 5,450,504 B. An estimate until CI measures it.
+          # 2026-11-18, share groups (KIP-932) on main with quotas: CI measured 6,090,240 B (run 44287887840) against main's
+          # 5,532,600 B (+557,640 B, +10.1%): the seven share APIs' codecs, handlers, share-partitions, sessions and lock task are
+          # protocol, so the lean build has them too (+447,216 B in the darwin default build). Line: that plus 5%.
+          # 2026-11-18, streams groups (KIP-1071) on share groups: CI measured 6,697,904 B (run 44322466339) against share's
+          # 6,090,240 B (+607,664 B, +10.0%): the three streams APIs' generated codecs, topology configuration, the sticky
+          # assignor and reconciliation are protocol, so the lean build has them too (+446,816 B in the darwin default build).
+          # Idle there 7,272 KB, under the line. Line: that plus 5%.
+          [ "$size" -le 7032799 ] || { echo "lean binary over 7,032,799 B"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
-          [ "$rss" -le 7229 ] || { echo "idle resident memory over 7,229 KB in the lean build"; exit 1; }
+          # 2026-11-18, share groups: CI read 7,192 then 7,380 KB (main 7,104). In the doze-ubuntu VM (aarch64, lean, 6 starts each) main
+          # idles at 5,272-5,288 KB and share groups at 5,476-5,484 KB with heap (188 KB) and anonymous memory (456-460 KB) the same:
+          # the +196 KB is the bigger binary's resident code pages, nothing held. Line: 7,380 KB plus 5%.
+          [ "$rss" -le 7749 ] || { echo "idle resident memory over 7,749 KB in the lean build"; exit 1; }
           ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }
 
   # TLS is in the default build since 2026-11-14 (the owner: one build), so its size and packages are the `weight` job's (xtask/weight-limits.txt).
@@ -640,7 +660,7 @@ jobs:
   # was skipped (a label other than `ci` skips them all), so a skipped run never counts as green.
   all-green:
     if: always()
-    needs: [gate, check, os, modules, windows, app, weight, weight-lean, weight-tls-idle, web, supply-chain, fuzz]
+    needs: [gate, check, os, modules, windows, app, weight, weight-doze, weight-lean, weight-tls-idle, web, supply-chain, fuzz]
     runs-on: ubuntu-24.04
     steps:
       - name: Every job passed

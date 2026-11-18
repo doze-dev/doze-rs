@@ -376,3 +376,23 @@ pub(crate) fn reset_json(done: &[(&'static str, Emptied)]) -> Value {
         .collect();
     json!({"services": services})
 }
+
+/// [`dir_bytes`] for the serving thread: one directory at a time, yielding between them, so a large data directory never
+/// holds a request up.
+pub(crate) async fn dir_bytes_yielding(dir: &Path) -> u64 {
+    let mut total = 0;
+    let mut pending = vec![dir.to_path_buf()];
+    while let Some(next) = pending.pop() {
+        if let Ok(read) = std::fs::read_dir(&next) {
+            for e in read.flatten() {
+                match e.file_type() {
+                    Ok(t) if t.is_dir() => pending.push(e.path()),
+                    Ok(t) if t.is_file() => total += e.metadata().map_or(0, |m| m.len()),
+                    _ => {}
+                }
+            }
+        }
+        tokio::task::yield_now().await;
+    }
+    total
+}

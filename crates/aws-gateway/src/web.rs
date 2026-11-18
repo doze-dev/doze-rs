@@ -1,6 +1,7 @@
 //! Addresses a service owns that are not signed API calls (a Lambda function URL): asked before the gateway looks for a signature.
+//! A service that asks has the signature on such a request checked first (`websig.rs`).
 
-use aws_wire::service::{BoxFuture, Socket, Upgrade, WebReply, WebRequest};
+use aws_wire::service::{BoxFuture, Socket, Upgrade, Web, WebReply, WebRequest, WebSignature};
 use aws_wire::{ApiError, RequestId};
 use http::request::Parts;
 use http::{HeaderValue, Response, header};
@@ -50,8 +51,23 @@ pub(crate) async fn serve(
         Ok(bytes) => bytes,
         Err(e) => return Ok(failure(id, &e)),
     };
-    let request = request_of(parts, host, bytes);
+    let signature = match web.signing_name(host, path) {
+        Some(name) => crate::websig::signature_of(shared, parts, name, &bytes).await,
+        None => WebSignature::Unsigned,
+    };
+    let mut request = request_of(parts, host, bytes);
+    request.signature = signature;
+    if let Some(refused) = guarded(shared, web, &request) {
+        return Ok(reply(id, refused));
+    }
     Ok(reply(id, web.serve(request).await))
+}
+
+/// The refusal of a request to one of doze's local addresses that does not pass the guard.
+fn guarded(shared: &Shared, web: &dyn Web, request: &WebRequest) -> Option<WebReply> {
+    web.local()
+        .then(|| aws_wire::local::guard(request, shared.local_key()))
+        .flatten()
 }
 
 fn request_of(parts: &Parts, host: &str, body: bytes::Bytes) -> WebRequest {
@@ -67,6 +83,7 @@ fn request_of(parts: &Parts, host: &str, body: bytes::Bytes) -> WebRequest {
             .collect(),
         body,
         endpoint: endpoint_of(parts),
+        signature: WebSignature::Unsigned,
     }
 }
 
@@ -90,6 +107,9 @@ async fn upgrade(
     drop(body);
     let on_upgrade = parts.extensions.remove::<hyper::upgrade::OnUpgrade>();
     let request = request_of(parts, &host, bytes::Bytes::new());
+    if let Some(refused) = guarded(shared, web, &request) {
+        return Ok(reply(id, refused));
+    }
     match web.upgrade(request).await {
         Upgrade::Refused(r) => Ok(reply(id, r)),
         Upgrade::Accepted { headers, session } => {
