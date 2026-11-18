@@ -53,12 +53,19 @@ fn r4(cfg: &Config, out: &mut BTreeMap<String, String>) {
 }
 
 fn r4_access(cfg: &Config, out: &mut BTreeMap<String, String>) {
-    use super::access::{AccessResponse, AclChoice, AclCreateOutcome, AclDeleteOutcome};
-    use crate::model::{
-        AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessTls, AccessUser,
-        AccessView, AccessWarning, AclCreateView, AclDeleteView, AclEntry, AclInput, AclPattern,
-        AclPermission,
+    use super::access::{
+        AccessResponse, AclChoice, AclCreateOutcome, AclDeleteOutcome, QuotaOutcome,
     };
+    use crate::model::{
+        AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessQuota,
+        AccessQuotaClient, AccessQuotaPart, AccessQuotas, AccessTls, AccessUser, AccessView,
+        AccessWarning, AclCreateView, AclDeleteView, AclEntry, AclInput, AclPattern, AclPermission,
+    };
+    one::<AccessQuotas>(cfg, out);
+    one::<AccessQuota>(cfg, out);
+    one::<AccessQuotaPart>(cfg, out);
+    one::<AccessQuotaClient>(cfg, out);
+    one::<QuotaOutcome>(cfg, out);
     one::<AccessResponse>(cfg, out);
     one::<AclChoice>(cfg, out);
     one::<AccessView>(cfg, out);
@@ -165,6 +172,8 @@ fn all() -> BTreeMap<String, String> {
     super::topics::types::all(&cfg, &mut out);
     r4(&cfg, &mut out);
     schemas(&cfg, &mut out);
+    super::data::types(&cfg, &mut out);
+    super::groups::streams_types(&cfg, &mut out);
     out
 }
 
@@ -300,10 +309,11 @@ fn groups(cfg: &Config, out: &mut BTreeMap<String, String>) {
     use crate::lag::Lag;
     use crate::model::{
         GroupAttention, GroupDeleteView, GroupHead, GroupLagView, GroupMemberRow, GroupPart,
-        GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupSpan, GroupsView,
-        LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetRow, ResetView, RowLag,
-        StoryCalm, StoryCause, StoryDropped, StoryFacts, StoryFlap, StoryGen, StoryHold, StoryJoin,
-        StoryLast, StoryLeft, StoryNow, StoryRule, StoryTone, StoryView, StoryWho,
+        GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupShareView,
+        GroupSpan, GroupsView, LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetRow,
+        ResetView, RowLag, ShareRow, StoryCalm, StoryCause, StoryDropped, StoryFacts, StoryFlap,
+        StoryGen, StoryHold, StoryJoin, StoryLast, StoryLeft, StoryNow, StoryRule, StoryTone,
+        StoryView, StoryWho,
     };
     one::<GroupsResponse>(cfg, out);
     one::<GroupWriteOutcome>(cfg, out);
@@ -314,6 +324,8 @@ fn groups(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<GroupDeleteView>(cfg, out);
     one::<GroupHead>(cfg, out);
     one::<GroupLagView>(cfg, out);
+    one::<GroupShareView>(cfg, out);
+    one::<ShareRow>(cfg, out);
     one::<GroupMemberRow>(cfg, out);
     one::<GroupPart>(cfg, out);
     one::<GroupPhase>(cfg, out);

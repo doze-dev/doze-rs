@@ -325,5 +325,7 @@ pub(super) fn cases() -> Vec<(ApiKey, Request, Response)> {
         DeleteAclsResponse::default()
     );
     super::cases_more::more(&mut out);
+    super::cases_share::share(&mut out);
+    super::cases_streams::streams(&mut out);
     out
 }

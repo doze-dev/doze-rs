@@ -6,6 +6,28 @@ fn profile(major: u8) -> Profile {
     Profile::new(KafkaMajor::new(major).unwrap())
 }
 
+/// KIP-890 by major, as each real broker offered it (`tests/data/api-versions.json`): Kafka 3.9 has the first part
+/// (Produce v11, EndTxn v4, TxnOffsetCommit v4, AddPartitionsToTxn v5: the abortable error and the broker's verifying
+/// request) and stays on the classic protocol; Kafka 4 adds the second (Produce v12, EndTxn v5, TxnOffsetCommit v5) and
+/// finalizes `transaction.version` 2. Kafka 1 and 2 have neither.
+#[test]
+fn only_kafka_4_offers_the_second_part_of_kip_890() {
+    let max = |major: u8, key: ApiKey| profile(major).range(key).map(|(_, max)| max);
+    assert_eq!(max(4, ApiKey::Produce), Some(12));
+    assert_eq!(max(4, ApiKey::EndTxn), Some(5));
+    assert_eq!(max(4, ApiKey::TxnOffsetCommit), Some(5));
+    assert_eq!(max(4, ApiKey::AddPartitionsToTxn), Some(5));
+    assert_eq!(max(3, ApiKey::Produce), Some(11));
+    assert_eq!(max(3, ApiKey::EndTxn), Some(4));
+    assert_eq!(max(3, ApiKey::TxnOffsetCommit), Some(4));
+    assert_eq!(max(3, ApiKey::AddPartitionsToTxn), Some(5));
+    assert_eq!(max(2, ApiKey::EndTxn), Some(1));
+    assert_eq!(profile(4).transaction_version(), 2);
+    for major in 1..=3 {
+        assert_eq!(profile(major).transaction_version(), 0, "Kafka {major}");
+    }
+}
+
 const ALL: Features = Features {
     sasl: true,
     telemetry: true,
@@ -25,6 +47,48 @@ fn advertised_is_sorted_and_conditional() {
     let full = profile(4).advertised(ALL);
     assert!(has(&full, ApiKey::SaslHandshake) && has(&full, ApiKey::PushTelemetry));
     assert_eq!(full.len(), plain.len() + 4);
+}
+
+/// Share groups (KIP-932) at the versions Kafka 4.4.0 serves, and in no profile before Kafka 4 (`tests/data/api-versions.json`
+/// has them for 4.4.0, the recorded major 4); `share.version` 2 is finalized where they are.
+#[test]
+fn only_kafka_4_offers_share_groups_at_kafka_4_4_versions() {
+    let share = [
+        (ApiKey::ShareGroupHeartbeat, (1, 1)),
+        (ApiKey::ShareGroupDescribe, (1, 1)),
+        (ApiKey::ShareFetch, (1, 2)),
+        (ApiKey::ShareAcknowledge, (1, 2)),
+        (ApiKey::DescribeShareGroupOffsets, (0, 1)),
+        (ApiKey::AlterShareGroupOffsets, (0, 0)),
+        (ApiKey::DeleteShareGroupOffsets, (0, 0)),
+    ];
+    for (key, range) in share {
+        assert_eq!(profile(4).range(key), Some(range), "{key:?}");
+        for major in 1..=3 {
+            assert_eq!(profile(major).range(key), None, "{key:?} at Kafka {major}");
+        }
+    }
+    assert_eq!(profile(4).share_version(), 2);
+    assert_eq!(profile(3).share_version(), 0);
+}
+
+/// Streams groups (KIP-1071) at the versions Kafka 4.4.0 serves (heartbeat and describe 0 to 1, the topology description
+/// update 0), and in no profile before Kafka 4; `streams.version` 1 is finalized where they are.
+#[test]
+fn only_kafka_4_offers_streams_groups_at_kafka_4_4_versions() {
+    let streams = [
+        (ApiKey::StreamsGroupHeartbeat, (0, 1)),
+        (ApiKey::StreamsGroupDescribe, (0, 1)),
+        (ApiKey::StreamsGroupTopologyDescriptionUpdate, (0, 0)),
+    ];
+    for (key, range) in streams {
+        assert_eq!(profile(4).range(key), Some(range), "{key:?}");
+        for major in 1..=3 {
+            assert_eq!(profile(major).range(key), None, "{key:?} at Kafka {major}");
+        }
+    }
+    assert_eq!(profile(4).streams_version(), 1);
+    assert_eq!(profile(3).streams_version(), 0);
 }
 
 #[test]
@@ -49,12 +113,12 @@ fn outside_the_range_is_not_served() {
             .is_err()
     );
     assert!(p.check(ApiKey::SaslAuthenticate, 0, ALL).is_ok());
-    assert!(p.check(ApiKey::OffsetForLeaderEpoch, 0, ALL).is_err());
+    assert!(p.check(ApiKey::ElectLeaders, 0, ALL).is_err());
 }
 
 /// An API the table offers at a major and the crate cannot decode at any version of it vanishes from that
-/// profile, which is a deviation from what a real broker of that major lists. There is one such case,
-/// and it is on this list on purpose: a new one has to be added here, with its reason.
+/// profile, which is a deviation from what a real broker of that major lists. Each case is on this list on purpose: a new one
+/// has to be added here, with its reason.
 #[test]
 fn the_apis_dropped_because_the_crate_cannot_decode_them_are_known() {
     let mut dropped = Vec::new();
@@ -66,13 +130,16 @@ fn the_apis_dropped_because_the_crate_cannot_decode_them_are_known() {
             }
         }
     }
-    // Kafka 1.x has only v0 of the three ACL APIs, and KIP-896 removed v0 from the crate's decoders.
+    // Kafka 1.x has only v0 of the three ACL APIs, of OffsetForLeaderEpoch and of DescribeLogDirs, and KIP-896 removed
+    // those versions from the crate's decoders (OffsetForLeaderEpoch starts at v2 there, DescribeLogDirs at v1).
     assert_eq!(
         dropped,
         vec![
             (1, ApiKey::DescribeAcls),
             (1, ApiKey::CreateAcls),
-            (1, ApiKey::DeleteAcls)
+            (1, ApiKey::DeleteAcls),
+            (1, ApiKey::OffsetForLeaderEpoch),
+            (1, ApiKey::DescribeLogDirs)
         ]
     );
 }
@@ -158,5 +225,27 @@ fn the_scram_credential_apis_are_offered_from_kafka_2_at_version_0_and_not_at_1(
                 "{key:?} at {major}"
             );
         }
+    }
+}
+
+#[test]
+fn log_dirs_leader_epochs_and_client_quotas_are_offered_as_each_major_did_within_what_the_crate_reads()
+ {
+    // The recorded brokers (tests/data/api-versions.json): Kafka 1.1 lists OffsetForLeaderEpoch and DescribeLogDirs at v0
+    // only and neither quota API; 2.8 lists 0..4, 0..2 and 0..1, 0..1; 3.9 lists 0..4, 0..4, 0..1, 0..1; 4.3 lists 2..4,
+    // 1..5, 0..1, 0..1. The crate reads OffsetForLeaderEpoch from v2 and DescribeLogDirs from v1 to v4.
+    let at = |major, key| profile(major).range(key);
+    assert_eq!(at(1, ApiKey::OffsetForLeaderEpoch), None);
+    assert_eq!(at(1, ApiKey::DescribeLogDirs), None);
+    assert_eq!(at(1, ApiKey::DescribeClientQuotas), None);
+    assert_eq!(at(1, ApiKey::AlterClientQuotas), None);
+    assert_eq!(at(2, ApiKey::OffsetForLeaderEpoch), Some((2, 4)));
+    assert_eq!(at(2, ApiKey::DescribeLogDirs), Some((1, 2)));
+    assert_eq!(at(3, ApiKey::DescribeLogDirs), Some((1, 4)));
+    assert_eq!(at(4, ApiKey::OffsetForLeaderEpoch), Some((2, 4)));
+    assert_eq!(at(4, ApiKey::DescribeLogDirs), Some((1, 4)));
+    for major in 2..=4 {
+        assert_eq!(at(major, ApiKey::DescribeClientQuotas), Some((0, 1)));
+        assert_eq!(at(major, ApiKey::AlterClientQuotas), Some((0, 1)));
     }
 }

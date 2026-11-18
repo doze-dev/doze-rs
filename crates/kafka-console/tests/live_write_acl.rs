@@ -89,6 +89,10 @@ async fn a_get_never_asks_the_broker_to_change_anything() {
         ApiKey::ListGroups,
         ApiKey::DescribeGroups,
         ApiKey::ConsumerGroupDescribe,
+        // A share group (KIP-932) is described by its own API.
+        ApiKey::ShareGroupDescribe,
+        // And a streams group (KIP-1071) by its own.
+        ApiKey::StreamsGroupDescribe,
         ApiKey::OffsetFetch,
         ApiKey::ListTransactions,
         ApiKey::DescribeTransactions,
@@ -98,6 +102,8 @@ async fn a_get_never_asks_the_broker_to_change_anything() {
         // Slice 9h: the Access page reads the ACLs and the names of the users.
         ApiKey::DescribeAcls,
         ApiKey::DescribeUserScramCredentials,
+        // The Access page reads the client quotas.
+        ApiKey::DescribeClientQuotas,
     ];
     let calls = log.lock().unwrap().clone();
     assert!(

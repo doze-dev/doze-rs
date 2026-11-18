@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { agoNear, holdsPhrase, lasted, memberLabel, partList, partsPhrase, seconds, span, spanPrecise, stamp } from "./words";
+import { agoNear, holdsPhrase, lasted, memberLabel, partList, partsPhrase, seconds, span, spanPrecise, stamp, taskList } from "./words";
 import { groupsSearch, lagSearch, storySearch } from "./search";
 
 describe("the Groups words say what the classic console says", () => {
@@ -51,5 +51,13 @@ describe("the Groups addresses keep only what they know", () => {
     expect(storySearch({ generation: "<script>alert(1)</script>" })).toEqual({ generation: undefined, rule: undefined });
     expect(storySearch({ generation: "12345678901" })).toEqual({ generation: undefined, rule: undefined });
     expect(storySearch({ generation: 7.5 })).toEqual({ generation: undefined, rule: undefined });
+  });
+});
+
+describe("streams task ids", () => {
+  test("are runs per subtopology, in order", () => {
+    expect(taskList([])).toBe("");
+    expect(taskList(["1_0", "0_2", "0_0", "0_1"])).toBe("0_0–0_2, 1_0");
+    expect(taskList(["0_0", "0_2", "10_1"])).toBe("0_0, 0_2, 10_1");
   });
 });

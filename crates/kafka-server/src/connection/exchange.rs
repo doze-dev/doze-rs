@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use bytes::Bytes;
+use bytes::{Buf, Bytes};
 use kafka_broker::Outcome;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::{Request, Response};
@@ -11,7 +11,7 @@ use kafka_wire::api_versions;
 use kafka_wire::header::{self, RequestHead};
 use kafka_wire::incoming::Incoming;
 use kafka_wire::messages::ApiKey;
-use kafka_wire::response;
+use kafka_wire::response::{self, Frame};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
@@ -24,6 +24,13 @@ use crate::session::steps::{self, Fate};
 use crate::session::{Session, Verdict};
 
 mod lab;
+
+/// How long the connection reads nothing more from the client once a request is answered: a client over its quota is
+/// muted for the throttle time (KIP-219).
+pub(super) type Mute = Option<Duration>;
+
+/// What one request came to: an answer to write (and the observer's view of the request), if any, and the mute after it.
+type Handled = (Option<(Answer, Option<Pending>)>, Mute);
 
 /// An answer to write, and what happens to the connection after it.
 struct Answer {
@@ -38,14 +45,14 @@ struct Answer {
 ///
 /// With a `session` the request is first judged on its header alone ([`Session::admit`]): a stranger's body
 /// is decoded only for an API it may use. With a watch (an installed observer) every request that has a header is
-/// told of twice, whatever becomes of it: an answer, no answer, or a close.
+/// told of twice, whatever becomes of it: an answer, no answer, or a close. Says how long to mute the connection after.
 pub(super) async fn exchange<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     stream: &mut S,
     ears: Ears<'_, F>,
     session: &mut Option<Session>,
     frame: Bytes,
     stop: &CancellationToken,
-) -> Result<(), End> {
+) -> Result<Mute, End> {
     let ctx = ears.ctx;
     let frame_len = frame.len();
     let (head, body) = header::split(frame).map_err(End::Wire)?;
@@ -62,10 +69,10 @@ pub(super) async fn exchange<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
                     Ok(answer) => answer,
                     Err(end) => return Err(closed(ears.watch, pending, end)),
                 };
-                let bytes = seal(&answer, ears.watch.zip(pending))?;
-                send(stream, ctx, bytes).await?;
+                let frame = seal(&answer, ears.watch.zip(pending))?;
+                send(stream, ctx, frame).await?;
                 if stays_open {
-                    return Ok(());
+                    return Ok(None);
                 }
                 hang_up(stream, ctx, stop).await;
                 return Err(End::OutOfOrder(head.key));
@@ -80,18 +87,19 @@ pub(super) async fn exchange<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
             return Err(closed(ears.watch, pending, End::Wire(e)));
         }
     };
-    let Some((answer, pending)) = answer(&ears, session, incoming, frame_len, stop).await? else {
-        return Ok(());
+    let (answered, mute) = answer(&ears, session, incoming, frame_len, stop).await?;
+    let Some((answer, pending)) = answered else {
+        return Ok(mute);
     };
     let fate = answer.fate;
     // Observed (and so timed) before the failed-login delay, which is deliberate and not the broker's doing.
-    let bytes = seal(&answer, ears.watch.zip(pending))?;
+    let frame = seal(&answer, ears.watch.zip(pending))?;
     if fate == Fate::Failed {
         failed_login_delay(ctx, stop).await?;
     }
-    send(stream, ctx, bytes).await?;
+    send(stream, ctx, frame).await?;
     match fate {
-        Fate::Open => Ok(()),
+        Fate::Open => Ok(mute),
         Fate::Closing | Fate::Failed => {
             hang_up(stream, ctx, stop).await;
             Err(End::LoginFailed)
@@ -124,7 +132,7 @@ async fn answer<F: Fs>(
     incoming: Incoming,
     frame_len: usize,
     stop: &CancellationToken,
-) -> Result<Option<(Answer, Option<Pending>)>, End> {
+) -> Result<Handled, End> {
     let ctx = ears.ctx;
     match incoming {
         Incoming::ApiVersions { head, body } => {
@@ -139,48 +147,51 @@ async fn answer<F: Fs>(
             }
             let mut open = open(head.correlation_id, version, Response::ApiVersions(answer));
             open.fault = note;
-            Ok(Some((open, pending)))
+            Ok((Some((open, pending)), None))
         }
         Incoming::Request { head, request } => {
             let pending = begin(ears, &head, Asked::Request(&request), frame_len);
             match request {
                 Request::SaslHandshake(_) | Request::SaslAuthenticate(_) => {
                     match sasl(ctx, session, &head, request) {
-                        Ok(answer) => Ok(Some((answer, pending))),
+                        Ok(answer) => Ok((Some((answer, pending)), None)),
                         Err(end) => Err(closed(ears.watch, pending, end)),
                     }
                 }
-                request => handled(ears, &head, request, pending, stop).await,
+                request => handled(ears, &head, request, pending, frame_len, stop).await,
             }
         }
         _ => Err(End::Unknown),
     }
 }
 
-/// A request for the broker: handed over, answered, and observed.
+/// A request for the broker: handed over, held to the client's quotas, answered, and observed. `size` is the request's
+/// size on the wire, header and body.
 async fn handled<F: Fs>(
     ears: &Ears<'_, F>,
     head: &RequestHead,
     request: Request,
     pending: Option<Pending>,
+    size: usize,
     stop: &CancellationToken,
-) -> Result<Option<(Answer, Option<Pending>)>, End> {
+) -> Result<Handled, End> {
     let delay = match lab::plan(ears, head, &request) {
         lab::Plan::Serve(act) => act,
-        lab::Plan::Answer(answer) => return Ok(Some((*answer, pending))),
+        lab::Plan::Answer(answer) => return Ok((Some((*answer, pending)), None)),
         lab::Plan::Silent(note) => {
             if let Some((w, p)) = ears.watch.zip(pending) {
                 w.end(p, Seen::Nothing, 0, Some(&note));
             }
-            return Ok(None);
+            return Ok((None, None));
         }
         lab::Plan::Close(note) => return Err(lab::dropped(ears.watch, pending, &note)),
     };
     // A handler may wait a long time (a long-poll Fetch): stopping the server does not wait for it.
-    let outcome = tokio::select! {
-        o = ears.ctx.broker.handle(ears.listener, ears.caller, head, request) => o,
+    let served = tokio::select! {
+        s = ears.ctx.broker.serve(ears.listener, ears.caller, head, request, size) => s,
         () = stop.cancelled() => return Err(closed(ears.watch, pending, End::Stopped)),
     };
+    let mute = served.mute;
     // A rule that slows the request makes the answer wait, after the broker has made it.
     let note = match delay {
         Some(act) => {
@@ -193,17 +204,17 @@ async fn handled<F: Fs>(
         }
         None => None,
     };
-    match outcome {
+    match served.outcome {
         Outcome::Respond(response) => {
             let mut answer = open(head.correlation_id, head.version, response);
             answer.fault = note;
-            Ok(Some((answer, pending)))
+            Ok((Some((answer, pending)), mute))
         }
         Outcome::NoResponse => {
             if let Some((w, p)) = ears.watch.zip(pending) {
                 w.end(p, Seen::Nothing, 0, note.as_deref());
             }
-            Ok(None)
+            Ok((None, mute))
         }
         _ => Err(closed(ears.watch, pending, End::Refused(head.key))),
     }
@@ -318,14 +329,14 @@ async fn linger<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(stream: &mut S, ctx: &
 }
 
 /// Encodes an answer, telling the watch (if any) how the request ended and how big its answer is.
-fn seal(answer: &Answer, seen: Option<(&Watch, Pending)>) -> Result<Bytes, End> {
-    let encoded = response::encode(answer.id, answer.version, &answer.response);
+fn seal(answer: &Answer, seen: Option<(&Watch, Pending)>) -> Result<Frame, End> {
+    let encoded = response::frame(answer.id, answer.version, &answer.response);
     if let Some((w, p)) = seen {
         match &encoded {
-            Ok(bytes) => w.end(
+            Ok(frame) => w.end(
                 p,
                 Seen::Response(&answer.response),
-                bytes.len(),
+                frame.remaining(),
                 answer.fault.as_deref(),
             ),
             Err(e) => w.end(p, Seen::Closed(&e.to_string()), 0, answer.fault.as_deref()),
@@ -334,12 +345,21 @@ fn seal(answer: &Answer, seen: Option<(&Watch, Pending)>) -> Result<Bytes, End> 
     encoded.map_err(End::Wire)
 }
 
+/// Writes `frame` and flushes it, within the write timeout.
+///
+/// A stream that writes vectored (a TCP socket, rustls) is given the frame's pieces together, so a Fetch's records go out
+/// from the buffers the log was read into. The flush matters over TLS: rustls can still hold the end of the frame when the
+/// last write returns, and nothing else would send it before the client's next request.
 async fn send<S: AsyncWrite + Unpin, F: Fs>(
     stream: &mut S,
     ctx: &Context<F>,
-    bytes: Bytes,
+    mut frame: Frame,
 ) -> Result<(), End> {
-    match timeout(ctx.timeouts.write, stream.write_all(&bytes)).await {
+    let write = async {
+        stream.write_all_buf(&mut frame).await?;
+        stream.flush().await
+    };
+    match timeout(ctx.timeouts.write, write).await {
         Err(_) => Err(End::Slow),
         Ok(Err(e)) => Err(End::Io(e)),
         Ok(Ok(())) => Ok(()),

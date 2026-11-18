@@ -3,6 +3,7 @@ import type { AccessAcls } from "./AccessAcls";
 import type { AccessAuth } from "./AccessAuth";
 import type { AccessAuthz } from "./AccessAuthz";
 import type { AccessConsole } from "./AccessConsole";
+import type { AccessQuotas } from "./AccessQuotas";
 import type { AccessTls } from "./AccessTls";
 import type { AccessUser } from "./AccessUser";
 import type { AccessWarning } from "./AccessWarning";
@@ -14,4 +15,4 @@ export type AccessView = {
 /**
  * `127.0.0.1:9092`.
  */
-listen: string, auth: AccessAuth, authz: AccessAuthz, tls: AccessTls, users: Array<AccessUser>, acls: AccessAcls, console: AccessConsole, warnings: Array<AccessWarning>, };
+listen: string, auth: AccessAuth, authz: AccessAuthz, tls: AccessTls, users: Array<AccessUser>, acls: AccessAcls, console: AccessConsole, warnings: Array<AccessWarning>, quotas: AccessQuotas, };

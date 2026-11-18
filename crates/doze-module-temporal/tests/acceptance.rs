@@ -69,6 +69,25 @@ fn with(b: &Booted) -> WithToolchain {
     }
 }
 
+/// The app's namespace table, asked again while the answer is a retryable failure, for at most 15 seconds. Ready is
+/// honest (the dev server writes the declared namespaces to SQLite before it serves, and the frontend loads them
+/// before it says SERVING), but a lookup right after a restart can still fail once: temporal's namespace registry
+/// answers "Namespace … is not found" for any persistence error on a cache miss (nsregistry/registry.go,
+/// `getNamespaceByNamePersistence`), and the module marks that failure retryable. CI saw it once (run 43720667194).
+async fn resources_once_answered(b: &Booted) -> Vec<doze_module_proto::msg::console::Resource> {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    loop {
+        match b.module.resources(&b.instance).await {
+            Ok(res) => return res,
+            Err(e) if e.retryable && tokio::time::Instant::now() < deadline => {
+                eprintln!("resources not answered yet, asking again: {}", e.message);
+                tokio::time::sleep(Duration::from_millis(250)).await;
+            }
+            Err(e) => panic!("resources: {e:?}"),
+        }
+    }
+}
+
 async fn stop(b: Booted) {
     let stops = b.stop(Duration::from_secs(20)).await;
     assert!(stops.iter().all(|(_, r)| r.is_ok()), "{stops:?}");
@@ -155,7 +174,7 @@ async fn a_restart_keeps_its_data_and_the_app_sees_the_namespaces() {
         run(&h, &b, &["operator", "namespace", "describe", "-n", "kept"]).is_ok(),
         "SQLite kept it"
     );
-    let res = b.module.resources(&b.instance).await.unwrap();
+    let res = resources_once_answered(&b).await;
     let orders = res
         .iter()
         .find(|r| r.name == "orders")

@@ -15,6 +15,9 @@ use crate::partitions::Partitions;
 use crate::{BrokerError, Config, blocking};
 
 mod dispatch;
+mod served;
+
+pub use served::Served;
 
 /// The APIs this broker has a handler for. ApiVersions advertises exactly these (and only those the Kafka
 /// version being stood for offers), and a request for any other is not accepted. A phase adds the APIs it
@@ -60,6 +63,20 @@ const SERVED: &[ApiKey] = &[
     ApiKey::DeleteAcls,
     ApiKey::DescribeUserScramCredentials,
     ApiKey::AlterUserScramCredentials,
+    ApiKey::ShareGroupHeartbeat,
+    ApiKey::ShareGroupDescribe,
+    ApiKey::ShareFetch,
+    ApiKey::ShareAcknowledge,
+    ApiKey::DescribeShareGroupOffsets,
+    ApiKey::AlterShareGroupOffsets,
+    ApiKey::DeleteShareGroupOffsets,
+    ApiKey::OffsetForLeaderEpoch,
+    ApiKey::DescribeLogDirs,
+    ApiKey::DescribeClientQuotas,
+    ApiKey::AlterClientQuotas,
+    ApiKey::StreamsGroupHeartbeat,
+    ApiKey::StreamsGroupDescribe,
+    ApiKey::StreamsGroupTopologyDescriptionUpdate,
 ];
 
 /// The APIs of client telemetry (KIP-714), served only when `Config::client_telemetry` is on.
@@ -79,6 +96,12 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) txns: crate::txn::Txns,
     /// When the coordinator next has a step to take on its own.
     pub(crate) txn_alarm: crate::txn::Alarm,
+    /// The share groups' share-partitions and sessions (KIP-932). Empty until a share group fetches.
+    pub(crate) shares: crate::share::Shares,
+    /// Internal topics of streams groups whose creation failed lately (empty unless one did).
+    pub(crate) streams_topic_failures: crate::handlers::StreamsTopicFailures,
+    /// The configs set on groups (resource type GROUP).
+    pub(crate) group_configs: crate::group_configs::GroupConfigs,
     /// When this run began, in milliseconds since the epoch.
     pub(crate) started_ms: i64,
     /// Whether the data directory was new when this run opened it (there was no metadata database).
@@ -104,6 +127,11 @@ pub struct Broker<F: Fs = RealFs> {
     /// Held for the whole of a change to the stored credentials, from the snapshot it starts from to the one swapped
     /// in, for the reason `acl_admin` is.
     pub(crate) user_admin: tokio::sync::Mutex<()>,
+    /// The client quotas set, and what each client has used of them. Nothing is metered while none is set.
+    pub(crate) quotas: crate::quotas::Quotas,
+    /// Held for the whole of a change to the quotas, from the set it starts from to the one put in force, for the reason
+    /// `acl_admin` is.
+    pub(crate) quota_admin: tokio::sync::Mutex<()>,
     /// Set when the broker is stopping: a round of cleaning that is running gives up (it is looked at between batches).
     pub(crate) stop_cleaning: Arc<std::sync::atomic::AtomicBool>,
     /// The clients that have reported on themselves, and the gate that keeps them to their interval. Empty, and
@@ -165,8 +193,10 @@ impl<F: Fs> Broker<F> {
         );
         let users = Arc::clone(&config.users);
         crate::users::load(&meta, &users)?;
+        let quotas = crate::quotas::Quotas::load(meta.quotas()?);
         let millis = |d: std::time::Duration| u64::try_from(d.as_millis()).unwrap_or(u64::MAX);
         let meta_txns = meta.txns()?;
+        let group_configs = crate::group_configs::GroupConfigs::load(meta.group_configs()?);
         let groups = Groups::new(
             Settings {
                 initial_delay_ms: millis(config.group_initial_rebalance_delay),
@@ -187,6 +217,9 @@ impl<F: Fs> Broker<F> {
             groups,
             txns: crate::txn::Txns::load(meta_txns),
             txn_alarm: crate::txn::Alarm::default(),
+            shares: crate::share::Shares::new(crate::group_configs::defaults::MAX_SESSIONS),
+            group_configs,
+            streams_topic_failures: crate::handlers::StreamsTopicFailures::default(),
             started_ms: crate::clock::now().get(),
             first_start,
             topics_changed: tokio::sync::watch::channel(0).0,
@@ -197,6 +230,8 @@ impl<F: Fs> Broker<F> {
             acl_admin: tokio::sync::Mutex::new(()),
             users,
             user_admin: tokio::sync::Mutex::new(()),
+            quotas,
+            quota_admin: tokio::sync::Mutex::new(()),
             stop_cleaning: Arc::default(),
             telemetry: crate::telemetry::Telemetry::default(),
             log_notes: crate::log_notes::LogNotes::default(),

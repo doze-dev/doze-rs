@@ -22,6 +22,27 @@ fn write(p: &mut Producers, id: i64, epoch: i16, first: i32, count: u32, offset:
     );
 }
 
+/// A transactional batch of KIP-890's second part (Produce v12) whose producer the partition knows no batch of must start
+/// at 0 (Kafka's `checkSequence` for a write verified at `TV_2`; the oracle's `refusals`: a first batch at 5 is
+/// OUT_OF_ORDER_SEQUENCE_NUMBER). Only a marker known, even one read back with its batches gone, is no batch.
+#[test]
+fn a_transaction_of_the_second_version_starts_its_sequences_at_zero_where_its_producer_wrote_nothing()
+ {
+    let mut p = Producers::default();
+    let zero = FirstSequence::Zero;
+    assert_eq!(p.check_from(7, 3, 5, 5, zero), Verdict::OutOfOrder);
+    assert_eq!(p.check_from(7, 3, 0, 0, zero), Verdict::Accept);
+    p.marked_in_history(8, 3, NOW);
+    assert_eq!(
+        p.check_from(8, 3, 5, 5, FirstSequence::Any),
+        Verdict::Accept
+    );
+    assert_eq!(p.check_from(8, 3, 5, 5, zero), Verdict::OutOfOrder);
+    // Once it has written here, its sequences go on as for anyone.
+    write(&mut p, 9, 1, 0, 2, 0);
+    assert_eq!(p.check_from(9, 1, 2, 2, zero), Verdict::Accept);
+}
+
 #[test]
 fn a_producer_nobody_knows_starts_wherever_it_is() {
     let p = Producers::default();

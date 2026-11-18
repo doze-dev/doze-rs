@@ -9,6 +9,7 @@ use kafka_storage::fs::Fs;
 use kafka_wire::ids::GroupId;
 
 use super::ConsoleView;
+use crate::group_configs::streams::STICKY as STREAMS_ASSIGNOR;
 use crate::groups::{Description, State, View, first_expiry, members_of};
 use crate::{Caller, blocking, clock};
 
@@ -19,6 +20,10 @@ pub enum GroupKind {
     Classic,
     /// ConsumerGroupHeartbeat (KIP-848): the broker assigns.
     Consumer,
+    /// ShareGroupHeartbeat (KIP-932): the broker assigns, and members share partitions record by record.
+    Share,
+    /// StreamsGroupHeartbeat (KIP-1071): the broker assigns tasks of a Kafka Streams topology.
+    Streams,
 }
 
 /// A rebalance running now (classic).
@@ -151,13 +156,7 @@ fn of(group: &str, d: Option<&Description>, life: Option<&kafka_meta::GroupLife>
         now_ms: 0,
     };
     let Some(d) = d else {
-        // Not in memory: a consumer group of the new protocol is still one when it was last stopped empty.
-        if let Some(c) = life.and_then(|l| l.consumer.as_ref()) {
-            out.kind = GroupKind::Consumer;
-            out.generation = c.epoch;
-            out.assignment_epoch = Some(c.assignment_epoch);
-            out.protocol = Some(c.assignor.clone());
-        }
+        kept(&mut out, life);
         return out;
     };
     out.protocol_type = d.protocol_type.clone().or(out.protocol_type);
@@ -168,6 +167,16 @@ fn of(group: &str, d: Option<&Description>, life: Option<&kafka_meta::GroupLife>
         c.state.clone_into(&mut out.state);
         out.protocol = Some(c.assignor.to_owned());
         out.assignment_epoch = Some(c.assignment_epoch);
+    } else if let Some(s) = &d.share {
+        out.kind = GroupKind::Share;
+        s.state.clone_into(&mut out.state);
+        out.protocol = Some("simple".to_owned());
+        out.assignment_epoch = Some(s.assignment_epoch);
+    } else if let Some(s) = &d.streams {
+        out.kind = GroupKind::Streams;
+        s.state.clone_into(&mut out.state);
+        out.protocol = Some(STREAMS_ASSIGNOR.to_owned());
+        out.assignment_epoch = Some(s.assignment_epoch);
     } else {
         state_word(d.state).clone_into(&mut out.state);
         out.protocol.clone_from(&d.protocol);
@@ -188,6 +197,29 @@ fn of(group: &str, d: Option<&Description>, life: Option<&kafka_meta::GroupLife>
     out
 }
 
+/// A group not in memory: a consumer group of the new protocol, a share group or a streams group is still one when it was
+/// last stopped empty.
+fn kept(out: &mut GroupDetail, life: Option<&kafka_meta::GroupLife>) {
+    if let Some(c) = life.and_then(|l| l.consumer.as_ref()) {
+        out.kind = GroupKind::Consumer;
+        out.generation = c.epoch;
+        out.assignment_epoch = Some(c.assignment_epoch);
+        out.protocol = Some(c.assignor.clone());
+    }
+    if let Some(s) = life.and_then(|l| l.share.as_ref()) {
+        out.kind = GroupKind::Share;
+        out.generation = s.epoch;
+        out.assignment_epoch = Some(s.assignment_epoch);
+        out.protocol = Some("simple".to_owned());
+    }
+    if let Some(s) = life.and_then(|l| l.streams.as_ref()) {
+        out.kind = GroupKind::Streams;
+        out.generation = s.epoch;
+        out.assignment_epoch = Some(s.assignment_epoch);
+        out.protocol = Some(STREAMS_ASSIGNOR.to_owned());
+    }
+}
+
 fn member(d: &Description, m: &crate::groups::MemberInspect) -> MemberDetail {
     let (instance, client_id, client_host) = d
         .members
@@ -204,6 +236,24 @@ fn member(d: &Description, m: &crate::groups::MemberInspect) -> MemberDetail {
             d.consumer
                 .as_ref()
                 .and_then(|c| c.members.iter().find(|x| x.id == m.id))
+                .map(|x| {
+                    (
+                        x.instance.as_ref().map(ToString::to_string),
+                        x.client_id.clone(),
+                        x.client_host.clone(),
+                    )
+                })
+        })
+        .or_else(|| {
+            d.share
+                .as_ref()
+                .and_then(|s| s.members.iter().find(|x| x.id == m.id))
+                .map(|x| (None, x.client_id.clone(), x.client_host.clone()))
+        })
+        .or_else(|| {
+            d.streams
+                .as_ref()
+                .and_then(|s| s.members.iter().find(|x| x.id == m.id))
                 .map(|x| {
                     (
                         x.instance.as_ref().map(ToString::to_string),

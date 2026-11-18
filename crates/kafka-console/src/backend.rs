@@ -17,9 +17,11 @@ use kafka_wire::header::RequestHead;
 use kafka_wire::profile::Profile;
 
 mod config;
+mod data;
 mod forms;
 mod lab;
 mod log_views;
+mod quotas;
 pub mod requests;
 mod settings;
 
@@ -151,6 +153,20 @@ impl Backend {
         self.broker
             .console_view()
             .group_detail(&self.caller, group)
+            .await
+    }
+
+    /// A share group's share-partitions, if the console may describe it.
+    #[must_use]
+    pub fn share_group(&self, group: &str) -> Option<kafka_broker::ShareGroupView> {
+        self.broker.console_view().share_group(&self.caller, group)
+    }
+
+    /// A streams group's topology and members with their tasks and stages, if the console may describe it.
+    pub async fn streams_group(&self, group: &str) -> Option<kafka_broker::StreamsGroupView> {
+        self.broker
+            .console_view()
+            .streams_group(&self.caller, group)
             .await
     }
 

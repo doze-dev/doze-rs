@@ -132,6 +132,7 @@ pub fn home(state: HomeState) -> HomeView {
         instance,
         unchecked: 0,
         spoke,
+        disk: None,
     }
 }
 

@@ -28,7 +28,7 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-16 to SEC-30 | the authorizer, the three ACL APIs, Metadata and InitProducerId checks, the model test | 8b | "The oracle, slice 8b" |
 | SEC-40 to SEC-51 | SCRAM-SHA-256 and SCRAM-SHA-512 | 8c | after SEC-15 |
 | SEC-60 to SEC-72 | ACL enforcement on the topic APIs | 8d-1 | "The topic APIs" |
-| SEC-100 to SEC-123 | ACL enforcement on the group and transaction APIs | 8d-2 | "Slice 8d-2" |
+| SEC-100 to SEC-124 | ACL enforcement on the group and transaction APIs (SEC-124: AddPartitionsToTxn v4+, KIP-890) | 8d-2 | "Slice 8d-2" |
 | SEC-140 to SEC-154 | TLS behind the `tls` feature | 8e | "TLS, slice 8e" |
 | SEC-160 to SEC-179 | the SCRAM credential APIs (50, 51), the stored table, the users file and variable | 8f | after SEC-154 |
 | SEC-180 to SEC-189 | the allowed-hosts guard, `--console-allow-host`, `--console-unprotected`, the start-up rule and notes | 8g | "The allowed-hosts guard" |
@@ -37,7 +37,10 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-290 to SEC-293 | the authorization row of DescribeCluster, GetTelemetrySubscriptions and PushTelemetry (none), the cluster operations bits, a telemetry payload never read or logged, the bounded store | 9i | "Protocol leftovers, slice 9i" |
 | SEC-240 to SEC-249 | the console: its reserved principal, the guard and the same-origin proof mounted on it, its default address and its exposure | 9a | "The console, slice 9a" |
 | SEC-250 | the console's door to other machines, held while the broker runs: closed while an open broker has ACLs | console-acl-live | after SEC-249 |
+| SEC-295 to SEC-298 | OffsetForLeaderEpoch, DescribeLogDirs and the client quota APIs: their rights; what quotas guard | quotas | after SEC-294 |
 | SEC-230 to SEC-239 | the places a member's topics come from and whose right is applied: static takeover, names revoked, classic members, a group changing kind; the failed-login cap; file modes; the super-user name | re-audit C | "Re-audit of the authorization half" |
+| SEC-320 to SEC-327 | the share group APIs (KIP-932) and the group configs: READ or DESCRIBE or DELETE on the group, READ or DESCRIBE on each topic, ALTER_CONFIGS on the group | share groups | "Share groups (KIP-932)" |
+| SEC-330 to SEC-333 | the streams group APIs (KIP-1071): READ or DESCRIBE on the group, DESCRIBE on every topic of the topology, CREATE for the internal topics the coordinator makes | streams groups | "Streams groups (KIP-1071)" |
 
 Deviations from Apache Kafka (and one from the Go edition) by number. Every one is a decision, not a bug; each has a row in `debt.md` section I.
 
@@ -68,7 +71,7 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D34** unsure: a DescribeTransactions entry refused with 53 carries schema defaults
 - **SEC-D35** unsure: ConsumerGroupDescribe and a deleted topic's empty name
 - **SEC-D36** unsure: FindCoordinator before v4 puts the error's own message in the answer
-- **SEC-D37** share groups, streams groups and AddPartitionsToTxn v4+ are not served
+- **SEC-D37** share groups and streams groups are not served
 - **SEC-D40** client certificates and mutual TLS are out of scope
 - **SEC-D41** `ssl.principal.mapping.rules` has nothing to map
 - **SEC-D42** protocol versions and cipher suites are rustls's with ring
@@ -861,6 +864,13 @@ a test was added for each, and `five_ways!` gained the "only DESCRIBE" caller fo
 item was the first partition of a refused topic, which a single-partition test cannot tell from the right one); a test was added. Final: 40 of 40.
 (The mutation copy builds in a target directory of its own: sharing one with the worktree let the last mutant's build be taken for the worktree's.)
 
+## SEC-124. AddPartitionsToTxn v4 and later (KIP-890; Kafka 4.4.0 `KafkaApis.handleAddPartitionsToTxnRequest`) (source)
+From v4 the request is a broker's (batched transactions, `verify_only`): CLUSTER_ACTION on the cluster, asked once, before anything else, or the whole answer is
+CLUSTER_AUTHORIZATION_FAILED (31) at the top with no transaction in it (`authorizeClusterOperation` throws; `getErrorResponse` of v4 sets the top-level code alone). Nothing
+else is asked: no WRITE on the transactional ids, none on the topics (`version < 4` guards both in Kafka). A DENY wins over an ALLOW for every user; a super user passes.
+A client's request (v0 to v3) is SEC-114, unchanged. Test: `add_partitions_of_v4_and_later_needs_cluster_action`,
+`add_partitions_of_v4_and_later_asks_for_no_right_on_the_id_or_the_topic`.
+
 ## SEC-160. DescribeUserScramCredentials (50) and AlterUserScramCredentials (51): versions and profile
 Both exist at v0 only (`msg/DescribeUserScramCredentials*.json`, `AlterUserScramCredentials*.json`: `validVersions 0`, flexible). The profile offers them at 0 to 0 for
 `--kafka-version` 2, 3 and 4 and not at 1, as the recorded brokers do (`crates/kafka-wire/tests/data/api-versions.json`: cp-kafka 6.2, 3.9.1 and 4.3.1 list both at 0..0, the 1.x broker neither).
@@ -1373,6 +1383,118 @@ Any connection may name any instance id (W32), so the store takes ids from stran
 allocated until the first client asks. A flood of fresh ids evicts the real clients' gate state (their next request is adopted, as after a restart, and costs them one throttle they would have had) but never grows the store or refuses anyone (**deviation SEC-D101**).
 Test: `kafka-broker telemetry::tests::bytes_are_bounded_and_the_payloads_heard_longest_ago_go_first`, `telemetry::tests::entries_are_bounded_and_a_terminating_client_goes_before_the_one_heard_longest_ago`, `telemetry::tests::an_idle_store_holds_nothing`
 
+## SEC-294. The data actions ask the right Kafka would ask, and the usage asks DESCRIBE on the cluster
+Empty topic needs DELETE on the topic (what DeleteRecords asks) and is refused before the topic is looked for, so a topic the caller may not see is not given away; Empty all topics and Erase everything need ALTER on the cluster; the usage of the data directory needs DESCRIBE on the cluster, and a topic the caller may not DESCRIBE is counted, not named (`docs/port/data-control.md`). The console acts as its own principal, a super user (SEC-241), and is a write behind the same-origin proof and the door (SEC-243, SEC-250); `doze-kafka data` acts as the operator on a stopped broker's directory, which it holds the lock of. A refusal is TOPIC_AUTHORIZATION_FAILED or CLUSTER_AUTHORIZATION_FAILED with the right named, and nothing is changed.
+Test: `kafka-broker tests/data_empty.rs::emptying_asks_delete_on_the_topic_and_every_topic_asks_alter_on_the_cluster`, `kafka-console tests/live_api_data.rs::a_caller_without_the_rights_is_refused_in_kafkas_words_and_nothing_changes`
+
+## SEC-295. OffsetForLeaderEpoch: CLUSTER_ACTION on the cluster, or DESCRIBE on each topic (source)
+`KafkaApis.handleOffsetForLeaderEpochRequest` (KIP-320): a caller with CLUSTER_ACTION on the cluster (a follower) may ask about any
+topic, whatever its `replica_id` says; any other needs DESCRIBE on each topic, asked before the topic is looked for, so a topic it
+may not describe is TOPIC_AUTHORIZATION_FAILED on every partition whether it exists or not, and those topics come after the others.
+Row of the matrix: **CLUSTER:CLUSTER_ACTION or TOPIC:DESCRIBE**.
+Test: `kafka-broker tests/offset_for_leader_epoch.rs::describe_on_the_topic_or_cluster_action_lets_a_caller_ask_and_the_refused_come_last`
+
+## SEC-296. DescribeLogDirs: DESCRIBE on the cluster (source)
+`KafkaApis.handleDescribeLogDirsRequest`: without DESCRIBE on the cluster the answer is CLUSTER_AUTHORIZATION_FAILED (from v3, the
+first with the field) and no directory, so the path, the volume and the topics are not told; with it every topic is listed whatever
+the topic ACLs say, as in Kafka. Row: **CLUSTER:DESCRIBE**.
+Test: `kafka-broker tests/describe_log_dirs.rs::describe_on_the_cluster_is_needed_and_without_it_no_directory_is_told`
+
+## SEC-297. DescribeClientQuotas: DESCRIBE_CONFIGS on the cluster; AlterClientQuotas: ALTER_CONFIGS on the cluster (source)
+`KafkaApis.handleDescribeClientQuotasRequest` and `ControllerApis.handleAlterClientQuotas`. Refused: DescribeClientQuotas is
+CLUSTER_AUTHORIZATION_FAILED with "Cluster authorization failed." and null entries; AlterClientQuotas answers every entry of the
+request, as sent, CLUSTER_AUTHORIZATION_FAILED with that message, and changes nothing (`AlterClientQuotasRequest.getErrorResponse`).
+The console's quota view asks DESCRIBE_CONFIGS too, and its changes go through AlterClientQuotas as its own principal (SEC-241).
+Rows: **CLUSTER:DESCRIBE_CONFIGS**, **CLUSTER:ALTER_CONFIGS**.
+Test: `kafka-broker tests/client_quotas.rs::altering_needs_alter_configs_and_describing_describe_configs_on_the_cluster`
+
+## SEC-298. What a quota guards, and what it cannot
+A quota slows a client, it refuses nothing but a strict mutation: the records of a throttled Produce are taken, a throttled Fetch
+is answered empty and its client fetches again. The user is the principal's name, which a login proves; the client id is whatever
+the client writes, so a client-id quota is a courtesy a client can step around (by changing its id, or sending none: a request with
+no client id escapes client-id quotas, as in Kafka), and a user quota, shared by every client id of the user, is the one that holds.
+The meters are bounded by what is set: none while nothing is set, one per user and client id that matched a level, dropped after an
+hour idle. A mute holds one connection's reads, never a thread, and ends on a stop. The console is never metered (it calls the
+broker in process, not over a connection).
+Test: `kafka-broker quotas::tests::a_user_quota_is_shared_by_every_client_id_of_the_user`, `::a_client_with_no_client_id_escapes_client_id_quotas_as_in_kafka`,
+`::meters_go_when_the_last_limit_goes_and_idle_ones_are_dropped_after_an_hour`, `kafka-server connection::tests::throttled::another_client_id_is_not_held_to_it_and_a_stop_ends_the_wait`
+
+## Share groups (KIP-932)
+The seven share group APIs and the configs of a group, as Kafka 4.4.0 asks (`KafkaApis`, KA below, and `ControllerApis` for the
+configs; the rules of the APIs themselves are `share-groups.md`). A refusal the handler makes carries the code alone, as Kafka's
+`getErrorResponse` writes it. Each is held five ways (`five_ways!`: granted, missing, a DENY against a super user and against an
+ALLOW, and the broad grants).
+
+## SEC-320. ShareGroupHeartbeat needs READ on the group and DESCRIBE on each subscribed topic
+READ on the group first (30), then DESCRIBE on every name the request subscribes to (29 for the whole request, nothing reaching the
+group). No words (KA L3146-3187).
+Test: `kafka-broker tests/authz_share.rs::the_share_heartbeat_needs_read_on_the_group_and_describe_on_each_subscribed_topic`
+
+## SEC-321. ShareGroupDescribe needs DESCRIBE on each group, and DESCRIBE on the topics its members read
+A group the caller may not DESCRIBE is 30 with no words; one with a member assigned a topic the caller may not DESCRIBE is replaced
+by 29 "The group has described topic(s) that the client is not authorized to describe." (KA L3189-3269).
+Test: `kafka-broker tests/authz_share.rs::share_group_describe_needs_describe_on_the_group`
+
+## SEC-322. ShareFetch needs READ on the group and on each topic it reads or acknowledges
+READ on the group (30, top-level, before the session is looked at); then READ on each topic, per partition (29), for the fetch and
+for the acknowledgements alike; the share fetch is not held to the group's membership (KA L3274-3509).
+Test: `kafka-broker tests/authz_share.rs::share_fetch_needs_read_on_the_group_and_on_each_topic`
+
+## SEC-323. ShareAcknowledge needs READ on the group and on each topic acknowledged
+As SEC-322, without the fetch (KA L3647-3731).
+Test: `kafka-broker tests/authz_share.rs::share_acknowledge_needs_read_on_the_group_and_on_each_topic`
+
+## SEC-324. DescribeShareGroupOffsets needs DESCRIBE on the group and on each topic
+Per group, 30 with no words; a topic named that the caller may not DESCRIBE is an entry of its own, after the others, each
+partition 29 "Topic authorization failed." with start and lag -1; asked for every topic, those it may not DESCRIBE are left out
+(KA L3853-3970).
+Test: `kafka-broker tests/authz_share.rs::describe_share_group_offsets_needs_describe_on_the_group_and_on_each_topic`
+
+## SEC-325. AlterShareGroupOffsets needs READ on the group (not ALTER) and READ on each topic
+30 "Group authorization failed." top-level; a topic without READ is 29 on each of its partitions (KA L3972-4021).
+Test: `kafka-broker tests/authz_share.rs::alter_share_group_offsets_needs_read_on_the_group_and_on_each_topic`
+
+## SEC-326. DeleteShareGroupOffsets needs DELETE on the group and READ on each topic
+30 top-level; a topic without READ is 29 "Topic authorization failed.", first in the answer (KA L4023-4077).
+Test: `kafka-broker tests/authz_share.rs::delete_share_group_offsets_needs_delete_on_the_group_and_read_on_each_topic`
+
+## SEC-327. A group's configs: ALTER_CONFIGS to change them, DESCRIBE_CONFIGS to see them
+IncrementalAlterConfigs (and AlterConfigs) of resource type GROUP need ALTER_CONFIGS on the group (30 "Group authorization
+failed."; `ControllerApis` L488-493); DescribeConfigs needs DESCRIBE_CONFIGS (or ALTER_CONFIGS). The group need not exist.
+Test: `kafka-broker tests/authz_share.rs::a_groups_configs_are_changed_with_alter_configs_on_the_group`,
+`tests/authz_topics_configs.rs::describe_configs_answers_the_refused_resources_after_the_others_with_no_configs_and_the_errors_words`
+
+## Streams groups (KIP-1071)
+The three streams group APIs as Kafka 4.4.0 asks (`KafkaApis`, KA below; the rules of the APIs themselves are
+`streams-groups.md`). A streams group's offsets, deletion and configs are asked of as any group's: OffsetCommit, OffsetFetch,
+OffsetDelete, DeleteGroups and the GROUP configs (SEC-327) need the same rights for it. Each right below is held five ways
+(`five_ways!`).
+
+## SEC-330. StreamsGroupHeartbeat needs READ on the group and DESCRIBE on every topic of the topology
+READ on the group first (30); then, on a join (the only heartbeat with a topology), DESCRIBE on every source, repartition sink,
+repartition source and changelog topic it names (29 for the whole request, nothing reaching the group). The code alone, as
+`getErrorResponse` writes it (KA L2809-2861). DESCRIBE_CONFIGS is never asked.
+Test: `kafka-broker tests/authz_streams.rs::the_streams_heartbeat_needs_read_on_the_group_and_describe_on_each_topic_of_the_topology`
+
+## SEC-331. The internal topics are made only for a caller that may CREATE them all
+The repartition and changelog topics the coordinator finds missing are made as the caller: CREATE on the cluster covers them all,
+else CREATE on each. If any is refused, none is made, and the MISSING_INTERNAL_TOPICS status gets
+"; Unauthorized to CREATE on topics a, b." (KA L2873-2896; the topics in the order of Kafka's map of them). The request itself
+succeeds.
+Test: `kafka-broker tests/authz_streams.rs::internal_topics_are_made_only_by_a_caller_that_may_create_them`
+
+## SEC-332. StreamsGroupDescribe needs DESCRIBE on each group, and DESCRIBE on every topic of its topology
+A group the caller may not DESCRIBE is 30 with no words, ahead of the others; one whose topology names a topic the caller may not
+DESCRIBE is replaced by 29 "The described group uses topics that the client is not authorized to describe." with no members and
+no topology (KA L2968-3066).
+Test: `kafka-broker tests/authz_streams.rs::streams_group_describe_needs_describe_on_the_group`,
+`a_group_whose_topology_names_a_topic_the_caller_may_not_describe_is_hidden`
+
+## SEC-333. StreamsGroupTopologyDescriptionUpdate needs READ on the group
+30 with no words; with the right, the broker (no topology description plugin, Kafka's default) answers UNSUPPORTED_VERSION (KA
+L2943-2953).
+Test: `kafka-broker tests/streams_groups.rs::the_topology_description_update_is_refused_as_by_a_broker_with_no_plugin`
+
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
@@ -1446,7 +1568,7 @@ Test: `kafka-broker telemetry::tests::bytes_are_bounded_and_the_payloads_heard_l
 - **SEC-D31.** A SyncGroup of v5 or later with no protocol type or name is 23 up front (KA:1406-1411) only for a caller that is also refused; an allowed caller's goes to the group
   as before, which judges only the names it is given. Kafka answers 23 to everyone.
 - **SEC-D32.** AddPartitionsToTxn: Kafka removes the internal topics (`__consumer_offsets`, `__transaction_state`) from the topics it authorizes, so they are 29 even with no
-  authorizer (KA:1912). Here those topics do not exist as topics: they are 3 (or 29, if the caller may not WRITE them). v4 and later (a broker's, CLUSTER_ACTION) is not served.
+  authorizer (KA:1912). Here those topics do not exist as topics: they are 3 (or 29, if the caller may not WRITE them). v4 and later is a broker's request and asks no right on a topic (SEC-124).
 - **SEC-D33.** InitProducerId's `Enable2Pc` and `KeepPreparedTxn` are version 6 fields; version 6 is not served, so the TWO_PHASE_COMMIT check (SEC-120) cannot be reached by a client.
 - **SEC-D34.** Unsure, from the source alone: a DescribeTransactions entry refused with 53 carries the schema defaults for the rest (producer id 0, start time 0), as Kafka's
   `new TransactionState().setTransactionalId().setErrorCode()` does; the entry for an id that is not found keeps the -1 and -1 this broker already gave it.
@@ -1455,7 +1577,7 @@ Test: `kafka-broker telemetry::tests::bytes_are_bounded_and_the_payloads_heard_l
   image; whether it too gives `""` was not confirmed.
 - **SEC-D36.** Unsure: FindCoordinator before v4 puts the error's own message in the answer (`Errors.message()` is the exception's, `Group authorization failed.`; the `NONE` of a success
   is its `toString`), read from `FindCoordinatorResponse.prepareOldResponse`. Not recorded.
-- **SEC-D37.** Not served, so not checked: share groups (key type 2), the share and streams group APIs, AddPartitionsToTxn v4 and later.
+- **SEC-D37.** Not served, so not checked: share groups (key type 2), the share and streams group APIs. (AddPartitionsToTxn v4 and later is served since KIP-890: SEC-124.)
 
 - **SEC-D50.** Two layers of users (SEC-172). Kafka has one store, the cluster metadata, and its PLAIN users live in a JAAS file outside it; here the users of the flags, the file and the variable are derived at every start and never stored. If a name is in both layers the bootstrap user wins for every
   mechanism and the stored entries under the name are shadowed, not deleted. An Alter or Delete aimed at a bootstrap user is refused with `UNACCEPTABLE_CREDENTIAL` (93) and a message that names the three sources: Kafka has no such case, and 93 (a credential it will not accept) is the closest of its codes; the check sits after the

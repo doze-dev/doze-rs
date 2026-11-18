@@ -311,6 +311,7 @@ The owner's ceiling of 10 MB stands: the default estimate is 2.6 MB under it, th
 
 **Levers not pulled, and what each costs.** (1) `EnvFilter` to `tracing_subscriber::filter::Targets` (no `env-filter` feature, so no regex): -233,008 B on darwin (5,797,328 to 5,564,320 B) and several packages
 (`matchers`, `regex-automata`, `regex-syntax`), at the price of the span and field directives of `RUST_LOG` (`target[span{field=value}]=level`, regexes on values); plain `target=level,...` lists and `--log-level` keep working. Not applied: it narrows a documented input.
+**Applied 2026-11-15** (owner's approval): -216,448 B on darwin (8,001,440 to 7,784,992 B on the one build) and 184 to 180 packages; span and field directives are refused at start with exit 2. See "The log filter without regex" below.
 (2) `kafka-broker` at "z": -180,288 B (5,617,040 B), but it is the request handlers of the hot path. Not applied. (3) Brotli for the assets: about -11 KB, and only over https. (4) Dropping the two JetBrains Mono weights (-43 KB) or all three fonts for a system stack (-91 KB): a visible change (D12). None is needed to meet 9.0 MB.
 
 **A side effect in the same profile.** `[profile.release]` is the workspace's, so `doze-aws` is also built with fat LTO: 3,897,792 B (4,447,712 B when last recorded), 194 packages, 3,232 KB idle. Its limit (6,100,000 B) is not touched here; it can be lowered by whoever owns that job.
@@ -798,8 +799,20 @@ plus 5%. Small, justified rises under the owner's delegation of 2026-11-14.
 | `weight-lean` binary | 5,274,120 B | 5,263,296 B | **5,274,120 B** (+10,824 B: the module face's and registry's shared code reached the lean build) |
 | `weight-tls-idle` | 10,932 / 10,916 / 10,936 KB, median 10,932 | 10,610 KB | **11,479 KB** |
 
+**Data control (2026-11-15, `docs/port/data-control.md`).** Measured on darwin arm64 against main at 3636c3d2 built the same day: the
+default build 8,001,424 to 8,167,424 B (+166,000 B), times 1.3747 is 11,227,858 B on ubuntu x86_64, under its 11,549,536 B line; the lean
+build 4,099,056 to 4,198,448 B (+99,392 B), so its CI line rises by that times 1.3747, 5,274,120 to **5,410,754 B**, an estimate until CI
+measures it. No new package in either build (143 unique names before and after in the default, 125 in the lean on Linux): the default
+tree's package line goes 184 to 186 for two repeat entries (`doze-fs (*)`, `rustix (*)`), as in the registry's `kafka-registry (*)`
+before. statvfs (rustix) is behind doze-fs's `space` feature, which only kafka-console turns on, so the lean build and doze-aws do not
+carry it. Idle 7,952 KB on darwin (nothing new runs: the usage is walked when a page asks).
+
 doze-aws held (median 8,728 KB of 9,413) and the lean build's idle held (6,920 KB of 7,229). doze-kafka's idle has risen about 1.2 MB since
 2026-11-12 (the console, then the registry on by default); that is in issue #36.
+
+**`weight-tls-idle` after the efficiency pass (2026-11-15).** Line not moved: main's idle with TLS rose from about 10,820 KB to about
+11,300 KB at 3636c3d2, and the 11,479 KB line was measured before that. Bisected on aarch64 Linux: +268 KB, mostly 086e4b28 (`fix-correct`,
++132) and 0ee5cf74 (`fix-idle`, +68). Numbers and runs are in ci-health.md ("ci-flakes-2"); for the kafka session to explain or take back.
 
 doze-aws, from the same PR's next run (43592223803, main with the aws-tls, aws-gaps and aws-correctness merges): 13,128,520 B and 274
 packages, inside the 13,900,000 B / 280 lines its stage set; idle 9,964 / 10,036 / 10,024 KB, median 10,024 KB, so its idle line is
@@ -845,3 +858,55 @@ The aws session's data-control merge (78ba6190, pushed to main) moved two lines 
 - **weight-lean: 5,450,504 B** (+432 B; +368 B on the x86_64 cross-build). The only lean-tree crates the merge touched are doze-store and
   doze-runtime; `Store` now keeps its file's path (d39dd0cd), and kafka-meta opens a `Store`. Kafka never calls `Db::close`, so the closing
   compaction (58834909) does not run in the broker. The line follows: **5,450,504 B**.
+
+## The log filter without regex, and Fetch records written without a copy (2026-11-15), release, darwin/arm64
+
+Two efficiency changes the owner approved. Each measured on its own tree, `cargo build --release -p doze-kafka`, packages counted as `cargo xtask weight` counts them:
+
+| tree | binary | packages |
+|---|---|---|
+| main (3636c3d2) | 8,001,408 B | 184 |
+| Fetch records written without a copy | 8,001,440 B (+32) | 184 |
+| and the log filter without regex | **7,784,992 B** (-216,448) | **180** |
+
+`cargo xtask weight doze-kafka` on the last: 7,784,992 B, 180 packages, idle 7,584 KB (samples 7,584, 7,552, 7,664). The limit moves down
+(`xtask/weight-limits.txt`): times CI's 1.3747 is 10,702,029 B, plus 5% = 11,237,130 B; packages 180.
+
+**The log filter** (`crates/doze-kafka/src/logging.rs`). `tracing_subscriber::filter::Targets` instead of `EnvFilter`, so the `env-filter`
+feature is off and `regex`, `regex-automata`, `regex-syntax` and `matchers` leave doze-kafka's tree (`cargo tree -p doze-kafka -e normal -i regex`
+finds no such package). `RUST_LOG` and `--log-level` take what they took before in practice: a level, or a comma-separated list of levels and
+`target=level` pairs (a bare target is every level of it). Span and field directives (`target[span{field=value}]=level`) are refused at start,
+exit 2, with one line naming the source and what is supported; a misspelt level is refused too (`EnvFilter` dropped it silently), and an empty
+`RUST_LOG` counts as unset. `regex-lite` stays (kafka-broker's own use). doze-aws keeps `EnvFilter` in its own `run.rs`: its setup is not shared.
+
+**Fetch records** (`crates/kafka-wire/src/response/fetch.rs`, `frame.rs`). A Fetch reply was encoded into one buffer, so every record byte read
+from the log was copied into it before the write. Now the envelope is written into one buffer and each partition's records (4 KiB and up) stay
+in the `Bytes` the log read them into; the server writes the pieces with one vectored write (TCP and rustls both gather) and flushes. Size:
++32 B. Memory: `examples/fetch_frame` (Fetch v12, median of 9, loopback socket drained by a thread):
+
+| response | allocated by the encode, before | after | encode + write, before | after |
+|---|---|---|---|---|
+| 1 MiB, 1 partition | 1,048,642 B | 234 B | 0.292 ms | 0.269 ms |
+| 50 MiB, 1 partition | 52,428,867 B | 235 B | 5.849 ms | 4.932 ms |
+| 50 MiB, 16 partitions | 52,429,467 B | 2,627 B | 5.705 ms | 4.906 ms |
+
+End to end (the release binaries of main and of the Fetch change, `/usr/bin/time -l`, kcat producing one or fifty 1 MB messages to one
+partition and consuming them with the fetch limits at 64 MiB, three runs each): one message, peak RSS 10.6 MB to 9.5 MB; fifty, peak RSS
+108.6 MB to 58.6 MB (peak footprint 104.2 to 54.1 MB) and the consume 184.8 to 188.3 ms to 169.5 to 175.6 ms (kcat's start included).
+
+## Share groups (KIP-932, 2026-11-15), release, darwin/arm64
+
+Measured back to back with `cargo xtask weight doze-kafka`: the tree before share groups (kafka-next with KIP-890, c64f4b76e) and the tree
+with them (docs/port/behaviours/share-groups.md).
+
+| | bytes | packages | idle (median of three) |
+|---|---|---|---|
+| before | 7,984,176 B | 182 | 7,840 KB (7,856, 7,824, 7,840) |
+| with share groups | 8,431,392 B (+447,216 B, +5.6%) | 182 | 7,968 KB (7,968, 7,968, 7,984), +128 KB |
+
+No package is added. The bytes are code: the seven APIs' messages, whose generated codecs are linked now that something uses them; their
+handlers; the share-partition (acquisition, acknowledgement, locks, the start), the share sessions, the lock task and the group configs; the
+recorder's summaries and the console's share views. The embedded console assets grew 10 KB. At rest a broker holds an empty map, an empty
+session cache and one task waiting on an alarm no one has set: nothing wakes until a lock is held (`tests/idle_upkeep.rs`); the idle rise is
+presumably the larger binary's pages (not split into file-backed and anonymous in the VM, as the idle line above was). The line (xtask/weight-limits.txt) moves to 8,431,392 B times CI's 1.3747 plus 5%, 12,170,166 B, under the 15 MB
+ceiling, and its idle to CI's 11,132 KB times the measured rise plus 5%, 11,880 KB, until CI measures the tree.

@@ -74,6 +74,8 @@ impl World {
                 assignment_epoch: self.rng.below(100) as i32,
                 assignor: "uniform".into(),
             }),
+            share: None,
+            streams: None,
         };
         let Some(store) = &self.store else {
             return "life";

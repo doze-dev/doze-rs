@@ -13,6 +13,7 @@ test("the sidebar goes to every section and marks the one you are in", async ({ 
     ["Live", "/live"],
     ["Topics", "/topics"],
     ["Groups", "/groups"],
+    ["Data", "/data"],
     ["Access", "/access"],
     ["Lab", "/lab"],
     ["Settings", "/settings"],

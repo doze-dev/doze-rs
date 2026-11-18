@@ -5,22 +5,38 @@ use kafka_wire::api::{Request, Response};
 use kafka_wire::header::RequestHead;
 
 use super::Broker;
+use crate::quotas::Mutations;
 use crate::{Caller, Listener, Outcome, blocking};
 
 impl<F: Fs> Broker<F> {
-    /// Handles one request from `caller`. ApiVersions never gets here: the connection answers it from the version
-    /// profile, before the connection is known to be allowed anything else.
-    #[expect(
-        clippy::cognitive_complexity,
-        clippy::too_many_lines,
-        reason = "an exhaustive match over every API, with no wildcard, so that an API with no handler does not compile"
-    )]
+    /// Handles one request from `caller`, held to no quota (the console's requests, and tests). ApiVersions never gets here:
+    /// the connection answers it from the version profile, before the connection is known to be allowed anything else. A
+    /// client's request comes in through [`Broker::serve`], which holds it to the client's quotas.
     pub async fn handle(
         &self,
         listener: &Listener,
         caller: &Caller,
         head: &RequestHead,
         request: Request,
+    ) -> Outcome {
+        self.dispatch(listener, caller, head, request, &mut Mutations::unbounded())
+            .await
+    }
+
+    /// One request to its handler. `mutations` is the controller mutation quota the three APIs that make or delete
+    /// partitions count against.
+    #[expect(
+        clippy::cognitive_complexity,
+        clippy::too_many_lines,
+        reason = "an exhaustive match over every API, with no wildcard, so that an API with no handler does not compile"
+    )]
+    pub(super) async fn dispatch(
+        &self,
+        listener: &Listener,
+        caller: &Caller,
+        head: &RequestHead,
+        request: Request,
+        mutations: &mut Mutations<'_>,
     ) -> Outcome {
         match request {
             Request::Metadata(r) => {
@@ -29,12 +45,12 @@ impl<F: Fs> Broker<F> {
                 self.create_wanted(wanted).await;
                 respond(Response::Metadata(answer))
             }
-            Request::CreateTopics(r) => {
-                respond(Response::CreateTopics(self.create_topics(caller, &r).await))
-            }
-            Request::DeleteTopics(r) => {
-                respond(Response::DeleteTopics(self.delete_topics(caller, &r).await))
-            }
+            Request::CreateTopics(r) => respond(Response::CreateTopics(
+                self.create_topics(caller, &r, mutations).await,
+            )),
+            Request::DeleteTopics(r) => respond(Response::DeleteTopics(
+                self.delete_topics(caller, &r, mutations).await,
+            )),
             Request::Produce(r) => self.produce(head.version, caller, r).await,
             Request::Fetch(r) => self.fetch(head.version, caller, r).await,
             Request::ListOffsets(r) => respond(Response::ListOffsets(
@@ -61,8 +77,31 @@ impl<F: Fs> Broker<F> {
                     .await
             }
             Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(caller, &r).await,
+            Request::ShareGroupHeartbeat(r) => {
+                self.share_group_heartbeat(caller, &client_of(listener, head), &r)
+                    .await
+            }
+            Request::ShareGroupDescribe(r) => self.share_group_describe(caller, &r).await,
+            Request::StreamsGroupHeartbeat(r) => {
+                self.streams_group_heartbeat(head.version, caller, &client_of(listener, head), &r)
+                    .await
+            }
+            Request::StreamsGroupDescribe(r) => self.streams_group_describe(caller, &r).await,
+            Request::StreamsGroupTopologyDescriptionUpdate(r) => {
+                self.streams_group_topology_description_update(caller, &r)
+            }
+            Request::ShareFetch(r) => self.share_fetch(head.version, listener, caller, r).await,
+            Request::ShareAcknowledge(r) => self.share_acknowledge(head.version, caller, &r).await,
+            Request::DescribeShareGroupOffsets(r) => {
+                self.describe_share_group_offsets(head.version, caller, &r)
+                    .await
+            }
+            Request::AlterShareGroupOffsets(r) => self.alter_share_group_offsets(caller, &r).await,
+            Request::DeleteShareGroupOffsets(r) => {
+                self.delete_share_group_offsets(caller, &r).await
+            }
             Request::DeleteRecords(r) => self.delete_records(caller, &r).await,
-            Request::CreatePartitions(r) => self.create_partitions(caller, &r).await,
+            Request::CreatePartitions(r) => self.create_partitions(caller, &r, mutations).await,
             Request::DescribeConfigs(r) => self.describe_configs(caller, &r),
             Request::AlterConfigs(r) => self.alter_configs(caller, &r).await,
             Request::IncrementalAlterConfigs(r) => self.incremental_alter_configs(caller, &r).await,
@@ -75,7 +114,7 @@ impl<F: Fs> Broker<F> {
             }
             Request::AddOffsetsToTxn(r) => self.add_offsets_to_txn(head.version, caller, &r).await,
             Request::EndTxn(r) => self.end_txn_request(head.version, caller, &r).await,
-            Request::TxnOffsetCommit(r) => self.txn_offset_commit(caller, &r).await,
+            Request::TxnOffsetCommit(r) => self.txn_offset_commit(head.version, caller, &r).await,
             Request::DescribeTransactions(r) => self.describe_transactions(caller, &r).await,
             Request::ListTransactions(r) => self.list_transactions(caller, &r).await,
             Request::DescribeAcls(r) => self.describe_acls(caller, &r),
@@ -87,6 +126,18 @@ impl<F: Fs> Broker<F> {
             Request::AlterUserScramCredentials(r) => {
                 self.alter_user_scram_credentials(caller, &r).await
             }
+            Request::OffsetForLeaderEpoch(r) => respond(Response::OffsetForLeaderEpoch(
+                self.offset_for_leader_epoch(caller, &r).await,
+            )),
+            Request::DescribeLogDirs(r) => respond(Response::DescribeLogDirs(
+                self.describe_log_dirs(caller, &r),
+            )),
+            Request::DescribeClientQuotas(r) => respond(Response::DescribeClientQuotas(
+                self.describe_client_quotas(caller, &r),
+            )),
+            Request::AlterClientQuotas(r) => respond(Response::AlterClientQuotas(
+                self.alter_client_quotas(caller, &r).await,
+            )),
             Request::DescribeCluster(r) => {
                 self.describe_cluster(listener, caller, &r, head.version)
             }

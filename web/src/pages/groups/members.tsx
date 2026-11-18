@@ -16,13 +16,14 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { cn } from "@/lib/utils";
 import { useRoutedOverlay } from "./overlay";
 import { Facts, LagBar, Panel, Rules } from "./parts";
+import { StreamsMembers } from "./streams";
 import { WireDock } from "@/pages/live/wire-dock";
 import { agoNear, heard, memberLabel, numberWord, partList, PHASE_WORD, seconds, spanPrecise, stamp } from "./words";
 
 const route = getRouteApi("/groups/$group/");
 
 function role(h: GroupHead, m: GroupMemberRow): string {
-  if (h.protocol === "consumer") return "Member";
+  if (h.protocol !== "classic") return "Member";
   return m.leader ? "Leader" : "Follower";
 }
 
@@ -30,9 +31,9 @@ function share(part: number, of: number): number {
   return part <= 0 || of <= 0 ? 0 : Math.min(100, Math.max(2, Math.floor((part * 100) / of)));
 }
 
-type Open = (id: string, from: HTMLElement) => void;
+export type Open = (id: string, from: HTMLElement) => void;
 
-function MemberLink({ m, onOpen }: { m: GroupMemberRow; onOpen: Open }) {
+export function MemberLink({ m, onOpen }: { m: GroupMemberRow; onOpen: Open }) {
   return (
     <button type="button" onClick={(e) => onOpen(m.id, e.currentTarget)} className="max-w-full truncate rounded-sm text-left font-mono text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={m.id} data-focus-key={`member:${m.id}`} data-testid="member-link">
       {memberLabel(m.id)}
@@ -47,7 +48,7 @@ function subscribeWide(on: () => void) {
   return () => m.removeEventListener("change", on);
 }
 /** Whether the window is 1280 px or wider: below it the members table leaves Host and Session to the member's Sheet. */
-function useWide(): boolean {
+export function useWide(): boolean {
   return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => true);
 }
 
@@ -61,7 +62,7 @@ function MembersTable({ h, onOpen }: { h: GroupHead; onOpen: Open }) {
       { id: "client", header: "Client id", size: 140, accessorFn: (m) => m.client_id, meta: { mono: true } },
       ...(wide ? [{ id: "host", header: "Host", size: 110, accessorFn: (m: GroupMemberRow) => m.host, meta: { mono: true } }] : []),
       { id: "role", header: "Role", size: 92, accessorFn: (m) => role(h, m) },
-      { id: "generation", header: h.protocol === "consumer" ? "Epoch" : "Generation", size: 116, accessorFn: (m) => m.epoch, meta: { numeric: true, mono: true } },
+      { id: "generation", header: h.protocol === "classic" ? "Generation" : "Epoch", size: 116, accessorFn: (m) => m.epoch, meta: { numeric: true, mono: true } },
       ...(wide ? [{ id: "session", header: "Session", size: 96, accessorFn: (m: GroupMemberRow) => (m.session_ms > 0 ? seconds(m.session_ms) : "—"), meta: { mono: true } }] : []),
       { id: "heard", header: "Last heartbeat", size: 144, accessorFn: (m) => heard(h.now_ms, m), meta: { mono: true } },
     ],
@@ -75,7 +76,7 @@ function committedTo(t: LagTopic): string {
   return `${n} of ${t.partitions} ${t.partitions === 1 ? "partition" : "partitions"}`;
 }
 
-function ReadsTable({ topics }: { topics: LagTopic[] }) {
+export function ReadsTable({ topics }: { topics: LagTopic[] }) {
   const most = Math.max(0, ...topics.map((t) => t.behind));
   const cols: DataColumn<LagTopic>[] = [
     {
@@ -244,6 +245,53 @@ function Consumer({ v, onOpen }: { v: GroupLagView; onOpen: Open }) {
   );
 }
 
+/** A share group's members (KIP-932): the broker assigns, a partition may be shared, and nothing is revoked first. */
+function ShareMembers({ v, onOpen }: { v: GroupLagView; onOpen: Open }) {
+  const h = v.head;
+  const big = (label: string, value: React.ReactNode, help: React.ReactNode) => (
+    <div className="min-w-0 rounded-xl border bg-card p-5">
+      <div className="text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase">{label}</div>
+      <div className="mt-1 truncate font-mono text-[28px] leading-10 text-bright tabular-nums">{value}</div>
+      <p className="mt-1 text-[12.5px] text-muted-foreground">{help}</p>
+    </div>
+  );
+  const sharers = new Map<string, number>();
+  for (const m of h.members) for (const p of m.holds) sharers.set(`${p.topic}-${p.partition}`, (sharers.get(`${p.topic}-${p.partition}`) ?? 0) + 1);
+  const shared = [...sharers.values()].filter((n) => n > 1).length;
+  const cols: DataColumn<GroupMemberRow>[] = [
+    { id: "member", header: "Member", accessorFn: (m) => m.id, cell: ({ row: { original: m } }) => <MemberLink m={m} onOpen={onOpen} /> },
+    { id: "client", header: "Client id", size: 150, accessorFn: (m) => m.client_id, meta: { mono: true } },
+    { id: "host", header: "Host", size: 130, accessorFn: (m) => m.host, meta: { mono: true } },
+    { id: "epoch", header: "Member epoch", size: 120, accessorFn: (m) => m.epoch, meta: { numeric: true, mono: true } },
+    { id: "assigned", header: "Reads", accessorFn: (m) => partList(m.holds), meta: { mono: true } },
+  ];
+  const where: [string, string, string][] = [
+    ["empty", "Empty", "No member. What was acknowledged is kept; what was held is available again."],
+    ["stable", "Stable", "Members heartbeat and read. There is nothing to reconcile: a share group revokes nothing."],
+  ];
+  return (
+    <div className="flex flex-col gap-8" data-testid="share-group">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {big("Group epoch", h.generation, "Moves when a member joins or leaves, a subscription changes, or a topic it reads grows.")}
+        {big("Assignment epoch", h.target_epoch ?? h.generation, "The epoch the members' partitions were last worked out for.")}
+        {big("Assignor", h.assignor ?? "simple", "Every partition to at least one member; shared when there are more members than partitions.")}
+        {big("Shared partitions", shared, shared === 0 ? "Each partition is read by one member." : "Read by several members at once, each record by one of them.")}
+      </div>
+      <section>
+        <h2 className="text-[17px] font-semibold text-bright">Members and what they read</h2>
+        <p className="mt-1 mb-3 max-w-[52rem] text-[13.5px] text-muted-foreground">
+          A share consumer is told the partitions it reads and fetches records from them; the broker gives each record to one member at a time, under a lock. The Lag tab shows each
+          share-partition: what is in flight, who holds it, how often it has been delivered.
+        </p>
+        <DataTable data={h.members} columns={cols} rowId={(m) => m.id} aria-label="Members" empty="Nobody is in this group." maxHeight={420} />
+      </section>
+      <Panel title="Where a share group can be">
+        <Rules rows={where.map(([p, w, sub]) => ({ ok: h.phase === p, here: h.phase === p, title: w, sub: h.phase === p ? `${sub} This group, now.` : sub, value: h.phase === p ? "now" : "" }))} />
+      </Panel>
+    </div>
+  );
+}
+
 /** The time left to a deadline, counted down here each tenth of a second with no request (live-design.md, CON-812). */
 export function Countdown({ deadline, className }: { deadline: number; className?: string }) {
   const [now, setNow] = useState(() => Date.now());
@@ -342,7 +390,7 @@ function MemberSheet({ h, member, onClose }: { h: GroupHead; member?: string; on
                 ["Member id", <IdValue value={m.id} what="Member id copied" className="text-[12.5px]" />],
                 ["Client id", <span className="font-mono">{m.client_id}</span>],
                 ["Host", <span className="font-mono">{m.host}</span>],
-                ["Role", h.protocol === "consumer" ? "The broker assigns; a member does not lead" : m.leader ? `Leader: computed the ${h.assignor ?? ""} assignment` : "Follower: takes the assignment the leader computed"],
+                ["Role", h.protocol !== "classic" ? "The broker assigns; a member does not lead" : m.leader ? `Leader: computed the ${h.assignor ?? ""} assignment` : "Follower: takes the assignment the leader computed"],
                 ["Generation", <span className="font-mono">{m.epoch}</span>],
                 [
                   "Session timeout",
@@ -404,7 +452,7 @@ export function GroupMembersPage() {
   const h = v.head;
   return (
     <>
-      {h.protocol === "consumer" ? <Consumer v={v} onOpen={open} /> : h.phase === "rebalancing" ? <Rebalancing v={v} fetchedAt={res.dataUpdatedAt} onOpen={open} /> : <Classic v={v} onOpen={open} />}
+      {h.protocol === "streams" ? <StreamsMembers v={v} onOpen={open} /> : h.protocol === "share" ? <ShareMembers v={v} onOpen={open} /> : h.protocol === "consumer" ? <Consumer v={v} onOpen={open} /> : h.phase === "rebalancing" ? <Rebalancing v={v} fetchedAt={res.dataUpdatedAt} onOpen={open} /> : <Classic v={v} onOpen={open} />}
       <section className="mt-12">
         <h2 className="mb-3 text-[17px] font-semibold text-bright">What just happened</h2>
         <WireDock group={id} />

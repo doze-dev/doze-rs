@@ -20,6 +20,8 @@ examples = []
 kafka-wire = { path = "../kafka-wire" }
 kafka-broker = { path = "../kafka-broker", features = ["inspect"] }
 kafka-storage = { path = "../kafka-storage" }
+# Only to turn on `space`: the Data page says the volume's size and room (statvfs through rustix, already in the default build by doze-os).
+doze-fs = { path = "../doze-fs", features = ["space"] }
 kafka-auth = { path = "../kafka-auth" }
 # The Observer trait the recorder implements: the dependency points from the console to the server, never back.
 kafka-server = { path = "../kafka-server" }

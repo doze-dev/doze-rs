@@ -30,3 +30,36 @@ not use them: its own `kafka-wire` parses record batches in place and decompress
 
 `[lints.rust] deprecated = "allow"` and `dead_code = "allow"`: 560 warnings from upstream's generated code
 (`std::u32::MAX` and unused structs), which would otherwise fail a `-D warnings` build of this workspace.
+
+## 3. Share group messages at Apache Kafka 4.4.0's versions
+
+0.18.0 is generated from Kafka 4.1.0's schemas. Kafka 4.2 to 4.4 added a version to three share-group APIs, and
+real 4.3.1 and 4.4.0 brokers offer them (`crates/kafka-wire/tests/data/api-versions.json`), so the share consumer of
+those clients sends them. Patched by hand from the 4.4.0 schemas, each change marked `PATCH`:
+
+- `ShareFetchRequest` and `ShareFetchResponse` 1-2: the request's `ShareAcquireMode` (int8, ignorable, KIP-1206) and
+  `IsRenewAck` (bool, KIP-1222) at version 2, after `BatchSize`. The response is unchanged at 2.
+- `ShareAcknowledgeRequest` and `ShareAcknowledgeResponse` 1-2: the request's `IsRenewAck` after `ShareSessionEpoch`;
+  the response's `AcquisitionLockTimeoutMs` (int32, ignorable) after `ErrorMessage`.
+- `DescribeShareGroupOffsetsRequest` and `DescribeShareGroupOffsetsResponse` 0-1: the partition's `Lag` (int64,
+  ignorable, default -1, KIP-1226) after `LeaderEpoch`.
+- `ApiKey::valid_versions` for the three keys.
+
+Regression test: `crates/kafka-wire/tests/share_versions.rs` (each new field written and read back at its versions,
+and left out below them).
+
+## 4. Streams group messages (KIP-1071) at Apache Kafka 4.4.0's versions
+
+0.18.0 has no streams group messages: Kafka 4.1.0 marked their versions unstable, and the generator skips unstable
+versions. Kafka 4.4.0 serves StreamsGroupHeartbeat (88) 0-1, StreamsGroupDescribe (89) 0-1 and
+StreamsGroupTopologyDescriptionUpdate (93) 0 to every client, so the Kafka Streams client of 4.4.0 sends them.
+
+These are not hand edits. The six `src/messages/streams_group_*.rs` files and `src/messages.rs` were regenerated with
+upstream's own generator (`protocol_codegen` at the head of `tychedelia/kafka-protocol-rs`, which writes exactly
+0.18.0's files from Kafka 4.1.0's schemas) from Kafka 4.1.0's schemas with the six `StreamsGroup*.json` of the 4.4.0
+source release put in their place, then `rustfmt`. Against the vendored `messages.rs` the regenerated one differs only by
+the streams lines (the three keys, their requests and responses, `iter` up to 93) and by patch 3's three version ranges,
+which were applied again on top. Every other message file is byte for byte what 0.18.0 has.
+
+Regression test: `crates/kafka-wire/tests/streams_versions.rs` (each version-dependent field written and read back where
+it is, and refused where it is not), and `tests/every_offered_version.rs`.

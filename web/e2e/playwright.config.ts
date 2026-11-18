@@ -7,7 +7,12 @@
 // One browser at a time (workers: 1): the machine is shared.
 import { defineConfig, devices } from "@playwright/test";
 
-export const SEEDED = { kafka: "127.0.0.1:39092", console: "http://127.0.0.1:39094", registry: "127.0.0.1:39093" };
+// E2E_PORT_BASE=n moves the ports (for a machine where 39092-39194 are taken): the seeded broker on n, n+1 (registry) and
+// n+2 (console), the broker that goes away (live.spec.ts) on n+10 to n+12.
+const base = Number(process.env.E2E_PORT_BASE ?? 0);
+const at = (port: number, moved: number) => `127.0.0.1:${base > 0 ? base + moved : port}`;
+export const SEEDED = { kafka: at(39092, 0), console: `http://${at(39094, 2)}`, registry: at(39093, 1) };
+export const SECOND = { kafka: at(39192, 10), console: at(39194, 12), registry: at(39193, 11) };
 const baseURL = process.env.E2E_URL ?? SEEDED.console;
 
 export default defineConfig({

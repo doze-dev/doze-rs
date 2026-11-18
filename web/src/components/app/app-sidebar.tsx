@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useShell } from "@/api/queries";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail } from "@/components/ui/sidebar";
 import { number } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { Logo, Wordmark } from "./brand";
 import { isActive, NAV } from "./nav";
 
@@ -36,6 +37,13 @@ export function AppSidebar() {
                     {count !== undefined && (
                       <SidebarMenuBadge className="font-normal text-muted-foreground tabular-nums" data-testid={`count-${item.count}`}>
                         {count}
+                      </SidebarMenuBadge>
+                    )}
+                    {/* The disk needs someone (the last look said so): a dot of its tone, its words on the page and in the top bar. */}
+                    {item.disk && shell.data?.disk && (
+                      <SidebarMenuBadge data-testid="disk-dot" title={shell.data.disk.headline}>
+                        <span aria-hidden className={cn("size-2 rounded-full", shell.data.disk.tone === "bad" ? "bg-bad" : "bg-warn")} />
+                        <span className="sr-only">{shell.data.disk.headline}</span>
                       </SidebarMenuBadge>
                     )}
                   </SidebarMenuItem>

@@ -45,6 +45,12 @@ impl Topics {
         self.0.by_name.get(name).map(|t| t.id)
     }
 
+    /// The topic with this name, if there is one.
+    #[must_use]
+    pub(crate) fn get(&self, name: &str) -> Option<&TopicInfo> {
+        self.0.by_name.get(name)
+    }
+
     /// The name of the topic with this id, if there is one.
     #[must_use]
     pub(crate) fn name_of(&self, id: &Uuid) -> Option<&str> {

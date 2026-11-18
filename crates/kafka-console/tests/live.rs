@@ -103,6 +103,7 @@ impl World {
             advertised_host: "127.0.0.1".into(),
             advertised_port: 1,
             client_host: "/127.0.0.1".into(),
+            connection: 0,
         };
         match self.broker.handle(&listener, &caller, &head, request).await {
             Outcome::Respond(r) => r,

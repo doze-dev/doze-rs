@@ -2,11 +2,12 @@
 
 use std::sync::Arc;
 
-use kafka_meta::{ConsumerLife, GroupLife, MetaStore};
+use kafka_meta::{ConsumerLife, GroupLife, MetaStore, ShareLife, StreamsLife};
 use kafka_wire::ids::GroupId;
 
 use crate::groups::actor::Records;
 use crate::groups::consumer::{TopicInfo, TopicSource, Topics};
+use crate::groups::group::Kept;
 
 /// The topics there are, as the metadata store has them. The table a group is handed is built when the topics change, not
 /// for each heartbeat.
@@ -63,24 +64,42 @@ impl StoreRecords {
 }
 
 impl Records for StoreRecords {
-    fn live(&self, session_ms: u32, protocol_type: &str, consumer: Option<ConsumerLife>) -> bool {
+    fn live(&self, session_ms: u32, protocol_type: &str, kept: &Kept) -> bool {
+        let (consumer, share, streams) = lives(kept);
         self.write(&GroupLife {
             live: true,
             session_ms,
             empty_since_ms: None,
             protocol_type: protocol_type.to_owned(),
             consumer,
+            share,
+            streams,
         })
     }
 
-    fn empty(&self, protocol_type: &str, consumer: Option<ConsumerLife>, now_ms: i64) -> bool {
+    fn empty(&self, protocol_type: &str, kept: &Kept, now_ms: i64) -> bool {
+        let (consumer, share, streams) = lives(kept);
         self.write(&GroupLife {
             live: false,
             session_ms: 0,
-            // A consumer group's offsets are counted from each commit, so it has no time of becoming empty.
-            empty_since_ms: consumer.is_none().then_some(now_ms),
+            // A consumer group's offsets are counted from each commit, so it has no time of becoming empty (and a share
+            // group has none).
+            empty_since_ms: matches!(kept, Kept::Classic).then_some(now_ms),
             protocol_type: protocol_type.to_owned(),
             consumer,
+            share,
+            streams,
         })
+    }
+}
+
+type Lives = (Option<ConsumerLife>, Option<ShareLife>, Option<StreamsLife>);
+
+fn lives(kept: &Kept) -> Lives {
+    match kept {
+        Kept::Classic => (None, None, None),
+        Kept::Consumer(c) => (Some(c.clone()), None, None),
+        Kept::Share(s) => (None, Some(s.clone()), None),
+        Kept::Streams(s) => (None, None, Some(s.clone())),
     }
 }

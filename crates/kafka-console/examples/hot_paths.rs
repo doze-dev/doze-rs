@@ -56,6 +56,7 @@ impl Conn {
                 advertised_host: "127.0.0.1".into(),
                 advertised_port: 9092,
                 client_host: "/127.0.0.1".into(),
+                connection: 0,
             },
             caller: Caller::anonymous(Some("127.0.0.1".parse().unwrap())),
             id: 0,
@@ -296,26 +297,37 @@ fn big_fetch(batches: usize) -> kafka_wire::api::Response {
     kafka_wire::api::Response::Fetch(r)
 }
 
+/// Both ways the crate writes a Fetch: into one buffer (`encode`, the records copied) and as the frame of pieces the server
+/// writes (`frame`, the records shared; the socket gathers them).
 fn encode() {
     for batches in [1_usize, 10, 80] {
         let response = big_fetch(batches);
-        let mut m = Measured::new();
-        let n = 4_000 / batches;
-        for round in 0..=ROUNDS {
-            let began = Instant::now();
-            for _ in 0..n {
-                let frame = kafka_wire::response::encode(1, 12, &response).unwrap();
-                std::hint::black_box(frame);
+        for (how, shared) in [("encode", false), ("frame", true)] {
+            let mut m = Measured::new();
+            let n = 4_000 / batches;
+            for round in 0..=ROUNDS {
+                let began = Instant::now();
+                for _ in 0..n {
+                    if shared {
+                        std::hint::black_box(
+                            kafka_wire::response::frame(1, 12, &response).unwrap(),
+                        );
+                    } else {
+                        std::hint::black_box(
+                            kafka_wire::response::encode(1, 12, &response).unwrap(),
+                        );
+                    }
+                }
+                if round > 0 {
+                    m.add(n as f64, began.elapsed().as_secs_f64());
+                }
             }
-            if round > 0 {
-                m.add(n as f64, began.elapsed().as_secs_f64());
-            }
+            summary(
+                &format!("{how} a Fetch response of {batches} x 100 KiB"),
+                "resp",
+                &m,
+            );
         }
-        summary(
-            &format!("encode a Fetch response of {batches} x 100 KiB"),
-            "resp",
-            &m,
-        );
     }
 }
 

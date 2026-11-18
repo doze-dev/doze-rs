@@ -984,8 +984,8 @@
     },
     {
       "major": 4,
-      "image": "apache/kafka:4.3.1",
-      "jar": "kafka_2.13-4.3.1.jar",
+      "image": "kafka_2.13-4.4.0.tgz (Apache release, KRaft combined mode, formatted with its defaults)",
+      "jar": "kafka_2.13-4.4.0.jar",
       "apis": [
         {
           "key": 0,
@@ -1067,7 +1067,7 @@
         },
         {
           "key": 17,
-          "name": "SASLHandshake",
+          "name": "SaslHandshake",
           "min": 0,
           "max": 1
         },
@@ -1075,7 +1075,7 @@
           "key": 18,
           "name": "ApiVersions",
           "min": 0,
-          "max": 4
+          "max": 5
         },
         {
           "key": 19,
@@ -1097,7 +1097,7 @@
         },
         {
           "key": 22,
-          "name": "InitProducerID",
+          "name": "InitProducerId",
           "min": 0,
           "max": 5
         },
@@ -1135,23 +1135,23 @@
           "key": 28,
           "name": "TxnOffsetCommit",
           "min": 0,
-          "max": 5
+          "max": 6
         },
         {
           "key": 29,
-          "name": "DescribeACLs",
+          "name": "DescribeAcls",
           "min": 1,
           "max": 3
         },
         {
           "key": 30,
-          "name": "CreateACLs",
+          "name": "CreateAcls",
           "min": 1,
           "max": 3
         },
         {
           "key": 31,
-          "name": "DeleteACLs",
+          "name": "DeleteAcls",
           "min": 1,
           "max": 3
         },
@@ -1181,7 +1181,7 @@
         },
         {
           "key": 36,
-          "name": "SASLAuthenticate",
+          "name": "SaslAuthenticate",
           "min": 0,
           "max": 2
         },
@@ -1219,7 +1219,7 @@
           "key": 42,
           "name": "DeleteGroups",
           "min": 0,
-          "max": 2
+          "max": 3
         },
         {
           "key": 43,
@@ -1235,7 +1235,7 @@
         },
         {
           "key": 45,
-          "name": "AlterPartitionAssignments",
+          "name": "AlterPartitionReassignments",
           "min": 0,
           "max": 1
         },
@@ -1265,13 +1265,13 @@
         },
         {
           "key": 50,
-          "name": "DescribeUserSCRAMCredentials",
+          "name": "DescribeUserScramCredentials",
           "min": 0,
           "max": 0
         },
         {
           "key": 51,
-          "name": "AlterUserSCRAMCredentials",
+          "name": "AlterUserScramCredentials",
           "min": 0,
           "max": 0
         },
@@ -1411,13 +1411,13 @@
           "key": 88,
           "name": "StreamsGroupHeartbeat",
           "min": 0,
-          "max": 0
+          "max": 1
         },
         {
           "key": 89,
           "name": "StreamsGroupDescribe",
           "min": 0,
-          "max": 0
+          "max": 1
         },
         {
           "key": 90,
@@ -1434,6 +1434,18 @@
         {
           "key": 92,
           "name": "DeleteShareGroupOffsets",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "key": 93,
+          "name": "StreamsGroupTopologyDescriptionUpdate",
+          "min": 0,
+          "max": 0
+        },
+        {
+          "key": 94,
+          "name": "UnregisterController",
           "min": 0,
           "max": 0
         }

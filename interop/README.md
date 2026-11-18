@@ -6,6 +6,7 @@ through `kcat` (a process of its own, which is also what lets one be killed with
     interop/run.sh                       # builds the release broker, starts it on a free port, runs everything
     interop/run.sh -only churn           # one scenario by name
     FRANZ_LOG=1 interop/run.sh -only franz-go    # franz-go's debug log (its join, balance and sync steps)
+    INTEROP_PORT=39520 interop/run.sh    # the broker on that port (and the next one under -tls), not a random one
 
     interop/run.sh -sasl                 the SASL cells (below) against a broker started with SASL on
     interop/run.sh -tls                  the TLS cells (below): the broker built with --features tls, over SASL_SSL and SSL
@@ -143,6 +144,9 @@ The scenarios (plain mode):
 | `txn-commit-abort` | commit 10, abort 10, commit 5: `read_committed` sees 15, `read_uncommitted` 25 |
 | `txn-send-offsets` | consume-transform-produce with `sendOffsetsToTransaction` (group metadata; the group id alone where TxnOffsetCommit is below v3), one transaction aborted and redone: output once each, input committed to its end |
 | `txn-last-stable-offset` | an open transaction holds the `read_committed` end (listOffsets and `endOffsets`) at its first offset while the log goes on |
+| `txn-v2-epochs` | `transaction.version` finalized at 2 (`describeFeatures`); commit, abort, commit raise the producer epoch by one each (`describeTransactions`); the partition's producer at the last end's epoch (`describeProducers`); `read_committed` 12 of 18 |
+| `txn-v2-fence` | a second producer of the transactional id takes it over while the first has a transaction open: the first's commit is refused (InvalidProducerEpochException), the new owner's commits |
+| `txn-v2-timeout` | a transaction that outlives its 1 s timeout is aborted by the broker (epoch raised); the next write is refused, the producer's abort is accepted (a retry of the broker's own) and it commits again at the new epoch |
 | `group-classic`, `group-848` | two members split four partitions (a rebalance), read and commit; one leaves and the other takes over; a new member resumes with exactly the records after the commit |
 | `rebalance-commits-classic`, `-848` | four members join and two leave while records flow; each commits asynchronously after every poll and synchronously in `onPartitionsRevoked`; no commit may be refused and no record read twice. Under KIP-848 a commit in flight when the member's epoch moves arrives at an older epoch (KIP-1251, doze G848-10) |
 | `group-848-regex` | `subscribe(SubscriptionPattern)`: the broker resolves the expression; a matching topic made later is picked up, one that does not match is left out |
@@ -150,11 +154,17 @@ The scenarios (plain mode):
 | `admin-topics`, `admin-configs`, `admin-create-partitions`, `admin-delete-records`, `admin-list-offsets`, `admin-max-timestamp`, `admin-cluster`, `admin-acls`, `admin-scram-users`, `admin-transactions` | the Admin client's calls of each, with their refusals (exists, unknown, a decrease, past the end, an unknown config, two SCRAM alterations of one user in a request at Kafka 4, too few iterations) |
 | `offsets-for-times-log-append`, `-compressed` | `offsetsForTimes` on a LogAppendTime topic and inside gzip batches: the first record at or after each target, record-exactly |
 | `produce-fetch-limits` | a record over `max.message.bytes` refused (RecordTooLargeException); one under it read with fetch limits of 1 KB (KIP-74) |
+| `admin-log-dirs` | `describeLogDirs`: one directory, both partitions of a new topic, the one written to with its bytes, lag 0, no future log |
+| `admin-client-quotas` | `alterClientQuotas` sets a 20 KiB/s `producer_byte_rate` for a client id, `describeClientQuotas` finds it, a producer of that id sending 400 KB is throttled (its own `produce-throttle-time-max` metric), and the quota removed is gone |
+| `consumer-validates-position` | `seek` to an offset with leader epoch 0 (KIP-320): the consumer validates it with OffsetForLeaderEpoch and reads on from there |
 
 Under `-sasl`: PLAIN, SCRAM-SHA-256 and SCRAM-SHA-512 cells (a topic made, 20 records written and read, a wrong password refused
 as `SaslAuthenticationException` within 15 s), and `sasl-users` (a user made with `alterUserScramCredentials` logs in with both
 SCRAM mechanisms, cannot with PLAIN, and is refused once deleted). Under `-tls`: SASL_SSL with SCRAM-SHA-512 (and a wrong
 password), SSL, and SSL without the CA (`SslAuthenticationException`), the CA given as a PEM truststore (KIP-651).
+
+The three scenarios above the table's last rows were checked against real Kafka 4.4.0 too (2026-11-15, the same machine): the same
+answers, and the producer throttled up to 4977 ms there and 4771 ms here, both runs taking 16 s.
 
 The Java client at each major, as run on 2026-11-15 (`-versions`, `-sasl -versions`, `-tls`), after the Go clients. No failure.
 `4.4` is kafka-clients 4.4.0, `2.8` is 2.8.2:
@@ -236,4 +246,51 @@ every input offset must be committed.
 
 kafka-go is left out of the readers: its `ReadCommitted` ignores the aborted list and hands the control batches
 (markers) up as messages, so it cannot tell a transaction from its markers. sarama has no new-protocol consumer, and
-its transactional producer is the classic protocol, which is all this broker serves.
+its transactional producer is the classic protocol.
+
+**Which transaction protocol each speaks (KIP-890).** At Kafka 4 the broker finalizes `transaction.version` 2 and offers Produce v12,
+EndTxn v5 and TxnOffsetCommit v5 (`docs/port/behaviours/transactions.md` TX-16). franz-go (1.22) and the Java client (4.4) then
+speak the second version: no AddPartitionsToTxn or AddOffsetsToTxn, the writes add their partitions, every end raises the
+epoch. sarama and librdkafka stay on the classic protocol, so `txn-*`, `eos-franz-go` and `fence-franz-go` run both at once
+at Kafka 4 and the classic one alone at Kafka 1 to 3. The Java client's `txn-v2-*` (in its table above) check that the second version is the one in use; all three passed against a real Apache
+Kafka 4.4.0 as well (2026-11-15), and skip below Kafka 4 (no EndTxn v5) and with the 2.8 client.
+
+## Share groups (KIP-932)
+
+`interop/java/Share.java` runs the official client's share consumer (`KafkaShareConsumer`) and the share-group Admin calls, which
+kafka-clients 4.1 made generally available. `Interop.java` compiles against 2.8 as well, which has none of this, so the share
+scenarios are a program of their own with the same one-line contract; `run.sh -java` runs it after `Interop.java` with the 4.4
+client, on plain connections (not under `-sasl` or `-tls`). Share groups are offered at Kafka 4 alone, so below it every scenario
+is one skip line. By hand: `cd interop && java -cp "$(bun java/fetch.ts 4)" java/Share.java -broker 127.0.0.1:9092 [-only NAME]`.
+
+| Scenario | What it does |
+|---|---|
+| `share-implicit` | two members read 200 records of three partitions, accepting each by polling again: every record read exactly once |
+| `share-explicit` | accept, release and reject: a released record comes back with delivery count 2, a rejected one never; the lag is 0 |
+| `share-lock-timeout` | `share.record.lock.duration.ms` 15000 (a group config): a member that holds five records and goes quiet loses them when the lock runs out, and another member gets them at delivery count 2 |
+| `share-delivery-limit` | `share.delivery.count.limit` 2: a record released at each delivery is archived after the second |
+| `share-one-partition` | three members share one partition: at least two read some of 300 records, none is read twice |
+| `share-read-committed` | `share.isolation.level` read_committed: an aborted transaction's records are never delivered |
+| `share-admin` | list (type SHARE) and describe; a reset refused while a member is in (GroupNotEmpty); latest left the ten records unread; a reset to 0 while empty delivers them; offsets deleted; the group deleted |
+
+## Streams groups (KIP-1071)
+
+`interop/java/Streams.java` runs Apache Kafka Streams 4.4.0 itself with `group.protocol=streams`: a word count that re-keys
+its words (a repartition topic) and counts them in a store (a changelog topic), and the streams-group Admin calls. Like
+`Share.java` it is a program of its own, run by `run.sh -java` with the 4.4 client on plain connections; its classpath adds
+`kafka-streams` (`bun java/fetch.ts streams`). The stores are in memory, so RocksDB is not needed. Every scenario passed
+against a real Apache Kafka 4.4.0 as well (2026-11-18). By hand:
+`cd interop && java -cp "$(bun java/fetch.ts streams)" java/Streams.java -broker 127.0.0.1:9092 [-only NAME]`.
+
+| Scenario | What it does |
+|---|---|
+| `streams-wordcount` | counts words through a repartition topic and a changelog; the group is Stable with two subtopologies and six tasks; the internal topics were made by the broker with three partitions, the changelog compacted; the member's endpoint is described |
+| `streams-scale` | `streams.num.standby.replicas` 1 (a group config); one, two, then three instances, each stable, with a standby of each stateful task; one closes (leaves), one dies (stays in the group) and is fenced when its 45 s session runs out; the survivor runs every task and the counts go on |
+| `streams-restart` | the application stops, the group empties, more is produced, and a new instance picks the count up from its changelog |
+| `streams-missing-source` | started before its source topic exists: the group is NotReady and nothing runs; once the topic is made the words are counted |
+| `streams-admin` | listed by type STREAMS; described (process, client, the sticky assignor); offsets reset while empty, deleted, and the group deleted |
+
+All seven passed against doze and against a real Apache Kafka 4.4.0 (KRaft, one combined node) on 2026-11-15. One difference is the
+test's, not the broker's: Kafka applies a group config a moment after IncrementalAlterConfigs answers, so the scenarios that set one
+wait until DescribeConfigs shows it before they start a member. What doze and Kafka do differently, and why, is in
+`docs/port/behaviours/share-groups.md` (SG-D1 to SG-D9).

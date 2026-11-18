@@ -3,6 +3,7 @@
 use kafka_wire::messages::{
     ListOffsetsRequest, ListOffsetsResponse, OffsetCommitRequest, OffsetCommitResponse,
     OffsetDeleteRequest, OffsetDeleteResponse, OffsetFetchRequest, OffsetFetchResponse,
+    OffsetForLeaderEpochRequest, OffsetForLeaderEpochResponse,
 };
 
 use super::n;
@@ -12,6 +13,27 @@ pub(super) fn list_request(r: &ListOffsetsRequest, f: &mut Facts) {
     f.isolation = Some(r.isolation_level);
     for t in &r.topics {
         f.topic(&t.name.0, t.partitions.iter().map(|p| p.partition_index));
+    }
+}
+
+pub(super) fn epoch_request(r: &OffsetForLeaderEpochRequest, f: &mut Facts) {
+    for t in &r.topics {
+        f.topic(&t.topic.0, t.partitions.iter().map(|p| p.partition));
+    }
+}
+
+/// Each partition's code and, where it was found, the end offset of the epoch asked about.
+pub(super) fn epoch_response(r: &OffsetForLeaderEpochResponse, f: &mut Facts) {
+    for t in &r.topics {
+        for p in &t.partitions {
+            let found = p.error_code == 0 && p.end_offset >= 0;
+            f.result(
+                &t.topic.0,
+                p.partition,
+                p.error_code,
+                found.then_some(p.end_offset),
+            );
+        }
     }
 }
 

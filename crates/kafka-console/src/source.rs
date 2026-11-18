@@ -12,11 +12,14 @@ use crate::probe::Prober;
 use crate::snippets;
 
 mod consumers;
+mod data;
 mod groups;
 mod live;
 mod settings;
 mod story;
 mod topics;
+
+pub use data::ErasedAll;
 
 /// A live broker: the in-process handle, how it was started, and the advertised-listener check.
 #[derive(Debug)]
@@ -35,6 +38,9 @@ pub struct Live {
     pub door: Option<crate::door::Door>,
     /// The schema registry beside the broker, or why there is none.
     pub schemas: crate::schemas::Schemas,
+    /// The looks at the data directory a page asked for: each topic's growth, and the last heads-up (nothing samples on a
+    /// timer).
+    pub growth: crate::growth::Growth,
 }
 
 impl Live {
@@ -50,6 +56,7 @@ impl Live {
             lab: None,
             door: None,
             schemas: crate::schemas::Schemas::default(),
+            growth: crate::growth::Growth::default(),
         }
     }
 
@@ -114,6 +121,7 @@ impl Live {
             instance,
             unchecked: looked.unchecked,
             spoke: self.recorder.as_ref().map(|r| r.spoke()),
+            disk: gather::data::alarm(&self.backend, &self.growth).await,
         }
     }
 }

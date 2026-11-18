@@ -56,6 +56,7 @@ pub fn at() -> Listener {
         advertised_host: "127.0.0.1".into(),
         advertised_port: 4242,
         client_host: "/127.0.0.1".into(),
+        connection: 0,
     }
 }
 
@@ -277,14 +278,23 @@ pub use group_admin::subscription;
 pub use groups::join_request;
 #[path = "support/produce.rs"]
 mod produce;
+#[path = "support/quotas.rs"]
+pub mod quotas;
+#[path = "support/share.rs"]
+pub mod share;
+#[path = "support/streams.rs"]
+pub mod streams;
 #[path = "support/txn.rs"]
 mod txn;
 #[path = "support/users.rs"]
 pub mod users;
+#[path = "support/v2.rs"]
+mod v2;
 
 pub use compact::{clean_rounds, compacted, consume, delete_records, from, txn_produce};
 pub use configs::{BROKER, Op, TOPIC as TOPIC_RESOURCE};
 pub use consumer::{assigned as assigned_848, beat_848, join_848};
 pub use fetch::*;
 pub use produce::*;
-pub use txn::Txn;
+pub use txn::{Txn, owned_at, rig_holding};
+pub use v2::{later, parts};
