@@ -163,7 +163,8 @@ fn code(name: &str, p: &Value) -> Result<Value, ApiError> {
     location(name, p.get("CodeUri"), "CodeUri")
 }
 
-/// An S3 location written as `s3://bucket/key`, as `{Bucket, Key, Version}`, or as an absolute local directory (run in place).
+/// An S3 location written as `s3://bucket/key` or as `{Bucket, Key, Version}`. A local path is refused, as on AWS: `sam deploy` (or
+/// `sam package`, or `aws cloudformation package`) uploads the code to S3 and rewrites the template before CloudFormation sees it.
 pub(crate) fn location(name: &str, uri: Option<&Value>, what: &str) -> Result<Value, ApiError> {
     match uri {
         Some(Value::String(s)) if s.starts_with("s3://") => {
@@ -173,9 +174,6 @@ pub(crate) fn location(name: &str, uri: Option<&Value>, what: &str) -> Result<Va
                 .unwrap_or((s, ""));
             Ok(json!({"S3Bucket": bucket, "S3Key": key}))
         }
-        Some(Value::String(s)) if s.starts_with('/') => {
-            Ok(json!({"S3Bucket": "_local_", "S3Key": s}))
-        }
         Some(Value::Object(o)) => {
             let mut out = json!({"S3Bucket": o.get("Bucket"), "S3Key": o.get("Key")});
             if let Some(v) = o.get("Version") {
@@ -183,12 +181,9 @@ pub(crate) fn location(name: &str, uri: Option<&Value>, what: &str) -> Result<Va
             }
             Ok(out)
         }
-        Some(other) if other.is_object() || other.get("Fn::Sub").is_some() => {
-            Ok(json!({"S3Bucket": "_local_", "S3Key": other}))
-        }
-        // (memory)
+        // (memory) the SAM translator's words; the hint after them is doze-aws's.
         _ => Err(validation(format!(
-            "Transform AWS::Serverless-2016-10-31 failed with: Resource {name}: '{what}' must be an S3 location (package the template with `sam package`) or an absolute local path"
+            "Transform AWS::Serverless-2016-10-31 failed with: Invalid Serverless Application Specification document. Number of errors found: 1. Resource with id [{name}] is invalid. '{what}' is not a valid S3 Uri of the form 's3://bucket/key' with optional versionId query parameter. (Upload local code first: sam deploy, sam package or aws cloudformation package against doze-aws.)"
         ))),
     }
 }
@@ -313,4 +308,26 @@ fn layer(name: &str, r: &Value, out: &mut Out) {
         _ => {}
     }
     out.put(name, res);
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    #[test]
+    fn code_is_an_s3_location_and_a_local_path_is_refused_with_how_to_upload_it() {
+        assert_eq!(
+            super::location("Fn", Some(&json!("s3://b/k.zip")), "CodeUri").unwrap(),
+            json!({"S3Bucket": "b", "S3Key": "k.zip"})
+        );
+        let refused = super::location("Fn", Some(&json!("/home/me/fn")), "CodeUri").unwrap_err();
+        assert!(
+            refused
+                .message
+                .contains("Resource with id [Fn] is invalid. 'CodeUri' is not a valid S3 Uri")
+                && refused.message.contains("sam deploy"),
+            "{}",
+            refused.message
+        );
+    }
 }

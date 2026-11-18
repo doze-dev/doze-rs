@@ -3,7 +3,8 @@
 use kafka_wire::messages::{
     CreatePartitionsRequest, CreatePartitionsResponse, CreateTopicsRequest, CreateTopicsResponse,
     DeleteRecordsRequest, DeleteRecordsResponse, DeleteTopicsRequest, DeleteTopicsResponse,
-    DescribeClusterRequest, DescribeClusterResponse, MetadataRequest, MetadataResponse,
+    DescribeClusterRequest, DescribeClusterResponse, DescribeLogDirsRequest,
+    DescribeLogDirsResponse, MetadataRequest, MetadataResponse,
 };
 
 use super::n;
@@ -109,6 +110,28 @@ pub(super) fn partitions_response(r: &CreatePartitionsResponse, f: &mut Facts) {
         f.result(&t.name.0, -1, t.error_code, None);
         f.say(t.error_message.as_deref());
     }
+}
+
+pub(super) fn log_dirs_request(r: &DescribeLogDirsRequest, f: &mut Facts) {
+    match &r.topics {
+        None => f.about("every partition's log"),
+        Some(topics) => {
+            for t in topics {
+                f.topic(&t.topic.0, t.partitions.iter().copied());
+            }
+        }
+    }
+}
+
+/// The codes, and how many partitions are listed (their sizes are not kept).
+pub(super) fn log_dirs_response(r: &DescribeLogDirsResponse, f: &mut Facts) {
+    f.error(r.error_code);
+    let mut partitions = 0usize;
+    for dir in &r.results {
+        f.error(dir.error_code);
+        partitions += dir.topics.iter().map(|t| t.partitions.len()).sum::<usize>();
+    }
+    f.items = n(partitions);
 }
 
 pub(super) fn cluster_request(_: &DescribeClusterRequest, f: &mut Facts) {

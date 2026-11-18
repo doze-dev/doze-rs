@@ -278,6 +278,8 @@ pub use group_admin::subscription;
 pub use groups::join_request;
 #[path = "support/produce.rs"]
 mod produce;
+#[path = "support/quotas.rs"]
+pub mod quotas;
 #[path = "support/share.rs"]
 pub mod share;
 #[path = "support/txn.rs"]

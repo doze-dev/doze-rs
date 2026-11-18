@@ -27,13 +27,23 @@ const refs: Record<string, any> = {};
 for (const f of readdirSync(ref).filter((f) => f.endsWith(".json") && f !== "index.json")) { const j = JSON.parse(readFileSync(ref + f, "utf8")); refs[j.Name] = j; }
 const tests = readdirSync(root + "conformance/tests").filter((f) => f.endsWith(".py")).map((f) => readFileSync(root + "conformance/tests/" + f, "utf8")).join("\n");
 const called = new Set([...tests.matchAll(/\.([a-z][a-z0-9_]+)\(/g)].map((m) => m[1]));
+// `--wanted FILE` (from `bun tools/compat/generate.ts --wanted FILE`): audit every operation built or planned, not only the ones the
+// scenarios call today, so one policy covers the roadmap.
+const wantedAt = process.argv.indexOf("--wanted");
+const API_REF: Record<string, string> = { IAM: "iam", STS: "sts", SQS: "sqs", SSM: "ssm", "Secrets Manager": "secretsmanager", KMS: "kms", SNS: "sns", DynamoDB: "dynamodb", "DynamoDB Streams": "dynamodb", S3: "s3", Kinesis: "kinesis", "CloudWatch Logs": "logs", CloudWatch: "cloudwatch", EventBridge: "events", Scheduler: "scheduler", Lambda: "lambda", SFN: "states", CloudFormation: "cloudformation", "API Gateway": "apigateway", ApiGatewayV2: "apigateway", ApiGatewayManagementApi: "execute-api" };
+const wanted = new Set<string>();
+if (wantedAt > 0) {
+  const w = JSON.parse(readFileSync(process.argv[wantedAt + 1], "utf8")) as Record<string, string[]>;
+  for (const [api, ops] of Object.entries(w)) for (const op of ops) wanted.add(`${API_REF[api]}:${op}`);
+}
 const sample = (fmt: string) => fmt.replace("${Partition}", "aws").replace("${Region}", "us-east-1").replace("${Account}", "123456789012").replace(/\$\{[A-Za-z]+\}/g, "doze-rec-x");
 const out = new Set<string>();
 const testsByService: Record<string, string> = { sqs: "sqs", sns: "sns", ssm: "ssm", secretsmanager: "secretsmanager", kms: "kms", dynamodb: "dynamodb", s3: "s3", logs: "logs", kinesis: "kinesis", cloudwatch: "monitoring", events: "events", scheduler: "scheduler", lambda: "lambda", states: "states", apigateway: "apigateway", "execute-api": "execute-api", cloudformation: "cloudformation", iam: "iam", sts: "sts" };
 for (const [svc, j] of Object.entries(refs)) {
   for (const op of j.Operations ?? []) {
     const methods = (op.SDK ?? []).filter((x: any) => x.Package === "Boto3").map((x: any) => x.Method);
-    if (!methods.some((m: string) => called.has(m))) continue;
+    const asked = wantedAt > 0 ? wanted.has(`${svc}:${op.Name}`) : methods.some((m: string) => called.has(m));
+    if (!asked) continue;
     for (const a of op.AuthorizedActions ?? []) {
       const rj = refs[a.Service]; if (!rj) continue;
       const act = rj.Actions.find((x: any) => x.Name === a.Name); if (!act) continue;

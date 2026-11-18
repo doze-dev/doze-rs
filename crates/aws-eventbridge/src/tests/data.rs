@@ -39,6 +39,7 @@ fn fill(w: &mut World, count: i64) {
             .collect();
         w.ok("PutEvents", &json!({"Entries": entries}));
     }
+    w.deliver();
 }
 
 fn ask(w: &mut World, ask: DataAsk) -> Result<Emptied, StorageError> {

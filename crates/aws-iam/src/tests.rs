@@ -19,6 +19,7 @@ mod policies;
 mod sessions;
 mod simulate;
 mod usage;
+mod webidentity;
 
 pub(crate) const START: i64 = 1_700_000_000_000;
 

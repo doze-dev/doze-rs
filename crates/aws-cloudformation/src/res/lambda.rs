@@ -1,6 +1,6 @@
-//! `AWS::Lambda::Function`: made with Lambda's own `CreateFunction` (code from S3, from a local directory with `S3Bucket: _local_`, or
-//! inline `ZipFile` source packaged as `index.js` or `index.py` with the `cfn-response` module beside it, as CloudFormation packages
-//! it), updated in place with `UpdateFunctionConfiguration` and `UpdateFunctionCode`. The other Lambda types are in `lambda_more`.
+//! `AWS::Lambda::Function`: made with Lambda's own `CreateFunction` (code from S3, or inline `ZipFile` source packaged as `index.js` or
+//! `index.py` with the `cfn-response` module beside it, as CloudFormation packages it), updated in place with
+//! `UpdateFunctionConfiguration` and `UpdateFunctionCode`. The other Lambda types are in `lambda_more`.
 
 use serde_json::{Map, Value, json};
 

@@ -184,7 +184,9 @@ pub async fn access(b: &Backend, facts: &Facts, start: &StartFacts) -> AccessVie
         acls: entries(b).await,
         scram: scram_users(b).await,
     };
-    assemble(read, facts, start)
+    let mut view = assemble(read, facts, start);
+    view.quotas = super::quotas::read(b).await;
+    view
 }
 
 /// The page from what was read (pure: everything it says is in the arguments).
@@ -252,6 +254,7 @@ pub fn assemble(read: Read, facts: &Facts, start: &StartFacts) -> AccessView {
         console: console_of(facts, &console_addr),
         warnings: warnings(&switches),
         listen,
+        quotas: crate::model::AccessQuotas::default(),
     }
 }
 

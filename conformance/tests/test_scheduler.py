@@ -78,7 +78,14 @@ def test_groups_and_tags(client, names, cleanup, snapshot, service_role):
                               FlexibleTimeWindow={"Mode": "OFF"}, Target=target)
     snapshot.match("list-in-group", [s["Name"] for s in scheduler.list_schedules(GroupName=group)["Schedules"]])
     snapshot.match("delete-group", scheduler.delete_schedule_group(Name=group))
-    snapshot.error("default-cannot-go", lambda: scheduler.delete_schedule_group(Name="default"))
+
+
+def test_the_default_group_cannot_be_deleted(client, snapshot, target):
+    # Not recorded on purpose: AWS asks for scheduler:DeleteSchedule on every schedule of the default group (schedule/default/*)
+    # before it refuses, and the recorder is not allowed to delete the account's real schedules for one error message.
+    if target.name == "aws":
+        pytest.skip("needs permission to delete every schedule in the account's default group")
+    snapshot.error("default-cannot-go", lambda: client("scheduler").delete_schedule_group(Name="default"))
 
 
 def test_refusals(client, names, cleanup, snapshot, service_role):

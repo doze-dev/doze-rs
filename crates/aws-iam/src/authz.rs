@@ -204,9 +204,10 @@ impl Core {
             .set("aws:EpochTime", now.to_string())
             .set("aws:RequestedRegion", caller.region.clone())
             .set("aws:PrincipalAccount", caller.account_id.clone())
-            // Always true. The local hop is plain HTTP, but it stands in for AWS's endpoint, which the same SDK reaches over TLS:
-            // reporting the local transport would make the usual deny-unless-TLS policy (CDK's `enforceSSL`, the standard S3 and
-            // SQS hardening) refuse every request, where on AWS it never fires. The Go edition did the same.
+            // Always true. AWS sets it when the request was sent over TLS, and the code under test reaches AWS's endpoints over
+            // https (every SDK and the CLI do by default); the plain-HTTP hop to doze-aws is the local stand-in for that endpoint,
+            // not the code's choice. Reporting it would make the usual deny-unless-TLS policy (CDK's `enforceSSL`, the standard S3
+            // and SQS hardening) refuse every request, where on AWS the same code is never refused by it.
             .set("aws:SecureTransport", "true")
             .set(
                 "aws:ViaAWSService",

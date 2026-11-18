@@ -87,6 +87,32 @@ fn the_refusals_are_worded_as_aws_worded_them() {
         msg,
         "The value shrug is not supported for TreatMissingData parameter. Supported values are [breaching, notBreaching, ignore, missing]."
     );
+    // Periods AWS refuses (the model: 10, 20, 30 or a multiple of 60), and a window over a day for a period under an hour.
+    for bad in [1, 5, 45, 90] {
+        let (code, msg) = w.err("PutMetricAlarm", &with("Period", json!(bad)));
+        assert_eq!(code, "ValidationException");
+        assert_eq!(
+            msg,
+            format!("The parameter Period must be 10, 20, 30 or a multiple of 60 (it is {bad}).")
+        );
+    }
+    let mut long = with("Period", json!(60));
+    long["EvaluationPeriods"] = json!(1441);
+    let (_, msg) = w.err("PutMetricAlarm", &long);
+    assert!(
+        msg.starts_with(
+            "Period multiplied by EvaluationPeriods must not be more than 86400 seconds"
+        ),
+        "{msg}"
+    );
+    let math = json!({"AlarmName": "m", "EvaluationPeriods": 1, "Threshold": 1, "ComparisonOperator": "GreaterThanThreshold",
+        "Metrics": [{"Id": "q", "MetricStat": {"Metric": {"Namespace": "T", "MetricName": "m"}, "Period": 15, "Stat": "Sum"}}]});
+    let (_, msg) = w.err("PutMetricAlarm", &math);
+    assert!(
+        msg.starts_with("The parameter Metrics.member.1.MetricStat.Period must be"),
+        "{msg}"
+    );
+    w.ok("PutMetricAlarm", &with("Period", json!(10)));
     let (code, msg) = w.err(
         "SetAlarmState",
         &json!({"AlarmName": "absent", "StateValue": "OK", "StateReason": "x"}),

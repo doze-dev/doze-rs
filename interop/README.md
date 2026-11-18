@@ -154,11 +154,17 @@ The scenarios (plain mode):
 | `admin-topics`, `admin-configs`, `admin-create-partitions`, `admin-delete-records`, `admin-list-offsets`, `admin-max-timestamp`, `admin-cluster`, `admin-acls`, `admin-scram-users`, `admin-transactions` | the Admin client's calls of each, with their refusals (exists, unknown, a decrease, past the end, an unknown config, two SCRAM alterations of one user in a request at Kafka 4, too few iterations) |
 | `offsets-for-times-log-append`, `-compressed` | `offsetsForTimes` on a LogAppendTime topic and inside gzip batches: the first record at or after each target, record-exactly |
 | `produce-fetch-limits` | a record over `max.message.bytes` refused (RecordTooLargeException); one under it read with fetch limits of 1 KB (KIP-74) |
+| `admin-log-dirs` | `describeLogDirs`: one directory, both partitions of a new topic, the one written to with its bytes, lag 0, no future log |
+| `admin-client-quotas` | `alterClientQuotas` sets a 20 KiB/s `producer_byte_rate` for a client id, `describeClientQuotas` finds it, a producer of that id sending 400 KB is throttled (its own `produce-throttle-time-max` metric), and the quota removed is gone |
+| `consumer-validates-position` | `seek` to an offset with leader epoch 0 (KIP-320): the consumer validates it with OffsetForLeaderEpoch and reads on from there |
 
 Under `-sasl`: PLAIN, SCRAM-SHA-256 and SCRAM-SHA-512 cells (a topic made, 20 records written and read, a wrong password refused
 as `SaslAuthenticationException` within 15 s), and `sasl-users` (a user made with `alterUserScramCredentials` logs in with both
 SCRAM mechanisms, cannot with PLAIN, and is refused once deleted). Under `-tls`: SASL_SSL with SCRAM-SHA-512 (and a wrong
 password), SSL, and SSL without the CA (`SslAuthenticationException`), the CA given as a PEM truststore (KIP-651).
+
+The three scenarios above the table's last rows were checked against real Kafka 4.4.0 too (2026-11-15, the same machine): the same
+answers, and the producer throttled up to 4977 ms there and 4771 ms here, both runs taking 16 s.
 
 The Java client at each major, as run on 2026-11-15 (`-versions`, `-sasl -versions`, `-tls`), after the Go clients. No failure.
 `4.4` is kafka-clients 4.4.0, `2.8` is 2.8.2:

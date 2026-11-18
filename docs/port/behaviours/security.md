@@ -37,6 +37,7 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-290 to SEC-293 | the authorization row of DescribeCluster, GetTelemetrySubscriptions and PushTelemetry (none), the cluster operations bits, a telemetry payload never read or logged, the bounded store | 9i | "Protocol leftovers, slice 9i" |
 | SEC-240 to SEC-249 | the console: its reserved principal, the guard and the same-origin proof mounted on it, its default address and its exposure | 9a | "The console, slice 9a" |
 | SEC-250 | the console's door to other machines, held while the broker runs: closed while an open broker has ACLs | console-acl-live | after SEC-249 |
+| SEC-295 to SEC-298 | OffsetForLeaderEpoch, DescribeLogDirs and the client quota APIs: their rights; what quotas guard | quotas | after SEC-294 |
 | SEC-230 to SEC-239 | the places a member's topics come from and whose right is applied: static takeover, names revoked, classic members, a group changing kind; the failed-login cap; file modes; the super-user name | re-audit C | "Re-audit of the authorization half" |
 | SEC-320 to SEC-327 | the share group APIs (KIP-932) and the group configs: READ or DESCRIBE or DELETE on the group, READ or DESCRIBE on each topic, ALTER_CONFIGS on the group | share groups | "Share groups (KIP-932)" |
 
@@ -1384,6 +1385,38 @@ Test: `kafka-broker telemetry::tests::bytes_are_bounded_and_the_payloads_heard_l
 ## SEC-294. The data actions ask the right Kafka would ask, and the usage asks DESCRIBE on the cluster
 Empty topic needs DELETE on the topic (what DeleteRecords asks) and is refused before the topic is looked for, so a topic the caller may not see is not given away; Empty all topics and Erase everything need ALTER on the cluster; the usage of the data directory needs DESCRIBE on the cluster, and a topic the caller may not DESCRIBE is counted, not named (`docs/port/data-control.md`). The console acts as its own principal, a super user (SEC-241), and is a write behind the same-origin proof and the door (SEC-243, SEC-250); `doze-kafka data` acts as the operator on a stopped broker's directory, which it holds the lock of. A refusal is TOPIC_AUTHORIZATION_FAILED or CLUSTER_AUTHORIZATION_FAILED with the right named, and nothing is changed.
 Test: `kafka-broker tests/data_empty.rs::emptying_asks_delete_on_the_topic_and_every_topic_asks_alter_on_the_cluster`, `kafka-console tests/live_api_data.rs::a_caller_without_the_rights_is_refused_in_kafkas_words_and_nothing_changes`
+
+## SEC-295. OffsetForLeaderEpoch: CLUSTER_ACTION on the cluster, or DESCRIBE on each topic (source)
+`KafkaApis.handleOffsetForLeaderEpochRequest` (KIP-320): a caller with CLUSTER_ACTION on the cluster (a follower) may ask about any
+topic, whatever its `replica_id` says; any other needs DESCRIBE on each topic, asked before the topic is looked for, so a topic it
+may not describe is TOPIC_AUTHORIZATION_FAILED on every partition whether it exists or not, and those topics come after the others.
+Row of the matrix: **CLUSTER:CLUSTER_ACTION or TOPIC:DESCRIBE**.
+Test: `kafka-broker tests/offset_for_leader_epoch.rs::describe_on_the_topic_or_cluster_action_lets_a_caller_ask_and_the_refused_come_last`
+
+## SEC-296. DescribeLogDirs: DESCRIBE on the cluster (source)
+`KafkaApis.handleDescribeLogDirsRequest`: without DESCRIBE on the cluster the answer is CLUSTER_AUTHORIZATION_FAILED (from v3, the
+first with the field) and no directory, so the path, the volume and the topics are not told; with it every topic is listed whatever
+the topic ACLs say, as in Kafka. Row: **CLUSTER:DESCRIBE**.
+Test: `kafka-broker tests/describe_log_dirs.rs::describe_on_the_cluster_is_needed_and_without_it_no_directory_is_told`
+
+## SEC-297. DescribeClientQuotas: DESCRIBE_CONFIGS on the cluster; AlterClientQuotas: ALTER_CONFIGS on the cluster (source)
+`KafkaApis.handleDescribeClientQuotasRequest` and `ControllerApis.handleAlterClientQuotas`. Refused: DescribeClientQuotas is
+CLUSTER_AUTHORIZATION_FAILED with "Cluster authorization failed." and null entries; AlterClientQuotas answers every entry of the
+request, as sent, CLUSTER_AUTHORIZATION_FAILED with that message, and changes nothing (`AlterClientQuotasRequest.getErrorResponse`).
+The console's quota view asks DESCRIBE_CONFIGS too, and its changes go through AlterClientQuotas as its own principal (SEC-241).
+Rows: **CLUSTER:DESCRIBE_CONFIGS**, **CLUSTER:ALTER_CONFIGS**.
+Test: `kafka-broker tests/client_quotas.rs::altering_needs_alter_configs_and_describing_describe_configs_on_the_cluster`
+
+## SEC-298. What a quota guards, and what it cannot
+A quota slows a client, it refuses nothing but a strict mutation: the records of a throttled Produce are taken, a throttled Fetch
+is answered empty and its client fetches again. The user is the principal's name, which a login proves; the client id is whatever
+the client writes, so a client-id quota is a courtesy a client can step around (by changing its id, or sending none: a request with
+no client id escapes client-id quotas, as in Kafka), and a user quota, shared by every client id of the user, is the one that holds.
+The meters are bounded by what is set: none while nothing is set, one per user and client id that matched a level, dropped after an
+hour idle. A mute holds one connection's reads, never a thread, and ends on a stop. The console is never metered (it calls the
+broker in process, not over a connection).
+Test: `kafka-broker quotas::tests::a_user_quota_is_shared_by_every_client_id_of_the_user`, `::a_client_with_no_client_id_escapes_client_id_quotas_as_in_kafka`,
+`::meters_go_when_the_last_limit_goes_and_idle_ones_are_dropped_after_an_hour`, `kafka-server connection::tests::throttled::another_client_id_is_not_held_to_it_and_a_stop_ends_the_wait`
 
 ## Share groups (KIP-932)
 The seven share group APIs and the configs of a group, as Kafka 4.4.0 asks (`KafkaApis`, KA below, and `ControllerApis` for the

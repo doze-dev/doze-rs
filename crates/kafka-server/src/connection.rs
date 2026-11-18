@@ -159,8 +159,17 @@ async fn serve_loop<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
             caller: &caller,
             watch,
         };
-        if let Err(end) = exchange::exchange(stream, ears, &mut session, frame, stop).await {
-            return end;
+        let mute = match exchange::exchange(stream, ears, &mut session, frame, stop).await {
+            Ok(mute) => mute,
+            Err(end) => return end,
+        };
+        // A client over a quota: its answer has gone, and nothing more is read from it until the throttle time is over
+        // (KIP-219). What it sends meanwhile waits in the socket.
+        if let Some(wait) = mute {
+            tokio::select! {
+                () = tokio::time::sleep(wait) => {}
+                () = stop.cancelled() => return End::Stopped,
+            }
         }
         if login_by.is_some() && session.as_ref().is_some_and(Session::is_authenticated) {
             decoder.set_authenticated();

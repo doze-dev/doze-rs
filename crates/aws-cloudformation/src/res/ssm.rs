@@ -1,4 +1,4 @@
-//! `AWS::SSM::Parameter`.
+//! `AWS::SSM::Parameter`; `AWS::SSM::Document` is in `ssm_doc.rs`.
 
 use serde_json::{Value, json};
 
@@ -24,6 +24,9 @@ fn body(rc: &Rc, name: &str, p: &Value) -> Value {
 }
 
 pub(super) async fn create(rc: &Rc, p: &Value) -> Done {
+    if rc.ty == "AWS::SSM::Document" {
+        return super::ssm_doc::create(rc, p).await;
+    }
     if rc.ty != "AWS::SSM::Parameter" {
         return Err(format!("{} is not a type doze-aws makes", rc.ty));
     }
@@ -64,6 +67,9 @@ fn described(name: &str, p: &Value) -> Made {
 }
 
 pub(super) async fn update(rc: &Rc, old: &Res, p: &Value) -> Done {
+    if rc.ty == "AWS::SSM::Document" {
+        return super::ssm_doc::update(rc, old, p).await;
+    }
     let name = old.physical.clone().unwrap_or_default();
     let mut b = body(rc, &name, p);
     b.put("Overwrite", true.into());
@@ -104,6 +110,9 @@ pub(super) async fn update(rc: &Rc, old: &Res, p: &Value) -> Done {
 }
 
 pub(super) async fn delete(rc: &Rc, res: &Res) -> Result<(), String> {
+    if rc.ty == "AWS::SSM::Document" {
+        return super::ssm_doc::delete(rc, res).await;
+    }
     let name = res.physical.clone().unwrap_or_default();
     match rc.call(SVC, "DeleteParameter", json!({"Name": name})).await {
         Ok(_) => Ok(()),

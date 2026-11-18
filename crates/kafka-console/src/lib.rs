@@ -67,6 +67,7 @@ pub mod partitioner;
 pub mod phrases;
 pub mod probe;
 pub mod producers_words;
+pub mod quota_words;
 pub mod recorder;
 pub mod refusal;
 pub mod schemas;

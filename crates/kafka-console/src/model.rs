@@ -88,9 +88,10 @@ mod access;
 mod settings;
 
 pub use access::{
-    AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessTls, AccessUser,
-    AccessView, AccessWarning, AclCreateResult, AclCreateView, AclDeleteResult, AclDeleteView,
-    AclEntry, AclInput, AclPattern, AclPermission,
+    AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessQuota, AccessQuotaClient,
+    AccessQuotaPart, AccessQuotas, AccessTls, AccessUser, AccessView, AccessWarning,
+    AclCreateResult, AclCreateView, AclDeleteResult, AclDeleteView, AclEntry, AclInput, AclPattern,
+    AclPermission,
 };
 pub use settings::{
     SettingsApi, SettingsChecked, SettingsConfigRow, SettingsConfigs, SettingsData,

@@ -344,7 +344,7 @@ impl<F: Fs> Broker<F> {
 }
 
 impl<F: Fs + Send + Sync + 'static> Broker<F> {
-    /// Looks at the transactions when one of them next has a step due (see the `alarm` module), as long as the broker lives.
+    /// Looks at the transactions when one of them next has a step due (see the `txn::alarm` module), as long as the broker lives.
     /// Parked, with no timer, while there is no transactional id.
     pub fn start_transactions(self: &std::sync::Arc<Self>) -> tokio::task::JoinHandle<()> {
         let broker = std::sync::Arc::downgrade(self);

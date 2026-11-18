@@ -78,6 +78,9 @@ fn every_byte_is_counted_once_under_the_kind_it_belongs_to() {
         ]
     );
     assert!(u.partitions.iter().all(|p| p.last_write_ms.is_some()));
+    // A partition's size as Kafka gives it is its log files alone.
+    let logs: Vec<u64> = u.partitions.iter().map(|p| p.log_bytes).collect();
+    assert_eq!(logs, vec![9, 100, 100]);
     assert_eq!(u.meta_bytes, 500);
     assert_eq!((u.other_bytes, u.other_files), (42, 3));
     assert_eq!(u.total(), 9 + 108 + 103 + 500 + 42);

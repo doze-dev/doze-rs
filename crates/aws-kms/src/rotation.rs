@@ -46,6 +46,7 @@ impl Core {
         }
         let now = self.now_ms();
         let id = self.locate(call, v.get(Enable::KEY_ID).unwrap_or_default())?;
+        self.not_on_replica(&id)?;
         let key = self
             .keys
             .get_mut(&id)
@@ -60,6 +61,7 @@ impl Core {
     pub(crate) fn disable_key_rotation(&mut self, call: &Call) -> Reply {
         let v = request::<Disable>(call)?;
         let id = self.locate(call, v.get(Disable::KEY_ID).unwrap_or_default())?;
+        self.not_on_replica(&id)?;
         let key = self
             .keys
             .get_mut(&id)
@@ -89,6 +91,7 @@ impl Core {
         let v = request::<Rotate>(call)?;
         let id = self.locate(call, v.get(Rotate::KEY_ID).unwrap_or_default())?;
         let now = self.now_ms();
+        self.not_on_replica(&id)?;
         let key = self.keys.get(&id).ok_or_else(|| not_found_key(call, &id))?;
         only_symmetric(key)?;
         let fresh = self.new_material(key.spec, now)?;
@@ -105,6 +108,7 @@ impl Core {
             key.next_rotation_ms = Some(now + key.rotation_days * DAY_MS);
         }
         let arn = key.arn.clone();
+        self.spread_materials(&id)?;
         reply::<Rotated>(|o| {
             o.put(Rotated::KEY_ID, &arn);
         })

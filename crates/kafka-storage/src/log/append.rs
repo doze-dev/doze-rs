@@ -8,6 +8,11 @@ use crate::error::{Doing, StorageError};
 use crate::fs::Fs;
 use crate::segment::ActiveSegment;
 
+/// The leader epoch every batch is written under: this broker is the only replica of every partition and has led each under
+/// epoch 0 from its first offset (Metadata says so). Kafka's leader writes its epoch into each batch it appends
+/// (`LogValidator`), so a consumer learns it from the records and can validate its position later (KIP-320).
+pub const LEADER_EPOCH: i32 = 0;
+
 fn exhausted() -> StorageError {
     StorageError::Io {
         doing: "assigning offsets",
@@ -42,7 +47,9 @@ impl<F: Fs> PartitionLog<F> {
         let broker_time = (clock == TimestampType::LogAppend).then_some(now);
         let mut next = first;
         for batch in batches {
-            let stamped = batch.stamped(next, broker_time);
+            let stamped = batch
+                .stamped(next, broker_time)
+                .under_leader_epoch(LEADER_EPOCH);
             if let Err(e) = self.active.append(&stamped, now.get()) {
                 self.active.rewind(mark);
                 return Err(e).doing("writing a batch");

@@ -42,16 +42,21 @@ use kafka_protocol::messages::{
     SyncGroupRequest, SyncGroupResponse, TxnOffsetCommitRequest, TxnOffsetCommitResponse,
 };
 use kafka_protocol::messages::{
-    AlterShareGroupOffsetsRequest, AlterShareGroupOffsetsResponse, DeleteShareGroupOffsetsRequest,
-    DeleteShareGroupOffsetsResponse, DescribeShareGroupOffsetsRequest,
-    DescribeShareGroupOffsetsResponse, ShareAcknowledgeRequest, ShareAcknowledgeResponse,
-    ShareFetchRequest, ShareFetchResponse, ShareGroupDescribeRequest, ShareGroupDescribeResponse,
-    ShareGroupHeartbeatRequest, ShareGroupHeartbeatResponse,
+    AlterClientQuotasRequest, AlterClientQuotasResponse, AlterShareGroupOffsetsRequest,
+    AlterShareGroupOffsetsResponse, DeleteShareGroupOffsetsRequest,
+    DeleteShareGroupOffsetsResponse, DescribeClientQuotasRequest, DescribeClientQuotasResponse,
+    DescribeLogDirsRequest, DescribeLogDirsResponse, DescribeShareGroupOffsetsRequest,
+    DescribeShareGroupOffsetsResponse, OffsetForLeaderEpochRequest, OffsetForLeaderEpochResponse,
+    ShareAcknowledgeRequest, ShareAcknowledgeResponse, ShareFetchRequest, ShareFetchResponse,
+    ShareGroupDescribeRequest, ShareGroupDescribeResponse, ShareGroupHeartbeatRequest,
+    ShareGroupHeartbeatResponse,
 };
 use kafka_protocol::protocol::{Decodable, Encodable};
 
 use crate::error::WireError;
 use crate::profile::{Condition, NONE, Offered, v};
+
+mod throttle;
 
 /// One row of [`API_TABLE`].
 #[derive(Debug, Clone, Copy)]
@@ -183,6 +188,10 @@ served_apis! {
     ConsumerGroupDescribe(ConsumerGroupDescribeRequest, ConsumerGroupDescribeResponse) [NONE, NONE, NONE, v(0, 1)];
     DescribeUserScramCredentials(DescribeUserScramCredentialsRequest, DescribeUserScramCredentialsResponse) [NONE, v(0, 0), v(0, 0), v(0, 0)];
     AlterUserScramCredentials(AlterUserScramCredentialsRequest, AlterUserScramCredentialsResponse) [NONE, v(0, 0), v(0, 0), v(0, 0)];
+    OffsetForLeaderEpoch(OffsetForLeaderEpochRequest, OffsetForLeaderEpochResponse) [v(0, 0), v(0, 4), v(0, 4), v(2, 4)];
+    DescribeLogDirs(DescribeLogDirsRequest, DescribeLogDirsResponse) [v(0, 0), v(0, 2), v(0, 4), v(1, 5)];
+    DescribeClientQuotas(DescribeClientQuotasRequest, DescribeClientQuotasResponse) [NONE, v(0, 1), v(0, 1), v(0, 1)];
+    AlterClientQuotas(AlterClientQuotasRequest, AlterClientQuotasResponse) [NONE, v(0, 1), v(0, 1), v(0, 1)];
     GetTelemetrySubscriptions(GetTelemetrySubscriptionsRequest, GetTelemetrySubscriptionsResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
     PushTelemetry(PushTelemetryRequest, PushTelemetryResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
     // Share groups (KIP-932): Kafka 4.1 made them generally available, at the versions 4.4.0 serves.

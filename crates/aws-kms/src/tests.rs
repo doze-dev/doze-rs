@@ -15,6 +15,7 @@ mod data;
 mod grants;
 mod import;
 mod keys;
+mod multi;
 mod persistence;
 mod refusals;
 mod rsa;
@@ -97,12 +98,7 @@ fn what_is_not_built_is_refused_by_name() {
     for op in ["CreateKey", "Encrypt", "Sign", "RotateKeyOnDemand"] {
         assert!(w.h.serves(op), "{op} is built");
     }
-    for op in [
-        "CreateCustomKeyStore",
-        "DeriveSharedSecret",
-        "ReplicateKey",
-        "UpdatePrimaryRegion",
-    ] {
+    for op in ["CreateCustomKeyStore", "ConnectCustomKeyStore"] {
         assert!(!w.h.serves(op), "{op} is refused");
     }
 }
