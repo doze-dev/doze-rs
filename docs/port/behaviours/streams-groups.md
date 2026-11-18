@@ -161,6 +161,7 @@ When the topology is ready, an owned task of a subtopology not in it is INVALID_
 topology.", one out of range "Task P for subtopology X is invalid. Number of tasks for this subtopology: N"; task offsets that name
 a task twice "Task offsets contain a duplicate entry for subtopology X and partition P." (GMM L1895-1914). Nothing is changed by a
 refused heartbeat.
+Test: `groups::streams::tests::members::owned_tasks_outside_the_topology_and_doubled_task_offsets_are_refused`.
 
 ## The sticky assignor (STA)
 
