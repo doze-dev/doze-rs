@@ -11,11 +11,11 @@ use aws_wire::service::BoxFuture;
 use aws_wire::storage::{
     Emptied, File, Names, Note, Prune, Resource, Storage, StorageError, Usage,
 };
-use doze_store::{Db, StoreError, record};
+use doze_store::{Db, StoreError};
 use tokio::sync::oneshot;
 
 use crate::Logs;
-use crate::core::{Ask, Core, EVENTS, VERSION};
+use crate::core::{Ask, Core, EVENTS};
 use crate::events::EVENT_OVERHEAD;
 use crate::model::{Event, Group, event_key, stream_key};
 
@@ -116,7 +116,7 @@ impl Core {
             if ts < cut {
                 held.old_rows += 1;
                 held.old_bytes += size;
-                if let Ok(e) = record::decode::<Event>("event", VERSION, v) {
+                if let Ok(e) = Event::decode(v) {
                     held.old_counted +=
                         i64::try_from(e.message.len() + EVENT_OVERHEAD).unwrap_or(0);
                 }

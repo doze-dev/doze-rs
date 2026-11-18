@@ -1,0 +1,2 @@
+[{"parseJSON":{}},{"dateTimeConverter":{"source":"t","target":"u","matchPatterns":["dd/MMM/yyyy:HH:mm:ss Z","yyyy-MM-dd hh:mm a"],"sourceTimezone":"America/New_York","targetFormat":"EEE, d MMMM yy HH:mm:ss.SSSSSS XXX"}}]
+{"t":"2024-07-04 01:30 PM"}

@@ -218,11 +218,15 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
     {
         return crate::rest::respond(shared, entry, &id, &parts, body, claim).await;
     }
-    let out = match handle(shared, &id, &parts, body).await {
+    match handle(shared, &id, &parts, body).await {
         Ok(out) => out,
-        Err(out) => *out,
-    };
-    out.map(RespBody::whole)
+        Err(out) => out.map(RespBody::whole),
+    }
+}
+
+/// A whole answer as a response body.
+fn whole(out: Result<Out, Fail>) -> Result<Response<RespBody>, Fail> {
+    out.map(|o| o.map(RespBody::whole))
 }
 
 async fn handle(
@@ -230,11 +234,11 @@ async fn handle(
     id: &RequestId,
     parts: &Parts,
     body: Incoming,
-) -> Result<Out, Fail> {
+) -> Result<Response<RespBody>, Fail> {
     let Some(claim) = Claim::parse(parts).map_err(|e| early(id, &from_auth(&e, Family::Coral)))?
     else {
         // No signature: only an operation its model marks as taking none (STS's web identity and SAML) is answered.
-        return crate::query::unsigned(shared, id, parts, body).await;
+        return whole(crate::query::unsigned(shared, id, parts, body).await);
     };
     let entry = shared.entry_for(&claim.service, parts).ok_or_else(|| {
         early(
@@ -248,11 +252,11 @@ async fn handle(
     })?;
     let (meta, tables) = (entry.service.meta(), entry.service.tables());
     if aws_wire::cbor::is_request(parts) && meta.speaks(Protocol::Rpcv2Cbor) {
-        return crate::cbor::handle(shared, entry, id, parts, body, claim).await;
+        return whole(crate::cbor::handle(shared, entry, id, parts, body, claim).await);
     }
     let Some(version) = json::Version::of(meta) else {
         if meta.speaks(Protocol::AwsQuery) {
-            return crate::query::handle(shared, entry, id, parts, body, claim).await;
+            return whole(crate::query::handle(shared, entry, id, parts, body, claim).await);
         }
         return Err(early(id, &unserved_protocol(meta)));
     };
@@ -290,9 +294,23 @@ async fn handle(
     let bytes = inflate(parts, bytes, shared.max_body_bytes()).map_err(|e| fail(&e))?;
     let caller = caller_of(shared, parts, claim);
     let call = decode_call(entry, op, id, caller, bytes).map_err(|e| fail(&e))?;
+    if entry.service.streams(op) {
+        let stream = entry.service.call_stream(call).await.map_err(|e| fail(&e))?;
+        return Ok(streamed(id, stream));
+    }
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     let encoded = encode_output(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
-    Ok(json::success(version, id, encoded))
+    Ok(json::success(version, id, encoded).map(RespBody::whole))
+}
+
+/// The answer of an operation whose output is an event stream: the framed messages, sent as the service produces them.
+fn streamed(id: &RequestId, stream: aws_wire::rest::Download) -> Response<RespBody> {
+    Response::builder()
+        .status(http::StatusCode::OK)
+        .header(http::header::CONTENT_TYPE, aws_wire::eventstream::CONTENT_TYPE)
+        .header("x-amzn-RequestId", id.as_str())
+        .body(RespBody::Stream(stream))
+        .unwrap_or_else(|_| Response::new(RespBody::whole(Vec::new())))
 }
 
 /// The refusal for an operation the service does not build (501, by name), before its body is read.
