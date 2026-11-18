@@ -19,6 +19,7 @@ use doze_store::{Ack, Db, StoreError};
 use serde_json::Value;
 
 use crate::Config;
+use crate::drift::{Check, Detection, ResourceDrift};
 use crate::engine::Job;
 use crate::model::{ChangeSet, Event, Progress, Stack};
 use crate::req::Req;
@@ -27,6 +28,9 @@ pub(crate) const FILE: &str = "cloudformation.redb";
 const STACKS: &str = "stacks";
 const EVENTS: &str = "events";
 const CHANGE_SETS: &str = "change_sets";
+const DETECTIONS: &str = "drift_detections";
+const DRIFTS: &str = "resource_drifts";
+const OPERATIONS: &str = "operations";
 pub(crate) const VERSION: u8 = 1;
 
 /// What the actor is asked.
@@ -40,6 +44,8 @@ pub(crate) enum Request {
     Child(Box<crate::nested::Ask>),
     /// From `doze-aws data`: what the stacks hold, or remove some of it.
     Data(Box<crate::storage::DataCall>),
+    /// What a drift detection found.
+    Drift(Box<crate::drift::Found>),
 }
 
 /// One region of CloudFormation.
@@ -48,6 +54,9 @@ pub(crate) struct Core {
     pub(crate) stacks: Records<Stack>,
     pub(crate) events: Records<Event>,
     pub(crate) change_sets: Records<ChangeSet>,
+    pub(crate) detections: Records<Detection>,
+    pub(crate) drifts: Records<ResourceDrift>,
+    pub(crate) operations: Records<crate::events::Operation>,
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) config: Arc<Config>,
@@ -59,6 +68,8 @@ pub(crate) struct Core {
     pub(crate) outbox: Vec<(String, String)>,
     /// Jobs a call started, for the service to run once the answer is durable.
     pub(crate) started: Vec<Job>,
+    /// Drift detections a call started.
+    pub(crate) checks: Vec<Check>,
 }
 
 /// What the actor answers.
@@ -67,14 +78,15 @@ pub(crate) struct Answer {
     pub(crate) reply: Reply,
     pub(crate) durable: Option<Ack>,
     pub(crate) jobs: Vec<Job>,
+    pub(crate) checks: Vec<Check>,
     /// For a [`Request::Child`]: the child stack's id, or why it could not be made.
     pub(crate) child: Option<Result<String, String>>,
 }
 
-/// The operations this service runs. The others are refused by name before their request is read: StackSets, drift detection, the
-/// extension registry, resource scanning, generated templates, stack refactoring, Organizations access and hooks (STAY CUT in
-/// SCOPE.md: there is no organization, registry or account to read locally), `CancelUpdateStack` (STAY CUT), resource import,
-/// `SignalResource` (no instance can send a signal), `EstimateTemplateCost` and `DescribeAccountLimits`.
+/// The operations this service runs. The others are refused by name before their request is read: StackSets, the extension
+/// registry, resource scanning, generated templates, stack refactoring and Organizations access (not planned: there is no
+/// organization, registry or account to read locally), resource import, and `EstimateTemplateCost` (not planned: it answers a
+/// link to AWS's retired price calculator).
 pub(crate) fn built(op: Operation) -> bool {
     use Operation as O;
     matches!(
@@ -103,6 +115,17 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::UpdateTerminationProtection
             | O::RollbackStack
             | O::ContinueUpdateRollback
+            | O::CancelUpdateStack
+            | O::SignalResource
+            | O::DetectStackDrift
+            | O::DetectStackResourceDrift
+            | O::DescribeStackDriftDetectionStatus
+            | O::DescribeStackResourceDrifts
+            | O::DescribeEvents
+            | O::DescribeChangeSetHooks
+            | O::ListHookResults
+            | O::GetHookResult
+            | O::DescribeAccountLimits
     )
 }
 
@@ -136,6 +159,10 @@ impl doze_runtime::Service for Core {
                 child = Some(self.child(*ask).await);
                 empty()
             }
+            Request::Drift(found) => {
+                self.drift_found(*found);
+                empty()
+            }
             Request::Data(asked) => {
                 let crate::storage::DataCall { region, ask, reply } = *asked;
                 if reply.send(self.data(&region, ask)).is_err() {
@@ -156,6 +183,7 @@ impl doze_runtime::Service for Core {
             reply,
             durable,
             jobs: std::mem::take(&mut self.started),
+            checks: std::mem::take(&mut self.checks),
             child,
         }
     }
@@ -174,22 +202,33 @@ impl Core {
         peers: Option<Arc<Peers>>,
         config: Arc<Config>,
     ) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[STACKS, EVENTS, CHANGE_SETS])?;
+        let db = Db::open(
+            dir,
+            FILE,
+            &[STACKS, EVENTS, CHANGE_SETS, DETECTIONS, DRIFTS, OPERATIONS],
+        )?;
         let read = db.read()?;
         let stacks = Records::load(STACKS, "stack", VERSION, &read)?;
         let events = Records::load(EVENTS, "stack event", VERSION, &read)?;
         let change_sets = Records::load(CHANGE_SETS, "change set", VERSION, &read)?;
+        let detections = Records::load(DETECTIONS, "drift detection", VERSION, &read)?;
+        let drifts = Records::load(DRIFTS, "resource drift", VERSION, &read)?;
+        let operations = Records::load(OPERATIONS, "stack operation", VERSION, &read)?;
         drop(read);
         Ok(Self {
             stacks,
             events,
             change_sets,
+            detections,
+            drifts,
+            operations,
             peers,
             clock,
             config,
             db: Some(db),
             patterns: Patterns::new(&TABLES),
             started: Vec::new(),
+            checks: Vec::new(),
             last_ms: 0,
             outbox: Vec::new(),
         })
@@ -204,6 +243,9 @@ impl Core {
             self.stacks.stage()?,
             self.events.stage()?,
             self.change_sets.stage()?,
+            self.detections.stage()?,
+            self.drifts.stage()?,
+            self.operations.stage()?,
         ];
         Ok(self.db.as_ref().and_then(|db| db.submit(changes)))
     }
@@ -242,6 +284,10 @@ impl Core {
             O::RollbackStack => self.rollback_stack(r),
             O::ContinueUpdateRollback => self.continue_update_rollback(r),
             O::SetStackPolicy => self.set_stack_policy(r).await,
+            O::DetectStackResourceDrift => self.detect_stack_resource_drift(r).await,
+            O::CancelUpdateStack => self.cancel_update_stack(r),
+            O::SignalResource => self.signal_resource(r),
+            O::DetectStackDrift => self.detect_stack_drift(r),
             other => self.read_only(other, r),
         }
     }
@@ -263,6 +309,13 @@ impl Core {
             O::ListImports => self.list_imports(r),
             O::GetStackPolicy => self.get_stack_policy(r),
             O::UpdateTerminationProtection => self.update_termination_protection(r),
+            O::DescribeStackDriftDetectionStatus => self.describe_stack_drift_detection_status(r),
+            O::DescribeStackResourceDrifts => self.describe_stack_resource_drifts(r),
+            O::DescribeEvents => self.describe_events(r),
+            O::DescribeChangeSetHooks => self.describe_change_set_hooks(r),
+            O::ListHookResults => self.list_hook_results(r),
+            O::GetHookResult => Self::get_hook_result(r),
+            O::DescribeAccountLimits => Ok(Self::describe_account_limits()),
             _ => Err(ApiError::new(
                 501,
                 "NotImplemented",

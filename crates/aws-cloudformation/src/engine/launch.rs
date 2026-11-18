@@ -28,6 +28,19 @@ pub(super) struct Launch {
     pub(super) props: Value,
     pub(super) old: Option<Res>,
     pub(super) class: Class,
+    /// The resource's `CreationPolicy`, resolved.
+    pub(super) creation: Option<Value>,
+}
+
+/// The type that waits for signals.
+const WAIT_CONDITION: &str = "AWS::CloudFormation::WaitCondition";
+
+/// Whether the launch waits for `SignalResource` (its inbox is opened before the resource shows as in progress, so no signal sent
+/// once it does is lost).
+pub(super) fn takes_signals(l: &Launch) -> bool {
+    l.ty == WAIT_CONDITION
+        && l.step != Step::Update
+        && res::wait::resource_signal(l.creation.as_ref()).is_some()
 }
 
 /// Types that wait for eventual consistency after they are configured (inferred from the recording of 2026-11-12: a stack of SQS
@@ -50,6 +63,7 @@ pub(super) async fn perform(rc: Rc, l: Launch) -> Result<(Made, Option<String>),
     crate::dynref::resolve(&mut props, rc.peers.as_deref(), &rc.caller).await?;
     let made = match (l.step, &l.old) {
         (Step::Update, Some(old)) => res::update(&rc, old, &props).await?,
+        _ if l.ty == WAIT_CONDITION => res::wait::create(&rc, &props, l.creation.as_ref()).await?,
         _ => res::create(&rc, &props).await?,
     };
     let note = made.note.clone();

@@ -72,8 +72,14 @@ not_planned = [
 differences = [
   "Resources of services doze-aws does not run are not created and do not fail the stack (see the note at the top).",
   "Macros are refused; AWS::Serverless (SAM), AWS::LanguageExtensions and AWS::Include are applied.",
+  "Drift detection reads back SQS queues, SNS topics, SSM parameters, log groups, S3 buckets (name, versioning, tags), DynamoDB tables, IAM roles, Lambda functions, Secrets Manager secrets and KMS keys, each through its service's own read operations; every other type is NOT_CHECKED. Values with a dynamic reference are not compared.",
+  "AWS::CloudFormation::WaitCondition really waits: for SignalResource calls under a CreationPolicy, or for signals PUT to its handle's URL (served on the local endpoint). EC2 instances and Auto Scaling groups are not made locally, so their CreationPolicy and UpdatePolicy signals are not waited for.",
+  "CancelUpdateStack stops what the update has not started and what is waiting (a wait condition, a custom resource's answer); a call to a service already under way finishes first, and the rollback puts it back.",
+  "No hooks run: DescribeChangeSetHooks answers no hooks, ListHookResults no results, GetHookResult HookResultNotFoundException. DescribeEvents has no hook or validation events.",
+  "DescribeAccountLimits answers AWS's default quotas; none of them is enforced.",
 ]
 not_planned = [
+  { why = "The estimate AWS answers is a link to its Simple Monthly Calculator (now retired), filled in from AWS's prices; a local tool has no prices to give.", ops = ["EstimateTemplateCost"] },
   { why = "The IaC generator, resource scans and stack refactoring read or reshape resources across a real account; they are large, and the local tools rarely need them.", families = ["GeneratedTemplate", "ResourceScan", "StackRefactor"] },
   { why = "StackSets deploy across accounts and regions of an organization.", families = ["StackSet", "StackInstance", "OrganizationsAccess"] },
   { why = "The extension registry runs third-party resource handlers, which doze-aws does not host.", ops = ["RegisterType", "DeregisterType", "DescribeType", "DescribeTypeRegistration", "ListTypes", "ListTypeVersions", "ListTypeRegistrations", "ActivateType", "DeactivateType", "SetTypeDefaultVersion", "SetTypeConfiguration", "BatchDescribeTypeConfigurations", "PublishType", "TestType", "RegisterPublisher", "DescribePublisher", "RecordHandlerProgress"] },

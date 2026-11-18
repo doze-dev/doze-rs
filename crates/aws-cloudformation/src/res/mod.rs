@@ -29,6 +29,7 @@ mod sqs;
 mod ssm;
 mod ssm_doc;
 mod table;
+pub(crate) mod wait;
 
 use std::sync::Arc;
 
