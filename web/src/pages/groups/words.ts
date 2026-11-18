@@ -224,7 +224,7 @@ export function causeListed(classic: boolean, c: StoryCause): boolean {
     : ["member_joined", "member_left", "session_expired", "topic_changed", "subscription_changed", "rebalance_timeout"].includes(c);
 }
 
-export const PHASE_WORD: Record<GroupPhase, string> = { empty: "Empty", stable: "Stable", rebalancing: "Rebalancing", assigning: "Assigning", reconciling: "Reconciling" };
+export const PHASE_WORD: Record<GroupPhase, string> = { empty: "Empty", stable: "Stable", rebalancing: "Rebalancing", assigning: "Assigning", reconciling: "Reconciling", not_ready: "Not ready" };
 
 export function phaseTone(p: GroupPhase): Tone {
   return p === "stable" ? "ok" : p === "empty" ? "idle" : "warn";
@@ -236,3 +236,20 @@ export function heard(now: number, m: GroupMemberRow): string {
 }
 
 export { clockUtc, number };
+
+/** Streams task ids (`<subtopology>_<partition>`) as runs per subtopology: `0_0–0_2, 1_1`. */
+export function taskList(ids: string[]): string {
+  const runs: [string, number, number][] = [];
+  const parsed = ids
+    .map((id) => {
+      const at = id.lastIndexOf("_");
+      return [id.slice(0, at), Number(id.slice(at + 1))] as const;
+    })
+    .sort((a, b) => (a[0] === b[0] ? a[1] - b[1] : a[0] < b[0] ? -1 : 1));
+  for (const [sub, p] of parsed) {
+    const last = runs[runs.length - 1];
+    if (last && last[0] === sub && p === last[2] + 1) last[2] = p;
+    else runs.push([sub, p, p]);
+  }
+  return runs.map(([s, a, b]) => (a === b ? `${s}_${a}` : `${s}_${a}–${s}_${b}`)).join(", ");
+}

@@ -371,6 +371,7 @@ function Calm({ v, fetchedAt }: { v: StoryView; fetchedAt: number }) {
 function api(g: StoryGen): string {
   if (g.protocol === "consumer") return "ConsumerGroupHeartbeat";
   if (g.protocol === "share") return "ShareGroupHeartbeat";
+  if (g.protocol === "streams") return "StreamsGroupHeartbeat";
   return g.cause === "member_left" ? "LeaveGroup" : g.cause === "session_expired" ? "Heartbeat" : "JoinGroup";
 }
 
