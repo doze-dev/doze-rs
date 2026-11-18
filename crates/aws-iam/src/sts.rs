@@ -116,10 +116,19 @@ impl Core {
             tags: r.tags(),
             source_identity: r.opt("SourceIdentity").map(str::to_owned),
             nonce: new_id("")?,
+            mfa_ms: None,
         })
     }
 
-    fn assume_role(&self, r: &Req<'_>) -> Result<Value, ApiError> {
+    /// The IAM user behind the call, by name: whose MFA device a `SerialNumber` must be.
+    fn calling_user(&self, r: &Req<'_>) -> Option<String> {
+        let arn = self.identify(r).arn;
+        arn.split_once(":user/")
+            .and_then(|(_, rest)| rest.rsplit('/').next())
+            .map(str::to_owned)
+    }
+
+    fn assume_role(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let arn = r.s("RoleArn");
         let name = role_name_of(arn)?;
         let known = self.entity(Kind::Role, name).ok();
@@ -138,8 +147,10 @@ impl Core {
             ));
         }
         let role_id = known.map_or_else(|| new_id("AROA"), |e| Ok(e.id.clone()))?;
+        let user = self.calling_user(r);
+        let mfa = self.spend_mfa(r, user.as_deref())?;
         let session_name = r.s("RoleSessionName");
-        let s = self.session(
+        let mut s = self.session(
             Who {
                 kind: SessionKind::Role,
                 subject: arn,
@@ -149,6 +160,7 @@ impl Core {
             },
             r,
         )?;
+        s.mfa_ms = mfa;
         Ok(json!({
             "Credentials": self.credentials(&s),
             "AssumedRoleUser": {"AssumedRoleId": s.id, "Arn": format!("arn:aws:sts::{}:assumed-role/{name}/{session_name}", r.account())},
@@ -262,15 +274,17 @@ impl Core {
         }))
     }
 
-    fn get_session_token(&self, r: &Req<'_>) -> Result<Value, ApiError> {
+    fn get_session_token(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let duration = r.int("DurationSeconds").unwrap_or(DEFAULT_USER_SECS);
         if !(MIN_SECS..=MAX_USER_SECS).contains(&duration) {
             return Err(validation(
                 "DurationSeconds must be between 900 and 129600.",
             ));
         }
+        let user = self.calling_user(r);
+        let mfa = self.spend_mfa(r, user.as_deref())?;
         let who = self.identify(r);
-        let s = self.session(
+        let mut s = self.session(
             Who {
                 kind: SessionKind::User,
                 subject: &who.arn,
@@ -280,6 +294,7 @@ impl Core {
             },
             r,
         )?;
+        s.mfa_ms = mfa;
         Ok(json!({"Credentials": self.credentials(&s)}))
     }
 

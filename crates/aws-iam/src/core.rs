@@ -16,6 +16,7 @@ use doze_store::{Ack, Db, StoreError};
 use serde_json::Value;
 
 use crate::accesslog::Seen;
+use crate::held::Held;
 use crate::model::{AccessKey, Account, Entity, Kind, Managed, Profile, Provider};
 use crate::req::Req;
 
@@ -83,6 +84,8 @@ pub(crate) struct Core {
     pub(crate) profiles: Records<Profile>,
     pub(crate) providers: Records<Provider>,
     account: Records<Account>,
+    /// MFA devices, certificates, the other credentials, reports and last use (`held`).
+    pub(crate) held: Held,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) db: Option<Db>,
     pub(crate) mode: Mode,
@@ -169,11 +172,10 @@ impl Core {
     }
 
     pub(crate) fn open_in(dir: &Path, clock: Arc<dyn Clock>) -> Result<Self, StoreError> {
-        let db = Db::open(
-            dir,
-            FILE,
-            &[ENTITIES, POLICIES, KEYS, PROFILES, PROVIDERS, ACCOUNT],
-        )?;
+        let mut tables = vec![ENTITIES, POLICIES, KEYS, PROFILES, PROVIDERS, ACCOUNT];
+        tables.extend(crate::held::TABLES);
+        let db = Db::open(dir, FILE, &tables)?;
+        let held = Held::load(&db)?;
         let read = db.read()?;
         let tables = Tables {
             entities: Records::load(ENTITIES, "entity", VERSION, &read)?,
@@ -182,6 +184,7 @@ impl Core {
             profiles: Records::load(PROFILES, "instance profile", VERSION, &read)?,
             providers: Records::load(PROVIDERS, "provider", VERSION, &read)?,
             account: Records::load(ACCOUNT, "account", VERSION, &read)?,
+            held,
         };
         drop(read);
         let mut core = Self::with(clock, tables, Some(db));
@@ -209,6 +212,7 @@ impl Core {
             tally(&self.providers),
         ]
         .iter()
+        .chain(self.held.count().iter())
         .fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1))
     }
 
@@ -220,6 +224,7 @@ impl Core {
         crate::storage::clear(&mut self.profiles);
         crate::storage::clear(&mut self.providers);
         crate::storage::clear(&mut self.account);
+        self.held.clear();
     }
 
     fn with(clock: Arc<dyn Clock>, t: Tables, db: Option<Db>) -> Self {
@@ -230,6 +235,7 @@ impl Core {
             profiles: t.profiles,
             providers: t.providers,
             account: t.account,
+            held: t.held,
             clock,
             db,
             mode: Mode::default(),
@@ -267,7 +273,7 @@ impl Core {
 
     /// Sends what the last call changed to the writer; the [`Ack`] resolves when it is on disk.
     pub(crate) fn flush(&mut self) -> Result<Option<Ack>, StoreError> {
-        let changes = vec![
+        let mut changes = vec![
             self.entities.stage()?,
             self.policies.stage()?,
             self.keys.stage()?,
@@ -275,6 +281,7 @@ impl Core {
             self.providers.stage()?,
             self.account.stage()?,
         ];
+        self.held.stage(&mut changes)?;
         Ok(self.db.as_ref().and_then(|db| db.submit(changes)))
     }
 
@@ -323,11 +330,13 @@ struct Tables {
     profiles: Records<Profile>,
     providers: Records<Provider>,
     account: Records<Account>,
+    held: Held,
 }
 
 impl Tables {
     fn empty() -> Self {
         Self {
+            held: Held::empty(),
             entities: Records::new(ENTITIES, "entity", VERSION),
             policies: Records::new(POLICIES, "policy", VERSION),
             keys: Records::new(KEYS, "access key", VERSION),

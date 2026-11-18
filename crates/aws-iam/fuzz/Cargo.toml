@@ -1,0 +1,27 @@
+[package]
+name = "aws-iam-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+aws-iam = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "fuzz_certificate"
+path = "fuzz_targets/fuzz_certificate.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_ssh_key"
+path = "fuzz_targets/fuzz_ssh_key.rs"
+test = false
+doc = false

@@ -123,6 +123,24 @@ impl<T: Serialize + DeserializeOwned> Records<T> {
         Ok(records)
     }
 
+    /// Reads every record of a table a later version added: a file written before the table existed has none, and the
+    /// collection starts empty (the first write makes the table).
+    ///
+    /// # Errors
+    /// A failed read, or a record this version cannot read.
+    pub fn load_or_new(
+        table: &'static str,
+        what: &'static str,
+        version: u8,
+        read: &ReadTransaction,
+    ) -> Result<Self, StoreError> {
+        match read.open_table(TableDefinition::<&str, &[u8]>::new(table)) {
+            Err(redb::TableError::TableDoesNotExist(_)) => Ok(Self::new(table, what, version)),
+            Err(e) => Err(e.into()),
+            Ok(_) => Self::load(table, what, version, read),
+        }
+    }
+
     /// The record under `key`.
     #[must_use]
     pub fn get(&self, key: &str) -> Option<&T> {

@@ -36,6 +36,10 @@ pub(crate) struct Session {
     pub(crate) source_identity: Option<String>,
     /// Distinguishes two sessions made in the same millisecond.
     pub(crate) nonce: String,
+    /// When an MFA code was given to make the session (`aws:MultiFactorAuthPresent`, `aws:MultiFactorAuthAge`). A token made before
+    /// this field existed reads as made without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) mfa_ms: Option<i64>,
 }
 
 fn mac(key: &[u8], data: &[u8]) -> Vec<u8> {
@@ -151,6 +155,7 @@ mod tests {
             tags: vec![("k".into(), "v".into())],
             source_identity: None,
             nonce: "n".into(),
+            mfa_ms: None,
         }
     }
 
