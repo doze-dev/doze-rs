@@ -7,16 +7,18 @@ use std::sync::Arc;
 use aws_model_dynamodb::Operation;
 use aws_peers::{Mode, Peers};
 use aws_wire::ApiError;
-use aws_wire::service::{Call, Reply};
+use aws_wire::service::{Call, Output, Reply};
 use doze_runtime::{Clock, Ctx};
 use doze_store::StoreError;
-use doze_store::records::Records;
+use doze_store::records::{Changes, Records};
 use serde_json::Value as Json;
 
 use crate::disk::{Disk, TABLES, Writes};
+use crate::extras::Extra;
 use crate::meta::Table;
-use crate::req::{body, not_found, refuse_legacy, table_name};
+use crate::req::{body, not_found, table_name};
 use crate::stream::{Batch, StreamInfo};
+use crate::work::{Done, Work};
 
 const VERSION: u8 = 1;
 
@@ -75,6 +77,10 @@ pub(crate) enum Request {
     Tick,
     /// From `doze-aws data`: what the tables hold, or remove some of it.
     Data(Box<crate::storage::Asked>),
+    /// What work done outside the actor found (`work.rs`).
+    Done(Box<Done>),
+    /// The resource policy that governs an ARN (for the Streams API).
+    Policy(String),
 }
 
 /// What the actor answers.
@@ -87,16 +93,22 @@ pub(crate) struct Answer {
     pub(crate) streams: Option<Result<Vec<StreamInfo>, String>>,
     /// When the first item with a time to live expires: the deadline the service's timer sleeps to.
     pub(crate) next_due: Option<i64>,
+    /// What is left to do outside the actor before the caller is answered.
+    pub(crate) work: Vec<Work>,
+    /// The policy a `Policy` request asked for.
+    pub(crate) policy: Option<String>,
 }
 
 impl Answer {
-    fn of(reply: Reply, appended: bool) -> Self {
+    pub(crate) fn of(reply: Reply, appended: bool) -> Self {
         Self {
             reply,
             appended,
             stream: None,
             streams: None,
             next_due: None,
+            work: Vec::new(),
+            policy: None,
         }
     }
 }
@@ -152,6 +164,12 @@ pub(crate) struct Core {
     pub(crate) ttl_stale: bool,
     /// Contributor Insights settings, by table (and `table/index`): stored, nothing computed.
     pub(crate) insights: Records<crate::insights::Insight>,
+    /// Backups, export and import tasks, resource policies, Kinesis streaming destinations.
+    pub(crate) extras: Records<Extra>,
+    /// What the call in progress leaves to be done outside the actor.
+    pub(crate) work: Vec<Work>,
+    /// Orders the recovery log's entries written in one millisecond.
+    pub(crate) pitr_seq: u32,
 }
 
 impl doze_runtime::Service for Core {
@@ -202,10 +220,35 @@ impl doze_runtime::Service for Core {
             Request::Tick => {
                 // The timer's own sweep is not held back by the once-a-second limit a burst of calls is.
                 self.next_sweep_ms = 0;
-                match self.housekeeping().await {
+                let mut answer = match self.housekeeping().await {
                     Ok(appended) => Answer::of(Err(ApiError::internal("not a call")), appended),
                     Err(e) => Answer::of(Err(e), false),
-                }
+                };
+                answer.work = std::mem::take(&mut self.work);
+                answer
+            }
+            Request::Policy(arn) => Answer {
+                policy: self.policy_text(&arn),
+                ..Answer::of(Err(ApiError::internal("not a call")), false)
+            },
+            Request::Done(done) => {
+                let applied = self.apply_done(*done, self.clock.now_ms());
+                let appended = std::mem::take(&mut self.appended);
+                let work = std::mem::take(&mut self.work);
+                let saved = match applied {
+                    Ok(()) => self.save().await,
+                    Err(e) => {
+                        self.pending = Writes::default();
+                        Err(e)
+                    }
+                };
+                let empty = || Output {
+                    arena: aws_schema::arena::Arena::new(),
+                    root: aws_schema::arena::NIL,
+                };
+                let mut answer = Answer::of(saved.map(|()| empty()), appended);
+                answer.work = work;
+                answer
             }
         };
         answer.next_due = self.ttl_due();
@@ -232,6 +275,12 @@ impl Core {
             crate::insights::VERSION,
             &read,
         )?;
+        let extras = Records::load(
+            crate::disk::EXTRAS,
+            "dynamodb record",
+            crate::extras::VERSION,
+            &read,
+        )?;
         drop(read);
         Ok(Self {
             disk,
@@ -248,15 +297,16 @@ impl Core {
             // Read on the first answer, so a service opened by its timer or a restart finds what is due.
             ttl_stale: true,
             insights,
+            extras,
+            work: Vec::new(),
+            pitr_seq: 0,
         })
     }
 
     async fn handle_call(&mut self, call: Call) -> Answer {
         if let Some(peers) = self.peers.clone()
             && peers.mode() != Mode::Off
-            && let Err(refusal) = peers
-                .authorize(&call.caller, crate::authz::needs(&call))
-                .await
+            && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
         {
             return Answer::of(Err(refusal), false);
         }
@@ -264,13 +314,20 @@ impl Core {
             Ok(appended) => appended,
             Err(e) => return Answer::of(Err(e), false),
         };
+        // What the sweep left to send goes whether or not the call is refused.
+        let swept_work = std::mem::take(&mut self.work);
         let mut answer = self.handle_checked(call).await;
         answer.appended |= swept;
+        answer.work.splice(0..0, swept_work);
         answer
     }
 
     async fn handle_checked(&mut self, call: Call) -> Answer {
-        let json = match body(&call.body) {
+        let json = match body(&call.body).and_then(|j| match Operation::from_index(call.op) {
+            // The legacy parameters become the expressions they stand for (`legacy.rs`).
+            Some(op) => crate::legacy::translate(op, j),
+            None => Ok(j),
+        }) {
             Ok(j) => j,
             Err(e) => return Answer::of(Err(e), false),
         };
@@ -286,37 +343,48 @@ impl Core {
     /// Ends a call: its writes go to disk (and are waited for, so the next call reads them), and the answer is made.
     async fn finish(&mut self, outcome: Result<(Operation, Json), ApiError>) -> Answer {
         let appended = std::mem::take(&mut self.appended);
-        let mut writes = std::mem::take(&mut self.pending);
-        let reply = match outcome {
+        let work = std::mem::take(&mut self.work);
+        let (op, json) = match outcome {
             Err(e) => {
                 // A refused call changes nothing.
+                self.pending = Writes::default();
                 return Answer::of(Err(e), false);
             }
-            Ok((op, json)) => {
-                match (self.tables.stage(), self.insights.stage()) {
-                    (Ok(tables), Ok(insights)) => writes.meta.extend([tables, insights]),
-                    (Err(e), _) | (_, Err(e)) => {
-                        return Answer::of(
-                            Err(ApiError::internal(format!("could not save: {e}"))),
-                            false,
-                        );
-                    }
-                }
-                crate::answer::reply(op, &json)
-            }
+            Ok(done) => done,
         };
+        if let Err(e) = self.save().await {
+            return Answer::of(Err(e), false);
+        }
+        let mut answer = Answer::of(crate::answer::reply(op, &json), appended);
+        answer.work = work;
+        answer
+    }
+
+    /// The records every call may change, as rows for the writer.
+    pub(crate) fn stage_meta(&mut self) -> Result<Vec<Changes>, StoreError> {
+        Ok(vec![
+            self.tables.stage()?,
+            self.insights.stage()?,
+            self.extras.stage()?,
+        ])
+    }
+
+    /// Writes what the call changed, and waits for it.
+    pub(crate) async fn save(&mut self) -> Result<(), ApiError> {
+        let mut writes = std::mem::take(&mut self.pending);
+        writes.meta.extend(
+            self.stage_meta()
+                .map_err(|e| ApiError::internal(format!("could not save: {e}")))?,
+        );
         if !writes.is_empty() {
             self.ttl_stale = true;
         }
         if let Some(saved) = self.disk.submit(writes)
             && let Err(e) = saved.await
         {
-            return Answer::of(
-                Err(ApiError::internal(format!("could not save: {e}"))),
-                false,
-            );
+            return Err(ApiError::internal(format!("could not save: {e}")));
         }
-        Answer::of(reply, appended)
+        Ok(())
     }
 
     /// Every operation of the model is either run here or refused by name; the dispatch is exhaustive over those it runs.
@@ -324,7 +392,6 @@ impl Core {
         let Some(op) = Operation::from_index(cx.call.op).filter(|op| built(*op)) else {
             return Err(not_built());
         };
-        refuse_legacy(op, &cx.body)?;
         let json = match op {
             Operation::CreateTable => self.create_table(cx),
             Operation::DescribeTable => self.describe_table(cx),
@@ -343,9 +410,54 @@ impl Core {
             Operation::DescribeContributorInsights => self.describe_insights(cx),
             Operation::UpdateContributorInsights => self.update_insights(cx),
             Operation::ListContributorInsights => self.list_insights(cx),
-            _ => self.dispatch_items(op, cx),
+            _ => self.dispatch_more(op, cx),
         }?;
         Ok((op, json))
+    }
+
+    /// Backups and restores, exports and imports, resource policies and Kinesis streaming destinations.
+    fn dispatch_more(&mut self, op: Operation, cx: &Cx<'_>) -> Result<Json, ApiError> {
+        match op {
+            Operation::CreateBackup => self.create_backup(cx),
+            Operation::DeleteBackup => self.delete_backup(cx),
+            Operation::DescribeBackup => self.describe_backup(cx),
+            Operation::ListBackups => self.list_backups(cx),
+            Operation::RestoreTableFromBackup => self.restore_from_backup(cx),
+            Operation::RestoreTableToPointInTime => self.restore_to_point_in_time(cx),
+            Operation::ExportTableToPointInTime => self.export_table(cx),
+            Operation::DescribeExport => self.describe_export(cx),
+            Operation::ListExports => self.list_exports(cx),
+            Operation::ImportTable => self.import_table(cx),
+            Operation::DescribeImport => self.describe_import(cx),
+            Operation::ListImports => self.list_imports(cx),
+            Operation::PutResourcePolicy => self.put_resource_policy(cx),
+            Operation::GetResourcePolicy => self.get_resource_policy(cx),
+            Operation::DeleteResourcePolicy => self.delete_resource_policy(cx),
+            Operation::EnableKinesisStreamingDestination => self.enable_kinesis(cx),
+            Operation::DisableKinesisStreamingDestination => self.disable_kinesis(cx),
+            Operation::DescribeKinesisStreamingDestination => self.describe_kinesis(cx),
+            Operation::UpdateKinesisStreamingDestination => self.update_kinesis(cx),
+            _ => self.dispatch_items(op, cx),
+        }
+    }
+
+    /// Takes in what work done outside the actor found.
+    fn apply_done(&mut self, done: Done, now_ms: i64) -> Result<(), ApiError> {
+        match done {
+            Done::Stream {
+                table,
+                stream_arn,
+                found,
+            } => {
+                self.stream_checked(&table, &stream_arn, found);
+                Ok(())
+            }
+            Done::Exported { arn, result } => {
+                self.exported(&arn, result, now_ms);
+                Ok(())
+            }
+            Done::Imported { arn, result } => self.imported(&arn, result, now_ms),
+        }
     }
 
     fn dispatch_items(&mut self, op: Operation, cx: &Cx<'_>) -> Result<Json, ApiError> {
@@ -407,6 +519,25 @@ pub(crate) fn built(op: Operation) -> bool {
             | Operation::ExecuteStatement
             | Operation::BatchExecuteStatement
             | Operation::ExecuteTransaction
+            | Operation::CreateBackup
+            | Operation::DeleteBackup
+            | Operation::DescribeBackup
+            | Operation::ListBackups
+            | Operation::RestoreTableFromBackup
+            | Operation::RestoreTableToPointInTime
+            | Operation::ExportTableToPointInTime
+            | Operation::DescribeExport
+            | Operation::ListExports
+            | Operation::ImportTable
+            | Operation::DescribeImport
+            | Operation::ListImports
+            | Operation::PutResourcePolicy
+            | Operation::GetResourcePolicy
+            | Operation::DeleteResourcePolicy
+            | Operation::EnableKinesisStreamingDestination
+            | Operation::DisableKinesisStreamingDestination
+            | Operation::DescribeKinesisStreamingDestination
+            | Operation::UpdateKinesisStreamingDestination
     )
 }
 

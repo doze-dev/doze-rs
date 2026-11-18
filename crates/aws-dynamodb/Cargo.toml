@@ -1,7 +1,7 @@
 [package]
 name = "aws-dynamodb"
 version = "0.0.0"
-description = "DynamoDB: tables, items, indexes, queries, transactions, TTL, streams and point-in-time recovery settings, as a state machine behind a lazy actor"
+description = "DynamoDB: tables, items, indexes, queries, transactions, TTL, streams, backups and point-in-time recovery, exports and imports, resource policies and Kinesis streaming destinations, as a state machine behind a lazy actor"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -27,7 +27,17 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 postcard = { version = "1", default-features = false, features = ["alloc"] }
 tokio = { version = "1", default-features = false, features = ["sync"] }
+tracing = "0.1"
+# Exports are written gzip-compressed and imports read it; the pure-Rust backend, already linked for gzip request bodies.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+# The MD5 checksums of an export's manifest; already linked by S3.
+md-5 = "0.11"
+aws-iam-policy = { path = "../aws-iam-policy" }
+bytes = "1"
 
 [dev-dependencies]
+aws-s3 = { path = "../aws-s3" }
+aws-kinesis = { path = "../aws-kinesis" }
+aws-iam = { path = "../aws-iam" }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }
 aws-testkit = { path = "../aws-testkit" }

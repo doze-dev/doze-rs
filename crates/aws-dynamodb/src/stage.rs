@@ -1,5 +1,6 @@
 //! The one way an item changes: `stage` turns "this item was X and is now Y" into the writes it needs (the item, its index entries,
-//! its time-to-live entry, its stream record), after the checks every write shares.
+//! its time-to-live entry, its stream record, its recovery log entry, its record for a Kinesis streaming destination), after the
+//! checks every write shares.
 //!
 //! Wording: the messages in `conformance/snapshots/test_dynamodb.json` (recorded 2026-11-09) are AWS's own; every other message in this file is
 //! `(memory)`: from the developer guide and from use, and unchecked until a recording reaches it.
@@ -225,6 +226,8 @@ impl Core {
         self.move_entry(Space::Index, before, after, &pk);
         if old != new {
             self.append_stream(t, now_ms, old, new, by_ttl)?;
+            self.log_change(t, now_ms, &pk, old)?;
+            self.queue_kinesis(t, now_ms, old, new, by_ttl);
         }
         Ok(())
     }

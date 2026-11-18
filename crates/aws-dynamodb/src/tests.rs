@@ -11,9 +11,13 @@ use serde_json::{Value, json};
 use crate::Dynamodb;
 use crate::core::{Core, Request};
 
+mod backups;
 mod data;
 mod expiry;
 mod items;
+mod legacy;
+mod policies;
+mod s3_kinesis;
 mod partiql;
 mod persistence;
 mod queries;

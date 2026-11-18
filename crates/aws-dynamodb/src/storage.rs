@@ -1,5 +1,6 @@
 //! DynamoDB's data for a person to see and remove (`doze-aws data`): each table's items, the entries its indexes and time to live
-//! keep for them, and its stream's records, emptied whole, and the database compacted after, so the disk gets the space back. A
+//! keep for them, its stream's records and its point-in-time recovery log, and each on-demand backup (a resource of its own,
+//! `<table>/backup/<id>`, since it outlives its table), emptied whole, and the database compacted after, so the disk gets the space back. A
 //! table's stream records are counted with it and pointed at: they stay for 24 hours after every write whether or not anything
 //! reads them.
 //!
@@ -45,18 +46,28 @@ pub(crate) struct Asked {
 /// Above every stream row's key (16 bytes of stream id and 8 of sequence number).
 const STREAM_END: [u8; 25] = [0xFF; 25];
 
-/// What one table holds: its items, its index and time-to-live entries, its stream's records, each as (rows, bytes).
+/// What one table holds: its items, its index and time-to-live entries, its stream's records, its recovery log, each as (rows,
+/// bytes).
 #[derive(Clone, Copy, Debug, Default)]
 struct Held {
     items: (u64, u64),
     index: (u64, u64),
     stream: (u64, u64),
+    log: (u64, u64),
 }
 
 impl Held {
     const fn bytes(&self) -> u64 {
-        self.items.1 + self.index.1 + self.stream.1
+        self.items.1 + self.index.1 + self.stream.1 + self.log.1
     }
+}
+
+/// Above every key of the backup and recovery-log spaces (16 bytes of id, then more).
+const ALL_END: [u8; 17] = [0xFF; 17];
+
+/// A backup's name as `doze-aws data` shows it: the resource part of its ARN, `<table>/backup/<id>`.
+fn backup_name(b: &crate::extras::Backup) -> &str {
+    b.arn.rsplit_once(":table/").map_or(b.arn.as_str(), |(_, r)| r)
 }
 
 impl Core {
@@ -84,7 +95,63 @@ impl Core {
             items: self.disk.measure(Space::Items, &t.id, &end)?,
             index: self.disk.measure(Space::Index, &t.id, &end)?,
             stream,
+            log: self.log_size(&t.id)?,
         })
+    }
+
+    /// Each backup, as a resource of its own: it outlives its table.
+    fn backup_usage(&self, region: &str) -> Result<Vec<Resource>, doze_store::StoreError> {
+        let mut out = Vec::new();
+        for (_, e) in self.extras.with_prefix("backup/") {
+            let crate::extras::Extra::Backup(b) = e else {
+                continue;
+            };
+            let (rows, bytes) = self
+                .disk
+                .measure(Space::Backup, &b.id, &keys::prefix_end(&b.id))?;
+            out.push(Resource {
+                region: region.to_owned(),
+                name: backup_name(b).to_owned(),
+                bytes,
+                items: rows,
+                notes: vec![Note {
+                    bytes,
+                    text: format!(
+                        "an on-demand backup ({}) of table {}, kept until deleted",
+                        b.name, b.table.name
+                    ),
+                    prune: None,
+                }],
+            });
+        }
+        Ok(out)
+    }
+
+    /// Deletes a backup by the name `doze-aws data` shows.
+    fn empty_backup(&mut self, name: &str, dry_run: bool) -> Result<Emptied, StorageError> {
+        let found = self.extras.with_prefix("backup/").find_map(|(k, e)| match e {
+            crate::extras::Extra::Backup(b) if backup_name(b) == name => Some((k.to_owned(), b.id)),
+            _ => None,
+        });
+        let (key, id) = found.ok_or(StorageError::NotFound)?;
+        let (items, bytes) = self
+            .disk
+            .measure(Space::Backup, &id, &keys::prefix_end(&id))
+            .map_err(|e| StorageError::Failed(e.to_string()))?;
+        let mut done = Emptied {
+            items,
+            bytes,
+            freed: 0,
+        };
+        if dry_run {
+            return Ok(done);
+        }
+        self.extras.remove(&key);
+        self.pending
+            .ranges
+            .push((Space::Backup, id.to_vec(), keys::prefix_end(&id)));
+        done.freed = self.write_and_compact().map_err(StorageError::Failed)?;
+        Ok(done)
     }
 
     fn usage(&self, region: &str) -> Result<(Vec<Resource>, File), doze_store::StoreError> {
@@ -102,6 +169,16 @@ impl Core {
                     prune: None,
                 });
             }
+            if held.log.0 > 0 {
+                notes.push(Note {
+                    bytes: held.log.1,
+                    text: format!(
+                        "in {} point-in-time recovery log entries, kept a day while recovery is on",
+                        held.log.0
+                    ),
+                    prune: None,
+                });
+            }
             out.push(Resource {
                 region: region.to_owned(),
                 name: name.to_owned(),
@@ -110,6 +187,7 @@ impl Core {
                 notes,
             });
         }
+        out.extend(self.backup_usage(region)?);
         let space = self.disk.space()?;
         let file = File {
             region: region.to_owned(),
@@ -126,6 +204,9 @@ impl Core {
                 "a table can be emptied whole only: its items carry no time they were written"
                     .to_owned(),
             ));
+        }
+        if name.contains("/backup/") {
+            return self.empty_backup(name, prune.dry_run);
         }
         let t = self
             .tables
@@ -155,7 +236,7 @@ impl Core {
                 .ranges
                 .push((Space::Stream, s.id.to_vec(), keys::prefix_end(&s.id)));
         }
-        for space in [Space::Items, Space::Index] {
+        for space in [Space::Items, Space::Index, Space::Pitr] {
             self.pending
                 .ranges
                 .push((space, t.id.to_vec(), keys::prefix_end(&t.id)));
@@ -177,8 +258,28 @@ impl Core {
             .measure(Space::Stream, &[], &STREAM_END)
             .map_err(|e| e.to_string())?
             .1;
+        // Every backup and every recovery log entry, a table's or one left by a table since deleted.
+        for space in [Space::Backup, Space::Pitr] {
+            let (rows, bytes) = self
+                .disk
+                .measure(space, &[], &ALL_END)
+                .map_err(|e| e.to_string())?;
+            done.bytes += bytes;
+            if space == Space::Backup {
+                done.items += rows;
+            }
+        }
         if dry_run {
             return Ok(done);
+        }
+        for space in [Space::Backup, Space::Pitr] {
+            self.pending
+                .ranges
+                .push((space, Vec::new(), ALL_END.to_vec()));
+        }
+        let extras: Vec<String> = self.extras.iter().map(|(k, _)| k.to_owned()).collect();
+        for k in extras {
+            self.extras.remove(&k);
         }
         let names: Vec<String> = self.tables.iter().map(|(n, _)| n.to_owned()).collect();
         for name in names {
@@ -200,9 +301,9 @@ impl Core {
     /// Writes what changed and compacts; answers the bytes the disk got back.
     fn write_and_compact(&mut self) -> Result<u64, String> {
         let mut writes = std::mem::take(&mut self.pending);
-        for staged in [self.tables.stage(), self.insights.stage()] {
-            writes.meta.push(staged.map_err(|e| e.to_string())?);
-        }
+        writes
+            .meta
+            .extend(self.stage_meta().map_err(|e| e.to_string())?);
         // WHY: the writer finishes what it was handed before compaction pauses it, so the deletes are on disk first.
         drop(self.disk.submit(writes));
         self.compact_file()
