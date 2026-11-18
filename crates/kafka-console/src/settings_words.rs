@@ -190,7 +190,7 @@ pub fn seen_as(key: &str, value: &str) -> String {
 }
 
 /// The families of the version profile, in the order the page lists them.
-const FAMILIES: [(&str, &[ApiKey]); 9] = [
+const FAMILIES: [(&str, &[ApiKey]); 10] = [
     (
         "Produce and fetch",
         &[
