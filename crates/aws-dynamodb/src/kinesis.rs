@@ -66,7 +66,8 @@ impl Core {
             .unwrap_or(MILLISECOND)
             .to_owned();
         let mut list = self.destinations(&name);
-        let live = |d: &Destination| matches!(d.status.as_str(), "ACTIVE" | "ENABLING" | "UPDATING");
+        let live =
+            |d: &Destination| matches!(d.status.as_str(), "ACTIVE" | "ENABLING" | "UPDATING");
         if list.iter().any(|d| d.stream_arn == arn && live(d)) {
             return Err(in_use(format!(
                 "Table {name} is already streaming to the Kinesis data stream {arn}"
@@ -112,7 +113,8 @@ impl Core {
                 }
                 Err(why) => {
                     d.status = "ENABLE_FAILED".into();
-                    d.description = Some(format!("The Kinesis data stream could not be used: {why}"));
+                    d.description =
+                        Some(format!("The Kinesis data stream could not be used: {why}"));
                 }
             }
         }
@@ -122,10 +124,9 @@ impl Core {
     pub(crate) fn disable_kinesis(&mut self, cx: &Cx<'_>) -> Result<Json, ApiError> {
         let (name, arn) = self.kinesis_target(cx)?;
         let mut list = self.destinations(&name);
-        let Some(d) = list
-            .iter_mut()
-            .find(|d| d.stream_arn == arn && matches!(d.status.as_str(), "ACTIVE" | "ENABLING" | "UPDATING"))
-        else {
+        let Some(d) = list.iter_mut().find(|d| {
+            d.stream_arn == arn && matches!(d.status.as_str(), "ACTIVE" | "ENABLING" | "UPDATING")
+        }) else {
             return Err(in_use(format!(
                 "Table {name} is not streaming to the Kinesis data stream {arn}"
             )));
@@ -218,7 +219,12 @@ impl Core {
             .map(|d| (d.stream_arn.clone(), d.precision.clone()))
             .collect();
         for (stream_arn, precision) in active {
-            let change = Change { now_ms, old, new, by_ttl };
+            let change = Change {
+                now_ms,
+                old,
+                new,
+                by_ttl,
+            };
             let (key, record) = record(t, &stream_arn, &precision, &change);
             let data = record.to_string().into_bytes();
             match self.work.iter_mut().find_map(|w| match w {
@@ -248,7 +254,12 @@ struct Change<'a> {
 }
 
 fn record(t: &Table, stream_arn: &str, precision: &str, c: &Change<'_>) -> (String, Json) {
-    let Change { now_ms, old, new, by_ttl } = *c;
+    let Change {
+        now_ms,
+        old,
+        new,
+        by_ttl,
+    } = *c;
     let basis = new.or(old).cloned().unwrap_or_default();
     let keys = crate::stage::key_of(t, &basis);
     let partition = keys

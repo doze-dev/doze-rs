@@ -24,7 +24,10 @@ const LIST_MAX: usize = 100;
 
 fn not_found(arn: &str) -> ApiError {
     // (memory)
-    ApiError::modeled("BackupNotFoundException", format!("Backup not found: {arn}"))
+    ApiError::modeled(
+        "BackupNotFoundException",
+        format!("Backup not found: {arn}"),
+    )
 }
 
 pub(crate) fn table_missing(name: &str) -> ApiError {
@@ -53,7 +56,13 @@ impl Core {
             ));
         }
         let backup_name = str_of(&cx.body, "BackupName").unwrap_or_default();
-        let b = self.backup_of(&t, (cx.region(), cx.account()), backup_name, false, cx.now_ms)?;
+        let b = self.backup_of(
+            &t,
+            (cx.region(), cx.account()),
+            backup_name,
+            false,
+            cx.now_ms,
+        )?;
         let mut details = details(&b);
         // The answer is made as the backup starts; the backup is whole before the next call.
         crate::req::set(&mut details, "BackupStatus", json!("CREATING"));
@@ -69,20 +78,27 @@ impl Core {
         system: bool,
         now_ms: i64,
     ) -> Result<Backup, ApiError> {
-        let id = aws_seal::random_bytes::<16>().ok_or_else(|| ApiError::internal("no random bytes"))?;
+        let id =
+            aws_seal::random_bytes::<16>().ok_or_else(|| ApiError::internal("no random bytes"))?;
         let tail = task_id(now_ms).ok_or_else(|| ApiError::internal("no random bytes"))?;
         let table_arn = table_arn(region, account, &t.name);
         let mut copied = Vec::new();
         let (mut items, mut bytes) = (0_u64, 0_u64);
         self.disk
-            .scan(Space::Items, &t.id, &keys::prefix_end(&t.id), false, |k, v| {
-                let mut key = item_prefix(&id);
-                key.extend_from_slice(k.get(16..).unwrap_or_default());
-                items += 1;
-                bytes += v.len() as u64;
-                copied.push((key, v.to_vec()));
-                Flow::Continue
-            })
+            .scan(
+                Space::Items,
+                &t.id,
+                &keys::prefix_end(&t.id),
+                false,
+                |k, v| {
+                    let mut key = item_prefix(&id);
+                    key.extend_from_slice(k.get(16..).unwrap_or_default());
+                    items += 1;
+                    bytes += v.len() as u64;
+                    copied.push((key, v.to_vec()));
+                    Flow::Continue
+                },
+            )
             .map_err(|e| ApiError::internal(e.to_string()))?;
         for (k, v) in copied {
             self.pending.put(Space::Backup, k, v);
@@ -116,13 +132,19 @@ impl Core {
         let mut bad = None;
         let prefix = item_prefix(&b.id);
         self.disk
-            .scan(Space::Backup, &prefix, &keys::prefix_end(&prefix), false, |_, v| {
-                match crate::stage::decode_item(v) {
-                    Ok(i) => out.push(i),
-                    Err(e) => bad = Some(e),
-                }
-                Flow::Continue
-            })
+            .scan(
+                Space::Backup,
+                &prefix,
+                &keys::prefix_end(&prefix),
+                false,
+                |_, v| {
+                    match crate::stage::decode_item(v) {
+                        Ok(i) => out.push(i),
+                        Err(e) => bad = Some(e),
+                    }
+                    Flow::Continue
+                },
+            )
             .map_err(|e| ApiError::internal(e.to_string()))?;
         bad.map_or(Ok(out), Err)
     }

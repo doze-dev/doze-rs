@@ -83,9 +83,10 @@ impl Disk {
         })?;
         // A file made before Contributor Insights, backups and the recovery log were kept has no tables for them.
         let read = store.begin_read()?;
-        let missing_meta = [INSIGHTS, EXTRAS]
-            .into_iter()
-            .any(|m| read.open_table(TableDefinition::<&str, &[u8]>::new(m)).is_err());
+        let missing_meta = [INSIGHTS, EXTRAS].into_iter().any(|m| {
+            read.open_table(TableDefinition::<&str, &[u8]>::new(m))
+                .is_err()
+        });
         let missing_space = Space::ALL
             .into_iter()
             .any(|s| read.open_table(def(s)).is_err());

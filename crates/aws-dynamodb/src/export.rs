@@ -118,7 +118,9 @@ impl Core {
                 shown: shown.to_string(),
             }),
         );
-        let prefix = str_of(body, "S3Prefix").unwrap_or_default().trim_end_matches('/');
+        let prefix = str_of(body, "S3Prefix")
+            .unwrap_or_default()
+            .trim_end_matches('/');
         self.work.push(Work::Export(Box::new(Job {
             arn,
             caller: cx.call.caller.clone(),
@@ -139,7 +141,12 @@ impl Core {
     }
 
     /// The export a repeated client token names, or the refusal when the request differs.
-    fn repeated(&self, body: &Json, fingerprint: &str, now_ms: i64) -> Result<Option<Json>, ApiError> {
+    fn repeated(
+        &self,
+        body: &Json,
+        fingerprint: &str,
+        now_ms: i64,
+    ) -> Result<Option<Json>, ApiError> {
         let Some(token) = str_of(body, "ClientToken") else {
             return Ok(None);
         };
@@ -152,7 +159,9 @@ impl Core {
             if f != fingerprint {
                 return Err(ApiError::modeled(
                     "ExportConflictException",
-                    format!("An export with client token {token} was made with different parameters"),
+                    format!(
+                        "An export with client token {token} was made with different parameters"
+                    ),
                 ));
             }
             return Ok(serde_json::from_str(&task.shown).ok());
@@ -353,8 +362,9 @@ fn window(t: &Table, body: &Json, now_ms: i64) -> Result<Window, ApiError> {
     let spec = body.get("IncrementalExportSpecification");
     match (str_of(body, "ExportType").unwrap_or("FULL_EXPORT"), spec) {
         ("INCREMENTAL_EXPORT", Some(spec)) => {
-            let from = time_ms_of(spec, "ExportFromTime")
-                .ok_or_else(|| validation("ExportFromTime must be specified for an incremental export"))?;
+            let from = time_ms_of(spec, "ExportFromTime").ok_or_else(|| {
+                validation("ExportFromTime must be specified for an incremental export")
+            })?;
             let to = time_ms_of(spec, "ExportToTime").unwrap_or(now_ms);
             if from < earliest {
                 return Err(outside("ExportFromTime"));
@@ -459,8 +469,15 @@ fn summary(shown: &Json, now_ms: i64) -> Json {
     if let Some(spec) = shown.get("IncrementalExportSpecification") {
         set(&mut out, "version", json!("2023-08-01"));
         set(&mut out, "exportType", json!("INCREMENTAL_EXPORT"));
-        set(&mut out, "outputView", spec.get("ExportViewType").cloned().unwrap_or_default());
-        if let (Some(f), Some(t)) = (ms_of(spec.get("ExportFromTime")), ms_of(spec.get("ExportToTime"))) {
+        set(
+            &mut out,
+            "outputView",
+            spec.get("ExportViewType").cloned().unwrap_or_default(),
+        );
+        if let (Some(f), Some(t)) = (
+            ms_of(spec.get("ExportFromTime")),
+            ms_of(spec.get("ExportToTime")),
+        ) {
             set(&mut out, "exportFromTime", json!(iso(f)));
             set(&mut out, "exportToTime", json!(iso(t)));
         }
@@ -509,7 +526,13 @@ pub(crate) async fn write(peers: &Arc<Peers>, job: &Job) -> Result<Written, Fail
         + "\n";
     let files_key = format!("{dir}/manifest-files.json");
     put(peers, job, &files_key, files.clone().into_bytes()).await?;
-    put(peers, job, &format!("{dir}/manifest-files.md5"), md5_base64(files.as_bytes()).into_bytes()).await?;
+    put(
+        peers,
+        job,
+        &format!("{dir}/manifest-files.md5"),
+        md5_base64(files.as_bytes()).into_bytes(),
+    )
+    .await?;
     let mut summary = job.summary.clone();
     let iso = aws_core::time::format_iso8601(job.caller_time());
     set(&mut summary, "endTime", json!(iso));
@@ -517,7 +540,13 @@ pub(crate) async fn write(peers: &Arc<Peers>, job: &Job) -> Result<Written, Fail
     let summary = summary.to_string();
     let summary_key = format!("{dir}/manifest-summary.json");
     put(peers, job, &summary_key, summary.clone().into_bytes()).await?;
-    put(peers, job, &format!("{dir}/manifest-summary.md5"), md5_base64(summary.as_bytes()).into_bytes()).await?;
+    put(
+        peers,
+        job,
+        &format!("{dir}/manifest-summary.md5"),
+        md5_base64(summary.as_bytes()).into_bytes(),
+    )
+    .await?;
     Ok(Written {
         manifest: summary_key,
     })
@@ -558,7 +587,9 @@ pub(crate) fn s3_failure(bucket: &str, e: &ApiError) -> Failure {
     match e.code.as_ref() {
         "NoSuchBucket" => Failure::new(
             "S3NoSuchBucket",
-            format!("The specified bucket does not exist (Service: Amazon S3; Status Code: 404; Error Code: NoSuchBucket; Bucket: {bucket})"),
+            format!(
+                "The specified bucket does not exist (Service: Amazon S3; Status Code: 404; Error Code: NoSuchBucket; Bucket: {bucket})"
+            ),
         ),
         "AccessDenied" => Failure::new("S3AccessDenied", e.message.clone()),
         code => Failure::new("UNKNOWN", format!("{code}: {}", e.message)),

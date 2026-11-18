@@ -85,7 +85,11 @@ impl Builder {
 }
 
 fn one(legacy: &[&str], op: Operation, m: &mut Map<String, Json>) -> Result<(), ApiError> {
-    let given: Vec<&str> = legacy.iter().copied().filter(|p| m.contains_key(*p)).collect();
+    let given: Vec<&str> = legacy
+        .iter()
+        .copied()
+        .filter(|p| m.contains_key(*p))
+        .collect();
     if given.is_empty() {
         return Ok(());
     }
@@ -153,7 +157,9 @@ fn projection(b: &mut Builder, m: &Map<String, Json>, attrs: &Json) -> Result<St
     let mut parts = Vec::new();
     for a in list {
         if !seen.insert(a) {
-            return Err(bad_param(&format!("Duplicate value in attribute name: {a}")));
+            return Err(bad_param(&format!(
+                "Duplicate value in attribute name: {a}"
+            )));
         }
         parts.push(b.name(a));
     }
@@ -206,7 +212,9 @@ fn conditions(b: &mut Builder, op: Operation, m: &mut Map<String, Json>) -> Resu
 }
 
 fn only_with_two() -> ApiError {
-    bad_param("ConditionalOperator can only be used when Filter or Expected has two or more elements")
+    bad_param(
+        "ConditionalOperator can only be used when Filter or Expected has two or more elements",
+    )
 }
 
 /// One entry of a `QueryFilter` or `ScanFilter`: `{"ComparisonOperator", "AttributeValueList"}`.
@@ -279,7 +287,9 @@ fn type_of(v: &Json) -> &str {
 /// The types an operator compares (the guide: ordering and `BEGINS_WITH` on scalars only).
 fn check_types(op: &str, values: &[Json]) -> Result<(), ApiError> {
     let allowed: &[&str] = match op {
-        "LE" | "LT" | "GE" | "GT" | "BETWEEN" | "CONTAINS" | "NOT_CONTAINS" | "IN" => &["S", "N", "B"],
+        "LE" | "LT" | "GE" | "GT" | "BETWEEN" | "CONTAINS" | "NOT_CONTAINS" | "IN" => {
+            &["S", "N", "B"]
+        }
         "BEGINS_WITH" => &["S", "B"],
         _ => return Ok(()),
     };
@@ -304,9 +314,8 @@ fn check_types(op: &str, values: &[Json]) -> Result<(), ApiError> {
 
 /// A comparison as an expression.
 fn comparison(b: &mut Builder, attr: &str, op: &str, values: &[Json]) -> Result<String, ApiError> {
-    let (n, at_least) = arity(op).ok_or_else(|| {
-        bad_param(&format!("Unsupported ComparisonOperator: {op}"))
-    })?;
+    let (n, at_least) =
+        arity(op).ok_or_else(|| bad_param(&format!("Unsupported ComparisonOperator: {op}")))?;
     let count_ok = if at_least {
         values.len() >= n
     } else {
@@ -352,7 +361,10 @@ fn key_conditions(b: &mut Builder, keys: &Json) -> Result<String, ApiError> {
             .get("ComparisonOperator")
             .and_then(Json::as_str)
             .unwrap_or_default();
-        if !matches!(op, "EQ" | "LE" | "LT" | "GE" | "GT" | "BEGINS_WITH" | "BETWEEN") {
+        if !matches!(
+            op,
+            "EQ" | "LE" | "LT" | "GE" | "GT" | "BEGINS_WITH" | "BETWEEN"
+        ) {
             return Err(validation(
                 "Attempted conditional constraint is not an indexable operation",
             ));
@@ -367,7 +379,8 @@ fn attribute_updates(b: &mut Builder, updates: &Json) -> Result<(Option<String>,
     let Some(entries) = updates.as_object() else {
         return Ok((None, false));
     };
-    let (mut set, mut remove, mut add, mut delete) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    let (mut set, mut remove, mut add, mut delete) =
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new());
     for (attr, u) in entries {
         let action = u.get("Action").and_then(Json::as_str).unwrap_or("PUT");
         let value = u.get("Value");
@@ -394,10 +407,18 @@ fn attribute_updates(b: &mut Builder, updates: &Json) -> Result<(Option<String>,
     }
     let delete_only = set.is_empty() && add.is_empty() && !(remove.is_empty() && delete.is_empty());
     let mut clauses = Vec::new();
-    for (word, list) in [("SET", set), ("REMOVE", remove), ("ADD", add), ("DELETE", delete)] {
+    for (word, list) in [
+        ("SET", set),
+        ("REMOVE", remove),
+        ("ADD", add),
+        ("DELETE", delete),
+    ] {
         if !list.is_empty() {
             clauses.push(format!("{word} {}", list.join(", ")));
         }
     }
-    Ok(((!clauses.is_empty()).then(|| clauses.join(" ")), delete_only))
+    Ok((
+        (!clauses.is_empty()).then(|| clauses.join(" ")),
+        delete_only,
+    ))
 }

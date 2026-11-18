@@ -135,7 +135,9 @@ impl Bus {
     }
 
     async fn object(&self, bucket: &str, key: &str) -> Vec<u8> {
-        let mut reply = self.s3("GetObject", json!({"Bucket": bucket, "Key": key})).await;
+        let mut reply = self
+            .s3("GetObject", json!({"Bucket": bucket, "Key": key}))
+            .await;
         let mut out = Vec::new();
         if let Some(mut stream) = reply.body.take() {
             while let Some(chunk) = std::future::poll_fn(|cx| stream.as_mut().poll_next(cx)).await {
@@ -149,7 +151,11 @@ impl Bus {
         let listed = self.s3("ListObjectsV2", json!({"Bucket": bucket})).await;
         listed.json["Contents"]
             .as_array()
-            .map(|a| a.iter().map(|o| o["Key"].as_str().unwrap().to_owned()).collect())
+            .map(|a| {
+                a.iter()
+                    .map(|o| o["Key"].as_str().unwrap().to_owned())
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -202,41 +208,83 @@ async fn an_export_is_written_in_the_layout_aws_writes_and_imports_back() {
     bus.s3("CreateBucket", json!({"Bucket": "exports"})).await;
     let arn = "arn:aws:dynamodb:us-east-1:000000000000:table/tab";
     let out = bus
-        .ok("ExportTableToPointInTime", json!({"TableArn": arn, "S3Bucket": "exports", "S3Prefix": "nightly/"}))
+        .ok(
+            "ExportTableToPointInTime",
+            json!({"TableArn": arn, "S3Bucket": "exports", "S3Prefix": "nightly/"}),
+        )
         .await;
     assert_eq!(out["ExportDescription"]["ExportStatus"], "IN_PROGRESS");
-    let export_arn = out["ExportDescription"]["ExportArn"].as_str().unwrap().to_owned();
+    let export_arn = out["ExportDescription"]["ExportArn"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     let id = export_arn.rsplit('/').next().unwrap().to_owned();
-    let done = bus.ok("DescribeExport", json!({"ExportArn": export_arn})).await;
+    let done = bus
+        .ok("DescribeExport", json!({"ExportArn": export_arn}))
+        .await;
     let d = &done["ExportDescription"];
     assert_eq!(d["ExportStatus"], "COMPLETED", "{d}");
     assert_eq!(d["ItemCount"], 2);
     assert_eq!(d["ExportFormat"], "DYNAMODB_JSON");
     let dir = format!("nightly/AWSDynamoDB/{id}");
     assert_eq!(d["ExportManifest"], format!("{dir}/manifest-summary.json"));
+    check_layout(&bus, &dir, &export_arn).await;
+    let listed = bus.ok("ListExports", json!({"TableArn": arn})).await;
+    assert_eq!(listed["ExportSummaries"][0]["ExportStatus"], "COMPLETED");
+    import_back(&bus, &dir).await;
+}
+
+/// The files of a finished export, and what the manifests and the data say.
+async fn check_layout(bus: &Bus, dir: &str, export_arn: &str) {
     let mut keys = bus.keys("exports").await;
     keys.sort();
     let data_key = keys.iter().find(|k| k.contains("/data/")).unwrap().clone();
     assert!(data_key.starts_with(&format!("{dir}/data/")) && data_key.ends_with(".json.gz"));
-    for name in ["_started", "manifest-files.json", "manifest-files.md5", "manifest-summary.json", "manifest-summary.md5"] {
-        assert!(keys.contains(&format!("{dir}/{name}")), "{name} in {keys:?}");
+    for name in [
+        "_started",
+        "manifest-files.json",
+        "manifest-files.md5",
+        "manifest-summary.json",
+        "manifest-summary.md5",
+    ] {
+        assert!(
+            keys.contains(&format!("{dir}/{name}")),
+            "{name} in {keys:?}"
+        );
     }
-    let summary: Value = serde_json::from_slice(&bus.object("exports", &format!("{dir}/manifest-summary.json")).await).unwrap();
-    assert_eq!(summary["exportArn"], export_arn.as_str());
+    let summary: Value = serde_json::from_slice(
+        &bus.object("exports", &format!("{dir}/manifest-summary.json"))
+            .await,
+    )
+    .unwrap();
+    assert_eq!(summary["exportArn"], export_arn);
     assert_eq!(summary["itemCount"], 2);
     assert_eq!(summary["outputFormat"], "DYNAMODB_JSON");
-    assert_eq!(summary["manifestFilesS3Key"], format!("{dir}/manifest-files.json"));
-    let files: Value = serde_json::from_slice(&bus.object("exports", &format!("{dir}/manifest-files.json")).await).unwrap();
+    assert_eq!(
+        summary["manifestFilesS3Key"],
+        format!("{dir}/manifest-files.json")
+    );
+    let files: Value = serde_json::from_slice(
+        &bus.object("exports", &format!("{dir}/manifest-files.json"))
+            .await,
+    )
+    .unwrap();
     assert_eq!(files["dataFileS3Key"], data_key.as_str());
     assert_eq!(files["itemCount"], 2);
     let lines = gunzip(&bus.object("exports", &data_key).await);
-    let mut items: Vec<Value> = lines.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+    let mut items: Vec<Value> = lines
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
     items.sort_by_key(|i| i["Item"]["pk"]["S"].as_str().unwrap().to_owned());
-    assert_eq!(items[0], json!({"Item": {"pk": {"S": "a"}, "n": {"N": "1"}, "s": {"SS": ["x"]}}}));
-    let listed = bus.ok("ListExports", json!({"TableArn": arn})).await;
-    assert_eq!(listed["ExportSummaries"][0]["ExportStatus"], "COMPLETED");
+    assert_eq!(
+        items[0],
+        json!({"Item": {"pk": {"S": "a"}, "n": {"N": "1"}, "s": {"SS": ["x"]}}})
+    );
+}
 
-    // The export's data folder imports into a new table.
+/// The export's data folder imports into a new table.
+async fn import_back(bus: &Bus, dir: &str) {
     let imported = bus
         .ok(
             "ImportTable",
@@ -247,34 +295,71 @@ async fn an_export_is_written_in_the_layout_aws_writes_and_imports_back() {
                     "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}]}}),
         )
         .await;
-    let import_arn = imported["ImportTableDescription"]["ImportArn"].as_str().unwrap().to_owned();
-    assert_eq!(imported["ImportTableDescription"]["ImportStatus"], "IN_PROGRESS");
-    let d = bus.ok("DescribeImport", json!({"ImportArn": import_arn})).await;
-    assert_eq!(d["ImportTableDescription"]["ImportStatus"], "COMPLETED", "{d}");
+    let import_arn = imported["ImportTableDescription"]["ImportArn"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(
+        imported["ImportTableDescription"]["ImportStatus"],
+        "IN_PROGRESS"
+    );
+    let d = bus
+        .ok("DescribeImport", json!({"ImportArn": import_arn}))
+        .await;
+    assert_eq!(
+        d["ImportTableDescription"]["ImportStatus"], "COMPLETED",
+        "{d}"
+    );
     assert_eq!(d["ImportTableDescription"]["ImportedItemCount"], 2);
-    let got = bus.ok("GetItem", json!({"TableName": "copy", "Key": {"pk": {"S": "b"}}})).await;
+    let got = bus
+        .ok(
+            "GetItem",
+            json!({"TableName": "copy", "Key": {"pk": {"S": "b"}}}),
+        )
+        .await;
     assert_eq!(got["Item"]["n"], json!({"N": "2"}));
     let t = bus.ok("DescribeTable", json!({"TableName": "copy"})).await;
     assert_eq!(t["Table"]["TableStatus"], "ACTIVE");
-    assert_eq!(bus.ok("ListImports", json!({})).await["ImportSummaryList"][0]["ImportStatus"], "COMPLETED");
+    assert_eq!(
+        bus.ok("ListImports", json!({})).await["ImportSummaryList"][0]["ImportStatus"],
+        "COMPLETED"
+    );
 }
 
 #[tokio::test]
 async fn ion_exports_and_csv_imports() {
     let bus = Bus::new();
     with_recovery(&bus, "tab").await;
-    bus.ok("PutItem", json!({"TableName": "tab", "Item": {"pk": {"S": "a"}, "n": {"N": "600"}}})).await;
+    bus.ok(
+        "PutItem",
+        json!({"TableName": "tab", "Item": {"pk": {"S": "a"}, "n": {"N": "600"}}}),
+    )
+    .await;
     bus.s3("CreateBucket", json!({"Bucket": "bkt"})).await;
     let out = bus
         .ok("ExportTableToPointInTime", json!({"TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/tab", "S3Bucket": "bkt", "ExportFormat": "ION"}))
         .await;
-    let id = out["ExportDescription"]["ExportArn"].as_str().unwrap().rsplit('/').next().unwrap().to_owned();
+    let id = out["ExportDescription"]["ExportArn"]
+        .as_str()
+        .unwrap()
+        .rsplit('/')
+        .next()
+        .unwrap()
+        .to_owned();
     let keys = bus.keys("bkt").await;
     let data = keys.iter().find(|k| k.ends_with(".ion.gz")).unwrap();
     assert!(data.starts_with(&format!("AWSDynamoDB/{id}/data/")));
-    assert_eq!(gunzip(&bus.object("bkt", data).await), "$ion_1_0 {Item:{n:600.,pk:\"a\"}}\n");
+    assert_eq!(
+        gunzip(&bus.object("bkt", data).await),
+        "$ion_1_0 {Item:{n:600.,pk:\"a\"}}\n"
+    );
 
-    bus.put_object("bkt", "csv/one.csv", b"pk,n,note\nx,1,hello\ny,2,\n,3,no key\n").await;
+    bus.put_object(
+        "bkt",
+        "csv/one.csv",
+        b"pk,n,note\nx,1,hello\ny,2,\n,3,no key\n",
+    )
+    .await;
     let imported = bus
         .ok(
             "ImportTable",
@@ -285,9 +370,19 @@ async fn ion_exports_and_csv_imports() {
         )
         .await;
     let arn = imported["ImportTableDescription"]["ImportArn"].clone();
-    let d = bus.ok("DescribeImport", json!({"ImportArn": arn})).await["ImportTableDescription"].clone();
-    assert_eq!((d["ImportedItemCount"].as_u64(), d["ErrorCount"].as_u64()), (Some(2), Some(1)), "{d}");
-    let y = bus.ok("GetItem", json!({"TableName": "fromcsv", "Key": {"pk": {"S": "y"}}})).await;
+    let d =
+        bus.ok("DescribeImport", json!({"ImportArn": arn})).await["ImportTableDescription"].clone();
+    assert_eq!(
+        (d["ImportedItemCount"].as_u64(), d["ErrorCount"].as_u64()),
+        (Some(2), Some(1)),
+        "{d}"
+    );
+    let y = bus
+        .ok(
+            "GetItem",
+            json!({"TableName": "fromcsv", "Key": {"pk": {"S": "y"}}}),
+        )
+        .await;
     assert_eq!(y["Item"], json!({"pk": {"S": "y"}, "n": {"S": "2"}}));
 }
 
@@ -298,7 +393,12 @@ async fn an_export_or_import_without_a_bucket_fails_and_says_why() {
     let out = bus
         .ok("ExportTableToPointInTime", json!({"TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/tab", "S3Bucket": "nope"}))
         .await;
-    let d = bus.ok("DescribeExport", json!({"ExportArn": out["ExportDescription"]["ExportArn"]})).await;
+    let d = bus
+        .ok(
+            "DescribeExport",
+            json!({"ExportArn": out["ExportDescription"]["ExportArn"]}),
+        )
+        .await;
     assert_eq!(d["ExportDescription"]["ExportStatus"], "FAILED");
     assert_eq!(d["ExportDescription"]["FailureCode"], "S3NoSuchBucket");
     let imported = bus
@@ -310,9 +410,17 @@ async fn an_export_or_import_without_a_bucket_fails_and_says_why() {
                     "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}]}}),
         )
         .await;
-    let d = bus.ok("DescribeImport", json!({"ImportArn": imported["ImportTableDescription"]["ImportArn"]})).await;
+    let d = bus
+        .ok(
+            "DescribeImport",
+            json!({"ImportArn": imported["ImportTableDescription"]["ImportArn"]}),
+        )
+        .await;
     assert_eq!(d["ImportTableDescription"]["ImportStatus"], "FAILED");
-    let e = bus.call("DescribeTable", json!({"TableName": "never"})).await.unwrap_err();
+    let e = bus
+        .call("DescribeTable", json!({"TableName": "never"}))
+        .await
+        .unwrap_err();
     assert_eq!(e.code, "ResourceNotFoundException");
     // Exports need recovery on.
     bus.table("plain").await;
@@ -327,30 +435,76 @@ async fn an_export_or_import_without_a_bucket_fails_and_says_why() {
 async fn item_changes_reach_a_kinesis_streaming_destination() {
     let bus = Bus::new();
     bus.table("tab").await;
-    bus.kinesis("CreateStream", json!({"StreamName": "changes", "ShardCount": 1})).await;
+    bus.kinesis(
+        "CreateStream",
+        json!({"StreamName": "changes", "ShardCount": 1}),
+    )
+    .await;
     let stream = "arn:aws:kinesis:us-east-1:000000000000:stream/changes";
     let on = bus
-        .ok("EnableKinesisStreamingDestination", json!({"TableName": "tab", "StreamArn": stream}))
+        .ok(
+            "EnableKinesisStreamingDestination",
+            json!({"TableName": "tab", "StreamArn": stream}),
+        )
         .await;
     assert_eq!(on["DestinationStatus"], "ENABLING");
-    let d = bus.ok("DescribeKinesisStreamingDestination", json!({"TableName": "tab"})).await;
-    assert_eq!(d["KinesisDataStreamDestinations"][0]["DestinationStatus"], "ACTIVE", "{d}");
-    bus.ok("PutItem", json!({"TableName": "tab", "Item": {"pk": {"S": "a"}, "v": {"N": "1"}}})).await;
-    bus.ok("PutItem", json!({"TableName": "tab", "Item": {"pk": {"S": "a"}, "v": {"N": "2"}}})).await;
-    bus.ok("DeleteItem", json!({"TableName": "tab", "Key": {"pk": {"S": "a"}}})).await;
-    let shards = bus.kinesis("ListShards", json!({"StreamName": "changes"})).await;
+    let d = bus
+        .ok(
+            "DescribeKinesisStreamingDestination",
+            json!({"TableName": "tab"}),
+        )
+        .await;
+    assert_eq!(
+        d["KinesisDataStreamDestinations"][0]["DestinationStatus"], "ACTIVE",
+        "{d}"
+    );
+    bus.ok(
+        "PutItem",
+        json!({"TableName": "tab", "Item": {"pk": {"S": "a"}, "v": {"N": "1"}}}),
+    )
+    .await;
+    bus.ok(
+        "PutItem",
+        json!({"TableName": "tab", "Item": {"pk": {"S": "a"}, "v": {"N": "2"}}}),
+    )
+    .await;
+    bus.ok(
+        "DeleteItem",
+        json!({"TableName": "tab", "Key": {"pk": {"S": "a"}}}),
+    )
+    .await;
+    let shards = bus
+        .kinesis("ListShards", json!({"StreamName": "changes"}))
+        .await;
     let shard = shards["Shards"][0]["ShardId"].as_str().unwrap().to_owned();
     let it = bus
-        .kinesis("GetShardIterator", json!({"StreamName": "changes", "ShardId": shard, "ShardIteratorType": "TRIM_HORIZON"}))
+        .kinesis(
+            "GetShardIterator",
+            json!({"StreamName": "changes", "ShardId": shard, "ShardIteratorType": "TRIM_HORIZON"}),
+        )
         .await;
-    let got = bus.kinesis("GetRecords", json!({"ShardIterator": it["ShardIterator"]})).await;
+    let got = bus
+        .kinesis("GetRecords", json!({"ShardIterator": it["ShardIterator"]}))
+        .await;
+    check_records(&got);
+    then_disabled(&bus, stream, &got).await;
+}
+
+/// The three records of an insert, a change and a delete, in the shape of the guide.
+fn check_records(got: &Value) {
     let records: Vec<Value> = got["Records"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|r| serde_json::from_slice(&aws_core::base64::decode(r["Data"].as_str().unwrap()).unwrap()).unwrap())
+        .map(|r| {
+            serde_json::from_slice(&aws_core::base64::decode(r["Data"].as_str().unwrap()).unwrap())
+                .unwrap()
+        })
         .collect();
-    let events: Vec<&str> = records.iter().map(|r| r["eventName"].as_str().unwrap()).collect();
+    let events: Vec<&str> = records
+        .iter()
+        .map(|r| r["eventName"].as_str().unwrap())
+        .collect();
     assert_eq!(events, ["INSERT", "MODIFY", "REMOVE"]);
     let modify = &records[1];
     assert_eq!(modify["tableName"], "tab");
@@ -359,8 +513,14 @@ async fn item_changes_reach_a_kinesis_streaming_destination() {
     assert_eq!(modify["dynamodb"]["Keys"], json!({"pk": {"S": "a"}}));
     assert_eq!(modify["dynamodb"]["OldImage"]["v"], json!({"N": "1"}));
     assert_eq!(modify["dynamodb"]["NewImage"]["v"], json!({"N": "2"}));
-    assert_eq!(modify["dynamodb"]["ApproximateCreationDateTimePrecision"], "MILLISECOND");
-    // Microseconds when asked; nothing once disabled.
+    assert_eq!(
+        modify["dynamodb"]["ApproximateCreationDateTimePrecision"],
+        "MILLISECOND"
+    );
+}
+
+/// Microseconds when asked; nothing once disabled; a stream that is not there fails to enable.
+async fn then_disabled(bus: &Bus, stream: &str, got: &Value) {
     let up = bus
         .ok(
             "UpdateKinesisStreamingDestination",
@@ -369,18 +529,47 @@ async fn item_changes_reach_a_kinesis_streaming_destination() {
         .await;
     assert_eq!(up["DestinationStatus"], "UPDATING");
     let off = bus
-        .ok("DisableKinesisStreamingDestination", json!({"TableName": "tab", "StreamArn": stream}))
+        .ok(
+            "DisableKinesisStreamingDestination",
+            json!({"TableName": "tab", "StreamArn": stream}),
+        )
         .await;
     assert_eq!(off["DestinationStatus"], "DISABLING");
-    bus.ok("PutItem", json!({"TableName": "tab", "Item": {"pk": {"S": "b"}}})).await;
-    let later = bus.kinesis("GetRecords", json!({"ShardIterator": got["NextShardIterator"]})).await;
+    bus.ok(
+        "PutItem",
+        json!({"TableName": "tab", "Item": {"pk": {"S": "b"}}}),
+    )
+    .await;
+    let later = bus
+        .kinesis(
+            "GetRecords",
+            json!({"ShardIterator": got["NextShardIterator"]}),
+        )
+        .await;
     assert_eq!(later["Records"], json!([]));
-    let d = bus.ok("DescribeKinesisStreamingDestination", json!({"TableName": "tab"})).await;
-    assert_eq!(d["KinesisDataStreamDestinations"][0]["DestinationStatus"], "DISABLED");
+    let d = bus
+        .ok(
+            "DescribeKinesisStreamingDestination",
+            json!({"TableName": "tab"}),
+        )
+        .await;
+    assert_eq!(
+        d["KinesisDataStreamDestinations"][0]["DestinationStatus"],
+        "DISABLED"
+    );
     // A stream that is not there fails to enable, and says why.
     let missing = "arn:aws:kinesis:us-east-1:000000000000:stream/none";
-    bus.ok("EnableKinesisStreamingDestination", json!({"TableName": "tab", "StreamArn": missing})).await;
-    let d = bus.ok("DescribeKinesisStreamingDestination", json!({"TableName": "tab"})).await;
+    bus.ok(
+        "EnableKinesisStreamingDestination",
+        json!({"TableName": "tab", "StreamArn": missing}),
+    )
+    .await;
+    let d = bus
+        .ok(
+            "DescribeKinesisStreamingDestination",
+            json!({"TableName": "tab"}),
+        )
+        .await;
     let failed = d["KinesisDataStreamDestinations"]
         .as_array()
         .unwrap()

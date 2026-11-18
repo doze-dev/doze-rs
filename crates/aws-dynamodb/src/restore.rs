@@ -55,7 +55,10 @@ impl Core {
 
     pub(crate) fn restore_to_point_in_time(&mut self, cx: &Cx<'_>) -> Result<Json, ApiError> {
         let body = &cx.body;
-        let name = match (str_of(body, "SourceTableName"), str_of(body, "SourceTableArn")) {
+        let name = match (
+            str_of(body, "SourceTableName"),
+            str_of(body, "SourceTableArn"),
+        ) {
             (Some(n), None) => n.to_owned(),
             (None, Some(_)) => cx.table_name("SourceTableArn")?,
             (Some(_), Some(_)) => {
@@ -114,7 +117,13 @@ impl Core {
         for item in &source.items {
             self.stage(&t, cx.now_ms, None, Some(item), false)?;
         }
-        let mut shown = description(&t, cx.region(), cx.account(), Shape::Create, &Sizes::default());
+        let mut shown = description(
+            &t,
+            cx.region(),
+            cx.account(),
+            Shape::Create,
+            &Sizes::default(),
+        );
         set(
             &mut shown,
             "RestoreSummary",
@@ -130,7 +139,8 @@ impl Core {
         let body = &cx.body;
         let until = cx.now_ms + self.windows.create_ms;
         let mut t = source.clone();
-        t.id = aws_seal::random_bytes::<16>().ok_or_else(|| ApiError::internal("no random bytes"))?;
+        t.id =
+            aws_seal::random_bytes::<16>().ok_or_else(|| ApiError::internal("no random bytes"))?;
         target.clone_into(&mut t.name);
         t.created_ms = cx.now_ms;
         t.status = Status::Creating;
@@ -144,8 +154,16 @@ impl Core {
             days: 35,
             enabled_ms: 0,
         };
-        t.gsis = kept(&source.gsis, body.get("GlobalSecondaryIndexOverride"), "global")?;
-        t.lsis = kept(&source.lsis, body.get("LocalSecondaryIndexOverride"), "local")?;
+        t.gsis = kept(
+            &source.gsis,
+            body.get("GlobalSecondaryIndexOverride"),
+            "global",
+        )?;
+        t.lsis = kept(
+            &source.lsis,
+            body.get("LocalSecondaryIndexOverride"),
+            "local",
+        )?;
         for ix in &mut t.gsis {
             ix.status = Status::Creating;
             ix.status_until_ms = until;
@@ -238,9 +256,12 @@ fn kept(indexes: &[Index], wanted: Option<&Json>, kind: &str) -> Result<Vec<Inde
 
 /// The billing mode, throughput and encryption overrides.
 fn overrides(t: &mut Table, body: &Json, now_ms: i64) -> Result<(), ApiError> {
-    let units = body
-        .get("ProvisionedThroughputOverride")
-        .map(|p| (int_of(p, "ReadCapacityUnits").unwrap_or(0), int_of(p, "WriteCapacityUnits").unwrap_or(0)));
+    let units = body.get("ProvisionedThroughputOverride").map(|p| {
+        (
+            int_of(p, "ReadCapacityUnits").unwrap_or(0),
+            int_of(p, "WriteCapacityUnits").unwrap_or(0),
+        )
+    });
     match str_of(body, "BillingModeOverride") {
         Some("PAY_PER_REQUEST") => {
             t.billing.pay_per_request = true;

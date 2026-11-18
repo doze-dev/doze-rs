@@ -67,7 +67,9 @@ const ALL_END: [u8; 17] = [0xFF; 17];
 
 /// A backup's name as `doze-aws data` shows it: the resource part of its ARN, `<table>/backup/<id>`.
 fn backup_name(b: &crate::extras::Backup) -> &str {
-    b.arn.rsplit_once(":table/").map_or(b.arn.as_str(), |(_, r)| r)
+    b.arn
+        .rsplit_once(":table/")
+        .map_or(b.arn.as_str(), |(_, r)| r)
 }
 
 impl Core {
@@ -106,9 +108,9 @@ impl Core {
             let crate::extras::Extra::Backup(b) = e else {
                 continue;
             };
-            let (rows, bytes) = self
-                .disk
-                .measure(Space::Backup, &b.id, &keys::prefix_end(&b.id))?;
+            let (rows, bytes) =
+                self.disk
+                    .measure(Space::Backup, &b.id, &keys::prefix_end(&b.id))?;
             out.push(Resource {
                 region: region.to_owned(),
                 name: backup_name(b).to_owned(),
@@ -129,10 +131,15 @@ impl Core {
 
     /// Deletes a backup by the name `doze-aws data` shows.
     fn empty_backup(&mut self, name: &str, dry_run: bool) -> Result<Emptied, StorageError> {
-        let found = self.extras.with_prefix("backup/").find_map(|(k, e)| match e {
-            crate::extras::Extra::Backup(b) if backup_name(b) == name => Some((k.to_owned(), b.id)),
-            _ => None,
-        });
+        let found = self
+            .extras
+            .with_prefix("backup/")
+            .find_map(|(k, e)| match e {
+                crate::extras::Extra::Backup(b) if backup_name(b) == name => {
+                    Some((k.to_owned(), b.id))
+                }
+                _ => None,
+            });
         let (key, id) = found.ok_or(StorageError::NotFound)?;
         let (items, bytes) = self
             .disk

@@ -60,7 +60,9 @@ impl Core {
             )
         };
         if !arn.starts_with("arn:") {
-            return Err(validation(format!("Invalid ResourceArn provided as input {arn}")));
+            return Err(validation(format!(
+                "Invalid ResourceArn provided as input {arn}"
+            )));
         }
         let name = crate::req::table_name(arn, cx.region(), cx.account()).map_err(|_| missing())?;
         let t = self.tables.get(name).ok_or_else(missing)?;
@@ -70,7 +72,9 @@ impl Core {
                 return Err(missing());
             }
         } else if arn != table_arn(cx.region(), cx.account(), name) {
-            return Err(validation(format!("Invalid ResourceArn provided as input {arn}")));
+            return Err(validation(format!(
+                "Invalid ResourceArn provided as input {arn}"
+            )));
         }
         Ok((name.to_owned(), arn.to_owned()))
     }

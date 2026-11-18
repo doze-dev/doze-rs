@@ -27,7 +27,8 @@ fn field_name(k: &str, out: &mut String) {
         .chars()
         .next()
         .is_some_and(|c| c.is_ascii_alphabetic() || c == '_' || c == '$')
-        && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+        && k.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
         && !matches!(k, "null" | "true" | "false" | "nan");
     if ident {
         out.push_str(k);
@@ -73,7 +74,11 @@ fn blob(b: &[u8], out: &mut String) {
     out.push_str("}}");
 }
 
-fn list<T>(items: impl IntoIterator<Item = T>, out: &mut String, mut each: impl FnMut(T, &mut String)) {
+fn list<T>(
+    items: impl IntoIterator<Item = T>,
+    out: &mut String,
+    mut each: impl FnMut(T, &mut String),
+) {
     out.push('[');
     for (i, v) in items.into_iter().enumerate() {
         if i > 0 {
@@ -359,10 +364,9 @@ impl Parser<'_> {
     /// A keyword, typed null, or number.
     fn atom(&mut self) -> Result<Ion, String> {
         let start = self.at;
-        while self
-            .peek()
-            .is_some_and(|c| !c.is_ascii_whitespace() && !b",]})".contains(&c) && !self.rest().starts_with(b"//"))
-        {
+        while self.peek().is_some_and(|c| {
+            !c.is_ascii_whitespace() && !b",]})".contains(&c) && !self.rest().starts_with(b"//")
+        }) {
             self.at += 1;
         }
         let text = std::str::from_utf8(self.s.get(start..self.at).unwrap_or_default())
@@ -373,9 +377,9 @@ impl Parser<'_> {
             t if t == "null" || t.starts_with("null.") => return Ok(Ion::Null),
             _ => {}
         }
-        number(text).map(Ion::Num).ok_or_else(|| {
-            format!("'{text}' is not a value DynamoDB can hold, at byte {start}")
-        })
+        number(text)
+            .map(Ion::Num)
+            .ok_or_else(|| format!("'{text}' is not a value DynamoDB can hold, at byte {start}"))
     }
 }
 
@@ -393,7 +397,8 @@ fn number(text: &str) -> Option<String> {
     if !first.as_bytes().first().is_some_and(u8::is_ascii_digit) {
         return None;
     }
-    if t.contains('T') || t.matches('-').count() > 1 + usize::from(t.contains(['d', 'D', 'e', 'E'])) {
+    if t.contains('T') || t.matches('-').count() > 1 + usize::from(t.contains(['d', 'D', 'e', 'E']))
+    {
         // A timestamp (`2020-01-01T`).
         return None;
     }
@@ -459,7 +464,9 @@ pub(crate) fn to_value(v: Ion) -> Result<Value, String> {
             }
             Value::M(m)
         }
-        Ion::List(items, None) => Value::L(items.into_iter().map(to_value).collect::<Result<_, _>>()?),
+        Ion::List(items, None) => {
+            Value::L(items.into_iter().map(to_value).collect::<Result<_, _>>()?)
+        }
         Ion::List(items, Some(a)) => set(items, &a)?,
     })
 }
@@ -519,19 +526,30 @@ mod tests {
         item.insert("Id".into(), n("103"));
         item.insert("Price".into(), n("2000.5"));
         item.insert("Big".into(), n("1E+40"));
-        item.insert("Authors".into(), Value::Ss(["A".into(), "B\"q".into()].into()));
+        item.insert(
+            "Authors".into(),
+            Value::Ss(["A".into(), "B\"q".into()].into()),
+        );
         item.insert("Ns".into(), Value::Ns([Number::from_i64(1)].into()));
         item.insert("Bin".into(), Value::B(vec![0, 1, 2]));
         item.insert("Bs".into(), Value::Bs([vec![9]].into()));
-        item.insert("odd name".into(), Value::L(vec![Value::Null, Value::Bool(true)]));
-        item.insert("M".into(), Value::M([("x\ny".into(), Value::S(String::new()))].into()));
+        item.insert(
+            "odd name".into(),
+            Value::L(vec![Value::Null, Value::Bool(true)]),
+        );
+        item.insert(
+            "M".into(),
+            Value::M([("x\ny".into(), Value::S(String::new()))].into()),
+        );
         let text = line("Item", &Value::M(item.clone()));
         assert!(text.starts_with("$ion_1_0 {Item:{"));
         let mut read = read_all(&text).unwrap();
         let Some(Ion::Struct(mut top)) = read.pop() else {
             panic!("{text}")
         };
-        let Some((_, inner)) = top.pop() else { panic!() };
+        let Some((_, inner)) = top.pop() else {
+            panic!()
+        };
         assert_eq!(to_value(inner).unwrap(), Value::M(item));
     }
 
@@ -539,8 +557,12 @@ mod tests {
     fn the_guides_example_reads() {
         let text = "$ion_1_0 {\n Item:{\n Authors:$dynamodb_SS::[\"Author1\",\"Author2\"],\n Id:103.,\n InPublication:false,\n PageCount:6d2,\n Price:2d3,\n Title:'''Book ''' '''103''' // a comment\n }\n}\n";
         let read = read_all(text).unwrap();
-        let [Ion::Struct(top)] = read.as_slice() else { panic!("{read:?}") };
-        let Some((name, Ion::Struct(fields))) = top.first() else { panic!() };
+        let [Ion::Struct(top)] = read.as_slice() else {
+            panic!("{read:?}")
+        };
+        let Some((name, Ion::Struct(fields))) = top.first() else {
+            panic!()
+        };
         assert_eq!(name, "Item");
         let get = |k: &str| fields.iter().find(|(f, _)| f == k).map(|(_, v)| v).unwrap();
         assert_eq!(get("PageCount"), &Ion::Num("6E2".into()));
@@ -551,9 +573,22 @@ mod tests {
 
     #[test]
     fn what_has_no_dynamodb_form_is_refused() {
-        for bad in ["{a:2020-01-01T}", "{a:(x y)}", "{a:{{\"clob\"}}}", "{a:", "{a:'x}", "{a 1}"] {
+        for bad in [
+            "{a:2020-01-01T}",
+            "{a:(x y)}",
+            "{a:{{\"clob\"}}}",
+            "{a:",
+            "{a:'x}",
+            "{a 1}",
+        ] {
             assert!(read_all(bad).is_err(), "{bad}");
         }
-        assert!(to_value(Ion::List(vec![Ion::Num("1".into())], Some("$dynamodb_SS".into()))).is_err());
+        assert!(
+            to_value(Ion::List(
+                vec![Ion::Num("1".into())],
+                Some("$dynamodb_SS".into())
+            ))
+            .is_err()
+        );
     }
 }

@@ -55,19 +55,33 @@ fn query_with_key_conditions_filter_and_attributes_to_get() {
 #[test]
 fn scan_filter_operators() {
     let mut w = world();
-    let scan = |w: &mut World, filter: Value| sks(&w.ok("Scan", json!({"TableName": "tab", "ScanFilter": filter})));
+    let scan = |w: &mut World, filter: Value| {
+        sks(&w.ok("Scan", json!({"TableName": "tab", "ScanFilter": filter})))
+    };
     assert_eq!(
-        scan(&mut w, json!({"tag": {"ComparisonOperator": "BEGINS_WITH", "AttributeValueList": [{"S": "bl"}]}})),
+        scan(
+            &mut w,
+            json!({"tag": {"ComparisonOperator": "BEGINS_WITH", "AttributeValueList": [{"S": "bl"}]}})
+        ),
         ["2"]
     );
     assert_eq!(
-        scan(&mut w, json!({"n": {"ComparisonOperator": "IN", "AttributeValueList": [{"N": "10"}, {"N": "30"}]}})),
+        scan(
+            &mut w,
+            json!({"n": {"ComparisonOperator": "IN", "AttributeValueList": [{"N": "10"}, {"N": "30"}]}})
+        ),
         ["1", "3"]
     );
-    assert_eq!(scan(&mut w, json!({"gone": {"ComparisonOperator": "NULL"}})).len(), 3);
+    assert_eq!(
+        scan(&mut w, json!({"gone": {"ComparisonOperator": "NULL"}})).len(),
+        3
+    );
     assert!(scan(&mut w, json!({"gone": {"ComparisonOperator": "NOT_NULL"}})).is_empty());
     assert_eq!(
-        scan(&mut w, json!({"tag": {"ComparisonOperator": "CONTAINS", "AttributeValueList": [{"S": "e"}]}})),
+        scan(
+            &mut w,
+            json!({"tag": {"ComparisonOperator": "CONTAINS", "AttributeValueList": [{"S": "e"}]}})
+        ),
         ["1", "2", "3"]
     );
 }
@@ -124,13 +138,19 @@ fn attribute_updates_put_add_and_delete() {
         "UpdateItem",
         json!({"TableName": "tab", "Key": absent, "AttributeUpdates": {"x": {"Action": "DELETE"}}}),
     );
-    assert_eq!(w.ok("GetItem", json!({"TableName": "tab", "Key": absent})), json!({}));
+    assert_eq!(
+        w.ok("GetItem", json!({"TableName": "tab", "Key": absent})),
+        json!({})
+    );
     w.ok(
         "UpdateItem",
         json!({"TableName": "tab", "Key": absent, "AttributeUpdates": {"c": {"Action": "ADD", "Value": {"N": "3"}}}}),
     );
     assert_eq!(
-        w.ok("GetItem", json!({"TableName": "tab", "Key": absent, "AttributesToGet": ["c"]})),
+        w.ok(
+            "GetItem",
+            json!({"TableName": "tab", "Key": absent, "AttributesToGet": ["c"]})
+        ),
         json!({"Item": {"c": {"N": "3"}}})
     );
 }
@@ -163,7 +183,15 @@ fn mixing_and_malformed_legacy_parameters_are_refused() {
         json!({"TableName": "tab", "KeyConditions": {"pk": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "a"}]}},
             "FilterExpression": "n > :v", "ExpressionAttributeValues": {":v": {"N": "1"}}}),
     );
-    assert!(message(&e).contains("Non-expression parameters: {KeyConditions} Expression parameters: {FilterExpression}"));
+    assert!(message(&e).contains(
+        "Non-expression parameters: {KeyConditions} Expression parameters: {FilterExpression}"
+    ));
+}
+
+#[test]
+fn malformed_legacy_parameters_are_refused() {
+    let mut w = world();
+    let key = json!({"pk": {"S": "a"}, "sk": {"N": "1"}});
     let cases = [
         (
             json!({"KeyConditions": {"pk": {"ComparisonOperator": "EQ", "AttributeValueList": []}}}),
@@ -201,15 +229,23 @@ fn mixing_and_malformed_legacy_parameters_are_refused() {
         "UpdateItem",
         json!({"TableName": "tab", "Key": key, "AttributeUpdates": {"n": {"Action": "PUT"}}}),
     );
-    assert!(message(&e).contains("Only DELETE action is allowed when no attribute value is specified"));
+    assert!(
+        message(&e).contains("Only DELETE action is allowed when no attribute value is specified")
+    );
     let e = w.err(
         "Scan",
         json!({"TableName": "tab", "AttributesToGet": ["n"], "Select": "ALL_ATTRIBUTES"}),
     );
-    assert_eq!(message(&e), "Cannot specify the AttributesToGet when choosing to get ALL_ATTRIBUTES");
+    assert_eq!(
+        message(&e),
+        "Cannot specify the AttributesToGet when choosing to get ALL_ATTRIBUTES"
+    );
     let e = w.err(
         "Scan",
         json!({"TableName": "tab", "ScanFilter": {"n": {"ComparisonOperator": "NULL"}}, "ExpressionAttributeNames": {"#n": "n"}}),
     );
-    assert_eq!(message(&e), "ExpressionAttributeNames can only be specified when using expressions");
+    assert_eq!(
+        message(&e),
+        "ExpressionAttributeNames can only be specified when using expressions"
+    );
 }

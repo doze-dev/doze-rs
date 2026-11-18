@@ -47,7 +47,10 @@ pub(crate) struct Job {
 pub(crate) enum Format {
     Json,
     Ion,
-    Csv { delimiter: char, header: Option<Vec<String>> },
+    Csv {
+        delimiter: char,
+        header: Option<Vec<String>>,
+    },
 }
 
 /// What the reading found.
@@ -59,7 +62,10 @@ pub(crate) struct Read {
 }
 
 fn not_found(arn: &str) -> ApiError {
-    ApiError::modeled("ImportNotFoundException", format!("Import not found: {arn}"))
+    ApiError::modeled(
+        "ImportNotFoundException",
+        format!("Import not found: {arn}"),
+    )
 }
 
 impl Core {
@@ -68,7 +74,10 @@ impl Core {
         if let Some(done) = self.repeated_import(body, cx.now_ms)? {
             return Ok(json!({ "ImportTableDescription": done }));
         }
-        let params = body.get("TableCreationParameters").cloned().unwrap_or_default();
+        let params = body
+            .get("TableCreationParameters")
+            .cloned()
+            .unwrap_or_default();
         let name = str_of(&params, "TableName").unwrap_or_default().to_owned();
         crate::schema::check_table_name(&name)?;
         if self.tables.get(&name).is_some() {
@@ -119,7 +128,9 @@ impl Core {
             arn,
             caller: cx.call.caller.clone(),
             bucket: str_of(&source, "S3Bucket").unwrap_or_default().to_owned(),
-            prefix: str_of(&source, "S3KeyPrefix").unwrap_or_default().to_owned(),
+            prefix: str_of(&source, "S3KeyPrefix")
+                .unwrap_or_default()
+                .to_owned(),
             format,
             gzip,
             keys,
@@ -141,7 +152,9 @@ impl Core {
             if *f != fp {
                 return Err(ApiError::modeled(
                     "ImportConflictException",
-                    format!("An import with client token {token} was made with different parameters"),
+                    format!(
+                        "An import with client token {token} was made with different parameters"
+                    ),
                 ));
             }
             return Ok(serde_json::from_str(&task.shown).ok());
@@ -179,7 +192,11 @@ impl Core {
                 }
                 set(&mut shown, "ImportStatus", json!("COMPLETED"));
                 set(&mut shown, "ProcessedSizeBytes", json!(read.bytes));
-                set(&mut shown, "ProcessedItemCount", json!(read.items.len() as u64 + read.errors));
+                set(
+                    &mut shown,
+                    "ProcessedItemCount",
+                    json!(read.items.len() as u64 + read.errors),
+                );
                 set(&mut shown, "ImportedItemCount", json!(imported));
                 set(&mut shown, "ErrorCount", json!(read.errors + bad));
             }
@@ -236,7 +253,15 @@ impl Core {
             .iter()
             .map(|s| {
                 let mut out = json!({});
-                for k in ["ImportArn", "ImportStatus", "TableArn", "S3BucketSource", "InputFormat", "StartTime", "EndTime"] {
+                for k in [
+                    "ImportArn",
+                    "ImportStatus",
+                    "TableArn",
+                    "S3BucketSource",
+                    "InputFormat",
+                    "StartTime",
+                    "EndTime",
+                ] {
                     if let Some(v) = s.get(k) {
                         set(&mut out, k, v.clone());
                     }
@@ -318,7 +343,10 @@ pub(crate) async fn read(peers: &Arc<Peers>, job: &Job) -> Result<Read, Failure>
     if keys.is_empty() {
         return Err(Failure::new(
             "InvalidS3Source",
-            format!("No objects were found in bucket {} under the prefix '{}'", job.bucket, job.prefix),
+            format!(
+                "No objects were found in bucket {} under the prefix '{}'",
+                job.bucket, job.prefix
+            ),
         ));
     }
     let mut out = Read::default();
@@ -356,7 +384,11 @@ async fn list(peers: &Arc<Peers>, job: &Job) -> Result<Vec<String>, Failure> {
                 .filter(|k| !k.ends_with('/'))
                 .map(str::to_owned),
         );
-        match reply.json.get("NextContinuationToken").and_then(Json::as_str) {
+        match reply
+            .json
+            .get("NextContinuationToken")
+            .and_then(Json::as_str)
+        {
             Some(t) if reply.json.get("IsTruncated").and_then(Json::as_bool) == Some(true) => {
                 set(&mut ask, "ContinuationToken", json!(t));
             }
@@ -410,7 +442,14 @@ fn inflate(raw: &[u8], gzip: bool) -> Result<String, String> {
 pub fn check(text: &str) -> usize {
     let mut out = Read::default();
     let keys = [("pk".to_owned(), 'N'), ("b".to_owned(), 'B')];
-    for format in [Format::Json, Format::Ion, Format::Csv { delimiter: ',', header: None }] {
+    for format in [
+        Format::Json,
+        Format::Ion,
+        Format::Csv {
+            delimiter: ',',
+            header: None,
+        },
+    ] {
         let job = Job {
             arn: String::new(),
             caller: crate::work::service_caller(""),
@@ -439,7 +478,9 @@ fn parse(text: &str, job: &Job, out: &mut Read) {
             }
         }
         Format::Ion => ion(text, out),
-        Format::Csv { delimiter, header } => csv(text, *delimiter, header.as_deref(), &job.keys, out),
+        Format::Csv { delimiter, header } => {
+            csv(text, *delimiter, header.as_deref(), &job.keys, out)
+        }
     }
 }
 
@@ -472,7 +513,13 @@ fn ion(text: &str, out: &mut Read) {
 }
 
 /// CSV: RFC 4180 records; the key attributes typed by their definitions, the rest strings, empty columns left out.
-fn csv(text: &str, delimiter: char, header: Option<&[String]>, keys: &[(String, char)], out: &mut Read) {
+fn csv(
+    text: &str,
+    delimiter: char,
+    header: Option<&[String]>,
+    keys: &[(String, char)],
+    out: &mut Read,
+) {
     let mut records = records(text, delimiter).into_iter();
     let names: Vec<String> = match header {
         Some(h) => h.to_vec(),
@@ -495,7 +542,10 @@ fn csv(text: &str, delimiter: char, header: Option<&[String]>, keys: &[(String, 
             if raw.is_empty() {
                 continue;
             }
-            let ty = keys.iter().find(|(k, _)| k == name).map_or('S', |(_, t)| *t);
+            let ty = keys
+                .iter()
+                .find(|(k, _)| k == name)
+                .map_or('S', |(_, t)| *t);
             let value = match ty {
                 'N' => Number::parse(&raw).ok().map(Value::N),
                 'B' => aws_core::base64::decode(&raw).map(Value::B),
@@ -559,7 +609,13 @@ mod tests {
     fn csv_follows_rfc_4180_and_types_the_keys() {
         let text = "pk,n,note\r\n\"a,b\",7,\"say \"\"hi\"\"\nthere\"\nc,x,\n";
         let mut out = Read::default();
-        csv(text, ',', None, &[("pk".into(), 'S'), ("n".into(), 'N')], &mut out);
+        csv(
+            text,
+            ',',
+            None,
+            &[("pk".into(), 'S'), ("n".into(), 'N')],
+            &mut out,
+        );
         assert_eq!(out.items.len(), 1);
         assert_eq!(out.errors, 1, "x is not a number");
         let item = &out.items[0];
@@ -567,7 +623,13 @@ mod tests {
         assert_eq!(item["n"], Value::N(Number::from_i64(7)));
         assert_eq!(item["note"], Value::S("say \"hi\"\nthere".into()));
         let mut given = Read::default();
-        csv("x;1\n", ';', Some(&["pk".into(), "v".into()]), &[], &mut given);
+        csv(
+            "x;1\n",
+            ';',
+            Some(&["pk".into(), "v".into()]),
+            &[],
+            &mut given,
+        );
         assert_eq!(given.items[0]["v"], Value::S("1".into()));
     }
 
@@ -583,10 +645,17 @@ mod tests {
             keys: Vec::new(),
         };
         let mut out = Read::default();
-        parse("{\"Item\":{\"pk\":{\"S\":\"a\"}}}\n\nnot json\n{\"Item\":{\"pk\":{\"Q\":1}}}\n", &job, &mut out);
+        parse(
+            "{\"Item\":{\"pk\":{\"S\":\"a\"}}}\n\nnot json\n{\"Item\":{\"pk\":{\"Q\":1}}}\n",
+            &job,
+            &mut out,
+        );
         assert_eq!((out.items.len(), out.errors), (1, 2));
         let mut ion_out = Read::default();
-        ion("$ion_1_0\n[{Item:{pk:\"a\"}},{Item:{pk:\"b\", n:6d2}}]\n$ion_1_0 {Item:{pk:\"c\"}}\n$ion_1_0 {Other:1}", &mut ion_out);
+        ion(
+            "$ion_1_0\n[{Item:{pk:\"a\"}},{Item:{pk:\"b\", n:6d2}}]\n$ion_1_0 {Item:{pk:\"c\"}}\n$ion_1_0 {Other:1}",
+            &mut ion_out,
+        );
         assert_eq!((ion_out.items.len(), ion_out.errors), (3, 1));
         assert_eq!(ion_out.items[1]["n"], Value::N(Number::from_i64(600)));
     }
