@@ -18,16 +18,14 @@ use crate::doc::Doc;
 use crate::errors::{no_api, not_found, refused};
 use crate::req::{Req, Res};
 
-/// The operations not built, and why: portals, portal products and pages, routing rules (the developer-portal surface: no local
-/// counterpart), VPC links (no VPC), and `GetModelTemplate` (a console scaffold).
+/// The operations not built, and why: portals, portal products and pages, routing rules (the developer-portal surface and custom
+/// domains' routing: no local counterpart).
 pub(crate) fn built(op: Operation) -> bool {
     let name = format!("{op:?}");
     !(name.contains("Portal")
         || name.contains("ProductPage")
         || name.contains("ProductRestEndpointPage")
-        || name.contains("RoutingRule")
-        || name.contains("VpcLink")
-        || op == Operation::GetModelTemplate)
+        || name.contains("RoutingRule"))
 }
 
 /// Runs operation `op`.
@@ -43,6 +41,10 @@ pub(crate) fn dispatch(core: &mut Core, op: u32, r: &Req) -> Res {
     }
     if let Some(res) = stages::dispatch(core, op, r) {
         return res;
+    }
+    let name = format!("{op:?}");
+    if name.contains("VpcLink") {
+        return crate::links::v2(core, &name, r);
     }
     parts::dispatch(core, op, r).unwrap_or_else(|| Err(refused(&format!("{op:?}"))))
 }
