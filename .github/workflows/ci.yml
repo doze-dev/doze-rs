@@ -368,7 +368,10 @@ jobs:
           # protocol, so the lean build has them too (+447,216 B in the darwin default build). Line: that plus 5%.
           [ "$size" -le 6394752 ] || { echo "lean binary over 6,394,752 B"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
-          [ "$rss" -le 7229 ] || { echo "idle resident memory over 7,229 KB in the lean build"; exit 1; }
+          # 2026-11-18, share groups: CI read 7,192 then 7,380 KB (main 7,104). In the doze-ubuntu VM (aarch64, lean, 6 starts each) main
+          # idles at 5,272-5,288 KB and share groups at 5,476-5,484 KB with heap (188 KB) and anonymous memory (456-460 KB) the same:
+          # the +196 KB is the bigger binary's resident code pages, nothing held. Line: 7,380 KB plus 5%.
+          [ "$rss" -le 7749 ] || { echo "idle resident memory over 7,749 KB in the lean build"; exit 1; }
           ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }
 
   # TLS is in the default build since 2026-11-14 (the owner: one build), so its size and packages are the `weight` job's (xtask/weight-limits.txt).
