@@ -1,0 +1,60 @@
+# F5: the registry down is a failed check (1), host by host.
+
+$ doze doctor
+exit 1
+stdout:
+|   ✓  platform   {triple}
+|   ✓  home       {sandbox}/home
+|   ✓  config     no doze.hcl here or in any parent: checking the machine only
+|   ✗  registry   can't be reached: {sandbox}/unreachable: no registry in that directory · modules this machine has keep working
+|   ✓  names      the .doze zone is switched off (DOZE_ZONE=off): nothing to set up
+stderr:
+| error[DZ0501]: some checks need attention (marked ✗ above)
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze doctor",
+|   "ok": false,
+|   "data": {
+|     "ok": false,
+|     "checks": [
+|       {
+|         "name": "platform",
+|         "state": "ok",
+|         "ok": true,
+|         "detail": "{triple}"
+|       },
+|       {
+|         "name": "home",
+|         "state": "ok",
+|         "ok": true,
+|         "detail": "{sandbox}/home"
+|       },
+|       {
+|         "name": "config",
+|         "state": "ok",
+|         "ok": true,
+|         "detail": "no doze.hcl here or in any parent: checking the machine only"
+|       },
+|       {
+|         "name": "registry",
+|         "state": "fail",
+|         "ok": false,
+|         "detail": "can't be reached: {sandbox}/unreachable: no registry in that directory · modules this machine has keep working"
+|       },
+|       {
+|         "name": "names",
+|         "state": "ok",
+|         "ok": true,
+|         "detail": "the .doze zone is switched off (DOZE_ZONE=off): nothing to set up"
+|       }
+|     ]
+|   },
+|   "error": {
+|     "code": "failed",
+|     "message": "some checks need attention (marked ✗ above)",
+|     "exit": 1,
+|     "id": "DZ0501"
+|   }
+| }

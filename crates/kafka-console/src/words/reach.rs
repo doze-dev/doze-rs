@@ -58,7 +58,10 @@ pub fn reach_sentence(v: &MessagesView) -> Vec<Span> {
     if r.above_lso > 0 && v.query.reading == crate::model::Reading::Uncommitted {
         let lso = v
             .query
-            .partition
+            .partitions
+            .first()
+            .copied()
+            .filter(|_| v.query.partitions.len() == 1)
             .and_then(|p| v.head.parts.iter().find(|x| x.partition == p))
             .map(|p| format!(" ({})", number(p.last_stable)))
             .unwrap_or_default();

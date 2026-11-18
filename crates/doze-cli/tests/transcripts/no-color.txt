@@ -1,0 +1,29 @@
+# NO_COLOR turns colour off on a terminal too.
+@ tty
+@ env NO_COLOR=1
+
+$ doze up
+exit 1
+stderr:
+| error[DZ0001]: `doze up` is not built yet: it talks to the doze daemon, which comes with the Rust core
+|   fix: the Go doze does this today
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze up",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "`doze up` is not built yet: it talks to the doze daemon, which comes with the Rust core",
+|     "exit": 1,
+|     "id": "DZ0001",
+|     "fix": "the Go doze does this today"
+|   }
+| }
+tty exit 1
+tty stderr:
+| error[DZ0001]: `doze up` is not built yet: it talks to the doze daemon, which comes with the Rust core
+|   fix: the Go doze does this today
+tty spawned:
+| __refresh --latest

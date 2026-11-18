@@ -27,6 +27,56 @@ use kafka_protocol::protocol::{Decodable, Encodable, StrBytes};
 use kafka_wire::batch::build::BatchBuilder;
 use kafka_wire::testing::{framed, request_payload};
 
+/// How long a test waits for a process that is expected to exit by itself. A mutated binary that hangs fails the test in
+/// this long, not after the test harness's own minutes.
+const PROCESS_WAIT: Duration = Duration::from_secs(20);
+
+/// `Command::output` with a limit: the process is killed, and the test fails with what it had said, if it is still
+/// running after `limit`.
+trait OutputWithin {
+    fn output_within(&mut self, limit: Duration) -> std::process::Output;
+}
+
+/// Reads a pipe to its end on a thread, so that a process that fills one is never blocked on it.
+fn drain<R: Read + Send + 'static>(mut pipe: R) -> std::thread::JoinHandle<Vec<u8>> {
+    std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let _ = pipe.read_to_end(&mut bytes);
+        bytes
+    })
+}
+
+impl OutputWithin for Command {
+    fn output_within(&mut self, limit: Duration) -> std::process::Output {
+        let mut child = self
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let stdout = drain(child.stdout.take().unwrap());
+        let stderr = drain(child.stderr.take().unwrap());
+        let deadline = Instant::now() + limit;
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break status;
+            }
+            if Instant::now() >= deadline {
+                let _ = child.kill();
+                let _ = child.wait();
+                let said = String::from_utf8_lossy(&stderr.join().unwrap_or_default()).into_owned();
+                panic!("the process was still running after {limit:?}; stderr so far: {said}");
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        std::process::Output {
+            status,
+            stdout: stdout.join().unwrap(),
+            stderr: stderr.join().unwrap(),
+        }
+    }
+}
+
 struct Broker {
     child: Child,
     port: u16,
@@ -53,7 +103,13 @@ fn start_with(data: &Path, flags: &[&str]) -> Broker {
 /// [`start_with`], with environment variables set for the process.
 fn start_with_env(data: &Path, flags: &[&str], env: &[(&str, &str)]) -> Broker {
     let mut child = Command::new(env!("CARGO_BIN_EXE_doze-kafka"))
-        .args(["--listen", "127.0.0.1:0", "--data-dir"])
+        // Kafka on loopback, unless the test chose an address.
+        .args(
+            ["--listen", "127.0.0.1:0"]
+                .iter()
+                .filter(|_| !flags.contains(&"--listen")),
+        )
+        .arg("--data-dir")
         .arg(data)
         // Every test broker has a console of its own on a free port, unless the test chose an address.
         .args(
@@ -274,8 +330,7 @@ fn a_second_broker_on_the_same_data_directory_is_refused() {
     let output = Command::new(env!("CARGO_BIN_EXE_doze-kafka"))
         .args(["--listen", "127.0.0.1:0", "--data-dir"])
         .arg(&data)
-        .output()
-        .unwrap();
+        .output_within(PROCESS_WAIT);
     assert!(!output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("another doze-kafka"),
@@ -289,6 +344,11 @@ fn a_second_broker_on_the_same_data_directory_is_refused() {
 mod acl;
 #[path = "process/console.rs"]
 mod console;
+#[cfg(feature = "console")]
+#[path = "process/console_door.rs"]
+mod console_door;
+#[path = "process/console_start.rs"]
+mod console_start;
 #[path = "process/sasl.rs"]
 mod sasl;
 #[cfg(feature = "tls")]

@@ -177,7 +177,7 @@ pub fn messages(name: &str, query: MessageQuery, notes: Vec<String>) -> Option<M
         (_, true) => newest()
             .into_iter()
             .filter(|r| {
-                r.partition == query.partition.unwrap_or(0)
+                (query.partitions.is_empty() || query.partitions.contains(&r.partition))
                     && r.partition == 0
                     && r.offset >= query.offset.unwrap_or(0)
             })
@@ -247,12 +247,40 @@ fn binary_record() -> RecordView {
     }
 }
 
+/// The record `FV-BAN-X` deleted: a key and no value.
+fn tombstone_record() -> RecordView {
+    let mut v = orders_record();
+    "inventory.levels".clone_into(&mut v.topic);
+    (v.partition, v.offset) = (0, 36_402);
+    v.key = Shown {
+        kind: crate::model::Kind::Text,
+        bytes: 8,
+        text: "FV-BAN-X".to_owned(),
+        clipped: false,
+        preview: "FV-BAN-X".to_owned(),
+    };
+    v.value = Shown {
+        kind: crate::model::Kind::Null,
+        bytes: 0,
+        text: String::new(),
+        clipped: false,
+        preview: String::new(),
+    };
+    v.headers.clear();
+    v.producer = None;
+    v.transactional = false;
+    v.txn = None;
+    v
+}
+
 /// One record of the world. A row of any topic's table has a page.
 #[must_use]
 pub fn record(name: &str, partition: i32, offset: i64) -> Option<RecordView> {
     match (name, partition, offset) {
         ("orders", 1, 16_050) => return Some(orders_record()),
         ("orders", 2, 16_056) => return Some(binary_record()),
+        // The deletion the Log page of `inventory.levels` links to (slice 9g).
+        ("inventory.levels", 0, 36_402) => return Some(tombstone_record()),
         _ => {}
     }
     let mut all = messages(name, MessageQuery::default(), Vec::new())?.rows;

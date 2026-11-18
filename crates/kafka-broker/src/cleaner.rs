@@ -16,6 +16,7 @@ impl<F: Fs> Broker<F> {
     /// Cleans every compacted topic's partitions that are due, once, now. A partition that is not open and has never been
     /// written to is left as it is.
     pub async fn check_cleaner(&self) {
+        self.log_notes.looked(clock::now().get());
         for topic in self.meta.topics() {
             if !topic_config::compacts(&topic.config) {
                 continue;
@@ -25,6 +26,12 @@ impl<F: Fs> Broker<F> {
                     continue;
                 };
                 if let Err(error) = self.clean_partition(&topic, id).await {
+                    self.log_notes.failed(
+                        topic.id,
+                        id.get(),
+                        clock::now().get(),
+                        &error.to_string(),
+                    );
                     if self
                         .stop_cleaning
                         .load(std::sync::atomic::Ordering::Relaxed)
@@ -37,7 +44,11 @@ impl<F: Fs> Broker<F> {
         }
     }
 
-    async fn clean_partition(&self, topic: &Topic, id: PartitionId) -> Result<(), StorageError> {
+    pub(crate) async fn clean_partition(
+        &self,
+        topic: &Topic,
+        id: PartitionId,
+    ) -> Result<(), StorageError> {
         let was_open = self.partitions.is_open(topic.id, id);
         let Some(partition) = self.partitions.get_unless_empty(topic, id).await? else {
             return Ok(());
@@ -65,6 +76,8 @@ impl<F: Fs> Broker<F> {
         let Some(job) = partition.plan_clean(params).await? else {
             return Ok(());
         };
+        let (began, clock_began) = (std::time::Instant::now(), clock::now().get());
+        self.log_notes.running(topic.id, id.get(), clock_began);
         let stop = Arc::clone(&self.stop_cleaning);
         let cleaned = tokio::task::spawn_blocking(move || job.run_until(&stop))
             .await
@@ -72,8 +85,20 @@ impl<F: Fs> Broker<F> {
                 doing: "cleaning a log",
                 source: std::io::Error::other(e.to_string()),
             })??;
-        let (read, kept) = (cleaned.records_read, cleaned.records_kept);
+        let (read, kept, clean_to) = (cleaned.records_read, cleaned.records_kept, cleaned.clean_to);
         let replaced = partition.install_clean(cleaned).await?;
+        self.log_notes.round(
+            topic.id,
+            id.get(),
+            crate::log_notes::RoundNote {
+                at_ms: clock::now().get(),
+                took_ms: u64::try_from(began.elapsed().as_millis()).unwrap_or(u64::MAX),
+                read,
+                kept,
+                replaced,
+                clean_to,
+            },
+        );
         if replaced > 0 {
             tracing::debug!(topic = %topic.name, partition = %id, segments = replaced, read, kept, "cleaned a log");
         }

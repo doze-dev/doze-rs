@@ -10,10 +10,11 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::{Instant, sleep_until};
 
 use super::consumer::{Heartbeat, HeartbeatAnswer, TopicSource};
+use super::events::Events;
 use super::group::Group;
 use super::machine::{
-    Answer, CommitRequest, Effect, Event, HeartbeatRequest, JoinAnswer, JoinRequest, LeaveTarget,
-    Millis, SyncRequest, TimerKey, TimerKind, Token,
+    Answer, CommitRequest, Effect, Event, Force, HeartbeatRequest, JoinAnswer, JoinRequest,
+    LeaveTarget, Millis, SyncRequest, TimerKey, TimerKind, Token,
 };
 use kafka_meta::ConsumerLife;
 
@@ -29,6 +30,10 @@ pub(crate) enum Req {
     Delete,
     ConsumerHeartbeat(Heartbeat),
     TopicsChanged,
+    /// A step the Lab forces.
+    Force(Force),
+    /// What the group has said of itself (answered by the task, not the machine).
+    Events,
 }
 
 /// A request and where its answer goes. If the sender is dropped without an answer the request was replaced by a
@@ -161,6 +166,7 @@ pub(super) async fn run(
     mut commands: mpsc::Receiver<Command>,
     records: impl Records,
     topics: Arc<dyn TopicSource>,
+    mut events: Events,
 ) {
     let start = Instant::now();
     let now = || Millis(u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX));
@@ -178,6 +184,11 @@ pub(super) async fn run(
         let event = tokio::select! {
             command = commands.recv() => {
                 let Some(Command { req, reply }) = command else { break };
+                // What the group has said of itself is the task's to answer: no machine is asked, nothing changes.
+                if matches!(req, Req::Events) {
+                    let _ = reply.send(Answer::Events(events.look(now())));
+                    continue;
+                }
                 tokens += 1;
                 let token = Token(tokens);
                 // Nobody waits for the answer to "the topics changed".
@@ -207,7 +218,7 @@ pub(super) async fn run(
         let effects = machine.step(event, now(), topics.as_ref());
         keeper.after(&machine, had_members);
         // A group deleted while empty is gone: the registry has taken it out, and nothing is left to run.
-        if apply(effects, &mut waiting, &mut timers) {
+        if apply(effects, &mut waiting, &mut timers, &mut events) {
             break;
         }
     }
@@ -218,6 +229,7 @@ fn apply(
     effects: Vec<Effect>,
     waiting: &mut HashMap<Token, oneshot::Sender<Answer>>,
     timers: &mut Timers,
+    events: &mut Events,
 ) -> bool {
     let mut deleted = false;
     for effect in effects {
@@ -234,6 +246,8 @@ fn apply(
             }
             Effect::Arm { key, at } => timers.arm(key, at),
             Effect::Disarm(kind) => timers.disarm(&kind),
+            // Kept for the console. Nothing the group does depends on it.
+            Effect::Note(note) => events.push(note),
         }
     }
     deleted
@@ -262,6 +276,9 @@ fn event_of(token: Token, req: Req) -> Event {
         Req::Delete => Event::Delete(token),
         Req::ConsumerHeartbeat(r) => Event::ConsumerHeartbeat(token, r),
         Req::TopicsChanged => Event::TopicsChanged,
+        Req::Force(f) => Event::Force(token, f),
+        // Answered before it gets here.
+        Req::Events => Event::TopicsChanged,
     }
 }
 

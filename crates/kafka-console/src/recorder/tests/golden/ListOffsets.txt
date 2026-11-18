@@ -1,0 +1,48 @@
+Facts {
+    topics: [
+        TopicFact {
+            name: "orders",
+            partitions: [
+                2,
+            ],
+            more: 0,
+        },
+    ],
+    topics_more: 0,
+    group: None,
+    member: None,
+    generation: None,
+    txn_id: None,
+    producer: None,
+    transactional: false,
+    acks: None,
+    from_offset: None,
+    wait_ms: None,
+    isolation: Some(
+        0,
+    ),
+    reason: None,
+    what: None,
+    note: None,
+    records: 0,
+    batches: 0,
+    bytes: 0,
+    items: 0,
+    asked: 0,
+    results: [
+        PartResult {
+            topic: "orders",
+            partition: 2,
+            code: 0,
+            offset: Some(
+                16092,
+            ),
+            records: 0,
+            bytes: 0,
+        },
+    ],
+    results_more: 0,
+    code: 0,
+    failed: 0,
+    record_note: None,
+}

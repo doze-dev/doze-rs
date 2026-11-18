@@ -5,7 +5,7 @@ use kafka_wire::ids::{InstanceId, MemberId};
 use super::assign::{Assignor, Partitions};
 use super::pattern::Pattern;
 use crate::authorizer::{TopicRights, permits};
-use crate::groups::machine::Protocol;
+use crate::groups::machine::{Millis, Protocol};
 
 /// What a member that arrived by the classic JoinGroup keeps of it: it is still told what to do by the classic APIs.
 #[derive(Debug, Clone)]
@@ -50,6 +50,9 @@ pub(super) struct Member {
     pub(super) classic: Option<ClassicSeat>,
     /// The arming of its session timer that counts.
     pub(super) session_gen: u64,
+    /// When its session timer was last started, on the group's clock; only the console reads it.
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+    pub(super) heard: Millis,
     /// The arming of its revocation timer that counts (0: none).
     pub(super) revoke_gen: u64,
 }
@@ -76,6 +79,7 @@ impl Member {
             left: false,
             classic: None,
             session_gen: 0,
+            heard: Millis(0),
             revoke_gen: 0,
         }
     }

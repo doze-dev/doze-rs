@@ -13,13 +13,28 @@ use kafka_storage::fs::Fs;
 use crate::{Broker, Caller};
 
 mod config_help;
+mod events;
+mod group_detail;
 mod process;
 
 pub use config_help::{ConfigHelp, Limits};
-mod partition_files;
+pub use events::{EventKind, GroupEvent, GroupEvents, MemberHold};
+pub use group_detail::{GroupDetail, GroupKind, MemberDetail, OffsetExpiry, RebalanceDetail};
+mod config_rules;
+mod pace;
 
+pub use config_rules::ConfigRule;
+pub use pace::Pace;
+mod log_facts;
+mod partition_files;
+mod producers;
+mod settings;
+
+pub use log_facts::{CleanerState, Compaction, Durability, LogFacts, LogPolicy, LogRetention};
 pub use partition_files::PartitionFiles;
 pub use process::Process;
+pub use producers::{AbortedRange, PartitionProducers, ProducerBatch, ProducerWindow};
+pub use settings::{AccessFacts, DataSize, Intervals, MOST_ENTRIES};
 
 /// What the last stop left.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

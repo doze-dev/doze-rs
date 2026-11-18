@@ -1,0 +1,1 @@
+UPDATE t SET a = if_not_exists(a, 0) + 1 SET l = list_append(l, [1, {'k': <<'a','b'>>}]) REMOVE b[3].c WHERE pk = ? RETURNING MODIFIED OLD *

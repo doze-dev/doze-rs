@@ -1,0 +1,36 @@
+# wake: one line per service with how long the daemon's journal says it took to be ready (Go's wake.golden).
+@ project bare
+@ daemon wake
+
+$ doze wake db events api
+exit 0
+stdout:
+| ✓ db awake in 38ms
+| ✓ events awake in 1.2s
+| ✓ api awake in 2m5s
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze wake",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "db",
+|         "state": "awake",
+|         "took_ms": 38
+|       },
+|       {
+|         "name": "events",
+|         "state": "awake",
+|         "took_ms": 1240
+|       },
+|       {
+|         "name": "api",
+|         "state": "awake",
+|         "took_ms": 125000
+|       }
+|     ]
+|   }
+| }

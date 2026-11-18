@@ -99,8 +99,7 @@ fn a_certificate_that_cannot_be_used_stops_the_start_and_no_plaintext_listener_i
             .args(["--listen", "127.0.0.1:0", "--data-dir"])
             .arg(&data)
             .args(["--tls-cert", c, "--tls-key", k])
-            .output()
-            .unwrap();
+            .output_within(PROCESS_WAIT);
         let said = String::from_utf8_lossy(&output.stderr);
         assert!(!output.status.success(), "{why}");
         assert!(said.contains(why), "{said}");

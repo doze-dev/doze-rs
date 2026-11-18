@@ -6,7 +6,8 @@ use super::{Span, Tok};
 pub type Lines = Vec<Vec<(Tok, String)>>;
 
 /// The words of a refused call: Kafka's code and the broker's sentence, then the console's reading of it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Refusal {
     /// `36`.
     pub code: i16,
@@ -21,7 +22,10 @@ pub struct Refusal {
 }
 
 /// The step of the Create-topic form.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(test, ts(rename = "CreateStep"))]
 pub enum Step {
     Name,
     Config,
@@ -29,15 +33,21 @@ pub enum Step {
 }
 
 /// A starting point for the configuration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[cfg_attr(test, ts(rename = "CreateTemplate"))]
 pub enum Template {
+    #[serde(rename = "event")]
     EventLog,
+    #[serde(rename = "compact")]
     Compacted,
+    #[serde(rename = "short")]
     ShortLived,
 }
 
 /// What a person typed in the Create-topic form, as text (checked, never trusted).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Draft {
     pub name: String,
     pub partitions: String,
@@ -49,7 +59,8 @@ pub struct Draft {
 }
 
 /// The lines under a field: what Kafka says, the default, the range, when it takes effect, and what is so here.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Teach {
     pub says: String,
     pub default: Vec<Span>,
@@ -59,7 +70,9 @@ pub struct Teach {
 }
 
 /// One field's error, as the form draws it.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[cfg_attr(test, ts(rename = "CreateErrors"))]
 pub struct Errors {
     pub name: Option<String>,
     pub partitions: Option<String>,
@@ -67,7 +80,8 @@ pub struct Errors {
 }
 
 /// The Create-topic form at one of its steps.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct CreateView {
     pub step: Step,
     pub draft: Draft,
@@ -89,13 +103,16 @@ pub struct CreateView {
 }
 
 /// What a dry run of the create said: every check passed, and nothing was made.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[cfg_attr(test, ts(rename = "CreateChecked"))]
 pub struct Checked {
     pub partitions: i32,
 }
 
 /// A topic that was made.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Created {
     pub name: String,
     pub partitions: i32,
@@ -107,7 +124,8 @@ pub struct Created {
 }
 
 /// A refused create: the answer, and the form's call.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct CreateRefused {
     pub draft: Draft,
     pub refusal: Refusal,
@@ -121,7 +139,8 @@ pub struct CreateRefused {
 }
 
 /// The Produce form.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProduceView {
     pub topic: String,
     pub partitions: i32,
@@ -140,7 +159,8 @@ pub struct ProduceView {
 }
 
 /// Field errors of the Produce form.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProduceErrors {
     pub partition: Option<String>,
     pub key: Option<String>,
@@ -148,7 +168,8 @@ pub struct ProduceErrors {
 }
 
 /// A record the broker took.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Produced {
     pub topic: String,
     pub partition: i32,
@@ -166,7 +187,9 @@ pub struct Produced {
 }
 
 /// The sentence and facts under a topic's name.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[cfg_attr(test, ts(rename = "ProducedHead"))]
 pub struct TopicHead {
     pub name: String,
     pub cleanup: String,
@@ -180,7 +203,9 @@ pub struct TopicHead {
 }
 
 /// The row of the record in the table under the banner.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[cfg_attr(test, ts(rename = "ProducedRow"))]
 pub struct RecordRow {
     pub partition: i32,
     pub offset: i64,
@@ -192,7 +217,8 @@ pub struct RecordRow {
 }
 
 /// Whether the record is visible to a `read_committed` consumer.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Visibility {
     pub last_stable: i64,
     pub high_watermark: i64,
@@ -200,7 +226,8 @@ pub struct Visibility {
 }
 
 /// A refused produce: the form as sent and the answer.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProduceRefused {
     pub view: ProduceView,
     pub refusal: Refusal,
@@ -212,7 +239,8 @@ pub struct ProduceRefused {
 }
 
 /// The Add-partitions dialog.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AddView {
     pub topic: String,
     pub have: i32,
@@ -225,7 +253,8 @@ pub struct AddView {
 }
 
 /// The Delete-records dialog.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct DeleteRecordsView {
     pub topic: String,
     pub partition: i32,
@@ -239,7 +268,8 @@ pub struct DeleteRecordsView {
 }
 
 /// A delete-records that was refused, on a page of its own.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct DeleteRecordsRefused {
     pub topic: String,
     pub cleanup: String,
@@ -250,7 +280,8 @@ pub struct DeleteRecordsRefused {
 }
 
 /// Records were deleted: where the log starts now.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct RecordsDeleted {
     pub topic: String,
     pub partition: i32,
@@ -258,7 +289,8 @@ pub struct RecordsDeleted {
 }
 
 /// What is using a topic, as far as the protocol says.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct InUse {
     /// `(group, state, members)` for groups with committed offsets on the topic.
     pub groups: Vec<(String, String, usize)>,
@@ -267,7 +299,8 @@ pub struct InUse {
 }
 
 /// The Delete-topic dialog.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct DeleteView {
     pub topic: String,
     pub partitions: usize,
@@ -279,7 +312,8 @@ pub struct DeleteView {
 }
 
 /// A topic that is gone, and what is left (the list the board shows).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Deleted {
     /// The milliseconds since the epoch the page is made at (the ages in the list are counted from it).
     pub now_ms: i64,
@@ -293,7 +327,8 @@ pub struct Deleted {
 }
 
 /// One topic of the list after a delete.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Remaining {
     pub name: String,
     pub partitions: usize,
@@ -303,7 +338,9 @@ pub struct Remaining {
 }
 
 /// What a create came to.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum CreateResult {
     Created(Created),
     /// "Check only": the broker ran every check and made nothing.
@@ -314,7 +351,8 @@ pub enum CreateResult {
 }
 
 /// What the Produce dialog posted, as text (checked before anything is sent).
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProduceInput {
     /// A partition number, or empty to leave it to the key.
     pub partition: String,
@@ -327,7 +365,9 @@ pub struct ProduceInput {
 }
 
 /// What a produce came to.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum ProduceResult {
     Sent(Box<Produced>),
     Refused(Box<ProduceRefused>),

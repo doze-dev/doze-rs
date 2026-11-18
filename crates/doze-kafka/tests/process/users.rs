@@ -149,8 +149,7 @@ fn refused(data: &Path, flags: &[&str]) -> String {
         .args(["--listen", "127.0.0.1:0", "--data-dir"])
         .arg(data)
         .args(flags)
-        .output()
-        .unwrap();
+        .output_within(PROCESS_WAIT);
     let said = String::from_utf8_lossy(&output.stderr).into_owned();
     assert!(!output.status.success(), "{said}");
     said

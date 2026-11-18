@@ -12,7 +12,7 @@ use serde_json::{Value as Json, json};
 use crate::core::Core;
 use crate::disk::Flow;
 use crate::keys::{self, Space};
-use crate::meta::Table;
+use crate::meta::{Stream, Table};
 use crate::stage::key_of;
 
 /// How long records stay readable.
@@ -127,6 +127,30 @@ pub struct Batch {
     pub open: bool,
 }
 
+/// A table's stream, as the Streams API describes it. A stream here has one shard, open while the stream is enabled.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StreamInfo {
+    /// `arn:aws:dynamodb:<region>:<account>:table/<name>/stream/<label>`.
+    pub arn: String,
+    /// The table's name.
+    pub table: String,
+    /// The stream's label (the time it was made).
+    pub label: String,
+    /// `KEYS_ONLY`, `NEW_IMAGE`, `OLD_IMAGE` or `NEW_AND_OLD_IMAGES`.
+    pub view: String,
+    /// Whether the stream is enabled.
+    pub enabled: bool,
+    /// When the stream was made, in milliseconds since the epoch.
+    pub created_ms: i64,
+    /// The table's key: each attribute and `HASH` or `RANGE`.
+    pub key_schema: Vec<(String, &'static str)>,
+    /// The sequence number of the last record (0 for none yet).
+    pub last_seq: u64,
+    /// The one shard's id: `shardId-` then 20 digits, a hyphen and 8 hex digits, the form AWS gives `(memory)`; here the digits are
+    /// the stream's creation time and the hex is from its id.
+    pub shard_id: String,
+}
+
 /// `arn:aws:dynamodb:<region>:<account>:table/<name>/stream/<label>`.
 pub(crate) fn stream_arn(region: &str, account: &str, table: &str, label: &str) -> String {
     format!("arn:aws:dynamodb:{region}:{account}:table/{table}/stream/{label}")
@@ -146,7 +170,61 @@ fn stream_key(id: &[u8; 16], seq: u64) -> Vec<u8> {
     k
 }
 
+/// The time a label names, in milliseconds (the label is made by [`label_of`]).
+fn label_ms(label: &str) -> i64 {
+    let secs = label
+        .get(..19)
+        .and_then(|head| aws_core::time::parse_rfc3339(&format!("{head}Z")))
+        .unwrap_or(0);
+    let ms = label
+        .get(20..23)
+        .and_then(|m| m.parse::<i64>().ok())
+        .unwrap_or(0);
+    secs * 1000 + ms
+}
+
 impl Core {
+    /// The streams of the region's tables, or of one table, in table name order.
+    pub(crate) fn list_streams(
+        &mut self,
+        region: &str,
+        account: &str,
+        table: Option<&str>,
+    ) -> Result<Vec<StreamInfo>, String> {
+        let found: Vec<(Table, Stream)> = self
+            .tables
+            .iter()
+            .filter(|(name, _)| table.is_none_or(|t| t == *name))
+            .filter_map(|(_, t)| t.stream.clone().map(|s| (t.clone(), s)))
+            .collect();
+        let mut out = Vec::with_capacity(found.len());
+        for (t, s) in found {
+            let last_seq = self.last_seq(&s.id).map_err(|e| e.message.clone())?;
+            let created_ms = label_ms(&s.label);
+            let mut key_schema = vec![(t.hash.name.clone(), "HASH")];
+            if let Some(r) = &t.range {
+                key_schema.push((r.name.clone(), "RANGE"));
+            }
+            let id_hex = aws_core::hex::encode(&s.id);
+            out.push(StreamInfo {
+                arn: stream_arn(region, account, &t.name, &s.label),
+                table: t.name.clone(),
+                label: s.label.clone(),
+                view: s.view.clone(),
+                enabled: s.enabled,
+                created_ms,
+                key_schema,
+                last_seq,
+                shard_id: format!(
+                    "shardId-{:020}-{}",
+                    created_ms.max(0),
+                    id_hex.get(..8).unwrap_or("00000000")
+                ),
+            });
+        }
+        Ok(out)
+    }
+
     /// The last sequence number of a stream, found on disk the first time and then kept.
     fn last_seq(&mut self, id: &[u8; 16]) -> Result<u64, ApiError> {
         if let Some(n) = self.seqs.get(id) {

@@ -134,6 +134,8 @@ pub(super) struct Pump {
     next: u64,
     timers: HashMap<TimerKind, (u64, TimerKey)>,
     answers: HashMap<u64, Answer>,
+    /// What the group said of itself, in order.
+    pub(super) notes: Vec<crate::groups::note::Note>,
 }
 
 impl Pump {
@@ -144,6 +146,7 @@ impl Pump {
             next: 0,
             timers: HashMap::new(),
             answers: HashMap::new(),
+            notes: Vec::new(),
         }
     }
 
@@ -164,6 +167,7 @@ impl Pump {
                     self.timers.remove(&k);
                 }
                 Effect::Forget(_) => {}
+                Effect::Note(note) => self.notes.push(note),
             }
         }
         token.0

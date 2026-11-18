@@ -1,0 +1,311 @@
+# --dry-run on the verbs: the plan from the daemon's snapshot, and nothing asked of it. wake and restart list what
+# would start, what it needs first; pin and sleep the state each would move to; reset the data that would go.
+@ project bare
+@ daemon shop
+
+$ doze wake --dry-run worker
+exit 0
+stdout:
+| events    nothing to change
+| worker
+|   → wake  asked for
+|   dry run: nothing was changed · doze wake worker applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze wake",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze wake worker",
+|     "plan": [
+|       {
+|         "title": "events",
+|         "changes": []
+|       },
+|       {
+|         "title": "worker",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "wake",
+|             "detail": "asked for"
+|           }
+|         ]
+|       }
+|     ]
+|   }
+| }
+
+$ doze wake --dry-run
+exit 0
+stdout:
+| db        nothing to change
+| cache     nothing to change
+| events    nothing to change
+| api       nothing to change
+| worker
+|   → wake  asked for
+| web
+|   → wake  asked for
+|   dry run: nothing was changed · doze wake applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze wake",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze wake",
+|     "plan": [
+|       {
+|         "title": "db",
+|         "changes": []
+|       },
+|       {
+|         "title": "cache",
+|         "changes": []
+|       },
+|       {
+|         "title": "events",
+|         "changes": []
+|       },
+|       {
+|         "title": "api",
+|         "changes": []
+|       },
+|       {
+|         "title": "worker",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "wake",
+|             "detail": "asked for"
+|           }
+|         ]
+|       },
+|       {
+|         "title": "web",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "wake",
+|             "detail": "asked for"
+|           }
+|         ]
+|       }
+|     ]
+|   }
+| }
+
+$ doze restart --dry-run api worker
+exit 0
+stdout:
+| api
+|   → restart  stop it, then start it
+| worker
+|   → restart  start it (it is crashing)
+|   dry run: nothing was changed · doze restart api worker applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze restart",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze restart api worker",
+|     "plan": [
+|       {
+|         "title": "api",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "restart",
+|             "detail": "stop it, then start it"
+|           }
+|         ]
+|       },
+|       {
+|         "title": "worker",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "restart",
+|             "detail": "start it (it is crashing)"
+|           }
+|         ]
+|       }
+|     ]
+|   }
+| }
+
+$ doze sleep --dry-run
+exit 0
+stdout:
+| db
+|   → sleep  its data stays; it wakes on its next connection
+| cache
+|   → sleep  its data stays; it wakes on its next connection
+| events
+|   → sleep  its data stays; it wakes on its next connection
+| api
+|   → sleep  its data stays; it wakes on its next connection
+|   dry run: nothing was changed · doze sleep applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sleep",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze sleep",
+|     "plan": [
+|       {
+|         "title": "db",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "sleep",
+|             "detail": "its data stays; it wakes on its next connection"
+|           }
+|         ]
+|       },
+|       {
+|         "title": "cache",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "sleep",
+|             "detail": "its data stays; it wakes on its next connection"
+|           }
+|         ]
+|       },
+|       {
+|         "title": "events",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "sleep",
+|             "detail": "its data stays; it wakes on its next connection"
+|           }
+|         ]
+|       },
+|       {
+|         "title": "api",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "sleep",
+|             "detail": "its data stays; it wakes on its next connection"
+|           }
+|         ]
+|       }
+|     ]
+|   }
+| }
+
+$ doze pin --dry-run --toggle events cache
+exit 0
+stdout:
+| events
+|   ~ unpin  pinned → sleeps again when idle
+| cache
+|   ~ pin    stays awake until unpinned or the daemon stops
+|   dry run: nothing was changed · doze pin --toggle events cache applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze pin",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze pin --toggle events cache",
+|     "plan": [
+|       {
+|         "title": "events",
+|         "changes": [
+|           {
+|             "op": "~",
+|             "subject": "unpin",
+|             "detail": "pinned → sleeps again when idle"
+|           }
+|         ]
+|       },
+|       {
+|         "title": "cache",
+|         "changes": [
+|           {
+|             "op": "~",
+|             "subject": "pin",
+|             "detail": "stays awake until unpinned or the daemon stops"
+|           }
+|         ]
+|       }
+|     ]
+|   }
+| }
+
+$ doze off --dry-run web
+exit 0
+stdout:
+| web
+|   → off  stop it; nothing wakes it until doze on
+|   dry run: nothing was changed · doze off web applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze off",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze off web",
+|     "plan": [
+|       {
+|         "title": "web",
+|         "changes": [
+|           {
+|             "op": "→",
+|             "subject": "off",
+|             "detail": "stop it; nothing wakes it until doze on"
+|           }
+|         ]
+|       }
+|     ]
+|   }
+| }
+
+$ doze reset --dry-run db
+exit 0
+stdout:
+| db
+|   - /nowhere/clusters/db  empty; provisioned fresh on its next wake
+|   dry run: nothing was changed · doze reset -y db applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze reset",
+|   "ok": true,
+|   "data": {
+|     "dry_run": true,
+|     "applies_with": "doze reset -y db",
+|     "plan": [
+|       {
+|         "title": "db",
+|         "changes": [
+|           {
+|             "op": "-",
+|             "subject": "/nowhere/clusters/db",
+|             "detail": "empty; provisioned fresh on its next wake"
+|           }
+|         ]
+|       }
+|     ]
+|   }
+| }

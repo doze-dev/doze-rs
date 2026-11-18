@@ -16,8 +16,12 @@ use kafka_wire::api::{Request, Response};
 use kafka_wire::header::RequestHead;
 use kafka_wire::profile::Profile;
 
+mod config;
 mod forms;
+mod lab;
+mod log_views;
 pub mod requests;
+mod settings;
 
 /// The client id the console's requests carry.
 pub const CLIENT_ID: &str = "console";
@@ -88,6 +92,18 @@ impl Backend {
         &self.caller
     }
 
+    /// How many ACLs the broker has in force now (one atomic load): the console's door asks on every request (SEC-250).
+    #[must_use]
+    pub fn acl_count(&self) -> usize {
+        self.broker.acl_count()
+    }
+
+    /// The broker's count of ACLs, told after each change.
+    #[must_use]
+    pub fn acl_changes(&self) -> tokio::sync::watch::Receiver<usize> {
+        self.broker.acl_changes()
+    }
+
     /// The highest version of an API the profile offers.
     #[must_use]
     pub fn version(&self, key: kafka_wire::messages::ApiKey) -> i16 {
@@ -127,6 +143,24 @@ impl Backend {
         self.broker
             .console_view()
             .partition_files(&self.caller, topic)
+    }
+
+    /// What the protocol hides about one group (leader, timeouts, last heartbeat, when the sweep takes its commits), if the
+    /// console may describe it.
+    pub async fn group_detail(&self, group: &str) -> Option<kafka_broker::GroupDetail> {
+        self.broker
+            .console_view()
+            .group_detail(&self.caller, group)
+            .await
+    }
+
+    /// What a group has said of itself (why it rebalanced, who it was about), if the console may describe it and the broker has
+    /// the group in memory.
+    pub async fn group_events(&self, group: &str) -> Option<kafka_broker::GroupEvents> {
+        self.broker
+            .console_view()
+            .group_events(&self.caller, group)
+            .await
     }
 
     /// The facts of this run that the protocol does not say.

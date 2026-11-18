@@ -1,0 +1,485 @@
+# status from a running daemon's snapshot: Go's golden status table (cmd/doze/testdata/status.golden), byte for byte
+# on stdout, the Go status --json shape, and the dependency tree. An instance the daemon added at run time ("added",
+# not declared in doze.hcl) is not listed, as Go lists only declared ones.
+@ project bare
+@ daemon shop
+@ now 2026-10-10T09:15:00Z
+@ tty
+
+$ doze status
+exit 0
+stdout:
+|       NAME     ENGINE        STATE          ENDPOINT         CONNS   MEM   CPU   NOTE
+| Modules
+|   ○   cache    valkey 9      dozing         127.0.0.1:6379   -       5M    -     sleeps in 4m12s
+|   ●   db       postgres 16   awake          127.0.0.1:5432   3c      11M   -     held by api
+|   ●   events   kafka 4       awake          127.0.0.1:9092   1c      22M   1%    pinned
+| Apps
+|   ●   api      app           awake          127.0.0.1:8080   -       43M   2%
+|   ✕   web      app           failed         127.0.0.1:8090   -       -     -     exited with status 2; gave up after 5 restarts
+|   ↻   worker   app           crashing 2/5   -                -       -     -     exited with status 1; restarting (2/5) in 4s
+| 
+| 4 awake · 81M resident · connect to any endpoint to wake it
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze status",
+|   "ok": true,
+|   "data": {
+|     "daemon": {
+|       "running": true
+|     },
+|     "services": [
+|       {
+|         "name": "db",
+|         "engine": "postgres",
+|         "version": "16",
+|         "group": "module",
+|         "state": "active",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:5432",
+|         "conns": 3,
+|         "memBytes": 11534336,
+|         "cpuPercent": 0.4,
+|         "live": {
+|           "name": "db",
+|           "kind": "module",
+|           "engine": "postgres",
+|           "state": "active",
+|           "version": "16",
+|           "pid": 4101,
+|           "conns": 3,
+|           "holders": [
+|             {
+|               "kind": "dependant",
+|               "name": "api"
+|             },
+|             {
+|               "kind": "connection",
+|               "count": 2
+|             }
+|           ],
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "0001-01-01T00:00:00Z",
+|           "ram": 11534336,
+|           "cpu": 0.4,
+|           "endpoint": "127.0.0.1:5432",
+|           "data_dir": "/nowhere/clusters/db",
+|           "declared": true,
+|           "next_restart": "0001-01-01T00:00:00Z"
+|         }
+|       },
+|       {
+|         "name": "cache",
+|         "engine": "valkey",
+|         "version": "9",
+|         "group": "module",
+|         "state": "idle",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:6379",
+|         "conns": 0,
+|         "memBytes": 5242880,
+|         "cpuPercent": 0,
+|         "live": {
+|           "name": "cache",
+|           "kind": "module",
+|           "engine": "valkey",
+|           "state": "idle",
+|           "version": "9",
+|           "pid": 4102,
+|           "conns": 0,
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "2026-10-10T09:14:12Z",
+|           "ram": 5242880,
+|           "endpoint": "127.0.0.1:6379",
+|           "declared": true,
+|           "next_restart": "0001-01-01T00:00:00Z"
+|         }
+|       },
+|       {
+|         "name": "events",
+|         "engine": "kafka",
+|         "version": "4",
+|         "group": "module",
+|         "state": "active",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:9092",
+|         "conns": 1,
+|         "memBytes": 23068672,
+|         "cpuPercent": 1.2,
+|         "live": {
+|           "name": "events",
+|           "kind": "module",
+|           "engine": "kafka",
+|           "state": "active",
+|           "version": "4",
+|           "pid": 4103,
+|           "conns": 1,
+|           "holders": [
+|             {
+|               "kind": "pin"
+|             },
+|             {
+|               "kind": "connection",
+|               "count": 1
+|             }
+|           ],
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "0001-01-01T00:00:00Z",
+|           "ram": 23068672,
+|           "cpu": 1.2,
+|           "endpoint": "127.0.0.1:9092",
+|           "declared": true,
+|           "keep_awake": true,
+|           "next_restart": "0001-01-01T00:00:00Z"
+|         }
+|       },
+|       {
+|         "name": "api",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "active",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:8080",
+|         "conns": 0,
+|         "memBytes": 45088768,
+|         "cpuPercent": 2.5,
+|         "dependsOn": [
+|           "db"
+|         ],
+|         "live": {
+|           "name": "api",
+|           "kind": "app",
+|           "needs": [
+|             "db"
+|           ],
+|           "engine": "process",
+|           "state": "active",
+|           "version": "builtin",
+|           "pid": 4201,
+|           "conns": 0,
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "0001-01-01T00:00:00Z",
+|           "ram": 45088768,
+|           "cpu": 2.5,
+|           "endpoint": "127.0.0.1:8080",
+|           "declared": true,
+|           "next_restart": "0001-01-01T00:00:00Z",
+|           "healthy": true
+|         }
+|       },
+|       {
+|         "name": "worker",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "crashing",
+|         "enabled": true,
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0,
+|         "dependsOn": [
+|           "events"
+|         ],
+|         "live": {
+|           "name": "worker",
+|           "kind": "app",
+|           "needs": [
+|             "events"
+|           ],
+|           "engine": "process",
+|           "state": "crashing",
+|           "version": "builtin",
+|           "pid": 0,
+|           "conns": 0,
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "0001-01-01T00:00:00Z",
+|           "last_error": "exited with status 1; restarting (2/5) in 4s",
+|           "declared": true,
+|           "restart_count": 2,
+|           "restart_max": 5,
+|           "next_restart": "2026-10-10T09:15:04Z"
+|         }
+|       },
+|       {
+|         "name": "web",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "failed",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:8090",
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0,
+|         "live": {
+|           "name": "web",
+|           "kind": "app",
+|           "engine": "process",
+|           "state": "failed",
+|           "version": "builtin",
+|           "pid": 0,
+|           "conns": 0,
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "0001-01-01T00:00:00Z",
+|           "endpoint": "127.0.0.1:8090",
+|           "last_error": "exited with status 2; gave up after 5 restarts",
+|           "declared": true,
+|           "next_restart": "0001-01-01T00:00:00Z"
+|         }
+|       }
+|     ]
+|   }
+| }
+tty exit 0
+tty stdout:
+|       ⟨1mNAME⟨0m     ⟨1mENGINE⟨0m        ⟨1mSTATE⟨0m          ⟨1mENDPOINT⟨0m         ⟨1mCONNS⟨0m   ⟨1mMEM⟨0m   ⟨1mCPU⟨0m   ⟨1mNOTE⟨0m
+| ⟨2mModules⟨0m
+|   ⟨33m○⟨0m   ⟨1mcache⟨0m    ⟨2mvalkey 9⟨0m      ⟨33mdozing⟨0m         127.0.0.1:6379   ⟨2m-⟨0m       5M    ⟨2m-⟨0m     ⟨2msleeps in 4m12s⟨0m
+|   ⟨32m●⟨0m   ⟨1mdb⟨0m       ⟨2mpostgres 16⟨0m   ⟨32mawake⟨0m          127.0.0.1:5432   3c      11M   ⟨2m-⟨0m     ⟨2mheld by api⟨0m
+|   ⟨32m●⟨0m   ⟨1mevents⟨0m   ⟨2mkafka 4⟨0m       ⟨32mawake⟨0m          127.0.0.1:9092   1c      22M   1%    ⟨2mpinned⟨0m
+| ⟨2mApps⟨0m
+|   ⟨32m●⟨0m   ⟨1mapi⟨0m      ⟨2mapp⟨0m           ⟨32mawake⟨0m          127.0.0.1:8080   ⟨2m-⟨0m       43M   2%
+|   ⟨1;31m✕⟨0m   ⟨1mweb⟨0m      ⟨2mapp⟨0m           ⟨1;31mfailed⟨0m         127.0.0.1:8090   ⟨2m-⟨0m       ⟨2m-⟨0m     ⟨2m-⟨0m     ⟨1;31mexited with status 2; gave up after 5 restarts⟨0m
+|   ⟨33m↻⟨0m   ⟨1mworker⟨0m   ⟨2mapp⟨0m           ⟨33mcrashing⟨0m 2/5   ⟨2m-⟨0m                ⟨2m-⟨0m       ⟨2m-⟨0m     ⟨2m-⟨0m     ⟨1;31mexited with status 1; restarting (2/5) in 4s⟨0m
+| 
+| ⟨2m4 awake · 81M resident · connect to any endpoint to wake it⟨0m
+tty spawned:
+| __refresh --latest
+
+$ doze ps --graph
+exit 0
+stdout:
+| ● api app  awake  127.0.0.1:8080  43M · 2%
+| └─ ● db postgres 16  awake  127.0.0.1:5432  3c · 11M
+| ○ cache valkey 9  dozing  127.0.0.1:6379  5M
+| ✕ web app  failed  127.0.0.1:8090
+| ↻ worker app  crashing 2/5
+| └─ ● events kafka 4  awake  127.0.0.1:9092  1c · 22M · 1%
+| 
+| 4 awake · 81M resident
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze status",
+|   "ok": true,
+|   "data": {
+|     "daemon": {
+|       "running": true
+|     },
+|     "services": [
+|       {
+|         "name": "db",
+|         "engine": "postgres",
+|         "version": "16",
+|         "group": "module",
+|         "state": "active",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:5432",
+|         "conns": 3,
+|         "memBytes": 11534336,
+|         "cpuPercent": 0.4,
+|         "live": {
+|           "name": "db",
+|           "kind": "module",
+|           "engine": "postgres",
+|           "state": "active",
+|           "version": "16",
+|           "pid": 4101,
+|           "conns": 3,
+|           "holders": [
+|             {
+|               "kind": "dependant",
+|               "name": "api"
+|             },
+|             {
+|               "kind": "connection",
+|               "count": 2
+|             }
+|           ],
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "0001-01-01T00:00:00Z",
+|           "ram": 11534336,
+|           "cpu": 0.4,
+|           "endpoint": "127.0.0.1:5432",
+|           "data_dir": "/nowhere/clusters/db",
+|           "declared": true,
+|           "next_restart": "0001-01-01T00:00:00Z"
+|         }
+|       },
+|       {
+|         "name": "cache",
+|         "engine": "valkey",
+|         "version": "9",
+|         "group": "module",
+|         "state": "idle",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:6379",
+|         "conns": 0,
+|         "memBytes": 5242880,
+|         "cpuPercent": 0,
+|         "live": {
+|           "name": "cache",
+|           "kind": "module",
+|           "engine": "valkey",
+|           "state": "idle",
+|           "version": "9",
+|           "pid": 4102,
+|           "conns": 0,
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "2026-10-10T09:14:12Z",
+|           "ram": 5242880,
+|           "endpoint": "127.0.0.1:6379",
+|           "declared": true,
+|           "next_restart": "0001-01-01T00:00:00Z"
+|         }
+|       },
+|       {
+|         "name": "events",
+|         "engine": "kafka",
+|         "version": "4",
+|         "group": "module",
+|         "state": "active",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:9092",
+|         "conns": 1,
+|         "memBytes": 23068672,
+|         "cpuPercent": 1.2,
+|         "live": {
+|           "name": "events",
+|           "kind": "module",
+|           "engine": "kafka",
+|           "state": "active",
+|           "version": "4",
+|           "pid": 4103,
+|           "conns": 1,
+|           "holders": [
+|             {
+|               "kind": "pin"
+|             },
+|             {
+|               "kind": "connection",
+|               "count": 1
+|             }
+|           ],
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "0001-01-01T00:00:00Z",
+|           "ram": 23068672,
+|           "cpu": 1.2,
+|           "endpoint": "127.0.0.1:9092",
+|           "declared": true,
+|           "keep_awake": true,
+|           "next_restart": "0001-01-01T00:00:00Z"
+|         }
+|       },
+|       {
+|         "name": "api",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "active",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:8080",
+|         "conns": 0,
+|         "memBytes": 45088768,
+|         "cpuPercent": 2.5,
+|         "dependsOn": [
+|           "db"
+|         ],
+|         "live": {
+|           "name": "api",
+|           "kind": "app",
+|           "needs": [
+|             "db"
+|           ],
+|           "engine": "process",
+|           "state": "active",
+|           "version": "builtin",
+|           "pid": 4201,
+|           "conns": 0,
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "0001-01-01T00:00:00Z",
+|           "ram": 45088768,
+|           "cpu": 2.5,
+|           "endpoint": "127.0.0.1:8080",
+|           "declared": true,
+|           "next_restart": "0001-01-01T00:00:00Z",
+|           "healthy": true
+|         }
+|       },
+|       {
+|         "name": "worker",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "crashing",
+|         "enabled": true,
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0,
+|         "dependsOn": [
+|           "events"
+|         ],
+|         "live": {
+|           "name": "worker",
+|           "kind": "app",
+|           "needs": [
+|             "events"
+|           ],
+|           "engine": "process",
+|           "state": "crashing",
+|           "version": "builtin",
+|           "pid": 0,
+|           "conns": 0,
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "0001-01-01T00:00:00Z",
+|           "last_error": "exited with status 1; restarting (2/5) in 4s",
+|           "declared": true,
+|           "restart_count": 2,
+|           "restart_max": 5,
+|           "next_restart": "2026-10-10T09:15:04Z"
+|         }
+|       },
+|       {
+|         "name": "web",
+|         "engine": "process",
+|         "version": "builtin",
+|         "group": "app",
+|         "state": "failed",
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:8090",
+|         "conns": 0,
+|         "memBytes": 0,
+|         "cpuPercent": 0,
+|         "live": {
+|           "name": "web",
+|           "kind": "app",
+|           "engine": "process",
+|           "state": "failed",
+|           "version": "builtin",
+|           "pid": 0,
+|           "conns": 0,
+|           "started_at": "0001-01-01T00:00:00Z",
+|           "idle_since": "0001-01-01T00:00:00Z",
+|           "endpoint": "127.0.0.1:8090",
+|           "last_error": "exited with status 2; gave up after 5 restarts",
+|           "declared": true,
+|           "next_restart": "0001-01-01T00:00:00Z"
+|         }
+|       }
+|     ]
+|   }
+| }
+tty exit 0
+tty stdout:
+| ⟨32m●⟨0m ⟨1mapi⟨0m ⟨2mapp⟨0m  ⟨32mawake⟨0m  127.0.0.1:8080⟨2m  43M · 2%⟨0m
+| └─ ⟨32m●⟨0m ⟨1mdb⟨0m ⟨2mpostgres 16⟨0m  ⟨32mawake⟨0m  127.0.0.1:5432⟨2m  3c · 11M⟨0m
+| ⟨33m○⟨0m ⟨1mcache⟨0m ⟨2mvalkey 9⟨0m  ⟨33mdozing⟨0m  127.0.0.1:6379⟨2m  5M⟨0m
+| ⟨1;31m✕⟨0m ⟨1mweb⟨0m ⟨2mapp⟨0m  ⟨1;31mfailed⟨0m  127.0.0.1:8090
+| ⟨33m↻⟨0m ⟨1mworker⟨0m ⟨2mapp⟨0m  ⟨33mcrashing⟨0m 2/5
+| └─ ⟨32m●⟨0m ⟨1mevents⟨0m ⟨2mkafka 4⟨0m  ⟨32mawake⟨0m  127.0.0.1:9092⟨2m  1c · 22M · 1%⟨0m
+| 
+| ⟨2m4 awake · 81M resident⟨0m

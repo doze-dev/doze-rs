@@ -16,16 +16,22 @@
 //! - [`detach`]: start the daemon so it outlives its starter (and can still stop engines gently).
 //! - [`local`]: the daemon's control socket as blocking I/O, for clients that run no async runtime.
 //! - `ui` (feature `ui`): the desktop app's menu-bar item and Dock badge.
+//! - [`browse`]: open a web page in the person's browser.
+//! - [`pty`]: a pseudo-terminal, for tests that must see what a person sees.
+//! - [`interrupt`]: Ctrl-C and SIGTERM as a flag a blocking command checks, so a follow ends cleanly.
 
 pub mod autostart;
+pub mod browse;
 pub mod channel;
 pub mod detach;
 pub mod fs;
 pub mod home;
+pub mod interrupt;
 pub mod local;
 pub mod net;
 pub mod privilege;
 pub mod process;
+pub mod pty;
 pub mod tree;
 #[cfg(feature = "ui")]
 pub mod ui;

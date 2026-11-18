@@ -55,8 +55,12 @@ mod tests {
         )
         .unwrap()
         .unwrap();
+        // The order of the condition operators is serde_json's map order: sorted in a build of this crate alone, as written in a
+        // build that links jlens-core (Step Functions, A14), which turns on serde_json's `preserve_order`. Compared as a set.
+        let mut keys = context_keys(&[&d]);
+        keys.sort();
         assert_eq!(
-            context_keys(&[&d]),
+            keys,
             [
                 "AWS:USERNAME",
                 "aws:PrincipalTag/team",

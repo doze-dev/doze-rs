@@ -214,6 +214,9 @@ estimates, not calendar time.
 | 8 | **Security.** TLS, SASL PLAIN and SCRAM, ACL CRUD + enforcement, allowed-hosts guard. | auth/authorization conformance; secret-redaction tests | 3–4 |
 | 9 | **Console.** assets copied, maud components and typed view-models, routes (exported as JSON for the e2e route gate), htmx polling, traffic recorder + `Summarize`, telemetry. | Playwright suite (34 specs) passes unchanged in external mode | 8–12 |
 | 10 | **Schema registry.** REST routes, `SchemaFormat` for Avro/Protobuf/JSON, wire codec, storage in `kafka-meta`. Highest fidelity risk (Protobuf canonical form and compatibility). | registry conformance scenarios + compat corpora | 5–8 |
+| 11 | **Module and release.** ~~`serve` mode (unix sockets) so doze's Go module can re-exec the Rust binary~~ (obsolete: "all Rust, no Go stitching", 2026-11-12). Now module plan step 14: `doze-kafka` gains its doze module face on the Rust module SDK (protocol 2); inherited gates; cutover decision (the owner's). **Built 2026-11-14 (branch `p11-module`, `phase11.md`)**: oracle against the Go kafka module, 43 cases, every difference listed; the published example and the Larder example's kafka block booted through the core's boot sequence in `doze-module-test`. | ~~doze runs the Larder example on the Rust broker~~ the Larder block boots and converges through the harness's boot sequence; the real doze run waits for the Rust core | 3–5 |
+
+| 10 | **Schema registry.** REST routes, `SchemaFormat` for Avro/Protobuf/JSON, wire codec, storage in `kafka-meta`. Highest fidelity risk (Protobuf canonical form and compatibility). 10a (model, API, Avro) built 2026-11-14: `phase10.md`. | registry conformance scenarios + compat corpora | 5–8 |
 | 11 | **Module and release.** `serve` mode (unix sockets) so doze's Go module can re-exec the Rust binary; Rust-edition docs; inherited gates; cutover decision. | doze runs the Larder example on the Rust broker | 3–5 |
 
 About 50–75 sessions. Phases 1–3 are the checkpoint: a working broker for real
@@ -657,3 +660,28 @@ mutation run in a copy of the tree needs a target directory of its own (a shared
 Gates at the closing commit 46d2937 (quiet machine): fmt, clippy `-D warnings` for the default and the `tls` feature, `cargo test --workspace` **1239 passed and 0 failed** in 133 binaries (4 ignored on purpose), 177 passed with the `tls` feature, lint-size (0 over the hard limit), fuzz-check (17 parsers), the catalogue checker (156 rules and 65 deviations defined, 342 quoted test names all exist), interop **23 of 23** plain, **26 of 26** over SASL (four client libraries x PLAIN, SCRAM-SHA-256 and SCRAM-SHA-512, plus runtime user management) and **8 of 8** over TLS, the oracle replay **47 pass and 11 fail** (the eleven are the ten `telemetry-*` scenarios and `version-matrix` on DescribeCluster and the telemetry rows: Phase 9; `sasl-plain`, `sasl-scram`, `acl-unknown-codes` and `idempotent-write-from-topic-write` pass whole). Weight, default build, darwin/arm64: 4,301,200 B (Phase 7 closed at 4,029,504 B, +6.7%), 123 packages (107 before), idle 4.9 MB; the `tls` build 5.02 MB and 134 packages at 8e (`weight.md`).
 
 Sizing, honestly: the plan said 3 to 4 sessions; the phase took the research (three agents), seven build slices (some in parallel worktrees, each merged and gated), four audit rounds and their fixes: about 25 agent runs of one to three hours, i.e. the 7 to 10 sessions of `phase8.md` or a little more. **What is not known:** about 40 of the 45 authorization-matrix rows have no recording, only Kafka's source, so the one real risk of the phase is a source reading that differs from the JVM; the proposal is an `authz-matrix` recording against `apache/kafka:4.3.1` (Docker has a client here and no daemon). The Linux weight of the default and `tls` builds is unmeasured (the estimate says the default build is over the old 5.15 MB gate: Phase 9 raises it by the console's megabyte with headroom, decided by the owner). Out of scope and written down: client certificates and mTLS principals, re-authentication, SASL v0 handshake, OAUTHBEARER/GSSAPI, quotas.
+
+**Real clients at every `--kafka-version` (2026-11-14).** `interop/run.sh -kafka-version N` starts the broker with `--kafka-version N` and
+tells the Go program the major (`-kafka-major N`); `interop/run.sh -versions` runs once per major, 1 to 4, each with a broker and data
+directory of its own, and prints a summary per major (`-sasl -versions` does the SASL cells). sarama's `cfg.Version` comes from one helper
+by major (1.1, 2.8, 3.9, 4.0: the brokers the version table was recorded from); franz-go, kafka-go and librdkafka negotiate from
+ApiVersions and need nothing. The program asks the broker for ApiVersions at the start and skips, with the API named, a scenario that
+needs one not advertised: no table in the suite. Result: plain 18 passed and 5 skipped at Kafka 1, 2 and 3 (the KIP-848 scenarios:
+no ConsumerGroupHeartbeat; 3.9 lists it but its coordinator is classic-only by default, early access), 23 of 23 at Kafka 4; SASL 12
+passed and 1 skipped at Kafka 1 (the users step: no SCRAM credential APIs before 2.7), 26 of 26 at 2, 3 and 4. Transactions (all three
+producers, the zombie, EOS) and compaction pass at every major, at Kafka 1 over v0 of the transaction APIs. No broker defect was found. One harness defect
+was: `mixed` failed about one run in five at Kafka 1 and 2 ("kafka-go read nothing"). The group was Stable with four
+members, and kafka-go had an empty assignment. Whenever kcat joined first it led, and librdkafka cannot read kafka-go's
+subscription, which is version 1 without its owned partitions. The broker passes those bytes through untouched, as Kafka
+does, and `-members librdkafka,kafka-go` fails at every major. The suite now seats the first member before the others
+join. The matrix is in `interop/README.md`. CI runs no interop (local by the owner's choice, 2026-11-09), so CI is unchanged.
+
+**Phase 10, slice 10a built (2026-11-14, branch `p10-registry`), not yet audited.** The schema registry's model, its storage in a
+`schemas` table of `meta.redb`, every REST route the Go edition serves (Confluent's 29 and the five under `/_doze/`), the host guard,
+basic authentication with the SASL users and TLS with the broker's certificate, the wire header, and Avro written in Rust (no
+library: `apache-avro` would have added 35 packages and still not given Confluent's reasons). `--schema-registry` is on by default as
+in Go, behind a `registry` feature of the binary. The Go oracle passes: every Avro step of the 30 recorded scripts and all 392 Avro
+corpus pairs, verdicts and reasons word for word. +217 KB on darwin over the module face (about 0.29 MB on ubuntu at
+CI's measured 1.36), no third-party package; no limit moved. The default build is about 9.24 MB on ubuntu, 0.76 MB under the 10 MB
+ceiling; the TLS build (module plus registry) is about 10.3 MB, over it, and was about 10.0 MB with the module alone: the owner's call. Protobuf (10b) and JSON Schema (10c) plug into `format::Formats`; the record-value codec is 10d. `phase10.md` has
+the weight table, the extension points and the slices; `behaviours/registry.md` the catalogue (REG-1 to REG-27, REG-D1 to REG-D14).

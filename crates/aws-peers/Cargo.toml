@@ -17,6 +17,7 @@ aws-wire = { path = "../aws-wire" }
 serde_json = "1"
 aws-core = { path = "../aws-core" }
 aws-seal = { path = "../aws-seal" }
+bytes = "1"
 
 [dev-dependencies]
 aws-kms = { path = "../aws-kms" }

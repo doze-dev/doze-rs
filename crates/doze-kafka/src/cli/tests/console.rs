@@ -60,6 +60,16 @@ fn the_console_flags_are_parsed_and_kept_and_their_help_says_what_they_do() {
     let help = help.split_whitespace().collect::<Vec<_>>().join(" ");
     assert!(!help.contains("Phase 9"), "{help}");
     assert!(help.contains("127.0.0.1:9093"), "{help}");
+    // SEC-241: the loopback console is open to every local process, and the help says how to turn it off.
+    assert!(
+        help.contains("on a shared machine any local process can use it without the broker's password or past its ACLs (it is a tool for one developer), so turn it off there with `--console=false`"),
+        "{help}"
+    );
+    // SEC-250: ACLs made after the start close a console beyond loopback to other machines, unless --console-unprotected.
+    assert!(
+        help.contains("stops answering other machines while the broker has any ACL (made after the start, over Kafka or from the console), and answers them again once none is left"),
+        "{help}"
+    );
     assert!(settings(&[]).unwrap().console == Console::default());
 }
 
@@ -78,72 +88,6 @@ fn the_console_is_on_by_default_and_off_only_for_false_and_the_prefix_is_a_path(
     }
     // A console that is off has no prefix to be wrong about.
     assert!(!set(&["--console=false", "--console-prefix", "/a b"]).enabled);
-}
-
-#[test]
-fn sasl_and_a_console_beyond_loopback_is_refused_in_the_go_editions_words() {
-    for addr in [
-        "0.0.0.0:9093",
-        ":9093",
-        "192.168.1.5:9093",
-        "[::]:9093",
-        "kafka.lan:9093",
-    ] {
-        let said = settings(&with_sasl(&["--console-addr", addr])).unwrap_err();
-        assert_eq!(
-            said,
-            format!(
-                "config: the console has no login and is plain HTTP, and SASL is on: serving it on {addr} would let anyone who can reach that address act on the broker as a super user, without a password. Keep --console-addr on loopback (and put a proxy that authenticates in front of it), turn it off with --console=false, or accept this with --console-unprotected"
-            )
-        );
-        assert!(!said.contains("planted"));
-    }
-}
-
-#[test]
-fn loopback_a_turned_off_console_and_no_protection_all_start() {
-    for flags in [
-        with_sasl(&["--console-addr", "127.0.0.1:9093"]),
-        with_sasl(&["--console-addr", "[::1]:9093"]),
-        with_sasl(&["--console-addr", "localhost:9093"]),
-        with_sasl(&["--console-addr", "LOCALHOST:0"]),
-        with_sasl(&["--console", "--console-addr", "127.0.0.1:0"]),
-        with_sasl(&["--console=false", "--console-addr", "0.0.0.0:9093"]),
-        // Nothing protects the broker, so there is nothing for the console to undo.
-        vec!["--console-addr", "0.0.0.0:9093"],
-    ] {
-        let set = settings(&flags).unwrap_or_else(|e| panic!("{flags:?}: {e}"));
-        assert!(
-            set.warnings.iter().all(|w| !w.contains("console")),
-            "{:?}",
-            set.warnings
-        );
-    }
-}
-
-#[test]
-fn unprotected_accepts_the_start_and_the_start_says_what_it_left_open() {
-    let set = settings(&with_sasl(&[
-        "--console-addr",
-        "0.0.0.0:9093",
-        "--console-unprotected",
-    ]))
-    .unwrap();
-    assert_eq!(
-        set.warnings,
-        [
-            "the console is served on 0.0.0.0:9093 with no login and over plain HTTP although SASL is on (--console-unprotected): that will let anyone who can reach that address act on the broker as a super user, without a password"
-        ]
-    );
-    assert_eq!(set.console.addr.as_deref(), Some("0.0.0.0:9093"));
-    // The flag with nothing to accept says nothing.
-    let quiet = settings(&with_sasl(&[
-        "--console-addr",
-        "127.0.0.1:9093",
-        "--console-unprotected",
-    ]))
-    .unwrap();
-    assert!(quiet.warnings.is_empty());
 }
 
 #[test]
@@ -233,4 +177,41 @@ fn sasl_with_the_allow_default_is_noted_and_deny_or_no_sasl_is_not() {
         help.contains("Only a super user may set or delete the SCRAM credential of a super user"),
         "{help}"
     );
+}
+
+#[test]
+fn the_console_flag_takes_a_strict_boolean_in_any_case_and_anything_else_stops_the_start() {
+    let set = |flags: &[&str]| settings(flags);
+    for off in [
+        "false", "0", "no", "off", "FALSE", "False", "No", "OFF", "oFf",
+    ] {
+        let flag = format!("--console={off}");
+        assert!(!set(&[&flag]).unwrap().console.enabled, "{flag} left it on");
+    }
+    for on in ["true", "1", "yes", "on", "TRUE", "True", "Yes", "ON"] {
+        let flag = format!("--console={on}");
+        assert!(set(&[&flag]).unwrap().console.enabled, "{flag}");
+    }
+    // The value as a separate argument is the same, and the bare flag is on.
+    assert!(!set(&["--console", "off"]).unwrap().console.enabled);
+    assert!(set(&["--console"]).unwrap().console.enabled);
+    for bad in [
+        "maybe", "", "2", "fals", "truee", "t", "n", "disabled", " false",
+    ] {
+        let flag = format!("--console={bad}");
+        let said = set(&[&flag]).unwrap_err();
+        assert_eq!(
+            said,
+            format!(
+                "config: --console takes true, false, 1, 0, yes, no, on or off, not {bad:?}; the console stays on only when it is asked for plainly"
+            )
+        );
+    }
+}
+
+#[test]
+fn a_console_flag_that_is_not_a_boolean_is_refused_even_when_the_console_flags_are_otherwise_fine()
+{
+    let said = settings(&["--console=maybe", "--console-addr", "127.0.0.1:0"]).unwrap_err();
+    assert!(said.contains("--console takes true, false"), "{said}");
 }

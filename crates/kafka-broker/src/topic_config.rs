@@ -252,6 +252,20 @@ fn one_of(v: &str, allowed: &[&str]) -> Result<(), String> {
 #[cfg(test)]
 mod tests;
 
+/// Checks topic configs as CreateTopics does, before there is a broker: the doze module face refuses at its line in
+/// doze.hcl what the broker would refuse only once it runs. The first refusal, in Kafka's words.
+///
+/// # Errors
+/// The refusal's message.
+pub fn check_topic_configs(configs: &BTreeMap<String, String>) -> Result<(), String> {
+    validate(configs)
+}
+
+/// The name of every topic config, as Kafka spells it (for a "did you mean").
+pub fn topic_config_names() -> impl Iterator<Item = &'static str> {
+    SETTINGS.iter().map(|s| s.name)
+}
+
 /// The name of a topic config as this table spells it, if it is one.
 #[must_use]
 pub(crate) fn lookup_name(name: &str) -> Option<&'static str> {
@@ -265,4 +279,11 @@ pub(crate) fn kafka_default_of(name: &str) -> Option<String> {
         Fallback::None => None,
         Fallback::Fixed(v) | Fallback::Broker(_, v) => Some(v.to_owned()),
     }
+}
+
+/// What a value of the topic config may be, in words, if it is one.
+#[must_use]
+#[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+pub(crate) fn allowed_of(name: &str) -> Option<String> {
+    lookup(name).map(|s| s.kind.allowed())
 }

@@ -55,3 +55,8 @@ that keeps an open window in its budget. One relaxed atomic add per frame; nothi
 ## 4. Lints
 
 None changed: `vendor/` is excluded from the workspace, so its own `[lints]` table applies to it alone.
+
+## 5. The image crate with PNG only (`Cargo.toml`)
+
+The same change as `vendor/gpui-pre/PATCHES.md` §1: `[dependencies.image]` lists `png` only. gpui-pre-apple has no code
+that uses another format.

@@ -27,8 +27,7 @@ fn acl_flags_that_cannot_work_stop_the_start_in_the_go_editions_words() {
             .args(["--listen", "127.0.0.1:0", "--data-dir"])
             .arg(&data)
             .args(flags)
-            .output()
-            .unwrap();
+            .output_within(PROCESS_WAIT);
         let said = String::from_utf8_lossy(&output.stderr);
         assert!(!output.status.success(), "{flags:?}");
         assert!(said.contains(why), "{flags:?}: {said}");

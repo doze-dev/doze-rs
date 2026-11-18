@@ -9,12 +9,21 @@ use super::{
     Answer, DEFAULT_REBALANCE_MS, Effect, GroupMachine, Hold, JoinAnswer, Millis, Rebalance, State,
     SyncAnswer, TimerKey, TimerKind,
 };
+use crate::groups::note::{What, Why, count, say};
 
 impl GroupMachine {
     /// Moves to `PreparingRebalance`: the members have until the longest of their rebalance timeouts to join again.
     /// A group that was empty also waits out the initial delay, so that members starting together share one
     /// generation. Parked SyncGroups are told to join again.
-    pub(super) fn begin_rebalance(&mut self, now: Millis, hold: bool, out: &mut Vec<Effect>) {
+    ///
+    /// `why` is what the group says of it in a note; nothing here depends on it.
+    pub(super) fn begin_rebalance(
+        &mut self,
+        now: Millis,
+        hold: bool,
+        why: Why,
+        out: &mut Vec<Effect>,
+    ) {
         if self.state == State::PreparingRebalance {
             return;
         }
@@ -45,9 +54,16 @@ impl GroupMachine {
         let hold = (hold && self.initial_delay_ms > 0)
             .then(|| self.open_window(now, deadline, false, out));
         self.rebalance = Some(Rebalance {
+            began: now,
             deadline,
             generation,
             hold,
+        });
+        say(out, now, || What::Began {
+            why,
+            generation: self.generation.wrapping_add(1).max(0),
+            after: count(self.members.len()),
+            wait_ms: longest,
         });
     }
 
@@ -89,7 +105,7 @@ impl GroupMachine {
     /// Ends the wait: members that did not join again are dropped, the generation goes up, and everyone who
     /// joined is told the protocol and the leader. With nobody left the group is empty.
     pub(super) fn complete_join(&mut self, now: Millis, out: &mut Vec<Effect>) {
-        self.rebalance = None;
+        let began = self.rebalance.take().map(|r| r.began);
         out.push(Effect::Disarm(TimerKind::Rebalance));
         out.push(Effect::Disarm(TimerKind::Hold));
         let silent: Vec<MemberId> = self
@@ -99,6 +115,7 @@ impl GroupMachine {
             .map(|m| m.id.clone())
             .collect();
         for id in &silent {
+            self.note_dropped(id, began, now, out);
             self.drop_member(id, out);
         }
         self.generation = self.generation.wrapping_add(1).max(0);
@@ -106,6 +123,7 @@ impl GroupMachine {
             self.state = State::Empty;
             self.protocol = None;
             self.leader = None;
+            self.note_formed(now, out);
             return;
         }
         let Some(leader) = self.elect() else {
@@ -114,6 +132,7 @@ impl GroupMachine {
         self.protocol = Some(self.vote());
         self.leader = Some(leader);
         self.state = State::CompletingRebalance;
+        self.note_formed(now, out);
         let ids: Vec<MemberId> = self.members.keys().cloned().collect();
         for id in ids {
             let answer = self.join_answer(&id);
@@ -189,12 +208,12 @@ impl GroupMachine {
     }
 
     /// The group has lost a member: a rebalance waiting on it may now finish, and a running group must start one.
-    pub(super) fn rebalance_after_change(&mut self, now: Millis, out: &mut Vec<Effect>) {
+    pub(super) fn rebalance_after_change(&mut self, now: Millis, why: Why, out: &mut Vec<Effect>) {
         match self.state {
             State::Empty => {}
             State::PreparingRebalance => self.maybe_complete(now, out),
             State::CompletingRebalance | State::Stable => {
-                self.begin_rebalance(now, false, out);
+                self.begin_rebalance(now, false, why, out);
                 self.maybe_complete(now, out);
             }
         }

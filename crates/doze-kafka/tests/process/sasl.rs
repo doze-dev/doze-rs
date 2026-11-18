@@ -33,8 +33,7 @@ fn flags_that_cannot_be_honoured_stop_the_start_and_say_why() {
             .args(["--listen", "127.0.0.1:0", "--data-dir"])
             .arg(&data)
             .args(flags)
-            .output()
-            .unwrap();
+            .output_within(PROCESS_WAIT);
         let said = String::from_utf8_lossy(&output.stderr);
         assert!(!output.status.success(), "{flags:?}");
         assert!(said.contains(why), "{flags:?}: {said}");

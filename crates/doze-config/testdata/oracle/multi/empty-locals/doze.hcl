@@ -1,0 +1,2 @@
+locals {}
+stack = local.x

@@ -57,6 +57,8 @@ pub(crate) struct JoinRequest {
     /// What the caller may DESCRIBE (`None`: everything): a consumer group gives a classic member only the topics of
     /// its subscription that this lets through, and keeps it for the member's life there (SEC-231).
     pub(crate) rights: Option<crate::authorizer::TopicRights>,
+    /// JoinGroup v5 and later: why the client says it joins, clipped. Only a note keeps it; nothing decides by it.
+    pub(crate) reason: Option<crate::groups::note::Reason>,
 }
 
 /// A SyncGroup.
@@ -115,6 +117,9 @@ pub(crate) struct Description {
     pub(crate) subscribed: Option<std::collections::BTreeSet<String>>,
     /// Set if this is a consumer group, which the classic APIs do not describe.
     pub(crate) consumer: Option<crate::groups::consumer::ConsumerView>,
+    /// What the console is told besides (feature `inspect`).
+    #[cfg(feature = "inspect")]
+    pub(crate) inspect: Box<crate::groups::Inspect>,
 }
 
 /// One member a LeaveGroup names, by id or by static instance.
@@ -124,6 +129,8 @@ pub(crate) struct LeaveTarget {
     pub(crate) member_id: Option<MemberId>,
     /// Its instance id, if the request gave one.
     pub(crate) instance: Option<InstanceId>,
+    /// LeaveGroup v5 and later: why the client says it leaves, clipped. Only a note keeps it.
+    pub(crate) reason: Option<crate::groups::note::Reason>,
 }
 
 /// A member as the leader is told of it.
@@ -224,6 +231,10 @@ pub(crate) enum Answer {
     Delete(Option<ResponseError>),
     /// To a ConsumerGroupHeartbeat.
     ConsumerHeartbeat(crate::groups::consumer::HeartbeatAnswer),
+    /// To a request for what the group has said of itself (the actor answers; no machine does).
+    Events(Vec<crate::groups::events::Recorded>),
+    /// To a forced step.
+    Forced(Forced),
 }
 
 /// Which clock a timer is.
@@ -271,6 +282,34 @@ pub(crate) enum Event {
     TopicsChanged,
     /// A timer ran out.
     Timer(TimerKey),
+    /// The console's Lab forces a step the group would take by itself: see [`Force`].
+    Force(Token, Force),
+}
+
+/// What the Lab forces on a group. Each is the step the group takes for the same cause by itself, taken now: a member's session
+/// timer running out, or a change the members cause (a new epoch, a new generation). Nothing is a transition of its own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+pub(crate) enum Force {
+    /// A member's session runs out.
+    Expire(MemberId),
+    /// The group starts a rebalance (classic) or moves to a new epoch (the new protocol).
+    Rebalance,
+}
+
+/// What came of a [`Force`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Forced {
+    /// It was taken.
+    Done,
+    /// There is no such group in memory.
+    NoSuchGroup,
+    /// The group has no such member.
+    NoSuchMember,
+    /// The group has nobody to rebalance.
+    Empty,
+    /// A rebalance is already running.
+    AlreadyRebalancing,
 }
 
 /// What the machine asks of whoever drives it.
@@ -287,6 +326,9 @@ pub(crate) enum Effect {
     },
     /// Forget the timer of this kind.
     Disarm(TimerKind),
+    /// Something the machine says of itself: why a rebalance began, what came of it. Nothing depends on it; whoever
+    /// drives the machine may keep it or drop it.
+    Note(crate::groups::note::Note),
     /// A request is replaced by a later one (a JoinGroup sent again) and will never be answered: whoever waits for
     /// it can stop.
     Forget(Token),

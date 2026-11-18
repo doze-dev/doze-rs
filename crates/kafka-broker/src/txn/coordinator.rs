@@ -247,7 +247,7 @@ impl<F: Fs> Broker<F> {
 }
 
 /// How often open transactions are looked at.
-const CHECK_EVERY: std::time::Duration = std::time::Duration::from_millis(500);
+pub(crate) const CHECK_EVERY: std::time::Duration = std::time::Duration::from_millis(500);
 
 impl<F: Fs + Send + Sync + 'static> Broker<F> {
     /// Looks at the transactions now and then as long as the broker lives.

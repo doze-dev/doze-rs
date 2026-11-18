@@ -19,6 +19,7 @@ aws-ssm = { path = "../aws-ssm" }
 aws-secrets = { path = "../aws-secrets" }
 aws-kms = { path = "../aws-kms" }
 aws-dynamodb = { path = "../aws-dynamodb" }
+aws-dynamodb-streams = { path = "../aws-dynamodb-streams" }
 aws-s3 = { path = "../aws-s3" }
 aws-iam = { path = "../aws-iam" }
 aws-sns = { path = "../aws-sns" }
@@ -27,6 +28,9 @@ aws-logs = { path = "../aws-logs" }
 aws-cloudwatch = { path = "../aws-cloudwatch" }
 aws-eventbridge = { path = "../aws-eventbridge" }
 aws-lambda = { path = "../aws-lambda" }
+aws-apigateway = { path = "../aws-apigateway" }
+aws-sfn = { path = "../aws-sfn" }
+aws-cloudformation = { path = "../aws-cloudformation" }
 aws-peers = { path = "../aws-peers" }
 aws-wire = { path = "../aws-wire" }
 doze-runtime = { path = "../doze-runtime" }
