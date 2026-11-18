@@ -164,11 +164,15 @@ fn read_commands_answer_within_the_budget() {
     } else {
         Duration::from_millis(15)
     };
-    for args in [
-        &["version"][..],
-        &["modules", "docs", "valkey"],
-        &["modules"],
-    ] {
+    // The registry commands read the sandbox's index, which only a debug binary trusts (it is signed with the fixture
+    // key, and nothing checked in is signed with the production key): a release build weighs `version` alone.
+    let all: &[&[&str]] = &[&["version"], &["modules", "docs", "valkey"], &["modules"]];
+    let run = if cfg!(debug_assertions) {
+        all
+    } else {
+        &all[..1]
+    };
+    for &args in run {
         let mut times: Vec<Duration> = (0..15)
             .map(|_| {
                 let t = Instant::now();

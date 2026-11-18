@@ -187,16 +187,14 @@ fn test_key() -> Option<ed25519_dalek::VerifyingKey> {
         return None;
     }
     let text = std::env::var("DOZE_TEST_REGISTRY_KEY").ok()?;
+    // Silent when the key is good: the terminal tests hold a script's stderr to nothing.
     let key = signed::parse_key(&text);
-    #[allow(clippy::print_stderr)]
-    {
-        match key {
-            Some(_) => eprintln!(
-                "doze (debug build): registry signatures checked with DOZE_TEST_REGISTRY_KEY, not the built-in key"
-            ),
-            None => eprintln!(
+    if key.is_none() {
+        #[allow(clippy::print_stderr)]
+        {
+            eprintln!(
                 "doze (debug build): DOZE_TEST_REGISTRY_KEY is not a key; the built-in key is used"
-            ),
+            );
         }
     }
     key
