@@ -129,6 +129,12 @@ not_planned = [
 ]
 
 [api."CloudWatch"]
+differences = [
+  "Metric math is worked out in `GetMetricData` and in metric math alarms: arithmetic, comparisons and logic, `ABS CEIL FLOOR LOG LOG10`, `AVG SUM MIN MAX STDDEV`, `DATAPOINT_COUNT`, `PERIOD`, `TIME_SERIES`, `IF`, `METRICS`, `REMOVE_EMPTY FIRST LAST SORT SLICE`, `FILL RATE DIFF DIFF_TIME RUNNING_SUM`, the time functions and `SEARCH`. Metrics Insights queries (`SELECT ...`) and `INSIGHT_RULE_METRIC`, `SERVICE_QUOTA`, `LAMBDA` and `DB_PERF_INSIGHTS` are refused with a sentence.",
+  "`ANOMALY_DETECTION_BAND` is a statistical stand-in, not AWS's trained model: the mean of the metric's datapoints in the window read (for an alarm, its window and up to 50 periods before it), plus and minus the given number of standard deviations.",
+  "`SEARCH` matches a partial term as a case-insensitive part of a namespace, metric name or dimension; AWS matches on the words of a name. A search finds a metric as soon as it has data; AWS can take minutes to index a new one.",
+  "Log alarms (`PutLogAlarm`) are kept, described, tagged, forced and deleted, but not evaluated: no scheduled Logs Insights query runs locally, so a log alarm stays `INSUFFICIENT_DATA` and its reason says so. Composite alarms are likewise kept and not evaluated.",
+]
 not_planned = [
   { why = "Datasets, vended-metric configuration, OpenTelemetry enrichment, managed Contributor Insights rules, alarm contributors and rendered graph images: features of AWS's own console and services, with no local use yet.", families = ["Dataset", "ResourceMetricsConfiguration", "OTelEnrichment", "ManagedInsightRules", "AlarmContributors", "MetricWidgetImage"] },
 ]
