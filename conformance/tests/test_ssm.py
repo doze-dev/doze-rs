@@ -1,5 +1,7 @@
 """SSM Parameter Store through boto3."""
 
+import json
+
 import pytest
 
 
@@ -367,3 +369,73 @@ def test_service_settings_update_and_reset(client, cleanup, snapshot, target):
     snapshot.match("get-updated", ssm.get_service_setting(SettingId=TIER), opaque=SETTING_VARYING)
     snapshot.error("bad-value", lambda: ssm.update_service_setting(SettingId=TIER, SettingValue="Gold"))
     snapshot.match("reset", ssm.reset_service_setting(SettingId=TIER), opaque=SETTING_VARYING)
+
+
+def share_policy(arn, action="ssm:GetParameter"):
+    return json.dumps({"Version": "2012-10-17", "Statement": [{
+        "Sid": "share", "Effect": "Allow", "Principal": {"AWS": f"arn:aws:iam::{OTHER_ACCOUNT}:root"},
+        "Action": action, "Resource": arn}]})
+
+
+# An advanced parameter is billed by the month, prorated: the minute these scenarios keep one costs a fraction of a cent.
+def test_resource_policy_on_a_parameter(client, names, cleanup, snapshot):
+    ssm = client("ssm")
+    name = f"/{names('param')}/shared"
+    ssm.put_parameter(Name=name, Value="v", Type="String", Tier="Advanced")
+    cleanup(ssm.delete_parameter, Name=name)
+    arn = ssm.get_parameter(Name=name)["Parameter"]["ARN"]
+    # The id and the hash are the service's own; each must be the same wherever it appears again.
+    ids = ("PolicyId", "PolicyHash")
+    made = ssm.put_resource_policy(ResourceArn=arn, Policy=share_policy(arn))
+    snapshot.match("put", made, opaque=ids)
+    snapshot.match("get", ssm.get_resource_policies(ResourceArn=arn), opaque=ids)
+    changed = ssm.put_resource_policy(ResourceArn=arn, Policy=share_policy(arn, "ssm:GetParameters"),
+                                      PolicyId=made["PolicyId"], PolicyHash=made["PolicyHash"])
+    assert changed["PolicyHash"] != made["PolicyHash"]
+    snapshot.match("change", changed, opaque=ids)
+    snapshot.error("stale-hash", lambda: ssm.put_resource_policy(
+        ResourceArn=arn, Policy=share_policy(arn), PolicyId=made["PolicyId"], PolicyHash=made["PolicyHash"]))
+    snapshot.error("delete-stale-hash", lambda: ssm.delete_resource_policy(
+        ResourceArn=arn, PolicyId=made["PolicyId"], PolicyHash=made["PolicyHash"]))
+    snapshot.match("delete", ssm.delete_resource_policy(
+        ResourceArn=arn, PolicyId=changed["PolicyId"], PolicyHash=changed["PolicyHash"]))
+    snapshot.match("none-left", ssm.get_resource_policies(ResourceArn=arn))
+
+
+def test_resource_policy_refusals(client, names, cleanup, snapshot):
+    ssm = client("ssm")
+    name = f"/{names('param')}/standard"
+    ssm.put_parameter(Name=name, Value="v", Type="String")
+    cleanup(ssm.delete_parameter, Name=name)
+    arn = ssm.get_parameter(Name=name)["Parameter"]["ARN"]
+    snapshot.error("standard-tier", lambda: ssm.put_resource_policy(ResourceArn=arn, Policy=share_policy(arn)))
+    snapshot.error("no-such-parameter", lambda: ssm.put_resource_policy(
+        ResourceArn=f"{arn}-absent", Policy=share_policy(arn)))
+    snapshot.error("not-a-policy", lambda: ssm.put_resource_policy(ResourceArn=arn, Policy="{nope"))
+    snapshot.error("unknown-policy-id", lambda: ssm.delete_resource_policy(
+        ResourceArn=arn, PolicyId="0123456789abcdef", PolicyHash="0123456789abcdef"))
+
+
+CHANGE_TEMPLATE = json.dumps({"schemaVersion": "0.3", "mainSteps": [
+    {"name": "wait", "action": "aws:sleep", "inputs": {"Duration": "PT1S"}}]})
+
+
+def test_change_template_review_history(client, names, cleanup, snapshot):
+    ssm = client("ssm")
+    name = names("change")
+    ssm.create_document(Name=name, Content=CHANGE_TEMPLATE, DocumentType="Automation.ChangeTemplate")
+    cleanup(ssm.delete_document, Name=name)
+    snapshot.match("empty", ssm.list_document_metadata_history(
+        Name=name, DocumentVersion="1", Metadata="DocumentReviews"))
+    snapshot.match("send", ssm.update_document_metadata(Name=name, DocumentVersion="1", DocumentReviews={
+        "Action": "SendForReview", "Comment": [{"Type": "Comment", "Content": "please"}]}))
+    # Who reviewed and when differ from run to run.
+    varying = ("Author", "Reviewer", "CreateTime", "UpdatedTime")
+    snapshot.match("pending", ssm.list_document_metadata_history(
+        Name=name, DocumentVersion="1", Metadata="DocumentReviews"), opaque=varying)
+    snapshot.match("approve", ssm.update_document_metadata(Name=name, DocumentVersion="1", DocumentReviews={
+        "Action": "Approve", "Comment": [{"Type": "Comment", "Content": "ok"}]}))
+    snapshot.match("approved", ssm.list_document_metadata_history(
+        Name=name, DocumentVersion="1", Metadata="DocumentReviews"), opaque=varying)
+    snapshot.error("no-such-version", lambda: ssm.list_document_metadata_history(
+        Name=name, DocumentVersion="9", Metadata="DocumentReviews"))
