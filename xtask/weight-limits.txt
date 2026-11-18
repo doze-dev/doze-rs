@@ -58,7 +58,13 @@
 # 11,880 KB.
 # 2026-11-18, share groups on main with quotas, measured: darwin arm64 8,646,672 B, 182 packages, idle 7,952 KB; times 1.3747 plus 5% =
 # 12,481,014 B until CI measures it. Idle: share groups' 11,880 KB (above main's 11,689 KB).
-doze-kafka 12481014 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-18, streams groups (KIP-1071, docs/port/behaviours/streams-groups.md) on kafka-streams, measured with `cargo xtask weight
+# doze-kafka` on darwin arm64: 9,093,488 B (+446,816 B, +5.2%, over the 8,646,672 B just above), 182 packages (no new package), idle
+# 7,872 KB (samples 7,856, 7,952, 7,872: within the share line's noise). The bytes are Rust code: three APIs' messages (the vendored
+# codecs, patch 4), the group (topology configuration, the sticky assignor, reconciliation), its handlers, the group configs, the
+# recorder's summaries and the console's streams page. No streams group, no task and no timer (STR-82). Bytes: times CI's 1.3747 is
+# 12,500,818 B on ubuntu x86_64, plus 5% = 13,125,859 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+doze-kafka 13125859 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
