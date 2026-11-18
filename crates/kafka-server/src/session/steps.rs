@@ -33,18 +33,25 @@ const AFTER_LOGIN: &str = "SaslAuthenticate request received after successful au
 
 /// Answers a SaslHandshake. A mechanism that is offered moves the session to [`Session::Handshaken`] and is
 /// answered with the list; one that is not (a wrong case, an empty name, a mechanism that is off) is answered
-/// UNSUPPORTED_SASL_MECHANISM with the same list, and the connection closes.
+/// UNSUPPORTED_SASL_MECHANISM with the same list, and the connection closes. At `version` 0 the tokens that follow
+/// are raw ([`Session::RawHandshaken`], [`raw`]); from 1 they come in SaslAuthenticate requests (Kafka's
+/// `handleHandshakeRequest`: `enableKafkaSaslAuthenticateHeaders(version >= 1)`).
 pub(crate) fn handshake(
     session: &mut Session,
     auth: &Authenticator,
     request: &SaslHandshakeRequest,
+    version: i16,
 ) -> (SaslHandshakeResponse, Fate) {
     if !matches!(session, Session::Unauthenticated { .. }) {
         return (illegal_handshake(), Fate::Closing);
     }
     match Mechanism::from_name(&request.mechanism).filter(|&m| auth.offers(m)) {
         Some(mechanism) => {
-            *session = Session::Handshaken(mechanism);
+            *session = if version == 0 {
+                Session::RawHandshaken(mechanism)
+            } else {
+                Session::Handshaken(mechanism)
+            };
             (listing(0, auth), Fate::Open)
         }
         None => (
@@ -90,9 +97,72 @@ pub(crate) fn authenticate(
             Err(refusal) => refused(&refusal),
         },
         Session::Authenticated(_) => Ok((after_login(), Fate::Open)),
-        Session::Unauthenticated { .. } | Session::Challenged(_) => {
+        Session::Unauthenticated { .. }
+        | Session::Challenged(_)
+        | Session::RawHandshaken(_)
+        | Session::RawChallenged(_) => {
             Ok((error(ResponseError::IllegalSaslState, None), Fate::Closing))
         }
+    }
+}
+
+/// How a raw token (after a SaslHandshake v0) ended badly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RawEnd {
+    /// A refused login: closed after the failed-login delay, with nothing written (raw framing has no error to send).
+    Failed,
+    /// Closed at once, with nothing written: a SCRAM proof of the wrong length, as with [`Hangup`].
+    Hangup,
+}
+
+/// Judges a raw token: the mechanism's own reply (empty for PLAIN, the server-first or server-final message for SCRAM),
+/// written back as a size-prefixed frame, or the end of the connection with nothing written. Kafka's
+/// `handleSaslToken` with the headers off: `evaluateResponse`, and a reply only when it is not null; a failure
+/// throws and the channel is closed (SEC-401).
+///
+/// # Errors
+/// [`RawEnd`]: the connection is closed and nothing is written.
+pub(crate) fn raw(
+    session: &mut Session,
+    auth: &Authenticator,
+    token: &[u8],
+) -> Result<Vec<u8>, RawEnd> {
+    match std::mem::replace(session, Session::new()) {
+        Session::RawChallenged(awaiting) => match awaiting.finish(token) {
+            Ok((signature, principal)) => {
+                *session = Session::Authenticated(principal);
+                Ok(signature)
+            }
+            Err(refusal) => Err(raw_refused(&refusal)),
+        },
+        Session::RawHandshaken(Mechanism::Plain) => match auth.plain(token) {
+            Ok(principal) => {
+                *session = Session::Authenticated(principal);
+                Ok(Vec::new())
+            }
+            Err(_) => Err(RawEnd::Failed),
+        },
+        Session::RawHandshaken(mechanism) => match auth.scram_first(mechanism, token) {
+            Ok((challenge, awaiting)) => {
+                *session = Session::RawChallenged(awaiting);
+                Ok(challenge)
+            }
+            Err(refusal) => Err(raw_refused(&refusal)),
+        },
+        // Not reached: the connection asks for a raw token only in the two raw states.
+        other => {
+            *session = other;
+            Err(RawEnd::Hangup)
+        }
+    }
+}
+
+fn raw_refused(refusal: &scram::Refusal) -> RawEnd {
+    debug!(reason = ?refusal, "SCRAM login refused (raw tokens)");
+    if refusal.is_silent() {
+        RawEnd::Hangup
+    } else {
+        RawEnd::Failed
     }
 }
 

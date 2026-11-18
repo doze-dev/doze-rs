@@ -139,7 +139,7 @@ impl DescribeAclsRequest {
 #[cfg(feature = "client")]
 impl Encodable for DescribeAclsRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         types::Int8.encode(buf, &self.resource_type_filter)?;
@@ -148,7 +148,12 @@ impl Encodable for DescribeAclsRequest {
         } else {
             types::String.encode(buf, &self.resource_name_filter)?;
         }
-        types::Int8.encode(buf, &self.pattern_type_filter)?;
+        // PATCH 5: not in v0, where every pattern is LITERAL (3).
+        if version >= 1 {
+            types::Int8.encode(buf, &self.pattern_type_filter)?;
+        } else if self.pattern_type_filter != 3 {
+            bail!("A pattern_type_filter other than LITERAL cannot be written at version 0");
+        }
         if version >= 2 {
             types::CompactString.encode(buf, &self.principal_filter)?;
         } else {
@@ -183,7 +188,10 @@ impl Encodable for DescribeAclsRequest {
         } else {
             total_size += types::String.compute_size(&self.resource_name_filter)?;
         }
-        total_size += types::Int8.compute_size(&self.pattern_type_filter)?;
+        if version >= 1 {
+            // PATCH 5
+            total_size += types::Int8.compute_size(&self.pattern_type_filter)?;
+        }
         if version >= 2 {
             total_size += types::CompactString.compute_size(&self.principal_filter)?;
         } else {
@@ -215,7 +223,7 @@ impl Encodable for DescribeAclsRequest {
 #[cfg(feature = "broker")]
 impl Decodable for DescribeAclsRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let resource_type_filter = types::Int8.decode(buf)?;
@@ -224,7 +232,8 @@ impl Decodable for DescribeAclsRequest {
         } else {
             types::String.decode(buf)?
         };
-        let pattern_type_filter = types::Int8.decode(buf)?;
+        // PATCH 5: v0 has no pattern type; it is LITERAL.
+        let pattern_type_filter = if version >= 1 { types::Int8.decode(buf)? } else { 3 };
         let principal_filter = if version >= 2 {
             types::CompactString.decode(buf)?
         } else {
@@ -276,7 +285,7 @@ impl Default for DescribeAclsRequest {
 }
 
 impl Message for DescribeAclsRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 3 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 3 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

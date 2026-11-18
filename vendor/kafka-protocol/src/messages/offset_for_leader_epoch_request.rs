@@ -69,7 +69,7 @@ impl OffsetForLeaderEpochRequest {
 #[cfg(feature = "client")]
 impl Encodable for OffsetForLeaderEpochRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         if version >= 3 {
@@ -124,7 +124,7 @@ impl Encodable for OffsetForLeaderEpochRequest {
 #[cfg(feature = "broker")]
 impl Decodable for OffsetForLeaderEpochRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let replica_id = if version >= 3 {
@@ -166,7 +166,7 @@ impl Default for OffsetForLeaderEpochRequest {
 }
 
 impl Message for OffsetForLeaderEpochRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 2, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -236,11 +236,14 @@ impl OffsetForLeaderPartition {
 #[cfg(feature = "client")]
 impl Encodable for OffsetForLeaderPartition {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.partition)?;
-        types::Int32.encode(buf, &self.current_leader_epoch)?;
+        if version >= 2 {
+            // PATCH 5: from v2
+            types::Int32.encode(buf, &self.current_leader_epoch)?;
+        }
         types::Int32.encode(buf, &self.leader_epoch)?;
         if version >= 4 {
             let num_tagged_fields = self.unknown_tagged_fields.len();
@@ -259,7 +262,10 @@ impl Encodable for OffsetForLeaderPartition {
     fn compute_size(&self, version: i16) -> Result<usize> {
         let mut total_size = 0;
         total_size += types::Int32.compute_size(&self.partition)?;
-        total_size += types::Int32.compute_size(&self.current_leader_epoch)?;
+        if version >= 2 {
+            // PATCH 5
+            total_size += types::Int32.compute_size(&self.current_leader_epoch)?;
+        }
         total_size += types::Int32.compute_size(&self.leader_epoch)?;
         if version >= 4 {
             let num_tagged_fields = self.unknown_tagged_fields.len();
@@ -280,11 +286,12 @@ impl Encodable for OffsetForLeaderPartition {
 #[cfg(feature = "broker")]
 impl Decodable for OffsetForLeaderPartition {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let partition = types::Int32.decode(buf)?;
-        let current_leader_epoch = types::Int32.decode(buf)?;
+        // PATCH 5: from v2; its default before.
+        let current_leader_epoch = if version >= 2 { types::Int32.decode(buf)? } else { -1 };
         let leader_epoch = types::Int32.decode(buf)?;
         let mut unknown_tagged_fields = BTreeMap::new();
         if version >= 4 {
@@ -317,7 +324,7 @@ impl Default for OffsetForLeaderPartition {
 }
 
 impl Message for OffsetForLeaderPartition {
-    const VERSIONS: VersionRange = VersionRange { min: 2, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -373,7 +380,7 @@ impl OffsetForLeaderTopic {
 #[cfg(feature = "client")]
 impl Encodable for OffsetForLeaderTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         if version >= 4 {
@@ -432,7 +439,7 @@ impl Encodable for OffsetForLeaderTopic {
 #[cfg(feature = "broker")]
 impl Decodable for OffsetForLeaderTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let topic = if version >= 4 {
@@ -474,7 +481,7 @@ impl Default for OffsetForLeaderTopic {
 }
 
 impl Message for OffsetForLeaderTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 2, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

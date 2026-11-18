@@ -1,0 +1,837 @@
+{
+  "scenario": "sasl-handshake-v0",
+  "kafka": "apache/kafka:4.3.1",
+  "steps": [
+    {
+      "label": "fixture-topics",
+      "conn": "admin",
+      "api": "CreateTopics",
+      "version": 7,
+      "request": {
+        "TimeoutMillis": 15000,
+        "Topics": [
+          {
+            "Configs": null,
+            "NumPartitions": 1,
+            "ReplicaAssignment": null,
+            "ReplicationFactor": 1,
+            "Topic": "for-alice"
+          },
+          {
+            "Configs": null,
+            "NumPartitions": 1,
+            "ReplicaAssignment": null,
+            "ReplicationFactor": 1,
+            "Topic": "for-bob"
+          }
+        ],
+        "ValidateOnly": false
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "ConfigErrorCode": 0,
+            "Configs": [],
+            "ErrorCode": 0,
+            "ErrorMessage": null,
+            "NumPartitions": 1,
+            "ReplicationFactor": 1,
+            "Topic": "for-alice",
+            "TopicID": "\u003ctopic-id:1\u003e"
+          },
+          {
+            "ConfigErrorCode": 0,
+            "Configs": [],
+            "ErrorCode": 0,
+            "ErrorMessage": null,
+            "NumPartitions": 1,
+            "ReplicationFactor": 1,
+            "Topic": "for-bob",
+            "TopicID": "\u003ctopic-id:2\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "fixture-acls",
+      "conn": "admin",
+      "api": "CreateACLs",
+      "version": 3,
+      "request": {
+        "Creations": [
+          {
+            "Host": "\u003chost\u003e",
+            "Operation": "DESCRIBE",
+            "PermissionType": "ALLOW",
+            "Principal": "User:alice",
+            "ResourceName": "for-alice",
+            "ResourcePatternType": "LITERAL",
+            "ResourceType": "TOPIC"
+          },
+          {
+            "Host": "\u003chost\u003e",
+            "Operation": "DESCRIBE",
+            "PermissionType": "ALLOW",
+            "Principal": "User:bob",
+            "ResourceName": "for-bob",
+            "ResourcePatternType": "LITERAL",
+            "ResourceType": "TOPIC"
+          }
+        ]
+      },
+      "response": {
+        "Results": [
+          {
+            "ErrorCode": 0,
+            "ErrorMessage": ""
+          },
+          {
+            "ErrorCode": 0,
+            "ErrorMessage": ""
+          }
+        ],
+        "ThrottleMillis": 0
+      }
+    },
+    {
+      "label": "v0-good-handshake",
+      "conn": "v0-good",
+      "api": "SASLHandshake",
+      "version": 0,
+      "request": {
+        "Mechanism": "PLAIN"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "SupportedMechanisms": [
+          "PLAIN"
+        ]
+      }
+    },
+    {
+      "label": "v0-good-token",
+      "conn": "v0-good",
+      "api": "(raw SASL token)",
+      "version": 0,
+      "request": {
+        "token": "\u0000alice\u0000alice-secret"
+      },
+      "response": {
+        "length": 0,
+        "token": ""
+      }
+    },
+    {
+      "label": "v0-good-who",
+      "conn": "v0-good",
+      "api": "Metadata",
+      "version": 9,
+      "request": {
+        "AllowAutoTopicCreation": false,
+        "IncludeClusterAuthorizedOperations": false,
+        "IncludeTopicAuthorizedOperations": false,
+        "Topics": [
+          {
+            "Topic": "for-alice",
+            "TopicID": "\u003czero-id\u003e"
+          },
+          {
+            "Topic": "for-bob",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      },
+      "response": {
+        "AuthorizedOperations": -2147483648,
+        "Brokers": [
+          {
+            "Host": "\u003chost\u003e",
+            "NodeID": "\u003cnode\u003e",
+            "Port": "\u003cport\u003e",
+            "Rack": null
+          }
+        ],
+        "ClusterID": "\u003ccluster\u003e",
+        "ControllerID": "\u003cnode\u003e",
+        "ErrorCode": 0,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "AuthorizedOperations": -2147483648,
+            "ErrorCode": 0,
+            "IsInternal": false,
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "ISR": [
+                  "\u003cnode\u003e"
+                ],
+                "Leader": "\u003cnode\u003e",
+                "LeaderEpoch": 0,
+                "OfflineReplicas": null,
+                "Partition": 0,
+                "Replicas": [
+                  "\u003cnode\u003e"
+                ]
+              }
+            ],
+            "Topic": "for-alice",
+            "TopicID": "\u003czero-id\u003e"
+          },
+          {
+            "AuthorizedOperations": -2147483648,
+            "ErrorCode": 29,
+            "IsInternal": false,
+            "Partitions": null,
+            "Topic": "for-bob",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0-versions-first-versions",
+      "conn": "v0-versions-first",
+      "api": "ApiVersions",
+      "version": 0,
+      "request": {
+        "ClientSoftwareName": "",
+        "ClientSoftwareVersion": "",
+        "ClusterID": null,
+        "NodeID": -1
+      },
+      "response": {
+        "ApiKeys": [
+          {
+            "ApiKey": 0,
+            "MaxVersion": 13,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 1,
+            "MaxVersion": 18,
+            "MinVersion": 4
+          },
+          {
+            "ApiKey": 2,
+            "MaxVersion": 11,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 3,
+            "MaxVersion": 13,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 8,
+            "MaxVersion": 10,
+            "MinVersion": 2
+          },
+          {
+            "ApiKey": 9,
+            "MaxVersion": 10,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 10,
+            "MaxVersion": 6,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 11,
+            "MaxVersion": 9,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 12,
+            "MaxVersion": 4,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 13,
+            "MaxVersion": 5,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 14,
+            "MaxVersion": 5,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 15,
+            "MaxVersion": 6,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 16,
+            "MaxVersion": 5,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 17,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 18,
+            "MaxVersion": 4,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 19,
+            "MaxVersion": 7,
+            "MinVersion": 2
+          },
+          {
+            "ApiKey": 20,
+            "MaxVersion": 6,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 21,
+            "MaxVersion": 2,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 22,
+            "MaxVersion": 5,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 23,
+            "MaxVersion": 4,
+            "MinVersion": 2
+          },
+          {
+            "ApiKey": 24,
+            "MaxVersion": 5,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 25,
+            "MaxVersion": 4,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 26,
+            "MaxVersion": 5,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 27,
+            "MaxVersion": 2,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 28,
+            "MaxVersion": 5,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 29,
+            "MaxVersion": 3,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 30,
+            "MaxVersion": 3,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 31,
+            "MaxVersion": 3,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 32,
+            "MaxVersion": 4,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 33,
+            "MaxVersion": 2,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 34,
+            "MaxVersion": 2,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 35,
+            "MaxVersion": 5,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 36,
+            "MaxVersion": 2,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 37,
+            "MaxVersion": 3,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 38,
+            "MaxVersion": 3,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 39,
+            "MaxVersion": 2,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 40,
+            "MaxVersion": 2,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 41,
+            "MaxVersion": 3,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 42,
+            "MaxVersion": 2,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 43,
+            "MaxVersion": 2,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 44,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 45,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 46,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 47,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 48,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 49,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 50,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 51,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 55,
+            "MaxVersion": 2,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 57,
+            "MaxVersion": 2,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 60,
+            "MaxVersion": 2,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 61,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 64,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 65,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 66,
+            "MaxVersion": 2,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 68,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 69,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 74,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 75,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 76,
+            "MaxVersion": 1,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 77,
+            "MaxVersion": 1,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 78,
+            "MaxVersion": 2,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 79,
+            "MaxVersion": 2,
+            "MinVersion": 1
+          },
+          {
+            "ApiKey": 80,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 81,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 83,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 84,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 85,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 86,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 87,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 88,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 89,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 90,
+            "MaxVersion": 1,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 91,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          },
+          {
+            "ApiKey": 92,
+            "MaxVersion": 0,
+            "MinVersion": 0
+          }
+        ],
+        "ErrorCode": 0,
+        "FinalizedFeatures": null,
+        "FinalizedFeaturesEpoch": -1,
+        "SupportedFeatures": null,
+        "ThrottleMillis": 0,
+        "ZkMigrationReady": false
+      }
+    },
+    {
+      "label": "v0-versions-first-handshake",
+      "conn": "v0-versions-first",
+      "api": "SASLHandshake",
+      "version": 0,
+      "request": {
+        "Mechanism": "PLAIN"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "SupportedMechanisms": [
+          "PLAIN"
+        ]
+      }
+    },
+    {
+      "label": "v0-versions-first-token",
+      "conn": "v0-versions-first",
+      "api": "(raw SASL token)",
+      "version": 0,
+      "request": {
+        "token": "\u0000bob\u0000bob-secret"
+      },
+      "response": {
+        "length": 0,
+        "token": ""
+      }
+    },
+    {
+      "label": "v0-versions-first-who",
+      "conn": "v0-versions-first",
+      "api": "Metadata",
+      "version": 9,
+      "request": {
+        "AllowAutoTopicCreation": false,
+        "IncludeClusterAuthorizedOperations": false,
+        "IncludeTopicAuthorizedOperations": false,
+        "Topics": [
+          {
+            "Topic": "for-alice",
+            "TopicID": "\u003czero-id\u003e"
+          },
+          {
+            "Topic": "for-bob",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      },
+      "response": {
+        "AuthorizedOperations": -2147483648,
+        "Brokers": [
+          {
+            "Host": "\u003chost\u003e",
+            "NodeID": "\u003cnode\u003e",
+            "Port": "\u003cport\u003e",
+            "Rack": null
+          }
+        ],
+        "ClusterID": "\u003ccluster\u003e",
+        "ControllerID": "\u003cnode\u003e",
+        "ErrorCode": 0,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "AuthorizedOperations": -2147483648,
+            "ErrorCode": 29,
+            "IsInternal": false,
+            "Partitions": null,
+            "Topic": "for-alice",
+            "TopicID": "\u003czero-id\u003e"
+          },
+          {
+            "AuthorizedOperations": -2147483648,
+            "ErrorCode": 0,
+            "IsInternal": false,
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "ISR": [
+                  "\u003cnode\u003e"
+                ],
+                "Leader": "\u003cnode\u003e",
+                "LeaderEpoch": 0,
+                "OfflineReplicas": null,
+                "Partition": 0,
+                "Replicas": [
+                  "\u003cnode\u003e"
+                ]
+              }
+            ],
+            "Topic": "for-bob",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0-wrong-password-handshake",
+      "conn": "v0-wrong-password",
+      "api": "SASLHandshake",
+      "version": 0,
+      "request": {
+        "Mechanism": "PLAIN"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "SupportedMechanisms": [
+          "PLAIN"
+        ]
+      }
+    },
+    {
+      "label": "v0-wrong-password-token",
+      "conn": "v0-wrong-password",
+      "api": "(raw SASL token)",
+      "version": 0,
+      "request": {
+        "token": "\u0000alice\u0000nope"
+      },
+      "response": {
+        "(connection)": "closed by the broker"
+      }
+    },
+    {
+      "label": "v0-authzid-other-user-handshake",
+      "conn": "v0-authzid-other-user",
+      "api": "SASLHandshake",
+      "version": 0,
+      "request": {
+        "Mechanism": "PLAIN"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "SupportedMechanisms": [
+          "PLAIN"
+        ]
+      }
+    },
+    {
+      "label": "v0-authzid-other-user-token",
+      "conn": "v0-authzid-other-user",
+      "api": "(raw SASL token)",
+      "version": 0,
+      "request": {
+        "token": "bob\u0000alice\u0000alice-secret"
+      },
+      "response": {
+        "(connection)": "closed by the broker"
+      }
+    },
+    {
+      "label": "v0-not-a-token-handshake",
+      "conn": "v0-not-a-token",
+      "api": "SASLHandshake",
+      "version": 0,
+      "request": {
+        "Mechanism": "PLAIN"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "SupportedMechanisms": [
+          "PLAIN"
+        ]
+      }
+    },
+    {
+      "label": "v0-not-a-token-token",
+      "conn": "v0-not-a-token",
+      "api": "(raw SASL token)",
+      "version": 0,
+      "request": {
+        "token": "not a plain token"
+      },
+      "response": {
+        "(connection)": "closed by the broker"
+      }
+    },
+    {
+      "label": "v0-empty-handshake",
+      "conn": "v0-empty",
+      "api": "SASLHandshake",
+      "version": 0,
+      "request": {
+        "Mechanism": "PLAIN"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "SupportedMechanisms": [
+          "PLAIN"
+        ]
+      }
+    },
+    {
+      "label": "v0-empty-token",
+      "conn": "v0-empty",
+      "api": "(raw SASL token)",
+      "version": 0,
+      "request": {
+        "token": ""
+      },
+      "response": {
+        "(connection)": "closed by the broker"
+      }
+    },
+    {
+      "label": "v0-unsupported-handshake",
+      "conn": "v0-unsupported",
+      "api": "SASLHandshake",
+      "version": 0,
+      "request": {
+        "Mechanism": "SCRAM-SHA-256"
+      },
+      "response": {
+        "ErrorCode": 33,
+        "SupportedMechanisms": [
+          "PLAIN"
+        ]
+      }
+    },
+    {
+      "label": "v0-framed-handshake",
+      "conn": "v0-framed",
+      "api": "SASLHandshake",
+      "version": 0,
+      "request": {
+        "Mechanism": "PLAIN"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "SupportedMechanisms": [
+          "PLAIN"
+        ]
+      }
+    },
+    {
+      "label": "v0-framed-authenticate",
+      "conn": "v0-framed",
+      "api": "SASLAuthenticate",
+      "version": 1,
+      "request": {
+        "SASLAuthBytes": "\u0000alice\u0000alice-secret"
+      },
+      "response": {
+        "(connection)": "closed by the broker"
+      }
+    }
+  ]
+}

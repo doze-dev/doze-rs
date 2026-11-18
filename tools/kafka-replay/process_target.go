@@ -80,6 +80,9 @@ func (t *processTarget) configure(cfg config.Config) error {
 	for _, p := range cfg.ACLSuperUsers {
 		t.args = append(t.args, "--acl-super-user", p)
 	}
+	if cfg.KafkaVersion != 0 {
+		t.args = append(t.args, "--kafka-version", fmt.Sprint(cfg.KafkaVersion))
+	}
 	if cfg.Console {
 		t.args = append(t.args, "--console", "--console-addr", "127.0.0.1:0")
 	}
