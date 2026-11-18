@@ -335,6 +335,12 @@ fn lambda_config(cfg: &Config) -> aws_lambda::Config {
             },
         },
         quiet: cfg.switch("lambda-quiet"),
+        // Not AWS behaviour: every durable execution wait and step retry delay multiplied by it (as `DOZE_SFN_WAIT_SCALE` is for
+        // Step Functions).
+        durable_wait_scale: env("DOZE_LAMBDA_DURABLE_WAIT_SCALE")
+            .and_then(|s| s.parse::<f64>().ok())
+            .filter(|s| s.is_finite())
+            .map(|s| s.max(0.0)),
     }
 }
 

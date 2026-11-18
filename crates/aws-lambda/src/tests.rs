@@ -25,6 +25,8 @@ use crate::{Config, Lambda};
 mod behaviour;
 mod concurrency;
 mod data;
+mod durable;
+mod durable_js;
 mod functions;
 mod invoking;
 mod livelog;
@@ -40,6 +42,9 @@ pub(crate) struct World {
     h: Harness<Lambda>,
     pub(crate) tasks: Tasks,
     pub(crate) peers: Arc<Peers>,
+    /// Where functions reach the services (a real gateway once [`Self::serve`] started one).
+    pub(crate) endpoint: String,
+    gateway: Option<aws_gateway::Running>,
     _dir: TempDir,
 }
 
@@ -51,6 +56,21 @@ impl World {
     /// Lambda with SQS, Kinesis, DynamoDB, CloudWatch Logs, IAM and STS beside it on the bus, as the binary has them, and the policies
     /// of `mode` asked.
     pub(crate) fn with_mode(mode: aws_peers::Mode) -> Self {
+        Self::build(
+            mode,
+            Config {
+                quiet: true,
+                ..Config::default()
+            },
+        )
+    }
+
+    /// Lambda with its settings, as [`Self::with_mode`] has it otherwise.
+    pub(crate) fn with_config(config: Config) -> Self {
+        Self::build(aws_peers::Mode::Off, config)
+    }
+
+    fn build(mode: aws_peers::Mode, config: Config) -> Self {
         let dir = TempDir::new("lambda");
         let tasks = Tasks::new();
         let peers = Peers::new();
@@ -78,10 +98,6 @@ impl World {
         peers.register(Arc::new(aws_logs::Logs::new(ctx_in("logs"))));
         peers.register(iam);
         peers.register(Arc::new(sts));
-        let config = Config {
-            quiet: true,
-            ..Config::default()
-        };
         let lambda = Lambda::with_config(ctx, config);
         lambda.connect(crate::Sources {
             sqs,
@@ -95,6 +111,8 @@ impl World {
             h,
             tasks,
             peers,
+            endpoint: "http://127.0.0.1:4566".to_owned(),
+            gateway: None,
             _dir: dir,
         }
     }
@@ -144,7 +162,10 @@ impl World {
             .call(self.h.op(op), &request)
             .map_err(|e| ApiError::new(400, "ValidationException", e.message))?;
         let call = aws_wire::service::Call {
-            caller: Self::caller(),
+            caller: Caller {
+                endpoint: self.endpoint.clone(),
+                ..Self::caller()
+            },
             ..call
         };
         let rest = aws_wire::service::Service::rest(&self.lambda).expect("lambda has a REST side");
@@ -201,7 +222,21 @@ impl World {
         self.h.op(name)
     }
 
+    /// Starts a real gateway in front of Lambda, for functions whose SDK calls back (durable functions).
+    pub(crate) async fn serve(&mut self) {
+        let gateway = aws_gateway::Gateway::new(aws_gateway::Config::new(
+            "127.0.0.1:0".parse().expect("an address"),
+        ))
+        .with(Arc::new(self.lambda.clone()));
+        let running = gateway.bind().await.expect("the gateway binds");
+        self.endpoint = format!("http://{}", running.local_addr());
+        self.gateway = Some(running);
+    }
+
     pub(crate) async fn stop(self) {
+        if let Some(g) = self.gateway {
+            g.shutdown().await;
+        }
         self.tasks.shutdown().await;
     }
 }
