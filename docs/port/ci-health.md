@@ -74,6 +74,22 @@ the post-step main median (about 11,300 KB) sits 1.5% under it and runner noise 
 take it back; until then the job will fail now and then. (The comment in ci.yml says the line is "median 10,104 KB plus 5%"; the
 weight.md table it cites has 10,932, which is what 11,479 is.)
 
+**The step explained and taken back (kafka session, 2026-11-18).** Re-measured on aarch64 Linux (Lima), each tree built in a clean target
+dir of its own (a shared one, with `git archive`'s commit-time mtimes, hands cargo stale crates: that is why 33ed4871 "did not build"),
+TLS configured, `/proc/<pid>/status` and `smaps` read 3 s after start:
+
+- `fix-correct` (33ed4871 to 086e4b28) is file-backed pages alone: the heap (416 KB) and anonymous memory are the same before and after,
+  the binary's resident pages +192 KB (the binary +196 KB: the varint codec, ListOffsets by record time, the produce answers). Code that
+  is mapped and touched at start, not memory the broker holds.
+- The heap step is the console schemas merge (31d63f8e1, Phase 10d): heap 356 to 416 KB. With `--console=false` both trees idle at 224 KB,
+  and `--schema-registry=false` changes nothing, so it is the console. Built again without `.merge(schemas::routes(web))` the heap is
+  back at 348-356 KB: the 9 routes it added cost 60 KB. axum boxes each route's service and its layers (about 7 KB a route), built at
+  start and held while the console runs, whether or not anyone opens it.
+- Taken back: the console now builds its router on its first connection (`kafka-console/src/serve.rs`, `accept_loop`). main c863cecdf
+  against the change, 5 starts each: idle 9,056-9,076 KB (anonymous 816-820) to 8,568-8,580 KB (anonymous 672-676), **-492 KB**, below
+  where the step began; after one console request 9,108-9,124 to 9,256-9,264 KB, so the router costs what it did once it is used.
+  The TLS idle line is left as it is until CI measures the change.
+
 **`weight` (doze-aws idle) on this PR:** run 43744892056 measured 11,424 / 11,156 / 11,292 KB, over the 11,075 KB line, with no aws change.
 Medians over the 20 runs above: 10,404 to 11,068 KB, main's latest (450d228e) 11,068, 7 KB under the line. Same shape as the TLS line: set
 from a measurement with no room for runner spread. Not moved here; for the aws session.
