@@ -39,7 +39,15 @@
 # 10,564 to 11,048 KB on its last four runs, so main sat on the line. On Linux idle is mostly the binary's own pages: in the doze-ubuntu VM
 # (arm64, glibc) main idles at 8,360 to 8,440 KB with 780 KB anonymous, this tree at 8,492 to 8,508 KB with 776 to 792 KB anonymous, so
 # the tree costs about +80 KB, all file-backed. The line is this tree's second CI median, 11,132 KB, plus 5%.
-doze-kafka 11476913 182 11689 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-15, share groups (KIP-932, docs/port/behaviours/share-groups.md), on kafka-next with KIP-890 (transactions v2). Measured back to
+# back with `cargo xtask weight doze-kafka` on darwin arm64: the tree before share groups (c64f4b76e) 7,984,176 B, idle 7,840 KB (samples
+# 7,856, 7,824, 7,840); with them 8,431,392 B (+447,216 B, +5.6%), idle 7,968 KB (+128 KB, +1.6%); 182 packages both (no new package).
+# The bytes are Rust code: seven APIs' messages (their codecs are linked now that they are used), their handlers, the share-partitions,
+# sessions and lock task, group configs, the recorder's summaries and the console's share views; the embedded console assets grew 10 KB.
+# Nothing wakes while no lock is held (tests/idle_upkeep.rs). Bytes: times CI's 1.3747 is 11,590,634 B on ubuntu x86_64, plus 5% =
+# 12,170,166 B until CI measures it (ceiling 15 MB). Idle: CI's 11,132 KB times the measured rise (7,968 / 7,840) is 11,314 KB, plus 5% =
+# 11,880 KB.
+doze-kafka 12170166 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
