@@ -45,13 +45,6 @@ pub(crate) struct Held {
     pub(crate) revoking: Tasks,
 }
 
-impl Held {
-    fn moved_to(&mut self, epoch: i32) {
-        self.prev_epoch = self.epoch;
-        self.epoch = epoch;
-    }
-}
-
 /// Who holds each task now, over every member (what they may run and what they are giving up), by process.
 #[derive(Debug, Default)]
 pub(crate) struct Holders<'a> {
@@ -147,60 +140,62 @@ impl Step<'_> {
         self.holders.active.get(t).is_some_and(|p| *p == self.process)
     }
 
-    fn next(&self, member_epoch: i32) -> Held {
+    /// What the member keeps, is to give up and is to be given, role by role, with the changes of role made; and whether a
+    /// task was held back for another member.
+    fn split_all(&self) -> (Tasks, Tasks, Tasks, bool) {
         let (cur, h) = (&self.held.tasks, self.holders);
-        let (mut active, active_revoke, active_give, a) = split(&cur.active, &self.target.active, |t| {
+        let (active, active_revoke, active_give, a) = split(&cur.active, &self.target.active, |t| {
             h.active.contains_key(t)
                 || self.other_here(&h.standby, &cur.standby, t)
                 || self.other_here(&h.warmup, &cur.warmup, t)
         });
-        let (mut standby, mut standby_revoke, mut standby_give, s) =
-            split(&cur.standby, &self.target.standby, |t| {
-                (self.active_here(t) && !cur.active.contains(t))
-                    || Holders::on(&h.standby, t, self.process)
-                    || self.other_here(&h.warmup, &cur.warmup, t)
-            });
-        let (mut warmup, mut warmup_revoke, mut warmup_give, w) =
-            split(&cur.warmup, &self.target.warmup, |t| {
-                self.active_here(t)
-                    || self.other_here(&h.standby, &cur.standby, t)
-                    || Holders::on(&h.warmup, t, self.process)
-            });
+        let (standby, standby_revoke, standby_give, s) = split(&cur.standby, &self.target.standby, |t| {
+            (self.active_here(t) && !cur.active.contains(t))
+                || Holders::on(&h.standby, t, self.process)
+                || self.other_here(&h.warmup, &cur.warmup, t)
+        });
+        let (warmup, warmup_revoke, warmup_give, w) = split(&cur.warmup, &self.target.warmup, |t| {
+            self.active_here(t) || self.other_here(&h.standby, &cur.standby, t) || Holders::on(&h.warmup, t, self.process)
+        });
+        let mut kept = Tasks { active, standby, warmup };
+        let mut revoke = Tasks { active: active_revoke, standby: standby_revoke, warmup: warmup_revoke };
+        let mut give = Tasks { active: active_give, standby: standby_give, warmup: warmup_give };
         // An active task of its own to be a standby: given now (it stays among those to revoke as an active task).
         for t in &cur.active {
-            if standby_give.remove(t) {
-                standby.insert(t.clone());
+            if give.standby.remove(t) {
+                kept.standby.insert(t.clone());
             }
         }
         // A standby to be a warm-up, and the other way: changed in place.
         for t in &cur.standby {
-            if warmup_give.remove(t) {
-                warmup.insert(t.clone());
-                standby_revoke.remove(t);
+            if give.warmup.remove(t) {
+                kept.warmup.insert(t.clone());
+                revoke.standby.remove(t);
             }
         }
         for t in &cur.warmup {
-            if standby_give.remove(t) {
-                standby.insert(t.clone());
-                warmup_revoke.remove(t);
+            if give.standby.remove(t) {
+                kept.standby.insert(t.clone());
+                revoke.warmup.remove(t);
             }
         }
         // A standby or warm-up to be active is never revoked: kept until the active task is given.
         for t in cur.standby.iter().chain(&cur.warmup) {
             if self.target.active.contains(t) {
-                standby_revoke.remove(t);
-                warmup_revoke.remove(t);
+                revoke.standby.remove(t);
+                revoke.warmup.remove(t);
             }
         }
-        let revoking = Tasks {
-            active: active_revoke,
-            standby: standby_revoke,
-            warmup: warmup_revoke,
-        };
-        let revokes = !revoking.is_empty() && self.not_released(&revoking);
-        for (mine, into) in [(&cur.standby, &mut standby), (&cur.warmup, &mut warmup)] {
+        (kept, revoke, give, a || s || w)
+    }
+
+    fn next(&self, member_epoch: i32) -> Held {
+        let cur = &self.held.tasks;
+        let (mut tasks, revoke, give, held_back) = self.split_all();
+        let revokes = !revoke.is_empty() && self.not_released(&revoke);
+        for (mine, into) in [(&cur.standby, &mut tasks.standby), (&cur.warmup, &mut tasks.warmup)] {
             for t in mine {
-                let promoted_now = !revokes && active_give.contains(t);
+                let promoted_now = !revokes && give.active.contains(t);
                 if self.target.active.contains(t) && !promoted_now {
                     into.insert(t.clone());
                 }
@@ -210,35 +205,28 @@ impl Step<'_> {
             .held
             .given_at
             .iter()
-            .filter(|(t, _)| active.contains(*t) || (revokes && revoking.active.contains(*t)))
+            .filter(|(t, _)| tasks.active.contains(*t) || (revokes && revoke.active.contains(*t)))
             .map(|(t, e)| (t.clone(), *e))
             .collect();
-        let mut next = self.held.clone();
-        let held_back = a || s || w;
-        if revokes {
-            next.stage = Stage::Unrevoked;
-            next.moved_to(member_epoch);
-            next.revoking = revoking;
+        let (stage, epoch, revoking) = if revokes {
+            (Stage::Unrevoked, member_epoch, revoke)
         } else {
-            let pending = !active_give.is_empty() || !standby_give.is_empty() || !warmup_give.is_empty();
-            for t in &active_give {
+            for t in &give.active {
                 given_at.insert(t.clone(), self.target_epoch);
             }
-            if pending {
-                active.extend(active_give);
-                standby.extend(standby_give);
-                warmup.extend(warmup_give);
-            }
-            next.stage = if held_back { Stage::Unreleased } else { Stage::Stable };
-            next.moved_to(self.target_epoch);
-            next.revoking = Tasks::default();
-        }
-        next.tasks = Tasks {
-            active,
-            standby,
-            warmup,
+            tasks.active.extend(give.active);
+            tasks.standby.extend(give.standby);
+            tasks.warmup.extend(give.warmup);
+            let stage = if held_back { Stage::Unreleased } else { Stage::Stable };
+            (stage, self.target_epoch, Tasks::default())
         };
-        next.given_at = given_at;
-        next
+        Held {
+            epoch,
+            prev_epoch: self.held.epoch,
+            stage,
+            tasks,
+            given_at,
+            revoking,
+        }
     }
 }
