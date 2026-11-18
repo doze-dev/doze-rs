@@ -263,7 +263,12 @@ impl Core {
             .get(name)
             .ok_or_else(|| invalid_document(name))?;
         if version.is_none() && version_name.is_none() {
+            let numbers: Vec<i64> = doc.versions.iter().map(|x| x.number).collect();
             self.documents.remove(name);
+            self.forget_policies(&crate::resource_policy::document_key(name));
+            for n in numbers {
+                self.reviews.remove(&crate::doc_review::review_key(name, n));
+            }
             return empty();
         }
         let number = doc.pick(version, version_name)?.number;
@@ -277,6 +282,8 @@ impl Core {
         if let Some(doc) = self.documents.get_mut(name) {
             doc.versions.retain(|x| x.number != number);
         }
+        self.reviews
+            .remove(&crate::doc_review::review_key(name, number));
         empty()
     }
 

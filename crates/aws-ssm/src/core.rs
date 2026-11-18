@@ -10,8 +10,10 @@ use doze_runtime::{Clock, Ctx};
 use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
 
+use crate::doc_review::Reviews;
 use crate::document::Document;
 use crate::model::Parameter;
+use crate::resource_policy::Held;
 use crate::settings::Setting;
 use aws_peers::{Mode, Peers};
 
@@ -19,6 +21,8 @@ const FILE: &str = "ssm.redb";
 const PARAMS: &str = "params";
 const DOCUMENTS: &str = "documents";
 const SETTINGS: &str = "settings";
+const POLICIES: &str = "resource_policies";
+const REVIEWS: &str = "reviews";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 pub(crate) const VERSION: u8 = 1;
 
@@ -30,6 +34,10 @@ pub(crate) struct Core {
     pub(crate) documents: Records<Document>,
     /// The service settings changed from their defaults, by id.
     pub(crate) settings: Records<Setting>,
+    /// Resource policies, by the resource they are on (`parameter:<name>`, `document:<name>`).
+    pub(crate) res_policies: Records<Held>,
+    /// The reviews of change-template versions, by `<document>/<version>`.
+    pub(crate) reviews: Records<Reviews>,
     /// The other services (KMS seals a `SecureString`; Secrets Manager answers a reference), when there are any.
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) clock: Arc<dyn Clock>,
@@ -85,6 +93,10 @@ pub(crate) fn built(op: Operation) -> bool {
             | Operation::GetServiceSetting
             | Operation::UpdateServiceSetting
             | Operation::ResetServiceSetting
+            | Operation::PutResourcePolicy
+            | Operation::GetResourcePolicies
+            | Operation::DeleteResourcePolicy
+            | Operation::ListDocumentMetadataHistory
     )
 }
 
@@ -113,9 +125,7 @@ impl doze_runtime::Service for Core {
         };
         if let Some(peers) = self.peers.clone()
             && peers.mode() != Mode::Off
-            && let Err(refusal) = peers
-                .authorize(&call.caller, crate::authz::needs(&call))
-                .await
+            && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
         {
             return Answer {
                 reply: Err(refusal),
@@ -146,11 +156,13 @@ impl Core {
     pub(crate) fn in_memory(clock: Arc<dyn Clock>, peers: Option<Arc<Peers>>) -> Self {
         Self::with(
             clock,
-            (
-                Records::new(PARAMS, "parameter", VERSION),
-                Records::new(DOCUMENTS, "document", VERSION),
-                Records::new(SETTINGS, "setting", VERSION),
-            ),
+            Tables {
+                params: Records::new(PARAMS, "parameter", VERSION),
+                documents: Records::new(DOCUMENTS, "document", VERSION),
+                settings: Records::new(SETTINGS, "setting", VERSION),
+                res_policies: Records::new(POLICIES, "resource policy", VERSION),
+                reviews: Records::new(REVIEWS, "document review", VERSION),
+            },
             peers,
             None,
         )
@@ -161,31 +173,27 @@ impl Core {
         clock: Arc<dyn Clock>,
         peers: Option<Arc<Peers>>,
     ) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[PARAMS, DOCUMENTS, SETTINGS])?;
+        let db = Db::open(dir, FILE, &[PARAMS, DOCUMENTS, SETTINGS, POLICIES, REVIEWS])?;
         let read = db.read()?;
-        let params = Records::load(PARAMS, "parameter", VERSION, &read)?;
-        let documents = Records::load(DOCUMENTS, "document", VERSION, &read)?;
-        let settings = Records::load(SETTINGS, "setting", VERSION, &read)?;
+        let tables = Tables {
+            params: Records::load(PARAMS, "parameter", VERSION, &read)?,
+            documents: Records::load(DOCUMENTS, "document", VERSION, &read)?,
+            settings: Records::load(SETTINGS, "setting", VERSION, &read)?,
+            res_policies: Records::load(POLICIES, "resource policy", VERSION, &read)?,
+            reviews: Records::load(REVIEWS, "document review", VERSION, &read)?,
+        };
         drop(read);
-        Ok(Self::with(
-            clock,
-            (params, documents, settings),
-            peers,
-            Some(db),
-        ))
+        Ok(Self::with(clock, tables, peers, Some(db)))
     }
 
-    fn with(
-        clock: Arc<dyn Clock>,
-        (params, documents, settings): Tables,
-        peers: Option<Arc<Peers>>,
-        db: Option<Db>,
-    ) -> Self {
-        let next_expiry_ms = params.iter().filter_map(|(_, p)| p.expires_ms).min();
+    fn with(clock: Arc<dyn Clock>, t: Tables, peers: Option<Arc<Peers>>, db: Option<Db>) -> Self {
+        let next_expiry_ms = t.params.iter().filter_map(|(_, p)| p.expires_ms).min();
         Self {
-            params,
-            documents,
-            settings,
+            params: t.params,
+            documents: t.documents,
+            settings: t.settings,
+            res_policies: t.res_policies,
+            reviews: t.reviews,
             peers,
             clock,
             db,
@@ -221,6 +229,7 @@ impl Core {
             .collect();
         for name in gone {
             self.params.remove(&name);
+            self.forget_policies(&crate::resource_policy::parameter_key(&name));
         }
         self.next_expiry_ms = self.params.iter().filter_map(|(_, p)| p.expires_ms).min();
     }
@@ -231,6 +240,8 @@ impl Core {
             self.params.stage()?,
             self.documents.stage()?,
             self.settings.stage()?,
+            self.res_policies.stage()?,
+            self.reviews.stage()?,
         ];
         Ok(self.db.as_ref().and_then(|db| db.submit(changes)))
     }
@@ -280,6 +291,10 @@ impl Core {
             Operation::GetServiceSetting => self.get_service_setting(call),
             Operation::UpdateServiceSetting => self.update_service_setting(call),
             Operation::ResetServiceSetting => self.reset_service_setting(call),
+            Operation::PutResourcePolicy => self.put_resource_policy(call),
+            Operation::GetResourcePolicies => self.get_resource_policies(call),
+            Operation::DeleteResourcePolicy => self.delete_resource_policy(call),
+            Operation::ListDocumentMetadataHistory => self.list_document_metadata_history(call),
             _ => Err(ApiError::new(
                 501,
                 "NotImplemented",
@@ -289,8 +304,14 @@ impl Core {
     }
 }
 
-/// The tables the service keeps: parameters, documents, changed settings.
-type Tables = (Records<Parameter>, Records<Document>, Records<Setting>);
+/// The tables the service keeps.
+struct Tables {
+    params: Records<Parameter>,
+    documents: Records<Document>,
+    settings: Records<Setting>,
+    res_policies: Records<Held>,
+    reviews: Records<Reviews>,
+}
 
 /// A refusal that names the rule.
 pub(crate) fn validation(message: impl Into<String>) -> ApiError {

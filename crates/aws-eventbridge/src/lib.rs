@@ -11,10 +11,9 @@
 //! Other services put events on the default bus through [`publish`].
 //!
 //! **Schedules are deadline-driven, not ticked.** After every call the service works out the earliest time a scheduled rule or a retry is
-//! due; one timer sleeps to it and ends when nothing is pending.
+//! due; one timer sleeps to it and ends when nothing is pending. A replay runs on the same timer, a batch per step, and can be cancelled.
 //!
-//! Refused by name: partner event sources, global endpoints (STAY CUT in SCOPE.md) and `CancelReplay` (a replay is finished when it is
-//! started). EventBridge Scheduler is a different service (restJson) and is not in this crate.
+//! Refused by name: partner event sources and global endpoints (STAY CUT in SCOPE.md). EventBridge Scheduler is a different service (restJson) and is not in this crate.
 
 mod archives;
 mod authz;
@@ -34,6 +33,7 @@ mod page;
 mod pattern;
 mod perms;
 mod policy;
+mod replay_run;
 mod replays;
 mod req;
 mod retry;
