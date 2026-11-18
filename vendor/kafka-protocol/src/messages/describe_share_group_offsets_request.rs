@@ -17,7 +17,7 @@ use crate::protocol::{
     Encodable, Encoder, HeaderVersion, Message, StrBytes, VersionRange,
 };
 
-/// Valid versions: 0
+/// Valid versions: 0-1
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DescribeShareGroupOffsetsRequest {
@@ -55,7 +55,7 @@ impl DescribeShareGroupOffsetsRequest {
 #[cfg(feature = "client")]
 impl Encodable for DescribeShareGroupOffsetsRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::CompactArray(types::Struct { version }).encode(buf, &self.groups)?;
@@ -91,7 +91,7 @@ impl Encodable for DescribeShareGroupOffsetsRequest {
 #[cfg(feature = "broker")]
 impl Decodable for DescribeShareGroupOffsetsRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let groups = types::CompactArray(types::Struct { version }).decode(buf)?;
@@ -120,11 +120,11 @@ impl Default for DescribeShareGroupOffsetsRequest {
 }
 
 impl Message for DescribeShareGroupOffsetsRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 0 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 1 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 0
+/// Valid versions: 0-1
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DescribeShareGroupOffsetsRequestGroup {
@@ -179,7 +179,7 @@ impl DescribeShareGroupOffsetsRequestGroup {
 #[cfg(feature = "client")]
 impl Encodable for DescribeShareGroupOffsetsRequestGroup {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::CompactString.encode(buf, &self.group_id)?;
@@ -217,7 +217,7 @@ impl Encodable for DescribeShareGroupOffsetsRequestGroup {
 #[cfg(feature = "broker")]
 impl Decodable for DescribeShareGroupOffsetsRequestGroup {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let group_id = types::CompactString.decode(buf)?;
@@ -249,11 +249,11 @@ impl Default for DescribeShareGroupOffsetsRequestGroup {
 }
 
 impl Message for DescribeShareGroupOffsetsRequestGroup {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 0 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 1 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 0
+/// Valid versions: 0-1
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DescribeShareGroupOffsetsRequestTopic {
@@ -305,7 +305,7 @@ impl DescribeShareGroupOffsetsRequestTopic {
 #[cfg(feature = "client")]
 impl Encodable for DescribeShareGroupOffsetsRequestTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::CompactString.encode(buf, &self.topic_name)?;
@@ -343,7 +343,7 @@ impl Encodable for DescribeShareGroupOffsetsRequestTopic {
 #[cfg(feature = "broker")]
 impl Decodable for DescribeShareGroupOffsetsRequestTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let topic_name = types::CompactString.decode(buf)?;
@@ -375,7 +375,7 @@ impl Default for DescribeShareGroupOffsetsRequestTopic {
 }
 
 impl Message for DescribeShareGroupOffsetsRequestTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 0 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 1 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

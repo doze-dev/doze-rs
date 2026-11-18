@@ -58,34 +58,45 @@ pub fn answer(
         .collect();
     if version >= 3 {
         transaction_feature(profile.transaction_version(), version, &mut resp);
+        let share = if features.served.contains(ApiKey::ShareFetch) {
+            profile.share_version()
+        } else {
+            0
+        };
+        feature("share.version", share, version, &mut resp);
     }
     (version, resp)
 }
 
-/// The one feature the broker advertises: `transaction.version`, which a client reads to decide whether to speak KIP-890's
-/// second part (the Java client's `TransactionManager` turns it on at a finalized level of 2). As Kafka 4.4.0 answers:
-/// supported 0 to 2 and finalized at the level, with the finalized epoch not negative (the client takes the features of
-/// an epoch newer than it has seen, from -1). Below v4 a supported feature whose least level is 0 is left out (old
-/// clients cannot read it, KAFKA-17492), and a finalized level of 0 is never listed. Kafka lists its other features too
-/// (`metadata.version`, `group.version`, ...); no client decides anything here by them, so they are not claimed.
-fn transaction_feature(level: i16, version: i16, resp: &mut ApiVersionsResponse) {
-    const NAME: &str = "transaction.version";
+/// `share.version` (KIP-932) as Kafka 4.4.0 lists it when formatted with its defaults: supported 0 to 2, finalized at 2
+/// (share groups on, level 1, and their dead-letter queue, level 2), under the same rules as `transaction.version`.
+fn feature(name: &'static str, level: i16, version: i16, resp: &mut ApiVersionsResponse) {
     if level == 0 {
         return;
     }
     if version >= 4 {
         let mut supported = SupportedFeatureKey::default();
-        supported.name = StrBytes::from_static_str(NAME);
+        supported.name = StrBytes::from_static_str(name);
         supported.min_version = 0;
         supported.max_version = 2;
         resp.supported_features.push(supported);
     }
     let mut finalized = FinalizedFeatureKey::default();
-    finalized.name = StrBytes::from_static_str(NAME);
+    finalized.name = StrBytes::from_static_str(name);
     finalized.min_version_level = level;
     finalized.max_version_level = level;
     resp.finalized_features.push(finalized);
     resp.finalized_features_epoch = 0;
+}
+
+/// `transaction.version`, which a client reads to decide whether to speak KIP-890's second part (the Java client's
+/// `TransactionManager` turns it on at a finalized level of 2). As Kafka 4.4.0 answers: supported 0 to 2 and finalized at
+/// the level, with the finalized epoch not negative (the client takes the features of an epoch newer than it has seen,
+/// from -1). Below v4 a supported feature whose least level is 0 is left out (old clients cannot read it, KAFKA-17492),
+/// and a finalized level of 0 is never listed. Kafka lists its other features too (`metadata.version`, `group.version`,
+/// ...); no client decides anything here by them, so they are not claimed. `share.version` is the other one listed.
+fn transaction_feature(level: i16, version: i16, resp: &mut ApiVersionsResponse) {
+    feature("transaction.version", level, version, resp);
 }
 
 /// The answer to an ApiVersions request that arrives in the middle of a SASL login: ILLEGAL_SASL_STATE and no

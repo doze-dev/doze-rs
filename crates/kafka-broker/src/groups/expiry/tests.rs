@@ -36,6 +36,7 @@ fn life(live: bool, empty_since_ms: Option<i64>, consumer: bool) -> GroupLife {
             assignment_epoch: 3,
             assignor: "uniform".into(),
         }),
+        share: None,
     }
 }
 

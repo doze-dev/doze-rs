@@ -160,6 +160,7 @@ mod tests {
             empty_since_ms: (!live).then_some(1),
             protocol_type: "consumer".into(),
             consumer: None,
+            share: None,
         }
     }
 

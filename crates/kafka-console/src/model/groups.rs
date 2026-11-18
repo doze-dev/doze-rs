@@ -2,6 +2,7 @@
 //!
 //! Every name here starts with `Group`, `Lag`, `Reset` or `Offset` so that no other family of pages can clash with it.
 
+use super::group_share::GroupShareView;
 use super::group_states::GroupStates;
 use super::write::{Lines, Refusal};
 use crate::lag::Lag;
@@ -14,6 +15,8 @@ pub enum GroupProtocol {
     Classic,
     /// KIP-848: the broker assigns.
     Consumer,
+    /// KIP-932: the broker assigns, and the members share partitions record by record.
+    Share,
 }
 
 /// Where a group is in its life, in the console's one word for it.
@@ -311,6 +314,8 @@ pub struct GroupLagView {
     pub retention_ms: i64,
     /// A line to show above the page after a change (`Reset 3 offsets.`).
     pub flash: Option<String>,
+    /// A share group's share-partitions, in place of committed offsets.
+    pub share: Option<GroupShareView>,
 }
 
 /// What a reset moves the offsets to.

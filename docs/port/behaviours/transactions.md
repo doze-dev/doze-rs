@@ -155,7 +155,7 @@ change makes that sooner; with no transactional id it does not wake (it used to 
 wake-ups). Test: `transactions::a_transaction_that_outlives_its_timeout_is_aborted_and_its_producer_fenced`,
 `idle_upkeep::the_transaction_coordinator_does_not_wake_with_nothing_to_do_and_aborts_a_timed_out_transaction_on_time`,
 `rules::the_next_step_is_the_first_moment_the_timeout_or_the_expiry_holds`,
-`txn::alarm::tests::the_alarm_only_moves_earlier_and_rings_when_it_does`,
+`alarm::tests::the_alarm_only_moves_earlier_and_rings_when_it_does`,
 `transactions_codes::a_transaction_times_out_from_when_it_began_whatever_is_added_to_it_since`,
 `rules::a_transaction_outlives_its_timeout_from_when_it_began_not_from_its_last_change`.
 

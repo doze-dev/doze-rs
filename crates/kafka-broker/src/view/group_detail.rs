@@ -19,6 +19,8 @@ pub enum GroupKind {
     Classic,
     /// ConsumerGroupHeartbeat (KIP-848): the broker assigns.
     Consumer,
+    /// ShareGroupHeartbeat (KIP-932): the broker assigns, and members share partitions record by record.
+    Share,
 }
 
 /// A rebalance running now (classic).
@@ -158,6 +160,12 @@ fn of(group: &str, d: Option<&Description>, life: Option<&kafka_meta::GroupLife>
             out.assignment_epoch = Some(c.assignment_epoch);
             out.protocol = Some(c.assignor.clone());
         }
+        if let Some(s) = life.and_then(|l| l.share.as_ref()) {
+            out.kind = GroupKind::Share;
+            out.generation = s.epoch;
+            out.assignment_epoch = Some(s.assignment_epoch);
+            out.protocol = Some("simple".to_owned());
+        }
         return out;
     };
     out.protocol_type = d.protocol_type.clone().or(out.protocol_type);
@@ -168,6 +176,11 @@ fn of(group: &str, d: Option<&Description>, life: Option<&kafka_meta::GroupLife>
         c.state.clone_into(&mut out.state);
         out.protocol = Some(c.assignor.to_owned());
         out.assignment_epoch = Some(c.assignment_epoch);
+    } else if let Some(s) = &d.share {
+        out.kind = GroupKind::Share;
+        s.state.clone_into(&mut out.state);
+        out.protocol = Some("simple".to_owned());
+        out.assignment_epoch = Some(s.assignment_epoch);
     } else {
         state_word(d.state).clone_into(&mut out.state);
         out.protocol.clone_from(&d.protocol);
@@ -211,6 +224,12 @@ fn member(d: &Description, m: &crate::groups::MemberInspect) -> MemberDetail {
                         x.client_host.clone(),
                     )
                 })
+        })
+        .or_else(|| {
+            d.share
+                .as_ref()
+                .and_then(|s| s.members.iter().find(|x| x.id == m.id))
+                .map(|x| (None, x.client_id.clone(), x.client_host.clone()))
         })
         .unwrap_or_default();
     MemberDetail {

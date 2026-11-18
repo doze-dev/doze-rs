@@ -291,6 +291,76 @@ async fn a_consumer_group_of_the_new_protocol_is_described_by_its_own_api() {
     w.stop().await;
 }
 
+/// CON-1540 to CON-1542: a share group (KIP-932) is listed with its type and described by ShareGroupDescribe; in place of lag it has its
+/// share-partitions: the start (SPSO) and end, the records in flight by state, how often they were delivered, who holds them,
+/// and the group's limits.
+#[tokio::test]
+async fn a_share_group_is_described_by_its_own_api_with_its_share_partitions() {
+    let w = with_orders("ag-share", |_| {}).await;
+    let member = "share-member-one";
+    let topic = join_share(&w, "emails", member, "orders").await;
+    // The first fetch makes the share-partitions, at the log's end (share.auto.offset.reset is latest): 4, 3 and 2.
+    assert!(
+        share_fetch(&w, "emails", member, 0, topic, &[0, 1, 2])
+            .await
+            .is_empty()
+    );
+    produce(&w, "orders", 0, 6).await;
+    assert_eq!(
+        share_fetch(&w, "emails", member, 1, topic, &[0, 1, 2]).await,
+        vec![(0, 4, 9)]
+    );
+    // 4 and 5 accepted (the start moves past them), 6 and 7 released, 8 rejected, 9 still held.
+    share_acknowledge(&w, ("emails", member, 2), topic, 0, 4, &[1, 1, 2, 2, 3]).await;
+    let app = api(&w);
+    let list = ok(&app, "/api/v1/groups").await;
+    assert_eq!(list_row(&list, "emails")["protocol"], "share", "{list}");
+    let g = ok(&app, "/api/v1/groups/emails").await;
+    let h = &g["head"];
+    assert_eq!(h["protocol"], "share", "{h}");
+    assert_eq!(h["phase"], "stable", "{h}");
+    assert_eq!(h["assignor"], "simple", "{h}");
+    assert_eq!(h["members"][0]["id"], member, "{h}");
+    assert_eq!(h["members"][0]["holds"].as_array().unwrap().len(), 3, "{h}");
+    assert!(
+        g["topics"].as_array().unwrap().is_empty(),
+        "a share group commits no offset: {g}"
+    );
+    let s = &g["share"];
+    assert_eq!(s["delivery_limit"], 5, "{s}");
+    assert_eq!(s["lock_ms"], 30_000, "{s}");
+    assert_eq!(s["record_locks"], 2_000, "{s}");
+    assert_eq!(s["reset"], "latest", "{s}");
+    assert_eq!(s["read_committed"], false, "{s}");
+    let rows = s["rows"].as_array().unwrap();
+    assert_eq!(rows.len(), 3, "{s}");
+    let zero = rows.iter().find(|r| r["partition"] == 0).unwrap();
+    assert_eq!(
+        (
+            zero["start"].as_i64(),
+            zero["end"].as_i64(),
+            zero["log_end"].as_i64()
+        ),
+        (Some(6), Some(9), Some(10)),
+        "{zero}"
+    );
+    let counts: Vec<_> = ["available", "acquired", "acknowledged", "archived"]
+        .iter()
+        .map(|k| zero[k].as_u64().unwrap())
+        .collect();
+    assert_eq!(counts, vec![2, 1, 0, 1], "{zero}");
+    assert_eq!(zero["holders"], serde_json::json!([[member, 1]]), "{zero}");
+    assert_eq!(zero["live"], true, "{zero}");
+    let lock = zero["next_lock_ms"].as_i64().unwrap();
+    assert!((0..=30_000).contains(&lock), "{zero}");
+    for (p, at) in [(1, 3), (2, 2)] {
+        let r = rows.iter().find(|r| r["partition"] == p).unwrap();
+        assert_eq!(r["start"].as_i64(), Some(at), "{r}");
+        assert_eq!(r["lag"].as_i64(), Some(0), "{r}");
+    }
+    w.stop().await;
+}
+
 /// CON-211: a group id with `/`, `?`, `%`, spaces, unicode, a `<script>`, an attribute break or 255 bytes is one path segment
 /// percent-encoded, reaches the broker as it is, and comes back as the same JSON text on every address of the group.
 #[tokio::test]

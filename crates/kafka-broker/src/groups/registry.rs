@@ -14,12 +14,12 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::Instant;
 
 mod issued;
+mod machines;
 mod records;
 mod requests;
 
 use super::actor::{self, Command, Reply, Req};
 use super::consumer::TopicSource;
-use super::consumer::assign::Assignor;
 use super::events::{Events, Ledger, Recorded};
 use super::group::{Group, Settings, asks_for_an_id};
 use super::machine::{Answer, Description, Force, Forced, JoinAnswer, JoinRequest, refusal};
@@ -371,27 +371,6 @@ impl Groups {
                 }
             };
             let _ = done.changed().await;
-        }
-    }
-
-    /// The machine a request that begins `group` starts it with: a group of the new protocol is as it was when the broker
-    /// last stopped, if it was empty then.
-    fn machine_for(&self, group: &GroupId, first: &Req) -> Group {
-        if !matches!(first, Req::ConsumerHeartbeat(_)) {
-            return Group::classic(self.settings);
-        }
-        let life = crate::blocking::run(|| self.meta.group_life(group))
-            .ok()
-            .flatten()
-            .and_then(|l| l.consumer);
-        match life {
-            Some(c) => Group::restored(
-                self.settings,
-                c.epoch,
-                c.assignment_epoch,
-                Assignor::parse(&c.assignor).unwrap_or_default(),
-            ),
-            None => Group::consumer(self.settings),
         }
     }
 

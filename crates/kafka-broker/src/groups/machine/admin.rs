@@ -48,6 +48,7 @@ impl GroupMachine {
             protocol: self.protocol.clone(),
             subscribed: self.subscribed(&members),
             consumer: None,
+            share: None,
             #[cfg(feature = "inspect")]
             inspect: Box::new(self.inspect(now)),
             members,

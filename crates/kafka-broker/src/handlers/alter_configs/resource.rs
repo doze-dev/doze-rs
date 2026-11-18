@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use kafka_auth::authz::{Operation, ResourceType};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
-use kafka_wire::ids::TopicName;
+use kafka_wire::ids::{GroupId, TopicName};
 
 use crate::configs::{self, Change, Refusal};
 use crate::guard::{CLUSTER_DENIED, GROUP_DENIED, TOPIC_DENIED};
@@ -117,11 +117,41 @@ impl<F: Fs> Broker<F> {
                 bad_operation(r)?;
                 self.alter_broker(caller, r, validate_only, replace).await
             }
+            GROUP => {
+                self.alter_access(caller, r, replace)?;
+                bad_operation(r)?;
+                self.alter_group(r, validate_only, replace)
+            }
             other => {
                 self.alter_access(caller, r, replace)?;
                 Err(unsupported(other))
             }
         }
+    }
+
+    /// A group's configs (Kafka's `GroupConfig`, checked as its controller checks them): the group need not exist.
+    fn alter_group(&self, r: &Resource, validate_only: bool, replace: bool) -> Result<(), Refusal> {
+        let group = GroupId::parse(&r.name).ok();
+        let current = group
+            .as_ref()
+            .map(|g| self.group_configs.of(g))
+            .unwrap_or_default();
+        let next = crate::group_configs::apply(&r.name, &current, &r.changes, replace)?;
+        let Some(group) = group else {
+            return Err(refuse(
+                E::InvalidRequest,
+                format!("Group {} is not valid.", r.name),
+            ));
+        };
+        if validate_only {
+            return Ok(());
+        }
+        blocking::run(|| self.meta.set_group_configs(&group, &next)).map_err(|e| {
+            tracing::error!(group = %r.name, error = %e, "configs: could not store a group's configs");
+            refuse(E::UnknownServerError, "The configs could not be stored.")
+        })?;
+        self.group_configs.set(&group, next);
+        Ok(())
     }
 
     /// Whether the caller may ALTER_CONFIGS the resource: on the topic; on the cluster for a broker, its client

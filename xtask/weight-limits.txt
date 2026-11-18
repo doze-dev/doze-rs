@@ -48,7 +48,17 @@
 # (median of three): nothing is metered or allocated while no quota is set. The margin is thin: the next growth moves the line or trims.
 # 2026-11-15, OffsetForLeaderEpoch, DescribeLogDirs and client quotas with leader epoch 0 (docs/port/behaviours/quotas.md): darwin arm64
 # 8,166,320 B (+198,720 B), 182 packages (none added), idle 7,776 KB; times 1.3747 = 11,226,240 B, plus 5% = 11,787,552 B until CI measures it.
-doze-kafka 11787552 182 11689 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-15, share groups (KIP-932, docs/port/behaviours/share-groups.md), on kafka-next with KIP-890 (transactions v2). Measured back to
+# back with `cargo xtask weight doze-kafka` on darwin arm64: the tree before share groups (c64f4b76e) 7,984,176 B, idle 7,840 KB (samples
+# 7,856, 7,824, 7,840); with them 8,431,392 B (+447,216 B, +5.6%), idle 7,968 KB (+128 KB, +1.6%); 182 packages both (no new package).
+# The bytes are Rust code: seven APIs' messages (their codecs are linked now that they are used), their handlers, the share-partitions,
+# sessions and lock task, group configs, the recorder's summaries and the console's share views; the embedded console assets grew 10 KB.
+# Nothing wakes while no lock is held (tests/idle_upkeep.rs). Bytes: times CI's 1.3747 is 11,590,634 B on ubuntu x86_64, plus 5% =
+# 12,170,166 B until CI measures it (ceiling 15 MB). Idle: CI's 11,132 KB times the measured rise (7,968 / 7,840) is 11,314 KB, plus 5% =
+# 11,880 KB.
+# 2026-11-18, share groups on main with quotas, measured: darwin arm64 8,646,672 B, 182 packages, idle 7,952 KB; times 1.3747 plus 5% =
+# 12,481,014 B until CI measures it. Idle: share groups' 11,880 KB (above main's 11,689 KB).
+doze-kafka 12481014 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.

@@ -8,6 +8,9 @@ pub struct Listener {
     pub advertised_port: i32,
     /// Where the client connected from, as DescribeGroups shows it: a slash, then its address.
     pub client_host: String,
+    /// The connection, as the server numbers them from 1; 0 for a request that came over none (a test, the console).
+    /// The share sessions a connection opens close with it ([`Broker::connection_closed`](crate::Broker)).
+    pub connection: u64,
 }
 
 impl Listener {
@@ -17,6 +20,15 @@ impl Listener {
         Self {
             client_host: format!("/{peer}"),
             ..self.clone()
+        }
+    }
+
+    /// This listener, for the connection numbered `id`.
+    #[must_use]
+    pub fn on_connection(self, id: u64) -> Self {
+        Self {
+            connection: id,
+            ..self
         }
     }
 }

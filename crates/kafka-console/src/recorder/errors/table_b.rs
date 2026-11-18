@@ -1,4 +1,4 @@
-//! Codes 68 to 128.
+//! Codes 68 to 133.
 
 use super::{Refused, Row, Warn, r};
 
@@ -220,11 +220,43 @@ pub(super) const ROWS: &[Row] = &[
         "Abort the transaction and begin again; clients do this on their own.",
     ),
     r(
+        121,
+        "INVALID_RECORD_STATE",
+        Refused,
+        "The record state is invalid. The acknowledgement of delivery could not be completed.",
+        "A share consumer acknowledged records it does not hold: their lock ran out, another member has them, or they were never delivered to it.",
+        "Acknowledge records within their lock (share.record.lock.duration.ms), or renew the lock.",
+    ),
+    r(
+        122,
+        "SHARE_SESSION_NOT_FOUND",
+        Warn,
+        "The share session was not found.",
+        "The share consumer's session ended (its connection went, or it was replaced). The consumer opens a new one.",
+        "",
+    ),
+    r(
+        123,
+        "INVALID_SHARE_SESSION_EPOCH",
+        Warn,
+        "The share session epoch is invalid.",
+        "A share fetch or acknowledgement came out of order for its session. The consumer opens a new session.",
+        "",
+    ),
+    r(
         128,
         "INVALID_REGULAR_EXPRESSION",
         Refused,
         "The regular expression is not valid.",
         "The subscription pattern is not a valid regular expression.",
         "Fix the pattern.",
+    ),
+    r(
+        133,
+        "SHARE_SESSION_LIMIT_REACHED",
+        Warn,
+        "The limit of share sessions has been reached.",
+        "The broker holds as many share sessions as it keeps (2000); a new one waits until one ends.",
+        "Close share consumers that are not in use.",
     ),
 ];

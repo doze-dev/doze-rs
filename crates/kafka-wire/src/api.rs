@@ -42,9 +42,14 @@ use kafka_protocol::messages::{
     SyncGroupRequest, SyncGroupResponse, TxnOffsetCommitRequest, TxnOffsetCommitResponse,
 };
 use kafka_protocol::messages::{
-    AlterClientQuotasRequest, AlterClientQuotasResponse, DescribeClientQuotasRequest,
-    DescribeClientQuotasResponse, DescribeLogDirsRequest, DescribeLogDirsResponse,
-    OffsetForLeaderEpochRequest, OffsetForLeaderEpochResponse,
+    AlterClientQuotasRequest, AlterClientQuotasResponse, AlterShareGroupOffsetsRequest,
+    AlterShareGroupOffsetsResponse, DeleteShareGroupOffsetsRequest,
+    DeleteShareGroupOffsetsResponse, DescribeClientQuotasRequest, DescribeClientQuotasResponse,
+    DescribeLogDirsRequest, DescribeLogDirsResponse, DescribeShareGroupOffsetsRequest,
+    DescribeShareGroupOffsetsResponse, OffsetForLeaderEpochRequest, OffsetForLeaderEpochResponse,
+    ShareAcknowledgeRequest, ShareAcknowledgeResponse, ShareFetchRequest, ShareFetchResponse,
+    ShareGroupDescribeRequest, ShareGroupDescribeResponse, ShareGroupHeartbeatRequest,
+    ShareGroupHeartbeatResponse,
 };
 use kafka_protocol::protocol::{Decodable, Encodable};
 
@@ -189,4 +194,12 @@ served_apis! {
     AlterClientQuotas(AlterClientQuotasRequest, AlterClientQuotasResponse) [NONE, v(0, 1), v(0, 1), v(0, 1)];
     GetTelemetrySubscriptions(GetTelemetrySubscriptionsRequest, GetTelemetrySubscriptionsResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
     PushTelemetry(PushTelemetryRequest, PushTelemetryResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
+    // Share groups (KIP-932): Kafka 4.1 made them generally available, at the versions 4.4.0 serves.
+    ShareGroupHeartbeat(ShareGroupHeartbeatRequest, ShareGroupHeartbeatResponse) [NONE, NONE, NONE, v(1, 1)];
+    ShareGroupDescribe(ShareGroupDescribeRequest, ShareGroupDescribeResponse) [NONE, NONE, NONE, v(1, 1)];
+    ShareFetch(ShareFetchRequest, ShareFetchResponse) [NONE, NONE, NONE, v(1, 2)];
+    ShareAcknowledge(ShareAcknowledgeRequest, ShareAcknowledgeResponse) [NONE, NONE, NONE, v(1, 2)];
+    DescribeShareGroupOffsets(DescribeShareGroupOffsetsRequest, DescribeShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 1)];
+    AlterShareGroupOffsets(AlterShareGroupOffsetsRequest, AlterShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 0)];
+    DeleteShareGroupOffsets(DeleteShareGroupOffsetsRequest, DeleteShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 0)];
 }
