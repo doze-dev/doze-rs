@@ -9,6 +9,8 @@ use super::*;
 use crate::registry::Registry;
 use crate::store::MemoryStorage;
 
+mod framework;
+
 const USER1: &str = r#"{"type":"record","name":"User","fields":[{"name":"id","type":"long"}]}"#;
 const USER_BAD: &str = r#"{"type":"record","name":"User","fields":[{"name":"id","type":"long"},{"name":"email","type":"string"}]}"#;
 
@@ -117,7 +119,7 @@ fn a_request_for_a_foreign_host_is_refused_and_changes_nothing() {
         assert!(!text(&resp).contains("User") && !text(&resp).contains("orders"));
     }
     let local = |path| text(&at_host(&a, "GET", path, "127.0.0.1:8081", ""));
-    assert_eq!(local("/subjects"), "[\"orders\"]\n");
+    assert_eq!(local("/subjects"), "[\"orders\"]");
     assert!(local("/config").contains("BACKWARD") && local("/mode").contains("READWRITE"));
 }
 
@@ -200,7 +202,7 @@ fn the_host_is_judged_before_the_credentials() {
         &schema_body(USER1),
     ));
     assert_eq!((resp.status, resp.challenge), (401, true));
-    assert_eq!(text(&as_user(&a, "/subjects", "alice", "pw")), "[]\n");
+    assert_eq!(text(&as_user(&a, "/subjects", "alice", "pw")), "[]");
 }
 
 #[test]
@@ -407,17 +409,4 @@ fn bodies_of_other_types_are_refused_and_the_mux_answers_in_json() {
         r.content_type = Some(ct.into());
         assert_eq!(a.serve(&r).status, want, "{ct}");
     }
-    let nf = a.serve(&req("GET", "/contexts", ""));
-    assert_eq!(
-        (nf.status, text(&nf)),
-        (
-            404,
-            "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}\n".into()
-        )
-    );
-    assert_eq!(a.serve(&req("DELETE", "/mode", "")).status, 405);
-    assert_eq!(
-        a.serve(&req("GET", "/subjects/%zz/versions", "")).status,
-        400
-    );
 }

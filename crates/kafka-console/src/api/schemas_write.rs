@@ -154,6 +154,7 @@ fn input(p: &SchemaPost) -> SchemaInput {
                 })
                 .collect(),
         ),
+        ..SchemaInput::default()
     }
 }
 
@@ -300,7 +301,7 @@ fn configure(r: &Registry, subject: &str, p: &ConfigPost) -> Result<(), Registry
         },
         // A mode is set only when it changes, as the Go console did: setting READWRITE again would give the subject one.
         Some(mode) if r.mode(subject, true).map(|m| m.name()) != Ok(mode) => {
-            r.set_mode(subject, mode)?;
+            r.set_mode(subject, mode, false)?;
         }
         _ => {}
     }

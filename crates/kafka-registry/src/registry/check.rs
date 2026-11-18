@@ -13,17 +13,24 @@ pub struct CompatFinding {
     /// The text of the version compared with.
     pub old: String,
     pub level: Level,
-    /// The reasons, taken apart.
+    /// The reasons, taken apart: at FULL, the forward ones (the old schema reading the new) first.
     pub details: Vec<CompatReason>,
+    /// How many of `details`, from the start, are FULL's forward reasons (0 at the other levels).
+    pub forward: usize,
 }
 
 impl CompatFinding {
-    /// The finding as Confluent's verbose check and its 409 write it: the reasons, then the version, its text and the level.
+    /// The finding as Confluent's verbose check and its 409 write it: the reasons, then the version and its text, then
+    /// the level. At FULL Confluent writes the forward reasons without the version (its two-way check appends it only
+    /// to the backward ones), so a FULL finding with only forward reasons names no version (recorded by
+    /// tools/registry-diff).
     #[must_use]
     pub fn messages(&self) -> Vec<String> {
         let mut out: Vec<String> = self.details.iter().map(|d| d.text.clone()).collect();
-        out.push(format!("{{oldSchemaVersion: {}}}", self.version));
-        out.push(format!("{{oldSchema: '{}'}}", self.old));
+        if self.details.len() > self.forward {
+            out.push(format!("{{oldSchemaVersion: {}}}", self.version));
+            out.push(old_schema(&self.old));
+        }
         out.push(format!(
             "{{validateFields: 'false', compatibility: '{}'}}",
             self.level.name()
@@ -56,15 +63,17 @@ fn can_read(
 
 /// The reasons `newer` may not follow `older` at a level's base (BACKWARD, FORWARD or FULL). At FULL the forward reasons
 /// (the old schema reading the new) come first, as Confluent lists them.
-fn compare(newer: &Prepared, older: &Prepared, level: Level) -> Vec<CompatReason> {
+fn compare(newer: &Prepared, older: &Prepared, level: Level) -> (Vec<CompatReason>, usize) {
     let mut out = Vec::new();
     if level.forward() {
         out.extend(can_read(older, newer, Role::Old, Role::New));
     }
+    // At FORWARD alone the forward reasons are the only ones, and Confluent names the version after them.
+    let forward = if level.backward() { out.len() } else { 0 };
     if level.backward() {
         out.extend(can_read(newer, older, Role::New, Role::Old));
     }
-    out
+    (out, forward)
 }
 
 impl State {
@@ -79,41 +88,43 @@ impl State {
 }
 
 impl Registry {
-    /// Compares `p` with each of `against` at `level`.
+    /// Compares `p` with each of `against` at `level`, newest first, as Confluent does; Confluent's answers name only the
+    /// first finding (the newest version that does not fit), doze's own check all of them.
     pub(super) fn findings(
         &self,
         s: &State,
         p: &Prepared,
         level: Level,
+        subject: &str,
         against: &[Version],
-    ) -> Vec<CompatFinding> {
+    ) -> Result<Vec<CompatFinding>, RegistryError> {
         if level == Level::None {
-            return Vec::new();
+            return Ok(Vec::new());
         }
         let mut out = Vec::new();
-        for v in against {
+        for v in against.iter().rev() {
             let old = s
                 .schemas
                 .get(&v.rec.id)
                 .map(|r| r.text.clone())
                 .unwrap_or_default();
-            let details = match self.parse_stored(s, v.rec.id) {
-                Ok(stored) => compare(p, &stored, level),
-                Err(e) => {
-                    let d = format!("existing schema version {} cannot be read: {e}", v.number);
-                    vec![CompatReason::plain("SCHEMA_UNREADABLE", d)]
-                }
-            };
+            // A version that cannot be read again (a schema it references is gone for good) refuses the check, as
+            // Confluent refuses it: the old schema quoted as invalid (recorded by tools/registry-diff).
+            let stored = self
+                .parse_stored(s, v.rec.id)
+                .map_err(|why| self.unreadable(s, subject, v, &why))?;
+            let (details, forward) = compare(p, &stored, level);
             if !details.is_empty() {
                 out.push(CompatFinding {
                     version: v.number,
                     old,
                     level,
                     details,
+                    forward,
                 });
             }
         }
-        out
+        Ok(out)
     }
 
     /// Tests a schema against a version of a subject (`Some("latest")`, a number, or `None` for the versions the level
@@ -135,7 +146,7 @@ impl Registry {
             None => None,
         };
         let s = self.lock();
-        let (p, _) = self.prepare(&s, input, normalize)?;
+        let (p, _) = self.prepare(&s, subject, input, normalize)?;
         let level = asked.unwrap_or_else(|| s.level_of(subject));
         let mut against = s.compared_at(subject, level);
         if let Some(version) = version.filter(|v| !v.is_empty()) {
@@ -156,7 +167,7 @@ impl Registry {
                 Err(e) => return Err(e),
             }
         }
-        let found = self.findings(&s, &p, level, &against);
+        let found = self.findings(&s, &p, level, subject, &against)?;
         Ok((against.iter().map(|v| v.number).collect(), found))
     }
 
@@ -167,5 +178,33 @@ impl Registry {
             Some(a) => a.to_ascii_uppercase(),
             None => self.lock().level_of(subject).name().to_owned(),
         }
+    }
+}
+
+/// The longest old schema a finding quotes whole: Confluent cuts a longer one (counted in UTF-16 units, as Java counts).
+const MAX_QUOTED_SCHEMA: usize = 10240;
+
+/// The `{oldSchema: '...'}` line, cut as Confluent cuts it (recorded by tools/registry-diff).
+fn old_schema(text: &str) -> String {
+    let units: Vec<u16> = text.encode_utf16().collect();
+    if units.len() <= MAX_QUOTED_SCHEMA {
+        return format!("{{oldSchema: '{text}'}}");
+    }
+    let head = String::from_utf16_lossy(units.get(..MAX_QUOTED_SCHEMA).unwrap_or_default());
+    format!("{{oldSchema: <truncated> '{head}...'}}")
+}
+
+#[cfg(test)]
+mod quoted {
+    #[test]
+    fn a_long_old_schema_is_cut_as_confluent_cuts_it() {
+        assert_eq!(super::old_schema("\"int\""), "{oldSchema: '\"int\"'}");
+        let long = "x".repeat(10_241);
+        let got = super::old_schema(&long);
+        assert!(got.starts_with("{oldSchema: <truncated> 'xxx") && got.ends_with("x...'}"));
+        assert_eq!(
+            got.len(),
+            "{oldSchema: <truncated> '".len() + 10_240 + "...'}".len()
+        );
     }
 }
