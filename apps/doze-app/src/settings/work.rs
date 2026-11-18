@@ -241,9 +241,9 @@ impl SettingsView {
         }
         self.checking = true;
         cx.notify();
-        let job = cx.background_executor().spawn(async move {
-            update::update_of(current(), update::fetch(update::LATEST_URL), now, zone)
-        });
+        let job = cx
+            .background_executor()
+            .spawn(async move { update::update_of(current(), latest(), now, zone) });
         cx.spawn(async move |this, cx| {
             let u: Update = job.await;
             let _ = this.update(cx, |v, cx| {
@@ -317,4 +317,35 @@ impl doze_desk::settings::Hands for NoRoot {
     fn remove_dir(&mut self, dir: &std::path::Path) -> Result<(), doze_desk::settings::Fail> {
         self.0.remove_dir(dir)
     }
+}
+
+/// GitHub's latest release: the status and the body, or `None` when GitHub could not be reached. The app's one HTTP
+/// request, through the system's `curl` (Q6: no HTTPS client in the binary). When the app carries the CLI (core
+/// stack, PR #38), this becomes `doze_cli::http::get`, the CLI's client built on the same curl, so the binary keeps
+/// one HTTP path (docs/port/weight.md, "One HTTP stack").
+fn latest() -> Option<(u16, String)> {
+    let out = std::process::Command::new("curl")
+        .args([
+            "--silent",
+            "--show-error",
+            "--location",
+            "--max-time",
+            "8",
+            "--proto",
+            "=https",
+        ])
+        .args([
+            "--header",
+            "Accept: application/vnd.github+json",
+            "--user-agent",
+            "doze",
+        ])
+        .args(["--write-out", "\n%{http_code}", update::LATEST_URL])
+        .stdin(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let (body, code) = text.rsplit_once('\n')?;
+    let code: u16 = code.trim().parse().ok()?;
+    (code != 0).then(|| (code, body.to_owned()))
 }
