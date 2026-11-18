@@ -29,6 +29,7 @@ const route = getRouteApi("/groups/$group");
 function pills(h: GroupHead): string[] {
   if (h.protocol === "consumer") return ["consumer protocol (KIP-848)", `epoch ${h.generation}`];
   if (h.protocol === "share") return ["share group (KIP-932)", `epoch ${h.generation}`];
+  if (h.protocol === "streams") return ["streams group (KIP-1071)", `epoch ${h.generation}`];
   const out = ["classic"];
   if (h.assignor && h.phase !== "empty") out.push(h.assignor);
   out.push(h.phase === "empty" ? "no members" : h.phase === "rebalancing" ? `generation ${h.generation + 1} forming` : `generation ${h.generation}`);

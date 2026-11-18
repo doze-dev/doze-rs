@@ -1,12 +1,14 @@
 //! The configs of a group (Kafka's `GroupConfig`, resource type GROUP): the share group ones, which say how a share group's
-//! records are delivered and how its members are timed. A group need not exist to have them, and a value set is the
+//! records are delivered and how its members are timed, and the streams group ones (`streams`). A group need not exist to have them, and a value set is the
 //! group's until it is deleted; what is not set is the broker's default (Kafka's `group.share.*` broker configs, at
 //! their defaults here).
 //!
-//! The `consumer.*`, `streams.*` and dead-letter-queue group configs Kafka also has are not kept: setting one is refused
-//! by name (docs/port/behaviours/share-groups.md, SG-D5).
+//! The `consumer.*` and dead-letter-queue group configs Kafka also has are not kept: setting one is refused by name
+//! (docs/port/behaviours/share-groups.md, SG-D5).
 
+mod defs;
 mod reset;
+pub(crate) mod streams;
 #[cfg(test)]
 mod tests;
 
@@ -18,7 +20,9 @@ use kafka_wire::ids::GroupId;
 
 use crate::configs::{Change, Op, Refusal};
 
+pub(crate) use defs::{DEFS, Def, Kind};
 pub(crate) use reset::parse_reset;
+pub(crate) use streams::StreamsSettings;
 
 /// Kafka's broker defaults of the share group configs, and the bounds a group's own value is held to
 /// (`ShareGroupConfig`, `GroupCoordinatorConfig`).
@@ -51,96 +55,11 @@ pub(crate) const ISOLATION: &str = "share.isolation.level";
 pub(crate) const RENEW: &str = "share.renew.acknowledge.enable";
 pub(crate) const ASSIGN: &str = "share.assignment.interval.ms";
 
-/// The kind of value a config takes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Kind {
-    Int { at_least: i64 },
-    Text,
-    Bool,
-}
-
-/// One group config: its name, kind, Kafka's default as text, and its broker synonym.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct Def {
-    pub(crate) name: &'static str,
-    pub(crate) kind: Kind,
-    pub(crate) default: &'static str,
-    pub(crate) synonym: Option<&'static str>,
-}
-
-/// The group configs kept, in Kafka's order of definition.
-pub(crate) const DEFS: &[Def] = &[
-    Def {
-        name: SESSION,
-        kind: Kind::Int { at_least: 1 },
-        default: "45000",
-        synonym: Some("group.share.session.timeout.ms"),
-    },
-    Def {
-        name: HEARTBEAT,
-        kind: Kind::Int { at_least: 1 },
-        default: "5000",
-        synonym: Some("group.share.heartbeat.interval.ms"),
-    },
-    Def {
-        name: LOCK,
-        kind: Kind::Int { at_least: 1000 },
-        default: "30000",
-        synonym: Some("group.share.record.lock.duration.ms"),
-    },
-    Def {
-        name: DELIVERY,
-        kind: Kind::Int { at_least: 2 },
-        default: "5",
-        synonym: Some("group.share.delivery.count.limit"),
-    },
-    Def {
-        name: LOCKS,
-        kind: Kind::Int { at_least: 100 },
-        default: "2000",
-        synonym: Some("group.share.partition.max.record.locks"),
-    },
-    Def {
-        name: RESET,
-        kind: Kind::Text,
-        default: "latest",
-        synonym: None,
-    },
-    Def {
-        name: ISOLATION,
-        kind: Kind::Text,
-        default: "read_uncommitted",
-        synonym: None,
-    },
-    Def {
-        name: RENEW,
-        kind: Kind::Bool,
-        default: "true",
-        synonym: None,
-    },
-    Def {
-        name: ASSIGN,
-        kind: Kind::Int { at_least: 0 },
-        default: "1000",
-        synonym: Some("group.share.assignment.interval.ms"),
-    },
-];
-
 /// Group configs Kafka has that this broker does not keep.
 const NOT_KEPT: &[&str] = &[
     "consumer.session.timeout.ms",
     "consumer.heartbeat.interval.ms",
     "consumer.assignment.interval.ms",
-    "streams.session.timeout.ms",
-    "streams.heartbeat.interval.ms",
-    "streams.num.standby.replicas",
-    "streams.initial.rebalance.delay.ms",
-    "streams.assignment.interval.ms",
-    "streams.rack.aware.assignment.tags",
-    "streams.task.offset.interval.ms",
-    "streams.num.warmup.replicas",
-    "streams.acceptable.recovery.lag",
-    "streams.assignor.name",
     "errors.deadletterqueue.topic.name",
     "errors.deadletterqueue.copy.record.enable",
 ];
@@ -213,7 +132,7 @@ impl ShareSettings {
     }
 }
 
-fn refuse(code: E, message: impl Into<String>) -> Refusal {
+pub(super) fn refuse(code: E, message: impl Into<String>) -> Refusal {
     Refusal {
         code,
         message: message.into(),
@@ -230,12 +149,20 @@ fn invalid(value: &str, name: &str, detail: &str) -> Refusal {
 /// One value checked against its config's kind (Kafka's `ConfigDef` parse and validators).
 fn check_value(def: &Def, value: &str) -> Result<(), Refusal> {
     match def.kind {
-        Kind::Int { at_least } => {
-            let n: i64 = value
-                .trim()
-                .parse::<i32>()
-                .map(i64::from)
-                .map_err(|_| invalid(value, def.name, "Not a number of type INT"))?;
+        Kind::Int { at_least } | Kind::Long { at_least } => {
+            let n: i64 = if matches!(def.kind, Kind::Int { .. }) {
+                value.trim().parse::<i32>().map(i64::from).ok()
+            } else {
+                value.trim().parse::<i64>().ok()
+            }
+            .ok_or_else(|| {
+                let kind = if matches!(def.kind, Kind::Int { .. }) {
+                    "INT"
+                } else {
+                    "LONG"
+                };
+                invalid(value, def.name, &format!("Not a number of type {kind}"))
+            })?;
             if n < at_least {
                 return Err(invalid(
                     value,
@@ -263,6 +190,8 @@ fn check_value(def: &Def, value: &str) -> Result<(), Refusal> {
                 ));
             }
         }
+        Kind::List => {}
+        Kind::Text if def.name == streams::ASSIGNOR => {}
         Kind::Text => {
             if parse_reset(value).is_none() {
                 return Err(refuse(
@@ -274,7 +203,7 @@ fn check_value(def: &Def, value: &str) -> Result<(), Refusal> {
             }
         }
     }
-    Ok(())
+    streams::check_value(def.name, value)
 }
 
 /// The bounds against the broker's configs (Kafka's `GroupConfig.validateValues`), on the keys the request sets.
@@ -300,6 +229,7 @@ fn check_bounds(next: &BTreeMap<String, String>, set: &[&str]) -> Result<(), Ref
             ));
         }
     }
+    streams::check_bounds(next, set)?;
     let s = ShareSettings::of(next);
     if s.session_ms <= s.heartbeat_ms {
         return Err(refuse(
@@ -350,7 +280,7 @@ pub(crate) fn apply(
         let Some(def) = DEFS.iter().find(|d| d.name == c.name) else {
             let message = if NOT_KEPT.contains(&c.name.as_str()) {
                 format!(
-                    "Group config {} is not supported by this broker: it keeps the share.* group configs only.",
+                    "Group config {} is not supported by this broker: it keeps the share.* and streams.* group configs only.",
                     c.name
                 )
             } else {
@@ -409,6 +339,12 @@ impl GroupConfigs {
     #[must_use]
     pub(crate) fn settings(&self, group: &GroupId) -> ShareSettings {
         ShareSettings::of(&self.of(group))
+    }
+
+    /// What `group` runs by as a streams group.
+    #[must_use]
+    pub(crate) fn streams(&self, group: &GroupId) -> StreamsSettings {
+        StreamsSettings::of(&self.of(group))
     }
 
     pub(crate) fn set(&self, group: &GroupId, configs: BTreeMap<String, String>) {

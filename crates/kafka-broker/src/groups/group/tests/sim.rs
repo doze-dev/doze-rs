@@ -201,8 +201,10 @@ impl Pump {
     }
 }
 
-/// An effect as the differential runs hash it. These runs make no share group, so the field share groups added to a
+/// An effect as the differential runs hash it. These runs make no share or streams group, so the fields those added to a
 /// description is left out, and the hash constant is the one from before.
 pub(super) fn hashed(effect: &crate::groups::machine::Effect) -> String {
-    format!("{effect:?}").replace(", share: None", "")
+    format!("{effect:?}")
+        .replace(", share: None", "")
+        .replace(", streams: None", "")
 }

@@ -12,6 +12,7 @@ mod delete;
 mod forms;
 pub mod group;
 pub mod group_read;
+pub mod group_streams;
 mod group_write;
 pub mod groups;
 mod home;

@@ -82,6 +82,14 @@ impl<F: Fs> Broker<F> {
                     .await
             }
             Request::ShareGroupDescribe(r) => self.share_group_describe(caller, &r).await,
+            Request::StreamsGroupHeartbeat(r) => {
+                self.streams_group_heartbeat(head.version, caller, &client_of(listener, head), &r)
+                    .await
+            }
+            Request::StreamsGroupDescribe(r) => self.streams_group_describe(caller, &r).await,
+            Request::StreamsGroupTopologyDescriptionUpdate(r) => {
+                self.streams_group_topology_description_update(caller, &r)
+            }
             Request::ShareFetch(r) => self.share_fetch(head.version, listener, caller, r).await,
             Request::ShareAcknowledge(r) => self.share_acknowledge(head.version, caller, &r).await,
             Request::DescribeShareGroupOffsets(r) => {

@@ -282,6 +282,8 @@ mod produce;
 pub mod quotas;
 #[path = "support/share.rs"]
 pub mod share;
+#[path = "support/streams.rs"]
+pub mod streams;
 #[path = "support/txn.rs"]
 mod txn;
 #[path = "support/users.rs"]

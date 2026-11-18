@@ -2,12 +2,14 @@
 //! classic or consumer group whose last member goes is free to become the other of the two; one with members moves
 //! between them only by the rules in `migrate` (a consumer-protocol member joining a classic group of consumers, the
 //! last one leaving). A share group stays one (Kafka converts nothing to or from it): every other kind of request to it
-//! is refused, and a share heartbeat to another kind of group is.
+//! is refused, and a share heartbeat to another kind of group is. A streams group likewise stays one; a streams member
+//! joining an empty classic group (one that has only committed offsets, say) makes it a streams group, as Kafka does.
 
 use super::consumer::{self, ConsumerGroup, TopicSource};
-use super::machine::{Answer, Effect, Event, GroupMachine, IdSource, JoinRequest, Millis, Token};
+use super::machine::{Answer, Effect, Event, GroupMachine, IdSource, JoinRequest, Millis};
 use super::share::{ShareAnswer, ShareGroup};
-use kafka_meta::{ConsumerLife, ShareLife};
+use super::streams::{StreamsAnswer, StreamsGroup};
+use kafka_meta::{ConsumerLife, ShareLife, StreamsLife};
 use kafka_wire::ResponseError as E;
 
 /// How the groups of a broker are made.
@@ -24,6 +26,7 @@ enum Kind {
     Classic(GroupMachine),
     Consumer(ConsumerGroup),
     Share(ShareGroup),
+    Streams(StreamsGroup),
 }
 
 /// What is kept of a group across a restart, by kind.
@@ -32,6 +35,7 @@ pub(crate) enum Kept {
     Classic,
     Consumer(ConsumerLife),
     Share(ShareLife),
+    Streams(StreamsLife),
 }
 
 impl Kept {
@@ -42,6 +46,7 @@ impl Kept {
             Self::Classic => 0,
             Self::Consumer(_) => 1,
             Self::Share(_) => 2,
+            Self::Streams(_) => 3,
         }
     }
 }
@@ -106,6 +111,18 @@ impl Group {
         }
     }
 
+    /// A streams group: new, or as it was when the broker last stopped.
+    #[must_use]
+    pub(crate) fn streams(settings: Settings, kept: Option<&StreamsLife>) -> Self {
+        let group = kept.map_or_else(StreamsGroup::new, |l| {
+            StreamsGroup::restored(super::streams::stored::kept_of(l))
+        });
+        Self {
+            kind: Kind::Streams(group),
+            settings,
+        }
+    }
+
     /// An empty consumer group as it was when the broker last stopped.
     #[must_use]
     pub(crate) fn restored(
@@ -132,6 +149,7 @@ impl Group {
             Kind::Classic(m) => m.member_count(),
             Kind::Consumer(c) => c.member_count(),
             Kind::Share(s) => s.member_count(),
+            Kind::Streams(s) => s.member_count(),
         }
     }
 
@@ -142,6 +160,29 @@ impl Group {
             Kind::Classic(m) => m.protocol_type(),
             Kind::Consumer(_) => Some("consumer"),
             Kind::Share(_) => Some("share"),
+            Kind::Streams(_) => Some("streams"),
+        }
+    }
+
+    /// The epochs a streams group's record is kept up to date with while it has members, so that a broker stopped with
+    /// members in it starts the group again at the epoch it had (the epoch never goes back). `None` for the other kinds,
+    /// whose record is written as members come and go.
+    #[must_use]
+    pub(crate) fn kept_epochs(&self) -> Option<(i32, i32)> {
+        match &self.kind {
+            Kind::Streams(s) => Some(s.epochs()),
+            Kind::Classic(_) | Kind::Consumer(_) | Kind::Share(_) => None,
+        }
+    }
+
+    /// Which kind it is, as [`Kept::tag`] says it.
+    #[must_use]
+    pub(crate) fn kind_tag(&self) -> u8 {
+        match &self.kind {
+            Kind::Classic(_) => 0,
+            Kind::Consumer(_) => 1,
+            Kind::Share(_) => 2,
+            Kind::Streams(_) => 3,
         }
     }
 
@@ -165,12 +206,13 @@ impl Group {
                     assignment_epoch,
                 })
             }
+            Kind::Streams(s) => Kept::Streams(super::streams::stored::life_of(&s.kept(None))),
         }
     }
 
     fn consumer_kept(&self) -> Kept {
         match self.kept() {
-            Kept::Classic | Kept::Share(_) => Kept::Consumer(default_life()),
+            Kept::Classic | Kept::Share(_) | Kept::Streams(_) => Kept::Consumer(default_life()),
             consumer => consumer,
         }
     }
@@ -200,6 +242,27 @@ impl Group {
                 protocol_type: "share".to_owned(),
                 kept: self.kept(),
             }),
+            (Event::StreamsHeartbeat(_, hb), Kind::Streams(s)) if s.would_seat(hb) => {
+                Some(Seating {
+                    session_ms: i32::try_from(hb.timing.session_ms).unwrap_or(i32::MAX),
+                    protocol_type: "streams".to_owned(),
+                    kept: Kept::Streams(super::streams::stored::life_of(
+                        &s.kept(hb.topology.as_ref()),
+                    )),
+                })
+            }
+            (Event::StreamsHeartbeat(_, hb), Kind::Classic(m))
+                if m.member_count() == 0 && hb.epoch == 0 =>
+            {
+                let new = StreamsGroup::new();
+                new.would_seat(hb).then(|| Seating {
+                    session_ms: i32::try_from(hb.timing.session_ms).unwrap_or(i32::MAX),
+                    protocol_type: "streams".to_owned(),
+                    kept: Kept::Streams(super::streams::stored::life_of(
+                        &new.kept(hb.topology.as_ref()),
+                    )),
+                })
+            }
             (Event::ConsumerHeartbeat(_, hb), kind)
                 if match kind {
                     Kind::Consumer(c) => c.would_seat(hb),
@@ -207,7 +270,7 @@ impl Group {
                         (m.member_count() == 0 || m.protocol_type() == Some("consumer"))
                             && consumer::can_join(hb)
                     }
-                    Kind::Share(_) => false,
+                    Kind::Share(_) | Kind::Streams(_) => false,
                 } =>
             {
                 Some(Seating {
@@ -231,12 +294,31 @@ impl Group {
         if let Kind::Share(s) = &mut self.kind {
             return step_share(s, event, now, source);
         }
+        if let Kind::Streams(s) = &mut self.kind {
+            return step_streams(s, event, now, source);
+        }
         match event {
             // A client asking for an id before it joins (JoinGroup v4 and later): vetted, and the id issued by the registry.
             Event::Join(token, req) if asks_for_an_id(&req) => {
                 vec![Effect::Reply(token, Answer::Join(self.vet(&req)))]
             }
             Event::ConsumerHeartbeat(token, hb) => self.consumer_heartbeat(token, hb, now, source),
+            // A streams member joining a classic group nobody is in: it is a streams group now.
+            Event::StreamsHeartbeat(token, hb)
+                if hb.epoch == 0
+                    && matches!(&self.kind, Kind::Classic(m) if m.member_count() == 0) =>
+            {
+                self.kind = Kind::Streams(StreamsGroup::new());
+                self.step(Event::StreamsHeartbeat(token, hb), now, source)
+            }
+            // A streams heartbeat to any other classic or consumer group.
+            Event::StreamsHeartbeat(token, hb) => vec![Effect::Reply(
+                token,
+                Answer::StreamsHeartbeat(Box::new(StreamsAnswer::refused(
+                    E::GroupIdNotFound,
+                    format!("Group {} is not a streams group.", hb.group),
+                ))),
+            )],
             // A share heartbeat to a classic or consumer group, even an empty one (Kafka converts neither).
             Event::ShareHeartbeat(token, hb) => vec![Effect::Reply(
                 token,
@@ -265,126 +347,16 @@ impl Group {
                     }
                     event => self.step_consumer(event, now, source),
                 },
-                Kind::Share(_) => Vec::new(),
+                Kind::Share(_) | Kind::Streams(_) => Vec::new(),
             },
         }
     }
-}
-
-/// A share group's step: its own heartbeat, and Kafka's refusals of every other kind's requests
-/// (`GroupMetadataManager`'s `getOrMaybeCreate*Group`: "Group %s is not a ... group.").
-fn step_share(
-    s: &mut ShareGroup,
-    event: Event,
-    now: Millis,
-    source: &dyn TopicSource,
-) -> Vec<Effect> {
-    let mut out = Vec::new();
-    match event {
-        Event::ShareHeartbeat(token, hb) => {
-            s.heartbeat(token, &hb, &source.topics(), now, &mut out)
-        }
-        Event::Timer(key) => s.timer(&key, now, &mut out),
-        Event::TopicsChanged => s.topics_changed(),
-        Event::Describe(token) => out.push(describe_share(s, token, now, source)),
-        Event::Delete(token) => {
-            let refused = (s.member_count() > 0).then_some(E::NonEmptyGroup);
-            out.push(Effect::Reply(token, Answer::Delete(refused)));
-        }
-        Event::Force(token, force) => {
-            let done = force_share(s, force, now, &mut out);
-            out.push(Effect::Reply(token, Answer::Forced(done)));
-        }
-        other => out.extend(refuse_in_share(other)),
-    }
-    out
-}
-
-/// A share group as DescribeGroups and the console see it.
-fn describe_share(s: &ShareGroup, token: Token, now: Millis, source: &dyn TopicSource) -> Effect {
-    use super::machine::{Description, State};
-    #[cfg(not(feature = "inspect"))]
-    let _ = now;
-    let view = s.view(&source.topics());
-    Effect::Reply(
-        token,
-        Answer::Describe(Description {
-            state: if view.members.is_empty() {
-                State::Empty
-            } else {
-                State::Stable
-            },
-            protocol_type: Some("share".to_owned()),
-            protocol: None,
-            members: Vec::new(),
-            subscribed: None,
-            consumer: None,
-            share: Some(view),
-            #[cfg(feature = "inspect")]
-            inspect: Box::new(s.inspect(now)),
-        }),
-    )
-}
-
-/// The Lab's forcing of a share group: a member's session run out, or the group epoch moved.
-fn force_share(
-    s: &mut ShareGroup,
-    force: super::machine::Force,
-    now: Millis,
-    out: &mut Vec<Effect>,
-) -> super::machine::Forced {
-    use super::machine::{Force, Forced};
-    match force {
-        Force::Expire(id) if s.force_expire(&id, now, out) => Forced::Done,
-        Force::Expire(_) => Forced::NoSuchMember,
-        Force::Rebalance if s.force_bump(now, out) => Forced::Done,
-        Force::Rebalance => Forced::Empty,
-    }
-}
-
-/// What a share group answers the other kinds' requests: a classic JoinGroup is told its protocol is not the group's;
-/// the rest that the group is not theirs (a share group has no committed offsets: "Group %s is not a consumer group.").
-fn refuse_in_share(event: Event) -> Option<Effect> {
-    use super::machine::{JoinAnswer, LeaveResult, SyncAnswer};
-    let (token, answer) = match event {
-        Event::Join(token, _) => (
-            token,
-            Answer::Join(JoinAnswer::refused(E::InconsistentGroupProtocol, None)),
-        ),
-        Event::Sync(token, _) => (token, Answer::Sync(SyncAnswer::refused(E::GroupIdNotFound))),
-        Event::Heartbeat(token, _) => (token, Answer::Heartbeat(Some(E::GroupIdNotFound))),
-        Event::Leave(token, targets) => (
-            token,
-            Answer::Leave(
-                targets
-                    .into_iter()
-                    .map(|t| LeaveResult {
-                        member_id: t.member_id,
-                        instance: t.instance,
-                        error: Some(E::GroupIdNotFound),
-                    })
-                    .collect(),
-            ),
-        ),
-        Event::Commit(token, _) => (token, Answer::Commit(Some(E::GroupIdNotFound))),
-        Event::ConsumerHeartbeat(token, hb) => (
-            token,
-            Answer::ConsumerHeartbeat(consumer::HeartbeatAnswer::refused(
-                E::GroupIdNotFound,
-                format!("Group {} is not a consumer group.", hb.group),
-            )),
-        ),
-        // A share group's own: answered by `step_share`.
-        Event::ShareHeartbeat(..)
-        | Event::Timer(_)
-        | Event::TopicsChanged
-        | Event::Describe(_)
-        | Event::Delete(_)
-        | Event::Force(..) => return None,
-    };
-    Some(Effect::Reply(token, answer))
 }
 
 mod convert;
+mod share_step;
+use share_step::step_share;
+mod streams_step;
+use streams_step::step_streams;
 #[cfg(test)]
 mod tests;

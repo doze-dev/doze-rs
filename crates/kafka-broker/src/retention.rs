@@ -161,6 +161,7 @@ mod tests {
             protocol_type: "consumer".into(),
             consumer: None,
             share: None,
+            streams: None,
         }
     }
 

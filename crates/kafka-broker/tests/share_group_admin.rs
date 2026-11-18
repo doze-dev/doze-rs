@@ -252,7 +252,8 @@ async fn group_configs_are_described_with_their_source_and_refused_in_kafkas_wor
         ("latest".to_owned(), 5),
         "DEFAULT_CONFIG"
     );
-    assert_eq!(described.configs.len(), 9);
+    // The nine share configs and the seven streams ones that are not internal.
+    assert_eq!(described.configs.len(), 16);
     assert_eq!(
         rig.group_config("g", &[("share.delivery.count.limit", "11")])
             .await,

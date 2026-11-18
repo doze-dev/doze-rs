@@ -26,7 +26,7 @@ impl ConsumerGroup {
             }
             Event::TopicsChanged => self.topics_changed(&source.topics(), now, &mut out),
             // The owner of the group answers these for every kind but a share group.
-            Event::ShareHeartbeat(..) => {}
+            Event::ShareHeartbeat(..) | Event::StreamsHeartbeat(..) => {}
             Event::Describe(token) => out.push(Effect::Reply(
                 token,
                 Answer::Describe(self.description(&source.topics(), now)),
@@ -125,6 +125,7 @@ impl ConsumerGroup {
             subscribed: Some(subscribed),
             consumer: Some(self.view()),
             share: None,
+            streams: None,
             #[cfg(feature = "inspect")]
             inspect: Box::new(self.inspect(now)),
         }

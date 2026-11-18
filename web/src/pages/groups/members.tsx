@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { cn } from "@/lib/utils";
 import { useRoutedOverlay } from "./overlay";
 import { Facts, LagBar, Panel, Rules } from "./parts";
+import { StreamsMembers } from "./streams";
 import { WireDock } from "@/pages/live/wire-dock";
 import { agoNear, heard, memberLabel, numberWord, partList, PHASE_WORD, seconds, spanPrecise, stamp } from "./words";
 
@@ -30,9 +31,9 @@ function share(part: number, of: number): number {
   return part <= 0 || of <= 0 ? 0 : Math.min(100, Math.max(2, Math.floor((part * 100) / of)));
 }
 
-type Open = (id: string, from: HTMLElement) => void;
+export type Open = (id: string, from: HTMLElement) => void;
 
-function MemberLink({ m, onOpen }: { m: GroupMemberRow; onOpen: Open }) {
+export function MemberLink({ m, onOpen }: { m: GroupMemberRow; onOpen: Open }) {
   return (
     <button type="button" onClick={(e) => onOpen(m.id, e.currentTarget)} className="max-w-full truncate rounded-sm text-left font-mono text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={m.id} data-focus-key={`member:${m.id}`} data-testid="member-link">
       {memberLabel(m.id)}
@@ -47,7 +48,7 @@ function subscribeWide(on: () => void) {
   return () => m.removeEventListener("change", on);
 }
 /** Whether the window is 1280 px or wider: below it the members table leaves Host and Session to the member's Sheet. */
-function useWide(): boolean {
+export function useWide(): boolean {
   return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => true);
 }
 
@@ -75,7 +76,7 @@ function committedTo(t: LagTopic): string {
   return `${n} of ${t.partitions} ${t.partitions === 1 ? "partition" : "partitions"}`;
 }
 
-function ReadsTable({ topics }: { topics: LagTopic[] }) {
+export function ReadsTable({ topics }: { topics: LagTopic[] }) {
   const most = Math.max(0, ...topics.map((t) => t.behind));
   const cols: DataColumn<LagTopic>[] = [
     {
@@ -451,7 +452,7 @@ export function GroupMembersPage() {
   const h = v.head;
   return (
     <>
-      {h.protocol === "share" ? <ShareMembers v={v} onOpen={open} /> : h.protocol === "consumer" ? <Consumer v={v} onOpen={open} /> : h.phase === "rebalancing" ? <Rebalancing v={v} fetchedAt={res.dataUpdatedAt} onOpen={open} /> : <Classic v={v} onOpen={open} />}
+      {h.protocol === "streams" ? <StreamsMembers v={v} onOpen={open} /> : h.protocol === "share" ? <ShareMembers v={v} onOpen={open} /> : h.protocol === "consumer" ? <Consumer v={v} onOpen={open} /> : h.phase === "rebalancing" ? <Rebalancing v={v} fetchedAt={res.dataUpdatedAt} onOpen={open} /> : <Classic v={v} onOpen={open} />}
       <section className="mt-12">
         <h2 className="mb-3 text-[17px] font-semibold text-bright">What just happened</h2>
         <WireDock group={id} />

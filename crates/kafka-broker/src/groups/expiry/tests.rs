@@ -37,6 +37,7 @@ fn life(live: bool, empty_since_ms: Option<i64>, consumer: bool) -> GroupLife {
             assignor: "uniform".into(),
         }),
         share: None,
+        streams: None,
     }
 }
 

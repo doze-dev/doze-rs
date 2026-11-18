@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use kafka_meta::{ConsumerLife, GroupLife, MetaStore, ShareLife};
+use kafka_meta::{ConsumerLife, GroupLife, MetaStore, ShareLife, StreamsLife};
 use kafka_wire::ids::GroupId;
 
 use crate::groups::actor::Records;
@@ -65,7 +65,7 @@ impl StoreRecords {
 
 impl Records for StoreRecords {
     fn live(&self, session_ms: u32, protocol_type: &str, kept: &Kept) -> bool {
-        let (consumer, share) = lives(kept);
+        let (consumer, share, streams) = lives(kept);
         self.write(&GroupLife {
             live: true,
             session_ms,
@@ -73,11 +73,12 @@ impl Records for StoreRecords {
             protocol_type: protocol_type.to_owned(),
             consumer,
             share,
+            streams,
         })
     }
 
     fn empty(&self, protocol_type: &str, kept: &Kept, now_ms: i64) -> bool {
-        let (consumer, share) = lives(kept);
+        let (consumer, share, streams) = lives(kept);
         self.write(&GroupLife {
             live: false,
             session_ms: 0,
@@ -87,14 +88,18 @@ impl Records for StoreRecords {
             protocol_type: protocol_type.to_owned(),
             consumer,
             share,
+            streams,
         })
     }
 }
 
-fn lives(kept: &Kept) -> (Option<ConsumerLife>, Option<ShareLife>) {
+type Lives = (Option<ConsumerLife>, Option<ShareLife>, Option<StreamsLife>);
+
+fn lives(kept: &Kept) -> Lives {
     match kept {
-        Kept::Classic => (None, None),
-        Kept::Consumer(c) => (Some(c.clone()), None),
-        Kept::Share(s) => (None, Some(s.clone())),
+        Kept::Classic => (None, None, None),
+        Kept::Consumer(c) => (Some(c.clone()), None, None),
+        Kept::Share(s) => (None, Some(s.clone()), None),
+        Kept::Streams(s) => (None, None, Some(s.clone())),
     }
 }

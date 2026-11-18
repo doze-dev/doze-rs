@@ -3,6 +3,7 @@
 //
 //   bun interop/java/fetch.ts 4      kafka-clients 4.4.0 and its runtime dependencies
 //   bun interop/java/fetch.ts 2.8    kafka-clients 2.8.2 and its runtime dependencies
+//   bun interop/java/fetch.ts streams   the 4.4.0 set and kafka-streams 4.4.0 (Streams.java)
 //
 // The cache is $DOZE_INTEROP_CACHE/java, else ~/.cache/doze-interop/java. A jar already there is checked again, not
 // trusted; one whose bytes do not match is fetched again, and a download that does not match is an error.
@@ -50,6 +51,13 @@ const sets: Record<string, Jar[]> = {
     ...slf4j,
   ],
 };
+
+// Kafka Streams 4.4.0 for Streams.java, checked against Maven Central's .sha1 and .sha256 on 2026-11-18. Its POM also names
+// rocksdbjni (72 MB) and Jackson; the word count keeps its state in memory and loads neither, so they are not fetched.
+sets["streams"] = [
+  ...sets["4"],
+  jar("org.apache.kafka:kafka-streams:4.4.0", "6e06548a119adf213121ad2e4fefff6ab4263875b4f761425ace8ea4f5ba04a6"),
+];
 
 const which = process.argv[2];
 const set = sets[which];

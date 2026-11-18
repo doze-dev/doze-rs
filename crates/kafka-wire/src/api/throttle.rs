@@ -62,6 +62,9 @@ impl Response {
             Self::DescribeShareGroupOffsets(r) => &mut r.throttle_time_ms,
             Self::AlterShareGroupOffsets(r) => &mut r.throttle_time_ms,
             Self::DeleteShareGroupOffsets(r) => &mut r.throttle_time_ms,
+            Self::StreamsGroupHeartbeat(r) => &mut r.throttle_time_ms,
+            Self::StreamsGroupDescribe(r) => &mut r.throttle_time_ms,
+            Self::StreamsGroupTopologyDescriptionUpdate(r) => &mut r.throttle_time_ms,
             Self::SaslHandshake(_) | Self::SaslAuthenticate(_) => return,
         };
         *field = ms;

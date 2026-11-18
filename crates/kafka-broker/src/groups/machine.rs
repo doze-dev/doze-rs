@@ -150,7 +150,10 @@ impl GroupMachine {
             Event::Timer(key) => self.timer(&key, now, &mut out),
             Event::Force(token, force) => self.force(token, &force, now, &mut out),
             // A consumer group's: the owner of the group hands these to the right machine.
-            Event::ConsumerHeartbeat(..) | Event::ShareHeartbeat(..) | Event::TopicsChanged => {}
+            Event::ConsumerHeartbeat(..)
+            | Event::ShareHeartbeat(..)
+            | Event::StreamsHeartbeat(..)
+            | Event::TopicsChanged => {}
         }
         out
     }

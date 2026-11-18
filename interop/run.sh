@@ -132,6 +132,9 @@ if [ -n "$java" ]; then
     # Share groups (KIP-932) are the 4.x client's alone, so they are a program of their own; plain connections only.
     if [ "$line" = 4 ] && [ -z "$sasl" ] && [ -z "$tls" ]; then
       (cd "$here" && java -cp "$cp" java/Share.java -broker "127.0.0.1:$port" "$@") || status=1
+      # Streams groups (KIP-1071) with Kafka Streams itself, which needs its own jar.
+      streams_cp="$(bun "$here/java/fetch.ts" streams)" || { status=1; continue; }
+      (cd "$here" && java -cp "$streams_cp" java/Streams.java -broker "127.0.0.1:$port" "$@") || status=1
     fi
   done
 fi

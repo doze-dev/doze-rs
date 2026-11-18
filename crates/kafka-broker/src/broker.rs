@@ -74,6 +74,9 @@ const SERVED: &[ApiKey] = &[
     ApiKey::DescribeLogDirs,
     ApiKey::DescribeClientQuotas,
     ApiKey::AlterClientQuotas,
+    ApiKey::StreamsGroupHeartbeat,
+    ApiKey::StreamsGroupDescribe,
+    ApiKey::StreamsGroupTopologyDescriptionUpdate,
 ];
 
 /// The APIs of client telemetry (KIP-714), served only when `Config::client_telemetry` is on.
@@ -95,6 +98,8 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) txn_alarm: crate::txn::Alarm,
     /// The share groups' share-partitions and sessions (KIP-932). Empty until a share group fetches.
     pub(crate) shares: crate::share::Shares,
+    /// Internal topics of streams groups whose creation failed lately (empty unless one did).
+    pub(crate) streams_topic_failures: crate::handlers::StreamsTopicFailures,
     /// The configs set on groups (resource type GROUP).
     pub(crate) group_configs: crate::group_configs::GroupConfigs,
     /// When this run began, in milliseconds since the epoch.
@@ -214,6 +219,7 @@ impl<F: Fs> Broker<F> {
             txn_alarm: crate::txn::Alarm::default(),
             shares: crate::share::Shares::new(crate::group_configs::defaults::MAX_SESSIONS),
             group_configs,
+            streams_topic_failures: crate::handlers::StreamsTopicFailures::default(),
             started_ms: crate::clock::now().get(),
             first_start,
             topics_changed: tokio::sync::watch::channel(0).0,

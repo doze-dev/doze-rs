@@ -29,6 +29,7 @@ pub async fn listed(b: &Backend) -> Vec<Listed> {
             protocol: match g.group_type.as_str() {
                 "consumer" => GroupProtocol::Consumer,
                 "share" => GroupProtocol::Share,
+                "streams" => GroupProtocol::Streams,
                 _ => GroupProtocol::Classic,
             },
         })
@@ -69,7 +70,7 @@ fn parts_of(
     out
 }
 
-fn member_row(id: String, client_id: String, host: String) -> GroupMemberRow {
+pub(super) fn member_row(id: String, client_id: String, host: String) -> GroupMemberRow {
     GroupMemberRow {
         id,
         instance: None,
@@ -182,6 +183,16 @@ pub async fn describe(b: &Backend, ids: &[String]) -> HashMap<String, Described>
     {
         for g in r.groups.iter().filter(|g| g.error_code == 0) {
             out.insert(g.group_id.0.to_string(), share(g));
+        }
+    }
+    // And what is no share group either may be a streams group.
+    again.retain(|id| !out.contains_key(id));
+    if !again.is_empty()
+        && let Ok(Response::StreamsGroupDescribe(r)) =
+            b.call(requests::streams_group_describe(&again)).await
+    {
+        for g in r.groups.iter().filter(|g| g.error_code == 0) {
+            out.insert(g.group_id.0.to_string(), super::group_streams::described(g));
         }
     }
     out

@@ -3,13 +3,13 @@
 // share session: closing it lets go of what the member holds, as Kafka does when a connection goes.
 import { Socket } from "node:net";
 
-type Bytes = number[];
+export type Bytes = number[];
 
-const i8 = (n: number): Bytes => [n & 0xff];
-const i16 = (n: number): Bytes => [(n >> 8) & 0xff, n & 0xff];
-const i32 = (n: number): Bytes => [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff];
-const i64 = (n: number): Bytes => [...i32(Math.floor(n / 2 ** 32)), ...i32(n >>> 0)];
-function varint(n: number): Bytes {
+export const i8 = (n: number): Bytes => [n & 0xff];
+export const i16 = (n: number): Bytes => [(n >> 8) & 0xff, n & 0xff];
+export const i32 = (n: number): Bytes => [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff];
+export const i64 = (n: number): Bytes => [...i32(Math.floor(n / 2 ** 32)), ...i32(n >>> 0)];
+export function varint(n: number): Bytes {
   const out: Bytes = [];
   while (n > 0x7f) {
     out.push((n & 0x7f) | 0x80);
@@ -18,11 +18,11 @@ function varint(n: number): Bytes {
   out.push(n);
   return out;
 }
-const str = (s: string): Bytes => [...varint(Buffer.byteLength(s) + 1), ...Buffer.from(s)];
-const array = (items: Bytes[]): Bytes => [...varint(items.length + 1), ...items.flat()];
-const TAGS: Bytes = [0];
+export const str = (s: string): Bytes => [...varint(Buffer.byteLength(s) + 1), ...Buffer.from(s)];
+export const array = (items: Bytes[]): Bytes => [...varint(items.length + 1), ...items.flat()];
+export const TAGS: Bytes = [0];
 
-class Reader {
+export class Reader {
   at = 0;
   constructor(private b: Buffer) {}
   i8() {

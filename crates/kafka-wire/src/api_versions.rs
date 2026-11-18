@@ -63,14 +63,28 @@ pub fn answer(
         } else {
             0
         };
-        feature("share.version", share, version, &mut resp);
+        feature("share.version", share, 2, version, &mut resp);
+        let streams = if features.served.contains(ApiKey::StreamsGroupHeartbeat) {
+            profile.streams_version()
+        } else {
+            0
+        };
+        feature("streams.version", streams, 1, version, &mut resp);
     }
     (version, resp)
 }
 
 /// `share.version` (KIP-932) as Kafka 4.4.0 lists it when formatted with its defaults: supported 0 to 2, finalized at 2
-/// (share groups on, level 1, and their dead-letter queue, level 2), under the same rules as `transaction.version`.
-fn feature(name: &'static str, level: i16, version: i16, resp: &mut ApiVersionsResponse) {
+/// (share groups on, level 1, and their dead-letter queue, level 2), under the same rules as `transaction.version`; and
+/// `streams.version` (KIP-1071) likewise: supported 0 to 1, finalized at 1 (streams groups on). `most` is the highest
+/// level supported.
+fn feature(
+    name: &'static str,
+    level: i16,
+    most: i16,
+    version: i16,
+    resp: &mut ApiVersionsResponse,
+) {
     if level == 0 {
         return;
     }
@@ -78,7 +92,7 @@ fn feature(name: &'static str, level: i16, version: i16, resp: &mut ApiVersionsR
         let mut supported = SupportedFeatureKey::default();
         supported.name = StrBytes::from_static_str(name);
         supported.min_version = 0;
-        supported.max_version = 2;
+        supported.max_version = most;
         resp.supported_features.push(supported);
     }
     let mut finalized = FinalizedFeatureKey::default();
@@ -94,9 +108,10 @@ fn feature(name: &'static str, level: i16, version: i16, resp: &mut ApiVersionsR
 /// the level, with the finalized epoch not negative (the client takes the features of an epoch newer than it has seen,
 /// from -1). Below v4 a supported feature whose least level is 0 is left out (old clients cannot read it, KAFKA-17492),
 /// and a finalized level of 0 is never listed. Kafka lists its other features too (`metadata.version`, `group.version`,
-/// ...); no client decides anything here by them, so they are not claimed. `share.version` is the other one listed.
+/// ...); no client decides anything here by them, so they are not claimed. `share.version` and `streams.version` are the
+/// others listed.
 fn transaction_feature(level: i16, version: i16, resp: &mut ApiVersionsResponse) {
-    feature("transaction.version", level, version, resp);
+    feature("transaction.version", level, 2, version, resp);
 }
 
 /// The answer to an ApiVersions request that arrives in the middle of a SASL login: ILLEGAL_SASL_STATE and no

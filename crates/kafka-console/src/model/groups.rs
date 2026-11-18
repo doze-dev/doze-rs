@@ -3,7 +3,9 @@
 //! Every name here starts with `Group`, `Lag`, `Reset` or `Offset` so that no other family of pages can clash with it.
 
 use super::group_share::GroupShareView;
+pub use super::group_span::GroupSpan;
 use super::group_states::GroupStates;
+use super::group_streams::GroupStreamsView;
 use super::write::{Lines, Refusal};
 use crate::lag::Lag;
 
@@ -17,6 +19,8 @@ pub enum GroupProtocol {
     Consumer,
     /// KIP-932: the broker assigns, and the members share partitions record by record.
     Share,
+    /// KIP-1071: the broker assigns the tasks of a Kafka Streams topology.
+    Streams,
 }
 
 /// Where a group is in its life, in the console's one word for it.
@@ -32,6 +36,8 @@ pub enum GroupPhase {
     Assigning,
     /// A consumer group whose members are not yet where their targets are.
     Reconciling,
+    /// A streams group whose topology cannot run yet (topics missing or partitioned unlike each other).
+    NotReady,
 }
 
 impl GroupPhase {
@@ -43,6 +49,7 @@ impl GroupPhase {
             "PreparingRebalance" | "CompletingRebalance" => Self::Rebalancing,
             "Assigning" => Self::Assigning,
             "Reconciling" => Self::Reconciling,
+            "NotReady" => Self::NotReady,
             _ => Self::Empty,
         }
     }
@@ -56,6 +63,7 @@ impl GroupPhase {
             Self::Rebalancing => "Rebalancing",
             Self::Assigning => "Assigning",
             Self::Reconciling => "Reconciling",
+            Self::NotReady => "Not ready",
         }
     }
 }
@@ -316,6 +324,8 @@ pub struct GroupLagView {
     pub flash: Option<String>,
     /// A share group's share-partitions, in place of committed offsets.
     pub share: Option<GroupShareView>,
+    /// A streams group's topology and its members' tasks.
+    pub streams: Option<GroupStreamsView>,
 }
 
 /// What a reset moves the offsets to.
@@ -381,36 +391,6 @@ pub struct OffsetDeleteView {
     pub topics: Vec<(String, Vec<i32>)>,
     pub chosen: Vec<String>,
     pub call: Lines,
-}
-
-/// A word of a sentence of the Groups pages: plain, monospace, bold, or a link to a topic.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-#[serde(tag = "kind", content = "text", rename_all = "snake_case")]
-pub enum GroupSpan {
-    Text(String),
-    Mono(String),
-    Strong(String),
-    /// A topic's name, linked to its page.
-    Topic(String),
-}
-
-impl GroupSpan {
-    pub fn text(s: impl Into<String>) -> Self {
-        Self::Text(s.into())
-    }
-
-    pub fn mono(s: impl Into<String>) -> Self {
-        Self::Mono(s.into())
-    }
-
-    pub fn strong(s: impl Into<String>) -> Self {
-        Self::Strong(s.into())
-    }
-
-    pub fn topic(s: impl Into<String>) -> Self {
-        Self::Topic(s.into())
-    }
 }
 
 /// One line of "What would pass".

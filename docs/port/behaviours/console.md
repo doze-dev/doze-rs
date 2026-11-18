@@ -1636,3 +1636,46 @@ defaults, and the panel names the commands that change them (`kafka-configs --en
 `kafka-share-groups --reset-offsets` while the group is empty). Tests:
 `live_api_groups::a_share_group_is_described_by_its_own_api_with_its_share_partitions`; file:
 `web/e2e/tests/share-groups.spec.ts`.
+
+# Streams groups on the Groups pages (KIP-1071, 2026-11-18)
+
+A streams group is a group kind of its own (`docs/port/behaviours/streams-groups.md`): its members are the stream threads of a
+Kafka Streams application, and the broker hands them tasks of the application's topology, not partitions. Task p of a
+subtopology reads partition p of each topic the subtopology reads. The group commits offsets as a consumer group does, so the
+pages show its lag as well as its topology and tasks.
+
+## CON-1550. A streams group is listed with its type and described by StreamsGroupDescribe
+ListGroups names its type `streams`; the list says "streams (KIP-1071)" and its epoch, and its state (`NotReady` is its own state,
+"Not ready", counted with the groups that are not settled). DescribeGroups answers a streams group as Dead, ConsumerGroupDescribe
+and ShareGroupDescribe as not theirs, so the page asks StreamsGroupDescribe: group epoch, assignment epoch, assignor (`sticky`) and
+each member. A member's row reads, at each partition p, the topics of the subtopologies whose active task p it runs, so "Reads" and
+the lag table's holders work as for a consumer group. The pills say "streams group (KIP-1071)". Members shows four tiles (group
+epoch, assignment epoch, topology epoch, how many tasks) and "Where a streams group can be" (Empty, Not ready, Assigning,
+Reconciling, Stable). Tests: `live_api_streams::a_streams_group_is_described_with_its_topology_tasks_and_lag`; file:
+`web/e2e/tests/streams-groups.spec.ts`.
+
+## CON-1551. Why the topology is not ready, in the words the members are told
+When the topology cannot run (a source topic is missing, internal topics are not made yet, joined topics are partitioned unlike
+each other), each heartbeat answers a status; the page shows its name (`MISSING_SOURCE_TOPICS`, `MISSING_INTERNAL_TOPICS`,
+`INCORRECTLY_PARTITIONED_TOPICS`) and Kafka's words in a callout, with what to do. No request says the status to anyone but the
+members, so it comes from `ConsoleView::streams_group`. Nothing is kept between requests. Tests:
+`live_api_streams::a_streams_group_whose_source_topic_is_missing_says_why_it_is_not_ready`; file:
+`web/e2e/tests/streams-groups.spec.ts`.
+
+## CON-1552. The topology and its internal topics
+Each subtopology is a card: the topics it reads, the repartition topics it writes into, the repartition topics it reads and the
+changelogs of its state stores, and its task count once the topology is ready. The internal topics (repartition and changelog)
+are a table: the partitions the topology works out for each, whether the topic is on the broker (and with as many partitions),
+and the configs the application asked for. A group not in memory (after a restart, with no member) is described from its kept
+record. Tests: `live_api_streams::a_streams_group_is_described_with_its_topology_tasks_and_lag`; file:
+`web/e2e/tests/streams-groups.spec.ts`.
+
+## CON-1553. Each member's tasks by role, its stage, and the group's lag
+A member's row is its process id, client id, endpoint (`host:port` for interactive queries), member epoch, its active, standby
+and warm-up tasks as task ids in runs (`0_0–0_2`), the target where it differs ("to run …"), the tasks it was told to give up
+("giving up …"), and its reconciliation stage (STABLE "In step", UNREVOKED_TASKS "Giving up tasks", UNRELEASED_TASKS "Waiting
+for tasks"). The Lag tab and the Reads panel are the consumer group's: what the group committed on the topics its tasks read
+(source and repartition topics) against the log ends. Offsets may be reset or deleted with the consumer pages' dialogs; Kafka
+takes an admin commit only while the group is empty, and refuses it otherwise with its own words. Tests:
+`live_api_streams::a_streams_group_is_described_with_its_topology_tasks_and_lag`; file:
+`web/e2e/tests/streams-groups.spec.ts`.

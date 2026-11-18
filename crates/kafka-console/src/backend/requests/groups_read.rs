@@ -43,6 +43,15 @@ pub fn share_group_describe(names: &[String]) -> Request {
     Request::ShareGroupDescribe(r)
 }
 
+/// StreamsGroupDescribe for these groups (KIP-1071).
+#[must_use]
+pub fn streams_group_describe(names: &[String]) -> Request {
+    let mut r = kafka_wire::messages::StreamsGroupDescribeRequest::default();
+    r.group_ids = ids(names);
+    r.include_authorized_operations = false;
+    Request::StreamsGroupDescribe(r)
+}
+
 /// ConsumerGroupDescribe for these groups (KIP-848).
 #[must_use]
 pub fn consumer_group_describe(names: &[String]) -> Request {
