@@ -14,7 +14,8 @@ On top of the WIP commit that holds the first recordings (`d4aa5144f`). AWS is t
 | eventbridge | 90 | 90 | 0 | 0 | 0 |
 | lambda | 70 | 70 | 0 | 0 | 0 |
 
-The three recorded labels that are not exact, on purpose:
+The three recorded labels that are not exact, on purpose (the owner decided 2026-11-18 to keep the helpful wording for the two
+empty AWS messages; both are listed as differences in `docs/aws/compatibility-notes.toml`):
 
 - `test_kms::test_derive_shared_secret::other-curve` (wording). AWS answers `ValidationException` with an **empty** message for a
   peer public key on another curve. doze-aws keeps the code and says what is wrong (`The PublicKey is not a DER-encoded
@@ -114,7 +115,6 @@ No secret is left in either region, the replicas included.
 
 ## Open
 
-- The three explained labels above.
 - doze-aws does not keep a multi-Region primary in `PendingReplicaDeletion`.
 - The namespace list beyond the served ones, the YAML schema-version error's position, and the other operations' wording forms are
   (memory) until a scenario records them.
