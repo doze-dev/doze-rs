@@ -58,7 +58,8 @@ has no way to start.
 
 ## Files
 
-- `replay_test.go`: `TestReplay`, `CONFORMANCE_ONLY`.
+- `replay_test.go`: `TestReplay`, `CONFORMANCE_ONLY`, `TestRecord`, `TestRecordingsAreCurrent`.
+- `recorder.go`: Apache Kafka in Docker (the recorder's target).
 - `harness.go`: `Scenario`, `Env` (what a script calls), `Run`, `Compare`, recordings.
 - `process_target.go`, `targets.go`: start and stop the binary; flags and knobs; port choice.
 - `config/`: the configuration a scenario can set, with the Go edition's defaults.
@@ -67,7 +68,25 @@ has no way to start.
   Kafka 4 profile, because that is what its recording was made from.
 - `recordings/`: the 81 recordings. `claims/`: the Go repository's claims, each citing recordings; kept as data.
 
+## Record
+
+The recorder runs every scenario against `apache/kafka:4.3.1` (`KafkaImage`) in Docker and rewrites `recordings/`. It
+needs a running Docker daemon (here: `colima start`); without one it skips and records nothing.
+
+```sh
+GOWORK=off go test . -run 'TestRecord$' -count=1 -v -args -record              # every scenario not Frozen
+GOWORK=off go test . -run 'TestRecord$' -count=1 -v -args -record -only <name> # one
+```
+
+Against Kafka a step that answers a coordinator-loading code is asked again until it settles (`Env.settles`); against
+doze-kafka never. A new scenario is a `Scenario` in a `scenarios*.go` file, recorded, then replayed.
+`TestRecordingsAreCurrent` (no broker, no binary) checks that every scenario has a non-empty recording made against
+`KafkaImage`.
+
+The `api-versions` and `client-telemetry` recordings were made by two other recorders of the Go repository
+(`TestRecordApiVersions`, `TestRecordClientTelemetry`); they are not scenarios of `TestRecord` and did not come over.
+
 ## What did not come over
 
-The recorder (Docker, `-record`), the Go in-process broker target, and the Go repository's own checks of its claims,
-comments and `docs/limitations.md`. New scenarios cannot be recorded with this tool; the recordings are fixed.
+The Go in-process broker target, the two recorders above, and the Go repository's own checks of its claims, comments
+and `docs/limitations.md`.

@@ -7,9 +7,67 @@ import (
 	"testing"
 )
 
-var only = flag.String("only", "", "only the scenario with this name")
+var (
+	record = flag.Bool("record", false, "run every scenario against "+KafkaImage+" in Docker and rewrite recordings/")
+	only   = flag.String("only", "", "with -record or on its own: only the scenario with this name")
+)
 
 const recordingsDir = "recordings"
+
+// TestRecord is the recorder. It does nothing unless -record is given, and
+// without Docker it says so and stops: a recording is what Apache Kafka
+// answered, never something written by hand or taken from doze-kafka.
+func TestRecord(t *testing.T) {
+	if !*record {
+		t.Skip("recorder: run with -record; needs Docker")
+	}
+	if !DockerAvailable() {
+		t.Skip("Docker is not available: nothing was recorded")
+	}
+	for _, s := range Scenarios {
+		if *only != "" && s.Name != *only {
+			continue
+		}
+		if s.Frozen != "" {
+			t.Run(s.Name, func(t *testing.T) { t.Skipf("frozen, not recorded again: %s", s.Frozen) })
+			continue
+		}
+		t.Run(s.Name, func(t *testing.T) {
+			target, err := StartKafkaFor(s)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer target.Close()
+			steps, err := Run(s, target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := Save(recordingsDir, Recording{Scenario: s.Name, Kafka: KafkaImage, Steps: steps}); err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("recorded %d steps", len(steps))
+		})
+	}
+}
+
+// Every scenario has a recording, made against the image the recorder uses, with
+// steps in it. (The Go repository's half of this test, that every Known
+// difference cites a sentence of its docs/limitations.md, did not come over.)
+func TestRecordingsAreCurrent(t *testing.T) {
+	for _, s := range Scenarios {
+		rec, err := Load(recordingsDir, s.Name)
+		if err != nil {
+			t.Errorf("%s: no recording: %v", s.Name, err)
+			continue
+		}
+		if rec.Kafka != KafkaImage {
+			t.Errorf("%s: recorded against %s, the recorder uses %s: record it again", s.Name, rec.Kafka, KafkaImage)
+		}
+		if len(rec.Steps) == 0 {
+			t.Errorf("%s: an empty recording", s.Name)
+		}
+	}
+}
 
 // selected reports whether a scenario is in CONFORMANCE_ONLY: comma-separated name prefixes, unset for all. A binary
 // that serves part of the protocol is checked against the scenarios of that part.
@@ -32,6 +90,9 @@ func selected(name string) bool {
 func TestReplay(t *testing.T) {
 	if testing.Short() {
 		t.Skip("boots a broker per scenario")
+	}
+	if *record {
+		t.Skip("-record: recording, not replaying")
 	}
 	if os.Getenv(BinaryEnv) == "" {
 		t.Fatalf("%s is not set: name the doze-kafka binary to replay against (see README.md)", BinaryEnv)

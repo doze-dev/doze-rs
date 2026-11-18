@@ -141,9 +141,8 @@ func NewEnv(target Target, fail func(string, ...any)) (*Env, error) {
 	if err != nil {
 		return nil, err
 	}
-	// settles stays false: the replay only ever runs against doze-kafka, which is
-	// held to its first answer (the recorder, against Apache Kafka, set it true).
 	e := &Env{target: target, w: w, norm: newNormalizer(), fail: fail, speed: 1, conns: map[string]*connSlot{"": {w: w}}}
+	_, e.settles = target.(*dockerTarget)
 	return e, nil
 }
 
