@@ -127,7 +127,7 @@ fn the_default_moves_and_a_version_is_deleted() {
     );
     assert_eq!(
         set["Description"],
-        json!({"Name": "doc", "DefaultVersion": "2", "DefaultVersionName": "two"})
+        json!({"Name": "doc", "DefaultVersion": "2"})
     );
     assert_eq!(
         w.err(
@@ -141,12 +141,13 @@ fn the_default_moves_and_a_version_is_deleted() {
         "ListDocumentVersions",
         &json!({"Name": "doc", "MaxResults": 1}),
     );
-    assert_eq!(versions["DocumentVersions"][0]["IsDefaultVersion"], false);
+    // Newest first: version 2, the default, then version 1.
+    assert_eq!(versions["DocumentVersions"][0]["IsDefaultVersion"], true);
     let next = w.ok(
         "ListDocumentVersions",
         &json!({"Name": "doc", "NextToken": versions["NextToken"]}),
     );
-    assert_eq!(next["DocumentVersions"][0]["IsDefaultVersion"], true);
+    assert_eq!(next["DocumentVersions"][0]["IsDefaultVersion"], false);
     assert_eq!(
         w.err(
             "DeleteDocument",

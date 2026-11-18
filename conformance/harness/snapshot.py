@@ -149,6 +149,9 @@ class Snapshot:
                 # Recording, and a call the scenario says is refused was not.
                 # The scenario is wrong about AWS; do not write that down.
                 raise AssertionError(render(self.mismatches))
+            if not self.captured:
+                # Skipped on this target (or a scenario with nothing to hold): there is no recording to write down.
+                return
             self.store.put(self.module, self.test, self.captured, {
                 "target": self.target,
                 "on": datetime.date.today().isoformat(),

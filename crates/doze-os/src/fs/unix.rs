@@ -38,7 +38,11 @@ pub(super) fn clone_dir(src: &Path, dst: &Path) -> io::Result<()> {
         src.as_os_str(),
         dst.as_os_str(),
     ])
-    .or_else(|_| super::run_cp(&[OsStr::new("-R"), src.as_os_str(), dst.as_os_str()]))
+    .or_else(|_| {
+        // A clone that failed partway leaves `dst`; a copy into it would nest `src` inside, so it starts clean.
+        let _ = std::fs::remove_dir_all(dst);
+        super::run_cp(&[OsStr::new("-R"), src.as_os_str(), dst.as_os_str()])
+    })
 }
 
 #[cfg(not(target_os = "macos"))]

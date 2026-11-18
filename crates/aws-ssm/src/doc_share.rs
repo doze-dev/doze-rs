@@ -119,7 +119,7 @@ impl Core {
         let doc = self
             .documents
             .get(v.get(DescribePerm::NAME).unwrap_or_default())
-            .ok_or_else(invalid_document)?;
+            .ok_or_else(|| invalid_document(v.get(DescribePerm::NAME).unwrap_or_default()))?;
         let version = doc
             .shared_version
             .clone()
@@ -179,7 +179,7 @@ impl Core {
         let doc = self
             .documents
             .get_mut(v.get(Modify::NAME).unwrap_or_default())
-            .ok_or_else(invalid_document)?;
+            .ok_or_else(|| invalid_document(v.get(Modify::NAME).unwrap_or_default()))?;
         let mut next = doc.shared.clone();
         next.retain(|a| !remove.contains(a));
         for a in add {
@@ -211,7 +211,7 @@ impl Core {
         let doc = self
             .documents
             .get_mut(v.get(Meta::NAME).unwrap_or_default())
-            .ok_or_else(invalid_document)?;
+            .ok_or_else(|| invalid_document(v.get(Meta::NAME).unwrap_or_default()))?;
         if doc.kind != "Automation.ChangeTemplate" {
             // (memory)
             return Err(ApiError::modeled(
@@ -242,9 +242,7 @@ fn identifier(i: &mut Object<'_, Ident>, name: &str, doc: &Document) {
         if let Some(x) = &v.display_name {
             i.put(Ident::DISPLAY_NAME, x);
         }
-        if let Some(x) = &v.version_name {
-            i.put(Ident::VERSION_NAME, x);
-        }
+        // No VersionName, even when the default version has one (recorded: test_ssm.py::test_document_lifecycle).
         i.put_list(Ident::PLATFORM_TYPES, |l| {
             for p in &v.platforms {
                 l.push(p);

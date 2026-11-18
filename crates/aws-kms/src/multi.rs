@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 use crate::core::{Answer, Ask, Core};
 use crate::keys::{default_policy, invalid_state};
 use crate::model::{Key, Material, State};
-use crate::shown::metadata;
+use crate::shown::creating;
 
 /// A multi-Region key's set, as each region of it keeps it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -125,14 +125,14 @@ impl Core {
     fn primary(&self, call: &Call, given: &str) -> Result<(Key, Set), ApiError> {
         let key = self.key(call, given)?;
         let set = self.set_of(key).ok_or_else(|| {
-            // (memory)
-            unsupported(format!("{} is not a multi-Region key.", key.arn))
+            // Recorded (test_kms.py::test_multi_region_replica).
+            unsupported(format!("{} is not a multi-region key.", key.arn))
         })?;
         if set.primary != call.caller.region {
-            // (memory)
+            // Recorded (test_kms.py::test_multi_region_replica).
             return Err(unsupported(format!(
-                "{} is not a multi-Region primary key. Call this in the primary key's Region, {}.",
-                key.arn, set.primary
+                "{} is not a multi-region primary key.",
+                key.arn
             )));
         }
         if key.state == State::PendingDeletion {
@@ -156,10 +156,10 @@ impl Core {
             ));
         }
         if set.regions().contains(&region) {
-            // (memory)
+            // Recorded (test_kms.py::test_multi_region_replica), for a region that holds a replica; the primary's own region (memory).
             return Err(ApiError::modeled(
                 "AlreadyExistsException",
-                format!("{} already has a replica key in {region}.", key.arn),
+                "You can create only one replica of each primary key in each AWS Region.",
             ));
         }
         set.replicas.push(region.clone());
@@ -204,10 +204,10 @@ impl Core {
         let (key, set) = self.primary(call, v.get(UpdatePrimary::KEY_ID).unwrap_or_default())?;
         let next = v.get(UpdatePrimary::PRIMARY_REGION).unwrap_or_default();
         if !set.replicas.iter().any(|r| r == next) {
-            // (memory)
-            return Err(unsupported(format!(
-                "{} has no replica key in {next}: replicate it there first (ReplicateKey).",
-                key.arn
+            // Recorded (test_kms.py::test_update_primary_region): AWS names the key by its id.
+            return Err(crate::core::validation(format!(
+                "{} does not have a replica key in the specified Region.",
+                key.id
             )));
         }
         let mut replicas: Vec<String> = set
@@ -249,7 +249,7 @@ impl Core {
         let region = region_of(&key.arn).to_owned();
         reply::<Replicated>(|o| {
             o.put_object(Replicated::REPLICA_KEY_METADATA, |m| {
-                metadata(m, &key, &account, &region, Some(&set));
+                creating(m, &key, &account, &region, Some(&set));
             });
             if let Some(p) = &key.policy {
                 o.put(Replicated::REPLICA_POLICY, p);
@@ -322,13 +322,13 @@ impl Core {
         Ok(())
     }
 
-    /// Rotation is a shared property of a multi-Region key: it is set, and done, on the primary (memory: the words).
-    pub(crate) fn not_on_replica(&self, id: &str) -> Result<(), ApiError> {
+    /// Rotation is a shared property of a multi-Region key: it is set, and done, on the primary. The words are recorded for
+    /// `RotateKeyOnDemand` (test_kms.py::test_multi_region_replica) and follow the same form for the other operations (memory).
+    pub(crate) fn not_on_replica(&self, id: &str, operation: &str) -> Result<(), ApiError> {
         match self.keys.get(id) {
             Some(key) if self.is_replica(key) => Err(unsupported(format!(
-                "{} is a multi-Region replica key. Rotation is managed on its primary key, in {}.",
-                key.arn,
-                self.set_of(key).map(|s| s.primary).unwrap_or_default()
+                "{} is a multi-region replica key which is not valid for {operation}.",
+                key.arn
             ))),
             _ => Ok(()),
         }

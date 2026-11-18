@@ -148,11 +148,15 @@ impl Core {
             o.put(PublicKey::CUSTOMER_MASTER_KEY_SPEC, key.spec.name());
             o.put(PublicKey::KEY_SPEC, key.spec.name());
             o.put(PublicKey::KEY_USAGE, key.usage.name());
-            o.put_list(PublicKey::SIGNING_ALGORITHMS, |l| {
-                for a in key.spec.signing_algorithms(key.usage) {
-                    l.push(a);
-                }
-            });
+            // Absent, not empty, for a key that does not sign (recorded: a KEY_AGREEMENT key).
+            let signing = key.spec.signing_algorithms(key.usage);
+            if !signing.is_empty() {
+                o.put_list(PublicKey::SIGNING_ALGORITHMS, |l| {
+                    for a in signing {
+                        l.push(a);
+                    }
+                });
+            }
             let agreement = key.spec.key_agreement_algorithms(key.usage);
             if !agreement.is_empty() {
                 o.put_list(PublicKey::KEY_AGREEMENT_ALGORITHMS, |l| {

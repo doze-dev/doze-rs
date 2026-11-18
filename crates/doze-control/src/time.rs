@@ -50,6 +50,12 @@ impl Timestamp {
         self.0.is_empty() || self.unix_nanos() == Some(zero_nanos())
     }
 
+    /// An RFC 3339 time, written as Go writes it (UTC, nanoseconds with the trailing zeros trimmed); `None` when the
+    /// text is not one.
+    pub fn parse(s: &str) -> Option<Timestamp> {
+        parse_rfc3339(s).map(Timestamp::from_unix_nanos)
+    }
+
     /// The text as it was sent.
     pub fn as_str(&self) -> &str {
         &self.0

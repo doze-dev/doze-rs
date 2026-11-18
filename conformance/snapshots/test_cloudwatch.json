@@ -91,6 +91,40 @@
       }
     }
   },
+  "test_alarm_periods_aws_refuses": {
+    "period-five-seconds": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Period must be 10, 20, 30 or a multiple of 60"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "period-forty-five-seconds": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Period must be 10, 20, 30 or a multiple of 60"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "period-ten-seconds": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "window-over-a-day": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Metrics cannot be checked across more than a day (EvaluationPeriods * Period must be <= 86400) for alarms using period < 3600"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
   "test_composite_alarms_dashboards_and_history": {
     "delete-dashboard": {
       "ResponseMetadata": {
