@@ -9,8 +9,8 @@ GroupConfig.java`) and held to a real Kafka 4.4.0 (KRaft, one node in combined m
 Streams 4.4.0 scenarios of `interop/java/Streams.java` pass against both brokers unchanged, their heartbeat answers were compared
 answer by answer, and `kafka-streams-groups.sh` prints the same against both (see "The oracle").
 
-The parts: the group (`crates/kafka-broker/src/groups/streams.rs` and `streams/`: `heartbeat.rs` the heartbeat's steps, `seat.rs`
-who it is from and leaving, `topology.rs` the topology against the topics, `assign.rs` the sticky assignor, `reconcile.rs` a
+The parts: the group (`crates/kafka-broker/src/groups/streams.rs` and `streams/`: `heartbeat.rs` the heartbeat's steps, `answer.rs` the
+answer, `seat.rs` who it is from and leaving, `topology.rs` and `topology/counts.rs` the topology against the topics, `assign.rs` the sticky assignor, `reconcile.rs` a
 member's way to its target, `steps.rs` targets and timers, `fence.rs` offsets, `view.rs`, `endpoints.rs`, `stored.rs`); the
 handlers (`handlers/streams_group_heartbeat.rs` and its `wire.rs` and `create.rs`, `handlers/streams_group_describe.rs`); the
 group configs (`group_configs/streams.rs`, `group_configs/defs.rs`); the stored record (`crates/kafka-meta/src/life.rs`, version

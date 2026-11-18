@@ -6,6 +6,7 @@
 //! (docs/port/behaviours/streams-groups.md). Pure, like the other kinds: the actor hands in the time and the topics; the
 //! internal topics to make, and the member's timers, go out as the answer and effects say.
 
+mod answer;
 mod assign;
 mod endpoints;
 mod fence;
