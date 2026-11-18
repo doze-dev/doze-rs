@@ -185,3 +185,28 @@ fn each_member_with_an_endpoint_is_told_where_every_task_is_itself_last() {
     fresh.endpoint_epoch = a.endpoint_epoch;
     assert!(w.send(&fresh).endpoints.is_none());
 }
+
+/// STR-25: once the topology is ready, the tasks a member says it owns must be the topology's, and task offsets may not
+/// name a task twice; a refused heartbeat changes nothing.
+#[test]
+fn owned_tasks_outside_the_topology_and_doubled_task_offsets_are_refused() {
+    let mut w = World::new(ready_topics(2));
+    let last = w.settle(&["a"]);
+    let e = last["a"].epoch;
+    let epoch = w.group.epoch;
+    let mut unknown = beat("a", e, Some(super::tasks(&[("9", 0)], &[])));
+    unknown.owned.get_or_insert_with(Default::default);
+    assert_eq!(refused(&w.send(&unknown)), (E::InvalidRequest, "Subtopology 9 does not exist in the topology."));
+    let out_of_range = beat("a", e, Some(super::tasks(&[("0", 2)], &[])));
+    assert_eq!(
+        refused(&w.send(&out_of_range)),
+        (E::InvalidRequest, "Task 2 for subtopology 0 is invalid. Number of tasks for this subtopology: 2")
+    );
+    let mut doubled = beat("a", e, Some(w.held("a")));
+    doubled.offsets = Some(vec![(super::task("1", 0), 5), (super::task("1", 0), 6)]);
+    assert_eq!(
+        refused(&w.send(&doubled)),
+        (E::InvalidRequest, "Task offsets contain a duplicate entry for subtopology 1 and partition 0.")
+    );
+    assert_eq!(w.group.epoch, epoch);
+}

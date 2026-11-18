@@ -1,4 +1,4 @@
-//! Authorization of the streams group APIs (KIP-1071), SEC-330 to SEC-335. No row is recorded: each test cites the Kafka 4.4.0
+//! Authorization of the streams group APIs (KIP-1071), SEC-330 to SEC-333. No row is recorded: each test cites the Kafka 4.4.0
 //! source it is written from (`core/src/main/scala/kafka/server/KafkaApis.scala`, "KA" below), and the checks of one right
 //! are put five ways (`five_ways!`: the right granted, missing, DENY against a super user and against ALLOW, the broad
 //! grants).

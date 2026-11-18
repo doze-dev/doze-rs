@@ -40,6 +40,7 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-295 to SEC-298 | OffsetForLeaderEpoch, DescribeLogDirs and the client quota APIs: their rights; what quotas guard | quotas | after SEC-294 |
 | SEC-230 to SEC-239 | the places a member's topics come from and whose right is applied: static takeover, names revoked, classic members, a group changing kind; the failed-login cap; file modes; the super-user name | re-audit C | "Re-audit of the authorization half" |
 | SEC-320 to SEC-327 | the share group APIs (KIP-932) and the group configs: READ or DESCRIBE or DELETE on the group, READ or DESCRIBE on each topic, ALTER_CONFIGS on the group | share groups | "Share groups (KIP-932)" |
+| SEC-330 to SEC-333 | the streams group APIs (KIP-1071): READ or DESCRIBE on the group, DESCRIBE on every topic of the topology, CREATE for the internal topics the coordinator makes | streams groups | "Streams groups (KIP-1071)" |
 
 Deviations from Apache Kafka (and one from the Go edition) by number. Every one is a decision, not a bug; each has a row in `debt.md` section I.
 
@@ -1462,6 +1463,37 @@ IncrementalAlterConfigs (and AlterConfigs) of resource type GROUP need ALTER_CON
 failed."; `ControllerApis` L488-493); DescribeConfigs needs DESCRIBE_CONFIGS (or ALTER_CONFIGS). The group need not exist.
 Test: `kafka-broker tests/authz_share.rs::a_groups_configs_are_changed_with_alter_configs_on_the_group`,
 `tests/authz_topics_configs.rs::describe_configs_answers_the_refused_resources_after_the_others_with_no_configs_and_the_errors_words`
+
+## Streams groups (KIP-1071)
+The three streams group APIs as Kafka 4.4.0 asks (`KafkaApis`, KA below; the rules of the APIs themselves are
+`streams-groups.md`). A streams group's offsets, deletion and configs are asked of as any group's: OffsetCommit, OffsetFetch,
+OffsetDelete, DeleteGroups and the GROUP configs (SEC-327) need the same rights for it. Each right below is held five ways
+(`five_ways!`).
+
+## SEC-330. StreamsGroupHeartbeat needs READ on the group and DESCRIBE on every topic of the topology
+READ on the group first (30); then, on a join (the only heartbeat with a topology), DESCRIBE on every source, repartition sink,
+repartition source and changelog topic it names (29 for the whole request, nothing reaching the group). The code alone, as
+`getErrorResponse` writes it (KA L2809-2861). DESCRIBE_CONFIGS is never asked.
+Test: `kafka-broker tests/authz_streams.rs::the_streams_heartbeat_needs_read_on_the_group_and_describe_on_each_topic_of_the_topology`
+
+## SEC-331. The internal topics are made only for a caller that may CREATE them all
+The repartition and changelog topics the coordinator finds missing are made as the caller: CREATE on the cluster covers them all,
+else CREATE on each. If any is refused, none is made, and the MISSING_INTERNAL_TOPICS status gets
+"; Unauthorized to CREATE on topics a, b." (KA L2873-2896; the topics in the order of Kafka's map of them). The request itself
+succeeds.
+Test: `kafka-broker tests/authz_streams.rs::internal_topics_are_made_only_by_a_caller_that_may_create_them`
+
+## SEC-332. StreamsGroupDescribe needs DESCRIBE on each group, and DESCRIBE on every topic of its topology
+A group the caller may not DESCRIBE is 30 with no words, ahead of the others; one whose topology names a topic the caller may not
+DESCRIBE is replaced by 29 "The described group uses topics that the client is not authorized to describe." with no members and
+no topology (KA L2968-3066).
+Test: `kafka-broker tests/authz_streams.rs::streams_group_describe_needs_describe_on_the_group`,
+`a_group_whose_topology_names_a_topic_the_caller_may_not_describe_is_hidden`
+
+## SEC-333. StreamsGroupTopologyDescriptionUpdate needs READ on the group
+30 with no words; with the right, the broker (no topology description plugin, Kafka's default) answers UNSUPPORTED_VERSION (KA
+L2943-2953).
+Test: `kafka-broker tests/streams_groups.rs::the_topology_description_update_is_refused_as_by_a_broker_with_no_plugin`
 
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its

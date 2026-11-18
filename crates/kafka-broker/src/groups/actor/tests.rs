@@ -85,6 +85,7 @@ fn a_record_is_written_for_a_groups_first_member_and_not_for_each_classic_member
         session: 0,
         unwritten_empty: None,
         kind: 0,
+        epochs: None,
     };
     let step = |keeper: &mut Keeper<Counting>, group: &mut Group, event: Event| {
         let had = group.member_count() > 0;

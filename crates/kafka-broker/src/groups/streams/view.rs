@@ -47,6 +47,8 @@ pub(crate) struct StreamsView {
     pub(crate) topology: Option<Topology>,
     /// Why the topology is not ready: a status code and its words.
     pub(crate) not_ready: Option<(i8, String)>,
+    /// How many tasks each subtopology has, by id, once the topology is ready (none before).
+    pub(crate) tasks: BTreeMap<String, i32>,
     pub(crate) members: Vec<StreamsMemberView>,
 }
 
@@ -104,6 +106,12 @@ impl StreamsGroup {
                 .as_ref()
                 .and_then(|c| c.not_ready.as_ref())
                 .map(|n| (n.code, n.detail.clone())),
+            tasks: self
+                .configured
+                .as_ref()
+                .filter(|c| c.ready())
+                .map(|c| c.subtopologies.iter().map(|(id, s)| (id.clone(), s.tasks)).collect())
+                .unwrap_or_default(),
             members: self
                 .members
                 .values()

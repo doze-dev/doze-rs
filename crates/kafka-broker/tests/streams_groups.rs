@@ -224,3 +224,15 @@ async fn version_zero_answers_carry_no_long_recovery_lag_and_version_one_answers
     let v1 = rig.streams_heartbeat_at(1, join("app", "m1", "in")).await;
     assert_eq!((v1.acceptable_recovery_lag, v1.task_offset_interval_ms, v1.heartbeat_interval_ms), (10_000, 60_000, 5_000));
 }
+
+/// STR-73: the offsets of a topic the topology reads cannot be deleted while the group has members; a changelog's can.
+#[tokio::test]
+async fn offsets_of_a_topic_the_topology_reads_are_not_deleted_while_it_has_members() {
+    const GROUP_SUBSCRIBED_TO_TOPIC: i16 = 86;
+    let rig = rig();
+    rig.create(vec![topic("in", 1)], false).await;
+    rig.streams_settle("app", "m", "in").await;
+    assert_eq!(rig.offset_delete("app", &[("in", 0)]).await, (0, vec![GROUP_SUBSCRIBED_TO_TOPIC]));
+    assert_eq!(rig.offset_delete("app", &[("app-words-repartition", 0)]).await, (0, vec![GROUP_SUBSCRIBED_TO_TOPIC]));
+    assert_eq!(rig.offset_delete("app", &[("app-counts-changelog", 0)]).await, (0, vec![0]));
+}
