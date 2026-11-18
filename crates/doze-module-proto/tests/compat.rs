@@ -74,7 +74,7 @@ struct Hello21 {
 
 fn hello21(major: u16) -> Hello21 {
     Hello21 {
-        version: WireVersion { major, minor: 1 },
+        version: WireVersion { major, minor: 9 },
         module: "echo".into(),
         release: "9.9.9".into(),
         manifest: Manifest21 {
@@ -161,7 +161,7 @@ async fn a_newer_minor_module_is_accepted_and_its_unknown_callback_refused_clean
     let welcome: Welcome = msg::decode(&reply.body).unwrap();
     assert_eq!(
         (welcome.version.major, welcome.version.minor),
-        (2, 0),
+        (2, doze_module_proto::version::CURRENT.minor),
         "the older minor wins"
     );
     let (_host, seen) = host.await.unwrap().unwrap();

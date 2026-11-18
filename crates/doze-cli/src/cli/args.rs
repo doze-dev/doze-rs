@@ -72,6 +72,7 @@ pub struct Run {
 /// Service names; none means all.
 #[derive(Debug, Args)]
 pub struct Names {
+    /// Services to act on (none: every one)
     #[arg(value_name = "name")]
     pub names: Vec<String>,
     #[command(flatten)]
@@ -81,6 +82,7 @@ pub struct Names {
 /// At least one service name.
 #[derive(Debug, Args)]
 pub struct SomeNames {
+    /// Services to act on
     #[arg(value_name = "name", required = true)]
     pub names: Vec<String>,
     #[command(flatten)]
@@ -89,6 +91,7 @@ pub struct SomeNames {
 
 #[derive(Debug, Args)]
 pub struct OneName {
+    /// The service
     #[arg(value_name = "name")]
     pub name: String,
     #[command(flatten)]
@@ -106,6 +109,7 @@ pub struct Task {
 
 #[derive(Debug, Args)]
 pub struct Pin {
+    /// Services to keep awake
     #[arg(value_name = "name", required = true)]
     pub names: Vec<String>,
     /// Unpin: let them sleep again when idle
@@ -120,6 +124,7 @@ pub struct Pin {
 
 #[derive(Debug, Args)]
 pub struct Logs {
+    /// Services whose output to show (none: every one, merged by time)
     #[arg(value_name = "name")]
     pub names: Vec<String>,
     /// Keep printing as lines are written (Ctrl-C to stop)
@@ -144,6 +149,7 @@ pub struct Logs {
 /// One service, by name.
 #[derive(Debug, Args)]
 pub struct Service {
+    /// The service
     #[arg(value_name = "name")]
     pub name: String,
 }

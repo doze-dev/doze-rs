@@ -127,6 +127,7 @@ fn instance(version: &str) -> Instance {
         ]),
         deps: vec![],
         toolchain: None,
+        dir: String::new(),
     }
 }
 

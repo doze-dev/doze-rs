@@ -2,8 +2,10 @@
 //! `doze-module-release` (and Go's `dzm meta` before it) writes it from the module's own manifest. It is prose, not
 //! signed and never executed; what decides what runs is the signed index.
 
-use super::yaml::{self, YamlError, get, text};
+use super::yaml::{self, YamlError, get, text, texts};
+use doze_module_proto::msg::hints::{ClientCommand, Detect};
 use serde::Serialize;
+use std::collections::BTreeMap;
 use yaml_rust2::Yaml;
 use yaml_rust2::yaml::Hash;
 
@@ -50,6 +52,18 @@ pub struct Meta {
     pub homepage: String,
     pub arguments: Vec<Arg>,
     pub blocks: Vec<BlockDoc>,
+    /// The instance label the example uses (`doze add` and `doze init` name a new block with it).
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub label: String,
+    /// The `version` written when none is named.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub default_version: String,
+    /// The module's shell client (`doze connect`); none means no shell is offered.
+    #[serde(skip)]
+    pub client: Option<ClientCommand>,
+    /// How a project shows it uses the engine (`doze init`, the app's empty folder); none means it is never guessed.
+    #[serde(skip)]
+    pub detect: Option<Detect>,
 }
 
 // fuzz:parser fuzz_meta
@@ -71,7 +85,57 @@ pub fn parse(src: &str) -> Result<Meta, YamlError> {
             .and_then(|c| get(c, "blocks").as_vec())
             .map(|bs| bs.iter().filter_map(Yaml::as_hash).map(block).collect())
             .unwrap_or_default(),
+        label: text(&h, "exampleLabel"),
+        default_version: text(&h, "defaultVersion"),
+        client: get(&h, "client")
+            .as_hash()
+            .map(client)
+            .filter(|c| !c.program.is_empty()),
+        detect: get(&h, "detect").as_hash().map(detect),
     })
+}
+
+fn strings_map(h: &Hash, key: &str) -> BTreeMap<String, String> {
+    get(h, key)
+        .as_hash()
+        .map(|m| {
+            m.iter()
+                .filter_map(|(k, v)| Some((yaml::scalar(k)?, yaml::scalar(v)?)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn client(h: &Hash) -> ClientCommand {
+    ClientCommand {
+        program: text(h, "program"),
+        args: texts(h, "args"),
+        env: strings_map(h, "env"),
+        fallbacks: texts(h, "fallbacks"),
+    }
+}
+
+fn detect(h: &Hash) -> Detect {
+    let packages = get(h, "packages")
+        .as_hash()
+        .map(|m| {
+            m.iter()
+                .filter_map(|(k, v)| {
+                    // One package may be written without the list around it.
+                    let names = match v {
+                        Yaml::Array(a) => a.iter().filter_map(yaml::scalar).collect(),
+                        one => vec![yaml::scalar(one)?],
+                    };
+                    Some((yaml::scalar(k)?, names))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Detect {
+        packages,
+        images: texts(h, "images"),
+        env: strings_map(h, "env"),
+    }
 }
 
 fn args(h: &Hash) -> Vec<Arg> {

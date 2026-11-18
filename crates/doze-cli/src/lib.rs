@@ -6,21 +6,28 @@
 //! with buffers, a temporary doze home and a registry on disk, and `main` runs it on the real process.
 
 pub mod cli;
+pub mod clock;
 mod cmd;
 pub mod ctx;
 pub mod diag;
 pub mod exit;
 pub mod help;
+pub mod http;
 pub mod install;
 pub mod lock;
+mod machine;
 pub mod notice;
 pub mod output;
 pub(crate) mod paint;
 pub mod plan;
 pub mod platform;
+pub mod process;
 pub mod project;
 pub mod registry;
+mod stack;
+mod stream;
 mod suggest;
+mod table;
 pub mod update;
 pub mod view;
 
@@ -33,6 +40,7 @@ use notice::Notices;
 use output::Mode;
 use std::ffi::OsString;
 
+// fuzz:parser fuzz_argv
 /// Runs one command line (`argv[0]` is the program) and says how it ended.
 pub fn run(argv: Vec<OsString>, ctx: &mut Ctx<'_>) -> Exit {
     let asked_json = argv
@@ -144,4 +152,12 @@ fn clap_error(ctx: &mut Ctx<'_>, e: &clap::Error, typed: &str, json: bool) -> Ex
         Err(d),
         &Notices::default(),
     )
+}
+
+/// Whether `word` names a doze command (or one of its aliases, hidden ones included): what a program that carries the
+/// CLI beside its own face (the desktop app) checks to hand a command line to [`process::main`].
+pub fn is_command(word: &str) -> bool {
+    word == "help"
+        || word == doze_names::HELPER_ARG
+        || Cli::command().find_subcommand(word).is_some()
 }

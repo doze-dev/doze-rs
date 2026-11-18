@@ -46,8 +46,9 @@ macro_rules! methods {
                 match self { $(Method::$name => $cap,)* }
             }
 
-            /// For a callback: the call that must be in flight (and named in `for_call`) for it to be allowed.
-            pub fn scope(self) -> Option<Method> {
+            /// For a callback: the calls one of which must be in flight (and named in `for_call`) for it to be allowed; empty
+            /// for a call that needs none.
+            pub fn scope(self) -> &'static [Method] {
                 match self { $(Method::$name => $scope,)* }
             }
 
@@ -60,32 +61,34 @@ macro_rules! methods {
 }
 
 methods! {
-    Hello = 1, ModuleToHost, Unary, 0, None, 0;
-    Decode = 10, HostToModule, Unary, 0, None, 0;
-    Network = 11, HostToModule, Unary, 0, None, 0;
-    Connection = 12, HostToModule, Unary, 0, None, 0;
-    Attributes = 13, HostToModule, Unary, caps::ATTRIBUTES, None, 0;
-    BackendUrl = 14, HostToModule, Unary, caps::BACKEND_URL, None, 0;
-    Resolve = 20, HostToModule, Unary, 0, None, 0;
-    Provision = 21, HostToModule, Unary, 0, None, 0;
-    Plan = 22, HostToModule, Unary, 0, None, 0;
-    TemplateEnsure = 23, HostToModule, Unary, caps::TEMPLATE, None, 0;
-    TemplateClone = 24, HostToModule, Unary, caps::TEMPLATE, None, 0;
-    Converge = 30, HostToModule, Unary, caps::CONVERGE, None, 0;
-    Objects = 31, HostToModule, Unary, caps::OBJECTS, None, 0;
-    Prune = 32, HostToModule, Unary, caps::PRUNE, None, 0;
-    Restart = 40, HostToModule, Unary, caps::RESTART, None, 0;
-    Health = 41, HostToModule, Unary, caps::HEALTH, None, 0;
-    Resources = 50, HostToModule, Unary, caps::ADMIN, None, 0;
-    RunAction = 51, HostToModule, Unary, caps::ADMIN, None, 0;
-    Tail = 52, HostToModule, Stream, caps::CONSOLE, None, 0;
-    WireAccept = 60, HostToModule, Unary, caps::WIRE, None, 0;
-    Shutdown = 70, HostToModule, Unary, 0, None, 0;
-    FetchResolveMajor = 100, ModuleToHost, Unary, 0, Some(Method::Resolve), 0;
-    FetchEnsure = 101, ModuleToHost, Unary, 0, Some(Method::Resolve), 0;
-    WireBoot = 110, ModuleToHost, Unary, caps::WIRE, Some(Method::WireAccept), 0;
-    WireAcquire = 111, ModuleToHost, Unary, caps::WIRE, Some(Method::WireAccept), 0;
-    WireRelease = 112, ModuleToHost, Unary, caps::WIRE, Some(Method::WireAccept), 0;
+    Hello = 1, ModuleToHost, Unary, 0, &[], 0;
+    Decode = 10, HostToModule, Unary, 0, &[], 0;
+    Network = 11, HostToModule, Unary, 0, &[], 0;
+    Connection = 12, HostToModule, Unary, 0, &[], 0;
+    Attributes = 13, HostToModule, Unary, caps::ATTRIBUTES, &[], 0;
+    BackendUrl = 14, HostToModule, Unary, caps::BACKEND_URL, &[], 0;
+    Resolve = 20, HostToModule, Unary, 0, &[], 0;
+    Provision = 21, HostToModule, Unary, 0, &[], 0;
+    Plan = 22, HostToModule, Unary, 0, &[], 0;
+    TemplateEnsure = 23, HostToModule, Unary, caps::TEMPLATE, &[], 0;
+    TemplateClone = 24, HostToModule, Unary, caps::TEMPLATE, &[], 0;
+    // Minor 1: `migrate`, with the fetch callbacks allowed during it.
+    Migrate = 25, HostToModule, Unary, caps::MIGRATE, &[], 1;
+    Converge = 30, HostToModule, Unary, caps::CONVERGE, &[], 0;
+    Objects = 31, HostToModule, Unary, caps::OBJECTS, &[], 0;
+    Prune = 32, HostToModule, Unary, caps::PRUNE, &[], 0;
+    Restart = 40, HostToModule, Unary, caps::RESTART, &[], 0;
+    Health = 41, HostToModule, Unary, caps::HEALTH, &[], 0;
+    Resources = 50, HostToModule, Unary, caps::ADMIN, &[], 0;
+    RunAction = 51, HostToModule, Unary, caps::ADMIN, &[], 0;
+    Tail = 52, HostToModule, Stream, caps::CONSOLE, &[], 0;
+    WireAccept = 60, HostToModule, Unary, caps::WIRE, &[], 0;
+    Shutdown = 70, HostToModule, Unary, 0, &[], 0;
+    FetchResolveMajor = 100, ModuleToHost, Unary, 0, &[Method::Resolve, Method::Migrate], 0;
+    FetchEnsure = 101, ModuleToHost, Unary, 0, &[Method::Resolve, Method::Migrate], 0;
+    WireBoot = 110, ModuleToHost, Unary, caps::WIRE, &[Method::WireAccept], 0;
+    WireAcquire = 111, ModuleToHost, Unary, caps::WIRE, &[Method::WireAccept], 0;
+    WireRelease = 112, ModuleToHost, Unary, caps::WIRE, &[Method::WireAccept], 0;
 }
 
 #[cfg(test)]
@@ -96,7 +99,7 @@ mod tests {
     fn ids_round_trip_and_callbacks_are_scoped_to_host_calls() {
         for m in Method::ALL {
             assert_eq!(Method::from_u16(*m as u16), Some(*m));
-            if let Some(scope) = m.scope() {
+            for scope in m.scope() {
                 assert_eq!(m.direction(), Direction::ModuleToHost, "{m:?}");
                 assert_eq!(
                     scope.direction(),

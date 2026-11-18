@@ -1,0 +1,22 @@
+[package]
+name = "doze-doctor"
+version = "0.0.0"
+description = "What doze needs from this machine, checked part by part, and the one privileged repair that puts it right, as data"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-os = { path = "../doze-os" }
+# The zone's setup and trust: what is checked, and the scripts the repair is made of.
+doze-names = { path = "../doze-names", features = ["setup"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tempfile = "3"

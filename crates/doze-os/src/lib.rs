@@ -18,6 +18,7 @@
 //! - `ui` (feature `ui`): the desktop app's menu-bar item and Dock badge.
 //! - [`browse`]: open a web page in the person's browser.
 //! - [`pty`]: a pseudo-terminal, for tests that must see what a person sees.
+//! - [`interrupt`]: Ctrl-C and SIGTERM as a flag a blocking command checks, so a follow ends cleanly.
 
 pub mod autostart;
 pub mod browse;
@@ -25,6 +26,7 @@ pub mod channel;
 pub mod detach;
 pub mod fs;
 pub mod home;
+pub mod interrupt;
 pub mod local;
 pub mod net;
 pub mod privilege;

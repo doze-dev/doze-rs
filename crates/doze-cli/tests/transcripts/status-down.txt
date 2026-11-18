@@ -1,0 +1,66 @@
+# status with doze not running: Go lists the declared services from doze.hcl; this doze cannot read doze.hcl yet
+# (the core port's next phase), so it says doze is not running and that the list comes later. -w needs the daemon.
+@ project bare
+
+$ doze status
+exit 0
+stdout:
+| doze is not running
+stderr:
+| ! doze up starts it; the declared services are listed here once this doze reads doze.hcl (the core port's next phase)
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze status",
+|   "ok": true,
+|   "data": {
+|     "daemon": {
+|       "running": false
+|     },
+|     "services": []
+|   },
+|   "warnings": [
+|     "doze up starts it; the declared services are listed here once this doze reads doze.hcl (the core port's next phase)"
+|   ]
+| }
+
+$ doze status -w
+exit 7
+stderr:
+| error[DZ0701]: doze status -w needs the stack running, and doze is not running it
+|   fix: doze up
+json exit 7
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze status",
+|   "ok": false,
+|   "error": {
+|     "code": "daemon_down",
+|     "message": "doze status -w needs the stack running, and doze is not running it",
+|     "exit": 7,
+|     "id": "DZ0701",
+|     "fix": "doze up"
+|   }
+| }
+
+$ doze status -w --graph
+exit 2
+stderr:
+| error[DZ0104]: -w redraws the table; it cannot be combined with --graph
+|   fix: doze status -w, or doze status --graph
+json exit 2
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze status",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "-w redraws the table; it cannot be combined with --graph",
+|     "exit": 2,
+|     "id": "DZ0104",
+|     "fix": "doze status -w, or doze status --graph"
+|   }
+| }

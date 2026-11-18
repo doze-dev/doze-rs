@@ -146,21 +146,25 @@ pub(crate) fn finish(
     };
     let exit = problem.as_ref().map_or(Exit::Ok, Diagnostic::exit);
     if mode.json {
+        // A stream wrote its own lines and its end line; nothing follows it.
+        if matches!(view, Some(View::Streamed)) {
+            return exit;
+        }
         let env = Envelope {
             schema: "doze/v1",
             command,
             ok: exit == Exit::Ok,
             // Keys sorted: serde_json's `preserve_order` is a workspace-wide feature (another crate turns it on), so
             // without this the order of a `data` object would depend on what else was built alongside the CLI.
-            data: view.as_ref().map(|v| {
-                let mut data = v.json();
+            data: view.as_ref().filter(|v| !v.is_empty()).map(|v| {
+                let mut data = serde_json::to_value(v).unwrap_or(serde_json::Value::Null);
                 data.sort_all_objects();
                 data
             }),
             warnings: notices.lines(),
             error: problem.as_ref().map(Diagnostic::json),
         };
-        let text = serde_json::to_string_pretty(&env).unwrap_or_default();
+        let text = doze_control::go_pretty(&env).unwrap_or_default();
         let _ = writeln!(ctx.out, "{text}");
         return exit;
     }
