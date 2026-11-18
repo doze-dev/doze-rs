@@ -1,6 +1,7 @@
 //! The real `doze` binary, as a person and as a script meet it: on a pseudo-terminal (colour, the once-a-day update
-//! line) and in a pipe (neither), and how long the read commands take. No network: the doze home holds fresh copies
-//! of the real registry's files, so nothing has a reason to go out.
+//! line) and in a pipe (neither), and how long the read commands take. No network: the doze home holds a fresh valkey
+//! index (signed with the fixture's throwaway key, which this debug binary is told to trust through
+//! DOZE_TEST_REGISTRY_KEY) and the real valkey docs, so nothing has a reason to go out.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -18,8 +19,8 @@ use std::time::{Duration, Instant};
 
 const DOZE: &str = env!("CARGO_BIN_EXE_doze");
 
-/// A sandbox whose home knows doze 9.9.9 is out (checked just now, so no check starts), with this machine's copy of
-/// the real valkey index and docs, and a project pinning valkey 0.2.1.
+/// A sandbox whose home knows doze 9.9.9 is out (checked just now, so no check starts), with a valkey 0.2.1 index
+/// signed with the fixture key, the real valkey docs, and a project pinning valkey 0.2.1.
 fn sandbox(tag: &str) -> Sandbox {
     let sb = Sandbox::new(tag);
     let now = std::time::SystemTime::now()
@@ -32,9 +33,12 @@ fn sandbox(tag: &str) -> Sandbox {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/real/doze/valkey");
     let cache = sb.home().join("registry/doze/valkey");
     std::fs::create_dir_all(&cache).unwrap();
-    for f in ["index.yaml", "meta.yaml"] {
-        std::fs::copy(real.join(f), cache.join(f)).unwrap();
-    }
+    std::fs::copy(real.join("meta.yaml"), cache.join("meta.yaml")).unwrap();
+    std::fs::write(
+        cache.join("index.yaml"),
+        fixture::index_text(&fixture::index_for("valkey", &[("0.2.1", 1, "")])),
+    )
+    .unwrap();
     std::fs::write(
         sb.project().join("doze.hcl"),
         "valkey \"cache\" { version = 9 }\n",
@@ -48,11 +52,18 @@ fn sandbox(tag: &str) -> Sandbox {
     sb
 }
 
+/// The fixture key's public half, base64, as DOZE_TEST_REGISTRY_KEY takes it.
+fn test_public_key() -> String {
+    use base64ct::Encoding as _;
+    base64ct::Base64::encode_string(fixture::test_key().verifying_key().as_bytes())
+}
+
 fn doze(sb: &Sandbox, args: &[&str]) -> Command {
     let mut c = Command::new(DOZE);
     c.args(args)
         .current_dir(sb.project())
         .env("DOZE_HOME", sb.home())
+        .env("DOZE_TEST_REGISTRY_KEY", test_public_key())
         .env("TERM", "xterm-256color");
     for v in [
         "CI",
@@ -181,6 +192,29 @@ fn read_commands_answer_within_the_budget() {
             median < budget,
             "doze {} took {median:?}, over {budget:?}",
             args.join(" ")
+        );
+    }
+}
+
+/// Only a debug binary reads DOZE_TEST_REGISTRY_KEY. Run as `cargo test --release`, the same command with the
+/// variable set must refuse the fixture-signed index, as any shipped doze does.
+#[test]
+fn release_ignores_the_test_key() {
+    let sb = sandbox("release-key");
+    let out = doze(&sb, &["modules", "docs", "valkey"])
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    if cfg!(debug_assertions) {
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    } else {
+        assert!(
+            !out.status.success(),
+            "a release build trusted DOZE_TEST_REGISTRY_KEY"
         );
     }
 }

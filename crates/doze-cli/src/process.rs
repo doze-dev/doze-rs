@@ -178,9 +178,12 @@ fn working_dir() -> io::Result<PathBuf> {
     })
 }
 
-/// A `dozetest` build's stand-in registry key (DOZE_TEST_REGISTRY_KEY); never in a release build.
+/// The key a debug build trusts instead of the built-in one when `DOZE_TEST_REGISTRY_KEY` names one: tests that run
+/// the real binary sign their sandbox registry with the throwaway fixture key, because nothing they could check in is
+/// signed with the production key. A release build, the only kind anyone is given, never reads the variable, and
+/// `release_ignores_the_test_key` in tests/terminal.rs holds it to that (the owner's design of 2026-11-18, PR #79).
 fn test_key() -> Option<ed25519_dalek::VerifyingKey> {
-    if !cfg!(feature = "dozetest") {
+    if !cfg!(debug_assertions) {
         return None;
     }
     let text = std::env::var("DOZE_TEST_REGISTRY_KEY").ok()?;
@@ -189,10 +192,10 @@ fn test_key() -> Option<ed25519_dalek::VerifyingKey> {
     {
         match key {
             Some(_) => eprintln!(
-                "doze (dozetest): registry signatures checked with DOZE_TEST_REGISTRY_KEY, not the built-in key"
+                "doze (debug build): registry signatures checked with DOZE_TEST_REGISTRY_KEY, not the built-in key"
             ),
             None => eprintln!(
-                "doze (dozetest): DOZE_TEST_REGISTRY_KEY is not a key; the built-in key is used"
+                "doze (debug build): DOZE_TEST_REGISTRY_KEY is not a key; the built-in key is used"
             ),
         }
     }
