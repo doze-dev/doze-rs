@@ -117,6 +117,12 @@ defaults!(
         DeleteShareGroupOffsetsRequest,
         DeleteShareGroupOffsetsResponse
     ),
+    StreamsGroupHeartbeat(StreamsGroupHeartbeatRequest, StreamsGroupHeartbeatResponse),
+    StreamsGroupDescribe(StreamsGroupDescribeRequest, StreamsGroupDescribeResponse),
+    StreamsGroupTopologyDescriptionUpdate(
+        StreamsGroupTopologyDescriptionUpdateRequest,
+        StreamsGroupTopologyDescriptionUpdateResponse
+    ),
 );
 
 /// Every (profile, API, version) the broker offers.

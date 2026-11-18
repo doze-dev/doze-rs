@@ -31,6 +31,7 @@ fn the_answer_to_an_apiversions_in_the_middle_of_a_login_is_illegal_sasl_state_w
 /// share groups on at 4.4.0's defaults) supported 0 to 2 and finalized at 2, the finalized epoch not negative; at v3 the
 /// supported rows (least level 0) are left out and the finalized ones kept. A profile of the classic protocol (Kafka 1 to 3)
 /// lists no feature, and nothing is listed below v3. A broker that does not serve the share APIs finalizes no share.version.
+/// `streams.version` (KIP-1071) is listed as 4.4.0 lists it: supported 0 to 1, finalized at 1.
 #[test]
 fn kafka_4_finalizes_transaction_version_2_and_the_older_majors_list_no_feature() {
     let ask = |major: u8, version: i16| {
@@ -56,17 +57,21 @@ fn kafka_4_finalizes_transaction_version_2_and_the_older_majors_list_no_feature(
     };
     let tv = || "transaction.version".to_owned();
     let sv = || "share.version".to_owned();
+    let st = || "streams.version".to_owned();
     let v4 = ask(4, 4);
     assert_eq!(
         names(&v4),
         (
-            vec![(tv(), 0, 2), (sv(), 0, 2)],
-            vec![(tv(), 2, 2), (sv(), 2, 2)]
+            vec![(tv(), 0, 2), (sv(), 0, 2), (st(), 0, 1)],
+            vec![(tv(), 2, 2), (sv(), 2, 2), (st(), 1, 1)]
         )
     );
     assert!(v4.finalized_features_epoch >= 0);
     let v3 = ask(4, 3);
-    assert_eq!(names(&v3), (vec![], vec![(tv(), 2, 2), (sv(), 2, 2)]));
+    assert_eq!(
+        names(&v3),
+        (vec![], vec![(tv(), 2, 2), (sv(), 2, 2), (st(), 1, 1)])
+    );
     let no_share = Features {
         served: crate::profile::ApiSet::of(&[ApiKey::ApiVersions]),
         ..Features::default()

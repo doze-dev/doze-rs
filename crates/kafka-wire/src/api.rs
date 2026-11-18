@@ -48,6 +48,11 @@ use kafka_protocol::messages::{
     ShareFetchRequest, ShareFetchResponse, ShareGroupDescribeRequest, ShareGroupDescribeResponse,
     ShareGroupHeartbeatRequest, ShareGroupHeartbeatResponse,
 };
+use kafka_protocol::messages::{
+    StreamsGroupDescribeRequest, StreamsGroupDescribeResponse, StreamsGroupHeartbeatRequest,
+    StreamsGroupHeartbeatResponse, StreamsGroupTopologyDescriptionUpdateRequest,
+    StreamsGroupTopologyDescriptionUpdateResponse,
+};
 use kafka_protocol::protocol::{Decodable, Encodable};
 
 use crate::error::WireError;
@@ -193,4 +198,9 @@ served_apis! {
     DescribeShareGroupOffsets(DescribeShareGroupOffsetsRequest, DescribeShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 1)];
     AlterShareGroupOffsets(AlterShareGroupOffsetsRequest, AlterShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 0)];
     DeleteShareGroupOffsets(DeleteShareGroupOffsetsRequest, DeleteShareGroupOffsetsResponse) [NONE, NONE, NONE, v(0, 0)];
+    // Streams groups (KIP-1071), at the versions 4.4.0 serves; 93 is answered as a 4.4.0 broker with no topology
+    // description plugin answers it (KIP-1331).
+    StreamsGroupHeartbeat(StreamsGroupHeartbeatRequest, StreamsGroupHeartbeatResponse) [NONE, NONE, NONE, v(0, 1)];
+    StreamsGroupDescribe(StreamsGroupDescribeRequest, StreamsGroupDescribeResponse) [NONE, NONE, NONE, v(0, 1)];
+    StreamsGroupTopologyDescriptionUpdate(StreamsGroupTopologyDescriptionUpdateRequest, StreamsGroupTopologyDescriptionUpdateResponse) [NONE, NONE, NONE, v(0, 0)];
 }
