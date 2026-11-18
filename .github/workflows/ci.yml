@@ -363,6 +363,7 @@ jobs:
 
   # The CLI-only doze, in a job of its own so its line is judged whatever the other binaries do.
   weight-doze:
+    needs: gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -633,7 +634,7 @@ jobs:
   # was skipped (a label other than `ci` skips them all), so a skipped run never counts as green.
   all-green:
     if: always()
-    needs: [gate, check, os, modules, windows, app, weight, weight-lean, weight-tls-idle, web, supply-chain, fuzz]
+    needs: [gate, check, os, modules, windows, app, weight, weight-doze, weight-lean, weight-tls-idle, web, supply-chain, fuzz]
     runs-on: ubuntu-24.04
     steps:
       - name: Every job passed
