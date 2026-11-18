@@ -15,6 +15,7 @@ mod label;
 mod list;
 mod model;
 mod name;
+mod namespace;
 mod page;
 mod policy;
 mod public;

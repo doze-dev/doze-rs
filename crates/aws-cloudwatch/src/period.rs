@@ -2,7 +2,8 @@
 //! any multiple of 60", and "`Period` multiplied by `EvaluationPeriods` can't be more than 604,800 seconds. For alarms with a period of
 //! less than one hour (3,600 seconds), the total evaluation period can't be longer than one day (86,400 seconds)." A metric math
 //! alarm's periods are those of its `MetricStat` queries. The refusals are `ValidationError`, as the recorded refusals of
-//! `PutMetricAlarm` are; their words are from memory.
+//! `PutMetricAlarm` are. Their words are recorded (test_cloudwatch.py::test_alarm_periods_aws_refuses) for `Period` and for a
+//! window over a day; a metric math query's period and a window over a week follow the same form (memory).
 
 use aws_wire::ApiError;
 use serde_json::Value;
@@ -43,9 +44,8 @@ pub(crate) fn check(r: &Req<'_>, math: bool) -> Result<(), ApiError> {
     };
     for (field, period) in &periods {
         if !valid(*period) {
-            // (memory)
             return Err(validation(format!(
-                "The parameter {field} must be 10, 20, 30 or a multiple of 60 (it is {period})."
+                "{field} must be 10, 20, 30 or a multiple of 60"
             )));
         }
     }
@@ -53,10 +53,16 @@ pub(crate) fn check(r: &Req<'_>, math: bool) -> Result<(), ApiError> {
         let window = period.saturating_mul(n);
         let longest = longest_window(period);
         if window > longest {
-            // (memory)
-            return Err(validation(format!(
-                "Period multiplied by EvaluationPeriods must not be more than {longest} seconds (it is {window})."
-            )));
+            return Err(validation(if period < 3_600 {
+                format!(
+                    "Metrics cannot be checked across more than a day (EvaluationPeriods * Period must be <= {longest}) for alarms using period < 3600"
+                )
+            } else {
+                // (memory)
+                format!(
+                    "Metrics cannot be checked across more than a week (EvaluationPeriods * Period must be <= {longest})"
+                )
+            }));
         }
     }
     Ok(())

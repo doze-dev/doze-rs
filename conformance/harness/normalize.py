@@ -20,6 +20,9 @@ import hashlib
 import re
 
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
+# A KMS multi-Region key id: "mrk-" and 32 hex digits the service minted. The prefix is behaviour (it says the key is multi-Region), the
+# digits are not.
+MRK = re.compile(r"(?<=mrk-)[0-9a-f]{32}\b")
 
 # Bodies up to this size are kept verbatim; beyond it only the digest is, so a
 # snapshot never becomes a copy of a multipart upload.
@@ -77,6 +80,7 @@ class Normalizer:
             s = pat.sub("<endpoint>", s)
         if self.account:
             s = s.replace(self.account, "<account>")
+        s = MRK.sub(lambda m: self._token("mrk", m.group(0)), s)
         return UUID.sub(lambda m: self._token("uuid", m.group(0).lower()), s)
 
     def value(self, v, opaque=(), drop=(), unordered=(), _key=None):

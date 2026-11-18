@@ -42,10 +42,26 @@ impl Core {
             .get(&name)
             .is_some_and(|r| !r.replicas.is_empty())
         {
-            // The model's documentation; (memory) the words.
-            return Err(crate::core::invalid_request(
-                "You can't delete secret because it's replicated to other Regions. Remove the replicas first with RemoveRegionsFromReplication.",
-            ));
+            // Recorded (test_secretsmanager.py::test_replica_follows_its_primary); the list's form for more than one region (memory).
+            let (arn, regions) = (
+                self.secrets
+                    .get(&name)
+                    .map(|s| s.arn.clone())
+                    .unwrap_or_default(),
+                self.replication
+                    .get(&name)
+                    .map(|r| {
+                        r.replicas
+                            .iter()
+                            .map(|x| x.region.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    })
+                    .unwrap_or_default(),
+            );
+            return Err(invalid_parameter(format!(
+                "You can't delete secret {arn} that still has replica regions [{regions}]."
+            )));
         }
         let now = self.now_ms();
         let secret = self.secrets.get(&name).ok_or_else(not_found)?;

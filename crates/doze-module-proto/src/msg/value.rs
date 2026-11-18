@@ -35,6 +35,9 @@ pub enum Value {
 /// A value and where it came from.
 #[derive(Debug, Clone, PartialEq, Encode, Decode)]
 pub struct Node {
+    /// Where the value is written. A host fills it for every value it read from a file, a map entry's value included:
+    /// that is how a module reads an object in the order it was written (`doze_module::Ordered`), since `Map` is
+    /// sorted. A value the host made (a default, a computed one) has none (all zero).
     #[n(0)]
     pub span: Span,
     #[n(1)]

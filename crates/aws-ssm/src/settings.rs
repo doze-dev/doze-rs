@@ -200,7 +200,12 @@ fn shown(s: &mut Object<'_, Shown>, call: &Call, now: &Now<'_>) {
             s.put(Shown::STATUS, "Customized");
         }
         None => {
-            // (memory) a default reads as set by the system.
+            // A default has a modification date too (recorded: test_ssm.py::test_service_settings; its value, and who AWS
+            // says set it, are AWS's own). doze-aws gives the fixed date its public parameters carry, set by the system (memory).
+            s.put_time(
+                Shown::LAST_MODIFIED_DATE,
+                seconds(crate::public::MODIFIED_MS),
+            );
             s.put(Shown::LAST_MODIFIED_USER, "System");
             s.put(Shown::STATUS, "Default");
         }

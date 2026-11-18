@@ -282,6 +282,7 @@ async fn the_listeners_are_the_go_modules_less_the_registry_until_the_broker_has
         listeners: BTreeMap::new(),
         deps: vec![],
         toolchain: None,
+        dir: String::new(),
     };
     let got: Vec<Json> = m
         .network(&inst)
