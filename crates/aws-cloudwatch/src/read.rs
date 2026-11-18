@@ -1,12 +1,12 @@
-//! Reading metrics: `GetMetricStatistics`, `GetMetricData` and `ListMetrics`.
+//! Reading metrics: `GetMetricStatistics` and `ListMetrics` (`GetMetricData` is `metric_data.rs`).
 
 use aws_wire::ApiError;
 use serde_json::{Value, json};
 
 use crate::core::Core;
 use crate::model::{Series, UNITS, series_key};
-use crate::req::{Put, Req, bad_value, dimension_list, dimensions, secs};
-use crate::stats::{Agg, is_percentile, known, value_of};
+use crate::req::{Put, Req, bad_value, dimension_list, secs};
+use crate::stats::{known, value_of};
 
 /// Datapoints one `GetMetricStatistics` may return (AWS: 1,440).
 const MAX_POINTS: i64 = 1440;
@@ -91,105 +91,6 @@ impl Core {
         Ok(json!({"Label": name, "Datapoints": datapoints}))
     }
 
-    pub(crate) fn get_metric_data(&self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let (start, end) = (
-            r.time("StartTime").unwrap_or(0),
-            r.time("EndTime").unwrap_or(0),
-        );
-        if start >= end {
-            return Err(bad_value(
-                "The parameter StartTime must be less than the parameter EndTime.",
-            ));
-        }
-        let newest_first = r.opt("ScanBy") != Some("TimestampAscending");
-        let queries =
-            r.v.get("MetricDataQueries")
-                .and_then(Value::as_array)
-                .map(Vec::as_slice)
-                .unwrap_or_default();
-        let mut results = Vec::new();
-        for q in queries {
-            let Some(stat) = q.get("MetricStat") else {
-                // Metric math is not evaluated here: refused by name, not answered with a guess.
-                return Err(ApiError::new(
-                    501,
-                    "NotImplemented",
-                    "Metric math expressions are not evaluated in doze-aws.",
-                ));
-            };
-            if q.get("ReturnData").and_then(Value::as_bool) == Some(false) {
-                continue;
-            }
-            results.push(self.query_result(q, stat, (start, end), newest_first)?);
-        }
-        Ok(json!({"MetricDataResults": results, "Messages": []}))
-    }
-
-    /// One query of `GetMetricData`: the series, folded into its period, as timestamps and values.
-    fn query_result(
-        &self,
-        q: &Value,
-        stat: &Value,
-        window: (i64, i64),
-        newest_first: bool,
-    ) -> Result<Value, ApiError> {
-        let metric = stat.get("Metric").unwrap_or(&Value::Null);
-        let text = |v: &Value, k: &str| {
-            v.get(k)
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_owned()
-        };
-        let name = text(metric, "MetricName");
-        let period = stat.get("Period").and_then(Value::as_i64).unwrap_or(60);
-        check_period(period)?;
-        let which = text(stat, "Stat");
-        if !known(&which) {
-            // (memory)
-            return Err(bad_value(format!(
-                "The statistic {which} is not supported."
-            )));
-        }
-        let key = series_key(
-            &text(metric, "Namespace"),
-            &name,
-            &dimensions(metric.get("Dimensions")),
-        );
-        let unit = stat
-            .get("Unit")
-            .and_then(Value::as_str)
-            .and_then(|u| UNITS.iter().position(|x| *x == u));
-        let folded = match self.series.get(&key) {
-            Some(s) => self.fold(
-                s.no,
-                (align(window.0, period), window.1),
-                period * 1000,
-                unit,
-                is_percentile(&which),
-            )?,
-            None => Default::default(),
-        };
-        // One value per period: the units of a period are folded together here, as a query names no unit.
-        let mut per: std::collections::BTreeMap<i64, Agg> = std::collections::BTreeMap::new();
-        for ((at, _), agg) in folded {
-            per.entry(at).or_default().merge(&agg);
-        }
-        let mut points: Vec<(i64, f64)> = per
-            .iter()
-            .filter_map(|(at, agg)| Some((*at, value_of(agg, &which)?)))
-            .collect();
-        if newest_first {
-            points.reverse();
-        }
-        Ok(json!({
-            "Id": text(q, "Id"),
-            "Label": q.get("Label").and_then(Value::as_str).unwrap_or(&name),
-            "Timestamps": points.iter().map(|(t, _)| secs(*t)).collect::<Vec<_>>(),
-            "Values": points.iter().map(|(_, v)| *v).collect::<Vec<_>>(),
-            "StatusCode": "Complete",
-        }))
-    }
-
     pub(crate) fn list_metrics(&self, r: &Req<'_>) -> Result<Value, ApiError> {
         let (namespace, name) = (r.opt("Namespace"), r.opt("MetricName"));
         let wanted: Vec<(String, Option<String>)> =
@@ -244,7 +145,7 @@ impl Core {
 }
 
 /// The period a request may name: a whole number of minutes, or one of the short periods high-resolution data answers.
-fn check_period(period: i64) -> Result<(), ApiError> {
+pub(crate) fn check_period(period: i64) -> Result<(), ApiError> {
     if period < 60 && !SHORT_PERIODS.contains(&period) {
         // Recorded on AWS (2026-11-09) for a period of 45.
         return Err(bad_value(
@@ -259,7 +160,7 @@ fn check_period(period: i64) -> Result<(), ApiError> {
 }
 
 /// A start time rounded down to the whole minute (the second, for a short period), as AWS rounds it.
-fn align(start_ms: i64, period_s: i64) -> i64 {
+pub(crate) fn align(start_ms: i64, period_s: i64) -> i64 {
     let unit = if period_s < 60 { 1000 } else { 60_000 };
     start_ms - start_ms.rem_euclid(unit)
 }

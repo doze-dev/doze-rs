@@ -99,6 +99,7 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::GetMetricData
             | O::PutMetricAlarm
             | O::PutCompositeAlarm
+            | O::PutLogAlarm
             | O::DescribeAlarms
             | O::DescribeAlarmsForMetric
             | O::DescribeAlarmHistory
@@ -285,14 +286,7 @@ impl Core {
     /// Tells the bus which namespaces this region's metric alarms watch, when that changed, so a producer that holds its data
     /// until it is read (Lambda) sends the data an alarm needs as it makes it.
     fn tell_watched(&mut self, region: &str) {
-        let mut namespaces: Vec<String> = self
-            .alarms
-            .iter()
-            .filter(|(_, a)| a.kind == crate::model::Kind::Metric)
-            .map(|(_, a)| a.spec.namespace.clone())
-            .collect();
-        namespaces.sort();
-        namespaces.dedup();
+        let namespaces = self.watched_namespaces();
         if self.told_watched.as_ref() == Some(&namespaces) {
             return;
         }
@@ -396,6 +390,7 @@ impl Core {
             O::GetMetricData => self.get_metric_data(r),
             O::PutMetricAlarm => self.put_metric_alarm(r),
             O::PutCompositeAlarm => self.put_composite_alarm(r),
+            O::PutLogAlarm => self.put_log_alarm(r),
             O::DescribeAlarms => self.describe_alarms(r),
             O::DescribeAlarmsForMetric => self.describe_alarms_for_metric(r),
             O::DescribeAlarmHistory => self.describe_alarm_history(r),

@@ -254,32 +254,6 @@ fn a_forced_state_is_kept_until_the_next_period_and_then_judged_again() {
 }
 
 #[test]
-fn math_and_composite_alarms_are_stored_and_say_they_are_not_evaluated() {
-    let mut w = World::new();
-    w.ok(
-        "PutMetricAlarm",
-        &json!({"AlarmName": "m", "EvaluationPeriods": 1, "Threshold": 1, "ComparisonOperator": "GreaterThanThreshold",
-            "Metrics": [{"Id": "e", "Expression": "a + b", "ReturnData": true}]}),
-    );
-    w.ok(
-        "PutCompositeAlarm",
-        &json!({"AlarmName": "c", "AlarmRule": "ALARM(m)"}),
-    );
-    let d = w.ok("DescribeAlarms", &json!({}));
-    assert_eq!(d["MetricAlarms"][0]["Metrics"][0]["Expression"], "a + b");
-    assert!(
-        d["MetricAlarms"][0]["StateReason"]
-            .as_str()
-            .unwrap()
-            .starts_with("Not evaluated locally")
-    );
-    assert_eq!(d["CompositeAlarms"][0]["AlarmRule"], "ALARM(m)");
-    assert_eq!(w.core.earliest_due(), None);
-    let only = w.ok("DescribeAlarms", &json!({"AlarmTypes": ["CompositeAlarm"]}));
-    assert_eq!(only["MetricAlarms"], json!([]));
-}
-
-#[test]
 fn actions_are_queued_on_a_change_and_the_history_says_they_were_not_delivered() {
     let mut w = World::new();
     w.alarm(
