@@ -736,20 +736,28 @@ version = "0.0.0"
 dependencies = [
  "aws-core",
  "aws-expr",
+ "aws-iam",
+ "aws-iam-policy",
+ "aws-kinesis",
  "aws-model-dynamodb",
  "aws-peers",
+ "aws-s3",
  "aws-schema",
  "aws-seal",
  "aws-testkit",
  "aws-wire",
+ "bytes",
  "doze-fs",
  "doze-runtime",
  "doze-store",
+ "flate2",
+ "md-5 0.11.0",
  "postcard",
  "redb",
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -758,6 +766,7 @@ version = "0.0.0"
 dependencies = [
  "aws-core",
  "aws-dynamodb",
+ "aws-iam",
  "aws-model-dynamodb-streams",
  "aws-peers",
  "aws-schema",

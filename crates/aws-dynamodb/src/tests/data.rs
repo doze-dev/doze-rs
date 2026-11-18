@@ -199,6 +199,58 @@ fn a_reset_removes_every_table_and_survives_a_restart() {
 }
 
 #[test]
+fn a_backup_is_counted_on_its_own_and_emptied_by_its_name() {
+    let mut w = World::new();
+    w.table("orders", false);
+    fill(&mut w, "orders", 0, 20);
+    let arn = w.ok(
+        "CreateBackup",
+        json!({"TableName": "orders", "BackupName": "nightly"}),
+    )["BackupDetails"]["BackupArn"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    // It outlives its table, so it is a resource of its own.
+    w.ok("DeleteTable", json!({"TableName": "orders"}));
+    let DataReply::Usage(Ok((resources, _))) = data(&mut w, DataAsk::Usage) else {
+        panic!()
+    };
+    let name = arn.rsplit_once(":table/").unwrap().1.to_owned();
+    assert!(name.starts_with("orders/backup/"), "{name}");
+    let backup = resources.iter().find(|r| r.name == name).unwrap().clone();
+    assert_eq!(backup.items, 20);
+    assert!(backup.bytes > 20 * (4 << 10), "{backup:?}");
+    assert!(backup.notes[0].text.contains("nightly"));
+
+    let dry = Prune {
+        dry_run: true,
+        ..Prune::default()
+    };
+    assert_eq!(empty(&mut w, &name, dry).unwrap().items, 20);
+    w.ok("DescribeBackup", json!({"BackupArn": arn}));
+    let done = empty(&mut w, &name, Prune::default()).unwrap();
+    assert_eq!((done.items, done.bytes), (20, backup.bytes));
+    let e = w.err("DescribeBackup", json!({"BackupArn": arn}));
+    assert_eq!(e.code, "BackupNotFoundException");
+    assert_eq!(
+        empty(&mut w, &name, Prune::default()),
+        Err(StorageError::NotFound)
+    );
+
+    // A reset takes every backup with it.
+    w.table("orders", false);
+    fill(&mut w, "orders", 0, 5);
+    w.ok(
+        "CreateBackup",
+        json!({"TableName": "orders", "BackupName": "again"}),
+    );
+    let done = emptied(data(&mut w, DataAsk::Reset { dry_run: false })).unwrap();
+    assert_eq!(done.items, 10, "five items and their five backup copies");
+    w.restart();
+    assert_eq!(w.ok("ListBackups", json!({}))["BackupSummaries"], json!([]));
+}
+
+#[test]
 fn a_stream_switched_off_takes_its_records_with_it() {
     let mut w = World::new();
     orders(&mut w);

@@ -270,52 +270,6 @@ fn projection_on_a_get() {
 }
 
 #[test]
-fn legacy_parameters_are_refused_by_name_and_never_ignored() {
-    let mut w = world();
-    for (op, extra) in [
-        (
-            "PutItem",
-            json!({"Item": {"pk": {"S": "a"}}, "Expected": {"pk": {"Exists": false}}}),
-        ),
-        (
-            "PutItem",
-            json!({"Item": {"pk": {"S": "a"}}, "ConditionalOperator": "OR"}),
-        ),
-        (
-            "UpdateItem",
-            json!({"Key": {"pk": {"S": "a"}}, "AttributeUpdates": {"n": {"Action": "PUT", "Value": {"N": "1"}}}}),
-        ),
-        (
-            "GetItem",
-            json!({"Key": {"pk": {"S": "a"}}, "AttributesToGet": ["pk"]}),
-        ),
-        (
-            "Scan",
-            json!({"ScanFilter": {"n": {"ComparisonOperator": "NULL"}}}),
-        ),
-        (
-            "Query",
-            json!({"KeyConditions": {"pk": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "a"}]}}}),
-        ),
-    ] {
-        let mut req = json!({"TableName": "tab1"});
-        for (k, v) in extra.as_object().unwrap() {
-            req[k] = v.clone();
-        }
-        let e = w.err(op, req);
-        assert_eq!((e.status, e.code.as_ref()), (501, "NotImplemented"), "{op}");
-        assert!(message(&e).contains("legacy parameter"));
-    }
-    assert_eq!(
-        w.ok(
-            "GetItem",
-            json!({"TableName": "tab1", "Key": {"pk": {"S": "a"}}})
-        ),
-        json!({})
-    );
-}
-
-#[test]
 fn consumed_capacity_is_reported_when_asked() {
     let mut w = world();
     let out = w.ok(

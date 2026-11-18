@@ -81,14 +81,13 @@ impl Streams {
 
     async fn allow(&self, caller: &Caller, action: &str, resource: String) -> Result<(), ApiError> {
         match &self.peers {
-            Some(p) => {
-                p.authorize(
-                    caller,
-                    vec![Need::new(format!("dynamodb:{action}"), resource)],
-                )
-                .await
+            Some(p) if p.mode() != aws_peers::Mode::Off => {
+                // A stream's resource policy is weighed with the caller's own.
+                let policy = self.ddb.policy_of(&caller.region, &resource).await;
+                let need = Need::new(format!("dynamodb:{action}"), resource).with_policy(policy);
+                p.authorize(caller, vec![need]).await
             }
-            None => Ok(()),
+            _ => Ok(()),
         }
     }
 
