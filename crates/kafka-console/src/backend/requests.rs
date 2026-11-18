@@ -17,7 +17,7 @@ pub use fetch::{Isolation, TABLE_BYTES, fetch_partition};
 pub use groups::{committed_of, list_groups};
 pub use groups_read::{
     MOST_DESCRIBED, admin_commit, consumer_group_describe, delete_group, describe_groups,
-    offset_delete,
+    offset_delete, share_group_describe,
 };
 pub use log_reads::list_all_transactions;
 pub use metadata::metadata_topics;

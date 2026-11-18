@@ -156,6 +156,12 @@ impl Backend {
             .await
     }
 
+    /// A share group's share-partitions, if the console may describe it.
+    #[must_use]
+    pub fn share_group(&self, group: &str) -> Option<kafka_broker::ShareGroupView> {
+        self.broker.console_view().share_group(&self.caller, group)
+    }
+
     /// What a group has said of itself (why it rebalanced, who it was about), if the console may describe it and the broker has
     /// the group in memory.
     pub async fn group_events(&self, group: &str) -> Option<kafka_broker::GroupEvents> {

@@ -56,6 +56,7 @@ impl Conn {
                 advertised_host: "127.0.0.1".into(),
                 advertised_port: 9092,
                 client_host: "/127.0.0.1".into(),
+                connection: 0,
             },
             caller: Caller::anonymous(Some("127.0.0.1".parse().unwrap())),
             id: 0,

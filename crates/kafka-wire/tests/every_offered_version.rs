@@ -105,6 +105,22 @@ defaults!(
         GetTelemetrySubscriptionsResponse
     ),
     PushTelemetry(PushTelemetryRequest, PushTelemetryResponse),
+    ShareGroupHeartbeat(ShareGroupHeartbeatRequest, ShareGroupHeartbeatResponse),
+    ShareGroupDescribe(ShareGroupDescribeRequest, ShareGroupDescribeResponse),
+    ShareFetch(ShareFetchRequest, ShareFetchResponse),
+    ShareAcknowledge(ShareAcknowledgeRequest, ShareAcknowledgeResponse),
+    DescribeShareGroupOffsets(
+        DescribeShareGroupOffsetsRequest,
+        DescribeShareGroupOffsetsResponse
+    ),
+    AlterShareGroupOffsets(
+        AlterShareGroupOffsetsRequest,
+        AlterShareGroupOffsetsResponse
+    ),
+    DeleteShareGroupOffsets(
+        DeleteShareGroupOffsetsRequest,
+        DeleteShareGroupOffsetsResponse
+    ),
 );
 
 /// Every (profile, API, version) the broker offers.

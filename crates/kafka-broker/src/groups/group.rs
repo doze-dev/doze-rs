@@ -1,10 +1,14 @@
-//! The group an actor owns: a classic group or a consumer group, whichever the id has been used as. A group whose
-//! last member goes is free to become the other kind; one with members moves between them only by the rules in
-//! `migrate` (a consumer-protocol member joining a classic group of consumers, the last one leaving).
+//! The group an actor owns: a classic group, a consumer group or a share group, whichever the id has been used as. A
+//! classic or consumer group whose last member goes is free to become the other of the two; one with members moves
+//! between them only by the rules in `migrate` (a consumer-protocol member joining a classic group of consumers, the
+//! last one leaving). A share group stays one (Kafka converts nothing to or from it): every other kind of request to it
+//! is refused, and a share heartbeat to another kind of group is.
 
 use super::consumer::{self, ConsumerGroup, TopicSource};
-use super::machine::{Answer, Effect, Event, GroupMachine, IdSource, JoinRequest, Millis};
-use kafka_meta::ConsumerLife;
+use super::machine::{Answer, Effect, Event, GroupMachine, IdSource, JoinRequest, Millis, Token};
+use super::share::{ShareAnswer, ShareGroup};
+use kafka_meta::{ConsumerLife, ShareLife};
+use kafka_wire::ResponseError as E;
 
 /// How the groups of a broker are made.
 #[derive(Clone, Copy, Debug)]
@@ -19,14 +23,35 @@ pub(crate) struct Settings {
 enum Kind {
     Classic(GroupMachine),
     Consumer(ConsumerGroup),
+    Share(ShareGroup),
+}
+
+/// What is kept of a group across a restart, by kind.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Kept {
+    Classic,
+    Consumer(ConsumerLife),
+    Share(ShareLife),
+}
+
+impl Kept {
+    /// Which kind, for telling a change of kind.
+    #[must_use]
+    pub(crate) fn tag(&self) -> u8 {
+        match self {
+            Self::Classic => 0,
+            Self::Consumer(_) => 1,
+            Self::Share(_) => 2,
+        }
+    }
 }
 
 /// What an event needs written down before the group seats a member: the longest session and the kind of group.
 pub(crate) struct Seating {
     pub(crate) session_ms: i32,
     pub(crate) protocol_type: String,
-    /// Set if the group is, or is to be, a consumer group of the new protocol.
-    pub(crate) consumer: Option<ConsumerLife>,
+    /// What the group is, or is to be.
+    pub(crate) kept: Kept,
 }
 
 /// A consumer group nobody has been in yet.
@@ -43,7 +68,7 @@ pub(crate) fn asks_for_an_id(req: &JoinRequest) -> bool {
     req.id_first && req.member_id.is_none() && req.instance.is_none()
 }
 
-/// A group of either kind.
+/// A group of any kind.
 pub(crate) struct Group {
     kind: Kind,
     settings: Settings,
@@ -65,6 +90,18 @@ impl Group {
     pub(crate) fn consumer(settings: Settings) -> Self {
         Self {
             kind: Kind::Consumer(ConsumerGroup::new(settings.consumer, (settings.ids)())),
+            settings,
+        }
+    }
+
+    /// A share group: new, or as it was when the broker last stopped.
+    #[must_use]
+    pub(crate) fn share(settings: Settings, kept: Option<&ShareLife>) -> Self {
+        let group = kept.map_or_else(ShareGroup::new, |l| {
+            ShareGroup::restored(l.epoch, l.assignment_epoch)
+        });
+        Self {
+            kind: Kind::Share(group),
             settings,
         }
     }
@@ -94,6 +131,7 @@ impl Group {
         match &self.kind {
             Kind::Classic(m) => m.member_count(),
             Kind::Consumer(c) => c.member_count(),
+            Kind::Share(s) => s.member_count(),
         }
     }
 
@@ -103,22 +141,37 @@ impl Group {
         match &self.kind {
             Kind::Classic(m) => m.protocol_type(),
             Kind::Consumer(_) => Some("consumer"),
+            Kind::Share(_) => Some("share"),
         }
     }
 
-    /// What a consumer group keeps across a restart; `None` for a classic group.
+    /// What the group keeps across a restart.
     #[must_use]
-    pub(crate) fn consumer_life(&self) -> Option<ConsumerLife> {
+    pub(crate) fn kept(&self) -> Kept {
         match &self.kind {
-            Kind::Classic(_) => None,
+            Kind::Classic(_) => Kept::Classic,
             Kind::Consumer(c) => {
                 let (epoch, assignment_epoch, assignor) = c.epochs();
-                Some(ConsumerLife {
+                Kept::Consumer(ConsumerLife {
                     epoch,
                     assignment_epoch,
                     assignor: assignor.name().to_owned(),
                 })
             }
+            Kind::Share(s) => {
+                let (epoch, assignment_epoch) = s.epochs();
+                Kept::Share(ShareLife {
+                    epoch,
+                    assignment_epoch,
+                })
+            }
+        }
+    }
+
+    fn consumer_kept(&self) -> Kept {
+        match self.kept() {
+            Kept::Classic | Kept::Share(_) => Kept::Consumer(default_life()),
+            consumer => consumer,
         }
     }
 
@@ -131,7 +184,7 @@ impl Group {
             (Event::Join(_, req), Kind::Classic(m)) => m.would_seat(req).then(|| Seating {
                 session_ms: req.session_ms,
                 protocol_type: req.protocol_type.clone(),
-                consumer: None,
+                kept: Kept::Classic,
             }),
             (Event::Join(_, req), Kind::Consumer(c)) => {
                 let seats = c.member_count() > 0
@@ -139,9 +192,14 @@ impl Group {
                 seats.then(|| Seating {
                     session_ms: req.session_ms,
                     protocol_type: req.protocol_type.clone(),
-                    consumer: self.consumer_life(),
+                    kept: self.kept(),
                 })
             }
+            (Event::ShareHeartbeat(_, hb), Kind::Share(s)) if s.would_seat(hb) => Some(Seating {
+                session_ms: i32::try_from(hb.timing.session_ms).unwrap_or(i32::MAX),
+                protocol_type: "share".to_owned(),
+                kept: self.kept(),
+            }),
             (Event::ConsumerHeartbeat(_, hb), kind)
                 if match kind {
                     Kind::Consumer(c) => c.would_seat(hb),
@@ -149,13 +207,14 @@ impl Group {
                         (m.member_count() == 0 || m.protocol_type() == Some("consumer"))
                             && consumer::can_join(hb)
                     }
+                    Kind::Share(_) => false,
                 } =>
             {
                 Some(Seating {
                     session_ms: i32::try_from(self.settings.consumer.session_ms)
                         .unwrap_or(i32::MAX),
                     protocol_type: "consumer".to_owned(),
-                    consumer: Some(self.consumer_life().unwrap_or_else(default_life)),
+                    kept: self.consumer_kept(),
                 })
             }
             _ => None,
@@ -169,12 +228,23 @@ impl Group {
         now: Millis,
         source: &dyn TopicSource,
     ) -> Vec<Effect> {
+        if let Kind::Share(s) = &mut self.kind {
+            return step_share(s, event, now, source);
+        }
         match event {
             // A client asking for an id before it joins (JoinGroup v4 and later): vetted, and the id issued by the registry.
             Event::Join(token, req) if asks_for_an_id(&req) => {
                 vec![Effect::Reply(token, Answer::Join(self.vet(&req)))]
             }
             Event::ConsumerHeartbeat(token, hb) => self.consumer_heartbeat(token, hb, now, source),
+            // A share heartbeat to a classic or consumer group, even an empty one (Kafka converts neither).
+            Event::ShareHeartbeat(token, hb) => vec![Effect::Reply(
+                token,
+                Answer::ShareHeartbeat(ShareAnswer::refused(
+                    E::GroupIdNotFound,
+                    format!("Group {} is not a share group.", hb.group),
+                )),
+            )],
             // A classic member joining a consumer group nobody is in: the id is the classic protocol's now.
             Event::Join(token, req) if matches!(&self.kind, Kind::Consumer(c) if c.member_count() == 0) =>
             {
@@ -195,9 +265,124 @@ impl Group {
                     }
                     event => self.step_consumer(event, now, source),
                 },
+                Kind::Share(_) => Vec::new(),
             },
         }
     }
+}
+
+/// A share group's step: its own heartbeat, and Kafka's refusals of every other kind's requests
+/// (`GroupMetadataManager`'s `getOrMaybeCreate*Group`: "Group %s is not a ... group.").
+fn step_share(
+    s: &mut ShareGroup,
+    event: Event,
+    now: Millis,
+    source: &dyn TopicSource,
+) -> Vec<Effect> {
+    let mut out = Vec::new();
+    match event {
+        Event::ShareHeartbeat(token, hb) => {
+            s.heartbeat(token, &hb, &source.topics(), now, &mut out)
+        }
+        Event::Timer(key) => s.timer(&key, now, &mut out),
+        Event::TopicsChanged => s.topics_changed(),
+        Event::Describe(token) => out.push(describe_share(s, token, now, source)),
+        Event::Delete(token) => {
+            let refused = (s.member_count() > 0).then_some(E::NonEmptyGroup);
+            out.push(Effect::Reply(token, Answer::Delete(refused)));
+        }
+        Event::Force(token, force) => {
+            let done = force_share(s, force, now, &mut out);
+            out.push(Effect::Reply(token, Answer::Forced(done)));
+        }
+        other => out.extend(refuse_in_share(other)),
+    }
+    out
+}
+
+/// A share group as DescribeGroups and the console see it.
+fn describe_share(s: &ShareGroup, token: Token, now: Millis, source: &dyn TopicSource) -> Effect {
+    use super::machine::{Description, State};
+    #[cfg(not(feature = "inspect"))]
+    let _ = now;
+    let view = s.view(&source.topics());
+    Effect::Reply(
+        token,
+        Answer::Describe(Description {
+            state: if view.members.is_empty() {
+                State::Empty
+            } else {
+                State::Stable
+            },
+            protocol_type: Some("share".to_owned()),
+            protocol: None,
+            members: Vec::new(),
+            subscribed: None,
+            consumer: None,
+            share: Some(view),
+            #[cfg(feature = "inspect")]
+            inspect: Box::new(s.inspect(now)),
+        }),
+    )
+}
+
+/// The Lab's forcing of a share group: a member's session run out, or the group epoch moved.
+fn force_share(
+    s: &mut ShareGroup,
+    force: super::machine::Force,
+    now: Millis,
+    out: &mut Vec<Effect>,
+) -> super::machine::Forced {
+    use super::machine::{Force, Forced};
+    match force {
+        Force::Expire(id) if s.force_expire(&id, now, out) => Forced::Done,
+        Force::Expire(_) => Forced::NoSuchMember,
+        Force::Rebalance if s.force_bump(now, out) => Forced::Done,
+        Force::Rebalance => Forced::Empty,
+    }
+}
+
+/// What a share group answers the other kinds' requests: a classic JoinGroup is told its protocol is not the group's;
+/// the rest that the group is not theirs (a share group has no committed offsets: "Group %s is not a consumer group.").
+fn refuse_in_share(event: Event) -> Option<Effect> {
+    use super::machine::{JoinAnswer, LeaveResult, SyncAnswer};
+    let (token, answer) = match event {
+        Event::Join(token, _) => (
+            token,
+            Answer::Join(JoinAnswer::refused(E::InconsistentGroupProtocol, None)),
+        ),
+        Event::Sync(token, _) => (token, Answer::Sync(SyncAnswer::refused(E::GroupIdNotFound))),
+        Event::Heartbeat(token, _) => (token, Answer::Heartbeat(Some(E::GroupIdNotFound))),
+        Event::Leave(token, targets) => (
+            token,
+            Answer::Leave(
+                targets
+                    .into_iter()
+                    .map(|t| LeaveResult {
+                        member_id: t.member_id,
+                        instance: t.instance,
+                        error: Some(E::GroupIdNotFound),
+                    })
+                    .collect(),
+            ),
+        ),
+        Event::Commit(token, _) => (token, Answer::Commit(Some(E::GroupIdNotFound))),
+        Event::ConsumerHeartbeat(token, hb) => (
+            token,
+            Answer::ConsumerHeartbeat(consumer::HeartbeatAnswer::refused(
+                E::GroupIdNotFound,
+                format!("Group {} is not a consumer group.", hb.group),
+            )),
+        ),
+        // A share group's own: answered by `step_share`.
+        Event::ShareHeartbeat(..)
+        | Event::Timer(_)
+        | Event::TopicsChanged
+        | Event::Describe(_)
+        | Event::Delete(_)
+        | Event::Force(..) => return None,
+    };
+    Some(Effect::Reply(token, answer))
 }
 
 mod convert;

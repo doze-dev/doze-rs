@@ -86,7 +86,8 @@ fi
 
 features=()
 cargo build --release -p doze-kafka ${features[@]+"${features[@]}"} --manifest-path "$root/Cargo.toml"
-port="$(( (RANDOM % 20000) + 30000 ))"
+# INTEROP_PORT picks the port (the SSL broker of -tls takes the next one), for a machine where the free ports are shared out.
+port="${INTEROP_PORT:-$(( (RANDOM % 20000) + 30000 ))}"
 # -sasl: every mechanism on, one user; the clients log in with PLAIN and both SCRAM hashes (interop/go/sasl.go).
 security=()
 if [ -n "$sasl" ]; then
@@ -128,6 +129,10 @@ if [ -n "$java" ]; then
   for line in ${JAVA_CLIENTS:-4}; do
     cp="$(bun "$here/java/fetch.ts" "$line")" || { status=1; continue; }
     (cd "$here" && java -cp "$cp" java/Interop.java -broker "127.0.0.1:$port" "$@") || status=1
+    # Share groups (KIP-932) are the 4.x client's alone, so they are a program of their own; plain connections only.
+    if [ "$line" = 4 ] && [ -z "$sasl" ] && [ -z "$tls" ]; then
+      (cd "$here" && java -cp "$cp" java/Share.java -broker "127.0.0.1:$port" "$@") || status=1
+    fi
   done
 fi
 if [ "$status" != 0 ]; then

@@ -38,15 +38,18 @@ impl<F: Fs> Broker<F> {
         for (id, life) in blocking::run(|| self.meta.group_lives()).unwrap_or_default() {
             let kind = if life.consumer.is_some() {
                 "consumer"
+            } else if life.share.is_some() {
+                "share"
             } else {
                 "classic"
             };
             all.insert(id.to_string(), (life.protocol_type, "Empty", kind));
         }
         for (id, d) in self.groups.list().await {
-            let listed = match &d.consumer {
-                Some(c) => (String::from("consumer"), c.state, "consumer"),
-                None => (
+            let listed = match (&d.consumer, &d.share) {
+                (Some(c), _) => (String::from("consumer"), c.state, "consumer"),
+                (None, Some(s)) => (String::from("share"), s.state, "share"),
+                (None, None) => (
                     d.protocol_type.unwrap_or_default(),
                     state_name(d.state),
                     "classic",

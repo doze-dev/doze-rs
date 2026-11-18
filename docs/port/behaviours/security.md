@@ -39,6 +39,7 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-250 | the console's door to other machines, held while the broker runs: closed while an open broker has ACLs | console-acl-live | after SEC-249 |
 | SEC-295 to SEC-298 | OffsetForLeaderEpoch, DescribeLogDirs and the client quota APIs: their rights; what quotas guard | quotas | after SEC-294 |
 | SEC-230 to SEC-239 | the places a member's topics come from and whose right is applied: static takeover, names revoked, classic members, a group changing kind; the failed-login cap; file modes; the super-user name | re-audit C | "Re-audit of the authorization half" |
+| SEC-320 to SEC-327 | the share group APIs (KIP-932) and the group configs: READ or DESCRIBE or DELETE on the group, READ or DESCRIBE on each topic, ALTER_CONFIGS on the group | share groups | "Share groups (KIP-932)" |
 
 Deviations from Apache Kafka (and one from the Go edition) by number. Every one is a decision, not a bug; each has a row in `debt.md` section I.
 
@@ -1416,6 +1417,51 @@ hour idle. A mute holds one connection's reads, never a thread, and ends on a st
 broker in process, not over a connection).
 Test: `kafka-broker quotas::tests::a_user_quota_is_shared_by_every_client_id_of_the_user`, `::a_client_with_no_client_id_escapes_client_id_quotas_as_in_kafka`,
 `::meters_go_when_the_last_limit_goes_and_idle_ones_are_dropped_after_an_hour`, `kafka-server connection::tests::throttled::another_client_id_is_not_held_to_it_and_a_stop_ends_the_wait`
+
+## Share groups (KIP-932)
+The seven share group APIs and the configs of a group, as Kafka 4.4.0 asks (`KafkaApis`, KA below, and `ControllerApis` for the
+configs; the rules of the APIs themselves are `share-groups.md`). A refusal the handler makes carries the code alone, as Kafka's
+`getErrorResponse` writes it. Each is held five ways (`five_ways!`: granted, missing, a DENY against a super user and against an
+ALLOW, and the broad grants).
+
+## SEC-320. ShareGroupHeartbeat needs READ on the group and DESCRIBE on each subscribed topic
+READ on the group first (30), then DESCRIBE on every name the request subscribes to (29 for the whole request, nothing reaching the
+group). No words (KA L3146-3187).
+Test: `kafka-broker tests/authz_share.rs::the_share_heartbeat_needs_read_on_the_group_and_describe_on_each_subscribed_topic`
+
+## SEC-321. ShareGroupDescribe needs DESCRIBE on each group, and DESCRIBE on the topics its members read
+A group the caller may not DESCRIBE is 30 with no words; one with a member assigned a topic the caller may not DESCRIBE is replaced
+by 29 "The group has described topic(s) that the client is not authorized to describe." (KA L3189-3269).
+Test: `kafka-broker tests/authz_share.rs::share_group_describe_needs_describe_on_the_group`
+
+## SEC-322. ShareFetch needs READ on the group and on each topic it reads or acknowledges
+READ on the group (30, top-level, before the session is looked at); then READ on each topic, per partition (29), for the fetch and
+for the acknowledgements alike; the share fetch is not held to the group's membership (KA L3274-3509).
+Test: `kafka-broker tests/authz_share.rs::share_fetch_needs_read_on_the_group_and_on_each_topic`
+
+## SEC-323. ShareAcknowledge needs READ on the group and on each topic acknowledged
+As SEC-322, without the fetch (KA L3647-3731).
+Test: `kafka-broker tests/authz_share.rs::share_acknowledge_needs_read_on_the_group_and_on_each_topic`
+
+## SEC-324. DescribeShareGroupOffsets needs DESCRIBE on the group and on each topic
+Per group, 30 with no words; a topic named that the caller may not DESCRIBE is an entry of its own, after the others, each
+partition 29 "Topic authorization failed." with start and lag -1; asked for every topic, those it may not DESCRIBE are left out
+(KA L3853-3970).
+Test: `kafka-broker tests/authz_share.rs::describe_share_group_offsets_needs_describe_on_the_group_and_on_each_topic`
+
+## SEC-325. AlterShareGroupOffsets needs READ on the group (not ALTER) and READ on each topic
+30 "Group authorization failed." top-level; a topic without READ is 29 on each of its partitions (KA L3972-4021).
+Test: `kafka-broker tests/authz_share.rs::alter_share_group_offsets_needs_read_on_the_group_and_on_each_topic`
+
+## SEC-326. DeleteShareGroupOffsets needs DELETE on the group and READ on each topic
+30 top-level; a topic without READ is 29 "Topic authorization failed.", first in the answer (KA L4023-4077).
+Test: `kafka-broker tests/authz_share.rs::delete_share_group_offsets_needs_delete_on_the_group_and_read_on_each_topic`
+
+## SEC-327. A group's configs: ALTER_CONFIGS to change them, DESCRIBE_CONFIGS to see them
+IncrementalAlterConfigs (and AlterConfigs) of resource type GROUP need ALTER_CONFIGS on the group (30 "Group authorization
+failed."; `ControllerApis` L488-493); DescribeConfigs needs DESCRIBE_CONFIGS (or ALTER_CONFIGS). The group need not exist.
+Test: `kafka-broker tests/authz_share.rs::a_groups_configs_are_changed_with_alter_configs_on_the_group`,
+`tests/authz_topics_configs.rs::describe_configs_answers_the_refused_resources_after_the_others_with_no_configs_and_the_errors_words`
 
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its

@@ -17,7 +17,7 @@ use crate::protocol::{
     Encodable, Encoder, HeaderVersion, Message, StrBytes, VersionRange,
 };
 
-/// Valid versions: 0
+/// Valid versions: 0-1
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DescribeShareGroupOffsetsResponse {
@@ -69,7 +69,7 @@ impl DescribeShareGroupOffsetsResponse {
 #[cfg(feature = "broker")]
 impl Encodable for DescribeShareGroupOffsetsResponse {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.throttle_time_ms)?;
@@ -107,7 +107,7 @@ impl Encodable for DescribeShareGroupOffsetsResponse {
 #[cfg(feature = "client")]
 impl Decodable for DescribeShareGroupOffsetsResponse {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let throttle_time_ms = types::Int32.decode(buf)?;
@@ -139,11 +139,11 @@ impl Default for DescribeShareGroupOffsetsResponse {
 }
 
 impl Message for DescribeShareGroupOffsetsResponse {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 0 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 1 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 0
+/// Valid versions: 0-1
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DescribeShareGroupOffsetsResponseGroup {
@@ -223,7 +223,7 @@ impl DescribeShareGroupOffsetsResponseGroup {
 #[cfg(feature = "broker")]
 impl Encodable for DescribeShareGroupOffsetsResponseGroup {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::CompactString.encode(buf, &self.group_id)?;
@@ -265,7 +265,7 @@ impl Encodable for DescribeShareGroupOffsetsResponseGroup {
 #[cfg(feature = "client")]
 impl Decodable for DescribeShareGroupOffsetsResponseGroup {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let group_id = types::CompactString.decode(buf)?;
@@ -303,11 +303,11 @@ impl Default for DescribeShareGroupOffsetsResponseGroup {
 }
 
 impl Message for DescribeShareGroupOffsetsResponseGroup {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 0 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 1 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 0
+/// Valid versions: 0-1
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DescribeShareGroupOffsetsResponsePartition {
@@ -325,6 +325,11 @@ pub struct DescribeShareGroupOffsetsResponsePartition {
     ///
     /// Supported API versions: 0
     pub leader_epoch: i32,
+
+    /// PATCH: the share-partition lag (KIP-1226), -1 where it is not known (ignorable).
+    ///
+    /// Supported API versions: 1
+    pub lag: i64,
 
     /// The partition-level error code, or 0 if there was no error.
     ///
@@ -401,12 +406,15 @@ impl DescribeShareGroupOffsetsResponsePartition {
 #[cfg(feature = "broker")]
 impl Encodable for DescribeShareGroupOffsetsResponsePartition {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.partition_index)?;
         types::Int64.encode(buf, &self.start_offset)?;
         types::Int32.encode(buf, &self.leader_epoch)?;
+        if version >= 1 {
+            types::Int64.encode(buf, &self.lag)?;
+        }
         types::Int16.encode(buf, &self.error_code)?;
         types::CompactString.encode(buf, &self.error_message)?;
         let num_tagged_fields = self.unknown_tagged_fields.len();
@@ -426,6 +434,9 @@ impl Encodable for DescribeShareGroupOffsetsResponsePartition {
         total_size += types::Int32.compute_size(&self.partition_index)?;
         total_size += types::Int64.compute_size(&self.start_offset)?;
         total_size += types::Int32.compute_size(&self.leader_epoch)?;
+        if version >= 1 {
+            total_size += types::Int64.compute_size(&self.lag)?;
+        }
         total_size += types::Int16.compute_size(&self.error_code)?;
         total_size += types::CompactString.compute_size(&self.error_message)?;
         let num_tagged_fields = self.unknown_tagged_fields.len();
@@ -445,12 +456,17 @@ impl Encodable for DescribeShareGroupOffsetsResponsePartition {
 #[cfg(feature = "client")]
 impl Decodable for DescribeShareGroupOffsetsResponsePartition {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let partition_index = types::Int32.decode(buf)?;
         let start_offset = types::Int64.decode(buf)?;
         let leader_epoch = types::Int32.decode(buf)?;
+        let lag = if version >= 1 {
+            types::Int64.decode(buf)?
+        } else {
+            -1
+        };
         let error_code = types::Int16.decode(buf)?;
         let error_message = types::CompactString.decode(buf)?;
         let mut unknown_tagged_fields = BTreeMap::new();
@@ -465,6 +481,7 @@ impl Decodable for DescribeShareGroupOffsetsResponsePartition {
             partition_index,
             start_offset,
             leader_epoch,
+            lag,
             error_code,
             error_message,
             unknown_tagged_fields,
@@ -478,6 +495,7 @@ impl Default for DescribeShareGroupOffsetsResponsePartition {
             partition_index: 0,
             start_offset: 0,
             leader_epoch: 0,
+            lag: -1,
             error_code: 0,
             error_message: None,
             unknown_tagged_fields: BTreeMap::new(),
@@ -486,11 +504,11 @@ impl Default for DescribeShareGroupOffsetsResponsePartition {
 }
 
 impl Message for DescribeShareGroupOffsetsResponsePartition {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 0 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 1 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 0
+/// Valid versions: 0-1
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DescribeShareGroupOffsetsResponseTopic {
@@ -559,7 +577,7 @@ impl DescribeShareGroupOffsetsResponseTopic {
 #[cfg(feature = "broker")]
 impl Encodable for DescribeShareGroupOffsetsResponseTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::CompactString.encode(buf, &self.topic_name)?;
@@ -600,7 +618,7 @@ impl Encodable for DescribeShareGroupOffsetsResponseTopic {
 #[cfg(feature = "client")]
 impl Decodable for DescribeShareGroupOffsetsResponseTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 0 {
+        if !(0..=1).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let topic_name = types::CompactString.decode(buf)?;
@@ -635,7 +653,7 @@ impl Default for DescribeShareGroupOffsetsResponseTopic {
 }
 
 impl Message for DescribeShareGroupOffsetsResponseTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 0 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 1 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

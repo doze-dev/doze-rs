@@ -367,9 +367,15 @@ jobs:
           # 2026-11-15, data control (`doze-kafka data`, the broker's Empty and Erase, the usage walk): +99,392 B on darwin arm64
           # (4,099,056 to 4,198,448 B for main at 3636c3d2 and this tree), times the 1.3747 of the console build is +136,634 B
           # (weight.md, "Data control"), added to main's line of 5,450,504 B. An estimate until CI measures it.
-          [ "$size" -le 5587138 ] || { echo "lean binary over 5,587,138 B"; exit 1; }
+          # 2026-11-18, share groups (KIP-932) on main with quotas: CI measured 6,090,240 B (run 44287887840) against main's
+          # 5,532,600 B (+557,640 B, +10.1%): the seven share APIs' codecs, handlers, share-partitions, sessions and lock task are
+          # protocol, so the lean build has them too (+447,216 B in the darwin default build). Line: that plus 5%.
+          [ "$size" -le 6394752 ] || { echo "lean binary over 6,394,752 B"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
-          [ "$rss" -le 7229 ] || { echo "idle resident memory over 7,229 KB in the lean build"; exit 1; }
+          # 2026-11-18, share groups: CI read 7,192 then 7,380 KB (main 7,104). In the doze-ubuntu VM (aarch64, lean, 6 starts each) main
+          # idles at 5,272-5,288 KB and share groups at 5,476-5,484 KB with heap (188 KB) and anonymous memory (456-460 KB) the same:
+          # the +196 KB is the bigger binary's resident code pages, nothing held. Line: 7,380 KB plus 5%.
+          [ "$rss" -le 7749 ] || { echo "idle resident memory over 7,749 KB in the lean build"; exit 1; }
           ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }
 
   # TLS is in the default build since 2026-11-14 (the owner: one build), so its size and packages are the `weight` job's (xtask/weight-limits.txt).

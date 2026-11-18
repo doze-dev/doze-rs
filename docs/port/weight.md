@@ -893,3 +893,20 @@ in the `Bytes` the log read them into; the server writes the pieces with one vec
 End to end (the release binaries of main and of the Fetch change, `/usr/bin/time -l`, kcat producing one or fifty 1 MB messages to one
 partition and consuming them with the fetch limits at 64 MiB, three runs each): one message, peak RSS 10.6 MB to 9.5 MB; fifty, peak RSS
 108.6 MB to 58.6 MB (peak footprint 104.2 to 54.1 MB) and the consume 184.8 to 188.3 ms to 169.5 to 175.6 ms (kcat's start included).
+
+## Share groups (KIP-932, 2026-11-15), release, darwin/arm64
+
+Measured back to back with `cargo xtask weight doze-kafka`: the tree before share groups (kafka-next with KIP-890, c64f4b76e) and the tree
+with them (docs/port/behaviours/share-groups.md).
+
+| | bytes | packages | idle (median of three) |
+|---|---|---|---|
+| before | 7,984,176 B | 182 | 7,840 KB (7,856, 7,824, 7,840) |
+| with share groups | 8,431,392 B (+447,216 B, +5.6%) | 182 | 7,968 KB (7,968, 7,968, 7,984), +128 KB |
+
+No package is added. The bytes are code: the seven APIs' messages, whose generated codecs are linked now that something uses them; their
+handlers; the share-partition (acquisition, acknowledgement, locks, the start), the share sessions, the lock task and the group configs; the
+recorder's summaries and the console's share views. The embedded console assets grew 10 KB. At rest a broker holds an empty map, an empty
+session cache and one task waiting on an alarm no one has set: nothing wakes until a lock is held (`tests/idle_upkeep.rs`); the idle rise is
+presumably the larger binary's pages (not split into file-backed and anonymous in the VM, as the idle line above was). The line (xtask/weight-limits.txt) moves to 8,431,392 B times CI's 1.3747 plus 5%, 12,170,166 B, under the 15 MB
+ceiling, and its idle to CI's 11,132 KB times the measured rise plus 5%, 11,880 KB, until CI measures the tree.
