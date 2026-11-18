@@ -36,7 +36,9 @@ impl<F: Fs> Broker<F> {
         let described = self.groups.describe(&group).await;
         let committed = blocking::run(|| self.meta.group_offsets(&group)).unwrap_or_default();
         let has_members = described.as_ref().is_some_and(|d| {
-            !d.members.is_empty() || d.consumer.as_ref().is_some_and(|c| !c.members.is_empty())
+            !d.members.is_empty()
+                || d.consumer.as_ref().is_some_and(|c| !c.members.is_empty())
+                || d.streams.as_ref().is_some_and(|s| !s.members.is_empty())
         });
         if !has_members && committed.is_empty() {
             resp.error_code = ResponseError::GroupIdNotFound.code();

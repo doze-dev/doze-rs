@@ -173,7 +173,7 @@ impl<F: Fs> Broker<F> {
                     .unwrap_or_default();
                 Ok(crate::group_configs::DEFS
                     .iter()
-                    .filter(|d| wanted(d.name))
+                    .filter(|d| wanted(d.name) && (!d.internal || own.contains_key(d.name)))
                     .map(|d| group_entry(d, own.get(d.name), req))
                     .collect())
             }
@@ -227,7 +227,6 @@ fn group_entry(
     own: Option<&String>,
     req: &DescribeConfigsRequest,
 ) -> Config {
-    use crate::group_configs::Kind;
     const GROUP_CONFIG: i8 = 8;
     const DEFAULT_CONFIG: i8 = 5;
     let mut c = Config::default();
@@ -239,11 +238,7 @@ fn group_entry(
     } else {
         DEFAULT_CONFIG
     };
-    c.config_type = match d.kind {
-        Kind::Bool => 1,
-        Kind::Text => 2,
-        Kind::Int { .. } => 3,
-    };
+    c.config_type = d.kind.code();
     c.documentation = None;
     if req.include_synonyms {
         if let Some(v) = own {

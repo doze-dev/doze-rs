@@ -226,6 +226,7 @@ impl<F: Fs> Broker<F> {
                             epoch,
                             assignment_epoch: epoch,
                         }),
+                        streams: None,
                     },
                 )?;
             }

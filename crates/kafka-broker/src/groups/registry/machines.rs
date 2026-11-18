@@ -15,12 +15,18 @@ impl Groups {
         if matches!(first, Req::ShareHeartbeat(_)) {
             return self.share_machine_for(group);
         }
+        if matches!(first, Req::StreamsHeartbeat(_)) {
+            return self.streams_machine_for(group);
+        }
         let life = crate::blocking::run(|| self.meta.group_life(group))
             .ok()
             .flatten();
-        // A share group stays one, whatever asks for it.
+        // A share group stays one, whatever asks for it; so does a streams group.
         if let Some(share) = life.as_ref().and_then(|l| l.share.as_ref()) {
             return Group::share(self.settings, Some(share));
+        }
+        if let Some(streams) = life.as_ref().and_then(|l| l.streams.as_ref()) {
+            return Group::streams(self.settings, Some(streams));
         }
         if !matches!(first, Req::ConsumerHeartbeat(_)) {
             return Group::classic(self.settings);
@@ -47,10 +53,25 @@ impl Groups {
         });
         match life {
             Some(l) if l.share.is_some() => Group::share(self.settings, l.share.as_ref()),
+            Some(l) if l.streams.is_some() => Group::streams(self.settings, l.streams.as_ref()),
             Some(l) if l.consumer.is_some() => Group::consumer(self.settings),
             Some(_) => Group::classic(self.settings),
             None if has_offsets => Group::classic(self.settings),
             None => Group::share(self.settings, None),
+        }
+    }
+
+    /// The machine a streams heartbeat finds for a group not in memory: the streams group it was when the broker last
+    /// stopped; the consumer or share group the id was used as (which refuses it); or an empty classic group (offsets
+    /// only, or nothing), which the join makes a streams group (Kafka converts an empty classic group).
+    fn streams_machine_for(&self, group: &GroupId) -> Group {
+        let life = crate::blocking::run(|| self.meta.group_life(group).ok().flatten());
+        match life {
+            Some(l) if l.streams.is_some() => Group::streams(self.settings, l.streams.as_ref()),
+            Some(l) if l.share.is_some() => Group::share(self.settings, l.share.as_ref()),
+            Some(l) if l.consumer.is_some() => Group::consumer(self.settings),
+            Some(_) => Group::classic(self.settings),
+            None => Group::streams(self.settings, None),
         }
     }
 }

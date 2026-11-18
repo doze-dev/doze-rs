@@ -40,16 +40,19 @@ impl<F: Fs> Broker<F> {
                 "consumer"
             } else if life.share.is_some() {
                 "share"
+            } else if life.streams.is_some() {
+                "streams"
             } else {
                 "classic"
             };
             all.insert(id.to_string(), (life.protocol_type, "Empty", kind));
         }
         for (id, d) in self.groups.list().await {
-            let listed = match (&d.consumer, &d.share) {
-                (Some(c), _) => (String::from("consumer"), c.state, "consumer"),
-                (None, Some(s)) => (String::from("share"), s.state, "share"),
-                (None, None) => (
+            let listed = match (&d.consumer, &d.share, &d.streams) {
+                (Some(c), _, _) => (String::from("consumer"), c.state, "consumer"),
+                (None, Some(s), _) => (String::from("share"), s.state, "share"),
+                (None, None, Some(s)) => (String::from("streams"), s.state, "streams"),
+                (None, None, None) => (
                     d.protocol_type.unwrap_or_default(),
                     state_name(d.state),
                     "classic",
@@ -67,7 +70,9 @@ impl<F: Fs> Broker<F> {
             if !sees_all && !guard.group(Operation::Describe, &id) {
                 continue;
             }
-            if !wanted(&req.states_filter, state) || !wanted(&req.types_filter, group_type) {
+            if !wanted(&req.states_filter, state_key(group_type, state))
+                || !wanted(&req.types_filter, group_type)
+            {
                 continue;
             }
             let mut g = ListedGroup::default();
@@ -78,5 +83,15 @@ impl<F: Fs> Broker<F> {
             resp.groups.push(g);
         }
         Outcome::Respond(kafka_wire::api::Response::ListGroups(resp))
+    }
+}
+
+/// What a state filter is matched against. A streams group's states are matched as Kafka's `StreamsGroupState` spells
+/// them in lower case (`not_ready`), so a filter of `NotReady` (what Kafka's Admin client sends) matches nothing, as on
+/// Kafka 4.4.0; the other kinds' states are matched as they are named.
+fn state_key(group_type: &str, state: &'static str) -> &'static str {
+    match (group_type, state) {
+        ("streams", "NotReady") => "not_ready",
+        _ => state,
     }
 }

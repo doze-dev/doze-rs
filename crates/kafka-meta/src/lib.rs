@@ -20,7 +20,9 @@ mod txn;
 pub use acl::AclRecord;
 pub use credential::{CredentialId, CredentialRecord};
 pub use error::MetaError;
-pub use life::{ConsumerLife, GroupLife, ShareLife};
+pub use life::{
+    ConsumerLife, GroupLife, ShareLife, StoredSubtopology, StoredTopic, StoredTopology, StreamsLife,
+};
 pub use names::Collision;
 pub use offsets::{Committed, GroupOffset, OffsetCommit, StoredOffset};
 pub use quota::{QuotaEntity, QuotaName, QuotaValues};

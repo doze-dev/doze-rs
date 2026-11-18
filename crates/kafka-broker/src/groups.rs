@@ -15,6 +15,7 @@ mod registry;
 mod retention;
 mod seat;
 pub(crate) mod share;
+pub(crate) mod streams;
 mod subscription;
 
 pub(crate) use actor::Req;
@@ -42,3 +43,4 @@ pub(crate) use registry::member_ids;
 pub(crate) use registry::{Deleted, Groups};
 pub(crate) use retention::{Members, View, expired, members_of};
 pub(crate) use share::{ShareAnswer, ShareHeartbeat, ShareTiming};
+pub(crate) use streams::{StreamsAnswer, StreamsHeartbeat, StreamsTiming};

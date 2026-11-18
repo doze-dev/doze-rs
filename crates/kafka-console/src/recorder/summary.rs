@@ -16,6 +16,7 @@ mod offsets;
 mod produce;
 mod security;
 mod share;
+mod streams;
 mod topics;
 mod txn;
 
@@ -76,6 +77,9 @@ pub fn of_request(request: &Request, f: &mut Facts) {
         Request::DescribeShareGroupOffsets(r) => share::describe_offsets_request(r, f),
         Request::AlterShareGroupOffsets(r) => share::alter_offsets_request(r, f),
         Request::DeleteShareGroupOffsets(r) => share::delete_offsets_request(r, f),
+        Request::StreamsGroupHeartbeat(r) => streams::heartbeat_request(r, f),
+        Request::StreamsGroupDescribe(r) => streams::describe_request(r, f),
+        Request::StreamsGroupTopologyDescriptionUpdate(r) => streams::topology_update_request(r, f),
     }
 }
 
@@ -141,6 +145,9 @@ pub fn of_response(response: &Response, f: &mut Facts) {
         Response::DescribeShareGroupOffsets(r) => share::describe_offsets_response(r, f),
         Response::AlterShareGroupOffsets(r) => share::alter_offsets_response(r, f),
         Response::DeleteShareGroupOffsets(r) => share::delete_offsets_response(r, f),
+        Response::StreamsGroupHeartbeat(r) => streams::heartbeat_response(r, f),
+        Response::StreamsGroupDescribe(r) => streams::describe_response(r, f),
+        Response::StreamsGroupTopologyDescriptionUpdate(r) => streams::topology_update_response(r, f),
     }
 }
 

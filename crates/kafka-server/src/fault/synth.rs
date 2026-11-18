@@ -108,7 +108,10 @@ pub fn fail_response(request: &Request, version: i16, code: i16) -> Option<Respo
         | Request::ShareAcknowledge(_)
         | Request::DescribeShareGroupOffsets(_)
         | Request::AlterShareGroupOffsets(_)
-        | Request::DeleteShareGroupOffsets(_) => return None,
+        | Request::DeleteShareGroupOffsets(_)
+        | Request::StreamsGroupHeartbeat(_)
+        | Request::StreamsGroupDescribe(_)
+        | Request::StreamsGroupTopologyDescriptionUpdate(_) => return None,
     })
 }
 

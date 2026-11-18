@@ -119,6 +119,8 @@ pub(crate) struct Description {
     pub(crate) consumer: Option<crate::groups::consumer::ConsumerView>,
     /// Set if this is a share group, which the classic APIs do not describe either.
     pub(crate) share: Option<crate::groups::share::ShareView>,
+    /// Set if this is a streams group, which the classic APIs do not describe either.
+    pub(crate) streams: Option<crate::groups::streams::StreamsView>,
     /// What the console is told besides (feature `inspect`).
     #[cfg(feature = "inspect")]
     pub(crate) inspect: Box<crate::groups::Inspect>,
@@ -235,6 +237,8 @@ pub(crate) enum Answer {
     ConsumerHeartbeat(crate::groups::consumer::HeartbeatAnswer),
     /// To a ShareGroupHeartbeat.
     ShareHeartbeat(crate::groups::share::ShareAnswer),
+    /// To a StreamsGroupHeartbeat.
+    StreamsHeartbeat(crate::groups::streams::StreamsAnswer),
     /// To a request for what the group has said of itself (the actor answers; no machine does).
     Events(Vec<crate::groups::events::Recorded>),
     /// To a forced step.
@@ -248,7 +252,7 @@ pub(crate) enum TimerKind {
     Session(MemberId),
     /// A rebalance's deadline for members to rejoin.
     Rebalance,
-    /// The initial rebalance delay's current window.
+    /// The initial rebalance delay's current window (a streams group's initial rebalance delay).
     Hold,
     /// A consumer group member's time to give up what it was told to.
     Revoke(MemberId),
@@ -284,6 +288,8 @@ pub(crate) enum Event {
     ConsumerHeartbeat(Token, crate::groups::consumer::Heartbeat),
     /// A ShareGroupHeartbeat arrived.
     ShareHeartbeat(Token, crate::groups::share::ShareHeartbeat),
+    /// A StreamsGroupHeartbeat arrived.
+    StreamsHeartbeat(Token, crate::groups::streams::StreamsHeartbeat),
     /// A topic was made, grown or deleted.
     TopicsChanged,
     /// A timer ran out.

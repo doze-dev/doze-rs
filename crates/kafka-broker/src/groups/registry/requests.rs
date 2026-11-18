@@ -17,6 +17,8 @@ pub(super) fn can_begin(req: &Req) -> bool {
         Req::ConsumerHeartbeat(h) => crate::groups::consumer::can_join(h),
         // A share group is made by a member joining it (Kafka's `getOrMaybeCreateShareGroup`, epoch 0).
         Req::ShareHeartbeat(h) => h.epoch == 0,
+        // So is a streams group (`getOrCreateStreamsGroup`, epoch 0).
+        Req::StreamsHeartbeat(h) => h.epoch == 0,
         _ => false,
     }
 }
@@ -63,6 +65,17 @@ pub(super) fn unknown(req: &Req) -> Option<Answer> {
                 format!("Share group {} not found.", h.group)
             };
             Answer::ShareHeartbeat(crate::groups::share::ShareAnswer::refused(
+                ResponseError::GroupIdNotFound,
+                words,
+            ))
+        }
+        Req::StreamsHeartbeat(h) => {
+            let words = if h.epoch < 0 {
+                format!("Group {} not found.", h.group)
+            } else {
+                format!("Streams group {} not found.", h.group)
+            };
+            Answer::StreamsHeartbeat(crate::groups::streams::StreamsAnswer::refused(
                 ResponseError::GroupIdNotFound,
                 words,
             ))

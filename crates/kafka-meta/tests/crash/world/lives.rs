@@ -75,6 +75,7 @@ impl World {
                 assignor: "uniform".into(),
             }),
             share: None,
+            streams: None,
         };
         let Some(store) = &self.store else {
             return "life";

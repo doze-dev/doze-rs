@@ -17,6 +17,7 @@ use super::machine::{
     LeaveTarget, Millis, SyncRequest, TimerKey, TimerKind, Token,
 };
 use super::share::{ShareAnswer, ShareHeartbeat};
+use super::streams::{StreamsAnswer, StreamsHeartbeat};
 
 /// A request for the group.
 pub(crate) enum Req {
@@ -29,6 +30,7 @@ pub(crate) enum Req {
     Delete,
     ConsumerHeartbeat(Heartbeat),
     ShareHeartbeat(ShareHeartbeat),
+    StreamsHeartbeat(StreamsHeartbeat),
     TopicsChanged,
     /// A step the Lab forces.
     Force(Force),
@@ -287,6 +289,7 @@ fn event_of(token: Token, req: Req) -> Event {
         Req::Delete => Event::Delete(token),
         Req::ConsumerHeartbeat(r) => Event::ConsumerHeartbeat(token, r),
         Req::ShareHeartbeat(r) => Event::ShareHeartbeat(token, r),
+        Req::StreamsHeartbeat(r) => Event::StreamsHeartbeat(token, r),
         Req::TopicsChanged => Event::TopicsChanged,
         Req::Force(f) => Event::Force(token, f),
         // Answered before it gets here.
@@ -314,6 +317,13 @@ fn unavailable(event: &Event) -> Option<(Token, Answer)> {
         Event::ShareHeartbeat(token, _) => Some((
             *token,
             Answer::ShareHeartbeat(ShareAnswer::refused(
+                ResponseError::CoordinatorNotAvailable,
+                "the group's members could not be recorded; try again",
+            )),
+        )),
+        Event::StreamsHeartbeat(token, _) => Some((
+            *token,
+            Answer::StreamsHeartbeat(StreamsAnswer::refused(
                 ResponseError::CoordinatorNotAvailable,
                 "the group's members could not be recorded; try again",
             )),
