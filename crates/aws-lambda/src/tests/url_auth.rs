@@ -56,7 +56,12 @@ async fn an_aws_iam_url_needs_a_good_signature_and_its_signer_is_asked() {
         let body: Value = serde_json::from_slice(&r.body).unwrap_or(Value::Null);
         (
             r.status,
-            body["Message"].as_str().unwrap_or_default().to_owned(),
+            // An unsigned request is refused under `Message`, a wrong signature under `message` (both recorded).
+            body["Message"]
+                .as_str()
+                .or_else(|| body["message"].as_str())
+                .unwrap_or_default()
+                .to_owned(),
         )
     };
     // No signature: AWS's bare 403.

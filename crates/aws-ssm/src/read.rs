@@ -80,6 +80,7 @@ impl Core {
         }
         let selector = name::selector(text);
         if public::is_public(selector.name) {
+            namespace::check(selector.name)?;
             let p = pick_public(&call.caller.region, &selector)?;
             return reply::<OneResult>(|o| {
                 o.put_object(OneResult::PARAMETER, |s| {
@@ -103,6 +104,13 @@ impl Core {
             .get(Many::NAMES)
             .map(Iterator::collect)
             .unwrap_or_default();
+        // A name outside every namespace AWS publishes in refuses the whole call, not one entry.
+        for text in &names {
+            let selector = name::selector(text);
+            if public::is_public(selector.name) {
+                namespace::check(selector.name)?;
+            }
+        }
         let mut found = Vec::new();
         let mut referenced = Vec::new();
         let mut public = Vec::new();
@@ -217,7 +225,8 @@ pub(crate) fn shown(
     p.put(Shown::DATA_TYPE, &v.data_type);
 }
 
-/// The public parameter a selector names: its version is the only one it has, and it has no labels.
+/// The public parameter a selector names: its version is the only one it has, and it has no labels. (The caller has held the name
+/// to [`namespace::check`] first.)
 fn pick_public(region: &str, selector: &name::Selector<'_>) -> Result<public::Public, ApiError> {
     let p = public::find(region, selector.name).ok_or_else(not_found)?;
     match selector.qualifier {
@@ -242,7 +251,11 @@ pub(crate) fn shown_public(
     }
     s.put_time(Shown::LAST_MODIFIED_DATE, seconds(public::MODIFIED_MS));
     s.put(Shown::ARN, &public::arn(region, &p.name));
-    s.put(Shown::DATA_TYPE, "text");
+    // The image ids say `text`; the global-infrastructure names say no data type at all (recorded: test_ssm.py::
+    // test_public_parameters_are_read_only, .../regions/us-east-1/longName).
+    if !p.name.starts_with(public::INFRA) {
+        s.put(Shown::DATA_TYPE, "text");
+    }
 }
 
 /// A Secrets Manager secret read through Parameter Store: its ARN is the secret's, and it has no data type.
@@ -297,4 +310,4 @@ pub(crate) fn seconds(ms: i64) -> f64 {
     ms as f64 / 1000.0
 }
 
-use crate::{name, public};
+use crate::{name, namespace, public};

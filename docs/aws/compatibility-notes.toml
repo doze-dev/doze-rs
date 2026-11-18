@@ -59,11 +59,17 @@ not_planned = [
 ]
 
 [api."KMS"]
+differences = [
+  "`DeriveSharedSecret` with a peer public key on another curve: AWS answers `ValidationException` with an empty message; doze-aws answers the same code and says the key is not a DER-encoded SubjectPublicKeyInfo of the key's curve.",
+]
 not_planned = [
   { why = "Custom key stores are backed by CloudHSM or an external key manager; doze-aws keys are software keys.", ops = ["CreateCustomKeyStore", "DescribeCustomKeyStores", "UpdateCustomKeyStore", "DeleteCustomKeyStore", "ConnectCustomKeyStore", "DisconnectCustomKeyStore"] },
 ]
 
 [api."SSM"]
+differences = [
+  "`GetServiceSetting` of a setting that does not exist: AWS answers `ServiceSettingNotFound` with an empty message; doze-aws answers the same code, names the setting and says to check its id.",
+]
 not_planned = [
   { why = "Fleet management needs managed EC2 instances or on-premises nodes: Run Command, Session Manager, patching, inventory, compliance, maintenance windows, State Manager associations, hybrid activations.", families = ["Command", "Session", "Patch", "Inventory", "Compliance", "MaintenanceWindow", "Association", "Activation", "ManagedInstance", "InstanceInformation", "InstanceProperties", "Nodes", "CloudConnector", "ResourceDataSync", "OpsItem", "OpsMetadata", "OpsSummary", "Automation", "ChangeRequest", "ExecutionPreview", "CalendarState", "AccessRequest", "AccessToken", "ConnectionStatus", "DeployablePatch", "InstancePatch", "EffectiveInstanceAssociations", "EffectivePatches", "AvailablePatches"] },
 ]

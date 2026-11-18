@@ -1,5 +1,7 @@
 """SSM Parameter Store through boto3."""
 
+import pytest
+
 
 def test_parameter_lifecycle_and_versions(client, names, cleanup, snapshot):
     ssm = client("ssm")
@@ -233,16 +235,39 @@ def test_public_parameters_are_read_only(client, snapshot):
     one = ssm.get_parameter(Name=AL2023)
     assert one["Parameter"]["Value"].startswith("ami-")
     snapshot.match("get", one, opaque=shown)
-    snapshot.match("get-many", ssm.get_parameters(Names=[AL2023, "/aws/service/not-a-parameter"]),
-                   opaque=shown)
-    snapshot.error("get-absent", lambda: ssm.get_parameter(Name="/aws/service/not-a-parameter"))
-    region = ssm.get_parameter(Name="/aws/service/global-infrastructure/regions/us-east-1/longName")
-    snapshot.match("region-long-name", region, opaque=("Version", "LastModifiedDate"))
+    snapshot.match("get-many", ssm.get_parameters(Names=[AL2023, f"{AL2023}-not-an-image"]), opaque=shown)
+    # A name under /aws/service/ is checked against AWS's namespaces before it is looked up: one that is no namespace at all
+    # refuses the whole call, and a name AWS does not publish inside a real namespace is an ordinary miss.
+    snapshot.error("get-many-made-up-namespace", lambda: ssm.get_parameters(
+        Names=[AL2023, "/aws/service/not-a-parameter"]))
+    snapshot.error("get-made-up-namespace", lambda: ssm.get_parameter(Name="/aws/service/not-a-parameter"))
+    snapshot.error("get-absent", lambda: ssm.get_parameter(Name=f"{AL2023}-not-an-image"))
+    snapshot.outcome("get-made-up-namespace-deeper", lambda: ssm.get_parameter(Name="/aws/service/not-a-namespace/image"))
+    snapshot.outcome("by-path-made-up-namespace", lambda: ssm.get_parameters_by_path(Path="/aws/service/not-a-namespace"))
+    region =ssm.get_parameter(Name="/aws/service/global-infrastructure/regions/us-east-1/longName")
+    # Its version and date are its own, not the image's: what is held is that it is there and what it says.
+    snapshot.match("region-long-name", region, drop=("Version", "LastModifiedDate"))
     page = ssm.get_parameters_by_path(Path="/aws/service/ami-amazon-linux-latest", MaxResults=3)
     snapshot.match("by-path", {"count": len(page["Parameters"]), "more": "NextToken" in page,
                                "all-images": all(p["Value"].startswith("ami-") for p in page["Parameters"])})
-    snapshot.match("not-described", ssm.describe_parameters(
+    # DescribeParameters lists the account's own parameters; asked for AWS's, it holds the prefix to the same namespace check.
+    snapshot.outcome("not-described", lambda: ssm.describe_parameters(
         ParameterFilters=[{"Key": "Name", "Option": "BeginsWith", "Values": ["/aws/service/"]}]))
+    # Inside a real namespace it does list AWS's parameters, a page of 10 at a time. Which names, and their versions, are AWS's.
+    listed = ssm.describe_parameters(
+        ParameterFilters=[{"Key": "Name", "Option": "BeginsWith", "Values": ["/aws/service/ami-amazon-linux-latest/"]}])
+    snapshot.match("described-in-a-namespace", {
+        "count": len(listed["Parameters"]), "more": "NextToken" in listed,
+        "shapes": sorted({(p["Type"], p["Tier"], p["DataType"], len(p["Policies"]), p["ARN"].split(":")[4])
+                          for p in listed["Parameters"]})})
+
+
+def test_public_parameters_cannot_be_written(client, snapshot, target):
+    # Not recorded on purpose: the recorder may write only its own conformance names, so on AWS its own policy refuses first
+    # ("no identity-based policy allows the ssm:PutParameter action") and SSM's answer for /aws/ is never reached.
+    if target.name == "aws":
+        pytest.skip("the recorder's policy refuses ssm:PutParameter outside its own names before SSM's own check")
+    ssm = client("ssm")
     snapshot.error("write-refused", lambda: ssm.put_parameter(
         Name=AL2023, Value="ami-0123456789abcdef0", Type="String", Overwrite=True))
 
@@ -250,6 +275,11 @@ def test_public_parameters_are_read_only(client, snapshot):
 SHELL_DOC = ('{"schemaVersion":"2.2","description":"Say something","parameters":{"Message":{"type":"String",'
              '"default":"hello"}},"mainSteps":[{"action":"aws:runShellScript","name":"say",'
              '"inputs":{"runCommand":["echo {{Message}}"]}}]}')
+
+
+# An account to share with that is neither the recorder's nor doze-aws's own (111122223333 is doze-aws's account in the suite, so
+# it would read as <account> there and not on AWS).
+OTHER_ACCOUNT = "444455556666"
 
 
 def test_document_lifecycle(client, names, cleanup, snapshot):
@@ -277,10 +307,10 @@ def test_document_lifecycle(client, names, cleanup, snapshot):
     snapshot.error("delete-default-version", lambda: ssm.delete_document(Name=name, DocumentVersion="2"))
     snapshot.match("delete-version", ssm.delete_document(Name=name, DocumentVersion="1"))
     snapshot.match("share", ssm.modify_document_permission(
-        Name=name, PermissionType="Share", AccountIdsToAdd=["111122223333"]))
+        Name=name, PermissionType="Share", AccountIdsToAdd=[OTHER_ACCOUNT]))
     snapshot.match("shared", ssm.describe_document_permission(Name=name, PermissionType="Share"))
     snapshot.match("unshare", ssm.modify_document_permission(
-        Name=name, PermissionType="Share", AccountIdsToRemove=["111122223333"]))
+        Name=name, PermissionType="Share", AccountIdsToRemove=[OTHER_ACCOUNT]))
     snapshot.match("tags", ssm.list_tags_for_resource(ResourceType="Document", ResourceId=name))
     listed = ssm.list_documents(Filters=[{"Key": "Owner", "Values": ["Self"]}, {"Key": "Name", "Values": [name]}])
     snapshot.match("listed", listed, opaque=varying)
@@ -290,7 +320,7 @@ def test_document_lifecycle(client, names, cleanup, snapshot):
 
 def test_document_content_is_checked(client, names, cleanup, snapshot):
     ssm = client("ssm")
-    for label in ("not-json", "bad-schema", "no-steps", "reserved"):
+    for label in ("not-json", "bad-schema", "no-steps"):
         cleanup(ssm.delete_document, Name=names(label))
     snapshot.error("not-json", lambda: ssm.create_document(Name=names("not-json"), Content="{nope",
                                                           DocumentType="Command"))
@@ -298,7 +328,6 @@ def test_document_content_is_checked(client, names, cleanup, snapshot):
         Name=names("bad-schema"), Content='{"schemaVersion":"9.9","mainSteps":[]}', DocumentType="Command"))
     snapshot.error("no-steps", lambda: ssm.create_document(
         Name=names("no-steps"), Content='{"schemaVersion":"2.2"}', DocumentType="Command"))
-    snapshot.error("reserved-prefix", lambda: ssm.create_document(Name="AWS-ConformanceNotYours", Content=SHELL_DOC))
     yaml = "schemaVersion: '0.3'\nmainSteps:\n  - name: wait\n    action: aws:sleep\n    inputs:\n      Duration: PT1S\n"
     auto = names("auto")
     cleanup(ssm.delete_document, Name=auto)
@@ -307,15 +336,34 @@ def test_document_content_is_checked(client, names, cleanup, snapshot):
         opaque=("CreatedDate", "Hash", "Owner"))
 
 
-def test_service_settings(client, cleanup, snapshot):
+def test_document_names_aws_reserves(client, snapshot, target):
+    # Not recorded on purpose: the recorder may make only its own conformance names, so on AWS its own policy refuses an AWS-
+    # name first ("no identity-based policy allows the ssm:CreateDocument action") and SSM's answer is never reached.
+    if target.name == "aws":
+        pytest.skip("the recorder's policy refuses ssm:CreateDocument outside its own names before SSM's own check")
     ssm = client("ssm")
-    tier = "/ssm/parameter-store/default-parameter-tier"
-    cleanup(ssm.reset_service_setting, SettingId=tier)
-    # Who changed a setting, and when, differ from run to run.
-    varying = ("LastModifiedDate", "LastModifiedUser")
-    snapshot.match("get-default", ssm.get_service_setting(SettingId=tier), opaque=varying)
-    snapshot.match("update", ssm.update_service_setting(SettingId=tier, SettingValue="Intelligent-Tiering"))
-    snapshot.match("get-updated", ssm.get_service_setting(SettingId=tier), opaque=varying)
-    snapshot.error("bad-value", lambda: ssm.update_service_setting(SettingId=tier, SettingValue="Gold"))
-    snapshot.match("reset", ssm.reset_service_setting(SettingId=tier), opaque=varying)
+    snapshot.error("reserved-prefix", lambda: ssm.create_document(Name="AWS-ConformanceNotYours", Content=SHELL_DOC))
+
+
+TIER = "/ssm/parameter-store/default-parameter-tier"
+# Who changed a setting, and when, differ from run to run.
+SETTING_VARYING = ("LastModifiedDate", "LastModifiedUser")
+
+
+def test_service_settings(client, snapshot):
+    ssm = client("ssm")
+    snapshot.match("get-default", ssm.get_service_setting(SettingId=TIER), opaque=SETTING_VARYING)
     snapshot.error("unknown-setting", lambda: ssm.get_service_setting(SettingId="/ssm/not/a/setting"))
+
+
+def test_service_settings_update_and_reset(client, cleanup, snapshot, target):
+    # Not recorded on purpose: a service setting is the account's own, and changing it on the recorder account would change how
+    # every parameter there is created. The recorder is not allowed ssm:UpdateServiceSetting or ssm:ResetServiceSetting.
+    if target.name == "aws":
+        pytest.skip("changing a service setting changes the real account; the recorder may not")
+    ssm = client("ssm")
+    cleanup(ssm.reset_service_setting, SettingId=TIER)
+    snapshot.match("update", ssm.update_service_setting(SettingId=TIER, SettingValue="Intelligent-Tiering"))
+    snapshot.match("get-updated", ssm.get_service_setting(SettingId=TIER), opaque=SETTING_VARYING)
+    snapshot.error("bad-value", lambda: ssm.update_service_setting(SettingId=TIER, SettingValue="Gold"))
+    snapshot.match("reset", ssm.reset_service_setting(SettingId=TIER), opaque=SETTING_VARYING)
