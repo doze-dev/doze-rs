@@ -6,6 +6,7 @@ through `kcat` (a process of its own, which is also what lets one be killed with
     interop/run.sh                       # builds the release broker, starts it on a free port, runs everything
     interop/run.sh -only churn           # one scenario by name
     FRANZ_LOG=1 interop/run.sh -only franz-go    # franz-go's debug log (its join, balance and sync steps)
+    INTEROP_PORT=39520 interop/run.sh    # the broker on that port (and the next one under -tls), not a random one
 
     interop/run.sh -sasl                 the SASL cells (below) against a broker started with SASL on
     interop/run.sh -tls                  the TLS cells (below): the broker built with --features tls, over SASL_SSL and SSL
