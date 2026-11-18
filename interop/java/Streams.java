@@ -119,7 +119,10 @@ public class Streams {
         p.put(StreamsConfig.STATE_DIR_CONFIG, Files.createTempDirectory("doze-streams").toString());
         p.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, 100);
         p.put(StreamsConfig.STATESTORE_CACHE_MAX_BYTES_CONFIG, 0);
-        p.put(StreamsConfig.APPLICATION_SERVER_CONFIG, "localhost:" + port);
+        // Port 0: no endpoint. Kafka 4.4.0 cannot answer a member with an endpoint while the topology is not configured (its
+        // EndpointToPartitionsManager reads the configured subtopologies that are not there: UNKNOWN_SERVER_ERROR), so the
+        // scenario that starts with a missing source topic runs without one (docs/port/behaviours/streams-groups.md, STR-D1).
+        if (port != 0) p.put(StreamsConfig.APPLICATION_SERVER_CONFIG, "localhost:" + port);
         p.put(StreamsConfig.consumerPrefix(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG), "earliest");
         KafkaStreams ks = new KafkaStreams(wordCountTopology(in, out), p);
         ks.start();
@@ -272,7 +275,7 @@ public class Streams {
         String app = "java-streams-missing-" + run, in = app + "-in", out = app + "-out";
         try (Admin a = admin()) {
             createTopic(a, out, 1);
-            KafkaStreams ks = start(app, in, out, 7301);
+            KafkaStreams ks = start(app, in, out, 0);
             try {
                 waitFor("a group that is not ready", Duration.ofSeconds(60), () -> {
                     try {

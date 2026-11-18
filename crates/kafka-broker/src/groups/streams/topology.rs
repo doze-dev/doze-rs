@@ -153,6 +153,27 @@ pub(crate) fn summarize<'a>(topics: impl IntoIterator<Item = &'a str>) -> String
     }
 }
 
+/// The order a `java.util.HashMap` of these names iterates in (Kafka lists the missing internal topics from one): by
+/// bucket, the bucket being the spread `String.hashCode` masked by the table's size (16, doubled past three quarters
+/// full), and in the order given within a bucket.
+pub(crate) fn java_hash_order<'a>(names: impl IntoIterator<Item = &'a str>) -> Vec<&'a str> {
+    let mut all: Vec<&str> = names.into_iter().collect();
+    let mut capacity: usize = 16;
+    while all.len() * 4 > capacity * 3 {
+        capacity *= 2;
+    }
+    let bucket = |name: &str| {
+        let h = name
+            .encode_utf16()
+            .fold(0_i32, |h, c| h.wrapping_mul(31).wrapping_add(i32::from(c)));
+        // Java's `h ^ (h >>> 16)`: the high bits folded into the low, as unsigned.
+        let spread = h.cast_unsigned() ^ (h.cast_unsigned() >> 16);
+        usize::try_from(spread).unwrap_or(0) & (capacity - 1)
+    };
+    all.sort_by_key(|n| bucket(n));
+    all
+}
+
 /// The partitions of a topic: what it has if it exists, else what has been decided for it.
 struct Counts<'a> {
     topics: &'a Topics,
@@ -246,7 +267,7 @@ pub(crate) fn configure(topology: &Topology, topics: &Topics) -> Result<Configur
         code: MISSING_INTERNAL_TOPICS,
         detail: format!(
             "Internal topics are missing: {}",
-            summarize(create.keys().map(String::as_str))
+            summarize(java_hash_order(create.keys().map(String::as_str)))
         ),
     });
     Ok(Configured {
