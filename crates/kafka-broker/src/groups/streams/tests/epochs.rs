@@ -102,3 +102,22 @@ fn a_topic_that_grows_moves_the_epoch_and_the_tasks_follow() {
     assert_eq!(a.status.last().map(|s| s.0), Some(super::super::topology::INCORRECTLY_PARTITIONED_TOPICS));
     assert_eq!(w.group.state(), "NotReady");
 }
+
+/// STR-55: the heartbeat that makes the group is told endpoint epoch 0 and the group keeps 0 (Kafka makes the group again
+/// from its records, without the epoch the first heartbeat moved): the next heartbeat, at 0, is not sent the endpoints again.
+#[test]
+fn the_endpoint_epoch_a_new_group_moves_is_not_kept() {
+    let mut w = World::new(topics(&[("in", 1)]));
+    let mut j = join("a");
+    j.endpoint = Some(super::super::Endpoint {
+        host: "localhost".into(),
+        port: 7001,
+    });
+    let first = w.send(&j);
+    assert_eq!(first.endpoint_epoch, 0);
+    assert!(first.endpoints.is_some(), "the join is told: its endpoint epoch was -1");
+    let mut next = beat("a", first.epoch, Some(w.held("a")));
+    next.endpoint_epoch = 0;
+    let second = w.send(&next);
+    assert_eq!((second.endpoint_epoch, second.endpoints.is_none()), (0, true));
+}

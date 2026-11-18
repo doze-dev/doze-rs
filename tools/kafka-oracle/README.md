@@ -15,3 +15,11 @@ AlterClientQuotas, the controller mutation quota), doze-kafka is held to a real 
 Kafka's own tools against both, as the behaviours cite them: `kafka-log-dirs.sh --describe`, `kafka-configs.sh --alter
 --entity-type users|clients ... --add-config producer_byte_rate=...`, `kafka-producer-perf-test.sh` and
 `kafka-consumer-perf-test.sh` with a client id that has a quota. Ports: 39400 to 39401 here; never the owner's 29xxx or 19592.
+
+## Streams groups (KIP-1071)
+
+`docs/port/behaviours/streams-groups.md`, "The oracle". With Kafka on 39600 and doze-kafka on 39610 (2026-11-18):
+- `interop/java/Streams.java` against each, with `JAVA_LOG=debug` and its output kept; then
+  `bun tools/kafka-oracle/streams/compare-heartbeats.ts <kafka log> <doze log> v` compares every heartbeat answer of every client.
+- `tools/kafka-oracle/streams/tool.sh <kafka dir> <host:port> <out>` against each: `kafka-streams-groups.sh` with a word count
+  (`streams/Serve.java`) running and then stopped; the two outputs differ only by ids and row order.

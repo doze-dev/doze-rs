@@ -261,7 +261,8 @@ epoch is not the group's is told, for each member with an endpoint (the others i
 its standby and warm-up tasks as the partitions of the topics each subtopology reads (task p: partition p, where the topic has
 it). The heartbeat that makes a group is answered endpoint epoch 0 and the group keeps 0 (Kafka's new group is made again from its
 records) (GMM L2368-2380; SG L1502-1548; EndpointToPartitionsManager).
-Test: `members::each_member_with_an_endpoint_is_told_where_every_task_is_itself_last`; the oracle.
+Test: `members::each_member_with_an_endpoint_is_told_where_every_task_is_itself_last`,
+`epochs::the_endpoint_epoch_a_new_group_moves_is_not_kept`; the oracle.
 
 ### STR-56. Task offsets
 A member's task offsets and end offsets are kept in memory (null: unchanged) and shown by describe; the assignor ranks standby
@@ -371,12 +372,24 @@ by side (2026-11-18):
   client was logged (the Java client at debug) and compared after normalising ids: the word count, the restart and the admin
   scenarios answer the same, field by field, in the same order (member epochs 1, 1, 3; the statuses and their words; the task
   lists; the endpoint lists); the scaling scenario assigns the same tasks, standbys and epochs, its answers interleaved differently
-  with the three instances' timing and its endpoint epoch counting a few more moves on Kafka.
+  with the three instances' timing and its endpoint epoch counting a few more moves on Kafka
+  (`tools/kafka-oracle/streams/compare-heartbeats.ts`).
 - `kafka-streams-groups.sh` (`--list`, `--list --state`, `--describe` with `--members`, `--state`, `--offsets` and `--verbose`,
   `--reset-offsets` dry run and refused while running, `--delete` refused while running and done with `--delete-all-internal-topics`
-  after, `--delete-offsets`) prints the same against both but for ids and row order.
+  after, `--delete-offsets`) prints the same against both but for ids and row order (`tools/kafka-oracle/streams/tool.sh`).
 - A Kafka Streams application with an endpoint (`application.server`) started before its source topic exists gets
   UNKNOWN_SERVER_ERROR from Kafka 4.4.0 on every heartbeat (STR-D1); without one, both say NotReady and count once the topic is made.
+
+## The mutation check
+
+Each new rule was broken by hand, alone, and the streams tests (`kafka-broker` lib `groups::streams`, `tests/streams_groups.rs`,
+`tests/streams_crash.rs`, `tests/authz_streams.rs`) run (2026-11-18); every one failed them: missing source topics never
+missing; an internal topic of the wrong size let through; the Java hash order dropped; the active quota ignored; a standby put on a
+process that has the task; a member that has not revoked moved on; an active task held elsewhere given; a greater epoch let in;
+no initial delay; no assignment interval; OffsetCommit below v9 let in; a commit at an older epoch let through for any held task;
+the new group's endpoint epoch kept; a new group at epoch 0; MISSING_CLIENT_TAGS to version 0; a kept group not brought back for a
+member of the last run; internal topics made without CREATE; a topology update let through; a shutdown request kept after the group
+empties; a session that runs out ignored.
 
 ## Deviations
 - **STR-D1.** A member with an endpoint, in a group whose topology is not configured (source topics missing, or topics wrongly
