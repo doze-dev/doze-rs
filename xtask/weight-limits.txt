@@ -56,9 +56,9 @@
 # Nothing wakes while no lock is held (tests/idle_upkeep.rs). Bytes: times CI's 1.3747 is 11,590,634 B on ubuntu x86_64, plus 5% =
 # 12,170,166 B until CI measures it (ceiling 15 MB). Idle: CI's 11,132 KB times the measured rise (7,968 / 7,840) is 11,314 KB, plus 5% =
 # 11,880 KB.
-# 2026-11-18, share groups on main with quotas: main 8,166,320 B plus share groups 447,216 B = 8,613,536 B estimated on darwin; times 1.3747
-# plus 5% = 12,433,184 B until CI measures it. Idle: share groups' 11,880 KB (above main's 11,689 KB).
-doze-kafka 12433184 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-18, share groups on main with quotas, measured: darwin arm64 8,646,672 B, 182 packages, idle 7,952 KB; times 1.3747 plus 5% =
+# 12,481,014 B until CI measures it. Idle: share groups' 11,880 KB (above main's 11,689 KB).
+doze-kafka 12481014 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
