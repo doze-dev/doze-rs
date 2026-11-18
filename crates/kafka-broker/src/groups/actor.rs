@@ -109,6 +109,8 @@ struct Keeper<R: Records> {
     unwritten_empty: Option<Instant>,
     /// The kind of group the record says it is ([`Kept::tag`]).
     kind: u8,
+    /// The epochs the record has, for a group that keeps them up to date ([`Group::kept_epochs`]).
+    epochs: Option<(i32, i32)>,
 }
 
 impl<R: Records> Keeper<R> {
@@ -143,14 +145,19 @@ impl<R: Records> Keeper<R> {
         } else if machine.member_count() > 0 {
             self.unwritten_empty = None;
             // A group that has changed kind with its members in it (an upgrade, or the last member of the new protocol
-            // gone) is recorded as the kind it is, or a restart would list and judge it as the other.
-            let kept = machine.kept();
-            if kept.tag() != self.kind
-                && self
+            // gone) is recorded as the kind it is, or a restart would list and judge it as the other; a streams group's
+            // record follows its epochs.
+            let epochs = machine.kept_epochs();
+            let moved = epochs.is_some() && epochs != self.epochs;
+            if machine.kind_tag() != self.kind || moved {
+                let kept = machine.kept();
+                if self
                     .records
                     .live(self.session, machine.protocol_type().unwrap_or(""), &kept)
-            {
-                self.kind = kept.tag();
+                {
+                    self.kind = kept.tag();
+                    self.epochs = epochs;
+                }
             }
         }
     }
@@ -186,6 +193,7 @@ pub(super) async fn run(
         session: 0,
         unwritten_empty: None,
         kind: 0,
+        epochs: None,
     };
     loop {
         let wake = timers.next().map(|at| start + Duration::from_millis(at.0));

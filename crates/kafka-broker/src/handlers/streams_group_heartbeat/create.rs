@@ -15,7 +15,7 @@ use kafka_wire::messages::CreateTopicsRequest;
 use kafka_wire::messages::create_topics_request::{CreatableTopic, CreatableTopicConfig};
 
 use crate::groups::StreamsAnswer;
-use crate::groups::streams::topology::{Creatable, MISSING_INTERNAL_TOPICS};
+use crate::groups::streams::topology::{Creatable, MISSING_INTERNAL_TOPICS, java_hash_order};
 use crate::quotas::Mutations;
 use crate::{Broker, Caller};
 
@@ -71,9 +71,10 @@ impl<F: Fs> Broker<F> {
         let creatable = std::mem::take(&mut answer.create);
         let guard = self.guard(caller);
         if !guard.cluster(Operation::Create) {
-            let refused: Vec<&str> = creatable
-                .iter()
-                .map(|c| c.name.as_str())
+            // Named in the order Kafka's map of the topics to make has them.
+            let names = creatable.iter().map(|c| c.name.as_str());
+            let refused: Vec<&str> = java_hash_order(names)
+                .into_iter()
                 .filter(|n| !guard.topic(Operation::Create, n))
                 .collect();
             if !refused.is_empty() {

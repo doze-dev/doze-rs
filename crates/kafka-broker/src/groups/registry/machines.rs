@@ -75,3 +75,16 @@ impl Groups {
         }
     }
 }
+
+impl Groups {
+    /// Whether a streams heartbeat that is not a join may bring back a streams group the broker had before it was started
+    /// again: its members are not kept, so they are told they are unknown (and join again) rather than that the group is
+    /// not there, which Kafka Streams takes as fatal.
+    pub(super) fn streams_kept(&self, group: &GroupId, req: &Req) -> bool {
+        matches!(req, Req::StreamsHeartbeat(h) if h.epoch != 0)
+            && crate::blocking::run(|| self.meta.group_life(group))
+                .ok()
+                .flatten()
+                .is_some_and(|l| l.streams.is_some())
+    }
+}

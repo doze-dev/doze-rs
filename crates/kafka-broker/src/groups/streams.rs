@@ -221,6 +221,12 @@ impl StreamsGroup {
         }
     }
 
+    /// The group epoch and the assignment epoch.
+    #[must_use]
+    pub(crate) fn epochs(&self) -> (i32, i32) {
+        (self.epoch, self.assignment_epoch)
+    }
+
     /// Whether this heartbeat would seat a member who is not in the group now.
     #[must_use]
     pub(crate) fn would_seat(&self, hb: &StreamsHeartbeat) -> bool {

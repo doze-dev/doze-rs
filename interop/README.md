@@ -273,6 +273,23 @@ is one skip line. By hand: `cd interop && java -cp "$(bun java/fetch.ts 4)" java
 | `share-read-committed` | `share.isolation.level` read_committed: an aborted transaction's records are never delivered |
 | `share-admin` | list (type SHARE) and describe; a reset refused while a member is in (GroupNotEmpty); latest left the ten records unread; a reset to 0 while empty delivers them; offsets deleted; the group deleted |
 
+## Streams groups (KIP-1071)
+
+`interop/java/Streams.java` runs Apache Kafka Streams 4.4.0 itself with `group.protocol=streams`: a word count that re-keys
+its words (a repartition topic) and counts them in a store (a changelog topic), and the streams-group Admin calls. Like
+`Share.java` it is a program of its own, run by `run.sh -java` with the 4.4 client on plain connections; its classpath adds
+`kafka-streams` (`bun java/fetch.ts streams`). The stores are in memory, so RocksDB is not needed. Every scenario passed
+against a real Apache Kafka 4.4.0 as well (2026-11-18). By hand:
+`cd interop && java -cp "$(bun java/fetch.ts streams)" java/Streams.java -broker 127.0.0.1:9092 [-only NAME]`.
+
+| Scenario | What it does |
+|---|---|
+| `streams-wordcount` | counts words through a repartition topic and a changelog; the group is Stable with two subtopologies and six tasks; the internal topics were made by the broker with three partitions, the changelog compacted; the member's endpoint is described |
+| `streams-scale` | `streams.num.standby.replicas` 1 (a group config); one, two, then three instances, each stable, with a standby of each stateful task; one closes (leaves), one dies (stays in the group) and is fenced when its 45 s session runs out; the survivor runs every task and the counts go on |
+| `streams-restart` | the application stops, the group empties, more is produced, and a new instance picks the count up from its changelog |
+| `streams-missing-source` | started before its source topic exists: the group is NotReady and nothing runs; once the topic is made the words are counted |
+| `streams-admin` | listed by type STREAMS; described (process, client, the sticky assignor); offsets reset while empty, deleted, and the group deleted |
+
 All seven passed against doze and against a real Apache Kafka 4.4.0 (KRaft, one combined node) on 2026-11-15. One difference is the
 test's, not the broker's: Kafka applies a group config a moment after IncrementalAlterConfigs answers, so the scenarios that set one
 wait until DescribeConfigs shows it before they start a member. What doze and Kafka do differently, and why, is in

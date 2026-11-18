@@ -170,10 +170,11 @@ impl Groups {
 
     /// Where a request for `group` goes now.
     fn find(&self, group: &GroupId, req: &Req) -> Found {
+        let begins = can_begin(req) || self.streams_kept(group, req);
         match self.table().get(group) {
             Some(Slot::Live(sender)) => Found::Live(sender.clone()),
             Some(Slot::Deleting(done)) => Found::Going(done.clone()),
-            None if can_begin(req) => Found::Begins,
+            None if begins => Found::Begins,
             None => Found::Absent,
         }
     }

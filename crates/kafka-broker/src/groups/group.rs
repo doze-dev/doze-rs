@@ -162,6 +162,28 @@ impl Group {
         }
     }
 
+    /// The epochs a streams group's record is kept up to date with while it has members, so that a broker stopped with
+    /// members in it starts the group again at the epoch it had (the epoch never goes back). `None` for the other kinds,
+    /// whose record is written as members come and go.
+    #[must_use]
+    pub(crate) fn kept_epochs(&self) -> Option<(i32, i32)> {
+        match &self.kind {
+            Kind::Streams(s) => Some(s.epochs()),
+            Kind::Classic(_) | Kind::Consumer(_) | Kind::Share(_) => None,
+        }
+    }
+
+    /// Which kind it is, as [`Kept::tag`] says it.
+    #[must_use]
+    pub(crate) fn kind_tag(&self) -> u8 {
+        match &self.kind {
+            Kind::Classic(_) => 0,
+            Kind::Consumer(_) => 1,
+            Kind::Share(_) => 2,
+            Kind::Streams(_) => 3,
+        }
+    }
+
     /// What the group keeps across a restart.
     #[must_use]
     pub(crate) fn kept(&self) -> Kept {
