@@ -78,7 +78,13 @@ pub fn answer(
 /// (share groups on, level 1, and their dead-letter queue, level 2), under the same rules as `transaction.version`; and
 /// `streams.version` (KIP-1071) likewise: supported 0 to 1, finalized at 1 (streams groups on). `most` is the highest
 /// level supported.
-fn feature(name: &'static str, level: i16, most: i16, version: i16, resp: &mut ApiVersionsResponse) {
+fn feature(
+    name: &'static str,
+    level: i16,
+    most: i16,
+    version: i16,
+    resp: &mut ApiVersionsResponse,
+) {
     if level == 0 {
         return;
     }

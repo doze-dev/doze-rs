@@ -20,7 +20,11 @@ use crate::handlers::Client;
 use crate::{Broker, Caller, Outcome};
 
 /// The topics Kafka keeps for itself, which a topology may not name.
-const KAFKA_INTERNAL: [&str; 3] = ["__consumer_offsets", "__transaction_state", "__share_group_state"];
+const KAFKA_INTERNAL: [&str; 3] = [
+    "__consumer_offsets",
+    "__transaction_state",
+    "__share_group_state",
+];
 
 /// Kafka's `Topic.isValid`: 1 to 249 characters of `[a-zA-Z0-9._-]`, and not `.` or `..`.
 pub(crate) fn valid_topic_name(name: &str) -> bool {
@@ -43,11 +47,18 @@ impl<F: Fs> Broker<F> {
     ) -> Outcome {
         let guard = self.guard(caller);
         if !guard.group(Operation::Read, req.group_id.0.as_str()) {
-            return wire::respond_raw(StreamsGroupHeartbeatResponse::default(), E::GroupAuthorizationFailed);
+            return wire::respond_raw(
+                StreamsGroupHeartbeatResponse::default(),
+                E::GroupAuthorizationFailed,
+            );
         }
         if let Some(topology) = &req.topology {
             let names = wire::topology_names(topology);
-            let internal: Vec<&str> = names.iter().copied().filter(|n| KAFKA_INTERNAL.contains(n)).collect();
+            let internal: Vec<&str> = names
+                .iter()
+                .copied()
+                .filter(|n| KAFKA_INTERNAL.contains(n))
+                .collect();
             if !internal.is_empty() {
                 return wire::respond(&StreamsAnswer::refused(
                     E::StreamsInvalidTopology,
@@ -57,27 +68,47 @@ impl<F: Fs> Broker<F> {
                     ),
                 ));
             }
-            let invalid: Vec<&str> = names.iter().copied().filter(|n| !valid_topic_name(n)).collect();
+            let invalid: Vec<&str> = names
+                .iter()
+                .copied()
+                .filter(|n| !valid_topic_name(n))
+                .collect();
             if !invalid.is_empty() {
                 return wire::respond(&StreamsAnswer::refused(
                     E::StreamsInvalidTopology,
-                    format!("Topic names {} are not valid topic names.", invalid.join(",")),
+                    format!(
+                        "Topic names {} are not valid topic names.",
+                        invalid.join(",")
+                    ),
                 ));
             }
             if names.iter().any(|n| !guard.topic(Operation::Describe, n)) {
-                return wire::respond_raw(StreamsGroupHeartbeatResponse::default(), E::TopicAuthorizationFailed);
+                return wire::respond_raw(
+                    StreamsGroupHeartbeatResponse::default(),
+                    E::TopicAuthorizationFailed,
+                );
             }
         }
         if let Err((error, words)) = wire::check(req) {
             return wire::respond(&StreamsAnswer::refused(error, words));
         }
         let Ok(group) = GroupId::parse(req.group_id.0.as_str()) else {
-            return wire::respond(&StreamsAnswer::refused(E::InvalidRequest, "GroupId can't be empty."));
+            return wire::respond(&StreamsAnswer::refused(
+                E::InvalidRequest,
+                "GroupId can't be empty.",
+            ));
         };
         let Some(typed) = wire::typed(version, client, req, self.streams_timing(&group)) else {
-            return wire::respond(&StreamsAnswer::refused(E::InvalidRequest, "MemberId can't be empty."));
+            return wire::respond(&StreamsAnswer::refused(
+                E::InvalidRequest,
+                "MemberId can't be empty.",
+            ));
         };
-        let mut answer = match self.groups.ask(&group, Req::StreamsHeartbeat(Box::new(typed))).await {
+        let mut answer = match self
+            .groups
+            .ask(&group, Req::StreamsHeartbeat(Box::new(typed)))
+            .await
+        {
             Some(Answer::StreamsHeartbeat(a)) => *a,
             _ => StreamsAnswer::refused(E::GroupIdNotFound, format!("Group {group} not found.")),
         };

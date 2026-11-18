@@ -52,7 +52,9 @@ pub(crate) fn by_subtopology(tasks: &BTreeSet<Task>) -> BTreeMap<&str, Vec<i32>>
 }
 
 /// Tasks from the wire's form.
-pub(crate) fn from_wire<'a>(lists: impl IntoIterator<Item = (&'a str, &'a [i32])>) -> BTreeSet<Task> {
+pub(crate) fn from_wire<'a>(
+    lists: impl IntoIterator<Item = (&'a str, &'a [i32])>,
+) -> BTreeSet<Task> {
     lists
         .into_iter()
         .flat_map(|(sub, ps)| ps.iter().map(move |p| (sub.to_owned(), *p)))

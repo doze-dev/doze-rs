@@ -67,7 +67,11 @@ impl Member {
     pub(super) fn update(&mut self, hb: &StreamsHeartbeat) -> Changed {
         // What every member's epoch depends on, and what only a dynamic member's does.
         let (mut counts, mut dynamic, mut endpoint) = (false, false, false);
-        if let Some(i) = hb.instance.as_ref().filter(|i| self.instance.as_ref() != Some(*i)) {
+        if let Some(i) = hb
+            .instance
+            .as_ref()
+            .filter(|i| self.instance.as_ref() != Some(*i))
+        {
             self.instance = Some(i.clone());
             dynamic = true;
         }
@@ -81,7 +85,11 @@ impl Member {
         }
         dynamic |= replace(&mut self.client_id, &hb.client_id);
         dynamic |= replace(&mut self.client_host, &hb.client_host);
-        if let Some(t) = hb.topology.as_ref().filter(|t| t.epoch != self.topology_epoch) {
+        if let Some(t) = hb
+            .topology
+            .as_ref()
+            .filter(|t| t.epoch != self.topology_epoch)
+        {
             self.topology_epoch = t.epoch;
             counts = true;
         }

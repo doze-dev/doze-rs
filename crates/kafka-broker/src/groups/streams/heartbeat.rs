@@ -11,7 +11,9 @@ use super::member::Member;
 use super::reconcile::{Holders, Stage, reconcile};
 use super::seat::Seat;
 use super::topology::{Configured, MISSING_INTERNAL_TOPICS, Topology, configure};
-use super::{Refusal, Seen, StreamsAnswer, StreamsGroup, StreamsHeartbeat, Task, Tasks, endpoints, status};
+use super::{
+    Refusal, Seen, StreamsAnswer, StreamsGroup, StreamsHeartbeat, Task, Tasks, endpoints, status,
+};
 use crate::groups::consumer::Topics;
 use crate::groups::machine::{Answer, Effect, Millis, TimerKind, Token};
 use crate::groups::note::Cause;
@@ -35,7 +37,9 @@ fn offsets(list: Option<&Vec<(Task, i64)>>) -> Result<Option<BTreeMap<Task, i64>
         if out.insert((sub.clone(), *p), *offset).is_some() {
             return Err((
                 E::InvalidRequest,
-                format!("Task offsets contain a duplicate entry for subtopology {sub} and partition {p}."),
+                format!(
+                    "Task offsets contain a duplicate entry for subtopology {sub} and partition {p}."
+                ),
             ));
         }
     }
@@ -46,7 +50,10 @@ fn offsets(list: Option<&Vec<(Task, i64)>>) -> Result<Option<BTreeMap<Task, i64>
 fn check_owned(owned: &Tasks, configured: &Configured) -> Result<(), Refusal> {
     for (sub, p) in owned.all() {
         let Some(s) = configured.subtopologies.get(sub) else {
-            return Err((E::InvalidRequest, format!("Subtopology {sub} does not exist in the topology.")));
+            return Err((
+                E::InvalidRequest,
+                format!("Subtopology {sub} does not exist in the topology."),
+            ));
         };
         if *p < 0 || *p >= s.tasks {
             return Err((
@@ -75,9 +82,14 @@ impl StreamsGroup {
             self.leave(hb, now, out)
         } else {
             self.plan(hb, topics)
-                .map_or_else(StreamsAnswer::from, |plan| self.beat(hb, plan, topics, now, out))
+                .map_or_else(StreamsAnswer::from, |plan| {
+                    self.beat(hb, plan, topics, now, out)
+                })
         };
-        out.push(Effect::Reply(token, Answer::StreamsHeartbeat(Box::new(answer))));
+        out.push(Effect::Reply(
+            token,
+            Answer::StreamsHeartbeat(Box::new(answer)),
+        ));
     }
 
     /// The topology a join brings: set if the group has none; one at an older epoch than the group's is let be (the
@@ -117,7 +129,10 @@ impl StreamsGroup {
         } else {
             None
         };
-        let current = configured.as_ref().map(|c| &c.0).or(self.configured.as_ref());
+        let current = configured
+            .as_ref()
+            .map(|c| &c.0)
+            .or(self.configured.as_ref());
         if let (Some(c), Some(owned)) = (current.filter(|c| c.ready()), &hb.owned) {
             check_owned(owned, c)?;
         }
@@ -157,7 +172,12 @@ impl StreamsGroup {
     }
 
     /// Applies the plan's changes to the group; `Some(cause)` if the group epoch is to move.
-    fn apply(&mut self, hb: &StreamsHeartbeat, plan: Plan, out: &mut Vec<Effect>) -> (Option<Cause>, bool) {
+    fn apply(
+        &mut self,
+        hb: &StreamsHeartbeat,
+        plan: Plan,
+        out: &mut Vec<Effect>,
+    ) -> (Option<Cause>, bool) {
         let joined = self.take_seat(hb, plan.seat, out);
         if plan.topology.is_some() {
             self.topology = plan.topology;
@@ -244,7 +264,11 @@ impl StreamsGroup {
     }
 
     /// The member's target and its epoch, the targets computed first if they may be; and whether that was delayed.
-    fn target_of(&mut self, id: &kafka_wire::ids::MemberId, now: Millis) -> (i32, Tasks, Option<&'static str>) {
+    fn target_of(
+        &mut self,
+        id: &kafka_wire::ids::MemberId,
+        now: Millis,
+    ) -> (i32, Tasks, Option<&'static str>) {
         if self.delaying {
             return (
                 self.assignment_epoch,
@@ -265,8 +289,9 @@ impl StreamsGroup {
     }
 
     pub(super) fn may_assign(&self, now: Millis) -> bool {
-        self.assigned_at
-            .is_none_or(|at| self.assign_interval_ms == 0 || now.0 >= at.0.saturating_add(self.assign_interval_ms))
+        self.assigned_at.is_none_or(|at| {
+            self.assign_interval_ms == 0 || now.0 >= at.0.saturating_add(self.assign_interval_ms)
+        })
     }
 
     /// The member's step towards its target, its session started again, and its rebalance timer as its stage says.
@@ -285,16 +310,32 @@ impl StreamsGroup {
             for m in self.members.values() {
                 holders.add(&m.process, &m.held);
             }
-            self.members
-                .get(id)
-                .and_then(|m| reconcile(&m.held, &m.process, target, target_epoch, hb.owned.as_ref(), &holders))
+            self.members.get(id).and_then(|m| {
+                reconcile(
+                    &m.held,
+                    &m.process,
+                    target,
+                    target_epoch,
+                    hb.owned.as_ref(),
+                    &holders,
+                )
+            })
         };
-        let session = self.arm(TimerKind::Session(id.clone()), now.plus(hb.timing.session_ms), out);
+        let session = self.arm(
+            TimerKind::Session(id.clone()),
+            now.plus(hb.timing.session_ms),
+            out,
+        );
         let revoke = next
             .as_ref()
             .filter(|n| n.stage == Stage::Unrevoked)
             .zip(self.members.get(id))
-            .map(|(n, m)| (n.epoch, now.plus(u64::try_from(m.rebalance_ms).unwrap_or(0))));
+            .map(|(n, m)| {
+                (
+                    n.epoch,
+                    now.plus(u64::try_from(m.rebalance_ms).unwrap_or(0)),
+                )
+            });
         let revoke_gen = match (&next, revoke) {
             (_, Some((_, at))) => Some(self.arm(TimerKind::Revoke(id.clone()), at, out)),
             (Some(_), None) => {
@@ -303,7 +344,9 @@ impl StreamsGroup {
             }
             (None, None) => None,
         };
-        let Some(m) = self.members.get_mut(id) else { return false };
+        let Some(m) = self.members.get_mut(id) else {
+            return false;
+        };
         m.session_gen = session;
         m.session_ms = hb.timing.session_ms;
         m.heard = now;
@@ -335,9 +378,11 @@ impl StreamsGroup {
             })
         });
         let create = match self.configured.as_ref().and_then(|c| c.not_ready.as_ref()) {
-            Some(n) if n.code == MISSING_INTERNAL_TOPICS => {
-                self.configured.as_ref().map(|c| c.create.clone()).unwrap_or_default()
-            }
+            Some(n) if n.code == MISSING_INTERNAL_TOPICS => self
+                .configured
+                .as_ref()
+                .map(|c| c.create.clone())
+                .unwrap_or_default(),
             _ => Vec::new(),
         };
         StreamsAnswer {
@@ -356,9 +401,18 @@ impl StreamsGroup {
     }
 
     /// The statuses, in Kafka's order.
-    fn statuses(&self, hb: &StreamsHeartbeat, m: &Member, delayed: Option<&'static str>) -> Vec<(i8, String)> {
+    fn statuses(
+        &self,
+        hb: &StreamsHeartbeat,
+        m: &Member,
+        delayed: Option<&'static str>,
+    ) -> Vec<(i8, String)> {
         let mut out = Vec::new();
-        if let Some(t) = self.topology.as_ref().filter(|t| m.topology_epoch < t.epoch) {
+        if let Some(t) = self
+            .topology
+            .as_ref()
+            .filter(|t| m.topology_epoch < t.epoch)
+        {
             out.push((
                 status::STALE_TOPOLOGY,
                 format!(

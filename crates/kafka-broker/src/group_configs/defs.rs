@@ -10,8 +10,12 @@ use super::{ASSIGN, DELIVERY, HEARTBEAT, ISOLATION, LOCK, LOCKS, RENEW, RESET, S
 /// The kind of value a config takes, as Kafka's `ConfigDef` types it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
-    Int { at_least: i64 },
-    Long { at_least: i64 },
+    Int {
+        at_least: i64,
+    },
+    Long {
+        at_least: i64,
+    },
     Text,
     Bool,
     /// A comma-separated list.
@@ -58,7 +62,12 @@ const fn def(
     }
 }
 
-const fn internal(name: &'static str, kind: Kind, default: &'static str, synonym: &'static str) -> Def {
+const fn internal(
+    name: &'static str,
+    kind: Kind,
+    default: &'static str,
+    synonym: &'static str,
+) -> Def {
     Def {
         name,
         kind,
@@ -74,25 +83,105 @@ const fn int(at_least: i64) -> Kind {
 
 /// The group configs kept.
 pub(crate) const DEFS: &[Def] = &[
-    def(SESSION, int(1), "45000", Some("group.share.session.timeout.ms")),
-    def(HEARTBEAT, int(1), "5000", Some("group.share.heartbeat.interval.ms")),
-    def(LOCK, int(1000), "30000", Some("group.share.record.lock.duration.ms")),
-    def(DELIVERY, int(2), "5", Some("group.share.delivery.count.limit")),
-    def(LOCKS, int(100), "2000", Some("group.share.partition.max.record.locks")),
+    def(
+        SESSION,
+        int(1),
+        "45000",
+        Some("group.share.session.timeout.ms"),
+    ),
+    def(
+        HEARTBEAT,
+        int(1),
+        "5000",
+        Some("group.share.heartbeat.interval.ms"),
+    ),
+    def(
+        LOCK,
+        int(1000),
+        "30000",
+        Some("group.share.record.lock.duration.ms"),
+    ),
+    def(
+        DELIVERY,
+        int(2),
+        "5",
+        Some("group.share.delivery.count.limit"),
+    ),
+    def(
+        LOCKS,
+        int(100),
+        "2000",
+        Some("group.share.partition.max.record.locks"),
+    ),
     def(RESET, Kind::Text, "latest", None),
     def(ISOLATION, Kind::Text, "read_uncommitted", None),
     def(RENEW, Kind::Bool, "true", None),
-    def(ASSIGN, int(0), "1000", Some("group.share.assignment.interval.ms")),
-    def(STREAMS_SESSION, int(1), "45000", Some("group.streams.session.timeout.ms")),
-    def(STREAMS_HEARTBEAT, int(1), "5000", Some("group.streams.heartbeat.interval.ms")),
-    def(STANDBYS, int(0), "0", Some("group.streams.num.standby.replicas")),
-    def(INITIAL_DELAY, int(0), "3000", Some("group.streams.initial.rebalance.delay.ms")),
-    def(STREAMS_ASSIGN, int(0), "1000", Some("group.streams.assignment.interval.ms")),
-    internal(OFFLOAD, Kind::Bool, "true", "group.streams.assignor.offload.enable"),
-    internal(TASK_OFFSETS, int(1), "60000", "group.streams.task.offset.interval.ms"),
+    def(
+        ASSIGN,
+        int(0),
+        "1000",
+        Some("group.share.assignment.interval.ms"),
+    ),
+    def(
+        STREAMS_SESSION,
+        int(1),
+        "45000",
+        Some("group.streams.session.timeout.ms"),
+    ),
+    def(
+        STREAMS_HEARTBEAT,
+        int(1),
+        "5000",
+        Some("group.streams.heartbeat.interval.ms"),
+    ),
+    def(
+        STANDBYS,
+        int(0),
+        "0",
+        Some("group.streams.num.standby.replicas"),
+    ),
+    def(
+        INITIAL_DELAY,
+        int(0),
+        "3000",
+        Some("group.streams.initial.rebalance.delay.ms"),
+    ),
+    def(
+        STREAMS_ASSIGN,
+        int(0),
+        "1000",
+        Some("group.streams.assignment.interval.ms"),
+    ),
+    internal(
+        OFFLOAD,
+        Kind::Bool,
+        "true",
+        "group.streams.assignor.offload.enable",
+    ),
+    internal(
+        TASK_OFFSETS,
+        int(1),
+        "60000",
+        "group.streams.task.offset.interval.ms",
+    ),
     internal(WARMUPS, int(0), "2", "group.streams.num.warmup.replicas"),
-    def(TAGS, Kind::List, "", Some("group.streams.rack.aware.assignment.tags")),
-    internal(ACCEPTABLE_LAG, Kind::Long { at_least: 0 }, "10000", "group.streams.acceptable.recovery.lag"),
+    def(
+        TAGS,
+        Kind::List,
+        "",
+        Some("group.streams.rack.aware.assignment.tags"),
+    ),
+    internal(
+        ACCEPTABLE_LAG,
+        Kind::Long { at_least: 0 },
+        "10000",
+        "group.streams.acceptable.recovery.lag",
+    ),
     // Kafka reports the first registered assignor as its default, under the broker's list of them.
-    def(ASSIGNOR, Kind::Text, "sticky", Some("group.streams.assignors")),
+    def(
+        ASSIGNOR,
+        Kind::Text,
+        "sticky",
+        Some("group.streams.assignors"),
+    ),
 ];

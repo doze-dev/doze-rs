@@ -13,13 +13,19 @@ fn a_task_another_member_runs_is_given_only_once_that_member_has_let_go_of_it() 
     let b = w.send(&join("b"));
     w.advance(1_000);
     let a = w.send(&beat("a", epoch_a, Some(w.held("a"))));
-    assert_eq!(w.group.members[&super::id("a")].held.stage, Stage::Unrevoked);
+    assert_eq!(
+        w.group.members[&super::id("a")].held.stage,
+        Stage::Unrevoked
+    );
     assert_eq!(a.epoch, epoch_a, "a stays at its epoch until it revokes");
     let given_to_a = a.tasks.clone().expect("a is told what it keeps");
     assert_eq!(given_to_a.active.len(), 2);
     let b2 = w.send(&beat("b", b.epoch, Some(w.held("b"))));
     assert!(w.held("b").active.is_empty(), "b waits: {b2:?}");
-    assert_eq!(w.group.members[&super::id("b")].held.stage, Stage::Unreleased);
+    assert_eq!(
+        w.group.members[&super::id("b")].held.stage,
+        Stage::Unreleased
+    );
     // a says it now owns only what it keeps: its epoch moves on, and b is given the rest.
     let a2 = w.send(&beat("a", epoch_a, Some(given_to_a)));
     assert!(a2.epoch > epoch_a);
@@ -42,7 +48,10 @@ fn a_member_that_does_not_say_what_it_owns_is_not_taken_to_have_let_go() {
     let holders = Holders::default();
     assert_eq!(reconcile(&held, "p", &target, 4, None, &holders), None);
     let still = tasks(&[("0", 0), ("0", 1)], &[]);
-    assert_eq!(reconcile(&held, "p", &target, 4, Some(&still), &holders), None);
+    assert_eq!(
+        reconcile(&held, "p", &target, 4, Some(&still), &holders),
+        None
+    );
     let done = reconcile(&held, "p", &target, 4, Some(&target), &holders).unwrap();
     assert_eq!((done.epoch, done.stage), (4, Stage::Stable));
     assert!(done.revoking.is_empty());
@@ -68,7 +77,15 @@ fn a_standby_to_become_active_is_kept_until_the_active_task_is_given() {
     assert_eq!(next.stage, Stage::Unreleased);
     assert!(next.tasks.standby.contains(&task("1", 0)) && next.tasks.active.is_empty());
     // Released: it is active now, and the standby is gone.
-    let next = reconcile(&next, "p", &target, 3, Some(&next.tasks), &Holders::default()).unwrap();
+    let next = reconcile(
+        &next,
+        "p",
+        &target,
+        3,
+        Some(&next.tasks),
+        &Holders::default(),
+    )
+    .unwrap();
     assert_eq!(next.tasks, target);
     assert_eq!(next.given_at.get(&task("1", 0)), Some(&3));
 }

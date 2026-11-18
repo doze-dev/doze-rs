@@ -156,7 +156,11 @@ fn check_value(def: &Def, value: &str) -> Result<(), Refusal> {
                 value.trim().parse::<i64>().ok()
             }
             .ok_or_else(|| {
-                let kind = if matches!(def.kind, Kind::Int { .. }) { "INT" } else { "LONG" };
+                let kind = if matches!(def.kind, Kind::Int { .. }) {
+                    "INT"
+                } else {
+                    "LONG"
+                };
                 invalid(value, def.name, &format!("Not a number of type {kind}"))
             })?;
             if n < at_least {

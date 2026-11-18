@@ -247,10 +247,11 @@ impl StreamsGroup {
     }
 
     fn has_room(&self, hb: &StreamsHeartbeat) -> bool {
-        let rejoining = hb
-            .instance
-            .as_ref()
-            .is_some_and(|i| self.members.values().any(|m| m.instance.as_ref() == Some(i)));
+        let rejoining = hb.instance.as_ref().is_some_and(|i| {
+            self.members
+                .values()
+                .any(|m| m.instance.as_ref() == Some(i))
+        });
         rejoining || self.members.len() < hb.timing.max_size
     }
 

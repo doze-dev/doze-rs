@@ -54,15 +54,19 @@ impl StreamsGroup {
     /// rebalance delay, after which the targets are computed if they may be.
     pub(crate) fn timer(&mut self, key: &TimerKey, now: Millis, out: &mut Vec<Effect>) {
         match &key.kind {
-            TimerKind::Session(id) if self.members.get(id).is_some_and(|m| m.session_gen == key.generation) => {
+            TimerKind::Session(id)
+                if self
+                    .members
+                    .get(id)
+                    .is_some_and(|m| m.session_gen == key.generation) =>
+            {
                 let id = id.clone();
                 self.remove(&id, Cause::SessionExpired, now, out);
             }
             TimerKind::Revoke(id)
-                if self
-                    .members
-                    .get(id)
-                    .is_some_and(|m| m.revoke_gen == key.generation && m.revoke_epoch == m.held.epoch) =>
+                if self.members.get(id).is_some_and(|m| {
+                    m.revoke_gen == key.generation && m.revoke_epoch == m.held.epoch
+                }) =>
             {
                 let id = id.clone();
                 self.remove(&id, Cause::RebalanceTimeout, now, out);
@@ -70,7 +74,11 @@ impl StreamsGroup {
             TimerKind::Hold if self.delaying => {
                 self.delaying = false;
                 let configured = self.configured.is_some();
-                if !self.members.is_empty() && configured && self.epoch > self.assignment_epoch && self.may_assign(now) {
+                if !self.members.is_empty()
+                    && configured
+                    && self.epoch > self.assignment_epoch
+                    && self.may_assign(now)
+                {
                     self.compute_targets(now);
                 }
             }
@@ -82,7 +90,12 @@ impl StreamsGroup {
     pub(crate) fn topics_changed(&mut self) {}
 
     /// The Lab's steps: a member's session runs out, or the epoch moves (the next heartbeat computes new targets).
-    pub(crate) fn force_expire(&mut self, id: &MemberId, now: Millis, out: &mut Vec<Effect>) -> bool {
+    pub(crate) fn force_expire(
+        &mut self,
+        id: &MemberId,
+        now: Millis,
+        out: &mut Vec<Effect>,
+    ) -> bool {
         if !self.members.contains_key(id) {
             return false;
         }
@@ -108,7 +121,14 @@ impl StreamsGroup {
             .map(|m| Named::new(id, &m.client_id, None))
     }
 
-    pub(super) fn note_epoch(&self, cause: Cause, who: Option<Named>, was: usize, now: Millis, out: &mut Vec<Effect>) {
+    pub(super) fn note_epoch(
+        &self,
+        cause: Cause,
+        who: Option<Named>,
+        was: usize,
+        now: Millis,
+        out: &mut Vec<Effect>,
+    ) {
         let why = Why::new(cause, who, was);
         say(out, now, || What::Epoch {
             why,

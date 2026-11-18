@@ -133,34 +133,59 @@ impl Step<'_> {
     }
 
     /// Another member of this process holds `t` in `role`.
-    fn other_here(&self, role: &BTreeMap<&Task, BTreeSet<&str>>, mine: &BTreeSet<Task>, t: &Task) -> bool {
+    fn other_here(
+        &self,
+        role: &BTreeMap<&Task, BTreeSet<&str>>,
+        mine: &BTreeSet<Task>,
+        t: &Task,
+    ) -> bool {
         Holders::on(role, t, self.process) && !mine.contains(t)
     }
 
     fn active_here(&self, t: &Task) -> bool {
-        self.holders.active.get(t).is_some_and(|p| *p == self.process)
+        self.holders
+            .active
+            .get(t)
+            .is_some_and(|p| *p == self.process)
     }
 
     /// What the member keeps, is to give up and is to be given, role by role, with the changes of role made; and whether a
     /// task was held back for another member.
     fn split_all(&self) -> (Tasks, Tasks, Tasks, bool) {
         let (cur, h) = (&self.held.tasks, self.holders);
-        let (active, active_revoke, active_give, a) = split(&cur.active, &self.target.active, |t| {
-            h.active.contains_key(t)
-                || self.other_here(&h.standby, &cur.standby, t)
-                || self.other_here(&h.warmup, &cur.warmup, t)
-        });
-        let (standby, standby_revoke, standby_give, s) = split(&cur.standby, &self.target.standby, |t| {
-            (self.active_here(t) && !cur.active.contains(t))
-                || Holders::on(&h.standby, t, self.process)
-                || self.other_here(&h.warmup, &cur.warmup, t)
-        });
-        let (warmup, warmup_revoke, warmup_give, w) = split(&cur.warmup, &self.target.warmup, |t| {
-            self.active_here(t) || self.other_here(&h.standby, &cur.standby, t) || Holders::on(&h.warmup, t, self.process)
-        });
-        let mut kept = Tasks { active, standby, warmup };
-        let mut revoke = Tasks { active: active_revoke, standby: standby_revoke, warmup: warmup_revoke };
-        let mut give = Tasks { active: active_give, standby: standby_give, warmup: warmup_give };
+        let (active, active_revoke, active_give, a) =
+            split(&cur.active, &self.target.active, |t| {
+                h.active.contains_key(t)
+                    || self.other_here(&h.standby, &cur.standby, t)
+                    || self.other_here(&h.warmup, &cur.warmup, t)
+            });
+        let (standby, standby_revoke, standby_give, s) =
+            split(&cur.standby, &self.target.standby, |t| {
+                (self.active_here(t) && !cur.active.contains(t))
+                    || Holders::on(&h.standby, t, self.process)
+                    || self.other_here(&h.warmup, &cur.warmup, t)
+            });
+        let (warmup, warmup_revoke, warmup_give, w) =
+            split(&cur.warmup, &self.target.warmup, |t| {
+                self.active_here(t)
+                    || self.other_here(&h.standby, &cur.standby, t)
+                    || Holders::on(&h.warmup, t, self.process)
+            });
+        let mut kept = Tasks {
+            active,
+            standby,
+            warmup,
+        };
+        let mut revoke = Tasks {
+            active: active_revoke,
+            standby: standby_revoke,
+            warmup: warmup_revoke,
+        };
+        let mut give = Tasks {
+            active: active_give,
+            standby: standby_give,
+            warmup: warmup_give,
+        };
         // An active task of its own to be a standby: given now (it stays among those to revoke as an active task).
         for t in &cur.active {
             if give.standby.remove(t) {
@@ -194,7 +219,10 @@ impl Step<'_> {
         let cur = &self.held.tasks;
         let (mut tasks, revoke, give, held_back) = self.split_all();
         let revokes = !revoke.is_empty() && self.not_released(&revoke);
-        for (mine, into) in [(&cur.standby, &mut tasks.standby), (&cur.warmup, &mut tasks.warmup)] {
+        for (mine, into) in [
+            (&cur.standby, &mut tasks.standby),
+            (&cur.warmup, &mut tasks.warmup),
+        ] {
             for t in mine {
                 let promoted_now = !revokes && give.active.contains(t);
                 if self.target.active.contains(t) && !promoted_now {
@@ -218,7 +246,11 @@ impl Step<'_> {
             tasks.active.extend(give.active);
             tasks.standby.extend(give.standby);
             tasks.warmup.extend(give.warmup);
-            let stage = if held_back { Stage::Unreleased } else { Stage::Stable };
+            let stage = if held_back {
+                Stage::Unreleased
+            } else {
+                Stage::Stable
+            };
             (stage, self.target_epoch, Tasks::default())
         };
         Held {

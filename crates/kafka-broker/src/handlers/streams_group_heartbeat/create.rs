@@ -25,7 +25,9 @@ pub(crate) struct Failures(std::sync::Mutex<HashMap<String, (String, Instant)>>)
 
 impl Failures {
     fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, (String, Instant)>> {
-        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }
 
@@ -57,12 +59,18 @@ fn request_of(topics: &[&Creatable]) -> CreateTopicsRequest {
 
 /// Adds `more` to the MISSING_INTERNAL_TOPICS status's words, or adds that status with them.
 fn tell(answer: &mut StreamsAnswer, more: &str) {
-    match answer.status.iter_mut().find(|(code, _)| *code == MISSING_INTERNAL_TOPICS) {
+    match answer
+        .status
+        .iter_mut()
+        .find(|(code, _)| *code == MISSING_INTERNAL_TOPICS)
+    {
         Some((_, detail)) => {
             detail.push_str("; ");
             detail.push_str(more);
         }
-        None => answer.status.push((MISSING_INTERNAL_TOPICS, more.to_owned())),
+        None => answer
+            .status
+            .push((MISSING_INTERNAL_TOPICS, more.to_owned())),
     }
 }
 
@@ -78,7 +86,10 @@ impl<F: Fs> Broker<F> {
                 .filter(|n| !guard.topic(Operation::Create, n))
                 .collect();
             if !refused.is_empty() {
-                tell(answer, &format!("Unauthorized to CREATE on topics {}.", refused.join(", ")));
+                tell(
+                    answer,
+                    &format!("Unauthorized to CREATE on topics {}.", refused.join(", ")),
+                );
                 return;
             }
         }
@@ -88,7 +99,11 @@ impl<F: Fs> Broker<F> {
             known.retain(|_, (_, until)| *until > now);
             creatable
                 .iter()
-                .filter_map(|c| known.get(&c.name).map(|(why, _)| (c.name.clone(), why.clone())))
+                .filter_map(|c| {
+                    known
+                        .get(&c.name)
+                        .map(|(why, _)| (c.name.clone(), why.clone()))
+                })
                 .collect()
         };
         let to_make: Vec<&Creatable> = creatable
@@ -99,22 +114,36 @@ impl<F: Fs> Broker<F> {
             let resp = self
                 .create_topics(caller, &request_of(&to_make), &mut Mutations::unbounded())
                 .await;
-            let remember = Duration::from_millis(u64::try_from(answer.heartbeat_ms).unwrap_or(0) * 2);
+            let remember =
+                Duration::from_millis(u64::try_from(answer.heartbeat_ms).unwrap_or(0) * 2);
             let mut known = self.streams_topic_failures.lock();
             for t in resp.topics.iter().filter(|t| t.error_code != 0) {
-                let why = t.error_message.as_ref().map(ToString::to_string).filter(|m| !m.is_empty()).unwrap_or_else(|| {
-                    kafka_wire::ResponseError::try_from_code(t.error_code).map_or_else(String::new, |e| e.to_string())
-                });
+                let why = t
+                    .error_message
+                    .as_ref()
+                    .map(ToString::to_string)
+                    .filter(|m| !m.is_empty())
+                    .unwrap_or_else(|| {
+                        kafka_wire::ResponseError::try_from_code(t.error_code)
+                            .map_or_else(String::new, |e| e.to_string())
+                    });
                 known.insert(t.name.0.to_string(), (why, now + remember));
             }
         }
         if !failed.is_empty() {
-            let shown: Vec<String> = failed.iter().take(3).map(|(n, why)| format!("{n} ({why})")).collect();
+            let shown: Vec<String> = failed
+                .iter()
+                .take(3)
+                .map(|(n, why)| format!("{n} ({why})"))
+                .collect();
             let more = match failed.len() {
                 n if n > 3 => format!(" and {} more", n - 3),
                 _ => String::new(),
             };
-            tell(answer, &format!("Creation failed: {}{more}.", shown.join(", ")));
+            tell(
+                answer,
+                &format!("Creation failed: {}{more}.", shown.join(", ")),
+            );
         }
     }
 }

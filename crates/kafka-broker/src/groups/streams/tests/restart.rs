@@ -14,7 +14,10 @@ fn the_record_keeps_the_epochs_and_the_topology_whole() {
     let life = life_of(&kept);
     assert_eq!(kept_of(&life), kept);
     assert_eq!(kept.topology, Some(word_count()));
-    assert_eq!((kept.epoch, kept.assignment_epoch), (w.group.epoch, w.group.assignment_epoch));
+    assert_eq!(
+        (kept.epoch, kept.assignment_epoch),
+        (w.group.epoch, w.group.assignment_epoch)
+    );
 }
 
 #[test]
@@ -39,7 +42,10 @@ fn a_restored_group_is_empty_with_its_topology_and_its_members_join_again_at_a_l
     let mut w2 = World::new(ready_topics(2));
     w2.group = restored;
     let stale = w2.send(&beat("a", 3, Some(Tasks::default())));
-    assert_eq!(stale.error.as_ref().map(|e| e.0), Some(kafka_wire::ResponseError::UnknownMemberId));
+    assert_eq!(
+        stale.error.as_ref().map(|e| e.0),
+        Some(kafka_wire::ResponseError::UnknownMemberId)
+    );
     let last = w2.settle(&["a"]);
     assert!(last["a"].epoch > before);
     assert_eq!(w2.held("a").active.len(), 4);

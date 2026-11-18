@@ -31,7 +31,10 @@ fn the_three_keys_are_at_kafka_4_4_versions() {
     assert_eq!(range(ApiKey::StreamsGroupHeartbeat), (0, 1));
     assert_eq!(range(ApiKey::StreamsGroupDescribe), (0, 1));
     assert_eq!(range(ApiKey::StreamsGroupTopologyDescriptionUpdate), (0, 0));
-    assert_eq!(ApiKey::try_from(93).unwrap(), ApiKey::StreamsGroupTopologyDescriptionUpdate);
+    assert_eq!(
+        ApiKey::try_from(93).unwrap(),
+        ApiKey::StreamsGroupTopologyDescriptionUpdate
+    );
 }
 
 #[test]
@@ -69,7 +72,10 @@ fn the_heartbeat_answer_has_the_legacy_lag_at_0_and_the_long_lag_and_description
     resp.task_offset_interval_ms = 60_000;
     let at0: StreamsGroupHeartbeatResponse = back(bytes(&resp, 0), 0);
     assert_eq!(
-        (at0.acceptable_recovery_lag_legacy, at0.acceptable_recovery_lag),
+        (
+            at0.acceptable_recovery_lag_legacy,
+            at0.acceptable_recovery_lag
+        ),
         (0, -1)
     );
     let at1: StreamsGroupHeartbeatResponse = back(bytes(&resp, 1), 1);

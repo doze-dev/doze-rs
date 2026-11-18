@@ -127,4 +127,3 @@ fn refuse_in_share(event: Event) -> Option<Effect> {
     };
     Some(Effect::Reply(token, answer))
 }
-

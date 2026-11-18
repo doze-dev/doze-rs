@@ -70,20 +70,27 @@ impl StreamsGroup {
             (Some(instance), Some(h)) if &h.id != id => {
                 return Err((
                     E::FencedInstanceId,
-                    format!("Static member {id} with instance id {instance} was fenced by member {}.", h.id),
+                    format!(
+                        "Static member {id} with instance id {instance} was fenced by member {}.",
+                        h.id
+                    ),
                 ));
             }
             (_, Some(h)) => h,
-            (None, None) => self.members.get(id).ok_or_else(|| {
-                (E::UnknownMemberId, not_a_member(id.as_str(), &hb.group))
-            })?,
+            (None, None) => self
+                .members
+                .get(id)
+                .ok_or_else(|| (E::UnknownMemberId, not_a_member(id.as_str(), &hb.group)))?,
         };
         let known = member.held.epoch;
         if hb.epoch > known {
             return Err(fenced("greater", hb.epoch, known));
         }
         let retry = hb.epoch == member.held.prev_epoch
-            && hb.owned.as_ref().is_some_and(|o| o.within(&member.held.tasks));
+            && hb
+                .owned
+                .as_ref()
+                .is_some_and(|o| o.within(&member.held.tasks));
         if hb.epoch < known && !retry {
             return Err(fenced("smaller", hb.epoch, known));
         }
@@ -91,7 +98,12 @@ impl StreamsGroup {
     }
 
     /// A heartbeat at epoch -1 or -2.
-    pub(super) fn leave(&mut self, hb: &StreamsHeartbeat, now: Millis, out: &mut Vec<Effect>) -> StreamsAnswer {
+    pub(super) fn leave(
+        &mut self,
+        hb: &StreamsHeartbeat,
+        now: Millis,
+        out: &mut Vec<Effect>,
+    ) -> StreamsAnswer {
         let id = &hb.member_id;
         let holder = hb.instance.as_ref().map(|i| {
             self.members
@@ -100,7 +112,9 @@ impl StreamsGroup {
                 .map(|m| m.id.clone())
         });
         let refused = match (&hb.instance, holder) {
-            (Some(i), Some(None)) => Some((E::UnknownMemberId, format!("Instance id {i} is unknown."))),
+            (Some(i), Some(None)) => {
+                Some((E::UnknownMemberId, format!("Instance id {i} is unknown.")))
+            }
             (Some(i), Some(Some(h))) if &h != id => Some((
                 E::FencedInstanceId,
                 format!("Static member {id} with instance id {i} was fenced by member {h}."),
@@ -138,7 +152,13 @@ impl StreamsGroup {
     }
 
     /// A member goes: the epoch moves, and if it was the last, the (empty) targets are for the new epoch at once.
-    pub(super) fn remove(&mut self, id: &MemberId, cause: Cause, now: Millis, out: &mut Vec<Effect>) {
+    pub(super) fn remove(
+        &mut self,
+        id: &MemberId,
+        cause: Cause,
+        now: Millis,
+        out: &mut Vec<Effect>,
+    ) {
         let was = self.members.len();
         let who = self.who_is(id);
         if self.members.remove(id).is_none() {

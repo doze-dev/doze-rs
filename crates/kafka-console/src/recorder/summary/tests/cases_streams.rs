@@ -16,7 +16,11 @@ fn tasks(sub: &str, partitions: &[i32]) -> streams_group_heartbeat_response::Tas
 pub(super) fn streams(out: &mut Vec<(ApiKey, Request, Response)>) {
     macro_rules! case {
         ($key:ident, $req:expr, $resp:expr) => {
-            out.push((ApiKey::$key, Request::$key($req.into()), Response::$key($resp.into())));
+            out.push((
+                ApiKey::$key,
+                Request::$key($req.into()),
+                Response::$key($resp.into()),
+            ));
         };
     }
     case!(

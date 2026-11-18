@@ -37,7 +37,11 @@ pub(crate) struct Seat<'a> {
 
 /// Kafka's `computeTasksPerMember`: the tasks over the members, rounded up; 0 with nobody.
 fn per_member(tasks: usize, members: usize) -> usize {
-    if members == 0 { 0 } else { tasks.div_ceil(members) }
+    if members == 0 {
+        0
+    } else {
+        tasks.div_ceil(members)
+    }
 }
 
 struct Process {
@@ -115,7 +119,11 @@ impl<'a> State<'a> {
 
     /// Gives `task` to `id`; its new count of tasks.
     fn add(&mut self, id: &MemberId, task: &Task, active: bool) -> usize {
-        let Some(process) = self.process_of.get(id).and_then(|p| self.processes.get_mut(p)) else {
+        let Some(process) = self
+            .process_of
+            .get(id)
+            .and_then(|p| self.processes.get_mut(p))
+        else {
             return 0;
         };
         process.count += 1;
@@ -144,7 +152,11 @@ impl<'a> State<'a> {
 
     /// Kafka's `findPrevMemberWithLeastLoad`: the first candidate, replaced only by one both on a lighter process and
     /// with fewer tasks; for a standby, none on a process that has the task.
-    fn least_loaded_of(&self, candidates: &[&'a MemberId], standby: Option<&Task>) -> Option<&'a MemberId> {
+    fn least_loaded_of(
+        &self,
+        candidates: &[&'a MemberId],
+        standby: Option<&Task>,
+    ) -> Option<&'a MemberId> {
         let mut best: Option<&'a MemberId> = None;
         for &m in candidates {
             let Some(p) = self.process(m) else { continue };
@@ -152,8 +164,9 @@ impl<'a> State<'a> {
                 continue;
             }
             let better = best.is_none_or(|b| {
-                self.process(b)
-                    .is_some_and(|bp| p.lighter(bp) == Ordering::Less && self.count(m) < self.count(b))
+                self.process(b).is_some_and(|bp| {
+                    p.lighter(bp) == Ordering::Less && self.count(m) < self.count(b)
+                })
             });
             if better {
                 best = Some(m);
@@ -172,7 +185,10 @@ impl<'a> State<'a> {
     }
 
     fn member_in(&self, process: &str) -> Option<MemberId> {
-        self.processes.get(process).and_then(Process::least_loaded_member).cloned()
+        self.processes
+            .get(process)
+            .and_then(Process::least_loaded_member)
+            .cloned()
     }
 }
 
@@ -195,7 +211,10 @@ pub(crate) fn assign(
     let mut state = State {
         processes: BTreeMap::new(),
         process_of: BTreeMap::new(),
-        out: seats.iter().map(|s| (s.id.clone(), Tasks::default())).collect(),
+        out: seats
+            .iter()
+            .map(|s| (s.id.clone(), Tasks::default()))
+            .collect(),
         active: Quota::new(actives.len(), members),
         total: Quota::new(actives.len() + stateful.len() * standbys, members),
         prev_active: BTreeMap::new(),
@@ -215,18 +234,26 @@ pub(crate) fn assign(
         }
         for t in &s.current.standby {
             let offset = s.offsets.get(t).copied().unwrap_or(0);
-            candidates.entry(t.clone()).or_default().push((true, offset, s.id));
+            candidates
+                .entry(t.clone())
+                .or_default()
+                .push((true, offset, s.id));
         }
         for (t, offset) in s.offsets {
             if !s.current.standby.contains(t) {
-                candidates.entry(t.clone()).or_default().push((false, *offset, s.id));
+                candidates
+                    .entry(t.clone())
+                    .or_default()
+                    .push((false, *offset, s.id));
             }
         }
     }
     for (t, mut c) in candidates {
         // Previous standbys first, then the most caught up; a stable sort keeps the members' order for the rest.
         c.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| b.1.cmp(&a.1)));
-        state.prev_standby.insert(t, c.into_iter().map(|(_, _, m)| m).collect());
+        state
+            .prev_standby
+            .insert(t, c.into_iter().map(|(_, _, m)| m).collect());
     }
     assign_active(&mut state, actives);
     if standbys > 0 {
@@ -239,7 +266,9 @@ fn assign_active(state: &mut State<'_>, mut tasks: Vec<Task>) {
     tasks.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
     // Where it runs now.
     tasks.retain(|t| {
-        let Some(&m) = state.prev_active.get(t) else { return true };
+        let Some(&m) = state.prev_active.get(t) else {
+            return true;
+        };
         if state.count(m) < state.active.each {
             state.add_active(m, t);
             return false;
@@ -260,7 +289,10 @@ fn assign_active(state: &mut State<'_>, mut tasks: Vec<Task>) {
     // The rest, to the least loaded.
     tasks.sort();
     for t in &tasks {
-        let Some(member) = state.lightest(&BTreeSet::new()).and_then(|p| state.member_in(p)) else {
+        let Some(member) = state
+            .lightest(&BTreeSet::new())
+            .and_then(|p| state.member_in(p))
+        else {
             return;
         };
         state.add_active(&member, t);
@@ -297,13 +329,21 @@ fn assign_standby(state: &mut State<'_>, mut tasks: Vec<Task>, replicas: usize) 
             // (Kafka logs that there is not enough capacity).
             let mut tried = BTreeSet::new();
             let target = loop {
-                let Some(p) = state.lightest(&tried) else { break None };
-                if state.processes.get(p).is_some_and(|ps| !ps.has.contains(&t)) {
+                let Some(p) = state.lightest(&tried) else {
+                    break None;
+                };
+                if state
+                    .processes
+                    .get(p)
+                    .is_some_and(|ps| !ps.has.contains(&t))
+                {
                     break Some(p);
                 }
                 tried.insert(p);
             };
-            let Some(member) = target.and_then(|p| state.member_in(p)) else { break };
+            let Some(member) = target.and_then(|p| state.member_in(p)) else {
+                break;
+            };
             state.add_standby(&member, &t);
         }
     }

@@ -1,8 +1,8 @@
 //! STR-20 to STR-27: a topology against the topics there are (Kafka's `InternalTopicManager`).
 
 use super::super::topology::{
-    Copartition, INCORRECTLY_PARTITIONED_TOPICS, MISSING_INTERNAL_TOPICS, MISSING_SOURCE_TOPICS, Subtopology,
-    Topology, configure, summarize,
+    Copartition, INCORRECTLY_PARTITIONED_TOPICS, MISSING_INTERNAL_TOPICS, MISSING_SOURCE_TOPICS,
+    Subtopology, Topology, configure, summarize,
 };
 use super::{internal, ready_topics, topics, word_count};
 
@@ -16,11 +16,15 @@ fn sub(sources: &[&str]) -> Subtopology {
 #[test]
 fn missing_source_topics_are_named_sorted_three_at_most() {
     let mut t = Topology::default();
-    t.subtopologies.insert("0".into(), sub(&["e", "d", "c", "b", "a"]));
+    t.subtopologies
+        .insert("0".into(), sub(&["e", "d", "c", "b", "a"]));
     let c = configure(&t, &topics(&[])).unwrap();
     let n = c.not_ready.unwrap();
     assert_eq!(n.code, MISSING_SOURCE_TOPICS);
-    assert_eq!(n.detail, "Source topics a, b, c and 2 additional topics are missing.");
+    assert_eq!(
+        n.detail,
+        "Source topics a, b, c and 2 additional topics are missing."
+    );
     assert!(c.subtopologies.is_empty() && c.create.is_empty());
     assert_eq!(summarize(["x"]), "x");
     assert_eq!(summarize(Vec::<&str>::new()), "<none>");
@@ -31,8 +35,15 @@ fn internal_topics_take_the_partitions_of_what_feeds_them_and_are_to_be_made() {
     let c = configure(&word_count(), &topics(&[("in", 4)])).unwrap();
     let n = c.not_ready.clone().unwrap();
     assert_eq!(n.code, MISSING_INTERNAL_TOPICS);
-    assert_eq!(n.detail, "Internal topics are missing: app-counts-changelog, app-rep");
-    let made: Vec<(&str, i32, i16)> = c.create.iter().map(|t| (t.name.as_str(), t.partitions, t.replication)).collect();
+    assert_eq!(
+        n.detail,
+        "Internal topics are missing: app-counts-changelog, app-rep"
+    );
+    let made: Vec<(&str, i32, i16)> = c
+        .create
+        .iter()
+        .map(|t| (t.name.as_str(), t.partitions, t.replication))
+        .collect();
     assert_eq!(made, [("app-counts-changelog", 4, -1), ("app-rep", 4, -1)]);
     // The subtopologies are worked out even so: four tasks each.
     assert_eq!(c.subtopologies["0"].tasks, 4);
@@ -52,7 +63,10 @@ fn an_internal_topic_that_exists_with_other_partitions_is_named_and_nothing_is_m
     let c = configure(&word_count(), &topics(&[("in", 3), ("app-rep", 2)])).unwrap();
     let n = c.not_ready.unwrap();
     assert_eq!(n.code, INCORRECTLY_PARTITIONED_TOPICS);
-    assert_eq!(n.detail, "Existing topic app-rep has different number of partitions: expected 3, found 2");
+    assert_eq!(
+        n.detail,
+        "Existing topic app-rep has different number of partitions: expected 3, found 2"
+    );
     assert!(c.create.is_empty() && c.subtopologies.is_empty());
 }
 
@@ -88,7 +102,11 @@ fn repartition_topics_that_only_feed_each_other_are_a_loop() {
         );
     }
     let e = configure(&t, &topics(&[])).unwrap_err();
-    assert!(e.words.contains("There may be loops in the topology"), "{}", e.words);
+    assert!(
+        e.words.contains("There may be loops in the topology"),
+        "{}",
+        e.words
+    );
 }
 
 #[test]
@@ -102,7 +120,14 @@ fn a_fixed_repartition_count_is_kept_and_counts_for_tasks() {
     assert_eq!(rep.partitions, 6);
     assert_eq!(c.subtopologies["1"].tasks, 6);
     // The changelog follows what its subtopology reads.
-    assert_eq!(c.create.iter().find(|t| t.name == "app-counts-changelog").unwrap().partitions, 6);
+    assert_eq!(
+        c.create
+            .iter()
+            .find(|t| t.name == "app-counts-changelog")
+            .unwrap()
+            .partitions,
+        6
+    );
 }
 
 #[test]
@@ -122,7 +147,10 @@ fn copartitioned_sources_must_have_the_same_partitions() {
     let c = configure(&t, &topics(&[("left", 2), ("right", 3)])).unwrap();
     let n = c.not_ready.unwrap();
     assert_eq!(n.code, INCORRECTLY_PARTITIONED_TOPICS);
-    assert_eq!(n.detail, "Following topics do not have the same number of partitions: [{left=2, right=3}]");
+    assert_eq!(
+        n.detail,
+        "Following topics do not have the same number of partitions: [{left=2, right=3}]"
+    );
     let ok = configure(&t, &topics(&[("left", 3), ("right", 3)])).unwrap();
     assert!(ok.ready());
     assert_eq!(ok.subtopologies["0"].tasks, 3);
@@ -153,7 +181,14 @@ fn a_flexible_repartition_topic_copartitioned_with_a_source_takes_its_count() {
     );
     // The sink is worked out from `in` (5); copartitioning with `table` (2) sets it to 2.
     let c = configure(&t, &topics(&[("in", 5), ("table", 2)])).unwrap();
-    assert_eq!(c.create.iter().find(|t| t.name == "rep").unwrap().partitions, 2);
+    assert_eq!(
+        c.create
+            .iter()
+            .find(|t| t.name == "rep")
+            .unwrap()
+            .partitions,
+        2
+    );
     assert_eq!(c.subtopologies["1"].tasks, 2);
     assert_eq!(c.subtopologies["0"].tasks, 5);
 }
@@ -174,7 +209,11 @@ fn missing_internal_topics_are_named_in_the_order_kafkas_hash_map_has_them() {
         let words = format!("java-streams-{app}-words-repartition");
         let counts = format!("java-streams-{app}-counts-changelog");
         let order = java_hash_order([counts.as_str(), words.as_str()]);
-        let want = if words_first { [words.as_str(), counts.as_str()] } else { [counts.as_str(), words.as_str()] };
+        let want = if words_first {
+            [words.as_str(), counts.as_str()]
+        } else {
+            [counts.as_str(), words.as_str()]
+        };
         assert_eq!(order, want, "{app}");
     }
     // Java's "a".hashCode() is 97 and "b" 98: buckets 1 and 2 of 16.

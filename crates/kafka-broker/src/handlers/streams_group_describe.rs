@@ -10,20 +10,24 @@ use kafka_wire::ResponseError as E;
 use kafka_wire::StrBytes;
 use kafka_wire::ids::GroupId;
 use kafka_wire::messages::streams_group_describe_response::{
-    Assignment, DescribedGroup, Endpoint, KeyValue, Member, Subtopology, TaskIds, TaskOffset, TopicInfo,
-    Topology,
+    Assignment, DescribedGroup, Endpoint, KeyValue, Member, Subtopology, TaskIds, TaskOffset,
+    TopicInfo, Topology,
 };
 use kafka_wire::messages::{
     GroupId as WireGroupId, StreamsGroupDescribeRequest, StreamsGroupDescribeResponse,
-    StreamsGroupTopologyDescriptionUpdateRequest, StreamsGroupTopologyDescriptionUpdateResponse, TopicName,
+    StreamsGroupTopologyDescriptionUpdateRequest, StreamsGroupTopologyDescriptionUpdateResponse,
+    TopicName,
 };
 
 use crate::groups::kafka_order;
-use crate::groups::streams::{StreamsMemberView, StreamsView, Task, Tasks, by_subtopology, topology};
+use crate::groups::streams::{
+    StreamsMemberView, StreamsView, Task, Tasks, by_subtopology, topology,
+};
 use crate::{Broker, Caller, Outcome};
 
 /// Kafka's words for a group whose topology names a topic the caller may not see.
-const HIDDEN_TOPIC: &str = "The described group uses topics that the client is not authorized to describe.";
+const HIDDEN_TOPIC: &str =
+    "The described group uses topics that the client is not authorized to describe.";
 
 /// `TopologyDescriptionStatus` NOT_STORED: asked for, and there is no plugin to have stored one.
 const NOT_STORED: i8 = 1;
@@ -154,7 +158,9 @@ fn described(name: &str, view: &StreamsView, with_description: bool) -> Describe
     out.assignment_epoch = view.assignment_epoch;
     out.topology = view.topology.as_ref().map(topology_of);
     out.members = view.members.iter().map(member_of).collect();
-    out.assignor_name = Some(StrBytes::from_static_str(crate::group_configs::streams::STICKY));
+    out.assignor_name = Some(StrBytes::from_static_str(
+        crate::group_configs::streams::STICKY,
+    ));
     if with_description {
         out.topology_description_status = NOT_STORED;
     }
@@ -164,7 +170,11 @@ fn described(name: &str, view: &StreamsView, with_description: bool) -> Describe
 impl<F: Fs> Broker<F> {
     /// Each group named: refused (30, no words) where the caller may not DESCRIBE it, ahead of the rest in Kafka's order;
     /// one whose topology names a topic the caller may not DESCRIBE is told 29 instead of described.
-    pub(crate) async fn streams_group_describe(&self, caller: &Caller, req: &StreamsGroupDescribeRequest) -> Outcome {
+    pub(crate) async fn streams_group_describe(
+        &self,
+        caller: &Caller,
+        req: &StreamsGroupDescribeRequest,
+    ) -> Outcome {
         let guard = self.guard(caller);
         let mut resp = StreamsGroupDescribeResponse::default();
         let mut asked: Vec<String> = Vec::new();
@@ -179,7 +189,9 @@ impl<F: Fs> Broker<F> {
             }
         }
         for name in kafka_order(&asked) {
-            let mut d = self.describe_streams_group(&name, req.include_topology_description).await;
+            let mut d = self
+                .describe_streams_group(&name, req.include_topology_description)
+                .await;
             let hidden = d.topology.as_ref().is_some_and(|t| {
                 t.subtopologies.iter().flatten().any(|s| {
                     s.source_topics
@@ -187,7 +199,11 @@ impl<F: Fs> Broker<F> {
                         .chain(&s.repartition_sink_topics)
                         .map(|n| n.0.as_str())
                         .chain(s.state_changelog_topics.iter().map(|i| i.name.0.as_str()))
-                        .chain(s.repartition_source_topics.iter().map(|i| i.name.0.as_str()))
+                        .chain(
+                            s.repartition_source_topics
+                                .iter()
+                                .map(|i| i.name.0.as_str()),
+                        )
                         .any(|n| !guard.topic(Operation::Describe, n))
                 })
             });
@@ -220,7 +236,10 @@ impl<F: Fs> Broker<F> {
             return refuse(E::InvalidGroupId, None);
         };
         let view = match self.groups.describe(&group).await {
-            Some(d) => d.streams.map(|v| *v).ok_or_else(|| format!("Group {name} is not a streams group.")),
+            Some(d) => d
+                .streams
+                .map(|v| *v)
+                .ok_or_else(|| format!("Group {name} is not a streams group.")),
             None => self.kept_streams_group(&group),
         };
         match view {
@@ -232,14 +251,22 @@ impl<F: Fs> Broker<F> {
     /// A group not in memory: an empty streams group the broker had before it was started again is still one; else
     /// Kafka's words for a group of another kind, or none.
     fn kept_streams_group(&self, group: &GroupId) -> Result<StreamsView, String> {
-        let kept = crate::blocking::run(|| self.meta.group_life(group)).ok().flatten();
+        let kept = crate::blocking::run(|| self.meta.group_life(group))
+            .ok()
+            .flatten();
         match kept {
-            Some(kafka_meta::GroupLife { streams: Some(s), .. }) => {
-                let g = crate::groups::streams::StreamsGroup::restored(crate::groups::streams::stored::kept_of(&s));
+            Some(kafka_meta::GroupLife {
+                streams: Some(s), ..
+            }) => {
+                let g = crate::groups::streams::StreamsGroup::restored(
+                    crate::groups::streams::stored::kept_of(&s),
+                );
                 Ok(g.view())
             }
             Some(_) => Err(format!("Group {group} is not a streams group.")),
-            None if crate::blocking::run(|| self.meta.group_offsets(group)).is_ok_and(|o| !o.is_empty()) => {
+            None if crate::blocking::run(|| self.meta.group_offsets(group))
+                .is_ok_and(|o| !o.is_empty()) =>
+            {
                 Err(format!("Group {group} is not a streams group."))
             }
             None => Err(format!("Group {group} not found.")),
@@ -254,7 +281,10 @@ impl<F: Fs> Broker<F> {
         req: &StreamsGroupTopologyDescriptionUpdateRequest,
     ) -> Outcome {
         let mut resp = StreamsGroupTopologyDescriptionUpdateResponse::default();
-        if self.guard(caller).group(Operation::Read, req.group_id.0.as_str()) {
+        if self
+            .guard(caller)
+            .group(Operation::Read, req.group_id.0.as_str())
+        {
             resp.error_code = E::UnsupportedVersion.code();
             resp.error_message = Some(StrBytes::from_static_str(
                 "The broker has no streams group topology description plugin configured.",

@@ -114,7 +114,9 @@ impl Group {
     /// A streams group: new, or as it was when the broker last stopped.
     #[must_use]
     pub(crate) fn streams(settings: Settings, kept: Option<&StreamsLife>) -> Self {
-        let group = kept.map_or_else(StreamsGroup::new, |l| StreamsGroup::restored(super::streams::stored::kept_of(l)));
+        let group = kept.map_or_else(StreamsGroup::new, |l| {
+            StreamsGroup::restored(super::streams::stored::kept_of(l))
+        });
         Self {
             kind: Kind::Streams(group),
             settings,
@@ -240,17 +242,25 @@ impl Group {
                 protocol_type: "share".to_owned(),
                 kept: self.kept(),
             }),
-            (Event::StreamsHeartbeat(_, hb), Kind::Streams(s)) if s.would_seat(hb) => Some(Seating {
-                session_ms: i32::try_from(hb.timing.session_ms).unwrap_or(i32::MAX),
-                protocol_type: "streams".to_owned(),
-                kept: Kept::Streams(super::streams::stored::life_of(&s.kept(hb.topology.as_ref()))),
-            }),
-            (Event::StreamsHeartbeat(_, hb), Kind::Classic(m)) if m.member_count() == 0 && hb.epoch == 0 => {
+            (Event::StreamsHeartbeat(_, hb), Kind::Streams(s)) if s.would_seat(hb) => {
+                Some(Seating {
+                    session_ms: i32::try_from(hb.timing.session_ms).unwrap_or(i32::MAX),
+                    protocol_type: "streams".to_owned(),
+                    kept: Kept::Streams(super::streams::stored::life_of(
+                        &s.kept(hb.topology.as_ref()),
+                    )),
+                })
+            }
+            (Event::StreamsHeartbeat(_, hb), Kind::Classic(m))
+                if m.member_count() == 0 && hb.epoch == 0 =>
+            {
                 let new = StreamsGroup::new();
                 new.would_seat(hb).then(|| Seating {
                     session_ms: i32::try_from(hb.timing.session_ms).unwrap_or(i32::MAX),
                     protocol_type: "streams".to_owned(),
-                    kept: Kept::Streams(super::streams::stored::life_of(&new.kept(hb.topology.as_ref()))),
+                    kept: Kept::Streams(super::streams::stored::life_of(
+                        &new.kept(hb.topology.as_ref()),
+                    )),
                 })
             }
             (Event::ConsumerHeartbeat(_, hb), kind)
@@ -295,7 +305,8 @@ impl Group {
             Event::ConsumerHeartbeat(token, hb) => self.consumer_heartbeat(token, hb, now, source),
             // A streams member joining a classic group nobody is in: it is a streams group now.
             Event::StreamsHeartbeat(token, hb)
-                if hb.epoch == 0 && matches!(&self.kind, Kind::Classic(m) if m.member_count() == 0) =>
+                if hb.epoch == 0
+                    && matches!(&self.kind, Kind::Classic(m) if m.member_count() == 0) =>
             {
                 self.kind = Kind::Streams(StreamsGroup::new());
                 self.step(Event::StreamsHeartbeat(token, hb), now, source)

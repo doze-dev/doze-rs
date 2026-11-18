@@ -20,13 +20,21 @@ pub(crate) struct EndpointPartitions {
 }
 
 /// Task p of a subtopology is partition p of each topic it reads, where that topic has such a partition.
-fn partitions(tasks: &BTreeSet<Task>, topology: &Topology, topics: &Topics) -> Vec<(String, Vec<i32>)> {
+fn partitions(
+    tasks: &BTreeSet<Task>,
+    topology: &Topology,
+    topics: &Topics,
+) -> Vec<(String, Vec<i32>)> {
     let mut out = Vec::new();
     for (sub, ps) in by_subtopology(tasks) {
-        let Some(s) = topology.subtopologies.get(sub) else { continue };
+        let Some(s) = topology.subtopologies.get(sub) else {
+            continue;
+        };
         let inputs: BTreeSet<&str> = s.inputs().collect();
         for topic in inputs {
-            let Some(count) = topics.get(topic).map(|t| t.partitions) else { continue };
+            let Some(count) = topics.get(topic).map(|t| t.partitions) else {
+                continue;
+            };
             let here: Vec<i32> = ps.iter().copied().filter(|p| *p < count).collect();
             if !here.is_empty() {
                 out.push((topic.to_owned(), here));
@@ -38,7 +46,13 @@ fn partitions(tasks: &BTreeSet<Task>, topology: &Topology, topics: &Topics) -> V
 
 fn entry(m: &Member, topology: &Topology, topics: &Topics) -> Option<EndpointPartitions> {
     let endpoint = m.endpoint.clone()?;
-    let standby: BTreeSet<Task> = m.held.tasks.standby.union(&m.held.tasks.warmup).cloned().collect();
+    let standby: BTreeSet<Task> = m
+        .held
+        .tasks
+        .standby
+        .union(&m.held.tasks.warmup)
+        .cloned()
+        .collect();
     Some(EndpointPartitions {
         endpoint,
         active: partitions(&m.held.tasks.active, topology, topics),

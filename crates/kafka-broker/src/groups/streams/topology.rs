@@ -59,7 +59,9 @@ impl Topology {
     pub(crate) fn seen(&self, topics: &Topics) -> super::Seen {
         let mut out = BTreeMap::new();
         for s in self.subtopologies.values() {
-            let names = s.inputs().chain(s.changelogs.iter().map(|t| t.name.as_str()));
+            let names = s
+                .inputs()
+                .chain(s.changelogs.iter().map(|t| t.name.as_str()));
             for name in names {
                 if let Some(t) = topics.get(name) {
                     out.insert(name.to_owned(), (t.id, t.partitions));
@@ -220,10 +222,14 @@ pub(crate) fn configure(topology: &Topology, topics: &Topics) -> Result<Configur
     let (subtopologies, mut create) = subtopologies(topology, &counts)?;
     // Those that exist are not made; one that exists with other partitions makes the topology wrong.
     for s in topology.subtopologies.values() {
-        let required = s.inputs().chain(s.changelogs.iter().map(|t| t.name.as_str()));
+        let required = s
+            .inputs()
+            .chain(s.changelogs.iter().map(|t| t.name.as_str()));
         for name in required {
             let Some(t) = topics.get(name) else { continue };
-            let Some(expected) = create.remove(name) else { continue };
+            let Some(expected) = create.remove(name) else {
+                continue;
+            };
             if t.partitions != expected.partitions {
                 return Ok(not_ready(
                     INCORRECTLY_PARTITIONED_TOPICS,
@@ -256,15 +262,22 @@ fn subtopologies(topology: &Topology, counts: &Counts<'_>) -> Result<Subtopologi
     let mut subtopologies = BTreeMap::new();
     let mut create: BTreeMap<String, Creatable> = BTreeMap::new();
     for (id, s) in &topology.subtopologies {
-        let tasks = s.inputs().map(|t| counts.must(t)).try_fold(None, |most: Option<i32>, n| {
-            n.map(|n| Some(most.map_or(n, |m| m.max(n))))
-        })?;
-        let tasks = tasks.ok_or_else(|| unexpected("Subtopology does not contain any source topics"))?;
+        let tasks = s
+            .inputs()
+            .map(|t| counts.must(t))
+            .try_fold(None, |most: Option<i32>, n| {
+                n.map(|n| Some(most.map_or(n, |m| m.max(n))))
+            })?;
+        let tasks =
+            tasks.ok_or_else(|| unexpected("Subtopology does not contain any source topics"))?;
         let mut internal = Vec::new();
         for info in s.repartition_sources.iter().chain(&s.changelogs) {
             let partitions = match info.partitions {
                 0 => *counts.decided.get(&info.name).ok_or_else(|| {
-                    unexpected(format!("Number of partitions must be set for topic {}", info.name))
+                    unexpected(format!(
+                        "Number of partitions must be set for topic {}",
+                        info.name
+                    ))
                 })?,
                 n => n,
             };
@@ -274,13 +287,24 @@ fn subtopologies(topology: &Topology, counts: &Counts<'_>) -> Result<Subtopologi
                 Creatable {
                     name: info.name.clone(),
                     partitions,
-                    replication: if info.replication == 0 { -1 } else { info.replication },
+                    replication: if info.replication == 0 {
+                        -1
+                    } else {
+                        info.replication
+                    },
                     configs: info.configs.clone(),
                 },
             );
         }
         let stateful = !s.changelogs.is_empty();
-        subtopologies.insert(id.clone(), ConfiguredSub { tasks, stateful, internal });
+        subtopologies.insert(
+            id.clone(),
+            ConfiguredSub {
+                tasks,
+                stateful,
+                internal,
+            },
+        );
     }
     Ok((subtopologies, create))
 }
@@ -313,7 +337,11 @@ fn repartition_counts(topology: &Topology, counts: &mut Counts<'_>) -> Result<()
                     .iter()
                     .filter_map(|r| counts.decided.get(&r.name).copied());
                 let from_sources = s.sources.iter().filter_map(|t| counts.of(t));
-                let most = from_repartition.chain(from_sources).collect::<Vec<_>>().into_iter().max();
+                let most = from_repartition
+                    .chain(from_sources)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .max();
                 match most {
                     Some(n) => {
                         counts.decided.insert(sink.clone(), n);
@@ -346,7 +374,10 @@ fn repartition_counts(topology: &Topology, counts: &mut Counts<'_>) -> Result<()
 }
 
 /// Kafka's `CopartitionedTopicsEnforcer`, group by group. `Ok(Err(words))`: topics that are not partitioned alike.
-fn copartition(topology: &Topology, counts: &mut Counts<'_>) -> Result<Result<(), String>, Invalid> {
+fn copartition(
+    topology: &Topology,
+    counts: &mut Counts<'_>,
+) -> Result<Result<(), String>, Invalid> {
     let repartition = |fixed: bool| -> BTreeSet<&str> {
         topology
             .subtopologies
@@ -362,11 +393,20 @@ fn copartition(topology: &Topology, counts: &mut Counts<'_>) -> Result<Result<()
             let mut names = BTreeSet::new();
             for i in &group.sources {
                 let t = usize::try_from(*i).ok().and_then(|i| s.sources.get(i));
-                names.insert(t.ok_or_else(|| unexpected("a copartition group names no source topic"))?.as_str());
+                names.insert(
+                    t.ok_or_else(|| unexpected("a copartition group names no source topic"))?
+                        .as_str(),
+                );
             }
             for i in &group.repartition_sources {
-                let t = usize::try_from(*i).ok().and_then(|i| s.repartition_sources.get(i));
-                names.insert(t.ok_or_else(|| unexpected("a copartition group names no repartition topic"))?.name.as_str());
+                let t = usize::try_from(*i)
+                    .ok()
+                    .and_then(|i| s.repartition_sources.get(i));
+                names.insert(
+                    t.ok_or_else(|| unexpected("a copartition group names no repartition topic"))?
+                        .name
+                        .as_str(),
+                );
             }
             if let Err(words) = enforce(&names, &fixed, &flexible, counts)? {
                 return Ok(Err(words));
@@ -393,7 +433,11 @@ fn enforce(
         }
     }
     let differ = |m: &BTreeMap<&str, i32>| {
-        let shown = m.iter().map(|(t, n)| format!("{t}={n}")).collect::<Vec<_>>().join(", ");
+        let shown = m
+            .iter()
+            .map(|(t, n)| format!("{t}={n}"))
+            .collect::<Vec<_>>()
+            .join(", ");
         format!("Following topics do not have the same number of partitions: [{{{shown}}}]")
     };
     let chosen = if external.is_empty() {
@@ -441,7 +485,8 @@ fn changelog_counts(topology: &Topology, counts: &mut Counts<'_>) -> Result<(), 
             let n = counts.must(t)?;
             most = Some(most.map_or(n, |m| m.max(n)));
         }
-        let most = most.ok_or_else(|| invalid(format!("No source topics found for subtopology {id}")))?;
+        let most =
+            most.ok_or_else(|| invalid(format!("No source topics found for subtopology {id}")))?;
         for c in &s.changelogs {
             counts.decided.insert(c.name.clone(), most);
         }

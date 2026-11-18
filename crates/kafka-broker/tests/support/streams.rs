@@ -2,10 +2,12 @@
 
 use kafka_wire::StrBytes;
 use kafka_wire::api::{Request, Response};
-use kafka_wire::messages::streams_group_heartbeat_request::{KeyValue, Subtopology, TaskIds, TopicInfo, Topology};
+use kafka_wire::messages::streams_group_heartbeat_request::{
+    KeyValue, Subtopology, TaskIds, TopicInfo, Topology,
+};
 use kafka_wire::messages::{
-    GroupId, StreamsGroupDescribeRequest, StreamsGroupDescribeResponse, StreamsGroupHeartbeatRequest,
-    StreamsGroupHeartbeatResponse, TopicName,
+    GroupId, StreamsGroupDescribeRequest, StreamsGroupDescribeResponse,
+    StreamsGroupHeartbeatRequest, StreamsGroupHeartbeatResponse, TopicName,
 };
 
 use super::Rig;
@@ -40,8 +42,14 @@ pub fn word_count(app: &str, input: &str) -> Topology {
     zero.repartition_sink_topics = vec![name(&rep)];
     let mut one = Subtopology::default();
     one.subtopology_id = StrBytes::from_static_str("1");
-    one.repartition_source_topics = vec![info(&rep, &[("cleanup.policy", "delete"), ("retention.ms", "-1")])];
-    one.state_changelog_topics = vec![info(&format!("{app}-counts-changelog"), &[("cleanup.policy", "compact")])];
+    one.repartition_source_topics = vec![info(
+        &rep,
+        &[("cleanup.policy", "delete"), ("retention.ms", "-1")],
+    )];
+    one.state_changelog_topics = vec![info(
+        &format!("{app}-counts-changelog"),
+        &[("cleanup.policy", "compact")],
+    )];
     let mut t = Topology::default();
     t.subtopologies = vec![zero, one];
     t
@@ -84,21 +92,36 @@ pub fn join(group: &str, member: &str, input: &str) -> StreamsGroupHeartbeatRequ
 }
 
 impl Rig {
-    pub async fn streams_heartbeat_at(&self, version: i16, req: StreamsGroupHeartbeatRequest) -> StreamsGroupHeartbeatResponse {
-        let Response::StreamsGroupHeartbeat(r) = self.ask(version, Request::StreamsGroupHeartbeat(req.into())).await else {
+    pub async fn streams_heartbeat_at(
+        &self,
+        version: i16,
+        req: StreamsGroupHeartbeatRequest,
+    ) -> StreamsGroupHeartbeatResponse {
+        let Response::StreamsGroupHeartbeat(r) = self
+            .ask(version, Request::StreamsGroupHeartbeat(req.into()))
+            .await
+        else {
             panic!("not StreamsGroupHeartbeat")
         };
         *r
     }
 
-    pub async fn streams_heartbeat(&self, req: StreamsGroupHeartbeatRequest) -> StreamsGroupHeartbeatResponse {
+    pub async fn streams_heartbeat(
+        &self,
+        req: StreamsGroupHeartbeatRequest,
+    ) -> StreamsGroupHeartbeatResponse {
         self.streams_heartbeat_at(1, req).await
     }
 
     pub async fn streams_describe(&self, groups: &[&str]) -> StreamsGroupDescribeResponse {
         let mut req = StreamsGroupDescribeRequest::default();
-        req.group_ids = groups.iter().map(|g| GroupId(StrBytes::from_string((*g).to_owned()))).collect();
-        let Response::StreamsGroupDescribe(r) = self.ask(1, Request::StreamsGroupDescribe(req)).await else {
+        req.group_ids = groups
+            .iter()
+            .map(|g| GroupId(StrBytes::from_string((*g).to_owned())))
+            .collect();
+        let Response::StreamsGroupDescribe(r) =
+            self.ask(1, Request::StreamsGroupDescribe(req)).await
+        else {
             panic!("not StreamsGroupDescribe")
         };
         r
@@ -106,15 +129,32 @@ impl Rig {
 
     /// `member` joins the word count of `group` with no initial delay, and keeps on until it runs every task; its last
     /// answer.
-    pub async fn streams_settle(&self, group: &str, member: &str, input: &str) -> StreamsGroupHeartbeatResponse {
-        let quick = [("streams.initial.rebalance.delay.ms", "0"), ("streams.assignment.interval.ms", "0")];
+    pub async fn streams_settle(
+        &self,
+        group: &str,
+        member: &str,
+        input: &str,
+    ) -> StreamsGroupHeartbeatResponse {
+        let quick = [
+            ("streams.initial.rebalance.delay.ms", "0"),
+            ("streams.assignment.interval.ms", "0"),
+        ];
         assert_eq!(self.group_config(group, &quick).await, 0);
         let mut last = self.streams_heartbeat(join(group, member, input)).await;
         assert_eq!(last.error_code, 0, "{last:?}");
         let mut owned: Vec<TaskIds> = Vec::new();
         for _ in 0..10 {
             if let Some(a) = &last.active_tasks {
-                owned = a.iter().map(|t| (t.subtopology_id.to_string(), t.partitions.clone())).map(|(s, p)| { let mut x = TaskIds::default(); x.subtopology_id = StrBytes::from_string(s); x.partitions = p; x }).collect();
+                owned = a
+                    .iter()
+                    .map(|t| (t.subtopology_id.to_string(), t.partitions.clone()))
+                    .map(|(s, p)| {
+                        let mut x = TaskIds::default();
+                        x.subtopology_id = StrBytes::from_string(s);
+                        x.partitions = p;
+                        x
+                    })
+                    .collect();
             }
             let mut hb = heartbeat(group, member, last.member_epoch);
             hb.active_tasks = Some(owned.clone());
@@ -122,7 +162,9 @@ impl Rig {
             hb.warmup_tasks = Some(Vec::new());
             last = self.streams_heartbeat(hb).await;
             assert_eq!(last.error_code, 0, "{last:?}");
-            if owned.iter().map(|t| t.partitions.len()).sum::<usize>() > 0 && last.status.as_ref().is_some_and(Vec::is_empty) {
+            if owned.iter().map(|t| t.partitions.len()).sum::<usize>() > 0
+                && last.status.as_ref().is_some_and(Vec::is_empty)
+            {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(20)).await;
@@ -133,11 +175,24 @@ impl Rig {
 
 impl Rig {
     /// Every config DescribeConfigs lists for group `group`: its value and source.
-    pub async fn describe_group_configs(&self, group: &str) -> std::collections::BTreeMap<String, (String, i8)> {
-        let r = self.describe_configs(4, 32, group, None, false, false).await;
+    pub async fn describe_group_configs(
+        &self,
+        group: &str,
+    ) -> std::collections::BTreeMap<String, (String, i8)> {
+        let r = self
+            .describe_configs(4, 32, group, None, false, false)
+            .await;
         r.configs
             .into_iter()
-            .map(|c| (c.name.to_string(), (c.value.map(|v| v.to_string()).unwrap_or_default(), c.config_source)))
+            .map(|c| {
+                (
+                    c.name.to_string(),
+                    (
+                        c.value.map(|v| v.to_string()).unwrap_or_default(),
+                        c.config_source,
+                    ),
+                )
+            })
             .collect()
     }
 
@@ -146,7 +201,12 @@ impl Rig {
         let r = self.describe_configs(4, 2, name, None, false, false).await;
         r.configs
             .into_iter()
-            .map(|c| (c.name.to_string(), c.value.map(|v| v.to_string()).unwrap_or_default()))
+            .map(|c| {
+                (
+                    c.name.to_string(),
+                    c.value.map(|v| v.to_string()).unwrap_or_default(),
+                )
+            })
             .collect()
     }
 }

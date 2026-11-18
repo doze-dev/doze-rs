@@ -35,11 +35,15 @@ pub(super) fn timing() -> StreamsTiming {
 }
 
 pub(super) fn topics(list: &[(&str, i32)]) -> Topics {
-    Topics::new(list.iter().enumerate().map(|(i, (name, partitions))| Topic {
-        name: (*name).to_owned(),
-        id: Uuid::from_u128(u128::try_from(i).unwrap() + 1),
-        partitions: *partitions,
-    }))
+    Topics::new(
+        list.iter()
+            .enumerate()
+            .map(|(i, (name, partitions))| Topic {
+                name: (*name).to_owned(),
+                id: Uuid::from_u128(u128::try_from(i).unwrap() + 1),
+                partitions: *partitions,
+            }),
+    )
 }
 
 pub(super) fn internal(name: &str, partitions: i32) -> TopicInfo {
@@ -78,7 +82,11 @@ pub(super) fn word_count() -> Topology {
 
 /// The topics the word count runs with once its internal topics are made.
 pub(super) fn ready_topics(partitions: i32) -> Topics {
-    topics(&[("in", partitions), ("app-rep", partitions), ("app-counts-changelog", partitions)])
+    topics(&[
+        ("in", partitions),
+        ("app-rep", partitions),
+        ("app-counts-changelog", partitions),
+    ])
 }
 
 pub(super) fn id(s: &str) -> MemberId {
@@ -174,7 +182,8 @@ impl World {
     pub(super) fn send(&mut self, hb: &StreamsHeartbeat) -> StreamsAnswer {
         self.tokens += 1;
         let mut out = Vec::new();
-        self.group.heartbeat(Token(self.tokens), hb, &self.topics, self.now, &mut out);
+        self.group
+            .heartbeat(Token(self.tokens), hb, &self.topics, self.now, &mut out);
         self.apply(out).expect("an answer")
     }
 
@@ -191,7 +200,8 @@ impl World {
             let Some((kind, generation)) = due else { break };
             self.timers.remove(&kind);
             let mut out = Vec::new();
-            self.group.timer(&TimerKey { kind, generation }, self.now, &mut out);
+            self.group
+                .timer(&TimerKey { kind, generation }, self.now, &mut out);
             self.apply(out);
         }
     }
@@ -219,7 +229,11 @@ impl World {
 
     /// What the group says the member holds.
     pub(super) fn held(&self, member: &str) -> Tasks {
-        self.group.members.get(&id(member)).map(|m| m.held.tasks.clone()).unwrap_or_default()
+        self.group
+            .members
+            .get(&id(member))
+            .map(|m| m.held.tasks.clone())
+            .unwrap_or_default()
     }
 }
 

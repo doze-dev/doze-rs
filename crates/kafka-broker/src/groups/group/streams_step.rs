@@ -3,7 +3,8 @@
 
 use super::super::consumer::{self, TopicSource};
 use super::super::machine::{
-    Answer, Description, Effect, Event, Force, Forced, JoinAnswer, LeaveResult, Millis, State, SyncAnswer, Token,
+    Answer, Description, Effect, Event, Force, Forced, JoinAnswer, LeaveResult, Millis, State,
+    SyncAnswer, Token,
 };
 use super::super::share::ShareAnswer;
 use super::super::streams::StreamsGroup;
@@ -17,7 +18,9 @@ pub(super) fn step_streams(
 ) -> Vec<Effect> {
     let mut out = Vec::new();
     match event {
-        Event::StreamsHeartbeat(token, hb) => s.heartbeat(token, &hb, &source.topics(), now, &mut out),
+        Event::StreamsHeartbeat(token, hb) => {
+            s.heartbeat(token, &hb, &source.topics(), now, &mut out)
+        }
         Event::Timer(key) => s.timer(&key, now, &mut out),
         Event::TopicsChanged => s.topics_changed(),
         Event::Commit(token, req) => {

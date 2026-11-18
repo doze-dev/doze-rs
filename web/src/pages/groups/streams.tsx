@@ -203,7 +203,7 @@ export function StreamsMembers({ v, onOpen }: { v: GroupLagView; onOpen: Open })
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Big label="Group epoch" value={s.epoch} help="Moves when a member joins or leaves, the topology changes, or a topic it reads grows." />
         <Big label="Assignment epoch" value={s.assignment_epoch} help={s.not_ready ? "No task is worked out while the topology cannot run." : s.assignment_epoch === s.epoch ? "The same epoch: the tasks were worked out for the group as it is." : "Older than the group: the tasks are worked out at the next heartbeat."} />
-        <Big label="Topology epoch" value={s.topology_epoch ?? "—"} help="The version of the topology the application sent; a member with another one is fenced." />
+        <Big label="Topology epoch" value={s.topology_epoch ?? "—"} help="The version of the topology the application sent. A member with an older one is told it is stale; Kafka 4.4 refuses a changed one." />
         <Big label="Tasks" value={tasks === null ? "—" : number(tasks)} help={<>Task p of a subtopology reads partition p of its topics. Assignor: {h.assignor ?? "sticky"}.</>} />
       </div>
       <section>
@@ -226,7 +226,7 @@ export function StreamsMembers({ v, onOpen }: { v: GroupLagView; onOpen: Open })
         <section>
           <h2 className="text-[17px] font-semibold text-bright">Internal topics</h2>
           <p className="mt-1 mb-3 max-w-[52rem] text-[13.5px] text-muted-foreground">
-            Made by the broker for the group when the topology is first ready, with as many partitions as the subtopology has tasks. They are ordinary topics: deleting the group leaves them.
+            Made by the broker for the group once its source topics exist, with as many partitions as the subtopology has tasks. They are ordinary topics: deleting the group leaves them.
           </p>
           <DataTable data={s.internal} columns={internalColumns(wide)} rowId={(t) => t.name} aria-label="Internal topics" maxHeight={320} />
         </section>

@@ -84,8 +84,14 @@ impl StreamsGroup {
             return Some(t);
         };
         for (id, s) in &mut t.subtopologies {
-            let Some(cs) = c.subtopologies.get(id) else { continue };
-            for info in s.repartition_sources.iter_mut().chain(s.changelogs.iter_mut()) {
+            let Some(cs) = c.subtopologies.get(id) else {
+                continue;
+            };
+            for info in s
+                .repartition_sources
+                .iter_mut()
+                .chain(s.changelogs.iter_mut())
+            {
                 if let Some((_, n)) = cs.internal.iter().find(|(name, _)| *name == info.name) {
                     info.partitions = *n;
                 }
@@ -110,7 +116,12 @@ impl StreamsGroup {
                 .configured
                 .as_ref()
                 .filter(|c| c.ready())
-                .map(|c| c.subtopologies.iter().map(|(id, s)| (id.clone(), s.tasks)).collect())
+                .map(|c| {
+                    c.subtopologies
+                        .iter()
+                        .map(|(id, s)| (id.clone(), s.tasks))
+                        .collect()
+                })
                 .unwrap_or_default(),
             members: self
                 .members

@@ -5,11 +5,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use kafka_wire::ResponseError as E;
 use kafka_wire::StrBytes;
 use kafka_wire::ids::{InstanceId, MemberId};
-use kafka_wire::messages::streams_group_heartbeat_request::{TaskIds, TaskOffset, TopicInfo, Topology};
+use kafka_wire::messages::streams_group_heartbeat_request::{
+    TaskIds, TaskOffset, TopicInfo, Topology,
+};
 use kafka_wire::messages::streams_group_heartbeat_response::{
     Endpoint as WireEndpoint, EndpointToPartitions, Status, TaskIds as AnswerTasks, TopicPartition,
 };
-use kafka_wire::messages::{StreamsGroupHeartbeatRequest, StreamsGroupHeartbeatResponse, TopicName};
+use kafka_wire::messages::{
+    StreamsGroupHeartbeatRequest, StreamsGroupHeartbeatResponse, TopicName,
+};
 
 use crate::Outcome;
 use crate::groups::streams::topology;
@@ -26,7 +30,11 @@ pub(super) fn topology_names(t: &Topology) -> BTreeSet<&str> {
                 .iter()
                 .chain(&s.repartition_sink_topics)
                 .map(|n| n.0.as_str())
-                .chain(s.repartition_source_topics.iter().map(|i| i.name.0.as_str()))
+                .chain(
+                    s.repartition_source_topics
+                        .iter()
+                        .map(|i| i.name.0.as_str()),
+                )
                 .chain(s.state_changelog_topics.iter().map(|i| i.name.0.as_str()))
         })
         .collect()
@@ -39,7 +47,11 @@ fn blank(s: Option<&StrBytes>) -> bool {
 /// Kafka's `throwIfStreamsGroupHeartbeatRequestIsInvalid`, in its order and words.
 pub(super) fn check(r: &StreamsGroupHeartbeatRequest) -> Result<(), (E, String)> {
     let bad = |words: &str| Err((E::InvalidRequest, words.to_owned()));
-    if r.topology.iter().flat_map(|t| &t.subtopologies).any(|s| !s.source_topic_regex.is_empty()) {
+    if r.topology
+        .iter()
+        .flat_map(|t| &t.subtopologies)
+        .any(|s| !s.source_topic_regex.is_empty())
+    {
         return bad("Regular expressions for source topics are not supported yet.");
     }
     if r.member_id.as_str().trim().is_empty() {
@@ -59,7 +71,10 @@ pub(super) fn check(r: &StreamsGroupHeartbeatRequest) -> Result<(), (E, String)>
     } else if r.member_epoch == -2 && r.instance_id.is_none() {
         return bad("InstanceId can't be null.");
     } else if r.member_epoch < -2 {
-        return bad(&format!("MemberEpoch is {}, but must be greater than or equal to -2.", r.member_epoch));
+        return bad(&format!(
+            "MemberEpoch is {}, but must be greater than or equal to -2.",
+            r.member_epoch
+        ));
     }
     let lists = [&r.active_tasks, &r.standby_tasks, &r.warmup_tasks];
     if lists.iter().any(|l| l.is_some()) && lists.iter().any(|l| l.is_none()) {
@@ -76,7 +91,11 @@ fn joining(r: &StreamsGroupHeartbeatRequest) -> Result<(), (E, String)> {
     if r.rebalance_timeout_ms == -1 {
         return bad("RebalanceTimeoutMs must be provided in first request.");
     }
-    for (list, name) in [(&r.active_tasks, "ActiveTasks"), (&r.standby_tasks, "StandbyTasks"), (&r.warmup_tasks, "WarmupTasks")] {
+    for (list, name) in [
+        (&r.active_tasks, "ActiveTasks"),
+        (&r.standby_tasks, "StandbyTasks"),
+        (&r.warmup_tasks, "WarmupTasks"),
+    ] {
         if list.as_ref().is_none_or(|l| !l.is_empty()) {
             return bad(&format!("{name} must be empty when (re-)joining."));
         }
@@ -84,7 +103,11 @@ fn joining(r: &StreamsGroupHeartbeatRequest) -> Result<(), (E, String)> {
     let Some(t) = &r.topology else {
         return bad("Topology must be non-null when (re-)joining.");
     };
-    for c in t.subtopologies.iter().flat_map(|s| &s.state_changelog_topics) {
+    for c in t
+        .subtopologies
+        .iter()
+        .flat_map(|s| &s.state_changelog_topics)
+    {
         if c.partitions != 0 {
             return Err((
                 E::StreamsInvalidTopology,
@@ -104,7 +127,11 @@ fn info(i: &TopicInfo) -> topology::TopicInfo {
         name: i.name.0.to_string(),
         partitions: i.partitions,
         replication: i.replication_factor,
-        configs: i.topic_configs.iter().map(|kv| (kv.key.to_string(), kv.value.to_string())).collect(),
+        configs: i
+            .topic_configs
+            .iter()
+            .map(|kv| (kv.key.to_string(), kv.value.to_string()))
+            .collect(),
     }
 }
 
@@ -137,11 +164,18 @@ fn topology_of(t: &Topology) -> topology::Topology {
 }
 
 fn tasks(l: &[TaskIds]) -> std::collections::BTreeSet<Task> {
-    from_wire(l.iter().map(|t| (t.subtopology_id.as_str(), t.partitions.as_slice())))
+    from_wire(
+        l.iter()
+            .map(|t| (t.subtopology_id.as_str(), t.partitions.as_slice())),
+    )
 }
 
 fn offsets(l: Option<&Vec<TaskOffset>>) -> Option<Vec<(Task, i64)>> {
-    l.map(|l| l.iter().map(|o| ((o.subtopology_id.to_string(), o.partition), o.offset)).collect())
+    l.map(|l| {
+        l.iter()
+            .map(|o| ((o.subtopology_id.to_string(), o.partition), o.offset))
+            .collect()
+    })
 }
 
 /// The request in the group's terms (after [`check`], so the member id is not empty).
@@ -175,10 +209,11 @@ pub(super) fn typed(
             host: e.host.to_string(),
             port: e.port,
         }),
-        client_tags: r
-            .client_tags
-            .as_ref()
-            .map(|t| t.iter().map(|kv| (kv.key.to_string(), kv.value.to_string())).collect::<BTreeMap<_, _>>()),
+        client_tags: r.client_tags.as_ref().map(|t| {
+            t.iter()
+                .map(|kv| (kv.key.to_string(), kv.value.to_string()))
+                .collect::<BTreeMap<_, _>>()
+        }),
         offsets: offsets(r.task_offsets.as_ref()),
         end_offsets: offsets(r.task_end_offsets.as_ref()),
         shutdown: r.shutdown_application,
@@ -190,7 +225,9 @@ pub(super) fn typed(
 
 pub(super) fn respond_raw(mut resp: StreamsGroupHeartbeatResponse, error: E) -> Outcome {
     resp.error_code = error.code();
-    Outcome::Respond(kafka_wire::api::Response::StreamsGroupHeartbeat(resp.into()))
+    Outcome::Respond(kafka_wire::api::Response::StreamsGroupHeartbeat(
+        resp.into(),
+    ))
 }
 
 fn task_ids(tasks: &BTreeSet<Task>) -> Vec<AnswerTasks> {
@@ -222,7 +259,10 @@ pub(super) fn respond(a: &StreamsAnswer) -> Outcome {
         resp.error_message = Some(StrBytes::from_string(words.clone()));
         return respond_raw(resp, *error);
     }
-    resp.member_id = a.member_id.as_ref().map_or_else(StrBytes::default, |m| StrBytes::from_string(m.to_string()));
+    resp.member_id = a
+        .member_id
+        .as_ref()
+        .map_or_else(StrBytes::default, |m| StrBytes::from_string(m.to_string()));
     resp.member_epoch = a.epoch;
     resp.heartbeat_interval_ms = a.heartbeat_ms;
     resp.task_offset_interval_ms = a.task_offset_ms;
@@ -258,5 +298,7 @@ pub(super) fn respond(a: &StreamsAnswer) -> Outcome {
             })
             .collect()
     });
-    Outcome::Respond(kafka_wire::api::Response::StreamsGroupHeartbeat(resp.into()))
+    Outcome::Respond(kafka_wire::api::Response::StreamsGroupHeartbeat(
+        resp.into(),
+    ))
 }
