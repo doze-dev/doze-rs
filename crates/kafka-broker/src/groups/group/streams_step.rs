@@ -61,7 +61,7 @@ fn describe(s: &StreamsGroup, token: Token, now: Millis) -> Effect {
             subscribed: Some(s.subscribed()),
             consumer: None,
             share: None,
-            streams: Some(s.view()),
+            streams: Some(Box::new(s.view())),
             #[cfg(feature = "inspect")]
             inspect: Box::new(s.inspect(now)),
         }),

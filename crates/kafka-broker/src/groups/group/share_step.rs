@@ -112,10 +112,10 @@ fn refuse_in_share(event: Event) -> Option<Effect> {
         ),
         Event::StreamsHeartbeat(token, hb) => (
             token,
-            Answer::StreamsHeartbeat(StreamsAnswer::refused(
+            Answer::StreamsHeartbeat(Box::new(StreamsAnswer::refused(
                 E::GroupIdNotFound,
                 format!("Group {} is not a streams group.", hb.group),
-            )),
+            ))),
         ),
         // A share group's own: answered by `step_share`.
         Event::ShareHeartbeat(..)

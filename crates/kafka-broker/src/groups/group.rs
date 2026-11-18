@@ -303,10 +303,10 @@ impl Group {
             // A streams heartbeat to any other classic or consumer group.
             Event::StreamsHeartbeat(token, hb) => vec![Effect::Reply(
                 token,
-                Answer::StreamsHeartbeat(StreamsAnswer::refused(
+                Answer::StreamsHeartbeat(Box::new(StreamsAnswer::refused(
                     E::GroupIdNotFound,
                     format!("Group {} is not a streams group.", hb.group),
-                )),
+                ))),
             )],
             // A share heartbeat to a classic or consumer group, even an empty one (Kafka converts neither).
             Event::ShareHeartbeat(token, hb) => vec![Effect::Reply(

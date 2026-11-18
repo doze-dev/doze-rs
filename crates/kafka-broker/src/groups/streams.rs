@@ -115,6 +115,18 @@ pub(crate) struct StreamsAnswer {
     pub(crate) create: Vec<Creatable>,
 }
 
+/// Why a heartbeat is refused: the error and Kafka's words for it.
+pub(crate) type Refusal = (E, String);
+
+/// The topics a topology's configuration was worked out against: id and partitions by name (Kafka's metadata hash).
+pub(crate) type Seen = BTreeMap<String, (Uuid, i32)>;
+
+impl From<Refusal> for StreamsAnswer {
+    fn from((error, words): Refusal) -> Self {
+        Self::refused(error, words)
+    }
+}
+
 impl StreamsAnswer {
     pub(crate) fn refused(error: E, words: impl Into<String>) -> Self {
         Self {
@@ -142,7 +154,7 @@ pub(crate) struct StreamsGroup {
     /// The topology against the topics, as last worked out; `None` until a heartbeat works it out.
     configured: Option<Configured>,
     /// The topics the configuration was worked out against (Kafka's metadata hash).
-    seen: BTreeMap<String, (Uuid, i32)>,
+    seen: Seen,
     /// The topology's epoch when it was last ready, else -1.
     validated_epoch: i32,
     /// The assignment configs the targets were last computed with: standby replicas and tags.

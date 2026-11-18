@@ -120,7 +120,7 @@ pub(crate) struct Description {
     /// Set if this is a share group, which the classic APIs do not describe either.
     pub(crate) share: Option<crate::groups::share::ShareView>,
     /// Set if this is a streams group, which the classic APIs do not describe either.
-    pub(crate) streams: Option<crate::groups::streams::StreamsView>,
+    pub(crate) streams: Option<Box<crate::groups::streams::StreamsView>>,
     /// What the console is told besides (feature `inspect`).
     #[cfg(feature = "inspect")]
     pub(crate) inspect: Box<crate::groups::Inspect>,
@@ -238,7 +238,7 @@ pub(crate) enum Answer {
     /// To a ShareGroupHeartbeat.
     ShareHeartbeat(crate::groups::share::ShareAnswer),
     /// To a StreamsGroupHeartbeat.
-    StreamsHeartbeat(crate::groups::streams::StreamsAnswer),
+    StreamsHeartbeat(Box<crate::groups::streams::StreamsAnswer>),
     /// To a request for what the group has said of itself (the actor answers; no machine does).
     Events(Vec<crate::groups::events::Recorded>),
     /// To a forced step.
@@ -289,7 +289,7 @@ pub(crate) enum Event {
     /// A ShareGroupHeartbeat arrived.
     ShareHeartbeat(Token, crate::groups::share::ShareHeartbeat),
     /// A StreamsGroupHeartbeat arrived.
-    StreamsHeartbeat(Token, crate::groups::streams::StreamsHeartbeat),
+    StreamsHeartbeat(Token, Box<crate::groups::streams::StreamsHeartbeat>),
     /// A topic was made, grown or deleted.
     TopicsChanged,
     /// A timer ran out.

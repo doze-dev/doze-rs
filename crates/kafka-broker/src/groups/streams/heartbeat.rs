@@ -11,7 +11,7 @@ use super::member::Member;
 use super::reconcile::{Holders, Stage, reconcile};
 use super::seat::Seat;
 use super::topology::{Configured, MISSING_INTERNAL_TOPICS, Topology, configure};
-use super::{StreamsAnswer, StreamsGroup, StreamsHeartbeat, Task, Tasks, endpoints, status};
+use super::{Refusal, Seen, StreamsAnswer, StreamsGroup, StreamsHeartbeat, Task, Tasks, endpoints, status};
 use crate::groups::consumer::Topics;
 use crate::groups::machine::{Answer, Effect, Millis, TimerKind, Token};
 use crate::groups::note::Cause;
@@ -22,18 +22,18 @@ struct Plan {
     /// The topology to set, for a group that has none.
     topology: Option<Topology>,
     /// The topology against the topics, when it is to be worked out again, and the topics it was worked out against.
-    configured: Option<(Configured, BTreeMap<String, (kafka_wire::Uuid, i32)>)>,
+    configured: Option<(Configured, Seen)>,
     offsets: Option<BTreeMap<Task, i64>>,
     end_offsets: Option<BTreeMap<Task, i64>>,
 }
 
 /// Task offsets by task; one task twice is refused.
-fn offsets(list: Option<&Vec<(Task, i64)>>) -> Result<Option<BTreeMap<Task, i64>>, StreamsAnswer> {
+fn offsets(list: Option<&Vec<(Task, i64)>>) -> Result<Option<BTreeMap<Task, i64>>, Refusal> {
     let Some(list) = list else { return Ok(None) };
     let mut out = BTreeMap::new();
     for ((sub, p), offset) in list {
         if out.insert((sub.clone(), *p), *offset).is_some() {
-            return Err(StreamsAnswer::refused(
+            return Err((
                 E::InvalidRequest,
                 format!("Task offsets contain a duplicate entry for subtopology {sub} and partition {p}."),
             ));
@@ -43,16 +43,13 @@ fn offsets(list: Option<&Vec<(Task, i64)>>) -> Result<Option<BTreeMap<Task, i64>
 }
 
 /// The tasks a member says it owns must be tasks of the topology (checked only when the topology is ready).
-fn check_owned(owned: &Tasks, configured: &Configured) -> Result<(), StreamsAnswer> {
+fn check_owned(owned: &Tasks, configured: &Configured) -> Result<(), Refusal> {
     for (sub, p) in owned.all() {
         let Some(s) = configured.subtopologies.get(sub) else {
-            return Err(StreamsAnswer::refused(
-                E::InvalidRequest,
-                format!("Subtopology {sub} does not exist in the topology."),
-            ));
+            return Err((E::InvalidRequest, format!("Subtopology {sub} does not exist in the topology.")));
         };
         if *p < 0 || *p >= s.tasks {
-            return Err(StreamsAnswer::refused(
+            return Err((
                 E::InvalidRequest,
                 format!(
                     "Task {p} for subtopology {sub} is invalid. Number of tasks for this subtopology: {}",
@@ -78,21 +75,21 @@ impl StreamsGroup {
             self.leave(hb, now, out)
         } else {
             self.plan(hb, topics)
-                .map_or_else(|refused| refused, |plan| self.beat(hb, plan, topics, now, out))
+                .map_or_else(StreamsAnswer::from, |plan| self.beat(hb, plan, topics, now, out))
         };
-        out.push(Effect::Reply(token, Answer::StreamsHeartbeat(answer)));
+        out.push(Effect::Reply(token, Answer::StreamsHeartbeat(Box::new(answer))));
     }
 
     /// The topology a join brings: set if the group has none; one at an older epoch than the group's is let be (the
     /// member is told its topology is stale); any other that differs is refused, as Kafka 4.4.0 updates none.
-    fn topology_to_set(&self, hb: &StreamsHeartbeat) -> Result<Option<Topology>, StreamsAnswer> {
+    fn topology_to_set(&self, hb: &StreamsHeartbeat) -> Result<Option<Topology>, Refusal> {
         match (&self.topology, &hb.topology) {
             (None, Some(t)) => Ok(Some(t.clone())),
-            (Some(g), Some(t)) if g.epoch <= t.epoch && g != t => Err(StreamsAnswer::refused(
+            (Some(g), Some(t)) if g.epoch <= t.epoch && g != t => Err((
                 E::InvalidRequest,
-                "Topology updates are not supported yet.",
+                "Topology updates are not supported yet.".to_owned(),
             )),
-            (None, None) => Err(StreamsAnswer::refused(
+            (None, None) => Err((
                 E::UnknownServerError,
                 format!("The streams group {} has no topology.", hb.group),
             )),
@@ -100,11 +97,11 @@ impl StreamsGroup {
         }
     }
 
-    fn plan(&self, hb: &StreamsHeartbeat, topics: &Topics) -> Result<Plan, StreamsAnswer> {
+    fn plan(&self, hb: &StreamsHeartbeat, topics: &Topics) -> Result<Plan, Refusal> {
         let seat = self.seat_of(hb)?;
         let to_set = self.topology_to_set(hb)?;
         let Some(topology) = to_set.as_ref().or(self.topology.as_ref()) else {
-            return Err(StreamsAnswer::refused(E::UnknownServerError, "no topology"));
+            return Err((E::UnknownServerError, "no topology".to_owned()));
         };
         let seen = topology.seen(topics);
         let configured = if self.configured.is_none() || to_set.is_some() || seen != self.seen {
@@ -114,7 +111,7 @@ impl StreamsGroup {
                 } else {
                     E::StreamsInvalidTopology
                 };
-                StreamsAnswer::refused(code, invalid.words)
+                (code, invalid.words)
             })?;
             Some((c, seen))
         } else {

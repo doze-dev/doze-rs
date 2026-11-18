@@ -77,8 +77,8 @@ impl<F: Fs> Broker<F> {
         let Some(typed) = wire::typed(version, client, req, self.streams_timing(&group)) else {
             return wire::respond(&StreamsAnswer::refused(E::InvalidRequest, "MemberId can't be empty."));
         };
-        let mut answer = match self.groups.ask(&group, Req::StreamsHeartbeat(typed)).await {
-            Some(Answer::StreamsHeartbeat(a)) => a,
+        let mut answer = match self.groups.ask(&group, Req::StreamsHeartbeat(Box::new(typed))).await {
+            Some(Answer::StreamsHeartbeat(a)) => *a,
             _ => StreamsAnswer::refused(E::GroupIdNotFound, format!("Group {group} not found.")),
         };
         if !answer.create.is_empty() {

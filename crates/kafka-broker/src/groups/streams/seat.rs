@@ -4,7 +4,7 @@
 use kafka_wire::ResponseError as E;
 use kafka_wire::ids::MemberId;
 
-use super::{StreamsAnswer, StreamsGroup, StreamsHeartbeat, not_a_member};
+use super::{Refusal, StreamsAnswer, StreamsGroup, StreamsHeartbeat, not_a_member};
 use crate::groups::machine::{Effect, Millis, TimerKind};
 use crate::groups::note::Cause;
 
@@ -19,8 +19,8 @@ pub(super) enum Seat {
     Replaces(MemberId),
 }
 
-fn fenced(word: &str, received: i32, known: i32) -> StreamsAnswer {
-    StreamsAnswer::refused(
+fn fenced(word: &str, received: i32, known: i32) -> Refusal {
+    (
         E::FencedMemberEpoch,
         format!(
             "The streams group member has a {word} member epoch ({received}) than the one known by the group coordinator ({known}). The member must abandon all its partitions and rejoin."
@@ -30,7 +30,7 @@ fn fenced(word: &str, received: i32, known: i32) -> StreamsAnswer {
 
 impl StreamsGroup {
     /// Where the member of `hb` comes from, or why it may not heartbeat. Changes nothing.
-    pub(super) fn seat_of(&self, hb: &StreamsHeartbeat) -> Result<Seat, StreamsAnswer> {
+    pub(super) fn seat_of(&self, hb: &StreamsHeartbeat) -> Result<Seat, Refusal> {
         let id = &hb.member_id;
         let holder = hb.instance.as_ref().and_then(|i| {
             self.members
@@ -39,7 +39,7 @@ impl StreamsGroup {
         });
         if hb.epoch == 0 {
             if !self.has_room(hb) && !self.members.contains_key(id) {
-                return Err(StreamsAnswer::refused(
+                return Err((
                     E::GroupMaxSizeReached,
                     format!(
                         "The streams group has reached its maximum capacity of {} members.",
@@ -48,7 +48,7 @@ impl StreamsGroup {
                 ));
             }
             return match (hb.instance.as_ref(), holder) {
-                (Some(instance), Some(h)) if h.held.epoch != -2 => Err(StreamsAnswer::refused(
+                (Some(instance), Some(h)) if h.held.epoch != -2 => Err((
                     E::UnreleasedInstanceId,
                     format!(
                         "Static member {id} with instance id {instance} cannot join the group because the instance id is owned by {} member.",
@@ -62,20 +62,20 @@ impl StreamsGroup {
         }
         let member = match (hb.instance.as_ref(), holder) {
             (Some(instance), None) => {
-                return Err(StreamsAnswer::refused(
+                return Err((
                     E::UnknownMemberId,
                     format!("Instance id {instance} is unknown."),
                 ));
             }
             (Some(instance), Some(h)) if &h.id != id => {
-                return Err(StreamsAnswer::refused(
+                return Err((
                     E::FencedInstanceId,
                     format!("Static member {id} with instance id {instance} was fenced by member {}.", h.id),
                 ));
             }
             (_, Some(h)) => h,
             (None, None) => self.members.get(id).ok_or_else(|| {
-                StreamsAnswer::refused(E::UnknownMemberId, not_a_member(id.as_str(), &hb.group))
+                (E::UnknownMemberId, not_a_member(id.as_str(), &hb.group))
             })?,
         };
         let known = member.held.epoch;

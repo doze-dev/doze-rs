@@ -164,7 +164,7 @@ impl World {
                 Effect::Disarm(kind) => {
                     self.timers.remove(&kind);
                 }
-                Effect::Reply(_, Answer::StreamsHeartbeat(a)) => answer = Some(a),
+                Effect::Reply(_, Answer::StreamsHeartbeat(a)) => answer = Some(*a),
                 _ => {}
             }
         }

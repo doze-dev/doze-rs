@@ -75,10 +75,10 @@ pub(super) fn unknown(req: &Req) -> Option<Answer> {
             } else {
                 format!("Streams group {} not found.", h.group)
             };
-            Answer::StreamsHeartbeat(crate::groups::streams::StreamsAnswer::refused(
+            Answer::StreamsHeartbeat(Box::new(crate::groups::streams::StreamsAnswer::refused(
                 ResponseError::GroupIdNotFound,
                 words,
-            ))
+            )))
         }
         Req::Force(_) => Answer::Forced(Forced::NoSuchGroup),
         Req::Describe | Req::Delete | Req::TopicsChanged | Req::Events => return None,

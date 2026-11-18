@@ -190,7 +190,7 @@ pub(super) fn typed(
 
 pub(super) fn respond_raw(mut resp: StreamsGroupHeartbeatResponse, error: E) -> Outcome {
     resp.error_code = error.code();
-    Outcome::Respond(kafka_wire::api::Response::StreamsGroupHeartbeat(resp))
+    Outcome::Respond(kafka_wire::api::Response::StreamsGroupHeartbeat(resp.into()))
 }
 
 fn task_ids(tasks: &BTreeSet<Task>) -> Vec<AnswerTasks> {
@@ -258,5 +258,5 @@ pub(super) fn respond(a: &StreamsAnswer) -> Outcome {
             })
             .collect()
     });
-    Outcome::Respond(kafka_wire::api::Response::StreamsGroupHeartbeat(resp))
+    Outcome::Respond(kafka_wire::api::Response::StreamsGroupHeartbeat(resp.into()))
 }

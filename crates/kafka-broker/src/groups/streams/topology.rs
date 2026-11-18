@@ -56,7 +56,7 @@ pub(crate) struct Topology {
 impl Topology {
     /// The topics whose partitions the configuration depends on, with their id and count now (Kafka's metadata hash):
     /// the sources, repartition sources and changelogs that exist.
-    pub(crate) fn seen(&self, topics: &Topics) -> BTreeMap<String, (kafka_wire::Uuid, i32)> {
+    pub(crate) fn seen(&self, topics: &Topics) -> super::Seen {
         let mut out = BTreeMap::new();
         for s in self.subtopologies.values() {
             let names = s.inputs().chain(s.changelogs.iter().map(|t| t.name.as_str()));
@@ -217,35 +217,7 @@ pub(crate) fn configure(topology: &Topology, topics: &Topics) -> Result<Configur
         return Ok(not_ready(INCORRECTLY_PARTITIONED_TOPICS, wrong));
     }
     changelog_counts(topology, &mut counts)?;
-    let mut subtopologies = BTreeMap::new();
-    let mut create: BTreeMap<String, Creatable> = BTreeMap::new();
-    for (id, s) in &topology.subtopologies {
-        let tasks = s.inputs().map(|t| counts.must(t)).try_fold(None, |most: Option<i32>, n| {
-            n.map(|n| Some(most.map_or(n, |m| m.max(n))))
-        })?;
-        let tasks = tasks.ok_or_else(|| unexpected("Subtopology does not contain any source topics"))?;
-        let mut internal = Vec::new();
-        for info in s.repartition_sources.iter().chain(&s.changelogs) {
-            let partitions = match info.partitions {
-                0 => *counts.decided.get(&info.name).ok_or_else(|| {
-                    unexpected(format!("Number of partitions must be set for topic {}", info.name))
-                })?,
-                n => n,
-            };
-            internal.push((info.name.clone(), partitions));
-            create.insert(
-                info.name.clone(),
-                Creatable {
-                    name: info.name.clone(),
-                    partitions,
-                    replication: if info.replication == 0 { -1 } else { info.replication },
-                    configs: info.configs.clone(),
-                },
-            );
-        }
-        let stateful = !s.changelogs.is_empty();
-        subtopologies.insert(id.clone(), ConfiguredSub { tasks, stateful, internal });
-    }
+    let (subtopologies, mut create) = subtopologies(topology, &counts)?;
     // Those that exist are not made; one that exists with other partitions makes the topology wrong.
     for s in topology.subtopologies.values() {
         let required = s.inputs().chain(s.changelogs.iter().map(|t| t.name.as_str()));
@@ -275,6 +247,42 @@ pub(crate) fn configure(topology: &Topology, topics: &Topics) -> Result<Configur
         create: create.into_values().collect(),
         not_ready,
     })
+}
+
+type Subtopologies = (BTreeMap<String, ConfiguredSub>, BTreeMap<String, Creatable>);
+
+/// Each subtopology's tasks and internal topics, and every internal topic as it is to be made.
+fn subtopologies(topology: &Topology, counts: &Counts<'_>) -> Result<Subtopologies, Invalid> {
+    let mut subtopologies = BTreeMap::new();
+    let mut create: BTreeMap<String, Creatable> = BTreeMap::new();
+    for (id, s) in &topology.subtopologies {
+        let tasks = s.inputs().map(|t| counts.must(t)).try_fold(None, |most: Option<i32>, n| {
+            n.map(|n| Some(most.map_or(n, |m| m.max(n))))
+        })?;
+        let tasks = tasks.ok_or_else(|| unexpected("Subtopology does not contain any source topics"))?;
+        let mut internal = Vec::new();
+        for info in s.repartition_sources.iter().chain(&s.changelogs) {
+            let partitions = match info.partitions {
+                0 => *counts.decided.get(&info.name).ok_or_else(|| {
+                    unexpected(format!("Number of partitions must be set for topic {}", info.name))
+                })?,
+                n => n,
+            };
+            internal.push((info.name.clone(), partitions));
+            create.insert(
+                info.name.clone(),
+                Creatable {
+                    name: info.name.clone(),
+                    partitions,
+                    replication: if info.replication == 0 { -1 } else { info.replication },
+                    configs: info.configs.clone(),
+                },
+            );
+        }
+        let stateful = !s.changelogs.is_empty();
+        subtopologies.insert(id.clone(), ConfiguredSub { tasks, stateful, internal });
+    }
+    Ok((subtopologies, create))
 }
 
 fn not_ready(code: i8, detail: String) -> Configured {

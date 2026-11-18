@@ -220,7 +220,7 @@ impl<F: Fs> Broker<F> {
             return refuse(E::InvalidGroupId, None);
         };
         let view = match self.groups.describe(&group).await {
-            Some(d) => d.streams.ok_or_else(|| format!("Group {name} is not a streams group.")),
+            Some(d) => d.streams.map(|v| *v).ok_or_else(|| format!("Group {name} is not a streams group.")),
             None => self.kept_streams_group(&group),
         };
         match view {

@@ -85,10 +85,10 @@ pub fn join(group: &str, member: &str, input: &str) -> StreamsGroupHeartbeatRequ
 
 impl Rig {
     pub async fn streams_heartbeat_at(&self, version: i16, req: StreamsGroupHeartbeatRequest) -> StreamsGroupHeartbeatResponse {
-        let Response::StreamsGroupHeartbeat(r) = self.ask(version, Request::StreamsGroupHeartbeat(req)).await else {
+        let Response::StreamsGroupHeartbeat(r) = self.ask(version, Request::StreamsGroupHeartbeat(req.into())).await else {
             panic!("not StreamsGroupHeartbeat")
         };
-        r
+        *r
     }
 
     pub async fn streams_heartbeat(&self, req: StreamsGroupHeartbeatRequest) -> StreamsGroupHeartbeatResponse {

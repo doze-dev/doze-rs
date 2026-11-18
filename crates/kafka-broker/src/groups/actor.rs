@@ -30,7 +30,7 @@ pub(crate) enum Req {
     Delete,
     ConsumerHeartbeat(Heartbeat),
     ShareHeartbeat(ShareHeartbeat),
-    StreamsHeartbeat(StreamsHeartbeat),
+    StreamsHeartbeat(Box<StreamsHeartbeat>),
     TopicsChanged,
     /// A step the Lab forces.
     Force(Force),
@@ -331,10 +331,10 @@ fn unavailable(event: &Event) -> Option<(Token, Answer)> {
         )),
         Event::StreamsHeartbeat(token, _) => Some((
             *token,
-            Answer::StreamsHeartbeat(StreamsAnswer::refused(
+            Answer::StreamsHeartbeat(Box::new(StreamsAnswer::refused(
                 ResponseError::CoordinatorNotAvailable,
                 "the group's members could not be recorded; try again",
-            )),
+            ))),
         )),
         _ => None,
     }

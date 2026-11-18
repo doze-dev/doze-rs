@@ -47,7 +47,7 @@ async fn the_streams_heartbeat_needs_read_on_the_group_and_describe_on_each_topi
         |rig, who| {
             make_topic(rig, "tpc", 1).await;
             let req = join("grp", &member_of(who), "tpc");
-            match rig.ask_as(who, 1, Request::StreamsGroupHeartbeat(req)).await {
+            match rig.ask_as(who, 1, Request::StreamsGroupHeartbeat(req.into())).await {
                 Response::StreamsGroupHeartbeat(r) => {
                     if r.error_code == GROUP_AUTH || r.error_code == TOPIC_AUTH {
                         assert_eq!(r.error_message, None, "the code alone");
@@ -80,7 +80,7 @@ async fn streams_group_describe_needs_describe_on_the_group() {
 async fn a_group_whose_topology_names_a_topic_the_caller_may_not_describe_is_hidden() {
     let rig = world();
     make_topic(&rig, "tpc", 1).await;
-    let made = rig.ask_as(&admin(), 1, Request::StreamsGroupHeartbeat(join("grp", "m", "tpc"))).await;
+    let made = rig.ask_as(&admin(), 1, Request::StreamsGroupHeartbeat(join("grp", "m", "tpc").into())).await;
     assert!(matches!(made, Response::StreamsGroupHeartbeat(ref r) if r.error_code == 0), "{made:?}");
     let reader = user("reader");
     grant(&rig, vec![allow(GROUP, "grp", "User:reader", DESCRIBE), allow(TOPIC, "tpc", "User:reader", DESCRIBE)]).await;
@@ -111,7 +111,7 @@ async fn internal_topics_are_made_only_by_a_caller_that_may_create_them() {
     }
     rights.push(allow(TOPIC, "grp-words-repartition", "User:app", CREATE));
     grant(&rig, rights).await;
-    let Response::StreamsGroupHeartbeat(r) = rig.ask_as(&app, 1, Request::StreamsGroupHeartbeat(join("grp", "m", "tpc"))).await
+    let Response::StreamsGroupHeartbeat(r) = rig.ask_as(&app, 1, Request::StreamsGroupHeartbeat(join("grp", "m", "tpc").into())).await
     else {
         panic!()
     };
@@ -121,7 +121,7 @@ async fn internal_topics_are_made_only_by_a_caller_that_may_create_them() {
     assert!(!exists(&rig, "grp-words-repartition").await, "none is made");
     // CREATE on the cluster covers them all.
     grant(&rig, vec![allow(CLUSTER, "kafka-cluster", "User:app", CREATE)]).await;
-    let Response::StreamsGroupHeartbeat(again) = rig.ask_as(&app, 1, Request::StreamsGroupHeartbeat(join("grp", "m", "tpc"))).await
+    let Response::StreamsGroupHeartbeat(again) = rig.ask_as(&app, 1, Request::StreamsGroupHeartbeat(join("grp", "m", "tpc").into())).await
     else {
         panic!()
     };
