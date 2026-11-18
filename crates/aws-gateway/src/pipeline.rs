@@ -294,20 +294,35 @@ async fn handle(
     let bytes = inflate(parts, bytes, shared.max_body_bytes()).map_err(|e| fail(&e))?;
     let caller = caller_of(shared, parts, claim);
     let call = decode_call(entry, op, id, caller, bytes).map_err(|e| fail(&e))?;
+    answer(entry, (op, version), call)
+        .await
+        .map_err(|e| fail(&e))
+}
+
+/// The service's answer to a decoded JSON-protocol call: whole, or (an operation whose output is an event stream) streamed.
+async fn answer(
+    entry: &Entry,
+    (op, version): (u32, json::Version),
+    call: Call,
+) -> Result<Response<RespBody>, ApiError> {
+    let id = call.id.clone();
     if entry.service.streams(op) {
-        let stream = entry.service.call_stream(call).await.map_err(|e| fail(&e))?;
-        return Ok(streamed(id, stream));
+        let stream = entry.service.call_stream(call).await?;
+        return Ok(streamed(&id, stream));
     }
-    let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
-    let encoded = encode_output(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
-    Ok(json::success(version, id, encoded).map(RespBody::whole))
+    let output = entry.service.call(call).await?;
+    let encoded = encode_output(entry, op, &output.arena, output.root)?;
+    Ok(json::success(version, &id, encoded).map(RespBody::whole))
 }
 
 /// The answer of an operation whose output is an event stream: the framed messages, sent as the service produces them.
 fn streamed(id: &RequestId, stream: aws_wire::rest::Download) -> Response<RespBody> {
     Response::builder()
         .status(http::StatusCode::OK)
-        .header(http::header::CONTENT_TYPE, aws_wire::eventstream::CONTENT_TYPE)
+        .header(
+            http::header::CONTENT_TYPE,
+            aws_wire::eventstream::CONTENT_TYPE,
+        )
         .header("x-amzn-RequestId", id.as_str())
         .body(RespBody::Stream(stream))
         .unwrap_or_else(|_| Response::new(RespBody::whole(Vec::new())))

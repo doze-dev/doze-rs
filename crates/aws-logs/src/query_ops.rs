@@ -227,7 +227,7 @@ impl Core {
             }
             drop(turn);
             if let Some(d) = deliver {
-                crate::scheduled::deliver(peers.as_deref(), &run, d).await;
+                crate::scheduled_run::deliver(peers.as_deref(), &run, d).await;
             }
         });
     }

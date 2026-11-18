@@ -38,6 +38,7 @@ mod query_ops;
 mod reading;
 mod req;
 mod scheduled;
+mod scheduled_run;
 mod storage;
 mod streams;
 mod tail;

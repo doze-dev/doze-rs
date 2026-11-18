@@ -28,8 +28,8 @@ pub(crate) struct MetricFilter {
     pub(crate) emit_system: Vec<String>,
 }
 
-/// A subscription filter. The lines it matches are delivered to a Lambda function or a Kinesis stream (`forward`); a Firehose or a
-/// destination in another account is stored and not delivered.
+/// A subscription filter. The lines it matches are delivered to a Lambda function or a Kinesis stream, directly or through a logs
+/// destination (`forward`); a Firehose, or a destination of another region, is stored and not delivered.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Subscription {
     pub(crate) name: String,

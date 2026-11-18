@@ -15,8 +15,17 @@ differences = [
 [api."CloudWatch Logs"]
 differences = [
   "Events older than 7 days are removed (`--logs-retention-days`, 0 to keep them as AWS does), and a log group keeps at most 100,000 events (`--logs-max-events`). Local logs grow fast; this keeps the disk in check.",
+  "Logs Insights runs the Logs Insights query language (CWLI) only: OpenSearch SQL and PPL, the `SOURCE` command and the `pattern`, `diff`, `anomaly`, `filterIndex`, `unnest` and `lookup` commands are refused with a sentence. `pct` is exact (AWS estimates). Queries and their results are kept in memory, the newest 200 queries and at most 1,000,000 result rows: a restart forgets them (AWS keeps results for days).",
+  "A sort that is not followed only by `limit`, `fields` or `display`, and a stats command, hold at most 1,000,000 rows or groups; past that the query fails and says so.",
+  "Field indexes change no answer and no cost locally (every event in range is read): policies are checked and kept, `DescribeFieldIndexes` reports when each indexed field was first and last seen, and `estimatedRecordsSkipped` stays 0.",
+  "An export task runs before `CreateExportTask` answers (AWS runs it in the background), so it is `COMPLETED` or `FAILED` when first described; a bucket S3 cannot write to refuses the call.",
+  "Destinations are one account's: the access policy is checked as JSON, kept and not evaluated. A subscription filter to a destination of the same region delivers to its Kinesis stream; a Firehose target is kept and not delivered.",
+  "Transformers: `parseCloudfront`, `parseRoute53`, `parsePostgres` and `parseToOCSF` are refused (their logs are vended by AWS services that do not run locally); `dateTimeConverter` reads English month and day names only.",
+  "Scheduled queries run on their schedule and write their answer to the local S3 as JSON rows; a lookup-table destination is refused.",
 ]
 not_planned = [
+  { why = "Large log objects exist only for logs ingested through OpenTelemetry (PutOpenTelemetryLogs), which this model and doze-aws do not have; there is never an object to fetch.", ops = ["GetLogObject"] },
+  { why = "Data sources are named by AWS-vended logs and CloudWatch pipelines, which do not exist locally; GetLogGroupFields answers the same question for a log group.", ops = ["GetLogFields"] },
   { why = "Vended logs: delivery of logs AWS services emit about themselves, which do not exist locally.", ops = ["PutDeliverySource", "GetDeliverySource", "DescribeDeliverySources", "DeleteDeliverySource", "PutDeliveryDestination", "GetDeliveryDestination", "DescribeDeliveryDestinations", "DeleteDeliveryDestination", "PutDeliveryDestinationPolicy", "GetDeliveryDestinationPolicy", "DeleteDeliveryDestinationPolicy", "CreateDelivery", "GetDelivery", "DescribeDeliveries", "DeleteDelivery", "UpdateDeliveryConfiguration", "DescribeConfigurationTemplates"] },
   { why = "Machine-learning anomaly detection over log patterns: no meaningful local equivalent.", ops = ["CreateLogAnomalyDetector", "GetLogAnomalyDetector", "ListLogAnomalyDetectors", "UpdateLogAnomalyDetector", "DeleteLogAnomalyDetector", "ListAnomalies", "UpdateAnomaly"] },
   { why = "Integrations with OpenSearch Service and S3 Tables, which doze-aws does not run.", ops = ["PutIntegration", "GetIntegration", "ListIntegrations", "DeleteIntegration", "AssociateSourceToS3TableIntegration", "DisassociateSourceFromS3TableIntegration", "ListSourcesForS3TableIntegration"] },
