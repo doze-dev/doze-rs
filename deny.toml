@@ -24,10 +24,7 @@ ignore = [
     "RUSTSEC-2026-0370", # zvariant (zbus: the Linux backend's D-Bus)
     "RUSTSEC-2026-0371", # zbus_names
     "RUSTSEC-2026-0372", # zvariant_derive
-    # chrono (gpui-pre, gpui-base, gpui-component), published 2026-11-18. doze-app also uses it directly, for local
-    # clock times (prefs/recall.rs, overlays/toasts.rs, instance/mod.rs); those move to jiff when the app work resumes,
-    # but GPUI keeps chrono in the build until gpui-pre drops it.
-    "RUSTSEC-2026-0543",
+    "RUSTSEC-2026-0543", # chrono (gpui-pre, gpui-base, gpui-component; doze-app's own clock text too)
 ]
 
 [licenses]
