@@ -209,8 +209,13 @@ impl Harness {
             Duration::from_secs(90),
         )
         .await?;
-        if (fresh || how.template) && module.manifest.caps & caps::CONVERGE != 0 {
-            module.converge(&with).await.map_err(|e| render(&e))?;
+        if (fresh || how.template)
+            && module.manifest.caps & caps::CONVERGE != 0
+            && let Err(e) = module.converge(&with).await
+        {
+            // Stopped as declared, not killed on drop (a killed PostgreSQL leaves its shared memory: run::start).
+            started.stop(run::FAILED_BOOT_GRACE).await;
+            return Err(render(&e));
         }
         Ok(Booted {
             module,
