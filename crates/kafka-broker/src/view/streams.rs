@@ -11,7 +11,9 @@ use kafka_wire::ids::GroupId;
 
 use super::ConsoleView;
 use crate::Caller;
-use crate::groups::streams::{StreamsGroup, StreamsMemberView, StreamsView, Task, Tasks, topology};
+use crate::groups::streams::{
+    Stage, StreamsGroup, StreamsMemberView, StreamsView, Task, Tasks, topology,
+};
 
 /// A topic a subtopology names, with what the topology says of it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -129,7 +131,7 @@ fn member(m: &StreamsMemberView) -> StreamsMember {
         assignment: tasks(&m.assignment),
         target: tasks(&m.target),
         revoking: tasks(&m.revoking),
-        stage: m.stage.name(),
+        stage: Stage::name(m.stage),
         task_offsets: m.offsets.iter().map(|(t, o)| (t.clone(), *o)).collect(),
         task_end_offsets: m.end_offsets.iter().map(|(t, o)| (t.clone(), *o)).collect(),
     }
