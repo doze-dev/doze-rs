@@ -97,6 +97,11 @@ async fn the_heartbeats_own_checks_are_kafkas_in_its_order_and_words() {
             Some("Changelog topic g-counts-changelog must have an undefined partition count, but it is set to 3.".into())
         )
     );
+}
+
+#[tokio::test]
+async fn kafkas_checks_of_the_topologys_names_and_of_the_group_come_with_their_words() {
+    let rig = rig();
     // KafkaApis' own checks of the topology's names come first, with a code and its words.
     let r = join("g", "m", "__consumer_offsets");
     assert_eq!(

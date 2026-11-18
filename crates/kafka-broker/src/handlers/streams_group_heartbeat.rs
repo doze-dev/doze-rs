@@ -52,42 +52,12 @@ impl<F: Fs> Broker<F> {
                 E::GroupAuthorizationFailed,
             );
         }
-        if let Some(topology) = &req.topology {
-            let names = wire::topology_names(topology);
-            let internal: Vec<&str> = names
-                .iter()
-                .copied()
-                .filter(|n| KAFKA_INTERNAL.contains(n))
-                .collect();
-            if !internal.is_empty() {
-                return wire::respond(&StreamsAnswer::refused(
-                    E::StreamsInvalidTopology,
-                    format!(
-                        "Use of Kafka internal topics {} in a Kafka Streams topology is prohibited.",
-                        internal.join(",")
-                    ),
-                ));
-            }
-            let invalid: Vec<&str> = names
-                .iter()
-                .copied()
-                .filter(|n| !valid_topic_name(n))
-                .collect();
-            if !invalid.is_empty() {
-                return wire::respond(&StreamsAnswer::refused(
-                    E::StreamsInvalidTopology,
-                    format!(
-                        "Topic names {} are not valid topic names.",
-                        invalid.join(",")
-                    ),
-                ));
-            }
-            if names.iter().any(|n| !guard.topic(Operation::Describe, n)) {
-                return wire::respond_raw(
-                    StreamsGroupHeartbeatResponse::default(),
-                    E::TopicAuthorizationFailed,
-                );
-            }
+        if let Some(refused) = req
+            .topology
+            .as_ref()
+            .and_then(|t| topology_refusal(&guard, t))
+        {
+            return refused;
         }
         if let Err((error, words)) = wire::check(req) {
             return wire::respond(&StreamsAnswer::refused(error, words));
@@ -134,4 +104,47 @@ impl<F: Fs> Broker<F> {
             max_size: crate::group_configs::streams::defaults::MAX_SIZE,
         }
     }
+}
+
+/// KafkaApis' checks of a join's topology: none of Kafka's own topics, every name valid, DESCRIBE on each.
+fn topology_refusal(
+    guard: &super::group_guard::Guard<'_>,
+    topology: &kafka_wire::messages::streams_group_heartbeat_request::Topology,
+) -> Option<Outcome> {
+    let names = wire::topology_names(topology);
+    let internal: Vec<&str> = names
+        .iter()
+        .copied()
+        .filter(|n| KAFKA_INTERNAL.contains(n))
+        .collect();
+    if !internal.is_empty() {
+        return Some(wire::respond(&StreamsAnswer::refused(
+            E::StreamsInvalidTopology,
+            format!(
+                "Use of Kafka internal topics {} in a Kafka Streams topology is prohibited.",
+                internal.join(",")
+            ),
+        )));
+    }
+    let invalid: Vec<&str> = names
+        .iter()
+        .copied()
+        .filter(|n| !valid_topic_name(n))
+        .collect();
+    if !invalid.is_empty() {
+        return Some(wire::respond(&StreamsAnswer::refused(
+            E::StreamsInvalidTopology,
+            format!(
+                "Topic names {} are not valid topic names.",
+                invalid.join(",")
+            ),
+        )));
+    }
+    if names.iter().any(|n| !guard.topic(Operation::Describe, n)) {
+        return Some(wire::respond_raw(
+            StreamsGroupHeartbeatResponse::default(),
+            E::TopicAuthorizationFailed,
+        ));
+    }
+    None
 }
