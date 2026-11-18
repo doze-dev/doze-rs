@@ -80,6 +80,8 @@ not_planned = [
 [api."SSM"]
 differences = [
   "`GetServiceSetting` of a setting that does not exist: AWS answers `ServiceSettingNotFound` with an empty message; doze-aws answers the same code, names the setting and says to check its id.",
+  "Resource policies (`PutResourcePolicy`) on parameters and documents are read by the IAM evaluator as the resource-based layer of every request on them (a grant to a principal, an explicit deny). There is one account locally, so the cross-account sharing they exist for on AWS is not exercised, and no Resource Access Manager share is made; an `OpsItemGroup` takes no policy (OpsCenter is not run).",
+  "Change-template reviews (`UpdateDocumentMetadata`, `ListDocumentMetadataHistory`) record the account id as author and reviewer: doze-aws does not resolve the IAM user here. Change Manager approval workflows do not run.",
 ]
 not_planned = [
   { why = "Fleet management needs managed EC2 instances or on-premises nodes: Run Command, Session Manager, patching, inventory, compliance, maintenance windows, State Manager associations, hybrid activations.", families = ["Command", "Session", "Patch", "Inventory", "Compliance", "MaintenanceWindow", "Association", "Activation", "ManagedInstance", "InstanceInformation", "InstanceProperties", "Nodes", "CloudConnector", "ResourceDataSync", "OpsItem", "OpsMetadata", "OpsSummary", "Automation", "ChangeRequest", "ExecutionPreview", "CalendarState", "AccessRequest", "AccessToken", "ConnectionStatus", "DeployablePatch", "InstancePatch", "EffectiveInstanceAssociations", "EffectivePatches", "AvailablePatches"] },
@@ -109,6 +111,9 @@ not_planned = [
 ]
 
 [api."EventBridge"]
+differences = [
+  "A replay starts one second after `StartReplay` and then puts back 100 events every 250 ms. AWS gives no pace (it typically takes minutes to start); this one is long enough to cancel with `CancelReplay` and short enough to wait for.",
+]
 not_planned = [
   { why = "SaaS partner event sources: events from third-party partners' accounts.", families = ["EventSource", "PartnerEvent"] },
   { why = "Global endpoints fail over between two regions' event buses with Route 53 health checks.", ops = ["CreateEndpoint", "DescribeEndpoint", "ListEndpoints", "UpdateEndpoint", "DeleteEndpoint"] },
@@ -135,6 +140,12 @@ not_planned = [
 ]
 
 [api."CloudWatch"]
+differences = [
+  "Metric math is worked out in `GetMetricData` and in metric math alarms: arithmetic, comparisons and logic, `ABS CEIL FLOOR LOG LOG10`, `AVG SUM MIN MAX STDDEV`, `DATAPOINT_COUNT`, `PERIOD`, `TIME_SERIES`, `IF`, `METRICS`, `REMOVE_EMPTY FIRST LAST SORT SLICE`, `FILL RATE DIFF DIFF_TIME RUNNING_SUM`, the time functions and `SEARCH`. Metrics Insights queries (`SELECT ...`) and `INSIGHT_RULE_METRIC`, `SERVICE_QUOTA`, `LAMBDA` and `DB_PERF_INSIGHTS` are refused with a sentence.",
+  "`ANOMALY_DETECTION_BAND` is a statistical stand-in, not AWS's trained model: the mean of the metric's datapoints in the window read (for an alarm, its window and up to 50 periods before it), plus and minus the given number of standard deviations.",
+  "`SEARCH` matches a partial term as a case-insensitive part of a namespace, metric name or dimension; AWS matches on the words of a name. A search finds a metric as soon as it has data; AWS can take minutes to index a new one.",
+  "Log alarms (`PutLogAlarm`) are kept, described, tagged, forced and deleted, but not evaluated: no scheduled Logs Insights query runs locally, so a log alarm stays `INSUFFICIENT_DATA` and its reason says so. Composite alarms are likewise kept and not evaluated.",
+]
 not_planned = [
   { why = "Datasets, vended-metric configuration, OpenTelemetry enrichment, managed Contributor Insights rules, alarm contributors and rendered graph images: features of AWS's own console and services, with no local use yet.", families = ["Dataset", "ResourceMetricsConfiguration", "OTelEnrichment", "ManagedInsightRules", "AlarmContributors", "MetricWidgetImage"] },
 ]

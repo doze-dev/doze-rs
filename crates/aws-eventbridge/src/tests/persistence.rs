@@ -39,15 +39,11 @@ fn everything(w: &mut World) -> Vec<Value> {
 fn a_reopened_database_answers_as_the_one_that_was_closed() {
     let dir = TempDir::new("eventbridge-persist");
     let mut w = World::new();
-    let open = |dir: &TempDir| {
-        Core::open_in(
-            dir.path(),
-            Arc::new(ManualClock::at(START)),
-            None,
-            Tasks::new(),
-        )
-        .unwrap()
-    };
+    // One clock for every opening, and the world's, so a replay is driven by the time the world moves.
+    let clock = Arc::new(ManualClock::at(START));
+    w.clock = clock.clone();
+    let open =
+        |dir: &TempDir| Core::open_in(dir.path(), clock.clone(), None, Tasks::new()).unwrap();
     w.core = open(&dir);
     w.bus("shop");
     w.rule("shop", "r", &json!({"source": ["x"]}));
@@ -91,6 +87,14 @@ fn a_reopened_database_answers_as_the_one_that_was_closed() {
         .scan(w.core.db.as_ref(), "0", "z", 10, false);
     assert_eq!(rows.unwrap().len(), 1);
     w.ok("StartReplay", &json!({"ReplayName": "again", "EventSourceArn": archive, "EventStartTime": s - 60, "EventEndTime": s + 60, "Destination": {"Arn": bus}}));
+    // The replay started before the stop was still going, and runs to its end after it.
+    w.finish_replays();
+    for name in ["rp", "again"] {
+        assert_eq!(
+            w.ok("DescribeReplay", &json!({"ReplayName": name}))["State"],
+            "COMPLETED"
+        );
+    }
 }
 
 #[test]
