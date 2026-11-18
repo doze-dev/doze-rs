@@ -22,6 +22,7 @@ pub(crate) enum Stage {
 impl Stage {
     /// Kafka's byte for it, as the console shows it.
     #[must_use]
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
     pub(crate) fn name(self) -> &'static str {
         match self {
             Self::Stable => "STABLE",

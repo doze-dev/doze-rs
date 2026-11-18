@@ -30,6 +30,7 @@ use kafka_wire::ids::{InstanceId, MemberId};
 pub(crate) use self::endpoints::EndpointPartitions;
 pub(crate) use self::fence::fetch_refusal;
 use self::member::Member;
+#[cfg_attr(not(feature = "inspect"), allow(unused_imports))]
 pub(crate) use self::reconcile::Stage;
 pub(crate) use self::tasks::{Task, Tasks, by_subtopology, from_wire};
 use self::topology::{Configured, Creatable, Topology};
