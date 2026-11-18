@@ -105,9 +105,12 @@ pub(crate) fn invalid_version() -> ApiError {
     )
 }
 
-pub(crate) fn invalid_document() -> ApiError {
-    // (memory)
-    ApiError::modeled("InvalidDocument", "The specified document does not exist.")
+/// Recorded (test_ssm.py::test_document_lifecycle, DescribeDocument); the other operations are held to the same words (memory).
+pub(crate) fn invalid_document(name: &str) -> ApiError {
+    ApiError::modeled(
+        "InvalidDocument",
+        format!("Document with name {name} does not exist."),
+    )
 }
 
 fn invalid_content(message: impl Into<String>) -> ApiError {
@@ -135,6 +138,56 @@ fn schema_of(kind: &str) -> Option<(&'static [&'static str], Option<&'static str
     })
 }
 
+/// Every schema version some document type takes.
+const KNOWN_SCHEMA_VERSIONS: &[&str] = &["0.3", "1.0", "1.2", "2.0", "2.2"];
+
+/// A schema version no document type takes. Recorded (test_ssm.py::test_document_content_is_checked) for JSON: `Document schema
+/// version is invalid. Value: 9.9 at Line: 1, Column: 24` for `{"schemaVersion":"9.9","mainSteps":[]}`, where line and column
+/// are those of the token after the value (the reader has moved on to it). YAML content gets no position (memory).
+fn unknown_schema_version(content: &str, format: &str, sv: &str) -> ApiError {
+    let at = if format == "YAML" {
+        String::new()
+    } else {
+        after_schema_version(content)
+            .map(|(line, column)| format!(" at Line: {line}, Column: {column}"))
+            .unwrap_or_default()
+    };
+    invalid_content(format!(
+        "Document schema version is invalid. Value: {sv}{at}"
+    ))
+}
+
+/// The line and column (from 1) of the JSON token that follows the value of `schemaVersion`.
+fn after_schema_version(content: &str) -> Option<(usize, usize)> {
+    let key = content.find("\"schemaVersion\"")? + "\"schemaVersion\"".len();
+    let rest = content.get(key..)?.trim_start();
+    let rest = rest.strip_prefix(':')?.trim_start();
+    let value_len = if let Some(body) = rest.strip_prefix('"') {
+        let mut escaped = false;
+        let end = body.char_indices().find(|&(_, c)| {
+            let close = c == '"' && !escaped;
+            escaped = c == '\\' && !escaped;
+            close
+        })?;
+        end.0 + 2
+    } else {
+        rest.find(|c: char| c == ',' || c == '}' || c.is_whitespace())?
+    };
+    let after = rest.get(value_len..)?.trim_start();
+    let after = after.strip_prefix(',').unwrap_or(after).trim_start();
+    let offset = content.len() - after.len();
+    let before = content.get(..offset)?;
+    let line = before.matches('\n').count() + 1;
+    let column = before
+        .rsplit('\n')
+        .next()
+        .unwrap_or_default()
+        .chars()
+        .count()
+        + 1;
+    Some((line, column))
+}
+
 /// The content as JSON, read as `format` says.
 pub(crate) fn parse(content: &str, format: &str) -> Result<Option<Value>, ApiError> {
     match format {
@@ -146,10 +199,14 @@ pub(crate) fn parse(content: &str, format: &str) -> Result<Option<Value>, ApiErr
                 e.line, e.column
             ))
         }),
-        _ => serde_json::from_str(content)
-            .map(Some)
-            // (memory)
-            .map_err(|_| invalid_content("The content of the document is not valid JSON.")),
+        // Recorded (test_ssm.py::test_document_content_is_checked): "JSON not well-formed. at Line: 1, Column: 2" for "{nope".
+        _ => serde_json::from_str(content).map(Some).map_err(|e| {
+            invalid_content(format!(
+                "JSON not well-formed. at Line: {}, Column: {}",
+                e.line(),
+                e.column()
+            ))
+        }),
     }
 }
 
@@ -183,6 +240,9 @@ pub(crate) fn read(content: &str, format: &str, kind: &str) -> Result<Read, ApiE
             // (memory)
             return Err(invalid_content("Document schemaVersion is missing."));
         };
+        if !KNOWN_SCHEMA_VERSIONS.contains(&sv.as_str()) {
+            return Err(unknown_schema_version(content, format, sv));
+        }
         if !allowed.contains(&sv.as_str()) {
             // (memory)
             return Err(ApiError::modeled(
@@ -199,9 +259,9 @@ pub(crate) fn read(content: &str, format: &str, kind: &str) -> Result<Read, ApiE
             "mainSteps"
         });
         if kind != "Policy" && kind != "Package" && !map.contains_key(needs) {
-            // (memory)
+            // Recorded for mainSteps (test_ssm.py::test_document_content_is_checked); the same form for the others (memory).
             return Err(invalid_content(format!(
-                "{needs} is missing from the document."
+                "Missing \"{needs}\" in the document."
             )));
         }
     }
@@ -306,6 +366,23 @@ mod tests {
         "mainSteps":[{"action":"aws:runShellScript","name":"say","inputs":{"runCommand":["echo {{Message}}"]}}]}"#;
 
     #[test]
+    fn content_errors_name_where_they_are_as_aws_does() {
+        let message = |c: &str| read(c, "JSON", "Command").unwrap_err().message;
+        assert_eq!(
+            message("{nope"),
+            "JSON not well-formed. at Line: 1, Column: 2"
+        );
+        assert_eq!(
+            message(r#"{"schemaVersion":"9.9","mainSteps":[]}"#),
+            "Document schema version is invalid. Value: 9.9 at Line: 1, Column: 24"
+        );
+        assert_eq!(
+            message("{\n  \"schemaVersion\": \"9.9\",\n  \"mainSteps\": []\n}"),
+            "Document schema version is invalid. Value: 9.9 at Line: 3, Column: 3"
+        );
+    }
+
+    #[test]
     fn a_command_document_is_read() {
         let r = read(SHELL, "JSON", "Command").unwrap();
         assert_eq!(r.schema_version.as_deref(), Some("2.2"));
@@ -356,7 +433,7 @@ mod tests {
                 "JSON",
                 "Command"
             ),
-            "InvalidDocumentSchemaVersion"
+            "InvalidDocumentContent"
         );
         assert_eq!(
             code(r#"{"schemaVersion":"2.2"}"#, "JSON", "Command"),

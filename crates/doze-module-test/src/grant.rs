@@ -8,10 +8,13 @@ use doze_module_proto::network;
 use std::collections::BTreeMap;
 
 /// Grants every listener a loopback address and a backend: a socket file on Unix, a loopback port on Windows (D13).
+/// The main listener's socket has the name the module's manifest gives (`backend_socket`, `{port}` its default port),
+/// as the core names it: PostgreSQL names its socket itself, `.s.PGSQL.<port>`.
 pub(crate) fn grant(
     listeners: &[Listener],
     sandbox: &Sandbox,
     inst: &Instance,
+    socket: Option<String>,
 ) -> Result<BTreeMap<String, Granted>, String> {
     let mut out = BTreeMap::new();
     let socket_dir = sandbox.socket_dir(&inst.name).map_err(|e| e.to_string())?;
@@ -21,7 +24,10 @@ pub(crate) fn grant(
         let backend = if cfg!(unix) && !l.tcp {
             Address::Unix(
                 socket_dir
-                    .join(format!("{}.sock", l.name))
+                    .join(match (&socket, l.name == network::MAIN) {
+                        (Some(s), true) => s.clone(),
+                        _ => format!("{}.sock", l.name),
+                    })
                     .to_string_lossy()
                     .into_owned(),
             )

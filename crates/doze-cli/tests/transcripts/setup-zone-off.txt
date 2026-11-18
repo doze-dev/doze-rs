@@ -33,15 +33,15 @@ json:
 |   "command": "doze dns-setup",
 |   "ok": true,
 |   "data": {
-|     "ok": true,
 |     "checks": [
 |       {
+|         "detail": "the .doze zone is switched off (DOZE_ZONE=off): nothing to set up",
 |         "name": "names",
-|         "state": "ok",
 |         "ok": true,
-|         "detail": "the .doze zone is switched off (DOZE_ZONE=off): nothing to set up"
+|         "state": "ok"
 |       }
-|     ]
+|     ],
+|     "ok": true
 |   }
 | }
 
@@ -56,8 +56,8 @@ json:
 |   "command": "doze doctor",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze doctor --fix",
+|     "dry_run": true,
 |     "nothing_to_do": true
 |   }
 | }
@@ -73,10 +73,10 @@ json:
 |   "command": "doze doctor",
 |   "ok": true,
 |   "data": {
+|     "checks": [],
 |     "said": [
 |       "✓ already set up — nothing to do"
-|     ],
-|     "checks": []
+|     ]
 |   }
 | }
 
@@ -91,10 +91,10 @@ json:
 |   "command": "doze trust",
 |   "ok": true,
 |   "data": {
+|     "checks": [],
 |     "said": [
 |       "no domains recorded for this stack: its daemon records the ones doze.hcl declares when the stack comes up (doze up), then doze trust sets them up"
-|     ],
-|     "checks": []
+|     ]
 |   }
 | }
 

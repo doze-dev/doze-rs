@@ -24,7 +24,7 @@ use aws_wire::handler::{reply, request};
 use aws_wire::service::{Call, Caller, Reply};
 use serde::{Deserialize, Serialize};
 
-use crate::core::{Core, invalid_parameter, invalid_request};
+use crate::core::{Core, invalid_parameter};
 use crate::model::Secret;
 
 /// A secret's place in replication.
@@ -68,10 +68,10 @@ pub(crate) enum Push {
     Detach(String, String, String),
 }
 
-/// The words AWS gives for a change made on a replica (memory).
+/// The words AWS gives for a change made on a replica (recorded: test_secretsmanager.py::test_replica_follows_its_primary).
 pub(crate) fn read_only() -> ApiError {
-    invalid_request(
-        "Operation is not permitted on a replica secret. Call must be made in primary secret's region.",
+    invalid_parameter(
+        "Operation not permitted on a replica secret. Call must be made in primary secret's region.",
     )
 }
 
@@ -99,13 +99,21 @@ pub(crate) fn regions_of<'a>(
     .collect()
 }
 
+/// A replica's status. As recorded (test_secretsmanager.py::test_replica_follows_its_primary): the key is named even when it is
+/// the default one, and a replica in sync says so.
 pub(crate) fn status_into(r: &Replica, o: &mut Object<'_, Status>) {
     o.put(Status::REGION, &r.region);
-    if let Some(k) = &r.kms_key_id {
-        o.put(Status::KMS_KEY_ID, k);
-    }
+    o.put(
+        Status::KMS_KEY_ID,
+        r.kms_key_id.as_deref().unwrap_or(crate::kms::DEFAULT_KEY),
+    );
     o.put(Status::STATUS, &r.status);
-    if let Some(m) = &r.message {
+    let message = match (&r.message, r.status.as_str()) {
+        (Some(m), _) => Some(m.as_str()),
+        (None, "InSync") => Some("Replication succeeded"),
+        (None, _) => None,
+    };
+    if let Some(m) = message {
         o.put(Status::STATUS_MESSAGE, m);
     }
 }
@@ -128,7 +136,8 @@ impl Core {
             .is_some_and(|r| r.primary.is_some())
     }
 
-    /// Adds `regions` as replicas of `name`, refusing a region it is in or already replicated to.
+    /// Adds `regions` as replicas of `name`, refusing the region it is in. A region it is already replicated to is not refused
+    /// (recorded: test_secretsmanager.py::test_replica_follows_its_primary): the replica there is made again, `InProgress`.
     pub(crate) fn add_replicas(
         &mut self,
         call: &Call,
@@ -137,12 +146,13 @@ impl Core {
     ) -> Result<(), ApiError> {
         let mut rep = self.replication.get(name).cloned().unwrap_or_default();
         for (region, key) in regions {
-            if region == call.caller.region || rep.replicas.iter().any(|r| r.region == region) {
+            if region == call.caller.region {
                 // (memory)
                 return Err(invalid_parameter(format!(
-                    "The secret is already in {region}: a secret is replicated to a Region once, and not to its own."
+                    "The secret is already in {region}: a secret is not replicated to its own Region."
                 )));
             }
+            rep.replicas.retain(|r| r.region != region);
             rep.replicas.push(Replica {
                 region,
                 kms_key_id: key,
@@ -228,9 +238,14 @@ impl Core {
         } else {
             self.replication.insert(name.clone(), rep.clone());
         }
+        // The list is there even when no replica is left (recorded).
         reply::<Removed>(|o| {
             o.put(Removed::ARN, &arn);
-            put_statuses(o, Removed::REPLICATION_STATUS, &rep.replicas);
+            o.put_list(Removed::REPLICATION_STATUS, |l| {
+                for r in &rep.replicas {
+                    l.push(|s| status_into(r, s));
+                }
+            });
         })
     }
 
@@ -238,9 +253,9 @@ impl Core {
         let v = request::<Stop>(call)?;
         let name = self.locate(v.get(Stop::SECRET_ID).unwrap_or_default())?;
         let Some(primary) = self.replication.get(&name).and_then(|r| r.primary.clone()) else {
-            // (memory)
-            return Err(invalid_request(
-                "This secret is not a replica: call StopReplicationToReplica in the Region of a replica secret.",
+            // Recorded (test_secretsmanager.py::test_replica_follows_its_primary).
+            return Err(invalid_parameter(
+                "Operation not permitted on a primary/standalone secret.",
             ));
         };
         self.replication.remove(&name);
@@ -314,7 +329,17 @@ impl Core {
         }
         let mut secret = m.secret.clone();
         secret.arn = arn_in(&m.secret.arn, &m.caller.region);
-        secret.kms_key_id.clone_from(&m.kms_key_id);
+        // A replica names its key even when it is the default one, and was made when it was made, not when its primary was
+        // (recorded: test_secretsmanager.py::test_replica_follows_its_primary).
+        secret.kms_key_id = Some(
+            m.kms_key_id
+                .clone()
+                .unwrap_or_else(|| crate::kms::DEFAULT_KEY.to_owned()),
+        );
+        secret.created_ms = match self.secrets.get(&name).filter(|_| ours) {
+            Some(existing) => existing.created_ms,
+            None => self.now_ms(),
+        };
         secret.policy = None;
         let kept = self
             .secrets

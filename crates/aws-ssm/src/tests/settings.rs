@@ -71,16 +71,19 @@ fn public_parameters_are_read_and_never_written() {
         "ParameterVersionNotFound"
     );
     assert_eq!(
-        w.err("GetParameter", &json!({"Name": "/aws/service/absent"}))
+        w.err("GetParameter", &json!({"Name": "/aws/service/ecs/absent"}))
             .0,
         "ParameterNotFound"
     );
     let many = w.ok(
         "GetParameters",
-        &json!({"Names": [name, "/aws/service/absent"]}),
+        &json!({"Names": [name, "/aws/service/ecs/absent"]}),
     );
     assert_eq!(many["Parameters"].as_array().unwrap().len(), 1);
-    assert_eq!(many["InvalidParameters"], json!(["/aws/service/absent"]));
+    assert_eq!(
+        many["InvalidParameters"],
+        json!(["/aws/service/ecs/absent"])
+    );
     let path = "/aws/service/global-infrastructure/services";
     let page = w.ok(
         "GetParametersByPath",
@@ -105,5 +108,76 @@ fn public_parameters_are_read_and_never_written() {
         )
         .0,
         "AccessDeniedException"
+    );
+}
+
+#[test]
+fn a_name_outside_every_aws_namespace_is_refused_by_every_read() {
+    let mut w = World::new();
+    let refused =
+        "No access to \"/aws/\" namespace: aws/service/not-a-parameter is not a valid namespace";
+    let made_up = "/aws/service/not-a-parameter";
+    let al = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64";
+    for (op, request) in [
+        ("GetParameter", json!({"Name": made_up})),
+        ("GetParameters", json!({"Names": [al, made_up]})),
+        ("GetParametersByPath", json!({"Path": made_up})),
+        (
+            "DescribeParameters",
+            json!({"ParameterFilters": [{"Key": "Name", "Option": "BeginsWith", "Values": [made_up]}]}),
+        ),
+    ] {
+        let (code, message) = w.err(op, &request);
+        assert_eq!(
+            (code.as_str(), message.as_str()),
+            ("AccessDeniedException", refused),
+            "{op}"
+        );
+    }
+    let (_, message) = w.err(
+        "DescribeParameters",
+        &json!({"ParameterFilters": [{"Key": "Name", "Option": "BeginsWith", "Values": ["/aws/service/"]}]}),
+    );
+    assert!(
+        message.contains("aws/service/ is not a valid namespace"),
+        "{message}"
+    );
+}
+
+#[test]
+fn describe_parameters_lists_aws_parameters_inside_a_namespace() {
+    let mut w = World::new();
+    let prefix = "/aws/service/ami-amazon-linux-latest/";
+    let filter = json!([{"Key": "Name", "Option": "BeginsWith", "Values": [prefix]}]);
+    let page = w.ok("DescribeParameters", &json!({"ParameterFilters": filter}));
+    let listed = page["Parameters"].as_array().unwrap();
+    assert_eq!(listed.len(), 10);
+    assert!(page["NextToken"].is_string());
+    let first = listed.first().unwrap();
+    assert_eq!(
+        (
+            first["Type"].as_str(),
+            first["Tier"].as_str(),
+            first["DataType"].as_str()
+        ),
+        (Some("String"), Some("Standard"), Some("text"))
+    );
+    assert_eq!(first["Policies"], json!([]));
+    assert!(
+        first["ARN"]
+            .as_str()
+            .unwrap()
+            .starts_with("arn:aws:ssm:us-east-1::parameter/aws/")
+    );
+    let rest = w.ok(
+        "DescribeParameters",
+        &json!({"ParameterFilters": filter, "NextToken": page["NextToken"]}),
+    );
+    assert!(
+        rest["Parameters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p["Name"].as_str().unwrap().starts_with(prefix))
     );
 }

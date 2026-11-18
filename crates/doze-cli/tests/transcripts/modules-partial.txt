@@ -25,13 +25,13 @@ json:
 |     "modules": [
 |       {
 |         "module": "postgres",
-|         "pinned": "0.2.5",
-|         "note": "not known yet"
+|         "note": "not known yet",
+|         "pinned": "0.2.5"
 |       },
 |       {
 |         "module": "valkey",
-|         "pinned": "0.2.1",
-|         "newest": "0.3.0"
+|         "newest": "0.3.0",
+|         "pinned": "0.2.1"
 |       }
 |     ]
 |   },

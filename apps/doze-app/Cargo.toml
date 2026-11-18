@@ -37,7 +37,9 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 async-channel = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-doze-cli = { path = "../../crates/doze-cli" }
+# The CLI, without its in-process HTTPS client: the app's requests (the registry, the update check) go through the
+# system's curl, one HTTP path for the whole binary (docs/port/weight.md, "One HTTP stack").
+doze-cli = { path = "../../crates/doze-cli", default-features = false }
 doze-control = { path = "../../crates/doze-control" }
 doze-desk = { path = "../../crates/doze-desk" }
 doze-display = { path = "../../crates/doze-display" }

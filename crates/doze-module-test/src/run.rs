@@ -16,7 +16,12 @@ pub struct Started {
     log: RunLog,
 }
 
-/// Starts every process of `plan`, each ready (within `limit`) before the next, running hooks after each.
+/// How long a process that started but failed the boot is given to stop the way its module declared (a killed
+/// PostgreSQL leaves its System V shared memory segment behind; ci-health.md, "Landing core M1").
+pub(crate) const FAILED_BOOT_GRACE: Duration = Duration::from_secs(30);
+
+/// Starts every process of `plan`, each ready (within `limit`) before the next, running hooks after each. On a
+/// failure `exec::start` has already stopped the processes it started, each the way its module declared.
 pub async fn start(plan: &Plan, logs: &Path, limit: Duration) -> Result<Started, String> {
     let log = RunLog::open(logs, "plan").map_err(|e| e.to_string())?;
     let unit = exec::start(plan, &log, limit, None)

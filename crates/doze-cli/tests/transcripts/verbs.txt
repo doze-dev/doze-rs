@@ -111,14 +111,14 @@ json:
 |   "data": {
 |     "results": [
 |       {
+|         "changed": false,
 |         "name": "events",
-|         "state": "pinned",
-|         "changed": false
+|         "state": "pinned"
 |       },
 |       {
+|         "changed": true,
 |         "name": "cache",
-|         "state": "pinned",
-|         "changed": true
+|         "state": "pinned"
 |       }
 |     ]
 |   }
@@ -138,14 +138,14 @@ json:
 |   "data": {
 |     "results": [
 |       {
+|         "changed": false,
 |         "name": "events",
-|         "state": "pinned",
-|         "changed": false
+|         "state": "pinned"
 |       },
 |       {
+|         "changed": false,
 |         "name": "cache",
-|         "state": "pinned",
-|         "changed": false
+|         "state": "pinned"
 |       }
 |     ]
 |   }
@@ -164,9 +164,9 @@ json:
 |   "data": {
 |     "results": [
 |       {
+|         "changed": true,
 |         "name": "cache",
-|         "state": "unpinned",
-|         "changed": true
+|         "state": "unpinned"
 |       }
 |     ]
 |   }

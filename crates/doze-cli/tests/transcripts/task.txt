@@ -21,11 +21,9 @@ json:
 |   "data": {
 |     "tasks": [
 |       {
-|         "name": "migrate",
 |         "last": {
-|           "result": "done",
 |           "exit_code": 0,
-|           "took_ms": 1234,
+|           "inputs": "abc",
 |           "ran_at": "2026-10-10T09:10:00Z",
 |           "why": "api needs it",
 |           "inputs": "abc"
@@ -74,18 +72,18 @@ json:
 |   "command": "doze task",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze task migrate",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "migrate",
 |         "changes": [
 |           {
+|             "detail": "now, whatever its state; the task does not run in a dry run",
 |             "op": "→",
-|             "subject": "run",
-|             "detail": "now, whatever its state; the task does not run in a dry run"
+|             "subject": "run"
 |           }
-|         ]
+|         ],
+|         "title": "migrate"
 |       }
 |     ]
 |   }

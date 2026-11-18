@@ -107,10 +107,10 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon --all-targets --features doze-control/test-support -- -D warnings
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-names -p doze-bind -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon --all-targets --features doze-control/test-support -- -D warnings
       # doze-fetch's live test checks every module the real registry publishes (signed index, signed archive, unpacked)
       # for this runner's platform (modules ship for macOS and Linux; on Windows the indexes are checked).
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-bind -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon --no-fail-fast -- --nocapture
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-names -p doze-bind -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon --no-fail-fast -- --nocapture
         env:
           DOZE_LIVE_REGISTRY: "1"
       - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
@@ -145,6 +145,16 @@ jobs:
       VALKEY8: "8.1.9"
       KVROCKS: "2.16.0"
       TEMPORAL: "1.8.2"
+      MARIADB: "11.4.13"
+      MARIADB12: "12.2.2"
+      MARIADB118: "11.8.9"
+      # ferret is two builds: the FerretDB gateway (the version a block names) and PostgreSQL with DocumentDB (pinned).
+      FERRETDB: "2.7.0"
+      DOCUMENTDB: "0.112-0"
+      # postgres: each major's newest build; the release is `postgres`, its files `postgresql-<version>-<target>`.
+      POSTGRES17: "17.12.0"
+      POSTGRES18: "18.7.0"
+      POSTGRES16: "16.16.0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -155,7 +165,7 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           # <variable>:<engine>:<version> — the variable names where that build's bin/ is.
-          for e in "DOZE_VALKEY_BINDIR:valkey:$VALKEY" "VALKEY8_BINDIR:valkey:$VALKEY8" "DOZE_KVROCKS_BINDIR:kvrocks:$KVROCKS" "DOZE_TEMPORAL_BINDIR:temporal:$TEMPORAL"; do
+          for e in "DOZE_VALKEY_BINDIR:valkey:$VALKEY" "VALKEY8_BINDIR:valkey:$VALKEY8" "DOZE_KVROCKS_BINDIR:kvrocks:$KVROCKS" "DOZE_TEMPORAL_BINDIR:temporal:$TEMPORAL" "DOZE_MARIADB_BINDIR:mariadb:$MARIADB" "MARIADB12_BINDIR:mariadb:$MARIADB12" "MARIADB118_BINDIR:mariadb:$MARIADB118" "DOZE_FERRET_BINDIR:ferretdb:$FERRETDB" "DOZE_DOCUMENTDB_BINDIR:documentdb:$DOCUMENTDB"; do
             var=${e%%:*}; rest=${e#*:}; name=${rest%%:*}; v=${rest#*:}
             dir="$RUNNER_TEMP/engines/$name-$v"; art="$name-$v-$TARGET.tar.gz"
             mkdir -p "$dir"
@@ -164,10 +174,31 @@ jobs:
             tar -xzf "$dir/$art" -C "$dir"
             echo "$var=$dir/$name-$v-$TARGET/bin" >> "$GITHUB_ENV"
           done
-      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names -p doze-hcl --no-fail-fast -- --nocapture
+          for e in "DOZE_POSTGRES_BINDIR:$POSTGRES18" "POSTGRES17_BINDIR:$POSTGRES17" "POSTGRES16_BINDIR:$POSTGRES16"; do
+            var=${e%%:*}; v=${e#*:}
+            dir="$RUNNER_TEMP/engines/postgresql-$v"; art="postgresql-$v-$TARGET.tar.gz"
+            mkdir -p "$dir"
+            gh release download postgres -R doze-dev/doze-binaries -p "$art" -p "$art.sha256" -D "$dir"
+            (cd "$dir" && shasum -a 256 -c "$art.sha256")
+            tar -xzf "$dir/$art" -C "$dir"
+            echo "$var=$dir/postgresql-$v-$TARGET/bin" >> "$GITHUB_ENV"
+          done
+      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-module-ferret -p doze-module-postgres -p doze-names -p doze-hcl --no-fail-fast -- --nocapture
       - name: valkey's acceptance on its other major (8)
         shell: bash
         run: DOZE_VALKEY_BINDIR="$VALKEY8_BINDIR" cargo test -p doze-module-valkey --test acceptance --no-fail-fast -- --nocapture
+      - name: mariadb's acceptance on its newest line (12.2)
+        shell: bash
+        run: DOZE_MARIADB_BINDIR="$MARIADB12_BINDIR" cargo test -p doze-module-mariadb --test acceptance --no-fail-fast -- --nocapture
+      - name: mariadb's acceptance on its middle line (11.8)
+        shell: bash
+        run: DOZE_MARIADB_BINDIR="$MARIADB118_BINDIR" cargo test -p doze-module-mariadb --test acceptance --no-fail-fast -- --nocapture
+      - name: postgres's acceptance on 16 (the oldest major the published example is promised on)
+        shell: bash
+        run: DOZE_POSTGRES_BINDIR="$POSTGRES16_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --test declared --no-fail-fast -- --nocapture
+      - name: postgres's acceptance on its other major (17)
+        shell: bash
+        run: DOZE_POSTGRES_BINDIR="$POSTGRES17_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --test declared --no-fail-fast -- --nocapture
 
   # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
   # portable; a red job here is information about what is still Unix-only, not noise.
@@ -335,8 +366,6 @@ jobs:
           done
 
   # The CLI-only doze, in a job of its own so its line is judged whatever the other binaries do.
-  # 2026-11-19 core-land: behind the gate like every job, and listed in all-green, so main's protection judges it (core-c2b
-  # predates the gate and ran it on every event).
   weight-doze:
     needs: gate
     runs-on: ubuntu-24.04
@@ -571,6 +600,25 @@ jobs:
             mkdir -p "corpus/$t"
             cargo fuzz run "$t" "corpus/$t" "seeds/$t" -- -max_total_time=30 -max_len=65536 -rss_limit_mb=512
           done
+      - name: Fuzz ferret's BSON reader, OP_MSG replies and seed reader for 30 seconds each
+        working-directory: crates/doze-module-ferret/fuzz
+        run: |
+          for target in fuzz_bson fuzz_reply fuzz_seed; do
+            mkdir -p "corpus/$target"
+            cargo fuzz run "$target" "corpus/$target" -- -max_total_time=30 -max_len=65536
+          done
+      - name: Fuzz postgres's wire protocol reader, object-name reader and psql row reader for 30 seconds each
+        working-directory: crates/doze-module-postgres/fuzz
+        run: |
+          for target in fuzz_wire fuzz_names fuzz_rows; do
+            mkdir -p "corpus/$target"
+            cargo fuzz run "$target" "corpus/$target" -- -max_total_time=30 -max_len=65536
+          done
+      - name: Fuzz mariadb's grant-name and privilege readers for 30 seconds
+        working-directory: crates/doze-module-mariadb/fuzz
+        run: |
+          mkdir -p corpus/fuzz_read
+          cargo fuzz run fuzz_read corpus/fuzz_read -- -max_total_time=30 -max_len=65536
       - name: Fuzz the .doze resolver's DNS wire, upstream and setup parsers for 30 seconds each
         working-directory: crates/doze-names/fuzz
         run: |

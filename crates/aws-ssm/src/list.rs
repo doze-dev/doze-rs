@@ -138,6 +138,9 @@ impl Core {
         let filters = conds(v.get(ByPath::PARAMETER_FILTERS).into_iter().flatten());
         if path == "/aws" || path.starts_with("/aws/") {
             // Only AWS's public parameters live under `/aws` (nothing of the account's can be written there).
+            if path.starts_with(crate::public::ROOT) {
+                crate::namespace::check(path)?;
+            }
             return by_path_public(call, path, recursive, limit, after.as_deref());
         }
         let prefix = format!("{path}/");
@@ -204,6 +207,10 @@ impl Core {
                     .unwrap_or_default(),
             });
         }
+        if let Some(prefix) = public_prefix(&all) {
+            crate::namespace::check(prefix)?;
+            return described_public(call, prefix, limit, after.as_deref());
+        }
         let keep = |name: &str, p: &Parameter| {
             for f in &all {
                 if !f.holds(name, p)? {
@@ -252,6 +259,55 @@ fn by_path_public(
         });
         if let Some(token) = &token {
             o.put(ByPathResult::NEXT_TOKEN, token);
+        }
+    })
+}
+
+/// The `/aws/` prefix a `Name` `BeginsWith` filter asks for, if one does: `DescribeParameters` then lists AWS's own parameters
+/// under it (recorded: a page of 10, `String`, `Standard`, `text`, no policies, an ARN with no account), after the namespace check.
+fn public_prefix(conds: &[Cond]) -> Option<&str> {
+    conds
+        .iter()
+        .filter(|c| c.key == "Name" && c.option.as_deref() == Some("BeginsWith"))
+        .flat_map(|c| c.values.iter())
+        .map(String::as_str)
+        .find(|v| v.starts_with("/aws/"))
+}
+
+/// A page of the public parameters whose names begin with `prefix`, as `DescribeParameters` shows them.
+fn described_public(call: &Call, prefix: &str, limit: usize, after: Option<&str>) -> Reply {
+    let region = &call.caller.region;
+    let mut rows: Vec<_> = crate::public::under(region, "/aws", true, after)
+        .into_iter()
+        .filter(|p| p.name.starts_with(prefix))
+        .collect();
+    let more = rows.len() > limit;
+    rows.truncate(limit);
+    let token = more
+        .then(|| rows.last().map(|p| page::token(&p.name)))
+        .flatten();
+    reply::<Described>(|o| {
+        o.put_list(Described::PARAMETERS, |l| {
+            for p in &rows {
+                l.push(|m: &mut Object<'_, Meta>| {
+                    m.put(Meta::NAME, &p.name);
+                    m.put(Meta::ARN, &crate::public::arn(region, &p.name));
+                    m.put(Meta::TYPE, "String");
+                    m.put_time(
+                        Meta::LAST_MODIFIED_DATE,
+                        seconds(crate::public::MODIFIED_MS),
+                    );
+                    m.put_int(Meta::VERSION, crate::public::VERSION);
+                    m.put(Meta::TIER, "Standard");
+                    m.put_list(Meta::POLICIES, |_| {});
+                    if !p.name.starts_with(crate::public::INFRA) {
+                        m.put(Meta::DATA_TYPE, "text");
+                    }
+                });
+            }
+        });
+        if let Some(token) = &token {
+            o.put(Described::NEXT_TOKEN, token);
         }
     })
 }

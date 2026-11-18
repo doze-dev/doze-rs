@@ -24,15 +24,15 @@ json:
 |       {
 |         "instance": "api",
 |         "line": "migrated 3 files",
-|         "stream": "s:setup",
 |         "run": 2,
+|         "stream": "s:setup",
 |         "time": "2026-10-10T09:15:00Z"
 |       },
 |       {
 |         "instance": "api",
 |         "line": "listening on :8080",
-|         "stream": "o",
 |         "run": 2,
+|         "stream": "o",
 |         "time": "2026-10-10T09:15:01Z"
 |       }
 |     ]
@@ -55,15 +55,15 @@ json:
 |       {
 |         "instance": "api",
 |         "line": "listening on :8080",
-|         "stream": "o",
 |         "run": 1,
+|         "stream": "o",
 |         "time": "2026-10-10T09:05:00Z"
 |       },
 |       {
 |         "instance": "api",
 |         "line": "panic: nil pointer dereference",
-|         "stream": "e",
 |         "run": 1,
+|         "stream": "e",
 |         "time": "2026-10-10T09:05:10Z"
 |       }
 |     ]
@@ -87,22 +87,22 @@ json:
 |       {
 |         "instance": "api",
 |         "line": "migrated 3 files",
-|         "stream": "s:setup",
 |         "run": 2,
+|         "stream": "s:setup",
 |         "time": "2026-10-10T09:15:00Z"
 |       },
 |       {
 |         "instance": "api",
 |         "line": "listening on :8080",
-|         "stream": "o",
 |         "run": 2,
+|         "stream": "o",
 |         "time": "2026-10-10T09:15:01Z"
 |       },
 |       {
 |         "instance": "db",
 |         "line": "database system is ready to accept connections",
-|         "stream": "o:postgres",
 |         "run": 2,
+|         "stream": "o:postgres",
 |         "time": "2026-10-10T09:15:02Z"
 |       }
 |     ]

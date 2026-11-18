@@ -85,6 +85,11 @@ pub struct Instance {
     /// Filled in for calls that run the engine's own tools (admin, console, converge).
     #[n(9)]
     pub toolchain: Option<Toolchain>,
+    /// The directory of the file the block is declared in: a relative path in the block (ferret's `seed`, a postgres
+    /// extension's `source`) is relative to it, as Go's `baseDir` was. Empty when the host has none.
+    #[n(10)]
+    #[cbor(default)]
+    pub dir: String,
 }
 
 /// A listener the module wants (protocol 1's `Network`).

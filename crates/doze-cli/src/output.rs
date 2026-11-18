@@ -130,7 +130,7 @@ struct Envelope<'a> {
     command: &'a str,
     ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<&'a View>,
+    data: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "<[String]>::is_empty")]
     warnings: &'a [String],
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -160,7 +160,13 @@ pub(crate) fn finish(
             schema: "doze/v1",
             command,
             ok: exit == Exit::Ok,
-            data: view.as_ref().filter(|v| !v.is_empty()),
+            // Keys sorted: serde_json's `preserve_order` is a workspace-wide feature (another crate turns it on), so
+            // without this the order of a `data` object would depend on what else was built alongside the CLI.
+            data: view.as_ref().filter(|v| !v.is_empty()).map(|v| {
+                let mut data = serde_json::to_value(v).unwrap_or(serde_json::Value::Null);
+                data.sort_all_objects();
+                data
+            }),
             warnings: notices.lines(),
             error: problem.as_ref().map(Diagnostic::json),
         };
