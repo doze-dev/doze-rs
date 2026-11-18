@@ -58,6 +58,9 @@ struct Txn<'a> {
 /// The first version of Produce that adds its partitions to the transaction (KIP-890's second part).
 const ADDS_PARTITIONS: i16 = 12;
 
+/// The first version of Produce that names its topics by id (KIP-516), and is answered with ids.
+const BY_ID: i16 = 13;
+
 /// What a Produce of v12 on adds to its transaction: the partitions, and the producer adding them.
 struct Adds {
     who: (i64, i16),
@@ -178,7 +181,7 @@ impl<F: Fs> Broker<F> {
     ) -> bool {
         let name = match found {
             Some(topic) => topic.name.as_ref(),
-            None if version >= 13 => return true,
+            None if version >= BY_ID => return true,
             None => t.name.0.as_str(),
         };
         self.topic_allows(caller, name, Operation::Write)
@@ -198,7 +201,7 @@ impl<F: Fs> Broker<F> {
         id: kafka_wire::Uuid,
         name: &kafka_wire::messages::TopicName,
     ) -> Option<Arc<Topic>> {
-        if version >= 13 {
+        if version >= BY_ID {
             return self.meta.topic_by_id(TopicId::from_uuid(id)?);
         }
         self.meta.topic(&TopicName::parse(&name.0).ok()?)
@@ -220,7 +223,16 @@ impl<F: Fs> Broker<F> {
                 None,
             ))
         };
-        let (Some(topic), Some(id)) = (topic, PartitionId::new(p.index)) else {
+        // From v13 an id that stands for no topic is UNKNOWN_TOPIC_ID on each of its partitions, before anything else of
+        // them is looked at (`KafkaApis.handleProduceRequest`); a topic that exists without the partition is as before.
+        let Some(topic) = topic else {
+            return if version >= BY_ID {
+                Stage::Done(failed(p.index, ResponseError::UnknownTopicId, None))
+            } else {
+                unknown()
+            };
+        };
+        let Some(id) = PartitionId::new(p.index) else {
             return unknown();
         };
         if id.get() >= topic.partitions.get() {

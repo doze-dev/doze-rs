@@ -207,9 +207,9 @@ A client learns it may speak the second from ApiVersions v3 and later: Kafka 4 f
 0 to 2; at v3 the supported row is left out, its least level being 0, KAFKA-17492; the finalized epoch is not negative). The
 Java client (4.x) and franz-go (1.22) turn the second version on from that finalized level. Only that feature is listed:
 Kafka lists `metadata.version`, `group.version` and four more, which no client decides anything by here. The profiles
-(`profile.rs`, each column no wider than the recorded broker of the major): Kafka 4 Produce 3 to 12, InitProducerId 0 to 5,
-AddPartitionsToTxn 0 to 5, AddOffsetsToTxn 0 to 4, EndTxn 0 to 5, TxnOffsetCommit 0 to 5 (4.4.0 offers Produce 13 and
-TxnOffsetCommit 6, topic ids, not served here); Kafka 3 the first part only (Produce 11, EndTxn 4, TxnOffsetCommit 4,
+(`profile.rs`, each column no wider than the recorded broker of the major): Kafka 4 Produce 3 to 13, InitProducerId 0 to 5
+(0 to 6 with the unstable versions on, TX-27), AddPartitionsToTxn 0 to 5, AddOffsetsToTxn 0 to 4, EndTxn 0 to 5, TxnOffsetCommit 0 to 6
+(Produce 13 and TxnOffsetCommit 6 name topics by id, TX-26), as 4.4.0 offers them; Kafka 3 the first part only (Produce 11, EndTxn 4, TxnOffsetCommit 4,
 AddPartitionsToTxn 5, as 3.9.1 offered) and no feature; Kafka 1 and 2 as before. Test:
 `api_versions::tests::kafka_4_finalizes_transaction_version_2_and_the_older_majors_list_no_feature`,
 `profile::tests::only_kafka_4_offers_the_second_part_of_kip_890`, `cli::tests::the_transaction_version_follows_the_kafka_major`.
@@ -322,9 +322,8 @@ add_partitions_of_v4_and_later_asks_for_no_right_on_the_id_or_the_topic}`,
   partition is judged by its own producer, the add by the first (as before KIP-890).
 - Kafka refuses a TV2 marker at an epoch not above the partition's; this broker writes its markers itself, always at the
   record's epoch, so there is no other marker to refuse.
-- Not served: Produce v13 and TxnOffsetCommit v6 (topic ids), InitProducerId v6 (two-phase commit).
 
-Mutation check (2026-11-15): 28 hand-made mutations of the new branches (the codes by version, the EndTxn v5 table's retry
+Mutation check (2026-11-15) of TX-16 to TX-25: 28 hand-made mutations of the new branches (the codes by version, the EndTxn v5 table's retry
 conditions, the epoch kept and forgotten by each level's fence, the hand-over and its choice, the stored abort not raised
 again, the add of Produce v12 and of TxnOffsetCommit v5 and their refusals, the start at sequence 0, the verify-only
 answer, CLUSTER_ACTION, the EndTxn v5 answer, the feature and its v3 form, the record of version 1, the level by major),
@@ -332,3 +331,44 @@ each applied and its tests run: 27 killed at once; the one that survived (the co
 which the owner checks of the batch answer alike except for a store that fails) is killed by
 `an_add_of_a_produce_of_v12_that_cannot_be_stored_is_retriable`, added for it. Not mutated, because nothing can observe it: the transaction
 version a record stores (Kafka keeps it for its own checks; DescribeTransactions does not show it).
+
+## TX-26. Produce v13 and TxnOffsetCommit v6 name their topics by id (KIP-516) [wire-tail oracle `produce-ids`, `produce-ids-txn`, `offsets-ids`]
+Kafka 4.4.0 offers both and its Java client sends them once Metadata has given the topics' ids: a transactional producer of 4.4.0
+writes with Produce v13 and commits offsets with TxnOffsetCommit v6 (seen on the wire against both brokers: `interop/java`
+`txn-topic-ids`, `txn-send-offsets`). An entry's id is turned into the name it stands for; one that stands for no topic, the zero
+id included, is UNKNOWN_TOPIC_ID (100) on each of its partitions, before any right on a topic is asked (SEC-334, SEC-335), and a name
+on the struct is never used (v13 and v6 carry none on the wire). A partition the topic has not is UNKNOWN_TOPIC_OR_PARTITION as
+before. Everything else is as at v12 and v5: Produce v13 adds its partitions to the transaction (TX-18) by the name the id stands
+for, an unknown id's to nothing; TxnOffsetCommit v6 adds its group (TX-20) and its offsets are applied by the commit. The answers
+name each topic by the id it was asked by. v12 and v5 name topics by name, unchanged. The console's recorder shows the id where a
+request named a topic by id, as it does for Fetch. The vendored crate reads TxnOffsetCommit v6 since patch 5
+(`vendor/kafka-protocol/PATCHES.md`). Test: `topic_ids_in_writes::{produce_v13_writes_to_the_topic_its_id_stands_for_and_an_id_that_stands_for_none_is_unknown_topic_id,
+produce_v12_names_by_name_and_v13_by_id, a_transactional_produce_of_v13_adds_the_partitions_its_ids_stand_for,
+txn_offset_commit_v6_stages_the_offsets_of_the_topic_its_id_stands_for, txn_offset_commit_v5_names_by_name_and_v6_by_id}`,
+`produce_checks::from_v13_a_topic_is_named_by_its_id_and_the_answer_says_which`, `kafka-wire tests/kip516_kip939_versions.rs`,
+`profile::tests::only_kafka_4_offers_the_second_part_of_kip_890`.
+
+## TX-27. InitProducerId v6: the two-phase commit (KIP-939) [wire-tail oracle `twopc`, `twopc-open`]
+v6 is `latestVersionUnstable` in Kafka 4.4.0: with its defaults the broker lists InitProducerId 0 to 5 and closes a connection that
+sends v6, and `transaction.two.phase.commit.enable` alone changes neither; only `unstable.api.versions.enable` offers it (recorded:
+`crates/kafka-wire/tests/data/api-versions-4.4.0-unstable.json`). No feature level is involved (`transaction.version` stays 2;
+4.4.0 has no level 3). The Java client 4.4.0 has the producer setting `transaction.two.phase.commit.enable` but no two-phase API:
+it never sets `Enable2Pc`, and its request builder leaves the unstable v6 out, so it sends v5 to either broker (`interop/java`
+`txn-two-phase-commit-setting`). So, as in Kafka: `--unstable-api-versions` (off) offers v6, and `--transaction-two-phase-commit`
+(off) lets a request with `Enable2Pc` through. In the coordinator, in Kafka's order (`TransactionCoordinator.handleInitProducerId`):
+no transactional id, a producer id whatever the flags; the empty id INVALID_REQUEST; `Enable2Pc` with the setting off
+TRANSACTIONAL_ID_AUTHORIZATION_FAILED; `KeepPreparedTxn` UNSUPPORTED_VERSION (4.4.0 has not built it); then the timeout: with
+`Enable2Pc` any timeout is accepted and Int.MaxValue is stored (DescribeTransactions shows 2147483647), and such a transaction
+never times out (`isDistributedTwoPhaseCommitTxn`); without it, as before (INVALID_TRANSACTION_TIMEOUT out of range). An open
+transaction is aborted and its producer fenced as by any new owner. The ongoing-transaction fields of the answer are -1 always.
+The rights are SEC-336. Kafka 1 to 3 do not change with either flag. Test:
+`transactions_two_phase::{without_the_broker_setting_a_two_phase_commit_is_refused_and_a_plain_v6_is_served,
+with_the_broker_setting_a_two_phase_commit_has_no_timeout, a_two_phase_commit_fences_an_open_transaction_like_any_owner,
+the_transaction_of_a_two_phase_commit_never_times_out, enable2pc_needs_two_phase_commit_on_the_id_as_well_as_write}`,
+`rules::tests::a_two_phase_commit_has_no_timeout_and_never_expires`,
+`profile::tests::init_producer_id_v6_is_offered_only_with_the_unstable_versions`, `recorded_unstable_api_versions::*`,
+`cli::tests::unstable_versions_and_two_phase_commit_are_off_unless_asked_for`.
+
+The wire-tail oracle (`tools/wire-tail-oracle/Probe.java`), run against Kafka 4.4.0 in four settings (the defaults, the unstable
+versions, both, the two-phase setting alone) and against doze-kafka with the same flags, answers the same lines but one, in every
+setting: ApiVersions lists Produce from v3 (the deliberate floor of `api.rs`).

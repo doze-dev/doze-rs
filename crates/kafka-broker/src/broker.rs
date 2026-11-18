@@ -306,6 +306,12 @@ impl<F: Fs> Broker<F> {
         self.config.client_telemetry
     }
 
+    /// Whether the versions Kafka marks unstable are offered (`Config::unstable_api_versions`).
+    #[must_use]
+    pub fn unstable_api_versions(&self) -> bool {
+        self.config.unstable_api_versions
+    }
+
     /// The metadata database, for what keeps its records beside the broker's: the schema registry (`kafka-registry`).
     #[must_use]
     pub fn meta(&self) -> &Arc<MetaStore> {

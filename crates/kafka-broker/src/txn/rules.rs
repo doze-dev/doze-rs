@@ -6,6 +6,31 @@ use kafka_wire::ResponseError as E;
 /// The longest `transaction.timeout.ms` a producer may ask for (Kafka's `transaction.max.timeout.ms`).
 pub(crate) const MOST_TIMEOUT_MS: i32 = 15 * 60 * 1000;
 
+/// The timeout of a transaction of a two-phase commit (KIP-939): none. Kafka stores `Int.MaxValue` and knows such a
+/// transaction by it (`TransactionMetadata.isDistributedTwoPhaseCommitTxn`); no other InitProducerId can ask for it, as
+/// any other is held to [`MOST_TIMEOUT_MS`].
+pub(crate) const TWO_PHASE_TIMEOUT_MS: i32 = i32::MAX;
+
+/// The timeout an InitProducerId asks the transactions of its id to have.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Timeout {
+    /// This many milliseconds: more than zero and at most [`MOST_TIMEOUT_MS`], or INVALID_TRANSACTION_TIMEOUT.
+    Ms(i32),
+    /// None: a two-phase commit (v6, `Enable2Pc`). Whatever the request said is accepted.
+    TwoPhase,
+}
+
+impl Timeout {
+    /// The timeout to store, or the refusal of the one asked for (`TransactionStateManager.validateTransactionTimeoutMs`).
+    pub(crate) fn to_store(self) -> Result<i32, E> {
+        match self {
+            Self::TwoPhase => Ok(TWO_PHASE_TIMEOUT_MS),
+            Self::Ms(ms) if ms > 0 && ms <= MOST_TIMEOUT_MS => Ok(ms),
+            Self::Ms(_) => Err(E::InvalidTransactionTimeout),
+        }
+    }
+}
+
 /// Whether a request's producer id and epoch are the ones that own the transactional id. Any other epoch, a lower one (a
 /// newer producer has taken the id) or a higher, is PRODUCER_FENCED: Kafka's coordinator does not tell them apart.
 pub(crate) fn owns(rec: &TxnRecord, producer: i64, epoch: i16) -> Option<E> {
@@ -140,9 +165,10 @@ pub(crate) fn end(rec: &TxnRecord, commit: bool) -> End {
 }
 
 /// Whether the open transaction has outlived its timeout, counted from when it began (Kafka's clock: adding partitions
-/// does not start it again).
+/// does not start it again). One of a two-phase commit never does: its end is the external coordinator's to decide.
 pub(crate) fn expired(rec: &TxnRecord, now_ms: i64) -> bool {
     rec.state == TxnState::Ongoing
+        && rec.timeout_ms != TWO_PHASE_TIMEOUT_MS
         && now_ms.saturating_sub(rec.started_ms) > i64::from(rec.timeout_ms)
 }
 
@@ -160,6 +186,7 @@ pub(crate) fn idle(rec: &TxnRecord, now_ms: i64, limit_ms: i64) -> bool {
 /// when that fails is it tried again, at a time the failure names.
 pub(crate) fn next_step_ms(rec: &TxnRecord, limit_ms: i64) -> Option<i64> {
     match rec.state {
+        TxnState::Ongoing if rec.timeout_ms == TWO_PHASE_TIMEOUT_MS => None,
         TxnState::Ongoing => Some(
             rec.started_ms
                 .saturating_add(i64::from(rec.timeout_ms))

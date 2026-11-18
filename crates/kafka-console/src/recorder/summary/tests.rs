@@ -80,3 +80,35 @@ fn a_summary_of_a_default_request_and_answer_never_panics_and_stays_small() {
         );
     }
 }
+
+/// Produce v13 and TxnOffsetCommit v6 name their topics by id (KIP-516): the summary shows the id, as Fetch's does.
+#[test]
+fn a_topic_named_by_id_is_shown_by_its_id() {
+    let id = kafka_wire::Uuid::from_u128(0xabc);
+    let (mut req, mut resp) = cases::produce();
+    if let (Request::Produce(q), Response::Produce(a)) = (&mut req, &mut resp) {
+        q.topic_data[0].name = cases::topic("");
+        q.topic_data[0].topic_id = id;
+        a.responses[0].name = cases::topic("");
+        a.responses[0].topic_id = id;
+    }
+    let f = facts_of(&req, &resp);
+    assert_eq!(&*f.topics[0].name, id.to_string());
+    assert_eq!(&*f.results[0].topic, id.to_string());
+    let mut commit = TxnOffsetCommitRequest::default();
+    let mut t = txn_offset_commit_request::TxnOffsetCommitRequestTopic::default();
+    t.topic_id = id;
+    t.partitions = vec![Default::default()];
+    commit.topics = vec![t];
+    let mut answer = TxnOffsetCommitResponse::default();
+    let mut rt = txn_offset_commit_response::TxnOffsetCommitResponseTopic::default();
+    rt.topic_id = id;
+    rt.partitions = vec![Default::default()];
+    answer.topics = vec![rt];
+    let f = facts_of(
+        &Request::TxnOffsetCommit(commit),
+        &Response::TxnOffsetCommit(answer),
+    );
+    assert_eq!(&*f.topics[0].name, id.to_string());
+    assert_eq!(&*f.results[0].topic, id.to_string());
+}

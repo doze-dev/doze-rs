@@ -41,6 +41,7 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-230 to SEC-239 | the places a member's topics come from and whose right is applied: static takeover, names revoked, classic members, a group changing kind; the failed-login cap; file modes; the super-user name | re-audit C | "Re-audit of the authorization half" |
 | SEC-320 to SEC-327 | the share group APIs (KIP-932) and the group configs: READ or DESCRIBE or DELETE on the group, READ or DESCRIBE on each topic, ALTER_CONFIGS on the group | share groups | "Share groups (KIP-932)" |
 | SEC-330 to SEC-333 | the streams group APIs (KIP-1071): READ or DESCRIBE on the group, DESCRIBE on every topic of the topology, CREATE for the internal topics the coordinator makes | streams groups | "Streams groups (KIP-1071)" |
+| SEC-334 to SEC-336 | Produce v13 and TxnOffsetCommit v6 (topics by id, KIP-516): the right on the name an id stands for, an unknown id before any right; InitProducerId v6 (KIP-939): TWO_PHASE_COMMIT on the id, the broker setting | wire tail | after SEC-333 |
 
 Deviations from Apache Kafka (and one from the Go edition) by number. Every one is a decision, not a bug; each has a row in `debt.md` section I.
 
@@ -67,7 +68,7 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D30** DeleteGroups with a repeated allowed name answers it twice
 - **SEC-D31** SyncGroup v5+ with no protocol type or name is 23 only for a caller also refused
 - **SEC-D32** AddPartitionsToTxn on the internal topics is 3, not 29
-- **SEC-D33** InitProducerId's two-phase-commit check is unreachable (v6 not served)
+- **SEC-D33** (withdrawn: InitProducerId v6 is served as Kafka 4.4.0 serves it, SEC-336)
 - **SEC-D34** unsure: a DescribeTransactions entry refused with 53 carries schema defaults
 - **SEC-D35** unsure: ConsumerGroupDescribe and a deleted topic's empty name
 - **SEC-D36** unsure: FindCoordinator before v4 puts the error's own message in the answer
@@ -837,8 +838,8 @@ may not DESCRIBE are removed from the entry (`__consumer_offsets`, which stands 
 Never an error: only the ids the caller may DESCRIBE are listed. Test: `list_transactions_shows_only_the_ids_the_caller_may_describe`.
 
 ## SEC-120. InitProducerId, the transactional half (KA:1603-1614), checked against the matrix
-WRITE on the transactional id, and TWO_PHASE_COMMIT on it as well when the request has `Enable2Pc` (added in this slice; the field is a v6 one, which is not served, so it
-is reached only by a caller of the handler); either missing is 53, top level, with producer id -1 and epoch -1. The no-id half is SEC-28. Test:
+WRITE on the transactional id, and TWO_PHASE_COMMIT on it as well when the request has `Enable2Pc` (added in this slice; the field is a v6 one, served since SEC-336
+with the unstable versions on, as in Kafka 4.4.0); either missing is 53, top level, with producer id -1 and epoch -1. The no-id half is SEC-28. Test:
 `init_producer_id_with_a_transactional_id_needs_write_on_it`, `a_two_phase_commit_needs_that_right_on_the_id_as_well`.
 
 ## SEC-121. The authorized-operations bits (AH:62-76; KA:1326-1335, 2675-2684)
@@ -1495,6 +1496,31 @@ Test: `kafka-broker tests/authz_streams.rs::streams_group_describe_needs_describ
 L2943-2953).
 Test: `kafka-broker tests/streams_groups.rs::the_topology_description_update_is_refused_as_by_a_broker_with_no_plugin`
 
+## SEC-334. Produce v13 names its topics by id (KIP-516; Kafka 4.4.0 `KafkaApis.handleProduceRequest`, L401-455) [oracle `produce-ids`]
+Before any topic right, an entry whose id stands for no topic (the zero id included) is UNKNOWN_TOPIC_ID (100) on each of its partitions, to every caller: Kafka puts
+those in `nonExistingTopicResponses` before `filterByAuthorized`. WRITE is then asked on the name a known id stands for (29 if not), as for a name before v13 (SEC-61);
+a partition the topic has not is 3. The transactional-id right of the request (53) comes first, as before (SEC-60). v12 and below name topics by name, unchanged.
+Test: `kafka-broker tests/topic_ids_in_writes.rs::produce_v13_asks_write_on_the_name_the_id_stands_for_and_an_unknown_id_is_unknown_to_all`,
+`produce_v13_writes_to_the_topic_its_id_stands_for_and_an_id_that_stands_for_none_is_unknown_topic_id`, `produce_v12_names_by_name_and_v13_by_id`.
+
+## SEC-335. TxnOffsetCommit v6 names its topics by id (KIP-516; Kafka 4.4.0 `KafkaApis.handleTxnOffsetCommitRequest`, L2056-2183) [oracle `offsets-ids`]
+In Kafka's order: WRITE on the transactional id (53) and READ on the group (30), each the whole answer, as for v0 to v5 (SEC-116); then each id is turned into the name it
+stands for, and one that stands for none is UNKNOWN_TOPIC_ID (100) on its partitions before its READ is asked; then READ on the name (29); then the partitions the topic
+has not (3). The answer names each topic by the id it was asked by. Test: `kafka-broker tests/topic_ids_in_writes.rs::txn_offset_commit_v6_asks_its_rights_in_kafkas_order`,
+`txn_offset_commit_v6_stages_the_offsets_of_the_topic_its_id_stands_for`, `txn_offset_commit_v5_names_by_name_and_v6_by_id`.
+
+## SEC-336. InitProducerId v6: the two-phase commit (KIP-939; Kafka 4.4.0 `KafkaApis.handleInitProducerIdRequest` L1641-1704, `TransactionCoordinator.handleInitProducerId` L118-150) [oracle `twopc`]
+v6 is `latestVersionUnstable` in 4.4.0 (`InitProducerIdRequest.json`): a broker with the defaults lists InitProducerId 0 to 5 and closes a connection that sends v6, and
+`transaction.two.phase.commit.enable` alone changes neither (recorded: `crates/kafka-wire/tests/data/api-versions-4.4.0-unstable.json`). With
+`unstable.api.versions.enable` (here `--unstable-api-versions`) v6 is listed and served. Its rights: WRITE on the transactional id, and with `Enable2Pc` TWO_PHASE_COMMIT
+(15) on it as well (SEC-120), either missing 53 with producer id and epoch -1; none is asked for a request with no transactional id (SEC-28, the flags not looked at). After
+the rights, in the coordinator: the empty id INVALID_REQUEST (42); `Enable2Pc` with `transaction.two.phase.commit.enable` false (the default; here
+`--transaction-two-phase-commit`) TRANSACTIONAL_ID_AUTHORIZATION_FAILED (53) as well, though no ACL is involved; `KeepPreparedTxn` UNSUPPORTED_VERSION (35), whatever the
+settings, as 4.4.0 has not built it. The answer's `OngoingTxnProducerId` and `OngoingTxnProducerEpoch` are -1 always. Test:
+`kafka-broker tests/transactions_two_phase.rs::enable2pc_needs_two_phase_commit_on_the_id_as_well_as_write`,
+`without_the_broker_setting_a_two_phase_commit_is_refused_and_a_plain_v6_is_served`, `kafka-wire profile::tests::init_producer_id_v6_is_offered_only_with_the_unstable_versions`,
+`kafka-wire tests/recorded_unstable_api_versions.rs::the_unstable_versions_are_init_producer_id_v6_alone_on_kafka_4_4_0_and_here`.
+
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
@@ -1569,7 +1595,8 @@ Test: `kafka-broker tests/streams_groups.rs::the_topology_description_update_is_
   as before, which judges only the names it is given. Kafka answers 23 to everyone.
 - **SEC-D32.** AddPartitionsToTxn: Kafka removes the internal topics (`__consumer_offsets`, `__transaction_state`) from the topics it authorizes, so they are 29 even with no
   authorizer (KA:1912). Here those topics do not exist as topics: they are 3 (or 29, if the caller may not WRITE them). v4 and later is a broker's request and asks no right on a topic (SEC-124).
-- **SEC-D33.** InitProducerId's `Enable2Pc` and `KeepPreparedTxn` are version 6 fields; version 6 is not served, so the TWO_PHASE_COMMIT check (SEC-120) cannot be reached by a client.
+- **SEC-D33.** Withdrawn (2026-11-18). It said the TWO_PHASE_COMMIT check (SEC-120) could not be reached because InitProducerId v6 was not served; v6 is now offered exactly when
+  Kafka 4.4.0 offers it (`unstable.api.versions.enable`, here `--unstable-api-versions`) and its rights are SEC-336.
 - **SEC-D34.** Unsure, from the source alone: a DescribeTransactions entry refused with 53 carries the schema defaults for the rest (producer id 0, start time 0), as Kafka's
   `new TransactionState().setTransactionalId().setErrorCode()` does; the entry for an id that is not found keeps the -1 and -1 this broker already gave it.
 - **SEC-D35.** Unsure: ConsumerGroupDescribe authorizes the topic names it has filled in. A topic deleted since a member held it has the name `""` there, which no ACL

@@ -384,6 +384,18 @@ fn client_telemetry_is_on_unless_told_otherwise() {
     assert!(!on(&["--client-telemetry", "false"]));
 }
 
+/// Kafka 4.4.0's defaults: no unstable versions (InitProducerId v6) and no two-phase commit, until each is asked for.
+#[test]
+fn unstable_versions_and_two_phase_commit_are_off_unless_asked_for() {
+    let broker = |flags: &[&str]| args(flags).unwrap().settings().unwrap().broker;
+    let plain = broker(&[]);
+    assert!(!plain.unstable_api_versions && !plain.transaction_two_phase_commit);
+    let both = broker(&["--unstable-api-versions", "--transaction-two-phase-commit"]);
+    assert!(both.unstable_api_versions && both.transaction_two_phase_commit);
+    let off = broker(&["--unstable-api-versions=false", "--transaction-two-phase-commit=false"]);
+    assert!(!off.unstable_api_versions && !off.transaction_two_phase_commit);
+}
+
 mod console;
 mod console_door;
 mod lab;

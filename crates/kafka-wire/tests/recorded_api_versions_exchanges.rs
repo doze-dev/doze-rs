@@ -26,6 +26,7 @@ const RECORDED: [&str; 2] = [
 const AS_RECORDED: Features = Features {
     sasl: true,
     telemetry: false,
+    unstable: false,
     served: ApiSet::ALL,
 };
 

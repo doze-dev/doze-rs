@@ -39,6 +39,7 @@ fn real(major: u64) -> Vec<(i64, i64, i64)> {
 const AS_RECORDED: Features = Features {
     sasl: true,
     telemetry: false,
+    unstable: false,
     served: ApiSet::ALL,
 };
 
@@ -81,6 +82,7 @@ fn telemetry_apis_are_the_only_extension() {
     let with = major4.advertised(Features {
         sasl: true,
         telemetry: true,
+        unstable: false,
         served: ApiSet::ALL,
     });
     let without = major4.advertised(AS_RECORDED);
@@ -103,6 +105,7 @@ fn telemetry_apis_are_the_only_extension() {
             p.advertised(Features {
                 sasl: true,
                 telemetry: true,
+                unstable: false,
                 served: ApiSet::ALL,
             }),
             p.advertised(AS_RECORDED)

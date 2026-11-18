@@ -9,13 +9,14 @@ fn profile(major: u8) -> Profile {
 /// KIP-890 by major, as each real broker offered it (`tests/data/api-versions.json`): Kafka 3.9 has the first part
 /// (Produce v11, EndTxn v4, TxnOffsetCommit v4, AddPartitionsToTxn v5: the abortable error and the broker's verifying
 /// request) and stays on the classic protocol; Kafka 4 adds the second (Produce v12, EndTxn v5, TxnOffsetCommit v5) and
-/// finalizes `transaction.version` 2. Kafka 1 and 2 have neither.
+/// finalizes `transaction.version` 2. Kafka 1 and 2 have neither. Kafka 4.4.0 names the topics of Produce (v13) and
+/// TxnOffsetCommit (v6) by id too (KIP-516).
 #[test]
 fn only_kafka_4_offers_the_second_part_of_kip_890() {
     let max = |major: u8, key: ApiKey| profile(major).range(key).map(|(_, max)| max);
-    assert_eq!(max(4, ApiKey::Produce), Some(12));
+    assert_eq!(max(4, ApiKey::Produce), Some(13));
     assert_eq!(max(4, ApiKey::EndTxn), Some(5));
-    assert_eq!(max(4, ApiKey::TxnOffsetCommit), Some(5));
+    assert_eq!(max(4, ApiKey::TxnOffsetCommit), Some(6));
     assert_eq!(max(4, ApiKey::AddPartitionsToTxn), Some(5));
     assert_eq!(max(3, ApiKey::Produce), Some(11));
     assert_eq!(max(3, ApiKey::EndTxn), Some(4));
@@ -31,6 +32,7 @@ fn only_kafka_4_offers_the_second_part_of_kip_890() {
 const ALL: Features = Features {
     sasl: true,
     telemetry: true,
+    unstable: false,
     served: ApiSet::ALL,
 };
 
@@ -99,6 +101,45 @@ fn each_major_offers_what_it_should() {
     assert!(profile(3).range(ApiKey::DescribeCluster).is_some());
     assert_eq!(profile(4).range(ApiKey::Fetch), Some((4, 13)));
     assert_eq!(profile(1).range(ApiKey::Produce), Some((3, 5)));
+}
+
+/// InitProducerId v6 (KIP-939, two-phase commit) is `latestVersionUnstable` in Kafka 4.4.0's spec: a broker with the
+/// defaults offers 0 to 5 and refuses v6, one with `unstable.api.versions.enable` offers and serves 0 to 6. It is the only
+/// unstable version, and no profile before Kafka 4 changes with the switch.
+#[test]
+fn init_producer_id_v6_is_offered_only_with_the_unstable_versions() {
+    let unstable = Features {
+        unstable: true,
+        ..ALL
+    };
+    let p = profile(4);
+    assert_eq!(p.range(ApiKey::InitProducerId), Some((0, 5)));
+    let max = |f: Features| {
+        p.advertised(f)
+            .iter()
+            .find(|a| a.key == ApiKey::InitProducerId)
+            .map(|a| a.max)
+    };
+    assert_eq!(max(ALL), Some(5));
+    assert_eq!(max(unstable), Some(6));
+    assert!(p.check(ApiKey::InitProducerId, 6, ALL).is_err());
+    assert!(p.check(ApiKey::InitProducerId, 5, ALL).is_ok());
+    assert!(p.check(ApiKey::InitProducerId, 6, unstable).is_ok());
+    assert!(p.check(ApiKey::InitProducerId, 7, unstable).is_err());
+    let changed: Vec<_> = p
+        .advertised(unstable)
+        .into_iter()
+        .filter(|a| !p.advertised(ALL).contains(a))
+        .map(|a| a.key)
+        .collect();
+    assert_eq!(changed, [ApiKey::InitProducerId]);
+    for major in 1..=3 {
+        assert_eq!(
+            profile(major).advertised(unstable),
+            profile(major).advertised(ALL),
+            "Kafka {major}"
+        );
+    }
 }
 
 #[test]

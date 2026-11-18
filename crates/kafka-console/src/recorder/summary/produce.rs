@@ -10,7 +10,7 @@ pub(super) fn request(r: &ProduceRequest, f: &mut Facts) {
         f.txn(&t.0);
     }
     for t in &r.topic_data {
-        f.topic(&t.name.0, t.partition_data.iter().map(|p| p.index));
+        f.topic(&named(&t.name.0, t.topic_id), t.partition_data.iter().map(|p| p.index));
         for p in &t.partition_data {
             if let Some(records) = &p.records {
                 let s = facts::batches(records);
@@ -30,7 +30,7 @@ pub(super) fn response(r: &ProduceResponse, f: &mut Facts) {
     for t in &r.responses {
         for p in &t.partition_responses {
             f.part(PartResult {
-                topic: crate::recorder::clip::name(&t.name.0),
+                topic: crate::recorder::clip::name(&named(&t.name.0, t.topic_id)),
                 partition: p.index,
                 code: p.error_code,
                 offset: (p.error_code == 0).then_some(p.base_offset),
@@ -45,5 +45,14 @@ pub(super) fn response(r: &ProduceResponse, f: &mut Facts) {
                     .and_then(crate::recorder::clip::text);
             }
         }
+    }
+}
+
+/// A topic as a request or answer names it: by name, or from v13 (KIP-516) by id, as Fetch's are.
+pub(super) fn named(name: &str, id: kafka_wire::Uuid) -> String {
+    if name.is_empty() {
+        id.to_string()
+    } else {
+        name.to_owned()
     }
 }

@@ -7,7 +7,9 @@
 //!
 //! A row's versions are what a real broker of each Kafka major (1, 2, 3, 4) offers, less what is not
 //! implemented here, and never more (held to a recording of real brokers by a test). The Kafka 4 column
-//! starts where Kafka 4 starts: it removed the oldest versions of nine APIs (KIP-896).
+//! starts where Kafka 4 starts: it removed the oldest versions of nine APIs (KIP-896). A version Kafka marks unstable
+//! (`unstable from` on its line) is in the column but offered only as Kafka offers it, with `unstable.api.versions.enable`
+//! ([`Features::unstable`](crate::profile::Features::unstable)); the recording holds the rest.
 //!
 //! Two floors are deliberate. Produce starts at v3 and Fetch at v4, the first versions that carry record
 //! batch format v2, the only format the log stores. OffsetCommit and OffsetFetch stop below v10, where the
@@ -72,6 +74,10 @@ pub struct ApiRow {
     pub offered: [Offered; 4],
     /// What else the API waits for.
     pub when: Condition,
+    /// The first version Kafka marks unstable (`latestVersionUnstable` in its message spec), if one is: offered only
+    /// with [`Features::unstable`](crate::profile::Features::unstable), as Kafka offers it only with
+    /// `unstable.api.versions.enable`.
+    pub unstable_from: Option<i16>,
 }
 
 macro_rules! when {
@@ -80,6 +86,15 @@ macro_rules! when {
     };
     ($c:ident) => {
         Condition::$c
+    };
+}
+
+macro_rules! unstable_from {
+    () => {
+        None
+    };
+    ($v:literal) => {
+        Some($v)
     };
 }
 
@@ -95,7 +110,7 @@ macro_rules! held {
 }
 
 macro_rules! served_apis {
-    ($( $key:ident($req:ident $(in $wrap:ident)?, $resp:ident $(in $rwrap:ident)?) $offered:expr $(, when $when:ident)? ;)*) => {
+    ($( $key:ident($req:ident $(in $wrap:ident)?, $resp:ident $(in $rwrap:ident)?) $offered:expr $(, when $when:ident)? $(, unstable from $unstable:literal)? ;)*) => {
         /// A request to one of the served APIs, decoded.
         #[derive(Debug)]
         pub enum Request { $( #[doc = concat!("`", stringify!($key), "`")] $key(held!($req $(, $wrap)?)), )* }
@@ -106,7 +121,7 @@ macro_rules! served_apis {
 
         /// Every served API, with the versions each Kafka major offers.
         pub const API_TABLE: &[ApiRow] = &[
-            $( ApiRow { key: ApiKey::$key, offered: $offered, when: when!($($when)?) }, )*
+            $( ApiRow { key: ApiKey::$key, offered: $offered, when: when!($($when)?), unstable_from: unstable_from!($($unstable)?) }, )*
         ];
 
         impl Request {
@@ -163,7 +178,8 @@ macro_rules! served_apis {
 }
 
 served_apis! {
-    Produce(ProduceRequest, ProduceResponse) [v(3, 5), v(3, 7), v(3, 11), v(3, 12)];
+    // Produce v13 and TxnOffsetCommit v6 name topics by id (KIP-516); Kafka 4.4.0 offers both.
+    Produce(ProduceRequest, ProduceResponse) [v(3, 5), v(3, 7), v(3, 11), v(3, 13)];
     Fetch(FetchRequest, FetchResponse) [v(4, 6), v(4, 10), v(4, 13), v(4, 13)];
     ListOffsets(ListOffsetsRequest, ListOffsetsResponse) [v(0, 2), v(0, 5), v(0, 7), v(1, 7)];
     Metadata(MetadataRequest, MetadataResponse) [v(0, 5), v(0, 8), v(0, 12), v(0, 12)];
@@ -181,11 +197,12 @@ served_apis! {
     CreateTopics(CreateTopicsRequest, CreateTopicsResponse) [v(0, 2), v(0, 3), v(0, 7), v(2, 7)];
     DeleteTopics(DeleteTopicsRequest, DeleteTopicsResponse) [v(0, 1), v(0, 3), v(0, 5), v(1, 6)];
     DeleteRecords(DeleteRecordsRequest, DeleteRecordsResponse) [v(0, 0), v(0, 1), v(0, 2), v(0, 2)];
-    InitProducerId(InitProducerIdRequest, InitProducerIdResponse) [v(0, 0), v(0, 1), v(0, 5), v(0, 5)];
+    // InitProducerId v6 (KIP-939, two-phase commit) is unstable in Kafka 4.4.0: offered only as `unstable.api.versions.enable` offers it.
+    InitProducerId(InitProducerIdRequest, InitProducerIdResponse) [v(0, 0), v(0, 1), v(0, 5), v(0, 6)], unstable from 6;
     AddPartitionsToTxn(AddPartitionsToTxnRequest, AddPartitionsToTxnResponse) [v(0, 0), v(0, 1), v(0, 5), v(0, 5)];
     AddOffsetsToTxn(AddOffsetsToTxnRequest, AddOffsetsToTxnResponse) [v(0, 0), v(0, 1), v(0, 4), v(0, 4)];
     EndTxn(EndTxnRequest, EndTxnResponse) [v(0, 0), v(0, 1), v(0, 4), v(0, 5)];
-    TxnOffsetCommit(TxnOffsetCommitRequest, TxnOffsetCommitResponse) [v(0, 0), v(0, 2), v(0, 4), v(0, 5)];
+    TxnOffsetCommit(TxnOffsetCommitRequest, TxnOffsetCommitResponse) [v(0, 0), v(0, 2), v(0, 4), v(0, 6)];
     DescribeAcls(DescribeAclsRequest, DescribeAclsResponse) [v(0, 0), v(0, 1), v(0, 3), v(1, 3)];
     CreateAcls(CreateAclsRequest, CreateAclsResponse) [v(0, 0), v(0, 1), v(0, 3), v(1, 3)];
     DeleteAcls(DeleteAclsRequest, DeleteAclsResponse) [v(0, 0), v(0, 1), v(0, 3), v(1, 3)];

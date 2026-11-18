@@ -63,7 +63,7 @@ async fn one_transaction_at(rig: &support::Rig, v: i16) {
     commit.group_id = GroupId(text("g"));
     commit.producer_id = ProducerId(producer);
     commit.producer_epoch = epoch;
-    commit.generation_id = -1;
+    commit.generation_id_or_member_epoch = -1;
     let mut p = TxnOffsetCommitRequestPartition::default();
     p.partition_index = 0;
     p.committed_offset = 3;

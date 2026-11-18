@@ -20,6 +20,7 @@ use kafka_wire::{profile::Advertised, response};
 const ALL: Features = Features {
     sasl: true,
     telemetry: true,
+    unstable: true,
     served: ApiSet::ALL,
 };
 

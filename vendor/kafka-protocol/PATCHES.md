@@ -63,3 +63,27 @@ which were applied again on top. Every other message file is byte for byte what 
 
 Regression test: `crates/kafka-wire/tests/streams_versions.rs` (each version-dependent field written and read back where
 it is, and refused where it is not), and `tests/every_offered_version.rs`.
+
+## 5. TxnOffsetCommit v6 and InitProducerId v6 at Apache Kafka 4.4.0's versions
+
+0.18.0 (Kafka 4.1.0's schemas) has TxnOffsetCommit to v5 and the InitProducerId request to v5. Kafka 4.4.0's
+`TxnOffsetCommitRequest.json` and `TxnOffsetCommitResponse.json` add v6 (topics named by id, KIP-516: `TopicId` from v6, `Name`
+to v5 only and ignorable; the request's `GenerationId` is renamed `GenerationIdOrMemberEpoch`), and 4.4.0's Java client sends it.
+`InitProducerIdRequest.json` has v6 (KIP-939: `Enable2Pc` and `KeepPreparedTxn`) in 4.1.0 and in 4.4.0 alike, marked
+`latestVersionUnstable`, so the generator skipped it (it decoded neither flag); the response was already generated to v6.
+
+Generated as patch 4 was, by upstream's generator (`protocol_codegen` at the head of `tychedelia/kafka-protocol-rs`), from
+patch 4's input (Kafka 4.1.0's schemas with 4.4.0's six `StreamsGroup*.json`) with the four `TxnOffsetCommit*.json` and
+`InitProducerId*.json` of the 4.4.0 source release put in their place, then `rustfmt`. One change was made to the input:
+`InitProducerIdRequest.json`'s `"latestVersionUnstable": true` set to `false`, so that v6 is generated; whether v6 is offered is
+the broker's decision (doze-kafka offers it only with `--unstable-api-versions`, as Kafka 4.4.0 only with
+`unstable.api.versions.enable`). Against the vendored files the output differs in exactly `init_producer_id_request.rs`,
+`txn_offset_commit_request.rs` and `txn_offset_commit_response.rs`, which were taken whole, and in `messages.rs` by
+`ApiKey::TxnOffsetCommit`'s range (0-6) and patch 3's three ranges, of which only the first was applied. Every other file is
+byte for byte what patch 4 left.
+
+The rename is the one source change it asks of the workspace (`generation_id` to `generation_id_or_member_epoch` on
+`TxnOffsetCommitRequest`).
+
+Regression test: `crates/kafka-wire/tests/kip516_kip939_versions.rs` (each new field written and read back at its versions, and
+left out or refused below them), and `tests/every_offered_version.rs`.

@@ -119,7 +119,7 @@ the catalogue lists, one row each; the second is what the slices reported left u
 | SEC-D30 | DeleteGroups with the same allowed name twice answers it twice | decided: pinned by `group_admin`; see `I11` |
 | SEC-D31 | SyncGroup v5+ with no protocol type or name is 23 up front only for a caller that is also refused | decided: an allowed caller's request goes to the group, which judges the names it is given |
 | SEC-D32 | AddPartitionsToTxn on the internal topics is 3 (or 29), not 29 | decided: those topics are not topics here |
-| SEC-D33 | InitProducerId's two-phase-commit check is unreachable | decided: v6 is not served |
+| SEC-D33 | (withdrawn 2026-11-18) InitProducerId v6 is served as Kafka 4.4.0 serves it: with the unstable versions on (SEC-336) | closed |
 | SEC-D34 | A DescribeTransactions entry refused with 53 carries schema defaults | decided, unsure: from the source alone; settled by `I1` |
 | SEC-D35 | ConsumerGroupDescribe judges the topic names it has; a deleted topic's name is empty | decided, unsure: whether Kafka's coordinator gives `""` was not confirmed; `I1` |
 | SEC-D36 | FindCoordinator before v4 puts the error's own message in the answer | decided, unsure: read from `prepareOldResponse`, not recorded; `I1` |

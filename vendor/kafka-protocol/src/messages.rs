@@ -1599,7 +1599,7 @@ impl ApiKey {
             ApiKey::AddOffsetsToTxn => VersionRange { min: 0, max: 4 },
             ApiKey::EndTxn => VersionRange { min: 0, max: 5 },
             ApiKey::WriteTxnMarkers => VersionRange { min: 1, max: 1 },
-            ApiKey::TxnOffsetCommit => VersionRange { min: 0, max: 5 },
+            ApiKey::TxnOffsetCommit => VersionRange { min: 0, max: 6 },
             ApiKey::DescribeAcls => VersionRange { min: 1, max: 3 },
             ApiKey::CreateAcls => VersionRange { min: 1, max: 3 },
             ApiKey::DeleteAcls => VersionRange { min: 1, max: 3 },

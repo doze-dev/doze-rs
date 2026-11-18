@@ -296,3 +296,23 @@ fn the_next_step_is_the_first_moment_the_timeout_or_the_expiry_holds() {
     assert_eq!(next_step_ms(&rec(TxnState::PrepareCommit), limit), None);
     assert_eq!(next_step_ms(&rec(TxnState::PrepareAbort), limit), None);
 }
+
+/// KIP-939: a two-phase commit accepts any timeout and stores Int.MaxValue (`validateTransactionTimeoutMs`), and a transaction
+/// with it is never aborted for its age nor woken for it (`isDistributedTwoPhaseCommitTxn`); any other timeout is held to
+/// 1 ms to 15 minutes.
+#[test]
+fn a_two_phase_commit_has_no_timeout_and_never_expires() {
+    assert_eq!(Timeout::TwoPhase.to_store(), Ok(i32::MAX));
+    assert_eq!(Timeout::Ms(1).to_store(), Ok(1));
+    assert_eq!(Timeout::Ms(MOST_TIMEOUT_MS).to_store(), Ok(MOST_TIMEOUT_MS));
+    for bad in [i32::MIN, -1, 0, MOST_TIMEOUT_MS + 1, i32::MAX] {
+        assert_eq!(Timeout::Ms(bad).to_store(), Err(E::InvalidTransactionTimeout), "{bad}");
+    }
+    let mut r = rec(TxnState::Ongoing);
+    r.timeout_ms = TWO_PHASE_TIMEOUT_MS;
+    assert!(!expired(&r, i64::MAX), "never over it");
+    assert_eq!(next_step_ms(&r, 7 * 24 * 3600 * 1000), None, "nothing to wake for");
+    r.timeout_ms = TWO_PHASE_TIMEOUT_MS - 1;
+    assert!(expired(&r, i64::MAX), "one millisecond less is an ordinary timeout");
+    assert!(next_step_ms(&r, 0).is_some());
+}
