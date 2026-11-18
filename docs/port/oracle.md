@@ -1,5 +1,18 @@
 # The oracle: how the Rust broker is checked
 
+**Where it lives now (2026-11-18): `tools/kafka-replay/`** in this repository (its README says how to run it). It is the
+Go repository's `conformance/` (branch `rust-oracle`, `0dfb284`) with no dependency on the Go doze-kafka: the process
+target for replay, the Docker recorder (`-record`), a local `config` type for what scenarios set, the 81 recordings and the
+claims as data. Run from the repository root after a release build:
+
+```sh
+cd tools/kafka-replay && CONFORMANCE_BIN=$CARGO_TARGET_DIR/release/doze-kafka GOWORK=off go test . -run 'TestReplay$' -count=1 -v
+```
+
+It passed 58/58 against main `c863cecd`, scenario for scenario the same as the Go repository's copy. New scenarios are
+recorded with `go test . -run 'TestRecord$' -args -record` (needs Docker). The history below names the Go repository's paths
+and commands.
+
 The Go repository's conformance suite replays 81 scenarios recorded from real Apache Kafka 4.3.1.
 Branch `rust-oracle` of doze-kafka (commit `259140f`, local) lets it run against **any binary**:
 
