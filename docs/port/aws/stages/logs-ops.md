@@ -127,6 +127,17 @@ tokio features `rt`, `time`, `macros` for `aws-logs` (already in the binary). No
 scheduled query means no task and no timer. The new documents (destinations, transformers, index policies, export tasks, scheduled
 queries) live in the existing `docs` table, so `doze-aws data` resets them with the rest.
 
+## Checked on 2026-11-19 (takeover)
+
+The first agent stopped with the scheduled-query split (`scheduled_run.rs`, for the file-size gate), the destination and Live Tail
+authorization, the boto3 file and this note uncommitted; they were kept as they were. On `origin/main` (nothing new since). Clippy
+(`aws-logs aws-gateway aws-wire doze-store aws-lambda doze-aws`, all targets), `cargo fmt --check`, `lint-size` (0 over hard) and
+`fuzz-check` (0 without a target) are clean; the crate tests pass (72 in `aws-logs`). Conformance against this branch's doze-aws:
+`test_logs.py` + `test_logs_insights.py` 51 exact, 0 different, 57 unverified; Lambda's `test_response_streaming` (the event-stream
+framing moved to `aws-wire`) still exact. Weight under `release-aws`: 9,059,120 B, 277 packages, 5,088 KB idle, within the limits
+file (no line changed). `cargo xtask weight` reads `target/` and ignores `CARGO_TARGET_DIR` (worked around with a link, not changed).
+The recorder's SSO session was still expired, so nothing is recorded.
+
 ## Open
 
 - Record `test_logs_insights.py` (8 scenarios, 57 labels) when the recorder's session is renewed; every (memory) above waits on it,
