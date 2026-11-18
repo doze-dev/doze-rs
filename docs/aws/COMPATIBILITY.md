@@ -165,6 +165,10 @@ Not planned: Kinesis channels and record distribution strategies are new feature
 
 **48 of 54 operations built.** 130 of 132 recorded checks match AWS exactly (1 differ in message wording only, 1 differ in behaviour); 0 not yet recorded. Scored 2026-11-15.
 
+Differences from AWS, on purpose:
+
+- `DeriveSharedSecret` with a peer public key on another curve: AWS answers `ValidationException` with an empty message; doze-aws answers the same code and says the key is not a DER-encoded SubjectPublicKeyInfo of the key's curve.
+
 Not planned: Custom key stores are backed by CloudHSM or an external key manager; doze-aws keys are software keys. (`ConnectCustomKeyStore`, `CreateCustomKeyStore`, `DeleteCustomKeyStore`, `DescribeCustomKeyStores`, `DisconnectCustomKeyStore`, `UpdateCustomKeyStore`)
 
 ## Lambda
@@ -217,6 +221,10 @@ Not planned: The SMS sandbox and origination numbers: no SMS is sent locally. (`
 ## SSM (Parameter Store and Documents)
 
 **27 of 152 operations built.** 101 of 102 recorded checks match AWS exactly (1 differ in message wording only); 6 not yet recorded. Scored 2026-11-15.
+
+Differences from AWS, on purpose:
+
+- `GetServiceSetting` of a setting that does not exist: AWS answers `ServiceSettingNotFound` with an empty message; doze-aws answers the same code, names the setting and says to check its id.
 
 Not built yet, planned: `DeleteResourcePolicy`, `GetResourcePolicies`, `ListDocumentMetadataHistory`, `PutResourcePolicy`.
 
