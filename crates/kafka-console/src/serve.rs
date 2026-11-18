@@ -95,11 +95,7 @@ pub fn start_with(
         stop.clone(),
         &limits,
     );
-    // The timeout is outside the router's layers, so its 408 is given the security headers by the layer over it.
-    let app = console(state.clone())
-        .layer(from_fn_with_state(limits.request_timeout, request_timeout))
-        .layer(from_fn(security_headers));
-    let task = tokio::spawn(accept_loop(listener, app, stop.clone(), limits));
+    let task = tokio::spawn(accept_loop(listener, state.clone(), stop.clone(), limits));
     Ok(Running {
         addr,
         stop,
@@ -108,16 +104,29 @@ pub fn start_with(
     })
 }
 
+/// The router with the layers outside it. The timeout is outside the router's layers, so its 408 is given the security
+/// headers by the layer over it.
+fn app(state: crate::state::Shared, limits: Limits) -> axum::Router {
+    console(state)
+        .layer(from_fn_with_state(limits.request_timeout, request_timeout))
+        .layer(from_fn(security_headers))
+}
+
 /// Accepts until `stop`, serving each connection on a task of its own; then waits for them to wind down.
+///
+/// The router is built when the first connection is accepted, not before: it is about 7 KB of heap a route (axum boxes each
+/// route's service and its layers), held for as long as the console runs, and a broker whose console is never opened
+/// should not pay it at idle.
 async fn accept_loop(
     listener: TcpListener,
-    app: axum::Router,
+    state: crate::state::Shared,
     stop: CancellationToken,
     limits: Limits,
 ) {
     let slots = Arc::new(Semaphore::new(limits.max_connections));
     let refusals = Arc::new(Semaphore::new(REFUSALS_AT_ONCE));
     let mut connections = JoinSet::new();
+    let mut router: Option<axum::Router> = None;
     loop {
         let accepted = tokio::select! {
             () = stop.cancelled() => break,
@@ -137,7 +146,11 @@ async fn accept_loop(
         match Arc::clone(&slots).try_acquire_owned() {
             Ok(slot) => {
                 let service = WithPeer {
-                    inner: TowerToHyperService::new(app.clone()),
+                    inner: TowerToHyperService::new(
+                        router
+                            .get_or_insert_with(|| app(state.clone(), limits))
+                            .clone(),
+                    ),
                     peer,
                 };
                 let stop = stop.clone();
