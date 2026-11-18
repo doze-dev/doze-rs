@@ -3,4 +3,4 @@
 /**
  * Where a group is in its life, in the console's one word for it.
  */
-export type GroupPhase = "empty" | "stable" | "rebalancing" | "assigning" | "reconciling";
+export type GroupPhase = "empty" | "stable" | "rebalancing" | "assigning" | "reconciling" | "not_ready";

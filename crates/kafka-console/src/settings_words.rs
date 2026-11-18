@@ -190,7 +190,7 @@ pub fn seen_as(key: &str, value: &str) -> String {
 }
 
 /// The families of the version profile, in the order the page lists them.
-const FAMILIES: [(&str, &[ApiKey]); 9] = [
+const FAMILIES: [(&str, &[ApiKey]); 11] = [
     (
         "Produce and fetch",
         &[
@@ -241,6 +241,26 @@ const FAMILIES: [(&str, &[ApiKey]); 9] = [
             ApiKey::OffsetCommit,
             ApiKey::OffsetFetch,
             ApiKey::OffsetDelete,
+        ],
+    ),
+    (
+        "Share groups (KIP-932)",
+        &[
+            ApiKey::ShareGroupHeartbeat,
+            ApiKey::ShareGroupDescribe,
+            ApiKey::ShareFetch,
+            ApiKey::ShareAcknowledge,
+            ApiKey::DescribeShareGroupOffsets,
+            ApiKey::AlterShareGroupOffsets,
+            ApiKey::DeleteShareGroupOffsets,
+        ],
+    ),
+    (
+        "Streams groups (KIP-1071)",
+        &[
+            ApiKey::StreamsGroupHeartbeat,
+            ApiKey::StreamsGroupDescribe,
+            ApiKey::StreamsGroupTopologyDescriptionUpdate,
         ],
     ),
     (

@@ -6,6 +6,8 @@ use kafka_wire::messages::*;
 
 mod cases;
 mod cases_more;
+mod cases_share;
+mod cases_streams;
 
 use super::*;
 use crate::recorder::facts::Facts;

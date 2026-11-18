@@ -26,6 +26,8 @@ fn life(live: bool, session_ms: u32, empty_since_ms: Option<i64>) -> GroupLife {
         empty_since_ms,
         protocol_type: "consumer".into(),
         consumer: None,
+        share: None,
+        streams: None,
     }
 }
 

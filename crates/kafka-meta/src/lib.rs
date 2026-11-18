@@ -13,17 +13,21 @@ mod offsets;
 mod quota;
 mod record;
 mod settings;
+mod share;
 mod store;
 mod txn;
 
 pub use acl::AclRecord;
 pub use credential::{CredentialId, CredentialRecord};
 pub use error::MetaError;
-pub use life::{ConsumerLife, GroupLife};
+pub use life::{
+    ConsumerLife, GroupLife, ShareLife, StoredSubtopology, StoredTopic, StoredTopology, StreamsLife,
+};
 pub use names::Collision;
 pub use offsets::{Committed, GroupOffset, OffsetCommit, StoredOffset};
 pub use quota::{QuotaEntity, QuotaName, QuotaValues};
 pub use record::Topic;
 pub use settings::{CleanupPolicy, TopicSettings};
-pub use store::{FileMode, MetaStore, Records, random_topic_id};
+pub use share::{ShareBatch, ShareRecordState, ShareState};
+pub use store::{FileMode, MetaStore, Records, ShareStateWrite, random_topic_id};
 pub use txn::{TxnOffset, TxnRecord, TxnState, TxnVersion};

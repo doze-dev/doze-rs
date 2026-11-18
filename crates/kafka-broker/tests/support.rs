@@ -56,6 +56,7 @@ pub fn at() -> Listener {
         advertised_host: "127.0.0.1".into(),
         advertised_port: 4242,
         client_host: "/127.0.0.1".into(),
+        connection: 0,
     }
 }
 
@@ -279,6 +280,10 @@ pub use groups::join_request;
 mod produce;
 #[path = "support/quotas.rs"]
 pub mod quotas;
+#[path = "support/share.rs"]
+pub mod share;
+#[path = "support/streams.rs"]
+pub mod streams;
 #[path = "support/txn.rs"]
 mod txn;
 #[path = "support/users.rs"]

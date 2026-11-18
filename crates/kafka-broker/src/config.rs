@@ -106,6 +106,9 @@ pub struct Config {
     /// epoch is raised as EndTxn v5 raises it, and the epoch before is kept, so the producer that timed out may take the
     /// id back by saying it (KIP-360); at the classic protocol (Kafka 1 to 3) it is not.
     pub transaction_version: TxnVersion,
+    /// The share groups' assignment interval when a group sets no `share.assignment.interval.ms`; `None`: Kafka's 1 s. A
+    /// knob for tests, which would otherwise wait out the interval.
+    pub share_assignment_interval: Option<Duration>,
 }
 
 impl Config {
@@ -139,6 +142,7 @@ impl Config {
             users: Arc::new(Users::none()),
             client_telemetry: true,
             transaction_version: TxnVersion::EpochBump,
+            share_assignment_interval: None,
         }
     }
 }

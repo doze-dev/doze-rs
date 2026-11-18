@@ -41,8 +41,18 @@ mod offset_fetch;
 mod offset_for_leader_epoch;
 mod produce;
 mod push_telemetry;
+mod share_acknowledge;
+mod share_acks;
+mod share_fetch;
+mod share_group_describe;
+mod share_group_heartbeat;
+mod share_group_offsets;
+mod streams_group_describe;
+mod streams_group_heartbeat;
 mod sync_group;
 mod txn_offset_commit;
+
+pub(crate) use streams_group_heartbeat::Failures as StreamsTopicFailures;
 
 /// Who is asking: the name the client gave itself, and where it connected from (a slash, then the address, as Kafka shows
 /// it).

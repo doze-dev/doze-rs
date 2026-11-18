@@ -15,6 +15,10 @@ pub(super) fn can_begin(req: &Req) -> bool {
         // A consumer group is begun by a member joining it; one that keeps on, or leaves, a group that is not there
         // is told so.
         Req::ConsumerHeartbeat(h) => crate::groups::consumer::can_join(h),
+        // A share group is made by a member joining it (Kafka's `getOrMaybeCreateShareGroup`, epoch 0).
+        Req::ShareHeartbeat(h) => h.epoch == 0,
+        // So is a streams group (`getOrCreateStreamsGroup`, epoch 0).
+        Req::StreamsHeartbeat(h) => h.epoch == 0,
         _ => false,
     }
 }
@@ -53,6 +57,28 @@ pub(super) fn unknown(req: &Req) -> Option<Answer> {
                 ResponseError::GroupIdNotFound,
                 words,
             ))
+        }
+        Req::ShareHeartbeat(h) => {
+            let words = if h.epoch < 0 {
+                format!("Group {} not found.", h.group)
+            } else {
+                format!("Share group {} not found.", h.group)
+            };
+            Answer::ShareHeartbeat(crate::groups::share::ShareAnswer::refused(
+                ResponseError::GroupIdNotFound,
+                words,
+            ))
+        }
+        Req::StreamsHeartbeat(h) => {
+            let words = if h.epoch < 0 {
+                format!("Group {} not found.", h.group)
+            } else {
+                format!("Streams group {} not found.", h.group)
+            };
+            Answer::StreamsHeartbeat(Box::new(crate::groups::streams::StreamsAnswer::refused(
+                ResponseError::GroupIdNotFound,
+                words,
+            )))
         }
         Req::Force(_) => Answer::Forced(Forced::NoSuchGroup),
         Req::Describe | Req::Delete | Req::TopicsChanged | Req::Events => return None,

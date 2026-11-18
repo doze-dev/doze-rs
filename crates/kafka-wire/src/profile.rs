@@ -202,6 +202,24 @@ impl Profile {
         }
     }
 
+    /// The `share.version` this profile finalizes: 2 where the share group APIs are offered (Kafka 4, formatted at
+    /// 4.4.0's defaults), else 0.
+    #[must_use]
+    pub fn share_version(self) -> i16 {
+        if self.range(ApiKey::ShareFetch).is_some() {
+            2
+        } else {
+            0
+        }
+    }
+
+    /// The `streams.version` this profile finalizes: 1 where the streams group APIs are offered (Kafka 4, formatted at
+    /// 4.4.0's defaults, which finalize `StreamsVersion.SV_1`), else 0.
+    #[must_use]
+    pub fn streams_version(self) -> i16 {
+        i16::from(self.range(ApiKey::StreamsGroupHeartbeat).is_some())
+    }
+
     /// Refuses a request outside what was advertised: an API not offered, or a version out of range.
     ///
     /// # Errors

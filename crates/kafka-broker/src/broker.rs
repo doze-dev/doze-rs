@@ -63,10 +63,20 @@ const SERVED: &[ApiKey] = &[
     ApiKey::DeleteAcls,
     ApiKey::DescribeUserScramCredentials,
     ApiKey::AlterUserScramCredentials,
+    ApiKey::ShareGroupHeartbeat,
+    ApiKey::ShareGroupDescribe,
+    ApiKey::ShareFetch,
+    ApiKey::ShareAcknowledge,
+    ApiKey::DescribeShareGroupOffsets,
+    ApiKey::AlterShareGroupOffsets,
+    ApiKey::DeleteShareGroupOffsets,
     ApiKey::OffsetForLeaderEpoch,
     ApiKey::DescribeLogDirs,
     ApiKey::DescribeClientQuotas,
     ApiKey::AlterClientQuotas,
+    ApiKey::StreamsGroupHeartbeat,
+    ApiKey::StreamsGroupDescribe,
+    ApiKey::StreamsGroupTopologyDescriptionUpdate,
 ];
 
 /// The APIs of client telemetry (KIP-714), served only when `Config::client_telemetry` is on.
@@ -86,6 +96,12 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) txns: crate::txn::Txns,
     /// When the coordinator next has a step to take on its own.
     pub(crate) txn_alarm: crate::txn::Alarm,
+    /// The share groups' share-partitions and sessions (KIP-932). Empty until a share group fetches.
+    pub(crate) shares: crate::share::Shares,
+    /// Internal topics of streams groups whose creation failed lately (empty unless one did).
+    pub(crate) streams_topic_failures: crate::handlers::StreamsTopicFailures,
+    /// The configs set on groups (resource type GROUP).
+    pub(crate) group_configs: crate::group_configs::GroupConfigs,
     /// When this run began, in milliseconds since the epoch.
     pub(crate) started_ms: i64,
     /// Whether the data directory was new when this run opened it (there was no metadata database).
@@ -180,6 +196,7 @@ impl<F: Fs> Broker<F> {
         let quotas = crate::quotas::Quotas::load(meta.quotas()?);
         let millis = |d: std::time::Duration| u64::try_from(d.as_millis()).unwrap_or(u64::MAX);
         let meta_txns = meta.txns()?;
+        let group_configs = crate::group_configs::GroupConfigs::load(meta.group_configs()?);
         let groups = Groups::new(
             Settings {
                 initial_delay_ms: millis(config.group_initial_rebalance_delay),
@@ -200,6 +217,9 @@ impl<F: Fs> Broker<F> {
             groups,
             txns: crate::txn::Txns::load(meta_txns),
             txn_alarm: crate::txn::Alarm::default(),
+            shares: crate::share::Shares::new(crate::group_configs::defaults::MAX_SESSIONS),
+            group_configs,
+            streams_topic_failures: crate::handlers::StreamsTopicFailures::default(),
             started_ms: crate::clock::now().get(),
             first_start,
             topics_changed: tokio::sync::watch::channel(0).0,

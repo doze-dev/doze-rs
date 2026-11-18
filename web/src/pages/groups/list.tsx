@@ -29,6 +29,8 @@ const route = getRouteApi("/groups");
 
 function protocolWord(r: GroupRow): string {
   if (r.protocol === "consumer") return "consumer (KIP-848)";
+  if (r.protocol === "share") return "share (KIP-932)";
+  if (r.protocol === "streams") return "streams (KIP-1071)";
   return r.assignor && r.phase !== "empty" ? `classic, ${r.assignor}` : "classic";
 }
 
@@ -38,15 +40,18 @@ function nameSub(r: GroupRow, now: number): string {
   const last = r.story.last;
   if (r.protocol === "consumer" && last && !last.forming) return `last rebalance ${stamp(now - last.ago_ms, now)}`;
   if (r.last_commit_ms !== null) return `last commit ${stamp(r.last_commit_ms, now)}`;
+  if (r.protocol === "share") return "";
   return r.lag.any_commit ? "" : "no commits yet";
 }
 
 function stateSub(r: GroupRow): string {
-  if (r.protocol === "consumer") return `epoch ${r.generation}`;
+  if (r.protocol !== "classic") return `epoch ${r.generation}`;
   return r.phase === "stable" ? `generation ${r.generation}` : "";
 }
 
-function LagCell({ l }: { l: RowLag }) {
+function LagCell({ l, share }: { l: RowLag; share: boolean }) {
+  // A share group commits no offset, so it has no lag to list: its page shows its share-partitions.
+  if (share) return <span className="text-muted-foreground">no offsets (share)</span>;
   if (l.ahead) {
     return (
       <div className="flex min-w-0 flex-col">
@@ -102,7 +107,7 @@ function columns(now: number, wide: boolean): DataColumn<GroupRow>[] {
     },
     { id: "members", header: "Members", size: 112, accessorFn: (r) => r.members, meta: { numeric: true, mono: true } },
     { id: "reads", header: "Reads", size: 176, accessorFn: (r) => r.reads.join(", "), meta: { mono: true } },
-    { id: "lag", header: "Lag", size: 144, accessorFn: (r) => r.lag.total, cell: ({ row: { original: r } }) => <LagCell l={r.lag} /> },
+    { id: "lag", header: "Lag", size: 144, accessorFn: (r) => r.lag.total, cell: ({ row: { original: r } }) => <LagCell l={r.lag} share={r.protocol === "share"} /> },
   ];
   // Below 1280 px the topics a group reads are left to its page: the name keeps its room.
   return wide ? all : all.filter((c) => c.id !== "reads");

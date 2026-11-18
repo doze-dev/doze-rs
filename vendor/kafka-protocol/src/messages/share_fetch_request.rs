@@ -17,7 +17,7 @@ use crate::protocol::{
     Encodable, Encoder, HeaderVersion, Message, StrBytes, VersionRange,
 };
 
-/// Valid versions: 1
+/// Valid versions: 1-2
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct AcknowledgementBatch {
@@ -83,7 +83,7 @@ impl AcknowledgementBatch {
 #[cfg(feature = "client")]
 impl Encodable for AcknowledgementBatch {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::Int64.encode(buf, &self.first_offset)?;
@@ -123,7 +123,7 @@ impl Encodable for AcknowledgementBatch {
 #[cfg(feature = "broker")]
 impl Decodable for AcknowledgementBatch {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let first_offset = types::Int64.decode(buf)?;
@@ -158,11 +158,11 @@ impl Default for AcknowledgementBatch {
 }
 
 impl Message for AcknowledgementBatch {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 1 };
+    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 1
+/// Valid versions: 1-2
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct FetchPartition {
@@ -228,7 +228,7 @@ impl FetchPartition {
 #[cfg(feature = "client")]
 impl Encodable for FetchPartition {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.partition_index)?;
@@ -268,7 +268,7 @@ impl Encodable for FetchPartition {
 #[cfg(feature = "broker")]
 impl Decodable for FetchPartition {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let partition_index = types::Int32.decode(buf)?;
@@ -303,11 +303,11 @@ impl Default for FetchPartition {
 }
 
 impl Message for FetchPartition {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 1 };
+    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 1
+/// Valid versions: 1-2
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct FetchTopic {
@@ -359,7 +359,7 @@ impl FetchTopic {
 #[cfg(feature = "client")]
 impl Encodable for FetchTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::Uuid.encode(buf, &self.topic_id)?;
@@ -398,7 +398,7 @@ impl Encodable for FetchTopic {
 #[cfg(feature = "broker")]
 impl Decodable for FetchTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let topic_id = types::Uuid.decode(buf)?;
@@ -430,11 +430,11 @@ impl Default for FetchTopic {
 }
 
 impl Message for FetchTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 1 };
+    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 1
+/// Valid versions: 1-2
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ForgottenTopic {
@@ -486,7 +486,7 @@ impl ForgottenTopic {
 #[cfg(feature = "client")]
 impl Encodable for ForgottenTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::Uuid.encode(buf, &self.topic_id)?;
@@ -524,7 +524,7 @@ impl Encodable for ForgottenTopic {
 #[cfg(feature = "broker")]
 impl Decodable for ForgottenTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let topic_id = types::Uuid.decode(buf)?;
@@ -556,11 +556,11 @@ impl Default for ForgottenTopic {
 }
 
 impl Message for ForgottenTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 1 };
+    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 1
+/// Valid versions: 1-2
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ShareFetchRequest {
@@ -603,6 +603,16 @@ pub struct ShareFetchRequest {
     ///
     /// Supported API versions: 1
     pub batch_size: i32,
+
+    /// PATCH: the acquire mode to control the fetch behavior - 0:batch-optimized,1:record-limit.
+    ///
+    /// Supported API versions: 2
+    pub share_acquire_mode: i8,
+
+    /// PATCH: whether Renew type acknowledgements are present in AcknowledgementBatches.
+    ///
+    /// Supported API versions: 2
+    pub is_renew_ack: bool,
 
     /// The topics to fetch.
     ///
@@ -724,7 +734,7 @@ impl ShareFetchRequest {
 #[cfg(feature = "client")]
 impl Encodable for ShareFetchRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         types::CompactString.encode(buf, &self.group_id)?;
@@ -735,6 +745,13 @@ impl Encodable for ShareFetchRequest {
         types::Int32.encode(buf, &self.max_bytes)?;
         types::Int32.encode(buf, &self.max_records)?;
         types::Int32.encode(buf, &self.batch_size)?;
+        // PATCH: the two fields of version 2 (ShareAcquireMode is ignorable; IsRenewAck is not).
+        if version >= 2 {
+            types::Int8.encode(buf, &self.share_acquire_mode)?;
+            types::Boolean.encode(buf, &self.is_renew_ack)?;
+        } else if self.is_renew_ack {
+            bail!("A field is set that is not available on the selected protocol version");
+        }
         types::CompactArray(types::Struct { version }).encode(buf, &self.topics)?;
         types::CompactArray(types::Struct { version }).encode(buf, &self.forgotten_topics_data)?;
         let num_tagged_fields = self.unknown_tagged_fields.len();
@@ -759,6 +776,10 @@ impl Encodable for ShareFetchRequest {
         total_size += types::Int32.compute_size(&self.max_bytes)?;
         total_size += types::Int32.compute_size(&self.max_records)?;
         total_size += types::Int32.compute_size(&self.batch_size)?;
+        if version >= 2 {
+            total_size += types::Int8.compute_size(&self.share_acquire_mode)?;
+            total_size += types::Boolean.compute_size(&self.is_renew_ack)?;
+        }
         total_size += types::CompactArray(types::Struct { version }).compute_size(&self.topics)?;
         total_size += types::CompactArray(types::Struct { version })
             .compute_size(&self.forgotten_topics_data)?;
@@ -779,7 +800,7 @@ impl Encodable for ShareFetchRequest {
 #[cfg(feature = "broker")]
 impl Decodable for ShareFetchRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version != 1 {
+        if !(1..=2).contains(&version) {
             bail!("specified version not supported by this message type");
         }
         let group_id = types::CompactString.decode(buf)?;
@@ -790,6 +811,11 @@ impl Decodable for ShareFetchRequest {
         let max_bytes = types::Int32.decode(buf)?;
         let max_records = types::Int32.decode(buf)?;
         let batch_size = types::Int32.decode(buf)?;
+        let (share_acquire_mode, is_renew_ack) = if version >= 2 {
+            (types::Int8.decode(buf)?, types::Boolean.decode(buf)?)
+        } else {
+            (0, false)
+        };
         let topics = types::CompactArray(types::Struct { version }).decode(buf)?;
         let forgotten_topics_data = types::CompactArray(types::Struct { version }).decode(buf)?;
         let mut unknown_tagged_fields = BTreeMap::new();
@@ -809,6 +835,8 @@ impl Decodable for ShareFetchRequest {
             max_bytes,
             max_records,
             batch_size,
+            share_acquire_mode,
+            is_renew_ack,
             topics,
             forgotten_topics_data,
             unknown_tagged_fields,
@@ -827,6 +855,8 @@ impl Default for ShareFetchRequest {
             max_bytes: 0x7fffffff,
             max_records: 0,
             batch_size: 0,
+            share_acquire_mode: 0,
+            is_renew_ack: false,
             topics: Default::default(),
             forgotten_topics_data: Default::default(),
             unknown_tagged_fields: BTreeMap::new(),
@@ -835,7 +865,7 @@ impl Default for ShareFetchRequest {
 }
 
 impl Message for ShareFetchRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 1 };
+    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

@@ -907,61 +907,10 @@ carry it. Idle 7,952 KB on darwin (nothing new runs: the usage is walked when a 
 doze-aws held (median 8,728 KB of 9,413) and the lean build's idle held (6,920 KB of 7,229). doze-kafka's idle has risen about 1.2 MB since
 2026-11-12 (the console, then the registry on by default); that is in issue #36.
 
-## Core M1: the mariadb module, measured 2026-11-14, release, darwin/arm64
+**`weight-tls-idle` after the efficiency pass (2026-11-15).** Line not moved: main's idle with TLS rose from about 10,820 KB to about
+11,300 KB at 3636c3d2, and the 11,479 KB line was measured before that. Bisected on aarch64 Linux: +268 KB, mostly 086e4b28 (`fix-correct`,
++132) and 0ee5cf74 (`fix-idle`, +68). Numbers and runs are in ci-health.md ("ci-flakes-2"); for the kafka session to explain or take back.
 
-`doze-module-mariadb` 905,968 B, beside `doze-module-valkey` 888,128 B and `doze-module-temporal` 903,824 B built the
-same way: no new dependency (the module runs the engine's own `mariadb` client, D6). The line for a module of this
-kind is 1 MB until the modules plan sets per-module lines.
-
-## One HTTP stack: the app makes its requests through the system's curl (core step 0, measured 2026-11-14)
-
-Same machine and method (darwin/arm64; `release-app` for the app, `release` for `doze`). Before, the app carried two HTTP
-paths: the CLI's registry client in the binary (ureq over rustls with ring and the system's trust store, linked when the
-CLI joined the app) and the update check's system `curl` (Settings › About, Q6). Now there is one, `doze_cli::http::get`,
-built one of two ways by the `doze-cli` feature `tls`:
-
-| Binary | Client | Before (core-m1, b2c73a09) | After |
-|---|---|---|---|
-| `doze-app` | the system's `curl` (no `tls`): the registry and the update check | 15,654,736 B, 640 packages | **14,792,432 B (−862,304 B), 634 packages** |
-| `doze` | ureq + rustls in the process (`tls`, the default) | 4,608,720 B | 4,608,720 B (unchanged) |
-
-The 0.84 MB is what the HTTPS client cost the app: ureq, its HTTP parser, rustls's client side, ring, webpki and the
-platform roots (a curl build of the same code measured 14,792,432 B too). `doze` keeps the in-process client because it
-must work where nothing is installed beside it (a container, a CI image without curl); the app runs on a desktop whose
-system ships curl (macOS /usr/bin/curl, Windows 10 and later in System32). Both clients say the same words for the same
-failure (`http.rs`; both are tested against a local server in every build). **The app's room under its 16,000,000 B
-line is now 1,207,568 B** (was 345,264 B).
-
-**What else `cargo tree -d` shows for the app**, and why it stays:
-- `objc2` 0.5 and 0.6, `png` 0.17 and 0.18, `itertools` ×3, `getrandom` ×3, `base64` 0.22 and 0.23, `dirs` 5 and 6,
-  `hashbrown` ×2, `miniz_oxide` ×2: all inside GPUI and gpui-component's own trees; none can go without patching them.
-- `image` with every format (exr, tiff, webp, jpeg, gif, …: about 0.55 MB with `image` itself): gpui-component turns on
-  gpui-pre's default features, which turn on the formats; the app's own `default-features = false` cannot undo it. The
-  lever is a patched gpui-component (vendor it, as gpui-pre-apple is), for the app's owner to weigh.
-- `syn` 2 and 3, `toml_edit`, `winnow` 0.7 and 1.0: build-time only, no bytes in the binary.
-- `jiff` (the CLI's wall clock, about 120 KB with `jiff-core`) beside `chrono` (GPUI's): the CLI could use chrono and
-  save that in the app; not done here, the CLI's clock being the CLI's choice.
-
-**The profile lever, measured, not taken:** the same app at `opt-level = "z"` (fat LTO, as `release-aws`) is
-**10,915,200 B, 30% smaller** than at `"s"`. doze-aws measured 30 to 60% more CPU per request at `"z"`; for the app that
-means frame and layout time, which this step did not measure. It is the lever that makes room for the engine, the daemon
-and the config when they join the CLI (the CLI alone is 4.6 MB at `"s"`), and it is the app owner's call, with the
-frame-time numbers of `doze-app bench` beside it.
-
-## Core M1: the ferret module, and the OP_MSG client (D6), measured 2026-11-14, release, darwin/arm64
-
-**D6, the client converge talks to FerretDB with.** Three small programs, each sending one command over a unix socket
-and reading the reply (opt "s", fat LTO, stripped, current-thread tokio and serde_json in all three, as a module has
-them): a hand-written BSON document and OP_MSG frame, 353,840 B and 12 packages; the same frame with the `bson` crate
-(2.x) for the documents and the JSON seed conversion, 801,120 B (+447 KB) and 54 packages; the official `mongodb` driver
-(3.x, rustls, its smallest feature set), 2,790,000 B (+2.4 MB) and 144 packages. The module writes its own: BSON is
-seven element types to write and a length rule to step over the rest, about 400 lines with tests, fuzzed
-(`fuzz_bson`, `fuzz_reply`). The plan named the `bson` crate; the measurement made it a module's half again for no
-behaviour the module uses.
-
-`doze-module-ferret` **1,006,976 B**, 49 packages (mariadb 922,288 B and 44 on the same build): +85 KB over mariadb for
-the BSON, the OP_MSG client and serde_json, which reads the seed files. Under the 1 MiB (1,048,576 B) line a module of
-this kind has until the modules plan sets per-module lines.
 doze-aws, from the same PR's next run (43592223803, main with the aws-tls, aws-gaps and aws-correctness merges): 13,128,520 B and 274
 packages, inside the 13,900,000 B / 280 lines its stage set; idle 9,964 / 10,036 / 10,024 KB, median 10,024 KB, so its idle line is
 **10,526 KB** (was 9,413). That is +1.06 MB over the median of 8,964 KB measured before those merges; added to issue #36 beside the A14 to
@@ -1041,3 +990,76 @@ in the `Bytes` the log read them into; the server writes the pieces with one vec
 End to end (the release binaries of main and of the Fetch change, `/usr/bin/time -l`, kcat producing one or fifty 1 MB messages to one
 partition and consuming them with the fetch limits at 64 MiB, three runs each): one message, peak RSS 10.6 MB to 9.5 MB; fifty, peak RSS
 108.6 MB to 58.6 MB (peak footprint 104.2 to 54.1 MB) and the consume 184.8 to 188.3 ms to 169.5 to 175.6 ms (kcat's start included).
+
+## Share groups (KIP-932, 2026-11-15), release, darwin/arm64
+
+Measured back to back with `cargo xtask weight doze-kafka`: the tree before share groups (kafka-next with KIP-890, c64f4b76e) and the tree
+with them (docs/port/behaviours/share-groups.md).
+
+| | bytes | packages | idle (median of three) |
+|---|---|---|---|
+| before | 7,984,176 B | 182 | 7,840 KB (7,856, 7,824, 7,840) |
+| with share groups | 8,431,392 B (+447,216 B, +5.6%) | 182 | 7,968 KB (7,968, 7,968, 7,984), +128 KB |
+
+No package is added. The bytes are code: the seven APIs' messages, whose generated codecs are linked now that something uses them; their
+handlers; the share-partition (acquisition, acknowledgement, locks, the start), the share sessions, the lock task and the group configs; the
+recorder's summaries and the console's share views. The embedded console assets grew 10 KB. At rest a broker holds an empty map, an empty
+session cache and one task waiting on an alarm no one has set: nothing wakes until a lock is held (`tests/idle_upkeep.rs`); the idle rise is
+presumably the larger binary's pages (not split into file-backed and anonymous in the VM, as the idle line above was). The line (xtask/weight-limits.txt) moves to 8,431,392 B times CI's 1.3747 plus 5%, 12,170,166 B, under the 15 MB
+ceiling, and its idle to CI's 11,132 KB times the measured rise plus 5%, 11,880 KB, until CI measures the tree.
+
+## Core M1: the mariadb module, measured 2026-11-14, release, darwin/arm64
+
+`doze-module-mariadb` 905,968 B, beside `doze-module-valkey` 888,128 B and `doze-module-temporal` 903,824 B built the
+same way: no new dependency (the module runs the engine's own `mariadb` client, D6). The line for a module of this
+kind is 1 MB until the modules plan sets per-module lines.
+
+## One HTTP stack: the app makes its requests through the system's curl (core step 0, measured 2026-11-14)
+
+Same machine and method (darwin/arm64; `release-app` for the app, `release` for `doze`). Before, the app carried two HTTP
+paths: the CLI's registry client in the binary (ureq over rustls with ring and the system's trust store, linked when the
+CLI joined the app) and the update check's system `curl` (Settings › About, Q6). Now there is one, `doze_cli::http::get`,
+built one of two ways by the `doze-cli` feature `tls`:
+
+| Binary | Client | Before (core-m1, b2c73a09) | After |
+|---|---|---|---|
+| `doze-app` | the system's `curl` (no `tls`): the registry and the update check | 15,654,736 B, 640 packages | **14,792,432 B (−862,304 B), 634 packages** |
+| `doze` | ureq + rustls in the process (`tls`, the default) | 4,608,720 B | 4,608,720 B (unchanged) |
+
+The 0.84 MB is what the HTTPS client cost the app: ureq, its HTTP parser, rustls's client side, ring, webpki and the
+platform roots (a curl build of the same code measured 14,792,432 B too). `doze` keeps the in-process client because it
+must work where nothing is installed beside it (a container, a CI image without curl); the app runs on a desktop whose
+system ships curl (macOS /usr/bin/curl, Windows 10 and later in System32). Both clients say the same words for the same
+failure (`http.rs`; both are tested against a local server in every build). **The app's room under its 16,000,000 B
+line is now 1,207,568 B** (was 345,264 B).
+
+**What else `cargo tree -d` shows for the app**, and why it stays:
+- `objc2` 0.5 and 0.6, `png` 0.17 and 0.18, `itertools` ×3, `getrandom` ×3, `base64` 0.22 and 0.23, `dirs` 5 and 6,
+  `hashbrown` ×2, `miniz_oxide` ×2: all inside GPUI and gpui-component's own trees; none can go without patching them.
+- `image` with every format (exr, tiff, webp, jpeg, gif, …: about 0.55 MB with `image` itself): gpui-component turns on
+  gpui-pre's default features, which turn on the formats; the app's own `default-features = false` cannot undo it. The
+  lever is a patched gpui-component (vendor it, as gpui-pre-apple is), for the app's owner to weigh.
+- `syn` 2 and 3, `toml_edit`, `winnow` 0.7 and 1.0: build-time only, no bytes in the binary.
+- `jiff` (the CLI's wall clock, about 120 KB with `jiff-core`) beside `chrono` (GPUI's): the CLI could use chrono and
+  save that in the app; not done here, the CLI's clock being the CLI's choice.
+
+**The profile lever, measured, not taken:** the same app at `opt-level = "z"` (fat LTO, as `release-aws`) is
+**10,915,200 B, 30% smaller** than at `"s"`. doze-aws measured 30 to 60% more CPU per request at `"z"`; for the app that
+means frame and layout time, which this step did not measure. It is the lever that makes room for the engine, the daemon
+and the config when they join the CLI (the CLI alone is 4.6 MB at `"s"`), and it is the app owner's call, with the
+frame-time numbers of `doze-app bench` beside it.
+
+## Core M1: the ferret module, and the OP_MSG client (D6), measured 2026-11-14, release, darwin/arm64
+
+**D6, the client converge talks to FerretDB with.** Three small programs, each sending one command over a unix socket
+and reading the reply (opt "s", fat LTO, stripped, current-thread tokio and serde_json in all three, as a module has
+them): a hand-written BSON document and OP_MSG frame, 353,840 B and 12 packages; the same frame with the `bson` crate
+(2.x) for the documents and the JSON seed conversion, 801,120 B (+447 KB) and 54 packages; the official `mongodb` driver
+(3.x, rustls, its smallest feature set), 2,790,000 B (+2.4 MB) and 144 packages. The module writes its own: BSON is
+seven element types to write and a length rule to step over the rest, about 400 lines with tests, fuzzed
+(`fuzz_bson`, `fuzz_reply`). The plan named the `bson` crate; the measurement made it a module's half again for no
+behaviour the module uses.
+
+`doze-module-ferret` **1,006,976 B**, 49 packages (mariadb 922,288 B and 44 on the same build): +85 KB over mariadb for
+the BSON, the OP_MSG client and serde_json, which reads the seed files. Under the 1 MiB (1,048,576 B) line a module of
+this kind has until the modules plan sets per-module lines.

@@ -6,6 +6,7 @@ through `kcat` (a process of its own, which is also what lets one be killed with
     interop/run.sh                       # builds the release broker, starts it on a free port, runs everything
     interop/run.sh -only churn           # one scenario by name
     FRANZ_LOG=1 interop/run.sh -only franz-go    # franz-go's debug log (its join, balance and sync steps)
+    INTEROP_PORT=39520 interop/run.sh    # the broker on that port (and the next one under -tls), not a random one
 
     interop/run.sh -sasl                 the SASL cells (below) against a broker started with SASL on
     interop/run.sh -tls                  the TLS cells (below): the broker built with --features tls, over SASL_SSL and SSL
@@ -253,3 +254,43 @@ speak the second version: no AddPartitionsToTxn or AddOffsetsToTxn, the writes a
 epoch. sarama and librdkafka stay on the classic protocol, so `txn-*`, `eos-franz-go` and `fence-franz-go` run both at once
 at Kafka 4 and the classic one alone at Kafka 1 to 3. The Java client's `txn-v2-*` (in its table above) check that the second version is the one in use; all three passed against a real Apache
 Kafka 4.4.0 as well (2026-11-15), and skip below Kafka 4 (no EndTxn v5) and with the 2.8 client.
+
+## Share groups (KIP-932)
+
+`interop/java/Share.java` runs the official client's share consumer (`KafkaShareConsumer`) and the share-group Admin calls, which
+kafka-clients 4.1 made generally available. `Interop.java` compiles against 2.8 as well, which has none of this, so the share
+scenarios are a program of their own with the same one-line contract; `run.sh -java` runs it after `Interop.java` with the 4.4
+client, on plain connections (not under `-sasl` or `-tls`). Share groups are offered at Kafka 4 alone, so below it every scenario
+is one skip line. By hand: `cd interop && java -cp "$(bun java/fetch.ts 4)" java/Share.java -broker 127.0.0.1:9092 [-only NAME]`.
+
+| Scenario | What it does |
+|---|---|
+| `share-implicit` | two members read 200 records of three partitions, accepting each by polling again: every record read exactly once |
+| `share-explicit` | accept, release and reject: a released record comes back with delivery count 2, a rejected one never; the lag is 0 |
+| `share-lock-timeout` | `share.record.lock.duration.ms` 15000 (a group config): a member that holds five records and goes quiet loses them when the lock runs out, and another member gets them at delivery count 2 |
+| `share-delivery-limit` | `share.delivery.count.limit` 2: a record released at each delivery is archived after the second |
+| `share-one-partition` | three members share one partition: at least two read some of 300 records, none is read twice |
+| `share-read-committed` | `share.isolation.level` read_committed: an aborted transaction's records are never delivered |
+| `share-admin` | list (type SHARE) and describe; a reset refused while a member is in (GroupNotEmpty); latest left the ten records unread; a reset to 0 while empty delivers them; offsets deleted; the group deleted |
+
+## Streams groups (KIP-1071)
+
+`interop/java/Streams.java` runs Apache Kafka Streams 4.4.0 itself with `group.protocol=streams`: a word count that re-keys
+its words (a repartition topic) and counts them in a store (a changelog topic), and the streams-group Admin calls. Like
+`Share.java` it is a program of its own, run by `run.sh -java` with the 4.4 client on plain connections; its classpath adds
+`kafka-streams` (`bun java/fetch.ts streams`). The stores are in memory, so RocksDB is not needed. Every scenario passed
+against a real Apache Kafka 4.4.0 as well (2026-11-18). By hand:
+`cd interop && java -cp "$(bun java/fetch.ts streams)" java/Streams.java -broker 127.0.0.1:9092 [-only NAME]`.
+
+| Scenario | What it does |
+|---|---|
+| `streams-wordcount` | counts words through a repartition topic and a changelog; the group is Stable with two subtopologies and six tasks; the internal topics were made by the broker with three partitions, the changelog compacted; the member's endpoint is described |
+| `streams-scale` | `streams.num.standby.replicas` 1 (a group config); one, two, then three instances, each stable, with a standby of each stateful task; one closes (leaves), one dies (stays in the group) and is fenced when its 45 s session runs out; the survivor runs every task and the counts go on |
+| `streams-restart` | the application stops, the group empties, more is produced, and a new instance picks the count up from its changelog |
+| `streams-missing-source` | started before its source topic exists: the group is NotReady and nothing runs; once the topic is made the words are counted |
+| `streams-admin` | listed by type STREAMS; described (process, client, the sticky assignor); offsets reset while empty, deleted, and the group deleted |
+
+All seven passed against doze and against a real Apache Kafka 4.4.0 (KRaft, one combined node) on 2026-11-15. One difference is the
+test's, not the broker's: Kafka applies a group config a moment after IncrementalAlterConfigs answers, so the scenarios that set one
+wait until DescribeConfigs shows it before they start a member. What doze and Kafka do differently, and why, is in
+`docs/port/behaviours/share-groups.md` (SG-D1 to SG-D9).

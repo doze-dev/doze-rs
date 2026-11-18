@@ -127,6 +127,7 @@ pub(crate) async fn serve(
     tracing::info!(addr = %running.local_addr(), "listening");
     let _sweeper = broker.start_offsets_sweeper();
     let _transactions = broker.start_transactions();
+    let _share_locks = broker.start_share_locks();
     let _logs = broker.start_log_sweeper();
     let _cleaner = broker.start_log_cleaner();
     let _closer = broker.start_partition_closer();

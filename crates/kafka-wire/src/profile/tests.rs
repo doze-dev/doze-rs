@@ -49,6 +49,48 @@ fn advertised_is_sorted_and_conditional() {
     assert_eq!(full.len(), plain.len() + 4);
 }
 
+/// Share groups (KIP-932) at the versions Kafka 4.4.0 serves, and in no profile before Kafka 4 (`tests/data/api-versions.json`
+/// has them for 4.4.0, the recorded major 4); `share.version` 2 is finalized where they are.
+#[test]
+fn only_kafka_4_offers_share_groups_at_kafka_4_4_versions() {
+    let share = [
+        (ApiKey::ShareGroupHeartbeat, (1, 1)),
+        (ApiKey::ShareGroupDescribe, (1, 1)),
+        (ApiKey::ShareFetch, (1, 2)),
+        (ApiKey::ShareAcknowledge, (1, 2)),
+        (ApiKey::DescribeShareGroupOffsets, (0, 1)),
+        (ApiKey::AlterShareGroupOffsets, (0, 0)),
+        (ApiKey::DeleteShareGroupOffsets, (0, 0)),
+    ];
+    for (key, range) in share {
+        assert_eq!(profile(4).range(key), Some(range), "{key:?}");
+        for major in 1..=3 {
+            assert_eq!(profile(major).range(key), None, "{key:?} at Kafka {major}");
+        }
+    }
+    assert_eq!(profile(4).share_version(), 2);
+    assert_eq!(profile(3).share_version(), 0);
+}
+
+/// Streams groups (KIP-1071) at the versions Kafka 4.4.0 serves (heartbeat and describe 0 to 1, the topology description
+/// update 0), and in no profile before Kafka 4; `streams.version` 1 is finalized where they are.
+#[test]
+fn only_kafka_4_offers_streams_groups_at_kafka_4_4_versions() {
+    let streams = [
+        (ApiKey::StreamsGroupHeartbeat, (0, 1)),
+        (ApiKey::StreamsGroupDescribe, (0, 1)),
+        (ApiKey::StreamsGroupTopologyDescriptionUpdate, (0, 0)),
+    ];
+    for (key, range) in streams {
+        assert_eq!(profile(4).range(key), Some(range), "{key:?}");
+        for major in 1..=3 {
+            assert_eq!(profile(major).range(key), None, "{key:?} at Kafka {major}");
+        }
+    }
+    assert_eq!(profile(4).streams_version(), 1);
+    assert_eq!(profile(3).streams_version(), 0);
+}
+
 #[test]
 fn each_major_offers_what_it_should() {
     assert!(!profile(1).offers_consumer_groups() && !profile(3).offers_consumer_groups());

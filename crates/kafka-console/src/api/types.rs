@@ -173,6 +173,7 @@ fn all() -> BTreeMap<String, String> {
     r4(&cfg, &mut out);
     schemas(&cfg, &mut out);
     super::data::types(&cfg, &mut out);
+    super::groups::streams_types(&cfg, &mut out);
     out
 }
 
@@ -308,10 +309,11 @@ fn groups(cfg: &Config, out: &mut BTreeMap<String, String>) {
     use crate::lag::Lag;
     use crate::model::{
         GroupAttention, GroupDeleteView, GroupHead, GroupLagView, GroupMemberRow, GroupPart,
-        GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupSpan, GroupsView,
-        LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetRow, ResetView, RowLag,
-        StoryCalm, StoryCause, StoryDropped, StoryFacts, StoryFlap, StoryGen, StoryHold, StoryJoin,
-        StoryLast, StoryLeft, StoryNow, StoryRule, StoryTone, StoryView, StoryWho,
+        GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupShareView,
+        GroupSpan, GroupsView, LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetRow,
+        ResetView, RowLag, ShareRow, StoryCalm, StoryCause, StoryDropped, StoryFacts, StoryFlap,
+        StoryGen, StoryHold, StoryJoin, StoryLast, StoryLeft, StoryNow, StoryRule, StoryTone,
+        StoryView, StoryWho,
     };
     one::<GroupsResponse>(cfg, out);
     one::<GroupWriteOutcome>(cfg, out);
@@ -322,6 +324,8 @@ fn groups(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<GroupDeleteView>(cfg, out);
     one::<GroupHead>(cfg, out);
     one::<GroupLagView>(cfg, out);
+    one::<GroupShareView>(cfg, out);
+    one::<ShareRow>(cfg, out);
     one::<GroupMemberRow>(cfg, out);
     one::<GroupPart>(cfg, out);
     one::<GroupPhase>(cfg, out);

@@ -15,6 +15,8 @@ mod groups;
 mod offsets;
 mod produce;
 mod security;
+mod share;
+mod streams;
 mod topics;
 mod txn;
 
@@ -68,6 +70,16 @@ pub fn of_request(request: &Request, f: &mut Facts) {
         Request::AlterClientQuotas(r) => configs::alter_quotas_request(r, f),
         Request::GetTelemetrySubscriptions(r) => security::telemetry_get_request(r, f),
         Request::PushTelemetry(r) => security::telemetry_push_request(r, f),
+        Request::ShareGroupHeartbeat(r) => share::heartbeat_request(r, f),
+        Request::ShareGroupDescribe(r) => share::describe_request(r, f),
+        Request::ShareFetch(r) => share::fetch_request(r, f),
+        Request::ShareAcknowledge(r) => share::acknowledge_request(r, f),
+        Request::DescribeShareGroupOffsets(r) => share::describe_offsets_request(r, f),
+        Request::AlterShareGroupOffsets(r) => share::alter_offsets_request(r, f),
+        Request::DeleteShareGroupOffsets(r) => share::delete_offsets_request(r, f),
+        Request::StreamsGroupHeartbeat(r) => streams::heartbeat_request(r, f),
+        Request::StreamsGroupDescribe(r) => streams::describe_request(r, f),
+        Request::StreamsGroupTopologyDescriptionUpdate(r) => streams::topology_update_request(r, f),
     }
 }
 
@@ -126,6 +138,18 @@ pub fn of_response(response: &Response, f: &mut Facts) {
         Response::AlterClientQuotas(r) => configs::alter_quotas_response(r, f),
         Response::GetTelemetrySubscriptions(r) => security::telemetry_get_response(r, f),
         Response::PushTelemetry(r) => security::telemetry_push_response(r, f),
+        Response::ShareGroupHeartbeat(r) => share::heartbeat_response(r, f),
+        Response::ShareGroupDescribe(r) => share::describe_response(r, f),
+        Response::ShareFetch(r) => share::fetch_response(r, f),
+        Response::ShareAcknowledge(r) => share::acknowledge_response(r, f),
+        Response::DescribeShareGroupOffsets(r) => share::describe_offsets_response(r, f),
+        Response::AlterShareGroupOffsets(r) => share::alter_offsets_response(r, f),
+        Response::DeleteShareGroupOffsets(r) => share::delete_offsets_response(r, f),
+        Response::StreamsGroupHeartbeat(r) => streams::heartbeat_response(r, f),
+        Response::StreamsGroupDescribe(r) => streams::describe_response(r, f),
+        Response::StreamsGroupTopologyDescriptionUpdate(r) => {
+            streams::topology_update_response(r, f)
+        }
     }
 }
 
