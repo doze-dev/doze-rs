@@ -53,6 +53,13 @@ not_planned = [
 ]
 
 [api."IAM"]
+differences = [
+  "Virtual MFA devices give real TOTP codes (any authenticator app works) and STS checks them, but `CreateVirtualMFADevice` returns the base32 seed only, no QR code image. Hardware tokens and FIDO security keys cannot be registered, so `GetMFADevice` (FIDO keys only, as AWS documents) finds none.",
+  "Server certificates, signing certificates, SSH public keys and service-specific credentials are checked (PEM X.509, key pairs, RSA key sizes, quotas) and kept, and block `DeleteUser` as on AWS; nothing serves TLS with them or accepts them, since doze-aws runs no load balancers, CodeCommit, Keyspaces or Bedrock.",
+  "The credential report and last-accessed jobs are ready as soon as they are asked for (AWS takes seconds to minutes). Console passwords are never used to sign in, so the report says `no_information` for their last use.",
+  "Last-accessed data counts what IAM users and roles asked the authorizer, so it is recorded with `--iam soft` (the default) or `enforce`, not `off`. A policy action with a wildcard in its service part (`*`, `s3*:...`) is matched against the services doze-aws runs, not all of AWS's; action-level reports list every action asked for, where AWS tracks a few services' actions.",
+  "`SetSecurityTokenServicePreferences` is kept and shown in `GetAccountSummary`; doze-aws has one STS endpoint and its session tokens work in every region.",
+]
 not_planned = [
   { why = "Partner delegation, role templates, outbound web-identity federation and account properties: new account-administration features with no local use yet.", families = ["Delegation", "AcquireRole", "RoleTemplate", "HumanReadableSummary", "OutboundWebIdentityFederation", "AccountProperties"] },
   { why = "AWS Organizations administration: one account locally.", ops = ["GenerateOrganizationsAccessReport", "GetOrganizationsAccessReport", "ListOrganizationsFeatures", "EnableOrganizationsRootCredentialsManagement", "DisableOrganizationsRootCredentialsManagement", "EnableOrganizationsRootSessions", "DisableOrganizationsRootSessions"] },
