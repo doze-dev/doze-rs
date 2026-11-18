@@ -5,7 +5,7 @@ those, `COMPATIBILITY.md` or `results.tsv` was touched. AWS is the only referenc
 (`models/api-gateway.json`, `models/apigatewayv2.json`), the developer guide or the CLI reference; wording not seen recorded is marked
 `(memory)` beside it in the code.
 
-**Not recorded.** The `doze-rec-main` SSO session had expired ("Token has expired and refresh failed"), so, as the brief says, nothing
+**Not recorded.** The `doze-rec-main` SSO session had expired (checked again on 2026-11-19 by the agent that finished the branch: still expired) ("Token has expired and refresh failed"), so, as the brief says, nothing
 was recorded and no permission was asked for. Nothing was made on AWS; nothing is left there. The seven new scenarios are UNVERIFIED.
 
 ## Built (33 operations)
@@ -94,9 +94,12 @@ Not recorded on purpose: a real link needs an NLB, which bills hourly.
 
 - Three new tables (`certs`, `links`, `usage`) in `apigateway.redb`, counted, reset and flushed with the rest.
 - 9 new crate tests (`tests/ops.rs`) plus unit tests (periods, buckets, CSV, DER, locations, templates, log time); 65 tests pass.
-- 7 new boto3 scenarios in `test_apigateway.py` (documentation, documentation import, client certificates, model templates, usage
-  metered and granted, CSV import, test invocations with a Python Lambda authorizer). Against doze-aws all 18 apigateway scenarios
-  pass: 92 recorded labels exact, 0 different, 41 unverified.
+- 8 new boto3 scenarios in `test_apigateway.py` (documentation, documentation import, client certificates, model templates, usage
+  metered and granted, CSV import, test invocations with a Python Lambda authorizer, VPC links). `test_vpc_links` is doze-aws only
+  (skipped on AWS: a real link needs an hourly-billed NLB) and asserts rather than snapshots: v1 and v2 lifecycles, the two APIs'
+  links kept apart, a `VPC_LINK` integration naming a missing link refused, and one naming a real link calling its URI (another
+  API's MOCK stage) through `TestInvokeMethod`. Against doze-aws (started with `--account 111122223333`, the harness's account) all
+  19 apigateway scenarios pass: 92 recorded labels exact, 0 different, 41 unverified.
 
 ## Open
 

@@ -7,6 +7,8 @@ import json
 import urllib.error
 import urllib.request
 
+import pytest
+
 from harness.helpers import zip_bytes
 
 BASIC = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
@@ -564,6 +566,46 @@ def test_import_api_keys(client, names, cleanup, snapshot):
     snapshot.match("in-the-plan", [k["value"] for k in api.get_usage_plan_keys(usagePlanId=plan)["items"]])
     snapshot.outcome("a-short-key", lambda: api.import_api_keys(
         body=f'Name,Key\n{names("short")},tooshort\n'.encode(), format="csv", failOnWarnings=True), opaque=("ids",))
+
+
+def test_vpc_links(client, names, cleanup, target):
+    # A real link needs a network load balancer, which bills by the hour: never recorded, doze-aws only.
+    if target.name == "aws":
+        pytest.skip("a VPC link needs a network load balancer, billed hourly; doze-aws only")
+    api, v2 = client("apigateway"), client("apigatewayv2")
+    nlb = f"arn:aws:elasticloadbalancing:{target.region}:123456789012:loadbalancer/net/local/0123456789abcdef"
+    made = api.create_vpc_link(name=names("link"), targetArns=[nlb])
+    lid = made["id"]
+    cleanup(api.delete_vpc_link, vpcLinkId=lid)
+    assert made["status"] == "PENDING", made
+    assert api.get_vpc_link(vpcLinkId=lid)["status"] == "AVAILABLE"
+    assert lid in [link["id"] for link in api.get_vpc_links()["items"]]
+    renamed = api.update_vpc_link(vpcLinkId=lid, patchOperations=[{"op": "replace", "path": "/description", "value": "d"}])
+    assert renamed["description"] == "d", renamed
+    with pytest.raises(api.exceptions.BadRequestException):
+        api.create_vpc_link(name=names("bad"), targetArns=["arn:aws:sqs:us-east-1:123456789012:q"])
+
+    # An integration over the link calls its URI directly: here a MOCK stage of another API.
+    backend, _ = mock_api(api, names, cleanup, stage="b")
+    rid, res = mock_api(api, names, cleanup, part="via")
+    at = dict(restApiId=rid, resourceId=res, httpMethod="GET")
+    with pytest.raises(api.exceptions.NotFoundException):
+        api.put_integration(**at, type="HTTP_PROXY", integrationHttpMethod="GET", connectionType="VPC_LINK",
+                            connectionId="nonesuch", uri=target.execute_api_url(backend, "b", "ping"))
+    api.put_integration(**at, type="HTTP_PROXY", integrationHttpMethod="GET", connectionType="VPC_LINK",
+                        connectionId=lid, uri=target.execute_api_url(backend, "b", "ping"))
+    out = api.test_invoke_method(**at)
+    assert out["status"] == 200 and json.loads(out["body"]) == {"ok": True}, out
+
+    link2 = v2.create_vpc_link(Name=names("link2"), SubnetIds=["subnet-0123456789abcdef0"])
+    cleanup(v2.delete_vpc_link, VpcLinkId=link2["VpcLinkId"])
+    assert link2["VpcLinkStatus"] == "PENDING" and link2["VpcLinkVersion"] == "V2", link2
+    assert v2.get_vpc_link(VpcLinkId=link2["VpcLinkId"])["VpcLinkStatus"] == "AVAILABLE"
+    assert v2.update_vpc_link(VpcLinkId=link2["VpcLinkId"], Name="renamed")["Name"] == "renamed"
+    assert link2["VpcLinkId"] in [link["VpcLinkId"] for link in v2.get_vpc_links()["Items"]]
+    # The two APIs keep their links apart.
+    with pytest.raises(api.exceptions.NotFoundException):
+        api.get_vpc_link(vpcLinkId=link2["VpcLinkId"])
 
 
 AUTHORIZER = '''
