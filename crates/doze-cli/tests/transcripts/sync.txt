@@ -121,11 +121,10 @@ json:
 |   "command": "doze sync",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze sync",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "db (postgres)",
 |         "changes": [
 |           {
 |             "op": "+",
@@ -139,11 +138,12 @@ json:
 |             "op": "-",
 |             "subject": "extension pgvector"
 |           }
-|         ]
+|         ],
+|         "title": "db (postgres)"
 |       },
 |       {
-|         "title": "cache (valkey)",
-|         "changes": []
+|         "changes": [],
+|         "title": "cache (valkey)"
 |       }
 |     ]
 |   }
@@ -161,12 +161,12 @@ json:
 |   "command": "doze sync",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze sync cache",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "cache (valkey)",
-|         "changes": []
+|         "changes": [],
+|         "title": "cache (valkey)"
 |       }
 |     ]
 |   }

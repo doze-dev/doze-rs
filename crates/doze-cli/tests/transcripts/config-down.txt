@@ -27,27 +27,27 @@ json:
 |     },
 |     "services": [
 |       {
-|         "name": "cache",
-|         "engine": "valkey",
-|         "version": "9",
-|         "group": "module",
-|         "state": "asleep",
-|         "enabled": true,
 |         "conns": 0,
+|         "cpuPercent": 0,
+|         "enabled": true,
+|         "engine": "valkey",
+|         "group": "module",
 |         "memBytes": 0,
-|         "cpuPercent": 0
+|         "name": "cache",
+|         "state": "asleep",
+|         "version": "9"
 |       },
 |       {
-|         "name": "api",
-|         "engine": "process",
-|         "version": "builtin",
-|         "group": "app",
-|         "state": "asleep",
+|         "conns": 0,
+|         "cpuPercent": 0,
 |         "enabled": true,
 |         "endpoint": "127.0.0.1:8080",
-|         "conns": 0,
+|         "engine": "process",
+|         "group": "app",
 |         "memBytes": 0,
-|         "cpuPercent": 0
+|         "name": "api",
+|         "state": "asleep",
+|         "version": "builtin"
 |       }
 |     ]
 |   }
@@ -112,28 +112,28 @@ json:
 |   "command": "doze wake",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze wake api",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "doze",
 |         "changes": [
 |           {
+|             "detail": "it supervises the stack in the background",
 |             "op": "→",
-|             "subject": "start the daemon",
-|             "detail": "it supervises the stack in the background"
+|             "subject": "start the daemon"
 |           }
-|         ]
+|         ],
+|         "title": "doze"
 |       },
 |       {
-|         "title": "api",
 |         "changes": [
 |           {
+|             "detail": "asked for",
 |             "op": "→",
-|             "subject": "wake",
-|             "detail": "asked for"
+|             "subject": "wake"
 |           }
-|         ]
+|         ],
+|         "title": "api"
 |       }
 |     ]
 |   }

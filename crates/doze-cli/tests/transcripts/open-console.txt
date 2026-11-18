@@ -18,8 +18,8 @@ json:
 |   "ok": true,
 |   "data": {
 |     "name": "cache",
-|     "url": "http://127.0.0.1:6380/",
-|     "opened": true
+|     "opened": true,
+|     "url": "http://127.0.0.1:6380/"
 |   }
 | }
 

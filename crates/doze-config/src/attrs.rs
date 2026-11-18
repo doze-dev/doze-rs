@@ -123,6 +123,7 @@ pub(crate) fn attributes_for(cfg: &Config, modules: &dyn Modules, idx: usize) ->
         version: &inst.version,
         endpoint: &ep,
         body,
+        dir: &inst.dir,
     };
     let published = if inst.ty == COMMAND_ENGINE {
         Default::default()

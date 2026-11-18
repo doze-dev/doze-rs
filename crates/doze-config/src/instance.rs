@@ -354,6 +354,7 @@ impl<'a> Loader<'a, '_> {
             cert: d.1,
             key: d.2,
             enabled: true,
+            dir: base,
             ..Instance::default()
         })
     }

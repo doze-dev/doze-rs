@@ -214,6 +214,9 @@ pub struct Instance {
     pub sleep: Sleep,
     /// A module block's `routes = false`.
     pub no_routes: bool,
+    /// The directory of the file the block is declared in, absolute: a relative path in a module's block (ferret's
+    /// `seed`, a postgres extension's `source`) is relative to it (Go's `baseDir`; protocol's `Instance.dir`).
+    pub dir: String,
 }
 
 impl Instance {

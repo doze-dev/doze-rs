@@ -29,12 +29,12 @@ json:
 |   "command": "doze down",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze down",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "the stack (doze is not running)",
-|         "changes": []
+|         "changes": [],
+|         "title": "the stack (doze is not running)"
 |       }
 |     ]
 |   }

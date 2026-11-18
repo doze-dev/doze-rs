@@ -67,15 +67,15 @@ json:
 |   "command": "doze fmt",
 |   "ok": true,
 |   "data": {
+|     "diffs": [
+|       "--- doze.hcl\n+++ doze.hcl (formatted)\n@@ -1,5 +1,5 @@\n-stack=\"s\"\n+stack = \"s\"\n module valkey \"cache\" {\n-version=9\n-  port = 6379\n+  version = 9\n+  port    = 6379\n }\n",
+|       "--- extra.doze.hcl\n+++ extra.doze.hcl (formatted)\n@@ -1,4 +1,4 @@\n app \"web\" {\n-  run = \"serve\"\n-  port=8080\n+  run  = \"serve\"\n+  port = 8080\n }\n"
+|     ],
 |     "files": [
 |       "doze.hcl",
 |       "extra.doze.hcl"
 |     ],
-|     "written": false,
-|     "diffs": [
-|       "--- doze.hcl\n+++ doze.hcl (formatted)\n@@ -1,5 +1,5 @@\n-stack=\"s\"\n+stack = \"s\"\n module valkey \"cache\" {\n-version=9\n-  port = 6379\n+  version = 9\n+  port    = 6379\n }\n",
-|       "--- extra.doze.hcl\n+++ extra.doze.hcl (formatted)\n@@ -1,4 +1,4 @@\n app \"web\" {\n-  run = \"serve\"\n-  port=8080\n+  run  = \"serve\"\n+  port = 8080\n }\n"
-|     ]
+|     "written": false
 |   }
 | }
 

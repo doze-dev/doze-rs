@@ -47,6 +47,7 @@ pub fn module(
         listeners: BTreeMap::from([(MAIN.to_string(), catalog::granted(addr, backend))]),
         deps: Vec::new(),
         toolchain: None,
+        dir: i.dir.clone(),
     };
     let (structured, supervised) = (m.caps & caps::OBJECTS != 0, m.supervised);
     let lock = cat.lock_path().to_path_buf();
@@ -112,6 +113,7 @@ pub fn as_module_sees_it(cat: &Catalog, i: &Instance) -> Option<ModInstance> {
         version: &i.version,
         endpoint: &ep,
         body,
+        dir: &i.dir,
     };
     Some(catalog::instance_for(&call, &m))
 }

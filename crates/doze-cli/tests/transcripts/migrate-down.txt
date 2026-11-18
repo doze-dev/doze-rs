@@ -17,28 +17,28 @@ json:
 |   "command": "doze migrate",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze migrate db",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "doze",
 |         "changes": [
 |           {
+|             "detail": "for the move, and stopped again after it",
 |             "op": "→",
-|             "subject": "start the daemon",
-|             "detail": "for the move, and stopped again after it"
+|             "subject": "start the daemon"
 |           }
-|         ]
+|         ],
+|         "title": "doze"
 |       },
 |       {
-|         "title": "db",
 |         "changes": [
 |           {
+|             "detail": "its module moves the data to postgres 16, as doze.hcl declares; db is stopped meanwhile",
 |             "op": "→",
-|             "subject": "migrate",
-|             "detail": "its module moves the data to postgres 16, as doze.hcl declares; db is stopped meanwhile"
+|             "subject": "migrate"
 |           }
-|         ]
+|         ],
+|         "title": "db"
 |       }
 |     ]
 |   }

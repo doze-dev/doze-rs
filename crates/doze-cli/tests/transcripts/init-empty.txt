@@ -15,10 +15,10 @@ json:
 |   "ok": true,
 |   "data": {
 |     "file": "doze.hcl",
-|     "written": true,
 |     "found": [],
 |     "notes": [],
-|     "starter": true
+|     "starter": true,
+|     "written": true
 |   }
 | }
 

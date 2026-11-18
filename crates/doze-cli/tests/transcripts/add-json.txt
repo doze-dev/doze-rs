@@ -21,11 +21,11 @@ json:
 |   "command": "doze add",
 |   "ok": true,
 |   "data": {
+|     "block": "module postgres \"main\" {\n  version = 18\n  port    = 5433\n}",
 |     "file": "doze.hcl",
 |     "kind": "module",
 |     "module": "postgres",
 |     "name": "main",
-|     "block": "module postgres \"main\" {\n  version = 18\n  port    = 5433\n}",
 |     "wiring": {
 |       "env": "DATABASE_URL",
 |       "reference": "module.main.url"

@@ -32,6 +32,8 @@ pub struct Call<'a> {
     pub version: &'a str,
     pub endpoint: &'a Endpoint,
     pub body: &'a ModuleBody,
+    /// The directory of the file the block is declared in ([`crate::Instance::dir`]).
+    pub dir: &'a str,
 }
 
 /// What a module publishes besides the attributes every module has.

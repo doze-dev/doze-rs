@@ -52,28 +52,28 @@ json:
 |   "command": "doze up",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze up api",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "db",
 |         "changes": [
 |           {
+|             "detail": "api needs it",
 |             "op": "→",
-|             "subject": "wake",
-|             "detail": "api needs it"
+|             "subject": "wake"
 |           }
-|         ]
+|         ],
+|         "title": "db"
 |       },
 |       {
-|         "title": "api",
 |         "changes": [
 |           {
+|             "detail": "asked for",
 |             "op": "→",
-|             "subject": "wake",
-|             "detail": "asked for"
+|             "subject": "wake"
 |           }
-|         ]
+|         ],
+|         "title": "api"
 |       }
 |     ]
 |   }

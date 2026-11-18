@@ -295,6 +295,7 @@ pub fn instance_for(call: &Call<'_>, manifest: &Manifest) -> Instance {
         listeners: BTreeMap::from([(MAIN.to_string(), granted(addr, backend))]),
         deps: Vec::new(),
         toolchain: None,
+        dir: call.dir.to_string(),
     }
 }
 

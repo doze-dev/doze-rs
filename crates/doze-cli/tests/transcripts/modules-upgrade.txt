@@ -21,23 +21,23 @@ json:
 |   "command": "doze modules upgrade",
 |   "ok": false,
 |   "data": {
-|     "lock": "doze.lock",
 |     "check": true,
+|     "lock": "doze.lock",
 |     "modules": [
 |       {
 |         "module": "valkey",
-|         "source": "doze/valkey",
 |         "pinned": "0.2.1",
 |         "selected": "0.3.0",
+|         "source": "doze/valkey",
 |         "status": "upgrade available"
 |       },
 |       {
+|         "error": "no release of postgres supports postgres 17; latest (0.2.5) supports 8, 9",
 |         "module": "postgres",
-|         "source": "doze/postgres",
 |         "pinned": "0.2.5",
 |         "selected": "-",
-|         "status": "failed",
-|         "error": "no release of postgres supports postgres 17; latest (0.2.5) supports 8, 9"
+|         "source": "doze/postgres",
+|         "status": "failed"
 |       }
 |     ]
 |   },
@@ -72,28 +72,28 @@ json:
 |   "command": "doze modules upgrade",
 |   "ok": false,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze modules upgrade",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "valkey",
 |         "changes": [
 |           {
+|             "detail": "doze/valkey",
 |             "op": "~",
-|             "subject": "0.2.1 → 0.3.0",
-|             "detail": "doze/valkey"
+|             "subject": "0.2.1 → 0.3.0"
 |           }
-|         ]
+|         ],
+|         "title": "valkey"
 |       },
 |       {
-|         "title": "postgres",
 |         "changes": [
 |           {
+|             "detail": "no release of postgres supports postgres 17; latest (0.2.5) supports 8, 9",
 |             "op": "→",
-|             "subject": "not known: it would fail",
-|             "detail": "no release of postgres supports postgres 17; latest (0.2.5) supports 8, 9"
+|             "subject": "not known: it would fail"
 |           }
-|         ]
+|         ],
+|         "title": "postgres"
 |       }
 |     ]
 |   },
@@ -145,16 +145,16 @@ json:
 |   "command": "doze modules upgrade",
 |   "ok": false,
 |   "data": {
-|     "lock": "doze.lock",
 |     "check": false,
+|     "lock": "doze.lock",
 |     "modules": [
 |       {
+|         "error": "downloading https://example.invalid/valkey-0.3.0-{triple}.tar.gz: no DNS answer",
 |         "module": "valkey",
-|         "source": "doze/valkey",
 |         "pinned": "0.2.1",
 |         "selected": "-",
-|         "status": "failed",
-|         "error": "downloading https://example.invalid/valkey-0.3.0-{triple}.tar.gz: no DNS answer"
+|         "source": "doze/valkey",
+|         "status": "failed"
 |       }
 |     ]
 |   },
@@ -192,13 +192,13 @@ json:
 |     "modules": [
 |       {
 |         "module": "postgres",
-|         "pinned": "0.2.5",
-|         "note": "not known yet"
+|         "note": "not known yet",
+|         "pinned": "0.2.5"
 |       },
 |       {
 |         "module": "valkey",
-|         "pinned": "0.2.1",
-|         "note": "not known yet"
+|         "note": "not known yet",
+|         "pinned": "0.2.1"
 |       }
 |     ]
 |   },

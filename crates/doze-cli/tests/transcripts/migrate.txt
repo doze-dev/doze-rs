@@ -61,18 +61,18 @@ json:
 |   "command": "doze migrate",
 |   "ok": true,
 |   "data": {
-|     "dry_run": true,
 |     "applies_with": "doze migrate db",
+|     "dry_run": true,
 |     "plan": [
 |       {
-|         "title": "db",
 |         "changes": [
 |           {
+|             "detail": "its module moves the data to postgres 16, as doze.hcl declares; db is stopped meanwhile",
 |             "op": "→",
-|             "subject": "migrate",
-|             "detail": "its module moves the data to postgres 16, as doze.hcl declares; db is stopped meanwhile"
+|             "subject": "migrate"
 |           }
-|         ]
+|         ],
+|         "title": "db"
 |       }
 |     ]
 |   }

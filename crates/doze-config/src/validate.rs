@@ -72,6 +72,7 @@ fn extra_listeners(d: &Instance, modules: &dyn Modules) -> BTreeMap<String, Stri
         version: &d.version,
         endpoint: &ep,
         body,
+        dir: &d.dir,
     };
     modules
         .listeners(&call, d.port)

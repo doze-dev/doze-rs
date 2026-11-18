@@ -25,13 +25,15 @@ json:
 |           "exit_code": 0,
 |           "inputs": "abc",
 |           "ran_at": "2026-10-10T09:10:00Z",
-|           "why": "api needs it",
-|           "inputs": "abc"
-|         }
+|           "result": "done",
+|           "took_ms": 1234,
+|           "why": "api needs it"
+|         },
+|         "name": "migrate"
 |       },
 |       {
-|         "name": "seed",
-|         "manual": true
+|         "manual": true,
+|         "name": "seed"
 |       }
 |     ]
 |   }

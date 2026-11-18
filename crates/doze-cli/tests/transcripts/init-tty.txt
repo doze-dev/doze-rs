@@ -13,7 +13,6 @@ stdout:
 |   "ok": true,
 |   "data": {
 |     "file": "doze.hcl",
-|     "written": false,
 |     "found": [
 |       {
 |         "kind": "module",
@@ -22,8 +21,9 @@ stdout:
 |       }
 |     ],
 |     "notes": [],
+|     "starter": false,
 |     "text": "stack = \"project\"\n\n# go.mod requires github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n",
-|     "starter": false
+|     "written": false
 |   }
 | }
 json exit 0
@@ -34,7 +34,6 @@ json:
 |   "ok": true,
 |   "data": {
 |     "file": "doze.hcl",
-|     "written": false,
 |     "found": [
 |       {
 |         "kind": "module",
@@ -43,8 +42,9 @@ json:
 |       }
 |     ],
 |     "notes": [],
+|     "starter": false,
 |     "text": "stack = \"project\"\n\n# go.mod requires github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n",
-|     "starter": false
+|     "written": false
 |   }
 | }
 tty exit 0
@@ -55,7 +55,6 @@ tty stdout:
 |   "ok": true,
 |   "data": {
 |     "file": "doze.hcl",
-|     "written": false,
 |     "found": [
 |       {
 |         "kind": "module",
@@ -64,8 +63,9 @@ tty stdout:
 |       }
 |     ],
 |     "notes": [],
+|     "starter": false,
 |     "text": "stack = \"project\"\n\n# go.mod requires github.com/redis/go-redis/v9\nmodule valkey \"cache\" {\n  version = 9\n  port    = 6379\n}\n",
-|     "starter": false
+|     "written": false
 |   }
 | }
 tty stderr:

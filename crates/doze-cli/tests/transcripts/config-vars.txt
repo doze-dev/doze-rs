@@ -25,16 +25,16 @@ json:
 |     },
 |     "services": [
 |       {
-|         "name": "web",
-|         "engine": "process",
-|         "version": "builtin",
-|         "group": "app",
-|         "state": "asleep",
+|         "conns": 0,
+|         "cpuPercent": 0,
 |         "enabled": true,
 |         "endpoint": "127.0.0.1:7000",
-|         "conns": 0,
+|         "engine": "process",
+|         "group": "app",
 |         "memBytes": 0,
-|         "cpuPercent": 0
+|         "name": "web",
+|         "state": "asleep",
+|         "version": "builtin"
 |       }
 |     ]
 |   }
@@ -60,16 +60,16 @@ json:
 |     },
 |     "services": [
 |       {
-|         "name": "web",
-|         "engine": "process",
-|         "version": "builtin",
-|         "group": "app",
-|         "state": "asleep",
+|         "conns": 0,
+|         "cpuPercent": 0,
 |         "enabled": true,
 |         "endpoint": "127.0.0.1:8123",
-|         "conns": 0,
+|         "engine": "process",
+|         "group": "app",
 |         "memBytes": 0,
-|         "cpuPercent": 0
+|         "name": "web",
+|         "state": "asleep",
+|         "version": "builtin"
 |       }
 |     ]
 |   }

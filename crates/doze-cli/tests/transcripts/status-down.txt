@@ -28,81 +28,81 @@ json:
 |     },
 |     "services": [
 |       {
-|         "name": "db",
-|         "engine": "postgres",
-|         "version": "16",
-|         "group": "module",
-|         "state": "asleep",
+|         "conns": 0,
+|         "cpuPercent": 0,
 |         "enabled": true,
 |         "endpoint": "127.0.0.1:5432",
-|         "conns": 0,
+|         "engine": "postgres",
+|         "group": "module",
 |         "memBytes": 0,
-|         "cpuPercent": 0
+|         "name": "db",
+|         "state": "asleep",
+|         "version": "16"
 |       },
 |       {
-|         "name": "cache",
-|         "engine": "valkey",
-|         "version": "9",
-|         "group": "module",
-|         "state": "asleep",
+|         "conns": 0,
+|         "cpuPercent": 0,
 |         "enabled": true,
 |         "endpoint": "127.0.0.1:6379",
-|         "conns": 0,
+|         "engine": "valkey",
+|         "group": "module",
 |         "memBytes": 0,
-|         "cpuPercent": 0
+|         "name": "cache",
+|         "state": "asleep",
+|         "version": "9"
 |       },
 |       {
-|         "name": "events",
-|         "engine": "kafka",
-|         "version": "4",
-|         "group": "module",
-|         "state": "asleep",
+|         "conns": 0,
+|         "cpuPercent": 0,
 |         "enabled": true,
 |         "endpoint": "127.0.0.1:9092",
-|         "conns": 0,
+|         "engine": "kafka",
+|         "group": "module",
 |         "memBytes": 0,
-|         "cpuPercent": 0
+|         "name": "events",
+|         "state": "asleep",
+|         "version": "4"
 |       },
 |       {
-|         "name": "api",
-|         "engine": "process",
-|         "version": "builtin",
-|         "group": "app",
-|         "state": "asleep",
-|         "enabled": true,
-|         "endpoint": "127.0.0.1:8080",
 |         "conns": 0,
-|         "memBytes": 0,
 |         "cpuPercent": 0,
 |         "dependsOn": [
 |           "db"
-|         ]
+|         ],
+|         "enabled": true,
+|         "endpoint": "127.0.0.1:8080",
+|         "engine": "process",
+|         "group": "app",
+|         "memBytes": 0,
+|         "name": "api",
+|         "state": "asleep",
+|         "version": "builtin"
 |       },
 |       {
-|         "name": "worker",
-|         "engine": "process",
-|         "version": "builtin",
-|         "group": "app",
-|         "state": "asleep",
-|         "enabled": true,
 |         "conns": 0,
-|         "memBytes": 0,
 |         "cpuPercent": 0,
 |         "dependsOn": [
 |           "events"
-|         ]
+|         ],
+|         "enabled": true,
+|         "engine": "process",
+|         "group": "app",
+|         "memBytes": 0,
+|         "name": "worker",
+|         "state": "asleep",
+|         "version": "builtin"
 |       },
 |       {
-|         "name": "web",
-|         "engine": "process",
-|         "version": "builtin",
-|         "group": "app",
-|         "state": "asleep",
+|         "conns": 0,
+|         "cpuPercent": 0,
 |         "enabled": true,
 |         "endpoint": "127.0.0.1:8090",
-|         "conns": 0,
+|         "engine": "process",
+|         "group": "app",
 |         "memBytes": 0,
-|         "cpuPercent": 0
+|         "name": "web",
+|         "state": "asleep",
+|         "version": "builtin"
 |       }
 |     ]
 |   }

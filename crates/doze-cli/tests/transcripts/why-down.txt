@@ -41,9 +41,9 @@ json:
 |   "command": "doze why",
 |   "ok": true,
 |   "data": {
+|     "events": [],
 |     "name": "db",
-|     "running": false,
 |     "restarts": 0,
-|     "events": []
+|     "running": false
 |   }
 | }
