@@ -1,6 +1,6 @@
 //! Authentication failures, worded the way each protocol family words them.
 //!
-//! **Unverified against AWS.** The codes and statuses follow the Go edition and the public documentation; the spike that wrote
+//! **Unverified against AWS.** The codes and statuses follow AWS's public documentation and memory; the spike that wrote
 //! this had no account to confirm them. They are on the recording queue (a raw-HTTP scenario for each failure, in each family)
 //! and a test pins the table so a change is deliberate.
 

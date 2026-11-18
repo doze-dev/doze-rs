@@ -61,7 +61,11 @@ async fn a_change_waits_while_another_topic_change_is_being_made_and_then_goes_t
     let held = broker.topic_admin.lock().await;
     let waiting = tokio::time::timeout(
         Duration::from_millis(50),
-        broker.create_partitions(&crate::Caller::anonymous(None), &ask(3)),
+        broker.create_partitions(
+            &crate::Caller::anonymous(None),
+            &ask(3),
+            &mut crate::quotas::Mutations::unbounded(),
+        ),
     )
     .await;
     assert!(
@@ -71,7 +75,11 @@ async fn a_change_waits_while_another_topic_change_is_being_made_and_then_goes_t
     assert_eq!(broker.meta.topic(&name).unwrap().partitions.get(), 1);
     drop(held);
     let Outcome::Respond(Response::CreatePartitions(resp)) = broker
-        .create_partitions(&crate::Caller::anonymous(None), &ask(3))
+        .create_partitions(
+            &crate::Caller::anonymous(None),
+            &ask(3),
+            &mut crate::quotas::Mutations::unbounded(),
+        )
         .await
     else {
         panic!("not CreatePartitions")

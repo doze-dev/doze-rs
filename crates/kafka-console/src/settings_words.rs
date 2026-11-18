@@ -190,7 +190,7 @@ pub fn seen_as(key: &str, value: &str) -> String {
 }
 
 /// The families of the version profile, in the order the page lists them.
-const FAMILIES: [(&str, &[ApiKey]); 9] = [
+const FAMILIES: [(&str, &[ApiKey]); 10] = [
     (
         "Produce and fetch",
         &[
@@ -198,6 +198,7 @@ const FAMILIES: [(&str, &[ApiKey]); 9] = [
             ApiKey::Fetch,
             ApiKey::ListOffsets,
             ApiKey::DeleteRecords,
+            ApiKey::OffsetForLeaderEpoch,
         ],
     ),
     (
@@ -277,6 +278,14 @@ const FAMILIES: [(&str, &[ApiKey]); 9] = [
             ApiKey::AlterUserScramCredentials,
             ApiKey::SaslHandshake,
             ApiKey::SaslAuthenticate,
+        ],
+    ),
+    (
+        "Client quotas and log directories",
+        &[
+            ApiKey::DescribeClientQuotas,
+            ApiKey::AlterClientQuotas,
+            ApiKey::DescribeLogDirs,
         ],
     ),
     (

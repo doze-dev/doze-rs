@@ -40,6 +40,16 @@ fn a_matching_event_reaches_the_queue_as_the_event_aws_recorded() {
     let first = put(&mut w, 50);
     assert_eq!(first["FailedEntryCount"], 0);
     let second = put(&mut w, 250);
+    // The answer is out before any target is invoked, as on AWS: the events wait, accepted, for the timer.
+    assert!(w.drain("q").is_empty());
+    assert_eq!(w.core.pending.len(), 2);
+    assert_eq!(
+        w.core.next_due(),
+        Some(super::START),
+        "an accepted event is due at once"
+    );
+    w.deliver();
+    assert!(w.core.pending.is_empty());
     // Only the second matches the numeric filter.
     let got = w.bodies("q");
     assert_eq!(got.len(), 1);
@@ -255,11 +265,11 @@ fn the_wait_doubles_to_a_minute_and_retries_run_out_into_the_dead_letter_queue()
     let dlq = w.queue("dlq", &d.rule_arn.clone());
     d.spec["DeadLetterConfig"] = json!({"Arn": dlq});
     w.rt.block_on(w.core.failed(d.clone(), passing(), 1, &caller()));
-    assert_eq!(w.core.retries[0].due_ms - super::START, 1000);
-    w.core.retries.clear();
+    assert_eq!(w.first_retry_ms() - super::START, 1000);
+    w.forget_retries();
     w.rt.block_on(w.core.failed(d.clone(), passing(), 2, &caller()));
-    assert_eq!(w.core.retries[0].due_ms - super::START, 2000);
-    w.core.retries.clear();
+    assert_eq!(w.first_retry_ms() - super::START, 2000);
+    w.forget_retries();
     // The third failure is the second retry: no more are allowed.
     w.rt.block_on(w.core.failed(d, passing(), 3, &caller()));
     assert!(w.core.retries.is_empty());

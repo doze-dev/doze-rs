@@ -23,7 +23,10 @@ async fn broker_with(topic: &str) -> Broker<SimFs> {
     t.replication_factor = 1;
     let mut req = CreateTopicsRequest::default();
     req.topics.push(t);
-    let made = broker.create_topics(&Caller::anonymous(None), &req).await;
+    let unbounded = &mut crate::quotas::Mutations::unbounded();
+    let made = broker
+        .create_topics(&Caller::anonymous(None), &req, unbounded)
+        .await;
     assert_eq!(made.topics[0].error_code, 0);
     broker
 }
@@ -31,7 +34,10 @@ async fn broker_with(topic: &str) -> Broker<SimFs> {
 async fn delete(broker: &Broker<SimFs>, topic: &str) {
     let mut req = DeleteTopicsRequest::default();
     req.topic_names.push(name(topic));
-    let gone = broker.delete_topics(&Caller::anonymous(None), &req).await;
+    let unbounded = &mut crate::quotas::Mutations::unbounded();
+    let gone = broker
+        .delete_topics(&Caller::anonymous(None), &req, unbounded)
+        .await;
     assert_eq!(gone.responses[0].error_code, 0);
 }
 

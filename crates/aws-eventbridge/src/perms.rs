@@ -27,8 +27,8 @@ impl Core {
                     .as_deref()
                     .and_then(|p| serde_json::from_str::<Value>(p).ok())
                     .unwrap_or_else(|| json!({"Version": "2012-10-17", "Statement": []}));
-                // Recorded 2026-11-15: the same `StatementId` again is accepted, not refused (the Go edition refused it). The
-                // statement takes the place of the one with its id.
+                // Recorded 2026-11-15: the same `StatementId` again is accepted, not refused. The statement takes the place of the
+                // one with its id.
                 let sid = statement.get("Sid").cloned();
                 if let Some(list) = doc.get_mut("Statement").and_then(Value::as_array_mut) {
                     match list.iter_mut().find(|s| s.get("Sid") == sid.as_ref()) {

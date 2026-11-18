@@ -11,6 +11,8 @@
 //! [`Request::timeout`]. Callers run requests off their actor, so nothing waits on one but the delivery itself.
 
 mod answer;
+pub mod jwks;
+pub mod jwt;
 mod os_roots;
 mod tls;
 mod url;
@@ -215,6 +217,12 @@ pub mod fuzz {
     #[must_use]
     pub fn url(text: &str) -> bool {
         crate::url::split(text).is_some()
+    }
+
+    /// A JSON Web Token taken apart.
+    #[must_use]
+    pub fn jwt(text: &str) -> bool {
+        crate::jwt::decode(text).is_some()
     }
 }
 

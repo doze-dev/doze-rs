@@ -56,7 +56,8 @@ public class Interop {
         DELETE_ACLS = 31, DESCRIBE_CONFIGS = 32, CREATE_PARTITIONS = 37, INCREMENTAL_ALTER_CONFIGS = 44,
         DESCRIBE_USER_SCRAM = 50, ALTER_USER_SCRAM = 51, CONSUMER_GROUP_HEARTBEAT = 68,
         LIST_GROUPS = 16, DELETE_GROUPS = 42, OFFSET_DELETE = 47, DESCRIBE_PRODUCERS = 61, DESCRIBE_TRANSACTIONS = 65,
-        LIST_TRANSACTIONS = 66, CONSUMER_GROUP_DESCRIBE = 69;
+        LIST_TRANSACTIONS = 66, CONSUMER_GROUP_DESCRIBE = 69, OFFSET_FOR_LEADER_EPOCH = 23, DESCRIBE_LOG_DIRS = 35,
+        DESCRIBE_CLIENT_QUOTAS = 48, ALTER_CLIENT_QUOTAS = 49;
     /** Names of APIs newer than the 2.8 client, which its ApiKeys does not know. */
     static final Map<Integer, String> NEWER = Map.of(61, "DescribeProducers", 65, "DescribeTransactions", 66, "ListTransactions",
         68, "ConsumerGroupHeartbeat", 69, "ConsumerGroupDescribe");
@@ -150,6 +151,9 @@ public class Interop {
             scenarios.add(new Scenario("admin-transactions", concat(concat(BASIC, TXN), DESCRIBE_PRODUCERS, DESCRIBE_TRANSACTIONS, LIST_TRANSACTIONS), Interop::adminTransactions).needClient(3, "Admin.listTransactions (KIP-664)"));
             scenarios.add(new Scenario("offsets-for-times-log-append", concat(BASIC, DESCRIBE_CONFIGS), Interop::offsetsForTimesLogAppend));
             scenarios.add(new Scenario("offsets-for-times-compressed", BASIC, Interop::offsetsForTimesCompressed));
+            scenarios.add(new Scenario("admin-log-dirs", concat(BASIC, DESCRIBE_LOG_DIRS), Interop::adminLogDirs));
+            scenarios.add(new Scenario("admin-client-quotas", concat(BASIC, DESCRIBE_CLIENT_QUOTAS, ALTER_CLIENT_QUOTAS), Interop::adminClientQuotas));
+            scenarios.add(new Scenario("consumer-validates-position", concat(BASIC, OFFSET_FOR_LEADER_EPOCH), Interop::consumerValidates));
         }
         // zstd came with Produce v7 and Fetch v10 (KIP-110, Kafka 2.1).
         for (Scenario s : scenarios) {
@@ -1244,6 +1248,104 @@ public class Interop {
             check(ctl != null && ctl.id() >= 0, "controller %s", ctl);
             return String.format("cluster %s, node %d at %s:%d, controller %d", id, n.id(), n.host(), n.port(), ctl.id());
         }
+    }
+
+    /** DescribeLogDirs: the one directory, every partition of a new topic, and the one written to with its bytes (KIP-113). */
+    static String adminLogDirs() throws Exception {
+        String topic = newTopic("java-logdirs");
+        try (Admin a = admin()) {
+            createTopic(a, topic, 2, null);
+            produceValues(topic, 0, 20);
+            int node = a.describeCluster().nodes().get(30, TimeUnit.SECONDS).iterator().next().id();
+            var dirs = a.describeLogDirs(List.of(node)).allDescriptions().get(30, TimeUnit.SECONDS).get(node);
+            check(dirs != null && dirs.size() == 1, "log dirs %s", dirs);
+            var dir = dirs.values().iterator().next();
+            check(dir.error() == null, "dir error %s", dir.error());
+            long bytes = 0;
+            int partitions = 0;
+            for (var e : dir.replicaInfos().entrySet()) {
+                if (!e.getKey().topic().equals(topic)) continue;
+                partitions++;
+                bytes += e.getValue().size();
+                check(e.getValue().offsetLag() == 0 && !e.getValue().isFuture(), "replica %s", e.getValue());
+            }
+            check(partitions == 2 && bytes > 0, "%d partitions, %d bytes", partitions, bytes);
+            return String.format("%d partitions, %d bytes", partitions, bytes);
+        }
+    }
+
+    /**
+     * Client quotas (KIP-546 for the APIs, KIP-13 and KIP-219 for the throttling): a producer_byte_rate set for a client id is
+     * described back, a producer of that id is throttled (the client's own produce-throttle-time metric says so), and the quota
+     * removed is gone.
+     */
+    static String adminClientQuotas() throws Exception {
+        String id = "java-quota-" + System.nanoTime(), topic = newTopic("java-quota");
+        var entity = new org.apache.kafka.common.quota.ClientQuotaEntity(Map.of(org.apache.kafka.common.quota.ClientQuotaEntity.CLIENT_ID, id));
+        var filter = org.apache.kafka.common.quota.ClientQuotaFilter.containsOnly(
+            List.of(org.apache.kafka.common.quota.ClientQuotaFilterComponent.ofEntity(org.apache.kafka.common.quota.ClientQuotaEntity.CLIENT_ID, id)));
+        double throttled;
+        try (Admin a = admin()) {
+            createTopic(a, topic, 1, null);
+            a.alterClientQuotas(List.of(new org.apache.kafka.common.quota.ClientQuotaAlteration(entity,
+                List.of(new org.apache.kafka.common.quota.ClientQuotaAlteration.Op("producer_byte_rate", 20480.0))))).all().get(30, TimeUnit.SECONDS);
+            // Kafka answers DescribeClientQuotas from the broker's copy of the metadata, a moment behind the controller.
+            var got = settledQuotas(a, filter, g -> g.containsKey(entity));
+            check(Map.of("producer_byte_rate", 20480.0).equals(got.get(entity)), "described %s", got);
+            Properties p = base(broker, sec);
+            p.put("client.id", id);
+            p.put("key.serializer", StringSerializer.class.getName());
+            p.put("value.serializer", StringSerializer.class.getName());
+            p.put("linger.ms", "0");
+            String blob = "x".repeat(20_000);
+            try (var producer = new KafkaProducer<String, String>(p)) {
+                for (int i = 0; i < 20; i++) producer.send(new ProducerRecord<>(topic, "k", blob)).get(60, TimeUnit.SECONDS);
+                throttled = (double) producer.metrics().entrySet().stream()
+                    .filter(e -> e.getKey().name().equals("produce-throttle-time-max") && e.getKey().group().equals("producer-metrics"))
+                    .findFirst().orElseThrow().getValue().metricValue();
+            }
+            check(throttled > 0, "400 KB at 20 KiB/s was never throttled");
+            a.alterClientQuotas(List.of(new org.apache.kafka.common.quota.ClientQuotaAlteration(entity,
+                List.of(new org.apache.kafka.common.quota.ClientQuotaAlteration.Op("producer_byte_rate", null))))).all().get(30, TimeUnit.SECONDS);
+            check(settledQuotas(a, filter, Map::isEmpty).isEmpty(), "quota left after removal");
+        }
+        return String.format("set, described, a producer throttled up to %.0f ms, removed", throttled);
+    }
+
+    /** DescribeClientQuotas until `done` holds of the answer, for up to ten seconds. */
+    static Map<org.apache.kafka.common.quota.ClientQuotaEntity, Map<String, Double>> settledQuotas(Admin a,
+            org.apache.kafka.common.quota.ClientQuotaFilter filter,
+            Predicate<Map<org.apache.kafka.common.quota.ClientQuotaEntity, Map<String, Double>>> done) throws Exception {
+        var got = a.describeClientQuotas(filter).entities().get(30, TimeUnit.SECONDS);
+        for (long end = System.currentTimeMillis() + 10_000; !done.test(got) && System.currentTimeMillis() < end; ) {
+            Thread.sleep(100);
+            got = a.describeClientQuotas(filter).entities().get(30, TimeUnit.SECONDS);
+        }
+        return got;
+    }
+
+    /**
+     * KIP-320: a consumer that seeks to an offset with the leader epoch it was read under validates it with OffsetForLeaderEpoch
+     * before it fetches, and goes on from there when the log was not truncated under it.
+     */
+    static String consumerValidates() throws Exception {
+        String topic = newTopic("java-validate");
+        try (Admin a = admin()) {
+            createTopic(a, topic, 1, null);
+        }
+        produceValues(topic, 0, 10);
+        TopicPartition tp = new TopicPartition(topic, 0);
+        try (var c = consumer(Map.of("enable.auto.commit", "false", "auto.offset.reset", "none"))) {
+            c.assign(List.of(tp));
+            c.seek(tp, new OffsetAndMetadata(6, Optional.of(0), ""));
+            List<ConsumerRecord<String, String>> got = new ArrayList<>();
+            long end = System.currentTimeMillis() + 30_000;
+            while (got.size() < 4 && System.currentTimeMillis() < end) c.poll(Duration.ofMillis(200)).forEach(got::add);
+            check(got.size() == 4 && got.get(0).offset() == 6, "read %d from %s", got.size(), got.isEmpty() ? "nothing" : got.get(0).offset());
+            // The leader stamps its epoch into each batch it appends, so a record says the epoch it was written under.
+            check(got.get(0).leaderEpoch().equals(Optional.of(0)), "leader epoch %s", got.get(0).leaderEpoch());
+        }
+        return "sought to offset 6 under epoch 0, validated, read 6 to 9, each under epoch 0";
     }
 
     static String adminAcls() throws Exception {

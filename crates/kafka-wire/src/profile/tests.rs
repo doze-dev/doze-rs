@@ -113,12 +113,12 @@ fn outside_the_range_is_not_served() {
             .is_err()
     );
     assert!(p.check(ApiKey::SaslAuthenticate, 0, ALL).is_ok());
-    assert!(p.check(ApiKey::OffsetForLeaderEpoch, 0, ALL).is_err());
+    assert!(p.check(ApiKey::ElectLeaders, 0, ALL).is_err());
 }
 
 /// An API the table offers at a major and the crate cannot decode at any version of it vanishes from that
-/// profile, which is a deviation from what a real broker of that major lists. There is one such case,
-/// and it is on this list on purpose: a new one has to be added here, with its reason.
+/// profile, which is a deviation from what a real broker of that major lists. Each case is on this list on purpose: a new one
+/// has to be added here, with its reason.
 #[test]
 fn the_apis_dropped_because_the_crate_cannot_decode_them_are_known() {
     let mut dropped = Vec::new();
@@ -130,13 +130,16 @@ fn the_apis_dropped_because_the_crate_cannot_decode_them_are_known() {
             }
         }
     }
-    // Kafka 1.x has only v0 of the three ACL APIs, and KIP-896 removed v0 from the crate's decoders.
+    // Kafka 1.x has only v0 of the three ACL APIs, of OffsetForLeaderEpoch and of DescribeLogDirs, and KIP-896 removed
+    // those versions from the crate's decoders (OffsetForLeaderEpoch starts at v2 there, DescribeLogDirs at v1).
     assert_eq!(
         dropped,
         vec![
             (1, ApiKey::DescribeAcls),
             (1, ApiKey::CreateAcls),
-            (1, ApiKey::DeleteAcls)
+            (1, ApiKey::DeleteAcls),
+            (1, ApiKey::OffsetForLeaderEpoch),
+            (1, ApiKey::DescribeLogDirs)
         ]
     );
 }
@@ -222,5 +225,27 @@ fn the_scram_credential_apis_are_offered_from_kafka_2_at_version_0_and_not_at_1(
                 "{key:?} at {major}"
             );
         }
+    }
+}
+
+#[test]
+fn log_dirs_leader_epochs_and_client_quotas_are_offered_as_each_major_did_within_what_the_crate_reads()
+ {
+    // The recorded brokers (tests/data/api-versions.json): Kafka 1.1 lists OffsetForLeaderEpoch and DescribeLogDirs at v0
+    // only and neither quota API; 2.8 lists 0..4, 0..2 and 0..1, 0..1; 3.9 lists 0..4, 0..4, 0..1, 0..1; 4.3 lists 2..4,
+    // 1..5, 0..1, 0..1. The crate reads OffsetForLeaderEpoch from v2 and DescribeLogDirs from v1 to v4.
+    let at = |major, key| profile(major).range(key);
+    assert_eq!(at(1, ApiKey::OffsetForLeaderEpoch), None);
+    assert_eq!(at(1, ApiKey::DescribeLogDirs), None);
+    assert_eq!(at(1, ApiKey::DescribeClientQuotas), None);
+    assert_eq!(at(1, ApiKey::AlterClientQuotas), None);
+    assert_eq!(at(2, ApiKey::OffsetForLeaderEpoch), Some((2, 4)));
+    assert_eq!(at(2, ApiKey::DescribeLogDirs), Some((1, 2)));
+    assert_eq!(at(3, ApiKey::DescribeLogDirs), Some((1, 4)));
+    assert_eq!(at(4, ApiKey::OffsetForLeaderEpoch), Some((2, 4)));
+    assert_eq!(at(4, ApiKey::DescribeLogDirs), Some((1, 4)));
+    for major in 2..=4 {
+        assert_eq!(at(major, ApiKey::DescribeClientQuotas), Some((0, 1)));
+        assert_eq!(at(major, ApiKey::AlterClientQuotas), Some((0, 1)));
     }
 }

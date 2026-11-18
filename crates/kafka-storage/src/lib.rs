@@ -23,8 +23,8 @@ pub use doze_fs::sim;
 
 pub use error::StorageError;
 pub use log::{
-    Appended, Budget, LogConfig, LogReader, MarkerNote, PartitionLog, Retention, SegmentInfo,
-    SegmentWalk, Ticket, Tombstone, Trust, Walk, oldest_on_disk, segments_on_disk,
+    Appended, Budget, LEADER_EPOCH, LogConfig, LogReader, MarkerNote, PartitionLog, Retention,
+    SegmentInfo, SegmentWalk, Ticket, Tombstone, Trust, Walk, oldest_on_disk, segments_on_disk,
 };
 pub use retention::{count_to_drop, enforce_closed};
 

@@ -2,6 +2,7 @@
 
 mod add_offsets_to_txn;
 mod add_partitions_to_txn;
+mod alter_client_quotas;
 pub(crate) mod alter_configs;
 mod alter_user_scram_credentials;
 mod consumer_group_describe;
@@ -14,9 +15,11 @@ mod delete_groups;
 mod delete_records;
 mod delete_topics;
 mod describe_acls;
+mod describe_client_quotas;
 mod describe_cluster;
 mod describe_configs;
 mod describe_groups;
+mod describe_log_dirs;
 mod describe_producers;
 mod describe_transactions;
 mod describe_user_scram_credentials;
@@ -35,6 +38,7 @@ mod metadata;
 mod offset_commit;
 mod offset_delete;
 mod offset_fetch;
+mod offset_for_leader_epoch;
 mod produce;
 mod push_telemetry;
 mod share_acknowledge;

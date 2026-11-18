@@ -12,7 +12,8 @@ use kafka_wire::messages::delete_topics_response::DeletableTopicResult;
 use kafka_wire::messages::{DeleteTopicsRequest, DeleteTopicsResponse, TopicName as WireName};
 
 use crate::guard::TOPIC_DENIED;
-use crate::{Broker, Caller, blocking};
+use crate::quotas::Mutations;
+use crate::{Broker, Caller, blocking, clock};
 
 /// `Errors.UNKNOWN_TOPIC_ID`'s message, which Kafka sends with the code.
 const UNKNOWN_ID_WORDS: &str = "This server does not host this topic ID.";
@@ -27,10 +28,14 @@ impl<F: Fs> Broker<F> {
     /// Deletes each named topic: out of the registry first, then its data from disk. The caller must be allowed to
     /// DELETE the topic (and so to DESCRIBE it, which DELETE implies, but a DENY of DESCRIBE is not undone by it):
     /// see [`Broker::delete_denial`] for what a refusal tells.
+    ///
+    /// A topic's partitions are counted against the caller's controller mutation quota once it is found and the caller may
+    /// delete it (`ReplicationControlManager.deleteTopic`).
     pub(crate) async fn delete_topics(
         &self,
         caller: &Caller,
         req: &DeleteTopicsRequest,
+        mutations: &mut Mutations<'_>,
     ) -> DeleteTopicsResponse {
         // Until its partitions are cleared the name is not to be made again: the new topic's would be named the same.
         let _one_change_at_a_time = self.topic_admin.lock().await;
@@ -47,7 +52,7 @@ impl<F: Fs> Broker<F> {
         let mut resp = DeleteTopicsResponse::default();
         for target in by_name.chain(by_state) {
             resp.responses
-                .push(self.delete_one(caller, cluster, &target).await);
+                .push(self.delete_one(caller, cluster, &target, mutations).await);
         }
         resp
     }
@@ -57,6 +62,7 @@ impl<F: Fs> Broker<F> {
         caller: &Caller,
         cluster: bool,
         target: &Target<'_>,
+        mutations: &mut Mutations<'_>,
     ) -> DeletableTopicResult {
         let found = self.resolve(target);
         if let Some(denied) = self.delete_denial(caller, cluster, target, found.as_deref()) {
@@ -80,6 +86,14 @@ impl<F: Fs> Broker<F> {
             }
             return r;
         };
+        if mutations
+            .record(topic.partitions.get(), clock::now().get())
+            .is_err()
+        {
+            // No message: Kafka's is the error's own, which `ApiError.fromThrowable` leaves out.
+            r.error_code = ResponseError::ThrottlingQuotaExceeded.code();
+            return r;
+        }
         // The registry first, so that nothing new opens the topic's partitions; then the partitions that are open
         // finish and close; then their files can go.
         if let Err(e) = blocking::run(|| self.meta.delete_topic(&topic.name)) {

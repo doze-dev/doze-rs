@@ -6,7 +6,8 @@
 //! minutes (300 seconds) and Evaluation Periods is 1, then at the end of minute 5 the alarm evaluates based on data from minutes 1 to
 //! 5", and a 10, 20 or 30 second alarm is evaluated every ten seconds; the window slides by that step and is not aligned to the
 //! clock. So the window ends at the last step boundary: the minute (or ten seconds) still filling is never judged, and an alarm
-//! cannot flip on half a period's data. (A period under ten seconds, which doze accepts and AWS does not, steps by its own length.)
+//! cannot flip on half a period's data. A period AWS refuses (under ten seconds, 45 seconds) is refused when the alarm is put
+//! (`period.rs`).
 //!
 //! That verdict only changes when data arrives or when time moves a step of data from one period of the window to the next, so the
 //! next time worth looking at is computed, not polled for: the earliest such instant at which the verdict, with no further data,
@@ -36,8 +37,8 @@ pub(crate) struct Verdict {
     pub(crate) data: String,
 }
 
-/// How far the window moves between evaluations: a minute for a period of a minute or more, ten seconds for 10 to 59 seconds, and
-/// the period itself below that.
+/// How far the window moves between evaluations: a minute for a period of a minute or more, ten seconds for 10, 20 or 30 seconds
+/// (the only shorter periods an alarm may have; the last branch only keeps a stored record from looping).
 fn step_of(period_ms: i64) -> i64 {
     if period_ms >= 60_000 {
         60_000

@@ -19,28 +19,31 @@ mod errors;
 mod gather;
 mod groups;
 mod keys;
+mod local;
 mod managed;
 mod model;
 mod needs;
+mod oidc;
 mod ops;
 mod profiles;
 mod providers;
 mod req;
 mod saml;
+mod samltrust;
 mod session;
 mod simulate;
 mod storage;
 mod sts;
 mod view;
+mod xmldsig;
 
 use std::sync::{Arc, Mutex};
 
 use aws_peers::{Authorizer, Mode, Need, Peers};
 use aws_schema::json::Violation;
 use aws_wire::ApiError;
-use aws_wire::service::{BoxFuture, Call, Caller, Reply, Service, Web, WebReply, WebRequest};
+use aws_wire::service::{BoxFuture, Call, Caller, Reply, Service, Web};
 use doze_runtime::{Clock, Ctx, Lazy};
-use serde_json::{Value, json};
 
 use crate::accesslog::{AccessLog, Seen};
 use crate::core::{Answer, Ask, Core, Which};
@@ -55,11 +58,16 @@ struct Shared {
     log: Mutex<Option<AccessLog>>,
     clock: Arc<dyn Clock>,
     peers: Option<Arc<Peers>>,
+    /// The web identity providers' keys, for `AssumeRoleWithWebIdentity` (`oidc`).
+    jwks: aws_webhook::jwks::Jwks,
 }
 
 impl Shared {
     /// Asks the actor, and holds the answer until what it changed is on disk.
     async fn ask(&self, which: Which, call: Call) -> Reply {
+        if which == Which::Sts {
+            oidc::verify(self, &call).await?;
+        }
         let (mut reply, durable) = match self.actor.call(Ask::Call { which, call }).await {
             Ok(Answer::Call {
                 reply,
@@ -150,90 +158,6 @@ impl Shared {
     fn mode(&self) -> Mode {
         self.peers.as_ref().map_or(Mode::default(), |p| p.mode())
     }
-
-    /// `/_doze/iam/DozeAccessLog` and `/_doze/iam/DozeGeneratePolicy`, with their parameters in the query string or a form body.
-    fn doze(&self, request: &WebRequest) -> WebReply {
-        let mut form = aws_wire::query::parse_form(&request.query);
-        if let Ok(body) = std::str::from_utf8(&request.body) {
-            form.extend(aws_wire::query::parse_form(body));
-        }
-        self.doze_action(request.path.trim_start_matches(DOZE_PATH), &form)
-    }
-
-    /// A doze-only action (`DozeAccessLog`, `DozeGeneratePolicy`), by its name and parameters: from its own address, or as a Query
-    /// `Action` on the IAM endpoint (as the Go edition served them).
-    fn doze_action(
-        &self,
-        action: &str,
-        form: &std::collections::BTreeMap<String, String>,
-    ) -> WebReply {
-        let yes = |k: &str| form.get(k).is_some_and(|v| v.eq_ignore_ascii_case("true"));
-        let mode = match self.mode() {
-            Mode::Off => "off",
-            Mode::Soft => "soft",
-            Mode::Enforce => "enforce",
-        };
-        let Ok(mut log) = self.log.lock() else {
-            return web_reply(
-                500,
-                &json!({"Code": "InternalFailure", "Message": "The access log is unavailable."}),
-            );
-        };
-        match action {
-            "DozeAccessLog" => {
-                if yes("Reset") {
-                    *log = None;
-                }
-                let out = log.as_ref().map_or_else(
-                    || json!({"Mode": mode, "Entries": [], "Evicted": 0}),
-                    |l| l.entries(mode),
-                );
-                web_reply(200, &out)
-            }
-            "DozeGeneratePolicy" => {
-                let principal = form.get("Principal").map(String::as_str);
-                match log
-                    .as_ref()
-                    .and_then(|l| l.generate(principal, yes("ScopeToResources")))
-                {
-                    Some(out) => web_reply(200, &out),
-                    None => {
-                        let message = match (principal, mode) {
-                            (_, "off") => "IAM is off, so nothing is recorded: run with --iam soft or enforce.".to_owned(),
-                            (Some(p), _) => format!("No access has been recorded for principal {p}."),
-                            (None, _) => "No access has been recorded yet.".to_owned(),
-                        };
-                        web_reply(404, &json!({"Code": "NoSuchEntity", "Message": message}))
-                    }
-                }
-            }
-            other => web_reply(
-                404,
-                &json!({"Code": "UnknownOperation", "Message": format!("doze has no IAM extension called {other:?}: there are DozeAccessLog and DozeGeneratePolicy.")}),
-            ),
-        }
-    }
-}
-
-/// Where IAM's doze-only addresses live. `_` cannot begin a bucket name, so no S3 path-style address is taken.
-const DOZE_PATH: &str = "/_doze/iam/";
-
-fn web_reply(status: u16, body: &Value) -> WebReply {
-    WebReply {
-        status,
-        headers: vec![("content-type".to_owned(), "application/json".to_owned())],
-        body: body.to_string().into(),
-    }
-}
-
-impl Web for Iam {
-    fn owns(&self, _host: &str, path: &str) -> bool {
-        path.starts_with(DOZE_PATH)
-    }
-
-    fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply> {
-        Box::pin(async move { self.0.doze(&request) })
-    }
 }
 
 impl Shared {
@@ -305,6 +229,7 @@ pub fn services(ctx: Arc<Ctx>) -> (Iam, Sts) {
         actor: Lazy::new("iam", ctx),
         log: Mutex::new(None),
         peers,
+        jwks: oidc::keys(),
     });
     (Iam(Arc::clone(&shared)), Sts(shared))
 }
@@ -355,20 +280,6 @@ impl Service for Iam {
         aws_model_iam::Operation::from_index(op).is_some_and(|o| ops::BUILT.contains(&o))
     }
 
-    /// `Action=DozeAccessLog` and `Action=DozeGeneratePolicy` on the Query endpoint, as the Go edition served them (also at
-    /// `/_doze/iam/<name>`). Signed like any IAM call.
-    fn query_extension<'a>(
-        &'a self,
-        action: &'a str,
-        form: &'a std::collections::BTreeMap<String, String>,
-    ) -> Option<BoxFuture<'a, WebReply>> {
-        action
-            .starts_with("Doze")
-            .then(|| -> BoxFuture<'a, WebReply> {
-                Box::pin(async move { self.0.doze_action(action, form) })
-            })
-    }
-
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(self.0.ask(Which::Iam, call))
     }
@@ -406,6 +317,15 @@ impl Service for Sts {
                     | O::DecodeAuthorizationMessage
                     | O::AssumeRoot
             )
+        )
+    }
+
+    /// The model gives these two no auth scheme: the token or the assertion is the proof.
+    fn unsigned(&self, op: u32) -> bool {
+        use aws_model_sts::Operation as O;
+        matches!(
+            O::from_index(op),
+            Some(O::AssumeRoleWithWebIdentity | O::AssumeRoleWithSAML)
         )
     }
 

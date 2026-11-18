@@ -1,6 +1,6 @@
 //! Names for resources the template does not name: `<stack>-<logical>-<random>` as AWS makes them (memory: twelve upper-case letters
-//! and digits; stack and logical id shortened to fit the type's limit), or the logical id alone when the configuration asks for
-//! the Go edition's naming.
+//! and digits; stack and logical id shortened to fit the type's limit), or the logical id alone when the configuration asks for it
+//! (`--cfn-logical-names`, a doze-aws convenience).
 
 use super::Rc;
 

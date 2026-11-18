@@ -87,6 +87,17 @@ start empty; a validate-only changes nothing. The directories are made and flush
 any point leaves the old count or the new with every partition on disk. Test: `create_partitions::*`,
 `create_partitions_crash::a_stop_at_any_point_*`, `topic_dirs::directories_made_or_removed_from_a_number_up_*`.
 
+## ADM-9. DescribeLogDirs v1-4 (source)
+One result: the data directory, as an absolute path (Java's `toAbsolutePath`, not resolved), error 0, and from v4 the volume's
+size and the room this process may still write (`FileStore.getTotalSpace` / `getUsableSpace`; -1 where the platform does not
+say). Every partition of every topic, or those asked for (`topics` null: all; asked partitions that do not exist are left out, and a
+topic none of whose asked partitions exist): its size is its segments' log files (`UnifiedLog.size`, read by the same walk the
+Data page reads), 0 for a partition never written to; lag 0; never a future log. A topic's partitions are by number and the topics
+by name (Kafka's come from a hash map). Directories that belong to no topic (strays) are not listed. Without DESCRIBE on the
+cluster: CLUSTER_AUTHORIZATION_FAILED and no directory (SEC-296). `kafka-log-dirs.sh --describe` prints the same as against
+Kafka 4.4.0 (sizes to the byte for the same records); every case of `oracle_diff` (all, some, none, at v1 to v4) is the same.
+Test: `tests/describe_log_dirs.rs::*`, `kafka-storage usage::tests::every_byte_is_counted_once_under_the_kind_it_belongs_to`
+
 ## Decided differences
 - **ADM-D1.** BROKER_LOGGER, CLIENT_METRICS and GROUP resources are refused (INVALID_REQUEST "Unsupported resource type: X"); Kafka
   serves them. There are no loggers to set, and no client metrics or group configs.
@@ -100,7 +111,10 @@ any point leaves the old count or the new with every partition on disk. Test: `c
   and `group.initial.rebalance.delay.ms` (200 ms): they are shown as static broker configs, with the value in force.
 - **ADM-D5.** CreatePartitions answers the topics that are not a duplicate in the order asked (Kafka's comes from a hash set).
   The partition count is held to `--max-partitions` (a limit of this broker, with its own text). Replication factor is one.
-- **ADM-D6.** ListConfigResources and the quota-throttled error of CreatePartitions v3 are not offered.
+- **ADM-D6.** ListConfigResources is not offered. (The quota-throttled error of CreatePartitions v3 is: `quotas.md` QT-10.)
+- **ADM-D8.** DescribeLogDirs is offered to v4 at Kafka 4: v5 (Kafka 4.2's `IsCordoned`) is not in the wire crate. Kafka's internal
+  topics (`__consumer_offsets`, `__transaction_state`) are not listed: this broker keeps offsets and transactions in its metadata
+  store, which has no partitions.
 - **ADM-D7.** `segment.ms` is the wall-clock age of the active segment since its first write, judged when the next append
   comes (an idle partition keeps its segment until then). Kafka's `LogSegment.timeWaitedForRoll` measures the incoming batch's
   largest timestamp against the first batch's timestamp, and a reopened segment starts from that timestamp, not from the file's

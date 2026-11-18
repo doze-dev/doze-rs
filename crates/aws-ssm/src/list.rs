@@ -82,7 +82,7 @@ impl Cond {
 }
 
 /// Whether `name` is under `path` (one level down, or any depth).
-fn under(name: &str, path: &str, recursive: bool) -> bool {
+pub(crate) fn under(name: &str, path: &str, recursive: bool) -> bool {
     let path = path.trim_end_matches('/');
     let Some(rest) = name.strip_prefix(path).and_then(|r| r.strip_prefix('/')) else {
         return false;
@@ -136,6 +136,10 @@ impl Core {
             .map_or(BY_PATH_PAGE, |n| usize::try_from(n).unwrap_or(BY_PATH_PAGE));
         let after = v.get(ByPath::NEXT_TOKEN).map(page::resume).transpose()?;
         let filters = conds(v.get(ByPath::PARAMETER_FILTERS).into_iter().flatten());
+        if path == "/aws" || path.starts_with("/aws/") {
+            // Only AWS's public parameters live under `/aws` (nothing of the account's can be written there).
+            return by_path_public(call, path, recursive, limit, after.as_deref());
+        }
         let prefix = format!("{path}/");
         let keep = |name: &str, p: &Parameter| {
             if !under(name, path, recursive) {
@@ -223,6 +227,33 @@ impl Core {
             }
         })
     }
+}
+
+/// A page of the public parameters under `path`.
+fn by_path_public(
+    call: &Call,
+    path: &str,
+    recursive: bool,
+    limit: usize,
+    after: Option<&str>,
+) -> Reply {
+    let region = &call.caller.region;
+    let mut rows = crate::public::under(region, path, recursive, after);
+    let more = rows.len() > limit;
+    rows.truncate(limit);
+    let token = more
+        .then(|| rows.last().map(|p| page::token(&p.name)))
+        .flatten();
+    reply::<ByPathResult>(|o| {
+        o.put_list(ByPathResult::PARAMETERS, |l| {
+            for p in &rows {
+                l.push(|s| crate::read::shown_public(s, region, p, None));
+            }
+        });
+        if let Some(token) = &token {
+            o.put(ByPathResult::NEXT_TOKEN, token);
+        }
+    })
 }
 
 fn described(m: &mut Object<'_, Meta>, call: &Call, name: &str, p: &Parameter) {

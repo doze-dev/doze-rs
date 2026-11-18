@@ -12,12 +12,15 @@ use doze_runtime::{Clock, Ctx};
 use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
 
+use crate::agree::Used;
 use crate::model::{Alias, Key};
+use crate::multi::{Fanout, Open, Seed, Set};
 
 const FILE: &str = "kms.redb";
 const KEYS: &str = "keys";
 const ALIASES: &str = "aliases";
 const META: &str = "meta";
+const SETS: &str = "multiregion";
 const SEAL_KEY: &str = "seal";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 const VERSION: u8 = 1;
@@ -28,6 +31,14 @@ pub(crate) struct Core {
     pub(crate) keys: Records<Key>,
     pub(crate) aliases: Records<Alias>,
     meta: Records<Vec<u8>>,
+    /// The sets of the multi-Region keys this region holds, by key id.
+    pub(crate) sets: Records<Set>,
+    /// What the last call leaves for other regions.
+    pub(crate) fanout: Option<Fanout>,
+    /// Each key's last successful cryptographic use since this actor started (in memory only).
+    pub(crate) used: std::collections::HashMap<String, Used>,
+    /// When this actor started: when last use began to be tracked.
+    pub(crate) started_ms: i64,
     pub(crate) sealer: Sealer,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) db: Option<Db>,
@@ -44,6 +55,12 @@ pub(crate) enum Ask {
     Call(Box<Call>),
     /// From `doze-aws data`: what KMS holds, or remove it all.
     Data(Box<crate::storage::DataCall>),
+    /// From the region of a multi-Region primary: make this replica.
+    Replica(Box<Seed>),
+    /// From another region of a multi-Region key: the set's new shape.
+    Set(String, Set),
+    /// From a multi-Region primary: its material after a rotation.
+    Materials(String, Vec<Open>),
 }
 
 /// What the actor answers: the reply, and the commit it must wait for.
@@ -51,6 +68,8 @@ pub(crate) enum Ask {
 pub(crate) struct Answer {
     pub(crate) reply: Reply,
     pub(crate) durable: Option<Ack>,
+    /// What other regions are to do before the call is answered.
+    pub(crate) fanout: Option<Fanout>,
 }
 
 /// The operations this service runs. The others are refused by name before their request is read.
@@ -102,6 +121,10 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::GetParametersForImport
             | O::ImportKeyMaterial
             | O::DeleteImportedKeyMaterial
+            | O::DeriveSharedSecret
+            | O::ReplicateKey
+            | O::UpdatePrimaryRegion
+            | O::GetKeyLastUsage
     )
 }
 
@@ -130,8 +153,10 @@ impl doze_runtime::Service for Core {
                 return Answer {
                     reply: aws_wire::handler::empty(),
                     durable: None,
+                    fanout: None,
                 };
             }
+            other => return self.region_work(other),
         };
         if let Some(peers) = self.peers.clone()
             && peers.mode() != Mode::Off
@@ -140,9 +165,14 @@ impl doze_runtime::Service for Core {
             return Answer {
                 reply: Err(refusal),
                 durable: None,
+                fanout: None,
             };
         }
         let mut reply = self.dispatch(&call);
+        if reply.is_ok() {
+            self.note_use(&call);
+        }
+        let fanout = self.fanout.take().filter(|_| reply.is_ok());
         let durable = match self.flush() {
             Ok(ack) => ack,
             Err(e) => {
@@ -150,7 +180,11 @@ impl doze_runtime::Service for Core {
                 None
             }
         };
-        Answer { reply, durable }
+        Answer {
+            reply,
+            durable,
+            fanout,
+        }
     }
 
     async fn close(self) {
@@ -171,6 +205,7 @@ impl Core {
                 Records::new(KEYS, "key", VERSION),
                 Records::new(ALIASES, "alias", VERSION),
                 Records::new(META, "meta", VERSION),
+                Records::new(SETS, "set", VERSION),
             ),
             sealer,
             None,
@@ -178,11 +213,12 @@ impl Core {
     }
 
     pub(crate) fn open_in(dir: &Path, clock: Arc<dyn Clock>) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[KEYS, ALIASES, META])?;
+        let db = Db::open(dir, FILE, &[KEYS, ALIASES, META, SETS])?;
         let read = db.read()?;
         let keys = Records::load(KEYS, "key", VERSION, &read)?;
         let aliases = Records::load(ALIASES, "alias", VERSION, &read)?;
         let mut meta: Records<Vec<u8>> = Records::load(META, "meta", VERSION, &read)?;
+        let sets = Records::load(SETS, "set", VERSION, &read)?;
         drop(read);
         if meta.get(SEAL_KEY).is_none() {
             let key =
@@ -193,20 +229,30 @@ impl Core {
             .get(SEAL_KEY)
             .and_then(|key| Sealer::new(key))
             .ok_or_else(|| StoreError::Corrupt("the sealing key is unreadable".into()))?;
-        Ok(Self::with(clock, (keys, aliases, meta), sealer, Some(db)))
+        Ok(Self::with(
+            clock,
+            (keys, aliases, meta, sets),
+            sealer,
+            Some(db),
+        ))
     }
 
     fn with(
         clock: Arc<dyn Clock>,
-        (keys, aliases, meta): (Records<Key>, Records<Alias>, Records<Vec<u8>>),
+        (keys, aliases, meta, sets): Tables,
         sealer: Sealer,
         db: Option<Db>,
     ) -> Self {
         let next_purge_ms = next_event(&keys);
+        let started_ms = clock.now_ms();
         Self {
             keys,
             aliases,
             meta,
+            sets,
+            fanout: None,
+            used: std::collections::HashMap::new(),
+            started_ms,
             sealer,
             clock,
             db,
@@ -221,11 +267,13 @@ impl Core {
 
     /// How many keys and aliases there are, and the bytes of their rows.
     pub(crate) fn count(&self) -> (u64, u64) {
-        let (k, a) = (
+        let (k, a, s) = (
             crate::storage::tally(&self.keys),
             crate::storage::tally(&self.aliases),
+            crate::storage::tally(&self.sets),
         );
-        (k.0 + a.0, k.1 + a.1)
+        // A multi-Region set is part of its key: its bytes count, not as an item of its own.
+        (k.0 + a.0, k.1 + a.1 + s.1)
     }
 
     /// Removes every key, alias and the sealing key, and makes a new sealing key: KMS as a fresh data directory has it.
@@ -233,6 +281,8 @@ impl Core {
         crate::storage::clear(&mut self.keys);
         crate::storage::clear(&mut self.aliases);
         crate::storage::clear(&mut self.meta);
+        crate::storage::clear(&mut self.sets);
+        self.used.clear();
         drop(self.flush()?);
         let key = aws_seal::new_key().ok_or_else(|| StoreError::Corrupt("no randomness".into()))?;
         self.sealer = Sealer::new(&key)
@@ -282,6 +332,7 @@ impl Core {
             self.keys.stage()?,
             self.aliases.stage()?,
             self.meta.stage()?,
+            self.sets.stage()?,
         ];
         Ok(self.db.as_ref().and_then(|db| db.submit(changes)))
     }
@@ -344,6 +395,10 @@ impl Core {
             O::GenerateDataKeyPairWithoutPlaintext => {
                 self.generate_data_key_pair_without_plaintext(call)
             }
+            O::DeriveSharedSecret => self.derive_shared_secret(call),
+            O::ReplicateKey => self.replicate_key(call),
+            O::UpdatePrimaryRegion => self.update_primary_region(call),
+            O::GetKeyLastUsage => self.get_key_last_usage(call),
             _ => Err(ApiError::new(
                 501,
                 "NotImplemented",
@@ -352,6 +407,9 @@ impl Core {
         }
     }
 }
+
+/// The tables KMS keeps: keys, aliases, its own sealing key, and the sets of multi-Region keys.
+type Tables = (Records<Key>, Records<Alias>, Records<Vec<u8>>, Records<Set>);
 
 /// When the next key is due to be removed or has imported material that expires.
 fn next_event(keys: &Records<Key>) -> Option<i64> {

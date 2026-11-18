@@ -96,6 +96,10 @@ defaults!(
         ConsumerGroupHeartbeatResponse
     ),
     ConsumerGroupDescribe(ConsumerGroupDescribeRequest, ConsumerGroupDescribeResponse),
+    OffsetForLeaderEpoch(OffsetForLeaderEpochRequest, OffsetForLeaderEpochResponse),
+    DescribeLogDirs(DescribeLogDirsRequest, DescribeLogDirsResponse),
+    DescribeClientQuotas(DescribeClientQuotasRequest, DescribeClientQuotasResponse),
+    AlterClientQuotas(AlterClientQuotasRequest, AlterClientQuotasResponse),
     GetTelemetrySubscriptions(
         GetTelemetrySubscriptionsRequest,
         GetTelemetrySubscriptionsResponse

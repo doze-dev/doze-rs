@@ -32,7 +32,7 @@ use aws_schema::json::Violation;
 use aws_schema::meta::ServiceMeta;
 use aws_schema::tables::Tables;
 use aws_wire::ApiError;
-use aws_wire::service::{BoxFuture, Call, Extension, Reply, Service};
+use aws_wire::service::{BoxFuture, Call, Reply, Service, Web};
 use doze_runtime::{Ctx, Deadlines, Keyed};
 
 use crate::core::{Answer, Ask, Core};
@@ -187,12 +187,9 @@ impl Service for Sqs {
         &TABLES
     }
 
-    /// `DozePeek`: doze's read-only look at a queue (see `Core::peek`), shaped as `ReceiveMessage`.
-    fn extension(&self, name: &str) -> Option<Extension> {
-        (name == "DozePeek").then_some(Extension {
-            op: core::PEEK_OP,
-            shapes: aws_model_sqs::Operation::ReceiveMessage.index(),
-        })
+    /// The local look at a queue, `/_doze/sqs/<region>/<queue>/peek` (see `peek`).
+    fn web(&self) -> Option<&dyn Web> {
+        Some(self)
     }
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {

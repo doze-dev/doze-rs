@@ -16,7 +16,8 @@ use kafka_wire::messages::create_partitions_response::CreatePartitionsTopicResul
 use kafka_wire::messages::{CreatePartitionsRequest, CreatePartitionsResponse};
 use tracing::warn;
 
-use crate::{Broker, Caller, Outcome, blocking};
+use crate::quotas::Mutations;
+use crate::{Broker, Caller, Outcome, blocking, clock};
 
 /// Why a topic was not given partitions: the code and Kafka's message (none, for an unknown topic).
 type Refusal = (E, Option<String>);
@@ -32,10 +33,14 @@ impl<F: Fs> Broker<F> {
     /// The caller must be allowed to ALTER each topic, asked after the duplicates are set aside and before the topic is
     /// looked for (an absent topic is 29, not 3, to a caller that may not alter it). The topics refused are answered
     /// after the duplicates and before the rest, with no message (`ControllerApis.createPartitions`).
+    ///
+    /// The partitions a topic would gain are counted against the caller's controller mutation quota once their number has
+    /// been checked, before the assignments are (`ReplicationControlManager.createPartitions`).
     pub(crate) async fn create_partitions(
         &self,
         caller: &Caller,
         req: &CreatePartitionsRequest,
+        mutations: &mut Mutations<'_>,
     ) -> Outcome {
         let _one_change_at_a_time = self.topic_admin.lock().await;
         let mut count: HashMap<&str, usize> = HashMap::new();
@@ -63,7 +68,7 @@ impl<F: Fs> Broker<F> {
         }
         let mut grown = false;
         for t in permitted {
-            let done = blocking::run(|| self.grow(t, req.validate_only));
+            let done = blocking::run(|| self.grow(t, req.validate_only, mutations));
             grown |= matches!(done, Ok(true));
             resp.results.push(answer(t, done.map(|_| ())));
         }
@@ -75,7 +80,12 @@ impl<F: Fs> Broker<F> {
     }
 
     /// Gives one topic its new partitions. `Ok(true)` if it now has more, `Ok(false)` if it only could.
-    fn grow(&self, t: &CreatePartitionsTopic, validate_only: bool) -> Result<bool, Refusal> {
+    fn grow(
+        &self,
+        t: &CreatePartitionsTopic,
+        validate_only: bool,
+        mutations: &mut Mutations<'_>,
+    ) -> Result<bool, Refusal> {
         let topic = TopicName::parse(&t.name.0)
             .ok()
             .and_then(|n| self.meta.topic(&n))
@@ -118,6 +128,10 @@ impl<F: Fs> Broker<F> {
                 ),
             ));
         }
+        mutations
+            .record(additional, clock::now().get())
+            // No message: Kafka's is the error's own, which `ApiError.fromThrowable` leaves out.
+            .map_err(|_| (E::ThrottlingQuotaExceeded, None))?;
         for a in t.assignments.iter().flatten() {
             self.check_assignment(&a.broker_ids.iter().map(|b| b.0).collect::<Vec<_>>())?;
         }

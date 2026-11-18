@@ -100,6 +100,8 @@ async fn a_get_never_asks_the_broker_to_change_anything() {
         // Slice 9h: the Access page reads the ACLs and the names of the users.
         ApiKey::DescribeAcls,
         ApiKey::DescribeUserScramCredentials,
+        // The Access page reads the client quotas.
+        ApiKey::DescribeClientQuotas,
     ];
     let calls = log.lock().unwrap().clone();
     assert!(

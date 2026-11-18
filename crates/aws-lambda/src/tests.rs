@@ -26,11 +26,11 @@ mod behaviour;
 mod concurrency;
 mod data;
 mod functions;
-mod inplace;
 mod invoking;
 mod livelog;
 mod reshard;
 mod sources;
+mod url_auth;
 
 pub(crate) const ACCOUNT: &str = "111122223333";
 

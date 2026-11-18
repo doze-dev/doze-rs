@@ -50,6 +50,9 @@ pub(crate) enum Command {
     /// What doze-aws keeps on disk, and removing it: one resource, one service, or everything.
     #[command(args_conflicts_with_subcommands = true, after_help = DATA_EXAMPLES)]
     Data(DataArgs),
+    /// Every AWS operation this build answers, as JSON (what the compatibility page is made from).
+    #[command(hide = true)]
+    Compat,
 }
 
 const DATA_EXAMPLES: &str = "\
@@ -188,6 +191,7 @@ pub(crate) fn command() -> clap::Command {
         .mut_subcommand("apply", |c| c.args(setting_args(&shown_on_commands)))
         .mut_subcommand("export", |c| c.args(setting_args(&shown_on_commands)))
         .mut_subcommand("doctor", |c| c.args(setting_args(&shown_on_commands)))
+        .mut_subcommand("compat", |c| c.args(setting_args(&shown_on_commands)))
         .mut_subcommand("data", |c| {
             c.args(setting_args(&shown_on_commands))
                 .mut_subcommand("empty", |e| e.args(setting_args(&shown_on_commands)))

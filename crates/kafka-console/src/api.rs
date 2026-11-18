@@ -398,6 +398,7 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
             &web.url("/api/v1/access/acls/delete"),
             get(access::delete_form).post(access::delete),
         )
+        .route(&web.url("/api/v1/access/quotas"), post(access::quota))
         .merge(lab_routes::routes(web))
         .merge(schemas::routes(web))
         .route_layer(from_fn(guard))

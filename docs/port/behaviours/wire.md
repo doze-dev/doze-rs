@@ -56,8 +56,8 @@ Test: `tests/recorded_api_versions.rs::no_profile_offers_more_than_a_real_broker
 Kafka 4.0 removed the oldest versions of nine APIs (KIP-896) and the wire crate does not decode them. A
 profile never advertises below what the crate can decode. (Deviation from Go, which advertised v0 of these
 at majors 1 to 3: no client of the last eight years negotiates them.) One consequence is a removal, not a
-raised floor: Kafka 1.x has only v0 of DescribeAcls, CreateAcls and DeleteAcls, so those three are not
-offered at `--kafka-version 1`. The list of such removals is pinned, so a new one needs a reason.
+raised floor: Kafka 1.x has only v0 of DescribeAcls, CreateAcls and DeleteAcls, and of OffsetForLeaderEpoch and
+DescribeLogDirs (the crate reads those from v2 and v1), so those five are not offered at `--kafka-version 1`. The list of such removals is pinned, so a new one needs a reason.
 Test: `tests/every_offered_version.rs::every_offered_request_is_read` (every advertised version is decoded), `profile::tests::the_apis_dropped_because_the_crate_cannot_decode_them_are_known`
 
 ### W11. A request outside the advertised range closes the connection
@@ -90,6 +90,11 @@ version, read back at the header version the protocol fixes, every byte used)
 ### W12b. An ApiVersions body that cannot be read is answered all the same
 At a served version, the list is returned (nothing is checked about the client).
 Test: `incoming::tests::api_versions_with_an_unreadable_body_is_still_answered`, `api_versions::tests::an_unreadable_body_at_a_served_version_gets_the_list`
+
+### W12d. Every answer carries the throttle time
+Whatever the API, an answer whose version has a `throttle_time_ms` carries the time the client was throttled for (0 unless a quota
+was exceeded, `quotas.md`); at a version without the field it is not written (Kafka marks it ignorable).
+Test: `api::throttle::tests::the_throttle_is_written_where_the_version_has_it_and_left_out_where_it_has_not`
 
 ### W12c. The two telemetry APIs are the only extension to what real brokers list
 Offered only at Kafka 4 and only when client telemetry is on (`--client-telemetry`, on by default: W35); the recorded brokers have no reporter, so they
@@ -125,9 +130,11 @@ Batches written by the `kafka-protocol` crate's encoder parse here, with the sam
 Test: `tests/batch_agrees_with_the_crate.rs`
 
 ### W21. Stamping changes only what it must
-The base offset is assigned at append time and is not covered by the CRC. LogAppendTime stamping sets the
-timestamp-type bit and the maximum timestamp and recomputes the CRC. Nothing else in a batch is touched.
-Test: `batch::tests::stamping_the_base_offset_changes_only_the_base_offset`, `batch::tests::log_append_time_changes_only_the_clock_bit_the_max_timestamp_and_the_crc` (byte for byte)
+The base offset is assigned at append time and is not covered by the CRC. The partition leader epoch is set to the leader's
+(0, `kafka_storage::LEADER_EPOCH`) on every batch appended, as Kafka's `LogValidator` does; it is not covered by the CRC either.
+LogAppendTime stamping sets the timestamp-type bit and the maximum timestamp and recomputes the CRC. Nothing else in a batch is
+touched.
+Test: `batch::tests::stamping_the_base_offset_changes_only_the_base_offset`, `batch::tests::the_leader_epoch_is_written_outside_the_crc_and_nothing_else_moves`, `batch::tests::log_append_time_changes_only_the_clock_bit_the_max_timestamp_and_the_crc` (byte for byte)
 
 ### W22. A Produce partition carries exactly one batch
 Kafka takes the first batch of a partition's records, refuses a second whole batch (`INVALID_RECORD`), and drops bytes
@@ -181,6 +188,8 @@ CRC-32C over the instance id, the requested metrics and the interval, as a signe
 Test: `tests/telemetry.rs::a_subscription_id_is_the_same_after_a_restart_and_a_push_that_holds_it_is_taken`, `telemetry::tests::the_subscription_id_is_a_function_of_the_instance_alone`
 
 ### W29. The gate: a request inside the interval of the last one taken is `THROTTLING_QUOTA_EXCEEDED`
+(Telemetry's own gate, per client instance and with no quota behind it; it does not touch the client quotas, and they do not touch
+it. The other THROTTLING_QUOTA_EXCEEDED, of the controller mutation quota, is `quotas.md` QT-10.)
 An instance remembers when a subscription was last given and a push last taken. A subscription request is early within an interval of the last request of either kind. A push is on time when it is the
 instance's first, or a subscription was given since the last push that set the clock, or that push is an interval old; one on time sets the clock whatever becomes of it after, one that is early (89)
 does not postpone the next, and a terminating push is taken though early without setting the clock. Recorded: `telemetry-throttle`, `-interval` (half an interval, nine tenths and a whole one, in real time), `-instance-binding-spaced`.

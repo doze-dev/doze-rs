@@ -1,8 +1,13 @@
 //! Sending an event through a bus: archive it, find the enabled rules whose pattern matches it, and deliver it to each of their
-//! targets. Delivery is in the call (the answer waits for it, as it did in the Go edition), except to another region, which is handed
-//! to a task so two regions never wait on each other, and to an API destination, whose HTTP call is a task too (`deliver_http.rs`). An
-//! event bus target of this region puts the event on that bus too, up to a
-//! limit that stops a loop.
+//! targets.
+//!
+//! **Delivery is after the answer, as on AWS**: `PutEvents` answers once its events are accepted, and the targets are invoked
+//! afterwards (the API reference: "EventBridge ... invokes the targets" after the event is received; a failed invocation is retried by
+//! the target's `RetryPolicy` and then sent to its dead-letter queue). An accepted event is written to disk before the answer
+//! (`Pending`), and the region's timer, told by that answer that work is due now, asks the actor to run it. Nothing waits when nothing
+//! is pending, and an event accepted before a stop is delivered when the service next starts. An event for another region is handed
+//! to a task so two regions never wait on each other; an API destination's HTTP call is a task too (`deliver_http.rs`). An event bus
+//! target of this region puts the event on that bus too, up to a limit that stops a loop.
 
 use std::collections::VecDeque;
 
@@ -14,7 +19,7 @@ use crate::core::Core;
 use crate::deliver::{Delivery, Outcome};
 use crate::event::Event;
 use crate::input::{self, Names};
-use crate::model::key;
+use crate::model::{Pending, Who, key};
 use crate::pattern;
 use crate::req::no_bus;
 use crate::util::iso;
@@ -23,11 +28,11 @@ use crate::util::iso;
 const MAX_FORWARDS: usize = 32;
 
 impl Core {
-    /// Puts `event` on bus `bus` of `account` in `region`.
+    /// Accepts `event` for bus `bus` of `account` in `region`: it runs through the bus after the answer (`deliver_pending`).
     ///
     /// # Errors
     /// `ResourceNotFoundException` when the bus is not there.
-    pub(crate) async fn send_to_bus(
+    pub(crate) fn send_to_bus(
         &mut self,
         caller: &Caller,
         region: &str,
@@ -43,8 +48,35 @@ impl Core {
         if self.buses.get(&key(account, &[bus])).is_none() {
             return Err(no_bus(bus));
         }
-        self.publish(caller, account, bus, event, None).await;
+        let key = self.next_key();
+        self.pending.insert(
+            key,
+            Pending {
+                account: account.to_owned(),
+                bus: bus.to_owned(),
+                event,
+                caller: Who::from(caller),
+            },
+        );
         Ok(())
+    }
+
+    /// Runs every accepted event through its bus, in the order they were accepted.
+    pub(crate) async fn deliver_pending(&mut self) {
+        let keys: Vec<String> = self.pending.iter().map(|(k, _)| k.to_owned()).collect();
+        for k in keys {
+            let Some(p) = self.pending.remove(&k) else {
+                continue;
+            };
+            let caller = Caller::from(p.caller);
+            self.publish(&caller, &p.account, &p.bus, p.event, None)
+                .await;
+        }
+    }
+
+    /// Now, when an accepted event waits: its delivery is due at once.
+    pub(crate) fn next_pending(&self) -> Option<i64> {
+        (!self.pending.is_empty()).then(|| self.now_ms())
     }
 
     /// Runs the event through the bus and every bus it is forwarded to. `only` limits delivery to the rules with those ARNs (a replay

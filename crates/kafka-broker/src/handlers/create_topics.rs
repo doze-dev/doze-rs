@@ -12,8 +12,9 @@ use kafka_wire::messages::create_topics_request::CreatableTopic;
 use kafka_wire::messages::create_topics_response::{CreatableTopicConfigs, CreatableTopicResult};
 use kafka_wire::messages::{CreateTopicsRequest, CreateTopicsResponse};
 
+use crate::quotas::Mutations;
 use crate::topic_config::{self, Entry};
-use crate::{Broker, BrokerError, Caller};
+use crate::{Broker, BrokerError, Caller, clock};
 
 mod assignment;
 
@@ -30,13 +31,17 @@ impl<F: Fs> Broker<F> {
     /// Creates each topic of the request, and answers once per name. One refused topic does not stop the
     /// others. A topic the caller may not create is answered 29 before it is looked at, so a name that exists, or is
     /// invalid, is not revealed to it; those answers come last.
+    ///
+    /// Each topic's partitions are counted against the caller's controller mutation quota once the topic has passed every
+    /// check, validate-only or not (`ReplicationControlManager.createTopic`): see [`Mutations::record`].
     pub(crate) async fn create_topics(
         &self,
         caller: &Caller,
         req: &CreateTopicsRequest,
+        mutations: &mut Mutations<'_>,
     ) -> CreateTopicsResponse {
         let _one_change_at_a_time = self.topic_admin.lock().await;
-        let resp = crate::blocking::run(|| self.create_each(caller, req));
+        let resp = crate::blocking::run(|| self.create_each(caller, req, mutations));
         // Consumer groups that subscribed before a topic existed are waiting for it.
         self.groups.topics_changed().await;
         resp
@@ -52,7 +57,12 @@ impl<F: Fs> Broker<F> {
         })
     }
 
-    fn create_each(&self, caller: &Caller, req: &CreateTopicsRequest) -> CreateTopicsResponse {
+    fn create_each(
+        &self,
+        caller: &Caller,
+        req: &CreateTopicsRequest,
+        mutations: &mut Mutations<'_>,
+    ) -> CreateTopicsResponse {
         let cluster = self.cluster_allows(caller, Operation::Create);
         // The topics refused for want of CREATE come last, after every other answer.
         let mut denied = Vec::new();
@@ -84,7 +94,7 @@ impl<F: Fs> Broker<F> {
                 denied.push(refused(t, (ResponseError::TopicAuthorizationFailed, why)));
                 continue;
             };
-            let result = match self.create_one(t, req.validate_only, &created, access) {
+            let result = match self.create_one(t, req.validate_only, &created, access, mutations) {
                 Ok(done) => {
                     if !req.validate_only {
                         created.extend(TopicName::parse(raw).ok());
@@ -105,6 +115,7 @@ impl<F: Fs> Broker<F> {
         validate_only: bool,
         beside: &HashSet<TopicName>,
         access: Access,
+        mutations: &mut Mutations<'_>,
     ) -> Result<CreatableTopicResult, Refusal> {
         let raw: &str = &t.name;
         let name = TopicName::parse(raw)
@@ -127,6 +138,9 @@ impl<F: Fs> Broker<F> {
             );
             return Err((ResponseError::InvalidPartitions, why));
         }
+        mutations
+            .record(partitions.get(), clock::now().get())
+            .map_err(|_| (ResponseError::ThrottlingQuotaExceeded, String::new()))?;
         let topic = if validate_only {
             // Kafka answers a validation with an id it made up for the topic that was not created.
             let id = random_topic_id().map_err(storage_fault)?;
@@ -204,7 +218,9 @@ fn refused(t: &CreatableTopic, (error, message): Refusal) -> CreatableTopicResul
     let mut r = CreatableTopicResult::default();
     r.name = t.name.clone();
     r.error_code = error.code();
-    r.error_message = Some(StrBytes::from_string(message));
+    // A refused mutation has no message: Kafka's is the error's own, which `ApiError.fromThrowable` leaves out.
+    r.error_message =
+        (error != ResponseError::ThrottlingQuotaExceeded).then(|| StrBytes::from_string(message));
     r.num_partitions = -1;
     r.replication_factor = -1;
     // Never null: the Java admin client reads it without a check.

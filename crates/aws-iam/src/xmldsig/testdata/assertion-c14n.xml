@@ -1,0 +1,24 @@
+<saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="_a1" IssueInstant="2026-11-15T00:00:00Z" Version="2.0">
+    <saml:Issuer>https://idp.example.com/saml</saml:Issuer>
+    
+    <saml:Subject>
+      <saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent">alice&amp;co &lt;a&gt;</saml:NameID>
+      <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+        <saml:SubjectConfirmationData NotOnOrAfter="2030-01-01T00:00:00Z" Recipient="https://signin.aws.amazon.com/saml"></saml:SubjectConfirmationData>
+      </saml:SubjectConfirmation>
+    </saml:Subject>
+    <saml:Conditions NotBefore="2026-01-01T00:00:00Z" NotOnOrAfter="2030-01-01T00:00:00Z">
+      <saml:AudienceRestriction><saml:Audience>urn:amazon:webservices</saml:Audience></saml:AudienceRestriction>
+    </saml:Conditions>
+    <AttributeStatement xmlns="urn:oasis:names:tc:SAML:2.0:assertion">
+      <Attribute FriendlyName="role &quot;r&quot;&#xA;two" Name="https://aws.amazon.com/SAML/Attributes/Role">
+        <AttributeValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="xs:string">arn:aws:iam::000000000000:role/r,arn:aws:iam::000000000000:saml-provider/idp</AttributeValue>
+      </Attribute>
+      <Attribute Name="https://aws.amazon.com/SAML/Attributes/RoleSessionName">
+        <AttributeValue>alice@example.com</AttributeValue>
+      </Attribute>
+      <Attribute Name="urn:example:extra">
+        <AttributeValue><x:Thing xmlns:x="urn:x" a="1" b="2" x:c="3"><Plain xmlns="">t</Plain></x:Thing></AttributeValue>
+      </Attribute>
+    </AttributeStatement>
+  </saml:Assertion>

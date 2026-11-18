@@ -25,6 +25,8 @@ pub(super) struct Op {
     pub(super) failed: Vec<(String, bool)>,
     /// Whether this is a rollback (its events say UPDATE, its failures say rollback).
     pub(super) rolling_back: bool,
+    /// The types skipped so far, each warned of once.
+    pub(super) warned: BTreeSet<String>,
 }
 
 /// Runs a job to its end.
@@ -95,6 +97,7 @@ impl Op {
             created: BTreeSet::new(),
             replaced: BTreeMap::new(),
             leftovers: Vec::new(),
+            warned: BTreeSet::new(),
             failed: Vec::new(),
             rolling_back: false,
         }

@@ -1,22 +1,21 @@
-//! Running as a role, asynchronous invocation and its destinations, reserved concurrency, response streaming, function URLs, and
-//! code run in place.
+//! Running as a role, asynchronous invocation and its destinations, reserved concurrency, response streaming and function URLs.
 
 use aws_core::base64;
 use aws_peers::{Mode, Need};
 use aws_wire::rest::RestReply;
-use aws_wire::service::{Service, WebRequest};
+use aws_wire::service::{Service, WebRequest, WebSignature};
 use serde_json::{Value, json};
 
 use super::{ACCOUNT, World, have};
 
-const TRUST: &str = r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}"#;
+pub(super) const TRUST: &str = r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}"#;
 const SEND_ONLY: &str = r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"sqs:SendMessage","Resource":"*"}]}"#;
 
 const WHOAMI: &[u8] = b"import os\ndef handler(event, context):\n    return {'key': os.environ['AWS_ACCESS_KEY_ID'], 'token': os.environ['AWS_SESSION_TOKEN']}\n";
 const FAILS: &[u8] = b"def handler(event, context):\n    raise RuntimeError('no')\n";
 const WORKS: &[u8] = b"def handler(event, context):\n    return {'ok': event}\n";
 
-async fn create_role(w: &World, name: &str, trust: &str) -> String {
+pub(super) async fn create_role(w: &World, name: &str, trust: &str) -> String {
     let made = w
         .peer(
             "iam",
@@ -27,7 +26,7 @@ async fn create_role(w: &World, name: &str, trust: &str) -> String {
     made["Role"]["Arn"].as_str().unwrap().to_owned()
 }
 
-async fn function_with_role(
+pub(super) async fn function_with_role(
     w: &World,
     name: &str,
     role: &str,
@@ -290,6 +289,7 @@ async fn a_function_url_turns_a_request_into_an_event_and_the_answer_into_a_resp
         headers: vec![("content-type".into(), "text/plain".into())],
         body: bytes::Bytes::from_static(b"hello"),
         endpoint: "http://127.0.0.1:4566".into(),
+        signature: WebSignature::Unsigned,
     };
     let web = w.lambda.web().unwrap();
     assert!(web.owns(&host, "/orders/7"));
@@ -306,14 +306,14 @@ async fn a_function_url_turns_a_request_into_an_event_and_the_answer_into_a_resp
         json!({"q": {"a": "1", "b": "x y"}, "body": "hello", "m": "POST"})
     );
     let id = host.split('.').next().unwrap();
-    // By path with the region, by the Go edition's path without it (the region that has the id), and two that are not URLs.
+    // By doze's local path, which names the region; a path without the region and two other addresses are not URLs.
     for (host, path, status) in [
         (
             "127.0.0.1:4566",
             format!("/_aws/lambda-url/us-east-1/{id}/p"),
             201,
         ),
-        ("127.0.0.1:4566", format!("/_aws/lambda-url/{id}/p"), 201),
+        ("127.0.0.1:4566", format!("/_aws/lambda-url/{id}/p"), 404),
         ("127.0.0.1:4566", "/_aws/lambda-url/nope/p".to_owned(), 404),
         (
             "nope.lambda-url.us-east-1.localhost:4566",

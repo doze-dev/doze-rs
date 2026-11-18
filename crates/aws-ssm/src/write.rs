@@ -144,8 +144,12 @@ impl Core {
             Some(p) => p.policies.clone(),
             None => prev.map(|p| p.policies.clone()).unwrap_or_default(),
         };
+        // A write that names no tier takes the account's default tier (the service setting), when that is not Standard.
+        let default_tier = self
+            .setting(crate::settings::DEFAULT_TIER)
+            .filter(|t| t != "Standard");
         let advanced = resolve_tier(
-            a.tier,
+            a.tier.or(default_tier.as_deref()),
             prev.is_some_and(|p| p.advanced),
             a.value.len(),
             !policies.is_empty(),

@@ -90,6 +90,20 @@ def test_alarm_lifecycle(client, names, cleanup, snapshot):
     snapshot.outcome("delete-again", lambda: cw.delete_alarms(AlarmNames=[name]))
 
 
+def test_alarm_periods_aws_refuses(client, names, cleanup, snapshot):
+    """The model documents an alarm's Period as 10, 20, 30 or a multiple of 60, and Period x EvaluationPeriods at most a day for a
+    period under an hour: the others are refused before an alarm is made."""
+    cw = client("cloudwatch")
+    ns, name = f"dzc/{names('ns')}", names("alarm")
+    cleanup(cw.delete_alarms, AlarmNames=[name])
+    alarm = dict(AlarmName=name, Namespace=ns, MetricName="m", Statistic="Sum", Period=60,
+                 EvaluationPeriods=1, Threshold=1, ComparisonOperator="GreaterThanThreshold")
+    snapshot.error("period-five-seconds", lambda: cw.put_metric_alarm(**{**alarm, "Period": 5}))
+    snapshot.error("period-forty-five-seconds", lambda: cw.put_metric_alarm(**{**alarm, "Period": 45}))
+    snapshot.error("window-over-a-day", lambda: cw.put_metric_alarm(**{**alarm, "EvaluationPeriods": 1441}))
+    snapshot.match("period-ten-seconds", cw.put_metric_alarm(**{**alarm, "Period": 10}))
+
+
 def test_refusals(client, names, cleanup, snapshot):
     cw = client("cloudwatch")
     ns, name = f"dzc/{names('ns')}", names("alarm")
