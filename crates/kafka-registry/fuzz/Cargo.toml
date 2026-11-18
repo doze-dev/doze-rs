@@ -14,6 +14,11 @@ kafka-registry = { path = ".." }
 # Not part of the main workspace: fuzzing needs a nightly toolchain.
 [workspace]
 
+# See kafka-wire/fuzz/Cargo.toml: the main workspace's patch does not reach here, and the registry links kafka-wire,
+# which needs the vendored kafka-protocol's messages.
+[patch.crates-io]
+kafka-protocol = { path = "../../../vendor/kafka-protocol" }
+
 [[bin]]
 name = "json_node"
 path = "fuzz_targets/json_node.rs"
