@@ -43,6 +43,8 @@ fuzz_target!(|data: &[u8]| {
     r.query = query.to_owned();
     r.authorization = parts.next().map(str::to_owned);
     r.content_type = parts.next().map(str::to_owned);
+    // The same header read as `Accept` too: an odd one chooses a type or is 406.
+    r.accept.clone_from(&r.content_type);
     r.body = if m & 0x80 == 0 {
         Body::Read(parts.next().unwrap_or_default().as_bytes().to_vec())
     } else {
@@ -52,7 +54,7 @@ fuzz_target!(|data: &[u8]| {
     assert!(
         matches!(
             resp.status,
-            200 | 400 | 401 | 403 | 404 | 405 | 409 | 413 | 415 | 422 | 500
+            200 | 400 | 401 | 403 | 404 | 405 | 406 | 409 | 413 | 415 | 422 | 500
         ),
         "{} for {r:?}",
         resp.status

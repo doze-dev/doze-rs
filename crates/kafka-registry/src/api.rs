@@ -3,6 +3,7 @@
 //! (before the credentials and the route: a request through a name somebody else controls learns nothing), then the
 //! credentials, then the body's type, then the route, then the body's size.
 
+mod body;
 mod confluent;
 mod extension;
 pub mod log;
@@ -124,6 +125,49 @@ fn accepted_body_type(ct: Option<&str>) -> bool {
     )
 }
 
+/// The types Confluent's registry answers in, with the preference it gives each (its `qs`).
+const PRODUCED: [(&str, f32); 3] = [
+    (CONTENT_TYPE, 1.0),
+    ("application/vnd.schemaregistry+json", 0.9),
+    ("application/json", 0.5),
+];
+
+/// The type an answer is sent as, chosen from `Accept` as Confluent's framework chooses it (the client's `q` times the
+/// registry's preference, the most specific range deciding each type's `q`); `None` when the client accepts none (406).
+fn negotiate(accept: Option<&str>) -> Option<&'static str> {
+    let Some(accept) = accept.filter(|a| !a.trim().is_empty()) else {
+        return Some(CONTENT_TYPE);
+    };
+    let ranges: Vec<(String, f32)> = accept
+        .split(',')
+        .filter_map(|r| {
+            let mut parts = r.split(';');
+            let media = parts.next()?.trim().to_ascii_lowercase();
+            let q = parts
+                .filter_map(|p| p.trim().strip_prefix("q="))
+                .find_map(|q| q.trim().parse::<f32>().ok())
+                .unwrap_or(1.0);
+            (!media.is_empty()).then_some((media, q))
+        })
+        .collect();
+    let q_of = |ty: &str| {
+        let (main, _) = ty.split_once('/').unwrap_or((ty, ""));
+        // The most specific range that matches decides: the type itself, then main/*, then */*.
+        [ty.to_owned(), format!("{main}/*"), "*/*".to_owned()]
+            .iter()
+            .find_map(|want| ranges.iter().find(|(m, _)| m == want).map(|&(_, q)| q))
+            .unwrap_or(0.0)
+    };
+    let mut best: Option<(&'static str, f32)> = None;
+    for (ty, qs) in PRODUCED {
+        let score = q_of(ty) * qs;
+        if score > 0.0 && best.is_none_or(|(_, b)| score > b) {
+            best = Some((ty, score));
+        }
+    }
+    best.map(|(ty, _)| ty)
+}
+
 impl Api {
     #[must_use]
     pub fn new(registry: Arc<Registry>, options: Options) -> Self {
@@ -185,31 +229,38 @@ impl Api {
             return (Response::error(&e), none, user);
         }
         let Some(segs) = text::segments(&req.path) else {
-            return (
-                Response::error(&RegistryError::http(400, "HTTP 400 Bad Request")),
-                none,
-                user,
-            );
+            return (Response::bad_message(), none, user);
         };
+        if req.method == "OPTIONS" {
+            let resp = match route::methods(&segs) {
+                Some(ms) => {
+                    let mut r = Response::text(ms.join(", "));
+                    r.content_type = Some("text/plain");
+                    r.allow = Some(ms.join(","));
+                    r
+                }
+                None => Response::framework(404, "Not Found"),
+            };
+            return (resp, none, user);
+        }
         let (route, at) = match route::find(&req.method, &segs) {
             Ok(found) => found,
-            Err(Miss::NotFound) => {
-                return (
-                    Response::error(&RegistryError::http(404, "HTTP 404 Not Found")),
-                    none,
-                    user,
-                );
-            }
+            Err(Miss::NotFound) => return (Response::framework(404, "Not Found"), none, user),
             Err(Miss::MethodNotAllowed) => {
-                let e = RegistryError::http(405, "HTTP 405 Method Not Allowed");
-                return (Response::error(&e), none, user);
+                return (Response::framework(405, "Method Not Allowed"), none, user);
             }
         };
+        let Some(produced) = negotiate(req.accept.as_deref()) else {
+            return (Response::framework(406, "Not Acceptable"), at, user);
+        };
         let call = Call { req, at, user };
-        let resp = match self.dispatch(route, &call) {
+        let mut resp = match self.dispatch(route, &call) {
             Ok(r) => r,
             Err(e) => Response::error(&e),
         };
+        if resp.content_type == Some(CONTENT_TYPE) {
+            resp.content_type = Some(produced);
+        }
         (resp, call.at, call.user)
     }
 

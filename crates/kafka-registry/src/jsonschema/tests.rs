@@ -71,10 +71,6 @@ fn what_is_not_a_schema_of_its_draft_is_refused() {
         (r#"{"pattern":"*a"}"#, "nothing to repeat"),
         (r#"{"patternProperties":{"[a":{}}}"#, "unclosed '['"),
         (
-            r#"{"$schema":"http://example.com/schema"}"#,
-            "is not a JSON Schema draft",
-        ),
-        (
             r##"{"$ref":"#/definitions/missing"}"##,
             "unresolved reference",
         ),
@@ -111,6 +107,8 @@ fn what_is_not_a_schema_of_its_draft_is_refused() {
 fn what_its_draft_allows_is_accepted() {
     for good in [
         "true",
+        // A $schema naming no draft is read as draft 7 (cp-schema-registry 7.7.1, tools/registry-diff).
+        r#"{"$schema":"http://example.com/schema","type":"object"}"#,
         "false",
         "{}",
         r#"{"type":["string","null"],"maxLength":3}"#,
@@ -145,7 +143,15 @@ fn the_stored_text_is_compact_and_a_repeated_key_is_kept_once() {
         s.canonical(false),
         r#"{"type":"object","properties":{"a":{"type":"string"}}}"#
     );
-    assert_eq!(s.canonical(true), s.canonical(false));
+    // Normalized, every object's keys are sorted (cp-schema-registry 7.7.1, tools/registry-diff).
+    assert_eq!(
+        s.canonical(true),
+        r#"{"properties":{"a":{"type":"string"}},"type":"object"}"#
+    );
+    assert_eq!(
+        read(r#"{"maximum":1e2}"#).canonical(false),
+        r#"{"maximum":1E+2}"#
+    );
     let s = read(r#"{"type":"string","title":"a<b\u0001","type":"integer","n":1.50}"#);
     assert_eq!(
         s.canonical(false),

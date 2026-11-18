@@ -84,6 +84,8 @@ pub(crate) enum Key {
     Level(String),
     /// A subject's mode; the empty subject is the global one.
     Mode(String),
+    /// The settings beside a subject's level (`normalize` and the others); the empty subject is the global one.
+    Config(String),
     /// The next id to give.
     NextId,
 }
@@ -110,6 +112,10 @@ impl Key {
                 out.push(b'm');
                 out.extend(subject.as_bytes());
             }
+            Self::Config(subject) => {
+                out.push(b'k');
+                out.extend(subject.as_bytes());
+            }
             Self::NextId => out.push(b'n'),
         }
         out
@@ -131,6 +137,7 @@ impl Key {
             }
             b'c' => text(rest).map(Self::Level),
             b'm' => text(rest).map(Self::Mode),
+            b'k' => text(rest).map(Self::Config),
             b'n' if rest.is_empty() => Some(Self::NextId),
             _ => None,
         }
@@ -143,6 +150,11 @@ pub struct Reference {
     pub name: String,
     pub subject: String,
     pub version: i64,
+}
+
+impl Reference {
+    /// The version of a reference a request gave none for: refused as Confluent refuses it, never stored.
+    pub const NO_VERSION: i64 = i64::MIN;
 }
 
 /// A stored schema.
@@ -224,6 +236,8 @@ mod tests {
             Key::Level(String::new()),
             Key::Level("a".into()),
             Key::Mode("m".into()),
+            Key::Config(String::new()),
+            Key::Config("k".into()),
             Key::NextId,
         ] {
             assert_eq!(Key::decode(&k.encode()), Some(k));

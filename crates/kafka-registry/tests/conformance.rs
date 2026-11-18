@@ -40,34 +40,17 @@ struct Step {
 /// The answers where this registry differs from Confluent's on purpose, as the Go edition lists them ("scenario/step").
 const GO_DIFFERENCES: &[(&str, &str)] = &[
     (
-        "modes/9",
-        "IMPORT mode is not offered, so the list of valid modes does not name it (REG-D1).",
+        "subject-names/12",
+        "Contexts are not offered: GET /contexts lists the default context only, not those Confluent made for :.ctx: and :*: subjects (REG-D3).",
     ),
     (
-        "readonly-subject/12",
-        "IMPORT is refused as an invalid mode, 42204 (REG-D1).",
+        "unserved-routes-and-parameters/1",
+        "Contexts are not offered: GET /contexts lists the default context only (REG-D3).",
     ),
     (
-        "readonly-subject/13",
-        "IMPORT is not offered, forced or not (REG-D1).",
+        "unserved-routes-and-parameters/8",
+        "format=serialized on an Avro schema is the stored text, where Confluent answers 500 (REG-D6).",
     ),
-    (
-        "readonly-subject/14",
-        "READONLY_OVERRIDE is not offered (REG-D1).",
-    ),
-    (
-        "readonly-subject/15",
-        "Follows from steps 13 and 14 (REG-D1).",
-    ),
-    (
-        "readonly-subject/16",
-        "IMPORT is refused as an invalid mode (REG-D1).",
-    ),
-    (
-        "readonly-subject/17",
-        "IMPORT is not offered, forced or not (REG-D1).",
-    ),
-    ("readonly-subject/18", "Follows from step 17 (REG-D1)."),
     (
         "subject-names/3",
         "A subject up to 16 KiB is taken; Confluent's HTTP server refuses a path past 8 KiB (REG-D2).",
@@ -81,28 +64,8 @@ const GO_DIFFERENCES: &[(&str, &str)] = &[
         "Contexts are not offered: :*: is a subject of that name (REG-D3).",
     ),
     (
-        "subject-names/12",
-        "Contexts are not offered: GET /contexts is 404 (REG-D3).",
-    ),
-    (
         "large-bodies/2",
         "A body past 20 MiB is 413, not Confluent's parser's 400 (REG-D4).",
-    ),
-    (
-        "large-bodies/3",
-        "A config or mode body is at most 64 KiB (REG-D4).",
-    ),
-    (
-        "large-bodies/4",
-        "A config or mode body is at most 64 KiB (REG-D4).",
-    ),
-    (
-        "large-bodies/5",
-        "A config or mode body is at most 64 KiB (REG-D4).",
-    ),
-    (
-        "unserved-routes-and-parameters/1",
-        "Contexts are not offered (REG-D3).",
     ),
     (
         "unserved-routes-and-parameters/2",
@@ -111,10 +74,6 @@ const GO_DIFFERENCES: &[(&str, &str)] = &[
     (
         "unserved-routes-and-parameters/3",
         "The metadata endpoints are not served (REG-D5).",
-    ),
-    (
-        "unserved-routes-and-parameters/8",
-        "format=serialized is ignored, where Confluent answers 500 (REG-D6).",
     ),
     (
         "unserved-routes-and-parameters/12",
@@ -262,8 +221,8 @@ fn relativize(path: &str, body: &str, base: u64) -> Value {
     serde_json::from_str(&text).unwrap_or(Value::String(text))
 }
 
-/// Compares a recorded answer with ours, as the Go edition does: the status and challenge exactly; an error by its code
-/// and its message (up to ", details:" for the parser's own words, or only "Invalid schema"); anything else whole.
+/// Compares a recorded answer with ours: the status and challenge exactly; an error by its code and its message (up to
+/// ", details:" for the parser's own words, REG-D27; whole for a 409); anything else whole.
 fn differ(want: &Step, status: u16, got: &Value, challenge: &str) -> Option<String> {
     if want.challenge != challenge {
         return Some(format!(
@@ -284,9 +243,6 @@ fn differ(want: &Step, status: u16, got: &Value, challenge: &str) -> Option<Stri
                 want.response
             ));
         }
-        if wcode == 400 {
-            return None;
-        }
         let full = want.response["message"].as_str().unwrap_or_default();
         let mut wmsg = full.to_owned();
         let mut gmsg = g
@@ -300,12 +256,6 @@ fn differ(want: &Step, status: u16, got: &Value, challenge: &str) -> Option<Stri
             wmsg.truncate(i);
             if let Some(j) = gmsg.find(", details:") {
                 gmsg.truncate(j);
-            }
-        }
-        if full.contains("Invalid schema") {
-            wmsg = "Invalid schema".into();
-            if gmsg.starts_with("Invalid schema") {
-                gmsg = wmsg.clone();
             }
         }
         return (wmsg != gmsg)
@@ -339,18 +289,25 @@ fn play(name: &str, steps: &[Step]) -> Vec<String> {
         req.authorization = basic(if st.auth.is_empty() { auth } else { &st.auth });
         req.body = Body::Read(body.into_bytes());
         let resp = api.serve(&req);
+        let text = clip(&String::from_utf8_lossy(&resp.body));
+        let got = relativize(&path, &text, base);
+        let challenge = if resp.challenge { "basic" } else { "" };
+        let differs = differ(st, resp.status, &got, challenge);
         if let Some((_, why)) = GO_DIFFERENCES
             .iter()
             .chain(PENDING)
             .find(|(k, _)| *k == key)
         {
+            // A step listed as differing must still differ: one that agrees is a stale entry.
+            if differs.is_none() {
+                bad.push(format!(
+                    "{key} is listed as differing ({why}) but answers as Confluent did"
+                ));
+            }
             eprintln!("{key} differs on purpose: {why}");
             continue;
         }
-        let text = clip(&String::from_utf8_lossy(&resp.body));
-        let got = relativize(&path, &text, base);
-        let challenge = if resp.challenge { "basic" } else { "" };
-        if let Some(msg) = differ(st, resp.status, &got, challenge) {
+        if let Some(msg) = differs {
             bad.push(format!(
                 "{key}  {} {} {}\n  {msg}",
                 st.method,

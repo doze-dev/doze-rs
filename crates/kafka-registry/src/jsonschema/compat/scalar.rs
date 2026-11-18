@@ -105,27 +105,4 @@ pub(super) fn enumeration(o: &[String], u: &[String], path: &str, out: &mut Out)
     out.add(kind, path, "/enum");
 }
 
-/// The order a `java.util.HashMap` built from these names iterates them in: by bucket (`String.hashCode`, spread,
-/// masked by a capacity that grows from 16 at three quarters full), and within a bucket in the order they were put in,
-/// taken here to be by name.
-pub(super) fn java_hash_order(mut names: Vec<String>) -> Vec<String> {
-    names.sort();
-    java_hash_inserted(names)
-}
-
-/// [`java_hash_order`] for names inserted in the order given.
-pub(super) fn java_hash_inserted(mut names: Vec<String>) -> Vec<String> {
-    let mut capacity: u32 = 16;
-    while names.len() > (capacity as usize) * 3 / 4 {
-        capacity = capacity.saturating_mul(2);
-    }
-    let bucket = |s: &String| {
-        let h = s
-            .encode_utf16()
-            .fold(0_i32, |h, c| h.wrapping_mul(31).wrapping_add(i32::from(c)));
-        let u = h.cast_unsigned();
-        (u ^ (u >> 16)) & (capacity - 1)
-    };
-    names.sort_by_key(bucket);
-    names
-}
+pub(super) use crate::json::{java_hash_inserted, java_hash_order};

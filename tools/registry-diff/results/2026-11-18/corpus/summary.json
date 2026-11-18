@@ -1,0 +1,2402 @@
+[
+ {
+  "scenario": "corpus/avro/000",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/001",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/002",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/003",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/avro/004",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/005",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/006",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/007",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/008",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/009",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/avro/010",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/011",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/avro/012",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/avro/013",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/014",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/015",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/016",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/017",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/018",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/019",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/020",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/021",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/avro/022",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/023",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/avro/024",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/025",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/026",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/027",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/028",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/029",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/030",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/031",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/032",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/033",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/034",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/035",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/036",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/037",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/038",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/039",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/040",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 18,
+  "dozeVsRef8": 18
+ },
+ {
+  "scenario": "corpus/avro/041",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/042",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/043",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/044",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/045",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/046",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/047",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/avro/048",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/049",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/050",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/avro/051",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/052",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/053",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/054",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/055",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/056",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/057",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/058",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/059",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/avro/060",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/061",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/062",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/063",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/064",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/065",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/066",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/067",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/068",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/069",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/avro/070",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/071",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/072",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/073",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/074",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/075",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 13,
+  "dozeVsRef8": 13
+ },
+ {
+  "scenario": "corpus/avro/076",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/077",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/078",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/079",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/080",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/081",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/082",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/avro/083",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/avro/084",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/085",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/086",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/087",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/088",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/089",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/090",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/091",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/092",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/093",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/094",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/095",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/096",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/097",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/098",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/avro/099",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/protobuf/000",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/001",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/002",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/003",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/004",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/005",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/006",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/007",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 14,
+  "dozeVsRef8": 14
+ },
+ {
+  "scenario": "corpus/protobuf/008",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/009",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/010",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/011",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/012",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/013",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/014",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/015",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/016",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/017",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/018",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/019",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/020",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/021",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/022",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/023",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/024",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/025",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/026",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/027",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/protobuf/028",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/029",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/030",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/031",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/032",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/033",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/034",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/035",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/036",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/037",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/038",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/039",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/040",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/041",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/042",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/043",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/044",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/045",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/046",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/047",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/048",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/049",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/050",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/051",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/052",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/053",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/054",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/055",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/056",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/057",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/058",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/059",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/060",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/061",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/062",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/063",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/064",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/065",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/protobuf/066",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/067",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/068",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/069",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/070",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/protobuf/071",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/072",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/073",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/074",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/075",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/076",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/077",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/078",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/079",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/protobuf/080",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/081",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/082",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/083",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/084",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/085",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/086",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/087",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 19,
+  "dozeVsRef8": 19
+ },
+ {
+  "scenario": "corpus/protobuf/088",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/089",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/090",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/091",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 10,
+  "dozeVsRef8": 10
+ },
+ {
+  "scenario": "corpus/protobuf/092",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/093",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/094",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/095",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/096",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/097",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "corpus/protobuf/098",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/protobuf/099",
+  "steps": 30,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/json/000",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/001",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/002",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/json/003",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/json/004",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/json/005",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/006",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/json/007",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/008",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/009",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/json/010",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/json/011",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/012",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/013",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/014",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/015",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 13,
+  "dozeVsRef8": 13
+ },
+ {
+  "scenario": "corpus/json/016",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/017",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/018",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/019",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/json/020",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/json/021",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/022",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/023",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/json/024",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/025",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/026",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/027",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/json/028",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/029",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/030",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/031",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/032",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/033",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/034",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/035",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/036",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/037",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/038",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/json/039",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/040",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/041",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/042",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/json/043",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/044",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/045",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/046",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/047",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/048",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/049",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/050",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/051",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/052",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/json/053",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/054",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/055",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/056",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/json/057",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/058",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/059",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/060",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/061",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/json/062",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/063",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/064",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/065",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/066",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/067",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/json/068",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/069",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/070",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 13,
+  "dozeVsRef8": 13
+ },
+ {
+  "scenario": "corpus/json/071",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/072",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/073",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/074",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/075",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/076",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/json/077",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/078",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/079",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/080",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/081",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/082",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/083",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "corpus/json/084",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/json/085",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/086",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/087",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/json/088",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/089",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/090",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/091",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/092",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "corpus/json/093",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/json/094",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/095",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 12,
+  "dozeVsRef8": 12
+ },
+ {
+  "scenario": "corpus/json/096",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/097",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/098",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "corpus/json/099",
+  "steps": 27,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ }
+]

@@ -58,7 +58,7 @@ impl Api {
             Route::DozeResolved => Response::ok(&r.resolved(subject, call.version())?),
             Route::DozeCheck => {
                 // A check at any level, the subject's left as it is, each reason taken apart.
-                let input = super::confluent::read_input(call)?;
+                let input = super::confluent::read_input(call, super::body::COMPAT_LEVEL)?;
                 let (version, level) = (call.query("version"), call.query("level"));
                 let (compared, found) = r.check(
                     subject,

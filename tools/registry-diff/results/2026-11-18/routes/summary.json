@@ -1,0 +1,138 @@
+[
+ {
+  "scenario": "root-and-unknown-routes",
+  "steps": 25,
+  "dozeVsRef": 2,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "register-and-read-avro",
+  "steps": 58,
+  "dozeVsRef": 2,
+  "unknown": 0,
+  "ref8VsRef": 28,
+  "dozeVsRef8": 29
+ },
+ {
+  "scenario": "register-errors",
+  "steps": 32,
+  "dozeVsRef": 1,
+  "unknown": 0,
+  "ref8VsRef": 21,
+  "dozeVsRef8": 21
+ },
+ {
+  "scenario": "metadata-and-rules-in-a-registration",
+  "steps": 6,
+  "dozeVsRef": 6,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "soft-and-hard-delete",
+  "steps": 44,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 8,
+  "dozeVsRef8": 8
+ },
+ {
+  "scenario": "re-register-after-delete-and-id-reuse",
+  "steps": 23,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 11,
+  "dozeVsRef8": 11
+ },
+ {
+  "scenario": "config",
+  "steps": 41,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 18,
+  "dozeVsRef8": 18
+ },
+ {
+  "scenario": "mode",
+  "steps": 30,
+  "dozeVsRef": 1,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 8
+ },
+ {
+  "scenario": "compatibility-route",
+  "steps": 28,
+  "dozeVsRef": 1,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "references-avro",
+  "steps": 24,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 14,
+  "dozeVsRef8": 14
+ },
+ {
+  "scenario": "protobuf",
+  "steps": 30,
+  "dozeVsRef": 4,
+  "unknown": 0,
+  "ref8VsRef": 25,
+  "dozeVsRef8": 25
+ },
+ {
+  "scenario": "protobuf-serialized",
+  "steps": 9,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 9,
+  "dozeVsRef8": 9
+ },
+ {
+  "scenario": "json-schema",
+  "steps": 27,
+  "dozeVsRef": 5,
+  "unknown": 0,
+  "ref8VsRef": 22,
+  "dozeVsRef8": 22
+ },
+ {
+  "scenario": "avro-text-forms",
+  "steps": 25,
+  "dozeVsRef": 1,
+  "unknown": 0,
+  "ref8VsRef": 25,
+  "dozeVsRef8": 25
+ },
+ {
+  "scenario": "readonly-and-global-mode",
+  "steps": 13,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "large-and-odd-bodies",
+  "steps": 9,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "subject-names",
+  "steps": 16,
+  "dozeVsRef": 2,
+  "unknown": 0,
+  "ref8VsRef": 11,
+  "dozeVsRef8": 11
+ }
+]

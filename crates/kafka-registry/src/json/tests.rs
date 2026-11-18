@@ -40,3 +40,26 @@ fn depth_counts_nesting_outside_strings() {
     assert_eq!(depth(r#""\"[[""#), 0);
     assert_eq!(depth("[]"), 1);
 }
+
+#[test]
+fn numbers_are_written_as_javas_big_decimal_writes_them() {
+    // Recorded from cp-schema-registry 7.7.1 (tools/registry-diff): 1e2 is stored as 1E+2, 1.50 as itself.
+    for (raw, want) in [
+        ("1e2", "1E+2"),
+        ("1.50", "1.50"),
+        ("1", "1"),
+        ("-0", "0"),
+        ("-0.0", "0.0"),
+        ("1.5e3", "1.5E+3"),
+        ("1e-3", "0.001"),
+        ("123e-2", "1.23"),
+        ("0.0010", "0.0010"),
+        ("1E-7", "1E-7"),
+        ("-2.5E+10", "-2.5E+10"),
+        ("10.0e1", "100"),
+        ("true", "true"),
+        ("0e0", "0"),
+    ] {
+        assert_eq!(super::java_number(raw), want, "{raw}");
+    }
+}
