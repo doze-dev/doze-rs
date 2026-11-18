@@ -14,6 +14,11 @@ kafka-console = { path = ".." }
 # Not part of the main workspace: fuzzing needs a nightly toolchain.
 [workspace]
 
+# See kafka-wire/fuzz/Cargo.toml: the main workspace's patch does not reach here, and the console links the broker,
+# which needs the vendored kafka-protocol's messages.
+[patch.crates-io]
+kafka-protocol = { path = "../../../vendor/kafka-protocol" }
+
 [[bin]]
 name = "origin"
 path = "fuzz_targets/origin.rs"
