@@ -326,5 +326,6 @@ pub(super) fn cases() -> Vec<(ApiKey, Request, Response)> {
     );
     super::cases_more::more(&mut out);
     super::cases_share::share(&mut out);
+    super::cases_streams::streams(&mut out);
     out
 }

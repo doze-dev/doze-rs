@@ -27,7 +27,9 @@ pub(super) fn heartbeat_response(r: &StreamsGroupHeartbeatResponse, f: &mut Fact
     f.say(r.error_message.as_deref());
     f.generation = Some(r.member_epoch);
     if r.active_tasks.is_some() {
-        f.items = n(tasks(r.active_tasks.as_ref()) + tasks(r.standby_tasks.as_ref()) + tasks(r.warmup_tasks.as_ref()));
+        f.items = n(tasks(r.active_tasks.as_ref())
+            + tasks(r.standby_tasks.as_ref())
+            + tasks(r.warmup_tasks.as_ref()));
     }
     if let Some(first) = r.status.iter().flatten().next() {
         f.say(Some(&first.status_detail));
@@ -35,7 +37,10 @@ pub(super) fn heartbeat_response(r: &StreamsGroupHeartbeatResponse, f: &mut Fact
 }
 
 fn tasks(list: Option<&Vec<TaskIds>>) -> usize {
-    list.iter().flat_map(|l| l.iter()).map(|t| t.partitions.len()).sum()
+    list.iter()
+        .flat_map(|l| l.iter())
+        .map(|t| t.partitions.len())
+        .sum()
 }
 
 pub(super) fn describe_request(r: &StreamsGroupDescribeRequest, f: &mut Facts) {
@@ -53,12 +58,18 @@ pub(super) fn describe_response(r: &StreamsGroupDescribeResponse, f: &mut Facts)
     f.items = n(r.groups.len());
 }
 
-pub(super) fn topology_update_request(r: &StreamsGroupTopologyDescriptionUpdateRequest, f: &mut Facts) {
+pub(super) fn topology_update_request(
+    r: &StreamsGroupTopologyDescriptionUpdateRequest,
+    f: &mut Facts,
+) {
     f.group(&r.group_id.0);
     f.member(&r.member_id);
 }
 
-pub(super) fn topology_update_response(r: &StreamsGroupTopologyDescriptionUpdateResponse, f: &mut Facts) {
+pub(super) fn topology_update_response(
+    r: &StreamsGroupTopologyDescriptionUpdateResponse,
+    f: &mut Facts,
+) {
     f.error(r.error_code);
     f.say(r.error_message.as_deref());
 }

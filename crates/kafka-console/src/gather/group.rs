@@ -56,6 +56,7 @@ fn phase_and_protocol(l: &Loaded) -> (GroupPhase, GroupProtocol) {
     let protocol = match (&l.detail, &l.described) {
         (Some(d), _) if d.kind == GroupKind::Consumer => GroupProtocol::Consumer,
         (Some(d), _) if d.kind == GroupKind::Share => GroupProtocol::Share,
+        (Some(d), _) if d.kind == GroupKind::Streams => GroupProtocol::Streams,
         (_, Some(d)) => d.protocol,
         _ => GroupProtocol::Classic,
     };
@@ -288,6 +289,7 @@ pub fn assemble(id: &str, l: &Loaded, seen: &Seen<'_>, expiring: bool) -> GroupL
         topics,
         flash: None,
         share: None,
+        streams: None,
     }
 }
 
@@ -381,6 +383,12 @@ pub async fn group(b: &Backend, id: &str, expiring: bool) -> Option<GroupLagView
             .map_or(0, |s| s.rows.iter().filter_map(|r| r.lag).sum());
         view.topics.clear();
         view.state = LagState::Normal;
+    }
+    if view.head.protocol == GroupProtocol::Streams {
+        view.streams = b
+            .streams_group(id)
+            .await
+            .map(|s| super::group_streams::streams_view(&s, &counts));
     }
     Some(view)
 }

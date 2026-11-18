@@ -252,6 +252,14 @@ pub(super) const ROWS: &[Row] = &[
         "Fix the pattern.",
     ),
     r(
+        130,
+        "STREAMS_INVALID_TOPOLOGY",
+        Refused,
+        "The supplied topology is invalid.",
+        "A Kafka Streams member joined with a topology the broker will not run: it names a Kafka internal topic or a topic name that is not valid, or its topics do not add up (Kafka's words say which).",
+        "Fix the topology in the application; the words name what is wrong.",
+    ),
+    r(
         133,
         "SHARE_SESSION_LIMIT_REACHED",
         Warn,

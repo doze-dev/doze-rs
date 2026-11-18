@@ -162,6 +162,14 @@ impl Backend {
         self.broker.console_view().share_group(&self.caller, group)
     }
 
+    /// A streams group's topology and members with their tasks and stages, if the console may describe it.
+    pub async fn streams_group(&self, group: &str) -> Option<kafka_broker::StreamsGroupView> {
+        self.broker
+            .console_view()
+            .streams_group(&self.caller, group)
+            .await
+    }
+
     /// What a group has said of itself (why it rebalanced, who it was about), if the console may describe it and the broker has
     /// the group in memory.
     pub async fn group_events(&self, group: &str) -> Option<kafka_broker::GroupEvents> {

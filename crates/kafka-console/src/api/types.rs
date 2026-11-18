@@ -173,6 +173,7 @@ fn all() -> BTreeMap<String, String> {
     r4(&cfg, &mut out);
     schemas(&cfg, &mut out);
     super::data::types(&cfg, &mut out);
+    super::groups::streams_types(&cfg, &mut out);
     out
 }
 

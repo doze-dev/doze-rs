@@ -147,7 +147,9 @@ pub fn of_response(response: &Response, f: &mut Facts) {
         Response::DeleteShareGroupOffsets(r) => share::delete_offsets_response(r, f),
         Response::StreamsGroupHeartbeat(r) => streams::heartbeat_response(r, f),
         Response::StreamsGroupDescribe(r) => streams::describe_response(r, f),
-        Response::StreamsGroupTopologyDescriptionUpdate(r) => streams::topology_update_response(r, f),
+        Response::StreamsGroupTopologyDescriptionUpdate(r) => {
+            streams::topology_update_response(r, f)
+        }
     }
 }
 
