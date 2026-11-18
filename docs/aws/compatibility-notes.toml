@@ -69,6 +69,8 @@ not_planned = [
 [api."SSM"]
 differences = [
   "`GetServiceSetting` of a setting that does not exist: AWS answers `ServiceSettingNotFound` with an empty message; doze-aws answers the same code, names the setting and says to check its id.",
+  "Resource policies (`PutResourcePolicy`) on parameters and documents are read by the IAM evaluator as the resource-based layer of every request on them (a grant to a principal, an explicit deny). There is one account locally, so the cross-account sharing they exist for on AWS is not exercised, and no Resource Access Manager share is made; an `OpsItemGroup` takes no policy (OpsCenter is not run).",
+  "Change-template reviews (`UpdateDocumentMetadata`, `ListDocumentMetadataHistory`) record the account id as author and reviewer: doze-aws does not resolve the IAM user here. Change Manager approval workflows do not run.",
 ]
 not_planned = [
   { why = "Fleet management needs managed EC2 instances or on-premises nodes: Run Command, Session Manager, patching, inventory, compliance, maintenance windows, State Manager associations, hybrid activations.", families = ["Command", "Session", "Patch", "Inventory", "Compliance", "MaintenanceWindow", "Association", "Activation", "ManagedInstance", "InstanceInformation", "InstanceProperties", "Nodes", "CloudConnector", "ResourceDataSync", "OpsItem", "OpsMetadata", "OpsSummary", "Automation", "ChangeRequest", "ExecutionPreview", "CalendarState", "AccessRequest", "AccessToken", "ConnectionStatus", "DeployablePatch", "InstancePatch", "EffectiveInstanceAssociations", "EffectivePatches", "AvailablePatches"] },
@@ -98,6 +100,9 @@ not_planned = [
 ]
 
 [api."EventBridge"]
+differences = [
+  "A replay starts one second after `StartReplay` and then puts back 100 events every 250 ms. AWS gives no pace (it typically takes minutes to start); this one is long enough to cancel with `CancelReplay` and short enough to wait for.",
+]
 not_planned = [
   { why = "SaaS partner event sources: events from third-party partners' accounts.", families = ["EventSource", "PartnerEvent"] },
   { why = "Global endpoints fail over between two regions' event buses with Route 53 health checks.", ops = ["CreateEndpoint", "DescribeEndpoint", "ListEndpoints", "UpdateEndpoint", "DeleteEndpoint"] },
