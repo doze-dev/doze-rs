@@ -99,6 +99,7 @@ fn surroundings() -> Result<(PathBuf, PathBuf, registry::Config), Diagnostic> {
         )
         .fix("doze bug")
     })?;
+    let key = test_registry_key().unwrap_or(key);
     let registry = registry::Config {
         bases: registry::HOSTS
             .iter()
@@ -108,6 +109,20 @@ fn surroundings() -> Result<(PathBuf, PathBuf, registry::Config), Diagnostic> {
         budget: registry::BUDGET,
     };
     Ok((home, cwd, registry))
+}
+
+/// The key a debug build trusts instead of the built-in one when `DOZE_TEST_REGISTRY_KEY` names one: tests that run
+/// the real binary sign their sandbox registry with the throwaway fixture key, because nothing they could check in is
+/// signed with the production key. A release build, the only kind anyone is given, has no such variable: this is
+/// compiled out, and `release_ignores_the_test_key` in tests/terminal.rs holds it to that.
+#[cfg(debug_assertions)]
+fn test_registry_key() -> Option<ed25519_dalek::VerifyingKey> {
+    signed::parse_key(&std::env::var("DOZE_TEST_REGISTRY_KEY").ok()?)
+}
+
+#[cfg(not(debug_assertions))]
+fn test_registry_key() -> Option<ed25519_dalek::VerifyingKey> {
+    None
 }
 
 // The exit class of a run is all `main` reports; keep the type in the signature honest.
