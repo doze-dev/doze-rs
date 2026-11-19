@@ -67,6 +67,21 @@ impl InstancePlan {
         format!("http://{host}:{}", l.port)
     }
 
+    /// What the module is told of a listener, before anything is bound: its address, URL and routed hosts, and
+    /// `backend`, where its engine listens.
+    pub fn granted(
+        &self,
+        l: &ListenerPlan,
+        backend: doze_module_proto::msg::instance::Address,
+    ) -> doze_module_proto::msg::instance::Granted {
+        doze_module_proto::msg::instance::Granted {
+            addr: self.addr(l),
+            url: self.url(l),
+            hosts: l.routes.iter().map(|r| r.host.clone()).collect(),
+            backend,
+        }
+    }
+
     /// `host:port` for a listener: what a client connects to.
     pub fn addr(&self, l: &ListenerPlan) -> String {
         let host = self

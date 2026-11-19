@@ -115,11 +115,11 @@ async fn connect_wakes_the_instance_and_runs_the_modules_own_client() {
         "DOZE_HOME".to_string(),
         dir.join("home").to_string_lossy().into_owned(),
     )]);
-    let a = doze_daemon::entry::assemble(&dir.join("doze.hcl"), "0.0.0", cat, env)
+    let mut a = doze_daemon::entry::assemble(&dir.join("doze.hcl"), "0.0.0", cat, env)
         .await
         .unwrap();
     // The front on the instance's port, as the daemon's own start opens it: the client connects there.
-    let front = doze_daemon::front::Front::open(&a.engine, &a.fronted()).await;
+    let front = a.open_front();
     let d = Daemon::at(a.engine, a.labels, StackInfo::default(), sock).with_modules(a.modules);
     let s = d.serve().unwrap();
 

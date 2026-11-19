@@ -10,6 +10,8 @@
 use crate::catalog::{Catalog, Fetched};
 use crate::ctl::{self, RunDir};
 use crate::front::{Front, Fronted};
+use crate::names::{BindError, Zone};
+use crate::planners::Grant;
 use crate::{Daemon, Labels, StackInfo};
 use doze_config::{Instance, Kind, Spec};
 use doze_engine::modules::Pinned;
@@ -54,8 +56,9 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
     }
 }
 
-/// A stack made ready to serve: its config, its engine (module instances planned through the catalog), and what the
-/// views say of each instance.
+/// A stack made ready to serve: its config, its engine (module instances planned through the catalog), what the
+/// views say of each instance, and its names: each instance doze fronts is placed and bound before the engine is
+/// built, because what its module is told (its grant) is where it was put.
 #[derive(Debug)]
 pub struct Assembled {
     pub cfg: doze_config::Config,
@@ -65,15 +68,29 @@ pub struct Assembled {
     pub supervised: std::collections::BTreeSet<String>,
     /// Each module instance, for its data, console and client.
     pub modules: Modules,
+    /// The instances doze sits in front of.
+    pub fronted: Vec<Fronted>,
+    /// The stack in the zone (names off: claims nothing).
+    pub zone: Arc<Zone>,
+    /// Client TLS for modules that take their own connections (the `tls` block).
+    pub tls: Option<crate::tls::WireTls>,
+    bound: BTreeMap<String, doze_bind::Bound>,
 }
 
 /// Module instances by name.
 pub type Modules = BTreeMap<String, Arc<doze_engine::modules::ModuleInstance>>;
 
 impl Assembled {
-    /// The instances doze sits in front of, for [`Front::open`].
+    /// The instances doze sits in front of.
     pub fn fronted(&self) -> Vec<Fronted> {
-        fronted(&self.cfg, &self.labels, &self.supervised)
+        self.fronted.clone()
+    }
+
+    /// Starts serving every listener bound at assembly (once; a second call opens nothing), and joins the zone's
+    /// resolver and front door.
+    pub fn open_front(&mut self) -> Front {
+        let bound = std::mem::take(&mut self.bound);
+        Front::open(&self.engine, self.zone.clone(), &self.fronted, bound)
     }
 }
 
@@ -86,11 +103,9 @@ pub async fn assemble(
     env: BTreeMap<String, String>,
 ) -> Result<Assembled, String> {
     let (path, version) = (config.to_string_lossy().into_owned(), version.to_owned());
-    let (cfg, labels, (stack, modules), supervised) = tokio::task::spawn_blocking(move || {
+    let placed = tokio::task::spawn_blocking(move || {
         let cfg = load(&path, &version, catalog.as_ref(), env)?;
-        let labels = labels(&cfg, catalog.as_ref());
-        let stack = stack(&cfg, &catalog);
-        let supervised = cfg
+        let supervised: std::collections::BTreeSet<String> = cfg
             .instances
             .iter()
             .filter(|i| i.kind() == Kind::Module)
@@ -101,10 +116,43 @@ pub async fn assemble(
             })
             .map(|i| i.name.clone())
             .collect();
-        Ok::<_, String>((cfg, labels, stack, supervised))
+        let zone = Arc::new(Zone::for_config(&cfg)?);
+        let tls = crate::tls::for_config(&cfg)?;
+        let run_dir = Path::new(&cfg.data_dir).join("run");
+        let fronted: Vec<Fronted> = cfg
+            .instances
+            .iter()
+            .filter_map(|i| {
+                fronted_one(i, catalog.as_ref(), supervised.contains(&i.name), &run_dir)
+            })
+            .collect();
+        let plan = zone.plan(&fronted)?;
+        let mut grants = BTreeMap::new();
+        let mut bound = BTreeMap::new();
+        for f in &fronted {
+            grants.insert(f.name.clone(), zone.grant(&plan, f, &run_dir));
+            match zone.bind(&plan, f, &run_dir) {
+                Ok(b) => {
+                    bound.insert(f.name.clone(), b);
+                }
+                Err(BindError::Held(e)) => return Err(e),
+                // Go refused to start; the app shows the instance failing to wake instead, which names the holder.
+                Err(e) => eprintln_daemon(&e.to_string()),
+            }
+        }
+        zone.record_domains(&app_domains(&cfg));
+        let mut labels = labels(&cfg, catalog.as_ref(), &grants);
+        for (name, b) in &bound {
+            if let Some(l) = labels.get_mut(name) {
+                bound_labels(l, b.instances.get(name), &zone, name);
+            }
+        }
+        let stack = stack(&cfg, &catalog, &grants);
+        Ok::<_, String>((cfg, labels, stack, supervised, fronted, zone, tls, bound))
     })
     .await
     .map_err(|e| e.to_string())??;
+    let (cfg, labels, (stack, modules), supervised, fronted, zone, tls, bound) = placed;
     let engine = doze_engine::Engine::new(stack).map_err(|e| e.to_string())?;
     Ok(Assembled {
         cfg,
@@ -112,18 +160,49 @@ pub async fn assemble(
         labels,
         supervised,
         modules,
+        fronted,
+        zone,
+        tls,
+        bound,
     })
 }
 
-/// The engine's stack, each module instance planned through the catalog (which asks its module: a blocking thread's).
+#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
+fn eprintln_daemon(line: &str) {
+    eprintln!("doze daemon: {line}");
+}
+
+/// Every app's own domains (`dev.acme.com`), for the routes record.
+fn app_domains(cfg: &doze_config::Config) -> Vec<String> {
+    cfg.instances
+        .iter()
+        .filter(|i| i.enabled)
+        .flat_map(|i| i.domains.iter().cloned())
+        .collect()
+}
+
+/// What binding says of an instance for the views: where it really listens, and a name of its another program holds.
+fn bound_labels(l: &mut Labels, b: Option<&doze_bind::BoundInstance>, zone: &Zone, name: &str) {
+    if let Some(main) = b.and_then(|b| b.listeners.get(doze_module_proto::network::MAIN)) {
+        l.endpoint = main.public.to_string();
+        l.bind = l.endpoint.clone();
+    }
+    if let Some(who) = zone.held(name) {
+        l.name_held = who;
+    }
+}
+
+/// The engine's stack, each module instance planned through the catalog (which asks its module: a blocking thread's)
+/// with what the zone granted it.
 fn stack(
     cfg: &doze_config::Config,
     catalog: &Arc<Catalog>,
+    grants: &BTreeMap<String, Grant>,
 ) -> (doze_engine::stack::Stack, Modules) {
     let (target, run_dir) = (doze_fetch::triple(), Path::new(&cfg.data_dir).join("run"));
     let modules = std::sync::Mutex::new(Modules::new());
     let planner = |i: &Instance| -> Arc<dyn Planner> {
-        let (p, mi) = crate::planners::module(catalog, i, &target, &run_dir);
+        let (p, mi) = crate::planners::module(catalog, i, &target, &run_dir, grants.get(&i.name));
         if let Some(mi) = mi {
             crate::lock(&modules).insert(i.name.clone(), mi);
         }
@@ -131,7 +210,7 @@ fn stack(
     };
     let wiring = doze_config::stack::Wiring {
         planner: &planner,
-        extra_env: ca_env(Path::new(&cfg.home)),
+        extra_env: crate::names::ca_env(cfg),
     };
     let stack = doze_config::stack::to_stack(cfg, &wiring);
     let modules = modules
@@ -145,15 +224,21 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     // Before the catalog starts a single module: a second daemon for this stack says so and nothing else runs.
     let (run, _alone) = no_daemon_yet(config, version)?;
     let catalog = Arc::new(catalog(config)?);
-    let assembled = assemble(config, version, catalog.clone(), BTreeMap::new()).await?;
-    let fronts = assembled.fronted();
+    let mut assembled = assemble(config, version, catalog.clone(), BTreeMap::new()).await?;
+    let front = Arc::new(assembled.open_front());
     let Assembled {
         cfg,
         engine,
-        labels,
+        mut labels,
         modules: instances,
+        zone,
+        tls,
         ..
     } = assembled;
+    for (name, l) in &mut labels {
+        l.name_only = front.name_only(name);
+    }
+    catalog.attach(&engine);
     // Loading took a while: one started meanwhile still wins.
     refuse_if_running(&run)?;
     let info = StackInfo {
@@ -164,7 +249,6 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     // The idle reaper and the health prober (Go's `RunReaper`, `RunHealthProber`), and the module pool's own.
     let background = engine.background();
     let modules = tokio::spawn(reap_modules(catalog.clone()));
-    let front = Arc::new(Front::open(&engine, &fronts).await);
     let live = crate::live::Live::new(
         catalog.clone(),
         config,
@@ -175,6 +259,7 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     let daemon = Daemon::new(engine.clone(), labels, info)
         .with_modules(instances)
         .with_live(live);
+    daemon.answer_front(&front, tls);
     let meters = daemon.keep_meters();
     let serving = daemon
         .serve()
@@ -196,6 +281,7 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     meters.abort();
     drop(background);
     engine.shutdown().await;
+    zone.close().await;
     let _ = std::fs::remove_file(run.pid_file());
     Ok(())
 }
@@ -252,15 +338,6 @@ pub(crate) fn with_options(
     f(&opts).map_err(|e| e.to_string())
 }
 
-/// doze's CA for what it runs (Go's `caEnv`), when doze has made one.
-fn ca_env(home: &Path) -> BTreeMap<String, String> {
-    let tls = home.join("tls");
-    if !tls.join("ca.pem").exists() {
-        return BTreeMap::new();
-    }
-    doze_config::stack::ca_env(&tls.join("ca.pem"), &tls.join("bundle.pem"))
-}
-
 /// The catalog for the stack at `config`: module builds through a `__fetch` child of this very program, the lock
 /// beside doze.hcl, and the lock's engine pins in front of the downloads modules ask for.
 pub(crate) fn catalog(config: &Path) -> Result<Catalog, String> {
@@ -288,19 +365,25 @@ pub(crate) fn catalog(config: &Path) -> Result<Catalog, String> {
 
 /// What the config says about each instance, for the views; a module instance's variables, URL and client as its
 /// module answers them.
-fn labels(cfg: &doze_config::Config, cat: &Catalog) -> BTreeMap<String, Labels> {
+fn labels(
+    cfg: &doze_config::Config,
+    cat: &Catalog,
+    grants: &BTreeMap<String, Grant>,
+) -> BTreeMap<String, Labels> {
     cfg.instances
         .iter()
-        .map(|i| (i.name.clone(), label(i, cat)))
+        .map(|i| (i.name.clone(), label(i, cat, grants.get(&i.name))))
         .collect()
 }
 
-/// What the config says about one instance.
-pub(crate) fn label(i: &Instance, cat: &Catalog) -> Labels {
+/// What the config says about one instance, and what the zone granted it (its name, its listeners).
+pub(crate) fn label(i: &Instance, cat: &Catalog, grant: Option<&Grant>) -> Labels {
     let run = match &i.spec {
         Spec::Command(c) => c.run.clone(),
         _ => String::new(),
     };
+    let host = grant.map(|g| g.host.clone()).unwrap_or_default();
+    let named = !host.is_empty();
     let mut l = Labels {
         kind: match i.kind() {
             Kind::Module => String::new(),
@@ -311,13 +394,27 @@ pub(crate) fn label(i: &Instance, cat: &Catalog) -> Labels {
         run,
         needs: i.deps.iter().map(|d| d.name.clone()).collect(),
         endpoint: doze_config::instance_addr(i, cat).unwrap_or_default(),
-        domain: i.domains.first().cloned().unwrap_or_default(),
+        domain: host,
         paused: !i.enabled,
         ..Labels::default()
     };
+    if named && let Some(first) = i.domains.first() {
+        l.domains = i.domains.clone();
+        l.https = format!("https://{}", doze_names::domains::route_domain(first));
+    }
+    let main = grant.and_then(|g| g.listeners.get(doze_module_proto::network::MAIN));
+    if i.kind() != Kind::Module
+        && let Some(m) = main
+    {
+        l.url = if m.url.is_empty() {
+            format!("http://{}", m.addr)
+        } else {
+            m.url.clone()
+        };
+    }
     if i.kind() == Kind::Module
-        && let Some(p) =
-            crate::planners::as_module_sees_it(cat, i).and_then(|mi| cat.published(&mi))
+        && let Some(p) = crate::planners::as_module_sees_it_granted(cat, i, grant)
+            .and_then(|mi| cat.published(&mi))
     {
         l.connect = cat
             .manifest_for(&i.ty, &i.version)
@@ -328,29 +425,60 @@ pub(crate) fn label(i: &Instance, cat: &Catalog) -> Labels {
     l
 }
 
-/// The instances doze sits in front of: every module that is not supervised, and every app or service with a port
-/// it does not bind itself.
-fn fronted(
-    cfg: &doze_config::Config,
-    labels: &BTreeMap<String, Labels>,
-    supervised: &std::collections::BTreeSet<String>,
-) -> Vec<Fronted> {
-    cfg.instances
-        .iter()
-        .filter_map(|i| front_of(i, labels.get(&i.name)?, supervised.contains(&i.name)))
-        .collect()
-}
-
-/// Where doze listens for `i`, if it sits in front of it.
-pub(crate) fn front_of(i: &Instance, l: &Labels, supervised: bool) -> Option<Fronted> {
-    let fronted = match &i.spec {
-        Spec::Command(c) => i.port > 0 && !c.direct,
-        _ => i.kind() == Kind::Module && !supervised,
+/// Where doze listens for `i`, if it sits in front of it: every module that is not supervised, and every app or
+/// service with a port it does not bind itself. Its listeners are what its module declares (`network`); an app's is
+/// one HTTP listener, routed through the front door by its name (Go's ingress: `http://api.shop.doze`, no port).
+pub(crate) fn fronted_one(
+    i: &Instance,
+    cat: &Catalog,
+    supervised: bool,
+    run_dir: &Path,
+) -> Option<Fronted> {
+    let app = matches!(&i.spec, Spec::Command(c) if i.port > 0 && !c.direct);
+    let module = i.kind() == Kind::Module && !supervised;
+    if !i.enabled || !(app || module) {
+        return None;
+    }
+    let addr = doze_config::instance_addr(i, cat).ok()?;
+    if addr.is_empty() || addr.starts_with("unix:") {
+        return None;
+    }
+    let port = addr
+        .rsplit_once(':')
+        .and_then(|(_, p)| p.parse::<u16>().ok())
+        .filter(|p| *p > 0);
+    let any =
+        doze_module_proto::msg::instance::Address::Tcp(doze_engine::modules::ANY_LOOPBACK.into());
+    let (listeners, default_port, main_backend) = if app {
+        let main = doze_module_proto::msg::instance::Listener {
+            name: doze_module_proto::network::MAIN.into(),
+            port: 0,
+            http: true,
+            routes: vec!["@".into()],
+            tcp: false,
+        };
+        (vec![main], 0, any)
+    } else {
+        let m = cat.manifest_for(&i.ty, &i.version)?;
+        let mi = crate::planners::as_module_sees_it(cat, i)?;
+        let tcp_only = cat.main_is_tcp(&mi);
+        let backend = crate::planners::backend(&addr, &i.name, &m, tcp_only, run_dir);
+        (cat.network(&mi), m.default_port, backend)
     };
-    let addr = &l.endpoint;
-    (i.enabled && fronted && !addr.is_empty() && !addr.starts_with("unix:")).then(|| Fronted {
+    Some(Fronted {
         name: i.name.clone(),
-        addr: addr.clone(),
+        decl: doze_bind::Decl {
+            name: i.name.clone(),
+            port,
+            routes: !i.no_routes,
+            listeners,
+            default_port,
+        },
+        app,
+        domains: i.domains.clone(),
+        cert: i.cert.clone(),
+        key: i.key.clone(),
+        main_backend,
     })
 }
 

@@ -35,6 +35,48 @@ pub struct Catalog {
     exes: Arc<Mutex<BTreeMap<String, PathBuf>>>,
     manifests: Mutex<BTreeMap<String, Manifest>>,
     failed: Mutex<BTreeMap<String, String>>,
+    /// The engine a module taking its own connections boots and counts them through, once it exists.
+    wire: Arc<WireHost>,
+}
+
+/// The host's side of `wire.accept` (D2): a module handed a client connection asks the engine to boot the instance
+/// when the client's first packets call for it, and counts the connection while it is spliced.
+#[derive(Debug, Default)]
+pub struct WireHost {
+    engine: std::sync::OnceLock<doze_engine::Engine>,
+}
+
+impl doze_module_host::Backends for WireHost {
+    fn boot<'a>(
+        &'a self,
+        instance: &'a str,
+    ) -> BoxFuture<'a, Result<Address, doze_module_proto::msg::error::Error>> {
+        Box::pin(async move {
+            use doze_module_proto::msg::error::{Error, ErrorKind};
+            let e = self
+                .engine
+                .get()
+                .ok_or_else(|| Error::new(ErrorKind::Unavailable, "the daemon is starting"))?;
+            let ep = e
+                .wake(instance, doze_engine::Cause::Connection)
+                .await
+                .map_err(|err| Error::new(ErrorKind::Unavailable, err.to_string()))?;
+            Ok(match ep.backend.strip_prefix("unix:") {
+                Some(p) => Address::Unix(p.to_string()),
+                None => Address::Tcp(ep.backend),
+            })
+        })
+    }
+    fn acquire(&self, instance: &str) {
+        if let Some(e) = self.engine.get() {
+            e.acquire(instance);
+        }
+    }
+    fn release(&self, instance: &str) {
+        if let Some(e) = self.engine.get() {
+            e.release(instance);
+        }
+    }
 }
 
 impl std::fmt::Debug for Catalog {
@@ -58,9 +100,10 @@ impl Catalog {
         let exes: Arc<Mutex<BTreeMap<String, PathBuf>>> = Arc::default();
         let found = exes.clone();
         let locate: Locate = Arc::new(move |engine| crate::lock(&found).get(engine).cloned());
+        let wire = Arc::new(WireHost::default());
         let services = Services {
             downloads,
-            backends: None,
+            backends: Some(wire.clone()),
             notices: None,
         };
         Catalog {
@@ -72,7 +115,27 @@ impl Catalog {
             exes,
             manifests: Mutex::default(),
             failed: Mutex::default(),
+            wire,
         }
+    }
+
+    /// The engine modules taking their own connections boot and count them through (once; before the first
+    /// connection).
+    pub fn attach(&self, engine: &doze_engine::Engine) {
+        let _ = self.wire.engine.set(engine.clone());
+    }
+
+    /// Every listener the instance's module declares (`network`), the main one included; empty where it declares none.
+    pub fn network(&self, i: &Instance) -> Vec<doze_module_proto::msg::instance::Listener> {
+        let Some(r) = self.running(&i.engine, &i.version) else {
+            return Vec::new();
+        };
+        self.rt.block_on(r.network(i)).unwrap_or_default()
+    }
+
+    /// The running module for a type (and major), if it is one this catalog found.
+    pub async fn module_of(&self, key: &str) -> Option<Arc<Running>> {
+        self.pool.get(key).await.ok()
     }
 
     /// The manifest of a type already looked up.

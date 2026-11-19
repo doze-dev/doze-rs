@@ -132,9 +132,15 @@ fn without_names_each_listener_is_on_loopback() {
 fn a_port_already_taken_says_which_instance() {
     let taken = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = taken.local_addr().unwrap().port();
-    let p = plan("shop", &[decl("db", Some(port), 0, vec![])], Addressing::Off).unwrap();
+    let p = plan(
+        "shop",
+        &[decl("db", Some(port), 0, vec![])],
+        Addressing::Off,
+    )
+    .unwrap();
     let e = bind(&p, &Registry::open(&home(), "doze"), &sock).unwrap_err();
-    assert!(e.to_string().starts_with("db: "), "{e}");
+    let want = format!("db cannot listen on 127.0.0.1:{port}: ");
+    assert!(e.to_string().starts_with(&want), "{e}");
 }
 
 #[test]
@@ -146,6 +152,7 @@ fn a_name_held_elsewhere_names_the_holder_and_the_fix() {
             pid: 42,
             owner: "doze".into(),
         },
+        at: None,
     };
     assert_eq!(
         e.to_string(),
@@ -181,8 +188,12 @@ fn shared_addressing_claims_the_names_on_loopback_and_routes_them() {
     );
     assert!(aws.lease.is_some(), "the lease is there for domains");
     drop(bound);
-    assert!(reg.resolve("aws.shop.doze").is_none(), "released with the bound");
-}#[cfg(unix)]
+    assert!(
+        reg.resolve("aws.shop.doze").is_none(),
+        "released with the bound"
+    );
+}
+#[cfg(unix)]
 #[test]
 fn a_route_name_another_program_holds_is_said_and_the_rest_is_bound() {
     let home = home();

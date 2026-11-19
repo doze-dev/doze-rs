@@ -11,6 +11,34 @@ use std::net::{SocketAddrV4, TcpListener};
 pub struct Error {
     pub instance: String,
     pub source: doze_names::Error,
+    /// The address it was listening on when that failed (`127.0.0.1:5432`, `db.shop.doze:5432`).
+    pub at: Option<Box<str>>,
+}
+
+/// A failure inside one instance's binding, before it is said whose.
+struct Failed {
+    source: doze_names::Error,
+    at: Option<Box<str>>,
+}
+
+impl From<doze_names::Error> for Failed {
+    fn from(source: doze_names::Error) -> Failed {
+        Failed { source, at: None }
+    }
+}
+
+impl From<std::io::Error> for Failed {
+    fn from(e: std::io::Error) -> Failed {
+        Failed::from(doze_names::Error::from(e))
+    }
+}
+
+/// `r` with the address it was listening on, for the message.
+fn listening<T>(r: Result<T, impl Into<doze_names::Error>>, at: String) -> Result<T, Failed> {
+    r.map_err(|e| Failed {
+        source: e.into(),
+        at: Some(at.into()),
+    })
 }
 
 impl std::fmt::Display for Error {
@@ -21,6 +49,12 @@ impl std::fmt::Display for Error {
                 "{}: {host} is already in use on this machine by {owner} (pid {pid}): stop it, or rename this stack \
                  or service",
                 self.instance
+            ),
+            doze_names::Error::Io(io) if self.at.is_some() => write!(
+                f,
+                "{} cannot listen on {}: {io}",
+                self.instance,
+                self.at.as_deref().unwrap_or_default()
             ),
             e => write!(f, "{}: {e}", self.instance),
         }
@@ -92,9 +126,10 @@ pub fn bind(
         leases: Vec::new(),
     };
     for i in &plan.instances {
-        let fail = |source| Error {
+        let fail = |f: Failed| Error {
             instance: i.name.clone(),
-            source,
+            source: f.source,
+            at: f.at,
         };
         let inst = match (&i.host, plan.addressing) {
             (Some(host), Addressing::Own) => {
@@ -112,21 +147,17 @@ pub fn bind(
 }
 
 fn granted(i: &InstancePlan, l: &ListenerPlan, backend: Address) -> Granted {
-    Granted {
-        addr: i.addr(l),
-        url: i.url(l),
-        hosts: l.routes.iter().map(|r| r.host.clone()).collect(),
-        backend,
-    }
+    i.granted(l, backend)
 }
 
 fn bind_loopback(
     i: &InstancePlan,
     backend: &dyn Fn(&str, &ListenerPlan) -> Address,
-) -> Result<BoundInstance, doze_names::Error> {
+) -> Result<BoundInstance, Failed> {
     let mut listeners = BTreeMap::new();
     for l in &i.listeners {
-        let socket = TcpListener::bind(SocketAddrV4::new(crate::LOOPBACK, l.port))?;
+        let at = SocketAddrV4::new(crate::LOOPBACK, l.port);
+        let socket = listening(TcpListener::bind(at), at.to_string())?;
         let granted = granted(i, l, backend(&i.name, l));
         let bl = BoundListener {
             public: socket.local_addr()?,
@@ -153,7 +184,7 @@ fn bind_named(
     at: Option<std::net::Ipv4Addr>,
     backend: &dyn Fn(&str, &ListenerPlan) -> Address,
     leases: &mut Vec<Lease>,
-) -> Result<BoundInstance, doze_names::Error> {
+) -> Result<BoundInstance, Failed> {
     let qualified = |host: &str| Name {
         host: host.to_string(),
         tier: Tier::Qualified,
@@ -166,9 +197,9 @@ fn bind_named(
     let mut listeners = BTreeMap::new();
     let mut held = Vec::new();
     for l in &i.listeners {
-        let listening = lease.listen(l.port)?;
-        let public = listening.addr();
-        let (socket, forwarding) = listening.into_parts();
+        let opened = listening(lease.listen(l.port), i.addr(l))?;
+        let public = opened.addr();
+        let (socket, forwarding) = opened.into_parts();
         // The front door dials what the proxy really listens on: the name's address where it is bound, the daemon's
         // interface and the private port where it is translated.
         let target = socket.local_addr()?.to_string();
@@ -182,7 +213,7 @@ fn bind_named(
                     Err(doze_names::Error::Held { host, pid, owner }) => {
                         held.push(format!("{host} is held by {owner} (pid {pid})"));
                     }
-                    Err(e) => return Err(e),
+                    Err(e) => return Err(e.into()),
                 }
             } else {
                 lease.route(&target)?;

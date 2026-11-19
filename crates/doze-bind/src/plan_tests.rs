@@ -233,7 +233,10 @@ fn a_modules_bad_listeners_are_all_reported_with_the_instance() {
 #[test]
 fn the_plan_is_a_function_of_the_config() {
     let a = plan("shop", &[kafka(), aws("aws")], Addressing::Own).unwrap();
-    assert_eq!(a, plan("shop", &[kafka(), aws("aws")], Addressing::Own).unwrap());
+    assert_eq!(
+        a,
+        plan("shop", &[kafka(), aws("aws")], Addressing::Own).unwrap()
+    );
 }
 
 #[test]
