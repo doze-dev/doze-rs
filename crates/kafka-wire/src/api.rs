@@ -54,6 +54,16 @@ use kafka_protocol::messages::{
     ShareGroupHeartbeatResponse,
 };
 use kafka_protocol::messages::{
+    AlterPartitionReassignmentsRequest, AlterPartitionReassignmentsResponse,
+    AlterReplicaLogDirsRequest, AlterReplicaLogDirsResponse, CreateDelegationTokenRequest,
+    CreateDelegationTokenResponse, DescribeDelegationTokenRequest, DescribeDelegationTokenResponse,
+    DescribeTopicPartitionsRequest, DescribeTopicPartitionsResponse, ElectLeadersRequest,
+    ElectLeadersResponse, ExpireDelegationTokenRequest, ExpireDelegationTokenResponse,
+    ListConfigResourcesRequest, ListConfigResourcesResponse, ListPartitionReassignmentsRequest,
+    ListPartitionReassignmentsResponse, RenewDelegationTokenRequest, RenewDelegationTokenResponse,
+    UpdateFeaturesRequest, UpdateFeaturesResponse,
+};
+use kafka_protocol::messages::{
     StreamsGroupDescribeRequest, StreamsGroupDescribeResponse, StreamsGroupHeartbeatRequest,
     StreamsGroupHeartbeatResponse, StreamsGroupTopologyDescriptionUpdateRequest,
     StreamsGroupTopologyDescriptionUpdateResponse,
@@ -227,6 +237,19 @@ served_apis! {
     AlterClientQuotas(AlterClientQuotasRequest, AlterClientQuotasResponse) [NONE, v(0, 1), v(0, 1), v(0, 1)];
     GetTelemetrySubscriptions(GetTelemetrySubscriptionsRequest, GetTelemetrySubscriptionsResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
     PushTelemetry(PushTelemetryRequest, PushTelemetryResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
+    // The admin APIs of debt K3, at the recorded brokers' versions. A single node has one replica of every partition, so
+    // leader elections and reassignments have nothing to move; delegation tokens need SASL and a secret key, as in Kafka.
+    AlterReplicaLogDirs(AlterReplicaLogDirsRequest, AlterReplicaLogDirsResponse) [v(0, 0), v(0, 2), v(0, 2), v(1, 2)];
+    CreateDelegationToken(CreateDelegationTokenRequest, CreateDelegationTokenResponse in Box) [v(0, 0), v(0, 2), v(0, 3), v(1, 3)];
+    RenewDelegationToken(RenewDelegationTokenRequest, RenewDelegationTokenResponse) [v(0, 0), v(0, 2), v(0, 2), v(1, 2)];
+    ExpireDelegationToken(ExpireDelegationTokenRequest, ExpireDelegationTokenResponse) [v(0, 0), v(0, 2), v(0, 2), v(1, 2)];
+    DescribeDelegationToken(DescribeDelegationTokenRequest, DescribeDelegationTokenResponse) [v(0, 0), v(0, 2), v(0, 3), v(1, 3)];
+    ElectLeaders(ElectLeadersRequest, ElectLeadersResponse) [NONE, v(0, 2), v(0, 2), v(0, 2)];
+    AlterPartitionReassignments(AlterPartitionReassignmentsRequest, AlterPartitionReassignmentsResponse) [NONE, v(0, 0), v(0, 0), v(0, 1)];
+    ListPartitionReassignments(ListPartitionReassignmentsRequest, ListPartitionReassignmentsResponse) [NONE, v(0, 0), v(0, 0), v(0, 0)];
+    UpdateFeatures(UpdateFeaturesRequest, UpdateFeaturesResponse) [NONE, v(0, 0), v(0, 1), v(0, 2)];
+    ListConfigResources(ListConfigResourcesRequest, ListConfigResourcesResponse) [NONE, NONE, v(0, 0), v(0, 1)];
+    DescribeTopicPartitions(DescribeTopicPartitionsRequest, DescribeTopicPartitionsResponse) [NONE, NONE, v(0, 0), v(0, 0)];
     // Share groups (KIP-932): Kafka 4.1 made them generally available, at the versions 4.4.0 serves.
     ShareGroupHeartbeat(ShareGroupHeartbeatRequest, ShareGroupHeartbeatResponse) [NONE, NONE, NONE, v(1, 1)];
     ShareGroupDescribe(ShareGroupDescribeRequest, ShareGroupDescribeResponse) [NONE, NONE, NONE, v(1, 1)];

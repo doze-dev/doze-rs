@@ -111,10 +111,11 @@ and nothing else is offered, unless the pair (major, API) is in the deviations t
 row: the floors of W10; inter-broker and controller APIs real brokers list on the client listener (LeaderAndIsr,
 StopReplica, UpdateMetadata, ControlledShutdown, WriteTxnMarkers, AlterPartition, UnregisterBroker, DescribeQuorum, the
 Raft voter APIs, UnregisterController and the share-state APIs 83 to 87), left out by the owner's decision of 2026-11-18: clients never
-send them, a single node has no other broker, and serving them would only make the list match (debt K4); admin APIs not served
-(debt K3); and the older columns written for an earlier release than the one recorded (K2). Since 2026-11-19 (K1, W37)
-Kafka 4 serves every version 4.4.0 lists of every API it serves. A table entry that no longer differs
-fails as well, so the list cannot go stale. SaslHandshake is 0 to 1 in every major, as every recorded broker lists it
+send them, a single node has no other broker, and serving them would only make the list match (debt K4); and the older columns
+written for an earlier release than the one recorded (K2). A table entry that no longer differs fails as well, so the list cannot go
+stale. The admin APIs of debt K3 left the table on 2026-11-19: every one is offered as recorded (ADM-10 to ADM-17); and so did the
+newer versions at Kafka 4 (K1, W37): Kafka 4 serves every version 4.4.0 lists of every API it serves. SaslHandshake is 0 to 1 in
+every major, as every recorded broker lists it
 (v0 is raw tokens, SEC-401).
 Test: `tests/recorded_api_versions.rs::every_recorded_range_is_offered_as_recorded_or_is_a_written_down_deviation`
 

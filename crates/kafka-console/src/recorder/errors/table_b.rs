@@ -76,6 +76,22 @@ pub(super) const ROWS: &[Row] = &[
         "Give each consumer its own group.instance.id.",
     ),
     r(
+        84,
+        "ELECTION_NOT_NEEDED",
+        Warn,
+        "Leader election not needed for topic partition.",
+        "The partition already has its preferred leader: on one broker it always does.",
+        "",
+    ),
+    r(
+        85,
+        "NO_REASSIGNMENT_IN_PROGRESS",
+        Refused,
+        "No partition reassignment is in progress.",
+        "There is no reassignment to cancel: on one broker none is ever in progress.",
+        "",
+    ),
+    r(
         86,
         "GROUP_SUBSCRIBED_TO_TOPIC",
         Refused,
@@ -130,6 +146,14 @@ pub(super) const ROWS: &[Row] = &[
         "Requested credential would not meet criteria for acceptability.",
         "The credential asked for is not allowed (an iteration count out of range, an empty password).",
         "Use the iteration count and mechanism the broker allows.",
+    ),
+    r(
+        95,
+        "INVALID_UPDATE_VERSION",
+        Refused,
+        "The given update version was invalid.",
+        "The feature level asked for cannot be set; the message says why.",
+        "",
     ),
     r(
         100,

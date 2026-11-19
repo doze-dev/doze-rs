@@ -5,6 +5,7 @@ use kafka_wire::api::{API_TABLE, Request, Response};
 use kafka_wire::messages::*;
 
 mod cases;
+mod cases_admin;
 mod cases_more;
 mod cases_share;
 mod cases_streams;

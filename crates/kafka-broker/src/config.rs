@@ -116,6 +116,11 @@ pub struct Config {
     /// transactions never time out (`transaction.two.phase.commit.enable`, false as in Kafka 4.4.0). Off, such a request
     /// is TRANSACTIONAL_ID_AUTHORIZATION_FAILED, as Kafka answers it.
     pub transaction_two_phase_commit: bool,
+    /// The Kafka major the broker stands for (`--kafka-version`): what UpdateFeatures holds a level to
+    /// (`Profile::features`).
+    pub kafka_major: kafka_wire::profile::KafkaMajor,
+    /// Delegation tokens (KIP-48): off unless a secret key is set, as in Kafka.
+    pub delegation_tokens: crate::tokens::TokenConfig,
 }
 
 impl Config {
@@ -152,6 +157,8 @@ impl Config {
             share_assignment_interval: None,
             unstable_api_versions: false,
             transaction_two_phase_commit: false,
+            kafka_major: kafka_wire::profile::KafkaMajor::DEFAULT,
+            delegation_tokens: crate::tokens::TokenConfig::default(),
         }
     }
 }

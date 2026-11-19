@@ -19,7 +19,7 @@ use clap::CommandFactory;
 pub(crate) const NOT_SHOWN: [&str; 1] = ["meta-db"];
 
 /// What the table says for a flag whose value is a secret: how many were given, never what.
-const SECRET: [&str; 1] = ["sasl-user"];
+const SECRET: [&str; 2] = ["sasl-user", "delegation-token-secret-key"];
 
 /// Flags that name a file whose name is not shown (the contents never are, and nothing here reads them).
 const FILE_HIDDEN: [&str; 1] = ["tls-key"];
@@ -82,6 +82,10 @@ pub(crate) const GROUPS: [(&str, &[&str]); 7] = [
             "sasl-failed-login-delay",
             "acl-default",
             "acl-super-user",
+            "delegation-token-secret-key",
+            "delegation-token-max-lifetime",
+            "delegation-token-expiry-time",
+            "delegation-token-expiry-check-interval",
             "tls-cert",
             "tls-key",
         ],

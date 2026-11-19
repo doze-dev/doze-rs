@@ -69,7 +69,7 @@ impl AlterReplicaLogDir {
 #[cfg(feature = "client")]
 impl Encodable for AlterReplicaLogDir {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 2 {
+        if version < 0 || version > 2 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         if version >= 2 {
@@ -128,7 +128,7 @@ impl Encodable for AlterReplicaLogDir {
 #[cfg(feature = "broker")]
 impl Decodable for AlterReplicaLogDir {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 2 {
+        if version < 0 || version > 2 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let path = if version >= 2 {
@@ -170,7 +170,7 @@ impl Default for AlterReplicaLogDir {
 }
 
 impl Message for AlterReplicaLogDir {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 2 } /* PATCH 7 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -226,7 +226,7 @@ impl AlterReplicaLogDirTopic {
 #[cfg(feature = "client")]
 impl Encodable for AlterReplicaLogDirTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 2 {
+        if version < 0 || version > 2 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         if version >= 2 {
@@ -284,7 +284,7 @@ impl Encodable for AlterReplicaLogDirTopic {
 #[cfg(feature = "broker")]
 impl Decodable for AlterReplicaLogDirTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 2 {
+        if version < 0 || version > 2 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let name = if version >= 2 {
@@ -326,7 +326,7 @@ impl Default for AlterReplicaLogDirTopic {
 }
 
 impl Message for AlterReplicaLogDirTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 2 } /* PATCH 7 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -368,7 +368,7 @@ impl AlterReplicaLogDirsRequest {
 #[cfg(feature = "client")]
 impl Encodable for AlterReplicaLogDirsRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 2 {
+        if version < 0 || version > 2 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         if version >= 2 {
@@ -417,7 +417,7 @@ impl Encodable for AlterReplicaLogDirsRequest {
 #[cfg(feature = "broker")]
 impl Decodable for AlterReplicaLogDirsRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 2 {
+        if version < 0 || version > 2 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let dirs = if version >= 2 {
@@ -452,7 +452,7 @@ impl Default for AlterReplicaLogDirsRequest {
 }
 
 impl Message for AlterReplicaLogDirsRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 2 } /* PATCH 7 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
