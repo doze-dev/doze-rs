@@ -56,7 +56,8 @@ fn bug_and_doctor_follow_a_moved_state_folder() {
     let state = sb.root.join("state");
     let hcl = format!(
         "stack = \"shop\"\ndata_dir = \"{}\"\n\napp \"api\" {{\n  run = \"true\"\n}}\n",
-        state.display()
+        // Forward slashes: a Windows path's backslashes are escapes in an HCL string.
+        state.display().to_string().replace('\\', "/")
     );
     std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
     let moved = doze_projects::StackKey::new(state.clone());
