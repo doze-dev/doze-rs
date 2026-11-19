@@ -363,8 +363,40 @@ pub(crate) fn export(doc: &Value, stage: &str) -> Option<Value> {
             json!({"location": p.get("location"), "properties": props})
         })
         .collect();
+    let mut parts = parts;
+    // Recorded 2026-11-19: the API's part before a method's, though made after it. Taken to be the model's order of location
+    // types, then the path (memory beyond those two).
+    parts.sort_by_key(|p| {
+        let loc = p.get("location");
+        let ty = loc.and_then(|l| text(l, "type")).unwrap_or_default();
+        let rank = LOCATION_ORDER
+            .iter()
+            .position(|t| *t == ty)
+            .unwrap_or(LOCATION_ORDER.len());
+        let path = loc
+            .and_then(|l| text(l, "path"))
+            .unwrap_or_default()
+            .to_owned();
+        (rank, path)
+    });
     Some(json!({"version": name, "createdDate": v.get("createdDate"), "documentationParts": parts}))
 }
+
+/// The model's `DocumentationPartType` values, in its order.
+const LOCATION_ORDER: &[&str] = &[
+    "API",
+    "AUTHORIZER",
+    "MODEL",
+    "RESOURCE",
+    "METHOD",
+    "PATH_PARAMETER",
+    "QUERY_PARAMETER",
+    "REQUEST_HEADER",
+    "REQUEST_BODY",
+    "RESPONSE",
+    "RESPONSE_HEADER",
+    "RESPONSE_BODY",
+];
 
 #[cfg(test)]
 mod tests {

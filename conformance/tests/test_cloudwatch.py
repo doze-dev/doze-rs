@@ -329,7 +329,8 @@ def test_a_composite_alarm_follows_its_rule(client, names, cleanup, snapshot, ev
     snapshot.match("both-children-in-alarm", state("ALARM"))
     cw.set_alarm_state(AlarmName=cpu, StateValue="OK", StateReason="forced by the scenario")
     snapshot.match("one-child-ok", state("OK"))
-    snapshot.error("rule-that-does-not-read", lambda: cw.put_composite_alarm(AlarmName=comp, AlarmRule=f"ALARM({cpu}"))
+    # A fixed text: the error gives a character position, which a run-numbered alarm name would move.
+    snapshot.error("rule-that-does-not-read", lambda: cw.put_composite_alarm(AlarmName=comp, AlarmRule="ALARM(unclosed"))
 
 
 def test_a_log_alarm_is_evaluated_on_its_schedule(client, names, cleanup, snapshot, eventually, service_role):

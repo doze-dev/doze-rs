@@ -244,18 +244,20 @@ impl Core {
             // accepted and changes nothing.
             return Ok(json!({}));
         }
-        // Recorded 2026-11-19: each signal shows as an event of the resource.
-        let word = if success { "SUCCESS" } else { "FAILURE" };
-        self.push_event(
-            &stack_id,
-            Draft {
-                logical: logical.to_owned(),
-                ty,
-                status,
-                reason: Some(format!("Received {word} signal with UniqueId {unique}")),
-                ..Draft::default()
-            },
-        );
+        // Recorded 2026-11-19: a SUCCESS signal shows as an event of the resource; a FAILURE signal has none of its own, its words
+        // are the reason of the CREATE_FAILED that follows.
+        if success {
+            self.push_event(
+                &stack_id,
+                Draft {
+                    logical: logical.to_owned(),
+                    ty,
+                    status,
+                    reason: Some(format!("Received SUCCESS signal with UniqueId {unique}")),
+                    ..Draft::default()
+                },
+            );
+        }
         Ok(json!({}))
     }
 }

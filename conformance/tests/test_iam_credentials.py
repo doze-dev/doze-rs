@@ -170,6 +170,7 @@ def test_signing_certificate_lifecycle(client, names, cleanup, snapshot):
     snapshot.match("list", iam.list_signing_certificates(UserName=user), opaque=IDS)
     snapshot.error("delete-user-with-certificate", lambda: iam.delete_user(UserName=user))
     snapshot.match("delete", iam.delete_signing_certificate(UserName=user, CertificateId=cid))
+    snapshot.known(cid, "certificate-id")  # the refusal quotes it
     snapshot.error("delete-again", lambda: iam.delete_signing_certificate(UserName=user, CertificateId=cid))
 
 
@@ -209,6 +210,7 @@ def test_service_specific_credential_lifecycle(client, names, cleanup, snapshot)
         UserName=user, ServiceSpecificCredentialId=cid, Status="Inactive"))
     snapshot.error("delete-user-with-credential", lambda: iam.delete_user(UserName=user))
     snapshot.match("delete", iam.delete_service_specific_credential(UserName=user, ServiceSpecificCredentialId=cid))
+    snapshot.known(cid, "credential-id")  # the refusal quotes it
     snapshot.error("delete-again", lambda: iam.delete_service_specific_credential(
         UserName=user, ServiceSpecificCredentialId=cid))
 
