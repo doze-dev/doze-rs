@@ -1768,8 +1768,8 @@ TRANSACTIONAL_ID_NOT_FOUND (105) with producer id 0, epoch 0 and start time 0, a
 - **SEC-D100.** Every client is subscribed to the same thing: the standard metric set (`org.apache.kafka.`), every 5000 ms, cumulative. Apache Kafka with no CLIENT_METRICS resource subscribes a client to nothing, every 300,000 ms, with deltas, and an operator changes that with
   `IncrementalAlterConfigs`; this broker has no such resource (the Go edition's difference, kept, `docs/limitations.md`), and the replay of the five scenarios whose timing matters gives Kafka the same five seconds with a resource and holds every other field to the recording. The reason for five seconds is that the
   one reader of the metrics is a developer looking at the last minutes; the cost is that every KIP-714 client now sends a report every five seconds (a few KB; the last is kept, bounded, SEC-293). `--client-telemetry=false` stops it (W35).
-- **SEC-D110.** Kafka gives a login made with a delegation token the token's expiry as the session's lifetime (`SaslAuthenticate`'s
-  `session_lifetime_ms`), so a Java client re-authenticates before it (KIP-368) and the broker closes a connection that outlives it. This broker
+- **SEC-D110.** Kafka gives a login made with a delegation token the token's expiry as the session's lifetime (the session lifetime of
+  its SaslAuthenticate answer), so a Java client re-authenticates before it (KIP-368) and the broker closes a connection that outlives it. This broker
   sends 0, as for every other login: it does not serve re-authentication (SEC-10, SEC-D55), and a lifetime would make a client try. A connection
   made with a token therefore lives on past the token's expiry; a new login with an expired, expired-at-once or swept token is refused as Kafka
   refuses it. Debt row I13 (re-authentication).
