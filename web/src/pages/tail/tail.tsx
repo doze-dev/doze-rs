@@ -112,7 +112,8 @@ function Following({ search, set, options, address, onOpen }: { search: TailSear
     if ((sc?.scrollTop ?? 0) > 2 && sc?.dataset.gliding !== "1") return true;
     if (el.getBoundingClientRect().top < 0) return true;
     if (hovering.current) return true;
-    if (document.querySelector("[role=dialog], [data-radix-popper-content-wrapper]")) return true;
+    // An overlay or a popup the person opened (a dialog, a popover, a menu, a list); a tooltip is not one.
+    if (document.querySelector("[role=dialog], [role=menu], [role=listbox]")) return true;
     if (el.contains(document.activeElement)) return true;
     const sel = document.getSelection();
     return !!sel && !sel.isCollapsed && el.contains(sel.anchorNode);

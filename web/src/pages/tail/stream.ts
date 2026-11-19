@@ -174,15 +174,18 @@ export type Handlers = {
 };
 
 /** One tail of topics: opens the stream, follows it, and after a drop, a pause or a hidden tab opens it again from the
- * cursor of the last event it had (`Last-Event-ID`). */
+ * cursor of the last event it had (`Last-Event-ID`). Each opening is a generation: a pause or a stop ends the current one
+ * (its fetch aborted, its reader cancelled), and nothing a past generation still has in flight reaches the page or holds up the
+ * next (a browser may leave an aborted body's read pending). */
 export class TopicsTail {
   private cursor: string | null = null;
   private stopped = false;
   private held: "paused" | "hidden" | null = null;
   private abort: AbortController | null = null;
+  private reader: ReadableStreamDefaultReader<string> | null = null;
   private wake: (() => void) | null = null;
   private failures = 0;
-  private running = false;
+  private gen = 0;
 
   constructor(
     private readonly query: string,
@@ -195,21 +198,20 @@ export class TopicsTail {
   }
 
   start() {
-    if (!this.running) void this.run();
+    this.end();
+    void this.run(this.gen);
   }
 
   stop() {
     this.stopped = true;
-    this.abort?.abort();
-    this.wake?.();
+    this.end();
   }
 
   /** Stops reading (the Pause button, a hidden tab) and keeps the cursor; {@link go} reads on from it. */
   hold(why: "paused" | "hidden") {
     if (this.held === "paused" && why === "hidden") return;
     this.held = why;
-    this.abort?.abort();
-    this.wake?.();
+    this.end();
     this.h.onConn({ state: why });
   }
 
@@ -230,42 +232,49 @@ export class TopicsTail {
     return this.cursor;
   }
 
+  /** Ends the current generation: its fetch, its read and its wait. */
+  private end() {
+    this.gen += 1;
+    this.abort?.abort();
+    this.abort = null;
+    this.reader?.cancel().catch(() => {});
+    this.reader = null;
+    this.wake?.();
+    this.wake = null;
+  }
+
   private url(): string {
     const p = new URLSearchParams(this.query);
     p.set("pace", String(this.pace));
     return `${basePath}/api/v1/tail/topics?${p.toString()}`;
   }
 
-  private async run() {
-    this.running = true;
-    try {
-      while (!this.stopped && this.held === null) {
-        this.h.onConn(this.failures === 0 ? { state: this.cursor ? "reconnecting" : "connecting" } : { state: "reconnecting" });
-        let why = "The stream ended.";
-        try {
-          await this.once();
-        } catch (e) {
-          why = (e as Error).message || why;
-        }
-        if (this.stopped || this.held !== null) return;
-        this.failures += 1;
-        const wait = BACKOFF[Math.min(this.failures - 1, BACKOFF.length - 1)]! * 1000;
-        this.h.onConn(this.failures === 1 ? { state: "reconnecting" } : { state: "disconnected", retryAt: Date.now() + wait, why });
-        await new Promise<void>((resolve) => {
-          const t = setTimeout(resolve, wait);
-          this.wake = () => {
-            clearTimeout(t);
-            resolve();
-          };
-        });
-        this.wake = null;
+  private async run(g: number) {
+    const current = () => g === this.gen && !this.stopped && this.held === null;
+    while (current()) {
+      this.h.onConn(this.failures === 0 ? { state: this.cursor ? "reconnecting" : "connecting" } : { state: "reconnecting" });
+      let why = "The stream ended.";
+      try {
+        await this.once(current);
+      } catch (e) {
+        why = (e as Error).message || why;
       }
-    } finally {
-      this.running = false;
+      if (!current()) return;
+      this.failures += 1;
+      const wait = BACKOFF[Math.min(this.failures - 1, BACKOFF.length - 1)]! * 1000;
+      this.h.onConn(this.failures === 1 ? { state: "reconnecting" } : { state: "disconnected", retryAt: Date.now() + wait, why });
+      await new Promise<void>((resolve) => {
+        const t = setTimeout(resolve, wait);
+        this.wake = () => {
+          clearTimeout(t);
+          resolve();
+        };
+      });
+      this.wake = null;
     }
   }
 
-  private async once() {
+  private async once(current: () => boolean) {
     const abort = new AbortController();
     this.abort = abort;
     let silent: ReturnType<typeof setTimeout> | undefined;
@@ -287,15 +296,20 @@ export class TopicsTail {
         }
         throw new Error(message);
       }
+      if (!current()) {
+        void res.body.cancel().catch(() => {});
+        return;
+      }
       quiet();
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      this.reader = reader;
       const parser = new SseParser();
       for (;;) {
         const { value, done } = await reader.read();
-        if (done) break;
+        if (done || !current()) break;
         quiet();
         for (const e of parser.push(value)) {
-          if (this.stopped || this.held !== null) return;
+          if (!current()) return;
           if (e.event === "ready") {
             const r = JSON.parse(e.data) as TopicsTailReady;
             this.cursor = r.cursor || this.cursor;
@@ -310,7 +324,7 @@ export class TopicsTail {
         }
       }
     } catch (e) {
-      if ((e as Error).name === "AbortError" && (this.stopped || this.held !== null)) return;
+      if (!current()) return;
       throw e;
     } finally {
       clearTimeout(silent);

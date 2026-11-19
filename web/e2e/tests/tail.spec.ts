@@ -45,7 +45,7 @@ test("nothing is opened before a person chooses: the page is a calm chooser that
   await page.goto("/tail");
   await expect(page.getByRole("heading", { level: 1, name: "Live tail" })).toBeVisible();
   await expect(page.getByTestId("tail-choose")).toBeVisible();
-  await expect(page.getByTestId("tail-conn")).toHaveAttribute("data-state", "off");
+  await expect(page.getByTestId("tail-conn")).toHaveCount(0);
   await expect(page.getByTestId("tail-pause")).toBeDisabled();
   await page.waitForLoadState("networkidle");
   const settled = asked.length;
