@@ -76,7 +76,12 @@
 # ubuntu x86_64, plus 5% = 13,198,009 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
 # 2026-11-19, both of the above on one main (the two rises add: 9,093,488 + 16,560 + 49,984 = 9,160,032 B darwin arm64), 182 packages.
 # Bytes: times CI's 1.3747 is 12,592,296 B on ubuntu x86_64, plus 5% = 13,221,911 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
-doze-kafka 13221911 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-19, the console debt cleared (branch kafka-debt-console: written by, the before cursor, Home's offline partitions, the held
+# readers, the tape's facts of producers and transactions, flushed through, the index head, the cleaner's verdict on save): the release
+# binary on darwin arm64 was 9,126,832 B against 9,093,488 B at its base (+33,344 B, Rust code and the larger bundle), no new package;
+# on this main that is 9,160,032 + 33,344 = 9,193,376 B. Nothing new runs at idle (the facts are read when a page asks for them).
+# Bytes: times CI's 1.3747 is 12,638,234 B on ubuntu x86_64, plus 5% = 13,270,146 B until CI measures it (ceiling 15 MB). Idle unchanged.
+doze-kafka 13270146 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
