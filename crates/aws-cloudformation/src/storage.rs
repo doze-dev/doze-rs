@@ -101,6 +101,15 @@ impl Core {
         for (k, c) in self.change_sets.iter() {
             by.entry(c.stack_id.clone()).or_default().bytes += encoded(k, c);
         }
+        for (k, d) in self.detections.iter() {
+            by.entry(d.stack_id.clone()).or_default().bytes += encoded(k, d);
+        }
+        for (k, d) in self.drifts.iter() {
+            by.entry(d.stack_id.clone()).or_default().bytes += encoded(k, d);
+        }
+        for (k, o) in self.operations.iter() {
+            by.entry(o.stack_id.clone()).or_default().bytes += encoded(k, o);
+        }
         by
     }
 
@@ -216,6 +225,16 @@ impl Core {
         for k in sets {
             self.change_sets.remove(&k);
         }
+        self.forget_drift(id);
+        let ops: Vec<String> = self
+            .operations
+            .iter()
+            .filter(|(_, o)| o.stack_id == id)
+            .map(|(k, _)| k.to_owned())
+            .collect();
+        for k in ops {
+            self.operations.remove(&k);
+        }
     }
 
     fn reset(&mut self, dry_run: bool) -> Emptied {
@@ -230,8 +249,12 @@ impl Core {
         clear(&mut self.stacks);
         clear(&mut self.events);
         clear(&mut self.change_sets);
+        clear(&mut self.detections);
+        clear(&mut self.drifts);
+        clear(&mut self.operations);
         self.outbox.clear();
         self.started.clear();
+        self.checks.clear();
         // WHY: a failed write is the writer's to report on the next call; the counts say what was asked.
         done.freed = self.settle_data().unwrap_or(0);
         done
