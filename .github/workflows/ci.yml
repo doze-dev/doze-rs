@@ -338,7 +338,10 @@ jobs:
           # 6,090,240 B (+607,664 B, +10.0%): the three streams APIs' generated codecs, topology configuration, the sticky
           # assignor and reconciliation are protocol, so the lean build has them too (+446,816 B in the darwin default build).
           # Idle there 7,272 KB, under the line. Line: that plus 5%.
-          [ "$size" -le 7032799 ] || { echo "lean binary over 7,032,799 B"; exit 1; }
+          # 2026-11-20, the old profiles (K2) on the admin APIs (K3) and the wire tail (K1): CI measured 7,096,312 B (run
+          # 44591856919) against streams' 6,697,904 B (+398,408 B, +5.9%): eleven admin APIs, the Kafka 4.4 versions, and the
+          # v0/v1 message-format conversions are protocol, so the lean build has them too. Idle 7,548 KB. Line: that plus 5%.
+          [ "$size" -le 7451128 ] || { echo "lean binary over 7,451,128 B"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
           # 2026-11-18, share groups: CI read 7,192 then 7,380 KB (main 7,104). In the doze-ubuntu VM (aarch64, lean, 6 starts each) main
           # idles at 5,272-5,288 KB and share groups at 5,476-5,484 KB with heap (188 KB) and anonymous memory (456-460 KB) the same:
