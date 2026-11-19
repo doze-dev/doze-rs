@@ -4,7 +4,7 @@
 //! doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar]      the app (a second launch hands these to the first)
 //! doze-app open [FOLDER | doze://…] [--show NAME]               hand over to the running app, or start it on its own
 //!          [--fixture NAME | --synth N]                         a fixture stack instead of the doze home (dev builds)
-//! doze-app shot --fixture larder --screen map --theme teal --mode light --size 1280x800 --out x.png
+//! doze-app shot --fixture larder --screen map --mode light --size 1280x800 --out x.png
 //!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion] [--wait MS]
 //!          --screen instance --select api [--tab logs|console:ID|last run] [--hold PORT]
 //!          --screen logs [--filter TEXT] [--find-mode] [--level 0-3]
@@ -22,7 +22,7 @@
 
 use std::path::PathBuf;
 
-use crate::theme::{Mode, Palette};
+use crate::theme::Mode;
 
 /// Where the stacks come from.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -71,7 +71,6 @@ pub(crate) enum Screen {
 pub(crate) struct Shot {
     pub(crate) from: From,
     pub(crate) screen: Screen,
-    pub(crate) palette: Palette,
     pub(crate) mode: Mode,
     pub(crate) size: (f32, f32),
     pub(crate) out: PathBuf,
@@ -277,9 +276,6 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
                     }
                 }
             }
-            "--theme" => {
-                s.palette = Palette::parse(&v).ok_or(format!("--theme: no palette {v}"))?
-            }
             "--mode" => {
                 s.mode =
                     Mode::parse(&v).ok_or(format!("--mode: {v} is not dark, light or system"))?
@@ -350,7 +346,7 @@ fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
 #[cfg(test)]
 mod tests {
     use super::{Cmd, Screen, parse};
-    use crate::theme::{Mode, Palette};
+    use crate::theme::Mode;
 
     fn args(s: &str) -> Vec<String> {
         s.split_whitespace().map(str::to_owned).collect()
@@ -359,14 +355,14 @@ mod tests {
     #[test]
     fn a_shot_reads_every_flag() {
         let Ok(Cmd::Shot(s)) = parse(args(
-            "shot --fixture larder --screen help --theme teal --mode light --size 900x620 --out /tmp/x.png --select api --zoom 0.25 --at 10,20",
+            "shot --fixture larder --screen help --mode light --size 900x620 --out /tmp/x.png --select api --zoom 0.25 --at 10,20",
         )) else {
             panic!("a shot")
         };
         assert_eq!(s.from.fixture.as_deref(), Some("larder"));
         assert_eq!(
-            (s.screen, s.palette, s.mode, s.size),
-            (Screen::Help, Palette::Teal, Mode::Light, (900., 620.))
+            (s.screen, s.mode, s.size),
+            (Screen::Help, Mode::Light, (900., 620.))
         );
         assert_eq!(
             (s.select.as_deref(), s.zoom, s.at),

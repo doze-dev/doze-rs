@@ -92,9 +92,8 @@ const APP: [(&str, &str, &str, &str, &str); 10] = [
 
 /// The app's choices: a prefix, a glyph, the id's prefix, the words, the values.
 #[rustfmt::skip]
-const CHOICES: [(&str, &str, &str, &str, &[&str]); 4] = [
+const CHOICES: [(&str, &str, &str, &str, &[&str]); 3] = [
     ("Mode", "◐", "mode", "appearance theme", &["system", "light", "dark"]),
-    ("Theme", "●", "theme", "colour color", &["violet", "teal", "burgundy", "amber", "slate"]),
     ("Rows", "≡", "density", "density spacing", &["compact", "cosy", "roomy"]),
     ("Open at login", "⏻", "login", "startup", &["on", "off"]),
 ];

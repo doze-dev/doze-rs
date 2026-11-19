@@ -230,7 +230,7 @@ impl Palette {
             // The ⌘⏎ hint takes the room the examples had.
             String::new()
         } else {
-            "try: api restart · db psql · api timeout · theme teal".into()
+            "try: api restart · db psql · api timeout · mode dark".into()
         };
         // The words at the end give way to the keys (an ellipsis), keeping the foot's padding.
         f.child(div().flex_1()).child(

@@ -202,3 +202,24 @@ fn clients_quote_as_go_does() {
     );
     assert_eq!(client_line("http://x"), None);
 }
+
+/// The five palettes are gone (the owner, 2026-11-19): no `theme NAME` command and no palette's name among the words;
+/// the mode commands stay.
+#[test]
+fn the_app_commands_have_the_mode_and_no_palette() {
+    let rows = app_commands();
+    let ids: Vec<&str> = rows.iter().map(|r| r.doing.text.as_str()).collect();
+    for m in ["mode:system", "mode:light", "mode:dark"] {
+        assert!(ids.contains(&m), "{m}");
+    }
+    assert!(!ids.iter().any(|id| id.starts_with("theme")), "{ids:?}");
+    for r in &rows {
+        for name in ["violet", "teal", "burgundy", "amber", "slate", "colour"] {
+            assert!(!r.label.to_lowercase().contains(name), "{}", r.label);
+            assert!(!r.also.contains(name), "{}", r.label);
+        }
+    }
+    let stacks = [shop()];
+    let p = palette(&stacks, &ask("theme te", None));
+    assert!(!p.rows().any(|r| r.label.starts_with("Theme:")));
+}

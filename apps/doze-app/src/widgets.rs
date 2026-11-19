@@ -308,11 +308,11 @@ pub(crate) fn seg(
 #[cfg(test)]
 mod tests {
     use super::input_frame;
-    use crate::theme::{Palette, load, mix};
+    use crate::theme::{load, mix};
 
     #[test]
     fn a_text_box_frame_eases_to_the_accent_tint_with_the_keys() {
-        let (_, t) = load(Palette::ALL[0], true).unwrap();
+        let (_, t) = load(true).unwrap();
         assert_eq!(input_frame(&t, "test/a", false), (t.line2, false));
         let (shown, moving) = input_frame(&t, "test/a", true);
         assert!(moving, "the border eases, it does not switch");

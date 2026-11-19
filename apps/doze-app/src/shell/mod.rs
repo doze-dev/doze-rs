@@ -35,7 +35,7 @@ use gpui::{
 
 use crate::actions::{
     AllLogs, CloseOverlay, CloseWindow, Confirm, CycleDensity, CycleMode, GoHome, MoveDown, MoveUp,
-    NextPalette, Quit,
+    Quit,
 };
 use crate::facts::{self, Facts};
 use crate::library::{LibraryEvent, LibraryView};
@@ -382,9 +382,6 @@ impl Render for Root {
             .on_action(cx.listener(|this, _: &CloseOverlay, window, cx| this.close(window, cx)))
             .on_action(
                 cx.listener(|this, _: &GoHome, window, cx| this.go(Screen::Library, window, cx)),
-            )
-            .on_action(
-                cx.listener(|this, _: &NextPalette, window, cx| this.next_palette(window, cx)),
             )
             .on_action(cx.listener(|this, _: &CycleMode, window, cx| this.cycle_mode(window, cx)))
             .on_action(cx.listener(|this, _: &CycleDensity, _, cx| this.cycle_density(cx)))

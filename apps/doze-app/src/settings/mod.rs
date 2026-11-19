@@ -1,7 +1,7 @@
 //! Settings (PLAN.md §2.8 rows 82–84, §2.9 rows 87–88; M3 step 3.4), as the Settings and Doctor boards lay it out: a
 //! short list at the left (General, Machine, About) and one part at a time.
 //!
-//! - General: the mode, the rows' density, the five colour themes drawn in the mode on screen, Open at login (a
+//! - General: the mode, the rows' density, Open at login (a
 //!   LaunchAgent through `doze_os::autostart`, in a folder the source names: a fixture's is a temporary one), Reopen
 //!   the page I had, and where the prefs live.
 //! - Machine: the setup part by part with each fix (`doze --json doctor`, plus whether a terminal finds doze), Repair
@@ -72,7 +72,7 @@ impl Section {
 pub(crate) enum SettingsEvent {
     /// Says something, a toast; bad news in the bad colour.
     Say(String, bool),
-    /// The theme chosen.
+    /// The mode chosen.
     Choose(Choice),
     /// The rows' density chosen.
     Density(Density),

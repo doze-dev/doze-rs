@@ -7,7 +7,7 @@ use crate::actions::{OpenPalette, ShowHelp};
 use crate::overlays::palette::{Palette, PaletteEvent};
 use crate::overlays::{self, Overlay};
 use crate::overview::View;
-use crate::theme::{self, Choice, Density, Mode, Motion, Palette as Colors, tokens};
+use crate::theme::{self, Choice, Density, Mode, Motion, tokens};
 
 impl Root {
     pub(crate) fn on_palette(
@@ -137,19 +137,6 @@ impl Root {
         }
     }
 
-    pub(super) fn next_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let c = *cx.global::<Choice>();
-        let i = Colors::ALL
-            .iter()
-            .position(|p| *p == c.palette)
-            .unwrap_or(0);
-        let palette = Colors::ALL
-            .get((i + 1) % Colors::ALL.len())
-            .copied()
-            .unwrap_or_default();
-        self.set_theme(Choice { palette, ..c }, window, cx);
-    }
-
     pub(super) fn cycle_mode(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let c = *cx.global::<Choice>();
         let mode = match c.mode {
@@ -157,7 +144,7 @@ impl Root {
             Mode::Dark => Mode::Light,
             Mode::Light => Mode::System,
         };
-        self.set_theme(Choice { mode, ..c }, window, cx);
+        self.set_theme(Choice { mode }, window, cx);
     }
 
     /// Compact, cosy, roomy, round again: the Library's and the List's rows together.

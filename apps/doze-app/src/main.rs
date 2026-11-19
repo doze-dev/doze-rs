@@ -1,8 +1,8 @@
 //! doze's desktop app: a native GPUI window over the doze daemon, and the menu-bar item (docs/port/app/PLAN.md).
 //!
 //! This is M0: the shell (activation, the one window and its frame, single instance with argument forwarding, the
-//! menu-bar item, `doze://` links, folders dropped on the window), the theme (five palettes, dark and light, from
-//! the Go app's tokens), the action table (keymap, menus, ⌘K, the help sheet and every key chip from one table), the
+//! menu-bar item, `doze://` links, folders dropped on the window), the look (Graphite, dark and light, from
+//! doze's own tokens), the action table (keymap, menus, ⌘K, the help sheet and every key chip from one table), the
 //! Map, and `shot` and `bench`. Every screen reads the doze-desk hub (`source`).
 //!
 //! Lint carve-outs, written down (docs/port/app/PLAN.md step 0.1): none in this crate. It keeps the workspace's lints,
@@ -123,7 +123,7 @@ fn main() -> ExitCode {
         }
         Err(e) => {
             eprintln!(
-                "doze-app: {e}\n\nusage: doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar] [--fixture NAME | --synth N]\n       doze-app shot --fixture NAME --screen library|tiles|list|map|grid|palette|help|instance|logs [--stack NAME] --theme T --mode dark|light --size WxH --out FILE\n                     [--select NAME] [--tab ID] [--filter TEXT] [--find-mode] [--level 0-3] [--hold PORT] [--density D]\n       doze-app bench [--fixture NAME | --synth N] [--idle SECONDS] [--display N] [--in-use] [--check [--budget MB]] [--logs [--follow SECONDS]]\n       doze-app <doze command> …   the doze CLI itself: status, logs, wake, … (doze-app help)"
+                "doze-app: {e}\n\nusage: doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar] [--fixture NAME | --synth N]\n       doze-app shot --fixture NAME --screen library|tiles|list|map|grid|palette|help|instance|logs [--stack NAME] --mode dark|light --size WxH --out FILE\n                     [--select NAME] [--tab ID] [--filter TEXT] [--find-mode] [--level 0-3] [--hold PORT] [--density D]\n       doze-app bench [--fixture NAME | --synth N] [--idle SECONDS] [--display N] [--in-use] [--check [--budget MB]] [--logs [--follow SECONDS]]\n       doze-app <doze command> …   the doze CLI itself: status, logs, wake, … (doze-app help)"
             );
             ExitCode::from(2)
         }

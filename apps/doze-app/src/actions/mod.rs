@@ -40,7 +40,6 @@ actions!(
         MoveLeft,
         MoveRight,
         Confirm,
-        NextPalette,
         CycleMode,
         CloseWindow,
         Quit,

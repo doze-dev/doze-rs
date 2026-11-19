@@ -1,10 +1,10 @@
-//! `cargo xtask themes [--check]`: the desktop app's themes, converted from the Go app's design tokens.
+//! `cargo xtask themes [--check]`: the desktop app's look, from doze's own design tokens.
 //!
-//! `apps/doze-app/themes/tokens.css` is a copy of the Go app's `internal/desk/frontend/src/tokens.css` (written there by
-//! `go generate ./internal/brand`): five palettes, each dark and light, as `:root[data-theme][data-mode]` blocks of
-//! `--name: #hex;`. This writes `apps/doze-app/themes/doze.json`, one gpui-component theme set with the ten themes: the
+//! `apps/doze-app/themes/tokens.css` is doze's: Graphite, the one look (the owner's call of 2026-11-19, which dropped
+//! the Go app's five palettes), as two `:root[data-mode="dark|light"]` blocks of `--name: value;`. This writes
+//! `apps/doze-app/themes/doze.json`, a gpui-component theme set with one theme per mode (`doze dark`, `doze light`): the
 //! component colors mapped from the tokens (docs/port/app/PLAN.md §4.6), and doze's own tokens kept whole under `doze`
-//! (gpui-component ignores keys it does not know), so the app paints with the same names the React app did.
+//! (gpui-component ignores keys it does not know), so the app paints with the names the React app used.
 //! `--check` fails when the JSON is not what the CSS gives (CI runs it, as it runs `codegen --check`).
 
 use std::fmt::Write as _;
@@ -13,14 +13,12 @@ use std::process::ExitCode;
 
 const CSS: &str = "apps/doze-app/themes/tokens.css";
 const JSON: &str = "apps/doze-app/themes/doze.json";
-/// Candidate looks under review (design pass 2026-11-19), appended after the five palettes; optional.
-const CANDIDATES: &str = "apps/doze-app/themes/candidates.css";
 
-/// Tokens a candidate may add beyond the twenty, kept under `doze` when present.
-const EXTRA: [&str; 4] = ["on", "on-knob", "x-lift", "x-scrim"];
+/// The modes, in the order the file must have them.
+const MODES: [&str; 2] = ["dark", "light"];
 
-/// doze's tokens, in the order the CSS writes them; each theme must have them all.
-const TOKENS: [&str; 20] = [
+/// doze's colour tokens, in the order the CSS writes them; each mode must have them all.
+const TOKENS: [&str; 26] = [
     "bg",
     "side",
     "panel",
@@ -41,7 +39,16 @@ const TOKENS: [&str; 20] = [
     "track",
     "ink",
     "on-accent",
+    "on",
+    "on-knob",
+    "cat-1",
+    "cat-2",
+    "cat-3",
+    "cat-4",
 ];
+
+/// doze's number tokens (written bare): the card shadow's strength and the scrim's opacity.
+const NUMBERS: [&str; 2] = ["lift", "scrim"];
 
 /// gpui-component's color keys, each from a doze token (an `@` suffix is an alpha byte).
 const COMPONENT: [(&str, &str); 40] = [
@@ -82,15 +89,14 @@ const COMPONENT: [(&str, &str); 40] = [
     ("scrollbar.thumb.background", "line2"),
     ("switch.background", "track"),
     ("skeleton.background", "sel"),
-    ("chart.1", "accent"),
-    ("chart.2", "cool"),
-    ("chart.3", "good"),
+    ("chart.1", "cat-1"),
+    ("chart.2", "cat-2"),
+    ("chart.3", "cat-3"),
 ];
 
-/// One `:root[data-theme][data-mode]` block.
+/// One `:root[data-mode]` block.
 #[derive(Debug, PartialEq, Eq)]
 struct Block {
-    palette: String,
     mode: String,
     tokens: Vec<(String, String)>,
 }
@@ -101,8 +107,7 @@ pub(crate) fn run(args: &[String]) -> ExitCode {
         Ok(s) => s,
         Err(e) => return fail(&format!("reading {CSS}: {e}")),
     };
-    let candidates = fs::read_to_string(CANDIDATES).unwrap_or_default();
-    let json = match convert_with(&css, &candidates) {
+    let json = match convert(&css) {
         Ok(j) => j,
         Err(e) => return fail(&format!("{CSS}: {e}")),
     };
@@ -130,21 +135,14 @@ fn fail(message: &str) -> ExitCode {
 }
 
 /// The theme set for the CSS.
-#[cfg(test)]
 fn convert(css: &str) -> Result<String, String> {
-    convert_with(css, "")
-}
-
-/// The theme set for the CSS, then the candidates' blocks after the ten.
-fn convert_with(css: &str, candidates: &str) -> Result<String, String> {
-    let mut blocks = blocks(css)?;
-    if blocks.len() != 10 {
+    let blocks = blocks(css)?;
+    let modes: Vec<&str> = blocks.iter().map(|b| b.mode.as_str()).collect();
+    if modes != MODES {
         return Err(format!(
-            "expected 10 palette blocks (5 palettes x dark/light), found {}",
-            blocks.len()
+            "expected one block per mode, dark then light, found {modes:?}"
         ));
     }
-    blocks.extend(blocks_of(candidates)?);
     let mut out = String::from(
         "{\n  \"name\": \"doze\",\n  \"author\": \"doze (converted from tokens.css by `cargo xtask themes`; do not edit)\",\n  \"themes\": [\n",
     );
@@ -162,25 +160,19 @@ fn theme(out: &mut String, b: &Block) -> Result<(), String> {
             .iter()
             .find(|(k, _)| k == name)
             .map(|(_, v)| v.as_str())
-            .ok_or_else(|| format!("{} {}: no --{name}", b.palette, b.mode))
+            .ok_or_else(|| format!("{}: no --{name}", b.mode))
     };
     let _ = writeln!(out, "    {{");
-    let _ = writeln!(out, "      \"name\": \"doze {} {}\",", b.palette, b.mode);
+    let _ = writeln!(out, "      \"name\": \"doze {}\",", b.mode);
     let _ = writeln!(out, "      \"mode\": \"{}\",", b.mode);
     out.push_str("      \"font.family\": \"Geist\",\n      \"font.size\": 13,\n");
     out.push_str("      \"mono_font.family\": \"Geist Mono\",\n      \"mono_font.size\": 12,\n");
-    let opt = |name: &str, default: &str| -> String {
-        b.tokens
-            .iter()
-            .find(|(k, _)| k == name)
-            .map_or_else(|| default.to_owned(), |(_, v)| v.clone())
-    };
     let _ = writeln!(
         out,
         "      \"radius\": {},\n      \"radius.lg\": {},\n      \"shadow\": {},",
-        opt("x-radius", "7"),
-        opt("x-radius-lg", "10"),
-        opt("x-shadow", "false")
+        number(get("radius")?)?,
+        number(get("radius-lg")?)?,
+        flag(get("shadow")?)?
     );
     out.push_str("      \"colors\": {\n");
     for (i, (key, from)) in COMPONENT.iter().enumerate() {
@@ -193,17 +185,8 @@ fn theme(out: &mut String, b: &Block) -> Result<(), String> {
         );
     }
     out.push_str("      },\n      \"doze\": {\n");
-    let _ = writeln!(out, "        \"palette\": \"{}\",", b.palette);
-    for t in EXTRA {
-        if let Some((_, v)) = b.tokens.iter().find(|(k, _)| k == t) {
-            let v = v.to_lowercase();
-            let v = if v.starts_with('#') {
-                format!("\"{v}\"")
-            } else {
-                v
-            };
-            let _ = writeln!(out, "        \"{}\": {v},", t.replace('-', "_"));
-        }
+    for t in NUMBERS {
+        let _ = writeln!(out, "        \"{t}\": {},", number(get(t)?)?);
     }
     for (i, t) in TOKENS.iter().enumerate() {
         let comma = if i + 1 < TOKENS.len() { "," } else { "" };
@@ -218,21 +201,29 @@ fn theme(out: &mut String, b: &Block) -> Result<(), String> {
     Ok(())
 }
 
-/// Every `:root[data-theme="…"][data-mode="…"] { … }` block, in order.
-fn blocks(css: &str) -> Result<Vec<Block>, String> {
-    blocks_of(css)
+/// A number token, written bare.
+fn number(v: &str) -> Result<&str, String> {
+    v.parse::<f64>()
+        .map(|_| v)
+        .map_err(|_| format!("not a number: {v}"))
 }
 
-fn blocks_of(css: &str) -> Result<Vec<Block>, String> {
-    const HEAD: &str = ":root[data-theme=\"";
+/// A yes-or-no token.
+fn flag(v: &str) -> Result<&str, String> {
+    match v {
+        "true" | "false" => Ok(v),
+        _ => Err(format!("not true or false: {v}")),
+    }
+}
+
+/// Every `:root[data-mode="…"] { … }` block, in order.
+fn blocks(css: &str) -> Result<Vec<Block>, String> {
+    const HEAD: &str = ":root[data-mode=\"";
     let mut out = Vec::new();
     let mut rest = css;
     while let Some(at) = rest.find(HEAD) {
         rest = rest.get(at + HEAD.len()..).unwrap_or("");
-        let (palette, after) = rest
-            .split_once("\"][data-mode=\"")
-            .ok_or("a data-theme without a data-mode")?;
-        let (mode, after) = after.split_once("\"]").ok_or("an unclosed data-mode")?;
+        let (mode, after) = rest.split_once("\"]").ok_or("an unclosed data-mode")?;
         let (_, body) = after.split_once('{').ok_or("a block without a body")?;
         let (body, after) = body.split_once('}').ok_or("an unclosed block")?;
         let tokens = body
@@ -243,7 +234,6 @@ fn blocks_of(css: &str) -> Result<Vec<Block>, String> {
             })
             .collect();
         out.push(Block {
-            palette: palette.to_owned(),
             mode: mode.to_owned(),
             tokens,
         });
@@ -258,25 +248,33 @@ mod tests {
 
     #[test]
     fn a_block_is_read_and_converted() {
-        let css = ":root { --bg: #000; }\n:root[data-theme=\"violet\"][data-mode=\"dark\"] {\n  --bg: #15131D;\n  --on-accent: #fff;\n}\n";
+        let css = ":root { --bg: #000; }\n:root[data-mode=\"dark\"] {\n  --bg: #15131D;\n  --on-accent: #fff;\n}\n";
         let b = blocks(css).unwrap();
         assert_eq!(b.len(), 1);
-        assert_eq!(b[0].palette, "violet");
         assert_eq!(b[0].mode, "dark");
         assert_eq!(b[0].tokens[0], ("bg".to_owned(), "#15131D".to_owned()));
-        assert!(convert(css).unwrap_err().contains("expected 10"));
+        assert!(convert(css).unwrap_err().contains("one block per mode"));
     }
 
     #[test]
-    fn the_real_tokens_convert_to_ten_themes() {
+    fn the_real_tokens_convert_to_one_theme_per_mode() {
         let css = std::fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../apps/doze-app/themes/tokens.css"
         ))
         .unwrap();
         let json = convert(&css).unwrap();
-        assert_eq!(json.matches("\"mode\":").count(), 10);
-        assert!(json.contains("\"name\": \"doze violet dark\""));
-        assert!(json.contains("\"selection.background\": \"#bd93f959\""));
+        assert_eq!(json.matches("\"mode\":").count(), 2);
+        assert!(json.contains("\"name\": \"doze dark\""));
+        assert!(json.contains("\"name\": \"doze light\""));
+        assert!(json.contains("\"selection.background\": \"#f0a24b59\""));
+        assert!(json.contains("\"lift\": 0.45,"));
+        assert!(json.contains("\"cat_1\": \"#3cc3d0\""));
+    }
+
+    #[test]
+    fn a_missing_token_is_named() {
+        let css = ":root[data-mode=\"dark\"] { --bg: #000; }\n:root[data-mode=\"light\"] { --bg: #fff; }\n";
+        assert!(convert(css).unwrap_err().contains("dark: no --"));
     }
 }

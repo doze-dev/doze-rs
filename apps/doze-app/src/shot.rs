@@ -38,13 +38,7 @@ pub(crate) fn run(s: Shot) -> ExitCode {
         .run(move |cx: &mut App| {
             crate::app::boot_core(cx);
             cx.set_activation_policy(gpui::ActivationPolicy::Accessory);
-            crate::app::boot_ui(
-                cx,
-                Choice {
-                    palette: s.palette,
-                    mode: s.mode,
-                },
-            );
+            crate::app::boot_ui(cx, Choice { mode: s.mode });
             if s.reduce {
                 cx.set_reduce_motion(true);
             }
