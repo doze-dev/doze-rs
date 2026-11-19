@@ -75,10 +75,15 @@ fn banner(
 }
 
 /// The daemon is not answering, or has gone quiet (Go: `app.tsx`'s warn banner over every stack page, a ring and
-/// the words alone).
+/// the words alone). Connecting is no banner: it is every start's first moment (and a drop's, until it lasts), and an
+/// insert at the top pushed the whole page down and back; the head's status line says "connecting…" in place.
 pub(super) fn stale(t: &Tokens, v: &OverviewView) -> Option<AnyElement> {
     let b = &v.home.banner;
-    (!b.ok && !b.text.is_empty()).then(|| stale_banner(t, &b.text))
+    let connecting = v
+        .stack
+        .as_ref()
+        .is_some_and(|s| s.running && s.conn_shown(v.hub.now()) == doze_desk::Conn::Connecting);
+    (!b.ok && !b.text.is_empty() && !connecting).then(|| stale_banner(t, &b.text))
 }
 
 /// The warn banner of a daemon not answering, with its words (the stack page's and an instance page's).

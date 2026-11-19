@@ -13,7 +13,7 @@ use crate::widgets::{Mono as _, dot, switch};
 /// The columns' widths: the dot, then name / running / addresses share the rest, then last and the controls.
 const DOT_W: f32 = 10.;
 const WHEN_W: f32 = 96.;
-const ACT_W: f32 = 86.;
+const ACT_W: f32 = 118.;
 
 fn cols<E: ParentElement>(row: E, cells: [AnyElement; 6]) -> E {
     let [d, name, fig, pills, when, act] = cells;
@@ -81,6 +81,7 @@ fn row(
 ) -> impl IntoElement {
     let selected = v.selected.as_deref() == Some(st.key.as_str());
     let busy = super::act::busy(&st.key, cx);
+    let (shown, sleeping) = super::act::busy_shown(&st.key, cx);
     let menu = v.menu.as_deref() == Some(st.key.as_str());
     let pad = v.density.pad();
     let key = st.key.clone();
@@ -132,11 +133,11 @@ fn row(
             .flex()
             .justify_end()
             .text_size(px(ty::SM))
-            .text_color(if busy.is_some() { t.cool } else { t.dim })
+            .text_color(if shown.is_some() { t.cool } else { t.dim })
             .whitespace_nowrap()
-            .child(busy.map_or_else(|| st.when.clone(), |b| format!("{}…", b.word())))
+            .child(shown.map_or_else(|| st.when.clone(), |b| format!("{}…", b.word())))
             .into_any_element(),
-        act(t, st, (menu, busy), &k2, cx).into_any_element(),
+        act(t, st, (menu, busy, sleeping), &k2, cx).into_any_element(),
     ];
     let mut r = cols(base, cells);
     if menu {
@@ -285,17 +286,35 @@ fn pills(t: &Tokens, st: &LibStack, cx: &mut Context<LibraryView>) -> impl IntoE
 fn act(
     t: &Tokens,
     st: &LibStack,
-    (menu, busy): (bool, Option<doze_desk::act::Busy>),
+    (menu, busy, sleeping): (bool, Option<doze_desk::act::Busy>, bool),
     key: &str,
     cx: &mut Context<LibraryView>,
 ) -> impl IntoElement {
+    use super::menu::Moon;
     let k = key.to_owned();
     let k_sw = key.to_owned();
+    let k_moon = key.to_owned();
+    let moon = if !st.running {
+        Moon::Hidden
+    } else if sleeping {
+        Moon::Working
+    } else if busy.is_some() || !st.live || st.dot == "z" {
+        Moon::Off
+    } else {
+        Moon::Ready
+    };
     div()
         .flex()
         .items_center()
         .justify_end()
         .gap(px(4.))
+        .child(super::menu::moon(
+            t,
+            &format!("moon-{key}"),
+            moon,
+            move |this: &mut LibraryView, cx| this.sleep_all(&k_moon, cx),
+            cx,
+        ))
         .child(
             div()
                 .id(gpui::SharedString::from(format!("sw-{key}")))

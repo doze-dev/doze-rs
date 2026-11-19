@@ -66,9 +66,11 @@ fn why(t: &Tokens, r: &Row) -> gpui::Div {
         r.err.as_str()
     };
     let line = word_line(r.look.word, word_tone(t, r), &[&r.because, err]);
+    // It gives way first (cut with an ellipsis), so in a narrow window the memory and the switch stay in their
+    // column, under Sleep all, and are not pushed past the list's edge.
     div()
         .flex_1()
-        .min_w(px(170.))
+        .min_w_0()
         .overflow_hidden()
         .whitespace_nowrap()
         .text_ellipsis()
@@ -88,7 +90,10 @@ fn row(
     let off = !r.on && r.kind != "task";
     let (name, weak) = (r.name.clone(), this.clone());
     let switch = this
-        .update(cx, |this, cx| row_switch(t, r, &this.home.key, cx))
+        .update(cx, |this, cx| {
+            let turning = this.turning.contains(&r.name);
+            row_switch(t, r, (&this.home.key, turning), cx)
+        })
         .unwrap_or_else(|_| div().into_any_element());
     let title = div()
         .flex_1()
@@ -195,7 +200,7 @@ pub(super) fn view(
         .flex_1()
         .min_w_0()
         .pt(px(28.))
-        .child(filter(t, v))
+        .child(filter(t, v, Some(super::tiles::LIST_SWITCH_IN), cx))
         .child(
             div()
                 .flex()

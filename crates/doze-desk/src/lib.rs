@@ -49,7 +49,7 @@ mod view;
 pub use changed::{Batch, Changed, Parts};
 pub use clock::Clock;
 pub use coalesce::{Coalescer, FRAME, Policy};
-pub use conn::{Conn, Link};
+pub use conn::{Conn, LOST_AFTER, Link};
 pub use console::{ConsoleView, STREAM_KEPT};
 pub use error::Error;
 pub use events::EVENTS_KEPT;
@@ -57,6 +57,6 @@ pub use hub::{ConsoleWatch, Hub, Options, VERB_TIMEOUT, Watch};
 pub use name::name_from_key;
 pub use ring::{BACKLOG, LINES_KEPT, LineRef, LogRing, TEXT_KEPT};
 pub use series::{SAMPLES_KEPT, Series};
-pub use view::StackView;
+pub use view::{ALL_ASLEEP, StackView};
 
 pub use doze_projects::StackKey;

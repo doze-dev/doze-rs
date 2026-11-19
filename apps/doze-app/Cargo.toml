@@ -44,6 +44,8 @@ doze-cli = { path = "../../crates/doze-cli", default-features = false }
 # warnings, and the notification lines, to stderr (`stderr_log`). Already in the tree through gpui.
 log = { version = "0.4", features = ["std"] }
 doze-control = { path = "../../crates/doze-control" }
+# The stacks' daemons the app's CLI starts are this program too (`doze-app __daemon`, main.rs). In the tree already, through the CLI.
+doze-daemon = { path = "../../crates/doze-daemon" }
 doze-desk = { path = "../../crates/doze-desk" }
 doze-display = { path = "../../crates/doze-display" }
 doze-map = { path = "../../crates/doze-map" }

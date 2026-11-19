@@ -1440,3 +1440,19 @@ the profile's own rule (built for size what the app carries but does not draw) t
 | `doze-app` packages (CI's count) | 700 → 660 | | 656 | 656 |
 
 The CI line is the measured size plus 5% (16,563,000 B) and the package count plus four, under the owner's 20 MB ceiling.
+
+## The app runs its stacks' daemons (2026-11-19, branch `app-next`), release-app, darwin/arm64
+
+The CLI the app carries starts a stack's daemon as the running program (`doze-app __daemon`), but the app's `main` did
+not answer to `__daemon`, so the app's Up started a daemon that exited at once ("unknown flag --config"). The app now
+runs the daemon's entry as the `doze` binary does, which links the daemon's serving half (its control server, the
+engine's run loop) that the CLI alone did not reach. The packages were already in the tree through the CLI (one more
+edge: doze-app → doze-daemon).
+
+| | Line | app-next before (Sleep all, in-place busy state) | with the daemon's entry |
+|---|---|---|---|
+| `doze-app` bytes | 16,563,000 → 17,491,000 | 15,824,208 | 16,657,840 (+833,632, +5.3%) |
+| `doze-app` packages (CI's count) | 660 | 656 | 657 |
+
+A rise with its reason: without it the app cannot start a stack at all. The line is the new measure plus 5%; the
+owner's ceiling stays 20 MB.

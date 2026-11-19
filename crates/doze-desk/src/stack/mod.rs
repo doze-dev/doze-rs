@@ -56,6 +56,10 @@ pub(crate) struct Stack {
     state: Arc<Mutex<StackState>>,
     cmds: Sender<Cmd>,
     client: Client,
+    /// The daemon's pid when it was found: another pid on the same socket is a new daemon, followed afresh.
+    pub(crate) pid: Option<u32>,
+    /// Whether the last look found its daemon lost ([`crate::Link::lost`]): a change is said once, when it turns.
+    pub(crate) lost_seen: bool,
 }
 
 pub(crate) fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -92,7 +96,14 @@ impl Stack {
             state,
             cmds,
             client,
+            pid: None,
+            lost_seen: false,
         }
+    }
+
+    /// Runs `f` on the stack's state: the hub's own changes to it (an action of the app ending).
+    pub(crate) fn with_state<R>(&self, f: impl FnOnce(&mut StackState) -> R) -> R {
+        f(&mut lock(&self.state))
     }
 
     /// The stack as pages see it now.

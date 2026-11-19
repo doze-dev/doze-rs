@@ -42,6 +42,9 @@ pub struct Home {
     /// How long the daemon has been up: `14m`.
     #[serde(skip_serializing_if = "String::is_empty")]
     pub up: String,
+    /// Up with every service asleep ([`crate::StackView::all_asleep`]): the head says [`crate::ALL_ASLEEP`].
+    #[serde(skip_serializing_if = "is_false")]
+    pub asleep: bool,
     /// Set for a stack that is not running: its rows are down.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stopped: Option<Stopped>,
@@ -132,7 +135,7 @@ pub fn home(st: &StackView, now: SystemTime) -> Home {
         st.instances.iter().map(|v| (v.name.as_str(), v)).collect();
     let rows = words::rows(&snap);
     let (_, depth) = words::tree_order(&rows);
-    let frozen = st.running && st.link.conn == Conn::Down;
+    let frozen = st.daemon_lost(now);
     let mut h = head(st, now);
     let mut ordered: Vec<(&InstanceView, &words::Instance)> = Vec::new();
     for g in words::Group::ALL {
@@ -183,6 +186,7 @@ pub(crate) fn head(st: &StackView, now: SystemTime) -> Home {
         running: st.running,
         banner: banner(st, now),
         up,
+        asleep: st.all_asleep(),
         ..Home::default()
     }
 }
@@ -207,12 +211,8 @@ pub fn banner(st: &StackView, now: SystemTime) -> Banner {
         .retry_at
         .and_then(|r| r.duration_since(now).ok())
         .unwrap_or_default();
-    match words::banner(
-        l.conn == Conn::Connecting,
-        l.conn == Conn::Down,
-        retry,
-        since,
-    ) {
+    let shown = st.conn_shown(now);
+    match words::banner(shown == Conn::Connecting, shown == Conn::Down, retry, since) {
         None => Banner {
             ok: true,
             text: String::new(),

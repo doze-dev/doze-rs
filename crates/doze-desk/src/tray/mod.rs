@@ -107,7 +107,11 @@ pub fn build(stacks: &[StackView], now: SystemTime) -> Model {
         }
         awake += t.awake;
         if !l.trouble {
-            l.sub = running_sub(st.link.conn, &t);
+            l.sub = if st.all_asleep() {
+                crate::ALL_ASLEEP.to_owned()
+            } else {
+                running_sub(st.conn_shown(now), &t)
+            };
         }
         running.push(l);
     }

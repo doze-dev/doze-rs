@@ -84,6 +84,19 @@ fn source_for(from: &cli::From, home: PathBuf) -> anyhow::Result<Source> {
 
 fn main() -> ExitCode {
     let launched = Instant::now();
+    // `doze-app __daemon --config <path>`: a stack's daemon. The CLI the app carries starts its stacks' daemons as
+    // this program (doze-cli's `daemon_exe` is the running program), as the `doze` binary's main does; without this the
+    // app's Up started a daemon that exited at once ("unknown flag --config").
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|a| a == doze_daemon::ctl::ARG)
+    {
+        let args: Vec<String> = std::env::args_os()
+            .skip(2)
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        return doze_daemon::entry::main(&args, doze_cli::ctx::VERSION);
+    }
     if let Some(code) = own::as_cli() {
         return ExitCode::from(code);
     }

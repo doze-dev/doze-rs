@@ -2730,6 +2730,7 @@ dependencies = [
  "chrono",
  "doze-cli",
  "doze-control",
+ "doze-daemon",
  "doze-desk",
  "doze-display",
  "doze-map",

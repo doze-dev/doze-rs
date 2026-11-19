@@ -136,6 +136,7 @@ fn a_missing_folder_says_only_that() {
 fn a_daemon_down_and_a_failed_start() {
     let mut st = running(json!([]));
     (st.link.conn, st.link.last_frame) = (Conn::Down, Some(t0() - Duration::from_secs(120)));
+    st.link.down_since = st.link.last_frame;
     let fail = StackFailure {
         what: "Restarting shop failed".into(),
         lines: vec!["exit 1".into()],
@@ -159,6 +160,57 @@ fn a_daemon_down_and_a_failed_start() {
         (1, FixKind::Dismiss)
     );
     assert!(items[0].mono && items[0].detail == "exit 1");
+}
+
+/// The stack's daemon dropped `ago` before t0.
+fn dropped(ago: Duration) -> StackView {
+    let mut st = running(json!([{"name": "api", "kind": "app", "state": "running"}]));
+    st.link.conn = Conn::Down;
+    st.link.last_frame = Some(t0() - ago);
+    st.link.down_since = Some(t0() - ago);
+    st
+}
+
+fn daemon_items(st: &StackView, now: SystemTime) -> usize {
+    stack_items(st, &StackFacts::default(), now)
+        .iter()
+        .filter(|i| i.kind == "daemon")
+        .count()
+}
+
+#[test]
+fn a_drop_says_nothing_until_it_lasts() {
+    // On every down the socket closes as the daemon exits, before the stack is seen stopped; on every up the first
+    // dial can come before the daemon listens. Neither is a daemon that stopped answering.
+    assert_eq!(daemon_items(&dropped(Duration::ZERO), t0()), 0);
+    assert_eq!(
+        daemon_items(&dropped(Duration::from_millis(1_900)), t0()),
+        0
+    );
+    // Sustained: said, so a crashed or hung daemon is flagged as soon as the window is over.
+    assert_eq!(daemon_items(&dropped(crate::LOST_AFTER), t0()), 1);
+    assert_eq!(daemon_items(&dropped(Duration::from_secs(60)), t0()), 1);
+}
+
+#[test]
+fn a_drop_during_this_apps_action_says_nothing() {
+    let mut st = dropped(Duration::from_secs(60));
+    st.acting = true;
+    assert_eq!(daemon_items(&st, t0()), 0, "the action's own doing");
+    // The action ends with the daemon still not answering: a loss counts from then.
+    st.acting = false;
+    st.link.settle(t0());
+    assert_eq!(daemon_items(&st, t0() + Duration::from_secs(1)), 0);
+    assert_eq!(daemon_items(&st, t0() + crate::LOST_AFTER), 1);
+}
+
+#[test]
+fn a_new_start_is_connecting_not_the_last_sessions_down() {
+    // A stack just found running starts at Connecting: nothing to say however long ago its last frame was.
+    let mut st = running(json!([]));
+    st.link = crate::Link::default();
+    assert_eq!(st.conn_shown(t0()), Conn::Connecting);
+    assert_eq!(daemon_items(&st, t0() + Duration::from_secs(60)), 0);
 }
 
 #[test]

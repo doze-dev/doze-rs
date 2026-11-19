@@ -27,6 +27,7 @@ pub(crate) const PAGES: &[Spec] = &[
     row!("Stack above", "move", MoveUp, ["up", "k"], Library, None, false, true),
     row!("Stack below", "move", MoveDown, ["down", "j"], Library, None, false, true),
     row!("Up or down", "the stack's switch", ToggleStack, ["space"], Library, None, false, true),
+    row!("Sleep everything", "in the stack selected; its daemon stays up", SleepStack, ["s"], Library, None, false, true),
     row!("Remove from doze…", "stops it; every file stays", RemoveStack, ["backspace"], Library, None, false, true),
     row!("Service above", "move", MoveUp, ["up", "k"], Overview, None, false, true),
     row!("Service below", "move", MoveDown, ["down", "j"], Overview, None, false, true),
