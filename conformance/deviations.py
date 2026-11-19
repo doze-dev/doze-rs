@@ -16,6 +16,9 @@ Key: "<module>::<test>::<label>".
 # What belongs here is only what cannot exist on a laptop at all, or what an
 # owner-chosen default trades for local ease while a flag gives AWS's answer.
 DEVIATIONS = {
+    # The owner chose (2026-11-18) to keep words where AWS answers an empty message: listed in docs/aws/compatibility-notes.toml.
+    "test_ssm::test_service_settings::unknown-setting":
+        "AWS's message is empty; doze-aws names the setting (owner's choice, 2026-11-18)",
     # AWS reads the last invocation's EndTimestamp apart from the execution's (two clock readings in its own pipeline); doze-aws
     # ends both at one instant, and faking an offset would be inventing data. Listed in docs/aws/compatibility-notes.toml.
     "test_lambda_durable::test_durable_execution_with_a_wait_and_a_callback::history-newest-first":
