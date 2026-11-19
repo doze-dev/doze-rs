@@ -59,8 +59,10 @@ test("nothing is opened before a person chooses: the page is a calm chooser that
   expect(mutations, "DOM mutations after load").toBe(0);
   expect(asked.some((u) => u.includes("/api/v1/tail/")), "no stream").toBe(false);
   // A recent topic is one click away.
-  await page.getByTestId("tail-recent").getByRole("button", { name: "orders", exact: true }).click();
-  await expect(page).toHaveURL(/\/tail\?topic=orders$/);
+  const first = page.getByTestId("tail-recent").getByRole("button").first();
+  const name = (await first.innerText()).trim();
+  await first.click();
+  await expect(page).toHaveURL((u) => u.pathname.endsWith("/tail") && u.searchParams.getAll("topic").join() === name);
   await expect(page.getByTestId("tail-conn")).toHaveAttribute("data-state", "live", { timeout: 10_000 });
 });
 

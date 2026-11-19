@@ -6,7 +6,7 @@ export type NavItem = { label: string; to: string; icon: LucideIcon; count?: "to
 export const NAV: NavItem[] = [
   { label: "Home", to: "/", icon: HomeIcon },
   { label: "Live", to: "/live", icon: ActivityIcon, keywords: "wire requests tape" },
-  { label: "Live tail", to: "/tail", icon: RadioIcon, keywords: "tail follow stream records messages events consume watch" },
+  { label: "Live tail", to: "/tail", icon: RadioIcon, keywords: "tail follow stream messages events consume watch" },
   { label: "Topics", to: "/topics", icon: Rows3Icon, count: "topics" },
   { label: "Groups", to: "/groups", icon: UsersIcon, count: "groups", keywords: "consumers lag" },
   { label: "Schemas", to: "/schemas", icon: FileJson2Icon, count: "schemas", keywords: "registry avro protobuf json subjects" },

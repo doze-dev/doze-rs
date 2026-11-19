@@ -344,3 +344,34 @@ tail.
 `@generated`, as the codegen tables, and is skipped); both catalogue checkers green; `bun run typecheck`, `lint`, `bun test` (31), `build`;
 Playwright with main's theme spec merged: **Firefox 104/104, WebKit 104/104, Chromium 104/104** on the seeded world. Weight (darwin):
 **5,945,008 B** (main 6,593,728 B), **155 packages** (limit 161, not moved), 6,800 KB idle.
+
+## Live tail done (2026-11-19, branch `kafka-live-tail`): several topics, one stream
+
+**Page.** `/tail` (`web/src/pages/tail/`: `tail.tsx` the page, `controls.tsx` the bar and the chips, `table.tsx` the columns, the
+headers popover and the row menu, `stream.ts` the connection and the pure parts, `search.ts` the address), its own chunk, in the sidebar
+under Live ("Live tail", so in the palette too), and reached by "Live tail" on a topic and "Tail this group's input" on a group. With
+nothing chosen it is a chooser (the topics written to last, one click each; `*`, `*.dlq` and a prefix pattern) and opens no stream. With
+topics or patterns in the address: a dense StatStrip (on screen, matched, read, per second, skipped), the bar (topics and patterns in one
+MultiSelect that takes a typed glob; From now or Last 10/50/200 per partition; Filters, a Popover form: key, value, header and its value,
+JSON field and equals, partitions, read_committed; Pause; the shared speed), a chip line (each topic with its colour and records a
+second, the patterns, the filters each removable, the held pill's slot and the connection), the merged DataTable (topic, offset with its
+partition, time, key, value schema-decoded, headers, a row menu) in a box of fixed height, and the record Sheet of Messages
+(`?record=topic:partition:offset`). Keys: `p`, `n`, `/`, `c`. Catalogue CON-1580 to CON-1585; the live-design table has its row.
+
+**Endpoint.** `GET /api/v1/tail/topics` (`crates/kafka-console/src/api/topics/tail_topics.rs`; the follow and its bounds in
+`src/tail.rs`, the filters in `src/tail_filter.rs`, the reading in `src/gather/tail.rs`): `ready` with the topics and the starting cursor,
+then a `batch` for each look that read something or saw the topics change, its id the cursor of every partition. Five view types for
+ts-rs (`TailTopic`, `TopicsTailReady`, `TailCount`, `TailRecord`, `TopicsTailBatch`).
+
+**Shared files touched** (small): `router.tsx` (a lazy route), `nav.ts` (an item), `index.css` (eight topic hues per theme, the row bar
+and the arrival tint), `data-table.tsx` (`rowData` for per-row `data-` attributes; `reserve`: the box keeps its height and, with
+`anchorTop`, a spacer under the rows lets a box not yet full glide too; `data-gliding` while it does), `multi-select.tsx` (`none`, the
+words with nothing chosen; `testId`), `api/topics.ts` (`recordQuery`, shared by the Sheet and the copy commands), the topic frame's and
+the group layout's actions.
+
+**Found on the way.** A tooltip in the DOM counted as an open popup in the hold test (`[data-radix-popper-content-wrapper]` is every
+Radix popper): Pause's own tooltip held every batch. The tail page tests `[role=dialog], [role=menu], [role=listbox]`; Live's tape still
+uses the wrapper (not changed here). Firefox and WebKit leave the read of an aborted fetch body pending: a reconnect loop that waits for
+it never opens again; the tail's connection ends each opening as a generation (fetch aborted, reader cancelled) and starts a new one.
+`tools/ux` (named in the brief) was removed with the classic pages in 7b791fd1c; its four tail proofs are Playwright specs now
+(`ux-tests.md` says so).
