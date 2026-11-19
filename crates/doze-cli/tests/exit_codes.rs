@@ -22,9 +22,9 @@ fn run(setup: &[&str], args: &str) -> fixture::Ran {
 }
 
 const UP: &[&str] = &["project bare", "daemon shop"];
-const DOWN: &[&str] = &["project bare"];
+const DOWN: &[&str] = &["project shop"];
 const DOWN_LOGS: &[&str] = &[
-    "project bare",
+    "project shop",
     "logfile api r000001.s000.log 2026-10-10T09:05:00.000000Z o up",
 ];
 const EMPTY: &[&str] = &["project bare", "daemon empty"];
@@ -45,22 +45,29 @@ fn each_mistake_has_its_code() {
         ("no config anywhere", NOTHING, "status", 6),
         ("following a stack that isn't running", DOWN, "logs -f", 7),
         ("watching a stack that isn't running", DOWN, "status -w", 7),
-        ("waking a stack that isn't running", DOWN, "wake", 7),
+        // wake starts the daemon when doze is stopped (Go `startDaemon`); a plan starts nothing.
+        (
+            "planning a wake of a stopped stack",
+            DOWN,
+            "wake --dry-run",
+            0,
+        ),
+        ("a daemon that cannot be started", DOWN, "wake", 1),
         ("off on a stack that isn't running", DOWN, "off api", 7),
         ("reset with no terminal to ask", UP, "reset api", 9),
         ("status of a stopped stack", DOWN, "status", 0),
         ("sleep of a stopped stack", DOWN, "sleep", 0),
         ("unpinning on a stopped stack", DOWN, "pin --off api", 0),
         (
-            "logs of a name nothing on disk knows, doze stopped",
+            "logs of a name doze.hcl does not declare, doze stopped",
             DOWN,
-            "logs api",
+            "logs nosuch",
             4,
         ),
         (
-            "why of a name nothing on disk knows, doze stopped",
+            "why of a name doze.hcl does not declare, doze stopped",
             DOWN,
-            "why api",
+            "why nosuch",
             4,
         ),
         ("logs of a stopped stack", DOWN_LOGS, "logs api", 0),

@@ -1,0 +1,73 @@
+# lint in Go's two passes. The first (no module needed) is doze-config's shape pass; the module pass runs where modules
+# run (the stack's daemon, or `doze __daemon --lint`). The fixture host has no doze program to run it with, so module
+# blocks are reported as not checked and lint exits 11 (rule 3: never a tick for work not done, F4). --offline asks for
+# the first pass alone and exits 0. The pass itself: doze-module tests/cli_migrate_lint.rs.
+@ project shop
+
+$ doze lint
+exit 11
+stdout:
+| ✓ doze.hcl passes the first pass: 3 modules, 3 apps
+|   ! module blocks not checked (this doze could not find its own program to run the modules with): kafka, postgres, valkey
+stderr:
+| ! lint is partial: not every block was checked
+|   fix: --offline runs the first pass alone and accepts it (exit 0)
+json exit 11
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze lint",
+|   "ok": false,
+|   "data": {
+|     "config": "doze.hcl",
+|     "declared": {
+|       "app": 3,
+|       "module": 3,
+|       "service": 0,
+|       "task": 0
+|     },
+|     "disabled": 0,
+|     "unchecked": [
+|       "kafka",
+|       "postgres",
+|       "valkey"
+|     ],
+|     "why": "this doze could not find its own program to run the modules with"
+|   },
+|   "error": {
+|     "code": "partial",
+|     "message": "lint is partial: not every block was checked",
+|     "exit": 11,
+|     "id": "DZ0503",
+|     "fix": "--offline runs the first pass alone and accepts it (exit 0)"
+|   }
+| }
+
+$ doze lint --offline
+exit 0
+stdout:
+| ✓ doze.hcl passes the first pass: 3 modules, 3 apps
+|   ! module blocks not checked (--offline): kafka, postgres, valkey
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze lint",
+|   "ok": true,
+|   "data": {
+|     "config": "doze.hcl",
+|     "declared": {
+|       "app": 3,
+|       "module": 3,
+|       "service": 0,
+|       "task": 0
+|     },
+|     "disabled": 0,
+|     "unchecked": [
+|       "kafka",
+|       "postgres",
+|       "valkey"
+|     ],
+|     "why": "--offline"
+|   }
+| }

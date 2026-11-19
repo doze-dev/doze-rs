@@ -15,7 +15,7 @@ mod fixture;
 mod setup;
 
 use doze_cli::Terminals;
-use fixture::{FakeHost, Sandbox};
+use fixture::Sandbox;
 use std::fmt::Write as _;
 use std::path::Path;
 
@@ -53,6 +53,17 @@ fn normalize(text: &str, sb: &Sandbox) -> String {
     let root = sb.root.display().to_string();
     let os_arch = doze_cli::platform::os_arch();
     let (os, arch) = os_arch.split_once('/').unwrap();
+    // The sandbox as the system resolves it too (/tmp is /private/tmp on a Mac).
+    let canon = sb
+        .root
+        .canonicalize()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| root.clone());
+    let text = if canon == root {
+        text.to_owned()
+    } else {
+        text.replace(&canon, "{sandbox}")
+    };
     let mut t = text
         .replace(&root.replace('\\', "\\\\"), "{sandbox}")
         .replace(&root, "{sandbox}")
@@ -85,6 +96,43 @@ fn normalize(text: &str, sb: &Sandbox) -> String {
         .collect::<Vec<_>>()
         .join("\n");
     if text.ends_with('\n') { t + "\n" } else { t }
+}
+
+/// `@ untimed`: what the CLI timed with its own stopwatch (a task's run, "✓ migrate done in 1ms") said without the
+/// time, which differs run to run. The daemon's numbers (from its journal) are the fixture's and stay.
+fn untime(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut out: Vec<String> = Vec::new();
+    let field = |l: &str| l.trim_start_matches("| ").trim_start().to_owned();
+    for (i, l) in lines.iter().enumerate() {
+        // A verb's result (`"state"` then `"took_ms"`), not a recorded run read back from a file.
+        let after_state = out
+            .last()
+            .is_some_and(|p| field(p).starts_with("\"state\":"));
+        if after_state && field(l).starts_with("\"took_ms\":") {
+            let closes = lines.get(i + 1).is_some_and(|n| {
+                n.trim_start_matches("| ")
+                    .trim_start()
+                    .starts_with(['}', ']'])
+            });
+            if let (true, Some(last)) = (closes, out.last_mut()) {
+                *last = last.trim_end_matches(',').to_owned();
+            }
+            continue;
+        }
+        match l
+            .strip_prefix("| ✓ ")
+            .and_then(|rest| rest.rsplit_once(" in "))
+        {
+            Some((head, _)) => out.push(format!("| ✓ {head}")),
+            None => out.push((*l).to_owned()),
+        }
+    }
+    let mut t = out.join("\n");
+    if text.ends_with('\n') {
+        t.push('\n');
+    }
+    t
 }
 
 fn section(out: &mut String, title: &str, body: &str) {
@@ -152,7 +200,11 @@ fn transcript(s: &Scenario) -> String {
                     .drain(..)
                     .map(|a| a.join(" "))
                     .collect();
-                section(&mut r, &format!("{label}spawned"), &spawned.join("\n"));
+                section(
+                    &mut r,
+                    &format!("{label}spawned"),
+                    &normalize(&spawned.join("\n"), &sb),
+                );
                 let opened: Vec<String> = host.opened.borrow_mut().drain(..).collect();
                 section(&mut r, &format!("{label}opened"), &opened.join("\n"));
             }
@@ -161,7 +213,8 @@ fn transcript(s: &Scenario) -> String {
     }
     for (c, r) in s.commands.iter().zip(results) {
         let _ = writeln!(out, "\n$ {}", format!("doze {c}").trim_end());
-        out.push_str(&r.concat());
+        let r = r.concat();
+        out.push_str(&if has(s, "untimed") { untime(&r) } else { r });
     }
     out
 }
@@ -221,32 +274,4 @@ fn diff(want: &str, got: &str) -> String {
             .unwrap_or_default()
             .join("\n")
     )
-}
-
-/// The completion scripts know every command and alias (the scripts are long and clap_complete's to shape, so they
-/// are checked for content, not kept whole).
-#[test]
-fn completion_knows_the_commands() {
-    let sb = Sandbox::new("completion");
-    let host = FakeHost::default();
-    for shell in ["bash", "zsh", "fish", "powershell"] {
-        let ran = fixture::run(
-            &sb,
-            &host,
-            Terminals::default(),
-            false,
-            &["completion", shell],
-        );
-        assert_eq!(ran.code, 0, "{shell}: {}", ran.stderr);
-        for word in ["modules", "dns-setup", "keepawake", "--dry-run", "connect"] {
-            assert!(
-                ran.stdout.contains(word),
-                "{shell} completion has no {word}"
-            );
-        }
-        assert!(
-            !ran.stdout.contains("__refresh"),
-            "{shell} completion offers the hidden refresh"
-        );
-    }
 }

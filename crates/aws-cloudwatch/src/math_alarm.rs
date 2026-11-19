@@ -85,9 +85,8 @@ pub(crate) fn plan(a: &Alarm) -> Option<Plan> {
 /// Reads and checks a math alarm's request: what it is judged by, and its queries. `Err` is the sentence of a `ValidationError`.
 pub(crate) fn read(req: &Value) -> Result<(Spec, MathAlarm), String> {
     if let Some(k) = EXCLUDED.iter().find(|k| req.get(**k).is_some()) {
-        return Err(format!(
-            "The parameter {k} cannot be used with the parameter Metrics."
-        ));
+        // Recorded 2026-11-19 for Namespace; the same words for the other members are (memory).
+        return Err(format!("{k} should not be set if list of Metrics is set."));
     }
     let raw = req
         .get("Metrics")
@@ -125,7 +124,7 @@ pub(crate) fn read(req: &Value) -> Result<(Spec, MathAlarm), String> {
         .collect();
     if let Some((id, _)) = exprs.iter().find(|(_, e)| e.calls("SEARCH")) {
         return Err(format!(
-            "Error in expression {id}: SEARCH cannot be used in an alarm."
+            "Error in expression '{id}': SEARCH cannot be used in an alarm."
         ));
     }
     let period_s = stats.first().map_or(60, |s| s.period_s);
@@ -238,7 +237,7 @@ impl MathAlarm {
         match values.get(&self.watched) {
             Some(Val::Series(_)) => Ok(()),
             Some(other) => Err(format!(
-                "Error in expression {}: the expression an alarm watches must give a single time series, not {}.",
+                "Error in expression '{}': the expression an alarm watches must give a single time series, not {}.",
                 self.watched,
                 other.kind()
             )),

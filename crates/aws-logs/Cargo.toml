@@ -29,6 +29,8 @@ regex-lite = "0.1"
 # `rt` runs Insights queries on the blocking pool; `time` paces Live Tail updates (only while a session is open); `macros` selects.
 tokio = { version = "1", default-features = false, features = ["sync", "rt", "time", "macros"] }
 bytes = "1"
+# `@logStreamId` holds the SHA-256 of the stream's name (already in the binary through aws-auth).
+sha2 = "0.11"
 
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }

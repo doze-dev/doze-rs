@@ -162,3 +162,74 @@ async fn iam_refuses_what_the_policy_denies_on_the_table_and_its_indexes() {
     )
     .await;
 }
+
+/// The words AWS answers with (recorded 2026-11-19), and the document handed back without its whitespace.
+#[tokio::test]
+async fn a_policy_is_handed_back_compact_and_refusals_name_the_table() {
+    let bus = Bus::new();
+    bus.table("tab").await;
+    let spaced = format!(
+        "{{\"Version\": \"2012-10-17\", \"Statement\": [{{\"Sid\": \"no scan\", \"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": \"dynamodb:Scan\", \"Resource\": \"{TABLE}\"}}]}}"
+    );
+    let put = bus
+        .ok(
+            "PutResourcePolicy",
+            json!({"ResourceArn": TABLE, "Policy": spaced}),
+        )
+        .await;
+    let revision = put["RevisionId"].as_str().unwrap().to_owned();
+    let got = bus
+        .ok("GetResourcePolicy", json!({"ResourceArn": TABLE}))
+        .await;
+    assert_eq!(
+        got["Policy"],
+        format!(
+            "{{\"Version\":\"2012-10-17\",\"Statement\":[{{\"Sid\":\"no scan\",\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"dynamodb:Scan\",\"Resource\":\"{TABLE}\"}}]}}"
+        )
+    );
+    let e = bus
+        .call("PutResourcePolicy", json!({"ResourceArn": TABLE, "Policy": deny_reads(), "ExpectedRevisionId": "NO_POLICY"}))
+        .await
+        .unwrap_err();
+    assert_eq!(
+        e.message,
+        format!(
+            "Resource-based policy not found for the provided ResourceArn: Requested policy update expecting none to be present for table tab, but a policy exists with revision id {revision}."
+        )
+    );
+    let e = bus
+        .call(
+            "DeleteResourcePolicy",
+            json!({"ResourceArn": TABLE, "ExpectedRevisionId": "1"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(
+        e.message,
+        format!(
+            "Resource-based policy not found for the provided ResourceArn: Requested update for policy with revision id 1, but the policy associated to target table tab has revision id {revision}."
+        )
+    );
+    let e = bus
+        .call(
+            "PutResourcePolicy",
+            json!({"ResourceArn": TABLE, "Policy": "{not json"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(
+        e.message,
+        "One or more parameter values were invalid: Invalid policy document: This policy contains invalid Json"
+    );
+    let e = bus
+        .call(
+            "PutResourcePolicy",
+            json!({"ResourceArn": "arn:aws:dynamodb:us-east-1:000000000000:table/none", "Policy": deny_reads()}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(
+        e.message,
+        "Requested resource not found: Table: none not found"
+    );
+}

@@ -1,0 +1,241 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-19",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_durability_is_chosen_at_creation": {
+    "enable-later": {
+      "Error": {
+        "Code": "InvalidParameterValueException",
+        "Message": "You cannot add a durable configuration to a function that was originally created with no durable configuration"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "get-absent": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Durable Execution does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "no-execution-timeout": {
+      "Error": {
+        "Code": "InvalidParameterValueException",
+        "Message": "You cannot create a function with a durable configuration without an executionTimeout"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_durable_execution_stopped": {
+    "fail-after-stop": {
+      "Error": {
+        "Code": "CallbackTimeoutException",
+        "Message": "The callback is either timed out or already completed"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "stop": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StopTimestamp": "<StopTimestamp:1>"
+    },
+    "stop-again": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StopTimestamp": "<StopTimestamp:1>"
+    },
+    "stopped": {
+      "DurableConfig": {
+        "ExecutionTimeout": 600,
+        "RetentionPeriodInDays": 1
+      },
+      "DurableExecutionArn": "<DurableExecutionArn:1>",
+      "DurableExecutionName": "<uuid:1>",
+      "EndTimestamp": "<EndTimestamp:1>",
+      "Error": {
+        "ErrorMessage": "changed my mind",
+        "ErrorType": "Cancelled"
+      },
+      "ExecutionDataIncluded": true,
+      "FunctionArn": "<FunctionArn:1>",
+      "InputPayload": "{\"n\": 2}",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StartTimestamp": "<StartTimestamp:1>",
+      "Status": "STOPPED",
+      "TraceHeader": {
+        "XAmznTraceId": "<XAmznTraceId:1>"
+      },
+      "Version": "$LATEST"
+    }
+  },
+  "test_durable_execution_with_a_wait_and_a_callback": {
+    "configuration": {
+      "ExecutionTimeout": 600,
+      "RetentionPeriodInDays": 1
+    },
+    "create": {
+      "ExecutionTimeout": 600,
+      "RetentionPeriodInDays": 1
+    },
+    "heartbeat": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "history": [
+      "ExecutionStarted",
+      "StepStarted",
+      "StepSucceeded",
+      "WaitStarted",
+      "InvocationCompleted",
+      "WaitSucceeded",
+      "CallbackStarted",
+      "InvocationCompleted",
+      "CallbackSucceeded",
+      "InvocationCompleted",
+      "ExecutionSucceeded"
+    ],
+    "history-newest-first": {
+      "Events": [
+        {
+          "EventTimestamp": "<EventTimestamp:1>",
+          "EventType": "ExecutionSucceeded",
+          "ExecutionSucceededDetails": {
+            "Result": {
+              "Truncated": true
+            }
+          },
+          "Id": "<Id:1>",
+          "Name": "order-1"
+        },
+        {
+          "EventTimestamp": "<EventTimestamp:1>",
+          "EventType": "InvocationCompleted",
+          "InvocationCompletedDetails": {
+            "EndTimestamp": "<EndTimestamp:2>",
+            "RequestId": "<RequestId:1>",
+            "StartTimestamp": "<StartTimestamp:2>"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "invoke-event": {
+      "DurableExecutionArn": "<DurableExecutionArn:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 202
+      },
+      "StatusCode": 202
+    },
+    "invoke-same-name-other-payload": {
+      "StatusCode": 202,
+      "same-execution": true
+    },
+    "invoke-unqualified": {
+      "Error": {
+        "Code": "InvalidParameterValueException",
+        "Message": "You cannot invoke a durable function using an unqualified ARN."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "list": {
+      "DurableExecutions": [
+        {
+          "DurableExecutionArn": "<DurableExecutionArn:1>",
+          "DurableExecutionName": "order-1",
+          "EndTimestamp": "<EndTimestamp:1>",
+          "FunctionArn": "<FunctionArn:1>",
+          "StartTimestamp": "<StartTimestamp:1>",
+          "Status": "SUCCEEDED"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "running": {
+      "DurableConfig": {
+        "ExecutionTimeout": 600,
+        "RetentionPeriodInDays": 1
+      },
+      "DurableExecutionArn": "<DurableExecutionArn:1>",
+      "DurableExecutionName": "order-1",
+      "ExecutionDataIncluded": true,
+      "FunctionArn": "<FunctionArn:1>",
+      "InputPayload": "{\"n\": 21}",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StartTimestamp": "<StartTimestamp:1>",
+      "Status": "RUNNING",
+      "TraceHeader": {
+        "XAmznTraceId": "<XAmznTraceId:1>"
+      },
+      "Version": "$LATEST"
+    },
+    "state-with-a-made-up-token": {
+      "Error": {
+        "Code": "InvalidParameterValueException",
+        "Message": "Invalid checkpoint token"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "succeed": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "succeed-again": {
+      "Error": {
+        "Code": "CallbackTimeoutException",
+        "Message": "The callback is either timed out or already completed"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "succeeded": {
+      "DurableConfig": {
+        "ExecutionTimeout": 600,
+        "RetentionPeriodInDays": 1
+      },
+      "DurableExecutionArn": "<DurableExecutionArn:1>",
+      "DurableExecutionName": "order-1",
+      "EndTimestamp": "<EndTimestamp:1>",
+      "ExecutionDataIncluded": true,
+      "FunctionArn": "<FunctionArn:1>",
+      "InputPayload": "{\"n\": 21}",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": "{\"doubled\": 42, \"approval\": \"\\\"yes\\\"\"}",
+      "StartTimestamp": "<StartTimestamp:1>",
+      "Status": "SUCCEEDED",
+      "TraceHeader": {
+        "XAmznTraceId": "<XAmznTraceId:1>"
+      },
+      "Version": "$LATEST"
+    }
+  }
+}

@@ -1,0 +1,80 @@
+# up against a running daemon: what is asked for and what it needs, needs first, each with how long the daemon's
+# journal says it took; then the line that says the stack runs on in the background. Its dry run asks nothing.
+@ project shop
+@ daemon up
+
+$ doze up api
+exit 0
+stdout:
+| ✓ db awake in 38ms
+| ✓ api awake in 1.2s
+| › up — supervised in the background. doze for the dash · doze down to stop
+stderr:
+| → db waking…
+| → api waking…
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze up",
+|   "ok": true,
+|   "data": {
+|     "results": [
+|       {
+|         "name": "db",
+|         "state": "awake",
+|         "took_ms": 38
+|       },
+|       {
+|         "name": "api",
+|         "state": "awake",
+|         "took_ms": 1240
+|       }
+|     ]
+|   }
+| }
+json stderr:
+| → db waking…
+| → api waking…
+
+$ doze up api --dry-run
+exit 0
+stdout:
+| db
+|   → wake  api needs it
+| api
+|   → wake  asked for
+|   dry run: nothing was changed · doze up api applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze up",
+|   "ok": true,
+|   "data": {
+|     "applies_with": "doze up api",
+|     "dry_run": true,
+|     "plan": [
+|       {
+|         "changes": [
+|           {
+|             "detail": "api needs it",
+|             "op": "→",
+|             "subject": "wake"
+|           }
+|         ],
+|         "title": "db"
+|       },
+|       {
+|         "changes": [
+|           {
+|             "detail": "asked for",
+|             "op": "→",
+|             "subject": "wake"
+|           }
+|         ],
+|         "title": "api"
+|       }
+|     ]
+|   }
+| }

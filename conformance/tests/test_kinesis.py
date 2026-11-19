@@ -314,6 +314,7 @@ def test_subscribe_to_shard(client, names, cleanup, snapshot, eventually):
 
     sub = kinesis.subscribe_to_shard(ConsumerARN=consumer, ShardId=shard["ShardId"],
                                      StartingPosition={"Type": "TRIM_HORIZON"})
+    started = time.time()
     got, events, deadline = [], 0, time.time() + 60
     for event in sub["EventStream"]:
         e = event["SubscribeToShardEvent"]
@@ -325,9 +326,13 @@ def test_subscribe_to_shard(client, names, cleanup, snapshot, eventually):
         if len(got) >= 2 or time.time() > deadline:
             break
     snapshot.match("pushed", got)
-    # A second call for the same consumer and shard within five seconds is refused (the model).
-    snapshot.error("second-within-five-seconds", lambda: kinesis.subscribe_to_shard(
-        ConsumerARN=consumer, ShardId=shard["ShardId"], StartingPosition={"Type": "LATEST"}))
+    # The model: a second call for the same consumer and shard "within 5 seconds of a successful call" is refused; one later takes
+    # over. The first recording (2026-11-19) did not time its second call, so both are timed here and AWS's answers are kept.
+    time.sleep(max(0.0, started + 6 - time.time()))
+    later = kinesis.subscribe_to_shard(ConsumerARN=consumer, ShardId=shard["ShardId"], StartingPosition={"Type": "LATEST"})
+    snapshot.match("six-seconds-later", sorted(k for k in later if k != "ResponseMetadata"))
+    snapshot.outcome("again-at-once", lambda: sorted(k for k in kinesis.subscribe_to_shard(
+        ConsumerARN=consumer, ShardId=shard["ShardId"], StartingPosition={"Type": "LATEST"}) if k != "ResponseMetadata"))
     snapshot.error("absent-shard", lambda: kinesis.subscribe_to_shard(
         ConsumerARN=consumer, ShardId="shardId-000000000099", StartingPosition={"Type": "LATEST"}))
     snapshot.error("sequence-number-missing", lambda: kinesis.subscribe_to_shard(

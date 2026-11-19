@@ -44,15 +44,22 @@ def rows(result):
 
 
 def run_query(logs, eventually, name, query, want, start):
-    qid = logs.start_query(logGroupName=name, startTime=start // 1000 - 60, endTime=int(time.time()) + 60,
-                           queryString=query)["queryId"]
+    """Runs the query until it sees `want` rows. AWS (recorded 2026-11-19) can complete a query before events just put are
+    searchable, and a completed query does not change, so a short answer starts the query again."""
+    state = {}
 
     def done():
-        r = logs.get_query_results(queryId=qid)
+        if "qid" not in state:
+            state["qid"] = logs.start_query(logGroupName=name, startTime=start // 1000 - 60, endTime=int(time.time()) + 60,
+                                            queryString=query)["queryId"]
+        r = logs.get_query_results(queryId=state["qid"])
         assert r["status"] == "Complete", r["status"]
-        assert len(r["results"]) >= want, f"{len(r['results'])} of {want} rows so far"
+        if len(r["results"]) < want:
+            del state["qid"]
+            raise AssertionError(f"{len(r['results'])} of {want} rows so far")
         return r
-    return qid, eventually(done, timeout=120, every=1)
+    r = eventually(done, timeout=300, every=2)
+    return state["qid"], r
 
 
 def test_insights_queries(client, names, cleanup, snapshot, eventually):
@@ -66,8 +73,12 @@ def test_insights_queries(client, names, cleanup, snapshot, eventually):
     _, r = run_query(logs, eventually, name, "filter ispresent(level) | stats count(*) as n, avg(ms) as mean by level", 2, start)
     snapshot.match("stats-by", sorted(rows(r), key=lambda x: x["level"]))
     _, r = run_query(logs, eventually, name, "parse @message 'user=* action=*' as user, action | filter ispresent(user) "
-                     "| fields user, action, toupper(user) as up", 1, start)
+                     "| fields toupper(user) as up | display user, action, up", 1, start)
     snapshot.match("parse-glob", rows(r))
+    # AWS (recorded 2026-11-19): a bare `fields` naming a field `parse` made is refused.
+    snapshot.error("parse-then-fields-again", lambda: logs.start_query(
+        logGroupName=name, startTime=start // 1000 - 60, endTime=int(time.time()) + 60,
+        queryString="parse @message 'user=* action=*' as user, action | fields user, action"))
     _, r = run_query(logs, eventually, name, "filter @message like /ERROR/ | fields @message, @logStream", 1, start)
     snapshot.match("like-regex", rows(r))
     _, r = run_query(logs, eventually, name, "fields @message | limit 2", 2, start)
@@ -187,7 +198,7 @@ def test_destinations(client, names, cleanup, snapshot, service_role):
     snapshot.error("delete-absent", lambda: logs.delete_destination(destinationName=names("absent")))
 
 
-def test_transformers(client, names, cleanup, snapshot):
+def test_transformers(client, names, cleanup, snapshot, eventually):
     logs = client("logs")
     name = group(logs, names, cleanup)
     config = [{"parseJSON": {}}, {"addKeys": {"entries": [{"key": "env", "value": "dev"}]}},
@@ -197,7 +208,7 @@ def test_transformers(client, names, cleanup, snapshot):
     snapshot.match("get", logs.get_transformer(logGroupIdentifier=name), opaque=CLOCK)
     tests = {
         "json": (config, ['{"lvl":"warn","n":1}']),
-        "grok": ([{"grok": {"match": "%{IP:client} %{WORD:method} %{URIPATHPARAM:request} %{NUMBER:bytes:int}"}}],
+        "grok": ([{"grok": {"match": "%{IP:client} %{WORD:method} %{URIPATHPARAM:request} %{NUMBER:bytes}"}}],
                  ["55.3.244.1 GET /index.html?x=1 15824"]),
         "csv": ([{"csv": {"columns": ["a", "b", "c"]}}], ['1,"two, too",3']),
         "key-value": ([{"parseKeyValue": {"fieldDelimiter": " ", "keyValueDelimiter": "="}},
@@ -207,7 +218,7 @@ def test_transformers(client, names, cleanup, snapshot):
                      {"substituteString": {"entries": [{"source": "u", "from": "o+", "to": "0"}]}}],
                     ['{"s":"  pad  ","u":"FOO","list":"a,b,c"}']),
         "keys": ([{"parseJSON": {}}, {"copyValue": {"entries": [{"source": "a", "target": "b"}]}},
-                  {"moveKeys": {"entries": [{"source": "c", "target": "d.e"}]}}, {"deleteKeys": {"withKeys": ["x"]}}],
+                  {"deleteKeys": {"withKeys": ["x"]}}],
                  ['{"a":1,"c":2,"x":3}']),
         "date": ([{"parseJSON": {}}, {"dateTimeConverter": {"source": "t", "target": "iso",
                                                              "matchPatterns": ["dd/MMM/yyyy:HH:mm:ss Z"]}}],
@@ -216,11 +227,24 @@ def test_transformers(client, names, cleanup, snapshot):
     for label, (cfg, messages) in tests.items():
         got = logs.test_transformer(transformerConfig=cfg, logEventMessages=messages)["transformedLogs"]
         snapshot.match(f"test-{label}", [json.loads(t["transformedEventMessage"]) for t in got])
+    # AWS (recorded 2026-11-19) refused moveKeys c -> d and c -> d.e ("No corresponding field. Field Name: 'd'"); which rule that is
+    # (a target that must exist?) is what these three settle.
+    def move(target, **kw):
+        return lambda: [json.loads(t["transformedEventMessage"]) for t in logs.test_transformer(
+            transformerConfig=[{"parseJSON": {}}, {"moveKeys": {"entries": [{"source": "c", "target": target, **kw}]}}],
+            logEventMessages=['{"a":1,"c":2}'])["transformedLogs"]]
+    snapshot.outcome("move-to-new", move("d"))
+    snapshot.outcome("move-to-existing", move("a", overwriteIfExists=True))
+    snapshot.outcome("move-under-absent", move("d.e"))
+    # AWS (recorded 2026-11-19): a grok pattern with a type conversion is refused.
+    snapshot.error("grok-type-conversion", lambda: logs.test_transformer(
+        transformerConfig=[{"grok": {"match": "%{NUMBER:bytes:int}"}}], logEventMessages=["15824"]))
     snapshot.error("ocsf-not-first-or-unknown", lambda: logs.test_transformer(
         transformerConfig=[{"addKeys": {"entries": [{"key": "a", "value": "b"}]}}, {"parseVPC": {}}],
         logEventMessages=["x"]))
     snapshot.match("delete", logs.delete_transformer(logGroupIdentifier=name))
-    snapshot.error("get-deleted", lambda: logs.get_transformer(logGroupIdentifier=name))
+    # AWS (recorded 2026-11-19) still answered GetTransformer a minute after the delete; what it answers is kept.
+    snapshot.outcome("get-deleted", lambda: logs.get_transformer(logGroupIdentifier=name), opaque=CLOCK)
 
 
 def test_index_policies(client, names, cleanup, snapshot):
@@ -249,7 +273,10 @@ def test_scheduled_queries(client, names, cleanup, snapshot, service_role):
     snapshot.match("get", logs.get_scheduled_query(identifier=sq), opaque=CLOCK)
     snapshot.match("updated", logs.update_scheduled_query(identifier=sq, queryLanguage="CWLI", queryString="fields @message",
                                                           scheduleExpression="cron(0 1 * * ? *)", executionRoleArn=role,
-                                                          logGroupIdentifiers=[name], state="DISABLED"), opaque=CLOCK)
+                                                          startTimeOffset=3600, logGroupIdentifiers=[name], state="DISABLED"), opaque=CLOCK)
+    snapshot.error("update-without-offset", lambda: logs.update_scheduled_query(
+        identifier=sq, queryLanguage="CWLI", queryString="fields @message", scheduleExpression="cron(0 1 * * ? *)",
+        executionRoleArn=role, logGroupIdentifiers=[name], state="DISABLED"))
     listed = [q for q in logs.list_scheduled_queries()["scheduledQueries"] if q["name"] == sq]
     snapshot.match("listed", listed, opaque=CLOCK)
     now = int(time.time())

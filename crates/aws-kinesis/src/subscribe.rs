@@ -1,7 +1,8 @@
 //! `SubscribeToShard`: an event stream (`application/vnd.amazon.eventstream`) that pushes a shard's records to a registered consumer.
-//! What the model documents, kept: events "for up to 5 minutes, after which time you need to call `SubscribeToShard` again"; a second
-//! call for the same consumer and shard "within 5 seconds of a successful call" is `ResourceInUseException`, and one 5 seconds or
-//! more after "takes over the subscription and the previous connection expires or fails with a `ResourceInUseException`".
+//! What the model documents, kept: events "for up to 5 minutes, after which time you need to call `SubscribeToShard` again", and a
+//! later call for the same consumer and shard "takes over the subscription and the previous connection expires or fails with a
+//! `ResourceInUseException`". The model also says a call "within 5 seconds of a successful call" is refused; AWS did not refuse one
+//! made at once (recorded 2026-11-19), so every call takes over.
 //!
 //! A task per open subscription (none while there is none) writes the frames: an `initial-response` first (botocore's JSON parser
 //! reads it before the members), an event at once, then one whenever records arrive (it waits on the service's append counter, not
@@ -30,8 +31,6 @@ use crate::fanout::{Batch, FanoutAsk, Position};
 
 /// The model: events flow "for up to 5 minutes".
 const LIFE: Duration = Duration::from_secs(300);
-/// The model: a second call "within 5 seconds of a successful call" is refused; later, it takes over.
-const TAKEOVER_MS: i64 = 5000;
 /// An event at least this often while no record arrives (memory).
 const HEARTBEAT: Duration = Duration::from_secs(5);
 
@@ -45,7 +44,6 @@ pub(crate) struct Subscriptions {
 #[derive(Debug)]
 struct Live {
     id: u64,
-    started_ms: i64,
     takeover: oneshot::Sender<()>,
 }
 
@@ -71,30 +69,14 @@ impl Drop for Claim {
 }
 
 impl Subscriptions {
-    /// Claims the consumer's shard at `now_ms`, ending an older subscription to it, or refuses if that one began under five seconds
-    /// ago. The receiver hears when a later call takes this one over.
+    /// Claims the consumer's shard, ending an older subscription to it. The receiver hears when a later call takes this one over.
     pub(crate) fn claim(
         self: &Arc<Self>,
         region: &str,
         p: &Position,
-        now_ms: i64,
-    ) -> Result<(Claim, oneshot::Receiver<()>), ApiError> {
+    ) -> (Claim, oneshot::Receiver<()>) {
         let key = format!("{region}\u{1}{}\u{1}{}", p.consumer_arn, p.shard);
         let mut live = self.live.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(l) = live.get(&key)
-            && now_ms - l.started_ms < TAKEOVER_MS
-            && !l.takeover.is_closed()
-        {
-            // (memory)
-            return Err(ApiError::modeled(
-                "ResourceInUseException",
-                format!(
-                    "Another active subscription exists for consumer {} on shard {}.",
-                    p.consumer_arn,
-                    crate::model::shard_name(p.shard)
-                ),
-            ));
-        }
         if let Some(old) = live.remove(&key)
             && old.takeover.send(()).is_err()
         {
@@ -102,20 +84,13 @@ impl Subscriptions {
         }
         let (tx, rx) = oneshot::channel();
         let id = self.ids.fetch_add(1, Ordering::Relaxed);
-        live.insert(
-            key.clone(),
-            Live {
-                id,
-                started_ms: now_ms,
-                takeover: tx,
-            },
-        );
+        live.insert(key.clone(), Live { id, takeover: tx });
         let claim = Claim {
             subs: Arc::clone(self),
             key,
             id,
         };
-        Ok((claim, rx))
+        (claim, rx)
     }
 
     /// How many subscriptions are open (for tests).

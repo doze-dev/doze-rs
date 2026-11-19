@@ -8,7 +8,8 @@
 //! - [`channel`]: the control channel to a module process, including handing it a client connection.
 //! - [`tree`]: a process and everything it starts, stopped gently or killed, and gone when doze is gone.
 //! - [`privilege`]: never run engines with administrator rights.
-//! - [`process`]: whether a process is still there, by pid.
+//! - [`process`]: whether a process is still there, killing a recorded one, how one ended.
+//! - [`signal`]: being asked to stop (SIGTERM, CTRL_BREAK).
 //! - [`which`]: find a program on `PATH` without a shell.
 //! - [`fs`]: locks between processes, owner-only directories, cloning a data directory.
 //! - [`home`]: where doze keeps its state.
@@ -19,6 +20,7 @@
 //! - [`browse`]: open a web page in the person's browser.
 //! - [`pty`]: a pseudo-terminal, for tests that must see what a person sees.
 //! - [`interrupt`]: Ctrl-C and SIGTERM as a flag a blocking command checks, so a follow ends cleanly.
+//! - [`meters`]: what a process and the ones under it cost (resident memory, CPU).
 
 pub mod autostart;
 pub mod browse;
@@ -28,10 +30,12 @@ pub mod fs;
 pub mod home;
 pub mod interrupt;
 pub mod local;
+pub mod meters;
 pub mod net;
 pub mod privilege;
 pub mod process;
 pub mod pty;
+pub mod signal;
 pub mod tree;
 #[cfg(feature = "ui")]
 pub mod ui;

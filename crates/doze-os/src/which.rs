@@ -1,7 +1,8 @@
 //! Finding a program on `PATH`, the way the platform's shell would, without running a shell (PLAN.md D14).
 //!
 //! Unix: the first `dir/name` that is a file with an execute bit. Windows: if `name` has no extension, each
-//! extension of `PATHEXT` in order (`.COM;.EXE;.BAT;.CMD` when unset), then the bare name only if it has one;
+//! extension of `PATHEXT` in order (`.COM;.EXE;.BAT;.CMD` when unset), then the bare name only if it has one; a file
+//! is runnable there only with one of those extensions (Windows has no execute bit: a `plain` file is not a program);
 //! std's `Command` runs a found `.cmd`/`.bat` through its batch-file handling, arguments intact (W0).
 
 use std::ffi::{OsStr, OsString};
@@ -40,7 +41,7 @@ fn candidates(name: &str, pathext: Option<&OsStr>) -> Vec<OsString> {
     let has_ext = Path::new(name).extension().is_some();
     let exts = pathext
         .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_else(|| ".COM;.EXE;.BAT;.CMD".to_string());
+        .unwrap_or_else(|| DEFAULT_PATHEXT.to_string());
     let mut out: Vec<OsString> = Vec::new();
     if has_ext {
         out.push(OsString::from(name));
@@ -61,12 +62,39 @@ fn is_runnable(p: &Path) -> bool {
 
 #[cfg(windows)]
 fn is_runnable(p: &Path) -> bool {
-    p.is_file()
+    let pathext = std::env::var("PATHEXT").unwrap_or_else(|_| DEFAULT_PATHEXT.to_owned());
+    p.is_file() && runnable_extension(p, &pathext)
+}
+
+/// What Windows runs when `PATHEXT` is unset.
+const DEFAULT_PATHEXT: &str = ".COM;.EXE;.BAT;.CMD";
+
+/// Whether `p`'s extension is one of `pathext`'s (case aside).
+#[cfg_attr(not(windows), allow(dead_code))]
+fn runnable_extension(p: &Path, pathext: &str) -> bool {
+    let Some(ext) = p.extension().and_then(OsStr::to_str) else {
+        return false;
+    };
+    pathext
+        .split(';')
+        .filter_map(|e| e.strip_prefix('.'))
+        .any(|e| e.eq_ignore_ascii_case(ext))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Windows has no execute bit: only an extension `PATHEXT` names makes a file runnable (the connect test's `plain`
+    /// file was taken for a program there).
+    #[test]
+    fn an_extension_pathext_names_is_what_runs_on_windows() {
+        let ext = ".COM;.EXE;.BAT;.CMD";
+        assert!(runnable_extension(Path::new(r"C:\t\psql.exe"), ext));
+        assert!(runnable_extension(Path::new(r"C:\t\RUN.Cmd"), ext));
+        assert!(!runnable_extension(Path::new(r"C:\t\plain"), ext));
+        assert!(!runnable_extension(Path::new(r"C:\t\notes.txt"), ext));
+    }
 
     #[test]
     fn a_path_with_a_separator_is_not_searched() {

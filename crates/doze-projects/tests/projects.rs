@@ -173,3 +173,22 @@ fn a_pid_file_says_what_go_reads_from_it() {
         "a pid past u32 names no process"
     );
 }
+
+/// fuzz_rawscan's find (CI run 44406741715): `"Name"` sets the name and is kept aside, then the exact `"name"` empties
+/// it. The first write leaves the empty name out, so the next read takes `"Name"`'s value, as Go's record does; from
+/// the second write on the bytes are the same.
+#[test]
+fn a_case_variant_key_settles_by_the_second_write() {
+    use doze_projects::{decode_bytes, encode};
+    let input = b"{\"Name\":\"Old\",\"cost_down\":\"z026-11-1:\xffa0.5+3:500\",\"name\":\"\",\"schema\":6,\"tabs\":null,\"zeta\":{}}\r";
+    let first = decode_bytes(input).unwrap();
+    assert_eq!(first.name, "", "the exact key, read last, wins");
+    let once = encode(&first).unwrap();
+    let again = decode_bytes(&once).unwrap();
+    assert_eq!(
+        again.name, "Old",
+        "with the empty name left out, the kept \"Name\" sets it"
+    );
+    let twice = encode(&again).unwrap();
+    assert_eq!(encode(&decode_bytes(&twice).unwrap()).unwrap(), twice);
+}

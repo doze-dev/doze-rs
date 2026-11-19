@@ -5,7 +5,7 @@ use serde_json::{Map, Number, Value};
 
 use super::Meta;
 use super::datetime;
-use super::grok::{Cast, Grok};
+use super::grok::Grok;
 use super::path;
 use super::procs::{Csv, DateTime, KeyValue, Kind, ListToMap, Move, Proc};
 
@@ -32,6 +32,8 @@ pub(crate) struct Event<'a> {
     pub(crate) message: &'a str,
     pub(crate) meta: &'a Meta<'a>,
     pub(crate) obj: Map<String, Value>,
+    /// Why a processor could not do its job (the first one that could not); the processors after it do not run.
+    pub(crate) failed: Option<String>,
 }
 
 impl Event<'_> {
@@ -149,14 +151,17 @@ fn grok(e: &mut Event<'_>, source: Option<&str>, g: &Grok) {
     let Some(caps) = g.re.captures(&text) else {
         return;
     };
-    for (group, field, cast) in &g.fields {
+    for (group, field) in &g.fields {
         if let Some(m) = caps.name(group) {
-            path::set(&mut e.obj, field, cast_value(m.as_str(), *cast));
+            path::set(&mut e.obj, field, Value::String(m.as_str().to_owned()));
         }
     }
 }
 
 fn copy(e: &mut Event<'_>, moves: &[Move], remove: bool) {
+    if remove {
+        return move_keys(e, moves);
+    }
     for m in moves {
         if !m.overwrite && path::has(&e.obj, &m.target) {
             continue;
@@ -168,6 +173,37 @@ fn copy(e: &mut Event<'_>, moves: &[Move], remove: bool) {
         };
         if let Some(v) = value {
             path::set(&mut e.obj, &m.target, v);
+        }
+    }
+}
+
+/// `moveKeys`, as recorded 2026-11-19: the source goes *into* the target, a key the event must already have (`c` moved to `a`
+/// gives `{"a": {"c": ...}}`); a target the event does not have is refused. A target that is not an object is replaced by one only
+/// with `overwriteIfExists` (recorded); a source key already in the target is left unless overwriting (memory).
+fn move_keys(e: &mut Event<'_>, moves: &[Move]) {
+    for m in moves {
+        if !path::has(&e.obj, &m.target) {
+            e.failed = Some(format!(
+                "No corresponding field. Field Name: '{}', Processor: 'MoveKeysProcessor'",
+                m.target
+            ));
+            return;
+        }
+        let key = m.source.rsplit('.').next().unwrap_or(&m.source).to_owned();
+        let into = format!("{}.{key}", m.target);
+        let is_object = path::get(&e.obj, &m.target).is_some_and(Value::is_object);
+        if (!is_object || path::has(&e.obj, &into)) && !m.overwrite {
+            continue;
+        }
+        let Some(v) = path::take(&mut e.obj, &m.source) else {
+            continue;
+        };
+        if is_object {
+            path::set(&mut e.obj, &into, v);
+        } else {
+            let mut inner = Map::new();
+            inner.insert(key, v);
+            path::set(&mut e.obj, &m.target, Value::Object(inner));
         }
     }
 }
@@ -196,15 +232,6 @@ fn strings(e: &mut Event<'_>, keys: &[String], f: impl Fn(&str) -> String) {
             *v = Value::String(f(s));
         }
     }
-}
-
-fn cast_value(s: &str, cast: Cast) -> Value {
-    let n = match cast {
-        Cast::Text => None,
-        Cast::Int => s.trim().parse::<i64>().ok().map(Number::from),
-        Cast::Float => s.trim().parse::<f64>().ok().and_then(Number::from_f64),
-    };
-    n.map_or_else(|| Value::String(s.to_owned()), Value::Number)
 }
 
 fn convert(v: &Value, kind: Kind) -> Option<Value> {

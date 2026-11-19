@@ -14,6 +14,9 @@ mod datetime;
 mod grok;
 mod path;
 mod procs;
+mod procs_read;
+
+pub(crate) use procs::{invalid, with_defaults};
 
 #[cfg(test)]
 mod tests;
@@ -46,17 +49,31 @@ impl Transformer {
         })
     }
 
-    /// The event as the transformer leaves it (JSON text), or `None` when it cannot be transformed.
+    /// The event as the transformer leaves it (JSON text), or `None` when it cannot be transformed (a processor that fails
+    /// leaves the event as it came, memory).
     pub(crate) fn apply(&self, message: &str, meta: &Meta<'_>) -> Option<String> {
+        self.test(message, meta).ok().flatten()
+    }
+
+    /// As [`Self::apply`], but a processor's failure is the error `TestTransformer` answers.
+    pub(crate) fn test(&self, message: &str, meta: &Meta<'_>) -> Result<Option<String>, String> {
         let obj = match serde_json::from_str::<Value>(message) {
             Ok(Value::Object(m)) => m,
             _ => Map::new(),
         };
-        let mut event = apply::Event { message, meta, obj };
+        let mut event = apply::Event {
+            message,
+            meta,
+            obj,
+            failed: None,
+        };
         for p in &self.procs {
             apply::run(p, &mut event);
+            if let Some(why) = event.failed.take() {
+                return Err(why);
+            }
         }
-        (!event.obj.is_empty()).then(|| Value::Object(event.obj).to_string())
+        Ok((!event.obj.is_empty()).then(|| Value::Object(event.obj).to_string()))
     }
 }
 
