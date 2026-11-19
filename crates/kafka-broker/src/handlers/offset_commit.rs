@@ -36,15 +36,7 @@ impl<F: Fs> Broker<F> {
         mut req: OffsetCommitRequest,
     ) -> Outcome {
         if version >= BY_ID {
-            for t in &mut req.topics {
-                // (v10 has no name on the wire: the one the id stands for, or none.)
-                let found = TopicId::from_uuid(t.topic_id).and_then(|id| self.meta.topic_by_id(id));
-                t.name = kafka_wire::messages::TopicName(
-                    found.map_or_else(StrBytes::default, |topic| {
-                        StrBytes::from_string(topic.name.as_ref().to_owned())
-                    }),
-                );
-            }
+            self.commit_names_by_id(&mut req);
         }
         let req = &req;
         let unknown_id = |name: &str| version >= BY_ID && name.is_empty();
@@ -79,42 +71,22 @@ impl<F: Fs> Broker<F> {
                     .committed_metadata
                     .as_ref()
                     .map_or("", |m| m.as_str());
-                // KafkaApis answers an unknown id, a barred topic and a topic or partition that does not exist before the
-                // group is asked; the group's answer (`fence`) is for the rest.
-                let refusal = if unknown_id(topic.name.as_str()) {
-                    Some(ResponseError::UnknownTopicId)
-                } else if refused_topic {
-                    Some(ResponseError::TopicAuthorizationFailed)
-                } else if known.is_none() {
-                    Some(ResponseError::UnknownTopicOrPartition)
-                } else if let Some(e) = fence {
-                    Some(e)
-                } else if metadata.len() > MAX_METADATA {
-                    Some(ResponseError::OffsetMetadataTooLarge)
-                } else {
-                    None
-                };
-                if unknown_id(topic.name.as_str()) || refused_topic || known.is_none() {
+                let (refusal, by_kafka_apis) = judge(
+                    unknown_id(topic.name.as_str()),
+                    refused_topic,
+                    known.is_some(),
+                    fence,
+                    metadata.len(),
+                );
+                if by_kafka_apis {
                     early.push((t, p));
                 }
-                match (refusal, &name, PartitionId::new(partition.partition_index)) {
-                    (Some(e), _, _) => answer.error_code = e.code(),
-                    (None, Some(name), Some(id)) => {
-                        to_store.push(OffsetCommit {
-                            topic: name.clone(),
-                            partition: id,
-                            offset: StoredOffset {
-                                offset: partition.committed_offset,
-                                leader_epoch: partition.committed_leader_epoch,
-                                metadata: metadata.to_owned(),
-                                committed_ms: now,
-                            },
-                        });
+                match to_be_stored(refusal, name.as_ref(), partition, metadata, now) {
+                    Ok(commit) => {
+                        to_store.push(commit);
                         slots.push((t, p));
                     }
-                    (None, _, _) => {
-                        answer.error_code = ResponseError::UnknownTopicOrPartition.code()
-                    }
+                    Err(e) => answer.error_code = e.code(),
                 }
                 out.partitions.push(answer);
             }
@@ -126,6 +98,17 @@ impl<F: Fs> Broker<F> {
         Outcome::Respond(kafka_wire::api::Response::OffsetCommit(kafka_order_of(
             resp, &early,
         )))
+    }
+
+    /// Gives each topic of a v10 request the name its id stands for (v10 has no name on the wire), or none.
+    fn commit_names_by_id(&self, req: &mut OffsetCommitRequest) {
+        for t in &mut req.topics {
+            let found = TopicId::from_uuid(t.topic_id).and_then(|id| self.meta.topic_by_id(id));
+            t.name =
+                kafka_wire::messages::TopicName(found.map_or_else(StrBytes::default, |topic| {
+                    StrBytes::from_string(topic.name.as_ref().to_owned())
+                }));
+        }
     }
 
     /// [`Self::commit_fence`], except that Kafka asks the group nothing when no topic is left to commit to.
@@ -282,13 +265,18 @@ fn kafka_order_of(
                      t: usize,
                      from: &OffsetCommitResponseTopic,
                      part: OffsetCommitResponsePartition| {
-        let at = *placed[t].get_or_insert_with(|| {
+        let Some(slot) = placed.get_mut(t) else {
+            return;
+        };
+        let at = *slot.get_or_insert_with(|| {
             let mut topic = from.clone();
             topic.partitions.clear();
             topics.push(topic);
             topics.len() - 1
         });
-        topics[at].partitions.push(part);
+        if let Some(topic) = topics.get_mut(at) {
+            topic.partitions.push(part);
+        }
     };
     for (t, topic) in asked.iter().enumerate() {
         for (p, part) in topic.partitions.iter().enumerate() {
@@ -306,6 +294,57 @@ fn kafka_order_of(
     }
     resp.topics = topics;
     resp
+}
+
+/// The commit to store for a partition that passed, or why it is not stored.
+fn to_be_stored(
+    refusal: Option<ResponseError>,
+    name: Option<&TopicName>,
+    partition: &kafka_wire::messages::offset_commit_request::OffsetCommitRequestPartition,
+    metadata: &str,
+    now: i64,
+) -> Result<OffsetCommit, ResponseError> {
+    if let Some(e) = refusal {
+        return Err(e);
+    }
+    match (name, PartitionId::new(partition.partition_index)) {
+        (Some(name), Some(id)) => Ok(OffsetCommit {
+            topic: name.clone(),
+            partition: id,
+            offset: StoredOffset {
+                offset: partition.committed_offset,
+                leader_epoch: partition.committed_leader_epoch,
+                metadata: metadata.to_owned(),
+                committed_ms: now,
+            },
+        }),
+        _ => Err(ResponseError::UnknownTopicOrPartition),
+    }
+}
+
+/// What a partition is answered, if not stored, and whether `KafkaApis` answers it itself (before the group is asked, and
+/// first in its answer): an unknown id, a barred topic, a topic or partition that does not exist. The group's answer
+/// (`fence`) is for the rest, then the metadata's size.
+fn judge(
+    unknown_id: bool,
+    barred: bool,
+    known: bool,
+    fence: Option<ResponseError>,
+    metadata_len: usize,
+) -> (Option<ResponseError>, bool) {
+    if unknown_id {
+        (Some(ResponseError::UnknownTopicId), true)
+    } else if barred {
+        (Some(ResponseError::TopicAuthorizationFailed), true)
+    } else if !known {
+        (Some(ResponseError::UnknownTopicOrPartition), true)
+    } else if fence.is_some() {
+        (fence, false)
+    } else if metadata_len > MAX_METADATA {
+        (Some(ResponseError::OffsetMetadataTooLarge), false)
+    } else {
+        (None, false)
+    }
 }
 
 /// The answer when the whole request is refused: every partition of every topic, with the code.

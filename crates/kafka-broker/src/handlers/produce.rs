@@ -216,28 +216,10 @@ impl<F: Fs> Broker<F> {
         topic: Option<&Topic>,
         p: &PartitionProduceData,
     ) -> Stage<F> {
-        let unknown = || {
-            Stage::Done(failed(
-                p.index,
-                ResponseError::UnknownTopicOrPartition,
-                None,
-            ))
+        let (topic, id) = match target(version, topic, p.index) {
+            Ok(found) => found,
+            Err(code) => return Stage::Done(failed(p.index, code, None)),
         };
-        // From v13 an id that stands for no topic is UNKNOWN_TOPIC_ID on each of its partitions, before anything else of
-        // them is looked at (`KafkaApis.handleProduceRequest`); a topic that exists without the partition is as before.
-        let Some(topic) = topic else {
-            return if version >= BY_ID {
-                Stage::Done(failed(p.index, ResponseError::UnknownTopicId, None))
-            } else {
-                unknown()
-            };
-        };
-        let Some(id) = PartitionId::new(p.index) else {
-            return unknown();
-        };
-        if id.get() >= topic.partitions.get() {
-            return unknown();
-        }
         let now = clock::now();
         let records = p.records.as_ref().unwrap_or(&NO_RECORDS);
         let Accepted {
@@ -370,6 +352,27 @@ fn add_refused(code: ResponseError) -> ResponseError {
         ResponseError::NotCoordinator => ResponseError::NotEnoughReplicas,
         code => crate::txn::rules::on_partition(code),
     }
+}
+
+/// The topic and partition an entry writes to, or why there is none. From v13 an id that stands for no topic is
+/// UNKNOWN_TOPIC_ID on each of its partitions, before anything else of them is looked at (`KafkaApis.handleProduceRequest`);
+/// a topic that exists without the partition is UNKNOWN_TOPIC_OR_PARTITION, as before.
+fn target(
+    version: i16,
+    topic: Option<&Topic>,
+    index: i32,
+) -> Result<(&Topic, PartitionId), ResponseError> {
+    let Some(topic) = topic else {
+        return Err(if version >= BY_ID {
+            ResponseError::UnknownTopicId
+        } else {
+            ResponseError::UnknownTopicOrPartition
+        });
+    };
+    PartitionId::new(index)
+        .filter(|id| id.get() < topic.partitions.get())
+        .map(|id| (topic, id))
+        .ok_or(ResponseError::UnknownTopicOrPartition)
 }
 
 #[cfg(test)]
