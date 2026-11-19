@@ -38,6 +38,8 @@ pub(crate) const PAGES: &[Spec] = &[
     row!("Wake or sleep", "its switch", ToggleService, ["space"], Overview, None, false, true),
     row!("Up as last time", "a stopped stack", UpAsLastTime, ["u"], Overview, None, false, true),
     row!("Choose what starts…", "a stopped stack", ChooseStart, ["c"], Overview, None, false, true),
+    // Go's T beside A on a stack's page (`e.key` "T"); on the Map, T is Only trouble (its context is deeper).
+    row!("Activity", "what happened, when (T, as A)", Activity, ["shift-t"], Overview, None, false, true),
     row!("Row density", "compact, cosy, roomy", CycleDensity, [], Global, Some(View), true, true),
     row!("Cell above", "move", MoveUp, ["up", "k"], Grid, None, false, true),
     row!("Cell below", "move", MoveDown, ["down", "j"], Grid, None, false, true),

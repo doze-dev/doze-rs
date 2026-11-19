@@ -50,6 +50,16 @@ pub struct SrcLine {
 }
 
 impl ConfigError {
+    /// What an instance page says of it (Go `InstancePage.Broken`): `doze.hcl does not load (line 9)`.
+    #[must_use]
+    pub fn broken(&self) -> String {
+        if self.line > 0 {
+            format!("doze.hcl does not load (line {})", self.line)
+        } else {
+            "doze.hcl does not load".to_owned()
+        }
+    }
+
     /// The mistake in one line: where, and what (Go `ConfigProblem`).
     pub fn problem(&self) -> String {
         if self.line > 0 {
@@ -266,6 +276,7 @@ mod tests {
         assert_eq!(ce.hint, "Write the number without quotes: port = 8081.");
         assert_eq!(ce.text, "doze.hcl does not load");
         assert_eq!(ce.problem(), "doze.hcl line 9: Unsuitable value type");
+        assert_eq!(ce.broken(), "doze.hcl does not load (line 9)");
         let ns: Vec<usize> = ce.excerpt.iter().map(|l| l.n).collect();
         assert_eq!(ns, [6, 7, 8, 9, 10, 11]);
         assert!(ce.excerpt.iter().any(|l| l.bad && l.n == 9));
@@ -277,5 +288,6 @@ mod tests {
         assert_eq!(ce.line, 0);
         assert!(ce.excerpt.is_empty());
         assert_eq!(ce.problem(), ce.summary);
+        assert_eq!(ce.broken(), "doze.hcl does not load");
     }
 }

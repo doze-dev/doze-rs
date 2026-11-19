@@ -175,7 +175,7 @@ pub(crate) fn lines(l: &Layout, c: &Card, s: &Said, now: SystemTime) -> Vec<Line
     if needs.is_empty() {
         needs = "nothing".into();
     }
-    let callers = names(&c.callers, false);
+    let callers = names(&reading_order(l, &c.callers), false);
     let by = if callers.is_empty() {
         "nobody calls it".to_owned()
     } else {
@@ -199,6 +199,22 @@ pub(crate) fn lines(l: &Layout, c: &Card, s: &Said, now: SystemTime) -> Vec<Line
         ("needed by", by, "", String::new()),
         before_it(s, now),
     ]
+}
+
+/// Cards in the map's reading order (Go `flow.ranked`: column by column, top to bottom in each): a caller's card stands
+/// in the flow, so its column is its x and its slot its y. Ties keep their order.
+pub(crate) fn reading_order(l: &Layout, ids: &[CardId]) -> Vec<CardId> {
+    let mut out = ids.to_vec();
+    let at = |id: &CardId| {
+        l.card(*id)
+            .map_or((f64::MAX, f64::MAX), |c| (c.rect.x, c.rect.y))
+    };
+    out.sort_by(|a, b| {
+        at(a)
+            .partial_cmp(&at(b))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    out
 }
 
 /// "before it": the setup tasks it needs, toned by the worst of them, and how long ago the last one ran.
@@ -240,4 +256,38 @@ fn before_it(s: &Said, now: SystemTime) -> Line {
         .map(|d| format!("{} ago", words::ago(d)))
         .unwrap_or_default();
     ("before it", said.join(" · "), tone, dim)
+}
+
+#[cfg(test)]
+mod tests {
+    use doze_map::{Instance, Kind, Mapper, Options};
+
+    use super::reading_order;
+
+    /// "needed by" lists the callers in the map's reading order (Go `flow.ranked`), not the order they were read in.
+    #[test]
+    fn callers_read_column_by_column() {
+        let ins = [
+            Instance::new("edge", Kind::App, &["late", "core"]),
+            Instance::new("late", Kind::App, &["core"]),
+            Instance::new("side", Kind::App, &["core"]),
+            Instance::new("core", Kind::App, &[]),
+        ];
+        let l = Mapper::new(Options::default()).layout(&ins);
+        let core = l.card_named("core").expect("core");
+        let callers = l.card(core).expect("card").callers.clone();
+        assert_eq!(callers.len(), 3);
+        let at = |id| {
+            let c = l.card(id).expect("card");
+            (c.rect.x, c.rect.y)
+        };
+        let ordered = reading_order(&l, &callers);
+        assert!(ordered.windows(2).all(|w| at(w[0]) <= at(w[1])));
+        // `late` is called by `edge`, so it stands a column to the right of it: it reads after.
+        let pos = |n: &str| {
+            let id = l.card_named(n).expect("card");
+            ordered.iter().position(|&x| x == id).expect("caller")
+        };
+        assert!(pos("edge") < pos("late"));
+    }
 }

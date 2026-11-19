@@ -6,6 +6,7 @@
 use std::path::Path;
 
 use super::{Leftover, Machine, find, forget_routes, route_script};
+use crate::settings::plan::Planned;
 use crate::settings::repair::{Fail, Hands};
 
 /// What a clear came to: what to say, and whether it is bad news.
@@ -186,3 +187,112 @@ fn untrust_script(ca: &Path) -> String {
 
 /// A machine leftover needs the administrator's password, and this face cannot ask for it (Go `errNoPrompt`).
 pub(crate) const NO_PROMPT: &str = "this needs the administrator's password, which this app cannot ask for here: in a terminal, doze doctor --fix removes stale routes";
+
+/// What clearing `id` (or `all`) would do, step by step, doing nothing: shown before a password is asked for. It
+/// follows [`clear`] and [`clear_all`]: processes one by one, the routes together behind one password, the authority.
+pub fn plan(id: &str, m: &Machine) -> Vec<Planned> {
+    let items = find(m);
+    let chosen: Vec<&Leftover> = if id == "all" {
+        items.iter().filter(|l| !l.danger).collect()
+    } else {
+        items.iter().filter(|l| l.id == id).collect()
+    };
+    let mut out = Vec::new();
+    for l in chosen.iter().filter(|l| l.kind != "route") {
+        let (kind, arg) = l.id.split_once(':').unwrap_or((&l.id, ""));
+        match kind {
+            "pid" => out.push(Planned::Stop {
+                what: l.what.clone(),
+                pid: arg.parse().unwrap_or_default(),
+            }),
+            "dir" => out.push(Planned::Delete {
+                what: l.what.clone(),
+                dir: Path::new(arg).to_path_buf(),
+            }),
+            "ca" => {
+                if let Some(ca) = m.authority.as_ref() {
+                    if ca.trusted {
+                        out.push(Planned::Admin {
+                            what: "stop trusting doze's certificate authority".into(),
+                            script: untrust_script(&ca.dir),
+                        });
+                    }
+                    out.push(Planned::Delete {
+                        what: "the authority's files".into(),
+                        dir: ca.dir.clone(),
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    let routes: Vec<String> = chosen
+        .iter()
+        .filter(|l| l.kind == "route")
+        .map(|l| l.id.trim_start_matches("route:").to_owned())
+        .collect();
+    if !routes.is_empty() {
+        out.push(Planned::Admin {
+            what: if routes.len() == 1 {
+                "remove a stale route".into()
+            } else {
+                "remove stale routes".into()
+            },
+            script: route_script(&routes),
+        });
+    }
+    out
+}
+
+/// The leftovers (by id) clearing `id` (or `all`) takes: every one that is not data for `all`, else that one.
+pub fn chosen(id: &str, m: &Machine) -> Vec<String> {
+    find(m)
+        .into_iter()
+        .filter(|l| if id == "all" { !l.danger } else { l.id == id })
+        .map(|l| l.id)
+        .collect()
+}
+
+/// Clears exactly the leftovers `ids` names (what a plan showed), each only while it is a leftover still: processes
+/// one by one, the routes together behind one password, the authority. Nothing found since is touched.
+pub fn clear_these(ids: &[String], m: &Machine, hands: &mut dyn Hands) -> Cleared {
+    if ids.is_empty() {
+        return Cleared::ok("nothing was left behind to clear");
+    }
+    if let [one] = ids {
+        return clear(one, m, hands);
+    }
+    let items: Vec<Leftover> = find(m)
+        .into_iter()
+        .filter(|l| ids.contains(&l.id) && !l.danger)
+        .collect();
+    let mut failed = Vec::new();
+    for l in items.iter().filter(|l| l.kind != "route") {
+        match one(l, m, hands) {
+            Ok(_) => {}
+            Err(Fail::Cancelled) => failed.push(format!("{}: cancelled", l.what)),
+            Err(Fail::Failed(why)) => failed.push(format!("{}: {why}", l.what)),
+        }
+    }
+    let routes: Vec<String> = items
+        .iter()
+        .filter(|l| l.kind == "route")
+        .map(|l| l.id.trim_start_matches("route:").to_owned())
+        .collect();
+    if !routes.is_empty()
+        && let Err(e) = clear_routes(m, &routes, hands)
+    {
+        failed.push(format!(
+            "routes: {}",
+            match e {
+                Fail::Cancelled => "cancelled".into(),
+                Fail::Failed(why) => why,
+            }
+        ));
+    }
+    if failed.is_empty() {
+        Cleared::ok("cleaned up what was left behind")
+    } else {
+        Cleared::bad(failed.join("; "))
+    }
+}

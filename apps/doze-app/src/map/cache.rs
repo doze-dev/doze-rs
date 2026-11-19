@@ -17,6 +17,16 @@ use super::DETAIL_ZOOM;
 pub(crate) type GPath = gpui::Path<Pixels>;
 
 /// Tessellation a frame may spend on pieces it could draw scaled from another level.
+/// A call's line, map pixels wide (Go `.map .edge { stroke-width: 1.6 }`).
+pub(crate) const CALL_WIDTH: f32 = 1.6;
+/// A dimmed line's (Go `.map .edge.dim { stroke-width: 1.5 }`), while a card is selected.
+pub(crate) const DIM_WIDTH: f32 = 1.5;
+
+/// The width every line is drawn at: a call's, or a dimmed line's while a card is selected (`dimmed`); it switches at
+/// once, as Go's does, only the colour eases.
+pub(crate) fn line_width(dimmed: bool) -> f32 {
+    if dimmed { DIM_WIDTH } else { CALL_WIDTH }
+}
 const BUDGET: Duration = Duration::from_millis(3);
 /// Lines per piece far out, cards per piece of blocks.
 const LINES: usize = 256;
@@ -33,7 +43,8 @@ pub(crate) struct Cache {
 
 #[derive(Default)]
 struct Inner {
-    lines: HashMap<usize, (f32, Vec<GPath>)>,
+    /// Each line up close: the level and the stroke width it was built at, and its paths.
+    lines: HashMap<usize, (f32, f32, Vec<GPath>)>,
     chunks: Vec<Piece>,
     blocks: Vec<Piece>,
     bundles: Option<(f32, Vec<(usize, GPath)>)>,
@@ -212,20 +223,32 @@ impl Cache {
         .run(&mut inner.chunks, &build, &mut |p, _, at| f(p, at));
     }
 
-    /// Up close: one line, built at `lv` (or drawn from the level it has, while the frame's budget is spent).
-    pub(crate) fn line(&self, l: &Layout, e: usize, lv: f32, f: &mut dyn FnMut(&GPath, f32)) {
+    /// Up close: one line, built at `lv` and as wide as a call or, `dimmed`, a dimmed line (or drawn from what it has, while the frame's
+    /// budget is spent).
+    pub(crate) fn line(
+        &self,
+        l: &Layout,
+        e: usize,
+        lv: f32,
+        dimmed: bool,
+        f: &mut dyn FnMut(&GPath, f32),
+    ) {
+        let width = line_width(dimmed);
         let mut inner = self.inner.borrow_mut();
-        let stale = inner.lines.get(&e).is_none_or(|b| b.0 != lv);
+        let stale = inner
+            .lines
+            .get(&e)
+            .is_none_or(|b| b.0 != lv || b.1 != width);
         let far = inner.lines.get(&e).is_none_or(|b| !near(b.0, lv));
         if stale && (far || self.fresh()) {
             let built = l
                 .edges
                 .get(e)
-                .map(|x| build(&x.path, lv, 1.5, 1.0))
+                .map(|x| build(&x.path, lv, width, 1.0))
                 .unwrap_or_default();
-            inner.lines.insert(e, (lv, built));
+            inner.lines.insert(e, (lv, width, built));
         }
-        if let Some((at, paths)) = inner.lines.get(&e) {
+        if let Some((at, _, paths)) = inner.lines.get(&e) {
             if *at != lv {
                 self.stale.set(true);
             }
@@ -305,7 +328,7 @@ impl Cache {
 pub(crate) fn build(path: &MapPath, lv: f32, width: f32, head: f64) -> Vec<GPath> {
     let pt = |p: doze_map::Pt| point(px(p.x as f32 * lv), px(p.y as f32 * lv));
     let mut out = Vec::new();
-    if lv < DETAIL_ZOOM && width <= 1.5 {
+    if lv < DETAIL_ZOOM && width <= CALL_WIDTH {
         let mut b = PathBuilder::stroke(px(1.0));
         for (i, p) in path.waypoints().into_iter().enumerate() {
             if i == 0 {
