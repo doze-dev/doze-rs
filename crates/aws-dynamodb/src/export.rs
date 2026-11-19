@@ -289,11 +289,14 @@ impl Core {
         let summaries: Vec<Json> = page
             .iter()
             .map(|s| {
-                json!({
+                let mut out = json!({
                     "ExportArn": s.get("ExportArn"),
                     "ExportStatus": s.get("ExportStatus"),
-                    "ExportType": s.get("ExportType"),
-                })
+                });
+                if let Some(kind) = s.get("ExportType") {
+                    set(&mut out, "ExportType", kind.clone());
+                }
+                out
             })
             .collect();
         let mut out = json!({ "ExportSummaries": summaries });

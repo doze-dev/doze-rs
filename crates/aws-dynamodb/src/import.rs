@@ -311,12 +311,20 @@ fn format_of(body: &Json) -> Format {
 
 fn shown(cx: &Cx<'_>, t: &Table, arn: &str, params: &Json) -> Json {
     let body = &cx.body;
+    // Recorded 2026-11-19: the bucket's owner is shown, the caller's account when the request did not name one.
+    let mut source = body
+        .get("S3BucketSource")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    if source.get("S3BucketOwner").is_none() {
+        set(&mut source, "S3BucketOwner", json!(cx.account()));
+    }
     let mut out = json!({
         "ImportArn": arn,
         "ImportStatus": "IN_PROGRESS",
         "TableArn": crate::req::table_arn(cx.region(), cx.account(), &t.name),
         "TableId": t.id_text(),
-        "S3BucketSource": body.get("S3BucketSource"),
+        "S3BucketSource": source,
         "ErrorCount": 0,
         "InputFormat": str_of(body, "InputFormat"),
         "InputCompressionType": str_of(body, "InputCompressionType").unwrap_or("NONE"),
