@@ -1,13 +1,15 @@
 # Phase 10: the schema registry
 
-Status: **slices 10a, 10b and 10c done (2026-11-14, branches `p10-registry`, `p10b-protobuf` and `p10c-jsonschema`, merged on
-branch `registry-merge`); audited 2026-11-18** (branch `kafka-registry-audit`, `tools/registry-diff`: live against
-cp-schema-registry 7.7.1 and 8.3.2 with real Kafka; results in `tools/registry-diff/results/2026-11-18/`; the rules it
-changed and REG-42 to REG-45, REG-D26 to REG-D28 are in the catalogue). The registry's model, its storage in the broker's metadata database, every REST route
+Status: **slices 10a to 10d done (2026-11-14: 10a, 10b and 10c on branches `p10-registry`, `p10b-protobuf` and `p10c-jsonschema`,
+merged on branch `registry-merge`; 10d, the console's Schemas pages, on `p10d-console-schemas`, merged at 31d63f8e1); audited
+2026-11-18** (branch `kafka-registry-audit`, `tools/registry-diff`: live against cp-schema-registry 7.7.1 and 8.3.2 with real
+Kafka; results in `tools/registry-diff/results/2026-11-18/`; the rules it changed and REG-42 to REG-45, REG-D26 to REG-D28 are in
+the catalogue). The registry's model, its storage in the broker's metadata database, every REST route
 the Go edition serves, the host guard, basic authentication and TLS as the Go binary has them, the wire header, and all three
 languages whole (Avro, 10b Protobuf, 10c JSON Schema), wired into `doze-kafka` behind the `registry` feature (on by default, as
-`--schema-registry` is in Go). **Next: 10d**, the console's Schemas pages and schema-aware Messages/Produce, with the record-value
-codec they need. The catalogue is `behaviours/registry.md` (REG-1 to REG-45, REG-D1 to REG-D28; REG-D1 and REG-D13 retired).
+`--schema-registry` is in Go), and (10d) the console's Schemas pages and schema-aware Messages/Produce, with the record-value codec
+they need. Nothing of the phase is left to build. The catalogue is `behaviours/registry.md` (REG-1 to REG-45, REG-D1 to REG-D28;
+REG-D1 and REG-D13 retired).
 
 Goal: a Confluent client (any serializer, `kafka-avro-console-producer`, Schema Registry's own Maven plugin) pointed at
 `http://127.0.0.1:8081` cannot tell this registry from Confluent's, except where `behaviours/registry.md` lists a deviation; and the
@@ -181,7 +183,7 @@ What 10b and 10c should not need to touch: `registry/*`, `api/*`, `store.rs`, `s
 | 10a | registry model, storage, REST API (Confluent's routes and `/_doze/`), host guard, basic auth, TLS, the wire header, Avro, the flags; ports of the Go tests; fuzz targets; the catalogue | **built** |
 | 10b | Protobuf: `.proto` text and `FileDescriptorProto` input, Confluent's printing, compatibility, message indexes; the protobuf conformance scripts and corpus | **done** (branch `p10b-protobuf`, merged; not yet audited) |
 | 10c | JSON Schema: parsing and validity of the schema, Confluent's structural compatibility, `$ref` across references; the JSON scripts and corpus | **done** (branch `p10c-jsonschema`, merged; not yet audited) |
-| 10d | the console's Schemas pages and schema-aware Messages/Produce, with the record-value codec they need (Avro, Protobuf, JSON payload to JSON and back, with the guard against hostile Avro bytes of Go's `avroguard.go`) | **next** |
+| 10d | the console's Schemas pages and schema-aware Messages/Produce, with the record-value codec they need (Avro, Protobuf, JSON payload to JSON and back, with the guard against hostile Avro bytes of Go's `avroguard.go`) | **done** (branch `p10d-console-schemas`, merged at 31d63f8e1, 2026-11-14; not yet audited) |
 
 **10b and 10c merged (2026-11-14, branch `registry-merge`).** With both languages in, nothing is pending: `PENDING` and
 `PENDING_SCENARIOS` in `tests/conformance.rs` are empty and `other-schema-types` (Avro, Protobuf and JSON Schema registered side by

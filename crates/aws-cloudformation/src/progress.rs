@@ -80,6 +80,10 @@ impl Core {
                 self.outbox.push((arn.clone(), message.clone()));
             }
         }
+        if let Some(op) = &event.op_id {
+            let (sid, op) = (event.stack_id.clone(), op.clone());
+            self.note_operation(&sid, &op);
+        }
         let key = event_key(stack_id, seq);
         let (logical, status, is_detailed) = (
             event.logical.clone(),

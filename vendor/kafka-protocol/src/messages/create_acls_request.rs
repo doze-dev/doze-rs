@@ -139,7 +139,7 @@ impl AclCreation {
 #[cfg(feature = "client")]
 impl Encodable for AclCreation {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         types::Int8.encode(buf, &self.resource_type)?;
@@ -148,7 +148,12 @@ impl Encodable for AclCreation {
         } else {
             types::String.encode(buf, &self.resource_name)?;
         }
-        types::Int8.encode(buf, &self.resource_pattern_type)?;
+        // PATCH 5: not in v0, where every pattern is LITERAL (3).
+        if version >= 1 {
+            types::Int8.encode(buf, &self.resource_pattern_type)?;
+        } else if self.resource_pattern_type != 3 {
+            bail!("A resource_pattern_type other than LITERAL cannot be written at version 0");
+        }
         if version >= 2 {
             types::CompactString.encode(buf, &self.principal)?;
         } else {
@@ -183,7 +188,10 @@ impl Encodable for AclCreation {
         } else {
             total_size += types::String.compute_size(&self.resource_name)?;
         }
-        total_size += types::Int8.compute_size(&self.resource_pattern_type)?;
+        if version >= 1 {
+            // PATCH 5
+            total_size += types::Int8.compute_size(&self.resource_pattern_type)?;
+        }
         if version >= 2 {
             total_size += types::CompactString.compute_size(&self.principal)?;
         } else {
@@ -215,7 +223,7 @@ impl Encodable for AclCreation {
 #[cfg(feature = "broker")]
 impl Decodable for AclCreation {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let resource_type = types::Int8.decode(buf)?;
@@ -224,7 +232,8 @@ impl Decodable for AclCreation {
         } else {
             types::String.decode(buf)?
         };
-        let resource_pattern_type = types::Int8.decode(buf)?;
+        // PATCH 5: v0 has no pattern type; it is LITERAL.
+        let resource_pattern_type = if version >= 1 { types::Int8.decode(buf)? } else { 3 };
         let principal = if version >= 2 {
             types::CompactString.decode(buf)?
         } else {
@@ -276,7 +285,7 @@ impl Default for AclCreation {
 }
 
 impl Message for AclCreation {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 3 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 3 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -318,7 +327,7 @@ impl CreateAclsRequest {
 #[cfg(feature = "client")]
 impl Encodable for CreateAclsRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         if version >= 2 {
@@ -367,7 +376,7 @@ impl Encodable for CreateAclsRequest {
 #[cfg(feature = "broker")]
 impl Decodable for CreateAclsRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let creations = if version >= 2 {
@@ -402,7 +411,7 @@ impl Default for CreateAclsRequest {
 }
 
 impl Message for CreateAclsRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 3 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 3 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

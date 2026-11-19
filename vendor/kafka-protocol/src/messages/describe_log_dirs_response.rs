@@ -97,7 +97,7 @@ impl DescribeLogDirsPartition {
 #[cfg(feature = "broker")]
 impl Encodable for DescribeLogDirsPartition {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.partition_index)?;
@@ -143,7 +143,7 @@ impl Encodable for DescribeLogDirsPartition {
 #[cfg(feature = "client")]
 impl Decodable for DescribeLogDirsPartition {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let partition_index = types::Int32.decode(buf)?;
@@ -183,7 +183,7 @@ impl Default for DescribeLogDirsPartition {
 }
 
 impl Message for DescribeLogDirsPartition {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -253,7 +253,7 @@ impl DescribeLogDirsResponse {
 #[cfg(feature = "broker")]
 impl Encodable for DescribeLogDirsResponse {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.throttle_time_ms)?;
@@ -310,7 +310,7 @@ impl Encodable for DescribeLogDirsResponse {
 #[cfg(feature = "client")]
 impl Decodable for DescribeLogDirsResponse {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let throttle_time_ms = types::Int32.decode(buf)?;
@@ -355,7 +355,7 @@ impl Default for DescribeLogDirsResponse {
 }
 
 impl Message for DescribeLogDirsResponse {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -453,7 +453,7 @@ impl DescribeLogDirsResult {
 #[cfg(feature = "broker")]
 impl Encodable for DescribeLogDirsResult {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         types::Int16.encode(buf, &self.error_code)?;
@@ -526,7 +526,7 @@ impl Encodable for DescribeLogDirsResult {
 #[cfg(feature = "client")]
 impl Decodable for DescribeLogDirsResult {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let error_code = types::Int16.decode(buf)?;
@@ -585,7 +585,7 @@ impl Default for DescribeLogDirsResult {
 }
 
 impl Message for DescribeLogDirsResult {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -641,7 +641,7 @@ impl DescribeLogDirsTopic {
 #[cfg(feature = "broker")]
 impl Encodable for DescribeLogDirsTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         if version >= 2 {
@@ -700,7 +700,7 @@ impl Encodable for DescribeLogDirsTopic {
 #[cfg(feature = "client")]
 impl Decodable for DescribeLogDirsTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let name = if version >= 2 {
@@ -742,7 +742,7 @@ impl Default for DescribeLogDirsTopic {
 }
 
 impl Message for DescribeLogDirsTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

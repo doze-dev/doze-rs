@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"net"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -77,6 +78,19 @@ type Scenario struct {
 	// Doze changes the replay broker's configuration for the scenario, to do
 	// what KafkaEnv did to the real one.
 	Doze func(*config.Config)
+	// Image, when set, is the apache/kafka image the scenario is recorded against instead of KafkaImage: a scenario
+	// about versions Kafka 4 no longer serves is recorded from the last broker that served them. KafkaVersion is then the
+	// --kafka-version the replay starts doze-kafka with (0: the default, 4).
+	Image        string
+	KafkaVersion int
+}
+
+// RecordedImage is the image the scenario is recorded against.
+func (s Scenario) RecordedImage() string {
+	if s.Image != "" {
+		return s.Image
+	}
+	return KafkaImage
 }
 
 // Known is one written-down difference.
@@ -747,4 +761,68 @@ func (e *Env) Finish(p *Pending) kmsg.Response {
 	}
 	e.steps = append(e.steps, Step{Label: p.label, Conn: p.conn, API: kmsg.NameForKey(p.req.Key()), Version: p.version, Request: p.nreq, Response: nresp})
 	return p.resp
+}
+
+// Raw sends token as a raw SASL frame (after a SaslHandshake v0 the tokens carry no Kafka header) and records the raw
+// reply under label: its bytes as text, or that the broker closed the connection (which is then made again).
+func (e *Env) Raw(label string, token []byte) []byte {
+	e.fail2(label)
+	req, err := e.norm.normalize(map[string]any{"token": string(token)})
+	if err != nil {
+		e.fail("%s: %v", label, err)
+	}
+	step := Step{Label: label, Conn: e.cur, API: "(raw SASL token)", Request: req}
+	reply, err := e.w.rawRoundTrip(token)
+	if err != nil {
+		if !isClosed(err) {
+			e.fail("%s: %v", label, err)
+			return nil
+		}
+		step.Response = map[string]any{"(connection)": "closed by the broker"}
+		e.Reconnect()
+		e.steps = append(e.steps, step)
+		return nil
+	}
+	resp, err := e.norm.normalize(map[string]any{"token": string(reply), "length": len(reply)})
+	if err != nil {
+		e.fail("%s: %v", label, err)
+	}
+	step.Response = resp
+	e.steps = append(e.steps, step)
+	return reply
+}
+
+// DoOrSilence is DoFirst for a request a broker may leave unanswered: an answer is recorded as Do records it; no
+// answer within wait is recorded as such and the connection is made again. (Apache Kafka sends nothing back for some
+// requests whose handler throws past the point where an error answer is built.)
+func (e *Env) DoOrSilence(label string, req kmsg.Request, version int16, wait time.Duration) kmsg.Response {
+	e.fail2(label)
+	nreq, err := e.norm.normalize(req)
+	if err != nil {
+		e.fail("%s: %v", label, err)
+	}
+	step := Step{Label: label, Conn: e.cur, API: kmsg.NameForKey(req.Key()), Version: version, Request: nreq}
+	resp, err := e.w.roundTripWithin(req, version, wait)
+	if err != nil {
+		var ne net.Error
+		switch {
+		case errors.As(err, &ne) && ne.Timeout():
+			step.Response = map[string]any{"(connection)": "no answer"}
+		case isClosed(err):
+			step.Response = map[string]any{"(connection)": "closed by the broker"}
+		default:
+			e.fail("%s: %v", label, err)
+			return nil
+		}
+		e.Reconnect()
+		e.steps = append(e.steps, step)
+		return req.ResponseKind()
+	}
+	nresp, err := e.norm.normalize(resp)
+	if err != nil {
+		e.fail("%s: %v", label, err)
+	}
+	step.Response = nresp
+	e.steps = append(e.steps, step)
+	return resp
 }

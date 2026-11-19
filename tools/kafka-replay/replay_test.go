@@ -42,7 +42,7 @@ func TestRecord(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := Save(recordingsDir, Recording{Scenario: s.Name, Kafka: KafkaImage, Steps: steps}); err != nil {
+			if err := Save(recordingsDir, Recording{Scenario: s.Name, Kafka: s.RecordedImage(), Steps: steps}); err != nil {
 				t.Fatal(err)
 			}
 			t.Logf("recorded %d steps", len(steps))
@@ -60,8 +60,8 @@ func TestRecordingsAreCurrent(t *testing.T) {
 			t.Errorf("%s: no recording: %v", s.Name, err)
 			continue
 		}
-		if rec.Kafka != KafkaImage {
-			t.Errorf("%s: recorded against %s, the recorder uses %s: record it again", s.Name, rec.Kafka, KafkaImage)
+		if rec.Kafka != s.RecordedImage() {
+			t.Errorf("%s: recorded against %s, the recorder uses %s: record it again", s.Name, rec.Kafka, s.RecordedImage())
 		}
 		if len(rec.Steps) == 0 {
 			t.Errorf("%s: an empty recording", s.Name)
