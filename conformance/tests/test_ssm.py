@@ -390,6 +390,7 @@ def test_resource_policy_on_a_parameter(client, names, cleanup, snapshot):
     # The id and the hash are the service's own; each must be the same wherever it appears again.
     ids = ("PolicyId", "PolicyHash")
     made = ssm.put_resource_policy(ResourceArn=arn, Policy=share_policy(arn))
+    snapshot.known(made["PolicyHash"], "first-hash")  # the stale-hash refusals quote it
     snapshot.match("put", made, opaque=ids)
     snapshot.match("get", ssm.get_resource_policies(ResourceArn=arn), opaque=ids)
     snapshot.error("unknown-account", lambda: ssm.put_resource_policy(
