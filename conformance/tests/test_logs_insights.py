@@ -243,16 +243,8 @@ def test_transformers(client, names, cleanup, snapshot, eventually):
         transformerConfig=[{"addKeys": {"entries": [{"key": "a", "value": "b"}]}}, {"parseVPC": {}}],
         logEventMessages=["x"]))
     snapshot.match("delete", logs.delete_transformer(logGroupIdentifier=name))
-
-    def gone():
-        # AWS (recorded 2026-11-19): GetTransformer can still answer the transformer just after it is deleted.
-        try:
-            logs.get_transformer(logGroupIdentifier=name)
-        except logs.exceptions.ClientError:
-            return
-        raise AssertionError("still there")
-    eventually(gone, timeout=60, every=2)
-    snapshot.error("get-deleted", lambda: logs.get_transformer(logGroupIdentifier=name))
+    # AWS (recorded 2026-11-19) still answered GetTransformer a minute after the delete; what it answers is kept.
+    snapshot.outcome("get-deleted", lambda: logs.get_transformer(logGroupIdentifier=name), opaque=CLOCK)
 
 
 def test_index_policies(client, names, cleanup, snapshot):

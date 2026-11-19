@@ -617,7 +617,15 @@ def test_backup_lifecycle(client, names, cleanup, snapshot, eventually):
     ddb = client("dynamodb")
     name, _ = table(ddb, names, cleanup)
     ddb.put_item(TableName=name, Item={"pk": {"S": "a"}, "v": {"S": "1"}})
-    made = ddb.create_backup(TableName=name, BackupName=names("backup"))
+    backup_name = names("backup")
+
+    def backed_up():
+        # AWS (recorded 2026-11-19): on a table just made, CreateBackup can answer ContinuousBackupsUnavailableException.
+        try:
+            return ddb.create_backup(TableName=name, BackupName=backup_name)
+        except ddb.exceptions.ContinuousBackupsUnavailableException:
+            raise AssertionError("backups still being enabled")
+    made = eventually(backed_up, timeout=300, every=5)
     arn = made["BackupDetails"]["BackupArn"]
     snapshot.match("create", made, opaque=("BackupArn",), drop=BACKUP_VOLATILE[2:])
 
