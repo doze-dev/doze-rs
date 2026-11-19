@@ -883,6 +883,7 @@ dependencies = [
  "aws-seal",
  "aws-testkit",
  "aws-wire",
+ "bytes",
  "doze-runtime",
  "doze-store",
  "md-5 0.11.0",
