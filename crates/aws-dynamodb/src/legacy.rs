@@ -8,14 +8,27 @@
 //! (`KeyConditions` with a `FilterExpression`) are accepted, though the guide says mixing is not allowed; each
 //! comparison operator takes the number of values the guide lists, `Exists: false` is "the attribute is absent", a bare `Value` (or
 //! `Exists: true` with one) is equality, and an `AttributeUpdates` of only `DELETE` actions on an item that does not exist changes
-//! nothing ("The operation succeeds, but DynamoDB does not create a new item"). Every message here is `(memory)` until a recording
-//! reaches it.
+//! nothing ("The operation succeeds, but DynamoDB does not create a new item"). A message marked `Recorded 2026-11-19` is AWS's;
+//! the rest are `(memory)` until a recording reaches them.
 
 use aws_model_dynamodb::Operation;
 use aws_wire::ApiError;
 use serde_json::{Map, Value as Json, json};
 
 use crate::req::{bad_param, validation};
+
+/// AWS's wording for some legacy refusals: the message behind `1 validation error detected: ` (recorded 2026-11-19 for
+/// `PutItem`, `UpdateItem` and `Scan`).
+fn detected(message: &str) -> ApiError {
+    validation(format!("1 validation error detected: {message}"))
+}
+
+/// [`detected`] around a [`bad_param`] message.
+fn detected_param(message: &str) -> ApiError {
+    detected(&format!(
+        "One or more parameter values were invalid: {message}"
+    ))
+}
 
 /// Set on a translated `UpdateItem` whose actions are all `DELETE`: an item that is not there is not made.
 pub(crate) const NO_CREATE: &str = "__dozeLegacyDeleteOnly";
@@ -105,11 +118,7 @@ fn one(legacy: &[&str], op: Operation, m: &mut Map<String, Json>) -> Result<(), 
         .iter()
         .any(|l| counterparts(op, l).iter().any(|e| m.contains_key(*e)));
     if clash {
-        return Err(validation(format!(
-            "Can not use both expression and non-expression parameters in the same request: Non-expression parameters: {{{}}} Expression parameters: {{{}}}",
-            given.join(", "),
-            expressions.join(", ")
-        )));
+        return Err(mixed(op, &given, &expressions));
     }
     if expressions.is_empty() {
         for placeholders in ["ExpressionAttributeNames", "ExpressionAttributeValues"] {
@@ -157,6 +166,24 @@ fn one(legacy: &[&str], op: Operation, m: &mut Map<String, Json>) -> Result<(), 
     Ok(())
 }
 
+/// The refusal of legacy and expression parameters together. Recorded 2026-11-19: the write operations say it behind
+/// `1 validation error detected: `, `GetItem` without (`DeleteItem` is taken to answer as `PutItem` does).
+fn mixed(op: Operation, given: &[&str], expressions: &[&str]) -> ApiError {
+    let message = format!(
+        "Can not use both expression and non-expression parameters in the same request: Non-expression parameters: {{{}}} Expression parameters: {{{}}}",
+        given.join(", "),
+        expressions.join(", ")
+    );
+    if matches!(
+        op,
+        Operation::PutItem | Operation::UpdateItem | Operation::DeleteItem
+    ) {
+        detected(&message)
+    } else {
+        validation(message)
+    }
+}
+
 /// The expression parameters that do a legacy parameter's job: the two may not be sent together.
 fn counterparts(op: Operation, legacy: &str) -> &'static [&'static str] {
     match legacy {
@@ -178,7 +205,8 @@ fn projection(b: &mut Builder, m: &Map<String, Json>, attrs: &Json) -> Result<St
     if let Some(select) = m.get("Select").and_then(Json::as_str)
         && select != "SPECIFIC_ATTRIBUTES"
     {
-        return Err(validation(format!(
+        // Recorded 2026-11-19.
+        return Err(detected(&format!(
             "Cannot specify the AttributesToGet when choosing to get {select}"
         )));
     }
@@ -245,7 +273,8 @@ fn conditions(b: &mut Builder, op: Operation, m: &mut Map<String, Json>) -> Resu
 }
 
 fn only_with_two() -> ApiError {
-    bad_param(
+    // Recorded 2026-11-19.
+    validation(
         "ConditionalOperator can only be used when Filter or Expected has two or more elements",
     )
 }
@@ -287,10 +316,11 @@ fn expected(b: &mut Builder, attr: &str, cond: &Json) -> Result<String, ApiError
             let (n, v) = (b.name(attr), b.value(v));
             Ok(format!("{n} = {v}"))
         }
-        (Some(_), false) => Err(bad_param(&format!(
+        // Recorded 2026-11-19 (both).
+        (Some(_), false) => Err(detected_param(&format!(
             "Value cannot be used when Exists is false for Attribute: {attr}"
         ))),
-        (None, true) => Err(bad_param(&format!(
+        (None, true) => Err(detected_param(&format!(
             "Value must be provided when Exists is true for Attribute: {attr}"
         ))),
         (None, false) => Ok(format!("attribute_not_exists({})", b.name(attr))),
@@ -398,7 +428,8 @@ fn key_conditions(b: &mut Builder, keys: &Json) -> Result<String, ApiError> {
             op,
             "EQ" | "LE" | "LT" | "GE" | "GT" | "BEGINS_WITH" | "BETWEEN"
         ) {
-            return Err(validation(
+            // Recorded 2026-11-19.
+            return Err(bad_param(
                 "Attempted conditional constraint is not an indexable operation",
             ));
         }
@@ -424,7 +455,8 @@ fn attribute_updates(b: &mut Builder, updates: &Json) -> Result<(Option<String>,
                 delete.push(format!("{n} {v}"));
             }
             (_, None) => {
-                return Err(bad_param(
+                // Recorded 2026-11-19.
+                return Err(detected_param(
                     "Only DELETE action is allowed when no attribute value is specified",
                 ));
             }

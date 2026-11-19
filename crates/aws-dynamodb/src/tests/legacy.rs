@@ -192,12 +192,21 @@ fn mixing_and_malformed_legacy_parameters_are_refused() {
             "KeyConditionExpression": "pk = :v", "ExpressionAttributeValues": {":v": {"S": "a"}}}),
     );
     assert!(message(&e).contains("Non-expression parameters: {KeyConditions}"));
+    // Recorded 2026-11-19: a write operation says it behind `1 validation error detected: `.
+    let e = w.err(
+        "PutItem",
+        json!({"TableName": "tab", "Item": key, "Expected": {"n": {"Exists": false}},
+            "ConditionExpression": "attribute_not_exists(pk)"}),
+    );
+    assert_eq!(
+        message(&e),
+        "1 validation error detected: Can not use both expression and non-expression parameters in the same request: Non-expression parameters: {Expected} Expression parameters: {ConditionExpression}"
+    );
 }
 
 #[test]
 fn malformed_legacy_parameters_are_refused() {
     let mut w = world();
-    let key = json!({"pk": {"S": "a"}, "sk": {"N": "1"}});
     let cases = [
         (
             json!({"KeyConditions": {"pk": {"ComparisonOperator": "EQ", "AttributeValueList": []}}}),
@@ -205,7 +214,7 @@ fn malformed_legacy_parameters_are_refused() {
         ),
         (
             json!({"KeyConditions": {"pk": {"ComparisonOperator": "NE", "AttributeValueList": [{"S": "a"}]}}}),
-            "Attempted conditional constraint is not an indexable operation",
+            "One or more parameter values were invalid: Attempted conditional constraint is not an indexable operation",
         ),
         (
             json!({"KeyConditions": {"pk": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "a"}]}},
@@ -226,17 +235,46 @@ fn malformed_legacy_parameters_are_refused() {
         let e = w.err("Query", req);
         assert!(message(&e).contains(want), "{} / {want}", message(&e));
     }
+    // Recorded 2026-11-19: this one carries no `One or more parameter values were invalid`.
+    let e = w.err(
+        "Query",
+        json!({"TableName": "tab", "KeyConditions": {"pk": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "a"}]}},
+            "QueryFilter": {"n": {"ComparisonOperator": "NULL"}}, "ConditionalOperator": "AND"}),
+    );
+    assert_eq!(
+        message(&e),
+        "ConditionalOperator can only be used when Filter or Expected has two or more elements"
+    );
+}
+
+/// Recorded 2026-11-19: these say it behind `1 validation error detected: `.
+#[test]
+fn some_legacy_refusals_are_counted_as_one_validation_error() {
+    let mut w = world();
+    let key = json!({"pk": {"S": "a"}, "sk": {"N": "1"}});
     let e = w.err(
         "PutItem",
         json!({"TableName": "tab", "Item": key, "Expected": {"n": {"Exists": true}}}),
     );
-    assert!(message(&e).contains("Value must be provided when Exists is true"));
+    assert_eq!(
+        message(&e),
+        "1 validation error detected: One or more parameter values were invalid: Value must be provided when Exists is true for Attribute: n"
+    );
+    let e = w.err(
+        "PutItem",
+        json!({"TableName": "tab", "Item": key, "Expected": {"n": {"Exists": false, "Value": {"N": "1"}}}}),
+    );
+    assert_eq!(
+        message(&e),
+        "1 validation error detected: One or more parameter values were invalid: Value cannot be used when Exists is false for Attribute: n"
+    );
     let e = w.err(
         "UpdateItem",
         json!({"TableName": "tab", "Key": key, "AttributeUpdates": {"n": {"Action": "PUT"}}}),
     );
-    assert!(
-        message(&e).contains("Only DELETE action is allowed when no attribute value is specified")
+    assert_eq!(
+        message(&e),
+        "1 validation error detected: One or more parameter values were invalid: Only DELETE action is allowed when no attribute value is specified"
     );
     let e = w.err(
         "Scan",
@@ -244,8 +282,13 @@ fn malformed_legacy_parameters_are_refused() {
     );
     assert_eq!(
         message(&e),
-        "Cannot specify the AttributesToGet when choosing to get ALL_ATTRIBUTES"
+        "1 validation error detected: Cannot specify the AttributesToGet when choosing to get ALL_ATTRIBUTES"
     );
+}
+
+#[test]
+fn legacy_parameters_take_no_expression_placeholders() {
+    let mut w = world();
     let e = w.err(
         "Scan",
         json!({"TableName": "tab", "ScanFilter": {"n": {"ComparisonOperator": "NULL"}}, "ExpressionAttributeNames": {"#n": "n"}}),

@@ -58,9 +58,10 @@ pub(crate) struct Read {
 }
 
 fn not_found(arn: &str) -> ApiError {
+    // Recorded 2026-11-19.
     ApiError::modeled(
         "ImportNotFoundException",
-        format!("Import not found: {arn}"),
+        format!("Import not found: Import with arn: {arn} doesn't exist"),
     )
 }
 

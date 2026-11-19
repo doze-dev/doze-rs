@@ -56,9 +56,10 @@ pub(crate) struct Written {
 }
 
 fn not_found(arn: &str) -> ApiError {
+    // Recorded 2026-11-19: AWS says "Export not found" twice.
     ApiError::modeled(
         "ExportNotFoundException",
-        format!("Export not found: {arn}"),
+        format!("Export not found: Export not found: {arn}"),
     )
 }
 
