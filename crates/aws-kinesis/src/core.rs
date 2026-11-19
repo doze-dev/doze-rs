@@ -91,6 +91,7 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::DeregisterStreamConsumer
             | O::DescribeStreamConsumer
             | O::ListStreamConsumers
+            | O::SubscribeToShard
             | O::SplitShard
             | O::MergeShards
             | O::UpdateShardCount
@@ -99,11 +100,23 @@ pub(crate) fn built(op: Operation) -> bool {
     )
 }
 
-/// What the actor is asked: a call from the wire, or a data question from `doze-aws data`.
+/// What the actor is asked: a call from the wire, a data question from `doze-aws data`, or a subscription's (`SubscribeToShard`).
 #[derive(Debug)]
 pub(crate) enum Ask {
     Call(Box<Call>),
     Data(Box<crate::storage::Asked>),
+    Fanout(Box<crate::fanout::FanoutAsk>),
+}
+
+impl Answer {
+    /// The answer to an ask that is not a call (its reply went its own way).
+    fn aside(durable: Option<Ack>) -> Self {
+        Self {
+            reply: Err(ApiError::internal("not a call")),
+            durable,
+            appended: false,
+        }
+    }
 }
 
 impl doze_runtime::Service for Core {
@@ -123,19 +136,11 @@ impl doze_runtime::Service for Core {
                 if reply.send(self.data(&region, ask)).is_err() {
                     // WHY: the person stopped waiting; what was asked was done all the same.
                 }
-                return Answer {
-                    reply: Err(ApiError::internal("not a call")),
-                    durable: None,
-                    appended: false,
-                };
+                return Answer::aside(None);
             }
+            Ask::Fanout(ask) => return self.fanout(*ask).await,
         };
-        if let Some(peers) = self.peers.clone()
-            && peers.mode() != Mode::Off
-            && let Err(refusal) = peers
-                .authorize(&call.caller, crate::authz::needs(&call))
-                .await
-        {
+        if let Err(refusal) = self.authorized(&call).await {
             return Answer {
                 reply: Err(refusal),
                 durable: None,
@@ -166,6 +171,43 @@ impl doze_runtime::Service for Core {
 }
 
 impl Core {
+    /// A subscription's ask: open one (authorized like any call), or read on.
+    async fn fanout(&mut self, ask: crate::fanout::FanoutAsk) -> Answer {
+        use crate::fanout::FanoutAsk;
+        match ask {
+            FanoutAsk::Open(call, reply) => {
+                let opened = match self.authorized(&call).await {
+                    Ok(()) => self.open_subscription(&Req::new(&call)),
+                    Err(refusal) => Err(refusal),
+                };
+                if reply.send(opened).is_err() {
+                    // WHY: the caller went away before the subscription opened.
+                }
+                Answer::aside(None)
+            }
+            FanoutAsk::Read(position, account, reply) => {
+                let read = self.fanout_read(&position, &account);
+                if reply.send(read).is_err() {
+                    // WHY: the subscription ended while its read was made.
+                }
+                // A read only writes when it removes records past the retention period.
+                Answer::aside(self.flush().ok().flatten())
+            }
+        }
+    }
+
+    /// The authorizer's answer, when IAM is on.
+    async fn authorized(&self, call: &Call) -> Result<(), ApiError> {
+        match self.peers.clone() {
+            Some(peers) if peers.mode() != Mode::Off => {
+                peers
+                    .authorize(&call.caller, crate::authz::needs(call))
+                    .await
+            }
+            _ => Ok(()),
+        }
+    }
+
     /// Kinesis with no disk (the rules alone are under test).
     #[cfg(test)]
     pub(crate) fn in_memory(clock: Arc<dyn Clock>) -> Self {

@@ -39,6 +39,7 @@ fn real(major: u64) -> Vec<(i64, i64, i64)> {
 const AS_RECORDED: Features = Features {
     sasl: true,
     telemetry: false,
+    unstable: false,
     served: ApiSet::ALL,
 };
 
@@ -81,6 +82,7 @@ fn telemetry_apis_are_the_only_extension() {
     let with = major4.advertised(Features {
         sasl: true,
         telemetry: true,
+        unstable: false,
         served: ApiSet::ALL,
     });
     let without = major4.advertised(AS_RECORDED);
@@ -103,6 +105,7 @@ fn telemetry_apis_are_the_only_extension() {
             p.advertised(Features {
                 sasl: true,
                 telemetry: true,
+                unstable: false,
                 served: ApiSet::ALL,
             }),
             p.advertised(AS_RECORDED)
@@ -174,27 +177,21 @@ enum Why {
     /// stay out; clients never send them, a single node has no other broker, and serving them would only make the list
     /// match (wire.md W36, debt.md K4).
     InterBroker,
-    /// An admin API the broker does not serve (delegation tokens, reassignments, leader election, moving log dirs,
-    /// features, ListConfigResources, DescribeTopicPartitions). debt.md K3.
-    AdminNotServed,
-    /// Versions newer than the broker implements at Kafka 4. debt.md K1.
-    NewerNotServed,
-    /// Kafka 4.4.0's Produce v13 and TxnOffsetCommit v6: in flight, branch kafka-wire-tail (removed when it merges).
-    InFlight,
     /// The column of an older major stops below the recorded broker of that major, or leaves out an API it lists
     /// (the columns were written for an earlier release of that major than the one recorded). debt.md K2.
     OlderColumn,
 }
 
 use Why::{
-    AdminNotServed as ADMIN_NOT_SERVED, FormatFloor as FORMAT_FLOOR, InFlight as IN_FLIGHT,
-    InterBroker as INTER_BROKER, Kip896Floor as KIP896_FLOOR, NewerNotServed as NEWER_NOT_SERVED,
+    FormatFloor as FORMAT_FLOOR, InterBroker as INTER_BROKER, Kip896Floor as KIP896_FLOOR,
     OlderColumn as OLDER_COLUMN,
 };
 
 /// (major, API key, what the profile offers, why) for every difference from the recording. The list as it stood on
 /// main before 2026-11-18 had 16 more: SaslHandshake v0 in all four majors, and v0 of the ACL APIs, OffsetForLeaderEpoch
-/// and DescribeLogDirs in majors 1 to 3 (I2, SEC-D3: served since).
+/// and DescribeLogDirs in majors 1 to 3 (I2, SEC-D3: served since), and on 2026-11-19 twelve more at Kafka 4, every version
+/// 4.4.0 lists of an API served (K1: Produce 13, Fetch 18, ListOffsets 11, Metadata 13, OffsetCommit and OffsetFetch 10,
+/// FindCoordinator 6, DescribeGroups 6, ApiVersions 5, TxnOffsetCommit 6, DescribeLogDirs 5, DeleteGroups 3, ListTransactions 2).
 /// (major, API key, what the profile offers, why).
 type Deviation = (u8, i16, Option<(i16, i16)>, &'static [Why]);
 
@@ -213,11 +210,6 @@ const DEVIATIONS: &[Deviation] = &[
     (1, 20, Some((1, 1)), &[KIP896_FLOOR]), // DeleteTopics, recorded 0-1
     (1, 27, None, &[INTER_BROKER]), // WriteTxnMarkers, recorded 0-0
     (1, 32, Some((1, 1)), &[KIP896_FLOOR]), // DescribeConfigs, recorded 0-1
-    (1, 34, None, &[ADMIN_NOT_SERVED]), // AlterReplicaLogDirs, recorded 0-0
-    (1, 38, None, &[ADMIN_NOT_SERVED]), // CreateDelegationToken, recorded 0-0
-    (1, 39, None, &[ADMIN_NOT_SERVED]), // RenewDelegationToken, recorded 0-0
-    (1, 40, None, &[ADMIN_NOT_SERVED]), // ExpireDelegationToken, recorded 0-0
-    (1, 41, None, &[ADMIN_NOT_SERVED]), // DescribeDelegationToken, recorded 0-0
     (2, 0, Some((3, 7)), &[FORMAT_FLOOR, OLDER_COLUMN]), // Produce, recorded 0-9
     (2, 1, Some((4, 10)), &[FORMAT_FLOOR, OLDER_COLUMN]), // Fetch, recorded 0-12
     (2, 2, Some((1, 5)), &[KIP896_FLOOR, OLDER_COLUMN]), // ListOffsets, recorded 0-6
@@ -249,17 +241,8 @@ const DEVIATIONS: &[Deviation] = &[
     (2, 30, Some((0, 1)), &[OLDER_COLUMN]), // CreateACLs, recorded 0-2
     (2, 31, Some((0, 1)), &[OLDER_COLUMN]), // DeleteACLs, recorded 0-2
     (2, 32, Some((1, 2)), &[KIP896_FLOOR, OLDER_COLUMN]), // DescribeConfigs, recorded 0-4
-    (2, 34, None, &[ADMIN_NOT_SERVED]), // AlterReplicaLogDirs, recorded 0-2
     (2, 37, Some((0, 1)), &[OLDER_COLUMN]), // CreatePartitions, recorded 0-3
-    (2, 38, None, &[ADMIN_NOT_SERVED]), // CreateDelegationToken, recorded 0-2
-    (2, 39, None, &[ADMIN_NOT_SERVED]), // RenewDelegationToken, recorded 0-2
-    (2, 40, None, &[ADMIN_NOT_SERVED]), // ExpireDelegationToken, recorded 0-2
-    (2, 41, None, &[ADMIN_NOT_SERVED]), // DescribeDelegationToken, recorded 0-2
-    (2, 43, None, &[ADMIN_NOT_SERVED]), // ElectLeaders, recorded 0-2
-    (2, 45, None, &[ADMIN_NOT_SERVED]), // AlterPartitionAssignments, recorded 0-0
-    (2, 46, None, &[ADMIN_NOT_SERVED]), // ListPartitionReassignments, recorded 0-0
     (2, 56, None, &[INTER_BROKER]), // AlterPartition, recorded 0-0
-    (2, 57, None, &[ADMIN_NOT_SERVED]), // UpdateFeatures, recorded 0-0
     (2, 60, None, &[OLDER_COLUMN]), // DescribeCluster, recorded 0-0
     (2, 61, None, &[OLDER_COLUMN]), // DescribeProducers, recorded 0-0
     (3, 0, Some((3, 11)), &[FORMAT_FLOOR]), // Produce, recorded 0-11
@@ -277,50 +260,16 @@ const DEVIATIONS: &[Deviation] = &[
     (3, 20, Some((1, 5)), &[KIP896_FLOOR, OLDER_COLUMN]), // DeleteTopics, recorded 0-6
     (3, 27, None, &[INTER_BROKER]), // WriteTxnMarkers, recorded 0-1
     (3, 32, Some((1, 4)), &[KIP896_FLOOR]), // DescribeConfigs, recorded 0-4
-    (3, 34, None, &[ADMIN_NOT_SERVED]), // AlterReplicaLogDirs, recorded 0-2
-    (3, 38, None, &[ADMIN_NOT_SERVED]), // CreateDelegationToken, recorded 0-3
-    (3, 39, None, &[ADMIN_NOT_SERVED]), // RenewDelegationToken, recorded 0-2
-    (3, 40, None, &[ADMIN_NOT_SERVED]), // ExpireDelegationToken, recorded 0-2
-    (3, 41, None, &[ADMIN_NOT_SERVED]), // DescribeDelegationToken, recorded 0-3
-    (3, 43, None, &[ADMIN_NOT_SERVED]), // ElectLeaders, recorded 0-2
-    (3, 45, None, &[ADMIN_NOT_SERVED]), // AlterPartitionAssignments, recorded 0-0
-    (3, 46, None, &[ADMIN_NOT_SERVED]), // ListPartitionReassignments, recorded 0-0
     (3, 55, None, &[INTER_BROKER]), // DescribeQuorum, recorded 0-2
-    (3, 57, None, &[ADMIN_NOT_SERVED]), // UpdateFeatures, recorded 0-1
     (3, 64, None, &[INTER_BROKER]), // UnregisterBroker, recorded 0-0
     (3, 68, None, &[OLDER_COLUMN]), // ConsumerGroupHeartbeat, recorded 0-0
     (3, 69, None, &[OLDER_COLUMN]), // ConsumerGroupDescribe, recorded 0-0
-    (3, 74, None, &[ADMIN_NOT_SERVED]), // ListConfigResources, recorded 0-0
-    (3, 75, None, &[ADMIN_NOT_SERVED]), // DescribeTopicPartitions, recorded 0-0
     (3, 80, None, &[INTER_BROKER]), // AddRaftVoter, recorded 0-0
     (3, 81, None, &[INTER_BROKER]), // RemoveRaftVoter, recorded 0-0
-    (4, 0, Some((3, 12)), &[FORMAT_FLOOR, IN_FLIGHT]), // Produce, recorded 0-13
-    (4, 1, Some((4, 13)), &[NEWER_NOT_SERVED]), // Fetch, recorded 4-18
-    (4, 2, Some((1, 7)), &[NEWER_NOT_SERVED]), // ListOffsets, recorded 1-11
-    (4, 3, Some((0, 12)), &[NEWER_NOT_SERVED]), // Metadata, recorded 0-13
-    (4, 8, Some((2, 9)), &[NEWER_NOT_SERVED]), // OffsetCommit, recorded 2-10
-    (4, 9, Some((1, 9)), &[NEWER_NOT_SERVED]), // OffsetFetch, recorded 1-10
-    (4, 10, Some((0, 4)), &[NEWER_NOT_SERVED]), // FindCoordinator, recorded 0-6
-    (4, 15, Some((0, 5)), &[NEWER_NOT_SERVED]), // DescribeGroups, recorded 0-6
-    (4, 18, Some((0, 4)), &[NEWER_NOT_SERVED]), // ApiVersions, recorded 0-5
+    (4, 0, Some((3, 13)), &[FORMAT_FLOOR]), // Produce, recorded 0-13
     (4, 27, None, &[INTER_BROKER]), // WriteTxnMarkers, recorded 1-2
-    (4, 28, Some((0, 5)), &[IN_FLIGHT]), // TxnOffsetCommit, recorded 0-6
-    (4, 34, None, &[ADMIN_NOT_SERVED]), // AlterReplicaLogDirs, recorded 1-2
-    (4, 35, Some((1, 4)), &[NEWER_NOT_SERVED]), // DescribeLogDirs, recorded 1-5
-    (4, 38, None, &[ADMIN_NOT_SERVED]), // CreateDelegationToken, recorded 1-3
-    (4, 39, None, &[ADMIN_NOT_SERVED]), // RenewDelegationToken, recorded 1-2
-    (4, 40, None, &[ADMIN_NOT_SERVED]), // ExpireDelegationToken, recorded 1-2
-    (4, 41, None, &[ADMIN_NOT_SERVED]), // DescribeDelegationToken, recorded 1-3
-    (4, 42, Some((0, 2)), &[NEWER_NOT_SERVED]), // DeleteGroups, recorded 0-3
-    (4, 43, None, &[ADMIN_NOT_SERVED]), // ElectLeaders, recorded 0-2
-    (4, 45, None, &[ADMIN_NOT_SERVED]), // AlterPartitionReassignments, recorded 0-1
-    (4, 46, None, &[ADMIN_NOT_SERVED]), // ListPartitionReassignments, recorded 0-0
     (4, 55, None, &[INTER_BROKER]), // DescribeQuorum, recorded 0-2
-    (4, 57, None, &[ADMIN_NOT_SERVED]), // UpdateFeatures, recorded 0-2
     (4, 64, None, &[INTER_BROKER]), // UnregisterBroker, recorded 0-0
-    (4, 66, Some((0, 1)), &[NEWER_NOT_SERVED]), // ListTransactions, recorded 0-2
-    (4, 74, None, &[ADMIN_NOT_SERVED]), // ListConfigResources, recorded 0-1
-    (4, 75, None, &[ADMIN_NOT_SERVED]), // DescribeTopicPartitions, recorded 0-0
     (4, 80, None, &[INTER_BROKER]), // AddRaftVoter, recorded 0-1
     (4, 81, None, &[INTER_BROKER]), // RemoveRaftVoter, recorded 0-0
     (4, 83, None, &[INTER_BROKER]), // InitializeShareGroupState, recorded 0-0

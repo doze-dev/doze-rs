@@ -2,9 +2,12 @@
 through plain HTTP, because a deployed API is something a browser calls.
 """
 
+import datetime
 import json
 import urllib.error
 import urllib.request
+
+import pytest
 
 from harness.helpers import zip_bytes
 
@@ -411,3 +414,235 @@ def test_websocket_api_control_plane(client, names, cleanup, snapshot):
                    opaque=IDS + ("RouteResponseId",))
     snapshot.match("stage", v2.create_stage(ApiId=aid, StageName="prod", AutoDeploy=True), opaque=IDS + CLOCK)
     snapshot.match("routes", sorted(r["RouteKey"] for r in v2.get_routes(ApiId=aid)["Items"]))
+
+
+# Written ahead of a recording (stage apigw-ops, 2026-11-18): UNVERIFIED until recorded. Nothing here bills by the hour; VPC links
+# are left out on purpose (a real one needs a network load balancer, which does).
+
+CERT = ("clientCertificateId", "pemEncodedCertificate", "expirationDate")
+
+
+def test_documentation_parts_and_versions(client, names, cleanup, snapshot):
+    api = client("apigateway")
+    rid, _ = mock_api(api, names, cleanup, part="pets", stage="dev")
+    snapshot.known(rid, "api-id")
+    part = snapshot.match("create-method-part", api.create_documentation_part(
+        restApiId=rid, location={"type": "METHOD", "path": "/pets", "method": "GET"},
+        properties='{"summary": "List pets"}'), opaque=IDS)
+    snapshot.match("create-api-part", api.create_documentation_part(
+        restApiId=rid, location={"type": "API"}, properties='{"description": "Pets"}'), opaque=IDS)
+    snapshot.error("same-location-twice", lambda: api.create_documentation_part(
+        restApiId=rid, location={"type": "METHOD", "path": "/pets", "method": "GET"}, properties="{}"))
+    snapshot.error("api-part-with-a-path", lambda: api.create_documentation_part(
+        restApiId=rid, location={"type": "API", "path": "/pets"}, properties="{}"))
+    snapshot.error("model-part-without-a-name", lambda: api.create_documentation_part(
+        restApiId=rid, location={"type": "MODEL"}, properties="{}"))
+    snapshot.outcome("properties-not-an-object", lambda: api.create_documentation_part(
+        restApiId=rid, location={"type": "RESOURCE", "path": "/pets"}, properties="[1]"), opaque=IDS)
+    snapshot.match("list-methods", api.get_documentation_parts(restApiId=rid, type="METHOD"), opaque=IDS)
+    snapshot.match("update-part", api.update_documentation_part(
+        restApiId=rid, documentationPartId=part["id"],
+        patchOperations=[{"op": "replace", "path": "/properties", "value": '{"summary": "All pets"}'}]), opaque=IDS)
+    snapshot.match("version", api.create_documentation_version(
+        restApiId=rid, documentationVersion="1.0", stageName="dev", description="first"), opaque=CLOCK)
+    snapshot.match("stage-names-it", api.get_stage(restApiId=rid, stageName="dev")["documentationVersion"])
+    snapshot.error("version-twice", lambda: api.create_documentation_version(restApiId=rid, documentationVersion="1.0"))
+    exported = api.get_export(restApiId=rid, stageName="dev", exportType="oas30", parameters={"extensions": "documentation"},
+                              accepts="application/json")
+    doc = json.loads(exported["body"].read())
+    snapshot.match("export-documentation", doc.get("x-amazon-apigateway-documentation"), opaque=CLOCK)
+    snapshot.match("export-summary", doc["paths"]["/pets"]["get"].get("summary"))
+    snapshot.match("update-version", api.update_documentation_version(
+        restApiId=rid, documentationVersion="1.0",
+        patchOperations=[{"op": "replace", "path": "/description", "value": "renamed"}]), opaque=CLOCK)
+    api.delete_documentation_version(restApiId=rid, documentationVersion="1.0")
+    api.delete_documentation_part(restApiId=rid, documentationPartId=part["id"])
+    snapshot.error("absent-part", lambda: api.get_documentation_part(restApiId=rid, documentationPartId=part["id"]))
+
+
+def test_import_documentation_parts(client, names, cleanup, snapshot):
+    api = client("apigateway")
+    rid, _ = mock_api(api, names, cleanup, part="pets")
+    body = json.dumps({"openapi": "3.0.1", "info": {"title": "t", "version": "1"}, "paths": {},
+                       "x-amazon-apigateway-documentation": {"version": "1", "documentationParts": [
+                           {"location": {"type": "API"}, "properties": {"description": "imported"}},
+                           {"location": {"type": "RESOURCE", "path": "/pets"}, "properties": {"description": "pets"}}]}})
+    out = snapshot.match("import", api.import_documentation_parts(restApiId=rid, mode="overwrite", body=body.encode()),
+                         opaque=("ids",))
+    snapshot.match("imported-count", len(out["ids"]))
+    snapshot.match("parts", sorted(p["location"]["type"] for p in api.get_documentation_parts(restApiId=rid)["items"]))
+
+
+def test_client_certificates(client, cleanup, snapshot):
+    api = client("apigateway")
+    made = snapshot.match("generate", api.generate_client_certificate(description="conformance"), opaque=CERT + CLOCK)
+    cid = made["clientCertificateId"]
+    cleanup(api.delete_client_certificate, clientCertificateId=cid)
+    pem = made["pemEncodedCertificate"]
+    snapshot.match("pem-shape", [pem.startswith("-----BEGIN CERTIFICATE-----"), pem.strip().endswith("-----END CERTIFICATE-----")])
+    days = (made["expirationDate"] - made["createdDate"]).days
+    snapshot.match("valid-days", days)
+    snapshot.match("get", api.get_client_certificate(clientCertificateId=cid), opaque=CERT + CLOCK)
+    snapshot.match("update", api.update_client_certificate(
+        clientCertificateId=cid, patchOperations=[{"op": "replace", "path": "/description", "value": "renamed"}]),
+        opaque=CERT + CLOCK)
+    snapshot.error("absent", lambda: api.get_client_certificate(clientCertificateId="nonesuch"))
+
+
+def test_model_templates(client, names, cleanup, snapshot):
+    api, v2 = client("apigateway"), client("apigatewayv2")
+    rid = api.create_rest_api(name=names("api"))["id"]
+    cleanup(api.delete_rest_api, restApiId=rid)
+    snapshot.match("empty", api.get_model_template(restApiId=rid, modelName="Empty"))
+    api.create_model(restApiId=rid, name="Pet", contentType="application/json", schema=json.dumps({
+        "$schema": "http://json-schema.org/draft-04/schema#", "type": "object",
+        "properties": {"name": {"type": "string"}, "age": {"type": "integer"},
+                       "tags": {"type": "array", "items": {"type": "string"}}}}))
+    snapshot.match("pet", api.get_model_template(restApiId=rid, modelName="Pet"))
+    snapshot.error("absent-model", lambda: api.get_model_template(restApiId=rid, modelName="Nope"))
+    aid = v2.create_api(Name=names("ws"), ProtocolType="WEBSOCKET", RouteSelectionExpression="$request.body.action")["ApiId"]
+    cleanup(v2.delete_api, ApiId=aid)
+    mid = v2.create_model(ApiId=aid, Name="Ok", ContentType="application/json", Schema=json.dumps({
+        "$schema": "http://json-schema.org/draft-04/schema#", "type": "object", "properties": {"ok": {"type": "boolean"}}}))["ModelId"]
+    snapshot.match("v2", v2.get_model_template(ApiId=aid, ModelId=mid))
+
+
+def test_usage_is_metered_and_granted(client, names, cleanup, snapshot, target, eventually):
+    api = client("apigateway")
+    rid, res = mock_api(api, names, cleanup, stage="live")
+    api.update_method(restApiId=rid, resourceId=res, httpMethod="GET",
+                      patchOperations=[{"op": "replace", "path": "/apiKeyRequired", "value": "true"}])
+    api.create_deployment(restApiId=rid, stageName="live")
+    value = "doze0123456789abcdefghijk-usage"
+    key = api.create_api_key(name=names("key"), enabled=True, value=value)["id"]
+    cleanup(api.delete_api_key, apiKey=key)
+    snapshot.known(key, "key-id")
+    plan = api.create_usage_plan(name=names("plan"), apiStages=[{"apiId": rid, "stage": "live"}],
+                                 quota={"limit": 3, "period": "DAY"})["id"]
+    cleanup(api.delete_usage_plan, usagePlanId=plan)
+    snapshot.known(plan, "plan-id")
+    api.create_usage_plan_key(usagePlanId=plan, keyId=key, keyType="API_KEY")
+    cleanup(api.delete_usage_plan_key, usagePlanId=plan, keyId=key)
+    url = target.execute_api_url(rid, "live", "ping")
+
+    def keyed():
+        r = call(url, headers={"x-api-key": value})
+        assert r["status"] == 200, r
+        return r
+
+    eventually(keyed, timeout=60)
+    keyed()
+    keyed()
+
+    def over():
+        r = call(url, headers={"x-api-key": value})
+        assert r["status"] == 429, r
+        return r
+
+    snapshot.match("over-the-quota", eventually(over, timeout=60))
+    day = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+
+    def reported():
+        u = api.get_usage(usagePlanId=plan, startDate=day, endDate=day)
+        assert u["items"].get(key, [[0, 0]])[0][0] >= 3, u
+        return u
+
+    # AWS reports usage after a delay; doze-aws at once.
+    snapshot.match("usage", eventually(reported, timeout=600), drop=("startDate", "endDate"))
+    snapshot.match("grant", api.update_usage(usagePlanId=plan, keyId=key, patchOperations=[
+        {"op": "replace", "path": "/remaining", "value": "5"}]), drop=("startDate", "endDate"))
+    snapshot.error("bad-date", lambda: api.get_usage(usagePlanId=plan, startDate="yesterday", endDate=day))
+
+
+def test_import_api_keys(client, names, cleanup, snapshot):
+    api = client("apigateway")
+    plan = api.create_usage_plan(name=names("plan"))["id"]
+    cleanup(api.delete_usage_plan, usagePlanId=plan)
+    good = "doze0123456789abcdefghijk-import"
+    csv = f'Enabled,Name,key,UsageplanIds\ntrue,{names("imported")},{good},"{plan}"\n'
+    out = snapshot.match("import", api.import_api_keys(body=csv.encode(), format="csv"), opaque=("ids",))
+    for k in out["ids"]:
+        cleanup(api.delete_api_key, apiKey=k)
+    snapshot.match("in-the-plan", [k["value"] for k in api.get_usage_plan_keys(usagePlanId=plan)["items"]])
+    snapshot.outcome("a-short-key", lambda: api.import_api_keys(
+        body=f'Name,Key\n{names("short")},tooshort\n'.encode(), format="csv", failOnWarnings=True), opaque=("ids",))
+
+
+def test_vpc_links(client, names, cleanup, target):
+    # A real link needs a network load balancer, which bills by the hour: never recorded, doze-aws only.
+    if target.name == "aws":
+        pytest.skip("a VPC link needs a network load balancer, billed hourly; doze-aws only")
+    api, v2 = client("apigateway"), client("apigatewayv2")
+    nlb = f"arn:aws:elasticloadbalancing:{target.region}:123456789012:loadbalancer/net/local/0123456789abcdef"
+    made = api.create_vpc_link(name=names("link"), targetArns=[nlb])
+    lid = made["id"]
+    cleanup(api.delete_vpc_link, vpcLinkId=lid)
+    assert made["status"] == "PENDING", made
+    assert api.get_vpc_link(vpcLinkId=lid)["status"] == "AVAILABLE"
+    assert lid in [link["id"] for link in api.get_vpc_links()["items"]]
+    renamed = api.update_vpc_link(vpcLinkId=lid, patchOperations=[{"op": "replace", "path": "/description", "value": "d"}])
+    assert renamed["description"] == "d", renamed
+    with pytest.raises(api.exceptions.BadRequestException):
+        api.create_vpc_link(name=names("bad"), targetArns=["arn:aws:sqs:us-east-1:123456789012:q"])
+
+    # An integration over the link calls its URI directly: here a MOCK stage of another API.
+    backend, _ = mock_api(api, names, cleanup, stage="b")
+    rid, res = mock_api(api, names, cleanup, part="via")
+    at = dict(restApiId=rid, resourceId=res, httpMethod="GET")
+    with pytest.raises(api.exceptions.NotFoundException):
+        api.put_integration(**at, type="HTTP_PROXY", integrationHttpMethod="GET", connectionType="VPC_LINK",
+                            connectionId="nonesuch", uri=target.execute_api_url(backend, "b", "ping"))
+    api.put_integration(**at, type="HTTP_PROXY", integrationHttpMethod="GET", connectionType="VPC_LINK",
+                        connectionId=lid, uri=target.execute_api_url(backend, "b", "ping"))
+    out = api.test_invoke_method(**at)
+    assert out["status"] == 200 and json.loads(out["body"]) == {"ok": True}, out
+
+    link2 = v2.create_vpc_link(Name=names("link2"), SubnetIds=["subnet-0123456789abcdef0"])
+    cleanup(v2.delete_vpc_link, VpcLinkId=link2["VpcLinkId"])
+    assert link2["VpcLinkStatus"] == "PENDING" and link2["VpcLinkVersion"] == "V2", link2
+    assert v2.get_vpc_link(VpcLinkId=link2["VpcLinkId"])["VpcLinkStatus"] == "AVAILABLE"
+    assert v2.update_vpc_link(VpcLinkId=link2["VpcLinkId"], Name="renamed")["Name"] == "renamed"
+    assert link2["VpcLinkId"] in [link["VpcLinkId"] for link in v2.get_vpc_links()["Items"]]
+    # The two APIs keep their links apart.
+    with pytest.raises(api.exceptions.NotFoundException):
+        api.get_vpc_link(vpcLinkId=link2["VpcLinkId"])
+
+
+AUTHORIZER = '''
+def handler(event, context):
+    if event.get("authorizationToken") != "allow":
+        raise Exception("Unauthorized")
+    return {"principalId": "user", "policyDocument": {"Version": "2012-10-17", "Statement": [
+        {"Action": "execute-api:Invoke", "Effect": "Allow", "Resource": event["methodArn"]}]}}
+'''
+
+
+def test_test_invoke_method_and_authorizer(client, names, cleanup, snapshot, service_role, target):
+    api, lam = client("apigateway"), client("lambda")
+    rid, res = mock_api(api, names, cleanup, part="{id}")
+    api.put_integration_response(restApiId=rid, resourceId=res, httpMethod="GET", statusCode="200",
+                                 responseTemplates={"application/json": '{"id": "$input.params(\'id\')", "stage": "$context.stage"}'})
+    out = api.test_invoke_method(restApiId=rid, resourceId=res, httpMethod="GET", pathWithQueryString="/42?q=x")
+    snapshot.match("method", out, drop=("log", "latency", "ResponseMetadata"))
+    log = out["log"].splitlines()
+    snapshot.match("log-first-and-last", [log[0].split(" request ")[0], log[-1].split(" : ", 1)[1]])
+    snapshot.error("absent-method", lambda: api.test_invoke_method(restApiId=rid, resourceId=res, httpMethod="POST"))
+
+    name = names("auth")
+    fn = lam.create_function(FunctionName=name, Runtime="python3.12", Role=service_role("lambda", BASIC),
+                             Handler="index.handler", Code={"ZipFile": zip_bytes({"index.py": AUTHORIZER})},
+                             Timeout=10)["FunctionArn"]
+    cleanup(lam.delete_function, FunctionName=name)
+    lam.get_waiter("function_active_v2").wait(FunctionName=name, WaiterConfig=FAST)
+    lam.add_permission(FunctionName=name, StatementId="apigw", Action="lambda:InvokeFunction",
+                       Principal="apigateway.amazonaws.com")
+    uri = f"arn:aws:apigateway:{target.region}:lambda:path/2015-03-31/functions/{fn}/invocations"
+    auth = api.create_authorizer(restApiId=rid, name="token", type="TOKEN", authorizerUri=uri,
+                                 identitySource="method.request.header.Authorization")["id"]
+    allowed = api.test_invoke_authorizer(restApiId=rid, authorizerId=auth, headers={"Authorization": "allow"})
+    assert allowed["clientStatus"] == 0 and allowed["principalId"] == "user", allowed
+    snapshot.match("allowed", allowed, drop=("log", "latency", "ResponseMetadata", "policy"))
+    snapshot.match("allowed-policy-effect", json.loads(allowed["policy"])["Statement"][0]["Effect"])
+    denied = api.test_invoke_authorizer(restApiId=rid, authorizerId=auth, headers={"Authorization": "deny"})
+    assert denied["clientStatus"] == 401, denied
+    snapshot.match("denied", denied, drop=("log", "latency", "ResponseMetadata"))

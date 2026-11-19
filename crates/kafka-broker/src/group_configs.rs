@@ -347,6 +347,15 @@ impl GroupConfigs {
         StreamsSettings::of(&self.of(group))
     }
 
+    /// The groups that have a config set, by name (ListConfigResources).
+    #[must_use]
+    pub(crate) fn groups(&self) -> Vec<String> {
+        let all = self.0.read().unwrap_or_else(PoisonError::into_inner);
+        let mut names: Vec<String> = all.keys().map(ToString::to_string).collect();
+        names.sort_unstable();
+        names
+    }
+
     pub(crate) fn set(&self, group: &GroupId, configs: BTreeMap<String, String>) {
         let mut all = self.0.write().unwrap_or_else(PoisonError::into_inner);
         if configs.is_empty() {

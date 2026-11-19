@@ -9,6 +9,7 @@ use kafka_wire::api::{Request, Response};
 
 use super::facts::Facts;
 
+mod admin;
 mod configs;
 mod fetch;
 mod groups;
@@ -80,6 +81,17 @@ pub fn of_request(request: &Request, f: &mut Facts) {
         Request::StreamsGroupHeartbeat(r) => streams::heartbeat_request(r, f),
         Request::StreamsGroupDescribe(r) => streams::describe_request(r, f),
         Request::StreamsGroupTopologyDescriptionUpdate(r) => streams::topology_update_request(r, f),
+        Request::DescribeTopicPartitions(r) => admin::topic_partitions_request(r, f),
+        Request::ElectLeaders(r) => admin::elect_request(r, f),
+        Request::AlterPartitionReassignments(r) => admin::reassign_request(r, f),
+        Request::ListPartitionReassignments(r) => admin::reassignments_request(r, f),
+        Request::AlterReplicaLogDirs(r) => admin::log_dirs_request(r, f),
+        Request::ListConfigResources(r) => admin::config_resources_request(r, f),
+        Request::UpdateFeatures(r) => admin::features_request(r, f),
+        Request::CreateDelegationToken(r) => admin::create_token_request(r, f),
+        Request::RenewDelegationToken(r) => admin::renew_token_request(r, f),
+        Request::ExpireDelegationToken(r) => admin::expire_token_request(r, f),
+        Request::DescribeDelegationToken(r) => admin::describe_tokens_request(r, f),
     }
 }
 
@@ -89,6 +101,10 @@ pub fn of_api_versions(r: &kafka_wire::messages::ApiVersionsRequest, f: &mut Fac
 }
 
 /// What the answer says.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one typed match over every response with no wildcard, so an API with no summary does not compile"
+)]
 pub fn of_response(response: &Response, f: &mut Facts) {
     match response {
         Response::Produce(r) => produce::response(r, f),
@@ -150,6 +166,17 @@ pub fn of_response(response: &Response, f: &mut Facts) {
         Response::StreamsGroupTopologyDescriptionUpdate(r) => {
             streams::topology_update_response(r, f)
         }
+        Response::DescribeTopicPartitions(r) => admin::topic_partitions_response(r, f),
+        Response::ElectLeaders(r) => admin::elect_response(r, f),
+        Response::AlterPartitionReassignments(r) => admin::reassign_response(r, f),
+        Response::ListPartitionReassignments(r) => admin::reassignments_response(r, f),
+        Response::AlterReplicaLogDirs(r) => admin::log_dirs_response(r, f),
+        Response::ListConfigResources(r) => admin::config_resources_response(r, f),
+        Response::UpdateFeatures(r) => admin::features_response(r, f),
+        Response::CreateDelegationToken(r) => admin::create_token_response(r, f),
+        Response::RenewDelegationToken(r) => admin::renew_token_response(r, f),
+        Response::ExpireDelegationToken(r) => admin::expire_token_response(r, f),
+        Response::DescribeDelegationToken(r) => admin::describe_tokens_response(r, f),
     }
 }
 

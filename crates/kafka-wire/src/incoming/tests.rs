@@ -1,4 +1,4 @@
-use kafka_protocol::messages::{ApiVersionsRequest, FetchRequest};
+use kafka_protocol::messages::{ApiVersionsRequest, InitProducerIdRequest};
 
 use super::*;
 use crate::profile::KafkaMajor;
@@ -10,12 +10,19 @@ fn profile() -> Profile {
 
 #[test]
 fn a_version_outside_the_range_is_refused() {
-    let p = request_payload(ApiKey::Fetch, 14, 1, None, &FetchRequest::default());
+    // InitProducerId v6 is in the table but offered only with the unstable versions (every version of the rest is offered).
+    let p = request_payload(
+        ApiKey::InitProducerId,
+        6,
+        1,
+        None,
+        &InitProducerIdRequest::default(),
+    );
     assert!(matches!(
         read(p, profile(), Features::default()),
         Err(WireError::NotAdvertised {
-            key: ApiKey::Fetch,
-            version: 14
+            key: ApiKey::InitProducerId,
+            version: 6
         })
     ));
 }

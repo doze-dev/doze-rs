@@ -106,7 +106,8 @@ async fn a_refused_topic_fails_its_partitions_and_the_others_are_committed() {
         .iter()
         .map(|t| (t.name.as_str(), t.partitions[0].error_code))
         .collect();
-    assert_eq!(seen, [("t", 0), ("u", 29)]);
+    // Kafka's order: the topic KafkaApis refuses itself is added to the answer before the group's (wire.md W37).
+    assert_eq!(seen, [("u", 29), ("t", 0)]);
     // t was stored; u was not (still 9).
     let got = calls::fetch(&rig, &admin(), 8, "grp", None).await;
     let offsets: Vec<_> = got.groups[0]

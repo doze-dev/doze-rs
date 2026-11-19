@@ -34,8 +34,11 @@ answers log start -1; one made after it carries the log start.
 Test: `tests/produce_checks::*`; `kafka-wire::batch::produce::tests::*`
 
 ### P6. Unknown topics and partitions
-UNKNOWN_TOPIC_OR_PARTITION with base offset -1. From Produce v13 a topic is named by id.
-Test: `an_unknown_topic_or_partition_is_unknown_*`, `tests/produce_checks::from_v13_*`
+UNKNOWN_TOPIC_OR_PARTITION with base offset -1. From Produce v13 (KIP-516, offered at Kafka 4) a topic is named by id: an id that stands
+for no topic, the zero id included, is UNKNOWN_TOPIC_ID (100) on each of its partitions, before any right is asked; a partition the topic has not
+is UNKNOWN_TOPIC_OR_PARTITION as before; the answer names each topic by the id it was asked by (`KafkaApis.handleProduceRequest`, 4.4.0; TX-26,
+SEC-334) [wire-tail oracle `produce-ids`].
+Test: `an_unknown_topic_or_partition_is_unknown_*`, `tests/produce_checks::from_v13_*`, `tests/topic_ids_in_writes::produce_*`
 
 ### P7. Time
 A topic with `message.timestamp.type=LogAppendTime` has its batches stamped with the broker's clock and the answer says when.

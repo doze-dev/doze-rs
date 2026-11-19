@@ -1,8 +1,9 @@
-//! The REST API (v1) control plane. Every operation of the model is matched here: built, or refused by name with the reason SCOPE.md
-//! gives (`built`).
+//! The REST API (v1) control plane. Every operation of the model is matched here: built, or refused by name (`built`).
 
 mod apis;
+mod docs;
 mod extras;
+mod import_keys;
 mod keys;
 mod methods;
 mod paging;
@@ -17,56 +18,49 @@ use crate::errors::{no_api, refused};
 use crate::req::{Req, Res};
 
 pub(crate) use apis::{new_api, valid_part};
+pub(crate) use docs::export as documentation;
 pub(crate) use extras::new_model;
 pub(crate) use paging::page;
+pub(crate) use stages::snapshot;
 
 /// What `GetRestApi` shows of a stored API.
 pub(crate) fn view(doc: &Value) -> Value {
     Value::Object(apis::api_view(doc))
 }
 
-/// The operations not built, and why: client certificates, VPC links and domain-name access associations need network or certificate
-/// infrastructure; documentation parts and versions, SDK generation and the SDK types are publishing (STAY CUT in SCOPE.md); usage is
-/// not metered (`GetUsage`, `UpdateUsage`); `ImportApiKeys` reads a CSV (create keys one at a time); `TestInvoke*` and
-/// `GetModelTemplate` (a VTL scaffold) are console features.
+/// The operations not built, and why (`docs/aws/compatibility-notes.toml`): domain-name access associations need VPC endpoints;
+/// SDK generation and the SDK types are not planned.
 pub(crate) fn built(op: Operation) -> bool {
     !matches!(
         op,
-        Operation::GenerateClientCertificate
-            | Operation::GetClientCertificate
-            | Operation::GetClientCertificates
-            | Operation::UpdateClientCertificate
-            | Operation::DeleteClientCertificate
-            | Operation::CreateVpcLink
-            | Operation::GetVpcLink
-            | Operation::GetVpcLinks
-            | Operation::UpdateVpcLink
-            | Operation::DeleteVpcLink
-            | Operation::CreateDomainNameAccessAssociation
+        Operation::CreateDomainNameAccessAssociation
             | Operation::DeleteDomainNameAccessAssociation
             | Operation::GetDomainNameAccessAssociations
             | Operation::RejectDomainNameAccessAssociation
-            | Operation::CreateDocumentationPart
-            | Operation::GetDocumentationPart
-            | Operation::GetDocumentationParts
-            | Operation::UpdateDocumentationPart
-            | Operation::DeleteDocumentationPart
-            | Operation::ImportDocumentationParts
-            | Operation::CreateDocumentationVersion
-            | Operation::GetDocumentationVersion
-            | Operation::GetDocumentationVersions
-            | Operation::UpdateDocumentationVersion
-            | Operation::DeleteDocumentationVersion
             | Operation::GetSdk
             | Operation::GetSdkType
             | Operation::GetSdkTypes
-            | Operation::GetUsage
-            | Operation::UpdateUsage
-            | Operation::ImportApiKeys
-            | Operation::TestInvokeAuthorizer
-            | Operation::TestInvokeMethod
-            | Operation::GetModelTemplate
     )
+}
+
+/// Client certificates, VPC links and the test invocations.
+fn others(core: &mut Core, op: Operation, r: &Req) -> Option<Res> {
+    let name = format!("{op:?}");
+    Some(match op {
+        Operation::GenerateClientCertificate => crate::certs::generate(core, r),
+        Operation::GetClientCertificate
+        | Operation::GetClientCertificates
+        | Operation::UpdateClientCertificate
+        | Operation::DeleteClientCertificate => crate::certs::op(core, &name, r),
+        Operation::CreateVpcLink => crate::links::create_v1(core, r),
+        Operation::GetVpcLink
+        | Operation::GetVpcLinks
+        | Operation::UpdateVpcLink
+        | Operation::DeleteVpcLink => crate::links::v1(core, &name, r),
+        Operation::TestInvokeMethod => crate::plane::test::find_method(core, r),
+        Operation::TestInvokeAuthorizer => crate::plane::test::find_authorizer(core, r),
+        _ => return None,
+    })
 }
 
 /// Runs operation `op`.
@@ -87,6 +81,12 @@ pub(crate) fn dispatch(core: &mut Core, op: u32, r: &Req) -> Res {
         return res;
     }
     if let Some(res) = extras::dispatch(core, op, r) {
+        return res;
+    }
+    if let Some(res) = docs::dispatch(core, op, r) {
+        return res;
+    }
+    if let Some(res) = others(core, op, r) {
         return res;
     }
     keys::dispatch(core, op, r).unwrap_or_else(|| Err(refused(&format!("{op:?}"))))

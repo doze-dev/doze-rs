@@ -76,11 +76,17 @@ impl Req {
 pub(crate) struct Out {
     pub(crate) json: Value,
     pub(crate) status: Option<u16>,
+    /// A test invocation found by the actor, served after it answers (its result is the operation's output).
+    pub(crate) pending: Option<Box<crate::plane::test::Pending>>,
 }
 
 impl From<Value> for Out {
     fn from(json: Value) -> Self {
-        Self { json, status: None }
+        Self {
+            json,
+            status: None,
+            pending: None,
+        }
     }
 }
 

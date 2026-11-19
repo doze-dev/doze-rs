@@ -137,7 +137,7 @@ fn a_second_token_after_a_login_is_34_whoever_it_names_and_changes_nobody() {
         b"\0alice\0nope",
         b"",
     ] {
-        let mut s = Session::Authenticated(Principal::user("alice"));
+        let mut s = Session::Authenticated(Principal::user("alice"), false);
         let (r, fate) = authenticate(&mut s, &authenticator(), &token(bytes)).unwrap();
         assert_eq!(
             (r.error_code, message(&r), fate),

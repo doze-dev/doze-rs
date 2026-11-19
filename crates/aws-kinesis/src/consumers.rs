@@ -1,5 +1,5 @@
-//! Stream consumers (enhanced fan-out): registered and listed, and nothing more. `SubscribeToShard` needs HTTP/2 and is refused by
-//! name, so a registered consumer cannot receive; the registration is here because a template that declares a consumer must apply.
+//! Stream consumers (enhanced fan-out): registered, described, listed and deregistered. A registered consumer is `ACTIVE` at once and
+//! receives through `SubscribeToShard` (`fanout`, `subscribe`).
 
 use aws_wire::ApiError;
 use serde_json::{Value, json};

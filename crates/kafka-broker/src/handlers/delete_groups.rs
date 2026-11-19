@@ -49,8 +49,10 @@ impl<F: Fs> Broker<F> {
     }
 
     pub(crate) async fn delete_group(&self, name: &str) -> Option<ResponseError> {
+        // An id no group can have (the empty one, one too long) is not found, as Kafka 4.4.0 answers the empty one: its
+        // coordinator looks it up like any other (`tools/wire-tail-oracle`, `delete-groups`).
         let Ok(group) = GroupId::parse(name) else {
-            return Some(ResponseError::InvalidGroupId);
+            return Some(ResponseError::GroupIdNotFound);
         };
         // Done with the registry held, so that a join cannot make the group again between the deleting and the forgetting.
         let (outcome, cleaned) = self

@@ -57,7 +57,7 @@ impl<F: Fs> Broker<F> {
         mut request: Request,
         size: usize,
     ) -> Served {
-        let follower = matches!(&request, Request::Fetch(r) if r.replica_id.0 >= 0);
+        let follower = matches!(&request, Request::Fetch(r) if crate::handlers::fetch::replica_of(head.version, r) >= 0);
         if !self.quotas.enabled() || follower {
             return Served {
                 outcome: self.handle(listener, caller, head, request).await,

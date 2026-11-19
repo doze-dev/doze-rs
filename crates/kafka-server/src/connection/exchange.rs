@@ -138,8 +138,18 @@ async fn answer<F: Fs>(
         Incoming::ApiVersions { head, body } => {
             let pending = begin(ears, &head, Asked::ApiVersions(body.as_ref()), frame_len);
             let (note, pending) = lab::bend(ears, &head, pending, stop).await?;
+            // A login in progress is not held to the client's cluster and node (KIP-1242): Kafka's authenticator answers
+            // that ApiVersions itself, unchecked.
+            let (cluster_id, node_id) = ctx.broker.identity();
+            let me = session
+                .as_ref()
+                .is_none_or(Session::is_authenticated)
+                .then_some(api_versions::Identity {
+                    cluster_id,
+                    node_id,
+                });
             let (version, answer) =
-                api_versions::answer(ctx.profile, ctx.features, head.version, body.as_ref());
+                api_versions::answer_as(ctx.profile, ctx.features, head.version, body.as_ref(), me);
             if answer.error_code == 0
                 && let Some(s) = session.as_mut()
             {

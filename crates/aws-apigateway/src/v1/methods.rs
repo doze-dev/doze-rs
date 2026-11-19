@@ -17,7 +17,9 @@ pub(super) fn dispatch(core: &mut crate::core::Core, op: Operation, r: &Req) -> 
         Operation::GetMethod => api(core, r).and_then(|d| at(d, r, &[]).cloned().map(Into::into)),
         Operation::UpdateMethod => update(api_mut(core, r), r, &[], METHOD_FIELDS),
         Operation::DeleteMethod => delete(api_mut(core, r), r, &[]),
-        Operation::PutIntegration => put_integration(api_mut(core, r), r),
+        Operation::PutIntegration => {
+            crate::links::check_v1(core, r).and_then(|()| put_integration(api_mut(core, r), r))
+        }
         Operation::GetIntegration => {
             api(core, r).and_then(|d| at(d, r, &["methodIntegration"]).cloned().map(Into::into))
         }

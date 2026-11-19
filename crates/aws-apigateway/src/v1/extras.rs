@@ -56,6 +56,7 @@ pub(super) fn dispatch(core: &mut Core, op: Operation, r: &Req) -> Option<Res> {
         Operation::GetModels => list(core, r, "models"),
         Operation::UpdateModel => update(core, r, "models", "modelName", "Model", MODEL_FIELDS),
         Operation::DeleteModel => delete(core, r, "models", "modelName", "Model"),
+        Operation::GetModelTemplate => model_template(core, r),
         Operation::PutGatewayResponse => put_response(core, r),
         Operation::GetGatewayResponse => {
             api(core, r).map(|d| gwresp::of(obj(d, "responses"), r.s("responseType")).into())
@@ -76,6 +77,22 @@ fn get(core: &Core, r: &Req, part: &str, key: &str, thing: &str) -> Res {
         .cloned()
         .map(Into::into)
         .ok_or_else(|| invalid_id(thing))
+}
+
+/// `GetModelTemplate`: the mapping template of the model's schema; a `$ref` names another model of the API.
+fn model_template(core: &Core, r: &Req) -> Res {
+    let doc = api(core, r)?;
+    let models = obj(doc, "models");
+    let schema = models
+        .and_then(|m| m.get(r.s("modelName")))
+        .ok_or_else(|| invalid_id("Model"))
+        .map(|m| text(m, "schema").unwrap_or("{}"))?;
+    let by_name = |n: &str| {
+        models?
+            .get(n)
+            .and_then(|m| serde_json::from_str(text(m, "schema")?).ok())
+    };
+    Ok(json!({"value": crate::template::generate(schema, &by_name)}).into())
 }
 
 fn list(core: &Core, r: &Req, part: &str) -> Res {
