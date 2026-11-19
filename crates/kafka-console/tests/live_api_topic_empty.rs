@@ -3,6 +3,7 @@
 //! carries on with its id and configs; the groups asked for are moved to the new start (one with members is refused, in
 //! Kafka's words); the name must be typed; a topic that only compacts is refused as Kafka refuses it.
 #![allow(
+    clippy::too_many_lines,
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::indexing_slicing,
