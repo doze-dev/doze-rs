@@ -221,8 +221,17 @@ impl Core {
         let body = r.s("CertificateBody");
         read_certificate(body, self.now_ms())?;
         let held = |c: &UserCred| matches!(&c.kind, CredKind::Signing { body: b } if b.trim() == body.trim());
+        // Recorded 2026-11-19: the same certificate for the same user again is answered with the one already held.
+        if let Some((_, c)) = self
+            .held
+            .creds
+            .iter()
+            .find(|(_, c)| held(c) && c.user == user)
+        {
+            return Ok(json!({"Certificate": signing_json(c)}));
+        }
         if self.held.creds.iter().any(|(_, c)| held(c)) {
-            // (memory)
+            // Another user's: (memory)
             return Err(ApiError::modeled(
                 "DuplicateCertificateException",
                 "The same certificate is already associated with an IAM user in the account.",

@@ -72,12 +72,7 @@ impl Core {
                 "FilterSpecification of ExportTableToPointInTime is not built in doze-aws; export the whole table.",
             ));
         }
-        // Recorded 2026-11-19: a prefix is at least 3 characters (the model says nothing of it).
-        if let Some(p) = str_of(body, "S3Prefix").filter(|p| p.chars().count() < 3) {
-            return Err(crate::req::validation(format!(
-                "Invalid Request: 1 validation error detected: Value '{p}' at 's3Prefix' failed to satisfy constraint: Member must have length greater than or equal to 3"
-            )));
-        }
+        prefix_long_enough(body)?;
         let name = cx.table_name("TableArn")?;
         let t = self
             .tables
@@ -349,3 +344,13 @@ mod write;
 
 use shape::{Window, fingerprint, shown, summary, window};
 pub(crate) use write::{gzip, s3_failure, write};
+
+/// Recorded 2026-11-19: an export's `S3Prefix` is at least 3 characters (the model says nothing of it).
+fn prefix_long_enough(body: &Json) -> Result<(), ApiError> {
+    match str_of(body, "S3Prefix").filter(|p| p.chars().count() < 3) {
+        Some(p) => Err(crate::req::validation(format!(
+            "Invalid Request: 1 validation error detected: Value '{p}' at 's3Prefix' failed to satisfy constraint: Member must have length greater than or equal to 3"
+        ))),
+        None => Ok(()),
+    }
+}

@@ -152,18 +152,9 @@ impl Core {
         else {
             return Ok(None);
         };
-        if e.input == s.input {
-            return Ok(Some(e.arn.clone()));
-        }
-        // The model: "The durable execution with the specified name has already been started. Each durable execution name must be
-        // unique within the function." The words of the error are (memory).
-        Err(ApiError::new(
-            409,
-            "DurableExecutionAlreadyStartedException",
-            format!(
-                "A durable execution named {name} has already been started with a different payload."
-            ),
-        ))
+        // Recorded 2026-11-19: a name already started answers with that execution, whatever the payload (the model's
+        // DurableExecutionAlreadyStartedException was not given for a different payload).
+        Ok(Some(e.arn.clone()))
     }
 
     fn start_execution(&mut self, s: Start) -> Result<(String, bool), ApiError> {

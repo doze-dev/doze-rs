@@ -90,9 +90,7 @@ impl Kinesis {
         let position = opened
             .await
             .map_err(|_| ApiError::internal("the subscription was not opened"))??;
-        let (claim, takeover) = self
-            .subs
-            .claim(&region, &position, self.ctx.clock.now_ms())?;
+        let (claim, takeover) = self.subs.claim(&region, &position);
         let session = subscribe::Session {
             actor,
             account,

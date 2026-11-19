@@ -161,8 +161,14 @@ impl Core {
         let now = self.now_ms();
         let err = r.value("Error").map(Value::to_string);
         let e = self.execution_mut(r.text("DurableExecutionArn"))?;
+        // Recorded 2026-11-19: stopping a stopped execution again is answered with the time it stopped.
+        if e.status == "STOPPED"
+            && let Some(at) = e.end_ms
+        {
+            return Ok(json!({"StopTimestamp": secs(at)}).into());
+        }
         if closed(&e.status) {
-            // Memory: AWS's answer for an execution that already ended is not recorded.
+            // Memory: AWS's answer for an execution that succeeded or failed is not recorded.
             return Err(invalid(format!(
                 "The durable execution is not running: it is {}.",
                 e.status
