@@ -6,7 +6,7 @@ use super::World;
 
 fn content(n: u32) -> String {
     json!({"schemaVersion": "0.3", "description": format!("v{n}"),
-        "mainSteps": [{"name": "s", "action": "aws:sleep", "inputs": {"Duration": "PT1S"}}]})
+        "emergencyChange": false, "mainSteps": [{"name": "s", "action": "aws:sleep", "inputs": {"Duration": "PT1S"}}]})
     .to_string()
 }
 

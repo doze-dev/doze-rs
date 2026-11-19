@@ -371,9 +371,12 @@ def test_service_settings_update_and_reset(client, cleanup, snapshot, target):
     snapshot.match("reset", ssm.reset_service_setting(SettingId=TIER), opaque=SETTING_VARYING)
 
 
-def share_policy(arn, action="ssm:GetParameter"):
+def share_policy(arn, action="ssm:GetParameter", account=None):
+    """A policy sharing the parameter with an account: by default its own (AWS, recorded 2026-11-19, refuses an account that
+    does not exist with "Policy contains invalid principal", so OTHER_ACCOUNT cannot be shared with on AWS)."""
+    account = account or arn.split(":")[4]
     return json.dumps({"Version": "2012-10-17", "Statement": [{
-        "Sid": "share", "Effect": "Allow", "Principal": {"AWS": f"arn:aws:iam::{OTHER_ACCOUNT}:root"},
+        "Sid": "share", "Effect": "Allow", "Principal": {"AWS": f"arn:aws:iam::{account}:root"},
         "Action": action, "Resource": arn}]})
 
 
@@ -389,6 +392,8 @@ def test_resource_policy_on_a_parameter(client, names, cleanup, snapshot):
     made = ssm.put_resource_policy(ResourceArn=arn, Policy=share_policy(arn))
     snapshot.match("put", made, opaque=ids)
     snapshot.match("get", ssm.get_resource_policies(ResourceArn=arn), opaque=ids)
+    snapshot.error("unknown-account", lambda: ssm.put_resource_policy(
+        ResourceArn=arn, Policy=share_policy(arn, account=OTHER_ACCOUNT)))
     changed = ssm.put_resource_policy(ResourceArn=arn, Policy=share_policy(arn, "ssm:GetParameters"),
                                       PolicyId=made["PolicyId"], PolicyHash=made["PolicyHash"])
     assert changed["PolicyHash"] != made["PolicyHash"]
@@ -416,7 +421,7 @@ def test_resource_policy_refusals(client, names, cleanup, snapshot):
         ResourceArn=arn, PolicyId="0123456789abcdef", PolicyHash="0123456789abcdef"))
 
 
-CHANGE_TEMPLATE = json.dumps({"schemaVersion": "0.3", "mainSteps": [
+CHANGE_TEMPLATE = json.dumps({"schemaVersion": "0.3", "emergencyChange": False, "mainSteps": [
     {"name": "wait", "action": "aws:sleep", "inputs": {"Duration": "PT1S"}}]})
 
 

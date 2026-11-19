@@ -264,6 +264,12 @@ pub(crate) fn read(content: &str, format: &str, kind: &str) -> Result<Read, ApiE
                 "Missing \"{needs}\" in the document."
             )));
         }
+        // Recorded 2026-11-19: a change template's content is held to a schema that requires `emergencyChange`.
+        if kind == "Automation.ChangeTemplate" && !map.contains_key("emergencyChange") {
+            return Err(invalid_content(
+                "[message: \"object has missing required properties ([\\\"emergencyChange\\\"])\" - parent node: /]",
+            ));
+        }
     }
     Ok(Read {
         schema_version,
