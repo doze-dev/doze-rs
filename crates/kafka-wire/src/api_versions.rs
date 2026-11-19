@@ -6,7 +6,9 @@
 //!   client is sure to read, with UNSUPPORTED_VERSION and one row: the versions of ApiVersions itself. The
 //!   client asks again at one of those. The body of such a request is not read.
 //! - From v3 a client says what it is. A software name or version that is empty, or is not letters and
-//!   digits with dots and dashes between them, is INVALID_REQUEST with no rows; the connection lives on.
+//!   digits with dots and dashes between them, is INVALID_REQUEST with no rows; the connection lives on. From v5 a
+//!   cluster id with no node id (-1), or a node id with no cluster id, is INVALID_REQUEST too (4.4.0's
+//!   `ApiVersionsRequest.isValid`: both or neither).
 //!
 //! A third is Kafka 4.4.0's (KIP-1242, `KafkaApis.handleApiVersionsRequest`): from v5 a client may say which cluster and
 //! node it means to reach. A cluster id that is given and is not this broker's, or a node id that is not this broker's
@@ -75,7 +77,7 @@ pub fn answer_as(
         resp.api_keys.push(row(ApiKey::ApiVersions, min, max));
         return (0, resp);
     }
-    if version >= 3 && request.is_some_and(|q| !named_well(q)) {
+    if version >= 3 && request.is_some_and(|q| !named_well(q) || (version >= 5 && !both_or_neither(q))) {
         resp.error_code = ResponseError::InvalidRequest.code();
         return (version, resp);
     }
@@ -166,6 +168,11 @@ pub fn illegal_state(profile: Profile, version: i16) -> (i16, ApiVersionsRespons
         },
         resp,
     )
+}
+
+/// A v5 request names its cluster and its node together, or neither.
+fn both_or_neither(q: &ApiVersionsRequest) -> bool {
+    q.cluster_id.is_some() == (q.node_id != -1)
 }
 
 fn named_well(q: &ApiVersionsRequest) -> bool {

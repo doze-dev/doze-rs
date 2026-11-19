@@ -88,3 +88,35 @@ fn kafka_4_finalizes_transaction_version_2_and_the_older_majors_list_no_feature(
         assert_eq!(r.finalized_features_epoch, -1, "Kafka {major}");
     }
 }
+
+/// KIP-1242, as Kafka 4.4.0 answered (`tools/wire-tail-oracle`, `api-versions`): a v5 client that names this cluster and
+/// node gets the list; another cluster, or another node of this cluster, is REBOOTSTRAP_REQUIRED (129) with no rows; a
+/// cluster with no node, or a node with no cluster, is INVALID_REQUEST (42), checked even where the identity is not
+/// (a login in progress). Below v5 there is nothing to check.
+#[test]
+fn a_v5_client_that_means_another_cluster_or_node_is_told_to_rebootstrap() {
+    let profile = Profile::new(KafkaMajor::DEFAULT);
+    let me = Identity {
+        cluster_id: "c1",
+        node_id: 1,
+    };
+    let ask = |version: i16, cluster: Option<&str>, node: i32, me: Option<Identity<'_>>| {
+        let mut q = ApiVersionsRequest::default();
+        q.client_software_name = StrBytes::from_static_str("probe");
+        q.client_software_version = StrBytes::from_static_str("1");
+        q.cluster_id = cluster.map(|c| StrBytes::from_string(c.to_owned()));
+        q.node_id = node;
+        let (_, r) = answer_as(profile, Features::default(), version, Some(&q), me);
+        (r.error_code, r.api_keys.is_empty())
+    };
+    assert_eq!(ask(5, None, -1, Some(me)), (0, false));
+    assert_eq!(ask(5, Some("c1"), 1, Some(me)), (0, false));
+    assert_eq!(ask(5, Some("c1"), 2, Some(me)), (129, true));
+    assert_eq!(ask(5, Some("other"), 1, Some(me)), (129, true));
+    assert_eq!(ask(5, Some(""), 1, Some(me)), (129, true));
+    assert_eq!(ask(5, Some("c1"), -1, Some(me)), (42, true));
+    assert_eq!(ask(5, None, 2, Some(me)), (42, true));
+    assert_eq!(ask(5, None, 2, None), (42, true));
+    assert_eq!(ask(5, Some("other"), 1, None), (0, false), "a login in progress is not held to it");
+    assert_eq!(ask(4, None, -1, Some(me)), (0, false));
+}
