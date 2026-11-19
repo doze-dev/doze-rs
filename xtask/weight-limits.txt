@@ -206,5 +206,7 @@ doze-kafka 13198009 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # Later that day API Gateway left the queue on idle memory: 11,504 KB with Logs, Lambda durable and API Gateway (run 44450040192), while main with
 # CloudFormation measured 15,344,120 B and 11,236 KB (run 44456222535). API Gateway allocates nothing at start (no statics, tasks or tables built
 # eagerly); the gap is within the ~350 KB runner spread noted above. API Gateway added 281,664 B, so main plus API Gateway is about 15,625,784 B.
-# Lines: bytes = that plus 5% = 16,410,000 B (82% of the 20 MB ceiling, room for the Kinesis/CloudWatch follow-up); idle = 11,504 plus 5% = 12,080 KB.
-doze-aws 16410000 280 12080 --listen 127.0.0.1:{port} --data-dir {data}
+# The owner, the same day: "Keep the size more generous... it's gonna be 20 MB. People will not fight over using software because of a few KBs
+# and MBs." So the byte line is now the 20 MB ceiling itself (20,000,000 B), and idle gets the same room: 16,384 KB (16 MB). The table still prints
+# every measurement, so growth stays visible; it just no longer blocks merges below those marks.
+doze-aws 20000000 280 16384 --listen 127.0.0.1:{port} --data-dir {data}
