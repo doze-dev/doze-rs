@@ -167,7 +167,12 @@ Until then a module release can be signed by hand from doze-registry:
 
 ## Testing the pipeline
 
+GitHub starts a manual run only of a workflow that is already on main, so a change to either workflow is tried on its
+pull request with a label: `release-dry-run` runs `release.yml` as a dry run of the pull request's code, and
+`modules-release-dry-run` runs `modules-release.yml` as a dry run of valkey. (Like any label, each also starts ci.yml
+with nothing to do; put `ci` on last.) Once on main:
+
 - `gh workflow run release --ref <branch> -f dry_run=true` builds every file and keeps it as the run's artifacts; with
-  no signing secrets on the branch it signs ad hoc and says so. That is the only path tried so far (see the PR).
+  no signing secrets on the branch it signs ad hoc and says so.
 - `gh workflow run modules-release --ref <branch> -f module=valkey -f version=0.0.1 -f dry_run=true` likewise.
 - Never push a `v*` or `module/*` tag to try something: tags are real releases.

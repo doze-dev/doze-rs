@@ -23,6 +23,10 @@ name: modules-release
 on:
   push:
     tags: ["module/*/v*"]
+  # The label `modules-release-dry-run` on a pull request: a dry run of valkey from that pull request's code (a manual
+  # run can only start a workflow that is already on main).
+  pull_request:
+    types: [labeled]
   workflow_dispatch:
     inputs:
       module:
@@ -49,6 +53,7 @@ env:
 
 jobs:
   plan:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'modules-release-dry-run'
     runs-on: ubuntu-24.04
     outputs:
       module: ${{ steps.plan.outputs.module }}
@@ -62,10 +67,13 @@ jobs:
           INPUT_MODULE: ${{ inputs.module }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           if [ "$EVENT" = push ]; then
             # module/<name>/v<version>
             rest=${REF_NAME#module/}; module=${rest%%/*}; version=${rest#*/v}; dry_run=false
+          elif [ "$EVENT" = pull_request ]; then
+            module=valkey; version=0.0.$RUN_NUMBER; dry_run=true
           else
             module=$INPUT_MODULE; version=${INPUT_VERSION#v}; dry_run=$INPUT_DRY_RUN
           fi

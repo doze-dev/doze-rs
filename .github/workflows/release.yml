@@ -28,6 +28,10 @@ name: release
 on:
   push:
     tags: ["v*"]
+  # The label `release-dry-run` on a pull request: a dry run of that pull request's code (a manual run can only start
+  # a workflow that is already on main, so this is how a change to this file is tried before it lands).
+  pull_request:
+    types: [labeled]
   workflow_dispatch:
     inputs:
       version:
@@ -57,6 +61,7 @@ jobs:
   # What this run is: the version, dry or real, the Linux app on or off. A real release checks every secret and the
   # Go repository's own release workflow here, before an hour of building.
   plan:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'release-dry-run'
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.plan.outputs.version }}
@@ -76,6 +81,8 @@ jobs:
         run: |
           if [ "$EVENT" = push ]; then
             version=${REF_NAME#v}; dry_run=false
+          elif [ "$EVENT" = pull_request ]; then
+            version=0.0.$RUN_NUMBER; dry_run=true
           else
             version=${INPUT_VERSION:-0.0.$RUN_NUMBER}; version=${version#v}; dry_run=$INPUT_DRY_RUN
           fi
