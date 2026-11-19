@@ -189,6 +189,7 @@ pub(super) fn chk(t: &Tokens) -> gpui::Div {
         .border_1()
         .border_color(t.line)
         .bg(t.panel)
+        .shadow(t.lift())
         .overflow_hidden()
 }
 

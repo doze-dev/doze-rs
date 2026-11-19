@@ -161,6 +161,7 @@ fn found(t: &Tokens, e: &Empty) -> Option<AnyElement> {
             .border_1()
             .border_color(t.line)
             .bg(t.panel)
+            .shadow(t.lift())
             .overflow_hidden()
             .child(head)
             .children(rows)

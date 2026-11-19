@@ -13,6 +13,11 @@ use std::process::ExitCode;
 
 const CSS: &str = "apps/doze-app/themes/tokens.css";
 const JSON: &str = "apps/doze-app/themes/doze.json";
+/// Candidate looks under review (design pass 2026-11-19), appended after the five palettes; optional.
+const CANDIDATES: &str = "apps/doze-app/themes/candidates.css";
+
+/// Tokens a candidate may add beyond the twenty, kept under `doze` when present.
+const EXTRA: [&str; 4] = ["on", "on-knob", "x-lift", "x-scrim"];
 
 /// doze's tokens, in the order the CSS writes them; each theme must have them all.
 const TOKENS: [&str; 20] = [
@@ -96,7 +101,8 @@ pub(crate) fn run(args: &[String]) -> ExitCode {
         Ok(s) => s,
         Err(e) => return fail(&format!("reading {CSS}: {e}")),
     };
-    let json = match convert(&css) {
+    let candidates = fs::read_to_string(CANDIDATES).unwrap_or_default();
+    let json = match convert_with(&css, &candidates) {
         Ok(j) => j,
         Err(e) => return fail(&format!("{CSS}: {e}")),
     };
@@ -124,14 +130,21 @@ fn fail(message: &str) -> ExitCode {
 }
 
 /// The theme set for the CSS.
+#[cfg(test)]
 fn convert(css: &str) -> Result<String, String> {
-    let blocks = blocks(css)?;
+    convert_with(css, "")
+}
+
+/// The theme set for the CSS, then the candidates' blocks after the ten.
+fn convert_with(css: &str, candidates: &str) -> Result<String, String> {
+    let mut blocks = blocks(css)?;
     if blocks.len() != 10 {
         return Err(format!(
             "expected 10 palette blocks (5 palettes x dark/light), found {}",
             blocks.len()
         ));
     }
+    blocks.extend(blocks_of(candidates)?);
     let mut out = String::from(
         "{\n  \"name\": \"doze\",\n  \"author\": \"doze (converted from tokens.css by `cargo xtask themes`; do not edit)\",\n  \"themes\": [\n",
     );
@@ -156,7 +169,19 @@ fn theme(out: &mut String, b: &Block) -> Result<(), String> {
     let _ = writeln!(out, "      \"mode\": \"{}\",", b.mode);
     out.push_str("      \"font.family\": \"Geist\",\n      \"font.size\": 13,\n");
     out.push_str("      \"mono_font.family\": \"Geist Mono\",\n      \"mono_font.size\": 12,\n");
-    out.push_str("      \"radius\": 7,\n      \"radius.lg\": 10,\n      \"shadow\": false,\n");
+    let opt = |name: &str, default: &str| -> String {
+        b.tokens
+            .iter()
+            .find(|(k, _)| k == name)
+            .map_or_else(|| default.to_owned(), |(_, v)| v.clone())
+    };
+    let _ = writeln!(
+        out,
+        "      \"radius\": {},\n      \"radius.lg\": {},\n      \"shadow\": {},",
+        opt("x-radius", "7"),
+        opt("x-radius-lg", "10"),
+        opt("x-shadow", "false")
+    );
     out.push_str("      \"colors\": {\n");
     for (i, (key, from)) in COMPONENT.iter().enumerate() {
         let (token, alpha) = from.split_once('@').unwrap_or((from, ""));
@@ -169,6 +194,17 @@ fn theme(out: &mut String, b: &Block) -> Result<(), String> {
     }
     out.push_str("      },\n      \"doze\": {\n");
     let _ = writeln!(out, "        \"palette\": \"{}\",", b.palette);
+    for t in EXTRA {
+        if let Some((_, v)) = b.tokens.iter().find(|(k, _)| k == t) {
+            let v = v.to_lowercase();
+            let v = if v.starts_with('#') {
+                format!("\"{v}\"")
+            } else {
+                v
+            };
+            let _ = writeln!(out, "        \"{}\": {v},", t.replace('-', "_"));
+        }
+    }
     for (i, t) in TOKENS.iter().enumerate() {
         let comma = if i + 1 < TOKENS.len() { "," } else { "" };
         let _ = writeln!(
@@ -184,6 +220,10 @@ fn theme(out: &mut String, b: &Block) -> Result<(), String> {
 
 /// Every `:root[data-theme="…"][data-mode="…"] { … }` block, in order.
 fn blocks(css: &str) -> Result<Vec<Block>, String> {
+    blocks_of(css)
+}
+
+fn blocks_of(css: &str) -> Result<Vec<Block>, String> {
     const HEAD: &str = ":root[data-theme=\"";
     let mut out = Vec::new();
     let mut rest = css;

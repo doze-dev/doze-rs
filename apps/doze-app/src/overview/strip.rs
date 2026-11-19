@@ -318,6 +318,7 @@ pub(super) fn source_card(t: &Tokens, c: &ConfigError) -> gpui::Div {
         .border_1()
         .border_color(t.line)
         .bg(t.panel)
+        .shadow(t.lift())
         .child(title)
         .when(!c.excerpt.is_empty(), |d| d.child(excerpt(t, c)))
         .child(

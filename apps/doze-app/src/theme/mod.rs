@@ -29,6 +29,11 @@ pub(crate) enum Palette {
     Burgundy,
     Amber,
     Slate,
+    /// Candidate looks from the design pass (2026-11-19, `themes/candidates.css`): not in [`Palette::ALL`], so not
+    /// offered in Settings; `doze-app shot --theme candidate-NAME` renders them for review.
+    CandidateGraphite,
+    CandidatePaper,
+    CandidateNight,
 }
 
 impl Palette {
@@ -41,6 +46,13 @@ impl Palette {
         Palette::Slate,
     ];
 
+    /// The candidate looks under review, which Settings does not offer.
+    pub(crate) const CANDIDATES: [Palette; 3] = [
+        Palette::CandidateGraphite,
+        Palette::CandidatePaper,
+        Palette::CandidateNight,
+    ];
+
     /// Its name in the theme file and in prefs.
     pub(crate) fn name(self) -> &'static str {
         match self {
@@ -49,12 +61,18 @@ impl Palette {
             Palette::Burgundy => "burgundy",
             Palette::Amber => "amber",
             Palette::Slate => "slate",
+            Palette::CandidateGraphite => "candidate-graphite",
+            Palette::CandidatePaper => "candidate-paper",
+            Palette::CandidateNight => "candidate-night",
         }
     }
 
     /// The palette called `name`.
     pub(crate) fn parse(name: &str) -> Option<Palette> {
-        Palette::ALL.into_iter().find(|p| p.name() == name)
+        Palette::ALL
+            .into_iter()
+            .chain(Palette::CANDIDATES)
+            .find(|p| p.name() == name)
     }
 }
 
@@ -124,6 +142,13 @@ pub(crate) struct Tokens {
     pub(crate) track: Hsla,
     pub(crate) ink: Hsla,
     pub(crate) on_accent: Hsla,
+    /// A switch's fill and knob when on: the accent and the ink, unless the theme says otherwise.
+    pub(crate) on: Hsla,
+    pub(crate) on_knob: Hsla,
+    /// How strongly cards lift off the page with a soft shadow; 0, the five palettes', is lines only.
+    pub(crate) lift: f32,
+    /// The scrim's opacity under the palette and the bell (Go's .35 unless the theme says otherwise).
+    pub(crate) scrim_top: f32,
     /// The theme is dark.
     pub(crate) dark: bool,
 }
@@ -157,6 +182,14 @@ struct Raw {
     track: String,
     ink: String,
     on_accent: String,
+    #[serde(default)]
+    on: Option<String>,
+    #[serde(default)]
+    on_knob: Option<String>,
+    #[serde(default)]
+    x_lift: Option<f32>,
+    #[serde(default)]
+    x_scrim: Option<f32>,
 }
 
 fn color(s: &str) -> anyhow::Result<Hsla> {
@@ -186,13 +219,35 @@ impl Tokens {
             track: color(&r.track)?,
             ink: color(&r.ink)?,
             on_accent: color(&r.on_accent)?,
+            on: color(r.on.as_deref().unwrap_or(&r.accent))?,
+            on_knob: color(r.on_knob.as_deref().unwrap_or(&r.ink))?,
+            lift: r.x_lift.unwrap_or(0.0),
+            scrim_top: r.x_scrim.unwrap_or(0.35),
             dark,
         })
     }
 
     /// The scrim under the palette: Go `.scrim.top`, rgba(9, 8, 14, .35), the same in every theme and mode.
     pub(crate) fn scrim(&self) -> Hsla {
-        scrim(0.35)
+        scrim(self.scrim_top)
+    }
+
+    /// The soft shadow a card casts in a theme that lifts its cards (none in the five palettes, which draw lines).
+    pub(crate) fn lift(&self) -> Vec<gpui::BoxShadow> {
+        if self.lift <= 0.0 {
+            return Vec::new();
+        }
+        let shade = |a: f32, y: f32, blur: f32| gpui::BoxShadow {
+            color: alpha(gpui::black(), a),
+            offset: gpui::point(gpui::px(0.), gpui::px(y)),
+            blur_radius: gpui::px(blur),
+            spread_radius: gpui::px(0.),
+            inset: false,
+        };
+        vec![
+            shade(self.lift, 1.0, 2.0),
+            shade(self.lift * 0.7, 6.0, 18.0),
+        ]
     }
 
     /// The scrim under a dialog: Go `.scrim`, rgba(9, 8, 14, .62), the same in every theme and mode.
@@ -327,7 +382,7 @@ mod tests {
 
     #[test]
     fn every_palette_loads_in_both_modes() {
-        for p in Palette::ALL {
+        for p in Palette::ALL.into_iter().chain(Palette::CANDIDATES) {
             for dark in [true, false] {
                 let (config, t) = load(p, dark).unwrap();
                 assert_eq!(config.mode.is_dark(), dark, "{}", p.name());

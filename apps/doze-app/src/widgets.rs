@@ -154,7 +154,7 @@ pub(crate) fn switch(
         (34., 18., 12., 18.)
     };
     let (bg, border, knob_bg) = if on {
-        (t.accent, t.accent, t.ink)
+        (t.on, t.on, t.on_knob)
     } else {
         (t.track, t.dim, t.dim)
     };

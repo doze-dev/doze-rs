@@ -64,6 +64,7 @@ pub(super) fn table(
         .border_1()
         .border_color(t.line)
         .bg(t.panel)
+        .shadow(t.lift())
         .child(header);
     let n = v.lib.stacks.len();
     for (i, st) in v.lib.stacks.iter().enumerate() {

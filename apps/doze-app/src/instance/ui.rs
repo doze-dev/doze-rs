@@ -43,6 +43,7 @@ pub(crate) fn card(t: &Tokens) -> Div {
         .border_1()
         .border_color(t.line)
         .bg(t.panel)
+        .shadow(t.lift())
 }
 
 /// `.card h3`: the heading, tracked capitals, with words after it in plain case.

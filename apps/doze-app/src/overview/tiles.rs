@@ -372,6 +372,8 @@ fn tile(
         .border_1()
         .border_color(border)
         .bg(bg)
+        // A theme that lifts its cards lifts the awake ones; an asleep tile, unfilled, lies flat on the page.
+        .when(!off, |d| d.shadow(t.lift()))
         .when(off, |d| d.border_dashed())
         .child(crate::motion::tick(b_moving || g_moving))
         .child(tile_top(t, r, (off && !selected, stack, keys, turning), cx))

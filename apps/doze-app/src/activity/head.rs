@@ -143,6 +143,7 @@ fn stat(t: &Tokens, v: &str, s: &str, bad: bool) -> gpui::Div {
         .border_1()
         .border_color(t.line)
         .bg(t.panel)
+        .shadow(t.lift())
         .child(
             div()
                 .text_size(px(ty::SUMMARY))

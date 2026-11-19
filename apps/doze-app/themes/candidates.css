@@ -1,0 +1,194 @@
+/* Design pass 2026-11-19: three candidate looks, each light and dark, for review on the app-design branch only.
+ * Not shipped: they are not in Settings' list (Palette::ALL); `doze-app shot --theme candidate-NAME` renders them.
+ * `cargo xtask themes` appends them to doze.json after the five palettes from tokens.css.
+ *
+ * Beyond the twenty tokens of tokens.css a candidate may set:
+ *   --on, --on-knob   a switch's fill and knob when on (default: accent, ink)
+ *   --x-lift          strength of a soft shadow under cards, the library table and tiles (default 0: lines only)
+ *   --x-scrim         the scrim under the palette and the bell (default .35)
+ *   --x-radius, --x-radius-lg, --x-shadow   gpui-component's radius and shadow (default 7, 10, false)
+ */
+
+/* (a) Graphite: near-neutral surfaces, the one colour is the doze mark's orange, soft shadows instead of lines,
+ * switches neutral so the accent marks only focus, the current thing and the primary button. */
+:root[data-theme="candidate-graphite"][data-mode="dark"] {
+  --bg: #141416;
+  --side: #0f0f11;
+  --panel: #1b1b1e;
+  --line: #242428;
+  --line2: #323237;
+  --well: #111113;
+  --text: #d6d6db;
+  --dim: #92929b;
+  --bright: #f5f5f6;
+  --accent: #f0a24b;
+  --good: #5fd38a;
+  --warn: #e5d266;
+  --cool: #7fa8ff;
+  --bad: #ff6b6b;
+  --extra: #c79bf2;
+  --sel: #222226;
+  --pick: #2e2924;
+  --track: #2a2a2e;
+  --ink: #141416;
+  --on-accent: #3a2448;
+  --on: #d6d6db;
+  --on-knob: #141416;
+  --x-lift: 0.45;
+  --x-scrim: 0.5;
+  --x-radius: 8;
+  --x-radius-lg: 12;
+  --x-shadow: true;
+}
+:root[data-theme="candidate-graphite"][data-mode="light"] {
+  --bg: #f7f7f6;
+  --side: #efefed;
+  --panel: #ffffff;
+  --line: #e6e6e3;
+  --line2: #d3d3cf;
+  --well: #f3f3f1;
+  --text: #2a2a2e;
+  --dim: #65656d;
+  --bright: #0f0f11;
+  --accent: #9f4d08;
+  --good: #136c3a;
+  --warn: #7f6500;
+  --cool: #2a5bd7;
+  --bad: #c62a3f;
+  --extra: #7c4dd6;
+  --sel: #eeeeec;
+  --pick: #f6e8d8;
+  --track: #e4e4e1;
+  --ink: #ffffff;
+  --on-accent: #ffffff;
+  --on: #2a2a2e;
+  --on-knob: #ffffff;
+  --x-lift: 0.07;
+  --x-scrim: 0.3;
+  --x-radius: 8;
+  --x-radius-lg: 12;
+  --x-shadow: true;
+}
+
+/* (b) Paper: warm paper and plum ink from the mark, editorial: crisp small corners, lines kept but warm and quiet,
+ * no shadows. Light is plum on paper; dark is paper on plum-black, with the mark's orange as the one colour; switches
+ * are ink (plum in light, paper in dark). */
+:root[data-theme="candidate-paper"][data-mode="light"] {
+  --bg: #f6f1e7;
+  --side: #eee7d9;
+  --panel: #fcf9f3;
+  --line: #e3d9c6;
+  --line2: #d2c5ab;
+  --well: #f0eadd;
+  --text: #2f2734;
+  --dim: #625766;
+  --bright: #1b1420;
+  --accent: #3a2448;
+  --good: #2c6b3e;
+  --warn: #8a5500;
+  --cool: #28548f;
+  --bad: #a83228;
+  --extra: #8a4b2a;
+  --sel: #ece4d4;
+  --pick: #e6dbe6;
+  --track: #e5dccb;
+  --ink: #fcf9f3;
+  --on-accent: #f6f1e7;
+  --on: #3a2448;
+  --on-knob: #fcf9f3;
+  --x-lift: 0;
+  --x-scrim: 0.4;
+  --x-radius: 4;
+  --x-radius-lg: 6;
+  --x-shadow: false;
+}
+:root[data-theme="candidate-paper"][data-mode="dark"] {
+  --bg: #1c1820;
+  --side: #17141b;
+  --panel: #221e27;
+  --line: #332c38;
+  --line2: #423947;
+  --well: #18151c;
+  --text: #e9e1d4;
+  --dim: #a59a90;
+  --bright: #fbf6ed;
+  --accent: #f0a24b;
+  --good: #93cf8c;
+  --warn: #d9cf6a;
+  --cool: #93b6ea;
+  --bad: #f2877b;
+  --extra: #d8a6d8;
+  --sel: #2a2430;
+  --pick: #3a2f3c;
+  --track: #2e2733;
+  --ink: #1c1820;
+  --on-accent: #3a2448;
+  --on: #e9e1d4;
+  --on-knob: #1c1820;
+  --x-lift: 0;
+  --x-scrim: 0.5;
+  --x-radius: 4;
+  --x-radius-lg: 6;
+  --x-shadow: false;
+}
+
+/* (c) Night: a deep blue-black, rounder, deeper shadows; status colours luminous and saturated so state is the
+ * brightest thing on the page; the accent stays violet (continuity with today) but bluer and calmer. */
+:root[data-theme="candidate-night"][data-mode="dark"] {
+  --bg: #0b0d17;
+  --side: #080a12;
+  --panel: #11142a;
+  --line: #1c2038;
+  --line2: #272c4a;
+  --well: #080a13;
+  --text: #c9cfea;
+  --dim: #8f97bd;
+  --bright: #f3f5ff;
+  --accent: #9b8cff;
+  --good: #3ee58f;
+  --warn: #ffcf4a;
+  --cool: #4cc6ff;
+  --bad: #ff6a82;
+  --extra: #ff9f43;
+  --sel: #171b33;
+  --pick: #262c58;
+  --track: #1b1f38;
+  --ink: #0b0d17;
+  --on-accent: #0b0d17;
+  --on: #9b8cff;
+  --on-knob: #0b0d17;
+  --x-lift: 0.6;
+  --x-scrim: 0.55;
+  --x-radius: 10;
+  --x-radius-lg: 14;
+  --x-shadow: true;
+}
+:root[data-theme="candidate-night"][data-mode="light"] {
+  --bg: #f4f5fb;
+  --side: #ebedf7;
+  --panel: #ffffff;
+  --line: #dde0ef;
+  --line2: #c9cee5;
+  --well: #eff1f9;
+  --text: #252942;
+  --dim: #545a7b;
+  --bright: #0d1020;
+  --accent: #5a44e4;
+  --good: #0a7040;
+  --warn: #865000;
+  --cool: #065ca3;
+  --bad: #b81a36;
+  --extra: #b84f00;
+  --sel: #ecebfc;
+  --pick: #e4e1fc;
+  --track: #e1e4f1;
+  --ink: #ffffff;
+  --on-accent: #ffffff;
+  --on: #5a44e4;
+  --on-knob: #ffffff;
+  --x-lift: 0.09;
+  --x-scrim: 0.3;
+  --x-radius: 10;
+  --x-radius-lg: 14;
+  --x-shadow: true;
+}
