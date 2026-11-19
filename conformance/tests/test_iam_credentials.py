@@ -61,16 +61,18 @@ def test_virtual_mfa_device_lifecycle(client, names, cleanup, snapshot):
     seed = made["Base32StringSeed"].decode()
     assert len(base64.b32decode(seed + "=" * (-len(seed) % 8))) == 40
     snapshot.match("created", {"SerialNumber": serial, "Tags": made.get("Tags")})
-    snapshot.match("unassigned", iam.list_virtual_mfa_devices(AssignmentStatus="Unassigned"),
-                   unordered=("VirtualMFADevices",))
+    snapshot.match("unassigned", [d for d in iam.list_virtual_mfa_devices(AssignmentStatus="Unassigned")["VirtualMFADevices"]
+                                  if d["SerialNumber"] == serial])
 
     a, b = two_codes(seed)
     snapshot.match("enable", iam.enable_mfa_device(
         UserName=user, SerialNumber=serial, AuthenticationCode1=a, AuthenticationCode2=b))
     cleanup(iam.deactivate_mfa_device, UserName=user, SerialNumber=serial)
     snapshot.match("listed", iam.list_mfa_devices(UserName=user))
-    snapshot.match("assigned", iam.list_virtual_mfa_devices(AssignmentStatus="Assigned"), opaque=IDS,
-                   unordered=("VirtualMFADevices",))
+    # Only this scenario's device: the account's own (its root user's, say) are none of the scenario's business and must not
+    # be written into a recording.
+    snapshot.match("assigned", [d for d in iam.list_virtual_mfa_devices(AssignmentStatus="Assigned")["VirtualMFADevices"]
+                                if d["SerialNumber"] == serial], opaque=IDS)
     snapshot.match("tags", iam.list_mfa_device_tags(SerialNumber=serial))
     snapshot.error("delete-user-with-device", lambda: iam.delete_user(UserName=user))
     snapshot.error("delete-assigned-device", lambda: iam.delete_virtual_mfa_device(SerialNumber=serial))
