@@ -427,3 +427,58 @@ fn sync_stops_only_the_daemon_it_started() {
     let down = fixture::run(&sb, &host, Terminals::default(), false, &["down"]);
     assert_eq!(down.code, 0, "{}", down.stderr);
 }
+
+/// `doze run` as a person's IDE meets it: a SIGINT sent to doze alone (`kill -INT <doze>`, an IDE's stop) reaches the
+/// command, once, and doze exits with the command's code. Before, doze took it and the command never heard it.
+#[cfg(unix)]
+#[test]
+fn a_sigint_sent_to_doze_run_alone_reaches_the_command() {
+    use std::os::unix::process::CommandExt;
+    if !setup::sockets() {
+        return;
+    }
+    let (sb, _, _) = setup::prepare(&["project bare".to_owned()]);
+    let hcl = format!(
+        "stack = \"shop\"\nhome = \"{}\"\n\napp \"web\" {{\n  run = \"exec sleep 600\"\n}}\n",
+        sb.home().display()
+    );
+    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
+    let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
+    let mark = sb.root.join("ready");
+    let script = format!(
+        "n=0; trap 'n=$((n+1))' INT; : > '{}'; i=0; while [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; exit $((40+n))",
+        mark.display()
+    );
+    let mut doze = std::process::Command::new(env!("CARGO_BIN_EXE_doze"))
+        .args(["run", "--", "/bin/sh", "-c", &script])
+        .current_dir(sb.project())
+        .env("DOZE_HOME", sb.home())
+        .env("DOZE_ZONE", "off")
+        .env("DOZE_NO_UPDATE_NOTIFIER", "1")
+        .stdin(std::process::Stdio::null())
+        .process_group(0)
+        .spawn()
+        .unwrap();
+    let t0 = std::time::Instant::now();
+    while !mark.exists() && t0.elapsed() < std::time::Duration::from_secs(20) {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let pid = doze_projects::daemon_pid(&key).map(|p| p.pid);
+    let _reap = Reap(pid);
+    assert!(mark.exists(), "the command never started");
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let doze_pid = doze.id().to_string();
+    let _ = std::process::Command::new("kill")
+        .args(["-INT", &doze_pid])
+        .status();
+    let status = doze.wait().unwrap();
+    let down = fixture::run(
+        &sb,
+        &fixture::FakeHost::default(),
+        Terminals::default(),
+        false,
+        &["down"],
+    );
+    assert_eq!(status.code(), Some(41), "{status}");
+    assert_eq!(down.code, 0, "{}", down.stderr);
+}
