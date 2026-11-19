@@ -87,7 +87,13 @@
 # regex-lite already linked), idle 7,248 KB (samples 7,248, 7,248, 7,232). The bytes are the regenerated and patched message codecs and
 # the handlers' new versions. Bytes: times CI's 1.3747 is 12,911,336 B on ubuntu x86_64, plus 5% = 13,556,903 B until CI measures it (ceiling
 # 15 MB). Idle unchanged: 11,880 KB.
-doze-kafka 13556903 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-19, the registry gaps (branch kafka-registry-gaps: data contracts kept with a schema, Protobuf normalized as Confluent
+# normalizes it, JSON Schema numbers past BigDecimal), measured with `cargo xtask weight doze-kafka` on darwin arm64: 9,492,256 B
+# (+100,144 B, +1.07%, over the wire tail's 9,392,112 B), 182 packages (no new package), idle 7,232 KB (samples 7,184, 7,232, 7,248).
+# The bytes are Rust code in kafka-registry: the port of Confluent's ProtobufSchemaUtils normalizer, the contract model with its
+# merging, checking and Jackson-style reading, and the metadata route. Bytes: times CI's 1.3747 is 13,049,004 B on ubuntu x86_64,
+# plus 5% = 13,701,455 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+doze-kafka 13701455 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
