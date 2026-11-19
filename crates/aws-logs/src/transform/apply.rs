@@ -5,7 +5,7 @@ use serde_json::{Map, Number, Value};
 
 use super::Meta;
 use super::datetime;
-use super::grok::{Cast, Grok};
+use super::grok::Grok;
 use super::path;
 use super::procs::{Csv, DateTime, KeyValue, Kind, ListToMap, Move, Proc};
 
@@ -149,9 +149,9 @@ fn grok(e: &mut Event<'_>, source: Option<&str>, g: &Grok) {
     let Some(caps) = g.re.captures(&text) else {
         return;
     };
-    for (group, field, cast) in &g.fields {
+    for (group, field) in &g.fields {
         if let Some(m) = caps.name(group) {
-            path::set(&mut e.obj, field, cast_value(m.as_str(), *cast));
+            path::set(&mut e.obj, field, Value::String(m.as_str().to_owned()));
         }
     }
 }
@@ -196,15 +196,6 @@ fn strings(e: &mut Event<'_>, keys: &[String], f: impl Fn(&str) -> String) {
             *v = Value::String(f(s));
         }
     }
-}
-
-fn cast_value(s: &str, cast: Cast) -> Value {
-    let n = match cast {
-        Cast::Text => None,
-        Cast::Int => s.trim().parse::<i64>().ok().map(Number::from),
-        Cast::Float => s.trim().parse::<f64>().ok().and_then(Number::from_f64),
-    };
-    n.map_or_else(|| Value::String(s.to_owned()), Value::Number)
 }
 
 fn convert(v: &Value, kind: Kind) -> Option<Value> {

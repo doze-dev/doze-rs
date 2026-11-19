@@ -44,15 +44,22 @@ def rows(result):
 
 
 def run_query(logs, eventually, name, query, want, start):
-    qid = logs.start_query(logGroupName=name, startTime=start // 1000 - 60, endTime=int(time.time()) + 60,
-                           queryString=query)["queryId"]
+    """Runs the query until it sees `want` rows. AWS (recorded 2026-11-19) can complete a query before events just put are
+    searchable, and a completed query does not change, so a short answer starts the query again."""
+    state = {}
 
     def done():
-        r = logs.get_query_results(queryId=qid)
+        if "qid" not in state:
+            state["qid"] = logs.start_query(logGroupName=name, startTime=start // 1000 - 60, endTime=int(time.time()) + 60,
+                                            queryString=query)["queryId"]
+        r = logs.get_query_results(queryId=state["qid"])
         assert r["status"] == "Complete", r["status"]
-        assert len(r["results"]) >= want, f"{len(r['results'])} of {want} rows so far"
+        if len(r["results"]) < want:
+            del state["qid"]
+            raise AssertionError(f"{len(r['results'])} of {want} rows so far")
         return r
-    return qid, eventually(done, timeout=120, every=1)
+    r = eventually(done, timeout=300, every=2)
+    return state["qid"], r
 
 
 def test_insights_queries(client, names, cleanup, snapshot, eventually):
@@ -197,7 +204,7 @@ def test_transformers(client, names, cleanup, snapshot):
     snapshot.match("get", logs.get_transformer(logGroupIdentifier=name), opaque=CLOCK)
     tests = {
         "json": (config, ['{"lvl":"warn","n":1}']),
-        "grok": ([{"grok": {"match": "%{IP:client} %{WORD:method} %{URIPATHPARAM:request} %{NUMBER:bytes:int}"}}],
+        "grok": ([{"grok": {"match": "%{IP:client} %{WORD:method} %{URIPATHPARAM:request} %{NUMBER:bytes}"}}],
                  ["55.3.244.1 GET /index.html?x=1 15824"]),
         "csv": ([{"csv": {"columns": ["a", "b", "c"]}}], ['1,"two, too",3']),
         "key-value": ([{"parseKeyValue": {"fieldDelimiter": " ", "keyValueDelimiter": "="}},
@@ -216,6 +223,9 @@ def test_transformers(client, names, cleanup, snapshot):
     for label, (cfg, messages) in tests.items():
         got = logs.test_transformer(transformerConfig=cfg, logEventMessages=messages)["transformedLogs"]
         snapshot.match(f"test-{label}", [json.loads(t["transformedEventMessage"]) for t in got])
+    # AWS (recorded 2026-11-19): a grok pattern with a type conversion is refused.
+    snapshot.error("grok-type-conversion", lambda: logs.test_transformer(
+        transformerConfig=[{"grok": {"match": "%{NUMBER:bytes:int}"}}], logEventMessages=["15824"]))
     snapshot.error("ocsf-not-first-or-unknown", lambda: logs.test_transformer(
         transformerConfig=[{"addKeys": {"entries": [{"key": "a", "value": "b"}]}}, {"parseVPC": {}}],
         logEventMessages=["x"]))
@@ -249,7 +259,10 @@ def test_scheduled_queries(client, names, cleanup, snapshot, service_role):
     snapshot.match("get", logs.get_scheduled_query(identifier=sq), opaque=CLOCK)
     snapshot.match("updated", logs.update_scheduled_query(identifier=sq, queryLanguage="CWLI", queryString="fields @message",
                                                           scheduleExpression="cron(0 1 * * ? *)", executionRoleArn=role,
-                                                          logGroupIdentifiers=[name], state="DISABLED"), opaque=CLOCK)
+                                                          startTimeOffset=3600, logGroupIdentifiers=[name], state="DISABLED"), opaque=CLOCK)
+    snapshot.error("update-without-offset", lambda: logs.update_scheduled_query(
+        identifier=sq, queryLanguage="CWLI", queryString="fields @message", scheduleExpression="cron(0 1 * * ? *)",
+        executionRoleArn=role, logGroupIdentifiers=[name], state="DISABLED"))
     listed = [q for q in logs.list_scheduled_queries()["scheduledQueries"] if q["name"] == sq]
     snapshot.match("listed", listed, opaque=CLOCK)
     now = int(time.time())

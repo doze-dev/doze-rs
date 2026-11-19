@@ -204,7 +204,7 @@ fn a_scheduled_query_runs_when_due_and_keeps_its_history() {
     assert_eq!(listed["scheduledQueries"][0]["name"], "every-minute");
     assert_eq!(w.err("CreateScheduledQuery", &json!({"name": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "scheduleExpression": "rate(1 minute)", "executionRoleArn": "r"})).0, "ConflictException");
     assert_eq!(w.err("CreateScheduledQuery", &json!({"name": "bad", "queryLanguage": "CWLI", "queryString": "fields x", "scheduleExpression": "every minute", "executionRoleArn": "r"})).0, "ValidationException");
-    w.ok("UpdateScheduledQuery", &json!({"identifier": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "scheduleExpression": "rate(5 minutes)", "executionRoleArn": "r", "state": "DISABLED"}));
+    w.ok("UpdateScheduledQuery", &json!({"identifier": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "scheduleExpression": "rate(5 minutes)", "executionRoleArn": "r", "startTimeOffset": 300, "state": "DISABLED"}));
     assert_eq!(w.core.next_due(), None);
     w.ok("DeleteScheduledQuery", &json!({"identifier": arn}));
     assert_eq!(

@@ -79,8 +79,10 @@ fn csv_and_key_values_are_taken_apart() {
 }
 
 #[test]
-fn grok_extracts_named_and_typed_fields() {
-    let config = json!([{"grok": {"match": "%{IPV4:ip} %{WORD:verb} %{URIPATHPARAM:path} %{NUMBER:status:int} %{NUMBER:secs:float}"}}]);
+fn grok_extracts_named_fields_as_text() {
+    // No `:int` in the pattern (refused, as AWS refuses it): a typeConverter after it makes numbers.
+    let config = json!([{"grok": {"match": "%{IPV4:ip} %{WORD:verb} %{URIPATHPARAM:path} %{NUMBER:status} %{NUMBER:secs}"}},
+        {"typeConverter": {"entries": [{"key": "status", "type": "integer"}, {"key": "secs", "type": "double"}]}}]);
     let out = run(&config, "10.0.0.1 GET /a/b?c=1 200 0.25").unwrap();
     assert_eq!(
         out,
@@ -217,7 +219,10 @@ fn bad_configurations_are_refused() {
 #[test]
 fn bad_processor_settings_are_refused() {
     assert!(refused(&json!([{"grok": {"match": "%{NOPE:x}"}}])).contains("not known"));
-    assert!(refused(&json!([{"grok": {"match": "%{INT:x:long}"}}])).contains("int or float"));
+    assert_eq!(
+        refused(&json!([{"grok": {"match": "%{INT:x:int}"}}])),
+        "Grok parser doesn't support type conversions for any grok patterns"
+    );
     assert!(refused(&json!([{"grok": {"match": "(unclosed"}}])).contains("not a valid"));
     assert!(refused(&json!([{"dateTimeConverter": {"source": "a", "target": "b", "matchPatterns": ["yyyy-QQ"]}}])).contains("not valid"));
     assert!(refused(&json!([{"dateTimeConverter": {"source": "a", "target": "b", "matchPatterns": ["yyyy"], "sourceTimezone": "Mars/Base"}}])).contains("time zone"));
