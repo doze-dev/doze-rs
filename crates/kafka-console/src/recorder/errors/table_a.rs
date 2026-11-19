@@ -1,4 +1,4 @@
-//! Codes -1 to 58.
+//! Codes -1 to 67.
 
 use super::{Bad, Denied, Refused, Row, Warn, r};
 
@@ -341,11 +341,75 @@ pub(super) const ROWS: &[Row] = &[
         "Check the data directory (space, permissions); the partition shows as offline until it recovers.",
     ),
     r(
+        57,
+        "LOG_DIR_NOT_FOUND",
+        Refused,
+        "The user-specified log directory is not found in the broker config.",
+        "That is not the broker's log directory: it has one, its data directory.",
+        "Use the directory DescribeLogDirs reports.",
+    ),
+    r(
         58,
         "SASL_AUTHENTICATION_FAILED",
         Denied,
         "SASL Authentication failed.",
         "The login was refused: the user or the password is wrong.",
         "Check the user name and password.",
+    ),
+    r(
+        61,
+        "DELEGATION_TOKEN_AUTH_DISABLED",
+        Refused,
+        "Delegation Token feature is not enabled.",
+        "Delegation tokens are off: the broker has no token secret key.",
+        "Start the broker with --delegation-token-secret-key.",
+    ),
+    r(
+        62,
+        "DELEGATION_TOKEN_NOT_FOUND",
+        Refused,
+        "Delegation Token is not found on server.",
+        "No token has this HMAC: it never existed, was expired at once or was swept.",
+        "Create a new token.",
+    ),
+    r(
+        63,
+        "DELEGATION_TOKEN_OWNER_MISMATCH",
+        Denied,
+        "Specified Principal is not valid Owner/Renewer.",
+        "Only the token's owner or one of its renewers may renew or expire it.",
+        "Ask as the owner or a renewer.",
+    ),
+    r(
+        64,
+        "DELEGATION_TOKEN_REQUEST_NOT_ALLOWED",
+        Denied,
+        "Delegation Token requests are not allowed on PLAINTEXT/1-way SSL channels and on delegation token authenticated channels.",
+        "Tokens are asked for over a SASL login only, and not by a connection that logged in with a token.",
+        "Log in with SASL as a user.",
+    ),
+    r(
+        65,
+        "DELEGATION_TOKEN_AUTHORIZATION_FAILED",
+        Denied,
+        "Delegation Token authorization failed.",
+        "Making a token for another user needs CREATE_TOKENS on that user.",
+        "Grant CREATE_TOKENS on the user, or make the token for yourself.",
+    ),
+    r(
+        66,
+        "DELEGATION_TOKEN_EXPIRED",
+        Refused,
+        "Delegation Token is expired.",
+        "The token is past its expiry or its maximum lifetime.",
+        "Create a new token.",
+    ),
+    r(
+        67,
+        "INVALID_PRINCIPAL_TYPE",
+        Refused,
+        "Supplied principalType is not supported.",
+        "A token's renewers must be users (User:name).",
+        "",
     ),
 ];

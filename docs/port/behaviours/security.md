@@ -41,6 +41,7 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-230 to SEC-239 | the places a member's topics come from and whose right is applied: static takeover, names revoked, classic members, a group changing kind; the failed-login cap; file modes; the super-user name | re-audit C | "Re-audit of the authorization half" |
 | SEC-320 to SEC-327 | the share group APIs (KIP-932) and the group configs: READ or DESCRIBE or DELETE on the group, READ or DESCRIBE on each topic, ALTER_CONFIGS on the group | share groups | "Share groups (KIP-932)" |
 | SEC-400 to SEC-405 | the broker's debt cleared (2026-11-18): the PREFIXED index, SaslHandshake v0, the authorizer's configs, what `authz-matrix` found | debt | "Debt cleared, 2026-11-18" |
+| SEC-340 to SEC-351 | the admin APIs of debt K3: DescribeTopicPartitions, ElectLeaders, the reassignment APIs, AlterReplicaLogDirs, ListConfigResources, UpdateFeatures and delegation tokens (who may ask, and logging in with a token) | admin APIs | "Admin APIs (debt K3)" |
 | SEC-330 to SEC-333 | the streams group APIs (KIP-1071): READ or DESCRIBE on the group, DESCRIBE on every topic of the topology, CREATE for the internal topics the coordinator makes | streams groups | "Streams groups (KIP-1071)" |
 
 Deviations from Apache Kafka (and one from the Go edition) by number. Every one is a decision, not a bug; each has a row in `debt.md` section I.
@@ -57,7 +58,7 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D10** DescribeAcls and DeleteAcls results are sorted
 - **SEC-D11** no 10,000-ACL limit (the DescribeConfigs half is withdrawn: SEC-402)
 - **SEC-D12** the server nonce is 18 random bytes in base64
-- **SEC-D13** several SCRAM extensions are signed in the order sent; no delegation tokens
+- **SEC-D13** several SCRAM extensions are signed in the order sent (delegation tokens are served since 2026-11-19, SEC-349)
 - **SEC-D14** bootstrap users have 4096 iterations and a random 16-byte salt
 - **SEC-D15** SCRAM intermediate values are not zeroed
 - **SEC-D16** results in the order asked where Kafka's order is a hash map's or a shuffle
@@ -113,6 +114,7 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D92** `--sasl-failed-login-delay` is at most 10 s (Kafka: no limit)
 - **SEC-D93** a classic group adopted by a consumer group drops, with no handover, what its members may not DESCRIBE
 - **SEC-D100** every client is subscribed to the same fixed set every five seconds, cumulative (Kafka: nothing, every five minutes, deltas, until a CLIENT_METRICS resource says otherwise)
+- **SEC-D110** a login with a delegation token is not given the token's lifetime as its session's (no re-authentication)
 - **SEC-D101** the telemetry store forgets instances by eviction and expiry; an evicted client is adopted again at its next request (Kafka keeps it until they rejoin)
 
 ## SEC-1. SASL is opt-in; without it nothing changes
@@ -1496,6 +1498,86 @@ Test: `kafka-broker tests/authz_streams.rs::streams_group_describe_needs_describ
 L2943-2953).
 Test: `kafka-broker tests/streams_groups.rs::the_topology_description_update_is_refused_as_by_a_broker_with_no_plugin`
 
+## Admin APIs (debt K3)
+
+The admin APIs real brokers list that this broker did not serve, built 2026-11-19 (`docs/port/behaviours/admin.md` ADM-10 to ADM-17). Each row
+is Kafka 4.4.0's check (`KafkaApis`, `ControllerApis`, `DelegationTokenManager`), and every one was held to a real Kafka 4.4.0 with ACLs that
+name alice and not bob by `crates/kafka-wire/examples/oracle_admin` (the "bob:" steps, and the token steps as alice, bob and a super user): the
+same answers, the request text of a CLUSTER_AUTHORIZATION_FAILED compared as the operation it needs (SEC-404). Rows of the matrix are in bold.
+
+## SEC-340. DescribeTopicPartitions: DESCRIBE on each topic (source; oracle)
+A topic named that the caller may not DESCRIBE is not looked for: TOPIC_AUTHORIZATION_FAILED with a zero id, no partitions and no
+authorized operations, after every other topic of the answer; in a request for every topic it is left out. Every other entry carries the
+caller's operations on the topic (`AuthHelper.authorizedOperations`). Row: **TOPIC:DESCRIBE**.
+Test: `kafka-broker tests/admin_apis.rs::describe_topic_partitions_hides_what_the_caller_may_not_describe`
+
+## SEC-341. ElectLeaders: ALTER on the cluster (source; oracle)
+`ControllerApis.handleElectLeaders`: refused, the request is answered in the shape of `ElectLeadersRequest.getErrorResponse`: the error at
+the top (v1 and later) and on every partition named, each with Kafka's text. Row: **CLUSTER:ALTER**.
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+
+## SEC-342. AlterPartitionReassignments: ALTER on the cluster (source; oracle)
+Refused: the error and its text at the top and on every partition named (`AlterPartitionReassignmentsRequest.getErrorResponse`); nothing
+moves. Row: **CLUSTER:ALTER**.
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+
+## SEC-343. ListPartitionReassignments: DESCRIBE on the cluster (source; oracle)
+Refused: the error and its text, and the topics named echoed with their partitions and nothing else. Row: **CLUSTER:DESCRIBE**.
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+
+## SEC-344. AlterReplicaLogDirs: ALTER on the cluster (source; oracle)
+`KafkaApis.handleAlterReplicaLogDirsRequest`: refused, every partition of every directory named is CLUSTER_AUTHORIZATION_FAILED, one entry
+per topic of each directory, as sent. Row: **CLUSTER:ALTER**.
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+
+## SEC-345. ListConfigResources: DESCRIBE_CONFIGS on the cluster (source; oracle)
+Refused: CLUSTER_AUTHORIZATION_FAILED and nothing listed. Row: **CLUSTER:DESCRIBE_CONFIGS**.
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+
+## SEC-346. UpdateFeatures: ALTER on the cluster (source; oracle)
+Refused: the error and the request's text at the top, no results. Row: **CLUSTER:ALTER**.
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+
+## SEC-347. Delegation tokens are asked for over SASL only, and not with a token (source; oracle)
+`KafkaApis.allowTokenRequests`: a connection that did not log in with SASL (a listener without SASL; TLS alone is one-way here, SEC-D40) or
+that logged in with a token is answered DELEGATION_TOKEN_REQUEST_NOT_ALLOWED by all four APIs before anything else (CreateDelegationToken
+names the owner and timestamps of -1; Renew and Expire an expiry of -1). Then, without `--delegation-token-secret-key`,
+DELEGATION_TOKEN_AUTH_DISABLED. A caller may make a token for itself; one for another owner needs CREATE_TOKENS on that user (resource USER,
+named `User:name`), else DELEGATION_TOKEN_AUTHORIZATION_FAILED; a renewer that is not a `User` is INVALID_PRINCIPAL_TYPE. Row:
+**USER:CREATE_TOKENS** (for another owner). `kafka-delegation-tokens.sh --create` over a token's own login is refused on both brokers alike.
+Test: `kafka-broker tests/delegation_tokens.rs::token_requests_are_refused_before_anything_without_sasl_or_with_a_token_or_without_a_key`,
+`tests/delegation_tokens.rs::owners_renewers_and_the_rights_decide_who_renews_expires_and_sees_a_token`
+
+## SEC-348. Renewing and expiring: the owner or a renewer, whatever the ACLs (source; oracle)
+`DelegationTokenControlManager.allowedToRenew`: the owner or a principal the token names as a renewer, not the one that asked for it and not a
+super user; anyone else is DELEGATION_TOKEN_OWNER_MISMATCH. The token is found by its HMAC (DELEGATION_TOKEN_NOT_FOUND if none has it), compared
+in constant time. No ACL is asked.
+Test: `kafka-broker tests/delegation_tokens.rs::owners_renewers_and_the_rights_decide_who_renews_expires_and_sees_a_token`
+
+## SEC-349. A token logs in over SCRAM as its owner (source; tools)
+A SCRAM client-first message with `tokenauth=true` is checked against the token whose id is the user name: its verifiers are derived from the
+base64 of its HMAC at 4096 iterations with a fresh salt for each mechanism, when it is made and when the broker loads it
+(`DelegationTokenManager.prepareScramCredentials`). The login is the token's owner's, marked as made with a token (SEC-347). A token there is
+not is refused with the generic text, as an unknown user is; a token's id without the extension is nobody's user name. A token renewed keeps its
+verifiers; one expired at once or swept can no longer log in. `kafka-topics.sh` with a `ScramLoginModule ... tokenauth="true"` config lists the
+topics on Kafka 4.4.0 and here, and is refused on both once the token is expired.
+Test: `kafka-auth authenticator::tests::a_delegation_token_logs_in_over_scram_as_its_owner`
+
+## SEC-350. DescribeDelegationToken: one's own, and what the rights show (source; oracle)
+`DelegationTokenManager.filterToken`: of the owners named (every token for a null list, none for an empty one), the tokens the caller owns,
+asked for or may renew, and the others it has DESCRIBE on (resource DELEGATION_TOKEN, the token's id) or DESCRIBE_TOKENS on (resource USER, the
+owner) for. With everything allowed that no ACL covers (`--acl-default allow`) that is every token, as in Kafka. Rows:
+**DELEGATION_TOKEN:DESCRIBE or USER:DESCRIBE_TOKENS** (for tokens not one's own).
+Test: `kafka-broker tests/delegation_tokens.rs::owners_renewers_and_the_rights_decide_who_renews_expires_and_sees_a_token`
+
+## SEC-351. The key and the HMACs are never printed or kept
+`--delegation-token-secret-key` (or `DOZE_KAFKA_DELEGATION_TOKEN_SECRET_KEY`, which keeps it out of `ps`) is held as a `Secret`, whose
+`Debug` shows nothing, and the console's settings table says only that it was given. A token's row in `meta.redb` holds its owner, requester,
+renewers and times, not its HMAC, which is made again from the id and the key; the logins' snapshot prints a count of tokens, not their ids (an
+id is a user name a login can be made with). The console's recorder keeps neither the HMAC nor the id of any token request.
+Test: `kafka-auth tokens::tests::a_token_login_has_a_verifier_for_each_mechanism_and_is_its_owners`,
+`doze-kafka facts::tests::every_flag_whose_value_is_named_like_a_secret_is_one_the_table_redacts`
+
 ## Debt cleared, 2026-11-18 (SEC-400 to SEC-405)
 
 Numbered from 400 so that rows another branch adds after SEC-333 do not clash. Each was found or settled by `debt.md` (SEC-D82, SEC-D3, I9, I1, I10)
@@ -1686,5 +1768,10 @@ TRANSACTIONAL_ID_NOT_FOUND (105) with producer id 0, epoch 0 and start time 0, a
 - **SEC-D100.** Every client is subscribed to the same thing: the standard metric set (`org.apache.kafka.`), every 5000 ms, cumulative. Apache Kafka with no CLIENT_METRICS resource subscribes a client to nothing, every 300,000 ms, with deltas, and an operator changes that with
   `IncrementalAlterConfigs`; this broker has no such resource (the Go edition's difference, kept, `docs/limitations.md`), and the replay of the five scenarios whose timing matters gives Kafka the same five seconds with a resource and holds every other field to the recording. The reason for five seconds is that the
   one reader of the metrics is a developer looking at the last minutes; the cost is that every KIP-714 client now sends a report every five seconds (a few KB; the last is kept, bounded, SEC-293). `--client-telemetry=false` stops it (W35).
+- **SEC-D110.** Kafka gives a login made with a delegation token the token's expiry as the session's lifetime (the session lifetime of
+  its SaslAuthenticate answer), so a Java client re-authenticates before it (KIP-368) and the broker closes a connection that outlives it. This broker
+  sends 0, as for every other login: it does not serve re-authentication (SEC-10, SEC-D55), and a lifetime would make a client try. A connection
+  made with a token therefore lives on past the token's expiry; a new login with an expired, expired-at-once or swept token is refused as Kafka
+  refuses it. Debt row I13 (re-authentication).
 - **SEC-D101.** The store forgets by eviction (past 128 instances) and expiry (ten minutes quiet, one if terminating), as the Go edition's does (it also keeps eight per connection; this broker's handlers do not know the connection). Kafka keeps 16,384 instances for an hour. An evicted instance is simply unknown: its next request is adopted, so
   it loses only a throttle it would have had.

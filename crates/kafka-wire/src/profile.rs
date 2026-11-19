@@ -136,6 +136,19 @@ pub struct Advertised {
     pub max: i16,
 }
 
+/// A feature a profile supports (KIP-584): its name, the levels it can be set to, and the level it is at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FeatureLevel {
+    /// The feature's name, such as `transaction.version`.
+    pub name: &'static str,
+    /// The lowest level supported.
+    pub min: i16,
+    /// The highest level supported.
+    pub max: i16,
+    /// The level finalized.
+    pub level: i16,
+}
+
 /// The behaviour envelope of one declared Kafka major.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Profile {
@@ -218,6 +231,36 @@ impl Profile {
     #[must_use]
     pub fn streams_version(self) -> i16 {
         i16::from(self.range(ApiKey::StreamsGroupHeartbeat).is_some())
+    }
+
+    /// Every feature (KIP-584) the recorded broker of this major supports, with the levels it supports and the one it
+    /// finalizes when formatted with its defaults (`kafka-features.sh describe`, 2026-11-19): Kafka 4.4.0 (KRaft, static
+    /// voters) and 3.9.1; Kafka 2 and 1 have none. The `transaction.version`, `share.version` and `streams.version` levels
+    /// are this profile's own (see [`Profile::transaction_version`]), which are those of the recorded broker.
+    #[must_use]
+    pub fn features(self) -> Vec<FeatureLevel> {
+        let f = |name, min, max, level| FeatureLevel {
+            name,
+            min,
+            max,
+            level,
+        };
+        match self.major.get() {
+            4 => vec![
+                f("eligible.leader.replicas.version", 0, 1, 1),
+                f("group.version", 0, 1, 1),
+                f("kraft.version", 0, 1, 0),
+                f("metadata.version", 7, 33, 33),
+                f("share.version", 0, 2, self.share_version()),
+                f("streams.version", 0, 1, self.streams_version()),
+                f("transaction.version", 0, 2, self.transaction_version()),
+            ],
+            3 => vec![
+                f("kraft.version", 0, 1, 0),
+                f("metadata.version", 1, 21, 21),
+            ],
+            _ => Vec::new(),
+        }
     }
 
     /// Refuses a request outside what was advertised: an API not offered, or a version out of range.

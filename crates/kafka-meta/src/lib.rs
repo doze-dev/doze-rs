@@ -15,6 +15,7 @@ mod record;
 mod settings;
 mod share;
 mod store;
+mod token;
 mod txn;
 
 pub use acl::AclRecord;
@@ -30,4 +31,5 @@ pub use record::Topic;
 pub use settings::{CleanupPolicy, TopicSettings};
 pub use share::{ShareBatch, ShareRecordState, ShareState};
 pub use store::{FileMode, MetaStore, Records, ShareStateWrite, random_topic_id};
+pub use token::TokenRecord;
 pub use txn::{TxnOffset, TxnRecord, TxnState, TxnVersion};

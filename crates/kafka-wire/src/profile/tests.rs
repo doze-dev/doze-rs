@@ -113,7 +113,7 @@ fn outside_the_range_is_not_served() {
             .is_err()
     );
     assert!(p.check(ApiKey::SaslAuthenticate, 0, ALL).is_ok());
-    assert!(p.check(ApiKey::ElectLeaders, 0, ALL).is_err());
+    assert!(p.check(ApiKey::WriteTxnMarkers, 1, ALL).is_err());
 }
 
 /// An API the table offers at a major and the crate cannot decode at any version of it vanishes from that

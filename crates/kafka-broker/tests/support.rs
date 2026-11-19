@@ -260,6 +260,8 @@ pub fn rig_with(tweak: impl FnOnce(&mut Config)) -> Rig {
 // (Explicit paths: this file is a test target of its own as well as a module of the others.)
 #[path = "support/acls.rs"]
 pub mod acls;
+#[path = "support/admin.rs"]
+pub mod admin;
 #[path = "support/compact.rs"]
 mod compact;
 #[path = "support/configs.rs"]

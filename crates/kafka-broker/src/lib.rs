@@ -29,6 +29,7 @@ mod quotas;
 mod retention;
 mod share;
 mod telemetry;
+mod tokens;
 mod topic_config;
 mod topics;
 mod txn;
@@ -53,6 +54,7 @@ pub use lab::{CleanOutcome, ConsoleLab, LabOutcome};
 pub use listener::Listener;
 pub use outcome::Outcome;
 pub use quotas::{ClientQuotas, QuotaKind, Usage as QuotaUsage};
+pub use tokens::TokenConfig;
 pub use topic_config::{ConfigRefused, ValueRefused, check_topic_configs, topic_config_names};
 #[cfg(feature = "inspect")]
 pub use view::{
