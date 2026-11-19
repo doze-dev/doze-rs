@@ -75,7 +75,12 @@ impl<F: Fs> Broker<F> {
         } else {
             filters
                 .iter()
-                .map(|_| failed(ResponseError::ClusterAuthorizationFailed, None))
+                .map(|_| {
+                    failed(
+                        ResponseError::ClusterAuthorizationFailed,
+                        Some(&caller.cluster_denied("ALTER")),
+                    )
+                })
                 .collect()
         };
         let mut resp = DeleteAclsResponse::default();

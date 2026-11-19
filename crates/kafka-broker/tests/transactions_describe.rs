@@ -113,9 +113,16 @@ async fn a_transaction_is_described_while_it_is_open_and_after() {
     assert_eq!(describe(&rig, "c").await.transaction_start_time_ms, -1);
     assert!(done.topics.is_empty());
     assert_eq!(done.producer_id.0, b.producer);
+    // An unknown id is the error and the schema's defaults, as Kafka answers (authz-matrix, SEC-405).
+    let nobody = describe(&rig, "nobody").await;
+    assert_eq!(nobody.error_code, TRANSACTIONAL_ID_NOT_FOUND);
     assert_eq!(
-        describe(&rig, "nobody").await.error_code,
-        TRANSACTIONAL_ID_NOT_FOUND
+        (
+            nobody.producer_id.0,
+            nobody.producer_epoch,
+            nobody.transaction_start_time_ms
+        ),
+        (0, 0, 0)
     );
 }
 

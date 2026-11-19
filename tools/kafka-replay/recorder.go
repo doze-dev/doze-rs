@@ -63,7 +63,7 @@ func StartKafkaFor(s Scenario) (Target, error) {
 			}
 		}
 	}
-	t, err := startKafka(KafkaImage, s.DiskMiB, env, probeUser, probePass)
+	t, err := startKafka(s.RecordedImage(), s.DiskMiB, env, probeUser, probePass)
 	if err != nil {
 		return nil, err
 	}
