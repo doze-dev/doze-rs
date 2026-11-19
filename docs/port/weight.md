@@ -1002,6 +1002,33 @@ CI's, above):
   HCL's `regex` must take). doze-engine's `regex-lite` (31 KB) stays: its log patterns are Go's RE2 and need nothing more.
 - The 9 MB line is unchanged; the package line stays 240.
 
+## D2: names, the front door, TLS and downloads in the daemon; `release-doze` at "z" (2026-11-19)
+
+D2 put the zone into the daemon: `doze-bind`, doze-names' resolver and front door (hyper's server and client, rustls'
+server side, the CA's leaves), the hand-off to modules, the download fetch. x86_64 Linux is a cross build with zig as
+the linker (the base measured 8,652,824 B here against CI's 8,607,968 B, +0.5%), `release-doze`:
+
+| | x86_64 Linux | darwin/arm64 | packages |
+|---|---|---|---|
+| core-land (4ae41117), "s" | 8,652,824 B | | 233 |
+| D2, "s" | **9,192,984 B** (193 KB over the 9 MB line) | 7,171,888 B | 234 (doze-bind) |
+| D2, "s" with "z" on doze's own crates, rustls, yaml-rust2, hcl-edit, ureq | 8,729,016 B | **9,009,552 B** (+1.84 MB) | |
+| **D2, the whole build at "z"** | **8,754,344 B** | **6,031,248 B** | 234 |
+
+- Where the +540 KB went (cargo-bloat, Linux `.text`, D2 against the base): doze-names +199 KB (the front door, the
+  resolver with its upstream relay, the certificate resolver), doze-daemon +87 KB, rustls +65 KB (the server side),
+  hyper +28 KB (the server), doze-bind +18 KB, std +19 KB.
+- **Chosen: `release-doze` at "z"** (Cargo.toml, dated comment). Per-package levels grew darwin by 1.8 MB again (fat LTO
+  with mixed levels, as C2b found), so only the whole build moves. Cost measured on darwin: a warm `doze status` on the
+  acme fixture, median of 60, 31.55/30.70 ms at "s" and 31.80/31.24 ms at "z" (both runs include the timer's own process
+  start), so about 0.4 ms; the wake bench below is on the "z" build. C2b's reason not to take it (no loop vectorisation
+  for the log store and the front) is the price for staying under the line; the splice is tokio's copy either way.
+- Headroom: about 250 KB under the 9 MB line on Linux, before CI confirms it.
+- Wake, on the "z" build (darwin/arm64, a scratch bench after Go's `test/bench`: boot then down five times over the
+  control socket, the journal's `ready` times; postgres 16 and valkey 8 from a local signed registry): names off, db
+  median 35.0 ms (32.0–38.8), cache 18.8 ms (17.2–22.6), a valkey PING through the front after a sleep 19.3 ms to its
+  PONG; names on (Shared, a private zone): 36.8 ms, 19.5 ms, 20.7 ms. Go's budget (`budget.json`) is 250 ms.
+
 ## Core D1 with the module catalog (`doze` carries the daemon), measured 2026-11-15, release, darwin/arm64
 
 | | bytes | packages (normal, unique) |

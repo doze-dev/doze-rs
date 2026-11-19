@@ -131,6 +131,23 @@ fn a_stack_with_names_is_named_resolved_routed_and_gives_every_name_back() {
     );
     wait("the zone answers", || lookup(&dns, host) == Some(ip));
 
+    status_says_where(&run, host, &format!("{ip}:{port}"));
+    added_and_removed(&run, &reg, late_port);
+
+    assert_eq!(ctl::stop(&run), Ok(true));
+    let _ = reaped.join();
+    let left: Vec<String> = reg
+        .snapshot()
+        .into_keys()
+        .filter(|k| k.contains("d2names"))
+        .collect();
+    assert!(left.is_empty(), "names left behind: {left:?}");
+    let log = std::fs::read_to_string(root.0.join("daemon.log")).unwrap_or_default();
+    assert!(log.contains("names: *.d2names.doze"), "{log}");
+}
+
+/// The status op names the app by its name, its URL through the front door, and where it really listens.
+fn status_says_where(run: &RunDir, host: &str, endpoint: &str) {
     let status = ask(&run.socket(), r#"{"id":1,"op":"status"}"#);
     let api = status["response"]["instances"]
         .as_array()
@@ -141,14 +158,11 @@ fn a_stack_with_names_is_named_resolved_routed_and_gives_every_name_back() {
         .unwrap();
     assert_eq!(api["domain"], host, "{api}");
     assert_eq!(api["url"], format!("http://{host}"), "{api}");
-    assert!(
-        api["endpoint"]
-            .as_str()
-            .is_some_and(|e| e == format!("{ip}:{port}")),
-        "{api}"
-    );
+    assert_eq!(api["endpoint"], endpoint, "{api}");
+}
 
-    // Added at run time: named at once; removed: the name goes with it.
+/// Added at run time: named at once; removed: the name goes with it.
+fn added_and_removed(run: &RunDir, reg: &doze_names::Registry, late_port: u16) {
     let block = format!("app \"late\" {{\n  run  = \"exec sleep 600\"\n  port = {late_port}\n}}\n");
     let line = format!(
         "{{\"id\":2,\"op\":\"add\",\"block\":{}}}",
@@ -168,15 +182,4 @@ fn a_stack_with_names_is_named_resolved_routed_and_gives_every_name_back() {
         reg.lookup("late.d2names.doze").is_none(),
         "a removed app's name is given back"
     );
-
-    assert_eq!(ctl::stop(&run), Ok(true));
-    let _ = reaped.join();
-    let left: Vec<String> = reg
-        .snapshot()
-        .into_keys()
-        .filter(|k| k.contains("d2names"))
-        .collect();
-    assert!(left.is_empty(), "names left behind: {left:?}");
-    let log = std::fs::read_to_string(root.0.join("daemon.log")).unwrap_or_default();
-    assert!(log.contains("names: *.d2names.doze"), "{log}");
 }
