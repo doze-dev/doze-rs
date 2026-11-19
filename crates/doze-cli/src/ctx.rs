@@ -46,6 +46,12 @@ pub trait Host {
     fn ask(&self) -> Option<bool> {
         None
     }
+    /// [`Host::ask`], with Ctrl-C (`interrupt`, from [`Host::watch_interrupt`]) read as "no": a command that has
+    /// something to undo after a "no" (`sync`'s daemon started for it) asks this way, so Ctrl-C does not end it first.
+    fn ask_or(&self, interrupt: &Interrupt) -> Option<bool> {
+        let _ = interrupt;
+        self.ask()
+    }
     /// Reads one line the person types at the terminal (the question is already written), without its newline;
     /// `None` when there is no one to ask or the input ended (`init --wizard`).
     fn read_line(&self) -> Option<String> {

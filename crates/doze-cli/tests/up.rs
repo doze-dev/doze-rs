@@ -379,3 +379,51 @@ fn a_moved_state_folder_is_followed() {
     assert!(down.stdout.contains("\"stopped\": true"), "{}", down.stdout);
     assert!(!key.socket().exists() && !key.pid_file().exists());
 }
+
+/// `sync` stops the daemon only when it started it itself: with doze stopped, the daemon it starts for the plan is gone
+/// after; with a stack someone else runs (`up` here), the same sync leaves it running.
+#[test]
+fn sync_stops_only_the_daemon_it_started() {
+    if !std::path::Path::new("/bin/sh").exists() || !setup::sockets() {
+        return;
+    }
+    let (sb, mut host, _) = setup::prepare(&["project bare".to_owned()]);
+    host.daemon_exe = Some(std::path::PathBuf::from(env!("CARGO_BIN_EXE_doze")));
+    let hcl = format!(
+        "stack = \"shop\"\nhome = \"{}\"\n\napp \"web\" {{\n  run = \"exec sleep 600\"\n}}\n",
+        sb.home().display()
+    );
+    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
+    let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
+
+    let sync = fixture::run(&sb, &host, Terminals::default(), false, &["sync", "-y"]);
+    assert_eq!(sync.code, 0, "{}", sync.stderr);
+    assert!(
+        sync.stderr
+            .contains("started the doze daemon for doze sync"),
+        "{}",
+        sync.stderr
+    );
+    assert!(
+        !key.pid_file().exists() && !key.socket().exists(),
+        "the daemon sync started is stopped after it"
+    );
+
+    let up = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
+    let pid = doze_projects::daemon_pid(&key).map(|p| p.pid);
+    let _reap = Reap(pid);
+    assert_eq!(up.code, 0, "{}", up.stderr);
+    let sync = fixture::run(&sb, &host, Terminals::default(), false, &["sync", "-y"]);
+    assert_eq!(sync.code, 0, "{}", sync.stderr);
+    assert!(
+        !sync.stderr.contains("started the doze daemon"),
+        "{}",
+        sync.stderr
+    );
+    assert!(
+        pid.is_some_and(doze_os::process::alive),
+        "a daemon sync did not start is left running"
+    );
+    let down = fixture::run(&sb, &host, Terminals::default(), false, &["down"]);
+    assert_eq!(down.code, 0, "{}", down.stderr);
+}

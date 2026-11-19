@@ -79,7 +79,13 @@ fn bug_and_doctor_follow_a_moved_state_folder() {
     }
     let script = doze_control::fixture::Script::parse("empty", "").unwrap();
     let _daemon = doze_control::fixture::FixtureDaemon::start(&moved.socket(), script).unwrap();
-    let ran = fixture::run(&sb, &host, Terminals::default(), false, &["--json", "doctor"]);
+    let ran = fixture::run(
+        &sb,
+        &host,
+        Terminals::default(),
+        false,
+        &["--json", "doctor"],
+    );
     let v: serde_json::Value = serde_json::from_str(&ran.stdout).unwrap();
     let daemon = v["data"]["checks"]
         .as_array()

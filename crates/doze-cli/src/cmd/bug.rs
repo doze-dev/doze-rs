@@ -83,7 +83,10 @@ fn report(ctx: &Ctx<'_>, mode: &Mode) -> String {
         }
     }
     lock(&mut r, &project);
-    log(&mut r, &crate::stack::key_of(ctx, &project, shape.as_ref().ok()));
+    log(
+        &mut r,
+        &crate::stack::key_of(ctx, &project, shape.as_ref().ok()),
+    );
     r
 }
 

@@ -52,6 +52,16 @@ impl Host for Process {
         Some(matches!(answer.trim().to_lowercase().as_str(), "y" | "yes"))
     }
 
+    fn ask_or(&self, interrupt: &Interrupt) -> Option<bool> {
+        answer(
+            || {
+                let mut line = String::new();
+                io::stdin().read_line(&mut line).map(|_| line)
+            },
+            interrupt,
+        )
+    }
+
     fn run(&self, program: &std::path::Path, args: &[String]) -> io::Result<u8> {
         self.run_env(program, args, &[])
     }
@@ -82,6 +92,36 @@ impl Host for Process {
 
     fn privileged(&self, plan: &Plan, prompt: bool) -> Result<(), Refused> {
         crate::machine::run_as_root(plan, prompt)
+    }
+}
+
+/// A yes-or-no answer read by `read` (on a thread of its own: a read of the terminal cannot be broken off), or "no" as
+/// soon as `interrupt` is raised; `None` when the input cannot be read.
+fn answer(
+    read: impl FnOnce() -> io::Result<String> + Send + 'static,
+    interrupt: &Interrupt,
+) -> Option<bool> {
+    use std::sync::mpsc::{RecvTimeoutError, channel};
+    let (tx, rx) = channel();
+    std::thread::Builder::new()
+        .name("doze-ask".into())
+        .spawn(move || {
+            let _ = tx.send(read());
+        })
+        .ok()?;
+    loop {
+        match rx.recv_timeout(std::time::Duration::from_millis(50)) {
+            Ok(Ok(line)) => {
+                return Some(matches!(line.trim().to_lowercase().as_str(), "y" | "yes"));
+            }
+            Ok(Err(_)) | Err(RecvTimeoutError::Disconnected) => return None,
+            Err(RecvTimeoutError::Timeout) if interrupt.raised() => {
+                // The question's line is left open by the person's ^C: end it.
+                let _ = writeln!(io::stderr());
+                return Some(false);
+            }
+            Err(RecvTimeoutError::Timeout) => {}
+        }
     }
 }
 
@@ -204,4 +244,37 @@ fn working_dir() -> io::Result<PathBuf> {
         Some(p) if p.is_absolute() && p.canonicalize().ok() == real.canonicalize().ok() => p,
         _ => real,
     })
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    /// Ctrl-C while the person has not answered is "no", at once, though the read of the terminal never returns.
+    #[test]
+    fn ctrl_c_at_a_question_is_no() {
+        let interrupt = Interrupt::never();
+        let raise = interrupt.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            raise.raise();
+        });
+        let never_answers = || {
+            std::thread::sleep(std::time::Duration::from_secs(3600));
+            Ok(String::new())
+        };
+        let started = std::time::Instant::now();
+        assert_eq!(answer(never_answers, &interrupt), Some(false));
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+    }
+
+    #[test]
+    fn an_answer_is_read_as_before() {
+        let i = Interrupt::never();
+        assert_eq!(answer(|| Ok("y\n".into()), &i), Some(true));
+        assert_eq!(answer(|| Ok(" Yes \n".into()), &i), Some(true));
+        assert_eq!(answer(|| Ok("\n".into()), &i), Some(false));
+        assert_eq!(answer(|| Err(io::Error::other("closed")), &i), None);
+    }
 }
