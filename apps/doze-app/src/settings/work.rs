@@ -104,7 +104,7 @@ impl SettingsView {
     /// The machine's hands for a clear that needs no root: stopping a process, deleting a folder (no CLI involved, so
     /// a missing `doze` does not stop it), refusing anything that would ask for the password.
     fn hands(&self) -> NoRoot {
-        let cli = doze_desk::settings::Cli::from_env()
+        let cli = doze_desk::settings::Cli::from_env(crate::own::program())
             .unwrap_or_else(|| doze_desk::settings::Cli::go(PathBuf::from("doze")));
         NoRoot(SystemHands::new(cli, self.hub.home().to_path_buf()))
     }

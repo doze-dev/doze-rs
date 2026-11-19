@@ -6,7 +6,8 @@
 //!                        [--no-build] [--features F]
 //! ```
 //!
-//! - The binary is `doze-app`, built with `--profile` (default `release-app`) unless `--no-build`.
+//! - The binary is `doze-app`, built with `--profile` (default `release-app`) unless `--no-build`; `doze` beside it is
+//!   a link to it, the CLI the app runs (apps/doze-app/src/own.rs).
 //! - `Info.plist` comes from `apps/doze-app/bundle/` (LSUIElement: a menu-bar app until a window opens; the `doze://`
 //!   scheme unless `--no-scheme`); the icon is the doze mark (`apps/doze-app/assets/brand/doze.svg`) rendered by `sips`
 //!   at every size `iconutil` wants.
@@ -143,6 +144,10 @@ fn make(o: &Opts) -> Result<PathBuf, String> {
         std::fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
     }
     std::fs::copy(&bin, macos.join("doze-app")).map_err(|e| format!("{}: {e}", bin.display()))?;
+    // The CLI the bundle carries: `doze`, a link to the app, which is the whole CLI when run under that name
+    // (apps/doze-app/src/own.rs). The app runs it for every doze command, never a `doze` on the PATH; a person can put
+    // Contents/MacOS on theirs. A link and not a copy: the binary is one, so is its size.
+    link_cli(&macos)?;
     let plist = info_plist(o, &root())?;
     write(&app.join("Contents/Info.plist"), &plist)?;
     write(&app.join("Contents/PkgInfo"), "APPL????")?;
@@ -152,6 +157,18 @@ fn make(o: &Opts) -> Result<PathBuf, String> {
         .arg(app.join("Contents/Info.plist")))?;
     sign(&app)?;
     Ok(app)
+}
+
+/// `Contents/MacOS/doze`, a relative link to `doze-app` beside it.
+#[cfg(unix)]
+fn link_cli(macos: &Path) -> Result<(), String> {
+    let link = macos.join("doze");
+    std::os::unix::fs::symlink("doze-app", &link).map_err(|e| format!("{}: {e}", link.display()))
+}
+
+#[cfg(not(unix))]
+fn link_cli(_: &Path) -> Result<(), String> {
+    Err("Doze.app is a macOS bundle".into())
 }
 
 /// Only a bundle this task made is replaced: one with `doze-app` inside. Any other (the Go app's Doze.app runs `doze`;
