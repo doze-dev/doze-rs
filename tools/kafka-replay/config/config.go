@@ -33,6 +33,7 @@ type Config struct {
 	Credentials                map[string]string // --sasl-user user:password, one per user
 	ACLSuperUsers              []string          // --acl-super-user, one per principal
 	Console                    bool              // --console --console-addr 127.0.0.1:0 when true
+	KafkaVersion               int               // --kafka-version; 0 leaves the binary's default (4)
 
 	// Test knobs: environment variables, no flag.
 	OffsetsRetentionCheckInterval time.Duration // DOZE_KAFKA_TEST_OFFSETS_CHECK_INTERVAL

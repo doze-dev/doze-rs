@@ -131,7 +131,9 @@ async fn a_caller_without_the_right_is_refused_in_the_shape_kafka_answers() {
             ],
         )
         .await;
-    let denied = |u: &str| (u.to_owned(), 31, None);
+    // Each with Kafka's text, `Request <the request> needs ALTER permission.` (recorded authz-matrix; SEC-404).
+    let why = Some(nobody.cluster_denied("ALTER"));
+    let denied = |u: &str| (u.to_owned(), 31, why.clone());
     assert_eq!(r, vec![denied("amy"), denied("bob"), denied("zed")]);
     assert!(rig.scram_alter_as(&nobody, vec![], vec![]).await.is_empty());
     // Describe: the whole request, and one entry per name asked for (DescribeUserScramCredentialsRequest.java:63-76).
@@ -176,7 +178,10 @@ async fn alter_needs_alter_on_the_cluster_and_describe_needs_describe_which_alte
     let r = rig
         .scram_alter_as(&reader, vec![delete("x", SHA256)], vec![])
         .await;
-    assert_eq!(r, vec![("x".to_owned(), 31, None)]);
+    assert_eq!(
+        r,
+        vec![("x".to_owned(), 31, Some(reader.cluster_denied("ALTER")))]
+    );
     assert_eq!(rig.scram_listed().await.len(), 1);
 }
 

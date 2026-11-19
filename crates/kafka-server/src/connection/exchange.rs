@@ -233,7 +233,7 @@ fn sasl<F: Fs>(
     };
     let (response, fate) = match request {
         Request::SaslHandshake(r) => {
-            let (response, fate) = steps::handshake(session, auth, &r);
+            let (response, fate) = steps::handshake(session, auth, &r, head.version);
             (Response::SaslHandshake(response), fate)
         }
         Request::SaslAuthenticate(r) => {
@@ -250,6 +250,54 @@ fn sasl<F: Fs>(
         fate,
         fault: None,
     })
+}
+
+/// A raw SASL token, the frame after a SaslHandshake v0 (or after the server's first raw reply): judged, and the
+/// mechanism's reply written back as a size-prefixed frame of its own. A refusal writes nothing: the connection is
+/// closed, after the failed-login delay for a failed login (SEC-401). Raw frames have no header, so no observer
+/// is told of them.
+pub(super) async fn raw_token<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
+    stream: &mut S,
+    ctx: &Context<F>,
+    session: &mut Session,
+    token: Bytes,
+    stop: &CancellationToken,
+) -> Result<(), End> {
+    let Some(auth) = ctx.auth.as_deref() else {
+        return Err(End::LoginAbandoned);
+    };
+    match steps::raw(session, auth, &token) {
+        Ok(reply) => {
+            let len = u32::try_from(reply.len()).map_err(|_| End::LoginAbandoned)?;
+            let mut frame = bytes::BytesMut::with_capacity(4 + reply.len());
+            frame.extend_from_slice(&len.to_be_bytes());
+            frame.extend_from_slice(&reply);
+            send_bytes(stream, ctx, frame.freeze()).await
+        }
+        Err(steps::RawEnd::Failed) => {
+            failed_login_delay(ctx, stop).await?;
+            hang_up(stream, ctx, stop).await;
+            Err(End::LoginFailed)
+        }
+        Err(steps::RawEnd::Hangup) => Err(End::LoginAbandoned),
+    }
+}
+
+/// Writes `bytes` and flushes them, within the write timeout.
+async fn send_bytes<S: AsyncWrite + Unpin, F: Fs>(
+    stream: &mut S,
+    ctx: &Context<F>,
+    bytes: Bytes,
+) -> Result<(), End> {
+    let write = async {
+        stream.write_all(&bytes).await?;
+        stream.flush().await
+    };
+    match timeout(ctx.timeouts.write, write).await {
+        Err(_) => Err(End::Slow),
+        Ok(Err(e)) => Err(End::Io(e)),
+        Ok(Ok(())) => Ok(()),
+    }
 }
 
 /// The ILLEGAL_SASL_STATE answer for a request that was not decoded, in the shape of its API.

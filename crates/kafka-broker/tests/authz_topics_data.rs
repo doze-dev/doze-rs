@@ -255,6 +255,14 @@ async fn a_refused_fetch_is_answered_at_once_and_does_not_wait_for_data() {
         panic!("not Fetch")
     };
     assert_eq!(Rig::fetched(&r), [("a".into(), 0, 29)]);
+    // Kafka's refused partition (recorded authz-matrix, bob-fetch; SEC-403): no high watermark, and an empty list of
+    // aborted transactions, not a null one.
+    let p = &r.responses[0].partitions[0];
+    assert_eq!(
+        (p.high_watermark, p.last_stable_offset, p.log_start_offset),
+        (-1, -1, -1)
+    );
+    assert_eq!(p.aborted_transactions.as_deref(), Some(&[][..]));
 }
 
 #[tokio::test]

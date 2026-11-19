@@ -44,17 +44,22 @@ fn codes<T>(results: &[T], code: impl Fn(&T) -> i16) -> Vec<i16> {
 async fn a_caller_with_nothing_on_the_cluster_is_refused_with_31_everywhere() {
     let rig = rig_with(closed_world);
     let alice = user("alice");
+    // Each with Kafka's text, `Request <the request> needs <OP> permission.` (recorded authz-matrix; SEC-404).
+    let needs = |m: &Option<StrBytes>, op: &str| {
+        let m = m.as_deref().unwrap_or_default();
+        m.starts_with("Request Request(") && m.ends_with(&format!(") needs {op} permission."))
+    };
     let r = rig.create_acls_as(&alice, 3, vec![one(), one()]).await;
     assert_eq!(codes(&r, |x| x.error_code), [31, 31]);
+    assert!(r.iter().all(|x| needs(&x.error_message, "ALTER")), "{r:?}");
     let r = rig
         .delete_acls_as(&alice, 3, vec![filter(1, 1, 1, 1), filter(1, 1, 1, 1)])
         .await;
     assert_eq!(codes(&r, |x| x.error_code), [31, 31]);
+    assert!(r.iter().all(|x| needs(&x.error_message, "ALTER")), "{r:?}");
     let d = rig.describe_acls_as(&alice, 3, &filter(1, 1, 1, 1)).await;
-    assert_eq!(
-        (d.error_code, d.error_message, d.resources.len()),
-        (31, text(""), 0)
-    );
+    assert_eq!((d.error_code, d.resources.len()), (31, 0));
+    assert!(needs(&d.error_message, "DESCRIBE"), "{:?}", d.error_message);
     // The unknown-code close comes before the authorization: a caller with nothing is closed too.
     let o = rig
         .outcome_as(

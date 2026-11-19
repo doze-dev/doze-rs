@@ -28,7 +28,7 @@ const BOTH: [(Mechanism, Kind); 2] = [
 fn challenged(m: Mechanism, first: &[u8]) -> (Session, SaslAuthenticateResponse) {
     let mut s = Session::new();
     let name = m.name();
-    let (r, fate) = handshake(&mut s, &all(), &hs(name));
+    let (r, fate) = handshake(&mut s, &all(), &hs(name), 1);
     assert_eq!((r.error_code, fate), (0, Fate::Open));
     let (r, fate) = authenticate(&mut s, &all(), &token(first)).unwrap();
     assert_eq!(
@@ -46,7 +46,7 @@ fn challenged(m: Mechanism, first: &[u8]) -> (Session, SaslAuthenticateResponse)
 fn the_handshake_lists_the_mechanisms_in_javas_order_and_accepts_each_scram_name() {
     for (m, _) in BOTH {
         let mut s = Session::new();
-        let (r, fate) = handshake(&mut s, &all(), &hs(m.name()));
+        let (r, fate) = handshake(&mut s, &all(), &hs(m.name()), 1);
         assert_eq!(
             (r.error_code, names(&r), fate),
             (
@@ -159,7 +159,7 @@ fn a_token_of_the_wrong_kind_for_the_step_is_58() {
 fn a_handshake_in_the_middle_of_a_scram_login_is_34_and_closes() {
     for name in ["PLAIN", "SCRAM-SHA-512", "SCRAM-SHA-256", "BOGUS"] {
         let (mut s, _) = challenged(Mechanism::ScramSha256, b"n,,n=alice,r=NC.");
-        let (r, fate) = handshake(&mut s, &all(), &hs(name));
+        let (r, fate) = handshake(&mut s, &all(), &hs(name), 1);
         assert_eq!(
             (r.error_code, r.mechanisms.len(), fate),
             (34, 0, Fate::Closing)

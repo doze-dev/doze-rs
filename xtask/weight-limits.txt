@@ -64,12 +64,19 @@
 # codecs, patch 4), the group (topology configuration, the sticky assignor, reconciliation), its handlers, the group configs, the
 # recorder's summaries and the console's streams page. No streams group, no task and no timer (STR-82). Bytes: times CI's 1.3747 is
 # 12,500,818 B on ubuntu x86_64, plus 5% = 13,125,859 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+# 2026-11-18, the broker's debt cleared (branch kafka-debt-broker: SaslHandshake v0 and raw tokens, the ACL and log-dir and leader-epoch v0
+# decoders of vendor patch 5, the PREFIXED index, the authorizer's configs, the long CLUSTER_AUTHORIZATION_FAILED text): darwin arm64
+# 9,110,048 B (+16,560 B, +0.18%, over streams groups' 9,093,488 B), 182 packages (none added); bytes and packages as the xtask counts them,
+# by hand (its idle probe takes a port outside this machine's shared range; it now honours CARGO_TARGET_DIR). Bytes: times CI's 1.3747 is 12,523,583 B on ubuntu x86_64, plus 5% =
+# 13,149,762 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
 # 2026-11-18, the schema registry audit (branch kafka-registry-audit, tools/registry-diff), measured with `cargo xtask weight doze-kafka`
 # on darwin arm64: 9,143,472 B (+49,984 B, +0.55%, over streams groups' 9,093,488 B), 182 packages (no new package), idle 7,008 KB
 # (samples 6,992, 7,008, 7,024). The bytes are Rust code in kafka-registry: Jackson-style body reading, the Protobuf descriptor
 # Confluent answers for format=serialized, IMPORT mode and the settings beside a level. Bytes: times CI's 1.3747 is 12,569,532 B on
 # ubuntu x86_64, plus 5% = 13,198,009 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
-doze-kafka 13198009 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-19, both of the above on one main (the two rises add: 9,093,488 + 16,560 + 49,984 = 9,160,032 B darwin arm64), 182 packages.
+# Bytes: times CI's 1.3747 is 12,592,296 B on ubuntu x86_64, plus 5% = 13,221,911 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+doze-kafka 13221911 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
