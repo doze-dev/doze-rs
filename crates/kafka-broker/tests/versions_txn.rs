@@ -109,10 +109,10 @@ async fn a_transaction_is_run_through_every_version_of_each_api() {
     let mut ask = DescribeTransactionsRequest::default();
     ask.transactional_ids = vec![TransactionalId(text("v-0")), TransactionalId(text("nope"))];
     rig.ask(0, Request::DescribeTransactions(ask)).await;
-    // ListTransactions is offered at 0 to 1 (v1 adds the duration filter): a narrower offer is a regression.
+    // ListTransactions is offered at 0 to 2 (v1 adds the duration filter, v2 the pattern): a narrower offer is a regression.
     let offered = Profile::new(KafkaMajor::new(4).unwrap()).range(ApiKey::ListTransactions);
-    assert_eq!(offered, Some((0, 1)));
-    for v in 0..=1 {
+    assert_eq!(offered, Some((0, 2)));
+    for v in 0..=2 {
         rig.ask(
             v,
             Request::ListTransactions(ListTransactionsRequest::default()),

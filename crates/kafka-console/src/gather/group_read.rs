@@ -158,7 +158,8 @@ pub async fn describe(b: &Backend, ids: &[String]) -> HashMap<String, Described>
     }
     let mut again: Vec<String> = Vec::new();
     if let Ok(Response::DescribeGroups(r)) = b.call(requests::describe_groups(ids)).await {
-        for g in r.groups.iter().filter(|g| g.error_code == 0) {
+        // From v6 (KIP-1043) a group this API does not describe is Dead with GROUP_ID_NOT_FOUND (69): asked of the others too.
+        for g in r.groups.iter().filter(|g| matches!(g.error_code, 0 | 69)) {
             let id = g.group_id.0.to_string();
             if g.group_state.as_str() == "Dead" {
                 again.push(id);
