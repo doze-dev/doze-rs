@@ -130,6 +130,7 @@ fn prepare(
     let wiring = doze_config::stack::Wiring {
         planner: &planner,
         extra_env: BTreeMap::new(),
+        fetch: cat.service_downloads(),
     };
     let names: BTreeSet<&str> = declared.iter().map(String::as_str).collect();
     let service = doze_config::stack::service(&inst, &wiring, &names);

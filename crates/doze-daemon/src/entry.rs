@@ -211,6 +211,7 @@ fn stack(
     let wiring = doze_config::stack::Wiring {
         planner: &planner,
         extra_env: crate::names::ca_env(cfg),
+        fetch: catalog.service_downloads(),
     };
     let stack = doze_config::stack::to_stack(cfg, &wiring);
     let modules = modules
@@ -354,13 +355,19 @@ pub(crate) fn catalog(config: &Path) -> Result<Catalog, String> {
         pins: crate::catalog::lock_pins(&lock),
     });
     let home = doze_os::home::doze_home().map_err(|e| format!("the doze home: {e}"))?;
+    let services = crate::downloads::ServiceDownloads {
+        child: fetch.clone(),
+        lock: lock.clone(),
+        home: home.clone(),
+    };
     Ok(Catalog::new(
         tokio::runtime::Handle::current(),
         Arc::new(Fetched(fetch)),
         downloads,
         lock,
         home,
-    ))
+    )
+    .with_service_downloads(Arc::new(services)))
 }
 
 /// What the config says about each instance, for the views; a module instance's variables, URL and client as its

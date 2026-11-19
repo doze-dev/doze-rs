@@ -125,6 +125,7 @@ async fn larder_runs_in_the_engine() {
     let w = Wiring {
         planner: &planner,
         extra_env: ca_env(&tls.join("ca.pem"), &tls.join("bundle.pem")),
+        fetch: None,
     };
     let stack = to_stack(&cfg, &w);
     every_block_runs(&cfg, &stack);

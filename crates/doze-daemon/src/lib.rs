@@ -15,6 +15,7 @@ pub mod catalog;
 mod client;
 mod console;
 pub mod ctl;
+pub mod downloads;
 pub mod entry;
 pub mod front;
 pub mod lint;

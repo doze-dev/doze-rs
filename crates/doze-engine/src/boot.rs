@@ -8,7 +8,7 @@ use crate::events::{Cause, Event, Kind};
 use crate::lifecycle::Now;
 use crate::logs::RunLog;
 use crate::machine::{Cancel, Unit};
-use crate::process::idle_policy;
+use crate::process::{ProcessSpec, idle_policy};
 use crate::stack::{Endpoint, Kind as SvcKind, PlanCtx, Planned, Service, When};
 use crate::steps::{self, Moment, StepEnv};
 use crate::supervise::Handle;
@@ -245,6 +245,26 @@ async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, R
     }
 }
 
+/// A command something fetches: present and checked at each start, run in it unless its block set `dir`.
+async fn fetched<'a>(
+    name: &str,
+    spec: &'a ProcessSpec,
+) -> Result<std::borrow::Cow<'a, ProcessSpec>, Error> {
+    let Some(d) = &spec.download else {
+        return Ok(std::borrow::Cow::Borrowed(spec));
+    };
+    let root = d
+        .fetch
+        .fetch(&d.url)
+        .await
+        .map_err(|err| Error::Failed(format!("{name}: {err}")))?;
+    let mut s = spec.clone();
+    if !d.dir_set {
+        s.dir = root;
+    }
+    Ok(std::borrow::Cow::Owned(s))
+}
+
 /// `setup` when this data folder needs it, then the plan, with doze's own variables in every process.
 async fn plan_for(
     e: &Engine,
@@ -257,6 +277,7 @@ async fn plan_for(
     };
     let planned = match &svc.kind {
         SvcKind::Process(spec) => {
+            let spec = &*fetched(&svc.name, spec).await?;
             let private = if spec.proxied() {
                 Some(free_port().map_err(|err| io("a free port", err))?)
             } else {

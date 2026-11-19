@@ -37,6 +37,8 @@ pub struct Catalog {
     failed: Mutex<BTreeMap<String, String>>,
     /// The engine a module taking its own connections boots and counts them through, once it exists.
     wire: Arc<WireHost>,
+    /// What fetches a service's `download` (none: a block with one says nothing fetches it).
+    service_downloads: Option<Arc<dyn doze_engine::Fetch>>,
 }
 
 /// The host's side of `wire.accept` (D2): a module handed a client connection asks the engine to boot the instance
@@ -116,7 +118,20 @@ impl Catalog {
             manifests: Mutex::default(),
             failed: Mutex::default(),
             wire,
+            service_downloads: None,
         }
+    }
+
+    /// Services' downloads fetched by `f`. Before the catalog is shared.
+    #[must_use]
+    pub fn with_service_downloads(mut self, f: Arc<dyn doze_engine::Fetch>) -> Catalog {
+        self.service_downloads = Some(f);
+        self
+    }
+
+    /// What fetches a service's `download`.
+    pub fn service_downloads(&self) -> Option<Arc<dyn doze_engine::Fetch>> {
+        self.service_downloads.clone()
     }
 
     /// The engine modules taking their own connections boot and count them through (once; before the first
