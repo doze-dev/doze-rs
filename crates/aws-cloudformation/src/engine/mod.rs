@@ -112,6 +112,9 @@ impl Runner {
         for job in std::mem::take(&mut answer.jobs) {
             self.start(job);
         }
+        for check in std::mem::take(&mut answer.checks) {
+            self.detect(check);
+        }
         Ok(answer)
     }
 
@@ -120,10 +123,23 @@ impl Runner {
         let me = Arc::clone(self);
         let id = job.stack_id.clone();
         crate::progress::set_running(&id, true);
+        let update = job.kind == Kind::Update;
+        if update {
+            crate::cancel::watch(&id);
+        }
         self.tasks.spawn(async move {
             run(me, job).await;
+            if update {
+                crate::cancel::unwatch(&id);
+            }
             crate::progress::set_running(&id, false);
         });
+    }
+
+    /// Runs a drift detection beside the actor.
+    pub(crate) fn detect(self: &Arc<Self>, check: crate::drift::Check) {
+        let me = Arc::clone(self);
+        self.tasks.spawn(crate::drift::run(me, check));
     }
 
     /// Reports progress to the stack's record.

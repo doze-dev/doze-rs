@@ -14,7 +14,11 @@ pub(crate) const DYNAMIC_DEFAULT: i8 = 3;
 pub(crate) const STATIC_BROKER: i8 = 4;
 pub(crate) const DEFAULT: i8 = 5;
 
+/// A config Kafka has no definition of (a property it was started with that no `ConfigDef` names): Kafka shows its type
+/// as UNKNOWN and, not knowing its type, as sensitive, with no value (`ConfigHelper`, `KafkaConfig.maybeSensitive`).
+pub(crate) const UNKNOWN: i8 = 0;
 const BOOLEAN: i8 = 1;
+const STRING: i8 = 2;
 const INT: i8 = 3;
 const LONG: i8 = 5;
 
@@ -148,6 +152,7 @@ pub(crate) fn of_broker(config: &Config, live: &Live) -> Vec<View> {
         kafka_default: "1000",
     })];
     out.extend(fixed(config).into_iter().map(view_of_fixed));
+    out.extend(authorizer(config));
     for c in &CHANGEABLE {
         let place = |d: &BTreeMap<String, String>| d.get(c.name).cloned();
         let mut synonyms = Vec::new();
@@ -172,6 +177,47 @@ pub(crate) fn of_broker(config: &Config, live: &Live) -> Vec<View> {
             synonyms,
         });
     }
+    out
+}
+
+/// The authorizer's settings as Apache Kafka 4.3.1 lists them (recorded `authz-matrix`, step
+/// `admin-broker-authorizer-configs`; SEC-402): `authorizer.class.name`, read-only, from the broker's start; `super.users`
+/// and `allow.everyone.if.no.acl.found` only when set (`--acl-super-user`, `--acl-default allow`), each an UNKNOWN,
+/// sensitive config with no value, since the authorizer and not `KafkaConfig` defines them.
+fn authorizer(config: &Config) -> Vec<View> {
+    const CLASS: &str = "org.apache.kafka.metadata.authorizer.StandardAuthorizer";
+    let unknown = |name, value: String| View {
+        name,
+        value: value.clone(),
+        kind: UNKNOWN,
+        read_only: true,
+        source: STATIC_BROKER,
+        synonyms: vec![(STATIC_BROKER, value)],
+    };
+    // In the order the recording lists them: super.users before authorizer.class.name.
+    let mut out = Vec::new();
+    // The console's own principal is a super user the broker adds itself (SEC-241), not one it was started with.
+    let console = kafka_auth::Principal::console();
+    let given: Vec<&str> = config
+        .super_users
+        .iter()
+        .map(String::as_str)
+        .filter(|p| *p != console.as_str())
+        .collect();
+    if !given.is_empty() {
+        out.push(unknown("super.users", given.join(";")));
+    }
+    if config.acl_default_allow {
+        out.push(unknown("allow.everyone.if.no.acl.found", "true".into()));
+    }
+    out.push(View {
+        name: "authorizer.class.name",
+        value: CLASS.into(),
+        kind: STRING,
+        read_only: true,
+        source: STATIC_BROKER,
+        synonyms: vec![(STATIC_BROKER, CLASS.into()), (DEFAULT, String::new())],
+    });
     out
 }
 

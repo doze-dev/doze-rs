@@ -12,6 +12,7 @@ use super::*;
 
 mod by_type;
 mod names;
+mod scale;
 mod validate;
 
 pub(super) fn acl(kind: i8, name: &str, pat: i8, principal: &str, op: i8, perm: i8) -> Acl {

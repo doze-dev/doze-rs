@@ -83,7 +83,7 @@ impl DeleteAclsFilterResult {
 #[cfg(feature = "broker")]
 impl Encodable for DeleteAclsFilterResult {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         types::Int16.encode(buf, &self.error_code)?;
@@ -145,7 +145,7 @@ impl Encodable for DeleteAclsFilterResult {
 #[cfg(feature = "client")]
 impl Decodable for DeleteAclsFilterResult {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let error_code = types::Int16.decode(buf)?;
@@ -190,7 +190,7 @@ impl Default for DeleteAclsFilterResult {
 }
 
 impl Message for DeleteAclsFilterResult {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 3 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 3 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -344,7 +344,7 @@ impl DeleteAclsMatchingAcl {
 #[cfg(feature = "broker")]
 impl Encodable for DeleteAclsMatchingAcl {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         types::Int16.encode(buf, &self.error_code)?;
@@ -359,7 +359,12 @@ impl Encodable for DeleteAclsMatchingAcl {
         } else {
             types::String.encode(buf, &self.resource_name)?;
         }
-        types::Int8.encode(buf, &self.pattern_type)?;
+        // PATCH 5: not in v0, where every pattern is LITERAL (3).
+        if version >= 1 {
+            types::Int8.encode(buf, &self.pattern_type)?;
+        } else if self.pattern_type != 3 {
+            bail!("A pattern_type other than LITERAL cannot be written at version 0");
+        }
         if version >= 2 {
             types::CompactString.encode(buf, &self.principal)?;
         } else {
@@ -400,7 +405,10 @@ impl Encodable for DeleteAclsMatchingAcl {
         } else {
             total_size += types::String.compute_size(&self.resource_name)?;
         }
-        total_size += types::Int8.compute_size(&self.pattern_type)?;
+        if version >= 1 {
+            // PATCH 5
+            total_size += types::Int8.compute_size(&self.pattern_type)?;
+        }
         if version >= 2 {
             total_size += types::CompactString.compute_size(&self.principal)?;
         } else {
@@ -432,7 +440,7 @@ impl Encodable for DeleteAclsMatchingAcl {
 #[cfg(feature = "client")]
 impl Decodable for DeleteAclsMatchingAcl {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let error_code = types::Int16.decode(buf)?;
@@ -447,7 +455,8 @@ impl Decodable for DeleteAclsMatchingAcl {
         } else {
             types::String.decode(buf)?
         };
-        let pattern_type = types::Int8.decode(buf)?;
+        // PATCH 5: v0 has no pattern type; it is LITERAL.
+        let pattern_type = if version >= 1 { types::Int8.decode(buf)? } else { 3 };
         let principal = if version >= 2 {
             types::CompactString.decode(buf)?
         } else {
@@ -503,7 +512,7 @@ impl Default for DeleteAclsMatchingAcl {
 }
 
 impl Message for DeleteAclsMatchingAcl {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 3 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 3 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -559,7 +568,7 @@ impl DeleteAclsResponse {
 #[cfg(feature = "broker")]
 impl Encodable for DeleteAclsResponse {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.throttle_time_ms)?;
@@ -611,7 +620,7 @@ impl Encodable for DeleteAclsResponse {
 #[cfg(feature = "client")]
 impl Decodable for DeleteAclsResponse {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 5: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let throttle_time_ms = types::Int32.decode(buf)?;
@@ -649,7 +658,7 @@ impl Default for DeleteAclsResponse {
 }
 
 impl Message for DeleteAclsResponse {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 3 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 3 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

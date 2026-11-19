@@ -82,7 +82,11 @@ pub(super) fn read<F: Fs>(
             data.aborted_transactions = None;
             match place {
                 Place::Error(code) => {
+                    // Kafka's `FetchResponse.partitionResponse(error)`: no high watermark (-1) and an empty, not null,
+                    // list of aborted transactions (recorded `authz-matrix`, step `bob-fetch`; SEC-403).
                     data.error_code = code.code();
+                    data.high_watermark = -1;
+                    data.aborted_transactions = Some(Vec::new());
                     round.failed = true;
                 }
                 Place::Open(partition) => {

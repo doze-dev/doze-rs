@@ -135,18 +135,20 @@ authorized-operations bits (SEC-291); the bounds of the telemetry store (W34), w
 `Env.Quiet` that drops every ConsumerGroupHeartbeat, so the script's keep-alive for the two KIP-848 groups never reached the broker. Against a copy whose `harness.go` is the Go repository's, main (`63f53366`)
 passes it and the full replay is **58 pass and 0 fail** (267 s). Before bisecting a replay failure, check that the "good" end still passes against the same harness, and diff the harness against the Go repository.
 
-**What is not recorded, and so rests on Kafka's source** (`behaviours/security.md` says "(source)" per rule; the gap is `debt.md` I1):
-- **The authorization matrix, except Metadata and InitProducerId.** Only those two denials are in a recording (`sasl-plain`'s identity probes and `idempotent-write-from-topic-write`). The topic APIs
-  (CreateTopics, DeleteTopics, Produce, Fetch, ListOffsets, DeleteRecords, CreatePartitions, DescribeConfigs, AlterConfigs, IncrementalAlterConfigs, DescribeProducers), the group APIs (13), the transaction APIs (7)
-  and the authorized-operations fields are written from `KafkaApis.scala`, `ControllerApis.scala` and their helpers, with the line in each test. The one real risk of the phase is a reading that differs from the JVM.
-- **TLS.** No scenario speaks TLS; the evidence is the loopback tests and `interop/run.sh -tls` (sarama, franz-go, kafka-go and librdkafka over SASL_SSL and SSL).
-- **The credential APIs** (`AlterUserScramCredentials`, `DescribeUserScramCredentials`, APIs 50 and 51): source-derived tests only, plus `kafka-configs.sh`-shape requests through the raw client.
-- Smaller gaps: the long text of a cluster-authorization failure, the order of DescribeAcls and DeleteAcls results, the 10,000-ACL limit, re-authentication, and a few answers marked "unsure" in the catalogue (SEC-D34 to SEC-D36, SEC-D54).
+**Debt cleared (2026-11-18): three scenarios more, 61 of 61.** Recorded with Colima running, on ports 39900-39999
+(`KAFKA_REPLAY_PORTS`), and replayed with no difference beyond one written down:
+- **`authz-matrix`** (81 steps, `apache/kafka:4.3.1`, `debt.md` I1): bob (no ACL) and alice (READ on topic t and group g, DESCRIBE on transactional id x)
+  over the topic APIs, the 13 group APIs, the 7 transaction APIs, the credential APIs and the ACL APIs, and an admin's broker configs. The replay found
+  three differences, fixed (`security.md` SEC-403 a refused Fetch partition's high watermark and aborted list, SEC-404 the long text of a
+  CLUSTER_AUTHORIZATION_FAILED, SEC-405 a not-found DescribeTransactions entry's defaults), settled SEC-D20, D34 and D36, recorded that Kafka sends no
+  answer for SEC-D54 (the one Known entry), and showed that Kafka does list `super.users` and `authorizer.class.name` (SEC-402, I9). The request part
+  of Kafka's long text is normalised (`normalize.go`, `requestNeeds`); the first recording's raw text was, for DescribeAcls,
+  `Request Request(processor=1, connectionId=172.17.0.2:9092-172.17.0.1:42618-1-1, session=org.apache.kafka.network.Session@2cdfbae8,
+  listenerName=ListenerName(PLAINTEXT), securityProtocol=SASL_PLAINTEXT, buffer=null, envelope=None) needs DESCRIBE permission.`, and for the three
+  forwarded to the controller the same with an envelope.
+- **`sasl-handshake-v0`** (`apache/kafka:4.3.1`, SEC-401): SaslHandshake v0 and the raw tokens after it (`Env.Raw`).
+- **`acl-v0`** (`apache/kafka:3.9.1`, the last release that serves them; replayed at `--kafka-version 3`; I2): the three ACL APIs at v0.
 
-**Proposal: record an `authz-matrix` scenario against `apache/kafka:4.3.1`** (decision D9 of `phase8.md`; the owner approves, the author runs it). One broker with SASL PLAIN, three users (`admin` a super user, `alice`
-holding a set of ACLs, `bob` none), `allow.everyone.if.no.acl.found=false`, then each API in the families above called by `bob` (denied), by `alice` with the right ACL and with a weaker or an unrelated one, and by
-`admin`, at the versions the broker offers, in the order the catalogue's tests use, with the answers recorded step by step in the Go harness's format. Replaying it against this broker is the diff; every difference is
-either a bug in a test's reading of the source (fix the rule and the catalogue) or a deviation to write down. It would settle SEC-D20 and SEC-D34 to SEC-D36 and SEC-D54, the cluster-authorization text and the
-unspecified orders, and add the recording of `Metadata`'s authorized-operations fields and of the credential APIs. It needs the Go harness's recorder (`conformance/` in the Go repository) and Docker.
-**Docker here (checked 2026-11-12):** the client is installed (`docker --version`: 29.7.1), but there is no daemon: `docker ps` fails with "failed to connect to the docker API at
-unix:///Users/srini/.colima/default/docker.sock", so Colima is not running. No container was started; recording needs `colima start` first (and the image `apache/kafka:4.3.1`).
+**What is still not recorded, and so rests on Kafka's source:** TLS (no scenario speaks it; the evidence is the loopback tests and
+`interop/run.sh -tls`), the share and streams group APIs' rights (SEC-320 to SEC-333), a deleted topic's name in ConsumerGroupDescribe (SEC-D35),
+the 10,000-ACL limit (I8) and re-authentication (I13).
