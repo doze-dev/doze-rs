@@ -761,6 +761,7 @@ def test_export_and_import(client, names, cleanup, snapshot, eventually):
     started = ddb.export_table_to_point_in_time(TableArn=created["TableDescription"]["TableArn"], S3Bucket=bucket, S3Prefix="exp")
     snapshot.match("export", started, drop=EXPORT_VOLATILE + ("ItemCount",))
     arn = started["ExportDescription"]["ExportArn"]
+    snapshot.known(arn.rsplit("/", 1)[-1], "export-id")  # the import names its prefix, which holds it
 
     def exported():
         r = ddb.describe_export(ExportArn=arn)

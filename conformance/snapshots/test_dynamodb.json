@@ -2,9 +2,200 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-15",
+    "on": "2026-11-19",
     "region": "us-east-1",
     "target": "aws"
+  },
+  "test_backup_lifecycle": {
+    "create": {
+      "BackupDetails": {
+        "BackupArn": "<BackupArn:1>",
+        "BackupName": "<name:backup>",
+        "BackupStatus": "CREATING",
+        "BackupType": "USER"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete": {
+      "BackupDescription": {
+        "BackupDetails": {
+          "BackupArn": "<BackupArn:1>",
+          "BackupName": "<name:backup>",
+          "BackupStatus": "DELETED",
+          "BackupType": "USER"
+        },
+        "SourceTableDetails": {
+          "BillingMode": "PAY_PER_REQUEST",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>",
+          "TableId": "<uuid:1>",
+          "TableName": "<name:table>"
+        },
+        "SourceTableFeatureDetails": {}
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe": {
+      "BackupDescription": {
+        "BackupDetails": {
+          "BackupArn": "<BackupArn:1>",
+          "BackupName": "<name:backup>",
+          "BackupStatus": "AVAILABLE",
+          "BackupType": "USER"
+        },
+        "SourceTableDetails": {
+          "BillingMode": "PAY_PER_REQUEST",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": 0,
+            "WriteCapacityUnits": 0
+          },
+          "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>",
+          "TableId": "<uuid:1>",
+          "TableName": "<name:table>"
+        },
+        "SourceTableFeatureDetails": {}
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe-deleted": {
+      "Error": {
+        "Code": "BackupNotFoundException",
+        "Message": "Backup not found: <name:backup-arn>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "list": {
+      "BackupSummaries": [
+        {
+          "BackupArn": "<BackupArn:1>",
+          "BackupName": "<name:backup>",
+          "BackupStatus": "AVAILABLE",
+          "BackupType": "USER",
+          "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>",
+          "TableId": "<uuid:1>",
+          "TableName": "<name:table>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "restore": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TableDescription": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "BillingModeSummary": {
+          "BillingMode": "PAY_PER_REQUEST"
+        },
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0
+        },
+        "RestoreSummary": {
+          "SourceBackupArn": "<SourceBackupArn:1>",
+          "SourceTableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>"
+        },
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:restored>",
+        "TableId": "<uuid:2>",
+        "TableName": "<name:restored>"
+      }
+    },
+    "restore-onto-existing": {
+      "Error": {
+        "Code": "TableAlreadyExistsException",
+        "Message": "Table already exists: <name:restored>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "restored-item": {
+      "Item": {
+        "pk": {
+          "S": "a"
+        },
+        "v": {
+          "S": "1"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_backup_refusals": {
+    "backup-of-absent-table": {
+      "Error": {
+        "Code": "TableNotFoundException",
+        "Message": "Table not found: <name:absent>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delete-absent": {
+      "Error": {
+        "Code": "BackupNotFoundException",
+        "Message": "Backup not found: arn:aws:dynamodb:us-east-1:<account>:table/<name:absent>/backup/01700000000000-abcdef12"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe-absent": {
+      "Error": {
+        "Code": "BackupNotFoundException",
+        "Message": "Backup not found: arn:aws:dynamodb:us-east-1:<account>:table/<name:absent>/backup/01700000000000-abcdef12"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "restore-absent": {
+      "Error": {
+        "Code": "BackupNotFoundException",
+        "Message": "Backup not found: arn:aws:dynamodb:us-east-1:<account>:table/<name:absent>/backup/01700000000000-abcdef12"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
   },
   "test_batch_write_and_ttl": {
     "count": {
@@ -176,6 +367,173 @@
       ],
       "ResponseMetadata": {
         "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_export_and_import": {
+    "export": {
+      "ExportDescription": {
+        "ClientToken": "<uuid:1>",
+        "ExportFormat": "DYNAMODB_JSON",
+        "ExportStatus": "IN_PROGRESS",
+        "S3Bucket": "<name:bucket>",
+        "S3Prefix": "exp",
+        "S3SseAlgorithm": "AES256",
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "exported": {
+      "ExportDescription": {
+        "ClientToken": "<uuid:1>",
+        "ExportFormat": "DYNAMODB_JSON",
+        "ExportStatus": "COMPLETED",
+        "ItemCount": 2,
+        "S3Bucket": "<name:bucket>",
+        "S3Prefix": "exp",
+        "S3SseAlgorithm": "AES256",
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "import": {
+      "ImportTableDescription": {
+        "ClientToken": "<uuid:2>",
+        "ErrorCount": 0,
+        "ImportStatus": "IN_PROGRESS",
+        "ImportedItemCount": 0,
+        "InputCompressionType": "GZIP",
+        "InputFormat": "DYNAMODB_JSON",
+        "ProcessedItemCount": 0,
+        "S3BucketSource": {
+          "S3Bucket": "<name:bucket>",
+          "S3BucketOwner": "<account>",
+          "S3KeyPrefix": "exp/AWSDynamoDB/<name:export-id>/data/"
+        },
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:imported>",
+        "TableCreationParameters": {
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "BillingMode": "PAY_PER_REQUEST",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "TableName": "<name:imported>"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "imported": {
+      "ImportTableDescription": {
+        "ClientToken": "<uuid:2>",
+        "ErrorCount": 0,
+        "ImportStatus": "COMPLETED",
+        "ImportedItemCount": 2,
+        "InputCompressionType": "GZIP",
+        "InputFormat": "DYNAMODB_JSON",
+        "ProcessedItemCount": 2,
+        "S3BucketSource": {
+          "S3Bucket": "<name:bucket>",
+          "S3BucketOwner": "<account>",
+          "S3KeyPrefix": "exp/AWSDynamoDB/<name:export-id>/data/"
+        },
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:imported>",
+        "TableCreationParameters": {
+          "AttributeDefinitions": [
+            {
+              "AttributeName": "pk",
+              "AttributeType": "S"
+            }
+          ],
+          "BillingMode": "PAY_PER_REQUEST",
+          "KeySchema": [
+            {
+              "AttributeName": "pk",
+              "KeyType": "HASH"
+            }
+          ],
+          "TableName": "<name:imported>"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "imported-item": {
+      "Item": {
+        "n": {
+          "N": "1"
+        },
+        "pk": {
+          "S": "b"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "layout": {
+      "Keys": [
+        "_started",
+        "data",
+        "data",
+        "data",
+        "data",
+        "manifest-files.json",
+        "manifest-files.md5",
+        "manifest-summary.json",
+        "manifest-summary.md5"
+      ]
+    },
+    "prefix-too-short": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid Request: 1 validation error detected: Value 'x' at 's3Prefix' failed to satisfy constraint: Member must have length greater than or equal to 3"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_export_refusals": {
+    "describe-absent": {
+      "Error": {
+        "Code": "ExportNotFoundException",
+        "Message": "Export not found: Export not found: arn:aws:dynamodb:us-east-1:<account>:table/<name:table>/export/01700000000000-abcdef12"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe-absent-import": {
+      "Error": {
+        "Code": "ImportNotFoundException",
+        "Message": "Import not found: Import with arn: arn:aws:dynamodb:us-east-1:<account>:table/<name:table>/import/01700000000000-abcdef12 doesn't exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "recovery-off": {
+      "Error": {
+        "Code": "PointInTimeRecoveryUnavailableException",
+        "Message": "Point in time recovery is not enabled for table '<name:table>'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
       }
     }
   },
@@ -709,6 +1067,522 @@
       }
     }
   },
+  "test_kinesis_streaming_destination": {
+    "absent-table": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Requested resource not found: Table: <name:absent> not found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "active": {
+      "KinesisDataStreamDestinations": [
+        {
+          "DestinationStatus": "ACTIVE",
+          "StreamArn": "arn:aws:kinesis:us-east-1:<account>:stream/<name:stream>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TableName": "<name:table>"
+    },
+    "disable": {
+      "DestinationStatus": "DISABLING",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StreamArn": "arn:aws:kinesis:us-east-1:<account>:stream/<name:stream>",
+      "TableName": "<name:table>"
+    },
+    "enable": {
+      "DestinationStatus": "ENABLING",
+      "EnableKinesisStreamingConfiguration": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StreamArn": "arn:aws:kinesis:us-east-1:<account>:stream/<name:stream>",
+      "TableName": "<name:table>"
+    },
+    "enable-twice": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Table is not in a valid state to enable Kinesis Streaming Destination: EnableKinesisStreamingDestination must be DISABLED or ENABLE_FAILED to perform ENABLE operation."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "records": {
+      "Records": [
+        {
+          "awsRegion": "us-east-1",
+          "dynamodb": {
+            "Keys": {
+              "pk": {
+                "S": "a"
+              }
+            },
+            "NewImage": {
+              "pk": {
+                "S": "a"
+              },
+              "v": {
+                "N": "1"
+              }
+            },
+            "SizeBytes": 9
+          },
+          "eventName": "INSERT",
+          "eventSource": "aws:dynamodb",
+          "recordFormat": "application/json",
+          "tableName": "<name:table>",
+          "userIdentity": null
+        },
+        {
+          "awsRegion": "us-east-1",
+          "dynamodb": {
+            "Keys": {
+              "pk": {
+                "S": "a"
+              }
+            },
+            "NewImage": {
+              "pk": {
+                "S": "a"
+              },
+              "v": {
+                "N": "2"
+              }
+            },
+            "OldImage": {
+              "pk": {
+                "S": "a"
+              },
+              "v": {
+                "N": "1"
+              }
+            },
+            "SizeBytes": 15
+          },
+          "eventName": "MODIFY",
+          "eventSource": "aws:dynamodb",
+          "recordFormat": "application/json",
+          "tableName": "<name:table>",
+          "userIdentity": null
+        }
+      ]
+    },
+    "update": {
+      "DestinationStatus": "UPDATING",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StreamArn": "arn:aws:kinesis:us-east-1:<account>:stream/<name:stream>",
+      "TableName": "<name:table>",
+      "UpdateKinesisStreamingConfiguration": {
+        "ApproximateCreationDateTimePrecision": "MICROSECOND"
+      }
+    }
+  },
+  "test_legacy_reads": {
+    "batch-get": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Responses": {
+        "<name:table>": [
+          {
+            "tag": {
+              "S": "red"
+            }
+          }
+        ]
+      },
+      "UnprocessedKeys": {}
+    },
+    "get-attributes-to-get": {
+      "Item": {
+        "n": {
+          "N": "10"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "query-key-conditions": {
+      "Count": 2,
+      "Items": [
+        {
+          "n": {
+            "N": "10"
+          },
+          "sk": {
+            "N": "1"
+          }
+        },
+        {
+          "n": {
+            "N": "30"
+          },
+          "sk": {
+            "N": "3"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 3
+    },
+    "query-or": {
+      "Count": 2,
+      "Items": [
+        {
+          "n": {
+            "N": "20"
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "2"
+          },
+          "tag": {
+            "S": "blue"
+          }
+        },
+        {
+          "n": {
+            "N": "30"
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "3"
+          },
+          "tag": {
+            "S": "red"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 3
+    },
+    "scan-filter": {
+      "Count": 1,
+      "Items": [
+        {
+          "n": {
+            "N": "20"
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "2"
+          },
+          "tag": {
+            "S": "blue"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 3
+    },
+    "scan-in": {
+      "Count": 2,
+      "Items": [
+        {
+          "n": {
+            "N": "10"
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "1"
+          },
+          "tag": {
+            "S": "red"
+          }
+        },
+        {
+          "n": {
+            "N": "30"
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "3"
+          },
+          "tag": {
+            "S": "red"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 3
+    }
+  },
+  "test_legacy_refusals": {
+    "attributes-to-get-with-select": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Cannot specify the AttributesToGet when choosing to get ALL_ATTRIBUTES"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "begins-with-number": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "One or more parameter values were invalid: ComparisonOperator BEGINS_WITH is not valid for N AttributeValue type"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "exists-without-value": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: One or more parameter values were invalid: Value must be provided when Exists is true for Attribute: n"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "legacy-with-names": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "ExpressionAttributeNames can only be specified when using expressions"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "mix-condition": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Can not use both expression and non-expression parameters in the same request: Non-expression parameters: {Expected} Expression parameters: {ConditionExpression}"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "mix-filter": {
+      "Count": 3,
+      "Items": [
+        {
+          "n": {
+            "N": "10"
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "1"
+          },
+          "tag": {
+            "S": "red"
+          }
+        },
+        {
+          "n": {
+            "N": "20"
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "2"
+          },
+          "tag": {
+            "S": "blue"
+          }
+        },
+        {
+          "n": {
+            "N": "30"
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "3"
+          },
+          "tag": {
+            "S": "red"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 3
+    },
+    "mix-projection": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Can not use both expression and non-expression parameters in the same request: Non-expression parameters: {AttributesToGet} Expression parameters: {ProjectionExpression}"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "mix-update": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Can not use both expression and non-expression parameters in the same request: Non-expression parameters: {AttributeUpdates} Expression parameters: {UpdateExpression}"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-indexable": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "One or more parameter values were invalid: Attempted conditional constraint is not an indexable operation"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "operator-with-one": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "ConditionalOperator can only be used when Filter or Expected has two or more elements"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put-without-value": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: One or more parameter values were invalid: Only DELETE action is allowed when no attribute value is specified"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "value-with-exists-false": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: One or more parameter values were invalid: Value cannot be used when Exists is false for Attribute: n"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "wrong-count": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "One or more parameter values were invalid: Invalid number of argument(s) for the EQ ComparisonOperator"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_legacy_writes": {
+    "absent-item-not-made": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-action-on-absent-item": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-expected": {
+      "Attributes": {
+        "n": {
+          "N": "10"
+        },
+        "pk": {
+          "S": "a"
+        },
+        "sk": {
+          "N": "1"
+        },
+        "tag": {
+          "S": "red"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put-expected-absent": {
+      "Error": {
+        "Code": "ConditionalCheckFailedException",
+        "Message": "The conditional request failed"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put-expected-or": {
+      "Error": {
+        "Code": "ConditionalCheckFailedException",
+        "Message": "The conditional request failed"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "update-attribute-updates": {
+      "Attributes": {
+        "n": {
+          "N": "25"
+        },
+        "note": {
+          "S": "hi"
+        },
+        "pk": {
+          "S": "a"
+        },
+        "sk": {
+          "N": "2"
+        },
+        "tags": {
+          "SS": [
+            "x",
+            "y"
+          ]
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "update-delete-from-set": {
+      "Attributes": {
+        "tags": {
+          "SS": [
+            "y"
+          ]
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
   "test_partiql_batch_and_transaction": {
     "batch-read": {
       "ResponseMetadata": {
@@ -966,6 +1840,67 @@
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_point_in_time_restore": {
+    "absent-source": {
+      "Error": {
+        "Code": "TableNotFoundException",
+        "Message": "Table not found: <name:absent>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-enabled": {
+      "Error": {
+        "Code": "PointInTimeRecoveryUnavailableException",
+        "Message": "Point in time recovery is not enabled for table '<name:table>'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "restore": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TableDescription": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "BillingModeSummary": {
+          "BillingMode": "PAY_PER_REQUEST"
+        },
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0
+        },
+        "RestoreSummary": {
+          "SourceTableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>"
+        },
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:restored>",
+        "TableId": "<uuid:1>",
+        "TableName": "<name:restored>"
+      }
+    },
+    "too-early": {
+      "Error": {
+        "Code": "InvalidRestoreTimeException",
+        "Message": "RestoreDateTime '2001-09-09T01:46:40Z' must be within EarliestRestorableDateTime '2026-11-19T12:25:11Z' and LatestRestorableDateTime '2026-11-19T12:25:11Z' for table '<name:table>'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
       }
     }
   },
@@ -1413,6 +2348,78 @@
       "ResponseMetadata": {
         "HTTPStatusCode": 400
       }
+    }
+  },
+  "test_resource_policy_lifecycle": {
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RevisionId": "<RevisionId:1>"
+    },
+    "delete-wrong-revision": {
+      "Error": {
+        "Code": "PolicyNotFoundException",
+        "Message": "Resource-based policy not found for the provided ResourceArn: Requested update for policy with revision id 1, but the policy associated to target table <name:table> has revision id <name:revision>."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "get": {
+      "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"noscan\",\"Effect\":\"Deny\",\"Principal\":{\"AWS\":\"arn:aws:iam::<account>:root\"},\"Action\":\"dynamodb:Scan\",\"Resource\":\"arn:aws:dynamodb:us-east-1:<account>:table/<name:table>\"}]}",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RevisionId": "<RevisionId:1>"
+    },
+    "get-none": {
+      "Error": {
+        "Code": "PolicyNotFoundException",
+        "Message": "Resource-based policy not found for the provided ResourceArn: arn:aws:dynamodb:us-east-1:<account>:table/<name:table>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RevisionId": "<RevisionId:1>"
+    },
+    "put-absent-table": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Requested resource not found: Table: <name:absent> not found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put-expecting-none": {
+      "Error": {
+        "Code": "PolicyNotFoundException",
+        "Message": "Resource-based policy not found for the provided ResourceArn: Requested policy update expecting none to be present for table <name:table>, but a policy exists with revision id <name:revision>."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put-not-json": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "One or more parameter values were invalid: Invalid policy document: This policy contains invalid Json"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put-same": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RevisionId": "<RevisionId:1>"
     }
   },
   "test_scan_pages_and_segments": {

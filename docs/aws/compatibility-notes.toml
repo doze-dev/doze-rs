@@ -43,6 +43,7 @@ differences = [
   "Resource policies apply at once (AWS: eventually). IAM weighs them with every request on the table, its indexes and its stream; a key IAM did not issue is the account root's and is allowed everything locally, so a deny in a resource policy binds IAM users and roles.",
   "A Kinesis streaming destination is sent each change after the call answers, one table to one active stream at a time; the record's partition key is the item's partition key value.",
   "AWS gives a new on-demand table's stream several shards (4 when recorded); doze-aws gives it one, so `DescribeStream` lists one shard.",
+  "A restore time outside the restorable window is refused with AWS's words; the window it names is doze-aws's own (a day of history), so the times differ from AWS's.",
 ]
 not_planned = [
   { why = "Global tables version 2017.11.29, superseded by replicas on the table itself; one machine has no second region to replicate to.", ops = ["CreateGlobalTable", "DescribeGlobalTable", "UpdateGlobalTable", "ListGlobalTables", "DescribeGlobalTableSettings", "UpdateGlobalTableSettings", "DescribeTableReplicaAutoScaling", "UpdateTableReplicaAutoScaling"] },
