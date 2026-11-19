@@ -77,6 +77,7 @@ async fn a_foreign_host_is_403_on_every_route_with_words_that_name_the_host_and_
         "/favicon.svg",
         "/healthz",
         "/api/v1/tail/live",
+        "/api/v1/tail/topics?topic=orders",
     ];
     let all = pages.iter().chain(GET_PATHS).chain(POST_PATHS);
     for path in all {

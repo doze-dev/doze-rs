@@ -78,6 +78,8 @@ pub mod source;
 pub mod state;
 pub mod story;
 pub mod stream;
+pub mod tail;
+pub mod tail_filter;
 pub mod teach;
 pub mod validate;
 pub mod web;

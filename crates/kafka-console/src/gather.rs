@@ -54,6 +54,7 @@ mod meta;
 mod read;
 mod readers;
 mod record;
+mod tail;
 mod topic;
 mod topics;
 mod txns;
@@ -61,6 +62,7 @@ mod walk;
 
 pub use messages::page as messages;
 pub use record::one as record;
+pub use tail::look as tail_look;
 pub use topic::head as topic_head;
 pub use topics::list as topics;
 

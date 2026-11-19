@@ -32,6 +32,11 @@ pub(crate) fn all(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<TxnResponse>(cfg, out);
     one::<super::log::HeldReader>(cfg, out);
     one::<TailRows>(cfg, out);
+    one::<crate::tail::TailTopic>(cfg, out);
+    one::<crate::tail::TopicsTailReady>(cfg, out);
+    one::<crate::tail::TailCount>(cfg, out);
+    one::<crate::tail::TailRecord>(cfg, out);
+    one::<crate::tail::TopicsTailBatch>(cfg, out);
     one::<Cleanup>(cfg, out);
     one::<TopicRow>(cfg, out);
     one::<TopicsState>(cfg, out);
