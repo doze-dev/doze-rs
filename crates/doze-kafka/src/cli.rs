@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
-use kafka_broker::{Config as BrokerConfig, Defaults, TxnVersion};
+use kafka_broker::Config as BrokerConfig;
 use kafka_server::{Config as ServerConfig, Timeouts};
 use kafka_wire::profile::{KafkaMajor, Profile};
 
@@ -223,31 +223,10 @@ pub(crate) struct Settings {
     pub(crate) warnings: Vec<String>,
 }
 
-/// How the broker ends a transaction on its own at a Kafka major: the `transaction.version` its profile finalizes.
-fn transaction_version(major: KafkaMajor) -> TxnVersion {
-    if Profile::new(major).transaction_version() >= 2 {
-        TxnVersion::EpochBump
-    } else {
-        TxnVersion::Classic
-    }
-}
-
 impl Args {
     /// Checks the arguments and turns them into the configuration of the broker and the server.
     pub(crate) fn settings(&self) -> Result<Settings> {
         self.settings_in(&|name| std::env::var_os(name))
-    }
-
-    /// The topic config defaults the flags set (a retention of 0 or less is none: -1).
-    fn topic_defaults(&self) -> Defaults {
-        let none_is_zero = |n: i64| if n <= 0 { -1 } else { n };
-        Defaults {
-            segment_bytes: self.segment_bytes,
-            index_interval_bytes: self.index_interval_bytes,
-            message_max_bytes: self.message_max_bytes,
-            retention_bytes: none_is_zero(self.retention_bytes),
-            retention_ms: none_is_zero(self.retention_ms),
-        }
     }
 
     /// [`Args::settings`] with the environment given, so that a test need not change the process's own.
@@ -286,7 +265,7 @@ impl Args {
         broker.client_telemetry = self.client_telemetry;
         broker.unstable_api_versions = self.unstable_api_versions;
         broker.transaction_two_phase_commit = self.transaction_two_phase_commit;
-        broker.transaction_version = transaction_version(major);
+        broker.transaction_version = derived::transaction_version(major);
         broker.max_open_partitions = self.max_open_partitions;
         broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
         broker.super_users = acl::super_users(&self.acl_super_user)?;
@@ -442,6 +421,7 @@ impl Args {
 
 mod acl;
 mod console;
+mod derived;
 pub(crate) use console::Console;
 #[cfg(feature = "console")]
 pub(crate) use console::DEFAULT_ADDR as DEFAULT_CONSOLE_ADDR;

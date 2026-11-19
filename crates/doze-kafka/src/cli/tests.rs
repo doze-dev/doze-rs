@@ -1,4 +1,5 @@
 use super::*;
+use kafka_broker::TxnVersion;
 
 fn args(extra: &[&str]) -> Result<Args, clap::Error> {
     Args::try_parse_from(["doze-kafka"].into_iter().chain(extra.iter().copied()))
