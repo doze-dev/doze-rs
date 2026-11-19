@@ -34,8 +34,13 @@ pub fn java_number(raw: &str) -> String {
     if !body.starts_with(|c: char| c.is_ascii_digit()) {
         return raw.to_owned();
     }
+    // An exponent or scale too large to hold is kept as it was sent: rewriting it would change the number (fuzz
+    // json_schema once found `0.5e+000011999153157185615783` stored as `0.5`).
     let (mantissa, exp) = match body.find(['e', 'E']) {
-        Some(i) => (&body[..i], body[i + 1..].parse::<i64>().unwrap_or(0)),
+        Some(i) => match body[i + 1..].parse::<i64>() {
+            Ok(e) => (&body[..i], e),
+            Err(_) => return raw.to_owned(),
+        },
         None => (body, 0),
     };
     let (int, frac) = mantissa.split_once('.').unwrap_or((mantissa, ""));
@@ -50,9 +55,14 @@ pub fn java_number(raw: &str) -> String {
     let all: String = format!("{int}{frac}");
     let coeff = all.trim_start_matches('0');
     let coeff = if coeff.is_empty() { "0" } else { coeff };
-    let scale = i64::try_from(frac.len()).unwrap_or(0) - exp;
     let len = i64::try_from(coeff.len()).unwrap_or(0);
-    let adjusted = -scale + (len - 1);
+    let Some((scale, adjusted)) = i64::try_from(frac.len())
+        .ok()
+        .and_then(|f| f.checked_sub(exp))
+        .and_then(|scale| Some((scale, (len - 1).checked_sub(scale)?)))
+    else {
+        return raw.to_owned();
+    };
     let sign = if neg && coeff != "0" { "-" } else { "" };
     let text = if scale >= 0 && adjusted >= -6 {
         if scale == 0 {
