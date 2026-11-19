@@ -115,3 +115,23 @@ fn pins_recorded_at_once_are_all_kept() {
     assert_eq!(engines.len(), 8, "{engines:?}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// D1 audit item 11: a failed lookup of a second build says why it failed; a major no build serves keeps the list.
+#[test]
+fn a_failed_lookup_of_a_majors_build_says_why() {
+    let refused = supports("pg", &manifest(&["16", "17"]), "14").unwrap_err();
+    assert_eq!(
+        unserved(
+            "pg",
+            "14",
+            refused.clone(),
+            Some("fetching module index doze/pg/index.yaml: no DNS answer")
+        ),
+        "pg \"14\": the pg build for 14 could not be had: fetching module index doze/pg/index.yaml: no DNS answer"
+    );
+    assert_eq!(
+        unserved("pg", "14", refused.clone(), Some("no pg build serves 14")),
+        refused
+    );
+    assert_eq!(unserved("pg", "14", refused.clone(), None), refused);
+}

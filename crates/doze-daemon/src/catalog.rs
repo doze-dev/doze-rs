@@ -429,7 +429,11 @@ impl Modules for Catalog {
         let Some(m) = self.manifest_for(ty, version) else {
             return Ok(());
         };
-        supports(ty, &m, version)
+        supports(ty, &m, version).map_err(|refused| {
+            let key = format!("{ty}@{}", major_of(version));
+            let failed = crate::lock(&self.failed).get(&key).cloned();
+            unserved(ty, version, refused, failed.as_deref())
+        })
     }
 
     fn attributes(&self, call: &Call<'_>) -> Attributes {
@@ -496,6 +500,18 @@ pub fn supports(ty: &str, m: &Manifest, version: &str) -> Result<(), String> {
         "{ty} {version:?} is not a version the {ty} module serves (it serves {})",
         m.versions.join(", ")
     ))
+}
+
+/// Why `version` cannot run, when the type's first build does not serve it: the lookup of a build for its major failed
+/// (the registry unreachable, a bad signature) says that, not that no build serves it (D1 audit item 11).
+pub(crate) fn unserved(ty: &str, version: &str, refused: String, failed: Option<&str>) -> String {
+    match failed {
+        Some(why) if !(why.starts_with("no ") && why.contains(" build serves ")) => {
+            let major = major_of(version);
+            format!("{ty} {version:?}: the {ty} build for {major} could not be had: {why}")
+        }
+        _ => refused,
+    }
 }
 
 #[cfg(test)]

@@ -342,9 +342,11 @@ async fn splice(engine: &Engine, name: &str, mut conn: TcpStream, backend: &str)
             return;
         }
     };
-    engine.acquire(name);
+    // Counted against this declaration of it: a connection that outlives a remove and an add of the same name does
+    // not count against the new one.
+    let held = engine.hold(name);
     let _ = tokio::io::copy_bidirectional(&mut conn, &mut upstream).await;
-    engine.release(name);
+    drop(held);
 }
 
 /// An address as the front dials it: a socket path with `unix:` before it, or `host:port`.
