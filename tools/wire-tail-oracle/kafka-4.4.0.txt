@@ -99,3 +99,108 @@ twopc: v6 plain: connection closed
 twopc-open: init P0/0
 twopc-open: produce ID-0=0@0
 twopc-open: v6 enable2Pc: connection closed
+fetch: v12 top=0 session=0 tail-R-f-0 err=0 hw=3 lso=3 start=0 records=2 aborted=null preferred=-1 diverging=-1/-1 leader=-1/-1
+fetch: v13 top=0 session=0 ID-0 err=0 hw=3 lso=3 start=0 records=2 aborted=null preferred=-1 diverging=-1/-1 leader=-1/-1
+fetch: v14 top=0 session=0 ID-0 err=0 hw=3 lso=3 start=0 records=2 aborted=null preferred=-1 diverging=-1/-1 leader=-1/-1
+fetch: v15 top=0 session=0 ID-0 err=0 hw=3 lso=3 start=0 records=2 aborted=null preferred=-1 diverging=-1/-1 leader=-1/-1
+fetch: v16 top=0 session=0 ID-0 err=0 hw=3 lso=3 start=0 records=2 aborted=null preferred=-1 diverging=-1/-1 leader=-1/-1 endpoints=0
+fetch: v17 top=0 session=0 ID-0 err=0 hw=3 lso=3 start=0 records=2 aborted=null preferred=-1 diverging=-1/-1 leader=-1/-1 endpoints=0
+fetch: v18 top=0 session=0 ID-0 err=0 hw=3 lso=3 start=0 records=2 aborted=null preferred=-1 diverging=-1/-1 leader=-1/-1 endpoints=0
+fetch: v18 past the end top=0 session=0 ID-0 err=1 hw=-1 lso=-1 start=-1 records=0 aborted=null preferred=-1 diverging=-1/-1 leader=-1/-1 endpoints=0
+fetch: v18 unknown id top=0 session=0 UNKNOWN-0 err=100 hw=-1 lso=-1 start=-1 records=0 aborted=0 preferred=-1 diverging=-1/-1 leader=-1/-1 endpoints=0
+fetch: v18 partition 5 top=0 session=0 ID-5 err=3 hw=-1 lso=-1 start=-1 records=0 aborted=0 preferred=-1 diverging=-1/-1 leader=-1/-1 endpoints=0
+list-offsets: v7 -1 err=0 offset=2 epoch=0 time=-1
+list-offsets: v7 -2 err=0 offset=0 epoch=0 time=-1
+list-offsets: v7 -3 err=0 offset=0 epoch=0 time=-1
+list-offsets: v7 -4 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v7 -5 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v7 -6 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v7 -7 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v7 0 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v8 -1 err=0 offset=2 epoch=0 time=-1
+list-offsets: v8 -2 err=0 offset=0 epoch=0 time=-1
+list-offsets: v8 -3 err=0 offset=0 epoch=0 time=-1
+list-offsets: v8 -4 err=0 offset=0 epoch=0 time=-1
+list-offsets: v8 -5 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v8 -6 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v8 -7 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v8 0 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v9 -1 err=0 offset=2 epoch=0 time=-1
+list-offsets: v9 -2 err=0 offset=0 epoch=0 time=-1
+list-offsets: v9 -3 err=0 offset=0 epoch=0 time=-1
+list-offsets: v9 -4 err=0 offset=0 epoch=0 time=-1
+list-offsets: v9 -5 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v9 -6 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v9 -7 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v9 0 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v10 -1 err=0 offset=2 epoch=0 time=-1
+list-offsets: v10 -2 err=0 offset=0 epoch=0 time=-1
+list-offsets: v10 -3 err=0 offset=0 epoch=0 time=-1
+list-offsets: v10 -4 err=0 offset=0 epoch=0 time=-1
+list-offsets: v10 -5 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v10 -6 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v10 -7 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v10 0 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v11 -1 err=0 offset=2 epoch=0 time=-1
+list-offsets: v11 -2 err=0 offset=0 epoch=0 time=-1
+list-offsets: v11 -3 err=0 offset=0 epoch=0 time=-1
+list-offsets: v11 -4 err=0 offset=0 epoch=0 time=-1
+list-offsets: v11 -5 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v11 -6 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v11 -7 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v11 0 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v11 empty -1 err=0 offset=0 epoch=0 time=-1
+list-offsets: v11 empty -2 err=0 offset=0 epoch=0 time=-1
+list-offsets: v11 empty -4 err=0 offset=0 epoch=0 time=-1
+list-offsets: v11 empty -5 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v11 empty -6 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v11 committed -1 err=0 offset=2 epoch=0 time=-1
+list-offsets: v11 committed -4 err=0 offset=0 epoch=0 time=-1
+list-offsets: v11 committed -5 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v11 committed -6 err=0 offset=-1 epoch=-1 time=-1
+list-offsets: v10 unknown topic -6 err=35 offset=-1 epoch=-1 time=-1
+list-offsets: v11 unknown topic -6 err=3 offset=-1 epoch=-1 time=-1
+list-offsets: v11 partition 3 -5 err=3 offset=-1 epoch=-1 time=-1
+metadata: v12 names top=- tail-R-m/ID=0:2 tail-R-nothing/NIL=3:0
+metadata: v12 ids top=- null/UNKNOWN=100:0 tail-R-m/ID=0:2
+metadata: v13 names top=0 tail-R-m/ID=0:2 tail-R-nothing/NIL=3:0
+metadata: v13 ids top=0 null/UNKNOWN=100:0 tail-R-m/ID=0:2
+offsets-10: commit v10 ID-2=3 ID-0=0 ID-1=0
+offsets-10: commit v10 unknown id UNKNOWN-0=100
+offsets-10: commit v10 nil id NIL-0=100
+offsets-10: commit v9 tail-R-c-1=0
+offsets-10: fetch v10 group=0 ID-0=0@5/m0 ID-1=0@6/m1 UNKNOWN-0=100@-1/ UNKNOWN-1=100@-1/
+offsets-10: fetch v10 all group=0 ID-0=0@5/m0 ID-1=0@6/m1
+offsets-10: fetch v9 group=0 tail-R-c-0=0@5/m0 tail-R-c-1=0@6/m1 tail-R-nothing-0=0@-1/ tail-R-nothing-1=0@-1/
+offsets-10: fetch v10 no group group=0 ID-0=0@-1/ ID-1=0@-1/
+find-coordinator: v4 group [tail-R-fc-g]=0 node=self msg=
+find-coordinator: v5 group [tail-R-fc-g]=0 node=self msg=
+find-coordinator: v6 group [tail-R-fc-g]=0 node=self msg=
+find-coordinator: v5 share [tail-R-fc-g:0bFg2GHCR_67Zo0_m2MTGQ:0]=42 node=-1 msg=
+find-coordinator: v6 share [tail-R-fc-g:0bFg2GHCR_67Zo0_m2MTGQ:0]=0 node=self msg=
+find-coordinator: v6 share colons in the group [a:b:ZJXISKCaTLSUkskfFuyhqQ:3]=0 node=self msg=
+find-coordinator: v6 share bad keys [x]=42 node=-1 msg= [g:notanid:0]=42 node=-1 msg= [tail-R-fc-g:0bFg2GHCR_67Zo0_m2MTGQ:x]=42 node=-1 msg= [ :0bFg2GHCR_67Zo0_m2MTGQ:0]=42 node=-1 msg= []=42 node=-1 msg= [tail-R-fc-g:ZJXISKCaTLSUkskfFuyhqQ:-1]=0 node=self msg=
+find-coordinator: v6 key type 3 [tail-R-fc-g]=42 node=-1 msg=This most likely occurs because of a request being malformed by the client library or the message was sent to an incompatible broker. See the broker logs for more details.
+describe-groups: heartbeat 0
+describe-groups: v5 []=0 Dead type= [tail-R-dg-848]=0 Dead type= [tail-R-dg-empty]=0 Empty type= [tail-R-dg-none]=0 Dead type=
+describe-groups: v6 []=69 Dead type= msg=Group  not found. [tail-R-dg-848]=69 Dead type= msg=Group tail-R-dg-848 is not a classic group. [tail-R-dg-empty]=0 Empty type= msg=null [tail-R-dg-none]=69 Dead type= msg=Group tail-R-dg-none not found.
+delete-groups: v2 [tail-R-del-a]=0 [tail-R-del-none]=69
+delete-groups: v3 []=69 msg=null [tail-R-del-b]=0 msg=null [tail-R-del-none]=69 msg=null
+list-transactions: v1 err=0 tail-R-2o-tx:Ongoing tail-R-2pc-tx:Empty tail-R-lt-alpha:Empty tail-R-lt-beta:Empty tail-R-o-tx:CompleteAbort tail-R-pt-tx:CompleteCommit
+list-transactions: v2 null err=0 tail-R-2o-tx:Ongoing tail-R-2pc-tx:Empty tail-R-lt-alpha:Empty tail-R-lt-beta:Empty tail-R-o-tx:CompleteAbort tail-R-pt-tx:CompleteCommit
+list-transactions: v2 empty err=0 tail-R-2o-tx:Ongoing tail-R-2pc-tx:Empty tail-R-lt-alpha:Empty tail-R-lt-beta:Empty tail-R-o-tx:CompleteAbort tail-R-pt-tx:CompleteCommit
+list-transactions: v2 alpha err=0 tail-R-lt-alpha:Empty
+list-transactions: v2 part err=0 
+list-transactions: v2 either err=0 tail-R-lt-alpha:Empty tail-R-lt-beta:Empty
+list-transactions: v2 bad err=128 
+log-dirs: v4 top=0 dirs=1 err=0 total=N usable=N [tail-R-ld-0:0/0/false, tail-R-ld-1:0/0/false]
+log-dirs: v5 top=0 dirs=1 err=0 cordoned=false total=N usable=N [tail-R-ld-0:0/0/false, tail-R-ld-1:0/0/false]
+api-versions: v4 err=0 rows=some apiversions=0..5
+api-versions: v5 none err=0 rows=some apiversions=0..5
+api-versions: v5 this cluster and node err=0 rows=some apiversions=0..5
+api-versions: v5 this cluster, node -1 err=42 rows=0 apiversions=none
+api-versions: v5 this cluster, another node err=129 rows=0 apiversions=none
+api-versions: v5 another cluster err=129 rows=0 apiversions=none
+api-versions: v5 no cluster, another node err=42 rows=0 apiversions=none
+api-versions: v5 empty cluster err=129 rows=0 apiversions=none
+api-versions: after them err=0 rows=some apiversions=0..5

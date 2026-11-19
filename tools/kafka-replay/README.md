@@ -81,7 +81,8 @@ GOWORK=off go test . -run 'TestRecord$' -count=1 -v -args -record -only <name> #
 ```
 
 A scenario is recorded against `KafkaImage` unless it names another `Image` (`acl-v0` is recorded against `apache/kafka:3.9.1`, the
-last release that serves the ACL APIs at v0, and replayed with `KafkaVersion: 3`, that is `--kafka-version 3`). Two step kinds go past
+last release that serves the ACL APIs at v0, and replayed with `KafkaVersion: 3`, that is `--kafka-version 3`); the two `apiversions-*` scenarios are recorded against `apache/kafka:4.4.0`, which serves ApiVersions to v5 (KIP-1242), as the
+Kafka 4 profile does since 2026-11-19). Two step kinds go past
 the Kafka framing: `Env.Raw` (a raw SASL token after a SaslHandshake v0, `sasl-handshake-v0`) and `Env.DoOrSilence` (a request Kafka may
 leave unanswered, recorded as `no answer`).
 

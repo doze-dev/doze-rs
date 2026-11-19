@@ -135,6 +135,12 @@ summary of `-versions` counts it. `-only <scenario>` picks one.
   any login), and a scenario that needs an API the broker does not advertise, or advertises only below what the client speaks,
   is skipped with the API named.
 
+Since 2026-11-19 (debt K1) the Kafka 4 profile serves every version Kafka 4.4.0 lists, and the 4.4.0 client uses them: run with
+`NetworkClient` at debug (`group-classic`, `group-848`, `txn-send-offsets`) it sent Produce 13, Fetch 18, ListOffsets 11,
+Metadata 13, OffsetCommit and OffsetFetch 10 (by topic id; 9 as well, on the classic group's path), FindCoordinator 6,
+TxnOffsetCommit 6 and ApiVersions 5, and `interop/run.sh -java-also` passed every scenario (72 ok: the Go clients, then 49 of
+the Java client, share and streams groups included; none failed or skipped).
+
 The scenarios (plain mode):
 
 | Scenario | What it does |

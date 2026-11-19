@@ -76,7 +76,12 @@
 # ubuntu x86_64, plus 5% = 13,198,009 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
 # 2026-11-19, both of the above on one main (the two rises add: 9,093,488 + 16,560 + 49,984 = 9,160,032 B darwin arm64), 182 packages.
 # Bytes: times CI's 1.3747 is 12,592,296 B on ubuntu x86_64, plus 5% = 13,221,911 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
-doze-kafka 13221911 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-19, the wire tail (branch kafka-wire-tail, debt K1: every Kafka 4.4.0 version of the served APIs, vendor patch 6), measured
+# with `cargo xtask weight doze-kafka` on darwin arm64: 9,176,624 B (+16,592 B, +0.18%, over the 9,160,032 B just above), 182 packages
+# (none added; the ListTransactions pattern uses the regex-lite already linked), idle 6,160 KB (samples 6,128, 6,160, 6,192). The bytes
+# are the regenerated and patched message codecs and the handlers' new versions. Bytes: times CI's 1.3747 is 12,615,105 B on ubuntu
+# x86_64, plus 5% = 13,245,860 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+doze-kafka 13245860 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
