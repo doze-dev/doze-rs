@@ -164,15 +164,16 @@ fn read_commands_answer_within_the_budget() {
     } else {
         Duration::from_millis(15)
     };
-    // The registry commands read the sandbox's index, which only a debug binary trusts (it is signed with the fixture
-    // key, and nothing checked in is signed with the production key): a release build weighs `version` alone.
-    let all: &[&[&str]] = &[&["version"], &["modules", "docs", "valkey"], &["modules"]];
-    let run = if cfg!(debug_assertions) {
-        all
+    // The sandbox registry is signed with the fixture key, which only a debug doze trusts (test_registry_key). Since
+    // the 2026-11-18 key rotation nothing is signed with the production key that a test could check in, so a release
+    // run times `version` alone. Put the registry commands back here once the Rust modules publish and a real signed
+    // index can be a fixture again.
+    let registry: &[&[&str]] = if cfg!(debug_assertions) {
+        &[&["modules", "docs", "valkey"], &["modules"]]
     } else {
-        &all[..1]
+        &[]
     };
-    for &args in run {
+    for args in std::iter::once(&["version"][..]).chain(registry.iter().copied()) {
         let mut times: Vec<Duration> = (0..15)
             .map(|_| {
                 let t = Instant::now();

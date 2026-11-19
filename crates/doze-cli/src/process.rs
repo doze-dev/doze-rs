@@ -151,19 +151,34 @@ fn surroundings() -> Result<(PathBuf, PathBuf, registry::Config), Diagnostic> {
         )
         .fix("cd to a directory that exists")
     })?;
-    let key = test_key().or_else(signed::builtin_key).ok_or_else(|| {
+    let key = signed::builtin_key().ok_or_else(|| {
         Diagnostic::new(
             ids::BUG,
             "the registry key built into this doze is not a key",
         )
         .fix("doze bug")
     })?;
+    let key = test_registry_key().unwrap_or(key);
     let registry = registry::Config {
         bases: registry::bases_from_env(),
         key,
         budget: registry::BUDGET,
     };
     Ok((home, cwd, registry))
+}
+
+/// The key a debug build trusts instead of the built-in one when `DOZE_TEST_REGISTRY_KEY` names one: tests that run
+/// the real binary sign their sandbox registry with the throwaway fixture key, because nothing they could check in is
+/// signed with the production key. A release build, the only kind anyone is given, has no such variable: this is
+/// compiled out, and `release_ignores_the_test_key` in tests/terminal.rs holds it to that.
+#[cfg(debug_assertions)]
+fn test_registry_key() -> Option<ed25519_dalek::VerifyingKey> {
+    signed::parse_key(&std::env::var("DOZE_TEST_REGISTRY_KEY").ok()?)
+}
+
+#[cfg(not(debug_assertions))]
+fn test_registry_key() -> Option<ed25519_dalek::VerifyingKey> {
+    None
 }
 
 /// The working directory as the shell names it: `$PWD` when it is this directory (through a symlink, `/tmp` on a
@@ -176,26 +191,4 @@ fn working_dir() -> io::Result<PathBuf> {
         Some(p) if p.is_absolute() && p.canonicalize().ok() == real.canonicalize().ok() => p,
         _ => real,
     })
-}
-
-/// The key a debug build trusts instead of the built-in one when `DOZE_TEST_REGISTRY_KEY` names one: tests that run
-/// the real binary sign their sandbox registry with the throwaway fixture key, because nothing they could check in is
-/// signed with the production key. A release build, the only kind anyone is given, never reads the variable, and
-/// `release_ignores_the_test_key` in tests/terminal.rs holds it to that (the owner's design of 2026-11-18, PR #79).
-fn test_key() -> Option<ed25519_dalek::VerifyingKey> {
-    if !cfg!(debug_assertions) {
-        return None;
-    }
-    let text = std::env::var("DOZE_TEST_REGISTRY_KEY").ok()?;
-    // Silent when the key is good: the terminal tests hold a script's stderr to nothing.
-    let key = signed::parse_key(&text);
-    if key.is_none() {
-        #[allow(clippy::print_stderr)]
-        {
-            eprintln!(
-                "doze (debug build): DOZE_TEST_REGISTRY_KEY is not a key; the built-in key is used"
-            );
-        }
-    }
-    key
 }
