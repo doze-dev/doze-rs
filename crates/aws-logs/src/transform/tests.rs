@@ -29,7 +29,7 @@ fn parse_json_then_keys_are_added_copied_moved_renamed_and_deleted() {
         {"parseJSON": {}},
         {"addKeys": {"entries": [{"key": "env", "value": "dev"}, {"key": "level", "value": "x"}]}},
         {"copyValue": {"entries": [{"source": "@logGroupName", "target": "meta.group"}, {"source": "@regionName", "target": "meta.region"}]}},
-        {"moveKeys": {"entries": [{"source": "user.id", "target": "uid"}]}},
+        {"moveKeys": {"entries": [{"source": "user.id", "target": "meta"}]}},
         {"renameKeys": {"entries": [{"key": "msg", "renameTo": "text"}]}},
         {"deleteKeys": {"withKeys": ["drop"]}},
     ]);
@@ -40,7 +40,7 @@ fn parse_json_then_keys_are_added_copied_moved_renamed_and_deleted() {
     .unwrap();
     assert_eq!(
         out,
-        json!({"level": "info", "text": "hi", "user": {}, "uid": 7, "env": "dev", "meta": {"group": "/app", "region": "eu-west-1"}})
+        json!({"level": "info", "text": "hi", "user": {}, "env": "dev", "meta": {"group": "/app", "region": "eu-west-1", "id": 7}})
     );
 }
 
@@ -243,4 +243,22 @@ fn bad_processor_settings_are_refused() {
     );
     assert!(super::check(r#"[{"parseJSON":{}}]"#, r#"{"a":1}"#));
     assert!(!super::check("not json", "x"));
+}
+
+/// Recorded 2026-11-19: moveKeys puts the source into a target the event already has, and refuses one it does not.
+#[test]
+fn move_keys_moves_into_an_existing_key() {
+    let meta = META;
+    let t = |target: &str, overwrite: bool| {
+        Transformer::parse(&json!([{"parseJSON": {}},
+            {"moveKeys": {"entries": [{"source": "c", "target": target, "overwriteIfExists": overwrite}]}}]))
+        .unwrap()
+        .test(r#"{"a":1,"c":2}"#, &meta)
+    };
+    assert_eq!(
+        t("d", false).unwrap_err(),
+        "No corresponding field. Field Name: 'd', Processor: 'MoveKeysProcessor'"
+    );
+    let moved: Value = serde_json::from_str(&t("a", true).unwrap().unwrap()).unwrap();
+    assert_eq!(moved, json!({"a": {"c": 2}}));
 }

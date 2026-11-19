@@ -69,10 +69,10 @@ fn a_transformer_is_kept_tested_and_removed() {
     assert_eq!(out, json!({"a": 1, "env": "dev"}));
     assert_eq!(tested["transformedLogs"][0]["eventNumber"], 1);
     w.ok("DeleteTransformer", &json!({"logGroupIdentifier": "/t"}));
+    // Recorded 2026-11-19: an empty config, not a refusal.
     assert_eq!(
-        w.err("GetTransformer", &json!({"logGroupIdentifier": "/t"}))
-            .0,
-        "ResourceNotFoundException"
+        w.ok("GetTransformer", &json!({"logGroupIdentifier": "/t"})),
+        json!({"transformerConfig": []})
     );
     let (code, _) = w.err("PutTransformer", &json!({"logGroupIdentifier": "/t", "transformerConfig": [{"parseToOCSF": {"eventSource": "VPCFlow", "ocsfVersion": "V1.1"}}]}));
     assert_eq!(code, "InvalidParameterException");

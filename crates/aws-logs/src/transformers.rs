@@ -72,7 +72,11 @@ impl Core {
 
     pub(crate) fn get_transformer(&self, r: &Req<'_>) -> Result<Value, ApiError> {
         let name = self.identified(r)?;
-        let mut t = self.stored_transformer(&name).ok_or_else(no_transformer)?;
+        // Recorded 2026-11-19: after DeleteTransformer AWS answers an empty config, not a refusal (taken to hold for a group that
+        // never had one too).
+        let Some(mut t) = self.stored_transformer(&name) else {
+            return Ok(json!({"transformerConfig": []}));
+        };
         crate::req::Put::put(
             &mut t,
             "logGroupIdentifier",

@@ -159,18 +159,10 @@ fn grok(e: &mut Event<'_>, source: Option<&str>, g: &Grok) {
 }
 
 fn copy(e: &mut Event<'_>, moves: &[Move], remove: bool) {
+    if remove {
+        return move_keys(e, moves);
+    }
     for m in moves {
-        // Recorded 2026-11-19 (moveKeys): a target under a key the event does not have is refused, not made.
-        if remove
-            && let Some((parent, _)) = m.target.rsplit_once('.')
-            && !path::has(&e.obj, parent)
-        {
-            e.failed = Some(format!(
-                "No corresponding field. Field Name: '{}', Processor: 'MoveKeysProcessor'",
-                m.target
-            ));
-            return;
-        }
         if !m.overwrite && path::has(&e.obj, &m.target) {
             continue;
         }
@@ -181,6 +173,37 @@ fn copy(e: &mut Event<'_>, moves: &[Move], remove: bool) {
         };
         if let Some(v) = value {
             path::set(&mut e.obj, &m.target, v);
+        }
+    }
+}
+
+/// `moveKeys`, as recorded 2026-11-19: the source goes *into* the target, a key the event must already have (`c` moved to `a`
+/// gives `{"a": {"c": ...}}`); a target the event does not have is refused. A target that is not an object is replaced by one only
+/// with `overwriteIfExists` (recorded); a source key already in the target is left unless overwriting (memory).
+fn move_keys(e: &mut Event<'_>, moves: &[Move]) {
+    for m in moves {
+        if !path::has(&e.obj, &m.target) {
+            e.failed = Some(format!(
+                "No corresponding field. Field Name: '{}', Processor: 'MoveKeysProcessor'",
+                m.target
+            ));
+            return;
+        }
+        let key = m.source.rsplit('.').next().unwrap_or(&m.source).to_owned();
+        let into = format!("{}.{key}", m.target);
+        let is_object = path::get(&e.obj, &m.target).is_some_and(Value::is_object);
+        if (!is_object || path::has(&e.obj, &into)) && !m.overwrite {
+            continue;
+        }
+        let Some(v) = path::take(&mut e.obj, &m.source) else {
+            continue;
+        };
+        if is_object {
+            path::set(&mut e.obj, &into, v);
+        } else {
+            let mut inner = Map::new();
+            inner.insert(key, v);
+            path::set(&mut e.obj, &m.target, Value::Object(inner));
         }
     }
 }
