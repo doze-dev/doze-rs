@@ -106,10 +106,18 @@ fn the_bundle_has_no_inline_script_and_evaluates_no_string() {
 
 #[test]
 fn index_html_is_rewritten_for_the_root_and_the_prefix() {
-    let html = "<head>\n<script type=\"module\" src=\"./assets/a.js\"></script><link href=\"./favicon.svg\"></head>";
+    let html = "<head>\n<script type=\"module\" src=\"./assets/a.js\"></script><link href=\"./favicon-bat.svg\"><link href=\"./favicon-bat-32.png\"><link href=\"./apple-touch-icon.png\"></head>";
     let root = rewrite_index(html, &Base::root());
     assert!(root.contains("src=\"/assets/a.js\""), "{root}");
-    assert!(root.contains("href=\"/favicon.svg\""), "{root}");
+    assert!(root.contains("href=\"/favicon-bat.svg\""), "{root}");
+    assert!(root.contains("href=\"/favicon-bat-32.png\""), "{root}");
+    assert!(root.contains("href=\"/apple-touch-icon.png\""), "{root}");
+    let under = rewrite_index(html, &Base::new("/kafka"));
+    assert!(under.contains("href=\"/kafka/favicon-bat.svg\""), "{under}");
+    assert!(
+        under.contains("href=\"/kafka/apple-touch-icon.png\""),
+        "{under}"
+    );
     assert!(
         root.contains("<meta name=\"doze-base\" content=\"\">"),
         "{root}"
@@ -135,6 +143,22 @@ fn the_built_index_points_at_files_the_bundle_has() {
         seen += 1;
     }
     assert!(seen >= 2, "a script and a stylesheet: {html}");
+    // The icons it links are in the bundle, under names of their own (a browser keeps a favicon by its address).
+    for icon in [
+        "favicon-bat.svg",
+        "favicon-bat-32.png",
+        "apple-touch-icon.png",
+    ] {
+        assert!(
+            html.contains(&format!("\"/{icon}\"")),
+            "index.html links {icon}: {html}"
+        );
+        assert!(b.paths().any(|p| p == icon), "the bundle has {icon}");
+    }
+    assert!(
+        b.paths().any(|p| p == "favicon.svg"),
+        "the old name still answers"
+    );
 }
 
 /// SEC-246: the page layer writes every value as text. No source of ours hands React HTML to inject (`dangerouslySetInnerHTML`)

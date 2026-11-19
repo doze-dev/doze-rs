@@ -4,7 +4,11 @@
     <meta charset="utf-8" />
     <meta name="color-scheme" content="light dark" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <!-- The bat under names of its own: browsers keep a favicon by its address far past any cache header, so the purple Z of
+         before 2026-11-13 stayed in tabs. /favicon.svg still answers the bat for anything that asks for it by that name. -->
+    <link rel="icon" type="image/svg+xml" href="./favicon-bat.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-bat-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
     <title>doze-kafka</title>
     <script type="module" crossorigin src="./assets/index-DBBEF6Wr.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/react-dom-Bs1mUpjc.js">

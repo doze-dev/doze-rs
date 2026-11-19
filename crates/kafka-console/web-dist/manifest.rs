@@ -3,6 +3,14 @@
 /// Every file of the bundle.
 pub const FILES: &[(&str, Served)] = &[
     (
+        "apple-touch-icon.png",
+        Served {
+            content_type: "image/png",
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/apple-touch-icon.png")),
+            gzip: false,
+        },
+    ),
+    (
         "assets/access-DSmK6fQ5.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
@@ -615,6 +623,22 @@ pub const FILES: &[(&str, Served)] = &[
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/write-done-CZGHbbV2.js.gz")),
+            gzip: true,
+        },
+    ),
+    (
+        "favicon-bat-32.png",
+        Served {
+            content_type: "image/png",
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/favicon-bat-32.png")),
+            gzip: false,
+        },
+    ),
+    (
+        "favicon-bat.svg",
+        Served {
+            content_type: "image/svg+xml",
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/favicon-bat.svg.gz")),
             gzip: true,
         },
     ),
