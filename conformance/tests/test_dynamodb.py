@@ -776,7 +776,8 @@ def test_export_and_import(client, names, cleanup, snapshot, eventually):
 
     def done():
         r = ddb.describe_import(ImportArn=import_arn)
-        assert r["ImportTableDescription"]["ImportStatus"] == "COMPLETED", "still importing"
+        # Settled either way: a FAILED import is AWS's answer too, and waiting for COMPLETED would sit out the timeout.
+        assert r["ImportTableDescription"]["ImportStatus"] not in ("IN_PROGRESS", "CANCELLING"), "still importing"
         return r
 
     snapshot.match("imported", eventually(done, timeout=1800, every=20), drop=EXPORT_VOLATILE)

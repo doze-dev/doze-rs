@@ -144,6 +144,14 @@ const policy = {
       Resource: [`${A}:logs:${R}:*:log-group:API-Gateway-Execution-Logs_*`, `${A}:logs:${R}:*:log-group:API-Gateway-Execution-Logs_*:*`],
     },
     {
+      // Added 2026-11-19: a DynamoDB import writes its progress to /aws-dynamodb/imports as the caller; without this AWS fails the
+      // import (CloudwatchAccessDeniedException). That group only.
+      Sid: "DynamoDBImportLogs",
+      Effect: "Allow",
+      Action: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:PutRetentionPolicy"],
+      Resource: [`${A}:logs:${R}:*:log-group:/aws-dynamodb/*`, `${A}:logs:${R}:*:log-group:/aws-dynamodb/*:*`],
+    },
+    {
       // Added 2026-11-14: role sessions for the scenarios that act as a role (Scheduler and IAM enforce paths). Our roles only.
       Sid: "AssumeOurRoles",
       Effect: "Allow",
