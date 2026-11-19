@@ -225,4 +225,10 @@ doze-kafka 13221911 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # CloudFormation, Lambda durable behind it) adds about 80 KB per service. CI measured 14,820,896 B with Logs on top of IAM and DynamoDB
 # (merge-queue run 44415143466). The byte line moves to that plus 5% = 15,562,000 B, room for the three still queued; the 20 MB aws
 # ceiling stands, and a trim pass comes at the end.
-doze-aws 15562000 280 11395 --listen 127.0.0.1:{port} --data-dir {data}
+# Later that day API Gateway left the queue on idle memory: 11,504 KB with Logs, Lambda durable and API Gateway (run 44450040192), while main with
+# CloudFormation measured 15,344,120 B and 11,236 KB (run 44456222535). API Gateway allocates nothing at start (no statics, tasks or tables built
+# eagerly); the gap is within the ~350 KB runner spread noted above. API Gateway added 281,664 B, so main plus API Gateway is about 15,625,784 B.
+# The owner, the same day: "Keep the size more generous... it's gonna be 20 MB. People will not fight over using software because of a few KBs
+# and MBs." So the byte line is now the 20 MB ceiling itself (20,000,000 B), and idle gets the same room: 16,384 KB (16 MB). The table still prints
+# every measurement, so growth stays visible; it just no longer blocks merges below those marks.
+doze-aws 20000000 280 16384 --listen 127.0.0.1:{port} --data-dir {data}
