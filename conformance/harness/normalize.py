@@ -67,9 +67,15 @@ class Normalizer:
 
     def text(self, s):
         if self.caller:
-            # Only where a refusal names who asked: the same ARN elsewhere (a policy's principal) is data, and on doze-aws the local
-            # keys' principal is the account root, which policies name too.
+            # Where a refusal names who asked, and wherever a value is the caller and nothing else (Logs Insights'
+            # DescribeQueries `userIdentity`). Elsewhere the same ARN can be data: on doze-aws the local keys' principal is the
+            # account root, which policies name too.
+            if s == self.caller:
+                return "<caller>"
             s = s.replace(f"User: {self.caller} ", "User: <caller> ")
+            # An assumed-role session (the AWS recorder's SSO session) is never data, and names a person: never kept.
+            if ":assumed-role/" in self.caller:
+                s = s.replace(self.caller, "<caller>")
         # Names first and longest first: a name is usually inside an ARN or a
         # URL, and "queue-1-dlq" must not be read as "queue-1" plus a suffix.
         for value in sorted(self.names, key=len, reverse=True):

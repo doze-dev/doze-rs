@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use crate::core::Core;
 use crate::model::{Doc, doc_key};
 use crate::queries::Status;
-use crate::req::{Put, Req, name_of_identifier};
+use crate::req::{Put, Req, backend, name_of_identifier};
 
 pub(crate) const SCHEDULED: &str = "scheduled-query";
 /// Runs kept in a scheduled query's history.
@@ -21,11 +21,11 @@ fn validation(message: impl Into<String>) -> ApiError {
     ApiError::modeled("ValidationException", message)
 }
 
-/// (memory)
-fn no_scheduled() -> ApiError {
+/// Recorded 2026-11-19: the identifier as given.
+fn no_scheduled(identifier: &str) -> ApiError {
     ApiError::modeled(
         "ResourceNotFoundException",
-        "The specified scheduled query does not exist.",
+        format!("Scheduled query with identifier {identifier} not found"),
     )
 }
 
@@ -72,8 +72,18 @@ impl Core {
                 "doze-aws runs Logs Insights QL (CWLI) queries only; OpenSearch SQL and PPL are not built.",
             ));
         }
-        crate::insights::parse(r.s("queryString"))
-            .map_err(|e| validation(format!("The query is malformed: {}", e.message)))?;
+        let q = r.s("queryString");
+        if r.strings("logGroupIdentifiers").is_empty() {
+            // Recorded 2026-11-19: the query back end's refusal, passed on as a ValidationException.
+            let e = crate::insights::without_groups(q);
+            return Err(validation(backend(
+                "MalformedQueryException",
+                &e.message(q, 0),
+            )));
+        }
+        // How AWS words a malformed scheduled query that names its groups is (memory): as the query back end does.
+        crate::insights::parse(q)
+            .map_err(|e| validation(backend("MalformedQueryException", &e.message(q, 0))))?;
         aws_cron::parse(r.s("scheduleExpression"))
             .map_err(|_| validation("The schedule expression is not valid."))?;
         if let Some(tz) = r.opt("timezone").filter(|z| !aws_cron::Zone::known(z)) {
@@ -116,11 +126,17 @@ impl Core {
                 c.put(k, v.clone());
             }
         }
+        if c.get("endTimeOffset").is_none() {
+            // Recorded 2026-11-19: shown as 0 when not given.
+            c.put("endTimeOffset", json!(0));
+        }
         Ok(c)
     }
 
     pub(crate) fn create_scheduled(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let name = r.s("name");
+        // Recorded 2026-11-19: the request is checked before the name is.
+        let mut v = self.scheduled_config(r)?;
         if self.scheduled(name).is_some() {
             // (memory)
             return Err(ApiError::modeled(
@@ -128,7 +144,6 @@ impl Core {
                 format!("A scheduled query named '{name}' already exists."),
             ));
         }
-        let mut v = self.scheduled_config(r)?;
         let id = aws_seal::uuid_v4().unwrap_or_default();
         let now = self.now_ms();
         let arn = format!(
@@ -158,12 +173,16 @@ impl Core {
     }
 
     pub(crate) fn get_scheduled(&self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let (_, v) = self.scheduled(r.s("identifier")).ok_or_else(no_scheduled)?;
+        let (_, v) = self
+            .scheduled(r.s("identifier"))
+            .ok_or_else(|| no_scheduled(r.s("identifier")))?;
         Ok(self.shown_scheduled(&v))
     }
 
     pub(crate) fn update_scheduled(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let (key, old) = self.scheduled(r.s("identifier")).ok_or_else(no_scheduled)?;
+        let (key, old) = self
+            .scheduled(r.s("identifier"))
+            .ok_or_else(|| no_scheduled(r.s("identifier")))?;
         let mut v = self.scheduled_config(r)?;
         for k in [
             "scheduledQueryArn",
@@ -189,7 +208,9 @@ impl Core {
     }
 
     pub(crate) fn delete_scheduled(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let (key, _) = self.scheduled(r.s("identifier")).ok_or_else(no_scheduled)?;
+        let (key, _) = self
+            .scheduled(r.s("identifier"))
+            .ok_or_else(|| no_scheduled(r.s("identifier")))?;
         self.docs.remove(&key);
         Ok(json!({}))
     }
@@ -248,7 +269,9 @@ impl Core {
     }
 
     pub(crate) fn scheduled_history(&self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let (_, v) = self.scheduled(r.s("identifier")).ok_or_else(no_scheduled)?;
+        let (_, v) = self
+            .scheduled(r.s("identifier"))
+            .ok_or_else(|| no_scheduled(r.s("identifier")))?;
         let (from, to) = (
             r.int("startTime").unwrap_or(0),
             r.int("endTime").unwrap_or(i64::MAX),

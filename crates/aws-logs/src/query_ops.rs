@@ -6,13 +6,14 @@ use std::sync::Arc;
 
 use aws_wire::ApiError;
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 
 use crate::core::Core;
 use crate::insights::job::{Job, Source};
 use crate::insights::{self, record};
-use crate::model::{Event, group_arn, stream_key};
+use crate::model::{Event, stream_key};
 use crate::queries::{MAX_CONCURRENT, QueryRun, Status};
-use crate::req::{Put, Req, invalid, name_of_identifier};
+use crate::req::{Put, Req, backend_error, invalid, name_of_identifier};
 
 /// The most log groups one query reads (the model: "You can include up to 50 log groups").
 const MAX_GROUPS: usize = 50;
@@ -23,10 +24,12 @@ const MOST_ROWS: usize = 10_000;
 /// Rows one `GetQueryResults` page holds (the model's `maxItems` maximum).
 const PAGE: usize = 10_000;
 
-/// A query to run: its groups, text, parsed form, time range (milliseconds, both ends included) and size.
+/// A query to run: its groups (as names, and as the request named them), text, parsed form, time range (milliseconds, both ends
+/// included) and size.
 #[derive(Debug)]
 pub(crate) struct Plan {
     pub(crate) names: Vec<String>,
+    pub(crate) listed: Vec<String>,
     pub(crate) text: String,
     pub(crate) query: insights::ast::Query,
     pub(crate) range: (i64, i64),
@@ -44,47 +47,68 @@ pub(crate) struct Deliver {
     pub(crate) account: String,
 }
 
-/// (memory)
-fn no_query() -> ApiError {
-    ApiError::modeled("ResourceNotFoundException", "Query does not exist.")
+/// Recorded 2026-11-19 (`GetQueryResults`; the trailing space is AWS's).
+fn no_query(id: &str) -> ApiError {
+    invalid(format!("The provided queryId = {id} is invalid "))
+}
+
+/// A query that does not parse, as AWS refuses it: the back end's words, the positions those in the query behind `prefix`.
+fn malformed(e: &insights::QueryError, query: &str, prefix: usize) -> ApiError {
+    backend_error("MalformedQueryException", &e.message(query, prefix))
 }
 
 impl Core {
-    /// The groups a `StartQuery` names: exactly one of `logGroupName`, `logGroupNames` and `logGroupIdentifiers`. Wording (memory).
-    fn query_groups(&self, r: &Req<'_>) -> Result<Vec<String>, ApiError> {
+    /// The groups a `StartQuery` names, as named and as names: one of `logGroupName`, `logGroupNames` and
+    /// `logGroupIdentifiers`, or none when the query names them itself (`SOURCE`, which doze-aws does not run).
+    fn query_groups(&self, r: &Req<'_>) -> Result<(Vec<String>, Vec<String>), ApiError> {
         let given = [
-            r.opt("logGroupName").map(|n| vec![n.to_owned()]),
-            r.v.get("logGroupNames").map(|_| r.strings("logGroupNames")),
-            r.v.get("logGroupIdentifiers").map(|_| {
-                r.strings("logGroupIdentifiers")
-                    .iter()
-                    .map(|i| name_of_identifier(i))
-                    .collect()
-            }),
+            (
+                "logGroupName",
+                r.opt("logGroupName").map(|n| vec![n.to_owned()]),
+            ),
+            (
+                "logGroupNames",
+                r.v.get("logGroupNames").map(|_| r.strings("logGroupNames")),
+            ),
+            (
+                "logGroupIdentifiers",
+                r.v.get("logGroupIdentifiers")
+                    .map(|_| r.strings("logGroupIdentifiers")),
+            ),
         ];
-        let mut named = given.into_iter().flatten();
-        let (Some(names), None) = (named.next(), named.next()) else {
-            return Err(invalid(
-                "Exactly one of logGroupName, logGroupNames and logGroupIdentifiers must be specified.",
-            ));
+        let mut named = given.into_iter().filter_map(|(k, v)| Some((k, v?)));
+        let listed = match (named.next(), named.next()) {
+            (Some((_, listed)), None) => listed,
+            // Recorded 2026-11-19 for logGroupName and logGroupNames; the other pairs are worded alike (memory).
+            (Some((a, _)), Some((b, _))) => {
+                return Err(invalid(format!(
+                    "Both {a} and {b} cannot be specified at the same time"
+                )));
+            }
+            (None, _) => {
+                let q = r.s("queryString");
+                return Err(malformed(&insights::without_groups(q), q, 0));
+            }
         };
-        if names.is_empty() || names.len() > MAX_GROUPS {
+        if listed.is_empty() || listed.len() > MAX_GROUPS {
+            // (memory)
             return Err(invalid(format!(
                 "A query can include from 1 to {MAX_GROUPS} log groups."
             )));
         }
+        let names: Vec<String> = listed.iter().map(|i| name_of_identifier(i)).collect();
         for n in &names {
             if self.groups.get(n).is_none() {
-                return Err(ApiError::modeled(
+                return Err(backend_error(
                     "ResourceNotFoundException",
-                    format!(
+                    &format!(
                         "Log group '{n}' does not exist for account ID '{}'",
                         r.account()
                     ),
                 ));
             }
         }
-        Ok(names)
+        Ok((listed, names))
     }
 
     pub(crate) fn start_query(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
@@ -93,17 +117,25 @@ impl Core {
                 "doze-aws runs Logs Insights QL (CWLI) queries only; OpenSearch SQL and PPL are not built.",
             ));
         }
-        let names = self.query_groups(r)?;
+        let (listed, names) = self.query_groups(r)?;
         let (start, end) = (
             r.int("startTime").unwrap_or(0),
             r.int("endTime").unwrap_or(0),
         );
         if end < start {
-            // (memory)
-            return Err(invalid("End time should not be before the start time."));
+            return Err(backend_error(
+                "InvalidParameterException",
+                "End time cannot be less than Start time",
+            ));
         }
-        let query = insights::parse(r.s("queryString"))
-            .map_err(|e| ApiError::modeled("MalformedQueryException", e.message.clone()))?;
+        let range = (
+            start.saturating_mul(1000),
+            end.saturating_mul(1000).saturating_add(999),
+        );
+        let text = r.s("queryString");
+        let prefix = insights::source_prefix(&names, range);
+        let query =
+            insights::parse(text).map_err(|e| malformed(&e, text, prefix.chars().count()))?;
         if self.queries.live(r.account()) >= MAX_CONCURRENT {
             // (memory)
             return Err(ApiError::modeled(
@@ -113,13 +145,11 @@ impl Core {
         }
         let plan = Plan {
             names,
-            text: r.s("queryString").to_owned(),
+            listed,
+            text: format!("{prefix}{text}"),
             cap: r.int("limit").and_then(|n| usize::try_from(n).ok()),
             query,
-            range: (
-                start.saturating_mul(1000),
-                end.saturating_mul(1000).saturating_add(999),
-            ),
+            range,
             region: r.region().to_owned(),
             account: r.account().to_owned(),
         };
@@ -147,7 +177,7 @@ impl Core {
             id.clone(),
             region,
             &plan.text,
-            plan.names.clone(),
+            (plan.names.clone(), plan.listed),
             self.now_ms(),
         ));
         let job = Job {
@@ -236,7 +266,7 @@ impl Core {
         let run = self
             .queries
             .get(r.s("queryId"), r.region(), r.account())
-            .ok_or_else(no_query)?;
+            .ok_or_else(|| no_query(r.s("queryId")))?;
         let size = r
             .int("maxItems")
             .and_then(|n| usize::try_from(n).ok())
@@ -288,18 +318,21 @@ impl Core {
         let run = self
             .queries
             .get(r.s("queryId"), r.region(), r.account())
-            .ok_or_else(no_query)?;
-        let stopped = run.with_state(|s| {
-            let live = s.status.live();
-            if live {
+            .ok_or_else(|| no_query(r.s("queryId")))?;
+        let ended = run.with_state(|s| {
+            if s.status.live() {
                 s.status = Status::Cancelled;
+                None
+            } else {
+                Some(s.status.name())
             }
-            live
         });
-        if !stopped {
-            // The model: "If the query has already ended, the operation returns an error indicating that the specified query is not
-            // running." Code and wording (memory).
-            return Err(invalid(format!("Query {} is not running.", run.id)));
+        if let Some(status) = ended {
+            // Recorded 2026-11-19.
+            return Err(backend_error(
+                "InvalidParameterException",
+                &format!("Query is already ended with {status}"),
+            ));
         }
         run.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
         Ok(json!({"success": true}))
@@ -340,7 +373,7 @@ impl Core {
         let run = self
             .queries
             .get(r.s("queryId"), r.region(), r.account())
-            .ok_or_else(no_query)?;
+            .ok_or_else(|| no_query(r.s("queryId")))?;
         let size = r
             .int("maxResults")
             .and_then(|n| usize::try_from(n).ok())
@@ -349,15 +382,10 @@ impl Core {
             .opt("nextToken")
             .and_then(|t| t.parse::<usize>().ok())
             .unwrap_or(0);
-        let arns: Vec<String> = run
-            .groups
-            .iter()
-            .skip(from)
-            .take(size)
-            .map(|g| group_arn(r.region(), r.account(), g))
-            .collect();
-        let mut out = json!({"logGroupIdentifiers": arns});
-        if from + size < run.groups.len() {
+        // Recorded 2026-11-19: the groups as the query named them (a name given as a name).
+        let listed: Vec<&String> = run.listed.iter().skip(from).take(size).collect();
+        let mut out = json!({"logGroupIdentifiers": listed});
+        if from + size < run.listed.len() {
             out.put("nextToken", json!((from + size).to_string()));
         }
         Ok(out)
@@ -365,8 +393,8 @@ impl Core {
 
     /// Every field of the event a `@ptr` names, `@timestamp` and `@ingestionTime` as milliseconds. (memory)
     pub(crate) fn get_log_record(&self, r: &Req<'_>) -> Result<Value, ApiError> {
-        // (memory)
-        let bad = || invalid("The specified logRecordPointer is not valid.");
+        // Recorded 2026-11-19.
+        let bad = || invalid("InvalidParameter Unable to deserialize token");
         let (region, group, key) =
             insights::job::unpoint(r.s("logRecordPointer")).ok_or_else(bad)?;
         if region != r.region() {
@@ -379,12 +407,13 @@ impl Core {
             )
         };
         let no = u32::from_str_radix(key.get(..8).unwrap_or_default(), 16).map_err(|_| bad())?;
-        let stream = self
+        let (stream, stream_made) = self
             .streams
             .iter()
             .find(|(_, s)| s.no == no && s.group == group)
-            .map(|(_, s)| s.name.clone())
+            .map(|(_, s)| (s.name.clone(), s.created_ms))
             .ok_or_else(gone)?;
+        let group_made = self.groups.get(&group).map_or(0, |g| g.created_ms);
         let bytes = self
             .events
             .get(self.db.as_ref(), &key)
@@ -403,6 +432,7 @@ impl Core {
             stream: &stream,
             group: &group,
             account: r.account(),
+            region: r.region(),
             ptr: String::new(),
             lambda: group.starts_with("/aws/lambda/"),
         };
@@ -415,8 +445,40 @@ impl Core {
             };
             fields.insert(k, Value::String(text));
         }
+        // Recorded 2026-11-19: the group's id, and the stream's as `<group id>::<hex SHA-256 of its name>::<made, ms>`.
+        let id = group_id(r.region(), r.account(), &group, group_made);
+        fields.insert(
+            "@logStreamId".into(),
+            Value::String(format!(
+                "{id}::{}::{stream_made}",
+                aws_core::hex::encode(&Sha256::digest(stream.as_bytes()))
+            )),
+        );
+        fields.insert("@logGroupId".into(), Value::String(id));
         Ok(json!({"logRecord": fields}))
     }
+}
+
+/// A log group's id, as `@logGroupId` shows it: AWS mints its own; locally it is drawn from the group's ARN and the moment it was
+/// made, so it stays the same for the group's life and a group made again under the same name has another.
+fn group_id(region: &str, account: &str, name: &str, made_ms: i64) -> String {
+    let d = Sha256::digest(
+        format!(
+            "{}\u{1}{made_ms}",
+            crate::model::group_arn(region, account, name)
+        )
+        .as_bytes(),
+    );
+    let h = aws_core::hex::encode(d.get(..16).unwrap_or_default());
+    let part = |a: usize, b: usize| h.get(a..b).unwrap_or_default();
+    format!(
+        "{}-{}-{}-{}-{}",
+        part(0, 8),
+        part(8, 12),
+        part(12, 16),
+        part(16, 20),
+        part(20, 32)
+    )
 }
 
 fn query_info(q: &QueryRun) -> Value {

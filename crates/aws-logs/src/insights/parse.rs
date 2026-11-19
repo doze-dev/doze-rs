@@ -17,34 +17,67 @@ const MAX_DEPTH: usize = 64;
 // fuzz:parser fuzz_insights_query
 pub(crate) fn parse(src: &str) -> Result<Query, QueryError> {
     if src.len() > MAX_QUERY {
-        return Err(QueryError::at(src, 0, "query is too long"));
+        return Err(QueryError::at(0, "query is too long"));
     }
     let mut p = P {
         lx: Lexer::new(src),
         depth: 0,
     };
-    let mut cmds = Vec::new();
+    let (mut cmds, mut spans) = (Vec::new(), Vec::new());
     loop {
         if p.lx.peek()?.0 == Tok::End {
             break;
         }
+        let start = p.lx.pos;
         cmds.push(p.command()?);
-        match p.lx.next()? {
-            Tok::End => break,
-            Tok::Sym("|") => {}
-            _ => return Err(p.lx.error("unexpected symbol found")),
+        let text = src.get(start..p.lx.pos).unwrap_or_default();
+        spans.push((start, start + text.trim_end().len()));
+        if p.lx.peek()?.0 == Tok::Sym("|") {
+            p.lx.next()?;
+        } else if p.lx.peek()?.0 == Tok::End {
+            break;
+        } else {
+            return Err(p.unexpected()?);
         }
     }
-    ephemeral_once(&cmds)?;
+    ephemeral_once(&cmds, &spans)?;
     Ok(Query { cmds })
 }
 
+/// Why a query that names no log group is refused. AWS then reads it as one that must name its own with `SOURCE` (recorded
+/// 2026-11-19, `StartQuery` and `CreateScheduledQuery`: "Invalid syntax while using query definition snippets: unexpected symbol
+/// found fields at line 1 and position 0"); doze-aws does not run `SOURCE`, and says so for a query that begins with it.
+pub(crate) fn without_groups(src: &str) -> QueryError {
+    if src
+        .trim_start()
+        .get(..6)
+        .is_some_and(|w| w.eq_ignore_ascii_case("source"))
+    {
+        return parse(src)
+            .err()
+            .unwrap_or_else(|| QueryError::at(0, "the source command is not run by doze-aws"));
+    }
+    let mut p = P {
+        lx: Lexer::new(src),
+        depth: 0,
+    };
+    p.unexpected()
+        .unwrap_or_else(|e| e)
+        .prefixed("Invalid syntax while using query definition snippets: ")
+}
+
+impl QueryError {
+    fn prefixed(mut self, before: &str) -> Self {
+        self.what = format!("{before}{}", self.what);
+        self
+    }
+}
+
 /// A field `parse` made may not be named again by a bare `fields` (recorded 2026-11-19: `parse ... as user, action | fields
-/// user` is "Ephemeral field is already defined: user"). AWS adds a range in its own rewritten query, which a local parser
-/// cannot know; it is left out.
-fn ephemeral_once(cmds: &[Cmd]) -> Result<(), QueryError> {
+/// user, action` is "Ephemeral field is already defined: user ([127,145])", the range that of the `fields` command).
+fn ephemeral_once(cmds: &[Cmd], spans: &[(usize, usize)]) -> Result<(), QueryError> {
     let mut made: Vec<String> = Vec::new();
-    for c in cmds {
+    for (c, (start, end)) in cmds.iter().zip(spans) {
         match c {
             Cmd::Parse {
                 how: Parser::Glob { names, .. },
@@ -59,10 +92,11 @@ fn ephemeral_once(cmds: &[Cmd]) -> Result<(), QueryError> {
             Cmd::Fields(list) => {
                 for n in list {
                     if matches!(&n.expr, Expr::Field(f) if *f == n.name) && made.contains(&n.name) {
-                        return Err(QueryError {
-                            message: format!("Ephemeral field is already defined: {}", n.name),
-                            start: 0,
-                        });
+                        return Err(QueryError::span(
+                            *start,
+                            *end,
+                            &format!("Ephemeral field is already defined: {}", n.name),
+                        ));
                     }
                 }
             }
@@ -78,12 +112,32 @@ pub(super) struct P<'a> {
 }
 
 impl P<'_> {
-    fn command(&mut self) -> Result<Cmd, QueryError> {
+    /// The token at the position refused, worded as AWS words it (recorded 2026-11-19: "unexpected symbol found | at line 1 and
+    /// position 83"; the end of the query is (memory) ANTLR's `<EOF>`).
+    fn unexpected(&mut self) -> Result<QueryError, QueryError> {
+        self.lx.skip();
         let at = self.lx.pos;
-        let word = match self.lx.next()? {
-            Tok::Ident(w) => w.to_ascii_lowercase(),
-            _ => return Err(QueryError::at(self.lx.src, at, "expected a command")),
+        let (tok, end) = self.lx.peek()?;
+        let text = if tok == Tok::End {
+            "<EOF>"
+        } else {
+            self.lx.src.get(at..end).unwrap_or_default()
         };
+        Ok(QueryError::at(
+            at,
+            &format!("unexpected symbol found {text}"),
+        ))
+    }
+
+    fn command(&mut self) -> Result<Cmd, QueryError> {
+        self.lx.skip();
+        let at = self.lx.pos;
+        let word = match self.lx.peek()?.0 {
+            Tok::Ident(w) => w.to_ascii_lowercase(),
+            _ => return Err(self.unexpected()?),
+        };
+        let unknown = self.unexpected()?;
+        self.lx.next()?;
         Ok(match word.as_str() {
             "fields" => Cmd::Fields(self.named_list()?),
             "display" => Cmd::Display(self.named_list()?),
@@ -96,12 +150,11 @@ impl P<'_> {
             "unmask" => Cmd::Unmask,
             "pattern" | "diff" | "anomaly" | "source" | "filterindex" | "unnest" | "lookup" => {
                 return Err(QueryError::at(
-                    self.lx.src,
                     at,
                     &format!("the {word} command is not run by doze-aws"),
                 ));
             }
-            _ => return Err(QueryError::at(self.lx.src, at, "unexpected symbol found")),
+            _ => return Err(unknown),
         })
     }
 
@@ -207,7 +260,7 @@ impl P<'_> {
     fn regex(&mut self) -> Result<Regex, QueryError> {
         let at = self.lx.pos;
         let text = self.lx.regex()?;
-        Regex::new(&text).map_err(|_| QueryError::at(self.lx.src, at, "invalid regular expression"))
+        Regex::new(&text).map_err(|_| QueryError::at(at, "invalid regular expression"))
     }
 
     pub(super) fn expr(&mut self) -> Result<Expr, QueryError> {
@@ -329,7 +382,9 @@ impl P<'_> {
         if self.lx.peek_char() == Some('/') {
             return Ok(Expr::Regex(Box::new(self.regex()?)));
         }
+        self.lx.skip();
         let at = self.lx.pos;
+        let unexpected = self.unexpected()?;
         Ok(match self.lx.next()? {
             Tok::Num(n) => Expr::Lit(Val::Num(n)),
             Tok::Str(s) => Expr::Lit(Val::Str(s)),
@@ -342,7 +397,7 @@ impl P<'_> {
             }
             Tok::Sym("[") => Expr::List(self.items("]")?),
             Tok::Ident(w) => self.word(w, at)?,
-            _ => return Err(QueryError::at(self.lx.src, at, "unexpected symbol found")),
+            _ => return Err(unexpected),
         })
     }
 
@@ -357,8 +412,15 @@ impl P<'_> {
             } else {
                 self.items(")")?
             };
-            return super::funcs::checked(&lower, args)
-                .map_err(|why| QueryError::at(self.lx.src, at, &why));
+            if !super::funcs::known(&lower) {
+                // Recorded 2026-11-19: "Unrecognized function name: nosuch ([83,98])", the range the call's.
+                return Err(QueryError::span(
+                    at,
+                    self.lx.pos,
+                    &format!("Unrecognized function name: {w}"),
+                ));
+            }
+            return super::funcs::checked(&lower, args).map_err(|why| QueryError::at(at, &why));
         }
         Ok(match w.to_ascii_lowercase().as_str() {
             "true" => Expr::Lit(Val::Bool(true)),
