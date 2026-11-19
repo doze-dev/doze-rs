@@ -74,7 +74,7 @@ fn unpack_into(bytes: &[u8], url: &str, tmp: &Path, digest: &str) -> Result<(), 
             let name = url
                 .split(['?', '#'])
                 .next()
-                .and_then(|u| u.rsplit('/').next())
+                .and_then(|u| u.rsplit(['/', '\\']).next())
                 .filter(|n| !n.is_empty() && *n != "." && *n != "..")
                 .unwrap_or("download");
             doze_os::fs::write_executable(&body.join(name), bytes).map_err(|e| e.to_string())?;
