@@ -54,11 +54,18 @@ impl Data for Disk<'_> {
             if ts.points.is_empty() {
                 continue;
             }
-            // (memory) the label AWS gives a search result.
-            ts.label = std::iter::once(series.name.as_str())
-                .chain(series.dims.iter().map(|(_, v)| v.as_str()))
-                .collect::<Vec<_>>()
-                .join(" ");
+            // Recorded 2026-11-19: a search result is labelled with its dimension values, not the metric name. A metric with no
+            // dimensions falls back to its name (memory).
+            ts.label = if series.dims.is_empty() {
+                series.name.clone()
+            } else {
+                series
+                    .dims
+                    .iter()
+                    .map(|(_, v)| v.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            };
             out.push(ts);
             if out.len() >= math::MAX_SEARCH {
                 break;
@@ -212,7 +219,7 @@ fn shown(q: &Query, v: &Val, stamps: &[i64]) -> Result<Vec<Ts>, ApiError> {
         Val::Scalar(x) => vec![own(&math::broadcast(*x, stamps), &q.id)],
         other => {
             return Err(validation(format!(
-                "Error in expression {}: the expression gives {}, not a time series",
+                "Error in expression '{}': the expression gives {}, not a time series",
                 q.id,
                 other.kind()
             )));

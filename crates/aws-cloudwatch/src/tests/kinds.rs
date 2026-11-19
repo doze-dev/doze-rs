@@ -80,6 +80,19 @@ fn describe_alarms_shows_metric_alarms_only_unless_asked_for_other_kinds() {
     assert_eq!(both["MetricAlarms"], json!([]));
     assert_eq!(both["CompositeAlarms"].as_array().unwrap().len(), 1);
     assert_eq!(both["LogAlarms"].as_array().unwrap().len(), 1);
+    // Recorded 2026-11-19: members not sent are not filled in.
+    let l = &both["LogAlarms"][0];
+    assert!(
+        l.get("TreatMissingData").is_none() && l.get("ActionLogLineCount").is_none(),
+        "{l}"
+    );
+    let mut more = log_alarm("l");
+    more["QueryResultsToAlarm"] = json!(4);
+    let (_, msg) = w.err("PutLogAlarm", &more);
+    assert_eq!(
+        msg,
+        "QueryResultsToAlarm must be  smaller or equal than QueryResultsToEvaluate"
+    );
     let metric = w.ok("DescribeAlarms", &json!({"AlarmTypes": ["MetricAlarm"]}));
     assert_eq!(metric["MetricAlarms"].as_array().unwrap().len(), 1);
 }

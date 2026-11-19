@@ -39,10 +39,7 @@ pub(crate) fn eval(e: &Expr, env: &Env<'_>) -> Result<Val, String> {
     match e {
         Expr::Num(n) => Ok(Val::Scalar(*n)),
         Expr::Str(s) => Ok(Val::Text(s.clone())),
-        Expr::Name(n) if is_id(n) => env
-            .src
-            .var(n)
-            .ok_or_else(|| format!("Unrecognized identifier {n}")),
+        Expr::Name(n) if is_id(n) => env.src.var(n).ok_or_else(|| format!("ID '{n}' not found")),
         Expr::Name(n) => Ok(Val::Word(n.clone())),
         Expr::List(items) => {
             let mut all = Vec::new();
