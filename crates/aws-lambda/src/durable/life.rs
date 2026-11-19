@@ -68,6 +68,8 @@ pub(crate) enum Outcome {
 #[derive(Debug)]
 pub(crate) struct Begun {
     pub(crate) payload: String,
+    /// The execution's trace header, the invocation's `_X_AMZN_TRACE_ID`.
+    pub(crate) trace: String,
     pub(crate) function: String,
     pub(crate) version: String,
     pub(crate) account: String,
@@ -243,6 +245,7 @@ impl Core {
         });
         let begun = Begun {
             payload: payload.to_string(),
+            trace: shown::trace_id(e),
             function: e.function.clone(),
             version: e.version.clone(),
             account: e.account.clone(),
