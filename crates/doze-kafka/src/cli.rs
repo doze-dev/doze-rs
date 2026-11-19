@@ -144,6 +144,24 @@ pub(crate) struct Args {
     #[arg(long, value_name = "PRINCIPAL")]
     acl_super_user: Vec<String>,
 
+    /// The key delegation tokens are signed with (Kafka's delegation.token.secret.key): tokens are off without it, and a
+    /// token API then answers DELEGATION_TOKEN_AUTH_DISABLED. It shows in `ps`: the variable
+    /// DOZE_KAFKA_DELEGATION_TOKEN_SECRET_KEY is read too. Tokens are asked for and used over SASL only, as in Kafka; the
+    /// tokens made are kept in the data directory, and a new key makes them all useless.
+    #[arg(long, value_name = "SECRET")]
+    delegation_token_secret_key: Option<String>,
+    /// The longest a delegation token can live, renewals and all (Kafka's delegation.token.max.lifetime.ms, 7 days).
+    #[arg(long, default_value = "168h", value_parser = duration::parse)]
+    delegation_token_max_lifetime: Duration,
+    /// How long a delegation token lives from its making or its last renewal, unless less is asked for (Kafka's
+    /// delegation.token.expiry.time.ms, 1 day).
+    #[arg(long, default_value = "24h", value_parser = duration::parse)]
+    delegation_token_expiry_time: Duration,
+    /// How often expired delegation tokens are removed (Kafka's delegation.token.expiry.check.interval.ms, 1 hour); until then
+    /// an expired token is still described and can still log in, as in Kafka.
+    #[arg(long, default_value = "1h", value_parser = duration::parse)]
+    delegation_token_expiry_check_interval: Duration,
+
     // Accepted and ignored until the phase that has it.
     #[arg(long, hide = true)]
     meta_db: Option<String>,
@@ -265,6 +283,8 @@ impl Args {
         broker.log_cleaner_enable = self.log_cleaner_enable;
         broker.client_telemetry = self.client_telemetry;
         broker.transaction_version = transaction_version(major);
+        broker.kafka_major = major;
+        broker.delegation_tokens = self.token_config(env)?;
         broker.max_open_partitions = self.max_open_partitions;
         broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
         broker.super_users = acl::super_users(&self.acl_super_user)?;
@@ -306,6 +326,44 @@ impl Args {
             console,
             registry,
             warnings,
+        })
+    }
+
+    /// The delegation-token flags: the key from the flag, else from the variable; the times in milliseconds, at least 1.
+    fn token_config(
+        &self,
+        env: &dyn Fn(&str) -> Option<std::ffi::OsString>,
+    ) -> Result<kafka_broker::TokenConfig> {
+        let key = match &self.delegation_token_secret_key {
+            Some(key) => Some(key.clone()),
+            None => env("DOZE_KAFKA_DELEGATION_TOKEN_SECRET_KEY")
+                .map(|v| v.to_string_lossy().into_owned()),
+        };
+        if key.as_ref().is_some_and(String::is_empty) {
+            bail!("the delegation token secret key is empty");
+        }
+        let ms = |d: Duration, flag: &str| -> Result<i64> {
+            let ms = i64::try_from(d.as_millis()).unwrap_or(i64::MAX);
+            if ms < 1 {
+                bail!("--{flag} must be at least 1ms");
+            }
+            Ok(ms)
+        };
+        ms(
+            self.delegation_token_expiry_check_interval,
+            "delegation-token-expiry-check-interval",
+        )?;
+        Ok(kafka_broker::TokenConfig {
+            secret: key.map(|k| std::sync::Arc::new(kafka_auth::Secret::new(k.into_bytes()))),
+            max_lifetime_ms: ms(
+                self.delegation_token_max_lifetime,
+                "delegation-token-max-lifetime",
+            )?,
+            expiry_time_ms: ms(
+                self.delegation_token_expiry_time,
+                "delegation-token-expiry-time",
+            )?,
+            expiry_check_every: self.delegation_token_expiry_check_interval,
         })
     }
 

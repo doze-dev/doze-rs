@@ -182,9 +182,11 @@ async fn serve_loop<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
         if login_by.is_some() && session.as_ref().is_some_and(Session::is_authenticated) {
             decoder.set_authenticated();
             login_by = None;
-            if let Some(who) = session.as_ref().and_then(Session::principal) {
-                debug!(principal = %who, "logged in");
-                caller = Caller::new(who.clone(), ip);
+            if let Some(s) = session.as_ref() {
+                if let Some(who) = s.principal() {
+                    debug!(principal = %who, "logged in");
+                    caller = Caller::logged_in(who.clone(), ip, s.by_token());
+                }
             }
         }
         if buf.is_empty() && buf.capacity() > KEEP {

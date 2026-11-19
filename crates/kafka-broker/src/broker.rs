@@ -77,6 +77,17 @@ const SERVED: &[ApiKey] = &[
     ApiKey::StreamsGroupHeartbeat,
     ApiKey::StreamsGroupDescribe,
     ApiKey::StreamsGroupTopologyDescriptionUpdate,
+    ApiKey::DescribeTopicPartitions,
+    ApiKey::ElectLeaders,
+    ApiKey::AlterPartitionReassignments,
+    ApiKey::ListPartitionReassignments,
+    ApiKey::AlterReplicaLogDirs,
+    ApiKey::ListConfigResources,
+    ApiKey::UpdateFeatures,
+    ApiKey::CreateDelegationToken,
+    ApiKey::RenewDelegationToken,
+    ApiKey::ExpireDelegationToken,
+    ApiKey::DescribeDelegationToken,
 ];
 
 /// The APIs of client telemetry (KIP-714), served only when `Config::client_telemetry` is on.
@@ -127,6 +138,10 @@ pub struct Broker<F: Fs = RealFs> {
     /// Held for the whole of a change to the stored credentials, from the snapshot it starts from to the one swapped
     /// in, for the reason `acl_admin` is.
     pub(crate) user_admin: tokio::sync::Mutex<()>,
+    /// The delegation tokens in force (none while tokens are off).
+    pub(crate) tokens: crate::tokens::Tokens,
+    /// Held for the whole of a change to the tokens, for the reason `acl_admin` is.
+    pub(crate) token_admin: tokio::sync::Mutex<()>,
     /// The client quotas set, and what each client has used of them. Nothing is metered while none is set.
     pub(crate) quotas: crate::quotas::Quotas,
     /// Held for the whole of a change to the quotas, from the set it starts from to the one put in force, for the reason
@@ -193,6 +208,7 @@ impl<F: Fs> Broker<F> {
         );
         let users = Arc::clone(&config.users);
         crate::users::load(&meta, &users)?;
+        let tokens = crate::tokens::load(&meta, &config.delegation_tokens, &users)?;
         let quotas = crate::quotas::Quotas::load(meta.quotas()?);
         let millis = |d: std::time::Duration| u64::try_from(d.as_millis()).unwrap_or(u64::MAX);
         let meta_txns = meta.txns()?;
@@ -230,6 +246,8 @@ impl<F: Fs> Broker<F> {
             acl_admin: tokio::sync::Mutex::new(()),
             users,
             user_admin: tokio::sync::Mutex::new(()),
+            tokens,
+            token_admin: tokio::sync::Mutex::new(()),
             quotas,
             quota_admin: tokio::sync::Mutex::new(()),
             stop_cleaning: Arc::default(),

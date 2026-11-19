@@ -111,7 +111,18 @@ pub fn fail_response(request: &Request, version: i16, code: i16) -> Option<Respo
         | Request::DeleteShareGroupOffsets(_)
         | Request::StreamsGroupHeartbeat(_)
         | Request::StreamsGroupDescribe(_)
-        | Request::StreamsGroupTopologyDescriptionUpdate(_) => return None,
+        | Request::StreamsGroupTopologyDescriptionUpdate(_)
+        | Request::DescribeTopicPartitions(_)
+        | Request::ElectLeaders(_)
+        | Request::AlterPartitionReassignments(_)
+        | Request::ListPartitionReassignments(_)
+        | Request::AlterReplicaLogDirs(_)
+        | Request::ListConfigResources(_)
+        | Request::UpdateFeatures(_)
+        | Request::CreateDelegationToken(_)
+        | Request::RenewDelegationToken(_)
+        | Request::ExpireDelegationToken(_)
+        | Request::DescribeDelegationToken(_) => return None,
     })
 }
 

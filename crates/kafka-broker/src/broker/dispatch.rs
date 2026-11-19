@@ -141,6 +141,45 @@ impl<F: Fs> Broker<F> {
             Request::DescribeCluster(r) => {
                 self.describe_cluster(listener, caller, &r, head.version)
             }
+            Request::DescribeTopicPartitions(r) => respond(Response::DescribeTopicPartitions(
+                self.describe_topic_partitions(caller, &r),
+            )),
+            Request::ElectLeaders(r) => respond(Response::ElectLeaders(self.elect_leaders(
+                caller,
+                &r,
+                head.version,
+            ))),
+            Request::AlterPartitionReassignments(r) => {
+                respond(Response::AlterPartitionReassignments(
+                    self.alter_partition_reassignments(caller, &r),
+                ))
+            }
+            Request::ListPartitionReassignments(r) => respond(
+                Response::ListPartitionReassignments(self.list_partition_reassignments(caller, &r)),
+            ),
+            Request::AlterReplicaLogDirs(r) => respond(Response::AlterReplicaLogDirs(
+                self.alter_replica_log_dirs(caller, &r),
+            )),
+            Request::ListConfigResources(r) => respond(Response::ListConfigResources(
+                self.list_config_resources(caller, &r, head.version),
+            )),
+            Request::UpdateFeatures(r) => respond(Response::UpdateFeatures(self.update_features(
+                caller,
+                &r,
+                head.version,
+            ))),
+            Request::CreateDelegationToken(r) => respond(Response::CreateDelegationToken(
+                self.create_delegation_token(caller, &r, head.version).await,
+            )),
+            Request::RenewDelegationToken(r) => respond(Response::RenewDelegationToken(
+                self.renew_delegation_token(caller, &r).await,
+            )),
+            Request::ExpireDelegationToken(r) => respond(Response::ExpireDelegationToken(
+                self.expire_delegation_token(caller, &r).await,
+            )),
+            Request::DescribeDelegationToken(r) => respond(Response::DescribeDelegationToken(
+                self.describe_delegation_token(caller, &r, head.version),
+            )),
             // Telemetry is served only when `Config::client_telemetry` is on: the connection refuses the two
             // otherwise (they are neither advertised nor accepted), so these arms see them only then.
             Request::GetTelemetrySubscriptions(r) => self.get_telemetry_subscriptions(&r),
