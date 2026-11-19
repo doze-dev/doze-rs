@@ -116,13 +116,34 @@ impl Registry {
     /// # Errors
     /// No such subject.
     pub fn versions(&self, subject: &str, deleted: bool) -> Result<Vec<u32>, RegistryError> {
+        self.versions_where(subject, deleted, false)
+    }
+
+    /// A subject's version numbers: the live ones, all of them with `deleted`, or only the soft-deleted ones with
+    /// `deleted_only` (`?deletedOnly=true`).
+    ///
+    /// # Errors
+    /// No such subject.
+    pub fn versions_where(
+        &self,
+        subject: &str,
+        deleted: bool,
+        deleted_only: bool,
+    ) -> Result<Vec<u32>, RegistryError> {
         let s = self.lock();
-        if s.versions(subject).is_empty() || (!deleted && !s.exists(subject)) {
+        let any = deleted || deleted_only;
+        if s.versions(subject).is_empty() || (!any && !s.exists(subject)) {
             return Err(RegistryError::subject_not_found(subject));
         }
         Ok(s.versions(subject)
             .iter()
-            .filter(|v| deleted || !v.rec.deleted)
+            .filter(|v| {
+                if deleted_only {
+                    v.rec.deleted
+                } else {
+                    deleted || !v.rec.deleted
+                }
+            })
             .map(|v| v.number)
             .collect())
     }
@@ -145,6 +166,34 @@ impl Registry {
             references: rec.refs.clone(),
             schema: rec.text.clone(),
         })
+    }
+
+    /// A schema's text in the form a request's `format` asks for, as Confluent gives it: `serialized` makes a Protobuf
+    /// schema the base64 of its `FileDescriptorProto`; `resolved` writes an Avro schema's referenced types out where
+    /// they are first used. Any other format, or language, is the stored text.
+    #[must_use]
+    pub fn formatted(&self, id: u32, format: Option<&str>) -> Option<String> {
+        let s = self.lock();
+        let rec = s.schemas.get(&id)?;
+        match (rec.kind, format) {
+            (crate::format::SchemaType::Protobuf, Some("serialized")) => {
+                let p = self.parse_stored(&s, id).ok()?;
+                let proto = p
+                    .parsed
+                    .as_any()
+                    .downcast_ref::<crate::protobuf::ProtobufSchema>()?;
+                Some(proto.serialized())
+            }
+            (crate::format::SchemaType::Avro, Some("resolved")) if !rec.refs.is_empty() => {
+                let refs = s.resolve(&rec.refs).ok()?;
+                let texts: Vec<&str> = refs.iter().map(|r| r.text.as_str()).collect();
+                let inlined = crate::avro::inline(&rec.text, &texts).ok()?;
+                // Written again as Avro writes a schema: a namespace only where it changes.
+                let parsed = crate::avro::parse(&inlined, &[]).ok()?;
+                Some(crate::format::ParsedSchema::canonical(&parsed, false))
+            }
+            _ => None,
+        }
     }
 
     /// The highest id given out.

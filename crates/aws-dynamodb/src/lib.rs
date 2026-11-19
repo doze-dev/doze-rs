@@ -5,27 +5,40 @@
 //! per region. Items live in a redb file and are read when a request needs them; nothing is kept in memory but the table records. The
 //! expression languages are in `aws-expr`.
 //!
-//! Global tables, backups and restore, exports and imports, Kinesis streaming destinations, resource policies and vector search are
-//! refused by name before their request is read, and so are the legacy parameters (`Expected`, `AttributeUpdates`, `AttributesToGet`,
-//! `KeyConditions`, `QueryFilter`, `ScanFilter`, `ConditionalOperator`): none is ignored.
+//! On-demand backups and restores (copies in the file), point-in-time recovery over a bounded change log (`pitr.rs`), exports to and
+//! imports from S3 (`export.rs`, `import.rs`), resource policies (stored, and handed to IAM with each request), Kinesis streaming
+//! destinations, and the legacy request parameters (`Expected`, `AttributeUpdates`, `AttributesToGet`, `KeyConditions`,
+//! `QueryFilter`, `ScanFilter`, `ConditionalOperator`, translated into the expressions they stand for). Global tables and vector
+//! search are refused by name before their request is read.
 
 mod answer;
 mod authz;
+mod backup;
 mod batch;
 mod condition;
 mod core;
 mod describe;
 mod disk;
+mod export;
+mod extras;
+mod import;
 mod insights;
 mod invalid;
+mod ion;
 mod items;
 mod keys;
+mod kinesis;
+mod legacy;
 mod lifecycle;
 mod meta;
 mod page;
 mod partiql;
+mod pitr;
+mod policy;
 mod query;
 mod req;
+mod restore;
+mod route;
 mod schema;
 mod settings;
 mod stage;
@@ -34,6 +47,7 @@ mod stream;
 mod tables;
 mod tables_update;
 mod txn;
+mod work;
 
 use std::sync::Arc;
 
@@ -48,6 +62,7 @@ use doze_runtime::{Ctx, Deadlines, Keyed};
 use crate::core::{Answer, Core, Request};
 
 pub use crate::core::Windows;
+pub use crate::import::check as check_import;
 pub use crate::partiql::check as check_partiql;
 pub use crate::stream::{Batch, Event, Record, StreamInfo};
 
@@ -66,6 +81,8 @@ pub struct Dynamodb {
     /// The service's directory, which `resume` looks through.
     dir: std::path::PathBuf,
     clock: Arc<dyn doze_runtime::Clock>,
+    /// The bus the work outside the actor goes over (S3 for exports and imports, Kinesis for streaming destinations).
+    peers: Option<Arc<aws_peers::Peers>>,
 }
 
 impl Dynamodb {
@@ -74,6 +91,8 @@ impl Dynamodb {
     pub fn new(ctx: Arc<Ctx>) -> Self {
         let arrived = Arc::new(tokio::sync::Notify::new());
         let wake = Arc::clone(&arrived);
+        let peers = core::peers_of(&ctx);
+        let sender = peers.clone();
         let expiry = Deadlines::new(
             Arc::clone(&ctx),
             || Request::Tick,
@@ -82,7 +101,12 @@ impl Dynamodb {
                 if answer.appended {
                     wake.notify_waiters();
                 }
-                Box::pin(async move { answer.next_due })
+                let sender = sender.clone();
+                Box::pin(async move {
+                    // ...and a record for a Kinesis streaming destination, which needs nothing back.
+                    drop(work::run(sender.as_ref(), answer.work).await);
+                    answer.next_due
+                })
             }),
         );
         Self {
@@ -91,6 +115,7 @@ impl Dynamodb {
             actors: Keyed::new("dynamodb", ctx, HOME_REGION),
             arrived,
             expiry,
+            peers,
         }
     }
 
@@ -177,6 +202,16 @@ impl Dynamodb {
             .unwrap_or_else(|| Err("no answer".to_owned()))
     }
 
+    /// The resource policy that governs `arn` (a table's stream: its own policy), for IAM to weigh with a Streams API request.
+    pub async fn policy_of(&self, region: &str, arn: &str) -> Option<String> {
+        let actor = self.actors.actor(region).ok()?;
+        actor
+            .call(Request::Policy(arn.to_owned()))
+            .await
+            .ok()
+            .and_then(|a| a.policy)
+    }
+
     /// Resolves when some call has appended to a stream since it was last awaited. A consumer reads the records, and waits here when
     /// there are none.
     pub async fn stream_arrived(&self) {
@@ -216,6 +251,7 @@ impl Dynamodb {
             reply,
             appended,
             next_due,
+            work,
             ..
         } = match actor.call(Request::Call(Box::new(call))).await {
             Ok(a) => a,
@@ -225,7 +261,24 @@ impl Dynamodb {
             self.arrived.notify_waiters();
         }
         self.expiry.arm(&region, &actor, next_due);
+        self.after(&actor, work).await;
         reply
+    }
+
+    /// Does what a call left to be done outside the actor, and hands the actor what it found, until nothing is left (an import's
+    /// items, once written, may have records for a Kinesis stream).
+    async fn after(&self, actor: &doze_runtime::Lazy<Core>, mut work: Vec<work::Work>) {
+        while !work.is_empty() {
+            let done = work::run(self.peers.as_ref(), std::mem::take(&mut work)).await;
+            for d in done {
+                if let Ok(answer) = actor.call(Request::Done(Box::new(d))).await {
+                    if answer.appended {
+                        self.arrived.notify_waiters();
+                    }
+                    work.extend(answer.work);
+                }
+            }
+        }
     }
 }
 

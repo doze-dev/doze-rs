@@ -1,12 +1,12 @@
-//! Finding and sharing documents: `ListDocuments`, `DescribeDocumentPermission`, `ModifyDocumentPermission`, and the review of a
-//! change template, `UpdateDocumentMetadata`. Only the account's own documents exist here: the hundreds AWS owns (`AWS-RunShellScript`)
+//! Finding and sharing documents: `ListDocuments`, `DescribeDocumentPermission`, `ModifyDocumentPermission` (the review of a change
+//! template is `doc_review.rs`). Only the account's own documents exist here: the hundreds AWS owns (`AWS-RunShellScript`)
 //! are not served, so a list filtered to `Owner=Amazon` is empty. Words not recorded are marked (memory).
 
 use aws_model_ssm::keys::{
     DescribeDocumentPermissionRequest as DescribePerm, DescribeDocumentPermissionResponse as Perm,
     DocumentFilter, DocumentIdentifier as Ident, DocumentKeyValuesFilter as KvFilter,
-    DocumentReviews, ListDocumentsRequest as List, ListDocumentsResult as Listed,
-    ModifyDocumentPermissionRequest as Modify, Tag, UpdateDocumentMetadataRequest as Meta,
+    ListDocumentsRequest as List, ListDocumentsResult as Listed,
+    ModifyDocumentPermissionRequest as Modify, Tag,
 };
 use aws_schema::build::Object;
 use aws_wire::ApiError;
@@ -119,7 +119,7 @@ impl Core {
         let doc = self
             .documents
             .get(v.get(DescribePerm::NAME).unwrap_or_default())
-            .ok_or_else(invalid_document)?;
+            .ok_or_else(|| invalid_document(v.get(DescribePerm::NAME).unwrap_or_default()))?;
         let version = doc
             .shared_version
             .clone()
@@ -179,7 +179,7 @@ impl Core {
         let doc = self
             .documents
             .get_mut(v.get(Modify::NAME).unwrap_or_default())
-            .ok_or_else(invalid_document)?;
+            .ok_or_else(|| invalid_document(v.get(Modify::NAME).unwrap_or_default()))?;
         let mut next = doc.shared.clone();
         next.retain(|a| !remove.contains(a));
         for a in add {
@@ -200,36 +200,6 @@ impl Core {
         }
         empty()
     }
-
-    pub(crate) fn update_document_metadata(&mut self, call: &Call) -> Reply {
-        let v = request::<Meta>(call)?;
-        let action = v
-            .get(Meta::DOCUMENT_REVIEWS)
-            .and_then(|r| r.get(DocumentReviews::ACTION))
-            .unwrap_or_default();
-        let wanted = v.get(Meta::DOCUMENT_VERSION);
-        let doc = self
-            .documents
-            .get_mut(v.get(Meta::NAME).unwrap_or_default())
-            .ok_or_else(invalid_document)?;
-        if doc.kind != "Automation.ChangeTemplate" {
-            // (memory)
-            return Err(ApiError::modeled(
-                "InvalidDocumentOperation",
-                "Only a change template (document type Automation.ChangeTemplate) has review metadata.",
-            ));
-        }
-        let number = doc.pick(wanted, None)?.number;
-        let status = match action {
-            "Approve" => "APPROVED",
-            "Reject" => "REJECTED",
-            _ => "PENDING",
-        };
-        if let Some(ver) = doc.versions.iter_mut().find(|x| x.number == number) {
-            ver.review = Some(status.to_owned());
-        }
-        empty()
-    }
 }
 
 fn identifier(i: &mut Object<'_, Ident>, name: &str, doc: &Document) {
@@ -242,9 +212,7 @@ fn identifier(i: &mut Object<'_, Ident>, name: &str, doc: &Document) {
         if let Some(x) = &v.display_name {
             i.put(Ident::DISPLAY_NAME, x);
         }
-        if let Some(x) = &v.version_name {
-            i.put(Ident::VERSION_NAME, x);
-        }
+        // No VersionName, even when the default version has one (recorded: test_ssm.py::test_document_lifecycle).
         i.put_list(Ident::PLATFORM_TYPES, |l| {
             for p in &v.platforms {
                 l.push(p);

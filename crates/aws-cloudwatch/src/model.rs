@@ -234,10 +234,13 @@ pub(crate) struct Spec {
 pub(crate) enum Kind {
     /// One metric, judged by a statistic.
     Metric,
-    /// Metrics combined by an expression: stored, not evaluated.
+    /// Metrics combined by an expression, judged on its value (`math_alarm`).
     Math,
     /// Alarms combined by a rule: stored, not evaluated.
     Composite,
+    /// A CloudWatch Logs scheduled query against a threshold (`PutLogAlarm`): stored, not evaluated. New variants go last: a
+    /// stored alarm names its kind by position.
+    Log,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

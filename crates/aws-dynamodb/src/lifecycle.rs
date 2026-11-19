@@ -20,24 +20,10 @@ impl Core {
     pub(crate) async fn housekeeping(&mut self) -> Result<bool, ApiError> {
         let now = self.clock.now_ms();
         self.settle(now);
+        self.expire_backups(now);
         self.sweep_expired(now)?;
-        let mut writes = std::mem::take(&mut self.pending);
-        for staged in [self.tables.stage(), self.insights.stage()] {
-            match staged {
-                Ok(changes) => writes.meta.push(changes),
-                Err(e) => return Err(ApiError::internal(format!("could not save: {e}"))),
-            }
-        }
-        let appended = std::mem::take(&mut self.appended);
-        if !writes.is_empty() {
-            self.ttl_stale = true;
-        }
-        if let Some(saved) = self.disk.submit(writes)
-            && let Err(e) = saved.await
-        {
-            return Err(ApiError::internal(format!("could not save: {e}")));
-        }
-        Ok(appended)
+        self.save().await?;
+        Ok(std::mem::take(&mut self.appended))
     }
 
     /// When the timer should next sweep: the expiry of the first item of any table with time to live on, as the time-to-live index
@@ -127,6 +113,11 @@ impl Core {
         if let Some(s) = &t.stream {
             self.drop_stream_records(&s.id);
         }
+        // Its recovery log, streaming destinations and resource policies go with it; its backups stay (that is what they are for).
+        self.drop_log(&t.id);
+        self.extras.remove(&crate::extras::kinesis_key(name));
+        self.extras.remove(&crate::extras::restored_key(name));
+        self.drop_policies(name);
     }
 
     /// Deletes the items whose time-to-live attribute is in the past, as AWS does in its own time: a stream sees a removal by the

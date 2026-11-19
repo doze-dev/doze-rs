@@ -222,7 +222,9 @@ impl Registry {
             .schemas
             .get(&v.rec.id)
             .ok_or_else(RegistryError::schema_not_found)?;
-        let refs = s.resolve(&rec.refs)?;
+        let refs = s
+            .resolve(&rec.refs)
+            .map_err(RegistryError::invalid_schema)?;
         let mut out = Resolved {
             kind: rec.kind,
             schema: rec.text.clone(),

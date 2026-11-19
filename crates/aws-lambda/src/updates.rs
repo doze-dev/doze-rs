@@ -164,6 +164,7 @@ impl Core {
         self.check_role(staged)?;
         let mut cfg: Map<String, Value> =
             serde_json::from_str(&function.latest.config).unwrap_or_default();
+        config::check_durable_update(&cfg, r)?;
         config::merge(&mut cfg, r);
         config::check(&cfg)?;
         self.check_layers(r, &cfg)?;

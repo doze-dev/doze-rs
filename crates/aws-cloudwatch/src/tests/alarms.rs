@@ -91,25 +91,20 @@ fn the_refusals_are_worded_as_aws_worded_them() {
     for bad in [1, 5, 45, 90] {
         let (code, msg) = w.err("PutMetricAlarm", &with("Period", json!(bad)));
         assert_eq!(code, "ValidationException");
-        assert_eq!(
-            msg,
-            format!("The parameter Period must be 10, 20, 30 or a multiple of 60 (it is {bad}).")
-        );
+        assert_eq!(msg, "Period must be 10, 20, 30 or a multiple of 60");
     }
     let mut long = with("Period", json!(60));
     long["EvaluationPeriods"] = json!(1441);
     let (_, msg) = w.err("PutMetricAlarm", &long);
-    assert!(
-        msg.starts_with(
-            "Period multiplied by EvaluationPeriods must not be more than 86400 seconds"
-        ),
-        "{msg}"
+    assert_eq!(
+        msg,
+        "Metrics cannot be checked across more than a day (EvaluationPeriods * Period must be <= 86400) for alarms using period < 3600"
     );
     let math = json!({"AlarmName": "m", "EvaluationPeriods": 1, "Threshold": 1, "ComparisonOperator": "GreaterThanThreshold",
         "Metrics": [{"Id": "q", "MetricStat": {"Metric": {"Namespace": "T", "MetricName": "m"}, "Period": 15, "Stat": "Sum"}}]});
     let (_, msg) = w.err("PutMetricAlarm", &math);
     assert!(
-        msg.starts_with("The parameter Metrics.member.1.MetricStat.Period must be"),
+        msg.starts_with("Metrics.member.1.MetricStat.Period must be"),
         "{msg}"
     );
     w.ok("PutMetricAlarm", &with("Period", json!(10)));
@@ -256,32 +251,6 @@ fn a_forced_state_is_kept_until_the_next_period_and_then_judged_again() {
     w.clock.advance(60_000);
     w.core.tick();
     assert_eq!(w.state("a"), "OK");
-}
-
-#[test]
-fn math_and_composite_alarms_are_stored_and_say_they_are_not_evaluated() {
-    let mut w = World::new();
-    w.ok(
-        "PutMetricAlarm",
-        &json!({"AlarmName": "m", "EvaluationPeriods": 1, "Threshold": 1, "ComparisonOperator": "GreaterThanThreshold",
-            "Metrics": [{"Id": "e", "Expression": "a + b", "ReturnData": true}]}),
-    );
-    w.ok(
-        "PutCompositeAlarm",
-        &json!({"AlarmName": "c", "AlarmRule": "ALARM(m)"}),
-    );
-    let d = w.ok("DescribeAlarms", &json!({}));
-    assert_eq!(d["MetricAlarms"][0]["Metrics"][0]["Expression"], "a + b");
-    assert!(
-        d["MetricAlarms"][0]["StateReason"]
-            .as_str()
-            .unwrap()
-            .starts_with("Not evaluated locally")
-    );
-    assert_eq!(d["CompositeAlarms"][0]["AlarmRule"], "ALARM(m)");
-    assert_eq!(w.core.earliest_due(), None);
-    let only = w.ok("DescribeAlarms", &json!({"AlarmTypes": ["CompositeAlarm"]}));
-    assert_eq!(only["MetricAlarms"], json!([]));
 }
 
 #[test]

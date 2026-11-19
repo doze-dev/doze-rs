@@ -35,11 +35,7 @@ fn what_confluents_parser_refuses_is_refused() {
         (r#"{"type":"record","name":"R"}"#, "no fields"),
         (
             r#"{"type":"record","name":"1R","fields":[]}"#,
-            "Illegal character",
-        ),
-        (
-            r#"{"type":"record","name":"R","namespace":"a..b","fields":[]}"#,
-            "Illegal character",
+            "Illegal initial character: 1R",
         ),
         (
             r#"{"type":"record","name":"int","fields":[]}"#,
@@ -58,8 +54,12 @@ fn what_confluents_parser_refuses_is_refused() {
             "empty String",
         ),
         (
+            r#"{"type":"record","name":"R","fields":[{"name":"a","type":"float","default":"x"}]}"#,
+            "For input string: \"x\"",
+        ),
+        (
             r#"{"type":"record","name":"R","fields":[{"name":"a","type":"int","order":"up"}]}"#,
-            "Illegal order",
+            "No enum constant org.apache.avro.Schema.Field.Order.UP",
         ),
         (
             r#"{"type":"enum","name":"E","symbols":["A","A"]}"#,
@@ -83,7 +83,7 @@ fn what_confluents_parser_refuses_is_refused() {
             r#"{"type":"record","name":"R","aliases":"X","fields":[]}"#,
             "aliases",
         ),
-        ("5", "No type"),
+        ("5", "Schema not yet supported: 5"),
     ] {
         let e = refused(bad);
         assert!(e.contains(why), "{bad}: {e}");
@@ -102,6 +102,14 @@ fn what_confluent_accepts_is_accepted() {
         r#"{"type":{"type":"array","items":"int"}}"#,
         r#"["null",{"type":"record","name":"A","fields":[]},{"type":"record","name":"B","fields":[]}]"#,
         r#"{"type":"enum","name":"E","symbols":[]}"#,
+        r#"{"type":"record","name":"R","namespace":"a..b","fields":[]}"#,
+        r#"{"type":"record","name":"a.1b.R","fields":[]}"#,
+        // cp-schema-registry 7.7.1 (tools/registry-diff): a string default of an int or long is not read, and a
+        // float's or double's is read as Java reads a number.
+        r#"{"type":"record","name":"R","fields":[{"name":"a","type":"int","default":""}]}"#,
+        r#"{"type":"record","name":"R","fields":[{"name":"a","type":"long","default":"x"}]}"#,
+        r#"{"type":"record","name":"R","fields":[{"name":"a","type":"double","default":"1"}]}"#,
+        r#"{"type":"record","name":"R","fields":[{"name":"a","type":"float","default":" -1.5e3f "}]}"#,
     ] {
         assert!(parse(ok, &[]).is_ok(), "{ok}: {:?}", parse(ok, &[]).err());
     }
@@ -169,7 +177,11 @@ fn a_referenced_type_is_known_by_its_name_and_written_short() {
         s.canonical(false),
         r#"{"type":"record","name":"P","namespace":"com.acme","fields":[{"name":"g","type":"Geo"},{"name":"h","type":"Geo"}]}"#
     );
-    assert!(parse(main, &[]).unwrap_err().contains("Undefined name"));
+    assert!(
+        parse(main, &[])
+            .unwrap_err()
+            .contains("\"com.acme.Geo\" is not a defined name")
+    );
 }
 
 #[test]

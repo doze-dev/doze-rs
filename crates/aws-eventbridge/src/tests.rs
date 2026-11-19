@@ -21,6 +21,7 @@ mod delivery;
 mod http;
 mod persistence;
 mod refusals;
+mod replays;
 mod rules;
 mod schedules;
 mod services;
@@ -174,6 +175,17 @@ impl World {
     pub(crate) fn wake_at(&mut self, ms: i64) -> Option<i64> {
         self.clock.set(ms);
         self.tick(ms)
+    }
+
+    /// Runs every replay to its end, waking the actor at each step as its timer would.
+    pub(crate) fn finish_replays(&mut self) {
+        for _ in 0..10_000 {
+            let Some(at) = self.core.next_replay_step() else {
+                return;
+            };
+            self.wake_at(at.max(doze_runtime::Clock::now_ms(&*self.clock)));
+        }
+        panic!("a replay did not end");
     }
 
     /// A call to another service on the bus, as the account.

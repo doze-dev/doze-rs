@@ -130,22 +130,16 @@ struct Unit<'a> {
 }
 
 /// Links the main file `ast` (read from `src`), whose imports are found in `sources` (path, text) or among the
-/// well-known types. `descriptor` words an unresolved type as Confluent does for a descriptor.
+/// well-known types.
 ///
 /// # Errors
 /// An import not found, or a rule of the language broken; the message says where.
-pub(super) fn link(
-    src: &str,
-    ast: &File,
-    sources: &[(&str, &str)],
-    descriptor: bool,
-) -> Result<Pool, String> {
+pub(super) fn link(src: &str, ast: &File, sources: &[(&str, &str)]) -> Result<Pool, String> {
     let mut l = Linker {
         pool: Pool::default(),
         sources,
         parsed: Vec::new(),
         loading: Vec::new(),
-        descriptor,
         missing: None,
     };
     l.load_deps(ast)?;
@@ -165,8 +159,7 @@ struct Linker<'a> {
     /// Dependencies read so far: path, source, its file.
     parsed: Vec<(String, usize)>,
     loading: Vec<String>,
-    descriptor: bool,
-    /// An import a descriptor names that no reference gives.
+    /// An import that no reference gives.
     missing: Option<String>,
 }
 
@@ -202,14 +195,12 @@ impl Linker<'_> {
             .find(|(p, _)| *p == path)
             .map(|(_, s)| *s)
             .or_else(|| wkt::source(path))
-            // A descriptor's missing import shows as the types it should have given, as Confluent words it.
-            .or_else(|| {
+            // A missing import shows as the types it should have given, as Confluent words it (`Could not resolve type`);
+            // one whose types are not used is refused after the link (REG-D17).
+            .unwrap_or_else(|| {
                 self.missing.get_or_insert(path.to_owned());
-                self.descriptor.then_some("")
-            })
-            .ok_or_else(|| {
-                format!("import \"{path}\" was not found: no reference has that name")
-            })?;
+                ""
+            });
         self.loading.push(path.to_owned());
         let ast = parse(src).map_err(|e| format!("{path}: {}", e.render(src)))?;
         self.load_deps(&ast)?;

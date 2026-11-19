@@ -189,6 +189,7 @@ impl Core {
                         k.user = new.to_owned();
                     }
                 }
+                self.held_renamed(old, new);
             }
             Kind::Group => {
                 let users: Vec<String> = self
@@ -229,6 +230,11 @@ impl Core {
                         "Cannot delete entity, must delete access keys first.",
                     ));
                 }
+                if let Some(what) = self.user_still_has(&name) {
+                    return Err(conflict(&format!(
+                        "Cannot delete entity, must {what} first."
+                    )));
+                }
             }
             Kind::Group => {
                 if self
@@ -249,7 +255,9 @@ impl Core {
                 }
             }
         }
-        self.entities.remove(&entity_key(kind, &name));
+        if let Some(gone) = self.entities.remove(&entity_key(kind, &name)) {
+            self.forget_access(&gone.arn);
+        }
         Ok(Value::Null)
     }
 

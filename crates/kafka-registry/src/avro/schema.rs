@@ -143,7 +143,7 @@ impl Parser {
             Json::Str(name) => self.lookup(name, space),
             Json::Array(items) => self.union(items, space),
             Json::Object(_) => self.object(j, space),
-            Json::Raw(r) => Err(format!("No type: {r}")),
+            Json::Raw(r) => Err(format!("Schema not yet supported: {r}")),
         }
     }
 
@@ -171,7 +171,9 @@ impl Parser {
     }
 
     fn object(&mut self, j: &Json, space: Option<&str>) -> Res<Ty> {
-        let t = j.get("type").ok_or("No type")?;
+        let t = j
+            .get("type")
+            .ok_or_else(|| format!("No type: {}", j.to_text()))?;
         let Json::Str(word) = t else {
             return self.ty(t, space);
         };
@@ -196,13 +198,10 @@ impl Parser {
             .and_then(Json::as_str)
             .ok_or("No name in schema")?;
         let (space, simple) = split_name(j, name, enclosing);
-        for part in name
-            .split('.')
-            .chain(space.iter().flat_map(|s| s.split('.')))
-        {
-            if !valid_name(part) && !(part.is_empty() && space.as_deref() == Some("")) {
-                return Err(format!("Illegal character in: {name}"));
-            }
+        // Only the simple name is checked: cp-schema-registry 7.7.1 takes `a..b` and `a.1b` as namespaces
+        // (tools/registry-diff).
+        if !valid_name(&simple) {
+            return Err(illegal(&simple));
         }
         if PRIMITIVES.contains(&simple.as_str()) {
             return Err(format!(
@@ -232,7 +231,8 @@ impl Parser {
                     Json::Raw(r) => r.parse::<u32>().ok(),
                     _ => None,
                 });
-                NamedKind::Fixed(u64::from(size.ok_or("Invalid or no size")?))
+                let size = size.ok_or_else(|| format!("Invalid or no size: {}", j.to_text()))?;
+                NamedKind::Fixed(u64::from(size))
             }
             _ => NamedKind::Record(self.fields(j, space.as_deref())?),
         };
@@ -244,7 +244,7 @@ impl Parser {
 
     fn fields(&mut self, j: &Json, space: Option<&str>) -> Res<Vec<Field>> {
         let Some(Json::Array(items)) = j.get("fields") else {
-            return Err("Record has no fields".into());
+            return Err(format!("Record has no fields: {}", j.to_text()));
         };
         let mut out: Vec<Field> = Vec::with_capacity(items.len());
         for f in items {
@@ -256,18 +256,27 @@ impl Parser {
                 .and_then(Json::as_str)
                 .ok_or("No field name")?;
             if !valid_name(name) {
-                return Err(format!("Illegal character in: {name}"));
+                return Err(illegal(name));
             }
             let tj = f
                 .get("type")
-                .ok_or_else(|| format!("No field type: {name}"))?;
-            let ty = self.ty(tj, space)?;
+                .ok_or_else(|| format!("No field type: {}", f.to_text()))?;
+            // A field's type that names nothing is said as Avro's parser says it for a field.
+            let ty = match (tj, self.ty(tj, space)) {
+                (Json::Str(t), Err(e)) if e.starts_with("Undefined name") => {
+                    return Err(format!(
+                        "\"{t}\" is not a defined name. The type of the \"{name}\" field must be a defined name or a {{\"type\": ...}} expression."
+                    ));
+                }
+                (_, r) => r?,
+            };
             let default = f.get("default");
+            // The one default Avro's parser reads (Java's Double.parseDouble of a string given to a float or double);
+            // a string given to an int or long is taken (recorded by tools/registry-diff from 7.7.1).
             if let (Some(Json::Str(d)), Json::Str(t)) = (default, tj)
-                && d.is_empty()
-                && matches!(t.as_str(), "int" | "long" | "float" | "double")
+                && matches!(t.as_str(), "float" | "double")
             {
-                return Err("empty String".into());
+                java_double(d)?;
             }
             if let Some(order) = f.get("order") {
                 let ok = order.as_str().is_some_and(|o| {
@@ -277,7 +286,12 @@ impl Parser {
                     )
                 });
                 if !ok {
-                    return Err("Illegal order".into());
+                    let word = order
+                        .as_str()
+                        .map_or_else(|| order.to_text(), str::to_ascii_uppercase);
+                    return Err(format!(
+                        "No enum constant org.apache.avro.Schema.Field.Order.{word}"
+                    ));
                 }
             }
             if out.iter().any(|o| o.name == name) {
@@ -295,6 +309,40 @@ impl Parser {
     }
 }
 
+/// Avro's refusal of a name: its first character, or another.
+fn illegal(name: &str) -> String {
+    let first_ok = name
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_alphabetic() || c == '_');
+    if first_ok {
+        format!("Illegal character in: {name}")
+    } else {
+        format!("Illegal initial character: {name}")
+    }
+}
+
+/// A string read as Java's `Double.parseDouble` reads it, or its refusal in Java's words.
+fn java_double(text: &str) -> Res<()> {
+    let t = text.trim();
+    if t.is_empty() {
+        return Err("empty String".into());
+    }
+    let body = t.strip_suffix(['f', 'F', 'd', 'D']).unwrap_or(t);
+    let unsigned = body.strip_prefix(['+', '-']).unwrap_or(body);
+    let ok = matches!(unsigned, "NaN" | "Infinity")
+        || (!unsigned.is_empty()
+            && unsigned
+                .bytes()
+                .all(|c| c.is_ascii_digit() || matches!(c, b'.' | b'e' | b'E' | b'+' | b'-'))
+            && unsigned.parse::<f64>().is_ok());
+    if ok {
+        Ok(())
+    } else {
+        Err(format!("For input string: \"{text}\""))
+    }
+}
+
 fn enum_kind(j: &Json) -> Res<NamedKind> {
     let Some(Json::Array(items)) = j.get("symbols") else {
         return Err("Enum has no symbols".into());
@@ -303,7 +351,7 @@ fn enum_kind(j: &Json) -> Res<NamedKind> {
     for s in items {
         let s = s.as_str().ok_or("Enum symbols must be strings")?;
         if !valid_name(s) {
-            return Err(format!("Illegal character in: {s}"));
+            return Err(illegal(s));
         }
         if symbols.iter().any(|x| x == s) {
             return Err(format!("Duplicate enum symbol: {s}"));
@@ -314,9 +362,10 @@ fn enum_kind(j: &Json) -> Res<NamedKind> {
         None => false,
         Some(Json::Str(d)) if symbols.contains(d) => true,
         Some(d) => {
+            let shown = d.as_str().map_or_else(|| d.to_text(), str::to_owned);
             return Err(format!(
-                "The Enum Default: {} is not in the enum symbol set",
-                d.to_text()
+                "The Enum Default: {shown} is not in the enum symbol set: [{}]",
+                symbols.join(", ")
             ));
         }
     };

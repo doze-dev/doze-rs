@@ -51,7 +51,20 @@ impl Core {
                     .next()
                     .and_then(|name| self.entity(Kind::Role, name).ok())
                     .and_then(|role| role.trust.clone());
-                vec![Need::new("sts:AssumeRole", arn).with_policy(trust).gated()]
+                let mut need = Need::new("sts:AssumeRole", arn).with_policy(trust).gated();
+                // A good MFA code is what a trust policy's `aws:MultiFactorAuthPresent` asks about (the call spends it).
+                if let Some(serial) = r.opt("SerialNumber") {
+                    let user = self.identify(r).arn;
+                    let user = user
+                        .split_once(":user/")
+                        .and_then(|(_, n)| n.rsplit('/').next());
+                    if self.mfa_step(user, serial, r.s("TokenCode")).is_ok() {
+                        need = need
+                            .with("aws:MultiFactorAuthPresent", vec!["true".into()])
+                            .with("aws:MultiFactorAuthAge", vec!["0".into()]);
+                    }
+                }
+                vec![need]
             }
             other => vec![Need::new(format!("sts:{other:?}"), "*")],
         }
@@ -83,10 +96,19 @@ impl Core {
         if let Some(name) = r.opt("RoleName") {
             return entity(Kind::Role, name);
         }
-        for member in ["PolicyArn", "OpenIDConnectProviderArn", "SAMLProviderArn"] {
+        // `Arn` names what a last-accessed call is about.
+        for member in [
+            "PolicyArn",
+            "OpenIDConnectProviderArn",
+            "SAMLProviderArn",
+            "Arn",
+        ] {
             if let Some(arn) = r.opt(member) {
                 return arn.to_owned();
             }
+        }
+        if let Some(arn) = self.held_resource(op, r, account) {
+            return arn;
         }
         if let Some(name) = r.opt("InstanceProfileName") {
             let path = r.opt("Path").unwrap_or("/");
@@ -96,8 +118,23 @@ impl Core {
             );
         }
         // A key made or listed without a user is the caller's own.
-        if matches!(op, O::CreateAccessKey | O::ListAccessKeys)
-            && let Some(arn) = self.caller_arn(caller)
+        if matches!(
+            op,
+            O::CreateAccessKey
+                | O::ListAccessKeys
+                | O::ChangePassword
+                | O::ListMFADevices
+                | O::DeactivateMFADevice
+                | O::UploadSigningCertificate
+                | O::ListSigningCertificates
+                | O::UpdateSigningCertificate
+                | O::DeleteSigningCertificate
+                | O::ListSSHPublicKeys
+                | O::ListServiceSpecificCredentials
+                | O::ResetServiceSpecificCredential
+                | O::UpdateServiceSpecificCredential
+                | O::DeleteServiceSpecificCredential
+        ) && let Some(arn) = self.caller_arn(caller)
         {
             return arn;
         }
@@ -106,6 +143,33 @@ impl Core {
 }
 
 impl Core {
+    /// The ARN of a virtual MFA device or a server certificate a call is on. A virtual MFA device's serial number is its ARN; the
+    /// calls on a user's device are on the user, and answered before this.
+    fn held_resource(
+        &self,
+        op: aws_model_iam::Operation,
+        r: &Req<'_>,
+        account: &str,
+    ) -> Option<String> {
+        use aws_model_iam::Operation as O;
+        let path = r.opt("Path").unwrap_or("/");
+        if matches!(
+            op,
+            O::DeleteVirtualMFADevice | O::TagMFADevice | O::UntagMFADevice | O::ListMFADeviceTags
+        ) && let Some(serial) = r.opt("SerialNumber")
+        {
+            return Some(serial.to_owned());
+        }
+        if let Some(name) = r.opt("VirtualMFADeviceName") {
+            return Some(format!("arn:aws:iam::{account}:mfa{path}{name}"));
+        }
+        let name = r.opt("ServerCertificateName")?;
+        Some(self.held.certs.get(name).map_or_else(
+            || format!("arn:aws:iam::{account}:server-certificate{path}{name}"),
+            |c| c.arn.clone(),
+        ))
+    }
+
     /// The credential behind an access key id, for checking a signature: the secret of an access key IAM issued (while it is
     /// active), or the one a role session derives (with the token the request must carry and the time it runs out).
     pub(crate) fn credential(

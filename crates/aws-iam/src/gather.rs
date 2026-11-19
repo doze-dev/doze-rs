@@ -40,12 +40,12 @@ impl Docs {
 }
 
 /// A stored document read back. Stored documents passed the checks, so one that does not parse is dropped.
-fn read(text: &str) -> Option<Document> {
+pub(crate) fn read(text: &str) -> Option<Document> {
     aws_iam_policy::parse(text)?.ok()
 }
 
 /// A managed policy's default version.
-fn default_document(p: &Managed) -> Option<Document> {
+pub(crate) fn default_document(p: &Managed) -> Option<Document> {
     p.versions
         .iter()
         .find(|v| v.id == p.default)

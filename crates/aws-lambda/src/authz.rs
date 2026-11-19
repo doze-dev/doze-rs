@@ -81,6 +81,21 @@ impl Core {
             | Operation::DeleteResourcePolicy => {
                 vec![Need::new(action, r.text("ResourceArn"))]
             }
+            // Memory: the resource of these actions is taken to be the execution's ARN (the callback id names it).
+            Operation::CheckpointDurableExecution
+            | Operation::GetDurableExecution
+            | Operation::GetDurableExecutionHistory
+            | Operation::GetDurableExecutionState
+            | Operation::StopDurableExecution => {
+                vec![Need::new(action, r.text("DurableExecutionArn"))]
+            }
+            Operation::SendDurableExecutionCallbackSuccess
+            | Operation::SendDurableExecutionCallbackFailure
+            | Operation::SendDurableExecutionCallbackHeartbeat => {
+                let arn = crate::durable::callback_target(r.text("CallbackId"))
+                    .map_or_else(|| "*".to_owned(), |(arn, _)| arn);
+                vec![Need::new(action, arn)]
+            }
             Operation::GetCodeSigningConfig
             | Operation::UpdateCodeSigningConfig
             | Operation::DeleteCodeSigningConfig

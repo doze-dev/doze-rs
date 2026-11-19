@@ -187,6 +187,7 @@ impl Core {
         clear(&mut self.rules);
         clear(&mut self.archives);
         clear(&mut self.replays);
+        clear(&mut self.runs);
         clear(&mut self.connections);
         clear(&mut self.destinations);
         self.archived.delete_range("", "\u{10ffff}");

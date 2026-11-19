@@ -13,6 +13,7 @@
 //! - [`conn`]: the transport behind a trait, so a Windows named pipe is a new dialer.
 //! - `fixture` (feature `test-support`): a daemon that serves scripted frames on a real socket.
 
+pub mod actions;
 mod client;
 pub mod codec;
 pub mod conn;
@@ -24,6 +25,8 @@ pub mod types;
 
 #[cfg(feature = "test-support")]
 pub mod fixture;
+#[cfg(feature = "words")]
+pub mod words;
 
 pub use client::{
     Backoff, CALL_TIMEOUT, Client, Connection, Follow, FollowEvent, HELLO_TIMEOUT, Pending, Stream,
@@ -31,6 +34,7 @@ pub use client::{
 };
 pub use duration::{format_go_duration, parse_go_duration};
 pub use error::Error;
+pub use json::{go_line, go_pretty};
 pub use time::{GoDuration, Timestamp};
 pub use types::console::{
     CELL_RUNTIME, ConsoleColumn, ConsoleExtension, ConsoleFrame, ConsoleNode, ConsolePanel,

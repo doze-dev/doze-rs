@@ -7,9 +7,9 @@ use ed25519_dalek::{Signature, VerifyingKey};
 use sha2::{Digest, Sha256};
 use std::fmt;
 
-/// The registry's public key (`registry/doze/keys.json`), the same one the Go doze carries. Rotating it takes a
-/// release of doze.
-pub const KEY: &str = "Nu5y8mbjYv7XEtNFBXwPVl+C8SBteVApIROefBwGWjw=";
+/// The registry's public key (`registry/doze/keys.json`). Rotating it takes a release of doze. Rotated 2026-11-18,
+/// when the registry was rebuilt from scratch; the Go doze still carries the retired key.
+pub const KEY: &str = "wC95e+48J4H5Em38vCj6YQuNjIdiYh9isRUWWeE9LUs=";
 
 /// Why a signature was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

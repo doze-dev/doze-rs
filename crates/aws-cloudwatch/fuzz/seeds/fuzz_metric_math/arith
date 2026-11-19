@@ -1,0 +1,1 @@
+SUM([m1, m2]) / FILL(m3, REPEAT) * 100 >= 2 AND NOT IF(m1 > 1, m1, -1)

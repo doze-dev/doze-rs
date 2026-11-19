@@ -1,0 +1,4 @@
+[
+  {"_id": 1, "sku": "A", "name": "widget", "qty": 3, "price": 2.5, "stock": 5000000000},
+  {"_id": 2, "sku": "B", "name": "gadget", "qty": 0, "price": 10.0, "stock": 7}
+]

@@ -14,6 +14,11 @@ pub trait Spec: Sized {
     fn labels() -> Vec<String> {
         Vec::new()
     }
+    /// What makes two blocks of the type the same one: its labels, then its `key` arguments, compared as written (a
+    /// left-out key is not its default). Two the same are refused.
+    fn identity() -> Vec<String> {
+        Self::labels()
+    }
     /// Reads the block. Problems go to `cx`; `None` when the value cannot be built.
     fn decode(node: &Node, cx: &mut Decoding) -> Option<Self>;
 }
@@ -151,7 +156,7 @@ impl Decoding {
                 cx.error(format!("`{name}` must be a list of blocks"), None);
                 return None;
             };
-            let labels = T::labels();
+            let labels = T::identity();
             let mut seen = BTreeSet::new();
             let mut out = Vec::with_capacity(items.len());
             for (i, item) in items.iter().enumerate() {

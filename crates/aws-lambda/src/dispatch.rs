@@ -4,6 +4,7 @@
 use aws_model_lambda::Operation;
 use aws_wire::ApiError;
 use aws_wire::service::Call;
+use serde_json::Value;
 
 use crate::core::{Core, Out, Staged, built};
 use crate::req::Req;
@@ -116,6 +117,36 @@ impl Core {
             Operation::GetFunctionCodeSigningConfig => self.get_function_signing(r),
             Operation::DeleteFunctionCodeSigningConfig => self.delete_function_signing(r),
             Operation::ListFunctionsByCodeSigningConfig => self.functions_by_signing(r),
+            other => self.dispatch_durable(other, r),
+        }
+    }
+
+    fn dispatch_durable(&mut self, op: Operation, r: &Req) -> Result<Out, ApiError> {
+        use crate::durable::ops::Callback;
+        match op {
+            Operation::CheckpointDurableExecution => self.checkpoint_durable(r),
+            Operation::GetDurableExecution => self.get_durable_execution(r),
+            Operation::GetDurableExecutionHistory => self.get_durable_history(r),
+            Operation::GetDurableExecutionState => self.get_durable_state(r),
+            Operation::ListDurableExecutionsByFunction => self.list_durable_executions(r),
+            Operation::StopDurableExecution => self.stop_durable_execution(r),
+            Operation::SendDurableExecutionCallbackSuccess => {
+                let result = r
+                    .opt("Result")
+                    .and_then(aws_core::base64::decode)
+                    .filter(|b| !b.is_empty())
+                    .map(|b| String::from_utf8_lossy(&b).into_owned());
+                self.callback(r, Callback::Success(result))
+            }
+            Operation::SendDurableExecutionCallbackFailure => {
+                let err = r
+                    .value("Error")
+                    .map_or_else(|| "{}".to_owned(), Value::to_string);
+                self.callback(r, Callback::Failure(err))
+            }
+            Operation::SendDurableExecutionCallbackHeartbeat => {
+                self.callback(r, Callback::Heartbeat)
+            }
             _ => Err(crate::errors::refused("This operation")),
         }
     }

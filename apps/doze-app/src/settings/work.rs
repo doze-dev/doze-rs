@@ -219,9 +219,9 @@ impl SettingsView {
         }
         self.checking = true;
         cx.notify();
-        let job = cx.background_executor().spawn(async move {
-            update::update_of(current(), update::fetch(update::LATEST_URL), now, zone)
-        });
+        let job = cx
+            .background_executor()
+            .spawn(async move { update::update_of(current(), latest(), now, zone) });
         cx.spawn(async move |this, cx| {
             let u: Update = job.await;
             let _ = this.update(cx, |v, cx| {
@@ -249,4 +249,15 @@ fn prune_routes(home: &Path, hands: &mut dyn Hands) -> Result<(), Fail> {
     }
     hands.admin("remove stale routes", &script)?;
     leftovers::forget_routes(home, &m.routes).map_err(|e| Fail::Failed(e.to_string()))
+}
+
+/// GitHub's latest release through doze's one HTTP client (the CLI's, the system's curl in the app): the status and the
+/// body, or `None` when GitHub could not be reached.
+fn latest() -> Option<(u16, String)> {
+    use doze_cli::http::{Failure, get};
+    match get(update::LATEST_URL, std::time::Duration::from_secs(8)) {
+        Ok(body) => Some((200, String::from_utf8_lossy(&body).into_owned())),
+        Err(Failure::Status(s)) => Some((s, String::new())),
+        Err(Failure::Unreachable(_)) => None,
+    }
 }

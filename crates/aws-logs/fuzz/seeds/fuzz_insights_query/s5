@@ -1,0 +1,2 @@
+filter @duration > 10 | stats max(@maxMemoryUsed / 1000 / 1000) by @type
+REPORT RequestId: 1	Duration: 12.5 ms	Max Memory Used: 64 MB

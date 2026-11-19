@@ -1,0 +1,1 @@
+SEARCH('{AWS/EC2,InstanceId} MetricName="CPUUtilization" NOT (a OR "b")', 'Average', 300)

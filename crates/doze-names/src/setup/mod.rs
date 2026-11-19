@@ -26,7 +26,7 @@ mod windows;
 
 #[doc(hidden)]
 pub use linux_units::netd_serves;
-pub use run::{How, Options, pasteable, shell_quote};
+pub use run::{How, Options, pasteable, run as run_plan, shell_quote};
 pub use who::{setup_home, setup_user};
 
 use crate::Error;
