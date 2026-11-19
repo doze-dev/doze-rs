@@ -15,6 +15,9 @@
 //! nothing else. A metric math alarm is judged the same way on the value of its expression, its deadlines worked out from the data
 //! of every metric it reads (`math_alarm.rs`).
 //!
+//! A log alarm's deadline is its next scheduled query (`log_eval`); a composite alarm has none, being judged when an alarm it names
+//! changes (`composite`).
+//!
 //! Not matched: a multi-day alarm, which AWS evaluates hourly on data up to the hour, is evaluated here like any other.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -215,6 +218,11 @@ impl Core {
     /// step).
     pub(crate) fn refresh_due(&mut self, name: &str, after_now: bool) {
         self.due.remove(name);
+        // A log alarm is judged on its schedule, not on data (`log_eval`).
+        if let Some(at) = self.log_due(name) {
+            self.due.insert(name.to_owned(), at);
+            return;
+        }
         let (Some(plan), Some(current)) = (
             self.plan(name),
             self.alarms.get(name).map(|a| a.state.clone()),
@@ -274,7 +282,11 @@ impl Core {
             .map(|(n, _)| n.clone())
             .collect();
         for name in ready {
-            self.evaluate(&name, now);
+            if self.alarms.get(&name).is_some_and(|a| a.kind == Kind::Log) {
+                self.start_log_run(&name, now);
+            } else {
+                self.evaluate(&name, now);
+            }
         }
     }
 }

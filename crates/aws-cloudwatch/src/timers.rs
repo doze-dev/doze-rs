@@ -9,11 +9,13 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
+use aws_peers::Peers;
 use aws_wire::service::Caller;
 use doze_runtime::{Ctx, Lazy};
 use tokio::sync::watch;
 
 use crate::core::{Core, Request};
+use crate::log_eval::{LogOutcome, LogRun};
 
 /// A sleep is cut into pieces no longer than this, so a deadline far ahead does not meet the limit of the timer wheel.
 const LONGEST_SLEEP_MS: i64 = 86_400_000;
@@ -25,14 +27,62 @@ const AT_LEAST_MS: i64 = 250;
 pub(crate) struct Timers {
     ctx: Arc<Ctx>,
     regions: Mutex<HashMap<String, watch::Sender<Option<i64>>>>,
+    /// The bus a log alarm's query is run through.
+    peers: Option<Arc<Peers>>,
 }
 
 impl Timers {
-    pub(crate) fn new(ctx: Arc<Ctx>) -> Arc<Self> {
+    pub(crate) fn new(ctx: Arc<Ctx>, peers: Option<Arc<Peers>>) -> Arc<Self> {
         Arc::new(Self {
             ctx,
             regions: Mutex::new(HashMap::new()),
+            peers,
         })
+    }
+
+    /// Runs the log alarm queries an answer handed over, each in a task of its own that ends when its answer is judged.
+    pub(crate) fn launch(
+        self: &Arc<Self>,
+        region: &str,
+        actor: &Arc<Lazy<Core>>,
+        runs: Vec<(Caller, LogRun)>,
+    ) {
+        for (caller, run) in runs {
+            let (timers, actor, region) = (Arc::clone(self), Arc::clone(actor), region.to_owned());
+            let stopping = self.ctx.tasks.stopping();
+            self.ctx.tasks.spawn(async move {
+                tokio::select! {
+                    () = stopping.cancelled() => {}
+                    () = timers.run_log(region, actor, caller, run) => {}
+                }
+            });
+        }
+    }
+
+    async fn run_log(
+        self: Arc<Self>,
+        region: String,
+        actor: Arc<Lazy<Core>>,
+        caller: Caller,
+        run: LogRun,
+    ) {
+        let result = match &self.peers {
+            Some(peers) => crate::log_query::run(peers, &caller, &run).await,
+            // (memory)
+            None => Err("CloudWatch Logs is not running in doze-aws.".to_owned()),
+        };
+        let outcome = Box::new(LogOutcome { run, result });
+        if let Ok(mut answer) = actor
+            .call(Request::LogResult(caller.clone(), outcome))
+            .await
+        {
+            if let Some(saved) = answer.durable.take() {
+                // WHY: a failed save is the writer's to report; the next call finds the same state and says so.
+                drop(saved.await);
+            }
+            self.launch(&region, &actor, std::mem::take(&mut answer.log_runs));
+            self.arm(&region, &caller, &actor, answer.next_due);
+        }
     }
 
     /// Tells the region's timer its deadline, starting the task if there is a deadline and no task.
@@ -125,6 +175,7 @@ async fn run(
                     // WHY: a failed save is the writer's to report; the next call finds the same state and says so.
                     drop(saved.await);
                 }
+                timers.launch(&region, &actor, std::mem::take(&mut answer.log_runs));
                 answer.next_due
             }
             Err(_) => None,
