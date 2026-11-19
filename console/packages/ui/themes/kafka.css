@@ -1,0 +1,234 @@
+/* The doze-kafka theme: every role of @doze/ui, for light and for dark. Values only; no component is named here but one
+   (the sidebar's active marker, at the end).
+
+   Built on the logo's two colours, Bat yellow #FFD60A and Ink #16150F, over warm neutrals. Yellow is a FILL (buttons, the
+   active item, selection, a new row, the focus ring) and never text on a light ground (it fails contrast there): text that
+   must stand out is --link, a deep amber in light and the yellow itself in dark. The theme is a class on <html>
+   (lib/theme.ts); without one, the media query decides, so the first paint is already in the right theme.
+
+   Copied from web/src/index.css (Kafka's console), so a page drawn with this file looks as Kafka's does today. Added for the
+   shared library: --destructive-foreground and --scrim (they were `text-white` and `bg-black/50` in the components), and the
+   type, density and motion roles, set to what the components had hard-coded. */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/inter-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+  /* The doze family's display face (doze-dev.com), for the wordmark and the Home hero only. OFL-1.1. */
+  font-family: "Bricolage Grotesque";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("./fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("./fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url("./fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2");
+}
+
+:root {
+  --radius: 0.625rem; /* 10 px: the kit's buttons and fields */
+
+  /* Type (the families are named here; the files are beside this one). */
+  --font-sans: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Bricolage Grotesque", "Inter", -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --body-size: 14px;
+  --body-leading: 1.5;
+
+  /* Density: a control's height and a table row's. */
+  --control-h: 2.25rem;
+  --row-h: 40px;
+
+  /* Motion: an overlay coming in and going out, their curve, and how long a new row stays highlighted. */
+  --dur-in: 200ms;
+  --dur-out: 150ms;
+  --ease: cubic-bezier(0, 0, 0.2, 1);
+  --dur-highlight: 1.5s;
+
+  --background: #faf9f5;
+  --foreground: #38352b;
+  --card: #ffffff;
+  --card-foreground: #38352b;
+  --popover: #ffffff;
+  --popover-foreground: #38352b;
+  --primary: #ffd60a;
+  --primary-foreground: #16150f;
+  --secondary: #f3f1e9;
+  --secondary-foreground: #16150f;
+  --muted: #f3f1e9;
+  --muted-foreground: #6b6759;
+  --accent: #f0ede4;
+  --accent-foreground: #16150f;
+  --destructive: #c42e48;
+  --border: #e6e2d4;
+  --input: #d6d1bf;
+  --ring: #e0ad00;
+
+  --destructive-foreground: #ffffff;
+  --scrim: rgba(0, 0, 0, 0.5);
+
+  --bright: #16150f;
+  --link: #8a6300;
+  --good: #17773f;
+  --warn: #b5530b;
+  --cool: #2f62d9;
+  --bad: #c42e48;
+  --refused: #a3279a;
+  --pick: #fff0a6;
+  --track: #ece9de;
+  --well: #f5f3ec;
+  --hatch: rgba(22, 21, 15, 0.28);
+
+  --tint-good: #e8f4ec;
+  --tint-good-line: #b7dbc4;
+  --tint-warn: #fdeee2;
+  --tint-warn-line: #efc9a6;
+  --tint-brand: #fff6cc;
+  --tint-brand-line: #f2d971;
+  --tint-cool: #edf2fd;
+  --tint-cool-line: #c6d6f5;
+
+  --sidebar: #f4f2ea;
+  --sidebar-foreground: #38352b;
+  --sidebar-primary: #16150f;
+  --sidebar-primary-foreground: #ffd60a;
+  --sidebar-accent: #e9e5da;
+  --sidebar-accent-foreground: #16150f;
+  --sidebar-border: #e6e2d4;
+  --sidebar-ring: #e0ad00;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #121110;
+    --foreground: #d8d4c6;
+    --card: #1a1916;
+    --card-foreground: #d8d4c6;
+    --popover: #1f1e1a;
+    --popover-foreground: #e6e2d4;
+    --primary: #ffd60a;
+    --primary-foreground: #16150f;
+    --secondary: #24221d;
+    --secondary-foreground: #f4f1e6;
+    --muted: #24221d;
+    --muted-foreground: #9d988a;
+    --accent: #2c2a22;
+    --accent-foreground: #f4f1e6;
+    --destructive: #ff6b7f;
+    --border: #2f2d26;
+    --input: #3d3a31;
+    --ring: #ffd60a;
+    --destructive-foreground: #ffffff;
+    --scrim: rgba(0, 0, 0, 0.5);
+
+    --bright: #f7f5ee;
+    --link: #ffd60a;
+    --good: #52c98d;
+    --warn: #f29b4f;
+    --cool: #7aa5ff;
+    --bad: #ff6b7f;
+    --refused: #e386dc;
+    --pick: #3d3514;
+    --track: #2a2823;
+    --well: #1d1c18;
+    --hatch: rgba(247, 245, 238, 0.3);
+
+    --tint-good: #16291e;
+    --tint-good-line: #2c5a3f;
+    --tint-warn: #2f2014;
+    --tint-warn-line: #6a4422;
+    --tint-brand: #2e2810;
+    --tint-brand-line: #6b5a14;
+    --tint-cool: #172036;
+    --tint-cool-line: #2f4677;
+
+    --sidebar: #161512;
+    --sidebar-foreground: #d8d4c6;
+    --sidebar-primary: #ffd60a;
+    --sidebar-primary-foreground: #16150f;
+    --sidebar-accent: #2a2716;
+    --sidebar-accent-foreground: #fff3b8;
+    --sidebar-border: #2a2823;
+    --sidebar-ring: #ffd60a;
+    color-scheme: dark;
+  }
+}
+:root.dark {
+  --background: #121110;
+  --foreground: #d8d4c6;
+  --card: #1a1916;
+  --card-foreground: #d8d4c6;
+  --popover: #1f1e1a;
+  --popover-foreground: #e6e2d4;
+  --primary: #ffd60a;
+  --primary-foreground: #16150f;
+  --secondary: #24221d;
+  --secondary-foreground: #f4f1e6;
+  --muted: #24221d;
+  --muted-foreground: #9d988a;
+  --accent: #2c2a22;
+  --accent-foreground: #f4f1e6;
+  --destructive: #ff6b7f;
+  --border: #2f2d26;
+  --input: #3d3a31;
+  --ring: #ffd60a;
+  --destructive-foreground: #ffffff;
+  --scrim: rgba(0, 0, 0, 0.5);
+
+  --bright: #f7f5ee;
+  --link: #ffd60a;
+  --good: #52c98d;
+  --warn: #f29b4f;
+  --cool: #7aa5ff;
+  --bad: #ff6b7f;
+  --refused: #e386dc;
+  --pick: #3d3514;
+  --track: #2a2823;
+  --well: #1d1c18;
+  --hatch: rgba(247, 245, 238, 0.3);
+
+  --tint-good: #16291e;
+  --tint-good-line: #2c5a3f;
+  --tint-warn: #2f2014;
+  --tint-warn-line: #6a4422;
+  --tint-brand: #2e2810;
+  --tint-brand-line: #6b5a14;
+  --tint-cool: #172036;
+  --tint-cool-line: #2f4677;
+
+  --sidebar: #161512;
+  --sidebar-foreground: #d8d4c6;
+  --sidebar-primary: #ffd60a;
+  --sidebar-primary-foreground: #16150f;
+  --sidebar-accent: #2a2716;
+  --sidebar-accent-foreground: #fff3b8;
+  --sidebar-border: #2a2823;
+  --sidebar-ring: #ffd60a;
+  color-scheme: dark;
+}
+
+/* Light: the active sidebar item is a neutral ground with a yellow marker on its left edge (a yellow ground looked washed out
+   on paper); dark keeps its tinted ground. */
+html:not(.dark) [data-sidebar="menu-button"][data-active="true"] {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+/* The marker is a box-shadow, and so is the focus ring: with the focus on the active item both are drawn. (In web/src/index.css
+   the marker alone won, and the active item showed no ring; the gallery's focus test found it.) */
+html:not(.dark) [data-sidebar="menu-button"][data-active="true"]:focus-visible {
+  box-shadow: inset 3px 0 0 var(--primary), 0 0 0 2px var(--sidebar-ring);
+}

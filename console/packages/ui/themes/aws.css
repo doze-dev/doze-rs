@@ -1,0 +1,210 @@
+/* The doze-aws theme, "Paper" (direction B of the console's design): every role of @doze/ui, for light and for dark.
+   Values only.
+
+   Where the values come from: the design canvas. Light is the palette every direction-B board is drawn in (Live B: paper
+   #fbfaff, ink #17141f, the violet accent #7a4fe0, the rail #f3f1fa); dark is the "Dark violet" column of the System board's
+   role table. Both are the doze brand's violet set. A value the canvas does not give is marked "provisional" on its line:
+   it is a guess in the same family, to be replaced when the brand generator has the role.
+
+   Paper is a light design: light is what the boards show. Dark exists so the console follows the OS and the person's choice,
+   and has been looked at only in the gallery. */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/inter-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("./fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url("./fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2");
+}
+
+:root {
+  --radius: 0.625rem; /* canvas: radius 7, 10, 12; 10 px is a button and a field */
+
+  /* Type. canvas: Inter for text (the wordmark and the page titles too), JetBrains Mono for names, numbers and times. */
+  --font-sans: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --body-size: 13.5px; /* canvas: 13 and 14 are the text sizes; provisional between them */
+  --body-leading: 1.5;
+
+  /* Density: a little tighter than doze-kafka (canvas: buttons and fields are 32 px). The row is provisional. */
+  --control-h: 2rem;
+  --row-h: 36px;
+
+  /* Motion. canvas: panels and drawers 200 ms. */
+  --dur-in: 200ms;
+  --dur-out: 160ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-highlight: 1.5s;
+
+  --background: #fbfaff; /* canvas: bg */
+  --foreground: #3a3550; /* canvas: text */
+  --card: #ffffff; /* canvas: panel */
+  --card-foreground: #3a3550;
+  --popover: #ffffff;
+  --popover-foreground: #3a3550;
+  --primary: #7a4fe0; /* canvas: accent */
+  --primary-foreground: #ffffff;
+  --secondary: #f3f1fa;
+  --secondary-foreground: #17141f;
+  --muted: #f6f4fb; /* canvas: the chip and pill ground */
+  --muted-foreground: #6f6888; /* canvas: dim */
+  --accent: #ece6fb; /* canvas: the chosen rail item and the selected row */
+  --accent-foreground: #17141f;
+  --destructive: #cc3550; /* canvas: bad */
+  --destructive-foreground: #ffffff;
+  --border: #e4e0f0; /* canvas: line */
+  --input: #d4cde6; /* canvas: the border of a button and a field */
+  --ring: #7a4fe0;
+  --scrim: rgba(23, 20, 31, 0.42); /* provisional: bright, thinned */
+
+  --bright: #17141f; /* canvas: bright */
+  --link: #2f62d9; /* canvas: cool is "information, links" */
+  --good: #17773f;
+  --warn: #9a6400;
+  --cool: #2f62d9;
+  --bad: #cc3550;
+  --refused: #a3279a; /* canvas, Live B: the REFUSED word of the call tape */
+  --pick: #ece6fb;
+  --track: #ece8f5; /* canvas: the segmented control's ground */
+  --well: #f6f4fb;
+
+  --tint-good: #e8f4ec; /* provisional, as are all tints but brand */
+  --tint-good-line: #b7dbc4;
+  --tint-warn: #fbf1dc;
+  --tint-warn-line: #e8cf96;
+  --tint-brand: #f1ecff; /* canvas, System: the callout */
+  --tint-brand-line: #d9cffa;
+  --tint-cool: #e6edfc;
+  --tint-cool-line: #c6d6f5;
+
+  --sidebar: #f3f1fa; /* canvas: side */
+  --sidebar-foreground: #3a3550;
+  --sidebar-primary: #7a4fe0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ece6fb;
+  --sidebar-accent-foreground: #17141f;
+  --sidebar-border: #e4e0f0;
+  --sidebar-ring: #7a4fe0;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #15131d; /* canvas: bg */
+    --foreground: #cfcbe3; /* canvas: text */
+    --card: #1b1927; /* canvas: panel */
+    --card-foreground: #cfcbe3;
+    --popover: #201d2e; /* provisional: panel, one step up */
+    --popover-foreground: #e2def2;
+    --primary: #bd93f9; /* canvas: accent */
+    --primary-foreground: #15131d;
+    --secondary: #231f33;
+    --secondary-foreground: #f4f1ff;
+    --muted: #211e30;
+    --muted-foreground: #8a85a8; /* canvas: dim */
+    --accent: #2a2540;
+    --accent-foreground: #f4f1ff;
+    --destructive: #ff7a93; /* canvas: bad */
+    --destructive-foreground: #ffffff; /* on the dimmed fill a destructive button has in dark */
+    --border: #2c2840; /* canvas: line */
+    --input: #3d3857;
+    --ring: #bd93f9;
+    --scrim: rgba(6, 5, 10, 0.6);
+
+    --bright: #f4f1ff; /* canvas: bright */
+    --link: #82aaff; /* canvas: cool */
+    --good: #7ee787;
+    --warn: #f2c879;
+    --cool: #82aaff;
+    --bad: #ff7a93;
+    --refused: #e386dc; /* provisional: the canvas leaves the dark hue open */
+    --pick: #2f2750;
+    --track: #262238;
+    --well: #191724;
+
+    --tint-good: #16291e;
+    --tint-good-line: #2c5a3f;
+    --tint-warn: #2c2413;
+    --tint-warn-line: #655021;
+    --tint-brand: #241d3d;
+    --tint-brand-line: #45357a;
+    --tint-cool: #172036;
+    --tint-cool-line: #2f4677;
+
+    --sidebar: #110f18; /* canvas: side */
+    --sidebar-foreground: #cfcbe3;
+    --sidebar-primary: #bd93f9;
+    --sidebar-primary-foreground: #15131d;
+    --sidebar-accent: #272240;
+    --sidebar-accent-foreground: #f4f1ff;
+    --sidebar-border: #2c2840;
+    --sidebar-ring: #bd93f9;
+    color-scheme: dark;
+  }
+}
+:root.dark {
+  --background: #15131d; /* canvas: bg */
+  --foreground: #cfcbe3; /* canvas: text */
+  --card: #1b1927; /* canvas: panel */
+  --card-foreground: #cfcbe3;
+  --popover: #201d2e; /* provisional: panel, one step up */
+  --popover-foreground: #e2def2;
+  --primary: #bd93f9; /* canvas: accent */
+  --primary-foreground: #15131d;
+  --secondary: #231f33;
+  --secondary-foreground: #f4f1ff;
+  --muted: #211e30;
+  --muted-foreground: #8a85a8; /* canvas: dim */
+  --accent: #2a2540;
+  --accent-foreground: #f4f1ff;
+  --destructive: #ff7a93; /* canvas: bad */
+  --destructive-foreground: #ffffff; /* on the dimmed fill a destructive button has in dark */
+  --border: #2c2840; /* canvas: line */
+  --input: #3d3857;
+  --ring: #bd93f9;
+  --scrim: rgba(6, 5, 10, 0.6);
+
+  --bright: #f4f1ff; /* canvas: bright */
+  --link: #82aaff; /* canvas: cool */
+  --good: #7ee787;
+  --warn: #f2c879;
+  --cool: #82aaff;
+  --bad: #ff7a93;
+  --refused: #e386dc; /* provisional: the canvas leaves the dark hue open */
+  --pick: #2f2750;
+  --track: #262238;
+  --well: #191724;
+
+  --tint-good: #16291e;
+  --tint-good-line: #2c5a3f;
+  --tint-warn: #2c2413;
+  --tint-warn-line: #655021;
+  --tint-brand: #241d3d;
+  --tint-brand-line: #45357a;
+  --tint-cool: #172036;
+  --tint-cool-line: #2f4677;
+
+  --sidebar: #110f18; /* canvas: side */
+  --sidebar-foreground: #cfcbe3;
+  --sidebar-primary: #bd93f9;
+  --sidebar-primary-foreground: #15131d;
+  --sidebar-accent: #272240;
+  --sidebar-accent-foreground: #f4f1ff;
+  --sidebar-border: #2c2840;
+  --sidebar-ring: #bd93f9;
+  color-scheme: dark;
+}

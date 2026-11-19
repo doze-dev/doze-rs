@@ -1,0 +1,25 @@
+{
+  "name": "doze-console",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "build": "bun run --cwd packages/ui build && bun run --cwd apps/gallery build",
+    "typecheck": "bun run --cwd packages/ui typecheck && bun run --cwd apps/gallery typecheck",
+    "lint": "bunx --bun eslint --max-warnings 0 . && bun packages/ui/scripts/colour-lint.ts",
+    "test": "bun run --cwd packages/ui test",
+    "e2e": "bun run --cwd apps/gallery e2e",
+    "install-browsers": "bun run --cwd apps/gallery install-browsers"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/bun": "1.4.4",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "17.14.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2"
+  }
+}
