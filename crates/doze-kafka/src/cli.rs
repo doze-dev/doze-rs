@@ -273,7 +273,7 @@ impl Args {
         broker.log_cleaner_every = self.log_cleaner_interval;
         broker.log_cleaner_enable = self.log_cleaner_enable;
         broker.client_telemetry = self.client_telemetry;
-        broker.unstable_api_versions = self.unstable_api_versions;
+        
         broker.transaction_two_phase_commit = self.transaction_two_phase_commit;
         broker.transaction_version = transaction_version(major);
         broker.max_open_partitions = self.max_open_partitions;

@@ -367,7 +367,8 @@ with_the_broker_setting_a_two_phase_commit_has_no_timeout, a_two_phase_commit_fe
 the_transaction_of_a_two_phase_commit_never_times_out, enable2pc_needs_two_phase_commit_on_the_id_as_well_as_write}`,
 `rules::tests::a_two_phase_commit_has_no_timeout_and_never_expires`,
 `profile::tests::init_producer_id_v6_is_offered_only_with_the_unstable_versions`, `recorded_unstable_api_versions::*`,
-`cli::tests::unstable_versions_and_two_phase_commit_are_off_unless_asked_for`.
+`cli::tests::unstable_versions_and_two_phase_commit_are_off_unless_asked_for`, `kafka-server tests/unstable_versions.rs` (on a socket: v6
+closed unanswered with the defaults, answered with the unstable versions).
 
 The wire-tail oracle (`tools/wire-tail-oracle/Probe.java`), run against Kafka 4.4.0 in four settings (the defaults, the unstable
 versions, both, the two-phase setting alone) and against doze-kafka with the same flags, answers the same lines but one, in every
