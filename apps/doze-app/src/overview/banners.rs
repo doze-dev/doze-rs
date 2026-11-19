@@ -178,7 +178,39 @@ pub(super) fn banners(
     if let Some(su) = &v.home.setup {
         out.push(setup(t, su, cx));
     }
+    if let Some(sk) = &v.home.skew {
+        out.push(skew(t, sk, cx));
+    }
     out
+}
+
+/// An older doze than the app's own (doze-desk `skew`): a daemon's is fixed by restarting the stack, which brings it
+/// up on the app's doze; the CLI's by what the detail says.
+fn skew(t: &Tokens, sk: &doze_desk::skew::Skew, cx: &mut Context<OverviewView>) -> AnyElement {
+    let mut buttons = Vec::new();
+    if sk.whose == doze_desk::skew::Whose::Daemon {
+        buttons.push(
+            btn(
+                t,
+                "restart-on-own",
+                "Restart the stack",
+                "",
+                Btn::Primary,
+                Some(Box::new(cx.listener(|this, _, _, cx| {
+                    this.stack_act(StackAction::Restart, cx);
+                }))),
+            )
+            .probe("restart-on-own", "Restart the stack")
+            .into_any_element(),
+        );
+    }
+    banner(
+        t,
+        "banner-skew",
+        (t.warn, Mark::Dot(t.warn)),
+        (&sk.text, &sk.detail),
+        buttons,
+    )
 }
 
 /// The domains' setup (Go `home.setup`): what is not reachable yet and what is missing; Set up the machine (one

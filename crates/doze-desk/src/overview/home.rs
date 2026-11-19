@@ -48,6 +48,9 @@ pub struct Home {
     /// The stack's own domains are not all set up on this machine.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub setup: Option<crate::machine_names::Setup>,
+    /// The stack's daemon, or the doze the app runs, is older than the app.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skew: Option<crate::skew::Skew>,
 }
 
 /// A heading over part of the stack.

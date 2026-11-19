@@ -2733,6 +2733,7 @@ dependencies = [
  "doze-desk",
  "doze-display",
  "doze-map",
+ "doze-module-proto",
  "doze-os",
  "doze-projects",
  "gpui-component",
