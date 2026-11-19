@@ -9,6 +9,10 @@
 //!
 //! The verdict is given on the request's header alone, so the body of a stranger's request is never decoded
 //! for an API it may not use.
+//!
+//! A SaslHandshake at v0 asks for the oldest framing (Kafka before KIP-152): what follows the handshake is not Kafka
+//! requests but the mechanism's raw tokens, each a size-prefixed frame of its own, answered by the server's raw token
+//! (`RawHandshaken`, `RawChallenged`; SEC-401). Every Kafka major serves it, as the recorded brokers do.
 
 use kafka_auth::scram::Awaiting;
 use kafka_auth::{Mechanism, Principal};
@@ -28,6 +32,10 @@ pub(crate) enum Session {
     /// A SCRAM login whose first message was answered: the exchange it holds is waiting for the final one. It
     /// is the only state that holds anything a client made up (a nonce), and it is dropped with the connection.
     Challenged(Awaiting),
+    /// As [`Session::Handshaken`] after a SaslHandshake v0: the next frame is the first raw token, not a request.
+    RawHandshaken(Mechanism),
+    /// As [`Session::Challenged`] after a SaslHandshake v0: the next frame is the final raw token.
+    RawChallenged(Awaiting),
     /// Logged in, as this principal, for the life of the connection.
     Authenticated(Principal),
 }
@@ -71,9 +79,14 @@ impl Session {
                 Verdict::IllegalState { stays_open: true }
             }
             (Self::Authenticated(_), _) => Verdict::Serve,
-            (Self::Unauthenticated { .. } | Self::Handshaken(_) | Self::Challenged(_), _) => {
-                Verdict::Close
-            }
+            (
+                Self::Unauthenticated { .. }
+                | Self::Handshaken(_)
+                | Self::Challenged(_)
+                | Self::RawHandshaken(_)
+                | Self::RawChallenged(_),
+                _,
+            ) => Verdict::Close,
         }
     }
 
@@ -82,6 +95,11 @@ impl Session {
         if let Self::Unauthenticated { versions_answered } = self {
             *versions_answered = true;
         }
+    }
+
+    /// Whether the next frame is a raw SASL token (after a SaslHandshake v0) and not a request.
+    pub(crate) fn wants_raw_token(&self) -> bool {
+        matches!(self, Self::RawHandshaken(_) | Self::RawChallenged(_))
     }
 
     /// Whether the login is complete.

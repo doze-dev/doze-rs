@@ -153,15 +153,23 @@ async fn serve_loop<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
             Ok(frame) => frame,
             Err(end) => return end,
         };
-        let ears = Ears {
-            ctx,
-            listener: &listener,
-            caller: &caller,
-            watch,
-        };
-        let mute = match exchange::exchange(stream, ears, &mut session, frame, stop).await {
-            Ok(mute) => mute,
-            Err(end) => return end,
+        let mute = if let Some(s) = session.as_mut().filter(|s| s.wants_raw_token()) {
+            // After a SaslHandshake v0 the frame is the mechanism's raw token, not a request.
+            match exchange::raw_token(stream, ctx, s, frame, stop).await {
+                Ok(()) => None,
+                Err(end) => return end,
+            }
+        } else {
+            let ears = Ears {
+                ctx,
+                listener: &listener,
+                caller: &caller,
+                watch,
+            };
+            match exchange::exchange(stream, ears, &mut session, frame, stop).await {
+                Ok(mute) => mute,
+                Err(end) => return end,
+            }
         };
         // A client over a quota: its answer has gone, and nothing more is read from it until the throttle time is over
         // (KIP-219). What it sends meanwhile waits in the socket.
