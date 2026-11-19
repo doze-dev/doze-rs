@@ -53,6 +53,17 @@ pub fn query(raw: &str, name: &str) -> Option<String> {
     })
 }
 
+/// Every value of `name` in a raw query string, in order.
+#[must_use]
+pub fn query_all(raw: &str, name: &str) -> Vec<String> {
+    raw.split('&')
+        .filter_map(|pair| {
+            let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
+            (unescape(k, true)? == name).then(|| unescape(v, true)).flatten()
+        })
+        .collect()
+}
+
 /// A query flag as Confluent's framework reads one (Java's `Boolean.valueOf` of the first value): `true` in any case;
 /// anything else, `1` and `t` too, is false.
 #[must_use]

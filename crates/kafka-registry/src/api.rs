@@ -83,6 +83,10 @@ impl Call<'_> {
         text::query(&self.req.query, name)
     }
 
+    pub(crate) fn query_all(&self, name: &str) -> Vec<String> {
+        text::query_all(&self.req.query, name)
+    }
+
     pub(crate) fn origin(&self) -> Origin {
         Origin {
             user: self.user.clone(),

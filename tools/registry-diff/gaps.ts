@@ -93,6 +93,23 @@ message M {
   int32 v = 1 [(width) = 010, deprecated = false];
 }
 `,
+  // A non-repeated custom option set twice on one message field: 8.x merges the literals deep, 7.7.1 makes a list.
+  merge: `syntax = "proto3";
+package mg;
+import "google/protobuf/descriptor.proto";
+message Sub { int32 a = 1; int32 b = 2; }
+message Rule { int32 min = 1; Sub sub = 2; repeated int32 tags = 3; }
+extend google.protobuf.MessageOptions { Rule rule = 51000; }
+message M {
+  option (rule).sub.a = 5;
+  option (rule).sub.b = 6;
+  option (rule).min = 1;
+  option (rule).min = 2;
+  option (rule).tags = 1;
+  option (rule).tags = 1;
+  int32 v = 1;
+}
+`,
   // Numbers in options as Java's DecimalFormat writes them, an extension key in a message literal.
   numbers: `syntax = "proto2";
 package nums;
@@ -293,8 +310,6 @@ const huge = [
   '{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"array","minItems":1.0}',
   '{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"array","minItems":99999999999}',
   '{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"number","minimum":1e-2147483649}',
-  // Last: Confluent takes [0.0, 0], which this registry refuses as a repeated value (REG-D29).
-  '{"type":"number","enum":[1e-2147483649, 0]}',
 ];
 
 const jsonHuge: Step[] = [
@@ -311,9 +326,215 @@ const jsonHuge: Step[] = [
   put("/config/jhc", JSON.stringify({ compatibility: "BACKWARD" })),
   post("/compatibility/subjects/jhc/versions/latest?verbose=true", reg('{"type":"number","minimum":1e-2147483649}', { schemaType: "JSON" })),
   post("/compatibility/subjects/jhc/versions/latest?verbose=true", reg('{"type":"number","minimum":1e-2147483647}', { schemaType: "JSON" })),
+  // Last: Confluent takes [0.0, 0], which this registry refuses as a repeated value (REG-D29).
+  post("/subjects/jhe/versions", reg('{"type":"number","enum":[1e-2147483649, 0]}', { schemaType: "JSON" })),
+  get("/subjects/jhe/versions/latest/schema"),
 ];
 
 export const gaps: Record<string, Step[]> = {
   ...protoNormalize,
   "json-schema-huge-numbers": jsonHuge,
 };
+
+// ---------- Data contracts ----------
+
+const user = { type: "record", name: "User", namespace: "com.example", fields: [{ name: "id", type: "long" }] };
+const user2 = { ...user, fields: [...user.fields, { name: "email", type: ["null", "string"], default: null }] };
+const userBad = { ...user, fields: [{ name: "id", type: "string" }] };
+const meta = { properties: { owner: "a", b: "2" }, tags: { "com.example.User.id": ["PII", "ID"] }, sensitive: ["s2", "s1"] };
+const rule = (name: string, extra: Record<string, unknown> = {}) => ({ name, kind: "CONDITION", mode: "WRITE", type: "CEL", expr: "true", ...extra });
+const av = (schema: unknown, extra: Record<string, unknown> = {}) => reg(schema as object, extra);
+
+const contracts: Record<string, Step[]> = {
+  "data-contracts/register-and-read": [
+    post("/subjects/dc/versions", av(user, { metadata: meta })),
+    get("/subjects/dc/versions/latest"),
+    get("/subjects/dc/versions/1"),
+    get("/schemas/ids/@1"),
+    get("/schemas/ids/@1/schema"),
+    get("/subjects/dc/versions/latest/schema"),
+    // The same schema without metadata takes the latest version's: it is that version.
+    post("/subjects/dc/versions", av(user)),
+    // The same schema with other metadata is a new schema, and a new version.
+    post("/subjects/dc/versions", av(user, { metadata: { properties: { owner: "b" } } })),
+    get("/subjects/dc/versions"),
+    get("/subjects/dc/versions/2"),
+    get("/schemas/ids/@2"),
+    // Lookups: as sent, with the first version's metadata, with metadata no version has.
+    post("/subjects/dc", av(user)),
+    post("/subjects/dc", av(user, { metadata: meta })),
+    post("/subjects/dc", av(user, { metadata: { properties: { owner: "b" } } })),
+    post("/subjects/dc", av(user, { metadata: { properties: { owner: "zzz" } } })),
+    // A new schema carries the latest version's metadata forward.
+    post("/subjects/dc/versions", av(user2)),
+    get("/subjects/dc/versions/latest"),
+    get("/schemas/ids/@3"),
+    post("/subjects/dc/versions", av(user2)),
+    // The same schema and contract under another subject has the same id.
+    post("/subjects/dc-other/versions", av(user2, { metadata: { properties: { owner: "b" } } })),
+    get("/schemas?subjectPrefix=dc"),
+    get("/schemas/ids/@3/versions"),
+    // A version asked for: confluent:version is set.
+    post("/subjects/dc/versions", av(userBad, { version: 6, metadata: { properties: { owner: "c" } } })),
+    put("/config/dc", JSON.stringify({ compatibility: "NONE" })),
+    post("/subjects/dc/versions", av(userBad, { version: 6, metadata: { properties: { owner: "c" } } })),
+    get("/subjects/dc/versions/latest"),
+    post("/subjects/dc/versions", av(user, { version: 7 })),
+    get("/subjects/dc/versions/latest"),
+    post("/subjects/dc/versions", av(user2)),
+    get("/subjects/dc/versions/latest"),
+    // An empty metadata and rule set.
+    post("/subjects/dc-empty/versions", av(user, { metadata: {} })),
+    get("/subjects/dc-empty/versions/latest"),
+    post("/subjects/dc-empty/versions", av(user, { metadata: { properties: {} } })),
+    get("/subjects/dc-empty/versions"),
+  ],
+
+  "data-contracts/latest-with-metadata": [
+    post("/subjects/lm/versions", av(user, { metadata: { properties: { owner: "a", env: "x" } } })),
+    post("/subjects/lm/versions", av(user2, { metadata: { properties: { owner: "b", env: "x" } } })),
+    get("/subjects/lm/metadata?key=owner&value=a"),
+    get("/subjects/lm/metadata?key=owner&value=b"),
+    get("/subjects/lm/metadata?key=env&value=x"),
+    get("/subjects/lm/metadata?key=owner&value=a&key=env&value=x"),
+    get("/subjects/lm/metadata?key=owner&value=a&key=env&value=y"),
+    get("/subjects/lm/metadata?key=owner&value=nope"),
+    get("/subjects/lm/metadata?key=owner"),
+    get("/subjects/lm/metadata"),
+    get("/subjects/nosuch/metadata?key=owner&value=a"),
+    del("/subjects/lm/versions/1"),
+    get("/subjects/lm/metadata?key=owner&value=a"),
+    get("/subjects/lm/metadata?key=owner&value=a&deleted=true"),
+    del("/subjects/lm"),
+    get("/subjects/lm/metadata?key=env&value=x"),
+    get("/subjects/lm/metadata?key=env&value=x&deleted=true"),
+    // A soft-deleted version with metadata, and the lookups that may see it.
+    post("/subjects/lm2/versions", av(user, { metadata: { properties: { owner: "a" } } })),
+    post("/subjects/lm2/versions", av(user2)),
+    del("/subjects/lm2/versions/1"),
+    post("/subjects/lm2", av(user, { metadata: { properties: { owner: "a" } } })),
+    post("/subjects/lm2?deleted=true", av(user, { metadata: { properties: { owner: "a" } } })),
+    post("/subjects/lm2/versions", av(user, { metadata: { properties: { owner: "a" } } })),
+    get("/subjects/lm2/versions?deleted=true"),
+    get("/subjects/lm2/versions/latest"),
+  ],
+
+  "data-contracts/config-defaults-and-overrides": [
+    put(
+      "/config/cfg",
+      JSON.stringify({
+        defaultMetadata: { properties: { team: "x", owner: "dflt" } },
+        overrideMetadata: { properties: { owner: "forced" }, sensitive: ["k"], tags: { f: ["b", "a"] } },
+      }),
+    ),
+    get("/config/cfg"),
+    post("/subjects/cfg/versions", av(user)),
+    get("/subjects/cfg/versions/latest"),
+    post("/subjects/cfg/versions", av(user)),
+    post("/subjects/cfg/versions", av(user, { metadata: { properties: { owner: "mine", other: "y" } } })),
+    get("/subjects/cfg/versions/latest"),
+    post("/subjects/cfg", av(user)),
+    post("/subjects/cfg", av(user, { metadata: { properties: { owner: "mine", other: "y" } } })),
+    post("/compatibility/subjects/cfg/versions/latest?verbose=true", av(user2)),
+    // The global defaults reach a subject with none of its own.
+    put("/config", JSON.stringify({ defaultMetadata: { properties: { global: "g" } } })),
+    get("/config"),
+    post("/subjects/cfg-global/versions", av(user)),
+    get("/subjects/cfg-global/versions/latest"),
+    // A subject's own configuration replaces the global one whole.
+    put("/config/cfg-own", JSON.stringify({ compatibility: "NONE" })),
+    post("/subjects/cfg-own/versions", av(user)),
+    get("/subjects/cfg-own/versions/latest"),
+    del("/config/cfg"),
+    post("/subjects/cfg/versions", av(user2)),
+    get("/subjects/cfg/versions/latest"),
+    del("/config"),
+  ],
+
+  "data-contracts/compatibility-group": [
+    put("/config/cg", JSON.stringify({ compatibility: "BACKWARD", compatibilityGroup: "major" })),
+    post("/subjects/cg/versions", av(user, { metadata: { properties: { major: "1" } } })),
+    post("/compatibility/subjects/cg/versions/latest?verbose=true", av(userBad, { metadata: { properties: { major: "1" } } })),
+    post("/subjects/cg/versions", av(userBad, { metadata: { properties: { major: "1" } } })),
+    post("/compatibility/subjects/cg/versions/latest?verbose=true", av(userBad, { metadata: { properties: { major: "2" } } })),
+    post("/subjects/cg/versions", av(userBad, { metadata: { properties: { major: "2" } } })),
+    // Without metadata, the new schema takes the latest version's group.
+    post("/subjects/cg/versions", av(user)),
+    post("/compatibility/subjects/cg/versions?verbose=true", av(user2)),
+    post("/subjects/cg/versions", av(user2, { metadata: { properties: {} } })),
+    get("/subjects/cg/versions"),
+    put("/config/cg", JSON.stringify({ compatibility: "BACKWARD_TRANSITIVE" })),
+    post("/subjects/cg/versions", av({ ...user, fields: [{ name: "id", type: "int" }] }, { metadata: { properties: { major: "2" } } })),
+    get("/config/cg"),
+  ],
+
+  // What Jackson refuses before anything else, rule sets included (the community image refuses these too).
+  "data-contracts/errors": [
+    post("/subjects/de/versions", av(user, { ruleSet: { domainRules: [rule("me", { kind: "NOPE" })] } })),
+    post("/subjects/de/versions", av(user, { ruleSet: { domainRules: [rule("mf", { mode: "write" })] } })),
+    post("/subjects/de/versions", av(user, { metadata: [] })),
+    post("/subjects/de/versions", av(user, { metadata: "x" })),
+    post("/subjects/de/versions", av(user, { metadata: 5 })),
+    post("/subjects/de/versions", av(user, { metadata: { properties: { a: 1, b: true } } })),
+    post("/subjects/de/versions", av(user, { metadata: { tags: { a: "x" } } })),
+    post("/subjects/de/versions", av(user, { metadata: { unknown: 1, properties: { u: "v" } } })),
+    get("/subjects/de/versions/latest"),
+    post("/subjects/de/versions", av(user, { ruleSet: [] })),
+    post("/subjects/de/versions", av(user, { ruleSet: { domainRules: {} } })),
+    put("/config/de", JSON.stringify({ defaultMetadata: [] })),
+    put("/config/de", JSON.stringify({ overrideMetadata: { properties: { z: "1", a: "2" }, tags: { t: ["y", "x"] } } })),
+    get("/config/de"),
+  ],
+
+  // Rule sets, kept as Confluent Enterprise and Cloud keep them; the community image (the reference here) drops them
+  // with "RuleSets are only supported by Confluent Enterprise and Confluent Cloud", so every step differs (REG-D30).
+  "data-contracts/rule-sets": [
+    post("/subjects/rs/versions", av(user, { ruleSet: { domainRules: [rule("a"), rule("a")] } })),
+    post("/subjects/rs/versions", av(user, { ruleSet: { domainRules: [rule("a")], migrationRules: [rule("a", { mode: "UPGRADE" })] } })),
+    post("/subjects/rs/versions", av(user, { ruleSet: { domainRules: [{ kind: "CONDITION", mode: "WRITE", type: "CEL" }] } })),
+    post("/subjects/rs/versions", av(user, { ruleSet: { domainRules: [rule("")] } })),
+    post("/subjects/rs/versions", av(user, { ruleSet: { domainRules: [rule("1abc")] } })),
+    post("/subjects/rs/versions", av(user, { ruleSet: { domainRules: [rule("a.b")] } })),
+    post("/subjects/rs/versions", av(user, { ruleSet: { domainRules: [rule("x".repeat(65))] } })),
+    post("/subjects/rs/versions", av(user, { ruleSet: { domainRules: [{ name: "nt", kind: "CONDITION", mode: "WRITE" }] } })),
+    post("/subjects/rs/versions", av(user, { ruleSet: { domainRules: [rule("ma", { onFailure: "ERROR,NONE" })] } })),
+    post("/subjects/rs/versions", av(user, { ruleSet: { domainRules: [rule("mc", { mode: "UPGRADE" })] } })),
+    post("/subjects/rs/versions", av(user, { ruleSet: { migrationRules: [rule("md")] } })),
+    post("/subjects/rs/versions", av(user, { ruleSet: { encodingRules: [rule("me", { mode: "UPGRADE" })] } })),
+    // Valid: defaults filled in, unknown keys read past, sorted tags and params.
+    post("/subjects/rs/versions", av(user, { metadata: { properties: { owner: "a" } }, ruleSet: { domainRules: [rule("r1", { params: { z: "1", a: "2" }, tags: ["t2", "t1"], unknown: 1 }), { name: "dflt", type: "CEL" }] } })),
+    get("/subjects/rs/versions/latest"),
+    get("/schemas/ids/@1"),
+    // The next schema carries the rule set forward; one of its own replaces it.
+    post("/subjects/rs/versions", av(user2)),
+    get("/subjects/rs/versions/latest"),
+    post("/subjects/rs", av(user2)),
+    post("/subjects/rs/versions", av(user2, { ruleSet: { domainRules: [rule("r2", { mode: "WRITEREAD", onFailure: "ERROR,NONE", disabled: true, doc: "d" })] } })),
+    get("/subjects/rs/versions/latest"),
+    post("/subjects/rs/versions", av(user, { ruleSet: { encodingRules: [rule("enc", { mode: "WRITEREAD", type: "ENCRYPT_PAYLOAD" })] } })),
+    get("/subjects/rs/versions/latest"),
+    // Defaults and overrides of a configuration, merged by rule name.
+    put("/config/rsc", JSON.stringify({ defaultRuleSet: { domainRules: [rule("d1"), rule("shared", { expr: "1 == 1" })] }, overrideRuleSet: { domainRules: [rule("shared", { expr: "2 == 2" })], migrationRules: [rule("m1", { mode: "UPGRADE", kind: "TRANSFORM", type: "JSONATA", expr: "$" })] } })),
+    get("/config/rsc"),
+    post("/subjects/rsc/versions", av(user, { ruleSet: { domainRules: [rule("own")] } })),
+    get("/subjects/rsc/versions/latest"),
+    put("/config/rsc", JSON.stringify({ defaultRuleSet: { domainRules: [rule("a"), rule("a")] } })),
+    put("/config/rsc", JSON.stringify({ defaultRuleSet: { domainRules: [] } })),
+    get("/config/rsc"),
+  ],
+
+  "data-contracts/import": [
+    put("/mode/imp", JSON.stringify({ mode: "IMPORT" })),
+    post("/subjects/imp/versions", av(user, { id: 7000, version: 1, metadata: { properties: { owner: "a" } } })),
+    get("/subjects/imp/versions/1"),
+    post("/subjects/imp/versions", av(user, { id: 7000, version: 2, metadata: { properties: { owner: "b" } } })),
+    post("/subjects/imp/versions", av(user, { id: 7001, version: 2, metadata: { properties: { owner: "b" } } })),
+    get("/subjects/imp/versions"),
+    get("/schemas/ids/7001"),
+    put("/mode/imp", JSON.stringify({ mode: "READWRITE" })),
+    post("/subjects/imp/versions", av(user2)),
+    get("/subjects/imp/versions/latest"),
+  ],
+};
+
+Object.assign(gaps, contracts);

@@ -235,10 +235,14 @@ pub(super) async fn register(State(s): State<Shared>, body: Bytes) -> Response {
     let input = input(&p);
     let before = r.lookup(&p.subject, &input, p.normalize, false).ok();
     match r.register(&p.subject, &input, p.normalize, &console_origin()) {
-        Ok(RegisterResult::Id(id)) => {
-            let version = r
-                .lookup(&p.subject, &input, p.normalize, false)
-                .map_or(0, |v| v.version);
+        Ok(done @ (RegisterResult::Id(_) | RegisterResult::Full(_))) => {
+            let id = done.id();
+            let version = match &done {
+                RegisterResult::Full(v) => v.version,
+                _ => r
+                    .lookup(&p.subject, &input, p.normalize, false)
+                    .map_or(0, |v| v.version),
+            };
             let shared = r
                 .id_versions(id, false)
                 .unwrap_or_default()

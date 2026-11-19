@@ -132,14 +132,11 @@ fn enumeration(src: &str, e: &ast::Enum) -> Out {
     if let Some(o) = options(src, &opts, ENUM_OPTIONS) {
         m.msg(3, &o);
     }
-    // An enum's reserved range is inclusive at both ends in the descriptor.
+    // An enum's reserved range is inclusive at both ends in the descriptor. Its `max` is Wire's, the largest field
+    // number, as for a message (recorded: protobuf-normalize/enums, `reserved 10 to max;` ends at 536870911).
     for r in &reserved {
         for &(lo, hi) in &r.ranges {
-            let hi = if hi == MAX_WORD {
-                i64::from(i32::MAX)
-            } else {
-                hi
-            };
+            let hi = if hi == MAX_WORD { MAX_FIELD } else { hi };
             m.msg(4, &range(lo, hi));
         }
     }

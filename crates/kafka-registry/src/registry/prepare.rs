@@ -73,10 +73,20 @@ fn invalid(
 ) -> RegistryError {
     let refs = references_text(input.refs());
     let quoted = format!(
-        "{{subject={subject},version={},id={},schemaType={},references={refs},metadata=null,ruleSet=null,schema={},schemaTags=null}}",
+        "{{subject={subject},version={},id={},schemaType={},references={refs},metadata={},ruleSet={},schema={},schemaTags=null}}",
         input.version.unwrap_or(0),
         input.id.unwrap_or(-1),
         kind.name(),
+        input
+            .contract
+            .metadata
+            .as_ref()
+            .map_or_else(|| "null".to_owned(), super::Metadata::java),
+        input
+            .contract
+            .rule_set
+            .as_ref()
+            .map_or_else(|| "null".to_owned(), super::RuleSet::java),
         input.text(),
     );
     RegistryError::invalid_schema(match at {
@@ -273,6 +283,7 @@ impl Registry {
             references: rec.map(|r| r.refs.clone()),
             id: Some(i64::from(v.rec.id)),
             version: Some(i64::from(v.number)),
+            contract: rec.map(|r| r.contract.clone()).unwrap_or_default(),
         };
         invalid(subject, &old, kind, stage(kind, why), why)
     }

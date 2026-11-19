@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::format::SchemaType;
+use crate::registry::Contract;
 
 /// Why the store failed.
 #[derive(Debug, thiserror::Error)]
@@ -157,12 +158,76 @@ impl Reference {
     pub const NO_VERSION: i64 = i64::MIN;
 }
 
-/// A stored schema.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// A stored schema: its language, text, references and contract (metadata and rule set).
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SchemaRecord {
     pub(crate) kind: SchemaType,
     pub(crate) text: String,
     pub(crate) refs: Vec<Reference>,
+    pub(crate) contract: Contract,
+}
+
+/// A schema record as the first format wrote it: no contract.
+#[derive(Serialize, Deserialize)]
+struct SchemaV1 {
+    kind: SchemaType,
+    text: String,
+    refs: Vec<Reference>,
+}
+
+/// A schema record with a contract (format 2, since data contracts are kept).
+#[derive(Serialize, Deserialize)]
+struct SchemaV2 {
+    kind: SchemaType,
+    text: String,
+    refs: Vec<Reference>,
+    contract: Contract,
+}
+
+/// The version byte of a schema record with a contract. One without is written in the first format, so a registry that
+/// uses no data contracts writes what an earlier build reads.
+const SCHEMA_WITH_CONTRACT: u8 = 2;
+
+impl SchemaRecord {
+    pub(crate) fn encode(&self) -> Vec<u8> {
+        if self.contract.is_none() {
+            return encode(&SchemaV1 {
+                kind: self.kind,
+                text: self.text.clone(),
+                refs: self.refs.clone(),
+            });
+        }
+        let mut out = vec![SCHEMA_WITH_CONTRACT];
+        out.extend(
+            postcard::to_allocvec(&SchemaV2 {
+                kind: self.kind,
+                text: self.text.clone(),
+                refs: self.refs.clone(),
+                contract: self.contract.clone(),
+            })
+            .unwrap_or_default(),
+        );
+        out
+    }
+
+    pub(crate) fn decode(raw: &[u8]) -> Result<Self, String> {
+        if let Some((&SCHEMA_WITH_CONTRACT, rest)) = raw.split_first() {
+            let v: SchemaV2 = postcard::from_bytes(rest).map_err(|e| e.to_string())?;
+            return Ok(Self {
+                kind: v.kind,
+                text: v.text,
+                refs: v.refs,
+                contract: v.contract,
+            });
+        }
+        let v: SchemaV1 = decode(raw)?;
+        Ok(Self {
+            kind: v.kind,
+            text: v.text,
+            refs: v.refs,
+            contract: Contract::default(),
+        })
+    }
 }
 
 /// A stored version of a subject, with who registered it, when and from where.
@@ -212,6 +277,10 @@ pub(crate) struct Batch {
 impl Batch {
     pub(crate) fn put<T: Serialize>(&mut self, key: &Key, value: &T) {
         self.puts.push((key.encode(), encode(value)));
+    }
+
+    pub(crate) fn put_schema(&mut self, id: u32, record: &SchemaRecord) {
+        self.puts.push((Key::Schema(id).encode(), record.encode()));
     }
 
     pub(crate) fn delete(&mut self, key: &Key) {

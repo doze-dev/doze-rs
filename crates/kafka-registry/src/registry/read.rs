@@ -164,6 +164,8 @@ impl Registry {
             id: 0,
             schema_type: type_field(rec.kind),
             references: rec.refs.clone(),
+            metadata: rec.contract.metadata.clone(),
+            rule_set: rec.contract.rule_set.clone(),
             schema: rec.text.clone(),
         })
     }
@@ -202,7 +204,8 @@ impl Registry {
         self.lock().next_id.saturating_sub(1)
     }
 
-    /// The (subject, version) pairs that hold an id, sorted.
+    /// The (subject, version) pairs that hold an id, in the order Confluent lists them: its `ConcurrentHashMap` of subjects
+    /// (recorded: data-contracts/register-and-read, `dc-other` before `dc`).
     ///
     /// # Errors
     /// No schema has that id.
@@ -216,7 +219,12 @@ impl Registry {
             .flat_map(|(name, vs)| vs.iter().map(move |v| (name, v)))
             .filter(|(_, v)| v.rec.id == id && (deleted || !v.rec.deleted))
             .map(|(name, v)| (name.clone(), v.number))
-            .collect())
+            .collect::<Vec<_>>())
+        .map(|mut pairs| {
+            let order = crate::json::java_hash_order(pairs.iter().map(|(s, _)| s.clone()).collect());
+            pairs.sort_by_key(|(s, _)| order.iter().position(|o| o == s));
+            pairs
+        })
     }
 
     /// Every version's schema, by subject then version (the latest live one of each subject with `latest_only`).
@@ -244,6 +252,38 @@ impl Registry {
         let s = self.lock();
         let v = s.version_of(subject, version, true)?;
         Ok(s.referencing(subject, v.number))
+    }
+
+    /// The newest version of a subject whose metadata has every property of `pairs` (`deleted`: a soft-deleted one too),
+    /// as Confluent's `getLatestWithMetadata` finds it: a version with no metadata is never one, whatever is asked.
+    ///
+    /// # Errors
+    /// No such subject (40401), or no such version (40403 `Schema not found`).
+    pub fn latest_with_metadata(
+        &self,
+        subject: &str,
+        pairs: &[(String, String)],
+        deleted: bool,
+    ) -> Result<SchemaView, RegistryError> {
+        let s = self.lock();
+        let found = s
+            .versions(subject)
+            .iter()
+            .rev()
+            .filter(|v| deleted || !v.rec.deleted)
+            .find(|v| {
+                s.schemas
+                    .get(&v.rec.id)
+                    .and_then(|r| r.contract.metadata.as_ref())
+                    .is_some_and(|m| pairs.iter().all(|(k, x)| m.properties.get(k) == Some(x)))
+            });
+        match found {
+            Some(v) => Ok(s.view(subject, v)),
+            None if s.versions(subject).is_empty() || (!deleted && !s.exists(subject)) => {
+                Err(RegistryError::subject_not_found(subject))
+            }
+            None => Err(RegistryError::schema_not_found()),
+        }
     }
 
     /// The ids a subject holds, deleted versions included.

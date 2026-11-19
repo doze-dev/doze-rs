@@ -77,9 +77,23 @@ fn compare(newer: &Prepared, older: &Prepared, level: Level) -> (Vec<CompatReaso
 }
 
 impl State {
-    /// The live versions a new schema is compared with at a level: the latest, or all of them when transitive.
-    pub(super) fn compared_at(&self, subject: &str, level: Level) -> Vec<Version> {
-        let live: Vec<Version> = self.live(subject).cloned().collect();
+    /// Whether version `v` is in the compatibility group of a schema with `contract` (always, with no group).
+    pub(super) fn in_group(&self, v: &Version, group: Option<&str>, contract: &super::Contract) -> bool {
+        let Some(key) = group else { return true };
+        let theirs = self.schemas.get(&v.rec.id).and_then(|r| r.contract.property(key));
+        theirs == contract.property(key)
+    }
+
+    /// The versions a schema with `contract` is compared with at `level`: of the live ones, those of its compatibility
+    /// group when the configuration names one (the value of that metadata property, absent counting as a value), then
+    /// all of them when transitive, else the newest (Confluent filters before it picks).
+    pub(super) fn compared_at(&self, subject: &str, level: Level, contract: &super::Contract) -> Vec<Version> {
+        let group = self.compatibility_group(subject);
+        let live: Vec<Version> = self
+            .live(subject)
+            .filter(|v| self.in_group(v, group.as_deref(), contract))
+            .cloned()
+            .collect();
         if level.transitive() {
             return live;
         }
@@ -148,10 +162,16 @@ impl Registry {
         let s = self.lock();
         let (p, _) = self.prepare(&s, subject, input, normalize)?;
         let level = asked.unwrap_or_else(|| s.level_of(subject));
-        let mut against = s.compared_at(subject, level);
+        let mut against = s.compared_at(subject, level, &input.contract);
         if let Some(version) = version.filter(|v| !v.is_empty()) {
             match s.version_of(subject, version, false) {
-                Ok(v) => against = vec![v.clone()],
+                Ok(v) => {
+                    let group = s.compatibility_group(subject);
+                    against = std::iter::once(v)
+                        .filter(|v| s.in_group(v, group.as_deref(), &input.contract))
+                        .cloned()
+                        .collect();
+                }
                 Err(e) if e.error_code == code::SUBJECT_NOT_FOUND => {
                     // No subject: anything fits its latest, but a numbered version is missing like any other
                     // (recorded: compatibility-of-missing).

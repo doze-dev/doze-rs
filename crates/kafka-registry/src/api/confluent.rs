@@ -8,7 +8,9 @@ use super::body::{self, Bound};
 use super::route::Route;
 use super::{Call, Response, text};
 use crate::error::{RegistryError, code};
-use crate::registry::{ConfigView, RegisterResult, Registry, SchemaInput, SchemaView};
+use crate::registry::{
+    ConfigView, Metadata, RegisterResult, Registry, RuleSet, SchemaInput, SchemaView, contract_json,
+};
 
 /// The body of a schema request, read for the route that takes it.
 // fuzz:parser registry_api
@@ -99,8 +101,21 @@ fn subjects(r: &Registry, route: Route, call: &Call<'_>) -> Result<Response, Reg
         )?),
         Route::Register => {
             let input = read_input(call, body::REGISTER)?;
+            // Confluent checks a rule set before anything else of the request (`RestInvalidRuleSetException`, 42210).
+            if let Some(rs) = &input.contract.rule_set {
+                rs.validate().map_err(body::invalid_rule_set)?;
+            }
             match r.register(subject, &input, call.flag("normalize"), &call.origin())? {
                 RegisterResult::Id(id) => Response::ok(&one("id", id)),
+                RegisterResult::Full(v) => Response::ok(&Registered {
+                    id: v.id,
+                    version: v.version,
+                    schema_type: v.schema_type,
+                    references: v.references,
+                    metadata: v.metadata,
+                    rule_set: v.rule_set,
+                    schema: v.schema,
+                }),
                 RegisterResult::Latest(latest) => Response::ok(&SchemaView {
                     subject: String::new(),
                     ..latest
@@ -115,6 +130,15 @@ fn subjects(r: &Registry, route: Route, call: &Call<'_>) -> Result<Response, Reg
                 call.flag("normalize"),
                 call.flag("deleted"),
             )?)
+        }
+        Route::LatestWithMetadata => {
+            // Confluent pairs the keys and values in order, as many as both have.
+            let pairs: Vec<(String, String)> = call
+                .query_all("key")
+                .into_iter()
+                .zip(call.query_all("value"))
+                .collect();
+            Response::ok(&r.latest_with_metadata(subject, &pairs, call.flag("deleted"))?)
         }
         Route::DeleteSubject => Response::ok(&r.delete_subject(subject, call.flag("permanent"))?),
         Route::Version => {
@@ -133,7 +157,31 @@ fn subjects(r: &Registry, route: Route, call: &Call<'_>) -> Result<Response, Reg
     })
 }
 
-/// A schema by id, in the order Confluent writes one (`SchemaString`): its type, its text, its references, the highest id.
+/// A registration answered with its schema, in the order Confluent writes one (`RegisterSchemaResponse`).
+#[derive(Serialize)]
+struct Registered {
+    id: u32,
+    version: u32,
+    #[serde(rename = "schemaType", skip_serializing_if = "Option::is_none")]
+    schema_type: Option<crate::format::SchemaType>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    references: Vec<crate::store::Reference>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "crate::registry::contract_json::metadata"
+    )]
+    metadata: Option<crate::registry::Metadata>,
+    #[serde(
+        rename = "ruleSet",
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "crate::registry::contract_json::rule_set"
+    )]
+    rule_set: Option<crate::registry::RuleSet>,
+    schema: String,
+}
+
+/// A schema by id, in the order Confluent writes one (`SchemaString`): its type, its text, its references, its
+/// metadata and rule set, the highest id.
 #[derive(Serialize)]
 struct ById {
     #[serde(rename = "schemaType", skip_serializing_if = "Option::is_none")]
@@ -141,6 +189,17 @@ struct ById {
     schema: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     references: Vec<crate::store::Reference>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "crate::registry::contract_json::metadata"
+    )]
+    metadata: Option<crate::registry::Metadata>,
+    #[serde(
+        rename = "ruleSet",
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "crate::registry::contract_json::rule_set"
+    )]
+    rule_set: Option<crate::registry::RuleSet>,
     #[serde(rename = "maxId", skip_serializing_if = "Option::is_none")]
     max_id: Option<u32>,
 }
@@ -169,6 +228,8 @@ fn schemas(r: &Registry, route: Route, call: &Call<'_>) -> Result<Response, Regi
                 schema_type: view.schema_type,
                 schema: r.formatted(id, format.as_deref()).unwrap_or(view.schema),
                 references: view.references,
+                metadata: view.metadata,
+                rule_set: view.rule_set,
                 max_id: call.flag("fetchMaxId").then(|| r.max_id()),
             })
         }
@@ -283,31 +344,44 @@ struct ExtraOut {
 struct Groups {
     #[serde(rename = "compatibilityGroup", skip_serializing_if = "Option::is_none")]
     compatibility_group: Option<String>,
-    #[serde(rename = "defaultMetadata", skip_serializing_if = "Option::is_none")]
-    default_metadata: Option<serde_json::Value>,
-    #[serde(rename = "overrideMetadata", skip_serializing_if = "Option::is_none")]
-    override_metadata: Option<serde_json::Value>,
-    #[serde(rename = "defaultRuleSet", skip_serializing_if = "Option::is_none")]
-    default_rule_set: Option<serde_json::Value>,
-    #[serde(rename = "overrideRuleSet", skip_serializing_if = "Option::is_none")]
-    override_rule_set: Option<serde_json::Value>,
+    #[serde(
+        rename = "defaultMetadata",
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "contract_json::metadata"
+    )]
+    default_metadata: Option<Metadata>,
+    #[serde(
+        rename = "overrideMetadata",
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "contract_json::metadata"
+    )]
+    override_metadata: Option<Metadata>,
+    #[serde(
+        rename = "defaultRuleSet",
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "contract_json::rule_set"
+    )]
+    default_rule_set: Option<RuleSet>,
+    #[serde(
+        rename = "overrideRuleSet",
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "contract_json::rule_set"
+    )]
+    override_rule_set: Option<RuleSet>,
 }
 
 impl Groups {
     fn of(e: &crate::registry::ConfigExtra) -> Self {
-        let json = |t: &Option<String>| t.as_deref().and_then(|t| serde_json::from_str(t).ok());
+        use crate::registry::contract_read::{stored_metadata, stored_rule_set};
         let rules = |t: &Option<String>| {
-            json(t).filter(|v: &serde_json::Value| {
-                v.as_object().is_none_or(|m| {
-                    m.values()
-                        .any(|r| r.as_array().is_none_or(|a| !a.is_empty()))
-                })
+            stored_rule_set(t.as_deref()).filter(|r| {
+                !(r.migration.is_empty() && r.domain.is_empty() && r.encoding.is_empty())
             })
         };
         Self {
             compatibility_group: e.compatibility_group.clone(),
-            default_metadata: json(&e.default_metadata),
-            override_metadata: json(&e.override_metadata),
+            default_metadata: stored_metadata(e.default_metadata.as_deref()),
+            override_metadata: stored_metadata(e.override_metadata.as_deref()),
             default_rule_set: rules(&e.default_rule_set),
             override_rule_set: rules(&e.override_rule_set),
         }

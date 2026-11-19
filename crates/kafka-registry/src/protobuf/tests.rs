@@ -90,7 +90,7 @@ const REFUSED: &[(&str, &str)] = &[
     ),
     (
         "syntax = \"proto3\"; enum E { A = 1; }",
-        "first value of a proto3 enum must be zero",
+        "must have a value numbered zero",
     ),
     ("syntax = \"proto3\"; enum E { }", "at least one value"),
     (

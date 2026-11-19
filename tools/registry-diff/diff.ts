@@ -51,7 +51,7 @@ async function run(name: string, steps: Step[]) {
       const b = comparable(e.answers[y.name], e.step.p, ids.get(y.name)!);
       if (JSON.stringify(a) !== JSON.stringify(b)) {
         const key = `${name}/${i}`;
-        out.push({ scenario: name, step: i, req: `${e.step.m} ${e.step.p}`, known: known[key], a, b });
+        out.push({ scenario: name, step: i, req: `${e.step.m} ${e.step.p}`, known: known[key] ?? known[`${name}/*`], a, b });
       }
     });
     return out;

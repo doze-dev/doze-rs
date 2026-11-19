@@ -24,6 +24,7 @@ pub mod code {
     pub const REFERENCE_EXISTS: u32 = 42206;
     pub const INVALID_REQUEST: u32 = 42207;
     pub const INVALID_SUBJECT: u32 = 42208;
+    pub const INVALID_RULE_SET: u32 = 42210;
     pub const STORE: u32 = 50001;
 }
 
