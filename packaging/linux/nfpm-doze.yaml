@@ -1,0 +1,23 @@
+# The `doze` package (deb and rpm): the CLI-only binary, for servers, CI and any Linux machine. The release workflow
+# stages the binary at dist/stage/doze, fills in ${VERSION} (0.3.0) and ${ARCH} (amd64 or arm64) with sed, and
+# runs `nfpm package` on the result from the repository root (the `src` paths are relative to it). Go's equivalent
+# was goreleaser's nfpms block (doze .goreleaser.yaml).
+name: doze
+version: ${VERSION}
+arch: ${ARCH}
+platform: linux
+maintainer: doze <hello@doze-dev.com>
+vendor: doze-dev
+homepage: https://doze-dev.com
+license: Apache-2.0
+description: Real databases and services on your machine, asleep until you need them.
+section: devel
+contents:
+  - src: dist/stage/doze
+    dst: /usr/bin/doze
+    file_info:
+      mode: 0755
+  - src: LICENSE
+    dst: /usr/share/doc/doze/LICENSE
+  - src: NOTICE
+    dst: /usr/share/doc/doze/NOTICE

@@ -3,10 +3,13 @@
 //!
 //! ```text
 //! cargo xtask app-bundle [--profile release-app] [--out DIR] [--version V] [--id ID] [--name NAME] [--no-scheme]
-//!                        [--no-build] [--features F]
+//!                        [--no-build] [--features F] [--cli PATH]
 //! ```
 //!
 //! - The binary is `doze-app`, built with `--profile` (default `release-app`) unless `--no-build`.
+//! - `--cli PATH` puts that `doze` (the CLI-only binary, `release-doze`) beside it as `Contents/MacOS/doze`, signed
+//!   first and the same way, so the cask can link it onto the PATH (core PLAN.md §3.2: "Doze.app bundles the Rust
+//!   `doze` and `doze-app`"; the release workflow passes it).
 //! - `Info.plist` comes from `apps/doze-app/bundle/` (LSUIElement: a menu-bar app until a window opens; the `doze://`
 //!   scheme unless `--no-scheme`); the icon is the doze mark (`apps/doze-app/assets/brand/doze.svg`) rendered by `sips`
 //!   at every size `iconutil` wants.
@@ -31,6 +34,7 @@ struct Opts {
     scheme: bool,
     build: bool,
     features: Option<String>,
+    cli: Option<PathBuf>,
 }
 
 fn parse(args: &[String]) -> Result<Opts, String> {
@@ -45,6 +49,7 @@ fn parse(args: &[String]) -> Result<Opts, String> {
         scheme: true,
         build: true,
         features: None,
+        cli: None,
     };
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -72,6 +77,7 @@ fn parse(args: &[String]) -> Result<Opts, String> {
             "--no-scheme" => o.scheme = false,
             "--no-build" => o.build = false,
             "--features" => o.features = Some(value()?),
+            "--cli" => o.cli = Some(PathBuf::from(value()?)),
             other => return Err(format!("unknown flag {other}")),
         }
     }
@@ -143,6 +149,9 @@ fn make(o: &Opts) -> Result<PathBuf, String> {
         std::fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
     }
     std::fs::copy(&bin, macos.join("doze-app")).map_err(|e| format!("{}: {e}", bin.display()))?;
+    if let Some(cli) = &o.cli {
+        std::fs::copy(cli, macos.join("doze")).map_err(|e| format!("{}: {e}", cli.display()))?;
+    }
     let plist = info_plist(o, &root())?;
     write(&app.join("Contents/Info.plist"), &plist)?;
     write(&app.join("Contents/PkgInfo"), "APPL????")?;
@@ -214,23 +223,35 @@ fn icon(out: &Path) -> Result<(), String> {
 /// ad hoc otherwise. Then the signature is checked.
 fn sign(app: &Path) -> Result<(), String> {
     let id = std::env::var("DOZE_SIGN_ID").unwrap_or_default();
+    // A second program in Contents/MacOS (the `doze` of `--cli`) is signed before the bundle: codesign refuses a
+    // bundle whose nested code is unsigned, and `--deep` is not how Apple wants nested code signed.
+    let cli = app.join("Contents/MacOS/doze");
+    let targets: Vec<&Path> = if cli.is_file() {
+        vec![cli.as_path(), app]
+    } else {
+        vec![app]
+    };
     if id.is_empty() {
-        sh(Command::new("codesign")
-            .args(["--force", "--sign", "-"])
-            .arg(app))?;
+        for t in &targets {
+            sh(Command::new("codesign")
+                .args(["--force", "--sign", "-"])
+                .arg(t))?;
+        }
         println!("app-bundle: ad-hoc signed (set DOZE_SIGN_ID for a Developer ID)");
     } else {
-        sh(Command::new("codesign")
-            .args([
-                "--force",
-                "--timestamp",
-                "--options",
-                "runtime",
-                "--entitlements",
-            ])
-            .arg(root().join("apps/doze-app/bundle/entitlements.plist"))
-            .args(["--sign", &id])
-            .arg(app))?;
+        for t in &targets {
+            sh(Command::new("codesign")
+                .args([
+                    "--force",
+                    "--timestamp",
+                    "--options",
+                    "runtime",
+                    "--entitlements",
+                ])
+                .arg(root().join("apps/doze-app/bundle/entitlements.plist"))
+                .args(["--sign", &id])
+                .arg(t))?;
+        }
         println!("app-bundle: signed with {id}");
         notarise(app)?;
     }
@@ -315,5 +336,17 @@ mod tests {
         assert!(!p.contains("CFBundleURLSchemes"));
         assert!(!p.contains("__"));
         assert!(p.contains("<key>LSUIElement</key>\n  <true/>"));
+    }
+
+    #[test]
+    fn the_cli_to_put_beside_the_app_is_taken_from_cli() {
+        let args: Vec<String> = ["--cli", "/tmp/doze"]
+            .iter()
+            .map(|s| (*s).to_owned())
+            .collect();
+        let o = parse(&args).unwrap_or_else(|e| unreachable!("{e}"));
+        assert_eq!(o.cli.as_deref(), Some(std::path::Path::new("/tmp/doze")));
+        let none = parse(&[]).unwrap_or_else(|e| unreachable!("{e}"));
+        assert!(none.cli.is_none());
     }
 }

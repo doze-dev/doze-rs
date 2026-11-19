@@ -1,0 +1,453 @@
+# Cut a doze release (docs/port/core/RELEASE.md). The Rust doze is published to doze-dev/doze, the repository and the
+# download URLs Go's releases used (owner, 2026-11-19), so the Homebrew formula, install.sh, the app's update check
+# (doze-desk settings/update.rs) and the CLI's releases link (doze-cli install.rs) keep working unchanged.
+#
+# - A `v*` tag pushed here (v0.3.0) builds and publishes that version.
+# - A manual run (`gh workflow run release --ref <branch> -f dry_run=true [-f version=0.3.0]`) builds everything and
+#   keeps it as this run's artifacts only: nothing is uploaded anywhere else. `dry_run` defaults to true.
+#
+# What is built:
+# - doze_<v>_{darwin_arm64,linux_amd64,linux_arm64}.tar.gz: the CLI-only doze (profile release-doze), Go's names;
+# - Doze-<v>.dmg and Doze.app.zip: Doze.app with doze-app and doze inside, signed with the Developer ID and notarised;
+# - doze_<v>_<arch>.deb/.rpm (the CLI) and, behind the `linux_app` gate, doze-app_<v>_<arch>.deb/.rpm (the app);
+# - checksums.txt over all of them (sha256sum's format, which install.sh reads);
+# - Formula/doze.rb and Casks/doze.rb for doze-dev/homebrew-tap, rendered; a real release opens a pull request there.
+#
+# Secrets (none exist yet, 2026-11-19; RELEASE.md says who adds what):
+# - MACOS_CERT_P12, MACOS_CERT_PASSWORD, DOZE_SIGN_ID: the Developer ID (as ci.yml's `app` job);
+# - NOTARY_KEY_P8, NOTARY_KEY_ID, NOTARY_ISSUER_ID: the App Store Connect key for notarytool;
+# - DOZE_RELEASE_TOKEN: contents:write on doze-dev/doze (github.token cannot cross repositories);
+# - HOMEBREW_TAP_TOKEN: contents:write and pull-requests:write on doze-dev/homebrew-tap.
+# A dry run needs none of them: without the signing secrets it signs ad hoc and says so. A real release refuses to
+# start without every one, before anything is built.
+#
+# The Linux app is gated: it does not run on Linux yet (another builder is making it). The `linux_app` input, or the
+# repository variable DOZE_LINUX_APP=true, turns its build and packages on; until then the Linux packages are the CLI's.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, without the v (0.3.0). Empty: 0.0.<run number>, for a dry run"
+        required: false
+        default: ""
+      dry_run:
+        description: "Build everything and keep it as this run's artifacts; publish nothing"
+        type: boolean
+        default: true
+      linux_app:
+        description: "Build and package the Linux desktop app (off until it runs on Linux)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # What this run is: the version, dry or real, the Linux app on or off. A real release checks every secret and the
+  # Go repository's own release workflow here, before an hour of building.
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      dry_run: ${{ steps.plan.outputs.dry_run }}
+      linux_app: ${{ steps.plan.outputs.linux_app }}
+    steps:
+      - id: plan
+        name: Version and mode
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_LINUX_APP: ${{ inputs.linux_app }}
+          VAR_LINUX_APP: ${{ vars.DOZE_LINUX_APP }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          if [ "$EVENT" = push ]; then
+            version=${REF_NAME#v}; dry_run=false
+          else
+            version=${INPUT_VERSION:-0.0.$RUN_NUMBER}; version=${version#v}; dry_run=$INPUT_DRY_RUN
+          fi
+          # Numbers and dots only: Doze.app's CFBundleVersion is Apple's form (xtask app-bundle refuses anything else).
+          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::version '$version' is not X.Y.Z"; exit 1; }
+          linux_app=false
+          if [ "$INPUT_LINUX_APP" = true ] || [ "$VAR_LINUX_APP" = true ]; then linux_app=true; fi
+          {
+            echo "version=$version"
+            echo "dry_run=$dry_run"
+            echo "linux_app=$linux_app"
+          } >> "$GITHUB_OUTPUT"
+          echo "doze $version · dry run: $dry_run · Linux app: $linux_app"
+          if [ "$linux_app" = false ]; then
+            echo "::notice::The Linux desktop app is gated off (linux_app input or vars.DOZE_LINUX_APP): the Linux packages carry the CLI only."
+          fi
+          if [ "$dry_run" = true ]; then
+            echo "::notice::Dry run: everything is built and kept as this run's artifacts; nothing is published."
+          fi
+      - name: A real release has every secret it needs
+        if: steps.plan.outputs.dry_run != 'true'
+        env:
+          HAS_RELEASE_TOKEN: ${{ secrets.DOZE_RELEASE_TOKEN != '' }}
+          HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+          HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' && secrets.MACOS_CERT_PASSWORD != '' && secrets.DOZE_SIGN_ID != '' }}
+          HAS_NOTARY: ${{ secrets.NOTARY_KEY_P8 != '' && secrets.NOTARY_KEY_ID != '' && secrets.NOTARY_ISSUER_ID != '' }}
+        run: |
+          missing=""
+          [ "$HAS_RELEASE_TOKEN" = true ] || missing="$missing DOZE_RELEASE_TOKEN"
+          [ "$HAS_TAP_TOKEN" = true ] || missing="$missing HOMEBREW_TAP_TOKEN"
+          [ "$HAS_CERT" = true ] || missing="$missing MACOS_CERT_P12/MACOS_CERT_PASSWORD/DOZE_SIGN_ID"
+          [ "$HAS_NOTARY" = true ] || missing="$missing NOTARY_KEY_P8/NOTARY_KEY_ID/NOTARY_ISSUER_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::A real release needs these repository secrets, and they are not set:$missing (docs/port/core/RELEASE.md). Run with dry_run=true to build without them."
+            exit 1
+          fi
+      - name: Go's release workflow in doze-dev/doze is off
+        if: steps.plan.outputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.DOZE_RELEASE_TOKEN }}
+        run: |
+          # Publishing creates the tag v<version> in doze-dev/doze. A tag made with a personal token starts that
+          # repository's workflows, and Go's release.yml (goreleaser on every v* tag) would build Go and upload its own
+          # tarballs and checksums.txt over these. It must be disabled first (RELEASE.md, owner steps).
+          state=$(gh api repos/doze-dev/doze/actions/workflows/release.yml --jq .state 2>/dev/null || echo missing)
+          case "$state" in
+            active) echo "::error::doze-dev/doze's release workflow is active; disable it first: gh workflow disable release -R doze-dev/doze"; exit 1 ;;
+            *) echo "doze-dev/doze release workflow: $state" ;;
+          esac
+
+  # The CLI-only doze for each platform, as Go's tarball names it. Linux is built on Ubuntu 22.04 so the glibc it asks
+  # for is old enough for the distributions people run (the step prints the newest symbol version it needs).
+  cli:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, target: aarch64-apple-darwin, platform: darwin_arm64 }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, platform: linux_amd64 }
+          - { os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu, platform: linux_arm64 }
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      DOZE_VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache-key: release-cli
+      - name: doze (release-doze)
+        run: cargo build --locked --profile release-doze -p doze-cli
+      - name: It runs and says its version
+        run: |
+          out=$(target/release-doze/doze version)
+          echo "$out"
+          echo "$out" | grep -q "^doze $VERSION " || { echo "::error::doze version does not say $VERSION"; exit 1; }
+      - name: The newest glibc symbol it needs
+        if: runner.os == 'Linux'
+        run: objdump -T target/release-doze/doze | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+      - name: The tarball
+        run: |
+          mkdir -p dist/tar
+          cp target/release-doze/doze dist/tar/doze
+          cp LICENSE NOTICE dist/tar/
+          name="doze_${VERSION}_${{ matrix.platform }}.tar.gz"
+          tar -C dist/tar -czf "dist/$name" doze LICENSE NOTICE
+          cp target/release-doze/doze "dist/doze-${{ matrix.platform }}"
+          ls -l dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.platform }}
+          path: |
+            dist/doze_*.tar.gz
+            dist/doze-${{ matrix.platform }}
+          if-no-files-found: error
+
+  # Doze.app: doze-app (GUI and the whole CLI) and the CLI-only doze inside, signed and notarised when the secrets
+  # exist, as a disk image and a zip. ci.yml's `app` job is the pattern; a dry run without the secrets signs ad hoc.
+  app-macos:
+    needs: [plan, cli]
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      DOZE_VERSION: ${{ needs.plan.outputs.version }}
+      HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
+      HAS_NOTARY: ${{ secrets.NOTARY_KEY_P8 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache-key: release-app
+      - name: Metal toolchain (Xcode ships it as a separate component)
+        run: xcodebuild -downloadComponent MetalToolchain || true
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-darwin_arm64
+          path: dist/cli
+      - name: doze-app (release-app)
+        run: cargo build --locked --profile release-app -p doze-app
+      - name: No signing secrets (a dry run signs ad hoc)
+        if: env.HAS_CERT != 'true'
+        run: echo "::notice::No MACOS_CERT_P12 here (forks, branches, and until the owner adds it), so Doze.app and the image are signed ad hoc and not notarised. Fine for a dry run; a real release refuses this."
+      - name: Signing identity
+        if: env.HAS_CERT == 'true'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+        run: |
+          kc="$RUNNER_TEMP/doze.keychain-db"; pw=$(uuidgen)
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$kc"
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pw" "$kc" > /dev/null
+          security list-keychains -d user -s "$kc"
+          if [ -n "$NOTARY_KEY_P8" ]; then echo "$NOTARY_KEY_P8" > "$RUNNER_TEMP/notary.p8"; fi
+      - name: Doze.app, Doze-<version>.dmg, Doze.app.zip
+        env:
+          DOZE_SIGN_ID: ${{ secrets.DOZE_SIGN_ID }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: |
+          if [ "$HAS_CERT" != true ]; then unset DOZE_SIGN_ID NOTARY_KEY_ID NOTARY_ISSUER_ID; HAS_NOTARY=false; fi
+          if [ "$HAS_CERT" = true ] && [ -z "$DOZE_SIGN_ID" ]; then echo "::warning::MACOS_CERT_P12 is set but DOZE_SIGN_ID is not: signing ad hoc"; fi
+          if [ "$HAS_NOTARY" = true ]; then export NOTARY_KEY_PATH="$RUNNER_TEMP/notary.p8"; fi
+          chmod 0755 dist/cli/doze-darwin_arm64
+          mkdir -p dist/app
+          cargo xtask app-bundle --no-build --id dev.doze.app --version "$VERSION" --cli dist/cli/doze-darwin_arm64 --out dist/app
+          plutil -p dist/app/Doze.app/Contents/Info.plist
+          codesign -dv dist/app/Doze.app
+          codesign -dv dist/app/Doze.app/Contents/MacOS/doze
+          dist/app/Doze.app/Contents/MacOS/doze version | grep -q "^doze $VERSION " || { echo "::error::the doze inside Doze.app does not say $VERSION"; exit 1; }
+          dist/app/Doze.app/Contents/MacOS/doze-app version | grep -q "^doze $VERSION " || { echo "::error::doze-app does not say $VERSION"; exit 1; }
+          sh packaging/darwin/dmg.sh dist/app "$VERSION"
+          # xtask leaves the notarised zip beside the bundle; a bundle signed without notarising has none yet.
+          [ -f dist/app/Doze.app.zip ] || ditto -c -k --keepParent dist/app/Doze.app dist/app/Doze.app.zip
+          rm -f "$RUNNER_TEMP/notary.p8"
+          ls -l dist/app
+      - name: Gatekeeper's view (reported; an ad-hoc dry run is expected to be rejected)
+        run: spctl --assess --type open --context context:primary-signature -v "dist/app/Doze-$VERSION.dmg" || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-macos
+          path: |
+            dist/app/Doze-*.dmg
+            dist/app/Doze.app.zip
+          if-no-files-found: error
+
+  # deb and rpm for each Linux architecture: `doze` (the CLI) always; `doze-app` only with the Linux app gate on.
+  linux-packages:
+    needs: [plan, cli]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, arch: amd64, platform: linux_amd64 }
+          - { os: ubuntu-22.04-arm, arch: arm64, platform: linux_arm64 }
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      DOZE_VERSION: ${{ needs.plan.outputs.version }}
+      ARCH: ${{ matrix.arch }}
+      LINUX_APP: ${{ needs.plan.outputs.linux_app }}
+      NFPM: "2.49.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-${{ matrix.platform }}
+          path: dist/cli
+      - name: nfpm (goreleaser's packager, checksum verified)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$ARCH" in amd64) a=x86_64 ;; arm64) a=arm64 ;; esac
+          mkdir -p "$RUNNER_TEMP/nfpm"
+          gh release download "v$NFPM" -R goreleaser/nfpm -p "nfpm_${NFPM}_Linux_${a}.tar.gz" -p checksums.txt -D "$RUNNER_TEMP/nfpm"
+          (cd "$RUNNER_TEMP/nfpm" && sha256sum -c --ignore-missing checksums.txt)
+          tar -xzf "$RUNNER_TEMP/nfpm/nfpm_${NFPM}_Linux_${a}.tar.gz" -C "$RUNNER_TEMP/nfpm" nfpm
+          echo "$RUNNER_TEMP/nfpm" >> "$GITHUB_PATH"
+      - name: The doze package
+        run: |
+          mkdir -p dist/stage dist/pkg
+          install -m 0755 "dist/cli/doze-${{ matrix.platform }}" dist/stage/doze
+          sed -e "s/\${VERSION}/$VERSION/g" -e "s/\${ARCH}/$ARCH/g" packaging/linux/nfpm-doze.yaml > dist/nfpm-doze.yaml
+          for f in deb rpm; do nfpm package -f dist/nfpm-doze.yaml -p "$f" -t dist/pkg/; done
+      - name: The Linux app is gated off
+        if: env.LINUX_APP != 'true'
+        run: echo "::notice::doze-app's deb and rpm are not built (the Linux app gate is off; docs/port/core/RELEASE.md)."
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        if: env.LINUX_APP == 'true'
+        with:
+          cache-key: release-linux-app
+      - name: doze-app for Linux (release-app)
+        if: env.LINUX_APP == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libvulkan-dev libfontconfig-dev libfreetype-dev libxcb1-dev libx11-xcb-dev libx11-dev
+          cargo build --locked --profile release-app -p doze-app
+          install -m 0755 target/release-app/doze-app dist/stage/doze-app
+          dist/stage/doze-app version | grep -q "^doze $VERSION " || { echo "::error::doze-app does not say $VERSION"; exit 1; }
+          echo "What doze-app links (check packaging/linux/nfpm-doze-app.yaml's depends against it):"
+          ldd dist/stage/doze-app
+      - name: The doze-app package
+        if: env.LINUX_APP == 'true'
+        run: |
+          sed -e "s/\${VERSION}/$VERSION/g" -e "s/\${ARCH}/$ARCH/g" packaging/linux/nfpm-doze-app.yaml > dist/nfpm-doze-app.yaml
+          for f in deb rpm; do nfpm package -f dist/nfpm-doze-app.yaml -p "$f" -t dist/pkg/; done
+      - name: The packages install and run (deb, here)
+        run: |
+          ls -l dist/pkg
+          dpkg-deb --info dist/pkg/doze_*.deb
+          dpkg-deb --contents dist/pkg/doze_*.deb
+          sudo dpkg -i dist/pkg/doze_*.deb
+          /usr/bin/doze version | grep -q "^doze $VERSION " || { echo "::error::the installed doze does not say $VERSION"; exit 1; }
+          sudo dpkg -r doze
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages-${{ matrix.arch }}
+          path: dist/pkg/*
+          if-no-files-found: error
+
+  # Everything in one place: checksums.txt over every file, and the Homebrew formula and cask rendered from them.
+  assemble:
+    needs: [plan, cli, app-macos, linux-packages]
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/in
+      - name: The release files and checksums.txt
+        run: |
+          mkdir -p dist/release
+          find dist/in -type f \( -name '*.tar.gz' -o -name '*.dmg' -o -name '*.zip' -o -name '*.deb' -o -name '*.rpm' \) -exec cp {} dist/release/ \;
+          cd dist/release
+          sha256sum -- * > checksums.txt
+          cat checksums.txt
+          ls -l
+      - name: The Homebrew formula and cask
+        run: |
+          sum() { awk -v f="$1" '$2 == f { print $1 }' dist/release/checksums.txt; }
+          mkdir -p dist/homebrew/Formula dist/homebrew/Casks
+          sed -e "s/__VERSION__/$VERSION/g" \
+              -e "s/__SHA_DARWIN_ARM64__/$(sum "doze_${VERSION}_darwin_arm64.tar.gz")/" \
+              -e "s/__SHA_LINUX_AMD64__/$(sum "doze_${VERSION}_linux_amd64.tar.gz")/" \
+              -e "s/__SHA_LINUX_ARM64__/$(sum "doze_${VERSION}_linux_arm64.tar.gz")/" \
+              packaging/homebrew/doze.rb.tmpl > dist/homebrew/Formula/doze.rb
+          sed -e "s/__VERSION__/$VERSION/g" -e "s/__SHA_DMG__/$(sum "Doze-$VERSION.dmg")/" \
+              packaging/homebrew/doze-cask.rb.tmpl > dist/homebrew/Casks/doze.rb
+          if grep -n '__[A-Z0-9_]*__' dist/homebrew/Formula/doze.rb dist/homebrew/Casks/doze.rb; then
+            echo "::error::a placeholder was left in the Homebrew files"; exit 1
+          fi
+          ruby -c dist/homebrew/Formula/doze.rb
+          ruby -c dist/homebrew/Casks/doze.rb
+      - name: What the tap would change (read only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for f in Formula/doze.rb Casks/doze.rb; do
+            echo "::group::$f"
+            gh api "repos/doze-dev/homebrew-tap/contents/$f" --jq .content 2>/dev/null | base64 -d > "$RUNNER_TEMP/tap.rb" || : > "$RUNNER_TEMP/tap.rb"
+            diff -u "$RUNNER_TEMP/tap.rb" "dist/homebrew/$f" || true
+            echo "::endgroup::"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ env.VERSION }}
+          path: dist/release/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: homebrew-${{ env.VERSION }}
+          path: dist/homebrew
+          if-no-files-found: error
+
+  # The release in doze-dev/doze. Real runs only; DOZE_RELEASE_TOKEN is the only credential that reaches it.
+  publish:
+    needs: [plan, assemble]
+    if: needs.plan.outputs.dry_run != 'true'
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      HAS_RELEASE_TOKEN: ${{ secrets.DOZE_RELEASE_TOKEN != '' }}
+    steps:
+      - name: DOZE_RELEASE_TOKEN is set
+        if: env.HAS_RELEASE_TOKEN != 'true'
+        run: |
+          echo "::error::DOZE_RELEASE_TOKEN is not set: a token with contents:write on doze-dev/doze is needed to publish there (docs/port/core/RELEASE.md)."
+          exit 1
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ env.VERSION }}
+          path: dist/release
+      - name: Publish v${{ env.VERSION }} to doze-dev/doze
+        env:
+          GH_TOKEN: ${{ secrets.DOZE_RELEASE_TOKEN }}
+          SOURCE: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+        run: |
+          tag="v$VERSION"
+          if gh release view "$tag" -R doze-dev/doze > /dev/null 2>&1; then
+            echo "::error::doze-dev/doze already has a release $tag; a published version is never replaced"
+            exit 1
+          fi
+          state=$(gh api repos/doze-dev/doze/actions/workflows/release.yml --jq .state 2>/dev/null || echo missing)
+          [ "$state" != active ] || { echo "::error::doze-dev/doze's release workflow is active (see the plan job)"; exit 1; }
+          # shellcheck disable=SC2016 # the backticks are Markdown, not a command
+          printf 'doze %s, built by doze-rs from %s.\n\nInstall: `brew install doze-dev/tap/doze`, the app with `brew install --cask doze-dev/tap/doze`, or `curl -fsSL https://raw.githubusercontent.com/doze-dev/doze-rs/main/scripts/install.sh | sh`. Verify downloads against checksums.txt.\n' "$VERSION" "$SOURCE" > notes.md
+          gh release create "$tag" -R doze-dev/doze --title "doze $VERSION" --notes-file notes.md dist/release/*
+          gh release view "$tag" -R doze-dev/doze --json url,assets --jq '.url, (.assets[] | "\(.name) \(.size)")'
+
+  # The formula and cask, as a pull request on doze-dev/homebrew-tap (merged by the owner, never pushed to main here).
+  tap:
+    needs: [plan, publish]
+    if: needs.plan.outputs.dry_run != 'true'
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+    steps:
+      - name: HOMEBREW_TAP_TOKEN is set
+        if: env.HAS_TAP_TOKEN != 'true'
+        run: |
+          echo "::error::HOMEBREW_TAP_TOKEN is not set: a token with contents and pull-requests write on doze-dev/homebrew-tap is needed (docs/port/core/RELEASE.md)."
+          exit 1
+      - uses: actions/download-artifact@v4
+        with:
+          name: homebrew-${{ env.VERSION }}
+          path: homebrew
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          branch="doze-$VERSION"
+          gh repo clone doze-dev/homebrew-tap tap -- --depth 1
+          cd tap
+          git config user.name "doze-release-bot"
+          git config user.email "hello@doze-dev.com"
+          git switch -c "$branch"
+          mkdir -p Formula Casks
+          cp ../homebrew/Formula/doze.rb Formula/doze.rb
+          cp ../homebrew/Casks/doze.rb Casks/doze.rb
+          git add Formula/doze.rb Casks/doze.rb
+          git commit -m "doze $VERSION (the Rust doze: formula and cask)"
+          gh auth setup-git
+          git push origin "$branch"
+          gh pr create -R doze-dev/homebrew-tap --base main --head "$branch" --title "doze $VERSION" \
+            --body "The formula and the cask for doze $VERSION, rendered by doze-rs's release workflow (${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
