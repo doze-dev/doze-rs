@@ -57,9 +57,9 @@ def test_virtual_mfa_device_lifecycle(client, names, cleanup, snapshot):
         VirtualMFADeviceName=names("mfa"), Tags=[{"Key": "team", "Value": "a"}])["VirtualMFADevice"]
     serial = made["SerialNumber"]
     cleanup(iam.delete_virtual_mfa_device, SerialNumber=serial)
-    # The seed is base32 (RFC 4648) of 20 bytes; the QR code is not compared (doze-aws draws none).
+    # The seed is base32 (RFC 4648) of 40 bytes (recorded 2026-11-19); the QR code is not compared (doze-aws draws none).
     seed = made["Base32StringSeed"].decode()
-    assert len(base64.b32decode(seed + "=" * (-len(seed) % 8))) == 20
+    assert len(base64.b32decode(seed + "=" * (-len(seed) % 8))) == 40
     snapshot.match("created", {"SerialNumber": serial, "Tags": made.get("Tags")})
     snapshot.match("unassigned", iam.list_virtual_mfa_devices(AssignmentStatus="Unassigned"),
                    unordered=("VirtualMFADevices",))
@@ -108,7 +108,13 @@ def test_session_token_with_an_mfa_code(client, names, cleanup, snapshot, eventu
     cleanup(iam.delete_access_key, UserName=user, AccessKeyId=key["AccessKeyId"])
     sts = client("sts", aws_access_key_id=key["AccessKeyId"], aws_secret_access_key=key["SecretAccessKey"])
     # A new key takes a few seconds to work on AWS.
-    eventually(lambda: sts.get_caller_identity() and None)
+    def key_works():
+        # AWS (recorded 2026-11-19): a new access key answers InvalidClientTokenId until it has spread.
+        try:
+            sts.get_caller_identity()
+        except sts.exceptions.ClientError as e:
+            raise AssertionError(str(e))
+    eventually(key_works, timeout=60)
     snapshot.error("wrong-code", lambda: sts.get_session_token(SerialNumber=serial, TokenCode="000000"))
     # The enabling codes were spent: wait for the next step's.
     time.sleep(31 - time.time() % 30)
@@ -155,7 +161,9 @@ def test_signing_certificate_lifecycle(client, names, cleanup, snapshot):
     made = snapshot.match("upload", iam.upload_signing_certificate(UserName=user, CertificateBody=CERT), opaque=IDS)
     cid = made["Certificate"]["CertificateId"]
     cleanup(iam.delete_signing_certificate, UserName=user, CertificateId=cid)
-    snapshot.error("same-again", lambda: iam.upload_signing_certificate(UserName=user, CertificateBody=CERT))
+    again = snapshot.outcome("same-again", lambda: iam.upload_signing_certificate(UserName=user, CertificateBody=CERT), opaque=IDS)
+    if isinstance(again, dict) and again["Certificate"]["CertificateId"] != cid:
+        cleanup(iam.delete_signing_certificate, UserName=user, CertificateId=again["Certificate"]["CertificateId"])
     snapshot.match("deactivate", iam.update_signing_certificate(UserName=user, CertificateId=cid, Status="Inactive"))
     snapshot.match("list", iam.list_signing_certificates(UserName=user), opaque=IDS)
     snapshot.error("delete-user-with-certificate", lambda: iam.delete_user(UserName=user))

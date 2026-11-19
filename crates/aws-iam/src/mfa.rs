@@ -79,7 +79,8 @@ impl Core {
             ));
         }
         let tags: BTreeMap<String, String> = r.tags().into_iter().collect();
-        let seed = aws_seal::random_bytes::<20>()
+        // Recorded 2026-11-19: AWS's seed is 40 bytes (64 base32 characters).
+        let seed = aws_seal::random_bytes::<40>()
             .ok_or_else(|| ApiError::internal("no randomness"))?
             .to_vec();
         let mut shown = Map::new();

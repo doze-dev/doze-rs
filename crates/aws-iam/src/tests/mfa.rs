@@ -54,7 +54,7 @@ fn a_device_shows_its_seed_once_and_is_enabled_by_two_consecutive_codes() {
     let text = aws_core::base64::decode(made["Base32StringSeed"].as_str().unwrap()).unwrap();
     let seed = &w.core.held.mfa.get(SERIAL).unwrap().seed;
     assert_eq!(String::from_utf8(text).unwrap(), totp::base32(seed));
-    assert_eq!(seed.len(), 20);
+    assert_eq!(seed.len(), 40);
     assert_eq!(made["Tags"], json!([{"Key": "team", "Value": "a"}]));
     assert_eq!(
         w.err(
