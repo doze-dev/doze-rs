@@ -1,0 +1,15 @@
+# update --dry-run with a stack running: the hand-over is in the plan, and says the services stop for that moment
+# (the daemon restarts on the new doze), never that they keep running.
+@ registry
+@ project bare
+@ no-json
+@ daemon empty
+
+$ doze update --dry-run
+exit 0
+stdout:
+| doze dev → 9.9.9
+|   → install doze 9.9.9                  through Homebrew: brew upgrade doze
+|   → hand 1 running stack(s) over to it  each daemon restarts on the new doze and what was awake wakes again (services stop for that moment)
+|   + valkey sleeps with a snapshot
+|   dry run: nothing was changed · doze update applies this

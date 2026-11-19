@@ -1,42 +1,41 @@
 //! `doze task [name]` (Go cmd/doze/task.go): runs a task now, whatever its state, after waking what it needs, and
-//! returns when it is over; with no name, lists the tasks and how each last ran. How a task ran is kept in the
-//! project's `.doze/state.json` (Go's format), so the list reads it from there.
+//! returns when it is over; with no name, lists the tasks and how each last ran. The tasks are doze.hcl's (with which
+//! are `manual`), and how each ran is kept in the project's `.doze/state.json` (Go's format), so the list needs no
+//! daemon. Running one starts the daemon when doze is stopped, as Go's did.
 
 use crate::cli::args::Task;
+use crate::cmd::verbs::Looked;
 use crate::cmd::{dry, report};
 use crate::ctx::Ctx;
 use crate::diag::{Diagnostic, ids};
 use crate::output::{Done, Mode, Outcome};
 use crate::paint::Paint;
-use crate::stack::{self, Stack};
+use crate::stack::Stack;
 use crate::view::View;
-use doze_control::{Snapshot, Timestamp, Verb};
+use doze_config::Config;
+use doze_control::{Timestamp, Verb};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant, SystemTime};
 
-pub(crate) fn run(
-    ctx: &mut Ctx<'_>,
-    mode: &Mode,
-    a: &Task,
-    notices: &mut crate::notice::Notices,
-) -> Outcome {
+pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Task) -> Outcome {
     let stack = Stack::find(ctx, mode)?;
     let Some(name) = &a.name else {
-        return list(ctx, &stack, notices);
+        return list(ctx, &stack);
     };
-    let conn = stack.require(mode.timeout, "doze task")?;
-    let snap = stack::snapshot(&conn)?;
-    check(&snap, name)?;
+    // Go checks the name against doze.hcl before it starts anything.
+    check(&stack.loader.shape(&stack.project)?, name)?;
+    let looked = Looked::new(ctx, mode, std::slice::from_ref(name))?;
     if a.dry.dry_run {
-        return Ok(Done::ok(View::Plan(dry::task(&snap, name))));
+        let plan = dry::task(&looked.snap, name);
+        return Ok(Done::ok(View::Plan(looked.planned(plan))));
     }
+    let (_, ask) = looked.connect(ctx, mode, "doze task")?;
     let mut r = report::Report::new(mode);
     if !mode.json && !mode.quiet {
         let _ = writeln!(ctx.err, "{} {name} running…", mode.err().dim("→"));
     }
     let start = Instant::now();
-    let ask = crate::cmd::ask::Asker::new(conn, ctx, mode);
     if let Err(stop) = ask.verb(Verb::Task, name) {
         let d = r.stopped(name, &stop);
         return Ok(Done {
@@ -50,16 +49,14 @@ pub(crate) fn run(
     Ok(Done::ok(View::Verbs(r)))
 }
 
-/// `name` is a task of the stack; exit 4 saying what it is instead, or which tasks there are.
-fn check(snap: &Snapshot, name: &str) -> Result<(), Diagnostic> {
-    let tasks: Vec<&str> = stack::declared(snap)
-        .filter(|v| v.kind == "task")
-        .map(|v| v.name.as_str())
-        .collect();
+/// `name` is a task doze.hcl declares; exit 4 saying what it is instead, or which tasks there are (Go
+/// `taskNotFound`).
+fn check(cfg: &Config, name: &str) -> Result<(), Diagnostic> {
+    let tasks: Vec<&str> = cfg.tasks.iter().map(|t| t.name.as_str()).collect();
     if tasks.contains(&name) {
         return Ok(());
     }
-    let d = if stack::declared(snap).any(|v| v.name == name) {
+    let d = if cfg.instance(name).is_some() {
         Diagnostic::new(ids::NO_SUCH_SERVICE, format!("{name} is not a task"))
             .fix(format!("doze wake {name}"))
     } else if tasks.is_empty() {
@@ -93,10 +90,12 @@ struct State {
     tasks: BTreeMap<String, Record>,
 }
 
-/// One task in the list.
+/// One task in the list (Go's `taskView`).
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct Listed {
     name: String,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    manual: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     last: Option<Record>,
 }
@@ -109,7 +108,9 @@ pub struct Listing {
     now: Option<SystemTime>,
 }
 
-fn list(ctx: &Ctx<'_>, stack: &Stack, notices: &mut crate::notice::Notices) -> Outcome {
+fn list(ctx: &Ctx<'_>, stack: &Stack) -> Outcome {
+    // A doze.hcl that does not load is exit 5 (Go's `loadConfig` first): the list is its tasks.
+    let cfg = stack.loader.shape(&stack.project)?;
     let path = stack.project.dir.join(".doze").join("state.json");
     let state: State = match std::fs::read(&path) {
         Ok(b) => serde_json::from_slice(&b).map_err(|e| {
@@ -121,32 +122,16 @@ fn list(ctx: &Ctx<'_>, stack: &Stack, notices: &mut crate::notice::Notices) -> O
         })?,
         Err(_) => State::default(),
     };
-    let declared: Option<Vec<String>> = match stack.read()? {
-        Some(c) => Some(
-            stack::declared(&stack::snapshot(&c)?)
-                .filter(|v| v.kind == "task")
-                .map(|v| v.name.clone())
-                .collect(),
-        ),
-        None => None,
-    };
-    let names: Vec<String> = match declared {
-        Some(mut d) => {
-            d.sort();
-            d
-        }
-        None => {
-            notices.add("doze is not running: only the tasks that have run are listed");
-            state.tasks.keys().cloned().collect()
-        }
-    };
-    let tasks = names
-        .into_iter()
-        .map(|name| Listed {
-            last: state.tasks.get(&name).cloned(),
-            name,
+    let mut tasks: Vec<Listed> = cfg
+        .tasks
+        .iter()
+        .map(|t| Listed {
+            name: t.name.clone(),
+            manual: t.manual,
+            last: state.tasks.get(&t.name).cloned(),
         })
         .collect();
+    tasks.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(Done::ok(View::Tasks(Listing {
         tasks,
         now: Some(ctx.now),
@@ -162,6 +147,7 @@ impl Listing {
         let mut out = String::new();
         for t in &self.tasks {
             let said = match &t.last {
+                None if t.manual => p.dim("manual — never run").into_owned(),
                 None => p.dim("never ran").into_owned(),
                 Some(r) => {
                     let ago = since(r.ran_at.to_system_time(), now);

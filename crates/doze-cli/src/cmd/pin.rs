@@ -6,9 +6,10 @@ use crate::cli::args::Pin;
 use crate::cmd::ask::Asker;
 use crate::cmd::dry;
 use crate::cmd::report::Report;
+use crate::cmd::verbs::Looked;
 use crate::ctx::Ctx;
 use crate::output::{Done, Mode, Outcome};
-use crate::stack::{self, Stack};
+use crate::stack;
 use crate::view::View;
 use doze_control::{Connection, Verb};
 use std::collections::HashMap;
@@ -43,24 +44,21 @@ impl Want {
 pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Pin) -> Outcome {
     let want = Want::of(a);
     let names = stack::unique(&a.names);
-    let stack = Stack::find(ctx, mode)?;
-    let Some(conn) = stack.open(mode.timeout)? else {
-        if want == Want::Off {
-            // Nothing runs, so nothing is pinned.
-            let mut r = Report::new(mode);
-            for n in &names {
-                r.pin(ctx.out, n, false, false);
-            }
-            return Ok(Done::ok(View::Verbs(r)));
+    let looked = Looked::new(ctx, mode, &names)?;
+    if looked.starts() && want == Want::Off {
+        // Nothing runs, so nothing is pinned (Go's answer; nothing is started for it).
+        let mut r = Report::new(mode);
+        for n in &names {
+            r.pin(ctx.out, n, false, false);
         }
-        return Err(stack::down("doze pin"));
-    };
-    let snap = stack::snapshot(&conn)?;
-    stack::check_names(&snap, &names)?;
-    if a.dry.dry_run {
-        return Ok(Done::ok(View::Plan(dry::pin(&snap, &names, want))));
+        return Ok(Done::ok(View::Verbs(r)));
     }
-    let ask = Asker::new(conn, ctx, mode);
+    if a.dry.dry_run {
+        let plan = dry::pin(&looked.snap, &names, want);
+        return Ok(Done::ok(View::Plan(looked.planned(plan))));
+    }
+    // A pin lasts while the daemon runs: with doze stopped, it is started for it (Go `startDaemon`).
+    let (_, ask) = looked.connect(ctx, mode, "doze pin")?;
     let before = pinned(&ask.conn)?;
     let mut r = Report::new(mode);
     if let Err(d) = flip(ctx, &ask, &mut r, &names, want, &before) {

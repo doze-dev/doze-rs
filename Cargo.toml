@@ -14,6 +14,7 @@ exclude = ["vendor"]
 kafka-protocol = { path = "vendor/kafka-protocol" }
 # GPUI's macOS renderer without MSAA for paths (vendor/gpui-pre-apple/PATCHES.md). Only the app links it.
 gpui-pre-apple = { path = "vendor/gpui-pre-apple" }
+hcl-edit = { path = "vendor/hcl-edit" }
 
 [workspace.package]
 edition = "2024"
@@ -78,6 +79,14 @@ opt-level = "z"
 opt-level = "z"
 [profile.release.package.clap]
 opt-level = "z"
+# doze.hcl is read once per command or daemon start: the HCL crates are built for size (core C2 measured doze at
+# 6,421,104 B with them at opt-level 3 and 6,157,408 B at "s", darwin/arm64; docs/port/core/weight.md).
+[profile.release.package.doze-hcl]
+opt-level = "s"
+[profile.release.package.doze-config]
+opt-level = "s"
+[profile.release.package.hcl-edit]
+opt-level = "s"
 [profile.release.package.clap_builder]
 opt-level = "z"
 [profile.release.package.clap_lex]
@@ -104,3 +113,11 @@ lto = "fat"
 inherits = "release"
 opt-level = "z"
 lto = "fat"
+
+# doze, the CLI-only binary (and the daemon it will carry): optimised for size, as the app is. Per-package "s"/"z" on doze's own crates
+# shrank the x86_64 Linux build by 1.66 MB but grew the darwin one by 0.3 MB; the whole build at "s" shrinks both (8,924,224 to 7,123,432 B
+# on x86_64 Linux, 6,802,944 to 5,531,712 B on darwin/arm64) for about 0.3 ms on a warm `doze status` (docs/port/weight.md, "doze's profile").
+# CI's weight-doze job and `cargo xtask weight` build it with this profile; the release (`--release`) profile stays the broker's.
+[profile.release-doze]
+inherits = "release"
+opt-level = "s"

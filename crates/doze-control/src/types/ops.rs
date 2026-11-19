@@ -60,6 +60,15 @@ names! {
         On = "on",
         Resources = "resources",
         Admin = "admin",
+        /// Rust daemon, additive: what `apply` would change, changing nothing (`Response::changes`). A Go daemon
+        /// answers "unknown op", so a client never applies by mistake when it asked for a plan.
+        Plan = "plan",
+        /// Rust daemon, additive: a module instance's data moved to the version its block now declares, by its module
+        /// (`Response::result` says what it did). The instance is stopped first and woken by nothing meanwhile.
+        Migrate = "migrate",
+        /// Rust daemon, additive: the stack's doze.hcl loaded through its module catalog, each module checking its own
+        /// block (lint's second pass): its warnings as `lines`, unchecked module types as `unchecked`.
+        Lint = "lint",
         Subscribe = "subscribe",
         Events = "events",
         Cancel = "cancel",

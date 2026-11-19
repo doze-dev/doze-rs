@@ -1,0 +1,22 @@
+# init on a terminal in a folder with nothing doze runs: the wizard asks; with no answer nothing is written.
+@ registry
+@ tty
+@ no-json
+
+$ doze init
+exit 0
+stdout:
+| ✓ wrote doze.hcl · found nothing doze runs here, so it is a commented starter
+|   next: doze add <module> fills it
+tty exit 0
+tty stdout:
+| Let's scaffold a doze stack. (Ctrl-C to bail)
+| 
+|   1  postgres     The relational database.
+|   2  valkey       In-memory cache, Redis-compatible.
+| 
+| Services — numbers or names, space-separated: App command — e.g. 'go run . serve' (Enter to skip): nothing selected — run doze init again to pick services
+tty stderr:
+| fetching postgres from the registry…⟨cr⟩⟨Kfetching valkey from the registry…⟨cr⟩⟨K
+tty spawned:
+| __refresh --latest

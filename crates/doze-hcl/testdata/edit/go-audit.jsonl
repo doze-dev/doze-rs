@@ -1,0 +1,492 @@
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.0","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n \n","has_stack":false,"id":"e.1","names":null,"open":true,"stack":"stack = \"shop\"\n \n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n  \n","has_stack":false,"id":"e.2","names":null,"open":true,"stack":"stack = \"shop\"\n  \n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n \n","has_stack":false,"id":"e.3","names":null,"open":true,"stack":"stack = \"shop\"\n \n"}
+{"append":"\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.4","names":null,"open":true,"stack":"\nstack = \"shop\"\n"}
+{"append":"\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.5","names":null,"open":true,"stack":"\n\nstack = \"shop\"\n"}
+{"append":"\r\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.6","names":null,"open":true,"stack":"\r\nstack = \"shop\"\n"}
+{"id":"e.7","open":false}
+{"append":"# c app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.8","names":null,"open":true,"stack":"# c stack = \"shop\"\n"}
+{"append":"# c\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.9","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"// c app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.10","names":null,"open":true,"stack":"// c stack = \"shop\"\n"}
+{"append":"/* c */ app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.11","names":null,"open":true,"stack":"/* c */ stack = \"shop\"\n"}
+{"append":"/* c */\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.12","names":null,"open":true,"stack":"/* c */\nstack = \"shop\"\n"}
+{"append":"# a\n# b\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.13","names":null,"open":true,"stack":"# a\n# b\nstack = \"shop\"\n"}
+{"append":"\n# c\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.14","names":null,"open":true,"stack":"\n# c\n\nstack = \"shop\"\n"}
+{"append":"a = 1\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.15","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n \n","has_stack":false,"id":"e.16","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 \n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.17","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.18","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n  \n","has_stack":false,"id":"e.19","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n  \n"}
+{"append":"a = 1\n\n\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n  \n","has_stack":false,"id":"e.20","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n\n\n  \n"}
+{"append":"a = 1 # c\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.21","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 # c\n"}
+{"append":"a = 1 /* c */\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.22","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 /* c */\n"}
+{"append":"a = 1\r\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.23","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\r\n"}
+{"append":"a = 1\r\nb = 2\r\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.24","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\r\nb = 2\r\n"}
+{"append":"a  = 1\r\nbb = 2\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.25","names":null,"open":true,"stack":"stack = \"shop\"\n\na  = 1\r\nbb = 2\n"}
+{"append":"app \"a\" {}\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.26","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.27","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n \n","has_stack":false,"id":"e.28","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {} \n"}
+{"append":"app \"a\" {}\n\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.29","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {\n}\n# trailing\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.30","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {\n}\n# trailing\n"}
+{"append":"app \"a\" {\r\n  run = \"x\"\r\n}\r\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.31","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {\r\n  run = \"x\"\r\n}\r\n"}
+{"append":"# lead\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.32","names":["a"],"open":true,"stack":"stack = \"shop\"\n\n# lead\napp \"a\" {}\n"}
+{"append":"\n\n# lead\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.33","names":["a"],"open":true,"stack":"stack = \"shop\"\n\n\n\n# lead\n\napp \"a\" {}\n"}
+{"append":"/* lead */ app \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.34","names":["a"],"open":true,"stack":"stack = \"shop\"\n\n/* lead */ app \"a\" {}\n"}
+{"append":"# c\n\nstack = \"x\"\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":true,"id":"e.35","names":null,"open":true,"stack":"# c\n\nstack = \"x\"\n"}
+{"append":"stack = \"x\" # c\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":true,"id":"e.36","names":null,"open":true,"stack":"stack = \"x\" # c\n"}
+{"append":"stack = \"x\"\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":true,"id":"e.37","names":null,"open":true,"stack":"stack = \"x\"\n"}
+{"append":"stack = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":true,"id":"e.38","names":null,"open":true,"stack":"stack = 1\n"}
+{"append":"stack {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.39","names":null,"open":true,"stack":"stack = \"shop\"\n\nstack {}\n"}
+{"append":"app \"stack\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.40","names":["stack"],"open":true,"stack":"stack = \"shop\"\n\napp \"stack\" {}\n"}
+{"append":"x = { stack = 1 }\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.41","names":null,"open":true,"stack":"stack = \"shop\"\n\nx = { stack = 1 }\n"}
+{"append":"app \"\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.42","names":[""],"open":true,"stack":"stack = \"shop\"\n\napp \"\" {}\n"}
+{"append":"app \"a\\\"b\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.43","names":["a\"b"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\\"b\" {}\n"}
+{"append":"app \"a\\nb\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.44","names":["a\nb"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\nb\" {}\n"}
+{"append":"app \"a$b\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.45","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a$b\" {}\n"}
+{"append":"app \"a%b\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.46","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a%b\" {}\n"}
+{"append":"app \"a$${b}\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.47","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a$${b}\" {}\n"}
+{"append":"app \"a%%{b}\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.48","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a%%{b}\" {}\n"}
+{"append":"app \"$\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.49","names":["$"],"open":true,"stack":"stack = \"shop\"\n\napp \"$\" {}\n"}
+{"append":"app \"\\u0024\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.50","names":["$"],"open":true,"stack":"stack = \"shop\"\n\napp \"\\u0024\" {}\n"}
+{"append":"app \"a\\u0025b\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.51","names":["a%b"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\u0025b\" {}\n"}
+{"append":"app \"\\u00e9\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.52","names":["é"],"open":true,"stack":"stack = \"shop\"\n\napp \"\\u00e9\" {}\n"}
+{"append":"app \"é\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.53","names":["é"],"open":true,"stack":"stack = \"shop\"\n\napp \"é\" {}\n"}
+{"append":"app \"日本\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.54","names":["日本"],"open":true,"stack":"stack = \"shop\"\n\napp \"日本\" {}\n"}
+{"append":"app \"👍🏽\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.55","names":["👍🏽"],"open":true,"stack":"stack = \"shop\"\n\napp \"👍🏽\" {}\n"}
+{"append":"app a {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.56","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp a {}\n"}
+{"append":"app a \"b\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.57","names":["b"],"open":true,"stack":"stack = \"shop\"\n\napp a \"b\" {}\n"}
+{"append":"module \"pg\" \"db\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.58","names":["db"],"open":true,"stack":"stack = \"shop\"\n\nmodule \"pg\" \"db\" {}\n"}
+{"append":"module pg db {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.59","names":["db"],"open":true,"stack":"stack = \"shop\"\n\nmodule pg db {}\n"}
+{"append":"app \"a\" \"\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.60","names":[""],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" \"\" {}\n"}
+{"append":"app \"a\" \"$x\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.61","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" \"$x\" {}\n"}
+{"append":"app \"a\\\\\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.62","names":["a\\"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\\\\" {}\n"}
+{"append":"app \"a\\tb\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.63","names":["a\tb"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\tb\" {}\n"}
+{"append":"a = 1\nb = 2\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.64","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\nb = 2\n"}
+{"append":"a = 1\n\napp \"x\" {\n  port = 1\n}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.65","names":["x"],"open":true,"stack":"stack = \"shop\"\n\na = 1\n\napp \"x\" {\n  port = 1\n}\n"}
+{"append":"app \"x\" { port = 1 }\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.66","names":["x"],"open":true,"stack":"stack = \"shop\"\n\napp \"x\" { port = 1 }\n"}
+{"append":"app \"x\" {\n  port = 1\n  run  = \"y\"\n}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.67","names":["x"],"open":true,"stack":"stack = \"shop\"\n\napp \"x\" {\n  port = 1\n  run  = \"y\"\n}\n"}
+{"id":"e.68","open":false}
+{"id":"e.69","open":false}
+{"append":"a = \u003c\u003cEOT\nhi\nEOT\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.70","names":null,"open":true,"stack":"stack = \"shop\"\n\na = \u003c\u003cEOT\nhi\nEOT\n"}
+{"id":"e.71","open":false}
+{"append":"a = \u003c\u003c-EOT\n  hi\n  EOT\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.72","names":null,"open":true,"stack":"stack = \"shop\"\n\na = \u003c\u003c-EOT\n  hi\n  EOT\n"}
+{"append":"app \"a\" {\n  x = \u003c\u003cEOT\n  y\nEOT\n}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.73","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {\n  x = \u003c\u003cEOT\n  y\nEOT\n}\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.74","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n   \n","has_stack":false,"id":"e.75","names":null,"open":true,"stack":"stack = \"shop\"\n   \n"}
+{"id":"e.76","open":false}
+{"append":"a = 1 /* multi\nline */\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.77","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 /* multi\nline */\n"}
+{"append":"a = 1\n/* a */ /* b */\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.78","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n/* a */ /* b */\n"}
+{"append":"a = 1\n\n\n\nb = 2\n\n\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.79","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n\n\n\nb = 2\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.80","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"\n# indented comment\na = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.81","names":null,"open":true,"stack":"stack = \"shop\"\n\n\n# indented comment\na = 1\n"}
+{"append":"a = [\n  1,\n  2,\n]\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.82","names":null,"open":true,"stack":"stack = \"shop\"\n\na = [\n  1,\n  2,\n]\n"}
+{"append":"a = {\n  b = 1\n}\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.83","names":null,"open":true,"stack":"stack = \"shop\"\n\na = {\n  b = 1\n}\n"}
+{"append":"# lead comment\napp \"x\" {}\n","has_stack":false,"id":"e.84","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"// lead\napp \"x\" {}\n","has_stack":false,"id":"e.85","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {}\n","has_stack":false,"id":"e.86","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"/* inline */ app \"x\" {}\n","has_stack":false,"id":"e.87","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {} # trailing\n","has_stack":false,"id":"e.88","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {}\n","has_stack":false,"id":"e.89","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {}\n","has_stack":false,"id":"e.90","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {}\n","has_stack":false,"id":"e.91","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {\n}\n","has_stack":false,"id":"e.92","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {\n  port = 1\n}\n","has_stack":false,"id":"e.93","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" { port = 1 }\n","has_stack":false,"id":"e.94","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {\r\n  port = 1\r\n}\r\n","has_stack":false,"id":"e.95","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {\n  # inner\n  port = 1 # c\n}\n","has_stack":false,"id":"e.96","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {\n  run = \u003c\u003cEOT\n  hi\nEOT\n}\n","has_stack":false,"id":"e.97","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append_err":"expected one block, got 2","has_stack":false,"id":"e.98","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append_err":"expected one block, got 0","has_stack":false,"id":"e.99","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append_err":"expected one block, got 0","has_stack":false,"id":"e.100","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append_err":"the block does not parse: block:1,9-10: Unclosed configuration block; There is no closing brace for this block before the end of the file. This may be caused by incorrect brace nesting elsewhere in this file.","has_stack":false,"id":"e.101","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"a$${b}\" {}\n","has_stack":false,"id":"e.102","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"\" {}\n","has_stack":false,"id":"e.103","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {\n  env = { A = \"${x}\" }\n}\n","has_stack":false,"id":"e.104","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {}\n","has_stack":false,"id":"e.105","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {}\n","has_stack":false,"id":"e.106","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {}\n","has_stack":false,"id":"e.107","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {} /* c */\n","has_stack":false,"id":"e.108","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {}\n","has_stack":false,"id":"e.109","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"#\napp \"x\" {}\n","has_stack":false,"id":"e.110","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"a = 1\n\n# lead comment\napp \"x\" {}\n","has_stack":false,"id":"e.111","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\n// lead\napp \"x\" {}\n","has_stack":false,"id":"e.112","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {}\n","has_stack":false,"id":"e.113","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\n/* inline */ app \"x\" {}\n","has_stack":false,"id":"e.114","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {} # trailing\n","has_stack":false,"id":"e.115","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {}\n","has_stack":false,"id":"e.116","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {}\n","has_stack":false,"id":"e.117","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {}\n","has_stack":false,"id":"e.118","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {\n}\n","has_stack":false,"id":"e.119","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {\n  port = 1\n}\n","has_stack":false,"id":"e.120","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" { port = 1 }\n","has_stack":false,"id":"e.121","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {\r\n  port = 1\r\n}\r\n","has_stack":false,"id":"e.122","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {\n  # inner\n  port = 1 # c\n}\n","has_stack":false,"id":"e.123","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {\n  run = \u003c\u003cEOT\n  hi\nEOT\n}\n","has_stack":false,"id":"e.124","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append_err":"expected one block, got 2","has_stack":false,"id":"e.125","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append_err":"expected one block, got 0","has_stack":false,"id":"e.126","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append_err":"expected one block, got 0","has_stack":false,"id":"e.127","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append_err":"the block does not parse: block:1,9-10: Unclosed configuration block; There is no closing brace for this block before the end of the file. This may be caused by incorrect brace nesting elsewhere in this file.","has_stack":false,"id":"e.128","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"a$${b}\" {}\n","has_stack":false,"id":"e.129","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"\" {}\n","has_stack":false,"id":"e.130","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {\n  env = { A = \"${x}\" }\n}\n","has_stack":false,"id":"e.131","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {}\n","has_stack":false,"id":"e.132","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {}\n","has_stack":false,"id":"e.133","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {}\n","has_stack":false,"id":"e.134","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {} /* c */\n","has_stack":false,"id":"e.135","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {}\n","has_stack":false,"id":"e.136","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\n#\napp \"x\" {}\n","has_stack":false,"id":"e.137","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"# c\n# lead comment\napp \"x\" {}\n","has_stack":false,"id":"e.138","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\n// lead\napp \"x\" {}\n","has_stack":false,"id":"e.139","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {}\n","has_stack":false,"id":"e.140","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\n/* inline */ app \"x\" {}\n","has_stack":false,"id":"e.141","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {} # trailing\n","has_stack":false,"id":"e.142","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {}\n","has_stack":false,"id":"e.143","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {}\n","has_stack":false,"id":"e.144","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {}\n","has_stack":false,"id":"e.145","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {\n}\n","has_stack":false,"id":"e.146","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {\n  port = 1\n}\n","has_stack":false,"id":"e.147","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" { port = 1 }\n","has_stack":false,"id":"e.148","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {\r\n  port = 1\r\n}\r\n","has_stack":false,"id":"e.149","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {\n  # inner\n  port = 1 # c\n}\n","has_stack":false,"id":"e.150","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {\n  run = \u003c\u003cEOT\n  hi\nEOT\n}\n","has_stack":false,"id":"e.151","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append_err":"expected one block, got 2","has_stack":false,"id":"e.152","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append_err":"expected one block, got 0","has_stack":false,"id":"e.153","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append_err":"expected one block, got 0","has_stack":false,"id":"e.154","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append_err":"the block does not parse: block:1,9-10: Unclosed configuration block; There is no closing brace for this block before the end of the file. This may be caused by incorrect brace nesting elsewhere in this file.","has_stack":false,"id":"e.155","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"a$${b}\" {}\n","has_stack":false,"id":"e.156","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"\" {}\n","has_stack":false,"id":"e.157","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {\n  env = { A = \"${x}\" }\n}\n","has_stack":false,"id":"e.158","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {}\n","has_stack":false,"id":"e.159","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {}\n","has_stack":false,"id":"e.160","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {}\n","has_stack":false,"id":"e.161","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {} /* c */\n","has_stack":false,"id":"e.162","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {}\n","has_stack":false,"id":"e.163","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\n#\napp \"x\" {}\n","has_stack":false,"id":"e.164","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"app \"a\" {}\n# lead comment\napp \"x\" {}\n","has_stack":false,"id":"e.165","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\n// lead\napp \"x\" {}\n","has_stack":false,"id":"e.166","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {}\n","has_stack":false,"id":"e.167","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\n/* inline */ app \"x\" {}\n","has_stack":false,"id":"e.168","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {} # trailing\n","has_stack":false,"id":"e.169","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {}\n","has_stack":false,"id":"e.170","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {}\n","has_stack":false,"id":"e.171","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {}\n","has_stack":false,"id":"e.172","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {\n}\n","has_stack":false,"id":"e.173","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {\n  port = 1\n}\n","has_stack":false,"id":"e.174","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" { port = 1 }\n","has_stack":false,"id":"e.175","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {\r\n  port = 1\r\n}\r\n","has_stack":false,"id":"e.176","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {\n  # inner\n  port = 1 # c\n}\n","has_stack":false,"id":"e.177","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {\n  run = \u003c\u003cEOT\n  hi\nEOT\n}\n","has_stack":false,"id":"e.178","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append_err":"expected one block, got 2","has_stack":false,"id":"e.179","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append_err":"expected one block, got 0","has_stack":false,"id":"e.180","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append_err":"expected one block, got 0","has_stack":false,"id":"e.181","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append_err":"the block does not parse: block:1,9-10: Unclosed configuration block; There is no closing brace for this block before the end of the file. This may be caused by incorrect brace nesting elsewhere in this file.","has_stack":false,"id":"e.182","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"a$${b}\" {}\n","has_stack":false,"id":"e.183","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"\" {}\n","has_stack":false,"id":"e.184","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {\n  env = { A = \"${x}\" }\n}\n","has_stack":false,"id":"e.185","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {}\n","has_stack":false,"id":"e.186","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {}\n","has_stack":false,"id":"e.187","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {}\n","has_stack":false,"id":"e.188","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {} /* c */\n","has_stack":false,"id":"e.189","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {}\n","has_stack":false,"id":"e.190","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\n#\napp \"x\" {}\n","has_stack":false,"id":"e.191","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.192","names":null,"open":true,"stack":"stack = \"\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.193","names":null,"open":true,"stack":"stack = \"a\\\"b\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.194","names":null,"open":true,"stack":"stack = \"a\\\\b\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.195","names":null,"open":true,"stack":"stack = \"$${x}\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.196","names":null,"open":true,"stack":"stack = \"$$${x}\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.197","names":null,"open":true,"stack":"stack = \"%%{x}\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.198","names":null,"open":true,"stack":"stack = \"$\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.199","names":null,"open":true,"stack":"stack = \"%\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.200","names":null,"open":true,"stack":"stack = \"a$\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.201","names":null,"open":true,"stack":"stack = \"a$$\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.202","names":null,"open":true,"stack":"stack = \"a\\nb\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.203","names":null,"open":true,"stack":"stack = \"a\\rb\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.204","names":null,"open":true,"stack":"stack = \"a\\tb\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.205","names":null,"open":true,"stack":"stack = \"\\u0000\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.206","names":null,"open":true,"stack":"stack = \"\\u0001\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.207","names":null,"open":true,"stack":"stack = \"\\u007f\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.208","names":null,"open":true,"stack":"stack = \"\\u0085\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.209","names":null,"open":true,"stack":"stack = \"\\u00a0\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.210","names":null,"open":true,"stack":"stack = \"\\u00ad\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.211","names":null,"open":true,"stack":"stack = \"\\u200b\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.212","names":null,"open":true,"stack":"stack = \"\\u200d\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.213","names":null,"open":true,"stack":"stack = \"\\u2028\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.214","names":null,"open":true,"stack":"stack = \"\\u2029\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.215","names":null,"open":true,"stack":"stack = \"\\u3000\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.216","names":null,"open":true,"stack":"stack = \"\\u1680\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.217","names":null,"open":true,"stack":"stack = \"\\ufeff\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.218","names":null,"open":true,"stack":"stack = \"\\ue000\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.219","names":null,"open":true,"stack":"stack = \"\\uffff\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.220","names":null,"open":true,"stack":"stack = \"\\U0010ffff\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.221","names":null,"open":true,"stack":"stack = \"👍\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.222","names":null,"open":true,"stack":"stack = \"👨\\u200d👩\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.223","names":null,"open":true,"stack":"stack = \"\\U000e0001\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.224","names":null,"open":true,"stack":"stack = \"\\U000f0000\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.225","names":null,"open":true,"stack":"stack = \"\\u0378\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.226","names":null,"open":true,"stack":"stack = \"\\U0001d173\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.227","names":null,"open":true,"stack":"stack = \"é\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.228","names":null,"open":true,"stack":"stack = \"é\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.229","names":null,"open":true,"stack":"stack = \"日本\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.230","names":null,"open":true,"stack":"stack = \"a b\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.231","names":null,"open":true,"stack":"stack = \" a\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.232","names":null,"open":true,"stack":"stack = \"a \"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.233","names":null,"open":true,"stack":"stack = \"\\u2060\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.234","names":null,"open":true,"stack":"stack = \"\\u061c\"\n"}
+{"append":"app \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.235","names":null,"open":true,"stack":"stack = \"\\u0600\"\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.236","names":null,"open":true,"stack":"stack = \"\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.237","names":null,"open":true,"stack":"stack = \"a\\\"b\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.238","names":null,"open":true,"stack":"stack = \"a\\\\b\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.239","names":null,"open":true,"stack":"stack = \"$${x}\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.240","names":null,"open":true,"stack":"stack = \"$$${x}\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.241","names":null,"open":true,"stack":"stack = \"%%{x}\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.242","names":null,"open":true,"stack":"stack = \"$\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.243","names":null,"open":true,"stack":"stack = \"%\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.244","names":null,"open":true,"stack":"stack = \"a$\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.245","names":null,"open":true,"stack":"stack = \"a$$\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.246","names":null,"open":true,"stack":"stack = \"a\\nb\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.247","names":null,"open":true,"stack":"stack = \"a\\rb\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.248","names":null,"open":true,"stack":"stack = \"a\\tb\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.249","names":null,"open":true,"stack":"stack = \"\\u0000\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.250","names":null,"open":true,"stack":"stack = \"\\u0001\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.251","names":null,"open":true,"stack":"stack = \"\\u007f\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.252","names":null,"open":true,"stack":"stack = \"\\u0085\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.253","names":null,"open":true,"stack":"stack = \"\\u00a0\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.254","names":null,"open":true,"stack":"stack = \"\\u00ad\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.255","names":null,"open":true,"stack":"stack = \"\\u200b\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.256","names":null,"open":true,"stack":"stack = \"\\u200d\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.257","names":null,"open":true,"stack":"stack = \"\\u2028\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.258","names":null,"open":true,"stack":"stack = \"\\u2029\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.259","names":null,"open":true,"stack":"stack = \"\\u3000\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.260","names":null,"open":true,"stack":"stack = \"\\u1680\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.261","names":null,"open":true,"stack":"stack = \"\\ufeff\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.262","names":null,"open":true,"stack":"stack = \"\\ue000\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.263","names":null,"open":true,"stack":"stack = \"\\uffff\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.264","names":null,"open":true,"stack":"stack = \"\\U0010ffff\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.265","names":null,"open":true,"stack":"stack = \"👍\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.266","names":null,"open":true,"stack":"stack = \"👨\\u200d👩\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.267","names":null,"open":true,"stack":"stack = \"\\U000e0001\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.268","names":null,"open":true,"stack":"stack = \"\\U000f0000\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.269","names":null,"open":true,"stack":"stack = \"\\u0378\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.270","names":null,"open":true,"stack":"stack = \"\\U0001d173\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.271","names":null,"open":true,"stack":"stack = \"é\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.272","names":null,"open":true,"stack":"stack = \"é\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.273","names":null,"open":true,"stack":"stack = \"日本\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.274","names":null,"open":true,"stack":"stack = \"a b\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.275","names":null,"open":true,"stack":"stack = \" a\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.276","names":null,"open":true,"stack":"stack = \"a \"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.277","names":null,"open":true,"stack":"stack = \"\\u2060\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.278","names":null,"open":true,"stack":"stack = \"\\u061c\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.279","names":null,"open":true,"stack":"stack = \"\\u0600\"\n\na = 1\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.280","names":["a"],"open":true,"stack":"stack = \"\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.281","names":["a"],"open":true,"stack":"stack = \"a\\\"b\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.282","names":["a"],"open":true,"stack":"stack = \"a\\\\b\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.283","names":["a"],"open":true,"stack":"stack = \"$${x}\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.284","names":["a"],"open":true,"stack":"stack = \"$$${x}\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.285","names":["a"],"open":true,"stack":"stack = \"%%{x}\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.286","names":["a"],"open":true,"stack":"stack = \"$\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.287","names":["a"],"open":true,"stack":"stack = \"%\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.288","names":["a"],"open":true,"stack":"stack = \"a$\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.289","names":["a"],"open":true,"stack":"stack = \"a$$\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.290","names":["a"],"open":true,"stack":"stack = \"a\\nb\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.291","names":["a"],"open":true,"stack":"stack = \"a\\rb\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.292","names":["a"],"open":true,"stack":"stack = \"a\\tb\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.293","names":["a"],"open":true,"stack":"stack = \"\\u0000\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.294","names":["a"],"open":true,"stack":"stack = \"\\u0001\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.295","names":["a"],"open":true,"stack":"stack = \"\\u007f\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.296","names":["a"],"open":true,"stack":"stack = \"\\u0085\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.297","names":["a"],"open":true,"stack":"stack = \"\\u00a0\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.298","names":["a"],"open":true,"stack":"stack = \"\\u00ad\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.299","names":["a"],"open":true,"stack":"stack = \"\\u200b\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.300","names":["a"],"open":true,"stack":"stack = \"\\u200d\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.301","names":["a"],"open":true,"stack":"stack = \"\\u2028\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.302","names":["a"],"open":true,"stack":"stack = \"\\u2029\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.303","names":["a"],"open":true,"stack":"stack = \"\\u3000\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.304","names":["a"],"open":true,"stack":"stack = \"\\u1680\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.305","names":["a"],"open":true,"stack":"stack = \"\\ufeff\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.306","names":["a"],"open":true,"stack":"stack = \"\\ue000\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.307","names":["a"],"open":true,"stack":"stack = \"\\uffff\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.308","names":["a"],"open":true,"stack":"stack = \"\\U0010ffff\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.309","names":["a"],"open":true,"stack":"stack = \"👍\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.310","names":["a"],"open":true,"stack":"stack = \"👨\\u200d👩\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.311","names":["a"],"open":true,"stack":"stack = \"\\U000e0001\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.312","names":["a"],"open":true,"stack":"stack = \"\\U000f0000\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.313","names":["a"],"open":true,"stack":"stack = \"\\u0378\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.314","names":["a"],"open":true,"stack":"stack = \"\\U0001d173\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.315","names":["a"],"open":true,"stack":"stack = \"é\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.316","names":["a"],"open":true,"stack":"stack = \"é\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.317","names":["a"],"open":true,"stack":"stack = \"日本\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.318","names":["a"],"open":true,"stack":"stack = \"a b\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.319","names":["a"],"open":true,"stack":"stack = \" a\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.320","names":["a"],"open":true,"stack":"stack = \"a \"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.321","names":["a"],"open":true,"stack":"stack = \"\\u2060\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.322","names":["a"],"open":true,"stack":"stack = \"\\u061c\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# c\n\napp \"a\" {}\n\napp \"extra\" {\n  run  = \"go run ./cmd/extra\"\n  port = 9090\n}\n","has_stack":false,"id":"e.323","names":["a"],"open":true,"stack":"stack = \"\\u0600\"\n\n# c\n\napp \"a\" {}\n"}
+{"append":"# lead\napp \"x\" {}\n","has_stack":false,"id":"e.324","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"app \"x\" {} # t\n","has_stack":false,"id":"e.325","names":null,"open":true,"stack":"stack = \"shop\"\n"}
+{"append":"# lead\napp \"x\" {}\n \n","has_stack":false,"id":"e.326","names":null,"open":true,"stack":"stack = \"shop\"\n \n"}
+{"append":"app \"x\" {} # t\n \n","has_stack":false,"id":"e.327","names":null,"open":true,"stack":"stack = \"shop\"\n \n"}
+{"append":"# lead\napp \"x\" {}\n  \n","has_stack":false,"id":"e.328","names":null,"open":true,"stack":"stack = \"shop\"\n  \n"}
+{"append":"app \"x\" {} # t\n  \n","has_stack":false,"id":"e.329","names":null,"open":true,"stack":"stack = \"shop\"\n  \n"}
+{"append":"# lead\napp \"x\" {}\n \n","has_stack":false,"id":"e.330","names":null,"open":true,"stack":"stack = \"shop\"\n \n"}
+{"append":"app \"x\" {} # t\n \n","has_stack":false,"id":"e.331","names":null,"open":true,"stack":"stack = \"shop\"\n \n"}
+{"append":"\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.332","names":null,"open":true,"stack":"\nstack = \"shop\"\n"}
+{"append":"\napp \"x\" {} # t\n","has_stack":false,"id":"e.333","names":null,"open":true,"stack":"\nstack = \"shop\"\n"}
+{"append":"\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.334","names":null,"open":true,"stack":"\n\nstack = \"shop\"\n"}
+{"append":"\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.335","names":null,"open":true,"stack":"\n\nstack = \"shop\"\n"}
+{"append":"\r\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.336","names":null,"open":true,"stack":"\r\nstack = \"shop\"\n"}
+{"append":"\r\napp \"x\" {} # t\n","has_stack":false,"id":"e.337","names":null,"open":true,"stack":"\r\nstack = \"shop\"\n"}
+{"id":"e.338","open":false}
+{"id":"e.339","open":false}
+{"append":"# c # lead\napp \"x\" {}\n","has_stack":false,"id":"e.340","names":null,"open":true,"stack":"# c stack = \"shop\"\n"}
+{"append":"# c app \"x\" {} # t\n","has_stack":false,"id":"e.341","names":null,"open":true,"stack":"# c stack = \"shop\"\n"}
+{"append":"# c\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.342","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"# c\napp \"x\" {} # t\n","has_stack":false,"id":"e.343","names":null,"open":true,"stack":"# c\nstack = \"shop\"\n"}
+{"append":"// c # lead\napp \"x\" {}\n","has_stack":false,"id":"e.344","names":null,"open":true,"stack":"// c stack = \"shop\"\n"}
+{"append":"// c app \"x\" {} # t\n","has_stack":false,"id":"e.345","names":null,"open":true,"stack":"// c stack = \"shop\"\n"}
+{"append":"/* c */ # lead\napp \"x\" {}\n","has_stack":false,"id":"e.346","names":null,"open":true,"stack":"/* c */ stack = \"shop\"\n"}
+{"append":"/* c */ app \"x\" {} # t\n","has_stack":false,"id":"e.347","names":null,"open":true,"stack":"/* c */ stack = \"shop\"\n"}
+{"append":"/* c */\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.348","names":null,"open":true,"stack":"/* c */\nstack = \"shop\"\n"}
+{"append":"/* c */\napp \"x\" {} # t\n","has_stack":false,"id":"e.349","names":null,"open":true,"stack":"/* c */\nstack = \"shop\"\n"}
+{"append":"# a\n# b\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.350","names":null,"open":true,"stack":"# a\n# b\nstack = \"shop\"\n"}
+{"append":"# a\n# b\napp \"x\" {} # t\n","has_stack":false,"id":"e.351","names":null,"open":true,"stack":"# a\n# b\nstack = \"shop\"\n"}
+{"append":"\n# c\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.352","names":null,"open":true,"stack":"\n# c\n\nstack = \"shop\"\n"}
+{"append":"\n# c\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.353","names":null,"open":true,"stack":"\n# c\n\nstack = \"shop\"\n"}
+{"append":"a = 1\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.354","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\napp \"x\" {} # t\n","has_stack":false,"id":"e.355","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n# lead\napp \"x\" {}\n \n","has_stack":false,"id":"e.356","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 \n"}
+{"append":"a = 1\napp \"x\" {} # t\n \n","has_stack":false,"id":"e.357","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 \n"}
+{"append":"a = 1\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.358","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.359","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.360","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.361","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\n# lead\napp \"x\" {}\n  \n","has_stack":false,"id":"e.362","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n  \n"}
+{"append":"a = 1\n\napp \"x\" {} # t\n  \n","has_stack":false,"id":"e.363","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n  \n"}
+{"append":"a = 1\n\n\n\n# lead\napp \"x\" {}\n  \n","has_stack":false,"id":"e.364","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n\n\n  \n"}
+{"append":"a = 1\n\n\n\napp \"x\" {} # t\n  \n","has_stack":false,"id":"e.365","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n\n\n  \n"}
+{"append":"a = 1 # c\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.366","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 # c\n"}
+{"append":"a = 1 # c\napp \"x\" {} # t\n","has_stack":false,"id":"e.367","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 # c\n"}
+{"append":"a = 1 /* c */\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.368","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 /* c */\n"}
+{"append":"a = 1 /* c */\napp \"x\" {} # t\n","has_stack":false,"id":"e.369","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 /* c */\n"}
+{"append":"a = 1\r\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.370","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\r\n"}
+{"append":"a = 1\r\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.371","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\r\n"}
+{"append":"a = 1\r\nb = 2\r\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.372","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\r\nb = 2\r\n"}
+{"append":"a = 1\r\nb = 2\r\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.373","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\r\nb = 2\r\n"}
+{"append":"a  = 1\r\nbb = 2\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.374","names":null,"open":true,"stack":"stack = \"shop\"\n\na  = 1\r\nbb = 2\n"}
+{"append":"a  = 1\r\nbb = 2\napp \"x\" {} # t\n","has_stack":false,"id":"e.375","names":null,"open":true,"stack":"stack = \"shop\"\n\na  = 1\r\nbb = 2\n"}
+{"append":"app \"a\" {}\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.376","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\napp \"x\" {} # t\n","has_stack":false,"id":"e.377","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.378","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.379","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\n# lead\napp \"x\" {}\n \n","has_stack":false,"id":"e.380","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {} \n"}
+{"append":"app \"a\" {}\napp \"x\" {} # t\n \n","has_stack":false,"id":"e.381","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {} \n"}
+{"append":"app \"a\" {}\n\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.382","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {}\n\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.383","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {}\n"}
+{"append":"app \"a\" {\n}\n# trailing\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.384","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {\n}\n# trailing\n"}
+{"append":"app \"a\" {\n}\n# trailing\napp \"x\" {} # t\n","has_stack":false,"id":"e.385","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {\n}\n# trailing\n"}
+{"append":"app \"a\" {\r\n  run = \"x\"\r\n}\r\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.386","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {\r\n  run = \"x\"\r\n}\r\n"}
+{"append":"app \"a\" {\r\n  run = \"x\"\r\n}\r\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.387","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {\r\n  run = \"x\"\r\n}\r\n"}
+{"append":"# lead\napp \"a\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.388","names":["a"],"open":true,"stack":"stack = \"shop\"\n\n# lead\napp \"a\" {}\n"}
+{"append":"# lead\napp \"a\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.389","names":["a"],"open":true,"stack":"stack = \"shop\"\n\n# lead\napp \"a\" {}\n"}
+{"append":"\n\n# lead\n\napp \"a\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.390","names":["a"],"open":true,"stack":"stack = \"shop\"\n\n\n\n# lead\n\napp \"a\" {}\n"}
+{"append":"\n\n# lead\n\napp \"a\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.391","names":["a"],"open":true,"stack":"stack = \"shop\"\n\n\n\n# lead\n\napp \"a\" {}\n"}
+{"append":"/* lead */ app \"a\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.392","names":["a"],"open":true,"stack":"stack = \"shop\"\n\n/* lead */ app \"a\" {}\n"}
+{"append":"/* lead */ app \"a\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.393","names":["a"],"open":true,"stack":"stack = \"shop\"\n\n/* lead */ app \"a\" {}\n"}
+{"append":"# c\n\nstack = \"x\"\n\n# lead\napp \"x\" {}\n","has_stack":true,"id":"e.394","names":null,"open":true,"stack":"# c\n\nstack = \"x\"\n"}
+{"append":"# c\n\nstack = \"x\"\n\napp \"x\" {} # t\n","has_stack":true,"id":"e.395","names":null,"open":true,"stack":"# c\n\nstack = \"x\"\n"}
+{"append":"stack = \"x\" # c\n\n# lead\napp \"x\" {}\n","has_stack":true,"id":"e.396","names":null,"open":true,"stack":"stack = \"x\" # c\n"}
+{"append":"stack = \"x\" # c\n\napp \"x\" {} # t\n","has_stack":true,"id":"e.397","names":null,"open":true,"stack":"stack = \"x\" # c\n"}
+{"append":"stack = \"x\"\n\n# lead\napp \"x\" {}\n","has_stack":true,"id":"e.398","names":null,"open":true,"stack":"stack = \"x\"\n"}
+{"append":"stack = \"x\"\n\napp \"x\" {} # t\n","has_stack":true,"id":"e.399","names":null,"open":true,"stack":"stack = \"x\"\n"}
+{"append":"stack = 1\n\n# lead\napp \"x\" {}\n","has_stack":true,"id":"e.400","names":null,"open":true,"stack":"stack = 1\n"}
+{"append":"stack = 1\n\napp \"x\" {} # t\n","has_stack":true,"id":"e.401","names":null,"open":true,"stack":"stack = 1\n"}
+{"append":"stack {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.402","names":null,"open":true,"stack":"stack = \"shop\"\n\nstack {}\n"}
+{"append":"stack {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.403","names":null,"open":true,"stack":"stack = \"shop\"\n\nstack {}\n"}
+{"append":"app \"stack\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.404","names":["stack"],"open":true,"stack":"stack = \"shop\"\n\napp \"stack\" {}\n"}
+{"append":"app \"stack\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.405","names":["stack"],"open":true,"stack":"stack = \"shop\"\n\napp \"stack\" {}\n"}
+{"append":"x = { stack = 1 }\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.406","names":null,"open":true,"stack":"stack = \"shop\"\n\nx = { stack = 1 }\n"}
+{"append":"x = { stack = 1 }\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.407","names":null,"open":true,"stack":"stack = \"shop\"\n\nx = { stack = 1 }\n"}
+{"append":"app \"\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.408","names":[""],"open":true,"stack":"stack = \"shop\"\n\napp \"\" {}\n"}
+{"append":"app \"\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.409","names":[""],"open":true,"stack":"stack = \"shop\"\n\napp \"\" {}\n"}
+{"append":"app \"a\\\"b\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.410","names":["a\"b"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\\"b\" {}\n"}
+{"append":"app \"a\\\"b\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.411","names":["a\"b"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\\"b\" {}\n"}
+{"append":"app \"a\\nb\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.412","names":["a\nb"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\nb\" {}\n"}
+{"append":"app \"a\\nb\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.413","names":["a\nb"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\nb\" {}\n"}
+{"append":"app \"a$b\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.414","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a$b\" {}\n"}
+{"append":"app \"a$b\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.415","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a$b\" {}\n"}
+{"append":"app \"a%b\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.416","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a%b\" {}\n"}
+{"append":"app \"a%b\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.417","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a%b\" {}\n"}
+{"append":"app \"a$${b}\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.418","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a$${b}\" {}\n"}
+{"append":"app \"a$${b}\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.419","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a$${b}\" {}\n"}
+{"append":"app \"a%%{b}\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.420","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a%%{b}\" {}\n"}
+{"append":"app \"a%%{b}\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.421","names":null,"open":true,"stack":"stack = \"shop\"\n\napp \"a%%{b}\" {}\n"}
+{"append":"app \"$\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.422","names":["$"],"open":true,"stack":"stack = \"shop\"\n\napp \"$\" {}\n"}
+{"append":"app \"$\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.423","names":["$"],"open":true,"stack":"stack = \"shop\"\n\napp \"$\" {}\n"}
+{"append":"app \"\\u0024\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.424","names":["$"],"open":true,"stack":"stack = \"shop\"\n\napp \"\\u0024\" {}\n"}
+{"append":"app \"\\u0024\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.425","names":["$"],"open":true,"stack":"stack = \"shop\"\n\napp \"\\u0024\" {}\n"}
+{"append":"app \"a\\u0025b\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.426","names":["a%b"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\u0025b\" {}\n"}
+{"append":"app \"a\\u0025b\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.427","names":["a%b"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\u0025b\" {}\n"}
+{"append":"app \"\\u00e9\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.428","names":["é"],"open":true,"stack":"stack = \"shop\"\n\napp \"\\u00e9\" {}\n"}
+{"append":"app \"\\u00e9\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.429","names":["é"],"open":true,"stack":"stack = \"shop\"\n\napp \"\\u00e9\" {}\n"}
+{"append":"app \"é\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.430","names":["é"],"open":true,"stack":"stack = \"shop\"\n\napp \"é\" {}\n"}
+{"append":"app \"é\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.431","names":["é"],"open":true,"stack":"stack = \"shop\"\n\napp \"é\" {}\n"}
+{"append":"app \"日本\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.432","names":["日本"],"open":true,"stack":"stack = \"shop\"\n\napp \"日本\" {}\n"}
+{"append":"app \"日本\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.433","names":["日本"],"open":true,"stack":"stack = \"shop\"\n\napp \"日本\" {}\n"}
+{"append":"app \"👍🏽\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.434","names":["👍🏽"],"open":true,"stack":"stack = \"shop\"\n\napp \"👍🏽\" {}\n"}
+{"append":"app \"👍🏽\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.435","names":["👍🏽"],"open":true,"stack":"stack = \"shop\"\n\napp \"👍🏽\" {}\n"}
+{"append":"app a {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.436","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp a {}\n"}
+{"append":"app a {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.437","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp a {}\n"}
+{"append":"app a \"b\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.438","names":["b"],"open":true,"stack":"stack = \"shop\"\n\napp a \"b\" {}\n"}
+{"append":"app a \"b\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.439","names":["b"],"open":true,"stack":"stack = \"shop\"\n\napp a \"b\" {}\n"}
+{"append":"module \"pg\" \"db\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.440","names":["db"],"open":true,"stack":"stack = \"shop\"\n\nmodule \"pg\" \"db\" {}\n"}
+{"append":"module \"pg\" \"db\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.441","names":["db"],"open":true,"stack":"stack = \"shop\"\n\nmodule \"pg\" \"db\" {}\n"}
+{"append":"module pg db {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.442","names":["db"],"open":true,"stack":"stack = \"shop\"\n\nmodule pg db {}\n"}
+{"append":"module pg db {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.443","names":["db"],"open":true,"stack":"stack = \"shop\"\n\nmodule pg db {}\n"}
+{"append":"app \"a\" \"\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.444","names":[""],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" \"\" {}\n"}
+{"append":"app \"a\" \"\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.445","names":[""],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" \"\" {}\n"}
+{"append":"app \"a\" \"$x\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.446","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" \"$x\" {}\n"}
+{"append":"app \"a\" \"$x\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.447","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" \"$x\" {}\n"}
+{"append":"app \"a\\\\\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.448","names":["a\\"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\\\\" {}\n"}
+{"append":"app \"a\\\\\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.449","names":["a\\"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\\\\" {}\n"}
+{"append":"app \"a\\tb\" {}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.450","names":["a\tb"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\tb\" {}\n"}
+{"append":"app \"a\\tb\" {}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.451","names":["a\tb"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\\tb\" {}\n"}
+{"append":"a = 1\nb = 2\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.452","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\nb = 2\n"}
+{"append":"a = 1\nb = 2\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.453","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\nb = 2\n"}
+{"append":"a = 1\n\napp \"x\" {\n  port = 1\n}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.454","names":["x"],"open":true,"stack":"stack = \"shop\"\n\na = 1\n\napp \"x\" {\n  port = 1\n}\n"}
+{"append":"a = 1\n\napp \"x\" {\n  port = 1\n}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.455","names":["x"],"open":true,"stack":"stack = \"shop\"\n\na = 1\n\napp \"x\" {\n  port = 1\n}\n"}
+{"append":"app \"x\" { port = 1 }\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.456","names":["x"],"open":true,"stack":"stack = \"shop\"\n\napp \"x\" { port = 1 }\n"}
+{"append":"app \"x\" { port = 1 }\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.457","names":["x"],"open":true,"stack":"stack = \"shop\"\n\napp \"x\" { port = 1 }\n"}
+{"append":"app \"x\" {\n  port = 1\n  run  = \"y\"\n}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.458","names":["x"],"open":true,"stack":"stack = \"shop\"\n\napp \"x\" {\n  port = 1\n  run  = \"y\"\n}\n"}
+{"append":"app \"x\" {\n  port = 1\n  run  = \"y\"\n}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.459","names":["x"],"open":true,"stack":"stack = \"shop\"\n\napp \"x\" {\n  port = 1\n  run  = \"y\"\n}\n"}
+{"id":"e.460","open":false}
+{"id":"e.461","open":false}
+{"id":"e.462","open":false}
+{"id":"e.463","open":false}
+{"append":"a = \u003c\u003cEOT\nhi\nEOT\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.464","names":null,"open":true,"stack":"stack = \"shop\"\n\na = \u003c\u003cEOT\nhi\nEOT\n"}
+{"append":"a = \u003c\u003cEOT\nhi\nEOT\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.465","names":null,"open":true,"stack":"stack = \"shop\"\n\na = \u003c\u003cEOT\nhi\nEOT\n"}
+{"id":"e.466","open":false}
+{"id":"e.467","open":false}
+{"append":"a = \u003c\u003c-EOT\n  hi\n  EOT\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.468","names":null,"open":true,"stack":"stack = \"shop\"\n\na = \u003c\u003c-EOT\n  hi\n  EOT\n"}
+{"append":"a = \u003c\u003c-EOT\n  hi\n  EOT\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.469","names":null,"open":true,"stack":"stack = \"shop\"\n\na = \u003c\u003c-EOT\n  hi\n  EOT\n"}
+{"append":"app \"a\" {\n  x = \u003c\u003cEOT\n  y\nEOT\n}\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.470","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {\n  x = \u003c\u003cEOT\n  y\nEOT\n}\n"}
+{"append":"app \"a\" {\n  x = \u003c\u003cEOT\n  y\nEOT\n}\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.471","names":["a"],"open":true,"stack":"stack = \"shop\"\n\napp \"a\" {\n  x = \u003c\u003cEOT\n  y\nEOT\n}\n"}
+{"append":"a = 1\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.472","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.473","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"# lead\napp \"x\" {}\n   \n","has_stack":false,"id":"e.474","names":null,"open":true,"stack":"stack = \"shop\"\n   \n"}
+{"append":"app \"x\" {} # t\n   \n","has_stack":false,"id":"e.475","names":null,"open":true,"stack":"stack = \"shop\"\n   \n"}
+{"id":"e.476","open":false}
+{"id":"e.477","open":false}
+{"append":"a = 1 /* multi\nline */\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.478","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 /* multi\nline */\n"}
+{"append":"a = 1 /* multi\nline */\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.479","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1 /* multi\nline */\n"}
+{"append":"a = 1\n/* a */ /* b */\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.480","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n/* a */ /* b */\n"}
+{"append":"a = 1\n/* a */ /* b */\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.481","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n/* a */ /* b */\n"}
+{"append":"a = 1\n\n\n\nb = 2\n\n\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.482","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n\n\n\nb = 2\n"}
+{"append":"a = 1\n\n\n\nb = 2\n\n\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.483","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n\n\n\nb = 2\n"}
+{"append":"a = 1\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.484","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"a = 1\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.485","names":null,"open":true,"stack":"stack = \"shop\"\n\na = 1\n"}
+{"append":"\n# indented comment\na = 1\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.486","names":null,"open":true,"stack":"stack = \"shop\"\n\n\n# indented comment\na = 1\n"}
+{"append":"\n# indented comment\na = 1\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.487","names":null,"open":true,"stack":"stack = \"shop\"\n\n\n# indented comment\na = 1\n"}
+{"append":"a = [\n  1,\n  2,\n]\n\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.488","names":null,"open":true,"stack":"stack = \"shop\"\n\na = [\n  1,\n  2,\n]\n"}
+{"append":"a = [\n  1,\n  2,\n]\n\napp \"x\" {} # t\n","has_stack":false,"id":"e.489","names":null,"open":true,"stack":"stack = \"shop\"\n\na = [\n  1,\n  2,\n]\n"}
+{"append":"a = {\n  b = 1\n}\n# lead\napp \"x\" {}\n","has_stack":false,"id":"e.490","names":null,"open":true,"stack":"stack = \"shop\"\n\na = {\n  b = 1\n}\n"}
+{"append":"a = {\n  b = 1\n}\napp \"x\" {} # t\n","has_stack":false,"id":"e.491","names":null,"open":true,"stack":"stack = \"shop\"\n\na = {\n  b = 1\n}\n"}

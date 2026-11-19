@@ -1,0 +1,32 @@
+[package]
+name = "doze-config-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+doze-config = { path = ".." }
+doze-hcl = { path = "../../doze-hcl" }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+# The workspace's vendored, patched hcl-edit (vendor/hcl-edit/PATCHES.md).
+[patch.crates-io]
+hcl-edit = { path = "../../../vendor/hcl-edit" }
+
+[[bin]]
+name = "fuzz_load"
+path = "fuzz_targets/fuzz_load.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_psl"
+path = "fuzz_targets/fuzz_psl.rs"
+test = false
+doc = false

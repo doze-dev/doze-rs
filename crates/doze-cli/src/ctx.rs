@@ -12,12 +12,26 @@ use std::time::SystemTime;
 pub trait Host {
     /// An environment variable (unset and empty are the same).
     fn var(&self, name: &str) -> Option<String>;
+    /// The environment as doze.hcl's `env()` reads it: the process's own, or a test's.
+    fn env_lookup(&self) -> doze_hcl::funcs::EnvLookup {
+        std::sync::Arc::new(|name: &str| {
+            if name.is_empty() || name.contains(['=', '\0']) {
+                return None;
+            }
+            std::env::var(name).ok()
+        })
+    }
     /// Opens a web page in the person's browser.
     fn open_url(&self, url: &str) -> io::Result<()>;
     /// Starts `doze <args>` detached, never waited for (the background refresh).
     fn spawn_background(&self, args: &[&str]) -> io::Result<()>;
     /// This program's own path, which says how doze was installed.
     fn exe(&self) -> Option<PathBuf>;
+    /// The program `up` starts as the stack's daemon (`doze __daemon`): this one. A test's host names the built `doze`, or
+    /// none, so nothing is started.
+    fn daemon_exe(&self) -> Option<PathBuf> {
+        self.exe()
+    }
     /// The time now, for what a follow redraws ("sleeps in 4m"). A test's clock stands still.
     fn now(&self) -> SystemTime {
         SystemTime::now()
@@ -31,6 +45,42 @@ pub trait Host {
     /// is no one to ask.
     fn ask(&self) -> Option<bool> {
         None
+    }
+    /// Reads one line the person types at the terminal (the question is already written), without its newline;
+    /// `None` when there is no one to ask or the input ended (`init --wizard`).
+    fn read_line(&self) -> Option<String> {
+        None
+    }
+    /// [`Host::run`] with `env` added to the program's environment (`doze run --env`).
+    fn run_env(
+        &self,
+        program: &std::path::Path,
+        args: &[String],
+        env: &[(String, String)],
+    ) -> io::Result<u8> {
+        let _ = env;
+        self.run(program, args)
+    }
+    /// Runs `program` with `args`, this terminal its terminal, and gives its exit code (`doze open` hands the
+    /// command to the app). Nothing is run by default: only the real process and a test's recorder do anything.
+    fn run(&self, program: &std::path::Path, args: &[String]) -> io::Result<u8> {
+        let _ = (program, args);
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "nothing is run here",
+        ))
+    }
+    /// The folders an installed Doze.app is looked for in: on a Mac `~/Applications` and `/Applications`.
+    fn applications(&self) -> Vec<PathBuf> {
+        if !crate::platform::os_arch().starts_with("darwin") {
+            return Vec::new();
+        }
+        let mut out: Vec<PathBuf> = std::env::home_dir()
+            .map(|h| h.join("Applications"))
+            .into_iter()
+            .collect();
+        out.push(PathBuf::from("/Applications"));
+        out
     }
     /// Where the machine's system files are (`/etc/resolver`, the launchd job, …): the real ones, or a test's
     /// temporary root, so nothing a test does reads or writes the machine's.

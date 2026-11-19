@@ -1,0 +1,653 @@
+{"id":"num.00","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"num.01","ok":true,"type":"number","value":{"num":"1.5"}}
+{"id":"num.02","ok":true,"type":"number","value":{"num":"0.3"}}
+{"id":"num.03","ok":true,"type":"number","value":{"num":"0.3"}}
+{"id":"num.04","ok":true,"type":"number","value":{"num":"2.5"}}
+{"id":"num.05","ok":true,"type":"number","value":{"num":"0.33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333335"}}
+{"id":"num.06","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"num.07","ok":true,"type":"number","value":{"num":"-1"}}
+{"id":"num.08","ok":true,"type":"number","value":{"num":"10"}}
+{"id":"num.09","ok":true,"type":"number","value":{"num":"14"}}
+{"id":"num.10","ok":true,"type":"number","value":{"num":"20"}}
+{"id":"num.11","ok":true,"type":"number","value":{"num":"1000"}}
+{"id":"num.12","ok":true,"type":"number","value":{"num":"0.0015"}}
+{"id":"num.13","ok":true,"type":"number","value":{"num":"123456789012345678901234567890"}}
+{"id":"num.14","ok":true,"type":"number","value":{"num":"9007199254740993"}}
+{"id":"num.15","ok":true,"type":"number","value":{"num":"9007199254740994"}}
+{"id":"num.16","ok":true,"type":"number","value":{"num":"10000000000000000000000000000000000000000"}}
+{"id":"num.17","ok":true,"type":"number","value":{"num":"5"}}
+{"id":"num.18","ok":true,"type":"number","value":{"num":"5"}}
+{"id":"num.19","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"num.20","ok":true,"type":"number","value":{"num":"+Inf"}}
+{"id":"num.21","ok":true,"type":"number","value":{"num":"-Inf"}}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Error during operation: can't divide zero by zero or infinity by infinity.","sev":"error","summary":"Operation failed"}],"id":"num.22","ok":false,"stage":"eval"}
+{"id":"num.23","ok":true,"type":"number","value":{"num":"5"}}
+{"id":"num.24","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"num.25","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"num.26","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"num.27","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"num.28","ok":true,"type":"number","value":{"num":"1000000000000"}}
+{"id":"num.29","ok":true,"type":"number","value":{"num":"255.5"}}
+{"id":"num.30","ok":true,"type":"number","value":{"num":"8081"}}
+{"id":"num.31","ok":true,"type":"number","value":{"num":"2693.3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333332"}}
+{"id":"num.32","ok":true,"type":"number","value":{"num":"8888"}}
+{"id":"num.33","ok":true,"type":"number","value":{"num":"9"}}
+{"id":"str.00","ok":true,"type":"string","value":"hello"}
+{"id":"str.01","ok":true,"type":"string","value":"a\nb"}
+{"id":"str.02","ok":true,"type":"string","value":"tab\t."}
+{"id":"str.03","ok":true,"type":"string","value":"quote\"s"}
+{"id":"str.04","ok":true,"type":"string","value":"é"}
+{"id":"str.05","ok":true,"type":"string","value":"😀"}
+{"id":"str.06","ok":true,"type":"string","value":"${literal}"}
+{"id":"str.07","ok":true,"type":"string","value":"%{literal}"}
+{"id":"str.08","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"str.09","ok":true,"type":"string","value":"ashopb"}
+{"id":"str.10","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"str.11","ok":true,"type":"bool","value":true}
+{"id":"str.12","ok":true,"type":"string","value":null}
+{"id":"str.13","ok":true,"type":"string","value":"x-6"}
+{"id":"str.14","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"str.15","ok":true,"type":"number","value":{"num":"1.5"}}
+{"id":"str.16","ok":true,"type":"number","value":{"num":"0.3"}}
+{"id":"str.17","ok":true,"type":"number","value":{"num":"2.5"}}
+{"id":"str.18","ok":true,"type":"number","value":{"num":"1000"}}
+{"id":"str.19","ok":true,"type":"bool","value":true}
+{"id":"str.20","ok":true,"type":["tuple",["number"]],"value":[{"num":"1"}]}
+{"id":"str.21","ok":true,"type":["object",{"a":"number"}],"value":{"obj":[["a",{"num":"1"}]]}}
+{"id":"str.22","ok":true,"type":"string","value":"é ñ 日本"}
+{"id":"str.23","ok":true,"type":"string","value":"shopshop"}
+{"id":"str.24","ok":true,"type":"string","value":"path: /srv/shop"}
+{"id":"tpl.00","ok":true,"type":"string","value":"yes"}
+{"id":"tpl.01","ok":true,"type":"string","value":""}
+{"id":"tpl.02","ok":true,"type":"string","value":"[a][b][c]"}
+{"id":"tpl.03","ok":true,"type":"string","value":"0:a 1:b 2:c "}
+{"id":"tpl.04","ok":true,"type":"string","value":"ashopb"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":7},"file":"x.hcl","start":{"line":1,"col":7,"byte":6}},"detail":"Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax.","sev":"error","summary":"Invalid multi-line string"},{"at":{"end":{"line":3,"col":1,"byte":28},"file":"x.hcl","start":{"line":2,"col":21,"byte":27}},"detail":"Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax.","sev":"error","summary":"Invalid multi-line string"},{"at":{"end":{"line":4,"col":1,"byte":32},"file":"x.hcl","start":{"line":3,"col":4,"byte":31}},"detail":"Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax.","sev":"error","summary":"Invalid multi-line string"},{"at":{"end":{"line":5,"col":1,"byte":47},"file":"x.hcl","start":{"line":4,"col":15,"byte":46}},"detail":"Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax.","sev":"error","summary":"Invalid multi-line string"},{"at":{"end":{"line":2,"col":1,"byte":7},"file":"x.hcl","start":{"line":1,"col":7,"byte":6}},"context":{"end":{"line":2,"col":1,"byte":7},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"No closing marker was found for the string.","sev":"error","summary":"Unterminated template string"}],"id":"tpl.05","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":44,"byte":43},"file":"x.hcl","start":{"line":1,"col":43,"byte":42}},"detail":"This character is not used within the language.","sev":"error","summary":"Invalid character"},{"at":{"end":{"line":1,"col":44,"byte":43},"file":"x.hcl","start":{"line":1,"col":43,"byte":42}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"},{"at":{"end":{"line":2,"col":1,"byte":73},"file":"x.hcl","start":{"line":2,"col":1,"byte":73}},"detail":"The if directive at x.hcl:1,32-44 is missing its corresponding endif directive.","sev":"error","summary":"Unexpected end of template"},{"at":{"end":{"line":2,"col":1,"byte":73},"file":"x.hcl","start":{"line":2,"col":1,"byte":73}},"detail":"The for directive at x.hcl:1,6-28 is missing its corresponding endfor directive.","sev":"error","summary":"Unexpected end of template"}],"id":"tpl.06","ok":false,"stage":"parse"}
+{"id":"tpl.07","ok":true,"type":"string","value":"null"}
+{"id":"heredoc.00","ok":true,"type":"string","value":"hello shop\n"}
+{"id":"heredoc.01","ok":true,"type":"string","value":"indented\n  more\n"}
+{"id":"heredoc.02","ok":true,"type":"string","value":"on\n"}
+{"id":"heredoc.03","ok":true,"type":"string","value":"${esc} %{esc}\n"}
+{"id":"heredoc.04","ok":true,"type":"string","value":"  a\nb\n"}
+{"id":"heredoc.05","ok":true,"type":"string","value":"\n"}
+{"id":"heredoc.06","ok":true,"type":"string","value":"line1\nline2\n"}
+{"id":"logic.00","ok":true,"type":"bool","value":false}
+{"id":"logic.01","ok":true,"type":"bool","value":true}
+{"id":"logic.02","ok":true,"type":"bool","value":false}
+{"id":"logic.03","ok":true,"type":"bool","value":false}
+{"id":"logic.04","ok":true,"type":"bool","value":true}
+{"id":"logic.05","ok":true,"type":"bool","value":false}
+{"id":"logic.06","ok":true,"type":"bool","value":true}
+{"id":"logic.07","ok":true,"type":"bool","value":true}
+{"id":"logic.08","ok":true,"type":"bool","value":true}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"},{"at":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":11,"byte":10}},"context":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for right operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"logic.09","ok":false,"stage":"eval"}
+{"id":"logic.10","ok":true,"type":"bool","value":true}
+{"id":"logic.11","ok":true,"type":"bool","value":true}
+{"id":"logic.12","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"logic.13","ok":true,"type":"string","value":"a"}
+{"id":"logic.14","ok":true,"type":["tuple",["string"]],"value":["a"]}
+{"id":"logic.15","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"logic.16","ok":true,"type":"string","value":"d"}
+{"id":"logic.17","ok":true,"type":"bool","value":true}
+{"id":"logic.18","ok":true,"type":"bool","value":true}
+{"id":"logic.19","ok":true,"type":"bool","value":true}
+{"id":"logic.20","ok":true,"type":"bool","value":true}
+{"id":"logic.21","ok":true,"type":"bool","value":true}
+{"id":"logic.22","ok":true,"type":"bool","value":true}
+{"id":"logic.23","ok":true,"type":"bool","value":false}
+{"id":"logic.24","ok":true,"type":"bool","value":false}
+{"id":"logic.25","ok":true,"type":"bool","value":false}
+{"id":"logic.26","ok":true,"type":"bool","value":false}
+{"id":"logic.27","ok":true,"type":"bool","value":true}
+{"diags":[{"at":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"context":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for right operand: bool required, but have number.","sev":"error","summary":"Invalid operand"}],"id":"logic.28","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":7,"byte":6},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"context":{"end":{"line":1,"col":7,"byte":6},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for unary operand: bool required, but have number.","sev":"error","summary":"Invalid operand"}],"id":"logic.29","ok":false,"stage":"eval"}
+{"id":"logic.30","ok":true,"type":"bool","value":false}
+{"id":"logic.31","ok":true,"type":"bool","value":true}
+{"id":"logic.32","ok":true,"type":"bool","value":true}
+{"id":"coll.00","ok":true,"type":["tuple",["number","number","number"]],"value":[{"num":"1"},{"num":"2"},{"num":"3"}]}
+{"id":"coll.01","ok":true,"type":["tuple",["number","string","bool"]],"value":[{"num":"1"},"a",true]}
+{"id":"coll.02","ok":true,"type":["object",{"a":"number","b":"number"}],"value":{"obj":[["a",{"num":"1"}],["b",{"num":"2"}]]}}
+{"id":"coll.03","ok":true,"type":["object",{"a":"number"}],"value":{"obj":[["a",{"num":"1"}]]}}
+{"id":"coll.04","ok":true,"type":["object",{"shop":"number"}],"value":{"obj":[["shop",{"num":"1"}]]}}
+{"id":"coll.05","ok":true,"type":["object",{"1":"string"}],"value":{"obj":[["1","a"]]}}
+{"id":"coll.06","ok":true,"type":["object",{"true":"number"}],"value":{"obj":[["true",{"num":"1"}]]}}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"If this expression is intended to be a reference, wrap it in parentheses. If it's instead intended as a literal name containing periods, wrap it in quotes to create a string literal.","sev":"error","summary":"Ambiguous attribute key"}],"id":"coll.07","ok":false,"stage":"eval"}
+{"id":"coll.08","ok":true,"type":["tuple",["number","number"]],"value":[{"num":"1"},{"num":"2"}]}
+{"id":"coll.09","ok":true,"type":["object",{"a":"number"}],"value":{"obj":[["a",{"num":"1"}]]}}
+{"id":"coll.10","ok":true,"type":["tuple",[]],"value":[]}
+{"id":"coll.11","ok":true,"type":["object",{}],"value":{"obj":[]}}
+{"id":"coll.12","ok":true,"type":["tuple",[["tuple",["number"]],["tuple",["number","number"]]]],"value":[[{"num":"1"}],[{"num":"2"},{"num":"3"}]]}
+{"id":"coll.13","ok":true,"type":"number","value":{"num":"1"}}
+{"id":"coll.14","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"coll.15","ok":true,"type":["tuple",["number","number","number"]],"value":[{"num":"1"},{"num":"2"},{"num":"3"}]}
+{"id":"coll.16","ok":true,"type":["object",{"a":"number","b":"number"}],"value":{"obj":[["a",{"num":"1"}],["b",{"num":"2"}]]}}
+{"id":"coll.17","ok":true,"type":["object",{"a":"number","b":"number"}],"value":{"obj":[["a",{"num":"1"}],["b",{"num":"2"}]]}}
+{"id":"coll.18","ok":true,"type":["object",{"a":"number"}],"value":{"obj":[["a",{"num":"2"}]]}}
+{"id":"coll.19","ok":true,"type":["tuple",["number",["tuple",["number",["tuple",["number"]]]]]],"value":[{"num":"1"},[{"num":"2"},[{"num":"3"}]]]}
+{"id":"coll.20","ok":true,"type":["object",{"a b":"number"}],"value":{"obj":[["a b",{"num":"1"}]]}}
+{"id":"for_.00","ok":true,"type":["tuple",["string","string","string"]],"value":["a!","b!","c!"]}
+{"id":"for_.01","ok":true,"type":["tuple",["string","string","string"]],"value":["0a","1b","2c"]}
+{"id":"for_.02","ok":true,"type":["tuple",["string","string"]],"value":["a","c"]}
+{"id":"for_.03","ok":true,"type":["object",{"a":"string","b":"string","c":"string"}],"value":{"obj":[["a","v-a"],["b","v-b"],["c","v-c"]]}}
+{"id":"for_.04","ok":true,"type":["object",{"A":"string","B":"string"}],"value":{"obj":[["A","1"],["B","2"]]}}
+{"id":"for_.05","ok":true,"type":["object",{"ann":"number","bo":"number"}],"value":{"obj":[["ann",{"num":"31"}],["bo",{"num":"27"}]]}}
+{"id":"for_.06","ok":true,"type":["object",{"a":["tuple",["number","number"]],"b":["tuple",["number"]]}],"value":{"obj":[["a",[{"num":"1"},{"num":"1"}]],["b",[{"num":"1"}]]]}}
+{"id":"for_.07","ok":true,"type":["tuple",["number","number","number"]],"value":[{"num":"2"},{"num":"4"},{"num":"6"}]}
+{"id":"for_.08","ok":true,"type":["tuple",["string","string"]],"value":["ann","bo"]}
+{"id":"for_.09","ok":true,"type":["tuple",["string","string"]],"value":["A=1","B=2"]}
+{"id":"for_.10","ok":true,"type":["tuple",["string","string"]],"value":["a","z"]}
+{"id":"for_.11","ok":true,"type":["tuple",["number","number"]],"value":[{"num":"2"},{"num":"1"}]}
+{"id":"for_.12","ok":true,"type":["object",{"1":"string","2":"string"}],"value":{"obj":[["1","z"],["2","a"]]}}
+{"id":"for_.13","ok":true,"type":["tuple",["number","number","number"]],"value":[{"num":"3"},{"num":"1"},{"num":"2"}]}
+{"id":"for_.14","ok":true,"type":["tuple",[]],"value":[]}
+{"id":"for_.15","ok":true,"type":["tuple",["number"]],"value":[{"num":"31"}]}
+{"id":"for_.16","ok":true,"type":["tuple",[["tuple",["number","number"]],["tuple",["number","number"]]]],"value":[[{"num":"10"},{"num":"20"}],[{"num":"20"},{"num":"40"}]]}
+{"id":"for_.17","ok":true,"type":"string","value":"a"}
+{"diags":[{"at":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":15,"byte":14}},"context":{"end":{"line":1,"col":21,"byte":20},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"A value of type number cannot be used as the collection in a 'for' expression.","sev":"error","summary":"Iteration over non-iterable value"}],"id":"for_.18","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":15,"byte":14}},"context":{"end":{"line":1,"col":28,"byte":27},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"A null value cannot be used as the collection in a 'for' expression.","sev":"error","summary":"Iteration over null value"}],"id":"for_.19","ok":false,"stage":"eval"}
+{"id":"for_.20","ok":true,"type":["object",{"A-k":"string","B-k":"string"}],"value":{"obj":[["A-k","1-v"],["B-k","2-v"]]}}
+{"id":"for_.21","ok":true,"type":["tuple",["string","string"]],"value":["a","b"]}
+{"diags":[{"at":{"end":{"line":1,"col":20,"byte":19},"file":"x.hcl","start":{"line":1,"col":15,"byte":14}},"context":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"A value of type string cannot be used as the collection in a 'for' expression.","sev":"error","summary":"Iteration over non-iterable value"}],"id":"for_.22","ok":false,"stage":"eval"}
+{"id":"for_.23","ok":true,"type":["object",{"a":["tuple",["string"]],"b":["tuple",["string"]]}],"value":{"obj":[["a",["a"]],["b",["b"]]]}}
+{"id":"index.00","ok":true,"type":"string","value":"a"}
+{"diags":[{"at":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"The given key does not identify an element in this collection value.","sev":"error","summary":"Invalid index"}],"id":"index.01","ok":false,"stage":"eval"}
+{"id":"index.02","ok":true,"type":"string","value":"1"}
+{"id":"index.03","ok":true,"type":"string","value":"1"}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":12,"byte":11}},"detail":"The given key does not identify an element in this collection value.","sev":"error","summary":"Invalid index"}],"id":"index.04","ok":false,"stage":"eval"}
+{"id":"index.05","ok":true,"type":"string","value":"ann"}
+{"id":"index.06","ok":true,"type":"number","value":{"num":"27"}}
+{"id":"index.07","ok":true,"type":"string","value":"a"}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"Can't access attributes on a primitive-typed value (string).","sev":"error","summary":"Unsupported attribute"}],"id":"index.08","ok":false,"stage":"eval"}
+{"id":"index.09","ok":true,"type":"string","value":"/srv"}
+{"diags":[{"at":{"end":{"line":1,"col":18,"byte":17},"file":"x.hcl","start":{"line":1,"col":8,"byte":7}},"detail":"This object does not have an attribute named \"undefined\".","sev":"error","summary":"Unsupported attribute"}],"id":"index.10","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no variable named \"undefined_root\".","sev":"error","summary":"Unknown variable"}],"id":"index.11","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"This value is null, so it does not have any attributes.","sev":"error","summary":"Attempt to get attribute from null value"}],"id":"index.12","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"detail":"This value does not have any indices.","sev":"error","summary":"Invalid index"}],"id":"index.13","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"The given key does not identify an element in this collection value: a negative number is not a valid index for a sequence.","sev":"error","summary":"Invalid index"}],"id":"index.14","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":18,"byte":17},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"The given key does not identify an element in this collection value: indexing a sequence requires a whole number, but the given index has a fractional part.","sev":"error","summary":"Invalid index"}],"id":"index.15","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":18,"byte":17},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"The given key does not identify an element in this collection value: a number is required.","sev":"error","summary":"Invalid index"}],"id":"index.16","ok":false,"stage":"eval"}
+{"id":"index.17","ok":true,"type":["object",{"age":"number","name":"string"}],"value":{"obj":[["age",{"num":"31"}],["name","ann"]]}}
+{"id":"index.18","ok":true,"type":["tuple",[["object",{"age":"number","name":"string"}],["object",{"age":"number","name":"string"}]]],"value":[{"obj":[["age",{"num":"31"}],["name","ann"]]},{"obj":[["age",{"num":"27"}],["name","bo"]]}]}
+{"id":"index.19","ok":true,"type":["object",{"any":"dynamic","env":["map","string"],"flag":"bool","later":"string","name":"string","none":"string","port":"number","set":["set","string"],"tags":["list","string"],"users":["tuple",[["object",{"age":"number","name":"string"}],["object",{"age":"number","name":"string"}]]]}],"value":{"obj":[["any",{"unknown":true}],["env",{"obj":[["A","1"],["B","2"]]}],["flag",true],["later",{"unknown":true}],["name","shop"],["none",null],["port",{"num":"8080"}],["set",["a","b"]],["tags",["a","b","c"]],["users",[{"obj":[["age",{"num":"31"}],["name","ann"]]},{"obj":[["age",{"num":"27"}],["name","bo"]]}]]]}}
+{"id":"index.20","ok":true,"type":["object",{"base":"string","n":"number"}],"value":{"obj":[["base","/srv"],["n",{"num":"3"}]]}}
+{"diags":[{"at":{"end":{"line":1,"col":23,"byte":22},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"detail":"The given key does not identify an element in this collection value.","sev":"error","summary":"Invalid index"}],"id":"index.21","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"detail":"This object does not have an attribute named \"missing\".","sev":"error","summary":"Unsupported attribute"}],"id":"index.22","ok":false,"stage":"eval"}
+{"id":"index.23","ok":true,"type":["map","string"],"value":{"obj":[["A","1"],["B","2"]]}}
+{"diags":[{"at":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":17,"byte":16}},"detail":"Can't access attributes on a primitive-typed value (string).","sev":"error","summary":"Unsupported attribute"}],"id":"index.24","ok":false,"stage":"eval"}
+{"id":"splat.00","ok":true,"type":["tuple",["string","string"]],"value":["ann","bo"]}
+{"id":"splat.01","ok":true,"type":["tuple",["string","string"]],"value":["ann","bo"]}
+{"id":"splat.02","ok":true,"type":["list","string"],"value":["a","b","c"]}
+{"id":"splat.03","ok":true,"type":["tuple",["number","number"]],"value":[{"num":"31"},{"num":"27"}]}
+{"id":"splat.04","ok":true,"type":["tuple",[]],"value":[]}
+{"id":"splat.05","ok":true,"type":["tuple",["string"]],"value":[null]}
+{"id":"splat.06","ok":true,"type":["tuple",["string"]],"value":["shop"]}
+{"id":"splat.07","ok":true,"type":["tuple",[["object",{"age":"number","name":"string"}],["object",{"age":"number","name":"string"}]]],"value":[{"obj":[["age",{"num":"31"}],["name","ann"]]},{"obj":[["age",{"num":"27"}],["name","bo"]]}]}
+{"diags":[{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":22,"byte":21}},"detail":"This value does not have any indices.","sev":"error","summary":"Invalid index"},{"at":{"end":{"line":1,"col":25,"byte":24},"file":"x.hcl","start":{"line":1,"col":22,"byte":21}},"detail":"This value does not have any indices.","sev":"error","summary":"Invalid index"}],"id":"splat.08","ok":false,"stage":"eval"}
+{"id":"splat.09","ok":true,"type":"string","value":"ann"}
+{"id":"conv.00","ok":true,"type":"number","value":{"num":"6"}}
+{"id":"conv.01","ok":true,"type":"number","value":{"num":"10"}}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"context":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for right operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"conv.02","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: number required, but have bool.","sev":"error","summary":"Invalid operand"}],"id":"conv.03","ok":false,"stage":"eval"}
+{"id":"conv.04","ok":true,"type":"bool","value":true}
+{"id":"conv.05","ok":true,"type":"bool","value":false}
+{"id":"conv.06","ok":true,"type":"bool","value":true}
+{"id":"conv.07","ok":true,"type":"number","value":{"num":"-5"}}
+{"id":"conv.08","ok":true,"type":"number","value":{"num":"100"}}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"conv.09","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":15,"byte":14},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"conv.10","ok":false,"stage":"eval"}
+{"id":"conv.11","ok":true,"type":"number","value":{"num":"5"}}
+{"id":"conv.12","ok":true,"type":"number","value":{"num":"5"}}
+{"diags":[{"at":{"end":{"line":1,"col":12,"byte":11},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"conv.13","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":12,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for left operand: a number is required.","sev":"error","summary":"Invalid operand"}],"id":"conv.14","ok":false,"stage":"eval"}
+{"id":"null_.00","ok":true,"type":"dynamic","value":null}
+{"id":"null_.01","ok":true,"type":["tuple",["dynamic"]],"value":[null]}
+{"id":"null_.02","ok":true,"type":["object",{"a":"dynamic"}],"value":{"obj":[["a",null]]}}
+{"diags":[{"at":{"end":{"line":1,"col":13,"byte":12},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Error during operation: argument must not be null.","sev":"error","summary":"Operation failed"}],"id":"null_.03","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The condition value is null. Conditions must either be true or false.","sev":"error","summary":"Null condition"}],"id":"null_.04","ok":false,"stage":"eval"}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Error during operation: argument must not be null.","sev":"error","summary":"Operation failed"}],"id":"null_.05","ok":false,"stage":"eval"}
+{"id":"null_.06","ok":true,"type":"string","value":null}
+{"id":"null_.07","ok":true,"type":"bool","value":true}
+{"id":"null_.08","ok":true,"type":["tuple",["string","number"]],"value":[null,{"num":"1"}]}
+{"id":"null_.09","ok":true,"type":"string","value":null}
+{"id":"null_.10","ok":true,"type":"bool","value":false}
+{"id":"null_.11","ok":true,"type":["object",{"a":"string"}],"value":{"obj":[["a",null]]}}
+{"id":"null_.12","ok":true,"type":"bool","value":false}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Error during operation: argument must not be null.","sev":"error","summary":"Operation failed"}],"id":"null_.13","ok":false,"stage":"eval"}
+{"id":"unary.00","ok":true,"type":"number","value":{"num":"-8080"}}
+{"diags":[{"at":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"context":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Unsuitable value for unary operand: bool required, but have number.","sev":"error","summary":"Invalid operand"}],"id":"unary.01","ok":false,"stage":"eval"}
+{"id":"unary.02","ok":true,"type":"number","value":{"num":"-3"}}
+{"id":"unary.03","ok":true,"type":"number","value":{"num":"3"}}
+{"diags":[{"at":{"end":{"line":1,"col":7,"byte":6},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"unary.04","ok":false,"stage":"parse"}
+{"id":"unary.05","ok":true,"type":"bool","value":true}
+{"id":"unary.06","ok":true,"type":"number","value":{"num":"-3"}}
+{"id":"unary.07","ok":true,"type":"bool","value":true}
+{"id":"fn.00","ok":true,"type":"string","value":"A"}
+{"id":"fn.01","ok":true,"type":"number","value":{"num":"2"}}
+{"id":"fn.02","ok":true,"type":"string","value":"1"}
+{"id":"fn.03","ok":true,"type":"string","value":"a,b,c"}
+{"id":"fn.04","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"fn.05","ok":true,"type":"string","value":""}
+{"diags":[{"at":{"end":{"line":1,"col":17,"byte":16},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"context":{"end":{"line":1,"col":19,"byte":18},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no function named \"undefined_fn\".","sev":"error","summary":"Call to unknown function"}],"id":"fn.06","ok":false,"stage":"eval"}
+{"id":"fn.07","ok":true,"type":["tuple",["number","number","number"]],"value":[{"num":"0"},{"num":"1"},{"num":"2"}]}
+{"diags":[{"at":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":13,"byte":12}},"context":{"end":{"line":1,"col":14,"byte":13},"file":"x.hcl","start":{"line":1,"col":1,"byte":0}},"detail":"An argument definition must end with a newline.","sev":"error","summary":"Missing newline after argument"}],"id":"fn.08","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":8},"file":"x.hcl","start":{"line":1,"col":8,"byte":7}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"err.00","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":7},"file":"x.hcl","start":{"line":2,"col":1,"byte":7}},"context":{"end":{"line":2,"col":1,"byte":7},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Expected a closing parenthesis to terminate the expression.","sev":"error","summary":"Unbalanced parentheses"}],"id":"err.01","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":6,"byte":5},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"There is no corresponding closing bracket before the end of the file. This may be caused by incorrect bracket nesting elsewhere in this file.","sev":"error","summary":"Unterminated tuple constructor expression"}],"id":"err.02","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":18},"file":"x.hcl","start":{"line":1,"col":18,"byte":17}},"detail":"Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax.","sev":"error","summary":"Invalid multi-line string"},{"at":{"end":{"line":2,"col":1,"byte":18},"file":"x.hcl","start":{"line":1,"col":18,"byte":17}},"context":{"end":{"line":2,"col":1,"byte":18},"file":"x.hcl","start":{"line":1,"col":6,"byte":5}},"detail":"No closing marker was found for the string.","sev":"error","summary":"Unterminated template string"}],"id":"err.03","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":11,"byte":10},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"err.04","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":7,"byte":6}},"context":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":1,"byte":0}},"detail":"An argument definition must end with a newline.","sev":"error","summary":"Missing newline after argument"}],"id":"err.05","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":9},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"detail":"An attribute name is required after a dot.","sev":"error","summary":"Invalid attribute name"}],"id":"err.06","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":9},"file":"x.hcl","start":{"line":2,"col":1,"byte":9}},"detail":"Expected the start of an expression, but found the end of the file.","sev":"error","summary":"Missing expression"}],"id":"err.07","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":7,"byte":6}},"context":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":1,"byte":0}},"detail":"An argument definition must end with a newline.","sev":"error","summary":"Missing newline after argument"}],"id":"err.08","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"context":{"end":{"line":1,"col":10,"byte":9},"file":"x.hcl","start":{"line":1,"col":1,"byte":0}},"detail":"An argument definition must end with a newline.","sev":"error","summary":"Missing newline after argument"}],"id":"err.09","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":10},"file":"x.hcl","start":{"line":1,"col":10,"byte":9}},"context":{"end":{"line":2,"col":1,"byte":10},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"The conditional operator (...?...:...) requires a false expression, delimited by a colon.","sev":"error","summary":"Missing false expression in conditional"}],"id":"err.10","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":15},"file":"x.hcl","start":{"line":1,"col":15,"byte":14}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"err.11","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":16,"byte":15},"file":"x.hcl","start":{"line":1,"col":15,"byte":14}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"err.12","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":3,"col":1,"byte":17},"file":"x.hcl","start":{"line":3,"col":1,"byte":17}},"context":{"end":{"line":3,"col":1,"byte":17},"file":"x.hcl","start":{"line":2,"col":1,"byte":10}},"detail":"No closing marker was found for the string.","sev":"error","summary":"Unterminated template string"}],"id":"err.13","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":6,"byte":5},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"err.14","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":2,"col":1,"byte":9},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"detail":"Quoted strings may not be split over multiple lines. To produce a multi-line string, either use the \\n escape to represent a newline character or use the \"heredoc\" multi-line template syntax.","sev":"error","summary":"Invalid multi-line string"},{"at":{"end":{"line":2,"col":1,"byte":9},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"context":{"end":{"line":2,"col":1,"byte":9},"file":"x.hcl","start":{"line":1,"col":9,"byte":8}},"detail":"No closing marker was found for the string.","sev":"error","summary":"Unterminated template string"}],"id":"err.15","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":9,"byte":8},"file":"x.hcl","start":{"line":1,"col":8,"byte":7}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"err.16","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":7,"byte":6}},"detail":"An attribute name is required after a dot.","sev":"error","summary":"Invalid attribute name"}],"id":"err.17","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":6,"byte":5},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"This character is not used within the language.","sev":"error","summary":"Invalid character"},{"at":{"end":{"line":1,"col":6,"byte":5},"file":"x.hcl","start":{"line":1,"col":5,"byte":4}},"detail":"Expected the start of an expression, but found an invalid expression token.","sev":"error","summary":"Invalid expression"}],"id":"err.18","ok":false,"stage":"parse"}
+{"diags":[{"at":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":7,"byte":6}},"context":{"end":{"line":1,"col":8,"byte":7},"file":"x.hcl","start":{"line":1,"col":1,"byte":0}},"detail":"An argument definition must end with a newline.","sev":"error","summary":"Missing newline after argument"}],"id":"err.19","ok":false,"stage":"parse"}
+{"id":"numr.00","ok":true,"type":"number","value":{"num":"-51.539"}}
+{"id":"numr.01","ok":true,"type":"number","value":{"num":"286797830318.5547196933263421501597707808596551184921919977536561861729190559894399656102009752609444256984601392289132660800531052739210082524658264661185"}}
+{"id":"numr.02","ok":true,"type":"number","value":{"num":"87"}}
+{"id":"numr.03","ok":true,"type":"number","value":{"num":"58"}}
+{"id":"numr.04","ok":true,"type":"number","value":{"num":"718.47603021"}}
+{"id":"numr.05","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.06","ok":true,"type":"number","value":{"num":"-0.588"}}
+{"id":"numr.07","ok":true,"type":"number","value":{"num":"-57.862"}}
+{"id":"numr.08","ok":true,"type":"number","value":{"num":"69955494254827"}}
+{"id":"numr.09","ok":true,"type":"number","value":{"num":"-187606253.882236952"}}
+{"id":"numr.10","ok":true,"type":"number","value":{"num":"-469732820738.19"}}
+{"id":"numr.11","ok":true,"type":"number","value":{"num":"8079.750479846449136276391554702495201535508637236084452975047984644913627639155470249520153550863723608445297504798464491362763915547024952015355086372361"}}
+{"id":"numr.12","ok":true,"type":"number","value":{"num":"790000000000"}}
+{"id":"numr.13","ok":true,"type":"number","value":{"num":"-40.935003852491799099618866233578169360857370063790530371413770454557552922717749891865686630799608627690107040472673208579829172239566136518722821010831483"}}
+{"id":"numr.14","ok":true,"type":"number","value":{"num":"8005.4"}}
+{"id":"numr.15","ok":true,"type":"number","value":{"num":"-0.000006156862704075299532245107624696576044407121548750778594589358309007998731740448908031480810870689496886829656042701029616009326274792669651451866145593411"}}
+{"id":"numr.16","ok":true,"type":"number","value":{"num":"-591212340155629.05703072"}}
+{"id":"numr.17","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"numr.18","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.19","ok":true,"type":"number","value":{"num":"-662909199483690.80311633"}}
+{"id":"numr.20","ok":true,"type":"number","value":{"num":"56.761806"}}
+{"id":"numr.21","ok":true,"type":"number","value":{"num":"681691645"}}
+{"id":"numr.22","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.23","ok":true,"type":"number","value":{"num":"433831588"}}
+{"id":"numr.24","ok":true,"type":"number","value":{"num":"-462511768870795.55975432999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999998"}}
+{"id":"numr.25","ok":true,"type":"number","value":{"num":"815.8674478010344827586206896551724137931034482758620689655172413793103448275862068965517241379310344827586206896551724137931034482758620689655172413793103"}}
+{"id":"numr.26","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.27","ok":true,"type":"number","value":{"num":"39333.788765609499999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999996"}}
+{"id":"numr.28","ok":true,"type":"number","value":{"num":"146.8"}}
+{"id":"numr.29","ok":true,"type":"number","value":{"num":"18.929285"}}
+{"id":"numr.30","ok":true,"type":"number","value":{"num":"146188755520230.69860959"}}
+{"id":"numr.31","ok":true,"type":"number","value":{"num":"0.016309808027417409040354455510109445022081013226871089631886504678856207137655826018280687898735277815012190748073571979755750301598745059395933036021577442"}}
+{"id":"numr.32","ok":true,"type":"number","value":{"num":"2.000002353425609232093401780203408127149992446511809236025584731568858657011645143006268134883285584197195278086835034674627824765123486508663489664492371"}}
+{"id":"numr.33","ok":true,"type":"number","value":{"num":"73"}}
+{"id":"numr.34","ok":true,"type":"number","value":{"num":"-269051721.9916868225641025641025641025641025641025641025641025641025641025641025641025641025641025641025641025641025641025641025641025641025641025641025641"}}
+{"id":"numr.35","ok":true,"type":"number","value":{"num":"-3478518.05625"}}
+{"id":"numr.36","ok":true,"type":"number","value":{"num":"60.558"}}
+{"id":"numr.37","ok":true,"type":"number","value":{"num":"52"}}
+{"id":"numr.38","ok":true,"type":"number","value":{"num":"934.78657347"}}
+{"id":"numr.39","ok":true,"type":"number","value":{"num":"0.552"}}
+{"id":"numr.40","ok":true,"type":"number","value":{"num":"-610179168.31"}}
+{"id":"numr.41","ok":true,"type":"number","value":{"num":"0.094"}}
+{"id":"numr.42","ok":true,"type":"number","value":{"num":"133746310602850.80000000000000830692245669444406921622388028945953748365439596555139670813950702183024677974784173017455287310056313553349026257828605786411"}}
+{"id":"numr.43","ok":true,"type":"number","value":{"num":"870000000000"}}
+{"id":"numr.44","ok":true,"type":"number","value":{"num":"19.48651960784313725490196078431372549019607843137254901960784313725490196078431372549019607843137254901960784313725490196078431372549019607843137254901961"}}
+{"id":"numr.45","ok":true,"type":"number","value":{"num":"-24.793388429752066115702479338842975206611570247933884297520661157024793388429752066115702479338842975206611570247933884297520661157024793388429752066115702"}}
+{"id":"numr.46","ok":true,"type":"number","value":{"num":"2200000000000000031939.7588932806324110671936758893280632411067193675889328063241106719367588932806324110671936758893280632411067193675889328063241106719368"}}
+{"id":"numr.47","ok":true,"type":"number","value":{"num":"-0.010184482758620689655172413793103448275862068965517241379310344827586206896551724137931034482758620689655172413793103448275862068965517241379310344827586206"}}
+{"id":"numr.48","ok":true,"type":"number","value":{"num":"-3"}}
+{"id":"numr.49","ok":true,"type":"number","value":{"num":"497060232858.71988743376617117288759337640401250311298366676290379282275943779688649909576774098400041147558196258908542444730619694767647687775577402533633"}}
+{"id":"numr.50","ok":true,"type":"number","value":{"num":"13.689000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"}}
+{"id":"numr.51","ok":true,"type":"number","value":{"num":"66"}}
+{"id":"numr.52","ok":true,"type":"number","value":{"num":"-250542845353248.24599999999998298795650511371758496184294000177451736666858868865215946859447745412055403145379498153661440809206335025127828811787961122366"}}
+{"id":"numr.53","ok":true,"type":"number","value":{"num":"39"}}
+{"id":"numr.54","ok":true,"type":"number","value":{"num":"500650315648034.2205341646401354189010339804542254992716680447957101746512129852541428869762741598403320914822636323542984046181674497060508947103861221222"}}
+{"id":"numr.55","ok":true,"type":"number","value":{"num":"5.4"}}
+{"id":"numr.56","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.57","ok":true,"type":"number","value":{"num":"835073400288820"}}
+{"id":"numr.58","ok":true,"type":"number","value":{"num":"0.0005"}}
+{"id":"numr.59","ok":true,"type":"number","value":{"num":"-3106030503.900973775428031417835803233788770572243069968729427609755509682172764252975595141195318208251538684523203875891054809048970950979448856054598231"}}
+{"id":"numr.60","ok":true,"type":"number","value":{"num":"924786116.2722"}}
+{"id":"numr.61","ok":true,"type":"number","value":{"num":"3290195.6666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666668"}}
+{"id":"numr.62","ok":true,"type":"number","value":{"num":"35"}}
+{"id":"numr.63","ok":true,"type":"number","value":{"num":"-3855401282497507894450616768308.1715360000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002"}}
+{"id":"numr.64","ok":true,"type":"number","value":{"num":"-8080"}}
+{"id":"numr.65","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"numr.66","ok":true,"type":"number","value":{"num":"58"}}
+{"id":"numr.67","ok":true,"type":"number","value":{"num":"109323030026150213068131.94137931034482758620689655172413793103448275862068965517241379310344827586206896551724137931034482758620689655172413793103448275861"}}
+{"id":"numr.68","ok":true,"type":"number","value":{"num":"816595398.23809523809523809523809523809523809523809523809523809523809523809523809523809523809523809523809523809523809523809523809523809523809523809523809524"}}
+{"id":"numr.69","ok":true,"type":"number","value":{"num":"335738288"}}
+{"id":"numr.70","ok":true,"type":"number","value":{"num":"10739047421287.556245283018867924528301886792452830188679245283018867924528301886792452830188679245283018867924528301886792452830188679245283018867924528301"}}
+{"id":"numr.71","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.72","ok":true,"type":"number","value":{"num":"145184711553191.45"}}
+{"id":"numr.73","ok":true,"type":"number","value":{"num":"18415998900309"}}
+{"id":"numr.74","ok":true,"type":"number","value":{"num":"-23.00868160021937903687332451896748138123856945205241276840226671103253964054639775586272843218940933512238630097343721326213181825551467527814779911442503"}}
+{"id":"numr.75","ok":true,"type":"number","value":{"num":"-0.12201199999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999786"}}
+{"id":"numr.76","ok":true,"type":"number","value":{"num":"2688957235697933.9207048458149779735682819383259911894273127753303964757709251101321585903083700440528634361233480176211453744493392070484581497797356828195"}}
+{"id":"numr.77","ok":true,"type":"number","value":{"num":"-159999999431.09902713"}}
+{"id":"numr.78","ok":true,"type":"number","value":{"num":"8079"}}
+{"id":"numr.79","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.80","ok":true,"type":"number","value":{"num":"12628649.444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444443"}}
+{"id":"numr.81","ok":true,"type":"number","value":{"num":"13232.422174840085287846481876332622601279317697228144989339019189765458422174840085287846481876332622601279317697228144989339019189765458422174840085287847"}}
+{"id":"numr.82","ok":true,"type":"number","value":{"num":"5400000158927552531684.08675"}}
+{"id":"numr.83","ok":true,"type":"number","value":{"num":"19253968619"}}
+{"id":"numr.84","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"numr.85","ok":true,"type":"number","value":{"num":"180341889616929.29064792"}}
+{"id":"numr.86","ok":true,"type":"number","value":{"num":"-8080"}}
+{"id":"numr.87","ok":true,"type":"number","value":{"num":"0.57"}}
+{"id":"numr.88","ok":true,"type":"number","value":{"num":"0.00018564356435643564356435643564356435643564356435643564356435643564356435643564356435643564356435643564356435643564356435643564356435643564356435643564356436"}}
+{"id":"numr.89","ok":true,"type":"number","value":{"num":"5.838325581395348837209302325581395348837209302325581395348837209302325581395348837209302325581395348837209302325581395348837209302325581395348837153817619"}}
+{"id":"numr.90","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.91","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.92","ok":true,"type":"number","value":{"num":"4670.939976182572614107883817427385892116182572614107883817427385892116182572614107883817427385892116182572614107883817427385892116182572614107883817427386"}}
+{"id":"numr.93","ok":true,"type":"number","value":{"num":"-30131016.742"}}
+{"id":"numr.94","ok":true,"type":"number","value":{"num":"60"}}
+{"id":"numr.95","ok":true,"type":"number","value":{"num":"-67.16"}}
+{"id":"numr.96","ok":true,"type":"number","value":{"num":"-271768185799120.716"}}
+{"id":"numr.97","ok":true,"type":"number","value":{"num":"-552823631"}}
+{"id":"numr.98","ok":true,"type":"number","value":{"num":"39"}}
+{"id":"numr.99","ok":true,"type":"number","value":{"num":"-1427999999999999999302564162898487.9949489736854667520572348433809584774980427273031183664221785018101214100304915568299583669885941694514220463868154782717"}}
+{"id":"numr.100","ok":true,"type":"number","value":{"num":"-538.82247072"}}
+{"id":"numr.101","ok":true,"type":"number","value":{"num":"865191533.984"}}
+{"id":"numr.102","ok":true,"type":"number","value":{"num":"0.32515209125475285171102661596958174904942965779467680608365019011406844106463878326996197718631178707224334600760456273764258555133079847908745246834350164"}}
+{"id":"numr.103","ok":true,"type":"number","value":{"num":"-306017421986290863"}}
+{"id":"numr.104","ok":true,"type":"number","value":{"num":"0.788"}}
+{"id":"numr.105","ok":true,"type":"number","value":{"num":"0.00037128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712873"}}
+{"id":"numr.106","ok":true,"type":"number","value":{"num":"828.60111783"}}
+{"id":"numr.107","ok":true,"type":"number","value":{"num":"43"}}
+{"id":"numr.108","ok":true,"type":"number","value":{"num":"0.59"}}
+{"id":"numr.109","ok":true,"type":"number","value":{"num":"90"}}
+{"id":"numr.110","ok":true,"type":"number","value":{"num":"-773067968513486361.4367011976047904191616766467065868263473053892215568862275449101796407185628742514970059880239520958083832335329341317365269461077844312"}}
+{"id":"numr.111","ok":true,"type":"number","value":{"num":"671043584196265.0481927710843373493975903614457831325301204819277108433734939759036144578313253012048192771084337349397590361445783132530120481927710843373"}}
+{"id":"numr.112","ok":true,"type":"number","value":{"num":"16800052"}}
+{"id":"numr.113","ok":true,"type":"number","value":{"num":"0.00037128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712873"}}
+{"id":"numr.114","ok":true,"type":"number","value":{"num":"-725178200984373"}}
+{"id":"numr.115","ok":true,"type":"number","value":{"num":"0.85"}}
+{"id":"numr.116","ok":true,"type":"number","value":{"num":"58154212.44789562568193069306930693069306930693069306930693069306930693069306930693069306930693069306930693069306930693069306930693069306930693069306930693"}}
+{"id":"numr.117","ok":true,"type":"number","value":{"num":"15806111026634889"}}
+{"id":"numr.118","ok":true,"type":"number","value":{"num":"-1777831063760"}}
+{"id":"numr.119","ok":true,"type":"number","value":{"num":"0.16666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667"}}
+{"id":"numr.120","ok":true,"type":"number","value":{"num":"0.51189748839974239997357948446969071484007331693059660826631879654551759441206096533958618867550653082118264832642546937697121815089416932247890486963126865"}}
+{"id":"numr.121","ok":true,"type":"number","value":{"num":"-0.00005358910891089108910891089108910891089108910891089108910891089108910891089108910891089108910891089108910891089108910891089108910891089108910891089108910891"}}
+{"id":"numr.122","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.123","ok":true,"type":"number","value":{"num":"0.00002"}}
+{"id":"numr.124","ok":true,"type":"number","value":{"num":"-1118838027"}}
+{"id":"numr.125","ok":true,"type":"number","value":{"num":"15580"}}
+{"id":"numr.126","ok":true,"type":"number","value":{"num":"-4.66568592"}}
+{"id":"numr.127","ok":true,"type":"number","value":{"num":"0.556"}}
+{"id":"numr.128","ok":true,"type":"number","value":{"num":"528611725246372321.67923917"}}
+{"id":"numr.129","ok":true,"type":"number","value":{"num":"5.387"}}
+{"id":"numr.130","ok":true,"type":"number","value":{"num":"5200"}}
+{"id":"numr.131","ok":true,"type":"number","value":{"num":"28.549097999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999997"}}
+{"id":"numr.132","ok":true,"type":"number","value":{"num":"85.59060040131094713164314746121908337017696498954053906717606763940056650341074603371342573626004204972771337700564976009607626430177242908225496557193478"}}
+{"id":"numr.133","ok":true,"type":"number","value":{"num":"-15881708543747399671.28384492"}}
+{"id":"numr.134","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.135","ok":true,"type":"number","value":{"num":"-57264249.999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999995"}}
+{"id":"numr.136","ok":true,"type":"number","value":{"num":"43.1611374"}}
+{"id":"numr.137","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.138","ok":true,"type":"number","value":{"num":"-839977936469138828515"}}
+{"id":"numr.139","ok":true,"type":"number","value":{"num":"78.936"}}
+{"id":"numr.140","ok":true,"type":"number","value":{"num":"-336936289.24109729191935093334310726615120297301992770735909694151304292241573595154729325711052582562217292893414454499400902731975757611853053306149146096"}}
+{"id":"numr.141","ok":true,"type":"number","value":{"num":"40.813"}}
+{"id":"numr.142","ok":true,"type":"number","value":{"num":"498"}}
+{"id":"numr.143","ok":true,"type":"number","value":{"num":"-20"}}
+{"id":"numr.144","ok":true,"type":"number","value":{"num":"195493084145652"}}
+{"id":"numr.145","ok":true,"type":"number","value":{"num":"0.97"}}
+{"id":"numr.146","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.147","ok":true,"type":"number","value":{"num":"376.83563406"}}
+{"id":"numr.148","ok":true,"type":"number","value":{"num":"577.48524333"}}
+{"id":"numr.149","ok":true,"type":"number","value":{"num":"-1484779418.4726915626345243219974171330176495910460611278519156263452432199741713301764959104606112785191562634524321997417133017649591046061127851915626345"}}
+{"id":"numr.150","ok":true,"type":"number","value":{"num":"-131.21200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"}}
+{"id":"numr.151","ok":true,"type":"number","value":{"num":"-271622536765988914.67815122"}}
+{"id":"numr.152","ok":true,"type":"number","value":{"num":"-54.80612407415617062289935455693313564484376205793060871307091992466820679792262892852510266173430601324381525649424749482381259656606555573616796297117262"}}
+{"id":"numr.153","ok":true,"type":"number","value":{"num":"10478466.358015248811767711140610020727683324640803745471706227395845094704754782243499704697437855520027970594726450474610412313353715548237078243549242308"}}
+{"id":"numr.154","ok":true,"type":"number","value":{"num":"37173332.393847000677966101694915254237288135593220338983050847457627118644067796610169491525423728813559322033898305084745762711864406779661016949152542373"}}
+{"id":"numr.155","ok":true,"type":"number","value":{"num":"5970.24608238771"}}
+{"id":"numr.156","ok":true,"type":"number","value":{"num":"1154.8808785766666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666"}}
+{"id":"numr.157","ok":true,"type":"number","value":{"num":"0.06865502319521201541829874026658655241305018099828141072501459095073113958564275252052007806472901666367063994735697849698397033787479906121957886719579038"}}
+{"id":"numr.158","ok":true,"type":"number","value":{"num":"581760"}}
+{"id":"numr.159","ok":true,"type":"number","value":{"num":"-455318004.44332055000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003"}}
+{"id":"numr.160","ok":true,"type":"number","value":{"num":"824926119.5"}}
+{"id":"numr.161","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.162","ok":true,"type":"number","value":{"num":"0.545"}}
+{"id":"numr.163","ok":true,"type":"number","value":{"num":"359.64178918"}}
+{"id":"numr.164","ok":true,"type":"number","value":{"num":"835511192912235"}}
+{"id":"numr.165","ok":true,"type":"number","value":{"num":"841880527557805"}}
+{"id":"numr.166","ok":true,"type":"number","value":{"num":"-428534596.97647154"}}
+{"id":"numr.167","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.168","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.169","ok":true,"type":"number","value":{"num":"810126611.9999996727991403373691829878714296202515791473468156346593682491712511238826354196952479987407290598451709763349519718859328868632104038890626862"}}
+{"id":"numr.170","ok":true,"type":"number","value":{"num":"-3"}}
+{"id":"numr.171","ok":true,"type":"number","value":{"num":"171.81447591920747439751456236510582387699270349608311919825985272397316954714485478414457872247762650919834122531081889636360041941307856881376787395739146"}}
+{"id":"numr.172","ok":true,"type":"number","value":{"num":"16"}}
+{"id":"numr.173","ok":true,"type":"number","value":{"num":"94667561"}}
+{"id":"numr.174","ok":true,"type":"number","value":{"num":"-103676.62165543430222850544377737773777377737773777377737773777377737773777377737773777377737773777377737773777377737773777377737773777377737773777377737775"}}
+{"id":"numr.175","ok":true,"type":"number","value":{"num":"-0.5999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999979979169"}}
+{"id":"numr.176","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"numr.177","ok":true,"type":"number","value":{"num":"48490416957065"}}
+{"id":"numr.178","ok":true,"type":"number","value":{"num":"73"}}
+{"id":"numr.179","ok":true,"type":"number","value":{"num":"1231.57080562"}}
+{"id":"numr.180","ok":true,"type":"number","value":{"num":"-8179"}}
+{"id":"numr.181","ok":true,"type":"number","value":{"num":"508283236"}}
+{"id":"numr.182","ok":true,"type":"number","value":{"num":"755119453.9249146757679180887372013651877133105802047781569965870307167235494880546075085324232081911262798634812286689419795221843003412969283276450511946"}}
+{"id":"numr.183","ok":true,"type":"number","value":{"num":"43.61291"}}
+{"id":"numr.184","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.185","ok":true,"type":"number","value":{"num":"692969006719067"}}
+{"id":"numr.186","ok":true,"type":"number","value":{"num":"58"}}
+{"id":"numr.187","ok":true,"type":"number","value":{"num":"921936254"}}
+{"id":"numr.188","ok":true,"type":"number","value":{"num":"2747.1583333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333332"}}
+{"id":"numr.189","ok":true,"type":"number","value":{"num":"186774.09978313771415832478187844209688699285107566436211641996099237063185836710971527970101071609472629202384326449554492760845944443582410239146039622172"}}
+{"id":"numr.190","ok":true,"type":"number","value":{"num":"-70.37617799999999957265896698186872826306284316328715374887991813462805968155481837277651855875878582523521295781862468607221887242346002347143314885494668"}}
+{"id":"numr.191","ok":true,"type":"number","value":{"num":"-2.486"}}
+{"id":"numr.192","ok":true,"type":"number","value":{"num":"-45083326978959"}}
+{"id":"numr.193","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.194","ok":true,"type":"number","value":{"num":"-3.985148514851485148514851485148514851485148514851485148514851485148514851485148514851485148514851485148514851485148514851485148514851485148514851485148515"}}
+{"id":"numr.195","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.196","ok":true,"type":"number","value":{"num":"0"}}
+{"id":"numr.197","ok":true,"type":"number","value":{"num":"-80.42"}}
+{"id":"numr.198","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.199","ok":true,"type":"number","value":{"num":"0.586"}}
+{"id":"numr.200","ok":true,"type":"number","value":{"num":"0.000012871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287128712871287129"}}
+{"id":"numr.201","ok":true,"type":"number","value":{"num":"84"}}
+{"id":"numr.202","ok":true,"type":"number","value":{"num":"656759927049279"}}
+{"id":"numr.203","ok":true,"type":"number","value":{"num":"337.26973972606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606064"}}
+{"id":"numr.204","ok":true,"type":"number","value":{"num":"63.22"}}
+{"id":"numr.205","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.206","ok":true,"type":"number","value":{"num":"602905202.762"}}
+{"id":"numr.207","ok":true,"type":"number","value":{"num":"3.7810748799868038275533559969340126148598232822891909793282445077399818928525191743061147167062813493395888379573925928743101058513018229756020062692874898"}}
+{"id":"numr.208","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.209","ok":true,"type":"number","value":{"num":"1700000000000924271964.00062"}}
+{"id":"numr.210","ok":true,"type":"number","value":{"num":"-0.378"}}
+{"id":"numr.211","ok":true,"type":"number","value":{"num":"572317951824516"}}
+{"id":"numr.212","ok":true,"type":"number","value":{"num":"50396817780.0508"}}
+{"id":"numr.213","ok":true,"type":"number","value":{"num":"-0.498"}}
+{"id":"numr.214","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.215","ok":true,"type":"number","value":{"num":"29.792766506429432540464930897959034569416487925782320750954003172923702157868177306244299456712789543300075825869937581483379891417435405626952218053477748"}}
+{"id":"numr.216","ok":true,"type":"number","value":{"num":"526.98005263157894736842105263157894736842105263157894736842105263157894736842105263157894736842105263157894736842105263157894736842105263157894736842105264"}}
+{"id":"numr.217","ok":true,"type":"number","value":{"num":"619208019"}}
+{"id":"numr.218","ok":true,"type":"number","value":{"num":"926865340"}}
+{"id":"numr.219","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.220","ok":true,"type":"number","value":{"num":"7647.81328751"}}
+{"id":"numr.221","ok":true,"type":"number","value":{"num":"192.80548027"}}
+{"id":"numr.222","ok":true,"type":"number","value":{"num":"84.48000000912524612005485270611728759140272358665876363573360724969900071498128399853781922970171736158619846188744838699959522841610402021356385343521229"}}
+{"id":"numr.223","ok":true,"type":"number","value":{"num":"1.4729999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"}}
+{"id":"numr.224","ok":true,"type":"number","value":{"num":"49063519.52898861"}}
+{"id":"numr.225","ok":true,"type":"number","value":{"num":"335.66891892"}}
+{"id":"numr.226","ok":true,"type":"number","value":{"num":"520"}}
+{"id":"numr.227","ok":true,"type":"number","value":{"num":"-11904478499760000000000000000000"}}
+{"id":"numr.228","ok":true,"type":"number","value":{"num":"916055773.97493083"}}
+{"id":"numr.229","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.230","ok":true,"type":"number","value":{"num":"73"}}
+{"id":"numr.231","ok":true,"type":"number","value":{"num":"-65286285.072999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999994"}}
+{"id":"numr.232","ok":true,"type":"number","value":{"num":"-232461.55300716666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666669"}}
+{"id":"numr.233","ok":true,"type":"number","value":{"num":"838803123449906"}}
+{"id":"numr.234","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.235","ok":true,"type":"number","value":{"num":"476.85189314"}}
+{"id":"numr.236","ok":true,"type":"number","value":{"num":"298987869.75092117"}}
+{"id":"numr.237","ok":true,"type":"number","value":{"num":"0.82"}}
+{"id":"numr.238","ok":true,"type":"number","value":{"num":"183.91543079999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"}}
+{"id":"numr.239","ok":true,"type":"number","value":{"num":"11607.468983050847457627118644067796610169491525423728813559322033898305084745762711864406779661016949152542372881355932203389830508474576271186440677966101"}}
+{"id":"numr.240","ok":true,"type":"number","value":{"num":"-860146361"}}
+{"id":"numr.241","ok":true,"type":"number","value":{"num":"0.481"}}
+{"id":"numr.242","ok":true,"type":"number","value":{"num":"-3"}}
+{"id":"numr.243","ok":true,"type":"number","value":{"num":"-9.205999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999981189946898812"}}
+{"id":"numr.244","ok":true,"type":"number","value":{"num":"68.87"}}
+{"id":"numr.245","ok":true,"type":"number","value":{"num":"459773126291111"}}
+{"id":"numr.246","ok":true,"type":"number","value":{"num":"-27"}}
+{"id":"numr.247","ok":true,"type":"number","value":{"num":"352.24508353"}}
+{"id":"numr.248","ok":true,"type":"number","value":{"num":"296632489"}}
+{"id":"numr.249","ok":true,"type":"number","value":{"num":"792046474"}}
+{"id":"numr.250","ok":true,"type":"number","value":{"num":"790000000035.4000000000670334431818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818181818"}}
+{"id":"numr.251","ok":true,"type":"number","value":{"num":"0.134"}}
+{"id":"numr.252","ok":true,"type":"number","value":{"num":"-59.04"}}
+{"id":"numr.253","ok":true,"type":"number","value":{"num":"8.165966774019801980198019801980198019801980198019801980198019801980198019801980198019801980198019801980198019801980198019801980198019801980198019798852461"}}
+{"id":"numr.254","ok":true,"type":"number","value":{"num":"0.19"}}
+{"id":"numr.255","ok":true,"type":"number","value":{"num":"41.125"}}
+{"id":"numr.256","ok":true,"type":"number","value":{"num":"3.239715587253987746250140508612769971897241278635370336493453848578610642202202432461617813361146828663836444572652887056737744812458282390596160036321194"}}
+{"id":"numr.257","ok":true,"type":"number","value":{"num":"162538799922913"}}
+{"id":"numr.258","ok":true,"type":"number","value":{"num":"0.0042974205681553704118059532083738603104523876228426222410143504754589710708474464744755091948509502360090062186559644182316438238497113806142175518245810574"}}
+{"id":"numr.259","ok":true,"type":"number","value":{"num":"72"}}
+{"id":"numr.260","ok":true,"type":"number","value":{"num":"815817005"}}
+{"id":"numr.261","ok":true,"type":"number","value":{"num":"8069"}}
+{"id":"numr.262","ok":true,"type":"number","value":{"num":"12.085996999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999998"}}
+{"id":"numr.263","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.264","ok":true,"type":"number","value":{"num":"2589.075466326"}}
+{"id":"numr.265","ok":true,"type":"number","value":{"num":"-465196022.9611276"}}
+{"id":"numr.266","ok":true,"type":"number","value":{"num":"7230.882352941176470588235294117647058823529411764705882352941176470588235294117647058823529411764705882352941176470588235294117647058823529411764705882353"}}
+{"id":"numr.267","ok":true,"type":"number","value":{"num":"0.0005"}}
+{"id":"numr.268","ok":true,"type":"number","value":{"num":"-47.17489865"}}
+{"id":"numr.269","ok":true,"type":"number","value":{"num":"782657496863976"}}
+{"id":"numr.270","ok":true,"type":"number","value":{"num":"-500303194312085509131068.66666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666665"}}
+{"id":"numr.271","ok":true,"type":"number","value":{"num":"219.73130254"}}
+{"id":"numr.272","ok":true,"type":"number","value":{"num":"250669714.533"}}
+{"id":"numr.273","ok":true,"type":"number","value":{"num":"-47.229999999998973070278593971998842232900303333074375407204520009757248049737648947071230386837496847407494811777474122042591008784856718188462689965150546"}}
+{"id":"numr.274","ok":true,"type":"number","value":{"num":"71.808188"}}
+{"id":"numr.275","ok":true,"type":"number","value":{"num":"15.619212430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000056352339426733"}}
+{"id":"numr.276","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.277","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.278","ok":true,"type":"number","value":{"num":"-0.00006163366336633663366336633663366336633663366336633663366336633663366336633663366336633663366336633663366336633663366336633663366336633663366336633663366337"}}
+{"id":"numr.279","ok":true,"type":"number","value":{"num":"0.29"}}
+{"id":"numr.280","ok":true,"type":"number","value":{"num":"199028664"}}
+{"id":"numr.281","ok":true,"type":"number","value":{"num":"-71361728003996247147920"}}
+{"id":"numr.282","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.283","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.284","ok":true,"type":"number","value":{"num":"57.1490000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003"}}
+{"id":"numr.285","ok":true,"type":"number","value":{"num":"0.7670000000000006958223314733606724544341242981850595828123511135431834539477222990192742212135054729326276781099763368667040592043284446829770971424407767"}}
+{"id":"numr.286","ok":true,"type":"number","value":{"num":"100000000746.97787368"}}
+{"id":"numr.287","ok":true,"type":"number","value":{"num":"8078"}}
+{"id":"numr.288","ok":true,"type":"number","value":{"num":"756.65483933"}}
+{"id":"numr.289","ok":true,"type":"number","value":{"num":"3124905713941690.48105633"}}
+{"id":"numr.290","ok":true,"type":"number","value":{"num":"8"}}
+{"id":"numr.291","ok":true,"type":"number","value":{"num":"237.56751884080972912126379197095723252102071448505300505472871232394990638492560962627714192703502121599504599200146377716463407699086674028418413054832188"}}
+{"id":"numr.292","ok":true,"type":"number","value":{"num":"-39"}}
+{"id":"numr.293","ok":true,"type":"number","value":{"num":"-399.717287907"}}
+{"id":"numr.294","ok":true,"type":"number","value":{"num":"2583713519389561.3667072100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002"}}
+{"id":"numr.295","ok":true,"type":"number","value":{"num":"-0.0000000000004594729025798240985724552373901947287069766659890669210322945283817032620256952086568228015331005465137082256033977988842400983142426936902290938481510062"}}
+{"id":"numr.296","ok":true,"type":"number","value":{"num":"0.703"}}
+{"id":"numr.297","ok":true,"type":"number","value":{"num":"-65286400"}}
+{"id":"numr.298","ok":true,"type":"number","value":{"num":"56.5"}}
+{"id":"numr.299","ok":true,"type":"number","value":{"num":"7015169451.53856"}}
+{"id":"numr.300","ok":true,"type":"number","value":{"num":"556.11772378"}}
+{"id":"numr.301","ok":true,"type":"number","value":{"num":"939351696"}}
+{"id":"numr.302","ok":true,"type":"number","value":{"num":"-0.5555209300009334805804576135554987869311119188515516549527833522177356039584390763574005414381646242414739651948660872651392915907744458419654376215068752"}}
+{"id":"numr.303","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.304","ok":true,"type":"number","value":{"num":"-386907842941403.5"}}
+{"id":"numr.305","ok":true,"type":"number","value":{"num":"-245.73206400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"}}
+{"id":"numr.306","ok":true,"type":"number","value":{"num":"0.201"}}
+{"id":"numr.307","ok":true,"type":"number","value":{"num":"924519669031666.95299999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999996"}}
+{"id":"numr.308","ok":true,"type":"number","value":{"num":"566021184902638"}}
+{"id":"numr.309","ok":true,"type":"number","value":{"num":"864734484115615"}}
+{"id":"numr.310","ok":true,"type":"number","value":{"num":"47.432"}}
+{"id":"numr.311","ok":true,"type":"number","value":{"num":"355466287041296.81999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999998"}}
+{"id":"numr.312","ok":true,"type":"number","value":{"num":"2565564771400.5906800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002"}}
+{"id":"numr.313","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.314","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.315","ok":true,"type":"number","value":{"num":"6700"}}
+{"id":"numr.316","ok":true,"type":"number","value":{"num":"0.000000000000026020082415432726780513689930882734072530659749105110754699105168466354790750815510177272435106675753320512781479709191459399018263129398470795951249958565"}}
+{"id":"numr.317","ok":true,"type":"number","value":{"num":"871382313780486"}}
+{"id":"numr.318","ok":true,"type":"number","value":{"num":"970.6082922900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"}}
+{"id":"numr.319","ok":true,"type":"number","value":{"num":"639.84349438"}}
+{"id":"numr.320","ok":true,"type":"number","value":{"num":"-4099.66"}}
+{"id":"numr.321","ok":true,"type":"number","value":{"num":"163191129"}}
+{"id":"numr.322","ok":true,"type":"number","value":{"num":"-151327824.28391061715765175515214469013789201573106587490310936475288444822585977102177553442773343584187539503727769093559692833195829080817067454308369349"}}
+{"id":"numr.323","ok":true,"type":"number","value":{"num":"-36.377508162284686520598941537417148637392750891523728557828327962614873368130533950283529428925938564824552745029098422091801537885842757702287167973761934"}}
+{"id":"numr.324","ok":true,"type":"number","value":{"num":"0.00077"}}
+{"id":"numr.325","ok":true,"type":"number","value":{"num":"0.00000000000011379310344827586206896551724137931034482758620689655172413793103448275862068965517241379310344827586206896551724137931034482758620689655172413793103448276"}}
+{"id":"numr.326","ok":true,"type":"number","value":{"num":"6094.8998038683566699999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999994"}}
+{"id":"numr.327","ok":true,"type":"number","value":{"num":"50.16"}}
+{"id":"numr.328","ok":true,"type":"number","value":{"num":"652895279228689"}}
+{"id":"numr.329","ok":true,"type":"number","value":{"num":"-9279281.32199"}}
+{"id":"numr.330","ok":true,"type":"number","value":{"num":"65286400"}}
+{"id":"numr.331","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.332","ok":true,"type":"number","value":{"num":"-24841.0813666112848005991478296794293492677060167887589800163235404194997256039139328249465532915136572706985342761754453081767021186726960143273298191825"}}
+{"id":"numr.333","ok":true,"type":"number","value":{"num":"557143068406730"}}
+{"id":"numr.334","ok":true,"type":"number","value":{"num":"-0.000000021698713596742463667360814053825845692253347526189698655348571026481246395632674194175127665603355243701546902617741525769198308115186969660596148846950708"}}
+{"id":"numr.335","ok":true,"type":"number","value":{"num":"-305894.05620492414822183536433722954488933101218602337726933598607311614026361601591643869684158169609549863218104949017657299179308629694105943795075851776"}}
+{"id":"numr.336","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.337","ok":true,"type":"number","value":{"num":"1.0293121655511500296171480668041829913068619701007148521704253133317410591793900807452568464212754189112085151517706124582105771665027018766935411374290163"}}
+{"id":"numr.338","ok":true,"type":"number","value":{"num":"394.88722802"}}
+{"id":"numr.339","ok":true,"type":"number","value":{"num":"784.51447502"}}
+{"id":"numr.340","ok":true,"type":"number","value":{"num":"58428754284601587524962.48700000000000000001164179076923076923076923076923076923076923076923076923076923076923076923076923076923076923076923076923076923077"}}
+{"id":"numr.341","ok":true,"type":"number","value":{"num":"-0.00000008053328735001077502931729654683968898743299591714087224933507233973373054572387004528594856339158897913170741721822866779239084722679166419934781403153262"}}
+{"id":"numr.342","ok":true,"type":"number","value":{"num":"2362277709611.0547945205479452054794520547945205479452054794520547945205479452054794520547945205479452054794520547945205479452054794520547945205479452054794"}}
+{"id":"numr.343","ok":true,"type":"number","value":{"num":"739105935"}}
+{"id":"numr.344","ok":true,"type":"number","value":{"num":"-621878.9597237104254101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"}}
+{"id":"numr.345","ok":true,"type":"number","value":{"num":"0.0000000005389289330326744551516694325118092691073766140308487127026479624224677987724839563777773160344097901180873913381497007657850556791677172722389060978291005"}}
+{"id":"numr.346","ok":true,"type":"number","value":{"num":"-211904761904761904761.9047619047619047619047619047619047619047619047619047619047619047619047619047619047619047619047619047619047619047619047619047619047619"}}
+{"id":"numr.347","ok":true,"type":"number","value":{"num":"516.18042925"}}
+{"id":"numr.348","ok":true,"type":"number","value":{"num":"8800000"}}
+{"id":"numr.349","ok":true,"type":"number","value":{"num":"0.000000000000013537548594890039120496741658058503167387199515356301335578710464926779000618198134970176368802109905983808870644612731566859474562216124973103331702738376"}}
+{"id":"numr.350","ok":true,"type":"number","value":{"num":"-7400000000000000001544.88584625"}}
+{"id":"numr.351","ok":true,"type":"number","value":{"num":"42.132064"}}
+{"id":"numr.352","ok":true,"type":"number","value":{"num":"-2417995.738916256157635467980295566502463054187192118226600985221674876847290640394088669950738916256157635467980295566502463054187192118226600985221674877"}}
+{"id":"numr.353","ok":true,"type":"number","value":{"num":"2.1632106000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000095576566957578"}}
+{"id":"numr.354","ok":true,"type":"number","value":{"num":"5287.9564002"}}
+{"id":"numr.355","ok":true,"type":"number","value":{"num":"-100.10691936000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048"}}
+{"id":"numr.356","ok":true,"type":"number","value":{"num":"0.15966666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667"}}
+{"id":"numr.357","ok":true,"type":"number","value":{"num":"6069687.900050405040504050405040504050405040504050405040504050405040504050405040504050405040504050405040504050405040504050405040504050405040504050405040504"}}
+{"id":"numr.358","ok":true,"type":"number","value":{"num":"29"}}
+{"id":"numr.359","ok":true,"type":"number","value":{"num":"-816.7397034"}}
+{"id":"numr.360","ok":true,"type":"number","value":{"num":"34.623438"}}
+{"id":"numr.361","ok":true,"type":"number","value":{"num":"65857308218255.02529032258064516129032258064516129032258064516129032258064516129032258064516129032258064516129032258064516129032258064516129032258064516129"}}
+{"id":"numr.362","ok":true,"type":"number","value":{"num":"3"}}
+{"id":"numr.363","ok":true,"type":"number","value":{"num":"0.000000038844048757671505409396333960828728975593869829034911321885249811515727411525298585139188844072064100760012299579598629105472831255185356808742832042942665"}}
+{"id":"numr.364","ok":true,"type":"number","value":{"num":"-532.02358457000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006"}}
+{"id":"numr.365","ok":true,"type":"number","value":{"num":"-0.004313735595756084371729025731869594414113580906276054457482476621939106003425289396793150624738644914698062422568783066771703971555529443076082578724825356"}}
+{"id":"numr.366","ok":true,"type":"number","value":{"num":"-0.5533333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"}}
+{"id":"numr.367","ok":true,"type":"number","value":{"num":"0.234"}}
+{"id":"numr.368","ok":true,"type":"number","value":{"num":"17"}}
+{"id":"numr.369","ok":true,"type":"number","value":{"num":"5678.3145012941176470588235294117647058823529411764705882352941176470588235294117647058823529411764705882352941176470588235294117647058823529411764705882356"}}
+{"id":"numr.370","ok":true,"type":"number","value":{"num":"8079.94467707"}}
+{"id":"numr.371","ok":true,"type":"number","value":{"num":"95856368.99968"}}
+{"id":"numr.372","ok":true,"type":"number","value":{"num":"0.529"}}
+{"id":"numr.373","ok":true,"type":"number","value":{"num":"0.14"}}
+{"id":"numr.374","ok":true,"type":"number","value":{"num":"-73.3"}}
+{"id":"numr.375","ok":true,"type":"number","value":{"num":"8080"}}
+{"id":"numr.376","ok":true,"type":"number","value":{"num":"-895775558659887"}}
+{"id":"numr.377","ok":true,"type":"number","value":{"num":"-0"}}
+{"id":"numr.378","ok":true,"type":"number","value":{"num":"-40.957374027263463294456986760707500550544138357139751641215646363269048189709062051319534342568190528044367199115448495294094236655476623124548050374365907"}}
+{"id":"numr.379","ok":true,"type":"number","value":{"num":"602616764139384"}}
+{"id":"numr.380","ok":true,"type":"number","value":{"num":"882606916362419"}}
+{"id":"numr.381","ok":true,"type":"number","value":{"num":"-0.121"}}
+{"id":"numr.382","ok":true,"type":"number","value":{"num":"899999999051.40256125"}}
+{"id":"numr.383","ok":true,"type":"number","value":{"num":"120581184180731.534"}}
+{"id":"numr.384","ok":true,"type":"number","value":{"num":"9.12"}}
+{"id":"numr.385","ok":true,"type":"number","value":{"num":"-673909471370290.40999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999995"}}
+{"id":"numr.386","ok":true,"type":"number","value":{"num":"-351427656"}}
+{"id":"numr.387","ok":true,"type":"number","value":{"num":"-0.988"}}
+{"id":"numr.388","ok":true,"type":"number","value":{"num":"0.56"}}
+{"id":"numr.389","ok":true,"type":"number","value":{"num":"706955210"}}
+{"id":"numr.390","ok":true,"type":"number","value":{"num":"-168643698.464"}}
+{"id":"numr.391","ok":true,"type":"number","value":{"num":"-351.84941326"}}
+{"id":"numr.392","ok":true,"type":"number","value":{"num":"1300000"}}
+{"id":"numr.393","ok":true,"type":"number","value":{"num":"351364705"}}
+{"id":"numr.394","ok":true,"type":"number","value":{"num":"-103019733.99998083857078793024934382012798010927780878075725696731456949744982044067299696931465172941717938864662268665363284772525332579737229418291098876"}}
+{"id":"numr.395","ok":true,"type":"number","value":{"num":"0.19867549668874172185430463576158940397350993377483443708609271523178807947019867549668874172185430463576158940397350993377483443708609271523178807947019871"}}
+{"id":"numr.396","ok":true,"type":"number","value":{"num":"7.78608119615838040951586935076282414423237164869529715394384663094566659680946921280609839395526683975840608618115174822974251208728276944243571230389374"}}
+{"id":"numr.397","ok":true,"type":"number","value":{"num":"24243"}}
+{"id":"numr.398","ok":true,"type":"number","value":{"num":"663882718"}}
+{"id":"numr.399","ok":true,"type":"number","value":{"num":"-8083"}}

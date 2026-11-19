@@ -1,0 +1,23 @@
+# open --console over SSH: no browser to show, so the console's address, for opening where the person sits.
+@ project bare
+@ env SSH_CONNECTION=10.0.0.2 51000 10.0.0.1 22
+@ daemon console
+
+$ doze open --console cache
+exit 0
+stdout:
+| http://127.0.0.1:6380/
+stderr:
+| no display here; the console of cache is at:
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze open",
+|   "ok": true,
+|   "data": {
+|     "name": "cache",
+|     "opened": false,
+|     "url": "http://127.0.0.1:6380/"
+|   }
+| }

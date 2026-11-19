@@ -36,7 +36,7 @@ pub(crate) fn test_key() -> SigningKey {
     SigningKey::from_bytes(&seed)
 }
 
-fn sign_hex(key: &SigningKey, hex: &str) -> String {
+pub(crate) fn sign_hex(key: &SigningKey, hex: &str) -> String {
     use base64ct::{Base64, Encoding};
     Base64::encode_string(&key.sign(hex.as_bytes()).to_bytes())
 }
@@ -162,9 +162,9 @@ pub(crate) fn index_text(idx: &Index) -> String {
     serde_json::to_string_pretty(&v).unwrap()
 }
 
-const VALKEY_META: &str = "title: Valkey\ntagline: In-memory cache, Redis-compatible.\ncategory: cache\nengine: valkey\nport: 6379\nexample: |-\n    valkey \"cache\" {\n      version   = 9\n      maxmemory = \"256mb\"\n    }\ndescription: A local Valkey server, the open-source Redis fork. Any redis client works.\nconfig:\n    arguments:\n        - name: version\n          type: number\n          desc: Engine major to run, 8 or 9.\n          required: true\n        - name: maxmemory_policy\n          type: string\n          default: noeviction\n          desc: Eviction policy.\n        - name: snapshot_on_sleep\n          type: bool\n          default: \"false\"\n          desc: Save before sleeping.\n          since: 0.3.0\n";
+const VALKEY_META: &str = "title: Valkey\ntagline: In-memory cache, Redis-compatible.\ncategory: cache\nengine: valkey\nport: 6379\nexample: |-\n    valkey \"cache\" {\n      version   = 9\n      maxmemory = \"256mb\"\n    }\ndescription: A local Valkey server, the open-source Redis fork. Any redis client works.\nexampleLabel: cache\ndefaultVersion: \"9\"\ndetect:\n    packages:\n        go: [github.com/redis/go-redis, github.com/gomodule/redigo]\n        npm: [redis, ioredis]\n    images: [redis, valkey/valkey]\n    env:\n        REDIS_URL: url\n        CACHE_ADDR: address\nconfig:\n    arguments:\n        - name: version\n          type: number\n          desc: Engine major to run, 8 or 9.\n          required: true\n        - name: maxmemory_policy\n          type: string\n          default: noeviction\n          desc: Eviction policy.\n        - name: snapshot_on_sleep\n          type: bool\n          default: \"false\"\n          desc: Save before sleeping.\n          since: 0.3.0\n";
 
-const POSTGRES_META: &str = "title: PostgreSQL\ntagline: The relational database.\ncategory: database\nengine: postgres\nport: 5432\nexample: postgres \"db\" { version = 17 }\ndescription: A real Postgres per service.\nconfig:\n    arguments:\n        - name: version\n          type: number\n          required: true\n    blocks:\n        - name: database\n          label: name\n          desc: A database to create.\n          arguments:\n            - name: owner\n              type: string\n";
+const POSTGRES_META: &str = "title: PostgreSQL\ntagline: The relational database.\ncategory: database\nengine: postgres\nport: 5432\nexample: postgres \"db\" { version = 17 }\ndescription: A real Postgres per service.\nexampleLabel: db\ndefaultVersion: \"18\"\ndetect:\n    packages:\n        go: [github.com/jackc/pgx, github.com/lib/pq]\n        npm: [pg]\n    images: [postgres]\n    env:\n        DATABASE_URL: url\nconfig:\n    arguments:\n        - name: version\n          type: number\n          required: true\n    blocks:\n        - name: database\n          label: name\n          desc: A database to create.\n          arguments:\n            - name: owner\n              type: string\n";
 
 /// Writes the fixture registry: valkey (0.2.1 on protocol 1, 0.3.0 on protocol 2), postgres 0.2.5, the catalog, the
 /// namespace key and a release file for doze 9.9.9.
@@ -237,11 +237,21 @@ pub(crate) struct FakeHost {
     pub privileged: RefCell<Vec<(String, String, bool)>>,
     /// What the privileged runner answers (`None`: it ran).
     pub refuse: Option<doze_cli::ctx::Refused>,
+    /// The Applications folders the host reports (`@ app`: a Doze.app in the sandbox).
+    pub apps: Vec<PathBuf>,
+    /// What the person types, a line per question asked (`read_line`); none left: the input ended.
+    pub answers: RefCell<std::collections::VecDeque<String>>,
+    /// The program `up` starts as the daemon (`None`: nothing is started).
+    pub daemon_exe: Option<PathBuf>,
 }
 
 impl Host for FakeHost {
     fn var(&self, name: &str) -> Option<String> {
         self.env.get(name).cloned()
+    }
+    fn env_lookup(&self) -> doze_hcl::funcs::EnvLookup {
+        let env = self.env.clone();
+        std::sync::Arc::new(move |name: &str| env.get(name).cloned())
     }
     fn open_url(&self, url: &str) -> std::io::Result<()> {
         self.opened.borrow_mut().push(url.to_string());
@@ -250,6 +260,33 @@ impl Host for FakeHost {
         } else {
             Ok(())
         }
+    }
+    /// The environment it was given is recorded first, as `env K=V…`.
+    fn run_env(
+        &self,
+        program: &std::path::Path,
+        args: &[String],
+        env: &[(String, String)],
+    ) -> std::io::Result<u8> {
+        if !env.is_empty() {
+            let mut line = vec!["env".to_owned()];
+            line.extend(env.iter().map(|(k, v)| format!("{k}={v}")));
+            self.spawned.borrow_mut().push(line);
+        }
+        self.run(program, args)
+    }
+    fn run(&self, program: &std::path::Path, args: &[String]) -> std::io::Result<u8> {
+        let name = program
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let mut line = vec![format!("run {name}")];
+        line.extend(args.iter().cloned());
+        self.spawned.borrow_mut().push(line);
+        Ok(0)
+    }
+    fn applications(&self) -> Vec<PathBuf> {
+        self.apps.clone()
     }
     fn spawn_background(&self, args: &[&str]) -> std::io::Result<()> {
         self.spawned
@@ -286,6 +323,12 @@ impl Host for FakeHost {
     fn settle(&self) -> std::time::Duration {
         std::time::Duration::ZERO
     }
+    fn read_line(&self) -> Option<String> {
+        self.answers.borrow_mut().pop_front()
+    }
+    fn daemon_exe(&self) -> Option<PathBuf> {
+        self.daemon_exe.clone()
+    }
 }
 
 /// What one in-process run printed and how it ended.
@@ -301,6 +344,19 @@ pub(crate) fn run(
     host: &FakeHost,
     term: Terminals,
     online: bool,
+    args: &[&str],
+) -> Ran {
+    run_in(sb, host, term, online, &sb.project(), args)
+}
+
+/// [`run`], in the folder `cwd`.
+#[allow(dead_code)]
+pub(crate) fn run_in(
+    sb: &Sandbox,
+    host: &FakeHost,
+    term: Terminals,
+    online: bool,
+    cwd: &Path,
     args: &[&str],
 ) -> Ran {
     let (mut out, mut err) = (Vec::new(), Vec::new());
@@ -319,7 +375,7 @@ pub(crate) fn run(
         err: &mut err,
         term,
         home: sb.home(),
-        cwd: sb.project(),
+        cwd: cwd.to_path_buf(),
         registry: registry::Config {
             bases,
             key,
