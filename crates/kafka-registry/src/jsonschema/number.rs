@@ -11,8 +11,12 @@ pub(crate) struct Dec {
     exp: i64,
 }
 
-/// An exponent past this is clamped: such numbers compare correctly, they are only not exact.
+/// An exponent past this is clamped: such numbers compare correctly, they are only not exact. The clamp is applied to the
+/// normalised exponent, so that every text of one value (`25e…`, `2.5e…`, `250e…`) clamps to the same number.
 const EXP_BOUND: i64 = 1 << 40;
+
+/// Where reading an exponent's digits stops growing it: far past `EXP_BOUND`, and ten times it still fits an `i64`.
+const EXP_READ_BOUND: i64 = 1 << 58;
 
 impl Dec {
     /// Reads a JSON number's text (as the ordered JSON keeps it); anything else is `None`.
@@ -50,7 +54,11 @@ impl Dec {
                 exp: 0,
             });
         }
-        Some(Self { neg, digits, exp })
+        Some(Self {
+            neg,
+            digits,
+            exp: exp.clamp(-EXP_BOUND, EXP_BOUND),
+        })
     }
 
     /// A count (a string's length, an array's items) as a decimal.
@@ -164,7 +172,7 @@ fn parse_exp(text: &str) -> Option<i64> {
     }
     let mut v: i64 = 0;
     for b in digits.bytes() {
-        v = (v * 10 + i64::from(b - b'0')).min(EXP_BOUND);
+        v = (v * 10 + i64::from(b - b'0')).min(EXP_READ_BOUND);
     }
     Some(if neg { -v } else { v })
 }

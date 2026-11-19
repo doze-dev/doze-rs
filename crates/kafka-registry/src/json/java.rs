@@ -34,8 +34,13 @@ pub fn java_number(raw: &str) -> String {
     if !body.starts_with(|c: char| c.is_ascii_digit()) {
         return raw.to_owned();
     }
+    // An exponent past Java's `int` is not a `BigDecimal`: the number is kept as written rather than read as `e0`,
+    // which would change its value (found by the fuzzer: `1e99999999999999999999` was stored as `1`).
     let (mantissa, exp) = match body.find(['e', 'E']) {
-        Some(i) => (&body[..i], body[i + 1..].parse::<i64>().unwrap_or(0)),
+        Some(i) => match body[i + 1..].parse::<i32>() {
+            Ok(e) => (&body[..i], i64::from(e)),
+            Err(_) => return raw.to_owned(),
+        },
         None => (body, 0),
     };
     let (int, frac) = mantissa.split_once('.').unwrap_or((mantissa, ""));

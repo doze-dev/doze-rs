@@ -308,3 +308,47 @@ fn numbers_compare_by_value_and_multiples_are_exact() {
     assert!(reasons(&num("0.3"), &num("0.1")).is_empty());
     assert_eq!(reasons(&num("0.1"), &num("0.3")), ["MULTIPLE_OF_EXPANDED"]);
 }
+
+/// Found by the fuzzer (CI, 2026-11-19): a schema compared with itself must not break.
+#[test]
+fn a_huge_multiple_of_reads_its_own_data() {
+    let text = r#"{"t||||ype":"object","properties":{"aa":{"e":"number","multipleOf":2777777777777e777000001624680}}}"#;
+    let s = read(text);
+    let again = read(&s.canonical(false));
+    let r: Vec<String> = s
+        .can_read(&again, Role::New, Role::Old)
+        .into_iter()
+        .map(|r| format!("{} {}", r.kind, r.path))
+        .collect();
+    assert!(r.is_empty(), "{r:?}");
+}
+
+/// Found by the fuzzer: a count limit far past any count reads its own data too.
+#[test]
+fn a_huge_count_limit_reads_its_own_data() {
+    for kw in [
+        "minProperties",
+        "maxProperties",
+        "minItems",
+        "maxItems",
+        "minLength",
+        "maxLength",
+    ] {
+        for n in [
+            "99999999999e99999999999999999999999999999999938552",
+            "1e1099511627780",
+            "12345678901234567890123",
+        ] {
+            let text =
+                format!(r#"{{"type":"object","properties":{{"a":{{"{kw}":{n}}}}},"{kw}":{n}}}"#);
+            let Ok(s) = parse(&text, &[]) else { continue };
+            let again = read(&s.canonical(false));
+            let r: Vec<String> = s
+                .can_read(&again, Role::New, Role::Old)
+                .into_iter()
+                .map(|r| format!("{} {}", r.kind, r.path))
+                .collect();
+            assert!(r.is_empty(), "{text} -> {} : {r:?}", s.canonical(false));
+        }
+    }
+}
