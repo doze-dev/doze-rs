@@ -238,6 +238,18 @@ impl Args {
         self.settings_in(&|name| std::env::var_os(name))
     }
 
+    /// The topic config defaults the flags set (a retention of 0 or less is none: -1).
+    fn topic_defaults(&self) -> Defaults {
+        let none_is_zero = |n: i64| if n <= 0 { -1 } else { n };
+        Defaults {
+            segment_bytes: self.segment_bytes,
+            index_interval_bytes: self.index_interval_bytes,
+            message_max_bytes: self.message_max_bytes,
+            retention_bytes: none_is_zero(self.retention_bytes),
+            retention_ms: none_is_zero(self.retention_ms),
+        }
+    }
+
     /// [`Args::settings`] with the environment given, so that a test need not change the process's own.
     pub(crate) fn settings_in(
         &self,
@@ -255,7 +267,6 @@ impl Args {
             );
         };
         self.check_numbers()?;
-        let none_is_zero = |n: i64| if n <= 0 { -1 } else { n };
         let mut broker = BrokerConfig::new(self.data_dir.clone());
         broker.auto_create_topics = self.auto_create_topics;
         broker.default_partitions = self.default_partitions;
@@ -279,13 +290,7 @@ impl Args {
         broker.max_open_partitions = self.max_open_partitions;
         broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
         broker.super_users = acl::super_users(&self.acl_super_user)?;
-        broker.defaults = Defaults {
-            segment_bytes: self.segment_bytes,
-            index_interval_bytes: self.index_interval_bytes,
-            message_max_bytes: self.message_max_bytes,
-            retention_bytes: none_is_zero(self.retention_bytes),
-            retention_ms: none_is_zero(self.retention_ms),
-        };
+        broker.defaults = self.topic_defaults();
         let sasl = sasl::setup(&sasl::Input {
             mechanisms: &self.sasl_mechanisms,
             users: &self.sasl_user,
