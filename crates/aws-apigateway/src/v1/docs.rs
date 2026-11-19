@@ -43,6 +43,18 @@ pub(super) fn dispatch(core: &mut Core, op: Operation, r: &Req) -> Option<Res> {
         }),
         Operation::UpdateDocumentationVersion => update_version(core, r),
         Operation::DeleteDocumentationVersion => api_mut(core, r).and_then(|d| {
+            // Recorded 2026-11-19: a version a stage publishes cannot be deleted.
+            let name = r.s("documentationVersion");
+            let used = obj(d, "stages").is_some_and(|stages| {
+                stages
+                    .values()
+                    .any(|s| s.get("documentationVersion").and_then(Value::as_str) == Some(name))
+            });
+            if used {
+                return Err(bad(
+                    "Cannot delete documentation version because there are API Stages associated with it.",
+                ));
+            }
             child(d, "docVersions")
                 .and_then(|m| m.remove(r.s("documentationVersion")))
                 .ok_or_else(no_version)

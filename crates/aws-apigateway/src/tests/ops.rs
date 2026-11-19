@@ -107,6 +107,20 @@ async fn documentation_parts_and_versions_are_kept_checked_and_exported() {
         .await
         .unwrap();
     assert_eq!(versions["item"][0]["description"], "first");
+    let published = w
+        .rest(
+            "DeleteDocumentationVersion",
+            json!({"restApiId": api, "documentationVersion": "1.0"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(
+        published.message,
+        "Cannot delete documentation version because there are API Stages associated with it."
+    );
+    w.rest("DeleteStage", json!({"restApiId": api, "stageName": "dev"}))
+        .await
+        .unwrap();
     w.rest(
         "DeleteDocumentationVersion",
         json!({"restApiId": api, "documentationVersion": "1.0"}),

@@ -236,17 +236,15 @@ async fn changes_made_out_of_band_are_drift() {
         one["StackResourceDrift"]["StackResourceDriftStatus"],
         "IN_SYNC"
     );
+    // A named resource the stack does not have: the detection still starts (recorded 2026-11-19).
     let absent = w
         .cfn(
             "DetectStackDrift",
             json!({"StackName": "drift", "LogicalResourceIds": ["Ghost"]}),
         )
         .await
-        .unwrap_err();
-    assert_eq!(
-        absent.message,
-        "Resource Ghost does not exist for stack drift"
-    );
+        .unwrap();
+    assert!(absent["StackDriftDetectionId"].is_string());
     let unknown = w
         .cfn(
             "DescribeStackDriftDetectionStatus",

@@ -83,10 +83,9 @@ async fn a_wait_condition_completes_on_its_signals() {
             .iter()
             .any(|(l, _, r)| l == "Wait" && r == "Received SUCCESS signal with UniqueId b")
     );
-    // Once complete it takes no more.
-    let late = signal(&w, "sig", "Wait", "c", "SUCCESS").await.unwrap_err();
-    assert_eq!(late.code, "ValidationError");
-    assert!(late.message.contains("CREATE_COMPLETE"), "{}", late.message);
+    // Once complete, a signal is accepted and changes nothing (recorded 2026-11-19).
+    signal(&w, "sig", "Wait", "c", "SUCCESS").await.unwrap();
+    assert_eq!(w.events("sig").await.len(), trail.len());
 }
 
 #[tokio::test]
@@ -187,21 +186,11 @@ async fn signal_resource_refusals() {
         .await,
         "CREATE_COMPLETE"
     );
-    let absent = signal(&w, "plain", "Nope", "a", "SUCCESS")
-        .await
-        .unwrap_err();
-    assert_eq!(
-        absent.message,
-        "Resource Nope does not exist for stack plain"
-    );
-    let not_waiting = signal(&w, "plain", "Q", "a", "SUCCESS").await.unwrap_err();
-    assert!(
-        not_waiting
-            .message
-            .starts_with("Resource Q is in CREATE_COMPLETE state"),
-        "{}",
-        not_waiting.message
-    );
+    // A resource the stack does not have, or one that does not wait: accepted, nothing happens (recorded 2026-11-19).
+    let before = w.events("plain").await.len();
+    signal(&w, "plain", "Nope", "a", "SUCCESS").await.unwrap();
+    signal(&w, "plain", "Q", "a", "SUCCESS").await.unwrap();
+    assert_eq!(w.events("plain").await.len(), before);
 }
 
 #[tokio::test]

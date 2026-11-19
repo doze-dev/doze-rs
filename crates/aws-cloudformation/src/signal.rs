@@ -17,7 +17,7 @@ use tokio::sync::Notify;
 use aws_wire::ApiError;
 
 use crate::core::Core;
-use crate::errors::{no_stack, validation};
+use crate::errors::no_stack;
 use crate::model::Draft;
 use crate::req::Req;
 
@@ -227,11 +227,8 @@ impl Core {
         };
         let logical = r.s("LogicalResourceId");
         let Some(res) = stack.resources.get(logical) else {
-            // Recorded for DescribeStackResource (2026-11-12); taken to be the same here.
-            return Err(validation(format!(
-                "Resource {logical} does not exist for stack {}",
-                stack.name
-            )));
+            // Recorded 2026-11-19: AWS accepts a signal for a resource the stack does not have, and does nothing with it.
+            return Ok(json!({}));
         };
         let (stack_id, ty, status) = (stack.id.clone(), res.ty.clone(), res.status.clone());
         let success = r.s("Status") == "SUCCESS";
@@ -243,10 +240,9 @@ impl Core {
             reason: String::new(),
         };
         if !deliver(&resource_key(&stack_id, logical), s) {
-            // (memory) Only a resource that is waiting for signals (a creation policy) takes them.
-            return Err(validation(format!(
-                "Resource {logical} is in {status} state and cannot be signaled: only a resource that waits for signals under a creation policy (here, an AWS::CloudFormation::WaitCondition) takes them"
-            )));
+            // Recorded 2026-11-19: a signal to a resource that no longer waits (its wait condition already complete) is
+            // accepted and changes nothing.
+            return Ok(json!({}));
         }
         // (memory) Each signal shows as an event of the resource.
         let word = if success { "SUCCESS" } else { "FAILURE" };
