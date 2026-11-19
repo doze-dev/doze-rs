@@ -91,6 +91,19 @@ pub fn main(argv: Vec<OsString>) -> u8 {
     if argv.get(1).is_some_and(|a| a == doze_names::HELPER_ARG) {
         return crate::machine::netd(argv.get(2..).unwrap_or_default());
     }
+    // The stack's daemon (`ctl::start` runs `<this program> __daemon --config <path>` detached): whatever program
+    // carries the CLI is its own daemon, so the app needs no `doze` beside it.
+    if argv.get(1).is_some_and(|a| a == doze_daemon::ctl::ARG) {
+        let args: Vec<String> = argv
+            .iter()
+            .skip(2)
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        return match doze_daemon::entry::main(&args, crate::ctx::VERSION) {
+            std::process::ExitCode::SUCCESS => 0,
+            _ => 1,
+        };
+    }
     // One download for the daemon, in a process of its own (core plan F1): stdin to stdout, nothing else.
     if argv.get(1).is_some_and(|a| a == crate::fetch_child::ARG) {
         return match surroundings() {
