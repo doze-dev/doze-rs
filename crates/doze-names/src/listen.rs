@@ -142,6 +142,24 @@ impl Drop for Forwarding {
     }
 }
 
+/// The file beside a zone's registry naming the network daemon that serves it (written by the daemon).
+pub const NETD_SERVING_FILE: &str = "netd.pid";
+
+/// Whether names in the zone whose home is `home` can have addresses of their own: [`pool_usable`], and where the
+/// addresses are translated (macOS) a network daemon serving this very zone. A daemon serving another home's registry
+/// (the machine's real zone, while this one is a test's) never translates this zone's addresses, so its interface
+/// being up says nothing for it.
+pub fn zone_usable(home: &std::path::Path, net: crate::Net) -> bool {
+    if !net.virtual_ {
+        return pool_usable(net);
+    }
+    let serves = std::fs::read_to_string(home.join(NETD_SERVING_FILE))
+        .ok()
+        .and_then(|t| t.trim().parse::<u32>().ok())
+        .is_some_and(doze_os::process::alive);
+    serves && pool_usable(net)
+}
+
 /// Whether this machine can put names on addresses of their own: the daemon's interface is up (macOS), or loopback
 /// addresses past 127.0.0.1 can be bound (Linux, Windows). Without it every service shares 127.0.0.1 and needs a port of
 /// its own.

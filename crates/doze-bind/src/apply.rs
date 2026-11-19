@@ -33,6 +33,9 @@ impl std::error::Error for Error {}
 #[derive(Debug)]
 pub struct BoundListener {
     pub socket: TcpListener,
+    /// Where clients reach it: the name's address and the public port (the socket itself may be a private port of
+    /// the network daemon's interface, where addresses are translated).
+    pub public: std::net::SocketAddr,
     pub granted: Granted,
     _forwarding: Option<Forwarding>,
 }
@@ -46,6 +49,9 @@ pub struct BoundInstance {
     /// The claim on its name (none when names are off): what more names for the same listeners (an app's own
     /// domains) are twinned onto. Released with the [`Bound`] it is in.
     pub lease: Option<Lease>,
+    /// Route names another program holds, said as "<host> is held by <owner> (pid <n>)": the instance runs without
+    /// them (its own name held is an error instead).
+    pub held: Vec<String>,
 }
 
 impl BoundInstance {
@@ -123,6 +129,7 @@ fn bind_loopback(
         let socket = TcpListener::bind(SocketAddrV4::new(crate::LOOPBACK, l.port))?;
         let granted = granted(i, l, backend(&i.name, l));
         let bl = BoundListener {
+            public: socket.local_addr()?,
             socket,
             granted,
             _forwarding: None,
@@ -134,6 +141,7 @@ fn bind_loopback(
         host,
         listeners,
         lease: None,
+        held: Vec::new(),
     })
 }
 
@@ -156,16 +164,26 @@ fn bind_named(
     };
     leases.push(lease.clone());
     let mut listeners = BTreeMap::new();
+    let mut held = Vec::new();
     for l in &i.listeners {
-        let (socket, forwarding) = lease.listen(l.port)?.into_parts();
+        let listening = lease.listen(l.port)?;
+        let public = listening.addr();
+        let (socket, forwarding) = listening.into_parts();
         // The front door dials what the proxy really listens on: the name's address where it is bound, the daemon's
         // interface and the private port where it is translated.
         let target = socket.local_addr()?.to_string();
         for r in &l.routes {
             if r.twin {
-                let twin = lease.twin(&qualified(&r.host))?;
-                twin.route(&target)?;
-                leases.push(twin);
+                match lease.twin(&qualified(&r.host)) {
+                    Ok(twin) => {
+                        twin.route(&target)?;
+                        leases.push(twin);
+                    }
+                    Err(doze_names::Error::Held { host, pid, owner }) => {
+                        held.push(format!("{host} is held by {owner} (pid {pid})"));
+                    }
+                    Err(e) => return Err(e),
+                }
             } else {
                 lease.route(&target)?;
             }
@@ -173,6 +191,7 @@ fn bind_named(
         let granted = granted(i, l, backend(&i.name, l));
         let bl = BoundListener {
             socket,
+            public,
             granted,
             _forwarding: forwarding,
         };
@@ -183,6 +202,7 @@ fn bind_named(
         host,
         listeners,
         lease: Some(lease),
+        held,
     })
 }
 

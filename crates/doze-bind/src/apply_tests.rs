@@ -182,4 +182,31 @@ fn shared_addressing_claims_the_names_on_loopback_and_routes_them() {
     assert!(aws.lease.is_some(), "the lease is there for domains");
     drop(bound);
     assert!(reg.resolve("aws.shop.doze").is_none(), "released with the bound");
+}#[cfg(unix)]
+#[test]
+fn a_route_name_another_program_holds_is_said_and_the_rest_is_bound() {
+    let home = home();
+    // Another program, alive, holding the sibling route's name.
+    let mut other = std::process::Command::new("sleep")
+        .arg("60")
+        .spawn()
+        .unwrap();
+    let file = serde_json::json!({
+        "_format": {"format": 2},
+        "sync-aws.shop.doze": {"ip": "127.0.0.40", "pid": other.id(), "owner": "doze-aws", "tier": "qualified"},
+    });
+    std::fs::write(home.join("names.json"), file.to_string()).unwrap();
+    let reg = Registry::open(&home, "doze").with_net(TRANSLATED_LOOPBACK);
+    let p = plan("shop", &[aws("aws")], Addressing::Own).unwrap();
+    let bound = bind(&p, &reg, &sock).unwrap();
+    let a = &bound.instances["aws"];
+    let _ = other.kill();
+    let _ = other.wait();
+    assert_eq!(a.held.len(), 1, "{:?}", a.held);
+    assert!(
+        a.held[0].starts_with("sync-aws.shop.doze is held by doze-aws (pid "),
+        "{}",
+        a.held[0]
+    );
+    assert!(reg.front_target("aws.shop.doze").is_some());
 }
