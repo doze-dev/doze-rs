@@ -3,8 +3,9 @@
 //! they stand for, with placeholders of their own (`#l0`, `:l0`) so no attribute name can clash with a reserved word. What runs is
 //! then the same code an expression request runs.
 //!
-//! The rules are the developer guide's ("Legacy conditional parameters"): a legacy parameter and an expression parameter in one call
-//! are refused ("DynamoDB does not allow mixing legacy conditional parameters and expression parameters in a single call"), each
+//! The rules are the developer guide's ("Legacy conditional parameters"), as AWS applies them (recorded 2026-11-19): a legacy
+//! parameter is refused beside the expression that does its job (`Expected` with `ConditionExpression`), while other mixes
+//! (`KeyConditions` with a `FilterExpression`) are accepted, though the guide says mixing is not allowed; each
 //! comparison operator takes the number of values the guide lists, `Exists: false` is "the attribute is absent", a bare `Value` (or
 //! `Exists: true` with one) is equality, and an `AttributeUpdates` of only `DELETE` actions on an item that does not exist changes
 //! nothing ("The operation succeeds, but DynamoDB does not create a new item"). Every message here is `(memory)` until a recording
@@ -98,18 +99,25 @@ fn one(legacy: &[&str], op: Operation, m: &mut Map<String, Json>) -> Result<(), 
         .copied()
         .filter(|p| m.contains_key(*p))
         .collect();
-    if !expressions.is_empty() {
+    // Recorded 2026-11-19: a legacy parameter is refused beside the expression that does its job (`AttributesToGet` with
+    // `ProjectionExpression`, `Expected` with `ConditionExpression`), but `KeyConditions` with a `FilterExpression` is accepted.
+    let clash = given
+        .iter()
+        .any(|l| counterparts(op, l).iter().any(|e| m.contains_key(*e)));
+    if clash {
         return Err(validation(format!(
             "Can not use both expression and non-expression parameters in the same request: Non-expression parameters: {{{}}} Expression parameters: {{{}}}",
             given.join(", "),
             expressions.join(", ")
         )));
     }
-    for placeholders in ["ExpressionAttributeNames", "ExpressionAttributeValues"] {
-        if m.contains_key(placeholders) {
-            return Err(validation(format!(
-                "{placeholders} can only be specified when using expressions"
-            )));
+    if expressions.is_empty() {
+        for placeholders in ["ExpressionAttributeNames", "ExpressionAttributeValues"] {
+            if m.contains_key(placeholders) {
+                return Err(validation(format!(
+                    "{placeholders} can only be specified when using expressions"
+                )));
+            }
         }
     }
     let mut b = Builder::default();
@@ -131,13 +139,38 @@ fn one(legacy: &[&str], op: Operation, m: &mut Map<String, Json>) -> Result<(), 
             m.insert(NO_CREATE.into(), json!(true));
         }
     }
-    if !b.names.is_empty() {
-        m.insert("ExpressionAttributeNames".into(), Json::Object(b.names));
-    }
-    if !b.values.is_empty() {
-        m.insert("ExpressionAttributeValues".into(), Json::Object(b.values));
+    // Beside an expression the caller's own placeholders stay; the translation's (`#l0`, `:l0`) join them.
+    for (key, made) in [
+        ("ExpressionAttributeNames", b.names),
+        ("ExpressionAttributeValues", b.values),
+    ] {
+        if made.is_empty() {
+            continue;
+        }
+        match m.get_mut(key) {
+            Some(Json::Object(own)) => own.extend(made),
+            _ => {
+                m.insert(key.into(), Json::Object(made));
+            }
+        }
     }
     Ok(())
+}
+
+/// The expression parameters that do a legacy parameter's job: the two may not be sent together.
+fn counterparts(op: Operation, legacy: &str) -> &'static [&'static str] {
+    match legacy {
+        "AttributesToGet" => &["ProjectionExpression"],
+        "KeyConditions" => &["KeyConditionExpression"],
+        "QueryFilter" | "ScanFilter" => &["FilterExpression"],
+        "Expected" => &["ConditionExpression"],
+        "AttributeUpdates" => &["UpdateExpression"],
+        "ConditionalOperator" if matches!(op, Operation::Query | Operation::Scan) => {
+            &["FilterExpression"]
+        }
+        "ConditionalOperator" => &["ConditionExpression"],
+        _ => &[],
+    }
 }
 
 /// `AttributesToGet` as a `ProjectionExpression`.

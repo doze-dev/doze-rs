@@ -178,14 +178,20 @@ fn mixing_and_malformed_legacy_parameters_are_refused() {
         message(&e),
         "Can not use both expression and non-expression parameters in the same request: Non-expression parameters: {AttributesToGet} Expression parameters: {ProjectionExpression}"
     );
+    // KeyConditions beside a FilterExpression is accepted (recorded 2026-11-19); the two sets of placeholders join.
+    let r = w.ok(
+        "Query",
+        json!({"TableName": "tab", "KeyConditions": {"pk": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "a"}]}},
+            "FilterExpression": "n > :v", "ExpressionAttributeValues": {":v": {"N": "15"}}}),
+    );
+    assert_eq!(r["Count"], 2, "{r}");
+    assert_eq!(r["ScannedCount"], 3, "{r}");
     let e = w.err(
         "Query",
         json!({"TableName": "tab", "KeyConditions": {"pk": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "a"}]}},
-            "FilterExpression": "n > :v", "ExpressionAttributeValues": {":v": {"N": "1"}}}),
+            "KeyConditionExpression": "pk = :v", "ExpressionAttributeValues": {":v": {"S": "a"}}}),
     );
-    assert!(message(&e).contains(
-        "Non-expression parameters: {KeyConditions} Expression parameters: {FilterExpression}"
-    ));
+    assert!(message(&e).contains("Non-expression parameters: {KeyConditions}"));
 }
 
 #[test]

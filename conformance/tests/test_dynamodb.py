@@ -578,7 +578,7 @@ def test_legacy_refusals(client, names, cleanup, snapshot):
     eq_a = {"pk": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "a"}]}}
     snapshot.error("mix-projection", lambda: ddb.get_item(
         TableName=name, Key=key, AttributesToGet=["n"], ProjectionExpression="n"))
-    snapshot.error("mix-filter", lambda: ddb.query(
+    snapshot.outcome("mix-filter", lambda: ddb.query(
         TableName=name, KeyConditions=eq_a, FilterExpression="n > :v", ExpressionAttributeValues={":v": {"N": "1"}}))
     snapshot.error("mix-condition", lambda: ddb.put_item(
         TableName=name, Item=key, Expected={"n": {"Exists": False}}, ConditionExpression="attribute_not_exists(pk)"))
@@ -687,11 +687,15 @@ def test_resource_policy_lifecycle(client, names, cleanup, snapshot, eventually)
     revision = put["RevisionId"]
 
     def stored():
-        r = ddb.get_resource_policy(ResourceArn=arn)
+        # AWS (recorded 2026-11-19): right after the put, GetResourcePolicy may still answer PolicyNotFoundException.
+        try:
+            r = ddb.get_resource_policy(ResourceArn=arn)
+        except ddb.exceptions.PolicyNotFoundException:
+            raise AssertionError("not applied yet")
         assert r["RevisionId"] == revision, "not applied yet"
         return r
 
-    snapshot.match("get", eventually(stored, timeout=60, every=2), opaque=("RevisionId",))
+    snapshot.match("get", eventually(stored, timeout=180, every=3), opaque=("RevisionId",))
     snapshot.match("put-same", ddb.put_resource_policy(ResourceArn=arn, Policy=scan_denied(account, arn)), opaque=("RevisionId",))
     snapshot.error("put-expecting-none", lambda: ddb.put_resource_policy(
         ResourceArn=arn, Policy=scan_denied(account, arn), ExpectedRevisionId="NO_POLICY"))
@@ -719,6 +723,18 @@ def export_bucket(s3, names, cleanup):
     return name
 
 
+def enable_pitr(ddb, name, eventually):
+    """AWS (recorded 2026-11-19): on a table just made, UpdateContinuousBackups can answer ContinuousBackupsUnavailableException
+    ('Backups are being enabled') for a while."""
+    def on():
+        try:
+            return ddb.update_continuous_backups(
+                TableName=name, PointInTimeRecoverySpecification={"PointInTimeRecoveryEnabled": True})
+        except ddb.exceptions.ContinuousBackupsUnavailableException:
+            raise AssertionError("backups still being enabled")
+    return eventually(on, timeout=300, every=5)
+
+
 EXPORT_VOLATILE = ("ExportArn", "ImportArn", "StartTime", "EndTime", "ExportTime", "ExportManifest", "BilledSizeBytes",
                    "ProcessedSizeBytes", "CloudWatchLogGroupArn", "TableId")
 
@@ -726,7 +742,7 @@ EXPORT_VOLATILE = ("ExportArn", "ImportArn", "StartTime", "EndTime", "ExportTime
 def test_export_and_import(client, names, cleanup, snapshot, eventually):
     ddb, s3 = client("dynamodb"), client("s3")
     name, created = table(ddb, names, cleanup)
-    ddb.update_continuous_backups(TableName=name, PointInTimeRecoverySpecification={"PointInTimeRecoveryEnabled": True})
+    enable_pitr(ddb, name, eventually)
     for pk in ("a", "b"):
         ddb.put_item(TableName=name, Item={"pk": {"S": pk}, "n": {"N": "1"}})
     bucket = export_bucket(s3, names, cleanup)

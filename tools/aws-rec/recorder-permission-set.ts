@@ -157,7 +157,7 @@ const policy = {
       Effect: "Allow",
       Action: "iam:CreateServiceLinkedRole",
       Resource: "*",
-      Condition: { StringEquals: { "iam:AWSServiceName": ["contributorinsights.dynamodb.amazonaws.com", "ops.apigateway.amazonaws.com"] } },
+      Condition: { StringEquals: { "iam:AWSServiceName": ["contributorinsights.dynamodb.amazonaws.com", "ops.apigateway.amazonaws.com", "kinesisreplication.dynamodb.amazonaws.com"] } },
     },
     {
       Sid: "NeverTheseEvenIfAnotherPolicyAllowsThem",
