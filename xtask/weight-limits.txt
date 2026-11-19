@@ -199,4 +199,8 @@ doze-kafka 13198009 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # the median moved up by 304 KB with the new code, and median plus 5% (11,395) is above the current line: the line is kept at 11,075 KB, not lowered.
 # 2026-11-16: main went red on this line with no aws change (run 43754143517: 11,116 KB). Over the last 19 runs the idle values were 10,404 to 11,292 KB, and
 # identical code differs by about 350 KB between CI runners (docs/port/ci-health.md, "ci-flakes-2"). The line moves to median plus 5% = 11,395 KB, as worked out above.
-doze-aws 14740000 280 11395 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-19: the planned-operations build (IAM, DynamoDB, SSM/CloudWatch/EventBridge, Logs Insights + Live Tail, and API Gateway,
+# CloudFormation, Lambda durable behind it) adds about 80 KB per service. CI measured 14,820,896 B with Logs on top of IAM and DynamoDB
+# (merge-queue run 44415143466). The byte line moves to that plus 5% = 15,562,000 B, room for the three still queued; the 20 MB aws
+# ceiling stands, and a trim pass comes at the end.
+doze-aws 15562000 280 11395 --listen 127.0.0.1:{port} --data-dir {data}

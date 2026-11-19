@@ -962,12 +962,14 @@ name = "aws-logs"
 version = "0.0.0"
 dependencies = [
  "aws-core",
+ "aws-cron",
  "aws-model-cloudwatch-logs",
  "aws-peers",
  "aws-schema",
  "aws-seal",
  "aws-testkit",
  "aws-wire",
+ "bytes",
  "doze-runtime",
  "doze-store",
  "flate2",
@@ -1490,6 +1492,7 @@ dependencies = [
  "aws-model-sqs",
  "aws-schema",
  "bytes",
+ "crc32fast",
  "getrandom 0.4.3",
  "http",
  "serde_json",

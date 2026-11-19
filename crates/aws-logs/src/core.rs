@@ -1,32 +1,32 @@
-//! The state a CloudWatch Logs service owns, and the dispatch from an operation to the code that does it.
+//! The state a CloudWatch Logs service owns, and how the actor answers what it is asked (the dispatch from an operation to the code
+//! that does it is `dispatch`).
 
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use aws_model_cloudwatch_logs::Operation;
 use aws_model_cloudwatch_logs::tables::TABLES;
 use aws_peers::{Mode, Peers};
 use aws_schema::patterns::Patterns;
 use aws_wire::ApiError;
-use aws_wire::handler::reply_json;
 use aws_wire::service::{Call, Reply};
-use doze_runtime::{Clock, Ctx};
+use doze_runtime::{Clock, Ctx, Tasks};
 use doze_store::records::Records;
 use doze_store::rows::RowTable;
 use doze_store::{Ack, Db, StoreError};
 use serde_json::Value;
 
 use crate::model::{Doc, Group, Stream};
-use crate::req::Req;
+use crate::queries::Registry;
 
-const FILE: &str = "logs.redb";
+pub(crate) const FILE: &str = "logs.redb";
 const GROUPS: &str = "groups";
 const STREAMS: &str = "streams";
 const DOCS: &str = "docs";
 pub(crate) const EVENTS: &str = "events";
 const HELD: &str = "held";
-/// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
+/// The version of every record here but events (`model::Event`). A change of a record's shape is a new version with a branch that
+/// reads the old one.
 pub(crate) const VERSION: u8 = 1;
 
 /// All of CloudWatch Logs in one region. Groups, streams and documents are held in memory; events are only ever read from the
@@ -57,68 +57,42 @@ pub(crate) struct Core {
     pub(crate) keep_ms: Option<i64>,
     /// The local bound on the events one group holds (`--logs-max-events`); 0 is none.
     pub(crate) max_events: u64,
+    /// The process's Insights queries (kept outside the actor, which is reaped when idle).
+    pub(crate) queries: Arc<Registry>,
+    /// Where query runs and Live Tail sessions are started; `None` under test, where a query runs in line.
+    pub(crate) tasks: Option<Tasks>,
+    /// The open Live Tail sessions.
+    pub(crate) tails: Vec<crate::tail::Tail>,
+    /// The export the last call made, run before it is answered.
+    pub(crate) export: Option<crate::export::Pending>,
 }
 
-/// What the actor answers: the reply, and the commit it must wait for.
+/// What the actor answers: the reply, the commit it must wait for, and when its scheduled queries next need it.
 #[derive(Debug)]
 pub(crate) struct Answer {
     pub(crate) reply: Reply,
     pub(crate) durable: Option<Ack>,
+    pub(crate) next_due: Option<i64>,
 }
 
-/// The operations this service runs. Every other is refused by name before its request is read.
-pub(crate) fn built(op: Operation) -> bool {
-    use Operation as O;
-    matches!(
-        op,
-        O::CreateLogGroup
-            | O::DeleteLogGroup
-            | O::DescribeLogGroups
-            | O::ListLogGroups
-            | O::CreateLogStream
-            | O::DeleteLogStream
-            | O::DescribeLogStreams
-            | O::PutLogEvents
-            | O::GetLogEvents
-            | O::FilterLogEvents
-            | O::PutRetentionPolicy
-            | O::DeleteRetentionPolicy
-            | O::TagLogGroup
-            | O::UntagLogGroup
-            | O::ListTagsLogGroup
-            | O::TagResource
-            | O::UntagResource
-            | O::ListTagsForResource
-            | O::AssociateKmsKey
-            | O::DisassociateKmsKey
-            | O::PutLogGroupDeletionProtection
-            | O::PutMetricFilter
-            | O::DeleteMetricFilter
-            | O::DescribeMetricFilters
-            | O::TestMetricFilter
-            | O::PutSubscriptionFilter
-            | O::DeleteSubscriptionFilter
-            | O::DescribeSubscriptionFilters
-            | O::PutResourcePolicy
-            | O::DescribeResourcePolicies
-            | O::DeleteResourcePolicy
-            | O::PutAccountPolicy
-            | O::DescribeAccountPolicies
-            | O::DeleteAccountPolicy
-            | O::PutQueryDefinition
-            | O::DescribeQueryDefinitions
-            | O::DeleteQueryDefinition
-            | O::PutDataProtectionPolicy
-            | O::GetDataProtectionPolicy
-            | O::DeleteDataProtectionPolicy
-    )
-}
-
-/// What the actor is asked: a call from the wire, or a data question from `doze-aws data`.
+/// What the actor is asked: a call from the wire, a data question from `doze-aws data`, a Live Tail session to open, or the
+/// scheduled queries that are due to be run.
 #[derive(Debug)]
 pub(crate) enum Ask {
     Call(Box<Call>),
     Data(Box<crate::storage::Asked>),
+    Tail(Box<crate::tail::TailAsk>),
+    Tick,
+}
+
+impl Answer {
+    fn bare(reply: Reply, next_due: Option<i64>) -> Self {
+        Self {
+            reply,
+            durable: None,
+            next_due,
+        }
+    }
 }
 
 impl doze_runtime::Service for Core {
@@ -129,6 +103,8 @@ impl doze_runtime::Service for Core {
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
         let mut core = Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))?;
         core.set(settings_of(ctx));
+        core.queries = queries_of(ctx);
+        core.tasks = Some(ctx.tasks.clone());
         Ok(core)
     }
 
@@ -140,24 +116,24 @@ impl doze_runtime::Service for Core {
                 if reply.send(self.data(&region, ask)).is_err() {
                     // WHY: the person stopped waiting; what was asked was done all the same.
                 }
+                return Answer::bare(Err(ApiError::internal("not a call")), self.next_due());
+            }
+            Ask::Tail(t) => return self.handle_tail(*t).await,
+            Ask::Tick => {
+                let next_due = self.tick();
+                let durable = self.flush().ok().flatten();
                 return Answer {
                     reply: Err(ApiError::internal("not a call")),
-                    durable: None,
+                    durable,
+                    next_due,
                 };
             }
         };
-        if let Some(peers) = self.peers.clone()
-            && peers.mode() != Mode::Off
-            && let Err(refusal) = peers
-                .authorize(&call.caller, crate::authz::needs(&call))
-                .await
-        {
-            return Answer {
-                reply: Err(refusal),
-                durable: None,
-            };
+        if let Err(refusal) = self.authorized(&call).await {
+            return Answer::bare(Err(refusal), self.next_due());
         }
         let mut reply = self.dispatch(&call);
+        self.run_export(&call, &mut reply).await;
         let durable = match self.flush() {
             Ok(ack) => ack,
             Err(e) => {
@@ -167,7 +143,11 @@ impl doze_runtime::Service for Core {
         };
         self.send_metrics(&call).await;
         self.send_forwards(&call).await;
-        Answer { reply, durable }
+        Answer {
+            reply,
+            durable,
+            next_due: self.next_due(),
+        }
     }
 
     async fn close(self) {
@@ -178,6 +158,34 @@ impl doze_runtime::Service for Core {
 }
 
 impl Core {
+    /// The authorizer's answer, when IAM is on.
+    async fn authorized(&self, call: &Call) -> Result<(), ApiError> {
+        match self.peers.clone() {
+            Some(peers) if peers.mode() != Mode::Off => {
+                peers
+                    .authorize(&call.caller, crate::authz::needs(call))
+                    .await
+            }
+            _ => Ok(()),
+        }
+    }
+
+    async fn handle_tail(&mut self, t: crate::tail::TailAsk) -> Answer {
+        let crate::tail::TailAsk {
+            call,
+            events,
+            reply,
+        } = t;
+        let opened = match self.authorized(&call).await {
+            Ok(()) => self.open_tail(&call, events),
+            Err(refusal) => Err(refusal),
+        };
+        if reply.send(opened).is_err() {
+            // WHY: the caller went away before the session opened; the next write drops it.
+        }
+        Answer::bare(Err(ApiError::internal("not a call")), self.next_due())
+    }
+
     /// CloudWatch Logs with no disk (the rules alone are under test).
     #[cfg(test)]
     pub(crate) fn in_memory(clock: Arc<dyn Clock>, peers: Option<Arc<Peers>>) -> Self {
@@ -247,6 +255,10 @@ impl Core {
             defaulted: HashMap::new(),
             keep_ms: settings.retention.map(ms),
             max_events: settings.max_events,
+            queries: Arc::new(Registry::default()),
+            tasks: None,
+            tails: Vec::new(),
+            export: None,
         }
     }
 
@@ -274,59 +286,6 @@ impl Core {
             .as_ref()
             .and_then(|db| db.submit_with_rows(changes, rows)))
     }
-
-    /// Runs the call and writes the answer as the operation's output.
-    pub(crate) fn dispatch(&mut self, call: &Call) -> Reply {
-        let Some(op) = Operation::from_index(call.op).filter(|op| built(*op)) else {
-            return Err(not_built());
-        };
-        let r = Req::new(call);
-        let value = self.run(op, &r)?;
-        reply_json(&TABLES, &self.patterns, call.op, &value)
-    }
-
-    fn run(&mut self, op: Operation, r: &Req<'_>) -> Result<Value, ApiError> {
-        use Operation as O;
-        match op {
-            O::CreateLogGroup => self.create_group(r),
-            O::DeleteLogGroup => self.delete_group(r),
-            O::DescribeLogGroups => self.describe_groups(r),
-            O::ListLogGroups => Ok(self.list_groups(r)),
-            O::CreateLogStream => self.create_stream(r),
-            O::DeleteLogStream => self.delete_stream(r),
-            O::DescribeLogStreams => self.describe_streams(r),
-            O::PutLogEvents => self.put_events(r),
-            O::GetLogEvents => self.get_events(r),
-            O::FilterLogEvents => self.filter_events(r),
-            O::PutRetentionPolicy => self.put_retention(r),
-            O::DeleteRetentionPolicy => self.delete_retention(r),
-            O::TagLogGroup | O::TagResource => self.tag(r),
-            O::UntagLogGroup | O::UntagResource => self.untag(r),
-            O::ListTagsLogGroup | O::ListTagsForResource => self.list_tags(r),
-            O::AssociateKmsKey => self.associate_key(r),
-            O::DisassociateKmsKey => self.disassociate_key(r),
-            O::PutLogGroupDeletionProtection => self.set_protection(r),
-            O::PutMetricFilter => self.put_metric_filter(r),
-            O::DeleteMetricFilter => self.delete_metric_filter(r),
-            O::DescribeMetricFilters => self.describe_metric_filters(r),
-            O::TestMetricFilter => Self::test_metric_filter(r),
-            O::PutSubscriptionFilter => self.put_subscription(r),
-            O::DeleteSubscriptionFilter => self.delete_subscription(r),
-            O::DescribeSubscriptionFilters => self.describe_subscriptions(r),
-            other => self.run_docs(other, r),
-        }
-    }
-
-    /// The group the request names.
-    pub(crate) fn group(&self, r: &Req<'_>) -> Result<&Group, ApiError> {
-        let name = r.group_name().unwrap_or_default();
-        self.groups.get(&name).ok_or_else(crate::req::no_group)
-    }
-
-    pub(crate) fn group_mut(&mut self, r: &Req<'_>) -> Result<&mut Group, ApiError> {
-        let name = r.group_name().unwrap_or_default();
-        self.groups.get_mut(&name).ok_or_else(crate::req::no_group)
-    }
 }
 
 /// An operation that is refused by name.
@@ -347,13 +306,20 @@ pub(crate) fn peers_of(ctx: &Ctx) -> Option<Arc<Peers>> {
     Arc::clone(ext).downcast::<Peers>().ok()
 }
 
-/// The local settings in a region actor's context.
-fn settings_of(ctx: &Ctx) -> crate::Settings {
+fn ext_of(ctx: &Ctx) -> Option<Arc<crate::Ext>> {
     ctx.ext
         .as_ref()
         .and_then(|e| Arc::clone(e).downcast::<crate::Ext>().ok())
-        .map(|e| e.settings)
-        .unwrap_or_default()
+}
+
+/// The local settings in a region actor's context.
+fn settings_of(ctx: &Ctx) -> crate::Settings {
+    ext_of(ctx).map(|e| e.settings).unwrap_or_default()
+}
+
+/// The process's queries, from a region actor's context (a new registry for a context that has none).
+fn queries_of(ctx: &Ctx) -> Arc<Registry> {
+    ext_of(ctx).map_or_else(|| Arc::new(Registry::default()), |e| Arc::clone(&e.queries))
 }
 
 /// Milliseconds of a duration.

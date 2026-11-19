@@ -4,7 +4,9 @@
 //! is invoked asynchronously with it base64-encoded under `awslogs.data` (what a function written against AWS gunzips), the group as
 //! its `SourceArn`; a Kinesis stream receives the raw gzip bytes as one record, keyed by the log stream under `distribution:
 //! ByLogStream` and randomly otherwise. Putting a filter on a Kinesis stream first sends it the control message AWS sends to check the
-//! destination. Delivery is one attempt; a failure is logged. Firehose and cross-account destinations are stored and not delivered.
+//! destination. A logs destination (`arn:aws:logs:...:destination:name`) of this region delivers to its Kinesis stream (`destinations`).
+//! A filter with `applyOnTransformedLogs` matches and sends what the group's transformer made of each line. Delivery is one attempt; a
+//! failure is logged. Firehose, and a destination of another region, are stored and not delivered.
 //!
 //! The Go edition delivered the same way; this one also sends the control message, and does not refuse a function subscribing to its
 //! own `/aws/lambda/` group (AWS allows it; the loop it makes is the function's, as on AWS). The envelope's layout is from AWS's
@@ -35,6 +37,18 @@ pub(crate) struct Forward {
 pub(crate) struct Line<'a> {
     pub(crate) ts: i64,
     pub(crate) message: &'a str,
+    /// What the group's transformer made of it, which a filter with `applyOnTransformedLogs` reads and sends instead.
+    pub(crate) transformed: Option<&'a str>,
+}
+
+impl Line<'_> {
+    fn text(&self, transformed: bool) -> &str {
+        if transformed {
+            self.transformed.unwrap_or(self.message)
+        } else {
+            self.message
+        }
+    }
 }
 
 /// What a batch is from.
@@ -56,9 +70,10 @@ impl Core {
             let Ok(pattern) = crate::pattern::parse(&f.pattern) else {
                 continue;
             };
+            let on = f.apply_on_transformed;
             let matched: Vec<&Line<'_>> = lines
                 .iter()
-                .filter(|l| pattern.matches(l.message))
+                .filter(|l| pattern.matches(l.text(on)))
                 .collect();
             if matched.is_empty() {
                 continue;
@@ -66,7 +81,9 @@ impl Core {
             let events: Vec<Value> = matched
                 .iter()
                 .enumerate()
-                .map(|(n, l)| json!({"id": event_id(l.ts, n), "timestamp": l.ts, "message": l.message}))
+                .map(|(n, l)| {
+                json!({"id": event_id(l.ts, n), "timestamp": l.ts, "message": l.text(on)})
+            })
                 .collect();
             let envelope = json!({
                 "messageType": "DATA_MESSAGE",
@@ -77,7 +94,7 @@ impl Core {
                 "logEvents": events,
             });
             out.push(Forward {
-                destination: f.destination.clone(),
+                destination: self.target_of(&f.destination),
                 payload: gzip(envelope.to_string().as_bytes()),
                 partition: partition(f.distribution.as_deref(), origin.stream),
                 source_arn: origin.group_arn.to_owned(),
@@ -88,6 +105,7 @@ impl Core {
 
     /// Queues the control message AWS sends a Kinesis destination when a filter is put on it. (memory)
     pub(crate) fn queue_control(&mut self, origin: &Origin<'_>, destination: &str, now: i64) {
+        let destination = &self.target_of(destination);
         if !destination.contains(":kinesis:") {
             return;
         }

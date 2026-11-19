@@ -1,0 +1,2 @@
+[{"parseKeyValue":{"destination":"kv","keyPrefix":"p_","nonMatchValue":"n"}},{"listToMap":{"source":"l","key":"k","flatten":true,"flattenedElement":"last"}},{"substituteString":{"entries":[{"source":"kv.p_a","from":"[0-9]+","to":"#"}]}},{"renameKeys":{"entries":[{"key":"kv.p_a","renameTo":"b"}]}}]
+a=12&b&c=3
