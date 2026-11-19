@@ -331,9 +331,36 @@ const jsonHuge: Step[] = [
   get("/subjects/jhe/versions/latest/schema"),
 ];
 
+// How Confluent compares numbers in const and enum: as the Java values its Jackson makes (an integer, or a BigDecimal of
+// its scale), the old one read again from its stored text.
+const enumPairs: [string, string][] = [
+  ['{"const":7e2}', '{"const":7E+2}'],
+  ['{"const":7e2}', '{"const":700}'],
+  ['{"const":7e2}', '{"const":7e2}'],
+  ['{"const":-77e0}', '{"const":-77e0}'],
+  ['{"const":-77e0}', '{"const":-77}'],
+  ['{"const":-77}', '{"const":-77e0}'],
+  ['{"const":1}', '{"const":1.0}'],
+  ['{"const":1.0}', '{"const":1.00}'],
+  ['{"const":10e-1}', '{"const":1.0}'],
+  ['{"const":1e0}', '{"const":1}'],
+  ['{"enum":[1,2]}', '{"enum":[1.0,2]}'],
+  ['{"enum":[7e2,1]}', '{"enum":[7E+2,1]}'],
+  ['{"enum":[7e2,1]}', '{"enum":[700,1]}'],
+];
+const enumNumbers: Step[] = [
+  put("/config", JSON.stringify({ compatibility: "BACKWARD" })),
+  ...enumPairs.flatMap(([x, y], i) => [
+    post(`/subjects/en${i}/versions`, reg(x, { schemaType: "JSON" })),
+    get(`/subjects/en${i}/versions/latest/schema`),
+    post(`/compatibility/subjects/en${i}/versions/latest?verbose=true`, reg(y, { schemaType: "JSON" })),
+  ]),
+];
+
 export const gaps: Record<string, Step[]> = {
   ...protoNormalize,
   "json-schema-huge-numbers": jsonHuge,
+  "json-schema-enum-numbers": enumNumbers,
 };
 
 // ---------- Data contracts ----------

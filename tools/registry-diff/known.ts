@@ -50,5 +50,7 @@ export const known: Record<string, string> = {
   "data-contracts/register-and-read/11": "REG-D31: a lookup tries the inherited contract, as 8.x does",
   "data-contracts/config-defaults-and-overrides/7": "REG-D31: a lookup tries the inherited contract, as 8.x does",
   "data-contracts/config-defaults-and-overrides/8": "REG-D31: a lookup tries the inherited contract, as 8.x does",
+  "json-schema-enum-numbers/12": "REG-D31: -77e0 and its stored -77 are one value, as 8.x compares them (7.7.1: two)",
+  "json-schema-enum-numbers/18": "REG-D31: -77 and -77e0 are one value, as 8.x compares them (7.7.1: two)",
   "data-contracts/rule-sets/*": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
 };

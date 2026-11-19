@@ -539,7 +539,13 @@ are refused) no larger than 2147483647, and a `multipleOf` must be above zero as
 (`minimum`, `maximum`, the exclusive ones) are compared as doubles, as Confluent's `NumberSchemaDiff` compares them. 8.3.2's newer
 Jackson differs (it takes `1e2147483648` and refuses `1e-2147483648` with `Exponent overflow.` in another sentence); this registry
 follows 7.7.1, the reference of every other rule here.
-Tests: `a_number_too_large_to_rewrite_is_kept_as_sent`, `a_number_past_the_clamp_is_one_value_however_it_is_written`,
+A number in `const` or `enum` is compared as the text Java's `BigDecimal` writes for it (an integer as written), as 8.3.2
+compares them; Confluent compares the new schema's Java values with the old one's read again from its stored text (recorded:
+`json-schema-enum-numbers`): `7e2` and `7E+2` are one value and `10e-1` and `1.0` are one in both releases, `7e2` and `700`, `1`
+and `1.0`, `1.0` and `1.00` are two in both (scale counts), and `-77e0` and `-77` are one in 8.3.2 but two in 7.7.1, where
+`{"const":-77e0}` does not read its own data once stored as `-77` (REG-D31; found by fuzz json_schema with `-77e0` and `7e2`).
+Tests: `a_const_number_is_the_same_value_however_java_writes_it`, `an_enum_number_is_the_same_value_once_stored`,
+`a_number_too_large_to_rewrite_is_kept_as_sent`, `a_number_past_the_clamp_is_one_value_however_it_is_written`,
 `what_is_not_a_schema_of_its_draft_is_refused`, and tools/registry-diff's `json-schema-huge-numbers`.
 
 ## Deviations
@@ -646,7 +652,9 @@ Tests: `a_number_too_large_to_rewrite_is_kept_as_sent`, `a_number_past_the_clamp
   sent tries again with the contract a registration would give (the latest version's, the configuration's), as 8.x's
   `lookUpSchemaUnderSubject` does (7.7.1 answers 40403); a non-repeated custom Protobuf option given twice is merged as 8.x merges it
   (a singular message field deep, a singular scalar the last value; 7.7.1 makes every repeated key a list); encoding rules are kept
-  (7.7.1 reads past them); a rule set's `toString` in a refusal is 8.x's. 8.x's other answers (a registration always answered
+  (7.7.1 reads past them); a rule set's `toString` in a refusal is 8.x's; a `const` or `enum` number with no fraction written with an exponent
+  (`-77e0`) is the integer it is stored as (7.7.1 compares a `BigDecimal` with the integer read back, and a schema does not read its
+  own data; REG-50). 8.x's other answers (a registration always answered
   with the schema, `guid`, `ts`, `deleted`, `in context .` in sentences) are not taken: the rest of this catalogue is 7.7.1's.
 - **REG-D32.** Protobuf normalization (REG-46) differs from Confluent's at its edges: a `bytes` default stays quoted (Confluent writes
   it bare, `[default = abc]`, which no parser reads back); `google/type/*.proto` and `confluent/meta.proto` are not in the

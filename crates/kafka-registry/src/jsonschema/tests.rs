@@ -356,3 +356,30 @@ fn an_enum_number_is_the_same_value_once_stored() {
         assert!(reasons(text, &stored).is_empty(), "{text} -> {stored}");
     }
 }
+
+/// Found by fuzz json_schema (CI run 44575277081): ` {"const":7e2}` is stored as `{"const":7E+2}` and must read its own
+/// data. A number in `const` or `enum` is the value Java's `BigDecimal` writes, as cp-schema-registry 8.3.2 compares
+/// them (recorded by tools/registry-diff, `json-schema-enum-numbers`): `7e2` and `7E+2` are one value, `10e-1` and
+/// `1.0` are one, `-77e0` and `-77` are one (7.7.1 says not, REG-D31), `7e2` and `700` are two, `1` and `1.0` are two.
+#[test]
+fn a_const_number_is_the_same_value_however_java_writes_it() {
+    let s = read(r#" {"const":7e2}"#);
+    let stored = s.canonical(false);
+    assert_eq!(stored, r#"{"const":7E+2}"#);
+    assert!(reasons(r#" {"const":7e2}"#, &stored).is_empty());
+    assert!(reasons(r#"{"enum":[7e2,1]}"#, r#"{"enum":[7E+2,1]}"#).is_empty());
+    assert!(reasons(r#"{"const":10e-1}"#, r#"{"const":1.0}"#).is_empty());
+    assert!(reasons(r#"{"const":-77}"#, r#"{"const":-77e0}"#).is_empty());
+    assert_eq!(
+        reasons(r#"{"const":7e2}"#, r#"{"const":700}"#),
+        ["ENUM_ARRAY_CHANGED"]
+    );
+    assert_eq!(
+        reasons(r#"{"const":1}"#, r#"{"const":1.0}"#),
+        ["ENUM_ARRAY_CHANGED"]
+    );
+    assert_eq!(
+        reasons(r#"{"enum":[1,2]}"#, r#"{"enum":[1.0,2]}"#),
+        ["ENUM_ARRAY_CHANGED"]
+    );
+}
