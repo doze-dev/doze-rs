@@ -1,0 +1,3 @@
+09:15:05 api    │ GET /products 200 4ms
+09:15:07 worker │ err kafka: connection refused
+09:15:09 api    │ err slow query: 812ms

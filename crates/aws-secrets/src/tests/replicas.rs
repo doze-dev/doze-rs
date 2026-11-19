@@ -134,13 +134,13 @@ fn a_replica_follows_its_primary_and_is_read_only() {
     ] {
         assert_eq!(
             r.code(WEST, op, &body),
-            "InvalidRequestException",
+            "InvalidParameterException",
             "{op} on a replica"
         );
     }
     assert_eq!(
         r.code(EAST, "DeleteSecret", &json!({"SecretId": "db/pass"})),
-        "InvalidRequestException"
+        "InvalidParameterException"
     );
 }
 
@@ -176,11 +176,18 @@ fn replicas_are_added_removed_and_promoted() {
     let added = r.ok(EAST, "ReplicateSecretToRegions", &json!({"SecretId": "app",
         "AddReplicaRegions": [{"Region": WEST}, {"Region": EU, "KmsKeyId": "alias/aws/secretsmanager"}]}));
     assert_eq!(added["ReplicationStatus"].as_array().unwrap().len(), 2);
+    // Asked again for a region it is in: made again, as AWS does (recorded), not refused; its own region is refused.
+    let again = r.ok(
+        EAST,
+        "ReplicateSecretToRegions",
+        &json!({"SecretId": "app", "AddReplicaRegions": [{"Region": WEST}]}),
+    );
+    assert_eq!(again["ReplicationStatus"].as_array().unwrap().len(), 2);
     assert_eq!(
         r.code(
             EAST,
             "ReplicateSecretToRegions",
-            &json!({"SecretId": "app", "AddReplicaRegions": [{"Region": WEST}]})
+            &json!({"SecretId": "app", "AddReplicaRegions": [{"Region": EAST}]})
         ),
         "InvalidParameterException"
     );
@@ -201,7 +208,7 @@ fn replicas_are_added_removed_and_promoted() {
             "StopReplicationToReplica",
             &json!({"SecretId": "app"})
         ),
-        "InvalidRequestException"
+        "InvalidParameterException"
     );
     r.ok(
         WEST,

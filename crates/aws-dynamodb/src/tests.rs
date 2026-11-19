@@ -11,14 +11,20 @@ use serde_json::{Value, json};
 use crate::Dynamodb;
 use crate::core::{Core, Request};
 
+mod backups;
+mod bus;
 mod data;
 mod expiry;
+mod exports;
 mod items;
+mod legacy;
 mod partiql;
 mod persistence;
+mod policies;
 mod queries;
 mod refusals;
 mod service;
+mod streaming;
 mod tables;
 mod txn;
 

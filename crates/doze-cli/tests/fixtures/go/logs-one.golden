@@ -1,0 +1,4 @@
+09:15:00 [setup] migrated 3 files
+09:15:01 listening on :8080
+09:15:05 GET /products 200 4ms
+09:15:09 err slow query: 812ms

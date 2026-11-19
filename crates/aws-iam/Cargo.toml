@@ -32,6 +32,11 @@ sha2 = "0.11"
 sha1 = "0.11"
 # Already in the binary (KMS keys, API Gateway's JWTs): a SAML assertion's signature is PKCS#1 v1.5 RSA.
 rsa = { version = "=0.10.0-rc.22", default-features = false, features = ["std", "encoding", "pkcs1v15"] }
+# Already in the binary (KMS), with the same features: a server certificate's EC private key is checked against the certificate.
+p256 = { version = "0.14", default-features = false, features = ["ecdsa", "ecdh", "pkcs8", "std"] }
+p384 = { version = "0.14", default-features = false, features = ["ecdsa", "ecdh", "pkcs8", "std"] }
+# Already in the binary (S3, SQS): an SSH public key's fingerprint is its MD5.
+md-5 = "0.11"
 tokio = { version = "1", default-features = false, features = ["sync", "time"] }
 # `AssumeRoleWithWebIdentity` verifies a token against its issuer's keys, fetched with the outbound client API Gateway uses.
 aws-webhook = { path = "../aws-webhook" }

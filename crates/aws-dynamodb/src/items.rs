@@ -126,6 +126,12 @@ impl Core {
         let pk = key_bytes(&t, &key)?;
         let old = self.read_item(&item_key(&t, &pk))?;
         check(cond.as_ref(), old.as_ref(), &cx.body)?;
+        if old.is_none() && bool_of(&cx.body, crate::legacy::NO_CREATE) == Some(true) {
+            // Legacy `DELETE` actions on an item that is not there: nothing happens (the developer guide).
+            let mut out = Map::new();
+            capacity(&mut out, cx, &t, 1, true);
+            return Ok(Json::Object(out));
+        }
         let mut new = old.clone().unwrap_or_else(|| key_of(&t, &key));
         if let Some(u) = &update {
             let keys: Vec<&str> = std::iter::once(t.hash.name.as_str())

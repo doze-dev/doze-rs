@@ -13,13 +13,14 @@ struct Run<'a> {
 
 fn state(c: &Core) -> String {
     format!(
-        "{:?}\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}",
+        "{:?}\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}",
         c.entities,
         c.policies,
         c.keys,
         c.profiles,
         c.providers,
-        c.account()
+        c.account(),
+        c.held
     )
 }
 
@@ -108,6 +109,52 @@ fn a_restart_changes_nothing_whatever_was_done_before_it() {
     assert_eq!(
         r.w.sts_ok("GetCallerIdentity", &json!({}))["Arn"],
         "arn:aws:sts::000000000000:assumed-role/r/sess"
+    );
+}
+
+#[test]
+fn a_restart_keeps_what_iam_holds_beside_its_identities() {
+    let dir = temp();
+    let mut r = Run::new(dir.path());
+    r.step("CreateUser", &json!({"UserName": "u"}));
+    let device = json!({"VirtualMFADeviceName": "phone", "Tags": [{"Key": "k", "Value": "v"}]});
+    r.step("CreateVirtualMFADevice", &device);
+    r.step(
+        "CreateLoginProfile",
+        &json!({"UserName": "u", "Password": "pw"}),
+    );
+    let key = json!({"UserName": "u", "SSHPublicKeyBody": include_str!("testdata/rsa.pub")});
+    r.step("UploadSSHPublicKey", &key);
+    let cert = json!({"ServerCertificateName": "c", "CertificateBody": include_str!("testdata/rsa-cert.pem"), "PrivateKey": include_str!("testdata/rsa-key.pem")});
+    r.step("UploadServerCertificate", &cert);
+    let cred = json!({"UserName": "u", "ServiceName": "codecommit.amazonaws.com"});
+    r.step("CreateServiceSpecificCredential", &cred);
+    r.step("GenerateCredentialReport", &json!({}));
+    let user = json!({"Arn": "arn:aws:iam::000000000000:user/u"});
+    r.step("GenerateServiceLastAccessedDetails", &user);
+    let prefs = json!({"GlobalEndpointTokenVersion": "v2Token"});
+    r.step("SetSecurityTokenServicePreferences", &prefs);
+    r.step("UpdateUser", &json!({"UserName": "u", "NewUserName": "v"}));
+}
+
+#[test]
+fn a_file_made_before_the_newer_tables_opens_and_takes_them() {
+    let dir = temp();
+    let old = [
+        "entities",
+        "policies",
+        "keys",
+        "profiles",
+        "providers",
+        "account",
+    ];
+    doze_store::Db::open(dir.path(), crate::core::FILE, &old)
+        .unwrap()
+        .close();
+    let mut r = Run::new(dir.path());
+    r.step(
+        "CreateVirtualMFADevice",
+        &json!({"VirtualMFADeviceName": "phone"}),
     );
 }
 

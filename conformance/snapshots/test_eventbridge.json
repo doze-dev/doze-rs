@@ -389,6 +389,30 @@
       "Result": true
     }
   },
+  "test_put_events_answers_before_the_target_is_invoked": {
+    "delivered-after": {
+      "account": "<account>",
+      "detail": {},
+      "detail-type": "x",
+      "id": "<id:1>",
+      "region": "us-east-1",
+      "resources": [],
+      "source": "shop.async",
+      "time": "<time:1>",
+      "version": "0"
+    },
+    "put-events": {
+      "Entries": [
+        {
+          "EventId": "<EventId:1>"
+        }
+      ],
+      "FailedEntryCount": 0,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
   "test_refusals": {
     "create-bus-twice": {
       "Error": {

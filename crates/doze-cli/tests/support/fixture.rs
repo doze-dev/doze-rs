@@ -56,7 +56,14 @@ impl Sandbox {
     pub(crate) fn new(tag: &str) -> Sandbox {
         static N: AtomicU32 = AtomicU32::new(0);
         let n = N.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!("doze-cli-{tag}-{}-{n}", std::process::id()));
+        // A short root: a project's control socket lies deep under it, and a Unix socket path has about 100 bytes.
+        let base = Path::new("/tmp");
+        let base = if base.is_dir() {
+            base.to_path_buf()
+        } else {
+            std::env::temp_dir()
+        };
+        let root = base.join(format!("dz-{tag}-{}-{n}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         for d in ["home", "project", "registry"] {
             std::fs::create_dir_all(root.join(d)).unwrap();
@@ -220,6 +227,16 @@ pub(crate) struct FakeHost {
     pub spawned: RefCell<Vec<Vec<String>>>,
     pub opened: RefCell<Vec<String>>,
     pub browser_fails: bool,
+    /// A clock that stands still (`@ now`).
+    pub now: Option<SystemTime>,
+    /// What `watch_interrupt` hands out, so a test can press Ctrl-C.
+    pub interrupt: doze_os::interrupt::Interrupt,
+    /// Where the machine's system files are (`/etc/resolver`, the launchd job): never the real ones.
+    pub system: Option<PathBuf>,
+    /// Each privileged script handed over: what it is for, the script, whether the system's prompt was asked for.
+    pub privileged: RefCell<Vec<(String, String, bool)>>,
+    /// What the privileged runner answers (`None`: it ran).
+    pub refuse: Option<doze_cli::ctx::Refused>,
 }
 
 impl Host for FakeHost {
@@ -242,6 +259,32 @@ impl Host for FakeHost {
     }
     fn exe(&self) -> Option<PathBuf> {
         Some(PathBuf::from("/opt/homebrew/Cellar/doze/0.2.1/bin/doze"))
+    }
+    fn now(&self) -> SystemTime {
+        self.now.unwrap_or_else(SystemTime::now)
+    }
+    fn watch_interrupt(&self) -> doze_os::interrupt::Interrupt {
+        self.interrupt.clone()
+    }
+    fn setup_paths(&self) -> doze_names::setup::Paths {
+        doze_names::setup::Paths::under(
+            self.system
+                .as_deref()
+                .unwrap_or(std::path::Path::new("/nonexistent/doze-test-root")),
+        )
+    }
+    fn privileged(
+        &self,
+        plan: &doze_names::setup::Plan,
+        prompt: bool,
+    ) -> Result<(), doze_cli::ctx::Refused> {
+        self.privileged
+            .borrow_mut()
+            .push((plan.what.clone(), plan.script.clone(), prompt));
+        self.refuse.clone().map_or(Ok(()), Err)
+    }
+    fn settle(&self) -> std::time::Duration {
+        std::time::Duration::ZERO
     }
 }
 
@@ -282,7 +325,7 @@ pub(crate) fn run(
             key,
             budget: Duration::from_secs(3),
         },
-        now: SystemTime::now(),
+        now: host.now(),
     };
     let argv = std::iter::once("doze")
         .chain(args.iter().copied())

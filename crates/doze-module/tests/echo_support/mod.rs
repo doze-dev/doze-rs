@@ -43,6 +43,7 @@ pub fn instance(version: &str, spec: Node, data: &str) -> Instance {
         listeners: BTreeMap::new(),
         deps: vec![],
         toolchain: None,
+        dir: String::new(),
     }
 }
 

@@ -4,20 +4,33 @@
 
 use aws_expr::Value;
 
-/// The space an entry lives in: the table's items, a secondary index's entries, or a stream's records.
+/// The space an entry lives in: the table's items, a secondary index's entries, a stream's records, the items an on-demand backup
+/// holds (under the backup's id), or the point-in-time recovery log (under the table's id: each change's time and the item before).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Space {
     Items,
     Index,
     Stream,
+    Backup,
+    Pitr,
 }
 
 impl Space {
+    pub(crate) const ALL: [Self; 5] = [
+        Self::Items,
+        Self::Index,
+        Self::Stream,
+        Self::Backup,
+        Self::Pitr,
+    ];
+
     pub(crate) const fn table_name(self) -> &'static str {
         match self {
             Self::Items => "items",
             Self::Index => "index",
             Self::Stream => "stream",
+            Self::Backup => "backup",
+            Self::Pitr => "pitr",
         }
     }
 }

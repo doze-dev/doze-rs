@@ -505,3 +505,22 @@ Changed from the text above while building, and why:
 7. Dynamic completions (service and module names) wait for the core; the scripts leave out hidden commands.
 8. One more internal entry point, `doze __refresh`: the detached background check (the release file, a module's
    index and docs), within the 3 s budget.
+
+## Beyond Go (CLI quality pass, 2026-11-14)
+
+Owner: Go's CLI is the floor. Audited against gh, cargo, fly, mise, bun and uv, on the commands built so far (C1, P1).
+"Breaks scripts" means a published JSON field, exit code or flag would change; none of these do.
+
+| # | Item | Why | Cost | Breaks scripts | State |
+|---|---|---|---|---|---|
+| B1 | **Examples in every common command's help** (`status`, `wake`, `sleep`, `restart`, `task`, `pin`, `logs`, `why`, `doctor`, `dns-setup`, `trust`), each line tested to parse | gh/cargo/uv end help with copyable uses; Go had none | 0.5 | no | **done** (`cli/examples.rs`, `tests/help_examples.rs`) |
+| B2 | **Did-you-mean for service names** (`doze sleep wroker` → `did you mean "worker"?`), with the daemon up (declared names) and down (names the log store knows) | clap already does it for commands; names are what people mistype | 0.3 | no (a note line; exit 4 and the error code unchanged) | **done** (`stack.rs`; transcripts `verbs.txt`, `logs-down.txt`) |
+| B3 | **The name arguments say what they are** (`[name]...  Services to act on (none: every one)`) | Go's help showed a bare `[name]...` | 0.1 | no | **done** |
+| B4 | Next-step `fix:` on every error | already the rule (proposal §Errors); P1 added one to each new error (cancelled prompt, no prompt, rotate with check, broken authority) | — | no | done |
+| B5 | **Dynamic completions** of service and stack names from the daemon (clap_complete's `CompleteEnv`, `COMPLETE=zsh doze`) | mise/jj/uv complete live values; ours complete commands and flags only | 1.5 (the engine is clap's `unstable-dynamic`; a 50 ms budget when the daemon is down; four shells tested) | no | C2 |
+| B6 | `doze connect` from the module's declared `client` (program, argv and env templates, fallbacks on PATH, secrets in env) | no engine table in doze (owner rule); valkey and mariadb declare theirs | 1 | no | C2 (needs the daemon for the address) |
+| B7 | `--json` and exit codes | published; kept byte-compatible (C1's oracle); P1 added DZ0403–DZ0407 with documented classes, no reuse | — | no | kept |
+| B8 | Quiet when piped; `NO_COLOR`, `TERM=dumb`, `--no-color` | already the rule; progress lines go to stderr; P1 sends a privileged script's own output to stderr so `--json` stays one envelope | — | no | done |
+| B9 | Startup time | measured warm on darwin/arm64: `doze version` 9 ms, `--help` 8 ms, `doze --json doctor` (no project) 8 ms, against Go's `doze version` 18 ms; the budget is 15 ms | — | no | holds |
+| B10 | `doze status` grouped table, `--graph`, `-w` | kept Go's look (oracle); `-w` is the live screen now the dash is gone (no TUI) | — | no | kept |
+| B11 | `migrate`'s help names postgres | module-specific words in doze; becomes a `migrate` capability a module declares (modules plan, "things the core inherits") | 0.5 with C2's migrate | no | C2 |

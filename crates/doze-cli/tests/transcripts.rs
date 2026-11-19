@@ -123,7 +123,7 @@ fn transcript(s: &Scenario) -> String {
     .collect();
     let mut results: Vec<Vec<String>> = vec![Vec::new(); s.commands.len()];
     for (label, term, json) in modes {
-        let (sb, host) = setup::prepare(&s.setup);
+        let (sb, host, _daemon) = setup::prepare(&s.setup);
         for (i, c) in s.commands.iter().enumerate() {
             let mut args: Vec<&str> = c.split_whitespace().collect();
             if json && !args.contains(&"--json") {
@@ -170,6 +170,7 @@ fn transcript(s: &Scenario) -> String {
 fn transcripts() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/transcripts");
     let bless = std::env::var_os("DOZE_BLESS").is_some();
+    let daemons = setup::sockets();
     let mut files: Vec<_> = std::fs::read_dir(&dir)
         .unwrap()
         .map(|e| e.unwrap().path())
@@ -181,6 +182,10 @@ fn transcripts() {
         .filter(|f| f.extension().is_some_and(|e| e == "txt"))
     {
         let want = std::fs::read_to_string(f).unwrap().replace("\r\n", "\n");
+        // A scenario with a running daemon needs the local control socket, which Windows has not yet.
+        if !daemons && want.lines().any(|l| l.starts_with("@ daemon")) {
+            continue;
+        }
         let got = transcript(&parse(&want));
         if got != want {
             if bless {

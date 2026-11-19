@@ -194,6 +194,7 @@ impl Core {
             .unwrap_or_default();
         let enable = bool_of(&spec, "PointInTimeRecoveryEnabled").unwrap_or(false);
         let days = int_of(&spec, "RecoveryPeriodInDays");
+        let mut turned_off = None;
         if let Some(t) = self.tables.get_mut(&name) {
             let was = t.pitr.enabled;
             if enable && !was {
@@ -203,6 +204,13 @@ impl Core {
                 t.pitr.days = d;
             }
             t.pitr.enabled = enable;
+            if was && !enable {
+                turned_off = Some(t.id);
+            }
+        }
+        // Turning recovery off forgets the history it kept.
+        if let Some(id) = turned_off {
+            self.drop_log(&id);
         }
         let t = self.table(&name)?;
         Ok(json!({ "ContinuousBackupsDescription": backups(&t, cx.now_ms) }))
@@ -262,10 +270,11 @@ fn backups_table_missing(name: &str) -> ApiError {
 }
 
 /// Continuous backups are always on; point-in-time recovery is the setting. `(memory)` for the restorable window: it begins when
-/// recovery was enabled (or the period ago, if later) and ends at the present.
+/// recovery was enabled (or the period ago, if later) and ends at the present. The period served is at most a day (`pitr.rs`), and
+/// the earliest time says so.
 fn backups(t: &Table, now_ms: i64) -> Json {
     let pitr = if t.pitr.enabled {
-        let earliest = t.pitr.enabled_ms.max(now_ms - t.pitr.days * 24 * HOUR_MS);
+        let earliest = crate::pitr::earliest_ms(t, now_ms);
         json!({
             "PointInTimeRecoveryStatus": "ENABLED",
             "RecoveryPeriodInDays": t.pitr.days,

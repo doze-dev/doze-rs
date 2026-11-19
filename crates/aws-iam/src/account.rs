@@ -8,7 +8,10 @@ use serde_json::{Map, Value, json};
 use crate::core::Core;
 use crate::entity::{arn_of, new_id};
 use crate::errors::{conflict, exists, no_such};
+use crate::held::Pref;
 use crate::model::{Entity, Kind};
+
+const TOKEN_VERSION: &str = "global-endpoint-token-version";
 use crate::req::{Req, page, secs};
 
 /// The password-policy members, as the request gives them and as `GetAccountPasswordPolicy` shows them (with these defaults).
@@ -65,17 +68,45 @@ impl Core {
                 .with_prefix(&format!("{}/", kind.word()))
                 .count()
         };
-        let mfa = 0;
+        let mfa = self.held.mfa.len();
+        let mfa_in_use = self
+            .held
+            .mfa
+            .iter()
+            .filter(|(_, d)| d.user.is_some())
+            .count();
+        let certs = self.held.certs.len();
         json!({"SummaryMap": {
             "Users": count(Kind::User), "UsersQuota": 5000, "Groups": count(Kind::Group), "GroupsQuota": 300,
             "Roles": count(Kind::Role), "RolesQuota": 1000, "Policies": self.policies.iter().filter(|(_, p)| !p.aws_managed).count(),
             "PoliciesQuota": 1500, "InstanceProfiles": self.profiles.len(), "InstanceProfilesQuota": 1000,
             "AccessKeysPerUserQuota": 2, "AttachedPoliciesPerRoleQuota": 10, "AttachedPoliciesPerUserQuota": 10,
-            "AttachedPoliciesPerGroupQuota": 10, "MFADevices": mfa, "MFADevicesInUse": mfa, "AccountMFAEnabled": 0,
-            "ServerCertificates": 0, "ServerCertificatesQuota": 20, "SigningCertificatesPerUserQuota": 2,
+            "AttachedPoliciesPerGroupQuota": 10, "MFADevices": mfa, "MFADevicesInUse": mfa_in_use, "AccountMFAEnabled": 0,
+            "ServerCertificates": certs, "ServerCertificatesQuota": crate::certs::SERVER_CERTS, "SigningCertificatesPerUserQuota": 2,
             "PolicyVersionsInUse": self.policies.iter().map(|(_, p)| p.versions.len()).sum::<usize>(), "PolicyVersionsInUseQuota": 10000,
-            "VersionsPerPolicyQuota": 5, "GlobalEndpointTokenVersion": 1,
+            "VersionsPerPolicyQuota": 5, "GlobalEndpointTokenVersion": self.token_version(),
         }})
+    }
+
+    /// `SetSecurityTokenServicePreferences`: the version of the tokens the global STS endpoint gives. Kept and reported in
+    /// `GetAccountSummary`; doze-aws has one endpoint and one token form, valid in every region.
+    pub(crate) fn set_sts_preferences(&mut self, r: &Req<'_>) -> Value {
+        let version = if r.s("GlobalEndpointTokenVersion") == "v2Token" {
+            2
+        } else {
+            1
+        };
+        self.held
+            .prefs
+            .insert(TOKEN_VERSION.to_owned(), Pref::TokenVersion(version));
+        Value::Null
+    }
+
+    fn token_version(&self) -> u8 {
+        match self.held.prefs.get(TOKEN_VERSION) {
+            Some(Pref::TokenVersion(v)) => *v,
+            Some(Pref::Created(_)) | None => 1,
+        }
     }
 
     pub(crate) fn update_password_policy(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
@@ -122,21 +153,31 @@ impl Core {
 
     pub(crate) fn create_login_profile(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let now = self.now_ms();
-        let u = self.entity_mut(Kind::User, r.s("UserName"))?;
-        if u.password_set_ms.is_some() {
-            return Err(exists("Login Profile", r.s("UserName")));
+        let name = r.s("UserName");
+        if self.entity(Kind::User, name)?.password_set_ms.is_some() {
+            return Err(exists("Login Profile", name));
         }
+        let reset = r.flag("PasswordResetRequired").unwrap_or(false);
+        if let Some(password) = r.opt("Password") {
+            self.set_password(name, password, reset)?;
+        }
+        let u = self.entity_mut(Kind::User, name)?;
         u.password_set_ms = Some(now);
         Ok(
-            json!({"LoginProfile": {"UserName": u.name, "CreateDate": secs(now), "PasswordResetRequired": r.flag("PasswordResetRequired").unwrap_or(false)}}),
+            json!({"LoginProfile": {"UserName": u.name, "CreateDate": secs(now), "PasswordResetRequired": reset}}),
         )
     }
 
     pub(crate) fn get_login_profile(&self, r: &Req<'_>) -> Result<Value, ApiError> {
         let u = self.entity(Kind::User, r.s("UserName"))?;
         let at = u.password_set_ms.ok_or_else(|| no_profile(&u.name))?;
+        let reset = self
+            .held
+            .passwords
+            .get(&u.name)
+            .is_some_and(|p| p.reset_required);
         Ok(
-            json!({"LoginProfile": {"UserName": u.name, "CreateDate": secs(at), "PasswordResetRequired": false}}),
+            json!({"LoginProfile": {"UserName": u.name, "CreateDate": secs(at), "PasswordResetRequired": reset}}),
         )
     }
 
@@ -145,13 +186,23 @@ impl Core {
         if u.password_set_ms.take().is_none() {
             return Err(no_profile(&u.name));
         }
+        self.held.passwords.remove(r.s("UserName"));
         Ok(Value::Null)
     }
 
     pub(crate) fn update_login_profile(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let u = self.entity(Kind::User, r.s("UserName"))?;
+        let name = r.s("UserName");
+        let u = self.entity(Kind::User, name)?;
         if u.password_set_ms.is_none() {
             return Err(no_profile(&u.name));
+        }
+        let reset = r.flag("PasswordResetRequired");
+        if let Some(password) = r.opt("Password") {
+            self.set_password(name, password, reset.unwrap_or(false))?;
+        } else if let Some(reset) = reset
+            && let Some(p) = self.held.passwords.get_mut(name)
+        {
+            p.reset_required = reset;
         }
         Ok(Value::Null)
     }
@@ -244,7 +295,7 @@ fn no_policy(account: &str) -> ApiError {
     )
 }
 
-fn no_profile(user: &str) -> ApiError {
+pub(crate) fn no_profile(user: &str) -> ApiError {
     // (memory)
     ApiError::modeled(
         "NoSuchEntityException",

@@ -82,3 +82,17 @@ impl AsyncWrite for Stream {
         }
     }
 }
+
+/// Turns TCP keepalive on for a client connection (probes after 15 s idle, Go's listener default), so a client that
+/// vanishes without closing (a laptop asleep, a dropped network) is noticed and what it held is let go. Unix only for
+/// now: on Windows the connection keeps the system's defaults.
+pub fn keepalive(conn: &std::net::TcpStream) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        rustix::net::sockopt::set_socket_keepalive(conn, true)?;
+        rustix::net::sockopt::set_tcp_keepidle(conn, std::time::Duration::from_secs(15))?;
+    }
+    #[cfg(not(unix))]
+    let _ = conn;
+    Ok(())
+}

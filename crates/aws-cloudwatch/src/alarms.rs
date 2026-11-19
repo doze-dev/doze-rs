@@ -1,6 +1,4 @@
-//! Alarms as objects: put, describe, delete, force a state, switch their actions, and their tags.
-
-use std::collections::BTreeMap;
+//! Alarms as objects: put, describe, delete, force a state, switch their actions (their tags are `tags.rs`).
 
 use aws_wire::ApiError;
 use serde_json::{Map, Value, json};
@@ -9,8 +7,6 @@ use crate::core::Core;
 use crate::model::{Alarm, Kind, Spec};
 use crate::req::{Put, Req, secs, validation};
 
-/// Tags one resource may have.
-const MAX_TAGS: usize = 50;
 /// Alarms one region may hold (AWS: 5,000).
 const MAX_ALARMS: usize = 5000;
 /// What a new alarm's reason says (recorded: the state is `INSUFFICIENT_DATA`).
@@ -30,7 +26,10 @@ impl Core {
         let math =
             r.v.get("Metrics")
                 .is_some_and(|m| m.as_array().is_some_and(|a| !a.is_empty()));
-        let spec = check_metric_alarm(r, math)?;
+        let mut spec = check_metric_alarm(r, math)?;
+        if math {
+            spec = crate::math_alarm::read(&r.v).map_err(validation)?.0;
+        }
         let kind = if math { Kind::Math } else { Kind::Metric };
         self.store_alarm(r, kind, spec)
     }
@@ -40,7 +39,12 @@ impl Core {
     }
 
     /// Makes or updates the alarm. An update replaces the configuration and leaves the state as it was.
-    fn store_alarm(&mut self, r: &Req<'_>, kind: Kind, spec: Spec) -> Result<Value, ApiError> {
+    pub(crate) fn store_alarm(
+        &mut self,
+        r: &Req<'_>,
+        kind: Kind,
+        spec: Spec,
+    ) -> Result<Value, ApiError> {
         let name = r.s("AlarmName").to_owned();
         let now = self.now_ms();
         let mut request = r.v.clone();
@@ -112,7 +116,8 @@ impl Core {
             .filter(|(n, a)| {
                 (names.is_empty() || names.iter().any(|x| x == n))
                     && prefix.is_none_or(|p| n.starts_with(p))
-                    && (types.is_empty() || types.iter().any(|t| *t == type_of(a.kind)))
+                    && (types.iter().any(|t| *t == type_of(a.kind))
+                        || (types.is_empty() && a.kind != Kind::Log))
                     && state.is_none_or(|s| a.state == s)
                     && action.is_none_or(|p| {
                         [&a.ok_actions, &a.alarm_actions, &a.insufficient_actions]
@@ -122,17 +127,17 @@ impl Core {
                     && after.is_none_or(|t| *n > t)
             })
             .collect();
-        let (mut metric, mut composite) = (Vec::new(), Vec::new());
+        let (mut metric, mut composite, mut log) = (Vec::new(), Vec::new(), Vec::new());
         for (name, a) in all.iter().take(limit) {
             let shown = alarm_json(name, a, r.region(), r.account());
-            if a.kind == Kind::Composite {
-                composite.push(shown);
-            } else {
-                metric.push(shown);
+            match a.kind {
+                Kind::Composite => composite.push(shown),
+                Kind::Log => log.push(crate::log_alarm::shown(shown)),
+                Kind::Metric | Kind::Math => metric.push(shown),
             }
         }
         let mut out =
-            json!({"MetricAlarms": metric, "CompositeAlarms": composite, "LogAlarms": []});
+            json!({"MetricAlarms": metric, "CompositeAlarms": composite, "LogAlarms": log});
         if let (true, Some((last, _))) = (all.len() > limit, all.get(limit.saturating_sub(1))) {
             out.put("NextToken", json!(last));
         }
@@ -249,88 +254,21 @@ impl Core {
         }
         Ok(out)
     }
-
-    /// The tags of the alarm or dashboard an ARN names.
-    fn tags_of(&mut self, arn: &str) -> Result<&mut BTreeMap<String, String>, ApiError> {
-        if let Some((_, name)) = arn.split_once(":alarm:") {
-            return self
-                .alarms
-                .get_mut(name)
-                .map(|a| &mut a.tags)
-                .ok_or_else(not_found);
-        }
-        if let Some((_, name)) = arn.split_once(":dashboard/") {
-            return self
-                .docs
-                .get_mut(&crate::model::doc_key("dashboard", name))
-                .map(|d| &mut d.tags)
-                .ok_or_else(not_found);
-        }
-        if let Some(key) = crate::stored::key_of_arn(arn) {
-            return self
-                .docs
-                .get_mut(&key)
-                .map(|d| &mut d.tags)
-                .ok_or_else(not_found);
-        }
-        Err(not_found())
-    }
-
-    pub(crate) fn tag(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let new = r.tags();
-        let tags = self.tags_of(r.s("ResourceARN"))?;
-        let added = new.iter().filter(|(k, _)| !tags.contains_key(k)).count();
-        if tags.len() + added > MAX_TAGS {
-            // (memory)
-            return Err(validation(format!(
-                "A resource can have at most {MAX_TAGS} tags."
-            )));
-        }
-        tags.extend(new);
-        Ok(json!({}))
-    }
-
-    pub(crate) fn untag(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let keys = r.strings("TagKeys");
-        let tags = self.tags_of(r.s("ResourceARN"))?;
-        for k in keys {
-            tags.remove(&k);
-        }
-        Ok(json!({}))
-    }
-
-    pub(crate) fn list_tags(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let tags = self.tags_of(r.s("ResourceARN"))?;
-        Ok(
-            json!({"Tags": tags.iter().map(|(k, v)| json!({"Key": k, "Value": v})).collect::<Vec<_>>()}),
-        )
-    }
-}
-
-fn not_found() -> ApiError {
-    // (memory)
-    ApiError::modeled(
-        "ResourceNotFoundException",
-        "The specified resource was not found.",
-    )
 }
 
 pub(crate) fn type_of(kind: Kind) -> &'static str {
-    if kind == Kind::Composite {
-        "CompositeAlarm"
-    } else {
-        "MetricAlarm"
+    match kind {
+        Kind::Composite => "CompositeAlarm",
+        Kind::Log => "LogAlarm",
+        Kind::Metric | Kind::Math => "MetricAlarm",
     }
 }
 
-/// The reason a new alarm starts with. A metric alarm that is evaluated says what AWS says; the two kinds that are stored only
-/// say so.
+/// The reason a new alarm starts with. An alarm that is evaluated says what AWS says; the kinds that are stored only say so.
 fn first_reason(kind: Kind) -> String {
     match kind {
-        Kind::Metric => UNCHECKED.to_owned(),
-        Kind::Math => {
-            "Not evaluated locally: metric math is stored, not evaluated, in doze-aws.".to_owned()
-        }
+        Kind::Metric | Kind::Math => UNCHECKED.to_owned(),
+        Kind::Log => crate::log_alarm::NOT_EVALUATED.to_owned(),
         Kind::Composite => {
             "Not evaluated locally: composite alarms are stored, not evaluated, in doze-aws."
                 .to_owned()
