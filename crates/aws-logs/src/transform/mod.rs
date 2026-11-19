@@ -15,7 +15,7 @@ mod grok;
 mod path;
 mod procs;
 
-pub(crate) use procs::invalid;
+pub(crate) use procs::{invalid, with_defaults};
 
 #[cfg(test)]
 mod tests;

@@ -21,6 +21,67 @@ const VENDED: [&str; 5] = [
     "parseWAF",
 ];
 
+/// The processors a transformer may begin with, in the order AWS lists them (recorded 2026-11-19).
+const PARSERS: [&str; 19] = [
+    "parsePostgres",
+    "parseWAF",
+    "parseCloudfront",
+    "parseCloudfrontOCSF",
+    "parseRoute53",
+    "parseLambda",
+    "parseVPC",
+    "parseSyslog",
+    "parseRDS",
+    "parseCiscoFTD",
+    "parseF5BigIP",
+    "parseCiscoISE",
+    "parseForescoutNac",
+    "parseInfobloxDDI",
+    "parseToOCSF",
+    "parseJSON",
+    "grok",
+    "csv",
+    "parseKeyValue",
+];
+
+/// The processor members the model gives a default, as AWS shows them in `GetTransformer` (recorded 2026-11-19 for `addKeys`
+/// and `renameKeys`; the others by the same model trait): `(processor, inside entries, member, default)`.
+const DEFAULTS: [(&str, bool, &str, bool); 6] = [
+    ("addKeys", true, "overwriteIfExists", false),
+    ("copyValue", true, "overwriteIfExists", false),
+    ("moveKeys", true, "overwriteIfExists", false),
+    ("renameKeys", true, "overwriteIfExists", false),
+    ("listToMap", false, "flatten", false),
+    ("parseKeyValue", false, "overwriteIfExists", false),
+];
+
+/// A stored `transformerConfig` with each member the model defaults filled in where the request left it out.
+pub(crate) fn with_defaults(config: &mut Value) {
+    let Some(list) = config.as_array_mut() else {
+        return;
+    };
+    for p in list.iter_mut().filter_map(Value::as_object_mut) {
+        for (name, in_entries, member, default) in DEFAULTS {
+            let Some(body) = p.get_mut(name).and_then(Value::as_object_mut) else {
+                continue;
+            };
+            let mut fill = |o: &mut Map<String, Value>| {
+                o.entry(member).or_insert(Value::Bool(default));
+            };
+            if in_entries {
+                body.get_mut("entries")
+                    .and_then(Value::as_array_mut)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_object_mut)
+                    .for_each(&mut fill);
+            } else {
+                fill(body);
+            }
+        }
+    }
+}
+
 /// One key moved, copied or renamed.
 #[derive(Clone, Debug)]
 pub(crate) struct Move {
@@ -131,6 +192,13 @@ fn one(index: usize, p: &Value) -> Result<Proc, ApiError> {
     let body = body
         .as_object()
         .ok_or_else(|| invalid(format!("The {name} processor must be an object.")))?;
+    if index == 0 && !PARSERS.contains(&name) {
+        // Recorded 2026-11-19.
+        return Err(invalid(format!(
+            "Transformer config should begin with parser. Allowed parsers are {}",
+            PARSERS.join(", ")
+        )));
+    }
     if VENDED.contains(&name) {
         if index != 0 {
             return Err(invalid(format!(

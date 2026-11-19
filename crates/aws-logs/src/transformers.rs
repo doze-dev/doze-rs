@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 
 use crate::core::Core;
 use crate::events::Incoming;
-use crate::model::{Doc, doc_key, group_arn};
+use crate::model::{Doc, doc_key};
 use crate::req::{Req, name_of_identifier, no_group};
 use crate::transform::{Meta, Transformer};
 
@@ -77,11 +77,15 @@ impl Core {
         let Some(mut t) = self.stored_transformer(&name) else {
             return Ok(json!({"transformerConfig": []}));
         };
+        // Recorded 2026-11-19: the identifier as the request gave it (a name stays a name).
         crate::req::Put::put(
             &mut t,
             "logGroupIdentifier",
-            json!(group_arn(r.region(), r.account(), &name)),
+            json!(r.s("logGroupIdentifier")),
         );
+        if let Some(c) = t.get_mut("transformerConfig") {
+            crate::transform::with_defaults(c);
+        }
         Ok(t)
     }
 

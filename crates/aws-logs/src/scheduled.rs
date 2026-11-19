@@ -61,12 +61,6 @@ impl Core {
 
     /// The members `CreateScheduledQuery` and `UpdateScheduledQuery` share, checked.
     fn scheduled_config(&self, r: &Req<'_>) -> Result<Value, ApiError> {
-        // Recorded 2026-11-19 (UpdateScheduledQuery); the model marks it optional.
-        if r.v.get("startTimeOffset").is_none() {
-            return Err(validation(
-                "1 validation errors detected: StartTimeOffset is required field",
-            ));
-        }
         if r.s("queryLanguage") != "CWLI" {
             return Err(validation(
                 "doze-aws runs Logs Insights QL (CWLI) queries only; OpenSearch SQL and PPL are not built.",
@@ -93,6 +87,13 @@ impl Core {
             if self.groups.get(&name_of_identifier(&id)).is_none() {
                 return Err(crate::req::no_group());
             }
+        }
+        // Recorded 2026-11-19 (UpdateScheduledQuery); the model marks it optional. AWS checks the query
+        // (a CreateScheduledQuery without groups got the snippet refusal, not this) before it.
+        if r.v.get("startTimeOffset").is_none() {
+            return Err(validation(
+                "1 validation errors detected: StartTimeOffset is required field",
+            ));
         }
         if r.v
             .pointer("/destinationConfiguration/lookupTableConfiguration")

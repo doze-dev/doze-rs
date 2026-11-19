@@ -51,10 +51,16 @@ fn a_transformer_is_kept_tested_and_removed() {
         &json!({"logGroupIdentifier": "/t", "transformerConfig": config}),
     );
     let got = w.ok("GetTransformer", &json!({"logGroupIdentifier": "/t"}));
-    assert_eq!(got["transformerConfig"], config);
+    // Recorded 2026-11-19: the model's defaults shown, and the identifier as given.
     assert_eq!(
-        got["logGroupIdentifier"],
-        "arn:aws:logs:us-east-1:000000000000:log-group:/t"
+        got["transformerConfig"],
+        json!([{"parseJSON": {}}, {"addKeys": {"entries": [{"key": "env", "value": "dev", "overwriteIfExists": false}]}}])
+    );
+    assert_eq!(got["logGroupIdentifier"], "/t");
+    let arn = "arn:aws:logs:us-east-1:000000000000:log-group:/t";
+    assert_eq!(
+        w.ok("GetTransformer", &json!({"logGroupIdentifier": arn}))["logGroupIdentifier"],
+        arn
     );
     let tested = w.ok(
         "TestTransformer",
@@ -210,6 +216,12 @@ fn a_scheduled_query_runs_when_due_and_keeps_its_history() {
     let (code, message) = w.err("CreateScheduledQuery", &json!({"name": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "startTimeOffset": 60, "scheduleExpression": "rate(1 minute)", "executionRoleArn": "r"}));
     assert_eq!(code, "ValidationException");
     assert!(message.starts_with("Invalid syntax while using query definition snippets: unexpected symbol found fields at line 1 and position 0 (Service: AWSLogs; Status Code: 400; Error Code: MalformedQueryException;"), "{message}");
+    // Recorded 2026-11-19: the query is checked before StartTimeOffset.
+    let (_, message) = w.err("CreateScheduledQuery", &json!({"name": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "scheduleExpression": "rate(1 minute)", "executionRoleArn": "r"}));
+    assert!(
+        message.starts_with("Invalid syntax while using query definition snippets:"),
+        "{message}"
+    );
     assert_eq!(w.err("CreateScheduledQuery", &json!({"name": "bad", "queryLanguage": "CWLI", "queryString": "fields x", "scheduleExpression": "every minute", "executionRoleArn": "r"})).0, "ValidationException");
     w.ok("UpdateScheduledQuery", &json!({"identifier": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "logGroupIdentifiers": ["/s"], "scheduleExpression": "rate(5 minutes)", "executionRoleArn": "r", "startTimeOffset": 300, "state": "DISABLED"}));
     assert_eq!(w.core.next_due(), None);

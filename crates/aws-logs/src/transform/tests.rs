@@ -23,6 +23,11 @@ fn refused(config: &Value) -> String {
     e.message
 }
 
+/// What refusing `processor` says when it comes after a parser (a transformer must begin with one).
+fn later(processor: Value) -> String {
+    refused(&json!([{"parseJSON": {}}, processor]))
+}
+
 #[test]
 fn parse_json_then_keys_are_added_copied_moved_renamed_and_deleted() {
     let config = json!([
@@ -200,7 +205,12 @@ fn bad_configurations_are_refused() {
     assert!(refused(&json!(vec![json!({"parseJSON": {}}); 21])).contains("between 1 and 20"));
     assert!(refused(&json!([{}])).contains("exactly one"));
     assert!(refused(&json!([{"parseJSON": {}, "csv": {}}])).contains("exactly one"));
-    assert!(refused(&json!([{"nope": {}}])).contains("Unknown processor"));
+    assert!(later(json!({"nope": {}})).contains("Unknown processor"));
+    // Recorded 2026-11-19.
+    assert_eq!(
+        refused(&json!([{"addKeys": {"entries": [{"key": "a", "value": "b"}]}}, {"parseVPC": {}}])),
+        "Transformer config should begin with parser. Allowed parsers are parsePostgres, parseWAF, parseCloudfront, parseCloudfrontOCSF, parseRoute53, parseLambda, parseVPC, parseSyslog, parseRDS, parseCiscoFTD, parseF5BigIP, parseCiscoISE, parseForescoutNac, parseInfobloxDDI, parseToOCSF, parseJSON, grok, csv, parseKeyValue"
+    );
     assert!(refused(&json!([{"parseJSON": {}}, {"parseVPC": {}}])).contains("first processor"));
     assert!(refused(&json!([{"parseVPC": {"source": "x"}}])).contains("only be @message"));
     for name in [
@@ -224,22 +234,20 @@ fn bad_processor_settings_are_refused() {
         "Grok parser doesn't support type conversions for any grok patterns"
     );
     assert!(refused(&json!([{"grok": {"match": "(unclosed"}}])).contains("not a valid"));
-    assert!(refused(&json!([{"dateTimeConverter": {"source": "a", "target": "b", "matchPatterns": ["yyyy-QQ"]}}])).contains("not valid"));
-    assert!(refused(&json!([{"dateTimeConverter": {"source": "a", "target": "b", "matchPatterns": ["yyyy"], "sourceTimezone": "Mars/Base"}}])).contains("time zone"));
+    assert!(later(json!({"dateTimeConverter": {"source": "a", "target": "b", "matchPatterns": ["yyyy-QQ"]}})).contains("not valid"));
+    assert!(later(json!({"dateTimeConverter": {"source": "a", "target": "b", "matchPatterns": ["yyyy"], "sourceTimezone": "Mars/Base"}})).contains("time zone"));
     assert!(
-        refused(&json!([{"typeConverter": {"entries": [{"key": "a", "type": "long"}]}}]))
+        later(json!({"typeConverter": {"entries": [{"key": "a", "type": "long"}]}}))
             .contains("integer, double")
     );
     assert!(
-        refused(&json!([{"listToMap": {"source": "a", "key": "k", "flatten": true}}]))
+        later(json!({"listToMap": {"source": "a", "key": "k", "flatten": true}}))
             .contains("first or last")
     );
-    assert!(refused(&json!([{"addKeys": {"entries": []}}])).contains("required"));
+    assert!(later(json!({"addKeys": {"entries": []}})).contains("required"));
     assert!(
-        refused(
-            &json!([{"substituteString": {"entries": [{"source": "a", "from": "[", "to": ""}]}}])
-        )
-        .contains("not valid")
+        later(json!({"substituteString": {"entries": [{"source": "a", "from": "[", "to": ""}]}}))
+            .contains("not valid")
     );
     assert!(super::check(r#"[{"parseJSON":{}}]"#, r#"{"a":1}"#));
     assert!(!super::check("not json", "x"));
