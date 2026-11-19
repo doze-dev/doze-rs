@@ -9,6 +9,7 @@ mod cli;
 mod client;
 mod compat;
 mod config;
+mod console;
 mod data;
 mod data_cmd;
 mod data_show;

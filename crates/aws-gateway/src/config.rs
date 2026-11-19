@@ -48,6 +48,8 @@ pub struct Config {
     /// The secret key a request to a service's local address (`/_doze/iam/...`, [`aws_wire::service::Web::local`]) must carry in
     /// `X-Doze-Key`: set under `--auth verify`, `None` when signatures are taken on trust.
     pub local_key: Option<String>,
+    /// Told about every finished AWS API request (the console's Live ring). `None`, the default, costs a request nothing.
+    pub observer: Option<Arc<dyn crate::Observer>>,
 }
 
 impl Config {
@@ -67,6 +69,7 @@ impl Config {
             anonymous: false,
             hooks: Hooks::default(),
             local_key: None,
+            observer: None,
         }
     }
 }

@@ -1,55 +1,10 @@
 //! Every server setting, once: its flag, its `DOZE_AWS_*` variable, its `doze-aws.toml` key (all the same name), its default and
 //! its help. The command line, the environment, the file and `config print` are all made from this table, so they cannot drift.
 
-/// What kind of value a setting takes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Kind {
-    /// Text.
-    Text,
-    /// A whole number of at least this.
-    Count(u64),
-    /// On or off (a flag with no value on the command line).
-    Switch,
-    /// A list (comma-separated on the command line and in the environment, an array in the file).
-    List,
-    /// One of these words.
-    Choice(&'static [&'static str]),
-}
+mod kind;
 
-/// One setting.
-#[derive(Debug)]
-pub(crate) struct Key {
-    /// The flag without its dashes, the file key, and (upper-cased, `-` as `_`, after `DOZE_AWS_`) the variable.
-    pub(crate) name: &'static str,
-    /// What it takes.
-    pub(crate) kind: Kind,
-    /// Its default, as written in the file (a list's items comma-separated).
-    pub(crate) default: &'static str,
-    /// The placeholder in help (`ADDR`).
-    pub(crate) value_name: &'static str,
-    /// One line of help.
-    pub(crate) help: &'static str,
-    /// The heading it is listed under.
-    pub(crate) group: &'static str,
-}
-
-const fn key(
-    name: &'static str,
-    kind: Kind,
-    default: &'static str,
-    value_name: &'static str,
-    help: &'static str,
-    group: &'static str,
-) -> Key {
-    Key {
-        name,
-        kind,
-        default,
-        value_name,
-        help,
-        group,
-    }
-}
+use kind::key;
+pub(crate) use kind::{Key, Kind};
 
 const SERVER: &str = "Server";
 const ACCESS: &str = "Access";
@@ -111,6 +66,22 @@ pub(crate) const KEYS: &[Key] = &[
         "",
         "FILE",
         "A CloudFormation template to apply once listening (as `doze-aws apply` would)",
+        SERVER,
+    ),
+    key(
+        "console",
+        Kind::Text,
+        "",
+        "ADDR",
+        "Serve the web console on this address of this machine (127.0.0.1:4567); off unless given. It has no login",
+        SERVER,
+    ),
+    key(
+        "console-allow-host",
+        Kind::List,
+        "",
+        "HOST",
+        "A host name the console answers to besides localhost and IP addresses (`*` turns the check off)",
         SERVER,
     ),
     key(

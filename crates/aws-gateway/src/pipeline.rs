@@ -188,19 +188,27 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
         Ok(response) => return response,
         Err(body) => body,
     };
+    let watched = crate::observe::begin(shared, &mut parts);
+    let response = api(shared, &id, &parts, body).await;
+    crate::observe::end(shared, watched, &id, &parts, &response);
+    response
+}
+
+/// Answers a request to an AWS API (one no service's own address took).
+async fn api(shared: &Shared, id: &RequestId, parts: &Parts, body: Incoming) -> Response<RespBody> {
     // A REST service (S3) streams its bodies and words its errors its own way, so it has its own path.
-    let claim = match Claim::parse(&parts) {
+    let claim = match Claim::parse(parts) {
         Ok(found) => found,
         // boto3 signs an S3 presigned URL with SigV2 unless told otherwise, and S3 accepts it. A verifying gateway checks it (in
         // `rest.rs`); a trusting one takes the access key as given and holds the URL to its expiry.
-        Err(AuthError::UnsupportedAlgorithm) => crate::presign::sigv2_claim(&parts),
+        Err(AuthError::UnsupportedAlgorithm) => crate::presign::sigv2_claim(parts),
         Err(_) => None,
     };
     // A request with no signature at all is a person with curl or a browser: S3 serves it as the anonymous principal, whom IAM
     // (soft or enforce) judges by the bucket's policy and ACLs. A verifying gateway does so only when IAM is there to judge.
     let claim = claim.or_else(|| {
         (shared.trusts() || shared.config.anonymous)
-            .then(|| crate::presign::anonymous_claim(&parts))
+            .then(|| crate::presign::anonymous_claim(parts))
             .flatten()
     });
     // Neither an unsigned request nor a SigV2 URL names a region: they are for the configured default.
@@ -211,14 +219,15 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
         c
     });
     if let Some(claim) = claim
-        && let Some(entry) = shared.rest_entry(&claim.service, &parts).filter(|e| {
+        && let Some(entry) = shared.rest_entry(&claim.service, parts).filter(|e| {
             let meta = e.service.meta();
             meta.speaks(Protocol::RestXml) || meta.speaks(Protocol::RestJson1)
         })
     {
-        return crate::rest::respond(shared, entry, &id, &parts, body, claim).await;
+        crate::observe::service(parts, entry, &claim);
+        return crate::rest::respond(shared, entry, id, parts, body, claim).await;
     }
-    match handle(shared, &id, &parts, body).await {
+    match handle(shared, id, parts, body).await {
         Ok(out) => out,
         Err(out) => out.map(RespBody::whole),
     }
@@ -235,7 +244,8 @@ async fn handle(
     parts: &Parts,
     body: Incoming,
 ) -> Result<Response<RespBody>, Fail> {
-    let Some(claim) = Claim::parse(parts).map_err(|e| early(id, &from_auth(&e, Family::Coral)))?
+    let Some(claim) =
+        Claim::parse(parts).map_err(|e| early(id, parts, &from_auth(&e, Family::Coral)))?
     else {
         // No signature: only an operation its model marks as taking none (STS's web identity and SAML) is answered.
         return whole(crate::query::unsigned(shared, id, parts, body).await);
@@ -243,6 +253,7 @@ async fn handle(
     let entry = shared.entry_for(&claim.service, parts).ok_or_else(|| {
         early(
             id,
+            parts,
             &ApiError::new(
                 400,
                 "UnrecognizedClientException",
@@ -250,6 +261,7 @@ async fn handle(
             ),
         )
     })?;
+    crate::observe::service(parts, entry, &claim);
     let (meta, tables) = (entry.service.meta(), entry.service.tables());
     if aws_wire::cbor::is_request(parts) && meta.speaks(Protocol::Rpcv2Cbor) {
         return whole(crate::cbor::handle(shared, entry, id, parts, body, claim).await);
@@ -258,9 +270,10 @@ async fn handle(
         if meta.speaks(Protocol::AwsQuery) {
             return whole(crate::query::handle(shared, entry, id, parts, body, claim).await);
         }
-        return Err(early(id, &unserved_protocol(meta)));
+        return Err(early(id, parts, &unserved_protocol(meta)));
     };
     let fail = |e: &ApiError| -> Fail {
+        crate::observe::failed(parts, e);
         Box::new(json::failure(
             meta,
             tables,
@@ -288,6 +301,7 @@ async fn handle(
         return Err(Box::new(json::query_refusal(meta, id)));
     }
     let op = json::route(meta, tables, parts).map_err(|e| fail(&e))?;
+    crate::observe::operation(parts, entry, op);
     if let Some(refusal) = unbuilt(entry, op) {
         return Err(fail(&refusal));
     }
@@ -359,7 +373,8 @@ fn unserved_protocol(meta: &aws_schema::meta::ServiceMeta) -> ApiError {
 }
 
 /// An error raised before a service is known.
-pub(crate) fn early(id: &RequestId, err: &ApiError) -> Fail {
+pub(crate) fn early(id: &RequestId, parts: &Parts, err: &ApiError) -> Fail {
+    crate::observe::failed(parts, err);
     Box::new(json::generic_failure(json::Version::V10, id, err))
 }
 

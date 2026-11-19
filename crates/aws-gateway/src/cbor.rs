@@ -24,6 +24,7 @@ pub(crate) async fn handle(
 ) -> Result<Out, Fail> {
     let (meta, tables) = (entry.service.meta(), entry.service.tables());
     let fail = |e: &ApiError| -> Fail {
+        crate::observe::failed(parts, e);
         Box::new(cbor::failure(
             meta,
             tables,
@@ -47,6 +48,7 @@ pub(crate) async fn handle(
             .map_err(|e| fail(&from_auth(&e, Family::Coral)))?;
     }
     let op = cbor::route(meta, tables, parts).map_err(|e| fail(&e))?;
+    crate::observe::operation(parts, entry, op);
     if let Some(refusal) = unbuilt(entry, op) {
         return Err(fail(&refusal));
     }

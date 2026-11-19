@@ -56,6 +56,7 @@ async fn respond_inner(
     match handle(shared, entry, id, parts, body, claim).await {
         Ok(response) => response,
         Err(e) => {
+            crate::observe::failed(parts, &e);
             let rendered = if json {
                 jsonout::error(&e, entry.service.tables())
             } else {
@@ -130,6 +131,10 @@ async fn handle(
         })
         .ok_or_else(|| unrouted(json))?;
     let op = matched.op;
+    crate::observe::operation(parts, entry, op);
+    if !json {
+        crate::observe::resource(parts, path.trim_start_matches('/'));
+    }
     if !entry.service.serves(op) {
         let name = tables.op(op).map_or("", |o| o.name);
         return Err(ApiError::new(

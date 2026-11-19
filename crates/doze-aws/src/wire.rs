@@ -59,19 +59,36 @@ impl Resumable {
     }
 }
 
-/// Which services are served.
-struct On<'a>(&'a [&'static Svc]);
+/// Every API on the gateway by its catalogue entry: the service itself, never the stand-in of one left out of `--services`
+/// (the console counts what the build can do).
+pub(crate) type Apis = Vec<(&'static Svc, Arc<dyn Service>)>;
 
-impl On<'_> {
+/// Which services are served, and every API that was put on the gateway.
+struct On<'a> {
+    on: &'a [&'static Svc],
+    apis: std::cell::RefCell<Apis>,
+}
+
+impl<'a> On<'a> {
+    fn new(on: &'a [&'static Svc]) -> Self {
+        let apis = std::cell::RefCell::default();
+        Self { on, apis }
+    }
+
     fn has(&self, name: &str) -> bool {
-        self.0.iter().any(|s| s.name == name)
+        self.on.iter().any(|s| s.name == name)
     }
 
     /// `service` as it is served: itself, or [`Off`].
     fn wrap(&self, name: &str, service: Arc<dyn Service>) -> Arc<dyn Service> {
-        match crate::services::find(name) {
-            Some(svc) if !self.has(name) => Arc::new(Off::new(service, svc, self.0)),
-            _ => service,
+        let Some(svc) = crate::services::find(name) else {
+            return service;
+        };
+        self.apis.borrow_mut().push((svc, Arc::clone(&service)));
+        if self.has(name) {
+            service
+        } else {
+            Arc::new(Off::new(service, svc, self.on))
         }
     }
 
@@ -80,14 +97,15 @@ impl On<'_> {
     }
 }
 
-/// The gateway with every service on it, the services to resume once it listens, and the data engine over all of them.
+/// The gateway with every service on it, the services to resume once it listens, the data engine over all of them, and every API
+/// that is on the gateway.
 pub(crate) fn gateway(
     cfg: &Config,
     mut gw: GatewayConfig,
     on: &[&'static Svc],
     tasks: &Tasks,
-) -> (Gateway, Resumable, Arc<crate::data::Data>) {
-    let on = On(on);
+) -> (Gateway, Resumable, Arc<crate::data::Data>, Apis) {
+    let on = On::new(on);
     let peers = Peers::new();
     let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
     let idle = Duration::from_secs(cfg.count("idle-secs"));
@@ -162,7 +180,7 @@ pub(crate) fn gateway(
         states: on.keep("stepfunctions", &states),
         logs: on.keep("logs", &logs),
     };
-    (gateway, resumable, data)
+    (gateway, resumable, data, on.apis.into_inner())
 }
 
 /// The services that share a signing name with another, which the bus cannot key by it.
