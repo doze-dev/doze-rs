@@ -1,11 +1,15 @@
 # Phase 10: the schema registry
 
 Status: **slices 10a to 10d done (2026-11-14: 10a, 10b and 10c on branches `p10-registry`, `p10b-protobuf` and `p10c-jsonschema`,
-merged on branch `registry-merge`; 10d, the console's Schemas pages, on `p10d-console-schemas`, merged at 31d63f8e1), not yet audited.** The registry's model, its storage in the broker's metadata database, every REST route
+merged on branch `registry-merge`; 10d, the console's Schemas pages, on `p10d-console-schemas`, merged at 31d63f8e1); audited
+2026-11-18** (branch `kafka-registry-audit`, `tools/registry-diff`: live against cp-schema-registry 7.7.1 and 8.3.2 with real
+Kafka; results in `tools/registry-diff/results/2026-11-18/`; the rules it changed and REG-42 to REG-45, REG-D26 to REG-D28 are in
+the catalogue). The registry's model, its storage in the broker's metadata database, every REST route
 the Go edition serves, the host guard, basic authentication and TLS as the Go binary has them, the wire header, and all three
 languages whole (Avro, 10b Protobuf, 10c JSON Schema), wired into `doze-kafka` behind the `registry` feature (on by default, as
 `--schema-registry` is in Go), and (10d) the console's Schemas pages and schema-aware Messages/Produce, with the record-value codec
-they need. Nothing of the phase is left to build; the independent audit is next. The catalogue is `behaviours/registry.md` (REG-1 to REG-37, REG-D1 to REG-D22; REG-D13 retired).
+they need. Nothing of the phase is left to build. The catalogue is `behaviours/registry.md` (REG-1 to REG-45, REG-D1 to REG-D28;
+REG-D1 and REG-D13 retired).
 
 Goal: a Confluent client (any serializer, `kafka-avro-console-producer`, Schema Registry's own Maven plugin) pointed at
 `http://127.0.0.1:8081` cannot tell this registry from Confluent's, except where `behaviours/registry.md` lists a deviation; and the

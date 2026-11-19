@@ -36,13 +36,21 @@ fn the_payload_is_the_registry_signers_own() {
     signed::verify_hex(&key, &art.sha256, &art.sig).unwrap();
 }
 
-/// The live index verifies with the key built in, and any change to what it says (a channel rolled back, a
-/// protocol, a hash) is refused.
+/// The registry key retired on 2026-11-18. REAL_VALKEY is a real index the registry signed with it, so it still
+/// proves the signing scheme end to end.
+const RETIRED_KEY: &str = "Nu5y8mbjYv7XEtNFBXwPVl+C8SBteVApIROefBwGWjw=";
+
+/// A real index verifies with the key that signed it, and any change to what it says (a channel rolled back, a
+/// protocol, a hash) is refused. The key built in now is a different one, so it refuses this index.
 #[test]
 fn the_real_index_verifies_and_any_edit_is_refused() {
-    let key = signed::builtin_key().unwrap();
+    let key = signed::parse_key(RETIRED_KEY).unwrap();
     let idx = index::parse(REAL_VALKEY).unwrap();
     index::verify(&idx, &key).unwrap();
+    assert_eq!(
+        index::verify(&idx, &signed::builtin_key().unwrap()),
+        Err(signed::Refused::WrongKey)
+    );
     let edits = [
         REAL_VALKEY.replace("stable: 0.2.1", "stable: 0.2.0"),
         REAL_VALKEY.replacen("protocol: 1", "protocol: 2", 1),

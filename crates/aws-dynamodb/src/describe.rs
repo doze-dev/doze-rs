@@ -46,7 +46,7 @@ pub(crate) fn seconds(ms: i64) -> f64 {
     ms as f64 / 1000.0
 }
 
-fn key_schema(hash: &Key, range: Option<&Key>) -> Json {
+pub(crate) fn key_schema(hash: &Key, range: Option<&Key>) -> Json {
     let mut out = vec![json!({"AttributeName": hash.name, "KeyType": "HASH"})];
     if let Some(r) = range {
         out.push(json!({"AttributeName": r.name, "KeyType": "RANGE"}));
@@ -54,7 +54,7 @@ fn key_schema(hash: &Key, range: Option<&Key>) -> Json {
     Json::Array(out)
 }
 
-fn projection(p: &Projection) -> Json {
+pub(crate) fn projection(p: &Projection) -> Json {
     match p {
         Projection::All => json!({"ProjectionType": "ALL"}),
         Projection::KeysOnly => json!({"ProjectionType": "KEYS_ONLY"}),

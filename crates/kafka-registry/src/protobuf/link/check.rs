@@ -131,7 +131,8 @@ impl Linker<'_> {
         let proto3 = self.proto3(u.file);
         let named = |m: &str| Error::at(f.at, format!("field {scope}.{}: {m}", f.name));
         if proto3 && f.label == Some(Label::Required) {
-            return Err(named("required fields are not allowed in proto3"));
+            // Worded as Confluent's parser words it, a syntax error (protobuf::read makes it one).
+            return Err(Error::at(f.at, super::super::REQUIRED_IN_PROTO3.to_owned()));
         }
         let is_map = matches!(f.ty, super::TypeRef::Map(..));
         if !proto3 && f.label.is_none() && fld.oneof.is_none() && !is_map {
@@ -161,7 +162,9 @@ impl Linker<'_> {
                         && matches!(fld.ty, Ty::Enum(_) | Ty::Scalar(_))
                         && !matches!(fld.ty, Ty::Scalar(9 | 12))
                         && !is_map;
-                    if !packable {
+                    // protoc refuses `packed = true` there; `packed = false` says nothing and is taken.
+                    let on = !matches!(&o.val, Val::Ident(v) if v == "false");
+                    if on && !packable {
                         return Err(named(
                             "packed is only for repeated fields of numbers, bools or enums",
                         ));

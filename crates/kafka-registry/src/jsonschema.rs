@@ -28,6 +28,8 @@ pub struct JsonSchema;
 #[derive(Debug)]
 pub struct ParsedJsonSchema {
     stored: String,
+    /// The stored text with every object's keys sorted: `?normalize=true`.
+    normalized: String,
     arena: node::Arena,
 }
 
@@ -52,33 +54,44 @@ pub fn parse(text: &str, refs: &[ResolvedRef]) -> Result<ParsedJsonSchema, Strin
     let arena = node::load(&docs).map_err(|e| format!("Invalid JSON Schema: {e}"))?;
     let root = docs.doc(0).map(|d| &d.json).ok_or("no schema")?;
     Ok(ParsedJsonSchema {
-        stored: stored_text(root),
+        stored: stored_text(root, false),
+        normalized: stored_text(root, true),
         arena,
     })
 }
 
 /// The text Confluent stores: compact, an object's repeated key once (its last value, where the key first was, as
-/// Jackson reads it), numbers as written.
-fn stored_text(v: &Json) -> String {
-    fn dedupe(v: &Json) -> Json {
+/// Jackson reads it), a number with a fraction or exponent as Java's `BigDecimal` writes it (`1e2` is `1E+2`). With
+/// `sort` (`?normalize=true`) every object's keys are in order, as Confluent normalizes a JSON Schema (recorded by
+/// tools/registry-diff).
+fn stored_text(v: &Json, sort: bool) -> String {
+    fn redo(v: &Json, sort: bool) -> Json {
         match v {
-            Json::Object(_) => Json::Object(
-                doc::members(v)
+            Json::Object(_) => {
+                let mut m: Vec<(String, Json)> = doc::members(v)
                     .into_iter()
-                    .map(|(k, x)| (k.to_owned(), dedupe(x)))
-                    .collect(),
-            ),
-            Json::Array(items) => Json::Array(items.iter().map(dedupe).collect()),
-            other => other.clone(),
+                    .map(|(k, x)| (k.to_owned(), redo(x, sort)))
+                    .collect();
+                if sort {
+                    m.sort_by(|a, b| a.0.encode_utf16().cmp(b.0.encode_utf16()));
+                }
+                Json::Object(m)
+            }
+            Json::Array(items) => Json::Array(items.iter().map(|x| redo(x, sort)).collect()),
+            Json::Raw(r) => Json::Raw(crate::json::java_number(r)),
+            Json::Str(s) => Json::Str(s.clone()),
         }
     }
-    dedupe(v).to_text()
+    redo(v, sort).to_text()
 }
 
 impl ParsedSchema for ParsedJsonSchema {
-    /// As Confluent 7.7 and the Go edition: `normalize` changes nothing for JSON Schema.
-    fn canonical(&self, _normalize: bool) -> String {
-        self.stored.clone()
+    fn canonical(&self, normalize: bool) -> String {
+        if normalize {
+            self.normalized.clone()
+        } else {
+            self.stored.clone()
+        }
     }
 
     fn can_read(

@@ -504,3 +504,321 @@ def test_streams_api(client, names, cleanup, snapshot, eventually):
     snapshot.error("unknown-shard", lambda: streams.get_shard_iterator(
         StreamArn=arn, ShardId="shardId-00000000000000000000-00000000", ShardIteratorType="LATEST"))
     snapshot.error("bad-iterator", lambda: streams.get_records(ShardIterator="x" * 40))
+
+
+# --- Legacy parameters (stage dynamodb-ops). Older SDKs and libraries still send these; AWS runs them and refuses a mix.
+
+def legacy_table(ddb, names, cleanup):
+    name, _ = table(ddb, names, cleanup, sort_key=True)
+    for sk, n, tag in [(1, 10, "red"), (2, 20, "blue"), (3, 30, "red")]:
+        ddb.put_item(TableName=name, Item={"pk": {"S": "a"}, "sk": {"N": str(sk)}, "n": {"N": str(n)}, "tag": {"S": tag}})
+    return name
+
+
+def test_legacy_reads(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name = legacy_table(ddb, names, cleanup)
+    key = {"pk": {"S": "a"}, "sk": {"N": "1"}}
+    snapshot.match("get-attributes-to-get", ddb.get_item(TableName=name, Key=key, AttributesToGet=["n"], ConsistentRead=True))
+    snapshot.match("query-key-conditions", ddb.query(
+        TableName=name, ConsistentRead=True,
+        KeyConditions={"pk": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "a"}]},
+                       "sk": {"ComparisonOperator": "BETWEEN", "AttributeValueList": [{"N": "1"}, {"N": "3"}]}},
+        QueryFilter={"tag": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "red"}]}},
+        AttributesToGet=["sk", "n"]))
+    snapshot.match("query-or", ddb.query(
+        TableName=name, ConsistentRead=True,
+        KeyConditions={"pk": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "a"}]}},
+        QueryFilter={"n": {"ComparisonOperator": "GT", "AttributeValueList": [{"N": "25"}]},
+                     "tag": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "blue"}]}},
+        ConditionalOperator="OR"))
+    snapshot.match("scan-filter", ddb.scan(
+        TableName=name, ConsistentRead=True,
+        ScanFilter={"tag": {"ComparisonOperator": "BEGINS_WITH", "AttributeValueList": [{"S": "bl"}]},
+                    "gone": {"ComparisonOperator": "NULL"}}), unordered=("Items",))
+    snapshot.match("scan-in", ddb.scan(
+        TableName=name, ConsistentRead=True,
+        ScanFilter={"n": {"ComparisonOperator": "IN", "AttributeValueList": [{"N": "10"}, {"N": "30"}]}}), unordered=("Items",))
+    snapshot.match("batch-get", ddb.batch_get_item(RequestItems={name: {"Keys": [key], "AttributesToGet": ["tag"], "ConsistentRead": True}}))
+
+
+def test_legacy_writes(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name = legacy_table(ddb, names, cleanup)
+    key = {"pk": {"S": "a"}, "sk": {"N": "2"}}
+    snapshot.error("put-expected-absent", lambda: ddb.put_item(
+        TableName=name, Item=key, Expected={"sk": {"Exists": False}}))
+    snapshot.match("update-attribute-updates", ddb.update_item(
+        TableName=name, Key=key, ReturnValues="ALL_NEW",
+        AttributeUpdates={"n": {"Action": "ADD", "Value": {"N": "5"}},
+                          "tags": {"Action": "ADD", "Value": {"SS": ["x", "y"]}},
+                          "tag": {"Action": "DELETE"},
+                          "note": {"Value": {"S": "hi"}}}), unordered=("SS",))
+    snapshot.match("update-delete-from-set", ddb.update_item(
+        TableName=name, Key=key, ReturnValues="UPDATED_NEW",
+        AttributeUpdates={"tags": {"Action": "DELETE", "Value": {"SS": ["x"]}}},
+        Expected={"note": {"Value": {"S": "hi"}}}))
+    absent = {"pk": {"S": "b"}, "sk": {"N": "9"}}
+    snapshot.match("delete-action-on-absent-item", ddb.update_item(
+        TableName=name, Key=absent, AttributeUpdates={"x": {"Action": "DELETE"}}))
+    snapshot.match("absent-item-not-made", ddb.get_item(TableName=name, Key=absent, ConsistentRead=True))
+    snapshot.match("delete-expected", ddb.delete_item(
+        TableName=name, Key={"pk": {"S": "a"}, "sk": {"N": "1"}}, ReturnValues="ALL_OLD",
+        Expected={"n": {"Value": {"N": "10"}}, "tag": {"Exists": True, "Value": {"S": "red"}}}))
+    snapshot.error("put-expected-or", lambda: ddb.put_item(
+        TableName=name, Item={"pk": {"S": "a"}, "sk": {"N": "3"}},
+        Expected={"n": {"ComparisonOperator": "LT", "AttributeValueList": [{"N": "5"}]}, "tag": {"Exists": False}},
+        ConditionalOperator="OR"))
+
+
+def test_legacy_refusals(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name = legacy_table(ddb, names, cleanup)
+    key = {"pk": {"S": "a"}, "sk": {"N": "1"}}
+    eq_a = {"pk": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "a"}]}}
+    snapshot.error("mix-projection", lambda: ddb.get_item(
+        TableName=name, Key=key, AttributesToGet=["n"], ProjectionExpression="n"))
+    snapshot.error("mix-filter", lambda: ddb.query(
+        TableName=name, KeyConditions=eq_a, FilterExpression="n > :v", ExpressionAttributeValues={":v": {"N": "1"}}))
+    snapshot.error("mix-condition", lambda: ddb.put_item(
+        TableName=name, Item=key, Expected={"n": {"Exists": False}}, ConditionExpression="attribute_not_exists(pk)"))
+    snapshot.error("mix-update", lambda: ddb.update_item(
+        TableName=name, Key=key, AttributeUpdates={"n": {"Value": {"N": "1"}}}, UpdateExpression="SET n = :v",
+        ExpressionAttributeValues={":v": {"N": "1"}}))
+    snapshot.error("legacy-with-names", lambda: ddb.scan(
+        TableName=name, ScanFilter={"n": {"ComparisonOperator": "NULL"}}, ExpressionAttributeNames={"#n": "n"}))
+    snapshot.error("wrong-count", lambda: ddb.query(
+        TableName=name, KeyConditions={"pk": {"ComparisonOperator": "EQ", "AttributeValueList": []}}))
+    snapshot.error("not-indexable", lambda: ddb.query(
+        TableName=name, KeyConditions={"pk": {"ComparisonOperator": "NE", "AttributeValueList": [{"S": "a"}]}}))
+    snapshot.error("begins-with-number", lambda: ddb.query(
+        TableName=name, KeyConditions=eq_a,
+        QueryFilter={"n": {"ComparisonOperator": "BEGINS_WITH", "AttributeValueList": [{"N": "1"}]}}))
+    snapshot.error("operator-with-one", lambda: ddb.query(
+        TableName=name, KeyConditions=eq_a, QueryFilter={"n": {"ComparisonOperator": "NULL"}}, ConditionalOperator="AND"))
+    snapshot.error("exists-without-value", lambda: ddb.put_item(
+        TableName=name, Item=key, Expected={"n": {"Exists": True}}))
+    snapshot.error("value-with-exists-false", lambda: ddb.put_item(
+        TableName=name, Item=key, Expected={"n": {"Exists": False, "Value": {"N": "1"}}}))
+    snapshot.error("put-without-value", lambda: ddb.update_item(
+        TableName=name, Key=key, AttributeUpdates={"n": {"Action": "PUT"}}))
+    snapshot.error("attributes-to-get-with-select", lambda: ddb.scan(
+        TableName=name, AttributesToGet=["n"], Select="ALL_ATTRIBUTES"))
+
+
+# --- On-demand backups and restores (stage dynamodb-ops). A backup of a small on-demand table costs a fraction of a cent; a
+# restore takes AWS minutes.
+
+BACKUP_VOLATILE = ("BackupArn", "SourceBackupArn", "BackupCreationDateTime", "BackupSizeBytes", "RestoreDateTime",
+                   "TableCreationDateTime", "TableSizeBytes", "ItemCount", "CreationDateTime", "LastUpdateToPayPerRequestDateTime")
+
+
+def test_backup_lifecycle(client, names, cleanup, snapshot, eventually):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup)
+    ddb.put_item(TableName=name, Item={"pk": {"S": "a"}, "v": {"S": "1"}})
+    made = ddb.create_backup(TableName=name, BackupName=names("backup"))
+    arn = made["BackupDetails"]["BackupArn"]
+    snapshot.match("create", made, opaque=("BackupArn",), drop=BACKUP_VOLATILE[2:])
+
+    def available():
+        r = ddb.describe_backup(BackupArn=arn)
+        assert r["BackupDescription"]["BackupDetails"]["BackupStatus"] == "AVAILABLE", "still creating"
+        return r
+
+    snapshot.match("describe", eventually(available, timeout=600, every=5), opaque=("BackupArn",), drop=BACKUP_VOLATILE[2:])
+    snapshot.match("list", ddb.list_backups(TableName=name), opaque=("BackupArn",), drop=BACKUP_VOLATILE[2:])
+    target = names("restored")
+    restored = ddb.restore_table_from_backup(TargetTableName=target, BackupArn=arn)
+    cleanup(ddb.delete_table, TableName=target)
+    snapshot.match("restore", restored, opaque=("SourceBackupArn",), drop=BACKUP_VOLATILE[2:] + ("TableStatus", "RestoreInProgress"))
+    ddb.get_waiter("table_exists").wait(TableName=target, WaiterConfig={"Delay": 10, "MaxAttempts": 180})
+    snapshot.match("restored-item", ddb.get_item(TableName=target, Key={"pk": {"S": "a"}}, ConsistentRead=True))
+    snapshot.error("restore-onto-existing", lambda: ddb.restore_table_from_backup(TargetTableName=target, BackupArn=arn))
+    snapshot.match("delete", ddb.delete_backup(BackupArn=arn), opaque=("BackupArn",), drop=BACKUP_VOLATILE[2:])
+    snapshot.error("describe-deleted", lambda: ddb.describe_backup(BackupArn=arn))
+
+
+def test_backup_refusals(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    account = client("sts").get_caller_identity()["Account"]
+    missing = f"arn:aws:dynamodb:us-east-1:{account}:table/{names('absent')}/backup/01700000000000-abcdef12"
+    snapshot.error("backup-of-absent-table", lambda: ddb.create_backup(TableName=names("absent"), BackupName="nope"))
+    snapshot.error("describe-absent", lambda: ddb.describe_backup(BackupArn=missing))
+    snapshot.error("delete-absent", lambda: ddb.delete_backup(BackupArn=missing))
+    snapshot.error("restore-absent", lambda: ddb.restore_table_from_backup(TargetTableName=names("t"), BackupArn=missing))
+
+
+def test_point_in_time_restore(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup)
+    target = names("restored")
+    snapshot.error("not-enabled", lambda: ddb.restore_table_to_point_in_time(
+        SourceTableName=name, TargetTableName=target, UseLatestRestorableTime=True))
+    ddb.update_continuous_backups(TableName=name, PointInTimeRecoverySpecification={"PointInTimeRecoveryEnabled": True})
+    snapshot.error("too-early", lambda: ddb.restore_table_to_point_in_time(
+        SourceTableName=name, TargetTableName=target, RestoreDateTime=1_000_000_000))
+    snapshot.error("absent-source", lambda: ddb.restore_table_to_point_in_time(
+        SourceTableName=names("absent"), TargetTableName=target, UseLatestRestorableTime=True))
+    restored = ddb.restore_table_to_point_in_time(SourceTableName=name, TargetTableName=target, UseLatestRestorableTime=True)
+    cleanup(ddb.delete_table, TableName=target)
+    snapshot.match("restore", restored, drop=BACKUP_VOLATILE + ("TableStatus", "RestoreInProgress"))
+    ddb.get_waiter("table_exists").wait(TableName=target, WaiterConfig={"Delay": 10, "MaxAttempts": 180})
+
+
+# --- Resource policies (stage dynamodb-ops). The policy denies Scan to everyone: harmless to the run, and DeleteResourcePolicy
+# stays open to the account.
+
+def scan_denied(account, table_arn):
+    import json
+    return json.dumps({"Version": "2012-10-17", "Statement": [{
+        "Sid": "noscan", "Effect": "Deny", "Principal": {"AWS": f"arn:aws:iam::{account}:root"},
+        "Action": "dynamodb:Scan", "Resource": table_arn}]})
+
+
+def test_resource_policy_lifecycle(client, names, cleanup, snapshot, eventually):
+    ddb = client("dynamodb")
+    account = client("sts").get_caller_identity()["Account"]
+    name, created = table(ddb, names, cleanup)
+    arn = created["TableDescription"]["TableArn"]
+    snapshot.error("get-none", lambda: ddb.get_resource_policy(ResourceArn=arn))
+    put = ddb.put_resource_policy(ResourceArn=arn, Policy=scan_denied(account, arn), ExpectedRevisionId="NO_POLICY")
+    snapshot.match("put", put, opaque=("RevisionId",))
+    revision = put["RevisionId"]
+
+    def stored():
+        r = ddb.get_resource_policy(ResourceArn=arn)
+        assert r["RevisionId"] == revision, "not applied yet"
+        return r
+
+    snapshot.match("get", eventually(stored, timeout=60, every=2), opaque=("RevisionId",))
+    snapshot.match("put-same", ddb.put_resource_policy(ResourceArn=arn, Policy=scan_denied(account, arn)), opaque=("RevisionId",))
+    snapshot.error("put-expecting-none", lambda: ddb.put_resource_policy(
+        ResourceArn=arn, Policy=scan_denied(account, arn), ExpectedRevisionId="NO_POLICY"))
+    snapshot.error("delete-wrong-revision", lambda: ddb.delete_resource_policy(ResourceArn=arn, ExpectedRevisionId="1"))
+    snapshot.error("put-not-json", lambda: ddb.put_resource_policy(ResourceArn=arn, Policy="{not json"))
+    snapshot.error("put-absent-table", lambda: ddb.put_resource_policy(
+        ResourceArn=f"arn:aws:dynamodb:us-east-1:{account}:table/{names('absent')}", Policy=scan_denied(account, arn)))
+    snapshot.match("delete", ddb.delete_resource_policy(ResourceArn=arn, ExpectedRevisionId=revision), opaque=("RevisionId",))
+
+
+# --- Exports to and imports from S3 (stage dynamodb-ops). Point-in-time recovery, a small export and a small import cost cents at
+# most; AWS takes minutes for each. The bucket is emptied and deleted after.
+
+def export_bucket(s3, names, cleanup):
+    name = names("bucket")
+    s3.create_bucket(Bucket=name)
+
+    def empty_and_delete():
+        for page in s3.get_paginator("list_objects_v2").paginate(Bucket=name):
+            for o in page.get("Contents", []):
+                s3.delete_object(Bucket=name, Key=o["Key"])
+        s3.delete_bucket(Bucket=name)
+
+    cleanup(empty_and_delete)
+    return name
+
+
+EXPORT_VOLATILE = ("ExportArn", "ImportArn", "StartTime", "EndTime", "ExportTime", "ExportManifest", "BilledSizeBytes",
+                   "ProcessedSizeBytes", "CloudWatchLogGroupArn", "TableId")
+
+
+def test_export_and_import(client, names, cleanup, snapshot, eventually):
+    ddb, s3 = client("dynamodb"), client("s3")
+    name, created = table(ddb, names, cleanup)
+    ddb.update_continuous_backups(TableName=name, PointInTimeRecoverySpecification={"PointInTimeRecoveryEnabled": True})
+    for pk in ("a", "b"):
+        ddb.put_item(TableName=name, Item={"pk": {"S": pk}, "n": {"N": "1"}})
+    bucket = export_bucket(s3, names, cleanup)
+    started = ddb.export_table_to_point_in_time(TableArn=created["TableDescription"]["TableArn"], S3Bucket=bucket, S3Prefix="x")
+    snapshot.match("export", started, drop=EXPORT_VOLATILE + ("ItemCount",))
+    arn = started["ExportDescription"]["ExportArn"]
+
+    def exported():
+        r = ddb.describe_export(ExportArn=arn)
+        assert r["ExportDescription"]["ExportStatus"] != "IN_PROGRESS", "still exporting"
+        return r
+
+    snapshot.match("exported", eventually(exported, timeout=1800, every=20), drop=EXPORT_VOLATILE)
+    keys = sorted(o["Key"].split("/", 3)[-1] if "/data/" not in o["Key"] else "data"
+                  for o in s3.list_objects_v2(Bucket=bucket)["Contents"])
+    snapshot.match("layout", {"Keys": keys})
+    data_prefix = next(o["Key"] for o in s3.list_objects_v2(Bucket=bucket)["Contents"] if "/data/" in o["Key"]).rsplit("/", 1)[0]
+    target = names("imported")
+    imported = ddb.import_table(
+        S3BucketSource={"S3Bucket": bucket, "S3KeyPrefix": data_prefix + "/"}, InputFormat="DYNAMODB_JSON",
+        InputCompressionType="GZIP",
+        TableCreationParameters={"TableName": target, "BillingMode": "PAY_PER_REQUEST",
+                                 "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}],
+                                 "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}]})
+    cleanup(ddb.delete_table, TableName=target)
+    snapshot.match("import", imported, drop=EXPORT_VOLATILE)
+    import_arn = imported["ImportTableDescription"]["ImportArn"]
+
+    def done():
+        r = ddb.describe_import(ImportArn=import_arn)
+        assert r["ImportTableDescription"]["ImportStatus"] == "COMPLETED", "still importing"
+        return r
+
+    snapshot.match("imported", eventually(done, timeout=1800, every=20), drop=EXPORT_VOLATILE)
+    snapshot.match("imported-item", ddb.get_item(TableName=target, Key={"pk": {"S": "b"}}, ConsistentRead=True))
+
+
+def test_export_refusals(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name, created = table(ddb, names, cleanup)
+    arn = created["TableDescription"]["TableArn"]
+    snapshot.error("recovery-off", lambda: ddb.export_table_to_point_in_time(TableArn=arn, S3Bucket=names("bucket")))
+    snapshot.error("describe-absent", lambda: ddb.describe_export(ExportArn=f"{arn}/export/01700000000000-abcdef12"))
+    snapshot.error("describe-absent-import", lambda: ddb.describe_import(ImportArn=f"{arn}/import/01700000000000-abcdef12"))
+
+
+# --- Kinesis streaming destinations (stage dynamodb-ops). The Kinesis stream bills by the shard-hour (one shard, deleted at the
+# end of the test: well under a cent).
+
+def test_kinesis_streaming_destination(client, names, cleanup, snapshot, eventually):
+    ddb, kinesis = client("dynamodb"), client("kinesis")
+    name, _ = table(ddb, names, cleanup)
+    stream_name = names("stream")
+    kinesis.create_stream(StreamName=stream_name, ShardCount=1)
+    cleanup(kinesis.delete_stream, StreamName=stream_name, EnforceConsumerDeletion=True)
+    kinesis.get_waiter("stream_exists").wait(StreamName=stream_name, WaiterConfig=FAST)
+    stream = kinesis.describe_stream_summary(StreamName=stream_name)["StreamDescriptionSummary"]["StreamARN"]
+    snapshot.match("enable", ddb.enable_kinesis_streaming_destination(TableName=name, StreamArn=stream))
+
+    def active():
+        r = ddb.describe_kinesis_streaming_destination(TableName=name)
+        assert r["KinesisDataStreamDestinations"][0]["DestinationStatus"] == "ACTIVE", "still enabling"
+        return r
+
+    snapshot.match("active", eventually(active, timeout=600, every=5))
+    ddb.put_item(TableName=name, Item={"pk": {"S": "a"}, "v": {"N": "1"}})
+    ddb.put_item(TableName=name, Item={"pk": {"S": "a"}, "v": {"N": "2"}})
+    shard = kinesis.list_shards(StreamName=stream_name)["Shards"][0]["ShardId"]
+    it = kinesis.get_shard_iterator(StreamName=stream_name, ShardId=shard, ShardIteratorType="TRIM_HORIZON")["ShardIterator"]
+    got = []
+
+    def both():
+        nonlocal it
+        r = kinesis.get_records(ShardIterator=it)
+        got.extend(r["Records"])
+        it = r["NextShardIterator"]
+        assert len(got) >= 2, "the records are not all there yet"
+
+    eventually(both, timeout=120, every=2)
+    import json
+    records = [json.loads(r["Data"]) for r in got]
+    snapshot.match("records", {"Records": records}, drop=("eventID", "ApproximateCreationDateTime"))
+    snapshot.error("enable-twice", lambda: ddb.enable_kinesis_streaming_destination(TableName=name, StreamArn=stream))
+    snapshot.match("update", ddb.update_kinesis_streaming_destination(
+        TableName=name, StreamArn=stream,
+        UpdateKinesisStreamingConfiguration={"ApproximateCreationDateTimePrecision": "MICROSECOND"}))
+
+    def settled():
+        r = ddb.describe_kinesis_streaming_destination(TableName=name)
+        assert r["KinesisDataStreamDestinations"][0]["DestinationStatus"] == "ACTIVE", "still updating"
+        return r
+
+    eventually(settled, timeout=600, every=5)
+    snapshot.match("disable", ddb.disable_kinesis_streaming_destination(TableName=name, StreamArn=stream))
+    snapshot.error("absent-table", lambda: ddb.describe_kinesis_streaming_destination(TableName=names("absent")))

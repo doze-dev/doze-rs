@@ -15,6 +15,8 @@ use serde_json::{Value, json};
 
 use super::*;
 
+mod policy;
+
 const NOW_MS: i64 = 1_700_000_000_000;
 
 struct World {

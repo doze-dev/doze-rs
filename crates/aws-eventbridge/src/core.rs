@@ -18,7 +18,9 @@ use doze_store::rows::RowTable;
 use doze_store::{Ack, Db, StoreError};
 use serde_json::Value;
 
-use crate::model::{ApiDestination, Archive, Bus, Connection, Pending, Replay, Rule, sequence_key};
+use crate::model::{
+    ApiDestination, Archive, Bus, Connection, Pending, Replay, Rule, Run, sequence_key,
+};
 use crate::pattern::Pattern;
 use crate::req::{Req, not_built};
 use crate::retry::Retry;
@@ -28,6 +30,7 @@ const BUSES: &str = "buses";
 const RULES: &str = "rules";
 const ARCHIVES: &str = "archives";
 const REPLAYS: &str = "replays";
+const RUNS: &str = "replay_runs";
 const CONNECTIONS: &str = "connections";
 const DESTINATIONS: &str = "destinations";
 pub(crate) const EVENTS: &str = "events";
@@ -68,6 +71,8 @@ pub(crate) struct Core {
     pub(crate) rules: Records<Rule>,
     pub(crate) archives: Records<Archive>,
     pub(crate) replays: Records<Replay>,
+    /// Replays going, cancelled or failed.
+    pub(crate) runs: Records<Run>,
     pub(crate) connections: Records<Connection>,
     pub(crate) destinations: Records<ApiDestination>,
     /// Archived events, a row each (they can be many; they are only ever read for a replay).
@@ -97,7 +102,7 @@ pub(crate) struct Core {
 }
 
 /// The operations this service runs. The others are refused by name before their request is read: partner event sources and global
-/// endpoints (STAY CUT in SCOPE.md), and `CancelReplay` (replays here finish as they start, so there is never one to cancel).
+/// endpoints (STAY CUT in SCOPE.md).
 pub(crate) fn built(op: Operation) -> bool {
     use Operation as O;
     !matches!(
@@ -117,7 +122,6 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::DescribeEndpoint
             | O::ListEndpoints
             | O::UpdateEndpoint
-            | O::CancelReplay
     )
 }
 
@@ -194,6 +198,7 @@ impl Core {
                 RULES,
                 ARCHIVES,
                 REPLAYS,
+                RUNS,
                 CONNECTIONS,
                 DESTINATIONS,
                 EVENTS,
@@ -207,6 +212,7 @@ impl Core {
             rules: Records::load(RULES, "rule", VERSION, &read)?,
             archives: Records::load(ARCHIVES, "archive", VERSION, &read)?,
             replays: Records::load(REPLAYS, "replay", VERSION, &read)?,
+            runs: Records::load(RUNS, "replay", VERSION, &read)?,
             connections: Records::load(CONNECTIONS, "connection", VERSION, &read)?,
             destinations: Records::load(DESTINATIONS, "API destination", VERSION, &read)?,
             archived: RowTable::new(EVENTS, false),
@@ -237,6 +243,7 @@ impl Core {
             rules: t.rules,
             archives: t.archives,
             replays: t.replays,
+            runs: t.runs,
             connections: t.connections,
             destinations: t.destinations,
             archived: t.archived,
@@ -286,6 +293,7 @@ impl Core {
             self.rules.stage()?,
             self.archives.stage()?,
             self.replays.stage()?,
+            self.runs.stage()?,
             self.connections.stage()?,
             self.destinations.stage()?,
             self.pending.stage()?,
@@ -307,7 +315,7 @@ impl Core {
         let r = Req::new(call);
         let value = match op {
             Operation::PutEvents => self.put_events(&r)?,
-            Operation::StartReplay => self.start_replay(&r).await?,
+            Operation::StartReplay => self.start_replay(&r)?,
             other => self.run(other, &r)?,
         };
         reply_json(&TABLES, &self.patterns, call.op, &value)
@@ -351,6 +359,7 @@ impl Core {
             O::DeleteArchive => self.delete_archive(r),
             O::DescribeReplay => self.describe_replay(r),
             O::ListReplays => self.list_replays(r),
+            O::CancelReplay => self.cancel_replay(r),
             O::CreateConnection => self.create_connection(r),
             O::UpdateConnection => self.update_connection(r),
             O::DeauthorizeConnection => self.deauthorize_connection(r),
@@ -374,6 +383,7 @@ struct Tables {
     rules: Records<Rule>,
     archives: Records<Archive>,
     replays: Records<Replay>,
+    runs: Records<Run>,
     connections: Records<Connection>,
     destinations: Records<ApiDestination>,
     archived: RowTable,
@@ -389,6 +399,7 @@ impl Tables {
             rules: Records::new(RULES, "rule", VERSION),
             archives: Records::new(ARCHIVES, "archive", VERSION),
             replays: Records::new(REPLAYS, "replay", VERSION),
+            runs: Records::new(RUNS, "replay", VERSION),
             connections: Records::new(CONNECTIONS, "connection", VERSION),
             destinations: Records::new(DESTINATIONS, "API destination", VERSION),
             archived: RowTable::new(EVENTS, true),

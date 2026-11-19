@@ -14,10 +14,11 @@
 //! Metric data is kept for `Settings::retention` (a day by default). `AWS/Lambda` is held by Lambda until something reads it: a read
 //! takes it in first, and while an alarm watches the namespace Lambda sends it as it is made (`aws_peers::Made`).
 //!
-//! Built: `PutMetricData`, `GetMetricStatistics`, `GetMetricData` (a single `MetricStat` per query), `ListMetrics`; alarms
-//! (`PutMetricAlarm`, `PutCompositeAlarm`, describing, deleting, `SetAlarmState`, enabling and disabling actions, history, tags);
-//! dashboards (the body kept verbatim); anomaly detectors (stored); metric streams, Contributor Insights rules and alarm mute rules
-//! (stored, returned and tagged, not active locally: `stored.rs`). Metric-math alarms and composite alarms are stored and returned;
+//! Built: `PutMetricData`, `GetMetricStatistics`, `GetMetricData` (metrics and metric math, `SEARCH` included: `math`),
+//! `ListMetrics`; alarms (`PutMetricAlarm` on a metric or on metric math, `PutCompositeAlarm`, `PutLogAlarm`, describing, deleting,
+//! `SetAlarmState`, enabling and disabling actions, history, tags); dashboards (the body kept verbatim); anomaly detectors (stored);
+//! metric streams, Contributor Insights rules and alarm mute rules (stored, returned and tagged, not active locally: `stored.rs`).
+//! Metric math alarms are evaluated as metric alarms are (`math_alarm`). Composite alarms and log alarms are stored and returned;
 //! they are not evaluated, and say so in their reason. An alarm action on an SNS topic or a Lambda function is carried out through
 //! the peer bus when that service runs; otherwise the alarm's history says it was not delivered. Refused by name: everything else
 //! (managed Contributor Insights rules, the widget image, OTel enrichment, resource metrics configuration).
@@ -28,6 +29,11 @@ mod authz;
 mod core;
 mod docs;
 mod eval;
+mod judge;
+mod log_alarm;
+mod math;
+mod math_alarm;
+mod metric_data;
 mod model;
 mod period;
 mod put;
@@ -37,7 +43,9 @@ mod stats;
 mod storage;
 mod stored;
 mod stored_rules;
+mod tags;
 mod timers;
+mod transition;
 
 #[cfg(test)]
 mod tests;
@@ -295,4 +303,11 @@ impl Service for Cloudwatch {
         }
         e
     }
+}
+
+/// Whether `text` reads as a metric math expression or a search expression. Exists so the parsers can be fuzzed.
+#[doc(hidden)]
+#[must_use]
+pub fn check_metric_math(text: &str) -> bool {
+    math::check(text)
 }

@@ -28,7 +28,7 @@ pub use erase::Erased;
 pub use prepare::MAX_RESOLVED_SCHEMAS;
 use prepare::Prepared;
 pub use read::VersionRef;
-pub use settings::{Level, Mode};
+pub use settings::{ConfigExtra, ConfigView, Level, Mode};
 pub use write::RegisterResult;
 
 use crate::error::RegistryError;
@@ -55,6 +55,10 @@ pub struct SchemaInput {
     #[serde(rename = "schemaType")]
     pub schema_type: Option<String>,
     pub references: Option<Vec<Reference>>,
+    /// The id to register the schema under: IMPORT mode only (a negative one is none).
+    pub id: Option<i64>,
+    /// The version to register it as: in IMPORT mode any; otherwise, when positive, it must be the next one.
+    pub version: Option<i64>,
 }
 
 impl SchemaInput {
@@ -64,8 +68,20 @@ impl SchemaInput {
         Self {
             schema: Some(text.to_owned()),
             schema_type: Some(kind.name().to_owned()),
-            references: None,
+            ..Self::default()
         }
+    }
+
+    /// The id the request gives, when it gives one Confluent reads (zero or more).
+    fn given_id(&self) -> Option<u32> {
+        self.id.and_then(|i| u32::try_from(i).ok())
+    }
+
+    /// The version the request gives, when it gives one (one or more).
+    fn given_version(&self) -> Option<u32> {
+        self.version
+            .and_then(|v| u32::try_from(v).ok())
+            .filter(|&v| v > 0)
     }
 
     fn text(&self) -> &str {
@@ -123,6 +139,8 @@ struct State {
     subjects: BTreeMap<String, Vec<Version>>,
     levels: BTreeMap<String, Setting>,
     modes: BTreeMap<String, Setting>,
+    /// The settings beside each level (`normalize` and the others), by subject; `""` is the global one.
+    extras: BTreeMap<String, settings::ConfigExtra>,
     next_id: u32,
 }
 
@@ -199,6 +217,9 @@ impl Registry {
                 }
                 Some(Key::Mode(subject)) => {
                     s.modes.insert(subject, decode(&value).map_err(bad)?);
+                }
+                Some(Key::Config(subject)) => {
+                    s.extras.insert(subject, decode(&value).map_err(bad)?);
                 }
                 Some(Key::NextId) => s.next_id = decode(&value).map_err(bad)?,
                 None => return Err(bad("not a key this version knows".into())),

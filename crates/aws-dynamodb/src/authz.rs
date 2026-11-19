@@ -24,6 +24,9 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
         )
     };
     let action = format!("{op:?}");
+    if let Some(n) = task_needs(op, &body, &action, &on) {
+        return n;
+    }
     match op {
         Operation::ListTables | Operation::DescribeLimits | Operation::DescribeEndpoints => {
             vec![Need::new(format!("dynamodb:{action}"), "*")]
@@ -67,6 +70,52 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
         }
         _ => vec![on(&action, str_of(&body, "TableName").unwrap_or_default())],
     }
+}
+
+/// What the backup, restore, export, import and policy operations ask for.
+fn task_needs(
+    op: Operation,
+    body: &Value,
+    action: &str,
+    on: &dyn Fn(&str, &str) -> Need,
+) -> Option<Vec<Need>> {
+    Some(match op {
+        Operation::ListBackups | Operation::ListExports | Operation::ListImports => {
+            vec![Need::new(format!("dynamodb:{action}"), "*")]
+        }
+        // On the backup, export or import itself, or the resource a policy is on.
+        Operation::DescribeBackup | Operation::DeleteBackup => by_arn(action, body, "BackupArn"),
+        Operation::DescribeExport => by_arn(action, body, "ExportArn"),
+        Operation::DescribeImport => by_arn(action, body, "ImportArn"),
+        Operation::PutResourcePolicy
+        | Operation::GetResourcePolicy
+        | Operation::DeleteResourcePolicy => by_arn(action, body, "ResourceArn"),
+        // A restore or an import makes the table it names.
+        Operation::RestoreTableFromBackup | Operation::RestoreTableToPointInTime => {
+            vec![on(
+                action,
+                str_of(body, "TargetTableName").unwrap_or_default(),
+            )]
+        }
+        Operation::ImportTable => vec![on(
+            action,
+            body.get("TableCreationParameters")
+                .and_then(|p| str_of(p, "TableName"))
+                .unwrap_or_default(),
+        )],
+        Operation::ExportTableToPointInTime => {
+            vec![on(action, str_of(body, "TableArn").unwrap_or_default())]
+        }
+        _ => return None,
+    })
+}
+
+/// An action on the ARN a member gives.
+fn by_arn(action: &str, body: &Value, member: &str) -> Vec<Need> {
+    vec![Need::new(
+        format!("dynamodb:{action}"),
+        str_of(body, member).unwrap_or("*"),
+    )]
 }
 
 /// A PartiQL statement asks for `dynamodb:PartiQLSelect` (`Insert`, `Update`, `Delete`) on the table, or on the index it reads. One that

@@ -130,6 +130,7 @@ fn the_built_operations_and_the_refused_ones() {
         "StartReplay",
         "DescribeReplay",
         "ListReplays",
+        "CancelReplay",
         "CreateConnection",
         "UpdateConnection",
         "DeauthorizeConnection",
@@ -160,7 +161,6 @@ fn the_built_operations_and_the_refused_ones() {
         "DescribeEndpoint",
         "ListEndpoints",
         "UpdateEndpoint",
-        "CancelReplay",
     ] {
         assert!(!w.served(op), "{op} is refused by name");
     }

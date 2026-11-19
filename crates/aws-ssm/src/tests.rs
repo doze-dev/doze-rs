@@ -17,6 +17,8 @@ mod parameters;
 mod peers;
 mod persistence;
 mod refusals;
+mod resource_policies;
+mod reviews;
 mod settings;
 
 /// The services SSM calls, running for real beside it: KMS (and Secrets Manager, for a reference), on a runtime the test drives.

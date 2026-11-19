@@ -1,6 +1,8 @@
 """EventBridge through boto3, including a delivery into SQS."""
 
+import datetime
 import json
+import time
 
 
 def bus(events, names, cleanup, label="bus"):
@@ -339,3 +341,38 @@ def test_refusals(client, names, cleanup, snapshot):
         {"EventBusName": name, "DetailType": "x", "Detail": "{}"}]))
     snapshot.match("entry-with-bad-detail", events.put_events(Entries=[
         {"EventBusName": name, "Source": "s", "DetailType": "x", "Detail": "not json"}]))
+
+
+def archived_bus(events, names, cleanup):
+    """A bus with an archive of everything on it; the archive's ARN, the bus's, and when the archive was made."""
+    name, made = bus(events, names, cleanup)
+    archive = names("archive")
+    created = events.create_archive(ArchiveName=archive, EventSourceArn=made["EventBusArn"])
+    cleanup(events.delete_archive, ArchiveName=archive)
+    when = events.describe_archive(ArchiveName=archive)["CreationTime"]
+    return created["ArchiveArn"], made["EventBusArn"], when
+
+
+# Replay times and the replay's own timestamps differ from run to run.
+REPLAY_TIMES = ("ReplayStartTime", "ReplayEndTime", "EventStartTime", "EventEndTime", "EventLastReplayedTime")
+
+
+def test_a_replay_is_cancelled_while_it_starts(client, names, cleanup, snapshot, eventually):
+    events = client("events")
+    archive, bus_arn, since = archived_bus(events, names, cleanup)
+    time.sleep(2)
+    replay = names("replay")
+    started = events.start_replay(ReplayName=replay, EventSourceArn=archive, EventStartTime=since,
+                                  EventEndTime=datetime.datetime.now(datetime.timezone.utc),
+                                  Destination={"Arn": bus_arn})
+    snapshot.match("start", started, opaque=REPLAY_TIMES)
+    snapshot.match("cancel", events.cancel_replay(ReplayName=replay))
+
+    def cancelled():
+        d = events.describe_replay(ReplayName=replay)
+        assert d["State"] == "CANCELLED", d["State"]
+        return d
+
+    snapshot.match("cancelled", eventually(cancelled, timeout=300), opaque=REPLAY_TIMES + ("StateReason",))
+    snapshot.error("cancel-again", lambda: events.cancel_replay(ReplayName=replay))
+    snapshot.error("cancel-absent", lambda: events.cancel_replay(ReplayName=names("absent")))

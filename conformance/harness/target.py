@@ -109,8 +109,9 @@ class Doze(Target):
             endpoint_url=self.endpoint,
             # A scenario may ask for another region (a replica's).
             region_name=kw.pop("region_name", self.region),
-            aws_access_key_id="test",
-            aws_secret_access_key="test",
+            # A scenario may call as an IAM user it made (its access key).
+            aws_access_key_id=kw.pop("aws_access_key_id", "test"),
+            aws_secret_access_key=kw.pop("aws_secret_access_key", "test"),
             # One attempt. A retry turns a 500 that happens once into a pass,
             # and here the 500 is the finding.
             config=Config(retries={"total_max_attempts": 1}),
