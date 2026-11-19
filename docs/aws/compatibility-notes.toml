@@ -164,6 +164,9 @@ not_planned = [
 ]
 
 [api."Kinesis"]
+differences = [
+  "A registered stream consumer is `ACTIVE` at once (AWS takes seconds). `SubscribeToShard` is answered on the connection it came on (boto3's HTTP/1.1 included; AWS documents HTTP/2), with no per-consumer throughput limit: a subscription is pushed records as soon as they are written, and an empty event at least every five seconds otherwise.",
+]
 not_planned = [
   { why = "Kinesis channels and record distribution strategies are new features with no local use yet.", ops = ["CreateChannel", "DeleteChannel", "DescribeChannel", "ListChannels", "UpdateChannel", "UpdateStreamRecordDistributionStrategy"] },
 ]
@@ -173,7 +176,8 @@ differences = [
   "Metric math is worked out in `GetMetricData` and in metric math alarms: arithmetic, comparisons and logic, `ABS CEIL FLOOR LOG LOG10`, `AVG SUM MIN MAX STDDEV`, `DATAPOINT_COUNT`, `PERIOD`, `TIME_SERIES`, `IF`, `METRICS`, `REMOVE_EMPTY FIRST LAST SORT SLICE`, `FILL RATE DIFF DIFF_TIME RUNNING_SUM`, the time functions and `SEARCH`. Metrics Insights queries (`SELECT ...`) and `INSIGHT_RULE_METRIC`, `SERVICE_QUOTA`, `LAMBDA` and `DB_PERF_INSIGHTS` are refused with a sentence.",
   "`ANOMALY_DETECTION_BAND` is a statistical stand-in, not AWS's trained model: the mean of the metric's datapoints in the window read (for an alarm, its window and up to 50 periods before it), plus and minus the given number of standard deviations.",
   "`SEARCH` matches a partial term as a case-insensitive part of a namespace, metric name or dimension; AWS matches on the words of a name. A search finds a metric as soon as it has data; AWS can take minutes to index a new one.",
-  "Log alarms (`PutLogAlarm`) are kept, described, tagged, forced and deleted, but not evaluated: no scheduled Logs Insights query runs locally, so a log alarm stays `INSUFFICIENT_DATA` and its reason says so. Composite alarms are likewise kept and not evaluated.",
+  "Log alarms (`PutLogAlarm`) run their Logs Insights query on its `rate()` schedule against the local CloudWatch Logs and are judged M out of N on the results. No scheduled query appears in CloudWatch Logs for them, and the query role is not assumed. A run with several contributors (`... by host`) counts as breaching when any contributor does: contributors are not judged one by one, and `PARTIAL_DATA` is never reported.",
+  "Composite alarms are judged on their rule as soon as they are made and whenever an alarm they name changes. `ActionsSuppressor` is kept and shown but never suppresses an action. Deleting an alarm that a composite names is accepted; the composite then finds it in no state.",
 ]
 not_planned = [
   { why = "Datasets, vended-metric configuration, OpenTelemetry enrichment, managed Contributor Insights rules, alarm contributors and rendered graph images: features of AWS's own console and services, with no local use yet.", families = ["Dataset", "ResourceMetricsConfiguration", "OTelEnrichment", "ManagedInsightRules", "AlarmContributors", "MetricWidgetImage"] },

@@ -5,12 +5,16 @@
 //! Resharding (`SplitShard`, `MergeShards`, `UpdateShardCount`) closes shards and opens children that name them; a closed shard is
 //! read to its end and then answers with no `NextShardIterator` and its `ChildShards`.
 //!
-//! Refused by name: `SubscribeToShard` (HTTP/2), channels, and `UpdateStreamRecordDistributionStrategy`.
+//! Enhanced fan-out: a registered consumer subscribes to a shard (`SubscribeToShard`) and is pushed its records as an event stream for
+//! five minutes (`fanout`, `subscribe`).
+//!
+//! Refused by name: channels, and `UpdateStreamRecordDistributionStrategy`.
 
 mod authz;
 mod billing;
 mod consumers;
 mod core;
+mod fanout;
 mod model;
 mod reading;
 mod records;
@@ -19,6 +23,7 @@ mod reshard;
 mod settings;
 mod storage;
 mod streams;
+mod subscribe;
 mod tags;
 
 #[cfg(test)]
@@ -33,6 +38,7 @@ use aws_schema::json::Violation;
 use aws_schema::meta::ServiceMeta;
 use aws_schema::tables::Tables;
 use aws_wire::ApiError;
+use aws_wire::rest::Download;
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
 use doze_runtime::{Ctx, Keyed};
 use tokio::sync::watch;
@@ -50,6 +56,9 @@ pub struct Kinesis {
     /// A counter that goes up each time records are appended (and are on disk). A poller that wants to know when a stream has
     /// something new waits on it ([`Kinesis::appended`]).
     appended: watch::Sender<u64>,
+    /// The open `SubscribeToShard` subscriptions.
+    subs: Arc<subscribe::Subscriptions>,
+    ctx: Arc<Ctx>,
 }
 
 impl Kinesis {
@@ -57,9 +66,42 @@ impl Kinesis {
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
         Self {
-            actors: Keyed::new("kinesis", ctx, HOME_REGION),
+            actors: Keyed::new("kinesis", Arc::clone(&ctx), HOME_REGION),
             appended: watch::channel(0).0,
+            subs: Arc::default(),
+            ctx,
         }
+    }
+
+    /// Opens a subscription in the call's region and streams it.
+    async fn subscribe(&self, call: Call) -> Result<Download, ApiError> {
+        let region = call.caller.region.clone();
+        let account = call.caller.account_id.clone();
+        let actor = self
+            .actors
+            .actor(&region)
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+        let (reply, opened) = tokio::sync::oneshot::channel();
+        let ask = fanout::FanoutAsk::Open(Box::new(call), reply);
+        actor
+            .call(crate::core::Ask::Fanout(Box::new(ask)))
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+        let position = opened
+            .await
+            .map_err(|_| ApiError::internal("the subscription was not opened"))??;
+        let (claim, takeover) = self
+            .subs
+            .claim(&region, &position, self.ctx.clock.now_ms())?;
+        let session = subscribe::Session {
+            actor,
+            account,
+            position,
+            appended: self.appended.subscribe(),
+            _claim: claim,
+            takeover,
+        };
+        Ok(subscribe::stream(&self.ctx.tasks, session))
     }
 
     /// A receiver that changes whenever records have been appended to any stream: the notification a Lambda event source mapping
@@ -106,6 +148,14 @@ impl Service for Kinesis {
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(self.ask(call))
+    }
+
+    fn streams(&self, op: u32) -> bool {
+        Operation::from_index(op) == Some(Operation::SubscribeToShard)
+    }
+
+    fn call_stream(&self, call: Call) -> BoxFuture<'_, Result<Download, ApiError>> {
+        Box::pin(self.subscribe(call))
     }
 
     /// The Coral front end's wording, except that Kinesis prints a pattern as the model writes it, anchors and all (recorded

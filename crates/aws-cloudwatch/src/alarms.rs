@@ -34,10 +34,6 @@ impl Core {
         self.store_alarm(r, kind, spec)
     }
 
-    pub(crate) fn put_composite_alarm(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        self.store_alarm(r, Kind::Composite, Spec::default())
-    }
-
     /// Makes or updates the alarm. An update replaces the configuration and leaves the state as it was.
     pub(crate) fn store_alarm(
         &mut self,
@@ -59,13 +55,14 @@ impl Core {
                 "The maximum number of alarms in this region has been reached.",
             ));
         }
-        let mut alarm = Alarm {
+        let alarm = Alarm {
             kind,
             request: request.to_string(),
             spec,
             tags: old.map_or_else(|| r.tags().into_iter().collect(), |a| a.tags.clone()),
             state: old.map_or_else(|| "INSUFFICIENT_DATA".to_owned(), |a| a.state.clone()),
-            reason: old.map_or_else(|| first_reason(kind), |a| a.reason.clone()),
+            // Every kind is evaluated, and says what AWS says before its first evaluation.
+            reason: old.map_or_else(|| UNCHECKED.to_owned(), |a| a.reason.clone()),
             reason_data: old.and_then(|a| a.reason_data.clone()),
             config_updated_ms: now,
             state_updated_ms: old.map_or(now, |a| a.state_updated_ms),
@@ -75,9 +72,6 @@ impl Core {
             alarm_actions: r.strings("AlarmActions"),
             insufficient_actions: r.strings("InsufficientDataActions"),
         };
-        if kind != Kind::Metric && created {
-            alarm.reason = first_reason(kind);
-        }
         let summary = format!(
             "Alarm \"{name}\" {}",
             if created { "created" } else { "updated" }
@@ -116,8 +110,9 @@ impl Core {
             .filter(|(n, a)| {
                 (names.is_empty() || names.iter().any(|x| x == n))
                     && prefix.is_none_or(|p| n.starts_with(p))
+                    // The model: "If you omit this parameter, only metric alarms are returned".
                     && (types.iter().any(|t| *t == type_of(a.kind))
-                        || (types.is_empty() && a.kind != Kind::Log))
+                        || (types.is_empty() && matches!(a.kind, Kind::Metric | Kind::Math)))
                     && state.is_none_or(|s| a.state == s)
                     && action.is_none_or(|p| {
                         [&a.ok_actions, &a.alarm_actions, &a.insufficient_actions]
@@ -132,7 +127,7 @@ impl Core {
             let shown = alarm_json(name, a, r.region(), r.account());
             match a.kind {
                 Kind::Composite => composite.push(shown),
-                Kind::Log => log.push(crate::log_alarm::shown(shown)),
+                Kind::Log => log.push(crate::log_alarm::shown(shown, self.evaluation_state(name))),
                 Kind::Metric | Kind::Math => metric.push(shown),
             }
         }
@@ -173,8 +168,13 @@ impl Core {
     /// Deleting an alarm that is not there is accepted (recorded 2026-11-09). Its history stays.
     pub(crate) fn delete_alarms(&mut self, r: &Req<'_>) -> Value {
         for name in r.strings("AlarmNames") {
-            self.alarms.remove(&name);
+            if self.alarms.remove(&name).is_none() {
+                continue;
+            }
             self.due.remove(&name);
+            self.forget_log_runs(&name);
+            // A composite that named it now finds it in no state.
+            self.cascade(&name);
         }
         json!({})
     }
@@ -264,24 +264,13 @@ pub(crate) fn type_of(kind: Kind) -> &'static str {
     }
 }
 
-/// The reason a new alarm starts with. An alarm that is evaluated says what AWS says; the kinds that are stored only say so.
-fn first_reason(kind: Kind) -> String {
-    match kind {
-        Kind::Metric | Kind::Math => UNCHECKED.to_owned(),
-        Kind::Log => crate::log_alarm::NOT_EVALUATED.to_owned(),
-        Kind::Composite => {
-            "Not evaluated locally: composite alarms are stored, not evaluated, in doze-aws."
-                .to_owned()
-        }
-    }
-}
-
 /// An ISO 8601 time, as an alarm's history data writes one.
 pub(crate) fn iso(ms: i64) -> String {
     let secs = ms.div_euclid(1000);
     let base = aws_core::time::format_iso8601(secs);
     let millis = ms.rem_euclid(1000);
-    format!("{}.{millis:03}+0000", base.trim_end_matches('Z'))
+    // `format_iso8601` writes whole seconds with `.000Z`; the milliseconds go in their place.
+    format!("{}.{millis:03}+0000", base.trim_end_matches(".000Z"))
 }
 
 /// An alarm as `DescribeAlarms` shows it: what was sent, the defaults AWS fills in, and the state.
