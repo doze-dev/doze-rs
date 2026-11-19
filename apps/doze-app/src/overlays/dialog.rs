@@ -281,16 +281,21 @@ fn foot(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
 }
 
 impl DialogView {
-    fn button(&self, t: &Tokens, i: usize, b: &Button, cx: &mut Context<Self>) -> AnyElement {
-        let at = i == self.c.at;
-        let on = self.c.enabled(i);
-        // A danger dialog has one colour, its red: Cancel's highlight there is the ink, not the accent (two accents
-        // competed in it, the design pass of 2026-11-19 found).
-        let focus = if self.c.dialog.danger || self.c.dialog.buttons.iter().any(|b| b.danger) {
+    /// A highlighted plain button's colour. A danger dialog has one colour, its red: Cancel's highlight there is the
+    /// ink, not the accent (two accents competed in it, the design pass of 2026-11-19 found).
+    fn focus(&self, t: &Tokens) -> gpui::Hsla {
+        let d = &self.c.dialog;
+        if d.danger || d.buttons.iter().any(|b| b.danger) {
             t.text
         } else {
             t.accent
-        };
+        }
+    }
+
+    fn button(&self, t: &Tokens, i: usize, b: &Button, cx: &mut Context<Self>) -> AnyElement {
+        let at = i == self.c.at;
+        let on = self.c.enabled(i);
+        let focus = self.focus(t);
         let (bg, border, fg) = if b.danger {
             (t.bad, t.bad, t.ink)
         } else if b.primary {

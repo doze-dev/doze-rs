@@ -207,7 +207,10 @@ impl Tokens {
 
     /// Category `i` of the ramp, cycling.
     pub(crate) fn cat(&self, i: usize) -> Hsla {
-        self.cat[i % self.cat.len()]
+        self.cat
+            .get(i % self.cat.len())
+            .copied()
+            .unwrap_or(self.text)
     }
 
     /// The scrim under a dialog: Go `.scrim`, rgba(9, 8, 14, .62), the same in every theme and mode.
