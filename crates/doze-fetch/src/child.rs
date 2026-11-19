@@ -64,11 +64,18 @@ impl Reply {
     }
 }
 
+/// The environment variable that makes a child keep doze.lock as it is ([`Place::lock_writes`] off): the daemon a dry
+/// run starts has it, and its children inherit it.
+pub const READ_ONLY_LOCK: &str = "DOZE_LOCK_READ_ONLY";
+
 /// Where the child fetches from and keeps what it fetched.
 #[derive(Debug, Clone)]
 pub struct Place {
     pub mirror: Mirror,
     pub modules: Modules,
+    /// Whether a module request that asks to persist may write its pin to doze.lock. Off for a child whose daemon
+    /// was started for a dry run (`READ_ONLY_LOCK` in its environment): nothing a dry run does is written.
+    pub lock_writes: bool,
 }
 
 /// Does what `req` asks (blocking: this is the child's whole life).
@@ -172,7 +179,7 @@ fn module(
         .into_iter()
         .collect();
     notes.extend(r.notes);
-    if let (Some(path), true, true) = (lock, persist, l.dirty) {
+    if let (Some(path), true, true) = (lock, persist && place.lock_writes, l.dirty) {
         match save_pin(place, path, &src, l.modules.get(&src.to_string())) {
             Ok(true) => notes.push(format!(
                 "pinned {src} {} in doze.lock — commit the lockfile so your team and CI get this exact build",

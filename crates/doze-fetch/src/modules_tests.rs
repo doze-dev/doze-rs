@@ -332,6 +332,7 @@ fn a_lock_whose_version_is_a_path_is_refused() {
             key: None,
         },
         modules: modules(&reg),
+        lock_writes: true,
     };
     let r = crate::child::serve(&place_req, &place);
     assert!(r.error.unwrap_or_default().starts_with("refused"));
