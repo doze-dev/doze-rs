@@ -342,3 +342,17 @@ fn a_number_past_the_clamp_is_one_value_however_it_is_written() {
     assert_eq!(tiny.canonical(true), r#"{"minimum":0.0}"#);
     assert!(reasons(r#"{"minimum":0}"#, r#"{"minimum":1e-2147483649}"#).is_empty());
 }
+
+/// Found by fuzz_json_schema: an `enum` or `const` number written with an exponent (`-77e0`) is stored as Java writes it
+/// (`-77`), and the two were compared as text, so the schema could not read its own data.
+#[test]
+fn an_enum_number_is_the_same_value_once_stored() {
+    for text in [
+        r#"{"const":-77e0}"#,
+        r#"{"const":-7.7e1}"#,
+        r#"{"enum":[-77e0,"a",{"b":5E1}]}"#,
+    ] {
+        let stored = read(text).canonical(false);
+        assert!(reasons(text, &stored).is_empty(), "{text} -> {stored}");
+    }
+}
